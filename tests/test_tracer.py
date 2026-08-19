@@ -106,6 +106,59 @@ def main():
         pass
 """
 
+# The common real shape: the exception originates in library code, which runs
+# RAISE -> EXCEPTION_HANDLED -> RERAISE internally before it ever reaches user
+# code. The first traced frame it surfaces in is the origin worth recording.
+UNTRACED_ORIGIN = """
+import json
+
+def parse(s):
+    return json.loads(s)
+
+def main():
+    try:
+        parse("{bad}")
+    except ValueError:
+        pass
+"""
+
+# A bare `raise` inside a handler: CPython emits RERAISE, not RAISE, so this
+# continues the original propagation rather than starting a new origin.
+BARE_RERAISE = """
+def leaf():
+    raise ValueError("v")
+
+def middle():
+    try:
+        leaf()
+    except ValueError:
+        raise
+
+def main():
+    try:
+        middle()
+    except ValueError:
+        pass
+"""
+
+# Never caught, but passes through a finally on the way out.
+UNCAUGHT_THROUGH_FINALLY = """
+def leaf():
+    raise RuntimeError("dead")
+
+def cleanup():
+    return 1
+
+def mid():
+    try:
+        leaf()
+    finally:
+        cleanup()
+
+def main():
+    mid()
+"""
+
 THREADED = """
 import threading
 
@@ -220,6 +273,55 @@ def test_reraise_after_untraced_handler_records_two_origins(tmp_path):
     assert {t.code(r.code_id).qualname for r in raises} == {"raise_it"}
     oids = {r.payload["exc"]["oid"] for r in raises}
     assert len(oids) == 1
+
+
+def test_untraced_origin_records_raise_at_first_traced_frame(tmp_path):
+    # Regression: library code runs its own RAISE/HANDLED/RERAISE cycle before
+    # the exception reaches user code. That must not leave the exception
+    # already "in flight" and swallow the RAISE row, or every library-raised
+    # exception lands a HANDLED with no matching RAISE.
+    t, err = record_inproc(tmp_path, UNTRACED_ORIGIN)
+    assert err is None
+    raises = t.events(kind="RAISE")
+    assert len(raises) == 1
+    assert t.code(raises[0].code_id).qualname == "parse"   # first traced frame
+    handles = t.events(kind="HANDLED")
+    assert len(handles) == 1
+    assert raises[0].payload["exc"]["oid"] == handles[0].payload["exc"]["oid"]
+
+
+def test_bare_reraise_in_handler_stays_one_origin(tmp_path):
+    # A bare `raise` re-raises the same object as part of the same propagation
+    # (CPython emits RERAISE for it, and v1 has no RERAISE event kind), so it
+    # is not a second origin. Task 11's classifier depends on this.
+    t, err = record_inproc(tmp_path, BARE_RERAISE)
+    assert err is None
+    raises = t.events(kind="RAISE")
+    assert len(raises) == 1
+    assert t.code(raises[0].code_id).qualname == "leaf"
+    handles = t.events(kind="HANDLED")
+    assert [t.code(h.code_id).qualname for h in handles] == [
+        "middle", "middle", "main"]
+    oid = raises[0].payload["exc"]["oid"]
+    assert all(h.payload["exc"]["oid"] == oid for h in handles)
+
+
+def test_uncaught_through_finally_records_one_origin_and_unwinds(tmp_path):
+    # Nothing catches this, yet HANDLED rows still appear: CPython compiles
+    # `finally` as an implicit handler. A HANDLED row therefore does NOT imply
+    # the exception was caught -- the frame's closed_by does.
+    t, err = record_inproc(tmp_path, UNCAUGHT_THROUGH_FINALLY)
+    assert type(err).__name__ == "RuntimeError"
+    raises = t.events(kind="RAISE")
+    assert len(raises) == 1
+    assert t.code(raises[0].code_id).qualname == "leaf"
+    handles = t.events(kind="HANDLED")
+    assert [t.code(h.code_id).qualname for h in handles] == ["mid", "mid"]
+    # every frame the exception crossed is closed by unwind, including the one
+    # that ran the finally; cleanup() itself returned normally
+    closed = {t.code(f.code_id).qualname: f.closed_by for f in t.frames()}
+    assert closed == {"leaf": "unwind", "mid": "unwind", "main": "unwind",
+                      "cleanup": "return"}
 
 
 def test_threads_recorded_with_distinct_ids_and_fingerprints(tmp_path):

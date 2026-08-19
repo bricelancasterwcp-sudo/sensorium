@@ -58,7 +58,8 @@ class _TLS(threading.local):
         self.stack: list = []          # [frame_id, code, code_id, locals_snapshot]
         self.in_hook = False
         self.window_depth = 0
-        self.last_exc = None           # exception whose RAISE we already recorded
+        self.last_exc = None           # exception currently in flight, if any
+        self.origin_recorded = False   # ...and whether its origin got a row
 
 
 class Tracer:
@@ -207,8 +208,14 @@ class Tracer:
         A bare ``raise``, and the implicit re-raise that ends a ``finally`` or
         a ``__exit__``, put the same exception back in flight. Without this,
         the EXCEPTION_HANDLED that CPython fires on *entry* to a finally block
-        would disarm the de-dupe mid-propagation and the next frame's RAISE
-        would be recorded as a second origin.
+        -- which happens even when nothing is caught, because ``finally`` is
+        compiled as an implicit handler -- would disarm the de-dupe
+        mid-propagation and the next frame's RAISE would be recorded as a
+        second origin.
+
+        It deliberately does not touch ``origin_recorded``: re-arming resumes a
+        propagation, it never reopens the origin. Only a fresh RAISE of a
+        different object does that.
         """
         tls = self._tls
         if not tls.in_hook and type(exc).__name__ not in _CONTROL_FLOW_EXC:
@@ -225,19 +232,27 @@ class Tracer:
         if type(exc).__name__ in _CONTROL_FLOW_EXC:
             return None
         # In-flight bookkeeping runs whether or not this frame is traced --
-        # handlers and cleanup blocks are frequently foreign code. RAISE fires
-        # again in every frame the exception propagates into, so only the first
-        # is an origin; HANDLED means it was caught and is no longer in flight,
-        # which is what makes a later raise of the same object a new origin.
+        # handlers and cleanup blocks are frequently foreign code. Being in
+        # flight is tracked separately from having recorded an origin: library
+        # code routinely raises, handles and re-raises internally before the
+        # exception ever surfaces in user code, so "already in flight" must not
+        # by itself suppress the row. The origin is the first *traced* frame the
+        # exception reaches. HANDLED ends the flight -- which is what makes a
+        # later raise of the same object a new origin -- but note it does not
+        # imply anything was caught; see _on_reraise.
         if kind == "RAISE":
-            if tls.last_exc is exc:
-                return None
-            tls.last_exc = exc
+            if tls.last_exc is not exc:
+                tls.last_exc = exc
+                tls.origin_recorded = False   # a fresh raise reopens the origin
+            if tls.origin_recorded:
+                return None                   # propagating an origin we logged
         else:
             tls.last_exc = None
         traced, fp_file, qual, focused, frameless = self._decide(code)
         if not traced:
             return None
+        if kind == "RAISE":
+            tls.origin_recorded = True
         tls.in_hook = True
         try:
             tid = threading.get_ident()
