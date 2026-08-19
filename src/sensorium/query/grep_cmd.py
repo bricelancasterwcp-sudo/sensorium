@@ -44,12 +44,24 @@ def continue_cmd(args, last: int) -> str:
     return " ".join(parts)
 
 
-def _empty_note(trace, args, scanned: int, after: int) -> list[str]:
-    """Zero matches is ambiguous on its own -- say what was searched."""
+def _empty_note(trace, args, scanned: int, considered: int,
+                after: int) -> list[str]:
+    """Zero matches is ambiguous on its own -- say what was searched.
+
+    Every active filter has to be named. Reporting "scanned 11 event(s); none
+    contained 'alice'" when `--fn` removed the three that did contain it
+    states a false fact about the trace, so the rows `--fn` took out are
+    counted separately and the claim is scoped to what actually remained.
+    """
     where = f" after e{after}" if after else ""
     scope = f" of kind {args.kind}" if args.kind else ""
-    lines = [f"scanned {scanned} event(s){scope}{where}; "
-             f"none contained {args.pattern!r}"]
+    head = f"scanned {scanned} event(s){scope}{where}"
+    if args.fn is not None:
+        lines = [f"{head}; {scanned - considered} excluded by "
+                 f"--fn {args.fn!r}; none of the remaining {considered} "
+                 f"contained {args.pattern!r}"]
+    else:
+        lines = [f"{head}; none contained {args.pattern!r}"]
     if args.kind == "LINE" and not trace.counts().get("LINE"):
         lines.append("this run recorded no LINE events at all: line-level "
                      "capture needs --focus MODULE[:QUALNAME] at record time")
@@ -64,7 +76,7 @@ def run(args) -> int:
     trace = Trace.open(paths.find_trace(args.run))
     after = parse_eref(args.after) if args.after else 0
     shown = total = 0
-    scanned = 0
+    scanned = considered = 0
     last = after
     for e in trace.events(kind=args.kind, after=after):
         if e.code_id is None:
@@ -72,6 +84,7 @@ def run(args) -> int:
         scanned += 1
         if args.fn and args.fn not in trace.code(e.code_id).qualname:
             continue
+        considered += 1
         line = fmt_event(trace, e)
         if args.pattern not in line:
             continue
@@ -83,7 +96,7 @@ def run(args) -> int:
     clipped = f" (showing {shown})" if shown < total else ""
     print(f"matches: {total}{clipped}")
     if total == 0:
-        for note in _empty_note(trace, args, scanned, after):
+        for note in _empty_note(trace, args, scanned, considered, after):
             print(note)
         return 0
     note = more_note(total, shown, continue_cmd(args, last))

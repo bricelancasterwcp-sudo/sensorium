@@ -31,9 +31,15 @@ says how the frame ended:
   uncaught via finally -> "unwind"
 
 So the rule is: an exception is SWALLOWED iff some HANDLED for it sits in a
-frame whose ``closed_by == "return"``, and no later RAISE re-raises it. If
-every HANDLED for it sits in an unwound frame, it kept going and is never
-reported as swallowed.
+frame whose ``closed_by == "return"``, and no later RAISE carries its
+identity. If every HANDLED for it sits in an unwound frame, it kept going and
+is never reported as swallowed.
+
+Both halves are load-bearing. ``except E as e: return e`` closes its frame by
+"return" while handing the exception *out* of that frame, so a returning
+handler frame alone does not mean the exception stopped there -- with a later
+RAISE of the same identity, "swallowed here" and "stored and raised again"
+are both live and neither is asserted.
 
 EXCEPTION IDENTITY
 ------------------
@@ -152,17 +158,31 @@ def _uncaught(trace, idx, handled) -> Disposition:
         "not swallowed", detail)
 
 
-def _swallowed(trace, h, frame, later) -> Disposition:
-    detail = None
-    if later:
-        detail = (f"a later RAISE (e{later[0].id}) carries the same "
-                  "type/message/oid; that is normally address reuse by a new "
-                  "object, but the trace cannot rule out this one having been "
-                  "stored and raised again")
+def _swallowed(trace, h, frame) -> Disposition:
     return Disposition(
         "swallowed",
         f"SWALLOWED at e{h.id} {_at(trace, h)} -- caught in f{frame.id}, "
-        "which returned normally; never re-raised", detail)
+        "which returned normally; never re-raised")
+
+
+def _stored_or_reused(trace, h, frame, nxt) -> Disposition:
+    """A returning handler frame with a later RAISE of the same identity.
+
+    Both readings are live and the trace cannot separate them: the frame may
+    have swallowed this object and `nxt` may be a new one at a reused address,
+    or `except E as e: return e` may have handed this very object out of the
+    frame to be raised again. Fix round 1: this used to assert SWALLOWED with
+    the ambiguity demoted to a footnote, which made `raise stash()` print
+    "never re-raised" two lines under a header saying that same exception
+    left the program.
+    """
+    return Disposition(
+        "ambiguous",
+        f"handled at e{h.id} {_at(trace, h)} -- f{frame.id} returned "
+        f"normally, but a later RAISE (e{nxt.id}) carries the same identity",
+        "either it was swallowed there and that later raise is a new object "
+        "at a reused address, or it was handed out of the frame (`return e`) "
+        "and raised again; the trace cannot tell them apart")
 
 
 def _reraised(trace, handled, nxt) -> Disposition:
@@ -251,12 +271,18 @@ def classify(trace, r, idx: Index) -> Disposition:
 
     pairs = [(h, _frame_of(trace, h)) for h in handled]
 
-    # 2. Caught in a frame that then returned normally: it stopped here.
-    #    Checked before the later-RAISE rule so that a loop whose exception
-    #    address gets reused is not misread as one exception raised twice.
+    # 2. Caught in a frame that then returned normally: it stopped here --
+    #    but only if nothing raises that identity again. `except E as e:
+    #    return e` closes the frame by "return" while handing the exception
+    #    out of it, so a later RAISE makes both readings live and neither
+    #    assertable. Checked before the later-RAISE rule so that a loop whose
+    #    exception address gets reused still reaches an honest verdict rather
+    #    than being reported as one exception raised twice.
     for h, frame in pairs:
         if frame is not None and frame.closed_by == "return":
-            return _swallowed(trace, h, frame, later)
+            if later:
+                return _stored_or_reused(trace, h, frame, later[0])
+            return _swallowed(trace, h, frame)
 
     # 3. The same identity raised again -- `raise e` by name, which fires
     #    RAISE where a bare `raise` would fire the unrecorded RERAISE.

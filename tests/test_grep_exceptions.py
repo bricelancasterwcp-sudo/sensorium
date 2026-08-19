@@ -222,6 +222,24 @@ def main():
 main()
 """
 
+# `except E as e: return e` -- an ordinary idiom. The handler frame closes
+# "return", which is the swallow signal, and yet the exception is stored,
+# re-raised by the caller, and kills the process. Fix round 1: this was
+# reported as "SWALLOWED ... never re-raised" two lines under a header that
+# said the same exception was uncaught -- the tool contradicting itself.
+STASH_AND_RERAISE = """
+def stash():
+    try:
+        raise ValueError("x")
+    except ValueError as e:
+        return e
+
+def main():
+    raise stash()
+
+main()
+"""
+
 # Three raises of an identically-typed, identically-messaged exception. Each
 # must pair with its own handler, not with a neighbour's.
 LOOP_SAME_MESSAGE = """
@@ -378,6 +396,25 @@ def test_grep_no_match_says_what_it_looked_at(tmp_path, monkeypatch, capsys):
     assert "scanned" in out and "event" in out
 
 
+def test_grep_zero_match_note_owns_up_to_the_fn_filter(
+        tmp_path, monkeypatch, capsys):
+    """"none contained 'alice'" is a false statement about a trace in which
+    three events do contain it and were removed by --fn. Every active filter
+    has to appear in the line that explains the empty result."""
+    run_id = _rec(tmp_path, monkeypatch, SWALLOW)
+    assert cli.main(["grep", run_id, "alice"]) == 0
+    hits = int(next(ln for ln in capsys.readouterr().out.splitlines()
+                    if ln.startswith("matches:")).split()[1])
+    assert hits > 0                              # 'alice' really is in there
+
+    assert cli.main(["grep", run_id, "alice", "--fn", "nosuchfn"]) == 0
+    out = capsys.readouterr().out
+    assert "matches: 0" in out
+    assert "excluded by --fn 'nosuchfn'" in out
+    assert "none of the remaining" in out
+    assert "none contained" not in out           # the false fact
+
+
 def test_grep_line_kind_with_no_line_capture_says_why(
         tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch, CLEAN)      # recorded without --focus
@@ -410,6 +447,10 @@ def test_exceptions_reports_uncaught(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "uncaught: AttributeError" in out
     assert "SWALLOWED" not in out
+    # pin the verdict, not merely the absence of the wrong one: a classifier
+    # that fell through to some other branch would still satisfy the above
+    assert "uncaught -- left the program (exit 1); not swallowed" in out
+    assert "dispositions: uncaught 1" in out
     assert "raised at e" in out                  # header links to the RAISE
 
 
@@ -487,6 +528,44 @@ def test_exceptions_reports_an_explicit_reraise_as_raised_again(
     assert "raised again at e" in out
     assert "re-raised 1" in out
     assert out.count("SWALLOWED") == 1          # main's `except: pass`
+
+
+def test_exceptions_never_calls_a_stored_and_reraised_exception_swallowed(
+        tmp_path, monkeypatch, capsys):
+    """A returning handler frame is the swallow signal, but `return e` hands
+    the exception out of that frame. With a later RAISE of the same identity
+    both readings are live -- address reuse, or stored and raised again --
+    so neither may be asserted."""
+    run_id = _rec(tmp_path, monkeypatch, STASH_AND_RERAISE)
+    assert cli.main(["exceptions", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "SWALLOWED" not in out
+    assert "never re-raised" not in out          # it demonstrably was
+    assert "uncaught: ValueError('x')" in out
+    # the verdict names both live readings and picks neither
+    assert "returned normally, but a later RAISE" in out
+    assert "raised again" in out
+    assert "reused address" in out
+    assert "cannot tell them apart" in out
+    assert "dispositions: uncaught 1, ambiguous 1" in out
+
+
+def test_exceptions_output_never_contradicts_its_own_uncaught_header(
+        tmp_path, monkeypatch, capsys):
+    """No verdict may claim an exception ended in traced code when the
+    header says that same identity left the program."""
+    for src in (STASH_AND_RERAISE, EXPLICIT_RERAISE_ESCAPES, BARE_RERAISE):
+        d = tmp_path / str(abs(hash(src)) % 10 ** 6)
+        run_id = _rec(d, monkeypatch, src)
+        assert cli.main(["exceptions", run_id]) == 0
+        out = capsys.readouterr().out
+        assert out.splitlines()[0].startswith("uncaught: ")
+        assert "SWALLOWED" not in out, src
+        assert "never re-raised" not in out, src
+        # and no `swallowed N` bucket in the tally either
+        tally = next(ln for ln in out.splitlines()
+                     if ln.startswith("dispositions: "))
+        assert "swallowed" not in tally, src
 
 
 def test_exceptions_uncaught_header_names_the_raise_that_escaped(
@@ -578,8 +657,15 @@ def test_exceptions_survives_a_recycled_oid(tmp_path, monkeypatch, capsys):
 def test_exceptions_pairs_repeats_that_share_type_message_and_oid(
         tmp_path, monkeypatch, capsys):
     """A loop whose exception address *is* reused: two raises with an
-    identical (type, msg, oid). Each must find its own handler; neither may
-    be reported as "raised again" as the other."""
+    identical (type, msg, oid). Each must be credited to its own handler,
+    never a neighbour's.
+
+    Fix round 1: the first raise now under-claims. Its handler frame returned,
+    but a later RAISE carries its identity, and from the trace alone that is
+    either address reuse (what actually happened here) or `return e`
+    stored-and-re-raised. Under-claiming on the one is the price of never
+    falsely accusing the other; the last raise, with nothing after it, is
+    still reported as the swallow it is."""
     w = _synthetic(tmp_path, monkeypatch)
     c_boom = w.intern_code("/tmp/prog.py", "boom", 1)
     c_main = w.intern_code("/tmp/prog.py", "main", 5)
@@ -603,11 +689,13 @@ def test_exceptions_pairs_repeats_that_share_type_message_and_oid(
 
     assert cli.main(["exceptions", "20260101-000000-abcdef"]) == 0
     out = capsys.readouterr().out
-    assert out.count("SWALLOWED") == 2
-    for h in handlers:
-        assert f"SWALLOWED at e{h}" in out
-    # and the collision is disclosed rather than papered over
-    assert "same type/message/oid" in out
+    assert "dispositions: swallowed 1, ambiguous 1" in out
+    # each verdict cites its OWN handler -- the collision never lets one
+    # raise be explained by the other's HANDLED row
+    first, second = handlers
+    assert f"handled at e{first} main L8 -- f1 returned normally" in out
+    assert f"SWALLOWED at e{second}" in out
+    assert f"SWALLOWED at e{first}" not in out
 
 
 def test_exceptions_will_not_conclude_from_an_incomplete_recording(
