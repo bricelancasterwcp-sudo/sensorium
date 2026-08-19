@@ -50,6 +50,18 @@ every lookup is scoped to the events between one RAISE and the next RAISE of
 the same identity, so a loop raising an identical exception repeatedly still
 pairs each raise with its own handler.
 
+That is still not enough on its own. An ordinary retry loop --
+
+    for i in range(3):
+        try: raise ValueError("fail")
+        except ValueError as e: pass
+
+-- gives all three ValueError objects *one* address, because each binding is
+dropped at the end of its handler and the object is freed before the next is
+allocated. So a repeated identity is not evidence of a re-raise, and the two
+rules that key on repetition (2 and 3) each refuse to assert one where the
+trace cannot separate re-raise from reuse.
+
 WHERE THE TRACE CANNOT SAY
 --------------------------
 Two shapes are recorded identically and are not separated here:
@@ -185,17 +197,44 @@ def _stored_or_reused(trace, h, frame, nxt) -> Disposition:
         "and raised again; the trace cannot tell them apart")
 
 
-def _reraised(trace, handled, nxt) -> Disposition:
-    if handled:
-        h = handled[0]
+def _reraised(trace, r, handled, nxt) -> Disposition:
+    """Two RAISE rows carrying one identity: re-raised, or address reuse?
+
+    Sound half -- with no HANDLED between them the exception never stopped
+    propagating, so it stayed referenced throughout and its address cannot
+    have been recycled. It is provably the same object.
+
+    Narrowing half -- when a HANDLED does sit between them the object may
+    have been released at the end of that handler. If the second RAISE comes
+    from the *same statement* as the first, that statement simply ran again:
+    the retry-loop shape, measured to hand three distinct ValueError objects
+    one address because `except E as e: pass` drops each binding before the
+    next is allocated. Neither reading can be asserted there. A re-raise from
+    a *different* statement (`raise e`, `raise last`) is what a real one
+    looks like and is still reported outright -- hedging every repeated
+    identity would be as useless as hedging none.
+    """
+    if not handled:
         return Disposition(
             "re-raised",
-            f"handled at e{h.id} {_at(trace, h)}, then raised again at "
-            f"e{nxt.id}")
+            f"the same exception object is raised again at e{nxt.id}",
+            "it never stopped propagating in between, so it stayed "
+            "referenced and its address cannot have been reused; the trace "
+            "cannot say what caught it")
+    h = handled[0]
+    if (r.code_id, r.line) == (nxt.code_id, nxt.line):
+        return Disposition(
+            "ambiguous",
+            f"handled at e{h.id} {_at(trace, h)} -- e{nxt.id} carries the "
+            "same identity, raised from the same statement",
+            "a loop re-running one raise frees each exception before the next "
+            "is allocated, so CPython hands the new one a reused address; the "
+            "trace cannot say whether that is this object raised again or a "
+            "different one")
     return Disposition(
         "re-raised",
-        f"the same exception object is raised again at e{nxt.id}",
-        "no HANDLED row in between: the trace cannot say what caught it")
+        f"handled at e{h.id} {_at(trace, h)}, then raised again at "
+        f"e{nxt.id}")
 
 
 def _no_handler_found(trace, idx) -> Disposition:
@@ -285,9 +324,11 @@ def classify(trace, r, idx: Index) -> Disposition:
             return _swallowed(trace, h, frame)
 
     # 3. The same identity raised again -- `raise e` by name, which fires
-    #    RAISE where a bare `raise` would fire the unrecorded RERAISE.
+    #    RAISE where a bare `raise` would fire the unrecorded RERAISE. Only
+    #    asserted where address reuse is ruled out or implausible; see
+    #    _reraised.
     if later:
-        return _reraised(trace, handled, later[0])
+        return _reraised(trace, r, handled, later[0])
 
     if not pairs:
         return _no_handler_found(trace, idx)
