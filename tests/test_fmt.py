@@ -27,6 +27,29 @@ def test_fmt_containers_and_objects():
     assert fmt.fmt_value(o) == "Grid#99"
 
 
+def test_fmt_value_names_the_reads_a_hostile_object_refused():
+    """The marker has to survive as far as the DISPLAY. `Sneaky[0]={}` for a
+    container whose own `__len__` raised is the recorder inventing a size."""
+    seq = {"k": "seq", "type": "Evil", "len": 3, "oid": 1,
+           "unread": ["sample"]}
+    assert fmt.fmt_value(seq) == "Evil[3]=[] <unread: sample>"
+    m = {"k": "map", "type": "Sneaky", "len": None, "oid": 2, "sample": [],
+         "unread": ["len"]}
+    assert fmt.fmt_value(m) == "Sneaky[?]={} <unread: len>"
+    nothing = {"k": "unread", "type": "Cloaked", "oid": 3,
+               "unread": ["value"]}
+    assert fmt.fmt_value(nothing) == "<unreadable Cloaked#3>"
+
+
+def test_fmt_exc_does_not_quote_a_message_it_could_not_read():
+    """...and still quotes an empty message that really was empty."""
+    assert fmt.fmt_exc({"type": "Rude", "msg": "", "oid": 1,
+                        "unread": ["msg"]}) \
+        == "Rude(<message unreadable: __str__ raised>)"
+    assert fmt.fmt_exc({"type": "ValueError", "msg": "", "oid": 1}) \
+        == "ValueError('')"
+
+
 def test_fmt_args_caps_at_limit():
     args = {f"a{i}": {"k": "num", "v": i} for i in range(6)}
     s = fmt.fmt_args(args)

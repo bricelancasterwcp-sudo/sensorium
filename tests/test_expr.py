@@ -315,6 +315,18 @@ def test_resolve_of_a_map_is_sized_and_a_depth_capped_one_still_has_its_len():
     assert compile_expr("len(cfg) > 8").eval({"cfg": got}) is True
 
 
+def test_resolve_refuses_a_length_the_recorder_could_not_read():
+    """A container whose own `__len__` raised is captured with `len: None`.
+    That is the absence of a size, not the size 0: `len(bag) > 0` must land
+    in `watch`'s not-captured bucket, never come back False as a fact."""
+    unread = {"k": "seq", "type": "Evil", "len": None, "oid": 1,
+              "unread": ["len"]}
+    assert resolve(unread) is NOT_CAPTURED
+    with pytest.raises(NotCaptured) as ei:
+        compile_expr("len(bag) > 0").eval({"bag": resolve(unread)})
+    assert ei.value.reason == NO_VALUE
+
+
 def test_sized_and_markers_have_readable_reprs():
     assert repr(_Sized(4)) == "<len 4>"
     assert "NOT_CAPTURED" in repr(NOT_CAPTURED)

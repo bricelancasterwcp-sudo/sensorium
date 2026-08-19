@@ -1,6 +1,22 @@
 """Shared plain-text formatting: dense, stable, one fact per line."""
 
 
+def _size(v: dict) -> str:
+    """A container's length, or `?` where the object's `__len__` raised.
+
+    `len` is None exactly when the capture could not read it (see
+    `capture.py`). Printing 0 there would be the recorder inventing a size.
+    """
+    n = v.get("len")
+    return "?" if n is None else str(n)
+
+
+def _unread(v: dict) -> str:
+    """Which reads the observed object refused, named rather than implied."""
+    names = v.get("unread")
+    return f" <unread: {','.join(names)}>" if names else ""
+
+
 def fmt_value(v: dict | None) -> str:
     if v is None:
         return "?"
@@ -16,14 +32,18 @@ def fmt_value(v: dict | None) -> str:
         # supplying an empty list -- always read it with .get, never [].
         inner = ", ".join(fmt_value(x) for x in v.get("sample", []))
         more = ", ..." if v.get("trunc") else ""
-        return f"{v['type']}[{v['len']}]=[{inner}{more}]"
+        return f"{v['type']}[{_size(v)}]=[{inner}{more}]{_unread(v)}"
     if k == "map":
         pairs = ", ".join(f"{fmt_value(a)}: {fmt_value(b)}"
                           for a, b in v.get("sample", []))
         more = ", ..." if v.get("trunc") else ""
-        return f"{v['type']}[{v['len']}]={{{pairs}{more}}}"
+        return f"{v['type']}[{_size(v)}]={{{pairs}{more}}}{_unread(v)}"
     if k == "obj":
-        return f"{v['type']}#{v['oid']}"
+        return f"{v['type']}#{v['oid']}{_unread(v)}"
+    if k == "unread":
+        # Nothing about this value could be read at all -- not even which
+        # kind it is. Say so; do not render it as an object with no repr.
+        return f"<unreadable {v.get('type', '?')}#{v.get('oid', '?')}>"
     return "?"
 
 
@@ -35,6 +55,10 @@ def fmt_args(args: dict, limit: int = 4) -> str:
 
 
 def fmt_exc(e: dict) -> str:
+    # An exception whose `__str__` raised has no message the trace can quote.
+    # `''` there would read as an exception raised with no message at all.
+    if "msg" in (e.get("unread") or ()):
+        return f"{e['type']}(<message unreadable: __str__ raised>)"
     return f"{e['type']}({e['msg']!r})"
 
 

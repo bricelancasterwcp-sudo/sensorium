@@ -170,7 +170,11 @@ def resolve(v: dict):
     if k in ("seq", "map"):
         # `len` is exact even here: it is written before any cap is applied,
         # and `trunc` on a container means the sample (or the depth) was cut.
-        return _Sized(v["len"])
+        # It is None only when the object's own `__len__` raised at capture
+        # time -- an unread size is not a size, and `len(buf) > 100` must
+        # report a site it could not evaluate rather than compare to nothing.
+        n = v.get("len")
+        return NOT_CAPTURED if n is None else _Sized(n)
     return NOT_CAPTURED
 
 
