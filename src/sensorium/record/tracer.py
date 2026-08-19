@@ -177,6 +177,37 @@ class FocusSpec:
         return False
 
 
+class WindowSpec:
+    """The one function whose activations bound line-level capture.
+
+    Accepts `module:qualname` to name it unambiguously, or a bare `qualname`
+    that matches that name in ANY module. The bare form is why two same-named
+    functions across a `--focus` set could share a window: the old matcher was
+    `qual == self.window`, a bare-string equality that a `module:qualname`
+    target could never satisfy (so it silently matched nothing) and that a bare
+    name matched in every module at once. `key()` returns the resolved
+    `(module, qualname)` so the depth counter is kept per function, and a
+    return from one no longer closes another's window.
+    """
+    def __init__(self, spec: str | None) -> None:
+        if spec is None:
+            self._mod, self._qual = None, None
+        else:
+            mod, sep, qual = spec.partition(":")
+            self._mod, self._qual = (mod, qual) if sep else (None, mod)
+
+    def __bool__(self) -> bool:
+        return self._qual is not None
+
+    def key(self, module: str | None, qualname: str):
+        """The window key for this code, or None if it is not the window."""
+        if self._qual is None or qualname != self._qual:
+            return None
+        if self._mod is not None and module != self._mod:
+            return None
+        return (module, qualname)
+
+
 class _ExcRefs:
     """One thread's exception identity table -- and the only place this
     recorder holds a reference to an exception object.
@@ -247,7 +278,7 @@ class _TLS(threading.local):
     def __init__(self, register) -> None:
         self.stack: list = []          # [frame_id, code, code_id, locals_snapshot]
         self.in_hook = False
-        self.window_depth = 0
+        self.window_depths: dict = {}  # (module, qualname) -> open activations
         self.origin_recorded = False   # whether the in-flight exc got a row
         self.exc = _ExcRefs()
         register(self.exc)
@@ -261,7 +292,7 @@ class Tracer:
         self.focus = focus
         self.include = tuple(include)
         self.exclude = tuple(exclude)
-        self.window = window
+        self.window = WindowSpec(window)
         # id(code) -> (traced, fp_file, qualname, focused, frameless)
         self._decisions: dict[int, tuple] = {}
         self._seen_codes: list = []    # pins code objects so id() cannot recycle
@@ -293,7 +324,7 @@ class Tracer:
 
     def _classify(self, code):
         file = code.co_filename
-        untraced = (False, None, None, False, False)
+        untraced = (False, None, None, False, False, None)
         if not file.startswith("/") or file.startswith(_SENSORIUM_DIR):
             return untraced
         p = str(Path(file).resolve())
@@ -311,7 +342,8 @@ class Tracer:
         module = module_name_for(p, self.root)
         focused = self.focus.matches(module, code.co_qualname)
         frameless = bool(code.co_flags & _GENLIKE)
-        return (True, rel, code.co_qualname, focused, frameless)
+        win_key = self.window.key(module, code.co_qualname)
+        return (True, rel, code.co_qualname, focused, frameless, win_key)
 
     def _fp(self, tid: int) -> Fingerprint:
         # Keyed by `threading.get_ident()`, the same identity events and frames
@@ -333,7 +365,7 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, fp_file, qual, focused, frameless = self._decide(code)
+        traced, fp_file, qual, focused, frameless, win_key = self._decide(code)
         if not traced:
             return M.DISABLE
         tls.in_hook = True
@@ -367,8 +399,8 @@ class Tracer:
             # never reaches PY_RETURN/PY_UNWIND, so counting its PY_START would
             # leak depth and wedge the window open for the rest of the run.
             # The gate must open and close on the same set of events.
-            if not frameless and self.window and qual == self.window:
-                tls.window_depth += 1
+            if not frameless and win_key is not None:
+                tls.window_depths[win_key] = tls.window_depths.get(win_key, 0) + 1
         finally:
             tls.in_hook = False
         return None
@@ -377,7 +409,7 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, fp_file, qual, focused, frameless = self._decide(code)
+        traced, fp_file, qual, focused, frameless, win_key = self._decide(code)
         if not traced:
             return M.DISABLE
         tls.in_hook = True
@@ -394,9 +426,9 @@ class Tracer:
             if fid is not None:
                 self.writer.close_frame(fid, eid, "return")
             self._fp(tid).update(fp_file, qual, "RETURN")
-            if (not frameless and self.window and qual == self.window
-                    and tls.window_depth):
-                tls.window_depth -= 1
+            if (not frameless and win_key is not None
+                    and tls.window_depths.get(win_key)):
+                tls.window_depths[win_key] -= 1
         finally:
             tls.in_hook = False
         return None
@@ -405,7 +437,7 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, fp_file, qual, focused, frameless = self._decide(code)
+        traced, fp_file, qual, focused, frameless, win_key = self._decide(code)
         if not traced:
             return None                      # exception events can't DISABLE
         tls.in_hook = True
@@ -415,9 +447,9 @@ class Tracer:
                 self.writer.close_frame(
                     fid, None, "unwind",
                     capture_exc(exc, self.serial_of(exc)))
-            if (not frameless and self.window and qual == self.window
-                    and tls.window_depth):
-                tls.window_depth -= 1
+            if (not frameless and win_key is not None
+                    and tls.window_depths.get(win_key)):
+                tls.window_depths[win_key] -= 1
         finally:
             tls.in_hook = False
         return None
@@ -491,7 +523,7 @@ class Tracer:
             # for why the reference is strong and why it is bounded.
             serial = refs.identify(exc)
             refs.last_exc = None
-        traced, fp_file, qual, focused, frameless = self._decide(code)
+        traced, fp_file, qual, focused, frameless, _win_key = self._decide(code)
         if not traced:
             return None
         if kind == "RAISE":
@@ -520,10 +552,10 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, _fp_file, _qual, focused, frameless = self._decide(code)
+        traced, _fp_file, _qual, focused, frameless, _win_key = self._decide(code)
         if not traced or not focused or frameless:
             return M.DISABLE      # nothing here will ever be worth recording
-        if self.window and tls.window_depth == 0:
+        if self.window and not any(tls.window_depths.values()):
             # Outside the window *right now*. Deliberately not DISABLE: that is
             # permanent per code location, and this frame may run again inside
             # the window later.

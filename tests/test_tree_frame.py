@@ -110,6 +110,19 @@ def test_tree_around_missing_event_reports_and_exits_1(
     assert "no frame contains e999999" in capsys.readouterr().out
 
 
+def test_tree_root_missing_frame_reports_and_exits_1(
+        tmp_path, monkeypatch, capsys):
+    """A valid-syntax `--root` that names no frame must refuse, not print
+    "no frames recorded" (which is false -- the trace has frames) at exit 0.
+    Matches `--around` and `frame f<id>`, and keeps "no frames recorded" for a
+    genuinely empty trace."""
+    run_id = _rec(tmp_path, monkeypatch)
+    assert cli.main(["tree", run_id, "--root", "f999999"]) == 1
+    out = capsys.readouterr().out
+    assert "no such frame" in out and "f999999" in out
+    assert "no frames recorded" not in out
+
+
 def test_tree_root_scopes_to_subtree_and_drops_ancestors(
         tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch)

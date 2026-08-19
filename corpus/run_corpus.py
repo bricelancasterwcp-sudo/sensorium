@@ -103,6 +103,10 @@ class CaseResult:
     # field named `passed` that also counts the ones that failed is the same
     # kind of dishonest reporting the tool under test exists to prevent.
     asked: int = 0
+    # A crash in the harness itself (a broken copytree, a bug in a check),
+    # kept distinct from a failed question -- "the tool answered wrong" and
+    # "the harness could not ask" are different facts.
+    error: str | None = None
 
 
 # -- loading and validation -------------------------------------------------
@@ -312,22 +316,34 @@ def main(argv=None) -> int:
                 for q in case.questions:
                     print(f"{case.name}/{q['id']}: {q['ask']}")
                     print(f"    $ sensorium {' '.join(str(a) for a in q['command'])}")
-            results.append(run_case(case, Path(tmp)))
+            try:
+                results.append(run_case(case, Path(tmp)))
+            except Exception as e:
+                # Isolate the crash to this case: an unhandled raise here would
+                # abandon the loop before the summary, silently dropping every
+                # case already run. Record it as an error and carry on.
+                results.append(CaseResult(case.name,
+                                          error=f"{type(e).__name__}: {e}"))
     failures = [f for r in results for f in r.failures]
+    errors = [r for r in results if r.error]
     if args.json:
         print(json.dumps({"cases": len(results),
                           "questions": sum(r.asked for r in results),
-                          "failures": failures}, indent=2))
+                          "failures": failures,
+                          "errors": [{"case": r.name, "error": r.error}
+                                     for r in errors]}, indent=2))
     else:
         for r in results:
-            mark = "FAIL" if r.failures else "ok"
+            mark = "ERR" if r.error else ("FAIL" if r.failures else "ok")
             print(f"{mark:>4}  {r.name}  ({r.asked} questions)")
+            if r.error:
+                print(f"        harness error: {r.error}")
         for f in failures:
             print("  " + f)
         print(f"\n{len(results)} cases, "
               f"{sum(r.asked for r in results)} questions, "
-              f"{len(failures)} failures")
-    return 1 if failures else 0
+              f"{len(failures)} failures, {len(errors)} error(s)")
+    return 1 if (failures or errors) else 0
 
 
 if __name__ == "__main__":

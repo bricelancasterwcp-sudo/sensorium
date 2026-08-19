@@ -117,6 +117,35 @@ def test_second_run_is_declared_wherever_run2_is_used():
 
 
 # -- schema validation: a bad question must not load silently --------------
+def test_main_isolates_a_harness_error_in_one_case(monkeypatch, capsys,
+                                                   tmp_path):
+    """A crash inside `run_case` for one case must not abandon the whole run
+    and drop every already-computed result. It is reported as a distinct ERROR
+    -- not a failed question -- the later cases still run, and the run exits
+    non-zero. The case is placed FIRST so its crash would, unfixed, keep the
+    second from running at all."""
+    bad = run_corpus.Case(name="bad_case", dir=tmp_path, program="main.py")
+    good = run_corpus.Case(name="good_case", dir=tmp_path, program="main.py")
+    monkeypatch.setattr(run_corpus, "load_cases", lambda *a, **k: [bad, good])
+
+    def fake_run_case(case, workdir):
+        if case.name == "bad_case":
+            raise RuntimeError("copytree exploded")
+        r = run_corpus.CaseResult(case.name)
+        r.asked = 1
+        return r
+
+    monkeypatch.setattr(run_corpus, "run_case", fake_run_case)
+
+    rc = run_corpus.main([])
+    out = capsys.readouterr().out
+    assert rc == 1                              # a harness error fails the run
+    assert "good_case" in out                   # the later case still ran
+    assert "harness error" in out
+    assert "RuntimeError" in out and "copytree exploded" in out
+    assert "1 error" in out                     # counted, distinct from failures
+
+
 def test_unknown_question_key_is_an_error(tmp_path):
     with pytest.raises(ValueError, match="unknown"):
         _load_one(tmp_path, [{**GOOD_QUESTION, "expect_contian": ["x"]}])
@@ -412,7 +441,8 @@ def test_main_json_reports_the_same_totals(capsys):
     import json
     assert run_corpus.main(["--only", "silent_swallow", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload == {"cases": 1, "questions": 2, "failures": []}
+    assert payload == {"cases": 1, "questions": 2, "failures": [],
+                       "errors": []}
 
 
 def test_corpus_passes():

@@ -298,6 +298,21 @@ def test_window_limits_line_capture_to_dynamic_extent(tmp_path):
     assert t_out.events(kind="LINE") == []
 
 
+def test_window_accepts_a_module_qualified_target(tmp_path):
+    """--window module:qualname must resolve, like --focus. The matcher
+    required exact equality with a bare co_qualname, so a `module:qualname`
+    window matched nothing and silently captured no lines at all."""
+    t, _ = record_inproc(tmp_path, NESTED,
+                         focus=["prog:inner"], window="prog:outer")
+    lines = t.events(kind="LINE")
+    assert len(lines) > 0                         # the window actually engaged
+    assert {t.code(e.code_id).qualname for e in lines} == {"inner"}
+    # a module that does not match is not the window, even at the same qualname
+    t2, _ = record_inproc(tmp_path / "other", NESTED,
+                          focus=["prog:inner"], window="elsewhere:outer")
+    assert t2.events(kind="LINE") == []
+
+
 def test_window_reentry_captures_a_location_missed_the_first_time(tmp_path):
     # watched() runs three times: before, inside, and after the window. Being
     # outside the window must not DISABLE the location, or the middle call --
@@ -319,7 +334,7 @@ def test_abandoned_generator_does_not_wedge_window_open(tmp_path):
         tmp_path / "windowed", ABANDONED_GEN,
         focus=["prog:watched"], window="numbers")
     assert err is None
-    assert tracer._tls.window_depth == 0
+    assert not any(tracer._tls.window_depths.values())   # no window left open
     assert t.events(kind="LINE") == []      # watched() ran outside the window
     # ...and the emptiness above is not vacuous: with no window at all, the
     # very same program does yield LINE events for watched().

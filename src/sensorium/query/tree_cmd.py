@@ -84,10 +84,19 @@ def run(args) -> int:
         if note:
             print(note)
     else:
-        roots = ([trace.frame(parse_fref(args.root))] if args.root
-                 else trace.roots())
-        lines, cut_frames = render_tree(
-            trace, [r for r in roots if r], args.depth, args.limit)
+        if args.root:
+            # Resolve and refuse a missing frame, like `--around` and
+            # `frame f<id>`. Filtering it silently to `[]` reaches the "no
+            # frames recorded" line below -- a false claim (the trace HAS
+            # frames) delivered as success (exit 0) on a bad reference.
+            root = trace.frame(parse_fref(args.root))
+            if root is None:
+                print(f"no such frame: {args.root} does not exist")
+                return 1
+            roots = [root]
+        else:
+            roots = trace.roots()
+        lines, cut_frames = render_tree(trace, roots, args.depth, args.limit)
         for ln in lines:
             print(ln)
         note = _truncation_note(args.run, args.depth, args.limit, cut_frames)

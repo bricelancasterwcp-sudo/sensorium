@@ -17,7 +17,11 @@ def _add_run_parser(sub):
                    help="pkg.module or pkg.module:qualname; repeatable")
     p.add_argument("--include", action="append", default=[])
     p.add_argument("--exclude", action="append", default=[])
-    p.add_argument("--window", default=None)
+    p.add_argument("--window", default=None,
+                   help="limit --focus line capture to what runs inside this "
+                        "function's activations; MODULE:QUALNAME scopes to one "
+                        "function, a bare QUALNAME matches that name in any "
+                        "module")
     p.add_argument("--run-id", default=None, help=argparse.SUPPRESS)
     p.add_argument("--refocus-of", default=None, help=argparse.SUPPRESS)
     p.add_argument("target", nargs=argparse.REMAINDER)

@@ -639,6 +639,36 @@ def test_console_script_target_resolves(tmp_path):
     assert callable(boot.resolve_target(["pytest", "--version"]))
 
 
+def test_console_script_target_runs_the_entry_point(sandbox, monkeypatch):
+    """The console-script mode must actually RUN the resolved entry point with
+    the given argv and capture its output -- not merely resolve to a callable.
+    A no-op `run_script` (never setting argv, never calling the entry) passed
+    the resolve-only test above, so the whole run path was unexercised."""
+    ran = {}
+
+    def entry():
+        ran["argv"] = list(sys.argv)
+        print("entry point ran")
+
+    class FakeEP:
+        def load(self):
+            return entry
+
+    def fake_entry_points(*, group=None, name=None):
+        if group == "console_scripts" and name == "mytool":
+            return [FakeEP()]
+        return []
+
+    monkeypatch.setattr(boot.importlib.metadata, "entry_points",
+                        fake_entry_points)
+
+    run_id, status = boot.run_target(["mytool", "--flag", "v"])
+    assert status == 0
+    assert ran["argv"] == ["mytool", "--flag", "v"]   # argv reached the entry
+    out = "".join(d for _e, _s, d in _trace_of(run_id).output_chunks())
+    assert "entry point ran" in out                    # its output was captured
+
+
 def test_git_info_reports_sha_and_dirty_hash(tmp_path):
     def git(*a):
         subprocess.run(["git", *a], cwd=tmp_path, check=True,
