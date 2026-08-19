@@ -1,0 +1,330 @@
+"""Booting a target under recording, run metadata, and the `run` command."""
+import subprocess
+import sys
+import threading
+from pathlib import Path
+
+import pytest
+
+from sensorium import paths
+from sensorium.record import boot
+from sensorium.store.reader import Trace
+from sensorium.store.writer import TraceWriter
+from tests.helpers import record_script, run_cli
+
+HELLO = """
+def greet(name):
+    print(f"hello {name}")
+    return name
+
+def main():
+    greet("world")
+
+if __name__ == "__main__":
+    main()
+"""
+
+EXITS = """
+import sys
+sys.exit(3)
+"""
+
+SPAWNS = """
+import subprocess, sys
+subprocess.run([sys.executable, "-c", "pass"])
+print("spawned")
+"""
+
+SPAWNS_TWICE = """
+import subprocess, sys
+for _ in range(2):
+    subprocess.run([sys.executable, "-c", "pass"])
+"""
+
+READS_STDIN = """
+line = input()
+print("got", line)
+"""
+
+# A daemon thread parked inside a monitoring callback (capture calls the
+# argument's __repr__) when the target's main function returns: its trace
+# writes land after the writer has closed.
+DAEMON = """
+import threading, time
+
+READY = threading.Event()
+
+class Slow:
+    def __repr__(self):
+        READY.set()
+        time.sleep(0.5)
+        return "slow"
+
+def worker(obj):
+    return 1
+
+def spin():
+    worker(Slow())
+    with open("daemon-ran.txt", "w") as f:
+        f.write("yes")
+
+def main():
+    threading.Thread(target=spin, name="sensorium-daemon-test",
+                     daemon=True).start()
+    READY.wait(5)
+
+main()
+"""
+
+META_CONTRACT = {
+    "run_id", "argv", "cwd", "env", "env_hash", "python", "git_sha",
+    "git_dirty_hash", "focus", "include", "exclude", "window", "caps",
+    "start_ts", "end_ts", "exit_status", "uncaught", "stdin_consumed",
+    "children", "truncated_count", "incomplete",
+}
+
+
+@pytest.fixture
+def sandbox(tmp_path, monkeypatch):
+    """cwd and trace store pointed somewhere disposable, for in-proc runs."""
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
+def _trace_of(run_id):
+    return Trace.open(paths.traces_dir() / f"{run_id}.db")
+
+
+# -- recording a real program ---------------------------------------------
+def test_records_and_propagates_exit_zero(tmp_path):
+    run_id, trace, r = record_script(tmp_path, HELLO)
+    assert r.returncode == 0 and run_id is not None
+    assert f"trace: {trace}" in r.stdout
+    t = Trace.open(trace)
+    assert t.meta["exit_status"] == 0
+    assert t.meta["incomplete"] is False
+    assert t.meta["argv"] == ["prog.py"]
+    quals = {t.code(e.code_id).qualname for e in t.events(kind="CALL")}
+    assert {"main", "greet"} <= quals
+    # uninstall() writes these, so they only survive if it runs before close
+    assert t.fingerprints()
+
+
+def test_stdout_passthrough_and_captured(tmp_path):
+    run_id, trace, r = record_script(tmp_path, HELLO)
+    assert "hello world" in r.stdout          # passed through to real stdout
+    t = Trace.open(trace)
+    data = "".join(d for _, s, d in t.output_chunks() if s == "stdout")
+    assert "hello world" in data              # and interleaved in the trace
+
+
+def test_sys_exit_code_propagated(tmp_path):
+    run_id, trace, r = record_script(tmp_path, EXITS)
+    assert r.returncode == 3
+    assert Trace.open(trace).meta["exit_status"] == 3
+
+
+def test_uncaught_exception_recorded_and_exit_1(tmp_path):
+    src = "def main():\n    raise ValueError('bad')\nmain()\n"
+    run_id, trace, r = record_script(tmp_path, src)
+    assert r.returncode == 1
+    m = Trace.open(trace).meta
+    assert m["uncaught"]["type"] == "ValueError"
+    assert m["incomplete"] is False
+    assert "ValueError: bad" in r.stderr       # the user is told, loudly
+
+
+def test_child_processes_listed_not_witnessed(tmp_path):
+    run_id, trace, r = record_script(tmp_path, SPAWNS)
+    assert len(Trace.open(trace).meta["children"]) == 1
+
+
+def test_stdin_consumption_flagged(tmp_path):
+    run_id, trace, r = record_script(tmp_path, READS_STDIN, stdin_text="x\n")
+    assert Trace.open(trace).meta["stdin_consumed"] is True
+    run_id2, trace2, _ = record_script(tmp_path / "b", HELLO)
+    assert Trace.open(trace2).meta["stdin_consumed"] is False
+
+
+# -- run metadata: the key names later tasks read -------------------------
+def test_meta_key_contract(tmp_path):
+    run_id, trace, r = record_script(tmp_path, HELLO)
+    m = Trace.open(trace).meta
+    assert META_CONTRACT <= set(m)
+    assert "refocus_of" not in m               # only present when set
+    assert m["run_id"] == run_id
+    assert Path(m["cwd"]).resolve() == tmp_path.resolve()
+    assert m["python"] == sys.version.split()[0]
+    assert m["focus"] == [] and m["include"] == [] and m["exclude"] == []
+    assert m["window"] is None and m["uncaught"] is None
+    assert m["caps"]["str"] > 0
+    assert m["end_ts"] >= m["start_ts"]
+    assert m["env"]["SENSORIUM_DIR"] == str(tmp_path / "sdir")
+    assert len(m["env_hash"]) == 16
+    assert m["truncated_count"] >= 0
+
+
+def test_refocus_of_recorded_when_given(tmp_path):
+    run_id, trace, r = record_script(tmp_path, HELLO,
+                                     extra=["--refocus-of", "20260818-x"])
+    assert Trace.open(trace).meta["refocus_of"] == "20260818-x"
+
+
+def test_focus_option_reaches_the_tracer(tmp_path):
+    run_id, trace, r = record_script(tmp_path, HELLO,
+                                     extra=["--focus", "prog:greet"])
+    t = Trace.open(trace)
+    assert t.meta["focus"] == ["prog:greet"]
+    assert t.events(kind="LINE")               # focus tier actually engaged
+
+
+# -- honest failure -------------------------------------------------------
+def test_unresolvable_target_is_clear_error(tmp_path):
+    r = run_cli(["run", "--", "no-such-cmd-xyz"], cwd=tmp_path,
+                sensorium_dir=tmp_path / "s")
+    assert r.returncode == 2 and "cannot resolve" in r.stderr
+
+
+def test_missing_script_is_clear_error(tmp_path):
+    r = run_cli(["run", "--", "nope.py"], cwd=tmp_path,
+                sensorium_dir=tmp_path / "s")
+    assert r.returncode == 2 and "cannot resolve" in r.stderr
+
+
+def test_no_target_prints_usage(tmp_path):
+    r = run_cli(["run"], cwd=tmp_path, sensorium_dir=tmp_path / "s")
+    assert r.returncode == 2 and "usage: sensorium run" in r.stderr
+
+
+def test_install_failure_is_loud_and_leaves_incomplete_trace(sandbox):
+    (sandbox / "prog.py").write_text(HELLO)
+    streams = (sys.stdin, sys.stdout, sys.stderr)
+    tool = sys.monitoring.PROFILER_ID
+    sys.monitoring.use_tool_id(tool, "another-profiler")
+    try:
+        with pytest.raises(RuntimeError, match="already in use"):
+            boot.run_target(["prog.py"])
+    finally:
+        sys.monitoring.free_tool_id(tool)
+    assert (sys.stdin, sys.stdout, sys.stderr) == streams
+    dbs = list(paths.traces_dir().glob("*.db"))
+    assert len(dbs) == 1
+    assert Trace.open(dbs[0]).meta["incomplete"] is True  # no false success
+
+
+# -- a thread that outlives the target ------------------------------------
+def test_late_writes_after_close_are_absorbed(tmp_path):
+    """A write from a callback still in flight must not hit a closed db."""
+    w = TraceWriter(tmp_path / "t.db", batch=1)     # every event flushes
+    g = boot._LateWriteGuard(w)
+    cid = g.intern_code("f.py", "f", 1)
+    g.add_event(1, 2, "CALL", None, cid, 1, None)
+    g.close()
+    # What a monitoring callback still in flight goes on to write. Unguarded,
+    # the first of these flushes and raises sqlite3.ProgrammingError from
+    # inside the callback, killing the thread that was running traced code.
+    assert g.add_event(2, 2, "CALL", None, cid, 2, None) == 0
+    assert g.intern_code("f.py", "g", 2) == 0
+    assert g.open_frame(None, 0, 0, 0, 2) == 0
+    g.close_frame(0, 0, "return")
+    g.add_output(0, "stdout", "late")
+    g.write_fingerprint(2, "abc", 1)
+    g.set_meta("incomplete", False)
+    assert g.late_writes == 7
+    t = Trace.open(tmp_path / "t.db")
+    assert len(t.events()) == 1 and not t.output_chunks()
+
+
+def test_daemon_thread_outliving_main_does_not_crash(sandbox):
+    (sandbox / "prog.py").write_text(DAEMON)
+    errors = []
+    old_hook = threading.excepthook
+    threading.excepthook = errors.append
+    try:
+        run_id, exit_status = boot.run_target(["prog.py"])
+        for th in threading.enumerate():
+            if th.name == "sensorium-daemon-test":
+                th.join(10)
+    finally:
+        threading.excepthook = old_hook
+    assert [a.exc_type.__name__ for a in errors] == []
+    assert exit_status == 0
+    assert (sandbox / "daemon-ran.txt").exists()   # it really did run late
+    t = _trace_of(run_id)
+    assert t.meta["incomplete"] is False
+    quals = {t.code(e.code_id).qualname for e in t.events(kind="CALL")}
+    assert "spin" in quals                         # the thread was recorded
+    assert "worker" not in quals                  # recorded up to the close
+
+
+def test_live_threads_at_teardown_are_reported(tmp_path):
+    run_id, trace, r = record_script(tmp_path, DAEMON)
+    assert r.returncode == 0
+    assert "still alive" in r.stderr
+    assert Trace.open(trace).meta["incomplete"] is False
+
+
+# -- two runs in one process (what `refocus` will do) ----------------------
+def test_run_target_twice_in_one_process(sandbox):
+    (sandbox / "one.py").write_text(SPAWNS)
+    (sandbox / "two.py").write_text(SPAWNS_TWICE)
+    id1, st1 = boot.run_target(["one.py"])
+    id2, st2 = boot.run_target(["two.py"], refocus_of=id1)
+    assert (st1, st2) == (0, 0)
+    assert boot._audit_installs == 1        # one hook ever, not one per run
+    assert boot._audit_sink is None         # disarmed between runs
+    assert len(_trace_of(id1).meta["children"]) == 1
+    assert len(_trace_of(id2).meta["children"]) == 2
+    assert _trace_of(id2).meta["refocus_of"] == id1
+    assert _trace_of(id1).meta["incomplete"] is False
+
+
+def test_run_target_restores_interpreter_state(sandbox):
+    (sandbox / "prog.py").write_text(HELLO)
+    before = (list(sys.argv), list(sys.path),
+              sys.stdin, sys.stdout, sys.stderr)
+    boot.run_target(["prog.py", "extra-arg"])
+    assert list(sys.argv) == before[0]
+    assert list(sys.path) == before[1]
+    assert (sys.stdin, sys.stdout, sys.stderr) == before[2:]
+
+
+# -- target resolution ----------------------------------------------------
+def test_module_target_runs(tmp_path):
+    pkg = tmp_path / "mypkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    (pkg / "__main__.py").write_text(
+        "def main():\n    print('from module')\nmain()\n")
+    r = run_cli(["run", "--", "-m", "mypkg"], cwd=tmp_path,
+                sensorium_dir=tmp_path / "sdir")
+    assert r.returncode == 0 and "from module" in r.stdout
+
+
+def test_console_script_target_resolves(tmp_path):
+    assert callable(boot.resolve_target(["pytest", "--version"]))
+
+
+def test_git_info_reports_sha_and_dirty_hash(tmp_path):
+    def git(*a):
+        subprocess.run(["git", *a], cwd=tmp_path, check=True,
+                       capture_output=True)
+    assert boot.git_info(tmp_path) == {"git_sha": None, "git_dirty_hash": None}
+    git("init", "-q")
+    (tmp_path / "a.txt").write_text("one")
+    git("add", "a.txt")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "one")
+    clean = boot.git_info(tmp_path)
+    assert len(clean["git_sha"]) == 40 and len(clean["git_dirty_hash"]) == 16
+    (tmp_path / "a.txt").write_text("two")
+    dirty = boot.git_info(tmp_path)
+    assert dirty["git_sha"] == clean["git_sha"]
+    assert dirty["git_dirty_hash"] != clean["git_dirty_hash"]
+
+
+def test_target_argv_is_visible_to_the_program(tmp_path):
+    src = "import sys\nprint('ARGV', sys.argv[1:])\n"
+    run_id, trace, r = record_script(tmp_path, src, argv=["a", "b"])
+    assert "ARGV ['a', 'b']" in r.stdout
+    assert Trace.open(trace).meta["argv"] == ["prog.py", "a", "b"]

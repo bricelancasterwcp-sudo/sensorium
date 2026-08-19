@@ -1,5 +1,8 @@
 """Test helpers: in-process recording against real sys.monitoring."""
 import importlib.util
+import os
+import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -46,3 +49,26 @@ def record_inproc_full(tmp_path, source, focus=(), window=None, entry="main"):
 def record_inproc(tmp_path, source, focus=(), window=None, entry="main"):
     trace, err, _ = record_inproc_full(tmp_path, source, focus, window, entry)
     return trace, err
+
+
+def run_cli(args, cwd, sensorium_dir, stdin_text=None):
+    """Run the real CLI in a subprocess, against a disposable trace store."""
+    env = dict(os.environ, SENSORIUM_DIR=str(sensorium_dir))
+    return subprocess.run(
+        [sys.executable, "-m", "sensorium", *args],
+        cwd=cwd, env=env, capture_output=True, text=True, input=stdin_text)
+
+
+def record_script(tmp_path, source, extra=(), name="prog.py", argv=(),
+                  stdin_text=None):
+    """Record `source` via `sensorium run`; returns (run_id, trace, result)."""
+    tmp_path = Path(tmp_path)
+    tmp_path.mkdir(parents=True, exist_ok=True)   # tests pass tmp_path / "b"
+    (tmp_path / name).write_text(source)
+    sdir = tmp_path / "sdir"
+    r = run_cli(["run", *extra, "--", name, *argv], cwd=tmp_path,
+                sensorium_dir=sdir, stdin_text=stdin_text)
+    m = re.search(r"^run: (\S+)$", r.stdout, re.M)
+    run_id = m.group(1) if m else None
+    trace = sdir / "traces" / f"{run_id}.db" if run_id else None
+    return run_id, trace, r
