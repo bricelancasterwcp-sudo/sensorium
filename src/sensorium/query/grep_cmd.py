@@ -73,8 +73,8 @@ def run(args) -> int:
         print(f"--limit must be >= 1 (got {args.limit}); "
               "there is no useful zero-row page")
         return 2
-    trace = Trace.open(paths.find_trace(args.run))
     after = parse_eref(args.after) if args.after else 0
+    trace = Trace.open(paths.find_trace(args.run))
     shown = total = 0
     scanned = considered = 0
     last = after

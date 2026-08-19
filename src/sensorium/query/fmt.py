@@ -74,9 +74,34 @@ def more_note(total: int, shown: int, hint: str) -> str | None:
     return f"... {total - shown} more; continue with: {hint}"
 
 
+class RefError(ValueError):
+    """A malformed event or frame reference given on the command line.
+
+    Raised rather than let `int()` escape: every command that takes a ref
+    (`grep --after`, `exceptions --after`, `flow --after`, `tree --root` /
+    `--around`, `frame f<id>`) used to die with an uncaught ValueError
+    traceback on a typo. `cli.main` turns this into a one-line refusal and
+    exit 2 -- a traceback is a poor answer for a human and an actively
+    confusing one for an agent parsing the output.
+    """
+
+
+def _parse_ref(s: str, sigil: str, kind: str) -> int:
+    """`e12` / `12` -> 12. Anything else is a user error, not a crash.
+
+    Only ONE leading sigil is accepted: `int(s.lstrip("ef"))` took "eef12"
+    and "fe12" as 12, which quietly answers a question nobody asked.
+    """
+    body = s[1:] if s[:1] == sigil else s
+    if not body.isdigit():
+        raise RefError(f"{s!r} is not {kind} reference; expected "
+                       f"{sigil}<id> such as {sigil}42")
+    return int(body)
+
+
 def parse_eref(s: str) -> int:
-    return int(s.lstrip("ef"))
+    return _parse_ref(s, "e", "an event")
 
 
 def parse_fref(s: str) -> int:
-    return int(s.lstrip("ef"))
+    return _parse_ref(s, "f", "a frame")

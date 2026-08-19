@@ -518,6 +518,10 @@ def run(args) -> int:
         print(f"--limit must be >= 1 (got {args.limit}); "
               "there is no useful zero-row page")
         return 2
+    # Parsed before any work: a trace with no raises returns early below, and
+    # accepting a malformed --after there would silently answer a different
+    # question than the one asked.
+    after = parse_eref(args.after) if args.after else 0
     trace = Trace.open(paths.find_trace(args.run))
     idx = Index.build(trace, trace.meta)
     _header(trace, idx)
@@ -528,7 +532,6 @@ def run(args) -> int:
             print("no RAISE events recorded (see INCOMPLETE above)")
         return 0
 
-    after = parse_eref(args.after) if args.after else 0
     scope = [r for r in idx.all_raises if r.id > after]
     skipped = len(idx.all_raises) - len(scope)
     if skipped:

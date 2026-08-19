@@ -1,6 +1,10 @@
+import pytest
+
+from sensorium import cli
 from sensorium.query import fmt
 from sensorium.store.reader import Trace
 from tests.helpers import record_script
+from tests.programs import CLEAN, record
 
 
 def test_fmt_scalars():
@@ -32,6 +36,45 @@ def test_fmt_args_caps_at_limit():
 def test_parse_refs():
     assert fmt.parse_eref("e12") == 12 and fmt.parse_eref("12") == 12
     assert fmt.parse_fref("f5") == 5
+
+
+def test_parse_refs_refuse_a_malformed_reference():
+    """A typo in a ref is a user error, and `int()` answers it with a
+    traceback -- a poor answer for a human and a confusing one for an agent
+    parsing the output. It also has to stay a ValueError subclass so nothing
+    that already guards these calls changes behaviour."""
+    for bad in ("xyz", "e", "", "e4x", "-3", "e 4", "eef12"):
+        with pytest.raises(fmt.RefError) as exc:
+            fmt.parse_eref(bad)
+        assert repr(bad) in str(exc.value) and "e<id>" in str(exc.value)
+    assert issubclass(fmt.RefError, ValueError)
+
+    with pytest.raises(fmt.RefError) as exc:
+        fmt.parse_fref("f9x")
+    assert "frame reference" in str(exc.value) and "f<id>" in str(exc.value)
+
+
+REF_FLAGS = [
+    (["grep", "RUN", "x", "--after", "xyz"], "event"),
+    (["exceptions", "RUN", "--after", "xyz"], "event"),
+    (["flow", "RUN", "--value", "1", "--after", "xyz"], "event"),
+    (["tree", "RUN", "--around", "xyz"], "event"),
+    (["tree", "RUN", "--root", "xyz"], "frame"),
+    (["frame", "RUN", "xyz"], "frame"),
+]
+
+
+@pytest.mark.parametrize("argv,kind", REF_FLAGS)
+def test_every_command_refuses_a_malformed_ref_cleanly(
+        tmp_path, monkeypatch, capsys, argv, kind):
+    """`parse_eref` is shared, so the hole was shared: three commands died
+    with an uncaught ValueError on a typo. One fix, one clean refusal."""
+    run_id = record(tmp_path, monkeypatch, CLEAN)
+    argv = [run_id if a == "RUN" else a for a in argv]
+    assert cli.main(argv) == 2
+    err = capsys.readouterr().err
+    assert "'xyz' is not a" in err and f"{kind} reference" in err
+    assert "Traceback" not in err
 
 
 def test_more_note():
