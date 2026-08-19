@@ -333,10 +333,10 @@ _SPAWN_SYSCALLS = ("os.posix_spawn", "_posixsubprocess.fork_exec")
 #   os.spawnv(...)          -> os.fork
 #   os.posix_spawn(...)     -> os.posix_spawn
 #
-# so `os.posix_spawn` is deliberately absent: it is how CPython implements
-# `subprocess.Popen` here, and listening to both counts every subprocess
-# twice. The cost is a known gap -- a DIRECT `os.posix_spawn` call is not
-# noticed -- which is recorded here rather than papered over. `os.exec*` is
+# so `os.posix_spawn` is absent from THIS table: it is how CPython implements
+# `subprocess.Popen` here, and listing it beside Popen would count every
+# subprocess twice. It is not unwatched -- it is counted in `_SPAWN_SYSCALLS`
+# below, a separate list that is never summed with this one. `os.exec*` is
 # absent for a different reason: it replaces this process rather than
 # starting a child, so there is no run left to attach the note to.
 _CHILD_EVENTS = {

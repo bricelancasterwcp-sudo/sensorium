@@ -95,7 +95,7 @@ process's environment resurrects whatever the original happened to carry -- a
 `SENSORIUM_DIR` -- and the target runs in-process, so the swap would hit the
 recorder too. But not restoring it is no excuse for not LOOKING: both traces
 store the full `env` dict, so `_env_state` diffs them and any non-volatile
-difference withholds the licence. `_VOLATILE_ENV` exists only to drop the
+difference withholds the licence. `_UNCOMPARED_ENV` exists only to drop the
 handful of shell-bookkeeping keys that change between any two consecutive
 commands; it is deliberately tiny, because every name on it is a name this
 tool has stopped checking.
@@ -138,11 +138,20 @@ from sensorium.store.reader import Trace
 # Shell bookkeeping that differs between any two consecutive commands and
 # says nothing about the program. Deliberately tiny: every name here is a
 # name refocus has stopped checking.
-_VOLATILE_ENV = frozenset({
+_UNCOMPARED_ENV = frozenset({
     "_",            # bash: the previous command's last argument
     "OLDPWD",
     "PWD",          # os.chdir does not update it; it names the calling shell
     "SHLVL",
+    # Not shell bookkeeping: the recorder's OWN variable, which
+    # `_pin_trace_store` rewrites from a relative path to the absolute form
+    # of the same directory before the target runs. The environment compared
+    # here is snapshotted AFTER that rewrite, so it is the environment the
+    # program actually executed under -- and this key is excluded rather
+    # than reported as a change the world made, because the change is ours.
+    # A program that reads SENSORIUM_DIR therefore goes unchecked, which is
+    # exactly why the name is printed rather than hidden behind a count.
+    "SENSORIUM_DIR",
 })
 # COLUMNS and LINES were on this list and are not any more. They are terminal
 # geometry, which most shells do not export at all and which changes only on
@@ -150,7 +159,7 @@ _VOLATILE_ENV = frozenset({
 # program that sizes its output by COLUMNS wrote 80 bytes in one run and 9000
 # in the other under a full licence. Every name above is a name this tool has
 # stopped checking, so the list stays as short as it can be, and the names
-# themselves are printed beside the count rather than left as "4 keys".
+# themselves are printed beside the count rather than left as "5 keys".
 
 # Printed on every verdict, and CATEGORICAL on purpose.
 #
@@ -175,7 +184,9 @@ _BLIND_SPOTS = (
     "  - any code outside the run's root: the stdlib, site-packages, "
     "installed dependencies, PYTHONPATH modules, and whatever this run's "
     "own --include/--exclude filtered out",
-    "  - the environment beyond the variables named as compared above",
+    "  - any environment variable this run did not compare; the ones it "
+    "skipped are named above, and nothing outside the environment is "
+    "compared at all",
     "  - the clock, the network, and everything else the machine did",
     "  - argument and return values, per-line state, timing, and the order "
     "threads ran in relative to one another: recorded, never compared",
@@ -346,7 +357,7 @@ def _source_state(meta: dict) -> tuple[str, str | None, str | None]:
 def _env_diff(was: dict, now: dict) -> list[str]:
     """Names of non-volatile variables whose values differ. Names only --
     values are never printed, because environments carry secrets."""
-    keys = (set(was) | set(now)) - _VOLATILE_ENV
+    keys = (set(was) | set(now)) - _UNCOMPARED_ENV
     return sorted(k for k in keys if was.get(k) != now.get(k))
 
 
@@ -367,12 +378,13 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
                 None)
     names = _env_diff(was, env)
     if not names:
-        compared = len((set(was) | set(env)) - _VOLATILE_ENV)
-        ignored = ", ".join(sorted(_VOLATILE_ENV))
-        return (f"env: unchanged ({compared} variables compared; ignored as "
-                f"volatile: {ignored})", None,
-                f"{compared} environment variable(s) unchanged, ignoring "
-                f"only {ignored}")
+        compared = len((set(was) | set(env)) - _UNCOMPARED_ENV)
+        ignored = ", ".join(sorted(_UNCOMPARED_ENV))
+        return (f"env: unchanged ({compared} variables compared; not "
+                f"compared: {ignored})", None,
+                f"{compared} environment variable(s) compared and unchanged "
+                f"in the environment the rerun executed under; not compared: "
+                f"{ignored}")
     shown = ", ".join(names[:8])
     if len(names) > 8:
         shown += f", +{len(names) - 8} more"
@@ -525,21 +537,27 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
         out.append(f"the two runs ended differently: exit {was} originally, "
                    f"exit {now} on the rerun")
     for label, trace in (("the original", orig), ("the rerun", new)):
-        # Two independent observations, because `subprocess.Popen` nests a
-        # spawn syscall and a single list would count it twice. Either being
-        # non-empty means a child was witnessed; neither being non-empty
-        # means only that none was NOTICED -- multiprocessing with
-        # spawn/forkserver is visible in the second and nowhere else.
-        spawns = trace.meta.get("spawn_syscalls") or 0
-        if spawns:
-            out.append(f"{label} made {spawns} low-level process-spawn "
-                       "syscall(s) (this is how multiprocessing's spawn and "
-                       "forkserver start a child); sensorium does not "
-                       "witness any of them")
-        kids = trace.meta.get("children") or []
-        if kids:
-            out.append(f"{label} spawned {len(kids)} subprocess(es), which "
-                       "sensorium does not witness at all")
+        meta = trace.meta
+        # Two independent observations of the same thing, reported as ONE
+        # caveat. `subprocess.Popen` nests a spawn syscall, so a single list
+        # would count every subprocess twice; two lists that are never summed
+        # avoid that, and either being non-empty answers the only question
+        # asked here -- was a child witnessed. Neither being non-empty means
+        # only that none was NOTICED, never that none ran.
+        if "spawn_syscalls" not in meta:
+            out.append(
+                f"{label} predates the spawn-syscall record, so a child "
+                "started through multiprocessing or a bare posix_spawn "
+                "would leave no trace here -- absence of the record is not "
+                "a record of absence")
+        kids = meta.get("children") or []
+        spawns = meta.get("spawn_syscalls") or 0
+        if kids or spawns:
+            named = (f"{len(kids)} named" if kids else "none named")
+            out.append(
+                f"{label} started at least one child process ({named}, "
+                f"{spawns} low-level spawn syscall(s) seen); sensorium does "
+                "not witness what any child did")
     return out
 
 
@@ -557,8 +575,8 @@ def _verified_facts(orig: Trace, new: Trace) -> list[str]:
     n = len(new.fingerprints())
     return [
         f"identical call shape across {n} compared fingerprint(s)",
-        "no thread started besides the main one, and none left running "
-        "when recording stopped",
+        "no thread started besides the main one through Python's own "
+        "threading/_thread, and none left running when recording stopped",
         "no child process witnessed, by any mechanism sensorium watches",
     ]
 
@@ -747,9 +765,13 @@ def run(args) -> int:
     if problem:
         return _refuse(orig_name, problem)
 
-    # Snapshot before the pin, pin before the chdir: see _pin_trace_store.
-    env = dict(os.environ)
+    # Pin first, THEN snapshot: the environment compared must be the one the
+    # target is executed with, not the one this process started with. The pin
+    # rewrites SENSORIUM_DIR, which is why that key is in _UNCOMPARED_ENV and
+    # named in the output -- snapshotting before the pin instead left the
+    # check describing an environment the program never saw.
     _pin_trace_store()
+    env = dict(os.environ)
     prev_cwd = os.getcwd()
     os.chdir(meta["cwd"])
     try:

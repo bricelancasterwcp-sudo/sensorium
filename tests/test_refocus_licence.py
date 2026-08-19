@@ -65,8 +65,14 @@ def test_refocus_grants_the_licence_when_every_check_passes(tmp_path):
     assert "  - identical call shape across 1 compared fingerprint(s)" \
         in r.stdout
     assert "  - 1 source file(s) unchanged by content" in r.stdout
-    assert "environment variable(s) unchanged, ignoring only" in r.stdout
-    assert "  - no child process witnessed" in r.stdout
+    assert ("environment variable(s) compared and unchanged in the "
+            "environment the rerun executed under") in r.stdout
+    assert ("  - no child process witnessed, by any mechanism sensorium "
+            "watches") in r.stdout
+    # the thread fact carries the same hedge as the child fact: what was
+    # verified is "none through Python's own threading", not "none at all"
+    assert ("no thread started besides the main one through Python's own "
+            "threading/_thread") in r.stdout
     assert "licence: WITHHELD" not in r.stdout
     assert "every signal sensorium can check agrees" not in r.stdout
     # a single-threaded run has no uncompared threads, and must not claim
@@ -165,7 +171,10 @@ def test_refocus_does_not_report_its_own_trace_store_rewrite(tmp_path):
                 sensorium_dir="../sdir")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "env: unchanged" in r.stdout
-    assert "SENSORIUM_DIR" not in r.stdout
+    # SENSORIUM_DIR is excluded from the comparison rather than reported as
+    # a change the world made -- but it is NAMED, because a program that
+    # reads it goes unchecked and the reader has to be able to see that
+    assert "not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _" in r.stdout
 
 
 def test_refocus_ignores_volatile_shell_variables(tmp_path, monkeypatch):
@@ -252,7 +261,7 @@ def test_blind_spots_name_the_gaps_the_source_check_cannot_reach(tmp_path):
     assert "an empty list is NOT evidence that none ran" in blind
     assert "any file the program read or wrote" in blind
     assert "any code outside the run's root" in blind
-    assert "the environment beyond the variables named as compared" in blind
+    assert "any environment variable this run did not compare" in blind
     assert "the clock, the network" in blind
     assert "threading/_thread" in blind
     # ...and the source line itself does not read as a blanket all-clear
@@ -309,7 +318,8 @@ def test_refocus_withholds_the_licence_when_a_subprocess_ran(tmp_path, src,
     assert r.returncode == 0, r.stdout + r.stderr
     assert "refocus verdict: MATCH" in r.stdout
     assert "licence: WITHHELD" in r.stdout
-    assert "subprocess(es), which sensorium does not witness" in r.stdout
+    assert "started at least one child process" in r.stdout
+    assert "sensorium does not witness what any child did" in r.stdout
     assert "answers about the original run" not in r.stdout
 
 
@@ -676,8 +686,8 @@ def test_refocus_withholds_when_multiprocessing_spawned_a_child(tmp_path):
 
     assert "refocus verdict: MATCH" in r.stdout
     assert "licence: WITHHELD" in r.stdout
-    assert "low-level process-spawn syscall(s)" in r.stdout
-    assert "multiprocessing's spawn and forkserver" in r.stdout
+    assert "started at least one child process (none named," in r.stdout
+    assert "low-level spawn syscall(s) seen)" in r.stdout
     assert "licence: verified against" not in r.stdout
 
 
@@ -708,7 +718,33 @@ def test_the_ignored_volatile_keys_are_named_not_counted(tmp_path):
     run_id, sdir = rec(tmp_path, LOOP)
     r = refocus(sdir, run_id, "--focus", "prog:accumulate")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "ignored as volatile: OLDPWD, PWD, SHLVL, _" in r.stdout
+    # the env LINE names them, not merely the licence fact further down:
+    # asserting against the whole of stdout let one stand in for the other
+    env_line = next(ln for ln in r.stdout.splitlines()
+                    if ln.startswith("env: "))
+    assert "not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _" in env_line
+    fact = next(ln for ln in r.stdout.splitlines()
+                if "environment variable(s) compared and unchanged" in ln)
+    assert "not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _" in fact
     assert "volatile shell keys ignored" not in r.stdout      # the old count
+    assert "ignoring only" not in r.stdout       # an exhaustive-sounding claim
     # COLUMNS and LINES are no longer among them
     assert "COLUMNS" not in r.stdout and "LINES" not in r.stdout
+
+
+def test_refocus_withholds_when_the_spawn_record_predates_the_check(tmp_path):
+    """A trace recorded before spawn syscalls were counted would otherwise
+    read as "no child process witnessed, by any mechanism sensorium watches"
+    -- the strongest of the five verified facts, granted on a key that was
+    never written. The thread bookkeeping already handles this shape; these
+    must agree."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    drop_meta(sdir / "traces" / f"{run_id}.db", "spawn_syscalls")
+
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout
+    assert "licence: WITHHELD" in r.stdout
+    assert "predates the spawn-syscall record" in r.stdout
+    assert "absence of the record is not a record of absence" in r.stdout
+    assert "licence: verified against" not in r.stdout

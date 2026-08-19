@@ -464,6 +464,7 @@ def synthetic(sdir, run_id, *, argv=("prog.py",), cwd=None, late_writes=0,
     w.set_meta("live_threads", [])
     w.set_meta("threads_started", 0)
     w.set_meta("audit_errors", 0)
+    w.set_meta("spawn_syscalls", 0)
     if main_thread_ident is not None:
         w.set_meta("main_thread_ident", main_thread_ident)
     c = w.intern_code("/tmp/prog.py", "main", 1)
