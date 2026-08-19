@@ -15,7 +15,8 @@ from sensorium import cli, paths
 from sensorium.store.reader import Trace
 from tests.programs import (
     CLEANUP_RAISES_ITS_OWN, IN_FLIGHT_PAST_RETENTION, RETENTION_NOISE_COUNT,
-    STASH_AND_RERAISE, STASH_NOISE_RERAISE, STASH_PAST_RETENTION, record)
+    STASH_AND_RERAISE, STASH_NOISE_RERAISE, STASH_PAST_RETENTION, exc_payload,
+    record, synthetic)
 
 
 def _verdict_under(out: str, event_id: int) -> str:
@@ -169,3 +170,39 @@ def test_exceptions_never_calls_an_escaping_object_swallowed(
             assert "never re-raised" not in verdict, (name, verdict)
 
 
+
+
+def test_exceptions_reused_address_with_a_different_type_is_still_a_swallow(
+        tmp_path, monkeypatch, capsys):
+    """The other half of the address check, and the reason it is not on the
+    address alone: a type never changes, so a later raise of a DIFFERENT type
+    at this address cannot be this object however far the recorder's memory
+    ran. Hedging there would trade a false accusation for a needless refusal.
+
+    Synthetic because the recorder pins an address for as long as it remembers
+    the object, so a natural trace only recycles one after the bound is
+    exceeded -- and which address CPython then hands out is not a thing to
+    build an assertion on."""
+    w = synthetic(tmp_path, monkeypatch)
+    c_risky = w.intern_code("/tmp/prog.py", "risky", 1)
+    c_main = w.intern_code("/tmp/prog.py", "main", 8)
+    e_call_main = w.add_event(0, 1, "CALL", None, c_main, 8, {"args": {}})
+    f_main = w.open_frame(None, c_main, e_call_main, 0, 1)
+    val = exc_payload("ValueError", "boom", 999, serial=1)
+    run = exc_payload("RuntimeError", "later", 999, serial=2)   # same address
+    w.add_event(0, 1, "RAISE", f_main, c_risky, 3, {"exc": val})
+    hand = w.add_event(0, 1, "HANDLED", f_main, c_main, 9, {"exc": val})
+    w.add_event(0, 1, "RAISE", f_main, c_risky, 11, {"exc": run})
+    w.add_event(0, 1, "HANDLED", f_main, c_main, 12, {"exc": run})
+    e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
+    w.close_frame(f_main, e_ret, "return")
+    w.set_meta("incomplete", False)
+    w.set_meta("exit_status", 0)
+    w.set_meta("uncaught", None)
+    w.close()
+
+    assert cli.main(["exceptions", "20260101-000000-abcdef"]) == 0
+    out = capsys.readouterr().out
+    assert f"SWALLOWED at e{hand} main L9" in out
+    assert "different recorder identity" not in out
+    assert "dispositions: swallowed 2" in out

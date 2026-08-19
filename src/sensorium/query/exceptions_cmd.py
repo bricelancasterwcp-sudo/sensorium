@@ -131,7 +131,7 @@ def exc_key(exc: dict, thread_id=None) -> tuple:
     return ("legacy", exc["type"], exc["msg"], exc["oid"])
 
 
-def could_be_same(a: dict, b: dict, exact: bool) -> bool:
+def could_be_same(a: dict, b: dict) -> bool:
     """Whether `b` could be `a`'s object recorded under a lost link.
 
     A serial proves that two rows ARE one object. It cannot prove they are
@@ -142,11 +142,12 @@ def could_be_same(a: dict, b: dict, exact: bool) -> bool:
     a necessary condition for sameness and the cheapest sound way to ask "may
     these be one object?".
 
-    False on a legacy trace, whose identity already includes the address, and
-    false for rows the recorder did link (equal serials are handled as the
-    proof they are, before this is ever asked).
+    Equal serials say the recorder did link the two rows, and are handled as
+    the proof they are before this is ever asked. Two legacy rows both answer
+    None there, which is why this is dormant on a legacy trace -- whose
+    identity already includes the address anyway.
     """
-    return (exact and a["oid"] == b["oid"] and a["type"] == b["type"]
+    return (a["oid"] == b["oid"] and a["type"] == b["type"]
             and a.get("serial") != b.get("serial"))
 
 
@@ -169,7 +170,7 @@ class Index:
     exit_status: object
     incomplete: bool
     exact: bool                 # every RAISE carries a recorder serial
-    by_addr: dict               # (oid, type) -> RAISE events, exact traces only
+    by_addr: dict               # (oid, type) -> the RAISE events at it
 
     @classmethod
     def build(cls, trace, meta: dict) -> "Index":
@@ -179,11 +180,9 @@ class Index:
         raises: dict = {}
         by_addr: dict = {}
         for r in all_raises:
-            raises.setdefault(
-                exc_key(r.payload["exc"], r.thread_id), []).append(r)
-            if exact:
-                exc = r.payload["exc"]
-                by_addr.setdefault((exc["oid"], exc["type"]), []).append(r)
+            exc = r.payload["exc"]
+            raises.setdefault(exc_key(exc, r.thread_id), []).append(r)
+            by_addr.setdefault((exc["oid"], exc["type"]), []).append(r)
         handled: dict = {}
         for h in trace.events(kind="HANDLED"):
             exc = (h.payload or {}).get("exc")
@@ -213,8 +212,7 @@ class Index:
         """
         exc = r.payload["exc"]
         return [x for x in self.by_addr.get((exc["oid"], exc["type"]), ())
-                if x.id > r.id
-                and could_be_same(exc, x.payload["exc"], self.exact)]
+                if x.id > r.id and could_be_same(exc, x.payload["exc"])]
 
 
 def _at(trace, e) -> str:
@@ -477,14 +475,13 @@ def classify(trace, r, idx: Index) -> Disposition:
             return _still_in_flight(trace, idx, h, frame)
 
     # 5. ...or with something the recorder no longer links to this exception,
-    #    which on an exact trace can only be a lost link or a reused address.
+    #    which can only be a lost link or a reused address.
     #    Read as "some other exception", it would deny that this one left the
     #    frame -- the same false claim rule 2 guards against, from the far
     #    side. Ranked below rule 4 so a provable match always wins.
     for h, frame in pairs:
         if (frame is not None and frame.unwind_exc is not None
-                and could_be_same(r.payload["exc"], frame.unwind_exc,
-                                  idx.exact)):
+                and could_be_same(r.payload["exc"], frame.unwind_exc)):
             return _maybe_still_in_flight(trace, h, frame)
 
     # 6. Handled, and the frame then died of something else. Translation and

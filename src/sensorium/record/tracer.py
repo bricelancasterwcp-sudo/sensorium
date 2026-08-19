@@ -146,12 +146,15 @@ class _ExcRefs:
         self.minted = 0                # monotonic per-thread serial source
 
     def serial_of(self, exc) -> int | None:
-        """This thread's serial for `exc`, or None if it holds none."""
+        """This thread's serial for `exc`, or None if it holds none.
+
+        `id(exc)` alone is a sound key here, with no `is` re-check needed:
+        object and serial go into the table together and only ever leave
+        together, so while a key is present this table holds that object and
+        no other object can have its address.
+        """
         held = self.serials.get(id(exc))
-        # `held[0] is exc` can only be false if the strong reference above was
-        # somehow dropped while its id stayed in the table; keeping the test
-        # makes that cost a fresh serial rather than a borrowed identity.
-        return held[1] if held is not None and held[0] is exc else None
+        return held[1] if held is not None else None
 
     def identify(self, exc) -> int:
         """`exc`'s serial, minting and remembering one if it is new."""

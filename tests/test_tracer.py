@@ -1,7 +1,7 @@
 import sys
 import threading
 
-from sensorium.record.tracer import _RETAIN_MAX
+from sensorium.record.tracer import _RETAIN_MAX, _ExcRefs
 from tests.helpers import installed_tracer, record_inproc
 
 ADD = """
@@ -536,6 +536,22 @@ def test_retention_is_bounded(tmp_path):
         held, minted = len(refs.serials), refs.minted
     assert minted >= _RETAIN_MAX * 2, "the bound was never approached"
     assert held <= _RETAIN_MAX
+
+
+def test_retention_never_forgets_the_exception_in_flight():
+    """The bound drops the oldest entry -- except the exception this thread is
+    propagating, which is the one whose identity a verdict is most likely to
+    turn on. (An exception paused inside a `finally` is not that: its
+    EXCEPTION_HANDLED already cleared `last_exc`, which is why the query side
+    still has to hedge a link it cannot make.)"""
+    refs = _ExcRefs()
+    in_flight = ValueError("in flight")
+    refs.last_exc = in_flight
+    serial = refs.identify(in_flight)
+    for i in range(_RETAIN_MAX * 2):
+        refs.identify(ValueError(f"other {i}"))
+    assert len(refs.serials) <= _RETAIN_MAX
+    assert refs.serial_of(in_flight) == serial
 
 
 def test_uninstall_drops_retained_exceptions_on_every_live_thread(tmp_path):
