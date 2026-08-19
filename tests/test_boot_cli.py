@@ -650,3 +650,24 @@ def test_audit_records_exact_strs_not_the_program_s_own_objects():
     out = boot._as_text(Live("real"))
     assert type(out) is str and out == "lie"
     assert type(boot._as_text(b"bytes")) is str
+
+
+def test_audit_hook_absorbs_even_a_base_exception(monkeypatch):
+    """The hook calls `isinstance`, `str()` and `__iter__` on the program's
+    own objects, so a dunder may raise ANYTHING -- and an audit hook that
+    raises breaks the operation being audited, which is the recorder killing
+    what it observes. `except Exception` left that half open."""
+    class Cloaked:
+        @property
+        def __class__(self):
+            raise KeyboardInterrupt("not an Exception")
+
+    children, threads, errors = [], [], []
+    monkeypatch.setattr(boot, "_audit_sink", children)
+    monkeypatch.setattr(boot, "_audit_threads", threads)
+    monkeypatch.setattr(boot, "_audit_errors", errors)
+
+    boot._audit("os.system", (Cloaked(),))     # must not propagate
+
+    assert children == [], "a failed extraction must not record a bogus child"
+    assert len(errors) == 1, "swallowed without a trace"

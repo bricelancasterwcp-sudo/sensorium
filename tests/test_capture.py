@@ -674,3 +674,49 @@ def test_a_line_whose_locals_could_not_be_read_says_so(tmp_path):
     assert _fmt_line_tail({"deltas": {}, "unread": ["locals"]}) \
         == "  <unread: locals>"
     assert _fmt_line_tail({"deltas": {}}) == ""
+
+
+# 7. A step whose locals could not be read establishes NOTHING. It must not
+#    be treated as a step where every name vanished, or the next readable
+#    step reports names as newly changed that never changed at all.
+FLAKY_LOCALS_MAPPING = """
+class Flaky(dict):
+    calls = 0
+    def items(self):
+        Flaky.calls += 1
+        if Flaky.calls == 4:            # the CALL, then L1, L2, and THIS
+            raise ValueError("INJECTED-items-once")
+        return dict.items(self)
+
+SRC = "a = 1\\nb = 2\\nc = 3\\nd = 4\\n"
+
+def run_exec():
+    exec(compile(SRC, __file__, "exec"), {}, Flaky())
+    return "ok"
+
+def main():
+    print("flaky", run_exec())
+
+main()
+"""
+
+
+def test_an_unreadable_step_does_not_make_the_next_one_over_report(
+        tmp_path, monkeypatch, capsys):
+    """`prev` is deliberately left in place when a step cannot be read.
+    Clearing it would make every name look newly bound at the next readable
+    line -- a confident claim about a line where nothing of the sort
+    happened, built on a step the recorder never saw."""
+    run_id, _out = _runs_clean(tmp_path, monkeypatch, capsys,
+                               FLAKY_LOCALS_MAPPING, "flaky ok",
+                               extra=("--focus", "prog"))
+    assert cli.main(["grep", run_id, ""]) == 0
+    rows = capsys.readouterr().out.splitlines()
+    unread = [r for r in rows if "LINE" in r and "<unread: locals>" in r]
+    assert len(unread) == 1, rows            # exactly one step went unread
+
+    # The step after it reports only what changed since the last step that
+    # WAS read -- `b` and `c` -- and not `a`, which was already reported.
+    after = rows[rows.index(unread[0]) + 1]
+    assert "b=2" in after and "c=3" in after, after
+    assert "a=1" not in after, after
