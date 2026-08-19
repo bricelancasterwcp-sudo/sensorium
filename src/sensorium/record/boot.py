@@ -131,6 +131,10 @@ class _Tee:
         return getattr(self._orig, name)
 
 
+_MARK_ON_CALL = ("read", "readline", "readlines", "readinto", "read1")
+_MARK_ON_ACCESS = ("buffer", "detach")
+
+
 class _StdinProxy:
     """Mark the run as having consumed stdin, so replay knows it is not pure.
 
@@ -138,6 +142,10 @@ class _StdinProxy:
     `input()` on a real tty is served by the readline fast path against fd 0
     and does not touch this proxy; piped and redirected stdin, which is what
     a recorded run almost always has, does.
+
+    Everything else about the stream must behave exactly as it would without
+    the recorder -- an instrument that changes the program it observes is
+    worse than no instrument.
     """
 
     def __init__(self, orig) -> None:
@@ -151,14 +159,38 @@ class _StdinProxy:
         return inner
 
     def __getattr__(self, name):
-        attr = getattr(self._orig, name)
-        if name in ("read", "readline", "readlines"):
+        attr = getattr(self._orig, name)     # raises first: absent is not use
+        if name in _MARK_ON_CALL:
             return self._marking(attr)
+        if name in _MARK_ON_ACCESS:
+            # Handing out the binary layer forfeits the ability to see the
+            # read, so the access itself counts. Over-marking is the safe
+            # direction: it costs a refused refocus, where a missed mark
+            # costs a MATCH verdict on a run that was never repeatable.
+            self.consumed = True
         return attr
 
+    # Implicit special-method lookup goes to the type, not to __getattr__, so
+    # every dunder a program might use on a stream is spelled out here. A
+    # missing one is not a missed mark -- it is a TypeError in a program that
+    # ran fine without the recorder.
     def __iter__(self):
         self.consumed = True
-        return iter(self._orig)
+        return self               # a file is its own iterator; so is this
+
+    def __next__(self):
+        self.consumed = True
+        return next(self._orig)
+
+    def __enter__(self):
+        self._orig.__enter__()
+        return self               # never the raw stream: reads must stay seen
+
+    def __exit__(self, *exc_info):
+        return self._orig.__exit__(*exc_info)
+
+    def __repr__(self) -> str:
+        return repr(self._orig)   # the instrument does not announce itself
 
 
 # -- writes from threads that outlive the target ---------------------------
@@ -177,14 +209,17 @@ class _LateWriteGuard:
     that thread.)
 
     Dropping is the only available answer -- the database has to close, and
-    the thread may run forever -- so `run_target` says out loud which threads
-    were still alive when recording stopped.
+    the thread may run forever -- so nothing is dropped quietly: `seal()`
+    stops accepting writes while the connection is still open, which is what
+    lets the drop count reach `late_writes` in the run metadata, and
+    `run_target` reports both that count and the threads still alive.
     """
 
     def __init__(self, writer: TraceWriter) -> None:
         self._w = writer
         self._lock = threading.Lock()
         self._sealed = False
+        self._closed = False
         self.late_writes = 0
 
     @property
@@ -219,11 +254,22 @@ class _LateWriteGuard:
     def write_fingerprint(self, *a, **k):
         return self._call("write_fingerprint", *a, **k)
 
+    def seal(self) -> None:
+        """Stop accepting writes; the connection stays open to finalize."""
+        with self._lock:
+            self._sealed = True
+
+    def set_meta_final(self, key, value) -> None:
+        """Write metadata after the seal: the finalizer is not a late write."""
+        with self._lock:
+            if not self._closed:
+                self._w.set_meta(key, value)
+
     def close(self) -> None:
         with self._lock:
-            if self._sealed:
+            if self._closed:
                 return
-            self._sealed = True
+            self._sealed = self._closed = True
             self._w.close()
 
 
@@ -249,10 +295,26 @@ def _audit(event, args) -> None:
         if sink is None:
             return
         cmd = args[1] or []
-        sink.append([cmd] if isinstance(cmd, (str, bytes))
-                    else [str(a) for a in cmd][:8])
+        if isinstance(cmd, (str, bytes, os.PathLike)):
+            cmd = [cmd]           # a bare command line, as Windows reports it
+        sink.append([_as_text(a) for a in cmd][:8])
     except Exception:
         pass          # an audit hook that raises breaks the audited operation
+
+
+def _as_text(arg) -> str:
+    """Every recorded argument must be a str, or json.dumps kills the run.
+
+    `Popen` takes bytes anywhere a str is allowed -- `Popen(b"...",
+    shell=True)` reaches the hook as `['/bin/sh', '-c', b'...']` -- and
+    `str(b"x")` would record the literal `"b'x'"`, so decode rather than
+    stringify. `db.set_meta` json-encodes `children` inside the finalizer,
+    which runs before the writer closes: an unserializable entry there aborts
+    finalization, leaks the connection, and masks the program's exit status.
+    """
+    if isinstance(arg, bytes):
+        return arg.decode("utf-8", "replace")
+    return str(arg)
 
 
 def _arm_audit(sink: list) -> None:
@@ -309,13 +371,15 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
 
 def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
                    truncated_count) -> None:
-    w.set_meta("uncaught", uncaught)
-    w.set_meta("stdin_consumed", stdin_consumed)
-    w.set_meta("children", children)
-    w.set_meta("truncated_count", truncated_count)
-    w.set_meta("exit_status", exit_status)
-    w.set_meta("end_ts", time.time())
-    w.set_meta("incomplete", False)
+    """Close out the run. Runs after `w.seal()`, hence `set_meta_final`."""
+    w.set_meta_final("uncaught", uncaught)
+    w.set_meta_final("stdin_consumed", stdin_consumed)
+    w.set_meta_final("children", children)
+    w.set_meta_final("truncated_count", truncated_count)
+    w.set_meta_final("exit_status", exit_status)
+    w.set_meta_final("end_ts", time.time())
+    w.set_meta_final("late_writes", w.late_writes)   # read as late as possible
+    w.set_meta_final("incomplete", False)
 
 
 # -- running ---------------------------------------------------------------
@@ -329,15 +393,25 @@ def _exit_status_of(exc: SystemExit) -> int:
     return 1
 
 
-def _warn_live_threads() -> None:
-    others = [t for t in threading.enumerate()
-              if t is not threading.current_thread() and t.is_alive()]
-    if not others:
-        return
-    names = ", ".join(sorted(t.name for t in others)[:4])
-    print(f"sensorium: {len(others)} thread(s) still alive when recording "
-          f"stopped ({names}); anything they run after this point is not in "
-          "the trace.", file=sys.stderr)
+def _live_thread_names() -> list[str]:
+    return [t.name for t in threading.enumerate()
+            if t is not threading.current_thread() and t.is_alive()]
+
+
+def _recording_gaps(live: list[str], dropped: int) -> str | None:
+    """Say what the trace does not contain. Silence would be the failure."""
+    parts = []
+    if live:
+        names = ", ".join(sorted(live)[:4])
+        parts.append(f"{len(live)} thread(s) still alive when recording "
+                     f"stopped ({names}); anything they run after this point "
+                     "is not in the trace")
+    if dropped:
+        parts.append(f"{dropped} trace write(s) arrived after the recorder "
+                     "stopped accepting them and were dropped")
+    if not parts:
+        return None
+    return "sensorium: " + "; ".join(parts) + "."
 
 
 def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
@@ -379,11 +453,17 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
         _disarm_audit()
         sys.stdin, sys.stdout, sys.stderr, sys.argv = saved[:4]
         sys.path[:] = saved[4]
-        _warn_live_threads()
-        _finalize_meta(
-            w, exit_status=exit_status, uncaught=uncaught,
-            stdin_consumed=stdin_proxy.consumed, children=children,
-            truncated_count=(capture.capture_stats["truncated"]
-                             - truncated_before))
-        w.close()
+        w.seal()                       # in-flight callbacks stop writing here
+        live = _live_thread_names()
+        try:
+            _finalize_meta(
+                w, exit_status=exit_status, uncaught=uncaught,
+                stdin_consumed=stdin_proxy.consumed, children=children,
+                truncated_count=(capture.capture_stats["truncated"]
+                                 - truncated_before))
+        finally:
+            w.close()                  # never skipped: no leaked connection
+            gaps = _recording_gaps(live, w.late_writes)
+            if gaps:
+                print(gaps, file=sys.stderr)
     return run_id, exit_status

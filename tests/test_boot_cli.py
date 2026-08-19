@@ -1,4 +1,6 @@
 """Booting a target under recording, run metadata, and the `run` command."""
+import io
+import json
 import subprocess
 import sys
 import threading
@@ -46,6 +48,29 @@ line = input()
 print("got", line)
 """
 
+NEXT_STDIN = """
+import sys
+next(sys.stdin)                    # skip the header: the standard idiom
+print("rest:", sys.stdin.read().strip())
+"""
+
+ITER_STDIN = """
+import sys
+for line in sys.stdin:
+    print("line:", line.strip())
+"""
+
+BINARY_STDIN = """
+import sys
+print("bytes:", len(sys.stdin.buffer.read()))
+"""
+
+SPAWNS_BYTES = """
+import subprocess
+subprocess.run(b"exit 0", shell=True)
+print("done")
+"""
+
 # A daemon thread parked inside a monitoring callback (capture calls the
 # argument's __repr__) when the target's main function returns: its trace
 # writes land after the writer has closed.
@@ -80,7 +105,7 @@ META_CONTRACT = {
     "run_id", "argv", "cwd", "env", "env_hash", "python", "git_sha",
     "git_dirty_hash", "focus", "include", "exclude", "window", "caps",
     "start_ts", "end_ts", "exit_status", "uncaught", "stdin_consumed",
-    "children", "truncated_count", "incomplete",
+    "children", "truncated_count", "incomplete", "late_writes",
 }
 
 
@@ -140,11 +165,99 @@ def test_child_processes_listed_not_witnessed(tmp_path):
     assert len(Trace.open(trace).meta["children"]) == 1
 
 
+def test_bytes_popen_command_is_decoded_not_stringified(tmp_path):
+    run_id, trace, r = record_script(tmp_path, SPAWNS_BYTES)
+    assert r.returncode == 0, r.stderr
+    m = Trace.open(trace).meta
+    assert m["children"] == [["/bin/sh", "-c", "exit 0"]]   # not "b'exit 0'"
+    assert m["incomplete"] is False                         # finalization ran
+
+
+def test_every_recorded_child_command_is_json_serializable(tmp_path):
+    """Whatever lands in `children` must survive db.set_meta's json.dumps:
+    a TypeError there aborts _finalize_meta and takes the run down with it."""
+    sink = []
+    boot._audit_sink = sink
+    try:
+        for args in ((None, b"exit 0", None, None),          # bare bytes
+                     (None, "exit 0", None, None),           # bare str
+                     (None, [b"/bin/ls", b"-l"], None, None),
+                     (None, ["/bin/ls", Path("/tmp")], None, None),
+                     (None, [b"/bin/ls", 7], None, None),
+                     (None, None, None, None)):
+            boot._audit("subprocess.Popen", args)
+    finally:
+        boot._audit_sink = None
+    assert json.loads(json.dumps(sink)) == sink
+    assert all(isinstance(a, str) for entry in sink for a in entry)
+    assert sink[0] == ["exit 0"] and sink[2] == ["/bin/ls", "-l"]
+
+
 def test_stdin_consumption_flagged(tmp_path):
     run_id, trace, r = record_script(tmp_path, READS_STDIN, stdin_text="x\n")
     assert Trace.open(trace).meta["stdin_consumed"] is True
     run_id2, trace2, _ = record_script(tmp_path / "b", HELLO)
     assert Trace.open(trace2).meta["stdin_consumed"] is False
+
+
+def test_next_on_stdin_behaves_as_it_does_unrecorded(tmp_path):
+    """`next(sys.stdin)` must not become a TypeError under recording."""
+    run_id, trace, r = record_script(tmp_path, NEXT_STDIN,
+                                     stdin_text="head\nbody\n")
+    assert r.returncode == 0, r.stderr
+    assert "rest: body" in r.stdout
+    assert Trace.open(trace).meta["stdin_consumed"] is True
+
+
+def test_stdin_iteration_behaves_as_it_does_unrecorded(tmp_path):
+    run_id, trace, r = record_script(tmp_path, ITER_STDIN, stdin_text="a\nb\n")
+    assert r.returncode == 0, r.stderr
+    assert "line: a" in r.stdout and "line: b" in r.stdout
+    assert Trace.open(trace).meta["stdin_consumed"] is True
+
+
+def test_binary_stdin_read_marks_consumed(tmp_path):
+    """A false negative here lets Task 15 claim MATCH on an unrepeatable
+    run, which is the tool asserting something it cannot support."""
+    run_id, trace, r = record_script(tmp_path, BINARY_STDIN,
+                                     stdin_text="abc\n")
+    assert r.returncode == 0, r.stderr
+    assert "bytes: 4" in r.stdout
+    assert Trace.open(trace).meta["stdin_consumed"] is True
+
+
+def test_stdin_proxy_marks_every_consuming_path():
+    def text():
+        return boot._StdinProxy(io.TextIOWrapper(io.BytesIO(b"a\nb\n")))
+
+    for name, use in {
+            "read": lambda f: f.read(),
+            "readline": lambda f: f.readline(),
+            "readlines": lambda f: f.readlines(),
+            "iter": lambda f: next(iter(f)),
+            "next": lambda f: next(f),
+            "buffer": lambda f: f.buffer,
+            "detach": lambda f: f.detach()}.items():
+        p = text()
+        use(p)
+        assert p.consumed is True, name
+    for name, use in {"read1": lambda f: f.read1(2),
+                      "readinto": lambda f: f.readinto(bytearray(2))}.items():
+        p = boot._StdinProxy(io.BytesIO(b"abc"))
+        use(p)
+        assert p.consumed is True, name
+    p = text()
+    with p as f:
+        assert f is p          # not the raw stream, or reads go unmarked
+        f.readline()
+    assert p.consumed is True
+    p = text()                 # control: inspection is not consumption
+    assert (p.encoding, p.closed, p.isatty(), repr(p)) and p.consumed is False
+
+
+def test_iterating_stdin_yields_the_same_lines_as_the_raw_stream():
+    p = boot._StdinProxy(io.TextIOWrapper(io.BytesIO(b"a\nb\n")))
+    assert iter(p) is p and list(p) == ["a\n", "b\n"]
 
 
 # -- run metadata: the key names later tasks read -------------------------
@@ -162,7 +275,7 @@ def test_meta_key_contract(tmp_path):
     assert m["end_ts"] >= m["start_ts"]
     assert m["env"]["SENSORIUM_DIR"] == str(tmp_path / "sdir")
     assert len(m["env_hash"]) == 16
-    assert m["truncated_count"] >= 0
+    assert m["truncated_count"] >= 0 and m["late_writes"] == 0
 
 
 def test_refocus_of_recorded_when_given(tmp_path):
@@ -214,6 +327,31 @@ def test_install_failure_is_loud_and_leaves_incomplete_trace(sandbox):
 
 
 # -- a thread that outlives the target ------------------------------------
+def test_dropped_late_writes_reach_the_run_metadata(tmp_path):
+    """The guard seals before finalization, so drops in that window land in
+    the trace instead of being counted where nobody will ever see them."""
+    w = TraceWriter(tmp_path / "t.db", batch=1)
+    g = boot._LateWriteGuard(w)
+    g.set_meta("incomplete", True)
+    g.seal()                              # in-flight callbacks stop here
+    assert g.add_event(1, 2, "CALL", None, 0, 1, None) == 0
+    g.add_output(0, "stdout", "late")
+    g.set_meta_final("late_writes", g.late_writes)
+    g.set_meta_final("incomplete", False)
+    g.close()
+    m = Trace.open(tmp_path / "t.db").meta
+    assert m["late_writes"] == 2 and m["incomplete"] is False
+
+
+def test_recording_gaps_reports_both_kinds_of_loss():
+    assert boot._recording_gaps([], 0) is None
+    assert "still alive" in boot._recording_gaps(["w1"], 0)
+    dropped = boot._recording_gaps([], 3)
+    assert "3 trace write" in dropped and "dropped" in dropped
+    both = boot._recording_gaps(["w1", "w2"], 3)
+    assert "2 thread" in both and "3 trace write" in both
+
+
 def test_late_writes_after_close_are_absorbed(tmp_path):
     """A write from a callback still in flight must not hit a closed db."""
     w = TraceWriter(tmp_path / "t.db", batch=1)     # every event flushes
