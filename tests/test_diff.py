@@ -15,6 +15,7 @@ from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter
 from tests.helpers import run_cli
 from tests.programs import THREADED_SWALLOWS, record
+from tests.refocus_programs import JOINED_UNTRACED_WORKER
 
 BRANCH = """
 import sys
@@ -227,6 +228,77 @@ def test_diff_match_does_not_assert_main_thread_when_inferred(
     assert out.count("INFERRED main thread") == 2   # both header lines
     assert "A's compared thread is INFERRED" in out
     assert "B's compared thread is INFERRED" in out
+
+
+def _rec_worker(tmp_path, payload):
+    (tmp_path / "prog.py").write_text(JOINED_UNTRACED_WORKER)
+    (tmp_path / "payload.txt").write_text(payload)
+    r = run_cli(["run", "--", "prog.py"], cwd=tmp_path,
+                sensorium_dir=tmp_path / "sdir")
+    assert r.returncode == 0, r.stderr
+    return re.search(r"^run: (\S+)$", r.stdout, re.M).group(1)
+
+
+def test_diff_notes_a_worker_thread_that_left_no_fingerprint(
+        tmp_path, monkeypatch, capsys):
+    """The thread counting fingerprints cannot see. This worker's body is
+    entirely stdlib, so it produces no fingerprint row, and it is joined
+    before the run ends, so it is gone from `live_threads` too -- while it
+    copies a differently-sized file in each run. `diff` printed `threads 1`,
+    a clean MATCH and NO note on the very pair of traces `refocus` refuses
+    to license, citing "started 1 thread(s) besides the main one"."""
+    r1 = _rec_worker(tmp_path, "1234")
+    r2 = _rec_worker(tmp_path, "1234567890" * 2)
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    ta = Trace.open(paths.find_trace(r1))
+    assert len(ta.fingerprints()) == 1        # invisible to the old count...
+    assert ta.meta["threads_started"] == 1    # ...and visible only to this one
+
+    assert cli.main(["diff", r1, r2]) == 0    # the causal streams do match
+    out = capsys.readouterr().out
+    note = next(l for l in out.splitlines() if l.startswith("note: A recorded"))
+    assert "1 started through Python's own threading/_thread" in note
+    assert "1 left a fingerprint" in note
+    assert "not a MATCH on the whole run" in note
+
+
+def test_diff_notes_a_thread_the_creation_count_could_never_have_seen(
+        tmp_path, monkeypatch, capsys):
+    """The other half of the condition. A thread started outside Python's
+    own `_thread` -- a C extension calling `pthread_create` -- is counted by
+    nobody, but if it runs traced Python it still leaves a fingerprint. A
+    `threads_started` of 0 must not silence that row."""
+    def build(run_id):
+        w = _synthetic(tmp_path, monkeypatch, run_id)
+        w.set_meta("threads_started", 0)
+        w.add_event(0, 555, "CALL", None, 1, 1, {"args": {}})
+        w.write_fingerprint(1, "aaaaaaaaaaaa", 1)
+        w.write_fingerprint(555, "bbbbbbbbbbbb", 1)
+        w.close()
+
+    build("20260101-000000-ctypea")
+    build("20260101-000000-ctypeb")
+    assert cli.main(["diff", "20260101-000000-ctypea",
+                     "20260101-000000-ctypeb"]) == 0
+    note = next(l for l in capsys.readouterr().out.splitlines()
+                if l.startswith("note: A recorded"))
+    assert "0 started through Python's own threading/_thread" in note
+    assert "2 left a fingerprint" in note
+
+
+def test_diff_says_it_cannot_count_threads_on_a_trace_that_predates_the_count(
+        tmp_path, monkeypatch, capsys):
+    """A trace with no `threads_started` key must not read as a run that
+    started no threads -- the same rule `refocus` applies to the same key."""
+    _synthetic(tmp_path, monkeypatch, "20260101-000000-olda").close()
+    _synthetic(tmp_path, monkeypatch, "20260101-000000-oldb").close()
+    assert cli.main(["diff", "20260101-000000-olda",
+                     "20260101-000000-oldb"]) == 0
+    out = capsys.readouterr().out
+    for label in ("A", "B"):
+        note = next(l for l in out.splitlines()
+                    if l.startswith(f"note: {label} predates"))
+        assert "absence of the record is not a record of absence" in note
 
 
 def test_diff_thread_note_is_per_side_not_shared(tmp_path, monkeypatch,

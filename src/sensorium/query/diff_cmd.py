@@ -208,13 +208,43 @@ def safety_notes(trace_a: Trace, trace_b: Trace) -> list[str]:
                 "first traced event landed before the main thread's own, "
                 "that stand-in can be a WORKER thread; re-record to get an "
                 "exact answer")
-        fps = trace.fingerprints()
-        if len(fps) > 1:
-            notes.append(
-                f"{label} recorded {len(fps)} threads; only the thread "
-                "named above was compared -- a MATCH here is not a MATCH "
-                "on the whole run")
+        notes.extend(_thread_notes(label, trace))
     return notes
+
+
+def _thread_notes(label: str, trace: Trace) -> list[str]:
+    """How many threads this side ran, counted the way `refocus` counts them.
+
+    The count here used to be `len(fingerprints())`, which answers a
+    different question: a worker whose body is entirely stdlib runs no traced
+    code, so it leaves no fingerprint row at all. Two runs of exactly that
+    program -- a stdlib-only worker writing 4 bytes in one run and 20 in the
+    other -- gave `diff` `threads 1` and a clean MATCH with no note, while
+    `refocus` withheld its licence on the same pair citing "started 1
+    thread(s) besides the main one". One trace, two commands, two answers.
+
+    The audit hook's count of thread CREATION is the sound signal; a
+    fingerprint row is the one that can be missing. Both are reported,
+    because they are two different facts and neither subsumes the other: a
+    thread started by a C extension without going through `_thread` is
+    counted by neither, but if it runs traced Python it still leaves a
+    fingerprint.
+    """
+    fps = len(trace.fingerprints())
+    meta = trace.meta
+    if "threads_started" not in meta:
+        return [f"{label} predates the recorder's thread bookkeeping, so how "
+                f"many threads it ran cannot be established -- {fps} left a "
+                "fingerprint, and only the thread named above was compared; "
+                "absence of the record is not a record of absence"]
+    started = meta["threads_started"]
+    if not started and fps <= 1:
+        return []
+    return [f"{label} recorded more than one thread: {started} started "
+            f"through Python's own threading/_thread, {fps} left a "
+            "fingerprint; only the thread named above was compared -- a "
+            "MATCH here is not a MATCH on the whole run, and a thread that "
+            "ran no traced code leaves no fingerprint to compare at all"]
 
 
 def print_comparison(trace_a, trace_b, res, name_a, name_b, context=3) -> None:
