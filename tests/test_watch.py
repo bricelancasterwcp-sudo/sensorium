@@ -352,17 +352,50 @@ def test_watch_warns_about_a_phantom_name_that_rode_along_with_a_real_hit(
     assert "ghost=<not in scope>" in out
 
 
+def test_watch_phantom_caveat_survives_a_run_where_every_site_hit(
+        tmp_path, monkeypatch, capsys):
+    """Every site hits on the left of the `or`, so there is nothing else for
+    the verdict to hedge about -- and the phantom clause still has to lead.
+    This is the hit-path shape with no other caveat to hide behind."""
+    run_id = _rec(tmp_path, monkeypatch, KEEP)
+    assert cli.main(["watch", run_id, "--at", "prog:keep",
+                     "--expr", "n > 0 or ghost > 1"]) == 0
+    out = capsys.readouterr().out
+    assert "sites: 4   evaluated: 4   hits: 4   not-captured: 0   errors: 0" \
+        in out
+    assert "NEVER RECORDED: 'ghost'" in out
+    assert "verdict: SATISFIED at 4 of the 4 site(s)" in out
+    assert "but the predicate was decided WITHOUT 'ghost', so these hits do " \
+        "not answer the whole predicate" in out
+    assert out.count("ghost=<not in scope>") == 4      # on every HIT line
+    assert "every one of which was evaluated" not in out
+
+
 def test_watch_never_recorded_is_judged_over_the_run_not_the_after_page(
         tmp_path, monkeypatch, capsys):
-    """`used` IS recorded in these frames. A page that happens to contain
-    none of its bindings must not call it a name the trace never held."""
-    run_id = _rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
-    last = max(e.id for e in _line_events(run_id, "fill"))
-    assert cli.main(["watch", run_id, "--at", "prog:fill", "--expr",
-                     "used > 100", "--after", f"e{last}"]) == 0
+    """`peak` IS recorded in these frames. A page that happens to contain
+    none of its bindings must not call it a name the trace never held.
+
+    The page is deliberately NON-empty: the last site is the `del peak` line,
+    where `peak` is out of scope and so absent from that page's captures
+    entirely. A page-scoped judgement calls it never-recorded there, which is
+    a false statement about the run, and the site count proves the page was
+    really examined rather than skipped."""
+    run_id = _rec(tmp_path, monkeypatch, LOOPDEL,
+                  extra=("--focus", "prog:scan"))
+    lines = _line_events(run_id, "scan")
+    last_bind = max(e.id for e in lines if "peak" in e.payload["deltas"])
+    tail = [e for e in lines if e.id > last_bind]
+    assert len(tail) == 2 and "peak" not in tail[-1].payload["deltas"]
+
+    assert cli.main(["watch", run_id, "--at", "prog:scan", "--expr",
+                     "peak > 5", "--after", f"e{tail[0].id}"]) == 0
     out = capsys.readouterr().out
-    assert "sites: 0" in out                       # the page really is empty
+    assert "sites: 1   evaluated: 0   hits: 0   not-captured: 1   errors: 0" \
+        in out
     assert "NEVER RECORDED" not in out
+    # ...and the guidance still reads it as the scope fact it is.
+    assert "scope, not capture depth" in out
 
 
 def test_watch_tally_line_accounts_for_every_site(tmp_path, monkeypatch,
@@ -392,7 +425,26 @@ def test_watch_satisfied_verdict_names_the_sites_that_raised(
                      "--expr", "n > 3"]) == 0
     out = capsys.readouterr().out
     assert "verdict: SATISFIED at 1 of the 1 site(s) the predicate could be " \
-        "evaluated at, with 1 further site(s) raising" in out
+        "evaluated at" in out
+    assert "but 1 of 2 recorded site(s) raised while the predicate was " \
+        "applied, so these are not necessarily every time it held" in out
+
+
+def test_watch_satisfied_verdict_names_the_sites_it_could_not_check(
+        tmp_path, monkeypatch, capsys):
+    """The mirror of the phantom hole, arriving through the hit path: a
+    confident SATISFIED sitting above 14 of 19 sites that went unchecked
+    reads far cleaner than the evidence supports. The 0-hit path has always
+    said so; this one used to name only the errors."""
+    run_id = _rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
+    assert cli.main(["watch", run_id, "--at", "prog:fill",
+                     "--expr", "used > 30"]) == 0
+    out = capsys.readouterr().out
+    assert ("sites: 19   evaluated: 5   hits: 5   not-captured: 14   "
+            "errors: 0") in out
+    assert "verdict: SATISFIED at 5 of the 5 site(s)" in out
+    assert "but 14 of 19 recorded site(s) could NOT be evaluated, so these " \
+        "are not necessarily every time it held" in out
 
 
 def test_watch_deeply_nested_expression_fails_once_on_the_command_line(

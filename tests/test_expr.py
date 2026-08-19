@@ -221,6 +221,18 @@ def test_deep_nesting_is_refused_at_compile_not_by_a_recursion_error():
             compile_expr(src)
 
 
+def test_parser_stack_overflow_is_refused_not_raised():
+    """`_MAX_DEPTH` guards `_validate`, which never runs if there is no tree.
+    The parser has its own bounded stack and overflows first: measured, 60000
+    unary minus and `not ` x20000 both raise `MemoryError: Parser stack
+    overflowed`, and both fit in one argv entry (MAX_ARG_STRLEN is 128 KB),
+    so this is reachable from an ordinary command line."""
+    for src in ("-" * 60000 + "x > 1", "not " * 20000 + "x"):
+        with pytest.raises(ExprError) as ei:
+            compile_expr(src)
+        assert "too large or too deeply nested for the parser" in str(ei.value)
+
+
 def test_a_predicate_just_inside_the_depth_cap_still_evaluates():
     """The cap is what GUARANTEES `_eval` cannot recurse to death at a site:
     anything that validates must also evaluate."""

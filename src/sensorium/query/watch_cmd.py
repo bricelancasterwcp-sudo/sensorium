@@ -173,10 +173,6 @@ class Outcome:
     def not_captured(self) -> int:
         return sum(self.unavailable.values())
 
-    @property
-    def unchecked(self) -> int:
-        return self.not_captured + len(self.errors)
-
 
 def evaluate(sites: list[Site], expr) -> Outcome:
     out = Outcome([], [], 0, {}, [])
@@ -330,28 +326,48 @@ def print_errors(out: Outcome) -> None:
         print(f"  ... {extra} further site(s) raised the same way")
 
 
+def unchecked_caveats(out: Outcome, n_sites: int) -> list[str]:
+    """The buckets that make ANY verdict partial, hit or no hit.
+
+    Named separately rather than summed: "could not be evaluated" and "raised
+    while being applied" have different causes and different fixes, and a
+    reader discounting a verdict needs to know which one they are looking at.
+
+    Both paths use this. The hit path used to name only the errors, so a
+    confident SATISFIED could sit above 14 of 20 sites that went unchecked --
+    the same "reads cleaner than the evidence supports" failure as a phantom
+    name, arriving through the other branch.
+    """
+    caveats = []
+    if out.not_captured:
+        caveats.append(f"{out.not_captured} of {n_sites} recorded site(s) "
+                       "could NOT be evaluated")
+    if out.errors:
+        caveats.append(f"{len(out.errors)} of {n_sites} recorded site(s) "
+                       "raised while the predicate was applied")
+    return caveats
+
+
 def verdict(out: Outcome, n_sites: int, ghosts: list[str]) -> list[str]:
     decided_without = ("the predicate was decided WITHOUT "
                        + ", ".join(repr(g) for g in ghosts))
+    caveats = unchecked_caveats(out, n_sites)
     if out.hits:
-        tail = (f", with {len(out.errors)} further site(s) raising"
-                if out.errors else "")
         lines = [f"verdict: SATISFIED at {len(out.hits)} of the "
                  f"{out.evaluated} site(s) the predicate could be evaluated "
-                 f"at{tail}"]
+                 "at"]
+        if caveats:
+            lines.append("  but " + ", and ".join(caveats) + ", so these are "
+                         "not necessarily every time it held")
         if ghosts:
-            lines.append(f"  but {decided_without}, so these hits do not "
-                         "answer the whole predicate")
+            lines.append(("  and " if caveats else "  but ") + decided_without
+                         + ", so these hits do not answer the whole predicate")
         return lines
     if out.evaluated == 0:
         return ["verdict: NOTHING WAS CHECKED -- the predicate could not be "
                 f"evaluated at any of the {n_sites} recorded site(s)",
                 "  'hits: 0' here means 'could not evaluate', NOT 'the "
                 "invariant held'"]
-    caveats = []
-    if out.unchecked:
-        caveats.append(f"{out.unchecked} of {n_sites} recorded site(s) could "
-                       "NOT be evaluated")
     if ghosts:
         caveats.append(decided_without)
     if caveats:

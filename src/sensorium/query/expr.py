@@ -13,6 +13,13 @@ before a single site is read. The refusal is compile-time on purpose: a
 malformed or hostile expression then fails once, on the command line, rather
 than once per site or (worse) not at all.
 
+"Fails once" covers exhaustion as well as syntax, and it takes two guards
+because there are two stages that can die. `compile_expr` catches the
+parser's own stack overflow (`RecursionError`/`MemoryError`) as well as
+`SyntaxError`; `_MAX_DEPTH` then guards `_validate`, which only ever runs on
+a tree the parser survived. Either alone leaves a traceback reachable from an
+ordinary command line.
+
 The restriction is deliberately a real boundary and not a happy accident of
 the input types. Reading captured primitives means there is nothing to escape
 *to* today; a boundary that only holds because of what happens to be in the
@@ -224,6 +231,23 @@ def compile_expr(src: str) -> "Expr":
         tree = ast.parse(src, mode="eval")
     except SyntaxError as e:
         raise ExprError(f"not a valid expression: {e.msg}") from None
+    except (RecursionError, MemoryError):
+        # The parser has its own bounded stack, and it overflows BEFORE
+        # `_MAX_DEPTH` gets a look in -- the cap guards `_validate`, which
+        # never runs if there is no tree. Measured: 60000 unary minus, or
+        # `not ` 20000 times, raise `MemoryError: Parser stack overflowed`,
+        # and both fit inside one argv entry (MAX_ARG_STRLEN is 128 KB), so
+        # this is reachable from an ordinary command line. Without this the
+        # module's promise of a single clean refusal was false for exactly
+        # the inputs most likely to be hostile.
+        #
+        # Catching MemoryError is normally a bad idea -- the interpreter may
+        # be wedged -- but this one is raised deterministically by the parser
+        # against its own fixed limit, nothing has been allocated to leak,
+        # and it is re-raised immediately as a refusal.
+        raise ExprError("expression is too large or too deeply nested for "
+                        "the parser; a predicate over captured values does "
+                        "not need that") from None
     _validate(tree)
     names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
     names.discard("len")          # the callee of a validated len(name) call
