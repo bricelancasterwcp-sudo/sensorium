@@ -671,3 +671,31 @@ def test_audit_hook_absorbs_even_a_base_exception(monkeypatch):
 
     assert children == [], "a failed extraction must not record a bogus child"
     assert len(errors) == 1, "swallowed without a trace"
+
+
+def test_stdin_proxy_does_not_compare_the_program_s_own_attribute_name():
+    """`getattr(sys.stdin, name)` hands a `str` SUBCLASS straight through to
+    `__getattr__`, so the proxy's two membership tests would run the
+    program's `__eq__` -- inside the program's own call, where without the
+    recorder no comparison happens at all."""
+    class K(str):
+        """Equal to its own characters, hostile to anything else -- so the
+        interpreter's own attribute lookup succeeds (as it does without the
+        recorder) and only the proxy's extra comparison raises."""
+        def __eq__(self, other):
+            if str.__eq__(self, other) is True:
+                return True
+            raise ValueError("INJECTED-attr-eq")
+
+        def __hash__(self):
+            return str.__hash__(self)
+
+    plain = io.StringIO("payload")
+    assert getattr(plain, K("readable"))() is True      # baseline: no raise
+
+    proxy = boot._StdinProxy(io.StringIO("payload"))
+    assert getattr(proxy, K("readable"))() is True      # must not raise either
+    assert proxy.consumed is False                      # readable() is not a read
+
+    assert getattr(proxy, K("read"))() == "payload"     # ...and marking still works
+    assert proxy.consumed is True

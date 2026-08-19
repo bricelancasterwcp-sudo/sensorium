@@ -169,6 +169,13 @@ class _StdinProxy:
 
     def __getattr__(self, name):
         attr = getattr(self._orig, name)     # raises first: absent is not use
+        # `name` is whatever the program passed to `getattr`, and CPython
+        # hands a `str` SUBCLASS straight through -- so the two membership
+        # tests below would run its `__eq__` and `__hash__`, from inside the
+        # program's own `getattr(sys.stdin, ...)` call, where without the
+        # recorder no comparison happens at all. Measured; found by the
+        # general-case audit for item 7.
+        name = capture.plain_str(name)
         if name in _MARK_ON_CALL:
             return self._marking(attr)
         if name in _MARK_ON_ACCESS:
