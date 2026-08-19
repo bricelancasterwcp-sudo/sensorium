@@ -32,25 +32,44 @@ frameless (no frame is opened for them), so LINE stays permanently disabled for
 their code even when focused -- there would be no frame to attach to.
 
 Every RAISE/HANDLED payload carries an exception `serial`: an exact per-thread
-identity, minted by the exception state machine below whenever a new exception
-arms and reused for every event of the same object. It exists because `oid`
+identity, minted the first time this recorder sees an exception object and
+reused for every later event of that same object. It exists because `oid`
 (`id(exc)`) is NOT an identity -- CPython recycles addresses, and a plain retry
 loop measurably gives three distinct exceptions one address. Serials never
 reach a fingerprint: `Fingerprint.update` takes only (file, qualname, kind),
 and payloads are not hashed, which is what keeps `refocus` verdicts stable.
 
+Serials live in a per-thread TABLE (`_ExcRefs`), never in a "current serial"
+slot. Slots cannot express "several exceptions are alive and any of them may
+come back", and both shapes that broke earlier attempts are exactly that:
+
+  * an exception stored by a handler (`except E as e: return e`) and raised
+    again after some *other* exception has been handled in between, and
+  * an exception in flight through a `finally` that raises and handles an
+    exception of its own before the original resumes.
+
+With one slot the first loses its serial and the second inherits the
+interloper's -- one object under two identities, or two objects under one.
+A table keyed by the object has neither failure.
+
 The one place this recorder measurably outlives the program's own references:
-`_TLS.handled_exc` holds a STRONG reference to the most recently handled
-exception, so that a later `raise e` naming that same object can resume its
-serial. It has to be strong -- `BaseException` does not support weak
-references at all -- and being strong is also what makes the `is` test sound,
-since a retained address cannot be recycled. At most one exception per thread
-is held, it is released as soon as the next exception arms or is handled, and
-`uninstall` drops it outright.
+that table holds a STRONG reference to each exception it remembers. It has to
+be strong -- `BaseException` does not support weak references at all -- and
+being strong is also what makes `id(exc)` a sound key, since a retained
+address cannot be recycled while we hold the object. The cost is real and is
+bounded on purpose: each retained exception pins its traceback and therefore
+the frames and locals reachable from it, so at most `_RETAIN_MAX` per live
+thread are kept, the oldest being dropped when a newer one arrives. Past that
+bound the recorder simply forgets, a later raise of a forgotten object mints a
+fresh serial, and `sensorium exceptions` refuses to call such an exception
+swallowed rather than pretending the two are unrelated. A thread's table dies
+with the thread, and `uninstall` clears every live thread's table and
+in-flight slot, after which this recorder holds no exception object at all.
 """
 import sys
 import threading
 import time
+import weakref
 from fnmatch import fnmatch
 from pathlib import Path
 
@@ -62,6 +81,12 @@ TOOL = M.PROFILER_ID
 _SENSORIUM_DIR = str(Path(__file__).resolve().parent.parent)
 _GENLIKE = 0x20 | 0x80 | 0x200        # CO_GENERATOR|CO_COROUTINE|CO_ASYNC_GEN
 _CONTROL_FLOW_EXC = ("StopIteration", "StopAsyncIteration", "GeneratorExit")
+# How many exception objects one thread remembers. Every one of them is held
+# by a strong reference and pins its traceback, so this is a memory bound on
+# the recorder's influence, not a tuning knob: raising it links more stored
+# re-raises and keeps more of the program's dead frames alive. Exceeding it is
+# not a silent loss -- see the module docstring and exceptions_cmd.
+_RETAIN_MAX = 64
 
 
 def module_name_for(file: str, root: Path) -> str | None:
@@ -96,43 +121,77 @@ class FocusSpec:
         return False
 
 
-def _mint(tls) -> int:
-    tls.minted += 1
-    return tls.minted
+class _ExcRefs:
+    """One thread's exception identity table -- and the only place this
+    recorder holds a reference to an exception object.
 
+    `serials` maps `id(exc)` -> `(exc, serial)`, insertion-ordered, capped at
+    `_RETAIN_MAX`. Holding the object is what makes `id()` a sound key: the
+    address cannot be recycled underneath us, so two distinct exceptions can
+    never alias onto one serial. Weak references were tried first and are not
+    an option at all -- `BaseException` does not support them
+    (`TypeError: cannot create weak reference to 'ValueError' object`), and
+    catching that error silently disabled the whole mechanism, which is the
+    kind of quiet fallback this project bans.
 
-def _serial_for(tls, exc) -> int:
-    """The serial of an exception that is arming.
-
-    Caught and then raised again by name (`raise e`, `raise last`) keeps its
-    serial: it is the same object. Anything else mints a new one and releases
-    the retained reference, since nothing can resume that serial any more.
-
-    The `is` test is sound only because `handled_exc` is a *strong* reference:
-    an address cannot be recycled while we hold the object, so two distinct
-    exceptions can never alias onto one serial. A weak reference was tried
-    first and does not exist as an option -- `BaseException` does not support
-    weak references at all (`TypeError: cannot create weak reference to
-    'ValueError' object`), and catching that error silently disabled the
-    resume, which is precisely the kind of quiet fallback this project bans.
+    `last_exc` (the exception currently in flight) lives here too, so that
+    `clear` really does release everything this recorder is holding, on
+    whichever thread it is called for.
     """
-    if exc is tls.handled_exc:
-        return tls.handled_serial
-    tls.handled_exc = None
-    return _mint(tls)
+    __slots__ = ("last_exc", "serials", "minted", "__weakref__")
+
+    def __init__(self) -> None:
+        self.last_exc = None           # exception currently in flight, if any
+        self.serials: dict[int, tuple] = {}
+        self.minted = 0                # monotonic per-thread serial source
+
+    def serial_of(self, exc) -> int | None:
+        """This thread's serial for `exc`, or None if it holds none."""
+        held = self.serials.get(id(exc))
+        # `held[0] is exc` can only be false if the strong reference above was
+        # somehow dropped while its id stayed in the table; keeping the test
+        # makes that cost a fresh serial rather than a borrowed identity.
+        return held[1] if held is not None and held[0] is exc else None
+
+    def identify(self, exc) -> int:
+        """`exc`'s serial, minting and remembering one if it is new."""
+        serial = self.serial_of(exc)
+        if serial is not None:
+            return serial
+        self.minted += 1
+        self.serials[id(exc)] = (exc, self.minted)
+        while len(self.serials) > _RETAIN_MAX:
+            oldest, held = next(iter(self.serials.items()))
+            del self.serials[oldest]
+            if held[0] is self.last_exc:
+                # Never forget what is arming or propagating right now. An
+                # exception paused inside a `finally` is not that -- its
+                # EXCEPTION_HANDLED already cleared `last_exc` -- so a long
+                # enough cleanup can push it out, and the query side hedges
+                # rather than reading the fresh serial as another exception.
+                self.serials[oldest] = held
+        return self.minted
+
+    def clear(self) -> None:
+        self.last_exc = None
+        self.serials.clear()
 
 
 class _TLS(threading.local):
-    def __init__(self) -> None:
+    """Per-thread recorder state.
+
+    `threading.local` calls `__init__` again on every thread that touches the
+    object, which is how each thread's `_ExcRefs` gets registered with the
+    tracer -- without that registry, `uninstall` could only ever drop the
+    exceptions held by the thread that happens to call it.
+    """
+    def __init__(self, register) -> None:
         self.stack: list = []          # [frame_id, code, code_id, locals_snapshot]
         self.in_hook = False
         self.window_depth = 0
-        self.last_exc = None           # exception currently in flight, if any
-        self.origin_recorded = False   # ...and whether its origin got a row
-        self.serial = 0                # exact identity of that exception
-        self.minted = 0                # monotonic per-thread serial source
-        self.handled_exc = None        # the last exception handled
-        self.handled_serial = 0
+        self.origin_recorded = False   # whether the in-flight exc got a row
+        self.exc = _ExcRefs()
+        register(self.exc)
 
 
 class Tracer:
@@ -149,7 +208,20 @@ class Tracer:
         self._seen_codes: list = []    # pins code objects so id() cannot recycle
         self._fps: dict[int, Fingerprint] = {}
         self._fp_lock = threading.Lock()
-        self._tls = _TLS()
+        # Weak values: a thread's table dies with the thread, so a program
+        # that spawns thousands of short-lived threads does not accumulate
+        # their retained exceptions here.
+        self._exc_refs: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+        self._refs_lock = threading.Lock()
+        self._tls = _TLS(self._register_refs)
+
+    def _register_refs(self, refs: _ExcRefs) -> None:
+        with self._refs_lock:
+            self._exc_refs[threading.get_ident()] = refs
+
+    def _live_exc_refs(self) -> list:
+        with self._refs_lock:
+            return list(self._exc_refs.values())
 
     # -- classification ----------------------------------------------------
     def _decide(self, code):
@@ -300,7 +372,7 @@ class Tracer:
         """
         tls = self._tls
         if not tls.in_hook and type(exc).__name__ not in _CONTROL_FLOW_EXC:
-            tls.last_exc = exc
+            tls.exc.last_exc = exc
         return None
 
     def _exc_event(self, code, exc, kind, frame):
@@ -322,29 +394,25 @@ class Tracer:
         # later raise of the same object a new origin -- but note it does not
         # imply anything was caught; see _on_reraise.
         # The serial rides along on decisions this machine already takes; it
-        # never changes one. `last_exc is not exc` is precisely "a different
-        # exception is arming", and while an exception is in flight `last_exc`
-        # holds a strong reference to it, so its address cannot be recycled
-        # underneath us. That is what makes the serial an exact identity where
-        # `id(exc)` is not.
+        # never changes one. It is looked up per event, from the object, so
+        # that an exception handled between this one's raise and its re-raise
+        # -- or raised and handled inside a `finally` while this one is still
+        # in flight -- cannot displace it. Nothing here is a "current serial":
+        # `refs.identify` answers for the object it is given and no other.
+        refs = tls.exc
         if kind == "RAISE":
-            if tls.last_exc is not exc:
-                tls.last_exc = exc
+            if refs.last_exc is not exc:
+                refs.last_exc = exc
                 tls.origin_recorded = False   # a fresh raise reopens the origin
-                tls.serial = _serial_for(tls, exc)
             if tls.origin_recorded:
                 return None                   # propagating an origin we logged
+            serial = refs.identify(exc)
         else:
-            if tls.last_exc is not exc and exc is not tls.handled_exc:
-                # A handler for something this thread never saw arm. Give it
-                # its own identity rather than borrowing whatever serial
-                # happened to be current.
-                tls.serial = _mint(tls)
-            tls.last_exc = None
-            # Retained so a later `raise e` of this same object resumes its
-            # serial; see `_serial_for` for why the reference is strong.
-            tls.handled_exc = exc
-            tls.handled_serial = tls.serial
+            # Remembered (or recognised) here as well as on RAISE, so a later
+            # `raise e` of this same object resumes its serial; see _ExcRefs
+            # for why the reference is strong and why it is bounded.
+            serial = refs.identify(exc)
+            refs.last_exc = None
         traced, fp_file, qual, focused, frameless = self._decide(code)
         if not traced:
             return None
@@ -359,7 +427,7 @@ class Tracer:
                                           code.co_firstlineno)
             self.writer.add_event(time.monotonic_ns(), tid, kind, fid, cid,
                                   frame.f_lineno,
-                                  {"exc": capture_exc(exc, tls.serial)})
+                                  {"exc": capture_exc(exc, serial)})
             self._fp(tid).update(fp_file, qual, kind)
         finally:
             tls.in_hook = False
@@ -416,15 +484,13 @@ class Tracer:
 
         `boot` calls this from its own `except BaseException` clause. That
         clause is untraced code, so the EXCEPTION_HANDLED it fires cleared
-        `last_exc` -- but `handled_exc` still holds the object, which is why
-        the uncaught record can be tied to the RAISE row that produced it.
+        `last_exc` -- but the identity table still holds the object, which is
+        why the uncaught record can be tied to the RAISE row that produced it.
+
+        Never mints: a caller asking after the fact must be told "no serial"
+        rather than handed a fresh one that matches no recorded row.
         """
-        tls = self._tls
-        if tls.last_exc is exc:
-            return tls.serial
-        if exc is tls.handled_exc:
-            return tls.handled_serial
-        return None
+        return self._tls.exc.serial_of(exc)
 
     # -- lifecycle ---------------------------------------------------------
     def install(self) -> None:
@@ -452,10 +518,14 @@ class Tracer:
         M.restart_events()
 
     def uninstall(self) -> None:
-        # Drop the retained exception promptly; nothing can resume a serial
-        # once recording has stopped.
-        self._tls.handled_exc = None
-        self._tls.last_exc = None
+        # Drop every exception this recorder is holding, on every live thread
+        # -- not just the one calling uninstall, whose table is the only one
+        # `self._tls` can reach. Nothing can resume a serial once recording
+        # has stopped, and a worker parked in a `finally` must not keep its
+        # last exception (and that exception's frames and locals) alive for
+        # the rest of the process.
+        for refs in self._live_exc_refs():
+            refs.clear()
         E = M.events
         M.set_events(TOOL, 0)
         for ev in (E.PY_START, E.PY_RETURN, E.PY_UNWIND, E.RAISE,

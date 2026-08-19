@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 from sensorium.record.tracer import FocusSpec, Tracer
@@ -49,6 +50,28 @@ def record_inproc_full(tmp_path, source, focus=(), window=None, entry="main"):
 def record_inproc(tmp_path, source, focus=(), window=None, entry="main"):
     trace, err, _ = record_inproc_full(tmp_path, source, focus, window, entry)
     return trace, err
+
+
+@contextmanager
+def installed_tracer(tmp_path):
+    """An installed Tracer with no recorded program.
+
+    For asserting on recorder state that only exists *while* recording is
+    live -- the retention table is cleared by `uninstall`, so a test that
+    wants to see it must hold the tracer open itself. Exception bookkeeping
+    runs for every exception in the process, traced or not, so the test can
+    raise its own.
+    """
+    tmp_path = Path(tmp_path)
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    writer = TraceWriter(tmp_path / "trace.db", batch=8)
+    tracer = Tracer(writer, root=tmp_path, focus=FocusSpec([]))
+    tracer.install()
+    try:
+        yield tracer
+    finally:
+        tracer.uninstall()
+        writer.close()
 
 
 def run_cli(args, cwd, sensorium_dir, stdin_text=None):

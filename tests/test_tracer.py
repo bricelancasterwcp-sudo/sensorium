@@ -1,4 +1,8 @@
-from tests.helpers import record_inproc
+import sys
+import threading
+
+from sensorium.record.tracer import _RETAIN_MAX
+from tests.helpers import installed_tracer, record_inproc
 
 ADD = """
 def add(a, b):
@@ -436,3 +440,133 @@ def test_unwound_frames_and_uncaught_carry_the_serial(tmp_path):
     unwound = [f.unwind_exc.get("serial") for f in trace.frames()
                if f.unwind_exc]
     assert unwound and set(unwound) == {raised[0]}
+
+
+# -- the identity table (Task 11, fix round 4) -----------------------------
+# Round 3 kept identity in slots: one "current serial" and one last-handled
+# exception. Slots cannot hold "several exceptions are alive and any of them
+# may come back", so an unrelated exception in between evicted a stored one
+# (two serials for one object) and an exception raised inside cleanup stamped
+# its serial on the exception still in flight (one serial for two objects).
+# Identity now lives in a per-thread, bounded table keyed by the object.
+
+SERIAL_STASH_NOISE = """
+def stash():
+    try:
+        raise ValueError("x")
+    except ValueError as e:
+        return e
+
+def noise():
+    try:
+        raise RuntimeError("unrelated")
+    except RuntimeError:
+        pass
+
+def main():
+    saved = stash()
+    noise()
+    try:
+        raise saved
+    except ValueError:
+        pass
+"""
+
+SERIAL_CLEANUP_RAISES = """
+def cleanup():
+    try:
+        raise KeyError("inner")
+    except KeyError:
+        pass
+
+def mid():
+    try:
+        raise ValueError("outer")
+    finally:
+        cleanup()
+
+def main():
+    try:
+        mid()
+    except ValueError:
+        pass
+"""
+
+
+def test_a_stored_exception_keeps_its_serial_across_another_exception(tmp_path):
+    trace, err = record_inproc(tmp_path, SERIAL_STASH_NOISE)
+    assert err is None
+    by_type: dict = {}
+    for e in trace.events(kind="RAISE"):
+        by_type.setdefault(e.payload["exc"]["type"], []).append(
+            e.payload["exc"]["serial"])
+    assert len(by_type["ValueError"]) == 2
+    assert len(set(by_type["ValueError"])) == 1     # one object, one serial
+    assert not set(by_type["ValueError"]) & set(by_type["RuntimeError"])
+
+
+def test_a_raise_during_cleanup_does_not_steal_the_in_flight_serial(tmp_path):
+    trace, err = record_inproc(tmp_path, SERIAL_CLEANUP_RAISES)
+    assert err is None
+    seen: dict = {}
+    for e in trace.events(kind="RAISE") + trace.events(kind="HANDLED"):
+        seen.setdefault(e.payload["exc"]["type"], set()).add(
+            e.payload["exc"]["serial"])
+    # the interloper really did run while the outer exception was in flight
+    assert set(seen) == {"ValueError", "KeyError"}
+    assert len(seen["ValueError"]) == 1
+    assert len(seen["KeyError"]) == 1
+    assert not seen["ValueError"] & seen["KeyError"]
+    # and the frame the outer exception left names that same identity
+    unwound = [f.unwind_exc for f in trace.frames() if f.unwind_exc]
+    assert unwound and all(u["serial"] in seen["ValueError"] for u in unwound)
+
+
+def test_retention_is_bounded(tmp_path):
+    """Every retained exception pins its traceback, frames and locals, so the
+    table has to be bounded even though bounding it is what costs the recorder
+    the link to an old stash."""
+    with installed_tracer(tmp_path) as tracer:
+        for i in range(_RETAIN_MAX * 2):
+            try:
+                raise ValueError(f"churn {i}")
+            except ValueError:
+                pass
+        refs = tracer._tls.exc
+        held, minted = len(refs.serials), refs.minted
+    assert minted >= _RETAIN_MAX * 2, "the bound was never approached"
+    assert held <= _RETAIN_MAX
+
+
+def test_uninstall_drops_retained_exceptions_on_every_live_thread(tmp_path):
+    """`uninstall` must release what it holds on threads that are still
+    running, not only on the thread that calls it: a worker parked after a
+    handler would otherwise keep its last exception -- and that exception's
+    frames and locals -- alive for the rest of the process."""
+    box, caught, release = [], threading.Event(), threading.Event()
+
+    def worker():
+        try:
+            raise ValueError("stashed by a live thread")
+        except ValueError as e:
+            box.append(e)
+        caught.set()
+        release.wait(10)
+
+    t = threading.Thread(target=worker)
+    try:
+        with installed_tracer(tmp_path) as tracer:
+            t.start()
+            assert caught.wait(10)
+            exc = box[0]
+            other = [r for r in tracer._live_exc_refs()
+                     if any(held[0] is exc for held in r.serials.values())]
+            assert other, "the worker's exception was never retained"
+            assert other[0] is not tracer._tls.exc, "needs a non-main thread"
+            before = sys.getrefcount(exc)
+        # uninstall has now run, from the main thread
+        assert sys.getrefcount(exc) == before - 1
+        assert all(not r.serials for r in tracer._live_exc_refs())
+    finally:
+        release.set()
+        t.join(10)

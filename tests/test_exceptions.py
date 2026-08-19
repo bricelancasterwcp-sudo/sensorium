@@ -15,11 +15,11 @@ from tests.programs import (
     BARE_RERAISE, CLEAN, CRASH, EXPLICIT_RERAISE, EXPLICIT_RERAISE_ESCAPES,
     FINALLY_PASSTHROUGH, GENERATOR_HANDLES, LOOP_SAME_MESSAGE,
     RAISE_CAUGHT_UNTRACED, RERAISE_CAUGHT_UNTRACED,
-    SWALLOWING_LIB_SOURCE, THREADED_SWALLOWS,
-    UNTRACED_HANDLER_REUSED_ADDRESS,
     RETRY_LOOP_REUSED_ADDRESS, RETRY_THEN_RAISE_LAST, STASH_AND_RERAISE,
-    SWALLOW, SWALLOW_THEN_UNRELATED, TRANSLATED, UNTRACED_LIB,
+    SWALLOW, SWALLOWING_LIB_SOURCE, SWALLOW_THEN_UNRELATED, THREADED_SWALLOWS,
+    TRANSLATED, UNTRACED_HANDLER_REUSED_ADDRESS, UNTRACED_LIB,
     UNTRACED_LIB_SOURCE, exc_payload, record, synthetic)
+
 
 
 # -- exceptions: one test per program shape --------------------------------
@@ -139,8 +139,8 @@ def test_exceptions_never_claims_a_reraise_for_a_reused_address(
     Under oid identity two of them were reported as "then raised again at eN".
     Serials give each its own identity, so no re-raise is claimed at all.
 
-    Note the recorder now retains the last-handled exception (to let a real
-    `raise e` resume its serial), which incidentally stops CPython reusing the
+    Note the recorder now retains the exceptions it has seen (so that a real
+    `raise e` resumes its serial), which incidentally stops CPython reusing the
     address here -- so this test pins the SERIALS, the thing the classifier
     actually keys on, rather than an allocation coincidence."""
     run_id = record(tmp_path, monkeypatch, RETRY_LOOP_REUSED_ADDRESS)

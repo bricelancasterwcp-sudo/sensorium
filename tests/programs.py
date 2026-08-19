@@ -6,6 +6,7 @@ because the head of a trace is byte-identical for behaviours that mean
 opposite things and only whole-program shapes separate them.
 """
 from sensorium import paths
+from sensorium.record.tracer import _RETAIN_MAX
 from sensorium.store.writer import TraceWriter
 from tests.helpers import record_script
 
@@ -303,6 +304,128 @@ def guarded(fn):
     except ValueError:
         pass
 """
+
+# Fix round 4. STASH_AND_RERAISE with one ordinary complication: an unrelated
+# exception is raised and handled *between* the stash and the re-raise. Round
+# 3 remembered the last-handled exception in a single slot, so the RuntimeError
+# evicted the stored ValueError and the re-raise minted a second serial for one
+# object -- printing "SWALLOWED ... never re-raised" two lines under a header
+# saying that same exception left the program. Nothing here is exotic; the
+# noise is what any program does between stashing an error and raising it.
+STASH_NOISE_RERAISE = """
+def stash():
+    try:
+        raise ValueError("x")
+    except ValueError as e:
+        return e
+
+def noise():
+    try:
+        raise RuntimeError("unrelated")
+    except RuntimeError:
+        pass
+
+def main():
+    saved = stash()
+    noise()
+    raise saved
+
+main()
+"""
+
+# The mirror shape, also fix round 4: nothing is stored, but an exception is
+# raised AND handled inside a `finally` while another is still in flight. With
+# a single "current serial" slot the inner KeyError's serial was stamped onto
+# the outer ValueError's later rows -- one object under two identities and two
+# objects under one. The classifier then read the outer ValueError's own unwind
+# as a different exception and printed "f3 then unwound with ValueError('outer')"
+# about ValueError('outer'), missing the swallow in main entirely.
+CLEANUP_RAISES_ITS_OWN = """
+def cleanup():
+    try:
+        raise KeyError("inner")
+    except KeyError:
+        pass
+
+def mid():
+    try:
+        raise ValueError("outer")
+    finally:
+        cleanup()
+
+def main():
+    try:
+        mid()
+    except ValueError:
+        pass
+
+main()
+"""
+
+# The retention bound, crossed on purpose. The recorder remembers at most
+# _RETAIN_MAX exceptions per thread, so a stash separated from its re-raise by
+# more than that many other exceptions comes back with a FRESH serial: the link
+# is genuinely gone, and no recorder change can conjure it back. This is the
+# shape that proves the query side refuses to call such a raise swallowed --
+# the recorder fix alone only moves the boundary, it does not remove it.
+#
+# Each noise exception gets its own class so that no two of them can share a
+# (type, address) pair; that keeps the disposition tally exact instead of
+# depending on which addresses CPython happens to recycle.
+STASH_PAST_RETENTION = f"""
+def stash():
+    try:
+        raise ValueError("kept")
+    except ValueError as e:
+        return e
+
+def churn(n):
+    for i in range(n):
+        cls = type(f"Noise{{i}}", (Exception,), {{}})
+        try:
+            raise cls("noise")
+        except Exception:
+            pass
+
+def main():
+    saved = stash()
+    churn({_RETAIN_MAX + 6})
+    raise saved
+
+main()
+"""
+
+# The same bound crossed from the other side: nothing is stored, but the
+# cleanup an exception passes through on its way out raises and handles more
+# exceptions than the recorder retains, so the exception in flight is forgotten
+# mid-flight and the frame it finally leaves carries a fresh serial for it.
+# Read as "the frame unwound with some other exception", that would deny that
+# this exception left the frame -- about the very exception being named.
+IN_FLIGHT_PAST_RETENTION = f"""
+def cleanup(n):
+    for i in range(n):
+        cls = type(f"Noise{{i}}", (Exception,), {{}})
+        try:
+            raise cls("noise")
+        except Exception:
+            pass
+
+def mid():
+    try:
+        raise ValueError("outer")
+    finally:
+        cleanup({_RETAIN_MAX + 6})
+
+def main():
+    try:
+        mid()
+    except ValueError:
+        pass
+
+main()
+"""
+
+RETENTION_NOISE_COUNT = _RETAIN_MAX + 6
 
 # Serials are minted per thread, so two worker threads both start at 1. If the
 # classifier keyed on the serial alone it would fuse two unrelated exceptions

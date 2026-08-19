@@ -45,22 +45,32 @@ EXCEPTION IDENTITY
 ------------------
 ``oid`` is ``id(exc)`` and CPython recycles addresses aggressively: measured
 live, a ValueError and the RuntimeError raised two lines later in the same
-frame shared an oid. Identity here is therefore ``(type, msg, oid)``, and
-every lookup is scoped to the events between one RAISE and the next RAISE of
+frame shared an oid, and an ordinary retry loop gives three distinct
+ValueError objects *one* address. Identity is therefore the recorder's
+``serial`` -- minted while the recorder holds the object, so one serial is one
+object, provably. Traces recorded before serials existed fall back to
+``(type, msg, oid)``, hedge every verdict that turns on the difference, and
+say so under a ``LEGACY TRACE`` banner.
+
+Every lookup is scoped to the events between one RAISE and the next RAISE of
 the same identity, so a loop raising an identical exception repeatedly still
 pairs each raise with its own handler.
 
-That is still not enough on its own. An ordinary retry loop --
+WHERE A SERIAL RUNS OUT
+-----------------------
+A serial proves that two rows *are* the same object. It cannot prove that two
+rows are *different* objects, because the recorder remembers only a bounded
+number of exceptions per thread and links a re-raise only within the thread
+that handled it. Stash an exception, handle enough others to push it out of
+that table, raise it again, and it comes back with a fresh serial.
 
-    for i in range(3):
-        try: raise ValueError("fail")
-        except ValueError as e: pass
-
--- gives all three ValueError objects *one* address, because each binding is
-dropped at the end of its handler and the object is freed before the next is
-allocated. So a repeated identity is not evidence of a re-raise, and the two
-rules that key on repetition (2 and 3) each refuse to assert one where the
-trace cannot separate re-raise from reuse.
+So a differing serial is never read here as proof of a differing object.
+Wherever that inference would be load-bearing -- "never re-raised", and "the
+frame unwound with some *other* exception" -- the address and type are checked
+too. An object keeps both for life, so nothing that is really the same object
+slips past; a different object at a recycled address can trip it, and the
+result is an honest hedge naming both readings rather than a verdict the run's
+own uncaught header contradicts.
 
 WHERE THE TRACE CANNOT SAY
 --------------------------
@@ -121,6 +131,25 @@ def exc_key(exc: dict, thread_id=None) -> tuple:
     return ("legacy", exc["type"], exc["msg"], exc["oid"])
 
 
+def could_be_same(a: dict, b: dict, exact: bool) -> bool:
+    """Whether `b` could be `a`'s object recorded under a lost link.
+
+    A serial proves that two rows ARE one object. It cannot prove they are
+    two, because the recorder remembers a bounded number of exceptions per
+    thread and links a re-raise only within the thread that handled it: an
+    object it has forgotten comes back with a fresh serial. An object's
+    address and type, though, are fixed for its lifetime, so equality there is
+    a necessary condition for sameness and the cheapest sound way to ask "may
+    these be one object?".
+
+    False on a legacy trace, whose identity already includes the address, and
+    false for rows the recorder did link (equal serials are handled as the
+    proof they are, before this is ever asked).
+    """
+    return (exact and a["oid"] == b["oid"] and a["type"] == b["type"]
+            and a.get("serial") != b.get("serial"))
+
+
 @dataclass(frozen=True)
 class Disposition:
     tag: str                    # summary bucket, one of TAG_ORDER
@@ -140,6 +169,7 @@ class Index:
     exit_status: object
     incomplete: bool
     exact: bool                 # every RAISE carries a recorder serial
+    by_addr: dict               # (oid, type) -> RAISE events, exact traces only
 
     @classmethod
     def build(cls, trace, meta: dict) -> "Index":
@@ -147,9 +177,13 @@ class Index:
                       if (e.payload or {}).get("exc")]
         exact = all("serial" in e.payload["exc"] for e in all_raises)
         raises: dict = {}
+        by_addr: dict = {}
         for r in all_raises:
             raises.setdefault(
                 exc_key(r.payload["exc"], r.thread_id), []).append(r)
+            if exact:
+                exc = r.payload["exc"]
+                by_addr.setdefault((exc["oid"], exc["type"]), []).append(r)
         handled: dict = {}
         for h in trace.events(kind="HANDLED"):
             exc = (h.payload or {}).get("exc")
@@ -166,7 +200,21 @@ class Index:
         origin = raises[ukey][-1] if ukey in raises else None
         return cls(all_raises, raises, handled, unc, ukey, origin,
                    meta.get("exit_status", "?"), bool(meta.get("incomplete")),
-                   exact)
+                   exact, by_addr)
+
+    def unlinked_later(self, r) -> list:
+        """Later RAISEs that could be `r`'s object under another serial.
+
+        Every re-raise the recorder failed to link is in here -- along with,
+        occasionally, an unrelated exception of the same type at a recycled
+        address. That is the right way round: this list gates the one claim
+        ("never re-raised") that a missed link would make false, so an extra
+        entry costs a hedge rather than a false accusation.
+        """
+        exc = r.payload["exc"]
+        return [x for x in self.by_addr.get((exc["oid"], exc["type"]), ())
+                if x.id > r.id
+                and could_be_same(exc, x.payload["exc"], self.exact)]
 
 
 def _at(trace, e) -> str:
@@ -196,6 +244,28 @@ def _swallowed(trace, h, frame) -> Disposition:
         "swallowed",
         f"SWALLOWED at e{h.id} {_at(trace, h)} -- caught in f{frame.id}, "
         "which returned normally; never re-raised")
+
+
+def _link_lost(trace, h, frame, nxt) -> Disposition:
+    """A returning handler frame, and a later RAISE of the same type at the
+    same address under a *different* serial.
+
+    One object cannot hold two serials while the recorder still remembers it,
+    so either it forgot this one -- its table is bounded, and it links a
+    re-raise only within the thread that handled it -- or the later raise is a
+    new object at the address this one freed. The first reading makes
+    "never re-raised" false; the second makes it true; the trace supports
+    neither, so neither is asserted.
+    """
+    return Disposition(
+        "ambiguous",
+        f"handled at e{h.id} {_at(trace, h)} -- f{frame.id} returned "
+        f"normally, but a later RAISE (e{nxt.id}) is the same exception type "
+        "at the same address under a different recorder identity",
+        "the recorder links a re-raise only while it still holds the handled "
+        "exception, and it holds a bounded number per thread, so this is "
+        "either a swallow whose address a later exception reused or this same "
+        "object stored and raised again; the trace cannot tell them apart")
 
 
 def _stored_or_reused(trace, h, frame, nxt, exact) -> Disposition:
@@ -300,6 +370,27 @@ def _still_in_flight(trace, idx, h, frame) -> Disposition:
                        "propagated (handler not in traced code)", evidence)
 
 
+def _maybe_still_in_flight(trace, h, frame) -> Disposition:
+    """The frame unwound with an exception at this one's address and type, but
+    under a different serial.
+
+    Same reasoning as `_link_lost`, on the other side: a long cleanup that
+    raises and handles more exceptions than the recorder retains can push the
+    exception it is cleaning up out of the identity table, so the frame it
+    finally leaves carries a fresh serial for the same object. Reporting that
+    as "this one did not leave the frame" would be false about the one thing
+    the reader came for.
+    """
+    return Disposition(
+        "ambiguous",
+        f"handled at e{h.id} {_at(trace, h)} -- f{frame.id} then unwound with "
+        f"{fmt_exc(frame.unwind_exc)}, at this exception's address under a "
+        "different recorder identity",
+        "the recorder forgets an exception once it has seen a bounded number "
+        "of others, so the trace cannot say whether that is this same "
+        "exception still propagating or a new one that displaced it")
+
+
 def _displaced(trace, h, frame) -> Disposition:
     return Disposition(
         "ambiguous",
@@ -357,6 +448,13 @@ def classify(trace, r, idx: Index) -> Disposition:
             if later:
                 return _stored_or_reused(trace, h, frame,
                                          later[0], idx.exact)
+            # "never re-raised" is the one claim a serial cannot establish on
+            # its own: a stored exception the recorder forgot comes back with
+            # a fresh one. Its address and type do not change, so they are
+            # what stands between this verdict and a false accusation.
+            unlinked = idx.unlinked_later(r)
+            if unlinked:
+                return _link_lost(trace, h, frame, unlinked[0])
             return _swallowed(trace, h, frame)
 
     # 3. The same identity raised again -- `raise e` by name, which fires
@@ -378,7 +476,18 @@ def classify(trace, r, idx: Index) -> Disposition:
                             frame.thread_id) == key):
             return _still_in_flight(trace, idx, h, frame)
 
-    # 5. Handled, and the frame then died of something else. Translation and
+    # 5. ...or with something the recorder no longer links to this exception,
+    #    which on an exact trace can only be a lost link or a reused address.
+    #    Read as "some other exception", it would deny that this one left the
+    #    frame -- the same false claim rule 2 guards against, from the far
+    #    side. Ranked below rule 4 so a provable match always wins.
+    for h, frame in pairs:
+        if (frame is not None and frame.unwind_exc is not None
+                and could_be_same(r.payload["exc"], frame.unwind_exc,
+                                  idx.exact)):
+            return _maybe_still_in_flight(trace, h, frame)
+
+    # 6. Handled, and the frame then died of something else. Translation and
     #    "swallowed, then an unrelated failure" are indistinguishable here.
     for h, frame in pairs:
         if frame is not None and frame.unwind_exc is not None:
