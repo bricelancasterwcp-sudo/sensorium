@@ -282,7 +282,8 @@ class _LateWriteGuard:
 _audit_lock = threading.Lock()
 _audit_sink: list | None = None    # the `children` list of the run in progress
 _audit_threads: list | None = None  # one entry per thread the run created
-_audit_errors: list | None = None   # one entry per time this hook malfunctioned
+_audit_errors: list | None = None   # one entry per hook malfunction
+_audit_spawns: list | None = None   # one entry per low-level spawn syscall
 _audit_installs = 0                # audit hooks added, ever, by this process
 
 # Thread creation, which the recorder cannot otherwise see. A thread whose
@@ -298,6 +299,22 @@ _audit_installs = 0                # audit hooks added, ever, by this process
 # extension without going through `_thread` still cannot be seen; that gap is
 # named in refocus's blind spots rather than papered over.
 _THREAD_EVENTS = ("_thread.start_new_thread", "_thread.start_joinable_thread")
+
+# The syscall layer under every spawn, counted SEPARATELY from `children`.
+# Measured:
+#
+#   subprocess.run(...)              -> subprocess.Popen, os.posix_spawn
+#   subprocess.run(preexec_fn=...)   -> subprocess.Popen, ...fork_exec
+#   multiprocessing 'spawn'          -> _posixsubprocess.fork_exec (no Popen)
+#   multiprocessing 'forkserver'     -> _posixsubprocess.fork_exec (no Popen)
+#   multiprocessing 'fork'           -> os.fork
+#
+# so these cannot join `_CHILD_EVENTS`: Popen nests one of them and would be
+# counted twice. They go in their own list instead. Each list may over-count
+# within itself, but "was ANY child witnessed" -- the only question the
+# licence gate asks -- is answered correctly by either being non-empty, and
+# `multiprocessing` with spawn/forkserver is visible here and nowhere else.
+_SPAWN_SYSCALLS = ("os.posix_spawn", "_posixsubprocess.fork_exec")
 
 
 # Audit events that start another process, mapped to the positional argument
@@ -346,14 +363,19 @@ def _audit(event, args) -> None:
     the licence gate downstream. So failures are swallowed AND counted, and
     `refocus` withholds on a non-zero count.
     """
-    if event in _THREAD_EVENTS:
-        threads = _audit_threads
-        if threads is not None:
-            threads.append(1)     # list.append is atomic; no lock, no deadlock
-        return
-    if event not in _CHILD_EVENTS:
-        return
     try:
+        if event in _THREAD_EVENTS:
+            threads = _audit_threads
+            if threads is not None:
+                threads.append(1)          # list.append is atomic; no lock
+            return
+        if event in _SPAWN_SYSCALLS:
+            spawns = _audit_spawns
+            if spawns is not None:
+                spawns.append(1)
+            return
+        if event not in _CHILD_EVENTS:
+            return
         sink = _audit_sink
         if sink is None:
             return
@@ -361,7 +383,11 @@ def _audit(event, args) -> None:
         if index is None:
             sink.append([f"<{event}>"])    # a child with no command to name
             return
-        cmd = args[index] if len(args) > index else None
+        # Deliberately unguarded: an index past the end of `args` means the
+        # table above is wrong about this event, and returning quietly would
+        # leave `children == []` reading as "no subprocess ran". Let it raise
+        # into the counter below, where a wrong table becomes visible.
+        cmd = args[index]
         if not cmd:
             return
         if isinstance(cmd, (str, bytes, os.PathLike)):
@@ -388,19 +414,23 @@ def _as_text(arg) -> str:
     return str(arg)
 
 
-def _arm_audit(sink: list, threads: list, errors: list) -> None:
-    global _audit_sink, _audit_threads, _audit_errors, _audit_installs
+def _arm_audit(sink: list, threads: list, errors: list,
+               spawns: list) -> None:
+    global _audit_sink, _audit_threads, _audit_errors, _audit_spawns
+    global _audit_installs
     with _audit_lock:
         if _audit_installs == 0:
             sys.addaudithook(_audit)
             _audit_installs += 1
-        _audit_sink, _audit_threads, _audit_errors = sink, threads, errors
+        _audit_sink, _audit_threads = sink, threads
+        _audit_errors, _audit_spawns = errors, spawns
 
 
 def _disarm_audit() -> None:
-    global _audit_sink, _audit_threads, _audit_errors
+    global _audit_sink, _audit_threads, _audit_errors, _audit_spawns
     with _audit_lock:
-        _audit_sink = _audit_threads = _audit_errors = None
+        _audit_sink = _audit_threads = None
+        _audit_errors = _audit_spawns = None
 
 
 # -- run metadata ----------------------------------------------------------
@@ -489,7 +519,7 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
 
 def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
                    truncated_count, live_threads, entry, threads_started,
-                   audit_errors) -> None:
+                   audit_errors, spawn_syscalls) -> None:
     """Close out the run. Runs after `w.seal()`, hence `set_meta_final`."""
     w.set_meta_final("uncaught", uncaught)
     w.set_meta_final("stdin_consumed", stdin_consumed)
@@ -509,6 +539,10 @@ def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
     # not to be trusted, and refocus withholds rather than reading a short
     # list as "nothing was spawned".
     w.set_meta_final("audit_errors", audit_errors)
+    # Low-level spawns, counted apart from `children` because Popen nests one
+    # and would otherwise be counted twice. This is the only place a
+    # multiprocessing 'spawn'/'forkserver' child is visible at all.
+    w.set_meta_final("spawn_syscalls", spawn_syscalls)
     files = set(w.interned_files())
     if entry:
         files.add(entry)       # the target itself, even if it traced nothing
@@ -575,7 +609,8 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
     children: list[list[str]] = []
     started: list[int] = []
     audit_errors: list[int] = []
-    _arm_audit(children, started, audit_errors)
+    spawns: list[int] = []
+    _arm_audit(children, started, audit_errors, spawns)
     saved = (sys.stdin, sys.stdout, sys.stderr, sys.argv, list(sys.path))
     stdin_proxy = _StdinProxy(sys.stdin)
     sys.stdin = stdin_proxy
@@ -608,7 +643,8 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
                                  - truncated_before),
                 live_threads=live, entry=entry,
                 threads_started=len(started),
-                audit_errors=len(audit_errors))
+                audit_errors=len(audit_errors),
+                spawn_syscalls=len(spawns))
         finally:
             w.close()                  # never skipped: no leaked connection
             gaps = _recording_gaps(live, w.late_writes)

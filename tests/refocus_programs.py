@@ -496,3 +496,72 @@ def main():
 if __name__ == "__main__":
     main()
 """
+
+
+# Path six: `multiprocessing` with spawn/forkserver reaches the OS through
+# `_posixsubprocess.fork_exec`, which `subprocess.Popen` also nests -- so it
+# cannot join `children` without double-counting, and is counted separately.
+MULTIPROCESSING_CHILD = """
+import multiprocessing as mp
+import pathlib
+
+def copy_payload(src, dst):
+    pathlib.Path(dst).write_text(pathlib.Path(src).read_text())
+
+def deliver():
+    ctx = mp.get_context("spawn")
+    p = ctx.Process(target=copy_payload, args=("payload.txt", "delivered.txt"))
+    p.start()
+    p.join()
+
+def main():
+    deliver()
+    print("child done")
+
+if __name__ == "__main__":
+    main()
+"""
+
+# Path seven: COLUMNS was on the volatile denylist, so a program that sizes
+# its output by terminal width wrote 80 bytes in one run and 9000 in the
+# other under a full licence.
+READS_COLUMNS = """
+import os
+
+def width():
+    return int(os.environ.get("COLUMNS", "80"))
+
+def main():
+    with open("out.txt", "w") as fh:
+        fh.write("x" * width())
+    print("wrote", width())
+
+if __name__ == "__main__":
+    main()
+"""
+
+# A worker started ONLY on the rerun: the two sides are asymmetric, which is
+# what separates max() from min() when counting threads that left no
+# fingerprint.
+WORKER_ON_SECOND_RUN = """
+import pathlib
+import shutil
+import threading
+
+def maybe_worker():
+    p = pathlib.Path("seen.txt")
+    if p.exists():
+        t = threading.Thread(target=shutil.copyfile,
+                             args=("seen.txt", "copy.txt"))
+        t.start()
+        t.join()
+    else:
+        p.write_text("1")
+
+def main():
+    maybe_worker()
+    print("done")
+
+if __name__ == "__main__":
+    main()
+"""

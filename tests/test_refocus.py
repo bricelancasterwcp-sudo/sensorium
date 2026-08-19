@@ -20,9 +20,9 @@ from tests.helpers import run_cli
 from tests.refocus_programs import (COUNTER, EXIT_FROM_FILE, LIB, LOOP,
                                     OUTSIDE_ROOT, READS_STDIN, SLEEPER,
                                     THREAD_BRANCH, THREAD_COUNT, TWO_FILES,
-                                    dbs, new_run, rec, record_killed,
-                                    recorded_output, refocus, set_meta,
-                                    synthetic, trace)
+                                    WORKER_ON_SECOND_RUN, dbs, new_run, rec,
+                                    record_killed, recorded_output, refocus,
+                                    set_meta, synthetic, trace)
 
 
 # -- MATCH ------------------------------------------------------------------
@@ -303,7 +303,7 @@ def test_refocus_states_its_blind_spots_on_a_refused_verdict(tmp_path):
     assert r.returncode == 2
     lines = r.stdout.splitlines()
     start = next(i for i, ln in enumerate(lines)
-                 if ln.startswith("never checked by ANY verdict"))
+                 if ln.startswith("what sensorium sees at all"))
     blind = "\n".join(ln for ln in lines[start + 1:] if ln.startswith("  - "))
     assert "__repr__" in blind and "fingerprint" in blind
 
@@ -433,3 +433,23 @@ def test_refocus_reports_a_differing_exit_status(tmp_path):
     assert "refocus verdict: MATCH" in r.stdout, r.stdout + r.stderr
     assert r.returncode == 0
     assert "exit: rerun 1   original 0" in r.stdout
+
+
+def test_refocus_counts_uncompared_threads_from_the_side_that_had_them(
+        tmp_path):
+    """The two sides can be asymmetric: this worker starts only on the
+    rerun. Counting the uncompared threads from the SMALLER side would
+    report none at all, so the reader would never learn that a thread ran
+    which nothing compared."""
+    run_id, sdir = rec(tmp_path, WORKER_ON_SECOND_RUN)
+    assert trace(sdir, run_id).meta["threads_started"] == 0   # none yet
+
+    r = refocus(sdir, run_id, "--focus", "prog:maybe_worker")
+    assert r.returncode == 0, r.stdout + r.stderr
+    new = trace(sdir, new_run(r.stdout))
+    assert new.meta["threads_started"] == 1        # the rerun started one
+    assert len(new.fingerprints()) == 1            # and it left no fingerprint
+
+    assert "1 further thread(s) ran no traced code" in r.stdout
+    assert "were NOT compared" in r.stdout
+    assert "licence: WITHHELD" in r.stdout

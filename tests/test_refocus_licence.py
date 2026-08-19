@@ -34,6 +34,7 @@ from sensorium.store.reader import Trace
 from tests.helpers import run_cli
 from tests.refocus_programs import (COUNTER, ENV_LIMIT, EXIT_FROM_FILE,
                                     JOINED_UNTRACED_WORKER, LIB, LOOP,
+                                    MULTIPROCESSING_CHILD, READS_COLUMNS,
                                     SHELLS_OUT, SIDE_EFFECT_REPR, SPAWNS,
                                     TWO_FILES, TWO_WORKERS, UNTRACED_WORKER,
                                     drop_meta, new_run, rec, rec_in_git,
@@ -56,11 +57,25 @@ def test_refocus_grants_the_licence_when_every_check_passes(tmp_path):
     assert "source: unchanged" in r.stdout
     assert "env: unchanged" in r.stdout
     assert "refocus verdict: MATCH" in r.stdout
-    assert ("licence: answers from this trace are answers about the original "
-            "run -- every signal sensorium can check agrees") in r.stdout
+    # the licence states positively and boundedly what it rests on, and
+    # never that "every signal sensorium can check agrees" -- a sentence
+    # that invites the check-list to be read as complete
+    assert f"licence: verified against {run_id} on exactly these points, " \
+        "and no others:" in r.stdout
+    assert "  - identical call shape across 1 compared fingerprint(s)" \
+        in r.stdout
+    assert "  - 1 source file(s) unchanged by content" in r.stdout
+    assert "environment variable(s) unchanged, ignoring only" in r.stdout
+    assert "  - no child process witnessed" in r.stdout
     assert "licence: WITHHELD" not in r.stdout
+    assert "every signal sensorium can check agrees" not in r.stdout
+    # a single-threaded run has no uncompared threads, and must not claim
+    # otherwise: the tail is a finding, not decoration
+    assert "further thread(s) ran no traced code" not in r.stdout
+    assert "threads: 1 recorded fingerprint(s) compared, all matching" \
+        in r.stdout.replace(";", "\n")
     # ...and the blind spots are still stated, licence or no licence
-    assert "never checked by ANY verdict" in r.stdout
+    assert "what sensorium sees at all" in r.stdout
 
 
 def test_refocus_withholds_the_licence_when_it_cannot_check_the_source(
@@ -195,7 +210,7 @@ def test_refocus_reports_output_the_recorder_itself_changed(tmp_path):
 def _blind_spot_block(out: str) -> str:
     lines = out.splitlines()
     start = next(i for i, ln in enumerate(lines)
-                 if ln.startswith("never checked by ANY verdict"))
+                 if ln.startswith("what sensorium sees at all"))
     body = [ln for ln in lines[start + 1:] if ln.startswith("  - ")]
     assert body, out
     return "\n".join(body)
@@ -226,13 +241,20 @@ def test_blind_spots_name_the_gaps_the_source_check_cannot_reach(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
 
     blind = _blind_spot_block(r.stdout)
-    assert "the DATA the program read" in blind
-    assert "config file" in blind
-    assert "site-packages and installed dependencies" in blind
-    assert "outside the run's root" in blind
-    assert "--include/--exclude filtered out" in blind
-    assert "os.posix_spawn is not even noticed" in blind
-    assert "C extension" in blind
+    # CATEGORICAL, not a list of mechanisms: the header bounds it by what
+    # the instrument is, so it stays true when the next mechanism appears
+    header = next(ln for ln in r.stdout.splitlines()
+                  if ln.startswith("what sensorium sees at all"))
+    assert "Python code that this run traced" in header
+    assert "under the run's own root" in header
+    assert "Nothing else" in header
+    assert "any child process, by any mechanism" in blind
+    assert "an empty list is NOT evidence that none ran" in blind
+    assert "any file the program read or wrote" in blind
+    assert "any code outside the run's root" in blind
+    assert "the environment beyond the variables named as compared" in blind
+    assert "the clock, the network" in blind
+    assert "threading/_thread" in blind
     # ...and the source line itself does not read as a blanket all-clear
     assert ("data files, untraced code and installed dependencies are NOT "
             "covered") in r.stdout
@@ -604,7 +626,8 @@ def test_report_grants_the_licence_when_nothing_is_found(tmp_path, capsys):
                             refocus_cmd.assess(ta, tb, res))
     out = capsys.readouterr().out
     assert rc == 0
-    assert "answers about the original run" in out
+    assert f"licence: verified against {a.stem}" in out
+    assert "identical call shape across 1 compared fingerprint(s)" in out
     assert "licence: WITHHELD" not in out
 
 
@@ -623,3 +646,69 @@ def test_stamp_records_why_a_verdict_was_refused(tmp_path):
     assert m["refocus_verdict"] == "REFUSED"
     assert any("dropped >=2 trace write(s)" in reason
                for reason in m["refocus_refused_reasons"])
+
+
+# -- round 4: the sixth and seventh paths, and the shape of the claim -------
+
+def test_refocus_withholds_when_multiprocessing_spawned_a_child(tmp_path):
+    """The sixth false licence. `multiprocessing` with spawn/forkserver
+    reaches the OS through `_posixsubprocess.fork_exec` and never raises
+    `subprocess.Popen`, so `children` stayed empty and the full licence was
+    granted while the child copied a different payload.
+
+    It cannot join `children`: `Popen` nests the same syscall and would be
+    counted twice. It is a second, independent observation instead -- either
+    list being non-empty answers "was a child witnessed", which is the only
+    question the gate asks."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "payload.txt").write_text("ORIGINAL payload")
+    run_id, sdir = rec(tmp_path, MULTIPROCESSING_CHILD)
+    m = trace(sdir, run_id).meta
+    assert m["children"] == []                # the trap: nothing in `children`
+    assert m["audit_errors"] == 0
+    assert m["spawn_syscalls"] > 0            # ...but the syscall was seen
+
+    (tmp_path / "payload.txt").write_text("A COMPLETELY DIFFERENT payload")
+    r = refocus(sdir, run_id, "--focus", "prog:deliver")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (tmp_path / "delivered.txt").read_text() == (
+        "A COMPLETELY DIFFERENT payload")
+
+    assert "refocus verdict: MATCH" in r.stdout
+    assert "licence: WITHHELD" in r.stdout
+    assert "low-level process-spawn syscall(s)" in r.stdout
+    assert "multiprocessing's spawn and forkserver" in r.stdout
+    assert "licence: verified against" not in r.stdout
+
+
+def test_refocus_no_longer_ignores_terminal_geometry(tmp_path, monkeypatch):
+    """The seventh false licence. COLUMNS sat on the volatile denylist, so a
+    program that sized its output by terminal width wrote 80 bytes in one run
+    and 9000 in the other under a full licence. Terminal geometry is not
+    shell bookkeeping that moves between consecutive commands -- it changes
+    only on a resize -- so ignoring it bought almost nothing."""
+    monkeypatch.setenv("COLUMNS", "80")
+    run_id, sdir = rec(tmp_path, READS_COLUMNS)
+    assert (tmp_path / "out.txt").stat().st_size == 80
+
+    monkeypatch.setenv("COLUMNS", "9000")
+    r = refocus(sdir, run_id, "--focus", "prog:width")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (tmp_path / "out.txt").stat().st_size == 9000
+
+    assert "refocus verdict: MATCH" in r.stdout
+    assert "env: CHANGED since the original run" in r.stdout
+    assert "COLUMNS" in r.stdout
+    assert "licence: WITHHELD" in r.stdout
+
+
+def test_the_ignored_volatile_keys_are_named_not_counted(tmp_path):
+    """"4 volatile keys ignored" is not something a reader can judge. The
+    names are what let them notice that a key they care about is on it."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "ignored as volatile: OLDPWD, PWD, SHLVL, _" in r.stdout
+    assert "volatile shell keys ignored" not in r.stdout      # the old count
+    # COLUMNS and LINES are no longer among them
+    assert "COLUMNS" not in r.stdout and "LINES" not in r.stdout

@@ -143,36 +143,45 @@ _VOLATILE_ENV = frozenset({
     "OLDPWD",
     "PWD",          # os.chdir does not update it; it names the calling shell
     "SHLVL",
-    "COLUMNS",
-    "LINES",
 })
+# COLUMNS and LINES were on this list and are not any more. They are terminal
+# geometry, which most shells do not export at all and which changes only on
+# a resize -- so ignoring them bought almost nothing, and cost a real hole: a
+# program that sizes its output by COLUMNS wrote 80 bytes in one run and 9000
+# in the other under a full licence. Every name above is a name this tool has
+# stopped checking, so the list stays as short as it can be, and the names
+# themselves are printed beside the count rather than left as "4 keys".
 
-# Printed in full on every verdict. These belong in the OUTPUT, not only in
-# this file's docstrings: a limitation a user cannot read is a limitation
-# that will be walked into. Three separate attacks landed inside gaps that
-# were documented in the source and invisible on screen -- a config file the
-# source check does not hash, a module outside the run's root, and a spawn
-# mechanism the audit hook does not watch -- and each earned a full licence.
+# Printed on every verdict, and CATEGORICAL on purpose.
+#
+# An earlier version listed the mechanisms sensorium cannot see. Two more
+# arrived within a day -- a `multiprocessing` child spawned through
+# `_posixsubprocess.fork_exec`, and a `COLUMNS` change hidden by the volatile
+# denylist -- and the list was worse than useless for them: it read as
+# EXHAUSTIVE, so a reader who checked it concluded their multiprocessing
+# child had been witnessed. An enumeration that looks complete is more
+# dangerous than no enumeration. The statement below is bounded by what the
+# instrument IS rather than by what has been thought of so far, so it stays
+# true when the next mechanism appears.
 _BLIND_SPOTS = (
-    "never checked by ANY verdict:",
-    "  - argument and return values, and per-line state: captured, never "
-    "compared, and never fingerprinted",
-    "  - timing, and the order threads ran in relative to each other",
-    "  - the recorder's own footprint: deeper capture calls the program's "
-    "__repr__ from inside the recorder's hooks, where the tracer suppresses "
-    "itself, so an instrument that changes the program leaves no mark on the "
-    "fingerprint at all",
-    "  - the DATA the program read: only source files are hashed, so a "
-    "config file, a fixture or a database can change between the runs "
-    "freely and silently",
-    "  - code that was never traced: the stdlib, site-packages and installed "
-    "dependencies, anything outside the run's root (a PYTHONPATH module), "
-    "and anything this run's own --include/--exclude filtered out",
-    "  - what any subprocess did -- and a child started by a direct "
-    "os.posix_spawn is not even noticed, because watching that event as well "
-    "would double-count every subprocess.Popen",
-    "  - a thread started by a C extension rather than through Python's own "
-    "_thread module",
+    "what sensorium sees at all: Python code that this run traced, in files "
+    "under the run's own root. Nothing else. No verdict here -- MATCH, "
+    "DIVERGED or REFUSED -- says anything about:",
+    "  - any child process, by any mechanism. Some are noticed and listed "
+    "above; an empty list is NOT evidence that none ran",
+    "  - any thread not started through Python's own threading/_thread",
+    "  - any file the program read or wrote. Only SOURCE files are hashed, "
+    "so config, fixtures, databases and inputs move unseen",
+    "  - any code outside the run's root: the stdlib, site-packages, "
+    "installed dependencies, PYTHONPATH modules, and whatever this run's "
+    "own --include/--exclude filtered out",
+    "  - the environment beyond the variables named as compared above",
+    "  - the clock, the network, and everything else the machine did",
+    "  - argument and return values, per-line state, timing, and the order "
+    "threads ran in relative to one another: recorded, never compared",
+    "  - the recorder's own footprint: deeper capture runs the program's "
+    "__repr__ inside hooks that suppress themselves, so an instrument that "
+    "changes the program leaves no mark on the fingerprint",
 )
 
 
@@ -269,8 +278,8 @@ def _pin_trace_store() -> None:
 
 
 # -- the world the rerun will run in ---------------------------------------
-def _source_state(meta: dict) -> tuple[str, str | None]:
-    """(status line, caveat or None), by comparing file CONTENTS.
+def _source_state(meta: dict) -> tuple[str, str | None, str | None]:
+    """(status line, caveat or None, verified fact or None), by CONTENTS.
 
     Deliberately not `git_dirty_hash`. That hash covers the output of
     `git status --porcelain` -- a list of paths and status letters -- so a
@@ -301,7 +310,7 @@ def _source_state(meta: dict) -> tuple[str, str | None]:
                 "sensorium cannot tell whether the code changed",
                 "the source could not be checked at all -- the original "
                 "trace holds no file digests -- so nothing rules out an "
-                "edit between the runs")
+                "edit between the runs", None)
     # A file the recorder could not read has a None digest. Comparing it
     # against a None read now would make two failures agree and print
     # "unchanged" over a file nobody has ever hashed -- the same shape as
@@ -314,14 +323,16 @@ def _source_state(meta: dict) -> tuple[str, str | None]:
                 f"file(s) had no digest recorded ({names})",
                 f"{len(unread)} source file(s) could not be checked "
                 f"({names}) -- they were unreadable when the original was "
-                f"recorded, so nothing rules out an edit between the runs")
+                f"recorded, so nothing rules out an edit between the runs",
+                None)
     changed = [p for p, digest in sorted(was.items())
                if boot.hash_file(p) != digest]
     if not changed:
         return (f"source: unchanged ({len(was)} file(s) compared by "
                 "content; data files, untraced code and installed "
                 "dependencies are NOT covered -- see blind spots below)",
-                None)
+                None,
+                f"{len(was)} source file(s) unchanged by content")
     shown = ", ".join(Path(p).name for p in changed[:6])
     if len(changed) > 6:
         shown += f", +{len(changed) - 6} more"
@@ -329,7 +340,7 @@ def _source_state(meta: dict) -> tuple[str, str | None]:
             f"{len(was)} file(s) differ by content: {shown}",
             f"{len(changed)} source file(s) CHANGED between the two runs "
             f"({shown}), so the rerun executed different code than the "
-            f"recording did")
+            f"recording did", None)
 
 
 def _env_diff(was: dict, now: dict) -> list[str]:
@@ -339,26 +350,37 @@ def _env_diff(was: dict, now: dict) -> list[str]:
     return sorted(k for k in keys if was.get(k) != now.get(k))
 
 
-def _env_state(meta: dict, env: dict) -> tuple[str, str | None]:
-    """(status line, caveat or None) for the environment the rerun will get."""
+def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
+    """(status line, caveat, verified fact) for the rerun's environment.
+
+    The ignored keys are NAMED, not counted. "4 volatile keys ignored" is
+    not something a reader can judge; `COLUMNS` sitting silently on that
+    list is how a program that sized its output by terminal width earned a
+    full licence while writing 80 bytes one run and 9000 the next.
+    """
     was = meta.get("env")
     if not isinstance(was, dict):
         return ("env: unverifiable -- the original trace records no "
                 "environment to compare against",
                 "the environment could not be checked at all, so nothing "
-                "rules out the rerun getting different input through it")
+                "rules out the rerun getting different input through it",
+                None)
     names = _env_diff(was, env)
     if not names:
         compared = len((set(was) | set(env)) - _VOLATILE_ENV)
-        return (f"env: unchanged ({compared} variables compared; "
-                f"{len(_VOLATILE_ENV)} volatile shell keys ignored)", None)
+        ignored = ", ".join(sorted(_VOLATILE_ENV))
+        return (f"env: unchanged ({compared} variables compared; ignored as "
+                f"volatile: {ignored})", None,
+                f"{compared} environment variable(s) unchanged, ignoring "
+                f"only {ignored}")
     shown = ", ".join(names[:8])
     if len(names) > 8:
         shown += f", +{len(names) - 8} more"
     return (f"env: CHANGED since the original run -- {len(names)} "
             f"variable(s) differ: {shown}   (names only)",
             f"{len(names)} environment variable(s) differ between the two "
-            f"runs ({shown}); a program that reads them got different input")
+            f"runs ({shown}); a program that reads them got different input",
+            None)
 
 
 # -- the whole-run verdict -------------------------------------------------
@@ -503,6 +525,17 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
         out.append(f"the two runs ended differently: exit {was} originally, "
                    f"exit {now} on the rerun")
     for label, trace in (("the original", orig), ("the rerun", new)):
+        # Two independent observations, because `subprocess.Popen` nests a
+        # spawn syscall and a single list would count it twice. Either being
+        # non-empty means a child was witnessed; neither being non-empty
+        # means only that none was NOTICED -- multiprocessing with
+        # spawn/forkserver is visible in the second and nowhere else.
+        spawns = trace.meta.get("spawn_syscalls") or 0
+        if spawns:
+            out.append(f"{label} made {spawns} low-level process-spawn "
+                       "syscall(s) (this is how multiprocessing's spawn and "
+                       "forkserver start a child); sensorium does not "
+                       "witness any of them")
         kids = trace.meta.get("children") or []
         if kids:
             out.append(f"{label} spawned {len(kids)} subprocess(es), which "
@@ -511,24 +544,49 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
 
 
 # -- the assessment --------------------------------------------------------
-def assess(orig: Trace, new: Trace, res: dict, world_caveats=()) -> dict:
+def _verified_facts(orig: Trace, new: Trace) -> list[str]:
+    """What a granted licence is actually based on, stated positively.
+
+    The granted line used to read "every signal sensorium can check agrees",
+    which invites the reader to treat the check-list as complete -- and every
+    review round has falsified that reading by finding another path through
+    it. Naming the concrete, bounded findings instead cannot be falsified by
+    a mechanism nobody has thought of yet: it claims these things and no
+    others.
+    """
+    n = len(new.fingerprints())
+    return [
+        f"identical call shape across {n} compared fingerprint(s)",
+        "no thread started besides the main one, and none left running "
+        "when recording stopped",
+        "no child process witnessed, by any mechanism sensorium watches",
+    ]
+
+
+def assess(orig: Trace, new: Trace, res: dict, world_caveats=(),
+           world_verified=()) -> dict:
     """Everything the two traces support, decided once.
 
-    `world_caveats` are findings about the world outside the traces (the
-    source files, the environment) that only the caller can establish;
-    everything else is derived here. Computed in one place because the
-    verdict is printed, stamped into the new trace, and turned into an exit
-    code -- and those three must never be able to disagree.
+    `world_caveats` and `world_verified` are findings about the world outside
+    the traces (the source files, the environment) that only the caller can
+    establish; everything else is derived here. Computed in one place because
+    the verdict is printed, stamped into the new trace, and turned into an
+    exit code -- and those three must never be able to disagree.
     """
     verdict, threads = final_verdict(orig, new, res)
     world = list(world_caveats)
     caveats = ((world + _licence_caveats(orig, new))
                if verdict == "MATCH" else [])
     licence = None
+    verified = []
     if verdict == "MATCH":
         licence = "withheld" if caveats else "granted"
+        if not caveats:
+            verified = (_verified_facts(orig, new)[:1]
+                        + list(world_verified)
+                        + _verified_facts(orig, new)[1:])
     return {"verdict": verdict, "threads": threads, "world": world,
-            "caveats": caveats, "licence": licence}
+            "caveats": caveats, "licence": licence, "verified": verified}
 
 
 # -- reporting -------------------------------------------------------------
@@ -553,6 +611,7 @@ def _stamp(path: Path, res: dict, a: dict) -> None:
         if a["licence"]:
             db.set_meta(conn, "refocus_licence", a["licence"])
             db.set_meta(conn, "refocus_licence_reasons", a["caveats"])
+            db.set_meta(conn, "refocus_licence_verified", a["verified"])
         conn.commit()
     finally:
         conn.close()
@@ -627,8 +686,10 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
         for caveat in a["caveats"]:
             print(f"  - {caveat}")
     else:
-        print("licence: answers from this trace are answers about the "
-              "original run -- every signal sensorium can check agrees")
+        print(f"licence: verified against {orig_name} on exactly these "
+              "points, and no others:")
+        for fact in a["verified"]:
+            print(f"  - {fact}")
     _print_blind_spots()
     return 0
 
@@ -646,8 +707,8 @@ def _rerun_and_verify(args, orig: Trace, orig_name: str, meta: dict,
 
     focus = _merged_focus(meta, args.focus)
     window = args.window if args.window is not None else meta.get("window")
-    source, source_caveat = _source_state(meta)
-    env_line, env_caveat = _env_state(meta, env)
+    source, source_caveat, source_fact = _source_state(meta)
+    env_line, env_caveat, env_fact = _env_state(meta, env)
 
     print(f"refocus-of: {orig_name}   cmd: {' '.join(argv)}")
     print(f"cwd: {os.getcwd()}")
@@ -664,7 +725,9 @@ def _rerun_and_verify(args, orig: Trace, orig_name: str, meta: dict,
     new_path = (paths.traces_dir() / f"{new_id}.db").resolve()
     new = Trace.open(new_path)
     res = compare(orig, new)
-    a = assess(orig, new, res, [c for c in (source_caveat, env_caveat) if c])
+    a = assess(orig, new, res,
+               [c for c in (source_caveat, env_caveat) if c],
+               [f for f in (source_fact, env_fact) if f])
     _stamp(new_path, res, a)
 
     print("--- verdict ---")

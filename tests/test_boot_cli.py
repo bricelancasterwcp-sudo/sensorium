@@ -207,6 +207,35 @@ def test_the_audit_hook_swallows_its_own_failures_but_counts_them(
     assert children == [["exit 0"]]
     assert len(errors) == 1
 
+    # An index past the end of `args` means the event table is WRONG about
+    # this event. Returning quietly there would leave `children == []`
+    # reading as "no subprocess ran" -- the failure this counter exists for.
+    boot._audit("subprocess.Popen", ())
+    assert children == [["exit 0"]], "no child should have been invented"
+    assert len(errors) == 2, "a wrong table entry must not be silent"
+
+
+def test_the_audit_hook_counts_spawn_syscalls_apart_from_children(monkeypatch):
+    """`subprocess.Popen` nests a spawn syscall, so the two cannot share a
+    list without counting every subprocess twice. They are separate
+    observations: either being non-empty means a child was witnessed."""
+    children, threads, errors, spawns = [], [], [], []
+    monkeypatch.setattr(boot, "_audit_sink", children)
+    monkeypatch.setattr(boot, "_audit_threads", threads)
+    monkeypatch.setattr(boot, "_audit_errors", errors)
+    monkeypatch.setattr(boot, "_audit_spawns", spawns)
+
+    boot._audit("subprocess.Popen", (None, ["/bin/true"], None, None))
+    boot._audit("os.posix_spawn", ("/bin/true", ["/bin/true"], {}))
+    assert children == [["/bin/true"]], "one Popen, one entry"
+    assert len(spawns) == 1, "the syscall is counted on its own"
+
+    # multiprocessing spawn/forkserver: the syscall and nothing else
+    boot._audit("_posixsubprocess.fork_exec", (None,))
+    assert children == [["/bin/true"]]
+    assert len(spawns) == 2
+    assert errors == []
+
 
 def test_the_audit_hook_counts_threads_however_they_are_started(monkeypatch):
     """Both spellings of thread creation, measured rather than assumed:
