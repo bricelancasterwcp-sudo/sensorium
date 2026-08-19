@@ -16,21 +16,36 @@ def add_parser(sub) -> None:
 
 
 def _resolve(trace, args):
+    """Return (frame, error). `error` is set (and frame is None) whenever
+    resolution fails, so `run` can report exactly why instead of a single
+    catch-all message -- an out-of-range --nth (<=0, or beyond how many
+    activations were actually recorded) must refuse loudly, never silently
+    wrap to the wrong activation or raise an uncaught IndexError."""
     if args.frame:
-        return trace.frame(parse_fref(args.frame))
+        f = trace.frame(parse_fref(args.frame))
+        if f is None:
+            return None, f"no such frame: {args.frame} does not exist"
+        return f, None
     if args.fn:
         matches = [f for f in trace.frames()
                    if trace.code(f.code_id).qualname == args.fn]
-        if len(matches) >= args.nth:
-            return matches[args.nth - 1]
-    return None
+        if not matches:
+            return None, ("no such frame: no recorded activations of "
+                          f"{args.fn!r}")
+        if not (1 <= args.nth <= len(matches)):
+            return None, (
+                f"--nth {args.nth} is out of range: {args.fn!r} has "
+                f"{len(matches)} recorded activation(s); valid --nth is "
+                f"1..{len(matches)}")
+        return matches[args.nth - 1], None
+    return None, "no such frame; give f<id> or --fn QUALNAME [--nth N]"
 
 
 def run(args) -> int:
     trace = Trace.open(paths.find_trace(args.run))
-    f = _resolve(trace, args)
+    f, err = _resolve(trace, args)
     if f is None:
-        print("no such frame; give f<id> or --fn QUALNAME [--nth N]")
+        print(err)
         return 1
     code = trace.code(f.code_id)
     end = f"e{f.return_event_id}" if f.return_event_id is not None else "?"

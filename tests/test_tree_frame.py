@@ -135,7 +135,54 @@ def test_tree_depth_limit_prunes_and_reports_how_much(
     assert "main(" in out
     assert "price(" not in out                # depth 2, pruned
     assert "--depth 1" in out
-    assert "narrow with --root f" in out
+    # exact, runnable command: the real run id and a real pruned frame id,
+    # not a template like "fN"
+    assert f"continue with: sensorium tree {run_id} --root f" in out
+    hint_frame = out.strip().splitlines()[-1].rsplit("--root f", 1)[1]
+    assert hint_frame.isdigit()
+
+
+# -- fix round 1: `tree --around` computed `cut` from render_tree and never
+# checked or printed it -- only the default (no --around) branch did. A
+# reader asking "what's around this event" would see a complete-looking
+# tree and have no way to know a subtree was withheld. Reproduced on SRC's
+# price -> silver call: --around on price's own CALL event with --depth 0
+# prunes silver's subtree entirely and (pre-fix) said nothing about it.
+def test_tree_around_reports_truncation_with_runnable_command(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch)     # SRC: price() calls silver()
+    cli.main(["tree", run_id])
+    first = capsys.readouterr().out
+    price_line = next(ln for ln in first.splitlines()
+                      if "price(points=500" in ln)
+    eid = price_line.split()[1]              # price's own CALL event id
+
+    assert cli.main(["tree", run_id, "--around", eid, "--depth", "0"]) == 0
+    out = capsys.readouterr().out
+    assert "price(points=500" in out
+    assert "silver(" not in out               # silver's subtree is pruned
+    assert "1 subtree(s) beyond --depth 0" in out
+    # exact, runnable command -- a real run ref and a real frame id, not a
+    # literal "fN" template
+    assert f"continue with: sensorium tree {run_id} --root f" in out
+    hint_frame = out.strip().splitlines()[-1].rsplit("--root f", 1)[1]
+    assert hint_frame.isdigit()
+
+    # and following that exact command actually reveals what was withheld
+    assert cli.main(["tree", run_id, "--root", f"f{hint_frame}"]) == 0
+    assert "silver(" in capsys.readouterr().out
+
+
+def test_tree_zero_frames_says_so_instead_of_printing_nothing(
+        tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    run_id = "20260101-000000-abcdef"
+    w = TraceWriter(paths.traces_dir() / f"{run_id}.db", batch=1)
+    w.set_meta("run_id", run_id)
+    w.close()
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    assert out.strip() == "no frames recorded"
 
 
 def test_tree_and_frame_mark_unwound_frame_with_real_exception(
@@ -239,6 +286,34 @@ def test_frame_positional_ref_and_nth_distinguish_activations(
 
     assert cli.main(["frame", run_id, fid2]) == 0
     assert capsys.readouterr().out == out2
+
+
+# -- fix round 1: `--nth 0` silently returned matches[-1] (the wrong
+# activation, no error at all); `--nth -5` against a single match raised an
+# uncaught IndexError. Both must instead refuse loudly and name how many
+# activations actually exist, never guess and never crash.
+def test_frame_nth_zero_is_rejected_not_silently_wrapped(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch)     # SRC: silver() runs twice
+    assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "0"]) == 1
+    out = capsys.readouterr().out
+    assert "--nth 0" in out and "2 recorded activation(s)" in out
+    assert "1..2" in out
+
+
+def test_frame_nth_negative_does_not_crash(tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=LOOP)   # accumulate() runs once
+    assert cli.main(["frame", run_id, "--fn", "accumulate", "--nth", "-5"]) == 1
+    out = capsys.readouterr().out
+    assert "--nth -5" in out and "1 recorded activation(s)" in out
+
+
+def test_frame_nth_too_high_names_activation_count(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch)     # SRC: silver() runs twice
+    assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "9"]) == 1
+    out = capsys.readouterr().out
+    assert "--nth 9" in out and "2 recorded activation(s)" in out
 
 
 def test_frame_children_section_lists_child_frames(

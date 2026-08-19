@@ -31,12 +31,16 @@ def frame_line(trace, frame) -> str:
 
 
 def render_tree(trace, roots, depth_limit, max_lines):
+    """Return (lines, cut_frames): `cut_frames` is the actual Frame objects
+    withheld because they crossed --depth or --limit, in encounter order --
+    never just a count. A caller that only reports the count and drops the
+    frames themselves cannot point a reader at what was hidden."""
     lines: list[str] = []
-    cut = [0]
+    cut_frames: list = []
 
     def walk(frame, depth):
         if len(lines) >= max_lines or depth > depth_limit:
-            cut[0] += 1
+            cut_frames.append(frame)
             return
         lines.append("  " * depth + frame_line(trace, frame))
         for ch in trace.children(frame.id):
@@ -44,7 +48,20 @@ def render_tree(trace, roots, depth_limit, max_lines):
 
     for r in roots:
         walk(r, 0)
-    return lines, cut[0]
+    return lines, cut_frames
+
+
+def _truncation_note(run_ref, depth, limit, cut_frames) -> str | None:
+    """Every branch that can withhold subtrees must report it -- silence
+    here is indistinguishable from "that's the whole tree", which is
+    exactly the unsupported claim this project forbids. The hint is a
+    fully-instantiated, copy-pasteable command (a real frame id, the run
+    ref actually in hand), not a template like "fN"."""
+    if not cut_frames:
+        return None
+    return (f"... {len(cut_frames)} subtree(s) beyond --depth {depth} or "
+            f"--limit {limit}; continue with: "
+            f"sensorium tree {run_ref} --root f{cut_frames[0].id}")
 
 
 def run(args) -> int:
@@ -60,17 +77,22 @@ def run(args) -> int:
         ancestors = list(reversed(chain[1:]))
         for depth, fr in enumerate(ancestors):
             print("  " * depth + frame_line(trace, fr))
-        lines, cut = render_tree(trace, [f], args.depth, args.limit)
+        lines, cut_frames = render_tree(trace, [f], args.depth, args.limit)
         for ln in lines:
             print("  " * len(ancestors) + ln)
+        note = _truncation_note(args.run, args.depth, args.limit, cut_frames)
+        if note:
+            print(note)
     else:
         roots = ([trace.frame(parse_fref(args.root))] if args.root
                  else trace.roots())
-        lines, cut = render_tree(trace, [r for r in roots if r], args.depth,
-                                 args.limit)
+        lines, cut_frames = render_tree(
+            trace, [r for r in roots if r], args.depth, args.limit)
         for ln in lines:
             print(ln)
-        if cut:
-            print(f"... {cut} subtree(s) beyond --depth {args.depth} or "
-                  f"--limit {args.limit}; narrow with --root fN")
+        note = _truncation_note(args.run, args.depth, args.limit, cut_frames)
+        if note:
+            print(note)
+        elif not lines:
+            print("no frames recorded")
     return 0
