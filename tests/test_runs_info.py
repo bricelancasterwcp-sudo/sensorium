@@ -184,6 +184,110 @@ def test_info_names_a_subprocess_it_could_not_witness(
     assert "-c" in line and "pass" in line       # the command, not just a count
 
 
+# -- contract: `children` is not the only thing the recorder notices being
+# started. A multiprocessing 'spawn' child is visible ONLY as a spawn
+# syscall, and threads only as `threads_started` -- and `refocus` withholds
+# its licence on exactly those keys, so `info` reading only `children` made
+# two commands answer one question differently.
+SPAWNER = """
+import os
+import sys
+import threading
+
+def worker():
+    return 1
+
+def main():
+    ts = [threading.Thread(target=worker) for _ in range(3)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    pid = os.posix_spawn(sys.executable, [sys.executable, "-c", "pass"],
+                         os.environ)
+    os.waitpid(pid, 0)
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def _one(out: str, prefix: str) -> str:
+    hits = [l for l in out.splitlines() if l.startswith(prefix)]
+    assert len(hits) == 1, f"{prefix!r} matched {len(hits)} lines in:\n{out}"
+    return hits[0]
+
+
+def test_info_counts_threads_and_spawns_that_no_child_list_can_name(
+        tmp_path, monkeypatch, capsys):
+    run_id, _trace, r = record_script(tmp_path, SPAWNER)
+    assert run_id, r.stderr
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    # `os.posix_spawn` is deliberately absent from the named-child table, so
+    # this run has an EMPTY children list: without the two lines below the
+    # trace's own record of it would be silence.
+    assert "unwitnessed subprocess:" not in out
+    assert _one(out, "threads started:").startswith("threads started: 3 ")
+    assert _one(out, "spawn syscalls:").startswith("spawn syscalls: 1 ")
+
+
+def test_info_says_nothing_about_threads_or_spawns_when_there_were_none(
+        tmp_path, monkeypatch, capsys):
+    """A printed `spawn syscalls: 0` would be read as proof no child ran,
+    which is the one thing it does not prove -- same rule as late_writes."""
+    run_id = _record(tmp_path, monkeypatch)
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "threads started:" not in out and "spawn syscalls:" not in out
+    assert "audit hook errors:" not in out
+    assert "not recorded in this trace:" not in out
+
+
+def test_info_flags_a_trace_that_predates_the_bookkeeping(
+        tmp_path, monkeypatch, capsys):
+    """Absence of the record is not a record of absence: a trace with no
+    `spawn_syscalls` key must not read like a run that spawned nothing."""
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    run_id = "20260101-000000-abcdef"
+    w = TraceWriter(paths.traces_dir() / f"{run_id}.db", batch=1)
+    for k, v in (("run_id", run_id), ("argv", ["prog.py"]),
+                 ("cwd", str(tmp_path)), ("python", "3.12.0"),
+                 ("exit_status", 0), ("incomplete", False), ("caps", {})):
+        w.set_meta(k, v)
+    w.close()
+
+    assert cli.main(["info", run_id]) == 0
+    line = _one(capsys.readouterr().out, "not recorded in this trace:")
+    for key in ("children", "threads_started", "spawn_syscalls",
+                "audit_errors"):
+        assert key in line
+    assert "not a record of absence" in line
+
+
+def test_info_reports_an_audit_hook_that_malfunctioned(
+        tmp_path, monkeypatch, capsys):
+    """A non-zero count means the two records above it are incomplete, and a
+    short child list must not be read as 'nothing was started'."""
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    run_id = "20260101-000000-abcdee"
+    w = TraceWriter(paths.traces_dir() / f"{run_id}.db", batch=1)
+    for k, v in (("run_id", run_id), ("argv", ["prog.py"]),
+                 ("cwd", str(tmp_path)), ("python", "3.12.0"),
+                 ("exit_status", 0), ("incomplete", False), ("caps", {}),
+                 ("children", []), ("threads_started", 0),
+                 ("spawn_syscalls", 0), ("audit_errors", 2)):
+        w.set_meta(k, v)
+    w.close()
+
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert _one(out, "audit hook errors:").startswith("audit hook errors: 2 ")
+    assert "not recorded in this trace:" not in out   # every key IS recorded
+
+
 def test_info_reports_the_exception_that_left_the_program(
         tmp_path, monkeypatch, capsys):
     src = ("def boom():\n"

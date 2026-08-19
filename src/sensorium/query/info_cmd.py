@@ -17,6 +17,54 @@ def add_parser(sub) -> None:
     p.set_defaults(func=run)
 
 
+_BOOKKEEPING = ("children", "threads_started", "spawn_syscalls",
+                "audit_errors")
+
+
+def unwitnessed_lines(m: dict) -> list[str]:
+    """Everything the recorder NOTICED starting and could not witness.
+
+    `children` was for a long time the only one of these `info` printed, so a
+    `multiprocessing` run whose child is visible ONLY as a spawn syscall, and
+    every thread a run started, left no mark on the durable record at all --
+    while `refocus` withholds its licence on exactly these keys. Two commands
+    reading one trace must not answer the same question differently.
+
+    Non-zero values only, on the `late_writes` precedent: a printed `spawn
+    syscalls: 0` would be read as proof no child ran, which is precisely what
+    it is not. A trace that never recorded the key at all is a third state,
+    and says so rather than reading as a zero.
+    """
+    out = []
+    started = m.get("threads_started")
+    if started:
+        out.append(
+            f"threads started: {started} besides the main one, through "
+            "Python's own threading/_thread -- one that ran no traced code "
+            "has no fingerprint above and was not otherwise seen")
+    spawns = m.get("spawn_syscalls")
+    if spawns:
+        out.append(
+            f"spawn syscalls: {spawns} -- low-level process starts, counted "
+            "apart from any subprocess named above because one Popen nests "
+            "one; a multiprocessing 'spawn'/'forkserver' child is visible "
+            "here and nowhere else")
+    errors = m.get("audit_errors")
+    if errors:
+        out.append(
+            f"audit hook errors: {errors} -- the subprocess and thread "
+            "records above are INCOMPLETE, and a short list there cannot be "
+            "read as 'nothing was started'")
+    # An incomplete run is missing all of these for a reason already printed
+    # at the top; saying it twice would bury the one that is news.
+    missing = [k for k in _BOOKKEEPING if k not in m]
+    if missing and not m.get("incomplete"):
+        out.append("not recorded in this trace: " + ", ".join(missing)
+                   + " -- it predates that bookkeeping, so absence of the "
+                     "record is not a record of absence")
+    return out
+
+
 def run(args) -> int:
     t = Trace.open(paths.find_trace(args.run))
     m = t.meta
@@ -53,6 +101,8 @@ def run(args) -> int:
         print(f"uncaught: {fmt_exc(m['uncaught'])}")
     for child in m.get("children") or []:
         print(f"unwitnessed subprocess: {' '.join(child)}")
+    for line in unwitnessed_lines(m):
+        print(line)
     # late_writes is a lower bound: writes that arrive after this count was
     # captured can never be counted either. Only surface it when non-zero,
     # so a reader never mistakes a printed "0" for proof nothing was lost.

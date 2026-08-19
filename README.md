@@ -183,7 +183,12 @@ command says so in its own header.
 - Writes dropped under load are reported as a **lower bound** (`>=N`): writes
   that arrive after the count was taken cannot be counted either.
 - Subprocesses that were noticed are listed as unwitnessed, never silently
-  ignored — and an empty list is not evidence that none ran.
+  ignored — and an empty list is not evidence that none ran. A child that can
+  only be *counted* and not named (a `multiprocessing` spawn, which reaches
+  the OS without going through `subprocess`) is reported as a count, as are
+  the threads a run started and any malfunction of the hook that counts them.
+  None of these is printed when it is zero: a printed `0` would read as proof
+  nothing was started, which is exactly what it is not.
 
 ## What sensorium sees at all
 
