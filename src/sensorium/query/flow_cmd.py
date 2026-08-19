@@ -639,7 +639,12 @@ def add_parser(sub) -> None:
                    help="literal matched by equality; quote to force a "
                         "string, as in \"'1800'\"")
     g.add_argument("--object", default=None,
-                   help="e<id>:<name> or <qualname>:<name>")
+                   help="e<id>:<name>, where <name> was captured at that "
+                        "event (a CALL's argument, a LINE's local); or "
+                        "<qualname>:<name>, which resolves to that "
+                        "function's first CALL and so names one of its "
+                        "ARGUMENTS -- plus <qualname>:return for what that "
+                        "activation returned")
     p.add_argument("--after", default=None, help="event ref to resume from")
     p.add_argument("--limit", type=int, default=50)
     p.set_defaults(func=run)

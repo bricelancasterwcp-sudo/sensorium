@@ -14,8 +14,12 @@ Two commitments run through all of it:
   captures are marked and counted, sites a predicate could not be evaluated at
   are counted rather than skipped, a recording that died is labelled, and a
   rerun that turned out to be a different execution says so permanently.
-- **There is no model inside the instrument.** Every command is
-  deterministic. Sensorium reports; the agent reading it reasons.
+- **Nothing here guesses.** Every answer is a deterministic function of the
+  recorded trace, and where the trace cannot settle a question the output says
+  so instead of inferring. Sensorium reports; the agent reading it reasons.
+  (`refocus` is the one command that *executes* anything — it re-runs your
+  program, which is why its whole job is telling you whether what came back
+  was the same execution.)
 
 ## Install
 
@@ -32,14 +36,25 @@ library.
     sensorium runs                                # what have I recorded
     sensorium info last                           # what am I looking at
     sensorium tree last --depth 3                 # what actually ran
-    sensorium frame last --fn compute --nth 2     # one activation, in full
+    sensorium frame last --fn compute             # one activation, in full
     sensorium grep last compute --kind RETURN     # every event that mentions it
     sensorium exceptions last                     # what blew up, what got caught
     sensorium flow last --value 1800              # where did that number come from
     sensorium flow last --object build_key:record # what happened to that object
-    sensorium watch last --at fog:compute --expr 'visible > 100'
     sensorium diff RUN_A RUN_B                    # where two runs part
     sensorium refocus last --focus fog:compute    # re-run deeper, verified
+
+Per-line state is opt-in at record time, so a predicate over locals needs a
+run that captured them:
+
+    sensorium run --focus fog:compute -- pytest tests/test_fog.py
+    sensorium watch last --at fog:compute --expr 'visible > 100'
+
+Asked against a run recorded without that `--focus`, `watch` does not report
+zero hits — it reports `NOTHING WAS CHECKED` and prints the exact re-recording
+command. Every example above was run as typed, against a small `fog.py` whose
+`compute` sums cells into a `visible` local and whose `build_key(record)`
+takes a dict, and a two-test `tests/test_fog.py`.
 
 Recording captures calls, returns, raises and handled-events for code under
 the working directory the run started in — so `sensorium run -- pytest ...`
@@ -52,7 +67,14 @@ file per run.
 A run reference is a full run id, a unique prefix, or `last` (the most
 recently written trace). Every query takes one — `runs` takes none and `diff`
 takes two. Events are addressed as `eN` and frames as `fN`, and those ids are
-stable, so an answer from one command is a runnable argument to the next.
+stable, so an answer from one command is a runnable argument to the next:
+`frame --fn NAME --nth N` picks among repeated activations and says how many
+there are when `N` is out of range, and `flow --object` takes either
+`e<id>:<name>` — any name captured at that event — or `<qualname>:<name>`,
+which resolves to that function's **first CALL** and so names one of its
+**arguments** (`<qualname>:return` follows the same activation to what it
+handed back). A name that was not captured at the event a spec resolves to is
+refused, with the names that *were* captured there listed.
 
 ## What the answers claim
 
@@ -72,8 +94,15 @@ whether the rerun was the same execution.
 
 **A MATCH is a statement about the shape of the execution, not a statement
 that the two runs were the same.** It licenses one conclusion: the rerun took
-the same path, so the deeper capture describes that same path. Values, timing,
-per-line state and inter-thread interleaving are recorded and never compared.
+the same path, so the deeper capture describes that same path. What no verdict
+compares, sensorium prints beneath every one of them: argument and return
+values, per-line state, timing, the order threads ran in relative to each
+other — and **the recorder's own footprint**, which is structural and
+unfixable. Deeper capture runs the program's `__repr__` inside hooks that
+suppress themselves, so an instrument that perturbs the program it is watching
+leaves no mark on the fingerprint at all. Comparing the two runs' captured
+output is the only cross-check available, and a side effect that prints
+nothing is invisible to that too.
 
 Beside the verdict, `refocus` prints a **licence** — `verified against <run>
 on exactly these points, and no others`, followed by the list of checks that
@@ -115,10 +144,11 @@ it cannot classify. It does not detect all swallowed exceptions.
 
 ### `watch` — a predicate at every recorded site
 
-`watch` evaluates a restricted expression at every LINE event of the named
-code and prints a tally that accounts for every site:
+`watch` evaluates a restricted expression at every recorded site of the named
+code — a CALL's arguments, a LINE's locals — and prints a tally that accounts
+for all of them:
 
-    sites: 19   evaluated: 5   hits: 0   not-captured: 14
+    sites: 9   evaluated: 7   hits: 0   not-captured: 2   errors: 0
 
 **Zero hits never reads as "the invariant held."** A site the predicate could
 not be evaluated at is not a site where it was false, so unevaluable sites are
@@ -181,15 +211,20 @@ because a reader who checks the list concludes their case was covered.
 CPython 3.14.4 — with `python corpus/run_corpus.py --bench`:
 
     workload            tier      baseline  recorded       x    events  us/event
-    call_dense          default     0.0088    1.0932   124.5    185428       5.8
-    call_dense          focused     0.0088    1.4995   170.3    278140       5.4
-    work_between_calls  default     0.1096    0.2979     2.7     24004       7.8
-    work_between_calls  focused     0.1094    0.4185     3.8     48006       6.4
+    call_dense          default     0.0090    1.0812   119.8    185428       5.8
+    call_dense          focused     0.0091    1.4773   162.8    278140       5.3
+    work_between_calls  default     0.1087    0.2820     2.6     24004       7.2
+    work_between_calls  focused     0.1083    0.3966     3.7     48006       6.0
 
-    recorder fixed cost: 0.052s on a program that does nothing
+    recorder fixed cost: 0.034s on a program that does nothing (0.0074s -> 0.0412s)
 
-(A repeat of the same command gave 128.0 / 162.7 / 2.8 / 3.8 — the multipliers
-move a few percent between runs; the event counts do not move at all.)
+Across four runs of that command on this machine the multipliers span
+120–125, 161–176, 2.6–2.7 and 3.7–3.8, the fixed cost sits at 0.034 s (six
+consecutive measurements: 0.0331–0.0346 s), and the event counts do not move
+at all. Measured while the machine was also running the test suite, that same
+fixed cost reads 0.052 s — best of N removes noise *within* a measurement, and
+nothing removes something else using the machine for the whole of it. Read
+these as floors taken on an idle machine.
 
 These are measurements of one machine and two workloads, not a promise about
 yours. The multiplier is not a property of sensorium: recording costs about
