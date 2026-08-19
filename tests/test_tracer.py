@@ -586,3 +586,24 @@ def test_uninstall_drops_retained_exceptions_on_every_live_thread(tmp_path):
     finally:
         release.set()
         t.join(10)
+
+
+def test_the_recorders_own_code_is_never_traced(tmp_path, monkeypatch):
+    """The one guard the ordinary tests cannot reach.
+
+    `_SENSORIUM_DIR` only bites when the recorder's own source sits UNDER the
+    run's root -- which happens for real (`sensorium run -- pytest` inside
+    this repo) and never in a test, because every test records a program in a
+    temporary directory the installed package is nowhere near. Pointing the
+    constant at the recorded program's own directory is the smallest way to
+    put the two in the relationship the guard exists for: if it stops
+    excluding, the recorder records itself and the trace fills with frames
+    the program never had.
+    """
+    from sensorium.record import tracer
+
+    monkeypatch.setattr(tracer, "_SENSORIUM_DIR", str(tmp_path))
+    t, err = record_inproc(tmp_path, ADD)
+
+    assert err is None
+    assert t.events() == []          # every frame was the recorder's, by fiat

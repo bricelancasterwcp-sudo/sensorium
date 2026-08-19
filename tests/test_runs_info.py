@@ -130,3 +130,74 @@ def test_info_says_nothing_about_late_writes_when_zero(
     assert cli.main(["info", run_id]) == 0
     out = capsys.readouterr().out
     assert "late writes" not in out.lower()
+
+
+# -- contract: a run whose recording died is labelled wherever it is listed,
+# not only where it is inspected. `runs` is the ledger a reader scans before
+# picking a trace, so an INCOMPLETE run that looks ordinary there gets
+# queried as if its stream were whole.
+def test_runs_labels_an_incomplete_trace_in_the_listing(
+        tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    run_id = "20260101-000000-abcdef"
+    w = TraceWriter(paths.traces_dir() / f"{run_id}.db", batch=1)
+    w.set_meta("run_id", run_id)
+    w.set_meta("argv", ["prog.py"])
+    w.set_meta("cwd", str(tmp_path))
+    w.set_meta("python", "3.12.0")
+    w.set_meta("incomplete", True)
+    w.set_meta("caps", {})
+    w.close()
+
+    assert cli.main(["runs"]) == 0
+    line = next(l for l in capsys.readouterr().out.splitlines()
+                if run_id in l)
+    assert "INCOMPLETE" in line
+
+
+def test_runs_says_the_store_is_empty_instead_of_printing_nothing(
+        tmp_path, monkeypatch, capsys):
+    """Silence would read as "the command did nothing", which is the one
+    thing it did not do."""
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "empty-sdir"))
+    assert cli.main(["runs"]) == 0
+    assert capsys.readouterr().out.strip() == "no traces recorded"
+
+
+# -- contract: a subprocess is OBSERVED, never witnessed. `info` must name it
+# so a reader knows a piece of the execution happened outside the trace.
+def test_info_names_a_subprocess_it_could_not_witness(
+        tmp_path, monkeypatch, capsys):
+    src = ("import subprocess, sys\n"
+           "def main():\n"
+           "    subprocess.run([sys.executable, '-c', 'pass'], check=True)\n"
+           "if __name__ == '__main__':\n"
+           "    main()\n")
+    run_id, _trace, r = record_script(tmp_path, src)
+    assert run_id, r.stderr
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+
+    assert cli.main(["info", run_id]) == 0
+    line = next((l for l in capsys.readouterr().out.splitlines()
+                 if l.startswith("unwitnessed subprocess:")), None)
+    assert line is not None, "the child process was not reported at all"
+    assert "-c" in line and "pass" in line       # the command, not just a count
+
+
+def test_info_reports_the_exception_that_left_the_program(
+        tmp_path, monkeypatch, capsys):
+    src = ("def boom():\n"
+           "    raise ValueError('escaped-from-main')\n"
+           "def main():\n"
+           "    boom()\n"
+           "if __name__ == '__main__':\n"
+           "    main()\n")
+    run_id, _trace, r = record_script(tmp_path, src)
+    assert run_id, r.stderr
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+
+    assert cli.main(["info", run_id]) == 0
+    line = next((l for l in capsys.readouterr().out.splitlines()
+                 if l.startswith("uncaught:")), None)
+    assert line is not None, "the escaping exception was not reported"
+    assert "ValueError" in line and "escaped-from-main" in line

@@ -329,3 +329,22 @@ def test_frame_unknown_ref_is_exit_1(tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch)
     assert cli.main(["frame", run_id, "--fn", "does_not_exist"]) == 1
     assert "no such frame" in capsys.readouterr().out
+
+
+def test_frame_well_formed_ref_to_a_frame_that_never_existed_is_refused(
+        tmp_path, monkeypatch, capsys):
+    """`f9999` parses fine and names nothing. The refusal has to come from
+    the lookup, not from the parser, or a valid-looking reference falls
+    through to a traceback."""
+    run_id = _rec(tmp_path, monkeypatch)
+    assert cli.main(["frame", run_id, "f9999"]) == 1
+    out = capsys.readouterr().out
+    assert "no such frame" in out and "f9999" in out
+
+
+def test_frame_with_no_selector_at_all_says_what_to_give_it(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch)
+    assert cli.main(["frame", run_id]) == 1
+    out = capsys.readouterr().out
+    assert "f<id>" in out and "--fn" in out

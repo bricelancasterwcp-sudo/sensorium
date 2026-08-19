@@ -572,3 +572,19 @@ def test_target_argv_is_visible_to_the_program(tmp_path):
     run_id, trace, r = record_script(tmp_path, src, argv=["a", "b"])
     assert "ARGV ['a', 'b']" in r.stdout
     assert Trace.open(trace).meta["argv"] == ["prog.py", "a", "b"]
+
+
+def test_cli_refuses_a_python_that_predates_sys_monitoring(
+        monkeypatch, capsys):
+    """The recorder is PEP 669 and nothing else, so on 3.11 there is no
+    degraded mode to fall back to -- only a refusal that names the version
+    it needs and the one it got. An ImportError deep in the tracer would be
+    the same fact delivered as a bug report."""
+    from sensorium import cli
+
+    monkeypatch.setattr(sys, "version_info", (3, 11, 9, "final", 0))
+    assert cli.main(["runs"]) == 2
+
+    err = capsys.readouterr().err
+    assert "3.12+" in err
+    assert sys.version.split()[0] in err        # the version it actually got

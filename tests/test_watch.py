@@ -26,128 +26,8 @@ from sensorium.store import db
 from sensorium.store.reader import Trace
 from tests.helpers import record_script
 from tests.programs import open_trace, synthetic
-
-BUFFER = """
-def fill(buf, chunk):
-    buf.extend(chunk)
-    used = len(buf)
-    return used
-
-def drain(buf, n):
-    del buf[:n]
-
-def main():
-    buf = []
-    for size, dn in [(40, 0), (30, 10), (25, 20), (34, 30), (0, 69)]:
-        fill(buf, [0] * size)
-        drain(buf, dn)
-
-if __name__ == "__main__":
-    main()
-"""
-
-# The `except E as e:` shape, with the one twist that makes the bug visible
-# as a WRONG ANSWER rather than as a wrong label: the handler rebinds `e` to
-# an int. CPython still emits the implicit `del e` when the handler ends, so
-# `e` holds 5 for exactly two recorded sites and is gone at the next three.
-# A fold that ignores `unbound` reports three hits instead of one, two of
-# them on a name that no longer exists.
-HANDLER = """
-def stage(n):
-    quota = 0
-    try:
-        raise ValueError("x" * n)
-    except ValueError as e:
-        e = len(str(e))
-        quota = e * 2
-    total = quota + n
-    return total
-
-def main():
-    for n in (1, 5, 2):
-        stage(n)
-
-if __name__ == "__main__":
-    main()
-"""
-
-# `del peak` at the end of each pass. The LINE event that reports it has
-# EMPTY deltas and a non-empty `unbound` -- a shape a "skip events with no
-# deltas" fold drops on the floor, taking the unbind with it.
-LOOPDEL = """
-def scan(rows):
-    total = 0
-    for r in rows:
-        peak = r * 3
-        total = total + peak
-        del peak
-    return total
-
-def main():
-    scan([1, 2, 3])
-
-if __name__ == "__main__":
-    main()
-"""
-
-CLIP = """
-def note(msg):
-    return len(msg)
-
-def main():
-    note("x" * 250)
-    note("short")
-
-if __name__ == "__main__":
-    main()
-"""
-
-MIXED = """
-def tally(n):
-    return n
-
-def main():
-    tally(5)
-    tally("five")
-
-if __name__ == "__main__":
-    main()
-"""
-
-# Four sites, every one of which evaluates cleanly. The shape in which a
-# name the trace has never heard of produces the STRONGEST verdict this
-# command can issue -- so it is the shape the phantom-name warning is tested
-# in, not a convenient one where something else was already shouting.
-KEEP = """
-def keep(n):
-    return n
-
-def main():
-    for n in (1, 2, 3, 4):
-        keep(n)
-
-if __name__ == "__main__":
-    main()
-"""
-
-# Three activations of one function, nested. Their events INTERLEAVE: the
-# innermost frame finishes first, so the frame with the lowest id owns both
-# the earliest and the latest site. Anything that walks frames and
-# concatenates comes out in the wrong order.
-RECURSE = """
-def walk(n):
-    depth = n
-    if n > 0:
-        walk(n - 1)
-    tail = n + 101
-    return tail
-
-def main():
-    walk(2)
-
-if __name__ == "__main__":
-    main()
-"""
+from tests.watch_programs import (BUFFER, CARRIER, CLIP, HANDLER, KEEP,
+                                  LOOPDEL, MIXED, RECURSE)
 
 
 def _rec(tmp_path, monkeypatch, src=BUFFER, extra=()):
@@ -508,6 +388,46 @@ def test_watch_does_not_offer_refocus_when_the_name_is_merely_out_of_scope(
     out = capsys.readouterr().out
     assert "sensorium run" not in out
     assert "scope, not capture depth" in out
+
+
+# -- what the state beside a hit may claim ---------------------------------
+def _state_of_first_hit(out: str) -> str:
+    line = next(ln for ln in out.splitlines() if ln.startswith("  HIT   e"))
+    return line.split("state: ", 1)[1]
+
+
+def test_watch_prints_an_object_as_having_no_value_rather_than_a_repr(
+        tmp_path, monkeypatch, capsys):
+    """A hit's state line is read as "here is what the run held". An object
+    was recorded as a type and an address, so printing anything that looks
+    like its value there would be inventing evidence -- and the short-circuit
+    that produced this hit is exactly the case where the name is displayed
+    without ever having been compared."""
+    run_id = _rec(tmp_path, monkeypatch, CARRIER,
+                  extra=("--focus", "prog:stage"))
+
+    assert cli.main(["watch", run_id, "--at", "prog:stage",
+                     "--expr", "depth > 0 or box == 1"]) == 0
+    state = _state_of_first_hit(capsys.readouterr().out)
+
+    assert "box=<Box; no comparable value>" in state
+    assert "depth=" in state                    # the name that decided it
+
+
+def test_watch_prints_a_clipped_string_as_clipped_with_what_it_holds(
+        tmp_path, monkeypatch, capsys):
+    """The trace holds a PREFIX. Rendering it as the value would let a reader
+    compare characters that were never recorded, so the state says how much
+    of it survived instead of showing it."""
+    run_id = _rec(tmp_path, monkeypatch, CARRIER,
+                  extra=("--focus", "prog:stage"))
+
+    assert cli.main(["watch", run_id, "--at", "prog:stage",
+                     "--expr", "depth > 0 or blob == 'x'"]) == 0
+    state = _state_of_first_hit(capsys.readouterr().out)
+
+    held = int(state.split("blob=<clipped to ", 1)[1].split(" chars>", 1)[0])
+    assert 0 < held < 250, f"claimed {held} of a 250-char string"
 
 
 # -- reasons a site could not be evaluated ---------------------------------
