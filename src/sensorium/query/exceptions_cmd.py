@@ -37,9 +37,9 @@ is never reported as swallowed.
 
 Both halves are load-bearing. ``except E as e: return e`` closes its frame by
 "return" while handing the exception *out* of that frame, so a returning
-handler frame alone does not mean the exception stopped there -- with a later
-RAISE of the same identity, "swallowed here" and "stored and raised again"
-are both live and neither is asserted.
+handler frame alone does not mean the exception stopped there. With exact
+identity that case is resolved rather than hedged: the later RAISE is
+provably the same object, so it is reported as caught here and raised again.
 
 EXCEPTION IDENTITY
 ------------------
