@@ -180,6 +180,49 @@ def test_bytes_popen_command_is_decoded_not_stringified(tmp_path):
     assert m["incomplete"] is False                         # finalization ran
 
 
+def test_the_audit_hook_swallows_its_own_failures_but_counts_them(
+        monkeypatch):
+    """An audit hook that raises breaks the operation being audited, so this
+    one may never propagate -- but swallowing silently is how a hook bug
+    becomes an empty `children` list that reads as "no subprocess ran". The
+    licence gate downstream trusts that list, so a failure has to leave a
+    mark. Driven directly: the failure modes are in the hook's argument
+    handling, which no program can be relied on to provoke."""
+    class Unlistable:
+        def __iter__(self):
+            raise RuntimeError("this command cannot be enumerated")
+
+    children, threads, errors = [], [], []
+    monkeypatch.setattr(boot, "_audit_sink", children)
+    monkeypatch.setattr(boot, "_audit_threads", threads)
+    monkeypatch.setattr(boot, "_audit_errors", errors)
+
+    boot._audit("subprocess.Popen", (None, Unlistable(), None, None))
+
+    assert children == [], "a failed extraction must not record a bogus child"
+    assert len(errors) == 1, "the failure was swallowed without a trace"
+
+    # ...and the sound path still works, so the guard is not just off
+    boot._audit("os.system", ("exit 0",))
+    assert children == [["exit 0"]]
+    assert len(errors) == 1
+
+
+def test_the_audit_hook_counts_threads_however_they_are_started(monkeypatch):
+    """Both spellings of thread creation, measured rather than assumed:
+    `threading.Thread.start()` raises `_thread.start_joinable_thread` and
+    `_thread.start_new_thread` raises its own event."""
+    children, threads, errors = [], [], []
+    monkeypatch.setattr(boot, "_audit_sink", children)
+    monkeypatch.setattr(boot, "_audit_threads", threads)
+    monkeypatch.setattr(boot, "_audit_errors", errors)
+
+    boot._audit("_thread.start_joinable_thread", (None,))
+    boot._audit("_thread.start_new_thread", (None, (), {}))
+    assert len(threads) == 2
+    assert children == [] and errors == []
+
+
 def test_every_recorded_child_command_is_json_serializable(tmp_path):
     """Whatever lands in `children` must survive db.set_meta's json.dumps:
     a TypeError there aborts _finalize_meta and takes the run down with it."""

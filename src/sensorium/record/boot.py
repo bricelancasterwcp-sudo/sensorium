@@ -281,7 +281,23 @@ class _LateWriteGuard:
 # -- child processes -------------------------------------------------------
 _audit_lock = threading.Lock()
 _audit_sink: list | None = None    # the `children` list of the run in progress
+_audit_threads: list | None = None  # one entry per thread the run created
+_audit_errors: list | None = None   # one entry per time this hook malfunctioned
 _audit_installs = 0                # audit hooks added, ever, by this process
+
+# Thread creation, which the recorder cannot otherwise see. A thread whose
+# body is entirely stdlib runs no traced code, so it gets no fingerprint row,
+# and if it is joined before the run ends it is absent from `live_threads`
+# too -- invisible on both counts while doing file I/O of its own. Every
+# Python-level thread goes through one of these, measured:
+#
+#   threading.Thread(...).start() -> _thread.start_joinable_thread
+#   _thread.start_new_thread(...) -> _thread.start_new_thread
+#
+# so counting them is sound rather than a heuristic. A thread started by a C
+# extension without going through `_thread` still cannot be seen; that gap is
+# named in refocus's blind spots rather than papered over.
+_THREAD_EVENTS = ("_thread.start_new_thread", "_thread.start_joinable_thread")
 
 
 # Audit events that start another process, mapped to the positional argument
@@ -314,14 +330,27 @@ _CHILD_EVENTS = {
 
 
 def _audit(event, args) -> None:
-    """Note child processes. One hook for the whole process, armed per run.
+    """Note child processes and thread creation. One hook for the whole
+    process, armed per run.
 
     `sys.addaudithook` cannot be removed, so a hook per run would accumulate:
     after `refocus` re-runs a program, the first run's hook would still be
     appending into a list nobody reads for every subprocess anything spawns
     for the rest of the process's life. One module-level hook, armed and
     disarmed around each run, has neither problem.
+
+    It must never raise: an audit hook that raises breaks the operation being
+    audited, which would mean the recorder killing the program it is meant to
+    observe. But swallowing silently is how a hook bug becomes an empty
+    `children` list that reads as "no subprocess ran" -- a false all-clear for
+    the licence gate downstream. So failures are swallowed AND counted, and
+    `refocus` withholds on a non-zero count.
     """
+    if event in _THREAD_EVENTS:
+        threads = _audit_threads
+        if threads is not None:
+            threads.append(1)     # list.append is atomic; no lock, no deadlock
+        return
     if event not in _CHILD_EVENTS:
         return
     try:
@@ -339,7 +368,9 @@ def _audit(event, args) -> None:
             cmd = [cmd]           # a bare command line, as Windows reports it
         sink.append([_as_text(a) for a in cmd][:8])
     except Exception:
-        pass          # an audit hook that raises breaks the audited operation
+        errors = _audit_errors
+        if errors is not None:
+            errors.append(1)      # swallowed, but never silently
 
 
 def _as_text(arg) -> str:
@@ -357,19 +388,19 @@ def _as_text(arg) -> str:
     return str(arg)
 
 
-def _arm_audit(sink: list) -> None:
-    global _audit_sink, _audit_installs
+def _arm_audit(sink: list, threads: list, errors: list) -> None:
+    global _audit_sink, _audit_threads, _audit_errors, _audit_installs
     with _audit_lock:
         if _audit_installs == 0:
             sys.addaudithook(_audit)
             _audit_installs += 1
-        _audit_sink = sink
+        _audit_sink, _audit_threads, _audit_errors = sink, threads, errors
 
 
 def _disarm_audit() -> None:
-    global _audit_sink
+    global _audit_sink, _audit_threads, _audit_errors
     with _audit_lock:
-        _audit_sink = None
+        _audit_sink = _audit_threads = _audit_errors = None
 
 
 # -- run metadata ----------------------------------------------------------
@@ -457,7 +488,8 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
 
 
 def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
-                   truncated_count, live_threads, entry) -> None:
+                   truncated_count, live_threads, entry, threads_started,
+                   audit_errors) -> None:
     """Close out the run. Runs after `w.seal()`, hence `set_meta_final`."""
     w.set_meta_final("uncaught", uncaught)
     w.set_meta_final("stdin_consumed", stdin_consumed)
@@ -468,6 +500,15 @@ def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
     # produces NO fingerprint row, so counting fingerprints alone reports a
     # single-threaded run while a second thread is doing file I/O.
     w.set_meta_final("live_threads", live_threads)
+    # Threads CREATED, from the audit hook. `live_threads` answers "still
+    # running at seal time", which a worker that finished has already left --
+    # and if it ran only stdlib it has no fingerprint either, so it would be
+    # invisible on both counts.
+    w.set_meta_final("threads_started", threads_started)
+    # Times the audit hook malfunctioned. Non-zero means `children` above is
+    # not to be trusted, and refocus withholds rather than reading a short
+    # list as "nothing was spawned".
+    w.set_meta_final("audit_errors", audit_errors)
     files = set(w.interned_files())
     if entry:
         files.add(entry)       # the target itself, even if it traced nothing
@@ -532,7 +573,9 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
         raise
 
     children: list[list[str]] = []
-    _arm_audit(children)
+    started: list[int] = []
+    audit_errors: list[int] = []
+    _arm_audit(children, started, audit_errors)
     saved = (sys.stdin, sys.stdout, sys.stderr, sys.argv, list(sys.path))
     stdin_proxy = _StdinProxy(sys.stdin)
     sys.stdin = stdin_proxy
@@ -563,7 +606,9 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
                 stdin_consumed=stdin_proxy.consumed, children=children,
                 truncated_count=(capture.capture_stats["truncated"]
                                  - truncated_before),
-                live_threads=live, entry=entry)
+                live_threads=live, entry=entry,
+                threads_started=len(started),
+                audit_errors=len(audit_errors))
         finally:
             w.close()                  # never skipped: no leaked connection
             gaps = _recording_gaps(live, w.late_writes)

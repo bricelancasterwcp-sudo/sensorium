@@ -32,12 +32,13 @@ from sensorium.query.diff_cmd import compare
 from sensorium.record.boot import git_info
 from sensorium.store.reader import Trace
 from tests.helpers import run_cli
-from tests.refocus_programs import (COUNTER, ENV_LIMIT, EXIT_FROM_FILE, LIB,
-                                    LOOP, SHELLS_OUT, SIDE_EFFECT_REPR,
-                                    SPAWNS, TWO_FILES, TWO_WORKERS,
-                                    UNTRACED_WORKER, drop_meta, new_run, rec,
-                                    rec_in_git, recorded_output, refocus,
-                                    set_meta, synthetic, trace)
+from tests.refocus_programs import (COUNTER, ENV_LIMIT, EXIT_FROM_FILE,
+                                    JOINED_UNTRACED_WORKER, LIB, LOOP,
+                                    SHELLS_OUT, SIDE_EFFECT_REPR, SPAWNS,
+                                    TWO_FILES, TWO_WORKERS, UNTRACED_WORKER,
+                                    drop_meta, new_run, rec, rec_in_git,
+                                    recorded_output, refocus, set_meta,
+                                    synthetic, trace)
 
 
 # -- the licence is granted only when every check ran and agreed ------------
@@ -191,6 +192,15 @@ def test_refocus_reports_output_the_recorder_itself_changed(tmp_path):
     assert "leaves no mark on the fingerprint" in r.stdout
 
 
+def _blind_spot_block(out: str) -> str:
+    lines = out.splitlines()
+    start = next(i for i, ln in enumerate(lines)
+                 if ln.startswith("never checked by ANY verdict"))
+    body = [ln for ln in lines[start + 1:] if ln.startswith("  - ")]
+    assert body, out
+    return "\n".join(body)
+
+
 def test_refocus_states_its_blind_spots_on_every_verdict(tmp_path):
     """A limitation mentioned only when convenient is not a limitation."""
     run_id, sdir = rec(tmp_path, LOOP)
@@ -200,10 +210,32 @@ def test_refocus_states_its_blind_spots_on_every_verdict(tmp_path):
     assert match.returncode == 0 and diverged.returncode == 1
 
     for out in (match.stdout, diverged.stdout):
-        blind = next(ln for ln in out.splitlines()
-                     if ln.startswith("never checked by ANY verdict"))
+        blind = _blind_spot_block(out)
         for claim in ("values", "timing", "__repr__", "fingerprint"):
             assert claim in blind, blind
+
+
+def test_blind_spots_name_the_gaps_the_source_check_cannot_reach(tmp_path):
+    """The four `source_hashes` gaps were documented in the source and
+    invisible on screen, and three attacks landed inside them for a full
+    licence each: a config file the check does not hash, a module outside
+    the run's root, and a direct os.posix_spawn. A limitation a user cannot
+    read is a limitation they will walk into."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert r.returncode == 0, r.stdout + r.stderr
+
+    blind = _blind_spot_block(r.stdout)
+    assert "the DATA the program read" in blind
+    assert "config file" in blind
+    assert "site-packages and installed dependencies" in blind
+    assert "outside the run's root" in blind
+    assert "--include/--exclude filtered out" in blind
+    assert "os.posix_spawn is not even noticed" in blind
+    assert "C extension" in blind
+    # ...and the source line itself does not read as a blanket all-clear
+    assert ("data files, untraced code and installed dependencies are NOT "
+            "covered") in r.stdout
 
 
 def test_refocus_admits_a_divergence_may_be_its_own_doing(tmp_path):
@@ -230,7 +262,8 @@ def test_refocus_withholds_the_licence_when_threads_were_involved(tmp_path):
     r = refocus(sdir, run_id, "--focus", "prog:tally")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "refocus verdict: MATCH" in r.stdout
-    assert "threads: all 3 recorded thread(s) matched" in r.stdout
+    assert "threads: 3 recorded fingerprint(s) compared, all matching" \
+        in r.stdout
     assert "licence: WITHHELD" in r.stdout
     assert "3 threads were recorded" in r.stdout
     assert "the INTERLEAVING between them was never compared" in r.stdout
@@ -258,6 +291,79 @@ def test_refocus_withholds_the_licence_when_a_subprocess_ran(tmp_path, src,
     assert "answers about the original run" not in r.stdout
 
 
+def test_refocus_withholds_when_an_untraced_worker_ran_and_finished(tmp_path):
+    """The fifth false licence. This worker's body is entirely stdlib, so it
+    leaves NO fingerprint row, and it is joined before the run ends, so it is
+    gone from `live_threads` too -- invisible on both counts while doing file
+    I/O that differs between the runs. Counting thread CREATION through the
+    audit hook is the only sound signal, and it is what catches this."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "payload.txt").write_text("first payload")
+    run_id, sdir = rec(tmp_path, JOINED_UNTRACED_WORKER)
+    t = trace(sdir, run_id)
+    assert len(t.fingerprints()) == 1        # the trap: looks single-threaded
+    assert t.meta["live_threads"] == []      # ...and nothing was left running
+    assert t.meta["threads_started"] == 1    # but a thread was created
+
+    # the worker copies different bytes the second time
+    (tmp_path / "payload.txt").write_text("a completely different payload")
+    r = refocus(sdir, run_id, "--focus", "prog:deliver")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (tmp_path / "delivered.txt").read_text() == (
+        "a completely different payload")
+
+    assert "refocus verdict: MATCH" in r.stdout
+    # the sentence that used to assert completeness it could not have
+    assert "all 1 recorded thread(s) matched" not in r.stdout
+    assert "1 recorded fingerprint(s) compared, all matching" in r.stdout
+    assert "further thread(s) ran no traced code" in r.stdout
+    assert "licence: WITHHELD" in r.stdout
+    assert "started 1 thread(s) besides the main one" in r.stdout
+    assert "answers about the original run" not in r.stdout
+
+
+@pytest.mark.parametrize("missing", [
+    ("live_threads",), ("threads_started",),
+    ("live_threads", "threads_started"),
+])
+def test_refocus_withholds_when_the_thread_record_predates_the_check(tmp_path,
+                                                                     missing):
+    """A trace from before the thread bookkeeping existed reads as "no
+    threads" under `meta.get(...) or []`. Absence of the record is not a
+    record of absence -- `_source_state` withholds for exactly this shape
+    four lines away, and these must agree.
+
+    Each key is dropped on its own as well as together: a check that only
+    looks for one of them still reports the other's absence as agreement.
+    """
+    run_id, sdir = rec(tmp_path, LOOP)
+    drop_meta(sdir / "traces" / f"{run_id}.db", *missing)
+
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout
+    assert "licence: WITHHELD" in r.stdout
+    assert "predates the thread bookkeeping this check reads" in r.stdout
+    assert "absence of the record is not a record of absence" in r.stdout
+    assert "answers about the original run" not in r.stdout
+
+
+def test_refocus_withholds_when_the_audit_hook_malfunctioned(tmp_path):
+    """The audit hook may never raise -- that would break the program it is
+    observing -- but swallowing silently is how a hook bug becomes an empty
+    `children` list that reads as "no subprocess ran". Failures are counted,
+    and a non-zero count withholds."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    set_meta(sdir / "traces" / f"{run_id}.db", audit_errors=2)
+
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout
+    assert "licence: WITHHELD" in r.stdout
+    assert "audit hook malfunctioned" in r.stdout
+    assert "cannot be read as 'nothing was spawned'" in r.stdout
+
+
 def test_refocus_withholds_when_a_thread_left_no_fingerprint(tmp_path):
     """A worker whose body is entirely stdlib produces NO fingerprint row,
     so counting fingerprints reports a single-threaded run while a second
@@ -271,7 +377,8 @@ def test_refocus_withholds_when_a_thread_left_no_fingerprint(tmp_path):
     r = refocus(sdir, run_id, "--focus", "prog:start")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "refocus verdict: MATCH" in r.stdout
-    assert "threads: all 1 recorded thread(s) matched" in r.stdout
+    assert "threads: 1 recorded fingerprint(s) compared, all matching" \
+        in r.stdout
     assert "licence: WITHHELD" in r.stdout
     assert "thread(s) running when recording stopped" in r.stdout
     assert "untraced-worker" in r.stdout

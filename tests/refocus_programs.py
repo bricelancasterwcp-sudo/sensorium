@@ -461,6 +461,9 @@ def synthetic(sdir, run_id, *, argv=("prog.py",), cwd=None, late_writes=0,
         w.set_meta("cwd", str(cwd))
     w.set_meta("incomplete", False)
     w.set_meta("late_writes", late_writes)
+    w.set_meta("live_threads", [])
+    w.set_meta("threads_started", 0)
+    w.set_meta("audit_errors", 0)
     if main_thread_ident is not None:
         w.set_meta("main_thread_ident", main_thread_ident)
     c = w.intern_code("/tmp/prog.py", "main", 1)
@@ -469,3 +472,27 @@ def synthetic(sdir, run_id, *, argv=("prog.py",), cwd=None, late_writes=0,
         w.write_fingerprint(1, fingerprint, 1)
     w.close()
     return path
+
+
+# The worker that beat the `live_threads` check: its body is entirely stdlib
+# (so no fingerprint row) AND it is joined before the run ends (so it is gone
+# from live_threads too). It is doing real, differing file I/O the whole
+# time. Only counting thread CREATION sees it.
+JOINED_UNTRACED_WORKER = """
+import pathlib
+import shutil
+import threading
+
+def deliver():
+    t = threading.Thread(target=shutil.copyfile,
+                         args=("payload.txt", "delivered.txt"))
+    t.start()
+    t.join()
+
+def main():
+    deliver()
+    print("delivered", pathlib.Path("delivered.txt").stat().st_size > 0)
+
+if __name__ == "__main__":
+    main()
+"""

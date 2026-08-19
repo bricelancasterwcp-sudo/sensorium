@@ -36,7 +36,8 @@ def test_refocus_match_captures_line_state_the_original_lacked(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "sum: 35 2" in r.stdout             # the program really ran again
     assert "refocus verdict: MATCH" in r.stdout
-    assert "threads: all 1 recorded thread(s) matched" in r.stdout
+    assert "threads: 1 recorded fingerprint(s) compared, all matching" \
+        in r.stdout
 
     t = trace(sdir, new_run(r.stdout))
     assert t.meta["refocus_of"] == run_id
@@ -277,7 +278,7 @@ def test_refocus_refuses_a_verdict_over_two_empty_causal_streams(tmp_path):
     assert "SECOND-RUN" in r.stdout                # a different execution
     # the target itself is digested even though it produced no traced code,
     # so "did the program change" is still answerable for a run like this
-    assert "source: unchanged (1 file(s) compared by content)" in r.stdout
+    assert "source: unchanged (1 file(s) compared by content" in r.stdout
     assert r.returncode == 2, r.stdout + r.stderr
     assert "verdict: REFUSED" in r.stdout
     assert "nothing to compare" in r.stdout
@@ -300,8 +301,10 @@ def test_refocus_states_its_blind_spots_on_a_refused_verdict(tmp_path):
 
     r = refocus(sdir, run_id, "--focus", "tool:main", cwd=work)
     assert r.returncode == 2
-    blind = next(ln for ln in r.stdout.splitlines()
+    lines = r.stdout.splitlines()
+    start = next(i for i, ln in enumerate(lines)
                  if ln.startswith("never checked by ANY verdict"))
+    blind = "\n".join(ln for ln in lines[start + 1:] if ln.startswith("  - "))
     assert "__repr__" in blind and "fingerprint" in blind
 
 

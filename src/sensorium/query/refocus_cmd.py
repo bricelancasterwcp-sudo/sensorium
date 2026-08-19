@@ -147,13 +147,38 @@ _VOLATILE_ENV = frozenset({
     "LINES",
 })
 
+# Printed in full on every verdict. These belong in the OUTPUT, not only in
+# this file's docstrings: a limitation a user cannot read is a limitation
+# that will be walked into. Three separate attacks landed inside gaps that
+# were documented in the source and invisible on screen -- a config file the
+# source check does not hash, a module outside the run's root, and a spawn
+# mechanism the audit hook does not watch -- and each earned a full licence.
 _BLIND_SPOTS = (
-    "never checked by ANY verdict: argument and return values; timing; and "
-    "the recorder's own footprint -- deeper capture calls the program's "
+    "never checked by ANY verdict:",
+    "  - argument and return values, and per-line state: captured, never "
+    "compared, and never fingerprinted",
+    "  - timing, and the order threads ran in relative to each other",
+    "  - the recorder's own footprint: deeper capture calls the program's "
     "__repr__ from inside the recorder's hooks, where the tracer suppresses "
-    "itself, so an instrument that changes the program (a __repr__ with a "
-    "side effect) leaves no mark on the fingerprint and cannot be detected "
-    "by this verdict at all")
+    "itself, so an instrument that changes the program leaves no mark on the "
+    "fingerprint at all",
+    "  - the DATA the program read: only source files are hashed, so a "
+    "config file, a fixture or a database can change between the runs "
+    "freely and silently",
+    "  - code that was never traced: the stdlib, site-packages and installed "
+    "dependencies, anything outside the run's root (a PYTHONPATH module), "
+    "and anything this run's own --include/--exclude filtered out",
+    "  - what any subprocess did -- and a child started by a direct "
+    "os.posix_spawn is not even noticed, because watching that event as well "
+    "would double-count every subprocess.Popen",
+    "  - a thread started by a C extension rather than through Python's own "
+    "_thread module",
+)
+
+
+def _print_blind_spots() -> None:
+    for line in _BLIND_SPOTS:
+        print(line)
 
 
 def add_parser(sub) -> None:
@@ -293,7 +318,9 @@ def _source_state(meta: dict) -> tuple[str, str | None]:
     changed = [p for p, digest in sorted(was.items())
                if boot.hash_file(p) != digest]
     if not changed:
-        return (f"source: unchanged ({len(was)} file(s) compared by content)",
+        return (f"source: unchanged ({len(was)} file(s) compared by "
+                "content; data files, untraced code and installed "
+                "dependencies are NOT covered -- see blind spots below)",
                 None)
     shown = ", ".join(Path(p).name for p in changed[:6])
     if len(changed) > 6:
@@ -437,18 +464,37 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
             f"{threads} threads were recorded; each thread's own call shape "
             "matched, but the INTERLEAVING between them was never compared, "
             "and interleaving is what most concurrency bugs are made of")
-    # A thread that ran only stdlib or site-packages code produces NO
-    # fingerprint row, so the count above reports a single-threaded run while
-    # a second thread is doing file I/O. The recorder notes which threads
-    # were still alive when it stopped; that is the signal that catches it.
+    # A thread whose body is entirely stdlib runs no traced code, so it gets
+    # no fingerprint row -- and once joined it is gone from `live_threads`
+    # too, invisible on both counts while doing file I/O of its own. The
+    # audit hook counts thread CREATION, which is the only one of the three
+    # signals that is sound rather than "usually right".
     for label, trace in (("the original", orig), ("the rerun", new)):
-        live = trace.meta.get("live_threads") or []
+        meta = trace.meta
+        if "threads_started" not in meta or "live_threads" not in meta:
+            out.append(
+                f"{label} predates the thread bookkeeping this check reads, "
+                "so how many threads it ran cannot be established -- absence "
+                "of the record is not a record of absence")
+            continue
+        started = meta["threads_started"]
+        if started:
+            out.append(
+                f"{label} started {started} thread(s) besides the main one. "
+                "A thread that ran no traced code has no fingerprint to "
+                "compare, and the order the threads ran in was never "
+                "compared for any of them")
+        live = meta["live_threads"]
         if live:
             out.append(
                 f"{label} still had {len(live)} thread(s) running when "
                 f"recording stopped ({', '.join(sorted(live)[:4])}); whatever "
-                "they did after that point is in neither trace, and a thread "
-                "that ran no traced code has no fingerprint to compare")
+                "they did after that point is in neither trace")
+    if (orig.meta.get("audit_errors") or new.meta.get("audit_errors")):
+        out.append(
+            "the recorder's audit hook malfunctioned during one of the runs, "
+            "so its record of subprocesses and threads is incomplete -- a "
+            "short list there cannot be read as 'nothing was spawned'")
     diff = _output_difference(orig, new)
     if diff:
         out.append(diff)
@@ -525,7 +571,7 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
               f"{orig_name}: treat it as a separate, UNVERIFIED execution")
         # Stated here too: "on every verdict" has to include the verdict
         # that says nothing, or the sentence is not true.
-        print(_BLIND_SPOTS)
+        _print_blind_spots()
         return 2
 
     if threads:
@@ -533,8 +579,18 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
     elif res["verdict"] != "MATCH":
         print("threads: not compared -- the compared thread already diverged")
     elif new.fingerprints():
-        print(f"threads: all {len(new.fingerprints())} recorded thread(s) "
-              "matched, not just the compared one")
+        # NOT "all N threads matched". That sentence asserted completeness
+        # this tool cannot have: a thread whose body is entirely stdlib
+        # leaves no fingerprint, so it is not among the N and was never
+        # compared. Say how many were compared, and say plainly when more
+        # existed than that.
+        n = len(new.fingerprints())
+        unseen = max(orig.meta.get("threads_started", 0),
+                     new.meta.get("threads_started", 0)) + 1 - n
+        tail = (f"; {unseen} further thread(s) ran no traced code, left no "
+                "fingerprint, and were NOT compared" if unseen > 0 else "")
+        print(f"threads: {n} recorded fingerprint(s) compared, all "
+              f"matching{tail}")
     else:
         print("threads: no per-thread fingerprints were recorded on either "
               "side -- there was nothing to compare beyond the stream above")
@@ -559,7 +615,7 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
               "itself -- capturing values runs the program's own __repr__ "
               "and slows the run down; the fingerprint cannot tell that "
               "apart from the program genuinely taking another path")
-        print(_BLIND_SPOTS)
+        _print_blind_spots()
         return 1
 
     print("refocus verdict: MATCH -- every recorded thread produced the "
@@ -573,7 +629,7 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
     else:
         print("licence: answers from this trace are answers about the "
               "original run -- every signal sensorium can check agrees")
-    print(_BLIND_SPOTS)
+    _print_blind_spots()
     return 0
 
 
