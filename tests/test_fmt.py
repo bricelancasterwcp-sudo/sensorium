@@ -1,4 +1,6 @@
 from sensorium.query import fmt
+from sensorium.store.reader import Trace
+from tests.helpers import record_script
 
 
 def test_fmt_scalars():
@@ -88,3 +90,63 @@ def test_fmt_event_line_with_only_deltas_matches_dense_house_style():
     e = _FakeEvent({"deltas": {"total": {"k": "num", "v": 15}}})
     out = fmt.fmt_event(_FakeTrace(), e)
     assert out == f"e81 {'LINE':<7} work L4  total=15"
+
+
+# -- fmt_event coverage against a REAL recorded trace, not a fake's idea of
+# the format. The three tests above only ever construct kind="LINE" -- CALL,
+# RETURN, RAISE and HANDLED had zero coverage, and every later query command
+# (Tasks 10-15) renders events through this function. Pin all five branches
+# here, against actual recorder output, so a regression in any of them is
+# caught by the suite rather than by hand-checking against live traces.
+_FIVE_KINDS_SRC = """
+def work(n):
+    total = n + 1
+    try:
+        [1, 2][n]
+    except IndexError:
+        pass
+    return total
+
+def main():
+    work(5)
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def _first_of_kind(trace, kind, qualname):
+    for e in trace.events(kind=kind):
+        code = trace.code(e.code_id) if e.code_id is not None else None
+        if code is not None and code.qualname == qualname:
+            return e
+    raise AssertionError(f"no {kind} event found for {qualname!r}")
+
+
+def test_fmt_event_renders_all_five_kinds_from_a_real_trace(tmp_path):
+    run_id, trace_path, r = record_script(
+        tmp_path, _FIVE_KINDS_SRC, extra=["--focus", "prog:work"])
+    assert run_id, r.stderr
+    trace = Trace.open(trace_path)
+
+    call = _first_of_kind(trace, "CALL", "work")
+    assert fmt.fmt_event(trace, call) == f"e{call.id} {'CALL':<7} work(n=5)"
+
+    ret = _first_of_kind(trace, "RETURN", "work")
+    assert fmt.fmt_event(trace, ret) == f"e{ret.id} {'RETURN':<7} work -> 6"
+
+    raised = _first_of_kind(trace, "RAISE", "work")
+    assert fmt.fmt_event(trace, raised) == (
+        f"e{raised.id} {'RAISE':<7} work raise "
+        "IndexError('list index out of range') L5")
+
+    handled = _first_of_kind(trace, "HANDLED", "work")
+    assert fmt.fmt_event(trace, handled) == (
+        f"e{handled.id} {'HANDLED':<7} work handled "
+        "IndexError('list index out of range') L5")
+
+    # under --focus prog:work, work's `total = n + 1` LINE fires just
+    # before line 4 (the `try:`), carrying the delta produced by line 3.
+    line = next(e for e in trace.events(kind="LINE") if e.line == 4)
+    assert fmt.fmt_event(trace, line) == (
+        f"e{line.id} {'LINE':<7} work L4  total=6")

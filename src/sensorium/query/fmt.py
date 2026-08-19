@@ -39,7 +39,7 @@ def fmt_exc(e: dict) -> str:
 
 
 def fmt_event(trace, e) -> str:
-    code = trace.code(e.code_id) if e.code_id else None
+    code = trace.code(e.code_id) if e.code_id is not None else None
     q = code.qualname if code else "?"
     p = e.payload or {}
     if e.kind == "CALL":
