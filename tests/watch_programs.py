@@ -6,6 +6,8 @@ each of these sources exists to produce ONE recorded shape -- an implicit
 unbind, interleaved frames -- and the comment explaining that shape belongs
 with the source, not in the middle of the test that reads it.
 """
+from tests.helpers import record_script
+from tests.programs import open_trace
 
 BUFFER = """
 def fill(buf, chunk):
@@ -152,3 +154,17 @@ def main():
 if __name__ == "__main__":
     main()
 """
+
+
+# -- recording helpers, shared by test_watch.py and test_watch_verdict.py --
+def rec(tmp_path, monkeypatch, src=BUFFER, extra=()):
+    run_id, _trace, r = record_script(tmp_path, src, extra=extra)
+    assert run_id, r.stderr
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    return run_id
+
+
+def line_events(run_id, qualname):
+    t = open_trace(run_id)
+    return [e for e in t.events(kind="LINE")
+            if t.code(e.code_id).qualname == qualname]
