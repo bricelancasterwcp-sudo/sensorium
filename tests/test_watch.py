@@ -150,6 +150,21 @@ def test_watch_evaluates_a_line_whose_only_change_is_an_unbind(
 
 
 # -- 0 hits must never read as "the invariant held" ------------------------
+def _verdict(out: str) -> list[str]:
+    """The verdict line and the line under it, exactly.
+
+    NOT a substring match against the whole of stdout: the caveated verdict
+    contains the clean verdict's closing words, so `"not a claim that the
+    invariant held" in out` cannot tell which branch was taken. Measured --
+    replacing the clean branch's whole second line with "(recorded sites
+    only)" left the entire suite green. Five non-biting tests on this
+    project shared exactly that shape.
+    """
+    lines = out.splitlines()
+    i = next(n for n, ln in enumerate(lines) if ln.startswith("verdict:"))
+    return lines[i:i + 2]
+
+
 def test_watch_zero_hits_with_unchecked_sites_refuses_the_conclusion(
         tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
@@ -157,20 +172,51 @@ def test_watch_zero_hits_with_unchecked_sites_refuses_the_conclusion(
                      "--expr", "used > 100"]) == 0
     out = capsys.readouterr().out
     assert "sites: 19   evaluated: 5   hits: 0   not-captured: 14" in out
-    assert "14 of 19 recorded site(s) could NOT be" in out
-    assert "not a claim that the invariant held" in out
+    assert _verdict(out) == [
+        "verdict: not satisfied at any of the 5 site(s) that could be "
+        "evaluated -- but 14 of 19 recorded site(s) could NOT be evaluated,",
+        "  so this is not a claim that the invariant held"]
 
 
 def test_watch_zero_hits_with_every_site_checked_still_scopes_the_claim(
         tmp_path, monkeypatch, capsys):
-    """Even a fully evaluated run only ever saw what was recorded."""
+    """Even a fully evaluated run only ever saw what was recorded.
+
+    This is the CLEAN branch -- the one with no caveat attached -- so its
+    own second line is the only thing standing between `hits: 0` and "the
+    invariant held". The fixture used to be MIXED, which yields `errors: 1`
+    and therefore takes the CAVEATED branch: the test was named for one
+    branch and passed on the other's copy of the words.
+    """
+    run_id = _rec(tmp_path, monkeypatch, KEEP)
+    assert cli.main(["watch", run_id, "--at", "prog:keep",
+                     "--expr", "n > 9000"]) == 0
+    out = capsys.readouterr().out
+    assert "sites: 4   evaluated: 4   hits: 0   not-captured: 0   errors: 0" \
+        in out
+    assert _verdict(out) == [
+        "verdict: not satisfied at any of the 4 recorded site(s), every one "
+        "of which was evaluated",
+        "  that is a fact about what was RECORDED, not a claim that the "
+        "invariant held: only recorded sites were checked"]
+
+
+def test_watch_verdict_says_which_sites_errored_rather_than_summing_them(
+        tmp_path, monkeypatch, capsys):
+    """The caveated branch reached through the ERRORS bucket rather than the
+    not-captured one -- the shape the old fixture above was actually
+    testing, kept here where its name matches its branch."""
     run_id = _rec(tmp_path, monkeypatch, MIXED)
     assert cli.main(["watch", run_id, "--at", "prog:tally",
                      "--expr", "n > 9000"]) == 0
     out = capsys.readouterr().out
-    assert "sites: 2   evaluated: 1   hits: 0   not-captured: 0" in out
-    assert "errors: 1" in out                        # "five" > 9000
-    assert "not a claim that the invariant held" in out
+    assert "sites: 2   evaluated: 1   hits: 0   not-captured: 0   errors: 1" \
+        in out                                       # "five" > 9000
+    assert _verdict(out) == [
+        "verdict: not satisfied at any of the 1 site(s) that could be "
+        "evaluated -- but 1 of 2 recorded site(s) raised while the predicate "
+        "was applied,",
+        "  so this is not a claim that the invariant held"]
 
 
 def test_watch_warns_when_a_predicate_name_was_never_recorded_anywhere(
@@ -189,10 +235,12 @@ def test_watch_warns_when_a_predicate_name_was_never_recorded_anywhere(
         in out
     assert "NEVER RECORDED: 'ghost'" in out
     assert "decided WITHOUT it" in out
-    # ...and the verdict must not be the clean one.
-    assert "the predicate was decided WITHOUT 'ghost'" in out
-    assert "not a claim that the invariant held" in out
-    assert "every one of which was evaluated" not in out
+    # ...and the verdict must not be the clean one. Pinned as the verdict's
+    # own two lines: the clean branch's closing words appear in both.
+    assert _verdict(out) == [
+        "verdict: not satisfied at any of the 4 site(s) that could be "
+        "evaluated -- but the predicate was decided WITHOUT 'ghost',",
+        "  so this is not a claim that the invariant held"]
     # The banner sits ABOVE the verdict: the verdict cannot be read past it.
     assert out.index("NEVER RECORDED") < out.index("verdict:")
 
@@ -209,7 +257,11 @@ def test_watch_does_not_warn_when_every_predicate_name_was_recorded(
         in out
     assert "NEVER RECORDED" not in out
     assert "decided WITHOUT" not in out
-    assert "every one of which was evaluated" in out
+    assert _verdict(out) == [
+        "verdict: not satisfied at any of the 4 recorded site(s), every one "
+        "of which was evaluated",
+        "  that is a fact about what was RECORDED, not a claim that the "
+        "invariant held: only recorded sites were checked"]
 
 
 def test_watch_warns_about_a_phantom_name_that_rode_along_with_a_real_hit(

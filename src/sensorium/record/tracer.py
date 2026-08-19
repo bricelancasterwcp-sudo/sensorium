@@ -521,6 +521,14 @@ class Tracer:
         M.restart_events()
 
     def uninstall(self) -> None:
+        E = M.events
+        # Events off FIRST, and only then the tables. Clearing another
+        # thread's retention table while its callbacks are still live races
+        # the eviction loop's unguarded `next(iter(...))`: a worker between
+        # the `len()` check and the `next()` would raise StopIteration from
+        # inside a monitoring callback -- the recorder killing a traced
+        # thread, which is the one thing it must never do.
+        M.set_events(TOOL, 0)
         # Drop every exception this recorder is holding, on every live thread
         # -- not just the one calling uninstall, whose table is the only one
         # `self._tls` can reach. Nothing can resume a serial once recording
@@ -529,8 +537,6 @@ class Tracer:
         # the rest of the process.
         for refs in self._live_exc_refs():
             refs.clear()
-        E = M.events
-        M.set_events(TOOL, 0)
         for ev in (E.PY_START, E.PY_RETURN, E.PY_UNWIND, E.RAISE,
                    E.RERAISE, E.EXCEPTION_HANDLED, E.LINE):
             M.register_callback(TOOL, ev, None)

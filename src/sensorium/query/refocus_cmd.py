@@ -184,9 +184,11 @@ _BLIND_SPOTS = (
     "  - any code outside the run's root: the stdlib, site-packages, "
     "installed dependencies, PYTHONPATH modules, and whatever this run's "
     "own --include/--exclude filtered out",
+    # NOT "and nothing outside the environment is compared at all": source
+    # contents, stdout/stderr and exit status are all compared, and the
+    # source line saying so prints twelve lines above this block.
     "  - any environment variable this run did not compare; the ones it "
-    "skipped are named above, and nothing outside the environment is "
-    "compared at all",
+    "skipped are named above",
     "  - the clock, the network, and everything else the machine did",
     "  - argument and return values, per-line state, timing, and the order "
     "threads ran in relative to one another: recorded, never compared",
@@ -276,12 +278,22 @@ def _pin_trace_store() -> None:
 
     A relative SENSORIUM_DIR would follow the chdir into the original cwd
     and silently write the new trace somewhere `sensorium runs` will never
-    look for it. Two orderings matter: this must run BEFORE the chdir (the
-    path is relative to the invoking directory, not to the target's), and
-    AFTER the environment snapshot the licence check compares -- the rewrite
-    names the same directory in a different spelling, and reporting the
-    tool's own bookkeeping as an environment change the user should worry
-    about would be noise, not honesty.
+    look for it. Two orderings matter, and both are asserted by `run()`:
+
+    * BEFORE the chdir -- the path is relative to the invoking directory,
+      not to the target's.
+    * BEFORE the environment snapshot the licence check compares. The
+      snapshot must be of the environment the target actually EXECUTES
+      under, and this rewrite mutates that environment. Snapshotting first
+      left the check describing an environment the program never saw: a run
+      recorded with SENSORIUM_DIR=sdir wrote into `sdir`, the rerun wrote
+      into `/tmp/.../sdir`, and the output said `env: unchanged (76
+      variables compared)` and granted the full licence.
+
+    Reporting the tool's own bookkeeping as an environment change the user
+    should worry about would be noise, not honesty -- so SENSORIUM_DIR is in
+    `_UNCOMPARED_ENV` instead, where it is NAMED rather than hidden, and a
+    program that reads it goes explicitly unchecked.
     """
     sdir = os.environ.get("SENSORIUM_DIR")
     if sdir and not os.path.isabs(sdir):

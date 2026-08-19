@@ -190,6 +190,30 @@ command says so in its own header.
   None of these is printed when it is zero: a printed `0` would read as proof
   nothing was started, which is exactly what it is not.
 
+## What a trace file holds
+
+A trace is one SQLite file under `$SENSORIUM_DIR` (default
+`~/.sensorium/traces`), created with your umask — `0644` on a default Linux
+setup, so readable by every account on the machine. In plaintext it holds:
+
+- **the entire process environment** as it stood at record time, variable by
+  variable — every variable the launching shell exported, 78 of them for the
+  run that produced this paragraph — including any token, key or password
+  among them;
+- **everything the program wrote** to stdout and stderr, interleaved with the
+  events it wrote them between;
+- the command line, the working directory, the git commit, and content
+  digests of every source file the run traced;
+- captured argument, return and local values, clipped to the caps `info`
+  prints but not filtered for what they contain.
+
+`info` refuses to print the environment and `refocus` refuses to print the
+variables it compared — both carry secrets, and both say so in their own
+source. Nothing refuses to *store* it, and there is no redaction pass. Treat
+a trace the way you would treat a core dump or a `.env`: sharing one shares
+all of the above, and `SENSORIUM_DIR` is the only control over where it
+lands.
+
 ## What sensorium sees at all
 
 Python code that this run traced, in files under the run's own root. **Nothing

@@ -267,6 +267,12 @@ def test_blind_spots_name_the_gaps_the_source_check_cannot_reach(tmp_path):
     # ...and the source line itself does not read as a blanket all-clear
     assert ("data files, untraced code and installed dependencies are NOT "
             "covered") in r.stdout
+    # The block whose whole purpose is precision must not contain a FALSE
+    # sentence. "nothing outside the environment is compared at all" stood
+    # here, twelve lines under `source: unchanged (1 file(s) compared by
+    # content)` -- and stdout, stderr and exit status are compared too.
+    assert "nothing outside the environment" not in r.stdout
+    assert "source: unchanged (1 file(s) compared by content" in r.stdout
 
 
 def test_refocus_admits_a_divergence_may_be_its_own_doing(tmp_path):

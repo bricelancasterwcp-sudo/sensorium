@@ -588,6 +588,29 @@ def test_uninstall_drops_retained_exceptions_on_every_live_thread(tmp_path):
         t.join(10)
 
 
+def test_uninstall_disables_events_before_it_clears_any_table(
+        tmp_path, monkeypatch):
+    """Ordering, not tidiness. Clearing another thread's retention table
+    while that thread's callbacks are still live races the eviction loop's
+    unguarded `next(iter(...))`: a worker between the `len()` check and the
+    `next()` raises StopIteration from inside a monitoring callback, which
+    kills the traced thread. The recorder killing what it observes is the
+    same class of failure as an unguarded `__repr__`."""
+    from sensorium.record import tracer as tr
+
+    events_when_cleared = []
+    real = tr.Tracer._live_exc_refs
+
+    def spy(self):
+        events_when_cleared.append(sys.monitoring.get_events(tr.TOOL))
+        return real(self)
+
+    monkeypatch.setattr(tr.Tracer, "_live_exc_refs", spy)
+    with installed_tracer(tmp_path):
+        assert sys.monitoring.get_events(tr.TOOL) != 0   # precondition
+    assert events_when_cleared == [0]
+
+
 def test_the_recorders_own_code_is_never_traced(tmp_path, monkeypatch):
     """The one guard the ordinary tests cannot reach.
 
