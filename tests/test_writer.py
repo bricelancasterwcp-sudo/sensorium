@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 
 from sensorium.store.writer import TraceWriter
 
@@ -35,6 +36,48 @@ def test_event_ids_monotonic_and_last_event_id(tmp_path):
     ids = [w.add_event(i, 1, "CALL", None, cid, 1, None) for i in range(5)]
     assert ids == [1, 2, 3, 4, 5] and w.last_event_id == 5
     w.close()
+
+
+def test_concurrent_writers_get_unique_contiguous_ids(tmp_path):
+    # The writer's central promise: safe to call from any thread, ids monotonic
+    # across threads. The tracer flushes on whichever thread fills the batch,
+    # so the sqlite connection must tolerate cross-thread use.
+    p = tmp_path / "t.db"
+    w = TraceWriter(p, batch=16)
+    cid = w.intern_code("/x.py", "f", 1)
+    n_threads, n_events = 8, 50
+    start = threading.Barrier(n_threads)
+    lock = threading.Lock()
+    ids: list[int] = []
+    errors: list[BaseException] = []
+
+    def worker():
+        try:
+            start.wait()                 # genuinely concurrent, not staggered
+            mine = [w.add_event(i, threading.get_ident(), "CALL", None, cid,
+                                1, None) for i in range(n_events)]
+            with lock:
+                ids.extend(mine)
+        except BaseException as e:       # noqa: BLE001 - surfaced by assert
+            with lock:
+                errors.append(e)
+
+    threads = [threading.Thread(target=worker) for _ in range(n_threads)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    w.close()
+
+    total = n_threads * n_events
+    assert errors == []
+    assert len(ids) == total
+    assert len(set(ids)) == total                       # no id handed out twice
+    assert sorted(ids) == list(range(1, total + 1))     # contiguous, none lost
+
+    c = sqlite3.connect(p)
+    rows = [r[0] for r in c.execute("SELECT id FROM events ORDER BY id")]
+    assert rows == list(range(1, total + 1))            # every row landed
 
 
 def test_partial_trace_valid_without_close(tmp_path):

@@ -58,7 +58,11 @@ CREATE INDEX idx_frames_code ON frames(code_id);
 def create_trace(path: Path) -> sqlite3.Connection:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
+    # The tracer flushes on whichever thread fills the batch, so the write
+    # connection outlives its creating thread. TraceWriter serialises every
+    # access under its own lock, which is the invariant check_same_thread
+    # approximates. (open_trace stays checked: the read path is single-threaded.)
+    conn = sqlite3.connect(path, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA)
     set_meta(conn, "trace_format", TRACE_FORMAT)
