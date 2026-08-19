@@ -20,7 +20,11 @@ def run(args) -> int:
         if m.get("incomplete"):
             flags.append("INCOMPLETE")
         if m.get("refocus_of"):
+            # The verdict rides with the label, always. A bare "refocus-of"
+            # reads as a pedigree; without the verdict beside it a DIVERGED
+            # rerun looks in this listing exactly like a verified one.
             flags.append(f"refocus-of:{m['refocus_of']}")
+            flags.append(f"verdict:{m.get('refocus_verdict', 'UNVERIFIED')}")
         suffix = f"  [{','.join(flags)}]" if flags else ""
         print(f"{f.stem}  exit:{m.get('exit_status', '?')}  "
               f"events:{sum(t.counts().values())}  "

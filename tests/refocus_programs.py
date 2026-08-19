@@ -1,0 +1,404 @@
+"""Program shapes and recording fixtures shared by the two `refocus` files.
+
+Split out for the same reason as `programs.py`: each source string is one
+program *shape*, and the shapes that matter to `refocus` are whole-program
+properties -- whether control flow depends on state outside the process,
+whether a worker thread can take a branch the main thread cannot see,
+whether the recorder's own capture perturbs the program. None of them can be
+expressed in a fragment.
+
+`test_refocus.py` covers running, refusing, and the verdict;
+`test_refocus_licence.py` covers what the verdict is allowed to claim.
+"""
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+from sensorium.store import db
+from sensorium.store.reader import Trace
+from sensorium.store.writer import TraceWriter
+from tests.helpers import record_script, run_cli
+
+# Deterministic. `accumulate`'s loop calls nothing, so editing its input list
+# changes the printed value but NOT the causal stream -- which is exactly the
+# shape the changed-source tests need.
+LOOP = """
+def helper(n):
+    return n + 1
+
+def accumulate(ops):
+    total = 0
+    for op in ops:
+        total = total + op
+    return total
+
+def main():
+    print("sum:", accumulate([5, 10, 20]), helper(1))
+
+if __name__ == "__main__":
+    main()
+"""
+
+# Control flow decided by state OUTSIDE the process, so the rerun genuinely
+# takes the other branch -- and does so deterministically, unlike a coin
+# flip, which would make a DIVERGED test flaky in the direction of a false
+# pass.
+COUNTER = """
+import pathlib
+
+def bump():
+    p = pathlib.Path("counter.txt")
+    n = int(p.read_text()) if p.exists() else 0
+    p.write_text(str(n + 1))
+    return n
+
+def first():
+    return "first"
+
+def again():
+    return "again"
+
+def main():
+    print(first() if bump() == 0 else again())
+
+if __name__ == "__main__":
+    main()
+"""
+
+# Same causal shape both times; only the value that decides the exit status
+# differs. A MATCH here is correct and yet the two runs ended differently.
+EXIT_FROM_FILE = """
+import pathlib
+import sys
+
+def attempt():
+    p = pathlib.Path("n.txt")
+    n = int(p.read_text()) if p.exists() else 0
+    p.write_text(str(n + 1))
+    return n
+
+def main():
+    sys.exit(attempt())
+
+if __name__ == "__main__":
+    main()
+"""
+
+READS_STDIN = """
+def main():
+    line = input()
+    print("got", line)
+
+if __name__ == "__main__":
+    main()
+"""
+
+# Writes a marker, then blocks: lets a test kill the recorder at a known
+# point and get a genuinely incomplete trace.
+SLEEPER = """
+import pathlib
+import time
+
+def spin():
+    time.sleep(60)
+
+def main():
+    pathlib.Path("ready").write_text("1")
+    spin()
+
+if __name__ == "__main__":
+    main()
+"""
+
+TWO_FILES = """
+import lib
+
+def main():
+    print("n:", lib.compute(3))
+
+if __name__ == "__main__":
+    main()
+"""
+
+LIB = """
+def helper(x):
+    return x * 2
+
+def compute(x):
+    return helper(x) + 1
+"""
+
+# -- the three false MATCHes, as fixtures -----------------------------------
+# Each one produced "verdict: MATCH" plus the full licence sentence before
+# the licence was gated on every signal rather than on the source tree alone.
+
+# 1. Input arrives through the environment. The comprehension is inlined
+# (PEP 709), so the causal shape is genuinely identical either way -- MATCH
+# is the right verdict about SHAPE and a lie about the run.
+ENV_LIMIT = """
+import os
+
+def over(items, limit):
+    return [x for x in items if x > limit]
+
+def main():
+    limit = int(os.environ.get("REFOCUS_TEST_LIMIT", "5"))
+    print("over:", len(over([3, 7, 12], limit)))
+
+if __name__ == "__main__":
+    main()
+"""
+
+# 2. Only a WORKER thread takes the other branch. The main thread -- the one
+# `compare()` looks at -- is byte-identical across the two runs.
+THREAD_BRANCH = """
+import pathlib
+import threading
+
+def choose():
+    p = pathlib.Path("turn.txt")
+    n = int(p.read_text()) if p.exists() else 0
+    p.write_text(str(n + 1))
+    return n
+
+def alpha():
+    return "A"
+
+def beta():
+    return "B"
+
+def work(out):
+    out.append(alpha() if choose() == 0 else beta())
+
+def main():
+    out = []
+    t = threading.Thread(target=work, args=(out,))
+    t.start()
+    t.join()
+    print(out)
+
+if __name__ == "__main__":
+    main()
+"""
+
+# 3. The instrument perturbs the program. `marker` is a local, never an
+# argument, so the original (no focus) never captures it and never calls its
+# __repr__; the refocused rerun captures every local on every LINE event and
+# calls it repeatedly. Those calls run with `tls.in_hook` set, so the frames
+# they create are suppressed from the trace -- the fingerprint is blind to
+# the recorder's own footprint BY CONSTRUCTION and can never report this.
+SIDE_EFFECT_REPR = """
+COUNT = [0]
+
+class Noisy:
+    def __repr__(self):
+        COUNT[0] += 1
+        return "noisy"
+
+def step():
+    marker = Noisy()
+    total = 0
+    for i in range(4):
+        total = total + i
+    return total
+
+def main():
+    step()
+    print("reprs:", COUNT[0])
+
+if __name__ == "__main__":
+    main()
+"""
+
+# Two threads doing identical, deterministic work: every per-thread
+# fingerprint matches, so the verdict is a genuine MATCH -- and the
+# INTERLEAVING between them was still never compared.
+TWO_WORKERS = """
+import threading
+
+def tally(n):
+    total = 0
+    for i in range(n):
+        total = total + i
+    return total
+
+def work():
+    tally(3)
+
+def main():
+    ts = [threading.Thread(target=work) for _ in range(2)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    print("joined")
+
+if __name__ == "__main__":
+    main()
+"""
+
+# The same worker shape, run a different NUMBER of times. Both runs record
+# the same SET of per-thread fingerprints; only the counts differ, which is
+# why the comparison has to be a multiset.
+THREAD_COUNT = """
+import pathlib
+import threading
+
+def how_many():
+    p = pathlib.Path("n.txt")
+    n = int(p.read_text()) if p.exists() else 0
+    p.write_text(str(n + 1))
+    return 2 + n
+
+def tally():
+    return 1
+
+def work():
+    tally()
+
+def main():
+    ts = [threading.Thread(target=work) for _ in range(how_many())]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    print("joined")
+
+if __name__ == "__main__":
+    main()
+"""
+
+# A subprocess is observed by the audit hook and never witnessed: whatever
+# it did is outside every trace either run holds.
+SPAWNS = """
+import subprocess
+import sys
+
+def spawn():
+    subprocess.run([sys.executable, "-c", "pass"])
+
+def main():
+    spawn()
+    print("done")
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+# -- fixtures ---------------------------------------------------------------
+
+def rec(tmp_path, src, extra=(), stdin_text=None):
+    run_id, _trace, r = record_script(tmp_path, src, extra=extra,
+                                      stdin_text=stdin_text)
+    assert run_id, r.stderr + r.stdout
+    return run_id, tmp_path / "sdir"
+
+
+def rec_in_git(tmp_path, src):
+    """Record inside a real git repo with `prog.py` committed.
+
+    Committing matters: an untracked file shows as `?? prog.py` before and
+    after an edit, so `git_dirty_hash` would not move and the changed-tree
+    warning this fixture exists to exercise would never fire.
+    """
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "prog.py").write_text(src)
+    for cmd in (["init", "-q", "-b", "main"],
+                ["add", "prog.py"],
+                ["-c", "user.email=t@example.invalid", "-c", "user.name=t",
+                 "-c", "commit.gpgsign=false", "commit", "-q", "-m", "p"]):
+        subprocess.run(["git", *cmd], cwd=tmp_path, check=True,
+                       capture_output=True)
+    sdir = tmp_path / "sdir"
+    r = run_cli(["run", "--", "prog.py"], cwd=tmp_path, sensorium_dir=sdir)
+    assert r.returncode == 0, r.stderr
+    run_id = re.search(r"^run: (\S+)$", r.stdout, re.M).group(1)
+    assert Trace.open(sdir / "traces" / f"{run_id}.db").meta["git_sha"]
+    return run_id, sdir
+
+
+def record_killed(tmp_path, src):
+    """A genuinely incomplete recording: SIGKILL the recorder mid-run."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "prog.py").write_text(src)
+    sdir = tmp_path / "sdir"
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "sensorium", "run", "--", "prog.py"],
+        cwd=tmp_path, env=dict(os.environ, SENSORIUM_DIR=str(sdir)),
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    ready = tmp_path / "ready"
+    deadline = time.monotonic() + 60
+    while not ready.exists() and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert ready.exists(), "the recorded program never reached its marker"
+    proc.kill()
+    proc.wait(timeout=60)
+    return sdir
+
+
+def refocus(sdir, run_id, *extra, cwd=None, sensorium_dir=None):
+    return run_cli(["refocus", run_id, *extra], cwd=cwd or sdir.parent,
+                   sensorium_dir=sensorium_dir or sdir)
+
+
+def new_run(out):
+    m = re.search(r"^run: (\S+)$", out, re.M)
+    assert m, f"no new run id in output:\n{out}"
+    return m.group(1)
+
+
+def trace(sdir, run_id):
+    return Trace.open(sdir / "traces" / f"{run_id}.db")
+
+
+def dbs(sdir):
+    return sorted(p.name for p in (sdir / "traces").glob("*.db"))
+
+
+def recorded_output(sdir, run_id):
+    return "".join(d for _e, _s, d in trace(sdir, run_id).output_chunks())
+
+
+def set_meta(path, **kv):
+    conn = db.open_trace(path)
+    for k, v in kv.items():
+        db.set_meta(conn, k, v)
+    conn.commit()
+    conn.close()
+
+
+def drop_meta(path, *keys):
+    """Remove metadata keys from a real recording, to make it look like a
+    trace from before that key existed. `db` has no delete -- legacy shapes
+    are read-only history everywhere else in the codebase."""
+    conn = db.open_trace(path)
+    for key in keys:
+        conn.execute("DELETE FROM meta WHERE key = ?", (key,))
+    conn.commit()
+    conn.close()
+
+
+def synthetic(sdir, run_id, *, argv=("prog.py",), cwd=None, late_writes=0,
+              main_thread_ident=1):
+    """A hand-built trace, for shapes the recorder cannot produce on demand:
+    dropped late writes, a legacy trace with no recorded main thread, and
+    corrupt metadata that must be refused rather than crashed on."""
+    path = Path(sdir) / "traces" / f"{run_id}.db"
+    w = TraceWriter(path)
+    w.set_meta("run_id", run_id)
+    if argv is not None:
+        w.set_meta("argv", list(argv))
+    if cwd is not None:
+        w.set_meta("cwd", str(cwd))
+    w.set_meta("incomplete", False)
+    w.set_meta("late_writes", late_writes)
+    if main_thread_ident is not None:
+        w.set_meta("main_thread_ident", main_thread_ident)
+    c = w.intern_code("/tmp/prog.py", "main", 1)
+    w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
+    w.close()
+    return path
