@@ -12,6 +12,7 @@ INCOMPLETE original is real -- the recorder is SIGKILLed mid-run rather than
 hand-built, so the test also proves which metadata survives that death.
 """
 import os
+import sys
 
 import pytest
 
@@ -256,18 +257,24 @@ def test_the_granted_licence_keeps_its_bounds_where_it_persists(tmp_path):
     info = run_cli(["info", new_id], cwd=tmp_path, sensorium_dir=sdir)
     facts = [ln for ln in info.stdout.splitlines()
              if ln.startswith("  licence verified: ")]
-    assert len(facts) == 5, info.stdout
+    # the child-witnessing point is a 3.14+ capability (no audit event fires for
+    # a multiprocessing spawn below it), so the granted list is one shorter
+    n_facts = 5 if sys.version_info >= (3, 14) else 4
+    assert len(facts) == n_facts, info.stdout
     assert any("identical call shape" in f for f in facts)
     assert any("source file(s) unchanged by content" in f for f in facts)
     assert any("compared and unchanged" in f for f in facts)
     assert any("no thread started besides the main one" in f for f in facts)
-    assert any("no child process witnessed" in f for f in facts)
+    if sys.version_info >= (3, 14):
+        assert any("no child process witnessed" in f for f in facts)
+    else:
+        assert not any("no child process witnessed" in f for f in facts)
     assert "does not record WHAT it was granted on" not in info.stdout
 
     listing = run_cli(["runs"], cwd=tmp_path, sensorium_dir=sdir)
     line = next(ln for ln in listing.stdout.splitlines()
                 if ln.startswith(new_id))
-    assert "verdict:MATCH(granted:5,see-info)" in line
+    assert f"verdict:MATCH(granted:{n_facts},see-info)" in line
 
 
 def test_a_licence_stamped_without_its_points_says_so(tmp_path):

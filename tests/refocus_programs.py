@@ -256,11 +256,14 @@ def how_many():
 def tally():
     return 1
 
-def work():
-    tally()
+def work(barrier):
+    barrier.wait()      # hold every worker live until all have started, so a
+    tally()             # short-lived thread cannot free its id for the next
 
 def main():
-    ts = [threading.Thread(target=work) for _ in range(how_many())]
+    n = how_many()
+    barrier = threading.Barrier(n)
+    ts = [threading.Thread(target=work, args=(barrier,)) for _ in range(n)]
     for t in ts:
         t.start()
     for t in ts:

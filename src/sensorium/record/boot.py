@@ -329,8 +329,18 @@ _THREAD_EVENTS = ("_thread.start_new_thread", "_thread.start_joinable_thread")
 # counted twice. They go in their own list instead. Each list may over-count
 # within itself, but "was ANY child witnessed" -- the only question the
 # licence gate asks -- is answered correctly by either being non-empty, and
-# `multiprocessing` with spawn/forkserver is visible here and nowhere else.
+# `multiprocessing` with spawn/forkserver is visible here and nowhere else --
+# but ONLY from 3.14 on. See `_SPAWN_WITNESSED`.
 _SPAWN_SYSCALLS = ("os.posix_spawn", "_posixsubprocess.fork_exec")
+
+# The `_posixsubprocess.fork_exec` audit event -- the ONLY parent-side signal a
+# `multiprocessing` spawn/forkserver child raises -- was added in CPython 3.14.
+# Measured on this project: a spawn is counted in `_SPAWN_SYSCALLS` on 3.14,
+# and NOTHING on 3.12/3.13 (the syscall runs, but silently). So on an older
+# interpreter `spawn_syscalls == 0` is not evidence a spawn did not happen, and
+# a consumer must not read it as one. The recorder records the capability so
+# `refocus` can withhold the "no child witnessed" claim it cannot support here.
+_SPAWN_WITNESSED = sys.version_info >= (3, 14)
 
 
 # Audit events that start another process, mapped to the positional argument
@@ -569,6 +579,7 @@ def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
     # and would otherwise be counted twice. This is the only place a
     # multiprocessing 'spawn'/'forkserver' child is visible at all.
     w.set_meta_final("spawn_syscalls", spawn_syscalls)
+    w.set_meta_final("spawn_witnessing", _SPAWN_WITNESSED)
     files = set(w.interned_files())
     if entry:
         files.add(entry)       # the target itself, even if it traced nothing

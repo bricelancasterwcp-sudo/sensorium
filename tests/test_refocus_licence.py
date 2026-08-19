@@ -25,6 +25,8 @@ The seam tests at the bottom drive `report()` directly, for verdicts and
 trace shapes the recorder cannot be made to produce on demand (see
 `diff_cmd`).
 """
+import sys
+
 import pytest
 
 from sensorium.query import refocus_cmd
@@ -67,8 +69,14 @@ def test_refocus_grants_the_licence_when_every_check_passes(tmp_path):
     assert "  - 1 source file(s) unchanged by content" in r.stdout
     assert ("environment variable(s) compared and unchanged in the "
             "environment the rerun executed under") in r.stdout
-    assert ("  - no child process witnessed, by any mechanism sensorium "
-            "watches") in r.stdout
+    if sys.version_info >= (3, 14):
+        assert ("  - no child process witnessed, by any mechanism sensorium "
+                "watches") in r.stdout
+    else:
+        # < 3.14 raises no audit event for a multiprocessing spawn, so the
+        # pair cannot vouch that none ran: the line is omitted, and the
+        # licence still rests on the checks that DID run
+        assert "no child process witnessed" not in r.stdout
     # the thread fact carries the same hedge as the child fact: what was
     # verified is "none through Python's own threading", not "none at all"
     assert ("no thread started besides the main one through Python's own "
@@ -672,29 +680,52 @@ def test_refocus_withholds_when_multiprocessing_spawned_a_child(tmp_path):
     `subprocess.Popen`, so `children` stayed empty and the full licence was
     granted while the child copied a different payload.
 
-    It cannot join `children`: `Popen` nests the same syscall and would be
-    counted twice. It is a second, independent observation instead -- either
-    list being non-empty answers "was a child witnessed", which is the only
-    question the gate asks."""
+    The audit event that catches that syscall was only added in CPython 3.14,
+    so this splits by capability: on 3.14+ the spawn IS witnessed and the
+    licence is WITHHELD; below it the spawn is invisible, so the licence cannot
+    be withheld on it -- but it must NOT claim `no child witnessed` either. Both
+    halves are the same rule: never assert what the trace cannot support."""
     tmp_path.mkdir(parents=True, exist_ok=True)
     (tmp_path / "payload.txt").write_text("ORIGINAL payload")
     run_id, sdir = rec(tmp_path, MULTIPROCESSING_CHILD)
     m = trace(sdir, run_id).meta
     assert m["children"] == []                # the trap: nothing in `children`
     assert m["audit_errors"] == 0
-    assert m["spawn_syscalls"] > 0            # ...but the syscall was seen
 
     (tmp_path / "payload.txt").write_text("A COMPLETELY DIFFERENT payload")
     r = refocus(sdir, run_id, "--focus", "prog:deliver")
     assert r.returncode == 0, r.stdout + r.stderr
     assert (tmp_path / "delivered.txt").read_text() == (
         "A COMPLETELY DIFFERENT payload")
-
     assert "refocus verdict: MATCH" in r.stdout
-    assert "licence: WITHHELD" in r.stdout
-    assert "started at least one child process (none named," in r.stdout
-    assert "low-level spawn syscall(s) seen)" in r.stdout
-    assert "licence: verified against" not in r.stdout
+
+    if sys.version_info >= (3, 14):
+        assert m["spawn_syscalls"] > 0            # the syscall was seen...
+        assert "licence: WITHHELD" in r.stdout    # ...so the licence withholds
+        assert "started at least one child process (none named," in r.stdout
+        assert "low-level spawn syscall(s) seen)" in r.stdout
+        assert "licence: verified against" not in r.stdout
+    else:
+        assert m["spawn_syscalls"] == 0           # invisible on this interpreter
+        # the licence cannot withhold on a syscall it never saw, but it also
+        # must not vouch that no child ran -- the claim is simply absent
+        assert "no child process witnessed" not in r.stdout
+
+
+def test_refocus_omits_the_child_claim_when_spawns_are_unwitnessable(tmp_path):
+    """A trace recorded where no audit event fires for a multiprocessing spawn
+    (CPython < 3.14) cannot have its licence vouch `no child witnessed` -- that
+    check could not run. Forced through meta so the rule holds on every
+    interpreter, not only the ones that happen to lack the audit event."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    set_meta(sdir / "traces" / f"{run_id}.db", spawn_witnessing=False)
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout
+    assert "licence: verified against" in r.stdout       # still granted...
+    assert "no child process witnessed" not in r.stdout  # ...but not this claim
+    # the categorical blind-spot block still states the gap on every verdict
+    assert "any child process, by any mechanism" in r.stdout
 
 
 def test_refocus_no_longer_ignores_terminal_geometry(tmp_path, monkeypatch):

@@ -28,7 +28,12 @@ Two commitments run through all of it:
 Requires Python 3.12+ — the recorder is `sys.monitoring` and nothing else, so
 on 3.11 it refuses to start rather than falling back to something weaker. No
 runtime dependencies; the trace is a SQLite file written with the standard
-library.
+library. One capability is version-gated: witnessing a `multiprocessing`
+spawn needs the `_posixsubprocess.fork_exec` audit event, which arrived in
+**3.14** — below it such a spawn is unwitnessed, and `refocus` says so by
+withholding the "no child process witnessed" line rather than claiming it (see
+["What the answers claim"](#what-the-answers-claim)). Everything else works
+identically on 3.12 through 3.14, all three of which CI exercises.
 
 ## Use
 
@@ -185,8 +190,11 @@ command says so in its own header.
 - Subprocesses that were noticed are listed as unwitnessed, never silently
   ignored — and an empty list is not evidence that none ran. A child that can
   only be *counted* and not named (a `multiprocessing` spawn, which reaches
-  the OS without going through `subprocess`) is reported as a count, as are
-  the threads a run started and any malfunction of the hook that counts them.
+  the OS without going through `subprocess`) is reported as a count **on
+  Python 3.14+**, where the underlying syscall raises an audit event; on 3.12
+  and 3.13 that event does not exist, so such a spawn is unwitnessed entirely
+  (which is why `refocus` withholds the "no child witnessed" licence there).
+  Counted too are the threads a run started and any malfunction of the hook.
   None of these is printed when it is zero: a printed `0` would read as proof
   nothing was started, which is exactly what it is not.
 

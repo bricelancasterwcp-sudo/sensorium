@@ -574,6 +574,18 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
 
 
 # -- the assessment --------------------------------------------------------
+def _spawn_witnessed(meta: dict) -> bool:
+    """Whether this trace's interpreter could witness a `multiprocessing`
+    spawn at all.
+
+    False on CPython < 3.14 -- where no parent-side audit event fires for a
+    spawn/forkserver child, so `spawn_syscalls == 0` cannot be read as "none
+    ran" -- and on a trace recorded before the capability was noted. The
+    recorder stamps the answer at record time (`boot._SPAWN_WITNESSED`).
+    """
+    return bool(meta.get("spawn_witnessing"))
+
+
 def _verified_facts(orig: Trace, new: Trace) -> list[str]:
     """What a granted licence is actually based on, stated positively.
 
@@ -585,12 +597,21 @@ def _verified_facts(orig: Trace, new: Trace) -> list[str]:
     others.
     """
     n = len(new.fingerprints())
-    return [
+    facts = [
         f"identical call shape across {n} compared fingerprint(s)",
         "no thread started besides the main one through Python's own "
         "threading/_thread, and none left running when recording stopped",
-        "no child process witnessed, by any mechanism sensorium watches",
     ]
+    # The child-witnessing claim rests on an audit event only CPython 3.14+
+    # raises for a multiprocessing/forkserver spawn. If EITHER run was recorded
+    # where that signal does not exist, the pair cannot vouch that no such child
+    # ran, so the line is omitted rather than asserted -- the blind-spot block
+    # printed on every verdict still states categorically that no child process
+    # is covered, so the gap is stated, not hidden.
+    if _spawn_witnessed(orig.meta) and _spawn_witnessed(new.meta):
+        facts.append(
+            "no child process witnessed, by any mechanism sensorium watches")
+    return facts
 
 
 def assess(orig: Trace, new: Trace, res: dict, world_caveats=(),
