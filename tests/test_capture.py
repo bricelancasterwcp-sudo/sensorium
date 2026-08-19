@@ -486,7 +486,21 @@ def handle(tag, size, ratio, bag):
         pass
     return {"tag": label, "n": total}
 
+class KeyS(str):
+    def __lt__(self, other): raise ValueError("INJECTED-key-lt")
+    def __hash__(self): return str.__hash__(self)
+
+def keys_too():
+    class C:
+        ns = locals()
+        ns[KeyS("hk1")] = 1
+        ns[KeyS("hk2")] = 2
+        z = 3
+        del ns[KeyS("hk1")], ns[KeyS("hk2")]
+    return C.z
+
 def main():
+    keys_too()
     return handle(S("first"), N(3), F(1.5), [S("in"), N(4), {S("k"): F(2.5)}])
 """
 
@@ -495,8 +509,10 @@ def test_no_recorded_payload_holds_a_live_object(tmp_path, monkeypatch):
     """End to end, structurally. Every payload the recorder hands the writer
     is walked, over a real recording of a program whose every value is a
     hostile subclass -- arguments, a return value, per-line deltas and an
-    exception message all at once. This is the invariant `_on_line`'s
-    comparison and `add_event`'s json encoding both silently depend on.
+    exception message all at once -- plus a class body that puts `str`
+    SUBCLASSES where NAMES should be, so the walk covers payload keys and
+    not only payload values. This is the invariant `_on_line`'s comparison
+    and `add_event`'s json encoding both silently depend on.
     """
     seen = []
     real = TraceWriter.add_event
@@ -563,3 +579,98 @@ def test_a_hostile_exception_type_name_does_not_reach_the_hook(
     _run_id, out = _runs_clean(tmp_path, monkeypatch, capsys,
                                HOSTILE_EXC_NAME, "risky handled rethrown")
     assert _line(out, "dispositions:").startswith("dispositions: swallowed ")
+
+
+# 5. The payload KEYS, not its values. `_on_line` took names straight from
+#    `frame.f_locals.items()`, so a `str` subclass sitting where a name
+#    should be got hashed, compared and SORTED by the recorder. Two of them
+#    going out of scope on one line reach `sorted(gone)`.
+HOSTILE_KEYS = """
+class K(str):
+    def __lt__(self, other):
+        raise ValueError("INJECTED-key-lt")
+    def __gt__(self, other):
+        raise ValueError("INJECTED-key-gt")
+    def __hash__(self):
+        return str.__hash__(self)
+
+def build():
+    class C:
+        ns = locals()
+        ns[K("hk1")] = 1
+        ns[K("hk2")] = 2
+        c = 3
+        del ns[K("hk1")], ns[K("hk2")]     # both gone at the SAME step
+        d = 4
+    return "ok"
+
+def main():
+    print("built", build())
+
+main()
+"""
+
+# 6. `frame.f_locals` may BE a mapping the program supplied: `exec(code,
+#    globals, mapping)` hands the frame an arbitrary object, so `.items()`
+#    is an overridable method the recorder calls from a hook.
+HOSTILE_LOCALS_MAPPING = """
+class HostileMap(dict):
+    def items(self):
+        raise ValueError("INJECTED-items")
+    def __contains__(self, k):
+        raise ValueError("INJECTED-contains")
+
+SRC = "q = 1\\nw = q + 1\\n"
+
+def run_exec():
+    ns = HostileMap()
+    exec(compile(SRC, __file__, "exec"), {}, ns)
+    return "ok"
+
+def main():
+    print("exec", run_exec())
+
+main()
+"""
+
+
+def test_hostile_local_names_never_reach_the_recorder_s_own_sort(
+        tmp_path, monkeypatch, capsys):
+    """`sorted(gone)`, `prev.get(name)` and `prev.keys() - cur.keys()` all
+    ran the program's code when a name was a `str` subclass. Pre-fix this
+    exited 1 and `exceptions` reported the recorder's own ValueError as an
+    uncaught bug at `c = 3`, a line that never raised."""
+    run_id, _out = _runs_clean(tmp_path, monkeypatch, capsys, HOSTILE_KEYS,
+                               "built ok", extra=("--focus", "prog"))
+    # The names were still RECORDED -- normalised, not dropped.
+    assert cli.main(["grep", run_id, "hk1"]) == 0
+    assert "hk1" in capsys.readouterr().out
+
+
+def test_a_locals_mapping_the_program_supplied_cannot_kill_the_run(
+        tmp_path, monkeypatch, capsys):
+    """`exec(code, globals, mapping)`: `f_locals` IS the program's object,
+    so `.items()` is its method. The read is guarded, and the site is
+    recorded as unreadable rather than skipped -- an absent LINE event would
+    read as "nothing changed here"."""
+    run_id, _out = _runs_clean(tmp_path, monkeypatch, capsys,
+                               HOSTILE_LOCALS_MAPPING, "exec ok",
+                               extra=("--focus", "prog"))
+    assert cli.main(["grep", run_id, ""]) == 0
+    rows = capsys.readouterr().out.splitlines()
+    unread = [r for r in rows if "<unread: locals>" in r]
+    # The exec'd frame's own CALL and both of its LINE sites: recorded, and
+    # each one saying it could not read the locals.
+    assert sum(r.split()[1] == "CALL" for r in unread) == 1, unread
+    assert sum(r.split()[1] == "LINE" for r in unread) == 2, unread
+    # ...and the frames whose locals ARE readable carry no such marker.
+    assert any("run_exec" in r and "<unread: locals>" not in r for r in rows)
+
+
+def test_a_line_whose_locals_could_not_be_read_says_so(tmp_path):
+    """The marker has to survive to the display: empty deltas alone read as
+    "nothing changed", which is the opposite of what the event says."""
+    from sensorium.query.fmt import _fmt_line_tail
+    assert _fmt_line_tail({"deltas": {}, "unread": ["locals"]}) \
+        == "  <unread: locals>"
+    assert _fmt_line_tail({"deltas": {}}) == ""

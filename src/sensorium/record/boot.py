@@ -402,7 +402,13 @@ def _audit(event, args) -> None:
         if isinstance(cmd, (str, bytes, os.PathLike)):
             cmd = [cmd]           # a bare command line, as Windows reports it
         sink.append([_as_text(a) for a in cmd][:8])
-    except Exception:
+    # BaseException, not Exception. The arguments in `args` are the program's
+    # own objects -- `isinstance` consults `__class__`, `str()` runs
+    # `__str__`, and `for a in cmd` runs `__iter__` -- so a dunder raising
+    # anything at all would escape a narrower clause and break the very
+    # operation being audited. The docstring above already says this hook must
+    # never raise; this is what makes that true rather than nearly true.
+    except BaseException:
         errors = _audit_errors
         if errors is not None:
             errors.append(1)      # swallowed, but never silently

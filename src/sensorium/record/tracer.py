@@ -73,7 +73,8 @@ import weakref
 from fnmatch import fnmatch
 from pathlib import Path
 
-from sensorium.record.capture import capture_exc, capture_value, type_name
+from sensorium.record.capture import (capture_exc, capture_value, plain_str,
+                                      type_name)
 from sensorium.record.fingerprint import Fingerprint
 
 M = sys.monitoring
@@ -81,6 +82,45 @@ TOOL = M.PROFILER_ID
 _SENSORIUM_DIR = str(Path(__file__).resolve().parent.parent)
 _GENLIKE = 0x20 | 0x80 | 0x200        # CO_GENERATOR|CO_COROUTINE|CO_ASYNC_GEN
 _CONTROL_FLOW_EXC = ("StopIteration", "StopAsyncIteration", "GeneratorExit")
+
+
+def locals_snapshot(frame) -> dict | None:
+    """`frame.f_locals` as a plain dict with exact-`str` keys, or None.
+
+    Reading a frame's locals looks like reading interpreter data. Two parts
+    of it are the observed program's own code:
+
+    * **`f_locals` may BE a mapping the program supplied.** `exec(code,
+      globals, mapping)` and a metaclass `__prepare__` both hand the frame an
+      arbitrary object, so `.items()` is an overridable method. Measured: a
+      `dict` subclass whose `items()` raises killed a traced program that
+      runs clean standalone, at this line.
+    * **The KEYS may be `str` subclasses.** A class body's `locals()[K("x")]
+      = 1`, or the 3.13+ write-through `f_locals` proxy, puts a program-
+      defined object where a name should be -- and the recorder then hashes
+      it, compares it (`prev.get(name)`, the set difference) and SORTS it
+      (`sorted(gone)`). Measured: two such keys going out of scope on one
+      line reached `sorted`, whose `__lt__` killed the program and was then
+      reported by `exceptions` as the program's own uncaught bug, at a line
+      that never raised.
+
+    So: one guarded read of `.items()`, then exact-`str` keys built by
+    `plain_str`, which cannot raise. Nothing downstream touches a key the
+    program owns. None means the locals could not be read at all -- the
+    callers record that, they do not paper over it.
+
+    Two names that normalise to the SAME string collapse, last one wins.
+    That is the honest outcome: the plain string is the only name the trace
+    can report, and a program that binds both `x` and `K("x")` has two
+    things the trace cannot tell apart by name anyway.
+    """
+    try:
+        items = list(frame.f_locals.items())
+    except BaseException:
+        return None
+    return {plain_str(k): v for k, v in items}
+
+
 # How many exception objects one thread remembers. Every one of them is held
 # by a strong reference and pins its traceback, so this is a memory bound on
 # the recorder's influence, not a tuning knob: raising it links more stored
@@ -276,14 +316,23 @@ class Tracer:
         try:
             frame = sys._getframe(1)
             names = code.co_varnames[:code.co_argcount + code.co_kwonlyargcount]
-            loc = frame.f_locals
-            args = {n: capture_value(loc[n]) for n in names if n in loc}
+            # Through the same snapshot as `_on_line`, for the same reason.
+            # A frame with parameters always has interpreter-built locals, so
+            # this path is not the one that was reachable -- but "reachable
+            # only because of the order things happen in" is the argument
+            # this project has already watched rot twice, and the snapshot
+            # makes it structural instead.
+            loc = locals_snapshot(frame)
+            args = ({} if loc is None else
+                    {n: capture_value(loc[n]) for n in names if n in loc})
+            payload = {"args": args} if loc is not None else {
+                "args": {}, "unread": ["locals"]}
             tid = threading.get_ident()
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
             eid = self.writer.add_event(time.monotonic_ns(), tid, "CALL",
                                         None, cid, code.co_firstlineno,
-                                        {"args": args})
+                                        payload)
             if not frameless:
                 parent = tls.stack[-1][0] if tls.stack else None
                 fid = self.writer.open_frame(parent, cid, eid,
@@ -468,19 +517,31 @@ class Tracer:
         tls.in_hook = True        # capture_value runs user __repr__ code
         try:
             prev = entry[3]
+            snap = locals_snapshot(frame)
+            if snap is None:
+                # The locals could not be read at all. Record the site with
+                # that said plainly rather than skip it: a site nobody
+                # checked must not look like a site where nothing changed,
+                # and `prev` is deliberately left in place, because this
+                # step establishes nothing about what went out of scope.
+                self.writer.add_event(time.monotonic_ns(),
+                                      threading.get_ident(), "LINE",
+                                      entry[0], entry[2], line,
+                                      {"deltas": {}, "unread": ["locals"]})
+                return None
             cur, deltas = {}, {}
-            for name, val in frame.f_locals.items():
+            for name, val in snap.items():
                 cap = capture_value(val)
                 cur[name] = cap
-                # Captures, never live objects -- and that is true only
-                # because `capture_value` normalises `str`/`int`/`float`
-                # SUBCLASSES to their base types. Until it did, a capture
-                # EMBEDDED the instance (`_trunc_str` returned it unchanged
-                # under the cap; `{"k": "num", "v": obj}` held it), dict
-                # comparison's identity shortcut hid it while the same
-                # instance persisted, and rebinding the name to a second
-                # instance ran the program's `__eq__` right here -- outside
-                # every guard, killing a program that runs clean standalone.
+                # Captures, never live objects -- and NAMES that are exact
+                # `str`, never the program's own key objects. Both halves
+                # were false once: a capture EMBEDDED `str`/`int`/`float`
+                # subclass instances until `capture_value` normalised them,
+                # and the keys came straight out of `f_locals` until
+                # `locals_snapshot` did. Either one turns the dict lookup
+                # below, the set difference, or the `sorted` further down
+                # into a call into the observed program, from a hook, with
+                # no guard anywhere on the path.
                 if prev.get(name) != cap:
                     deltas[name] = cap
             gone = prev.keys() - cur.keys()

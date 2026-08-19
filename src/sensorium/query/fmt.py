@@ -67,7 +67,7 @@ def fmt_event(trace, e) -> str:
     q = code.qualname if code else "?"
     p = e.payload or {}
     if e.kind == "CALL":
-        body = f"{q}({fmt_args(p.get('args', {}))})"
+        body = f"{q}({fmt_args(p.get('args', {}))}){_unread(p)}"
     elif e.kind == "RETURN":
         body = f"{q} -> {fmt_value(p.get('value'))}"
     elif e.kind in ("RAISE", "HANDLED"):
@@ -83,12 +83,17 @@ def _fmt_line_tail(p: dict) -> str:
     """LINE payloads carry "deltas" and may carry a sibling "unbound" list
     (names that went out of scope this step: `del x`, or the implicit
     unbind at the end of `except E as e:`). A step can legitimately have
-    empty deltas and a non-empty unbound -- render both, drop neither."""
+    empty deltas and a non-empty unbound -- render both, drop neither.
+
+    They may also carry `unread: ["locals"]`, when the frame's locals could
+    not be read at all -- a mapping the program supplied, whose `items()`
+    raised. That MUST render: empty deltas alone read as "nothing changed
+    here", which is the opposite of what this event says."""
     deltas = ", ".join(f"{n}={fmt_value(v)}"
                        for n, v in p.get("deltas", {}).items())
     unbound = p.get("unbound", [])
     parts = [s for s in (deltas, f"unbound:{','.join(unbound)}"
-                          if unbound else "") if s]
+                          if unbound else "", _unread(p).strip()) if s]
     return "  " + "  ".join(parts) if parts else ""
 
 
