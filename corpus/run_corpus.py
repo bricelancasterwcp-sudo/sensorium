@@ -270,13 +270,36 @@ def run_case(case: Case, workdir: Path) -> CaseResult:
 
 
 # -- driving ---------------------------------------------------------------
+def _repo_root_on_path() -> None:
+    """Make `corpus._bench` importable however this file was invoked.
+
+    Running it as a script -- which is how the README documents it -- puts
+    `corpus/` on `sys.path` rather than the repo root, so the package import
+    below fails with `No module named 'corpus'`. Under pytest the root is
+    already there (`pythonpath = ["."]`), which is exactly why this cannot be
+    left to the test suite to notice.
+    """
+    root = str(ROOT.parent)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="run the sensorium corpus")
     ap.add_argument("--only", default=None, help="run one case by name")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--show", action="store_true",
                     help="print each question's ask, command and ground truth")
+    ap.add_argument("--bench", action="store_true",
+                    help="report recording overhead and exit 0")
     args = ap.parse_args(argv)
+    if args.bench:
+        # Reports, never gates: overhead is a tracked fact about a machine
+        # and a workload, so there is no number here that can fail.
+        _repo_root_on_path()
+        from corpus._bench import bench
+        bench.report()
+        return 0
     cases = [c for c in load_cases()
              if args.only is None or c.name == args.only]
     if not cases:
