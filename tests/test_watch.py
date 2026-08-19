@@ -114,6 +114,22 @@ if __name__ == "__main__":
     main()
 """
 
+# Four sites, every one of which evaluates cleanly. The shape in which a
+# name the trace has never heard of produces the STRONGEST verdict this
+# command can issue -- so it is the shape the phantom-name warning is tested
+# in, not a convenient one where something else was already shouting.
+KEEP = """
+def keep(n):
+    return n
+
+def main():
+    for n in (1, 2, 3, 4):
+        keep(n)
+
+if __name__ == "__main__":
+    main()
+"""
+
 # Three activations of one function, nested. Their events INTERLEAVE: the
 # innermost frame finishes first, so the frame with the lowest id owns both
 # the earliest and the latest site. Anything that walks frames and
@@ -275,6 +291,135 @@ def test_watch_zero_hits_with_every_site_checked_still_scopes_the_claim(
     assert "sites: 2   evaluated: 1   hits: 0   not-captured: 0" in out
     assert "errors: 1" in out                        # "five" > 9000
     assert "not a claim that the invariant held" in out
+
+
+def test_watch_warns_when_a_predicate_name_was_never_recorded_anywhere(
+        tmp_path, monkeypatch, capsys):
+    """The hole short-circuiting leaves. `ghost` is not in the program, let
+    alone the trace, so `and` absorbs it at every site -- and without the
+    warning this run reports `not-captured: 0` and the cleanest verdict the
+    command has, never once naming `ghost`. A typo'd conjunct would turn an
+    invariant check into a tautology that reads as maximally reassuring."""
+    run_id = _rec(tmp_path, monkeypatch, KEEP)
+    assert cli.main(["watch", run_id, "--at", "prog:keep",
+                     "--expr", "n > 1000 and ghost > 1"]) == 0
+    out = capsys.readouterr().out
+    # Every site really did evaluate: nothing else in the output is shouting.
+    assert "sites: 4   evaluated: 4   hits: 0   not-captured: 0   errors: 0" \
+        in out
+    assert "NEVER RECORDED: 'ghost'" in out
+    assert "decided WITHOUT it" in out
+    # ...and the verdict must not be the clean one.
+    assert "the predicate was decided WITHOUT 'ghost'" in out
+    assert "not a claim that the invariant held" in out
+    assert "every one of which was evaluated" not in out
+    # The banner sits ABOVE the verdict: the verdict cannot be read past it.
+    assert out.index("NEVER RECORDED") < out.index("verdict:")
+
+
+def test_watch_does_not_warn_when_every_predicate_name_was_recorded(
+        tmp_path, monkeypatch, capsys):
+    """The other direction: the warning must be about the trace, not a
+    reflex. Same program, same shape of predicate, all names present."""
+    run_id = _rec(tmp_path, monkeypatch, KEEP)
+    assert cli.main(["watch", run_id, "--at", "prog:keep",
+                     "--expr", "n > 1000 and n > 2"]) == 0
+    out = capsys.readouterr().out
+    assert "sites: 4   evaluated: 4   hits: 0   not-captured: 0   errors: 0" \
+        in out
+    assert "NEVER RECORDED" not in out
+    assert "decided WITHOUT" not in out
+    assert "every one of which was evaluated" in out
+
+
+def test_watch_warns_about_a_phantom_name_that_rode_along_with_a_real_hit(
+        tmp_path, monkeypatch, capsys):
+    """The `or` mirror. It is milder only by accident -- a hit renders a
+    state line naming `ghost` -- so it gets the same banner and the same
+    refusal to call the verdict complete."""
+    run_id = _rec(tmp_path, monkeypatch, KEEP)
+    assert cli.main(["watch", run_id, "--at", "prog:keep",
+                     "--expr", "n > 2 or ghost > 1"]) == 0
+    out = capsys.readouterr().out
+    # `or` only reaches `ghost` where `n` failed, so 2 sites do land in the
+    # not-captured bucket -- which is exactly why this mirror is milder by
+    # accident, and why it is not relied on. The banner fires regardless.
+    assert "sites: 4   evaluated: 2   hits: 2   not-captured: 2   errors: 0" \
+        in out
+    assert "NEVER RECORDED: 'ghost'" in out
+    assert "verdict: SATISFIED at 2 of the 2 site(s)" in out
+    assert "do not answer the whole predicate" in out
+    assert "ghost=<not in scope>" in out
+
+
+def test_watch_never_recorded_is_judged_over_the_run_not_the_after_page(
+        tmp_path, monkeypatch, capsys):
+    """`used` IS recorded in these frames. A page that happens to contain
+    none of its bindings must not call it a name the trace never held."""
+    run_id = _rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
+    last = max(e.id for e in _line_events(run_id, "fill"))
+    assert cli.main(["watch", run_id, "--at", "prog:fill", "--expr",
+                     "used > 100", "--after", f"e{last}"]) == 0
+    out = capsys.readouterr().out
+    assert "sites: 0" in out                       # the page really is empty
+    assert "NEVER RECORDED" not in out
+
+
+def test_watch_tally_line_accounts_for_every_site(tmp_path, monkeypatch,
+                                                  capsys):
+    """sites = evaluated + not-captured + errors, checkable on the line
+    itself rather than trusted."""
+    run_id = _rec(tmp_path, monkeypatch, MIXED)
+    assert cli.main(["watch", run_id, "--at", "prog:tally",
+                     "--expr", "n > 3"]) == 0
+    out = capsys.readouterr().out
+    line = [ln for ln in out.splitlines() if ln.startswith("sites: ")][0]
+    got = dict(p.split(": ") for p in line.split("   "))
+    assert int(got["sites"]) == (int(got["evaluated"])
+                                 + int(got["not-captured"])
+                                 + int(got["errors"]))
+    assert got == {"sites": "2", "evaluated": "1", "hits": "1",
+                   "not-captured": "0", "errors": "1"}
+
+
+def test_watch_satisfied_verdict_names_the_sites_that_raised(
+        tmp_path, monkeypatch, capsys):
+    """A SATISFIED verdict quoting only `evaluated` hides the sites where
+    the predicate could not be applied at all -- the 0-hit path says so, and
+    the hit path has to as well."""
+    run_id = _rec(tmp_path, monkeypatch, MIXED)
+    assert cli.main(["watch", run_id, "--at", "prog:tally",
+                     "--expr", "n > 3"]) == 0
+    out = capsys.readouterr().out
+    assert "verdict: SATISFIED at 1 of the 1 site(s) the predicate could be " \
+        "evaluated at, with 1 further site(s) raising" in out
+
+
+def test_watch_deeply_nested_expression_fails_once_on_the_command_line(
+        tmp_path, monkeypatch, capsys):
+    """`_validate` recurses per node and `ast.parse` builds trees far deeper
+    than it survives, so this used to be a RecursionError traceback and a
+    non-2 exit -- from the one command whose contract is that a bad
+    expression fails once, here, before any site is read."""
+    run_id = _rec(tmp_path, monkeypatch)
+    deep = "x" + " + x" * 1000 + " > 1"
+    assert cli.main(["watch", run_id, "--at", "prog:fill",
+                     "--expr", deep]) == 2
+    out = capsys.readouterr().out
+    assert "error: expression nests deeper than 50 levels" in out
+    assert "Traceback" not in out
+
+
+def test_watch_near_below_one_is_exit_2(tmp_path, monkeypatch, capsys):
+    """Consistent with --limit, and for one more reason: near-misses are the
+    answer when nothing hit, so a flag that silently suppresses them would
+    make a run look clean without changing anything about the run."""
+    run_id = _rec(tmp_path, monkeypatch)
+    for bad in ("0", "-5"):
+        assert cli.main(["watch", run_id, "--at", "prog:fill", "--expr",
+                         "used > 1", "--near", bad]) == 2
+    out = capsys.readouterr().out
+    assert out.count("--near must be >= 1") == 2
 
 
 def test_watch_nothing_checked_says_so_instead_of_reporting_zero_hits(

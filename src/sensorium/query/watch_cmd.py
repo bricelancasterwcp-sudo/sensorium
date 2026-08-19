@@ -20,10 +20,16 @@ that says which of three different things happened --
   * some sites could not be evaluated, so the question is open, or
   * NOTHING was checked at all, and `hits: 0` means "could not evaluate".
 
--- and by the count of sites it could not check, with the reason. A user
-reading "0 hits" as "the invariant held" when the truth was "I could not
-check" is the single worst outcome this command has, and every design choice
-below is aimed at it.
+-- and by the count of sites it could not check, with the reason. The tally
+line carries every bucket (`sites` = `evaluated` + `not-captured` + `errors`)
+so the arithmetic is checkable rather than trusted. A user reading "0 hits"
+as "the invariant held" when the truth was "I could not check" is the single
+worst outcome this command has, and every design choice below is aimed at it.
+
+That includes a hole that short-circuiting leaves open: a name the trace has
+no record of ANYWHERE is absorbed silently by `and`/`or` and never reaches
+the not-captured count. `print_never_recorded` closes it, above the verdict,
+and the verdict refuses to come back clean while such a name is in play.
 
 FOLDING STATE FORWARD, AND THE KEY THAT MAKES IT HONEST
 -------------------------------------------------------
@@ -269,11 +275,38 @@ def _guidance(reason: str, name: str, ever: bool, has_line: bool,
             f"{name!r}; check the spelling, or widen --at"]
 
 
-def print_unavailable(trace, out: Outcome, sites, codes,
+def print_never_recorded(ghosts: list[str]) -> None:
+    """Names the predicate needs that NO site in these frames ever bound.
+
+    The hole short-circuiting leaves, and it defeats the rule this command is
+    built on. `n > 1000 and ghost > 1` is decided entirely by `n` at every
+    site where `n` is small -- logically sound, and it means a typo'd or
+    never-focused conjunct is absorbed in SILENCE: the tally reports
+    `not-captured: 0` and the verdict comes back as strong as this command can
+    make it, with no mention of `ghost` anywhere. A predicate the reader
+    believes is checking two things, checking one, and reading as maximally
+    clean, is exactly the "could not evaluate" masquerading as "the invariant
+    held" that everything else here is built to prevent.
+
+    The `or` mirror is milder only by accident (a hit renders a state line
+    naming the name), so it is not relied on: both are warned, above the
+    verdict, and the verdict itself refuses to come back clean.
+    """
+    if not ghosts:
+        return
+    names = ", ".join(repr(g) for g in ghosts)
+    print(f"NEVER RECORDED: {names} -- named by the predicate, captured at NO "
+          "site in these frames")
+    print("  every result below was decided WITHOUT it: nothing in this trace "
+          "witnesses that name")
+    print("  either it is misspelled, or it lives in frames this run did not "
+          "record")
+
+
+def print_unavailable(trace, out: Outcome, sites, ever, codes,
                       n_sites: int) -> None:
     if not out.unavailable:
         return
-    ever = {n for s in sites for n in s.caps}
     has_line = any(s.event.kind == "LINE" for s in sites)
     print(f"not captured at {out.not_captured} of {n_sites} site(s) -- the "
           "predicate could not be checked there:")
@@ -297,19 +330,34 @@ def print_errors(out: Outcome) -> None:
         print(f"  ... {extra} further site(s) raised the same way")
 
 
-def verdict(out: Outcome, n_sites: int) -> list[str]:
+def verdict(out: Outcome, n_sites: int, ghosts: list[str]) -> list[str]:
+    decided_without = ("the predicate was decided WITHOUT "
+                       + ", ".join(repr(g) for g in ghosts))
     if out.hits:
-        return [f"verdict: SATISFIED at {len(out.hits)} of the "
-                f"{out.evaluated} site(s) the predicate could be evaluated at"]
+        tail = (f", with {len(out.errors)} further site(s) raising"
+                if out.errors else "")
+        lines = [f"verdict: SATISFIED at {len(out.hits)} of the "
+                 f"{out.evaluated} site(s) the predicate could be evaluated "
+                 f"at{tail}"]
+        if ghosts:
+            lines.append(f"  but {decided_without}, so these hits do not "
+                         "answer the whole predicate")
+        return lines
     if out.evaluated == 0:
         return ["verdict: NOTHING WAS CHECKED -- the predicate could not be "
                 f"evaluated at any of the {n_sites} recorded site(s)",
                 "  'hits: 0' here means 'could not evaluate', NOT 'the "
                 "invariant held'"]
+    caveats = []
     if out.unchecked:
+        caveats.append(f"{out.unchecked} of {n_sites} recorded site(s) could "
+                       "NOT be evaluated")
+    if ghosts:
+        caveats.append(decided_without)
+    if caveats:
         return [f"verdict: not satisfied at any of the {out.evaluated} site(s)"
-                f" that could be evaluated -- but {out.unchecked} of "
-                f"{n_sites} recorded site(s) could NOT be,",
+                f" that could be evaluated -- but " + ", and ".join(caveats)
+                + ",",
                 "  so this is not a claim that the invariant held"]
     return [f"verdict: not satisfied at any of the {n_sites} recorded "
             "site(s), every one of which was evaluated",
@@ -337,7 +385,7 @@ def print_near(trace, expr, out: Outcome, args) -> None:
             print(f"  ({args.expr!r} has no boundary to approach; try one of "
                   "< <= > >= over numbers)")
         return
-    shown = out.near[:max(args.near, 0)]
+    shown = out.near[:args.near]
     print(f"near-misses -- the {len(shown)} closest approach(es); every one "
           "of them FAILED the predicate:")
     for m, s in shown:
@@ -378,10 +426,15 @@ def _no_match(trace, args, mod_of) -> int:
 
 
 def run(args) -> int:
-    if args.limit < 1:
-        print(f"--limit must be >= 1 (got {args.limit}); "
-              "there is no useful zero-row page")
-        return 2
+    for flag, val in (("--limit", args.limit), ("--near", args.near)):
+        if val < 1:
+            # `--near 0` is refused for the same reason as `--limit 0`, and
+            # for one more: near-misses are the answer when nothing hit, so a
+            # flag that silently suppresses them is a way to make a run look
+            # clean without changing a thing about the run.
+            print(f"{flag} must be >= 1 (got {val}); "
+                  "there is no useful zero-row page")
+            return 2
     try:
         expr = compile_expr(args.expr)
     except ExprError as e:
@@ -403,6 +456,10 @@ def run(args) -> int:
     sites = [s for s in all_sites if s.event.id > after]
     out = evaluate(sites, expr)
     n = len(sites)
+    # Computed over the WHOLE run, never the --after page: a name recorded
+    # only before the cut is a scope fact, not a name the trace never held.
+    ever = {nm for s in all_sites for nm in s.caps}
+    ghosts = sorted(expr.names - ever)
 
     print(f"watch {args.expr!r} at {args.at} in {trace.path.stem}")
     for line in CLAIM:
@@ -411,15 +468,19 @@ def run(args) -> int:
         print("INCOMPLETE: this recording never finalized, so it may stop "
               "mid-run")
         print("  the sites below are not all the sites this run had")
+    # Every bucket, so the arithmetic is checkable: sites = evaluated +
+    # not-captured + errors.
     print(f"sites: {n}   evaluated: {out.evaluated}   hits: {len(out.hits)}"
-          f"   not-captured: {out.not_captured}")
+          f"   not-captured: {out.not_captured}   errors: {len(out.errors)}")
     skipped = len(all_sites) - n
     if skipped:
         print(f"({skipped} earlier site(s) skipped by --after e{after})")
-    for line in verdict(out, n):
+    # Above the verdict on purpose: the verdict cannot be read without it.
+    print_never_recorded(ghosts)
+    for line in verdict(out, n, ghosts):
         print(line)
     print_hits(trace, expr, out, args)
-    print_unavailable(trace, out, sites, codes, n)
+    print_unavailable(trace, out, sites, ever, codes, n)
     print_errors(out)
     print_near(trace, expr, out, args)
     return 0

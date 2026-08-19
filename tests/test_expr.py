@@ -209,6 +209,26 @@ def test_bare_len_name_is_refused_rather_than_read_from_the_environment():
     assert "len(name)" in str(ei.value)
 
 
+def test_deep_nesting_is_refused_at_compile_not_by_a_recursion_error():
+    """`ast.parse` happily builds a tree a thousand levels deep; `_validate`
+    and `_eval` both recurse once per node and neither survives it. Measured:
+    a thousand `+ x` used to escape as a RecursionError traceback."""
+    with pytest.raises(ExprError) as ei:
+        compile_expr("x" + " + x" * 1000 + " > 1")
+    assert "nests deeper than 50 levels" in str(ei.value)
+    for src in ("-" * 3000 + "x > 1", "not " * 400 + "x"):
+        with pytest.raises(ExprError):
+            compile_expr(src)
+
+
+def test_a_predicate_just_inside_the_depth_cap_still_evaluates():
+    """The cap is what GUARANTEES `_eval` cannot recurse to death at a site:
+    anything that validates must also evaluate."""
+    e = compile_expr("x" + " + x" * 45 + " > 1")
+    assert e.eval({"x": 1}) is True
+    assert e.eval({"x": 0}) is False
+
+
 def test_syntax_error_message_names_the_expression_problem():
     with pytest.raises(ExprError) as ei:
         compile_expr("used >")

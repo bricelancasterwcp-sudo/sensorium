@@ -130,6 +130,17 @@ _ORDERING = (ast.Lt, ast.LtE, ast.Gt, ast.GtE)
 # Raised by applying a legal operator to captured values of the wrong shape.
 # Caught and re-raised as EvalError so a site can be counted, never crashed on.
 _ARITH = (TypeError, ZeroDivisionError, OverflowError, ValueError)
+# How deep an expression tree may nest. `_validate` and `_eval` both recurse
+# once per node, and `ast.parse` happily builds a tree far deeper than either
+# survives: measured, `x + x + ...` a thousand times parses cleanly and then
+# takes `_validate` out with a RecursionError -- a traceback and a non-2 exit
+# from a command whose whole contract is that a bad expression fails once, on
+# the command line. A fixed cap is used rather than catching RecursionError
+# because it is deterministic (no dependence on the interpreter's remaining
+# stack) and because refusing at 50 in `_validate` is what GUARANTEES `_eval`
+# can never recurse deeply enough to fail at a site. Real predicates nest
+# under 10.
+_MAX_DEPTH = 50
 
 
 def resolve(v: dict):
@@ -166,9 +177,13 @@ def _validate_len(node: ast.Call) -> None:
         raise ExprError("len's argument must be a plain name, as in len(buf)")
 
 
-def _validate(node) -> None:
+def _validate(node, depth: int = 0) -> None:
+    if depth > _MAX_DEPTH:
+        raise ExprError(f"expression nests deeper than {_MAX_DEPTH} levels; "
+                        "a predicate over captured values does not need that")
+    depth += 1
     if isinstance(node, ast.Expression):
-        _validate(node.body)
+        _validate(node.body, depth)
     elif isinstance(node, ast.Constant):
         if not (isinstance(node.value, (int, float, str, bool))
                 or node.value is None):
@@ -189,17 +204,17 @@ def _validate(node) -> None:
                             "comparison, or join two with `and`")
         if type(node.ops[0]) not in _CMP:
             raise ExprError("only < <= > >= == != are allowed as comparisons")
-        _validate(node.left)
-        _validate(node.comparators[0])
+        _validate(node.left, depth)
+        _validate(node.comparators[0], depth)
     elif isinstance(node, ast.BoolOp):
         for v in node.values:
-            _validate(v)
+            _validate(v, depth)
     elif isinstance(node, ast.UnaryOp) and isinstance(node.op,
                                                      (ast.Not, ast.USub)):
-        _validate(node.operand)
+        _validate(node.operand, depth)
     elif isinstance(node, ast.BinOp) and type(node.op) in _BIN:
-        _validate(node.left)
-        _validate(node.right)
+        _validate(node.left, depth)
+        _validate(node.right, depth)
     else:
         raise ExprError(f"unsupported syntax: {type(node).__name__}")
 
