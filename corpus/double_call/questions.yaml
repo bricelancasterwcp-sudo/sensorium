@@ -1,0 +1,39 @@
+program: main.py
+questions:
+  - id: how-many-charges
+    ask: One order was submitted. How many times was it actually charged?
+    truth: >
+      Twice. charge was entered exactly two times, both with the same order
+      dict (id A-1, amount 40.0) -- so the ledger total of 80.0 is one
+      order billed twice, not two orders.
+    why_logs_fail: >
+      A log line inside charge would answer it, and there is no such log
+      line: charge is a one-liner that returns a receipt. Everything the
+      program prints is an aggregate, and an aggregate of 80.0 is equally
+      consistent with two orders of 40 -- which is the reading that keeps
+      this bug alive.
+    command: ["grep", "$RUN", "charge", "--kind", "CALL"]
+    expect_contains: ["matches: 2"]
+    expect_line:
+      - ["CALL", "charge(order=", "'id': 'A-1'", "'amount': 40.0"]
+  - id: which-call-site-repeated
+    ask: >
+      Both charges came from inside one submit. What did that single submit
+      activation do, in order?
+    truth: >
+      One activation of submit made three calls: charge, then confirm
+      (which returned False because the order was slow), then charge again.
+      The retry branch re-entered the payment call rather than the
+      confirmation call, and submit still returned a normal receipt.
+    why_logs_fail: >
+      Counting alone does not localise anything: two charges could equally
+      have come from two different call sites, or from a caller-level retry
+      loop. What is needed is one activation's children in order, and no
+      log line carries "which activation of submit am I inside".
+    command: ["frame", "$RUN", "--fn", "submit"]
+    expect_contains: ["children (3):"]
+    expect_count: {"charge(order=": 2}
+    expect_line:
+      - ["main.py:submit", "closed: return"]
+      - ["args:", "slow=True"]
+      - ["confirm(", "-> False"]

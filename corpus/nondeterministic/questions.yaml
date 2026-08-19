@@ -1,0 +1,51 @@
+program: main.py
+questions:
+  - id: can-this-run-be-deepened
+    ask: >
+      The first recording did not capture pick's locals. Can I re-record the
+      same command with deeper capture and treat the new trace as evidence
+      about the original run?
+    truth: >
+      No, and the tool must say so rather than quietly handing back a deeper
+      trace. This program's branch is decided by a counter file outside the
+      process, so the rerun takes the other branch: the original called
+      left, the rerun called right. The verdict is DIVERGED, the exit status
+      is 1, and the new trace is labelled a DIFFERENT execution. A MATCH
+      here would be the worst failure this command has.
+    why_logs_fail: >
+      Re-running with more logging is exactly what a log-based workflow does
+      -- and it is precisely what silently fails here, because the second
+      run is not the run you were debugging. Logs have no notion of "this
+      output came from a different execution than the one you asked about",
+      so the deeper log looks like better evidence while being evidence
+      about something else.
+    command: ["refocus", "$RUN", "--focus", "main:pick"]
+    expect_exit: 1
+    expect_contains:
+      - "refocus verdict: DIVERGED"
+      - "DIFFERENT execution"
+      - "verdict: DIVERGED at causal step"
+    expect_line:
+      - ["A:", "left"]
+      - ["B:", "right"]
+    expect_absent: ["refocus verdict: MATCH"]
+  - id: which-of-these-traces-is-a-rerun
+    ask: >
+      The terminal has scrolled away. Of the traces now in this store, which
+      one is a rerun of another, and what verdict did that rerun get?
+    truth: >
+      The second trace is stamped refocus-of:<the first run's id> with
+      verdict DIVERGED, permanently, in the trace itself. Both traces exit 0
+      and were recorded from the same command line, so nothing else
+      distinguishes them.
+    why_logs_fail: >
+      There is no program output involved at all: this is a question about
+      the provenance of recorded evidence, which a program cannot print
+      about itself. It matters because it is what stops a DIVERGED rerun
+      from later passing itself off as a verified one once the verdict has
+      scrolled off the screen.
+    command: ["runs"]
+    expect_line:
+      - ["refocus-of:", "verdict:DIVERGED"]
+      - ["exit:0", "cmd: main.py"]
+    expect_absent: ["verdict:MATCH", "UNVERIFIED"]

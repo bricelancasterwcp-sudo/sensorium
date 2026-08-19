@@ -1,0 +1,37 @@
+program: main.py
+questions:
+  - id: what-was-dropped
+    ask: The total is lower than expected. Which rows never made it in, and why?
+    truth: >
+      Two rows raised ValueError inside parse_row ("carol,x7" and "erin,??")
+      and were swallowed by the bare `except Exception: pass` in load_all.
+      Nothing was re-raised and nothing escaped, so the disposition tally
+      must read exactly two swallows and no uncaught exception.
+    why_logs_fail: >
+      The except clause has no logging at all. Nothing is printed for the
+      dropped rows, so stdout shows only a plausible-looking smaller total.
+      Adding a log line inside the handler is precisely the change you cannot
+      make until you already know the handler is the culprit.
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: swallowed 2"]
+    expect_line:
+      - ["RAISE", "parse_row", "ValueError", "'x7'"]
+      - ["RAISE", "parse_row", "ValueError", "'??'"]
+      - ["SWALLOWED", "load_all", "returned normally", "never re-raised"]
+    expect_count: {"SWALLOWED": 2}
+    expect_absent: ["uncaught"]
+  - id: which-inputs
+    ask: Which input values produced the failures?
+    truth: >
+      parse_row was called with 'carol,x7'; the row also appears inside the
+      list load_all was handed, so a search for "carol" over CALL events
+      finds exactly those two events.
+    why_logs_fail: >
+      The failing inputs are never printed; only the aggregate total is. The
+      surviving rows are the only ones the program can name after the fact,
+      and they are exactly the ones that are not the problem.
+    command: ["grep", "$RUN", "carol", "--kind", "CALL"]
+    expect_contains: ["matches: 2"]
+    expect_line:
+      - ["CALL", "parse_row(row='carol,x7')"]
+      - ["CALL", "load_all(rows=", "'carol,x7'"]

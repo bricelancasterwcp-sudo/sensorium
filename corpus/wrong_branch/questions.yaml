@@ -1,0 +1,45 @@
+program: main.py
+questions:
+  - id: which-tier-per-order
+    ask: >
+      Three orders were priced. Which discount function did each one
+      actually reach, and what did each order end up costing?
+    truth: >
+      500 -> silver -> 95.0; 1000 -> silver -> 95.0 (the bug: the spec says
+      gold at exactly 1000); 1500 -> gold -> 80.0. Both discount functions
+      run during this program, so it is the pairing of a specific points
+      value with a specific outcome that carries the answer, not the mere
+      presence of "gold" or "silver" somewhere in the output.
+    why_logs_fail: >
+      price returns a number and prints nothing. 95.0 and 80.0 are both
+      perfectly ordinary prices, so even logging the returned total leaves
+      you unable to say which branch produced it without re-deriving the
+      arithmetic by hand for every input.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["price(points=500, total=100.0)", "-> 95.0"]
+      - ["price(points=1000, total=100.0)", "-> 95.0"]
+      - ["price(points=1500, total=100.0)", "-> 80.0"]
+      - ["silver(total=100.0)", "-> 95.0"]
+      - ["gold(total=100.0)", "-> 80.0"]
+  - id: the-boundary-order-alone
+    ask: >
+      Take just the exactly-1000-point order. What did that one activation
+      of price do, start to finish?
+    truth: >
+      It was called with points=1000, total=100.0; it called exactly one
+      other function, silver; and it returned 95.0. gold is never reached
+      from this activation -- which is the whole bug, and is why gold must
+      not appear anywhere in this activation's own report.
+    why_logs_fail: >
+      With three orders in flight, interleaved log lines have to be
+      re-associated with their call by hand, and the association is exactly
+      what is in doubt. A log inside gold/silver would answer it -- but only
+      after you have already guessed that the tier boundary is the suspect.
+    command: ["frame", "$RUN", "--fn", "price", "--nth", "2"]
+    expect_line:
+      - ["main.py:price", "closed: return"]
+      - ["args:", "points=1000", "total=100.0"]
+      - ["silver(total=100.0)", "-> 95.0"]
+      - ["return:", "95.0"]
+    expect_absent: ["gold"]

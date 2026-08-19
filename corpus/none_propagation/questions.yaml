@@ -1,0 +1,45 @@
+program: main.py
+questions:
+  - id: what-actually-escaped
+    ask: >
+      The program died. What exception left the program, and was anything
+      else raised and quietly handled on the way?
+    truth: >
+      Exactly one exception was raised: an AttributeError for
+      'NoneType' object has no attribute 'title', and it left the program
+      with exit status 1. Nothing was swallowed and nothing was re-raised,
+      so the tally must read one uncaught disposition and nothing else.
+    why_logs_fail: >
+      A traceback shows the frame that crashed and its callers, which is
+      real information -- but it cannot say whether some OTHER exception was
+      caught and discarded earlier in the run, and "was something swallowed
+      before this?" is the first question a None-shaped crash raises.
+    command: ["exceptions", "$RUN"]
+    expect_contains:
+      - "uncaught: AttributeError"
+      - "dispositions: uncaught 1"
+    expect_line:
+      - ["uncaught -- left the program (exit 1); not swallowed"]
+      - ["RAISE", "AttributeError", "title"]
+    expect_absent: ["SWALLOWED", "re-raised", "propagated"]
+  - id: where-was-the-none-born
+    ask: >
+      The crash says a None reached `.title()`. Where did that None come
+      from, and how many frames did it travel through before it broke
+      anything?
+    truth: >
+      lookup returned None for uid 7 -- the dict miss -- and display_name
+      returned that same None to main untouched. Two recorded sightings, two
+      frames, and no call ever RECEIVED None as an argument: it only ever
+      travelled as a return value, which is why no argument check would have
+      caught it.
+    why_logs_fail: >
+      The traceback names main, the frame that dereferenced the None, and
+      says nothing about lookup, the frame that produced it. The two frames
+      in between print nothing. Logging every return value of every function
+      would answer it, and is the change nobody makes before the crash.
+    command: ["flow", "$RUN", "--value", "None"]
+    expect_contains: ["flow of None (NoneType)", "sightings: 2 event(s)"]
+    expect_line:
+      - ["RETURN", "lookup -> None"]
+      - ["RETURN", "display_name -> None"]
