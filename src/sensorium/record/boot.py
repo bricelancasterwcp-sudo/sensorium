@@ -581,17 +581,39 @@ def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
 
 # -- running ---------------------------------------------------------------
 def _exit_status_of(exc: SystemExit) -> int:
+    """The status CPython would exit with, computed without letting the code
+    object's own dunders crash the recorder.
+
+    `sys.exit(obj)` arrives as `exc.code`. `isinstance(obj, int)` consults
+    `obj.__class__` for a non-int, which a property can make raise -- the
+    recorder killing the program from inside its own SystemExit handler. The
+    fast path is dunder-free for genuine ints (and bool/IntEnum, real int
+    subclasses); the guards cover a hostile `__class__`, a hostile `__int__` on
+    an int subclass, and a hostile `__str__` on the printed fallback. Any
+    failure takes the interpreter's own non-int answer, exit 1, not a traceback.
+    """
     code = exc.code
     if code is None:
         return 0
-    if isinstance(code, int):
-        return int(code)
-    print(code, file=sys.stderr)        # what the interpreter itself does
+    try:
+        if isinstance(code, int):
+            return int(code)
+    except BaseException:
+        return 1
+    try:
+        print(code, file=sys.stderr)    # what the interpreter itself does
+    except BaseException:
+        pass
     return 1
 
 
 def _live_thread_names() -> list[str]:
-    return [t.name for t in threading.enumerate()
+    # `plain_str`, because a thread name is a str the PROGRAM chose: a str
+    # subclass whose `__str__` returns self survives threading's own
+    # `str(name)`, and its `__lt__`/`__eq__` then run when these names are
+    # sorted or stored. Normalise to an exact str at the boundary so no
+    # downstream consumer runs a program dunder.
+    return [capture.plain_str(t.name) for t in threading.enumerate()
             if t is not threading.current_thread() and t.is_alive()]
 
 

@@ -71,6 +71,49 @@ subprocess.run(b"exit 0", shell=True)
 print("done")
 """
 
+# A live thread whose name is a str subclass hostile to the recorder: its
+# __str__ returns self (so threading's own str(name) does not normalise it
+# away) and its comparisons raise. Sorting the still-alive names at teardown
+# must not run that __lt__ and kill a program that finished cleanly.
+HOSTILE_THREAD_NAME = """
+import threading, time
+
+class Evil(str):
+    def __str__(self): return self
+    def __lt__(self, other): raise RuntimeError("no ordering for you")
+    def __gt__(self, other): raise RuntimeError("no ordering for you")
+
+def spin():
+    while True:
+        time.sleep(0.01)
+
+def main():
+    # two, so the teardown's sort actually compares the names
+    for i in (1, 2):
+        threading.Thread(target=spin, name=Evil(f"evil-worker-{i}"),
+                         daemon=True).start()
+    print("main done")
+
+if __name__ == "__main__":
+    main()
+"""
+
+# sys.exit() handed an object whose __class__ raises. isinstance(code, int)
+# consults __class__ for a non-int, so computing the exit status must not run
+# it and kill the program from inside the recorder's own SystemExit handler.
+HOSTILE_EXIT_CODE = """
+import sys
+
+class Weird:
+    @property
+    def __class__(self):
+        raise RuntimeError("no class for you")
+
+if __name__ == "__main__":
+    print("about to exit")
+    sys.exit(Weird())
+"""
+
 # A daemon thread parked inside a monitoring callback (capture calls the
 # argument's __repr__) when the target's main function returns: its trace
 # writes land after the writer has closed.
@@ -480,6 +523,30 @@ def test_live_threads_at_teardown_are_reported(tmp_path):
     assert r.returncode == 0
     assert "still alive" in r.stderr
     assert Trace.open(trace).meta["incomplete"] is False
+
+
+def test_a_hostile_thread_name_does_not_crash_the_recorder(tmp_path):
+    """A still-alive thread whose name's comparisons raise must not kill a
+    program that finished cleanly, when the teardown sorts the live names."""
+    run_id, trace, r = record_script(tmp_path, HOSTILE_THREAD_NAME)
+    assert r.returncode == 0, r.stderr           # the program returned 0
+    assert run_id is not None                    # the run was reported, not lost
+    assert "main done" in r.stdout
+    assert "still alive" in r.stderr             # the gap is still reported...
+    assert "evil-worker" in r.stderr             # ...with the name normalised
+    assert "Traceback" not in r.stderr
+
+
+def test_a_hostile_sys_exit_code_does_not_crash_the_recorder(tmp_path):
+    """sys.exit() with an object whose __class__ raises must not crash the
+    recorder computing the exit status; it takes the interpreter's own answer
+    for a non-int code (exit 1)."""
+    run_id, trace, r = record_script(tmp_path, HOSTILE_EXIT_CODE)
+    assert run_id is not None, r.stderr          # the run was reported, not lost
+    assert "about to exit" in r.stdout
+    assert r.returncode == 1                     # non-int code -> 1, as CPython
+    assert Trace.open(trace).meta["exit_status"] == 1
+    assert "_exit_status_of" not in r.stderr     # not a recorder traceback
 
 
 # -- two runs in one process (what `refocus` will do) ----------------------
