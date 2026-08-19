@@ -125,7 +125,6 @@ class Tracer:
             return M.DISABLE
         tls.in_hook = True
         try:
-            tls.last_exc = None          # a call means no propagation in flight
             frame = sys._getframe(1)
             names = code.co_varnames[:code.co_argcount + code.co_kwonlyargcount]
             loc = frame.f_locals
@@ -157,7 +156,6 @@ class Tracer:
             return M.DISABLE
         tls.in_hook = True
         try:
-            tls.last_exc = None          # a return means no propagation in flight
             tid = threading.get_ident()
             fid = None
             if not frameless and tls.stack and tls.stack[-1][1] is code:
@@ -203,20 +201,45 @@ class Tracer:
     def _on_handled(self, code, offset, exc):
         return self._exc_event(code, exc, "HANDLED", sys._getframe(1))
 
+    def _on_reraise(self, code, offset, exc):
+        """RERAISE is not a recorded kind; it only maintains in-flight state.
+
+        A bare ``raise``, and the implicit re-raise that ends a ``finally`` or
+        a ``__exit__``, put the same exception back in flight. Without this,
+        the EXCEPTION_HANDLED that CPython fires on *entry* to a finally block
+        would disarm the de-dupe mid-propagation and the next frame's RAISE
+        would be recorded as a second origin.
+        """
+        tls = self._tls
+        if not tls.in_hook and type(exc).__name__ not in _CONTROL_FLOW_EXC:
+            tls.last_exc = exc
+        return None
+
     def _exc_event(self, code, exc, kind, frame):
         tls = self._tls
         if tls.in_hook:
             return None
-        # RAISE fires again in every frame the exception propagates into; only
-        # the origin is a raise, the rest is unwinding (recorded on the frames).
-        if kind == "RAISE" and tls.last_exc is exc:
+        # Control-flow exceptions are neither recorded nor allowed to disturb
+        # in-flight state: a generator finishing during cleanup must not clear
+        # the real exception that is propagating.
+        if type(exc).__name__ in _CONTROL_FLOW_EXC:
             return None
+        # In-flight bookkeeping runs whether or not this frame is traced --
+        # handlers and cleanup blocks are frequently foreign code. RAISE fires
+        # again in every frame the exception propagates into, so only the first
+        # is an origin; HANDLED means it was caught and is no longer in flight,
+        # which is what makes a later raise of the same object a new origin.
+        if kind == "RAISE":
+            if tls.last_exc is exc:
+                return None
+            tls.last_exc = exc
+        else:
+            tls.last_exc = None
         traced, fp_file, qual, focused, frameless = self._decide(code)
-        if not traced or type(exc).__name__ in _CONTROL_FLOW_EXC:
+        if not traced:
             return None
         tls.in_hook = True
         try:
-            tls.last_exc = exc if kind == "RAISE" else None
             tid = threading.get_ident()
             fid = tls.stack[-1][0] if (not frameless and tls.stack
                                        and tls.stack[-1][1] is code) else None
@@ -247,10 +270,11 @@ class Tracer:
         M.register_callback(TOOL, E.PY_RETURN, self._on_return)
         M.register_callback(TOOL, E.PY_UNWIND, self._on_unwind)
         M.register_callback(TOOL, E.RAISE, self._on_raise)
+        M.register_callback(TOOL, E.RERAISE, self._on_reraise)
         M.register_callback(TOOL, E.EXCEPTION_HANDLED, self._on_handled)
         M.register_callback(TOOL, E.LINE, self._on_line)
         events = (E.PY_START | E.PY_RETURN | E.PY_UNWIND
-                  | E.RAISE | E.EXCEPTION_HANDLED)
+                  | E.RAISE | E.RERAISE | E.EXCEPTION_HANDLED)
         if self.focus:
             events |= E.LINE
         M.set_events(TOOL, events)
@@ -260,7 +284,7 @@ class Tracer:
         E = M.events
         M.set_events(TOOL, 0)
         for ev in (E.PY_START, E.PY_RETURN, E.PY_UNWIND, E.RAISE,
-                   E.EXCEPTION_HANDLED, E.LINE):
+                   E.RERAISE, E.EXCEPTION_HANDLED, E.LINE):
             M.register_callback(TOOL, ev, None)
         M.free_tool_id(TOOL)
         for tid, fp in self._fps.items():

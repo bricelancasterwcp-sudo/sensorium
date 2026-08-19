@@ -43,6 +43,87 @@ def main():
     return list(gen())
 """
 
+# A traced function called from a finally block while an exception is still
+# propagating. CPython fires EXCEPTION_HANDLED on entry to the finally even
+# though there is no except, so "HANDLED means caught" is not enough on its own.
+CLEANUP_UNWIND = """
+def leaf():
+    raise RuntimeError("dead")
+
+def cleanup():
+    return 1
+
+def mid():
+    try:
+        leaf()
+    finally:
+        cleanup()
+
+def main():
+    try:
+        mid()
+    except RuntimeError:
+        pass
+"""
+
+# Caught by a handler in traced code, then the same object raised again.
+RERAISE_TRACED = """
+def raise_it(e):
+    raise e
+
+def main():
+    e = ValueError("same")
+    try:
+        try:
+            raise_it(e)
+        except ValueError:
+            raise e
+    except ValueError:
+        pass
+"""
+
+# Caught by a handler in UNTRACED code (compiled with a non-path filename, so
+# the tracer classifies it as foreign), then the same object raised again.
+RERAISE_UNTRACED = """
+NS = {}
+exec(compile('''
+def catch(fn, e):
+    try:
+        fn(e)
+    except ValueError:
+        pass
+''', "<untraced-handler>", "exec"), NS)
+
+def raise_it(e):
+    raise e
+
+def main():
+    e = ValueError("same")
+    NS["catch"](raise_it, e)
+    try:
+        raise_it(e)
+    except ValueError:
+        pass
+"""
+
+THREADED = """
+import threading
+
+def work(n):
+    return n * 2
+
+def worker():
+    for i in range(5):
+        work(i)
+
+def main():
+    ts = [threading.Thread(target=worker) for _ in range(3)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+"""
+
 
 def test_calls_returns_args_and_frames(tmp_path):
     t, err = record_inproc(tmp_path, ADD)
@@ -103,6 +184,68 @@ def test_generators_recorded_frameless(tmp_path):
     assert len(gen_calls) == 1
     gen_code = next(c for c in t.codes() if c.qualname == "gen")
     assert t.frames(code_id=gen_code.id) == []
+
+
+def test_cleanup_during_unwind_records_one_origin_raise(tmp_path):
+    # Traced code running in a finally block must not disarm the RAISE
+    # de-dupe: the exception is still in flight, so there is exactly one
+    # origin. Two RAISE rows here would read to `sensorium exceptions` as
+    # "handled, then raised again later".
+    t, err = record_inproc(tmp_path, CLEANUP_UNWIND)
+    assert err is None
+    called = {t.code(e.code_id).qualname for e in t.events(kind="CALL")}
+    assert "cleanup" in called          # traced code really ran mid-propagation
+    raises = t.events(kind="RAISE")
+    assert len(raises) == 1
+    assert t.code(raises[0].code_id).qualname == "leaf"
+
+
+def test_reraise_after_traced_handler_records_two_origins(tmp_path):
+    t, err = record_inproc(tmp_path, RERAISE_TRACED)
+    assert err is None
+    raises = t.events(kind="RAISE")
+    assert len(raises) == 2
+    oids = {r.payload["exc"]["oid"] for r in raises}
+    assert len(oids) == 1               # genuinely the same exception object
+
+
+def test_reraise_after_untraced_handler_records_two_origins(tmp_path):
+    # Mirror case: the handler frame is foreign code, so the tracer only ever
+    # sees HANDLED for a code object it does not record. It must still notice
+    # that the exception stopped propagating.
+    t, err = record_inproc(tmp_path, RERAISE_UNTRACED)
+    assert err is None
+    raises = t.events(kind="RAISE")
+    assert len(raises) == 2
+    assert {t.code(r.code_id).qualname for r in raises} == {"raise_it"}
+    oids = {r.payload["exc"]["oid"] for r in raises}
+    assert len(oids) == 1
+
+
+def test_threads_recorded_with_distinct_ids_and_fingerprints(tmp_path):
+    t, err = record_inproc(tmp_path, THREADED)
+    assert err is None
+    work_code = next(c for c in t.codes() if c.qualname == "work")
+    work_events = t.events(code_id=work_code.id)
+    worker_tids = {e.thread_id for e in work_events}
+    assert len(worker_tids) == 3                   # all three threads recorded
+    assert t.main_thread_id() not in worker_tids
+    assert len(work_events) == 3 * 5 * 2           # CALL+RETURN per call
+
+    fps = t.fingerprints()
+    assert len(fps) == 4                           # 3 workers + main thread
+    worker_fps = [fps[tid] for tid in worker_tids]
+    # each worker ran an identical sequence: CALL worker, 5x(CALL/RETURN work),
+    # RETURN worker -> same count and same causal hash, proving the per-thread
+    # fingerprint state really is isolated and not shared.
+    assert [n for _, n in worker_fps] == [12, 12, 12]
+    assert len({h for h, _ in worker_fps}) == 1
+
+    # per-thread frame stacks: every thread roots its own tree at depth 0
+    for tid in worker_tids:
+        depths = sorted({f.depth for f in t.frames() if f.thread_id == tid})
+        assert depths == [0, 1]
+    assert [f.id for f in t.frames() if f.closed_by is None] == []
 
 
 def test_fingerprint_deterministic_across_runs(tmp_path):
