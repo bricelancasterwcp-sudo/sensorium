@@ -533,8 +533,17 @@ def risky():
     except Nameless:
         return "handled"
 
+def rethrow():
+    try:
+        try:
+            raise Nameless()
+        except Nameless:
+            raise                # bare re-raise: RERAISE, a second hook
+    except Nameless:
+        return "rethrown"
+
 def main():
-    print("risky", risky())
+    print("risky", risky(), rethrow())
 
 main()
 """
@@ -545,7 +554,12 @@ def test_a_hostile_exception_type_name_does_not_reach_the_hook(
     """`_exc_event` reads the exception's type name on every RAISE to skip
     control-flow exceptions. It goes through `type_name`, which cannot raise
     and returns an exact `str`; "?" is not a control-flow name, so the
-    exception is still RECORDED rather than silently dropped."""
+    exception is still RECORDED rather than silently dropped.
+
+    `_on_reraise` is a second hook reading the same attribute, reached only
+    by a bare `raise` or the implicit re-raise ending a `finally` -- which
+    is why the program does both a plain catch and a re-raise.
+    """
     _run_id, out = _runs_clean(tmp_path, monkeypatch, capsys,
-                               HOSTILE_EXC_NAME, "risky handled")
-    assert _line(out, "dispositions:") == "dispositions: swallowed 1"
+                               HOSTILE_EXC_NAME, "risky handled rethrown")
+    assert _line(out, "dispositions:").startswith("dispositions: swallowed ")

@@ -638,3 +638,15 @@ def test_tee_still_skips_an_empty_write():
     sink, writer = _CountingSink(), _RecordingWriter()
     boot._Tee(sink, "stdout", writer).write("")
     assert writer.rows == []
+
+
+def test_audit_records_exact_strs_not_the_program_s_own_objects():
+    """`children` is stored in run metadata and lives until the finalizer.
+    `str()` honours a `__str__` override and can hand back another subclass
+    instance, so the list would hold live objects with live dunders."""
+    class Live(str):
+        def __str__(self):
+            return Live("lie")
+    out = boot._as_text(Live("real"))
+    assert type(out) is str and out == "lie"
+    assert type(boot._as_text(b"bytes")) is str
