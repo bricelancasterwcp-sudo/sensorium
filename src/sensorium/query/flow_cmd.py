@@ -43,12 +43,23 @@ trace supports, and only that:
     provably different objects. That is a hard fact and it is printed loudly.
 
   * held by fN -- a recorded argument or local of a frame that was open across
-    the whole gap was bound to this address before it and is not recorded as
-    rebound or unbound during it. A live frame's local holds a strong
-    reference, so the address could not have been recycled underneath it. The
-    claim is only as strong as the capture behind it: with line-level capture
-    a rebinding would have been recorded, without it one would be invisible,
-    and the line says which case it is.
+    the whole gap was bound to this address before it, and NO DIFFERING
+    CAPTURE of that name was recorded during it. A live frame's local holds a
+    strong reference, so for as long as the name really did hold the address
+    it could not have been recycled underneath it.
+
+    This is evidence, not proof, and the exact residual matters. The tracer
+    emits a LINE delta by comparing CAPTURES, not objects
+    (``tracer.py``: ``if prev.get(name) != cap``). A capture carries the
+    address, so rebinding a name to a different object almost always changes
+    it -- but rebinding to a NEW object that took the same address and has
+    equal content produces an identical capture and therefore NO delta and no
+    LINE event at all. A loop that frees and rebuilds an equal object reaches
+    that in ordinary code, and ADDRESS REUSED cannot catch it because the type
+    is the same. ``--window`` can also gate LINE recording off for part of a
+    frame's life. So "no differing capture recorded" is exactly what is
+    claimed, and the header caveat says what it does not rule out. A frame
+    with no line capture at all is weaker still, and its line says so.
 
   * unwitnessed -- neither of the above. Nothing in the trace holds the address
     across the gap, so the object may have died there and the later sighting
@@ -90,6 +101,10 @@ IDENTITY_CAVEAT = (
     "addresses,",
     "so a sighting after the object was freed may be a different object that "
     "reused it",
+    "a 'held by' line below is evidence, not proof: local deltas compare "
+    "captures, so a name",
+    "rebound to a new object at the same address with equal content records "
+    "no change at all",
 )
 _NUMERIC = re.compile(r"[+-]?(\d[\d_]*\.?[\d_]*|\.\d[\d_]*)([eE][+-]?\d+)?")
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -359,12 +374,20 @@ def _witness(g: Gap):
 
 
 def held_line(h: Binding, a: int, b: int) -> str:
+    """What a covering binding supports -- stated as the fact it is.
+
+    Never "no rebinding recorded": that is literally true of the trace and
+    still reads as affirmative continuity evidence. Deltas compare captures,
+    so a name rebound to a new object at the same address with equal content
+    records nothing to see. What the trace supports is that no DIFFERING
+    capture of the name was recorded, and that is what is printed.
+    """
     span = f"held by f{h.frame_id} across e{a}..e{b}: {h.name!r} bound at " \
            f"e{h.start}"
     if h.lines:
-        return span + ", no rebinding recorded"
-    return (span + f"; f{h.frame_id} has no line capture, so a rebinding "
-            "inside it would not be recorded")
+        return span + f", no differing capture of {h.name!r} recorded since"
+    return (span + f"; f{h.frame_id} has no line capture at all, so nothing "
+            "there could have recorded a rebinding")
 
 
 def gap_lines(gs: list[Gap]) -> dict[int, str]:
@@ -400,7 +423,7 @@ def continuity_line(gs: list[Gap]) -> str:
     extra = len(unwit) - _MAX_NAMED_GAPS
     if named:
         named = f" ({named}{f', +{extra} more' if extra > 0 else ''})"
-    parts = [f"{sum(1 for g in gs if g.held)} gap(s) held by a recorded "
+    parts = [f"{sum(1 for g in gs if g.held)} gap(s) spanned by a recorded "
              "binding", f"{len(unwit)} unwitnessed{named}"]
     reused = sum(1 for g in gs if g.reuse)
     if reused:
@@ -535,11 +558,62 @@ def _notes(idx: Index, seen: int, trunc: int) -> list[str]:
     return out
 
 
+def page_gaps(all_gaps: list[Gap], start: int, shown: int) -> tuple:
+    """(gaps this page must account for, gaps it can annotate, lead offset).
+
+    `start` is the index in the full sighting list of this page's first row.
+    A page after the first has a gap LEADING INTO its first row -- the one
+    crossing the page boundary -- which is as much part of its story as any
+    gap between its own rows: on page 2 of a lineage split by an ADDRESS
+    REUSED, that gap is the whole point. So it is annotated above the first
+    row and counted in this page's footer, instead of existing only in the
+    previous page's output.
+    """
+    lead = 1 if start else 0
+    first = start - lead
+    end = start + max(shown - 1, 0)
+    return all_gaps[first:], all_gaps[first:max(end, first + lead)], lead
+
+
+def _print_rows(trace, shown, notes: dict, lead: int) -> None:
+    if lead and 0 in notes:
+        print("  " + notes[0])          # the gap crossing into this page
+    for i, s in enumerate(shown):
+        print(f"  {fmt_event(trace, s.event)}   [{', '.join(s.labels)}]")
+        if lead + i in notes:
+            print("  " + notes[lead + i])
+
+
+def _print_footer(args, ref, idx, counts, scope, shown, gs, after) -> None:
+    found, searched, seen, trunc = counts
+    # Counted over every sighting in scope, never over the printed page: a
+    # total that shrank with --limit would be a false fact about the run.
+    tail = ""
+    if len(shown) < len(scope):
+        tail += f" (showing {len(shown)})"
+    skipped = found - len(scope)
+    if skipped:
+        tail += f" ({skipped} earlier sighting(s) skipped by --after e{after})"
+    print(f"sightings: {len(scope)} event(s), "
+          f"{sum(len(s.labels) for s in scope)} capture(s){tail}")
+    if gs:
+        print(continuity_line(gs))
+    print(f"scope: {seen} capture(s) searched across {searched} event(s) in "
+          f"{ROLES_SEARCHED}")
+    for note in _notes(idx, seen, trunc):
+        print(note)
+    last = shown[-1].event.id if shown else after
+    note = more_note(len(scope), len(shown), continue_cmd(args, ref, last))
+    if note:
+        print(note)
+
+
 def run(args) -> int:
     if args.limit < 1:
         print(f"--limit must be >= 1 (got {args.limit}); "
               "there is no useful zero-row page")
         return 2
+    after = parse_eref(args.after) if args.after else 0
     trace = Trace.open(paths.find_trace(args.run))
     idx = Index(trace)
     target, ref, head, err = _header(trace, idx, args)
@@ -555,38 +629,15 @@ def run(args) -> int:
         print(line)
 
     found, searched, seen, trunc = scan(idx.events, target)
-    after = parse_eref(args.after) if args.after else 0
     scope = [s for s in found if s.event.id > after]
-    gs = (gaps(scope, bindings(idx, target), address_reuses(idx, target))
-          if isinstance(target, ObjTarget) else [])
     shown = scope[:args.limit]
-    # Gaps are annotated only between rows that are actually printed, so a
-    # merged run is merged over the shown window and never claims a span the
-    # reader cannot see.
-    notes = gap_lines(gs[:max(len(shown) - 1, 0)])
-    for i, s in enumerate(shown):
-        print(f"  {fmt_event(trace, s.event)}   [{', '.join(s.labels)}]")
-        if i in notes:
-            print("  " + notes[i])
-
-    # Counted over every sighting in scope, never over the printed page: a
-    # total that shrank with --limit would be a false fact about the run.
-    tail = ""
-    if len(shown) < len(scope):
-        tail += f" (showing {len(shown)})"
-    skipped = len(found) - len(scope)
-    if skipped:
-        tail += f" ({skipped} earlier sighting(s) skipped by --after e{after})"
-    print(f"sightings: {len(scope)} event(s), "
-          f"{sum(len(s.labels) for s in scope)} capture(s){tail}")
-    if gs:
-        print(continuity_line(gs))
-    print(f"scope: {seen} capture(s) searched across {searched} event(s) in "
-          f"{ROLES_SEARCHED}")
-    for note in _notes(idx, seen, trunc):
-        print(note)
-    last = shown[-1].event.id if shown else after
-    note = more_note(len(scope), len(shown), continue_cmd(args, ref, last))
-    if note:
-        print(note)
+    # Gaps are computed over EVERY sighting, then sliced to the page, so the
+    # one crossing the page boundary is not lost with --after.
+    all_gaps = (gaps(found, bindings(idx, target), address_reuses(idx, target))
+                if isinstance(target, ObjTarget) else [])
+    counted, visible, lead = page_gaps(all_gaps, len(found) - len(scope),
+                                       len(shown))
+    _print_rows(trace, shown, gap_lines(visible), lead)
+    _print_footer(args, ref, idx, (len(found), searched, seen, trunc),
+                  scope, shown, counted, after)
     return 0

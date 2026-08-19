@@ -10,10 +10,12 @@ story, which is exactly the failure this file exists to prevent.
 The equality half of `flow` lives in `test_flow.py`; this is the split the
 exceptions tests made for the same reason, along the same kind of seam.
 """
+import shlex
+
 from sensorium import cli
 from sensorium.query import flow_cmd
-from tests.programs import (ALIAS, GRAMS, flow_shown_ids, interleaved_address,
-                            open_trace, record, synthetic)
+from tests.programs import (ALIAS, GRAMS, flow_rows, flow_shown_ids,
+                            interleaved_address, open_trace, record, synthetic)
 
 # Two classes with the same instance layout, allocated and freed alternately.
 # Measured (three runs, identical): one address hosts Draft, Final, Draft,
@@ -104,6 +106,31 @@ if __name__ == "__main__":
     main()
 """
 
+# The hole under `held by fN`. `x` is dropped and rebuilt on ONE physical
+# line, so no LINE event fires between the two statements -- and the tracer
+# emits a delta by comparing CAPTURES, so the second dict, at the same address
+# with equal content, produces a capture identical to the first and therefore
+# no delta at all. Two objects, one address, one recorded binding, and nothing
+# in the trace that distinguishes them. ADDRESS REUSED cannot catch it either:
+# the type never changes. Measured identical across three runs.
+REBIND_TO_EQUAL = """
+def build():
+    return {"n": 1}
+
+def use(box):
+    return box["n"]
+
+def main():
+    x = build()
+    use(x)
+    x = None; x = build()
+    use(x)
+
+if __name__ == "__main__":
+    main()
+"""
+
+
 # -- --object --------------------------------------------------------------
 def test_flow_object_shows_aliasing(tmp_path, monkeypatch, capsys):
     run_id = record(tmp_path, monkeypatch, ALIAS)
@@ -131,11 +158,52 @@ def test_flow_object_reveals_that_the_callers_config_changed(
     assert "[local prod, local sand]" in out
     assert "'timeout': 1" in out and "'timeout': 30" in out
     assert f"held by f{main_f.id} across e" in out
-    assert "'prod' bound at e" in out and "no rebinding recorded" in out
+    assert "'prod' bound at e" in out
+    # the claim is what the trace supports, not affirmative continuity
+    assert "no differing capture of 'prod' recorded since" in out
+    assert "no rebinding recorded" not in out
     assert out.count("held by f") == 1, "one run of gaps is one fact, not six"
     # only the hop from make_default's return into main's local is unwitnessed
-    assert "continuity: 6 gap(s) held by a recorded binding, 1 unwitnessed" \
-        in out
+    assert "continuity: 6 gap(s) spanned by a recorded binding, " \
+        "1 unwitnessed" in out
+
+
+def test_flow_object_never_claims_a_rebinding_would_have_been_recorded(
+        tmp_path, monkeypatch, capsys):
+    """The strongest positive claim `flow` makes, held to what is true.
+
+    `main` really does hold two different dicts here -- `build()` allocates a
+    fresh one each call -- and the trace records NOTHING that separates them:
+    the second took the freed address and has equal content, so its capture is
+    identical to the first's and the tracer emits no delta (it compares
+    captures, not objects). ADDRESS REUSED cannot fire either, because the
+    type never changed.
+
+    So the covering binding is still worth reporting -- it is the only
+    continuity evidence there is -- but it must not be reported as a rebinding
+    having been ruled out. It was not; the trace simply has nothing to show.
+    """
+    run_id = record(tmp_path, monkeypatch, REBIND_TO_EQUAL,
+                    extra=("--focus", "prog:main"))
+    trace = open_trace(run_id)
+    built = [e.payload["value"] for e in trace.events(kind="RETURN")
+             if (e.payload or {}).get("value", {}).get("k") == "map"]
+    assert len(built) == 2, "two separate build() activations must be recorded"
+    assert built[0]["oid"] == built[1]["oid"], (
+        f"this test needs the rebuilt dict at the freed address: {built}")
+    # ...and the trace is genuinely blind to the swap: one delta for `x`, ever
+    xs = [e for e in trace.events(kind="LINE")
+          if "x" in (e.payload or {}).get("deltas", {})
+          or "x" in (e.payload or {}).get("unbound", [])]
+    assert len(xs) == 1, f"the rebinding must leave no record at all: {xs}"
+
+    assert cli.main(["flow", run_id, "--object", "build:return"]) == 0
+    out = capsys.readouterr().out
+    assert "no rebinding recorded" not in out, "it was not ruled out"
+    assert "no differing capture of 'x' recorded since" in out
+    # and the header says outright what such a line does not rule out
+    assert "evidence, not proof" in out
+    assert "equal content records no change at all" in out
 
 
 def test_flow_object_on_primitive_is_clear_error(tmp_path, monkeypatch,
@@ -202,6 +270,39 @@ def test_flow_object_reports_a_proven_address_reuse(tmp_path, monkeypatch,
     assert "1 crossed a proven address reuse" in out
 
 
+def test_flow_object_page_two_accounts_for_the_gap_it_starts_after(
+        tmp_path, monkeypatch, capsys):
+    """A later page must stand on its own terms. The gap crossing the page
+    boundary is what precedes its first row -- and when that gap is a proven
+    address reuse it is the most important thing on the page -- so it is
+    annotated above the first row and counted in that page's footer, not left
+    behind in the previous page's output."""
+    run_id = record(tmp_path, monkeypatch, TWO_TYPES_ONE_ADDRESS)
+    trace = open_trace(run_id)
+    _addr, at_addr = interleaved_address(trace, "Draft", "Final")
+    drafts = [eid for eid, typ in at_addr if typ == "Draft"]
+    spec = f"e{drafts[0]}:self"
+
+    assert cli.main(["flow", run_id, "--object", spec, "--limit", "3"]) == 0
+    page1 = capsys.readouterr().out
+    hint = page1.strip().splitlines()[-1]
+    assert "continue with: " in hint
+    argv = shlex.split(hint.split("continue with: ", 1)[1])[1:]
+
+    assert cli.main(argv) == 0
+    page2 = capsys.readouterr().out
+    rows = flow_rows(page2)
+    assert [int(r.split()[0][1:]) for r in rows] == drafts[3:]
+    assert "ADDRESS REUSED" in page2               # carried onto this page
+    assert "1 crossed a proven address reuse" in page2   # and into its tally
+    # ...announced above the first row it leads into, not after it
+    body = page2.splitlines()
+    reuse_at = next(i for i, ln in enumerate(body) if "ADDRESS REUSED" in ln)
+    first_row = next(i for i, ln in enumerate(body)
+                     if ln.strip().startswith(f"e{drafts[3]} "))
+    assert reuse_at < first_row
+
+
 def test_flow_object_hedges_a_gap_nothing_in_the_trace_holds(
         tmp_path, monkeypatch, capsys):
     """Three dicts, one address, and no local ever bound to them. The trace
@@ -220,7 +321,7 @@ def test_flow_object_hedges_a_gap_nothing_in_the_trace_holds(
     out = capsys.readouterr().out
     assert "unwitnessed" in out
     assert "ADDRESS REUSED" not in out           # not proven by this trace
-    assert "0 gap(s) held by a recorded binding" in out
+    assert "0 gap(s) spanned by a recorded binding" in out
 
 
 def test_flow_object_qualname_resolves_to_the_first_call_and_says_so(
