@@ -42,8 +42,43 @@ trace supports, and only that:
     earlier object was already freed by then: the sightings on either side are
     provably different objects. That is a hard fact and it is printed loudly.
 
-  * held by fN -- a recorded argument or local of a frame that was open across
-    the whole gap was bound to this address before it, and NO DIFFERING
+  * NEW OBJECT -- a constructor for this type ran ON this address inside the
+    gap: a ``T.__init__`` whose receiver is here, or a ``T.__new__`` that
+    returned here. Ordinarily that means the object seen afterwards was born
+    at that moment, and it is the one signal that catches a same-type reuse,
+    which ADDRESS REUSED cannot see and a spanning binding actively hides. It
+    is measured, not hypothetical: a plain four-iteration loop building one
+    object per pass puts two of them on one address, and without this the
+    whole run reads as a single lineage with ``Node.__init__`` sitting
+    unremarked in the middle of it.
+
+    Only the RECEIVER counts, never another argument: ``Wrapper.__init__(
+    self, payload)`` passes an existing object into a constructor, and reading
+    that as "payload was born here" would split one real object's lineage and
+    assert two -- the mirror of the bug this catches.
+
+    It is reported as strong evidence rather than proof, because "re-running a
+    constructor on a live object is pathological" is false in one ordinary
+    idiom. Measured: the textbook caching ``__new__``
+
+        class Config:
+            _inst = None
+            def __new__(cls):
+                if cls._inst is None: cls._inst = super().__new__(cls)
+                return cls._inst
+            def __init__(self): self.n = 1
+
+    records ``Config.__new__`` returning ONE address twice and
+    ``Config.__init__`` running on that same live object twice, with
+    ``a is b`` true. Calling that two objects would be exactly the false
+    claim this command exists to avoid, so when the trace records a
+    ``__new__`` that can hand back a live instance of this type, the line says
+    the trace cannot tell rather than asserting a split. A metaclass
+    ``__call__`` doing the same is not detected and is named in the line's
+    residual instead.
+
+  * spanned by fN -- a recorded argument or local of a frame that was open
+    across the whole gap was bound to this address before it, and NO DIFFERING
     CAPTURE of that name was recorded during it. A live frame's local holds a
     strong reference, so for as long as the name really did hold the address
     it could not have been recycled underneath it.
@@ -61,10 +96,14 @@ trace supports, and only that:
     claimed, and the header caveat says what it does not rule out. A frame
     with no line capture at all is weaker still, and its line says so.
 
-  * unwitnessed -- neither of the above. Nothing in the trace holds the address
+  * unwitnessed -- none of the above. Nothing in the trace holds the address
     across the gap, so the object may have died there and the later sighting
     may be a different object at the same address. These are counted and named
     in the footer rather than smoothed over.
+
+Ranked in that order, strongest evidence first: a proven reuse outranks a
+constructor, and either outranks a binding -- a binding that appears to span a
+constructor is precisely the case where the binding is wrong.
 
 Only top-level name bindings count as holders. A container captured holding the
 object is a real reference too, but the trace does not record whether that
@@ -101,7 +140,7 @@ IDENTITY_CAVEAT = (
     "addresses,",
     "so a sighting after the object was freed may be a different object that "
     "reused it",
-    "a 'held by' line below is evidence, not proof: local deltas compare "
+    "a 'spanned by' line below is evidence, not proof: local deltas compare "
     "captures, so a name",
     "rebound to a new object at the same address with equal content records "
     "no change at all",
@@ -110,6 +149,7 @@ _NUMERIC = re.compile(r"[+-]?(\d[\d_]*\.?[\d_]*|\.\d[\d_]*)([eE][+-]?\d+)?")
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _MAX_OTHER_REFS = 5
 _MAX_NAMED_GAPS = 6
+_CTORS = (".__init__", ".__new__")
 
 
 @dataclass(frozen=True)
@@ -140,6 +180,7 @@ class Gap:
     a: int
     b: int
     reuse: tuple | None     # (event id, the other type seen at this address)
+    born: tuple | None      # (event id, ctor qualname, caching __new__?)
     held: Binding | None
 
 
@@ -345,15 +386,72 @@ def address_reuses(idx: Index, target: ObjTarget) -> dict[int, str]:
     return out
 
 
-def gaps(sights: list[Sighting], binds: list[Binding],
-         reuses: dict[int, str]) -> list[Gap]:
+def constructions(trace, idx: Index, target: ObjTarget) -> dict[int, str]:
+    """event id -> the constructor recorded running ON the target's address.
+
+    A `T.__init__` whose RECEIVER is at this address, or a `T.__new__` that
+    RETURNED it. Only the receiver -- the first parameter, which is what
+    `capture_value` records first because the tracer walks `co_varnames` in
+    order. Any other argument is an existing object being handed *into* a
+    constructor (`Wrapper.__init__(self, payload)`), and reading that as
+    "payload was born here" would split one real object's lineage.
+
+    `__new__` is read from its RETURN, not its CALL: at call time the instance
+    does not exist yet and the first argument is the class.
+    """
+    out: dict[int, str] = {}
+    for e in idx.events:
+        if e.code_id is None:
+            continue
+        q = trace.code(e.code_id).qualname
+        p = e.payload or {}
+        if e.kind == "CALL" and q.endswith(".__init__"):
+            recv = next(iter((p.get("args") or {}).values()), None)
+            if recv is not None and matches(recv, target):
+                out[e.id] = q
+        elif e.kind == "RETURN" and q.endswith(".__new__"):
+            if p.get("value") is not None and matches(p["value"], target):
+                out[e.id] = q
+    return out
+
+
+def caching_new(trace, idx: Index, target: ObjTarget) -> bool:
+    """Whether this run defines a `__new__` that hands back instances of the
+    target's type -- the one ordinary idiom in which a constructor running on
+    a live object does NOT mean a new object.
+
+    Measured on the textbook caching singleton: `Config.__new__` returns one
+    address twice and `Config.__init__` then runs on that same live object
+    twice. Without this check the two would be reported as different objects,
+    which is the false claim this command exists to avoid.
+    """
+    for e in idx.events:
+        if e.kind != "RETURN" or e.code_id is None:
+            continue
+        if not trace.code(e.code_id).qualname.endswith(".__new__"):
+            continue
+        v = (e.payload or {}).get("value") or {}
+        if v.get("type") == target.type:
+            return True
+    return False
+
+
+def gaps(sights: list[Sighting], binds: list[Binding], reuses: dict[int, str],
+         ctors: dict[int, str] = {}, cached: bool = False) -> list[Gap]:
     out = []
     for prev, nxt in zip(sights, sights[1:]):
         a, b = prev.event.id, nxt.event.id
         reuse = next(((eid, t) for eid, t in sorted(reuses.items())
                       if a < eid < b), None)
+        # `a < c <= b`, not `< b`: the constructor is very often the later
+        # SIGHTING itself -- `Node.__init__(self=Node#A)` is both a capture at
+        # the address and the proof that what is there now was just built. Its
+        # presence at `a` says nothing, since that is the object already seen.
+        born = None if reuse else next(
+            ((eid, q, cached) for eid, q in sorted(ctors.items())
+             if a < eid <= b), None)
         held = None
-        if reuse is None:
+        if reuse is None and born is None:
             # `end > b`, not `>=`: a binding observed ending exactly at the
             # later sighting is not read as having held the address across
             # the gap. It very likely did -- but that turns on what happened
@@ -361,11 +459,14 @@ def gaps(sights: list[Sighting], binds: list[Binding],
             # not record, and an under-claimed witness costs a hedge while an
             # over-claimed one costs a false "same object".
             cands = [x for x in binds if x.start <= a and x.end > b]
-            # A frame with line capture is the stronger witness: a rebinding
-            # inside it would have been recorded.
+            # A frame with line capture is the better witness of the two: a
+            # rebinding that CHANGED the capture would have been recorded
+            # there. It is not a guarantee -- an identical re-capture records
+            # nothing anywhere -- only strictly more than a frame that could
+            # not have recorded a rebinding at all.
             held = min(cands, key=lambda x: (not x.lines, x.start),
                        default=None)
-        out.append(Gap(a, b, reuse, held))
+        out.append(Gap(a, b, reuse, born, held))
     return out
 
 
@@ -376,18 +477,21 @@ def _witness(g: Gap):
 def held_line(h: Binding, a: int, b: int) -> str:
     """What a covering binding supports -- stated as the fact it is.
 
-    Never "no rebinding recorded": that is literally true of the trace and
-    still reads as affirmative continuity evidence. Deltas compare captures,
+    Never "held by" and never "no rebinding recorded": both are literally
+    true of the trace and both read as affirmative continuity evidence, and a
+    reader skimming rows meets this line without the header. Deltas compare
+    captures,
     so a name rebound to a new object at the same address with equal content
     records nothing to see. What the trace supports is that no DIFFERING
     capture of the name was recorded, and that is what is printed.
     """
-    span = f"held by f{h.frame_id} across e{a}..e{b}: {h.name!r} bound at " \
-           f"e{h.start}"
+    span = f"spanned by f{h.frame_id} across e{a}..e{b}: {h.name!r} bound " \
+           f"at e{h.start}"
     if h.lines:
-        return span + f", no differing capture of {h.name!r} recorded since"
+        return (span + f", no differing capture of {h.name!r} recorded "
+                f"through e{b}")
     return (span + f"; f{h.frame_id} has no line capture at all, so nothing "
-            "there could have recorded a rebinding")
+            f"there could have recorded a rebinding before e{b}")
 
 
 def gap_lines(gs: list[Gap]) -> dict[int, str]:
@@ -405,6 +509,19 @@ def gap_lines(gs: list[Gap]) -> dict[int, str]:
             out[i] = (f"ADDRESS REUSED between e{g.a} and e{g.b}: e{eid} "
                       f"captured a {typ} at this address -- two live objects "
                       "never share one, so these are different objects")
+        elif g.born:
+            eid, q, cached = g.born
+            out[i] = (
+                f"CONSTRUCTOR RAN between e{g.a} and e{g.b}: e{eid} is {q} on "
+                f"this address, but this run defines {q.rsplit('.', 1)[0]}"
+                ".__new__, which hands back instances of this type -- "
+                "a caching __new__ re-runs __init__ on a LIVE object, so "
+                "the trace cannot say a new one was born here"
+                if cached else
+                f"NEW OBJECT between e{g.a} and e{g.b}: e{eid} is {q} on this "
+                "address -- an object was constructed there, so these are "
+                "different objects unless a constructor was re-run on a live "
+                "one (a caching __new__ or metaclass __call__ does that)")
         elif g.held:
             start = i
             while start > 0 and _witness(gs[start - 1]) == _witness(g):
@@ -418,7 +535,8 @@ def gap_lines(gs: list[Gap]) -> dict[int, str]:
 
 
 def continuity_line(gs: list[Gap]) -> str:
-    unwit = [g for g in gs if g.reuse is None and g.held is None]
+    unwit = [g for g in gs
+             if g.reuse is None and g.born is None and g.held is None]
     named = ", ".join(f"e{g.a}->e{g.b}" for g in unwit[:_MAX_NAMED_GAPS])
     extra = len(unwit) - _MAX_NAMED_GAPS
     if named:
@@ -428,6 +546,9 @@ def continuity_line(gs: list[Gap]) -> str:
     reused = sum(1 for g in gs if g.reuse)
     if reused:
         parts.append(f"{reused} crossed a proven address reuse")
+    born = sum(1 for g in gs if g.born)
+    if born:
+        parts.append(f"{born} crossed a recorded construction")
     return "continuity: " + ", ".join(parts)
 
 
@@ -633,7 +754,9 @@ def run(args) -> int:
     shown = scope[:args.limit]
     # Gaps are computed over EVERY sighting, then sliced to the page, so the
     # one crossing the page boundary is not lost with --after.
-    all_gaps = (gaps(found, bindings(idx, target), address_reuses(idx, target))
+    all_gaps = (gaps(found, bindings(idx, target), address_reuses(idx, target),
+                     constructions(trace, idx, target),
+                     caching_new(trace, idx, target))
                 if isinstance(target, ObjTarget) else [])
     counted, visible, lead = page_gaps(all_gaps, len(found) - len(scope),
                                        len(shown))

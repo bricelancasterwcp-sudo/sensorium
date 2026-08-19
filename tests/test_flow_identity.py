@@ -15,7 +15,8 @@ import shlex
 from sensorium import cli
 from sensorium.query import flow_cmd
 from tests.programs import (ALIAS, GRAMS, flow_rows, flow_shown_ids,
-                            interleaved_address, open_trace, record, synthetic)
+                            interleaved_address, obj_captures, open_trace,
+                            record, synthetic)
 
 # Two classes with the same instance layout, allocated and freed alternately.
 # Measured (three runs, identical): one address hosts Draft, Final, Draft,
@@ -131,6 +132,100 @@ if __name__ == "__main__":
 """
 
 
+# A plain loop, one object per pass. Measured identical across three runs: two
+# of the four Nodes land on ONE address. Same type throughout, so ADDRESS
+# REUSED is blind to it -- but `Node.__init__` runs on that address between the
+# two objects' sightings, and the trace records it.
+CTOR_REUSE = """
+class Node:
+    def __init__(self, v):
+        self.v = v
+
+def make(v):
+    return Node(v)
+
+def use(n):
+    return n.v
+
+def main():
+    for i in range(4):
+        use(make(i))
+
+if __name__ == "__main__":
+    main()
+"""
+
+# The counterexample to "re-running a constructor on a live object is
+# pathological". The textbook caching-__new__ singleton: `Config.__new__`
+# returns ONE address twice and `Config.__init__` then runs on that same LIVE
+# object twice, with `a is b` true. Reporting two objects here would be a
+# false split -- the mirror of the lineage the constructor signal catches.
+CACHING_NEW = """
+class Config:
+    _inst = None
+    def __new__(cls):
+        if cls._inst is None:
+            cls._inst = super().__new__(cls)
+        return cls._inst
+    def __init__(self):
+        self.n = 1
+
+def get():
+    return Config()
+
+def main():
+    a = get()
+    b = get()
+    print(a is b, a.n)
+
+if __name__ == "__main__":
+    main()
+"""
+
+# An existing object handed INTO a constructor. `data` is the second argument
+# of `Box.__init__`, not its receiver, so nothing was constructed at `data`'s
+# address and the lineage must not be split there.
+CTOR_ARG = """
+class Box:
+    def __init__(self, payload):
+        self.payload = payload
+
+def main():
+    data = {"n": 1}
+    box = Box(data)
+    print(box.payload["n"], data["n"])
+
+if __name__ == "__main__":
+    main()
+"""
+
+# The ranking case. `x` holds the address across the whole loop body, and its
+# capture never changes -- `repr(Node(...))` is just the address, so two Nodes
+# at one address are captured identically and no delta is ever emitted. The
+# binding therefore spans a gap in which a Node was demonstrably rebuilt.
+# Measured identical across three runs: one address hosts two of the four.
+CTOR_HIDDEN = """
+class Node:
+    def __init__(self, v):
+        self.v = v
+
+def make(v):
+    return Node(v)
+
+def use(n):
+    return n.v
+
+def main():
+    x = None
+    for i in range(4):
+        x = None; x = make(i)
+        use(x)
+
+if __name__ == "__main__":
+    main()
+"""
+
+
 # -- --object --------------------------------------------------------------
 def test_flow_object_shows_aliasing(tmp_path, monkeypatch, capsys):
     run_id = record(tmp_path, monkeypatch, ALIAS)
@@ -157,12 +252,12 @@ def test_flow_object_reveals_that_the_callers_config_changed(
     assert "[local prod]" in out and "[arg cfg]" in out
     assert "[local prod, local sand]" in out
     assert "'timeout': 1" in out and "'timeout': 30" in out
-    assert f"held by f{main_f.id} across e" in out
+    assert f"spanned by f{main_f.id} across e" in out
     assert "'prod' bound at e" in out
     # the claim is what the trace supports, not affirmative continuity
-    assert "no differing capture of 'prod' recorded since" in out
+    assert "no differing capture of 'prod' recorded through e" in out
     assert "no rebinding recorded" not in out
-    assert out.count("held by f") == 1, "one run of gaps is one fact, not six"
+    assert out.count("spanned by f") == 1, "one run of gaps is one fact"
     # only the hop from make_default's return into main's local is unwitnessed
     assert "continuity: 6 gap(s) spanned by a recorded binding, " \
         "1 unwitnessed" in out
@@ -200,7 +295,7 @@ def test_flow_object_never_claims_a_rebinding_would_have_been_recorded(
     assert cli.main(["flow", run_id, "--object", "build:return"]) == 0
     out = capsys.readouterr().out
     assert "no rebinding recorded" not in out, "it was not ruled out"
-    assert "no differing capture of 'x' recorded since" in out
+    assert "no differing capture of 'x' recorded through e10" in out
     # and the header says outright what such a line does not rule out
     assert "evidence, not proof" in out
     assert "equal content records no change at all" in out
@@ -294,6 +389,7 @@ def test_flow_object_page_two_accounts_for_the_gap_it_starts_after(
     rows = flow_rows(page2)
     assert [int(r.split()[0][1:]) for r in rows] == drafts[3:]
     assert "ADDRESS REUSED" in page2               # carried onto this page
+    assert page2.count("ADDRESS REUSED") == 1      # once, and attached once
     assert "1 crossed a proven address reuse" in page2   # and into its tally
     # ...announced above the first row it leads into, not after it
     body = page2.splitlines()
@@ -301,6 +397,156 @@ def test_flow_object_page_two_accounts_for_the_gap_it_starts_after(
     first_row = next(i for i, ln in enumerate(body)
                      if ln.strip().startswith(f"e{drafts[3]} "))
     assert reuse_at < first_row
+
+
+def test_flow_object_splits_where_a_constructor_ran_on_the_address(
+        tmp_path, monkeypatch, capsys):
+    """The same-type reuse that nothing else catches.
+
+    Two Nodes share one address, so `(oid, type)` cannot separate them and
+    ADDRESS REUSED never fires -- the type never changes. But `Node.__init__`
+    ran on that address between the two objects' sightings, and that is in the
+    trace. Without it the run reads as one continuous lineage with a
+    constructor sitting unremarked in the middle of it.
+    """
+    run_id = record(tmp_path, monkeypatch, CTOR_REUSE)
+    trace = open_trace(run_id)
+    at = {}
+    for eid, oid, typ in obj_captures(trace):
+        at.setdefault(oid, []).append(eid)
+    shared = [oid for oid, ids in at.items() if len(ids) > 3]
+    assert len(shared) == 1, f"this test needs two Nodes on one address: {at}"
+    sightings = at[shared[0]]
+    inits = [e.id for e in trace.events(kind="CALL")
+             if trace.code(e.code_id).qualname == "Node.__init__"
+             and e.payload["args"]["self"]["oid"] == shared[0]]
+    assert len(inits) == 2, "two constructions at one address is the shape"
+
+    assert cli.main(["flow", run_id, "--object", f"e{inits[0]}:self"]) == 0
+    out = capsys.readouterr().out
+    assert set(sightings) == flow_shown_ids(out)      # one apparent lineage...
+    # ...split exactly once, at the second construction and nowhere else. The
+    # first construction is the left end of the first gap, and a constructor
+    # there says only that the object already seen was built -- splitting on
+    # it would cut a real object's lineage in two.
+    assert out.count("NEW OBJECT") == 1
+    assert f"e{inits[1]} is Node.__init__ on this address" in out
+    assert "different objects" in out
+    assert "0 gap(s) spanned by a recorded binding" in out
+    assert "4 unwitnessed" in out          # the split gap is not one of them
+    assert "1 crossed a recorded construction" in out
+    body = out.splitlines()
+    split_at = next(i for i, ln in enumerate(body) if "NEW OBJECT" in ln)
+    born_at = next(i for i, ln in enumerate(body)
+                   if ln.strip().startswith(f"e{inits[1]} "))
+    assert split_at < born_at
+
+
+def test_flow_object_ranks_a_constructor_above_a_binding_that_spans_it(
+        tmp_path, monkeypatch, capsys):
+    """A binding that appears to span a construction is exactly the case in
+    which the binding is wrong.
+
+    `x` holds this address across the whole loop body and never changes
+    capture -- `repr` of an instance is just its address, so two Nodes at one
+    address are recorded identically and no delta is ever emitted. Reading
+    that as continuity is the round-1 hole; the constructor in the middle of
+    it is the evidence that settles the question, so it must out-rank the
+    binding and be counted as its own thing rather than as a spanned gap.
+    """
+    run_id = record(tmp_path, monkeypatch, CTOR_HIDDEN,
+                    extra=("--focus", "prog:main"))
+    trace = open_trace(run_id)
+    at = {}
+    for eid, oid, typ in obj_captures(trace):
+        at.setdefault(oid, []).append(eid)
+    shared = [oid for oid, ids in at.items() if len(ids) > 4]
+    assert len(shared) == 1, f"this test needs two Nodes on one address: {at}"
+    # the binding really is blind here: `x` is recorded once and never again
+    deltas = [e for e in trace.events(kind="LINE")
+              if (e.payload or {}).get("deltas", {}).get("x", {}).get("oid")
+              == shared[0]]
+    assert len(deltas) == 1, f"identical re-captures emit no delta: {deltas}"
+
+    assert cli.main(["flow", run_id, "--object",
+                     f"e{at[shared[0]][0]}:self"]) == 0
+    out = capsys.readouterr().out
+    assert "NEW OBJECT" in out and out.count("NEW OBJECT") == 1
+    assert "spanned by f" in out                    # the binding is still real
+    assert "3 gap(s) spanned by a recorded binding" in out   # but not that gap
+    assert "1 crossed a recorded construction" in out
+
+
+def test_flow_object_will_not_split_a_caching_new_that_reinits_a_live_object(
+        tmp_path, monkeypatch, capsys):
+    """The counterexample to treating a constructor as proof.
+
+    A caching `__new__` hands back a LIVE instance and Python re-runs
+    `__init__` on it, so `Config.__init__` runs twice on one address that
+    never held two objects -- the program itself prints `a is b` as True.
+    Asserting "different objects" here would be the same false claim, pointed
+    the other way, so the trace's own evidence of the idiom downgrades it.
+    """
+    run_id = record(tmp_path, monkeypatch, CACHING_NEW)
+    trace = open_trace(run_id)
+    news = [e for e in trace.events(kind="RETURN")
+            if e.code_id is not None
+            and trace.code(e.code_id).qualname == "Config.__new__"]
+    inits = [e for e in trace.events(kind="CALL")
+             if e.code_id is not None
+             and trace.code(e.code_id).qualname == "Config.__init__"]
+    assert len(news) == 2 and len(inits) == 2
+    one = {e.payload["value"]["oid"] for e in news}
+    assert one == {e.payload["args"]["self"]["oid"] for e in inits}
+    assert len(one) == 1, "the idiom needs one address throughout"
+
+    assert cli.main(["flow", run_id, "--object", "get:return"]) == 0
+    out = capsys.readouterr().out
+    assert "NEW OBJECT" not in out, "there is provably one object here"
+    assert "different objects" not in out
+    assert "CONSTRUCTOR RAN" in out                   # still surfaced...
+    assert "Config.__new__, which hands back instances of this type" in out
+    assert "the trace cannot say a new one was born here" in out
+    # both __init__ calls AND the second __new__ return are construction
+    # evidence: 3 of the 5 gaps, with only 2 left unaccounted for
+    assert "e13 is Config.__new__ on this address" in out
+    assert "2 unwitnessed" in out
+    assert "3 crossed a recorded construction" in out
+
+    # ...and the class object those same constructors were called *about* is
+    # at another address: neither signal may reach across to it
+    cls_call = next(e for e in trace.events(kind="CALL")
+                    if e.code_id is not None
+                    and trace.code(e.code_id).qualname == "Config.__new__")
+    assert cls_call.payload["args"]["cls"]["oid"] not in one
+    assert cli.main(["flow", run_id, "--object", f"e{cls_call.id}:cls"]) == 0
+    other = capsys.readouterr().out
+    assert "(type)" in other
+    assert "CONSTRUCTOR RAN" not in other and "NEW OBJECT" not in other
+
+
+def test_flow_object_does_not_split_on_a_constructor_argument(
+        tmp_path, monkeypatch, capsys):
+    """Only the RECEIVER is the object being constructed. `Box.__init__(self,
+    payload)` hands an existing dict into a constructor; reading that as
+    "payload was born here" splits one real object's lineage and asserts two
+    -- the mirror of the bug the signal exists to catch."""
+    run_id = record(tmp_path, monkeypatch, CTOR_ARG,
+                    extra=("--focus", "prog:main"))
+    trace = open_trace(run_id)
+    init = next(e for e in trace.events(kind="CALL")
+                if e.code_id is not None
+                and trace.code(e.code_id).qualname == "Box.__init__")
+    assert list(init.payload["args"]) == ["self", "payload"]
+    assert init.payload["args"]["payload"]["k"] == "map"   # the target...
+    assert init.payload["args"]["self"]["type"] == "Box"   # ...is not first
+
+    assert cli.main(["flow", run_id, "--object",
+                     f"e{init.id}:payload"]) == 0
+    out = capsys.readouterr().out
+    assert "NEW OBJECT" not in out and "CONSTRUCTOR RAN" not in out
+    assert "spanned by f" in out
+    assert "0 unwitnessed" in out
 
 
 def test_flow_object_hedges_a_gap_nothing_in_the_trace_holds(
@@ -394,7 +640,7 @@ def test_flow_object_witnesses_across_a_frame_that_unwound(
 
     assert cli.main(["flow", run_id, "--object", "blow:cfg"]) == 0
     out = capsys.readouterr().out
-    assert f"held by f{blow_f.id} across e" in out
+    assert f"spanned by f{blow_f.id} across e" in out
     assert "0 unwitnessed" in out
 
     # ...and that frame handed nothing back, so there is no return to follow
@@ -415,7 +661,7 @@ def test_flow_object_counts_a_local_as_held_through_its_own_return(
 
     assert cli.main(["flow", run_id, "--object", "build:return"]) == 0
     out = capsys.readouterr().out
-    assert f"held by f{build_f.id} across e" in out
+    assert f"spanned by f{build_f.id} across e" in out
     assert f"..e{build_f.return_event_id}:" in out       # through the RETURN
     assert "0 unwitnessed" in out
 
@@ -433,12 +679,13 @@ def test_flow_object_treats_a_frame_that_never_closed_as_open(
     # frames are flushed before events, so an unclean death can leave a frame
     # whose CALL row never landed: it must be stepped over, not crashed on
     w.open_frame(None, c, 9999, 0, 1)
+    w.add_event(0, 1, "CALL", None, None, 3, {"args": {}})   # no code object
     w.close()
 
     assert cli.main(["flow", "20260101-000000-abcdef", "--object",
                      f"e{first}:cfg"]) == 0
     out = capsys.readouterr().out
-    assert f"held by f{fid} across e{first}..e{last}" in out
+    assert f"spanned by f{fid} across e{first}..e{last}" in out
     assert "has no line capture" in out              # and says why it is weak
     assert "0 unwitnessed" in out
 
