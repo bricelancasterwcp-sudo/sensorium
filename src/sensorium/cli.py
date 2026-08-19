@@ -3,9 +3,9 @@ import argparse
 import sys
 
 from sensorium import paths
-from sensorium.query import info_cmd, runs_cmd
+from sensorium.query import frame_cmd, info_cmd, runs_cmd, tree_cmd
 
-_QUERY_MODULES = [runs_cmd, info_cmd]
+_QUERY_MODULES = [runs_cmd, info_cmd, tree_cmd, frame_cmd]
 
 
 def _add_run_parser(sub):
