@@ -496,6 +496,58 @@ def main():
 main()
 """
 
+# Re-raised through an inner frame, then genuinely caught by an OUTER traced
+# frame -- which afterwards dies of an unrelated exception. The inner frame
+# unwinds carrying the ValueError (a re-raise), but the exception did NOT
+# leave traced code: `caller` caught it. Its true fate is what the OUTERMOST
+# handler did, `caller`'s frame later unwinding with an unrelated KeyError, so
+# the honest verdict is the same "handled here, frame died of something else"
+# ambiguity as TRANSLATED -- never "propagated (handler not in traced code)",
+# which is contradicted by the HANDLED row in `caller`.
+RERAISE_CAUGHT_THEN_FRAME_DIES = """
+def reraiser():
+    try:
+        raise ValueError("inner")
+    except ValueError:
+        raise
+
+def caller():
+    try:
+        reraiser()
+    except ValueError:
+        pass
+    return {}["missing"]
+
+def main():
+    caller()
+
+main()
+"""
+
+# A user class that merely SHARES the name `StopIteration` with the builtin --
+# it is not the interpreter's iterator-protocol exception, it is an ordinary
+# error raised in ordinary code and caught. A name-based control-flow filter
+# drops it entirely (no RAISE, no HANDLED, no serial) and `exceptions` then
+# says "no exceptions recorded"; a type-based filter records and classifies it.
+SHADOWED_CONTROL_FLOW_NAME = """
+class StopIteration(Exception):
+    pass
+
+def scan(items):
+    for x in items:
+        if x < 0:
+            raise StopIteration("negative found")
+    return sum(items)
+
+def main():
+    try:
+        scan([1, 2, -3, 4])
+    except StopIteration:
+        print("caught my StopIteration")
+
+main()
+"""
+
 
 def record(tmp_path, monkeypatch, src, extra=(), files=()):
     for name, text in files:

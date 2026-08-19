@@ -465,32 +465,34 @@ def classify(trace, r, idx: Index) -> Disposition:
     if not pairs:
         return _no_handler_found(trace, idx)
 
-    # 4. Handled somewhere, but every such frame unwound. If one unwound
-    #    carrying this very exception, the HANDLED was cleanup and the
-    #    exception kept propagating past code we can see.
-    for h, frame in pairs:
-        if (frame is not None and frame.unwind_exc is not None
-                and exc_key(frame.unwind_exc,
-                            frame.thread_id) == key):
-            return _still_in_flight(trace, idx, h, frame)
-
-    # 5. ...or with something the recorder no longer links to this exception,
-    #    which can only be a lost link or a reused address.
+    # 4-6. No frame returned normally (rule 2 did not fire), so this exception
+    #      was not cleanly swallowed. A handler frame that unwound while still
+    #      carrying it only means it propagated PAST that frame -- not that it
+    #      left traced code. Handlers fire inner-to-outer as an exception
+    #      propagates, so its fate is decided by the OUTERMOST handler, the last
+    #      HANDLED in this window. Judging from the first unwinding frame would
+    #      report an intermediate re-raise as "propagated (handler not in traced
+    #      code)" even when an outer traced frame caught it (and then died of
+    #      something else) -- a verdict the trace's own later HANDLED contradicts.
+    framed = [(h, f) for h, f in pairs if f is not None]
+    if not framed:
+        return _unreadable_frame(trace, *pairs[0])
+    h, frame = framed[-1]
+    if frame.unwind_exc is None:
+        return _unreadable_frame(trace, h, frame)
+    # 4. The outermost handler frame unwound still carrying this exception: it
+    #    never stopped anywhere in code we can see.
+    if exc_key(frame.unwind_exc, frame.thread_id) == key:
+        return _still_in_flight(trace, idx, h, frame)
+    # 5. ...or with something the recorder no longer links to this exception --
+    #    a lost link or a reused address, not assertably a different object.
     #    Read as "some other exception", it would deny that this one left the
-    #    frame -- the same false claim rule 2 guards against, from the far
-    #    side. Ranked below rule 4 so a provable match always wins.
-    for h, frame in pairs:
-        if (frame is not None and frame.unwind_exc is not None
-                and could_be_same(r.payload["exc"], frame.unwind_exc)):
-            return _maybe_still_in_flight(trace, h, frame)
-
-    # 6. Handled, and the frame then died of something else. Translation and
-    #    "swallowed, then an unrelated failure" are indistinguishable here.
-    for h, frame in pairs:
-        if frame is not None and frame.unwind_exc is not None:
-            return _displaced(trace, h, frame)
-
-    return _unreadable_frame(trace, *pairs[0])
+    #    frame, the same false claim rule 2 guards against from the far side.
+    if could_be_same(r.payload["exc"], frame.unwind_exc):
+        return _maybe_still_in_flight(trace, h, frame)
+    # 6. ...or with something else: caught at this handler, and the frame then
+    #    died of an unrelated failure (or a translation -- indistinguishable).
+    return _displaced(trace, h, frame)
 
 
 def _header(trace, idx) -> None:

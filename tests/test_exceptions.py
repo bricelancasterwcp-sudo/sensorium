@@ -14,8 +14,9 @@ from sensorium.store.reader import Trace
 from tests.programs import (
     BARE_RERAISE, CLEAN, CRASH, EXPLICIT_RERAISE, EXPLICIT_RERAISE_ESCAPES,
     FINALLY_PASSTHROUGH, GENERATOR_HANDLES, LOOP_SAME_MESSAGE,
-    RAISE_CAUGHT_UNTRACED, RERAISE_CAUGHT_UNTRACED,
-    RETRY_LOOP_REUSED_ADDRESS, RETRY_THEN_RAISE_LAST, STASH_AND_RERAISE,
+    RAISE_CAUGHT_UNTRACED, RERAISE_CAUGHT_THEN_FRAME_DIES,
+    RERAISE_CAUGHT_UNTRACED, RETRY_LOOP_REUSED_ADDRESS, RETRY_THEN_RAISE_LAST,
+    SHADOWED_CONTROL_FLOW_NAME, STASH_AND_RERAISE,
     SWALLOW, SWALLOWING_LIB_SOURCE, SWALLOW_THEN_UNRELATED, THREADED_SWALLOWS,
     TRANSLATED, UNTRACED_HANDLER_REUSED_ADDRESS, UNTRACED_LIB,
     UNTRACED_LIB_SOURCE, exc_payload, record, synthetic)
@@ -100,6 +101,42 @@ def test_exceptions_translation_and_unrelated_failure_read_the_same(
         # the RuntimeError: genuinely swallowed by main's `except: pass`
         assert out.count("SWALLOWED") == 1
         assert "swallowed 1" in out
+
+
+def test_exceptions_reraise_caught_by_an_outer_frame_is_not_called_propagated(
+        tmp_path, monkeypatch, capsys):
+    """A bare re-raise that an OUTER traced frame catches must not be reported
+    as having left traced code just because the INNER frame it passed through
+    unwound carrying it. The catch is a HANDLED row the classifier already
+    holds; ignoring it prints a verdict its own trace contradicts."""
+    run_id = record(tmp_path, monkeypatch, RERAISE_CAUGHT_THEN_FRAME_DIES)
+    assert cli.main(["exceptions", run_id]) == 0
+    out = capsys.readouterr().out
+    # the bug: reported as propagated out of traced code, though `caller`
+    # caught it (and then died of an unrelated KeyError)
+    assert "propagated (handler not in traced code)" not in out
+    # the honest verdict: handled in caller, whose frame then unwound with the
+    # unrelated KeyError -- the same ambiguity TRANSLATED produces, one frame out
+    assert "unwound with KeyError" in out
+    assert "cannot say" in out
+    assert "caller L" in out                     # the traced frame that caught
+    assert "dispositions: uncaught 1, ambiguous 1" in out
+
+
+def test_exceptions_records_an_exception_that_only_shares_a_control_flow_name(
+        tmp_path, monkeypatch, capsys):
+    """The control-flow filter suppresses the interpreter's own StopIteration /
+    GeneratorExit, matched by TYPE. A user class that merely shares the name is
+    an ordinary exception and must be recorded and classified, not dropped into
+    a false `no exceptions recorded`."""
+    run_id = record(tmp_path, monkeypatch, SHADOWED_CONTROL_FLOW_NAME)
+    assert cli.main(["exceptions", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "no exceptions recorded" not in out
+    assert "StopIteration" in out                # the raise is on the record
+    # caught in main, which returns normally -- a genuine swallow
+    assert out.count("SWALLOWED") == 1
+    assert "swallowed 1" in out
 
 
 def test_exceptions_attributes_an_untraced_library_raise_to_its_caller(

@@ -73,15 +73,31 @@ import weakref
 from fnmatch import fnmatch
 from pathlib import Path
 
-from sensorium.record.capture import (capture_exc, capture_value, plain_str,
-                                      type_name)
+from sensorium.record.capture import capture_exc, capture_value, plain_str
 from sensorium.record.fingerprint import Fingerprint
 
 M = sys.monitoring
 TOOL = M.PROFILER_ID
 _SENSORIUM_DIR = str(Path(__file__).resolve().parent.parent)
 _GENLIKE = 0x20 | 0x80 | 0x200        # CO_GENERATOR|CO_COROUTINE|CO_ASYNC_GEN
-_CONTROL_FLOW_EXC = ("StopIteration", "StopAsyncIteration", "GeneratorExit")
+_CONTROL_FLOW_EXC = (StopIteration, StopAsyncIteration, GeneratorExit)
+
+
+def _is_control_flow(exc) -> bool:
+    """True for the interpreter's own iterator/generator control-flow
+    exceptions, matched by TYPE IDENTITY.
+
+    A NAME match dropped any exception whose class merely happened to be
+    called ``StopIteration`` -- a user class shadowing the builtin, unrelated
+    to the iterator protocol -- with no RAISE, no HANDLED and no serial, so a
+    real caught exception surfaced as ``no exceptions recorded``. ``type(exc)``
+    is a C-level ``Py_TYPE`` read that cannot run a dunder; ``is`` (not
+    ``in (...)``) because a hostile metaclass ``__eq__`` could raise inside a
+    membership test. When the type is anything else -- including one that lies
+    about its name -- the exception is RECORDED, never silently dropped.
+    """
+    t = type(exc)
+    return t is StopIteration or t is StopAsyncIteration or t is GeneratorExit
 
 
 def locals_snapshot(frame) -> dict | None:
@@ -423,7 +439,7 @@ class Tracer:
         different object does that.
         """
         tls = self._tls
-        if not tls.in_hook and type_name(exc) not in _CONTROL_FLOW_EXC:
+        if not tls.in_hook and not _is_control_flow(exc):
             tls.exc.last_exc = exc
         return None
 
@@ -433,16 +449,10 @@ class Tracer:
             return None
         # Control-flow exceptions are neither recorded nor allowed to disturb
         # in-flight state: a generator finishing during cleanup must not clear
-        # the real exception that is propagating.
-        #
-        # `type_name`, not `type(exc).__name__`: a metaclass property can make
-        # that attribute raise, and can make it return a live `str` SUBCLASS
-        # whose `__eq__` then runs inside this `in` test -- both of them the
-        # recorder killing the program from its own hook. `type_name` returns
-        # an exact `str` and cannot raise; when it cannot read the name it
-        # returns "?", which is not a control-flow name, so the exception is
-        # RECORDED rather than silently dropped.
-        if type_name(exc) in _CONTROL_FLOW_EXC:
+        # the real exception that is propagating. Matched by TYPE, not name, so
+        # a user class merely sharing a control-flow name is recorded rather
+        # than silently dropped; see `_is_control_flow`.
+        if _is_control_flow(exc):
             return None
         # In-flight bookkeeping runs whether or not this frame is traced --
         # handlers and cleanup blocks are frequently foreign code. Being in
