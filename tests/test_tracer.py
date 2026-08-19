@@ -1,7 +1,11 @@
 import sys
 import threading
+from pathlib import Path
 
-from sensorium.record.tracer import _RETAIN_MAX, _ExcRefs
+from sensorium.record.fingerprint import Fingerprint
+from sensorium.record.tracer import _RETAIN_MAX, _ExcRefs, FocusSpec, Tracer
+from sensorium.store.reader import Trace
+from sensorium.store.writer import TraceWriter
 from tests.helpers import installed_tracer, record_inproc
 
 ADD = """
@@ -630,3 +634,46 @@ def test_the_recorders_own_code_is_never_traced(tmp_path, monkeypatch):
 
     assert err is None
     assert t.events() == []          # every frame was the recorder's, by fiat
+
+
+def test_uninstall_survives_a_fingerprint_inserted_while_it_writes(tmp_path):
+    """A callback still in flight when events are turned off can insert a NEW
+    per-thread fingerprint as `uninstall` writes the fingerprints out. Iterating
+    the live `_fps` dict would raise `RuntimeError: dictionary changed size
+    during iteration` from inside `uninstall`, which runs in `run_target`'s
+    `finally` BEFORE the db is closed -- so the raise would leak the connection,
+    leave the trace `incomplete`, and never restore the interpreter's streams.
+    `uninstall` must read a snapshot under `_fp_lock`, as every other access to
+    `_fps` already does."""
+    tmp_path = Path(tmp_path)
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    writer = TraceWriter(tmp_path / "trace.db", batch=8)
+    tracer = Tracer(writer, root=tmp_path, focus=FocusSpec([]))
+    tracer.install()
+
+    def fp():
+        f = Fingerprint()
+        f.update("a.py", "worker", "CALL")
+        return f
+
+    tracer._fps[1001] = fp()          # as if two threads had each run one call
+    tracer._fps[1002] = fp()
+
+    # the first fingerprint write inserts a third entry, exactly as a still-live
+    # worker's first traced call would while uninstall is mid-loop
+    inserted = []
+    real = writer.write_fingerprint
+
+    def racing(tid, h, n):
+        if not inserted:
+            inserted.append(tid)
+            tracer._fps[1003] = fp()
+        return real(tid, h, n)
+
+    writer.write_fingerprint = racing
+
+    tracer.uninstall()                # must not raise
+    writer.close()
+
+    written = set(Trace.open(tmp_path / "trace.db").fingerprints())
+    assert {1001, 1002} <= written    # the threads present at the snapshot land

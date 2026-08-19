@@ -648,6 +648,10 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
                run_id=None, refocus_of=None):
     """Record one execution of `argv`. Returns (run_id, exit_status)."""
     run_id = run_id or paths.new_run_id()
+    if not paths.is_valid_run_id(run_id):
+        raise TargetError(
+            f"invalid run id {run_id!r}: a run id names one file in the trace "
+            "store, so it may not contain a path separator or '..'")
     target = resolve_target(list(argv))   # resolve before hooks: never traced
     # Resolved here, before the program can chdir underneath us.
     entry = (str(Path(argv[0]).resolve())

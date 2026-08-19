@@ -23,6 +23,21 @@ def new_run_id() -> str:
     return time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
 
 
+def is_valid_run_id(run_id: str) -> bool:
+    """Whether `run_id` names ONE file inside the trace store, and cannot
+    escape it.
+
+    A run id flows straight into `traces_dir() / f"{run_id}.db"`, whose parent
+    is created with `parents=True`, so a caller-supplied `--run-id` of `../x`,
+    `a/b` or `/tmp/x` would create directories and write a trace outside the
+    store. Ids the tool mints itself (`new_run_id`) always pass; this guards the
+    one place an id comes from outside. A valid id is a single path component:
+    non-empty, not `.`/`..`, and equal to its own basename (no separators).
+    """
+    return (isinstance(run_id, str) and run_id not in ("", ".", "..")
+            and run_id == Path(run_id).name)
+
+
 def find_trace(ref: str) -> Path:
     files = sorted(traces_dir().glob("*.db"))
     if not files:

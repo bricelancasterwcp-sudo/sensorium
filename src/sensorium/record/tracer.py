@@ -314,6 +314,14 @@ class Tracer:
         return (True, rel, code.co_qualname, focused, frameless)
 
     def _fp(self, tid: int) -> Fingerprint:
+        # Keyed by `threading.get_ident()`, the same identity events and frames
+        # carry (see `boot.main_thread_ident`). That id is reused once a thread
+        # ends, so two short-lived threads that run back-to-back share one
+        # fingerprint here -- a known, accepted limitation: their events already
+        # share the id everywhere else, so no downstream key could tell them
+        # apart either. It surfaces only as a fingerprint COUNT that depends on
+        # scheduling; a program that keeps its workers concurrent (as any real
+        # thread-pool does) never hits it.
         with self._fp_lock:
             fp = self._fps.get(tid)
             if fp is None:
@@ -629,5 +637,15 @@ class Tracer:
                    E.RERAISE, E.EXCEPTION_HANDLED, E.LINE):
             M.register_callback(TOOL, ev, None)
         M.free_tool_id(TOOL)
-        for tid, fp in self._fps.items():
+        # Snapshot under the lock, as every other access to `_fps` does. Events
+        # are off, but a callback already dispatched on another thread can still
+        # be mid-flight and reach `_fp` to insert its first entry -- iterating
+        # the live dict here would raise `dictionary changed size during
+        # iteration` out of `run_target`'s `finally`, before `w.close()`,
+        # leaking the connection and leaving the trace `incomplete`. A thread
+        # that inserts after this snapshot was still alive when recording
+        # stopped, and is already reported as such (`_recording_gaps`).
+        with self._fp_lock:
+            fps = list(self._fps.items())
+        for tid, fp in fps:
             self.writer.write_fingerprint(tid, fp.hexdigest(), fp.count)

@@ -427,6 +427,28 @@ def test_missing_script_is_clear_error(tmp_path):
     assert r.returncode == 2 and "cannot resolve" in r.stderr
 
 
+def test_run_id_may_not_escape_the_trace_store(tmp_path):
+    """`--run-id` flows straight into `traces_dir() / f"{run_id}.db"`, whose
+    parent is created with `parents=True`, so a `..` or `/` would write a trace
+    outside the store. It must be refused, cleanly, and write nothing."""
+    (tmp_path / "prog.py").write_text("print('hi')\n")
+    r = run_cli(["run", "--run-id", "../../pwned", "--", "prog.py"],
+                cwd=tmp_path, sensorium_dir=tmp_path / "sdir")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "invalid run id" in r.stderr
+    assert "Traceback" not in r.stderr           # a clean refusal, not a crash
+    # nothing was created anywhere the id tried to reach
+    assert not (tmp_path.parent / "pwned.db").exists()
+    assert not list(tmp_path.rglob("pwned.db"))
+
+
+def test_run_id_rejects_an_absolute_path(tmp_path):
+    (tmp_path / "prog.py").write_text("print('hi')\n")
+    r = run_cli(["run", "--run-id", "/tmp/pwned", "--", "prog.py"],
+                cwd=tmp_path, sensorium_dir=tmp_path / "sdir")
+    assert r.returncode == 2 and "invalid run id" in r.stderr
+
+
 def test_no_target_prints_usage(tmp_path):
     r = run_cli(["run"], cwd=tmp_path, sensorium_dir=tmp_path / "s")
     assert r.returncode == 2 and "usage: sensorium run" in r.stderr

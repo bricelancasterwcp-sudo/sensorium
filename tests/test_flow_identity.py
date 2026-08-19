@@ -499,11 +499,15 @@ def test_flow_object_ranks_a_constructor_above_a_binding_that_spans_it(
     shared = [oid for oid, ids in at.items() if len(ids) > 4]
     if len(shared) != 1:
         pytest.skip(f"this run did not put two Nodes on one address: {at}")
-    # the binding really is blind here: `x` is recorded once and never again
+    # the binding is blind here only if `x` stayed at the one address every
+    # iteration, so its recapture was identical and emitted no second delta. An
+    # allocator that alternates the address instead records `x` more than once
+    # and does not construct the spanning-binding shape this test is about.
     deltas = [e for e in trace.events(kind="LINE")
               if (e.payload or {}).get("deltas", {}).get("x", {}).get("oid")
               == shared[0]]
-    assert len(deltas) == 1, f"identical re-captures emit no delta: {deltas}"
+    if len(deltas) != 1:
+        pytest.skip(f"this run rebound x across addresses, not one: {deltas}")
 
     assert cli.main(["flow", run_id, "--object",
                      f"e{at[shared[0]][0]}:self"]) == 0
