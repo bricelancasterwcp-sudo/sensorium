@@ -40,15 +40,76 @@ def _guarded(read, unread: list, name: str):
         return None
 
 
-def _type_name(obj) -> str:
-    """`type(obj).__name__` -- which a metaclass property can make raise."""
+def plain_str(s):
+    """`s` as an EXACT `str`; `s` unchanged if it is not a `str` at all.
+
+    A `str` subclass instance in a payload is a live object with live
+    dunders, and a payload outlives every guard in this module: `_on_line`
+    compares captures with `!=` (running `__eq__`) and `writer.add_event`
+    json-encodes them with `default=repr` (running `__repr__`), both on the
+    recorder's own thread and both outside anything here. Measured at
+    6649bf0, on programs that run clean standalone: a `str` subclass with a
+    raising `__eq__` killed the traced program at `tracer.py:467`, and one
+    whose `__len__` overshot the cap while its `__getitem__` returned an
+    object with a raising `__repr__` killed it inside `json.dumps` -- the
+    latter in DEFAULT mode, through ordinary argument capture.
+
+    `str.__str__` rather than `str(s)`: `str()` honours a `__str__`
+    override, which can hand back another subclass instance (measured:
+    `str(ES("abc"))` returned an `ES`), while the unbound base slot reads
+    the underlying buffer and cannot be intercepted -- it also returns the
+    TRUE characters rather than whatever the override claims. Total by
+    construction: it can neither raise nor return a subclass.
+    """
+    if type(s) is str:
+        return s
     try:
-        return type(obj).__name__
+        out = str.__str__(s)
+    except BaseException:
+        return s
+    return out if type(out) is str else s
+
+
+def plain_num(n):
+    """An `int`/`float` subclass as its exact base type; `n` unchanged else.
+
+    Same hazard and same reasoning as `plain_str` -- `{"k": "num", "v": obj}`
+    embedded the live object -- with one addition: `int()` and `float()`
+    honour `__int__`/`__float__`, which can both LIE about the value and hand
+    back another subclass instance (measured: `int(EI(7))` returned 99). The
+    unbound base slots read the underlying value.
+    """
+    t = type(n)
+    if t is int or t is float or t is bool:
+        return n
+    try:
+        out = int.__int__(n) if isinstance(n, int) else float.__float__(n)
+    except BaseException:
+        return n
+    return out if type(out) in (int, float) else n
+
+
+def type_name(obj) -> str:
+    """`type(obj).__name__` -- which a metaclass property can make raise,
+    and which it can also make return a live `str` subclass instance."""
+    try:
+        return plain_str(type(obj).__name__)
     except BaseException:
         return "?"
 
 
 def _trunc_str(s: str, cap: int) -> tuple[str, bool]:
+    """Clip a string to `cap`, and NORMALISE it on the way through.
+
+    The single funnel every string in a payload passes: the `str` branch of
+    `_capture`, `_capture_obj`'s repr, and `capture_exc`'s message. `repr()`
+    and `str()` are both free to return a `str` SUBCLASS, so normalising
+    here rather than at each call site is what makes "no payload holds a
+    live object" a property of the module instead of a habit -- and it also
+    means `len(s)` and `s[:cap]` below run against a plain string rather
+    than against the observed program's `__len__` and `__getitem__`.
+    """
+    s = plain_str(s)
     if len(s) <= cap:
         return s, False
     capture_stats["truncated"] += 1
@@ -68,7 +129,7 @@ def capture_value(obj, depth: int = 0) -> dict:
         return _capture(obj, depth)
     except BaseException:
         capture_stats["truncated"] += 1
-        return {"k": "unread", "type": _type_name(obj), "oid": id(obj),
+        return {"k": "unread", "type": type_name(obj), "oid": id(obj),
                 "unread": ["value"]}
 
 
@@ -76,9 +137,9 @@ def _capture(obj, depth: int) -> dict:
     if obj is None:
         return {"k": "none"}
     if isinstance(obj, bool):
-        return {"k": "bool", "v": obj}
+        return {"k": "bool", "v": obj}     # `bool` cannot be subclassed
     if isinstance(obj, (int, float)):
-        return {"k": "num", "v": obj}
+        return {"k": "num", "v": plain_num(obj)}
     if isinstance(obj, str):
         s, t = _trunc_str(obj, CAPS["str"])
         out = {"k": "str", "v": s}
@@ -109,7 +170,7 @@ def _capture_sized(obj, depth, kind, sampler) -> dict:
     """
     unread: list = []
     n = _guarded(lambda: len(obj), unread, "len")
-    out = {"k": kind, "type": _type_name(obj), "len": n, "oid": id(obj)}
+    out = {"k": kind, "type": type_name(obj), "len": n, "oid": id(obj)}
     if depth >= CAPS["depth"]:
         out["trunc"] = True
         capture_stats["truncated"] += 1
@@ -127,11 +188,11 @@ def _capture_sized(obj, depth, kind, sampler) -> dict:
 
 
 def _capture_obj(obj) -> dict:
-    out = {"k": "obj", "type": _type_name(obj), "oid": id(obj)}
+    out = {"k": "obj", "type": type_name(obj), "oid": id(obj)}
     try:
         r = repr(obj)
     except BaseException:
-        r = f"<{_type_name(obj)} repr-raised>"
+        r = f"<{type_name(obj)} repr-raised>"
         out["trunc"] = True
         out["unread"] = ["repr"]
         capture_stats["truncated"] += 1
@@ -157,9 +218,13 @@ def capture_exc(exc: BaseException, serial: int | None = None) -> dict:
     exactly that, never as an exception with an empty message.
     """
     unread: list = []
-    text = _guarded(lambda: str(exc), unread, "msg")
-    msg = "" if text is None else _trunc_str(text, CAPS["str"])[0]
-    out = {"type": _type_name(exc), "msg": msg, "oid": id(exc)}
+    # The clip is INSIDE the guard: `str(exc)` may return a `str` subclass,
+    # and normalising one runs no user code but reading a hostile `__len__`
+    # would -- see `_trunc_str`. `capture_exc` is its own entry point, with
+    # no outer guard above it, so nothing here may raise.
+    msg = _guarded(lambda: _trunc_str(str(exc), CAPS["str"])[0], unread, "msg")
+    out = {"type": type_name(exc), "msg": "" if msg is None else msg,
+           "oid": id(exc)}
     if unread:
         out["unread"] = unread
     if serial is not None:

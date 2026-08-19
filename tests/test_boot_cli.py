@@ -588,3 +588,53 @@ def test_cli_refuses_a_python_that_predates_sys_monitoring(
     err = capsys.readouterr().err
     assert "3.12+" in err
     assert sys.version.split()[0] in err        # the version it actually got
+
+
+# -- contract: nothing the recorder STORES may be a live object. `_Tee.write`
+# takes whatever the program passed to `sys.stdout.write`, which may be a
+# `str` subclass: `if s:` ran its `__bool__`/`__len__` from inside the
+# program's own call, and the instance was then held in the writer's buffer
+# until the next flush and bound into sqlite from there.
+class _HostileStr(str):
+    def __len__(self):
+        raise ValueError("INJECTED-len")
+
+    def __bool__(self):
+        raise ValueError("INJECTED-bool")
+
+
+class _CountingSink:
+    def __init__(self) -> None:
+        self.wrote = []
+
+    def write(self, s):
+        self.wrote.append(str.__str__(s))
+        return 4
+
+
+class _RecordingWriter:
+    last_event_id = 0
+
+    def __init__(self) -> None:
+        self.rows = []
+
+    def add_output(self, after_event_id, stream, data) -> None:
+        self.rows.append(data)
+
+
+def test_tee_stores_an_exact_str_and_never_the_program_s_own_object():
+    sink, writer = _CountingSink(), _RecordingWriter()
+    tee = boot._Tee(sink, "stdout", writer)
+
+    assert tee.write(_HostileStr("out\n")) == 4     # no dunder escaped
+    assert sink.wrote == ["out\n"]                  # the real stream still got it
+    assert writer.rows == ["out\n"]
+    assert type(writer.rows[0]) is str
+
+
+def test_tee_still_skips_an_empty_write():
+    """The emptiness test survives normalisation: an empty write is not a
+    row, or every `print()` would store a spurious blank."""
+    sink, writer = _CountingSink(), _RecordingWriter()
+    boot._Tee(sink, "stdout", writer).write("")
+    assert writer.rows == []

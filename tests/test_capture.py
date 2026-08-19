@@ -2,7 +2,8 @@ import re
 
 from sensorium import cli
 from sensorium.record.capture import CAPS, capture_exc, capture_stats, capture_value
-from tests.helpers import record_script
+from sensorium.store.writer import TraceWriter
+from tests.helpers import record_inproc, record_script
 
 
 def test_primitives_stored_natively():
@@ -172,6 +173,110 @@ def test_hostile_type_name_cannot_escape_capture():
     assert v["k"] == "obj" and v["type"] == "?"
 
 
+# -- a capture must never EMBED a live object ------------------------------
+#
+# Guarding the reads is not enough on its own: a capture that holds a `str`,
+# `int` or `float` SUBCLASS instance has smuggled the observed program's
+# dunders past every guard here, into a payload that outlives them. Two
+# consumers then run that code on the recorder's own thread -- `_on_line`'s
+# `prev.get(name) != cap` and `writer.add_event`'s json encoding -- with no
+# guard at either site.
+class _LiveStr(str):
+    """Refuses every comparison, so an embedded instance shows up loudly."""
+    def __eq__(self, other):
+        raise ValueError("EMBEDDED-eq")
+
+    def __ne__(self, other):
+        raise ValueError("EMBEDDED-ne")
+
+    def __hash__(self):
+        return 0
+
+
+def test_a_str_subclass_is_captured_as_its_exact_base_type():
+    class Lying(_LiveStr):
+        def __str__(self):
+            return _LiveStr("not the real characters")
+    v = capture_value(Lying("abc"))
+    assert type(v["v"]) is str          # not the subclass...
+    assert v["v"] == "abc"              # ...and the TRUE characters
+
+
+def test_int_and_float_subclasses_are_captured_as_their_base_types():
+    """`int()`/`float()` honour `__int__`/`__float__`, which can both lie
+    about the value and hand back another subclass instance. The unbound
+    base slots cannot be intercepted."""
+    class LyingInt(int):
+        def __int__(self):
+            return LyingInt(99)
+
+    class LyingFloat(float):
+        def __float__(self):
+            return LyingFloat(9.9)
+    i = capture_value(LyingInt(7))
+    assert type(i["v"]) is int and i["v"] == 7
+    f = capture_value(LyingFloat(1.5))
+    assert type(f["v"]) is float and f["v"] == 1.5
+
+
+def test_a_repr_returning_a_str_subclass_is_normalised():
+    """`repr()` is free to return a subclass instance, so guarding the CALL
+    to `__repr__` does not stop one reaching the payload."""
+    class Sneaky:
+        def __repr__(self):
+            return _LiveStr("<Sneaky>")
+    v = capture_value(Sneaky())
+    assert type(v["repr"]) is str and v["repr"] == "<Sneaky>"
+
+
+def test_an_exception_message_that_is_a_str_subclass_is_normalised():
+    class Odd(Exception):
+        def __str__(self):
+            return _LiveStr("odd")
+    cap = capture_exc(Odd())
+    assert type(cap["msg"]) is str and cap["msg"] == "odd"
+
+
+def test_a_type_name_that_is_a_str_subclass_is_normalised():
+    class Meta(type):
+        @property
+        def __name__(cls):
+            return _LiveStr("Named")
+
+    class Odd(metaclass=Meta):
+        pass
+    v = capture_value(Odd())
+    assert type(v["type"]) is str and v["type"] == "Named"
+
+
+def assert_plain(node) -> None:
+    """Nothing in this tree may be an instance of a type the program defined.
+
+    The invariant the normalisation buys, checkable at any depth: keys are
+    exact `str`, leaves are exact `str`/`int`/`float`/`bool`/`None`. A
+    subclass instance anywhere here is a live object with live dunders that
+    the recorder will later compare and json-encode, outside every guard.
+    """
+    if type(node) is dict:
+        for k, v in node.items():
+            assert type(k) is str, (k, type(k))
+            assert_plain(v)
+    elif type(node) is list:
+        for x in node:
+            assert_plain(x)
+    else:
+        assert type(node) in (str, int, float, bool, type(None)), \
+            (node, type(node))
+
+
+def test_a_capture_holds_no_live_object_anywhere_in_its_tree():
+    """The property, over a nested container rather than one value."""
+    class LiveInt(int):
+        pass
+    assert_plain(capture_value({_LiveStr("k"): [LiveInt(3),
+                                                (_LiveStr("deep"),)]}))
+
+
 # -- end to end: the recorder must not create the bug it then reports ------
 HOSTILE = """
 class Evil(list):
@@ -236,3 +341,211 @@ def test_a_hostile_program_still_runs_to_completion_under_recording(
     # And the one real exception says what it could not read, rather than
     # reporting a Rude() raised with no message.
     assert "Rude(<message unreadable: __str__ raised>)" in out
+
+
+# -- the three delayed injections: a live object smuggled into a payload ---
+#
+# Each of these programs runs clean standalone and, before the normalisation,
+# died at exit 1 under `sensorium run` with the recorder's OWN exception
+# reported as the program's uncaught bug at the program's own line.
+
+# 1. `_on_line`'s `prev.get(name) != cap`. The capture EMBEDDED the instance,
+#    dict comparison's identity shortcut hid it while one instance persisted,
+#    and rebinding the name to a second instance ran `__eq__`. Needs --focus,
+#    because LINE events are what compare captures.
+HOSTILE_EQ = """
+class EvilStr(str):
+    def __eq__(self, other):
+        raise ValueError("INJECTED-eq")
+    def __hash__(self):
+        return 0
+
+def churn():
+    x = EvilStr("a")
+    x = EvilStr("b")
+    return "ok"
+
+def main():
+    print("churn", churn())
+
+main()
+"""
+
+# 2. `writer.add_event`'s `json.dumps(..., default=repr)`. Reachable in
+#    DEFAULT mode with no --focus at all, because it rides ordinary CALL
+#    argument capture -- strictly broader than the first.
+HOSTILE_SERIALISE = """
+class Payload:
+    def __repr__(self):
+        raise ValueError("INJECTED-repr")
+
+class SneakyStr(str):
+    def __len__(self):
+        return 10000                 # forces the clip...
+    def __getitem__(self, k):
+        return Payload()             # ...which then returns THIS
+
+def take(s):
+    return "ok"
+
+def main():
+    print("take", take(SneakyStr("abc")))
+
+main()
+"""
+
+# 3. Found by the sweep, reported by nobody: `_Tee.write`'s `if s:` ran the
+#    program's `__bool__`/`__len__` from inside its own `sys.stdout.write`,
+#    and the instance was then held in the writer's buffer and bound into
+#    sqlite from there.
+HOSTILE_STREAM = """
+import sys
+
+class BoomLen(str):
+    def __len__(self):
+        raise ValueError("INJECTED-len")
+
+def emit():
+    sys.stdout.write(BoomLen("out\\n"))
+    return "ok"
+
+def main():
+    print("emit", emit())
+
+main()
+"""
+
+
+def _runs_clean(tmp_path, monkeypatch, capsys, src, expect, extra=()):
+    """Record `src`, assert it completed, and that `exceptions` reports
+    nothing the recorder injected."""
+    run_id, _trace, r = record_script(tmp_path, src, extra=extra)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert expect in r.stdout, r.stdout
+    assert "INJECTED" not in r.stderr, r.stderr
+
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["exceptions", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "INJECTED" not in out, out
+    assert not re.search(r"^uncaught:", out, re.M), out
+    return run_id, out
+
+
+def test_a_rebound_hostile_eq_does_not_reach_the_delta_comparison(
+        tmp_path, monkeypatch, capsys):
+    run_id, _out = _runs_clean(tmp_path, monkeypatch, capsys, HOSTILE_EQ,
+                               "churn ok", extra=("--focus", "prog:churn"))
+    # The deltas were still recorded, with the TRUE characters: the fix
+    # normalises the capture, it does not stop capturing.
+    assert cli.main(["grep", run_id, "churn"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert any(ln.endswith("x='a'") for ln in lines), lines
+    assert any(ln.endswith("x='b'") for ln in lines), lines
+
+
+def test_a_hostile_getitem_does_not_reach_the_payload_encoder(
+        tmp_path, monkeypatch, capsys):
+    """Default mode: no --focus, so this rides CALL argument capture."""
+    run_id, _out = _runs_clean(tmp_path, monkeypatch, capsys,
+                               HOSTILE_SERIALISE, "take ok")
+    # ...and what was recorded is the string's TRUE characters, not the
+    # 10000 its __len__ claimed nor what its __getitem__ handed back.
+    assert cli.main(["grep", run_id, "take"]) == 0
+    assert "take(s='abc')" in capsys.readouterr().out
+
+
+def test_a_hostile_len_on_a_written_string_does_not_reach_the_tee(
+        tmp_path, monkeypatch, capsys):
+    _runs_clean(tmp_path, monkeypatch, capsys, HOSTILE_STREAM, "emit ok")
+
+
+# -- the invariant, over a REAL recording ----------------------------------
+LIVE_OBJECTS = """
+class S(str):
+    def __eq__(self, other): raise ValueError("INJECTED-eq")
+    def __ne__(self, other): raise ValueError("INJECTED-ne")
+    def __hash__(self): return 0
+
+class N(int):
+    def __int__(self): return N(999)
+
+class F(float):
+    def __repr__(self): raise ValueError("INJECTED-repr")
+
+class Odd(Exception):
+    def __str__(self): return S("odd")
+
+def handle(tag, size, ratio, bag):
+    label = tag
+    label = S("second")
+    total = size
+    try:
+        raise Odd()
+    except Odd:
+        pass
+    return {"tag": label, "n": total}
+
+def main():
+    return handle(S("first"), N(3), F(1.5), [S("in"), N(4), {S("k"): F(2.5)}])
+"""
+
+
+def test_no_recorded_payload_holds_a_live_object(tmp_path, monkeypatch):
+    """End to end, structurally. Every payload the recorder hands the writer
+    is walked, over a real recording of a program whose every value is a
+    hostile subclass -- arguments, a return value, per-line deltas and an
+    exception message all at once. This is the invariant `_on_line`'s
+    comparison and `add_event`'s json encoding both silently depend on.
+    """
+    seen = []
+    real = TraceWriter.add_event
+
+    def spy(self, ts, tid, kind, fid, cid, line, payload):
+        seen.append(payload)
+        return real(self, ts, tid, kind, fid, cid, line, payload)
+
+    monkeypatch.setattr(TraceWriter, "add_event", spy)
+    _trace, err = record_inproc(tmp_path, LIVE_OBJECTS, focus=("prog",))
+
+    assert err is None, err
+    kinds = {p and tuple(sorted(p))[0] for p in seen}
+    assert len(seen) > 6, seen                 # args, deltas, exc, return
+    assert {"args", "deltas", "exc", "value"} & kinds, kinds
+    for payload in seen:
+        assert_plain(payload)
+
+
+# 4. `_exc_event`'s `type(exc).__name__ in _CONTROL_FLOW_EXC`. A metaclass
+#    property makes that attribute raise, from a hook, on every RAISE.
+HOSTILE_EXC_NAME = """
+class Meta(type):
+    @property
+    def __name__(cls):
+        raise ValueError("INJECTED-name")
+
+class Nameless(Exception, metaclass=Meta):
+    pass
+
+def risky():
+    try:
+        raise Nameless()
+    except Nameless:
+        return "handled"
+
+def main():
+    print("risky", risky())
+
+main()
+"""
+
+
+def test_a_hostile_exception_type_name_does_not_reach_the_hook(
+        tmp_path, monkeypatch, capsys):
+    """`_exc_event` reads the exception's type name on every RAISE to skip
+    control-flow exceptions. It goes through `type_name`, which cannot raise
+    and returns an exact `str`; "?" is not a control-flow name, so the
+    exception is still RECORDED rather than silently dropped."""
+    _run_id, out = _runs_clean(tmp_path, monkeypatch, capsys,
+                               HOSTILE_EXC_NAME, "risky handled")
+    assert _line(out, "dispositions:") == "dispositions: swallowed 1"

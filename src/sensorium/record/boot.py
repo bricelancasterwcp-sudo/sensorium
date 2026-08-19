@@ -116,8 +116,17 @@ class _Tee:
 
     def write(self, s):
         n = self._orig.write(s)
-        if s:
-            self._writer.add_output(self._writer.last_event_id, self._name, s)
+        # Normalise BEFORE testing or storing. `s` is whatever the program
+        # passed to `print`, which may be a `str` subclass with live dunders:
+        # `if s:` ran its `__bool__`/`__len__` from inside the program's own
+        # call, the instance was then held in the writer's buffer until the
+        # next flush, and bound into sqlite from there. An exception out of
+        # any of that is the recorder killing the program it observes, at the
+        # program's own line. Found by the sweep for item 7, not reported.
+        text = capture.plain_str(s)
+        if text:
+            self._writer.add_output(self._writer.last_event_id, self._name,
+                                    text)
         return n
 
     def writelines(self, lines) -> None:
@@ -411,7 +420,11 @@ def _as_text(arg) -> str:
     """
     if isinstance(arg, bytes):
         return arg.decode("utf-8", "replace")
-    return str(arg)
+    # `str()` honours a `__str__` override and can hand back a `str` SUBCLASS
+    # (measured), which would put a live object into `children` and keep it
+    # alive in run metadata until the finalizer. Same normalisation as every
+    # other payload; found by the item-7 sweep.
+    return capture.plain_str(str(arg))
 
 
 def _arm_audit(sink: list, threads: list, errors: list,

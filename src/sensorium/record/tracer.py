@@ -73,7 +73,7 @@ import weakref
 from fnmatch import fnmatch
 from pathlib import Path
 
-from sensorium.record.capture import capture_exc, capture_value
+from sensorium.record.capture import capture_exc, capture_value, type_name
 from sensorium.record.fingerprint import Fingerprint
 
 M = sys.monitoring
@@ -374,7 +374,7 @@ class Tracer:
         different object does that.
         """
         tls = self._tls
-        if not tls.in_hook and type(exc).__name__ not in _CONTROL_FLOW_EXC:
+        if not tls.in_hook and type_name(exc) not in _CONTROL_FLOW_EXC:
             tls.exc.last_exc = exc
         return None
 
@@ -385,7 +385,15 @@ class Tracer:
         # Control-flow exceptions are neither recorded nor allowed to disturb
         # in-flight state: a generator finishing during cleanup must not clear
         # the real exception that is propagating.
-        if type(exc).__name__ in _CONTROL_FLOW_EXC:
+        #
+        # `type_name`, not `type(exc).__name__`: a metaclass property can make
+        # that attribute raise, and can make it return a live `str` SUBCLASS
+        # whose `__eq__` then runs inside this `in` test -- both of them the
+        # recorder killing the program from its own hook. `type_name` returns
+        # an exact `str` and cannot raise; when it cannot read the name it
+        # returns "?", which is not a control-flow name, so the exception is
+        # RECORDED rather than silently dropped.
+        if type_name(exc) in _CONTROL_FLOW_EXC:
             return None
         # In-flight bookkeeping runs whether or not this frame is traced --
         # handlers and cleanup blocks are frequently foreign code. Being in
@@ -464,7 +472,16 @@ class Tracer:
             for name, val in frame.f_locals.items():
                 cap = capture_value(val)
                 cur[name] = cap
-                if prev.get(name) != cap:   # compare captures, not live objects
+                # Captures, never live objects -- and that is true only
+                # because `capture_value` normalises `str`/`int`/`float`
+                # SUBCLASSES to their base types. Until it did, a capture
+                # EMBEDDED the instance (`_trunc_str` returned it unchanged
+                # under the cap; `{"k": "num", "v": obj}` held it), dict
+                # comparison's identity shortcut hid it while the same
+                # instance persisted, and rebinding the name to a second
+                # instance ran the program's `__eq__` right here -- outside
+                # every guard, killing a program that runs clean standalone.
+                if prev.get(name) != cap:
                     deltas[name] = cap
             gone = prev.keys() - cur.keys()
             entry[3] = cur
