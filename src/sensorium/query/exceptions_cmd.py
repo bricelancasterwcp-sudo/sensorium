@@ -103,9 +103,22 @@ def add_parser(sub) -> None:
     p.set_defaults(func=run)
 
 
-def exc_key(exc: dict) -> tuple:
-    """Identity of one exception object; see the module docstring."""
-    return (exc["type"], exc["msg"], exc["oid"])
+def exc_key(exc: dict, thread_id=None) -> tuple:
+    """Identity of one exception object.
+
+    `serial` is exact: the recorder mints it while holding a strong reference
+    to the object, so two distinct exceptions can never share one. It is
+    per-thread, hence the thread in the key.
+
+    `oid` is `id(exc)` and is NOT an identity -- CPython recycles addresses,
+    measurably so in a plain retry loop. Traces recorded before serials
+    existed fall back to it, and every verdict that would depend on the
+    difference is hedged and labelled rather than asserted.
+    """
+    s = exc.get("serial")
+    if s is not None:
+        return ("serial", thread_id, s)
+    return ("legacy", exc["type"], exc["msg"], exc["oid"])
 
 
 @dataclass(frozen=True)
@@ -126,26 +139,34 @@ class Index:
     uncaught_origin: object | None
     exit_status: object
     incomplete: bool
+    exact: bool                 # every RAISE carries a recorder serial
 
     @classmethod
     def build(cls, trace, meta: dict) -> "Index":
         all_raises = [e for e in trace.events(kind="RAISE")
                       if (e.payload or {}).get("exc")]
+        exact = all("serial" in e.payload["exc"] for e in all_raises)
         raises: dict = {}
         for r in all_raises:
-            raises.setdefault(exc_key(r.payload["exc"]), []).append(r)
+            raises.setdefault(
+                exc_key(r.payload["exc"], r.thread_id), []).append(r)
         handled: dict = {}
         for h in trace.events(kind="HANDLED"):
             exc = (h.payload or {}).get("exc")
             if exc:
-                handled.setdefault(exc_key(exc), []).append(h)
+                handled.setdefault(
+                    exc_key(exc, h.thread_id), []).append(h)
         unc = meta.get("uncaught") or None
-        ukey = exc_key(unc) if unc else None
+        # `boot` captures the uncaught record on the main thread, which is the
+        # only thread whose exceptions can escape `target()`.
+        ukey = exc_key(unc, trace.main_thread_id()) if unc else None
         # The escaping object's origin is the LAST raise carrying its
-        # identity; anything earlier with the same key is address reuse.
+        # identity. With serials there is only ever one; on a legacy trace an
+        # earlier match may be address reuse, so the last is the safe pick.
         origin = raises[ukey][-1] if ukey in raises else None
         return cls(all_raises, raises, handled, unc, ukey, origin,
-                   meta.get("exit_status", "?"), bool(meta.get("incomplete")))
+                   meta.get("exit_status", "?"), bool(meta.get("incomplete")),
+                   exact)
 
 
 def _at(trace, e) -> str:
@@ -177,50 +198,65 @@ def _swallowed(trace, h, frame) -> Disposition:
         "which returned normally; never re-raised")
 
 
-def _stored_or_reused(trace, h, frame, nxt) -> Disposition:
+def _stored_or_reused(trace, h, frame, nxt, exact) -> Disposition:
     """A returning handler frame with a later RAISE of the same identity.
 
-    Both readings are live and the trace cannot separate them: the frame may
-    have swallowed this object and `nxt` may be a new one at a reused address,
-    or `except E as e: return e` may have handed this very object out of the
-    frame to be raised again. Fix round 1: this used to assert SWALLOWED with
-    the ambiguity demoted to a footnote, which made `raise stash()` print
-    "never re-raised" two lines under a header saying that same exception
-    left the program.
+    `except E as e: return e` closes its frame by "return" -- the swallow
+    signal -- while handing the exception out of it. With exact identity the
+    trace settles it: the later RAISE is provably this same object, so it was
+    caught here and raised again, and both facts are reported together.
+
+    Without serials the two readings cannot be separated (the later raise may
+    be a new object at a reused address), so neither is asserted.
     """
+    if exact:
+        return Disposition(
+            "re-raised",
+            f"handled at e{h.id} {_at(trace, h)} in f{frame.id}, which "
+            f"returned normally -- then raised again at e{nxt.id}")
     return Disposition(
         "ambiguous",
         f"handled at e{h.id} {_at(trace, h)} -- f{frame.id} returned "
         f"normally, but a later RAISE (e{nxt.id}) carries the same identity",
         "either it was swallowed there and that later raise is a new object "
         "at a reused address, or it was handed out of the frame (`return e`) "
-        "and raised again; the trace cannot tell them apart")
+        "and raised again; this trace has no serials, so it cannot tell them "
+        "apart")
 
 
-def _reraised(trace, r, handled, nxt) -> Disposition:
+def _reraised(trace, r, handled, nxt, exact) -> Disposition:
     """Two RAISE rows carrying one identity: re-raised, or address reuse?
 
-    Sound half -- with no HANDLED between them the exception never stopped
-    propagating, so it stayed referenced throughout and its address cannot
-    have been recycled. It is provably the same object.
+    With serials there is no question -- one identity is one object, and this
+    is a re-raise.
 
-    Narrowing half -- when a HANDLED does sit between them the object may
-    have been released at the end of that handler. If the second RAISE comes
-    from the *same statement* as the first, that statement simply ran again:
-    the retry-loop shape, measured to hand three distinct ValueError objects
-    one address because `except E as e: pass` drops each binding before the
-    next is allocated. Neither reading can be asserted there. A re-raise from
-    a *different* statement (`raise e`, `raise last`) is what a real one
-    looks like and is still reported outright -- hedging every repeated
-    identity would be as useless as hedging none.
+    Without them the answer is not derivable, and the shape that proves it is
+    a handler in *untraced* code: it ends the exception's flight and frees the
+    object while leaving no HANDLED row at all, after which a fresh exception
+    can take the address. Measured: two provably distinct ValueError('dup')
+    objects, one address, zero HANDLED rows. So on a legacy trace "no HANDLED
+    row in between" says nothing about whether the object survived, and the
+    same-statement test is only a heuristic.
     """
-    if not handled:
+    if exact:
+        if handled:
+            h = handled[0]
+            return Disposition(
+                "re-raised",
+                f"handled at e{h.id} {_at(trace, h)}, then raised again at "
+                f"e{nxt.id}")
         return Disposition(
             "re-raised",
             f"the same exception object is raised again at e{nxt.id}",
-            "it never stopped propagating in between, so it stayed "
-            "referenced and its address cannot have been reused; the trace "
-            "cannot say what caught it")
+            "no HANDLED row in between: the trace cannot say what caught it")
+    if not handled:
+        return Disposition(
+            "ambiguous",
+            f"e{nxt.id} carries the same type/message/oid, with no HANDLED "
+            "row in between",
+            "a handler in untraced code ends an exception without leaving a "
+            "HANDLED row, so this is either the same object raised again or a "
+            "new one at a reused address; re-record to resolve it")
     h = handled[0]
     if (r.code_id, r.line) == (nxt.code_id, nxt.line):
         return Disposition(
@@ -228,9 +264,8 @@ def _reraised(trace, r, handled, nxt) -> Disposition:
             f"handled at e{h.id} {_at(trace, h)} -- e{nxt.id} carries the "
             "same identity, raised from the same statement",
             "a loop re-running one raise frees each exception before the next "
-            "is allocated, so CPython hands the new one a reused address; the "
-            "trace cannot say whether that is this object raised again or a "
-            "different one")
+            "is allocated, so CPython hands the new one a reused address; "
+            "this trace has no serials, so it cannot say which happened")
     return Disposition(
         "re-raised",
         f"handled at e{h.id} {_at(trace, h)}, then raised again at "
@@ -297,7 +332,7 @@ def _unreadable_frame(trace, h, frame) -> Disposition:
 
 def classify(trace, r, idx: Index) -> Disposition:
     """What the trace supports about one RAISE -- and nothing more."""
-    key = exc_key(r.payload["exc"])
+    key = exc_key(r.payload["exc"], r.thread_id)
     later = [x for x in idx.raises.get(key, ()) if x.id > r.id]
     bound = later[0].id if later else None
     handled = [h for h in idx.handled.get(key, ())
@@ -320,7 +355,8 @@ def classify(trace, r, idx: Index) -> Disposition:
     for h, frame in pairs:
         if frame is not None and frame.closed_by == "return":
             if later:
-                return _stored_or_reused(trace, h, frame, later[0])
+                return _stored_or_reused(trace, h, frame,
+                                         later[0], idx.exact)
             return _swallowed(trace, h, frame)
 
     # 3. The same identity raised again -- `raise e` by name, which fires
@@ -328,7 +364,7 @@ def classify(trace, r, idx: Index) -> Disposition:
     #    asserted where address reuse is ruled out or implausible; see
     #    _reraised.
     if later:
-        return _reraised(trace, r, handled, later[0])
+        return _reraised(trace, r, handled, later[0], idx.exact)
 
     if not pairs:
         return _no_handler_found(trace, idx)
@@ -338,7 +374,8 @@ def classify(trace, r, idx: Index) -> Disposition:
     #    exception kept propagating past code we can see.
     for h, frame in pairs:
         if (frame is not None and frame.unwind_exc is not None
-                and exc_key(frame.unwind_exc) == key):
+                and exc_key(frame.unwind_exc,
+                            frame.thread_id) == key):
             return _still_in_flight(trace, idx, h, frame)
 
     # 5. Handled, and the frame then died of something else. Translation and
@@ -351,6 +388,11 @@ def classify(trace, r, idx: Index) -> Disposition:
 
 
 def _header(trace, idx) -> None:
+    if idx.all_raises and not idx.exact:
+        print("LEGACY TRACE: recorded before exceptions carried a serial, so "
+              "identity here falls back to (type, message, address)")
+        print("  CPython recycles addresses, so repeats below are hedged "
+              "rather than resolved; re-record to get exact identity")
     if idx.incomplete:
         print("INCOMPLETE: this recording never finalized, so it has no exit "
               "status and no uncaught record")

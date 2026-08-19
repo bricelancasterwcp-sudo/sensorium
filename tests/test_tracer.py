@@ -356,3 +356,83 @@ def test_fingerprint_deterministic_across_runs(tmp_path):
     h1 = next(iter(t1.fingerprints().values()))
     h2 = next(iter(t2.fingerprints().values()))
     assert h1[0] != "" and h1 == h2
+
+
+# -- exception serials (Task 11, fix round 3) ------------------------------
+# `oid` (`id(exc)`) is not an identity: CPython recycles addresses, measurably
+# so in a plain retry loop. Every RAISE/HANDLED payload therefore carries a
+# `serial`, minted by the exception state machine while it holds a strong
+# reference to the object. These tests pin the machine's labelling; the
+# decisions it takes are pinned by the tests above, which are untouched.
+
+SERIAL_LOOP = """
+def main():
+    for i in range(3):
+        try:
+            raise ValueError("fail")
+        except ValueError as e:
+            pass
+"""
+
+SERIAL_RERAISE = """
+def main():
+    try:
+        try:
+            raise ValueError("boom")
+        except ValueError as e:
+            raise e
+    except ValueError:
+        pass
+"""
+
+
+def _exc_serials(trace, kind="RAISE"):
+    return [e.payload["exc"].get("serial") for e in trace.events(kind=kind)]
+
+
+def test_distinct_exceptions_get_distinct_serials(tmp_path):
+    """Three separate ValueError('fail') objects, identical in type, message
+    and (absent the recorder's own retention) address."""
+    trace, err = record_inproc(tmp_path, SERIAL_LOOP)
+    serials = _exc_serials(trace)
+    assert len(serials) == 3
+    assert None not in serials
+    assert len(set(serials)) == 3
+
+
+def test_reraised_exception_keeps_its_serial(tmp_path):
+    """`raise e` re-raises the same object, so it keeps its identity."""
+    trace, err = record_inproc(tmp_path, SERIAL_RERAISE)
+    serials = _exc_serials(trace)
+    assert len(serials) == 2
+    assert serials[0] == serials[1]
+    # and the HANDLED rows agree with the RAISE rows
+    assert set(_exc_serials(trace, "HANDLED")) == {serials[0]}
+
+
+def test_serials_increase_and_never_repeat_within_a_thread(tmp_path):
+    trace, err = record_inproc(tmp_path, SERIAL_LOOP)
+    serials = _exc_serials(trace)
+    assert serials == sorted(serials)
+    assert all(isinstance(s, int) and s > 0 for s in serials)
+
+
+def test_serial_never_reaches_the_fingerprint(tmp_path):
+    """Fingerprints hash only (file, qualname, kind). If a serial ever leaked
+    into one, two runs of the same program would stop matching and every
+    refocus verdict would be worthless."""
+    t1, _ = record_inproc(tmp_path / "a", SERIAL_LOOP)
+    t2, _ = record_inproc(tmp_path / "b", SERIAL_LOOP)
+    h1 = next(iter(t1.fingerprints().values()))
+    h2 = next(iter(t2.fingerprints().values()))
+    assert h1[0] != "" and h1 == h2
+    assert _exc_serials(t1)                      # serials really were recorded
+
+
+def test_unwound_frames_and_uncaught_carry_the_serial(tmp_path):
+    trace, err = record_inproc(tmp_path, UNCAUGHT_THROUGH_FINALLY)
+    raised = _exc_serials(trace)
+    assert raised and None not in raised
+    unwound = [f.unwind_exc.get("serial") for f in trace.frames()
+               if f.unwind_exc]
+    assert unwound and set(unwound) == {raised[0]}

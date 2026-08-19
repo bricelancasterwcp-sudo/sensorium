@@ -69,6 +69,18 @@ def _capture_obj(obj) -> dict:
     return out
 
 
-def capture_exc(exc: BaseException) -> dict:
+def capture_exc(exc: BaseException, serial: int | None = None) -> dict:
+    """Capture one exception.
+
+    `oid` is `id(exc)` and is NOT an identity: CPython recycles addresses, so
+    two distinct exceptions routinely share one -- measured, in a plain retry
+    loop. `serial` is the exact identity, minted by the tracer's exception
+    state machine while it holds a strong reference to the object, and is
+    absent only where the recorder genuinely does not know it (and in traces
+    recorded before serials existed).
+    """
     msg, _ = _trunc_str(str(exc), CAPS["str"])
-    return {"type": type(exc).__name__, "msg": msg, "oid": id(exc)}
+    out = {"type": type(exc).__name__, "msg": msg, "oid": id(exc)}
+    if serial is not None:
+        out["serial"] = serial
+    return out

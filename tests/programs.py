@@ -276,6 +276,57 @@ def main():
 main()
 """
 
+# Fix round 3. The shape that disproved round 2's soundness argument: the
+# handler lives in UNTRACED code, so it ends the exception's flight and frees
+# the object while leaving no HANDLED row at all -- `tracer._exc_event` clears
+# `last_exc` before it checks whether the code is traced. A fresh exception
+# then takes the freed address. Two provably distinct objects, one address,
+# zero HANDLED rows, which the classifier read as "it never stopped
+# propagating, so its address cannot have been reused". Both clauses false.
+UNTRACED_HANDLER_REUSED_ADDRESS = """
+import lib
+
+def boom():
+    raise ValueError("dup")
+
+def main():
+    lib.guarded(boom)
+    raise ValueError("dup")
+
+main()
+"""
+
+SWALLOWING_LIB_SOURCE = """
+def guarded(fn):
+    try:
+        fn()
+    except ValueError:
+        pass
+"""
+
+# Serials are minted per thread, so two worker threads both start at 1. If the
+# classifier keyed on the serial alone it would fuse two unrelated exceptions
+# from different threads into one identity.
+THREADED_SWALLOWS = """
+import threading
+
+def work(tag):
+    try:
+        raise ValueError("thread fail")
+    except ValueError:
+        pass
+
+def main():
+    ts = [threading.Thread(target=work, args=(i,)) for i in range(2)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    print("done")
+
+main()
+"""
+
 # Three raises of an identically-typed, identically-messaged exception. Each
 # must pair with its own handler, not with a neighbour's.
 LOOP_SAME_MESSAGE = """
@@ -338,7 +389,12 @@ def synthetic(tmp_path, monkeypatch, run_id="20260101-000000-abcdef"):
     return w
 
 
-def exc_payload(type_, msg, oid):
-    return {"type": type_, "msg": msg, "oid": oid}
+def exc_payload(type_, msg, oid, serial=None):
+    """A recorded exception payload. Omit `serial` to build a LEGACY trace --
+    one recorded before the tracer minted exact identities."""
+    out = {"type": type_, "msg": msg, "oid": oid}
+    if serial is not None:
+        out["serial"] = serial
+    return out
 
 

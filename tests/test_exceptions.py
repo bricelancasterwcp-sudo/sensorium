@@ -15,6 +15,8 @@ from tests.programs import (
     BARE_RERAISE, CLEAN, CRASH, EXPLICIT_RERAISE, EXPLICIT_RERAISE_ESCAPES,
     FINALLY_PASSTHROUGH, GENERATOR_HANDLES, LOOP_SAME_MESSAGE,
     RAISE_CAUGHT_UNTRACED, RERAISE_CAUGHT_UNTRACED,
+    SWALLOWING_LIB_SOURCE, THREADED_SWALLOWS,
+    UNTRACED_HANDLER_REUSED_ADDRESS,
     RETRY_LOOP_REUSED_ADDRESS, RETRY_THEN_RAISE_LAST, STASH_AND_RERAISE,
     SWALLOW, SWALLOW_THEN_UNRELATED, TRANSLATED, UNTRACED_LIB,
     UNTRACED_LIB_SOURCE, exc_payload, record, synthetic)
@@ -119,31 +121,83 @@ def test_exceptions_reports_an_explicit_reraise_as_raised_again(
     assert "re-raised 1" in out
     assert out.count("SWALLOWED") == 1          # main's `except: pass`
 
+    # The handler each verdict cites must sit in that raise's own window.
+    # One object is raised twice here, so every HANDLED row shares its
+    # identity; without scoping to the next raise of that identity the first
+    # verdict would cite a handler that ran *after* the re-raise.
+    lines = out.splitlines()
+    raises = [i for i, ln in enumerate(lines) if " RAISE " in ln]
+    first_raise = int(lines[raises[0]].split()[0][1:])
+    second_raise = int(lines[raises[1]].split()[0][1:])
+    cited = int(lines[raises[0] + 1].split("handled at e")[1].split()[0])
+    assert first_raise < cited < second_raise, lines[raises[0] + 1]
+
 
 def test_exceptions_never_claims_a_reraise_for_a_reused_address(
         tmp_path, monkeypatch, capsys):
-    """Fix round 2. A plain retry loop reuses one address for three separate
-    ValueError('fail') objects, and the handler frame unwinds so rule 2
-    cannot fire. Rule 3 used to report two of them as "then raised again at
-    eN" -- asserting a re-raise that never happened."""
+    """A plain retry loop raises three separate ValueError('fail') objects.
+    Under oid identity two of them were reported as "then raised again at eN".
+    Serials give each its own identity, so no re-raise is claimed at all.
+
+    Note the recorder now retains the last-handled exception (to let a real
+    `raise e` resume its serial), which incidentally stops CPython reusing the
+    address here -- so this test pins the SERIALS, the thing the classifier
+    actually keys on, rather than an allocation coincidence."""
     run_id = record(tmp_path, monkeypatch, RETRY_LOOP_REUSED_ADDRESS)
-    # the collision is the whole point: prove it happened, so this test can
-    # never quietly pass by testing a shape that no longer collides
     trace = Trace.open(paths.find_trace(run_id))
-    ids = [(e.payload["exc"]["type"], e.payload["exc"]["msg"],
-            e.payload["exc"]["oid"]) for e in trace.events(kind="RAISE")]
-    fails = [k for k in ids if k[0] == "ValueError"]
-    assert len(fails) == 3, ids
-    assert len(set(fails)) == 1, (
-        "this shape no longer reproduces the natural oid collision it exists "
-        f"to pin; got {fails}")
+    fails = [e.payload["exc"] for e in trace.events(kind="RAISE")
+             if e.payload["exc"]["type"] == "ValueError"]
+    assert len(fails) == 3
+    serials = {x["serial"] for x in fails}
+    assert len(serials) == 3, f"three objects must get three serials: {fails}"
 
     assert cli.main(["exceptions", run_id]) == 0
     out = capsys.readouterr().out
-    assert "then raised again at e" not in out
-    assert "same statement" in out
-    assert "reused address" in out
-    assert "re-raised" not in out.splitlines()[-1]       # not in the tally
+    assert "raised again" not in out
+    assert "re-raised" not in out.splitlines()[-1]
+    assert "LEGACY TRACE" not in out
+
+
+def test_exceptions_untraced_handler_does_not_fake_a_reraise(
+        tmp_path, monkeypatch, capsys):
+    """Fix round 3's counterexample. The handler is in untraced code, so it
+    frees the exception while leaving NO HANDLED row, and a fresh exception
+    takes the address. Round 2 asserted "it never stopped propagating in
+    between, so its address cannot have been reused" -- both clauses false."""
+    run_id = record(tmp_path, monkeypatch, UNTRACED_HANDLER_REUSED_ADDRESS,
+                    extra=("--exclude", "lib.py"),
+                    files=(("lib.py", SWALLOWING_LIB_SOURCE),))
+    trace = Trace.open(paths.find_trace(run_id))
+    raises = [e.payload["exc"] for e in trace.events(kind="RAISE")]
+    assert len(raises) == 2
+    assert not trace.events(kind="HANDLED"), "the shape needs zero HANDLED rows"
+    assert raises[0]["serial"] != raises[1]["serial"]
+
+    assert cli.main(["exceptions", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "raised again" not in out
+    assert "never stopped propagating" not in out
+    assert "address cannot have been reused" not in out
+
+
+def test_exceptions_does_not_fuse_equal_serials_from_different_threads(
+        tmp_path, monkeypatch, capsys):
+    """Serials are per-thread and both workers start at 1, so identity has to
+    carry the thread. Fused, one thread's handler would explain the other
+    thread's raise."""
+    run_id = record(tmp_path, monkeypatch, THREADED_SWALLOWS)
+    trace = Trace.open(paths.find_trace(run_id))
+    raises = trace.events(kind="RAISE")
+    assert len(raises) == 2
+    assert len({r.thread_id for r in raises}) == 2, "needs two threads"
+    assert len({r.payload["exc"]["serial"] for r in raises}) == 1, (
+        "this shape needs the per-thread serials to actually collide")
+
+    assert cli.main(["exceptions", run_id]) == 0
+    out = capsys.readouterr().out
+    assert out.count("SWALLOWED") == 2          # each swallow found its own
+    assert "raised again" not in out
+    assert "dispositions: swallowed 2" in out
 
 
 def test_exceptions_keeps_a_genuine_stored_reraise_confident(
@@ -171,12 +225,10 @@ def test_exceptions_never_calls_a_stored_and_reraised_exception_swallowed(
     assert "SWALLOWED" not in out
     assert "never re-raised" not in out          # it demonstrably was
     assert "uncaught: ValueError('x')" in out
-    # the verdict names both live readings and picks neither
-    assert "returned normally, but a later RAISE" in out
-    assert "raised again" in out
-    assert "reused address" in out
-    assert "cannot tell them apart" in out
-    assert "dispositions: uncaught 1, ambiguous 1" in out
+    # serials settle it: the frame returned AND the object was raised again,
+    # and both facts are reported rather than one being guessed
+    assert "returned normally -- then raised again at e" in out
+    assert "dispositions: uncaught 1, re-raised 1" in out
 
 
 def test_exceptions_output_never_contradicts_its_own_uncaught_header(
@@ -370,6 +422,33 @@ def test_exceptions_same_statement_test_is_the_statement_not_the_frame(
     assert "re-raised" not in out.splitlines()[-1]
 
 
+def test_exceptions_legacy_trace_still_reports_a_different_statement_reraise(
+        tmp_path, monkeypatch, capsys):
+    """The other half of the legacy heuristic: a repeat from a *different*
+    statement is still reported outright, so an old trace does not lose every
+    re-raise verdict it used to have."""
+    w = synthetic(tmp_path, monkeypatch)
+    c = w.intern_code("/tmp/prog.py", "risky", 1)
+    e_call = w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
+    f = w.open_frame(None, c, e_call, 0, 1)
+    e = exc_payload("ValueError", "boom", 22)          # no serial
+    w.add_event(0, 1, "RAISE", f, c, 3, {"exc": e})
+    h = w.add_event(0, 1, "HANDLED", f, c, 4, {"exc": e})
+    second = w.add_event(0, 1, "RAISE", f, c, 6, {"exc": e})   # other line
+    w.close_frame(f, None, "unwind", e)
+    w.set_meta("incomplete", False)
+    w.set_meta("exit_status", 0)
+    w.set_meta("uncaught", None)
+    w.close()
+
+    assert cli.main(["exceptions", "20260101-000000-abcdef"]) == 0
+    out = capsys.readouterr().out
+    assert "LEGACY TRACE" in out
+    assert f"handled at e{h} risky L4, then raised again at e{second}" in out
+    assert "same statement" not in out
+    assert "re-raised 1" in out
+
+
 def test_exceptions_will_not_conclude_from_an_incomplete_recording(
         tmp_path, monkeypatch, capsys):
     """No finalize pass means no `uncaught` and no `exit_status`; absence of
@@ -430,14 +509,17 @@ def test_exceptions_reports_no_handler_at_all_as_propagated(
 
 def test_exceptions_reraise_with_no_handled_row_says_so(
         tmp_path, monkeypatch, capsys):
+    """With serials, two RAISE rows sharing an identity ARE one object, and
+    the absence of a HANDLED row between them is reported as what it is: no
+    record of what caught it, not a proof that nothing did."""
     w = synthetic(tmp_path, monkeypatch)
     c = w.intern_code("/tmp/prog.py", "risky", 1)
     e_call = w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
     f = w.open_frame(None, c, e_call, 0, 1)
-    exc = exc_payload("ValueError", "boom", 11)
-    w.add_event(0, 1, "RAISE", f, c, 3, {"exc": exc})
-    second = w.add_event(0, 1, "RAISE", f, c, 5, {"exc": exc})
-    w.close_frame(f, None, "unwind", exc)
+    e = exc_payload("ValueError", "boom", 11, serial=3)
+    w.add_event(0, 1, "RAISE", f, c, 3, {"exc": e})
+    second = w.add_event(0, 1, "RAISE", f, c, 5, {"exc": e})
+    w.close_frame(f, None, "unwind", e)
     w.set_meta("incomplete", False)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
@@ -446,14 +528,42 @@ def test_exceptions_reraise_with_no_handled_row_says_so(
     assert cli.main(["exceptions", "20260101-000000-abcdef"]) == 0
     out = capsys.readouterr().out
     assert f"raised again at e{second}" in out
-    # this branch stays a flat assertion, and says why it is sound: an
-    # exception still in flight is still referenced, so its address cannot
-    # have been handed to a different object
-    assert "never stopped propagating in between" in out
-    assert "address cannot have been reused" in out
-    assert "same statement" not in out
-    # pin the tag too -- hedging this branch changes only the tally
+    assert "the trace cannot say what caught it" in out
     assert "dispositions: re-raised 1" in out
+    assert "LEGACY TRACE" not in out
+
+
+def test_exceptions_legacy_trace_hedges_a_repeat_with_no_handled_row(
+        tmp_path, monkeypatch, capsys):
+    """The same rows without serials. This is the shape that disproved round
+    2's soundness argument, so on a legacy trace it must hedge and name the
+    reason -- an untraced handler frees an exception without leaving a
+    HANDLED row."""
+    w = synthetic(tmp_path, monkeypatch)
+    c = w.intern_code("/tmp/prog.py", "risky", 1)
+    e_call = w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
+    f = w.open_frame(None, c, e_call, 0, 1)
+    e = exc_payload("ValueError", "boom", 11)          # no serial
+    w.add_event(0, 1, "RAISE", f, c, 3, {"exc": e})
+    second = w.add_event(0, 1, "RAISE", f, c, 5, {"exc": e})
+    w.close_frame(f, None, "unwind", e)
+    w.set_meta("incomplete", False)
+    w.set_meta("exit_status", 0)
+    w.set_meta("uncaught", None)
+    w.close()
+
+    assert cli.main(["exceptions", "20260101-000000-abcdef"]) == 0
+    out = capsys.readouterr().out
+    assert "LEGACY TRACE" in out
+    assert "re-record" in out
+    assert f"e{second} carries the same type/message/oid" in out
+    # no verdict line may assert a re-raise (the phrase appears only inside
+    # the hedge's own explanation of the two possibilities)
+    verdicts = [ln for ln in out.splitlines() if ln.startswith("    ")
+                and not ln.startswith("      ")]
+    assert not any("raised again" in ln for ln in verdicts), verdicts
+    assert "handler in untraced code" in out
+    assert "dispositions: propagated 1, ambiguous 1" in out
 
 
 def test_exceptions_will_not_read_a_frame_that_never_closed(

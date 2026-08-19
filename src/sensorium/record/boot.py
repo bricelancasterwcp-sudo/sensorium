@@ -446,7 +446,10 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
         exit_status = _exit_status_of(e)
     except BaseException as e:
         exit_status = 1
-        uncaught = capture.capture_exc(e)
+        # Ask the tracer for this object's serial before uninstalling it, so
+        # the uncaught record names the exact RAISE row that produced it
+        # rather than being matched back by a recyclable address.
+        uncaught = capture.capture_exc(e, tracer.serial_of(e))
         traceback.print_exception(e)   # tee'd: the trace holds what was shown
     finally:
         tracer.uninstall()             # stop callbacks before closing the db
