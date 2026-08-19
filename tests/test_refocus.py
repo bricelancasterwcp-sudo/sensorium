@@ -18,10 +18,11 @@ import pytest
 from sensorium import cli
 from tests.helpers import run_cli
 from tests.refocus_programs import (COUNTER, EXIT_FROM_FILE, LIB, LOOP,
-                                    READS_STDIN, SLEEPER, THREAD_BRANCH,
-                                    THREAD_COUNT, TWO_FILES, dbs, new_run,
-                                    rec, record_killed, recorded_output,
-                                    refocus, set_meta, synthetic, trace)
+                                    OUTSIDE_ROOT, READS_STDIN, SLEEPER,
+                                    THREAD_BRANCH, THREAD_COUNT, TWO_FILES,
+                                    dbs, new_run, rec, record_killed,
+                                    recorded_output, refocus, set_meta,
+                                    synthetic, trace)
 
 
 # -- MATCH ------------------------------------------------------------------
@@ -216,6 +217,92 @@ def test_runs_shows_the_verdict_beside_the_refocus_label(tmp_path):
     orig_line = next(ln for ln in listing.stdout.splitlines()
                      if ln.startswith(run_id))
     assert "refocus-of" not in orig_line
+
+
+def test_runs_shows_the_licence_beside_a_match(tmp_path):
+    """A bare `verdict:MATCH` in the listing reads as a clean bill of health
+    for a rerun whose licence was withheld on every count -- the same
+    failure as a bare `refocus-of`, one level down."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    (tmp_path / "prog.py").write_text(LOOP.replace("[5, 10, 20]", "[1, 2]"))
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert "licence: WITHHELD" in r.stdout
+    new_id = new_run(r.stdout)
+
+    listing = run_cli(["runs"], cwd=tmp_path, sensorium_dir=sdir)
+    line = next(ln for ln in listing.stdout.splitlines()
+                if ln.startswith(new_id))
+    assert "verdict:MATCH(withheld)" in line
+
+    info = run_cli(["info", new_id], cwd=tmp_path, sensorium_dir=sdir)
+    assert "licence: withheld" in info.stdout
+    assert "licence withheld: 1 source file(s) CHANGED" in info.stdout
+
+
+def test_info_names_what_diverged_across_threads(tmp_path):
+    """`refocus_thread_divergence` was stamped and read by nothing, so
+    `info` said DIVERGED without ever saying what diverged."""
+    run_id, sdir = rec(tmp_path, THREAD_BRANCH)
+    r = refocus(sdir, run_id, "--focus", "prog:work")
+    assert r.returncode == 1, r.stdout + r.stderr
+
+    info = run_cli(["info", new_run(r.stdout)], cwd=tmp_path,
+                   sensorium_dir=sdir)
+    assert info.returncode == 0, info.stderr
+    assert "verdict: DIVERGED" in info.stdout
+    assert "diverged on threads:" in info.stdout
+    assert "only in the rerun" in info.stdout
+
+
+# -- REFUSED: a verdict over nothing is not a verdict ------------------------
+
+def test_refocus_refuses_a_verdict_over_two_empty_causal_streams(tmp_path):
+    """`../tool.py` resolves outside the run's root, so `_classify` traces
+    nothing and the trace is complete, healthy, and empty. Two empty streams
+    compare EQUAL, which produced a serene MATCH over zero events -- with
+    "there was nothing to compare" printed one line above the granted
+    licence -- for two runs that visibly took different branches."""
+    work = tmp_path / "work"
+    work.mkdir(parents=True)
+    (tmp_path / "tool.py").write_text(OUTSIDE_ROOT)
+    sdir = tmp_path / "sdir"
+
+    first = run_cli(["run", "--", "../tool.py"], cwd=work, sensorium_dir=sdir)
+    assert first.returncode == 0, first.stderr
+    assert "FIRST-RUN" in first.stdout
+    run_id = new_run(first.stdout)
+    assert trace(sdir, run_id).counts() == {}      # nothing was traced at all
+
+    r = refocus(sdir, run_id, "--focus", "tool:main", cwd=work)
+    assert "SECOND-RUN" in r.stdout                # a different execution
+    # the target itself is digested even though it produced no traced code,
+    # so "did the program change" is still answerable for a run like this
+    assert "source: unchanged (1 file(s) compared by content)" in r.stdout
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "verdict: REFUSED" in r.stdout
+    assert "nothing to compare" in r.stdout
+    assert "licence:" not in r.stdout
+    assert "refocus verdict: MATCH" not in r.stdout
+    t = trace(sdir, new_run(r.stdout))
+    assert t.meta["refocus_verdict"] == "REFUSED"
+    assert "refocus_licence" not in t.meta
+
+
+def test_refocus_states_its_blind_spots_on_a_refused_verdict(tmp_path):
+    """"Stated on every verdict" has to include the verdict that says
+    nothing, or the sentence in the docstring is not true."""
+    work = tmp_path / "work"
+    work.mkdir(parents=True)
+    (tmp_path / "tool.py").write_text(OUTSIDE_ROOT)
+    sdir = tmp_path / "sdir"
+    first = run_cli(["run", "--", "../tool.py"], cwd=work, sensorium_dir=sdir)
+    run_id = new_run(first.stdout)
+
+    r = refocus(sdir, run_id, "--focus", "tool:main", cwd=work)
+    assert r.returncode == 2
+    blind = next(ln for ln in r.stdout.splitlines()
+                 if ln.startswith("never checked by ANY verdict"))
+    assert "__repr__" in blind and "fingerprint" in blind
 
 
 # -- refusals ---------------------------------------------------------------

@@ -1,43 +1,55 @@
 """What a `refocus` MATCH is allowed to claim.
 
 A first version of this command printed one verdict and one confident
-sentence, and three separate reruns earned "verdict: MATCH" plus the full
+sentence, and four separate reruns earned "verdict: MATCH" plus the full
 "answers about the original run" licence while being demonstrably about a
 different execution: one read its input from an environment variable that was
-gone the second time, one had a worker thread take the other branch, and one
-was perturbed by the recorder itself. Each is a fixture here.
+gone the second time, one had a worker thread take the other branch, one was
+perturbed by the recorder itself, and one traced nothing at all and compared
+two empty streams. A fifth certified a rerun of rewritten code as
+`source: unchanged`, because the check behind that phrase hashed a list of
+file PATHS rather than their contents. Each is a fixture here.
 
 The rule those failures produced, and that this file pins:
 
-* VERDICT is about causal shape, across every recorded thread.
+* VERDICT is about causal shape, across every recorded thread -- and there
+  is no verdict at all when there was nothing to compare.
 * LICENCE is withheld on ANY signal sensorium can check and finds -- and on
   any check it could not run at all, because the licence claims every check
-  agreed.
-* BLIND SPOTS are stated on every verdict, because they can never be checked.
+  agreed. "Could not run" and "ran and found nothing" are the two states the
+  earlier versions kept confusing.
+* BLIND SPOTS are stated on every verdict -- MATCH, DIVERGED and REFUSED --
+  because they can never be checked.
 
-The three seam tests at the bottom drive `report()` directly, for verdicts
-the recorder cannot be made to produce on demand (see `diff_cmd`).
+The seam tests at the bottom drive `report()` directly, for verdicts and
+trace shapes the recorder cannot be made to produce on demand (see
+`diff_cmd`).
 """
-import subprocess
+import pytest
 
 from sensorium.query import refocus_cmd
 from sensorium.query.diff_cmd import compare
+from sensorium.record.boot import git_info
 from sensorium.store.reader import Trace
-from tests.refocus_programs import (COUNTER, ENV_LIMIT, EXIT_FROM_FILE, LOOP,
-                                    SIDE_EFFECT_REPR, SPAWNS, TWO_WORKERS,
-                                    drop_meta, new_run, rec, rec_in_git,
-                                    recorded_output, refocus, synthetic,
-                                    trace)
+from tests.helpers import run_cli
+from tests.refocus_programs import (COUNTER, ENV_LIMIT, EXIT_FROM_FILE, LIB,
+                                    LOOP, SHELLS_OUT, SIDE_EFFECT_REPR,
+                                    SPAWNS, TWO_FILES, TWO_WORKERS,
+                                    UNTRACED_WORKER, drop_meta, new_run, rec,
+                                    rec_in_git, recorded_output, refocus,
+                                    set_meta, synthetic, trace)
 
 
 # -- the licence is granted only when every check ran and agreed ------------
 
 def test_refocus_grants_the_licence_when_every_check_passes(tmp_path):
     """The positive control. A licence that is never granted teaches people
-    to ignore it, so the one path that earns it has to be pinned: a clean
-    git tree, an unchanged environment, one thread, identical output,
-    identical exit status, and a recorded (not inferred) main thread."""
-    run_id, sdir = rec_in_git(tmp_path, LOOP)
+    to ignore it, so the one path that earns it has to be pinned: unchanged
+    source contents, an unchanged environment, one thread, identical output,
+    identical exit status, no subprocess, and a recorded (not inferred) main
+    thread. Deliberately NOT inside a git repo -- the source check reads file
+    contents, so a repository is not what makes the claim checkable."""
+    run_id, sdir = rec(tmp_path, LOOP)
     r = refocus(sdir, run_id, "--focus", "prog:accumulate")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "source: unchanged" in r.stdout
@@ -52,18 +64,19 @@ def test_refocus_grants_the_licence_when_every_check_passes(tmp_path):
 
 def test_refocus_withholds_the_licence_when_it_cannot_check_the_source(
         tmp_path):
-    """No repository means sensorium cannot tell whether the code moved.
-    That is a fact about the CHECK, not evidence that nothing changed, so it
-    withholds: the licence claims every check agreed, and here one of them
-    never ran."""
+    """A trace recorded before source digests existed cannot be compared
+    against. That is a fact about the CHECK, not evidence that nothing
+    changed, so it withholds: the licence claims every check agreed, and
+    here one of them never ran."""
     run_id, sdir = rec(tmp_path, LOOP)
+    drop_meta(sdir / "traces" / f"{run_id}.db", "source_hashes")
+
     r = refocus(sdir, run_id, "--focus", "prog:accumulate")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "source: unverifiable" in r.stdout
-    assert "no git repository" in r.stdout
     assert "source: CHANGED" not in r.stdout
     assert "licence: WITHHELD" in r.stdout
-    assert "the source tree could not be checked at all" in r.stdout
+    assert "the source could not be checked at all" in r.stdout
 
 
 # -- false MATCH 1: the environment -----------------------------------------
@@ -114,6 +127,29 @@ def test_refocus_withholds_the_licence_when_it_cannot_check_the_env(tmp_path):
     assert "env: unverifiable" in r.stdout
     assert "the environment could not be checked at all" in r.stdout
     assert "licence: WITHHELD" in r.stdout
+
+
+def test_refocus_does_not_report_its_own_trace_store_rewrite(tmp_path):
+    """`_pin_trace_store` rewrites a relative SENSORIUM_DIR to the absolute
+    path of the SAME directory, so the rerun's store survives the chdir. The
+    environment diff compares strings, so taking its snapshot after that
+    rewrite would report the tool's own bookkeeping as the world changing
+    under the program."""
+    work = tmp_path / "work"
+    work.mkdir(parents=True)
+    (work / "prog.py").write_text(LOOP)
+    first = run_cli(["run", "--", "prog.py"], cwd=work,
+                    sensorium_dir="../sdir")
+    assert first.returncode == 0, first.stderr
+    run_id = new_run(first.stdout)
+    sdir = tmp_path / "sdir"
+    assert (sdir / "traces" / f"{run_id}.db").exists()
+
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate", cwd=work,
+                sensorium_dir="../sdir")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "env: unchanged" in r.stdout
+    assert "SENSORIUM_DIR" not in r.stdout
 
 
 def test_refocus_ignores_volatile_shell_variables(tmp_path, monkeypatch):
@@ -201,17 +237,44 @@ def test_refocus_withholds_the_licence_when_threads_were_involved(tmp_path):
     assert "answers about the original run" not in r.stdout
 
 
-def test_refocus_withholds_the_licence_when_a_subprocess_ran(tmp_path):
+@pytest.mark.parametrize("src, focus", [(SPAWNS, "prog:spawn"),
+                                        (SHELLS_OUT, "prog:shell")])
+def test_refocus_withholds_the_licence_when_a_subprocess_ran(tmp_path, src,
+                                                             focus):
     """A child process is observed and never witnessed: nothing in either
-    trace says what it did, so a MATCH cannot speak for the run."""
-    run_id, sdir = rec(tmp_path, SPAWNS)
+    trace says what it did, so a MATCH cannot speak for the run.
+
+    `os.system` is the second case for a reason -- it starts a shell without
+    ever touching `subprocess`, so a hook watching only `subprocess.Popen`
+    recorded `children == []` and granted the licence."""
+    run_id, sdir = rec(tmp_path, src)
     assert trace(sdir, run_id).meta["children"]             # precondition
 
-    r = refocus(sdir, run_id, "--focus", "prog:spawn")
+    r = refocus(sdir, run_id, "--focus", focus)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "refocus verdict: MATCH" in r.stdout
     assert "licence: WITHHELD" in r.stdout
     assert "subprocess(es), which sensorium does not witness" in r.stdout
+    assert "answers about the original run" not in r.stdout
+
+
+def test_refocus_withholds_when_a_thread_left_no_fingerprint(tmp_path):
+    """A worker whose body is entirely stdlib produces NO fingerprint row,
+    so counting fingerprints reports a single-threaded run while a second
+    thread is still running. The recorder notes which threads were alive
+    when it stopped; that is the signal that catches it."""
+    run_id, sdir = rec(tmp_path, UNTRACED_WORKER)
+    t = trace(sdir, run_id)
+    assert len(t.fingerprints()) == 1                # the trap: looks single
+    assert "untraced-worker" in t.meta["live_threads"]
+
+    r = refocus(sdir, run_id, "--focus", "prog:start")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout
+    assert "threads: all 1 recorded thread(s) matched" in r.stdout
+    assert "licence: WITHHELD" in r.stdout
+    assert "thread(s) running when recording stopped" in r.stdout
+    assert "untraced-worker" in r.stdout
     assert "answers about the original run" not in r.stdout
 
 
@@ -229,30 +292,53 @@ def test_refocus_withholds_the_licence_when_the_runs_ended_differently(
     assert "licence: WITHHELD" in r.stdout
 
 
-def test_refocus_warns_about_a_changed_tree_and_still_reports_match(tmp_path):
+def test_refocus_warns_about_changed_source_and_still_reports_match(tmp_path):
     """The fingerprint speaks to execution PATH, not to file bytes. When the
     edit leaves the causal stream untouched, MATCH is the honest verdict --
-    and the changed tree is exactly why it must not be read as "same run"."""
-    run_id, sdir = rec_in_git(tmp_path, LOOP)
+    and the changed source is exactly why it must not be read as "same
+    run"."""
+    run_id, sdir = rec(tmp_path, LOOP)
     (tmp_path / "prog.py").write_text(LOOP.replace("[5, 10, 20]", "[1, 2]"))
 
     r = refocus(sdir, run_id, "--focus", "prog:accumulate")
     assert "sum: 3 2" in r.stdout              # different code really ran
     assert r.returncode == 0, r.stdout + r.stderr
     assert "source: CHANGED since the original run" in r.stdout
+    assert "1 of 1 file(s) differ by content: prog.py" in r.stdout
     assert "refocus verdict: MATCH" in r.stdout
     assert "licence: WITHHELD" in r.stdout
-    assert ("the working tree CHANGED between the two runs, so the rerun "
-            "executed different source") in r.stdout
+    assert "1 source file(s) CHANGED between the two runs" in r.stdout
     assert "answers about the original run" not in r.stdout
 
 
-def test_refocus_names_a_changed_tree_as_a_possible_cause_of_divergence(
+def test_refocus_catches_an_edit_git_status_cannot_see(tmp_path):
+    """`git_dirty_hash` is sha256 of `git status --porcelain` -- a list of
+    PATHS, not contents. A file that was already dirty when the original ran
+    can be rewritten wholesale between the runs and that hash never moves,
+    so a licence gate built on it would certify a rerun of different code as
+    `source: unchanged`. Contents are what get compared."""
+    run_id, sdir = rec_in_git(tmp_path, LOOP,
+                              uncommitted=LOOP.replace("[5, 10, 20]", "[4]"))
+    before = git_info(tmp_path)["git_dirty_hash"]
+    assert before                                   # we really are in a repo
+    (tmp_path / "prog.py").write_text(
+        LOOP.replace("[5, 10, 20]", "[1, 2, 3, 9]"))
+    assert git_info(tmp_path)["git_dirty_hash"] == before   # git sees nothing
+
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert "sum: 15 2" in r.stdout                  # different code really ran
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "source: CHANGED since the original run" in r.stdout
+    assert "licence: WITHHELD" in r.stdout
+    assert "answers about the original run" not in r.stdout
+
+
+def test_refocus_names_changed_source_as_a_possible_cause_of_divergence(
         tmp_path):
     """On a DIVERGED verdict there is no licence to withhold, but "the
     source moved" is the likeliest answer to the reader's next question and
     must sit next to the verdict, not only in the header that scrolled by."""
-    run_id, sdir = rec_in_git(tmp_path, LOOP)
+    run_id, sdir = rec(tmp_path, LOOP)
     (tmp_path / "prog.py").write_text(
         LOOP.replace("total = total + op", "total = helper(total + op) - 1"))
 
@@ -260,26 +346,24 @@ def test_refocus_names_a_changed_tree_as_a_possible_cause_of_divergence(
     assert r.returncode == 1, r.stdout + r.stderr
     assert "source: CHANGED since the original run" in r.stdout
     assert "differences in the world between the two runs" in r.stdout
-    assert ("the working tree CHANGED between the two runs, so the rerun "
-            "executed different source") in r.stdout
+    assert "1 source file(s) CHANGED between the two runs" in r.stdout
     assert "refocus verdict: DIVERGED" in r.stdout
     assert "licence:" not in r.stdout          # nothing to license
 
 
-def test_refocus_notices_a_new_commit_even_when_the_tree_is_clean(tmp_path):
-    """Committing the edit puts `git status --porcelain` back exactly where
-    it was, so only the HEAD sha moves. Reading just the dirty hash would
-    call this tree unchanged."""
-    run_id, sdir = rec_in_git(tmp_path, LOOP)
-    (tmp_path / "prog.py").write_text(LOOP.replace("[5, 10, 20]", "[1, 2]"))
-    subprocess.run(["git", "-c", "user.email=t@example.invalid",
-                    "-c", "user.name=t", "-c", "commit.gpgsign=false",
-                    "commit", "-q", "-am", "edit"],
-                   cwd=tmp_path, check=True, capture_output=True)
+def test_refocus_compares_every_file_the_original_executed(tmp_path):
+    """The check covers each file the original interned traced code from,
+    not just the entry script: an edit to an imported module is exactly the
+    change a reader would most want flagged."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "lib.py").write_text(LIB)
+    run_id, sdir = rec(tmp_path, TWO_FILES)
+    assert len(trace(sdir, run_id).meta["source_hashes"]) == 2
 
-    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    (tmp_path / "lib.py").write_text(LIB.replace("x * 2", "x * 5"))
+    r = refocus(sdir, run_id, "--focus", "prog:main")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "source: CHANGED since the original run" in r.stdout
+    assert "1 of 2 file(s) differ by content: lib.py" in r.stdout
     assert "licence: WITHHELD" in r.stdout
 
 
@@ -298,7 +382,8 @@ def test_report_refuses_a_verdict_when_the_new_trace_is_lossy(tmp_path,
     res = compare(ta, tb)
     assert res["verdict"] == "REFUSED"                      # precondition
 
-    rc = refocus_cmd.report(ta, tb, res, a.stem, b.stem)
+    rc = refocus_cmd.report(ta, tb, res, a.stem, b.stem,
+                            refocus_cmd.assess(ta, tb, res))
     out = capsys.readouterr().out
     assert rc == 2
     assert "refocus verdict: REFUSED" in out and "UNVERIFIED" in out
@@ -322,7 +407,8 @@ def test_report_withholds_the_licence_when_the_thread_is_inferred(tmp_path,
     res = compare(ta, tb)
     assert res["verdict"] == "MATCH"
 
-    rc = refocus_cmd.report(ta, tb, res, a.stem, b.stem)
+    rc = refocus_cmd.report(ta, tb, res, a.stem, b.stem,
+                            refocus_cmd.assess(ta, tb, res))
     out = capsys.readouterr().out
     assert rc == 0
     assert "refocus verdict: MATCH" in out
@@ -342,13 +428,59 @@ def test_report_passes_world_findings_through_to_the_licence(tmp_path,
     b = synthetic(sdir, "20260101-000000-srcbbb")
     ta, tb = Trace.open(a), Trace.open(b)
 
-    rc = refocus_cmd.report(ta, tb, compare(ta, tb), a.stem, b.stem,
-                            world_caveats=["the sky turned green"])
+    res = compare(ta, tb)
+    rc = refocus_cmd.report(
+        ta, tb, res, a.stem, b.stem,
+        refocus_cmd.assess(ta, tb, res, ["the sky turned green"]))
     out = capsys.readouterr().out
     assert rc == 0
     assert "licence: WITHHELD" in out
     assert "  - the sky turned green" in out
     assert "answers about the original run" not in out
+
+
+def test_report_withholds_when_no_thread_fingerprint_was_recorded(tmp_path,
+                                                                   capsys):
+    """`compare()` refuses two empty streams before this is reached for a
+    real recording, so this gate is defence in depth -- but "no fingerprint
+    was recorded" still means the whole-thread comparison never ran, and a
+    check that did not run can never support the licence. Driven at the
+    seam, because the recorder cannot be asked for a trace that has causal
+    events and no fingerprint."""
+    sdir = tmp_path / "sdir"
+    a = synthetic(sdir, "20260101-000000-nofpaa", fingerprint=None)
+    b = synthetic(sdir, "20260101-000000-nofpbb", fingerprint=None)
+    ta, tb = Trace.open(a), Trace.open(b)
+    assert ta.fingerprints() == {}                          # precondition
+    res = compare(ta, tb)
+    assert res["verdict"] == "MATCH"        # the streams themselves matched
+
+    rc = refocus_cmd.report(ta, tb, res, a.stem, b.stem,
+                            refocus_cmd.assess(ta, tb, res))
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "refocus verdict: MATCH" in out
+    assert "licence: WITHHELD" in out
+    assert "no per-thread fingerprint was recorded on either side" in out
+    assert "answers about the original run" not in out
+
+
+def test_refocus_withholds_when_a_source_digest_was_never_taken(tmp_path):
+    """A file the recorder could not read has a None digest. Comparing that
+    against a failed read now would make two failures agree and report
+    "unchanged" over a file nobody has ever hashed."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    path = sdir / "traces" / f"{run_id}.db"
+    hashes = dict(trace(sdir, run_id).meta["source_hashes"])
+    set_meta(path, source_hashes={p: None for p in hashes})
+
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "source: unverifiable" in r.stdout
+    assert "had no digest recorded" in r.stdout
+    assert "source: unchanged" not in r.stdout
+    assert "licence: WITHHELD" in r.stdout
+    assert "could not be checked" in r.stdout
 
 
 def test_report_grants_the_licence_when_nothing_is_found(tmp_path, capsys):
@@ -360,7 +492,9 @@ def test_report_grants_the_licence_when_nothing_is_found(tmp_path, capsys):
     b = synthetic(sdir, "20260101-000000-cleanb")
     ta, tb = Trace.open(a), Trace.open(b)
 
-    rc = refocus_cmd.report(ta, tb, compare(ta, tb), a.stem, b.stem)
+    res = compare(ta, tb)
+    rc = refocus_cmd.report(ta, tb, res, a.stem, b.stem,
+                            refocus_cmd.assess(ta, tb, res))
     out = capsys.readouterr().out
     assert rc == 0
     assert "answers about the original run" in out
@@ -377,7 +511,7 @@ def test_stamp_records_why_a_verdict_was_refused(tmp_path):
     res = compare(ta, tb)
     assert res["verdict"] == "REFUSED"
 
-    refocus_cmd._stamp(b, ta, tb, res)
+    refocus_cmd._stamp(b, res, refocus_cmd.assess(ta, tb, res))
     m = Trace.open(b).meta
     assert m["refocus_verdict"] == "REFUSED"
     assert any("dropped >=2 trace write(s)" in reason

@@ -265,6 +265,11 @@ class _LateWriteGuard:
             if not self._closed:
                 self._w.set_meta(key, value)
 
+    def interned_files(self) -> list[str]:
+        """Deliberately not routed through `_call`: this is a read, and a
+        sealed writer must still be able to answer it for the finalizer."""
+        return self._w.interned_files()
+
     def close(self) -> None:
         with self._lock:
             if self._closed:
@@ -279,6 +284,35 @@ _audit_sink: list | None = None    # the `children` list of the run in progress
 _audit_installs = 0                # audit hooks added, ever, by this process
 
 
+# Audit events that start another process, mapped to the positional argument
+# carrying the command (None where the event carries no command at all).
+#
+# `subprocess.Popen` alone was not enough: `os.system` spawns a shell without
+# ever touching `subprocess`, so a run that shelled out recorded
+# `children == []` and was reported as having witnessed everything it did.
+#
+# The set is chosen from measurement, not from the audit-event list, because
+# the events nest. Measured on this platform:
+#
+#   subprocess.run(...)     -> subprocess.Popen, os.posix_spawn
+#   subprocess.run(shell=1) -> subprocess.Popen, os.posix_spawn
+#   os.system(...)          -> os.system
+#   os.spawnv(...)          -> os.fork
+#   os.posix_spawn(...)     -> os.posix_spawn
+#
+# so `os.posix_spawn` is deliberately absent: it is how CPython implements
+# `subprocess.Popen` here, and listening to both counts every subprocess
+# twice. The cost is a known gap -- a DIRECT `os.posix_spawn` call is not
+# noticed -- which is recorded here rather than papered over. `os.exec*` is
+# absent for a different reason: it replaces this process rather than
+# starting a child, so there is no run left to attach the note to.
+_CHILD_EVENTS = {
+    "subprocess.Popen": 1,     # (executable, args, cwd, env)
+    "os.system": 0,            # (command,)
+    "os.fork": None,           # no args; also how os.spawn* reaches the OS
+}
+
+
 def _audit(event, args) -> None:
     """Note child processes. One hook for the whole process, armed per run.
 
@@ -288,13 +322,19 @@ def _audit(event, args) -> None:
     for the rest of the process's life. One module-level hook, armed and
     disarmed around each run, has neither problem.
     """
-    if event != "subprocess.Popen":
+    if event not in _CHILD_EVENTS:
         return
     try:
         sink = _audit_sink
         if sink is None:
             return
-        cmd = args[1] or []
+        index = _CHILD_EVENTS[event]
+        if index is None:
+            sink.append([f"<{event}>"])    # a child with no command to name
+            return
+        cmd = args[index] if len(args) > index else None
+        if not cmd:
+            return
         if isinstance(cmd, (str, bytes, os.PathLike)):
             cmd = [cmd]           # a bare command line, as Windows reports it
         sink.append([_as_text(a) for a in cmd][:8])
@@ -334,6 +374,16 @@ def _disarm_audit() -> None:
 
 # -- run metadata ----------------------------------------------------------
 def git_info(cwd: Path) -> dict:
+    """Repository context for the run. NOT a change detector.
+
+    `git_dirty_hash` hashes the OUTPUT of `git status --porcelain`, which is
+    a list of paths and their status letters -- not file contents. A file
+    that is already dirty when a run is recorded can then be edited
+    arbitrarily, including the program being executed, and this hash does not
+    move; nor does it see gitignored or out-of-repo files. It answers "which
+    paths were dirty", and nothing that needs "did the code change" may be
+    built on it. `source_hashes` below is the check with that meaning.
+    """
     def _git(*args):
         r = subprocess.run(["git", *args], cwd=cwd,
                            capture_output=True, text=True)
@@ -344,6 +394,28 @@ def git_info(cwd: Path) -> dict:
     status = _git("status", "--porcelain") or ""
     return {"git_sha": sha,
             "git_dirty_hash": hashlib.sha256(status.encode()).hexdigest()[:16]}
+
+
+def hash_file(path: str) -> str | None:
+    """sha256 of a file's bytes, or None if it cannot be read now."""
+    try:
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()[:16]
+    except OSError:
+        return None
+
+
+def _source_hashes(files) -> dict:
+    """Content digests for every file this run executed traced code from.
+
+    This is what makes "the source is unchanged" a claim the tool has
+    actually verified. Its limit is precise and worth knowing: it covers the
+    files the ORIGINAL run interned code from, plus the entry target. Code
+    that was never traced -- stdlib, site-packages, anything `--include` /
+    `--exclude` filtered out -- is not in the map and its changes are
+    invisible here.
+    """
+    return {f: hash_file(f) for f in sorted(files)}
 
 
 def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
@@ -385,12 +457,21 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
 
 
 def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
-                   truncated_count) -> None:
+                   truncated_count, live_threads, entry) -> None:
     """Close out the run. Runs after `w.seal()`, hence `set_meta_final`."""
     w.set_meta_final("uncaught", uncaught)
     w.set_meta_final("stdin_consumed", stdin_consumed)
     w.set_meta_final("children", children)
     w.set_meta_final("truncated_count", truncated_count)
+    # Threads still running when recording stopped. Already computed for the
+    # stderr gap warning; stored because a thread that ran only stdlib code
+    # produces NO fingerprint row, so counting fingerprints alone reports a
+    # single-threaded run while a second thread is doing file I/O.
+    w.set_meta_final("live_threads", live_threads)
+    files = set(w.interned_files())
+    if entry:
+        files.add(entry)       # the target itself, even if it traced nothing
+    w.set_meta_final("source_hashes", _source_hashes(files))
     w.set_meta_final("exit_status", exit_status)
     w.set_meta_final("end_ts", time.time())
     w.set_meta_final("late_writes", w.late_writes)   # read as late as possible
@@ -434,6 +515,9 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
     """Record one execution of `argv`. Returns (run_id, exit_status)."""
     run_id = run_id or paths.new_run_id()
     target = resolve_target(list(argv))   # resolve before hooks: never traced
+    # Resolved here, before the program can chdir underneath us.
+    entry = (str(Path(argv[0]).resolve())
+             if argv and str(argv[0]).endswith(".py") else None)
     w = _LateWriteGuard(TraceWriter(paths.traces_dir() / f"{run_id}.db"))
     _write_run_meta(w, run_id, argv, focus, include, exclude, window,
                     refocus_of)
@@ -478,7 +562,8 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
                 w, exit_status=exit_status, uncaught=uncaught,
                 stdin_consumed=stdin_proxy.consumed, children=children,
                 truncated_count=(capture.capture_stats["truncated"]
-                                 - truncated_before))
+                                 - truncated_before),
+                live_threads=live, entry=entry)
         finally:
             w.close()                  # never skipped: no leaked connection
             gaps = _recording_gaps(live, w.late_writes)

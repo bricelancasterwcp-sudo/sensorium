@@ -37,13 +37,25 @@ never got to flush its tail is not counted at all). A non-zero value means
 events are missing from the stream -- possibly causal ones -- so a verdict
 against that trace is unsafe for the same reason.
 
+A THIRD WAY TO HAVE NOTHING TO SAY
+-----------------------------------
+Two EMPTY causal streams are also equal, and the ordinary algorithm reports
+MATCH for them with exactly the confidence it reports MATCH for a thousand
+matching events. That is reachable without any damage to the recording at
+all: a target that resolves outside the run's root (reached through `..`, or
+an installed console script), or `--include`/`--exclude` that match nothing,
+records a complete, healthy trace of zero traced events. A verdict over
+nothing is not a verdict, so it is refused too. One empty side is a
+different matter -- that is a real difference between the two runs, and
+stays DIVERGED.
+
 `compare()` therefore has three possible verdicts, not two: MATCH, DIVERGED,
-and REFUSED. REFUSED means "the causal streams were never compared" -- it is
-the honest alternative to guessing. This is deliberately load-bearing for
-Task 15's `refocus`, which reuses `compare()` unchanged: a refocus run built
-from an incomplete or lossy recording must refuse exactly the same way, so
-the check lives here once rather than being re-implemented (and possibly
-forgotten) at each call site.
+and REFUSED. REFUSED means "no verdict could be issued" -- it is the honest
+alternative to guessing. This is deliberately load-bearing for `refocus`,
+which reuses `compare()` unchanged: a refocus built on an incomplete, lossy,
+or empty recording must refuse exactly the same way, so the check lives here
+once rather than being re-implemented (and possibly forgotten) at each call
+site.
 """
 from sensorium import paths
 from sensorium.store.reader import Trace
@@ -95,6 +107,12 @@ def _unsafe_reasons(trace: Trace, label: str) -> list[str]:
     return reasons
 
 
+def _refused(reasons: list[str]) -> dict:
+    return {"verdict": "REFUSED", "index": None, "a_event": None,
+            "b_event": None, "a_desc": None, "b_desc": None,
+            "reasons": reasons, "a_stream": None, "b_stream": None}
+
+
 def compare(trace_a: Trace, trace_b: Trace) -> dict:
     """Compare the main-thread causal streams of two traces.
 
@@ -105,17 +123,31 @@ def compare(trace_a: Trace, trace_b: Trace) -> dict:
     the rest describe the two sides' next step on DIVERGED), plus the full
     `a_stream` / `b_stream` used, for callers that want more context.
 
-    REFUSED means the comparison was never attempted -- `reasons` names
-    which trace(s) are unsafe and why; `index`/`a_event`/`b_event`/
-    `a_desc`/`b_desc`/`a_stream`/`b_stream` are all `None`.
+    REFUSED means no verdict could be issued, and comes in two shapes that
+    share one contract (`reasons` says which, everything else is `None`):
+    the streams could not be TRUSTED, so they were never read; or they were
+    read and held nothing to compare. Both are the honest alternative to a
+    confident answer -- the second one because two empty streams are equal,
+    and calling that MATCH is a verdict about nothing.
     """
     reasons = _unsafe_reasons(trace_a, "A") + _unsafe_reasons(trace_b, "B")
     if reasons:
-        return {"verdict": "REFUSED", "index": None, "a_event": None,
-                "b_event": None, "a_desc": None, "b_desc": None,
-                "reasons": reasons, "a_stream": None, "b_stream": None}
+        return _refused(reasons)
     sa = trace_a.causal_stream()
     sb = trace_b.causal_stream()
+    if not sa and not sb:
+        # Two empty streams are equal, and `first_divergence` would duly
+        # report MATCH -- a verdict about nothing, delivered with the same
+        # confidence as a verdict about a thousand events. One empty side is
+        # different: that is a real, reportable difference between the runs,
+        # and stays DIVERGED.
+        return _refused([
+            "neither trace recorded a single causal event on the compared "
+            "thread, so there was nothing to compare. A MATCH here would be "
+            "a verdict about nothing. This usually means the target's code "
+            "was never traced at all: it resolves outside the run's root "
+            "(a target reached through `..`, or an installed console "
+            "script), or --include/--exclude filtered everything out"])
     i = first_divergence(sa, sb)
     if i is None:
         return {"verdict": "MATCH", "index": None, "a_event": None,

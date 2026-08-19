@@ -21,13 +21,25 @@ about *the whole run*. They are now three different things:
   because spec section 4 says refocus compares per-thread fingerprints and a
   worker that took another path means the rerun was a different execution.
 * **LICENCE** is withheld on *every* honesty signal this tool can check --
-  the source tree moved, the environment moved, the program's own output
-  differs, the two runs exited differently, threads were involved at all, the
-  compared thread is inferred rather than recorded, a subprocess ran
-  unwitnessed. Any one of them means "this MATCH is about call shape, not
-  about the run as a whole". They are listed, not summarised.
-* **BLIND SPOTS** are stated on every verdict, because they can never be
-  checked. See OBSERVER EFFECT below: the biggest one is structural.
+  a source file's contents moved, the environment moved, the program's own
+  output differs, the two runs exited differently, threads were involved at
+  all or one was still running when recording stopped, the compared thread
+  is inferred rather than recorded, a subprocess ran unwitnessed. It is
+  withheld just as firmly when a check could not RUN, because the granted
+  sentence claims they all agreed. They are listed, not summarised.
+* **BLIND SPOTS** are stated on every verdict -- MATCH, DIVERGED and
+  REFUSED alike, because "every verdict" has to include the verdict that
+  says nothing or the sentence is not true. See OBSERVER EFFECT below: the
+  biggest blind spot is structural.
+
+A verdict over nothing is not a verdict. Two EMPTY causal streams compare
+equal, so a target whose code was never traced at all -- resolved outside
+the run's root, or filtered away by an inherited `--include`/`--exclude` --
+used to produce a serene MATCH over zero events with the licence granted on
+the line after "there was nothing to compare". `compare()` now refuses that
+case at the seam, and `_licence_caveats` withholds on a zero-thread
+comparison as well, because two independent things had to be wrong for it to
+escape.
 
 WHAT A MATCH LICENSES, AND WHAT IT DOES NOT
 -------------------------------------------
@@ -87,6 +99,11 @@ difference withholds the licence. `_VOLATILE_ENV` exists only to drop the
 handful of shell-bookkeeping keys that change between any two consecutive
 commands; it is deliberately tiny, because every name on it is a name this
 tool has stopped checking.
+
+The SOURCE is checked by content, never by `git_dirty_hash` -- see
+`_source_state`. That hash covers a list of paths, so a file that was
+already dirty when the original ran can be rewritten wholesale without
+moving it, and "source: unchanged" would have been a claim about nothing.
 
 OBSERVER EFFECT -- A STRUCTURAL BLIND SPOT
 -------------------------------------------
@@ -227,32 +244,65 @@ def _pin_trace_store() -> None:
 
 
 # -- the world the rerun will run in ---------------------------------------
-def _source_state(meta: dict, cwd: str) -> tuple[str, str | None]:
-    """(status line, caveat or None).
+def _source_state(meta: dict) -> tuple[str, str | None]:
+    """(status line, caveat or None), by comparing file CONTENTS.
 
-    A changed tree is a WARNING, never a refusal: the fingerprint speaks to
+    Deliberately not `git_dirty_hash`. That hash covers the output of
+    `git status --porcelain` -- a list of paths and status letters -- so a
+    file already dirty when the original ran can be edited arbitrarily,
+    including the program being executed, without moving it. It would let
+    the tool print "source: unchanged" over a rerun of different code, which
+    is the one thing a licence gate must never do. Gitignored and
+    out-of-repo files are outside it too.
+
+    `source_hashes` is the digest of every file the ORIGINAL run interned
+    traced code from, plus its entry target, taken at record time. Comparing
+    those same paths' contents now is a claim the tool has actually
+    verified. What it does NOT cover: code that was never traced -- stdlib,
+    site-packages, anything the run's filters excluded -- and any file the
+    RERUN reaches that the original never touched.
+
+    A changed file is a WARNING, never a refusal: the fingerprint speaks to
     the execution path, not to file bytes, so an edit that leaves the causal
     stream untouched still earns an honest MATCH. What it costs is the right
     to assume the *values* were the same.
     """
     from sensorium.record import boot
 
-    was_sha, was_dirty = meta.get("git_sha"), meta.get("git_dirty_hash")
-    now = boot.git_info(Path(cwd))
-    if was_sha is None or now["git_sha"] is None:
-        return (f"source: unverifiable -- no git repository at {cwd}, so "
-                "sensorium cannot tell whether the code changed since the "
-                "original run",
-                "the source tree could not be checked at all (no git "
-                "repository), so nothing rules out an edit between the runs")
-    if was_sha == now["git_sha"] and was_dirty == now["git_dirty_hash"]:
-        return (f"source: unchanged (git {was_sha[:12]}, "
-                f"working tree {was_dirty})", None)
-    return (f"source: CHANGED since the original run "
-            f"(git {was_sha[:12]}/{was_dirty} -> "
-            f"{now['git_sha'][:12]}/{now['git_dirty_hash']})",
-            "the working tree CHANGED between the two runs, so the rerun "
-            "executed different source than the recording did")
+    was = meta.get("source_hashes")
+    if not isinstance(was, dict) or not was:
+        return ("source: unverifiable -- the original trace records no "
+                "source digests (recorded before they existed), so "
+                "sensorium cannot tell whether the code changed",
+                "the source could not be checked at all -- the original "
+                "trace holds no file digests -- so nothing rules out an "
+                "edit between the runs")
+    # A file the recorder could not read has a None digest. Comparing it
+    # against a None read now would make two failures agree and print
+    # "unchanged" over a file nobody has ever hashed -- the same shape as
+    # every other bug in this round: a check that did not run, reported as a
+    # check that passed.
+    unread = sorted(p for p, digest in was.items() if digest is None)
+    if unread:
+        names = ", ".join(Path(p).name for p in unread[:6])
+        return (f"source: unverifiable -- {len(unread)} of {len(was)} "
+                f"file(s) had no digest recorded ({names})",
+                f"{len(unread)} source file(s) could not be checked "
+                f"({names}) -- they were unreadable when the original was "
+                f"recorded, so nothing rules out an edit between the runs")
+    changed = [p for p, digest in sorted(was.items())
+               if boot.hash_file(p) != digest]
+    if not changed:
+        return (f"source: unchanged ({len(was)} file(s) compared by content)",
+                None)
+    shown = ", ".join(Path(p).name for p in changed[:6])
+    if len(changed) > 6:
+        shown += f", +{len(changed) - 6} more"
+    return (f"source: CHANGED since the original run -- {len(changed)} of "
+            f"{len(was)} file(s) differ by content: {shown}",
+            f"{len(changed)} source file(s) CHANGED between the two runs "
+            f"({shown}), so the rerun executed different code than the "
+            f"recording did")
 
 
 def _env_diff(was: dict, now: dict) -> list[str]:
@@ -374,11 +424,31 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
             out.append(f"{label}'s compared thread is INFERRED, not recorded "
                        "-- it may not be the thread you think it is")
     threads = max(len(orig.fingerprints()), len(new.fingerprints()))
-    if threads > 1:
+    if not threads:
+        # Defence in depth: `compare()` refuses two empty streams before this
+        # is reached for a real recording. It stays because "no fingerprint
+        # was recorded" means the whole-thread comparison did not run, and a
+        # check that did not run can never support the licence.
+        out.append(
+            "no per-thread fingerprint was recorded on either side, so the "
+            "whole-thread comparison could not run at all")
+    elif threads > 1:
         out.append(
             f"{threads} threads were recorded; each thread's own call shape "
             "matched, but the INTERLEAVING between them was never compared, "
             "and interleaving is what most concurrency bugs are made of")
+    # A thread that ran only stdlib or site-packages code produces NO
+    # fingerprint row, so the count above reports a single-threaded run while
+    # a second thread is doing file I/O. The recorder notes which threads
+    # were still alive when it stopped; that is the signal that catches it.
+    for label, trace in (("the original", orig), ("the rerun", new)):
+        live = trace.meta.get("live_threads") or []
+        if live:
+            out.append(
+                f"{label} still had {len(live)} thread(s) running when "
+                f"recording stopped ({', '.join(sorted(live)[:4])}); whatever "
+                "they did after that point is in neither trace, and a thread "
+                "that ran no traced code has no fingerprint to compare")
     diff = _output_difference(orig, new)
     if diff:
         out.append(diff)
@@ -394,44 +464,68 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
     return out
 
 
-# -- reporting -------------------------------------------------------------
-def _stamp(path: Path, orig: Trace, new: Trace, res: dict) -> None:
-    """Label the new trace with its verdict, permanently."""
+# -- the assessment --------------------------------------------------------
+def assess(orig: Trace, new: Trace, res: dict, world_caveats=()) -> dict:
+    """Everything the two traces support, decided once.
+
+    `world_caveats` are findings about the world outside the traces (the
+    source files, the environment) that only the caller can establish;
+    everything else is derived here. Computed in one place because the
+    verdict is printed, stamped into the new trace, and turned into an exit
+    code -- and those three must never be able to disagree.
+    """
     verdict, threads = final_verdict(orig, new, res)
+    world = list(world_caveats)
+    caveats = ((world + _licence_caveats(orig, new))
+               if verdict == "MATCH" else [])
+    licence = None
+    if verdict == "MATCH":
+        licence = "withheld" if caveats else "granted"
+    return {"verdict": verdict, "threads": threads, "world": world,
+            "caveats": caveats, "licence": licence}
+
+
+# -- reporting -------------------------------------------------------------
+def _stamp(path: Path, res: dict, a: dict) -> None:
+    """Label the new trace with its verdict AND its licence, permanently.
+
+    The licence is stamped for the same reason the verdict is: a listing
+    that shows a bare `verdict:MATCH` for a run whose licence was withheld
+    on every count is the "reads as a pedigree" failure one level down.
+    """
     conn = db.open_trace(path)
     try:
-        db.set_meta(conn, "refocus_verdict", verdict)
+        db.set_meta(conn, "refocus_verdict", a["verdict"])
         if res["verdict"] == "DIVERGED":
             db.set_meta(conn, "refocus_diverge_index", res["index"])
             db.set_meta(conn, "refocus_diverge_a", res["a_desc"])
             db.set_meta(conn, "refocus_diverge_b", res["b_desc"])
         elif res["verdict"] == "REFUSED":
             db.set_meta(conn, "refocus_refused_reasons", res["reasons"])
-        if threads:
-            db.set_meta(conn, "refocus_thread_divergence", threads)
+        if a["threads"]:
+            db.set_meta(conn, "refocus_thread_divergence", a["threads"])
+        if a["licence"]:
+            db.set_meta(conn, "refocus_licence", a["licence"])
+            db.set_meta(conn, "refocus_licence_reasons", a["caveats"])
         conn.commit()
     finally:
         conn.close()
 
 
 def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
-           *, world_caveats=()) -> int:
-    """Print the comparison and the verdict; return this command's exit code.
-
-    `world_caveats` are findings about the world outside the traces (the
-    source tree, the environment) that only the caller can establish. Every
-    other caveat is derived from the two traces here, so this function can be
-    driven directly for verdicts the recorder cannot be made to produce on
-    demand.
-    """
+           a: dict) -> int:
+    """Print the comparison and the verdict; return the exit code."""
     print_comparison(orig, new, res, orig_name, new_name)
-    verdict, threads = final_verdict(orig, new, res)
+    verdict, threads = a["verdict"], a["threads"]
 
     if res["verdict"] == "REFUSED":
         print("threads: not compared -- no verdict was issued")
         print(f"refocus verdict: REFUSED -- {new_name} was recorded and is "
               f"queryable, but it could NOT be verified against "
               f"{orig_name}: treat it as a separate, UNVERIFIED execution")
+        # Stated here too: "on every verdict" has to include the verdict
+        # that says nothing, or the sentence is not true.
+        print(_BLIND_SPOTS)
         return 2
 
     if threads:
@@ -456,10 +550,10 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
         # output and a differing exit status are consequences of a
         # divergence, and offering a consequence as a possible cause would
         # send the reader looking in the wrong direction.
-        if world_caveats:
+        if a["world"]:
             print("differences in the world between the two runs, any of "
                   "which may be why:")
-            for caveat in world_caveats:
+            for caveat in a["world"]:
                 print(f"  - {caveat}")
         print("note: a divergence can also be caused by the deeper capture "
               "itself -- capturing values runs the program's own __repr__ "
@@ -470,12 +564,11 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
 
     print("refocus verdict: MATCH -- every recorded thread produced the "
           "identical CALL/RETURN/RAISE/HANDLED sequence")
-    caveats = list(world_caveats) + _licence_caveats(orig, new)
-    if caveats:
+    if a["caveats"]:
         print("licence: WITHHELD -- this MATCH is about call shape, and "
               "these checks say it is not a statement about the run as a "
               "whole:")
-        for caveat in caveats:
+        for caveat in a["caveats"]:
             print(f"  - {caveat}")
     else:
         print("licence: answers from this trace are answers about the "
@@ -497,7 +590,7 @@ def _rerun_and_verify(args, orig: Trace, orig_name: str, meta: dict,
 
     focus = _merged_focus(meta, args.focus)
     window = args.window if args.window is not None else meta.get("window")
-    source, source_caveat = _source_state(meta, os.getcwd())
+    source, source_caveat = _source_state(meta)
     env_line, env_caveat = _env_state(meta, env)
 
     print(f"refocus-of: {orig_name}   cmd: {' '.join(argv)}")
@@ -515,14 +608,14 @@ def _rerun_and_verify(args, orig: Trace, orig_name: str, meta: dict,
     new_path = (paths.traces_dir() / f"{new_id}.db").resolve()
     new = Trace.open(new_path)
     res = compare(orig, new)
-    _stamp(new_path, orig, new, res)
+    a = assess(orig, new, res, [c for c in (source_caveat, env_caveat) if c])
+    _stamp(new_path, res, a)
 
     print("--- verdict ---")
     print(f"run: {new_id}")
     print(f"trace: {new_path}")
     print(f"exit: rerun {status}   original {meta.get('exit_status', '?')}")
-    caveats = [c for c in (source_caveat, env_caveat) if c]
-    return report(orig, new, res, orig_name, new_id, world_caveats=caveats)
+    return report(orig, new, res, orig_name, new_id, a)
 
 
 def run(args) -> int:

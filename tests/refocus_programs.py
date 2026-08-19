@@ -288,6 +288,62 @@ if __name__ == "__main__":
     main()
 """
 
+# `os.system` starts a shell without ever touching `subprocess`, so a hook
+# that watches only `subprocess.Popen` records `children == []` for it.
+SHELLS_OUT = """
+import os
+
+def shell():
+    os.system("exit 0")
+
+def main():
+    shell()
+    print("done")
+
+if __name__ == "__main__":
+    main()
+"""
+
+# Reached as `../tool.py` from a cwd it does not live under, this traces
+# NOTHING: `_classify` only traces files below the run's root. Two runs that
+# take visibly different branches then produce two empty causal streams,
+# which compare equal.
+OUTSIDE_ROOT = """
+import pathlib
+
+def main():
+    p = pathlib.Path("marker.txt")
+    if p.exists():
+        print("SECOND-RUN")
+    else:
+        p.write_text("1")
+        print("FIRST-RUN")
+
+if __name__ == "__main__":
+    main()
+"""
+
+# A worker whose body is entirely stdlib produces NO fingerprint row, so
+# counting fingerprints reports a single-threaded run while a second thread
+# is still doing file I/O.
+UNTRACED_WORKER = """
+import threading
+import time
+
+def start():
+    t = threading.Thread(target=time.sleep, args=(30,), daemon=True,
+                         name="untraced-worker")
+    t.start()
+    return t
+
+def main():
+    start()
+    print("main done")
+
+if __name__ == "__main__":
+    main()
+"""
+
 
 # -- fixtures ---------------------------------------------------------------
 
@@ -298,12 +354,13 @@ def rec(tmp_path, src, extra=(), stdin_text=None):
     return run_id, tmp_path / "sdir"
 
 
-def rec_in_git(tmp_path, src):
+def rec_in_git(tmp_path, src, uncommitted=None):
     """Record inside a real git repo with `prog.py` committed.
 
-    Committing matters: an untracked file shows as `?? prog.py` before and
-    after an edit, so `git_dirty_hash` would not move and the changed-tree
-    warning this fixture exists to exercise would never fire.
+    `uncommitted` rewrites the file after the commit, so the recording is
+    made while the file is ALREADY dirty. That is the state in which
+    `git_dirty_hash` -- a hash of the porcelain path list -- stops being
+    able to notice any further edit at all.
     """
     tmp_path.mkdir(parents=True, exist_ok=True)
     (tmp_path / "prog.py").write_text(src)
@@ -313,6 +370,8 @@ def rec_in_git(tmp_path, src):
                  "-c", "commit.gpgsign=false", "commit", "-q", "-m", "p"]):
         subprocess.run(["git", *cmd], cwd=tmp_path, check=True,
                        capture_output=True)
+    if uncommitted is not None:
+        (tmp_path / "prog.py").write_text(uncommitted)
     sdir = tmp_path / "sdir"
     r = run_cli(["run", "--", "prog.py"], cwd=tmp_path, sensorium_dir=sdir)
     assert r.returncode == 0, r.stderr
@@ -383,10 +442,16 @@ def drop_meta(path, *keys):
 
 
 def synthetic(sdir, run_id, *, argv=("prog.py",), cwd=None, late_writes=0,
-              main_thread_ident=1):
+              main_thread_ident=1, fingerprint="aaaabbbbccccdddd"):
     """A hand-built trace, for shapes the recorder cannot produce on demand:
-    dropped late writes, a legacy trace with no recorded main thread, and
-    corrupt metadata that must be refused rather than crashed on."""
+    dropped late writes, a legacy trace with no recorded main thread, a
+    trace with no per-thread fingerprint at all, and corrupt metadata that
+    must be refused rather than crashed on.
+
+    `fingerprint=None` omits the fingerprint row. Both sides of a comparison
+    must use the same digest, or the whole-thread check will report them as
+    diverged for a reason the test did not intend.
+    """
     path = Path(sdir) / "traces" / f"{run_id}.db"
     w = TraceWriter(path)
     w.set_meta("run_id", run_id)
@@ -400,5 +465,7 @@ def synthetic(sdir, run_id, *, argv=("prog.py",), cwd=None, late_writes=0,
         w.set_meta("main_thread_ident", main_thread_ident)
     c = w.intern_code("/tmp/prog.py", "main", 1)
     w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
+    if fingerprint is not None:
+        w.write_fingerprint(1, fingerprint, 1)
     w.close()
     return path

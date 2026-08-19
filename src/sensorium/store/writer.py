@@ -70,6 +70,16 @@ class TraceWriter:
         with self._lock:
             self._outputs.append((after_event_id, stream, data))
 
+    def interned_files(self) -> list[str]:
+        """Distinct source files this trace has interned code from.
+
+        Read from the in-memory intern table rather than the database
+        because callers need it during finalize, while codes may still be
+        sitting unflushed in `_new_codes`.
+        """
+        with self._lock:
+            return sorted({file for file, _qual, _line in self._codes})
+
     def set_meta(self, key, value) -> None:
         with self._lock:
             db.set_meta(self._conn, key, value)

@@ -61,8 +61,20 @@ def run(args) -> int:
         print(f"late writes dropped: >={late_writes} (trace is incomplete "
               "for still-live threads; the true count may be higher)")
     if m.get("refocus_of"):
+        # The verdict never travels alone. A bare MATCH here would read as a
+        # clean bill of health for a rerun whose licence was withheld on
+        # every count, and a bare DIVERGED gives the reader no way to see
+        # WHAT diverged without re-running the comparison by hand.
+        licence = m.get("refocus_licence")
         print(f"refocus-of: {m['refocus_of']}  "
-              f"verdict: {m.get('refocus_verdict', 'UNVERIFIED')}")
+              f"verdict: {m.get('refocus_verdict', 'UNVERIFIED')}"
+              + (f"  licence: {licence}" if licence else ""))
+        if m.get("refocus_thread_divergence"):
+            print(f"  diverged on threads: {m['refocus_thread_divergence']}")
+        for reason in m.get("refocus_licence_reasons") or []:
+            print(f"  licence withheld: {reason}")
+        for reason in m.get("refocus_refused_reasons") or []:
+            print(f"  refused: {reason}")
     hot = sorted(((c, len(t.frames(code_id=c.id))) for c in t.codes()),
                  key=lambda x: -x[1])[:8]
     if hot:
