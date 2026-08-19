@@ -20,9 +20,10 @@ from tests.helpers import run_cli
 from tests.refocus_programs import (COUNTER, EXIT_FROM_FILE, LIB, LOOP,
                                     OUTSIDE_ROOT, READS_STDIN, SLEEPER,
                                     THREAD_BRANCH, THREAD_COUNT, TWO_FILES,
-                                    WORKER_ON_SECOND_RUN, dbs, new_run, rec,
-                                    record_killed, recorded_output, refocus,
-                                    set_meta, synthetic, trace)
+                                    WORKER_ON_SECOND_RUN, dbs, drop_meta,
+                                    new_run, rec, record_killed,
+                                    recorded_output, refocus, set_meta,
+                                    synthetic, trace)
 
 
 # -- MATCH ------------------------------------------------------------------
@@ -233,11 +234,58 @@ def test_runs_shows_the_licence_beside_a_match(tmp_path):
     listing = run_cli(["runs"], cwd=tmp_path, sensorium_dir=sdir)
     line = next(ln for ln in listing.stdout.splitlines()
                 if ln.startswith(new_id))
-    assert "verdict:MATCH(withheld)" in line
+    assert "verdict:MATCH(withheld:2,see-info)" in line
 
     info = run_cli(["info", new_id], cwd=tmp_path, sensorium_dir=sdir)
     assert "licence: withheld" in info.stdout
     assert "licence withheld: 1 source file(s) CHANGED" in info.stdout
+
+
+def test_the_granted_licence_keeps_its_bounds_where_it_persists(tmp_path):
+    """The good news must not lose its qualifications while the bad news
+    keeps them. The terminal itemises five points and prints the blind
+    spots; what persisted was the bare word "granted", in `info` and in the
+    `runs` listing both -- while a WITHHELD licence itemised its reasons in
+    `info`. `_stamp` has been writing `refocus_licence_verified` all along
+    and nothing read it."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert "licence: verified against" in r.stdout, r.stdout
+    new_id = new_run(r.stdout)
+
+    info = run_cli(["info", new_id], cwd=tmp_path, sensorium_dir=sdir)
+    facts = [ln for ln in info.stdout.splitlines()
+             if ln.startswith("  licence verified: ")]
+    assert len(facts) == 5, info.stdout
+    assert any("identical call shape" in f for f in facts)
+    assert any("source file(s) unchanged by content" in f for f in facts)
+    assert any("compared and unchanged" in f for f in facts)
+    assert any("no thread started besides the main one" in f for f in facts)
+    assert any("no child process witnessed" in f for f in facts)
+    assert "does not record WHAT it was granted on" not in info.stdout
+
+    listing = run_cli(["runs"], cwd=tmp_path, sensorium_dir=sdir)
+    line = next(ln for ln in listing.stdout.splitlines()
+                if ln.startswith(new_id))
+    assert "verdict:MATCH(granted:5,see-info)" in line
+
+
+def test_a_licence_stamped_without_its_points_says_so(tmp_path):
+    """A trace stamped before the points were recorded must not present a
+    bare "granted" as if the bounds were merely elsewhere."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    new_id = new_run(r.stdout)
+    drop_meta(sdir / "traces" / f"{new_id}.db", "refocus_licence_verified")
+
+    info = run_cli(["info", new_id], cwd=tmp_path, sensorium_dir=sdir)
+    assert "licence verified:" not in info.stdout
+    assert "does not record WHAT it was granted on" in info.stdout
+
+    listing = run_cli(["runs"], cwd=tmp_path, sensorium_dir=sdir)
+    line = next(ln for ln in listing.stdout.splitlines()
+                if ln.startswith(new_id))
+    assert "verdict:MATCH(granted,points-not-recorded)" in line
 
 
 def test_info_names_what_diverged_across_threads(tmp_path):

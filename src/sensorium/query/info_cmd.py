@@ -123,6 +123,19 @@ def run(args) -> int:
             print(f"  diverged on threads: {m['refocus_thread_divergence']}")
         for reason in m.get("refocus_licence_reasons") or []:
             print(f"  licence withheld: {reason}")
+        # A granted licence without its points is the bad news keeping its
+        # qualifications while the good news loses them. The terminal prints
+        # five itemised facts and the blind spots; what persisted was the
+        # word "granted", which reads as unbounded -- exactly the failure the
+        # comment in `runs_cmd` names one level up. `refocus` has been
+        # stamping these into the trace all along; nothing read them.
+        verified = m.get("refocus_licence_verified") or []
+        for fact in verified:
+            print(f"  licence verified: {fact}")
+        if licence == "granted" and not verified:
+            print("  licence granted, but this trace does not record WHAT it "
+                  "was granted on -- it predates that record; re-run "
+                  "`sensorium refocus` for the bounded list")
         for reason in m.get("refocus_refused_reasons") or []:
             print(f"  refused: {reason}")
     hot = sorted(((c, len(t.frames(code_id=c.id))) for c in t.codes()),
