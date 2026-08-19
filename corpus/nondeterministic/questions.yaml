@@ -30,6 +30,9 @@ questions:
       - ["B:", "right"]
     expect_absent: ["refocus verdict: MATCH"]
   - id: which-of-these-traces-is-a-rerun
+    # Order coupling, declared so it cannot be lost in a reorder: the second
+    # trace exists only because the refocus question above already ran.
+    depends_on: can-this-run-be-deepened
     ask: >
       The terminal has scrolled away. Of the traces now in this store, which
       one is a rerun of another, and what verdict did that rerun get?

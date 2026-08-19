@@ -35,6 +35,17 @@ Four assertion forms, in order of how tightly they bind:
 `expect_exit` defaults to 0 and is checked for every question, so a command
 that answers correctly by accident while exiting 2 still fails.
 
+QUESTIONS RUN IN FILE ORDER, AND SOME OF THEM DEPEND ON IT
+----------------------------------------------------------
+A question can change the store the next one reads: `refocus` records a
+second trace, so a later `runs` question can see a verdict the earlier
+question created. That coupling is real and invisible in a plain list, and a
+list with hidden order coupling gets reordered eventually. `depends_on`
+names the earlier question a question relies on, and `load_cases` refuses a
+file where the named question does not appear STRICTLY EARLIER -- so a
+reorder fails at load with a message naming both ids, instead of failing
+later as a puzzling missing-output error.
+
 UNKNOWN KEYS ARE AN ERROR
 -------------------------
 A typo'd key that is silently ignored turns an assertion into a comment: the
@@ -60,7 +71,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent
 ALLOWED_Q_KEYS = {"id", "ask", "truth", "why_logs_fail", "command",
                   "expect_contains", "expect_line", "expect_count",
-                  "expect_absent", "expect_exit"}
+                  "expect_absent", "expect_exit", "depends_on"}
 ALLOWED_TOP_KEYS = {"program", "argv", "record", "second_run", "questions"}
 # `expect_contains` is deliberately NOT in this list, unlike the original
 # schema. Requiring it by name while allowing it to be `[]` makes a question
@@ -117,6 +128,9 @@ def _validate_question(where: str, q) -> None:
     if not isinstance(q.get("expect_count", {}), dict):
         raise ValueError(f"{where}:{qid}: expect_count must be a mapping "
                          "of substring -> exact count")
+    if "depends_on" in q and not isinstance(q["depends_on"], str):
+        raise ValueError(f"{where}:{qid}: depends_on must be the id of an "
+                         "earlier question in this file")
     # A question with no assertion is a question that always passes. That is
     # the single worst thing a corpus can contain, so it is refused at load
     # time rather than counted.
@@ -140,6 +154,16 @@ def load_cases(root: Path = ROOT) -> list[Case]:
             _validate_question(str(qfile), q)
             if q["id"] in seen:
                 raise ValueError(f"{qfile}: duplicate question id {q['id']!r}")
+            # Checked against the ids seen SO FAR, which is what makes a
+            # reorder an error rather than a silent behaviour change: a
+            # dependency naming a later question -- or itself -- is not yet
+            # in `seen`.
+            dep = q.get("depends_on")
+            if dep is not None and dep not in seen:
+                raise ValueError(
+                    f"{qfile}:{q['id']}: depends_on {dep!r} must name a "
+                    "question earlier in this file; questions run in file "
+                    f"order and {dep!r} is not among the ones before it")
             seen.add(q["id"])
             if "$RUN2" in q["command"] and spec.get("second_run") is None:
                 raise ValueError(f"{qfile}:{q['id']}: uses $RUN2 but the case "

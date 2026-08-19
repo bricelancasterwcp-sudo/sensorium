@@ -70,9 +70,23 @@ def _load_one(tmp_path, questions, **top):
 # -- the corpus itself -----------------------------------------------------
 def test_all_cases_load_and_validate():
     cases = run_corpus.load_cases()
-    assert len(cases) >= 10
+    assert len(cases) >= 11
     ids = [(c.name, q["id"]) for c in cases for q in c.questions]
     assert len(ids) == len(set(ids))
+
+
+def test_the_classifiers_under_claim_is_registered_somewhere():
+    """An `ambiguous` verdict must be pinned by a case, not left to absence.
+
+    The under-claim rows are exactly the ones that regress silently into
+    over-claiming, which is `exceptions`' worst failure. A corpus that
+    respects the contract only by never reaching it would not notice.
+    """
+    cases = {c.name: c for c in run_corpus.load_cases()}
+    q, = cases["generator_swallow"].questions
+    assert "dispositions: ambiguous 2" in q["expect_contains"]
+    assert "SWALLOWED" in q["expect_absent"]
+    assert "dispositions: swallowed" in q["expect_absent"]
 
 
 def test_every_cli_command_is_exercised_by_some_question():
@@ -152,6 +166,44 @@ def test_malformed_expect_count_is_refused(tmp_path):
     q = {**GOOD_QUESTION, "expect_count": ["nope"]}
     with pytest.raises(ValueError, match="expect_count must be a mapping"):
         _load_one(tmp_path, [q])
+
+
+def test_depends_on_accepts_a_question_declared_earlier(tmp_path):
+    case = _load_one(tmp_path, [GOOD_QUESTION,
+                                {**GOOD_QUESTION, "id": "second",
+                                 "depends_on": "doubles"}])
+    assert [q["id"] for q in case.questions] == ["doubles", "second"]
+
+
+def test_depends_on_a_later_question_is_refused(tmp_path):
+    """A reorder must fail at LOAD, not as a puzzling missing-output error.
+
+    `nondeterministic`'s `runs` question only sees a refocus verdict because
+    the refocus question ran first; nothing else in the schema records that.
+    """
+    with pytest.raises(ValueError, match="must name a question earlier"):
+        _load_one(tmp_path, [{**GOOD_QUESTION, "id": "first",
+                              "depends_on": "second"},
+                             {**GOOD_QUESTION, "id": "second"}])
+
+
+def test_depends_on_itself_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="must name a question earlier"):
+        _load_one(tmp_path, [{**GOOD_QUESTION, "depends_on": "doubles"}])
+
+
+def test_depends_on_an_unknown_id_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="must name a question earlier"):
+        _load_one(tmp_path, [GOOD_QUESTION,
+                             {**GOOD_QUESTION, "id": "second",
+                              "depends_on": "typo"}])
+
+
+def test_depends_on_must_be_a_string(tmp_path):
+    with pytest.raises(ValueError, match="depends_on must be the id"):
+        _load_one(tmp_path, [GOOD_QUESTION,
+                             {**GOOD_QUESTION, "id": "second",
+                              "depends_on": ["doubles"]}])
 
 
 def test_a_question_that_is_not_a_mapping_is_refused(tmp_path):
