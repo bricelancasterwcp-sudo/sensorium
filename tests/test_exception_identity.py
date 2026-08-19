@@ -206,3 +206,86 @@ def test_exceptions_reused_address_with_a_different_type_is_still_a_swallow(
     assert f"SWALLOWED at e{hand} main L9" in out
     assert "different recorder identity" not in out
     assert "dispositions: swallowed 2" in out
+
+
+def test_exceptions_unwind_at_another_address_or_type_is_not_this_exception(
+        tmp_path, monkeypatch, capsys):
+    """The address check has to be both halves, and it only relaxes a claim
+    when BOTH match. A frame that unwound with the same type at a different
+    address, or a different type at this address, demonstrably did not leave
+    carrying this exception -- reporting either as "possibly still this one"
+    would trade one refusal to conclude for another, wider one.
+
+    Synthetic: making CPython recycle an address on demand is exactly the
+    coincidence this project has learned not to build tests on."""
+    w = synthetic(tmp_path, monkeypatch)
+    c_main = w.intern_code("/tmp/prog.py", "main", 1)
+    c_risky = w.intern_code("/tmp/prog.py", "risky", 5)
+    e_call_main = w.add_event(0, 1, "CALL", None, c_main, 1, {"args": {}})
+    f_main = w.open_frame(None, c_main, e_call_main, 0, 1)
+
+    # same type, different address: another object of the same class
+    e_call_a = w.add_event(0, 1, "CALL", None, c_risky, 5, {"args": {}})
+    f_a = w.open_frame(f_main, c_risky, e_call_a, 1, 1)
+    same_type = exc_payload("ValueError", "mine", 500, serial=1)
+    other_addr = exc_payload("ValueError", "other", 501, serial=2)
+    raise_a = w.add_event(0, 1, "RAISE", f_a, c_risky, 6, {"exc": same_type})
+    w.add_event(0, 1, "HANDLED", f_a, c_risky, 7, {"exc": same_type})
+    w.close_frame(f_a, None, "unwind", other_addr)
+
+    # same address, different type: this one's address, freed and reused
+    e_call_b = w.add_event(0, 1, "CALL", None, c_risky, 5, {"args": {}})
+    f_b = w.open_frame(f_main, c_risky, e_call_b, 1, 1)
+    reused = exc_payload("ValueError", "mine too", 700, serial=3)
+    other_type = exc_payload("RuntimeError", "different", 700, serial=4)
+    raise_b = w.add_event(0, 1, "RAISE", f_b, c_risky, 6, {"exc": reused})
+    w.add_event(0, 1, "HANDLED", f_b, c_risky, 7, {"exc": reused})
+    w.close_frame(f_b, None, "unwind", other_type)
+
+    e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
+    w.close_frame(f_main, e_ret, "return")
+    w.set_meta("incomplete", False)
+    w.set_meta("exit_status", 0)
+    w.set_meta("uncaught", None)
+    w.close()
+
+    assert cli.main(["exceptions", "20260101-000000-abcdef"]) == 0
+    out = capsys.readouterr().out
+    for event_id, unwound in ((raise_a, "ValueError('other')"),
+                              (raise_b, "RuntimeError('different')")):
+        verdict = _verdict_under(out, event_id)
+        assert f"then unwound with {unwound}" in verdict
+        assert "different recorder identity" not in verdict
+    assert "dispositions: ambiguous 2" in out
+
+
+def test_exceptions_legacy_repeat_is_not_dressed_up_as_a_lost_link(
+        tmp_path, monkeypatch, capsys):
+    """A legacy trace has no recorder identities to lose, so the lost-link
+    hedge must stay dormant there: two rows that differ only in message are
+    two identities under the legacy contract, and saying they sit "at the same
+    address under a different recorder identity" would describe machinery the
+    trace never had."""
+    w = synthetic(tmp_path, monkeypatch)
+    c_main = w.intern_code("/tmp/prog.py", "main", 1)
+    e_call_main = w.add_event(0, 1, "CALL", None, c_main, 1, {"args": {}})
+    f_main = w.open_frame(None, c_main, e_call_main, 0, 1)
+    first = exc_payload("ValueError", "attempt 1", 999)      # no serial
+    second = exc_payload("ValueError", "attempt 2", 999)     # same address
+    w.add_event(0, 1, "RAISE", f_main, c_main, 3, {"exc": first})
+    h1 = w.add_event(0, 1, "HANDLED", f_main, c_main, 4, {"exc": first})
+    w.add_event(0, 1, "RAISE", f_main, c_main, 6, {"exc": second})
+    h2 = w.add_event(0, 1, "HANDLED", f_main, c_main, 7, {"exc": second})
+    e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
+    w.close_frame(f_main, e_ret, "return")
+    w.set_meta("incomplete", False)
+    w.set_meta("exit_status", 0)
+    w.set_meta("uncaught", None)
+    w.close()
+
+    assert cli.main(["exceptions", "20260101-000000-abcdef"]) == 0
+    out = capsys.readouterr().out
+    assert "LEGACY TRACE" in out
+    assert f"SWALLOWED at e{h1}" in out and f"SWALLOWED at e{h2}" in out
+    assert "recorder identity" not in out
+    assert "dispositions: swallowed 2" in out
