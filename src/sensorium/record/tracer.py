@@ -16,8 +16,16 @@ is the line that is about to execute. This is deliberate: read a run of LINE
 events as a state timeline, where each row says "just before line N, these
 locals had just become these values". `deltas` holds only the names whose
 captured value differs from the previous capture in that same frame, and no
-event is written at all when nothing changed. A name that is deleted (`del x`)
-leaves no delta -- only bindings that exist can be captured.
+event is written at all when nothing changed.
+
+Names that went away carry their own sibling key: `payload["unbound"]` is a
+sorted list of names bound at the previous line and gone at this one, present
+only when non-empty. It is kept out of `deltas` so every delta value stays a
+`capture_value` result and consumers need no type check. Both `del x` and the
+implicit unbind that ends an `except ... as x` handler are reported this way,
+and an unbind alone is enough to emit an event -- otherwise a `del` whose line
+changes nothing else would leave no trace, and a consumer folding deltas would
+keep a dead binding alive for the rest of the frame.
 
 A LINE event's `frame_id` is always set. Generators and coroutines are
 frameless (no frame is opened for them), so LINE stays permanently disabled for
@@ -321,12 +329,18 @@ class Tracer:
                 cur[name] = cap
                 if prev.get(name) != cap:   # compare captures, not live objects
                     deltas[name] = cap
+            gone = prev.keys() - cur.keys()
             entry[3] = cur
-            if deltas:
+            if deltas or gone:
+                payload = {"deltas": deltas}
+                if gone:
+                    # Sibling key, never a sentinel inside deltas: that would
+                    # widen capture_value's codomain and force a type check on
+                    # every value. Readers that ignore it lose nothing else.
+                    payload["unbound"] = sorted(gone)
                 self.writer.add_event(time.monotonic_ns(),
                                       threading.get_ident(), "LINE",
-                                      entry[0], entry[2], line,
-                                      {"deltas": deltas})
+                                      entry[0], entry[2], line, payload)
         finally:
             tls.in_hook = False
         return None
