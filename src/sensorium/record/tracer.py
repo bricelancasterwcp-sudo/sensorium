@@ -1,9 +1,27 @@
 """sys.monitoring-based recorder.
 
 Default tier: CALL/RETURN/RAISE/HANDLED for user code (files under root,
-excluding stdlib/site-packages/sensorium itself). Focus tier (Task 7) adds
-LINE events with local deltas. Re-entrancy: recorder frames are never traced
-and capture runs behind a thread-local in_hook flag.
+excluding stdlib/site-packages/sensorium itself). Focus tier adds LINE events
+carrying local-variable deltas for focused code. Re-entrancy: recorder frames
+are never traced and capture runs behind a thread-local in_hook flag.
+
+LINE events, and every value captured anywhere, are NEVER fingerprinted: a
+fingerprint must depend only on the (code object, causal kind) sequence, which
+is what lets `refocus` re-run a program with deeper capture and prove it was
+the same execution. `_on_line` must never touch `_fp`.
+
+A LINE event fires BEFORE its line runs. So the deltas on a LINE event describe
+state produced by the PRECEDING executed line, while the event's `line` column
+is the line that is about to execute. This is deliberate: read a run of LINE
+events as a state timeline, where each row says "just before line N, these
+locals had just become these values". `deltas` holds only the names whose
+captured value differs from the previous capture in that same frame, and no
+event is written at all when nothing changed. A name that is deleted (`del x`)
+leaves no delta -- only bindings that exist can be captured.
+
+A LINE event's `frame_id` is always set. Generators and coroutines are
+frameless (no frame is opened for them), so LINE stays permanently disabled for
+their code even when focused -- there would be no frame to attach to.
 """
 import sys
 import threading
@@ -142,7 +160,11 @@ class Tracer:
                                              len(tls.stack), tid)
                 tls.stack.append([fid, code, cid, {}])
             self._fp(tid).update(fp_file, qual, "CALL")
-            if self.window and qual == self.window:
+            # Frameless code is excluded on purpose: an abandoned generator
+            # never reaches PY_RETURN/PY_UNWIND, so counting its PY_START would
+            # leak depth and wedge the window open for the rest of the run.
+            # The gate must open and close on the same set of events.
+            if not frameless and self.window and qual == self.window:
                 tls.window_depth += 1
         finally:
             tls.in_hook = False
@@ -169,7 +191,8 @@ class Tracer:
             if fid is not None:
                 self.writer.close_frame(fid, eid, "return")
             self._fp(tid).update(fp_file, qual, "RETURN")
-            if self.window and qual == self.window and tls.window_depth:
+            if (not frameless and self.window and qual == self.window
+                    and tls.window_depth):
                 tls.window_depth -= 1
         finally:
             tls.in_hook = False
@@ -187,7 +210,8 @@ class Tracer:
             if not frameless and tls.stack and tls.stack[-1][1] is code:
                 fid = tls.stack.pop()[0]
                 self.writer.close_frame(fid, None, "unwind", capture_exc(exc))
-            if self.window and qual == self.window and tls.window_depth:
+            if (not frameless and self.window and qual == self.window
+                    and tls.window_depth):
                 tls.window_depth -= 1
         finally:
             tls.in_hook = False
@@ -267,8 +291,45 @@ class Tracer:
             tls.in_hook = False
         return None
 
-    def _on_line(self, code, line):      # focus tier: implemented in Task 7
-        return M.DISABLE
+    def _on_line(self, code, line):
+        """Record the locals that changed since this frame's previous line.
+
+        Fires *before* `line` executes, so the deltas belong to the line before
+        it; see the module docstring. Never fingerprints.
+        """
+        tls = self._tls
+        if tls.in_hook:
+            return None
+        traced, _fp_file, _qual, focused, frameless = self._decide(code)
+        if not traced or not focused or frameless:
+            return M.DISABLE      # nothing here will ever be worth recording
+        if self.window and tls.window_depth == 0:
+            # Outside the window *right now*. Deliberately not DISABLE: that is
+            # permanent per code location, and this frame may run again inside
+            # the window later.
+            return None
+        if not tls.stack or tls.stack[-1][1] is not code:
+            return None           # no open frame for this activation
+        entry = tls.stack[-1]
+        frame = sys._getframe(1)
+        tls.in_hook = True        # capture_value runs user __repr__ code
+        try:
+            prev = entry[3]
+            cur, deltas = {}, {}
+            for name, val in frame.f_locals.items():
+                cap = capture_value(val)
+                cur[name] = cap
+                if prev.get(name) != cap:   # compare captures, not live objects
+                    deltas[name] = cap
+            entry[3] = cur
+            if deltas:
+                self.writer.add_event(time.monotonic_ns(),
+                                      threading.get_ident(), "LINE",
+                                      entry[0], entry[2], line,
+                                      {"deltas": deltas})
+        finally:
+            tls.in_hook = False
+        return None
 
     # -- lifecycle ---------------------------------------------------------
     def install(self) -> None:
