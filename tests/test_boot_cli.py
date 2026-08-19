@@ -106,6 +106,7 @@ META_CONTRACT = {
     "git_dirty_hash", "focus", "include", "exclude", "window", "caps",
     "start_ts", "end_ts", "exit_status", "uncaught", "stdin_consumed",
     "children", "truncated_count", "incomplete", "late_writes",
+    "main_thread_ident",
 }
 
 
@@ -134,6 +135,12 @@ def test_records_and_propagates_exit_zero(tmp_path):
     assert {"main", "greet"} <= quals
     # uninstall() writes these, so they only survive if it runs before close
     assert t.fingerprints()
+    # main_thread_ident must name the thread that actually ran the target's
+    # top-level code, not merely hold some int.
+    main_call = next(e for e in t.events(kind="CALL")
+                     if t.code(e.code_id).qualname == "main")
+    assert t.meta["main_thread_ident"] == main_call.thread_id
+    assert Trace.open(trace).main_thread_basis() == "recorded"
 
 
 def test_stdout_passthrough_and_captured(tmp_path):
@@ -426,6 +433,33 @@ def test_run_target_restores_interpreter_state(sandbox):
     assert list(sys.argv) == before[0]
     assert list(sys.path) == before[1]
     assert (sys.stdin, sys.stdout, sys.stderr) == before[2:]
+
+
+def test_main_thread_ident_records_the_calling_thread_not_process_main(
+        sandbox):
+    """`run_target` deliberately records threading.get_ident() (the thread
+    that called it), not threading.main_thread().ident (the interpreter's
+    one global main thread) -- the two coincide for the ordinary
+    `sensorium run` CLI path, but a caller that invokes run_target from a
+    worker thread must get an answer naming the thread that actually ran
+    ITS target, not a thread that may hold none of this run's events."""
+    (sandbox / "prog.py").write_text("def main():\n    pass\nmain()\n")
+    real_main_ident = threading.main_thread().ident
+    result = {}
+
+    def worker():
+        result["ident"] = threading.get_ident()
+        result["run_id"], result["exit_status"] = \
+            boot.run_target(["prog.py"])
+
+    t = threading.Thread(target=worker)
+    t.start()
+    t.join()
+
+    assert result["exit_status"] == 0
+    m = _trace_of(result["run_id"]).meta
+    assert m["main_thread_ident"] == result["ident"]
+    assert m["main_thread_ident"] != real_main_ident
 
 
 # -- target resolution ----------------------------------------------------

@@ -97,6 +97,30 @@ def test_identical_runs_match(tmp_path, monkeypatch, capsys):
     # a MATCH must say what it does NOT claim, not just what it does
     assert "values" in out and "timing" in out and "LINE" in out
     assert "note:" not in out                # same argv: no spurious note
+    # both sides are real, freshly-recorded traces -- basis is "recorded"
+    # on both, so the verdict is entitled to say "the main thread" plainly
+    verdict_line = next(ln for ln in out.splitlines()
+                        if ln.startswith("verdict:"))
+    assert "the main thread" in verdict_line
+    assert "the thread named above" not in verdict_line
+
+
+def test_diff_header_handles_a_trace_with_zero_events(tmp_path, monkeypatch,
+                                                       capsys):
+    """No events at all -- main_thread_id() is None, and the header must
+    say so plainly rather than crash trying to look up a basis label for a
+    thread that was never identified."""
+    good = _rec(tmp_path, "a", ["500"])
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    w = TraceWriter(paths.traces_dir() / "20260101-000000-empty.db")
+    w.set_meta("run_id", "20260101-000000-empty")
+    w.set_meta("argv", ["prog.py", "500"])
+    w.close()
+
+    assert cli.main(["diff", good, "20260101-000000-empty"]) == 1
+    out = capsys.readouterr().out
+    assert "compared: - (no events)" in out
+    assert "DIVERGED" in out
 
 
 def test_divergent_runs_pinpoint_branch(tmp_path, monkeypatch, capsys):
@@ -154,10 +178,55 @@ def test_diff_notes_multiple_threads(tmp_path, monkeypatch, capsys):
     fa = Trace.open(paths.find_trace(r1)).fingerprints()
     assert len(fa) > 1, "fixture must actually record more than one thread"
     assert "threads" in out
-    assert "only the main thread was compared" in out
+    assert "only the thread named above was compared" in out
+    # this trace was recorded after main_thread_ident landed, so the thread
+    # actually compared must be identified as a recorded fact, not a guess
+    assert "recorded main thread" in out
+    assert "INFERRED" not in out
     # both sides are multi-threaded here; each side's own note must fire
     # independently, not just whichever one happens to be checked first
     assert "A recorded" in out and "B recorded" in out
+
+
+def test_diff_match_does_not_assert_main_thread_when_inferred(
+        tmp_path, monkeypatch, capsys):
+    """Both sides are legacy-shaped (no meta["main_thread_ident"], as a
+    trace recorded before that key existed would be) and each one's
+    inferred thread happens to log a worker CALL first -- so the thread
+    diff actually compares is a GUESS, not a recorded fact. The verdict
+    line must say so: MATCH is still the right verdict (the two guessed
+    streams are identical), but it must not claim "the main thread" when
+    neither side's identification of that thread is anything more than an
+    inference that names the wrong thread by construction here."""
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+
+    def _legacy(run_id):
+        w = TraceWriter(paths.traces_dir() / f"{run_id}.db")
+        w.set_meta("run_id", run_id)
+        w.set_meta("argv", ["prog.py"])
+        c = w.intern_code("/tmp/prog.py", "worker_fn", 1)
+        m = w.intern_code("/tmp/prog.py", "main", 5)
+        w.add_event(0, 999, "CALL", None, c, 1, {"args": {}})   # worker: id 1
+        w.add_event(0, 7, "CALL", None, m, 5, {"args": {}})     # main: id 2
+        w.close()
+
+    _legacy("20260101-000000-legacya")
+    _legacy("20260101-000000-legacyb")
+    ta = Trace.open(paths.find_trace("20260101-000000-legacya"))
+    assert ta.main_thread_basis() == "inferred"    # precondition
+    assert ta.main_thread_id() == 999              # names the worker, not main
+
+    assert cli.main(["diff", "20260101-000000-legacya",
+                     "20260101-000000-legacyb"]) == 0
+    out = capsys.readouterr().out
+    verdict_line = next(ln for ln in out.splitlines()
+                        if ln.startswith("verdict:"))
+    assert "MATCH" in verdict_line
+    assert "the thread named above" in verdict_line
+    assert "the main thread" not in verdict_line
+    assert out.count("INFERRED main thread") == 2   # both header lines
+    assert "A's compared thread is INFERRED" in out
+    assert "B's compared thread is INFERRED" in out
 
 
 def test_diff_thread_note_is_per_side_not_shared(tmp_path, monkeypatch,

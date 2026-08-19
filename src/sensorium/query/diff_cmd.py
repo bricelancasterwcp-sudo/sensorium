@@ -6,8 +6,20 @@ excluded by construction (see fingerprint.py), so a MATCH means the same
 *shape* of execution -- the same sequence of calls, returns, raises and
 handles -- not that the two runs are "the same" in every sense. It says
 nothing about argument values, return values, wall-clock timing, per-line
-state, or any thread other than the one compared (the main thread, unless a
-caller passes another).
+state, or any thread other than the one compared.
+
+WHICH THREAD "THE ONE COMPARED" ACTUALLY IS
+--------------------------------------------
+`Trace.main_thread_id()` prefers a value the recorder writes at boot time
+(`meta["main_thread_ident"]`); traces recorded before that key existed fall
+back to "the thread of whichever event got id 1", a heuristic that a
+worker thread starting before the main thread's own first *traced* event
+(under `--focus`/`--window` filtering, or ordinary scheduling jitter) can
+silently defeat. `Trace.main_thread_basis()` says which case a trace is in
+-- `"recorded"` or `"inferred"` -- and `diff` reads it: the header names the
+actual thread id compared and its basis, a MATCH's own verdict line only
+says "the main thread" when both sides are `"recorded"`, and an inferred
+side gets an explicit note rather than a silent guess dressed as a fact.
 
 REFUSAL, NOT A HEDGE
 --------------------
@@ -123,35 +135,59 @@ def compare(trace_a: Trace, trace_b: Trace) -> dict:
     }
 
 
+_BASIS_LABEL = {"recorded": "recorded main thread",
+               "inferred": "INFERRED main thread -- see note below"}
+
+
+def _thread_header(label: str, name: str, trace: Trace) -> str:
+    """One line naming exactly which thread this side's causal stream came
+    from, and whether that identification is a recorded fact or a guess --
+    never just "main fp ..." with the reader left to assume it is right."""
+    fps = trace.fingerprints()
+    mtid = trace.main_thread_id()
+    if mtid is None:
+        return f"{label} {name}: threads {len(fps)}  compared: - (no events)"
+    basis = trace.main_thread_basis()
+    fp = fps.get(mtid, (None, None))[0]
+    return (f"{label} {name}: threads {len(fps)}  "
+            f"compared: t{mtid} [{_BASIS_LABEL[basis]}]  fp {fp or '-'}")
+
+
 def safety_notes(trace_a: Trace, trace_b: Trace) -> list[str]:
     """Honesty notes that do not change the verdict but must never be
-    silently dropped: a MATCH on the main thread is not a MATCH on the
-    whole run if either side has other threads, and comparing two traces of
-    different commands is comparing unrelated programs."""
+    silently dropped: a compared thread identified by inference rather than
+    the recorder's own record may not be the thread a reader assumes, a
+    MATCH on one thread is not a MATCH on the whole run if either side has
+    other threads, and comparing two traces of different commands is
+    comparing unrelated programs."""
     notes = []
     aa, bb = trace_a.meta.get("argv"), trace_b.meta.get("argv")
     if aa != bb:
         notes.append(
             f"different commands recorded -- A: {' '.join(aa or [])!r}"
             f"  B: {' '.join(bb or [])!r}")
-    fa, fb = trace_a.fingerprints(), trace_b.fingerprints()
-    if len(fa) > 1:
-        notes.append(
-            f"A recorded {len(fa)} threads; only the main thread was "
-            "compared -- a MATCH here is not a MATCH on the whole run")
-    if len(fb) > 1:
-        notes.append(
-            f"B recorded {len(fb)} threads; only the main thread was "
-            "compared -- a MATCH here is not a MATCH on the whole run")
+    for label, trace in (("A", trace_a), ("B", trace_b)):
+        if trace.main_thread_basis() == "inferred":
+            notes.append(
+                f"{label}'s compared thread is INFERRED, not recorded: "
+                "this trace predates main_thread_ident, so the thread of "
+                "whichever event happened to get id 1 stands in for it -- "
+                "under --focus/--window filtering, or if a worker thread's "
+                "first traced event landed before the main thread's own, "
+                "that stand-in can be a WORKER thread; re-record to get an "
+                "exact answer")
+        fps = trace.fingerprints()
+        if len(fps) > 1:
+            notes.append(
+                f"{label} recorded {len(fps)} threads; only the thread "
+                "named above was compared -- a MATCH here is not a MATCH "
+                "on the whole run")
     return notes
 
 
 def print_comparison(trace_a, trace_b, res, name_a, name_b, context=3) -> None:
-    fa, fb = trace_a.fingerprints(), trace_b.fingerprints()
-    print(f"A {name_a}: threads {len(fa)}  "
-          f"main fp {list(fa.values())[0][0] if fa else '-'}")
-    print(f"B {name_b}: threads {len(fb)}  "
-          f"main fp {list(fb.values())[0][0] if fb else '-'}")
+    print(_thread_header("A", name_a, trace_a))
+    print(_thread_header("B", name_b, trace_b))
     for note in safety_notes(trace_a, trace_b):
         print(f"note: {note}")
     if res["verdict"] == "REFUSED":
@@ -161,9 +197,12 @@ def print_comparison(trace_a, trace_b, res, name_a, name_b, context=3) -> None:
         return
     if res["verdict"] == "MATCH":
         n = len(res["a_stream"])
+        exact = (trace_a.main_thread_basis() == "recorded"
+                and trace_b.main_thread_basis() == "recorded")
+        where = "the main thread" if exact else "the thread named above"
         print(f"verdict: MATCH -- identical causal streams ({n} events): "
               "the same sequence of (file, qualname, kind) for "
-              "CALL/RETURN/RAISE/HANDLED on the main thread; values, "
+              f"CALL/RETURN/RAISE/HANDLED on {where}; values, "
               "timing, and LINE events were not compared")
         return
     i = res["index"]

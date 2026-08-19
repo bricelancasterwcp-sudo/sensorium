@@ -145,9 +145,36 @@ class Trace:
             "SELECT after_event_id, stream, data FROM output ORDER BY id"))
 
     def main_thread_id(self) -> int | None:
+        """The thread `run_target` was invoked from -- for the ordinary
+        `sensorium run` CLI entry point, the process's actual main thread.
+
+        Prefers `meta["main_thread_ident"]`, recorded once at boot time
+        independent of event ordering. Falls back to "the thread of
+        whichever event happened to get id 1" only for traces that predate
+        that key: under `--focus`/`--window` filtering, or ordinary
+        scheduling jitter in a program that starts a worker early, a
+        worker thread's first *recorded* event can land before the main
+        thread's own first traced event, which makes that heuristic
+        silently name the wrong thread on exactly the traces where it
+        matters most. Callers that need to know which case they got --
+        e.g. before asserting "the main thread" rather than a caveated
+        guess -- must call `main_thread_basis()` too.
+        """
+        recorded = db.get_meta(self._c, "main_thread_ident")
+        if recorded is not None:
+            return recorded
         row = self._c.execute(
             "SELECT thread_id FROM events ORDER BY id LIMIT 1").fetchone()
         return None if row is None else row[0]
+
+    def main_thread_basis(self) -> str | None:
+        """How `main_thread_id()` got its answer: `"recorded"` (from
+        `meta["main_thread_ident"]`, exact), `"inferred"` (the event-id-1
+        fallback, a guess), or `None` (no events and no recorded key, i.e.
+        `main_thread_id()` itself returned `None`)."""
+        if db.get_meta(self._c, "main_thread_ident") is not None:
+            return "recorded"
+        return "inferred" if self.main_thread_id() is not None else None
 
     def causal_stream(self, thread_id=None) -> list[tuple[str, str, str, int]]:
         tid = thread_id if thread_id is not None else self.main_thread_id()

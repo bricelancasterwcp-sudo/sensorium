@@ -358,6 +358,21 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
     w.set_meta("python", sys.version.split()[0])
     for k, v in git_info(Path.cwd()).items():
         w.set_meta(k, v)
+    # `target()` (below) runs synchronously on whichever thread called
+    # `run_target` -- deliberately `threading.get_ident()`, NOT
+    # `threading.main_thread().ident`. For the ordinary `sensorium run` CLI
+    # path the two are identical (__main__ -> cli.main -> _run ->
+    # run_target never crosses a thread boundary), but they are not the
+    # same question: `main_thread().ident` names the interpreter's global
+    # main thread regardless of who is asking, while `get_ident()` names
+    # the thread that is actually about to execute the target's top-level
+    # code. A hypothetical future caller that invokes `run_target` from a
+    # worker thread would have `main_thread().ident` point at a thread that
+    # may hold none of this run's events at all -- a worse lie than the
+    # event-id-1 heuristic this key exists to replace. `get_ident()` is
+    # correct under both calling conventions. `Trace.main_thread_id()`
+    # prefers this key when present.
+    w.set_meta("main_thread_ident", threading.get_ident())
     w.set_meta("focus", list(focus))
     w.set_meta("include", list(include))
     w.set_meta("exclude", list(exclude))
