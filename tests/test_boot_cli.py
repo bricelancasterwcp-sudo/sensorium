@@ -609,31 +609,29 @@ def test_run_target_restores_interpreter_state(sandbox):
     assert (sys.stdin, sys.stdout, sys.stderr) == before[2:]
 
 
-def test_main_thread_ident_records_the_calling_thread_not_process_main(
-        sandbox):
-    """`run_target` deliberately records threading.get_ident() (the thread
-    that called it), not threading.main_thread().ident (the interpreter's
-    one global main thread) -- the two coincide for the ordinary
-    `sensorium run` CLI path, but a caller that invokes run_target from a
-    worker thread must get an answer naming the thread that actually ran
-    ITS target, not a thread that may hold none of this run's events."""
+def test_main_thread_ident_records_the_thread_that_ran_the_target(sandbox):
+    """`run_target` records the identity of the thread that actually ran the
+    target -- not the interpreter's global main thread. The recorded value is
+    the thread serial the Tracer mints for its constructing thread, which is the
+    calling thread, so invoked from a worker it names that worker: it equals the
+    serial every event of the run carries, and the process main thread (which
+    touched nothing) has no serial and cannot be it."""
     (sandbox / "prog.py").write_text("def main():\n    pass\nmain()\n")
-    real_main_ident = threading.main_thread().ident
     result = {}
 
     def worker():
-        result["ident"] = threading.get_ident()
-        result["run_id"], result["exit_status"] = \
-            boot.run_target(["prog.py"])
+        result["run_id"], result["exit_status"] = boot.run_target(["prog.py"])
 
     t = threading.Thread(target=worker)
     t.start()
     t.join()
 
     assert result["exit_status"] == 0
-    m = _trace_of(result["run_id"]).meta
-    assert m["main_thread_ident"] == result["ident"]
-    assert m["main_thread_ident"] != real_main_ident
+    trace = _trace_of(result["run_id"])
+    event_tids = {e.thread_id for e in trace.events()}
+    assert len(event_tids) == 1                   # the whole run ran on one thread
+    assert trace.meta["main_thread_ident"] == next(iter(event_tids))
+    assert trace.main_thread_basis() == "recorded"
 
 
 # -- target resolution ----------------------------------------------------

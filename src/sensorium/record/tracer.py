@@ -271,17 +271,21 @@ class _TLS(threading.local):
     """Per-thread recorder state.
 
     `threading.local` calls `__init__` again on every thread that touches the
-    object, which is how each thread's `_ExcRefs` gets registered with the
-    tracer -- without that registry, `uninstall` could only ever drop the
-    exceptions held by the thread that happens to call it.
+    object -- which is how each thread gets a fresh `thread_serial` and how its
+    `_ExcRefs` gets registered with the tracer. A recycled OS thread id is a
+    NEW Python thread with its own `threading.local` storage, so it runs this
+    `__init__` again and mints a NEW serial: that is what stops two short-lived
+    threads sharing one recorded identity. (Without the registry, `uninstall`
+    could only ever drop the exceptions held by the thread that calls it.)
     """
-    def __init__(self, register) -> None:
+    def __init__(self, next_serial, register) -> None:
+        self.thread_serial: int = next_serial()   # stable, never recycled
         self.stack: list = []          # [frame_id, code, code_id, locals_snapshot]
         self.in_hook = False
         self.window_depths: dict = {}  # (module, qualname) -> open activations
         self.origin_recorded = False   # whether the in-flight exc got a row
         self.exc = _ExcRefs()
-        register(self.exc)
+        register(self.thread_serial, self.exc)
 
 
 class Tracer:
@@ -303,11 +307,26 @@ class Tracer:
         # their retained exceptions here.
         self._exc_refs: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
         self._refs_lock = threading.Lock()
-        self._tls = _TLS(self._register_refs)
+        # Recorded thread identity: a monotonic serial minted once per distinct
+        # thread, NOT `threading.get_ident()`, which the OS recycles once a
+        # thread ends -- reuse would merge two short-lived threads' events,
+        # frames and fingerprints under one id.
+        self._serial_lock = threading.Lock()
+        self._next_serial = 0
+        self._tls = _TLS(self._assign_thread_serial, self._register_refs)
+        # The thread constructing the Tracer runs `_TLS.__init__` above, so it
+        # is the first serial (1). `run_target` runs the target on this same
+        # thread, which is why this is the run's main-thread identity.
+        self.main_thread_serial: int = self._tls.thread_serial
 
-    def _register_refs(self, refs: _ExcRefs) -> None:
+    def _assign_thread_serial(self) -> int:
+        with self._serial_lock:
+            self._next_serial += 1
+            return self._next_serial
+
+    def _register_refs(self, serial: int, refs: _ExcRefs) -> None:
         with self._refs_lock:
-            self._exc_refs[threading.get_ident()] = refs
+            self._exc_refs[serial] = refs
 
     def _live_exc_refs(self) -> list:
         with self._refs_lock:
@@ -346,14 +365,9 @@ class Tracer:
         return (True, rel, code.co_qualname, focused, frameless, win_key)
 
     def _fp(self, tid: int) -> Fingerprint:
-        # Keyed by `threading.get_ident()`, the same identity events and frames
-        # carry (see `boot.main_thread_ident`). That id is reused once a thread
-        # ends, so two short-lived threads that run back-to-back share one
-        # fingerprint here -- a known, accepted limitation: their events already
-        # share the id everywhere else, so no downstream key could tell them
-        # apart either. It surfaces only as a fingerprint COUNT that depends on
-        # scheduling; a program that keeps its workers concurrent (as any real
-        # thread-pool does) never hits it.
+        # `tid` is a per-thread SERIAL (see `_TLS.thread_serial`), the same
+        # identity events and frames carry, so two short-lived threads that
+        # recycle one OS id still key here to distinct fingerprints.
         with self._fp_lock:
             fp = self._fps.get(tid)
             if fp is None:
@@ -383,7 +397,7 @@ class Tracer:
                     {n: capture_value(loc[n]) for n in names if n in loc})
             payload = {"args": args} if loc is not None else {
                 "args": {}, "unread": ["locals"]}
-            tid = threading.get_ident()
+            tid = tls.thread_serial
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
             eid = self.writer.add_event(time.monotonic_ns(), tid, "CALL",
@@ -414,7 +428,7 @@ class Tracer:
             return M.DISABLE
         tls.in_hook = True
         try:
-            tid = threading.get_ident()
+            tid = tls.thread_serial
             fid = None
             if not frameless and tls.stack and tls.stack[-1][1] is code:
                 fid = tls.stack.pop()[0]
@@ -530,7 +544,7 @@ class Tracer:
             tls.origin_recorded = True
         tls.in_hook = True
         try:
-            tid = threading.get_ident()
+            tid = tls.thread_serial
             fid = tls.stack[-1][0] if (not frameless and tls.stack
                                        and tls.stack[-1][1] is code) else None
             cid = self.writer.intern_code(code.co_filename, qual,
@@ -575,7 +589,7 @@ class Tracer:
                 # and `prev` is deliberately left in place, because this
                 # step establishes nothing about what went out of scope.
                 self.writer.add_event(time.monotonic_ns(),
-                                      threading.get_ident(), "LINE",
+                                      tls.thread_serial, "LINE",
                                       entry[0], entry[2], line,
                                       {"deltas": {}, "unread": ["locals"]})
                 return None
@@ -604,7 +618,7 @@ class Tracer:
                     # every value. Readers that ignore it lose nothing else.
                     payload["unbound"] = sorted(gone)
                 self.writer.add_event(time.monotonic_ns(),
-                                      threading.get_ident(), "LINE",
+                                      tls.thread_serial, "LINE",
                                       entry[0], entry[2], line, payload)
         finally:
             tls.in_hook = False

@@ -185,6 +185,21 @@ def main():
         t.join()
 """
 
+# Four workers, each fully joined before the next starts, so CPython reuses one
+# OS thread id for all of them -- yet they are four distinct threads.
+SEQ_THREADS = """
+import threading
+
+def work(n):
+    return n * 2
+
+def main():
+    for i in range(4):
+        t = threading.Thread(target=work, args=(i,))
+        t.start()
+        t.join()
+"""
+
 
 def test_calls_returns_args_and_frames(tmp_path):
     t, err = record_inproc(tmp_path, ADD)
@@ -677,3 +692,21 @@ def test_uninstall_survives_a_fingerprint_inserted_while_it_writes(tmp_path):
 
     written = set(Trace.open(tmp_path / "trace.db").fingerprints())
     assert {1001, 1002} <= written    # the threads present at the snapshot land
+
+
+def test_sequential_threads_do_not_merge_under_a_recycled_id(tmp_path):
+    """Four workers that each finish before the next starts reuse ONE OS thread
+    id, but they are four distinct threads and must record four distinct
+    fingerprints -- not one merged under the recycled id. Recorded thread
+    identity is a per-thread serial the recorder mints, never
+    `threading.get_ident()`, whose reuse would silently undercount the threads a
+    run had (and mislead `diff`/`refocus`, which compare a fingerprint multiset)."""
+    t, err = record_inproc(tmp_path, SEQ_THREADS)
+    assert err is None
+    tids = {e.thread_id for e in t.events()}
+    assert len(tids) == 5                       # main + 4 workers, each distinct
+    assert len(t.fingerprints()) == 5
+    # small minted serials, not the large recycled OS ids get_ident() returns
+    # (they need not be contiguous: a thread may touch the recorder without
+    # recording, consuming a serial)
+    assert max(tids) < 1000
