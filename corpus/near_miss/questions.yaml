@@ -1,0 +1,49 @@
+program: main.py
+record:
+  focus: ["main:fill"]
+questions:
+  - id: how-close-did-it-come
+    ask: >
+      The `used > 100` alert never fired. Did the buffer stay comfortably
+      small, or did it come close enough that a slightly different input
+      would have tripped it?
+    truth: >
+      It came within one byte. The high-water mark is 99 (40, 70, 85, 99,
+      69 across the five fills), so the predicate is false at every recorded
+      site, the closest approach has margin 1, and "never fired" is a fact
+      about the recording rather than a proof that the invariant held.
+    why_logs_fail: >
+      A log fires when the condition is TRUE. The condition was never true,
+      so a log-based build prints nothing at all -- and "no alert" reads
+      identically whether the peak was 99 or 9. The distance to the boundary
+      is exactly the information a threshold log throws away.
+    command: ["watch", "$RUN", "--at", "main:fill", "--expr", "used > 100"]
+    expect_contains: ["hits: 0", "near-misses"]
+    expect_line:
+      - ["margin 1", "used=99"]
+      - ["verdict: not satisfied"]
+    expect_absent: ["verdict: SATISFIED", "NOTHING WAS CHECKED"]
+  - id: is-the-answer-built-on-anything
+    ask: >
+      Nothing in this program's own output says anything went wrong. Does
+      the recording say otherwise, and does it even hold fill's per-line
+      locals -- or would a question about `used` be answered from nothing?
+    truth: >
+      The run exits 0 with no uncaught exception: the bug is entirely
+      silent. The trace does hold fill's locals, because it was recorded
+      with `--focus main:fill`, so LINE events exist and `used` is really
+      captured. It also reports that some container captures were truncated
+      (a 99-element list is sampled at 8), which is why `used` -- an int --
+      is the value to reason about and `buf` is not.
+    why_logs_fail: >
+      Whether the evidence you are about to reason from actually exists is
+      not a question about the program at all, so no amount of print() in
+      fill answers it. This is the difference between "the alert never
+      fired" and "I could not check", and conflating them is how a silent
+      bug gets declared fixed.
+    command: ["info", "$RUN"]
+    expect_line:
+      - ["focus:", "main:fill"]
+      - ["recorded:", "CALL", "RETURN", "LINE"]
+      - ["exit: 0", "events:"]
+    expect_absent: ["LINE 0", "truncated values: 0", "INCOMPLETE", "uncaught:"]

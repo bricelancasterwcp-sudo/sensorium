@@ -1,0 +1,49 @@
+program: main.py
+questions:
+  - id: did-the-generator-eat-them
+    ask: >
+      Two of the five readings could not be parsed. Were errors raised and
+      discarded inside the parser, and can I trust an answer that says so?
+    truth: >
+      Two ValueErrors were raised inside parse_all -- for 'n/a' and '--' --
+      and each has a HANDLED row. But parse_all is a GENERATOR, and
+      generators open no frame, so there is no `closed_by` to read and no
+      evidence that the handler returned normally rather than re-raising.
+      The honest verdict is therefore `ambiguous` for both, with the reason
+      stated, and the tally must read `ambiguous 2`.
+
+      This is a deliberate under-claim in the classifier contract, not a
+      gap in this case. SWALLOWED requires a HANDLED in a frame whose
+      closed_by is "return"; a frameless handler can never satisfy it.
+      Reporting a disposition here would be an over-claim -- `exceptions`'
+      worst failure mode -- so this question is registered to go red in BOTH
+      directions: if the verdict or its reason disappears, and if a
+      disposition is ever asserted in their place.
+    why_logs_fail: >
+      The except clause prints nothing, so two failures leave no mark on
+      stdout at all: the mean and the count both look ordinary. A log line
+      in the handler would surface them, and is the change nobody makes
+      before the numbers look wrong. But no log can supply the second half
+      of the answer -- whether the evidence is good enough to conclude the
+      handler stopped them. A log records what it was told to record and
+      never knows what it missed, so it cannot decline to answer; it can
+      only be silent, and silence reads exactly like "nothing happened".
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: ambiguous 2"]
+    expect_line:
+      - ["RAISE", "parse_all", "ValueError", "'n/a'"]
+      - ["RAISE", "parse_all", "ValueError", "'--'"]
+      - ["handled at e", "parse_all", "no frame recorded"]
+      - ["generators and coroutines open no frame", "closed_by"]
+    expect_count: {"no frame recorded": 2}
+    # The tally has a fixed bucket order (swallowed, uncaught, re-raised,
+    # propagated, ambiguous) and omits zero buckets, so the contiguous
+    # substring "dispositions: ambiguous 2" above already says ambiguous is
+    # the FIRST bucket and therefore the only one. Bare "re-raised" and
+    # "propagated" are NOT usable as absent-checks: the reason sentence
+    # itself ends "...swallowed it or re-raised". Only the two spellings
+    # that occur nowhere but a disposition are listed.
+    expect_absent:
+      - "SWALLOWED"
+      - "dispositions: swallowed"
+      - "uncaught"

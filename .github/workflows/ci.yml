@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      # Report every version's result; one red leg must not cancel the others.
+      fail-fast: false
+      matrix:
+        # 3.12 is the floor (sys.monitoring); 3.14 is where a multiprocessing
+        # spawn becomes witnessable, so refocus's child-witnessing licence
+        # behaves differently across the range and all three are exercised.
+        python-version: ["3.12", "3.13", "3.14"]
+    name: py${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install (stdlib-only runtime; dev extras for the test tools)
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Tests
+        run: python -m pytest -q
+      - name: Corpus (seeded-bug regression suite)
+        run: python corpus/run_corpus.py

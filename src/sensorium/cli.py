@@ -1,0 +1,75 @@
+"""sensorium command-line interface."""
+import argparse
+import sys
+
+from sensorium import paths
+from sensorium.query import (diff_cmd, exceptions_cmd, flow_cmd, fmt,
+                             frame_cmd, grep_cmd, info_cmd, refocus_cmd,
+                             runs_cmd, tree_cmd, watch_cmd)
+from sensorium.store import db
+
+_QUERY_MODULES = [runs_cmd, info_cmd, tree_cmd, frame_cmd, grep_cmd,
+                  exceptions_cmd, flow_cmd, watch_cmd, diff_cmd, refocus_cmd]
+
+
+def _add_run_parser(sub):
+    p = sub.add_parser("run", help="record one execution")
+    p.add_argument("--focus", action="append", default=[],
+                   help="pkg.module or pkg.module:qualname; repeatable")
+    p.add_argument("--include", action="append", default=[])
+    p.add_argument("--exclude", action="append", default=[])
+    p.add_argument("--window", default=None,
+                   help="limit --focus line capture to what runs inside this "
+                        "function's activations; MODULE:QUALNAME scopes to one "
+                        "function, a bare QUALNAME matches that name in any "
+                        "module")
+    p.add_argument("--run-id", default=None, help=argparse.SUPPRESS)
+    p.add_argument("--refocus-of", default=None, help=argparse.SUPPRESS)
+    p.add_argument("target", nargs=argparse.REMAINDER)
+    p.set_defaults(func=_run)
+
+
+def _run(args) -> int:
+    from sensorium.record import boot
+    target = list(args.target)
+    if target and target[0] == "--":
+        target = target[1:]
+    if not target:
+        print("usage: sensorium run [options] -- <command> [args...]",
+              file=sys.stderr)
+        return 2
+    try:
+        run_id, exit_status = boot.run_target(
+            target, focus=args.focus, include=args.include,
+            exclude=args.exclude, window=args.window,
+            run_id=args.run_id, refocus_of=args.refocus_of)
+    except boot.TargetError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    print(f"run: {run_id}")
+    print(f"trace: {paths.traces_dir() / (run_id + '.db')}")
+    return exit_status
+
+
+def main(argv=None) -> int:
+    if sys.version_info < (3, 12):
+        print("sensorium requires Python 3.12+ (sys.monitoring); running "
+              f"under {sys.version.split()[0]}", file=sys.stderr)
+        return 2
+    parser = argparse.ArgumentParser(
+        prog="sensorium",
+        description="Record a Python program's execution; "
+                    "query what actually happened.")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    _add_run_parser(sub)
+    for mod in _QUERY_MODULES:
+        mod.add_parser(sub)
+    args = parser.parse_args(argv)
+    try:
+        return args.func(args)
+    except (paths.TraceLookupError, fmt.RefError, db.TraceFormatError) as e:
+        # "the reference you gave does not name anything", or "this trace is
+        # from a newer sensorium" -- user-facing conditions every query command
+        # can hit, and never a reason to hand back a traceback.
+        print(f"error: {e}", file=sys.stderr)
+        return 2

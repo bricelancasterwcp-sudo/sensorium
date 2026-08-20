@@ -1,0 +1,31 @@
+program: main.py
+questions:
+  - id: where-did-1800-go
+    ask: Where does the value 1800 travel, and what consumes it?
+    truth: >
+      item_weight returns 1800 (grams) and it enters shipping_cost as
+      weight_kg -- the unit mismatch is visible at that one call boundary,
+      because the parameter is named for kilograms and holds a gram count.
+    why_logs_fail: >
+      Only the final total is printed. No intermediate weight or shipping
+      figure is logged anywhere, so the 1000x error is invisible; and a log
+      of the number alone would still show "1800" without showing that the
+      thing receiving it calls it weight_kg.
+    command: ["flow", "$RUN", "--value", "1800"]
+    expect_line:
+      - ["RETURN", "item_weight -> 1800"]
+      - ["CALL", "shipping_cost(weight_kg=1800)"]
+  - id: what-did-shipping-return
+    ask: What did shipping_cost actually return for each item?
+    truth: >
+      1004.0 for the mug (400 g read as kg) and 4504.0 for the kettle
+      (1800 g read as kg). Two calls, two returns, no others.
+    why_logs_fail: >
+      Return values are never printed; only their rounded sum is, and the
+      sum looks like an ordinary large-ish number rather than an obviously
+      wrong one.
+    command: ["grep", "$RUN", "shipping_cost", "--kind", "RETURN"]
+    expect_contains: ["matches: 2"]
+    expect_line:
+      - ["RETURN", "shipping_cost -> 1004.0"]
+      - ["RETURN", "shipping_cost -> 4504.0"]

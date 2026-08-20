@@ -1,0 +1,24 @@
+program: main.py
+questions:
+  - id: same-dict-or-a-copy
+    ask: >
+      The production timeout changed from 30 to 1 and nothing assigns to it.
+      Is the dict derive_sandbox mutates the same object make_default
+      returned, or a copy of it?
+    truth: >
+      The same object. make_default returns a dict at one address;
+      derive_sandbox is called with that same address as `cfg` and returns
+      the same address with timeout already rewritten to 1. One address,
+      three sightings, no constructor in between.
+    why_logs_fail: >
+      A print of the dict shows its CONTENTS, and both dicts have identical
+      contents at the moment you would print them -- the bug is IDENTITY,
+      not value. Logging `id(cfg)` would answer it, but that is a change you
+      can only make once you already suspect aliasing, which is the thing
+      being looked for.
+    command: ["flow", "$RUN", "--object", "derive_sandbox:cfg"]
+    expect_contains: ["flow of object #"]
+    expect_line:
+      - ["RETURN", "make_default -> dict[2]={'retries': 3, 'timeout': 30}"]
+      - ["CALL", "derive_sandbox(cfg=dict[2]={'retries': 3, 'timeout': 30}"]
+      - ["RETURN", "derive_sandbox -> dict[2]={'retries': 3, 'timeout': 1}"]
