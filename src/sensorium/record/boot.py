@@ -652,11 +652,18 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
         raise TargetError(
             f"invalid run id {run_id!r}: a run id names one file in the trace "
             "store, so it may not contain a path separator or '..'")
+    trace_path = paths.traces_dir() / f"{run_id}.db"
+    if trace_path.exists():
+        # Only reachable via an explicit --run-id (minted ids are unique).
+        # Without this, create_trace's executescript hits "table meta already
+        # exists" and escapes cli.main as a raw sqlite traceback.
+        raise TargetError(
+            f"run id {run_id!r} already has a trace at {trace_path}")
     target = resolve_target(list(argv))   # resolve before hooks: never traced
     # Resolved here, before the program can chdir underneath us.
     entry = (str(Path(argv[0]).resolve())
              if argv and str(argv[0]).endswith(".py") else None)
-    w = _LateWriteGuard(TraceWriter(paths.traces_dir() / f"{run_id}.db"))
+    w = _LateWriteGuard(TraceWriter(trace_path))
     _write_run_meta(w, run_id, argv, focus, include, exclude, window,
                     refocus_of)
     truncated_before = capture.capture_stats["truncated"]

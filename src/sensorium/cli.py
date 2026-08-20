@@ -6,6 +6,7 @@ from sensorium import paths
 from sensorium.query import (diff_cmd, exceptions_cmd, flow_cmd, fmt,
                              frame_cmd, grep_cmd, info_cmd, refocus_cmd,
                              runs_cmd, tree_cmd, watch_cmd)
+from sensorium.store import db
 
 _QUERY_MODULES = [runs_cmd, info_cmd, tree_cmd, frame_cmd, grep_cmd,
                   exceptions_cmd, flow_cmd, watch_cmd, diff_cmd, refocus_cmd]
@@ -66,9 +67,9 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.func(args)
-    except (paths.TraceLookupError, fmt.RefError) as e:
-        # Both are "the reference you gave does not name anything" -- a user
-        # error every query command can hit, and never a reason to hand back
-        # a traceback.
+    except (paths.TraceLookupError, fmt.RefError, db.TraceFormatError) as e:
+        # "the reference you gave does not name anything", or "this trace is
+        # from a newer sensorium" -- user-facing conditions every query command
+        # can hit, and never a reason to hand back a traceback.
         print(f"error: {e}", file=sys.stderr)
         return 2

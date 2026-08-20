@@ -219,6 +219,25 @@ def test_int_and_float_subclasses_are_captured_as_their_base_types():
     assert type(f["v"]) is float and f["v"] == 1.5
 
 
+def test_plain_num_is_total_even_for_a_hostile_class_subclass():
+    """`plain_num` must be total by construction like `plain_str`: a numeric
+    subclass whose `__class__` property raises is dispatched by TYPE and read
+    through the base slot, never returned live via the exception path. `_capture`
+    guards this one step earlier today, but the function's own guarantee must
+    not rest on that ordering -- "safe only because of the order things happen
+    in" is exactly the argument this project has watched rot before."""
+    from sensorium.record.capture import plain_num
+
+    class HostileFloat(float):
+        @property
+        def __class__(self):
+            raise RuntimeError("no class for you")
+
+    h = HostileFloat(3.5)
+    out = plain_num(h)
+    assert type(out) is float and out == 3.5 and out is not h
+
+
 def test_a_repr_returning_a_str_subclass_is_normalised():
     """`repr()` is free to return a subclass instance, so guarding the CALL
     to `__repr__` does not stop one reaching the payload."""

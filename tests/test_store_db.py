@@ -1,6 +1,35 @@
 import sqlite3
 
+import pytest
+
 from sensorium.store import db
+
+
+def test_open_refuses_a_trace_format_newer_than_understood(tmp_path):
+    """`trace_format` was written and never read. A trace from a FUTURE
+    sensorium (a higher format) must be refused, not queried as if its schema
+    matched -- silently answering from a layout this version does not know."""
+    path = tmp_path / "future.db"
+    conn = db.create_trace(path)
+    db.set_meta(conn, "trace_format", db.TRACE_FORMAT + 1)
+    conn.commit()
+    conn.close()
+    with pytest.raises(db.TraceFormatError):
+        db.open_trace(path)
+
+
+def test_open_accepts_the_current_and_a_legacy_format(tmp_path):
+    """The current format opens, and so does a trace recorded before the key
+    existed at all (absent -> not newer)."""
+    cur = tmp_path / "cur.db"
+    db.create_trace(cur).close()
+    db.open_trace(cur).close()                       # no raise
+    legacy = tmp_path / "legacy.db"
+    conn = db.create_trace(legacy)
+    conn.execute("DELETE FROM meta WHERE key = 'trace_format'")
+    conn.commit()
+    conn.close()
+    db.open_trace(legacy).close()                    # no raise
 
 
 def test_create_trace_has_all_tables(tmp_path):

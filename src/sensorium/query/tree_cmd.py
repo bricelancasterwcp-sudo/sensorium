@@ -65,6 +65,14 @@ def _truncation_note(run_ref, depth, limit, cut_frames) -> str | None:
 
 
 def run(args) -> int:
+    if args.limit < 1:
+        print(f"--limit must be >= 1 (got {args.limit}); "
+              "there is no useful zero-row page")
+        return 2
+    if args.depth < 0:
+        print(f"--depth must be >= 0 (got {args.depth}); "
+              "depth 0 shows the root frames alone")
+        return 2
     trace = Trace.open(paths.find_trace(args.run))
     if args.around:
         f = trace.frame_containing(parse_eref(args.around))

@@ -110,6 +110,20 @@ def test_tree_around_missing_event_reports_and_exits_1(
     assert "no frame contains e999999" in capsys.readouterr().out
 
 
+def test_tree_rejects_a_nonpositive_limit(tmp_path, monkeypatch, capsys):
+    """Consistency with grep/exceptions/flow/watch, which all refuse a
+    zero-or-negative --limit rather than print a degenerate page."""
+    run_id = _rec(tmp_path, monkeypatch)
+    assert cli.main(["tree", run_id, "--limit", "0"]) == 2
+    assert "--limit must be >= 1" in capsys.readouterr().out
+
+
+def test_tree_rejects_a_negative_depth(tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch)
+    assert cli.main(["tree", run_id, "--depth", "-1"]) == 2
+    assert "--depth must be >= 0" in capsys.readouterr().out
+
+
 def test_tree_root_missing_frame_reports_and_exits_1(
         tmp_path, monkeypatch, capsys):
     """A valid-syntax `--root` that names no frame must refuse, not print

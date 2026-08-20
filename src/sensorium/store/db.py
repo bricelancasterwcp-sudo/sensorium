@@ -5,6 +5,17 @@ from pathlib import Path
 
 TRACE_FORMAT = 1
 
+
+class TraceFormatError(Exception):
+    """A trace written by a NEWER sensorium than this one can read.
+
+    `trace_format` is stamped at creation; a higher value means the file's
+    layout may differ from what these queries assume. Refusing is the honest
+    answer -- reading it anyway would answer from a schema this version does
+    not know. A trace with no `trace_format` at all predates the key and is
+    read as the current format (it cannot be from the future).
+    """
+
 SCHEMA = """
 CREATE TABLE meta (
   key TEXT PRIMARY KEY,
@@ -74,7 +85,14 @@ def open_trace(path: Path) -> sqlite3.Connection:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"no trace at {path}")
-    return sqlite3.connect(path)
+    conn = sqlite3.connect(path)
+    fmt = get_meta(conn, "trace_format")
+    if fmt is not None and fmt > TRACE_FORMAT:
+        conn.close()
+        raise TraceFormatError(
+            f"{path} is trace format {fmt}, newer than this sensorium reads "
+            f"(up to {TRACE_FORMAT}); upgrade sensorium to open it")
+    return conn
 
 
 def set_meta(conn: sqlite3.Connection, key: str, value) -> None:

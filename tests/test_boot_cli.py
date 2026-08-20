@@ -449,6 +449,19 @@ def test_run_id_rejects_an_absolute_path(tmp_path):
     assert r.returncode == 2 and "invalid run id" in r.stderr
 
 
+def test_run_id_collision_is_a_clean_error_not_a_traceback(tmp_path):
+    """A --run-id that already names a trace must refuse cleanly, not crash
+    with a raw `sqlite3.OperationalError: table meta already exists`."""
+    (tmp_path / "prog.py").write_text("print('hi')\n")
+    argv = ["run", "--run-id", "fixed1", "--", "prog.py"]
+    r1 = run_cli(argv, cwd=tmp_path, sensorium_dir=tmp_path / "sdir")
+    assert r1.returncode == 0, r1.stderr
+    r2 = run_cli(argv, cwd=tmp_path, sensorium_dir=tmp_path / "sdir")
+    assert r2.returncode == 2
+    assert "already" in r2.stderr and "fixed1" in r2.stderr
+    assert "Traceback" not in r2.stderr
+
+
 def test_no_target_prints_usage(tmp_path):
     r = run_cli(["run"], cwd=tmp_path, sensorium_dir=tmp_path / "s")
     assert r.returncode == 2 and "usage: sensorium run" in r.stderr

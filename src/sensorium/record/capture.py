@@ -78,12 +78,24 @@ def plain_num(n):
     honour `__int__`/`__float__`, which can both LIE about the value and hand
     back another subclass instance (measured: `int(EI(7))` returned 99). The
     unbound base slots read the underlying value.
+
+    `issubclass(type(n), ...)`, NOT `isinstance(n, ...)`: isinstance consults
+    the INSTANCE's `__class__` when the type check is not an exact match, and a
+    `__class__` property can make that raise -- the very kind of program dunder
+    this normalisation exists to keep out of a payload. Dispatching on the type
+    touches no instance dunder, so like `plain_str` this is total by
+    construction: it can neither raise nor return a subclass.
     """
     t = type(n)
     if t is int or t is float or t is bool:
         return n
     try:
-        out = int.__int__(n) if isinstance(n, int) else float.__float__(n)
+        if issubclass(t, int):
+            out = int.__int__(n)
+        elif issubclass(t, float):
+            out = float.__float__(n)
+        else:
+            return n
     except BaseException:
         return n
     return out if type(out) in (int, float) else n
