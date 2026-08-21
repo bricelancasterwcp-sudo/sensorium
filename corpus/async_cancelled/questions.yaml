@@ -1,34 +1,56 @@
 program: main.py
 questions:
   - id: did-b-finish
-    ask: The total is 4, not 6. Did task B's second step ever run?
+    ask: The total is 4, not 6. Did task-B's second step ever run?
     truth: >
       No. task-B's group holds the unframed worker call and exactly one
-      step (n=1); task-A's holds two. worker returned once (task A) --
-      the second worker call has no RETURN, because the task was cancelled
-      while suspended, and the trace says nothing more than that about it:
-      no frame, no closed_by, no "abandoned" label (that is arc 2).
+      step (n=1); the only step(n=2) in the trace ran in task-A's group.
+      Two tasks appended 1 and one task appended 2, which is the whole of
+      the missing 2 in the total.
     why_logs_fail: >
-      A print at the end of worker would fire once and you would read the
-      total and the single line and still not know whether the second
-      task was never started, was started and cancelled, or raised --
-      absence of a log line is not a record of what happened instead.
+      A print inside step gives 1, 1 and 2 -- three lines that say a second
+      step ran, and not one of them says whose. The helper is handed a
+      number and nothing else, so which task each append belongs to is a
+      fact about the execution that never enters the helper's scope.
     command: ["tree", "$RUN"]
     expect_line:
       - ["task t3: task-B"]
-      - ["worker(name='B'", "[coroutine, unframed]"]
-      - ["step(name='A', n=2)", "<- worker (unframed)"]
-    expect_count: {"step(name='B'": 1, "step(name='A'": 2}
-  - id: one-return-for-two-calls
-    ask: How many times did worker return?
-    truth: Once -- the A task; B's second activation never returned.
+      - ["worker(delay=10)", "[coroutine, unframed]"]
+    expect_count: {"step(n=1)": 2, "step(n=2)": 1}
+  - id: whose-second-step-was-it
+    ask: >
+      Exactly one second step ran. Which task did it belong to -- the one
+      that was cancelled, or the other?
+    truth: >
+      The third step activation is the only n=2, and its frame belongs to
+      task t2 (task-A), at depth 0 because its caller -- the coroutine
+      worker -- opened no frame. task-B never reached its second step.
     why_logs_fail: >
-      A return-value print shows one line; a reader cannot tell one line
-      from "the other task returned before the print was added" without
-      the call count beside it, which the trace has and the log does not.
-    command: ["grep", "$RUN", "worker"]
+      Ordering a print by hand gives 1, 1, 2 in that order, which tells you
+      a second step ran third and nothing about which task ran it; the two
+      first steps are identical lines, so even counting them cannot label
+      the third. Task membership is not in any value the helper receives.
+    command: ["frame", "$RUN", "--fn", "step", "--nth", "3"]
     expect_line:
-      - ["CALL", "worker(name='A'"]
-      - ["CALL", "worker(name='B'"]
-      - ["RETURN", "worker -> 2"]
-    expect_count: {"RETURN": 1}
+      - ["step", "task t2 (task-A)", "depth 0"]
+      - ["args:", "n=2"]
+  - id: was-b-stopped-or-just-never-resumed
+    ask: >
+      task-B ran its first step and never its second. Was it stopped by
+      something, or just never resumed before the program ended?
+    truth: >
+      It was stopped: cancellation was delivered into the awaited sleep,
+      and the trace holds a RAISE of CancelledError inside `worker`.
+      `worker` is a coroutine and opens no frame, so no disposition is
+      claimed for that raise -- but the RAISE itself is evidence that
+      something ended the task, which is more than the absence of a second
+      step can say.
+    why_logs_fail: >
+      CancelledError is delivered into the await and never reaches a user
+      `except` inside worker, so no print there fires for it: the
+      end-of-worker line is simply missing, and it is missing identically
+      whether the task was cancelled, was still suspended when the loop
+      shut down, or died some other way. A missing line carries no cause.
+    command: ["exceptions", "$RUN"]
+    expect_line:
+      - ["RAISE", "worker", "CancelledError"]
