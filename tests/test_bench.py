@@ -146,6 +146,11 @@ def test_per_event_cost_is_the_added_time_over_the_events_that_caused_it(
     assert m["us_per_event"] == 3000.0        # (5.0 - 2.0) / 1000, in us
 
 
+def _rows_for(printed: str, workload: str) -> dict:
+    return {ln.split()[1]: ln for ln in printed.splitlines()
+            if ln.startswith(workload + " ")}
+
+
 def test_report_prints_a_row_per_tier_of_every_workload(monkeypatch, capsys):
     """Two workloads, because one cannot tell a per-workload table from a
     table that reports the last one it measured -- and the whole reason there
@@ -156,15 +161,37 @@ def test_report_prints_a_row_per_tier_of_every_workload(monkeypatch, capsys):
     printed = capsys.readouterr().out
 
     for workload in ("tiny", "tinier"):
-        rows = {ln.split()[1]: ln for ln in printed.splitlines()
-                if ln.startswith(workload + " ")}
-        assert set(rows) == {"default", "focused"}, workload
-        for tier, line in rows.items():
-            m = out[workload][tier]
-            # The row must carry THIS tier's own numbers, not a neighbour's.
-            assert f"{m['multiplier']:.1f}" in line and str(m["events"]) in line
+        assert set(_rows_for(printed, workload)) == {"default", "focused"}
+    for tier, line in _rows_for(printed, "tiny").items():
+        m = out["tiny"][tier]
+        # The row must carry THIS tier's own numbers, not a neighbour's.
+        assert f"{m['multiplier']:.1f}" in line and str(m["events"]) in line
     assert out["tiny"]["default"]["events"] == 10
     assert out["tinier"]["default"]["events"] == 6
+
+
+def test_report_refuses_to_report_a_focused_tier_it_could_not_focus(
+        monkeypatch, capsys):
+    """`tinier`'s registered focus is None -- there is nothing frameable to
+    focus. Measuring `focus=None` a second time and printing it as the
+    "focused" tier reports a run that was never focused: the row differs
+    from `default` only by timing noise, and a reader reads that difference
+    as the cost of focusing. So the tier says n/a and is not measured."""
+    monkeypatch.setattr(bench, "WORKLOADS", {"tinier": (TINIER, None)})
+    measured = []
+    real = bench.measure
+    monkeypatch.setattr(bench, "measure",
+                        lambda *a, **kw: measured.append(kw.get("focus"))
+                        or real(*a, **kw))
+
+    out = bench.report(reps=1)
+
+    row = _rows_for(capsys.readouterr().out, "tinier")["focused"]
+    assert "n/a" in row and "(no frameable target to focus)" in row
+    assert out["tinier"]["focused"] is None
+    # DO_NOTHING's fixed-cost run, and the workload's default tier. A third
+    # measurement is the un-focused re-run this test exists to forbid.
+    assert measured == [None, None], measured
 
 
 def test_report_states_the_fixed_cost_the_table_cannot_separate(

@@ -194,11 +194,21 @@ def report(reps: int = 3) -> dict:
     print(f"{'workload':<19} {'tier':<8} {'baseline':>9} {'recorded':>9} "
           f"{'x':>7} {'events':>9} {'us/event':>9}")
     for name, (source, focus) in WORKLOADS.items():
-        tiers = {"default": measure(source, reps=reps),
-                 "focused": measure(source, focus=focus, reps=reps)}
-        for tier, m in tiers.items():
-            print(_row(name, tier, m))
-        results[name] = tiers
+        default = measure(source, reps=reps)
+        print(_row(name, "default", default))
+        if focus is None:
+            # A workload with no frameable target cannot be focused. Calling
+            # measure(focus=None) a second time and printing the result under
+            # the tier name "focused" reports a measurement that was never
+            # taken: the two rows differ only by run-to-run noise, and a
+            # reader compares them as though the difference meant something.
+            focused = None
+            print(f"{name:<19} {'focused':<8} n/a  "
+                  "(no frameable target to focus)")
+        else:
+            focused = measure(source, focus=focus, reps=reps)
+            print(_row(name, "focused", focused))
+        results[name] = {"default": default, "focused": focused}
     overhead = fixed["recorded_s"] - fixed["baseline_s"]
     print(f"\nrecorder fixed cost: {overhead:.3f}s on a program that does "
           f"nothing ({fixed['baseline_s']:.4f}s -> {fixed['recorded_s']:.4f}s)."
