@@ -1,0 +1,43 @@
+program: main.py
+questions:
+  - id: which-task-wrote-last
+    ask: >
+      The final value is "B:2" and I expected "A:2". Which task made the
+      write that won, and did task A's second write happen at all?
+    truth: >
+      Both tasks wrote "result"; the order was A:1, B:1, A:2, B:2, and the
+      last write was update(key='result', value='B:2') in task-B. Task A's
+      second write happened (A:2) and was overwritten. The four `update`
+      activations are real frames whose caller is the coroutine `writer`,
+      which has no frame: they belong to a task group and are tagged with
+      the caller's name, never re-parented to <module>.
+    why_logs_fail: >
+      A print inside update shows four writes and their values, in order,
+      but not which task each came from: the helper has no idea what task
+      it is running in, and adding that means threading the task name
+      through every call or calling asyncio.current_task() inside the
+      helper -- the instrumentation nobody writes until they already
+      suspect the interleaving, which is the thing being asked.
+    command: ["tree", "$RUN"]
+    expect_contains:
+      - "task t2: task-A"
+      - "task t3: task-B"
+      - "order between tasks is wall-clock"
+    expect_line:
+      - ["update(key='result', value='B:2')", "<- writer (unframed)"]
+      - ["update(key='result', value='A:2')", "<- writer (unframed)"]
+      - ["writer(name='B'", "[coroutine, unframed]"]
+    expect_count: {"<- writer (unframed)": 4}
+  - id: the-winning-frame-names-its-task
+    ask: Which task does the fourth (last) update activation belong to?
+    truth: >
+      The fourth update frame -- the B:2 write -- ran in task t3 (task-B),
+      at depth 0 because its caller opened no frame.
+    why_logs_fail: >
+      There is no log line that records the asyncio task an ordinary
+      function ran in; the task is a property of the execution, not of the
+      code, and a print shows only what the code was told to print.
+    command: ["frame", "$RUN", "--fn", "update", "--nth", "4"]
+    expect_line:
+      - ["f", "update", "task t3 (task-B)", "depth 0"]
+      - ["args:", "value='B:2'"]

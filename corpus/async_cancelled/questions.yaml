@@ -1,0 +1,34 @@
+program: main.py
+questions:
+  - id: did-b-finish
+    ask: The total is 4, not 6. Did task B's second step ever run?
+    truth: >
+      No. task-B's group holds the unframed worker call and exactly one
+      step (n=1); task-A's holds two. worker returned once (task A) --
+      the second worker call has no RETURN, because the task was cancelled
+      while suspended, and the trace says nothing more than that about it:
+      no frame, no closed_by, no "abandoned" label (that is arc 2).
+    why_logs_fail: >
+      A print at the end of worker would fire once and you would read the
+      total and the single line and still not know whether the second
+      task was never started, was started and cancelled, or raised --
+      absence of a log line is not a record of what happened instead.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["task t3: task-B"]
+      - ["worker(name='B'", "[coroutine, unframed]"]
+      - ["step(name='A', n=2)", "<- worker (unframed)"]
+    expect_count: {"step(name='B'": 1, "step(name='A'": 2}
+  - id: one-return-for-two-calls
+    ask: How many times did worker return?
+    truth: Once -- the A task; B's second activation never returned.
+    why_logs_fail: >
+      A return-value print shows one line; a reader cannot tell one line
+      from "the other task returned before the print was added" without
+      the call count beside it, which the trace has and the log does not.
+    command: ["grep", "$RUN", "worker"]
+    expect_line:
+      - ["CALL", "worker(name='A'"]
+      - ["CALL", "worker(name='B'"]
+      - ["RETURN", "worker -> 2"]
+    expect_count: {"RETURN": 1}
