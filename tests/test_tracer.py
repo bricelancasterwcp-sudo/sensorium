@@ -6,7 +6,7 @@ from sensorium.record.fingerprint import Fingerprint
 from sensorium.record.tracer import _RETAIN_MAX, _ExcRefs, FocusSpec, Tracer
 from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter
-from tests.helpers import installed_tracer, record_inproc
+from tests.helpers import installed_tracer, record_inproc, record_inproc_full
 
 ADD = """
 def add(a, b):
@@ -214,6 +214,31 @@ def test_calls_returns_args_and_frames(tmp_path):
     assert f is not None and f.depth == 1 and f.closed_by == "return"
     ret = t.event(f.return_event_id)
     assert ret.payload["value"] == {"k": "num", "v": 5}
+
+
+def test_frames_close_by_frame_identity_and_leave_no_live_entry(tmp_path):
+    """Recursion: every activation of `f` must close its OWN frame, which a
+    code-identity stack-top check cannot tell apart; the live map can. And
+    once main has returned, the map must be EMPTY -- a stale entry is an
+    address that can be recycled under a live key, the one thing the
+    spec's id()-soundness argument forbids."""
+    src = """
+def f(n):
+    return n if n == 0 else f(n - 1)
+
+def main():
+    return f(3)
+"""
+    t, err, tracer = record_inproc_full(tmp_path, src)
+    assert err is None
+    f_code = next(c for c in t.codes() if c.qualname == "f")
+    frames = t.frames(code_id=f_code.id)
+    assert [fr.depth for fr in frames] == [1, 2, 3, 4]
+    assert all(fr.closed_by == "return" for fr in frames)
+    assert [fr.parent_id for fr in frames][1:] == [fr.id for fr in frames][:-1]
+    assert len(t.frames()) == 5                      # main + four f
+    assert all(fr.return_event_id is not None for fr in t.frames())
+    assert tracer._tls.live == {}
 
 
 def test_raise_and_handled_share_oid(tmp_path):

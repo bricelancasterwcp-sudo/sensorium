@@ -29,7 +29,11 @@ keep a dead binding alive for the rest of the frame.
 
 A LINE event's `frame_id` is always set. Generators and coroutines are
 frameless (no frame is opened for them), so LINE stays permanently disabled for
-their code even when focused -- there would be no frame to attach to.
+their code even when focused -- there would be no frame to attach to. Their
+CALL is still recorded, with `unframed` naming the kind and either
+`parent_frame` (the caller's open frame) or `caller_code` / `caller` saying who
+called it. A framed call whose caller has no open frame gets `parent_id NULL`
+and the same `caller_code` / `caller` keys: the parent is never guessed.
 
 Every RAISE/HANDLED payload carries an exception `serial`: an exact per-thread
 identity, minted the first time this recorder sees an exception object and
@@ -98,6 +102,21 @@ def _is_control_flow(exc) -> bool:
     """
     t = type(exc)
     return t is StopIteration or t is StopAsyncIteration or t is GeneratorExit
+
+
+_CO_GENERATOR, _CO_COROUTINE, _CO_ASYNC_GENERATOR = 0x20, 0x80, 0x200
+
+
+def _unframed_kind(code) -> str:
+    """Why this code opens no frame: which of the generator-like flags it has.
+    Recorded on the CALL payload so the query side can say 'coroutine', not
+    the vaguer 'coroutine or generator' it must say for a format-1 trace."""
+    flags = code.co_flags
+    if flags & _CO_ASYNC_GENERATOR:
+        return "async_generator"
+    if flags & _CO_COROUTINE:
+        return "coroutine"
+    return "generator"
 
 
 def locals_snapshot(frame) -> dict | None:
@@ -280,7 +299,17 @@ class _TLS(threading.local):
     """
     def __init__(self, next_serial, register) -> None:
         self.thread_serial: int = next_serial()   # stable, never recycled
-        self.stack: list = []          # [frame_id, code, code_id, locals_snapshot]
+        # id(frame) -> [frame_id, code, code_id, prev_locals, depth] for every
+        # OPEN frame this recorder opened on this thread. Replaces the stack
+        # that v1 used: "the last frame I opened is the caller" is stack
+        # discipline, which a coroutine resumed by the event loop, a generator
+        # resumed by its consumer, and a callback from C all break. `id()` is
+        # sound as a key here ONLY because every entry is a regular function
+        # frame, which always leaves through PY_RETURN or PY_UNWIND -- both
+        # subscribed -- so the entry is removed before the address can die. A
+        # suspendable frame must not enter this map without a terminal
+        # ABANDONED state (arc 2). `_parent_of` re-checks code identity anyway.
+        self.live: dict[int, list] = {}
         self.in_hook = False
         self.window_depths: dict = {}  # (module, qualname) -> open activations
         self.origin_recorded = False   # whether the in-flight exc got a row
@@ -374,6 +403,37 @@ class Tracer:
                 fp = self._fps[tid] = Fingerprint()
             return fp
 
+    def _parent_of(self, tls, caller):
+        """The live entry for `caller`, or None -- and None is an answer.
+
+        A hit requires the address to be live AND the code to match: the
+        map cannot hold a stale entry in arc 1 (see `_TLS.live`), but the
+        check is what makes that a property of this method rather than of
+        the current set of callers."""
+        if caller is None:
+            return None
+        entry = tls.live.get(id(caller))
+        if entry is None or entry[1] is not caller.f_code:
+            return None
+        return entry
+
+    def _note_caller(self, payload, caller) -> None:
+        """When there is no parent frame, record WHO called instead of
+        guessing: the caller's interned code if it is traced (a frameless
+        generator/coroutine, or code that started before recording did), or
+        the literal "untraced" (the event loop, a C callback's Python caller
+        in a library, sensorium's own boot). No caller at all writes nothing,
+        which is distinct from both."""
+        if caller is None:
+            return
+        ccode = caller.f_code
+        traced, _rel, cqual, _f, _fl, _w = self._decide(ccode)
+        if traced:
+            payload["caller_code"] = self.writer.intern_code(
+                ccode.co_filename, cqual, ccode.co_firstlineno)
+        else:
+            payload["caller"] = "untraced"
+
     # -- callbacks ---------------------------------------------------------
     def _on_start(self, code, offset):
         tls = self._tls
@@ -400,14 +460,22 @@ class Tracer:
             tid = tls.thread_serial
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
+            caller = frame.f_back
+            parent = self._parent_of(tls, caller)
+            if parent is None:
+                self._note_caller(payload, caller)
+            if frameless:
+                payload["unframed"] = _unframed_kind(code)
+                if parent is not None:
+                    payload["parent_frame"] = parent[0]
             eid = self.writer.add_event(time.monotonic_ns(), tid, "CALL",
                                         None, cid, code.co_firstlineno,
                                         payload)
             if not frameless:
-                parent = tls.stack[-1][0] if tls.stack else None
-                fid = self.writer.open_frame(parent, cid, eid,
-                                             len(tls.stack), tid)
-                tls.stack.append([fid, code, cid, {}])
+                pfid = parent[0] if parent is not None else None
+                depth = parent[4] + 1 if parent is not None else 0
+                fid = self.writer.open_frame(pfid, cid, eid, depth, tid)
+                tls.live[id(frame)] = [fid, code, cid, {}, depth]
             self._fp(tid).update(fp_file, qual, "CALL")
             # Frameless code is excluded on purpose: an abandoned generator
             # never reaches PY_RETURN/PY_UNWIND, so counting its PY_START would
@@ -429,9 +497,12 @@ class Tracer:
         tls.in_hook = True
         try:
             tid = tls.thread_serial
+            frame = sys._getframe(1)
+            entry = tls.live.get(id(frame))
             fid = None
-            if not frameless and tls.stack and tls.stack[-1][1] is code:
-                fid = tls.stack.pop()[0]
+            if entry is not None and entry[1] is code:
+                del tls.live[id(frame)]
+                fid = entry[0]
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
             eid = self.writer.add_event(time.monotonic_ns(), tid, "RETURN",
@@ -456,10 +527,12 @@ class Tracer:
             return None                      # exception events can't DISABLE
         tls.in_hook = True
         try:
-            if not frameless and tls.stack and tls.stack[-1][1] is code:
-                fid = tls.stack.pop()[0]
+            frame = sys._getframe(1)
+            entry = tls.live.get(id(frame))
+            if entry is not None and entry[1] is code:
+                del tls.live[id(frame)]
                 self.writer.close_frame(
-                    fid, None, "unwind",
+                    entry[0], None, "unwind",
                     capture_exc(exc, self.serial_of(exc)))
             if (not frameless and win_key is not None
                     and tls.window_depths.get(win_key)):
@@ -545,8 +618,8 @@ class Tracer:
         tls.in_hook = True
         try:
             tid = tls.thread_serial
-            fid = tls.stack[-1][0] if (not frameless and tls.stack
-                                       and tls.stack[-1][1] is code) else None
+            entry = tls.live.get(id(frame))
+            fid = entry[0] if (entry is not None and entry[1] is code) else None
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
             self.writer.add_event(time.monotonic_ns(), tid, kind, fid, cid,
@@ -574,10 +647,10 @@ class Tracer:
             # permanent per code location, and this frame may run again inside
             # the window later.
             return None
-        if not tls.stack or tls.stack[-1][1] is not code:
-            return None           # no open frame for this activation
-        entry = tls.stack[-1]
         frame = sys._getframe(1)
+        entry = tls.live.get(id(frame))
+        if entry is None or entry[1] is not code:
+            return None           # no open frame for this activation
         tls.in_hook = True        # capture_value runs user __repr__ code
         try:
             prev = entry[3]

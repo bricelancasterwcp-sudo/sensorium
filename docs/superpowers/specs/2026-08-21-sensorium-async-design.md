@@ -165,9 +165,9 @@ Frames currently close only when the stack top matches by code identity
 (`tracer.py:433` and `tracer.py:459`: `tls.stack[-1][1] is code`). A mismatch
 skips the pop, and the frame is never closed. Closing by address instead
 (`tls.live.pop(id(frame))`) makes the close exact and independent of stack
-skew. `tls.stack` is retained — LINE events and locals capture still need the
-current activation — but it stops being the authority on parentage and on
-frame lifetime.
+skew. `tls.stack` is removed: LINE capture, exception-site frames and frame
+close all look the activation up in `tls.live` by frame address, so there is
+one authority, not two that must agree.
 
 No claim is made here that the stack-top mismatch is reachable in v1. The point
 is that the new mechanism does not depend on the question.
