@@ -446,7 +446,7 @@ def test_tree_unframed_count_matches_the_trace(tmp_path, monkeypatch, capsys):
     from sensorium.store.reader import Trace
     n = len(Trace.open(paths.find_trace(run_id)).unframed_calls())
     assert cli.main(["tree", run_id]) == 0
-    assert f"{n} unframed call(s) shown as events" in capsys.readouterr().out
+    assert f"{n} unframed call(s) in this trace" in capsys.readouterr().out
 
 
 def test_tree_renders_a_generator_call_under_the_frame_that_called_it(
@@ -464,7 +464,7 @@ def test_tree_renders_a_generator_call_under_the_frame_that_called_it(
     assert len(parse_lns) == 2
     assert all("<- rows (unframed)" in ln for ln in parse_lns)
     assert "outside any event loop" not in out                # no tasks: no groups
-    assert "unframed call(s) shown as events" in out
+    assert "unframed call(s) in this trace" in out
 
 
 def test_tree_around_an_unframed_event_says_so(tmp_path, monkeypatch, capsys):
@@ -476,3 +476,62 @@ def test_tree_around_an_unframed_event_says_so(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert f"e{ev.id} is an unframed CALL of rows (generator)" in out
     assert f"sensorium grep {run_id} rows" in out
+
+
+def test_tree_depth_withholds_an_unframed_call_and_counts_it(
+        tmp_path, monkeypatch, capsys):
+    """`--depth` prunes unframed calls exactly as it prunes frames. An
+    unframed call has no frame of its own, so the "continue with --root fN"
+    hint cannot name it: if the note does not count it, a reader has no way
+    to learn the depth cut hid a call at all."""
+    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
+    # --depth 0 prunes main(), and rows() -- the call main made without a
+    # frame -- is withheld with it.
+    assert cli.main(["tree", run_id, "--depth", "0"]) == 0
+    out = capsys.readouterr().out
+    assert "rows(" not in out
+    assert "1 unframed call(s) withheld" in out
+    # --depth 1 renders main(), so here it is the depth rule applied to the
+    # unframed leaf itself (rows sits at depth 2) that withholds it. Both
+    # paths must count, or one of them hides a call in silence.
+    assert cli.main(["tree", run_id, "--depth", "1"]) == 0
+    out = capsys.readouterr().out
+    assert "main()" in out and "rows(" not in out
+    assert "1 unframed call(s) withheld by --depth 1" in out
+
+
+# `Evil.get_name()` raises, so the recorder mints the task identity but
+# cannot read its name and stores NULL. NULL means "the name could not be
+# read", never "the task had no name" -- the label must not claim the latter.
+HOSTILE_TASK_SRC = """
+import asyncio
+
+class Evil(asyncio.Task):
+    def get_name(self):
+        raise RuntimeError("no name for you")
+
+def leaf():
+    return 1
+
+async def inner():
+    return leaf()
+
+async def amain():
+    loop = asyncio.get_running_loop()
+    return await Evil(inner(), loop=loop)
+
+def main():
+    return asyncio.run(amain())
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def test_tree_says_a_task_name_was_unreadable_not_that_it_was_unnamed(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=HOSTILE_TASK_SRC)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "(name unreadable)" in out
+    assert "(unnamed)" not in out

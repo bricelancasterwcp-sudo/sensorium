@@ -94,8 +94,9 @@ def render_tree(trace, roots, depth_limit, max_lines, unframed_by_parent=None):
     Frame objects withheld because they crossed --depth or --limit, in
     encounter order -- never just a count. A caller that only reports the
     count and drops the frames themselves cannot point a reader at what was
-    hidden. `cut_unframed` is the unframed-call events --limit withheld; they
-    have no subtree, so they never cross --depth.
+    hidden. `cut_unframed` is the unframed-call events --limit or
+    --depth withheld: an unframed call sits one level below the frame that
+    made it, and is pruned at the same boundary a frame there would be.
 
     Unframed calls whose caller is a frame in this subtree render as that
     frame's children, merged with the framed children by event id."""
@@ -107,6 +108,11 @@ def render_tree(trace, roots, depth_limit, max_lines, unframed_by_parent=None):
     def walk(frame, depth):
         if len(lines) >= max_lines or depth > depth_limit:
             cut_frames.append(frame)
+            # The calls this frame made without opening a frame go with it.
+            # A withheld FRAME is named by the "--root fN" hint; an unframed
+            # call has no frame to name, so counting it here is the only way
+            # a reader learns the cut hid a call and not just a subtree.
+            cut_unframed.extend(ubp.get(frame.id, []))
             return
         lines.append("  " * depth + frame_line(trace, frame))
         kids = ([("f", ch.call_event_id, ch) for ch in trace.children(frame.id)]
@@ -115,7 +121,7 @@ def render_tree(trace, roots, depth_limit, max_lines, unframed_by_parent=None):
         for kind, _eid, obj in kids:
             if kind == "f":
                 walk(obj, depth + 1)
-            elif len(lines) < max_lines:
+            elif len(lines) < max_lines and depth + 1 <= depth_limit:
                 lines.append("  " * (depth + 1) + unframed_line(trace, obj))
             else:
                 cut_unframed.append(obj)
@@ -139,8 +145,8 @@ def _truncation_note(run_ref, depth, limit, cut_frames,
                      f"sensorium tree {run_ref} --root f{cut_frames[0].id}")
     if cut_unframed:
         parts.append(f"{len(cut_unframed)} unframed call(s) withheld by "
-                     f"--limit {limit}; see them with: sensorium grep "
-                     f"{run_ref} CALL")
+                     f"--depth {depth} or --limit {limit}; see them with: "
+                     f"sensorium grep {run_ref} CALL")
     return ("... " + "; ".join(parts)) if parts else None
 
 
@@ -163,21 +169,33 @@ def _has_caller_code(trace, frame) -> bool:
     return bool(call and (call.payload or {}).get("caller_code") is not None)
 
 
+def _basis_footer(trace) -> list[str]:
+    """The parentage caveat. It is a property of the RECORDING, not of the
+    slice on screen, so every view carries it -- including `--root` and
+    `--around`, which show one subtree and for which the inter-task ordering
+    line would describe nothing the reader can see."""
+    if trace.parentage_basis() != "assumed":
+        return []
+    return ["parentage: ASSUMED -- recorded by a format-1 sensorium, "
+            "whose parent was the last frame opened on the thread, not "
+            "the caller; async, generators and C callbacks break that. "
+            "Re-record to derive it."]
+
+
 def _footers(trace, n_unframed: int) -> list[str]:
     out = []
     if trace.tasks():
         out.append("order between tasks is wall-clock (event ids), not causal; "
                    "within one task it is causal")
     if n_unframed:
-        out.append(f"{n_unframed} unframed call(s) shown as events: "
+        # A statement about the TRACE, not about this page: --depth and
+        # --limit can withhold some of them, and the truncation note above
+        # is what says so. "shown as events" would claim they all reached
+        # the screen, which a truncated view makes false.
+        out.append(f"{n_unframed} unframed call(s) in this trace: "
                    "coroutine/generator code opens no frame in this version "
                    "(no tree, frame, focus or watch inside them)")
-    if trace.parentage_basis() == "assumed":
-        out.append("parentage: ASSUMED -- recorded by a format-1 sensorium, "
-                   "whose parent was the last frame opened on the thread, not "
-                   "the caller; async, generators and C callbacks break that. "
-                   "Re-record to derive it.")
-    return out
+    return out + _basis_footer(trace)
 
 
 def run(args) -> int:
@@ -221,7 +239,7 @@ def run(args) -> int:
                                 cut_u)
         if note:
             print(note)
-        for ln in _footers(trace, 0):
+        for ln in _basis_footer(trace):
             print(ln)
         return 0
     if args.root:
@@ -241,7 +259,7 @@ def run(args) -> int:
                                 cut_u)
         if note:
             print(note)
-        for ln in _footers(trace, 0):
+        for ln in _basis_footer(trace):
             print(ln)
         return 0
     # One path for every trace. A synchronous trace has no tasks, so it is

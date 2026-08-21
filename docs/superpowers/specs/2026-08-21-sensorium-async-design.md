@@ -219,7 +219,7 @@ task t3: task-B
     f5 e11 step(task='B', n=2) -> 'B:2'  <- worker (unframed)
     f7 e16 step(task='B', n=3) -> 'B:3'  <- worker (unframed)
 order between tasks is wall-clock (event ids), not causal; within one task it is causal
-4 unframed call(s) shown as events: coroutine/generator code opens no frame in this version (no tree, frame, focus or watch inside them)
+3 unframed call(s) in this trace: coroutine/generator code opens no frame in this version (no tree, frame, focus or watch inside them)
 ```
 
 The `<- worker (unframed)` tag is the parentage statement: `step`'s caller
