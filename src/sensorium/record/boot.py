@@ -566,9 +566,13 @@ def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
     # and would otherwise be counted twice. This is the only place a
     # multiprocessing 'spawn'/'forkserver' child is visible at all.
     w.set_meta_final("spawn_syscalls", spawn_syscalls)
-    # Times an asyncio task object broke its own identity lookup (a hostile
-    # `get_name`/`__hash__`). Non-zero means some events went unattributed:
-    # a NULL `task_id` there is "could not tell", not "no task".
+    # Times the task IDENTITY lookup raised: `current_task()` itself, or a
+    # Task subclass's `__hash__`/`__eq__` during the serial lookup. Those
+    # events carry `task_id NULL`, which there means "could not tell", not
+    # "no task" -- which is why the count has to be on the run. An unreadable
+    # task NAME is NOT counted here: the serial was still minted and the
+    # events are still attributed, and the fact is already on the record as a
+    # NULL `name` in `tasks`.
     w.set_meta_final("task_errors", task_errors)
     w.set_meta_final("spawn_witnessing", _SPAWN_WITNESSED)
     files = set(w.interned_files())

@@ -5,6 +5,8 @@ DIFFERENT answer from the caller frame -- coroutines resumed by the loop,
 a generator calling a helper, a key function called back from C. The
 assertions are on what the trace says the parent IS, not on the rendering.
 """
+import sys
+
 from tests.helpers import record_inproc, record_script
 
 TWO_TASKS = """
@@ -200,3 +202,112 @@ def test_a_task_whose_get_name_raises_is_recorded_unnamed_not_crashed(tmp_path):
     call = t.event(t.frames(code_id=leaf.id)[0].call_event_id)
     assert call.task_id is not None
     assert t.task(call.task_id).name is None             # unreadable -> None
+
+
+HOSTILE_HASH_TASK = """
+import asyncio
+
+class NoHash(asyncio.Task):
+    def __hash__(self):
+        raise RuntimeError("unhashable on purpose")
+
+def leaf():
+    return 1
+
+async def inner():
+    return leaf()
+
+async def amain():
+    loop = asyncio.get_running_loop()
+    return await NoHash(inner(), loop=loop)
+
+def main():
+    return asyncio.run(amain())
+"""
+
+
+def test_a_task_whose_hash_raises_is_counted_and_leaves_events_unattributed(
+        tmp_path):
+    from tests.helpers import record_inproc_full
+    t, err, tracer = record_inproc_full(tmp_path, HOSTILE_HASH_TASK)
+    assert err is None                                   # program finished
+    leaf = _by_qual(t, "leaf")
+    call = t.event(t.frames(code_id=leaf.id)[0].call_event_id)
+    assert call.task_id is None                          # could not tell
+    assert tracer.task_errors >= 1
+    # the name-unreadable case is NOT an identity error:
+    t2, err2, tracer2 = record_inproc_full(tmp_path / "b", HOSTILE_TASK)
+    assert err2 is None and tracer2.task_errors == 0
+
+
+# `step` raises and catches inside itself, so RAISE and HANDLED both fire on
+# its code; the exec'd SRC runs under a mapping whose `items()` raises once,
+# which is the only way to reach `_on_line`'s "locals unread" branch -- a
+# FOURTH add_event site, and one a task's own events pass through.
+TASK_RAISES_AND_CATCHES = """
+import asyncio
+
+class Flaky(dict):
+    calls = 0
+    def items(self):
+        Flaky.calls += 1
+        if Flaky.calls == 4:            # the CALL, then L1, L2, and THIS
+            raise ValueError("INJECTED-items-once")
+        return dict.items(self)
+
+SRC = "a = 1\\nb = 2\\nc = 3\\nd = 4\\n"
+
+def step(n):
+    total = n
+    try:
+        raise ValueError("boom")
+    except ValueError:
+        total += 1
+    return total
+
+def unreadable():
+    exec(compile(SRC, __file__, "exec"), {}, Flaky())
+    return "ok"
+
+async def worker():
+    return step(1), unreadable()
+
+def main():
+    return asyncio.run(worker())
+"""
+
+
+def test_line_raise_and_handled_events_in_a_task_are_stamped_too(tmp_path):
+    """CALL and RETURN are not the only rows that have to carry the task.
+    A stamp missing on the exception or line paths would make a task's own
+    failure, or its state timeline, look like it happened outside any task."""
+    t, err = record_inproc(tmp_path, TASK_RAISES_AND_CATCHES, focus=["prog"])
+    assert err is None
+    step = _by_qual(t, "step")
+    rows = t.events(kind=("LINE", "RAISE", "HANDLED"), code_id=step.id)
+    # All three really fired -- otherwise `all()` below is vacuously true.
+    assert {e.kind for e in rows} == {"LINE", "RAISE", "HANDLED"}
+    assert all(e.task_id is not None for e in rows)
+    # ...and so is the line whose locals could not be read at all.
+    unread = [e for e in t.events(kind="LINE")
+              if e.payload.get("unread") == ["locals"]]
+    assert len(unread) == 1, unread
+    assert unread[0].task_id is not None
+
+
+def test_bind_asyncio_survives_a_program_supplied_stand_in_module(monkeypatch):
+    """`sys.modules["asyncio"]` is a slot the program can write, so the
+    attribute reads in `_bind_asyncio` are program code on the hot path.
+    `getattr(..., default)` swallows only AttributeError -- anything else
+    would leave a monitoring callback by raising into the program."""
+    from types import SimpleNamespace
+    from sensorium.record.tracer import Tracer
+
+    class Hostile:
+        def __getattr__(self, name):
+            raise RuntimeError("no attributes for you")
+
+    monkeypatch.setitem(sys.modules, "asyncio", Hostile())
+    fake = SimpleNamespace(_asyncio=None)
+    assert Tracer._bind_asyncio(fake) is None
+    assert fake._asyncio is None            # nothing half-bound is remembered

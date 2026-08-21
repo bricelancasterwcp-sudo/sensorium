@@ -450,11 +450,21 @@ class Tracer:
         """(`_get_running_loop`, `current_task`) from the asyncio the PROGRAM
         imported, or None if it is not (fully) there yet. Both are C
         functions (`_asyncio`) on 3.12-3.14; `_get_running_loop` returns
-        None outside a loop instead of raising, which is why it is the gate."""
-        mod = sys.modules.get("asyncio")
-        events = getattr(mod, "events", None)
-        get_loop = getattr(events, "_get_running_loop", None)
-        cur_task = getattr(mod, "current_task", None)
+        None outside a loop instead of raising, which is why it is the gate.
+
+        Guarded because `sys.modules["asyncio"]` is a slot the PROGRAM can
+        write: a stand-in module's `__getattr__` is program code, and
+        `getattr(..., None)` swallows only AttributeError, so anything else
+        it raises would come out of a monitoring callback. A failed bind is
+        not counted and not remembered -- the next event simply retries, the
+        same way it does while a real asyncio is still half-imported."""
+        try:
+            mod = sys.modules.get("asyncio")
+            events = getattr(mod, "events", None)
+            get_loop = getattr(events, "_get_running_loop", None)
+            cur_task = getattr(mod, "current_task", None)
+        except BaseException:
+            return None
         if get_loop is None or cur_task is None:
             return None
         self._asyncio = (get_loop, cur_task)
@@ -468,8 +478,11 @@ class Tracer:
         """The minted serial of the asyncio task running on this thread right
         now, or None: no asyncio, no running loop, no current task, or a task
         object that broke the lookup (counted in `task_errors`, never raised
-        into the program). Must be called inside an `in_hook` region: a Task
-        subclass's `get_name` is program code."""
+        into the program). Only IDENTITY failures are counted: a task whose
+        `get_name` raises still gets its serial and still attributes its
+        events, and is recorded as a task with no name, not as an error.
+        Must be called inside an `in_hook` region: a Task subclass's
+        `get_name` is program code."""
         if "asyncio" not in sys.modules:
             return None
         fns = self._asyncio or self._bind_asyncio()
