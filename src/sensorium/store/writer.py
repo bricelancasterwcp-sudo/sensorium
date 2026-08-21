@@ -18,6 +18,7 @@ class TraceWriter:
         self._frames: list[tuple] = []
         self._closes: list[tuple] = []
         self._outputs: list[tuple] = []
+        self._tasks: list[tuple] = []
         self._codes: dict[tuple, int] = {}
         self._new_codes: list[tuple] = []
         self._next_event = 1
@@ -38,17 +39,23 @@ class TraceWriter:
             return cid
 
     def add_event(self, ts_ns, thread_id, kind, frame_id, code_id, line,
-                  payload: dict | None) -> int:
+                  payload: dict | None, task_id: int | None = None) -> int:
         p = (None if payload is None
              else json.dumps(payload, separators=(",", ":"), default=repr))
         with self._lock:
             eid = self._next_event
             self._next_event += 1
             self._events.append(
-                (eid, ts_ns, thread_id, kind, frame_id, code_id, line, p))
+                (eid, ts_ns, thread_id, kind, frame_id, code_id, line, p,
+                 task_id))
             if len(self._events) >= self._batch:
                 self._flush_locked()
             return eid
+
+    def add_task(self, task_id: int, name: str | None, thread_id: int) -> None:
+        """One row per asyncio task, written when its serial is minted."""
+        with self._lock:
+            self._tasks.append((task_id, name, thread_id))
 
     def open_frame(self, parent_id, code_id, call_event_id, depth,
                    thread_id) -> int:
@@ -105,9 +112,16 @@ class TraceWriter:
                 "depth, thread_id) VALUES (?, ?, ?, ?, ?, ?)", self._frames)
             self._frames.clear()
         if self._events:
-            c.executemany("INSERT INTO events VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                          self._events)
+            c.executemany(
+                "INSERT INTO events (id, ts_ns, thread_id, kind, frame_id, "
+                "code_id, line, payload, task_id) VALUES "
+                "(?, ?, ?, ?, ?, ?, ?, ?, ?)", self._events)
             self._events.clear()
+        if self._tasks:
+            c.executemany(
+                "INSERT INTO tasks (id, name, thread_id) VALUES (?, ?, ?)",
+                self._tasks)
+            self._tasks.clear()
         if self._closes:
             c.executemany(
                 "UPDATE frames SET return_event_id = ?, closed_by = ?, "
