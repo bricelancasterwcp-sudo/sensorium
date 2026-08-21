@@ -99,13 +99,21 @@ def index_unframed(trace):
 
 
 def render_tree(trace, roots, depth_limit, max_lines, unframed_by_parent=None):
-    """Return (lines, cut_frames, cut_unframed): `cut_frames` is the actual
-    Frame objects withheld because they crossed --depth or --limit, in
-    encounter order -- never just a count. A caller that only reports the
-    count and drops the frames themselves cannot point a reader at what was
-    hidden. `cut_unframed` is the unframed-call events --limit or
-    --depth withheld: an unframed call sits one level below the frame that
-    made it, and is pruned at the same boundary a frame there would be.
+    """Return (lines, cut_frames, cut_unframed, shown_unframed).
+
+    `cut_frames` is the actual Frame objects withheld because they crossed
+    --depth or --limit, in encounter order -- never just a count. A caller
+    that only reports the count and drops the frames themselves cannot point
+    a reader at what was hidden. `cut_unframed` is the unframed-call events
+    --limit or --depth withheld: an unframed call sits one level below the
+    frame that made it, and is pruned at the same boundary a frame there
+    would be.
+
+    `cut_unframed` is a LOWER BOUND: when a frame is cut, only the unframed
+    calls IT made go with it -- the ones its withheld descendants made are
+    never walked, so they are never counted. `shown_unframed` is the events
+    that actually reached the screen, and it is exact; a caller that knows
+    how many the trace holds can subtract and get an exact withheld count.
 
     Unframed calls whose caller is a frame in this subtree render as that
     frame's children, merged with the framed children by event id."""
@@ -113,6 +121,7 @@ def render_tree(trace, roots, depth_limit, max_lines, unframed_by_parent=None):
     lines: list[str] = []
     cut_frames: list = []
     cut_unframed: list = []
+    shown_unframed: list = []
 
     def walk(frame, depth):
         if len(lines) >= max_lines or depth > depth_limit:
@@ -132,30 +141,38 @@ def render_tree(trace, roots, depth_limit, max_lines, unframed_by_parent=None):
                 walk(obj, depth + 1)
             elif len(lines) < max_lines and depth + 1 <= depth_limit:
                 lines.append("  " * (depth + 1) + unframed_line(trace, obj))
+                shown_unframed.append(obj)
             else:
                 cut_unframed.append(obj)
 
     for r in roots:
         walk(r, 0)
-    return lines, cut_frames, cut_unframed
+    return lines, cut_frames, cut_unframed, shown_unframed
 
 
 def _truncation_note(run_ref, depth, limit, cut_frames,
-                     cut_unframed=()) -> str | None:
+                     n_unframed_withheld=0, unframed_exact=True) -> str | None:
     """Every branch that can withhold subtrees must report it -- silence
     here is indistinguishable from "that's the whole tree", which is
     exactly the unsupported claim this project forbids. The hint is a
     fully-instantiated, copy-pasteable command (a real frame id, the run
-    ref actually in hand), not a template like "fN"."""
+    ref actually in hand), not a template like "fN".
+
+    `n_unframed_withheld` is a COUNT, not a list, because the two views
+    arrive at it differently: the whole-trace view subtracts what it printed
+    from what the trace holds and is exact, while a `--root`/`--around`
+    slice can only count the calls it walked past -- a lower bound, which
+    says "at least" rather than claiming a total it cannot see."""
     parts = []
     if cut_frames:
         parts.append(f"{len(cut_frames)} subtree(s) beyond --depth {depth} or "
                      f"--limit {limit}; continue with: "
                      f"sensorium tree {run_ref} --root f{cut_frames[0].id}")
-    if cut_unframed:
-        parts.append(f"{len(cut_unframed)} unframed call(s) withheld by "
-                     f"--depth {depth} or --limit {limit}; see them with: "
-                     f"sensorium grep {run_ref} CALL")
+    if n_unframed_withheld:
+        at_least = "" if unframed_exact else "at least "
+        parts.append(f"{at_least}{n_unframed_withheld} unframed call(s) "
+                     f"withheld by --depth {depth} or --limit {limit}; "
+                     f"see them with: sensorium grep {run_ref} CALL")
     return ("... " + "; ".join(parts)) if parts else None
 
 
@@ -240,12 +257,16 @@ def run(args) -> int:
         ancestors = list(reversed(chain[1:]))
         for depth, fr in enumerate(ancestors):
             print("  " * depth + frame_line(trace, fr))
-        lines, cut_frames, cut_u = render_tree(trace, [f], args.depth,
-                                               args.limit, by_parent)
+        lines, cut_frames, cut_u, _shown = render_tree(
+            trace, [f], args.depth, args.limit, by_parent)
         for ln in lines:
             print("  " * len(ancestors) + ln)
+        # A subtree view cannot subtract from the trace-wide total: the
+        # calls it did not print include every one outside this subtree,
+        # which this cut did not withhold. So it counts what it walked past
+        # and says "at least".
         note = _truncation_note(args.run, args.depth, args.limit, cut_frames,
-                                cut_u)
+                                len(cut_u), unframed_exact=False)
         if note:
             print(note)
         for ln in _basis_footer(trace):
@@ -260,12 +281,12 @@ def run(args) -> int:
         if root is None:
             print(f"no such frame: {args.root} does not exist")
             return 1
-        lines, cut_frames, cut_u = render_tree(trace, [root], args.depth,
-                                               args.limit, by_parent)
+        lines, cut_frames, cut_u, _shown = render_tree(
+            trace, [root], args.depth, args.limit, by_parent)
         for ln in lines:
             print(ln)
         note = _truncation_note(args.run, args.depth, args.limit, cut_frames,
-                                cut_u)
+                                len(cut_u), unframed_exact=False)
         if note:
             print(note)
         for ln in _basis_footer(trace):
@@ -277,7 +298,7 @@ def run(args) -> int:
     # output, as it was.
     show_headers = bool(trace.tasks())
     cut_frames_all: list = []
-    cut_unframed_all: list = []
+    shown_unframed = 0
     printed = 0
     for tid, items in _grouped(trace, trace.roots(), parentless):
         if show_headers:
@@ -286,25 +307,29 @@ def run(args) -> int:
             budget = args.limit - printed
             if kind == "u":
                 if budget <= 0:
-                    cut_unframed_all.append(obj)
                     continue
                 print(("  " if show_headers else "") + unframed_line(trace, obj))
                 printed += 1
+                shown_unframed += 1
                 continue
             if budget <= 0:
                 cut_frames_all.append(obj)
                 continue
             base = ((1 if show_headers else 0)
                     + (1 if _has_caller_code(trace, obj) else 0))
-            lines, cut, cut_u = render_tree(trace, [obj], args.depth, budget,
-                                            by_parent)
+            lines, cut, _cut_u, shown_u = render_tree(
+                trace, [obj], args.depth, budget, by_parent)
             cut_frames_all += cut
-            cut_unframed_all += cut_u
+            shown_unframed += len(shown_u)
             for ln in lines:
                 print("  " * base + ln)
             printed += len(lines)
+    # This view walks the WHOLE trace, so every unframed call it did not
+    # print was withheld by --depth or --limit: subtracting is exact, where
+    # counting the ones the walk happened to touch is not (a cut frame's
+    # withheld descendants make unframed calls nobody ever walks past).
     note = _truncation_note(args.run, args.depth, args.limit, cut_frames_all,
-                            cut_unframed_all)
+                            n_unframed - shown_unframed)
     if note:
         print(note)
     elif printed == 0:

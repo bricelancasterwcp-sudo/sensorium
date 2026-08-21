@@ -553,6 +553,50 @@ def test_tree_depth_withholds_an_unframed_call_and_counts_it(
     assert "1 unframed call(s) withheld by --depth 1" in out
 
 
+def test_tree_limit_pins_the_page_and_counts_every_withheld_unframed_call(
+        tmp_path, monkeypatch, capsys):
+    """`--limit` is ONE budget across the whole page, not a fresh one per
+    root -- with a per-item budget every task group would print its own
+    `--limit` rows and the page would be as long as the trace.
+
+    And the unframed calls the cut withheld are counted by subtraction from
+    the trace-wide total, which is exact. Counting only the ones the walk
+    happened to touch under-reports: a withheld frame's withheld descendants
+    make calls nobody walks past, so `--limit 1` used to claim it had hidden
+    one unframed call directly under a footer saying the trace holds three.
+    """
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    from sensorium import paths
+    from sensorium.store.reader import Trace
+    n = len(Trace.open(paths.find_trace(run_id)).unframed_calls())
+    assert n == 3                                   # amain + two workers
+    for limit, shown_unframed in ((1, 0), (3, 2)):
+        assert cli.main(["tree", run_id, "--limit", str(limit)]) == 0
+        out = capsys.readouterr().out
+        # Task headers, the note and the footers are unindented; every row
+        # that spends budget is indented under a header.
+        rows = [ln for ln in out.splitlines() if ln.startswith(" ")]
+        assert len(rows) == limit, (limit, rows)
+        assert f"--limit {limit}" in out
+        assert f"{n - shown_unframed} unframed call(s) withheld" in out
+        assert f"{n} unframed call(s) in this trace" in out
+        # The whole-trace view knows the total: it never hedges.
+        assert "at least" not in out
+
+
+def test_tree_subtree_view_says_at_least_when_counting_withheld_calls(
+        tmp_path, monkeypatch, capsys):
+    """A `--root` slice cannot subtract from the trace-wide total -- most of
+    what it did not print lies outside the subtree and was not withheld by
+    anything. So it counts what it walked past and says so as a lower
+    bound, rather than printing a total it is not in a position to know."""
+    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
+    assert cli.main(["tree", run_id, "--root", "f2", "--depth", "0"]) == 0
+    out = capsys.readouterr().out
+    assert "main()" in out and "rows(" not in out
+    assert "at least 1 unframed call(s) withheld by --depth 0" in out
+
+
 # `amain` awaits `inner` directly: `inner`'s CALL payload names `amain` as
 # its caller (both are coroutines, so neither opens a frame). Untagged, the
 # two render as plain siblings under one task header -- which reads as two
