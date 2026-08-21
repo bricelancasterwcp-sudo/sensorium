@@ -92,3 +92,14 @@ def test_tree_subtree_views_of_a_format1_trace_keep_the_assumed_caveat(
     out = capsys.readouterr().out
     assert "parentage: ASSUMED" in out
     assert "order between tasks" not in out
+
+
+def test_frame_on_a_format1_trace_says_unframed_and_assumed(installed_fixture,
+                                                             capsys):
+    assert cli.main(["frame", installed_fixture, "--fn", "worker"]) == 1
+    out = capsys.readouterr().out
+    assert "recorded as 2 call(s) but not framed (generator/coroutine)" in out
+    assert cli.main(["frame", installed_fixture, "--fn", "step"]) == 0
+    out = capsys.readouterr().out
+    assert "parentage: assumed (format-1 trace)" in out
+    assert "task t" not in out.splitlines()[0]

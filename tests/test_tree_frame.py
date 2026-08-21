@@ -548,3 +548,23 @@ def test_tree_subtree_views_omit_the_inter_task_ordering_footer(
     assert "order between tasks" not in capsys.readouterr().out
     assert cli.main(["tree", run_id, "--around", "e1"]) == 0
     assert "order between tasks" not in capsys.readouterr().out
+
+
+def test_frame_fn_distinguishes_unframed_from_never_recorded(tmp_path,
+                                                              monkeypatch,
+                                                              capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    assert cli.main(["frame", run_id, "--fn", "worker"]) == 1
+    out = capsys.readouterr().out
+    assert "'worker' was recorded as 2 call(s) but not framed (coroutine)" in out
+    assert f"sensorium grep {run_id} worker" in out
+    assert "no recorded activations" not in out
+    assert cli.main(["frame", run_id, "--fn", "nope"]) == 1
+    assert "no recorded activations of 'nope'" in capsys.readouterr().out
+
+
+def test_frame_header_names_the_task(tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    assert cli.main(["frame", run_id, "--fn", "step", "--nth", "1"]) == 0
+    head = capsys.readouterr().out.splitlines()[0]
+    assert "task t2 (task-A)" in head and "depth 0" in head

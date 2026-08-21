@@ -2,7 +2,7 @@
 from sensorium import paths
 from sensorium.query.fmt import (fmt_args, fmt_event, fmt_exc, fmt_value,
                                  parse_fref)
-from sensorium.query.tree_cmd import frame_line
+from sensorium.query.tree_cmd import frame_line, unframed_kind
 from sensorium.store.reader import Trace
 
 
@@ -30,6 +30,17 @@ def _resolve(trace, args):
         matches = [f for f in trace.frames()
                    if trace.code(f.code_id).qualname == args.fn]
         if not matches:
+            codes = [c for c in trace.codes() if c.qualname == args.fn]
+            calls = [e for c in codes for e in trace.unframed_calls(code_id=c.id)]
+            if calls:
+                # Recorded, not framed: the activations are in the trace,
+                # as CALL events -- denying them contradicts `grep` on the
+                # same trace, which is what v1 did.
+                return None, (
+                    f"{args.fn!r} was recorded as {len(calls)} call(s) but "
+                    f"not framed ({unframed_kind(calls[0])}): no frame, locals "
+                    "or children to show; its events: sensorium grep "
+                    f"{args.run} {args.fn}")
             return None, ("no such frame: no recorded activations of "
                           f"{args.fn!r}")
         if not (1 <= args.nth <= len(matches)):
@@ -49,10 +60,19 @@ def run(args) -> int:
         return 1
     code = trace.code(f.code_id)
     end = f"e{f.return_event_id}" if f.return_event_id is not None else "?"
-    print(f"f{f.id} {code.file.rsplit('/', 1)[-1]}:{code.qualname}  "
-          f"[e{f.call_event_id}..{end}]  thread {f.thread_id}  "
-          f"depth {f.depth}  closed: {f.closed_by or 'open'}")
     call = trace.event(f.call_event_id)
+    task = ""
+    if call is not None and call.task_id is not None:
+        t = trace.task(call.task_id)
+        name = (t.name if (t is not None and t.name is not None)
+                else "name unreadable")
+        task = f"  task t{call.task_id} ({name})"
+    print(f"f{f.id} {code.file.rsplit('/', 1)[-1]}:{code.qualname}  "
+          f"[e{f.call_event_id}..{end}]  thread {f.thread_id}{task}  "
+          f"depth {f.depth}  closed: {f.closed_by or 'open'}")
+    if trace.parentage_basis() == "assumed":
+        print("parentage: assumed (format-1 trace) -- depth and the parent "
+              "chain are v1's last-opened-frame guess")
     args_p = (call.payload or {}).get("args", {}) if call else {}
     print("args: " + (fmt_args(args_p, limit=99) or "(none)"))
     lines = [e for e in trace.frame_events(f.id) if e.kind == "LINE"]
