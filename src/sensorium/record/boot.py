@@ -542,7 +542,7 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
 
 def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
                    truncated_count, live_threads, entry, threads_started,
-                   audit_errors, spawn_syscalls) -> None:
+                   audit_errors, spawn_syscalls, task_errors) -> None:
     """Close out the run. Runs after `w.seal()`, hence `set_meta_final`."""
     w.set_meta_final("uncaught", uncaught)
     w.set_meta_final("stdin_consumed", stdin_consumed)
@@ -566,6 +566,10 @@ def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
     # and would otherwise be counted twice. This is the only place a
     # multiprocessing 'spawn'/'forkserver' child is visible at all.
     w.set_meta_final("spawn_syscalls", spawn_syscalls)
+    # Times an asyncio task object broke its own identity lookup (a hostile
+    # `get_name`/`__hash__`). Non-zero means some events went unattributed:
+    # a NULL `task_id` there is "could not tell", not "no task".
+    w.set_meta_final("task_errors", task_errors)
     w.set_meta_final("spawn_witnessing", _SPAWN_WITNESSED)
     files = set(w.interned_files())
     if entry:
@@ -708,7 +712,8 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
                 live_threads=live, entry=entry,
                 threads_started=len(started),
                 audit_errors=len(audit_errors),
-                spawn_syscalls=len(spawns))
+                spawn_syscalls=len(spawns),
+                task_errors=tracer.task_errors)
         finally:
             w.close()                  # never skipped: no leaked connection
             gaps = _recording_gaps(live, w.late_writes)

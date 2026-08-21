@@ -315,6 +315,8 @@ class _TLS(threading.local):
         self.window_depths: dict = {}  # (module, qualname) -> open activations
         self.origin_recorded = False   # whether the in-flight exc got a row
         self.exc = _ExcRefs()
+        # (task, serial) of the last task seen on this thread
+        self.task_cache: tuple | None = None
         register(self.thread_serial, self.exc)
 
 
@@ -343,6 +345,15 @@ class Tracer:
         # frames and fingerprints under one id.
         self._serial_lock = threading.Lock()
         self._next_serial = 0
+        # asyncio task identity: a minted serial per task object, weakly held
+        # so finished tasks do not accumulate. Bound lazily from sys.modules
+        # (never imported here) so a program that never uses asyncio pays one
+        # dict probe per event and sees its sys.modules untouched.
+        self._asyncio: tuple | None = None
+        self._task_serials: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+        self._task_lock = threading.Lock()
+        self._next_task = 0
+        self.task_errors = 0       # lookups a hostile task object broke
         self._tls = _TLS(self._assign_thread_serial, self._register_refs)
         # The thread constructing the Tracer runs `_TLS.__init__` above, so it
         # is the first serial (1). `run_target` runs the target on this same
@@ -435,6 +446,68 @@ class Tracer:
         else:
             payload["caller"] = "untraced"
 
+    def _bind_asyncio(self):
+        """(`_get_running_loop`, `current_task`) from the asyncio the PROGRAM
+        imported, or None if it is not (fully) there yet. Both are C
+        functions (`_asyncio`) on 3.12-3.14; `_get_running_loop` returns
+        None outside a loop instead of raising, which is why it is the gate."""
+        mod = sys.modules.get("asyncio")
+        events = getattr(mod, "events", None)
+        get_loop = getattr(events, "_get_running_loop", None)
+        cur_task = getattr(mod, "current_task", None)
+        if get_loop is None or cur_task is None:
+            return None
+        self._asyncio = (get_loop, cur_task)
+        return self._asyncio
+
+    def _count_task_error(self) -> None:
+        with self._task_lock:
+            self.task_errors += 1
+
+    def _task_serial(self, tls):
+        """The minted serial of the asyncio task running on this thread right
+        now, or None: no asyncio, no running loop, no current task, or a task
+        object that broke the lookup (counted in `task_errors`, never raised
+        into the program). Must be called inside an `in_hook` region: a Task
+        subclass's `get_name` is program code."""
+        if "asyncio" not in sys.modules:
+            return None
+        fns = self._asyncio or self._bind_asyncio()
+        if fns is None:
+            return None
+        get_loop, cur_task = fns
+        try:
+            if get_loop() is None:
+                return None
+            task = cur_task()
+        except BaseException:
+            self._count_task_error()
+            return None
+        if task is None:
+            return None
+        cache = tls.task_cache
+        if cache is not None and cache[0] is task:
+            return cache[1]
+        try:
+            with self._task_lock:
+                serial = self._task_serials.get(task)
+                minted = serial is None
+                if minted:
+                    self._next_task += 1
+                    serial = self._next_task
+                    self._task_serials[task] = serial
+        except BaseException:          # hostile __hash__/__eq__ on a subclass
+            self._count_task_error()
+            return None
+        if minted:
+            try:
+                name = plain_str(task.get_name())
+            except BaseException:
+                name = None
+            self.writer.add_task(serial, name, tls.thread_serial)
+        tls.task_cache = (task, serial)
+        return serial
+
     # -- callbacks ---------------------------------------------------------
     def _on_start(self, code, offset):
         tls = self._tls
@@ -459,6 +532,7 @@ class Tracer:
             payload = {"args": args} if loc is not None else {
                 "args": {}, "unread": ["locals"]}
             tid = tls.thread_serial
+            task = self._task_serial(tls)
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
             caller = frame.f_back
@@ -471,7 +545,7 @@ class Tracer:
                     payload["parent_frame"] = parent[0]
             eid = self.writer.add_event(time.monotonic_ns(), tid, "CALL",
                                         None, cid, code.co_firstlineno,
-                                        payload)
+                                        payload, task_id=task)
             if not frameless:
                 pfid = parent[0] if parent is not None else None
                 depth = parent[4] + 1 if parent is not None else 0
@@ -508,7 +582,8 @@ class Tracer:
                                           code.co_firstlineno)
             eid = self.writer.add_event(time.monotonic_ns(), tid, "RETURN",
                                         fid, cid, None,
-                                        {"value": capture_value(retval)})
+                                        {"value": capture_value(retval)},
+                                        task_id=self._task_serial(tls))
             if fid is not None:
                 self.writer.close_frame(fid, eid, "return")
             self._fp(tid).update(fp_file, qual, "RETURN")
@@ -625,7 +700,8 @@ class Tracer:
                                           code.co_firstlineno)
             self.writer.add_event(time.monotonic_ns(), tid, kind, fid, cid,
                                   frame.f_lineno,
-                                  {"exc": capture_exc(exc, serial)})
+                                  {"exc": capture_exc(exc, serial)},
+                                  task_id=self._task_serial(tls))
             self._fp(tid).update(fp_file, qual, kind)
         finally:
             tls.in_hook = False
@@ -665,7 +741,8 @@ class Tracer:
                 self.writer.add_event(time.monotonic_ns(),
                                       tls.thread_serial, "LINE",
                                       entry[0], entry[2], line,
-                                      {"deltas": {}, "unread": ["locals"]})
+                                      {"deltas": {}, "unread": ["locals"]},
+                                      task_id=self._task_serial(tls))
                 return None
             cur, deltas = {}, {}
             for name, val in snap.items():
@@ -693,7 +770,8 @@ class Tracer:
                     payload["unbound"] = sorted(gone)
                 self.writer.add_event(time.monotonic_ns(),
                                       tls.thread_serial, "LINE",
-                                      entry[0], entry[2], line, payload)
+                                      entry[0], entry[2], line, payload,
+                                      task_id=self._task_serial(tls))
         finally:
             tls.in_hook = False
         return None
@@ -753,6 +831,7 @@ class Tracer:
         # the rest of the process.
         for refs in self._live_exc_refs():
             refs.clear()
+        self._tls.task_cache = None
         for ev in (E.PY_START, E.PY_RETURN, E.PY_UNWIND, E.RAISE,
                    E.RERAISE, E.EXCEPTION_HANDLED, E.LINE):
             M.register_callback(TOOL, ev, None)

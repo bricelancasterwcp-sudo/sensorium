@@ -829,3 +829,10 @@ def test_stdin_proxy_does_not_compare_the_program_s_own_attribute_name():
 
     assert getattr(proxy, K("read"))() == "payload"     # ...and marking still works
     assert proxy.consumed is True
+
+
+def test_task_errors_meta_is_stamped_as_zero_on_a_clean_run(tmp_path):
+    run_id, trace, r = record_script(tmp_path, "def main():\n    pass\nmain()\n")
+    assert run_id, r.stderr
+    from sensorium.store.reader import Trace
+    assert Trace.open(trace).meta["task_errors"] == 0

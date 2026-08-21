@@ -536,9 +536,9 @@ def test_no_recorded_payload_holds_a_live_object(tmp_path, monkeypatch):
     seen = []
     real = TraceWriter.add_event
 
-    def spy(self, ts, tid, kind, fid, cid, line, payload):
+    def spy(self, ts, tid, kind, fid, cid, line, payload, **kw):
         seen.append(payload)
-        return real(self, ts, tid, kind, fid, cid, line, payload)
+        return real(self, ts, tid, kind, fid, cid, line, payload, **kw)
 
     monkeypatch.setattr(TraceWriter, "add_event", spy)
     _trace, err = record_inproc(tmp_path, LIVE_OBJECTS, focus=("prog",))

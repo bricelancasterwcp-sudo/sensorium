@@ -5,7 +5,7 @@ DIFFERENT answer from the caller frame -- coroutines resumed by the loop,
 a generator calling a helper, a key function called back from C. The
 assertions are on what the trace says the parent IS, not on the rendering.
 """
-from tests.helpers import record_inproc
+from tests.helpers import record_inproc, record_script
 
 TWO_TASKS = """
 import asyncio
@@ -112,3 +112,91 @@ def test_parent_of_rejects_a_live_entry_whose_code_is_not_the_callers(tmp_path):
     tls.live[id(caller)] = [7, caller.f_code, 1, {}, 0]
     assert Tracer._parent_of(None, tls, caller)[0] == 7
     assert Tracer._parent_of(None, tls, None) is None
+
+
+def test_events_inside_tasks_carry_distinct_minted_serials(tmp_path):
+    t, err = record_inproc(tmp_path, TWO_TASKS)
+    assert err is None
+    tasks = {k.id: k for k in t.tasks()}
+    names = sorted(k.name for k in tasks.values())
+    # amain's task + the two named ones. asyncio mints default names from a
+    # PROCESS-global counter, so the number in "Task-N" depends on how many
+    # unnamed tasks this pytest session already made -- pinned by shape.
+    assert len(names) == 3 and names[1:] == ["task-A", "task-B"]
+    assert names[0].startswith("Task-")
+    step = _by_qual(t, "step")
+    by_task = {}
+    for f in t.frames(code_id=step.id):
+        call = t.event(f.call_event_id)
+        by_task.setdefault(tasks[call.task_id].name, []).append(
+            call.payload["args"]["task"]["v"])
+    assert by_task == {"task-A": ["A", "A", "A"], "task-B": ["B", "B", "B"]}
+    # main() itself ran before asyncio.run started a loop.
+    main_call = t.event(t.frames(code_id=_by_qual(t, "main").id)[0].call_event_id)
+    assert main_call.task_id is None
+    # RETURN events are stamped too, not only CALLs.
+    rets = [e for e in t.events(kind="RETURN") if e.code_id == step.id]
+    assert all(e.task_id is not None for e in rets)
+
+
+def test_serials_are_minted_not_names_so_duplicate_names_do_not_merge(tmp_path):
+    src = TWO_TASKS.replace('name="task-B"', 'name="task-A"')
+    t, err = record_inproc(tmp_path, src)
+    assert err is None
+    same = [k for k in t.tasks() if k.name == "task-A"]
+    assert len(same) == 2 and same[0].id != same[1].id
+
+
+SYNC_NO_ASYNCIO = """
+import sys
+
+def leaf():
+    return 1
+
+def main():
+    leaf()
+    return "asyncio" in sys.modules
+
+if __name__ == "__main__":
+    print("asyncio imported:", main())
+"""
+
+
+def test_recorder_does_not_import_asyncio_into_a_sync_program(tmp_path):
+    """Spec D2: the recorder binds asyncio from sys.modules only once the
+    PROGRAM has imported it. Checked in a subprocess so the test process's
+    own imports cannot leak in."""
+    run_id, trace, r = record_script(tmp_path, SYNC_NO_ASYNCIO)
+    assert run_id, r.stderr
+    assert "asyncio imported: False" in r.stdout
+
+
+HOSTILE_TASK = """
+import asyncio
+
+class Evil(asyncio.Task):
+    def get_name(self):
+        raise RuntimeError("no name for you")
+
+def leaf():
+    return 1
+
+async def inner():
+    return leaf()
+
+async def amain():
+    loop = asyncio.get_running_loop()
+    return await Evil(inner(), loop=loop)
+
+def main():
+    return asyncio.run(amain())
+"""
+
+
+def test_a_task_whose_get_name_raises_is_recorded_unnamed_not_crashed(tmp_path):
+    t, err = record_inproc(tmp_path, HOSTILE_TASK)
+    assert err is None                                   # the program finished
+    leaf = _by_qual(t, "leaf")
+    call = t.event(t.frames(code_id=leaf.id)[0].call_event_id)
+    assert call.task_id is not None
+    assert t.task(call.task_id).name is None             # unreadable -> None
