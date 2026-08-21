@@ -1,6 +1,6 @@
 # Async attribution: derived parentage and task identity
 
-Status: design approved 2026-08-21, awaiting spec review
+Status: implemented on feat/async-attribution (arc 1); arc 2 pending its own spec
 Supersedes nothing. Extends `2026-08-18-sensorium-design.md`, which listed
 "async task attribution" under *Not in v1*.
 

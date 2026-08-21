@@ -7,6 +7,8 @@ assertions are on what the trace says the parent IS, not on the rendering.
 """
 import sys
 
+import pytest
+
 from tests.helpers import record_inproc, record_script
 
 TWO_TASKS = """
@@ -226,6 +228,16 @@ def main():
 """
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 14),
+    reason="on 3.12/3.13 asyncio.Task.__init__ itself calls hash() on the "
+           "new task to register it in the pure-Python _all_tasks WeakSet "
+           "(_register_task), so constructing a hostile-__hash__ Task "
+           "subclass raises before sensorium's tracer ever sees the task -- "
+           "reproduces identically with no sensorium import at all. 3.14 "
+           "does not register tasks that way, so this is a CPython version "
+           "fact, not a sensorium defect; the tool's claim (a hostile task "
+           "hash is counted, never crashes the program) is exercised on 3.14.")
 def test_a_task_whose_hash_raises_is_counted_and_leaves_events_unattributed(
         tmp_path):
     from tests.helpers import record_inproc_full
