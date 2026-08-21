@@ -206,19 +206,28 @@ never invents a parent:
 ```
 outside any event loop
   f1 e1 <module>() -> None
-task Task-1
-      e2 main()                          [coroutine, unframed]
-task task-A
-      e3 worker(name='A', delay=0.01)    [coroutine, unframed]
-    f2 e4   step(task='A', n=1) -> 'A:1'
-    f4 e9   step(task='A', n=2) -> 'A:2'
-    f6 e13  step(task='A', n=3) -> 'A:3'
-task task-B
-      e6 worker(name='B', delay=0.02)    [coroutine, unframed]
-    f3 e7   step(task='B', n=1) -> 'B:1'
-    f5 e11  step(task='B', n=2) -> 'B:2'
-    f7 e16  step(task='B', n=3) -> 'B:3'
+task t1: Task-1
+  e2 main()  [coroutine, unframed]
+task t2: task-A
+  e3 worker(name='A', delay=0.01)  [coroutine, unframed]
+    f2 e4 step(task='A', n=1) -> 'A:1'  <- worker (unframed)
+    f4 e9 step(task='A', n=2) -> 'A:2'  <- worker (unframed)
+    f6 e13 step(task='A', n=3) -> 'A:3'  <- worker (unframed)
+task t3: task-B
+  e6 worker(name='B', delay=0.02)  [coroutine, unframed]
+    f3 e7 step(task='B', n=1) -> 'B:1'  <- worker (unframed)
+    f5 e11 step(task='B', n=2) -> 'B:2'  <- worker (unframed)
+    f7 e16 step(task='B', n=3) -> 'B:3'  <- worker (unframed)
+order between tasks is wall-clock (event ids), not causal; within one task it is causal
+4 unframed call(s) shown as events: coroutine/generator code opens no frame in this version (no tree, frame, focus or watch inside them)
 ```
+
+The `<- worker (unframed)` tag is the parentage statement: `step`'s caller
+is `worker`, which has no frame, so `step` is indented under its task and
+*named* as called by `worker` — not drawn as a child of the `e3` event,
+which would claim an activation-level link the trace does not hold (that is
+arc 2). The task serial (`t2`) is printed beside the name because names are
+not unique.
 
 Grouping is by task because a task is a causally coherent stream and the
 interleaving between tasks is not. Event ids remain globally monotonic, so the
