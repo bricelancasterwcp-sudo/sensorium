@@ -280,7 +280,6 @@ CPython 3.14.4 — with `python corpus/run_corpus.py --bench`:
     work_between_calls  default     0.1111    0.3128     2.8     24004       8.4
     work_between_calls  focused     0.1103    0.4472     4.1     48006       7.0
     async_call_dense    default     0.0309    0.3290    10.7     40004       7.5
-    async_call_dense    focused     0.0311    0.3288    10.6     40004       7.4
 
     recorder fixed cost: 0.037s on a program that does nothing (0.0070s -> 0.0441s)
 
@@ -296,6 +295,8 @@ density — five to ten times the prediction, recorded here as a finding
 rather than restated. `async_call_dense` runs every call inside a running
 event loop and so pays the task-identity path in full: 7.5 µs/event, about a
 microsecond more than the synchronous call-dense case on this box.
+`async_call_dense` has no frameable target (its only callee is a one-line
+function), so it is reported for the default tier only.
 `us/event` is the figure that travels; the multiplier tracks how call-dense
 the program is.
 
@@ -322,13 +323,14 @@ inner loop it would cost far more.
     python corpus/run_corpus.py --show     # print the questions and commands
     python corpus/run_corpus.py --bench    # report recording overhead
 
-Eleven small programs with deliberately planted bugs, and nineteen questions
+Fifteen small programs with deliberately planted bugs, and twenty-seven questions
 registered **before** any output was looked at: the question in plain language,
 the known ground truth, the exact invocation expected to yield it, and why a
 `print()` cannot answer it. Ground truth is known because the bugs were
 planted. This is the regression suite, and it includes the honesty cases — a
 DIVERGED verdict, an under-claimed generator swallow, a `watch` tally with
-fourteen unchecked sites.
+fourteen unchecked sites, a task group that answers which coroutine made the
+final write, and a cancellation located at the line a task was parked on.
 
 `--bench` reports; it never gates. Overhead is a tracked fact about a machine
 and a workload, not a pass/fail property of the tool.
