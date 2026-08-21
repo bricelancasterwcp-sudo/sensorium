@@ -4,8 +4,9 @@ Parentage is DERIVED on format-2 traces (the caller frame, verified by code
 identity) and ASSUMED on format-1 ones (v1's last-opened-frame guess); the
 footer says which. Coroutines and generators open no frame and are shown as
 events in their true position: under the frame that called them when that
-frame was open, otherwise at the top of their task group. A framed call whose
-caller has no frame is tagged with the caller's name and never re-parented.
+frame was open, otherwise at the top of their task group. A call whose caller
+has no frame -- framed or unframed itself -- is tagged with the caller's name
+and never re-parented.
 """
 from sensorium import paths
 from sensorium.query.fmt import (fmt_args, fmt_exc, fmt_value, parse_eref,

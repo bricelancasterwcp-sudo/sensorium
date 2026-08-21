@@ -62,9 +62,9 @@ command. Every example above was run as typed, against a small `fog.py` whose
 takes a dict, and a two-test `tests/test_fog.py`.
 
 On an asyncio program `tree` groups by task, shows each coroutine call as an
-unframed event in its true position, and tags a framed call whose caller
-opened no frame with that caller's name (`<- worker (unframed)`) instead of
-re-parenting it. Nothing inside an `async def` is inspectable yet — no
+unframed event in its true position, and tags any call whose caller opened no
+frame with that caller's name (`<- worker (unframed)`) instead of re-parenting
+it -- framed callees and unframed ones alike. Nothing inside an `async def` is inspectable yet — no
 `--focus`, `watch` or LINE there — and `run` says so at record time if a
 `--focus` matched only such code.
 
