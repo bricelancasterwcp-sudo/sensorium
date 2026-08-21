@@ -8,7 +8,7 @@ questions:
       Two tasks appended 1 and one task appended 2, which is the whole of
       the missing 2 in the total.
     why_logs_fail: >
-      Every print site in this program is blind to the answer. A print in
+      No print site in this program names the task. A print in
       step gives 1, 1 and 2: a second step ran and none of the three lines
       says whose. A print at the end of worker fires once, and the two
       workers take no arguments at all, so that line cannot name which of
@@ -43,12 +43,12 @@ questions:
       - ["args:", "n=2"]
   - id: where-was-b-when-cancelled
     ask: >
-      Where was task-B suspended when the cancellation reached it -- had it
-      started, had it done step 1, and at which line was it parked?
+      Where was task-B suspended when the cancellation reached it -- at
+      which line was it parked?
     truth: >
       It had started and had done step 1 (its group holds a step(n=1)), and
-      it was parked at `await GATE.wait()` on line 23: the trace holds a
-      RAISE of CancelledError inside `worker` at L23, which is the
+      it was parked at `await GATE.wait()` on line 29: the trace holds a
+      RAISE of CancelledError inside `worker` at L29, which is the
       suspension point the cancellation was delivered to. `worker` opens no
       frame, so no disposition is claimed for that raise -- the location is
       the answer, not a verdict about handling.
@@ -63,4 +63,4 @@ questions:
       the instrumentation this tool exists to make unnecessary.
     command: ["exceptions", "$RUN"]
     expect_line:
-      - ["RAISE", "worker", "CancelledError", "L23"]
+      - ["RAISE", "worker", "CancelledError", "L29"]

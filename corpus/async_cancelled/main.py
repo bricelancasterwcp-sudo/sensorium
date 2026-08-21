@@ -6,11 +6,17 @@ tell them apart, and main already knows it cancelled b, so that is not the
 question. What the trace holds and a print cannot: which task the one
 surviving second step belongs to, and WHERE task-B was suspended when the
 cancellation reached it.
+
+The cancellation question pins a LINE NUMBER, so this file's line layout is
+part of the fixture: do not reflow anything above `await GATE.wait()`
+without re-checking the pin in questions.yaml.
 """
 import asyncio
 
 TOTAL = []
-GATE = None          # created inside main: an Event binds to the running loop
+# created inside main so the program is a plain script; the pinned L29 below
+# depends on this file's line layout -- do not reflow above the await
+GATE = None
 
 
 def step(n):
