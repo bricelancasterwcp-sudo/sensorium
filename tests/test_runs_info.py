@@ -340,6 +340,24 @@ def test_info_counts_unframed_calls_and_lists_tasks(tmp_path, monkeypatch,
     assert "task identity errors" not in out
 
 
+def test_info_says_a_task_name_was_unreadable_not_that_it_was_unnamed(
+        tmp_path, monkeypatch, capsys):
+    """NULL in `tasks.name` means `get_name()` RAISED: the identity was
+    minted, the name could not be read. "(unnamed)" would claim the task had
+    no name -- a different fact, and one asyncio cannot produce, since every
+    task gets a default name. `tree` already says this; `info` is the other
+    place the name is printed, and the two must not disagree."""
+    from tests.test_async import HOSTILE_TASK
+    src = HOSTILE_TASK + '\nif __name__ == "__main__":\n    main()\n'
+    run_id, trace, r = record_script(tmp_path, src)
+    assert run_id, r.stderr
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "(name unreadable)" in out
+    assert "(unnamed)" not in out
+
+
 def test_info_on_a_sync_trace_says_zero_unframed_and_no_loop(tmp_path,
                                                              monkeypatch,
                                                              capsys):
