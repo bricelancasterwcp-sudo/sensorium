@@ -103,6 +103,28 @@ def run(args) -> int:
         print(f"unwitnessed subprocess: {' '.join(child)}")
     for line in unwitnessed_lines(m):
         print(line)
+    unframed = t.unframed_calls()
+    kinds: dict[str, int] = {}
+    for ev in unframed:
+        k = (ev.payload or {}).get("unframed", "generator/coroutine")
+        kinds[k] = kinds.get(k, 0) + 1
+    detail = ", ".join(f"{k} {n}" for k, n in sorted(kinds.items()))
+    print(f"unframed calls: {len(unframed)}" + (f" ({detail})" if detail else ""))
+    if t.format < 2:
+        print("tasks: not recorded (format-1 trace; parentage assumed)")
+    elif t.tasks():
+        names = ", ".join(
+            f"t{k.id} {k.name if k.name is not None else '(name unreadable)'}"
+            for k in t.tasks())
+        print(f"tasks: {len(t.tasks())} ({names})")
+    else:
+        print("tasks: none (no running event loop was seen)")
+    task_errors = m.get("task_errors", 0)
+    if task_errors:
+        print(f"task identity errors: {task_errors} -- the task identity "
+              "lookup raised that many times (current_task(), or a Task "
+              "subclass's __hash__/__eq__); those events carry NULL task_id "
+              "meaning 'could not tell', not 'no task'")
     # late_writes is a lower bound: writes that arrive after this count was
     # captured can never be counted either. Only surface it when non-zero,
     # so a reader never mistakes a printed "0" for proof nothing was lost.
@@ -138,7 +160,8 @@ def run(args) -> int:
                   "`sensorium refocus` for the bounded list")
         for reason in m.get("refocus_refused_reasons") or []:
             print(f"  refused: {reason}")
-    hot = sorted(((c, len(t.frames(code_id=c.id))) for c in t.codes()),
+    counts_by_code = t.call_counts()
+    hot = sorted(((c, counts_by_code.get(c.id, 0)) for c in t.codes()),
                  key=lambda x: -x[1])[:8]
     if hot:
         print("hot functions:")

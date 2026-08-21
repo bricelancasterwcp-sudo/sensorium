@@ -103,3 +103,12 @@ def test_frame_on_a_format1_trace_says_unframed_and_assumed(installed_fixture,
     out = capsys.readouterr().out
     assert "parentage: assumed (format-1 trace)" in out
     assert "task t" not in out.splitlines()[0]
+
+
+def test_info_on_a_format1_trace_says_tasks_not_recorded(installed_fixture,
+                                                          capsys):
+    assert cli.main(["info", installed_fixture]) == 0
+    out = capsys.readouterr().out
+    assert "tasks: not recorded (format-1 trace; parentage assumed)" in out
+    assert "unframed calls: 3 (generator/coroutine 3)" in out
+    assert "2x format1_async.py:worker" in out

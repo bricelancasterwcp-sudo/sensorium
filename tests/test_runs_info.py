@@ -305,3 +305,46 @@ def test_info_reports_the_exception_that_left_the_program(
                  if l.startswith("uncaught:")), None)
     assert line is not None, "the escaping exception was not reported"
     assert "ValueError" in line and "escaped-from-main" in line
+
+
+ASYNC_SRC = """
+import asyncio
+
+def step(n):
+    return n
+
+async def worker():
+    step(1)
+    await asyncio.sleep(0)
+    return step(2)
+
+async def amain():
+    await asyncio.gather(asyncio.create_task(worker(), name="w1"),
+                         asyncio.create_task(worker(), name="w2"))
+
+if __name__ == "__main__":
+    asyncio.run(amain())
+"""
+
+
+def test_info_counts_unframed_calls_and_lists_tasks(tmp_path, monkeypatch,
+                                                     capsys):
+    run_id, trace, r = record_script(tmp_path, ASYNC_SRC)
+    assert run_id, r.stderr
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "unframed calls: 3 (coroutine 3)" in out        # amain + 2 worker
+    assert "tasks: 3 (" in out and "w1" in out and "w2" in out
+    assert "2x prog.py:worker" in out                      # calls, not frames
+    assert "task identity errors" not in out
+
+
+def test_info_on_a_sync_trace_says_zero_unframed_and_no_loop(tmp_path,
+                                                             monkeypatch,
+                                                             capsys):
+    run_id = _record(tmp_path, monkeypatch)
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "unframed calls: 0" in out
+    assert "tasks: none (no running event loop was seen)" in out
