@@ -328,7 +328,7 @@ def test_frame_nth_zero_is_rejected_not_silently_wrapped(
     run_id = _rec(tmp_path, monkeypatch)     # SRC: silver() runs twice
     assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "0"]) == 1
     out = capsys.readouterr().out
-    assert "--nth 0" in out and "2 recorded activation(s)" in out
+    assert "--nth 0" in out and "2 framed activation(s)" in out
     assert "1..2" in out
 
 
@@ -336,7 +336,7 @@ def test_frame_nth_negative_does_not_crash(tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch, src=LOOP)   # accumulate() runs once
     assert cli.main(["frame", run_id, "--fn", "accumulate", "--nth", "-5"]) == 1
     out = capsys.readouterr().out
-    assert "--nth -5" in out and "1 recorded activation(s)" in out
+    assert "--nth -5" in out and "1 framed activation(s)" in out
 
 
 def test_frame_nth_too_high_names_activation_count(
@@ -344,7 +344,7 @@ def test_frame_nth_too_high_names_activation_count(
     run_id = _rec(tmp_path, monkeypatch)     # SRC: silver() runs twice
     assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "9"]) == 1
     out = capsys.readouterr().out
-    assert "--nth 9" in out and "2 recorded activation(s)" in out
+    assert "--nth 9" in out and "2 framed activation(s)" in out
 
 
 def test_frame_children_section_lists_child_frames(
@@ -758,6 +758,65 @@ def test_frame_fn_distinguishes_unframed_from_never_recorded(tmp_path,
     assert "no recorded activations" not in out
     assert cli.main(["frame", run_id, "--fn", "nope"]) == 1
     assert "no recorded activations of 'nope'" in capsys.readouterr().out
+
+
+def test_frame_fn_out_of_range_counts_the_unframed_activations_too(
+        tmp_path, monkeypatch, capsys):
+    """One qualname, two code objects: a plain `worker` here and a coroutine
+    `worker` in the imported module. `--nth` indexes the FRAMED ones, so the
+    refusal has to say which population that "1" describes -- reporting
+    "1 recorded activation(s)" while `grep` shows three CALLs is the same
+    denial `--fn` was already fixed for once, wearing a different message.
+    """
+    (tmp_path / "b.py").write_text("async def worker():\n    return 1\n")
+    src = """
+import asyncio
+import b
+
+def worker():
+    return 0
+
+async def amain():
+    await b.worker()
+    await b.worker()
+
+if __name__ == "__main__":
+    worker()
+    asyncio.run(amain())
+"""
+    run_id = _rec(tmp_path, monkeypatch, src=src)
+    assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "3"]) == 1
+    out = capsys.readouterr().out
+    assert "1 framed activation(s)" in out
+    assert "2 recorded but unframed (coroutine)" in out
+    assert "valid --nth is 1..1 over the framed ones" in out
+    assert f"sensorium grep {run_id} worker" in out
+
+
+def test_frame_fn_unframed_message_names_every_kind_not_just_the_first(
+        tmp_path, monkeypatch, capsys):
+    """`shape` is a generator in one module and a coroutine in the other,
+    and neither is framed. Naming `calls[0]`'s kind labels both call sites
+    with whichever one the trace happened to record first."""
+    (tmp_path / "b.py").write_text("async def shape():\n    return 1\n")
+    src = """
+import asyncio
+import b
+
+def shape():
+    yield 1
+
+async def amain():
+    await b.shape()
+
+if __name__ == "__main__":
+    list(shape())
+    asyncio.run(amain())
+"""
+    run_id = _rec(tmp_path, monkeypatch, src=src)
+    assert cli.main(["frame", run_id, "--fn", "shape"]) == 1
+    out = capsys.readouterr().out
+    assert "recorded as 2 call(s) but not framed (coroutine/generator)" in out
 
 
 def test_frame_header_names_the_task(tmp_path, monkeypatch, capsys):

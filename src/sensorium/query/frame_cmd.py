@@ -30,25 +30,36 @@ def _resolve(trace, args):
     if args.fn:
         matches = [f for f in trace.frames()
                    if trace.code(f.code_id).qualname == args.fn]
+        # Computed for BOTH branches: one qualname can name several code
+        # objects (two modules, a def rebound), and some of them can be
+        # coroutines while others are plain functions. Counting only the
+        # frames then reports a total `grep` contradicts.
+        codes = [c for c in trace.codes() if c.qualname == args.fn]
+        calls = [e for c in codes for e in trace.unframed_calls(code_id=c.id)]
+        kinds = "/".join(sorted({unframed_kind(c) for c in calls}))
         if not matches:
-            codes = [c for c in trace.codes() if c.qualname == args.fn]
-            calls = [e for c in codes for e in trace.unframed_calls(code_id=c.id)]
             if calls:
                 # Recorded, not framed: the activations are in the trace,
                 # as CALL events -- denying them contradicts `grep` on the
-                # same trace, which is what v1 did.
+                # same trace, which is what v1 did. The kinds are a SET:
+                # naming the first call's kind would claim every one of them
+                # was that kind.
                 return None, (
                     f"{args.fn!r} was recorded as {len(calls)} call(s) but "
-                    f"not framed ({unframed_kind(calls[0])}): no frame, locals "
+                    f"not framed ({kinds}): no frame, locals "
                     "or children to show; its events: sensorium grep "
                     f"{args.run} {args.fn}")
             return None, ("no such frame: no recorded activations of "
                           f"{args.fn!r}")
         if not (1 <= args.nth <= len(matches)):
+            mixed = (f" and {len(calls)} recorded but unframed ({kinds})"
+                     if calls else "")
+            tail = (f"; its unframed events: sensorium grep {args.run} "
+                    f"{args.fn}" if calls else "")
             return None, (
                 f"--nth {args.nth} is out of range: {args.fn!r} has "
-                f"{len(matches)} recorded activation(s); valid --nth is "
-                f"1..{len(matches)}")
+                f"{len(matches)} framed activation(s){mixed}; valid --nth "
+                f"is 1..{len(matches)} over the framed ones{tail}")
         return matches[args.nth - 1], None
     return None, "no such frame; give f<id> or --fn QUALNAME [--nth N]"
 
