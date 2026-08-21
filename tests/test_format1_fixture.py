@@ -74,3 +74,21 @@ def test_tree_on_a_format1_trace_labels_parentage_assumed(installed_fixture,
     assert out.count("worker(") == 2
     assert "[generator/coroutine, unframed]" in out      # kind unknown in v1
     assert "task t" not in out                             # no tasks recorded
+
+
+def test_tree_subtree_views_of_a_format1_trace_keep_the_assumed_caveat(
+        installed_fixture, capsys):
+    """A subtree view drops the inter-task ordering line -- that line
+    describes nothing the reader can see there -- but never the basis
+    caveat: v1's parentage is a guess whichever slice you look at, and a
+    view that omits the caveat hands that guess over as derived fact."""
+    assert cli.main(["tree", installed_fixture, "--root", "f1"]) == 0
+    out = capsys.readouterr().out
+    assert "parentage: ASSUMED" in out
+    assert "order between tasks" not in out
+    # e4 is step's CALL event: a real event of this fixture, and the
+    # call_event_id path through frame_containing.
+    assert cli.main(["tree", installed_fixture, "--around", "e4"]) == 0
+    out = capsys.readouterr().out
+    assert "parentage: ASSUMED" in out
+    assert "order between tasks" not in out
