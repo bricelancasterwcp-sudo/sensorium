@@ -493,3 +493,82 @@ def test_watch_incomplete_flag_survives_a_real_recording(
     out = capsys.readouterr().out
     assert "INCOMPLETE" in out
     assert "sites: 19   evaluated: 5   hits: 0   not-captured: 14" in out
+
+
+# -- code that opens no frame ----------------------------------------------
+# Kept beside its tests rather than in `watch_programs.py`: what these two
+# sources produce is a code object with CALL events and NO frame, which is a
+# fact about the recorder, not a fold shape the test has to read back.
+ASYNC_WATCH = """
+import asyncio
+
+async def worker(name):
+    await asyncio.sleep(0)
+    return name
+
+def main():
+    return asyncio.run(worker("A"))
+
+if __name__ == "__main__":
+    main()
+"""
+
+# Both kinds under one `--at`: `check` is framed (and focused, so it has
+# LINEs), `worker` is a coroutine and contributes no site at all.
+ASYNC_MIXED = """
+import asyncio
+
+
+def check(n):
+    total = n * 2
+    return total
+
+
+async def worker(label):
+    await asyncio.sleep(0)
+    return check(len(label))
+
+
+def main():
+    return asyncio.run(worker("abc"))
+
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def test_watch_names_unframed_code_as_the_reason_not_a_misspelling(
+        tmp_path, monkeypatch, capsys):
+    run_id = rec(tmp_path, monkeypatch, src=ASYNC_WATCH,
+                 extra=("--focus", "prog:worker"))
+    assert cli.main(["watch", run_id, "--at", "prog:worker",
+                     "--expr", "name == 'A'"]) == 0
+    out = capsys.readouterr().out
+    assert "NOTHING WAS CHECKED" in out
+    assert "opens no frame in this version" in out
+    assert "watch sites are frames" in out
+    assert "misspelled" not in out
+    assert "refocus and re-run" not in out       # re-recording cannot help
+
+
+def test_watch_counts_the_unframed_matches_when_only_some_are_frameless(
+        tmp_path, monkeypatch, capsys):
+    """A module-wide `--at` spanning both kinds. The note says how many of
+    the matches contributed no site, and nothing else changes: `n` WAS
+    recorded, so there is no ghost, and the verdict is an ordinary one."""
+    run_id = rec(tmp_path, monkeypatch, src=ASYNC_MIXED,
+                 extra=("--focus", "prog:check"))
+    assert cli.main(["watch", run_id, "--at", "prog",
+                     "--expr", "n > 0"]) == 0
+    out = capsys.readouterr().out
+    assert ("sites: 5   evaluated: 3   hits: 3   not-captured: 2   errors: 0"
+            in out)
+    assert ("1 of the 4 matched code object(s) (worker) are coroutine/"
+            "generator code: recorded as calls, never framed, and "
+            "contributed no site") in out
+    assert "verdict: SATISFIED at 3 of the 3 site(s)" in out
+    # Not the all-unframed wording, and no NEVER RECORDED block to carry it:
+    # `check`'s frames witness `n`, so the misspelling question never arises.
+    assert "opens no frame in this version" not in out
+    assert "NEVER RECORDED" not in out

@@ -238,8 +238,34 @@ def refocus_cmd(trace, codes) -> str:
     return f"cd {shlex.quote(cwd)} && {cmd}" if cwd else cmd
 
 
+def unframed_note(trace, codes) -> list[str]:
+    """Which of the `--at` matches are coroutine/generator code -- recorded
+    as calls, never framed, so they contribute NO site. Returned as
+    (lines, all_unframed) would be two things; callers get the lines and
+    test `all_unframed_codes` separately."""
+    unf = [c for c in codes
+           if trace.unframed_calls(code_id=c.id) and not trace.frames(code_id=c.id)]
+    if not unf:
+        return []
+    names = ", ".join(c.qualname for c in unf)
+    if len(unf) == len(codes):
+        return [f"--at matched only coroutine/generator code ({names}), which "
+                "opens no frame in this version: watch sites are frames, so "
+                "there are no sites here at all, and refocusing cannot change "
+                "that"]
+    return [f"{len(unf)} of the {len(codes)} matched code object(s) ({names}) "
+            "are coroutine/generator code: recorded as calls, never framed, "
+            "and contributed no site"]
+
+
+def all_unframed_codes(trace, codes) -> bool:
+    return bool(codes) and all(
+        trace.unframed_calls(code_id=c.id) and not trace.frames(code_id=c.id)
+        for c in codes)
+
+
 def _guidance(reason: str, name: str, ever: bool, has_line: bool,
-              trace, codes) -> list[str]:
+              trace, codes, all_unframed: bool = False) -> list[str]:
     """What to actually do about a name that could not be evaluated.
 
     The distinction that matters most: a name recorded at OTHER sites in
@@ -264,6 +290,9 @@ def _guidance(reason: str, name: str, ever: bool, has_line: bool,
                 "scope again (`del`, or the",
                 "implicit unbind that ends an `except E as e:` block)"]
     if not has_line:
+        if all_unframed:
+            return ["no site exists for these code objects: coroutine/"
+                    "generator code opens no frame in this version"]
         return ["no local of these frames was recorded at all -- line capture "
                 "is opt-in at record time",
                 "refocus and re-run: " + refocus_cmd(trace, codes)]
@@ -271,7 +300,8 @@ def _guidance(reason: str, name: str, ever: bool, has_line: bool,
             f"{name!r}; check the spelling, or widen --at"]
 
 
-def print_never_recorded(ghosts: list[str]) -> None:
+def print_never_recorded(ghosts: list[str],
+                         all_unframed: bool = False) -> None:
     """Names the predicate needs that NO site in these frames ever bound.
 
     The hole short-circuiting leaves, and it defeats the rule this command is
@@ -295,12 +325,17 @@ def print_never_recorded(ghosts: list[str]) -> None:
           "site in these frames")
     print("  every result below was decided WITHOUT it: nothing in this trace "
           "witnesses that name")
-    print("  either it is misspelled, or it lives in frames this run did not "
-          "record")
+    if all_unframed:
+        print("  there are no frames here at all: --at matched only "
+              "coroutine/generator code, which opens no frame in this version "
+              "(see the line above the verdict)")
+    else:
+        print("  either it is misspelled, or it lives in frames this run did "
+              "not record")
 
 
 def print_unavailable(trace, out: Outcome, sites, ever, codes,
-                      n_sites: int) -> None:
+                      n_sites: int, all_unframed: bool = False) -> None:
     if not out.unavailable:
         return
     has_line = any(s.event.kind == "LINE" for s in sites)
@@ -310,7 +345,7 @@ def print_unavailable(trace, out: Outcome, sites, ever, codes,
                                     key=lambda kv: (-kv[1], kv[0])):
         print(f"  {name}: {reason.replace('NAME', name)}   [{n} site(s)]")
         for line in _guidance(reason, name, name in ever, has_line,
-                              trace, codes):
+                              trace, codes, all_unframed):
             print(f"      {line}")
 
 
@@ -491,12 +526,15 @@ def run(args) -> int:
     skipped = len(all_sites) - n
     if skipped:
         print(f"({skipped} earlier site(s) skipped by --after e{after})")
+    for line in unframed_note(trace, codes):
+        print(line)
+    all_unf = all_unframed_codes(trace, codes)
     # Above the verdict on purpose: the verdict cannot be read without it.
-    print_never_recorded(ghosts)
+    print_never_recorded(ghosts, all_unf)
     for line in verdict(out, n, ghosts):
         print(line)
     print_hits(trace, expr, out, args)
-    print_unavailable(trace, out, sites, ever, codes, n)
+    print_unavailable(trace, out, sites, ever, codes, n, all_unf)
     print_errors(out)
     print_near(trace, expr, out, args)
     return 0
