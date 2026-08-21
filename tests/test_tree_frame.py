@@ -535,3 +535,16 @@ def test_tree_says_a_task_name_was_unreadable_not_that_it_was_unnamed(
     out = capsys.readouterr().out
     assert "(name unreadable)" in out
     assert "(unnamed)" not in out
+
+
+def test_tree_subtree_views_omit_the_inter_task_ordering_footer(
+        tmp_path, monkeypatch, capsys):
+    """`--root` and `--around` show one frame's descendants. A line about the
+    order BETWEEN tasks describes nothing the reader can see there, so only
+    the parentage-basis caveat -- a property of the recording, not of the
+    slice -- survives into a subtree view."""
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    assert cli.main(["tree", run_id, "--root", "f1"]) == 0
+    assert "order between tasks" not in capsys.readouterr().out
+    assert cli.main(["tree", run_id, "--around", "e1"]) == 0
+    assert "order between tasks" not in capsys.readouterr().out
