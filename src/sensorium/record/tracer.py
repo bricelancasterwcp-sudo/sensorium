@@ -420,7 +420,14 @@ class Tracer:
         """Focus entries that matched code, all of it frameless -- so no LINE
         was ever possible for them. Reported at the end of the run because
         the recorder learns a code object's kind only when it first starts."""
-        return [e for e, flags in self._focus_hits.items() if flags == {True}]
+        # Snapshot: `run_target` calls this after `uninstall`, while a straggler
+        # thread still inside a callback can reach `_classify` and `setdefault`
+        # here -- iterating live would raise "dictionary changed size during
+        # iteration" out of `_finalize_meta` and leave the trace incomplete.
+        # `setdefault` is atomic under the GIL, so `list()` snapshots without a
+        # lock (same straggler class `_LateWriteGuard` describes; cf. `_fps`).
+        return [e for e, flags in list(self._focus_hits.items())
+                if flags == {True}]
 
     def _fp(self, tid: int) -> Fingerprint:
         # `tid` is a per-thread SERIAL (see `_TLS.thread_serial`), the same

@@ -716,6 +716,7 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
         sys.path[:] = saved[4]
         w.seal()                       # in-flight callbacks stop writing here
         live = _live_thread_names()
+        unframed = tracer.unframed_focus()
         try:
             _finalize_meta(
                 w, exit_status=exit_status, uncaught=uncaught,
@@ -727,14 +728,14 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
                 audit_errors=len(audit_errors),
                 spawn_syscalls=len(spawns),
                 task_errors=tracer.task_errors,
-                focus_unframed=tracer.unframed_focus())
+                focus_unframed=unframed)
         finally:
             w.close()                  # never skipped: no leaked connection
             gaps = _recording_gaps(live, w.late_writes)
             if gaps:
                 print(gaps, file=sys.stderr)
-            for entry in tracer.unframed_focus():
-                print(f"sensorium: --focus {entry} matched only coroutine/"
+            for spec in unframed:
+                print(f"sensorium: --focus {spec} matched only coroutine/"
                       "generator code, which opens no frame in this version; "
                       "no line-level capture was recorded for it, and `watch` "
                       "against it will report NOTHING WAS CHECKED.",

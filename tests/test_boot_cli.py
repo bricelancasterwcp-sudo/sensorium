@@ -859,6 +859,7 @@ def test_run_warns_when_focus_matched_only_coroutine_code(tmp_path):
     assert run_id, r.stderr
     assert "--focus prog:worker matched only coroutine/generator code" in r.stderr
     assert "opens no frame in this version" in r.stderr
+    assert "NOTHING WAS CHECKED." in r.stderr
     from sensorium.store.reader import Trace
     assert Trace.open(trace).meta["focus_unframed"] == ["prog:worker"]
 
@@ -871,3 +872,24 @@ def test_run_does_not_warn_when_focus_matched_framed_code(tmp_path):
     assert "matched only coroutine" not in r.stderr
     from sensorium.store.reader import Trace
     assert Trace.open(trace).meta["focus_unframed"] == []
+
+
+def test_late_write_guard_classifies_every_public_writer_method():
+    """_LateWriteGuard forwards writer methods BY HAND. When add_task was added
+    to TraceWriter without a delegate, `sensorium run` killed every asyncio
+    target with AttributeError (aec8d1e). This pins the classification: a new
+    public TraceWriter method must be placed here on purpose -- delegated
+    (write path, counted after seal) or listed as a deliberate non-delegate."""
+    from sensorium.store.writer import TraceWriter
+    from sensorium.record.boot import _LateWriteGuard
+    public = {n for n, v in vars(TraceWriter).items()
+              if callable(v) and not n.startswith("_")}
+    delegated = {"intern_code", "add_event", "add_task", "open_frame",
+                 "close_frame", "add_output", "set_meta", "write_fingerprint"}
+    deliberate = {"interned_files",   # read passthrough, documented in the guard
+                  "close",            # guard has its own close
+                  "flush"}            # no caller on a guarded writer
+    assert public == delegated | deliberate, (
+        f"unclassified TraceWriter method(s): {sorted(public - delegated - deliberate)}")
+    for name in delegated:
+        assert callable(getattr(_LateWriteGuard, name)), name
