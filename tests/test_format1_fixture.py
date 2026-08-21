@@ -61,3 +61,4 @@ def test_format1_trace_reports_no_tasks_and_assumed_parentage():
     assert all(e.task_id is None for e in t.events())
     worker = next(c for c in t.codes() if c.qualname == "worker")
     assert len(t.unframed_calls(code_id=worker.id)) == 2   # join works on v1
+    assert t.call_counts()[worker.id] == 2              # CALLs only, not RETURNs
