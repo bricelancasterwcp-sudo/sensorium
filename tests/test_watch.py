@@ -25,6 +25,8 @@ same seam as `test_refocus.py` / `test_refocus_licence.py`.
 import shlex
 
 from sensorium import cli
+from sensorium.query.expr import OUT_OF_SCOPE
+from sensorium.query.watch_cmd import _guidance
 from sensorium.store import db
 from sensorium.store.reader import Trace
 from tests.programs import open_trace, synthetic
@@ -548,6 +550,11 @@ def test_watch_names_unframed_code_as_the_reason_not_a_misspelling(
     assert "NOTHING WAS CHECKED" in out
     assert "opens no frame in this version" in out
     assert "watch sites are frames" in out
+    # The ghost block is still printed, and IT says why too: the note above
+    # the verdict is a different producer, so asserting only its phrasing
+    # would leave this arm free to say nothing at all.
+    assert "NEVER RECORDED" in out
+    assert "there are no frames here at all" in out
     assert "misspelled" not in out
     assert "refocus and re-run" not in out       # re-recording cannot help
 
@@ -572,3 +579,14 @@ def test_watch_counts_the_unframed_matches_when_only_some_are_frameless(
     # `check`'s frames witness `n`, so the misspelling question never arises.
     assert "opens no frame in this version" not in out
     assert "NEVER RECORDED" not in out
+
+
+def test_guidance_for_unframed_code_never_offers_a_refocus():
+    """Unreachable through `run` today: when every match is unframed there
+    are no sites, so `print_unavailable` returns before asking. Pinned
+    directly rather than left to rot behind the guard -- re-recording cannot
+    frame a coroutine, so "refocus and re-run" is the one thing this must
+    never say."""
+    assert _guidance(OUT_OF_SCOPE, "n", False, False, None, None, True) == [
+        "no site exists for these code objects: coroutine/generator code "
+        "opens no frame in this version"]

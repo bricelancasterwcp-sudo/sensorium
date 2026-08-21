@@ -238,13 +238,24 @@ def refocus_cmd(trace, codes) -> str:
     return f"cd {shlex.quote(cwd)} && {cmd}" if cwd else cmd
 
 
+def _unframed(trace, c) -> bool:
+    """Coroutine/generator code: CALL events recorded, no frame ever opened.
+
+    One predicate for both callers below, so the note and the flag that
+    rewrites the NEVER RECORDED block can never disagree about which code
+    objects they are talking about -- the block's "(see the line above the
+    verdict)" points at a line only this decides to print.
+    """
+    return (bool(trace.unframed_calls(code_id=c.id))
+            and not trace.frames(code_id=c.id))
+
+
 def unframed_note(trace, codes) -> list[str]:
     """Which of the `--at` matches are coroutine/generator code -- recorded
     as calls, never framed, so they contribute NO site. Returned as
     (lines, all_unframed) would be two things; callers get the lines and
     test `all_unframed_codes` separately."""
-    unf = [c for c in codes
-           if trace.unframed_calls(code_id=c.id) and not trace.frames(code_id=c.id)]
+    unf = [c for c in codes if _unframed(trace, c)]
     if not unf:
         return []
     names = ", ".join(c.qualname for c in unf)
@@ -259,9 +270,7 @@ def unframed_note(trace, codes) -> list[str]:
 
 
 def all_unframed_codes(trace, codes) -> bool:
-    return bool(codes) and all(
-        trace.unframed_calls(code_id=c.id) and not trace.frames(code_id=c.id)
-        for c in codes)
+    return bool(codes) and all(_unframed(trace, c) for c in codes)
 
 
 def _guidance(reason: str, name: str, ever: bool, has_line: bool,
