@@ -5,9 +5,7 @@ DIFFERENT answer from the caller frame -- coroutines resumed by the loop,
 a generator calling a helper, a key function called back from C. The
 assertions are on what the trace says the parent IS, not on the rendering.
 """
-import sys
-
-from tests.helpers import record_inproc, record_script
+from tests.helpers import record_inproc
 
 TWO_TASKS = """
 import asyncio
@@ -70,6 +68,7 @@ def test_sync_helper_inside_a_coroutine_is_not_parented_to_the_module(tmp_path):
 
 def test_coroutine_calls_are_recorded_unframed_with_their_kind(tmp_path):
     t, err = record_inproc(tmp_path, TWO_TASKS)
+    assert err is None
     worker = _by_qual(t, "worker")
     calls = t.unframed_calls(code_id=worker.id)
     assert len(calls) == 2

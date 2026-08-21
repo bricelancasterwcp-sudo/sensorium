@@ -83,7 +83,11 @@ from sensorium.record.fingerprint import Fingerprint
 M = sys.monitoring
 TOOL = M.PROFILER_ID
 _SENSORIUM_DIR = str(Path(__file__).resolve().parent.parent)
-_GENLIKE = 0x20 | 0x80 | 0x200        # CO_GENERATOR|CO_COROUTINE|CO_ASYNC_GEN
+_CO_GENERATOR, _CO_COROUTINE, _CO_ASYNC_GENERATOR = 0x20, 0x80, 0x200
+# Derived, never restated: `_GENLIKE` decides WHETHER code is frameless and
+# `_unframed_kind` decides WHICH kind it is, and a flag added to one set but
+# not the other would silently label a new frameless kind "generator".
+_GENLIKE = _CO_GENERATOR | _CO_COROUTINE | _CO_ASYNC_GENERATOR
 _CONTROL_FLOW_EXC = (StopIteration, StopAsyncIteration, GeneratorExit)
 
 
@@ -102,9 +106,6 @@ def _is_control_flow(exc) -> bool:
     """
     t = type(exc)
     return t is StopIteration or t is StopAsyncIteration or t is GeneratorExit
-
-
-_CO_GENERATOR, _CO_COROUTINE, _CO_ASYNC_GENERATOR = 0x20, 0x80, 0x200
 
 
 def _unframed_kind(code) -> str:
@@ -610,7 +611,7 @@ class Tracer:
             # for why the reference is strong and why it is bounded.
             serial = refs.identify(exc)
             refs.last_exc = None
-        traced, fp_file, qual, focused, frameless, _win_key = self._decide(code)
+        traced, fp_file, qual, focused, _frameless, _win_key = self._decide(code)
         if not traced:
             return None
         if kind == "RAISE":
