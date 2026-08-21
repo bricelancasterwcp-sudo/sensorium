@@ -8,14 +8,19 @@ questions:
       Two tasks appended 1 and one task appended 2, which is the whole of
       the missing 2 in the total.
     why_logs_fail: >
-      A print inside step gives 1, 1 and 2 -- three lines that say a second
-      step ran, and not one of them says whose. The helper is handed a
-      number and nothing else, so which task each append belongs to is a
-      fact about the execution that never enters the helper's scope.
+      Every print site in this program is blind to the answer. A print in
+      step gives 1, 1 and 2: a second step ran and none of the three lines
+      says whose. A print at the end of worker fires once, and the two
+      workers take no arguments at all, so that line cannot name which of
+      them reached it. main's handler learns only that b ended cancelled,
+      which main already knew, having called b.cancel() itself. The only
+      print that would answer this calls asyncio.current_task() inside the
+      helper -- the instrumentation nobody adds until they already suspect
+      the answer, which is the thing being asked.
     command: ["tree", "$RUN"]
     expect_line:
       - ["task t3: task-B"]
-      - ["worker(delay=10)", "[coroutine, unframed]"]
+      - ["worker()", "[coroutine, unframed]"]
     expect_count: {"step(n=1)": 2, "step(n=2)": 1}
   - id: whose-second-step-was-it
     ask: >
@@ -29,28 +34,33 @@ questions:
       Ordering a print by hand gives 1, 1, 2 in that order, which tells you
       a second step ran third and nothing about which task ran it; the two
       first steps are identical lines, so even counting them cannot label
-      the third. Task membership is not in any value the helper receives.
+      the third. A print at the end of worker is no better: the workers are
+      identical, take no arguments, and close over nothing that differs.
+      Task membership is not in any value either function receives.
     command: ["frame", "$RUN", "--fn", "step", "--nth", "3"]
     expect_line:
       - ["step", "task t2 (task-A)", "depth 0"]
       - ["args:", "n=2"]
-  - id: was-b-stopped-or-just-never-resumed
+  - id: where-was-b-when-cancelled
     ask: >
-      task-B ran its first step and never its second. Was it stopped by
-      something, or just never resumed before the program ended?
+      Where was task-B suspended when the cancellation reached it -- had it
+      started, had it done step 1, and at which line was it parked?
     truth: >
-      It was stopped: cancellation was delivered into the awaited sleep,
-      and the trace holds a RAISE of CancelledError inside `worker`.
-      `worker` is a coroutine and opens no frame, so no disposition is
-      claimed for that raise -- but the RAISE itself is evidence that
-      something ended the task, which is more than the absence of a second
-      step can say.
+      It had started and had done step 1 (its group holds a step(n=1)), and
+      it was parked at `await GATE.wait()` on line 23: the trace holds a
+      RAISE of CancelledError inside `worker` at L23, which is the
+      suspension point the cancellation was delivered to. `worker` opens no
+      frame, so no disposition is claimed for that raise -- the location is
+      the answer, not a verdict about handling.
     why_logs_fail: >
-      CancelledError is delivered into the await and never reaches a user
-      `except` inside worker, so no print there fires for it: the
-      end-of-worker line is simply missing, and it is missing identically
-      whether the task was cancelled, was still suspended when the loop
-      shut down, or died some other way. A missing line carries no cause.
+      The cancellation is delivered at a suspension point inside the
+      coroutine and travels back out through it without touching any user
+      `except`, so no print the program could contain fires at that line.
+      main's handler fires, but it learns only that b ended cancelled --
+      not where b was standing when it happened, which is a different fact
+      and the one being asked. Naming the suspension point from prints
+      means bracketing every await with a pair of them, which is exactly
+      the instrumentation this tool exists to make unnecessary.
     command: ["exceptions", "$RUN"]
     expect_line:
-      - ["RAISE", "worker", "CancelledError"]
+      - ["RAISE", "worker", "CancelledError", "L23"]

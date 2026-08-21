@@ -1,20 +1,16 @@
-"""Seeded bug: a task is cancelled while suspended and its second step never
-runs; the program prints a total that silently omits it.
-
-Nothing the helper receives says which task it is running in -- `step` is
-handed only the number to append, and both tasks append the same 1 -- so
-"whose second step ran" is a fact about the execution that only the trace
-holds. The cancelled task's coroutine is unframed, so arc 1 records its CALL,
-its first step and the RAISE that ended it, and -- honestly -- no RETURN, no
-frame, no closed_by.
-
-This case also pins what arc 1 does NOT claim about an abandoned task, so
-that arc 2 (coroutine frames with an ABANDONED state) has a failing case to
-turn into a working one.
+"""Seeded bug: main cancels task-B before opening the gate both workers are
+parked at, so B's second step never runs and the total is 4, not 6. Both
+workers are IDENTICAL (no arguments): which one was cancelled is decided in
+main, by which handle main chose -- nothing inside a worker or a step can
+tell them apart, and main already knows it cancelled b, so that is not the
+question. What the trace holds and a print cannot: which task the one
+surviving second step belongs to, and WHERE task-B was suspended when the
+cancellation reached it.
 """
 import asyncio
 
 TOTAL = []
+GATE = None          # created inside main: an Event binds to the running loop
 
 
 def step(n):
@@ -22,17 +18,21 @@ def step(n):
     return n
 
 
-async def worker(delay):
+async def worker():
     step(1)
-    await asyncio.sleep(delay)
+    await GATE.wait()
     return step(2)
 
 
 async def main():
-    a = asyncio.create_task(worker(0), name="task-A")
-    b = asyncio.create_task(worker(10), name="task-B")
+    global GATE
+    GATE = asyncio.Event()
+    a = asyncio.create_task(worker(), name="task-A")
+    b = asyncio.create_task(worker(), name="task-B")
+    await asyncio.sleep(0)          # both run step(1) and park at the gate
+    b.cancel()                      # BUG: cancelled before the gate opens
+    GATE.set()
     await a
-    b.cancel()                       # BUG: B never gets to its second step
     try:
         await b
     except asyncio.CancelledError:
