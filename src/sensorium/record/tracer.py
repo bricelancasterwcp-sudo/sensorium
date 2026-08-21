@@ -181,20 +181,26 @@ class FocusSpec:
         self._entries = []
         for e in entries:
             mod, _, qual = e.partition(":")
-            self._entries.append((mod, qual or None))
+            self._entries.append((e, mod, qual or None))
 
     def __bool__(self) -> bool:
         return bool(self._entries)
 
+    def _hit(self, mod, qual, module, qualname) -> bool:
+        if module != mod:
+            return False
+        return qual is None or qualname == qual or qualname.startswith(qual + ".")
+
     def matches(self, module: str | None, qualname: str) -> bool:
         if module is None:
             return False
-        for mod, qual in self._entries:
-            if module != mod:
-                continue
-            if qual is None or qualname == qual or qualname.startswith(qual + "."):
-                return True
-        return False
+        return any(self._hit(m, q, module, qualname) for _e, m, q in self._entries)
+
+    def entries_matching(self, module: str | None, qualname: str) -> list[str]:
+        """Every entry, as the user wrote it, that this code satisfies."""
+        if module is None:
+            return []
+        return [e for e, m, q in self._entries if self._hit(m, q, module, qualname)]
 
 
 class WindowSpec:
@@ -354,6 +360,8 @@ class Tracer:
         self._task_lock = threading.Lock()
         self._next_task = 0
         self.task_errors = 0       # lookups a hostile task object broke
+        # entry -> {frameless flags of the code objects it matched}
+        self._focus_hits: dict[str, set] = {}
         self._tls = _TLS(self._assign_thread_serial, self._register_refs)
         # The thread constructing the Tracer runs `_TLS.__init__` above, so it
         # is the first serial (1). `run_target` runs the target on this same
@@ -402,8 +410,17 @@ class Tracer:
         module = module_name_for(p, self.root)
         focused = self.focus.matches(module, code.co_qualname)
         frameless = bool(code.co_flags & _GENLIKE)
+        if focused:
+            for entry in self.focus.entries_matching(module, code.co_qualname):
+                self._focus_hits.setdefault(entry, set()).add(frameless)
         win_key = self.window.key(module, code.co_qualname)
         return (True, rel, code.co_qualname, focused, frameless, win_key)
+
+    def unframed_focus(self) -> list[str]:
+        """Focus entries that matched code, all of it frameless -- so no LINE
+        was ever possible for them. Reported at the end of the run because
+        the recorder learns a code object's kind only when it first starts."""
+        return [e for e, flags in self._focus_hits.items() if flags == {True}]
 
     def _fp(self, tid: int) -> Fingerprint:
         # `tid` is a per-thread SERIAL (see `_TLS.thread_serial`), the same

@@ -836,3 +836,38 @@ def test_task_errors_meta_is_stamped_as_zero_on_a_clean_run(tmp_path):
     assert run_id, r.stderr
     from sensorium.store.reader import Trace
     assert Trace.open(trace).meta["task_errors"] == 0
+
+
+ASYNC_FOCUS_SCRIPT = """
+import asyncio
+
+async def worker():
+    await asyncio.sleep(0)
+    return 1
+
+def main():
+    return asyncio.run(worker())
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def test_run_warns_when_focus_matched_only_coroutine_code(tmp_path):
+    run_id, trace, r = record_script(tmp_path, ASYNC_FOCUS_SCRIPT,
+                                     extra=["--focus", "prog:worker"])
+    assert run_id, r.stderr
+    assert "--focus prog:worker matched only coroutine/generator code" in r.stderr
+    assert "opens no frame in this version" in r.stderr
+    from sensorium.store.reader import Trace
+    assert Trace.open(trace).meta["focus_unframed"] == ["prog:worker"]
+
+
+def test_run_does_not_warn_when_focus_matched_framed_code(tmp_path):
+    run_id, trace, r = record_script(
+        tmp_path, "def f():\n    return 1\n\ndef main():\n    f()\nmain()\n",
+        extra=["--focus", "prog:f"])
+    assert run_id, r.stderr
+    assert "matched only coroutine" not in r.stderr
+    from sensorium.store.reader import Trace
+    assert Trace.open(trace).meta["focus_unframed"] == []
