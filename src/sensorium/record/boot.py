@@ -261,6 +261,9 @@ class _LateWriteGuard:
     def close_frame(self, *a, **k):
         return self._call("close_frame", *a, **k)
 
+    def add_task(self, *a, **k):
+        return self._call("add_task", *a, **k)
+
     def add_output(self, *a, **k):
         return self._call("add_output", *a, **k)
 

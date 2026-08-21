@@ -311,3 +311,18 @@ def test_bind_asyncio_survives_a_program_supplied_stand_in_module(monkeypatch):
     fake = SimpleNamespace(_asyncio=None)
     assert Tracer._bind_asyncio(fake) is None
     assert fake._asyncio is None            # nothing half-bound is remembered
+
+
+def test_sensorium_run_records_an_asyncio_program_end_to_end(tmp_path):
+    """Through the real CLI, not record_inproc: `run_target` wraps the writer
+    in boot._LateWriteGuard, which forwards methods one by one -- a writer
+    method with no delegate crashes the TARGET with AttributeError, which is
+    exactly what happened when add_task was added without one."""
+    from sensorium.store.reader import Trace
+    src = TWO_TASKS + '\nif __name__ == "__main__":\n    print(main())\n'
+    run_id, trace, r = record_script(tmp_path, src)
+    assert run_id, r.stderr
+    assert r.returncode == 0, r.stderr
+    assert "AttributeError" not in r.stderr
+    assert "['A:3', 'B:3']" in r.stdout
+    assert len(Trace.open(trace).tasks()) == 3
