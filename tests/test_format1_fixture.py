@@ -62,3 +62,15 @@ def test_format1_trace_reports_no_tasks_and_assumed_parentage():
     worker = next(c for c in t.codes() if c.qualname == "worker")
     assert len(t.unframed_calls(code_id=worker.id)) == 2   # join works on v1
     assert t.call_counts()[worker.id] == 2              # CALLs only, not RETURNs
+
+
+def test_tree_on_a_format1_trace_labels_parentage_assumed(installed_fixture,
+                                                           capsys):
+    assert cli.main(["tree", installed_fixture]) == 0
+    out = capsys.readouterr().out
+    assert "parentage: ASSUMED" in out and "format-1" in out
+    # v1 parented every step to <module>; the tree must not PRESENT that as
+    # derived, and must still show the unframed worker calls it never showed.
+    assert out.count("worker(") == 2
+    assert "[generator/coroutine, unframed]" in out      # kind unknown in v1
+    assert "task t" not in out                             # no tasks recorded

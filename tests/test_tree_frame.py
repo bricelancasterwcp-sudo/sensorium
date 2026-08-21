@@ -375,3 +375,104 @@ def test_frame_with_no_selector_at_all_says_what_to_give_it(
     assert cli.main(["frame", run_id]) == 1
     out = capsys.readouterr().out
     assert "f<id>" in out and "--fn" in out
+
+
+ASYNC_SRC = """
+import asyncio
+
+def step(task, n):
+    return f"{task}:{n}"
+
+async def worker(name):
+    step(name, 1)
+    await asyncio.sleep(0)
+    return step(name, 2)
+
+async def amain():
+    a = asyncio.create_task(worker("A"), name="task-A")
+    b = asyncio.create_task(worker("B"), name="task-B")
+    return await asyncio.gather(a, b)
+
+if __name__ == "__main__":
+    asyncio.run(amain())
+"""
+
+GEN_SRC = """
+def parse(s):
+    return int(s)
+
+def rows(items):
+    for it in items:
+        yield parse(it)
+
+def main():
+    return list(rows(["1", "2"]))
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def _section(out: str, header: str) -> list[str]:
+    """Lines under `header` up to the next unindented line."""
+    lines = out.splitlines()
+    i = lines.index(header)
+    body = []
+    for ln in lines[i + 1:]:
+        if ln and not ln.startswith(" "):
+            break
+        body.append(ln)
+    return body
+
+
+def test_tree_groups_by_task_and_names_the_real_caller(tmp_path, monkeypatch,
+                                                        capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    a = "\n".join(_section(out, "task t2: task-A"))
+    b = "\n".join(_section(out, "task t3: task-B"))
+    assert "worker(name='A')  [coroutine, unframed]" in a
+    assert a.count("<- worker (unframed)") == 2 and "task='B'" not in a
+    assert b.count("<- worker (unframed)") == 2 and "task='A'" not in b
+    # <module> ran before the loop existed: not placed in any task.
+    assert "<module>()" in "\n".join(_section(out, "outside any event loop"))
+    assert "order between tasks is wall-clock" in out
+
+
+def test_tree_unframed_count_matches_the_trace(tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    from sensorium import paths
+    from sensorium.store.reader import Trace
+    n = len(Trace.open(paths.find_trace(run_id)).unframed_calls())
+    assert cli.main(["tree", run_id]) == 0
+    assert f"{n} unframed call(s) shown as events" in capsys.readouterr().out
+
+
+def test_tree_renders_a_generator_call_under_the_frame_that_called_it(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    lines = out.splitlines()
+    main_ln = next(ln for ln in lines if "main()" in ln)
+    gen_ln = next(ln for ln in lines if "rows(" in ln)
+    assert "[generator, unframed]" in gen_ln
+    indent = len(main_ln) - len(main_ln.lstrip())
+    assert gen_ln.startswith(" " * (indent + 2) + "e")      # child of main
+    parse_lns = [ln for ln in lines if "parse(" in ln]
+    assert len(parse_lns) == 2
+    assert all("<- rows (unframed)" in ln for ln in parse_lns)
+    assert "outside any event loop" not in out                # no tasks: no groups
+    assert "unframed call(s) shown as events" in out
+
+
+def test_tree_around_an_unframed_event_says_so(tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
+    from sensorium import paths
+    from sensorium.store.reader import Trace
+    ev, = Trace.open(paths.find_trace(run_id)).unframed_calls()
+    assert cli.main(["tree", run_id, "--around", f"e{ev.id}"]) == 1
+    out = capsys.readouterr().out
+    assert f"e{ev.id} is an unframed CALL of rows (generator)" in out
+    assert f"sensorium grep {run_id} rows" in out
