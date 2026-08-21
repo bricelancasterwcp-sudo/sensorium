@@ -347,4 +347,4 @@ def test_info_on_a_sync_trace_says_zero_unframed_and_no_loop(tmp_path,
     assert cli.main(["info", run_id]) == 0
     out = capsys.readouterr().out
     assert "unframed calls: 0" in out
-    assert "tasks: none (no running event loop was seen)" in out
+    assert "tasks: none (no event ran inside an asyncio task)" in out

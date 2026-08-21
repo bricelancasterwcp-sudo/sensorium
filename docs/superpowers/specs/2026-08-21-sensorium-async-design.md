@@ -196,6 +196,12 @@ Events carry `(thread_serial, task_serial)`. `task_serial` is `NULL` for every
 event recorded outside a running loop, which is the common case and must not
 be rendered as a task called "none".
 
+Erratum (final review): `task_id NULL` means *no current asyncio task*, which
+is wider than *outside a running loop* — loop callbacks (`call_soon`,
+`add_done_callback`, protocol/signal callbacks) run inside the loop with
+`current_task() is None` and are NULL too. Arc 2's per-task stacks must not
+inherit the narrower reading.
+
 ## D3. Query surface
 
 ### `tree`
@@ -204,7 +210,7 @@ Groups by task, shows unframed coroutine calls in their true position, and
 never invents a parent:
 
 ```
-outside any event loop
+no asyncio task
   f1 e1 <module>() -> None
 task t1: Task-1
   e2 main()  [coroutine, unframed]
@@ -233,8 +239,10 @@ Grouping is by task because a task is a causally coherent stream and the
 interleaving between tasks is not. Event ids remain globally monotonic, so the
 real execution order stays recoverable from the output without a second
 command and without a flag. `<module>` ran before `asyncio.run` started a loop,
-so it has no task and is not placed in one; "outside any event loop" is a
-statement, not a task called none.
+so it has no task and is not placed in one; "no asyncio task" is a
+statement, not a task called none — and it is deliberately not "outside any
+event loop", which would be a narrower claim than the group holds (see the
+erratum under D2).
 
 ### `frame`
 

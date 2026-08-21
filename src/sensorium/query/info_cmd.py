@@ -118,7 +118,9 @@ def run(args) -> int:
             for k in t.tasks())
         print(f"tasks: {len(t.tasks())} ({names})")
     else:
-        print("tasks: none (no running event loop was seen)")
+        # Not "no loop ran": a loop can run and never make a task -- and
+        # loop callbacks run inside it with no current task at all.
+        print("tasks: none (no event ran inside an asyncio task)")
     task_errors = m.get("task_errors", 0)
     if task_errors:
         print(f"task identity errors: {task_errors} -- the task identity "

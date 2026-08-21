@@ -25,7 +25,9 @@ class Event:
     code_id: int | None
     line: int | None
     payload: dict | None
-    task_id: int | None = None   # None outside a running loop, or format 1
+    task_id: int | None = None   # None when no asyncio task is current
+                                 # (before/after the loop, AND inside loop
+                                 # callbacks), or format 1
 
 
 @dataclass(frozen=True)

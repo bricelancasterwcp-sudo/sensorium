@@ -1,4 +1,8 @@
 """`tree` and `frame`: what actually ran, and one activation in full."""
+import sys
+
+import pytest
+
 from sensorium import cli, paths
 from sensorium.store.writer import TraceWriter
 from tests.helpers import record_script
@@ -489,7 +493,7 @@ def test_tree_groups_by_task_and_names_the_real_caller(tmp_path, monkeypatch,
     assert a.count("<- worker (unframed)") == 2 and "task='B'" not in a
     assert b.count("<- worker (unframed)") == 2 and "task='A'" not in b
     # <module> ran before the loop existed: not placed in any task.
-    assert "<module>()" in "\n".join(_section(out, "outside any event loop"))
+    assert "<module>()" in "\n".join(_section(out, "no asyncio task"))
     assert "order between tasks is wall-clock" in out
 
 
@@ -516,7 +520,7 @@ def test_tree_renders_a_generator_call_under_the_frame_that_called_it(
     parse_lns = [ln for ln in lines if "parse(" in ln]
     assert len(parse_lns) == 2
     assert all("<- rows (unframed)" in ln for ln in parse_lns)
-    assert "outside any event loop" not in out                # no tasks: no groups
+    assert "no asyncio task" not in out                       # no tasks: no groups
     assert "unframed call(s) in this trace" in out
 
 
@@ -665,6 +669,69 @@ def test_tree_says_a_task_name_was_unreadable_not_that_it_was_unnamed(
     out = capsys.readouterr().out
     assert "(name unreadable)" in out
     assert "(unnamed)" not in out
+
+
+# `cb` is handed to the loop with `call_soon`: it runs INSIDE a running
+# event loop, on the loop thread, with `asyncio.current_task()` returning
+# None -- so its events carry a NULL task_id exactly like `<module>`'s do.
+# The group they share cannot be called "outside any event loop" without
+# saying something false about half of it.
+CALL_SOON_SRC = """
+import asyncio
+
+def leaf():
+    return 1
+
+def cb():
+    leaf()
+
+async def amain():
+    loop = asyncio.get_running_loop()
+    loop.call_soon(cb)
+    await asyncio.sleep(0)
+
+if __name__ == "__main__":
+    asyncio.run(amain())
+"""
+
+
+def test_tree_null_task_group_does_not_claim_the_code_ran_outside_the_loop(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=CALL_SOON_SRC)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    group = "\n".join(_section(out, "no asyncio task"))
+    assert "cb(" in group, out          # ran in the loop, and is in the group
+    assert "<module>()" in group        # ran before it, and is in the same one
+    assert "outside any event loop" not in out
+    assert "outside" not in out
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 14),
+    reason="on 3.12/3.13 asyncio.Task.__init__ itself calls hash() on the "
+           "new task to register it in the pure-Python _all_tasks WeakSet "
+           "(_register_task), so constructing a hostile-__hash__ Task "
+           "subclass raises before sensorium's tracer ever sees the task -- "
+           "reproduces identically with no sensorium import at all. 3.14 "
+           "does not register tasks that way, so this is a CPython version "
+           "fact, not a sensorium defect; the tool's claim (a hostile task "
+           "hash is counted, never crashes the program) is exercised on 3.14.")
+def test_tree_null_task_group_admits_it_may_be_an_unreadable_identity(
+        tmp_path, monkeypatch, capsys):
+    """When the identity lookup RAISED, a NULL task_id means "could not
+    tell", not "no task" -- and both readings are live in the same group.
+    `info` already says how many lookups broke; the group label has to
+    admit it too, or a reader takes the group at face value."""
+    from tests.test_async import HOSTILE_HASH_TASK
+    src = HOSTILE_HASH_TASK + '\nif __name__ == "__main__":\n    main()\n'
+    run_id = _rec(tmp_path, monkeypatch, src=src)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "lookup error(s), see info" in out
+    header = next(ln for ln in out.splitlines()
+                  if ln.startswith("no asyncio task"))
+    assert "task identity unreadable" in header
 
 
 def test_tree_subtree_views_omit_the_inter_task_ordering_footer(

@@ -28,7 +28,19 @@ def task_label(trace, task_id) -> str:
     # not be read (the identity was still minted). Say that, rather than
     # "(unnamed)", which would claim the task HAD no name.
     if task_id is None:
-        return "outside any event loop"
+        # NULL task_id means `current_task()` was None -- which is WIDER than
+        # "no loop was running". A callback scheduled with call_soon, an
+        # add_done_callback, a protocol or signal callback all run inside the
+        # loop with no current task, and land here. "outside any event loop"
+        # said something about those the trace does not support.
+        errs = trace.meta.get("task_errors", 0)
+        if errs:
+            # ...and when the identity lookup itself raised, NULL means
+            # "could not tell", not "no task". Both readings are live in the
+            # same group, so the label must not pick one.
+            return (f"no asyncio task (or task identity unreadable: "
+                    f"{errs} lookup error(s), see info)")
+        return "no asyncio task"
     t = trace.task(task_id)
     name = (t.name if (t is not None and t.name is not None)
             else "(name unreadable)")

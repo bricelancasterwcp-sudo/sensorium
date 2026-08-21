@@ -146,7 +146,9 @@ Grouping by task is a statement about causality *within* a task (one
 task is sequential) and says nothing about order *between* tasks beyond
 wall-clock event ids; the footer says so. Task identity is a serial
 minted per task object, not the task's name — two tasks named alike do
-not merge — and is `NULL` for everything that ran outside a running loop.
+not merge — and is `NULL` for everything that did not run inside an
+asyncio task (code before/after the loop, and loop callbacks such as
+`call_soon`/`add_done_callback`).
 
 ### `exceptions` — five dispositions, and a real refusal
 
