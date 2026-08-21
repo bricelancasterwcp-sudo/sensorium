@@ -35,17 +35,25 @@ def task_label(trace, task_id) -> str:
     return f"task t{task_id}: {name}"
 
 
-def _caller_tag(trace, frame) -> str:
-    """`<- QUAL (unframed)` when the frame's caller is traced code that has
-    no frame (a generator or coroutine body). Nothing for a true root or an
-    untraced caller -- and nothing on a format-1 trace, which has no record."""
-    if frame.parent_id is not None:
-        return ""
-    call = trace.event(frame.call_event_id)
+def _caller_of(trace, call) -> str:
+    """`<- QUAL (unframed)` when a CALL's payload names a traced caller that
+    has no frame (a generator or coroutine body). Nothing for a true root or
+    an untraced caller -- and nothing on a format-1 trace, which has no
+    record. Shared by framed and unframed calls alike: the payload key is the
+    same one for both, so a tag rendered on only one of them would drop
+    parentage the trace does hold."""
     cc = (call.payload or {}).get("caller_code") if call else None
     if cc is None:
         return ""
     return f"  <- {trace.code(cc).qualname} (unframed)"
+
+
+def _caller_tag(trace, frame) -> str:
+    """The frame form: a frame with a parent_id was called by that parent,
+    so only a root frame can have an unframed caller to name."""
+    if frame.parent_id is not None:
+        return ""
+    return _caller_of(trace, trace.event(frame.call_event_id))
 
 
 def frame_line(trace, frame) -> str:
@@ -72,7 +80,8 @@ def unframed_kind(ev) -> str:
 def unframed_line(trace, ev) -> str:
     code = trace.code(ev.code_id)
     args = fmt_args((ev.payload or {}).get("args", {}))
-    return f"e{ev.id} {code.qualname}({args})  [{unframed_kind(ev)}, unframed]"
+    return (f"e{ev.id} {code.qualname}({args})  [{unframed_kind(ev)}, unframed]"
+            + _caller_of(trace, ev))
 
 
 def index_unframed(trace):

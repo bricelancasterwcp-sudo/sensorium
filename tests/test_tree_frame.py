@@ -500,6 +500,39 @@ def test_tree_depth_withholds_an_unframed_call_and_counts_it(
     assert "1 unframed call(s) withheld by --depth 1" in out
 
 
+# `amain` awaits `inner` directly: `inner`'s CALL payload names `amain` as
+# its caller (both are coroutines, so neither opens a frame). Untagged, the
+# two render as plain siblings under one task header -- which reads as two
+# unrelated coroutines and drops parentage the trace actually holds.
+AWAIT_SRC = """
+import asyncio
+
+def leaf():
+    return 1
+
+async def inner():
+    return leaf()
+
+async def amain():
+    return await inner()
+
+if __name__ == "__main__":
+    asyncio.run(amain())
+"""
+
+
+def test_tree_names_the_unframed_caller_of_an_unframed_call(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=AWAIT_SRC)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    inner_ln = next(ln for ln in out.splitlines() if "inner(" in ln)
+    assert inner_ln.endswith("[coroutine, unframed]  <- amain (unframed)")
+    # `amain` was awaited by the event loop, not by traced code: no tag.
+    amain_ln = next(ln for ln in out.splitlines() if "amain(" in ln)
+    assert amain_ln.endswith("[coroutine, unframed]")
+
+
 # `Evil.get_name()` raises, so the recorder mints the task identity but
 # cannot read its name and stores NULL. NULL means "the name could not be
 # read", never "the task had no name" -- the label must not claim the latter.
