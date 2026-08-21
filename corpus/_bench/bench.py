@@ -26,18 +26,27 @@ untimed because the first run of a fresh file pays for bytecode compilation
 and a cold page cache, and it pays that in the baseline and the recorded run
 alike but at different points in the total.
 
-WHY TWO WORKLOADS
------------------
+WHY THREE WORKLOADS
+-------------------
 The multiplier is not a property of sensorium. It is a property of how often
 the traced program CALLS things, because the recorder's cost is per event and
 a program's own cost is not. `call_dense` (naive recursive fib) is close to
 the worst case that exists: every microsecond of its baseline is function
 calls, so almost every microsecond gains a CALL and a RETURN event.
 `work_between_calls` does real work inside a modest number of calls, which is
-what ordinary code looks like. Reporting only one of them would be reporting
-a number that generalises to nothing; the per-event cost printed in the last
+what ordinary code looks like. Reporting only these two would be reporting a
+number that generalises to nothing; the per-event cost printed in the last
 column is the figure that travels, since a reader can multiply it by their
 own event count.
+
+`async_call_dense` exists because those two workloads both run outside a
+running event loop, so neither one ever prices the task-identity path: the
+`_get_running_loop()` call, `current_task()`, and the cached per-task lookup
+that only fire while `asyncio` has a loop running. Every event inside that
+workload's `asyncio.run(work())` pays that path on top of derived parentage,
+and its per-event cost costs more than the sync rows for exactly that reason.
+Reporting only sync rows would under-state the cost of the code path this
+branch actually added.
 """
 import os
 import re
@@ -81,6 +90,22 @@ if __name__ == "__main__":
     main()
 '''
 
+# Every event inside a running loop: measures the task-identity path
+# (sys.modules probe + _get_running_loop + current_task + serial lookup) on
+# top of derived parentage.
+ASYNC_CALL_DENSE = '''
+import asyncio
+
+def leaf(n):
+    return n
+
+async def work():
+    for i in range(20000):
+        leaf(i)
+
+asyncio.run(work())
+'''
+
 DO_NOTHING = 'if __name__ == "__main__":\n    pass\n'
 
 # The focus target is chosen per workload and the choice is part of the
@@ -92,6 +117,7 @@ DO_NOTHING = 'if __name__ == "__main__":\n    pass\n'
 WORKLOADS = {
     "call_dense": (CALL_DENSE, "prog:fib"),
     "work_between_calls": (WORK_BETWEEN_CALLS, "prog:main"),
+    "async_call_dense": (ASYNC_CALL_DENSE, None),
 }
 
 
