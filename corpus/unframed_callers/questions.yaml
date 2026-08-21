@@ -1,0 +1,44 @@
+program: main.py
+questions:
+  - id: who-called-parse
+    ask: >
+      parse ran three times. Who called it -- main, which consumed the
+      generator, or the generator body?
+    truth: >
+      The generator `rows` called parse every time; rows is frameless, so
+      each parse frame has no parent and is tagged "<- rows (unframed)".
+      The rows() call itself appears as an unframed event under main's
+      frame, which is the frame that was open when it was called.
+    why_logs_fail: >
+      A print in parse proves it ran and what it got, not whose line called
+      it; the fact being asked is the shape of the call, and a log entry is
+      written by the callee with no view of its caller unless it prints the
+      whole stack, which is the thing you do only once you suspect the
+      generator.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["rows(", "[generator, unframed]"]
+      - ["parse(s='10')", "<- rows (unframed)"]
+    expect_count: {"<- rows (unframed)": 3}
+    expect_absent: ["task t"]
+  - id: key-fn-is-a-child-of-main
+    ask: >
+      rank was called from inside sorted(), which is C. Does the trace
+      parent it to main, and what did it return for each record?
+    truth: >
+      rank's two frames are children of main's frame (the frame that called
+      sorted), returning 2 for ("al", 9) and 3 for ("bea", 3) -- the bug is
+      that it ranked by name length, which is why "bea" won.
+    why_logs_fail: >
+      A print inside rank shows the two return values; it cannot show that
+      the calls were made from main's sorted() line rather than from
+      anywhere else, because the C frame between them leaves no Python
+      line to print.
+    command: ["tree", "$RUN"]
+    # `fmt_value` renders every sequence -- tuples included -- as
+    # `type[len]=[items]`, verified on an unrelated recording before this
+    # was registered. `rec=('al', 9)` is a shape the formatter never emits.
+    expect_line:
+      - ["rank(rec=tuple[2]=['al', 9])", "-> 2"]
+      - ["rank(rec=tuple[2]=['bea', 3])", "-> 3"]
+    expect_absent: ["<- main"]

@@ -3,7 +3,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-TRACE_FORMAT = 1
+TRACE_FORMAT = 2
 
 
 class TraceFormatError(Exception):
@@ -13,7 +13,10 @@ class TraceFormatError(Exception):
     layout may differ from what these queries assume. Refusing is the honest
     answer -- reading it anyway would answer from a schema this version does
     not know. A trace with no `trace_format` at all predates the key and is
-    read as the current format (it cannot be from the future).
+    read as the current format (it cannot be from the future). Format 2
+    (async attribution) added events.task_id, the tasks table and
+    CALL-payload keys; a format-1 trace opens and its parentage is reported
+    as assumed -- see reader.Trace.parentage_basis.
     """
 
 SCHEMA = """
@@ -46,13 +49,19 @@ CREATE TABLE events (
   frame_id INTEGER,
   code_id INTEGER,
   line INTEGER,
-  payload TEXT
+  payload TEXT,
+  task_id INTEGER
 );
 CREATE TABLE output (
   id INTEGER PRIMARY KEY,
   after_event_id INTEGER NOT NULL,
   stream TEXT NOT NULL,
   data TEXT NOT NULL
+);
+CREATE TABLE tasks (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  thread_id INTEGER NOT NULL
 );
 CREATE TABLE fingerprints (
   thread_id INTEGER PRIMARY KEY,

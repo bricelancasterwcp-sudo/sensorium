@@ -117,3 +117,42 @@ def test_main_thread_basis_is_none_with_no_events_and_no_recorded_key(
     t = Trace.open(p)
     assert t.main_thread_id() is None
     assert t.main_thread_basis() is None
+
+
+def _two_task_trace(tmp_path):
+    """Hand-built: one framed call, two unframed calls (one per task)."""
+    w = TraceWriter(tmp_path / "t.db", batch=100)
+    c_main = w.intern_code("/x/p.py", "main", 1)
+    c_gen = w.intern_code("/x/p.py", "gen", 5)
+    e1 = w.add_event(0, 1, "CALL", None, c_main, 1, {"args": {}})
+    f1 = w.open_frame(None, c_main, e1, 0, 1)
+    w.add_event(1, 1, "CALL", None, c_gen, 5,
+                {"args": {}, "unframed": "generator", "parent_frame": f1},
+                task_id=1)
+    w.add_event(2, 1, "CALL", None, c_gen, 5,
+                {"args": {}, "unframed": "generator"}, task_id=2)
+    w.add_task(1, "Task-1", 1)
+    w.add_task(2, None, 1)
+    w.close()
+    return Trace.open(tmp_path / "t.db"), c_main, c_gen, f1
+
+
+def test_reader_exposes_format_tasks_and_task_ids(tmp_path):
+    t, c_main, c_gen, _ = _two_task_trace(tmp_path)
+    assert t.format == 2
+    assert t.parentage_basis() == "derived"
+    assert [(k.id, k.name, k.thread_id) for k in t.tasks()] == [
+        (1, "Task-1", 1), (2, None, 1)]
+    assert t.task(2).name is None and t.task(9) is None
+    evs = t.events(kind="CALL")
+    assert [e.task_id for e in evs] == [None, 1, 2]
+
+
+def test_unframed_calls_is_a_join_not_a_payload_key(tmp_path):
+    """Spec D3: 'recorded but not framed' must be decidable from the frames
+    table alone, so a v1 trace (no `unframed` key) gets the same answer."""
+    t, c_main, c_gen, f1 = _two_task_trace(tmp_path)
+    unf = t.unframed_calls()
+    assert [e.code_id for e in unf] == [c_gen, c_gen]
+    assert t.unframed_calls(code_id=c_main) == []
+    assert t.call_counts() == {c_main: 1, c_gen: 2}

@@ -829,3 +829,67 @@ def test_stdin_proxy_does_not_compare_the_program_s_own_attribute_name():
 
     assert getattr(proxy, K("read"))() == "payload"     # ...and marking still works
     assert proxy.consumed is True
+
+
+def test_task_errors_meta_is_stamped_as_zero_on_a_clean_run(tmp_path):
+    run_id, trace, r = record_script(tmp_path, "def main():\n    pass\nmain()\n")
+    assert run_id, r.stderr
+    from sensorium.store.reader import Trace
+    assert Trace.open(trace).meta["task_errors"] == 0
+
+
+ASYNC_FOCUS_SCRIPT = """
+import asyncio
+
+async def worker():
+    await asyncio.sleep(0)
+    return 1
+
+def main():
+    return asyncio.run(worker())
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def test_run_warns_when_focus_matched_only_coroutine_code(tmp_path):
+    run_id, trace, r = record_script(tmp_path, ASYNC_FOCUS_SCRIPT,
+                                     extra=["--focus", "prog:worker"])
+    assert run_id, r.stderr
+    assert "--focus prog:worker matched only coroutine/generator code" in r.stderr
+    assert "opens no frame in this version" in r.stderr
+    assert "NOTHING WAS CHECKED." in r.stderr
+    from sensorium.store.reader import Trace
+    assert Trace.open(trace).meta["focus_unframed"] == ["prog:worker"]
+
+
+def test_run_does_not_warn_when_focus_matched_framed_code(tmp_path):
+    run_id, trace, r = record_script(
+        tmp_path, "def f():\n    return 1\n\ndef main():\n    f()\nmain()\n",
+        extra=["--focus", "prog:f"])
+    assert run_id, r.stderr
+    assert "matched only coroutine" not in r.stderr
+    from sensorium.store.reader import Trace
+    assert Trace.open(trace).meta["focus_unframed"] == []
+
+
+def test_late_write_guard_classifies_every_public_writer_method():
+    """_LateWriteGuard forwards writer methods BY HAND. When add_task was added
+    to TraceWriter without a delegate, `sensorium run` killed every asyncio
+    target with AttributeError (aec8d1e). This pins the classification: a new
+    public TraceWriter method must be placed here on purpose -- delegated
+    (write path, counted after seal) or listed as a deliberate non-delegate."""
+    from sensorium.store.writer import TraceWriter
+    from sensorium.record.boot import _LateWriteGuard
+    public = {n for n, v in vars(TraceWriter).items()
+              if callable(v) and not n.startswith("_")}
+    delegated = {"intern_code", "add_event", "add_task", "open_frame",
+                 "close_frame", "add_output", "set_meta", "write_fingerprint"}
+    deliberate = {"interned_files",   # read passthrough, documented in the guard
+                  "close",            # guard has its own close
+                  "flush"}            # no caller on a guarded writer
+    assert public == delegated | deliberate, (
+        f"unclassified TraceWriter method(s): {sorted(public - delegated - deliberate)}")
+    for name in delegated:
+        assert callable(getattr(_LateWriteGuard, name)), name

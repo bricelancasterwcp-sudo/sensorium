@@ -29,7 +29,11 @@ keep a dead binding alive for the rest of the frame.
 
 A LINE event's `frame_id` is always set. Generators and coroutines are
 frameless (no frame is opened for them), so LINE stays permanently disabled for
-their code even when focused -- there would be no frame to attach to.
+their code even when focused -- there would be no frame to attach to. Their
+CALL is still recorded, with `unframed` naming the kind and either
+`parent_frame` (the caller's open frame) or `caller_code` / `caller` saying who
+called it. A framed call whose caller has no open frame gets `parent_id NULL`
+and the same `caller_code` / `caller` keys: the parent is never guessed.
 
 Every RAISE/HANDLED payload carries an exception `serial`: an exact per-thread
 identity, minted the first time this recorder sees an exception object and
@@ -79,7 +83,11 @@ from sensorium.record.fingerprint import Fingerprint
 M = sys.monitoring
 TOOL = M.PROFILER_ID
 _SENSORIUM_DIR = str(Path(__file__).resolve().parent.parent)
-_GENLIKE = 0x20 | 0x80 | 0x200        # CO_GENERATOR|CO_COROUTINE|CO_ASYNC_GEN
+_CO_GENERATOR, _CO_COROUTINE, _CO_ASYNC_GENERATOR = 0x20, 0x80, 0x200
+# Derived, never restated: `_GENLIKE` decides WHETHER code is frameless and
+# `_unframed_kind` decides WHICH kind it is, and a flag added to one set but
+# not the other would silently label a new frameless kind "generator".
+_GENLIKE = _CO_GENERATOR | _CO_COROUTINE | _CO_ASYNC_GENERATOR
 _CONTROL_FLOW_EXC = (StopIteration, StopAsyncIteration, GeneratorExit)
 
 
@@ -98,6 +106,18 @@ def _is_control_flow(exc) -> bool:
     """
     t = type(exc)
     return t is StopIteration or t is StopAsyncIteration or t is GeneratorExit
+
+
+def _unframed_kind(code) -> str:
+    """Why this code opens no frame: which of the generator-like flags it has.
+    Recorded on the CALL payload so the query side can say 'coroutine', not
+    the vaguer 'coroutine or generator' it must say for a format-1 trace."""
+    flags = code.co_flags
+    if flags & _CO_ASYNC_GENERATOR:
+        return "async_generator"
+    if flags & _CO_COROUTINE:
+        return "coroutine"
+    return "generator"
 
 
 def locals_snapshot(frame) -> dict | None:
@@ -161,20 +181,26 @@ class FocusSpec:
         self._entries = []
         for e in entries:
             mod, _, qual = e.partition(":")
-            self._entries.append((mod, qual or None))
+            self._entries.append((e, mod, qual or None))
 
     def __bool__(self) -> bool:
         return bool(self._entries)
 
+    def _hit(self, mod, qual, module, qualname) -> bool:
+        if module != mod:
+            return False
+        return qual is None or qualname == qual or qualname.startswith(qual + ".")
+
     def matches(self, module: str | None, qualname: str) -> bool:
         if module is None:
             return False
-        for mod, qual in self._entries:
-            if module != mod:
-                continue
-            if qual is None or qualname == qual or qualname.startswith(qual + "."):
-                return True
-        return False
+        return any(self._hit(m, q, module, qualname) for _e, m, q in self._entries)
+
+    def entries_matching(self, module: str | None, qualname: str) -> list[str]:
+        """Every entry, as the user wrote it, that this code satisfies."""
+        if module is None:
+            return []
+        return [e for e, m, q in self._entries if self._hit(m, q, module, qualname)]
 
 
 class WindowSpec:
@@ -280,11 +306,23 @@ class _TLS(threading.local):
     """
     def __init__(self, next_serial, register) -> None:
         self.thread_serial: int = next_serial()   # stable, never recycled
-        self.stack: list = []          # [frame_id, code, code_id, locals_snapshot]
+        # id(frame) -> [frame_id, code, code_id, prev_locals, depth] for every
+        # OPEN frame this recorder opened on this thread. Replaces the stack
+        # that v1 used: "the last frame I opened is the caller" is stack
+        # discipline, which a coroutine resumed by the event loop, a generator
+        # resumed by its consumer, and a callback from C all break. `id()` is
+        # sound as a key here ONLY because every entry is a regular function
+        # frame, which always leaves through PY_RETURN or PY_UNWIND -- both
+        # subscribed -- so the entry is removed before the address can die. A
+        # suspendable frame must not enter this map without a terminal
+        # ABANDONED state (arc 2). `_parent_of` re-checks code identity anyway.
+        self.live: dict[int, list] = {}
         self.in_hook = False
         self.window_depths: dict = {}  # (module, qualname) -> open activations
         self.origin_recorded = False   # whether the in-flight exc got a row
         self.exc = _ExcRefs()
+        # (task, serial) of the last task seen on this thread
+        self.task_cache: tuple | None = None
         register(self.thread_serial, self.exc)
 
 
@@ -313,6 +351,17 @@ class Tracer:
         # frames and fingerprints under one id.
         self._serial_lock = threading.Lock()
         self._next_serial = 0
+        # asyncio task identity: a minted serial per task object, weakly held
+        # so finished tasks do not accumulate. Bound lazily from sys.modules
+        # (never imported here) so a program that never uses asyncio pays one
+        # dict probe per event and sees its sys.modules untouched.
+        self._asyncio: tuple | None = None
+        self._task_serials: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+        self._task_lock = threading.Lock()
+        self._next_task = 0
+        self.task_errors = 0       # lookups a hostile task object broke
+        # entry -> {frameless flags of the code objects it matched}
+        self._focus_hits: dict[str, set] = {}
         self._tls = _TLS(self._assign_thread_serial, self._register_refs)
         # The thread constructing the Tracer runs `_TLS.__init__` above, so it
         # is the first serial (1). `run_target` runs the target on this same
@@ -361,8 +410,24 @@ class Tracer:
         module = module_name_for(p, self.root)
         focused = self.focus.matches(module, code.co_qualname)
         frameless = bool(code.co_flags & _GENLIKE)
+        if focused:
+            for entry in self.focus.entries_matching(module, code.co_qualname):
+                self._focus_hits.setdefault(entry, set()).add(frameless)
         win_key = self.window.key(module, code.co_qualname)
         return (True, rel, code.co_qualname, focused, frameless, win_key)
+
+    def unframed_focus(self) -> list[str]:
+        """Focus entries that matched code, all of it frameless -- so no LINE
+        was ever possible for them. Reported at the end of the run because
+        the recorder learns a code object's kind only when it first starts."""
+        # Snapshot: `run_target` calls this after `uninstall`, while a straggler
+        # thread still inside a callback can reach `_classify` and `setdefault`
+        # here -- iterating live would raise "dictionary changed size during
+        # iteration" out of `_finalize_meta` and leave the trace incomplete.
+        # `setdefault` is atomic under the GIL, so `list()` snapshots without a
+        # lock (same straggler class `_LateWriteGuard` describes; cf. `_fps`).
+        return [e for e, flags in list(self._focus_hits.items())
+                if flags == {True}]
 
     def _fp(self, tid: int) -> Fingerprint:
         # `tid` is a per-thread SERIAL (see `_TLS.thread_serial`), the same
@@ -373,6 +438,112 @@ class Tracer:
             if fp is None:
                 fp = self._fps[tid] = Fingerprint()
             return fp
+
+    def _parent_of(self, tls, caller):
+        """The live entry for `caller`, or None -- and None is an answer.
+
+        A hit requires the address to be live AND the code to match: the
+        map cannot hold a stale entry in arc 1 (see `_TLS.live`), but the
+        check is what makes that a property of this method rather than of
+        the current set of callers."""
+        if caller is None:
+            return None
+        entry = tls.live.get(id(caller))
+        if entry is None or entry[1] is not caller.f_code:
+            return None
+        return entry
+
+    def _note_caller(self, payload, caller) -> None:
+        """When there is no parent frame, record WHO called instead of
+        guessing: the caller's interned code if it is traced (a frameless
+        generator/coroutine, or code that started before recording did), or
+        the literal "untraced" (the event loop, a C callback's Python caller
+        in a library, sensorium's own boot). No caller at all writes nothing,
+        which is distinct from both."""
+        if caller is None:
+            return
+        ccode = caller.f_code
+        traced, _rel, cqual, _f, _fl, _w = self._decide(ccode)
+        if traced:
+            payload["caller_code"] = self.writer.intern_code(
+                ccode.co_filename, cqual, ccode.co_firstlineno)
+        else:
+            payload["caller"] = "untraced"
+
+    def _bind_asyncio(self):
+        """(`_get_running_loop`, `current_task`) from the asyncio the PROGRAM
+        imported, or None if it is not (fully) there yet. Both are C
+        functions (`_asyncio`) on 3.12-3.14; `_get_running_loop` returns
+        None outside a loop instead of raising, which is why it is the gate.
+
+        Guarded because `sys.modules["asyncio"]` is a slot the PROGRAM can
+        write: a stand-in module's `__getattr__` is program code, and
+        `getattr(..., None)` swallows only AttributeError, so anything else
+        it raises would come out of a monitoring callback. A failed bind is
+        not counted and not remembered -- the next event simply retries, the
+        same way it does while a real asyncio is still half-imported."""
+        try:
+            mod = sys.modules.get("asyncio")
+            events = getattr(mod, "events", None)
+            get_loop = getattr(events, "_get_running_loop", None)
+            cur_task = getattr(mod, "current_task", None)
+        except BaseException:
+            return None
+        if get_loop is None or cur_task is None:
+            return None
+        self._asyncio = (get_loop, cur_task)
+        return self._asyncio
+
+    def _count_task_error(self) -> None:
+        with self._task_lock:
+            self.task_errors += 1
+
+    def _task_serial(self, tls):
+        """The minted serial of the asyncio task running on this thread right
+        now, or None: no asyncio, no running loop, no current task, or a task
+        object that broke the lookup (counted in `task_errors`, never raised
+        into the program). Only IDENTITY failures are counted: a task whose
+        `get_name` raises still gets its serial and still attributes its
+        events, and is recorded as a task with no name, not as an error.
+        Must be called inside an `in_hook` region: a Task subclass's
+        `get_name` is program code."""
+        if "asyncio" not in sys.modules:
+            return None
+        fns = self._asyncio or self._bind_asyncio()
+        if fns is None:
+            return None
+        get_loop, cur_task = fns
+        try:
+            if get_loop() is None:
+                return None
+            task = cur_task()
+        except BaseException:
+            self._count_task_error()
+            return None
+        if task is None:
+            return None
+        cache = tls.task_cache
+        if cache is not None and cache[0] is task:
+            return cache[1]
+        try:
+            with self._task_lock:
+                serial = self._task_serials.get(task)
+                minted = serial is None
+                if minted:
+                    self._next_task += 1
+                    serial = self._next_task
+                    self._task_serials[task] = serial
+        except BaseException:          # hostile __hash__/__eq__ on a subclass
+            self._count_task_error()
+            return None
+        if minted:
+            try:
+                name = plain_str(task.get_name())
+            except BaseException:
+                name = None
+            self.writer.add_task(serial, name, tls.thread_serial)
+        tls.task_cache = (task, serial)
+        return serial
 
     # -- callbacks ---------------------------------------------------------
     def _on_start(self, code, offset):
@@ -398,16 +569,25 @@ class Tracer:
             payload = {"args": args} if loc is not None else {
                 "args": {}, "unread": ["locals"]}
             tid = tls.thread_serial
+            task = self._task_serial(tls)
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
+            caller = frame.f_back
+            parent = self._parent_of(tls, caller)
+            if parent is None:
+                self._note_caller(payload, caller)
+            if frameless:
+                payload["unframed"] = _unframed_kind(code)
+                if parent is not None:
+                    payload["parent_frame"] = parent[0]
             eid = self.writer.add_event(time.monotonic_ns(), tid, "CALL",
                                         None, cid, code.co_firstlineno,
-                                        payload)
+                                        payload, task_id=task)
             if not frameless:
-                parent = tls.stack[-1][0] if tls.stack else None
-                fid = self.writer.open_frame(parent, cid, eid,
-                                             len(tls.stack), tid)
-                tls.stack.append([fid, code, cid, {}])
+                pfid = parent[0] if parent is not None else None
+                depth = parent[4] + 1 if parent is not None else 0
+                fid = self.writer.open_frame(pfid, cid, eid, depth, tid)
+                tls.live[id(frame)] = [fid, code, cid, {}, depth]
             self._fp(tid).update(fp_file, qual, "CALL")
             # Frameless code is excluded on purpose: an abandoned generator
             # never reaches PY_RETURN/PY_UNWIND, so counting its PY_START would
@@ -429,14 +609,18 @@ class Tracer:
         tls.in_hook = True
         try:
             tid = tls.thread_serial
+            frame = sys._getframe(1)
+            entry = tls.live.get(id(frame))
             fid = None
-            if not frameless and tls.stack and tls.stack[-1][1] is code:
-                fid = tls.stack.pop()[0]
+            if entry is not None and entry[1] is code:
+                del tls.live[id(frame)]
+                fid = entry[0]
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
             eid = self.writer.add_event(time.monotonic_ns(), tid, "RETURN",
                                         fid, cid, None,
-                                        {"value": capture_value(retval)})
+                                        {"value": capture_value(retval)},
+                                        task_id=self._task_serial(tls))
             if fid is not None:
                 self.writer.close_frame(fid, eid, "return")
             self._fp(tid).update(fp_file, qual, "RETURN")
@@ -456,10 +640,12 @@ class Tracer:
             return None                      # exception events can't DISABLE
         tls.in_hook = True
         try:
-            if not frameless and tls.stack and tls.stack[-1][1] is code:
-                fid = tls.stack.pop()[0]
+            frame = sys._getframe(1)
+            entry = tls.live.get(id(frame))
+            if entry is not None and entry[1] is code:
+                del tls.live[id(frame)]
                 self.writer.close_frame(
-                    fid, None, "unwind",
+                    entry[0], None, "unwind",
                     capture_exc(exc, self.serial_of(exc)))
             if (not frameless and win_key is not None
                     and tls.window_depths.get(win_key)):
@@ -537,7 +723,7 @@ class Tracer:
             # for why the reference is strong and why it is bounded.
             serial = refs.identify(exc)
             refs.last_exc = None
-        traced, fp_file, qual, focused, frameless, _win_key = self._decide(code)
+        traced, fp_file, qual, focused, _frameless, _win_key = self._decide(code)
         if not traced:
             return None
         if kind == "RAISE":
@@ -545,13 +731,14 @@ class Tracer:
         tls.in_hook = True
         try:
             tid = tls.thread_serial
-            fid = tls.stack[-1][0] if (not frameless and tls.stack
-                                       and tls.stack[-1][1] is code) else None
+            entry = tls.live.get(id(frame))
+            fid = entry[0] if (entry is not None and entry[1] is code) else None
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
             self.writer.add_event(time.monotonic_ns(), tid, kind, fid, cid,
                                   frame.f_lineno,
-                                  {"exc": capture_exc(exc, serial)})
+                                  {"exc": capture_exc(exc, serial)},
+                                  task_id=self._task_serial(tls))
             self._fp(tid).update(fp_file, qual, kind)
         finally:
             tls.in_hook = False
@@ -574,10 +761,10 @@ class Tracer:
             # permanent per code location, and this frame may run again inside
             # the window later.
             return None
-        if not tls.stack or tls.stack[-1][1] is not code:
-            return None           # no open frame for this activation
-        entry = tls.stack[-1]
         frame = sys._getframe(1)
+        entry = tls.live.get(id(frame))
+        if entry is None or entry[1] is not code:
+            return None           # no open frame for this activation
         tls.in_hook = True        # capture_value runs user __repr__ code
         try:
             prev = entry[3]
@@ -591,7 +778,8 @@ class Tracer:
                 self.writer.add_event(time.monotonic_ns(),
                                       tls.thread_serial, "LINE",
                                       entry[0], entry[2], line,
-                                      {"deltas": {}, "unread": ["locals"]})
+                                      {"deltas": {}, "unread": ["locals"]},
+                                      task_id=self._task_serial(tls))
                 return None
             cur, deltas = {}, {}
             for name, val in snap.items():
@@ -619,7 +807,8 @@ class Tracer:
                     payload["unbound"] = sorted(gone)
                 self.writer.add_event(time.monotonic_ns(),
                                       tls.thread_serial, "LINE",
-                                      entry[0], entry[2], line, payload)
+                                      entry[0], entry[2], line, payload,
+                                      task_id=self._task_serial(tls))
         finally:
             tls.in_hook = False
         return None
@@ -679,6 +868,7 @@ class Tracer:
         # the rest of the process.
         for refs in self._live_exc_refs():
             refs.clear()
+        self._tls.task_cache = None
         for ev in (E.PY_START, E.PY_RETURN, E.PY_UNWIND, E.RAISE,
                    E.RERAISE, E.EXCEPTION_HANDLED, E.LINE):
             M.register_callback(TOOL, ev, None)

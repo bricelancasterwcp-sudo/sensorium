@@ -1,0 +1,27 @@
+program: main.py
+record:
+  focus: ["main:worker"]
+questions:
+  - id: watch-says-why
+    ask: >
+      I focused worker and asked whether name == 'A' held. Nothing was
+      checked -- why, and will refocusing help?
+    truth: >
+      worker is a coroutine: it opens no frame in this version, so there
+      are no sites at all, and refocusing cannot change that. The verdict
+      is NOTHING WAS CHECKED, and the reason given must be that one -- not
+      a misspelling (name IS a recorded argument of worker) and not "frames
+      this run did not record" (worker's calls were recorded).
+    why_logs_fail: >
+      This is a question about the instrument, not the program: whether a
+      silence means the invariant held, the check could not run, or the
+      check could never run here. A log line can be present or absent; it
+      cannot say which of those its absence is.
+    command: ["watch", "$RUN", "--at", "main:worker", "--expr", "name == 'A'"]
+    expect_contains:
+      - "NOTHING WAS CHECKED"
+      - "opens no frame in this version"
+      - "sites: 0"
+    expect_absent:
+      - "misspelled"
+      - "refocus and re-run"

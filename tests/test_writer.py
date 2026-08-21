@@ -90,3 +90,19 @@ def test_partial_trace_valid_without_close(tmp_path):
     c = sqlite3.connect(p)
     n = c.execute("SELECT COUNT(*) FROM events").fetchone()[0]
     assert n >= 4                        # two full batches guaranteed flushed
+
+
+def test_add_event_task_id_defaults_to_null_and_round_trips(tmp_path):
+    p = tmp_path / "t.db"
+    w = TraceWriter(p, batch=100)
+    cid = w.intern_code("/x/prog.py", "f", 1)
+    e1 = w.add_event(10, 7, "CALL", None, cid, 1, {"args": {}})
+    e2 = w.add_event(11, 7, "CALL", None, cid, 1, {"args": {}}, task_id=3)
+    w.add_task(3, "task-A", 7)
+    w.add_task(4, None, 7)                  # a task whose name was unreadable
+    w.close()
+    c = sqlite3.connect(p)
+    rows = c.execute("SELECT id, task_id FROM events ORDER BY id").fetchall()
+    assert rows == [(e1, None), (e2, 3)]
+    tasks = c.execute("SELECT id, name, thread_id FROM tasks ORDER BY id").fetchall()
+    assert tasks == [(3, "task-A", 7), (4, None, 7)]

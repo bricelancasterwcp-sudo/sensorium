@@ -61,6 +61,13 @@ command. Every example above was run as typed, against a small `fog.py` whose
 `compute` sums cells into a `visible` local and whose `build_key(record)`
 takes a dict, and a two-test `tests/test_fog.py`.
 
+On an asyncio program `tree` groups by task, shows each coroutine call as an
+unframed event in its true position, and tags any call whose caller opened no
+frame with that caller's name (`<- worker (unframed)`) instead of re-parenting
+it -- framed callees and unframed ones alike. Nothing inside an `async def` is inspectable yet — no
+`--focus`, `watch` or LINE there — and `run` says so at record time if a
+`--focus` matched only such code.
+
 Recording captures calls, returns, raises and handled-events for code under
 the working directory the run started in — so `sensorium run -- pytest ...`
 traces your tests and your code, and not pytest's. `--focus module:qualname`
@@ -123,6 +130,25 @@ scrolled away.
 DIVERGED is not a failure of the tool. For a program whose control flow
 depends on state outside the process, DIVERGED is the correct answer; the new
 trace is still recorded and queryable, and permanently labelled.
+
+### `tree` — derived parentage, and what a task group claims
+
+A parent link is the **caller frame**, verified by code identity, never
+"the last frame opened on this thread" — coroutines resumed by the event
+loop, generators resumed by their consumer and callbacks from C all break
+that assumption, and v1 made it. When the caller has no frame (a
+generator or coroutine body) the link is `NULL` and the caller is *named*;
+when the caller is untraced (the event loop, a library) the frame is a
+root. A trace recorded by a format-1 sensorium is labelled
+`parentage: ASSUMED` because its links were the guess.
+
+Grouping by task is a statement about causality *within* a task (one
+task is sequential) and says nothing about order *between* tasks beyond
+wall-clock event ids; the footer says so. Task identity is a serial
+minted per task object, not the task's name — two tasks named alike do
+not merge — and is `NULL` for everything that did not run inside an
+asyncio task (code before/after the loop, and loop callbacks such as
+`call_soon`/`add_done_callback`).
 
 ### `exceptions` — five dispositions, and a real refusal
 
@@ -213,7 +239,8 @@ setup, so readable by every account on the machine. In plaintext it holds:
 - the command line, the working directory, the git commit, and content
   digests of every source file the run traced;
 - captured argument, return and local values, clipped to the caps `info`
-  prints but not filtered for what they contain.
+  prints but not filtered for what they contain;
+- which asyncio task each event ran in, and the tasks' names.
 
 `info` refuses to print the environment and `refocus` refuses to print the
 variables it compared — both carry secrets, and both say so in their own
@@ -248,25 +275,36 @@ because a reader who checks the list concludes their case was covered.
 CPython 3.14.4 — with `python corpus/run_corpus.py --bench`:
 
     workload            tier      baseline  recorded       x    events  us/event
-    call_dense          default     0.0090    1.0812   119.8    185428       5.8
-    call_dense          focused     0.0091    1.4773   162.8    278140       5.3
-    work_between_calls  default     0.1087    0.2820     2.6     24004       7.2
-    work_between_calls  focused     0.1083    0.3966     3.7     48006       6.0
+    call_dense          default     0.0090    1.2210   135.3    185428       6.5
+    call_dense          focused     0.0089    1.6943   189.8    278140       6.1
+    work_between_calls  default     0.1111    0.3128     2.8     24004       8.4
+    work_between_calls  focused     0.1103    0.4472     4.1     48006       7.0
+    async_call_dense    default     0.0309    0.3290    10.7     40004       7.5
 
-    recorder fixed cost: 0.034s on a program that does nothing (0.0074s -> 0.0412s)
+    recorder fixed cost: 0.037s on a program that does nothing (0.0070s -> 0.0441s)
 
-Across four runs of that command on this machine the multipliers span
-120–125, 161–176, 2.6–2.7 and 3.7–3.8, the fixed cost sits at 0.034 s (six
-consecutive measurements: 0.0331–0.0346 s), and the event counts do not move
-at all. Measured while the machine was also running the test suite, that same
-fixed cost reads 0.052 s — best of N removes noise *within* a measurement, and
-nothing removes something else using the machine for the whole of it. Read
-these as floors taken on an idle machine.
+**What 0.2.0 added, measured against 0.1.0 on the same machine the same
+day**, each side best-of-three in its own fresh venv, two independent runs
+per side: `call_dense` went from 6.0 to 6.5 µs/event (+8%) and
+`work_between_calls` from 8.3 to 8.4 (+1%); the call-dense multiplier moved
+from 113× to 135× (+19%), of which roughly half is that same per-event cost
+restated and half is the two builds' baselines differing by a millisecond.
+The design note predicted about 0.05 µs/event for derived parentage plus
+task identity; the in-situ cost is 0.1–0.5 µs/event depending on call
+density — five to ten times the prediction, recorded here as a finding
+rather than restated. `async_call_dense` runs every call inside a running
+event loop and so pays the task-identity path in full: 7.5 µs/event, about a
+microsecond more than the synchronous call-dense case on this box.
+`async_call_dense` has no frameable target (its only callee is a one-line
+function), so it is reported for the default tier only.
+`us/event` is the figure that travels; the multiplier tracks how call-dense
+the program is.
 
-These are measurements of one machine and two workloads, not a promise about
-yours. The multiplier is not a property of sensorium: recording costs about
-**6 microseconds per event** here, and how much that is depends entirely on
-how often the traced program calls things. `call_dense` is naive recursive
+These are measurements of one machine and three workloads, not a promise
+about yours. The multiplier is not a property of sensorium: recording costs
+about **6–7 microseconds per event** here (6.5 on the call-dense case), and
+how much that is depends entirely on how often the traced program calls
+things. `call_dense` is naive recursive
 `fib`, close to the worst case that exists — every microsecond of its baseline
 is function calls. `work_between_calls` does real work inside each call, which
 is what ordinary code looks like. Times are whole-command wall clock (best of
@@ -285,19 +323,23 @@ inner loop it would cost far more.
     python corpus/run_corpus.py --show     # print the questions and commands
     python corpus/run_corpus.py --bench    # report recording overhead
 
-Eleven small programs with deliberately planted bugs, and nineteen questions
+Fifteen small programs with deliberately planted bugs, and twenty-seven questions
 registered **before** any output was looked at: the question in plain language,
 the known ground truth, the exact invocation expected to yield it, and why a
 `print()` cannot answer it. Ground truth is known because the bugs were
 planted. This is the regression suite, and it includes the honesty cases — a
 DIVERGED verdict, an under-claimed generator swallow, a `watch` tally with
-fourteen unchecked sites.
+fourteen unchecked sites, a task group that answers which coroutine made the
+final write, and a cancellation located at the line a task was parked on.
 
 `--bench` reports; it never gates. Overhead is a tracked fact about a machine
 and a workload, not a pass/fail property of the tool.
 
-## Not in v1
+## Not yet
 
-Async task attribution, subprocess following, attach-to-live-server flight
+Line-level capture, `--focus`, `watch` and frames **inside** `async def`
+(coroutines are recorded as unframed calls with task identity, and their
+sync callees are attributed — but the coroutine's own body is not
+inspectable; arc 2). Subprocess following, attach-to-live-server flight
 recording, native (rr) substrates, MCP wrapper. See
-`docs/superpowers/specs/2026-08-18-sensorium-design.md`.
+`docs/superpowers/specs/2026-08-21-sensorium-async-design.md`.

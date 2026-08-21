@@ -70,7 +70,7 @@ def _load_one(tmp_path, questions, **top):
 # -- the corpus itself -----------------------------------------------------
 def test_all_cases_load_and_validate():
     cases = run_corpus.load_cases()
-    assert len(cases) >= 11
+    assert len(cases) >= 15
     ids = [(c.name, q["id"]) for c in cases for q in c.questions]
     assert len(ids) == len(set(ids))
 

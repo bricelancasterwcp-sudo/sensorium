@@ -37,8 +37,8 @@ def test_create_trace_has_all_tables(tmp_path):
     names = {r[0] for r in conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"meta", "code_objects", "frames", "events", "output",
-            "fingerprints"} <= names
-    assert db.get_meta(conn, "trace_format") == 1
+            "fingerprints", "tasks"} <= names
+    assert db.get_meta(conn, "trace_format") == db.TRACE_FORMAT
 
 
 def test_meta_roundtrip_preserves_types(tmp_path):
@@ -57,3 +57,18 @@ def test_open_trace_missing_file_raises(tmp_path):
     import pytest
     with pytest.raises(FileNotFoundError):
         db.open_trace(tmp_path / "nope.db")
+
+
+def test_format_2_has_task_id_and_tasks_table(tmp_path):
+    """Spec D4: events gains a nullable task_id; a tasks table maps serial to
+    display name once, not per event; frames is unchanged."""
+    conn = db.create_trace(tmp_path / "t.db")
+    assert db.get_meta(conn, "trace_format") == 2
+    ev_cols = [r[1] for r in conn.execute("PRAGMA table_info(events)")]
+    assert ev_cols[-1] == "task_id"
+    task_cols = [r[1] for r in conn.execute("PRAGMA table_info(tasks)")]
+    assert task_cols == ["id", "name", "thread_id"]
+    fr_cols = [r[1] for r in conn.execute("PRAGMA table_info(frames)")]
+    assert fr_cols == ["id", "parent_id", "code_id", "call_event_id",
+                       "return_event_id", "depth", "thread_id", "closed_by",
+                       "unwind_exc"]

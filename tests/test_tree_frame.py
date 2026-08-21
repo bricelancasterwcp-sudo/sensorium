@@ -1,4 +1,8 @@
 """`tree` and `frame`: what actually ran, and one activation in full."""
+import sys
+
+import pytest
+
 from sensorium import cli, paths
 from sensorium.store.writer import TraceWriter
 from tests.helpers import record_script
@@ -324,7 +328,7 @@ def test_frame_nth_zero_is_rejected_not_silently_wrapped(
     run_id = _rec(tmp_path, monkeypatch)     # SRC: silver() runs twice
     assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "0"]) == 1
     out = capsys.readouterr().out
-    assert "--nth 0" in out and "2 recorded activation(s)" in out
+    assert "--nth 0" in out and "2 framed activation(s)" in out
     assert "1..2" in out
 
 
@@ -332,7 +336,7 @@ def test_frame_nth_negative_does_not_crash(tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch, src=LOOP)   # accumulate() runs once
     assert cli.main(["frame", run_id, "--fn", "accumulate", "--nth", "-5"]) == 1
     out = capsys.readouterr().out
-    assert "--nth -5" in out and "1 recorded activation(s)" in out
+    assert "--nth -5" in out and "1 framed activation(s)" in out
 
 
 def test_frame_nth_too_high_names_activation_count(
@@ -340,7 +344,7 @@ def test_frame_nth_too_high_names_activation_count(
     run_id = _rec(tmp_path, monkeypatch)     # SRC: silver() runs twice
     assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "9"]) == 1
     out = capsys.readouterr().out
-    assert "--nth 9" in out and "2 recorded activation(s)" in out
+    assert "--nth 9" in out and "2 framed activation(s)" in out
 
 
 def test_frame_children_section_lists_child_frames(
@@ -350,6 +354,59 @@ def test_frame_children_section_lists_child_frames(
     out = capsys.readouterr().out
     assert "children (1):" in out
     assert "silver(" in out
+
+
+def test_frame_children_include_the_unframed_calls_the_frame_made(
+        tmp_path, monkeypatch, capsys):
+    """GEN_SRC's `main` calls exactly one thing -- `rows`, a generator, which
+    opens no frame. Listing only framed children prints "children: (none)"
+    over a CALL the trace holds with `parent_frame` pointing at this very
+    frame: a denial `grep` on the same trace contradicts."""
+    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
+    assert cli.main(["frame", run_id, "--fn", "main"]) == 0
+    out = capsys.readouterr().out
+    assert "children: (none)" not in out
+    assert "children (1):" in out
+    child = next(ln for ln in out.splitlines() if "rows(" in ln)
+    assert "[generator, unframed]" in child
+
+
+def test_frame_children_merge_framed_and_unframed_in_event_order(
+        tmp_path, monkeypatch, capsys):
+    """`mixed` calls a plain function, then a generator, then a plain one
+    again. Both kinds are children of the same frame and the list is ordered
+    by when the calls happened -- appending one kind after the other would
+    report an execution order the trace does not hold."""
+    src = """
+def one():
+    return 1
+
+def gen():
+    yield 2
+
+def three():
+    return 3
+
+def mixed():
+    one()
+    list(gen())
+    three()
+
+def main():
+    mixed()
+
+if __name__ == "__main__":
+    main()
+"""
+    run_id = _rec(tmp_path, monkeypatch, src=src)
+    assert cli.main(["frame", run_id, "--fn", "mixed"]) == 0
+    out = capsys.readouterr().out
+    assert "children (3):" in out
+    rows = out.split("children (3):\n")[1].splitlines()
+    assert len(rows) == 3, rows
+    assert "one(" in rows[0]
+    assert "gen(" in rows[1] and "[generator, unframed]" in rows[1]
+    assert "three(" in rows[2]
 
 
 def test_frame_unknown_ref_is_exit_1(tmp_path, monkeypatch, capsys):
@@ -375,3 +432,395 @@ def test_frame_with_no_selector_at_all_says_what_to_give_it(
     assert cli.main(["frame", run_id]) == 1
     out = capsys.readouterr().out
     assert "f<id>" in out and "--fn" in out
+
+
+ASYNC_SRC = """
+import asyncio
+
+def step(task, n):
+    return f"{task}:{n}"
+
+async def worker(name):
+    step(name, 1)
+    await asyncio.sleep(0)
+    return step(name, 2)
+
+async def amain():
+    a = asyncio.create_task(worker("A"), name="task-A")
+    b = asyncio.create_task(worker("B"), name="task-B")
+    return await asyncio.gather(a, b)
+
+if __name__ == "__main__":
+    asyncio.run(amain())
+"""
+
+GEN_SRC = """
+def parse(s):
+    return int(s)
+
+def rows(items):
+    for it in items:
+        yield parse(it)
+
+def main():
+    return list(rows(["1", "2"]))
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def _section(out: str, header: str) -> list[str]:
+    """Lines under `header` up to the next unindented line."""
+    lines = out.splitlines()
+    i = lines.index(header)
+    body = []
+    for ln in lines[i + 1:]:
+        if ln and not ln.startswith(" "):
+            break
+        body.append(ln)
+    return body
+
+
+def test_tree_groups_by_task_and_names_the_real_caller(tmp_path, monkeypatch,
+                                                        capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    a = "\n".join(_section(out, "task t2: task-A"))
+    b = "\n".join(_section(out, "task t3: task-B"))
+    assert "worker(name='A')  [coroutine, unframed]" in a
+    assert a.count("<- worker (unframed)") == 2 and "task='B'" not in a
+    assert b.count("<- worker (unframed)") == 2 and "task='A'" not in b
+    # <module> ran before the loop existed: not placed in any task.
+    assert "<module>()" in "\n".join(_section(out, "no asyncio task"))
+    assert "order between tasks is wall-clock" in out
+
+
+def test_tree_unframed_count_matches_the_trace(tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    from sensorium import paths
+    from sensorium.store.reader import Trace
+    n = len(Trace.open(paths.find_trace(run_id)).unframed_calls())
+    assert cli.main(["tree", run_id]) == 0
+    assert f"{n} unframed call(s) in this trace" in capsys.readouterr().out
+
+
+def test_tree_renders_a_generator_call_under_the_frame_that_called_it(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    lines = out.splitlines()
+    main_ln = next(ln for ln in lines if "main()" in ln)
+    gen_ln = next(ln for ln in lines if "rows(" in ln)
+    assert "[generator, unframed]" in gen_ln
+    indent = len(main_ln) - len(main_ln.lstrip())
+    assert gen_ln.startswith(" " * (indent + 2) + "e")      # child of main
+    parse_lns = [ln for ln in lines if "parse(" in ln]
+    assert len(parse_lns) == 2
+    assert all("<- rows (unframed)" in ln for ln in parse_lns)
+    assert "no asyncio task" not in out                       # no tasks: no groups
+    assert "unframed call(s) in this trace" in out
+
+
+def test_tree_around_an_unframed_event_says_so(tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
+    from sensorium import paths
+    from sensorium.store.reader import Trace
+    ev, = Trace.open(paths.find_trace(run_id)).unframed_calls()
+    assert cli.main(["tree", run_id, "--around", f"e{ev.id}"]) == 1
+    out = capsys.readouterr().out
+    assert f"e{ev.id} is an unframed CALL of rows (generator)" in out
+    assert f"sensorium grep {run_id} rows" in out
+
+
+def test_tree_depth_withholds_an_unframed_call_and_counts_it(
+        tmp_path, monkeypatch, capsys):
+    """`--depth` prunes unframed calls exactly as it prunes frames. An
+    unframed call has no frame of its own, so the "continue with --root fN"
+    hint cannot name it: if the note does not count it, a reader has no way
+    to learn the depth cut hid a call at all."""
+    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
+    # --depth 0 prunes main(), and rows() -- the call main made without a
+    # frame -- is withheld with it.
+    assert cli.main(["tree", run_id, "--depth", "0"]) == 0
+    out = capsys.readouterr().out
+    assert "rows(" not in out
+    assert "1 unframed call(s) withheld" in out
+    # --depth 1 renders main(), so here it is the depth rule applied to the
+    # unframed leaf itself (rows sits at depth 2) that withholds it. Both
+    # paths must count, or one of them hides a call in silence.
+    assert cli.main(["tree", run_id, "--depth", "1"]) == 0
+    out = capsys.readouterr().out
+    assert "main()" in out and "rows(" not in out
+    assert "1 unframed call(s) withheld by --depth 1" in out
+
+
+def test_tree_limit_pins_the_page_and_counts_every_withheld_unframed_call(
+        tmp_path, monkeypatch, capsys):
+    """`--limit` is ONE budget across the whole page, not a fresh one per
+    root -- with a per-item budget every task group would print its own
+    `--limit` rows and the page would be as long as the trace.
+
+    And the unframed calls the cut withheld are counted by subtraction from
+    the trace-wide total, which is exact. Counting only the ones the walk
+    happened to touch under-reports: a withheld frame's withheld descendants
+    make calls nobody walks past, so `--limit 1` used to claim it had hidden
+    one unframed call directly under a footer saying the trace holds three.
+    """
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    from sensorium import paths
+    from sensorium.store.reader import Trace
+    n = len(Trace.open(paths.find_trace(run_id)).unframed_calls())
+    assert n == 3                                   # amain + two workers
+    for limit, shown_unframed in ((1, 0), (3, 2)):
+        assert cli.main(["tree", run_id, "--limit", str(limit)]) == 0
+        out = capsys.readouterr().out
+        # Task headers, the note and the footers are unindented; every row
+        # that spends budget is indented under a header.
+        rows = [ln for ln in out.splitlines() if ln.startswith(" ")]
+        assert len(rows) == limit, (limit, rows)
+        assert f"--limit {limit}" in out
+        assert f"{n - shown_unframed} unframed call(s) withheld" in out
+        assert f"{n} unframed call(s) in this trace" in out
+        # The whole-trace view knows the total: it never hedges.
+        assert "at least" not in out
+
+
+def test_tree_subtree_view_says_at_least_when_counting_withheld_calls(
+        tmp_path, monkeypatch, capsys):
+    """A `--root` slice cannot subtract from the trace-wide total -- most of
+    what it did not print lies outside the subtree and was not withheld by
+    anything. So it counts what it walked past and says so as a lower
+    bound, rather than printing a total it is not in a position to know."""
+    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
+    assert cli.main(["tree", run_id, "--root", "f2", "--depth", "0"]) == 0
+    out = capsys.readouterr().out
+    assert "main()" in out and "rows(" not in out
+    assert "at least 1 unframed call(s) withheld by --depth 0" in out
+
+
+# `amain` awaits `inner` directly: `inner`'s CALL payload names `amain` as
+# its caller (both are coroutines, so neither opens a frame). Untagged, the
+# two render as plain siblings under one task header -- which reads as two
+# unrelated coroutines and drops parentage the trace actually holds.
+AWAIT_SRC = """
+import asyncio
+
+def leaf():
+    return 1
+
+async def inner():
+    return leaf()
+
+async def amain():
+    return await inner()
+
+if __name__ == "__main__":
+    asyncio.run(amain())
+"""
+
+
+def test_tree_names_the_unframed_caller_of_an_unframed_call(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=AWAIT_SRC)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    inner_ln = next(ln for ln in out.splitlines() if "inner(" in ln)
+    assert inner_ln.endswith("[coroutine, unframed]  <- amain (unframed)")
+    # `amain` was awaited by the event loop, not by traced code: no tag.
+    amain_ln = next(ln for ln in out.splitlines() if "amain(" in ln)
+    assert amain_ln.endswith("[coroutine, unframed]")
+
+
+# `Evil.get_name()` raises, so the recorder mints the task identity but
+# cannot read its name and stores NULL. NULL means "the name could not be
+# read", never "the task had no name" -- the label must not claim the latter.
+HOSTILE_TASK_SRC = """
+import asyncio
+
+class Evil(asyncio.Task):
+    def get_name(self):
+        raise RuntimeError("no name for you")
+
+def leaf():
+    return 1
+
+async def inner():
+    return leaf()
+
+async def amain():
+    loop = asyncio.get_running_loop()
+    return await Evil(inner(), loop=loop)
+
+def main():
+    return asyncio.run(amain())
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def test_tree_says_a_task_name_was_unreadable_not_that_it_was_unnamed(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=HOSTILE_TASK_SRC)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "(name unreadable)" in out
+    assert "(unnamed)" not in out
+
+
+# `cb` is handed to the loop with `call_soon`: it runs INSIDE a running
+# event loop, on the loop thread, with `asyncio.current_task()` returning
+# None -- so its events carry a NULL task_id exactly like `<module>`'s do.
+# The group they share cannot be called "outside any event loop" without
+# saying something false about half of it.
+CALL_SOON_SRC = """
+import asyncio
+
+def leaf():
+    return 1
+
+def cb():
+    leaf()
+
+async def amain():
+    loop = asyncio.get_running_loop()
+    loop.call_soon(cb)
+    await asyncio.sleep(0)
+
+if __name__ == "__main__":
+    asyncio.run(amain())
+"""
+
+
+def test_tree_null_task_group_does_not_claim_the_code_ran_outside_the_loop(
+        tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=CALL_SOON_SRC)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    group = "\n".join(_section(out, "no asyncio task"))
+    assert "cb(" in group, out          # ran in the loop, and is in the group
+    assert "<module>()" in group        # ran before it, and is in the same one
+    assert "outside any event loop" not in out
+    assert "outside" not in out
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 14),
+    reason="on 3.12/3.13 asyncio.Task.__init__ itself calls hash() on the "
+           "new task to register it in the pure-Python _all_tasks WeakSet "
+           "(_register_task), so constructing a hostile-__hash__ Task "
+           "subclass raises before sensorium's tracer ever sees the task -- "
+           "reproduces identically with no sensorium import at all. 3.14 "
+           "does not register tasks that way, so this is a CPython version "
+           "fact, not a sensorium defect; the tool's claim (a hostile task "
+           "hash is counted, never crashes the program) is exercised on 3.14.")
+def test_tree_null_task_group_admits_it_may_be_an_unreadable_identity(
+        tmp_path, monkeypatch, capsys):
+    """When the identity lookup RAISED, a NULL task_id means "could not
+    tell", not "no task" -- and both readings are live in the same group.
+    `info` already says how many lookups broke; the group label has to
+    admit it too, or a reader takes the group at face value."""
+    from tests.test_async import HOSTILE_HASH_TASK
+    src = HOSTILE_HASH_TASK + '\nif __name__ == "__main__":\n    main()\n'
+    run_id = _rec(tmp_path, monkeypatch, src=src)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "lookup error(s), see info" in out
+    header = next(ln for ln in out.splitlines()
+                  if ln.startswith("no asyncio task"))
+    assert "task identity unreadable" in header
+
+
+def test_tree_subtree_views_omit_the_inter_task_ordering_footer(
+        tmp_path, monkeypatch, capsys):
+    """`--root` and `--around` show one frame's descendants. A line about the
+    order BETWEEN tasks describes nothing the reader can see there, so only
+    the parentage-basis caveat -- a property of the recording, not of the
+    slice -- survives into a subtree view."""
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    assert cli.main(["tree", run_id, "--root", "f1"]) == 0
+    assert "order between tasks" not in capsys.readouterr().out
+    assert cli.main(["tree", run_id, "--around", "e1"]) == 0
+    assert "order between tasks" not in capsys.readouterr().out
+
+
+def test_frame_fn_distinguishes_unframed_from_never_recorded(tmp_path,
+                                                              monkeypatch,
+                                                              capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    assert cli.main(["frame", run_id, "--fn", "worker"]) == 1
+    out = capsys.readouterr().out
+    assert "'worker' was recorded as 2 call(s) but not framed (coroutine)" in out
+    assert f"sensorium grep {run_id} worker" in out
+    assert "no recorded activations" not in out
+    assert cli.main(["frame", run_id, "--fn", "nope"]) == 1
+    assert "no recorded activations of 'nope'" in capsys.readouterr().out
+
+
+def test_frame_fn_out_of_range_counts_the_unframed_activations_too(
+        tmp_path, monkeypatch, capsys):
+    """One qualname, two code objects: a plain `worker` here and a coroutine
+    `worker` in the imported module. `--nth` indexes the FRAMED ones, so the
+    refusal has to say which population that "1" describes -- reporting
+    "1 recorded activation(s)" while `grep` shows three CALLs is the same
+    denial `--fn` was already fixed for once, wearing a different message.
+    """
+    (tmp_path / "b.py").write_text("async def worker():\n    return 1\n")
+    src = """
+import asyncio
+import b
+
+def worker():
+    return 0
+
+async def amain():
+    await b.worker()
+    await b.worker()
+
+if __name__ == "__main__":
+    worker()
+    asyncio.run(amain())
+"""
+    run_id = _rec(tmp_path, monkeypatch, src=src)
+    assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "3"]) == 1
+    out = capsys.readouterr().out
+    assert "1 framed activation(s)" in out
+    assert "2 recorded but unframed (coroutine)" in out
+    assert "valid --nth is 1..1 over the framed ones" in out
+    assert f"sensorium grep {run_id} worker" in out
+
+
+def test_frame_fn_unframed_message_names_every_kind_not_just_the_first(
+        tmp_path, monkeypatch, capsys):
+    """`shape` is a generator in one module and a coroutine in the other,
+    and neither is framed. Naming `calls[0]`'s kind labels both call sites
+    with whichever one the trace happened to record first."""
+    (tmp_path / "b.py").write_text("async def shape():\n    return 1\n")
+    src = """
+import asyncio
+import b
+
+def shape():
+    yield 1
+
+async def amain():
+    await b.shape()
+
+if __name__ == "__main__":
+    list(shape())
+    asyncio.run(amain())
+"""
+    run_id = _rec(tmp_path, monkeypatch, src=src)
+    assert cli.main(["frame", run_id, "--fn", "shape"]) == 1
+    out = capsys.readouterr().out
+    assert "recorded as 2 call(s) but not framed (coroutine/generator)" in out
+
+
+def test_frame_header_names_the_task(tmp_path, monkeypatch, capsys):
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    assert cli.main(["frame", run_id, "--fn", "step", "--nth", "1"]) == 0
+    head = capsys.readouterr().out.splitlines()[0]
+    assert "task t2 (task-A)" in head and "depth 0" in head

@@ -25,6 +25,16 @@ class Event:
     code_id: int | None
     line: int | None
     payload: dict | None
+    task_id: int | None = None   # None when no asyncio task is current
+                                 # (before/after the loop, AND inside loop
+                                 # callbacks), or format 1
+
+
+@dataclass(frozen=True)
+class Task:
+    id: int
+    name: str | None         # None when the name could not be read
+    thread_id: int
 
 
 @dataclass(frozen=True)
@@ -42,7 +52,8 @@ class Frame:
 
 _FRAME_COLS = ("id, parent_id, code_id, call_event_id, return_event_id, "
                "depth, thread_id, closed_by, unwind_exc")
-_EVENT_COLS = "id, ts_ns, thread_id, kind, frame_id, code_id, line, payload"
+_EVENT_COLS_V1 = "id, ts_ns, thread_id, kind, frame_id, code_id, line, payload"
+_EVENT_COLS_V2 = _EVENT_COLS_V1 + ", task_id"
 
 
 def _loads(s):
@@ -54,7 +65,8 @@ def _frame(row) -> Frame:
 
 
 def _event(row) -> Event:
-    return Event(*row[:7], _loads(row[7]))
+    # 8 columns on a format-1 trace, 9 on format 2; task_id defaults to None.
+    return Event(*row[:7], _loads(row[7]), *row[8:])
 
 
 class Trace:
@@ -62,6 +74,12 @@ class Trace:
         self._c = conn
         self.path = path
         self._code_cache: dict[int, Code] | None = None
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(events)")}
+        # Decided from the table, not from meta: the column is the fact.
+        self._ecols = _EVENT_COLS_V2 if "task_id" in cols else _EVENT_COLS_V1
+        self._has_tasks = bool(conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='tasks'"
+        ).fetchone())
 
     @classmethod
     def open(cls, path: Path) -> "Trace":
@@ -83,7 +101,7 @@ class Trace:
 
     def events(self, kind=None, code_id=None, frame_id=None, after=0,
                limit=None) -> list[Event]:
-        q = f"SELECT {_EVENT_COLS} FROM events WHERE id > ?"
+        q = f"SELECT {self._ecols} FROM events WHERE id > ?"
         params: list = [after]
         if kind is not None:
             kinds = (kind,) if isinstance(kind, str) else tuple(kind)
@@ -103,7 +121,7 @@ class Trace:
 
     def event(self, eid: int) -> Event | None:
         row = self._c.execute(
-            f"SELECT {_EVENT_COLS} FROM events WHERE id = ?", (eid,)).fetchone()
+            f"SELECT {self._ecols} FROM events WHERE id = ?", (eid,)).fetchone()
         return None if row is None else _event(row)
 
     def frames(self, code_id=None) -> list[Frame]:
@@ -135,6 +153,53 @@ class Trace:
     def counts(self) -> dict[str, int]:
         return dict(self._c.execute(
             "SELECT kind, COUNT(*) FROM events GROUP BY kind"))
+
+    @property
+    def format(self) -> int:
+        """`meta["trace_format"]`; a trace without the key predates it (1)."""
+        return db.get_meta(self._c, "trace_format", 1)
+
+    def parentage_basis(self) -> str:
+        """"derived" (format 2+: parent = the caller frame, verified by code
+        identity) or "assumed" (format 1: parent = the last frame opened on
+        the thread, which is a guess that async resumption, generators and
+        C-level callbacks all break). Query output labels the latter."""
+        return "derived" if self.format >= 2 else "assumed"
+
+    def tasks(self) -> list[Task]:
+        if not self._has_tasks:
+            return []
+        return [Task(*r) for r in self._c.execute(
+            "SELECT id, name, thread_id FROM tasks ORDER BY id")]
+
+    def task(self, task_id: int) -> Task | None:
+        if not self._has_tasks:
+            return None
+        row = self._c.execute(
+            "SELECT id, name, thread_id FROM tasks WHERE id = ?",
+            (task_id,)).fetchone()
+        return None if row is None else Task(*row)
+
+    def unframed_calls(self, code_id: int | None = None) -> list[Event]:
+        """CALL events no frame was opened for (generators, coroutines).
+
+        A join on frames.call_event_id, deliberately not the `unframed`
+        payload key: the key is format 2, the join answers for every format,
+        and 'recorded but not framed' must be the same fact on both."""
+        q = (f"SELECT {', '.join('e.' + c.strip() for c in self._ecols.split(','))} "
+             "FROM events e LEFT JOIN frames f ON f.call_event_id = e.id "
+             "WHERE e.kind = 'CALL' AND f.id IS NULL AND e.code_id IS NOT NULL")
+        params: tuple = ()
+        if code_id is not None:
+            q += " AND e.code_id = ?"
+            params = (code_id,)
+        return [_event(r) for r in self._c.execute(q + " ORDER BY e.id", params)]
+
+    def call_counts(self) -> dict[int, int]:
+        """code_id -> CALL events. Counts activations, framed or not."""
+        return dict(self._c.execute(
+            "SELECT code_id, COUNT(*) FROM events WHERE kind = 'CALL' "
+            "AND code_id IS NOT NULL GROUP BY code_id"))
 
     def fingerprints(self) -> dict[int, tuple[str, int]]:
         return {tid: (h, n) for tid, h, n in self._c.execute(
