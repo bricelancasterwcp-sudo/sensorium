@@ -352,6 +352,59 @@ def test_frame_children_section_lists_child_frames(
     assert "silver(" in out
 
 
+def test_frame_children_include_the_unframed_calls_the_frame_made(
+        tmp_path, monkeypatch, capsys):
+    """GEN_SRC's `main` calls exactly one thing -- `rows`, a generator, which
+    opens no frame. Listing only framed children prints "children: (none)"
+    over a CALL the trace holds with `parent_frame` pointing at this very
+    frame: a denial `grep` on the same trace contradicts."""
+    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
+    assert cli.main(["frame", run_id, "--fn", "main"]) == 0
+    out = capsys.readouterr().out
+    assert "children: (none)" not in out
+    assert "children (1):" in out
+    child = next(ln for ln in out.splitlines() if "rows(" in ln)
+    assert "[generator, unframed]" in child
+
+
+def test_frame_children_merge_framed_and_unframed_in_event_order(
+        tmp_path, monkeypatch, capsys):
+    """`mixed` calls a plain function, then a generator, then a plain one
+    again. Both kinds are children of the same frame and the list is ordered
+    by when the calls happened -- appending one kind after the other would
+    report an execution order the trace does not hold."""
+    src = """
+def one():
+    return 1
+
+def gen():
+    yield 2
+
+def three():
+    return 3
+
+def mixed():
+    one()
+    list(gen())
+    three()
+
+def main():
+    mixed()
+
+if __name__ == "__main__":
+    main()
+"""
+    run_id = _rec(tmp_path, monkeypatch, src=src)
+    assert cli.main(["frame", run_id, "--fn", "mixed"]) == 0
+    out = capsys.readouterr().out
+    assert "children (3):" in out
+    rows = out.split("children (3):\n")[1].splitlines()
+    assert len(rows) == 3, rows
+    assert "one(" in rows[0]
+    assert "gen(" in rows[1] and "[generator, unframed]" in rows[1]
+    assert "three(" in rows[2]
+
+
 def test_frame_unknown_ref_is_exit_1(tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch)
     assert cli.main(["frame", run_id, "--fn", "does_not_exist"]) == 1

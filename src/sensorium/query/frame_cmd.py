@@ -2,7 +2,8 @@
 from sensorium import paths
 from sensorium.query.fmt import (fmt_args, fmt_event, fmt_exc, fmt_value,
                                  parse_fref)
-from sensorium.query.tree_cmd import frame_line, unframed_kind
+from sensorium.query.tree_cmd import (frame_line, unframed_kind,
+                                      unframed_line)
 from sensorium.store.reader import Trace
 
 
@@ -94,11 +95,19 @@ def run(args) -> int:
     elif f.return_event_id is not None:
         ret = trace.event(f.return_event_id)
         print(f"return: {fmt_value((ret.payload or {}).get('value'))}")
-    kids = trace.children(f.id)
+    # Both kinds of callee, merged by event id: a frame whose only callees
+    # were coroutines or generators has NO framed children, and listing only
+    # those printed "(none)" over calls the trace plainly holds -- the same
+    # contradiction with `grep` that `--fn` was fixed for.
+    kids = sorted([(ch.call_event_id, "f", ch) for ch in trace.children(f.id)]
+                  + [(ev.id, "u", ev) for ev in trace.unframed_calls()
+                     if (ev.payload or {}).get("parent_frame") == f.id],
+                  key=lambda k: k[0])
     if kids:
         print(f"children ({len(kids)}):")
-        for ch in kids:
-            print("  " + frame_line(trace, ch))
+        for _eid, kind, obj in kids:
+            print("  " + (frame_line(trace, obj) if kind == "f"
+                          else unframed_line(trace, obj)))
     else:
         print("children: (none)")
     return 0
