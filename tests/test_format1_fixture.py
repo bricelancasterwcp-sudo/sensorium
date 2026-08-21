@@ -51,3 +51,13 @@ def installed_fixture(tmp_path, monkeypatch):
     shutil.copy(FIXTURE, store / "old.db")
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     return "old"
+
+
+def test_format1_trace_reports_no_tasks_and_assumed_parentage():
+    t = Trace.open(FIXTURE)
+    assert t.format == 1
+    assert t.tasks() == []                      # no table: not "zero tasks"
+    assert t.parentage_basis() == "assumed"
+    assert all(e.task_id is None for e in t.events())
+    worker = next(c for c in t.codes() if c.qualname == "worker")
+    assert len(t.unframed_calls(code_id=worker.id)) == 2   # join works on v1
