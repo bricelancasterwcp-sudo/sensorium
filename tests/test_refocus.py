@@ -12,16 +12,20 @@ INCOMPLETE original is real -- the recorder is SIGKILLed mid-run rather than
 hand-built, so the test also proves which metadata survives that death.
 """
 import os
+import re
 import sys
 
 import pytest
 
 from sensorium import cli
+from sensorium.query import refocus_cmd
+from sensorium.store.reader import Trace
 from tests.helpers import run_cli
-from tests.refocus_programs import (ASYNC_CONTENT_FLIP, ASYNC_COUNT_FLIP,
-                                    ASYNC_IN_THREAD, ASYNC_ORDER_FLIP,
-                                    COUNTER, EXIT_FROM_FILE, LIB, LOOP,
-                                    OUTSIDE_ROOT, READS_STDIN, SLEEPER,
+from tests.refocus_programs import (ALL_IN_TASKS, ASYNC_CONTENT_FLIP,
+                                    ASYNC_COUNT_FLIP, ASYNC_IN_THREAD,
+                                    ASYNC_ORDER_FLIP, COUNTER, EXIT_FROM_FILE,
+                                    LIB, LIB_TASKS, LOOP, OUTSIDE_ROOT,
+                                    READS_STDIN, SLEEPER, TASKS_IN_LIB,
                                     THREAD_BRANCH, THREAD_COUNT, TWO_FILES,
                                     WORKER_ON_SECOND_RUN, dbs, drop_meta,
                                     new_run, rec, record_killed,
@@ -40,6 +44,10 @@ def test_refocus_match_captures_line_state_the_original_lacked(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "sum: 35 2" in r.stdout             # the program really ran again
     assert "refocus verdict: MATCH" in r.stdout
+    # a run with no task keeps the sentence it always had, word for word
+    assert ("refocus verdict: MATCH -- every recorded thread produced the "
+            "identical CALL/RETURN/RAISE/HANDLED sequence\n") in r.stdout
+    assert "asyncio task" not in r.stdout.split("what sensorium sees")[0]
     assert "threads: 1 recorded fingerprint(s) compared, all matching" \
         in r.stdout
 
@@ -209,9 +217,17 @@ def test_refocus_matches_when_only_the_task_interleaving_changed(tmp_path):
     assert "refocus verdict: MATCH" in r.stdout
     assert ("tasks: 3 task stream(s) compared by content, all matching; "
             "the ordering between tasks is not compared") in r.stdout
+    # the headline may not claim the raw per-thread sequence matched: the
+    # tasks interleaved the other way, and what matched is each thread's
+    # stream OUTSIDE its tasks plus the task multiset
+    assert ("refocus verdict: MATCH -- every recorded thread produced the "
+            "identical CALL/RETURN/RAISE/HANDLED sequence outside its "
+            "asyncio tasks, and every task stream matched by content"
+            ) in r.stdout
     # the licence names it as one of its bounded points -- the bullet, not
-    # the summary line above, which repeats the same words
-    assert "  - 3 task stream(s) compared by content" in r.stdout
+    # the summary line above -- and carries spec D6's full sentence
+    assert ("  - 3 task stream(s) compared by content; the ordering between "
+            "tasks is not compared") in r.stdout
     assert "tasks: DIVERGED" not in r.stdout
 
 
@@ -231,7 +247,13 @@ def test_refocus_diverges_when_one_task_took_another_path(tmp_path):
 
     t = trace(sdir, new_run(r.stdout))
     assert t.meta["refocus_verdict"] == "DIVERGED"
-    assert "task-B" in t.meta["refocus_diverge_tasks"]
+    # the stamped description is replayed by `info` with no diff section
+    # above it, so it carries the hashes that make the two sides different
+    m = re.search(r"only in A: task-B ([0-9a-f]{12}); "
+                  r"only in B: task-B ([0-9a-f]{12})",
+                  t.meta["refocus_diverge_tasks"])
+    assert m, t.meta["refocus_diverge_tasks"]
+    assert m.group(1) != m.group(2)
     # ...and no position on a stream that never parted: `index` is None
     # here, and stamping it would read as "diverged at step None"
     assert "refocus_diverge_index" not in t.meta
@@ -252,6 +274,55 @@ def test_refocus_diverges_when_the_rerun_ran_a_task_the_original_did_not(
         sdir, new_run(r.stdout)).meta["refocus_diverge_tasks"]
 
 
+def test_refocus_matches_a_program_whose_work_all_ran_inside_tasks(tmp_path):
+    """The commonest async shape: the entry is `asyncio.run(...)` and every
+    traced call happens inside a task. What the compared thread fingerprint
+    covers is then the module frame and nothing else -- so the licence's
+    first point has to say how much it compared, or "identical call shape
+    across 1 compared fingerprint(s)" reads as a claim about the run while
+    covering two events of scaffolding."""
+    run_id, sdir = rec(tmp_path, ALL_IN_TASKS)
+    t = trace(sdir, run_id)
+    assert [q for _f, q, _k, _e in t.causal_stream()] == ["<module>",
+                                                          "<module>"]
+    assert len(t.task_fingerprints()) == 3            # preconditions
+
+    r = refocus(sdir, run_id, "--focus", "prog:worker")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert ("refocus verdict: MATCH -- every recorded thread produced the "
+            "identical CALL/RETURN/RAISE/HANDLED sequence outside its "
+            "asyncio tasks, and every task stream matched by content"
+            ) in r.stdout
+    assert ("threads: 1 recorded fingerprint(s) compared (events outside "
+            "any asyncio task), all matching") in r.stdout
+    assert ("  - identical call shape across 1 compared fingerprint(s), "
+            "holding 2 causal event(s) outside any asyncio task") in r.stdout
+    assert ("  - 3 task stream(s) compared by content; the ordering between "
+            "tasks is not compared") in r.stdout
+
+
+def test_refocus_says_what_it_compared_when_nothing_ran_outside_a_task(
+        tmp_path):
+    """The limit of the shape above: with the traced code in a module and
+    the entry excluded, NOTHING ran outside a task. The thread fingerprint
+    row still exists (Ruling 5) and holds zero events -- and the granted
+    licence must say that rather than imply a comparison it did not make."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "taskslib.py").write_text(LIB_TASKS)
+    run_id, sdir = rec(tmp_path, TASKS_IN_LIB, extra=["--exclude", "prog.py"])
+    t = trace(sdir, run_id)
+    assert t.causal_stream() == []                          # precondition
+    assert [n for _h, n in t.fingerprints().values()] == [0]
+
+    r = refocus(sdir, run_id, "--focus", "taskslib:worker")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout
+    assert ("threads: 1 recorded fingerprint(s) compared (events outside "
+            "any asyncio task), all matching") in r.stdout
+    assert ("  - identical call shape across 1 compared fingerprint(s), "
+            "holding 0 causal event(s) outside any asyncio task") in r.stdout
+
+
 def test_refocus_counts_a_thread_that_ran_only_task_code_as_compared(
         tmp_path):
     """Under the per-task basis a thread whose traced code all ran inside a
@@ -270,6 +341,56 @@ def test_refocus_counts_a_thread_that_ran_only_task_code_as_compared(
     line = next(ln for ln in r.stdout.splitlines()
                 if ln.startswith("threads: "))
     assert "ran no traced code" not in line
+
+
+# -- the verdict may only ever be ADDED to ---------------------------------
+
+def _diverged_res_with_no_task_finding():
+    """`compare()`'s DIVERGED-with-no-index shape, stripped of the task
+    finding that always accompanies it today: the state this module must
+    not be able to talk itself out of."""
+    return {"verdict": "DIVERGED", "index": None, "a_event": None,
+            "b_event": None, "a_desc": None, "b_desc": None, "reasons": [],
+            "a_stream": [], "b_stream": [],
+            "tasks": {"verdict": None, "only_a": [], "only_b": [],
+                      "pair": None, "n_a": 0, "n_b": 0}}
+
+
+def test_final_verdict_never_downgrades_a_diverged_comparison(tmp_path):
+    """`compare()` owns the DIVERGED; `final_verdict` may only widen it.
+    That it agrees today rests on a cross-module invariant -- diff reports
+    DIVERGED with no index exactly when the tasks parted -- which nothing
+    asserts, and the failure direction is a false MATCH with the licence
+    granted on top of it."""
+    sdir = tmp_path / "sdir"
+    ta = Trace.open(synthetic(sdir, "20260101-000000-fvaaaa"))
+    tb = Trace.open(synthetic(sdir, "20260101-000000-fvbbbb"))
+    assert refocus_cmd._thread_divergence(ta, tb) is None    # precondition
+
+    verdict, threads, tasks = refocus_cmd.final_verdict(
+        ta, tb, _diverged_res_with_no_task_finding())
+    assert (verdict, threads, tasks) == ("DIVERGED", None, None)
+
+
+def test_report_does_not_attribute_a_divergence_it_cannot_place(tmp_path,
+                                                                capsys):
+    """The other half: with nothing to attribute the divergence to, the
+    report must say so rather than name the last plausible culprit."""
+    sdir = tmp_path / "sdir"
+    a = synthetic(sdir, "20260101-000000-attrib1")
+    b = synthetic(sdir, "20260101-000000-attrib2")
+    ta, tb = Trace.open(a), Trace.open(b)
+    res = _diverged_res_with_no_task_finding()
+
+    rc = refocus_cmd.report(ta, tb, res, a.stem, b.stem,
+                            refocus_cmd.assess(ta, tb, res))
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert ("refocus verdict: DIVERGED -- the comparison reported a "
+            "divergence this report could not attribute to a thread or a "
+            "task") in out
+    assert "a task took a different path" not in out
+    assert "refocus verdict: MATCH" not in out
 
 
 def test_a_diverged_trace_cannot_pass_itself_off_as_verified(tmp_path):

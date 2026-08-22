@@ -655,3 +655,59 @@ def main():
 if __name__ == "__main__":
     main()
 """
+
+# The commonest async shape: the entry does nothing but `asyncio.run`, so
+# every traced call happens inside a task and the thread's own stream is
+# the module frame and nothing else. What the compared thread fingerprint
+# covers here is two events; the tasks carry the run.
+ALL_IN_TASKS = """
+import asyncio
+
+def step(n):
+    return n
+
+async def worker(name):
+    step(1)
+    await asyncio.sleep(0)
+    return step(2)
+
+async def amain():
+    await asyncio.gather(*[asyncio.create_task(worker(n), name=f"task-{n}")
+                           for n in ("A", "B")])
+
+asyncio.run(amain())
+"""
+
+# Same, with the traced code in an imported module, the import made from
+# inside the coroutine, and the entry excluded from tracing: now NOTHING
+# ran outside a task -- not even a module frame -- so the compared thread
+# stream is empty and its fingerprint row (Ruling 5) holds zero events.
+TASKS_IN_LIB = """
+import asyncio
+
+
+async def amain():
+    import taskslib
+    await taskslib.run_all()
+
+asyncio.run(amain())
+"""
+
+LIB_TASKS = """
+import asyncio
+
+
+def step(n):
+    return n
+
+
+async def worker(name):
+    step(1)
+    await asyncio.sleep(0)
+    return step(2)
+
+
+async def run_all():
+    await asyncio.gather(*[asyncio.create_task(worker(n), name=f"task-{n}")
+                           for n in ("A", "B")])
+"""
