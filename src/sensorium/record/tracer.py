@@ -522,6 +522,13 @@ class Tracer:
         task_id NULL, which is what makes the two rows comparable
         separately.
 
+        The task's entry is normally already there: `_task_serial` creates
+        it when it mints the serial, so that a task minted at a YIELD,
+        RESUME or LINE -- none of which reach this function -- still has a
+        row. The get-or-create stays because this is the only path that
+        needs the object, and a task whose serial predates that rule would
+        otherwise silently lose its events.
+
         A thread that runs a causal event gets a row even when every one of
         them ran inside a task, so its COUNT may be 0. That zero is a fact
         with content -- "this thread ran traced code, all of it inside
@@ -661,7 +668,14 @@ class Tracer:
         `get_name` raises still gets its serial and still attributes its
         events, and is recorded as a task with no name, not as an error.
         Must be called inside an `in_hook` region: a Task subclass's
-        `get_name` is program code."""
+        `get_name` is program code.
+
+        Minting is also where the task's `Fingerprint` is created, so that
+        every `tasks` row has a `task_fingerprints` row whatever kind of
+        event brought the task into view (spec D6). A task that is minted
+        here and never reaches `_fp_for` ends with a zero-count row, which
+        says it ran no causal event while traced -- a different fact from
+        having no row at all."""
         if "asyncio" not in sys.modules:
             return None
         fns = self._asyncio or self._bind_asyncio()
@@ -697,6 +711,21 @@ class Tracer:
             except BaseException:
                 name = None
             self.writer.add_task(serial, name, tls.thread_serial)
+            # Every `tasks` row gets its `task_fingerprints` row, HERE and
+            # not in `_fp_for`, because a serial is minted at any event with
+            # a current task -- YIELD, RESUME and LINE included -- and
+            # `_fp_for` only ever runs on a causal one. A task whose only
+            # traced frames are a RESUMEd generator otherwise had a row in
+            # one table and none in the other, which every reader of the
+            # pair takes for a lossy recording. A zero-count row means "this
+            # task ran no causal event while traced"; no row at all means
+            # the task was never recorded.
+            #
+            # The `_task_lock` block above is CLOSED by this point -- it is
+            # the `with` inside the `try` further up -- so `_fp_lock` is
+            # taken with no other tracer lock held, as everywhere else.
+            with self._fp_lock:
+                self._task_fps.setdefault(serial, Fingerprint())
         tls.task_cache = (task, serial)
         return serial
 

@@ -5,7 +5,7 @@ import re
 
 from sensorium.record.fingerprint import Fingerprint
 from sensorium.store.reader import Trace
-from tests.helpers import record_inproc, record_script
+from tests.helpers import record_inproc, record_script, run_cli
 from tests.test_async import TWO_TASKS
 
 CAUSAL = ("CALL", "RETURN", "RAISE", "HANDLED")
@@ -90,6 +90,41 @@ def main():
     # causal event with task_id NULL.
     t = threading.Thread(target=asyncio.run, args=(worker(),))
     t.start(); t.join()
+"""
+
+# Ruling 9. The mint site is not the fingerprint site: `_task_serial` mints a
+# serial at ANY event that has a current task -- YIELD, RESUME and LINE
+# included -- while the `Fingerprint` used to be created only by `_fp_for`,
+# which runs on causal events alone. This is the shape where the two come
+# apart: `prog.py` is excluded, so the only traced code the task ever runs is
+# a RESUME (and a YIELD) of a generator that lives in an included module and
+# was started before the loop. The task ran no causal event at all.
+RESUME_ONLY_LIB = """
+def counter():
+    n = 0
+    while True:
+        yield n
+        n += 1
+"""
+
+RESUME_ONLY_TASK = """
+import asyncio
+
+import genlib
+
+G = genlib.counter()
+next(G)
+
+
+async def worker():
+    next(G)
+
+
+async def amain():
+    await asyncio.gather(asyncio.create_task(worker(), name="task-A"))
+
+
+asyncio.run(amain())
 """
 
 MANY_TASKS = """
@@ -321,3 +356,53 @@ def test_every_task_of_a_three_hundred_task_run_gets_its_row(tmp_path):
         assert n > 0
         assert n == len(_causal(t, lambda e: e.task_id == tid))
 
+
+def test_a_task_minted_at_a_non_causal_event_still_gets_its_row(tmp_path):
+    """Every `tasks` row has a `task_fingerprints` row (Ruling 9, spec D6).
+
+    A zero-count task row is a fact with content -- "this task ran no causal
+    event while traced" -- and it is not the same fact as having no row.
+    Without it this recording said `tasks: 1` beside `0 task fingerprint(s)`,
+    and `diff` refused the trace against ITSELF with "re-record it with this
+    version": a repair instruction for a trace that was recorded correctly.
+    """
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "genlib.py").write_text(RESUME_ONLY_LIB)
+    run_id, path, r = record_script(tmp_path, RESUME_ONLY_TASK,
+                                    extra=["--exclude", "prog.py"])
+    assert run_id, r.stderr
+    t = Trace.open(path)
+    # The premise, pinned: one task, and its every traced event non-causal.
+    (task,) = t.tasks()
+    assert task.name == "task-A"
+    kinds = [e.kind for e in t.events() if e.task_id == task.id]
+    assert kinds == ["RESUME", "YIELD"]
+    assert _causal(t, lambda e: e.task_id == task.id) == []
+
+    fps = t.task_fingerprints()
+    assert set(fps) == {task.id}
+    assert fps[task.id] == ("task-A", Fingerprint().hexdigest(), 0)
+
+
+def test_info_and_diff_agree_about_a_task_that_ran_no_causal_event(tmp_path):
+    """The two readers that disagreed. `info` counted tasks and task
+    fingerprints from different tables and printed both; `diff` read the
+    empty fingerprint table as "this recording lost its task rows"."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "genlib.py").write_text(RESUME_ONLY_LIB)
+    run_id, _path, r = record_script(tmp_path, RESUME_ONLY_TASK,
+                                     extra=["--exclude", "prog.py"])
+    assert run_id, r.stderr
+    sdir = tmp_path / "sdir"
+
+    info = run_cli(["info", run_id], cwd=tmp_path, sensorium_dir=sdir)
+    assert info.returncode == 0, info.stderr
+    assert "tasks: 1 (t1 task-A)" in info.stdout
+    assert "1 task fingerprint(s) beside it" in info.stdout
+
+    d = run_cli(["diff", run_id, run_id], cwd=tmp_path, sensorium_dir=sdir)
+    assert d.returncode == 0, d.stdout + d.stderr
+    assert "REFUSED" not in d.stdout
+    assert "re-record it with this version" not in d.stdout
+    assert ("tasks: 1 task stream(s) on each side, compared by content as "
+            "(name, hash): all matched") in d.stdout
