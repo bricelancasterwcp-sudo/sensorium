@@ -52,3 +52,26 @@ def installed_fixture2(tmp_path, monkeypatch):
     shutil.copy(FIXTURE, store / "old2.db")
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     return "old2"
+
+
+def test_tree_on_a_format2_trace_keeps_the_unframed_wording(
+        installed_fixture2, capsys):
+    """0.2.0 opened no frame for a coroutine or generator, and this trace is
+    what that recorder wrote. A format-3 reader must keep saying so: the
+    unframed lines, the `<- caller (unframed)` tags and the footer are the
+    honest account of THIS trace. Rendering the arc-2 vocabulary over it --
+    a bare `[coroutine]` marker, a `~ suspended` tail, the "started before
+    recording" wording -- would claim frames and states that were never
+    recorded, from a file that cannot support either claim."""
+    assert cli.main(["tree", installed_fixture2]) == 0
+    out = capsys.readouterr().out
+    assert "[coroutine, unframed]" in out
+    assert "[generator, unframed]" in out
+    assert "<- worker (unframed)" in out
+    assert "6 unframed call(s) in this trace" in out
+    # No derived state: the trace has no YIELD/RESUME rows to derive from.
+    assert "~ " not in out
+    assert "no frame: started before recording" not in out
+    # ...and no bare kind marker: every kind here is qualified as unframed.
+    for ln in out.splitlines():
+        assert "[coroutine]" not in ln and "[generator]" not in ln

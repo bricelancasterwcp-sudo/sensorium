@@ -1,12 +1,22 @@
 """Call-tree slices: what actually ran, in what order -- and who called it.
 
-Parentage is DERIVED on format-2 traces (the caller frame, verified by code
-identity) and ASSUMED on format-1 ones (v1's last-opened-frame guess); the
-footer says which. Coroutines and generators open no frame and are shown as
-events in their true position: under the frame that called them when that
-frame was open, otherwise at the top of their task group. A call whose caller
-has no frame -- framed or unframed itself -- is tagged with the caller's name
-and never re-parented.
+Parentage is DERIVED on format-2 and later traces (the caller frame, verified
+by code identity) and ASSUMED on format-1 ones (v1's last-opened-frame
+guess); the footer says which.
+
+From format 3 every traced body opens a frame, coroutines and generators
+included: they nest under their caller like any other call, and each line
+names its kind and how the frame ENDED -- returned, raised, or one of the
+suspension states DERIVED from its YIELD/RESUME rows (spec D4). A frame that
+never returned is not reported as merely "(open)" when the trace says which
+way it stopped.
+
+A format-1/2 trace has no frames for that code. There, coroutines and
+generators are still shown as events in their true position -- under the
+frame that called them when that frame was open, otherwise at the top of
+their task group -- tagged with the caller's name and never re-parented.
+That whole rendering, and the "unframed" wording that goes with it, is what
+those traces support and is kept exactly as arc 1 wrote it.
 """
 from sensorium import paths
 from sensorium.query.fmt import (fmt_args, fmt_exc, fmt_value, parse_eref,
@@ -49,16 +59,23 @@ def task_label(trace, task_id) -> str:
 
 
 def _caller_of(trace, call) -> str:
-    """`<- QUAL (unframed)` when a CALL's payload names a traced caller that
-    has no frame (a generator or coroutine body). Nothing for a true root or
-    an untraced caller -- and nothing on a format-1 trace, which has no
-    record. Shared by framed and unframed calls alike: the payload key is the
-    same one for both, so a tag rendered on only one of them would drop
-    parentage the trace does hold."""
+    """`<- QUAL (why)` when a CALL's payload names a traced caller that had
+    no open frame. Nothing for a true root or an untraced caller -- and
+    nothing on a format-1 trace, which has no record. Shared by framed and
+    unframed calls alike: the payload key is the same one for both, so a tag
+    rendered on only one of them would drop parentage the trace does hold.
+
+    The REASON differs by format, so the wording does. Up to format 2 a
+    frameless caller is a coroutine or generator body, which that recorder
+    could not frame. From format 3 it can, and the only way left to be named
+    here is to have started running before recording did -- calling such a
+    caller "unframed" would blame a limitation this version no longer has."""
     cc = (call.payload or {}).get("caller_code") if call else None
     if cc is None:
         return ""
-    return f"  <- {trace.code(cc).qualname} (unframed)"
+    why = ("unframed" if trace.format < 3
+           else "no frame: started before recording")
+    return f"  <- {trace.code(cc).qualname} ({why})"
 
 
 def _caller_tag(trace, frame) -> str:
@@ -69,19 +86,48 @@ def _caller_tag(trace, frame) -> str:
     return _caller_of(trace, trace.event(frame.call_event_id))
 
 
+def _state_tail(trace, frame) -> str:
+    """How the frame ended, in the words of the state the READER derived
+    (spec D4) -- never a state this renderer decided on its own. The three
+    arc-1 tails are byte-for-byte what they were: a returned frame still
+    reads `-> value` and an unwound one `!! Exc(...)`, so a synchronous
+    trace renders exactly as it did. The suspension states are the new
+    vocabulary, and each says what stopped the frame and where: "(open)"
+    for a cancelled task or a dropped generator would report "still
+    running" about a frame the trace knows is finished."""
+    s = trace.frame_state(frame)
+    if s.state == "returned":
+        ret = (trace.event(frame.return_event_id)
+               if frame.return_event_id is not None else None)
+        if ret is None:
+            # Closed as a return with no RETURN row to read: say the value
+            # is unknown rather than print one.
+            return " -> ?"
+        return f" -> {fmt_value((ret.payload or {}).get('value'))}"
+    if s.state == "raised":
+        return (f" !! {fmt_exc(frame.unwind_exc)}" if frame.unwind_exc
+                else " !! unwound")
+    if s.state == "cancelled":
+        return f"  ~ cancelled ({s.exc['type']} thrown in at L{s.line})"
+    if s.state == "abandoned":
+        return f"  ~ abandoned (dropped while suspended at L{s.line})"
+    if s.state == "thrown":
+        return f"  ~ unwound by {s.exc['type']} thrown in at L{s.line}"
+    if s.state == "suspended":
+        return f"  ~ suspended at L{s.line} at end of recording"
+    return " (open)"
+
+
 def frame_line(trace, frame) -> str:
     code = trace.code(frame.code_id)
     call = trace.event(frame.call_event_id)
     args = fmt_args((call.payload or {}).get("args", {})) if call else ""
-    if frame.closed_by == "unwind":
-        tail = (f" !! {fmt_exc(frame.unwind_exc)}" if frame.unwind_exc
-                else " !! unwound")
-    elif frame.return_event_id is not None:
-        ret = trace.event(frame.return_event_id)
-        tail = f" -> {fmt_value((ret.payload or {}).get('value'))}"
-    else:
-        tail = " (open)"
-    return (f"f{frame.id} e{frame.call_event_id} {code.qualname}({args}){tail}"
+    # Only a non-function kind is marked. "[function]" on every ordinary
+    # call would be noise, and printing it would change every line of every
+    # synchronous trace this tool has ever rendered.
+    kind = f"  [{frame.kind}]" if frame.kind != "function" else ""
+    return (f"f{frame.id} e{frame.call_event_id} {code.qualname}({args})"
+            f"{kind}{_state_tail(trace, frame)}"
             + _caller_tag(trace, frame))
 
 
