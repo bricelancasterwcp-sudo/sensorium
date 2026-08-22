@@ -663,8 +663,31 @@ def test_diff_refuses_to_compare_across_fingerprint_bases_when_tasks_ran(
     out = capsys.readouterr().out
     assert "verdict: REFUSED" in out
     assert ("recorded under different fingerprint bases "
-            "(A: per-thread, B: per-task)") in out
+            "(A: per-thread, B: per-task): the per-thread side's thread "
+            "stream includes its task events, which this version compares "
+            "separately") in out
     assert "re-record" in out
+
+
+def test_diff_by_name_on_a_per_thread_trace_names_the_missing_table(
+        tmp_path, monkeypatch, capsys):
+    """`--task NAME` against a 0.3.0 trace. That trace is not short of task
+    STREAMS -- its events carry task ids and it ran three tasks; what it
+    lacks is the `task_fingerprints` table this version resolves a name
+    through. "It has no task stream to compare by name" described the
+    recording as emptier than it is."""
+    from tests.test_format2_fixture import _installed
+    from tests.test_format3_fixture import FIXTURE as OLD3
+    old3 = _installed(tmp_path, monkeypatch, OLD3, "old3")
+    assert cli.main(["diff", old3, old3, "--task", "task-A"]) == 2
+    out = capsys.readouterr().out
+    assert "verdict: REFUSED" in out
+    for label in ("A", "B"):
+        assert (f"{label} recorded 3 asyncio task(s) and no "
+                "task_fingerprints rows: this version resolves task names "
+                "through task_fingerprints, which the recording's version "
+                "did not write -- re-record it to compare by name") in out
+    assert "has no task stream" not in out
 
 
 def test_diff_compares_across_bases_when_neither_side_ran_a_task(

@@ -100,14 +100,28 @@ def run(args) -> int:
     # whose rows mean different things print identically without this, and a
     # reader comparing them by eye has nothing to go on.
     per_task = t.fingerprint_basis == "per-task"
-    scope = " outside any asyncio task" if per_task else ""
+    # The narrowing is a fact about THIS run, not only about the recorder's
+    # version: a run that never made a task had nothing narrowed away, and
+    # "(4 causal events outside any asyncio task)" beside "0 task
+    # fingerprint(s)" invites a reader to go looking for the tasks. So the
+    # qualifier and the count are gated on the run having tasks -- which is
+    # the same gate `refocus._thread_scope` uses, and the two commands must
+    # not describe one trace differently.
+    ran_tasks = per_task and bool(t.tasks())
+    scope = " outside any asyncio task" if ran_tasks else ""
     for tid, (h, n) in sorted(t.fingerprints().items()):
         tag = " (main)" if tid == t.main_thread_id() else ""
         print(f"fingerprint thread {tid}{tag}: {h} ({n} causal events{scope})")
     if per_task:
+        # The basis line stays whatever the run did: it says how this
+        # recorder defines a thread row, which is what a reader comparing
+        # two traces by eye needs. Under Ruling 9 every task has a
+        # fingerprint row, so this count is the task count -- a zero-count
+        # row means that task ran no causal event while traced.
+        beside = (f"; {len(t.task_fingerprints())} task fingerprint(s) "
+                  "beside it" if ran_tasks else "")
         print("fingerprints: per-task basis -- each thread row covers the "
-              "events that ran in no asyncio task; "
-              f"{len(t.task_fingerprints())} task fingerprint(s) beside it")
+              f"events that ran in no asyncio task{beside}")
     else:
         # Never claimed retroactively: a trace recorded before the marker
         # existed was fingerprinted the other way, and saying "0 task
@@ -183,9 +197,13 @@ def run(args) -> int:
         # left the reader to re-run the comparison by hand.
         index = m.get("refocus_diverge_index")
         if index is not None:
+            # Indexed, not `.get(..., '?')`: `refocus._stamp` writes these
+            # three keys in one block and always has, so a '?' here could
+            # only ever be printed by a trace this project did not write. A
+            # fallback for that case is a fallback nothing can reach, and it
+            # reads as though the value were sometimes genuinely unknown.
             print(f"  diverged at causal step {index}: "
-                  f"A {m.get('refocus_diverge_a', '?')} / "
-                  f"B {m.get('refocus_diverge_b', '?')}")
+                  f"A {m['refocus_diverge_a']} / B {m['refocus_diverge_b']}")
         if m.get("refocus_thread_divergence"):
             print(f"  diverged on threads: {m['refocus_thread_divergence']}")
         if m.get("refocus_diverge_tasks"):

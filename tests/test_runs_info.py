@@ -431,6 +431,28 @@ def test_info_states_the_fingerprint_basis_and_the_task_rows(
     assert "per-thread basis" not in out
 
 
+def test_info_on_a_sync_0_4_0_trace_does_not_qualify_by_tasks_it_never_ran(
+        tmp_path, monkeypatch, capsys):
+    """The basis is a fact about the recorder; the NARROWING is a fact about
+    the run. A sync program recorded by this version had nothing taken out
+    of its thread row, so qualifying the count with "outside any asyncio
+    task" and printing "0 task fingerprint(s) beside it" sends a reader
+    looking for tasks that never existed -- and `refocus` says nothing of
+    the kind about the same trace (`_thread_scope` is gated on tasks too).
+    """
+    run_id = _record(tmp_path, monkeypatch)          # SRC: no asyncio at all
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "tasks: none (no event ran inside an asyncio task)" in out
+    # The basis line stays: it is how a reader tells two hashes apart.
+    assert _one(out, "fingerprints: per-task basis") == (
+        "fingerprints: per-task basis -- each thread row covers the events "
+        "that ran in no asyncio task")
+    assert "outside any asyncio task" not in out
+    assert "task fingerprint(s) beside it" not in out
+    assert _one(out, "fingerprint thread ").endswith(" causal events)")
+
+
 # -- Ruling 7: a rerun whose thread streams all matched and whose TASKS
 # parted has no `refocus_diverge_index` to print -- so before this line
 # `info` showed a bare `verdict: DIVERGED` with nothing about what diverged,

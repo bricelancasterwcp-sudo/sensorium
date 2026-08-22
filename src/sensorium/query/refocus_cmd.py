@@ -149,7 +149,8 @@ from collections import Counter
 from pathlib import Path
 
 from sensorium import paths
-from sensorium.query.diff_cmd import compare, print_comparison
+from sensorium.query.diff_cmd import (compare, print_comparison,
+                                      task_drill_lines)
 # The evidence layer, split out at this file's 800-line ceiling. Re-exported
 # so `refocus_cmd.<name>` keeps resolving: these are one command's internals
 # living in two files, not two modules with two surfaces.
@@ -557,6 +558,14 @@ def _diverged_why(a: dict) -> str:
     if a["thread_stream_parted"]:
         return "the compared thread took a different path"
     if a["task_divergence"]:
+        # "took a different path" presumes both sides ran one. When a side
+        # ran no task stream at all there is no path to have differed, and
+        # naming which side is the whole finding.
+        t = a["tasks"] or {}
+        if t.get("n_a") == 0:
+            return "the rerun ran a task stream the original did not"
+        if t.get("n_b") == 0:
+            return "the original ran a task stream the rerun did not"
         return "a task took a different path"
     # Unreachable through `compare()`, which reports DIVERGED with no index
     # only when the tasks parted. Stated rather than assumed, for the same
@@ -570,7 +579,11 @@ def _diverged_why(a: dict) -> str:
 def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
            a: dict) -> int:
     """Print the comparison and the verdict; return the exit code."""
-    print_comparison(orig, new, res, orig_name, new_name)
+    # `tasks=False`: the task finding is printed below, in the words that
+    # are also stamped into the trace, with the drill-in commands beside
+    # them. Letting `diff` print its own version too gave this output two
+    # `tasks:` lines that said different amounts about one finding.
+    print_comparison(orig, new, res, orig_name, new_name, tasks=False)
     # `res` belongs to `print_comparison` above and to nothing else here:
     # every fact this function decides on comes from `assess`.
     verdict, threads = a["verdict"], a["threads"]
@@ -589,10 +602,12 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
     _print_thread_line(orig, new, a)
 
     if task_divergence:
-        # No drill-in commands here: `print_comparison` printed this pair's,
-        # with the step, before any of these lines. Printing them twice
-        # would read as two separate findings about one task.
+        # The only `tasks:` line in this output, and the same sentence
+        # `_stamp` writes -- so what the terminal says and what `info`
+        # replays afterwards cannot drift apart.
         print(f"tasks: DIVERGED -- {task_divergence}")
+        for line in task_drill_lines(tasks.get("pair"), orig_name, new_name):
+            print(line)
     elif tasks.get("verdict") == "MATCH":
         print(f"tasks: {tasks['n_b']} task stream(s) compared by content, "
               "all matching; the ordering between tasks is not compared")

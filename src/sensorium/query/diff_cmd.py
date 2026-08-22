@@ -185,10 +185,10 @@ def _basis_reasons(trace_a: Trace, trace_b: Trace) -> list[str]:
     if ba == bb or not (trace_a.tasks() or trace_b.tasks()):
         return []
     return ["the two traces were recorded under different fingerprint "
-            f"bases (A: {ba}, B: {bb}): one thread stream includes the "
-            "events that ran inside asyncio tasks and the other does not, "
-            "so they are not the same kind of stream -- re-record the "
-            "older side with this version to compare them"]
+            f"bases (A: {ba}, B: {bb}): the per-thread side's thread stream "
+            "includes its task events, which this version compares "
+            "separately, so the two are not the same kind of stream -- "
+            "re-record the older side with this version to compare them"]
 
 
 def _task_row_reasons(trace: Trace, label: str) -> list[str]:
@@ -204,7 +204,11 @@ def _task_row_reasons(trace: Trace, label: str) -> list[str]:
 
     Traces in exactly this state exist: until this arc the writer's
     `INSERT ... SELECT` over an unflushed `tasks` table wrote zero rows for
-    every recording made through the CLI.
+    every recording made through the CLI. This recorder no longer produces
+    the state -- every minted task serial gets its row when it is minted
+    (Ruling 9) -- so the check is now about files already on disk. It stays
+    for exactly that reason: a trace does not get re-recorded because a
+    later version stopped writing bad ones.
     """
     tasks = trace.tasks()
     if (trace.fingerprint_basis != "per-task" or not tasks
@@ -393,10 +397,15 @@ def _task_named(trace: Trace, label: str, name: str):
                       "of them would be picking by creation order, which is "
                       "what comparing tasks by name exists to avoid"]
     if not fps and trace.fingerprint_basis != "per-task":
-        return None, [f"{label} predates per-task fingerprints (it was "
-                      "recorded under the per-thread basis), so it has no "
-                      "task stream to compare by name -- re-record it with "
-                      "this version"]
+        # Not "it has no task stream": a per-thread trace can be full of
+        # task-tagged events, and saying otherwise describes the recording
+        # as emptier than it is. What is missing is the table this version
+        # resolves a NAME through.
+        return None, [
+            f"{label} recorded {len(trace.tasks())} asyncio task(s) and no "
+            "task_fingerprints rows: this version resolves task names "
+            "through task_fingerprints, which the recording's version did "
+            "not write -- re-record it to compare by name"]
     return None, [f"no task named '{name}' on {label} "
                   f"({label} has: {_task_choices(trace)})"]
 
@@ -626,15 +635,36 @@ def _print_tasks(res, name_a, name_b) -> None:
           f"{p['index']}{guide}:")
     print(f"  A:      {p['a_desc']}")
     print(f"  B:      {p['b_desc']}")
-    if p["a_event"]:
-        print(f"drill into A: sensorium tree {name_a} "
-              f"--around e{p['a_event']}")
-    if p["b_event"]:
-        print(f"drill into B: sensorium tree {name_b} "
-              f"--around e{p['b_event']}")
+    for line in task_drill_lines(p, name_a, name_b):
+        print(line)
 
 
-def print_comparison(trace_a, trace_b, res, name_a, name_b, context=3) -> None:
+def task_drill_lines(pair, name_a, name_b) -> list[str]:
+    """The `sensorium tree --around` command for each side of a task pair's
+    first difference, or [] when there is no pair to drill into.
+
+    Shared rather than duplicated: `refocus` prints the task finding in its
+    own words (the same sentence it stamps into the trace) and still owes
+    the reader these two commands.
+    """
+    if not pair:
+        return []
+    out = []
+    if pair["a_event"]:
+        out.append(f"drill into A: sensorium tree {name_a} "
+                   f"--around e{pair['a_event']}")
+    if pair["b_event"]:
+        out.append(f"drill into B: sensorium tree {name_b} "
+                   f"--around e{pair['b_event']}")
+    return out
+
+
+def print_comparison(trace_a, trace_b, res, name_a, name_b, context=3,
+                     tasks=True) -> None:
+    """`diff`'s full comparison. `tasks=False` omits the task section for a
+    caller that reports the task finding itself -- `refocus` does, in the
+    words it also stamps into the trace, and two `tasks:` lines saying
+    different amounts about one finding read as two findings."""
     print(_thread_header("A", name_a, trace_a))
     print(_thread_header("B", name_b, trace_b))
     for note in safety_notes(trace_a, trace_b):
@@ -646,7 +676,8 @@ def print_comparison(trace_a, trace_b, res, name_a, name_b, context=3) -> None:
         _print_thread_match(trace_a, trace_b, res)
     else:
         _print_divergence(res, name_a, name_b, context)
-    _print_tasks(res, name_a, name_b)
+    if tasks:
+        _print_tasks(res, name_a, name_b)
 
 
 def print_task_comparison(trace_a, trace_b, res, name_a, name_b, task,

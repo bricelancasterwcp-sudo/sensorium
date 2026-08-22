@@ -711,3 +711,32 @@ async def run_all():
     await asyncio.gather(*[asyncio.create_task(worker(n), name=f"task-{n}")
                            for n in ("A", "B")])
 """
+
+
+# A run that creates NO task at all, and a rerun that creates three. The
+# entry is excluded from tracing and the traced module is imported at module
+# scope, so the thread stream -- what ran outside every task -- is the same
+# two events either way: the difference is a task stream present on one side
+# only, with nothing to have taken a different path. `n_a == 0`.
+TASKS_ON_RERUN_ONLY = """
+import asyncio
+from pathlib import Path
+
+import taskslib
+
+COUNTER = Path("run_count.txt")
+
+
+async def amain(spawn):
+    if spawn:
+        await taskslib.run_all()
+
+
+def main():
+    n = int(COUNTER.read_text()) if COUNTER.exists() else 0
+    COUNTER.write_text(str(n + 1))
+    asyncio.run(amain(n % 2 == 1))
+
+
+main()
+"""

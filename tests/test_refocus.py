@@ -26,7 +26,8 @@ from tests.refocus_programs import (ALL_IN_TASKS, ASYNC_CONTENT_FLIP,
                                     ASYNC_ORDER_FLIP, COUNTER, EXIT_FROM_FILE,
                                     LIB, LIB_TASKS, LOOP, OUTSIDE_ROOT,
                                     READS_STDIN, SLEEPER, TASKS_IN_LIB,
-                                    THREAD_BRANCH, THREAD_COUNT, TWO_FILES,
+                                    TASKS_ON_RERUN_ONLY, THREAD_BRANCH,
+                                    THREAD_COUNT, TWO_FILES,
                                     WORKER_ON_SECOND_RUN, dbs, drop_meta,
                                     new_run, rec, record_killed,
                                     recorded_output, refocus, set_meta,
@@ -735,3 +736,74 @@ def test_refocus_counts_uncompared_threads_from_the_side_that_had_them(
     assert "1 further thread(s) ran no traced code" in r.stdout
     assert "were NOT compared" in r.stdout
     assert "licence: WITHHELD" in r.stdout
+
+
+# -- one finding, one line -------------------------------------------------
+
+def _task_lines(out: str) -> list[str]:
+    return [ln for ln in out.splitlines() if ln.startswith("tasks:")]
+
+
+def test_refocus_prints_exactly_one_tasks_line_on_a_match(tmp_path):
+    """`diff.print_comparison` prints a `tasks:` line and so does `refocus`.
+    Two lines saying different amounts about one finding read as two
+    findings, so `refocus` asks `print_comparison` not to print its own."""
+    run_id, sdir = rec(tmp_path, ASYNC_ORDER_FLIP)
+    r = refocus(sdir, run_id, "--focus", "prog:worker")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert _task_lines(r.stdout) == [
+        "tasks: 3 task stream(s) compared by content, all matching; the "
+        "ordering between tasks is not compared"]
+
+
+def test_refocus_prints_exactly_one_tasks_line_and_keeps_the_drill_ins(
+        tmp_path):
+    """The DIVERGED half. The surviving line is the one `refocus` stamps into
+    the trace, so the terminal and `sensorium info` say the same words -- and
+    the drill-in commands travel with it rather than being lost with diff's
+    section."""
+    run_id, sdir = rec(tmp_path, ASYNC_CONTENT_FLIP)
+    r = refocus(sdir, run_id, "--focus", "prog:worker")
+    assert r.returncode == 1, r.stdout + r.stderr
+    lines = _task_lines(r.stdout)
+    assert len(lines) == 1, lines
+    assert lines[0].startswith("tasks: DIVERGED -- ")
+    assert "first difference inside task-B" in lines[0]
+    new_id = new_run(r.stdout)
+    assert lines[0] == ("tasks: DIVERGED -- "
+                        + trace(sdir, new_id).meta["refocus_diverge_tasks"])
+    drills = [ln for ln in r.stdout.splitlines() if ln.startswith("drill into")]
+    assert len(drills) == 2, r.stdout
+    assert drills[0].startswith(f"drill into A: sensorium tree {run_id} "
+                                "--around e")
+    assert drills[1].startswith(f"drill into B: sensorium tree {new_id} "
+                                "--around e")
+
+
+def test_refocus_says_which_side_ran_the_task_when_the_other_ran_none(
+        tmp_path):
+    """"A task took a different path" presumes both sides ran one. Here the
+    original ran no task at all, so there is no path to have differed -- and
+    which side is missing is the whole finding."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "taskslib.py").write_text(LIB_TASKS)
+    run_id, sdir = rec(tmp_path, TASKS_ON_RERUN_ONLY,
+                       extra=["--exclude", "prog.py"])
+    assert trace(sdir, run_id).tasks() == []              # precondition
+
+    r = refocus(sdir, run_id, "--focus", "taskslib:worker")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert ("refocus verdict: DIVERGED -- the rerun ran a task stream the "
+            "original did not.") in r.stdout
+    assert "a task took a different path" not in r.stdout
+    # The threads did NOT part: the finding is entirely about the tasks.
+    assert "threads: DIVERGED" not in r.stdout
+    assert ("threads: 1 recorded fingerprint(s) compared (events outside "
+            "any asyncio task), all matching") in r.stdout
+    lines = _task_lines(r.stdout)
+    assert len(lines) == 1, lines
+    # Counts and names pinned; the hashes are content and are not.
+    assert lines[0].startswith(
+        "tasks: DIVERGED -- 0 task stream(s) originally, 3 on the rerun; "
+        "only in A: -; only in B: task-A "), lines[0]
+    assert "task-B" in lines[0] and "(unnamed)" in lines[0]
