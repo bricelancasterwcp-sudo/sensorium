@@ -172,3 +172,78 @@ def test_info_on_a_format2_trace_keeps_the_unframed_wording(
     assert "all calls framed in format 3" not in out
     assert ("recorded: CALL 14  RETURN 13  RAISE 1  HANDLED 4  YIELD 0  "
             "RESUME 0  LINE 0") in out
+
+
+# -- a second 0.2.0 trace: a sync framed function calling a generator ------
+# `format2_async.db` holds a generator too, but tangled with two tasks and a
+# cancellation, so the plain shape -- framed caller, unframed generator, and
+# a helper frame left parentless under it -- is only ever read through the
+# async case. This fixture isolates it, so the old-trace branches that exist
+# for exactly that shape are covered end to end rather than by inference.
+FIXTURE_GEN = Path(__file__).parent / "fixtures" / "format2_gen.db"
+
+
+def test_generator_fixture_is_format_2_and_carries_no_ambient_environment():
+    c = sqlite3.connect(FIXTURE_GEN)
+    fmt = json.loads(c.execute(
+        "SELECT value FROM meta WHERE key='trace_format'").fetchone()[0])
+    assert fmt == 2
+    assert sorted(Trace.open(FIXTURE_GEN).meta["env"]) == [
+        "LANG", "PATH", "SENSORIUM_DIR"]
+
+
+@pytest.fixture
+def installed_fixture2gen(tmp_path, monkeypatch):
+    store = tmp_path / "sdir" / "traces"
+    store.mkdir(parents=True)
+    shutil.copy(FIXTURE_GEN, store / "old2g.db")
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    return "old2g"
+
+
+def test_tree_on_a_format2_generator_trace_keeps_the_unframed_shapes(
+        installed_fixture2gen, capsys):
+    """`main` was framed, `rows` was not, and `clean` -- called from inside
+    the generator body -- had no frame to be a child of. 0.2.0 recorded the
+    generator's CALL as an unframed event and tagged each `clean` frame with
+    the caller it could not be hung under. A format-3 reader must render
+    both of those unchanged: a bare `[generator]` marker here would claim a
+    frame this file does not contain, and dropping the `<- rows (unframed)`
+    tag would silently re-parent three frames to nothing."""
+    assert cli.main(["tree", installed_fixture2gen]) == 0
+    out = capsys.readouterr().out
+    assert "[generator, unframed]" in out
+    assert "<- rows (unframed)" in out
+    assert out.count("<- rows (unframed)") == 3
+    assert "unframed call(s) in this trace" in out
+    # No arc-2 vocabulary over an old file: no derived state, and no bare
+    # kind marker on any line.
+    assert "~ " not in out
+    for ln in out.splitlines():
+        assert "[generator]" not in ln and "[function]" not in ln
+
+
+def test_frame_on_a_format2_generator_trace_refuses_with_arc1_wording(
+        installed_fixture2gen, capsys):
+    """The generator ran once and has no frame on this trace. `frame` must
+    keep saying exactly that -- recorded, not framed, and which kind -- and
+    must not invent a frame for it now that generators have one."""
+    assert cli.main(["frame", installed_fixture2gen, "--fn", "rows"]) == 1
+    out = capsys.readouterr().out
+    assert "recorded as 1 call(s) but not framed (generator)" in out
+    assert "state:" not in out
+
+
+def test_exceptions_on_a_format2_generator_trace_claims_no_state(
+        installed_fixture2gen, capsys):
+    """Nothing was raised in this program, so `exceptions` has nothing to
+    classify -- and a clean old trace is the easiest place for a derived
+    state to leak in as a stray tail. The file holds no YIELD/RESUME rows,
+    so nothing here was ever cancelled, abandoned or suspended as far as it
+    can say, and the command still exits 0."""
+    assert cli.main(["exceptions", installed_fixture2gen]) == 0
+    out = capsys.readouterr().out
+    assert "no exceptions recorded" in out
+    for claim in ("~ ", "frame later", "cancelled", "abandoned", "suspended",
+                  "never closed", "state:"):
+        assert claim not in out, claim
