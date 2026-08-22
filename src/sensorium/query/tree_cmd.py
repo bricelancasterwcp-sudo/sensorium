@@ -110,7 +110,13 @@ def _state_tail(trace, frame) -> str:
     if s.state == "cancelled":
         return f"  ~ cancelled ({s.exc['type']} thrown in at L{s.line})"
     if s.state == "abandoned":
-        return f"  ~ abandoned (dropped while suspended at L{s.line})"
+        # NOT "dropped while suspended": the trace knows a GeneratorExit was
+        # thrown in at this line, and an explicit `gen.close()` /
+        # `agen.aclose()` throws exactly the same thing without anything
+        # being dropped. The state word stays `abandoned` -- the frame was
+        # abandoned, however it happened -- and the parenthetical says what
+        # was recorded.
+        return f"  ~ abandoned ({s.exc['type']} thrown in at L{s.line})"
     if s.state == "thrown":
         return f"  ~ unwound by {s.exc['type']} thrown in at L{s.line}"
     if s.state == "suspended":

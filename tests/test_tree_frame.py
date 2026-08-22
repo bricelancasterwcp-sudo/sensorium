@@ -705,7 +705,7 @@ def test_tree_state_tails_name_cancelled_abandoned_thrown_and_suspended(
     gens = [ln for ln in out2.splitlines() if "gen()" in ln]
     assert len(gens) == 2, out2
     assert gens[0].endswith(
-        "gen()  [generator]  ~ abandoned (dropped while suspended at L6)")
+        "gen()  [generator]  ~ abandoned (GeneratorExit thrown in at L6)")
     assert gens[1].endswith(
         "gen()  [generator]  ~ suspended at L6 at end of recording")
     assert "(open)" not in out2           # neither is merely "still running"

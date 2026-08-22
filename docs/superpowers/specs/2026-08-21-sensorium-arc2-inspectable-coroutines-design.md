@@ -216,8 +216,13 @@ task t3: task-B
 ```
 
 Tails: `-> value`, `!! Exc(...)` (raised), `~ cancelled (… at Ln)`,
-`~ abandoned (dropped while suspended at Ln)`, `~ unwound by Exc thrown in at
-Ln`, `~ suspended at Ln at end of recording`, `(open)`. Task grouping,
+`~ abandoned (GeneratorExit thrown in at Ln)`, `~ unwound by Exc thrown in at
+Ln`, `~ suspended at Ln at end of recording`, `(open)`. (**Erratum, 0.3.0:**
+the abandoned tail was specified as `~ abandoned (dropped while suspended at
+Ln)`, which over-claims. An explicit `gen.close()` / `agen.aclose()` throws
+the same GeneratorExit into the same parked frame and drops nothing; what the
+trace holds is the throw, so that is what the tail names. The state word is
+unchanged, and so is `exceptions`' `(frame later abandoned at Ln)`.) Task grouping,
 footers, `--limit`/`--depth` accounting are arc 1's; the unframed-call lines
 and the `<- NAME (unframed)` tag appear only for format ≤ 2 traces; on
 format 3 a `caller_code` tag reads `<- NAME (no frame: started before
@@ -324,7 +329,7 @@ Corpus — **re-registered** (the changes are the point):
   frame; `rank` unchanged.
 
 Corpus — **new**: an abandoned generator (dropped while suspended → `~
-abandoned`); a generator suspended at end of recording; `--window` on a
+abandoned`, tail wording per the D4 erratum); a generator suspended at end of recording; `--window` on a
 coroutine while another task's helper runs during its suspension (the
 helper must be outside the window); a FastAPI-shaped async handler calling
 a sync helper, recorded with `--focus` on the handler, `watch` HIT inside it

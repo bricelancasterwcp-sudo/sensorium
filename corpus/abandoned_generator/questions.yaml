@@ -10,7 +10,10 @@ questions:
       the loop while the generator was parked at its `yield` on line 22, the
       last reference went away, and CPython threw GeneratorExit in at that
       suspension point. The tree tail is therefore
-      `~ abandoned (dropped while suspended at L22)`.
+      `~ abandoned (GeneratorExit thrown in at L22)` -- it names the throw,
+      which is what the trace holds, and not "dropped", which is one of two
+      ways that throw can arrive (an explicit `gen.close()` is the other,
+      and it drops nothing).
 
       The counterfactual matters as much as the tail. A frame that ended by
       returning renders `-> value`; this one must NOT, because there is no
@@ -30,7 +33,7 @@ questions:
       added only once you already suspect the answer being asked for.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["pages(", "[generator]", "~ abandoned (dropped while suspended at L22)"]
+      - ["pages(", "[generator]", "~ abandoned (GeneratorExit thrown in at L22)"]
     # The counterfactuals: a claimed return value for a frame that never
     # returned one, and the two states that would mean "still running".
     expect_absent:

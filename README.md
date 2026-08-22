@@ -67,7 +67,7 @@ generator alike — so a coroutine's callees nest under it exactly like a
 plain function's do, tagged `[generator]`, `[coroutine]`, or
 `[async_generator]` when the kind isn't `function`. A frame that suspended
 carries a derived state as its tail: `~ cancelled (CancelledError thrown in
-at Ln)`, `~ abandoned (dropped while suspended at Ln)`, `~ unwound by X
+at Ln)`, `~ abandoned (GeneratorExit thrown in at Ln)`, `~ unwound by X
 thrown in at Ln` for any other exception thrown in, or `~ suspended at Ln
 at end of recording` for one still parked when recording stopped. A caller
 named but not framed is still never re-parented — on a format-3 trace that
