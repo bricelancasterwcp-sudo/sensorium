@@ -3,3 +3,7 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .coverage
+
+# A daemon-thread test writes this from a thread that can outlive the
+# monkeypatched chdir, so it sometimes lands here instead of in tmp_path.
+daemon-ran.txt
