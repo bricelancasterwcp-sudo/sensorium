@@ -544,6 +544,8 @@ def test_diff_names_the_task_that_took_another_path(tmp_path, monkeypatch,
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     assert cli.main(["diff", a, b]) == 1
     out = capsys.readouterr().out
+    assert ("verdict: MATCH on the thread stream (4 events); DIVERGED on "
+            "the tasks (below)") in out
     assert "tasks: DIVERGED" in out
     assert "task-B" in out
     assert "only in A:" in out and "only in B:" in out
@@ -573,8 +575,8 @@ def test_diff_task_flag_compares_one_named_task(tmp_path, monkeypatch,
     assert "other" in out
 
 
-def test_diff_task_flag_refuses_an_unknown_or_ambiguous_name(
-        tmp_path, monkeypatch, capsys):
+def test_diff_task_flag_refuses_an_unknown_name(tmp_path, monkeypatch,
+                                                capsys):
     a = _rec_async(tmp_path, ["AB", "same"])
     b = _rec_async(tmp_path, ["AB", "same"])
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
@@ -680,6 +682,26 @@ def test_diff_compares_across_bases_when_neither_side_ran_a_task(
     assert "REFUSED" not in capsys.readouterr().out
 
 
+def _task_only(run_id, task_hash, name="task-A"):
+    """A synthetic trace whose ONLY causal event ran inside a task, so its
+    thread stream is empty under the per-task basis. Not reachable through
+    the CLI (the target module is always traced), and the honest wording
+    for it still has to be pinned by something."""
+    w = TraceWriter(paths.traces_dir() / f"{run_id}.db")
+    w.set_meta("run_id", run_id)
+    w.set_meta("argv", ["prog.py"])
+    w.set_meta("main_thread_ident", 1)
+    w.set_meta("fingerprint_basis", "per-task")
+    w.set_meta("incomplete", False)
+    w.set_meta("threads_started", 0)
+    w.add_task(1, name, 1)
+    c = w.intern_code("/tmp/prog.py", "worker", 1)
+    w.add_event(0, 1, "CALL", None, c, 1, {"args": {}}, task_id=1)
+    w.write_task_fingerprint(1, task_hash, 1)
+    w.close()
+    return run_id
+
+
 def test_diff_does_not_call_an_empty_thread_stream_identical(
         tmp_path, monkeypatch, capsys):
     """`compare()` refuses two empty thread streams only when no task ran
@@ -688,23 +710,70 @@ def test_diff_does_not_call_an_empty_thread_stream_identical(
     report "identical causal streams" over zero events: that is the verdict
     about nothing this command refuses everywhere else."""
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
-    ids = []
-    for run_id in ("20260101-000000-tonlya", "20260101-000000-tonlyb"):
-        w = TraceWriter(paths.traces_dir() / f"{run_id}.db")
-        w.set_meta("run_id", run_id)
-        w.set_meta("argv", ["prog.py"])
-        w.set_meta("main_thread_ident", 1)
-        w.set_meta("fingerprint_basis", "per-task")
-        w.set_meta("incomplete", False)
-        w.set_meta("threads_started", 0)
-        w.add_task(1, "task-A", 1)
-        c = w.intern_code("/tmp/prog.py", "worker", 1)
-        w.add_event(0, 1, "CALL", None, c, 1, {"args": {}}, task_id=1)
-        w.write_task_fingerprint(1, "a" * 32, 1)
-        w.close()
-        ids.append(run_id)
+    ids = [_task_only(r, "a" * 32)
+           for r in ("20260101-000000-tonlya", "20260101-000000-tonlyb")]
     assert cli.main(["diff", *ids]) == 0
     out = capsys.readouterr().out
     assert "identical causal streams" not in out
     assert "no causal event ran outside a task on either side" in out
     assert "tasks: 1 task stream(s) on each side" in out
+
+
+def test_diff_does_not_claim_a_match_on_an_empty_thread_stream_either(
+        tmp_path, monkeypatch, capsys):
+    """The tasks-DIVERGED branch prints the thread verdict too, and it must
+    be as honest as the MATCH one: "MATCH on the thread stream (0 events)"
+    claims agreement about a stream that held nothing."""
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    a = _task_only("20260101-000000-tonlyc", "a" * 32)
+    b = _task_only("20260101-000000-tonlyd", "b" * 32)
+    assert cli.main(["diff", a, b]) == 1
+    out = capsys.readouterr().out
+    assert "MATCH on the thread stream (0 events)" not in out
+    assert ("verdict: the thread stream held no causal events on either "
+            "side; DIVERGED on the tasks (below)") in out
+    assert "tasks: DIVERGED" in out
+
+
+def test_diff_refuses_a_per_task_trace_whose_task_fingerprints_are_missing(
+        tmp_path, monkeypatch, capsys):
+    """A trace that ran tasks under the per-task basis but recorded no task
+    fingerprint rows is not a trace with no tasks: its thread stream was
+    NARROWED to exclude the task events (the basis marker is meta, and
+    `causal_stream()` reads it), so comparing it reports a confident MATCH
+    about the module scaffolding of a run whose work all happened inside
+    tasks. Traces in exactly this state exist on disk -- the writer wrote
+    zero task fingerprint rows for every CLI recording until this arc."""
+    a = _rec_async(tmp_path, ["AB", "same"])
+    b = _rec_async(tmp_path, ["AB", "same"])
+    sdir = tmp_path / "sdir"
+    monkeypatch.setenv("SENSORIUM_DIR", str(sdir))
+    import sqlite3
+    c = sqlite3.connect(sdir / "traces" / f"{a}.db")
+    c.execute("DELETE FROM task_fingerprints")
+    c.commit(); c.close()
+
+    assert cli.main(["diff", a, b]) == 2
+    out = capsys.readouterr().out
+    assert "verdict: REFUSED" in out
+    assert "verdict: MATCH" not in out
+    assert ("A ran 3 asyncio task(s) but recorded no task fingerprints") in out
+    assert "re-record it with this version" in out
+
+    assert cli.main(["diff", a, b, "--task", "task-A"]) == 2
+    out = capsys.readouterr().out
+    assert "REFUSED" in out
+    assert ("A ran 3 asyncio task(s) but recorded no task fingerprints") in out
+    # ...and not the misleading "no task named 'task-A' on A (A has: -)".
+    assert "no task named" not in out
+
+
+def test_diff_default_name_pattern_ignores_a_trailing_newline():
+    """`^Task-\\d+$` also matches "Task-1\\n" -- `$` matches before a final
+    newline. A task actually named that has a name of its own, and dropping
+    it would erase content the comparison is supposed to compare."""
+    from sensorium.query.diff_cmd import _unnamed
+    assert _unnamed(None) and _unnamed("Task-1") and _unnamed("Task-12")
+    assert not _unnamed("Task-1\n")
+    assert not _unnamed("task-1") and not _unnamed("Task-") and \
+        not _unnamed("xTask-1")

@@ -140,7 +140,7 @@ def _refused(reasons: list[str]) -> dict:
             "tasks": None}
 
 
-_DEFAULT_NAME = re.compile(r"^Task-\d+$")
+_DEFAULT_NAME = re.compile(r"^Task-\d+\Z")
 
 
 def _unnamed(name: str | None) -> bool:
@@ -155,12 +155,15 @@ def _unnamed(name: str | None) -> bool:
 
 
 def _shapes(trace: Trace) -> Counter:
-    """The multiset of (name, hash) over a trace's task fingerprints, with
-    asyncio's default `Task-N` names read as no name. The raw name stays in
-    the table and in `info` -- it is dropped for the comparison, not
-    everywhere."""
-    return Counter((None if _unnamed(n) else n, h)
-                   for n, h, _c in trace.task_fingerprints().values())
+    """`Trace.task_shapes()` with asyncio's default `Task-N` names read as
+    no name. The reader owns the multiset; this owns the one thing that is
+    a comparison policy and not a fact about the trace, so the raw name
+    stays in the table and in `info` -- it is dropped for the comparison,
+    not everywhere."""
+    out: Counter = Counter()
+    for (name, h), k in trace.task_shapes().items():
+        out[(None if _unnamed(name) else name, h)] += k
+    return out
 
 
 def _shape_difference(a: Counter, b: Counter):
@@ -186,6 +189,31 @@ def _basis_reasons(trace_a: Trace, trace_b: Trace) -> list[str]:
             "events that ran inside asyncio tasks and the other does not, "
             "so they are not the same kind of stream -- re-record the "
             "older side with this version to compare them"]
+
+
+def _task_row_reasons(trace: Trace, label: str) -> list[str]:
+    """Why a trace that RAN tasks but recorded none of their fingerprints
+    cannot be compared at all.
+
+    It is not the same thing as a trace with no tasks. The per-task basis is
+    a meta marker, so `causal_stream()` narrows this trace's thread stream
+    to the events that ran in no task whether or not the task rows made it
+    to disk -- and with no task fingerprints to compare, everything those
+    tasks did drops out of the comparison silently. What is left is the
+    module scaffolding, and a MATCH on it reads as a verdict on the run.
+
+    Traces in exactly this state exist: until this arc the writer's
+    `INSERT ... SELECT` over an unflushed `tasks` table wrote zero rows for
+    every recording made through the CLI.
+    """
+    tasks = trace.tasks()
+    if (trace.fingerprint_basis != "per-task" or not tasks
+            or trace.task_fingerprints()):
+        return []
+    return [f"{label} ran {len(tasks)} asyncio task(s) but recorded no task "
+            "fingerprints (its per-thread stream excludes their events), so "
+            "the tasks cannot be compared and the thread stream alone would "
+            "say less than it seems -- re-record it with this version"]
 
 
 def _pair(trace_a, trace_b, ta, tb, name, by_order=False) -> dict | None:
@@ -294,7 +322,9 @@ def compare(trace_a: Trace, trace_b: Trace) -> dict:
     and calling that MATCH is a verdict about nothing.
     """
     reasons = (_unsafe_reasons(trace_a, "A") + _unsafe_reasons(trace_b, "B")
-               + _basis_reasons(trace_a, trace_b))
+               + _basis_reasons(trace_a, trace_b)
+               + _task_row_reasons(trace_a, "A")
+               + _task_row_reasons(trace_b, "B"))
     if reasons:
         return _refused(reasons)
     sa = trace_a.causal_stream()
@@ -386,10 +416,17 @@ def compare_task_streams(trace_a: Trace, trace_b: Trace, name: str) -> dict:
              "order, not identity; name the task in the program "
              "(asyncio.create_task(..., name=...)) to compare it by name"]),
             **unresolved}
-    reasons = _unsafe_reasons(trace_a, "A") + _unsafe_reasons(trace_b, "B")
+    # These come first and alone: a trace whose task rows never reached the
+    # disk has no task to name, and "no task named 'task-A' on A" would
+    # describe the symptom as if it were the program's doing.
+    reasons = (_unsafe_reasons(trace_a, "A") + _unsafe_reasons(trace_b, "B")
+               + _task_row_reasons(trace_a, "A")
+               + _task_row_reasons(trace_b, "B"))
+    if reasons:
+        return {**_refused(reasons), **unresolved}
     ia, why_a = _task_named(trace_a, "A", name)
     ib, why_b = _task_named(trace_b, "B", name)
-    reasons += why_a + why_b
+    reasons = why_a + why_b
     if reasons:
         return {**_refused(reasons), **unresolved}
     found = {"a_task": ia, "b_task": ib}
@@ -535,8 +572,10 @@ def _print_thread_match(trace_a, trace_b, res) -> None:
     half that happened to agree."""
     n = len(res["a_stream"])
     if res["verdict"] == "DIVERGED":
-        print(f"verdict: MATCH on the thread stream ({n} events); "
-              "DIVERGED on the tasks (below)")
+        print("verdict: " + ("the thread stream held no causal events on "
+                             "either side" if not n else
+                             f"MATCH on the thread stream ({n} events)")
+              + "; DIVERGED on the tasks (below)")
         return
     if not n:
         # Reachable only because a task ran: two empty streams with no task
