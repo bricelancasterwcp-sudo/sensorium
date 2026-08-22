@@ -94,9 +94,28 @@ def run(args) -> int:
     caps = m.get("caps", {})
     print("caps: " + " ".join(f"{k}={v}" for k, v in caps.items())
           + f"   truncated values: {m.get('truncated_count', 0)}")
+    # What a fingerprint row covers is not readable from the hash, and plan
+    # 2b narrowed it: under the per-task basis a thread row holds only what
+    # ran in no asyncio task, and each task has a row of its own. Two traces
+    # whose rows mean different things print identically without this, and a
+    # reader comparing them by eye has nothing to go on.
+    per_task = t.fingerprint_basis == "per-task"
+    scope = " outside any asyncio task" if per_task else ""
     for tid, (h, n) in sorted(t.fingerprints().items()):
         tag = " (main)" if tid == t.main_thread_id() else ""
-        print(f"fingerprint thread {tid}{tag}: {h} ({n} causal events)")
+        print(f"fingerprint thread {tid}{tag}: {h} ({n} causal events{scope})")
+    if per_task:
+        print("fingerprints: per-task basis -- each thread row covers the "
+              "events that ran in no asyncio task; "
+              f"{len(t.task_fingerprints())} task fingerprint(s) beside it")
+    else:
+        # Never claimed retroactively: a trace recorded before the marker
+        # existed was fingerprinted the other way, and saying "0 task
+        # fingerprints" about it would read as "no task ran".
+        print("fingerprints: per-thread basis -- each thread row covers "
+              "every causal event on the thread, task events included; no "
+              "task fingerprints were recorded (recorded before they "
+              "existed)")
     if m.get("uncaught"):
         print(f"uncaught: {fmt_exc(m['uncaught'])}")
     for child in m.get("children") or []:
@@ -155,8 +174,22 @@ def run(args) -> int:
         print(f"refocus-of: {m['refocus_of']}  "
               f"verdict: {m.get('refocus_verdict', 'UNVERIFIED')}"
               + (f"  licence: {licence}" if licence else ""))
+        # Three ways a rerun can part, three separate stamps -- and a rerun
+        # is stamped with the ones that apply, never with all of them. The
+        # positional line is absent for a divergence that was not a step of
+        # the compared thread's stream at all (`refocus` deliberately writes
+        # no index for one), which is precisely when the task line below is
+        # the whole answer: without it `info` printed a bare DIVERGED and
+        # left the reader to re-run the comparison by hand.
+        index = m.get("refocus_diverge_index")
+        if index is not None:
+            print(f"  diverged at causal step {index}: "
+                  f"A {m.get('refocus_diverge_a', '?')} / "
+                  f"B {m.get('refocus_diverge_b', '?')}")
         if m.get("refocus_thread_divergence"):
             print(f"  diverged on threads: {m['refocus_thread_divergence']}")
+        if m.get("refocus_diverge_tasks"):
+            print(f"  diverged on tasks: {m['refocus_diverge_tasks']}")
         for reason in m.get("refocus_licence_reasons") or []:
             print(f"  licence withheld: {reason}")
         # A granted licence without its points is the bad news keeping its

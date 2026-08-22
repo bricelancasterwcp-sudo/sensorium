@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from sensorium import cli
 from sensorium.store.reader import Trace
 from tests.test_format2_fixture import _installed
 
@@ -72,3 +73,19 @@ def test_refocus_refuses_old3_before_re_running_it():
         "ran 3 asyncio task(s); this version compares tasks by content and "
         "defines thread streams without them, so no verdict against it "
         "would compare like with like -- re-record it with this version")
+
+
+def test_info_on_old3_says_its_thread_fingerprint_covers_task_events(
+        installed_fixture3, capsys):
+    """The hash is the same string either way; what it COVERS is not. A
+    0.3.0 trace whose one thread row includes its task events must not be
+    described by this version's narrower definition -- and it has no task
+    fingerprints to sit beside it, which is a fact about when it was
+    recorded, not about the run."""
+    assert cli.main(["info", installed_fixture3]) == 0
+    out = capsys.readouterr().out
+    assert ("fingerprints: per-thread basis -- each thread row covers every "
+            "causal event on the thread, task events included; no task "
+            "fingerprints were recorded (recorded before they existed)") in out
+    assert "per-task basis" not in out
+    assert "outside any asyncio task" not in out
