@@ -415,3 +415,36 @@ def test_focusspec_reports_which_entries_matched():
     assert fs.entries_matching("main", "step") == ["main"]
     assert fs.entries_matching("other", "y") == []
 
+
+# A coroutine that binds a local across a suspension. `worker()` in the old
+# ASYNC_FOCUS fixture (Task 3, deleted) never assigned a local at all, so it
+# emitted no LINE deltas and proved nothing about focus reaching a coroutine
+# frame -- this one does.
+CORO_FOCUS = """
+import asyncio
+
+def step(n):
+    return n
+
+async def worker():
+    y = step(1)
+    await asyncio.sleep(0)
+    y = step(y + 1)
+    return y
+
+def main():
+    return asyncio.run(worker())
+"""
+
+
+def test_focus_on_a_coroutine_records_its_lines_with_locals(tmp_path):
+    t, err = record_inproc(tmp_path, CORO_FOCUS, focus=["prog:worker"])
+    assert err is None
+    lines = t.events(kind="LINE")
+    assert lines and {t.code(e.code_id).qualname for e in lines} == {"worker"}
+    ys = [e.payload["deltas"]["y"]["v"] for e in lines
+          if "y" in e.payload["deltas"]]
+    assert 1 in ys and 2 in ys
+    assert not hasattr(record_inproc_full(tmp_path / "b", CORO_FOCUS)[2],
+                       "unframed_focus")
+

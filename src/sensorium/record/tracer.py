@@ -434,14 +434,6 @@ class Tracer:
         return (True, rel, code.co_qualname, focused, _frame_kind(code),
                 win_key)
 
-    def unframed_focus(self) -> list[str]:
-        """Always empty: retired in arc 2, removed in Task 5.
-
-        It reported focus entries that matched only frameless code, for which
-        no LINE could ever fire. Every traced code object has a frame now, so
-        there is no such entry and nothing to warn about."""
-        return []
-
     def _fp(self, tid: int) -> Fingerprint:
         # `tid` is a per-thread SERIAL (see `_TLS.thread_serial`), the same
         # identity events and frames carry, so two short-lived threads that

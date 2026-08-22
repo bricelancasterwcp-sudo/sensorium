@@ -545,8 +545,7 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
 
 def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
                    truncated_count, live_threads, entry, threads_started,
-                   audit_errors, spawn_syscalls, task_errors,
-                   focus_unframed) -> None:
+                   audit_errors, spawn_syscalls, task_errors) -> None:
     """Close out the run. Runs after `w.seal()`, hence `set_meta_final`."""
     w.set_meta_final("uncaught", uncaught)
     w.set_meta_final("stdin_consumed", stdin_consumed)
@@ -578,11 +577,6 @@ def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
     # events are still attributed, and the fact is already on the record as a
     # NULL `name` in `tasks`.
     w.set_meta_final("task_errors", task_errors)
-    # `--focus` entries that matched ONLY frameless code, so no line-level
-    # capture was ever possible for them. On the run because the fact is
-    # learned during recording, and `watch` reading the trace later cannot
-    # tell "focused nothing" from "focused code that opens no frame".
-    w.set_meta_final("focus_unframed", focus_unframed)
     w.set_meta_final("spawn_witnessing", _SPAWN_WITNESSED)
     files = set(w.interned_files())
     if entry:
@@ -716,7 +710,6 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
         sys.path[:] = saved[4]
         w.seal()                       # in-flight callbacks stop writing here
         live = _live_thread_names()
-        unframed = tracer.unframed_focus()
         try:
             _finalize_meta(
                 w, exit_status=exit_status, uncaught=uncaught,
@@ -727,17 +720,10 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
                 threads_started=len(started),
                 audit_errors=len(audit_errors),
                 spawn_syscalls=len(spawns),
-                task_errors=tracer.task_errors,
-                focus_unframed=unframed)
+                task_errors=tracer.task_errors)
         finally:
             w.close()                  # never skipped: no leaked connection
             gaps = _recording_gaps(live, w.late_writes)
             if gaps:
                 print(gaps, file=sys.stderr)
-            for spec in unframed:
-                print(f"sensorium: --focus {spec} matched only coroutine/"
-                      "generator code, which opens no frame in this version; "
-                      "no line-level capture was recorded for it, and `watch` "
-                      "against it will report NOTHING WAS CHECKED.",
-                      file=sys.stderr)
     return run_id, exit_status
