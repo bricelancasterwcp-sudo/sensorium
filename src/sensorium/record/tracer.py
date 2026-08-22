@@ -1156,5 +1156,9 @@ class Tracer:
         # A task's row is written whatever state the task was left in: a
         # stream that was recorded is a stream, and one still parked at
         # uninstall is exactly the case a comparison most wants to see.
-        for task, fp in tfps:
-            self.writer.write_task_fingerprint(task, fp.hexdigest(), fp.count)
+        # ALL of them in one transaction: a commit is an fsync, this runs
+        # after the recorded program has finished, and one per task made
+        # exit cost scale with the task count (see
+        # `TraceWriter.write_task_fingerprints`).
+        self.writer.write_task_fingerprints(
+            [(task, fp.hexdigest(), fp.count) for task, fp in tfps])

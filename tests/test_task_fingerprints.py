@@ -92,6 +92,26 @@ def main():
     t.start(); t.join()
 """
 
+MANY_TASKS = """
+import asyncio
+
+def step(n):
+    return n
+
+async def worker(n):
+    return step(n)
+
+async def amain():
+    await asyncio.gather(*[asyncio.create_task(worker(i), name=f"task-{i}")
+                           for i in range(300)])
+
+def main():
+    asyncio.run(amain())
+
+if __name__ == "__main__":
+    main()
+"""
+
 NEVER_FINISHES = """
 import asyncio
 
@@ -272,3 +292,32 @@ def test_task_fingerprint_rows_survive_the_real_writer_batching(tmp_path):
     assert names == ["Task-1", "task-A", "task-B"]
     for tid, (_name, _h, n) in t.task_fingerprints().items():
         assert n == len(_causal(t, lambda e: e.task_id == tid))
+
+
+def test_every_task_of_a_three_hundred_task_run_gets_its_row(tmp_path):
+    """Through the real CLI, at a scale where the write pass is the point.
+
+    `uninstall` writes these rows in one transaction (Ruling 8); a bulk
+    write is exactly where rows go missing quietly -- a mis-built parameter
+    list writes the first row and no error. So the count is asserted against
+    the tasks the program actually created, and every row is asserted to
+    hold the events its task ran.
+    """
+    run_id, path, r = record_script(tmp_path, MANY_TASKS)
+    assert run_id, r.stderr
+    assert r.returncode == 0, r.stderr
+    t = Trace.open(path)
+    # 300 workers plus `asyncio.run`'s own wrapper task, which runs amain.
+    assert len(t.tasks()) == 301
+    fps = t.task_fingerprints()
+    assert len(fps) == 301
+    assert sorted(fps) == sorted(k.id for k in t.tasks())
+    names = {name for name, _h, _n in fps.values()}
+    assert {"task-0", "task-299"} < names
+    # Every row carries a real stream: a bulk write that dropped rows would
+    # leave a task with nothing, and one that mis-paired them would put the
+    # wrong count on the wrong task.
+    for tid, (_name, _h, n) in fps.items():
+        assert n > 0
+        assert n == len(_causal(t, lambda e: e.task_id == tid))
+
