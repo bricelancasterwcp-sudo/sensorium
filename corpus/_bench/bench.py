@@ -223,14 +223,16 @@ def report(reps: int = 3) -> dict:
         default = measure(source, reps=reps)
         print(_row(name, "default", default))
         if focus is None:
-            # A workload with no frameable target cannot be focused. Calling
+            # This workload registers no focus target in WORKLOADS above --
+            # not because nothing in it could be focused (arc 2a frames a
+            # coroutine body too), but because nobody named one. Calling
             # measure(focus=None) a second time and printing the result under
             # the tier name "focused" reports a measurement that was never
             # taken: the two rows differ only by run-to-run noise, and a
             # reader compares them as though the difference meant something.
             focused = None
             print(f"{name:<19} {'focused':<8} n/a  "
-                  "(no frameable target to focus)")
+                  "(no focus target registered for this workload)")
         else:
             focused = measure(source, focus=focus, reps=reps)
             print(_row(name, "focused", focused))

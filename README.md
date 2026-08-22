@@ -67,8 +67,8 @@ generator alike — so a coroutine's callees nest under it exactly like a
 plain function's do, tagged `[generator]`, `[coroutine]`, or
 `[async_generator]` when the kind isn't `function`. A frame that suspended
 carries a derived state as its tail: `~ cancelled (CancelledError thrown in
-at L29)`, `~ abandoned (dropped while suspended at L22)`, `~ unwound by X
-thrown in at L15` for any other exception thrown in, or `~ suspended at L29
+at Ln)`, `~ abandoned (dropped while suspended at Ln)`, `~ unwound by X
+thrown in at Ln` for any other exception thrown in, or `~ suspended at Ln
 at end of recording` for one still parked when recording stopped. A caller
 named but not framed is still never re-parented — on a format-3 trace that
 means it started running before recording began (`<- worker (no frame:
@@ -337,16 +337,27 @@ The design note predicted about 0.05 µs/event for derived parentage plus
 task identity; the in-situ cost is 0.1–0.5 µs/event depending on call
 density — five to ten times the prediction, recorded here as a finding
 rather than restated. `async_call_dense` runs every call inside a running
-event loop and so pays the task-identity path in full: 7.5 µs/event, about a
-microsecond more than the synchronous call-dense case on this box.
-`async_call_dense` has no frameable target (its only callee is a one-line
-function), so it is reported for the default tier only.
+event loop and so pays the task-identity path in full: 7.4 µs/event, about
+0.7 µs more than the synchronous call-dense case on this box.
+`async_call_dense` registers no focus target — its body only calls a
+one-line function — so it is reported for the default tier only;
+`await_dense` prices coroutine-body focus instead.
+
+On this same box, arc 2a's frame-and-suspension bookkeeping shows no
+measurable regression against a fresh 0.2.0 worktree measured the same way:
+`call_dense`/`work_between_calls`/`async_call_dense` measure
+6.7/8.5/7.4 µs/event here versus 0.2.0's 6.7/8.1/7.6 — differences within
+run-to-run noise in both directions.
+
 `await_dense` isolates the cost arc 2 added: a coroutine that suspends
 20,000 times on `asyncio.sleep(0)`, so almost every event it produces is a
 YIELD or a RESUME on the same frame. Measured here it costs 4.3 µs/event by
-default (5.1 focused) against the **~114 ns** the design note measured for
-the `sys.monitoring` PY_YIELD/PY_RESUME callbacks alone, before any writing
-— about 38× that floor, the rest being the trace write and the derived-state
+default (5.1 focused), including the amortised recorder fixed cost (~0.9 µs
+of that 4.3 — the 0.036s boot from the fixed-cost row above, spread over
+40,004 events); about 3.4 µs/event without it. Against the **~114 ns** the
+design note measured for the `sys.monitoring` PY_YIELD/PY_RESUME callbacks
+alone, before any writing, that is roughly 30× the floor (38× including the
+amortised fixed cost), the rest being the trace write and the derived-state
 bookkeeping the bare callback does not pay for.
 `us/event` is the figure that travels; the multiplier tracks how call-dense
 the program is.

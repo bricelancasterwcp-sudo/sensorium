@@ -172,9 +172,9 @@ def test_report_prints_a_row_per_tier_of_every_workload(monkeypatch, capsys):
 
 def test_report_refuses_to_report_a_focused_tier_it_could_not_focus(
         monkeypatch, capsys):
-    """`tinier`'s registered focus is None -- there is nothing frameable to
-    focus. Measuring `focus=None` a second time and printing it as the
-    "focused" tier reports a run that was never focused: the row differs
+    """`tinier`'s registered focus is None -- nobody named a focus target for
+    it in WORKLOADS. Measuring `focus=None` a second time and printing it as
+    the "focused" tier reports a run that was never focused: the row differs
     from `default` only by timing noise, and a reader reads that difference
     as the cost of focusing. So the tier says n/a and is not measured."""
     monkeypatch.setattr(bench, "WORKLOADS", {"tinier": (TINIER, None)})
@@ -187,7 +187,8 @@ def test_report_refuses_to_report_a_focused_tier_it_could_not_focus(
     out = bench.report(reps=1)
 
     row = _rows_for(capsys.readouterr().out, "tinier")["focused"]
-    assert "n/a" in row and "(no frameable target to focus)" in row
+    assert "n/a" in row
+    assert "(no focus target registered for this workload)" in row
     assert out["tinier"]["focused"] is None
     # DO_NOTHING's fixed-cost run, and the workload's default tier. A third
     # measurement is the un-focused re-run this test exists to forbid.
