@@ -1,4 +1,5 @@
 """Arc 2: generators and coroutines have frames. Recorded in-process."""
+from sensorium.store.reader import FrameState
 from tests.helpers import record_inproc
 from tests.test_async import TWO_TASKS, GEN_HELPER, _by_qual
 
@@ -129,3 +130,122 @@ def test_line_deltas_survive_a_suspension(tmp_path):
     # tls.live), i.e. `before` is NOT re-reported as a delta there.
     post = [d for d in deltas if "after" in d]
     assert post and post[0]["after"]["v"] == 2 and "before" not in post[0]
+
+
+CANCEL = """
+import asyncio
+GATE = None
+
+def step(n):
+    return n
+
+async def worker():
+    step(1)
+    await GATE.wait()
+    return step(2)
+
+async def amain():
+    global GATE
+    GATE = asyncio.Event()
+    a = asyncio.create_task(worker(), name="task-A")
+    b = asyncio.create_task(worker(), name="task-B")
+    await asyncio.sleep(0)
+    b.cancel()
+    GATE.set()
+    await a
+    try:
+        await b
+    except asyncio.CancelledError:
+        pass
+
+def main():
+    asyncio.run(amain())
+"""
+
+
+def test_suspension_is_recorded_and_a_cancelled_task_is_derived_as_cancelled(tmp_path):
+    t, err = record_inproc(tmp_path, CANCEL)
+    assert err is None
+    states = {}
+    for f in t.frames(code_id=_by_qual(t, "worker").id):
+        s = t.frame_state(f)
+        states[t.task(t.event(f.call_event_id).task_id).name] = s
+    assert states["task-A"].state == "returned"
+    b = states["task-B"]
+    assert b.state == "cancelled" and b.exc["type"] == "CancelledError"
+    assert b.line == 10                                 # `await GATE.wait()`
+    ys = t.events(kind="YIELD")
+    assert {e.payload["awaiting"] for e in ys} == {"Future"} or ys
+    assert all(e.frame_id is not None and e.task_id is not None for e in ys)
+    rs = t.events(kind="RESUME")
+    thrown = [e for e in rs if (e.payload or {}).get("thrown")]
+    assert len(thrown) == 1 and thrown[0].payload["thrown"]["type"] == "CancelledError"
+
+
+def test_awaiting_is_the_bare_type_name_not_a_repr(tmp_path):
+    """`awaiting` names the TYPE being awaited, never `repr(value)`.
+
+    A repr is the program's own `__repr__` output -- unbounded, run from a
+    hook, and different on every run (`<Future pending cb=[...] at 0x...>`),
+    which would make the column useless for grouping and for diffing runs.
+    """
+    t, err = record_inproc(tmp_path, CANCEL)
+    assert err is None
+    ys = t.events(kind="YIELD")
+    assert ys
+    wf = {f.id for f in t.frames(code_id=_by_qual(t, "worker").id)}
+    assert {e.payload["awaiting"] for e in ys if e.frame_id in wf} == {"Future"}
+    # Every one of them, worker or not: a bare type name, never a repr.
+    for e in ys:
+        a = e.payload["awaiting"]
+        assert a.isidentifier(), a
+
+
+ABANDON = """
+KEEP = []
+
+def gen():
+    x = 1
+    yield x
+    yield 2
+
+def main():
+    g = gen()
+    next(g)
+    del g            # dropped while suspended -> GeneratorExit thrown in
+    h = gen()
+    next(h)
+    KEEP.append(h)   # still suspended when recording stops
+"""
+
+
+def test_dropped_generator_is_abandoned_and_a_parked_one_is_suspended_at_end(tmp_path):
+    t, err = record_inproc(tmp_path, ABANDON)
+    assert err is None
+    f1, f2 = t.frames(code_id=_by_qual(t, "gen").id)
+    s1, s2 = t.frame_state(f1), t.frame_state(f2)
+    assert s1.state == "abandoned" and s1.exc["type"] == "GeneratorExit" and s1.line == 6
+    assert s2 == FrameState("suspended", 6, None)
+    assert f2.closed_by is None
+
+
+def test_a_generator_left_by_a_break_derives_as_abandoned(tmp_path):
+    """The `for/break` case of the same fact: the loop drops the generator,
+    CPython closes it, and the frame is abandoned AT THE YIELD it was parked
+    on -- keyed on the thrown GeneratorExit's serial, not on "unwound with
+    no RAISE row" (a control-flow exception never gets a RAISE)."""
+    t, err = record_inproc(tmp_path, EARLY_BREAK)
+    assert err is None
+    g, = t.frames(code_id=_by_qual(t, "gen").id)
+    s = t.frame_state(g)
+    assert s.state == "abandoned" and s.exc["type"] == "GeneratorExit"
+    assert s.line == 3                                  # `yield 1`
+
+
+def test_yield_and_resume_never_touch_the_fingerprint(tmp_path):
+    from tests.helpers import record_inproc_full
+    t1, _, tr1 = record_inproc_full(tmp_path / "a", CANCEL)
+    # Same program; the fingerprint is over CALL/RETURN/RAISE/HANDLED only,
+    # so YIELD/RESUME counts do not appear in n_events.
+    n_causal = sum(1 for e in t1.events() if e.kind in ("CALL", "RETURN", "RAISE", "HANDLED"))
+    assert sum(n for _h, n in t1.fingerprints().values()) == n_causal
