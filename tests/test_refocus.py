@@ -782,9 +782,9 @@ def test_refocus_prints_exactly_one_tasks_line_and_keeps_the_drill_ins(
 
 def test_refocus_says_which_side_ran_the_task_when_the_other_ran_none(
         tmp_path):
-    """"A task took a different path" presumes both sides ran one. Here the
-    original ran no task at all, so there is no path to have differed -- and
-    which side is missing is the whole finding."""
+    """The wording "a task took a different path" presumes both sides ran
+    one. Here the original ran no task at all, so there is no path to have
+    differed -- and which side is missing is the whole finding."""
     tmp_path.mkdir(parents=True, exist_ok=True)
     (tmp_path / "taskslib.py").write_text(LIB_TASKS)
     run_id, sdir = rec(tmp_path, TASKS_ON_RERUN_ONLY,
