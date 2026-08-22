@@ -211,9 +211,9 @@ class WindowSpec:
     functions across a `--focus` set could share a window: the old matcher was
     `qual == self.window`, a bare-string equality that a `module:qualname`
     target could never satisfy (so it silently matched nothing) and that a bare
-    name matched in every module at once. `key()` returns the resolved
-    `(module, qualname)` so the depth counter is kept per function, and a
-    return from one no longer closes another's window.
+    name matched in every module at once. `key()` still resolves bare vs
+    `module:qualname` matching; its non-None result marks the window TARGET,
+    whose descendants are in the window by ANCESTRY. Nothing is counted.
     """
     def __init__(self, spec: str | None) -> None:
         if spec is None:
@@ -319,7 +319,8 @@ class _TLS(threading.local):
         # regular function frame, which always leaves through PY_RETURN or
         # PY_UNWIND -- both subscribed -- so the entry is removed before the
         # address can die. A suspendable frame must not enter this map without
-        # a terminal ABANDONED state (arc 2). `_parent_of` re-checks code identity anyway.
+        # a terminal ABANDONED state (arc 2). `_parent_of` re-checks code
+        # identity anyway.
         self.live: dict[int, list] = {}
         self.in_hook = False
         self.origin_recorded = False   # whether the in-flight exc got a row

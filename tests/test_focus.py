@@ -382,6 +382,37 @@ def test_window_on_a_coroutine_excludes_another_tasks_helper_during_suspension(t
     assert sorted(tags) == ["in", "in-again"]
 
 
+GEN_IN_WINDOW = """
+def leaf(n):
+    x = n
+    return x
+
+def gen():
+    yield leaf(0)
+    yield leaf(1)
+
+def target():
+    return list(gen())
+
+def main():
+    leaf(5)          # outside the window
+    return target()
+"""
+
+
+@pytest.mark.xfail(strict=True, reason="generator frames arrive in Task 3")
+def test_window_reaches_through_a_generator_intermediary(tmp_path):
+    """The window target calls a generator whose body calls the focused
+    leaf. Membership is ancestry, so this needs the generator to HAVE a
+    frame; until Task 3 it has none and the chain breaks here."""
+    t, err = record_inproc(tmp_path, GEN_IN_WINDOW,
+                           focus=["prog:leaf"], window="target")
+    assert err is None
+    xs = [e.payload["deltas"]["x"]["v"] for e in t.events(kind="LINE")
+          if "x" in e.payload["deltas"]]
+    assert xs == [0, 1]
+
+
 def test_focusspec_reports_which_entries_matched():
     fs = FocusSpec(["main:worker", "main", "other:x"])
     assert fs.entries_matching("main", "worker") == ["main:worker", "main"]
