@@ -34,10 +34,12 @@ other -- the dropped-while-suspended case arrives as PY_THROW(GeneratorExit) +
 PY_UNWIND. Each suspension is recorded: YIELD names the TYPE being awaited and
 RESUME carries the exception thrown in, if any. Neither is fingerprinted --
 how often a coroutine parks is the event loop's business, not the program's.
-An exception thrown into a suspended frame is `identify`d at PY_THROW so its
-RESUME row and the PY_UNWIND that follows carry ONE serial; that equality, not
-the type, is what lets a reader call a frame cancelled or abandoned rather
-than merely raised. A call whose caller has no open frame gets `parent_id NULL` and
+An exception thrown into a suspended TRACED frame is `identify`d at PY_THROW
+so its RESUME row and the PY_UNWIND that follows carry ONE serial; that
+equality, not the type, is what lets a reader call a frame cancelled or
+abandoned rather than merely raised. Untraced frames mint nothing: PY_THROW
+fires on the frame that will unwind, so an untraced one writes no row at
+either end and a serial for it would only evict a live one. A call whose caller has no open frame gets `parent_id NULL` and
 `caller_code` / `caller` naming who called it: the parent is never guessed.
 
 Every RAISE/HANDLED payload carries an exception `serial`: an exact per-thread
@@ -82,7 +84,8 @@ import weakref
 from fnmatch import fnmatch
 from pathlib import Path
 
-from sensorium.record.capture import capture_exc, capture_value, plain_str
+from sensorium.record.capture import (capture_exc, capture_value, plain_str,
+                                      type_name)
 from sensorium.record.fingerprint import Fingerprint
 
 M = sys.monitoring
@@ -321,9 +324,13 @@ class _TLS(threading.local):
         # property of the ACTIVATION, so a suspended windowed frame cannot lend
         # its membership to whatever else happens to run meanwhile. Slot 6 is
         # `suspended`: True between this frame's YIELD and the RESUME that
-        # answers it. Recorder-side state only -- the trace's own answer to
-        # "was it parked?" is the frame's last YIELD/RESUME row, which is what
-        # `Trace.frame_state` reads and what survives the process.
+        # answers it. It is deliberately never written out -- not at
+        # `uninstall`, not anywhere (spec D1). A frame still parked when
+        # recording stops leaves NO extra row, and the reader derives
+        # "suspended" from the frame's last YIELD/RESUME row, which is
+        # evidence the trace already holds. A written flag would be the
+        # recorder's opinion competing with that evidence, and would go
+        # stale for any thread still running when uninstall ran.
         # Replaces the stack that v1 used: "the last frame I opened is the
         # caller" is stack discipline, which a coroutine resumed by the event
         # loop, a generator resumed by its consumer, and a callback from C all
@@ -647,9 +654,19 @@ class Tracer:
         return None
 
     # -- suspension --------------------------------------------------------
-    def _suspension(self, code, kind, payload, disable_ok=True):
-        """Shared body of the YIELD/RESUME callbacks: the frame is the
-        triggering frame, found in `live` by identity like every event.
+    def _suspension(self, code, frame, kind, payload_factory, disable_ok=True):
+        """Shared body of the YIELD/RESUME callbacks. `frame` is the
+        triggering frame, read as `sys._getframe(1)` OF THE REGISTERED
+        CALLBACK and passed down -- the same convention `_on_raise` and
+        `_on_handled` follow, and for the same reason: read one frame deeper,
+        here, it would be tracer.py's own.
+
+        `payload_factory` is a callable, not a payload. Building the payload
+        runs the observed program (`capture_exc` calls its `__str__`,
+        `type_name` reads a possibly-computed `__name__`), so it must happen
+        INSIDE the `in_hook` region -- otherwise a traced helper called from
+        that `__str__` is recorded as real execution: a phantom CALL/RETURN
+        pair, a live entry, and a fingerprint update minted from hook time.
 
         Never fingerprinted. A fingerprint must depend only on the (code
         object, causal kind) sequence -- suspending is not a causal step, and
@@ -659,7 +676,7 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, _fp, _qual, _focused, _kind, _win = self._decide(code)
+        traced, _fp_file, _qual, _focused, _kind, _win = self._decide(code)
         if not traced:
             # PY_YIELD/PY_RESUME may be disabled per code object like any
             # other local event, and untraced code suspends constantly (the
@@ -671,13 +688,13 @@ class Tracer:
             return M.DISABLE if disable_ok else None
         tls.in_hook = True
         try:
-            frame = sys._getframe(2)          # one deeper: _on_yield -> here
             entry = tls.live.get(id(frame))
             if entry is None or entry[1] is not code:
                 return None
             entry[6] = (kind == "YIELD")
             self.writer.add_event(time.monotonic_ns(), tls.thread_serial, kind,
-                                  entry[0], entry[2], frame.f_lineno, payload,
+                                  entry[0], entry[2], frame.f_lineno,
+                                  payload_factory(),
                                   task_id=self._task_serial(tls))
         finally:
             tls.in_hook = False
@@ -687,25 +704,43 @@ class Tracer:
         # The TYPE name, never `repr(value)`: a repr is program code run from
         # a hook, unbounded in size, and different on every run (addresses),
         # which would make the column useless for grouping and diffing.
-        try:
-            awaiting = plain_str(type(value).__name__)
-        except BaseException:                   # a metaclass __name__ is program code
-            awaiting = "?"
-        return self._suspension(code, "YIELD", {"awaiting": awaiting})
+        # `type_name` is the capture module's guarded funnel and runs inside
+        # the hook region -- a metaclass `__name__` is program code too.
+        return self._suspension(code, sys._getframe(1), "YIELD",
+                                lambda: {"awaiting": type_name(value)})
 
     def _on_resume(self, code, offset):
-        return self._suspension(code, "RESUME", None)
+        return self._suspension(code, sys._getframe(1), "RESUME", lambda: None)
 
     def _on_throw(self, code, offset, exc):
-        # The exception is now in flight in that frame; identify it so the
-        # RESUME row, the RAISE the interpreter fires next, and the UNWIND
-        # all carry one serial -- that equality is what lets the reader say
-        # "cancelled", not the type alone.
+        """An exception is being thrown into a suspended frame.
+
+        Decide BEFORE minting. `identify` retains a strong reference in a
+        bounded table, so minting for untraced code would pour every
+        generator finalisation and every asyncio cancellation in the process
+        into it and evict serials a stored re-raise still wants -- and
+        control-flow exceptions, which `_exc_event` deliberately keeps out of
+        that table, would arrive by this door instead. Unlike RAISE (where
+        the raising frame may be untraced while the frame that unwinds is
+        traced), PY_THROW fires on the very frame that will PY_UNWIND: if it
+        is untraced, no row is written at either end and the serial buys
+        nothing. Knowingly given up: an exception thrown into an UNTRACED
+        generator that escapes into a traced caller's unwind has no serial
+        there, so that frame reads `raised` rather than `thrown` -- no D2
+        state on a traced frame depends on it.
+
+        For a traced frame the serial is minted inside the hook region, so
+        the RESUME row, the RAISE the interpreter fires next, and the UNWIND
+        all carry ONE serial. That equality -- not the type -- is what lets
+        the reader say "cancelled" or "abandoned".
+        """
         tls = self._tls
-        serial = None if tls.in_hook else tls.exc.identify(exc)
-        return self._suspension(code, "RESUME",
-                                {"thrown": capture_exc(exc, serial)},
-                                disable_ok=False)
+        if tls.in_hook or not self._decide(code)[0]:
+            return None                    # PY_THROW may not DISABLE
+        return self._suspension(
+            code, sys._getframe(1), "RESUME",
+            lambda: {"thrown": capture_exc(exc, tls.exc.identify(exc))},
+            disable_ok=False)
 
     # The triggering frame is sys._getframe(1) *of the registered callback*,
     # so it is read here and passed down rather than inside _exc_event, which

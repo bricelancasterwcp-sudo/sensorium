@@ -175,8 +175,8 @@ def test_suspension_is_recorded_and_a_cancelled_task_is_derived_as_cancelled(tmp
     assert b.state == "cancelled" and b.exc["type"] == "CancelledError"
     assert b.line == 10                                 # `await GATE.wait()`
     ys = t.events(kind="YIELD")
-    assert {e.payload["awaiting"] for e in ys} == {"Future"} or ys
-    assert all(e.frame_id is not None and e.task_id is not None for e in ys)
+    assert ys and all(e.frame_id is not None and e.task_id is not None
+                      for e in ys)
     rs = t.events(kind="RESUME")
     thrown = [e for e in rs if (e.payload or {}).get("thrown")]
     assert len(thrown) == 1 and thrown[0].payload["thrown"]["type"] == "CancelledError"
@@ -243,9 +243,61 @@ def test_a_generator_left_by_a_break_derives_as_abandoned(tmp_path):
 
 
 def test_yield_and_resume_never_touch_the_fingerprint(tmp_path):
-    from tests.helpers import record_inproc_full
-    t1, _, tr1 = record_inproc_full(tmp_path / "a", CANCEL)
-    # Same program; the fingerprint is over CALL/RETURN/RAISE/HANDLED only,
-    # so YIELD/RESUME counts do not appear in n_events.
-    n_causal = sum(1 for e in t1.events() if e.kind in ("CALL", "RETURN", "RAISE", "HANDLED"))
-    assert sum(n for _h, n in t1.fingerprints().values()) == n_causal
+    t, err = record_inproc(tmp_path, CANCEL)
+    assert err is None
+    # The fingerprint is over CALL/RETURN/RAISE/HANDLED only, so YIELD and
+    # RESUME counts must not appear in n_events.
+    n_causal = sum(1 for e in t.events()
+                   if e.kind in ("CALL", "RETURN", "RAISE", "HANDLED"))
+    assert t.events(kind=("YIELD", "RESUME"))        # there ARE such rows
+    assert sum(n for _h, n in t.fingerprints().values()) == n_causal
+
+
+LOUD_THROW = """
+def leaf():
+    return "boom"
+
+class Loud(Exception):
+    def __str__(self):
+        return leaf()
+
+def gen():
+    yield 1
+    yield 2
+
+def main():
+    g = gen()
+    next(g)
+    try:
+        g.throw(Loud())
+    except Loud:
+        pass
+"""
+
+
+def test_building_a_thrown_payload_never_records_the_programs_own_code(tmp_path):
+    """`capture_exc` calls the exception's `__str__`, which is the observed
+    program: `Loud.__str__` calls `leaf()`. The message proves `leaf` ran, and
+    the trace must hold no sign of it -- a phantom CALL/RETURN pair the
+    program never made, a live entry, a fingerprint update from hook time.
+
+    Measured on CPython 3.14.4: the interpreter delivers NO monitoring event
+    to a tool while that tool's own callback is running, so this holds even
+    when the payload is built before `in_hook` is set (that mutation
+    survives -- recorded, not hidden). The assertion guards the ordering
+    rather than proving it load-bearing today: the recorder must not rest on
+    an interpreter behaviour nothing pins, and building the payload inside
+    the region also stops `__str__` running at all when no row is written.
+    """
+    t, err = record_inproc(tmp_path, LOUD_THROW)
+    assert err is None
+    # `leaf` ran (the message proves it) but was never RECORDED -- not even
+    # interned, since interning happens only on the path that writes a row.
+    assert "leaf" not in {c.qualname for c in t.codes()}
+    assert t.events(code_id=None, kind="CALL")       # other calls were recorded
+    r, = [e for e in t.events(kind="RESUME") if (e.payload or {}).get("thrown")]
+    assert r.payload["thrown"]["type"] == "Loud"
+    assert r.payload["thrown"]["msg"] == "boom"
+    # And the serial minted for the throw is still the one the unwind carries.
+    g, = t.frames(code_id=_by_qual(t, "gen").id)
+    assert t.frame_state(g) == FrameState("thrown", 10, g.unwind_exc)  # `yield 1`
