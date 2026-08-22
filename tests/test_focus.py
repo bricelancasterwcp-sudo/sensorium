@@ -357,8 +357,8 @@ async def windowed():
     helper("in-again")
 
 async def other():
-    await asyncio.sleep(0)
-    helper("out")
+    helper("out")                # runs while `windowed` is parked; do not
+    await asyncio.sleep(0)       # reorder these two lines (see the test)
 
 def main():
     async def amain():
@@ -370,13 +370,30 @@ def main():
 def test_window_on_a_coroutine_excludes_another_tasks_helper_during_suspension(tmp_path):
     """While `windowed` is parked, `other` calls helper("out") on the same
     thread. A per-thread counter would count that as inside the window; the
-    ancestry flag does not, and helper("in-again") after the resume IS in."""
+    ancestry flag does not, and helper("in-again") after the resume IS in.
+
+    The second assertion is what makes the first one mean that. `other`
+    calls helper BEFORE its own await, so that call really does land in
+    windowed's suspension -- and the event ids say so, rather than the
+    reader taking the program's layout on trust. Written the other way round
+    (`await` first) the tags come out the same while "out" runs after
+    windowed has already returned, and the test no longer discriminates the
+    ancestry flag from a per-thread counter at all."""
     t, err = record_inproc(tmp_path, TWO_TASK_WINDOW,
                            focus=["prog:helper"], window="windowed")
     assert err is None
     tags = [e.payload["deltas"]["x"]["v"] for e in t.events(kind="LINE")
             if "x" in e.payload["deltas"]]
     assert sorted(tags) == ["in", "in-again"]
+
+    def _of(kind, qual):
+        return [e for e in t.events(kind=kind)
+                if t.code(e.code_id).qualname == qual]
+    parked, = _of("YIELD", "windowed")
+    resumed, = _of("RESUME", "windowed")
+    out, = [e for e in _of("CALL", "helper")
+            if e.payload["args"]["tag"]["v"] == "out"]
+    assert parked.id < out.id < resumed.id
 
 
 GEN_IN_WINDOW = """

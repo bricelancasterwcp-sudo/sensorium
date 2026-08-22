@@ -14,6 +14,14 @@ So the same flag has to say no to one call and yes to the one after it,
 where the three calls are adjacent in wall-clock order and identical in
 every way a print could show. No planted bug: the fact under test is which
 of three interleaved calls the instrument claims to have looked at.
+
+DO NOT REFLOW OR REORDER THIS FILE. The line numbers are pinned by the
+questions (`helper L23`), and so is the event order: `other` must call
+`helper` BEFORE its own await, or "out" runs after `windowed` has already
+returned and the case silently stops testing anything -- the two watch
+questions would still pass, counting the same sites, while the interleaving
+they describe no longer happened. The third question pins the recorded
+order by event id so that this cannot go unnoticed.
 """
 import asyncio
 

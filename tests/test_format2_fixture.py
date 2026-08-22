@@ -45,13 +45,18 @@ def test_fixture_holds_the_arc1_unframed_shapes():
     assert t.meta["focus_unframed"] == ["format2_async:worker"]
 
 
+def _installed(tmp_path, monkeypatch, fixture: Path, run_id: str) -> str:
+    """One recorded fixture, copied into a private store the CLI can find."""
+    store = tmp_path / "sdir" / "traces"
+    store.mkdir(parents=True, exist_ok=True)
+    shutil.copy(fixture, store / f"{run_id}.db")
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    return run_id
+
+
 @pytest.fixture
 def installed_fixture2(tmp_path, monkeypatch):
-    store = tmp_path / "sdir" / "traces"
-    store.mkdir(parents=True)
-    shutil.copy(FIXTURE, store / "old2.db")
-    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
-    return "old2"
+    return _installed(tmp_path, monkeypatch, FIXTURE, "old2")
 
 
 def test_tree_on_a_format2_trace_keeps_the_unframed_wording(
@@ -194,11 +199,7 @@ def test_generator_fixture_is_format_2_and_carries_no_ambient_environment():
 
 @pytest.fixture
 def installed_fixture2gen(tmp_path, monkeypatch):
-    store = tmp_path / "sdir" / "traces"
-    store.mkdir(parents=True)
-    shutil.copy(FIXTURE_GEN, store / "old2g.db")
-    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
-    return "old2g"
+    return _installed(tmp_path, monkeypatch, FIXTURE_GEN, "old2g")
 
 
 def test_tree_on_a_format2_generator_trace_keeps_the_unframed_shapes(

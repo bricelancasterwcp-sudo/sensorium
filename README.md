@@ -391,7 +391,7 @@ inner loop it would cost far more.
     python corpus/run_corpus.py --show     # print the questions and commands
     python corpus/run_corpus.py --bench    # report recording overhead
 
-Nineteen small programs with deliberately planted bugs, and thirty-six
+Nineteen small programs with deliberately planted bugs, and thirty-seven
 questions registered **before** any output was looked at: the question in
 plain language, the known ground truth, the exact invocation expected to
 yield it, and why a `print()` cannot answer it. Ground truth is known

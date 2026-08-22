@@ -50,7 +50,7 @@ questions:
       It still counts. helper("in-again") runs after `windowed` resumes --
       after the other task's helper("out") has already been and gone -- and
       its locals were captured: the predicate hits once, on a LINE site
-      inside helper at line 23 with x='in-again', out of the same 2 sites
+      inside helper at line 31 with x='in-again', out of the same 2 sites
       that could be evaluated at all. Ancestry does not lapse while a frame
       is parked, so the window closes when `windowed` ends, not when it
       yields control.
@@ -69,7 +69,40 @@ questions:
     command: ["watch", "$RUN", "--at", "main:helper", "--expr",
               "x == 'in-again'"]
     expect_line:
-      - ["HIT", "LINE", "helper L23", "x='in-again'"]
+      - ["HIT", "LINE", "helper L31", "x='in-again'"]
       - ["sites: 7", "evaluated: 2", "hits: 1", "not-captured: 5"]
     expect_contains:
       - "SATISFIED at 1 of the 2 site(s)"
+  - id: did-the-other-task-really-run-during-the-suspension
+    ask: >
+      Both answers above rest on helper("out") running WHILE `windowed` is
+      parked. That is a claim about what happened, not about how the file is
+      laid out -- show me the recorded order and let me check it.
+    truth: >
+      It really does. In event order the stream reads: `windowed` yields at
+      its await (YIELD, e9), the other task then starts and calls
+      helper(tag='out') (CALL, e11), and only afterwards does `windowed`
+      resume (RESUME, e14). The out-call is strictly between the two, on the
+      same thread, so "during the suspension" is a recorded fact and not an
+      inference from the source order -- and helper("in-again") (e15) comes
+      after the resume, inside the window again.
+
+      This is the question the other two cannot ask. They pin WHICH calls
+      the recorder inspected; if this program ever stopped interleaving --
+      `other` awaiting before its helper call, say -- their counts would
+      come out exactly the same while the case no longer tested anything,
+      because "out" would then run after `windowed` had returned.
+    why_logs_fail: >
+      A print in helper gives three lines whose order is all a log can show,
+      and order alone cannot say that the middle one belongs to a different
+      task, nor that the first task was suspended rather than finished when
+      it ran. The suspension has no line of its own to print from: the await
+      is where control leaves, not a statement that executes. Getting this
+      out of prints means timestamping every line and adding a print inside
+      asyncio's own scheduling, which is not the program's code.
+    command: ["grep", "$RUN", ""]
+    expect_line:
+      - ["e9", "YIELD", "windowed"]
+      - ["e11", "CALL", "helper(tag='out')"]
+      - ["e14", "RESUME", "windowed"]
+      - ["e15", "CALL", "helper(tag='in-again')"]
