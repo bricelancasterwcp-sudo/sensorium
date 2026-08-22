@@ -55,3 +55,77 @@ def test_focus_on_a_coroutine_records_its_lines(tmp_path):
     wf = {f.id for f in t.frames(code_id=_by_qual(t, "worker").id)}
     lines = [e for e in t.events(kind="LINE")]
     assert lines and {e.frame_id for e in lines} <= wf
+
+
+EARLY_BREAK = """
+def gen():
+    yield 1
+    yield 2
+
+def main():
+    for x in gen():
+        break
+    return x
+"""
+
+
+def test_generator_closed_early_unwinds_with_generator_exit(tmp_path):
+    t, err = record_inproc(tmp_path, EARLY_BREAK)
+    assert err is None
+    g, = t.frames(code_id=_by_qual(t, "gen").id)
+    assert g.kind == "generator" and g.closed_by == "unwind"
+    assert g.unwind_exc["type"] == "GeneratorExit"
+    # Control-flow exceptions are never RAISE rows; the unwind is the only record.
+    assert t.events(kind="RAISE") == []
+
+
+ASYNC_GEN = """
+import asyncio
+
+async def agen():
+    yield 1
+    yield 2
+
+async def amain():
+    out = []
+    async for v in agen():
+        out.append(v)
+    return out
+
+def main():
+    return asyncio.run(amain())
+"""
+
+
+def test_async_generators_get_frames_of_kind_async_generator(tmp_path):
+    t, err = record_inproc(tmp_path, ASYNC_GEN)
+    assert err is None
+    a, = t.frames(code_id=_by_qual(t, "agen").id)
+    assert a.kind == "async_generator"
+    assert a.closed_by == "return"
+
+
+SUSPEND_LOCALS = """
+import asyncio
+
+async def worker():
+    before = 1
+    await asyncio.sleep(0)
+    after = before + 1
+    return after
+
+def main():
+    return asyncio.run(worker())
+"""
+
+
+def test_line_deltas_survive_a_suspension(tmp_path):
+    t, err = record_inproc(tmp_path, SUSPEND_LOCALS, focus=["prog:worker"])
+    assert err is None
+    deltas = [e.payload.get("deltas", {}) for e in t.events(kind="LINE")]
+    assert any(d.get("before", {}).get("v") == 1 for d in deltas)
+    # `after` is bound on the line following the await: its delta must be
+    # recorded against the PRE-suspension locals (prev_locals survived in
+    # tls.live), i.e. `before` is NOT re-reported as a delta there.
+    post = [d for d in deltas if "after" in d]
+    assert post and post[0]["after"]["v"] == 2 and "before" not in post[0]
