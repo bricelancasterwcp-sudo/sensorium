@@ -452,3 +452,259 @@ def test_compare_returns_refused_without_touching_causal_stream(
     assert res["a_stream"] is None and res["b_stream"] is None
     assert res["index"] is None
     assert any("INCOMPLETE" in r for r in res["reasons"])
+
+
+# -- asyncio tasks: compared by content, never by interleaving -------------
+
+ASYNC_SHAPE = """
+import asyncio, sys
+
+def step(n):
+    return n
+
+def other(n):
+    return -n
+
+async def worker(name, flip):
+    step(1)
+    await asyncio.sleep(0)
+    if flip and name == "B":
+        other(2)
+    else:
+        step(2)
+
+async def amain(order, flip):
+    names = ["A", "B"] if order == "AB" else ["B", "A"]
+    tasks = [asyncio.create_task(worker(n, flip), name=f"task-{n}")
+             for n in names]
+    await asyncio.gather(*tasks)
+
+def main():
+    order, flip = sys.argv[1], sys.argv[2] == "flip"
+    asyncio.run(amain(order, flip))
+
+main()
+"""
+
+# The same program with the names dropped: asyncio then names every task
+# `Task-<N>` from a process-global counter, i.e. by creation order.
+UNNAMED_SHAPE = ASYNC_SHAPE.replace('name=f"task-{n}"', "name=None")
+
+DUP_TASK_NAMES = """
+import asyncio
+
+def step(n):
+    return n
+
+async def worker():
+    step(1)
+
+async def amain():
+    await asyncio.gather(asyncio.create_task(worker(), name="dup"),
+                         asyncio.create_task(worker(), name="dup"))
+
+asyncio.run(amain())
+"""
+
+
+def _rec_prog(tmp_path, src, argv=()):
+    """Record one run of `src`, from `tmp_path` itself -- like `_rec`, and
+    deliberately not from a per-run subdirectory: a causal stream is
+    (file, qualname, kind), so two runs of the same program recorded from
+    different directories diverge at step 0 on the absolute path alone."""
+    (tmp_path / "prog.py").write_text(src)
+    sdir = tmp_path / "sdir"
+    r = run_cli(["run", "--", "prog.py", *argv], cwd=tmp_path,
+                sensorium_dir=sdir)
+    assert r.returncode == 0, r.stderr
+    return re.search(r"^run: (\S+)$", r.stdout, re.M).group(1)
+
+
+def _rec_async(tmp_path, argv):
+    return _rec_prog(tmp_path, ASYNC_SHAPE, argv)
+
+
+def test_diff_matches_two_runs_whose_tasks_interleaved_differently(
+        tmp_path, monkeypatch, capsys):
+    a = _rec_async(tmp_path, ["AB", "same"])
+    b = _rec_async(tmp_path, ["BA", "same"])
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["diff", a, b]) == 0
+    out = capsys.readouterr().out
+    assert "verdict: MATCH" in out
+    assert "tasks: 3 task stream(s) on each side, compared by content" in out
+    assert "all matched" in out
+    assert "the ordering between tasks is not compared" in out
+
+
+def test_diff_names_the_task_that_took_another_path(tmp_path, monkeypatch,
+                                                    capsys):
+    a = _rec_async(tmp_path, ["AB", "same"])
+    b = _rec_async(tmp_path, ["AB", "flip"])
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["diff", a, b]) == 1
+    out = capsys.readouterr().out
+    assert "tasks: DIVERGED" in out
+    assert "task-B" in out
+    assert "only in A:" in out and "only in B:" in out
+    assert "first difference inside task-B" in out
+    assert "A:      " in out and "step" in out
+    assert "B:      " in out and "other" in out
+    assert f"drill into A: sensorium tree {a} --around e" in out
+    assert f"drill into B: sensorium tree {b} --around e" in out
+    # task-A matched and is not listed as differing
+    assert "task-A" not in out.split("tasks: DIVERGED", 1)[1].split(
+        "first difference", 1)[0]
+
+
+def test_diff_task_flag_compares_one_named_task(tmp_path, monkeypatch,
+                                                capsys):
+    a = _rec_async(tmp_path, ["AB", "same"])
+    b = _rec_async(tmp_path, ["BA", "flip"])
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["diff", a, b, "--task", "task-A"]) == 0
+    out = capsys.readouterr().out
+    assert "compared: task task-A" in out
+    assert "verdict: MATCH" in out
+    capsys.readouterr()
+    assert cli.main(["diff", a, b, "--task", "task-B"]) == 1
+    out = capsys.readouterr().out
+    assert "verdict: DIVERGED at causal step" in out
+    assert "other" in out
+
+
+def test_diff_task_flag_refuses_an_unknown_or_ambiguous_name(
+        tmp_path, monkeypatch, capsys):
+    a = _rec_async(tmp_path, ["AB", "same"])
+    b = _rec_async(tmp_path, ["AB", "same"])
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["diff", a, b, "--task", "nope"]) == 2
+    out = capsys.readouterr().out
+    assert "REFUSED" in out and "no task named 'nope'" in out
+    assert "task-A, task-B" in out
+
+
+def test_diff_task_flag_refuses_a_name_that_picks_two_tasks(
+        tmp_path, monkeypatch, capsys):
+    """A name that two tasks share picks neither: comparing "the" dup task
+    would silently pick one of them by creation order -- the very thing the
+    task comparison exists not to do."""
+    a = _rec_prog(tmp_path, DUP_TASK_NAMES)
+    b = _rec_prog(tmp_path, DUP_TASK_NAMES)
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["diff", a, b, "--task", "dup"]) == 2
+    out = capsys.readouterr().out
+    assert "REFUSED" in out
+    assert "'dup' names 2 tasks on A" in out
+    assert "exactly one" in out
+
+
+def test_diff_unnamed_tasks_match_only_unnamed_tasks(tmp_path, monkeypatch):
+    from collections import Counter
+    from sensorium.query.diff_cmd import _shape_difference
+    a = Counter({(None, "h1"): 1, ("w", "h1"): 1})
+    b = Counter({("w", "h1"): 2})
+    only_a, only_b = _shape_difference(a, b)
+    assert only_a == [(None, "h1", 1)] and only_b == [("w", "h1", 1)]
+
+
+def test_diff_default_task_names_are_compared_as_unnamed(
+        tmp_path, monkeypatch, capsys):
+    """`Task-2` is not a name: asyncio hands it out from a process-global
+    counter, so it says when the task was created and nothing else. Two runs
+    that created the same tasks in the other order must still MATCH, and
+    `--task Task-2` must refuse rather than compare creation slots.
+
+    Both runs flip, so the two workers do DIFFERENT work from each other:
+    A's `Task-2` did what B's `Task-3` did and vice versa. Reading the
+    number as a name makes this pair DIVERGED on nothing but creation
+    order -- which is the whole of Ruling 4."""
+    a = _rec_prog(tmp_path, UNNAMED_SHAPE, ["AB", "flip"])
+    b = _rec_prog(tmp_path, UNNAMED_SHAPE, ["BA", "flip"])
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["diff", a, b]) == 0
+    out = capsys.readouterr().out
+    assert "verdict: MATCH" in out
+    assert "all matched" in out
+    assert cli.main(["diff", a, b, "--task", "Task-2"]) == 2
+    out = capsys.readouterr().out
+    assert "REFUSED" in out
+    assert ("'Task-2' is asyncio's default name and encodes creation order, "
+            "not identity") in out
+    assert "asyncio.create_task(..., name=...)" in out
+
+
+def test_diff_pairs_unnamed_tasks_by_creation_order_and_says_so(
+        tmp_path, monkeypatch, capsys):
+    """With no name shared between the unmatched streams there is nothing to
+    match on, so the drill-in pairs the first unmatched unnamed stream on
+    each side -- and labels that pairing a guide, not a match."""
+    a = _rec_prog(tmp_path, UNNAMED_SHAPE, ["AB", "same"])
+    b = _rec_prog(tmp_path, UNNAMED_SHAPE, ["AB", "flip"])
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["diff", a, b]) == 1
+    out = capsys.readouterr().out
+    assert "tasks: DIVERGED" in out
+    assert "(unnamed)" in out
+    assert "first difference inside (unnamed)" in out
+    assert "(paired by creation order -- a guide, not a match)" in out
+    assert "other" in out
+
+
+def test_diff_refuses_to_compare_across_fingerprint_bases_when_tasks_ran(
+        tmp_path, monkeypatch, capsys):
+    from tests.test_format2_fixture import _installed
+    from tests.test_format3_fixture import FIXTURE as OLD3
+    old3 = _installed(tmp_path, monkeypatch, OLD3, "old3")
+    new = _rec_async(tmp_path, ["AB", "same"])
+    assert cli.main(["diff", old3, new]) == 2
+    out = capsys.readouterr().out
+    assert "verdict: REFUSED" in out
+    assert ("recorded under different fingerprint bases "
+            "(A: per-thread, B: per-task)") in out
+    assert "re-record" in out
+
+
+def test_diff_compares_across_bases_when_neither_side_ran_a_task(
+        tmp_path, monkeypatch, capsys):
+    """No task anywhere: both definitions coincide, so nothing is refused."""
+    a = _rec(tmp_path, "a", ["100"])
+    sdir = tmp_path / "sdir"
+    monkeypatch.setenv("SENSORIUM_DIR", str(sdir))
+    import sqlite3
+    c = sqlite3.connect(sdir / "traces" / f"{a}.db")
+    c.execute("DELETE FROM meta WHERE key='fingerprint_basis'")
+    c.commit(); c.close()
+    b = _rec(tmp_path, "b", ["100"])
+    assert cli.main(["diff", a, b]) == 0
+    assert "REFUSED" not in capsys.readouterr().out
+
+
+def test_diff_does_not_call_an_empty_thread_stream_identical(
+        tmp_path, monkeypatch, capsys):
+    """`compare()` refuses two empty thread streams only when no task ran
+    either -- with tasks there IS something to compare, which makes an empty
+    thread stream reachable for the first time. The thread line must not
+    report "identical causal streams" over zero events: that is the verdict
+    about nothing this command refuses everywhere else."""
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    ids = []
+    for run_id in ("20260101-000000-tonlya", "20260101-000000-tonlyb"):
+        w = TraceWriter(paths.traces_dir() / f"{run_id}.db")
+        w.set_meta("run_id", run_id)
+        w.set_meta("argv", ["prog.py"])
+        w.set_meta("main_thread_ident", 1)
+        w.set_meta("fingerprint_basis", "per-task")
+        w.set_meta("incomplete", False)
+        w.set_meta("threads_started", 0)
+        w.add_task(1, "task-A", 1)
+        c = w.intern_code("/tmp/prog.py", "worker", 1)
+        w.add_event(0, 1, "CALL", None, c, 1, {"args": {}}, task_id=1)
+        w.write_task_fingerprint(1, "a" * 32, 1)
+        w.close()
+        ids.append(run_id)
+    assert cli.main(["diff", *ids]) == 0
+    out = capsys.readouterr().out
+    assert "identical causal streams" not in out
+    assert "no causal event ran outside a task on either side" in out
+    assert "tasks: 1 task stream(s) on each side" in out

@@ -249,3 +249,26 @@ def test_a_thread_whose_every_event_ran_in_a_task_still_gets_its_own_row(
     # The six events are not lost -- they are on the task's row.
     (_name, _h, n), = t.task_fingerprints().values()
     assert n == 6 == len(_causal(t, lambda e: e.thread_id == loop_tid))
+
+
+def test_task_fingerprint_rows_survive_the_real_writer_batching(tmp_path):
+    """Through the real CLI, whose writer batches 512 events.
+
+    The row is written by an `INSERT ... SELECT` over `tasks` -- and a
+    `tasks` row still sitting in the write buffer makes that INSERT match
+    nothing and write nothing, silently, with no error for the tracer's
+    uninstall pass to notice. `record_inproc`'s batch=8 flushes early enough
+    to hide it; a real recording of any async program short enough not to
+    have flushed on its own does not, and every one of them came out with
+    zero task fingerprints and a `diff` that saw no tasks at all.
+    """
+    src = TWO_TASKS + '\nif __name__ == "__main__":\n    main()\n'
+    run_id, path, r = record_script(tmp_path, src)
+    assert run_id, r.stderr
+    t = Trace.open(path)
+    assert len(t.tasks()) == 3
+    assert len(t.task_fingerprints()) == 3
+    names = sorted(name for name, _h, _n in t.task_fingerprints().values())
+    assert names == ["Task-1", "task-A", "task-B"]
+    for tid, (_name, _h, n) in t.task_fingerprints().items():
+        assert n == len(_causal(t, lambda e: e.task_id == tid))

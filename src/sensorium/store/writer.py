@@ -103,8 +103,18 @@ class TraceWriter:
     def write_task_fingerprint(self, task_id, hexdigest, count) -> None:
         """One row per minted task serial; the name rides along from the
         `tasks` row so the multiset comparison can read (name, hash) from
-        one table. A task whose name could not be read keeps NULL."""
+        one table. A task whose name could not be read keeps NULL.
+
+        The buffer is flushed FIRST because that `tasks` row may still be
+        sitting in it: `INSERT ... SELECT` over a table that does not yet
+        hold the row inserts nothing at all, silently, and the caller (the
+        tracer's uninstall pass) has no way to tell. Under the CLI's
+        batch=512 that is the ordinary case for any async program short
+        enough not to have flushed on its own -- which is to say, most of
+        them: every task fingerprint was dropped and `diff` saw a run with
+        no tasks in it."""
         with self._lock:
+            self._flush_locked()
             self._conn.execute(
                 "INSERT OR REPLACE INTO task_fingerprints "
                 "(task_id, name, hash, n_events) "
