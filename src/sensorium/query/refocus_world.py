@@ -18,7 +18,6 @@ look, and only a third, positive answer when it actually verified something.
 `_UNCOMPARED_ENV` is the one deliberate hole, and it is named rather than
 counted for the same reason.
 """
-import os
 from pathlib import Path
 
 from sensorium.store.reader import Trace
