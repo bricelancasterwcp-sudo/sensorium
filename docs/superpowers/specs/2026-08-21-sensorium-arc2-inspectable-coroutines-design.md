@@ -5,7 +5,7 @@ Extends `2026-08-21-sensorium-async-design.md` (arc 1, shipped as 0.2.0 in
 PR #2, `main` @ d59cafc), which recorded the constraints this spec honours in
 its closing section. Supersedes nothing.
 
-Two plans will implement it, in order: **plan 2a** (frames, suspension
+Two plans implemented it, in order: **plan 2a** (frames, suspension
 states, inspection — §D1–D5, §D7) and **plan 2b** (per-task fingerprints —
 §D6). One spec, because 2b's needs shape 2a's schema.
 
@@ -294,7 +294,7 @@ trace recorded under this narrowing; a trace with no such key is read under
 the per-thread definition (`Trace.fingerprint_basis` defaults to
 `"per-thread"`). `diff` refuses a comparison across the two bases whenever
 either side ran a task (`_basis_reasons`), and refuses a per-task trace that
-ran tasks but recorded no `task_fingerprints` rows (`_task_row_reasons`) --
+ran tasks but recorded no `task_fingerprints` rows (`_task_row_reasons`) —
 its thread stream still narrows to `task_id IS NULL`, so with no task rows to
 compare, everything those tasks did would drop out silently. `refocus` reuses
 both checks by calling `diff_cmd.compare()` after the rerun, and adds its own
@@ -303,14 +303,24 @@ happens for a verdict that could not have been issued anyway. `causal_stream`
 narrows to `task_id IS NULL` under the per-task basis and is every causal
 event under the per-thread basis. **Ruling 4:** asyncio's default `Task-<N>`
 names are compared as unnamed, because the number is creation order and
-nothing else -- `_unnamed()` treats a name matching `Task-\d+` exactly as
+nothing else — `_unnamed()` treats a name matching `Task-\d+` exactly as
 `None`, so "unnamed tasks match only unnamed tasks" extends to them, and
 `diff --task` refuses a literal default name outright rather than resolve it
 by creation order. Every thread that produced a causal event has a
-`fingerprints` row, even one whose events ran entirely inside tasks --
+`fingerprints` row, even one whose events ran entirely inside tasks —
 `n_events = 0` marks that fact, not the thread's absence (`_fp_for`). And
 `asyncio.run`'s own wrapper task gets a `task_fingerprints` row like any
-other task, under whatever name asyncio assigned it.
+other task, under whatever name asyncio assigned it. **Ruling 9:** the
+task's `Fingerprint` is created where the serial is MINTED, not on its first
+causal event — a serial is minted at any event with a current task, YIELD and
+RESUME included, so a task whose only traced frames are a resumed generator
+otherwise had a `tasks` row and no `task_fingerprints` row; a zero-count task
+row means the task ran no causal event while traced. **Ruling 8:** all the
+rows are written in one transaction at `uninstall`
+(`TraceWriter.write_task_fingerprints`), because a commit is an fsync and one
+per task charged 1.3–3.2 ms per task to a process the user had watched
+finish. And a task's recorded NAME is the one `get_name()` returned at mint
+time; a later `set_name` is not seen.
 
 ## Honesty rules (arc 2)
 

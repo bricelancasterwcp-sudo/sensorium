@@ -122,7 +122,7 @@ whether the rerun was the same execution.
 |---|---|---|
 | MATCH | 0 | every thread that left a fingerprint in both runs produced the **identical sequence of `(file, qualname, kind)` for CALL/RETURN/RAISE/HANDLED** outside any asyncio task, every asyncio task's own stream has a counterpart of the same name and content on the other side (a multiset — the order tasks interleaved in is never compared), and there was at least one such event to compare |
 | DIVERGED | 1 | the causal streams part, and the first divergence is named with a drill-in command for each side |
-| REFUSED | 2 | no verdict could be issued — there was nothing to compare, or the recording could not be trusted |
+| REFUSED | 2 | no verdict could be issued. Four ways to get here: there was nothing to compare (neither side recorded a causal event); the recording could not be trusted (INCOMPLETE, or writes dropped after its database sealed); the two traces define a thread stream differently (a pre-0.4.0 trace against a 0.4.0 one, whenever either ran a task); or a 0.4.0 trace ran asyncio tasks and holds no task fingerprint rows, so what those tasks did would drop out of the comparison in silence |
 
 `diff --task NAME` diffs one task's stream by name; unnamed tasks match only
 unnamed tasks. Traces recorded before 0.4.0 define a thread stream to
@@ -130,7 +130,10 @@ include task events (`info` says `per-thread basis`); comparing one of those
 with a 0.4.0 trace is REFUSED whenever either ran a task. Asyncio's own
 default `Task-<N>` names count as unnamed too — the number is creation
 order, not an identity, so `diff --task` refuses a literal `Task-<N>` rather
-than pretend it picks anything (Ruling 4). A thread's fingerprint row can
+than pretend it picks anything (Ruling 4). The name a task is compared under
+is the one it had **when it first ran traced code**: the recorder reads
+`get_name()` once, at the moment it mints that task's identity, so a
+`set_name` afterwards is never seen by any comparison. A thread's fingerprint row can
 hold zero events under this basis: a thread whose traced code all ran inside
 asyncio tasks still gets a row of its own, just with nothing in it outside
 those tasks.
@@ -367,8 +370,13 @@ measurable regression against a fresh 0.2.0 worktree measured the same way:
 6.7/8.5/7.1 µs/event here versus 0.2.0's 6.7/8.1/7.6 — differences within
 run-to-run noise in both directions.
 
-Plan 2b adds one more `dict.get` per causal event — the lookup that finds
-which task's fingerprint an event belongs to. Measured against a fresh
+Plan 2b's per-event cost falls only on events that ran **inside a task**.
+An event with no current task takes exactly the path it took before — one
+locked lookup in the per-thread map. An event inside a task pays two things
+instead of that one: an unlocked membership test that keeps its thread's own
+row present (a zero-count row is a fact, see above), and a locked lookup in
+the per-task map. So the async rows below are where any movement would show,
+and the synchronous rows are the control. Measured against a fresh
 `e679b7c` worktree (the commit immediately before this plan, same machine,
 same day, each side its own venv): `call_dense` holds at 6.7/6.1 µs/event
 (default/focused, unchanged both ways), `async_call_dense` moves 7.2 → 7.1,
@@ -377,6 +385,19 @@ same day, each side its own venv): `call_dense` holds at 6.7/6.1 µs/event
 moves 8.3 → 8.5 (default) and 6.8 → 7.0 (focused). The largest move on any
 row is +0.2 µs/event, the same size as run-to-run noise reported elsewhere
 in this section; no row moved past it.
+
+Two costs plan 2b adds that a per-event figure does not show. **Memory**: the
+recorder holds one `Fingerprint` per asyncio task the run created, for the
+lifetime of the process — measured here with `tracemalloc` at **220 bytes per
+task** (the dict entry and the object together), so a program that creates a
+million tasks over its life pays about 220 MB whether or not those tasks are
+still alive. **Exit**: every task's fingerprint row is written at `uninstall`,
+after the program has finished, in ONE transaction — measured at **4.6–5.4 µs
+per task** on this box's ext4 (1,000 rows, best of five). It was one
+transaction per row until 0.4.0's final wave, which cost 1.3–3.2 ms per task:
+recording a 2,000-task program took 2.18 s of wall clock where it now takes
+0.35 s, all of the difference being `fsync` charged to a process the user had
+already watched finish.
 
 An await-heavy program roughly **doubles its event count**, and that is a
 cost the per-event figures above do not show: every suspension is one YIELD
