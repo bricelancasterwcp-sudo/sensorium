@@ -432,6 +432,7 @@ class Tracer:
         self._parked_lock = threading.Lock()
         self._seen_codes: list = []    # pins code objects so id() cannot recycle
         self._fps: dict[int, Fingerprint] = {}
+        self._task_fps: dict[int, Fingerprint] = {}   # task serial -> fp
         self._fp_lock = threading.Lock()
         # Weak values: a thread's table dies with the thread, so a program
         # that spawns thousands of short-lived threads does not accumulate
@@ -512,6 +513,20 @@ class Tracer:
             fp = self._fps.get(tid)
             if fp is None:
                 fp = self._fps[tid] = Fingerprint()
+            return fp
+
+    def _fp_for(self, tid: int, task) -> Fingerprint:
+        """The fingerprint this event belongs to: the task's when it ran in
+        an asyncio task, else the thread's (spec D6). One event, one
+        fingerprint -- the thread's covers exactly the events with
+        task_id NULL, which is what makes the two rows comparable
+        separately."""
+        if task is None:
+            return self._fp(tid)
+        with self._fp_lock:
+            fp = self._task_fps.get(task)
+            if fp is None:
+                fp = self._task_fps[task] = Fingerprint()
             return fp
 
     def _parent_of(self, tls, caller):
@@ -713,7 +728,7 @@ class Tracer:
                              or (parent is not None and parent[5]))
             tls.live[id(frame)] = [fid, code, cid, {}, depth, in_window,
                                    False]
-            self._fp(tid).update(fp_file, qual, "CALL")
+            self._fp_for(tid, task).update(fp_file, qual, "CALL")
         finally:
             tls.in_hook = False
         return None
@@ -736,13 +751,14 @@ class Tracer:
                 fid = entry[0]
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
+            task = self._task_serial(tls)
             eid = self.writer.add_event(time.monotonic_ns(), tid, "RETURN",
                                         fid, cid, None,
                                         {"value": capture_value(retval)},
-                                        task_id=self._task_serial(tls))
+                                        task_id=task)
             if fid is not None:
                 self.writer.close_frame(fid, eid, "return")
-            self._fp(tid).update(fp_file, qual, "RETURN")
+            self._fp_for(tid, task).update(fp_file, qual, "RETURN")
         finally:
             tls.in_hook = False
         return None
@@ -950,11 +966,12 @@ class Tracer:
             fid = entry[0] if (entry is not None and entry[1] is code) else None
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
+            task = self._task_serial(tls)
             self.writer.add_event(time.monotonic_ns(), tid, kind, fid, cid,
                                   frame.f_lineno,
                                   {"exc": capture_exc(exc, serial)},
-                                  task_id=self._task_serial(tls))
-            self._fp(tid).update(fp_file, qual, kind)
+                                  task_id=task)
+            self._fp_for(tid, task).update(fp_file, qual, kind)
         finally:
             tls.in_hook = False
         return None
@@ -1120,5 +1137,11 @@ class Tracer:
         # stopped, and is already reported as such (`_recording_gaps`).
         with self._fp_lock:
             fps = list(self._fps.items())
+            tfps = list(self._task_fps.items())
         for tid, fp in fps:
             self.writer.write_fingerprint(tid, fp.hexdigest(), fp.count)
+        # A task's row is written whatever state the task was left in: a
+        # stream that was recorded is a stream, and one still parked at
+        # uninstall is exactly the case a comparison most wants to see.
+        for task, fp in tfps:
+            self.writer.write_task_fingerprint(task, fp.hexdigest(), fp.count)
