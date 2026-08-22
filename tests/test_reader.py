@@ -187,6 +187,8 @@ def test_frame_kind_reads_function_on_old_traces_and_the_column_on_new(tmp_path)
     assert f.kind == "coroutine"
     assert Trace.open(Path(__file__).parent / "fixtures" / "format2_async.db"
                       ).frames()[0].kind == "function"
+    assert Trace.open(Path(__file__).parent / "fixtures" / "format1_async.db"
+                      ).frames()[0].kind == "function"
 
 
 def test_frame_state_derives_each_state_from_evidence(tmp_path):
@@ -224,3 +226,18 @@ def test_frame_state_cancelled_requires_the_serials_to_match(tmp_path):
                        [("YIELD", 29, {"awaiting": "Future"}),
                         ("RESUME", 29, {"thrown": CANCEL})])
     assert t.frame_state(f).state == "raised"
+
+
+def test_suspensions_returns_yield_and_resume_rows_in_order(tmp_path):
+    """Two suspend/resume cycles, with a LINE row in between: suspensions()
+    must return only the YIELD/RESUME rows, in id order, and must not drop
+    the RESUME half (a kind=YIELD-only filter would look right on one
+    cycle but silently lose every RESUME)."""
+    t, f = _frame_with(tmp_path, "unwind", CANCEL,
+                       [("YIELD", 29, {"awaiting": "Future"}),
+                        ("RESUME", 29, None),
+                        ("LINE", 30, {"deltas": {}}),
+                        ("YIELD", 31, {"awaiting": "Task"}),
+                        ("RESUME", 31, {"thrown": CANCEL})])
+    assert [(e.kind, e.line) for e in t.suspensions(f.id)] == [
+        ("YIELD", 29), ("RESUME", 29), ("YIELD", 31), ("RESUME", 31)]
