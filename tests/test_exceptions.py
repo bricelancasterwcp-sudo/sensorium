@@ -450,11 +450,16 @@ def test_exceptions_link_lost_in_a_killed_frame_will_not_say_it_returned(
     """The third rule-2 sink -- a returning-handler frame whose exception may
     have come back under a fresh serial -- on a frame that was cancelled.
 
-    Synthetic: reaching it needs the recorder to FORGET the handled exception
-    (its per-thread table is bounded) and the frame to be killed by a
-    thrown-in cancel, so a recorded program would have to raise thousands of
-    exceptions inside one coroutine to arrange it. The hedge is arc 1's and
-    is not under test; how the frame ended is."""
+    Synthetic: reaching it needs a later RAISE that COULD be the handled
+    object -- `could_be_same` asks only for an equal address and type with
+    differing serials -- together with a frame killed by a thrown-in cancel.
+    Two different things produce that pair: the recorder forgot the handled
+    exception (its per-thread table is bounded), or CPython recycled the
+    address for a genuinely different exception of the same type. Neither is
+    arrangeable in a small recorded program -- the first wants thousands of
+    exceptions inside one coroutine, the second wants an address to come
+    back at exactly the right moment -- which is why this is built by hand.
+    The hedge is arc 1's and is not under test; how the frame ended is."""
     w = synthetic(tmp_path, monkeypatch)
     c_main = w.intern_code("/tmp/prog.py", "amain", 13)
     c_worker = w.intern_code("/tmp/prog.py", "worker", 1)

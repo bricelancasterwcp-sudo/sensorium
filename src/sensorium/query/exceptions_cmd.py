@@ -16,7 +16,12 @@ program behaviours:
 CPython compiles ``finally`` as an implicit exception handler, so
 EXCEPTION_HANDLED fires on entry to a ``finally`` block that has no
 ``except`` anywhere near it. A never-caught exception crossing one
-``finally`` produces *two* HANDLED rows. The presence of a HANDLED row
+``finally`` produces *two* HANDLED rows. ``await`` is the other implicit
+handler, and arc 2 made it visible: the ``CLEANUP_THROW`` an await site is
+compiled with fires the same event, so an exception thrown into a coroutine
+parked at an ``await`` produces two HANDLED rows AT THE AWAIT LINE --
+measured on CPython 3.14.4, both in the frame that then caught it and in an
+inner frame that merely passed it on. The presence of a HANDLED row
 therefore means nothing on its own. (The tracer does subscribe RERAISE, but
 records no event for it -- it only keeps in-flight state -- so re-raises are
 not directly visible either.)

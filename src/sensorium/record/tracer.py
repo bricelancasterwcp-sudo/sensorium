@@ -272,10 +272,9 @@ class _ExcRefs:
     `serials` maps `id(exc)` -> `(exc, serial)`, insertion-ordered, capped at
     `cap` (`_RETAIN_MAX` for a thread's real table, `_CONTROL_RETAIN_MAX` for
     its control-flow side table). Holding the object is what makes `id()` a
-    sound key: the
-    address cannot be recycled underneath us, so two distinct exceptions can
-    never alias onto one serial. Weak references were tried first and are not
-    an option at all -- `BaseException` does not support them
+    sound key: the address cannot be recycled underneath us, so two distinct
+    exceptions can never alias onto one serial. Weak references were tried
+    first and are not an option at all -- `BaseException` does not support them
     (`TypeError: cannot create weak reference to 'ValueError' object`), and
     catching that error silently disabled the whole mechanism, which is the
     kind of quiet fallback this project bans.
@@ -843,10 +842,12 @@ class Tracer:
         GeneratorExit into a frame this recorder may well be tracing. They
         still need a serial -- `abandoned` is the RESUME serial matching the
         unwind's, nothing else -- so they get one from `cf_exc`, a small
-        table of their own (`_CONTROL_RETAIN_MAX`). Knowingly given up: an exception thrown into an UNTRACED
-        generator that escapes into a traced caller's unwind has no serial
-        there, so that frame reads `raised` rather than `thrown` -- no D2
-        state on a traced frame depends on it.
+        table of their own (`_CONTROL_RETAIN_MAX`).
+
+        Knowingly given up: an exception thrown into an UNTRACED generator
+        that escapes into a traced caller's unwind has no serial there, so
+        that frame reads `raised` rather than `thrown` -- no D2 state on a
+        traced frame depends on it.
 
         For a traced frame the serial is minted inside the hook region, so
         the RESUME row, the RAISE the interpreter fires next, and the UNWIND

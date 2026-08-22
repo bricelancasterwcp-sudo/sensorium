@@ -16,7 +16,7 @@ every way a print could show. No planted bug: the fact under test is which
 of three interleaved calls the instrument claims to have looked at.
 
 DO NOT REFLOW OR REORDER THIS FILE. The line numbers are pinned by the
-questions (`helper L23`), and so is the event order: `other` must call
+questions (`helper L31`), and so is the event order: `other` must call
 `helper` BEFORE its own await, or "out" runs after `windowed` has already
 returned and the case silently stops testing anything -- the two watch
 questions would still pass, counting the same sites, while the interleaving

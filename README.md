@@ -354,6 +354,12 @@ measurable regression against a fresh 0.2.0 worktree measured the same way:
 6.7/8.5/7.4 µs/event here versus 0.2.0's 6.7/8.1/7.6 — differences within
 run-to-run noise in both directions.
 
+An await-heavy program roughly **doubles its event count**, and that is a
+cost the per-event figures above do not show: every suspension is one YIELD
+plus one RESUME on the same frame, so `await_dense`'s 20,000 awaits are
+40,004 events — 40,000 suspension rows and the four CALL/RETURN rows its two
+function calls make. A program that never suspends records nothing new.
+
 `await_dense` isolates the cost arc 2 added: a coroutine that suspends
 20,000 times on `asyncio.sleep(0)`, so almost every event it produces is a
 YIELD or a RESUME on the same frame. Measured here it costs 4.3 µs/event by
