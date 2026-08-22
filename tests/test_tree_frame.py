@@ -1002,14 +1002,46 @@ def test_frame_header_shows_kind_and_derived_state_for_a_cancelled_frame(
     assert "L10" in resume_ln and "thrown" in resume_ln
     assert "CancelledError" in resume_ln
 
-    # task-A waited at the same gate and was let through: it just returned,
-    # so its header carries no state segment despite being a coroutine too
-    # -- wait, it IS a coroutine, so the marker still shows, but its state
-    # is "returned" which is excluded ONLY for functions. A coroutine that
-    # returned still gets a state segment, per the contract (`f.kind !=
-    # "function"` alone is enough) -- confirm it says "returned", not
-    # nothing and not "cancelled".
+    # task-A waited at the same gate and was let through: it just returned.
+    # A returned coroutine frame still shows the `[coroutine]` marker and a
+    # `state: returned` segment, because the exclusion only applies to a
+    # plain function's frame -- the kind alone (not the state) decides
+    # whether a coroutine's header carries a `state:` segment at all.
     assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "1"]) == 0
     head_a = capsys.readouterr().out.splitlines()[0]
     assert "[coroutine]" in head_a
     assert "state: returned" in head_a
+
+
+def test_frame_timeline_interleaves_suspension_rows_among_line_rows(
+        tmp_path, monkeypatch, capsys):
+    """A focused coroutine's timeline is ONE ordered list, not two
+    disconnected views: LINE rows (locals, from --focus) and YIELD/RESUME
+    rows (suspension points, captured regardless of --focus) share it, in
+    event order. Only the suspension rows carry the `~ ` prefix, and they
+    must land BETWEEN the LINE rows they actually fall between -- `before`
+    is bound, then the coroutine suspends and resumes, then `after` is
+    bound -- not gathered under a separate "suspensions only" heading just
+    because --focus also captured locals for this frame."""
+    from tests.test_coroutine_frames import SUSPEND_LOCALS
+    tail = '\nif __name__ == "__main__":\n    main()\n'
+    run_id = _rec(tmp_path, monkeypatch, src=SUSPEND_LOCALS + tail,
+                  extra=("--focus", "prog:worker"))
+    assert cli.main(["frame", run_id, "--fn", "worker"]) == 0
+    out = capsys.readouterr().out
+    assert "timeline (suspensions only):" not in out
+
+    tl = _section(out, "timeline:")
+    before_idx = next(i for i, ln in enumerate(tl) if "before=1" in ln)
+    after_idx = next(i for i, ln in enumerate(tl) if "after=2" in ln)
+    yield_idx = next(i for i, ln in enumerate(tl) if "YIELD" in ln)
+    resume_idx = next(i for i, ln in enumerate(tl) if "RESUME" in ln)
+    # LINE rows carry no `~ ` prefix; YIELD/RESUME rows do.
+    assert not tl[before_idx].strip().startswith("~")
+    assert not tl[after_idx].strip().startswith("~")
+    assert tl[yield_idx].strip().startswith("~")
+    assert tl[resume_idx].strip().startswith("~")
+    # event order: bound `before`, suspended, resumed, bound `after` --
+    # the suspension rows sit strictly between the two LINE rows, not
+    # trailing after both or leading before both.
+    assert before_idx < yield_idx < resume_idx < after_idx
