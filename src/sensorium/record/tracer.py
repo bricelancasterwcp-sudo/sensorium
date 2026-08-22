@@ -520,9 +520,22 @@ class Tracer:
         an asyncio task, else the thread's (spec D6). One event, one
         fingerprint -- the thread's covers exactly the events with
         task_id NULL, which is what makes the two rows comparable
-        separately."""
+        separately.
+
+        A thread that runs a causal event gets a row even when every one of
+        them ran inside a task, so its COUNT may be 0. That zero is a fact
+        with content -- "this thread ran traced code, all of it inside
+        asyncio tasks" -- and it is not the same fact as having no row,
+        which every reader here takes to mean the thread ran no traced code
+        at all. A loop thread entered through stdlib
+        (`Thread(target=asyncio.run, ...)`) is exactly that case: without
+        this, it would vanish from `fingerprints()` and be counted among the
+        threads that did nothing.
+        """
         if task is None:
             return self._fp(tid)
+        if tid not in self._fps:      # unlocked probe; the create is locked
+            self._fp(tid)
         with self._fp_lock:
             fp = self._task_fps.get(task)
             if fp is None:

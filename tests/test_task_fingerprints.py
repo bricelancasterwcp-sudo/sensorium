@@ -3,6 +3,7 @@ its CALL/RETURN/RAISE/HANDLED; the thread's fingerprint keeps only the
 events that ran in no task; YIELD/RESUME never count (honesty rule 3)."""
 import re
 
+from sensorium.record.fingerprint import Fingerprint
 from sensorium.store.reader import Trace
 from tests.helpers import record_inproc, record_script
 from tests.test_async import TWO_TASKS
@@ -72,6 +73,47 @@ def main():
 """
 
 
+ALL_WORK_INSIDE_A_TASK = """
+import asyncio, threading
+
+def step(n):
+    return n
+
+async def worker():
+    step(1)
+    await asyncio.sleep(0)
+    return step(2)
+
+def main():
+    # The thread's ENTRY is stdlib (`asyncio.run`), so every traced thing
+    # this thread does happens inside the wrapper task -- it never runs a
+    # causal event with task_id NULL.
+    t = threading.Thread(target=asyncio.run, args=(worker(),))
+    t.start(); t.join()
+"""
+
+NEVER_FINISHES = """
+import asyncio
+
+def step(name, n):
+    return f"{name}:{n}"
+
+async def worker(name):
+    step(name, 1)
+    await asyncio.Event().wait()      # never set: this task never finishes
+    return step(name, 2)
+
+async def amain():
+    a = asyncio.create_task(worker("A"), name="task-A")
+    b = asyncio.create_task(worker("B"), name="task-B")
+    await asyncio.sleep(0)
+    return "early"
+
+def main():
+    asyncio.run(amain())
+"""
+
+
 def _causal(trace, pred):
     return [e for e in trace.events() if e.kind in CAUSAL and pred(e)]
 
@@ -105,8 +147,10 @@ def test_task_fingerprint_counts_raise_and_handled_but_never_yield_resume(
         tmp_path):
     t, err = record_inproc(tmp_path, RAISES_IN_TASK)
     assert err is None
+    # Selected by name: `asyncio.run`'s wrapper task has a row of its own,
+    # so this trace holds two, and the one under test is the named worker.
     tid, (name, h, n) = next((k, v) for k, v in t.task_fingerprints().items()
-                             if v[0] == "w")          # the wrapper task has its own row
+                             if v[0] == "w")
     kinds = [e.kind for e in t.events() if e.task_id == tid]
     assert "YIELD" in kinds and "RESUME" in kinds
     assert n == sum(k in CAUSAL for k in kinds)
@@ -139,12 +183,26 @@ def test_a_task_on_a_worker_thread_is_fingerprinted_by_serial_not_thread(
 
 
 def test_rows_are_written_even_when_the_task_never_finished(tmp_path):
-    """A task still parked at uninstall is still a recorded stream."""
-    src = TWO_TASKS.replace("return await asyncio.gather(a, b)",
-                            "await asyncio.sleep(0)\n    return 'early'")
-    t, err = record_inproc(tmp_path, src)
+    """A task that never ran to completion is still a recorded stream.
+
+    `amain` returns while both workers are parked on an Event that is never
+    set, so `asyncio.run` cancels them on the way out: neither worker ever
+    reaches its `return`. The rows must be written anyway -- what a task DID
+    is evidence whether or not it got to finish."""
+    t, err = record_inproc(tmp_path, NEVER_FINISHES)
     assert err is None
+    # The premise, pinned: the workers really did not finish.
+    worker = next(c for c in t.codes() if c.qualname == "worker")
+    frames = t.frames(code_id=worker.id)
+    assert len(frames) == 2
+    assert [e for e in t.events(kind="RETURN") if e.code_id == worker.id] == []
+    for f in frames:
+        assert f.return_event_id is None and f.closed_by == "unwind"
+        assert t.frame_state(f).state == "cancelled"
+    # ...and each still has its own fingerprint row, wrapper task included.
     assert len(t.task_fingerprints()) == 3
+    for tid, (_name, _h, n) in t.task_fingerprints().items():
+        assert n == len(_causal(t, lambda e: e.task_id == tid))
 
 
 def test_a_recorded_run_declares_the_per_task_basis_and_narrows_the_stream(
@@ -169,3 +227,25 @@ def test_a_recorded_run_declares_the_per_task_basis_and_narrows_the_stream(
     # The stream is exactly what the thread's fingerprint counted.
     (_tid, (_h, n)), = t.fingerprints().items()
     assert n == len(ids)
+
+
+def test_a_thread_whose_every_event_ran_in_a_task_still_gets_its_own_row(
+        tmp_path):
+    """Ruling 5. A thread row is created by running a causal event, not by
+    running one OUTSIDE a task -- otherwise a loop thread entered through
+    stdlib (`Thread(target=asyncio.run, ...)`) produces no row at all, and
+    every reader that counts rows to count threads mis-reports it. `refocus`
+    would say "1 further thread(s) ran no traced code, left no fingerprint"
+    about a thread that ran six traced causal events, which is false."""
+    t, err = record_inproc(tmp_path, ALL_WORK_INSIDE_A_TASK)
+    assert err is None
+    loop_tid, = {e.thread_id for e in t.events() if e.task_id is not None}
+    fps = t.fingerprints()
+    assert len(fps) == 2                       # the main thread AND this one
+    assert loop_tid in fps
+    # Zero, and the empty digest: this thread ran traced code, all of it
+    # inside asyncio tasks. That is a different fact from "ran nothing".
+    assert fps[loop_tid] == (Fingerprint().hexdigest(), 0)
+    # The six events are not lost -- they are on the task's row.
+    (_name, _h, n), = t.task_fingerprints().values()
+    assert n == 6 == len(_causal(t, lambda e: e.thread_id == loop_tid))
