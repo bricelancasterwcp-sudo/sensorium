@@ -70,7 +70,7 @@ def _load_one(tmp_path, questions, **top):
 # -- the corpus itself -----------------------------------------------------
 def test_all_cases_load_and_validate():
     cases = run_corpus.load_cases()
-    assert len(cases) >= 15
+    assert len(cases) >= 19
     ids = [(c.name, q["id"]) for c in cases for q in c.questions]
     assert len(ids) == len(set(ids))
 
@@ -83,8 +83,13 @@ def test_the_classifiers_under_claim_is_registered_somewhere():
     respects the contract only by never reaching it would not notice.
     """
     cases = {c.name: c for c in run_corpus.load_cases()}
-    q, = cases["generator_swallow"].questions
-    assert "dispositions: ambiguous 2" in q["expect_contains"]
+    # `generator_swallow` held this pin until coroutine frames made its
+    # generator decidable -- the under-claim now lives where it is still the
+    # honest answer: a handler frame that is STILL SUSPENDED when recording
+    # stops, and so has no closed_by to read.
+    q, = [q for q in cases["suspended_handler"].questions
+          if q["command"][0] == "exceptions"]
+    assert "dispositions: ambiguous 1" in q["expect_contains"]
     assert "SWALLOWED" in q["expect_absent"]
     assert "dispositions: swallowed" in q["expect_absent"]
 

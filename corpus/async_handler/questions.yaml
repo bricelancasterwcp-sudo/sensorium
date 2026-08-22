@@ -1,0 +1,79 @@
+program: main.py
+record:
+  focus: ["main:handle"]
+questions:
+  - id: did-the-handler-hold-all-three
+    ask: >
+      The three-reading request came back with count 3 and total 27, which
+      is 12 + 15 and not 12 + 15 + 18. Did the handler ever hold all three
+      readings, or had one already been lost before it got them?
+    truth: >
+      It held all three. `handle` is a coroutine and it is framed and
+      focused, so its locals are recorded: inside the request whose payload
+      is '12,15,18', `items` is a list of three at the site after the parse,
+      and the predicate len(items) > 2 hits there. The other request's
+      handler holds two, correctly, so exactly 1 of the 2 evaluable sites
+      hits -- and the verdict says so rather than claiming the invariant
+      held everywhere, because 4 of the 6 recorded sites are CALL sites and
+      first-line sites where `items` is not bound yet.
+
+      That places the loss AFTER the parse, inside the handler's own second
+      step, which is where the seeded bug is.
+    why_logs_fail: >
+      Two requests are in flight at once and their prints interleave, so a
+      print of items inside the handler produces two lines that no reader
+      can attribute to a request without also printing the request -- and
+      once you are printing the request you have already guessed that the
+      payload matters. Printing from `summarise` is worse: it is a plain
+      function called from two different tasks and holds nothing that names
+      either. The value is also a local that exists only between two lines
+      of a coroutine, and it is gone by the time anything downstream could
+      have reported it.
+    command: ["watch", "$RUN", "--at", "main:handle", "--expr",
+              "len(items) > 2"]
+    expect_line:
+      - ["HIT", "LINE", "handle", "items=list[3]=[12, 15, 18]"]
+      - ["sites: 6", "evaluated: 2", "hits: 1", "not-captured: 4"]
+    expect_contains:
+      - "SATISFIED at 1 of the 2 site(s)"
+    expect_absent:
+      - "NOTHING WAS CHECKED"
+      - "opens no frame"
+  - id: which-step-lost-the-reading
+    ask: >
+      If the handler had all three readings, which of its two steps dropped
+      one -- and can I see that per request rather than in aggregate?
+    truth: >
+      `summarise` did. Each request runs in its own task, `handle` opens a
+      coroutine frame inside it, and the two sync steps are that frame's
+      children rather than free-floating calls: under task req-0, `parse`
+      returns list[3]=[12, 15, 18] -- all three, intact -- and `summarise`
+      is handed exactly that list and returns
+      dict[2]={'count': 3, 'total': 27}. It counted three and totalled two,
+      which is the bug stated in one line, per request, with the request it
+      belongs to named by the task above it.
+    why_logs_fail: >
+      The call shape is the answer here and no print can show it: a log line
+      written by `summarise` reports what summarise was given, never that it
+      was called by this request's handler rather than the other's. With two
+      tasks interleaving on one thread, the ordinary way to reconstruct that
+      -- reading the log top to bottom and assuming adjacency means
+      causation -- is exactly the inference this program breaks. Numbering
+      the requests through every call is instrumentation nobody writes until
+      after they already know which request went wrong.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["task t2: req-0"]
+      - ["task t3: req-1"]
+      - ["handle(req='12,15,18')", "[coroutine]"]
+      # The four-space indent is the claim that these are the coroutine
+      # frame's CHILDREN and not siblings of it at the task root.
+      - ["    f", "parse(req='12,15,18')", "-> list[3]=[12, 15, 18]"]
+      - ["    f", "summarise(items=list[3]=[12, 15, 18])",
+         "-> dict[2]={'count': 3, 'total': 27}"]
+    expect_count: {"[coroutine]": 3}
+    # If the coroutines lost their frames again, both sync steps would
+    # reappear at task-root depth carrying a `<- handle (unframed)` tag.
+    expect_absent:
+      - "unframed"
+      - "<- handle"

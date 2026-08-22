@@ -2,26 +2,43 @@ program: main.py
 record:
   focus: ["main:worker"]
 questions:
-  - id: watch-says-why
+  - id: watch-checks-inside-the-coroutine
     ask: >
-      I focused worker and asked whether name == 'A' held. Nothing was
-      checked -- why, and will refocusing help?
+      I focused worker -- a coroutine -- and asked whether name == 'A' held.
+      Was anything actually checked inside it, and at how many places?
     truth: >
-      worker is a coroutine: it opens no frame in this version, so there
-      are no sites at all, and refocusing cannot change that. The verdict
-      is NOTHING WAS CHECKED, and the reason given must be that one -- not
-      a misspelling (name IS a recorded argument of worker) and not "frames
-      this run did not record" (worker's calls were recorded).
+      Yes. worker is a coroutine, it opens a frame, and a focus on it
+      captures that frame's locals: three sites were recorded -- the CALL
+      with its arguments, the line that assigns `visible` (L20, where the
+      argument is the delta on record) and the line the coroutine suspends
+      at (L21, where `visible` has appeared) -- all three could be
+      evaluated, and the predicate held at all three. The verdict is
+      SATISFIED at 3 of the 3 sites, none of them not-captured. All three
+      sites lie before the await: this recording holds no line after the
+      resume, and the site count says so rather than implying the whole
+      coroutine was watched.
+
+      Until 0.3.0 the honest answer here was NOTHING WAS CHECKED, with the
+      reason "opens no frame in this version". Both halves of that are now
+      false for this trace, and this question is registered to go red if
+      either comes back -- a stale capture-gap excuse is as wrong as an
+      invented hit.
     why_logs_fail: >
       This is a question about the instrument, not the program: whether a
       silence means the invariant held, the check could not run, or the
       check could never run here. A log line can be present or absent; it
-      cannot say which of those its absence is.
+      cannot say which of those its absence is, and it certainly cannot say
+      how many places were looked at -- the number that turns "no
+      counter-example" into evidence rather than an absence of evidence.
     command: ["watch", "$RUN", "--at", "main:worker", "--expr", "name == 'A'"]
     expect_contains:
-      - "NOTHING WAS CHECKED"
-      - "opens no frame in this version"
-      - "sites: 0"
+      - "HIT"
+      - "SATISFIED at 3 of the 3 site(s)"
+    expect_line:
+      - ["sites: 3", "evaluated: 3", "hits: 3", "not-captured: 0"]
+      - ["HIT", "CALL", "worker(name='A')"]
+      - ["HIT", "LINE", "worker L21", "visible=1"]
     expect_absent:
+      - "NOTHING WAS CHECKED"
+      - "opens no frame"
       - "misspelled"
-      - "refocus and re-run"

@@ -1,0 +1,73 @@
+program: main.py
+questions:
+  - id: can-you-say-it-was-swallowed
+    ask: >
+      The first reading was 'n/a' and came back as 0. A ValueError was
+      raised and caught inside the reader -- can the trace tell me the
+      handler stopped it, the way it can for a reader that runs to the end?
+    truth: >
+      No, and saying so is the answer. The ValueError is raised at line 28
+      and there is a HANDLED row for it inside `readings`, whose frame this
+      version DOES open -- but that frame never closed. The caller pulled a
+      single value and parked the generator in PENDING, so when recording
+      stopped the frame was still suspended inside the except block, with
+      the rest of the rows unread.
+
+      SWALLOWED requires a frame that closed by returning; `never closed` is
+      not that, so the verdict is `ambiguous 1` with the reason stated. This
+      is the classifier's registered under-claim and it is registered to go
+      red in BOTH directions: if the ambiguity or its reason disappears, and
+      if a disposition is ever asserted in their place. Over-claiming here
+      would be indistinguishable, on stdout, from the genuine swallow in
+      `generator_swallow` -- which is exactly why the distinction has to be
+      pinned by a case rather than left to absence.
+    why_logs_fail: >
+      The except clause prints nothing, so the failed parse leaves no mark:
+      `first: 0` is what a row of "0" would print too. A log line inside the
+      handler would surface the ValueError, and is the change nobody makes
+      until the numbers already look wrong. But no log can supply the second
+      half of the answer -- whether the evidence is good enough to conclude
+      the handler kept it. A log records what it was told to record and
+      never knows what it missed, so it cannot decline to answer; it can
+      only be silent, and silence reads exactly like "nothing happened".
+    command: ["exceptions", "$RUN"]
+    expect_contains:
+      - "dispositions: ambiguous 1"
+      - "never closed"
+    expect_line:
+      - ["RAISE", "readings", "ValueError", "'n/a'"]
+      - ["handled at e", "readings", "never closed"]
+    # The tally omits zero buckets and lists swallowed first, so the
+    # contiguous "dispositions: ambiguous 1" above already says ambiguous is
+    # the only bucket. These are the spellings that occur nowhere but a
+    # disposition, and each of them here would be an over-claim.
+    expect_absent:
+      - "SWALLOWED"
+      - "dispositions: swallowed"
+      - "uncaught"
+  - id: where-is-the-reader-parked
+    ask: >
+      If the reader never finished, where did it stop -- and is it dead or
+      merely waiting?
+    truth: >
+      Merely waiting. The `readings` frame is suspended at the `yield 0` on
+      line 30 -- the yield inside the except block, which is where the run
+      left it -- and it is still suspended when recording ends, so the tail
+      reads `~ suspended at L30 at end of recording`. Nothing threw into it
+      and nothing dropped it, so neither `~ cancelled` nor `~ abandoned`
+      applies, and no `-> value` may be shown: the frame produced no return.
+    why_logs_fail: >
+      A generator that is parked forever executes no further statement, so
+      by definition no print inside it can fire to report where it stopped;
+      the last line it printed was for work it had already finished. The
+      caller cannot report it either -- it holds a generator object, and a
+      generator object's repr says its name, never the line its frame is
+      standing on. Getting that from prints means bracketing every yield
+      with a pair of them before you know which yield matters.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["readings(", "[generator]", "~ suspended at L30 at end of recording"]
+    expect_absent:
+      - "[generator] ->"
+      - "~ abandoned"
+      - "~ cancelled"

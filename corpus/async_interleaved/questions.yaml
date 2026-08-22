@@ -6,12 +6,13 @@ questions:
       the four updates, and are those calls attributed to tasks at all?
     truth: >
       All four `update` activations were called by the coroutine `writer`,
-      which opens no frame, so each is a real frame tagged
-      "<- writer (unframed)" rather than re-parented to <module>. They are
-      split across two task groups -- t2 task-A and t3 task-B -- and the
-      footer says order between tasks is wall-clock, not causal. Three
-      unframed coroutine calls were recorded: main and the two writers, the
-      B one recognisable as the writer that awaits the Event.
+      and each one is a CHILD of the writer frame that called it rather than
+      a root re-parented to <module>: the two writer frames are the roots of
+      their tasks, t2 task-A and t3 task-B, and the updates hang under them
+      two at a time. Three coroutine frames were recorded -- main and the
+      two writers, the B one recognisable as the writer that is handed the
+      Event to wait on -- and the footer says order between tasks is
+      wall-clock, not causal.
     why_logs_fail: >
       A print inside update shows four writes whose values are 1, 1, 2 and
       2: nothing in them distinguishes the writers, and nothing in update's
@@ -25,15 +26,23 @@ questions:
       - "task t3: task-B"
       - "order between tasks is wall-clock"
     expect_line:
-      - ["update(key='last_seen', value=2)", "<- writer (unframed)"]
-      - ["writer(wait_for=Event#", "[coroutine, unframed]"]
-    expect_count: {"<- writer (unframed)": 4, "[coroutine, unframed]": 3}
+      - ["writer(wait_for=Event#", "[coroutine]"]
+      # The four-space indent is the claim that the update is the writer
+      # frame's child, not a sibling of it at the root of the task.
+      - ["    f", "update(key='last_seen', value=2)"]
+    expect_count: {"[coroutine]": 3, "update(key='last_seen'": 4}
+    # Both spellings of the arc-1 shape: a coroutine that opened no frame,
+    # and the caller tag a root frame needed because of it.
+    expect_absent:
+      - "unframed"
+      - "<- writer"
   - id: the-winning-frame-names-its-task
     ask: Which task does the fourth (last) update activation belong to?
     truth: >
       The fourth update frame -- the last write, the one whose value
-      survives -- ran in task t3 (task-B), at depth 0 because its caller
-      opened no frame. Its recorded argument is value=2, which is
+      survives -- ran in task t3 (task-B). It sits at depth 1, under the
+      writer coroutine frame that called it, which is itself the root of
+      that task. Its recorded argument is value=2, which is
       indistinguishable from task A's second write except by the task the
       frame belongs to.
     why_logs_fail: >
@@ -43,5 +52,5 @@ questions:
       code was told to print, and update was told nothing about its task.
     command: ["frame", "$RUN", "--fn", "update", "--nth", "4"]
     expect_line:
-      - ["update", "task t3 (task-B)", "depth 0"]
+      - ["update", "task t3 (task-B)", "depth 1"]
       - ["args:", "value=2"]
