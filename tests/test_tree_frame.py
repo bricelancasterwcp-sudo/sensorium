@@ -505,6 +505,13 @@ def test_tree_groups_by_task_with_coroutine_frames(tmp_path, monkeypatch,
     assert "task='A'" not in b and "worker(name='B')  [coroutine]" in b
     assert "<- worker" not in out                # nothing to re-parent now
     assert "[coroutine, unframed]" not in out
+    # `step` is an ordinary function, and an ordinary call carries NO marker:
+    # the whole line, end to end, is what it was before coroutines had
+    # frames. "[function]" on every sync call would be noise on every line
+    # of every trace this tool has ever rendered.
+    one = "step(task='A', n=1)"
+    step_ln = next(ln for ln in out.splitlines() if one in ln)
+    assert "[" not in step_ln and step_ln.endswith(one + " -> 'A:1'")
     # <module> ran before the loop existed: not placed in any task.
     assert "<module>()" in "\n".join(_section(out, "no asyncio task"))
     assert "order between tasks is wall-clock" in out

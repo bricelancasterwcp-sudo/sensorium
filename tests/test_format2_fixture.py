@@ -75,3 +75,25 @@ def test_tree_on_a_format2_trace_keeps_the_unframed_wording(
     # ...and no bare kind marker: every kind here is qualified as unframed.
     for ln in out.splitlines():
         assert "[coroutine]" not in ln and "[generator]" not in ln
+    # The frames this trace DOES have are plain functions, and a plain
+    # function is marked by nothing at all -- on this trace and on any
+    # other. `[function]` on every ordinary call would be noise on every
+    # line, and here it would also be new vocabulary over an old file.
+    assert "[function]" not in out
+
+
+def test_tree_around_an_unframed_call_of_a_format2_trace_still_says_so(
+        installed_fixture2, capsys):
+    """`--around` on a CALL that opened no frame cannot show a subtree: there
+    is none. On THIS trace that is the truthful answer and the message has to
+    keep naming the reason (and where to look instead) rather than falling
+    back to the generic "no frame contains it", which reads as a bad event
+    reference. Arc 2 removed the shape from new recordings, not from this
+    file."""
+    ev = Trace.open(FIXTURE).unframed_calls()[0]
+    assert cli.main(["tree", installed_fixture2, "--around", f"e{ev.id}"]) == 1
+    out = capsys.readouterr().out
+    assert f"e{ev.id} is an unframed CALL of" in out
+    assert "sensorium grep" in out
+    # ...and not the generic fallback, which names the REF and nothing else.
+    assert f"no frame contains e{ev.id}" not in out
