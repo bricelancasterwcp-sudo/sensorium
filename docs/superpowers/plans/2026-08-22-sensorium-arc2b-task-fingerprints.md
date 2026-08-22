@@ -122,7 +122,7 @@ def test_fixture_is_format_3_with_tasks_and_no_task_fingerprints():
     fmt = json.loads(c.execute(
         "SELECT value FROM meta WHERE key='trace_format'").fetchone()[0])
     assert fmt == 3
-    assert c.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 2
+    assert c.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 3   # asyncio.run's wrapper + A + B
     assert c.execute("SELECT COUNT(*) FROM task_fingerprints").fetchone()[0] == 0
     assert c.execute(
         "SELECT 1 FROM meta WHERE key='fingerprint_basis'").fetchone() is None
@@ -463,11 +463,13 @@ def test_each_task_gets_its_own_row_and_the_thread_keeps_only_the_rest(
     t, err = record_inproc(tmp_path, TWO_TASKS)
     assert err is None
     fps = t.task_fingerprints()
-    assert {name for name, _h, _n in fps.values()} == {"task-A", "task-B"}
+    # asyncio.run's own wrapper task ("Task-1", running amain) is a task
+    # like any other: it has a row too.
+    assert {name for name, _h, _n in fps.values()} == {"Task-1", "task-A", "task-B"}
     for tid, (name, h, n) in fps.items():
         assert n == len(_causal(t, lambda e: e.task_id == tid))
     # Same code, same sequence -> same hash under two names.
-    (ha, hb) = [h for _name, h, _n in fps.values()]
+    ha, hb = [h for name, h, _n in fps.values() if name in ("task-A", "task-B")]
     assert ha == hb
     # The thread row counts exactly the events that ran in no task.
     (tid, (th, tn)), = t.fingerprints().items()
@@ -479,8 +481,8 @@ def test_task_fingerprint_counts_raise_and_handled_but_never_yield_resume(
         tmp_path):
     t, err = record_inproc(tmp_path, RAISES_IN_TASK)
     assert err is None
-    (tid, (name, h, n)), = t.task_fingerprints().items()
-    assert name == "w"
+    tid, (name, h, n) = next((k, v) for k, v in t.task_fingerprints().items()
+                             if v[0] == "w")          # the wrapper task has its own row
     kinds = [e.kind for e in t.events() if e.task_id == tid]
     assert "YIELD" in kinds and "RESUME" in kinds
     assert n == sum(k in CAUSAL for k in kinds)
@@ -491,8 +493,8 @@ def test_an_unnamed_task_gets_a_row_with_a_null_name(tmp_path):
     t, err = record_inproc(tmp_path, UNNAMED_AND_NAMED)
     assert err is None
     names = sorted((name or "") for name, _h, _n in t.task_fingerprints().values())
-    assert names == ["", "named"]
-    assert t.task_shapes().total() == 2
+    assert names == ["", "Task-1", "named"]       # "" = the unnamed one
+    assert t.task_shapes().total() == 3
 
 
 def test_a_task_on_a_worker_thread_is_fingerprinted_by_serial_not_thread(
@@ -516,7 +518,7 @@ def test_rows_are_written_even_when_the_task_never_finished(tmp_path):
                             "await asyncio.sleep(0)\n    return 'early'")
     t, err = record_inproc(tmp_path, src)
     assert err is None
-    assert len(t.task_fingerprints()) == 2
+    assert len(t.task_fingerprints()) == 3
 ```
 
 - [ ] **Step 2: Run, expect FAIL** — `task_fingerprints()` is `{}`; thread counts equal the full causal count.
@@ -666,7 +668,7 @@ def test_diff_matches_two_runs_whose_tasks_interleaved_differently(
     assert cli.main(["diff", a, b]) == 0
     out = capsys.readouterr().out
     assert "verdict: MATCH" in out
-    assert "tasks: 2 task stream(s) on each side, compared by content" in out
+    assert "tasks: 3 task stream(s) on each side, compared by content" in out
     assert "all matched" in out
     assert "the ordering between tasks is not compared" in out
 
@@ -969,9 +971,9 @@ def test_refocus_matches_when_only_the_task_interleaving_changed(tmp_path):
     r = refocus(sdir, run_id, "--focus", "prog:worker")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "refocus verdict: MATCH" in r.stdout
-    assert ("tasks: 2 task stream(s) compared by content, all matching; "
+    assert ("tasks: 3 task stream(s) compared by content, all matching; "
             "the ordering between tasks is not compared") in r.stdout
-    assert "2 task stream(s) compared by content" in r.stdout   # licence
+    assert "3 task stream(s) compared by content" in r.stdout   # licence
 
 
 def test_refocus_diverges_when_one_task_took_another_path(tmp_path):
@@ -1114,7 +1116,7 @@ def test_info_states_the_fingerprint_basis_and_the_task_rows(
     assert cli.main(["info", run_id]) == 0
     out = capsys.readouterr().out
     assert ("fingerprints: per-task basis -- each thread row covers the "
-            "events that ran in no asyncio task; 2 task fingerprint(s) "
+            "events that ran in no asyncio task; 3 task fingerprint(s) "
             "beside it") in out
 ```
 `tests/test_format3_fixture.py`:
@@ -1236,8 +1238,8 @@ questions:
     expect_exit: 0
     expect_contains:
       - "refocus verdict: MATCH"
-      - "tasks: 2 task stream(s) compared by content, all matching; the ordering between tasks is not compared"
-      - "2 task stream(s) compared by content"
+      - "tasks: 3 task stream(s) compared by content, all matching; the ordering between tasks is not compared"
+      - "3 task stream(s) compared by content"
     expect_absent: ["refocus verdict: DIVERGED", "tasks: DIVERGED"]
   - id: which-task-took-another-path
     depends_on: is-the-rerun-the-same-execution-when-only-the-interleaving-moved
