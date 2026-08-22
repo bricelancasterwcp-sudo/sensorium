@@ -26,8 +26,8 @@ untimed because the first run of a fresh file pays for bytecode compilation
 and a cold page cache, and it pays that in the baseline and the recorded run
 alike but at different points in the total.
 
-WHY THREE WORKLOADS
--------------------
+WHY FOUR WORKLOADS
+------------------
 The multiplier is not a property of sensorium. It is a property of how often
 the traced program CALLS things, because the recorder's cost is per event and
 a program's own cost is not. `call_dense` (naive recursive fib) is close to
@@ -47,6 +47,14 @@ workload's `asyncio.run(work())` pays that path on top of derived parentage,
 and its per-event cost costs more than the sync rows for exactly that reason.
 Reporting only sync rows would under-state the cost of the code path this
 branch actually added.
+
+The fourth measures YIELD+RESUME per suspension: none of the first three
+workloads ever park, so none of them prices the bookkeeping arc 2 added --
+opening a frame for a coroutine, recording the YIELD and RESUME rows around
+each suspension, and deriving `frame_state` from them. `await_dense` awaits
+`asyncio.sleep(0)` in a tight loop, so nearly every one of its events is a
+YIELD or a RESUME on the very same frame, and its per-event cost is the
+number that answers "what does one suspension cost."
 """
 import os
 import re
@@ -106,6 +114,20 @@ async def work():
 asyncio.run(work())
 '''
 
+# Every event a YIELD or a RESUME on the same frame: prices the per-suspension
+# bookkeeping arc 2 added (frame open for the coroutine, a YIELD/RESUME row
+# each time around the loop, `frame_state` derived from them) rather than the
+# task-identity path `async_call_dense` already prices.
+AWAIT_DENSE = '''
+import asyncio
+
+async def spin(n):
+    for _ in range(n):
+        await asyncio.sleep(0)
+
+asyncio.run(spin(20000))
+'''
+
 DO_NOTHING = 'if __name__ == "__main__":\n    pass\n'
 
 # The focus target is chosen per workload and the choice is part of the
@@ -114,10 +136,14 @@ DO_NOTHING = 'if __name__ == "__main__":\n    pass\n'
 # questions. `call_dense` focuses the hot recursive function -- the worst
 # case. `work_between_calls` focuses the outer driver, which is what asking
 # "show me the state in the function I am debugging" usually looks like.
+# `await_dense` focuses `spin` itself -- LINE capture inside a coroutine's
+# own body is new in arc 2, and pricing it is exactly why this workload
+# exists.
 WORKLOADS = {
     "call_dense": (CALL_DENSE, "prog:fib"),
     "work_between_calls": (WORK_BETWEEN_CALLS, "prog:main"),
     "async_call_dense": (ASYNC_CALL_DENSE, None),
+    "await_dense": (AWAIT_DENSE, "prog:spin"),
 }
 
 

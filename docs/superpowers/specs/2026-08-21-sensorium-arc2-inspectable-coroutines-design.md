@@ -1,6 +1,6 @@
 # Arc 2: inspectable coroutines — frames, suspension, and per-task fingerprints
 
-Status: design approved in conversation 2026-08-21; awaiting spec review
+Status: plan 2a implemented on feat/async-arc2; plan 2b pending
 Extends `2026-08-21-sensorium-async-design.md` (arc 1, shipped as 0.2.0 in
 PR #2, `main` @ d59cafc), which recorded the constraints this spec honours in
 its closing section. Supersedes nothing.

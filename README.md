@@ -61,12 +61,27 @@ command. Every example above was run as typed, against a small `fog.py` whose
 `compute` sums cells into a `visible` local and whose `build_key(record)`
 takes a dict, and a two-test `tests/test_fog.py`.
 
-On an asyncio program `tree` groups by task, shows each coroutine call as an
-unframed event in its true position, and tags any call whose caller opened no
-frame with that caller's name (`<- worker (unframed)`) instead of re-parenting
-it -- framed callees and unframed ones alike. Nothing inside an `async def` is inspectable yet — no
-`--focus`, `watch` or LINE there — and `run` says so at record time if a
-`--focus` matched only such code.
+On an asyncio program `tree` groups by task, and from trace format 3 every
+traced code object opens a frame — function, generator, coroutine, or async
+generator alike — so a coroutine's callees nest under it exactly like a
+plain function's do, tagged `[generator]`, `[coroutine]`, or
+`[async_generator]` when the kind isn't `function`. A frame that suspended
+carries a derived state as its tail: `~ cancelled (CancelledError thrown in
+at L29)`, `~ abandoned (dropped while suspended at L22)`, `~ unwound by X
+thrown in at L15` for any other exception thrown in, or `~ suspended at L29
+at end of recording` for one still parked when recording stopped. A caller
+named but not framed is still never re-parented — on a format-3 trace that
+means it started running before recording began (`<- worker (no frame:
+started before recording)`); a trace from before frames existed keeps arc
+1's `(unframed)` wording exactly, because that recorder never opened frames
+for coroutines at all. `--focus`, `watch`, and LINE capture all work inside
+`async def` now: a focused coroutine's locals are captured at every LINE and
+interleaved with its `~ YIELD`/`~ RESUME` rows in `frame`'s timeline, and
+`info` reports `unframed calls: 0 (all calls framed in format 3)` on such a
+trace. `--window` is an ancestry flag, not a call-stack depth, so it
+survives a suspension: another task's calls made while the windowed frame is
+parked are outside the window, and the windowed frame's own calls after it
+resumes are still inside.
 
 Recording captures calls, returns, raises and handled-events for code under
 the working directory the run started in — so `sensorium run -- pytest ...`
@@ -136,11 +151,25 @@ trace is still recorded and queryable, and permanently labelled.
 A parent link is the **caller frame**, verified by code identity, never
 "the last frame opened on this thread" — coroutines resumed by the event
 loop, generators resumed by their consumer and callbacks from C all break
-that assumption, and v1 made it. When the caller has no frame (a
-generator or coroutine body) the link is `NULL` and the caller is *named*;
-when the caller is untraced (the event loop, a library) the frame is a
-root. A trace recorded by a format-1 sensorium is labelled
-`parentage: ASSUMED` because its links were the guess.
+that assumption, and v1 made it. From trace format 3 a generator or
+coroutine body opens a frame like any other, so `NULL` now means only that
+the caller was never traced (the event loop, a library) or that it started
+running before recording began — not, as on an older trace, that it was a
+generator or coroutine `tree` could not frame. A trace recorded by a
+format-1 sensorium is labelled `parentage: ASSUMED` because its links were
+the guess.
+
+Every non-function frame is marked with its kind (`[generator]`,
+`[coroutine]`, `[async_generator]`) and closes with the state
+`Trace.frame_state` derived from its YIELD/RESUME rows — `returned` and
+`raised` render exactly as a plain function's do, and the suspension states
+each name where the frame stopped and why: cancelled, abandoned, unwound by
+some other exception thrown in, or still `suspended` at the end of the
+recording. A root frame whose caller is named but not framed shows that
+caller's name and, from format 3, the reason is always the same one —
+`(no frame: started before recording)` — never the arc-1 `(unframed)`
+reading, which is kept byte-for-byte on older traces because it names a
+limitation this version no longer has.
 
 Grouping by task is a statement about causality *within* a task (one
 task is sequential) and says nothing about order *between* tasks beyond
@@ -156,17 +185,30 @@ Every raise is classified as `swallowed`, `uncaught`, `re-raised`,
 `propagated`, or `ambiguous`, and the tally is printed.
 
 **SWALLOWED is claimed only when the recording establishes it**: a HANDLED
-event in a frame that then returned normally, with no later raise carrying the
-same recorder identity, and no later raise that could be that same object at
-that same address. Anything short of that is `ambiguous`, and the reason is
-printed. In particular:
+event in a frame that either returned normally, or later unwound because a
+*different* exception was thrown into it at a suspension the handler had
+already passed (a cancelled task, a dropped generator, or any other
+thrown-in unwind) — with no later raise carrying the same recorder identity,
+and no later raise that could be that same object at that same address.
+Anything short of that is `ambiguous`, and the reason is printed. In
+particular:
 
 - A bare `finally` emits a handled-event with nothing caught — CPython
   compiles `finally` as an implicit handler — so a handled-event is never on
   its own read as "something was caught".
-- Generators and coroutines are frameless: no frame is opened for them, so
-  there is no "returned normally" to observe. A swallow inside one is
-  genuinely unclassifiable and is reported `ambiguous`, never as a swallow.
+- Generators and coroutines have frames (trace format 3, shipped in 0.3.0),
+  so a handler inside one is classified by exactly the rules above. A frame later
+  unwound by a *different* exception thrown in after the handler ran does
+  not make that earlier handler ambiguous — the verdict names the frame's
+  own fate instead of claiming it "returned normally": `never returned
+  (frame later cancelled at Ln)`, `(frame later abandoned at Ln)`, or
+  `(frame later unwound by X thrown in at Ln)` for any other thrown-in
+  exception. A generator or coroutine still suspended when recording stopped
+  is `ambiguous … never closed`, the same refusal any unfinished frame gets.
+  A trace recorded before format 3 opened no frame for a generator or
+  coroutine body at all, so a handler inside one there has no `closed_by` to
+  read and gets no verdict either — the refusal names whichever of the two
+  reasons the trace's format actually supports.
 - A handler in untraced code is `propagated`, which says where the exception
   went, not what was done with it.
 
@@ -275,13 +317,15 @@ because a reader who checks the list concludes their case was covered.
 CPython 3.14.4 — with `python corpus/run_corpus.py --bench`:
 
     workload            tier      baseline  recorded       x    events  us/event
-    call_dense          default     0.0090    1.2210   135.3    185428       6.5
-    call_dense          focused     0.0089    1.6943   189.8    278140       6.1
-    work_between_calls  default     0.1111    0.3128     2.8     24004       8.4
-    work_between_calls  focused     0.1103    0.4472     4.1     48006       7.0
-    async_call_dense    default     0.0309    0.3290    10.7     40004       7.5
+    call_dense          default     0.0089    1.2509   141.3    185428       6.7
+    call_dense          focused     0.0089    1.7106   191.3    278140       6.1
+    work_between_calls  default     0.1172    0.3204     2.7     24004       8.5
+    work_between_calls  focused     0.1177    0.4514     3.8     48006       7.0
+    async_call_dense    default     0.0302    0.3268    10.8     40004       7.4
+    await_dense         default     0.0515    0.2235     4.3     40004       4.3
+    await_dense         focused     0.0511    0.3590     7.0     60005       5.1
 
-    recorder fixed cost: 0.037s on a program that does nothing (0.0070s -> 0.0441s)
+    recorder fixed cost: 0.036s on a program that does nothing (0.0074s -> 0.0430s)
 
 **What 0.2.0 added, measured against 0.1.0 on the same machine the same
 day**, each side best-of-three in its own fresh venv, two independent runs
@@ -297,14 +341,22 @@ event loop and so pays the task-identity path in full: 7.5 µs/event, about a
 microsecond more than the synchronous call-dense case on this box.
 `async_call_dense` has no frameable target (its only callee is a one-line
 function), so it is reported for the default tier only.
+`await_dense` isolates the cost arc 2 added: a coroutine that suspends
+20,000 times on `asyncio.sleep(0)`, so almost every event it produces is a
+YIELD or a RESUME on the same frame. Measured here it costs 4.3 µs/event by
+default (5.1 focused) against the **~114 ns** the design note measured for
+the `sys.monitoring` PY_YIELD/PY_RESUME callbacks alone, before any writing
+— about 38× that floor, the rest being the trace write and the derived-state
+bookkeeping the bare callback does not pay for.
 `us/event` is the figure that travels; the multiplier tracks how call-dense
 the program is.
 
-These are measurements of one machine and three workloads, not a promise
+These are measurements of one machine and four workloads, not a promise
 about yours. The multiplier is not a property of sensorium: recording costs
-about **6–7 microseconds per event** here (6.5 on the call-dense case), and
-how much that is depends entirely on how often the traced program calls
-things. `call_dense` is naive recursive
+on the order of **4–9 microseconds per event** here, from 4.3 on the
+per-suspension `await_dense` case up to 8.5 on `work_between_calls` (6.7 on
+the call-dense case), and how much that is depends entirely on how often the
+traced program calls or suspends. `call_dense` is naive recursive
 `fib`, close to the worst case that exists — every microsecond of its baseline
 is function calls. `work_between_calls` does real work inside each call, which
 is what ordinary code looks like. Times are whole-command wall clock (best of
@@ -323,23 +375,32 @@ inner loop it would cost far more.
     python corpus/run_corpus.py --show     # print the questions and commands
     python corpus/run_corpus.py --bench    # report recording overhead
 
-Fifteen small programs with deliberately planted bugs, and twenty-seven questions
-registered **before** any output was looked at: the question in plain language,
-the known ground truth, the exact invocation expected to yield it, and why a
-`print()` cannot answer it. Ground truth is known because the bugs were
-planted. This is the regression suite, and it includes the honesty cases — a
-DIVERGED verdict, an under-claimed generator swallow, a `watch` tally with
-fourteen unchecked sites, a task group that answers which coroutine made the
-final write, and a cancellation located at the line a task was parked on.
+Nineteen small programs with deliberately planted bugs, and thirty-six
+questions registered **before** any output was looked at: the question in
+plain language, the known ground truth, the exact invocation expected to
+yield it, and why a `print()` cannot answer it. Ground truth is known
+because the bugs were planted. This is the regression suite, and it
+includes the honesty cases — a DIVERGED verdict, an under-claimed generator
+swallow, a `watch` tally with fourteen unchecked sites, a task group that
+answers which coroutine made the final write, a cancellation located at the
+line a task was parked on, and arc 2's four: `abandoned_generator` (a
+dropped generator's frame reads `~ abandoned`, never a fabricated `->`
+return), `suspended_handler` (a handler frame still open when recording
+stopped stays `ambiguous … never closed`, not a claimed swallow),
+`window_across_suspension` (`--window` as ancestry survives a suspension —
+another task's call parked in the middle is outside it, the windowed
+frame's own call after it resumes is inside), and `async_handler` (`watch`
+locals inside a focused coroutine, disambiguating two interleaved tasks a
+print cannot tell apart).
 
 `--bench` reports; it never gates. Overhead is a tracked fact about a machine
 and a workload, not a pass/fail property of the tool.
 
 ## Not yet
 
-Line-level capture, `--focus`, `watch` and frames **inside** `async def`
-(coroutines are recorded as unframed calls with task identity, and their
-sync callees are attributed — but the coroutine's own body is not
-inspectable; arc 2). Subprocess following, attach-to-live-server flight
-recording, native (rr) substrates, MCP wrapper. See
-`docs/superpowers/specs/2026-08-21-sensorium-async-design.md`.
+Per-task fingerprints and `refocus`/`diff` comparing tasks by content (plan
+2b): the `task_fingerprints` table exists in the schema but nothing writes
+to it yet. Subprocess following, attach-to-live-server flight recording,
+native (rr) substrates, MCP wrapper. See
+`docs/superpowers/specs/2026-08-21-sensorium-arc2-inspectable-coroutines-design.md`
+(extends `2026-08-21-sensorium-async-design.md`, arc 1's spec).
