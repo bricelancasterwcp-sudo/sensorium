@@ -378,8 +378,9 @@ def _task_divergence(res: dict) -> str | None:
     `compare_tasks()` did the comparing -- by CONTENT, as a multiset of
     (name, hash), so a different interleaving is not a difference here and
     the blind-spot block says so. This only phrases the finding for the
-    refocus verdict; `diff`'s own task section, printed above, adds the
-    drill-in commands.
+    refocus verdict; refocus prints `diff`'s task section with `tasks=False`
+    and adds the drill-in commands itself beside this line (D1 of the final
+    wave), so the finding is stated exactly once.
 
     The hashes are part of the sentence, not decoration: this string is
     stamped into the trace as `refocus_diverge_tasks` and read back by

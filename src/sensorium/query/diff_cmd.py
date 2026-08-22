@@ -204,11 +204,14 @@ def _task_row_reasons(trace: Trace, label: str) -> list[str]:
 
     Traces in exactly this state exist: until this arc the writer's
     `INSERT ... SELECT` over an unflushed `tasks` table wrote zero rows for
-    every recording made through the CLI. This recorder no longer produces
-    the state -- every minted task serial gets its row when it is minted
-    (Ruling 9) -- so the check is now about files already on disk. It stays
-    for exactly that reason: a trace does not get re-recorded because a
-    later version stopped writing bad ones.
+    every recording made through the CLI. A cleanly finished recording no
+    longer produces the state -- every minted task serial gets its
+    fingerprint when it is minted (Ruling 9) and the rows are written in one
+    transaction at uninstall -- but an unclean death still can: a run killed
+    after its first batch flush has `tasks` rows and no `task_fingerprints`
+    rows (beside `incomplete`), and a callback still in flight at uninstall
+    can mint a serial after the snapshot. So the check stays for two
+    reasons: files already on disk, and recordings that did not finish.
     """
     tasks = trace.tasks()
     if (trace.fingerprint_basis != "per-task" or not tasks
