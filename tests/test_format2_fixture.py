@@ -139,3 +139,36 @@ def test_tree_around_an_unframed_call_of_a_format2_trace_still_says_so(
     assert "sensorium grep" in out
     # ...and not the generic fallback, which names the REF and nothing else.
     assert f"no frame contains e{ev.id}" not in out
+
+
+def test_watch_on_a_format2_trace_keeps_the_unframed_wording(
+        installed_fixture2, capsys):
+    """The fixture was recorded with `--focus format2_async:worker`, and in
+    0.2.0 a coroutine focus opened no frame -- `worker` has CALL events and
+    no frame on this file, same as every other command in this module.
+    `watch`'s sites come from frames, so there are none here, and Task 9's
+    format-3 branch (a coroutine focus DOES contribute sites now) must not
+    retroactively claim any on a trace that never recorded them."""
+    assert cli.main(["watch", installed_fixture2, "--at",
+                     "format2_async:worker", "--expr", "name == 'A'"]) == 0
+    out = capsys.readouterr().out
+    assert "NOTHING WAS CHECKED" in out
+    assert "opens no frame in this version" in out
+    assert "NEVER RECORDED" in out
+
+
+def test_info_on_a_format2_trace_keeps_the_unframed_wording(
+        installed_fixture2, capsys):
+    """Task 9 makes `info` print "unframed calls: 0 (all calls framed in
+    format 3)" -- but only for a format-3 trace. This fixture is format 2
+    and DOES hold unframed calls (6 of them, per
+    `test_fixture_holds_the_arc1_unframed_shapes`), so the arc-1 line with
+    its kind breakdown must survive unchanged. The `recorded:` line grows
+    YIELD/RESUME columns regardless of format -- this file has none of
+    either kind, and 0 is the honest count, not a claim they were framed."""
+    assert cli.main(["info", installed_fixture2]) == 0
+    out = capsys.readouterr().out
+    assert "unframed calls: 6 (coroutine 5, generator 1)" in out
+    assert "all calls framed in format 3" not in out
+    assert ("recorded: CALL 14  RETURN 13  RAISE 1  HANDLED 4  YIELD 0  "
+            "RESUME 0  LINE 0") in out
