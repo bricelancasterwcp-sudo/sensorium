@@ -100,6 +100,18 @@ class TraceWriter:
                 (thread_id, hexdigest, count))
             self._conn.commit()
 
+    def write_task_fingerprint(self, task_id, hexdigest, count) -> None:
+        """One row per minted task serial; the name rides along from the
+        `tasks` row so the multiset comparison can read (name, hash) from
+        one table. A task whose name could not be read keeps NULL."""
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO task_fingerprints "
+                "(task_id, name, hash, n_events) "
+                "SELECT ?, name, ?, ? FROM tasks WHERE id = ?",
+                (task_id, hexdigest, count, task_id))
+            self._conn.commit()
+
     def _flush_locked(self) -> None:
         c = self._conn
         if self._new_codes:

@@ -273,6 +273,9 @@ class _LateWriteGuard:
     def write_fingerprint(self, *a, **k):
         return self._call("write_fingerprint", *a, **k)
 
+    def write_task_fingerprint(self, *a, **k):
+        return self._call("write_task_fingerprint", *a, **k)
+
     def seal(self) -> None:
         """Stop accepting writes; the connection stays open to finalize."""
         with self._lock:

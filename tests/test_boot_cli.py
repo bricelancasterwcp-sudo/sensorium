@@ -883,7 +883,8 @@ def test_late_write_guard_classifies_every_public_writer_method():
     public = {n for n, v in vars(TraceWriter).items()
               if callable(v) and not n.startswith("_")}
     delegated = {"intern_code", "add_event", "add_task", "open_frame",
-                 "close_frame", "add_output", "set_meta", "write_fingerprint"}
+                 "close_frame", "add_output", "set_meta", "write_fingerprint",
+                 "write_task_fingerprint"}
     deliberate = {"interned_files",   # read passthrough, documented in the guard
                   "close",            # guard has its own close
                   "flush"}            # no caller on a guarded writer

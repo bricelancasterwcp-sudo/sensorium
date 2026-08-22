@@ -47,3 +47,11 @@ def test_fixture_thread_fingerprint_counts_task_events_too():
               if e.kind in ("CALL", "RETURN", "RAISE", "HANDLED")]
     assert n == len(causal)
     assert any(e.task_id is not None for e in causal)
+
+
+def test_old3_thread_stream_still_holds_the_task_events():
+    """Under the per-thread basis the thread stream IS every causal event on
+    the thread; the narrowing is never applied to a trace that predates it."""
+    t = Trace.open(FIXTURE)
+    quals = [s[1] for s in t.causal_stream()]
+    assert "worker" in quals and "step" in quals
