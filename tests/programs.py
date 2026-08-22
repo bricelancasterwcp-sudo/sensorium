@@ -470,8 +470,9 @@ def main():
 main()
 """
 
-# Generators are frameless by design (no frame is opened), so RAISE and
-# HANDLED both carry frame_id NULL and there is no closed_by to read.
+# A handler inside a generator. Until frames covered generators there was no
+# `closed_by` to read here and the verdict was withheld; the generator body is
+# framed now, so this swallow is decidable like any other.
 GENERATOR_HANDLES = """
 def gen(items):
     for it in items:
@@ -482,6 +483,83 @@ def gen(items):
 
 def main():
     print(list(gen(["1", "x", "3"])))
+
+main()
+"""
+
+# Swallowed inside a coroutine, which is LATER killed by a CancelledError
+# thrown in at its next suspension point. The frame unwinds -- but with
+# something delivered after the handler ran, which says nothing about the
+# ValueError the handler kept.
+CORO_SWALLOW_THEN_CANCELLED = """
+import asyncio
+GATE = None
+
+async def worker():
+    try:
+        int("x")
+    except ValueError:
+        pass                      # swallowed inside the coroutine
+    await GATE.wait()             # then the task is cancelled here
+
+async def amain():
+    global GATE
+    GATE = asyncio.Event()
+    t = asyncio.create_task(worker())
+    await asyncio.sleep(0)
+    t.cancel()
+    try:
+        await t
+    except asyncio.CancelledError:
+        pass
+
+asyncio.run(amain())
+"""
+
+# The cancel is caught inside the coroutine and let straight back out. The
+# frame IS unwound by an exception thrown into it -- but by THIS one, so the
+# thrown-in rule must stay silent: nothing in `worker` swallowed it.
+CORO_RERAISES_ITS_CANCEL = """
+import asyncio
+GATE = None
+
+async def worker():
+    try:
+        await GATE.wait()
+    except asyncio.CancelledError:
+        raise                     # caught, and let straight back out
+
+async def amain():
+    global GATE
+    GATE = asyncio.Event()
+    t = asyncio.create_task(worker())
+    await asyncio.sleep(0)
+    t.cancel()
+    try:
+        await t
+    except asyncio.CancelledError:
+        pass
+
+asyncio.run(amain())
+"""
+
+# Swallowed inside a generator that is then parked forever: the frame is still
+# suspended when recording stops, so nothing says what it would have done with
+# the exception. The honest answer stays "ambiguous".
+GEN_SWALLOW_THEN_PARKED = """
+KEEP = []
+
+def gen():
+    try:
+        int("x")
+    except ValueError:
+        yield -1                  # swallowed, then parked here for good
+    yield 0
+
+def main():
+    g = gen()
+    next(g)
+    KEEP.append(g)
 
 main()
 """

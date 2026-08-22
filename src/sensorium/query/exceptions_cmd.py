@@ -35,6 +35,16 @@ frame whose ``closed_by == "return"``, and no later RAISE carries its
 identity. If every HANDLED for it sits in an unwound frame, it kept going and
 is never reported as swallowed.
 
+A frame can also be unwound by an exception thrown INTO it -- a cancelled
+task, a suspended generator being closed -- at a suspension point reached
+*after* the handler ran. That unwind is not this exception leaving the frame:
+it is a death delivered later, and the handler still kept what it caught. So a
+frame whose derived state is cancelled/abandoned/thrown (see ``FrameState``,
+which reads the frame's last YIELD/RESUME row) counts as a swallow too --
+unless the exception thrown in IS this one, which is a re-raise and swallowed
+nothing -- and the verdict names the frame's own fate rather than claiming it
+returned normally.
+
 Both halves are load-bearing. ``except E as e: return e`` closes its frame by
 "return" while handing the exception *out* of that frame, so a returning
 handler frame alone does not mean the exception stopped there. With exact
@@ -87,8 +97,10 @@ unestablished.
 
 Likewise, a re-raise ultimately caught by *untraced* code leaves no record of
 where it was caught. That prints ``propagated (handler not in traced code)``
-rather than a guess. Generators and coroutines are frameless, so a HANDLED
-inside one has no ``closed_by`` at all and gets no verdict.
+rather than a guess. Generators and coroutines are framed from trace format 3
+on, so a handler inside one is decided by the rules above like any other; a
+trace recorded before that opened no frame for them, and a HANDLED in one has
+no ``closed_by`` to read, gets no verdict, and says which format it came from.
 
 Control-flow exceptions (StopIteration, StopAsyncIteration, GeneratorExit)
 were excluded at record time and never appear. SystemExit is not: a plain
@@ -237,11 +249,42 @@ def _uncaught(trace, idx, handled) -> Disposition:
         "not swallowed", detail)
 
 
+# The three §D2 states that mean "unwound by an exception thrown into the
+# frame at its last RESUME" -- a death delivered after a suspension, not an
+# exception leaving under its own power.
+THROWN_IN_STATES = ("cancelled", "abandoned", "thrown")
+
+
+def _closed_by_thrown_in_other(trace, frame, key) -> bool:
+    """Spec D4 rule: a frame unwound by an exception THROWN IN at a later
+    RESUME (cancelled/abandoned/thrown) did not let THIS exception out --
+    the handler kept it; the frame then died of something delivered after
+    a YIELD. True only when that thrown exception is not this one."""
+    s = trace.frame_state(frame)
+    if s.state not in THROWN_IN_STATES or s.exc is None:
+        return False
+    return exc_key(s.exc, frame.thread_id) != key
+
+
 def _swallowed(trace, h, frame) -> Disposition:
+    """Caught here, and it never left this frame.
+
+    Two frames reach this verdict. One returned normally -- the classic
+    swallow. The other was unwound by an exception thrown into it at a
+    suspension the handler had already passed, which is a death this
+    exception had no part in. The line says which: "returned normally" would
+    be false of the second, and saying nothing about it would hide a frame
+    that never finished.
+    """
+    s = trace.frame_state(frame)
+    end = ("which returned normally; never re-raised"
+           if s.state not in THROWN_IN_STATES else
+           f"which it never left; never re-raised "
+           f"(frame later {s.state} at L{s.line})")
     return Disposition(
         "swallowed",
         f"SWALLOWED at e{h.id} {_at(trace, h)} -- caught in f{frame.id}, "
-        "which returned normally; never re-raised")
+        f"{end}")
 
 
 def _link_lost(trace, h, frame, nxt) -> Disposition:
@@ -403,8 +446,8 @@ def _unreadable_frame(trace, h, frame) -> Disposition:
         return Disposition(
             "ambiguous",
             f"handled at e{h.id} {_at(trace, h)} -- no frame recorded",
-            "generators and coroutines open no frame, so there is no "
-            "closed_by to say whether that handler swallowed it or re-raised")
+            "recorded by a sensorium before coroutine frames existed "
+            "(format <= 2); no closed_by to read")
     if frame.closed_by is None:
         return Disposition(
             "ambiguous",
@@ -441,8 +484,12 @@ def classify(trace, r, idx: Index) -> Disposition:
     #    assertable. Checked before the later-RAISE rule so that a loop whose
     #    exception address gets reused still reaches an honest verdict rather
     #    than being reported as one exception raised twice.
+    #    A frame killed by some OTHER exception thrown into it after the
+    #    handler ran counts here too: that unwind is not this one getting out.
     for h, frame in pairs:
-        if frame is not None and frame.closed_by == "return":
+        if frame is not None and (frame.closed_by == "return"
+                                  or _closed_by_thrown_in_other(
+                                      trace, frame, key)):
             if later:
                 return _stored_or_reused(trace, h, frame,
                                          later[0], idx.exact)

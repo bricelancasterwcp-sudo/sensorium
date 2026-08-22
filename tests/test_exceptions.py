@@ -12,8 +12,10 @@ import shlex
 from sensorium import cli, paths
 from sensorium.store.reader import Trace
 from tests.programs import (
-    BARE_RERAISE, CLEAN, CRASH, EXPLICIT_RERAISE, EXPLICIT_RERAISE_ESCAPES,
-    FINALLY_PASSTHROUGH, GENERATOR_HANDLES, LOOP_SAME_MESSAGE,
+    BARE_RERAISE, CLEAN, CORO_RERAISES_ITS_CANCEL,
+    CORO_SWALLOW_THEN_CANCELLED, CRASH, EXPLICIT_RERAISE,
+    EXPLICIT_RERAISE_ESCAPES, FINALLY_PASSTHROUGH, GENERATOR_HANDLES,
+    GEN_SWALLOW_THEN_PARKED, LOOP_SAME_MESSAGE,
     RAISE_CAUGHT_UNTRACED, RERAISE_CAUGHT_THEN_FRAME_DIES,
     RERAISE_CAUGHT_UNTRACED, RETRY_LOOP_REUSED_ADDRESS, RETRY_THEN_RAISE_LAST,
     SHADOWED_CONTROL_FLOW_NAME, STASH_AND_RERAISE,
@@ -311,16 +313,75 @@ def test_exceptions_pairs_each_loop_raise_with_its_own_handler(
     assert len(set(handlers)) == 3              # three distinct HANDLED rows
 
 
-def test_exceptions_refuses_to_classify_a_frameless_handler(
+def test_exceptions_classifies_a_generator_handler_now_that_it_has_a_frame(
         tmp_path, monkeypatch, capsys):
-    """Generators open no frame, so there is no closed_by to read and no
-    honest verdict to give -- saying so beats guessing."""
+    """A generator body is a frame like any other, so its handler has a
+    closed_by to read and the ordinary rule decides it: `gen` caught the
+    ValueError from int("x") and ran to exhaustion, so it was swallowed.
+    Refusing to answer here was an under-claim forced by frameless
+    generators, never a rule about generators."""
     run_id = record(tmp_path, monkeypatch, GENERATOR_HANDLES)
     assert cli.main(["exceptions", run_id]) == 0
     out = capsys.readouterr().out
+    assert out.count("SWALLOWED") == 1
+    assert "ValueError" in out and "gen" in out
+    assert "returned normally" in out
+    assert "dispositions: swallowed 1" in out
+    assert "no frame recorded" not in out
+
+
+def test_exceptions_keeps_a_swallow_whose_frame_is_later_cancelled(
+        tmp_path, monkeypatch, capsys):
+    """The coroutine's frame DID unwind -- with a CancelledError thrown into
+    it at the suspension after the handler ran. That death says nothing about
+    the ValueError the handler kept, so the swallow stands, with the frame's
+    later fate named on the same line rather than left to be inferred."""
+    parked = CORO_SWALLOW_THEN_CANCELLED.splitlines()[9]
+    assert parked.strip().startswith("await GATE.wait()"), parked  # = L10
+    run_id = record(tmp_path, monkeypatch, CORO_SWALLOW_THEN_CANCELLED)
+    assert cli.main(["exceptions", run_id]) == 0
+    out = capsys.readouterr().out
+    swallows = [ln for ln in out.splitlines() if "SWALLOWED at e" in ln]
+    inside = [ln for ln in swallows if "worker" in ln]
+    assert len(inside) == 1
+    assert "(frame later cancelled at L10)" in inside[0]
+    assert "returned normally" not in inside[0]   # it did not: it was killed
+    # The second swallow is amain's own `except asyncio.CancelledError: pass`
+    # -- a different exception, caught in an ordinary frame that really did
+    # return normally. Two swallows here is the trace, not a double count.
+    assert len(swallows) == 2
+    assert "dispositions: swallowed 2" in out
+
+
+def test_exceptions_will_not_credit_a_frame_with_swallowing_its_own_killer(
+        tmp_path, monkeypatch, capsys):
+    """The other side of the thrown-in rule. `worker` catches the cancel and
+    re-raises it, so its frame unwinds with the very exception the handler
+    saw -- the one shape where "the frame died of something else" is false.
+    Crediting the swallow to that frame would be the module's own worst
+    failure mode, a false accusation; the verdict belongs to `amain`, whose
+    frame really did return with the exception kept."""
+    run_id = record(tmp_path, monkeypatch, CORO_RERAISES_ITS_CANCEL)
+    assert cli.main(["exceptions", run_id]) == 0
+    out = capsys.readouterr().out
+    swallows = [ln for ln in out.splitlines() if "SWALLOWED at e" in ln]
+    assert len(swallows) == 1
+    assert "amain" in swallows[0] and "worker" not in swallows[0]
+    assert "frame later cancelled" not in out
+
+
+def test_exceptions_will_not_call_a_swallow_in_a_still_parked_generator(
+        tmp_path, monkeypatch, capsys):
+    """The generator was parked in its own handler when recording stopped:
+    its frame has no closed_by at all, and the thrown-in rule does not apply
+    to a suspended frame -- nothing was thrown into it. What it would have
+    done with the exception is not in the trace."""
+    run_id = record(tmp_path, monkeypatch, GEN_SWALLOW_THEN_PARKED)
+    assert cli.main(["exceptions", run_id]) == 0
+    out = capsys.readouterr().out
     assert "SWALLOWED" not in out
-    assert "no frame recorded" in out
-    assert "generator" in out
+    assert "never closed" in out
+    assert "dispositions: ambiguous 1" in out
 
 
 def test_exceptions_says_so_when_nothing_was_raised(

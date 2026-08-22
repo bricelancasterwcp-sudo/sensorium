@@ -104,6 +104,26 @@ def test_frame_on_a_format2_trace_shows_no_kind_or_state_for_step(
     assert "step  [e" in out.splitlines()[0]
 
 
+def test_exceptions_on_a_format2_trace_claims_no_frame_and_no_state(
+        installed_fixture2, capsys):
+    """The fixture's CancelledError was handled inside a coroutine that this
+    recorder never framed, so there is still no closed_by to read: the
+    `no frame recorded` arm survives, and its reason names the format rather
+    than claiming -- falsely, of a format-3 trace -- that coroutines open no
+    frames. No derived state may leak onto an old trace either: this file has
+    no YIELD/RESUME rows, so nothing here was ever cancelled, abandoned or
+    suspended as far as it can say."""
+    assert cli.main(["exceptions", installed_fixture2]) == 0
+    out = capsys.readouterr().out
+    assert "no frame recorded" in out
+    assert ("recorded by a sensorium before coroutine frames existed "
+            "(format <= 2); no closed_by to read") in out
+    assert "dispositions: ambiguous 1" in out
+    for claim in ("~ ", "frame later", "cancelled at L", "abandoned",
+                  "suspended"):
+        assert claim not in out, claim
+
+
 def test_tree_around_an_unframed_call_of_a_format2_trace_still_says_so(
         installed_fixture2, capsys):
     """`--around` on a CALL that opened no frame cannot show a subtree: there
