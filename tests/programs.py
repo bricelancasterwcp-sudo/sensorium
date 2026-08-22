@@ -543,6 +543,75 @@ async def amain():
 asyncio.run(amain())
 """
 
+# Caught inside a coroutine and STASHED -- handed out of the frame by
+# reference, exactly as `except E as e: return e` does -- and the frame is
+# then cancelled. The handler frame did not return normally AND the exception
+# is raised again later: both facts have to survive into the verdict.
+CORO_STASH_THEN_CANCELLED = """
+import asyncio
+GATE = None
+STASH = []
+
+async def worker():
+    try:
+        int("x")
+    except ValueError as e:
+        STASH.append(e)           # kept, not swallowed: handed out of here
+    await GATE.wait()             # then the task is cancelled here
+
+async def amain():
+    global GATE
+    GATE = asyncio.Event()
+    t = asyncio.create_task(worker())
+    await asyncio.sleep(0)
+    t.cancel()
+    try:
+        await t
+    except asyncio.CancelledError:
+        pass
+    raise STASH[0]                # the stashed exception, raised again
+
+asyncio.run(amain())
+"""
+
+# Swallowed inside a generator that is then DROPPED while parked: CPython
+# throws GeneratorExit into it at the yield. A death delivered after the
+# handler ran, like a cancel -- and named in its own words.
+GEN_SWALLOW_THEN_DROPPED = """
+def gen():
+    try:
+        int("x")
+    except ValueError:
+        yield -1                  # swallowed, then dropped while parked here
+    yield 0
+
+def main():
+    g = gen()
+    next(g)
+    del g                         # GeneratorExit thrown in at the yield
+
+main()
+"""
+
+# Swallowed inside a generator that is then thrown INTO by its driver. Same
+# shape as a cancel, but the exception is an ordinary one, so the tail has to
+# name it rather than claim the frame itself was "thrown".
+GEN_SWALLOW_THEN_THROWN = """
+def gen():
+    try:
+        int("x")
+    except ValueError:
+        yield -1                  # swallowed, then KeyError thrown in here
+    yield 0
+
+def main():
+    g = gen()
+    next(g)
+    g.throw(KeyError("k"))        # not caught: the run ends here
+
+main()
+"""
+
 # Swallowed inside a generator that is then parked forever: the frame is still
 # suspended when recording stops, so nothing says what it would have done with
 # the exception. The honest answer stays "ambiguous".
