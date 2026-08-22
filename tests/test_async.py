@@ -111,9 +111,9 @@ def test_parent_of_rejects_a_live_entry_whose_code_is_not_the_callers(tmp_path):
     from sensorium.record.tracer import Tracer
     tls = SimpleNamespace(live={})
     caller = SimpleNamespace(f_code=object())
-    tls.live[id(caller)] = [7, object(), 1, {}, 0]          # same id, other code
+    tls.live[id(caller)] = [7, object(), 1, {}, 0, False]   # same id, other code
     assert Tracer._parent_of(None, tls, caller) is None
-    tls.live[id(caller)] = [7, caller.f_code, 1, {}, 0]
+    tls.live[id(caller)] = [7, caller.f_code, 1, {}, 0, False]
     assert Tracer._parent_of(None, tls, caller)[0] == 7
     assert Tracer._parent_of(None, tls, None) is None
 

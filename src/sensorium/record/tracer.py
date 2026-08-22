@@ -306,19 +306,22 @@ class _TLS(threading.local):
     """
     def __init__(self, next_serial, register) -> None:
         self.thread_serial: int = next_serial()   # stable, never recycled
-        # id(frame) -> [frame_id, code, code_id, prev_locals, depth] for every
-        # OPEN frame this recorder opened on this thread. Replaces the stack
-        # that v1 used: "the last frame I opened is the caller" is stack
-        # discipline, which a coroutine resumed by the event loop, a generator
-        # resumed by its consumer, and a callback from C all break. `id()` is
-        # sound as a key here ONLY because every entry is a regular function
-        # frame, which always leaves through PY_RETURN or PY_UNWIND -- both
-        # subscribed -- so the entry is removed before the address can die. A
-        # suspendable frame must not enter this map without a terminal
-        # ABANDONED state (arc 2). `_parent_of` re-checks code identity anyway.
+        # id(frame) -> [frame_id, code, code_id, prev_locals, depth, in_window]
+        # for every OPEN frame this recorder opened on this thread. Slot 5 is
+        # `--window` membership, derived from ANCESTRY at PY_START: this code
+        # is the window target, or the parent entry is in the window. It is a
+        # property of the ACTIVATION, so a suspended windowed frame cannot lend
+        # its membership to whatever else happens to run meanwhile.
+        # Replaces the stack that v1 used: "the last frame I opened is the
+        # caller" is stack discipline, which a coroutine resumed by the event
+        # loop, a generator resumed by its consumer, and a callback from C all
+        # break. `id()` is sound as a key here ONLY because every entry is a
+        # regular function frame, which always leaves through PY_RETURN or
+        # PY_UNWIND -- both subscribed -- so the entry is removed before the
+        # address can die. A suspendable frame must not enter this map without
+        # a terminal ABANDONED state (arc 2). `_parent_of` re-checks code identity anyway.
         self.live: dict[int, list] = {}
         self.in_hook = False
-        self.window_depths: dict = {}  # (module, qualname) -> open activations
         self.origin_recorded = False   # whether the in-flight exc got a row
         self.exc = _ExcRefs()
         # (task, serial) of the last task seen on this thread
@@ -587,14 +590,10 @@ class Tracer:
                 pfid = parent[0] if parent is not None else None
                 depth = parent[4] + 1 if parent is not None else 0
                 fid = self.writer.open_frame(pfid, cid, eid, depth, tid)
-                tls.live[id(frame)] = [fid, code, cid, {}, depth]
+                in_window = bool(win_key is not None
+                                 or (parent is not None and parent[5]))
+                tls.live[id(frame)] = [fid, code, cid, {}, depth, in_window]
             self._fp(tid).update(fp_file, qual, "CALL")
-            # Frameless code is excluded on purpose: an abandoned generator
-            # never reaches PY_RETURN/PY_UNWIND, so counting its PY_START would
-            # leak depth and wedge the window open for the rest of the run.
-            # The gate must open and close on the same set of events.
-            if not frameless and win_key is not None:
-                tls.window_depths[win_key] = tls.window_depths.get(win_key, 0) + 1
         finally:
             tls.in_hook = False
         return None
@@ -624,9 +623,6 @@ class Tracer:
             if fid is not None:
                 self.writer.close_frame(fid, eid, "return")
             self._fp(tid).update(fp_file, qual, "RETURN")
-            if (not frameless and win_key is not None
-                    and tls.window_depths.get(win_key)):
-                tls.window_depths[win_key] -= 1
         finally:
             tls.in_hook = False
         return None
@@ -647,9 +643,6 @@ class Tracer:
                 self.writer.close_frame(
                     entry[0], None, "unwind",
                     capture_exc(exc, self.serial_of(exc)))
-            if (not frameless and win_key is not None
-                    and tls.window_depths.get(win_key)):
-                tls.window_depths[win_key] -= 1
         finally:
             tls.in_hook = False
         return None
@@ -756,15 +749,15 @@ class Tracer:
         traced, _fp_file, _qual, focused, frameless, _win_key = self._decide(code)
         if not traced or not focused or frameless:
             return M.DISABLE      # nothing here will ever be worth recording
-        if self.window and not any(tls.window_depths.values()):
-            # Outside the window *right now*. Deliberately not DISABLE: that is
-            # permanent per code location, and this frame may run again inside
-            # the window later.
-            return None
         frame = sys._getframe(1)
         entry = tls.live.get(id(frame))
         if entry is None or entry[1] is not code:
             return None           # no open frame for this activation
+        if self.window and not entry[5]:
+            # Outside the window: no ancestor of THIS activation is the
+            # window target. Not DISABLE -- another activation of the same
+            # code may be inside it later.
+            return None
         tls.in_hook = True        # capture_value runs user __repr__ code
         try:
             prev = entry[3]

@@ -1,4 +1,6 @@
 """Focus tier: LINE events carrying local deltas, and --window gating."""
+import pytest
+
 from sensorium.record.tracer import FocusSpec
 from tests.helpers import record_inproc, record_inproc_full
 
@@ -326,16 +328,15 @@ def test_window_reentry_captures_a_location_missed_the_first_time(tmp_path):
     assert tags == ["in"]
 
 
-def test_abandoned_generator_does_not_wedge_window_open(tmp_path):
-    # A generator is frameless: no frame is opened for it, and PY_RETURN never
-    # arrives if it is abandoned mid-iteration. Its qualname must therefore
-    # never move window_depth, or the window stays open for the rest of the run
-    # and every later focused call is captured as if it were inside it.
+def test_window_is_ancestry_so_an_abandoned_generator_cannot_wedge_it(tmp_path):
+    """Membership in the window is derived from the frame's ANCESTRY, not
+    from a per-thread counter: a generator abandoned mid-iteration has no
+    descendants, so nothing later is "inside" it, counter or no counter."""
     t, err, tracer = record_inproc_full(
         tmp_path / "windowed", ABANDONED_GEN,
         focus=["prog:watched"], window="numbers")
     assert err is None
-    assert not any(tracer._tls.window_depths.values())   # no window left open
+    assert not hasattr(tracer._tls, "window_depths")
     assert t.events(kind="LINE") == []      # watched() ran outside the window
     # ...and the emptiness above is not vacuous: with no window at all, the
     # very same program does yield LINE events for watched().
@@ -343,6 +344,42 @@ def test_abandoned_generator_does_not_wedge_window_open(tmp_path):
                            focus=["prog:watched"])
     quals = [ctl.code(e.code_id).qualname for e in ctl.events(kind="LINE")]
     assert quals and set(quals) == {"watched"}
+
+
+TWO_TASK_WINDOW = """
+import asyncio
+
+def helper(tag):
+    x = tag
+    return x
+
+async def windowed():
+    helper("in")
+    await asyncio.sleep(0)       # suspends; the other task runs meanwhile
+    helper("in-again")
+
+async def other():
+    await asyncio.sleep(0)
+    helper("out")
+
+def main():
+    async def amain():
+        await asyncio.gather(windowed(), other())
+    asyncio.run(amain())
+"""
+
+
+@pytest.mark.xfail(strict=True, reason="coroutine frames arrive in Task 3")
+def test_window_on_a_coroutine_excludes_another_tasks_helper_during_suspension(tmp_path):
+    """While `windowed` is parked, `other` calls helper("out") on the same
+    thread. A per-thread counter would count that as inside the window; the
+    ancestry flag does not, and helper("in-again") after the resume IS in."""
+    t, err = record_inproc(tmp_path, TWO_TASK_WINDOW,
+                           focus=["prog:helper"], window="windowed")
+    assert err is None
+    tags = [e.payload["deltas"]["x"]["v"] for e in t.events(kind="LINE")
+            if "x" in e.payload["deltas"]]
+    assert sorted(tags) == ["in", "in-again"]
 
 
 def test_focusspec_reports_which_entries_matched():
