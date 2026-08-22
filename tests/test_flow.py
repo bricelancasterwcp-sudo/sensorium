@@ -166,12 +166,25 @@ def test_flow_value_parses_none_and_quoted_strings(tmp_path, monkeypatch,
 
 
 def test_flow_value_none_matches_only_none(tmp_path, monkeypatch, capsys):
-    run_id = record(tmp_path, monkeypatch, GRAMS)
+    """None matches None and nothing else -- asserted where the claim lives.
+
+    The run id is pinned to one whose TIMESTAMP contains 1800. `flow`'s
+    header names the run, so a whole-output `"1800" not in out` was a claim
+    about the header as much as about the rows, and failed whenever a real
+    recording happened to be made at 18:00:00-18:00:59 or at HH:18:00-09 --
+    about 300 seconds of every day. Pinning the id makes that collision
+    permanent rather than occasional, and the assertion moves to the rows,
+    which is what "matches only None" is about.
+    """
+    run_id = record(tmp_path, monkeypatch, GRAMS,
+                    extra=["--run-id", "20260101-180000-abcdef"])
     assert cli.main(["flow", run_id, "--value", "None"]) == 0
     out = capsys.readouterr().out
     assert "flow of None (NoneType)" in out
     assert "main -> None" in out and "[return]" in out
-    assert "1800" not in out and "-> 5569.0" not in out
+    assert "1800" in run_id and run_id in out    # the collision, pinned
+    rows = "\n".join(ln for ln in out.splitlines() if run_id not in ln)
+    assert "1800" not in rows and "-> 5569.0" not in rows
 
 
 def test_flow_value_labels_keys_that_are_not_identifiers(
