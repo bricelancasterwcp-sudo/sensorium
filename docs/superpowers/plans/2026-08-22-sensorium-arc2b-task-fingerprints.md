@@ -616,6 +616,8 @@ git commit -m "feat(record): one causal fingerprint per asyncio task; the thread
 - Consumes: `Trace.task_shapes()`, `task_fingerprints()`, `task_stream()`, `fingerprint_basis` (Task 1); rows from Task 2.
 - Produces: `compare(trace_a, trace_b) -> dict` gains key `"tasks"` = result of `compare_tasks(...)`: `{"verdict": "MATCH" | "DIVERGED" | None, "only_a": [(name, hash, count)], "only_b": [...], "pair": None | {"name", "index", "a_event", "b_event", "a_desc", "b_desc", "a_task", "b_task"}, "n_a": int, "n_b": int}` (`None` verdict = no task on either side); the top-level `verdict` is `DIVERGED` when either the thread stream or the tasks diverge; `_basis_reasons(a, b) -> list[str]` (refusal reasons); `diff --task NAME`.
 
+**Ruling 4 (controller, before Task 3): asyncio's default task names are not names.** `asyncio` names every task it creates without an explicit name `Task-<N>` from a process-global counter, so the name encodes creation order — exactly what this comparison must not compare (`gather(*coros)` and one-task-per-request servers create such tasks in data-dependent order). Therefore: (a) `Trace.task_shapes()` maps any name matching `^Task-\d+$` to `None` (the raw name stays in the table and in `info`); (b) `diff --task NAME` refuses a default name (`'Task-3' is asyncio's default name and encodes creation order, not identity; name the task in the program (asyncio.create_task(..., name=...)) to compare it by name`); (c) when unmatched streams on both sides are unnamed, the drill-in pairs the first unmatched unnamed stream on each side by ascending task serial and labels it `(paired by creation order -- a guide, not a match)`; user-named pairs are preferred when present. The spec's "unnamed tasks match only unnamed tasks" is extended accordingly (Task 6 records the erratum). Add to the tests: `test_diff_default_task_names_are_compared_as_unnamed` — record `ASYNC_SHAPE` twice with names dropped (`name=None`) and orders `AB`/`BA`: MATCH; and `--task Task-2` → REFUSED exit 2 with the sentence above.
+
 - [ ] **Step 1: Failing tests** — append to `tests/test_diff.py`:
 
 ```python
@@ -765,6 +767,17 @@ def test_diff_compares_across_bases_when_neither_side_ran_a_task(
 
 New helpers (after `_desc`):
 ```python
+_DEFAULT_NAME = re.compile(r"^Task-\d+$")
+
+
+def _shapes(trace: Trace):
+    """The multiset of (name, hash) with asyncio's default `Task-N` names
+    read as no name (Ruling 4): the number is creation order, which this
+    comparison must not compare."""
+    return Counter(((None if n is not None and _DEFAULT_NAME.match(n) else n), h)
+                   for n, h, _c in trace.task_fingerprints().values())
+
+
 def _shape_difference(a, b):
     """(only_a, only_b): the (name, hash, count) entries one multiset has
     and the other lacks. Unnamed tasks carry name None and therefore only
@@ -822,7 +835,7 @@ def compare_tasks(trace_a: Trace, trace_b: Trace) -> dict:
     a different interleaving cannot manufacture a DIVERGED, and two tasks
     sharing a name are matched by content. verdict None = no task on
     either side (nothing to say)."""
-    a, b = trace_a.task_shapes(), trace_b.task_shapes()
+    a, b = _shapes(trace_a), _shapes(trace_b)       # Ruling 4 normalisation
     n_a, n_b = a.total(), b.total()
     if not n_a and not n_b:
         return {"verdict": None, "only_a": [], "only_b": [], "pair": None,
