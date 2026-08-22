@@ -9,6 +9,8 @@ read off a real recorded trace before the classifier existed.
 """
 import shlex
 
+import pytest
+
 from sensorium import cli, paths
 from sensorium.store.reader import Trace
 from tests.programs import (
@@ -385,6 +387,24 @@ def test_exceptions_tail_names_a_generator_dropped_while_parked(
     assert "(frame later abandoned at L6)" in line
     assert "returned normally" not in line
     assert "dispositions: swallowed 1" in out
+
+
+def test_how_it_closed_refuses_a_state_rule_2_never_admits():
+    """The fallback is a refusal, not a description. `_how_it_closed` is
+    reached only for a frame that closed by `return` or one an exception
+    thrown in later killed; asked about any other state it must crash naming
+    it, because the alternative -- the old `return "returned normally"` --
+    would print a plain falsehood about a suspended or still-open frame the
+    moment a future caller loosened the admission test above it."""
+    from sensorium.query.exceptions_cmd import _how_it_closed
+    from sensorium.store.reader import FrameState
+    assert _how_it_closed(FrameState("returned", None, None)) \
+        == "returned normally"
+    assert "abandoned at L6" in _how_it_closed(
+        FrameState("abandoned", 6, {"type": "GeneratorExit"}))
+    for state in ("suspended", "open", "raised"):
+        with pytest.raises(AssertionError, match=state):
+            _how_it_closed(FrameState(state, 6, None))
 
 
 def test_exceptions_tail_names_the_exception_thrown_into_the_frame(

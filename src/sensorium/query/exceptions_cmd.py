@@ -276,9 +276,20 @@ def _how_it_closed(s) -> str:
     reader is looking at. `thrown` is a state, not English -- the frame was
     not "thrown", it was unwound by something thrown into it, which is also
     the reader's next question, so the tail names it.
+
+    Every other state is refused rather than described. Rule 2 admits a frame
+    that closed by `return` (state `returned`) or one killed by an exception
+    thrown in later, and nothing else -- so any other state here means a new
+    caller, and the honest failure is a crash naming the state, not a
+    sentence saying a suspended or still-open frame "returned normally".
     """
-    if s.state not in THROWN_IN_STATES:
+    if s.state == "returned":
         return "returned normally"
+    if s.state not in THROWN_IN_STATES:
+        raise AssertionError(
+            f"_how_it_closed called on a {s.state!r} frame: rule 2 admits "
+            "only 'returned' and the thrown-in states "
+            f"{THROWN_IN_STATES}")
     how = (f"unwound by {s.exc['type']} thrown in at L{s.line}"
            if s.state == "thrown" else f"{s.state} at L{s.line}")
     return f"never returned (frame later {how})"
