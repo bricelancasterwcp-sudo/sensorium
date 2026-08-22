@@ -52,6 +52,20 @@ Facts, each binding:
    frame.f_code`) therefore extends to suspendable frames unchanged, and the
    code-identity guard arc 1 installed "for arc 2" is the guard this spec
    relies on.
+
+   **Erratum (0.3.0):** this was measured IN ONE THREAD, and the sentence
+   above quietly assumed resumption happens there. It need not: a generator
+   first `next`ed on the thread that made it can be stepped from a thread
+   pool afterwards (`iterate_in_threadpool`, the shape a streaming response
+   uses), and a task can be resumed by a loop running on another thread.
+   `id(frame)` is still stable — it is the per-thread MAP that cannot hold
+   the entry. So the recorder parks a suspended frame's entry in a
+   tracer-level table at `PY_YIELD` (moving it out of the suspending
+   thread's map, one owner at a time) and hands it to whichever thread's
+   callback next misses on it, under the same `entry.code is frame.f_code`
+   guard; a parked frame is alive, so its address cannot be recycled while
+   its entry waits. The frames row keeps the thread that opened the frame
+   and each event carries the thread that produced it. Shipped in 0.3.0.
 2. **Abandonment is observable.** Dropping a suspended generator fires
    `PY_THROW(GeneratorExit)` then `PY_UNWIND` at collection time (refcount
    drop on CPython). Cancelling a task fires `PY_THROW(CancelledError)` then

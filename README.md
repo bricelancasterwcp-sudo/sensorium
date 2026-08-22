@@ -81,7 +81,12 @@ interleaved with its `~ YIELD`/`~ RESUME` rows in `frame`'s timeline, and
 trace. `--window` is an ancestry flag, not a call-stack depth, so it
 survives a suspension: another task's calls made while the windowed frame is
 parked are outside the window, and the windowed frame's own calls after it
-resumes are still inside.
+resumes are still inside. A generator or coroutine resumed on a *different*
+thread from the one that started it — a sync generator first stepped where
+it was made and finished from a thread pool, which is what a streaming
+response does — keeps the frame it opened: its suspensions, its return and
+anything it calls stay on that frame, and every row still names the thread
+that produced it.
 
 Recording captures calls, returns, raises and handled-events for code under
 the working directory the run started in — so `sensorium run -- pytest ...`

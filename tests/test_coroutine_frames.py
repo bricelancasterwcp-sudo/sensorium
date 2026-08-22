@@ -1,6 +1,6 @@
 """Arc 2: generators and coroutines have frames. Recorded in-process."""
 from sensorium.store.reader import FrameState
-from tests.helpers import record_inproc
+from tests.helpers import record_inproc, record_script, run_cli
 from tests.test_async import TWO_TASKS, GEN_HELPER, _by_qual
 
 
@@ -301,3 +301,87 @@ def test_building_a_thrown_payload_never_records_the_programs_own_code(tmp_path)
     # And the serial minted for the throw is still the one the unwind carries.
     g, = t.frames(code_id=_by_qual(t, "gen").id)
     assert t.frame_state(g) == FrameState("thrown", 10, g.unwind_exc)  # `yield 1`
+
+
+# A generator first stepped on one thread and finished on another. This is
+# the Starlette `iterate_in_threadpool` / FastAPI `StreamingResponse(sync_gen)`
+# shape: the first `next()` happens where the object was made, the rest are
+# submitted to a worker pool. The recorder's live map is per-thread, so
+# without the parked-frame hand-off every lookup after the first step misses:
+# no RESUME rows, a RETURN with frame_id NULL, and a frame that reads
+# `~ suspended at end of recording` although it exhausted normally.
+CROSS_THREAD_GEN = """
+from concurrent.futures import ThreadPoolExecutor
+
+
+def rows():
+    n = 0
+    while n < 3:
+        yield n
+        n += 1
+    return "done"
+
+
+def step(g):
+    try:
+        return next(g)
+    except StopIteration as e:
+        return e.value
+
+
+def main():
+    g = rows()
+    out = [step(g)]                    # first step, on the main thread
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        while len(out) < 4:            # the rest, on worker threads
+            out.append(ex.submit(step, g).result())
+    return out
+
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def test_a_generator_finished_on_another_thread_keeps_its_frame(tmp_path):
+    """Four steps: one on the main thread, three on pool workers. The frame
+    belongs to the generator, not to a thread, so it must close by `return`
+    with every suspension recorded -- three YIELDs and three RESUMEs -- and
+    the RETURN row must carry the frame."""
+    t, err = record_inproc(tmp_path, CROSS_THREAD_GEN)
+    assert err is None
+    f, = t.frames(code_id=_by_qual(t, "rows").id)
+    assert f.kind == "generator" and f.closed_by == "return"
+    assert t.frame_state(f) == FrameState("returned", None, None)
+    ys = [e for e in t.events(kind="YIELD") if e.frame_id == f.id]
+    rs = [e for e in t.events(kind="RESUME") if e.frame_id == f.id]
+    assert len(ys) == 3 and len(rs) == 3
+    ret, = [e for e in t.events(kind="RETURN")
+            if t.code(e.code_id).qualname == "rows"]
+    assert ret.frame_id == f.id and ret.payload["value"]["v"] == "done"
+
+
+def test_cross_thread_resume_rows_carry_the_thread_that_resumed(tmp_path):
+    """The frames row keeps the thread that OPENED the frame; the events a
+    suspended frame produces after another thread picks it up carry that
+    thread. Both are true of the same frame, and neither is guessed."""
+    t, err = record_inproc(tmp_path, CROSS_THREAD_GEN)
+    assert err is None
+    f, = t.frames(code_id=_by_qual(t, "rows").id)
+    assert f.thread_id == t.main_thread_id()
+    rs = [e for e in t.events(kind="RESUME") if e.frame_id == f.id]
+    assert rs and any(e.thread_id != f.thread_id for e in rs)
+
+
+def test_tree_reports_the_cross_thread_generator_as_returned(tmp_path):
+    """The sentence a user reads. Before the hand-off this frame rendered
+    `~ suspended at L8 at end of recording` -- a false statement about a
+    generator that exhausted and returned -- because its RETURN landed on a
+    thread whose live map had never held it."""
+    run_id, _trace, r = record_script(tmp_path, CROSS_THREAD_GEN)
+    assert run_id, r.stderr
+    out = run_cli(["tree", run_id], cwd=tmp_path,
+                  sensorium_dir=tmp_path / "sdir").stdout
+    rows_line, = [ln for ln in out.splitlines() if "rows()" in ln]
+    assert "[generator]" in rows_line and "-> 'done'" in rows_line
+    assert "~ suspended" not in out
