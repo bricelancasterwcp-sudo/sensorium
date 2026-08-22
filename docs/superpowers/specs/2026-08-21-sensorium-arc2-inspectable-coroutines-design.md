@@ -1,6 +1,6 @@
 # Arc 2: inspectable coroutines — frames, suspension, and per-task fingerprints
 
-Status: plan 2a implemented on feat/async-arc2; plan 2b pending
+Status: plans 2a and 2b implemented (2a on feat/async-arc2 / PR #3; 2b on feat/async-arc2b)
 Extends `2026-08-21-sensorium-async-design.md` (arc 1, shipped as 0.2.0 in
 PR #2, `main` @ d59cafc), which recorded the constraints this spec honours in
 its closing section. Supersedes nothing.
@@ -288,6 +288,29 @@ there is nothing to compare. The licence adds, beside the recorder-footprint
 blind spot: `N task stream(s) compared by content; the ordering between
 tasks is not compared`. `diff` gains `--task NAME` to diff one task's stream
 by name. Unnamed tasks (`name IS NULL`) match only unnamed tasks.
+
+*Addendum (plan 2b, as built):* meta `fingerprint_basis = "per-task"` marks a
+trace recorded under this narrowing; a trace with no such key is read under
+the per-thread definition (`Trace.fingerprint_basis` defaults to
+`"per-thread"`). `diff` refuses a comparison across the two bases whenever
+either side ran a task (`_basis_reasons`), and refuses a per-task trace that
+ran tasks but recorded no `task_fingerprints` rows (`_task_row_reasons`) --
+its thread stream still narrows to `task_id IS NULL`, so with no task rows to
+compare, everything those tasks did would drop out silently. `refocus` reuses
+both checks by calling `diff_cmd.compare()` after the rerun, and adds its own
+pre-rerun cross-basis refusal (`_refusal`) so the side-effecting rerun never
+happens for a verdict that could not have been issued anyway. `causal_stream`
+narrows to `task_id IS NULL` under the per-task basis and is every causal
+event under the per-thread basis. **Ruling 4:** asyncio's default `Task-<N>`
+names are compared as unnamed, because the number is creation order and
+nothing else -- `_unnamed()` treats a name matching `Task-\d+` exactly as
+`None`, so "unnamed tasks match only unnamed tasks" extends to them, and
+`diff --task` refuses a literal default name outright rather than resolve it
+by creation order. Every thread that produced a causal event has a
+`fingerprints` row, even one whose events ran entirely inside tasks --
+`n_events = 0` marks that fact, not the thread's absence (`_fp_for`). And
+`asyncio.run`'s own wrapper task gets a `task_fingerprints` row like any
+other task, under whatever name asyncio assigned it.
 
 ## Honesty rules (arc 2)
 
