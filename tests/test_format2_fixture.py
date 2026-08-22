@@ -82,6 +82,28 @@ def test_tree_on_a_format2_trace_keeps_the_unframed_wording(
     assert "[function]" not in out
 
 
+def test_frame_on_a_format2_trace_shows_no_kind_or_state_for_step(
+        installed_fixture2, capsys):
+    """`worker` still has no frame on this trace -- `frame` must keep
+    refusing with the arc-1 "not framed" wording, unchanged by Task 7.
+    `step` DOES have a frame (plain functions were always framed), but it
+    is a format-2 frame: its `kind` column does not exist, so it defaults
+    to "function", and `frame_state` derives "returned" for it -- both
+    fall into the arm Task 7's header contract excludes. Rendering a bare
+    `[coroutine]` or a `state:` segment here would claim a disposition this
+    trace holds no YIELD/RESUME evidence for."""
+    assert cli.main(["frame", installed_fixture2, "--fn", "worker"]) == 1
+    out = capsys.readouterr().out
+    assert "recorded as 2 call(s) but not framed (coroutine)" in out
+
+    assert cli.main(["frame", installed_fixture2, "--fn", "step"]) == 0
+    out = capsys.readouterr().out
+    assert "state:" not in out
+    # No kind marker: the qualname is followed directly by the event-range
+    # bracket, with nothing inserted between them.
+    assert "step  [e" in out.splitlines()[0]
+
+
 def test_tree_around_an_unframed_call_of_a_format2_trace_still_says_so(
         installed_fixture2, capsys):
     """`--around` on a CALL that opened no frame cannot show a subtree: there

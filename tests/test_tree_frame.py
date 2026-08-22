@@ -954,3 +954,62 @@ def test_frame_header_names_the_task(tmp_path, monkeypatch, capsys):
     assert cli.main(["frame", run_id, "--fn", "step", "--nth", "1"]) == 0
     head = capsys.readouterr().out.splitlines()[0]
     assert "task t2 (task-A)" in head and "depth 1" in head
+
+
+def test_frame_header_is_byte_identical_for_a_sync_function(
+        tmp_path, monkeypatch, capsys):
+    """A plain function's frame carries no kind marker (kind == "function"
+    prints nothing, exactly as it always has) and no `state:` segment --
+    `frame_state` derives "returned" here, which is precisely the arm the
+    contract excludes. The header must be the exact string arc 1 printed,
+    unchanged by Task 7's addition."""
+    run_id = _rec(tmp_path, monkeypatch)     # SRC: silver() runs twice
+    assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "1"]) == 0
+    head = capsys.readouterr().out.splitlines()[0]
+    # No kind marker: the qualname is followed directly by the event-range
+    # bracket, with the same two spaces arc 1 always used -- nothing
+    # inserted between them.
+    assert "silver  [e" in head
+    assert "state:" not in head
+    assert head.endswith("closed: return")
+
+
+def test_frame_header_shows_kind_and_derived_state_for_a_cancelled_frame(
+        tmp_path, monkeypatch, capsys):
+    """Task-B's `worker` never returned: it was cancelled while parked at
+    `await GATE.wait()`. The header has to say WHICH kind of frame this is
+    (a coroutine, not a plain function) and how `frame_state` (spec D2)
+    derived it ended -- `closed: unwind` alone does not distinguish a
+    cancellation from an ordinary raised exception. No --focus was set, so
+    locals are not captured, but the YIELD/RESUME suspension rows are
+    recorded regardless and must still show up under their own heading."""
+    from tests.test_coroutine_frames import CANCEL
+    tail = '\nif __name__ == "__main__":\n    main()\n'
+    run_id = _rec(tmp_path, monkeypatch, src=CANCEL + tail)
+    assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "2"]) == 0
+    out = capsys.readouterr().out
+    head = out.splitlines()[0]
+    assert "[coroutine]" in head
+    assert "state: cancelled at L10" in head
+
+    assert "timeline: not captured" in out       # locals genuinely weren't
+    susp = _section(out, "timeline (suspensions only):")
+    assert len(susp) == 2, susp
+    assert all(ln.startswith("  ~ e") for ln in susp)
+    yield_ln = next(ln for ln in susp if "YIELD" in ln)
+    assert "L10" in yield_ln and "awaiting" in yield_ln
+    resume_ln = next(ln for ln in susp if "RESUME" in ln)
+    assert "L10" in resume_ln and "thrown" in resume_ln
+    assert "CancelledError" in resume_ln
+
+    # task-A waited at the same gate and was let through: it just returned,
+    # so its header carries no state segment despite being a coroutine too
+    # -- wait, it IS a coroutine, so the marker still shows, but its state
+    # is "returned" which is excluded ONLY for functions. A coroutine that
+    # returned still gets a state segment, per the contract (`f.kind !=
+    # "function"` alone is enough) -- confirm it says "returned", not
+    # nothing and not "cancelled".
+    assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "1"]) == 0
+    head_a = capsys.readouterr().out.splitlines()[0]
+    assert "[coroutine]" in head_a
+    assert "state: returned" in head_a
