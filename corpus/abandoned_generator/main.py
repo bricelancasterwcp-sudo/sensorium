@@ -7,8 +7,8 @@ suspension point, the frame unwinds, and the last page is never produced.
 
 Nothing on stdout distinguishes that from a reader that ran out of pages:
 either way the loop ends and the count is printed. `tree` says which it was
-and where the generator was standing -- `~ abandoned (dropped while
-suspended at L<n>)` -- and claims no return value for a frame that never
+and where the generator was standing -- `~ abandoned (GeneratorExit
+thrown in at L<n>)` -- and claims no return value for a frame that never
 returned one.
 
 The pins name the `yield` line, so this file's line layout is part of the

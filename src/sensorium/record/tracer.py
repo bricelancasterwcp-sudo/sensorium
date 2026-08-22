@@ -518,9 +518,11 @@ class Tracer:
         """The live entry for `caller`, or None -- and None is an answer.
 
         A hit requires the address to be live AND the code to match. Arc 2
-        puts suspendable frames in the map, where they sit across every
-        suspension, so the code check is what keeps a recycled address from
-        answering for a frame that is not the caller's."""
+        opens frames for suspendable code too; while one is suspended its
+        entry is not here but in `_parked` (see `_park`/`_adopt`), and a
+        caller is by definition running, so this map is the right place to
+        look. The code check is what keeps a recycled address from answering
+        for a frame that is not the caller's."""
         if caller is None:
             return None
         entry = tls.live.get(id(caller))
@@ -568,10 +570,14 @@ class Tracer:
 
     def _live_entry(self, tls, frame, code):
         """This activation's open-frame entry, or None: this thread's live
-        map first, then the parked table for a frame another thread opened."""
+        map first, then the parked table for a frame another thread opened.
+
+        A live hit whose code does not match is a stale entry at a recycled
+        address, not an answer -- it must not shadow a parked entry for the
+        frame that is actually running here, so it is treated as a miss."""
         entry = tls.live.get(id(frame))
-        if entry is not None:
-            return entry if entry[1] is code else None
+        if entry is not None and entry[1] is code:
+            return entry
         return self._adopt(tls, frame, code)
 
     def _note_caller(self, payload, caller) -> None:
