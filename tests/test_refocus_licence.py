@@ -247,6 +247,18 @@ def test_refocus_states_its_blind_spots_on_every_verdict(tmp_path):
             assert claim in blind, blind
 
 
+def test_blind_spots_name_task_ordering(tmp_path):
+    """The interleaving between asyncio tasks is now deliberately NOT
+    compared -- that is what lets an order flip come back MATCH -- so it is
+    a blind spot, and a blind spot the tool relies on has to be stated on
+    every verdict rather than mentioned where it happens to apply."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    r = refocus(sdir, run_id, "--focus", "prog:helper")
+    assert ("the order threads ran in relative to one another, and the "
+            "order asyncio tasks interleaved in: recorded, never compared"
+            ) in r.stdout
+
+
 def test_blind_spots_name_the_gaps_the_source_check_cannot_reach(tmp_path):
     """The four `source_hashes` gaps were documented in the source and
     invisible on screen, and three attacks landed inside them for a full

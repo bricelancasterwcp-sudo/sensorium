@@ -18,7 +18,9 @@ import pytest
 
 from sensorium import cli
 from tests.helpers import run_cli
-from tests.refocus_programs import (COUNTER, EXIT_FROM_FILE, LIB, LOOP,
+from tests.refocus_programs import (ASYNC_CONTENT_FLIP, ASYNC_COUNT_FLIP,
+                                    ASYNC_IN_THREAD, ASYNC_ORDER_FLIP,
+                                    COUNTER, EXIT_FROM_FILE, LIB, LOOP,
                                     OUTSIDE_ROOT, READS_STDIN, SLEEPER,
                                     THREAD_BRANCH, THREAD_COUNT, TWO_FILES,
                                     WORKER_ON_SECOND_RUN, dbs, drop_meta,
@@ -189,6 +191,85 @@ def test_refocus_diverges_when_the_same_worker_shape_ran_a_different_number(
     assert "verdict: MATCH" in r.stdout           # ...on the compared thread
     assert "threads: DIVERGED" in r.stdout
     assert "3 thread(s) recorded originally, 4 on the rerun" in r.stdout
+
+
+# -- tasks: compared by CONTENT, never by the order they interleaved in ----
+
+def test_refocus_matches_when_only_the_task_interleaving_changed(tmp_path):
+    """The two tasks start in the other order on the rerun and each does the
+    identical work. Comparing the thread's event ORDER would call that a
+    different execution; comparing each task's own stream by content -- as a
+    multiset of (name, hash) -- says what is true: the same work ran, and
+    the interleaving is recorded, never compared."""
+    run_id, sdir = rec(tmp_path, ASYNC_ORDER_FLIP)
+    assert len(trace(sdir, run_id).task_fingerprints()) == 3   # precondition
+
+    r = refocus(sdir, run_id, "--focus", "prog:worker")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout
+    assert ("tasks: 3 task stream(s) compared by content, all matching; "
+            "the ordering between tasks is not compared") in r.stdout
+    # the licence names it as one of its bounded points -- the bullet, not
+    # the summary line above, which repeats the same words
+    assert "  - 3 task stream(s) compared by content" in r.stdout
+    assert "tasks: DIVERGED" not in r.stdout
+
+
+def test_refocus_diverges_when_one_task_took_another_path(tmp_path):
+    run_id, sdir = rec(tmp_path, ASYNC_CONTENT_FLIP)
+    r = refocus(sdir, run_id, "--focus", "prog:worker")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "refocus verdict: DIVERGED" in r.stdout
+    assert "tasks: DIVERGED" in r.stdout and "task-B" in r.stdout
+    assert "first difference inside task-B" in r.stdout
+    assert "drill into A: sensorium tree" in r.stdout
+    assert "a task took a different path" in r.stdout
+    # the thread stream itself matched, and saying otherwise would send the
+    # reader looking on the wrong stream
+    assert "the compared thread already diverged" not in r.stdout
+    assert "threads: 1 recorded fingerprint(s) compared" in r.stdout
+
+    t = trace(sdir, new_run(r.stdout))
+    assert t.meta["refocus_verdict"] == "DIVERGED"
+    assert "task-B" in t.meta["refocus_diverge_tasks"]
+    # ...and no position on a stream that never parted: `index` is None
+    # here, and stamping it would read as "diverged at step None"
+    assert "refocus_diverge_index" not in t.meta
+
+
+def test_refocus_diverges_when_the_rerun_ran_a_task_the_original_did_not(
+        tmp_path):
+    """No pair to drill into -- the third task has no counterpart at all --
+    so the verdict rests on the count and the name, and says which side."""
+    run_id, sdir = rec(tmp_path, ASYNC_COUNT_FLIP)
+    r = refocus(sdir, run_id, "--focus", "prog:worker")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "tasks: DIVERGED" in r.stdout and "only in B: task-C" in r.stdout
+    assert ("refocus verdict: DIVERGED -- a task took a different path"
+            in r.stdout)
+    assert ("3 task stream(s) originally, 4 on the rerun" in r.stdout)
+    assert "4 on the rerun" in trace(
+        sdir, new_run(r.stdout)).meta["refocus_diverge_tasks"]
+
+
+def test_refocus_counts_a_thread_that_ran_only_task_code_as_compared(
+        tmp_path):
+    """Under the per-task basis a thread whose traced code all ran inside a
+    task has a fingerprint row of its own with zero events. Without that row
+    the thread would fall into the "ran no traced code" tail -- a false
+    sentence about a thread that ran all of it, inside a task."""
+    run_id, sdir = rec(tmp_path, ASYNC_IN_THREAD)
+    counts = sorted(n for _h, n in trace(sdir, run_id).fingerprints().values())
+    assert counts[0] == 0 and len(counts) == 2          # precondition
+
+    r = refocus(sdir, run_id, "--focus", "prog:helper")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout
+    assert ("threads: 2 recorded fingerprint(s) compared (events outside "
+            "any asyncio task), all matching") in r.stdout
+    line = next(ln for ln in r.stdout.splitlines()
+                if ln.startswith("threads: "))
+    assert "ran no traced code" not in line
 
 
 def test_a_diverged_trace_cannot_pass_itself_off_as_verified(tmp_path):
@@ -434,6 +515,31 @@ def test_refocus_refuses_a_trace_with_nothing_to_re_run(tmp_path, kwargs,
     assert r.returncode == 2
     assert expected in r.stderr
     assert "Traceback" not in r.stderr
+
+
+def test_refocus_refuses_a_per_thread_basis_original_that_ran_tasks(tmp_path):
+    """A trace recorded before task fingerprints existed defines its thread
+    stream to INCLUDE the events that ran inside asyncio tasks; this version
+    defines it to exclude them and compares the tasks separately. A verdict
+    across that seam would not compare like with like -- and the refusal has
+    to come BEFORE the rerun, because re-running has side effects and
+    nothing about the answer could be salvaged afterwards. Everything else
+    about this original is fine: its command resolves and its directory is
+    still there, so the basis is the only thing stopping it."""
+    sdir = tmp_path / "sdir"
+    (tmp_path / "prog.py").write_text(LOOP)
+    synthetic(sdir, "20260101-000000-old", cwd=tmp_path, tasks=[(1, "t", 1)])
+    before = dbs(sdir)
+
+    r = refocus(sdir, "20260101-000000-old", "--focus", "prog:accumulate")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert ("original was recorded under the per-thread fingerprint basis "
+            "and ran 1 asyncio task(s); this version compares tasks by "
+            "content and defines thread streams without them, so no verdict "
+            "against it would compare like with like -- re-record it with "
+            "this version") in r.stderr
+    assert "no rerun was attempted" in r.stderr
+    assert dbs(sdir) == before, "a refusal must not re-run the program"
 
 
 def test_refocus_requires_a_focus(tmp_path):

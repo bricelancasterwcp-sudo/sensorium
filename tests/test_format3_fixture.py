@@ -55,3 +55,20 @@ def test_old3_thread_stream_still_holds_the_task_events():
     t = Trace.open(FIXTURE)
     quals = [s[1] for s in t.causal_stream()]
     assert "worker" in quals and "step" in quals
+
+
+def test_refocus_refuses_old3_before_re_running_it():
+    """Read-only: the refusal is a property of the trace, so it can be asked
+    for without touching the world. 0.3.0's single thread fingerprint covers
+    the task events too, so there is no thread stream here of the kind this
+    version compares and no task fingerprints to compare beside it -- and
+    the answer must arrive BEFORE the rerun, which has side effects."""
+    from sensorium.query import refocus_cmd
+
+    t = Trace.open(FIXTURE)
+    problem = refocus_cmd._refusal(t.meta, t)
+    assert problem == (
+        "original was recorded under the per-thread fingerprint basis and "
+        "ran 3 asyncio task(s); this version compares tasks by content and "
+        "defines thread streams without them, so no verdict against it "
+        "would compare like with like -- re-record it with this version")
