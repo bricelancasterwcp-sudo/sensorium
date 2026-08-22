@@ -1148,6 +1148,8 @@ def test_info_on_old3_says_its_thread_fingerprint_covers_task_events(
 (import `cli` in that file.)
 
 - [ ] **Step 2: Run, expect FAIL.**
+**Ruling 7 carry-over (controller, after Task 4):** `refocus` now stamps `refocus_diverge_tasks` (a one-line description) on a rerun whose thread stream matched but whose tasks diverged, and writes no `refocus_diverge_index` for it. `info` must read it: where `info` prints the refocus verdict/divergence for a stamped rerun, add `diverged on tasks: <the stamped description>` when the key is present (and keep the positional `diverged at causal step N` line for thread divergences). Test in tests/test_runs_info.py: record `ASYNC_CONTENT_FLIP` (tests/refocus_programs.py), run `refocus` via the CLI helper, then `info <new run>` → the `diverged on tasks:` line naming `task-B`; and `info` on a thread-diverged rerun (existing COUNTER shape) keeps its old line. Mutation: drop the new branch → test fails.
+
 **Ruling 5 carry-over:** under the per-task basis the per-thread lines `fingerprint thread N: <hash> (<n> causal events)` must say what they count: `(<n> causal events outside any asyncio task)`; under the per-thread basis the existing wording stays. Pin both in the two tests below (the per-task one on a recording of TWO_TASKS — its main-thread line reads `outside any asyncio task`; the old3 one must NOT contain `outside any asyncio task`).
 
 - [ ] **Step 3: Implement** in `info_cmd.py`, right after the per-thread fingerprint lines (~line 99):
