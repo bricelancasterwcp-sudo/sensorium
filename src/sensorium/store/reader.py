@@ -48,10 +48,22 @@ class Frame:
     thread_id: int
     closed_by: str | None
     unwind_exc: dict | None
+    kind: str = "function"      # formats <= 2 recorded no kind: framed code there is a function
 
 
-_FRAME_COLS = ("id, parent_id, code_id, call_event_id, return_event_id, "
-               "depth, thread_id, closed_by, unwind_exc")
+@dataclass(frozen=True)
+class FrameState:
+    """How a frame ended, DERIVED from evidence (spec D2): returned | raised |
+    cancelled | abandoned | thrown | suspended | open. `line` is the parked
+    line for suspended/cancelled/abandoned/thrown; `exc` the unwind cause."""
+    state: str
+    line: int | None
+    exc: dict | None
+
+
+_FRAME_COLS_V2 = ("id, parent_id, code_id, call_event_id, return_event_id, "
+                  "depth, thread_id, closed_by, unwind_exc")
+_FRAME_COLS_V3 = _FRAME_COLS_V2 + ", kind"
 _EVENT_COLS_V1 = "id, ts_ns, thread_id, kind, frame_id, code_id, line, payload"
 _EVENT_COLS_V2 = _EVENT_COLS_V1 + ", task_id"
 
@@ -61,7 +73,7 @@ def _loads(s):
 
 
 def _frame(row) -> Frame:
-    return Frame(*row[:8], _loads(row[8]))
+    return Frame(*row[:8], _loads(row[8]), *row[9:])
 
 
 def _event(row) -> Event:
@@ -77,6 +89,8 @@ class Trace:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(events)")}
         # Decided from the table, not from meta: the column is the fact.
         self._ecols = _EVENT_COLS_V2 if "task_id" in cols else _EVENT_COLS_V1
+        fcols = {r[1] for r in conn.execute("PRAGMA table_info(frames)")}
+        self._fcols = _FRAME_COLS_V3 if "kind" in fcols else _FRAME_COLS_V2
         self._has_tasks = bool(conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='tasks'"
         ).fetchone())
@@ -125,7 +139,7 @@ class Trace:
         return None if row is None else _event(row)
 
     def frames(self, code_id=None) -> list[Frame]:
-        q = f"SELECT {_FRAME_COLS} FROM frames"
+        q = f"SELECT {self._fcols} FROM frames"
         params: tuple = ()
         if code_id is not None:
             q += " WHERE code_id = ?"
@@ -134,17 +148,17 @@ class Trace:
 
     def frame(self, fid: int) -> Frame | None:
         row = self._c.execute(
-            f"SELECT {_FRAME_COLS} FROM frames WHERE id = ?", (fid,)).fetchone()
+            f"SELECT {self._fcols} FROM frames WHERE id = ?", (fid,)).fetchone()
         return None if row is None else _frame(row)
 
     def children(self, fid: int) -> list[Frame]:
         return [_frame(r) for r in self._c.execute(
-            f"SELECT {_FRAME_COLS} FROM frames WHERE parent_id = ? "
+            f"SELECT {self._fcols} FROM frames WHERE parent_id = ? "
             "ORDER BY id", (fid,))]
 
     def roots(self) -> list[Frame]:
         return [_frame(r) for r in self._c.execute(
-            f"SELECT {_FRAME_COLS} FROM frames WHERE parent_id IS NULL "
+            f"SELECT {self._fcols} FROM frames WHERE parent_id IS NULL "
             "ORDER BY id")]
 
     def frame_events(self, fid: int) -> list[Event]:
@@ -260,6 +274,36 @@ class Trace:
         if ev.frame_id is not None:
             return self.frame(ev.frame_id)
         row = self._c.execute(
-            f"SELECT {_FRAME_COLS} FROM frames WHERE call_event_id = ?",
+            f"SELECT {self._fcols} FROM frames WHERE call_event_id = ?",
             (eid,)).fetchone()
         return None if row is None else _frame(row)
+
+    def suspensions(self, fid: int) -> list[Event]:
+        return self.events(kind=("YIELD", "RESUME"), frame_id=fid)
+
+    def frame_state(self, f: Frame) -> FrameState:
+        """Spec D2. Evidence only: closed_by, unwind_exc, and the frame's last
+        YIELD/RESUME row. 'cancelled'/'abandoned'/'thrown' need the serial of
+        the exception thrown in at the last RESUME to equal the unwind's --
+        a type match alone could be a different exception raised inside."""
+        last = self._c.execute(
+            "SELECT kind, line, payload FROM events WHERE frame_id = ? "
+            "AND kind IN ('YIELD', 'RESUME') ORDER BY id DESC LIMIT 1",
+            (f.id,)).fetchone()
+        lkind, lline, lpayload = (None, None, None) if last is None else (
+            last[0], last[1], _loads(last[2]))
+        if f.closed_by == "return":
+            return FrameState("returned", None, None)
+        if f.closed_by == "unwind":
+            thrown = (lpayload or {}).get("thrown") if lkind == "RESUME" else None
+            ts = thrown.get("serial") if thrown else None
+            us = (f.unwind_exc or {}).get("serial")
+            if thrown is not None and ts is not None and ts == us:
+                t = thrown.get("type")
+                state = ("cancelled" if t == "CancelledError"
+                         else "abandoned" if t == "GeneratorExit" else "thrown")
+                return FrameState(state, lline, f.unwind_exc)
+            return FrameState("raised", None, f.unwind_exc)
+        if lkind == "YIELD":
+            return FrameState("suspended", lline, None)
+        return FrameState("open", None, None)

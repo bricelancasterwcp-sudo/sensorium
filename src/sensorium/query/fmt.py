@@ -74,6 +74,12 @@ def fmt_event(trace, e) -> str:
         body = f"{q} {e.kind.lower()} {fmt_exc(p['exc'])} L{e.line}"
     elif e.kind == "LINE":
         body = f"{q} L{e.line}{_fmt_line_tail(p)}"
+    elif e.kind == "YIELD":
+        body = f"{q} L{e.line} awaiting {p.get('awaiting', '?')}"
+    elif e.kind == "RESUME":
+        thrown = p.get("thrown")
+        body = (f"{q} L{e.line} thrown {fmt_exc(thrown)}" if thrown
+                else f"{q} L{e.line}")
     else:
         body = q
     return f"e{e.id} {e.kind:<7} {body}"

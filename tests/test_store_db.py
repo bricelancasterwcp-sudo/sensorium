@@ -37,7 +37,7 @@ def test_create_trace_has_all_tables(tmp_path):
     names = {r[0] for r in conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"meta", "code_objects", "frames", "events", "output",
-            "fingerprints", "tasks"} <= names
+            "fingerprints", "tasks", "task_fingerprints"} <= names
     assert db.get_meta(conn, "trace_format") == db.TRACE_FORMAT
 
 
@@ -61,14 +61,26 @@ def test_open_trace_missing_file_raises(tmp_path):
 
 def test_format_2_has_task_id_and_tasks_table(tmp_path):
     """Spec D4: events gains a nullable task_id; a tasks table maps serial to
-    display name once, not per event; frames is unchanged."""
+    display name once, not per event. Frames stayed unchanged at format 2;
+    format 3 appends `kind` -- see
+    test_format_3_adds_frame_kind_and_task_fingerprints -- so this only pins
+    the format-2 columns as a PREFIX, not the whole row."""
     conn = db.create_trace(tmp_path / "t.db")
-    assert db.get_meta(conn, "trace_format") == 2
+    assert db.get_meta(conn, "trace_format") >= 2
     ev_cols = [r[1] for r in conn.execute("PRAGMA table_info(events)")]
     assert ev_cols[-1] == "task_id"
     task_cols = [r[1] for r in conn.execute("PRAGMA table_info(tasks)")]
     assert task_cols == ["id", "name", "thread_id"]
     fr_cols = [r[1] for r in conn.execute("PRAGMA table_info(frames)")]
-    assert fr_cols == ["id", "parent_id", "code_id", "call_event_id",
+    assert fr_cols[:9] == ["id", "parent_id", "code_id", "call_event_id",
                        "return_event_id", "depth", "thread_id", "closed_by",
                        "unwind_exc"]
+
+
+def test_format_3_adds_frame_kind_and_task_fingerprints(tmp_path):
+    conn = db.create_trace(tmp_path / "t.db")
+    assert db.get_meta(conn, "trace_format") == 3
+    fcols = [r[1] for r in conn.execute("PRAGMA table_info(frames)")]
+    assert fcols[-1] == "kind"
+    tcols = [r[1] for r in conn.execute("PRAGMA table_info(task_fingerprints)")]
+    assert tcols == ["task_id", "name", "hash", "n_events"]

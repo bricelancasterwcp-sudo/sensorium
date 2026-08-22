@@ -106,3 +106,16 @@ def test_add_event_task_id_defaults_to_null_and_round_trips(tmp_path):
     assert rows == [(e1, None), (e2, 3)]
     tasks = c.execute("SELECT id, name, thread_id FROM tasks ORDER BY id").fetchall()
     assert tasks == [(3, "task-A", 7), (4, None, 7)]
+
+
+def test_open_frame_records_the_kind_and_defaults_to_function(tmp_path):
+    p = tmp_path / "t.db"
+    w = TraceWriter(p, batch=100)
+    cid = w.intern_code("/x/prog.py", "gen", 1)
+    e1 = w.add_event(0, 1, "CALL", None, cid, 1, {"args": {}})
+    f1 = w.open_frame(None, cid, e1, 0, 1)
+    f2 = w.open_frame(None, cid, e1, 0, 1, kind="coroutine")
+    w.close()
+    c = sqlite3.connect(p)
+    assert c.execute("SELECT id, kind FROM frames ORDER BY id").fetchall() == [
+        (f1, "function"), (f2, "coroutine")]
