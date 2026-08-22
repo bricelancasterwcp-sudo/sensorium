@@ -430,6 +430,35 @@ main()
 
 RETENTION_NOISE_COUNT = _RETAIN_MAX + 6
 
+# The same bound crossed by CONTROL FLOW rather than by exceptions. `any()`
+# stops at its first true element and drops the generator expression it is
+# consuming; CPython throws GeneratorExit into that generator, and the genexpr
+# is defined in this file, so the recorder sees the throw on a TRACED frame.
+# None of it is a recorded exception -- `_exc_event` drops control-flow types
+# -- yet the throw path mints a serial for each one, so enough early exits
+# used to evict the stashed ValueError from a table that exists to link real
+# exceptions. Generator-heavy code hits this in ordinary use: the loop below
+# is 70 `any(...)` calls, not a pathological construction.
+STASH_PAST_GENERATOR_EXITS = f"""
+def stash():
+    try:
+        raise ValueError("kept")
+    except ValueError as e:
+        return e
+
+def early_exits(n):
+    for _ in range(n):
+        if not any(v > 0 for v in (1, 2, 3)):
+            raise AssertionError("unreachable")
+
+def main():
+    saved = stash()
+    early_exits({_RETAIN_MAX + 6})
+    raise saved
+
+main()
+"""
+
 # Serials are minted per thread, so two worker threads both start at 1. If the
 # classifier keyed on the serial alone it would fuse two unrelated exceptions
 # from different threads into one identity.

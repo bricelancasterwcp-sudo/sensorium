@@ -76,9 +76,13 @@ the frames and locals reachable from it, so at most `_RETAIN_MAX` per live
 thread are kept, the oldest being dropped when a newer one arrives. Past that
 bound the recorder simply forgets, a later raise of a forgotten object mints a
 fresh serial, and `sensorium exceptions` refuses to call such an exception
-swallowed rather than pretending the two are unrelated. A thread's table dies
-with the thread, and `uninstall` clears every live thread's table and
-in-flight slot, after which this recorder holds no exception object at all.
+swallowed rather than pretending the two are unrelated. Control-flow
+exceptions thrown INTO a frame are serialled from a second, much smaller
+table (`_CONTROL_RETAIN_MAX`), so that dropping generators -- which ordinary
+code does constantly -- cannot evict the real exceptions this machinery
+exists to link. A thread's tables die with the thread, and `uninstall` clears
+every live thread's tables and in-flight slot, after which this recorder
+holds no exception object at all.
 """
 import sys
 import threading
@@ -177,6 +181,20 @@ def locals_snapshot(frame) -> dict | None:
 # not a silent loss -- see the module docstring and exceptions_cmd.
 _RETAIN_MAX = 64
 
+# The same bound for CONTROL-FLOW exceptions thrown into a traced frame
+# (GeneratorExit, StopIteration, StopAsyncIteration). They need a serial --
+# `frame_state` calls a frame abandoned only when the RESUME's thrown serial
+# EQUALS the unwind's -- but they are not exceptions any query links across a
+# program: `_exc_event` records no row for them, so the only rows their serial
+# can ever reach are that frame's own RESUME and unwind, written within a few
+# events of each other. Minting them from the table above let 70 early-exit
+# generator expressions -- `any(v > 0 for v in ...)`, ordinary code -- evict a
+# stashed ValueError and degrade its later re-raise to "ambiguous". A small
+# table of their own costs 16 held objects per thread and cannot touch the
+# real one. It is not 1: a generator's cleanup can drop other generators, so
+# several of these can be in flight at once.
+_CONTROL_RETAIN_MAX = 16
+
 
 def module_name_for(file: str, root: Path) -> str | None:
     try:
@@ -252,7 +270,9 @@ class _ExcRefs:
     recorder holds a reference to an exception object.
 
     `serials` maps `id(exc)` -> `(exc, serial)`, insertion-ordered, capped at
-    `_RETAIN_MAX`. Holding the object is what makes `id()` a sound key: the
+    `cap` (`_RETAIN_MAX` for a thread's real table, `_CONTROL_RETAIN_MAX` for
+    its control-flow side table). Holding the object is what makes `id()` a
+    sound key: the
     address cannot be recycled underneath us, so two distinct exceptions can
     never alias onto one serial. Weak references were tried first and are not
     an option at all -- `BaseException` does not support them
@@ -264,12 +284,23 @@ class _ExcRefs:
     `clear` really does release everything this recorder is holding, on
     whichever thread it is called for.
     """
-    __slots__ = ("last_exc", "serials", "minted", "__weakref__")
+    __slots__ = ("last_exc", "serials", "minted", "cap", "source",
+                 "__weakref__")
 
-    def __init__(self) -> None:
+    def __init__(self, cap: int = _RETAIN_MAX, source=None) -> None:
         self.last_exc = None           # exception currently in flight, if any
         self.serials: dict[int, tuple] = {}
         self.minted = 0                # monotonic per-thread serial source
+        self.cap = cap                 # how many objects this table remembers
+        # Where serials come from, when not from this table itself. The
+        # control-flow table mints from the MAIN one so a thread never issues
+        # one number twice: two tables counting separately would eventually
+        # give a GeneratorExit and a real exception the same serial, and a
+        # frame's `unwind_exc` would then match rows belonging to neither.
+        # A plain (one-way) reference, never a back-pointer: a cycle between
+        # a thread's two tables would keep both -- and every exception they
+        # hold -- alive past the thread, waiting for the cycle collector.
+        self.source = source
 
     def serial_of(self, exc) -> int | None:
         """This thread's serial for `exc`, or None if it holds none.
@@ -287,9 +318,11 @@ class _ExcRefs:
         serial = self.serial_of(exc)
         if serial is not None:
             return serial
-        self.minted += 1
-        self.serials[id(exc)] = (exc, self.minted)
-        while len(self.serials) > _RETAIN_MAX:
+        src = self if self.source is None else self.source
+        src.minted += 1
+        serial = src.minted
+        self.serials[id(exc)] = (exc, serial)
+        while len(self.serials) > self.cap:
             oldest, held = next(iter(self.serials.items()))
             del self.serials[oldest]
             if held[0] is self.last_exc:
@@ -299,7 +332,7 @@ class _ExcRefs:
                 # enough cleanup can push it out, and the query side hedges
                 # rather than reading the fresh serial as another exception.
                 self.serials[oldest] = held
-        return self.minted
+        return serial
 
     def clear(self) -> None:
         self.last_exc = None
@@ -365,9 +398,16 @@ class _TLS(threading.local):
         self.in_hook = False
         self.origin_recorded = False   # whether the in-flight exc got a row
         self.exc = _ExcRefs()
+        # Serials for control-flow exceptions THROWN INTO a traced frame,
+        # kept out of the table above; see `_CONTROL_RETAIN_MAX`.
+        self.cf_exc = _ExcRefs(cap=_CONTROL_RETAIN_MAX, source=self.exc)
         # (task, serial) of the last task seen on this thread
         self.task_cache: tuple | None = None
+        # Both tables, so `uninstall` releases everything this recorder holds
+        # on every thread. The registry is keyed only to keep entries apart
+        # and is never looked up by key, so the negative key is enough.
         register(self.thread_serial, self.exc)
+        register(-self.thread_serial, self.cf_exc)
 
 
 class Tracer:
@@ -790,13 +830,20 @@ class Tracer:
         Decide BEFORE minting. `identify` retains a strong reference in a
         bounded table, so minting for untraced code would pour every
         generator finalisation and every asyncio cancellation in the process
-        into it and evict serials a stored re-raise still wants -- and
-        control-flow exceptions, which `_exc_event` deliberately keeps out of
-        that table, would arrive by this door instead. Unlike RAISE (where
-        the raising frame may be untraced while the frame that unwinds is
-        traced), PY_THROW fires on the very frame that will PY_UNWIND: if it
-        is untraced, no row is written at either end and the serial buys
-        nothing. Knowingly given up: an exception thrown into an UNTRACED
+        into it and evict serials a stored re-raise still wants. Unlike RAISE
+        (where the raising frame may be untraced while the frame that unwinds
+        is traced), PY_THROW fires on the very frame that will PY_UNWIND: if
+        it is untraced, no row is written at either end and the serial buys
+        nothing.
+
+        Which table, for the same reason at a finer grain. `_exc_event`
+        deliberately keeps control-flow types out of the real table, and this
+        door is the one they would otherwise arrive by: a `for ... break`, a
+        short-circuiting `any(genexpr)`, any dropped generator throws
+        GeneratorExit into a frame this recorder may well be tracing. They
+        still need a serial -- `abandoned` is the RESUME serial matching the
+        unwind's, nothing else -- so they get one from `cf_exc`, a small
+        table of their own (`_CONTROL_RETAIN_MAX`). Knowingly given up: an exception thrown into an UNTRACED
         generator that escapes into a traced caller's unwind has no serial
         there, so that frame reads `raised` rather than `thrown` -- no D2
         state on a traced frame depends on it.
@@ -809,9 +856,10 @@ class Tracer:
         tls = self._tls
         if tls.in_hook or not self._decide(code)[0]:
             return None                    # PY_THROW may not DISABLE
+        refs = tls.cf_exc if _is_control_flow(exc) else tls.exc
         return self._suspension(
             code, sys._getframe(1), "RESUME",
-            lambda: {"thrown": capture_exc(exc, tls.exc.identify(exc))},
+            lambda: {"thrown": capture_exc(exc, refs.identify(exc))},
             disable_ok=False)
 
     # The triggering frame is sys._getframe(1) *of the registered callback*,
@@ -981,10 +1029,19 @@ class Tracer:
         `last_exc` -- but the identity table still holds the object, which is
         why the uncaught record can be tied to the RAISE row that produced it.
 
+        Both of this thread's tables are asked, because a frame closed by a
+        GeneratorExit thrown into it must read the serial its RESUME row
+        carries -- that equality is the whole of `abandoned`. The two are
+        disjoint by construction (`_exc_event` never records a control-flow
+        type, `_on_throw` sends only control-flow types to `cf_exc`), so
+        asking both cannot return the wrong one.
+
         Never mints: a caller asking after the fact must be told "no serial"
         rather than handed a fresh one that matches no recorded row.
         """
-        return self._tls.exc.serial_of(exc)
+        tls = self._tls
+        serial = tls.exc.serial_of(exc)
+        return serial if serial is not None else tls.cf_exc.serial_of(exc)
 
     # -- lifecycle ---------------------------------------------------------
     def install(self) -> None:
