@@ -1,6 +1,4 @@
 """Focus tier: LINE events carrying local deltas, and --window gating."""
-import pytest
-
 from sensorium.record.tracer import FocusSpec
 from tests.helpers import record_inproc, record_inproc_full
 
@@ -369,7 +367,6 @@ def main():
 """
 
 
-@pytest.mark.xfail(strict=True, reason="coroutine frames arrive in Task 3")
 def test_window_on_a_coroutine_excludes_another_tasks_helper_during_suspension(tmp_path):
     """While `windowed` is parked, `other` calls helper("out") on the same
     thread. A per-thread counter would count that as inside the window; the
@@ -400,11 +397,10 @@ def main():
 """
 
 
-@pytest.mark.xfail(strict=True, reason="generator frames arrive in Task 3")
 def test_window_reaches_through_a_generator_intermediary(tmp_path):
     """The window target calls a generator whose body calls the focused
     leaf. Membership is ancestry, so this needs the generator to HAVE a
-    frame; until Task 3 it has none and the chain breaks here."""
+    frame -- arc 2 gives it one, and the chain reaches through it."""
     t, err = record_inproc(tmp_path, GEN_IN_WINDOW,
                            focus=["prog:leaf"], window="target")
     assert err is None
@@ -419,36 +415,3 @@ def test_focusspec_reports_which_entries_matched():
     assert fs.entries_matching("main", "step") == ["main"]
     assert fs.entries_matching("other", "y") == []
 
-
-ASYNC_FOCUS = """
-import asyncio
-
-def step(n):
-    return n
-
-async def worker():
-    step(1)
-    await asyncio.sleep(0)
-    return step(2)
-
-def main():
-    return asyncio.run(worker())
-"""
-
-
-def test_focus_that_matched_only_coroutine_code_is_reported(tmp_path):
-    t, err, tracer = record_inproc_full(tmp_path, ASYNC_FOCUS,
-                                        focus=["prog:worker", "prog:step"])
-    assert err is None
-    assert tracer.unframed_focus() == ["prog:worker"]      # step is framed
-    assert t.counts().get("LINE", 0) > 0                   # step's lines
-
-
-def test_focus_entry_that_matched_framed_and_unframed_code_is_not_reported(
-        tmp_path):
-    """A module-wide entry matched worker (frameless) AND step (framed): it
-    did capture lines, so it is not "only coroutine code" and must not warn."""
-    t, err, tracer = record_inproc_full(tmp_path, ASYNC_FOCUS, focus=["prog"])
-    assert err is None
-    assert tracer.unframed_focus() == []
-    assert t.counts().get("LINE", 0) > 0

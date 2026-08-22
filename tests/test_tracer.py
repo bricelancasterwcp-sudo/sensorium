@@ -277,14 +277,14 @@ def test_stdlib_not_traced(tmp_path):
     assert all(str(tmp_path) in f for f in files)
 
 
-def test_generators_recorded_frameless(tmp_path):
+def test_generators_get_frames_of_kind_generator(tmp_path):
     t, err = record_inproc(tmp_path, GEN)
     assert err is None
     gen_calls = [e for e in t.events(kind="CALL")
                  if t.code(e.code_id).qualname == "gen"]
     assert len(gen_calls) == 1
     gen_code = next(c for c in t.codes() if c.qualname == "gen")
-    assert t.frames(code_id=gen_code.id) == []
+    assert t.frames(code_id=gen_code.id)[0].kind == "generator"
 
 
 def test_cleanup_during_unwind_records_one_origin_raise(tmp_path):

@@ -27,13 +27,12 @@ and an unbind alone is enough to emit an event -- otherwise a `del` whose line
 changes nothing else would leave no trace, and a consumer folding deltas would
 keep a dead binding alive for the rest of the frame.
 
-A LINE event's `frame_id` is always set. Generators and coroutines are
-frameless (no frame is opened for them), so LINE stays permanently disabled for
-their code even when focused -- there would be no frame to attach to. Their
-CALL is still recorded, with `unframed` naming the kind and either
-`parent_frame` (the caller's open frame) or `caller_code` / `caller` saying who
-called it. A framed call whose caller has no open frame gets `parent_id NULL`
-and the same `caller_code` / `caller` keys: the parent is never guessed.
+A LINE event's `frame_id` is always set. Every traced code object opens a
+frame, generators and coroutines included (arc 2); a suspendable frame stays in
+`live` across its suspensions and leaves through PY_RETURN/PY_UNWIND like any
+other -- the dropped-while-suspended case arrives as PY_THROW(GeneratorExit) +
+PY_UNWIND. A call whose caller has no open frame gets `parent_id NULL` and
+`caller_code` / `caller` naming who called it: the parent is never guessed.
 
 Every RAISE/HANDLED payload carries an exception `serial`: an exact per-thread
 identity, minted the first time this recorder sees an exception object and
@@ -84,9 +83,10 @@ M = sys.monitoring
 TOOL = M.PROFILER_ID
 _SENSORIUM_DIR = str(Path(__file__).resolve().parent.parent)
 _CO_GENERATOR, _CO_COROUTINE, _CO_ASYNC_GENERATOR = 0x20, 0x80, 0x200
-# Derived, never restated: `_GENLIKE` decides WHETHER code is frameless and
-# `_unframed_kind` decides WHICH kind it is, and a flag added to one set but
-# not the other would silently label a new frameless kind "generator".
+# Derived, never restated: the suspendable flag set is written down ONCE, and
+# `_frame_kind` -- its only reader -- ladders over the same three flags. A flag
+# added to one and not the other would silently label a new suspendable kind
+# "generator".
 _GENLIKE = _CO_GENERATOR | _CO_COROUTINE | _CO_ASYNC_GENERATOR
 _CONTROL_FLOW_EXC = (StopIteration, StopAsyncIteration, GeneratorExit)
 
@@ -108,11 +108,12 @@ def _is_control_flow(exc) -> bool:
     return t is StopIteration or t is StopAsyncIteration or t is GeneratorExit
 
 
-def _unframed_kind(code) -> str:
-    """Why this code opens no frame: which of the generator-like flags it has.
-    Recorded on the CALL payload so the query side can say 'coroutine', not
-    the vaguer 'coroutine or generator' it must say for a format-1 trace."""
+def _frame_kind(code) -> str:
+    """Which kind of frame this code opens (frames.kind): every traced code
+    object opens one -- arc 2 -- so this is a label, not a gate."""
     flags = code.co_flags
+    if not flags & _GENLIKE:
+        return "function"
     if flags & _CO_ASYNC_GENERATOR:
         return "async_generator"
     if flags & _CO_COROUTINE:
@@ -339,7 +340,7 @@ class Tracer:
         self.include = tuple(include)
         self.exclude = tuple(exclude)
         self.window = WindowSpec(window)
-        # id(code) -> (traced, fp_file, qualname, focused, frameless)
+        # id(code) -> (traced, fp_file, qualname, focused, kind, win_key)
         self._decisions: dict[int, tuple] = {}
         self._seen_codes: list = []    # pins code objects so id() cannot recycle
         self._fps: dict[int, Fingerprint] = {}
@@ -364,8 +365,6 @@ class Tracer:
         self._task_lock = threading.Lock()
         self._next_task = 0
         self.task_errors = 0       # lookups a hostile task object broke
-        # entry -> {frameless flags of the code objects it matched}
-        self._focus_hits: dict[str, set] = {}
         self._tls = _TLS(self._assign_thread_serial, self._register_refs)
         # The thread constructing the Tracer runs `_TLS.__init__` above, so it
         # is the first serial (1). `run_target` runs the target on this same
@@ -396,7 +395,7 @@ class Tracer:
 
     def _classify(self, code):
         file = code.co_filename
-        untraced = (False, None, None, False, False, None)
+        untraced = (False, None, None, False, "function", None)
         if not file.startswith("/") or file.startswith(_SENSORIUM_DIR):
             return untraced
         p = str(Path(file).resolve())
@@ -413,25 +412,17 @@ class Tracer:
             return untraced
         module = module_name_for(p, self.root)
         focused = self.focus.matches(module, code.co_qualname)
-        frameless = bool(code.co_flags & _GENLIKE)
-        if focused:
-            for entry in self.focus.entries_matching(module, code.co_qualname):
-                self._focus_hits.setdefault(entry, set()).add(frameless)
         win_key = self.window.key(module, code.co_qualname)
-        return (True, rel, code.co_qualname, focused, frameless, win_key)
+        return (True, rel, code.co_qualname, focused, _frame_kind(code),
+                win_key)
 
     def unframed_focus(self) -> list[str]:
-        """Focus entries that matched code, all of it frameless -- so no LINE
-        was ever possible for them. Reported at the end of the run because
-        the recorder learns a code object's kind only when it first starts."""
-        # Snapshot: `run_target` calls this after `uninstall`, while a straggler
-        # thread still inside a callback can reach `_classify` and `setdefault`
-        # here -- iterating live would raise "dictionary changed size during
-        # iteration" out of `_finalize_meta` and leave the trace incomplete.
-        # `setdefault` is atomic under the GIL, so `list()` snapshots without a
-        # lock (same straggler class `_LateWriteGuard` describes; cf. `_fps`).
-        return [e for e, flags in list(self._focus_hits.items())
-                if flags == {True}]
+        """Always empty: retired in arc 2, removed in Task 5.
+
+        It reported focus entries that matched only frameless code, for which
+        no LINE could ever fire. Every traced code object has a frame now, so
+        there is no such entry and nothing to warn about."""
+        return []
 
     def _fp(self, tid: int) -> Fingerprint:
         # `tid` is a per-thread SERIAL (see `_TLS.thread_serial`), the same
@@ -446,10 +437,10 @@ class Tracer:
     def _parent_of(self, tls, caller):
         """The live entry for `caller`, or None -- and None is an answer.
 
-        A hit requires the address to be live AND the code to match: the
-        map cannot hold a stale entry in arc 1 (see `_TLS.live`), but the
-        check is what makes that a property of this method rather than of
-        the current set of callers."""
+        A hit requires the address to be live AND the code to match. Arc 2
+        puts suspendable frames in the map, where they sit across every
+        suspension, so the code check is what keeps a recycled address from
+        answering for a frame that is not the caller's."""
         if caller is None:
             return None
         entry = tls.live.get(id(caller))
@@ -459,15 +450,15 @@ class Tracer:
 
     def _note_caller(self, payload, caller) -> None:
         """When there is no parent frame, record WHO called instead of
-        guessing: the caller's interned code if it is traced (a frameless
-        generator/coroutine, or code that started before recording did), or
-        the literal "untraced" (the event loop, a C callback's Python caller
-        in a library, sensorium's own boot). No caller at all writes nothing,
+        guessing: the caller's interned code if it is traced (code that
+        started before recording did, so it never opened a frame), or the
+        literal "untraced" (the event loop, a C callback's Python caller in a
+        library, sensorium's own boot). No caller at all writes nothing,
         which is distinct from both."""
         if caller is None:
             return
         ccode = caller.f_code
-        traced, _rel, cqual, _f, _fl, _w = self._decide(ccode)
+        traced, _rel, cqual, _f, _kind, _w = self._decide(ccode)
         if traced:
             payload["caller_code"] = self.writer.intern_code(
                 ccode.co_filename, cqual, ccode.co_firstlineno)
@@ -554,7 +545,7 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, fp_file, qual, focused, frameless, win_key = self._decide(code)
+        traced, fp_file, qual, focused, kind, win_key = self._decide(code)
         if not traced:
             return M.DISABLE
         tls.in_hook = True
@@ -580,20 +571,15 @@ class Tracer:
             parent = self._parent_of(tls, caller)
             if parent is None:
                 self._note_caller(payload, caller)
-            if frameless:
-                payload["unframed"] = _unframed_kind(code)
-                if parent is not None:
-                    payload["parent_frame"] = parent[0]
             eid = self.writer.add_event(time.monotonic_ns(), tid, "CALL",
                                         None, cid, code.co_firstlineno,
                                         payload, task_id=task)
-            if not frameless:
-                pfid = parent[0] if parent is not None else None
-                depth = parent[4] + 1 if parent is not None else 0
-                fid = self.writer.open_frame(pfid, cid, eid, depth, tid)
-                in_window = bool(win_key is not None
-                                 or (parent is not None and parent[5]))
-                tls.live[id(frame)] = [fid, code, cid, {}, depth, in_window]
+            pfid = parent[0] if parent is not None else None
+            depth = parent[4] + 1 if parent is not None else 0
+            fid = self.writer.open_frame(pfid, cid, eid, depth, tid, kind)
+            in_window = bool(win_key is not None
+                             or (parent is not None and parent[5]))
+            tls.live[id(frame)] = [fid, code, cid, {}, depth, in_window]
             self._fp(tid).update(fp_file, qual, "CALL")
         finally:
             tls.in_hook = False
@@ -603,7 +589,7 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, fp_file, qual, focused, frameless, win_key = self._decide(code)
+        traced, fp_file, qual, focused, _kind, _win_key = self._decide(code)
         if not traced:
             return M.DISABLE
         tls.in_hook = True
@@ -632,7 +618,7 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, fp_file, qual, focused, frameless, win_key = self._decide(code)
+        traced, fp_file, qual, focused, _kind, _win_key = self._decide(code)
         if not traced:
             return None                      # exception events can't DISABLE
         tls.in_hook = True
@@ -717,7 +703,7 @@ class Tracer:
             # for why the reference is strong and why it is bounded.
             serial = refs.identify(exc)
             refs.last_exc = None
-        traced, fp_file, qual, focused, _frameless, _win_key = self._decide(code)
+        traced, fp_file, qual, focused, _fkind, _win_key = self._decide(code)
         if not traced:
             return None
         if kind == "RAISE":
@@ -747,8 +733,8 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, _fp_file, _qual, focused, frameless, _win_key = self._decide(code)
-        if not traced or not focused or frameless:
+        traced, _fp_file, _qual, focused, _kind, _win_key = self._decide(code)
+        if not traced or not focused:
             return M.DISABLE      # nothing here will ever be worth recording
         frame = sys._getframe(1)
         entry = tls.live.get(id(frame))
