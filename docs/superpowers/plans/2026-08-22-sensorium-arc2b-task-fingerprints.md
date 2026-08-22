@@ -1021,6 +1021,8 @@ def test_refocus_refuses_a_per_thread_basis_original_that_ran_tasks(
 ```
 (The `old3` refusal must happen BEFORE any rerun: put it in `_refusal(meta, trace)`: when `trace.fingerprint_basis == "per-thread"` and `trace.tasks()` is non-empty → reason `"original was recorded under the per-thread fingerprint basis and ran N asyncio task(s); this version compares tasks by content and defines thread streams without them, so no verdict against it would compare like with like -- re-record it with this version"`. Test it with a synthetic trace instead of `old3` (whose cwd no longer exists): build via `synthetic(sdir, run_id, argv=("prog.py",))` plus `w.add_task(1, "t", 1)` and no `fingerprint_basis` meta, write a trivial `prog.py` in `sdir.parent`, and assert `refocus` exits 2 with `REFUSED` and the sentence above; keep a second, read-only pin in `tests/test_format3_fixture.py`: `refocus_cmd._refusal(trace.meta, trace)` on `old3` returns that sentence.)
 
+**Ruling 5 carry-over (controller, after Task 2):** under the per-task basis a thread that ran traced code only inside asyncio tasks has a thread row with `n_events == 0` (Task 2 fix round). `refocus`'s `threads:` summary must not describe such a thread as having "ran no traced code": the `unseen` arithmetic already counts rows, so the row keeps the count right; but the printed sentence for the *compared* rows gains a clause under the per-task basis — `threads: N recorded fingerprint(s) compared (events outside any asyncio task), all matching` — and `_thread_header`/`diff`'s `threads N` stays a row count. Add `tests/test_refocus.py::test_refocus_counts_a_thread_that_ran_only_task_code_as_compared`: program `threading.Thread(target=asyncio.run, args=(worker(),))` (worker calls a traced helper, then sleeps) + `main` on the main thread → `refocus` MATCH, `threads: 2 recorded fingerprint(s) compared`, and the string `ran no traced code` ABSENT; mutation: make `_fp_for` skip the thread-row ensure → the test fails (the row vanishes and the false sentence returns).
+
 `tests/test_refocus_licence.py`:
 ```python
 def test_blind_spots_name_task_ordering(tmp_path):
@@ -1146,6 +1148,8 @@ def test_info_on_old3_says_its_thread_fingerprint_covers_task_events(
 (import `cli` in that file.)
 
 - [ ] **Step 2: Run, expect FAIL.**
+**Ruling 5 carry-over:** under the per-task basis the per-thread lines `fingerprint thread N: <hash> (<n> causal events)` must say what they count: `(<n> causal events outside any asyncio task)`; under the per-thread basis the existing wording stays. Pin both in the two tests below (the per-task one on a recording of TWO_TASKS — its main-thread line reads `outside any asyncio task`; the old3 one must NOT contain `outside any asyncio task`).
+
 - [ ] **Step 3: Implement** in `info_cmd.py`, right after the per-thread fingerprint lines (~line 99):
 ```python
     if t.fingerprint_basis == "per-task":
