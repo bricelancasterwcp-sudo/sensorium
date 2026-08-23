@@ -540,43 +540,42 @@ if __name__ == "__main__":
 """
 
 
-def test_watch_names_unframed_code_as_the_reason_not_a_misspelling(
+def test_watch_evaluates_inside_a_focused_coroutine(
         tmp_path, monkeypatch, capsys):
+    """`worker` is a coroutine, but arc 2 opens a frame for it on a format-3
+    trace, so its CALL and LINE are ordinary sites: `_unframed`'s join comes
+    back empty, and `watch` never reaches the unframed-guidance branch at
+    all. This is the positive twin of the format-2 fixture pin in
+    `test_format2_fixture.py`, which keeps proving the OLD trace still says
+    "opens no frame in this version"."""
     run_id = rec(tmp_path, monkeypatch, src=ASYNC_WATCH,
                  extra=("--focus", "prog:worker"))
     assert cli.main(["watch", run_id, "--at", "prog:worker",
                      "--expr", "name == 'A'"]) == 0
     out = capsys.readouterr().out
-    assert "NOTHING WAS CHECKED" in out
-    assert "opens no frame in this version" in out
-    assert "watch sites are frames" in out
-    # The ghost block is still printed, and IT says why too: the note above
-    # the verdict is a different producer, so asserting only its phrasing
-    # would leave this arm free to say nothing at all.
-    assert "NEVER RECORDED" in out
-    assert "there are no frames here at all" in out
-    assert "misspelled" not in out
-    assert "refocus and re-run" not in out       # re-recording cannot help
+    assert "HIT" in out
+    assert "NOTHING WAS CHECKED" not in out
+    sites_line = next(l for l in out.splitlines() if l.startswith("sites:"))
+    assert int(sites_line.split()[1]) >= 1
 
 
 def test_watch_counts_the_unframed_matches_when_only_some_are_frameless(
         tmp_path, monkeypatch, capsys):
-    """A module-wide `--at` spanning both kinds. The note says how many of
-    the matches contributed no site, and nothing else changes: `n` WAS
-    recorded, so there is no ghost, and the verdict is an ordinary one."""
+    """A module-wide `--at` spanning both kinds. On a format-3 trace, arc 2
+    frames `worker` too, so it now contributes sites like `check` and
+    `main` do: no code object here is unframed any more, so the
+    coroutine/generator note and the NEVER RECORDED block it feeds never
+    print, and the verdict is an ordinary one."""
     run_id = rec(tmp_path, monkeypatch, src=ASYNC_MIXED,
-                 extra=("--focus", "prog:check"))
+                 extra=("--focus", "prog"))
     assert cli.main(["watch", run_id, "--at", "prog",
                      "--expr", "n > 0"]) == 0
     out = capsys.readouterr().out
-    assert ("sites: 5   evaluated: 3   hits: 3   not-captured: 2   errors: 0"
-            in out)
-    assert ("1 of the 4 matched code object(s) (worker) are coroutine/"
-            "generator code: recorded as calls, never framed, and "
-            "contributed no site") in out
-    assert "verdict: SATISFIED at 3 of the 3 site(s)" in out
-    # Not the all-unframed wording, and no NEVER RECORDED block to carry it:
-    # `check`'s frames witness `n`, so the misspelling question never arises.
+    assert ("sites: 12   evaluated: 3   hits: 3   not-captured: 9   "
+            "errors: 0") in out
+    assert "coroutine/generator code" not in out
+    assert ("verdict: SATISFIED at 3 of the 3 site(s) the predicate could "
+            "be evaluated at") in out
     assert "opens no frame in this version" not in out
     assert "NEVER RECORDED" not in out
 

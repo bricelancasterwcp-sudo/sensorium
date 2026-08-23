@@ -1,11 +1,13 @@
 """`tree` and `frame`: what actually ran, and one activation in full."""
+import shutil
 import sys
 
 import pytest
 
 from sensorium import cli, paths
+from sensorium.query import tree_cmd
 from sensorium.store.writer import TraceWriter
-from tests.helpers import record_script
+from tests.helpers import record_inproc, record_script
 
 SRC = """
 def gold(total):
@@ -356,27 +358,29 @@ def test_frame_children_section_lists_child_frames(
     assert "silver(" in out
 
 
-def test_frame_children_include_the_unframed_calls_the_frame_made(
+def test_frame_children_name_a_generator_child_by_its_kind(
         tmp_path, monkeypatch, capsys):
     """GEN_SRC's `main` calls exactly one thing -- `rows`, a generator, which
-    opens no frame. Listing only framed children prints "children: (none)"
-    over a CALL the trace holds with `parent_frame` pointing at this very
-    frame: a denial `grep` on the same trace contradicts."""
+    now opens a frame of its own and is a child like any other. The line
+    still has to say WHICH kind of child: without the marker `rows` reads as
+    a plain function that returned None, and the reason its return value is
+    None (a generator exhausted, not a function that computed nothing) is
+    lost."""
     run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
     assert cli.main(["frame", run_id, "--fn", "main"]) == 0
     out = capsys.readouterr().out
     assert "children: (none)" not in out
     assert "children (1):" in out
     child = next(ln for ln in out.splitlines() if "rows(" in ln)
-    assert "[generator, unframed]" in child
+    assert "[generator]" in child and "unframed" not in child
 
 
-def test_frame_children_merge_framed_and_unframed_in_event_order(
+def test_frame_children_list_every_kind_in_call_order(
         tmp_path, monkeypatch, capsys):
     """`mixed` calls a plain function, then a generator, then a plain one
-    again. Both kinds are children of the same frame and the list is ordered
-    by when the calls happened -- appending one kind after the other would
-    report an execution order the trace does not hold."""
+    again. All three open frames now, and the list is ordered by when the
+    calls happened -- grouping by kind, or by frame id, would report an
+    execution order the trace does not hold."""
     src = """
 def one():
     return 1
@@ -405,7 +409,7 @@ if __name__ == "__main__":
     rows = out.split("children (3):\n")[1].splitlines()
     assert len(rows) == 3, rows
     assert "one(" in rows[0]
-    assert "gen(" in rows[1] and "[generator, unframed]" in rows[1]
+    assert "gen(" in rows[1] and "[generator]" in rows[1]
     assert "three(" in rows[2]
 
 
@@ -482,99 +486,123 @@ def _section(out: str, header: str) -> list[str]:
     return body
 
 
-def test_tree_groups_by_task_and_names_the_real_caller(tmp_path, monkeypatch,
-                                                        capsys):
+def test_tree_groups_by_task_with_coroutine_frames(tmp_path, monkeypatch,
+                                                   capsys):
+    """Each `worker` coroutine has a frame of its own now: the calls it made
+    nest UNDER it rather than sitting beside it with a `<- worker` tag, and
+    the line says it is a coroutine and what it returned."""
     run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
     assert cli.main(["tree", run_id]) == 0
     out = capsys.readouterr().out
-    a = "\n".join(_section(out, "task t2: task-A"))
+    a = _section(out, "task t2: task-A")
     b = "\n".join(_section(out, "task t3: task-B"))
-    assert "worker(name='A')  [coroutine, unframed]" in a
-    assert a.count("<- worker (unframed)") == 2 and "task='B'" not in a
-    assert b.count("<- worker (unframed)") == 2 and "task='A'" not in b
+    worker = next(ln for ln in a if "worker(" in ln)
+    assert worker.endswith("worker(name='A')  [coroutine] -> 'A:2'")
+    steps = [ln for ln in a if "step(" in ln]
+    assert len(steps) == 2 and "task='B'" not in "\n".join(a)
+    indent = len(worker) - len(worker.lstrip())
+    assert all(ln.startswith(" " * (indent + 2) + "f") for ln in steps)
+    assert "task='A'" not in b and "worker(name='B')  [coroutine]" in b
+    assert "<- worker" not in out                # nothing to re-parent now
+    assert "[coroutine, unframed]" not in out
+    # `step` is an ordinary function, and an ordinary call carries NO marker:
+    # the whole line, end to end, is what it was before coroutines had
+    # frames. "[function]" on every sync call would be noise on every line
+    # of every trace this tool has ever rendered.
+    one = "step(task='A', n=1)"
+    step_ln = next(ln for ln in out.splitlines() if one in ln)
+    assert "[" not in step_ln and step_ln.endswith(one + " -> 'A:1'")
     # <module> ran before the loop existed: not placed in any task.
     assert "<module>()" in "\n".join(_section(out, "no asyncio task"))
     assert "order between tasks is wall-clock" in out
 
 
-def test_tree_unframed_count_matches_the_trace(tmp_path, monkeypatch, capsys):
+def test_tree_says_nothing_about_unframed_calls_on_a_format3_trace(
+        tmp_path, monkeypatch, capsys):
+    """The footer is a caveat about a LIMITATION -- code this version could
+    not frame. A format-3 trace has none, so printing "0 unframed call(s)"
+    (or the caveat at all) would warn about a hole that is not there."""
     run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
     from sensorium import paths
     from sensorium.store.reader import Trace
-    n = len(Trace.open(paths.find_trace(run_id)).unframed_calls())
+    assert Trace.open(paths.find_trace(run_id)).unframed_calls() == []
     assert cli.main(["tree", run_id]) == 0
-    assert f"{n} unframed call(s) in this trace" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "unframed call(s) in this trace" not in out
+    assert "unframed" not in out
 
 
 def test_tree_renders_a_generator_call_under_the_frame_that_called_it(
         tmp_path, monkeypatch, capsys):
+    """`rows` is a generator: it opens a frame under `main`, and the two
+    `parse` calls it made nest under IT rather than being tagged with its
+    name and hoisted a level. `list()` exhausts it, so it "returns" None --
+    the tail says so, and the marker says why that None is not a bug."""
     run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
     assert cli.main(["tree", run_id]) == 0
     out = capsys.readouterr().out
     lines = out.splitlines()
     main_ln = next(ln for ln in lines if "main()" in ln)
     gen_ln = next(ln for ln in lines if "rows(" in ln)
-    assert "[generator, unframed]" in gen_ln
+    assert gen_ln.endswith("[generator] -> None")
     indent = len(main_ln) - len(main_ln.lstrip())
-    assert gen_ln.startswith(" " * (indent + 2) + "e")      # child of main
+    assert gen_ln.startswith(" " * (indent + 2) + "f")      # child of main
     parse_lns = [ln for ln in lines if "parse(" in ln]
     assert len(parse_lns) == 2
-    assert all("<- rows (unframed)" in ln for ln in parse_lns)
-    assert "no asyncio task" not in out                       # no tasks: no groups
-    assert "unframed call(s) in this trace" in out
+    gindent = len(gen_ln) - len(gen_ln.lstrip())
+    assert all(ln.startswith(" " * (gindent + 2) + "f") for ln in parse_lns)
+    assert "<-" not in out                                   # no tags at all
+    assert "no asyncio task" not in out            # no tasks: no groups
+    assert "unframed" not in out
 
 
-def test_tree_around_an_unframed_event_says_so(tmp_path, monkeypatch, capsys):
-    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
-    from sensorium import paths
-    from sensorium.store.reader import Trace
-    ev, = Trace.open(paths.find_trace(run_id)).unframed_calls()
-    assert cli.main(["tree", run_id, "--around", f"e{ev.id}"]) == 1
-    out = capsys.readouterr().out
-    assert f"e{ev.id} is an unframed CALL of rows (generator)" in out
-    assert f"sensorium grep {run_id} rows" in out
-
-
-def test_tree_depth_withholds_an_unframed_call_and_counts_it(
+def test_tree_around_a_yield_resolves_to_the_frame_that_parked(
         tmp_path, monkeypatch, capsys):
-    """`--depth` prunes unframed calls exactly as it prunes frames. An
-    unframed call has no frame of its own, so the "continue with --root fN"
-    hint cannot name it: if the note does not count it, a reader has no way
-    to learn the depth cut hid a call at all."""
-    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
-    # --depth 0 prunes main(), and rows() -- the call main made without a
-    # frame -- is withheld with it.
-    assert cli.main(["tree", run_id, "--depth", "0"]) == 0
-    out = capsys.readouterr().out
-    assert "rows(" not in out
-    assert "1 unframed call(s) withheld" in out
-    # --depth 1 renders main(), so here it is the depth rule applied to the
-    # unframed leaf itself (rows sits at depth 2) that withholds it. Both
-    # paths must count, or one of them hides a call in silence.
-    assert cli.main(["tree", run_id, "--depth", "1"]) == 0
-    out = capsys.readouterr().out
-    assert "main()" in out and "rows(" not in out
-    assert "1 unframed call(s) withheld by --depth 1" in out
-
-
-def test_tree_limit_pins_the_page_and_counts_every_withheld_unframed_call(
-        tmp_path, monkeypatch, capsys):
-    """`--limit` is ONE budget across the whole page, not a fresh one per
-    root -- with a per-item budget every task group would print its own
-    `--limit` rows and the page would be as long as the trace.
-
-    And the unframed calls the cut withheld are counted by subtraction from
-    the trace-wide total, which is exact. Counting only the ones the walk
-    happened to touch under-reports: a withheld frame's withheld descendants
-    make calls nobody walks past, so `--limit 1` used to claim it had hidden
-    one unframed call directly under a footer saying the trace holds three.
-    """
+    """A YIELD is an event of a real frame now. `--around` on one lands in
+    that frame instead of refusing with "no frame contains it" -- which was
+    the truthful answer while coroutines had no frames, and is a false one
+    the moment they do."""
     run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
     from sensorium import paths
     from sensorium.store.reader import Trace
-    n = len(Trace.open(paths.find_trace(run_id)).unframed_calls())
-    assert n == 3                                   # amain + two workers
-    for limit, shown_unframed in ((1, 0), (3, 2)):
+    t = Trace.open(paths.find_trace(run_id))
+    worker = next(c for c in t.codes() if c.qualname == "worker")
+    f = t.frames(code_id=worker.id)[0]
+    y = next(e for e in t.suspensions(f.id) if e.kind == "YIELD")
+    assert cli.main(["tree", run_id, "--around", f"e{y.id}"]) == 0
+    out = capsys.readouterr().out
+    assert f"f{f.id} " in out and "worker(name='A')  [coroutine]" in out
+    assert "unframed CALL" not in out and "no frame contains" not in out
+
+
+def test_tree_depth_withholds_a_generator_frame_and_names_it(
+        tmp_path, monkeypatch, capsys):
+    """`--depth` prunes a generator's frame exactly as it prunes any other,
+    and the note can now NAME it: `--root fN` reaches a coroutine or
+    generator subtree, which is precisely what the unframed-call count was
+    a stand-in for while they had no frames."""
+    run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
+    assert cli.main(["tree", run_id, "--depth", "1"]) == 0
+    out = capsys.readouterr().out
+    assert "main()" in out and "rows(" not in out
+    assert "1 subtree(s) beyond --depth 1" in out
+    rows_fid = next(ln for ln in out.splitlines()
+                    if "--root f" in ln).split("--root f")[1].strip()
+    assert "unframed" not in out
+    # The hint is copy-pasteable and lands ON the generator frame.
+    assert cli.main(["tree", run_id, "--root", f"f{rows_fid}"]) == 0
+    out = capsys.readouterr().out
+    assert out.splitlines()[0].endswith("[generator] -> None")
+
+
+def test_tree_limit_is_one_budget_across_every_task_group(
+        tmp_path, monkeypatch, capsys):
+    """`--limit` is ONE budget across the whole page, not a fresh one per
+    root -- with a per-item budget every task group would print its own
+    `--limit` rows and the page would be as long as the trace. Every row it
+    withholds is a frame now, so the note names one to continue from."""
+    run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
+    for limit in (1, 3):
         assert cli.main(["tree", run_id, "--limit", str(limit)]) == 0
         out = capsys.readouterr().out
         # Task headers, the note and the footers are unindented; every row
@@ -582,29 +610,38 @@ def test_tree_limit_pins_the_page_and_counts_every_withheld_unframed_call(
         rows = [ln for ln in out.splitlines() if ln.startswith(" ")]
         assert len(rows) == limit, (limit, rows)
         assert f"--limit {limit}" in out
-        assert f"{n - shown_unframed} unframed call(s) withheld" in out
-        assert f"{n} unframed call(s) in this trace" in out
+        assert "subtree(s) beyond" in out and "--root f" in out
+        assert "unframed" not in out
         # The whole-trace view knows the total: it never hedges.
         assert "at least" not in out
 
 
-def test_tree_subtree_view_says_at_least_when_counting_withheld_calls(
+def test_tree_subtree_view_reports_its_own_cut_and_hedges_what_it_counts(
         tmp_path, monkeypatch, capsys):
-    """A `--root` slice cannot subtract from the trace-wide total -- most of
-    what it did not print lies outside the subtree and was not withheld by
-    anything. So it counts what it walked past and says so as a lower
-    bound, rather than printing a total it is not in a position to know."""
+    """A `--root` slice reports the subtrees IT withheld, and names one to
+    continue from. Its unframed count is the one number it cannot verify --
+    most of what it did not print lies outside the subtree and was withheld
+    by nothing -- so that count alone is phrased as a lower bound.
+
+    A format-3 trace has no unframed calls, and neither committed old-format
+    fixture holds one whose caller had a frame, so nothing reachable
+    end-to-end still exercises the hedge; it stays pinned here directly,
+    because the wording still ships for traces recorded by 0.2.x."""
     run_id = _rec(tmp_path, monkeypatch, src=GEN_SRC)
     assert cli.main(["tree", run_id, "--root", "f2", "--depth", "0"]) == 0
     out = capsys.readouterr().out
     assert "main()" in out and "rows(" not in out
-    assert "at least 1 unframed call(s) withheld by --depth 0" in out
+    assert "1 subtree(s) beyond --depth 0 or --limit 200" in out
+    assert f"sensorium tree {run_id} --root f3" in out
+    assert "unframed" not in out
+    note = tree_cmd._truncation_note("r1", 0, 200, [], 1, unframed_exact=False)
+    assert "at least 1 unframed call(s) withheld by --depth 0" in note
 
 
-# `amain` awaits `inner` directly: `inner`'s CALL payload names `amain` as
-# its caller (both are coroutines, so neither opens a frame). Untagged, the
-# two render as plain siblings under one task header -- which reads as two
-# unrelated coroutines and drops parentage the trace actually holds.
+# `amain` awaits `inner` directly. Both are coroutines, and both have real
+# frames now: `inner` is `amain`'s CHILD, so the tree nests it rather than
+# rendering the two as siblings under one task header with a `<-` tag --
+# which read as two unrelated coroutines linked by a note.
 AWAIT_SRC = """
 import asyncio
 
@@ -622,16 +659,99 @@ if __name__ == "__main__":
 """
 
 
-def test_tree_names_the_unframed_caller_of_an_unframed_call(
+def test_tree_nests_an_awaited_coroutine_under_its_awaiter(
         tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch, src=AWAIT_SRC)
     assert cli.main(["tree", run_id]) == 0
     out = capsys.readouterr().out
     inner_ln = next(ln for ln in out.splitlines() if "inner(" in ln)
-    assert inner_ln.endswith("[coroutine, unframed]  <- amain (unframed)")
-    # `amain` was awaited by the event loop, not by traced code: no tag.
     amain_ln = next(ln for ln in out.splitlines() if "amain(" in ln)
-    assert amain_ln.endswith("[coroutine, unframed]")
+    assert amain_ln.endswith("amain()  [coroutine] -> 1")
+    assert inner_ln.endswith("inner()  [coroutine] -> 1")
+    ai = len(amain_ln) - len(amain_ln.lstrip())
+    assert inner_ln.startswith(" " * (ai + 2) + "f")     # child, not sibling
+    assert "<-" not in out            # parentage is structural now, not a tag
+
+
+def test_tree_state_tails_name_cancelled_abandoned_thrown_and_suspended(
+        tmp_path, monkeypatch, capsys):
+    """A frame that never returned did not simply stay "(open)": the trace
+    holds WHICH way it ended, and each way says so in its own words. One
+    tail for all of them would tell a reader that a cancelled task, a
+    generator dropped by the garbage collector and one still parked at a
+    yield when recording stopped are the same event.
+
+    The states are derived by `Trace.frame_state` (spec D2); this pins that
+    `tree` renders each of them, and renders nothing for a frame that simply
+    returned."""
+    from tests.test_coroutine_frames import ABANDON, CANCEL, LOUD_THROW
+    tail = '\nif __name__ == "__main__":\n    main()\n'
+
+    run_id = _rec(tmp_path / "c", monkeypatch, src=CANCEL + tail)
+    assert cli.main(["tree", run_id]) == 0
+    out = capsys.readouterr().out
+    b = "\n".join(_section(out, "task t3: task-B"))
+    worker = next(ln for ln in b.splitlines() if "worker(" in ln)
+    assert worker.endswith(
+        "worker()  [coroutine]  ~ cancelled "
+        "(CancelledError thrown in at L10)"), out
+    # task-A waited at the same gate and was let through: it just returned.
+    a = "\n".join(_section(out, "task t2: task-A"))
+    assert "worker()  [coroutine] -> 2" in a and "~" not in a
+
+    run2 = _rec(tmp_path / "d", monkeypatch, src=ABANDON + tail)
+    assert cli.main(["tree", run2]) == 0
+    out2 = capsys.readouterr().out
+    gens = [ln for ln in out2.splitlines() if "gen()" in ln]
+    assert len(gens) == 2, out2
+    assert gens[0].endswith(
+        "gen()  [generator]  ~ abandoned (GeneratorExit thrown in at L6)")
+    assert gens[1].endswith(
+        "gen()  [generator]  ~ suspended at L6 at end of recording")
+    assert "(open)" not in out2           # neither is merely "still running"
+
+    # ...and an exception thrown INTO a parked frame is neither of those: it
+    # did not raise on its own line, and the tail says where it was hit.
+    run3 = _rec(tmp_path / "e", monkeypatch, src=LOUD_THROW + tail)
+    assert cli.main(["tree", run3]) == 0
+    out3 = capsys.readouterr().out
+    gen_ln = next(ln for ln in out3.splitlines() if "gen()" in ln)
+    assert gen_ln.endswith(
+        "gen()  [generator]  ~ unwound by Loud thrown in at L10")
+
+
+# `gen`'s frame is already parked at its first `yield` when recording starts,
+# so it never opened a frame -- and when it resumes and calls `helper`, that
+# call has a traced caller with no frame. On a format-1/2 trace the reason
+# was "coroutines and generators open no frame in this version"; here it is
+# the only reason left, and the tag has to say the true one.
+PRE_STARTED = """
+def helper():
+    return 1
+
+def gen():
+    yield 0
+    yield helper()
+
+G = gen()
+next(G)
+
+def main():
+    return next(G)
+"""
+
+
+def test_tree_tags_a_caller_whose_frame_started_before_recording(
+        tmp_path, monkeypatch, capsys):
+    trace, err = record_inproc(tmp_path / "r", PRE_STARTED)
+    assert err is None
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    shutil.copy(tmp_path / "r" / "trace.db", paths.traces_dir() / "pre.db")
+    assert cli.main(["tree", "pre"]) == 0
+    out = capsys.readouterr().out
+    helper_ln = next(ln for ln in out.splitlines() if "helper(" in ln)
+    assert helper_ln.endswith("<- gen (no frame: started before recording)")
+    assert "unframed" not in out
 
 
 # `Evil.get_name()` raises, so the recorder mints the task identity but
@@ -747,27 +867,29 @@ def test_tree_subtree_views_omit_the_inter_task_ordering_footer(
     assert "order between tasks" not in capsys.readouterr().out
 
 
-def test_frame_fn_distinguishes_unframed_from_never_recorded(tmp_path,
-                                                              monkeypatch,
-                                                              capsys):
+def test_frame_fn_opens_a_coroutine_and_still_refuses_an_unrecorded_name(
+        tmp_path, monkeypatch, capsys):
+    """`--fn worker` used to refuse: worker is a coroutine and had no frame.
+    It has one now, so the refusal would be the false claim. The OTHER arm
+    -- a name the trace never saw at all -- must keep refusing, or the two
+    become indistinguishable in the opposite direction."""
     run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
-    assert cli.main(["frame", run_id, "--fn", "worker"]) == 1
+    assert cli.main(["frame", run_id, "--fn", "worker"]) == 0
     out = capsys.readouterr().out
-    assert "'worker' was recorded as 2 call(s) but not framed (coroutine)" in out
-    assert f"sensorium grep {run_id} worker" in out
-    assert "no recorded activations" not in out
+    assert "not framed" not in out and "unframed" not in out
+    assert out.splitlines()[0].startswith("f")
+    assert "args: name='A'" in out
     assert cli.main(["frame", run_id, "--fn", "nope"]) == 1
     assert "no recorded activations of 'nope'" in capsys.readouterr().out
 
 
-def test_frame_fn_out_of_range_counts_the_unframed_activations_too(
+def test_frame_nth_ranges_over_coroutine_frames_too(
         tmp_path, monkeypatch, capsys):
     """One qualname, two code objects: a plain `worker` here and a coroutine
-    `worker` in the imported module. `--nth` indexes the FRAMED ones, so the
-    refusal has to say which population that "1" describes -- reporting
-    "1 recorded activation(s)" while `grep` shows three CALLs is the same
-    denial `--fn` was already fixed for once, wearing a different message.
-    """
+    `worker` in the imported module. All three activations are framed now,
+    so `--nth` reaches every one of them and the refusal past the end counts
+    all three -- reporting "1 framed activation(s)" while `grep` shows three
+    CALLs is the denial `--fn` was already fixed for once."""
     (tmp_path / "b.py").write_text("async def worker():\n    return 1\n")
     src = """
 import asyncio
@@ -785,19 +907,22 @@ if __name__ == "__main__":
     asyncio.run(amain())
 """
     run_id = _rec(tmp_path, monkeypatch, src=src)
-    assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "3"]) == 1
+    assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "3"]) == 0
     out = capsys.readouterr().out
-    assert "1 framed activation(s)" in out
-    assert "2 recorded but unframed (coroutine)" in out
-    assert "valid --nth is 1..1 over the framed ones" in out
-    assert f"sensorium grep {run_id} worker" in out
+    assert out.splitlines()[0].startswith("f")
+    assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "4"]) == 1
+    out = capsys.readouterr().out
+    assert "3 framed activation(s)" in out
+    assert "valid --nth is 1..3 over the framed ones" in out
+    assert "unframed" not in out
 
 
-def test_frame_fn_unframed_message_names_every_kind_not_just_the_first(
+def test_tree_marks_each_frame_with_its_own_kind_not_the_first(
         tmp_path, monkeypatch, capsys):
-    """`shape` is a generator in one module and a coroutine in the other,
-    and neither is framed. Naming `calls[0]`'s kind labels both call sites
-    with whichever one the trace happened to record first."""
+    """`shape` is a generator in one module and a coroutine in the other.
+    The kind is a property of the FRAME, not of the qualname: labelling both
+    with whichever kind the trace recorded first -- the shape the old
+    unframed message was fixed for -- would call a coroutine a generator."""
     (tmp_path / "b.py").write_text("async def shape():\n    return 1\n")
     src = """
 import asyncio
@@ -814,13 +939,109 @@ if __name__ == "__main__":
     asyncio.run(amain())
 """
     run_id = _rec(tmp_path, monkeypatch, src=src)
-    assert cli.main(["frame", run_id, "--fn", "shape"]) == 1
+    assert cli.main(["tree", run_id]) == 0
     out = capsys.readouterr().out
-    assert "recorded as 2 call(s) but not framed (coroutine/generator)" in out
+    shapes = [ln for ln in out.splitlines() if "shape()" in ln]
+    assert len(shapes) == 2, out
+    assert sum("[generator]" in ln for ln in shapes) == 1
+    assert sum("[coroutine]" in ln for ln in shapes) == 1
 
 
 def test_frame_header_names_the_task(tmp_path, monkeypatch, capsys):
+    # `step` is called BY the worker coroutine, whose frame is its parent:
+    # depth 1, not the depth 0 it had while coroutines opened no frames.
     run_id = _rec(tmp_path, monkeypatch, src=ASYNC_SRC)
     assert cli.main(["frame", run_id, "--fn", "step", "--nth", "1"]) == 0
     head = capsys.readouterr().out.splitlines()[0]
-    assert "task t2 (task-A)" in head and "depth 0" in head
+    assert "task t2 (task-A)" in head and "depth 1" in head
+
+
+def test_frame_header_is_byte_identical_for_a_sync_function(
+        tmp_path, monkeypatch, capsys):
+    """A plain function's frame carries no kind marker (kind == "function"
+    prints nothing, exactly as it always has) and no `state:` segment --
+    `frame_state` derives "returned" here, which is precisely the arm the
+    contract excludes. The header must be the exact string arc 1 printed,
+    unchanged by Task 7's addition."""
+    run_id = _rec(tmp_path, monkeypatch)     # SRC: silver() runs twice
+    assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "1"]) == 0
+    head = capsys.readouterr().out.splitlines()[0]
+    # No kind marker: the qualname is followed directly by the event-range
+    # bracket, with the same two spaces arc 1 always used -- nothing
+    # inserted between them.
+    assert "silver  [e" in head
+    assert "state:" not in head
+    assert head.endswith("closed: return")
+
+
+def test_frame_header_shows_kind_and_derived_state_for_a_cancelled_frame(
+        tmp_path, monkeypatch, capsys):
+    """Task-B's `worker` never returned: it was cancelled while parked at
+    `await GATE.wait()`. The header has to say WHICH kind of frame this is
+    (a coroutine, not a plain function) and how `frame_state` (spec D2)
+    derived it ended -- `closed: unwind` alone does not distinguish a
+    cancellation from an ordinary raised exception. No --focus was set, so
+    locals are not captured, but the YIELD/RESUME suspension rows are
+    recorded regardless and must still show up under their own heading."""
+    from tests.test_coroutine_frames import CANCEL
+    tail = '\nif __name__ == "__main__":\n    main()\n'
+    run_id = _rec(tmp_path, monkeypatch, src=CANCEL + tail)
+    assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "2"]) == 0
+    out = capsys.readouterr().out
+    head = out.splitlines()[0]
+    assert "[coroutine]" in head
+    assert "state: cancelled at L10" in head
+
+    assert "timeline: not captured" in out       # locals genuinely weren't
+    susp = _section(out, "timeline (suspensions only):")
+    assert len(susp) == 2, susp
+    assert all(ln.startswith("  ~ e") for ln in susp)
+    yield_ln = next(ln for ln in susp if "YIELD" in ln)
+    assert "L10" in yield_ln and "awaiting" in yield_ln
+    resume_ln = next(ln for ln in susp if "RESUME" in ln)
+    assert "L10" in resume_ln and "thrown" in resume_ln
+    assert "CancelledError" in resume_ln
+
+    # task-A waited at the same gate and was let through: it just returned.
+    # A returned coroutine frame still shows the `[coroutine]` marker and a
+    # `state: returned` segment, because the exclusion only applies to a
+    # plain function's frame -- the kind alone (not the state) decides
+    # whether a coroutine's header carries a `state:` segment at all.
+    assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "1"]) == 0
+    head_a = capsys.readouterr().out.splitlines()[0]
+    assert "[coroutine]" in head_a
+    assert "state: returned" in head_a
+
+
+def test_frame_timeline_interleaves_suspension_rows_among_line_rows(
+        tmp_path, monkeypatch, capsys):
+    """A focused coroutine's timeline is ONE ordered list, not two
+    disconnected views: LINE rows (locals, from --focus) and YIELD/RESUME
+    rows (suspension points, captured regardless of --focus) share it, in
+    event order. Only the suspension rows carry the `~ ` prefix, and they
+    must land BETWEEN the LINE rows they actually fall between -- `before`
+    is bound, then the coroutine suspends and resumes, then `after` is
+    bound -- not gathered under a separate "suspensions only" heading just
+    because --focus also captured locals for this frame."""
+    from tests.test_coroutine_frames import SUSPEND_LOCALS
+    tail = '\nif __name__ == "__main__":\n    main()\n'
+    run_id = _rec(tmp_path, monkeypatch, src=SUSPEND_LOCALS + tail,
+                  extra=("--focus", "prog:worker"))
+    assert cli.main(["frame", run_id, "--fn", "worker"]) == 0
+    out = capsys.readouterr().out
+    assert "timeline (suspensions only):" not in out
+
+    tl = _section(out, "timeline:")
+    before_idx = next(i for i, ln in enumerate(tl) if "before=1" in ln)
+    after_idx = next(i for i, ln in enumerate(tl) if "after=2" in ln)
+    yield_idx = next(i for i, ln in enumerate(tl) if "YIELD" in ln)
+    resume_idx = next(i for i, ln in enumerate(tl) if "RESUME" in ln)
+    # LINE rows carry no `~ ` prefix; YIELD/RESUME rows do.
+    assert not tl[before_idx].strip().startswith("~")
+    assert not tl[after_idx].strip().startswith("~")
+    assert tl[yield_idx].strip().startswith("~")
+    assert tl[resume_idx].strip().startswith("~")
+    # event order: bound `before`, suspended, resumed, bound `after` --
+    # the suspension rows sit strictly between the two LINE rows, not
+    # trailing after both or leading before both.
+    assert before_idx < yield_idx < resume_idx < after_idx

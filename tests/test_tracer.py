@@ -3,10 +3,12 @@ import threading
 from pathlib import Path
 
 from sensorium.record.fingerprint import Fingerprint
-from sensorium.record.tracer import _RETAIN_MAX, _ExcRefs, FocusSpec, Tracer
+from sensorium.record.tracer import (_CONTROL_RETAIN_MAX, _RETAIN_MAX,
+                                     _ExcRefs, FocusSpec, Tracer)
 from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter
-from tests.helpers import installed_tracer, record_inproc, record_inproc_full
+from tests.helpers import (installed_tracer, load_module, record_inproc,
+                          record_inproc_full)
 
 ADD = """
 def add(a, b):
@@ -277,14 +279,14 @@ def test_stdlib_not_traced(tmp_path):
     assert all(str(tmp_path) in f for f in files)
 
 
-def test_generators_recorded_frameless(tmp_path):
+def test_generators_get_frames_of_kind_generator(tmp_path):
     t, err = record_inproc(tmp_path, GEN)
     assert err is None
     gen_calls = [e for e in t.events(kind="CALL")
                  if t.code(e.code_id).qualname == "gen"]
     assert len(gen_calls) == 1
     gen_code = next(c for c in t.codes() if c.qualname == "gen")
-    assert t.frames(code_id=gen_code.id) == []
+    assert t.frames(code_id=gen_code.id)[0].kind == "generator"
 
 
 def test_cleanup_during_unwind_records_one_origin_raise(tmp_path):
@@ -596,6 +598,84 @@ def test_retention_never_forgets_the_exception_in_flight():
         refs.identify(ValueError(f"other {i}"))
     assert len(refs.serials) <= _RETAIN_MAX
     assert refs.serial_of(in_flight) == serial
+
+
+def test_the_control_flow_table_is_small_and_shares_the_serial_counter():
+    """Control-flow throws are serialled apart from real exceptions -- and
+    from the SAME counter.
+
+    Two tables counting independently would eventually hand a GeneratorExit
+    and a real exception the same number on one thread, and a serial is what
+    `frame_state` and `exceptions` compare. The side table is also small on
+    purpose: its serials never leave the frame they were minted for.
+    """
+    real = _ExcRefs()
+    control = _ExcRefs(cap=_CONTROL_RETAIN_MAX, source=real)
+    seen = []
+    for i in range(_CONTROL_RETAIN_MAX * 2):
+        seen.append(control.identify(GeneratorExit()))
+        seen.append(real.identify(ValueError(f"real {i}")))
+    assert len(set(seen)) == len(seen), "one thread issued a serial twice"
+    assert len(control.serials) <= _CONTROL_RETAIN_MAX
+    assert _CONTROL_RETAIN_MAX < _RETAIN_MAX
+
+
+def test_dropped_generators_do_not_evict_a_retained_exception(tmp_path):
+    """The recorder-side half of the P10 shape: throwing control flow into
+    traced frames far past the small table's bound leaves the real table's
+    contents untouched."""
+    src = """
+def gen():
+    yield 1
+    yield 2
+
+def main():
+    for _ in range(%d):
+        for v in gen():
+            break
+""" % (_CONTROL_RETAIN_MAX * 4)
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    prog = tmp_path / "prog.py"
+    prog.write_text(src)
+    mod = load_module(prog)              # imported BEFORE install, as always
+    with installed_tracer(tmp_path) as tracer:
+        kept = ValueError("kept")
+        serial = tracer._tls.exc.identify(kept)
+        mod.main()
+        assert len(tracer._tls.cf_exc.serials) <= _CONTROL_RETAIN_MAX
+        assert tracer._tls.exc.serial_of(kept) == serial
+
+
+CONTROL_AND_REAL_EXCEPTIONS = """
+def gen():
+    yield 1
+    yield 2
+
+def main():
+    for i in range(3):
+        for v in gen():
+            break                  # drops the generator: GeneratorExit in
+        try:
+            raise ValueError(f"real {i}")
+        except ValueError:
+            pass
+"""
+
+
+def test_control_flow_serials_never_collide_with_real_ones(tmp_path):
+    """The two tables of one thread mint from ONE counter, so no serial is
+    ever issued twice there. A serial is what `frame_state` and `exceptions`
+    compare; two counters running independently would eventually let a
+    GeneratorExit's number match a real exception's and make a frame's unwind
+    look like rows that belong to another object entirely."""
+    t, err = record_inproc(tmp_path, CONTROL_AND_REAL_EXCEPTIONS)
+    assert err is None
+    real = {e.payload["exc"]["serial"]
+            for e in t.events(kind=("RAISE", "HANDLED"))}
+    control = {e.payload["thrown"]["serial"] for e in t.events(kind="RESUME")
+               if (e.payload or {}).get("thrown")}
+    assert len(real) == 3 and len(control) == 3      # both shapes really ran
+    assert not real & control
 
 
 def test_uninstall_drops_retained_exceptions_on_every_live_thread(tmp_path):

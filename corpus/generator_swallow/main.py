@@ -4,13 +4,17 @@ never measurements at all. The output shows a plausible mean over a
 plausible count.
 
 The swallow happens inside a GENERATOR, and that is the point of this case.
-Generators and coroutines open no frame, so the recorder has no `closed_by`
-to read and `exceptions` cannot say whether the handler stopped the error or
-re-raised it. The registered ground truth is therefore the honest
-under-claim -- `ambiguous`, with the reason stated -- and NOT a disposition.
-An `exceptions` that ever reported SWALLOWED here would be over-claiming,
-which is that command's worst failure mode; this case exists so that such a
-regression turns something red.
+Until 0.3.0 a generator opened no frame, so the recorder had no `closed_by`
+to read and `exceptions` could not say whether the handler stopped the error
+or re-raised it; the registered ground truth was the honest under-claim,
+`ambiguous`, with the reason stated. Frames made it decidable: the generator
+body has a frame now, that frame closed by returning, and the disposition is
+`swallowed` on the same evidence any ordinary function's would be.
+
+The under-claim itself is still contract, and still pinned -- by
+`suspended_handler`, where the frame never closes and `ambiguous` remains
+the only honest verdict. What must never come back HERE is a verdict
+withheld from a frame that plainly returned.
 """
 READINGS = ["12", "15", "n/a", "18", "--"]
 

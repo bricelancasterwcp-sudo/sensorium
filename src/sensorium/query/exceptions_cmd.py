@@ -16,7 +16,12 @@ program behaviours:
 CPython compiles ``finally`` as an implicit exception handler, so
 EXCEPTION_HANDLED fires on entry to a ``finally`` block that has no
 ``except`` anywhere near it. A never-caught exception crossing one
-``finally`` produces *two* HANDLED rows. The presence of a HANDLED row
+``finally`` produces *two* HANDLED rows. ``await`` is the other implicit
+handler, and arc 2 made it visible: the ``CLEANUP_THROW`` an await site is
+compiled with fires the same event, so an exception thrown into a coroutine
+parked at an ``await`` produces two HANDLED rows AT THE AWAIT LINE --
+measured on CPython 3.14.4, both in the frame that then caught it and in an
+inner frame that merely passed it on. The presence of a HANDLED row
 therefore means nothing on its own. (The tracer does subscribe RERAISE, but
 records no event for it -- it only keeps in-flight state -- so re-raises are
 not directly visible either.)
@@ -34,6 +39,16 @@ So the rule is: an exception is SWALLOWED iff some HANDLED for it sits in a
 frame whose ``closed_by == "return"``, and no later RAISE carries its
 identity. If every HANDLED for it sits in an unwound frame, it kept going and
 is never reported as swallowed.
+
+A frame can also be unwound by an exception thrown INTO it -- a cancelled
+task, a suspended generator being closed -- at a suspension point reached
+*after* the handler ran. That unwind is not this exception leaving the frame:
+it is a death delivered later, and the handler still kept what it caught. So a
+frame whose state is cancelled/abandoned/thrown -- ``Trace.frame_state``
+derives that from its last YIELD/RESUME row -- is a swallow too, unless the
+exception thrown in IS this one, which is a re-raise and swallowed nothing.
+Every verdict resting on that rule names the frame's own fate rather than
+claiming it returned normally.
 
 Both halves are load-bearing. ``except E as e: return e`` closes its frame by
 "return" while handing the exception *out* of that frame, so a returning
@@ -87,8 +102,12 @@ unestablished.
 
 Likewise, a re-raise ultimately caught by *untraced* code leaves no record of
 where it was caught. That prints ``propagated (handler not in traced code)``
-rather than a guess. Generators and coroutines are frameless, so a HANDLED
-inside one has no ``closed_by`` at all and gets no verdict.
+rather than a guess. Generators and coroutines are framed from trace format 3
+on, so a handler inside one is decided by the rules above like any other; a
+trace recorded before that opened no frame for them, and a HANDLED in one has
+no ``closed_by`` to read and gets no verdict. A frameless HANDLED on a format-3
+trace is a different fact -- a frame already running when recording began --
+and the refusal names whichever of the two the trace supports.
 
 Control-flow exceptions (StopIteration, StopAsyncIteration, GeneratorExit)
 were excluded at record time and never appear. SystemExit is not: a plain
@@ -237,16 +256,69 @@ def _uncaught(trace, idx, handled) -> Disposition:
         "not swallowed", detail)
 
 
-def _swallowed(trace, h, frame) -> Disposition:
+# The three §D2 states that mean "unwound by an exception thrown into the
+# frame at its last RESUME" -- a death delivered after a suspension, not an
+# exception leaving under its own power.
+THROWN_IN_STATES = ("cancelled", "abandoned", "thrown")
+
+
+def _closed_by_thrown_in_other(s, frame, key) -> bool:
+    """Spec D4 rule, read off the frame's derived state `s`: a frame unwound
+    by an exception THROWN IN at a later RESUME (cancelled/abandoned/thrown)
+    did not let THIS exception out -- the handler kept it; the frame then
+    died of something delivered after a YIELD. True only when that thrown
+    exception is not this one."""
+    if s.state not in THROWN_IN_STATES or s.exc is None:
+        return False
+    return exc_key(s.exc, frame.thread_id) != key
+
+
+def _how_it_closed(s) -> str:
+    """How a rule-2 handler frame ended, in the words of the state the reader
+    derived. Rule 2 admits two endings and every verdict built on it names
+    one of them: "returned normally" would be false of a frame an exception
+    thrown in after the handler ran had killed, and that frame is the one the
+    reader is looking at. `thrown` is a state, not English -- the frame was
+    not "thrown", it was unwound by something thrown into it, which is also
+    the reader's next question, so the tail names it.
+
+    Every other state is refused rather than described. Rule 2 admits a frame
+    that closed by `return` (state `returned`) or one killed by an exception
+    thrown in later, and nothing else -- so any other state here means a new
+    caller, and the honest failure is a crash naming the state, not a
+    sentence saying a suspended or still-open frame "returned normally".
+    """
+    if s.state == "returned":
+        return "returned normally"
+    if s.state not in THROWN_IN_STATES:
+        raise AssertionError(
+            f"_how_it_closed called on a {s.state!r} frame: rule 2 admits "
+            "only 'returned' and the thrown-in states "
+            f"{THROWN_IN_STATES}")
+    how = (f"unwound by {s.exc['type']} thrown in at L{s.line}"
+           if s.state == "thrown" else f"{s.state} at L{s.line}")
+    return f"never returned (frame later {how})"
+
+
+def _swallowed(trace, h, frame, closed) -> Disposition:
+    """Caught here, and it never left this frame.
+
+    Two frames reach this verdict. One returned normally -- the classic
+    swallow. The other was unwound by an exception thrown into it at a
+    suspension the handler had already passed, which is a death this
+    exception had no part in. `closed` says which, because saying nothing
+    would hide a frame that never finished.
+    """
     return Disposition(
         "swallowed",
         f"SWALLOWED at e{h.id} {_at(trace, h)} -- caught in f{frame.id}, "
-        "which returned normally; never re-raised")
+        f"which {closed}; never re-raised")
 
 
-def _link_lost(trace, h, frame, nxt) -> Disposition:
-    """A returning handler frame, and a later RAISE of the same type at the
-    same address under a *different* serial.
+def _link_lost(trace, h, frame, nxt, closed) -> Disposition:
+    """A handler frame rule 2 admitted (`closed` says how it ended), and a
+    later RAISE of the same type at the same address under a *different*
+    serial.
 
     One object cannot hold two serials while the recorder still remembers it,
     so either it forgot this one -- its table is bounded, and it links a
@@ -257,17 +329,18 @@ def _link_lost(trace, h, frame, nxt) -> Disposition:
     """
     return Disposition(
         "ambiguous",
-        f"handled at e{h.id} {_at(trace, h)} -- f{frame.id} returned "
-        f"normally, but a later RAISE (e{nxt.id}) is the same exception type "
-        "at the same address under a different recorder identity",
+        f"handled at e{h.id} {_at(trace, h)} -- f{frame.id} {closed}, but a "
+        f"later RAISE (e{nxt.id}) is the same exception type at the same "
+        "address under a different recorder identity",
         "the recorder links a re-raise only while it still holds the handled "
         "exception, and it holds a bounded number per thread, so this is "
         "either a swallow whose address a later exception reused or this same "
         "object stored and raised again; the trace cannot tell them apart")
 
 
-def _stored_or_reused(trace, h, frame, nxt, exact) -> Disposition:
-    """A returning handler frame with a later RAISE of the same identity.
+def _stored_or_reused(trace, h, frame, nxt, exact, closed) -> Disposition:
+    """A handler frame rule 2 admitted (`closed` says how it ended), with a
+    later RAISE of the same identity.
 
     `except E as e: return e` closes its frame by "return" -- the swallow
     signal -- while handing the exception out of it. With exact identity the
@@ -281,11 +354,11 @@ def _stored_or_reused(trace, h, frame, nxt, exact) -> Disposition:
         return Disposition(
             "re-raised",
             f"handled at e{h.id} {_at(trace, h)} in f{frame.id}, which "
-            f"returned normally -- then raised again at e{nxt.id}")
+            f"{closed} -- then raised again at e{nxt.id}")
     return Disposition(
         "ambiguous",
-        f"handled at e{h.id} {_at(trace, h)} -- f{frame.id} returned "
-        f"normally, but a later RAISE (e{nxt.id}) carries the same identity",
+        f"handled at e{h.id} {_at(trace, h)} -- f{frame.id} {closed}, but a "
+        f"later RAISE (e{nxt.id}) carries the same identity",
         "either it was swallowed there and that later raise is a new object "
         "at a reused address, or it was handed out of the frame (`return e`) "
         "and raised again; this trace has no serials, so it cannot tell them "
@@ -400,11 +473,20 @@ def _displaced(trace, h, frame) -> Disposition:
 
 def _unreadable_frame(trace, h, frame) -> Disposition:
     if frame is None:
+        # Two different facts wear this shape, and the trace says which by
+        # its format rather than by assumption. Up to format 2 the recorder
+        # opened no frame for a generator or coroutine body at all. From
+        # format 3 it frames every activation whose START it sees, so the
+        # only frameless handler left is one whose frame was already running
+        # when recording began -- what `tree` reports as "(no frame: started
+        # before recording)".
+        why = ("recorded by a sensorium before coroutine frames existed "
+               "(format <= 2); no closed_by to read" if trace.format < 3 else
+               "handler's frame started before recording; no closed_by to "
+               "read")
         return Disposition(
             "ambiguous",
-            f"handled at e{h.id} {_at(trace, h)} -- no frame recorded",
-            "generators and coroutines open no frame, so there is no "
-            "closed_by to say whether that handler swallowed it or re-raised")
+            f"handled at e{h.id} {_at(trace, h)} -- no frame recorded", why)
     if frame.closed_by is None:
         return Disposition(
             "ambiguous",
@@ -441,19 +523,29 @@ def classify(trace, r, idx: Index) -> Disposition:
     #    assertable. Checked before the later-RAISE rule so that a loop whose
     #    exception address gets reused still reaches an honest verdict rather
     #    than being reported as one exception raised twice.
+    #    A frame killed by some OTHER exception thrown into it after the
+    #    handler ran counts here too: that unwind is not this one getting out.
     for h, frame in pairs:
-        if frame is not None and frame.closed_by == "return":
-            if later:
-                return _stored_or_reused(trace, h, frame,
-                                         later[0], idx.exact)
-            # "never re-raised" is the one claim a serial cannot establish on
-            # its own: a stored exception the recorder forgot comes back with
-            # a fresh one. Its address and type do not change, so they are
-            # what stands between this verdict and a false accusation.
-            unlinked = idx.unlinked_later(r)
-            if unlinked:
-                return _link_lost(trace, h, frame, unlinked[0])
-            return _swallowed(trace, h, frame)
+        if frame is None:
+            continue
+        # Derived once per handler: the admission test and the verdict that
+        # follows it must read the same ending, and it costs a query.
+        st = trace.frame_state(frame)
+        if not (frame.closed_by == "return"
+                or _closed_by_thrown_in_other(st, frame, key)):
+            continue
+        closed = _how_it_closed(st)
+        if later:
+            return _stored_or_reused(trace, h, frame, later[0], idx.exact,
+                                     closed)
+        # "never re-raised" is the one claim a serial cannot establish on
+        # its own: a stored exception the recorder forgot comes back with
+        # a fresh one. Its address and type do not change, so they are
+        # what stands between this verdict and a false accusation.
+        unlinked = idx.unlinked_later(r)
+        if unlinked:
+            return _link_lost(trace, h, frame, unlinked[0], closed)
+        return _swallowed(trace, h, frame, closed)
 
     # 3. The same identity raised again -- `raise e` by name, which fires
     #    RAISE where a bare `raise` would fire the unrecorded RERAISE. Only

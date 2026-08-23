@@ -838,12 +838,20 @@ def test_task_errors_meta_is_stamped_as_zero_on_a_clean_run(tmp_path):
     assert Trace.open(trace).meta["task_errors"] == 0
 
 
+# `worker()` binds a local (`y`) across a suspension. The original fixture
+# only awaited and returned a literal, which emits no LINE deltas at all and
+# would make `LINE count > 0` below prove nothing.
 ASYNC_FOCUS_SCRIPT = """
 import asyncio
 
+def step(n):
+    return n
+
 async def worker():
+    y = step(1)
     await asyncio.sleep(0)
-    return 1
+    y = step(y + 1)
+    return y
 
 def main():
     return asyncio.run(worker())
@@ -853,25 +861,15 @@ if __name__ == "__main__":
 """
 
 
-def test_run_warns_when_focus_matched_only_coroutine_code(tmp_path):
+def test_run_with_focus_on_a_coroutine_records_lines_and_stamps_no_warning(tmp_path):
     run_id, trace, r = record_script(tmp_path, ASYNC_FOCUS_SCRIPT,
                                      extra=["--focus", "prog:worker"])
     assert run_id, r.stderr
-    assert "--focus prog:worker matched only coroutine/generator code" in r.stderr
-    assert "opens no frame in this version" in r.stderr
-    assert "NOTHING WAS CHECKED." in r.stderr
-    from sensorium.store.reader import Trace
-    assert Trace.open(trace).meta["focus_unframed"] == ["prog:worker"]
-
-
-def test_run_does_not_warn_when_focus_matched_framed_code(tmp_path):
-    run_id, trace, r = record_script(
-        tmp_path, "def f():\n    return 1\n\ndef main():\n    f()\nmain()\n",
-        extra=["--focus", "prog:f"])
-    assert run_id, r.stderr
     assert "matched only coroutine" not in r.stderr
     from sensorium.store.reader import Trace
-    assert Trace.open(trace).meta["focus_unframed"] == []
+    t = Trace.open(trace)
+    assert "focus_unframed" not in t.meta
+    assert t.counts().get("LINE", 0) > 0
 
 
 def test_late_write_guard_classifies_every_public_writer_method():

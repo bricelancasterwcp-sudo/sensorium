@@ -25,7 +25,7 @@ def record_inproc_full(tmp_path, source, focus=(), window=None, entry="main"):
     """Record `source` and return (Trace, exc | None, Tracer).
 
     The Tracer is handed back so tests can assert on recorder-internal state
-    that survives the run (e.g. `tracer._tls.window_depth` must be 0).
+    that survives the run (e.g. `tracer._tls.live` must be empty).
     """
     tmp_path = Path(tmp_path)
     tmp_path.mkdir(parents=True, exist_ok=True)   # tests pass tmp_path / "a"

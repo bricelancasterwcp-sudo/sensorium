@@ -3,7 +3,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-TRACE_FORMAT = 2
+TRACE_FORMAT = 3
 
 
 class TraceFormatError(Exception):
@@ -16,7 +16,10 @@ class TraceFormatError(Exception):
     read as the current format (it cannot be from the future). Format 2
     (async attribution) added events.task_id, the tasks table and
     CALL-payload keys; a format-1 trace opens and its parentage is reported
-    as assumed -- see reader.Trace.parentage_basis.
+    as assumed -- see reader.Trace.parentage_basis. Format 3 (inspectable
+    coroutines) added frames.kind, the YIELD/RESUME event kinds, and
+    task_fingerprints; a format-2 trace opens and renders with arc 1's
+    wording.
     """
 
 SCHEMA = """
@@ -39,7 +42,8 @@ CREATE TABLE frames (
   depth INTEGER NOT NULL,
   thread_id INTEGER NOT NULL,
   closed_by TEXT,
-  unwind_exc TEXT
+  unwind_exc TEXT,
+  kind TEXT
 );
 CREATE TABLE events (
   id INTEGER PRIMARY KEY,
@@ -65,6 +69,12 @@ CREATE TABLE tasks (
 );
 CREATE TABLE fingerprints (
   thread_id INTEGER PRIMARY KEY,
+  hash TEXT NOT NULL,
+  n_events INTEGER NOT NULL
+);
+CREATE TABLE task_fingerprints (
+  task_id INTEGER PRIMARY KEY,
+  name TEXT,
   hash TEXT NOT NULL,
   n_events INTEGER NOT NULL
 );

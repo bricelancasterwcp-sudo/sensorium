@@ -87,7 +87,7 @@ def run(args) -> int:
           f"{dur}")
     print("recorded: " + "  ".join(f"{k} {counts.get(k, 0)}" for k in
                                    ("CALL", "RETURN", "RAISE", "HANDLED",
-                                    "LINE")))
+                                    "YIELD", "RESUME", "LINE")))
     focus = m.get("focus") or []
     print(f"focus: {', '.join(focus) if focus else '-'}    "
           f"window: {m.get('window') or '-'}")
@@ -103,13 +103,25 @@ def run(args) -> int:
         print(f"unwitnessed subprocess: {' '.join(child)}")
     for line in unwitnessed_lines(m):
         print(line)
+    # Always the JOIN, on every format. Arc 2 opens a frame for every traced
+    # code object -- function, generator, coroutine, or async generator -- so
+    # a format-3 trace is expected to have none of these, and the zero SAYS
+    # so: a bare "unframed calls: 0" on an older trace means only that this
+    # run happened to make none. But the reason is printed for a counted
+    # zero, never instead of counting: reading the format and reporting a
+    # count is the instrument describing a version number as though it had
+    # looked at the trace.
     unframed = t.unframed_calls()
-    kinds: dict[str, int] = {}
-    for ev in unframed:
-        k = (ev.payload or {}).get("unframed", "generator/coroutine")
-        kinds[k] = kinds.get(k, 0) + 1
-    detail = ", ".join(f"{k} {n}" for k, n in sorted(kinds.items()))
-    print(f"unframed calls: {len(unframed)}" + (f" ({detail})" if detail else ""))
+    if t.format >= 3 and not unframed:
+        print("unframed calls: 0 (all calls framed in format 3)")
+    else:
+        kinds: dict[str, int] = {}
+        for ev in unframed:
+            k = (ev.payload or {}).get("unframed", "generator/coroutine")
+            kinds[k] = kinds.get(k, 0) + 1
+        detail = ", ".join(f"{k} {n}" for k, n in sorted(kinds.items()))
+        print(f"unframed calls: {len(unframed)}"
+              + (f" ({detail})" if detail else ""))
     if t.format < 2:
         print("tasks: not recorded (format-1 trace; parentage assumed)")
     elif t.tasks():

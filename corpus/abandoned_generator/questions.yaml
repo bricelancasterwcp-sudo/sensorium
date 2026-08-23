@@ -1,0 +1,69 @@
+program: main.py
+questions:
+  - id: did-the-reader-finish
+    ask: >
+      The run reports 4 rows out of 6. Did the page reader run to the end of
+      the data, or was it stopped part-way -- and if it was stopped, where?
+    truth: >
+      It was stopped. `pages` is a generator, it opens a frame of kind
+      `generator`, and that frame never returned: the consumer broke out of
+      the loop while the generator was parked at its `yield` on line 22, the
+      last reference went away, and CPython threw GeneratorExit in at that
+      suspension point. The tree tail is therefore
+      `~ abandoned (GeneratorExit thrown in at L22)` -- it names the throw,
+      which is what the trace holds, and not "dropped", which is one of two
+      ways that throw can arrive (an explicit `gen.close()` is the other,
+      and it drops nothing).
+
+      The counterfactual matters as much as the tail. A frame that ended by
+      returning renders `-> value`; this one must NOT, because there is no
+      return to report, and a renderer that printed `-> None` here would be
+      inventing a normal ending for a reader that was killed mid-stream.
+      Nor is the frame merely `(open)` or still `suspended`: the trace holds
+      the throw-in and the unwind, so it knows the reader is finished.
+    why_logs_fail: >
+      Both endings print the same thing. A reader that runs out of pages and
+      a reader that is dropped after two both leave the loop and reach the
+      same final count line, so stdout cannot tell them apart. A print
+      inside the generator fires once per page and then simply stops, and a
+      print stream that stops looks identical whether the producer finished
+      or was killed at the yield -- silence is the one thing a log cannot
+      qualify. Distinguishing them means wrapping the generator body in a
+      try/finally purely to observe its death, which is instrumentation
+      added only once you already suspect the answer being asked for.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["pages(", "[generator]", "~ abandoned (GeneratorExit thrown in at L22)"]
+    # The counterfactuals: a claimed return value for a frame that never
+    # returned one, and the two states that would mean "still running".
+    expect_absent:
+      - "[generator] ->"
+      - "(open)"
+      - "~ suspended at L"
+  - id: where-was-it-when-dropped
+    ask: >
+      Where exactly was the reader standing when it was dropped, and how did
+      its frame end?
+    truth: >
+      Parked at the `yield` on line 22, which is the only suspension point
+      in `pages`. `frame` reports `state: abandoned at L22`, `closed: unwind`
+      and names the cause it unwound with -- GeneratorExit, the exception
+      CPython throws into a suspended generator when the last reference to
+      it goes away. There is no `return:` line, because the frame produced
+      no return value to report.
+    why_logs_fail: >
+      GeneratorExit is delivered at the yield and travels straight back out
+      without touching any `except` this program contains, so no print site
+      in the file fires when it happens. The consumer's own code learns
+      nothing either: `break` is an ordinary statement that says where the
+      CONSUMER stopped, never where the producer was suspended when it was
+      collected. Those are two different lines in two different functions,
+      and only one of them is the answer to this question.
+    command: ["frame", "$RUN", "--fn", "pages"]
+    expect_line:
+      - ["pages", "[generator]", "state: abandoned at L22"]
+      - ["unwound:", "GeneratorExit"]
+    expect_contains:
+      - "closed: unwind"
+    expect_absent:
+      - "return:"

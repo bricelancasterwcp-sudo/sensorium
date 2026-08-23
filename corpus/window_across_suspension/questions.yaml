@@ -1,0 +1,108 @@
+program: main.py
+record:
+  focus: ["main:helper"]
+  window: "windowed"
+questions:
+  - id: did-the-other-tasks-call-get-in
+    ask: >
+      I recorded helper's locals but only inside `windowed`. helper("out")
+      runs in the OTHER task while `windowed` is parked at its await -- did
+      it end up inside my window anyway, and can I tell from the answer?
+    truth: >
+      No, and the numbers say so without my having to trust them. All three
+      helper calls were recorded, so there are 3 CALL sites; only the two
+      calls made inside `windowed` had their locals captured, giving 4 LINE
+      sites, for 7 in total. `x` is bound at only one line per captured
+      call, so exactly 2 sites can be evaluated, and neither of them is
+      'out': hits 0, and the verdict declines to call that "the invariant
+      held", because 5 of the 7 recorded sites could not be checked at all.
+
+      That is the whole point of the case. helper("out") really does run in
+      the middle of the window -- after helper("in") and before
+      helper("in-again"), on the same thread, while `windowed` is suspended
+      -- so a window kept as a per-thread depth counter would have captured
+      its locals and this predicate would have hit.
+    why_logs_fail: >
+      A print inside helper fires three times and prints in, out, in-again:
+      three identical-looking lines whose ORDER is the only thing that hints
+      at the interleaving, and order cannot say which task a call belonged
+      to -- the middle line is the one from the other task, and nothing
+      distinguishes it. helper is handed a tag and nothing else; it closes
+      over no task, and asyncio does not put one in its scope. The question
+      is also about the instrument -- which calls the recorder claims to
+      have inspected -- and a print can only report on the calls somebody
+      remembered to put it in, never on the ones a tool decided to skip.
+    command: ["watch", "$RUN", "--at", "main:helper", "--expr", "x == 'out'"]
+    expect_line:
+      - ["sites: 7", "evaluated: 2", "hits: 0", "not-captured: 5"]
+    expect_contains:
+      - "not satisfied at any of the 2 site(s)"
+    # The counterfactual: a per-thread window would have captured the other
+    # task's call and this predicate would have hit.
+    expect_absent:
+      - "HIT"
+  - id: does-the-window-survive-the-suspension
+    ask: >
+      `windowed` is suspended at an await in the middle of the window. Does
+      the call it makes AFTER it resumes still count as inside, or does the
+      window end at the suspension?
+    truth: >
+      It still counts. helper("in-again") runs after `windowed` resumes --
+      after the other task's helper("out") has already been and gone -- and
+      its locals were captured: the predicate hits once, on a LINE site
+      inside helper at line 31 with x='in-again', out of the same 2 sites
+      that could be evaluated at all. Ancestry does not lapse while a frame
+      is parked, so the window closes when `windowed` ends, not when it
+      yields control.
+
+      Together with the previous question this is the pair that makes the
+      flag meaningful: the two calls it separates are adjacent in time and
+      indistinguishable in every way a print could show.
+    why_logs_fail: >
+      Prints in helper give the same three lines here as in the previous
+      question; nothing in them changes when the window does, because the
+      window is a property of the recording and not of the program. And the
+      suspension itself is invisible to any print the program contains: the
+      await is where control leaves, not where a statement runs, so there is
+      no line in the file whose execution marks the boundary being asked
+      about.
+    command: ["watch", "$RUN", "--at", "main:helper", "--expr",
+              "x == 'in-again'"]
+    expect_line:
+      - ["HIT", "LINE", "helper L31", "x='in-again'"]
+      - ["sites: 7", "evaluated: 2", "hits: 1", "not-captured: 5"]
+    expect_contains:
+      - "SATISFIED at 1 of the 2 site(s)"
+  - id: did-the-other-task-really-run-during-the-suspension
+    ask: >
+      Both answers above rest on helper("out") running WHILE `windowed` is
+      parked. That is a claim about what happened, not about how the file is
+      laid out -- show me the recorded order and let me check it.
+    truth: >
+      It really does. In event order the stream reads: `windowed` yields at
+      its await (YIELD, e9), the other task then starts and calls
+      helper(tag='out') (CALL, e11), and only afterwards does `windowed`
+      resume (RESUME, e14). The out-call is strictly between the two, on the
+      same thread, so "during the suspension" is a recorded fact and not an
+      inference from the source order -- and helper("in-again") (e15) comes
+      after the resume, inside the window again.
+
+      This is the question the other two cannot ask. They pin WHICH calls
+      the recorder inspected; if this program ever stopped interleaving --
+      `other` awaiting before its helper call, say -- their counts would
+      come out exactly the same while the case no longer tested anything,
+      because "out" would then run after `windowed` had returned.
+    why_logs_fail: >
+      A print in helper gives three lines whose order is all a log can show,
+      and order alone cannot say that the middle one belongs to a different
+      task, nor that the first task was suspended rather than finished when
+      it ran. The suspension has no line of its own to print from: the await
+      is where control leaves, not a statement that executes. Getting this
+      out of prints means timestamping every line and adding a print inside
+      asyncio's own scheduling, which is not the program's code.
+    command: ["grep", "$RUN", ""]
+    expect_line:
+      - ["e9", "YIELD", "windowed"]
+      - ["e11", "CALL", "helper(tag='out')"]
+      - ["e14", "RESUME", "windowed"]
+      - ["e15", "CALL", "helper(tag='in-again')"]

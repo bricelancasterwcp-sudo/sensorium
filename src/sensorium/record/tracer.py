@@ -27,13 +27,23 @@ and an unbind alone is enough to emit an event -- otherwise a `del` whose line
 changes nothing else would leave no trace, and a consumer folding deltas would
 keep a dead binding alive for the rest of the frame.
 
-A LINE event's `frame_id` is always set. Generators and coroutines are
-frameless (no frame is opened for them), so LINE stays permanently disabled for
-their code even when focused -- there would be no frame to attach to. Their
-CALL is still recorded, with `unframed` naming the kind and either
-`parent_frame` (the caller's open frame) or `caller_code` / `caller` saying who
-called it. A framed call whose caller has no open frame gets `parent_id NULL`
-and the same `caller_code` / `caller` keys: the parent is never guessed.
+A LINE event's `frame_id` is always set. Every traced code object opens a
+frame, generators and coroutines included (arc 2); a suspendable frame keeps
+its entry across its suspensions -- parked in a tracer-level table between
+YIELD and RESUME, so the thread that resumes it need not be the one that
+opened it -- and leaves through PY_RETURN/PY_UNWIND like any other. The
+dropped-while-suspended case arrives as PY_THROW(GeneratorExit) + PY_UNWIND.
+Each suspension is recorded: YIELD names the TYPE being awaited and RESUME
+carries the exception thrown in, if any. Neither is fingerprinted --
+how often a coroutine parks is the event loop's business, not the program's.
+An exception thrown into a suspended TRACED frame is `identify`d at PY_THROW
+so its RESUME row and the PY_UNWIND that follows carry ONE serial; that
+equality, not the type, is what lets a reader call a frame cancelled or
+abandoned rather than merely raised. Untraced frames mint nothing: PY_THROW
+fires on the frame that will unwind, so an untraced one writes no row at
+either end and a serial for it would only evict a live one. A call whose
+caller has no open frame gets `parent_id NULL` and `caller_code` / `caller`
+naming who called it: the parent is never guessed.
 
 Every RAISE/HANDLED payload carries an exception `serial`: an exact per-thread
 identity, minted the first time this recorder sees an exception object and
@@ -66,9 +76,13 @@ the frames and locals reachable from it, so at most `_RETAIN_MAX` per live
 thread are kept, the oldest being dropped when a newer one arrives. Past that
 bound the recorder simply forgets, a later raise of a forgotten object mints a
 fresh serial, and `sensorium exceptions` refuses to call such an exception
-swallowed rather than pretending the two are unrelated. A thread's table dies
-with the thread, and `uninstall` clears every live thread's table and
-in-flight slot, after which this recorder holds no exception object at all.
+swallowed rather than pretending the two are unrelated. Control-flow
+exceptions thrown INTO a frame are serialled from a second, much smaller
+table (`_CONTROL_RETAIN_MAX`), so that dropping generators -- which ordinary
+code does constantly -- cannot evict the real exceptions this machinery
+exists to link. A thread's tables die with the thread, and `uninstall` clears
+every live thread's tables and in-flight slot, after which this recorder
+holds no exception object at all.
 """
 import sys
 import threading
@@ -77,16 +91,18 @@ import weakref
 from fnmatch import fnmatch
 from pathlib import Path
 
-from sensorium.record.capture import capture_exc, capture_value, plain_str
+from sensorium.record.capture import (capture_exc, capture_value, plain_str,
+                                      type_name)
 from sensorium.record.fingerprint import Fingerprint
 
 M = sys.monitoring
 TOOL = M.PROFILER_ID
 _SENSORIUM_DIR = str(Path(__file__).resolve().parent.parent)
 _CO_GENERATOR, _CO_COROUTINE, _CO_ASYNC_GENERATOR = 0x20, 0x80, 0x200
-# Derived, never restated: `_GENLIKE` decides WHETHER code is frameless and
-# `_unframed_kind` decides WHICH kind it is, and a flag added to one set but
-# not the other would silently label a new frameless kind "generator".
+# Derived, never restated: the suspendable flag set is written down ONCE, and
+# `_frame_kind` -- its only reader -- ladders over the same three flags. A flag
+# added to one and not the other would silently label a new suspendable kind
+# "generator".
 _GENLIKE = _CO_GENERATOR | _CO_COROUTINE | _CO_ASYNC_GENERATOR
 _CONTROL_FLOW_EXC = (StopIteration, StopAsyncIteration, GeneratorExit)
 
@@ -108,11 +124,12 @@ def _is_control_flow(exc) -> bool:
     return t is StopIteration or t is StopAsyncIteration or t is GeneratorExit
 
 
-def _unframed_kind(code) -> str:
-    """Why this code opens no frame: which of the generator-like flags it has.
-    Recorded on the CALL payload so the query side can say 'coroutine', not
-    the vaguer 'coroutine or generator' it must say for a format-1 trace."""
+def _frame_kind(code) -> str:
+    """Which kind of frame this code opens (frames.kind): every traced code
+    object opens one -- arc 2 -- so this is a label, not a gate."""
     flags = code.co_flags
+    if not flags & _GENLIKE:
+        return "function"
     if flags & _CO_ASYNC_GENERATOR:
         return "async_generator"
     if flags & _CO_COROUTINE:
@@ -164,6 +181,20 @@ def locals_snapshot(frame) -> dict | None:
 # not a silent loss -- see the module docstring and exceptions_cmd.
 _RETAIN_MAX = 64
 
+# The same bound for CONTROL-FLOW exceptions thrown into a traced frame
+# (GeneratorExit, StopIteration, StopAsyncIteration). They need a serial --
+# `frame_state` calls a frame abandoned only when the RESUME's thrown serial
+# EQUALS the unwind's -- but they are not exceptions any query links across a
+# program: `_exc_event` records no row for them, so the only rows their serial
+# can ever reach are that frame's own RESUME and unwind, written within a few
+# events of each other. Minting them from the table above let 70 early-exit
+# generator expressions -- `any(v > 0 for v in ...)`, ordinary code -- evict a
+# stashed ValueError and degrade its later re-raise to "ambiguous". A small
+# table of their own costs 16 held objects per thread and cannot touch the
+# real one. It is not 1: a generator's cleanup can drop other generators, so
+# several of these can be in flight at once.
+_CONTROL_RETAIN_MAX = 16
+
 
 def module_name_for(file: str, root: Path) -> str | None:
     try:
@@ -211,9 +242,9 @@ class WindowSpec:
     functions across a `--focus` set could share a window: the old matcher was
     `qual == self.window`, a bare-string equality that a `module:qualname`
     target could never satisfy (so it silently matched nothing) and that a bare
-    name matched in every module at once. `key()` returns the resolved
-    `(module, qualname)` so the depth counter is kept per function, and a
-    return from one no longer closes another's window.
+    name matched in every module at once. `key()` still resolves bare vs
+    `module:qualname` matching; its non-None result marks the window TARGET,
+    whose descendants are in the window by ANCESTRY. Nothing is counted.
     """
     def __init__(self, spec: str | None) -> None:
         if spec is None:
@@ -239,10 +270,11 @@ class _ExcRefs:
     recorder holds a reference to an exception object.
 
     `serials` maps `id(exc)` -> `(exc, serial)`, insertion-ordered, capped at
-    `_RETAIN_MAX`. Holding the object is what makes `id()` a sound key: the
-    address cannot be recycled underneath us, so two distinct exceptions can
-    never alias onto one serial. Weak references were tried first and are not
-    an option at all -- `BaseException` does not support them
+    `cap` (`_RETAIN_MAX` for a thread's real table, `_CONTROL_RETAIN_MAX` for
+    its control-flow side table). Holding the object is what makes `id()` a
+    sound key: the address cannot be recycled underneath us, so two distinct
+    exceptions can never alias onto one serial. Weak references were tried
+    first and are not an option at all -- `BaseException` does not support them
     (`TypeError: cannot create weak reference to 'ValueError' object`), and
     catching that error silently disabled the whole mechanism, which is the
     kind of quiet fallback this project bans.
@@ -251,12 +283,23 @@ class _ExcRefs:
     `clear` really does release everything this recorder is holding, on
     whichever thread it is called for.
     """
-    __slots__ = ("last_exc", "serials", "minted", "__weakref__")
+    __slots__ = ("last_exc", "serials", "minted", "cap", "source",
+                 "__weakref__")
 
-    def __init__(self) -> None:
+    def __init__(self, cap: int = _RETAIN_MAX, source=None) -> None:
         self.last_exc = None           # exception currently in flight, if any
         self.serials: dict[int, tuple] = {}
         self.minted = 0                # monotonic per-thread serial source
+        self.cap = cap                 # how many objects this table remembers
+        # Where serials come from, when not from this table itself. The
+        # control-flow table mints from the MAIN one so a thread never issues
+        # one number twice: two tables counting separately would eventually
+        # give a GeneratorExit and a real exception the same serial, and a
+        # frame's `unwind_exc` would then match rows belonging to neither.
+        # A plain (one-way) reference, never a back-pointer: a cycle between
+        # a thread's two tables would keep both -- and every exception they
+        # hold -- alive past the thread, waiting for the cycle collector.
+        self.source = source
 
     def serial_of(self, exc) -> int | None:
         """This thread's serial for `exc`, or None if it holds none.
@@ -274,9 +317,11 @@ class _ExcRefs:
         serial = self.serial_of(exc)
         if serial is not None:
             return serial
-        self.minted += 1
-        self.serials[id(exc)] = (exc, self.minted)
-        while len(self.serials) > _RETAIN_MAX:
+        src = self if self.source is None else self.source
+        src.minted += 1
+        serial = src.minted
+        self.serials[id(exc)] = (exc, serial)
+        while len(self.serials) > self.cap:
             oldest, held = next(iter(self.serials.items()))
             del self.serials[oldest]
             if held[0] is self.last_exc:
@@ -286,7 +331,7 @@ class _ExcRefs:
                 # enough cleanup can push it out, and the query side hedges
                 # rather than reading the fresh serial as another exception.
                 self.serials[oldest] = held
-        return self.minted
+        return serial
 
     def clear(self) -> None:
         self.last_exc = None
@@ -306,24 +351,62 @@ class _TLS(threading.local):
     """
     def __init__(self, next_serial, register) -> None:
         self.thread_serial: int = next_serial()   # stable, never recycled
-        # id(frame) -> [frame_id, code, code_id, prev_locals, depth] for every
-        # OPEN frame this recorder opened on this thread. Replaces the stack
-        # that v1 used: "the last frame I opened is the caller" is stack
-        # discipline, which a coroutine resumed by the event loop, a generator
-        # resumed by its consumer, and a callback from C all break. `id()` is
-        # sound as a key here ONLY because every entry is a regular function
-        # frame, which always leaves through PY_RETURN or PY_UNWIND -- both
-        # subscribed -- so the entry is removed before the address can die. A
-        # suspendable frame must not enter this map without a terminal
-        # ABANDONED state (arc 2). `_parent_of` re-checks code identity anyway.
+        # id(frame) -> [frame_id, code, code_id, prev_locals, depth,
+        #               in_window, suspended]
+        # for every OPEN frame this recorder opened on this thread. Slot 5 is
+        # `--window` membership, derived from ANCESTRY at PY_START: this code
+        # is the window target, or the parent entry is in the window. It is a
+        # property of the ACTIVATION, so a suspended windowed frame cannot lend
+        # its membership to whatever else happens to run meanwhile. Slot 6 is
+        # `suspended`: True between this frame's YIELD and the RESUME that
+        # answers it. It is deliberately never written out -- not at
+        # `uninstall`, not anywhere (spec D1). A frame still parked when
+        # recording stops leaves NO extra row, and the reader derives
+        # "suspended" from the frame's last YIELD/RESUME row, which is
+        # evidence the trace already holds. A written flag would be the
+        # recorder's opinion competing with that evidence, and would go
+        # stale for any thread still running when uninstall ran.
+        # Replaces the stack that v1 used: "the last frame I opened is the
+        # caller" is stack discipline, which a coroutine resumed by the event
+        # loop, a generator resumed by its consumer, and a callback from C all
+        # break.
+        # WHY `id(frame)` IS A SOUND KEY, now that entries suspend. Arc 1
+        # could argue it from stack discipline: an ordinary frame always
+        # leaves through PY_RETURN or PY_UNWIND -- both subscribed -- so its
+        # entry is gone before the address can die. A suspendable frame has
+        # no such guarantee from the language, and the argument is now an
+        # OBSERVED one: dropping a suspended generator fires
+        # PY_THROW(GeneratorExit) then PY_UNWIND, and cancelling a task fires
+        # PY_THROW(CancelledError) then PY_UNWIND (spec, "Measurements",
+        # facts 1-2), so the entry still leaves before the frame does. What
+        # backs it up is the `entry[1] is code` re-check every reader makes
+        # (`_parent_of`, `_live_entry`, `_adopt`): a recycled address can
+        # only answer for a frame running the very same code object.
+        # THE ONE RESIDUAL is a frame still suspended when recording stops:
+        # nothing terminal ever fires for it, so its entry is simply dropped
+        # at `uninstall` and the reader derives "suspended at end of
+        # recording" from the last YIELD row.
+        # An entry does not stay here across a suspension: at YIELD it MOVES
+        # to the tracer-level `_parked` table, because the thread that
+        # resumes a suspended frame need not be the one that opened it, and
+        # it moves into the resuming thread's map at the first lookup that
+        # misses (`Tracer._park` / `_adopt`). So this map holds the frames
+        # RUNNING on this thread, `_parked` holds the suspended ones, and no
+        # entry is ever in both.
         self.live: dict[int, list] = {}
         self.in_hook = False
-        self.window_depths: dict = {}  # (module, qualname) -> open activations
         self.origin_recorded = False   # whether the in-flight exc got a row
         self.exc = _ExcRefs()
+        # Serials for control-flow exceptions THROWN INTO a traced frame,
+        # kept out of the table above; see `_CONTROL_RETAIN_MAX`.
+        self.cf_exc = _ExcRefs(cap=_CONTROL_RETAIN_MAX, source=self.exc)
         # (task, serial) of the last task seen on this thread
         self.task_cache: tuple | None = None
+        # Both tables, so `uninstall` releases everything this recorder holds
+        # on every thread. The registry is keyed only to keep entries apart
+        # and is never looked up by key, so the negative key is enough.
         register(self.thread_serial, self.exc)
+        register(-self.thread_serial, self.cf_exc)
 
 
 class Tracer:
@@ -335,8 +418,18 @@ class Tracer:
         self.include = tuple(include)
         self.exclude = tuple(exclude)
         self.window = WindowSpec(window)
-        # id(code) -> (traced, fp_file, qualname, focused, frameless)
+        # id(code) -> (traced, fp_file, qualname, focused, kind, win_key)
         self._decisions: dict[int, tuple] = {}
+        # id(frame) -> the live entry of a frame SUSPENDED right now, for
+        # every thread at once. A suspended frame runs on no thread, so the
+        # thread that resumes it need not be the one that opened it: a
+        # generator first `next`ed where it was made and stepped from a
+        # thread pool afterwards (Starlette's `iterate_in_threadpool`, which
+        # is what `StreamingResponse(sync_gen)` does) resumes on a worker,
+        # where a per-thread map cannot possibly hold its entry. An entry is
+        # owned HERE or by exactly one thread's `live`, never by both.
+        self._parked: dict[int, list] = {}
+        self._parked_lock = threading.Lock()
         self._seen_codes: list = []    # pins code objects so id() cannot recycle
         self._fps: dict[int, Fingerprint] = {}
         self._fp_lock = threading.Lock()
@@ -360,8 +453,6 @@ class Tracer:
         self._task_lock = threading.Lock()
         self._next_task = 0
         self.task_errors = 0       # lookups a hostile task object broke
-        # entry -> {frameless flags of the code objects it matched}
-        self._focus_hits: dict[str, set] = {}
         self._tls = _TLS(self._assign_thread_serial, self._register_refs)
         # The thread constructing the Tracer runs `_TLS.__init__` above, so it
         # is the first serial (1). `run_target` runs the target on this same
@@ -392,7 +483,7 @@ class Tracer:
 
     def _classify(self, code):
         file = code.co_filename
-        untraced = (False, None, None, False, False, None)
+        untraced = (False, None, None, False, "function", None)
         if not file.startswith("/") or file.startswith(_SENSORIUM_DIR):
             return untraced
         p = str(Path(file).resolve())
@@ -409,25 +500,9 @@ class Tracer:
             return untraced
         module = module_name_for(p, self.root)
         focused = self.focus.matches(module, code.co_qualname)
-        frameless = bool(code.co_flags & _GENLIKE)
-        if focused:
-            for entry in self.focus.entries_matching(module, code.co_qualname):
-                self._focus_hits.setdefault(entry, set()).add(frameless)
         win_key = self.window.key(module, code.co_qualname)
-        return (True, rel, code.co_qualname, focused, frameless, win_key)
-
-    def unframed_focus(self) -> list[str]:
-        """Focus entries that matched code, all of it frameless -- so no LINE
-        was ever possible for them. Reported at the end of the run because
-        the recorder learns a code object's kind only when it first starts."""
-        # Snapshot: `run_target` calls this after `uninstall`, while a straggler
-        # thread still inside a callback can reach `_classify` and `setdefault`
-        # here -- iterating live would raise "dictionary changed size during
-        # iteration" out of `_finalize_meta` and leave the trace incomplete.
-        # `setdefault` is atomic under the GIL, so `list()` snapshots without a
-        # lock (same straggler class `_LateWriteGuard` describes; cf. `_fps`).
-        return [e for e, flags in list(self._focus_hits.items())
-                if flags == {True}]
+        return (True, rel, code.co_qualname, focused, _frame_kind(code),
+                win_key)
 
     def _fp(self, tid: int) -> Fingerprint:
         # `tid` is a per-thread SERIAL (see `_TLS.thread_serial`), the same
@@ -442,10 +517,12 @@ class Tracer:
     def _parent_of(self, tls, caller):
         """The live entry for `caller`, or None -- and None is an answer.
 
-        A hit requires the address to be live AND the code to match: the
-        map cannot hold a stale entry in arc 1 (see `_TLS.live`), but the
-        check is what makes that a property of this method rather than of
-        the current set of callers."""
+        A hit requires the address to be live AND the code to match. Arc 2
+        opens frames for suspendable code too; while one is suspended its
+        entry is not here but in `_parked` (see `_park`/`_adopt`), and a
+        caller is by definition running, so this map is the right place to
+        look. The code check is what keeps a recycled address from answering
+        for a frame that is not the caller's."""
         if caller is None:
             return None
         entry = tls.live.get(id(caller))
@@ -453,17 +530,67 @@ class Tracer:
             return None
         return entry
 
+    def _park(self, tls, frame, entry) -> None:
+        """Hand a just-suspended frame's entry to whatever thread resumes it.
+
+        It MOVES the entry out of the suspending thread's map rather than
+        copying it. A copy left behind is a second owner of one mutable
+        entry, and on the very shape this exists for -- a frame opened on one
+        thread and closed on another -- the copy is never removed again,
+        because the thread that closes the frame can only reach its own map.
+        Published after the YIELD row is written, so no other thread can
+        record this frame's RESUME before the YIELD it answers.
+        """
+        key = id(frame)
+        tls.live.pop(key, None)
+        with self._parked_lock:
+            self._parked[key] = entry
+
+    def _adopt(self, tls, frame, code):
+        """The parked entry for this activation, moved into THIS thread's
+        live map -- or None, which is an answer.
+
+        `entry[1] is code` is the same identity guard `_parent_of` uses, and
+        it is what keeps `id(frame)` sound across the hand-off: a parked
+        frame is alive (whatever suspended it holds it), so its address
+        cannot be recycled while its entry waits here. `depth` and the
+        parent stay exactly as the frame was opened. That is why a frame's
+        rows can name two threads and both be true: the frames row keeps the
+        thread that OPENED it, each event carries the thread that produced
+        THAT event.
+        """
+        key = id(frame)
+        with self._parked_lock:
+            entry = self._parked.get(key)
+            if entry is None or entry[1] is not code:
+                return None
+            del self._parked[key]
+        tls.live[key] = entry
+        return entry
+
+    def _live_entry(self, tls, frame, code):
+        """This activation's open-frame entry, or None: this thread's live
+        map first, then the parked table for a frame another thread opened.
+
+        A live hit whose code does not match is a stale entry at a recycled
+        address, not an answer -- it must not shadow a parked entry for the
+        frame that is actually running here, so it is treated as a miss."""
+        entry = tls.live.get(id(frame))
+        if entry is not None and entry[1] is code:
+            return entry
+        return self._adopt(tls, frame, code)
+
     def _note_caller(self, payload, caller) -> None:
         """When there is no parent frame, record WHO called instead of
-        guessing: the caller's interned code if it is traced (a frameless
-        generator/coroutine, or code that started before recording did), or
-        the literal "untraced" (the event loop, a C callback's Python caller
-        in a library, sensorium's own boot). No caller at all writes nothing,
+        guessing: the caller's interned code if it is traced (code that
+        started before recording did, so it never opened a frame), or the
+        literal "untraced" (the event loop, a C callback's Python caller in a
+        library, sensorium's own boot). No caller at all writes nothing,
         which is distinct from both."""
         if caller is None:
             return
         ccode = caller.f_code
-        traced, _rel, cqual, _f, _fl, _w = self._decide(ccode)
+        traced, _rel, cqual, _f, _kind, _w = self._decide(ccode)
         if traced:
             payload["caller_code"] = self.writer.intern_code(
                 ccode.co_filename, cqual, ccode.co_firstlineno)
@@ -550,7 +677,7 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, fp_file, qual, focused, frameless, win_key = self._decide(code)
+        traced, fp_file, qual, focused, kind, win_key = self._decide(code)
         if not traced:
             return M.DISABLE
         tls.in_hook = True
@@ -576,25 +703,17 @@ class Tracer:
             parent = self._parent_of(tls, caller)
             if parent is None:
                 self._note_caller(payload, caller)
-            if frameless:
-                payload["unframed"] = _unframed_kind(code)
-                if parent is not None:
-                    payload["parent_frame"] = parent[0]
             eid = self.writer.add_event(time.monotonic_ns(), tid, "CALL",
                                         None, cid, code.co_firstlineno,
                                         payload, task_id=task)
-            if not frameless:
-                pfid = parent[0] if parent is not None else None
-                depth = parent[4] + 1 if parent is not None else 0
-                fid = self.writer.open_frame(pfid, cid, eid, depth, tid)
-                tls.live[id(frame)] = [fid, code, cid, {}, depth]
+            pfid = parent[0] if parent is not None else None
+            depth = parent[4] + 1 if parent is not None else 0
+            fid = self.writer.open_frame(pfid, cid, eid, depth, tid, kind)
+            in_window = bool(win_key is not None
+                             or (parent is not None and parent[5]))
+            tls.live[id(frame)] = [fid, code, cid, {}, depth, in_window,
+                                   False]
             self._fp(tid).update(fp_file, qual, "CALL")
-            # Frameless code is excluded on purpose: an abandoned generator
-            # never reaches PY_RETURN/PY_UNWIND, so counting its PY_START would
-            # leak depth and wedge the window open for the rest of the run.
-            # The gate must open and close on the same set of events.
-            if not frameless and win_key is not None:
-                tls.window_depths[win_key] = tls.window_depths.get(win_key, 0) + 1
         finally:
             tls.in_hook = False
         return None
@@ -603,16 +722,16 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, fp_file, qual, focused, frameless, win_key = self._decide(code)
+        traced, fp_file, qual, focused, _kind, _win_key = self._decide(code)
         if not traced:
             return M.DISABLE
         tls.in_hook = True
         try:
             tid = tls.thread_serial
             frame = sys._getframe(1)
-            entry = tls.live.get(id(frame))
+            entry = self._live_entry(tls, frame, code)
             fid = None
-            if entry is not None and entry[1] is code:
+            if entry is not None:
                 del tls.live[id(frame)]
                 fid = entry[0]
             cid = self.writer.intern_code(code.co_filename, qual,
@@ -624,9 +743,6 @@ class Tracer:
             if fid is not None:
                 self.writer.close_frame(fid, eid, "return")
             self._fp(tid).update(fp_file, qual, "RETURN")
-            if (not frameless and win_key is not None
-                    and tls.window_depths.get(win_key)):
-                tls.window_depths[win_key] -= 1
         finally:
             tls.in_hook = False
         return None
@@ -635,24 +751,123 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, fp_file, qual, focused, frameless, win_key = self._decide(code)
+        traced, fp_file, qual, focused, _kind, _win_key = self._decide(code)
         if not traced:
             return None                      # exception events can't DISABLE
         tls.in_hook = True
         try:
             frame = sys._getframe(1)
-            entry = tls.live.get(id(frame))
-            if entry is not None and entry[1] is code:
+            entry = self._live_entry(tls, frame, code)
+            if entry is not None:
                 del tls.live[id(frame)]
                 self.writer.close_frame(
                     entry[0], None, "unwind",
                     capture_exc(exc, self.serial_of(exc)))
-            if (not frameless and win_key is not None
-                    and tls.window_depths.get(win_key)):
-                tls.window_depths[win_key] -= 1
         finally:
             tls.in_hook = False
         return None
+
+    # -- suspension --------------------------------------------------------
+    def _suspension(self, code, frame, kind, payload_factory, disable_ok=True):
+        """Shared body of the YIELD/RESUME callbacks. `frame` is the
+        triggering frame, read as `sys._getframe(1)` OF THE REGISTERED
+        CALLBACK and passed down -- the same convention `_on_raise` and
+        `_on_handled` follow, and for the same reason: read one frame deeper,
+        here, it would be tracer.py's own.
+
+        `payload_factory` is a callable, not a payload. Building the payload
+        runs the observed program (`capture_exc` calls its `__str__`,
+        `type_name` reads a possibly-computed `__name__`), so it must happen
+        INSIDE the `in_hook` region -- otherwise a traced helper called from
+        that `__str__` is recorded as real execution: a phantom CALL/RETURN
+        pair, a live entry, and a fingerprint update minted from hook time.
+
+        Never fingerprinted. A fingerprint must depend only on the (code
+        object, causal kind) sequence -- suspending is not a causal step, and
+        how many times a coroutine parks depends on the event loop's
+        scheduling, so hashing it would make two identical runs disagree.
+        """
+        tls = self._tls
+        if tls.in_hook:
+            return None
+        traced, _fp_file, _qual, _focused, _kind, _win = self._decide(code)
+        if not traced:
+            # PY_YIELD/PY_RESUME may be disabled per code object like any
+            # other local event, and untraced code suspends constantly (the
+            # event loop, every stdlib generator), so saying so is worth
+            # real time. PY_THROW may NOT: CPython refuses to disable it,
+            # exactly as it refuses RAISE and PY_UNWIND, and a DISABLE from
+            # that callback raises ValueError *into the traced program* and
+            # unregisters the callback -- measured, not assumed.
+            return M.DISABLE if disable_ok else None
+        tls.in_hook = True
+        try:
+            entry = self._live_entry(tls, frame, code)
+            if entry is None:
+                return None
+            suspending = kind == "YIELD"
+            entry[6] = suspending
+            self.writer.add_event(time.monotonic_ns(), tls.thread_serial, kind,
+                                  entry[0], entry[2], frame.f_lineno,
+                                  payload_factory(),
+                                  task_id=self._task_serial(tls))
+            if suspending:
+                self._park(tls, frame, entry)
+        finally:
+            tls.in_hook = False
+        return None
+
+    def _on_yield(self, code, offset, value):
+        # The TYPE name, never `repr(value)`: a repr is program code run from
+        # a hook, unbounded in size, and different on every run (addresses),
+        # which would make the column useless for grouping and diffing.
+        # `type_name` is the capture module's guarded funnel and runs inside
+        # the hook region -- a metaclass `__name__` is program code too.
+        return self._suspension(code, sys._getframe(1), "YIELD",
+                                lambda: {"awaiting": type_name(value)})
+
+    def _on_resume(self, code, offset):
+        return self._suspension(code, sys._getframe(1), "RESUME", lambda: None)
+
+    def _on_throw(self, code, offset, exc):
+        """An exception is being thrown into a suspended frame.
+
+        Decide BEFORE minting. `identify` retains a strong reference in a
+        bounded table, so minting for untraced code would pour every
+        generator finalisation and every asyncio cancellation in the process
+        into it and evict serials a stored re-raise still wants. Unlike RAISE
+        (where the raising frame may be untraced while the frame that unwinds
+        is traced), PY_THROW fires on the very frame that will PY_UNWIND: if
+        it is untraced, no row is written at either end and the serial buys
+        nothing.
+
+        Which table, for the same reason at a finer grain. `_exc_event`
+        deliberately keeps control-flow types out of the real table, and this
+        door is the one they would otherwise arrive by: a `for ... break`, a
+        short-circuiting `any(genexpr)`, any dropped generator throws
+        GeneratorExit into a frame this recorder may well be tracing. They
+        still need a serial -- `abandoned` is the RESUME serial matching the
+        unwind's, nothing else -- so they get one from `cf_exc`, a small
+        table of their own (`_CONTROL_RETAIN_MAX`).
+
+        Knowingly given up: an exception thrown into an UNTRACED generator
+        that escapes into a traced caller's unwind has no serial there, so
+        that frame reads `raised` rather than `thrown` -- no D2 state on a
+        traced frame depends on it.
+
+        For a traced frame the serial is minted inside the hook region, so
+        the RESUME row, the RAISE the interpreter fires next, and the UNWIND
+        all carry ONE serial. That equality -- not the type -- is what lets
+        the reader say "cancelled" or "abandoned".
+        """
+        tls = self._tls
+        if tls.in_hook or not self._decide(code)[0]:
+            return None                    # PY_THROW may not DISABLE
+        refs = tls.cf_exc if _is_control_flow(exc) else tls.exc
+        return self._suspension(
+            code, sys._getframe(1), "RESUME",
+            lambda: {"thrown": capture_exc(exc, refs.identify(exc))},
+            disable_ok=False)
 
     # The triggering frame is sys._getframe(1) *of the registered callback*,
     # so it is read here and passed down rather than inside _exc_event, which
@@ -723,7 +938,7 @@ class Tracer:
             # for why the reference is strong and why it is bounded.
             serial = refs.identify(exc)
             refs.last_exc = None
-        traced, fp_file, qual, focused, _frameless, _win_key = self._decide(code)
+        traced, fp_file, qual, focused, _fkind, _win_key = self._decide(code)
         if not traced:
             return None
         if kind == "RAISE":
@@ -753,18 +968,18 @@ class Tracer:
         tls = self._tls
         if tls.in_hook:
             return None
-        traced, _fp_file, _qual, focused, frameless, _win_key = self._decide(code)
-        if not traced or not focused or frameless:
+        traced, _fp_file, _qual, focused, _kind, _win_key = self._decide(code)
+        if not traced or not focused:
             return M.DISABLE      # nothing here will ever be worth recording
-        if self.window and not any(tls.window_depths.values()):
-            # Outside the window *right now*. Deliberately not DISABLE: that is
-            # permanent per code location, and this frame may run again inside
-            # the window later.
-            return None
         frame = sys._getframe(1)
-        entry = tls.live.get(id(frame))
-        if entry is None or entry[1] is not code:
+        entry = self._live_entry(tls, frame, code)
+        if entry is None:
             return None           # no open frame for this activation
+        if self.window and not entry[5]:
+            # Outside the window: no ancestor of THIS activation is the
+            # window target. Not DISABLE -- another activation of the same
+            # code may be inside it later.
+            return None
         tls.in_hook = True        # capture_value runs user __repr__ code
         try:
             prev = entry[3]
@@ -821,10 +1036,19 @@ class Tracer:
         `last_exc` -- but the identity table still holds the object, which is
         why the uncaught record can be tied to the RAISE row that produced it.
 
+        Both of this thread's tables are asked, because a frame closed by a
+        GeneratorExit thrown into it must read the serial its RESUME row
+        carries -- that equality is the whole of `abandoned`. The two are
+        disjoint by construction (`_exc_event` never records a control-flow
+        type, `_on_throw` sends only control-flow types to `cf_exc`), so
+        asking both cannot return the wrong one.
+
         Never mints: a caller asking after the fact must be told "no serial"
         rather than handed a fresh one that matches no recorded row.
         """
-        return self._tls.exc.serial_of(exc)
+        tls = self._tls
+        serial = tls.exc.serial_of(exc)
+        return serial if serial is not None else tls.cf_exc.serial_of(exc)
 
     # -- lifecycle ---------------------------------------------------------
     def install(self) -> None:
@@ -844,8 +1068,12 @@ class Tracer:
         M.register_callback(TOOL, E.RERAISE, self._on_reraise)
         M.register_callback(TOOL, E.EXCEPTION_HANDLED, self._on_handled)
         M.register_callback(TOOL, E.LINE, self._on_line)
+        M.register_callback(TOOL, E.PY_YIELD, self._on_yield)
+        M.register_callback(TOOL, E.PY_RESUME, self._on_resume)
+        M.register_callback(TOOL, E.PY_THROW, self._on_throw)
         events = (E.PY_START | E.PY_RETURN | E.PY_UNWIND
-                  | E.RAISE | E.RERAISE | E.EXCEPTION_HANDLED)
+                  | E.RAISE | E.RERAISE | E.EXCEPTION_HANDLED
+                  | E.PY_YIELD | E.PY_RESUME | E.PY_THROW)
         if self.focus:
             events |= E.LINE
         M.set_events(TOOL, events)
@@ -868,9 +1096,18 @@ class Tracer:
         # the rest of the process.
         for refs in self._live_exc_refs():
             refs.clear()
+        # Whatever is still parked was suspended when recording stopped --
+        # the one residual state (spec D2). Nothing is written for it: the
+        # reader derives "suspended at end of recording" from the frame's
+        # last YIELD row, which is evidence the trace already holds.
+        # Dropping the entries here is what stops this recorder holding a
+        # dead frame's locals for the rest of the process.
+        with self._parked_lock:
+            self._parked.clear()
         self._tls.task_cache = None
         for ev in (E.PY_START, E.PY_RETURN, E.PY_UNWIND, E.RAISE,
-                   E.RERAISE, E.EXCEPTION_HANDLED, E.LINE):
+                   E.RERAISE, E.EXCEPTION_HANDLED, E.LINE,
+                   E.PY_YIELD, E.PY_RESUME, E.PY_THROW):
             M.register_callback(TOOL, ev, None)
         M.free_tool_id(TOOL)
         # Snapshot under the lock, as every other access to `_fps` does. Events

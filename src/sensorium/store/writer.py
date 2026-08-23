@@ -58,12 +58,12 @@ class TraceWriter:
             self._tasks.append((task_id, name, thread_id))
 
     def open_frame(self, parent_id, code_id, call_event_id, depth,
-                   thread_id) -> int:
+                   thread_id, kind: str = "function") -> int:
         with self._lock:
             fid = self._next_frame
             self._next_frame += 1
             self._frames.append(
-                (fid, parent_id, code_id, call_event_id, depth, thread_id))
+                (fid, parent_id, code_id, call_event_id, depth, thread_id, kind))
             return fid
 
     def close_frame(self, frame_id, return_event_id=None, closed_by="return",
@@ -109,7 +109,8 @@ class TraceWriter:
         if self._frames:
             c.executemany(
                 "INSERT INTO frames (id, parent_id, code_id, call_event_id, "
-                "depth, thread_id) VALUES (?, ?, ?, ?, ?, ?)", self._frames)
+                "depth, thread_id, kind) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                self._frames)
             self._frames.clear()
         if self._events:
             c.executemany(

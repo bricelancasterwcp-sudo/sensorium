@@ -6,6 +6,7 @@ from sensorium import cli, paths
 from sensorium.record import boot
 from sensorium.store.writer import TraceWriter
 from tests.helpers import record_script
+from tests.programs import synthetic
 
 SRC = """
 def work(n):
@@ -329,15 +330,49 @@ if __name__ == "__main__":
 
 def test_info_counts_unframed_calls_and_lists_tasks(tmp_path, monkeypatch,
                                                      capsys):
+    """On a format-3 trace, arc 2 opened a frame for every one of these
+    coroutines -- amain and both worker activations included -- so the
+    unframed count is zero and says why, and the counted-event line now
+    carries YIELD/RESUME alongside the arc-1 kinds."""
     run_id, trace, r = record_script(tmp_path, ASYNC_SRC)
     assert run_id, r.stderr
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     assert cli.main(["info", run_id]) == 0
     out = capsys.readouterr().out
-    assert "unframed calls: 3 (coroutine 3)" in out        # amain + 2 worker
+    assert "unframed calls: 0 (all calls framed in format 3)" in out
+    assert ("recorded: CALL 8  RETURN 8  RAISE 0  HANDLED 0  YIELD 3  "
+            "RESUME 3  LINE 0") in out
     assert "tasks: 3 (" in out and "w1" in out and "w2" in out
     assert "2x prog.py:worker" in out                      # calls, not frames
     assert "task identity errors" not in out
+
+
+def test_info_counts_unframed_calls_on_a_format_3_trace_too(
+        tmp_path, monkeypatch, capsys):
+    """The count is a JOIN, on every format. Arc 2 frames every traced code
+    object, so the zero is expected -- but printing it from the FORMAT alone
+    means `info` states as fact something it never looked at, and a trace
+    that somehow held an unframed CALL would be described by its version
+    number instead of by its contents. Synthetic, because the recorder this
+    version ships cannot produce the row."""
+    w = synthetic(tmp_path, monkeypatch)
+    c_main = w.intern_code("/tmp/prog.py", "main", 1)
+    c_rows = w.intern_code("/tmp/prog.py", "rows", 5)
+    e_main = w.add_event(0, 1, "CALL", None, c_main, 1, {"args": {}})
+    f_main = w.open_frame(None, c_main, e_main, 0, 1, "function")
+    w.add_event(0, 1, "CALL", None, c_rows, 5,
+                {"args": {}, "unframed": "generator"})
+    e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
+    w.close_frame(f_main, e_ret, "return")
+    w.set_meta("incomplete", False)
+    w.set_meta("exit_status", 0)
+    w.set_meta("uncaught", None)
+    w.close()
+
+    assert cli.main(["info", "20260101-000000-abcdef"]) == 0
+    out = capsys.readouterr().out
+    assert "unframed calls: 1 (generator 1)" in out
+    assert "all calls framed in format 3" not in out
 
 
 def test_info_says_a_task_name_was_unreadable_not_that_it_was_unnamed(
@@ -361,8 +396,11 @@ def test_info_says_a_task_name_was_unreadable_not_that_it_was_unnamed(
 def test_info_on_a_sync_trace_says_zero_unframed_and_no_loop(tmp_path,
                                                              monkeypatch,
                                                              capsys):
+    """Pinned to the exact format-3 line, not a substring of it: a bare
+    "unframed calls: 0" would keep passing whether or not the reason
+    ("all calls framed in format 3") is actually there."""
     run_id = _record(tmp_path, monkeypatch)
     assert cli.main(["info", run_id]) == 0
     out = capsys.readouterr().out
-    assert "unframed calls: 0" in out
+    assert "unframed calls: 0 (all calls framed in format 3)" in out
     assert "tasks: none (no event ran inside an asyncio task)" in out

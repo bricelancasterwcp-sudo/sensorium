@@ -1,4 +1,6 @@
-from sensorium.store.reader import Trace
+from pathlib import Path
+
+from sensorium.store.reader import FrameState, Trace
 from sensorium.store.writer import TraceWriter
 
 
@@ -139,7 +141,8 @@ def _two_task_trace(tmp_path):
 
 def test_reader_exposes_format_tasks_and_task_ids(tmp_path):
     t, c_main, c_gen, _ = _two_task_trace(tmp_path)
-    assert t.format == 2
+    assert t.format >= 2       # task_id/tasks arrived at format 2; a live
+                                # trace is always written at the current format
     assert t.parentage_basis() == "derived"
     assert [(k.id, k.name, k.thread_id) for k in t.tasks()] == [
         (1, "Task-1", 1), (2, None, 1)]
@@ -156,3 +159,85 @@ def test_unframed_calls_is_a_join_not_a_payload_key(tmp_path):
     assert [e.code_id for e in unf] == [c_gen, c_gen]
     assert t.unframed_calls(code_id=c_main) == []
     assert t.call_counts() == {c_main: 1, c_gen: 2}
+
+
+def _frame_with(tmp_path, closed_by, unwind_exc, tail_events, kind="coroutine"):
+    """One frame of `kind`, closed as given, with `tail_events` =
+    [(kind, line, payload), ...] appended in order after its CALL."""
+    w = TraceWriter(tmp_path / "t.db", batch=100)
+    c = w.intern_code("/x/p.py", "worker", 1)
+    e1 = w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
+    f1 = w.open_frame(None, c, e1, 0, 1, kind=kind)
+    for k, line, payload in tail_events:
+        w.add_event(1, 1, k, f1, c, line, payload)
+    if closed_by is not None:
+        w.close_frame(f1, None, closed_by, unwind_exc)
+    w.close()
+    t = Trace.open(tmp_path / "t.db")
+    return t, t.frame(f1)
+
+
+CANCEL = {"type": "CancelledError", "msg": "", "oid": 1, "serial": 7}
+GENEXIT = {"type": "GeneratorExit", "msg": "", "oid": 2, "serial": 8}
+VALERR = {"type": "ValueError", "msg": "x", "oid": 3, "serial": 9}
+
+
+def test_frame_kind_reads_function_on_old_traces_and_the_column_on_new(tmp_path):
+    t, f = _frame_with(tmp_path, "return", None, [])
+    assert f.kind == "coroutine"
+    assert Trace.open(Path(__file__).parent / "fixtures" / "format2_async.db"
+                      ).frames()[0].kind == "function"
+    assert Trace.open(Path(__file__).parent / "fixtures" / "format1_async.db"
+                      ).frames()[0].kind == "function"
+
+
+def test_frame_state_derives_each_state_from_evidence(tmp_path):
+    t, f = _frame_with(tmp_path / "a", "return", None,
+                       [("YIELD", 29, {"awaiting": "Future"}), ("RESUME", 29, None)])
+    assert t.frame_state(f).state == "returned"
+    t, f = _frame_with(tmp_path / "b", "unwind", VALERR,
+                       [("YIELD", 29, {"awaiting": "Future"}), ("RESUME", 29, None)])
+    assert t.frame_state(f) == FrameState("raised", None, VALERR)
+    t, f = _frame_with(tmp_path / "c", "unwind", CANCEL,
+                       [("YIELD", 29, {"awaiting": "Future"}),
+                        ("RESUME", 29, {"thrown": CANCEL})])
+    assert t.frame_state(f) == FrameState("cancelled", 29, CANCEL)
+    t, f = _frame_with(tmp_path / "d", "unwind", GENEXIT,
+                       [("YIELD", 23, {"awaiting": "NoneType"}),
+                        ("RESUME", 23, {"thrown": GENEXIT})], kind="generator")
+    assert t.frame_state(f) == FrameState("abandoned", 23, GENEXIT)
+    t, f = _frame_with(tmp_path / "e", "unwind", VALERR,
+                       [("YIELD", 23, {"awaiting": "NoneType"}),
+                        ("RESUME", 23, {"thrown": VALERR})], kind="generator")
+    assert t.frame_state(f) == FrameState("thrown", 23, VALERR)
+    t, f = _frame_with(tmp_path / "f", None, None,
+                       [("YIELD", 29, {"awaiting": "Future"})])
+    assert t.frame_state(f) == FrameState("suspended", 29, None)
+    t, f = _frame_with(tmp_path / "g", None, None, [])
+    assert t.frame_state(f) == FrameState("open", None, None)
+
+
+def test_frame_state_cancelled_requires_the_serials_to_match(tmp_path):
+    """A CancelledError thrown in and a DIFFERENT CancelledError raised
+    inside are two objects; only the serial says which one unwound the
+    frame. A type match alone would over-claim."""
+    other = dict(CANCEL, serial=99)
+    t, f = _frame_with(tmp_path, "unwind", other,
+                       [("YIELD", 29, {"awaiting": "Future"}),
+                        ("RESUME", 29, {"thrown": CANCEL})])
+    assert t.frame_state(f).state == "raised"
+
+
+def test_suspensions_returns_yield_and_resume_rows_in_order(tmp_path):
+    """Two suspend/resume cycles, with a LINE row in between: suspensions()
+    must return only the YIELD/RESUME rows, in id order, and must not drop
+    the RESUME half (a kind=YIELD-only filter would look right on one
+    cycle but silently lose every RESUME)."""
+    t, f = _frame_with(tmp_path, "unwind", CANCEL,
+                       [("YIELD", 29, {"awaiting": "Future"}),
+                        ("RESUME", 29, None),
+                        ("LINE", 30, {"deltas": {}}),
+                        ("YIELD", 31, {"awaiting": "Task"}),
+                        ("RESUME", 31, {"thrown": CANCEL})])
+    assert [(e.kind, e.line) for e in t.suspensions(f.id)] == [
+        ("YIELD", 29), ("RESUME", 29), ("YIELD", 31), ("RESUME", 31)]

@@ -326,16 +326,15 @@ def test_window_reentry_captures_a_location_missed_the_first_time(tmp_path):
     assert tags == ["in"]
 
 
-def test_abandoned_generator_does_not_wedge_window_open(tmp_path):
-    # A generator is frameless: no frame is opened for it, and PY_RETURN never
-    # arrives if it is abandoned mid-iteration. Its qualname must therefore
-    # never move window_depth, or the window stays open for the rest of the run
-    # and every later focused call is captured as if it were inside it.
+def test_window_is_ancestry_so_an_abandoned_generator_cannot_wedge_it(tmp_path):
+    """Membership in the window is derived from the frame's ANCESTRY, not
+    from a per-thread counter: a generator abandoned mid-iteration has no
+    descendants, so nothing later is "inside" it, counter or no counter."""
     t, err, tracer = record_inproc_full(
         tmp_path / "windowed", ABANDONED_GEN,
         focus=["prog:watched"], window="numbers")
     assert err is None
-    assert not any(tracer._tls.window_depths.values())   # no window left open
+    assert not hasattr(tracer._tls, "window_depths")
     assert t.events(kind="LINE") == []      # watched() ran outside the window
     # ...and the emptiness above is not vacuous: with no window at all, the
     # very same program does yield LINE events for watched().
@@ -345,6 +344,88 @@ def test_abandoned_generator_does_not_wedge_window_open(tmp_path):
     assert quals and set(quals) == {"watched"}
 
 
+TWO_TASK_WINDOW = """
+import asyncio
+
+def helper(tag):
+    x = tag
+    return x
+
+async def windowed():
+    helper("in")
+    await asyncio.sleep(0)       # suspends; the other task runs meanwhile
+    helper("in-again")
+
+async def other():
+    helper("out")                # runs while `windowed` is parked; do not
+    await asyncio.sleep(0)       # reorder these two lines (see the test)
+
+def main():
+    async def amain():
+        await asyncio.gather(windowed(), other())
+    asyncio.run(amain())
+"""
+
+
+def test_window_on_a_coroutine_excludes_another_tasks_helper_during_suspension(tmp_path):
+    """While `windowed` is parked, `other` calls helper("out") on the same
+    thread. A per-thread counter would count that as inside the window; the
+    ancestry flag does not, and helper("in-again") after the resume IS in.
+
+    The second assertion is what makes the first one mean that. `other`
+    calls helper BEFORE its own await, so that call really does land in
+    windowed's suspension -- and the event ids say so, rather than the
+    reader taking the program's layout on trust. Written the other way round
+    (`await` first) the tags come out the same while "out" runs after
+    windowed has already returned, and the test no longer discriminates the
+    ancestry flag from a per-thread counter at all."""
+    t, err = record_inproc(tmp_path, TWO_TASK_WINDOW,
+                           focus=["prog:helper"], window="windowed")
+    assert err is None
+    tags = [e.payload["deltas"]["x"]["v"] for e in t.events(kind="LINE")
+            if "x" in e.payload["deltas"]]
+    assert sorted(tags) == ["in", "in-again"]
+
+    def _of(kind, qual):
+        return [e for e in t.events(kind=kind)
+                if t.code(e.code_id).qualname == qual]
+    parked, = _of("YIELD", "windowed")
+    resumed, = _of("RESUME", "windowed")
+    out, = [e for e in _of("CALL", "helper")
+            if e.payload["args"]["tag"]["v"] == "out"]
+    assert parked.id < out.id < resumed.id
+
+
+GEN_IN_WINDOW = """
+def leaf(n):
+    x = n
+    return x
+
+def gen():
+    yield leaf(0)
+    yield leaf(1)
+
+def target():
+    return list(gen())
+
+def main():
+    leaf(5)          # outside the window
+    return target()
+"""
+
+
+def test_window_reaches_through_a_generator_intermediary(tmp_path):
+    """The window target calls a generator whose body calls the focused
+    leaf. Membership is ancestry, so this needs the generator to HAVE a
+    frame -- arc 2 gives it one, and the chain reaches through it."""
+    t, err = record_inproc(tmp_path, GEN_IN_WINDOW,
+                           focus=["prog:leaf"], window="target")
+    assert err is None
+    xs = [e.payload["deltas"]["x"]["v"] for e in t.events(kind="LINE")
+          if "x" in e.payload["deltas"]]
+    assert xs == [0, 1]
+
+
 def test_focusspec_reports_which_entries_matched():
     fs = FocusSpec(["main:worker", "main", "other:x"])
     assert fs.entries_matching("main", "worker") == ["main:worker", "main"]
@@ -352,35 +433,35 @@ def test_focusspec_reports_which_entries_matched():
     assert fs.entries_matching("other", "y") == []
 
 
-ASYNC_FOCUS = """
+# A coroutine that binds a local across a suspension. `worker()` in the old
+# ASYNC_FOCUS fixture (Task 3, deleted) never assigned a local at all, so it
+# emitted no LINE deltas and proved nothing about focus reaching a coroutine
+# frame -- this one does.
+CORO_FOCUS = """
 import asyncio
 
 def step(n):
     return n
 
 async def worker():
-    step(1)
+    y = step(1)
     await asyncio.sleep(0)
-    return step(2)
+    y = step(y + 1)
+    return y
 
 def main():
     return asyncio.run(worker())
 """
 
 
-def test_focus_that_matched_only_coroutine_code_is_reported(tmp_path):
-    t, err, tracer = record_inproc_full(tmp_path, ASYNC_FOCUS,
-                                        focus=["prog:worker", "prog:step"])
+def test_focus_on_a_coroutine_records_its_lines_with_locals(tmp_path):
+    t, err = record_inproc(tmp_path, CORO_FOCUS, focus=["prog:worker"])
     assert err is None
-    assert tracer.unframed_focus() == ["prog:worker"]      # step is framed
-    assert t.counts().get("LINE", 0) > 0                   # step's lines
+    lines = t.events(kind="LINE")
+    assert lines and {t.code(e.code_id).qualname for e in lines} == {"worker"}
+    ys = [e.payload["deltas"]["y"]["v"] for e in lines
+          if "y" in e.payload["deltas"]]
+    assert 1 in ys and 2 in ys
+    assert not hasattr(record_inproc_full(tmp_path / "b", CORO_FOCUS)[2],
+                       "unframed_focus")
 
-
-def test_focus_entry_that_matched_framed_and_unframed_code_is_not_reported(
-        tmp_path):
-    """A module-wide entry matched worker (frameless) AND step (framed): it
-    did capture lines, so it is not "only coroutine code" and must not warn."""
-    t, err, tracer = record_inproc_full(tmp_path, ASYNC_FOCUS, focus=["prog"])
-    assert err is None
-    assert tracer.unframed_focus() == []
-    assert t.counts().get("LINE", 0) > 0

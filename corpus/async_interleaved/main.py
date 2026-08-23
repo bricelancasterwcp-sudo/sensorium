@@ -5,10 +5,12 @@ so the value that survives is always the one B wrote.
 
 The values carry no identity. Both tasks write 1 and then 2, so the surviving
 2 says nothing about who wrote it and neither does a print of every write:
-the helper is handed a number, never a name. The only framed code inside the
-tasks is the sync helper `update`; the coroutine bodies are unframed. v1
-parented every `update` to `<module>` and recorded no task at all, so the
-question "which task made the final write?" had no answer in the trace.
+the helper is handed a number, never a name. What the trace supplies is the
+shape the values cannot -- each `update` is a child of the coroutine frame
+that called it, and each coroutine frame sits under the task it ran in, so
+the last write is attributable all the way up. v1 parented every `update` to
+`<module>` and recorded no task at all, so the question "which task made the
+final write?" had no answer in the trace at all.
 """
 import asyncio
 

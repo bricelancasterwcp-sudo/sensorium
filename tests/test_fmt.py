@@ -2,6 +2,7 @@ import pytest
 
 from sensorium import cli
 from sensorium.query import fmt
+from sensorium.query.fmt import fmt_event
 from sensorium.store.reader import Trace
 from tests.helpers import record_script
 from tests.programs import CLEAN, record
@@ -216,3 +217,20 @@ def test_fmt_event_renders_all_five_kinds_from_a_real_trace(tmp_path):
     line = next(e for e in trace.events(kind="LINE") if e.line == 4)
     assert fmt.fmt_event(trace, line) == (
         f"e{line.id} {'LINE':<7} work L4  total=6")
+
+
+def test_fmt_event_renders_yield_and_resume():
+    class E:
+        def __init__(self, kind, line, payload, eid=12):
+            self.id, self.kind, self.line, self.payload, self.code_id = eid, kind, line, payload, 1
+    class T:
+        def code(self, cid):
+            class C: qualname = "worker"
+            return C()
+    t = T()
+    assert fmt_event(t, E("YIELD", 29, {"awaiting": "Future"})) == \
+        "e12 YIELD   worker L29 awaiting Future"
+    assert fmt_event(t, E("RESUME", 29, None, 14)) == "e14 RESUME  worker L29"
+    assert fmt_event(t, E("RESUME", 29, {"thrown": {"type": "CancelledError",
+                                                   "msg": "", "oid": 1}}, 15)) == \
+        "e15 RESUME  worker L29 thrown CancelledError('')"

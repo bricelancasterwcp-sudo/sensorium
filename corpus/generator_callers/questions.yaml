@@ -5,10 +5,12 @@ questions:
       parse ran three times. Who called it -- main, which consumed the
       generator, or the generator body?
     truth: >
-      The generator `rows` called parse every time; rows is frameless, so
-      each parse frame has no parent and is tagged "<- rows (unframed)".
-      The rows() call itself appears as an unframed event under main's
-      frame, which is the frame that was open when it was called.
+      The generator `rows` called parse every time. `rows` has a frame of
+      kind `generator`, sitting under main's frame where it was called, and
+      the three parse frames are its children -- indented under it, the way
+      any ordinary call's children are. Nothing is tagged as unframed and
+      no `<- rows` caller tag is needed, because the caller has a frame to
+      be the parent.
     why_logs_fail: >
       A print in parse proves it ran and what it got, not whose line called
       it; the fact being asked is the shape of the call, and a log entry is
@@ -17,10 +19,16 @@ questions:
       generator.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["rows(", "[generator, unframed]"]
-      - ["parse(s='10')", "<- rows (unframed)"]
-    expect_count: {"<- rows (unframed)": 3}
-    expect_absent: ["task t"]
+      - ["rows(", "[generator]"]
+      # Six spaces: parse is a child of the generator frame, which is
+      # itself a child of main.
+      - ["      f", "parse(s='10')", "-> 10"]
+      - ["      f", "parse(s='30')", "-> 30"]
+    expect_count: {"[generator]": 1}
+    expect_absent:
+      - "<- rows"
+      - "unframed"
+      - "task t"
   - id: key-fn-is-a-child-of-main
     ask: >
       rank was called from inside sorted(), which is C. Does the trace

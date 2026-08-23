@@ -430,6 +430,35 @@ main()
 
 RETENTION_NOISE_COUNT = _RETAIN_MAX + 6
 
+# The same bound crossed by CONTROL FLOW rather than by exceptions. `any()`
+# stops at its first true element and drops the generator expression it is
+# consuming; CPython throws GeneratorExit into that generator, and the genexpr
+# is defined in this file, so the recorder sees the throw on a TRACED frame.
+# None of it is a recorded exception -- `_exc_event` drops control-flow types
+# -- yet the throw path mints a serial for each one, so enough early exits
+# used to evict the stashed ValueError from a table that exists to link real
+# exceptions. Generator-heavy code hits this in ordinary use: the loop below
+# is 70 `any(...)` calls, not a pathological construction.
+STASH_PAST_GENERATOR_EXITS = f"""
+def stash():
+    try:
+        raise ValueError("kept")
+    except ValueError as e:
+        return e
+
+def early_exits(n):
+    for _ in range(n):
+        if not any(v > 0 for v in (1, 2, 3)):
+            raise AssertionError("unreachable")
+
+def main():
+    saved = stash()
+    early_exits({_RETAIN_MAX + 6})
+    raise saved
+
+main()
+"""
+
 # Serials are minted per thread, so two worker threads both start at 1. If the
 # classifier keyed on the serial alone it would fuse two unrelated exceptions
 # from different threads into one identity.
@@ -470,8 +499,9 @@ def main():
 main()
 """
 
-# Generators are frameless by design (no frame is opened), so RAISE and
-# HANDLED both carry frame_id NULL and there is no closed_by to read.
+# A handler inside a generator. Until frames covered generators there was no
+# `closed_by` to read here and the verdict was withheld; the generator body is
+# framed now, so this swallow is decidable like any other.
 GENERATOR_HANDLES = """
 def gen(items):
     for it in items:
@@ -482,6 +512,152 @@ def gen(items):
 
 def main():
     print(list(gen(["1", "x", "3"])))
+
+main()
+"""
+
+# Swallowed inside a coroutine, which is LATER killed by a CancelledError
+# thrown in at its next suspension point. The frame unwinds -- but with
+# something delivered after the handler ran, which says nothing about the
+# ValueError the handler kept.
+CORO_SWALLOW_THEN_CANCELLED = """
+import asyncio
+GATE = None
+
+async def worker():
+    try:
+        int("x")
+    except ValueError:
+        pass                      # swallowed inside the coroutine
+    await GATE.wait()             # then the task is cancelled here
+
+async def amain():
+    global GATE
+    GATE = asyncio.Event()
+    t = asyncio.create_task(worker())
+    await asyncio.sleep(0)
+    t.cancel()
+    try:
+        await t
+    except asyncio.CancelledError:
+        pass
+
+asyncio.run(amain())
+"""
+
+# The cancel is caught inside the coroutine and let straight back out. The
+# frame IS unwound by an exception thrown into it -- but by THIS one, so the
+# thrown-in rule must stay silent: nothing in `worker` swallowed it.
+CORO_RERAISES_ITS_CANCEL = """
+import asyncio
+GATE = None
+
+async def worker():
+    try:
+        await GATE.wait()
+    except asyncio.CancelledError:
+        raise                     # caught, and let straight back out
+
+async def amain():
+    global GATE
+    GATE = asyncio.Event()
+    t = asyncio.create_task(worker())
+    await asyncio.sleep(0)
+    t.cancel()
+    try:
+        await t
+    except asyncio.CancelledError:
+        pass
+
+asyncio.run(amain())
+"""
+
+# Caught inside a coroutine and STASHED -- handed out of the frame by
+# reference, exactly as `except E as e: return e` does -- and the frame is
+# then cancelled. The handler frame did not return normally AND the exception
+# is raised again later: both facts have to survive into the verdict.
+CORO_STASH_THEN_CANCELLED = """
+import asyncio
+GATE = None
+STASH = []
+
+async def worker():
+    try:
+        int("x")
+    except ValueError as e:
+        STASH.append(e)           # kept, not swallowed: handed out of here
+    await GATE.wait()             # then the task is cancelled here
+
+async def amain():
+    global GATE
+    GATE = asyncio.Event()
+    t = asyncio.create_task(worker())
+    await asyncio.sleep(0)
+    t.cancel()
+    try:
+        await t
+    except asyncio.CancelledError:
+        pass
+    raise STASH[0]                # the stashed exception, raised again
+
+asyncio.run(amain())
+"""
+
+# Swallowed inside a generator that is then DROPPED while parked: CPython
+# throws GeneratorExit into it at the yield. A death delivered after the
+# handler ran, like a cancel -- and named in its own words.
+GEN_SWALLOW_THEN_DROPPED = """
+def gen():
+    try:
+        int("x")
+    except ValueError:
+        yield -1                  # swallowed, then dropped while parked here
+    yield 0
+
+def main():
+    g = gen()
+    next(g)
+    del g                         # GeneratorExit thrown in at the yield
+
+main()
+"""
+
+# Swallowed inside a generator that is then thrown INTO by its driver. Same
+# shape as a cancel, but the exception is an ordinary one, so the tail has to
+# name it rather than claim the frame itself was "thrown".
+GEN_SWALLOW_THEN_THROWN = """
+def gen():
+    try:
+        int("x")
+    except ValueError:
+        yield -1                  # swallowed, then KeyError thrown in here
+    yield 0
+
+def main():
+    g = gen()
+    next(g)
+    g.throw(KeyError("k"))        # not caught: the run ends here
+
+main()
+"""
+
+# Swallowed inside a generator that is then parked forever: the frame is still
+# suspended when recording stops, so nothing says what it would have done with
+# the exception. The honest answer stays "ambiguous".
+GEN_SWALLOW_THEN_PARKED = """
+KEEP = []
+
+def gen():
+    try:
+        int("x")
+    except ValueError:
+        yield -1                  # swallowed, then parked here for good
+    yield 0
+
+def main():
+    g = gen()
+    next(g)
+    KEEP.append(g)
 
 main()
 """

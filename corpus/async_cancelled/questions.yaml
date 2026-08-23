@@ -3,10 +3,16 @@ questions:
   - id: did-b-finish
     ask: The total is 4, not 6. Did task-B's second step ever run?
     truth: >
-      No. task-B's group holds the unframed worker call and exactly one
-      step (n=1); the only step(n=2) in the trace ran in task-A's group.
-      Two tasks appended 1 and one task appended 2, which is the whole of
-      the missing 2 in the total.
+      No. task-B's group holds the worker's coroutine frame and exactly one
+      step (n=1) inside it; the only step(n=2) in the trace ran in task-A's
+      group. Two tasks appended 1 and one task appended 2, which is the
+      whole of the missing 2 in the total.
+
+      The coroutine frame also says why it stopped rather than leaving the
+      absence to be inferred from a missing child: its tail reads
+      `~ cancelled (CancelledError thrown in at L29)` -- the frame did not
+      return, it was killed at the await, and the step after that await was
+      never reached.
     why_logs_fail: >
       No print site in this program names the task. A print in
       step gives 1, 1 and 2: a second step ran and none of the three lines
@@ -20,16 +26,21 @@ questions:
     command: ["tree", "$RUN"]
     expect_line:
       - ["task t3: task-B"]
-      - ["worker()", "[coroutine, unframed]"]
+      - ["worker()", "[coroutine]", "~ cancelled (CancelledError thrown in at L29)"]
     expect_count: {"step(n=1)": 2, "step(n=2)": 1}
+    # Every call is framed in this format; an unframed shape here would mean
+    # the coroutine lost its frame and the steps their parent.
+    expect_absent: ["unframed"]
   - id: whose-second-step-was-it
     ask: >
       Exactly one second step ran. Which task did it belong to -- the one
       that was cancelled, or the other?
     truth: >
       The third step activation is the only n=2, and its frame belongs to
-      task t2 (task-A), at depth 0 because its caller -- the coroutine
-      worker -- opened no frame. task-B never reached its second step.
+      task t2 (task-A). It sits at depth 1, because its caller -- the
+      coroutine `worker` -- now has a frame of its own and is that step's
+      parent; the step is inside the surviving worker, not floating at the
+      root of the task. task-B never reached its second step.
     why_logs_fail: >
       Ordering a print by hand gives 1, 1, 2 in that order, which tells you
       a second step ran third and nothing about which task ran it; the two
@@ -39,19 +50,18 @@ questions:
       Task membership is not in any value either function receives.
     command: ["frame", "$RUN", "--fn", "step", "--nth", "3"]
     expect_line:
-      - ["step", "task t2 (task-A)", "depth 0"]
+      - ["step", "task t2 (task-A)", "depth 1"]
       - ["args:", "n=2"]
   - id: where-was-b-when-cancelled
     ask: >
       Where was task-B suspended when the cancellation reached it -- at
       which line was it parked?
     truth: >
-      It had started and had done step 1 (its group holds a step(n=1)), and
-      it was parked at `await GATE.wait()` on line 29: the trace holds a
-      RAISE of CancelledError inside `worker` at L29, which is the
-      suspension point the cancellation was delivered to. `worker` opens no
-      frame, so no disposition is claimed for that raise -- the location is
-      the answer, not a verdict about handling.
+      At `await GATE.wait()` on line 29. task-B's `worker` frame is the
+      second of the two, it belongs to task t3 (task-B), and its derived
+      state is `cancelled at L29`: it was parked at that await, a
+      CancelledError was thrown in there, and the frame unwound carrying it.
+      It had already done step 1 before parking, which its one child shows.
     why_logs_fail: >
       The cancellation is delivered at a suspension point inside the
       coroutine and travels back out through it without touching any user
@@ -61,6 +71,37 @@ questions:
       and the one being asked. Naming the suspension point from prints
       means bracketing every await with a pair of them, which is exactly
       the instrumentation this tool exists to make unnecessary.
+    command: ["frame", "$RUN", "--fn", "worker", "--nth", "2"]
+    expect_line:
+      - ["worker", "[coroutine]", "task t3 (task-B)", "state: cancelled at L29"]
+      - ["unwound:", "CancelledError"]
+    expect_contains: ["closed: unwind"]
+    expect_absent: ["return:"]
+  - id: what-became-of-the-cancel
+    ask: >
+      The CancelledError that killed task-B -- where was it raised, and did
+      anything in this program end up keeping it?
+    truth: >
+      It is raised inside `worker` at line 29, the await it was delivered
+      to, and it ends in main's `except asyncio.CancelledError: pass` at
+      line 43: caught in main's frame, which returned normally, and never
+      raised again. So the disposition is swallowed, once.
+
+      This is a fact about the whole path, not about either end of it: the
+      raise site is inside a coroutine in one task and the handler is in a
+      different coroutine in another, with the exception crossing between
+      them through `await b`.
+    why_logs_fail: >
+      A print in main's handler shows that something was caught there and
+      not where it came from -- the traceback of a cancellation delivered at
+      an await names the await, but only if something prints it, and `pass`
+      prints nothing by construction. The two facts wanted here sit in two
+      functions that never see each other's frames, so answering from logs
+      means adding a print at both ends and trusting that the two lines
+      belong to each other.
     command: ["exceptions", "$RUN"]
     expect_line:
       - ["RAISE", "worker", "CancelledError", "L29"]
+      - ["SWALLOWED at e", "main", "L43", "which returned normally"]
+    expect_contains: ["dispositions: swallowed 1"]
+    expect_absent: ["no frame recorded", "ambiguous"]

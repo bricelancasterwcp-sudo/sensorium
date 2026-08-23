@@ -15,8 +15,8 @@ from sensorium import cli, paths
 from sensorium.store.reader import Trace
 from tests.programs import (
     CLEANUP_RAISES_ITS_OWN, IN_FLIGHT_PAST_RETENTION, RETENTION_NOISE_COUNT,
-    STASH_AND_RERAISE, STASH_NOISE_RERAISE, STASH_PAST_RETENTION, exc_payload,
-    record, synthetic)
+    STASH_AND_RERAISE, STASH_NOISE_RERAISE, STASH_PAST_GENERATOR_EXITS,
+    STASH_PAST_RETENTION, exc_payload, record, synthetic)
 
 
 def _verdict_under(out: str, event_id: int) -> str:
@@ -53,6 +53,40 @@ def test_exceptions_keeps_a_stash_linked_across_an_unrelated_exception(
     assert "returned normally -- then raised again at e" in verdict
     assert out.count("SWALLOWED") == 1            # only noise() swallows
     assert "dispositions: swallowed 1, uncaught 1, re-raised 1" in out
+
+
+def test_early_exit_generators_do_not_evict_a_stashed_exception(
+        tmp_path, monkeypatch, capsys):
+    """70 `any(genexpr)` early exits between a stash and its re-raise.
+
+    Each one drops a generator, so CPython throws GeneratorExit into a frame
+    this recorder traces. Those throws are control flow: `exceptions` never
+    records them, and the only rows their serial can reach are the frame's
+    own RESUME and unwind. Minting them from the table that links real
+    exceptions used to push the stashed ValueError out of it in ordinary
+    generator-heavy code, degrading a plain `raise saved` to `ambiguous ...
+    different recorder identity`.
+    """
+    run_id = record(tmp_path, monkeypatch, STASH_PAST_GENERATOR_EXITS)
+    trace = Trace.open(paths.find_trace(run_id))
+    # The shape is real: the early exits really did throw, on traced frames.
+    thrown = [e for e in trace.events(kind="RESUME")
+              if (e.payload or {}).get("thrown", {}).get("type")
+              == "GeneratorExit"]
+    assert len(thrown) >= RETENTION_NOISE_COUNT, (
+        "the genexprs were not dropped; this shape tests nothing")
+    vals = [e for e in trace.events(kind="RAISE")
+            if e.payload["exc"]["type"] == "ValueError"]
+    assert len(vals) == 2                       # raised, stored, raised again
+    assert len({v.payload["exc"]["serial"] for v in vals}) == 1, (
+        "one object must keep one serial across 70 dropped generators")
+
+    assert cli.main(["exceptions", run_id, "--limit", "200"]) == 0
+    out = capsys.readouterr().out
+    verdict = _verdict_under(out, vals[0].id)
+    assert "returned normally -- then raised again at e" in verdict
+    assert "different recorder identity" not in out
+    assert "dispositions: uncaught 1, re-raised 1" in out
 
 
 def test_exceptions_serial_survives_a_raise_inside_cleanup(
