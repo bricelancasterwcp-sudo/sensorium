@@ -893,3 +893,29 @@ def test_late_write_guard_classifies_every_public_writer_method():
         f"unclassified TraceWriter method(s): {sorted(public - delegated - deliberate)}")
     for name in delegated:
         assert callable(getattr(_LateWriteGuard, name)), name
+
+
+def test_console_script_return_value_is_the_exit_status(sandbox, monkeypatch):
+    """pip's console-script wrapper is `sys.exit(main())`, so a `main` that
+    returns 2 exits 2. The recorder must report THAT status -- `runs`, `info`
+    and refocus's "the two runs ended differently" all read it -- not the 0
+    of a function that merely returned. Found by sweeping assay under the
+    recorder: `assay cover` refusals (main -> 2) were recorded as exit 0 while
+    `-m assay cover` recorded 2."""
+    def entry():
+        return 2
+
+    class FakeEP:
+        def load(self):
+            return entry
+
+    def fake_entry_points(*, group=None, name=None):
+        if group == "console_scripts" and name == "mytool":
+            return [FakeEP()]
+        return []
+
+    monkeypatch.setattr(boot.importlib.metadata, "entry_points",
+                        fake_entry_points)
+    run_id, status = boot.run_target(["mytool"])
+    assert status == 2
+    assert _trace_of(run_id).meta["exit_status"] == 2

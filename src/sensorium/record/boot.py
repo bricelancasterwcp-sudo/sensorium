@@ -90,7 +90,15 @@ def _console_script_target(argv: list[str]):
 
         def run_script():
             sys.argv = list(argv)
-            fn()
+            # Exactly what pip's generated wrapper does: `sys.exit(main())`.
+            # A console script's `main` usually RETURNS its status (assay,
+            # pytest's own wrapper, every `return 2` refusal) rather than
+            # raising SystemExit; dropping that return recorded exit 0 for
+            # a program that exited 2, and `runs`/`info`/refocus's "ended
+            # differently" check all read the recorded status. None -> 0,
+            # an int -> that int, anything else -> CPython's own exit-1
+            # answer, all via `_exit_status_of`.
+            raise SystemExit(fn())
         return run_script
     raise TargetError(
         f"cannot resolve target {cmd!r}: not a .py file, -m module, "
