@@ -442,7 +442,7 @@ def drop_meta(path, *keys):
 
 
 def synthetic(sdir, run_id, *, argv=("prog.py",), cwd=None, late_writes=0,
-              main_thread_ident=1, fingerprint="aaaabbbbccccdddd"):
+              main_thread_ident=1, fingerprint="aaaabbbbccccdddd", tasks=()):
     """A hand-built trace, for shapes the recorder cannot produce on demand:
     dropped late writes, a legacy trace with no recorded main thread, a
     trace with no per-thread fingerprint at all, and corrupt metadata that
@@ -451,6 +451,11 @@ def synthetic(sdir, run_id, *, argv=("prog.py",), cwd=None, late_writes=0,
     `fingerprint=None` omits the fingerprint row. Both sides of a comparison
     must use the same digest, or the whole-thread check will report them as
     diverged for a reason the test did not intend.
+
+    `tasks` is a list of `(task_id, name, thread_id)` rows. No
+    `fingerprint_basis` is written, so a trace built with tasks here is
+    exactly the shape an older recorder left behind: tasks ran, and the
+    thread fingerprint covers their events.
     """
     path = Path(sdir) / "traces" / f"{run_id}.db"
     w = TraceWriter(path)
@@ -469,6 +474,8 @@ def synthetic(sdir, run_id, *, argv=("prog.py",), cwd=None, late_writes=0,
         w.set_meta("main_thread_ident", main_thread_ident)
     c = w.intern_code("/tmp/prog.py", "main", 1)
     w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
+    for task_id, name, thread_id in tasks:
+        w.add_task(task_id, name, thread_id)
     if fingerprint is not None:
         w.write_fingerprint(1, fingerprint, 1)
     w.close()
@@ -565,4 +572,171 @@ def main():
 
 if __name__ == "__main__":
     main()
+"""
+
+
+# -- asyncio: what a task compares by, and what it does not -----------------
+
+# Two named tasks whose START ORDER flips between the original and the
+# rerun (a counter file decides, as in COUNTER), while each task does
+# identical work. Refocus must say MATCH: tasks are compared by content,
+# never by the order they interleaved in.
+ASYNC_ORDER_FLIP = """
+import asyncio
+from pathlib import Path
+COUNTER = Path("run_count.txt")
+
+def step(n):
+    return n
+
+async def worker(name):
+    step(1)
+    await asyncio.sleep(0)
+    step(2)
+
+async def amain(order):
+    names = ["A", "B"] if order else ["B", "A"]
+    await asyncio.gather(*[asyncio.create_task(worker(n), name=f"task-{n}")
+                           for n in names])
+
+def main():
+    n = int(COUNTER.read_text()) if COUNTER.exists() else 0
+    COUNTER.write_text(str(n + 1))
+    asyncio.run(amain(n % 2 == 0))
+
+if __name__ == "__main__":
+    main()
+"""
+
+# Same, but task-B takes another branch on the rerun -- and the start order
+# is held fixed, so the only difference between the two runs is one task's
+# CONTENT: DIVERGED, naming task-B and the first differing step.
+ASYNC_CONTENT_FLIP = ASYNC_ORDER_FLIP.replace(
+    "async def worker(name):\n    step(1)\n    await asyncio.sleep(0)\n"
+    "    step(2)",
+    "def other(n):\n    return -n\n\nasync def worker(name):\n    step(1)\n"
+    "    await asyncio.sleep(0)\n    if name == 'B' and not FIRST[0]:\n"
+    "        other(2)\n    else:\n        step(2)").replace(
+    "COUNTER = Path(\"run_count.txt\")",
+    "COUNTER = Path(\"run_count.txt\")\nFIRST = [True]").replace(
+    "    asyncio.run(amain(n % 2 == 0))",
+    "    FIRST[0] = n % 2 == 0\n    asyncio.run(amain(True))")
+
+# The rerun spawns a third worker: DIVERGED with a task stream that has no
+# counterpart on the original side at all.
+ASYNC_COUNT_FLIP = ASYNC_ORDER_FLIP.replace(
+    "    names = [\"A\", \"B\"] if order else [\"B\", \"A\"]",
+    "    names = [\"A\", \"B\"] if order else [\"A\", \"B\", \"C\"]")
+
+# A thread that ran traced code ONLY inside an asyncio task: `asyncio.run`
+# is the thread target itself, so nothing outside the task ever runs on it.
+# Under the per-task basis its thread row therefore counts zero events --
+# the row exists because the thread was there, and without it `refocus`
+# would describe this thread as one that "ran no traced code", which is the
+# opposite of what happened (it ran all of it, inside a task).
+ASYNC_IN_THREAD = """
+import asyncio
+import threading
+
+def helper(n):
+    return n + 1
+
+async def worker():
+    helper(1)
+    await asyncio.sleep(0)
+    return helper(2)
+
+def main():
+    t = threading.Thread(target=asyncio.run, args=(worker(),))
+    t.start()
+    t.join()
+    print("joined")
+
+if __name__ == "__main__":
+    main()
+"""
+
+# The commonest async shape: the entry does nothing but `asyncio.run`, so
+# every traced call happens inside a task and the thread's own stream is
+# the module frame and nothing else. What the compared thread fingerprint
+# covers here is two events; the tasks carry the run.
+ALL_IN_TASKS = """
+import asyncio
+
+def step(n):
+    return n
+
+async def worker(name):
+    step(1)
+    await asyncio.sleep(0)
+    return step(2)
+
+async def amain():
+    await asyncio.gather(*[asyncio.create_task(worker(n), name=f"task-{n}")
+                           for n in ("A", "B")])
+
+asyncio.run(amain())
+"""
+
+# Same, with the traced code in an imported module, the import made from
+# inside the coroutine, and the entry excluded from tracing: now NOTHING
+# ran outside a task -- not even a module frame -- so the compared thread
+# stream is empty and its fingerprint row (Ruling 5) holds zero events.
+TASKS_IN_LIB = """
+import asyncio
+
+
+async def amain():
+    import taskslib
+    await taskslib.run_all()
+
+asyncio.run(amain())
+"""
+
+LIB_TASKS = """
+import asyncio
+
+
+def step(n):
+    return n
+
+
+async def worker(name):
+    step(1)
+    await asyncio.sleep(0)
+    return step(2)
+
+
+async def run_all():
+    await asyncio.gather(*[asyncio.create_task(worker(n), name=f"task-{n}")
+                           for n in ("A", "B")])
+"""
+
+
+# A run that creates NO task at all, and a rerun that creates three. The
+# entry is excluded from tracing and the traced module is imported at module
+# scope, so the thread stream -- what ran outside every task -- is the same
+# two events either way: the difference is a task stream present on one side
+# only, with nothing to have taken a different path. `n_a == 0`.
+TASKS_ON_RERUN_ONLY = """
+import asyncio
+from pathlib import Path
+
+import taskslib
+
+COUNTER = Path("run_count.txt")
+
+
+async def amain(spawn):
+    if spawn:
+        await taskslib.run_all()
+
+
+def main():
+    n = int(COUNTER.read_text()) if COUNTER.exists() else 0
+    COUNTER.write_text(str(n + 1))
+    asyncio.run(amain(n % 2 == 1))
+
+
+main()
 """

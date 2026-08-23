@@ -16,10 +16,18 @@ is a statement about *call shape*, and the licence sentence is a statement
 about *the whole run*. They are now three different things:
 
 * **VERDICT** (MATCH / DIVERGED / REFUSED) is about causal shape, across
-  EVERY recorded thread. `diff_cmd.compare()` owns the compared thread and
-  pinpoints where it parted; `_thread_divergence` widens that to the rest,
-  because spec section 4 says refocus compares per-thread fingerprints and a
-  worker that took another path means the rerun was a different execution.
+  EVERY recorded thread AND every asyncio task. `diff_cmd.compare()` owns
+  the compared thread and pinpoints where it parted; `_thread_divergence`
+  widens that to the rest, because spec section 4 says refocus compares
+  per-thread fingerprints and a worker that took another path means the
+  rerun was a different execution. `_task_divergence` is the same argument
+  one level down: under the per-task basis the compared thread stream holds
+  only what ran outside every task, so a task that took another path leaves
+  it identical -- and `compare()` reports that as DIVERGED with no `index`,
+  because the difference is not a step of the stream those keys describe.
+  Task streams are matched by CONTENT, never by the order they interleaved
+  in, which is why an order flip is a MATCH and the ordering is named in the
+  blind spots rather than compared.
 * **LICENCE** is withheld on *every* honesty signal this tool can check --
   a source file's contents moved, the environment moved, the program's own
   output differs, the two runs exited differently, threads were involved at
@@ -43,11 +51,12 @@ escape.
 
 WHAT A MATCH LICENSES, AND WHAT IT DOES NOT
 -------------------------------------------
-MATCH means: every recorded thread produced the identical sequence of
-(file, qualname, kind) for CALL/RETURN/RAISE/HANDLED. That is the *shape* of
-the execution and nothing else. It does NOT say the arguments were the same,
-the return values were the same, the timing was the same, the per-line state
-was the same, or that the threads interleaved the same way.
+MATCH means: every recorded thread -- and every asyncio task beside it --
+produced the identical sequence of (file, qualname, kind) for
+CALL/RETURN/RAISE/HANDLED. That is the *shape* of the execution and nothing
+else. It does NOT say the arguments were the same, the return values were
+the same, the timing was the same, the per-line state was the same, or that
+the threads interleaved the same way -- or the tasks.
 
 Deterministic replay is explicitly out of scope. For a program whose control
 flow depends on state outside the process, DIVERGED is not a failure of this
@@ -124,6 +133,15 @@ The one cross-check available is the program's own captured output, which
 the counting-`__repr__` case) but it is not a proof: a side effect that
 prints nothing leaves nothing to compare. So the blind spot is stated on
 every verdict rather than papered over.
+
+WHERE THE CODE IS
+-----------------
+This file owns the verdict, the assessment that ties the findings to it, the
+stamp and the report. The FINDINGS themselves -- the source-tree check, the
+environment check, the output comparison, the licence caveats and the
+verified facts -- live in `refocus_world`, which decides nothing and prints
+nothing. Every name below that starts `_source_`, `_env_`, `_output_`,
+`_licence_` or `_verified_` is imported from there and re-exported here.
 """
 import os
 import sys
@@ -131,35 +149,17 @@ from collections import Counter
 from pathlib import Path
 
 from sensorium import paths
-from sensorium.query.diff_cmd import compare, print_comparison
+from sensorium.query.diff_cmd import (compare, print_comparison,
+                                      task_drill_lines)
+# The evidence layer, split out at this file's 800-line ceiling. Re-exported
+# so `refocus_cmd.<name>` keeps resolving: these are one command's internals
+# living in two files, not two modules with two surfaces.
+from sensorium.query.refocus_world import (  # noqa: F401
+    _UNCOMPARED_ENV, _clip, _env_diff, _env_state, _licence_caveats,
+    _output_difference, _output_text, _source_state, _spawn_witnessed,
+    _verified_facts)
 from sensorium.store import db
 from sensorium.store.reader import Trace
-
-# Shell bookkeeping that differs between any two consecutive commands and
-# says nothing about the program. Deliberately tiny: every name here is a
-# name refocus has stopped checking.
-_UNCOMPARED_ENV = frozenset({
-    "_",            # bash: the previous command's last argument
-    "OLDPWD",
-    "PWD",          # os.chdir does not update it; it names the calling shell
-    "SHLVL",
-    # Not shell bookkeeping: the recorder's OWN variable, which
-    # `_pin_trace_store` rewrites from a relative path to the absolute form
-    # of the same directory before the target runs. The environment compared
-    # here is snapshotted AFTER that rewrite, so it is the environment the
-    # program actually executed under -- and this key is excluded rather
-    # than reported as a change the world made, because the change is ours.
-    # A program that reads SENSORIUM_DIR therefore goes unchecked, which is
-    # exactly why the name is printed rather than hidden behind a count.
-    "SENSORIUM_DIR",
-})
-# COLUMNS and LINES were on this list and are not any more. They are terminal
-# geometry, which most shells do not export at all and which changes only on
-# a resize -- so ignoring them bought almost nothing, and cost a real hole: a
-# program that sizes its output by COLUMNS wrote 80 bytes in one run and 9000
-# in the other under a full licence. Every name above is a name this tool has
-# stopped checking, so the list stays as short as it can be, and the names
-# themselves are printed beside the count rather than left as "5 keys".
 
 # Printed on every verdict, and CATEGORICAL on purpose.
 #
@@ -190,8 +190,13 @@ _BLIND_SPOTS = (
     "  - any environment variable this run did not compare; the ones it "
     "skipped are named above",
     "  - the clock, the network, and everything else the machine did",
-    "  - argument and return values, per-line state, timing, and the order "
-    "threads ran in relative to one another: recorded, never compared",
+    # The task clause is not decoration: this version deliberately compares
+    # task streams as a multiset, so an order flip comes back MATCH. The
+    # thing a verdict is built on NOT looking at has to be stated on every
+    # verdict, or the MATCH reads as "the tasks ran the same way".
+    "  - argument and return values, per-line state, timing, the order "
+    "threads ran in relative to one another, and the order asyncio tasks "
+    "interleaved in: recorded, never compared",
     "  - the recorder's own footprint: deeper capture runs the program's "
     "__repr__ inside hooks that suppress themselves, so an instrument that "
     "changes the program leaves no mark on the fingerprint",
@@ -219,12 +224,20 @@ def add_parser(sub) -> None:
 
 
 # -- may this program be re-run at all? ------------------------------------
-def _refusal(meta: dict) -> str | None:
+def _refusal(meta: dict, trace: Trace | None = None) -> str | None:
     """Why re-running this recorded command would be illegitimate.
 
     Order is load-bearing: `incomplete` is checked before `stdin_consumed`
     because an incomplete trace does not have a `stdin_consumed` key to
-    check -- see the module docstring.
+    check -- see the module docstring. The fingerprint-basis check comes
+    before the argv/cwd gates for a different reason: those two ask whether
+    the world still allows a rerun, and this one asks whether any verdict
+    against this trace could mean anything. A trace whose directory is also
+    gone is better told the durable reason -- re-recording is the fix for
+    both, and restoring the directory is the fix for neither.
+
+    `trace` is optional only so the metadata-shaped refusals stay callable
+    from a bare dict; every real call site passes the opened trace.
     """
     if meta.get("incomplete"):
         return ("original trace is INCOMPLETE -- recording ended without a "
@@ -236,6 +249,20 @@ def _refusal(meta: dict) -> str | None:
         return ("original run consumed stdin -- marked non-refocusable: a "
                 "rerun reads different stdin, or none, so it could not be "
                 "the same execution and no verdict about it would be honest")
+    # A trace recorded before task fingerprints existed defines its thread
+    # stream to INCLUDE the events that ran inside asyncio tasks; this
+    # version defines it to exclude them and compares the tasks separately.
+    # Comparing across that seam would put every task event on one side
+    # only, so `diff` refuses it -- and refusing it here as well means the
+    # rerun, which has side effects, never happens for an answer that could
+    # not have been issued anyway.
+    tasks = trace.tasks() if trace is not None else []
+    if tasks and trace.fingerprint_basis == "per-thread":
+        return (f"original was recorded under the per-thread fingerprint "
+                f"basis and ran {len(tasks)} asyncio task(s); this version "
+                "compares tasks by content and defines thread streams "
+                "without them, so no verdict against it would compare like "
+                "with like -- re-record it with this version")
     if not meta.get("argv"):
         return "original trace records no command to re-run"
     cwd = meta.get("cwd")
@@ -300,113 +327,6 @@ def _pin_trace_store() -> None:
         os.environ["SENSORIUM_DIR"] = str(Path(sdir).resolve())
 
 
-# -- the world the rerun will run in ---------------------------------------
-def _source_state(meta: dict) -> tuple[str, str | None, str | None]:
-    """(status line, caveat or None, verified fact or None), by CONTENTS.
-
-    Deliberately not `git_dirty_hash`. That hash covers the output of
-    `git status --porcelain` -- a list of paths and status letters -- so a
-    file already dirty when the original ran can be edited arbitrarily,
-    including the program being executed, without moving it. It would let
-    the tool print "source: unchanged" over a rerun of different code, which
-    is the one thing a licence gate must never do. Gitignored and
-    out-of-repo files are outside it too.
-
-    `source_hashes` is the digest of every file the ORIGINAL run interned
-    traced code from, plus its entry target, taken at record time. Comparing
-    those same paths' contents now is a claim the tool has actually
-    verified. What it does NOT cover: code that was never traced -- stdlib,
-    site-packages, anything the run's filters excluded -- and any file the
-    RERUN reaches that the original never touched.
-
-    A changed file is a WARNING, never a refusal: the fingerprint speaks to
-    the execution path, not to file bytes, so an edit that leaves the causal
-    stream untouched still earns an honest MATCH. What it costs is the right
-    to assume the *values* were the same.
-    """
-    from sensorium.record import boot
-
-    was = meta.get("source_hashes")
-    if not isinstance(was, dict) or not was:
-        return ("source: unverifiable -- the original trace records no "
-                "source digests (recorded before they existed), so "
-                "sensorium cannot tell whether the code changed",
-                "the source could not be checked at all -- the original "
-                "trace holds no file digests -- so nothing rules out an "
-                "edit between the runs", None)
-    # A file the recorder could not read has a None digest. Comparing it
-    # against a None read now would make two failures agree and print
-    # "unchanged" over a file nobody has ever hashed -- the same shape as
-    # every other bug in this round: a check that did not run, reported as a
-    # check that passed.
-    unread = sorted(p for p, digest in was.items() if digest is None)
-    if unread:
-        names = ", ".join(Path(p).name for p in unread[:6])
-        return (f"source: unverifiable -- {len(unread)} of {len(was)} "
-                f"file(s) had no digest recorded ({names})",
-                f"{len(unread)} source file(s) could not be checked "
-                f"({names}) -- they were unreadable when the original was "
-                f"recorded, so nothing rules out an edit between the runs",
-                None)
-    changed = [p for p, digest in sorted(was.items())
-               if boot.hash_file(p) != digest]
-    if not changed:
-        return (f"source: unchanged ({len(was)} file(s) compared by "
-                "content; data files, untraced code and installed "
-                "dependencies are NOT covered -- see blind spots below)",
-                None,
-                f"{len(was)} source file(s) unchanged by content")
-    shown = ", ".join(Path(p).name for p in changed[:6])
-    if len(changed) > 6:
-        shown += f", +{len(changed) - 6} more"
-    return (f"source: CHANGED since the original run -- {len(changed)} of "
-            f"{len(was)} file(s) differ by content: {shown}",
-            f"{len(changed)} source file(s) CHANGED between the two runs "
-            f"({shown}), so the rerun executed different code than the "
-            f"recording did", None)
-
-
-def _env_diff(was: dict, now: dict) -> list[str]:
-    """Names of non-volatile variables whose values differ. Names only --
-    values are never printed, because environments carry secrets."""
-    keys = (set(was) | set(now)) - _UNCOMPARED_ENV
-    return sorted(k for k in keys if was.get(k) != now.get(k))
-
-
-def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
-    """(status line, caveat, verified fact) for the rerun's environment.
-
-    The ignored keys are NAMED, not counted. "4 volatile keys ignored" is
-    not something a reader can judge; `COLUMNS` sitting silently on that
-    list is how a program that sized its output by terminal width earned a
-    full licence while writing 80 bytes one run and 9000 the next.
-    """
-    was = meta.get("env")
-    if not isinstance(was, dict):
-        return ("env: unverifiable -- the original trace records no "
-                "environment to compare against",
-                "the environment could not be checked at all, so nothing "
-                "rules out the rerun getting different input through it",
-                None)
-    names = _env_diff(was, env)
-    if not names:
-        compared = len((set(was) | set(env)) - _UNCOMPARED_ENV)
-        ignored = ", ".join(sorted(_UNCOMPARED_ENV))
-        return (f"env: unchanged ({compared} variables compared; not "
-                f"compared: {ignored})", None,
-                f"{compared} environment variable(s) compared and unchanged "
-                f"in the environment the rerun executed under; not compared: "
-                f"{ignored}")
-    shown = ", ".join(names[:8])
-    if len(names) > 8:
-        shown += f", +{len(names) - 8} more"
-    return (f"env: CHANGED since the original run -- {len(names)} "
-            f"variable(s) differ: {shown}   (names only)",
-            f"{len(names)} environment variable(s) differ between the two "
-            f"runs ({shown}); a program that reads them got different input",
-            None)
-
-
 # -- the whole-run verdict -------------------------------------------------
 def _thread_shapes(trace: Trace) -> Counter:
     """The multiset of per-thread causal fingerprints.
@@ -418,6 +338,25 @@ def _thread_shapes(trace: Trace) -> Counter:
     of times".
     """
     return Counter(h for h, _n in trace.fingerprints().values())
+
+
+def _thread_scope(orig: Trace, new: Trace) -> str:
+    """What the compared thread rows cover, when it is not everything.
+
+    Under the per-task basis a thread's fingerprint covers only the events
+    that ran in NO asyncio task -- so a thread whose traced code all ran
+    inside one has a row of its own with zero events, and "2 recorded
+    fingerprint(s) compared" would otherwise invite the reader to think
+    those rows account for the whole run. The tasks are compared too, on
+    the line below; this says where the boundary between the two is.
+
+    Empty when neither run recorded a task: nothing was excluded, and a
+    parenthetical about a distinction that made no difference is noise.
+    """
+    if any(t.fingerprint_basis == "per-task" and t.tasks()
+           for t in (orig, new)):
+        return " (events outside any asyncio task)"
+    return ""
 
 
 def _thread_divergence(orig: Trace, new: Trace) -> str | None:
@@ -433,187 +372,82 @@ def _thread_divergence(orig: Trace, new: Trace) -> str | None:
             f"{', '.join(only_b) or '-'}")
 
 
+def _task_divergence(res: dict) -> str | None:
+    """How the two runs' asyncio task streams differ, in one line, or None.
+
+    `compare_tasks()` did the comparing -- by CONTENT, as a multiset of
+    (name, hash), so a different interleaving is not a difference here and
+    the blind-spot block says so. This only phrases the finding for the
+    refocus verdict; refocus prints `diff`'s task section with `tasks=False`
+    and adds the drill-in commands itself beside this line (D1 of the final
+    wave), so the finding is stated exactly once.
+
+    The hashes are part of the sentence, not decoration: this string is
+    stamped into the trace as `refocus_diverge_tasks` and read back by
+    `info`, where diff's section is not printed above it -- and "only in A:
+    task-B; only in B: task-B" without them says two different things
+    happened under one name while looking like a contradiction.
+    """
+    t = res.get("tasks")
+    if not t or t["verdict"] != "DIVERGED":
+        return None
+
+    def fmt(rows):
+        return ", ".join(f"{n if n is not None else '(unnamed)'} {h[:12]}"
+                         + ("" if k == 1 else f" x{k}") for n, h, k in rows
+                         ) or "-"
+    s = (f"{t['n_a']} task stream(s) originally, {t['n_b']} on the rerun; "
+         f"only in A: {fmt(t['only_a'])}; only in B: {fmt(t['only_b'])}")
+    p = t["pair"]
+    if p:
+        # A pair with no name on either side was matched by creation order,
+        # which is a guide to look at and not a claim that the two are the
+        # same task. Saying "first difference inside (unnamed)" without that
+        # qualification would assert an identity nothing established.
+        guide = (" (paired by creation order -- a guide, not a match)"
+                 if p["by_order"] else "")
+        s += (f"; first difference inside {p['name'] or '(unnamed)'}"
+              f"{guide} at causal step {p['index']}: A {p['a_desc']} / "
+              f"B {p['b_desc']}")
+    return s
+
+
 def final_verdict(orig: Trace, new: Trace,
-                  res: dict) -> tuple[str, str | None]:
-    """(verdict, thread-divergence description or None).
+                  res: dict) -> tuple[str, str | None, str | None]:
+    """(verdict, thread-divergence description or None, task-divergence
+    description or None).
 
     `compare()` decides on one thread and says exactly where it parted.
     This widens the answer to every recorded thread, because a worker that
     took a different path means the rerun was a different execution -- and
     reporting that as MATCH-with-a-note is how the previous version handed
     out a licence next to the words "this MATCH is about the worker".
+
+    The tasks are the same argument one level down. Under the per-task basis
+    the compared thread stream is only what ran OUTSIDE every asyncio task,
+    so a rerun whose task took another path can leave that stream identical:
+    `compare()` reports DIVERGED with `index` None for exactly this case,
+    and a verdict that read only `index` would call it a MATCH.
     """
-    if res["verdict"] != "MATCH":
-        return res["verdict"], None
+    if res["verdict"] == "REFUSED":
+        return res["verdict"], None, None
     threads = _thread_divergence(orig, new)
-    return ("DIVERGED" if threads else "MATCH"), threads
-
-
-# -- everything else that bears on the licence -----------------------------
-def _output_text(trace: Trace) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for _eid, stream, data in trace.output_chunks():
-        out[stream] = out.get(stream, "") + data
-    return out
-
-
-def _clip(s: str, cap: int = 60) -> str:
-    return repr(s if len(s) <= cap else s[:cap] + "...")
-
-
-def _output_difference(orig: Trace, new: Trace) -> str | None:
-    """The first place the two runs' captured output parts company.
-
-    The only cross-check that can catch a recorder-induced change in the
-    program: the fingerprint is blind to the instrument by construction (see
-    OBSERVER EFFECT), but a `__repr__` that counts its own calls and prints
-    the total shows up right here.
-    """
-    a, b = _output_text(orig), _output_text(new)
-    for stream in sorted(set(a) | set(b)):
-        was, now = a.get(stream, ""), b.get(stream, "")
-        if was == now:
-            continue
-        wl, nl = was.splitlines(), now.splitlines()
-        for i in range(max(len(wl), len(nl))):
-            x = wl[i] if i < len(wl) else "(no more output)"
-            y = nl[i] if i < len(nl) else "(no more output)"
-            if x != y:
-                return (f"the program's own captured {stream} differs, first "
-                        f"at line {i + 1}: {_clip(x)} -> {_clip(y)}")
-        return f"the program's own captured {stream} differs in whitespace"
-    return None
-
-
-def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
-    """Every reason this MATCH is not a statement about the whole run.
-
-    Each entry is a signal sensorium actually checked and found. Anything it
-    cannot check belongs in `_BLIND_SPOTS`, which is printed regardless.
-    """
-    out = []
-    for label, trace in (("the original", orig), ("the rerun", new)):
-        if trace.main_thread_basis() == "inferred":
-            out.append(f"{label}'s compared thread is INFERRED, not recorded "
-                       "-- it may not be the thread you think it is")
-    threads = max(len(orig.fingerprints()), len(new.fingerprints()))
-    if not threads:
-        # Defence in depth: `compare()` refuses two empty streams before this
-        # is reached for a real recording. It stays because "no fingerprint
-        # was recorded" means the whole-thread comparison did not run, and a
-        # check that did not run can never support the licence.
-        out.append(
-            "no per-thread fingerprint was recorded on either side, so the "
-            "whole-thread comparison could not run at all")
-    elif threads > 1:
-        out.append(
-            f"{threads} threads were recorded; each thread's own call shape "
-            "matched, but the INTERLEAVING between them was never compared, "
-            "and interleaving is what most concurrency bugs are made of")
-    # A thread whose body is entirely stdlib runs no traced code, so it gets
-    # no fingerprint row -- and once joined it is gone from `live_threads`
-    # too, invisible on both counts while doing file I/O of its own. The
-    # audit hook counts thread CREATION, which is the only one of the three
-    # signals that is sound rather than "usually right".
-    for label, trace in (("the original", orig), ("the rerun", new)):
-        meta = trace.meta
-        if "threads_started" not in meta or "live_threads" not in meta:
-            out.append(
-                f"{label} predates the thread bookkeeping this check reads, "
-                "so how many threads it ran cannot be established -- absence "
-                "of the record is not a record of absence")
-            continue
-        started = meta["threads_started"]
-        if started:
-            out.append(
-                f"{label} started {started} thread(s) besides the main one. "
-                "A thread that ran no traced code has no fingerprint to "
-                "compare, and the order the threads ran in was never "
-                "compared for any of them")
-        live = meta["live_threads"]
-        if live:
-            out.append(
-                f"{label} still had {len(live)} thread(s) running when "
-                f"recording stopped ({', '.join(sorted(live)[:4])}); whatever "
-                "they did after that point is in neither trace")
-    if (orig.meta.get("audit_errors") or new.meta.get("audit_errors")):
-        out.append(
-            "the recorder's audit hook malfunctioned during one of the runs, "
-            "so its record of subprocesses and threads is incomplete -- a "
-            "short list there cannot be read as 'nothing was spawned'")
-    diff = _output_difference(orig, new)
-    if diff:
-        out.append(diff)
-    was, now = orig.meta.get("exit_status"), new.meta.get("exit_status")
-    if was != now:
-        out.append(f"the two runs ended differently: exit {was} originally, "
-                   f"exit {now} on the rerun")
-    for label, trace in (("the original", orig), ("the rerun", new)):
-        meta = trace.meta
-        # Two independent observations of the same thing, reported as ONE
-        # caveat. `subprocess.Popen` nests a spawn syscall, so a single list
-        # would count every subprocess twice; two lists that are never summed
-        # avoid that, and either being non-empty answers the only question
-        # asked here -- was a child witnessed. Neither being non-empty means
-        # only that none was NOTICED, never that none ran.
-        if "spawn_syscalls" not in meta:
-            out.append(
-                f"{label} predates the spawn-syscall record, so a child "
-                "started through multiprocessing or a bare posix_spawn "
-                "would leave no trace here -- absence of the record is not "
-                "a record of absence")
-        kids = meta.get("children") or []
-        spawns = meta.get("spawn_syscalls") or 0
-        if kids or spawns:
-            named = (f"{len(kids)} named" if kids else "none named")
-            out.append(
-                f"{label} started at least one child process ({named}, "
-                f"{spawns} low-level spawn syscall(s) seen); sensorium does "
-                "not witness what any child did")
-    return out
+    tasks = _task_divergence(res)
+    if res["verdict"] == "DIVERGED" and res.get("index") is not None:
+        # The compared thread itself parted; `print_comparison` has already
+        # pinpointed where, and the thread-shape multiset cannot add to it.
+        return "DIVERGED", None, tasks
+    # ADDITIVE, never subtractive: `compare()`'s DIVERGED stands whatever
+    # this function finds. Today a DIVERGED with no `index` always carries a
+    # task divergence, so the two agree -- but that is an invariant of
+    # another module which nothing here asserts, and reading only `threads
+    # or tasks` would turn a disagreement into a MATCH with the licence
+    # granted on top of it. The verdict may only ever be widened.
+    return ("DIVERGED" if (res["verdict"] == "DIVERGED" or threads or tasks)
+            else "MATCH"), threads, tasks
 
 
 # -- the assessment --------------------------------------------------------
-def _spawn_witnessed(meta: dict) -> bool:
-    """Whether this trace's interpreter could witness a `multiprocessing`
-    spawn at all.
-
-    False on CPython < 3.14 -- where no parent-side audit event fires for a
-    spawn/forkserver child, so `spawn_syscalls == 0` cannot be read as "none
-    ran" -- and on a trace recorded before the capability was noted. The
-    recorder stamps the answer at record time (`boot._SPAWN_WITNESSED`).
-    """
-    return bool(meta.get("spawn_witnessing"))
-
-
-def _verified_facts(orig: Trace, new: Trace) -> list[str]:
-    """What a granted licence is actually based on, stated positively.
-
-    The granted line used to read "every signal sensorium can check agrees",
-    which invites the reader to treat the check-list as complete -- and every
-    review round has falsified that reading by finding another path through
-    it. Naming the concrete, bounded findings instead cannot be falsified by
-    a mechanism nobody has thought of yet: it claims these things and no
-    others.
-    """
-    n = len(new.fingerprints())
-    facts = [
-        f"identical call shape across {n} compared fingerprint(s)",
-        "no thread started besides the main one through Python's own "
-        "threading/_thread, and none left running when recording stopped",
-    ]
-    # The child-witnessing claim rests on an audit event only CPython 3.14+
-    # raises for a multiprocessing/forkserver spawn. If EITHER run was recorded
-    # where that signal does not exist, the pair cannot vouch that no such child
-    # ran, so the line is omitted rather than asserted -- the blind-spot block
-    # printed on every verdict still states categorically that no child process
-    # is covered, so the gap is stated, not hidden.
-    if _spawn_witnessed(orig.meta) and _spawn_witnessed(new.meta):
-        facts.append(
-            "no child process witnessed, by any mechanism sensorium watches")
-    return facts
-
-
 def assess(orig: Trace, new: Trace, res: dict, world_caveats=(),
            world_verified=()) -> dict:
     """Everything the two traces support, decided once.
@@ -624,7 +458,11 @@ def assess(orig: Trace, new: Trace, res: dict, world_caveats=(),
     the verdict is printed, stamped into the new trace, and turned into an
     exit code -- and those three must never be able to disagree.
     """
-    verdict, threads = final_verdict(orig, new, res)
+    verdict, threads, task_divergence = final_verdict(orig, new, res)
+    # Computed ONCE and passed down: `_verified_facts` needs the same answer
+    # this dict carries, and two calls to the same derivation are two places
+    # for it to come out differently.
+    scope = _thread_scope(orig, new)
     world = list(world_caveats)
     caveats = ((world + _licence_caveats(orig, new))
                if verdict == "MATCH" else [])
@@ -633,11 +471,20 @@ def assess(orig: Trace, new: Trace, res: dict, world_caveats=(),
     if verdict == "MATCH":
         licence = "withheld" if caveats else "granted"
         if not caveats:
-            verified = (_verified_facts(orig, new)[:1]
-                        + list(world_verified)
-                        + _verified_facts(orig, new)[1:])
-    return {"verdict": verdict, "threads": threads, "world": world,
-            "caveats": caveats, "licence": licence, "verified": verified}
+            facts = _verified_facts(orig, new, scope)
+            verified = facts[:1] + list(world_verified) + facts[1:]
+    # Everything the report and the stamp need, derived ONCE. `report` used
+    # to reach back into `res` for `index` and `tasks` beside this dict,
+    # which is two sources for one verdict -- the exact shape that let the
+    # printed line, the stamped label and the exit code disagree before.
+    return {"verdict": verdict, "threads": threads,
+            "task_divergence": task_divergence,
+            "tasks": res.get("tasks"),
+            "thread_stream_parted": (res["verdict"] == "DIVERGED"
+                                     and res["index"] is not None),
+            "thread_scope": scope,
+            "world": world, "caveats": caveats, "licence": licence,
+            "verified": verified}
 
 
 # -- reporting -------------------------------------------------------------
@@ -651,14 +498,23 @@ def _stamp(path: Path, res: dict, a: dict) -> None:
     conn = db.open_trace(path)
     try:
         db.set_meta(conn, "refocus_verdict", a["verdict"])
-        if res["verdict"] == "DIVERGED":
+        # `thread_stream_parted` is False when the divergence is not a step
+        # of the compared thread's stream at all (the tasks parted and that
+        # stream did not). Writing the index anyway would persist "diverged
+        # at step None" as if it were a position, and the task description
+        # below is the real one. `res` is read only for the VALUES; whether
+        # they apply is `assess`'s answer, so the label and the printed line
+        # cannot come from two different readings.
+        if a["thread_stream_parted"]:
             db.set_meta(conn, "refocus_diverge_index", res["index"])
             db.set_meta(conn, "refocus_diverge_a", res["a_desc"])
             db.set_meta(conn, "refocus_diverge_b", res["b_desc"])
-        elif res["verdict"] == "REFUSED":
+        elif a["verdict"] == "REFUSED":
             db.set_meta(conn, "refocus_refused_reasons", res["reasons"])
         if a["threads"]:
             db.set_meta(conn, "refocus_thread_divergence", a["threads"])
+        if a["task_divergence"]:
+            db.set_meta(conn, "refocus_diverge_tasks", a["task_divergence"])
         if a["licence"]:
             db.set_meta(conn, "refocus_licence", a["licence"])
             db.set_meta(conn, "refocus_licence_reasons", a["caveats"])
@@ -668,25 +524,15 @@ def _stamp(path: Path, res: dict, a: dict) -> None:
         conn.close()
 
 
-def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
-           a: dict) -> int:
-    """Print the comparison and the verdict; return the exit code."""
-    print_comparison(orig, new, res, orig_name, new_name)
-    verdict, threads = a["verdict"], a["threads"]
-
-    if res["verdict"] == "REFUSED":
-        print("threads: not compared -- no verdict was issued")
-        print(f"refocus verdict: REFUSED -- {new_name} was recorded and is "
-              f"queryable, but it could NOT be verified against "
-              f"{orig_name}: treat it as a separate, UNVERIFIED execution")
-        # Stated here too: "on every verdict" has to include the verdict
-        # that says nothing, or the sentence is not true.
-        _print_blind_spots()
-        return 2
-
-    if threads:
-        print(f"threads: DIVERGED -- {threads}")
-    elif res["verdict"] != "MATCH":
+def _print_thread_line(orig: Trace, new: Trace, a: dict) -> None:
+    """The `threads:` line, in the four shapes it comes in."""
+    if a["threads"]:
+        print(f"threads: DIVERGED -- {a['threads']}")
+    elif a["thread_stream_parted"]:
+        # Keyed on whether the compared STREAM parted, not on the verdict: a
+        # DIVERGED with no index is a divergence of the tasks, and the
+        # compared thread stream matched. Saying it "already diverged" there
+        # would be false, and would hide that every thread row did match.
         print("threads: not compared -- the compared thread already diverged")
     elif new.fingerprints():
         # NOT "all N threads matched". That sentence asserted completeness
@@ -699,15 +545,76 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
                      new.meta.get("threads_started", 0)) + 1 - n
         tail = (f"; {unseen} further thread(s) ran no traced code, left no "
                 "fingerprint, and were NOT compared" if unseen > 0 else "")
-        print(f"threads: {n} recorded fingerprint(s) compared, all "
-              f"matching{tail}")
+        print(f"threads: {n} recorded fingerprint(s) compared"
+              f"{a['thread_scope']}, all matching{tail}")
     else:
         print("threads: no per-thread fingerprints were recorded on either "
               "side -- there was nothing to compare beyond the stream above")
 
+
+def _diverged_why(a: dict) -> str:
+    """What this DIVERGED is attributed to, in the report's own words."""
+    if a["threads"]:
+        return "a thread other than the compared one took a different path"
+    if a["thread_stream_parted"]:
+        return "the compared thread took a different path"
+    if a["task_divergence"]:
+        # "took a different path" presumes both sides ran one. When a side
+        # ran no task stream at all there is no path to have differed, and
+        # naming which side is the whole finding.
+        t = a["tasks"] or {}
+        if t.get("n_a") == 0:
+            return "the rerun ran a task stream the original did not"
+        if t.get("n_b") == 0:
+            return "the original ran a task stream the rerun did not"
+        return "a task took a different path"
+    # Unreachable through `compare()`, which reports DIVERGED with no index
+    # only when the tasks parted. Stated rather than assumed, for the same
+    # reason `final_verdict` never downgrades a DIVERGED: if the two modules
+    # ever disagree, the honest line is the one that does not name a culprit
+    # it has not found.
+    return ("the comparison reported a divergence this report could not "
+            "attribute to a thread or a task")
+
+
+def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
+           a: dict) -> int:
+    """Print the comparison and the verdict; return the exit code."""
+    # `tasks=False`: the task finding is printed below, in the words that
+    # are also stamped into the trace, with the drill-in commands beside
+    # them. Letting `diff` print its own version too gave this output two
+    # `tasks:` lines that said different amounts about one finding.
+    print_comparison(orig, new, res, orig_name, new_name, tasks=False)
+    # `res` belongs to `print_comparison` above and to nothing else here:
+    # every fact this function decides on comes from `assess`.
+    verdict, threads = a["verdict"], a["threads"]
+    task_divergence, tasks = a["task_divergence"], a["tasks"] or {}
+
+    if verdict == "REFUSED":
+        print("threads: not compared -- no verdict was issued")
+        print(f"refocus verdict: REFUSED -- {new_name} was recorded and is "
+              f"queryable, but it could NOT be verified against "
+              f"{orig_name}: treat it as a separate, UNVERIFIED execution")
+        # Stated here too: "on every verdict" has to include the verdict
+        # that says nothing, or the sentence is not true.
+        _print_blind_spots()
+        return 2
+
+    _print_thread_line(orig, new, a)
+
+    if task_divergence:
+        # The only `tasks:` line in this output, and the same sentence
+        # `_stamp` writes -- so what the terminal says and what `info`
+        # replays afterwards cannot drift apart.
+        print(f"tasks: DIVERGED -- {task_divergence}")
+        for line in task_drill_lines(tasks.get("pair"), orig_name, new_name):
+            print(line)
+    elif tasks.get("verdict") == "MATCH":
+        print(f"tasks: {tasks['n_b']} task stream(s) compared by content, "
+              "all matching; the ordering between tasks is not compared")
+
     if verdict == "DIVERGED":
-        why = ("a thread other than the compared one took a different path"
-               if threads else "the compared thread took a different path")
+        why = _diverged_why(a)
         print(f"refocus verdict: DIVERGED -- {why}. {new_name} is a "
               f"DIFFERENT execution than {orig_name}; it is still queryable, "
               f"every `sensorium info {new_name}` says so, and nothing it "
@@ -728,8 +635,19 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
         _print_blind_spots()
         return 1
 
-    print("refocus verdict: MATCH -- every recorded thread produced the "
-          "identical CALL/RETURN/RAISE/HANDLED sequence")
+    # The headline may claim only what was compared. Under the per-task
+    # basis the thread rows cover what ran OUTSIDE every task, so for a run
+    # with tasks the unqualified sentence is false in the most misleading
+    # direction available: the raw per-thread sequence of an order-flipped
+    # rerun genuinely differs, and it is the SPLIT -- each thread outside
+    # its tasks, plus the task multiset -- that matched.
+    if a["thread_scope"]:
+        print("refocus verdict: MATCH -- every recorded thread produced the "
+              "identical CALL/RETURN/RAISE/HANDLED sequence outside its "
+              "asyncio tasks, and every task stream matched by content")
+    else:
+        print("refocus verdict: MATCH -- every recorded thread produced the "
+              "identical CALL/RETURN/RAISE/HANDLED sequence")
     if a["caveats"]:
         print("licence: WITHHELD -- this MATCH is about call shape, and "
               "these checks say it is not a statement about the run as a "
@@ -794,7 +712,7 @@ def run(args) -> int:
     orig = Trace.open(orig_path)
     meta = orig.meta
 
-    problem = _refusal(meta)
+    problem = _refusal(meta, orig)
     if problem:
         return _refuse(orig_name, problem)
 

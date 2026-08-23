@@ -28,6 +28,9 @@ def test_fixture_really_is_trace_format_2_with_no_frame_kind():
     assert "kind" not in [r[1] for r in c.execute("PRAGMA table_info(frames)")]
     kinds = {r[0] for r in c.execute("SELECT DISTINCT kind FROM events")}
     assert "YIELD" not in kinds and "RESUME" not in kinds
+    # No task_fingerprints table either: the reader must answer "no task
+    # fingerprints", not raise, on a file recorded before they existed.
+    assert Trace.open(FIXTURE).task_fingerprints() == {}
 
 
 def test_fixture_carries_no_ambient_environment():

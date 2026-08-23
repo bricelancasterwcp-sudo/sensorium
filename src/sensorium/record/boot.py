@@ -281,6 +281,12 @@ class _LateWriteGuard:
     def write_fingerprint(self, *a, **k):
         return self._call("write_fingerprint", *a, **k)
 
+    def write_task_fingerprint(self, *a, **k):
+        return self._call("write_task_fingerprint", *a, **k)
+
+    def write_task_fingerprints(self, *a, **k):
+        return self._call("write_task_fingerprints", *a, **k)
+
     def seal(self) -> None:
         """Stop accepting writes; the connection stays open to finalize."""
         with self._lock:
@@ -545,6 +551,11 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
     w.set_meta("exclude", list(exclude))
     w.set_meta("window", window)
     w.set_meta("caps", capture.CAPS)
+    # Which definition this recorder's per-thread fingerprints follow (spec
+    # D6): events that ran in an asyncio task go to that task's own
+    # fingerprint, so the thread's covers only the rest. A trace without
+    # this key was recorded before the distinction existed.
+    w.set_meta("fingerprint_basis", "per-task")
     w.set_meta("start_ts", time.time())
     w.set_meta("incomplete", True)      # cleared only after a clean finish
     if refocus_of:

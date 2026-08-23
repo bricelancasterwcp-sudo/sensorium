@@ -1,0 +1,53 @@
+program: main.py
+record: {focus: ["main:worker"]}
+questions:
+  - id: is-the-rerun-the-same-execution-when-only-the-interleaving-moved
+    ask: >
+      The rerun started the two tasks in the other order. Was it still the
+      same execution, so the deeper capture describes the run I recorded?
+    truth: >
+      Yes. Each task's own CALL/RETURN/RAISE/HANDLED stream is identical to
+      the original's, and the thread's stream outside any task is identical
+      too; only the order the tasks interleaved in moved, and that order is
+      recorded but never compared -- the verdict says so. MATCH, exit 0,
+      with the task streams named as compared by content -- and the licence
+      GRANTED, listing that task comparison among the bounded points it
+      rests on.
+    why_logs_fail: >
+      Two log files from these runs differ in line order and nothing else,
+      and a diff of them screams. Deciding that the difference is ONLY the
+      interleaving needs each task's events separated out and compared as
+      its own sequence, which a flat log has no notion of.
+    command: ["refocus", "$RUN", "--focus", "main:step"]
+    expect_exit: 0
+    expect_contains:
+      - "refocus verdict: MATCH"
+      - "tasks: 3 task stream(s) compared by content, all matching; the ordering between tasks is not compared"
+      - "  - 3 task stream(s) compared by content; the ordering between tasks is not compared"
+    expect_absent: ["refocus verdict: DIVERGED", "tasks: DIVERGED"]
+  - id: which-task-took-another-path
+    depends_on: is-the-rerun-the-same-execution-when-only-the-interleaving-moved
+    ask: >
+      Re-recorded with --branch, the rerun's task-B called other() instead
+      of step(2). Which task diverged, and where?
+    truth: >
+      task-B; task-A's stream is identical. The verdict is DIVERGED, the
+      tasks line names task-B as the stream with no counterpart, and the
+      first difference inside task-B is step vs other with a drill-in
+      command for each side.
+    why_logs_fail: >
+      A log shows other() was called somewhere in the second run; saying
+      WHICH task's stream it belongs to, and that the other task was
+      unaffected, needs every event attributed to its task and each task
+      compared as its own sequence -- prints carry no task identity.
+    command: ["refocus", "$RUN2", "--focus", "main:step"]
+    expect_exit: 1
+    expect_contains:
+      - "refocus verdict: DIVERGED"
+      - "tasks: DIVERGED"
+      - "first difference inside task-B"
+      - "drill into A: sensorium tree"
+    expect_line:
+      - ["first difference inside task-B", "step", "other"]
+    expect_absent: ["refocus verdict: MATCH"]
+second_run: {argv: ["--branch"]}

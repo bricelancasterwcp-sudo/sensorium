@@ -432,6 +432,7 @@ class Tracer:
         self._parked_lock = threading.Lock()
         self._seen_codes: list = []    # pins code objects so id() cannot recycle
         self._fps: dict[int, Fingerprint] = {}
+        self._task_fps: dict[int, Fingerprint] = {}   # task serial -> fp
         self._fp_lock = threading.Lock()
         # Weak values: a thread's table dies with the thread, so a program
         # that spawns thousands of short-lived threads does not accumulate
@@ -512,6 +513,40 @@ class Tracer:
             fp = self._fps.get(tid)
             if fp is None:
                 fp = self._fps[tid] = Fingerprint()
+            return fp
+
+    def _fp_for(self, tid: int, task) -> Fingerprint:
+        """The fingerprint this event belongs to: the task's when it ran in
+        an asyncio task, else the thread's (spec D6). One event, one
+        fingerprint -- the thread's covers exactly the events with
+        task_id NULL, which is what makes the two rows comparable
+        separately.
+
+        The task's entry is normally already there: `_task_serial` creates
+        it when it mints the serial, so that a task minted at a YIELD,
+        RESUME or LINE -- none of which reach this function -- still has a
+        row. The get-or-create stays because this is the only path that
+        needs the object, and a task whose serial predates that rule would
+        otherwise silently lose its events.
+
+        A thread that runs a causal event gets a row even when every one of
+        them ran inside a task, so its COUNT may be 0. That zero is a fact
+        with content -- "this thread ran traced code, all of it inside
+        asyncio tasks" -- and it is not the same fact as having no row,
+        which every reader here takes to mean the thread ran no traced code
+        at all. A loop thread entered through stdlib
+        (`Thread(target=asyncio.run, ...)`) is exactly that case: without
+        this, it would vanish from `fingerprints()` and be counted among the
+        threads that did nothing.
+        """
+        if task is None:
+            return self._fp(tid)
+        if tid not in self._fps:      # unlocked probe; the create is locked
+            self._fp(tid)
+        with self._fp_lock:
+            fp = self._task_fps.get(task)
+            if fp is None:
+                fp = self._task_fps[task] = Fingerprint()
             return fp
 
     def _parent_of(self, tls, caller):
@@ -633,7 +668,14 @@ class Tracer:
         `get_name` raises still gets its serial and still attributes its
         events, and is recorded as a task with no name, not as an error.
         Must be called inside an `in_hook` region: a Task subclass's
-        `get_name` is program code."""
+        `get_name` is program code.
+
+        Minting is also where the task's `Fingerprint` is created, so that
+        every `tasks` row has a `task_fingerprints` row whatever kind of
+        event brought the task into view (spec D6). A task that is minted
+        here and never reaches `_fp_for` ends with a zero-count row, which
+        says it ran no causal event while traced -- a different fact from
+        having no row at all."""
         if "asyncio" not in sys.modules:
             return None
         fns = self._asyncio or self._bind_asyncio()
@@ -669,6 +711,21 @@ class Tracer:
             except BaseException:
                 name = None
             self.writer.add_task(serial, name, tls.thread_serial)
+            # Every `tasks` row gets its `task_fingerprints` row, HERE and
+            # not in `_fp_for`, because a serial is minted at any event with
+            # a current task -- YIELD, RESUME and LINE included -- and
+            # `_fp_for` only ever runs on a causal one. A task whose only
+            # traced frames are a RESUMEd generator otherwise had a row in
+            # one table and none in the other, which every reader of the
+            # pair takes for a lossy recording. A zero-count row means "this
+            # task ran no causal event while traced"; no row at all means
+            # the task was never recorded.
+            #
+            # The `_task_lock` block above is CLOSED by this point -- it is
+            # the `with` inside the `try` further up -- so `_fp_lock` is
+            # taken with no other tracer lock held, as everywhere else.
+            with self._fp_lock:
+                self._task_fps.setdefault(serial, Fingerprint())
         tls.task_cache = (task, serial)
         return serial
 
@@ -713,7 +770,7 @@ class Tracer:
                              or (parent is not None and parent[5]))
             tls.live[id(frame)] = [fid, code, cid, {}, depth, in_window,
                                    False]
-            self._fp(tid).update(fp_file, qual, "CALL")
+            self._fp_for(tid, task).update(fp_file, qual, "CALL")
         finally:
             tls.in_hook = False
         return None
@@ -736,13 +793,14 @@ class Tracer:
                 fid = entry[0]
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
+            task = self._task_serial(tls)
             eid = self.writer.add_event(time.monotonic_ns(), tid, "RETURN",
                                         fid, cid, None,
                                         {"value": capture_value(retval)},
-                                        task_id=self._task_serial(tls))
+                                        task_id=task)
             if fid is not None:
                 self.writer.close_frame(fid, eid, "return")
-            self._fp(tid).update(fp_file, qual, "RETURN")
+            self._fp_for(tid, task).update(fp_file, qual, "RETURN")
         finally:
             tls.in_hook = False
         return None
@@ -950,11 +1008,12 @@ class Tracer:
             fid = entry[0] if (entry is not None and entry[1] is code) else None
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
+            task = self._task_serial(tls)
             self.writer.add_event(time.monotonic_ns(), tid, kind, fid, cid,
                                   frame.f_lineno,
                                   {"exc": capture_exc(exc, serial)},
-                                  task_id=self._task_serial(tls))
-            self._fp(tid).update(fp_file, qual, kind)
+                                  task_id=task)
+            self._fp_for(tid, task).update(fp_file, qual, kind)
         finally:
             tls.in_hook = False
         return None
@@ -1120,5 +1179,15 @@ class Tracer:
         # stopped, and is already reported as such (`_recording_gaps`).
         with self._fp_lock:
             fps = list(self._fps.items())
+            tfps = list(self._task_fps.items())
         for tid, fp in fps:
             self.writer.write_fingerprint(tid, fp.hexdigest(), fp.count)
+        # A task's row is written whatever state the task was left in: a
+        # stream that was recorded is a stream, and one still parked at
+        # uninstall is exactly the case a comparison most wants to see.
+        # ALL of them in one transaction: a commit is an fsync, this runs
+        # after the recorded program has finished, and one per task made
+        # exit cost scale with the task count (see
+        # `TraceWriter.write_task_fingerprints`).
+        self.writer.write_task_fingerprints(
+            [(task, fp.hexdigest(), fp.count) for task, fp in tfps])
