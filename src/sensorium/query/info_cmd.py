@@ -6,6 +6,9 @@ its finalize pass, so it has no `exit_status`, no `uncaught`, no `children`
 and no `truncated_count` at all -- every read below goes through `.get()`
 with a fallback, and the INCOMPLETE flag is printed first, not buried.
 """
+import re
+from collections import Counter
+
 from sensorium import paths
 from sensorium.query.fmt import fmt_exc
 from sensorium.store.reader import Trace
@@ -113,10 +116,7 @@ def run(args) -> int:
     if t.format < 2:
         print("tasks: not recorded (format-1 trace; parentage assumed)")
     elif t.tasks():
-        names = ", ".join(
-            f"t{k.id} {k.name if k.name is not None else '(name unreadable)'}"
-            for k in t.tasks())
-        print(f"tasks: {len(t.tasks())} ({names})")
+        print(f"tasks: {len(t.tasks())} ({_task_names(t.tasks())})")
     else:
         # Not "no loop ran": a loop can run and never make a task -- and
         # loop callbacks run inside it with no current task at all.
@@ -171,3 +171,33 @@ def run(args) -> int:
             if n:
                 print(f"  {n}x {code.file.rsplit('/', 1)[-1]}:{code.qualname}")
     return 0
+
+
+_DEFAULT_TASK_NAME = re.compile(r"^Task-\d+\Z")
+_TASK_LIST_CAP = 8
+
+
+def _task_names(tasks) -> str:
+    """Up to eight tasks: every one, `tN name`. More: names grouped and
+    counted, most frequent first, asyncio's default `Task-N` names (a
+    creation counter, not an identity) folded into one group. A FastAPI test
+    run recorded 166 tasks and the flat list said nothing a reader could
+    use; "2 distinct name(s): …coro x120, Task-N x46" does."""
+    if len(tasks) <= _TASK_LIST_CAP:
+        return ", ".join(
+            f"t{k.id} {k.name if k.name is not None else '(name unreadable)'}"
+            for k in tasks)
+    groups = Counter()
+    for k in tasks:
+        if k.name is None:
+            label = "(name unreadable)"
+        elif _DEFAULT_TASK_NAME.match(k.name):
+            label = "Task-N (asyncio default names)"
+        else:
+            label = k.name
+        groups[label] += 1
+    shown = groups.most_common(6)
+    rest = len(groups) - len(shown)
+    body = ", ".join(f"{name} x{n}" for name, n in shown)
+    tail = f"; and {rest} more name(s)" if rest else ""
+    return f"{len(groups)} distinct name(s): {body}{tail}"

@@ -18,7 +18,8 @@ happy paths:
 import pytest
 
 from sensorium.query.expr import (CLIPPED, CONTAINER, NO_LENGTH, NO_VALUE,
-                                  NOT_CAPTURED, OUT_OF_SCOPE, TRUNCATED,
+                                  NOT_CAPTURED, OUT_OF_SCOPE, SAMPLED,
+                                  TRUNCATED,
                                   EvalError, ExprError, NotCaptured, _Sized,
                                   compile_expr, resolve)
 
@@ -331,3 +332,75 @@ def test_sized_and_markers_have_readable_reprs():
     assert repr(_Sized(4)) == "<len 4>"
     assert "NOT_CAPTURED" in repr(NOT_CAPTURED)
     assert "TRUNCATED" in repr(TRUNCATED)
+
+
+# -- membership and the empty literal (field test: `'k' in meta`, `meta != {}`)
+def _map(n, keys, trunc=False):
+    return {"k": "map", "type": "dict", "len": n, "oid": 1,
+            "sample": [[{"k": "str", "v": k}, {"k": "num", "v": 0}]
+                       for k in keys], **({"trunc": True} if trunc else {})}
+
+
+def _seq(n, items, trunc=False):
+    return {"k": "seq", "type": "list", "len": n, "oid": 1,
+            "sample": [{"k": "num", "v": i} for i in items],
+            **({"trunc": True} if trunc else {})}
+
+
+def test_in_decides_from_a_complete_sample():
+    e = compile_expr("'inline_rolls' in meta")
+    assert e.names == {"meta"}
+    assert e.eval({"meta": resolve(_map(1, ["inline_rolls"]))}) is True
+    assert e.eval({"meta": resolve(_map(2, ["a", "b"]))}) is False
+    assert compile_expr("3 in xs").eval({"xs": resolve(_seq(3, [1, 2, 3]))}) is True
+    assert compile_expr("9 not in xs").eval(
+        {"xs": resolve(_seq(3, [1, 2, 3]))}) is True
+
+
+def test_in_found_in_a_truncated_sample_is_certain_but_absence_is_not():
+    big = resolve(_map(40, [f"k{i}" for i in range(8)], trunc=True))
+    assert compile_expr("'k3' in meta").eval({"meta": big}) is True
+    with pytest.raises(NotCaptured) as info:
+        compile_expr("'zzz' in meta").eval({"meta": big})
+    assert info.value.reason == SAMPLED
+
+
+def test_in_cannot_prove_absence_among_members_that_are_not_primitives():
+    nested = {"k": "seq", "type": "list", "len": 1, "oid": 1,
+              "sample": [{"k": "map", "type": "dict", "len": 2, "oid": 2}]}
+    with pytest.raises(NotCaptured) as info:
+        compile_expr("'x' in rolls").eval({"rolls": resolve(nested)})
+    assert info.value.reason == SAMPLED
+
+
+def test_in_on_a_string_is_a_substring_test_that_respects_clipping():
+    assert compile_expr("'ab' in s").eval({"s": "xaby"}) is True
+    assert compile_expr("'q' not in s").eval({"s": "xaby"}) is True
+    with pytest.raises(NotCaptured) as info:
+        compile_expr("'ab' in s").eval({"s": TRUNCATED})
+    assert info.value.reason == CLIPPED
+    with pytest.raises(EvalError):
+        compile_expr("3 in s").eval({"s": "xaby"})
+
+
+def test_in_is_only_a_literal_in_a_name():
+    for src in ("a in b", "'x' in len(b)", "'x' in 'xy'", "k in meta",
+                "'x' in {}"):
+        with pytest.raises(ExprError):
+            compile_expr(src)
+
+
+def test_the_empty_literal_compares_as_length_zero():
+    assert compile_expr("meta != {}").eval({"meta": _Sized(1)}) is True
+    assert compile_expr("meta == {}").eval({"meta": _Sized(0)}) is True
+    assert compile_expr("xs == []").eval({"xs": _Sized(0)}) is True
+    assert compile_expr("() == xs").eval({"xs": _Sized(2)}) is False
+    with pytest.raises(NotCaptured):
+        compile_expr("meta == {}").eval({"meta": NOT_CAPTURED})
+
+
+def test_non_empty_and_misplaced_literals_are_refused():
+    for src in ("meta == {'a': 1}", "xs != [1]", "meta > {}", "{} == {}",
+                "len(xs) == []", "xs == {} == ys"):
+        with pytest.raises(ExprError):
+            compile_expr(src)

@@ -29,6 +29,7 @@ from sensorium.query.expr import OUT_OF_SCOPE
 from sensorium.query.watch_cmd import _guidance
 from sensorium.store import db
 from sensorium.store.reader import Trace
+from tests.helpers import record_script, run_cli
 from tests.programs import open_trace, synthetic
 from tests.watch_programs import (CARRIER, CLIP, HANDLER, LOOPDEL, MIXED,
                                   RECURSE, line_events, rec)
@@ -590,3 +591,40 @@ def test_guidance_for_unframed_code_never_offers_a_refocus():
     assert _guidance(OUT_OF_SCOPE, "n", False, False, None, None, True) == [
         "no site exists for these code objects: coroutine/generator code "
         "opens no frame in this version"]
+
+
+MEMBERSHIP = """
+def work():
+    meta = {}
+    meta = {"inline_rolls": [1, 2]}
+    big = {f"k{i}": i for i in range(40)}
+    return len(big)
+
+def main():
+    work()
+
+main()
+"""
+
+
+def test_watch_membership_and_empty_literal_predicates(tmp_path):
+    """Field test on a FastAPI handler: the natural predicates over a dict
+    local are `'key' in meta` and `meta != {}`. Both are decided from the
+    capture -- the sample for membership, the length for emptiness -- and
+    a membership question the sample cannot settle is counted as a site
+    that could not be checked, with the reason, never as False."""
+    run_id, _trace, r = record_script(tmp_path, MEMBERSHIP,
+                                      extra=("--focus", "prog:work"))
+    assert run_id, r.stderr
+    sdir = tmp_path / "sdir"
+    out = run_cli(["watch", run_id, "--at", "prog:work", "--expr",
+                   "'inline_rolls' in meta"], cwd=tmp_path,
+                  sensorium_dir=sdir).stdout
+    assert "HIT" in out and "meta=" in out
+    out = run_cli(["watch", run_id, "--at", "prog:work", "--expr",
+                   "meta != {}"], cwd=tmp_path, sensorium_dir=sdir).stdout
+    assert "HIT" in out
+    out = run_cli(["watch", run_id, "--at", "prog:work", "--expr",
+                   "'zzz' in big"], cwd=tmp_path, sensorium_dir=sdir).stdout
+    assert "HIT" not in out
+    assert "sample does not decide" in out       # 40 keys, 8 sampled
