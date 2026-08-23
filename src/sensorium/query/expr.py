@@ -69,6 +69,9 @@ NO_VALUE = "recorded as an object, which has no comparable value"
 CONTAINER = "recorded as a container; compare its length with len(NAME)"
 CLIPPED = "recorded truncated, so the trace does not hold the whole value"
 NO_LENGTH = "recorded as a value that has no length"
+SAMPLED = ("recorded as a container whose sample does not decide whether "
+           "that value is in NAME (only a sample of its members was "
+           "recorded); its length is exact, so len(NAME) still is")
 
 
 class ExprError(Exception):
@@ -117,11 +120,15 @@ TRUNCATED = _Marker("<TRUNCATED>")
 
 
 class _Sized:
-    """A container recorded only by its length. `len()` works; nothing else."""
-    __slots__ = ("n",)
+    """A container recorded by its length and, when the capture holds one, a
+    sample of its members. `len()` works; `literal in name` works when the
+    sample decides it (see `_member`); nothing else."""
+    __slots__ = ("n", "members", "complete")
 
-    def __init__(self, n: int) -> None:
+    def __init__(self, n: int, members=None, complete: bool = False) -> None:
         self.n = n
+        self.members = members      # frozenset of sampled primitives, or None
+        self.complete = complete    # True when `members` IS the whole container
 
     def __repr__(self) -> str:
         return f"<len {self.n}>"
@@ -174,8 +181,35 @@ def resolve(v: dict):
         # time -- an unread size is not a size, and `len(buf) > 100` must
         # report a site it could not evaluate rather than compare to nothing.
         n = v.get("len")
-        return NOT_CAPTURED if n is None else _Sized(n)
+        if n is None:
+            return NOT_CAPTURED
+        members, complete = _members(v, n)
+        return _Sized(n, members, complete)
     return NOT_CAPTURED
+
+
+_PRIMITIVE = ("num", "bool", "str", "none")
+
+
+def _members(v: dict, n: int):
+    """The sampled members of a captured container that a literal can be
+    compared with, and whether they are ALL of it. A map samples (key, value)
+    pairs -- membership is over keys, as in Python. A member that is itself a
+    container, an object, or a clipped string is not comparable, so a sample
+    holding one can prove presence but never absence."""
+    sample = v.get("sample")
+    if sample is None:
+        return None, False
+    members, comparable = set(), True
+    for entry in sample:
+        item = entry[0] if v.get("k") == "map" else entry
+        if (not isinstance(item, dict) or item.get("k") not in _PRIMITIVE
+                or item.get("trunc")):
+            comparable = False
+            continue
+        members.add(None if item["k"] == "none" else item.get("v"))
+    complete = comparable and not v.get("trunc") and len(sample) == n
+    return frozenset(members), complete
 
 
 # -- compiling -------------------------------------------------------------
@@ -186,6 +220,54 @@ def _validate_len(node: ast.Call) -> None:
         raise ExprError("len takes exactly one positional argument")
     if not isinstance(node.args[0], ast.Name):
         raise ExprError("len's argument must be a plain name, as in len(buf)")
+
+
+_EMPTY_LITERALS = (ast.Dict, ast.List, ast.Tuple, ast.Set)
+
+
+def _is_empty_literal(node) -> bool:
+    if isinstance(node, ast.Dict):
+        return not node.keys
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        return not node.elts
+    return False
+
+
+def _validate_compare(node: ast.Compare, depth: int) -> None:
+    if len(node.ops) != 1:
+        raise ExprError("chained comparisons are not allowed; write one "
+                        "comparison, or join two with `and`")
+    op = type(node.ops[0])
+    left, right = node.left, node.comparators[0]
+    if op in (ast.In, ast.NotIn):
+        # Membership is decided from the SAMPLE a capture holds, so it is
+        # offered in the one shape a sample can answer: a literal looked up
+        # in a named container (or string).
+        if not (isinstance(left, ast.Constant) and isinstance(right, ast.Name)
+                and right.id != "len"):
+            raise ExprError("`in` is only allowed as a literal in a name, as "
+                            "in 'key' in meta or 3 in xs")
+        _validate(left, depth)
+        return
+    if op not in _CMP:
+        raise ExprError("only < <= > >= == != and `in`/`not in` are allowed "
+                        "as comparisons")
+    lits = [n for n in (left, right) if isinstance(n, _EMPTY_LITERALS)]
+    if lits:
+        # `name == {}` is a length-zero test the trace answers exactly; any
+        # non-empty literal would be compared against a SAMPLE, which is not
+        # the value.
+        other = right if lits[0] is left else left
+        if (len(lits) != 1 or op not in (ast.Eq, ast.NotEq)
+                or not _is_empty_literal(lits[0])
+                or not (isinstance(other, ast.Name) and other.id != "len")):
+            raise ExprError("a container literal can only be the empty {} / "
+                            "[] / () compared with == or != to a name; for "
+                            "anything else compare len(name), or test "
+                            "'item' in name")
+        return
+    _validate(left, depth)
+    _validate(right, depth)
 
 
 def _validate(node, depth: int = 0) -> None:
@@ -210,13 +292,7 @@ def _validate(node, depth: int = 0) -> None:
     elif isinstance(node, ast.Call):
         _validate_len(node)
     elif isinstance(node, ast.Compare):
-        if len(node.ops) != 1:
-            raise ExprError("chained comparisons are not allowed; write one "
-                            "comparison, or join two with `and`")
-        if type(node.ops[0]) not in _CMP:
-            raise ExprError("only < <= > >= == != are allowed as comparisons")
-        _validate(node.left, depth)
-        _validate(node.comparators[0], depth)
+        _validate_compare(node, depth)
     elif isinstance(node, ast.BoolOp):
         for v in node.values:
             _validate(v, depth)
@@ -313,9 +389,17 @@ class Expr:
         if isinstance(node, ast.Call):            # validated: len(name)
             return _length(node.args[0].id, env)
         if isinstance(node, ast.Compare):
-            return _CMP[type(node.ops[0])](
-                self._eval(node.left, env),
-                self._eval(node.comparators[0], env))
+            op = type(node.ops[0])
+            left, right = node.left, node.comparators[0]
+            if op in (ast.In, ast.NotIn):
+                hit = _member(left.value, right.id, env)
+                return hit if op is ast.In else not hit
+            if isinstance(left, _EMPTY_LITERALS) or isinstance(
+                    right, _EMPTY_LITERALS):
+                name = right if isinstance(left, _EMPTY_LITERALS) else left
+                empty = _length(name.id, env) == 0
+                return empty if op is ast.Eq else not empty
+            return _CMP[op](self._eval(left, env), self._eval(right, env))
         if isinstance(node, ast.BoolOp):
             return self._boolop(node, env)
         if isinstance(node, ast.UnaryOp):
@@ -349,6 +433,36 @@ def _name(name: str, env: dict):
     if isinstance(val, _Sized):
         raise NotCaptured(name, CONTAINER)
     return val
+
+
+def _member(value, name: str, env: dict) -> bool:
+    """`value in name`, decided only where the capture decides it.
+
+    A container's capture is its length plus a SAMPLE of at most
+    CAPS["sample"] members. Found in the sample -> True, certainly. Not
+    found -> False only when the sample is the whole container and every
+    member was a comparable primitive; otherwise the trace does not hold the
+    answer and the site is reported, never guessed. A string is a substring
+    test; a clipped string cannot answer at all, because the prefix is not
+    in the environment.
+    """
+    val = env.get(name, NOT_CAPTURED)
+    if val is NOT_CAPTURED:
+        raise NotCaptured(name, NO_VALUE if name in env else OUT_OF_SCOPE)
+    if val is TRUNCATED:
+        raise NotCaptured(name, CLIPPED)
+    if isinstance(val, _Sized):
+        if val.members is not None and value in val.members:
+            return True
+        if val.complete:
+            return False
+        raise NotCaptured(name, SAMPLED)
+    if isinstance(val, str):
+        if not isinstance(value, str):
+            raise TypeError(f"'in <string>' needs a string literal, not "
+                            f"{type(value).__name__}")
+        return value in val
+    raise NotCaptured(name, NO_LENGTH)      # a number, bool or None: no members
 
 
 def _length(name: str, env: dict) -> int:

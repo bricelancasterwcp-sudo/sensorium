@@ -495,3 +495,33 @@ def test_info_names_where_the_compared_thread_parted(tmp_path, monkeypatch,
     line = _one(out, "  diverged at causal step ")
     assert "first" in line and "again" in line     # A's side and B's side
     assert "diverged on tasks:" not in out
+
+
+MANY_TASKS = """
+import asyncio
+
+async def worker(i):
+    await asyncio.sleep(0)
+
+async def amain():
+    named = [asyncio.create_task(worker(i), name="worker") for i in range(10)]
+    plain = [asyncio.create_task(worker(i)) for i in range(3)]
+    await asyncio.gather(*named, *plain)
+
+asyncio.run(amain())
+"""
+
+
+def test_info_summarises_many_tasks_by_name(tmp_path, monkeypatch, capsys):
+    """A FastAPI test run recorded 166 tasks and `info` printed every one
+    inline. Past eight, the list is grouped by name and counted -- asyncio's
+    default `Task-N` names (a creation counter, not an identity) folded into
+    one group -- so the line says what ran, not how many times it scrolled."""
+    run_id, _trace, r = record_script(tmp_path, MANY_TASKS)
+    assert run_id, r.stderr
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    line = next(l for l in out.splitlines() if l.startswith("tasks: "))
+    assert line == ("tasks: 14 (2 distinct name(s): worker x10, "
+                    "Task-N (asyncio default names) x4)")
