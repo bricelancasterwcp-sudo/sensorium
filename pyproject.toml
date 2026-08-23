@@ -1,6 +1,6 @@
 [project]
 name = "sensorium"
-version = "0.3.0"
+version = "0.4.0"
 description = "Execution-trace recorder and LLM-native query CLI for Python programs"
 requires-python = ">=3.12"
 dependencies = []

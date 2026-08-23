@@ -1,5 +1,6 @@
 """Read-side access to trace files."""
 import json
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -94,6 +95,9 @@ class Trace:
         self._has_tasks = bool(conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='tasks'"
         ).fetchone())
+        self._has_task_fps = bool(conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "AND name='task_fingerprints'").fetchone())
 
     @classmethod
     def open(cls, path: Path) -> "Trace":
@@ -219,6 +223,38 @@ class Trace:
         return {tid: (h, n) for tid, h, n in self._c.execute(
             "SELECT thread_id, hash, n_events FROM fingerprints")}
 
+    @property
+    def fingerprint_basis(self) -> str:
+        """What a per-thread fingerprint row covers: "per-task" (plan 2b --
+        only events outside any asyncio task; tasks have their own rows) or
+        "per-thread" (every causal event on the thread; the only definition
+        before the marker existed, so absence means exactly that)."""
+        return self.meta.get("fingerprint_basis") or "per-thread"
+
+    def task_fingerprints(self) -> dict[int, tuple[str | None, str, int]]:
+        if not self._has_task_fps:
+            return {}
+        return {tid: (name, h, n) for tid, name, h, n in self._c.execute(
+            "SELECT task_id, name, hash, n_events FROM task_fingerprints")}
+
+    def task_shapes(self) -> "Counter[tuple[str | None, str]]":
+        """The multiset of (name, hash) over every task fingerprint: two
+        tasks doing identical work under one name count twice, which is the
+        comparison -- the same task shapes ran, the same number of times."""
+        return Counter((name, h) for name, h, _n
+                       in self.task_fingerprints().values())
+
+    def task_stream(self, task_id: int) -> list[tuple[str, str, str, int]]:
+        marks = ",".join("?" * len(CAUSAL_KINDS))
+        out = []
+        for eid, cid, kind in self._c.execute(
+                f"SELECT id, code_id, kind FROM events "
+                f"WHERE task_id = ? AND kind IN ({marks}) ORDER BY id",
+                (task_id, *CAUSAL_KINDS)):
+            c = self.code(cid)
+            out.append((c.file, c.qualname, kind, eid))
+        return out
+
     def output_chunks(self) -> list[tuple[int, str, str]]:
         return list(self._c.execute(
             "SELECT after_event_id, stream, data FROM output ORDER BY id"))
@@ -258,10 +294,16 @@ class Trace:
     def causal_stream(self, thread_id=None) -> list[tuple[str, str, str, int]]:
         tid = thread_id if thread_id is not None else self.main_thread_id()
         marks = ",".join("?" * len(CAUSAL_KINDS))
+        # Under the per-task basis a thread's stream is what its fingerprint
+        # covers: the events that ran in no task. Under the per-thread basis
+        # (every trace before the marker) it is every causal event, task
+        # events included -- the definition those fingerprints were made by.
+        narrow = ("AND task_id IS NULL "
+                  if self.fingerprint_basis == "per-task" else "")
         out = []
         for eid, cid, kind in self._c.execute(
                 f"SELECT id, code_id, kind FROM events "
-                f"WHERE thread_id = ? AND kind IN ({marks}) ORDER BY id",
+                f"WHERE thread_id = ? {narrow}AND kind IN ({marks}) ORDER BY id",
                 (tid, *CAUSAL_KINDS)):
             c = self.code(cid)
             out.append((c.file, c.qualname, kind, eid))

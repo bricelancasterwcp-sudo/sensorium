@@ -119,3 +119,63 @@ def test_open_frame_records_the_kind_and_defaults_to_function(tmp_path):
     c = sqlite3.connect(p)
     assert c.execute("SELECT id, kind FROM frames ORDER BY id").fetchall() == [
         (f1, "function"), (f2, "coroutine")]
+
+
+class _CountingConn:
+    """A connection that counts commits and forwards everything else.
+
+    The row COUNT cannot see the difference between one transaction and one
+    per task -- both write the same rows -- so the property under test is
+    structural and has to be observed structurally.
+    """
+
+    def __init__(self, conn):
+        self._conn = conn
+        self.commits = 0
+
+    def commit(self):
+        self.commits += 1
+        return self._conn.commit()
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
+def test_task_fingerprints_are_written_in_one_transaction(tmp_path):
+    """`uninstall` writes one row per asyncio task, and a commit is an fsync.
+
+    Per-row commits made exit cost scale with the task count (measured on
+    this box's ext4: 1.3-3.2 ms per task, so recording a 2,000-task program
+    spent 2.18 s of wall clock where it now spends 0.35 s -- all of it AFTER
+    the program had finished). The rows are unchanged; what must not grow
+    with the number of tasks is the number of transactions.
+    """
+    w = TraceWriter(tmp_path / "t.db", batch=512)
+    for k in range(1, 201):
+        w.add_task(k, f"task-{k}", 1)
+    w._conn = _CountingConn(w._conn)
+    w.write_task_fingerprints([(k, f"{k:032x}", k) for k in range(1, 201)])
+    assert w._conn.commits == 1
+    w.close()
+
+    c = sqlite3.connect(tmp_path / "t.db")
+    rows = c.execute("SELECT task_id, name, hash, n_events FROM "
+                     "task_fingerprints ORDER BY task_id").fetchall()
+    assert len(rows) == 200
+    assert rows[0] == (1, "task-1", f"{1:032x}", 1)
+    assert rows[-1] == (200, "task-200", f"{200:032x}", 200)
+
+
+def test_write_task_fingerprint_still_writes_one_row(tmp_path):
+    """The single-row entry point is kept (tests and any single-task caller
+    use it) and must go through the same path, flush included."""
+    w = TraceWriter(tmp_path / "t.db", batch=512)
+    w.add_task(3, "task-A", 1)              # still in the write buffer
+    w._conn = _CountingConn(w._conn)
+    w.write_task_fingerprint(3, "abcdef", 7)
+    assert w._conn.commits == 1
+    w.close()
+    c = sqlite3.connect(tmp_path / "t.db")
+    assert c.execute("SELECT task_id, name, hash, n_events FROM "
+                     "task_fingerprints").fetchall() == [(3, "task-A",
+                                                          "abcdef", 7)]

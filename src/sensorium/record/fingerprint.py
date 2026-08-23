@@ -1,6 +1,13 @@
-"""Per-thread causal fingerprints: a rolling hash over the (code, kind)
-sequence. Values, timing, and LINE events are deliberately excluded so
-capture depth can never alter the fingerprint (spec section 4)."""
+"""Per-thread AND per-task causal fingerprints: a rolling hash over the
+(code, kind) sequence. Values, timing, and LINE events are deliberately
+excluded so capture depth can never alter the fingerprint (spec section 4).
+
+One class, two uses (spec D6): a thread's fingerprint covers the causal
+events that ran in NO asyncio task, and every task serial owns one of its
+own. Which events go where is the tracer's decision (`_fp_for`), not this
+file's -- what a hash covers is recorded in the trace's `fingerprint_basis`
+so a reader is never left to infer it from the digest.
+"""
 import hashlib
 
 CAUSAL_KINDS = ("CALL", "RETURN", "RAISE", "HANDLED")

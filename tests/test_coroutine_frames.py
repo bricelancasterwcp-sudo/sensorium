@@ -246,11 +246,19 @@ def test_yield_and_resume_never_touch_the_fingerprint(tmp_path):
     t, err = record_inproc(tmp_path, CANCEL)
     assert err is None
     # The fingerprint is over CALL/RETURN/RAISE/HANDLED only, so YIELD and
-    # RESUME counts must not appear in n_events.
+    # RESUME counts must not appear in n_events. Since plan 2b every causal
+    # event belongs to exactly ONE row -- its task's if it ran in a task,
+    # else its thread's -- so the two tables TOGETHER are what must total
+    # the causal count; the thread's row alone covers only what ran outside
+    # any task (which for this program is nearly nothing).
     n_causal = sum(1 for e in t.events()
                    if e.kind in ("CALL", "RETURN", "RAISE", "HANDLED"))
     assert t.events(kind=("YIELD", "RESUME"))        # there ARE such rows
-    assert sum(n for _h, n in t.fingerprints().values()) == n_causal
+    n_thread = sum(n for _h, n in t.fingerprints().values())
+    n_task = sum(n for _name, _h, n in t.task_fingerprints().values())
+    assert n_thread + n_task == n_causal
+    assert n_task                                    # tasks did the work...
+    assert n_thread < n_causal                       # ...so the thread's is a part
 
 
 LOUD_THROW = """

@@ -7,6 +7,12 @@ from sensorium.record import boot
 from sensorium.store.writer import TraceWriter
 from tests.helpers import record_script
 from tests.programs import synthetic
+from tests.refocus_programs import (ASYNC_CONTENT_FLIP, COUNTER, new_run, rec,
+                                    refocus)
+from tests.test_async import TWO_TASKS
+
+# TWO_TASKS defines main() and no entry point; `record_script` runs the file.
+TWO_TASKS_PROG = TWO_TASKS + '\nif __name__ == "__main__":\n    main()\n'
 
 SRC = """
 def work(n):
@@ -25,8 +31,8 @@ if __name__ == "__main__":
 """
 
 
-def _record(tmp_path, monkeypatch, extra=()):
-    run_id, trace, r = record_script(tmp_path, SRC, extra=extra)
+def _record(tmp_path, monkeypatch, extra=(), src=SRC):
+    run_id, trace, r = record_script(tmp_path, src, extra=extra)
     assert run_id, r.stderr
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     return run_id
@@ -404,3 +410,88 @@ def test_info_on_a_sync_trace_says_zero_unframed_and_no_loop(tmp_path,
     out = capsys.readouterr().out
     assert "unframed calls: 0 (all calls framed in format 3)" in out
     assert "tasks: none (no event ran inside an asyncio task)" in out
+
+
+# -- contract: what a fingerprint row COVERS changed under plan 2b, and a
+# reader cannot tell which definition a hash was made under by looking at it.
+# `info` is where a trace describes itself, so it states the basis -- and the
+# thread rows say what they counted, since under the per-task basis they no
+# longer count the events that ran inside a task.
+def test_info_states_the_fingerprint_basis_and_the_task_rows(
+        tmp_path, monkeypatch, capsys):
+    run_id = _record(tmp_path, monkeypatch, src=TWO_TASKS_PROG)
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    # asyncio.run's own wrapper task has a row beside task-A and task-B
+    assert ("fingerprints: per-task basis -- each thread row covers the "
+            "events that ran in no asyncio task; 3 task fingerprint(s) "
+            "beside it") in out
+    line = _one(out, "fingerprint thread ")
+    assert line.endswith(" causal events outside any asyncio task)"), line
+    assert "per-thread basis" not in out
+
+
+def test_info_on_a_sync_0_4_0_trace_does_not_qualify_by_tasks_it_never_ran(
+        tmp_path, monkeypatch, capsys):
+    """The basis is a fact about the recorder; the NARROWING is a fact about
+    the run. A sync program recorded by this version had nothing taken out
+    of its thread row, so qualifying the count with "outside any asyncio
+    task" and printing "0 task fingerprint(s) beside it" sends a reader
+    looking for tasks that never existed -- and `refocus` says nothing of
+    the kind about the same trace (`_thread_scope` is gated on tasks too).
+    """
+    run_id = _record(tmp_path, monkeypatch)          # SRC: no asyncio at all
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "tasks: none (no event ran inside an asyncio task)" in out
+    # The basis line stays: it is how a reader tells two hashes apart.
+    assert _one(out, "fingerprints: per-task basis") == (
+        "fingerprints: per-task basis -- each thread row covers the events "
+        "that ran in no asyncio task")
+    assert "outside any asyncio task" not in out
+    assert "task fingerprint(s) beside it" not in out
+    assert _one(out, "fingerprint thread ").endswith(" causal events)")
+
+
+# -- Ruling 7: a rerun whose thread streams all matched and whose TASKS
+# parted has no `refocus_diverge_index` to print -- so before this line
+# `info` showed a bare `verdict: DIVERGED` with nothing about what diverged,
+# which is the "the terminal has scrolled away" failure the stamp exists for.
+def test_info_replays_a_task_only_divergence_stamped_by_refocus(tmp_path,
+                                                                monkeypatch,
+                                                                capsys):
+    run_id, sdir = rec(tmp_path, ASYNC_CONTENT_FLIP)
+    r = refocus(sdir, run_id, "--focus", "prog:worker")
+    assert r.returncode == 1, r.stdout + r.stderr
+    new_id = new_run(r.stdout)
+    monkeypatch.setenv("SENSORIUM_DIR", str(sdir))
+
+    assert cli.main(["info", new_id]) == 0
+    out = capsys.readouterr().out
+    assert "verdict: DIVERGED" in out
+    line = _one(out, "  diverged on tasks:")
+    assert "task-B" in line
+    # the threads all matched: saying they diverged would send the reader to
+    # the wrong stream
+    assert "diverged on threads:" not in out
+
+
+def test_info_names_where_the_compared_thread_parted(tmp_path, monkeypatch,
+                                                     capsys):
+    """The commonest divergence there is -- the compared thread took another
+    branch -- and `refocus` has been stamping its position and both sides all
+    along while `info` read none of them: a bare `verdict: DIVERGED` once the
+    terminal has scrolled away. The task line above is an ADDITION to this
+    one, not a replacement: a rerun with no tasks must not grow a task line.
+    """
+    run_id, sdir = rec(tmp_path, COUNTER)
+    r = refocus(sdir, run_id, "--focus", "prog:bump")
+    assert r.returncode == 1, r.stdout + r.stderr
+    new_id = new_run(r.stdout)
+    monkeypatch.setenv("SENSORIUM_DIR", str(sdir))
+
+    assert cli.main(["info", new_id]) == 0
+    out = capsys.readouterr().out
+    line = _one(out, "  diverged at causal step ")
+    assert "first" in line and "again" in line     # A's side and B's side
+    assert "diverged on tasks:" not in out

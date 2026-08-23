@@ -120,9 +120,23 @@ whether the rerun was the same execution.
 
 | verdict | exit | means |
 |---|---|---|
-| MATCH | 0 | every thread that left a fingerprint in both runs produced the **identical sequence of `(file, qualname, kind)` for CALL/RETURN/RAISE/HANDLED**, and there was at least one such event to compare |
+| MATCH | 0 | every thread that left a fingerprint in both runs produced the **identical sequence of `(file, qualname, kind)` for CALL/RETURN/RAISE/HANDLED** outside any asyncio task, every asyncio task's own stream has a counterpart of the same name and content on the other side (a multiset — the order tasks interleaved in is never compared), and there was at least one such event to compare |
 | DIVERGED | 1 | the causal streams part, and the first divergence is named with a drill-in command for each side |
-| REFUSED | 2 | no verdict could be issued — there was nothing to compare, or the recording could not be trusted |
+| REFUSED | 2 | no verdict could be issued. Four ways to get here: there was nothing to compare (neither side recorded a causal event); the recording could not be trusted (INCOMPLETE, or writes dropped after its database sealed); the two traces define a thread stream differently (a pre-0.4.0 trace against a 0.4.0 one, whenever either ran a task); or a 0.4.0 trace ran asyncio tasks and holds no task fingerprint rows, so what those tasks did would drop out of the comparison in silence |
+
+`diff --task NAME` diffs one task's stream by name; unnamed tasks match only
+unnamed tasks. Traces recorded before 0.4.0 define a thread stream to
+include task events (`info` says `per-thread basis`); comparing one of those
+with a 0.4.0 trace is REFUSED whenever either ran a task. Asyncio's own
+default `Task-<N>` names count as unnamed too — the number is creation
+order, not an identity, so `diff --task` refuses a literal `Task-<N>` rather
+than pretend it picks anything (Ruling 4). The name a task is compared under
+is the one it had **when it first ran traced code**: the recorder reads
+`get_name()` once, at the moment it mints that task's identity, so a
+`set_name` afterwards is never seen by any comparison. A thread's fingerprint row can
+hold zero events under this basis: a thread whose traced code all ran inside
+asyncio tasks still gets a row of its own, just with nothing in it outside
+those tasks.
 
 **A MATCH is a statement about the shape of the execution, not a statement
 that the two runs were the same.** It licenses one conclusion: the rerun took
@@ -287,7 +301,9 @@ setup, so readable by every account on the machine. In plaintext it holds:
   digests of every source file the run traced;
 - captured argument, return and local values, clipped to the caps `info`
   prints but not filtered for what they contain;
-- which asyncio task each event ran in, and the tasks' names.
+- which asyncio task each event ran in, and the tasks' names;
+- one causal fingerprint per thread (events outside any task) and per
+  asyncio task.
 
 `info` refuses to print the environment and `refocus` refuses to print the
 variables it compared — both carry secrets, and both say so in their own
@@ -322,15 +338,15 @@ because a reader who checks the list concludes their case was covered.
 CPython 3.14.4 — with `python corpus/run_corpus.py --bench`:
 
     workload            tier      baseline  recorded       x    events  us/event
-    call_dense          default     0.0089    1.2509   141.3    185428       6.7
-    call_dense          focused     0.0089    1.7106   191.3    278140       6.1
-    work_between_calls  default     0.1172    0.3204     2.7     24004       8.5
-    work_between_calls  focused     0.1177    0.4514     3.8     48006       7.0
-    async_call_dense    default     0.0302    0.3268    10.8     40004       7.4
-    await_dense         default     0.0515    0.2235     4.3     40004       4.3
-    await_dense         focused     0.0511    0.3590     7.0     60005       5.1
+    call_dense          default     0.0092    1.2486   136.0    185428       6.7
+    call_dense          focused     0.0088    1.7052   194.2    278140       6.1
+    work_between_calls  default     0.1104    0.3146     2.9     24004       8.5
+    work_between_calls  focused     0.1096    0.4473     4.1     48006       7.0
+    async_call_dense    default     0.0314    0.3174    10.1     40004       7.1
+    await_dense         default     0.0502    0.2347     4.7     40004       4.6
+    await_dense         focused     0.0502    0.3714     7.4     60005       5.4
 
-    recorder fixed cost: 0.036s on a program that does nothing (0.0074s -> 0.0430s)
+    recorder fixed cost: 0.036s on a program that does nothing (0.0074s -> 0.0432s)
 
 **What 0.2.0 added, measured against 0.1.0 on the same machine the same
 day**, each side best-of-three in its own fresh venv, two independent runs
@@ -342,8 +358,8 @@ The design note predicted about 0.05 µs/event for derived parentage plus
 task identity; the in-situ cost is 0.1–0.5 µs/event depending on call
 density — five to ten times the prediction, recorded here as a finding
 rather than restated. `async_call_dense` runs every call inside a running
-event loop and so pays the task-identity path in full: 7.4 µs/event, about
-0.7 µs more than the synchronous call-dense case on this box.
+event loop and so pays the task-identity path in full: 7.1 µs/event, about
+0.4 µs more than the synchronous call-dense case on this box.
 `async_call_dense` registers no focus target — its body only calls a
 one-line function — so it is reported for the default tier only;
 `await_dense` prices coroutine-body focus instead.
@@ -351,8 +367,37 @@ one-line function — so it is reported for the default tier only;
 On this same box, arc 2a's frame-and-suspension bookkeeping shows no
 measurable regression against a fresh 0.2.0 worktree measured the same way:
 `call_dense`/`work_between_calls`/`async_call_dense` measure
-6.7/8.5/7.4 µs/event here versus 0.2.0's 6.7/8.1/7.6 — differences within
+6.7/8.5/7.1 µs/event here versus 0.2.0's 6.7/8.1/7.6 — differences within
 run-to-run noise in both directions.
+
+Plan 2b's per-event cost falls only on events that ran **inside a task**.
+An event with no current task takes exactly the path it took before — one
+locked lookup in the per-thread map. An event inside a task pays two things
+instead of that one: an unlocked membership test that keeps its thread's own
+row present (a zero-count row is a fact, see above), and a locked lookup in
+the per-task map. So the async rows below are where any movement would show,
+and the synchronous rows are the control. Measured against a fresh
+`e679b7c` worktree (the commit immediately before this plan, same machine,
+same day, each side its own venv): `call_dense` holds at 6.7/6.1 µs/event
+(default/focused, unchanged both ways), `async_call_dense` moves 7.2 → 7.1,
+`await_dense` moves 4.5 → 4.6 (default) and 5.3 → 5.4 (focused), and
+`work_between_calls` — not one of the three rows the per-task path touches —
+moves 8.3 → 8.5 (default) and 6.8 → 7.0 (focused). The largest move on any
+row is +0.2 µs/event, the same size as run-to-run noise reported elsewhere
+in this section; no row moved past it.
+
+Two costs plan 2b adds that a per-event figure does not show. **Memory**: the
+recorder holds one `Fingerprint` per asyncio task the run created, for the
+lifetime of the process — measured here with `tracemalloc` at **220 bytes per
+task** (the dict entry and the object together), so a program that creates a
+million tasks over its life pays about 220 MB whether or not those tasks are
+still alive. **Exit**: every task's fingerprint row is written at `uninstall`,
+after the program has finished, in ONE transaction — measured at **4.6–5.4 µs
+per task** on this box's ext4 (1,000 rows, best of five). It was one
+transaction per row until 0.4.0's final wave, which cost 1.3–3.2 ms per task:
+recording a 2,000-task program took 2.18 s of wall clock where it now takes
+0.35 s, all of the difference being `fsync` charged to a process the user had
+already watched finish.
 
 An await-heavy program roughly **doubles its event count**, and that is a
 cost the per-event figures above do not show: every suspension is one YIELD
@@ -362,12 +407,12 @@ function calls make. A program that never suspends records nothing new.
 
 `await_dense` isolates the cost arc 2 added: a coroutine that suspends
 20,000 times on `asyncio.sleep(0)`, so almost every event it produces is a
-YIELD or a RESUME on the same frame. Measured here it costs 4.3 µs/event by
-default (5.1 focused), including the amortised recorder fixed cost (~0.9 µs
-of that 4.3 — the 0.036s boot from the fixed-cost row above, spread over
-40,004 events); about 3.4 µs/event without it. Against the **~114 ns** the
+YIELD or a RESUME on the same frame. Measured here it costs 4.6 µs/event by
+default (5.4 focused), including the amortised recorder fixed cost (~0.9 µs
+of that 4.6 — the 0.036s boot from the fixed-cost row above, spread over
+40,004 events); about 3.7 µs/event without it. Against the **~114 ns** the
 design note measured for the `sys.monitoring` PY_YIELD/PY_RESUME callbacks
-alone, before any writing, that is roughly 30× the floor (38× including the
+alone, before any writing, that is roughly 32× the floor (40× including the
 amortised fixed cost), the rest being the trace write and the derived-state
 bookkeeping the bare callback does not pay for.
 `us/event` is the figure that travels; the multiplier tracks how call-dense
@@ -375,7 +420,7 @@ the program is.
 
 These are measurements of one machine and four workloads, not a promise
 about yours. The multiplier is not a property of sensorium: recording costs
-on the order of **4–9 microseconds per event** here, from 4.3 on the
+on the order of **4–9 microseconds per event** here, from 4.6 on the
 per-suspension `await_dense` case up to 8.5 on `work_between_calls` (6.7 on
 the call-dense case), and how much that is depends entirely on how often the
 traced program calls or suspends. `call_dense` is naive recursive
@@ -397,7 +442,7 @@ inner loop it would cost far more.
     python corpus/run_corpus.py --show     # print the questions and commands
     python corpus/run_corpus.py --bench    # report recording overhead
 
-Nineteen small programs with deliberately planted bugs, and thirty-seven
+Twenty small programs with deliberately planted bugs, and thirty-nine
 questions registered **before** any output was looked at: the question in
 plain language, the known ground truth, the exact invocation expected to
 yield it, and why a `print()` cannot answer it. Ground truth is known
@@ -413,16 +458,17 @@ stopped stays `ambiguous … never closed`, not a claimed swallow),
 another task's call parked in the middle is outside it, the windowed
 frame's own call after it resumes is inside), and `async_handler` (`watch`
 locals inside a focused coroutine, disambiguating two interleaved tasks a
-print cannot tell apart).
+print cannot tell apart). Plan 2b adds `async_refocus`: two tasks whose
+start order flips between a recording and its rerun still MATCH, because
+tasks are compared by content and the interleaving is not; re-recorded with
+one task's content branching, the verdict is DIVERGED, naming that task.
 
 `--bench` reports; it never gates. Overhead is a tracked fact about a machine
 and a workload, not a pass/fail property of the tool.
 
 ## Not yet
 
-Per-task fingerprints and `refocus`/`diff` comparing tasks by content (plan
-2b): the `task_fingerprints` table exists in the schema but nothing writes
-to it yet. Subprocess following, attach-to-live-server flight recording,
-native (rr) substrates, MCP wrapper. See
+Subprocess following, attach-to-live-server flight recording, native (rr)
+substrates, MCP wrapper. See
 `docs/superpowers/specs/2026-08-21-sensorium-arc2-inspectable-coroutines-design.md`
 (extends `2026-08-21-sensorium-async-design.md`, arc 1's spec).
