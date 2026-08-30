@@ -472,3 +472,11 @@ Subprocess following, attach-to-live-server flight recording, native (rr)
 substrates, MCP wrapper. See
 `docs/superpowers/specs/2026-08-21-sensorium-arc2-inspectable-coroutines-design.md`
 (extends `2026-08-21-sensorium-async-design.md`, arc 1's spec).
+
+## License
+
+MIT — see [LICENSE](LICENSE). Copyright © 2026 Brice Lancaster.
+
+Sensorium is a zero-dependency library other programs import, so it is
+deliberately permissive: nothing you trace, and nothing you build around it,
+inherits an obligation from it.
