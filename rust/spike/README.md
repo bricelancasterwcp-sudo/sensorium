@@ -10,8 +10,10 @@ See `docs/superpowers/plans/2026-09-02-sensorium-rung1-mechanics-spike.md` for t
 
 ## How to build
 
-The workspace's only member so far is `sensorium-rt` (Task 1); Tasks 2 and 3 add
-`sensorium-transform` and `cargo-sensorium`.
+Task 1's members are `sensorium-rt` (the runtime) and `bench-caller` (the
+micro-bench's instrumented caller, a separate package only so its optimisation
+level can differ from the runtime's). Tasks 2 and 3 add `sensorium-transform`
+and `cargo-sensorium`.
 
 ```
 cd rust/spike/
@@ -27,14 +29,27 @@ driver will do regardless of the target workspace's profile.
 ## The micro-bench (E1's `fib(30)` numbers)
 
 ```
-cargo run --release --bin microbench
+cargo build && cargo build --release && cargo run --release --bin microbench
 ```
 
-It re-invokes itself once per arm per run (`SENSORIUM_TIER` is read once per
-process), three runs each, and prints machine-readable `*_ns_per_call` lines
-that Task 5's runner reads. Spool directories are created under `TMPDIR` (or
-`SENSORIUM_BENCH_DIR`) and removed after each run; the `call` arm writes about
-129 MB per run before cleanup.
+Both profiles must be built, because the bench reports **two lenses** and they
+differ by enough to reverse a reading:
+
+- `caller=dev(opt0) rt=opt3` — **E1's pre-registered lens**: instrumented code
+  at opt-level 0 against a runtime at 3, where the MIR inliner is off and
+  `enter` is a real cross-crate call.
+- `caller=release(opt3) rt=opt3` — both optimised, the gate inlined.
+
+`bench-caller` is its own package precisely so both exist: a cargo package
+override applies to every *target* of a package, so a bench binary inside
+`sensorium-rt` is opt-level 3 in the dev profile too and can only ever measure
+the release lens.
+
+Output is one `key=value` line per number with the lens on every line (`#`
+lines are a human summary). Each arm runs in its own process three times
+(`SENSORIUM_TIER` is read once per process) and the best is reported. Spool
+directories go under `TMPDIR` (or `SENSORIUM_BENCH_DIR`) and are removed after
+each run; the `call` arm writes about 129 MB per run before cleanup.
 
 ## How the measurement is run
 

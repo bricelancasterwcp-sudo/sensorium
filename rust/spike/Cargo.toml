@@ -4,7 +4,7 @@
 # not referenced by pyproject.toml or by CI. Nothing under rust/ is built by CI.
 [workspace]
 resolver = "2"
-members = ["sensorium-rt"]
+members = ["sensorium-rt", "bench-caller"]
 # probes/ws (added in Task 3) is its own workspace: the driver builds it as a
 # target workspace, so it must not be a member of the spike workspace.
 exclude = ["probes"]
@@ -24,3 +24,11 @@ opt-level = 3
 
 [profile.bench]
 opt-level = 3
+
+# `bench-caller` deliberately gets NO override. That is the whole point of it
+# being a separate package: the micro-bench needs an instrumented CALLER at the
+# dev profile's opt-level 0 (E1's pre-registered lens, where the MIR inliner is
+# off and `enter` is a real cross-crate call) as well as one at release's 3.
+# A package override applies to every target of a package, so a bench binary
+# inside `sensorium-rt` would be opt-level 3 in both profiles and could only
+# ever measure the release lens.

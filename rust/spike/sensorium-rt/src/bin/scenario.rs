@@ -28,6 +28,8 @@ fn main() {
         "two-threads" => two_threads(),
         "panic" => panic_scenario(),
         "leak" => leak(),
+        "exit-with-live-thread" => exit_with_live_thread(),
+        "abort-with-live-thread" => abort_with_live_thread(),
         "clean-thread" => clean_thread(),
         "two-units" => two_units(),
         "reentrant" => reentrant(),
@@ -93,23 +95,49 @@ fn panic_scenario() {
 /// `THREAD_END` -- the loss the spike's `BufWriter` implies, made observable.
 fn leak() {
     let _g = enter(&UNIT_A, 5);
+    spawn_blocked_thread(6);
+}
+
+/// Spawn a thread that emits and then blocks forever, and return once it is
+/// running. Its `JoinHandle` is dropped and the never-sender leaked, so the
+/// thread is still inside `recv()` when the caller decides how to end.
+fn spawn_blocked_thread(site: u32) {
     let (ready_tx, ready_rx) = mpsc::channel::<()>();
     let (never_tx, never_rx) = mpsc::channel::<()>();
     std::thread::Builder::new()
         .name("leaked".to_owned())
         .spawn(move || {
             {
-                let _g = enter(&UNIT_A, 6);
+                let _g = enter(&UNIT_A, site);
             }
             ready_tx.send(()).expect("signal ready");
-            // Nothing ever sends, and the sender is kept alive by the closure
-            // below, so this blocks until the process exits.
             let _ = never_rx.recv();
         })
         .expect("spawn");
-    ready_rx.recv().expect("wait for the leaked thread");
-    // Keep the sender alive so `recv` cannot return `Err(Disconnected)`.
+    ready_rx.recv().expect("wait for the blocked thread");
     std::mem::forget(never_tx);
+}
+
+/// `std::process::exit(0)` with another thread still running. glibc's `exit()`
+/// runs `__call_tls_dtors()`, so the CALLING thread's spool is flushed and
+/// closed; only the other live thread loses its buffered tail. Same loss as a
+/// leaked thread -- not the total loss `abort` causes.
+fn exit_with_live_thread() {
+    {
+        let _g = enter(&UNIT_A, 5);
+    }
+    spawn_blocked_thread(6);
+    std::process::exit(0);
+}
+
+/// `std::process::abort()` runs no destructor on any thread: every buffered
+/// record is lost, including the aborting thread's own.
+fn abort_with_live_thread() {
+    {
+        let _g = enter(&UNIT_A, 5);
+    }
+    spawn_blocked_thread(6);
+    std::process::abort();
 }
 
 /// A thread that exits cleanly, on a process whose main thread never emits.

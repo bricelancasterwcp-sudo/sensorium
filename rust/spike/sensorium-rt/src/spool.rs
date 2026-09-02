@@ -17,12 +17,28 @@
 //!
 //! KNOWN LOSS, deliberately kept for the spike (spec §4 replaces it at rung 2
 //! with a `MAP_SHARED` mapping): records go through a per-thread `BufWriter`
-//! that is flushed only by the thread-local's destructor. A thread still alive
-//! when the process exits never runs that destructor, so its buffered records
-//! are lost. The FILE HEADER is flushed at open precisely so such a spool is
-//! still identifiable -- it names the thread and carries its serial, which is
-//! what `live_threads` in the converter needs. A leaked thread therefore leaves
-//! a header-only spool with no `THREAD_END`.
+//! that is flushed only by the thread-local's destructor. A thread whose
+//! destructor never runs loses its buffered records.
+//!
+//! THE LOSS MODEL, as measured (`tests/thread_end.rs` pins all three rows):
+//!
+//! | how the process ends | calling thread | other live threads |
+//! |---|---|---|
+//! | return from `main`     | flushed, `THREAD_END` | header-only |
+//! | `std::process::exit()` | flushed, `THREAD_END` | header-only |
+//! | `abort()` / a signal   | header-only           | header-only |
+//!
+//! `process::exit` is NOT a total loss: glibc's `exit()` calls
+//! `__call_tls_dtors()`, so the calling thread's spool is flushed and closed
+//! exactly as if `main` had returned, and only the OTHER live threads lose
+//! their tails. `abort()` and fatal signals run no destructor at all, so every
+//! thread including the aborting one is left at its header.
+//!
+//! The FILE HEADER is flushed at open precisely so a spool that loses its tail
+//! is still identifiable -- it names the thread and carries its serial, which
+//! is what `live_threads` in the converter needs. Every row above therefore
+//! leaves a well-formed, parseable spool; what varies is how much of it there
+//! is and whether it ends with `THREAD_END`.
 
 use std::fs::File;
 use std::io::{self, BufWriter, Write};

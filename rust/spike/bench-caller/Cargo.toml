@@ -1,0 +1,9 @@
+[package]
+name = "bench-caller"
+version = "0.0.0-spike"
+edition = "2021"
+publish = false
+description = "THROWAWAY SPIKE CODE (rung-1 Rust mechanics spike): the instrumented CALLER for the fib(30) micro-bench. It exists as its own package so its optimisation level can differ from the runtime's -- E1's lens is an opt-0 caller against an opt-3 runtime, which no target of the sensorium-rt package can be."
+
+[dependencies]
+sensorium-rt = { path = "../sensorium-rt" }

@@ -229,7 +229,13 @@ pub struct Run {
 /// Run `scenario <name> [args]` with `SENSORIUM_SPOOL` pointing at `dir` (or
 /// unset when `dir` is `None`) and `SENSORIUM_TIER` set from `tier`.
 pub fn run(name: &str, args: &[&str], dir: Option<&Path>, tier: Option<&str>) -> Run {
-    run_inner(name, args, dir, tier, None)
+    run_inner(name, args, dir, tier, None, false)
+}
+
+/// For scenarios that end on a signal (`abort`), where a non-zero status is the
+/// point rather than a failure.
+pub fn run_allow_failure(name: &str, dir: Option<&Path>) -> Run {
+    run_inner(name, &[], dir, None, None, true)
 }
 
 /// The same, but with the child's working directory, `TMPDIR` and `HOME` all
@@ -248,7 +254,7 @@ pub fn run_sandboxed(
     tier: Option<&str>,
 ) -> (TempDir, Run) {
     let sandbox = TempDir::created();
-    let run = run_inner(name, args, dir, tier, Some(sandbox.path()));
+    let run = run_inner(name, args, dir, tier, Some(sandbox.path()), false);
     (sandbox, run)
 }
 
@@ -258,6 +264,7 @@ fn run_inner(
     dir: Option<&Path>,
     tier: Option<&str>,
     sandbox: Option<&Path>,
+    allow_failure: bool,
 ) -> Run {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_scenario"));
     if let Some(s) = sandbox {
@@ -278,11 +285,13 @@ fn run_inner(
     let output = cmd.output().expect("running the scenario binary");
     let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-    assert!(
-        output.status.success(),
-        "scenario {name} failed: {:?}\nstdout: {stdout}\nstderr: {stderr}",
-        output.status
-    );
+    if !allow_failure {
+        assert!(
+            output.status.success(),
+            "scenario {name} failed: {:?}\nstdout: {stdout}\nstderr: {stderr}",
+            output.status
+        );
+    }
     let pid = stdout
         .lines()
         .find_map(|l| l.strip_prefix("pid "))
