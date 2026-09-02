@@ -632,3 +632,18 @@ def test_watch_membership_and_empty_literal_predicates(tmp_path):
                    "'zzz' in big"], cwd=tmp_path, sensorium_dir=sdir).stdout
     assert "HIT" not in out
     assert "sample does not decide" in out       # 40 keys, 8 sampled
+
+
+def test_watch_refuses_a_trace_that_declares_no_line_events(tmp_path, monkeypatch, capsys):
+    from sensorium import cli
+    from tests.helpers import finalize_synthetic
+    from tests.programs import synthetic
+    w = synthetic(tmp_path, monkeypatch)
+    c = w.intern_code("/tmp/prog.py", "main", 1)
+    w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
+    finalize_synthetic(w, lang="rust", recorder="sensorium-rt 0.0",
+                       capabilities={"line": False})
+    w.close()
+    assert cli.main(["watch", "20260101-000000-abcdef", "--at", "main",
+                     "--expr", "x > 1"]) == 2
+    assert "watch needs line" in capsys.readouterr().out
