@@ -1,0 +1,14 @@
+# THROWAWAY SPIKE CODE (rung-1 Rust mechanics spike) -- see README.md.
+#
+# Its own workspace with its own Cargo.lock: the driver treats it as a TARGET
+# workspace, so it must not be a member of rust/spike's workspace (which
+# excludes `probes`).
+[workspace]
+resolver = "2"
+members = ["probe-core", "probe-app"]
+
+# `probe-ext` is a path dependency at ../ext -- OUTSIDE this directory, so
+# cargo cannot auto-adopt it as a member (cargo only auto-adopts path
+# dependencies that reside inside the workspace directory). That is exactly
+# what E8 needs: a crate cargo compiles for this build and never hands to
+# RUSTC_WORKSPACE_WRAPPER.

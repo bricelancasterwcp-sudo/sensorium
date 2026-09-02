@@ -1,0 +1,10 @@
+[package]
+name = "probe-ext"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "THROWAWAY SPIKE CODE (rung-1 Rust mechanics spike): a path dependency that lives OUTSIDE the probe workspace directory, so cargo cannot make it a workspace member. Its job is to be NOT wrapped."
+
+[lib]
+name = "probe_ext"
+path = "src/lib.rs"

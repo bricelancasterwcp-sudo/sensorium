@@ -4,3 +4,4 @@
 # the sandboxed inert tests exist to catch. Never source.
 *.spool
 *.proc.json
+probes/ws/target/

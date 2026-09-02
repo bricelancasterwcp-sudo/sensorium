@@ -1,0 +1,28 @@
+[package]
+name = "probe-app"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "THROWAWAY SPIKE CODE (rung-1 Rust mechanics spike): the probe workspace's application crate -- lib + bin + integration tests, the unit shapes E7/E8 are measured on."
+
+[lib]
+name = "probe_app"
+path = "src/lib.rs"
+
+[[bin]]
+name = "app-bin"
+path = "src/main.rs"
+
+[dependencies]
+probe-core = { path = "../probe-core" }
+# OUTSIDE the workspace directory on purpose: cargo compiles it, cargo never
+# wraps it. See ../Cargo.toml.
+probe-ext = { path = "../../ext" }
+# The probe deliberately links `libc` ITSELF, so the unit that the wrapper
+# hands `--extern sensorium_rt=` (whose own rlib carries a DIFFERENT libc
+# metadata) is one that already has a libc in its dependency graph. If two
+# libc crates cannot coexist in one unit, this is where rustc says so.
+libc = "0.2"
+
+# NOTE: sensorium-rt is deliberately absent. Linkage is the wrapper's job; if
+# it were a declared dependency the measurement would be circular.
