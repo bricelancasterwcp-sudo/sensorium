@@ -45,7 +45,7 @@ def _frame_id(ev: dict, fids: list[int]) -> int | None:
     """The row's `frame_id` -- always NULL on a CALL, whatever the vector says.
 
     A frame-opening CALL is written with `frame_id` NULL by the recorder
-    (`tracer._on_call`): the frame does not exist yet when the event is
+    (`tracer._on_start`): the frame does not exist yet when the event is
     written, and the link runs the other way, through
     `frames.call_event_id`. Only the rows a recorder emits INSIDE an open
     frame -- RETURN, RAISE, HANDLED, LINE, YIELD, RESUME -- carry one. A
@@ -104,6 +104,13 @@ def _compute_fingerprints(w, vector) -> None:
     though it emitted nothing: the recorder writes a zero-count row for
     every thread it saw, and a main thread whose work all happened in tasks
     is exactly the case `diff` has to handle.
+
+    Tasks need no such key: TRACE-FORMAT §6 requires a row for every minted
+    unit of work, "a unit that ran no causal event gets a zero-count
+    fingerprint row rather than no row", so the rows are driven off the
+    vector's `tasks` list and not off the events. Deriving them from the
+    events instead left a silent task unable to be expressed at all -- the
+    builder could not write the one shape the rule is about.
     """
     per_thread: dict[int, Fingerprint] = {}
     per_task: dict[int, Fingerprint] = {}
@@ -119,5 +126,10 @@ def _compute_fingerprints(w, vector) -> None:
     for thread in threads:
         fp = per_thread.get(thread, Fingerprint())
         w.write_fingerprint(thread, fp.hexdigest(), fp.count)
-    w.write_task_fingerprints([(tid, fp.hexdigest(), fp.count)
-                               for tid, fp in per_task.items()])
+    # Declared order first, then any task only the events name -- a vector
+    # that forgot to declare one still gets its row rather than losing it.
+    tids = [tid for tid, _name, _thread in vector.get("tasks", [])]
+    tids += sorted(t for t in per_task if t not in tids)
+    w.write_task_fingerprints([(t, per_task.get(t, Fingerprint()).hexdigest(),
+                                per_task.get(t, Fingerprint()).count)
+                               for t in tids])

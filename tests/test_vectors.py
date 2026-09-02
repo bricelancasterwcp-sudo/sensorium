@@ -62,7 +62,7 @@ def test_every_question_says_what_it_asks_and_asserts_something():
 @pytest.mark.parametrize("vector", VECTORS, ids=[v["id"] for v in VECTORS])
 def test_call_rows_carry_no_frame_id(vector, tmp_path):
     """The vectors write the rows the recorder writes: a frame-opening CALL
-    has `frame_id` NULL (`tracer._on_call` passes None -- the frame does not
+    has `frame_id` NULL (`tracer._on_start` passes None -- the frame does not
     exist yet), and the frame is found from the other end, through
     `frames.call_event_id`. A vector that set `frame_id` on a CALL would
     hand a second recorder a row shape the Python one never produces."""
@@ -80,3 +80,24 @@ def test_call_rows_carry_no_frame_id(vector, tmp_path):
         assert found is not None and found.id == f.id, (
             f"{vector['id']}: f{f.id} is not reachable from its own CALL "
             f"e{f.call_event_id}")
+
+
+def test_a_task_that_ran_no_causal_event_still_gets_a_fingerprint_row(tmp_path):
+    """TRACE-FORMAT §6: "a unit that ran no causal event gets a zero-count
+    fingerprint row rather than no row". The builder derived its task rows
+    from the EVENTS, so the one shape that rule is about was the one shape a
+    vector could not express -- a silent unit simply lost its row."""
+    vector = {"id": "adhoc-silent-task",
+              "codes": [["/w/a.py", "run", 1]],
+              "events": [{"ts": 1, "thread": 2, "kind": "CALL", "code": 1,
+                          "line": 1, "payload": {"args": {}}, "task": 1}],
+              "tasks": [[1, "t::loud", 2], [2, "t::silent", 3]],
+              "threads_with_rows": [1, 2, 3],
+              "fingerprints": "compute",
+              "meta": {"trace_format": 4, "fingerprint_basis": "per-task"}}
+    trace = Trace.open(build(vector, tmp_path / "sdir",
+                             ["20260101-000000-aaaaaa"]))
+    rows = trace.task_fingerprints()
+    assert sorted(rows) == [1, 2], rows
+    assert rows[2][0] == "t::silent" and rows[2][2] == 0, rows[2]
+    assert rows[1][2] == 1, rows[1]

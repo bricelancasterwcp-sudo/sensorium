@@ -92,6 +92,27 @@ def unwitnessed_lines(trace, m: dict) -> list[str]:
     return out
 
 
+def capabilities_line(trace) -> str:
+    """What the trace DECLARES -- never what a reader assumed on its behalf.
+
+    `Trace.capabilities` fills in `boot.CAPABILITIES` (every one true) for a
+    Python trace carrying no `capabilities` key. That is the right reading
+    for a command deciding whether to refuse -- the only recorder that
+    existed had every capability -- but printing it here rendered an
+    assumption as a declaration: a format-1 trace said `capabilities:
+    children=yes line=yes ... tasks=yes threads=yes` two lines above
+    `tasks: not recorded (format-1 trace; parentage assumed)`, about the
+    same trace. `declares()` returns None for exactly that case and for no
+    other, so it is what the branch reads.
+    """
+    if trace.declares("threads") is None:
+        return ("undeclared (pre-format-4 Python recorder; read as full by "
+                "every command)")
+    return (" ".join(f"{k}={'yes' if v else 'no'}"
+                     for k, v in sorted(trace.capabilities.items()))
+            or "(none declared)")
+
+
 def run(args) -> int:
     t = Trace.open(paths.find_trace(args.run))
     m = t.meta
@@ -112,9 +133,8 @@ def run(args) -> int:
     print(f"python {m.get('python', '?')}  env:{m.get('env_hash', '?')}  "
           f"exit: {m.get('exit_status', '?')}  events: {sum(counts.values())}"
           f"{dur}")
-    print(f"recorder: {t.recorder}  lang: {t.lang}  capabilities: "
-          + (" ".join(f"{k}={'yes' if v else 'no'}" for k, v in sorted(t.capabilities.items()))
-             or "(none declared)"))
+    print(f"recorder: {t.recorder}  lang: {t.lang}  "
+          f"capabilities: {capabilities_line(t)}")
     print("recorded: " + "  ".join(f"{k} {counts.get(k, 0)}" for k in
                                    ("CALL", "RETURN", "RAISE", "HANDLED",
                                     "YIELD", "RESUME", "LINE")))

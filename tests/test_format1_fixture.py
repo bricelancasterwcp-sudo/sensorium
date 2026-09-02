@@ -105,6 +105,21 @@ def test_frame_on_a_format1_trace_says_unframed_and_assumed(installed_fixture,
     assert "task t" not in out.splitlines()[0]
 
 
+def test_info_on_a_format1_trace_calls_its_capabilities_undeclared(
+        installed_fixture, capsys):
+    """`Trace.capabilities` reads an undeclared Python trace as full, which
+    is the right reading for a command deciding whether to refuse -- and the
+    wrong thing to PRINT as a declaration: this fixture printed
+    `capabilities: ... tasks=yes threads=yes` two lines above `tasks: not
+    recorded (format-1 trace)`, about itself."""
+    assert cli.main(["info", installed_fixture]) == 0
+    line = next(l for l in capsys.readouterr().out.splitlines()
+                if l.startswith("recorder: "))
+    assert line.endswith("capabilities: undeclared (pre-format-4 Python "
+                         "recorder; read as full by every command)"), line
+    assert "threads=yes" not in line and "tasks=yes" not in line
+
+
 def test_info_on_a_format1_trace_says_tasks_not_recorded(installed_fixture,
                                                           capsys):
     assert cli.main(["info", installed_fixture]) == 0

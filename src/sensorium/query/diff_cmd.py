@@ -85,9 +85,9 @@ from collections import Counter
 
 from sensorium import paths
 from sensorium.query.caps import witness_gap
-from sensorium.query.moves import (Moves, detect_moves, for_b,
-                                   print_key_line, print_moves_section,
-                                   project, task_hashes)
+from sensorium.query.moves import (Moves, desc, detect_moves, for_b,
+                                   modulo_location, print_key_line,
+                                   print_moves_section, project, task_hashes)
 from sensorium.store.reader import Trace
 
 CAUSAL = ("CALL", "RETURN", "RAISE", "HANDLED")
@@ -106,11 +106,6 @@ def first_divergence(a: list, b: list) -> int | None:
     if len(a) != len(b):
         return min(len(a), len(b))
     return None
-
-
-def _desc(step) -> str:
-    file, qual, kind, eid = step
-    return f"e{eid} {kind:<7} {qual}  ({file})"
 
 
 def _unsafe_reasons(trace: Trace, label: str) -> list[str]:
@@ -258,8 +253,8 @@ def _pair(trace_a, trace_b, ta, tb, name, by_order=False,
             "by_order": by_order,
             "a_event": a_step[3] if a_step else None,
             "b_event": b_step[3] if b_step else None,
-            "a_desc": _desc(a_step) if a_step else "(stream ended)",
-            "b_desc": _desc(b_step) if b_step else "(stream ended)"}
+            "a_desc": desc(a_step, moves) if a_step else "(stream ended)",
+            "b_desc": desc(b_step) if b_step else "(stream ended)"}
 
 
 def _first_pair_sharing_a_name(trace_a, trace_b, only_a, only_b,
@@ -396,8 +391,8 @@ def compare(trace_a: Trace, trace_b: Trace,
         "index": i,
         "a_event": a_step[3] if a_step else None,
         "b_event": b_step[3] if b_step else None,
-        "a_desc": _desc(a_step) if a_step else "(stream ended)",
-        "b_desc": _desc(b_step) if b_step else "(stream ended)",
+        "a_desc": desc(a_step, moves) if a_step else "(stream ended)",
+        "b_desc": desc(b_step) if b_step else "(stream ended)",
         "reasons": [],
         "a_stream": sa, "b_stream": sb,
         "tasks": tasks, "moves": moves,
@@ -492,8 +487,8 @@ def compare_task_streams(trace_a: Trace, trace_b: Trace, name: str,
         "index": i,
         "a_event": a_step[3] if a_step else None,
         "b_event": b_step[3] if b_step else None,
-        "a_desc": _desc(a_step) if a_step else "(stream ended)",
-        "b_desc": _desc(b_step) if b_step else "(stream ended)",
+        "a_desc": desc(a_step, moves) if a_step else "(stream ended)",
+        "b_desc": desc(b_step) if b_step else "(stream ended)",
         "reasons": [],
         "a_stream": sa, "b_stream": sb,
         "tasks": None, "moves": moves, **found,
@@ -602,8 +597,9 @@ def _print_divergence(res, name_a, name_b, context) -> None:
     the two commands that show it in full."""
     i = res["index"]
     print(f"verdict: DIVERGED at causal step {i}")
+    moves = res.get("moves")          # A's stream is projected; name A's files
     for step in res["a_stream"][max(0, i - context):i]:
-        print(f"  common  {_desc(step)}")
+        print(f"  common  {desc(step, moves)}")
     print(f"  A:      {res['a_desc']}")
     print(f"  B:      {res['b_desc']}")
     if res["a_event"]:
@@ -638,7 +634,7 @@ def _print_thread_match(trace_a, trace_b, res) -> None:
     exact = (trace_a.main_thread_basis() == "recorded"
             and trace_b.main_thread_basis() == "recorded")
     where = "the main thread" if exact else "the thread named above"
-    if res.get("moves"):
+    if modulo_location(res.get("moves")):
         nm = len(res["moves"].moved)
         print(f"verdict: MATCH modulo location -- identical causal streams "
               f"({n} events) once {nm} moved code object(s) are paired by "
@@ -747,7 +743,7 @@ def print_task_comparison(trace_a, trace_b, res, name_a, name_b, task,
           "them ran in")
     if res["verdict"] != "MATCH":
         _print_divergence(res, name_a, name_b, context)
-    elif res.get("moves"):
+    elif modulo_location(res.get("moves")):
         nm = len(res["moves"].moved)
         print(f"verdict: MATCH modulo location -- identical causal streams "
               f"({len(res['a_stream'])} events) once {nm} moved code "

@@ -17,9 +17,10 @@ fingerprints are untouched and `diff` without the flag reads them as before.
 A file's own `<module>` code object is never paired: it is file identity,
 not a function, and a split creates new files whose import-time frame exists
 on one side BY CONSTRUCTION. Those frames are listed in `one_sided_modules`
-and dropped from both compared streams -- only the `<module>` frames
-themselves, so anything module-level code CALLS is still compared and an
-import-time side effect still diverges.
+and dropped from both compared streams -- the module body's OWN steps and
+nothing else, which includes a RAISE or HANDLED that ran directly in it.
+What module-level code CALLS is still compared, so an import-time side
+effect that reaches a function still diverges.
 """
 from collections import defaultdict
 from dataclasses import dataclass, replace
@@ -84,6 +85,10 @@ def project(stream, moves: Moves) -> list[tuple]:
     rewrite each remaining (file, qualname, kind, eid) step through
     `moves.mapping`; unmapped steps pass through unchanged.
 
+    "Dropped" is every step whose code object IS that `<module>` -- its CALL
+    and RETURN, and a RAISE or HANDLED that ran directly in the module body.
+    Its own steps are not compared; what it called is.
+
     The B side is projected too, through a `Moves` whose mapping is empty:
     the dropping is symmetric (a one-sided file's frames must leave BOTH
     streams), the rewriting is not (it names A's keys with B's files)."""
@@ -131,6 +136,45 @@ def short(key) -> str:
     return f"{_base(file)}:{qual}"
 
 
+def desc(step, moves: Moves | None = None) -> str:
+    """One causal step rendered for a reader: `e12 CALL    f  (/w/a.py)`.
+
+    `moves` is passed on the A SIDE ONLY, and it undoes the projection for
+    the printed line. `project()` rewrites A's key to B's file so the two
+    streams can be compared; rendering that projected tuple printed a file
+    A never recorded -- the 2026-09-02 acceptance run said `A: e454 CALL
+    StampAuditTests (.../test_recompute_v2_verdicts.py)` for a step A
+    recorded in `test_recompute_v2.py`, at the one line the reader is told
+    to drill into. The recorded file is what the drill-in command opens, so
+    it is what the line names, and the file it was paired with is appended
+    rather than dropped: the pairing is why the two steps are compared at
+    all. Nothing here changes what was compared -- the comparison ran on
+    the projected keys, and this only renames them back for print.
+
+    The lookup is exact: `mapping`'s values are keys present on B and
+    absent from A, so an A-side step carrying one can only have got it from
+    the projection, and each qualname contributes at most one pair.
+    """
+    file, qual, kind, eid = step
+    paired = ""
+    if moves is not None and moves.mapping:
+        src = {v: k for k, v in moves.mapping.items()}.get((file, qual))
+        if src is not None:
+            paired = f" (paired with {_base(file)})"
+            file = src[0]
+    return f"e{eid} {kind:<7} {qual}  ({file}){paired}"
+
+
+def modulo_location(moves: Moves | None) -> bool:
+    """Whether a move-aware verdict was reached through any leniency at all.
+
+    With nothing paired and no one-sided module frame the projected streams
+    ARE the recorded ones, and "MATCH modulo location ... once 0 moved code
+    object(s) are paired" describes a licence never exercised -- on two
+    identical traces it read as a hedge over an exact agreement."""
+    return bool(moves and (moves.moved or moves.one_sided_modules))
+
+
 def _listed(items, render=str) -> str:
     """`items` rendered, capped, and MARKED when the cap cut something. A
     truncated list with nothing to say it was truncated reads as the whole
@@ -153,8 +197,14 @@ def print_key_line(moves: Moves | None) -> None:
 
 def print_moves_section(moves: Moves | None) -> None:
     """The `moves:` block under a verdict; no-op when there is none, so
-    every print path can call it unconditionally."""
+    every print path can call it unconditionally. A bare `moves:` header
+    with nothing under it -- what two identical traces produced -- reads as
+    a list that was cut off, so the empty case says it is empty."""
     if not moves:
+        return
+    if not (moves.moved or moves.added or moves.removed or moves.unpaired
+            or moves.one_sided_modules):
+        print("moves: none -- no code object was on one side only")
         return
     print("moves:")
     print_moves(moves)
@@ -182,8 +232,8 @@ def print_moves(moves: Moves) -> None:
               f"{len(moves.one_sided_modules)} (files only in B: "
               f"{', '.join(only_b) or '-'}; only in A: "
               f"{', '.join(only_a) or '-'}) -- a new file's own import-time "
-              "frame exists on one side by construction; what it called is "
-              "still compared")
+              "frame exists on one side by construction; its own steps are "
+              "not compared; what it called is")
 
 
 def task_hashes(trace,

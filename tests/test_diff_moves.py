@@ -91,6 +91,61 @@ def test_ignore_moves_still_catches_a_planted_swap(tmp_path, monkeypatch, capsys
     # Named AT the swap: A still calls helper first, B now calls other.
     assert "helper" in _side(out, "A") and "other" in _side(out, "B")
     assert "moved: helper" in out          # the pairing is still reported
+    # And named in the file A RECORDED it in. The comparison ran on the
+    # projected key (B's file); printing that key told the reader to drill
+    # into a file A never had -- at the one line the drill-in command names.
+    a = _side(out, "A")
+    assert re.search(r"\(/.*/lib\.py\) \(paired with lib_helper\.py\)$", a), a
+
+
+MAIN_TAIL = """
+from lib import helper, other
+
+def main():
+    helper(1)
+    other(2)
+    helper(3)
+
+if __name__ == "__main__":
+    main()
+"""
+MAIN_TAIL_SWAPPED = MAIN_TAIL.replace("    other(2)\n    helper(3)",
+                                      "    helper(3)\n    other(2)")
+
+
+def test_a_common_line_for_a_moved_function_names_the_recorded_file(
+        tmp_path, monkeypatch, capsys):
+    """The run-up above a divergence is A's stream, projected. A moved
+    function in it was printed under B's file too -- the same false citation
+    as the `A:` line, in the lines that give it its context."""
+    w, sdir = tmp_path / "w", tmp_path / "sdir"
+    w.mkdir()
+    monkeypatch.setenv("SENSORIUM_DIR", str(sdir))
+    before = _record(w, sdir, [("main.py", MAIN_TAIL), ("lib.py", LIB_TOGETHER)])
+    after = _record(w, sdir, [("main.py", MAIN_TAIL_SWAPPED),
+                              ("lib.py", LIB_SPLIT), ("lib_helper.py", LIB_HELPER)])
+    rc, out = _collect(capsys, ["diff", "--ignore-moves", before, after])
+    assert rc == 1, out
+    common = [l for l in out.splitlines() if l.startswith("  common  ")]
+    moved = [l for l in common if " helper " in l]
+    assert moved, out
+    for line in moved:
+        assert re.search(r"\(/.*/lib\.py\) \(paired with lib_helper\.py\)$",
+                         line), line
+
+
+def test_ignore_moves_of_a_trace_against_itself_is_a_plain_match(
+        tmp_path, monkeypatch, capsys):
+    """Nothing moved and no file is one-sided, so the projected streams ARE
+    the recorded ones: "MATCH modulo location ... once 0 moved code
+    object(s) are paired" hedged an exact agreement, over a bare `moves:`
+    header that read as a list cut off."""
+    before, _moved, _swapped = _three(tmp_path, monkeypatch)
+    rc, out = _collect(capsys, ["diff", "--ignore-moves", before, before])
+    assert rc == 0, out
+    assert "verdict: MATCH -- identical causal streams" in out
+    assert "MATCH modulo location" not in out
+    assert "moves: none -- no code object was on one side only" in out
 
 
 def test_ignore_moves_lists_added_and_removed_code(tmp_path, monkeypatch, capsys):
