@@ -75,13 +75,16 @@ pub(crate) fn run(
     }
 
     let mut inserts = ctx.inserts;
+    let mut appended_line = false;
     if is_crate_root {
         // LAST, and never sorted afterwards: the visitor yields guards in source
         // order, and the static's offset (end of the file's last token) is past
         // every body it contains, so the list is already ascending. A sort here
         // would be code no test can reach -- the assertion states the invariant
         // instead, and the slicing below panics loudly if it is ever violated.
-        inserts.push((static_offset(source, prefix), unit_static(unit_metadata)));
+        let (offset, added) = static_splice(source, prefix);
+        appended_line = added;
+        inserts.push((offset, unit_static(unit_metadata)));
     }
     debug_assert!(
         inserts.windows(2).all(|w| w[0].0 <= w[1].0),
@@ -101,6 +104,7 @@ pub(crate) fn run(
         source: out,
         sites: ctx.sites,
         skipped: ctx.skipped,
+        appended_line,
     })
 }
 
@@ -116,6 +120,7 @@ pub(crate) fn census(source: &str) -> Census {
         fn_items: ctx.fn_items,
         const_fns: ctx.const_fns,
         extern_fns: ctx.extern_fns,
+        async_fns: ctx.async_fns,
         parsed: true,
     }
 }
@@ -127,37 +132,60 @@ fn stripped_prefix_len(source: &str, shebang: Option<&str>) -> usize {
 }
 
 /// Where the `__SENSORIUM_UNIT` static goes: immediately after the file's LAST
-/// TOKEN.
+/// TOKEN -- with one correction that is not optional.
 ///
 /// Not "on the last line": a file whose last line is `// a comment` would
 /// swallow the static. Not "after the final newline" either: that adds a line,
-/// which is the one thing this crate exists to avoid. The last token is on the
-/// last line of CODE, is never inside a comment, and is always at item level --
-/// the file is a sequence of items, so its final token closes the final one.
+/// which is the one thing this crate exists to avoid. A file is a sequence of
+/// items, so its final token normally closes the final one.
+///
+/// The exception, and it is a silent one: `proc-macro2` hands a `//!` or `///`
+/// doc comment back as tokens whose span covers the COMMENT TEXT, not the
+/// `#[doc = ".."]` it desugars to. When the last token is one of those, "after
+/// the last token" is INSIDE a line comment, and the static is commented out --
+/// the file still parses, still has the same line count, and simply has no
+/// unit. (A `/*! .. */` doc comment is safe: its span ends after the `*/`.) So
+/// when the last token's own text starts with `//`, the static moves past that
+/// line's newline instead.
+///
+/// Returns the offset and whether a FINAL LINE had to be added to reach it --
+/// which happens only when nothing follows that comment, i.e. only in a file
+/// whose entire token content is line doc comments. Such a file has no items,
+/// hence no `mod` declarations, hence no other file in its unit, hence no guard
+/// anywhere that could reference the static. No existing line moves.
 ///
 /// A file with no tokens at all has no items and no inner attributes to
 /// displace, so the head of the text is safe (and, unlike appending, keeps the
 /// line count).
-fn static_offset(source: &str, prefix: usize) -> usize {
-    if let Some(end) = last_token_end(&source[prefix..]) {
-        return prefix + end;
-    }
-    // Past the shebang's own newline, so the static cannot land inside it.
-    if source.as_bytes().get(prefix) == Some(&b'\n') {
-        prefix + 1
-    } else {
-        prefix
+fn static_splice(source: &str, prefix: usize) -> (usize, bool) {
+    match last_token(&source[prefix..]) {
+        Some((end, false)) => (prefix + end, false),
+        Some((end, true)) => match source[prefix + end..].find('\n') {
+            Some(nl) => {
+                let offset = prefix + end + nl + 1;
+                (offset, offset == source.len())
+            }
+            // The comment runs to EOF with no newline at all.
+            None => (source.len(), true),
+        },
+        // Past the shebang's own newline, so the static cannot land inside it.
+        None if source.as_bytes().get(prefix) == Some(&b'\n') => (prefix + 1, false),
+        None => (prefix, false),
     }
 }
 
-fn last_token_end(content: &str) -> Option<usize> {
+/// The end of the file's last token, and whether that token's own text is a
+/// `//`-form comment (see [`static_splice`]).
+fn last_token(content: &str) -> Option<(usize, bool)> {
     let stream = TokenStream::from_str(content).ok()?;
     // A `Group`'s span covers its delimiters, so this is the closing brace of
     // the final item, not the token before it.
-    stream
-        .into_iter()
-        .last()
-        .map(|tt| tt.span().byte_range().end)
+    let last = stream.into_iter().last()?;
+    let range = last.span().byte_range();
+    let is_line_comment = content
+        .get(range.start..range.end)
+        .is_some_and(|text| text.starts_with("//"));
+    Some((range.end, is_line_comment))
 }
 
 // ---------------------------------------------------------------------------
@@ -179,6 +207,7 @@ struct Ctx<'a> {
     fn_items: usize,
     const_fns: usize,
     extern_fns: usize,
+    async_fns: usize,
     error: Option<syn::Error>,
 }
 
@@ -197,6 +226,7 @@ impl<'a> Ctx<'a> {
             fn_items: 0,
             const_fns: 0,
             extern_fns: 0,
+            async_fns: 0,
             error: None,
         }
     }
@@ -250,12 +280,7 @@ impl<'a> Ctx<'a> {
             if !matches!(attr.style, AttrStyle::Inner(_)) {
                 continue;
             }
-            let close = attr.bracket_token.span.close();
-            let end = self.end_of(close);
-            if end == 0 || self.source.as_bytes().get(end - 1) != Some(&b']') {
-                self.fail(close, "inner attribute does not end where its span says");
-                return None;
-            }
+            let end = self.inner_attr_end(attr)?;
             if end > offset {
                 offset = end;
             }
@@ -267,20 +292,78 @@ impl<'a> Ctx<'a> {
         Some(offset)
     }
 
+    /// The byte offset just past one inner attribute of a body.
+    ///
+    /// Three forms reach here, and only the first ends on a `]`:
+    ///
+    /// * `#![allow(..)]` -- a real attribute; the span covers the brackets.
+    /// * `//! doc` -- `syn` reports a doc comment as an `AttrStyle::Inner`
+    ///   attribute whose bracket span covers the COMMENT TEXT. Its end is
+    ///   inside a line comment, so the guard moves past that line's newline;
+    ///   the fragment is still newline-free and the line count still holds.
+    ///   Both forms are legal Rust and both appear in real code, so rejecting
+    ///   the file (which is what requiring `]` did) is not an option.
+    /// * `/*! doc */` -- the same, except the span already ends after the `*/`,
+    ///   so the end is usable as it stands.
+    fn inner_attr_end(&mut self, attr: &Attribute) -> Option<usize> {
+        let close = attr.bracket_token.span.close();
+        let start = self.start_of(attr.bracket_token.span.join());
+        let end = self.end_of(close);
+        let Some(text) = self.source.get(start..end) else {
+            self.fail(
+                close,
+                "inner attribute span is not a byte range of the source",
+            );
+            return None;
+        };
+        if text.starts_with("//") {
+            // Past the comment's own newline.
+            return match self.source[end..].find('\n') {
+                Some(nl) => Some(end + nl + 1),
+                None => {
+                    self.fail(
+                        close,
+                        "inner line doc comment is not terminated by a newline",
+                    );
+                    None
+                }
+            };
+        }
+        if text.starts_with("/*") {
+            return Some(end);
+        }
+        if end == 0 || self.source.as_bytes().get(end - 1) != Some(&b']') {
+            self.fail(close, "inner attribute does not end where its span says");
+            return None;
+        }
+        Some(end)
+    }
+
     /// Classify one fn item with a body, and instrument it if it is eligible.
     fn fn_item(&mut self, sig: &Signature, attrs: &[Attribute], block: &Block, name: &str) {
         self.fn_items += 1;
         let line = self.line_of(sig.fn_token.span);
         let qualname = self.qualname(name);
 
-        // const and extern are disjoint buckets, const first, so that
-        // `fn_items - const_fns - extern_fns` never subtracts one fn twice.
+        // Disjoint buckets, checked in this order, so that a fn is classified
+        // exactly once and `fn_items - const_fns - extern_fns` never subtracts
+        // one fn twice. (`const async fn` and `async extern fn` are both
+        // rejected by rustc, so the order is a formality, not a policy.)
         let reason = if sig.constness.is_some() {
             self.const_fns += 1;
             Some("const")
         } else if sig.abi.is_some() {
             self.extern_fns += 1;
             Some("extern")
+        } else if sig.asyncness.is_some() {
+            // A guard in an `async fn` body lives inside the future, so it is
+            // dropped when the future is dropped -- possibly on a different
+            // thread than the one that created it, and never at the `.await`
+            // boundaries the caller would read as returns. That contradicts
+            // spec 3.2's "the guard's Drop is the SOLE emitter of RETURN".
+            // Rung 2 decides the async model; rung 1 declares and skips.
+            self.async_fns += 1;
+            Some("async")
         } else {
             None
         };

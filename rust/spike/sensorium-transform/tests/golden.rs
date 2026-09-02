@@ -75,12 +75,26 @@ fn run(case: &str, first_site: u32, is_crate_root: bool) -> Transformed {
     assert_eq!(t.source, expected, "{case}: transformed source differs");
     assert_eq!(
         t.source.lines().count(),
-        input.lines().count(),
-        "{case}: line count moved"
+        input.lines().count() + usize::from(t.appended_line),
+        "{case}: line count moved (appended_line = {})",
+        t.appended_line
     );
     syn::parse_file(&t.source)
         .unwrap_or_else(|e| panic!("{case}: transformed source does not re-parse: {e}"));
     t
+}
+
+/// Parse the output and look for `__SENSORIUM_UNIT` as a real top-level ITEM.
+/// A `source.contains("__SENSORIUM_UNIT")` check passes on a commented-out
+/// static, which is exactly the defect this exists to catch.
+fn top_level_unit_static(source: &str) -> bool {
+    let Ok(file) = syn::parse_file(source) else {
+        return false;
+    };
+    file.items.iter().any(|item| match item {
+        syn::Item::Static(s) => s.ident == "__SENSORIUM_UNIT",
+        _ => false,
+    })
 }
 
 fn sites(t: &Transformed) -> Vec<(u32, &str, u32)> {
@@ -171,8 +185,26 @@ fn generic_fn() {
 #[test]
 fn unsafe_fn() {
     let t = run("unsafe_fn", 7, false);
-    assert_eq!(sites(&t), [(7, "raw", 1), (8, "later", 5)]);
-    assert_eq!(skips(&t), [("frozen", 9, "const")]);
+    assert_eq!(sites(&t), [(7, "raw", 1)]);
+    assert_eq!(skips(&t), [("later", 5, "async"), ("frozen", 9, "const")]);
+}
+
+#[test]
+fn async_fn_is_skipped() {
+    // A guard inside a future is dropped WITH the future -- possibly on another
+    // thread, and never at the `.await` a reader would call a return. Spec 3.2
+    // says the guard's Drop is the sole emitter of RETURN, so at this tier an
+    // `async fn` is declared and left alone (ruling of 2026-09-02).
+    let t = run("async_fn", 7, false);
+    assert_eq!(sites(&t), [(7, "sync_fn", 17)]);
+    assert_eq!(
+        skips(&t),
+        [
+            ("plain", 1, "async"),
+            ("public", 5, "async"),
+            ("S::method", 12, "async"),
+        ]
+    );
 }
 
 #[test]
@@ -274,6 +306,74 @@ fn crate_root_static_lands_after_the_last_token() {
     assert!(t
         .source
         .ends_with("// Another one, and then a blank line.\n\n"));
+}
+
+/// A crate root whose LAST TOKEN is a `//!` doc comment: `proc-macro2` hands
+/// the comment back as tokens whose span covers the comment TEXT, so "after the
+/// last token" is inside a line comment and the static would be silently
+/// commented out -- the file parses, the line count holds, and the unit is
+/// simply gone.
+#[test]
+fn a_trailing_line_doc_comment_does_not_swallow_the_static() {
+    for (case, appended) in [
+        ("crate_root_docs", true),
+        ("crate_root_docs2", true),
+        ("crate_root_docs_todo", false),
+    ] {
+        let t = run(case, 7, true);
+        assert!(t.sites.is_empty(), "{case}: no fns to instrument");
+        assert_eq!(t.appended_line, appended, "{case}: appended_line");
+        assert!(
+            top_level_unit_static(&t.source),
+            "{case}: the static must be a real top-level item, not commented out:\n{}",
+            t.source
+        );
+    }
+}
+
+/// A `/*! .. */` crate doc is safe -- its span already ends after the `*/` --
+/// and this pins that the fix did not break the safe case.
+#[test]
+fn a_trailing_block_doc_comment_still_takes_the_static_in_place() {
+    let t = transform("/*! Crate docs. */\n", FILE, META, 0, true).expect("transform");
+    assert_eq!(
+        t.source,
+        format!("/*! Crate docs. */{}\n", unit_static(META))
+    );
+    assert!(!t.appended_line);
+    assert!(top_level_unit_static(&t.source));
+}
+
+/// Every golden crate-root case really declares the unit at top level.
+#[test]
+fn every_crate_root_case_declares_the_unit_as_an_item() {
+    for case in [
+        "crate_root",
+        "crate_root_docs",
+        "crate_root_docs2",
+        "crate_root_docs_todo",
+        "free_fn",
+        "body_inner_doc",
+        "async_fn",
+        "nested_mod",
+        "shebang_utf8",
+    ] {
+        let input = read(case, "in");
+        let t = transform(&input, FILE, META, 0, true).unwrap_or_else(|e| panic!("{case}: {e}"));
+        assert!(
+            top_level_unit_static(&t.source),
+            "{case}: no top-level __SENSORIUM_UNIT in:\n{}",
+            t.source
+        );
+    }
+}
+
+/// A body whose first inner attribute is a doc comment. Requiring the span to
+/// end on `]` rejected the whole file, which is a build failure on legal Rust.
+#[test]
+fn an_inner_doc_comment_at_body_start_does_not_refuse_the_file() {
+    let t = run("body_inner_doc", 7, false);
+    assert_eq!(sites(&t), [(7, "line_doc", 1), (8, "block_doc", 6)]);
 }
 
 #[test]
@@ -401,9 +501,21 @@ fn census_counts_const_and_extern_as_disjoint_subsets() {
     assert_eq!((c.fn_items, c.const_fns, c.extern_fns), (2, 0, 1));
     assert_eq!(c.eligible(), 1);
 
-    // `const unsafe fn frozen` is const AND has no abi; `async fn` is ordinary.
+    // `const unsafe fn frozen` is const AND has no abi; `async fn later` is a
+    // fourth, disjoint bucket that `eligible()` does NOT subtract.
     let c = census(&read("unsafe_fn", "in"));
-    assert_eq!((c.fn_items, c.const_fns, c.extern_fns), (3, 1, 0));
+    assert_eq!(
+        (c.fn_items, c.const_fns, c.extern_fns, c.async_fns),
+        (3, 1, 0, 1)
+    );
+    assert_eq!(c.eligible(), 2, "eligible() must not subtract async");
+
+    let c = census(&read("async_fn", "in"));
+    assert_eq!(
+        (c.fn_items, c.const_fns, c.extern_fns, c.async_fns),
+        (4, 0, 0, 3)
+    );
+    assert_eq!(c.eligible(), 4);
 
     // A bodiless trait fn is not a fn item for this purpose.
     let c = census(&read("trait_default", "in"));
@@ -435,14 +547,22 @@ fn the_census_agrees_with_what_was_instrumented() {
         "nested_fn",
         "macro_rules",
         "crate_root",
+        "body_inner_doc",
+        "async_fn",
+        "crate_root_docs",
+        "crate_root_docs2",
+        "crate_root_docs_todo",
     ] {
         let input = read(case, "in");
         let c = census(&input);
         let t = transform(&input, FILE, META, 0, false).expect("transform");
         assert!(c.parsed, "{case}: census must report parsed");
+        // `eligible()` is E2 as pre-registered (const and extern only), so the
+        // identity carries the async skip explicitly rather than by moving the
+        // denominator under it.
         assert_eq!(
             c.eligible(),
-            t.sites.len(),
+            t.sites.len() + c.async_fns,
             "{case}: E2's numerator and denominator must come from the same parser"
         );
     }

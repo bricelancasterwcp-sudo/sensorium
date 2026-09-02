@@ -101,6 +101,10 @@ fn transforming_bloomery_never_moves_a_line() {
     let mut const_fns = 0usize;
     let mut extern_fns = 0usize;
     let mut macro_skips = 0usize;
+    let mut async_fns = 0usize;
+    let mut appended = Vec::new();
+    let mut per_file_mismatch: Vec<String> = Vec::new();
+    let mut missing_static: Vec<String> = Vec::new();
     let mut eligible_src = 0usize;
     let mut eligible_tests = 0usize;
     let mut files_src = 0usize;
@@ -129,6 +133,7 @@ fn transforming_bloomery_never_moves_a_line() {
         fn_items += c.fn_items;
         const_fns += c.const_fns;
         extern_fns += c.extern_fns;
+        async_fns += c.async_fns;
         eligible += c.eligible();
         // The plan derived E2's floor from "756 items"; the split says where a
         // different denominator would come from.
@@ -146,19 +151,48 @@ fn transforming_bloomery_never_moves_a_line() {
         for is_crate_root in [false, true] {
             let t = transform(&source, &rel, META, next_site, is_crate_root)
                 .unwrap_or_else(|e| panic!("{rel} (crate_root={is_crate_root}): {e}"));
-            if t.source.lines().count() != source.lines().count() {
+            if t.source.lines().count() != source.lines().count() + usize::from(t.appended_line) {
                 line_moves.push(format!(
-                    "{rel} (crate_root={is_crate_root}): {} -> {}",
+                    "{rel} (crate_root={is_crate_root}): {} -> {} (appended_line={})",
                     source.lines().count(),
-                    t.source.lines().count()
+                    t.source.lines().count(),
+                    t.appended_line
                 ));
             }
-            if let Err(e) = syn::parse_file(&t.source) {
-                reparse_failures.push(format!("{rel} (crate_root={is_crate_root}): {e}"));
+            if t.appended_line {
+                appended.push(format!("{rel} (crate_root={is_crate_root})"));
+            }
+            match syn::parse_file(&t.source) {
+                Err(e) => reparse_failures.push(format!("{rel} (crate_root={is_crate_root}): {e}")),
+                Ok(parsed) => {
+                    // The static must be a real top-level ITEM. A `contains`
+                    // check would pass on one that a trailing `//!` doc comment
+                    // had swallowed -- which parses, keeps the line count, and
+                    // silently leaves the unit undeclared.
+                    let declared = parsed.items.iter().any(|item| match item {
+                        syn::Item::Static(st) => st.ident == "__SENSORIUM_UNIT",
+                        _ => false,
+                    });
+                    if declared != is_crate_root {
+                        missing_static.push(format!(
+                            "{rel} (crate_root={is_crate_root}): declared={declared}"
+                        ));
+                    }
+                }
             }
             if !is_crate_root {
                 instrumented += t.sites.len();
                 macro_skips += t.skipped.iter().filter(|s| s.reason == "macro").count();
+                // PER FILE, not just in aggregate: a file that over-instruments
+                // and another that under-instruments would cancel in the sum.
+                if t.sites.len() + c.async_fns != c.eligible() {
+                    per_file_mismatch.push(format!(
+                        "{rel}: sites {} + async {} != eligible {}",
+                        t.sites.len(),
+                        c.async_fns,
+                        c.eligible()
+                    ));
+                }
                 next_site += u32::try_from(t.sites.len()).expect("site count fits u32");
             }
         }
@@ -170,10 +204,16 @@ fn transforming_bloomery_never_moves_a_line() {
     println!("  const fn skipped:   {const_fns}");
     println!("  extern fn skipped:  {extern_fns}");
     println!("  macro_rules bodies: {macro_skips}");
+    println!("  async fn skipped:   {async_fns}");
     println!("eligible (E2 denom):  {eligible}");
     println!("  in crates/*/src:    {eligible_src} over {files_src} files");
     println!("  in crates/*/tests:  {eligible_tests} over {files_tests} files");
     println!("instrumented:         {instrumented}");
+    println!(
+        "appended_line:        {} {}",
+        appended.len(),
+        head(&appended)
+    );
     println!(
         "unreadable:           {} {}",
         unreadable.len(),
@@ -205,10 +245,29 @@ fn transforming_bloomery_never_moves_a_line() {
         "transformed source did not re-parse: {}",
         head(&reparse_failures)
     );
-    // Same-parser identity: over a whole real workspace, every eligible fn item
-    // got exactly one guard.
+    assert!(
+        missing_static.is_empty(),
+        "the unit static was not a top-level item exactly when it should be: {}",
+        head(&missing_static)
+    );
+    // Same-parser identity PER FILE, so an over- and an under-instrumented file
+    // cannot cancel each other out in the total.
+    assert!(
+        per_file_mismatch.is_empty(),
+        "sites + async != eligible in: {}",
+        head(&per_file_mismatch)
+    );
+    // ... and in aggregate, which is the number E2 reads.
     assert_eq!(
-        instrumented, eligible,
-        "instrumented != eligible over bloomery"
+        instrumented + async_fns,
+        eligible,
+        "instrumented + async != eligible over bloomery"
+    );
+    // Every real source file contains at least one item, so none of them can
+    // reach the appended-final-line shape.
+    assert!(
+        appended.is_empty(),
+        "a real source file needed a final line appended: {}",
+        head(&appended)
     );
 }

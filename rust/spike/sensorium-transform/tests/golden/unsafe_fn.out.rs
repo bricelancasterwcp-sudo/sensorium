@@ -2,7 +2,7 @@ unsafe fn raw(p: *const u8) -> u8 {@G(7)
     *p
 }
 
-async fn later() -> u8 {@G(8)
+async fn later() -> u8 {
     1
 }
 

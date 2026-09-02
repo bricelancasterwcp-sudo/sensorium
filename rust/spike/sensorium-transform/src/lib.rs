@@ -42,6 +42,11 @@ pub struct Transformed {
     pub sites: Vec<Site>,
     /// Fn items this tier deliberately does not instrument, with the reason.
     pub skipped: Vec<Skipped>,
+    /// True when the crate-root static had to be placed past the end of the
+    /// text, so the file gained a FINAL line where there was none. No existing
+    /// line moves. See [`transform`]'s "Line numbers" for the only shape that
+    /// does this; callers that assert the line-count invariant must add this.
+    pub appended_line: bool,
 }
 
 /// One instrumented fn item. Mirrors a Python `code_object` (spec §5.4).
@@ -66,16 +71,21 @@ pub struct Skipped {
     /// 1-based line of the `fn` keyword (or of the `fn` token inside a
     /// `macro_rules!` body, for `reason = "macro"`).
     pub line: u32,
-    /// `"const"`, `"extern"` or `"macro"`.
+    /// `"const"`, `"extern"`, `"async"` or `"macro"`.
     pub reason: &'static str,
 }
 
 /// E2's denominator, counted by the same parser and the same eligibility rules
 /// that do the instrumenting.
 ///
-/// `const_fns` and `extern_fns` are DISJOINT subsets of `fn_items` (a
-/// `const extern "C" fn` counts as const), so eligible is exactly
-/// `fn_items - const_fns - extern_fns` with no double subtraction.
+/// `const_fns`, `extern_fns` and `async_fns` are DISJOINT subsets of
+/// `fn_items`, so nothing is ever subtracted twice.
+///
+/// [`Census::eligible`] subtracts only const and extern, because that is what
+/// endpoint E2 pre-registered as "eligible" before `async` was ruled a skip.
+/// The pre-registration is not edited after the fact: `async_fns` is reported
+/// alongside, and the honest identity a caller checks is
+/// `instrumented + async_fns == eligible`.
 ///
 /// `parsed` is the none-versus-zero discipline in a struct: a file `syn` could
 /// not parse yields `Census { parsed: false, .. }` with three zeros, and a
@@ -85,11 +95,14 @@ pub struct Census {
     pub fn_items: usize,
     pub const_fns: usize,
     pub extern_fns: usize,
+    /// Skipped at this tier (ruling of 2026-09-02), but INSIDE `eligible()`.
+    pub async_fns: usize,
     pub parsed: bool,
 }
 
 impl Census {
-    /// `fn_items - const_fns - extern_fns`; the denominator of E2.
+    /// `fn_items - const_fns - extern_fns`; the denominator of E2, exactly as
+    /// pre-registered. `async_fns` is deliberately NOT subtracted.
     #[must_use]
     pub fn eligible(&self) -> usize {
         self.fn_items - self.const_fns - self.extern_fns
@@ -110,17 +123,38 @@ pub const MAX_SITE_INDEX: u32 = 0x00FF_FFFF;
 /// positional `.rs` in rustc's argv is a crate root, and only it gets the
 /// `__SENSORIUM_UNIT` static.
 ///
+/// # Eligibility
+///
+/// `ItemFn`, `ImplItemFn` and `TraitItemFn` WITH A BODY, at any nesting.
+/// Declared in `skipped` and not instrumented: `const fn` (`"const"`), fns with
+/// an ABI (`"extern"`), `async fn` (`"async"` -- a guard inside a future is
+/// dropped with the future, possibly on another thread, which contradicts spec
+/// 3.2's sole-emitter rule; rung 2 decides the async model), and `fn` tokens
+/// inside a `macro_rules!` body (`"macro"`, invisible to `syn` as items).
+/// A bodiless trait fn is none of these: there is nothing to instrument and
+/// nothing to excuse.
+///
 /// # Line numbers
 ///
-/// `result.source.lines().count() == source.lines().count()` for every
-/// non-empty input. Every injected fragment is newline-free and the static is
-/// spliced immediately after the file's LAST TOKEN -- which is on the last line
-/// of code, never inside a trailing comment, and never after the final newline
-/// (appending after it would add a line). A file with no tokens at all takes
-/// the static at offset 0, which is safe precisely because a file with no
-/// tokens has no inner attributes to displace. The one documented exception is
-/// an EMPTY crate root, where a zero-line file necessarily becomes a one-line
-/// one; no line number can move in a file that has none.
+/// `result.source.lines().count() == source.lines().count() +
+/// usize::from(result.appended_line)`, and `appended_line` is false for every
+/// file that contains an item. Every injected fragment is newline-free; the
+/// guard goes after the body's `{` (or past its last inner attribute) and the
+/// static after the file's last token.
+///
+/// Two placements are corrections, not conveniences, and both exist because a
+/// doc comment reaches this code as a TOKEN whose span covers the comment text:
+///
+/// * The static moves past a trailing `//!`/`///` line's newline, or it is
+///   commented out -- silently, since the file still parses.
+/// * The guard moves past an inner `//!` line's newline for the same reason.
+///
+/// Three shapes cannot hold the line count and are documented rather than
+/// hidden: an EMPTY crate root (a zero-line file necessarily becomes a one-line
+/// one), and a crate root whose entire token content is line doc comments with
+/// nothing after them. Each sets `appended_line`; each has no items, hence no
+/// `mod` declarations, hence no other file in its unit, hence no guard anywhere
+/// that could reference the static. No EXISTING line moves in any of them.
 ///
 /// # Errors
 ///
