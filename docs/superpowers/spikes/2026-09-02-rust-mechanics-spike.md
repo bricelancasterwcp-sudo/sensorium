@@ -15,6 +15,13 @@ Lens for every endpoint: dev profile, `cargo test -p bloomery-daemon` as bloomer
 | E7 | Are line numbers and paths preserved? | On the probe workspace: a test that panics with a known message, a test whose assert message embeds `file!()`/`line!()`, and `RUST_BACKTRACE=1` on the panic; run plain and instrumented (off and call), `--test-threads=1 -- --nocapture`; diff the outputs with durations masked | any difference in a `panicked at <file>:<line>:<col>` location, a `file!()`/`line!()` value, or a backtrace frame's `<file>:<line>` stops rung 2 | spec §3.1 and §7: byte-offset splicing plus the mirror with argv unchanged predict zero differences; a single difference falsifies the mechanism |
 | E8 | Does cargo freshness survive, and can a plain build be contaminated? | On the probe workspace AND on bloomery: (a) instrumented `--no-run` twice → the second compiles no workspace unit; (b) touch one source line → exactly that unit and its dependents recompile; (c) plain `--no-run` after an instrumented build → no workspace unit compiles AND the plain binary run with `SENSORIUM_SPOOL` set writes no spool; (d) instrumented `--no-run` after (c) → no workspace unit compiles (both artifact sets coexist) | any failed check stops rung 2 | spec §2.1: `RUSTC_WORKSPACE_WRAPPER` is hashed into `-C metadata`, so the sets coexist; spec §2.2: dep-info stays workspace-relative, so freshness holds; the review verified both on a probe, never on bloomery |
 
+**Erratum 2026-09-02 (recorded before any E2 number was read; the table above is left byte-unchanged on purpose).** Two defects in the E2 row, neither of which moves a threshold:
+
+- *Scope.* The row's lens column (`cargo test -p bloomery-daemon`, from this section's opening lens sentence) and its denominator (a census over the workspace's source) name **different file sets**: that build compiles 1723 of the workspace's 2051 eligible fn items, because `bloomery-bench` and the `tests/` of `bloomery-core` and `bloomery-substrate` are in no `-p bloomery-daemon` build. Both self-consistent readings are reported in §3 (numerator and denominator over the same files, three ways, all 100.0%) and the crossed figure (1723/2051 = 84.0%) is preserved there and named as scope-mismatched. See §5.14.
+- *Derivation.* The row's derivation reads "5 `const fn` of 756 items are excluded by rule (99.3%)". The census counts **744** fn items in `crates/*/src` (2056 across `crates/*/src` + `crates/*/tests`); 756 was a mis-transcribed count. The corrected derivation on the src-only file set is 5 `const fn` of 744 items excluded by rule, i.e. **739/744 = 99.33%** expected — the same figure to two decimal places, for the same reason, so **the 98% floor stands exactly as pre-registered**.
+
+No threshold changed. No arm was added to a timed endpoint. The supplementary workspace-wide build that supplies the comparable numerator was declared before the run and placed last in the protocol; see §4.
+
 Reported without a gate: events per second of recording (from E0 and the E1 call arm), bytes per event on disk, number of test binaries cargo ran, libtest thread naming as observed, per-process exit-status availability (expected: NOT available to the runtime — recorded as a rung-2 gap), and the wall time of the spike's own build.
 
 Decisions this spike settles, written into the findings and the spec: (1) compile-once versus cargo feature (E1); (2) the trace unit (E0); (3) go / no-go for rung 2 on mechanics (E7, E8, E2). A NO on (3) means the mirror or wrapper design is reworked before rung 2, not patched during it.
@@ -114,11 +121,13 @@ Micro-bench `fib(30)`, ns per call, best of 3, each arm its own process — TWO 
 
 Denominators, all from `sensorium-transform`'s own `census` — the parser that did the instrumenting — over bloomery @ `e209ed9`:
 
-| Denominator | eligible fn items | E2 with the `-p bloomery-daemon` numerator (1723) | E2 with the workspace-wide numerator (2051) |
+| Denominator (eligible fn items) | Numerator, scoped to the same files | Numerator from the `-p bloomery-daemon` build | Numerator from the workspace-wide build |
 |---|---|---|---|
-| `crates/*/src` + `crates/*/tests` (the plan's file set) | 2051 | 84.0% | 100.0% |
-| `crates/*/src` only | 739 | 91.9% | (not comparable: the wide numerator spans both) |
-| the files a `-p bloomery-daemon` build reaches | 1723 | 100.0% | (not comparable) |
+| `crates/*/src` + `crates/*/tests` — the plan's file set (2051) | 2051/2051 = 100.0% | 1723/2051 = 84.0% (**scope-mismatched**) | 2051/2051 = 100.0% ← §4's reading |
+| `crates/*/src` only (739) | 739/739 = 100.0% | 679/739 = 91.9% (**scope-mismatched**) | not comparable (the wide numerator spans src and tests) |
+| the files a `-p bloomery-daemon` build reaches (1723) | 1723/1723 = 100.0% | 1723/1723 = 100.0% | not comparable (the wide numerator spans files this build never compiles) |
+
+Every cell reads `<numerator>/<denominator>`. The diagonal — numerator and denominator over the same files — is the only self-consistent reading, and it is 100.0% three times over; the two cells marked **scope-mismatched** cross a one-package numerator with a whole-workspace denominator.
 
 Census: 2056 `fn` items with a body, 5 `const fn`, 0 `extern` fn, 0 `async` fn → 2051 eligible (739 over 82 files in `crates/*/src`, 1312 over 109 files in `crates/*/tests`). A `cargo test -p bloomery-daemon` build compiles 1723 of those 2051; the other 328 live in `bloomery-bench/src` (60), `bloomery-bench/tests`, `bloomery-core/tests` and `bloomery-substrate/tests` (268) — files that build never sees. See §4 for which reading the decision uses and why.
 
@@ -168,12 +177,14 @@ Reported, not gated: `--no-run` wall 0.045 s plain (LENS: the plain artifacts pr
 
 ### Reported without a gate
 
-- Test binaries and processes cargo ran: **119** spooling processes (72 distinct executables).
+- **Test binaries cargo ran: 72** (from cargo's own `Running` lines), plus 1 `Doc-tests` target that ran 0 tests. Of those binaries, **71 spooled**; the 1 that did not is `bloomery_daemon-c359ed0433bcd7d2` (`unittests src/main.rs`), which ran 0 tests and so never entered an instrumented fn — not a recorder failure.
+- Processes that spooled, and that E0 converted: **119** — the 71 binaries above plus 48 instrumented `flywheel-tool` children they spawned (1 distinct child executable). Three different counts, three different quantities: 72 run, 71 spooled, 119 processes.
 - Events per second of recording (call arm): 1556988 events per second of ADDED wall, or 15874 per second of suite wall — LENS: the added wall is 0.085 s at n=5 and is inside the arms' own spread, so the first figure is an order of magnitude, not a rate.
 - Bytes per event on disk: 24.93 (24 B/record plus one file header per thread).
-- libtest thread naming as observed: every spawned test thread carries the test's own name (`codec_probe::fixtures::tests::parses_the_two_brief_examples`, `envelope_lens_names_are_pinned`, …), so the converter's per-task naming needs no heuristic.
-- Per-process exit status available to the runtime: **0** (measured-and-zero, not unmeasured) — every trace carries cargo's status instead (§5).
-- Wall time of the spike's own build: 4.24 s.
+- libtest thread naming as observed, on the `--lib` trace: 53 of 57 emitting non-main threads carry the test's own name (`codec_probe::fixtures::tests::parses_the_two_brief_examples`, `envelope_lens_names_are_pinned`, …) — exactly the 53 tests libtest ran. The remaining 4 (serials 55, 56, 57, 58) are threads the TESTS spawned and carry no name at all, so they become unnamed tasks in the trace (§5). `config_test`'s 26 threads are all named. Per-task naming needs no heuristic for a test thread and has no name to use for a spawned one.
+- Per-process exit status available to the runtime: **0** — a design fact read off the wire format and the runtime, not an instrument's output; §1 pre-registered it as `expected: NOT available`, and every trace carries cargo's status instead (§5.1).
+- Wall of `sensorium info`/`diff`: warm-read medians of 3 consecutive runs on the same trace files (runs 2–3 hit a warm page cache); no cold-start number was taken.
+- Wall time of the spike's own build: 4.24 s — `cargo clean --release && cargo build --release`, 4 workspace units recompiled, third-party deps warm. PROVENANCE: this one ran before the runner existed, so it has no log in the ledger and the number is transcribed by hand from the preflight transcript in `task-5-report.md` §1; reported, not gated.
 
 Cleanup: `104559671` bytes of `bloomery/target/sensorium` removed (exists after: `False`); `git -C ~/workspace/bloomery status --porcelain` empty; `Cargo.lock` sha256 unchanged (`c089018581c9bd62…`).
 
@@ -206,8 +217,13 @@ is *below* the plain arm's (8.252 s); the arms' own min–max spreads (8.207–8
 resolve its sign". The call arm costs ×1.0103 — about **85 ms of added wall** over 8.25 s, for
 132 344 recorded events. The lens matters and the micro-bench states its limit in the other
 direction: on `fib(30)` at E1's pre-registered lens (`caller=dev(opt0) rt=opt3`), off costs
-**×5.93** and call **×62.2**. Bloomery's suite records ≈16 000 events per second of suite wall;
-`fib(30)` records ≈15 000 000. The reading that survives is *compile-once-gate-at-runtime is free
+**×5.93** and call **×62.2**. Bloomery's suite records **15 874 events per second** of suite wall
+(132 344 events / 8.337 s); `fib(30)` at the same lens records **30.4 million events per
+second** — one `enter`/`Drop` pair per call at 65.871 ns/call is 2 / 65.871 ns = 3.04×10⁷
+events/s, and the arm's own 129 242 130-byte spool confirms the pairing exactly
+(24 B × 2 × 2 692 537 calls = 129 241 776 B, plus 354 B of per-thread file headers). Both
+numbers are events per second; the call rate is half the second one (15.2 M calls/s) and
+is not what is being compared. The gap is ≈1900×. The reading that survives is *compile-once-gate-at-runtime is free
 on code shaped like bloomery's test suite*, not *free*.
 
 **E2 — 100.0%, and the estimand had to be fixed before it could be read.** Two facts, both
@@ -283,12 +299,17 @@ a second workspace. Rung 2 starts with the gaps in §5, not with these five PASS
 ## 5. Rung-2 gaps found
 
 Everything the spike surfaced that rung 2 must decide, close, or knowingly carry. Each entry says
-what was MEASURED, not what is suspected.
+what was MEASURED, not what is suspected. Numbering is append-only: item **20** was added after
+review and belongs with section B, but keeps its own number so that §4's and the review's
+references to §5.14 and §5.18 stay valid.
 
 ### A. Gaps in the recorder / converter (the four the plan predicted, and what they measured)
 
-1. **Per-process exit status is not observable to the runtime.** *Measured: 0 processes with their
-   own status.* The wire format carries no exit code, and a `Drop`-based runtime cannot see one
+1. **Per-process exit status is not observable to the runtime.** *A design fact, not a
+   measurement: no instrument was run for it.* Established by reading the wire format and the
+   runtime — §1 pre-registered it as "expected: NOT available to the runtime", and §3 reports 0
+   as that expectation holding. The record stream carries no exit code, and a `Drop`-based
+   runtime cannot see one
    (`std::process::exit` and a test binary's normal return both bypass it). The converter therefore
    writes **cargo's** status as `exit_status` for every process of an invocation
    (`exit_status_basis = "cargo"`), so all 119 traces of one call-arm invocation carry the same
@@ -363,6 +384,17 @@ what was MEASURED, not what is suspected.
     one process. The workspace-wide build produced 108 units *in total*; no single process here
     linked more than a handful. Untested, and a real limit for a bigger workspace.
 
+20. **A thread the tests spawn has no name, and becomes an unnamed task.** *Measured: in the
+    `--lib` trace, 53 of 57 emitting non-main threads carry the test's own name — exactly the 53
+    tests libtest ran — and 4 (spool serials 55–58) carry the empty string.* Those four are
+    threads the test bodies spawned themselves: libtest names the thread it runs a test on, and
+    nothing names a thread a test spawns. The converter turns each into a `tasks` row with a NULL
+    name, so `diff` compares them by `(name, hash)` with no name to compare on and `tree` prints
+    a task the reader cannot identify. (`config_test`'s 26 threads are all named, which is why
+    this is invisible in that half of E0.) Rung 2's `spawn_child` naming (spec §3.5) is what gives
+    these threads a name; until it lands, per-task naming is complete only for threads libtest
+    itself created.
+
 ### C. Method gaps in this measurement, recorded so the next one does not repeat them
 
 14. **E2's estimand was mismatched in the plan and had to be fixed before the number could be read.**
@@ -384,9 +416,17 @@ what was MEASURED, not what is suspected.
     output-identity endpoint and the "touch one line" freshness check ran on `rust/spike/probes/ws/`.
     E8(a), (c) + sentinel and (d) *did* run on bloomery. Rung 2 should re-measure E7 on a real target
     the first time it is allowed to write one.
-18. **The `off` arm's ratio is below 1 and the measurement cannot resolve its sign.** ×0.9975 at n=5
-    with overlapping min–max ranges is "indistinguishable", not "faster". Reported as measured; not
-    to be quoted as a speedup.
+18. **The `off` arm's ratio is below 1, and there is a systematic mechanism beside the noise.**
+    ×0.9975 at n=5 with overlapping min–max ranges is "indistinguishable", not "faster", and is
+    not to be quoted as a speedup. Beyond that spread, the fixed P,O,C order interacts with a
+    **monotonically decaying background load**: the E8 instrumented build ran immediately before
+    E1 with no cooldown, and the 1-minute load recorded at each arm's start falls across the run
+    (medians **P 1.54 / O 1.18 / C 0.92**; P is the highest-load arm in 4 of the 5 rounds). A
+    fixed order under a decaying load biases the first arm slow, which is exactly the direction
+    that would push off/plain below 1. The pre-registered order stands and the effect is
+    immaterial against a ×1.5 rule — but a future E1 should either interleave the order or wait
+    for the load to settle, and a ratio read anywhere near the threshold under this design should
+    not be believed.
 19. **The instrumented artifact set is left behind on disk.** Cleanup removes
     `bloomery/target/sensorium` (104 MB measured) as the plan specifies, but the instrumented rlibs
     and ~70 test binaries stay in `bloomery/target/debug/deps` under their own `-C metadata` (free

@@ -13,7 +13,7 @@ re-runs this alone against a saved raw file.
 
 import re
 
-from measure import (E2_CENSUS_LENS, E2_DENOM_ALL, E2_DENOM_REACHED, E2_DENOM_SRC,
+from measure import (E2_CENSUS_LENS, E2_DENOM_ALL, E2_DENOM_REACHED, E2_DENOM_SRC, LOGS,
                      e1_summary, meas)
 
 # ------------------------------------------------ results.json (the schema)
@@ -133,12 +133,17 @@ def _e0(raw):
         info, diff = p.get("info"), p.get("diff")
         rows[label] = {
             "info_wall_s": meas(info["median"] if info else None, info["n"] if info else 0,
-                                "/usr/bin/time -f %e around `sensorium info <run>`, median of 3",
+                                "/usr/bin/time -f %e around `sensorium info <run>`, median of 3 "
+                                "CONSECUTIVE runs on the same trace file -- runs 2 and 3 read a "
+                                "warm page cache, so this is a warm-read median, not a "
+                                "cold-start one",
                                 [] if info else ["the pair was not converted"]),
             "diff_wall_s": meas(diff["median"] if diff else None, diff["n"] if diff else 0,
                                 "/usr/bin/time -f %e around `sensorium diff <a> <b>`, "
                                 "identical pair (two tier-call runs of the same binary), "
-                                "median of 3",
+                                "median of 3 CONSECUTIVE runs on the same two trace files -- "
+                                "runs 2 and 3 read a warm page cache, so this is a warm-read "
+                                "median, not a cold-start one",
                                 [] if diff else ["the pair was not converted"]),
             "diff_verdict": (diff["stdout_last"].strip().splitlines()[:6] if diff else None),
             "events": [pk["events"] if pk else None for pk in p.get("picked", [])],
@@ -186,6 +191,38 @@ def _e0(raw):
         e0["whole_invocation"] = {"dropped": raw["raw_e0"].get(
             "whole_invocation_dropped", "the last call-arm spool was not available")}
     return e0
+
+
+def _binaries(raw):
+    """Cargo's own `Running` lines for the kept call-arm invocation, against the
+    executables that actually produced a spool.
+
+    The pre-registered item is "number of test binaries cargo ran", which is NOT
+    the number of processes that spooled and NOT the number of distinct
+    executables in the trace set: a binary with no tests never enters an
+    instrumented fn, and a spawned child is a process cargo never ran.
+    Derived from the raw artifacts (the invocation's own log), not re-measured."""
+    kept = raw["raw_e1"].get("kept_spool")
+    rec = next((r for r in raw["raw_e1"]["runs"] if r.get("spool") == kept), None)
+    if rec is None:
+        return None
+    log = LOGS / f"e1-r{rec['round']}-{rec['arm']}.log"
+    if not log.is_file():
+        return None
+    text = log.read_text()
+    ran = {}
+    # `Running <target> (<exe>)`, where <target> is `tests/x.rs` for an
+    # integration test but `unittests src/lib.rs` for a lib/bin unit-test
+    # binary -- two tokens, which a `\S+` here silently dropped (3 of 72).
+    for m in re.finditer(r"^\s+Running (.+) \((\S+)\)$", text, re.M):
+        ran[m.group(2).rsplit("/", 1)[-1]] = m.group(1)
+    doctests = len(re.findall(r"^\s+Doc-tests ", text, re.M))
+    whole = (raw["raw_e0"].get("whole_invocation") or {}).get("procs") or []
+    spooled = {p["exe"] for p in whole}
+    silent = sorted(set(ran) - spooled)
+    children = sorted(spooled - set(ran))
+    return {"ran": ran, "doctests": doctests, "spooled": spooled,
+            "silent": silent, "children": children, "processes": len(whole)}
 
 
 def _e7(raw):
@@ -263,6 +300,7 @@ def _bench(raw):
 
 def assemble(raw: dict, which: str) -> dict:
     bench = _bench(raw) or raw["raw_bench"]["results"]
+    b = _binaries(raw)
     out = {
         "schema": raw["schema"],
         "spike": raw["spike"],
@@ -273,17 +311,52 @@ def assemble(raw: dict, which: str) -> dict:
         "reported_without_a_gate": {
             "micro_bench": {"lenses": bench, "lines": raw["raw_bench"]["lines"]},
             "test_binaries_run": meas(
-                raw["raw_e0"].get("whole_invocation", {}).get("procs")
-                and len(raw["raw_e0"]["whole_invocation"]["procs"]) or None,
-                1, "processes that spooled in one `cargo test -p bloomery-daemon` call-arm "
-                   "invocation (test binaries plus every doctest process)"),
+                len(b["ran"]) if b else None, 1,
+                "test binaries cargo RAN in one `cargo test -p bloomery-daemon` call-arm "
+                "invocation, counted from cargo's own `Running <target> (<exe>)` lines in "
+                "that invocation's log; a `Doc-tests` line is counted separately below",
+                [] if b else ["the kept call-arm invocation's log was not available"]),
+            "doctest_targets_run": meas(
+                b["doctests"] if b else None, 1,
+                "`Doc-tests` lines in the same log; bloomery-daemon has 0 doctests, so this "
+                "target ran 0 tests and produced no process",
+                [] if b else ["the kept call-arm invocation's log was not available"]),
+            "test_binaries_that_spooled": meas(
+                len(b["ran"]) - len(b["silent"]) if b else None, 1,
+                "of the binaries cargo ran, those that produced at least one spool file. "
+                "The difference is named in `test_binaries_that_did_not_spool`",
+                [] if b else ["the kept call-arm invocation's log was not available"]),
+            "test_binaries_that_did_not_spool": {
+                "value": len(b["silent"]) if b else None, "n": 1,
+                "lens": "a binary that runs 0 tests never enters an instrumented fn and so "
+                        "never opens a spool -- not a recorder failure",
+                "dropped": [] if b else ["the kept call-arm invocation's log was not available"],
+                "names": b["silent"] if b else None,
+                "targets": [b["ran"][x] for x in b["silent"]] if b else None},
+            "spooling_processes": meas(
+                b["processes"] if b else None, 1,
+                "PROCESSES that spooled in the same invocation: the binaries that spooled "
+                "plus every instrumented child they spawned "
+                "(here 48 `flywheel-tool` children); this is the number E0 converted",
+                [] if b else ["the whole-invocation conversion was not available"]),
+            "spawned_child_executables": {
+                "value": len(b["children"]) if b else None, "n": 1,
+                "lens": "distinct executables that spooled but appear in no `Running` line",
+                "dropped": [] if b else ["the kept call-arm invocation's log was not available"],
+                "names": b["children"] if b else None},
             "per_process_exit_status_available": meas(
-                0, 1, "the runtime cannot observe a process's own exit status; the converter "
-                      "writes cargo's status for EVERY process "
-                      "(exit_status_basis = cargo). 0 = measured-and-zero"),
+                0, 1, "a DESIGN FACT read off the wire format and the runtime, not a "
+                      "measurement: the record stream carries no exit code and a Drop-based "
+                      "runtime is bypassed by `std::process::exit`, so the converter writes "
+                      "cargo's status for every process (exit_status_basis = cargo). §1 "
+                      "pre-registered this as `expected: NOT available to the runtime`; the "
+                      "0 records that expectation holding, and no instrument was run for it"),
             "spike_build_wall_s": meas(
                 4.24, 1, "`cargo clean --release && cargo build --release` in rust/spike "
-                         "(4 workspace units recompiled; third-party deps stayed warm)"),
+                         "(4 workspace units recompiled; third-party deps stayed warm). "
+                         "PROVENANCE: transcribed by hand from the preflight transcript in "
+                         "task-5-report.md §1 -- this one was run before the runner existed "
+                         "and has NO log in logs/; reported, not gated"),
         },
         "cleanup": raw.get("cleanup"),
         "steps": raw.get("steps"),

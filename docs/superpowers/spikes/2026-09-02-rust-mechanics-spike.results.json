@@ -33,13 +33,13 @@
           "info_wall_s": {
             "value": 0.03,
             "n": 3,
-            "lens": "/usr/bin/time -f %e around `sensorium info <run>`, median of 3",
+            "lens": "/usr/bin/time -f %e around `sensorium info <run>`, median of 3 CONSECUTIVE runs on the same trace file -- runs 2 and 3 read a warm page cache, so this is a warm-read median, not a cold-start one",
             "dropped": []
           },
           "diff_wall_s": {
             "value": 0.03,
             "n": 3,
-            "lens": "/usr/bin/time -f %e around `sensorium diff <a> <b>`, identical pair (two tier-call runs of the same binary), median of 3",
+            "lens": "/usr/bin/time -f %e around `sensorium diff <a> <b>`, identical pair (two tier-call runs of the same binary), median of 3 CONSECUTIVE runs on the same two trace files -- runs 2 and 3 read a warm page cache, so this is a warm-read median, not a cold-start one",
             "dropped": []
           },
           "diff_verdict": [
@@ -305,13 +305,13 @@
           "info_wall_s": {
             "value": 0.03,
             "n": 3,
-            "lens": "/usr/bin/time -f %e around `sensorium info <run>`, median of 3",
+            "lens": "/usr/bin/time -f %e around `sensorium info <run>`, median of 3 CONSECUTIVE runs on the same trace file -- runs 2 and 3 read a warm page cache, so this is a warm-read median, not a cold-start one",
             "dropped": []
           },
           "diff_wall_s": {
             "value": 0.03,
             "n": 3,
-            "lens": "/usr/bin/time -f %e around `sensorium diff <a> <b>`, identical pair (two tier-call runs of the same binary), median of 3",
+            "lens": "/usr/bin/time -f %e around `sensorium diff <a> <b>`, identical pair (two tier-call runs of the same binary), median of 3 CONSECUTIVE runs on the same two trace files -- runs 2 and 3 read a warm page cache, so this is a warm-read median, not a cold-start one",
             "dropped": []
           },
           "diff_verdict": [
@@ -2960,21 +2960,60 @@
       ]
     },
     "test_binaries_run": {
+      "value": 72,
+      "n": 1,
+      "lens": "test binaries cargo RAN in one `cargo test -p bloomery-daemon` call-arm invocation, counted from cargo's own `Running <target> (<exe>)` lines in that invocation's log; a `Doc-tests` line is counted separately below",
+      "dropped": []
+    },
+    "doctest_targets_run": {
+      "value": 1,
+      "n": 1,
+      "lens": "`Doc-tests` lines in the same log; bloomery-daemon has 0 doctests, so this target ran 0 tests and produced no process",
+      "dropped": []
+    },
+    "test_binaries_that_spooled": {
+      "value": 71,
+      "n": 1,
+      "lens": "of the binaries cargo ran, those that produced at least one spool file. The difference is named in `test_binaries_that_did_not_spool`",
+      "dropped": []
+    },
+    "test_binaries_that_did_not_spool": {
+      "value": 1,
+      "n": 1,
+      "lens": "a binary that runs 0 tests never enters an instrumented fn and so never opens a spool -- not a recorder failure",
+      "dropped": [],
+      "names": [
+        "bloomery_daemon-c359ed0433bcd7d2"
+      ],
+      "targets": [
+        "unittests src/main.rs"
+      ]
+    },
+    "spooling_processes": {
       "value": 119,
       "n": 1,
-      "lens": "processes that spooled in one `cargo test -p bloomery-daemon` call-arm invocation (test binaries plus every doctest process)",
+      "lens": "PROCESSES that spooled in the same invocation: the binaries that spooled plus every instrumented child they spawned (here 48 `flywheel-tool` children); this is the number E0 converted",
       "dropped": []
+    },
+    "spawned_child_executables": {
+      "value": 1,
+      "n": 1,
+      "lens": "distinct executables that spooled but appear in no `Running` line",
+      "dropped": [],
+      "names": [
+        "flywheel-tool"
+      ]
     },
     "per_process_exit_status_available": {
       "value": 0,
       "n": 1,
-      "lens": "the runtime cannot observe a process's own exit status; the converter writes cargo's status for EVERY process (exit_status_basis = cargo). 0 = measured-and-zero",
+      "lens": "a DESIGN FACT read off the wire format and the runtime, not a measurement: the record stream carries no exit code and a Drop-based runtime is bypassed by `std::process::exit`, so the converter writes cargo's status for every process (exit_status_basis = cargo). \u00a71 pre-registered this as `expected: NOT available to the runtime`; the 0 records that expectation holding, and no instrument was run for it",
       "dropped": []
     },
     "spike_build_wall_s": {
       "value": 4.24,
       "n": 1,
-      "lens": "`cargo clean --release && cargo build --release` in rust/spike (4 workspace units recompiled; third-party deps stayed warm)",
+      "lens": "`cargo clean --release && cargo build --release` in rust/spike (4 workspace units recompiled; third-party deps stayed warm). PROVENANCE: transcribed by hand from the preflight transcript in task-5-report.md \u00a71 -- this one was run before the runner existed and has NO log in logs/; reported, not gated",
       "dropped": []
     }
   },

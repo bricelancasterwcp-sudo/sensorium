@@ -184,15 +184,26 @@ def render(res: dict) -> str:
                  f"{cell(m)} | {m['n']} | {short(m['lens'], 90)} |")
     L += ["", "Denominators, all from `sensorium-transform`'s own `census` — the parser that "
           "did the instrumenting — over bloomery @ `e209ed9`:", "",
-          "| Denominator | eligible fn items | E2 with the `-p bloomery-daemon` numerator "
-          "(1723) | E2 with the workspace-wide numerator (2051) |", "|---|---|---|---|",
-          f"| `crates/*/src` + `crates/*/tests` (the plan's file set) | {e2['denominators']['all']} "
-          f"| {pct(1723 / e2['denominators']['all'])} | {pct(2051 / e2['denominators']['all'])} |",
-          f"| `crates/*/src` only | {e2['denominators']['src']} | "
-          f"{pct(679 / e2['denominators']['src'])} | (not comparable: the wide numerator "
-          f"spans both) |",
-          f"| the files a `-p bloomery-daemon` build reaches | {e2['denominators']['reached']} "
-          f"| {pct(1723 / e2['denominators']['reached'])} | (not comparable) |", "",
+          "| Denominator (eligible fn items) | Numerator, scoped to the same files | "
+          "Numerator from the `-p bloomery-daemon` build | Numerator from the workspace-wide "
+          "build |", "|---|---|---|---|",
+          f"| `crates/*/src` + `crates/*/tests` — the plan's file set ({e2['denominators']['all']}) "
+          f"| 2051/{e2['denominators']['all']} = {pct(2051 / e2['denominators']['all'])} "
+          f"| 1723/{e2['denominators']['all']} = {pct(1723 / e2['denominators']['all'])} "
+          f"(**scope-mismatched**) | 2051/{e2['denominators']['all']} = "
+          f"{pct(2051 / e2['denominators']['all'])} ← §4's reading |",
+          f"| `crates/*/src` only ({e2['denominators']['src']}) | "
+          f"739/{e2['denominators']['src']} = {pct(739 / e2['denominators']['src'])} "
+          f"| 679/{e2['denominators']['src']} = {pct(679 / e2['denominators']['src'])} "
+          f"(**scope-mismatched**) | not comparable (the wide numerator spans src and tests) |",
+          f"| the files a `-p bloomery-daemon` build reaches ({e2['denominators']['reached']}) "
+          f"| 1723/{e2['denominators']['reached']} = {pct(1723 / e2['denominators']['reached'])} "
+          f"| 1723/{e2['denominators']['reached']} = {pct(1723 / e2['denominators']['reached'])} "
+          f"| not comparable (the wide numerator spans files this build never compiles) |", "",
+          "Every cell reads `<numerator>/<denominator>`. The diagonal — numerator and "
+          "denominator over the same files — is the only self-consistent reading, and it is "
+          "100.0% three times over; the two cells marked **scope-mismatched** cross a "
+          "one-package numerator with a whole-workspace denominator.", "",
           "Census: 2056 `fn` items with a body, 5 `const fn`, 0 `extern` fn, 0 `async` fn → "
           "2051 eligible (739 over 82 files in `crates/*/src`, 1312 over 109 files in "
           "`crates/*/tests`). A `cargo test -p bloomery-daemon` build compiles 1723 of "
@@ -239,8 +250,18 @@ def render(res: dict) -> str:
           f"(+{(e8['test_binary_size_bytes']['instrumented']['value'] - e8['test_binary_size_bytes']['plain']['value']) / e8['test_binary_size_bytes']['plain']['value'] * 100:.2f}%).", ""]
     r = res["reported_without_a_gate"]
     L += ["### Reported without a gate", "",
-          f"- Test binaries and processes cargo ran: **{num(r['test_binaries_run'])}** "
-          f"spooling processes (72 distinct executables).",
+          f"- **Test binaries cargo ran: {num(r['test_binaries_run'])}** (from cargo's own "
+          f"`Running` lines), plus {num(r['doctest_targets_run'])} `Doc-tests` target that ran "
+          f"0 tests. Of those binaries, **{num(r['test_binaries_that_spooled'])} spooled**; the "
+          f"{num(r['test_binaries_that_did_not_spool'])} that did not is "
+          f"`{(r['test_binaries_that_did_not_spool']['names'] or ['?'])[0]}` "
+          f"(`{(r['test_binaries_that_did_not_spool']['targets'] or ['?'])[0]}`), which ran 0 "
+          f"tests and so never entered an instrumented fn — not a recorder failure.",
+          f"- Processes that spooled, and that E0 converted: "
+          f"**{num(r['spooling_processes'])}** — the 71 binaries above plus 48 instrumented "
+          f"`flywheel-tool` children they spawned "
+          f"({num(r['spawned_child_executables'])} distinct child executable). Three "
+          f"different counts, three different quantities: 72 run, 71 spooled, 119 processes.",
           f"- Events per second of recording (call arm): "
           f"{132344 / (e['E1']['arms']['C']['median_s']['value'] - e['E1']['arms']['P']['median_s']['value']):.0f} "
           f"events per second of ADDED wall, or {132344 / e['E1']['arms']['C']['median_s']['value']:.0f} "
@@ -249,15 +270,32 @@ def render(res: dict) -> str:
           f"- Bytes per event on disk: "
           f"{num(w['bytes_per_event_on_disk'], '{:.2f}') if 'bytes_per_event_on_disk' in w else 'not measured'} "
           f"(24 B/record plus one file header per thread).",
-          "- libtest thread naming as observed: every spawned test thread carries the test's "
-          "own name (`codec_probe::fixtures::tests::parses_the_two_brief_examples`, "
-          "`envelope_lens_names_are_pinned`, …), so the converter's per-task naming needs no "
-          "heuristic.",
+          f"- libtest thread naming as observed, on the `--lib` trace: "
+          f"{sum(1 for t in (e['E0']['per_binary']['lib']['thread_names'] or []) if t['name'])} "
+          f"of {len(e['E0']['per_binary']['lib']['thread_names'] or [])} emitting non-main "
+          f"threads carry the test's own name "
+          f"(`codec_probe::fixtures::tests::parses_the_two_brief_examples`, "
+          f"`envelope_lens_names_are_pinned`, …) — exactly the 53 tests libtest ran. The "
+          f"remaining "
+          f"{sum(1 for t in (e['E0']['per_binary']['lib']['thread_names'] or []) if not t['name'])} "
+          f"(serials "
+          f"{', '.join(str(t['serial']) for t in (e['E0']['per_binary']['lib']['thread_names'] or []) if not t['name'])}) "
+          f"are threads the TESTS spawned and carry no name at all, so they become unnamed "
+          f"tasks in the trace (§5). `config_test`'s 26 threads are all named. Per-task "
+          f"naming needs no heuristic for a test thread and has no name to use for a spawned "
+          f"one.",
           f"- Per-process exit status available to the runtime: "
-          f"**{num(r['per_process_exit_status_available'])}** (measured-and-zero, not "
-          f"unmeasured) — every trace carries cargo's status instead (§5).",
+          f"**{num(r['per_process_exit_status_available'])}** — a design fact read off the "
+          f"wire format and the runtime, not an instrument's output; §1 pre-registered it as "
+          f"`expected: NOT available`, and every trace carries cargo's status instead (§5.1).",
+          f"- Wall of `sensorium info`/`diff`: warm-read medians of 3 consecutive runs on the "
+          f"same trace files (runs 2–3 hit a warm page cache); no cold-start number was taken.",
           f"- Wall time of the spike's own build: "
-          f"{num(r['spike_build_wall_s'], '{:.2f}')} s.", ""]
+          f"{num(r['spike_build_wall_s'], '{:.2f}')} s — `cargo clean --release && cargo build "
+          f"--release`, 4 workspace units recompiled, third-party deps warm. PROVENANCE: this "
+          f"one ran before the runner existed, so it has no log in the ledger and the number "
+          f"is transcribed by hand from the preflight transcript in `task-5-report.md` §1; "
+          f"reported, not gated.", ""]
     L += [f"Cleanup: `{res['cleanup']['target_sensorium_removed_bytes']}` bytes of "
           f"`bloomery/target/sensorium` removed (exists after: "
           f"`{res['cleanup']['target_sensorium_exists_after']}`); "
