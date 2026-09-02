@@ -1,0 +1,35 @@
+{
+  "id": "v01-missing-required-key",
+  "asserts": "A format-4 trace that claims incomplete=false and lacks a required meta key is REFUSED at open, by name, naming its recorder -- never read with that key defaulted to zero. Here the missing key is truncated_count, which every reader would otherwise print as 'truncated values: 0'.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["prog"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "source_hashes": {},
+    "recorder": "vector 1.0",
+    "lang": "rust",
+    "capabilities": {"threads": false, "children": false, "stdin": false, "line": false},
+    "incomplete": false
+  },
+  "questions": [
+    {
+      "id": "refused-by-name",
+      "ask": "What does a query command do with a finalized trace that is missing a required meta key?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 2,
+      "expect_contains": [
+        "lacks required meta truncated_count",
+        "vector 1.0",
+        "refuses rather than read those as zero"
+      ],
+      "expect_absent": ["truncated values: 0"]
+    }
+  ]
+}

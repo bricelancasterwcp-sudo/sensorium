@@ -1,0 +1,68 @@
+{
+  "id": "v04-main-thread-silent-tasks-carry",
+  "asserts": "A trace whose main thread emits nothing still carries a verdict. Every unit of work has a `tasks` row and a `task_fingerprints` row, so `diff` says the thread streams held nothing to compare and the tasks carry the whole verdict -- rather than refusing, or calling two empty streams a MATCH about the run. A zero-count fingerprint row survives to the reader: it is kept, counted among the threads, and labelled (main) for the thread `main_thread_ident` names -- a row saying zero is not the same fact as no row at all.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["prog"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "vector 1.0",
+    "lang": "rust",
+    "capabilities": {"threads": true, "tasks": true, "children": false,
+                     "stdin": false, "line": false},
+    "threads_started": 2,
+    "live_threads": [],
+    "incomplete": false
+  },
+  "codes": [["/w/a.py", "t_alpha", 20], ["/w/a.py", "t_beta", 30]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+     "thread": 2, "closed_by": "return", "kind": "function"},
+    {"parent": null, "code": 2, "call": 3, "return": 4, "depth": 0,
+     "thread": 3, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 2, "kind": "CALL", "frame": 1, "code": 1, "line": 20,
+     "payload": {"args": {}}, "task": 1},
+    {"ts": 2000, "thread": 2, "kind": "RETURN", "frame": 1, "code": 1, "line": 20,
+     "payload": {"value": {"k": "none"}}, "task": 1},
+    {"ts": 3000, "thread": 3, "kind": "CALL", "frame": 2, "code": 2, "line": 30,
+     "payload": {"args": {}}, "task": 2},
+    {"ts": 4000, "thread": 3, "kind": "RETURN", "frame": 2, "code": 2, "line": 30,
+     "payload": {"value": {"k": "none"}}, "task": 2}
+  ],
+  "tasks": [[1, "t::alpha", 2], [2, "t::beta", 3]],
+  "threads_with_rows": [1, 2, 3],
+  "fingerprints": "compute",
+  "copies": 2,
+  "questions": [
+    {
+      "id": "tasks-carry-the-verdict",
+      "ask": "Two identical runs whose main thread ran nothing: what does `diff` compare, and on what does the verdict rest?",
+      "command": ["diff", "$RUN", "$RUN2"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "the tasks below carry the whole verdict",
+        "2 task stream(s) on each side"
+      ],
+      "expect_absent": ["verdict: REFUSED", "verdict: DIVERGED"]
+    },
+    {
+      "id": "zero-count-row-survives",
+      "ask": "A recorder wrote a zero-count fingerprint row for the silent main thread: does `info` keep it, count it, and label it (main)?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_line": [["fingerprint thread 1 (main)", "(0 causal events"]],
+      "expect_count": {"fingerprint thread": 3},
+      "expect_contains": ["tasks: 2 (t1 t::alpha, t2 t::beta)"]
+    }
+  ]
+}
