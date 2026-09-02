@@ -84,6 +84,8 @@ import re
 from collections import Counter
 
 from sensorium import paths
+from sensorium.query.moves import (Moves, detect_moves, for_b, print_moves,
+                                   project, task_hashes)
 from sensorium.store.reader import Trace
 
 CAUSAL = ("CALL", "RETURN", "RAISE", "HANDLED")
@@ -137,7 +139,7 @@ def _refused(reasons: list[str]) -> dict:
     return {"verdict": "REFUSED", "index": None, "a_event": None,
             "b_event": None, "a_desc": None, "b_desc": None,
             "reasons": reasons, "a_stream": None, "b_stream": None,
-            "tasks": None}
+            "tasks": None, "moves": None}
 
 
 _DEFAULT_NAME = re.compile(r"^Task-\d+\Z")
@@ -154,15 +156,24 @@ def _unnamed(name: str | None) -> bool:
     return name is None or _DEFAULT_NAME.match(name) is not None
 
 
-def _shapes(trace: Trace) -> Counter:
+def _shapes(trace: Trace, moves: Moves | None = None) -> Counter:
     """`Trace.task_shapes()` with asyncio's default `Task-N` names read as
     no name. The reader owns the multiset; this owns the one thing that is
     a comparison policy and not a fact about the trace, so the raw name
     stays in the table and in `info` -- it is dropped for the comparison,
-    not everywhere."""
+    not everywhere.
+
+    With `moves` (a Moves object, its mapping empty for the B side) the
+    shapes are RE-HASHED from each task's stream, projected through it:
+    `--ignore-moves` must hash both sides one way, and the stored rows were
+    hashed over a root-relative file."""
     out: Counter = Counter()
-    for (name, h), k in trace.task_shapes().items():
-        out[(None if _unnamed(name) else name, h)] += k
+    if moves is None:
+        for (name, h), k in trace.task_shapes().items():
+            out[(None if _unnamed(name) else name, h)] += k
+        return out
+    for name, h in task_hashes(trace, moves).values():
+        out[(None if _unnamed(name) else name, h)] += 1
     return out
 
 
@@ -223,11 +234,19 @@ def _task_row_reasons(trace: Trace, label: str) -> list[str]:
             "say less than it seems -- re-record it with this version"]
 
 
-def _pair(trace_a, trace_b, ta, tb, name, by_order=False) -> dict | None:
+def _pair(trace_a, trace_b, ta, tb, name, by_order=False,
+          moves=None) -> dict | None:
     """Two task streams and their first differing step; `None` when they do
     not actually differ (same shape, different serial numbering) -- there is
-    nothing to show, and showing a step anyway would invent a difference."""
+    nothing to show, and showing a step anyway would invent a difference.
+
+    Projected under `--ignore-moves` like every other compared stream: the
+    raw streams part at the first moved CALL, and reporting THAT as the
+    task's first difference would point at the move the flag exists to
+    look past."""
     sa, sb = trace_a.task_stream(ta), trace_b.task_stream(tb)
+    if moves:
+        sa, sb = project(sa, moves), project(sb, for_b(moves))
     i = first_divergence(sa, sb)
     if i is None:
         return None
@@ -241,8 +260,8 @@ def _pair(trace_a, trace_b, ta, tb, name, by_order=False) -> dict | None:
             "b_desc": _desc(b_step) if b_step else "(stream ended)"}
 
 
-def _first_pair_sharing_a_name(trace_a, trace_b, only_a,
-                               only_b) -> dict | None:
+def _first_pair_sharing_a_name(trace_a, trace_b, only_a, only_b,
+                               moves=None) -> dict | None:
     """For the first name present on both 'only' lists, the two task streams
     and their first differing step -- None when no name is shared (then
     every unmatched stream is simply listed)."""
@@ -251,44 +270,47 @@ def _first_pair_sharing_a_name(trace_a, trace_b, only_a,
         if name is None or name not in names_b:
             continue
         hb = next(h for n, h, _c in only_b if n == name)
-        ta = next(t for t, (n, h, _c) in trace_a.task_fingerprints().items()
+        ta = next(t for t, (n, h) in task_hashes(trace_a, moves).items()
                   if n == name and h == ha)
-        tb = next(t for t, (n, h, _c) in trace_b.task_fingerprints().items()
+        tb = next(t for t, (n, h) in task_hashes(trace_b, for_b(moves)).items()
                   if n == name and h == hb)
-        pair = _pair(trace_a, trace_b, ta, tb, name)
+        pair = _pair(trace_a, trace_b, ta, tb, name, moves=moves)
         if pair is not None:
             return pair
     return None
 
 
-def _lowest_unmatched_unnamed(trace: Trace, rows) -> int | None:
+def _lowest_unmatched_unnamed(trace: Trace, rows, moves=None) -> int | None:
     """The unnamed task with the lowest serial whose shape went unmatched.
     Which of several same-shaped tasks is "the" unmatched one is not
     knowable -- this picks by creation order, and every caller says so."""
     wanted = {h for n, h, _k in rows if n is None}
-    return min((t for t, (n, h, _c) in trace.task_fingerprints().items()
+    return min((t for t, (n, h) in task_hashes(trace, moves).items()
                 if _unnamed(n) and h in wanted), default=None)
 
 
-def _first_unnamed_pair(trace_a, trace_b, only_a, only_b) -> dict | None:
+def _first_unnamed_pair(trace_a, trace_b, only_a, only_b,
+                        moves=None) -> dict | None:
     """Ruling 4c: when the unmatched streams carry no name on either side
     there is nothing to match them on, so the drill-in pairs the first
     unmatched unnamed stream on each side by ascending task serial. That is
     a guide to look at, not a claim that the two are the same task, and the
     printed line says exactly that."""
-    ta = _lowest_unmatched_unnamed(trace_a, only_a)
-    tb = _lowest_unmatched_unnamed(trace_b, only_b)
+    ta = _lowest_unmatched_unnamed(trace_a, only_a, moves)
+    tb = _lowest_unmatched_unnamed(trace_b, only_b, for_b(moves))
     if ta is None or tb is None:
         return None
-    return _pair(trace_a, trace_b, ta, tb, None, by_order=True)
+    return _pair(trace_a, trace_b, ta, tb, None, by_order=True, moves=moves)
 
 
-def compare_tasks(trace_a: Trace, trace_b: Trace) -> dict:
+def compare_tasks(trace_a: Trace, trace_b: Trace,
+                  moves: Moves | None = None) -> dict:
     """Tasks compared as a multiset of (name, hash): order-independent, so a
     different interleaving cannot manufacture a DIVERGED, and two tasks
     sharing a name are matched by content. verdict None = no task on either
     side (nothing to say)."""
-    a, b = _shapes(trace_a), _shapes(trace_b)       # Ruling 4 normalisation
+    a, b = (_shapes(trace_a, moves),
+            _shapes(trace_b, for_b(moves)))        # Ruling 4 normalisation
     n_a, n_b = a.total(), b.total()
     if not n_a and not n_b:
         return {"verdict": None, "only_a": [], "only_b": [], "pair": None,
@@ -297,13 +319,15 @@ def compare_tasks(trace_a: Trace, trace_b: Trace) -> dict:
     if not only_a and not only_b:
         return {"verdict": "MATCH", "only_a": [], "only_b": [], "pair": None,
                 "n_a": n_a, "n_b": n_b}
-    pair = (_first_pair_sharing_a_name(trace_a, trace_b, only_a, only_b)
-            or _first_unnamed_pair(trace_a, trace_b, only_a, only_b))
+    pair = (_first_pair_sharing_a_name(trace_a, trace_b, only_a, only_b,
+                                       moves)
+            or _first_unnamed_pair(trace_a, trace_b, only_a, only_b, moves))
     return {"verdict": "DIVERGED", "only_a": only_a, "only_b": only_b,
             "pair": pair, "n_a": n_a, "n_b": n_b}
 
 
-def compare(trace_a: Trace, trace_b: Trace) -> dict:
+def compare(trace_a: Trace, trace_b: Trace,
+            moves: Moves | None = None) -> dict:
     """Compare the main-thread causal streams of two traces.
 
     Returns a dict with `verdict` in {"MATCH", "DIVERGED", "REFUSED"}.
@@ -334,9 +358,11 @@ def compare(trace_a: Trace, trace_b: Trace) -> dict:
                + _task_row_reasons(trace_b, "B"))
     if reasons:
         return _refused(reasons)
-    sa = trace_a.causal_stream()
-    sb = trace_b.causal_stream()
-    tasks = compare_tasks(trace_a, trace_b)
+    sa = (project(trace_a.causal_stream(), moves) if moves
+          else trace_a.causal_stream())
+    sb = (project(trace_b.causal_stream(), for_b(moves)) if moves
+          else trace_b.causal_stream())
+    tasks = compare_tasks(trace_a, trace_b, moves)
     if not sa and not sb and tasks["verdict"] is None:
         # Two empty streams are equal, and `first_divergence` would duly
         # report MATCH -- a verdict about nothing, delivered with the same
@@ -360,7 +386,7 @@ def compare(trace_a: Trace, trace_b: Trace) -> dict:
                 "index": None, "a_event": None,
                 "b_event": None, "a_desc": None, "b_desc": None,
                 "reasons": [], "a_stream": sa, "b_stream": sb,
-                "tasks": tasks}
+                "tasks": tasks, "moves": moves}
     a_step = sa[i] if i < len(sa) else None
     b_step = sb[i] if i < len(sb) else None
     return {
@@ -372,7 +398,7 @@ def compare(trace_a: Trace, trace_b: Trace) -> dict:
         "b_desc": _desc(b_step) if b_step else "(stream ended)",
         "reasons": [],
         "a_stream": sa, "b_stream": sb,
-        "tasks": tasks,
+        "tasks": tasks, "moves": moves,
     }
 
 
@@ -413,7 +439,8 @@ def _task_named(trace: Trace, label: str, name: str):
                   f"({label} has: {_task_choices(trace)})"]
 
 
-def compare_task_streams(trace_a: Trace, trace_b: Trace, name: str) -> dict:
+def compare_task_streams(trace_a: Trace, trace_b: Trace, name: str,
+                         moves: Moves | None = None) -> dict:
     """`compare()` for one named asyncio task instead of the thread streams.
 
     Same keys, plus `a_task` / `b_task` (the task ids compared). The name
@@ -443,6 +470,8 @@ def compare_task_streams(trace_a: Trace, trace_b: Trace, name: str) -> dict:
         return {**_refused(reasons), **unresolved}
     found = {"a_task": ia, "b_task": ib}
     sa, sb = trace_a.task_stream(ia), trace_b.task_stream(ib)
+    if moves:
+        sa, sb = project(sa, moves), project(sb, for_b(moves))
     if not sa and not sb:
         return {**_refused(
             [f"task '{name}' recorded no causal event on either side, so "
@@ -453,7 +482,7 @@ def compare_task_streams(trace_a: Trace, trace_b: Trace, name: str) -> dict:
         return {"verdict": "MATCH", "index": None, "a_event": None,
                 "b_event": None, "a_desc": None, "b_desc": None,
                 "reasons": [], "a_stream": sa, "b_stream": sb,
-                "tasks": None, **found}
+                "tasks": None, "moves": moves, **found}
     a_step = sa[i] if i < len(sa) else None
     b_step = sb[i] if i < len(sb) else None
     return {
@@ -465,7 +494,7 @@ def compare_task_streams(trace_a: Trace, trace_b: Trace, name: str) -> dict:
         "b_desc": _desc(b_step) if b_step else "(stream ended)",
         "reasons": [],
         "a_stream": sa, "b_stream": sb,
-        "tasks": None, **found,
+        "tasks": None, "moves": moves, **found,
     }
 
 
@@ -601,6 +630,13 @@ def _print_thread_match(trace_a, trace_b, res) -> None:
     exact = (trace_a.main_thread_basis() == "recorded"
             and trace_b.main_thread_basis() == "recorded")
     where = "the main thread" if exact else "the thread named above"
+    if res.get("moves"):
+        nm = len(res["moves"].moved)
+        print(f"verdict: MATCH modulo location -- identical causal streams "
+              f"({n} events) once {nm} moved code object(s) are paired by "
+              f"qualname on {where}; values, timing, and LINE events were "
+              "not compared")
+        return
     print(f"verdict: MATCH -- identical causal streams ({n} events): "
           "the same sequence of (file, qualname, kind) for "
           f"CALL/RETURN/RAISE/HANDLED on {where}; values, "
@@ -670,6 +706,11 @@ def print_comparison(trace_a, trace_b, res, name_a, name_b, context=3,
     different amounts about one finding read as two findings."""
     print(_thread_header("A", name_a, trace_a))
     print(_thread_header("B", name_b, trace_b))
+    if res.get("moves"):
+        mv = res["moves"]
+        print(f"key: (file, qualname, kind), with {len(mv.moved)} code "
+              "object(s) paired across a move by (qualname, kind) -- see "
+              "moves below")
     for note in safety_notes(trace_a, trace_b):
         print(f"note: {note}")
     if res["verdict"] == "REFUSED":
@@ -681,6 +722,9 @@ def print_comparison(trace_a, trace_b, res, name_a, name_b, context=3,
         _print_divergence(res, name_a, name_b, context)
     if tasks:
         _print_tasks(res, name_a, name_b)
+    if res.get("moves"):
+        print("moves:")
+        print_moves(res["moves"])
 
 
 def print_task_comparison(trace_a, trace_b, res, name_a, name_b, task,
@@ -704,8 +748,11 @@ def print_task_comparison(trace_a, trace_b, res, name_a, name_b, task,
               "(file, qualname, kind) for CALL/RETURN/RAISE/HANDLED inside "
               f"task {task}; values, timing, and LINE events were not "
               "compared")
-        return
-    _print_divergence(res, name_a, name_b, context)
+    else:
+        _print_divergence(res, name_a, name_b, context)
+    if res.get("moves"):
+        print("moves:")
+        print_moves(res["moves"])
 
 
 def add_parser(sub) -> None:
@@ -718,18 +765,23 @@ def add_parser(sub) -> None:
     p.add_argument("--task", default=None, metavar="NAME",
                    help="compare one asyncio task's stream by name instead "
                         "of the thread streams")
+    p.add_argument("--ignore-moves", action="store_true",
+                   help="pair a function that left one file with the same-"
+                        "named function that appeared in another, then "
+                        "compare; the pairing is printed with the verdict")
     p.set_defaults(func=run)
 
 
 def run(args) -> int:
     pa, pb = paths.find_trace(args.run_a), paths.find_trace(args.run_b)
     ta, tb = Trace.open(pa), Trace.open(pb)
+    moves = detect_moves(ta, tb) if args.ignore_moves else None
     if args.task:
-        res = compare_task_streams(ta, tb, args.task)
+        res = compare_task_streams(ta, tb, args.task, moves)
         print_task_comparison(ta, tb, res, pa.stem, pb.stem, args.task,
                               args.context)
     else:
-        res = compare(ta, tb)
+        res = compare(ta, tb, moves)
         print_comparison(ta, tb, res, pa.stem, pb.stem, args.context)
     if res["verdict"] == "REFUSED":
         return 2
