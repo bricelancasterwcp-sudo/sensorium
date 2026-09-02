@@ -5,3 +5,8 @@
 *.spool
 *.proc.json
 probes/ws/target/
+# Task 4's end-to-end tests build into a temp CARGO_TARGET_DIR under the
+# probe workspace itself (so parent(--target) is the real workspace root),
+# cleaned up by the test fixture; ignored here too as a safety net for an
+# interrupted run.
+probes/ws/convert-e2e-target-*/

@@ -93,6 +93,35 @@ lines are a human summary). Each arm runs in its own process three times
 directories go under `TMPDIR` (or `SENSORIUM_BENCH_DIR`) and are removed after
 each run; the `call` arm writes about 129 MB per run before cleanup.
 
+## The converter (Task 4)
+
+`convert.py` is a throwaway Python script -- never imported by `sensorium`
+itself, never referenced from `pyproject.toml` -- that reads one
+`cargo sensorium test` invocation's spool directory and writes one format-4
+sensorium trace per process, so a real trace can be opened with the real
+`sensorium` CLI before the Rust recorder rung 2 will build exists:
+
+```
+.venv/bin/python rust/spike/convert.py <spool-dir> --target <target-dir> \
+    [--cargo-exit N] [--argv CARGO ARGS...]
+```
+
+`<spool-dir>` is `<target>/sensorium/spool/<invocation>/`; `<target>` is the
+same `CARGO_TARGET_DIR` the driver built into, and its PARENT is taken as the
+workspace root (manifest paths are workspace-relative). `--argv`, if given,
+must be the LAST flag -- it swallows every token after it, dashes included,
+and is recorded as meta `cargo_args`.
+
+Tests: `.venv/bin/python -m pytest rust/spike/tests/test_convert.py -q` (a
+`conftest.py` beside it puts `rust/spike` on `sys.path`; `pyproject.toml`'s
+`testpaths = ["tests"]` already keeps the main suite from collecting it). The
+end-to-end tier builds the release driver and the probe workspace's
+`probe-app` lib tests into a temp `CARGO_TARGET_DIR` under `probes/ws/`
+itself, converts through `convert.py`'s own CLI, and drives the real
+`sensorium` CLI in a subprocess against a temp `SENSORIUM_DIR` -- see
+`.superpowers/sdd/2026-09-02-sensorium-rung1-mechanics-spike/task-4-report.md`
+for the mapping decisions and the mutation-check log.
+
 ## How the measurement is run
 
 Once Task 5 has landed:
