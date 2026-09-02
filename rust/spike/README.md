@@ -1,5 +1,31 @@
 # `rust/spike/` — throwaway
 
+## PARKED (2026-09-02) — measurement complete, code frozen
+
+The rung-1 mechanics spike is **done**. E0, E1, E2, E7 and E8 all PASS; the
+three decisions are compile-once-gate-at-runtime, one test binary (one process)
+as the trace unit, and GO for rung 2 on mechanics.
+
+**This branch — `spike/rust-mechanics` — is parked and is never merged.** It
+exists so the numbers below can be re-derived, and for no other purpose. Do not
+build rung 2 on it: rung 2 is a fresh implementation against the amended spec.
+
+Where the work actually lands:
+
+- **Branch `docs/rung1-spike-findings`** (off `main`) carries the evidence —
+  the findings document, its `results.json`, and the plan — plus the dated
+  amendments to `docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md`
+  (§0, §2.1–2.5, §3.2, §3.5, §3.7, §4, §6, §8's measured column, §11's rung-1
+  DONE, §13's deltas table).
+- **After that PR merges, every number this spike produced lives on `main`** in
+  `docs/superpowers/spikes/2026-09-02-rust-mechanics-spike.md` (§3 results, §4
+  decisions, §5 the twenty rung-2 gaps) and its `.results.json` beside it. Read
+  those, not this tree, for what was measured.
+
+Nothing under `rust/` is built by CI, on either branch; CI stays Python-only.
+
+---
+
 This code is evidence for `docs/superpowers/spikes/2026-09-02-rust-mechanics-spike.md`. It is:
 
 - **never merged to main** — it lives only on the `spike/rust-mechanics` branch and, per Task 6 of the plan, is never cherry-picked; only the findings document, its `results.json` copy, and a spec amendment land on main.
@@ -57,7 +83,9 @@ workspace with its own `Cargo.lock` — see `probes/ws/README.md`):
 rust/spike/tests/mechanics.sh
 ```
 
-Fifteen checks, one line each, non-zero exit on any failure.
+Twenty-one checks, one line each, non-zero exit on any failure. (It said
+"fifteen" until 2026-09-02; Task 3's fix round added six, and the findings
+document records the run as "21 checks passed, 0 failed, exit 0" — §3, E7.)
 
 **Build the driver with `--release` for any measurement run.** The shim path is
 the sha256 of the driver binary and the rt rlib, and a debug build of the driver
