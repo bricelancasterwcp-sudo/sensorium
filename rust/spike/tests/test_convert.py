@@ -1,6 +1,8 @@
 """Tests for `rust/spike/convert.py` (THROWAWAY SPIKE CODE, Task 4).
 
-Three tiers, cheapest first:
+Two tiers, cheapest first (the third -- end to end, the real driver and the
+real `sensorium` CLI -- lives in `test_convert_e2e.py`; split purely to keep
+both files under the project's 800-line cap):
 
 1. Wire parser + k-way merge: synthetic byte buffers and synthetic
    `SpoolFile`/`Record` objects, no filesystem, no sqlite.
@@ -8,23 +10,14 @@ Three tiers, cheapest first:
    a real (temp-file) `TraceWriter`, read back through the real
    `sensorium.store.reader.Trace` -- exercises the same write path
    production code uses, never a fake.
-3. End to end: builds the probe workspace through the real
-   `cargo-sensorium` driver into a temp `CARGO_TARGET_DIR` (a subdirectory
-   of the probe workspace itself, so `parent(--target)` is the actual
-   workspace root -- the Controller ruling `convert.py` relies on), converts
-   through `convert.py`'s own CLI, then drives the real `sensorium` CLI in
-   a subprocess against a temp `SENSORIUM_DIR`.
 
-Run: `.venv/bin/python -m pytest rust/spike/tests/test_convert.py -q`
-(from the repo root; `conftest.py` in this directory puts `rust/spike` on
-`sys.path` so `import convert` resolves).
+Run: `.venv/bin/python -m pytest rust/spike/tests/test_convert.py -q`, or
+`rust/spike/tests/` for both files together (from the repo root;
+`conftest.py` in this directory puts `rust/spike` on `sys.path` so
+`import convert` resolves).
 """
 import json
-import os
-import shutil
 import struct
-import subprocess
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -76,6 +69,22 @@ def rec(seq, site, kind, outcome=0, ts=None):
 
 
 CALL, RETURN, END = convert.KIND_CALL, convert.KIND_RETURN, convert.KIND_THREAD_END
+
+
+class TestRecordSlots:
+    """A binary with ~10^6 events instantiates that many `Record`s; an
+    unslotted dataclass costs several hundred MB peak at that count. A
+    regression guard, since `slots=True` leaves no other trace to assert on
+    besides "there is no per-instance __dict__ any more"."""
+
+    def test_record_instances_have_no_dict(self):
+        r = rec(0, 0, CALL)
+        assert not hasattr(r, "__dict__")
+
+    def test_record_is_still_frozen(self):
+        r = rec(0, 0, CALL)
+        with pytest.raises(AttributeError):
+            r.seq = 1
 
 
 # ===========================================================================
@@ -226,6 +235,26 @@ class TestConvertProcessFrames:
         fps = tr.fingerprints()
         assert fps[1][1] == 2                    # 2 causal events, main
         assert summary["events"] == 2
+
+    def test_call_payload_declares_locals_unread_not_empty_args(self, tmp_path):
+        """`locals: false`: `args: {}` alone would read as "this fn takes no
+        arguments" (fmt.py's CALL rendering), the opposite of the truth for
+        e.g. `work(n: u32)`. TRACE-FORMAT.md's `unread: ["locals"]` says
+        "unread", not "none" -- see also the e2e
+        `test_grep_shows_the_unread_locals_marker_and_never_bare_args`."""
+        manifests = {"m": make_manifest("m", sites={0: ("a.rs", "f", 1)})}
+        spools = [convert.SpoolFile(None, 1, "", [rec(0, _site(0, 0), CALL),
+                                                  rec(1, _site(0, 0), RETURN)],
+                                    False)]
+        proc = {"units": {"0": "m"}}
+        _summary, tr = _run_process(tmp_path, proc, spools, manifests)
+        call = tr.events(kind="CALL")[0]
+        assert call.payload == {"args": {}, "unread": ["locals"]}
+        # RETURN is unaffected by this fix -- return_value: false already
+        # omits "value" entirely (§5: a key a recorder cannot fill is
+        # omitted, never a placeholder), so there's nothing there to mark.
+        ret = tr.events(kind="RETURN")[0]
+        assert ret.payload == {}
 
     def test_nested_calls_build_parent_child_frames_with_depth(self, tmp_path):
         manifests = {"m": make_manifest("m", sites={
@@ -431,6 +460,26 @@ class TestLoadManifests:
         # sorted by unit ("metaA" before "metaB"), so a's entry comes first.
         assert [s["qualname"] for s in skipped] == ["x", "y"]
 
+    def test_a_missing_manifests_directory_is_a_converter_error(self, tmp_path):
+        """Almost always means `--target` does not match the
+        `CARGO_TARGET_DIR` the driver actually built into -- raised here,
+        once, by name, instead of surfacing much later as a confusing
+        per-CALL "unit ... has no manifest" error."""
+        target = tmp_path / "target"          # target/sensorium/manifests/
+        target.mkdir()                        # never created
+        with pytest.raises(convert.ConverterError,
+                           match="no manifests found"):
+            convert.load_manifests(target)
+
+    def test_an_existing_but_empty_manifests_directory_is_not_an_error(
+            self, tmp_path):
+        """A different, legitimate fact from a MISSING directory: a build
+        that instrumented nothing. Must not be conflated with the case
+        above."""
+        target = tmp_path / "target"
+        (target / "sensorium" / "manifests").mkdir(parents=True)
+        assert convert.load_manifests(target) == {}
+
 
 # ===========================================================================
 # 2c. `convert_dir`: the full meta pass + `db.missing_required`
@@ -608,6 +657,47 @@ class TestConvertDir:
             convert.convert_dir(spool_dir, target, cargo_exit=0)
         assert list((sensorium_home / "traces").glob("*.db")) == []
 
+    def test_a_spool_file_with_no_matching_proc_json_is_a_converter_error(
+            self, tmp_path, sensorium_home):
+        """`*.proc.json` is written before any spool file for that pid can
+        exist, so an orphan spool means the header was lost or never
+        written -- worth raising loudly by name, not silently dropping,
+        with ~70 processes converted per bloomery invocation."""
+        spool_dir, target, _pid = self._build_scene(tmp_path)
+        # A spool file for a pid that never got a proc.json at all.
+        _write_spool_file(spool_dir, 9999, 2, "ghost", [rec(0, 0, END)])
+        with pytest.raises(convert.ConverterError,
+                           match=r"9999\.2\.spool"):
+            convert.convert_dir(spool_dir, target, cargo_exit=0,
+                                cargo_args=["test"])
+        # No trace was written for the (otherwise valid) known process
+        # either -- the orphan check runs before the loop, so this refuses
+        # the whole invocation rather than convert some and drop one.
+        assert list((sensorium_home / "traces").glob("*.db")) == []
+
+
+class TestOrphanSpools:
+    def test_a_spool_whose_pid_has_a_proc_json_is_not_an_orphan(self, tmp_path):
+        spool_dir = tmp_path
+        (spool_dir / "1.proc.json").write_text("{}")
+        (spool_dir / "1.2.spool").write_bytes(b"")
+        proc_paths = sorted(spool_dir.glob("*.proc.json"))
+        assert convert.orphan_spools(spool_dir, proc_paths) == []
+
+    def test_a_spool_with_no_matching_proc_json_is_named(self, tmp_path):
+        spool_dir = tmp_path
+        (spool_dir / "1.proc.json").write_text("{}")
+        (spool_dir / "1.2.spool").write_bytes(b"")
+        (spool_dir / "2.3.spool").write_bytes(b"")     # pid 2 has no header
+        proc_paths = sorted(spool_dir.glob("*.proc.json"))
+        orphans = convert.orphan_spools(spool_dir, proc_paths)
+        assert [p.name for p in orphans] == ["2.3.spool"]
+
+    def test_no_spool_files_at_all_has_no_orphans(self, tmp_path):
+        (tmp_path / "1.proc.json").write_text("{}")
+        proc_paths = sorted(tmp_path.glob("*.proc.json"))
+        assert convert.orphan_spools(tmp_path, proc_paths) == []
+
 
 class TestEnvAndCli:
     def test_env_hash_is_stable_for_the_same_environment(self):
@@ -631,168 +721,3 @@ class TestEnvAndCli:
         assert args.cargo_exit == 0
 
 
-# ===========================================================================
-# 3. End to end: the real driver, the real converter CLI, the real sensorium CLI
-# ===========================================================================
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-SPIKE_DIR = REPO_ROOT / "rust" / "spike"
-PROBE_WS = SPIKE_DIR / "probes" / "ws"
-PYTHON_BIN = REPO_ROOT / ".venv" / "bin" / "python"
-SENSORIUM_BIN = REPO_ROOT / ".venv" / "bin" / "sensorium"
-CONVERT_PY = SPIKE_DIR / "convert.py"
-WORK_WORKS_FILE = PROBE_WS / "probe-app" / "src" / "lib.rs"
-
-pytestmark_e2e = pytest.mark.skipif(
-    not (SENSORIUM_BIN.exists() and PYTHON_BIN.exists()),
-    reason="the project's own .venv is required for the end-to-end tests")
-
-
-def _run_driver(driver_bin: Path, target: Path, cargo_args: list):
-    env = dict(os.environ)
-    env["CARGO_TARGET_DIR"] = str(target)
-    env["SENSORIUM_SPIKE_ROOT"] = str(SPIKE_DIR)
-    proc = subprocess.run([str(driver_bin), "sensorium", *cargo_args],
-                          cwd=PROBE_WS, env=env, capture_output=True,
-                          text=True, timeout=300, check=False)
-    spool_dir = cargo_exit = None
-    for line in proc.stderr.splitlines():
-        if line.startswith("spool: "):
-            spool_dir = Path(line[len("spool: "):])
-        elif line.startswith("cargo exit: "):
-            cargo_exit = int(line[len("cargo exit: "):])
-    if spool_dir is None or cargo_exit is None:
-        raise RuntimeError(
-            f"driver did not report spool/exit; stderr:\n{proc.stderr}\n"
-            f"stdout:\n{proc.stdout}")
-    if cargo_exit != 0:
-        raise RuntimeError(f"cargo exited {cargo_exit}:\n{proc.stderr}")
-    return spool_dir, cargo_exit
-
-
-def _convert(spool_dir: Path, target: Path, cargo_exit: int, cargo_args: list,
-            home: Path) -> str:
-    env = dict(os.environ)
-    env["SENSORIUM_DIR"] = str(home)
-    proc = subprocess.run(
-        [str(PYTHON_BIN), str(CONVERT_PY), str(spool_dir), "--target",
-        str(target), "--cargo-exit", str(cargo_exit), "--argv", *cargo_args],
-        capture_output=True, text=True, env=env, timeout=120, check=True)
-    lines = [ln for ln in proc.stdout.splitlines() if ln.startswith("run: ")]
-    assert len(lines) == 1, f"expected exactly one trace, got:\n{proc.stdout}"
-    return lines[0].split()[1]
-
-
-def _sensorium(home: Path, *args: str) -> subprocess.CompletedProcess:
-    env = dict(os.environ)
-    env["SENSORIUM_DIR"] = str(home)
-    return subprocess.run([str(SENSORIUM_BIN), *args], capture_output=True,
-                          text=True, env=env, timeout=60, check=False)
-
-
-@pytest.fixture(scope="module")
-def driver_bin():
-    subprocess.run(["cargo", "build", "--release", "-p", "cargo-sensorium"],
-                   cwd=SPIKE_DIR, check=True, capture_output=True, text=True,
-                   timeout=300)
-    path = SPIKE_DIR / "target" / "release" / "cargo-sensorium"
-    assert path.exists()
-    return path
-
-
-@pytest.fixture(scope="module")
-def probe_target():
-    d = Path(tempfile.mkdtemp(prefix="convert-e2e-target-", dir=PROBE_WS))
-    try:
-        yield d
-    finally:
-        shutil.rmtree(d, ignore_errors=True)
-
-
-@pytest.fixture(scope="module")
-def probe_traces(driver_bin, probe_target, tmp_path_factory):
-    """Builds the probe workspace's `probe-app` lib test binary THREE times
-    -- twice unchanged, once with `work_works`'s body changed -- and
-    converts each into its own trace under one shared `SENSORIUM_DIR`.
-    Module-scoped: the cargo builds are the expensive part, and every test
-    below only needs to read what this produced.
-    """
-    home = tmp_path_factory.mktemp("sensorium-home")
-    cargo_args = ["test", "-p", "probe-app", "--lib"]
-
-    spool1, exit1 = _run_driver(driver_bin, probe_target, cargo_args)
-    run1 = _convert(spool1, probe_target, exit1, cargo_args, home)
-
-    spool2, exit2 = _run_driver(driver_bin, probe_target, cargo_args)
-    run2 = _convert(spool2, probe_target, exit2, cargo_args, home)
-
-    original = WORK_WORKS_FILE.read_text(encoding="utf-8")
-    assert "assert_eq!(work(2), 6);" in original, (
-        "probe-app/src/lib.rs no longer matches this test's assumption "
-        "about work_works' body -- update the sed pattern below")
-    changed = original.replace("assert_eq!(work(2), 6);",
-                               "assert_eq!(work(3), 8);")
-    WORK_WORKS_FILE.write_text(changed, encoding="utf-8")
-    try:
-        spool3, exit3 = _run_driver(driver_bin, probe_target, cargo_args)
-    finally:
-        # Survive a failure the same way mechanics.sh does: restore before
-        # anything else can observe the edited tree.
-        WORK_WORKS_FILE.write_text(original, encoding="utf-8")
-    run3 = _convert(spool3, probe_target, exit3, cargo_args, home)
-
-    return {"home": home, "run1": run1, "run2": run2, "run3_changed": run3}
-
-
-class TestEndToEnd:
-    pytestmark = pytestmark_e2e
-
-    def test_probe_source_tree_is_unmodified_after_the_fixture_runs(self):
-        # The fixture above already restored it; this asserts that
-        # persisted, using the same check mechanics.sh uses for its own edit.
-        result = subprocess.run(
-            ["git", "status", "--porcelain", "--", str(WORK_WORKS_FILE)],
-            cwd=REPO_ROOT, capture_output=True, text=True, check=True)
-        assert result.stdout == ""
-
-    def test_trace_opens_without_refusal(self, probe_traces):
-        r = _sensorium(probe_traces["home"], "info", probe_traces["run1"])
-        assert r.returncode == 0, r.stderr
-
-    def test_info_shows_recorder_lang_and_capabilities(self, probe_traces):
-        r = _sensorium(probe_traces["home"], "info", probe_traces["run1"])
-        assert r.returncode == 0, r.stderr
-        assert "recorder: sensorium-rt 0.0.0-spike  lang: rust" in r.stdout
-        assert "capabilities:" in r.stdout
-        for cap, value in convert.CAPABILITIES.items():
-            assert f"{cap}={'yes' if value else 'no'}" in r.stdout
-
-    def test_flow_refuses_because_line_is_undeclared(self, probe_traces):
-        r = _sensorium(probe_traces["home"], "flow", probe_traces["run1"],
-                       "--value", "1")
-        assert r.returncode == 2
-        assert "REFUSED" in r.stdout
-        assert "capabilities.line: false" in r.stdout
-
-    def test_tree_renders_frames_with_no_none_marker(self, probe_traces):
-        r = _sensorium(probe_traces["home"], "tree", probe_traces["run1"])
-        assert r.returncode == 0, r.stderr
-        assert "[None]" not in r.stdout
-        assert "tests::work_works" in r.stdout
-
-    def test_two_identical_runs_match_and_tasks_carry_the_verdict(
-            self, probe_traces):
-        r = _sensorium(probe_traces["home"], "diff", probe_traces["run1"],
-                       probe_traces["run2"])
-        assert r.returncode == 0, r.stdout + r.stderr
-        assert ("MATCH -- no causal event ran outside a task on either "
-               "side, so the thread streams held nothing to compare; the "
-               "tasks below carry the whole verdict") in r.stdout
-        assert "all matched" in r.stdout
-
-    def test_a_changed_test_body_diverges_naming_the_task(self, probe_traces):
-        r = _sensorium(probe_traces["home"], "diff", probe_traces["run1"],
-                       probe_traces["run3_changed"])
-        assert r.returncode == 1, r.stdout + r.stderr
-        assert "DIVERGED" in r.stdout
-        assert "tests::work_works" in r.stdout

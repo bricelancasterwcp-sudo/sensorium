@@ -112,13 +112,15 @@ workspace root (manifest paths are workspace-relative). `--argv`, if given,
 must be the LAST flag -- it swallows every token after it, dashes included,
 and is recorded as meta `cargo_args`.
 
-Tests: `.venv/bin/python -m pytest rust/spike/tests/test_convert.py -q` (a
-`conftest.py` beside it puts `rust/spike` on `sys.path`; `pyproject.toml`'s
-`testpaths = ["tests"]` already keeps the main suite from collecting it). The
-end-to-end tier builds the release driver and the probe workspace's
-`probe-app` lib tests into a temp `CARGO_TARGET_DIR` under `probes/ws/`
-itself, converts through `convert.py`'s own CLI, and drives the real
-`sensorium` CLI in a subprocess against a temp `SENSORIUM_DIR` -- see
+Tests: `.venv/bin/python -m pytest rust/spike/tests/ -q` (`test_convert.py`
+for the wire-parser/merge/frame-reconstruction/meta tiers, `test_convert_e2e.py`
+for the end-to-end tier -- split purely to keep both files under 800 lines; a
+`conftest.py` beside them puts `rust/spike` on `sys.path`, and
+`pyproject.toml`'s `testpaths = ["tests"]` already keeps the main suite from
+collecting either). The end-to-end tier builds the release driver and the
+probe workspace's `probe-app` lib tests into a temp `CARGO_TARGET_DIR` under
+`probes/ws/` itself, converts through `convert.py`'s own CLI, and drives the
+real `sensorium` CLI in a subprocess against a temp `SENSORIUM_DIR` -- see
 `.superpowers/sdd/2026-09-02-sensorium-rung1-mechanics-spike/task-4-report.md`
 for the mapping decisions and the mutation-check log.
 

@@ -124,7 +124,7 @@ class ConverterError(Exception):
     would put a wrong trace in front of a reader who trusts it."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Record:
     seq: int
     ts_ns: int
@@ -219,8 +219,20 @@ def load_manifests(target: Path) -> dict:
     """Every manifest under `<target>/sensorium/manifests/*.json`, keyed by
     unit metadata (the `-C metadata` hash). A manifest naming a MIRROR path
     is a converter error (Controller ruling): a mirror path must never reach
-    a trace."""
+    a trace.
+
+    A missing manifests directory is a converter error too, not a silently
+    empty result: it almost always means `--target` does not match the
+    `CARGO_TARGET_DIR` the driver actually built into, and letting `{}`
+    through here used to surface as a confusing "unit ... has no manifest"
+    error much later, per-CALL, instead of naming the real problem once. An
+    EXISTING-but-empty directory (a build that instrumented nothing) is a
+    different, legitimate fact and is not an error."""
     mdir = target / "sensorium" / "manifests"
+    if not mdir.is_dir():
+        raise ConverterError(
+            f"no manifests found under {mdir} -- check --target: it should "
+            "be the exact CARGO_TARGET_DIR the driver built into")
     out: dict = {}
     for p in sorted(mdir.glob("*.json")):
         with open(p, encoding="utf-8") as f:
@@ -369,8 +381,15 @@ def convert_process(writer: TraceWriter, proc: dict, spools: list,
                                 serial)
                 registered_tasks.add(serial)
 
-            eid = writer.add_event(rec.ts_ns, serial, "CALL", None, code_id,
-                                   firstlineno, {"args": {}}, task_id)
+            # `locals: false` (this recorder never reads a frame's
+            # arguments): `args: {}` alone would read as "this fn takes no
+            # arguments", the opposite of the truth for e.g. `work(n: u32)`.
+            # TRACE-FORMAT.md §5's escape hatch -- `unread: ["locals"]`,
+            # exactly what the Python recorder writes when it cannot read a
+            # frame's locals (record/tracer.py) -- says "unread", not "none".
+            eid = writer.add_event(
+                rec.ts_ns, serial, "CALL", None, code_id, firstlineno,
+                {"args": {}, "unread": ["locals"]}, task_id)
             stack = stacks.setdefault(serial, [])
             parent_id = stack[-1].frame_id if stack else None
             depth = len(stack)
@@ -440,6 +459,20 @@ def detect_toolchain() -> str:
 # One converter invocation: a whole spool dir -> one trace per pid
 # --------------------------------------------------------------------------
 
+def orphan_spools(spool_dir: Path, proc_paths: list) -> list:
+    """`<pid>.<serial>.spool` files under `spool_dir` whose pid names no
+    file in `proc_paths` -- a process this converter has no header for, and
+    so no `argv`/`cwd`/`units` map to build a trace from. `*.proc.json` is
+    written before any spool file for that pid can exist (`ensure_dir`
+    creates it inside the same `DIR_READY.call_once` that gates the first
+    `emit`), so an orphan means the header was lost or never written, not
+    ordinary races -- worth raising loudly, not silently dropping, with
+    ~70 processes converted per bloomery invocation."""
+    known_pids = {p.name.removesuffix(".proc.json") for p in proc_paths}
+    return sorted(p for p in spool_dir.glob("*.spool")
+                 if p.name.split(".", 1)[0] not in known_pids)
+
+
 def convert_dir(spool_dir: Path, target: Path, cargo_exit: int = 0,
                 cargo_args: list | None = None) -> list:
     """Convert every process under `spool_dir` into its own trace file
@@ -459,8 +492,17 @@ def convert_dir(spool_dir: Path, target: Path, cargo_exit: int = 0,
     profile = "release" if "--release" in cargo_args else "debug"
     conversion_ts = time.time()
 
+    proc_paths = sorted(spool_dir.glob("*.proc.json"))
+    orphans = orphan_spools(spool_dir, proc_paths)
+    if orphans:
+        raise ConverterError(
+            "spool file(s) with no matching <pid>.proc.json (an orphan "
+            "means a process's header was never written, or was lost -- "
+            "converting the rest and silently dropping these would hide "
+            "that): " + ", ".join(p.name for p in orphans))
+
     lines = []
-    for proc_path in sorted(spool_dir.glob("*.proc.json")):
+    for proc_path in proc_paths:
         proc = load_proc_header(proc_path)
         pid = proc["pid"]
         spools = [parse_spool(p)
@@ -503,6 +545,14 @@ def _write_one_trace(writer, proc, spools, manifests, workspace_root, *,
     convention does."""
     summary = convert_process(writer, proc, spools, manifests, workspace_root)
 
+    # CONVERTER-TIME APPROXIMATIONS, not recorded facts: the wire format
+    # carries no wall-clock timestamp at all (`ts_ns` is CLOCK_MONOTONIC,
+    # with no fixed epoch this converter can anchor). `end_ts` is pinned to
+    # THIS CONVERSION's own wall-clock time (shared by every trace one
+    # `convert_dir()` call produces) and `start_ts` is backdated by the
+    # process's own recorded span, so `info`'s "duration: N.NNs" is that
+    # span, not a measurement of when the process actually ran. Same rung-2
+    # gap family as `exit_status` (§ the task report's meta section).
     elapsed_s = 0.0
     all_ts = [r.ts_ns for s in spools for r in s.records]
     if all_ts:
