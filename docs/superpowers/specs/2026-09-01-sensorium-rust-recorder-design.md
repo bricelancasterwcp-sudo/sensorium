@@ -57,8 +57,12 @@ on branch `spike/rust-mechanics`, never merged; evidence landed here). Findings:
 `docs/superpowers/spikes/2026-09-02-rust-mechanics-spike.md`; machine-readable
 results: `docs/superpowers/spikes/2026-09-02-rust-mechanics-spike.results.json`.
 Every amendment below dated 2026-09-02 cites a §3 number, a §4 decision or a §5
-gap of that findings document, or a ruling in the plan's ledger; §13 collects
-them as a deltas table.
+gap of that findings document — including the §5.21–29 addendum appended to it
+after the final review, which carries the spike's own evidence for the
+amendments below in the document main ships. Where an amendment rests on a
+ruling rather than on a measurement it says so as *controller ruling 2026-09-02
+(ledger, local-only)* and cites nothing this repository does not carry; §13
+collects them as a deltas table.
 
 ## 1. Goal, scope, non-goals
 
@@ -138,11 +142,12 @@ for every workspace member … and for nothing else" is true of `rustc` and
 silent about `rustdoc`: **rustdoc is not routed through
 `RUSTC_WORKSPACE_WRAPPER` at all**, so a doctest unit compiles without the
 `--extern sensorium_rt` the instrumented rlibs need and fails `E0463` until the
-driver carries the same linkage through **`RUSTDOCFLAGS`** (ledger, `Task 3:
-DONE at aa2bc39` — "rustdoc is not routed through `RUSTC_WORKSPACE_WRAPPER`
-(doctests E0463 until RUSTDOCFLAGS carried the linkage)"). Doctests are not a
-route to skip: with the linkage carried, **a doctest process links the
-instrumented rlibs and DOES spool**, and its `exe` is a
+driver carries the same linkage through **`RUSTDOCFLAGS`** (findings §5.23,
+where the control that proves it — a `cargo test --doc` re-run with
+`RUSTDOCFLAGS` unset, exiting non-zero on
+`error[E0463]: can't find crate for sensorium_rt` — runs every time, not once).
+Doctests are not a route to skip: with the linkage carried, **a doctest
+process links the instrumented rlibs and DOES spool**, and its `exe` is a
 `/tmp/rustdoctest*/rust_out` that rustdoc deletes immediately, so it no longer
 exists when the converter runs (spike §5.11, measured on the probe workspace by
 `mechanics.sh`; **not** exercised on bloomery, which has 0 doctests — hence no
@@ -169,9 +174,10 @@ and braces.~~ *(struck 2026-09-02 — falsified; see amendment 1 below.)* Never
 **Amended 2026-09-02 (rung 1 measured), two corrections.**
 
 1. **`--remap-path-prefix <mirror>=<workspace>` is load-bearing, not belt and
-   braces.** Without it, backtraces print mirror paths (ledger, `Task 3: DONE
-   at aa2bc39` — "`--remap-path-prefix` is LOAD-BEARING (backtraces print
-   mirror paths without it; §2.2 said belt-and-braces)"). E7's verdict —
+   braces.** Without it, backtraces print mirror paths: with the flag removed
+   the probe's frames printed
+   `/tmp/…/sensorium/mirror/probe-app/tests/e7.rs:22:5` where the plain arm
+   printed `./tests/e7.rs:22:5` (findings §5.21). E7's verdict —
    "Panic locations, `file!()`/`line!()` values and every backtrace frame's
    `<file>:<line>` were byte-identical between the plain binary and the
    instrumented one under both `off` and `call`", **0 differences** (spike §4
@@ -185,8 +191,8 @@ and braces.~~ *(struck 2026-09-02 — falsified; see amendment 1 below.)* Never
    different `-C metadata` (§2.4), and a mirror keyed only by content let those
    twins overwrite each other's `__SENSORIUM_UNIT` static — events attributed
    to the wrong unit, invisible to both E7 and E8, roughly 1 in 3 under `-j16`
-   (ledger, `Task 3: fix round 1` — "a SHARED mirror corrupts unit identity …
-   SPEC §2.2 must say 'one mirror per unit'"). Per-unit mirrors were then
+   (findings §5.22, which carries the diagnostic that named it and the six
+   consecutive clean runs after the fix). Per-unit mirrors were then
    verified with **0 shared inodes across the probe's 9 unit mirrors**, at
    92 KB for all nine (they are symlink trees). Per-unit mirrors also make the
    cross-unit mirror lock unnecessary for correctness (the spike's units still
@@ -212,16 +218,22 @@ runtime into the target workspace's `deps/`. It built
 `cargo build --release -p sensorium-rt` in the *spike* workspace and had the
 wrapper add `--extern sensorium_rt=<rlib>` plus
 `-L dependency=<spike target/release/deps>` so the rt's own `libc` resolves
-(ledger, `Task 3: Ruling`, which named the risk: "two libc crates in one graph
-(different hashes) — if rustc rejects that, the implementer reports BLOCKED and
-we fall back to building rt inside the target's deps"). **rustc accepted it**,
-and two `libc` crates coexisted in one unit's graph for the whole run (ledger,
-`Task 3: DONE at aa2bc39` — "two libc crates coexist (rustc accepted)"). The
+— a shape a controller ruling 2026-09-02 (ledger, local-only) allowed with a
+STOP attached, because two `libc` crates in one graph at different hashes might
+have been refused. **rustc accepted it**, and `liblibc-8fa2745d3cf757aa` (the
+probe's dev deps) and `liblibc-21f15d3c5e5e6ae6` (the spike's release deps)
+coexisted in one unit's graph for the whole run (findings §5.24). The
 consequence is measured, not argued: **0 units fell back to the real tree**,
 across 9/9 probe units, 77 units of the `-p bloomery-daemon` build and 108
 units of the workspace-wide build, with **0 `fell back to the real tree` lines
 in any build log** (spike §3 E2, §4 E2). Rung 2 may still move the rlib into
-the target's own `deps/`; the record is that it did not block rung 1.
+the target's own `deps/`; the record is that it did not block rung 1. Two
+things this section owes rung 2 either way (findings §5.24): the
+`-L dependency` shape resolved only because that directory held **exactly one**
+`liblibc-*.rlib` — a second makes rustc refuse with "multiple candidates" and
+the driver does not guard against it — and the rlib must be taken from `deps/`,
+not from cargo's uplifted `target/release/libsensorium_rt.rlib`, whose
+directory carries no `liblibc-*.rlib` at all.
 
 ### 2.4 Site identity (F3, F33)
 
@@ -372,8 +384,9 @@ paths are preserved" is a tested contract in the Rust ledger (E7).
 - **Added to the skip list 2026-09-02 (rung 1 measured): `async fn`, reason
   `async`.** The entry guard would live across every `.await`, which
   contradicts this section's sole-emitter rule, so rung 1 skips async fns and
-  declares them like any other skip (ledger, `Task 2: Ruling: async fn is
-  SKIPPED at this tier with reason "async" … rung 2 decides the async model`).
+  declares them like any other skip — a controller ruling 2026-09-02 (ledger,
+  local-only): `async fn` is skipped at this tier with reason `"async"`, and
+  rung 2 decides the async model.
   The skip costs bloomery nothing: the census counted **0 `async` fn** among
   2056 fn items with a body, and the run's **10** skip records are its 5
   `const fn` seen once in each of the two feature sets the daemon's lib is
@@ -538,10 +551,12 @@ for that design rather than a change to it:
 - **`process::exit` flushes only the calling thread.** Measured on the
   runtime's own tests: `exit()` runs the **calling** thread's thread-local
   destructors, so that thread's spool does flush, while every other live thread
-  loses its buffered tail; `abort` and a fatal signal lose every thread's tail
-  (ledger, `Task 1: review` — "measured: exit() runs the CALLING thread's TLS
-  dtors → its spool flushes; other live threads lose their tail; abort/signal
-  lose all"). This is narrower than "process::exit loses everything" and wider
+  loses its buffered tail; `abort` and a fatal signal lose every thread's tail.
+  Read off the spool bytes, not argued: after `exit(0)` main's spool is **87 B
+  ending in `THREAD_END`** and the live thread's is **17 B, header only**;
+  after `abort()` both are header-only (findings §5.25, which carries the
+  three-row table and the `__call_tls_dtors` mechanism). This is narrower than
+  "process::exit loses everything" and wider
   than §3.2's frame note; `MAP_SHARED` is what makes all three cases moot.
 - **Two of this section's fields are asserted, not witnessed, in rung 1.**
   `truncated_count = 0` and `records_dropped = {}` are written by a runtime
@@ -709,9 +724,9 @@ recorders' test suites read the same vectors.
   arguments"; the truth is "arguments were never read" — the named bug class, a
   value that looks like a measurement and is not. Mechanically:
   `tree_cmd.frame_line` renders CALL args without reading the payload's
-  `unread` key; only `grep`'s `fmt_event` reads it (ledger, `Task 4: fix round
-  1`). The fix is rung-2 Python work and is not Rust-specific — it is wrong on
-  a Python trace recorded with `capabilities.locals = false` too.
+  `unread` key; only `grep`'s `fmt_event` reads it (spike §5.6). The fix is
+  rung-2 Python work and is not Rust-specific — it is wrong on a Python trace
+  recorded with `capabilities.locals = false` too.
 - **The reader's prose must key off `meta.lang` before a Rust trace is handed
   to anyone (added 2026-09-02, rung 1 measured).** Verbatim from `sensorium
   info` and `sensorium diff` on a real bloomery *Rust* trace: `python ?`; "0
@@ -792,6 +807,32 @@ neither of which moved the floor, both recorded before any E2 number was read:
   reading has one command in §4 to re-render it.
 - *`?`-site coverage is not measured.* The spike's tier is `call` only, so this
   row's second floor (95% of `?` sites) moves to rung 3 with §3.3.
+
+Three further facts about that second defect, stated because a footnote that
+omits them reads as a number chosen after the fact (findings §1, *Erratum
+continued*):
+
+- *The pre-registration excludes the crossed reading on its own terms.* The
+  spike's E2 row defines its denominator as a count "**counted by a syn census
+  over the same files**". A numerator from a `-p bloomery-daemon` build against
+  a whole-workspace denominator is not the same files, so 1723/2051 violates
+  the pre-registration **as written** — independently of what number it yields.
+- *The run was one detached process, and the supplementary build was in the
+  script before it launched.* `results.json`'s `steps` records
+  `[15:40:06] E2[daemon build]: distinct=1723 …` and, as the last measured step
+  of that same process before `cleanup`,
+  `[15:45:02] E2[workspace build]: distinct=2051 …`. The workspace-wide
+  `--no-run` was already in the runner — disk-guarded, after every timed arm —
+  when the process started. Nothing was added mid-run; no arm was re-rolled.
+- *The runner's DEFAULT assembly renders the crossed reading, and the headline
+  was selected after the run.* The assembler defaults to
+  `SENSORIUM_E2_DENOM=all`, which pairs the one-package numerator with the
+  whole-workspace denominator: 1723/2051 = 84.0%, **below this row's floor**.
+  The committed `results.json` carries `"e2_headline_denominator": "workspace"`,
+  chosen by a controller ruling 2026-09-02 (ledger, local-only) after the run.
+  **The floor's verdict is neutral either way**: the pre-registered lens's own
+  same-file reading, **1723/1723 = 100.0%**, passes with no supplementary build
+  at all.
 
 ## 9. Testing story (the brainstorm's unwritten section 4; F22)
 
@@ -986,22 +1027,25 @@ ships first as a Python-only PR.**
 
 Every row is a sentence of this spec that rung 1 falsified or sharpened. The
 evidence column names a §3 number, a §4 decision or a §5 gap of
-`docs/superpowers/spikes/2026-09-02-rust-mechanics-spike.md`, or a ruling in
-`.superpowers/sdd/2026-09-02-sensorium-rung1-mechanics-spike/progress.md`.
+`docs/superpowers/spikes/2026-09-02-rust-mechanics-spike.md` — §5.21–29 of that
+document being the addendum that carries the spike's own evidence for the rows
+below. Where the evidence is a ruling rather than a measurement the cell says
+*controller ruling 2026-09-02 (ledger, local-only)*; no row cites a path this
+repository does not carry.
 
 | This spec said | Rung 1 measured | Evidence |
 |---|---|---|
-| `--remap-path-prefix <mirror>=<workspace>` is "appended only as belt and braces" (§2.2) | **Load-bearing**: without it backtraces print mirror paths. E7's 0 differences was measured *with* it | ledger `Task 3: DONE at aa2bc39`; findings §4 E7 |
-| one workspace-root mirror (§2.2) | **One mirror per unit**, `mirror/<-C metadata>/`. A shared mirror let a crate root's lib and `--test` twins overwrite each other's `__SENSORIUM_UNIT` static — wrong-unit attribution, ~1 in 3 under `-j16`, invisible to E7 and E8 | ledger `Task 3: fix round 1` |
-| the wrapper runs "for every workspace member … and for nothing else" (§2.1) | **rustdoc bypasses it**: the linkage must go through `RUSTDOCFLAGS`, and doctest processes DO spool, from a `/tmp/rustdoctest*/rust_out` deleted before conversion | findings §5.11; ledger `Task 3: DONE` |
-| `sensorium-rt` built into the target workspace's `deps/` (§2.3) | Rung 1 built it in the spike workspace with `-L dependency=…`; **two `libc` crates coexisted and rustc accepted it**; 0 units fell back across 9 + 77 + 108 units | ledger `Task 3: Ruling`; findings §3 E2, §4 E2 |
+| `--remap-path-prefix <mirror>=<workspace>` is "appended only as belt and braces" (§2.2) | **Load-bearing**: without it backtraces print mirror paths. E7's 0 differences was measured *with* it | findings §5.21; §4 E7 |
+| one workspace-root mirror (§2.2) | **One mirror per unit**, `mirror/<-C metadata>/`. A shared mirror let a crate root's lib and `--test` twins overwrite each other's `__SENSORIUM_UNIT` static — wrong-unit attribution, ~1 in 3 under `-j16`, invisible to E7 and E8 | findings §5.22 |
+| the wrapper runs "for every workspace member … and for nothing else" (§2.1) | **rustdoc bypasses it**: the linkage must go through `RUSTDOCFLAGS`, and doctest processes DO spool, from a `/tmp/rustdoctest*/rust_out` deleted before conversion | findings §5.23, §5.11 |
+| `sensorium-rt` built into the target workspace's `deps/` (§2.3) | Rung 1 built it in the spike workspace with `-L dependency=…`; **two `libc` crates coexisted and rustc accepted it**; 0 units fell back across 9 + 77 + 108 units | findings §5.24; §3 E2, §4 E2 |
 | `cargo test -p bloomery-daemon` "runs 74 processes … 7 tests spawn the instrumented `flywheel_tool`" (§2.5) | **72 binaries run, 71 spooled, 119 processes** (48 `flywheel-tool` children), 132 344 events | findings §3, *Reported without a gate* |
 | driver cost unstated (§2.5) | The driver must be **`--release`**: 0.025 s fixed vs ≈0.5 s debug | findings §3 E1 |
 | `exit_status` is a per-process meta key (§2.5, §5.1) | **Not observable to the runtime.** Rung 1 borrows cargo's status for all 119 traces of an invocation, `exit_status_basis = "cargo"` | findings §5.1; §3 reports availability 0 |
-| skip list = `const fn`, `extern "C"`, `macro_rules!` bodies (§3.2) | **Plus `async fn`, reason `async`** — the guard would live across `.await`. 0 async fns in bloomery, so E2's 100.0% is unaffected | ledger `Task 2: Ruling`; findings §3 E2 |
+| skip list = `const fn`, `extern "C"`, `macro_rules!` bodies (§3.2) | **Plus `async fn`, reason `async`** — the guard would live across `.await`. 0 async fns in bloomery, so E2's 100.0% is unaffected | controller ruling 2026-09-02 (ledger, local-only); findings §3 E2 |
 | "predictable branch" per site — the brainstorm's phrase, replaced above by E0–E8 rather than by a number (§3.7) | **A real cross-crate call at opt-level 0**: `fib(30)` off ×5.934 (1.0595 → 6.2875 ns/call). Immaterial at suite granularity (×0.9975) and only there — a ≈1900× density gap | findings §3 E1, §4 decision 1 |
-| `MAP_SHARED` spools keep pages on any exit (§4) | Rung 1's `BufWriter` spool **loses a live thread's tail silently**: 100 spools without `THREAD_END` in 3 of 119 processes; `exit()` flushes only the calling thread; `abort`/signal lose all. `MAP_SHARED` remains the design | findings §5.2; ledger `Task 1: review` |
+| `MAP_SHARED` spools keep pages on any exit (§4) | Rung 1's `BufWriter` spool **loses a live thread's tail silently**: 100 spools without `THREAD_END` in 3 of 119 processes; `exit()` flushes only the calling thread; `abort`/signal lose all. `MAP_SHARED` remains the design | findings §5.25, §5.2 |
 | `truncated_count`, `records_dropped`, `source_hashes` as written keys (§4, §5.1) | **Asserted, not witnessed** in rung 1: no drop counter, and `source_hashes = {}` in every trace | findings §5.10, §5.3 |
 | `spawn_child` names workspace-spawned threads (§3.5) | The need is measured: **4 of 57** emitting non-main threads in the `--lib` trace carry no name at all | findings §5.20 |
-| `tree`/`frame` need no Rust-driven change (§6) | **They drop the CALL payload's `unread` marker that `grep` keeps** — `args: (none)` where the truth is "never read". A Python-core gap, now rung-2 work | findings §5.6; ledger `Task 4: fix round 1` |
+| `tree`/`frame` need no Rust-driven change (§6) | **They drop the CALL payload's `unread` marker that `grep` keeps** — `args: (none)` where the truth is "never read". A Python-core gap, now rung-2 work | findings §5.6 |
 | E2's floor derivation, "5 const of 756 excluded by rule" (§8) | Census counts **744** in `crates/*/src` (2056 with tests) → 739/744 = 99.33%; and the row's denominator crossed file sets with the lens. **Floor unchanged**; 100.0% three ways | findings §1 erratum, §3, §5.14 |
