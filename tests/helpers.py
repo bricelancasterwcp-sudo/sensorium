@@ -95,3 +95,57 @@ def record_script(tmp_path, source, extra=(), name="prog.py", argv=(),
     run_id = m.group(1) if m else None
     trace = sdir / "traces" / f"{run_id}.db" if run_id else None
     return run_id, trace, r
+
+
+# The newest format in which a trace may legitimately LACK a key format 4
+# requires. A hand-built legacy shape -- no `cwd`, no `main_thread_ident`,
+# no `fingerprint_basis` -- is not a format-4 trace, and a test must not
+# make it claim to be one: format 4 refuses exactly that combination at
+# open, and filling the key in would delete the very absence under test.
+# Stamping the older format is how such a fixture says "this is what an
+# older recorder left behind" without weakening the refusal.
+LEGACY_FORMAT = 3
+
+# Neutral values for every key a finalized format-4 trace must carry. A
+# hand-built trace that sets `incomplete` False claims it finalized, and
+# format 4 refuses that claim without these keys (db.REQUIRED_META).
+FINAL_META = {
+    "run_id": "synthetic", "argv": ["prog.py"], "cwd": "/tmp",
+    "env_hash": "0" * 16, "start_ts": 0.0, "end_ts": 0.0, "exit_status": 0,
+    "main_thread_ident": 1, "fingerprint_basis": "per-task",
+    "truncated_count": 0, "source_hashes": {},
+    "recorder": "sensorium (synthetic test trace)", "lang": "python",
+    "capabilities": {"line": True, "locals": True, "return_value": True,
+                     "tasks": True, "threads": True, "children": True,
+                     "stdin": True, "output": True, "object_identity": True,
+                     "refocus": True},
+    "threads_started": 0, "live_threads": [], "children": [],
+    "spawn_syscalls": 0, "audit_errors": 0, "stdin_consumed": False,
+}
+
+
+_WITNESS = {"threads": ("threads_started", "live_threads"),
+            "children": ("children", "spawn_syscalls", "audit_errors"),
+            "stdin": ("stdin_consumed",)}
+
+
+def finalize_synthetic(w, **overrides) -> None:
+    """Mark a hand-built trace finalized the way the recorder does: every
+    required key present (existing values kept, `overrides` win), then
+    `incomplete` False. Use in place of `w.set_meta("incomplete", False)`.
+
+    Witness keys are written only for the capabilities the final dict
+    declares TRUE -- a trace that declares `threads: false` must be able to
+    have no `threads_started` at all, which is what the readers then print
+    as a declaration. Pass a witness key explicitly to force it."""
+    present = {k for (k,) in w._conn.execute("SELECT key FROM meta")}
+    final = {**FINAL_META, **overrides}
+    caps = final["capabilities"]
+    skip = {k for cap, keys in _WITNESS.items() if not caps.get(cap)
+            for k in keys if k not in overrides}
+    for k, v in final.items():
+        if k in skip:
+            continue
+        if k in overrides or k not in present:
+            w.set_meta(k, v)
+    w.set_meta("incomplete", False)

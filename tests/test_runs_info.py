@@ -5,7 +5,7 @@ import pytest
 from sensorium import cli, paths
 from sensorium.record import boot
 from sensorium.store.writer import TraceWriter
-from tests.helpers import record_script
+from tests.helpers import finalize_synthetic, record_script
 from tests.programs import synthetic
 from tests.refocus_programs import (ASYNC_CONTENT_FLIP, COUNTER, new_run, rec,
                                     refocus)
@@ -119,7 +119,7 @@ def test_info_surfaces_late_writes_as_a_lower_bound(
     w.set_meta("cwd", str(tmp_path))
     w.set_meta("python", "3.12.0")
     w.set_meta("exit_status", 0)
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("late_writes", 3)
     w.set_meta("caps", {})
     w.close()
@@ -256,14 +256,20 @@ def test_info_says_nothing_about_threads_or_spawns_when_there_were_none(
 def test_info_flags_a_trace_that_predates_the_bookkeeping(
         tmp_path, monkeypatch, capsys):
     """Absence of the record is not a record of absence: a trace with no
-    `spawn_syscalls` key must not read like a run that spawned nothing."""
+    `spawn_syscalls` key must not read like a run that spawned nothing.
+
+    From format 4 that absence is a DECLARATION, not an accident of age: the
+    trace declares only `line`, so `threads`, `children` and `stdin` are
+    declared false and their witness keys are legitimately not written. The
+    line `info` prints must say the same thing either way."""
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     run_id = "20260101-000000-abcdef"
     w = TraceWriter(paths.traces_dir() / f"{run_id}.db", batch=1)
     for k, v in (("run_id", run_id), ("argv", ["prog.py"]),
                  ("cwd", str(tmp_path)), ("python", "3.12.0"),
-                 ("exit_status", 0), ("incomplete", False), ("caps", {})):
+                 ("exit_status", 0), ("caps", {})):
         w.set_meta(k, v)
+    finalize_synthetic(w, capabilities={"line": True})
     w.close()
 
     assert cli.main(["info", run_id]) == 0
@@ -283,10 +289,11 @@ def test_info_reports_an_audit_hook_that_malfunctioned(
     w = TraceWriter(paths.traces_dir() / f"{run_id}.db", batch=1)
     for k, v in (("run_id", run_id), ("argv", ["prog.py"]),
                  ("cwd", str(tmp_path)), ("python", "3.12.0"),
-                 ("exit_status", 0), ("incomplete", False), ("caps", {}),
+                 ("exit_status", 0), ("caps", {}),
                  ("children", []), ("threads_started", 0),
                  ("spawn_syscalls", 0), ("audit_errors", 2)):
         w.set_meta(k, v)
+    finalize_synthetic(w)
     w.close()
 
     assert cli.main(["info", run_id]) == 0
@@ -370,7 +377,7 @@ def test_info_counts_unframed_calls_on_a_format_3_trace_too(
                 {"args": {}, "unframed": "generator"})
     e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
     w.close_frame(f_main, e_ret, "return")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()

@@ -79,8 +79,73 @@ def test_format_2_has_task_id_and_tasks_table(tmp_path):
 
 def test_format_3_adds_frame_kind_and_task_fingerprints(tmp_path):
     conn = db.create_trace(tmp_path / "t.db")
-    assert db.get_meta(conn, "trace_format") == 3
+    assert db.get_meta(conn, "trace_format") >= 3
     fcols = [r[1] for r in conn.execute("PRAGMA table_info(frames)")]
     assert fcols[-1] == "kind"
     tcols = [r[1] for r in conn.execute("PRAGMA table_info(task_fingerprints)")]
     assert tcols == ["task_id", "name", "hash", "n_events"]
+
+
+def _format4_finalized(path, **meta):
+    conn = db.create_trace(path)
+    base = {"run_id": "r", "argv": ["p.py"], "cwd": "/w", "env_hash": "0" * 16,
+            "start_ts": 1.0, "end_ts": 2.0, "exit_status": 0,
+            "main_thread_ident": 1, "fingerprint_basis": "per-task",
+            "truncated_count": 0, "source_hashes": {}, "recorder": "x 1.0",
+            "lang": "rust", "capabilities": {"threads": False, "children": False,
+                                             "stdin": False},
+            "incomplete": False}
+    base.update(meta)
+    for k, v in base.items():
+        db.set_meta(conn, k, v)
+    conn.commit()
+    conn.close()
+
+
+def test_format_is_4():
+    assert db.TRACE_FORMAT == 4
+
+
+def test_open_refuses_a_finalized_format4_trace_missing_a_required_key(tmp_path):
+    """The choke point: a recorder that says it finalized and left out a
+    key the readers default to zero must be refused, naming the key."""
+    p = tmp_path / "t.db"
+    _format4_finalized(p)
+    db.open_trace(p).close()                       # complete: opens
+    _format4_finalized(tmp_path / "u.db")
+    c = db.open_trace(tmp_path / "u.db")
+    c.execute("DELETE FROM meta WHERE key = 'truncated_count'")
+    c.commit()
+    c.close()
+    with pytest.raises(db.TraceFormatError) as e:
+        db.open_trace(tmp_path / "u.db")
+    assert "truncated_count" in str(e.value) and "x 1.0" in str(e.value)
+
+
+def test_open_requires_witness_keys_only_for_declared_capabilities(tmp_path):
+    p = tmp_path / "t.db"
+    _format4_finalized(p, capabilities={"threads": True, "children": False,
+                                        "stdin": False})
+    with pytest.raises(db.TraceFormatError) as e:
+        db.open_trace(p)
+    assert "threads_started" in str(e.value)
+    q = tmp_path / "u.db"
+    _format4_finalized(q, capabilities={"threads": True, "children": False,
+                                        "stdin": False},
+                       threads_started=0, live_threads=[])
+    db.open_trace(q).close()
+
+
+def test_open_does_not_refuse_an_unfinished_or_hand_built_trace(tmp_path):
+    """`incomplete` True, or absent (a trace still being written, or a test
+    fixture that never claimed to have finalized), opens as before."""
+    p = tmp_path / "t.db"
+    _format4_finalized(p, incomplete=True)
+    c = db.open_trace(p)
+    c.execute("DELETE FROM meta WHERE key = 'exit_status'")
+    c.commit()
+    c.close()
+    db.open_trace(p).close()
+    q = tmp_path / "bare.db"
+    db.create_trace(q).close()
+    db.open_trace(q).close()

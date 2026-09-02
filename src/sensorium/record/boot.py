@@ -42,6 +42,23 @@ class TargetError(Exception):
     pass
 
 
+# What this recorder produces, declared into every trace (spec §5.2). Every
+# query command reads the declaration of the trace it was given; a
+# recorder that cannot produce something says so here, and the command
+# refuses instead of rendering an empty result as a finding.
+CAPABILITIES = {"line": True, "locals": True, "return_value": True,
+                "tasks": True, "threads": True, "children": True,
+                "stdin": True, "output": True, "object_identity": True,
+                "refocus": True}
+
+
+def _recorder_id() -> str:
+    try:
+        return f"sensorium {importlib.metadata.version('sensorium')}"
+    except importlib.metadata.PackageNotFoundError:
+        return "sensorium (uninstalled source tree)"
+
+
 # -- target resolution -----------------------------------------------------
 def resolve_target(argv: list[str]):
     """Return a zero-argument callable that runs `argv`, or raise TargetError.
@@ -542,6 +559,9 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
     w.set_meta("env_hash", hashlib.sha256(
         json.dumps(env, sort_keys=True).encode()).hexdigest()[:16])
     w.set_meta("python", sys.version.split()[0])
+    w.set_meta("recorder", _recorder_id())
+    w.set_meta("lang", "python")
+    w.set_meta("capabilities", dict(CAPABILITIES))
     for k, v in git_info(Path.cwd()).items():
         w.set_meta(k, v)
     # main_thread_ident is written after the Tracer exists (its serial for the

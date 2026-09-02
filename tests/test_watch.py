@@ -29,7 +29,8 @@ from sensorium.query.expr import OUT_OF_SCOPE
 from sensorium.query.watch_cmd import _guidance
 from sensorium.store import db
 from sensorium.store.reader import Trace
-from tests.helpers import record_script, run_cli
+from tests.helpers import (LEGACY_FORMAT, finalize_synthetic, record_script,
+                           run_cli)
 from tests.programs import open_trace, synthetic
 from tests.watch_programs import (CARRIER, CLIP, HANDLER, LOOPDEL, MIXED,
                                   RECURSE, line_events, rec)
@@ -424,7 +425,7 @@ def test_watch_survives_a_line_payload_with_no_deltas_key(
     e_call = w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
     f = w.open_frame(None, c, e_call, 0, 1)
     w.add_event(0, 1, "LINE", f, c, 2, {"unbound": ["used"]})
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.close()
     assert cli.main(["watch", "20260101-000000-beefed", "--at", "fill",
                      "--expr", "used > 100"]) == 0
@@ -452,11 +453,15 @@ def test_watch_matches_a_method_by_class_qualname_prefix(
 
 def test_watch_reports_a_trace_whose_meta_lacks_cwd_without_crashing(
         tmp_path, monkeypatch, capsys):
-    """`synthetic` writes no cwd; the refocus hint must degrade, not raise."""
+    """`synthetic` writes no cwd; the refocus hint must degrade, not raise.
+
+    A missing `cwd` is a legacy shape -- format 4 requires the key on a
+    finalized trace -- so the fixture claims the format it actually is."""
     w = synthetic(tmp_path, monkeypatch, run_id="20260101-000000-nocwd")
     c = w.intern_code("/tmp/prog.py", "fill", 1)
     w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
     w.open_frame(None, c, 1, 0, 1)
+    w.set_meta("trace_format", LEGACY_FORMAT)
     w.set_meta("incomplete", False)
     w.close()
     assert cli.main(["watch", "20260101-000000-nocwd", "--at", "fill",

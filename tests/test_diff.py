@@ -11,9 +11,10 @@ import re
 
 from sensorium import cli, paths
 from sensorium.query.diff_cmd import compare, first_divergence
+from sensorium.store import db
 from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter
-from tests.helpers import run_cli
+from tests.helpers import LEGACY_FORMAT, finalize_synthetic, run_cli
 from tests.programs import THREADED_SWALLOWS, record
 from tests.refocus_programs import JOINED_UNTRACED_WORKER
 
@@ -412,7 +413,7 @@ def test_diff_refuses_a_trace_with_dropped_late_writes(
     trace, not silently trusted because incomplete is False."""
     good = _rec(tmp_path, "a", ["500"])
     w = _synthetic(tmp_path, monkeypatch, "20260101-000000-latewr")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("late_writes", 3)
     w.close()
@@ -699,6 +700,9 @@ def test_diff_compares_across_bases_when_neither_side_ran_a_task(
     import sqlite3
     c = sqlite3.connect(sdir / "traces" / f"{a}.db")
     c.execute("DELETE FROM meta WHERE key='fingerprint_basis'")
+    # format 4 requires the key on a finalized trace, so a fixture that
+    # removes it has to claim the older format it is imitating.
+    db.set_meta(c, "trace_format", LEGACY_FORMAT)
     c.commit(); c.close()
     b = _rec(tmp_path, "b", ["100"])
     assert cli.main(["diff", a, b]) == 0
@@ -715,7 +719,7 @@ def _task_only(run_id, task_hash, name="task-A"):
     w.set_meta("argv", ["prog.py"])
     w.set_meta("main_thread_ident", 1)
     w.set_meta("fingerprint_basis", "per-task")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("threads_started", 0)
     w.add_task(1, name, 1)
     c = w.intern_code("/tmp/prog.py", "worker", 1)

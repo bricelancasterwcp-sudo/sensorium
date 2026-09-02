@@ -247,6 +247,57 @@ class Trace:
         before the marker existed, so absence means exactly that)."""
         return self.meta.get("fingerprint_basis") or "per-thread"
 
+    @property
+    def lang(self) -> str:
+        """`meta["lang"]`; a trace without it predates the declaration and
+        was written by the Python recorder (nothing else existed)."""
+        return self.meta.get("lang") or "python"
+
+    @property
+    def recorder(self) -> str:
+        r = self.meta.get("recorder")
+        return r or f"sensorium <=0.4.0 (format {self.format}, undeclared)"
+
+    @property
+    def capabilities(self) -> dict:
+        """What the recorder declared it produces. A Python trace with no
+        declaration is read as full: that recorder had every capability and,
+        before format 4, no way to say so (a hand-built or still-recording
+        format-4 Python trace is the same case -- the open-time refusal
+        guarantees a FINALIZED format-4 trace always carries the key). A
+        non-Python trace with no declaration declares nothing."""
+        caps = self.meta.get("capabilities")
+        if caps is None:
+            if self.lang == "python":
+                # Local: `boot` pulls runpy/subprocess/tracer, and every
+                # other importer in the tree defers it for the same reason.
+                from sensorium.record.boot import CAPABILITIES
+                return dict(CAPABILITIES)
+            return {}
+        return dict(caps)
+
+    def declares(self, cap: str) -> bool | None:
+        """True/False = the recorder declared `cap`; None = nothing was
+        declared and the trace is the Python recorder's (undeclared = full,
+        the only recorder that existed). A trace whose dict omits a
+        capability declared it False; a non-Python trace with no dict
+        declares everything False."""
+        if "capabilities" not in self.meta:
+            return None if self.lang == "python" else False
+        return bool(self.capabilities.get(cap, False))
+
+    def dropped_writes(self) -> int:
+        """Trace writes known lost: the Python recorder's `late_writes`
+        (a lower bound), or a Rust recorder's per-thread `records_dropped`
+        summed over the threads that reported a number."""
+        m = self.meta
+        if "late_writes" in m:
+            return int(m["late_writes"] or 0)
+        rd = m.get("records_dropped")
+        if isinstance(rd, dict):
+            return sum(int(v) for v in rd.values() if v is not None)
+        return 0
+
     def task_fingerprints(self) -> dict[int, tuple[str | None, str, int]]:
         if not self._has_task_fps:
             return {}

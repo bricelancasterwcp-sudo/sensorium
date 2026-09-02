@@ -13,6 +13,7 @@ import pytest
 
 from sensorium import cli, paths
 from sensorium.store.reader import Trace
+from tests.helpers import finalize_synthetic
 from tests.programs import (
     BARE_RERAISE, CLEAN, CORO_RERAISES_ITS_CANCEL,
     CORO_STASH_THEN_CANCELLED, CORO_SWALLOW_THEN_CANCELLED, CRASH,
@@ -478,7 +479,7 @@ def test_exceptions_link_lost_in_a_killed_frame_will_not_say_it_returned(
     e_again = w.add_event(0, 1, "RAISE", f_main, c_main, 20, {"exc": again})
     e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
     w.close_frame(f_main, e_ret, "return")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
@@ -505,11 +506,11 @@ def test_exceptions_frameless_handler_on_a_format3_trace_blames_the_start(
     exc = exc_payload("ValueError", "boom", 14, serial=1)
     w.add_event(0, 1, "RAISE", None, c, 3, {"exc": exc})
     w.add_event(0, 1, "HANDLED", None, c, 4, {"exc": exc})
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
-    assert Trace.open(paths.find_trace("20260101-000000-abcdef")).format == 3
+    assert Trace.open(paths.find_trace("20260101-000000-abcdef")).format >= 3
 
     assert cli.main(["exceptions", "20260101-000000-abcdef"]) == 0
     out = capsys.readouterr().out
@@ -564,7 +565,7 @@ def test_exceptions_survives_a_recycled_oid(tmp_path, monkeypatch, capsys):
     e_hand_r = w.add_event(0, 1, "HANDLED", f_main, c_main, 11, {"exc": run})
     e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
     w.close_frame(f_main, e_ret, "return")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
@@ -611,7 +612,7 @@ def test_exceptions_pairs_repeats_that_share_type_message_and_oid(
             w.add_event(0, 1, "HANDLED", f_main, c_main, 8, {"exc": exc}))
     e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
     w.close_frame(f_main, e_ret, "return")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
@@ -657,7 +658,7 @@ def test_exceptions_same_statement_test_is_the_statement_not_the_frame(
     other = exc_payload("RuntimeError", "gave up", 777)
     w.add_event(0, 1, "RAISE", f_main, c_main, 9, {"exc": other})
     w.close_frame(f_main, None, "unwind", other)   # so rule 2 cannot fire
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 1)
     w.set_meta("uncaught", other)
     w.close()
@@ -684,7 +685,7 @@ def test_exceptions_legacy_trace_still_reports_a_different_statement_reraise(
     h = w.add_event(0, 1, "HANDLED", f, c, 4, {"exc": e})
     second = w.add_event(0, 1, "RAISE", f, c, 6, {"exc": e})   # other line
     w.close_frame(f, None, "unwind", e)
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
@@ -768,7 +769,7 @@ def test_exceptions_reraise_with_no_handled_row_says_so(
     w.add_event(0, 1, "RAISE", f, c, 3, {"exc": e})
     second = w.add_event(0, 1, "RAISE", f, c, 5, {"exc": e})
     w.close_frame(f, None, "unwind", e)
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
@@ -795,7 +796,7 @@ def test_exceptions_legacy_trace_hedges_a_repeat_with_no_handled_row(
     w.add_event(0, 1, "RAISE", f, c, 3, {"exc": e})
     second = w.add_event(0, 1, "RAISE", f, c, 5, {"exc": e})
     w.close_frame(f, None, "unwind", e)
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
@@ -825,7 +826,7 @@ def test_exceptions_will_not_read_a_frame_that_never_closed(
     exc = exc_payload("ValueError", "boom", 12)
     w.add_event(0, 1, "RAISE", f, c, 3, {"exc": exc})
     w.add_event(0, 1, "HANDLED", f, c, 4, {"exc": exc})
-    w.set_meta("incomplete", False)              # frame simply never closed
+    finalize_synthetic(w)                        # frame simply never closed
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
@@ -847,7 +848,7 @@ def test_exceptions_will_not_read_an_unwind_with_no_captured_exception(
     w.add_event(0, 1, "RAISE", f, c, 3, {"exc": exc})
     w.add_event(0, 1, "HANDLED", f, c, 4, {"exc": exc})
     w.close_frame(f, None, "unwind", None)       # closed, but exc not captured
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
