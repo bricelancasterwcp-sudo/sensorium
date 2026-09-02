@@ -1,0 +1,22 @@
+[package]
+name = "sensorium-transform"
+version = "0.0.0-spike"
+edition = "2021"
+publish = false
+description = "THROWAWAY SPIKE CODE (rung-1 Rust mechanics spike): the call-tier source transformer -- entry guards spliced at byte offsets. Evidence, not product -- never merged to main, never cargo-installed, never depended on."
+
+[dependencies]
+# `span-locations` is what makes `Span::byte_range()` and `Span::start()` exist
+# outside a proc-macro context. Without it the transformer has no offsets and
+# no line numbers, so it is not optional.
+proc-macro2 = { version = "1.0.80", features = ["span-locations"] }
+syn = { version = "2", features = ["full", "visit", "extra-traits"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+# The tests re-parse what the transformer emitted with an INDEPENDENT call, so
+# a result that only round-trips through our own visitor cannot pass; and they
+# read the manifest back as JSON rather than trusting its Rust shape.
+syn = { version = "2", features = ["full", "parsing"] }
+serde_json = "1"

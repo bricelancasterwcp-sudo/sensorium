@@ -1,0 +1,11 @@
+unsafe fn raw(p: *const u8) -> u8 {@G(7)
+    *p
+}
+
+async fn later() -> u8 {@G(8)
+    1
+}
+
+const unsafe fn frozen() -> u8 {
+    2
+}

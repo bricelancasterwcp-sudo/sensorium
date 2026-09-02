@@ -12,8 +12,16 @@ See `docs/superpowers/plans/2026-09-02-sensorium-rung1-mechanics-spike.md` for t
 
 Task 1's members are `sensorium-rt` (the runtime) and `bench-caller` (the
 micro-bench's instrumented caller, a separate package only so its optimisation
-level can differ from the runtime's). Tasks 2 and 3 add `sensorium-transform`
-and `cargo-sensorium`.
+level can differ from the runtime's). Task 2 adds `sensorium-transform` (the
+call-tier source rewriter); Task 3 adds `cargo-sensorium`.
+
+`sensorium-transform`'s property test walks `/home/brice/workspace/bloomery`
+READ-ONLY (override with `SENSORIUM_SPIKE_BLOOMERY`, skipped if absent) and
+prints E2's census numbers:
+
+```
+cargo test -p sensorium-transform --test bloomery -- --nocapture
+```
 
 ```
 cd rust/spike/
