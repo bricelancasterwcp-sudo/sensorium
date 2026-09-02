@@ -84,6 +84,7 @@ import re
 from collections import Counter
 
 from sensorium import paths
+from sensorium.query.caps import witness_gap
 from sensorium.query.moves import (Moves, detect_moves, for_b,
                                    print_key_line, print_moves_section,
                                    project, task_hashes)
@@ -124,7 +125,7 @@ def _unsafe_reasons(trace: Trace, label: str) -> list[str]:
             "causal stream can stop at any point with no signal that it "
             "did, so a MATCH or DIVERGED verdict against it would be a "
             "confident false claim, not an approximation")
-    late = m.get("late_writes", 0)
+    late = trace.dropped_writes()
     if late:
         reasons.append(
             f"{label} dropped >={late} trace write(s) after its database "
@@ -570,10 +571,8 @@ def _thread_notes(label: str, trace: Trace) -> list[str]:
     fps = len(trace.fingerprints())
     meta = trace.meta
     if "threads_started" not in meta:
-        return [f"{label} predates the recorder's thread bookkeeping, so how "
-                f"many threads it ran cannot be established -- {fps} left a "
-                "fingerprint, and only the thread named above was compared; "
-                "absence of the record is not a record of absence"]
+        return [f"{label} {witness_gap(trace, 'threads', 'thread')} -- {fps} "
+                "left a fingerprint, and only the thread named above was compared"]
     started = meta["threads_started"]
     if not started and fps <= 1:
         return []

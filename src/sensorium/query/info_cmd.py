@@ -10,6 +10,7 @@ import re
 from collections import Counter
 
 from sensorium import paths
+from sensorium.query.caps import witness_gap
 from sensorium.query.fmt import fmt_exc
 from sensorium.store.reader import Trace
 
@@ -20,11 +21,11 @@ def add_parser(sub) -> None:
     p.set_defaults(func=run)
 
 
-_BOOKKEEPING = ("children", "threads_started", "spawn_syscalls",
-                "audit_errors")
+_THREAD_BOOKKEEPING = ("threads_started",)
+_CHILD_BOOKKEEPING = ("children", "spawn_syscalls", "audit_errors")
 
 
-def unwitnessed_lines(m: dict) -> list[str]:
+def unwitnessed_lines(trace, m: dict) -> list[str]:
     """Everything the recorder NOTICED starting and could not witness.
 
     `children` was for a long time the only one of these `info` printed, so a
@@ -59,12 +60,22 @@ def unwitnessed_lines(m: dict) -> list[str]:
             "records above are INCOMPLETE, and a short list there cannot be "
             "read as 'nothing was started'")
     # An incomplete run is missing all of these for a reason already printed
-    # at the top; saying it twice would bury the one that is news.
-    missing = [k for k in _BOOKKEEPING if k not in m]
-    if missing and not m.get("incomplete"):
-        out.append("not recorded in this trace: " + ", ".join(missing)
-                   + " -- it predates that bookkeeping, so absence of the "
-                     "record is not a record of absence")
+    # at the top; saying it twice would bury the one that is news. Grouped by
+    # the capability that would have produced each key, and never merged
+    # into one sentence: `threads` and `children` can be declared two
+    # different ways on the same trace, and a merged sentence would misstate
+    # whichever one it didn't quote.
+    if not m.get("incomplete"):
+        missing_threads = [k for k in _THREAD_BOOKKEEPING if k not in m]
+        if missing_threads:
+            out.append("not recorded in this trace: "
+                       + ", ".join(missing_threads) + " -- "
+                       + witness_gap(trace, "threads", "that"))
+        missing_children = [k for k in _CHILD_BOOKKEEPING if k not in m]
+        if missing_children:
+            out.append("not recorded in this trace: "
+                       + ", ".join(missing_children) + " -- "
+                       + witness_gap(trace, "children", "that"))
     return out
 
 
@@ -88,6 +99,9 @@ def run(args) -> int:
     print(f"python {m.get('python', '?')}  env:{m.get('env_hash', '?')}  "
           f"exit: {m.get('exit_status', '?')}  events: {sum(counts.values())}"
           f"{dur}")
+    print(f"recorder: {t.recorder}  lang: {t.lang}  capabilities: "
+          + (" ".join(f"{k}={'yes' if v else 'no'}" for k, v in sorted(t.capabilities.items()))
+             or "(none declared)"))
     print("recorded: " + "  ".join(f"{k} {counts.get(k, 0)}" for k in
                                    ("CALL", "RETURN", "RAISE", "HANDLED",
                                     "YIELD", "RESUME", "LINE")))
@@ -137,7 +151,7 @@ def run(args) -> int:
         print(f"uncaught: {fmt_exc(m['uncaught'])}")
     for child in m.get("children") or []:
         print(f"unwitnessed subprocess: {' '.join(child)}")
-    for line in unwitnessed_lines(m):
+    for line in unwitnessed_lines(t, m):
         print(line)
     # Always the JOIN, on every format. Arc 2 opens a frame for every traced
     # code object -- function, generator, coroutine, or async generator -- so
@@ -175,7 +189,7 @@ def run(args) -> int:
     # late_writes is a lower bound: writes that arrive after this count was
     # captured can never be counted either. Only surface it when non-zero,
     # so a reader never mistakes a printed "0" for proof nothing was lost.
-    late_writes = m.get("late_writes", 0)
+    late_writes = t.dropped_writes()
     if late_writes:
         print(f"late writes dropped: >={late_writes} (trace is incomplete "
               "for still-live threads; the true count may be higher)")

@@ -20,6 +20,7 @@ counted for the same reason.
 """
 from pathlib import Path
 
+from sensorium.query.caps import witness_gap
 from sensorium.store.reader import Trace
 
 
@@ -226,10 +227,7 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
     for label, trace in (("the original", orig), ("the rerun", new)):
         meta = trace.meta
         if "threads_started" not in meta or "live_threads" not in meta:
-            out.append(
-                f"{label} predates the thread bookkeeping this check reads, "
-                "so how many threads it ran cannot be established -- absence "
-                "of the record is not a record of absence")
+            out.append(f"{label} {witness_gap(trace, 'threads', 'thread')}")
             continue
         started = meta["threads_started"]
         if started:
@@ -249,9 +247,18 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
             "the recorder's audit hook malfunctioned during one of the runs, "
             "so its record of subprocesses and threads is incomplete -- a "
             "short list there cannot be read as 'nothing was spawned'")
-    diff = _output_difference(orig, new)
-    if diff:
-        out.append(diff)
+    output_undeclared = False
+    for label, trace in (("the original", orig), ("the rerun", new)):
+        if trace.declares("output") is False:
+            output_undeclared = True
+            out.append(
+                f"the program's output was not recorded on {label} (recorder "
+                f"{trace.recorder} declares output: false), so the "
+                "observer-effect cross-check did not run")
+    if not output_undeclared:
+        diff = _output_difference(orig, new)
+        if diff:
+            out.append(diff)
     was, now = orig.meta.get("exit_status"), new.meta.get("exit_status")
     if was != now:
         out.append(f"the two runs ended differently: exit {was} originally, "
@@ -266,10 +273,7 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
         # only that none was NOTICED, never that none ran.
         if "spawn_syscalls" not in meta:
             out.append(
-                f"{label} predates the spawn-syscall record, so a child "
-                "started through multiprocessing or a bare posix_spawn "
-                "would leave no trace here -- absence of the record is not "
-                "a record of absence")
+                f"{label} {witness_gap(trace, 'children', 'spawn-syscall')}")
         kids = meta.get("children") or []
         spawns = meta.get("spawn_syscalls") or 0
         if kids or spawns:

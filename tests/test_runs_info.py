@@ -273,11 +273,12 @@ def test_info_flags_a_trace_that_predates_the_bookkeeping(
     w.close()
 
     assert cli.main(["info", run_id]) == 0
-    line = _one(capsys.readouterr().out, "not recorded in this trace:")
+    out = capsys.readouterr().out
+    assert "not recorded in this trace:" in out
     for key in ("children", "threads_started", "spawn_syscalls",
                 "audit_errors"):
-        assert key in line
-    assert "not a record of absence" in line
+        assert key in out
+    assert "not a record of absence" in out
 
 
 def test_info_reports_an_audit_hook_that_malfunctioned(
@@ -532,3 +533,16 @@ def test_info_summarises_many_tasks_by_name(tmp_path, monkeypatch, capsys):
     line = next(l for l in out.splitlines() if l.startswith("tasks: "))
     assert line == ("tasks: 14 (2 distinct name(s): worker x10, "
                     "Task-N (asyncio default names) x4)")
+
+
+def test_info_prints_the_recorder_and_its_declarations(tmp_path, monkeypatch, capsys):
+    w = synthetic(tmp_path, monkeypatch)
+    finalize_synthetic(w, lang="rust", recorder="sensorium-rt 0.0",
+                       capabilities={"line": False, "threads": False,
+                                     "children": False, "stdin": False})
+    w.close()
+    assert cli.main(["info", "20260101-000000-abcdef"]) == 0
+    out = capsys.readouterr().out
+    assert "recorder: sensorium-rt 0.0  lang: rust" in out
+    assert "declares threads not witnessed" in out
+    assert "predates" not in out
