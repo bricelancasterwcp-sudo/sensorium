@@ -528,7 +528,7 @@ lens.
 | E2 | Coverage on bloomery: instrumented fn items / fn items; instrumented `?` sites / `?` sites; units that fell back | workspace src + tests | floor 98% of fn items (5 const of 756 excluded by rule), 95% of `?` sites; any fell-back unit is a finding, not a pass |
 | E3 | False DIVERGED: 20 identical re-runs of one bloomery-daemon test binary, default `--test-threads`, same binary hash and env; `diff` each against the first | per-task basis | DIVERGED 0/19 and REFUSED 0/19; any DIVERGED = comparator wrong, stop |
 | E4 | `refocus` MATCH rate on the 7 `pager_*_test.rs` FakeSubstrate files, per test with `--exact`, expected-MATCH list written first | tier call → full | a MATCH on the expected list only; an unexpected DIVERGED is a finding |
-| E5 | Split verification (§10): identical behaviour → MATCH modulo moves; one planted behavioural change (two call sites swapped) → DIVERGED naming the step | `diff --ignore-moves` | planted change reads MATCH → the verifier is void, the split is not trace-verified |
+| E5 | Split verification (§10): identical behaviour and execution order → MATCH modulo moves; one planted behavioural change (two call sites swapped) → DIVERGED naming the step | `diff --ignore-moves` | planted change reads MATCH → the verifier is void, the split is not trace-verified |
 | E6 | False SWALLOWED on the Rust corpus | Rust exceptions rules | 0; any false accusation stops the rung |
 | E7 | Line/path preservation: rewritten build's panic locations, `file!()`, backtrace frames byte-identical to the plain build on a probe with known panics | conformance | any difference stops the rung |
 | E8 | Freshness and non-contamination: edit → rebuild; no edit → Fresh; plain `cargo test` after instrumented → Fresh AND uninstrumented (a sentinel the runtime prints) | cargo 1.96 | any contamination stops the rung |
@@ -584,13 +584,30 @@ split with the new instrument instead of by eye:
 sensorium diff --ignore-moves 20260901-210300-edca03 20260901-210520-7f8854
 ```
 
-Expected: `MATCH modulo location: N code object(s) moved …, 5 added, 0
-removed` where the moved list is exactly the functions the e209ed9 file table
-relocated and the 5 added are the `<module>` frames of the new files (the
-commit's `+5 CALL`); today's plain `diff` on the same pair says `DIVERGED at
-causal step 426` at the first moved module. E5's planted change on a
-throwaway copy → DIVERGED naming the step. `sensorium info` on the 93k trace
-under 1 s.
+Expected — **amended 2026-09-02, after the run, against the adjudicated
+result; the original expectation of `MATCH modulo location` was wrong**:
+`DIVERGED at causal step 451`, at the first change of TEST COLLECTION ORDER,
+with all 53 moved code objects paired first and the `moves:` block standing
+as the relocation table (the moved list exactly the classes and methods the
+e209ed9 file table relocated; the new files' import-time frames reported
+under `module frames not compared`). The step it names is A's `e454 CALL
+StampAuditTests` inside `test_recompute_v2.py`'s import against B's `e462
+RETURN <module>` of that same file — the class now lives in a new file that
+`unittest discover` imports LATER, so the split changed the order the tests
+were collected and run in, not only where they live. A sequence comparison
+must report an order change: that is the difference between this instrument
+and e209ed9's own verification, which compared event COUNTS (`93,273 →
+93,283`, `+5 CALL`) and is order-blind by construction. Evidence, verbatim
+output and drill-ins:
+`.superpowers/sdd/2026-09-02-sensorium-rung0-python-prep/task-7-acceptance.md`.
+A MATCH on this pair would require an order-INSENSITIVE per-unit comparison —
+the tests-as-units shape of §4, where each test is a unit of work with its
+own `task_fingerprints` row and the units are compared as a multiset —
+recorded here as a candidate, not built, and not a rung-0 deliverable.
+Today's plain `diff` on the same pair says `DIVERGED at causal step 426`, at
+the first moved module rather than at the order change. E5's planted change
+on a throwaway copy → DIVERGED naming the step. `sensorium info` on the 93k
+trace under 1 s.
 
 **Rung 2 (the first Rust use):** the registry.rs split.
 
@@ -603,7 +620,13 @@ sensorium diff --ignore-moves <before> <after>
 Expected: `MATCH modulo location: N moved, 0 added, 0 removed` (Rust adds no
 module-level frames, so unlike the Python trio there is no `+5 CALL`), every
 `task::registry::tests::*` task paired by name, `info` counts identical, and
-E5's planted swap → DIVERGED naming the step. Then the same for `pager.rs`,
+E5's planted swap → DIVERGED naming the step. **This target assumes the split
+does not change test order**, which is why it is stated for a SOURCE file:
+moving items between source files leaves libtest's collection alone, where the
+rung-0 Python trio's TEST-file split moved tests between discovery units and
+duly read DIVERGED. If the registry.rs split moves `#[test]` fns between
+files, expect the same DIVERGED for the same reason, and read it as the
+instrument working. Then the same for `pager.rs`,
 `drift.rs`, `task_loop.rs` with `--test` selectors chosen from the tests that
 import them.
 

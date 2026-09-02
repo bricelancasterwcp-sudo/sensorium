@@ -281,8 +281,12 @@ command says so in its own header.
 
 ### `info`, `runs`, and the state of the recording itself
 
-- `info` prints `recorder`, `lang`, and the declared `capabilities` on their
-  own line; from trace format 4, a bookkeeping field a trace's declared
+- `info` prints `recorder`, `lang`, and a `capabilities` line — the
+  recorder's own declaration when the trace carries one, and `undeclared
+  (pre-format-4 Python recorder; read as full by every command)` when it does
+  not, because reading an absent declaration as full is what a command does
+  to decide whether to refuse, not something the trace ever said; from trace
+  format 4, a bookkeeping field a trace's declared
   capabilities say should exist but does not is printed as the recorder's own
   declaration of that gap — never as a printed `0`, and never as the
   pre-format-4 "predates that bookkeeping" wording, which is kept for traces

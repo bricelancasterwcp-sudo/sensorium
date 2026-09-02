@@ -1420,6 +1420,20 @@ Expected: both fail (exit 0 or 1, no refusal text).
         return 2
 ```
 
+> **Erratum (2026-09-02):** that snippet cannot satisfy its own Step-1 test.
+> The test's trace declares `line: false` AND `object_identity: false`, so
+> the `or` short-circuits on the `line` refusal and `flow --object` prints
+> "flow needs line" — never the `flow --object needs object_identity` line
+> the test asserts. The shipped `flow_cmd.run` checks `object_identity`
+> FIRST when `--object` was given (the more specific refusal is the useful
+> one, and the general one still fires when `--object` was not given):
+>
+> ```python
+>     refusal = ((require(trace, "object_identity", "flow --object")
+>                 if args.object is not None else None)
+>                or require(trace, "line", "flow"))
+> ```
+
 `watch_cmd.run`, right after `trace = Trace.open(...)`:
 
 ```python
@@ -1689,6 +1703,24 @@ time .venv/bin/sensorium info 20260901-210520-7f8854 | head -3
 
 Expected: `info` under 1 s; plain `diff` = `verdict: DIVERGED at causal step 426` (as recorded 2026-09-01); `--ignore-moves` = `verdict: MATCH modulo location …` with the `moved:` list naming the functions the e209ed9 file table relocated (`_ledger_row`, `_infer_completed`, `_memory_stamp`, `_task_step_done`, `_write_jsonl` among them: `test_recompute.py -> _recompute_fixtures.py`) and `added (only in B):` naming the five new `<module>` code objects. Paste all three outputs verbatim into the ledger. If `--ignore-moves` reads DIVERGED, that is a finding about the split or about the detector: drill with the printed `sensorium tree … --around` commands and record which before touching code. Note: those two traces are format 1 (recorded by the stale 0.1.0 tool); the comparison is per-thread basis on both sides, which `diff` accepts.
 
+> **Erratum (2026-09-02, written after the run — the expectation above is
+> wrong and was not met; the plan text is left standing rather than
+> rewritten).** `--ignore-moves` on that pair reads **`verdict: DIVERGED at
+> causal step 451`**, with 53 code objects paired first and the `moves:`
+> block naming exactly the classes and methods the e209ed9 file table
+> relocated. The controller adjudicated that verdict CORRECT: A's `e454 CALL
+> StampAuditTests` inside `test_recompute_v2.py`'s import against B's `e462
+> RETURN <module>` of that file — the class now lives in a new file that
+> `unittest discover` imports later, so the test-file split changed the
+> collection and execution ORDER, which a sequence comparison must report.
+> e209ed9 verified the split by event COUNTS (`93,273 → 93,283`, `+5 CALL`),
+> which are order-blind, so it did not see this. Full output, both drill-ins
+> and the cross-check against the bloomery repo:
+> `.superpowers/sdd/2026-09-02-sensorium-rung0-python-prep/task-7-acceptance.md`.
+> A MATCH here would need an order-insensitive per-unit comparison (spec §10
+> rung 0, as amended: the tests-as-units candidate), which rung 0 does not
+> build.
+
 - [ ] **Step 4: Matrix**
 
 ```bash
@@ -1722,6 +1754,15 @@ Implements docs/superpowers/plans/2026-09-02-sensorium-rung0-python-prep.md
 <paste the three acceptance outputs>
 EOF
 ```
+
+> **Erratum (2026-09-02):** the PR-body bullet "acceptance: the bloomery
+> Python-trio pair reads MATCH modulo location" states the verdict this
+> branch disproved — replace it when the PR is written with: "acceptance:
+> the bloomery Python-trio pair reads DIVERGED at causal step 451 after 53
+> moves are paired, adjudicated CORRECT — a test-file split changed
+> `unittest discover`'s collection order, which e209ed9's count-only check
+> could not see (see Step 3's erratum and
+> `.superpowers/sdd/2026-09-02-sensorium-rung0-python-prep/task-7-acceptance.md`)".
 
 Then verify origin is in sync (`git fetch && git status -sb`) and that CI is green on all three legs before reporting done.
 

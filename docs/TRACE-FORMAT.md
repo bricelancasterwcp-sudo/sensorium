@@ -183,7 +183,7 @@ recorder writes evidence; the reader names the state.
 | `ts_ns` | Monotonic nanoseconds (`time.monotonic_ns()` in the Python recorder). For display and duration only — never compared, never hashed. |
 | `thread_id` | Thread serial (§6). |
 | `kind` | One of the seven kinds in §5. |
-| `frame_id` | The frame this event ran INSIDE. **NULL on every CALL**, including the ones that open a frame: the frame does not exist yet when the CALL row is written (`tracer._on_call` passes `None`), and the link runs the other way, through `frames.call_event_id`. NULL too for any other event a recorder emits outside a frame. `RETURN`, `RAISE`, `HANDLED`, `LINE`, `YIELD` and `RESUME` carry the open frame's id. |
+| `frame_id` | The frame this event ran INSIDE. **NULL on every CALL**, including the ones that open a frame: the frame does not exist yet when the CALL row is written (`tracer._on_start` passes `None`), and the link runs the other way, through `frames.call_event_id`. NULL too for any other event a recorder emits outside a frame. `RETURN`, `RAISE`, `HANDLED`, `LINE`, `YIELD` and `RESUME` carry the open frame's id. |
 | `code_id` | The code object the event is about. NULL is allowed **only on a non-causal event**: `grep` skips a NULL-code row, but `causal_stream` / `task_stream` look the code up unconditionally, so a `CALL`/`RETURN`/`RAISE`/`HANDLED` row must carry one. |
 | `line` | Source line. For `CALL` the definition line; for `LINE`/`RAISE`/`HANDLED`/`YIELD`/`RESUME` the line the event happened at; NULL on `RETURN` (no renderer reads it there). |
 | `payload` | JSON object or NULL. Keys per kind in §5. |
@@ -241,7 +241,7 @@ recorder, lang, capabilities
 | `fingerprint_basis` | `"per-task"` or `"per-thread"` — what a per-thread fingerprint row covers (§7). Explicit, never defaulted by a writer. |
 | `truncated_count` | How many captured values were clipped by the capture caps. |
 | `source_hashes` | `{file: content-digest}` for every file the run traced code from. |
-| `recorder` | Who wrote the trace: `"sensorium 0.4.0"`, `"sensorium-rt 0.1.0"`. Printed in every sentence about what this trace can and cannot say. |
+| `recorder` | Who wrote the trace: `"sensorium 0.5.0"`, `"sensorium-rt 0.1.0"`. Printed in every sentence about what this trace can and cannot say. |
 | `lang` | `"python"`, `"rust"`. The reader defaults an absent `lang` to `"python"`, because nothing else existed before the key. |
 | `capabilities` | The declaration; see below. |
 
@@ -431,7 +431,12 @@ pins the `kind` half of the same rule.
   for display and duration only.
 - **Thread serials are per process, main = 1.** `frames.thread_id` and
   `events.thread_id` carry the serial, not an OS thread id — two short-lived
-  threads that recycle one OS id must key to distinct fingerprints.
+  threads that recycle one OS id must key to distinct fingerprints. `main =
+  1` is a **recorder convention that no reader enforces**: every reader that
+  needs the main thread reads `main_thread_ident` (next bullet), so a
+  recorder that mints serials in some other order is read correctly as long
+  as it writes that key — and a recorder that writes `main = 1` but omits the
+  key gets the reader's inferred fallback, not its convention.
 - **`main_thread_ident` is written explicitly**, at boot, as the serial of
   the thread the target was invoked from. `Trace.main_thread_id()` falls
   back to "the thread of whichever event got id 1" only for traces that
@@ -539,12 +544,21 @@ questions the CLI must answer about it:
   frame is reached from its own `call` instead. `tests/test_vectors.py`
   asserts both halves on every vector.
 - `fingerprints: "compute"` derives every row the way the recorder does —
-  per task for events carrying a `task`, per thread for the rest.
-  `threads_with_rows` forces a row (zero-count) for a thread that emitted
-  nothing.
+  per task for events carrying a `task`, per thread for the rest — but over
+  the file string the vector declares in `codes`, i.e. the **absolute
+  `code_objects.file`**, where the Python recorder hashes a root-relative
+  name (§7). A vector's stored hashes are therefore on the builder's basis
+  (the same basis `diff --ignore-moves` re-hashes on) and are not comparable
+  with hashes a Python run recorded. `threads_with_rows` forces a row
+  (zero-count) for a thread that emitted nothing; task rows need no such key,
+  because every entry in `tasks` gets one (§6) whether it ran an event or
+  not.
 - `copies: 2` makes the runner copy the built trace to a second run id, so a
   vector can ask a two-run question. `$RUN` and `$RUN2` are substituted in
-  `meta` values and in commands.
+  `meta` values and in commands. The copy is a byte copy: its
+  `meta["run_id"]` still names the FIRST run, which nothing reads — `diff`
+  labels its two sides by filename stem — so a two-run question is asked of
+  `$RUN2` by path, never by the run id inside it.
 - `questions` use the corpus's assertion vocabulary and are checked by
   `corpus.run_corpus.check_question` over stdout **and** stderr:
   `expect_exit` (default 0), `expect_contains`, `expect_line` (substrings
@@ -568,6 +582,12 @@ passes, which is the one thing a conformance suite must not contain, so the
 runner refuses a vector or a question that carries neither. Add a vector for
 each new enumeration value and each new rule — a rule with no vector is a
 sentence in a document, not a contract.
+
+These seven pin the rules this document states in prose. The design spec's
+§5.3 and §5.6 promise more — one vector per value of every enumeration, per
+language — and those belong to rung 2: the values they would pin are the
+second recorder's to define, and a vector written before it exists pins this
+recorder's guess about it.
 
 | Vector | Rule it pins |
 |---|---|
