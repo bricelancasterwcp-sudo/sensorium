@@ -118,12 +118,25 @@ def create_trace(path: Path) -> sqlite3.Connection:
 
 def missing_required(conn: sqlite3.Connection) -> list[str]:
     """Required keys absent from a trace that claims to be finalized, in
-    a stable order; [] when nothing is missing or the claim is not made."""
+    a stable order; [] when nothing is missing or the claim is not made.
+
+    A `capabilities` that is present but not a dict counts as absent. This
+    is a validation boundary for a recorder nobody here wrote: a list, a
+    string or a null is not a declaration this reader can act on, and
+    reporting it by name is the whole point of the mechanism. Reading it
+    anyway would raise AttributeError out of `open_trace`, which the CLI
+    does not catch, or -- for null -- pass silently and be rendered
+    downstream as the full Python capability set.
+    """
     if get_meta(conn, "incomplete") is not False:
         return []
     present = {k for (k,) in conn.execute("SELECT key FROM meta")}
     missing = [k for k in REQUIRED_META if k not in present]
-    caps = get_meta(conn, "capabilities") or {}
+    caps = get_meta(conn, "capabilities")
+    if not isinstance(caps, dict):
+        if "capabilities" not in missing:
+            missing.append("capabilities")
+        caps = {}
     for cap, keys in WITNESS_KEYS.items():
         if caps.get(cap):
             missing += [k for k in keys if k not in present]
@@ -144,7 +157,9 @@ def open_trace(path: Path) -> sqlite3.Connection:
     if fmt is not None and fmt >= 4:
         missing = missing_required(conn)
         if missing:
-            who = get_meta(conn, "recorder", "an unnamed recorder")
+            who = get_meta(conn, "recorder")
+            if not isinstance(who, str) or not who:
+                who = "an unnamed recorder"     # absent, null, or not a name
             conn.close()
             raise TraceFormatError(
                 f"{path} claims to be finalized (incomplete = false) but "

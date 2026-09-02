@@ -149,3 +149,29 @@ def test_open_does_not_refuse_an_unfinished_or_hand_built_trace(tmp_path):
     q = tmp_path / "bare.db"
     db.create_trace(q).close()
     db.open_trace(q).close()
+
+
+def test_open_refuses_a_finalized_trace_whose_capabilities_are_not_a_dict(tmp_path):
+    """A declaration this reader cannot act on is not a declaration. A list
+    would raise AttributeError out of `open_trace` -- which the CLI does not
+    catch -- and a null would pass, then be rendered downstream as the full
+    Python capability set. Both are refused by name instead."""
+    p = tmp_path / "list.db"
+    _format4_finalized(p, capabilities=["threads", "stdin"])
+    with pytest.raises(db.TraceFormatError) as e:
+        db.open_trace(p)
+    assert "capabilities" in str(e.value)
+    q = tmp_path / "null.db"
+    _format4_finalized(q, capabilities=None)
+    with pytest.raises(db.TraceFormatError) as e:
+        db.open_trace(q)
+    assert "capabilities" in str(e.value)
+
+
+def test_the_refusal_names_no_recorder_rather_than_the_word_none(tmp_path):
+    """`recorder: null` must not print as "written by None"."""
+    p = tmp_path / "t.db"
+    _format4_finalized(p, recorder=None, capabilities=None)
+    with pytest.raises(db.TraceFormatError) as e:
+        db.open_trace(p)
+    assert "written by an unnamed recorder" in str(e.value)

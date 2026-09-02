@@ -51,3 +51,34 @@ def test_dropped_writes_reads_rust_records_dropped(tmp_path, monkeypatch):
     from sensorium import paths
     t = Trace.open(paths.traces_dir() / "20260101-000000-abcdef.db")
     assert t.dropped_writes() == 3
+
+
+def test_capabilities_present_but_not_a_dict_declare_nothing(tmp_path, monkeypatch):
+    """`capabilities: null` is not "this recorder had everything". The key
+    is present, so nothing about it says "predates the declaration" -- it
+    says the recorder wrote something this reader cannot act on."""
+    w = synthetic(tmp_path, monkeypatch)
+    w.set_meta("lang", "rust")
+    w.set_meta("capabilities", None)
+    w.close()
+    from sensorium import paths
+    t = Trace.open(paths.traces_dir() / "20260101-000000-abcdef.db")
+    assert t.capabilities == {} and t.declares("line") is False
+
+
+def test_a_python_traces_unusable_declaration_is_not_read_as_full(
+        tmp_path, monkeypatch):
+    """Same for a Python trace, and this is the sharp case: "undeclared =
+    full" is licensed by an ABSENT key only. A null present under the key
+    would otherwise be read as all ten capabilities the recorder never
+    asserted, and a list would raise out of `dict()`."""
+    from sensorium import paths
+    for i, bad in enumerate((None, ["line", "locals"])):
+        run_id = f"20260101-000000-abcd{i}0"
+        w = synthetic(tmp_path, monkeypatch, run_id=run_id)
+        w.set_meta("capabilities", bad)
+        w.close()
+        t = Trace.open(paths.traces_dir() / f"{run_id}.db")
+        assert t.lang == "python", bad
+        assert t.capabilities == {}, bad
+        assert t.declares("line") is False, bad

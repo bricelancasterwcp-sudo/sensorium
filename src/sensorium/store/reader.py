@@ -265,23 +265,33 @@ class Trace:
         before format 4, no way to say so (a hand-built or still-recording
         format-4 Python trace is the same case -- the open-time refusal
         guarantees a FINALIZED format-4 trace always carries the key). A
-        non-Python trace with no declaration declares nothing."""
+        non-Python trace with no declaration declares nothing.
+
+        A declaration that is PRESENT but not a dict -- a list, a string, a
+        null -- declared nothing usable, whatever the language: reading it
+        as full would turn a recorder's malformed claim into ten
+        capabilities it never asserted, and `dict()` on it would raise.
+        Absence and unusability are different facts and only absence on a
+        Python trace means "predates the declaration"."""
         caps = self.meta.get("capabilities")
-        if caps is None:
-            if self.lang == "python":
-                # Local: `boot` pulls runpy/subprocess/tracer, and every
-                # other importer in the tree defers it for the same reason.
-                from sensorium.record.boot import CAPABILITIES
-                return dict(CAPABILITIES)
-            return {}
-        return dict(caps)
+        if isinstance(caps, dict):
+            return dict(caps)
+        if "capabilities" in self.meta:
+            return {}                      # present but not a usable dict
+        if self.lang == "python":
+            # Local: `boot` pulls runpy/subprocess/tracer, and every
+            # other importer in the tree defers it for the same reason.
+            from sensorium.record.boot import CAPABILITIES
+            return dict(CAPABILITIES)
+        return {}
 
     def declares(self, cap: str) -> bool | None:
         """True/False = the recorder declared `cap`; None = nothing was
         declared and the trace is the Python recorder's (undeclared = full,
         the only recorder that existed). A trace whose dict omits a
-        capability declared it False; a non-Python trace with no dict
-        declares everything False."""
+        capability declared it False; a non-Python trace with no dict, and
+        ANY trace whose `capabilities` is present but not a dict, declares
+        everything False -- only a missing key can mean "predates"."""
         if "capabilities" not in self.meta:
             return None if self.lang == "python" else False
         return bool(self.capabilities.get(cap, False))
