@@ -36,8 +36,21 @@ pub fn run(argv: &[String]) -> i32 {
         } => match instrument(rustc, rest, &crate_name, &crate_type, &metadata, &crate_root) {
             Ok(code) => code,
             Err(e) => {
-                eprintln!("sensorium: wrapper error on {crate_name} ({metadata}): {e}");
-                eprintln!("sensorium: unit {crate_name} ({metadata}) fell back to the real tree: wrapper error");
+                // The unit is about to be compiled UNINSTRUMENTED. If that is
+                // not written down, the manifest this wrapper may already have
+                // left on disk still says `fell_back: false`, and E2 and the
+                // converter both count a unit that recorded nothing as one that
+                // recorded everything. A mirror-lock timeout under `-j16` is the
+                // realistic way here, so this path must not be quiet.
+                if let Err(e2) = record_wrapper_fallback(&metadata, &crate_name, &crate_type) {
+                    eprintln!(
+                        "sensorium: could not record the fallback for {crate_name} ({metadata}): {e2}"
+                    );
+                }
+                eprintln!(
+                    "sensorium: unit {crate_name} ({metadata}) fell back to the real tree: {}",
+                    e.lines().next().unwrap_or("wrapper error")
+                );
                 passthrough(rustc, rest)
             }
         },
@@ -111,17 +124,37 @@ fn instrument(
         crate_type,
     );
 
-    let manifest_path = sens.join("manifests").join(format!("{metadata}.json"));
+    // The same helper the Err arm uses, so the two can never disagree about
+    // which file records this unit.
+    let manifest_path = manifest_path(&env.target, metadata);
     write_manifest(&manifest_path, &manifest)?;
 
-    let mirror_dir = sens.join("mirror");
+    // ONE MIRROR PER UNIT, keyed by `-C metadata`.
+    //
+    // Cargo compiles one crate root as several units -- `probe-core/src/lib.rs`
+    // is compiled as `--crate-type lib` AND with `--test`, each with its own
+    // `-C metadata` (spec 2.4). The `__SENSORIUM_UNIT` static the transformer
+    // appends carries that metadata, so the two units need DIFFERENT bytes at
+    // the same workspace-relative path. A single shared mirror cannot hold
+    // both: whichever unit rewrote the file first won, the other compiled a
+    // crate root whose static named the wrong unit, and every event that unit
+    // recorded was attributed to its twin. It was invisible in E7 and E8 (line
+    // numbers and freshness do not care) and it lost a coin-flip roughly half
+    // the time under `-j16`. `the_doctest_process_spools_a_probe_core_call` is
+    // what caught it; `every_units_mirror_carries_its_own_metadata` is what
+    // pins it.
+    //
+    // Per-unit mirrors also mean no two wrapper processes share any mutable
+    // state, so the lock below is now uncontended by construction -- kept as
+    // defence in depth, not as the thing that makes this correct.
+    let mirror_dir = sens.join("mirror").join(metadata);
     {
         let _lock = Lock::acquire(&sens.join("mirror.lock"), LOCK_TIMEOUT)
             .map_err(|e| format!("mirror lock: {e}"))?;
         mirror::materialise(
             &env.ws,
             &mirror_dir,
-            &sens.join("cache"),
+            &sens.join("cache").join(metadata),
             &env.tool_hash,
             &rewrites,
         )
@@ -231,6 +264,63 @@ pub fn build_unit(
         manifest.appended_line.clear();
     }
     UnitPlan { manifest, rewrites }
+}
+
+/// `<target>/sensorium/manifests/<-C metadata>.json`.
+#[must_use]
+pub fn manifest_path(target: &Path, metadata: &str) -> PathBuf {
+    target
+        .join("sensorium")
+        .join("manifests")
+        .join(format!("{metadata}.json"))
+}
+
+/// Record that a unit was compiled uninstrumented because the WRAPPER failed,
+/// not because rustc rejected the rewrite.
+///
+/// The target directory is recomputed from the environment rather than taken
+/// from [`Env`], because the failure may be that [`read_env`] itself refused --
+/// in which case there is no `Env` and there is also no manifest yet.
+fn record_wrapper_fallback(metadata: &str, crate_name: &str, crate_type: &str) -> Result<(), String> {
+    let ws = std::env::current_dir().map_err(|e| format!("cannot read cwd: {e}"))?;
+    let target =
+        std::env::var_os("SENSORIUM_TARGET").map_or_else(|| ws.join("target"), PathBuf::from);
+    mark_fallen_back(
+        &manifest_path(&target, metadata),
+        metadata,
+        crate_name,
+        crate_type,
+    )
+}
+
+/// Set `fell_back` on the manifest at `path`, whatever state it is in.
+///
+/// Patched in place when a readable manifest is already there, so the `files`
+/// the wrapper had worked out stay on the record as what WOULD have been
+/// instrumented. Otherwise a stub: a unit with no manifest at all is invisible
+/// to E2 and to the converter, which is the one outcome worse than an empty
+/// manifest.
+///
+/// # Errors
+/// If the manifest cannot be written.
+pub fn mark_fallen_back(
+    path: &Path,
+    metadata: &str,
+    crate_name: &str,
+    crate_type: &str,
+) -> Result<(), String> {
+    if let Ok(text) = std::fs::read_to_string(path) {
+        if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&text) {
+            v["fell_back"] = serde_json::Value::Bool(true);
+            let json = serde_json::to_string(&v)
+                .map_err(|e| format!("cannot re-serialise {}: {e}", path.display()))?;
+            return std::fs::write(path, json)
+                .map_err(|e| format!("cannot write {}: {e}", path.display()));
+        }
+    }
+    let mut stub = Manifest::new(metadata, crate_name, crate_type);
+    stub.fell_back = true;
+    write_manifest(path, &stub)
 }
 
 fn write_manifest(path: &Path, manifest: &Manifest) -> Result<(), String> {
@@ -426,6 +516,80 @@ mod tests {
             "lib",
         );
         assert_eq!(plan.manifest.unreached_files, ["a/src/gone.rs"]);
+    }
+
+    fn tmpdir(name: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!(
+            "sensorium-wrapper-test-{}-{}-{name}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn marking_an_existing_manifest_keeps_its_sites_and_flips_the_flag() {
+        let d = tmpdir("mark-existing");
+        let path = d.join("abc.json");
+        let plan = plan_of(&[("a/src/lib.rs", "fn a() {}\n")], &[]);
+        write_manifest(&path, &plan.manifest).unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(&path).unwrap())
+                .unwrap()["fell_back"],
+            false
+        );
+
+        mark_fallen_back(&path, "abc", "demo", "lib").unwrap();
+
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(v["fell_back"], true);
+        // The sites the wrapper had worked out are still on the record: what
+        // WOULD have been instrumented is evidence, not noise.
+        assert_eq!(v["files"]["a/src/lib.rs"][0]["qualname"], "a");
+        assert_eq!(v["crate_name"], "demo");
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn marking_writes_a_stub_when_the_wrapper_never_got_that_far() {
+        // read_env refusing leaves NO manifest. A unit with no manifest is
+        // invisible to E2 and to the converter -- worse than an empty one.
+        let d = tmpdir("mark-stub");
+        let path = d.join("nope.json");
+        mark_fallen_back(&path, "nope", "demo", "test").unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(v["fell_back"], true);
+        assert_eq!(v["unit"], "nope");
+        assert_eq!(v["crate_name"], "demo");
+        assert_eq!(v["crate_type"], "test");
+        assert_eq!(v["files"], serde_json::json!({}));
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn marking_replaces_a_manifest_that_is_not_readable_json() {
+        let d = tmpdir("mark-corrupt");
+        let path = d.join("bad.json");
+        std::fs::write(&path, b"{ this is not json").unwrap();
+        mark_fallen_back(&path, "bad", "demo", "lib").unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(v["fell_back"], true);
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn the_manifest_path_is_derived_once_for_both_writers() {
+        assert_eq!(
+            manifest_path(Path::new("/t/target"), "a98bc0df34adbff2"),
+            Path::new("/t/target/sensorium/manifests/a98bc0df34adbff2.json")
+        );
     }
 
     #[test]

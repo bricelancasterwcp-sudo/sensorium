@@ -9,6 +9,12 @@ description = "THROWAWAY SPIKE CODE (rung-1 Rust mechanics spike): the driver (`
 name = "cargo-sensorium"
 path = "src/main.rs"
 
+[dev-dependencies]
+# The wrapper's error path is driven through the REAL binary
+# (`CARGO_BIN_EXE_cargo-sensorium`), so the integration test reads the manifest
+# back as JSON rather than trusting the Rust shape that wrote it.
+serde_json = "1"
+
 [dependencies]
 sensorium-transform = { path = "../sensorium-transform" }
 # `syn` walks the module tree (`mod` declarations and `#[path]`); the transform

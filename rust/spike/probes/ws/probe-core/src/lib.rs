@@ -10,6 +10,16 @@ mod helper;
 pub mod renamed;
 
 /// A free fn: the plainest instrumentation site there is.
+///
+/// The doctest below is not decoration. Cargo does NOT route `rustdoc` through
+/// `RUSTC_WORKSPACE_WRAPPER`, so a doctest links the INSTRUMENTED rlib with no
+/// `sensorium_rt` in sight and fails `E0463` unless the driver passes the
+/// linkage flags again via `RUSTDOCFLAGS`. It also calls an instrumented fn, so
+/// the doctest process spools a real CALL for this site.
+///
+/// ```
+/// assert_eq!(probe_core::add(2, 3), 5);
+/// ```
 pub fn add(a: u32, b: u32) -> u32 {
     a + b
 }
