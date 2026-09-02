@@ -1,7 +1,8 @@
 """Rename detection for `diff --ignore-moves`: pair a function that left one
 file with the same-named function that appeared in another, and only when
 that pairing is the only one possible."""
-from sensorium.query.moves import Moves, detect_moves, hash_stream, project
+from sensorium.query.moves import (MOVE_LIST_CAP, Moves, detect_moves,
+                                   hash_stream, print_moves, project)
 
 
 class _T:
@@ -78,3 +79,20 @@ def test_hash_stream_is_blake2b_over_file_qualname_kind():
     h.update(b"/w/a.py\x1fhelper\x1fCALL\n")
     assert hash_stream([("/w/a.py", "helper", "CALL", 7)]) == h.hexdigest()
     assert hash_stream([]) == hashlib.blake2b(digest_size=16).hexdigest()
+
+
+def test_print_moves_marks_every_list_it_truncates(capsys):
+    """A list cut at the cap with nothing to say so reads as the WHOLE
+    list -- the silent under-report the moves block exists to prevent."""
+    n = MOVE_LIST_CAP + 3
+    m = Moves({}, [(f"q{i}", f"/w/a{i}.py", f"/w/b{i}.py") for i in range(n)],
+              [(f"/w/b{i}.py", f"add{i}") for i in range(n)],
+              [(f"/w/a{i}.py", f"rem{i}") for i in range(n)],
+              [f"amb{i}" for i in range(n)], [])
+    print_moves(m)
+    out = capsys.readouterr().out
+    assert "... +3 more moved" in out
+    assert out.count("... +3 more") == 4      # moved, removed, added, unpaired
+    for cut in (f"q{MOVE_LIST_CAP}", f"add{MOVE_LIST_CAP}",
+                f"rem{MOVE_LIST_CAP}", f"amb{MOVE_LIST_CAP}"):
+        assert cut not in out

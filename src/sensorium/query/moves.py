@@ -131,6 +131,35 @@ def short(key) -> str:
     return f"{_base(file)}:{qual}"
 
 
+def _listed(items, render=str) -> str:
+    """`items` rendered, capped, and MARKED when the cap cut something. A
+    truncated list with nothing to say it was truncated reads as the whole
+    list -- the silent under-report this block exists to prevent."""
+    shown = ", ".join(render(i) for i in items[:MOVE_LIST_CAP])
+    over = len(items) - MOVE_LIST_CAP
+    return f"{shown}, ... +{over} more" if over > 0 else shown
+
+
+def print_key_line(moves: Moves | None) -> None:
+    """The key a move-aware verdict was reached through, printed under the
+    headers so the verdict below is never read as a comparison of the keys
+    AS RECORDED. Pairing is by qualname alone -- `kind` is part of the
+    comparison key, not of the criterion. No-op when not move-aware."""
+    if not moves:
+        return
+    print(f"key: (file, qualname, kind), with {len(moves.moved)} code "
+          "object(s) paired across a move by qualname -- see moves below")
+
+
+def print_moves_section(moves: Moves | None) -> None:
+    """The `moves:` block under a verdict; no-op when there is none, so
+    every print path can call it unconditionally."""
+    if not moves:
+        return
+    print("moves:")
+    print_moves(moves)
+
+
 def print_moves(moves: Moves) -> None:
     """What was paired, what was not, and why -- printed on every verdict
     under --ignore-moves, so a MATCH never hides how it was reached."""
@@ -139,15 +168,13 @@ def print_moves(moves: Moves) -> None:
     if len(moves.moved) > MOVE_LIST_CAP:
         print(f"  ... +{len(moves.moved) - MOVE_LIST_CAP} more moved")
     if moves.removed:
-        print("  removed (only in A): "
-              + ", ".join(short(k) for k in moves.removed[:MOVE_LIST_CAP]))
+        print("  removed (only in A): " + _listed(moves.removed, short))
     if moves.added:
-        print("  added (only in B): "
-              + ", ".join(short(k) for k in moves.added[:MOVE_LIST_CAP]))
+        print("  added (only in B): " + _listed(moves.added, short))
     if moves.unpaired:
         print("  unpaired (same name in several files on one side, not "
               "paired; a divergence inside them is reported as one): "
-              + ", ".join(moves.unpaired))
+              + _listed(moves.unpaired))
     if moves.one_sided_modules:
         only_a = [_base(f) for s, f in moves.one_sided_modules if s == "A"]
         only_b = [_base(f) for s, f in moves.one_sided_modules if s == "B"]

@@ -84,7 +84,8 @@ import re
 from collections import Counter
 
 from sensorium import paths
-from sensorium.query.moves import (Moves, detect_moves, for_b, print_moves,
+from sensorium.query.moves import (Moves, detect_moves, for_b,
+                                   print_key_line, print_moves_section,
                                    project, task_hashes)
 from sensorium.store.reader import Trace
 
@@ -706,11 +707,7 @@ def print_comparison(trace_a, trace_b, res, name_a, name_b, context=3,
     different amounts about one finding read as two findings."""
     print(_thread_header("A", name_a, trace_a))
     print(_thread_header("B", name_b, trace_b))
-    if res.get("moves"):
-        mv = res["moves"]
-        print(f"key: (file, qualname, kind), with {len(mv.moved)} code "
-              "object(s) paired across a move by (qualname, kind) -- see "
-              "moves below")
+    print_key_line(res.get("moves"))
     for note in safety_notes(trace_a, trace_b):
         print(f"note: {note}")
     if res["verdict"] == "REFUSED":
@@ -722,9 +719,7 @@ def print_comparison(trace_a, trace_b, res, name_a, name_b, context=3,
         _print_divergence(res, name_a, name_b, context)
     if tasks:
         _print_tasks(res, name_a, name_b)
-    if res.get("moves"):
-        print("moves:")
-        print_moves(res["moves"])
+    print_moves_section(res.get("moves"))
 
 
 def print_task_comparison(trace_a, trace_b, res, name_a, name_b, task,
@@ -737,22 +732,27 @@ def print_task_comparison(trace_a, trace_b, res, name_a, name_b, task,
         return
     print(f"A {name_a}: compared: task {task} (t{res['a_task']})")
     print(f"B {name_b}: compared: task {task} (t{res['b_task']})")
+    print_key_line(res.get("moves"))
     for note in _argv_note(trace_a, trace_b):
         print(f"note: {note}")
     print(f"note: only task {task} was compared -- nothing is claimed here "
           "about the thread streams, the other tasks, or the order any of "
           "them ran in")
-    if res["verdict"] == "MATCH":
+    if res["verdict"] != "MATCH":
+        _print_divergence(res, name_a, name_b, context)
+    elif res.get("moves"):
+        nm = len(res["moves"].moved)
+        print(f"verdict: MATCH modulo location -- identical causal streams "
+              f"({len(res['a_stream'])} events) once {nm} moved code "
+              f"object(s) are paired by qualname inside task {task}; values, "
+              "timing, and LINE events were not compared")
+    else:
         print(f"verdict: MATCH -- identical causal streams "
               f"({len(res['a_stream'])} events): the same sequence of "
               "(file, qualname, kind) for CALL/RETURN/RAISE/HANDLED inside "
               f"task {task}; values, timing, and LINE events were not "
               "compared")
-    else:
-        _print_divergence(res, name_a, name_b, context)
-    if res.get("moves"):
-        print("moves:")
-        print_moves(res["moves"])
+    print_moves_section(res.get("moves"))
 
 
 def add_parser(sub) -> None:

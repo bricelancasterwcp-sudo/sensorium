@@ -59,6 +59,11 @@ def _collect(capsys, args):
     return rc, capsys.readouterr().out
 
 
+def _side(out, label):
+    """The step `diff` named for one side of a divergence."""
+    return re.search(rf"^  {label}:      (.*)$", out, re.M).group(1)
+
+
 def test_plain_diff_calls_a_pure_move_diverged(tmp_path, monkeypatch, capsys):
     before, moved, _ = _three(tmp_path, monkeypatch)
     rc, out = _collect(capsys, ["diff", before, moved])
@@ -83,7 +88,8 @@ def test_ignore_moves_still_catches_a_planted_swap(tmp_path, monkeypatch, capsys
     rc, out = _collect(capsys, ["diff", "--ignore-moves", before, swapped])
     assert rc == 1, out
     assert "verdict: DIVERGED at causal step" in out
-    assert "A:      " in out and "B:      " in out
+    # Named AT the swap: A still calls helper first, B now calls other.
+    assert "helper" in _side(out, "A") and "other" in _side(out, "B")
     assert "moved: helper" in out          # the pairing is still reported
 
 
@@ -180,3 +186,45 @@ def test_ignore_moves_matches_two_task_streams_across_a_move(
     assert rc == 0, out
     assert "verdict: MATCH modulo location" in out
     assert "all matched" in out
+
+
+def test_ignore_moves_on_one_task_matches_across_a_move(
+        tmp_path, monkeypatch, capsys):
+    """`--task` compares the PROJECTED streams too, so its MATCH must say
+    "modulo location" and carry the key line -- claiming "the same sequence
+    of (file, qualname, kind)" would describe a comparison that never ran."""
+    w, sdir = tmp_path / "w", tmp_path / "sdir"
+    w.mkdir()
+    monkeypatch.setenv("SENSORIUM_DIR", str(sdir))
+    before = _record(w, sdir, [("main.py", ASYNC_MAIN.format(flip="False")),
+                               ("lib.py", ASYNC_LIB_TOGETHER)])
+    after = _record(w, sdir, [("main.py", ASYNC_MAIN.format(flip="False")),
+                              ("lib.py", ASYNC_LIB_SPLIT),
+                              ("lib_step.py", ASYNC_LIB_STEP)])
+    rc, out = _collect(capsys, ["diff", "--task", "task-A", "--ignore-moves",
+                                before, after])
+    assert rc == 0, out
+    assert "key: (file, qualname, kind), with 1 code object(s) paired" in out
+    assert "verdict: MATCH modulo location" in out and "task task-A" in out
+    assert "the same sequence of (file, qualname, kind)" not in out
+    assert "moved: step  lib.py -> lib_step.py" in out
+
+
+def test_ignore_moves_on_one_task_still_catches_a_changed_body(
+        tmp_path, monkeypatch, capsys):
+    """The same move with the task's own body changed: DIVERGED, at the
+    changed call and not at the move."""
+    w, sdir = tmp_path / "w", tmp_path / "sdir"
+    w.mkdir()
+    monkeypatch.setenv("SENSORIUM_DIR", str(sdir))
+    before = _record(w, sdir, [("main.py", ASYNC_MAIN.format(flip="False")),
+                               ("lib.py", ASYNC_LIB_TOGETHER)])
+    after = _record(w, sdir, [("main.py", ASYNC_MAIN.format(flip="True")),
+                              ("lib.py", ASYNC_LIB_SPLIT),
+                              ("lib_step.py", ASYNC_LIB_STEP)])
+    rc, out = _collect(capsys, ["diff", "--task", "task-B", "--ignore-moves",
+                                before, after])
+    assert rc == 1, out
+    assert "verdict: DIVERGED at causal step" in out
+    assert "step" in _side(out, "A") and "other" in _side(out, "B")
+    assert "moved: step  lib.py -> lib_step.py" in out
