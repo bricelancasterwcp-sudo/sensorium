@@ -10,6 +10,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo-sensorium"
+version = "0.0.0-spike"
+dependencies = [
+ "proc-macro2",
+ "sensorium-transform",
+ "serde",
+ "serde_json",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"

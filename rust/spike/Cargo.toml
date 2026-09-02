@@ -4,7 +4,7 @@
 # not referenced by pyproject.toml or by CI. Nothing under rust/ is built by CI.
 [workspace]
 resolver = "2"
-members = ["sensorium-rt", "sensorium-transform", "bench-caller"]
+members = ["sensorium-rt", "sensorium-transform", "cargo-sensorium", "bench-caller"]
 # probes/ws (added in Task 3) is its own workspace: the driver builds it as a
 # target workspace, so it must not be a member of the spike workspace.
 exclude = ["probes"]

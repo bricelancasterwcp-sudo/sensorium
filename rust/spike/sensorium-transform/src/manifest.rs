@@ -27,6 +27,11 @@ pub struct Manifest {
     pub skipped: Vec<Skipped>,
     pub fell_back: bool,
     pub unreached_files: Vec<String>,
+    /// Per file: did the crate-root static have to be APPENDED past the end of
+    /// the text, adding a final line? True only for the item-free crate roots
+    /// [`crate::transform`] documents. Recorded per file because a consumer
+    /// checking "no line moved" needs the exception named, not assumed away.
+    pub appended_line: BTreeMap<String, bool>,
 }
 
 impl Manifest {
@@ -40,6 +45,7 @@ impl Manifest {
             skipped: Vec::new(),
             fell_back: false,
             unreached_files: Vec::new(),
+            appended_line: BTreeMap::new(),
         }
     }
 
@@ -55,6 +61,8 @@ impl Manifest {
             });
         }
         self.skipped.extend(transformed.skipped.iter().cloned());
+        self.appended_line
+            .insert(path.to_owned(), transformed.appended_line);
     }
 
     /// # Errors

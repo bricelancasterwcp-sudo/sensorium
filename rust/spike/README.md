@@ -34,6 +34,40 @@ cargo clippy --all-targets -- -D warnings
 `Cargo.toml`), because that is the lens §1 pre-registers and what the rung-2
 driver will do regardless of the target workspace's profile.
 
+## The wrapper, and the E7/E8 checks
+
+`cargo-sensorium` is one binary with two lives (`src/main.rs` explains the
+role split). Run it against a target workspace like this:
+
+```
+cd rust/spike/probes/ws/
+../../target/debug/cargo-sensorium sensorium test [--tier off|call] [cargo test args]
+```
+
+It builds `sensorium-rt` at release in *this* workspace, installs a shim at
+`<target>/sensorium/shim/<hash>/cargo-sensorium`, points
+`RUSTC_WORKSPACE_WRAPPER` at it, and runs `cargo test` with the argv unchanged.
+Everything it writes lives under `<target>/sensorium/`: `mirror/`, `manifests/`,
+`cache/`, `spool/<invocation-id>/`.
+
+E7 and E8 are checked end to end on the probe workspace (`probes/ws`, its own
+workspace with its own `Cargo.lock` — see `probes/ws/README.md`):
+
+```
+rust/spike/tests/mechanics.sh
+```
+
+Fifteen checks, one line each, non-zero exit on any failure.
+
+**Build the driver with `--release` for any measurement run.** The shim path is
+the sha256 of the driver binary and the rt rlib, and a debug build of the driver
+is 20 MB, so hashing it costs ~0.5 s of fixed setup on EVERY invocation
+(measured: 0.52/0.50/0.59 s debug versus 0.03 s release, against ~0.005 s for a
+bare no-op `cargo test --no-run`). That is a systematic offset on the
+instrumented arms of E1 and on nothing else. It uses a fresh
+target directory per run unless `SENSORIUM_MECHANICS_TARGET` says otherwise, and
+`SENSORIUM_MECHANICS_KEEP=1` leaves the logs and the target behind.
+
 ## The micro-bench (E1's `fib(30)` numbers)
 
 ```

@@ -1,0 +1,23 @@
+[package]
+name = "cargo-sensorium"
+version = "0.0.0-spike"
+edition = "2021"
+publish = false
+description = "THROWAWAY SPIKE CODE (rung-1 Rust mechanics spike): the driver (`cargo sensorium test`) and the RUSTC_WORKSPACE_WRAPPER that mirrors, splices and links the runtime. Evidence, not product -- never merged to main, never cargo-installed, never depended on."
+
+[[bin]]
+name = "cargo-sensorium"
+path = "src/main.rs"
+
+[dependencies]
+sensorium-transform = { path = "../sensorium-transform" }
+# `syn` walks the module tree (`mod` declarations and `#[path]`); the transform
+# crate re-parses for the splice. No third parser.
+syn = { version = "2", features = ["full", "parsing"] }
+proc-macro2 = { version = "1.0.80", features = ["span-locations"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# NOTE the absent dependencies. No `sha2` (src/sha256.rs is 90 lines with the
+# NIST vectors as its test), no `libc` (std reaches everything the driver
+# needs), no `cargo_metadata` (spec 2.1: no `cargo metadata` call).
