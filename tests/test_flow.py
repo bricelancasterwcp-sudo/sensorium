@@ -360,3 +360,19 @@ def test_flow_flags_an_incomplete_run(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "INCOMPLETE" in out
     assert "sightings: 0" in out
+
+
+def test_flow_refuses_a_trace_that_declares_no_line_events(tmp_path, monkeypatch, capsys):
+    from tests.helpers import finalize_synthetic
+    from tests.programs import synthetic
+    w = synthetic(tmp_path, monkeypatch)
+    c = w.intern_code("/tmp/prog.py", "main", 1)
+    w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
+    finalize_synthetic(w, lang="rust", recorder="sensorium-rt 0.0",
+                       capabilities={"line": False, "object_identity": False})
+    w.close()
+    assert cli.main(["flow", "20260101-000000-abcdef", "--value", "1"]) == 2
+    out = capsys.readouterr().out
+    assert "flow needs line" in out and "sensorium-rt 0.0" in out
+    assert cli.main(["flow", "20260101-000000-abcdef", "--object", "0x1:int"]) == 2
+    assert "flow --object needs object_identity" in capsys.readouterr().out

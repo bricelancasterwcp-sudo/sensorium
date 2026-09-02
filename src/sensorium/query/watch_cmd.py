@@ -60,6 +60,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sensorium import paths
+from sensorium.query.caps import require
 from sensorium.query.expr import (CLIPPED, CONTAINER, NO_VALUE, NOT_CAPTURED,
                                   OUT_OF_SCOPE, TRUNCATED, EvalError,
                                   ExprError, NotCaptured, _Sized, compile_expr,
@@ -502,6 +503,10 @@ def run(args) -> int:
         return 2
     after = parse_eref(args.after) if args.after else 0
     trace = Trace.open(paths.find_trace(args.run))
+    refusal = require(trace, "line", "watch")
+    if refusal:
+        print(f"REFUSED: {refusal}")
+        return 2
     m = trace.meta
     root = Path(m["cwd"]).resolve() if m.get("cwd") else None
 

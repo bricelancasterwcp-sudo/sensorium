@@ -129,6 +129,7 @@ import shlex
 from dataclasses import dataclass
 
 from sensorium import paths
+from sensorium.query.caps import require
 from sensorium.query.fmt import fmt_event, fmt_value, more_note, parse_eref
 from sensorium.store.reader import Trace
 
@@ -741,6 +742,12 @@ def run(args) -> int:
         return 2
     after = parse_eref(args.after) if args.after else 0
     trace = Trace.open(paths.find_trace(args.run))
+    refusal = ((require(trace, "object_identity", "flow --object")
+                if args.object is not None else None)
+               or require(trace, "line", "flow"))
+    if refusal:
+        print(f"REFUSED: {refusal}")
+        return 2
     idx = Index(trace)
     target, ref, head, err = _header(trace, idx, args)
     if err:

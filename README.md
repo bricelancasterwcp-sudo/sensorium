@@ -113,6 +113,19 @@ refused, with the names that *were* captured there listed.
 This is the part worth reading. Each command's output is written to be exact
 about its own limits, and the commands differ in how much they can establish.
 
+### `diff` — shape, not location
+
+`diff` compares two runs' causal streams on `(file, qualname, kind)`; a MATCH
+is the same shape of execution, not the same values. A function moved to
+another file changes `file` on every one of its events, so a pure move reads
+DIVERGED at the first moved CALL. `diff --ignore-moves` pairs a function that
+left one file with the same-named function that appeared in another — only
+when that pairing is unique on both sides — and prints the pairing with the
+verdict as `moved: helper  a.py -> b.py`. A name present under two files on
+one side is left unpaired and any divergence inside it is still reported. A
+planted call-site swap under the same move reads DIVERGED
+(tests/test_diff_moves.py).
+
 ### `refocus` — three verdicts, and a bounded licence
 
 `refocus` re-runs the recorded command with deeper capture and then asks
@@ -268,6 +281,16 @@ command says so in its own header.
 
 ### `info`, `runs`, and the state of the recording itself
 
+- `info` prints `recorder`, `lang`, and a `capabilities` line — the
+  recorder's own declaration when the trace carries one, and `undeclared
+  (pre-format-4 Python recorder; read as full by every command)` when it does
+  not, because reading an absent declaration as full is what a command does
+  to decide whether to refuse, not something the trace ever said; from trace
+  format 4, a bookkeeping field a trace's declared
+  capabilities say should exist but does not is printed as the recorder's own
+  declaration of that gap — never as a printed `0`, and never as the
+  pre-format-4 "predates that bookkeeping" wording, which is kept for traces
+  that actually predate it.
 - Truncated captures are marked where they appear — a clipped string ends
   `~`, a sampled container ends `, ...` — and counted in `info`.
 - A run whose recording died is labelled **INCOMPLETE**, in `info` and in the
@@ -304,6 +327,9 @@ setup, so readable by every account on the machine. In plaintext it holds:
 - which asyncio task each event ran in, and the tasks' names;
 - one causal fingerprint per thread (events outside any task) and per
   asyncio task.
+
+The file layout is trace format 4; `docs/TRACE-FORMAT.md` is the contract,
+with conformance vectors under `docs/trace-format/vectors/`.
 
 `info` refuses to print the environment and `refocus` refuses to print the
 variables it compared — both carry secrets, and both say so in their own
@@ -435,6 +461,12 @@ subtracted.
 its price depends on what you point it at: at the hot recursive function
 above it adds a third again, and pointed at a function whose body is a hot
 inner loop it would cost far more.
+
+Reading a trace back is a separate cost from recording one, and it is
+reported here rather than gated, same as everything else in this section:
+`info` on a 93k-event/44k-frame trace (`20260901-210520-7f8854`) took 54.4 s
+before the reader fix — an unindexed `LEFT JOIN` scanning `frames` once per
+`CALL` row — and takes 0.08 s after it, on this box.
 
 ## Corpus
 

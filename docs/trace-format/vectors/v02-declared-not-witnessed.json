@@ -1,0 +1,59 @@
+{
+  "id": "v02-declared-not-witnessed",
+  "asserts": "A recorder that declares a capability false is read as HAVING SAID SO. `info` prints the declaration itself (recorder, lang, every capability), and for each missing bookkeeping key it prints why the record is absent -- as a declaration, never as 'predates' (which is only true of a trace with no capabilities key at all) and never as a zero.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["prog"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "vector 1.0",
+    "lang": "rust",
+    "capabilities": {"threads": false, "children": false, "stdin": false, "line": false},
+    "incomplete": false
+  },
+  "codes": [["/w/a.py", "main", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1, "line": null,
+     "payload": {"value": {"k": "none"}}, "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "declaration-printed",
+      "ask": "Does `info` print who recorded this trace, in what language, and what that recorder declared it produces?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_line": [
+        ["recorder: vector 1.0", "lang: rust",
+         "capabilities: children=no line=no stdin=no threads=no"]
+      ]
+    },
+    {
+      "id": "absence-is-a-declaration",
+      "ask": "With no threads_started and no children/spawn_syscalls/audit_errors in the trace, how does `info` explain the absence?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "not recorded in this trace: threads_started",
+        "declares threads not witnessed",
+        "declares children not witnessed",
+        "absence of the record is not a record of absence"
+      ],
+      "expect_absent": ["predates", "threads started: 0", "spawn syscalls: 0"]
+    }
+  ]
+}

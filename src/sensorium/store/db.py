@@ -3,23 +3,39 @@ import json
 import sqlite3
 from pathlib import Path
 
-TRACE_FORMAT = 3
+TRACE_FORMAT = 4
+
+# Keys a finalized format-4 trace MUST carry (spec §5.1). Every reader
+# defaults these when absent; on a trace that claims `incomplete = False`
+# that default would print as a measured zero, so absence is refused here,
+# once, instead of guarded at every `.get(key, 0)`.
+REQUIRED_META = ("run_id", "argv", "cwd", "env_hash", "start_ts", "end_ts",
+                 "exit_status", "main_thread_ident", "fingerprint_basis",
+                 "truncated_count", "source_hashes",
+                 "recorder", "lang", "capabilities")
+# Witness keys, required only when the recorder declares the capability
+# that produces them. A capability declared False means "not witnessed",
+# which every reader prints as such -- never as zero, never as "predates".
+WITNESS_KEYS = {"threads": ("threads_started", "live_threads"),
+                "children": ("children", "spawn_syscalls", "audit_errors"),
+                "stdin": ("stdin_consumed",)}
 
 
 class TraceFormatError(Exception):
-    """A trace written by a NEWER sensorium than this one can read.
+    """A trace this sensorium must not read: written by a NEWER sensorium,
+    or a format-4 trace that claims to be finalized without the keys the
+    format requires.
 
     `trace_format` is stamped at creation; a higher value means the file's
-    layout may differ from what these queries assume. Refusing is the honest
-    answer -- reading it anyway would answer from a schema this version does
-    not know. A trace with no `trace_format` at all predates the key and is
-    read as the current format (it cannot be from the future). Format 2
-    (async attribution) added events.task_id, the tasks table and
-    CALL-payload keys; a format-1 trace opens and its parentage is reported
-    as assumed -- see reader.Trace.parentage_basis. Format 3 (inspectable
-    coroutines) added frames.kind, the YIELD/RESUME event kinds, and
-    task_fingerprints; a format-2 trace opens and renders with arc 1's
-    wording.
+    layout may differ from what these queries assume. A trace with no
+    `trace_format` at all predates the key and is read as format 1. Format
+    2 (async attribution) added events.task_id, the tasks table and
+    CALL-payload keys. Format 3 (inspectable coroutines) added frames.kind,
+    the YIELD/RESUME event kinds, and task_fingerprints. Format 4 (the
+    trace-format contract, docs/TRACE-FORMAT.md) adds no column: it makes
+    `recorder`, `lang` and `capabilities` required meta, and requires the
+    finalize keys above on any trace that says `incomplete = False`, so a
+    second recorder can never render an absent record as a zero.
     """
 
 SCHEMA = """
@@ -100,6 +116,33 @@ def create_trace(path: Path) -> sqlite3.Connection:
     return conn
 
 
+def missing_required(conn: sqlite3.Connection) -> list[str]:
+    """Required keys absent from a trace that claims to be finalized, in
+    a stable order; [] when nothing is missing or the claim is not made.
+
+    A `capabilities` that is present but not a dict counts as absent. This
+    is a validation boundary for a recorder nobody here wrote: a list, a
+    string or a null is not a declaration this reader can act on, and
+    reporting it by name is the whole point of the mechanism. Reading it
+    anyway would raise AttributeError out of `open_trace`, which the CLI
+    does not catch, or -- for null -- pass silently and be rendered
+    downstream as the full Python capability set.
+    """
+    if get_meta(conn, "incomplete") is not False:
+        return []
+    present = {k for (k,) in conn.execute("SELECT key FROM meta")}
+    missing = [k for k in REQUIRED_META if k not in present]
+    caps = get_meta(conn, "capabilities")
+    if not isinstance(caps, dict):
+        if "capabilities" not in missing:
+            missing.append("capabilities")
+        caps = {}
+    for cap, keys in WITNESS_KEYS.items():
+        if caps.get(cap):
+            missing += [k for k in keys if k not in present]
+    return missing
+
+
 def open_trace(path: Path) -> sqlite3.Connection:
     path = Path(path)
     if not path.exists():
@@ -111,6 +154,17 @@ def open_trace(path: Path) -> sqlite3.Connection:
         raise TraceFormatError(
             f"{path} is trace format {fmt}, newer than this sensorium reads "
             f"(up to {TRACE_FORMAT}); upgrade sensorium to open it")
+    if fmt is not None and fmt >= 4:
+        missing = missing_required(conn)
+        if missing:
+            who = get_meta(conn, "recorder")
+            if not isinstance(who, str) or not who:
+                who = "an unnamed recorder"     # absent, null, or not a name
+            conn.close()
+            raise TraceFormatError(
+                f"{path} claims to be finalized (incomplete = false) but "
+                f"lacks required meta {', '.join(missing)} -- written by "
+                f"{who}; format 4 refuses rather than read those as zero")
     return conn
 
 

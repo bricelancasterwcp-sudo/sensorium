@@ -10,6 +10,7 @@ import re
 from collections import Counter
 
 from sensorium import paths
+from sensorium.query.caps import witness_gap
 from sensorium.query.fmt import fmt_exc
 from sensorium.store.reader import Trace
 
@@ -22,9 +23,11 @@ def add_parser(sub) -> None:
 
 _BOOKKEEPING = ("children", "threads_started", "spawn_syscalls",
                 "audit_errors")
+_THREAD_BOOKKEEPING = ("threads_started",)
+_CHILD_BOOKKEEPING = ("children", "spawn_syscalls", "audit_errors")
 
 
-def unwitnessed_lines(m: dict) -> list[str]:
+def unwitnessed_lines(trace, m: dict) -> list[str]:
     """Everything the recorder NOTICED starting and could not witness.
 
     `children` was for a long time the only one of these `info` printed, so a
@@ -60,12 +63,54 @@ def unwitnessed_lines(m: dict) -> list[str]:
             "read as 'nothing was started'")
     # An incomplete run is missing all of these for a reason already printed
     # at the top; saying it twice would bury the one that is news.
-    missing = [k for k in _BOOKKEEPING if k not in m]
-    if missing and not m.get("incomplete"):
-        out.append("not recorded in this trace: " + ", ".join(missing)
-                   + " -- it predates that bookkeeping, so absence of the "
-                     "record is not a record of absence")
+    if m.get("incomplete"):
+        return out
+    if trace.declares("threads") is None:
+        # Predates declarations outright (no `capabilities` key): one
+        # merged line, in the original key order and the original wording
+        # -- this task changes nothing about a pre-format-4 trace's output.
+        missing = [k for k in _BOOKKEEPING if k not in m]
+        if missing:
+            out.append("not recorded in this trace: " + ", ".join(missing)
+                       + " -- it predates that bookkeeping, so absence of "
+                         "the record is not a record of absence")
+        return out
+    # From format 4 an absence is a declaration, and `threads` and
+    # `children` can be declared two different ways on the same trace --
+    # grouped so a mixed case never borrows one capability's declaration to
+    # describe the other's.
+    missing_threads = [k for k in _THREAD_BOOKKEEPING if k not in m]
+    if missing_threads:
+        out.append("not recorded in this trace: "
+                   + ", ".join(missing_threads) + " -- "
+                   + witness_gap(trace, "threads", "thread", ""))
+    missing_children = [k for k in _CHILD_BOOKKEEPING if k not in m]
+    if missing_children:
+        out.append("not recorded in this trace: "
+                   + ", ".join(missing_children) + " -- "
+                   + witness_gap(trace, "children", "child-process", ""))
     return out
+
+
+def capabilities_line(trace) -> str:
+    """What the trace DECLARES -- never what a reader assumed on its behalf.
+
+    `Trace.capabilities` fills in `boot.CAPABILITIES` (every one true) for a
+    Python trace carrying no `capabilities` key. That is the right reading
+    for a command deciding whether to refuse -- the only recorder that
+    existed had every capability -- but printing it here rendered an
+    assumption as a declaration: a format-1 trace said `capabilities:
+    children=yes line=yes ... tasks=yes threads=yes` two lines above
+    `tasks: not recorded (format-1 trace; parentage assumed)`, about the
+    same trace. `declares()` returns None for exactly that case and for no
+    other, so it is what the branch reads.
+    """
+    if trace.declares("threads") is None:
+        return ("undeclared (pre-format-4 Python recorder; read as full by "
+                "every command)")
+    return (" ".join(f"{k}={'yes' if v else 'no'}"
+                     for k, v in sorted(trace.capabilities.items()))
+            or "(none declared)")
 
 
 def run(args) -> int:
@@ -88,6 +133,8 @@ def run(args) -> int:
     print(f"python {m.get('python', '?')}  env:{m.get('env_hash', '?')}  "
           f"exit: {m.get('exit_status', '?')}  events: {sum(counts.values())}"
           f"{dur}")
+    print(f"recorder: {t.recorder}  lang: {t.lang}  "
+          f"capabilities: {capabilities_line(t)}")
     print("recorded: " + "  ".join(f"{k} {counts.get(k, 0)}" for k in
                                    ("CALL", "RETURN", "RAISE", "HANDLED",
                                     "YIELD", "RESUME", "LINE")))
@@ -137,7 +184,7 @@ def run(args) -> int:
         print(f"uncaught: {fmt_exc(m['uncaught'])}")
     for child in m.get("children") or []:
         print(f"unwitnessed subprocess: {' '.join(child)}")
-    for line in unwitnessed_lines(m):
+    for line in unwitnessed_lines(t, m):
         print(line)
     # Always the JOIN, on every format. Arc 2 opens a frame for every traced
     # code object -- function, generator, coroutine, or async generator -- so
@@ -175,7 +222,7 @@ def run(args) -> int:
     # late_writes is a lower bound: writes that arrive after this count was
     # captured can never be counted either. Only surface it when non-zero,
     # so a reader never mistakes a printed "0" for proof nothing was lost.
-    late_writes = m.get("late_writes", 0)
+    late_writes = t.dropped_writes()
     if late_writes:
         print(f"late writes dropped: >={late_writes} (trace is incomplete "
               "for still-live threads; the true count may be higher)")

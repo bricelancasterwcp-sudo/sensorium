@@ -11,9 +11,10 @@ import re
 
 from sensorium import cli, paths
 from sensorium.query.diff_cmd import compare, first_divergence
+from sensorium.store import db
 from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter
-from tests.helpers import run_cli
+from tests.helpers import LEGACY_FORMAT, finalize_synthetic, run_cli
 from tests.programs import THREADED_SWALLOWS, record
 from tests.refocus_programs import JOINED_UNTRACED_WORKER
 
@@ -301,6 +302,34 @@ def test_diff_says_it_cannot_count_threads_on_a_trace_that_predates_the_count(
         assert "absence of the record is not a record of absence" in note
 
 
+def test_diff_names_a_declared_but_incomplete_recording_in_the_note(
+        tmp_path, monkeypatch, capsys):
+    """Today's Python recorder writes `capabilities` (all True) at run
+    start (`boot.install()`) and `threads_started` only at the finalize
+    pass -- a still-incomplete recording declares `threads` True with the
+    key still absent, and that must never read as "predates" (it does not
+    predate the declaration; it just has not finished). The comparison must
+    still be REFUSED: `incomplete` is true regardless of what the note
+    says."""
+    from sensorium.record.boot import CAPABILITIES
+    run_id = "20260101-000000-inflight"
+    w = _synthetic(tmp_path, monkeypatch, run_id)
+    w.set_meta("capabilities", dict(CAPABILITIES))
+    w.set_meta("recorder", "sensorium 9.9.9")
+    w.set_meta("incomplete", True)
+    w.close()
+    assert cli.main(["diff", run_id, run_id]) == 2
+    out = capsys.readouterr().out
+    assert "REFUSED" in out
+    note = next(l for l in out.splitlines()
+                if l.startswith("note: A's recorder"))
+    assert ("declares threads witnessed, but this trace carries no thread "
+            "record") in note
+    assert "the recording did not finish, or the record was removed" in note
+    assert "absence of the record is not a record of absence" in note
+    assert "predates" not in note
+
+
 def test_diff_thread_note_is_per_side_not_shared(tmp_path, monkeypatch,
                                                   capsys):
     """One multi-threaded side and one single-threaded side: only the
@@ -412,7 +441,7 @@ def test_diff_refuses_a_trace_with_dropped_late_writes(
     trace, not silently trusted because incomplete is False."""
     good = _rec(tmp_path, "a", ["500"])
     w = _synthetic(tmp_path, monkeypatch, "20260101-000000-latewr")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("late_writes", 3)
     w.close()
@@ -699,6 +728,9 @@ def test_diff_compares_across_bases_when_neither_side_ran_a_task(
     import sqlite3
     c = sqlite3.connect(sdir / "traces" / f"{a}.db")
     c.execute("DELETE FROM meta WHERE key='fingerprint_basis'")
+    # format 4 requires the key on a finalized trace, so a fixture that
+    # removes it has to claim the older format it is imitating.
+    db.set_meta(c, "trace_format", LEGACY_FORMAT)
     c.commit(); c.close()
     b = _rec(tmp_path, "b", ["100"])
     assert cli.main(["diff", a, b]) == 0
@@ -715,7 +747,7 @@ def _task_only(run_id, task_hash, name="task-A"):
     w.set_meta("argv", ["prog.py"])
     w.set_meta("main_thread_ident", 1)
     w.set_meta("fingerprint_basis", "per-task")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("threads_started", 0)
     w.add_task(1, name, 1)
     c = w.intern_code("/tmp/prog.py", "worker", 1)

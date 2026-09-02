@@ -1,0 +1,63 @@
+{
+  "id": "v05-closed-by-unwind-panic",
+  "asserts": "A panic is `closed_by = 'unwind'` with `unwind_exc = {type, msg, serial, oid}` -- 'panic' is not a closed_by value, and a frame that carried one would render as a false ' (open)'. The readers derive the state from that evidence: `frame` prints `closed: unwind` and the exception, `tree` prints `!! panic('boom')`, and neither reports the frame as still running.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["prog"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 101,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "vector 1.0",
+    "lang": "rust",
+    "capabilities": {"threads": false, "children": false, "stdin": false, "line": false},
+    "incomplete": false
+  },
+  "codes": [["/w/a.py", "main", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": null, "depth": 0,
+     "thread": 1, "closed_by": "unwind", "kind": "function",
+     "unwind_exc": {"type": "panic", "msg": "boom", "serial": 1, "oid": 1}}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "RAISE", "frame": 1, "code": 1, "line": 4,
+     "payload": {"exc": {"type": "panic", "msg": "boom", "serial": 1, "oid": 1}},
+     "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "frame-reports-the-unwind",
+      "ask": "How does `frame` report an activation the recorder closed with closed_by = unwind?",
+      "command": ["frame", "$RUN", "--fn", "main"],
+      "expect_exit": 0,
+      "expect_line": [["f1 a.py:main", "closed: unwind"]],
+      "expect_contains": ["unwound: panic('boom')"],
+      "expect_absent": ["closed: open", "state: open", "[None]"]
+    },
+    {
+      "id": "tree-does-not-call-it-open",
+      "ask": "Does `tree` show the panic as the frame's ending, rather than leaving the frame '(open)'?",
+      "command": ["tree", "$RUN"],
+      "expect_exit": 0,
+      "expect_line": [["f1 e1", "main", "!! panic('boom')"]],
+      "expect_absent": ["(open)", "[None]"]
+    },
+    {
+      "id": "raise-payload-renders",
+      "ask": "Does the RAISE payload's exc{type,msg} render on its own event line?",
+      "command": ["grep", "$RUN", "RAISE"],
+      "expect_exit": 0,
+      "expect_line": [["e2 RAISE", "main raise panic('boom') L4"]],
+      "expect_count": {"matches: 1": 1}
+    }
+  ]
+}

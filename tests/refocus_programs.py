@@ -20,7 +20,7 @@ from pathlib import Path
 from sensorium.store import db
 from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter
-from tests.helpers import record_script, run_cli
+from tests.helpers import LEGACY_FORMAT, record_script, run_cli
 
 # Deterministic. `accumulate`'s loop calls nothing, so editing its input list
 # changes the printed value but NOT the causal stream -- which is exactly the
@@ -433,10 +433,18 @@ def set_meta(path, **kv):
 def drop_meta(path, *keys):
     """Remove metadata keys from a real recording, to make it look like a
     trace from before that key existed. `db` has no delete -- legacy shapes
-    are read-only history everywhere else in the codebase."""
+    are read-only history everywhere else in the codebase.
+
+    If a REQUIRED key went with them, the trace's format claim goes too:
+    from format 4 a finalized trace missing one is refused at open, so a
+    fixture that removes one has to say it is the older format it is
+    imitating. Dropping a merely optional key leaves the format alone.
+    """
     conn = db.open_trace(path)
     for key in keys:
         conn.execute("DELETE FROM meta WHERE key = ?", (key,))
+    if db.missing_required(conn):
+        db.set_meta(conn, "trace_format", LEGACY_FORMAT)
     conn.commit()
     conn.close()
 
@@ -464,7 +472,6 @@ def synthetic(sdir, run_id, *, argv=("prog.py",), cwd=None, late_writes=0,
         w.set_meta("argv", list(argv))
     if cwd is not None:
         w.set_meta("cwd", str(cwd))
-    w.set_meta("incomplete", False)
     w.set_meta("late_writes", late_writes)
     w.set_meta("live_threads", [])
     w.set_meta("threads_started", 0)
@@ -472,6 +479,12 @@ def synthetic(sdir, run_id, *, argv=("prog.py",), cwd=None, late_writes=0,
     w.set_meta("spawn_syscalls", 0)
     if main_thread_ident is not None:
         w.set_meta("main_thread_ident", main_thread_ident)
+    # Every shape this builder exists to make is one a required key is
+    # MISSING from -- no argv, no cwd, no recorded main thread, no
+    # fingerprint_basis. Format 4 refuses that combination on a finalized
+    # trace, and rightly: these are older recorders' traces, so they say so.
+    w.set_meta("trace_format", LEGACY_FORMAT)
+    w.set_meta("incomplete", False)
     c = w.intern_code("/tmp/prog.py", "main", 1)
     w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
     for task_id, name, thread_id in tasks:

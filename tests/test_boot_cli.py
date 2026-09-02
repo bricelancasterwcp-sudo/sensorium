@@ -12,7 +12,7 @@ from sensorium import paths
 from sensorium.record import boot
 from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter
-from tests.helpers import record_script, run_cli
+from tests.helpers import FINAL_META, record_script, run_cli
 
 HELLO = """
 def greet(name):
@@ -494,6 +494,11 @@ def test_dropped_late_writes_reach_the_run_metadata(tmp_path):
     assert g.add_event(1, 2, "CALL", None, 0, 1, None) == 0
     g.add_output(0, "stdout", "late")
     g.set_meta_final("late_writes", g.late_writes)
+    # Through the guard, not `finalize_synthetic`: after `seal()` the plain
+    # `set_meta` path is absorbed, and a format-4 trace that says it
+    # finalized must carry every required key (db.REQUIRED_META).
+    for k, v in FINAL_META.items():
+        g.set_meta_final(k, v)
     g.set_meta_final("incomplete", False)
     g.close()
     m = Trace.open(tmp_path / "t.db").meta

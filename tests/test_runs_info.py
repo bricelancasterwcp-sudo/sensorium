@@ -5,7 +5,7 @@ import pytest
 from sensorium import cli, paths
 from sensorium.record import boot
 from sensorium.store.writer import TraceWriter
-from tests.helpers import record_script
+from tests.helpers import LEGACY_FORMAT, finalize_synthetic, record_script
 from tests.programs import synthetic
 from tests.refocus_programs import (ASYNC_CONTENT_FLIP, COUNTER, new_run, rec,
                                     refocus)
@@ -119,7 +119,7 @@ def test_info_surfaces_late_writes_as_a_lower_bound(
     w.set_meta("cwd", str(tmp_path))
     w.set_meta("python", "3.12.0")
     w.set_meta("exit_status", 0)
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("late_writes", 3)
     w.set_meta("caps", {})
     w.close()
@@ -256,22 +256,39 @@ def test_info_says_nothing_about_threads_or_spawns_when_there_were_none(
 def test_info_flags_a_trace_that_predates_the_bookkeeping(
         tmp_path, monkeypatch, capsys):
     """Absence of the record is not a record of absence: a trace with no
-    `spawn_syscalls` key must not read like a run that spawned nothing."""
+    `spawn_syscalls` key must not read like a run that spawned nothing.
+
+    From format 4 that absence is a DECLARATION, not an accident of age: the
+    trace declares only `line`, so `threads`, `children` and `stdin` are
+    declared false and their witness keys are legitimately not written. The
+    line `info` prints must say the same thing either way."""
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     run_id = "20260101-000000-abcdef"
     w = TraceWriter(paths.traces_dir() / f"{run_id}.db", batch=1)
     for k, v in (("run_id", run_id), ("argv", ["prog.py"]),
                  ("cwd", str(tmp_path)), ("python", "3.12.0"),
-                 ("exit_status", 0), ("incomplete", False), ("caps", {})):
+                 ("exit_status", 0), ("caps", {})):
         w.set_meta(k, v)
+    finalize_synthetic(w, capabilities={"line": True})
     w.close()
 
     assert cli.main(["info", run_id]) == 0
-    line = _one(capsys.readouterr().out, "not recorded in this trace:")
-    for key in ("children", "threads_started", "spawn_syscalls",
-                "audit_errors"):
-        assert key in line
-    assert "not a record of absence" in line
+    out = capsys.readouterr().out
+    lines = [l for l in out.splitlines()
+             if l.startswith("not recorded in this trace:")]
+    assert len(lines) == 2
+    thread_line = _one(out, "not recorded in this trace: threads_started")
+    assert ("declares threads not witnessed (capabilities.threads: false)"
+            in thread_line)
+    assert "no thread record to read" in thread_line
+    assert "not a record of absence" in thread_line
+    child_line = _one(out, "not recorded in this trace: children")
+    for key in ("children", "spawn_syscalls", "audit_errors"):
+        assert key in child_line
+    assert ("declares children not witnessed (capabilities.children: false)"
+            in child_line)
+    assert "no child-process record to read" in child_line
+    assert "not a record of absence" in child_line
 
 
 def test_info_reports_an_audit_hook_that_malfunctioned(
@@ -283,10 +300,11 @@ def test_info_reports_an_audit_hook_that_malfunctioned(
     w = TraceWriter(paths.traces_dir() / f"{run_id}.db", batch=1)
     for k, v in (("run_id", run_id), ("argv", ["prog.py"]),
                  ("cwd", str(tmp_path)), ("python", "3.12.0"),
-                 ("exit_status", 0), ("incomplete", False), ("caps", {}),
+                 ("exit_status", 0), ("caps", {}),
                  ("children", []), ("threads_started", 0),
                  ("spawn_syscalls", 0), ("audit_errors", 2)):
         w.set_meta(k, v)
+    finalize_synthetic(w)
     w.close()
 
     assert cli.main(["info", run_id]) == 0
@@ -370,7 +388,7 @@ def test_info_counts_unframed_calls_on_a_format_3_trace_too(
                 {"args": {}, "unframed": "generator"})
     e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
     w.close_frame(f_main, e_ret, "return")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
@@ -525,3 +543,43 @@ def test_info_summarises_many_tasks_by_name(tmp_path, monkeypatch, capsys):
     line = next(l for l in out.splitlines() if l.startswith("tasks: "))
     assert line == ("tasks: 14 (2 distinct name(s): worker x10, "
                     "Task-N (asyncio default names) x4)")
+
+
+def test_info_prints_the_recorder_and_its_declarations(tmp_path, monkeypatch, capsys):
+    w = synthetic(tmp_path, monkeypatch)
+    finalize_synthetic(w, lang="rust", recorder="sensorium-rt 0.0",
+                       capabilities={"line": False, "threads": False,
+                                     "children": False, "stdin": False})
+    w.close()
+    assert cli.main(["info", "20260101-000000-abcdef"]) == 0
+    out = capsys.readouterr().out
+    assert "recorder: sensorium-rt 0.0  lang: rust" in out
+    assert "declares threads not witnessed" in out
+    assert "predates" not in out
+
+
+def test_info_prints_the_original_single_line_for_a_trace_that_predates_declarations(
+        tmp_path, monkeypatch, capsys):
+    """A genuine pre-format-4 trace (no `capabilities` key, stamped the
+    older format so format 4's own finalize check does not fire) missing
+    all four bookkeeping keys must print exactly the original, un-grouped
+    line -- this task changes nothing about pre-format-4 output."""
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    run_id = "20260101-000000-legacy9"
+    w = TraceWriter(paths.traces_dir() / f"{run_id}.db", batch=1)
+    for k, v in (("run_id", run_id), ("argv", ["prog.py"]),
+                 ("cwd", str(tmp_path)), ("python", "3.12.0"),
+                 ("exit_status", 0), ("caps", {})):
+        w.set_meta(k, v)
+    w.set_meta("incomplete", False)
+    w.set_meta("trace_format", LEGACY_FORMAT)
+    w.close()
+
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    lines = [l for l in out.splitlines()
+             if l.startswith("not recorded in this trace:")]
+    assert lines == [
+        "not recorded in this trace: children, threads_started, "
+        "spawn_syscalls, audit_errors -- it predates that bookkeeping, so "
+        "absence of the record is not a record of absence"]

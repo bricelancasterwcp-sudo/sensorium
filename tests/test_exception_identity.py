@@ -13,6 +13,7 @@ identity is exact, lost, or bounded away.
 """
 from sensorium import cli, paths
 from sensorium.store.reader import Trace
+from tests.helpers import finalize_synthetic
 from tests.programs import (
     CLEANUP_RAISES_ITS_OWN, IN_FLIGHT_PAST_RETENTION, RETENTION_NOISE_COUNT,
     STASH_AND_RERAISE, STASH_NOISE_RERAISE, STASH_PAST_GENERATOR_EXITS,
@@ -230,7 +231,7 @@ def test_exceptions_reused_address_with_a_different_type_is_still_a_swallow(
     w.add_event(0, 1, "HANDLED", f_main, c_main, 12, {"exc": run})
     e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
     w.close_frame(f_main, e_ret, "return")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
@@ -278,7 +279,7 @@ def test_exceptions_unwind_at_another_address_or_type_is_not_this_exception(
 
     e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
     w.close_frame(f_main, e_ret, "return")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()
@@ -312,7 +313,7 @@ def test_exceptions_legacy_repeat_is_not_dressed_up_as_a_lost_link(
     h2 = w.add_event(0, 1, "HANDLED", f_main, c_main, 7, {"exc": second})
     e_ret = w.add_event(0, 1, "RETURN", f_main, c_main, None, {"value": None})
     w.close_frame(f_main, e_ret, "return")
-    w.set_meta("incomplete", False)
+    finalize_synthetic(w)
     w.set_meta("exit_status", 0)
     w.set_meta("uncaught", None)
     w.close()

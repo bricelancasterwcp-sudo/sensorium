@@ -1,0 +1,61 @@
+{
+  "id": "v03-two-thread-order",
+  "asserts": "events.id is causal order ACROSS threads within one process, not a per-thread counter: thread 2's CALL and RETURN take ids 2 and 3, between thread 1's CALL (1) and RETURN (4), and every reader renders them in that one order.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["prog"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "vector 1.0",
+    "lang": "rust",
+    "capabilities": {"threads": true, "children": false, "stdin": false, "line": false},
+    "threads_started": 1,
+    "live_threads": [],
+    "incomplete": false
+  },
+  "codes": [["/w/a.py", "main", 1], ["/w/a.py", "worker", 9]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 4, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"},
+    {"parent": null, "code": 2, "call": 2, "return": 3, "depth": 0,
+     "thread": 2, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}}, "task": null},
+    {"ts": 2000, "thread": 2, "kind": "CALL", "code": 2, "line": 9,
+     "payload": {"args": {}}, "task": null},
+    {"ts": 3000, "thread": 2, "kind": "RETURN", "frame": 2, "code": 2, "line": null,
+     "payload": {"value": {"k": "none"}}, "task": null},
+    {"ts": 4000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1, "line": null,
+     "payload": {"value": {"k": "none"}}, "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "roots-in-event-order",
+      "ask": "Does `tree` render both threads' root frames, each against the event id it was called at?",
+      "command": ["tree", "$RUN"],
+      "expect_exit": 0,
+      "expect_line": [["f1 e1", "main"], ["f2 e2", "worker"]],
+      "expect_count": {"f1 e1": 1, "f2 e2": 1}
+    },
+    {
+      "id": "interleaved-ids",
+      "ask": "Which event ids did the second thread's two events get?",
+      "command": ["grep", "$RUN", "worker"],
+      "expect_exit": 0,
+      "expect_line": [["e2 CALL", "worker"], ["e3 RETURN", "worker"]],
+      "expect_count": {"matches: 2": 1},
+      "expect_absent": ["e1 CALL", "e4 RETURN"]
+    }
+  ]
+}

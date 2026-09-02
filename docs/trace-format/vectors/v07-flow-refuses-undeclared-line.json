@@ -1,0 +1,47 @@
+{
+  "id": "v07-flow-refuses-undeclared-line",
+  "asserts": "A command gated on a capability refuses on a trace that declares it false, naming the recorder -- it never searches the LINE events a recorder said it does not produce and reports the empty result as a finding. `capabilities.line: false` is the declaration; `flow` is the command that needs it.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["prog"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "vector 1.0",
+    "lang": "rust",
+    "capabilities": {"threads": false, "children": false, "stdin": false, "line": false},
+    "incomplete": false
+  },
+  "codes": [["/w/a.py", "main", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": null, "depth": 0,
+     "thread": 1, "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}}, "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "flow-refuses",
+      "ask": "What does `flow` do on a trace whose recorder declares it produces no LINE events?",
+      "command": ["flow", "$RUN", "--value", "1"],
+      "expect_exit": 2,
+      "expect_contains": [
+        "flow needs line",
+        "vector 1.0",
+        "capabilities.line: false",
+        "nothing was checked"
+      ],
+      "expect_absent": ["no sightings", "matches: 0"]
+    }
+  ]
+}

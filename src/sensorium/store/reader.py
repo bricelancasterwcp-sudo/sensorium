@@ -87,6 +87,7 @@ class Trace:
         self._c = conn
         self.path = path
         self._code_cache: dict[int, Code] | None = None
+        self._child_ids: dict[int | None, list[int]] | None = None
         cols = {r[1] for r in conn.execute("PRAGMA table_info(events)")}
         # Decided from the table, not from meta: the column is the fact.
         self._ecols = _EVENT_COLS_V2 if "task_id" in cols else _EVENT_COLS_V1
@@ -155,15 +156,23 @@ class Trace:
             f"SELECT {self._fcols} FROM frames WHERE id = ?", (fid,)).fetchone()
         return None if row is None else _frame(row)
 
+    def _parent_map(self) -> dict[int | None, list[int]]:
+        """parent_id -> [frame ids], built once per Trace from one ordered
+        pass over (id, parent_id). `children()` was a full `frames` scan per
+        call (no index on parent_id), so a tree walk was O(frames^2)."""
+        if self._child_ids is None:
+            m: dict[int | None, list[int]] = {}
+            for fid, pid in self._c.execute(
+                    "SELECT id, parent_id FROM frames ORDER BY id"):
+                m.setdefault(pid, []).append(fid)
+            self._child_ids = m
+        return self._child_ids
+
     def children(self, fid: int) -> list[Frame]:
-        return [_frame(r) for r in self._c.execute(
-            f"SELECT {self._fcols} FROM frames WHERE parent_id = ? "
-            "ORDER BY id", (fid,))]
+        return [self.frame(i) for i in self._parent_map().get(fid, [])]
 
     def roots(self) -> list[Frame]:
-        return [_frame(r) for r in self._c.execute(
-            f"SELECT {self._fcols} FROM frames WHERE parent_id IS NULL "
-            "ORDER BY id")]
+        return [self.frame(i) for i in self._parent_map().get(None, [])]
 
     def frame_events(self, fid: int) -> list[Event]:
         return self.events(frame_id=fid)
@@ -198,20 +207,27 @@ class Trace:
             (task_id,)).fetchone()
         return None if row is None else Task(*row)
 
+    def _unframed_sql(self, code_id: int | None = None) -> str:
+        # NOT IN over frames.call_event_id (NOT NULL by schema, so NOT IN is
+        # exact), not a LEFT JOIN: the join had no index to use and scanned
+        # `frames` once per CALL row -- 53.9 s on a 93k-event trace, 0.011 s
+        # this way, row-identical (measured 2026-09-01).
+        q = (f"SELECT {self._ecols} FROM events WHERE kind = 'CALL' "
+             "AND code_id IS NOT NULL "
+             "AND id NOT IN (SELECT call_event_id FROM frames)")
+        if code_id is not None:
+            q += " AND code_id = ?"
+        return q + " ORDER BY id"
+
     def unframed_calls(self, code_id: int | None = None) -> list[Event]:
         """CALL events no frame was opened for (generators, coroutines).
 
-        A join on frames.call_event_id, deliberately not the `unframed`
-        payload key: the key is format 2, the join answers for every format,
+        Decided by the frames table, deliberately not the `unframed`
+        payload key: the key is format 2, the table answers for every format,
         and 'recorded but not framed' must be the same fact on both."""
-        q = (f"SELECT {', '.join('e.' + c.strip() for c in self._ecols.split(','))} "
-             "FROM events e LEFT JOIN frames f ON f.call_event_id = e.id "
-             "WHERE e.kind = 'CALL' AND f.id IS NULL AND e.code_id IS NOT NULL")
-        params: tuple = ()
-        if code_id is not None:
-            q += " AND e.code_id = ?"
-            params = (code_id,)
-        return [_event(r) for r in self._c.execute(q + " ORDER BY e.id", params)]
+        params: tuple = () if code_id is None else (code_id,)
+        return [_event(r) for r in self._c.execute(self._unframed_sql(code_id),
+                                                   params)]
 
     def call_counts(self) -> dict[int, int]:
         """code_id -> CALL events. Counts activations, framed or not."""
@@ -230,6 +246,67 @@ class Trace:
         "per-thread" (every causal event on the thread; the only definition
         before the marker existed, so absence means exactly that)."""
         return self.meta.get("fingerprint_basis") or "per-thread"
+
+    @property
+    def lang(self) -> str:
+        """`meta["lang"]`; a trace without it predates the declaration and
+        was written by the Python recorder (nothing else existed)."""
+        return self.meta.get("lang") or "python"
+
+    @property
+    def recorder(self) -> str:
+        r = self.meta.get("recorder")
+        return r or f"sensorium <=0.4.0 (format {self.format}, undeclared)"
+
+    @property
+    def capabilities(self) -> dict:
+        """What the recorder declared it produces. A Python trace with no
+        declaration is read as full: that recorder had every capability and,
+        before format 4, no way to say so (a hand-built or still-recording
+        format-4 Python trace is the same case -- the open-time refusal
+        guarantees a FINALIZED format-4 trace always carries the key). A
+        non-Python trace with no declaration declares nothing.
+
+        A declaration that is PRESENT but not a dict -- a list, a string, a
+        null -- declared nothing usable, whatever the language: reading it
+        as full would turn a recorder's malformed claim into ten
+        capabilities it never asserted, and `dict()` on it would raise.
+        Absence and unusability are different facts and only absence on a
+        Python trace means "predates the declaration"."""
+        caps = self.meta.get("capabilities")
+        if isinstance(caps, dict):
+            return dict(caps)
+        if "capabilities" in self.meta:
+            return {}                      # present but not a usable dict
+        if self.lang == "python":
+            # Local: `boot` pulls runpy/subprocess/tracer, and every
+            # other importer in the tree defers it for the same reason.
+            from sensorium.record.boot import CAPABILITIES
+            return dict(CAPABILITIES)
+        return {}
+
+    def declares(self, cap: str) -> bool | None:
+        """True/False = the recorder declared `cap`; None = nothing was
+        declared and the trace is the Python recorder's (undeclared = full,
+        the only recorder that existed). A trace whose dict omits a
+        capability declared it False; a non-Python trace with no dict, and
+        ANY trace whose `capabilities` is present but not a dict, declares
+        everything False -- only a missing key can mean "predates"."""
+        if "capabilities" not in self.meta:
+            return None if self.lang == "python" else False
+        return bool(self.capabilities.get(cap, False))
+
+    def dropped_writes(self) -> int:
+        """Trace writes known lost: the Python recorder's `late_writes`
+        (a lower bound), or a Rust recorder's per-thread `records_dropped`
+        summed over the threads that reported a number."""
+        m = self.meta
+        if "late_writes" in m:
+            return int(m["late_writes"] or 0)
+        rd = m.get("records_dropped")
+        if isinstance(rd, dict):
+            return sum(int(v) for v in rd.values() if v is not None)
+        return 0
 
     def task_fingerprints(self) -> dict[int, tuple[str | None, str, int]]:
         if not self._has_task_fps:

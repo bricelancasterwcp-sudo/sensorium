@@ -401,8 +401,15 @@ def test_refocus_withholds_when_the_thread_record_predates_the_check(tmp_path,
     assert r.returncode == 0, r.stdout + r.stderr
     assert "refocus verdict: MATCH" in r.stdout
     assert "licence: WITHHELD" in r.stdout
-    assert "predates the thread bookkeeping this check reads" in r.stdout
+    # `rec()` uses today's recorder, which declares `threads` True at run
+    # start -- `drop_meta` deletes the witness key afterward, so this is
+    # the declared-True-but-missing state, not a genuine pre-declaration
+    # trace: it must read as a contradiction on record, never "predates".
+    assert ("declares threads witnessed, but this trace carries no thread "
+            "record") in r.stdout
+    assert "the recording did not finish, or the record was removed" in r.stdout
     assert "absence of the record is not a record of absence" in r.stdout
+    assert "predates" not in r.stdout
     assert "answers about the original run" not in r.stdout
 
 
@@ -794,6 +801,32 @@ def test_refocus_withholds_when_the_spawn_record_predates_the_check(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "refocus verdict: MATCH" in r.stdout
     assert "licence: WITHHELD" in r.stdout
-    assert "predates the spawn-syscall record" in r.stdout
+    # `rec()` uses today's recorder, which declares `children` True at run
+    # start -- `drop_meta` deletes the witness key afterward, so this is
+    # the declared-True-but-missing state, not a genuine pre-declaration
+    # trace: it must read as a contradiction on record, never "predates".
+    assert ("declares children witnessed, but this trace carries no "
+            "spawn-syscall record") in r.stdout
+    assert "the recording did not finish, or the record was removed" in r.stdout
     assert "absence of the record is not a record of absence" in r.stdout
+    assert "predates" not in r.stdout
     assert "licence: verified against" not in r.stdout
+
+
+def test_licence_names_an_undeclared_output_capability_as_a_blind_spot(
+        tmp_path, monkeypatch):
+    from sensorium.query.refocus_world import _licence_caveats
+    from tests.helpers import finalize_synthetic
+    from tests.programs import synthetic
+    w = synthetic(tmp_path, monkeypatch)
+    finalize_synthetic(w, lang="rust", recorder="sensorium-rt 0.0",
+                       capabilities={"output": False, "threads": True},
+                       threads_started=0, live_threads=[])
+    w.write_fingerprint(1, "aa" * 16, 1)
+    w.close()
+    from sensorium import paths
+    from sensorium.store.reader import Trace
+    t = Trace.open(paths.traces_dir() / "20260101-000000-abcdef.db")
+    caveats = _licence_caveats(t, t)
+    assert any("output was not recorded" in c and "cross-check did not run" in c
+               for c in caveats)

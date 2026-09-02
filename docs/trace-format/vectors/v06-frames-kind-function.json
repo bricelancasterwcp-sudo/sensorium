@@ -1,0 +1,60 @@
+{
+  "id": "v06-frames-kind-function",
+  "asserts": "frames.kind is never NULL from format 3 on: an ordinary function frame carries the literal 'function', which every renderer prints as NO marker at all. A NULL there renders as the marker '[None]' on every line of every tree; the string 'function' must not print as '[function]' either.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["prog"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "vector 1.0",
+    "lang": "rust",
+    "capabilities": {"threads": false, "children": false, "stdin": false, "line": false},
+    "incomplete": false
+  },
+  "codes": [["/w/a.py", "main", 1], ["/w/a.py", "helper", 9]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 4, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"},
+    {"parent": 1, "code": 2, "call": 2, "return": 3, "depth": 1,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "CALL", "code": 2, "line": 9,
+     "payload": {"args": {"n": {"k": "num", "v": 2}}}, "task": null},
+    {"ts": 3000, "thread": 1, "kind": "RETURN", "frame": 2, "code": 2, "line": null,
+     "payload": {"value": {"k": "num", "v": 4}}, "task": null},
+    {"ts": 4000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1, "line": null,
+     "payload": {"value": {"k": "none"}}, "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "no-kind-marker-on-a-function",
+      "ask": "How does `tree` render a frame whose kind is the literal 'function', and its nested callee?",
+      "command": ["tree", "$RUN"],
+      "expect_exit": 0,
+      "expect_line": [["f1 e1", "main() -> None"],
+                      ["f2 e2", "helper(n=2) -> 4"]],
+      "expect_absent": ["[None]", "[function]"]
+    },
+    {
+      "id": "frame-header-carries-no-marker",
+      "ask": "Does `frame` mark the kind of an ordinary function activation?",
+      "command": ["frame", "$RUN", "--fn", "helper"],
+      "expect_exit": 0,
+      "expect_line": [["f2 a.py:helper", "closed: return"]],
+      "expect_contains": ["return: 4"],
+      "expect_absent": ["[None]", "[function]", "state:"]
+    }
+  ]
+}
