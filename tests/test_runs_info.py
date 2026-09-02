@@ -5,7 +5,7 @@ import pytest
 from sensorium import cli, paths
 from sensorium.record import boot
 from sensorium.store.writer import TraceWriter
-from tests.helpers import finalize_synthetic, record_script
+from tests.helpers import LEGACY_FORMAT, finalize_synthetic, record_script
 from tests.programs import synthetic
 from tests.refocus_programs import (ASYNC_CONTENT_FLIP, COUNTER, new_run, rec,
                                     refocus)
@@ -274,11 +274,21 @@ def test_info_flags_a_trace_that_predates_the_bookkeeping(
 
     assert cli.main(["info", run_id]) == 0
     out = capsys.readouterr().out
-    assert "not recorded in this trace:" in out
-    for key in ("children", "threads_started", "spawn_syscalls",
-                "audit_errors"):
-        assert key in out
-    assert "not a record of absence" in out
+    lines = [l for l in out.splitlines()
+             if l.startswith("not recorded in this trace:")]
+    assert len(lines) == 2
+    thread_line = _one(out, "not recorded in this trace: threads_started")
+    assert ("declares threads not witnessed (capabilities.threads: false)"
+            in thread_line)
+    assert "no thread record to read" in thread_line
+    assert "not a record of absence" in thread_line
+    child_line = _one(out, "not recorded in this trace: children")
+    for key in ("children", "spawn_syscalls", "audit_errors"):
+        assert key in child_line
+    assert ("declares children not witnessed (capabilities.children: false)"
+            in child_line)
+    assert "no child-process record to read" in child_line
+    assert "not a record of absence" in child_line
 
 
 def test_info_reports_an_audit_hook_that_malfunctioned(
@@ -546,3 +556,30 @@ def test_info_prints_the_recorder_and_its_declarations(tmp_path, monkeypatch, ca
     assert "recorder: sensorium-rt 0.0  lang: rust" in out
     assert "declares threads not witnessed" in out
     assert "predates" not in out
+
+
+def test_info_prints_the_original_single_line_for_a_trace_that_predates_declarations(
+        tmp_path, monkeypatch, capsys):
+    """A genuine pre-format-4 trace (no `capabilities` key, stamped the
+    older format so format 4's own finalize check does not fire) missing
+    all four bookkeeping keys must print exactly the original, un-grouped
+    line -- this task changes nothing about pre-format-4 output."""
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    run_id = "20260101-000000-legacy9"
+    w = TraceWriter(paths.traces_dir() / f"{run_id}.db", batch=1)
+    for k, v in (("run_id", run_id), ("argv", ["prog.py"]),
+                 ("cwd", str(tmp_path)), ("python", "3.12.0"),
+                 ("exit_status", 0), ("caps", {})):
+        w.set_meta(k, v)
+    w.set_meta("incomplete", False)
+    w.set_meta("trace_format", LEGACY_FORMAT)
+    w.close()
+
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    lines = [l for l in out.splitlines()
+             if l.startswith("not recorded in this trace:")]
+    assert lines == [
+        "not recorded in this trace: children, threads_started, "
+        "spawn_syscalls, audit_errors -- it predates that bookkeeping, so "
+        "absence of the record is not a record of absence"]

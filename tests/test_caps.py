@@ -36,8 +36,35 @@ def test_require_refuses_an_undeclared_capability_naming_the_recorder(
 
 def test_witness_gap_distinguishes_predates_from_declared(tmp_path, monkeypatch):
     t = _rust(tmp_path, monkeypatch)
-    declared = witness_gap(t, "threads", "thread")
+    declared = witness_gap(t, "threads", "thread", "UNUSED-LEGACY")
     assert "declares threads not witnessed" in declared and "predates" not in declared
     from pathlib import Path
     old = Trace.open(Path(__file__).parent / "fixtures" / "format3_async.db")
-    assert "predates" in witness_gap(old, "threads", "thread")
+    # `declares() is None` returns the caller's own legacy sentence
+    # unchanged -- byte for byte, not reworded through this module.
+    legacy = "predates the recorder's thread bookkeeping (site-specific)"
+    assert witness_gap(old, "threads", "thread", legacy) == legacy
+
+
+def test_witness_gap_names_a_declared_but_still_missing_witness_key(
+        tmp_path, monkeypatch):
+    """Today's Python recorder writes `capabilities` (all True) at run
+    start (`boot.install()`) and `threads_started` only at the finalize
+    pass (`set_meta_final`) -- every still-recording or killed-mid-record
+    trace declares threads True with the key still absent. That state must
+    never read as "predates" (the trace does not predate the declaration --
+    it just hasn't finished), and must never assert
+    `capabilities.threads: false`, which the trace's own dict denies."""
+    from sensorium.record.boot import CAPABILITIES
+    w = synthetic(tmp_path, monkeypatch)
+    w.set_meta("recorder", "sensorium 9.9.9")
+    w.set_meta("capabilities", dict(CAPABILITIES))
+    w.close()
+    t = Trace.open(paths.traces_dir() / "20260101-000000-abcdef.db")
+    assert t.declares("threads") is True
+    gap = witness_gap(t, "threads", "thread", "UNUSED-LEGACY")
+    assert "declares threads witnessed" in gap
+    assert "predates" not in gap
+    assert "capabilities.threads: false" not in gap
+    assert "recording did not finish, or the record was removed" in gap
+    assert "absence of the record is not a record of absence" in gap

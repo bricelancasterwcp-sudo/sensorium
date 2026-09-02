@@ -302,6 +302,34 @@ def test_diff_says_it_cannot_count_threads_on_a_trace_that_predates_the_count(
         assert "absence of the record is not a record of absence" in note
 
 
+def test_diff_names_a_declared_but_incomplete_recording_in_the_note(
+        tmp_path, monkeypatch, capsys):
+    """Today's Python recorder writes `capabilities` (all True) at run
+    start (`boot.install()`) and `threads_started` only at the finalize
+    pass -- a still-incomplete recording declares `threads` True with the
+    key still absent, and that must never read as "predates" (it does not
+    predate the declaration; it just has not finished). The comparison must
+    still be REFUSED: `incomplete` is true regardless of what the note
+    says."""
+    from sensorium.record.boot import CAPABILITIES
+    run_id = "20260101-000000-inflight"
+    w = _synthetic(tmp_path, monkeypatch, run_id)
+    w.set_meta("capabilities", dict(CAPABILITIES))
+    w.set_meta("recorder", "sensorium 9.9.9")
+    w.set_meta("incomplete", True)
+    w.close()
+    assert cli.main(["diff", run_id, run_id]) == 2
+    out = capsys.readouterr().out
+    assert "REFUSED" in out
+    note = next(l for l in out.splitlines()
+                if l.startswith("note: A's recorder"))
+    assert ("declares threads witnessed, but this trace carries no thread "
+            "record") in note
+    assert "the recording did not finish, or the record was removed" in note
+    assert "absence of the record is not a record of absence" in note
+    assert "predates" not in note
+
+
 def test_diff_thread_note_is_per_side_not_shared(tmp_path, monkeypatch,
                                                   capsys):
     """One multi-threaded side and one single-threaded side: only the

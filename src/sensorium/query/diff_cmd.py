@@ -571,8 +571,16 @@ def _thread_notes(label: str, trace: Trace) -> list[str]:
     fps = len(trace.fingerprints())
     meta = trace.meta
     if "threads_started" not in meta:
-        return [f"{label} {witness_gap(trace, 'threads', 'thread')} -- {fps} "
-                "left a fingerprint, and only the thread named above was compared"]
+        legacy = (f"predates the recorder's thread bookkeeping, so how "
+                  f"many threads it ran cannot be established -- {fps} left "
+                  "a fingerprint, and only the thread named above was "
+                  "compared; absence of the record is not a record of "
+                  "absence")
+        gap = witness_gap(trace, "threads", "thread", legacy)
+        # "A recorder X declares ..." reads like an indefinite article; the
+        # legacy sentence already opens with "predates" and needs no joiner.
+        joiner = "'s" if trace.declares("threads") is not None else ""
+        return [f"{label}{joiner} {gap}"]
     started = meta["threads_started"]
     if not started and fps <= 1:
         return []

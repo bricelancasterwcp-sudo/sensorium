@@ -227,7 +227,12 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
     for label, trace in (("the original", orig), ("the rerun", new)):
         meta = trace.meta
         if "threads_started" not in meta or "live_threads" not in meta:
-            out.append(f"{label} {witness_gap(trace, 'threads', 'thread')}")
+            legacy = ("predates the thread bookkeeping this check reads, "
+                      "so how many threads it ran cannot be established -- "
+                      "absence of the record is not a record of absence")
+            gap = witness_gap(trace, "threads", "thread", legacy)
+            joiner = "'s" if trace.declares("threads") is not None else ""
+            out.append(f"{label}{joiner} {gap}")
             continue
         started = meta["threads_started"]
         if started:
@@ -272,8 +277,13 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
         # asked here -- was a child witnessed. Neither being non-empty means
         # only that none was NOTICED, never that none ran.
         if "spawn_syscalls" not in meta:
-            out.append(
-                f"{label} {witness_gap(trace, 'children', 'spawn-syscall')}")
+            legacy = ("predates the spawn-syscall record, so a child "
+                      "started through multiprocessing or a bare "
+                      "posix_spawn would leave no trace here -- absence of "
+                      "the record is not a record of absence")
+            gap = witness_gap(trace, "children", "spawn-syscall", legacy)
+            joiner = "'s" if trace.declares("children") is not None else ""
+            out.append(f"{label}{joiner} {gap}")
         kids = meta.get("children") or []
         spawns = meta.get("spawn_syscalls") or 0
         if kids or spawns:

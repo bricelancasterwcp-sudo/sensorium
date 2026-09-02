@@ -401,8 +401,15 @@ def test_refocus_withholds_when_the_thread_record_predates_the_check(tmp_path,
     assert r.returncode == 0, r.stdout + r.stderr
     assert "refocus verdict: MATCH" in r.stdout
     assert "licence: WITHHELD" in r.stdout
-    assert "predates the recorder's thread bookkeeping" in r.stdout
+    # `rec()` uses today's recorder, which declares `threads` True at run
+    # start -- `drop_meta` deletes the witness key afterward, so this is
+    # the declared-True-but-missing state, not a genuine pre-declaration
+    # trace: it must read as a contradiction on record, never "predates".
+    assert ("declares threads witnessed, but this trace carries no thread "
+            "record") in r.stdout
+    assert "the recording did not finish, or the record was removed" in r.stdout
     assert "absence of the record is not a record of absence" in r.stdout
+    assert "predates" not in r.stdout
     assert "answers about the original run" not in r.stdout
 
 
@@ -794,8 +801,15 @@ def test_refocus_withholds_when_the_spawn_record_predates_the_check(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "refocus verdict: MATCH" in r.stdout
     assert "licence: WITHHELD" in r.stdout
-    assert "predates the recorder's spawn-syscall bookkeeping" in r.stdout
+    # `rec()` uses today's recorder, which declares `children` True at run
+    # start -- `drop_meta` deletes the witness key afterward, so this is
+    # the declared-True-but-missing state, not a genuine pre-declaration
+    # trace: it must read as a contradiction on record, never "predates".
+    assert ("declares children witnessed, but this trace carries no "
+            "spawn-syscall record") in r.stdout
+    assert "the recording did not finish, or the record was removed" in r.stdout
     assert "absence of the record is not a record of absence" in r.stdout
+    assert "predates" not in r.stdout
     assert "licence: verified against" not in r.stdout
 
 

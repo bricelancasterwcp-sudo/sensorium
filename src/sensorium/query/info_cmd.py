@@ -21,6 +21,8 @@ def add_parser(sub) -> None:
     p.set_defaults(func=run)
 
 
+_BOOKKEEPING = ("children", "threads_started", "spawn_syscalls",
+                "audit_errors")
 _THREAD_BOOKKEEPING = ("threads_started",)
 _CHILD_BOOKKEEPING = ("children", "spawn_syscalls", "audit_errors")
 
@@ -60,22 +62,33 @@ def unwitnessed_lines(trace, m: dict) -> list[str]:
             "records above are INCOMPLETE, and a short list there cannot be "
             "read as 'nothing was started'")
     # An incomplete run is missing all of these for a reason already printed
-    # at the top; saying it twice would bury the one that is news. Grouped by
-    # the capability that would have produced each key, and never merged
-    # into one sentence: `threads` and `children` can be declared two
-    # different ways on the same trace, and a merged sentence would misstate
-    # whichever one it didn't quote.
-    if not m.get("incomplete"):
-        missing_threads = [k for k in _THREAD_BOOKKEEPING if k not in m]
-        if missing_threads:
-            out.append("not recorded in this trace: "
-                       + ", ".join(missing_threads) + " -- "
-                       + witness_gap(trace, "threads", "that"))
-        missing_children = [k for k in _CHILD_BOOKKEEPING if k not in m]
-        if missing_children:
-            out.append("not recorded in this trace: "
-                       + ", ".join(missing_children) + " -- "
-                       + witness_gap(trace, "children", "that"))
+    # at the top; saying it twice would bury the one that is news.
+    if m.get("incomplete"):
+        return out
+    if trace.declares("threads") is None:
+        # Predates declarations outright (no `capabilities` key): one
+        # merged line, in the original key order and the original wording
+        # -- this task changes nothing about a pre-format-4 trace's output.
+        missing = [k for k in _BOOKKEEPING if k not in m]
+        if missing:
+            out.append("not recorded in this trace: " + ", ".join(missing)
+                       + " -- it predates that bookkeeping, so absence of "
+                         "the record is not a record of absence")
+        return out
+    # From format 4 an absence is a declaration, and `threads` and
+    # `children` can be declared two different ways on the same trace --
+    # grouped so a mixed case never borrows one capability's declaration to
+    # describe the other's.
+    missing_threads = [k for k in _THREAD_BOOKKEEPING if k not in m]
+    if missing_threads:
+        out.append("not recorded in this trace: "
+                   + ", ".join(missing_threads) + " -- "
+                   + witness_gap(trace, "threads", "thread", ""))
+    missing_children = [k for k in _CHILD_BOOKKEEPING if k not in m]
+    if missing_children:
+        out.append("not recorded in this trace: "
+                   + ", ".join(missing_children) + " -- "
+                   + witness_gap(trace, "children", "child-process", ""))
     return out
 
 
