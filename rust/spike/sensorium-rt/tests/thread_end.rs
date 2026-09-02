@@ -1,0 +1,90 @@
+//! THROWAWAY SPIKE CODE. `THREAD_END`, and the loss a buffered spool implies.
+
+mod common;
+
+use common::KIND_THREAD_END;
+
+/// A thread that exits cleanly ends its spool with `THREAD_END`, and it is the
+/// LAST record.
+#[test]
+fn thread_end_is_the_last_record_of_a_thread_that_exits_cleanly() {
+    let (dir, _run) = common::run_recording("clean-thread");
+    let worker = dir.spool(2);
+    let last = worker.records.last().expect("the worker recorded something");
+    assert_eq!(
+        last.kind, KIND_THREAD_END,
+        "a cleanly exiting thread's last record must be THREAD_END: {:?}",
+        worker.records
+    );
+    assert_eq!(
+        worker.records.iter().filter(|r| r.kind == KIND_THREAD_END).count(),
+        1,
+        "exactly one THREAD_END per thread"
+    );
+    assert_eq!(last.site, 0, "THREAD_END belongs to no site");
+    assert_eq!(last.outcome, 0, "THREAD_END carries no outcome");
+}
+
+/// The main thread's own spool gets `THREAD_END` too, from the thread-local
+/// destructor that glibc runs at process exit.
+#[test]
+fn the_main_thread_spool_also_ends_with_thread_end() {
+    let (dir, _run) = common::run_recording("main-only");
+    let main = dir.spool(1);
+    assert_eq!(
+        main.records.last().expect("main recorded something").kind,
+        KIND_THREAD_END
+    );
+}
+
+/// THE DOCUMENTED LOSS. A thread still blocked when the process exits never
+/// runs its thread-local destructor: its buffered records are gone and its
+/// spool has no `THREAD_END`. The header is flushed at open, so the spool is
+/// still identifiable -- which is what the converter's `live_threads` needs.
+///
+/// Rung 2 replaces the `BufWriter` with the `MAP_SHARED` mapping of spec §4,
+/// where the kernel keeps these pages. This test pins the spike's loss so the
+/// findings can report it as measured rather than assumed.
+#[test]
+fn a_thread_leaked_at_process_exit_loses_its_buffered_tail() {
+    let (dir, _run) = common::run_recording("leak");
+    let spools = dir.spools();
+    assert_eq!(
+        spools.len(),
+        2,
+        "main and the leaked thread each opened a spool: {spools:?}"
+    );
+
+    let main = dir.spool(1);
+    assert!(
+        main.has_thread_end(),
+        "the main thread exited cleanly and must have THREAD_END"
+    );
+    assert!(
+        main.records.iter().any(|r| r.site_index() == 5),
+        "main's own frame must be recorded: {:?}",
+        main.records
+    );
+
+    let leaked = dir.spool(2);
+    assert_eq!(
+        leaked.name, "leaked",
+        "the header is flushed at open, so a leaked spool still names its thread"
+    );
+    assert!(
+        !leaked.has_thread_end(),
+        "a thread alive at process exit cannot have written THREAD_END: {:?}",
+        leaked.records
+    );
+    assert!(
+        leaked.records.is_empty(),
+        "the leaked thread's two records were in the BufWriter and are lost; \
+         found {:?}",
+        leaked.records
+    );
+    assert_eq!(
+        leaked.len,
+        leaked.header_len(),
+        "a leaked spool is exactly its flushed header"
+    );
+}

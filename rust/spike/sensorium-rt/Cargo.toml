@@ -1,0 +1,9 @@
+[package]
+name = "sensorium-rt"
+version = "0.0.0-spike"
+edition = "2021"
+publish = false
+description = "THROWAWAY SPIKE CODE (rung-1 Rust mechanics spike): the call-tier trace runtime. Evidence, not product -- never merged to main, never cargo-installed, never depended on."
+
+[dependencies]
+libc = "0.2"

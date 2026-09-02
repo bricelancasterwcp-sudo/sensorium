@@ -1,0 +1,26 @@
+# THROWAWAY SPIKE WORKSPACE -- see rust/spike/README.md.
+#
+# This workspace is deliberately NOT part of the sensorium Python package and is
+# not referenced by pyproject.toml or by CI. Nothing under rust/ is built by CI.
+[workspace]
+resolver = "2"
+members = ["sensorium-rt"]
+# probes/ws (added in Task 3) is its own workspace: the driver builds it as a
+# target workspace, so it must not be a member of the spike workspace.
+exclude = ["probes"]
+
+# The spike's lens (plan Pre-registration): `sensorium-rt` is built at
+# opt-level = 3 regardless of the profile the target workspace uses, because
+# that is what the driver will do in rung 2. The micro-bench and `cargo test`
+# both therefore measure the optimised runtime.
+[profile.dev.package.sensorium-rt]
+opt-level = 3
+
+[profile.test.package.sensorium-rt]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+
+[profile.bench]
+opt-level = 3

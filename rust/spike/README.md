@@ -10,12 +10,31 @@ See `docs/superpowers/plans/2026-09-02-sensorium-rung1-mechanics-spike.md` for t
 
 ## How to build
 
-Once Tasks 1–3 have landed on this branch (`sensorium-rt`, `sensorium-transform`, `cargo-sensorium`):
+The workspace's only member so far is `sensorium-rt` (Task 1); Tasks 2 and 3 add
+`sensorium-transform` and `cargo-sensorium`.
 
 ```
 cd rust/spike/
 cargo build --release
+cargo test
+cargo clippy --all-targets -- -D warnings
 ```
+
+`sensorium-rt` is pinned to `opt-level = 3` in every profile (workspace
+`Cargo.toml`), because that is the lens §1 pre-registers and what the rung-2
+driver will do regardless of the target workspace's profile.
+
+## The micro-bench (E1's `fib(30)` numbers)
+
+```
+cargo run --release --bin microbench
+```
+
+It re-invokes itself once per arm per run (`SENSORIUM_TIER` is read once per
+process), three runs each, and prints machine-readable `*_ns_per_call` lines
+that Task 5's runner reads. Spool directories are created under `TMPDIR` (or
+`SENSORIUM_BENCH_DIR`) and removed after each run; the `call` arm writes about
+129 MB per run before cleanup.
 
 ## How the measurement is run
 

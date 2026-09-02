@@ -1,0 +1,6 @@
+/target
+# Runtime artifacts. A spool or proc header inside the source tree means some
+# run was inert-by-mistake and wrote to its working directory -- which is what
+# the sandboxed inert tests exist to catch. Never source.
+*.spool
+*.proc.json
