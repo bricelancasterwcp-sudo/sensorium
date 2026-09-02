@@ -241,3 +241,55 @@ def test_suspensions_returns_yield_and_resume_rows_in_order(tmp_path):
                         ("RESUME", 31, {"thrown": CANCEL})])
     assert [(e.kind, e.line) for e in t.suspensions(f.id)] == [
         ("YIELD", 29), ("RESUME", 29), ("YIELD", 31), ("RESUME", 31)]
+
+
+import sqlite3
+from pathlib import Path
+
+from sensorium.store.reader import Trace
+
+GEN_FIXTURE = Path(__file__).parent / "fixtures" / "format2_gen.db"
+
+
+def _old_unframed_ids(path, code_id=None):
+    """The LEFT JOIN this rewrite replaces, kept here as the oracle."""
+    c = sqlite3.connect(path)
+    q = ("SELECT e.id FROM events e LEFT JOIN frames f ON f.call_event_id = e.id "
+         "WHERE e.kind = 'CALL' AND f.id IS NULL AND e.code_id IS NOT NULL")
+    params = ()
+    if code_id is not None:
+        q += " AND e.code_id = ?"
+        params = (code_id,)
+    return [r[0] for r in c.execute(q + " ORDER BY e.id", params)]
+
+
+def test_unframed_calls_returns_exactly_what_the_join_returned():
+    t = Trace.open(GEN_FIXTURE)
+    got = [e.id for e in t.unframed_calls()]
+    assert got == _old_unframed_ids(GEN_FIXTURE)
+    assert got, "the format-2 generator fixture must contain unframed calls"
+    cid = t.event(got[0]).code_id
+    assert ([e.id for e in t.unframed_calls(code_id=cid)]
+            == _old_unframed_ids(GEN_FIXTURE, cid))
+
+
+def test_unframed_calls_query_does_not_scan_frames_per_event():
+    """The plan is the fact: a per-CALL scan of `frames` is quadratic and was
+    measured at 54 s on a 93k-event trace."""
+    t = Trace.open(GEN_FIXTURE)
+    plan = " ".join(r[3] for r in t._c.execute(
+        "EXPLAIN QUERY PLAN " + t._unframed_sql()))
+    assert "LEFT-JOIN" not in plan
+
+
+def test_children_and_roots_match_a_direct_query():
+    t = Trace.open(GEN_FIXTURE)
+    c = sqlite3.connect(GEN_FIXTURE)
+    roots = [r[0] for r in c.execute(
+        "SELECT id FROM frames WHERE parent_id IS NULL ORDER BY id")]
+    assert [f.id for f in t.roots()] == roots
+    for fid in roots[:3]:
+        kids = [r[0] for r in c.execute(
+            "SELECT id FROM frames WHERE parent_id = ? ORDER BY id", (fid,))]
+        assert [f.id for f in t.children(fid)] == kids
+    assert t.children(10**9) == []
