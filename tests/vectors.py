@@ -41,6 +41,27 @@ def _subst(v, run_ids):
     return v
 
 
+def _frame_id(ev: dict, fids: list[int]) -> int | None:
+    """The row's `frame_id` -- always NULL on a CALL, whatever the vector says.
+
+    A frame-opening CALL is written with `frame_id` NULL by the recorder
+    (`tracer._on_call`): the frame does not exist yet when the event is
+    written, and the link runs the other way, through
+    `frames.call_event_id`. Only the rows a recorder emits INSIDE an open
+    frame -- RETURN, RAISE, HANDLED, LINE, YIELD, RESUME -- carry one. A
+    vector that named a frame on a CALL would describe a row no recorder
+    produces, so it is refused rather than quietly built.
+    """
+    if ev["kind"] == "CALL":
+        if ev.get("frame"):
+            raise ValueError(
+                f"CALL event names frame f{ev['frame']}: a CALL row carries "
+                "frame_id NULL (the frame links back through "
+                "frames.call_event_id), so drop the key from the vector")
+        return None
+    return fids[ev["frame"] - 1] if ev.get("frame") else None
+
+
 def build(vector: dict, sdir: Path, run_ids: list[str]) -> Path:
     path = Path(sdir) / "traces" / f"{run_ids[0]}.db"
     w = TraceWriter(path, batch=1)
@@ -51,7 +72,7 @@ def build(vector: dict, sdir: Path, run_ids: list[str]) -> Path:
                                  fr["depth"], fr["thread"], fr.get("kind", "function")))
     for ev in vector.get("events", []):
         w.add_event(ev.get("ts", 0), ev["thread"], ev["kind"],
-                    fids[ev["frame"] - 1] if ev.get("frame") else None,
+                    _frame_id(ev, fids),
                     codes[ev["code"] - 1] if ev.get("code") else None,
                     ev.get("line"), ev.get("payload"), ev.get("task"))
     for fr, fid in zip(vector.get("frames", []), fids):

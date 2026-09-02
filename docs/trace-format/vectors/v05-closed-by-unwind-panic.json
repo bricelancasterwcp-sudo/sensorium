@@ -26,7 +26,7 @@
      "unwind_exc": {"type": "panic", "msg": "boom", "serial": 1, "oid": 1}}
   ],
   "events": [
-    {"ts": 1000, "thread": 1, "kind": "CALL", "frame": 1, "code": 1, "line": 1,
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
      "payload": {"args": {}}, "task": null},
     {"ts": 2000, "thread": 1, "kind": "RAISE", "frame": 1, "code": 1, "line": 4,
      "payload": {"exc": {"type": "panic", "msg": "boom", "serial": 1, "oid": 1}},

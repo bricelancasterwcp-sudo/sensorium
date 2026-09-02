@@ -183,7 +183,7 @@ recorder writes evidence; the reader names the state.
 | `ts_ns` | Monotonic nanoseconds (`time.monotonic_ns()` in the Python recorder). For display and duration only — never compared, never hashed. |
 | `thread_id` | Thread serial (§6). |
 | `kind` | One of the seven kinds in §5. |
-| `frame_id` | The frame this event belongs to; NULL for an event with no frame (an unframed CALL, and any event a recorder emits outside a frame). |
+| `frame_id` | The frame this event ran INSIDE. **NULL on every CALL**, including the ones that open a frame: the frame does not exist yet when the CALL row is written (`tracer._on_call` passes `None`), and the link runs the other way, through `frames.call_event_id`. NULL too for any other event a recorder emits outside a frame. `RETURN`, `RAISE`, `HANDLED`, `LINE`, `YIELD` and `RESUME` carry the open frame's id. |
 | `code_id` | The code object the event is about. NULL is allowed **only on a non-causal event**: `grep` skips a NULL-code row, but `causal_stream` / `task_stream` look the code up unconditionally, so a `CALL`/`RETURN`/`RAISE`/`HANDLED` row must carry one. |
 | `line` | Source line. For `CALL` the definition line; for `LINE`/`RAISE`/`HANDLED`/`YIELD`/`RESUME` the line the event happened at; NULL on `RETURN` (no renderer reads it there). |
 | `payload` | JSON object or NULL. Keys per kind in §5. |
@@ -324,11 +324,14 @@ Vectors: `v02-declared-not-witnessed`, `v07-flow-refuses-undeclared-line`.
 
 ### Optional keys, by writer
 
-**Written by both recorders, read with defaults** (never refused, because no
-reader turns their absence into a number): `env`, `caps`, `focus`,
-`include`, `exclude`, `window`. `env` is the entire process environment and
-may be withheld for privacy — `info` refuses to print it, and prints
-`env_hash` instead.
+**Written by both recorders, read with defaults** (never refused, because
+no reader turns their absence into a number): `env` — the whole
+environment, variable by variable, which may be withheld for privacy;
+`info` refuses to print it and prints `env_hash` instead — `caps`, the
+capture caps in force (`{"str": 200, "repr": 200, "sample": 8, "depth": 3}`
+in the Python recorder), and the record-time filters `focus`, `include`,
+`exclude`, `window`. These six are the shared optional set; they are not
+Python-only.
 
 **Python-only, present today:**
 
@@ -336,9 +339,6 @@ may be withheld for privacy — `info` refuses to print it, and prints
 |---|---|
 | `python` | Interpreter version string. |
 | `late_writes` | Trace writes that arrived after the database sealed — a **lower bound**. `Trace.dropped_writes()` reads it. Non-zero makes `diff` refuse a verdict. |
-| `caps` | The capture caps in force: `{"str": 200, "repr": 200, "sample": 8, "depth": 3}`. |
-| `focus`, `include`, `exclude`, `window` | The record-time filters. |
-| `env` | The whole environment, variable by variable. |
 | `git_sha`, `git_dirty_hash` | Repository context — **not** a change detector; `source_hashes` is the check with that meaning. |
 | `uncaught`, `task_errors`, `spawn_witnessing`, `refocus_of`, `refocus_*` | Run outcome, task-identity failures, spawn-witnessing platform fact, and the refocus stamps `info` prints back. |
 
@@ -515,8 +515,8 @@ questions the CLI must answer about it:
  "codes": [["/w/a.py", "main", 1], ["/w/a.py", "worker", 9]],
  "frames": [{"parent": null, "code": 1, "call": 1, "return": 4, "depth": 0, "thread": 1, "closed_by": "return", "kind": "function"},
             {"parent": null, "code": 2, "call": 2, "return": 3, "depth": 0, "thread": 2, "closed_by": "return", "kind": "function"}],
- "events": [{"ts": 1000, "thread": 1, "kind": "CALL", "frame": 1, "code": 1, "line": 1, "payload": {"args": {}}, "task": null},
-            {"ts": 2000, "thread": 2, "kind": "CALL", "frame": 2, "code": 2, "line": 9, "payload": {"args": {}}, "task": null},
+ "events": [{"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1, "payload": {"args": {}}, "task": null},
+            {"ts": 2000, "thread": 2, "kind": "CALL", "code": 2, "line": 9, "payload": {"args": {}}, "task": null},
             {"ts": 3000, "thread": 2, "kind": "RETURN", "frame": 2, "code": 2, "line": null, "payload": {"value": {"k": "none"}}, "task": null},
             {"ts": 4000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1, "line": null, "payload": {"value": {"k": "none"}}, "task": null}],
  "fingerprints": "compute",
@@ -533,6 +533,11 @@ questions the CLI must answer about it:
   frame's `code` / `call` / `return` refer to those positions. A frame may
   also carry `unwind_exc` (with `closed_by: "unwind"`); a `tasks` entry is
   `[id, name, thread]`, and an event's `task` names one.
+- **The builder writes the rows the recorder writes.** A CALL is built with
+  `frame_id` NULL whatever the vector says, and a vector that names a
+  `frame` on a CALL row is refused rather than quietly built (§3); the
+  frame is reached from its own `call` instead. `tests/test_vectors.py`
+  asserts both halves on every vector.
 - `fingerprints: "compute"` derives every row the way the recorder does —
   per task for events carrying a `task`, per thread for the rest.
   `threads_with_rows` forces a row (zero-count) for a thread that emitted

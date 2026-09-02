@@ -12,6 +12,8 @@ import shutil
 import pytest
 
 from corpus.run_corpus import check_question
+from sensorium.store.db import TraceFormatError
+from sensorium.store.reader import Trace
 from tests.helpers import run_cli
 from tests.vectors import build, load_all, sub
 
@@ -55,3 +57,26 @@ def test_every_question_says_what_it_asks_and_asserts_something():
             assert any(q.get(k) for k in _ASSERTING), (
                 f"{where}: asserts nothing -- needs a non-empty "
                 + " / ".join(_ASSERTING))
+
+
+@pytest.mark.parametrize("vector", VECTORS, ids=[v["id"] for v in VECTORS])
+def test_call_rows_carry_no_frame_id(vector, tmp_path):
+    """The vectors write the rows the recorder writes: a frame-opening CALL
+    has `frame_id` NULL (`tracer._on_call` passes None -- the frame does not
+    exist yet), and the frame is found from the other end, through
+    `frames.call_event_id`. A vector that set `frame_id` on a CALL would
+    hand a second recorder a row shape the Python one never produces."""
+    try:
+        trace = Trace.open(build(vector, tmp_path / "sdir",
+                                 ["20260101-000000-aaaaaa"]))
+    except TraceFormatError:
+        pytest.skip(f"{vector['id']} is refused at open, by design")
+    for ev in trace.events(kind="CALL"):
+        assert ev.frame_id is None, (
+            f"{vector['id']}: e{ev.id} is a CALL carrying frame_id "
+            f"{ev.frame_id}; the recorder writes NULL there")
+    for f in trace.frames():
+        found = trace.frame_containing(f.call_event_id)
+        assert found is not None and found.id == f.id, (
+            f"{vector['id']}: f{f.id} is not reachable from its own CALL "
+            f"e{f.call_event_id}")

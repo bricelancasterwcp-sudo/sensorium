@@ -27,9 +27,9 @@
      "thread": 1, "closed_by": "return", "kind": "function"}
   ],
   "events": [
-    {"ts": 1000, "thread": 1, "kind": "CALL", "frame": 1, "code": 1, "line": 1,
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
      "payload": {"args": {}}, "task": null},
-    {"ts": 2000, "thread": 1, "kind": "CALL", "frame": 2, "code": 2, "line": 9,
+    {"ts": 2000, "thread": 1, "kind": "CALL", "code": 2, "line": 9,
      "payload": {"args": {"n": {"k": "num", "v": 2}}}, "task": null},
     {"ts": 3000, "thread": 1, "kind": "RETURN", "frame": 2, "code": 2, "line": null,
      "payload": {"value": {"k": "num", "v": 4}}, "task": null},

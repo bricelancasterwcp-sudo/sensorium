@@ -30,11 +30,11 @@
      "thread": 3, "closed_by": "return", "kind": "function"}
   ],
   "events": [
-    {"ts": 1000, "thread": 2, "kind": "CALL", "frame": 1, "code": 1, "line": 20,
+    {"ts": 1000, "thread": 2, "kind": "CALL", "code": 1, "line": 20,
      "payload": {"args": {}}, "task": 1},
     {"ts": 2000, "thread": 2, "kind": "RETURN", "frame": 1, "code": 1, "line": 20,
      "payload": {"value": {"k": "none"}}, "task": 1},
-    {"ts": 3000, "thread": 3, "kind": "CALL", "frame": 2, "code": 2, "line": 30,
+    {"ts": 3000, "thread": 3, "kind": "CALL", "code": 2, "line": 30,
      "payload": {"args": {}}, "task": 2},
     {"ts": 4000, "thread": 3, "kind": "RETURN", "frame": 2, "code": 2, "line": 30,
      "payload": {"value": {"k": "none"}}, "task": 2}

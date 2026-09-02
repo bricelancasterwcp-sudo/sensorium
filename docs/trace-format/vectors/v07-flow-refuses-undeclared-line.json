@@ -25,7 +25,7 @@
      "thread": 1, "kind": "function"}
   ],
   "events": [
-    {"ts": 1000, "thread": 1, "kind": "CALL", "frame": 1, "code": 1, "line": 1,
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
      "payload": {"args": {}}, "task": null}
   ],
   "fingerprints": "compute",
