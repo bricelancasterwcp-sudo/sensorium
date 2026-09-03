@@ -9,7 +9,7 @@
 #
 [workspace]
 resolver = "2"
-members = ["sensorium-rt"]
+members = ["sensorium-rt", "sensorium-transform"]
 # `probes/ws` is its own workspace: the driver builds it as a TARGET
 # workspace, so it must never be a member of this one.
 exclude = ["probes"]
