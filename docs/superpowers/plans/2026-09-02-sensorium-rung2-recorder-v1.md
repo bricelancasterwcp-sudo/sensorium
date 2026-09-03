@@ -384,7 +384,7 @@ proc header:  <SENSORIUM_SPOOL>/<pid>.proc.json  written at the process's first 
 **Protocol (the runner enforces it; a human follows the same order):**
 1. Preflight: load ≤ 4.0, `/mnt/extra` ≥ 8 GB, `/` ≥ 3 GB, clone clean @ `e209ed9`, `~/workspace/bloomery` untouched (HEAD + porcelain), pins recorded; `cargo install --path rust/cargo-sensorium --root /mnt/extra/sensorium-rung2/tool` and the Python venv's `sensorium` at 0.6.0.
 2. E8 on the clone, in the pre-registered order (a) → (c)+sentinel → (d), then (b) on branch `e8-touch` with restore; the plain arm's `--no-run` is the baseline build wall (this is a cold target dir on `/mnt/extra`: a genuinely clean build of the whole workspace, deps included — the lens says so).
-3. E2′ from the manifests of a workspace-wide instrumented `--no-run`, against the census over the same files.
+3. E2′ from the manifests of a workspace-wide instrumented `--no-run`, against the census over the same files. **Scope every manifest-derived count to the measured build's own units** (the set of `-C metadata=` values in that build's `cargo -v` log): the wrapper's path is hashed into cargo's metadata, so a rebuilt driver leaves the previous tool hash's manifests behind in `<target>/sensorium/manifests/` and an unscoped scan would inflate the numerator (found by Task 9 on a fresh build; ruling in the ledger). State the scoping in the lens.
 4. E3: `--no-run` for `--lib`, sha256 the binary, 20 recorded runs, 19 diffs.
 5. Reported walls: 5 rounds of plain vs call on `--lib` in the alternating order, 10 s cool-down, load recorded per arm, an arm dropped (not re-rolled) if load > 4.0 at its start.
 6. E7(b): plain vs call `--lib -- --test-threads=1`, masked, diffed; E7(a) from `mechanics.sh` recorded.
