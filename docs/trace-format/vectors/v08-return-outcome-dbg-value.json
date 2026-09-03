@@ -1,0 +1,85 @@
+{
+  "id": "v08-return-outcome-dbg-value",
+  "asserts": "A RETURN payload carries `outcome` beside its optional `value`, and a value a recorder rendered through the language's own formatter is the tag {k: dbg, v: <text>, trunc: <bool>} -- the readers print the text itself, with a trailing ellipsis when it was clipped. {k: unread} with no type and no oid is the third case: the value existed and could not be read at all, and prints <unread>. Rendering any of the three as `?` would report 'nothing was captured' about a value that was captured in full, a value that was captured and clipped, and a value the recorder said it could not read -- three different facts flattened into one.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["/w/target/debug/deps/probe-abc"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 1,
+    "source_hashes": {},
+    "recorder": "sensorium-rt 0.1.0",
+    "lang": "rust",
+    "capabilities": {"line": false, "locals": false, "return_value": true,
+                     "tasks": true, "threads": true, "children": false,
+                     "stdin": false, "output": false,
+                     "object_identity": false, "refocus": false},
+    "threads_started": 0,
+    "live_threads": [],
+    "caps": {"repr": 200},
+    "incomplete": false
+  },
+  "codes": [["/w/src/lib.rs", "work", 3],
+            ["/w/src/lib.rs", "Config::load", 11],
+            ["/w/src/lib.rs", "Counter::new", 20]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 6, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"},
+    {"parent": 1, "code": 2, "call": 2, "return": 3, "depth": 1,
+     "thread": 1, "closed_by": "return", "kind": "function"},
+    {"parent": 1, "code": 3, "call": 4, "return": 5, "depth": 1,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 3,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "CALL", "code": 2, "line": 11,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": null},
+    {"ts": 3000, "thread": 1, "kind": "RETURN", "frame": 2, "code": 2,
+     "line": null,
+     "payload": {"outcome": "ok",
+                 "value": {"k": "dbg", "v": "Config { retries: 3, host: \"loc", "trunc": true}},
+     "task": null},
+    {"ts": 4000, "thread": 1, "kind": "CALL", "code": 3, "line": 20,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": null},
+    {"ts": 5000, "thread": 1, "kind": "RETURN", "frame": 3, "code": 3,
+     "line": null,
+     "payload": {"outcome": "ok", "value": {"k": "unread"}}, "task": null},
+    {"ts": 6000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null,
+     "payload": {"outcome": "ok", "value": {"k": "dbg", "v": "7", "trunc": false}},
+     "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "tree-prints-the-three-values",
+      "ask": "How does `tree` render a full dbg value, a clipped one, and a value the recorder could not read?",
+      "command": ["tree", "$RUN"],
+      "expect_exit": 0,
+      "expect_line": [
+        ["f1 e1", "work()", "-> 7"],
+        ["f2 e2", "Config::load()", "-> Config { retries: 3, host: \"loc…"],
+        ["f3 e4", "Counter::new()", "-> <unread>"]
+      ],
+      "expect_absent": ["-> ?", "<unreadable"]
+    },
+    {
+      "id": "grep-prints-the-same-values",
+      "ask": "Does `grep` render a RETURN's dbg value the same way `tree` does?",
+      "command": ["grep", "$RUN", "RETURN"],
+      "expect_exit": 0,
+      "expect_line": [["e6 RETURN", "work -> 7"],
+                      ["e3 RETURN", "Config::load -> Config { retries: 3, host: \"loc…"],
+                      ["e5 RETURN", "Counter::new -> <unread>"]],
+      "expect_count": {"matches: 3": 1},
+      "expect_absent": ["-> ?"]
+    }
+  ]
+}

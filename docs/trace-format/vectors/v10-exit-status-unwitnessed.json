@@ -1,0 +1,72 @@
+{
+  "id": "v10-exit-status-unwitnessed",
+  "asserts": "`exit_status` may be null, and `exit_status_basis` says why: \"waited\" means a parent witnessed the status, \"unwitnessed\" means nobody did. A reader prints the basis with the status -- `exit: 0 (waited)`, `exit: signal 9 (waited)`, `exit: unwitnessed` -- and never prints a null as `exit: None`, which reads as a status the program actually ended with.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["/w/target/debug/app-bin", "--abort"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": null,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "sensorium-rt 0.1.0",
+    "lang": "rust",
+    "capabilities": {"line": false, "locals": false, "return_value": true,
+                     "tasks": true, "threads": true, "children": false,
+                     "stdin": false, "output": false,
+                     "object_identity": false, "refocus": false},
+    "threads_started": 0,
+    "live_threads": ["main"],
+    "caps": {"repr": 200},
+    "invocation": "20260101-000000-111111",
+    "pid": 100,
+    "ppid": 99,
+    "exe": "/w/target/debug/app-bin",
+    "toolchain": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo_args": ["test", "--all-targets"],
+    "exit_status_basis": "unwitnessed",
+    "exit_signal": null,
+    "incomplete": false
+  },
+  "codes": [["/w/src/main.rs", "main", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "depth": 0, "thread": 1,
+     "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "info-says-unwitnessed",
+      "ask": "How does `info` report the exit status of a process nobody waited on?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_line": [["exit: unwitnessed", "events: 1"]],
+      "expect_absent": ["exit: None", "exit: ?"]
+    },
+    {
+      "id": "runs-says-unwitnessed",
+      "ask": "Does the listing say the same thing as `info` about an unwitnessed exit?",
+      "command": ["runs"],
+      "expect_exit": 0,
+      "expect_contains": ["exit:unwitnessed"],
+      "expect_absent": ["exit:None", "exit:?"]
+    },
+    {
+      "id": "live-thread-is-not-incompleteness",
+      "ask": "A thread was still running when the process ended -- does `info` say so without calling the trace INCOMPLETE?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": ["live threads: 1 -- main"],
+      "expect_absent": ["INCOMPLETE: recording ended without a finalize pass"]
+    }
+  ]
+}

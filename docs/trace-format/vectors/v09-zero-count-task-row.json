@@ -1,0 +1,65 @@
+{
+  "id": "v09-zero-count-task-row",
+  "asserts": "A unit of work that ran no causal event still owns a `tasks` row and a zero-count `task_fingerprints` row (section 6), and every reader renders it as a unit that ran nothing -- never as a unit that did not exist. `info` counts it among the tasks and among the task fingerprints, and `diff` compares it as a stream of its own, so two runs in which the silent unit is present on one side only cannot read as MATCH.",
+  "copies": 2,
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["/w/target/debug/deps/probe-abc"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "sensorium-rt 0.1.0",
+    "lang": "rust",
+    "capabilities": {"line": false, "locals": false, "return_value": true,
+                     "tasks": true, "threads": true, "children": false,
+                     "stdin": false, "output": false,
+                     "object_identity": false, "refocus": false},
+    "threads_started": 2,
+    "live_threads": [],
+    "caps": {"repr": 200},
+    "incomplete": false
+  },
+  "codes": [["/w/tests/it.rs", "loud", 4]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+     "thread": 2, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 2, "kind": "CALL", "code": 1, "line": 4,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": 1},
+    {"ts": 2000, "thread": 2, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null,
+     "payload": {"outcome": "ok", "value": {"k": "dbg", "v": "()"}},
+     "task": 1}
+  ],
+  "tasks": [[1, "it::loud", 2], [2, "it::silent", 3]],
+  "threads_with_rows": [1, 2, 3],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "info-counts-the-silent-unit",
+      "ask": "Does `info` list a unit of work that ran no causal event, and count its fingerprint row?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": ["2 task fingerprint(s) beside it"],
+      "expect_line": [["tasks: 2 (t1 it::loud, t2 it::silent)"]],
+      "expect_absent": ["tasks: none", "tasks: 1 ("]
+    },
+    {
+      "id": "diff-compares-two-streams-a-side",
+      "ask": "Does `diff` compare the silent unit as a stream of its own rather than dropping it?",
+      "command": ["diff", "$RUN", "$RUN2"],
+      "expect_exit": 0,
+      "expect_contains": ["2 task stream(s) on each side"],
+      "expect_absent": ["verdict: REFUSED", "verdict: DIVERGED",
+                        "1 task stream(s) on each side"]
+    }
+  ]
+}
