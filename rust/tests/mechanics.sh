@@ -57,6 +57,15 @@ EXT="$RUST/probes/ext"
 # check that counts what it did see.
 EXPECTED_TEST_BINARIES=9
 WRAPPED_EXPECTED="abort_child app_bin blocked e7 nested_panic probe_app probe_core spawn_bin threads"
+# The ONLY file a module walk may fail to reach, and how many of this run's
+# units declare it: `probe-app/src/maybe.rs` behind its `#[cfg_attr(path)]`
+# (plan decision D3). An exact set, not a membership test — the probe exercises
+# six other module shapes (`#[path]`, a directory module, a child beside its
+# `mod.rs`, a non-mod-rs file module, a `#[path]` inside an inline module, a
+# sibling file), and a walk that regressed on any of them would go silently
+# unreached behind a check that only asked whether `maybe.rs` was in the list.
+EXPECTED_UNREACHED="probe-app/src/maybe.rs"
+EXPECTED_UNREACHED_MANIFESTS=3
 
 TOOL_TARGET="${CARGO_TARGET_DIR:-$RUST/target}"
 DRIVER="$TOOL_TARGET/release/cargo-sensorium"
@@ -283,15 +292,47 @@ run_e7() { # <exe> <outfile> <env...>
   ( cd "$WS/probe-app" && env "$@" "$exe" --test-threads=1 --nocapture ) >"$out" 2>&1 || true
 }
 
+# What the plain arm has to contain before any of it is worth comparing:
+# `<panic headers naming e7.rs> <test-result lines>`, which must read `2 1`.
+e7_plain_content() {
+  local panics results
+  panics="$( { grep -c 'panicked at probe-app/tests/e7.rs:' "$1" || true; } )"
+  results="$( { grep -c '^test result: ok\. 2 passed' "$1" || true; } )"
+  echo "$panics $results"
+}
+
 if [ -z "$E7_PLAIN" ] || [ -z "$E7_INSTR" ] || [ "$E7_PLAIN" = "$E7_INSTR" ]; then
-  for name in e7_output_identical_plain_vs_off e7_output_identical_plain_vs_call \
+  for name in e7_plain_arm_produced_the_two_panics \
+              e7_output_identical_plain_vs_off e7_output_identical_plain_vs_call \
               e7_backtrace_locations_identical_plain_vs_off \
               e7_backtrace_locations_identical_plain_vs_call \
               e7_binary_is_actually_instrumented; do
     fail "$name" "could not resolve two distinct e7 binaries (plain='$E7_PLAIN' instrumented='$E7_INSTR')"
   done
 else
-  run_e7 "$E7_PLAIN" "$LOGS/e7.plain" SENSORIUM_SPOOL= RUST_BACKTRACE=0
+  # The plain arm first, and on its own, because everything below is a
+  # COMPARISON against it and a comparison of two empty outputs is empty.
+  # `run_e7` swallows the binary's exit status (a `#[should_panic]` suite is
+  # green, so the status says little) and `locations` swallows a grep that
+  # matched nothing, so a fault that hit BOTH arms the same way -- a `cd` that
+  # failed, a `--nocapture` regression, libtest dropping the location from the
+  # panic header -- would leave every diff empty and every check `ok` while
+  # measuring nothing at all. `e7_binary_is_actually_instrumented` does not
+  # close that: it witnesses the instrumented binary's spool, not the text.
+  # This is the arm that says there was something to compare.
+  run_e7 "$E7_PLAIN" "$LOGS/e7.plain"   SENSORIUM_SPOOL= RUST_BACKTRACE=0
+  run_e7 "$E7_PLAIN" "$LOGS/e7bt.plain" SENSORIUM_SPOOL= RUST_BACKTRACE=1
+  LOC_PLAIN="$(locations <"$LOGS/e7bt.plain")"
+  E7_CONTENT="$(e7_plain_content "$LOGS/e7.plain")"
+  E7_CONTENT_BT="$(e7_plain_content "$LOGS/e7bt.plain")"
+  note "[E7] the plain arm: $E7_CONTENT (no backtrace), $E7_CONTENT_BT (backtrace) -- <panics> <test-result lines>, both want '2 1'"
+  check "e7_plain_arm_produced_the_two_panics" \
+    "$([ "$E7_CONTENT" = "2 1" ] && [ "$E7_CONTENT_BT" = "2 1" ] && [ -n "$LOC_PLAIN" ] && echo 0 || echo 1)" \
+    "no-backtrace arm read '$E7_CONTENT', backtrace arm read '$E7_CONTENT_BT' (both want '2 1'), backtrace locations='$LOC_PLAIN'; with nothing here the four comparisons below compare nothing"
+  note "[E7] the plain arm's output, durations masked:"
+  mask <"$LOGS/e7.plain" | sed 's/^/      /'
+  note "[E7] backtrace locations (plain): $LOC_PLAIN"
+
   run_e7 "$E7_INSTR" "$LOGS/e7.off"  SENSORIUM_TIER=off  SENSORIUM_SPOOL="$SCRATCH_DIR/e7-off"  RUST_BACKTRACE=0
   run_e7 "$E7_INSTR" "$LOGS/e7.call" SENSORIUM_TIER=call SENSORIUM_SPOOL="$SCRATCH_DIR/e7-call" RUST_BACKTRACE=0
   for arm in off call; do
@@ -299,14 +340,9 @@ else
     check "e7_output_identical_plain_vs_$arm" \
       "$([ -z "$D" ] && echo 0 || echo 1)" "$(echo "$D" | head -6 | tr '\n' ' ')"
   done
-  note "[E7] the plain arm's output, durations masked:"
-  mask <"$LOGS/e7.plain" | sed 's/^/      /'
 
-  run_e7 "$E7_PLAIN" "$LOGS/e7bt.plain" SENSORIUM_SPOOL= RUST_BACKTRACE=1
   run_e7 "$E7_INSTR" "$LOGS/e7bt.off"  SENSORIUM_TIER=off  SENSORIUM_SPOOL="$SCRATCH_DIR/e7bt-off"  RUST_BACKTRACE=1
   run_e7 "$E7_INSTR" "$LOGS/e7bt.call" SENSORIUM_TIER=call SENSORIUM_SPOOL="$SCRATCH_DIR/e7bt-call" RUST_BACKTRACE=1
-  LOC_PLAIN="$(locations <"$LOGS/e7bt.plain")"
-  note "[E7] backtrace locations (plain): $LOC_PLAIN"
   for arm in off call; do
     LOC_ARM="$(locations <"$LOGS/e7bt.$arm")"
     check_eq "e7_backtrace_locations_identical_plain_vs_$arm" "$LOC_ARM" "$LOC_PLAIN"
@@ -561,10 +597,13 @@ check "no_unit_of_the_probe_fell_back_in_either_channel" \
 # declared unreached rather than guessed at. A declaration nobody reads is not
 # a declaration, so it is read here.
 UNREACHED="$(unreached_files "$MANIFESTS")"
-note "[declared] manifests carrying an unreached file: ${UNREACHED%% *}   files: $(echo "$UNREACHED" | cut -d' ' -f2-)"
+UNREACHED_N="${UNREACHED%% *}"
+UNREACHED_FILES="$(echo "$UNREACHED" | cut -d' ' -f2-)"
+note "[declared] manifests carrying an unreached file: $UNREACHED_N   files: $UNREACHED_FILES"
 check "the_cfg_attr_path_module_is_declared_unreached" \
-  "$([ "${UNREACHED%% *}" -gt 0 ] && echo "$UNREACHED" | grep -qF 'probe-app/src/maybe.rs' && echo 0 || echo 1)" \
-  "no manifest declares probe-app/src/maybe.rs unreached; got '$UNREACHED'"
+  "$([ "$UNREACHED_FILES" = "$EXPECTED_UNREACHED" ] && \
+     [ "$UNREACHED_N" -eq "$EXPECTED_UNREACHED_MANIFESTS" ] && echo 0 || echo 1)" \
+  "declared unreached: '$UNREACHED_FILES' in $UNREACHED_N manifest(s); expected exactly '$EXPECTED_UNREACHED' in $EXPECTED_UNREACHED_MANIFESTS"
 
 IDENTITY="$(unit_identity "$MANIFESTS" "$MIRROR")"
 ID_BAD="$(echo "$IDENTITY" | awk '{print $1}')"
