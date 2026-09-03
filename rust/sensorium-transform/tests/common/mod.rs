@@ -117,8 +117,10 @@ pub fn top_level_unit_static(source: &str) -> bool {
 pub const CASES: &[&str] = &[
     "async_fn",
     "attr_operand",
+    "block_tail",
     "body_attr",
     "body_inner_doc",
+    "composite_diverging",
     "const_fn",
     "crate_root",
     "crate_root_docs",
@@ -134,6 +136,7 @@ pub const CASES: &[&str] = &[
     "inner_attr",
     "loop_tail",
     "macro_rules",
+    "mixed_arms",
     "nested_fn",
     "nested_mod",
     "never_fn",

@@ -121,6 +121,8 @@ fn tail_operand(block: &Block) -> Option<Operand> {
 }
 
 fn operand_of(e: &Expr) -> Option<Operand> {
+    // A bare `{ e }` is descended INTO rather than wrapped whole.
+    let e = descend_bare_block(e);
     if diverges(e) {
         return None;
     }
@@ -140,6 +142,33 @@ fn macro_operand(m: &StmtMacro) -> Option<Operand> {
         start: range.start,
         end: range.end,
     })
+}
+
+/// `{ e }` -- an unlabelled block whose entire content is one unsemicoloned
+/// expression -- yields exactly what `e` yields, so the wrap goes on `e`,
+/// INSIDE the braces. Nested bare blocks unwrap all the way down.
+///
+/// Wrapping the block whole would put braces around a call argument, which
+/// rustc reports as `unused_braces` (measured on rustc 1.96, 2026-09-02).
+/// Note what that lint also means: `fn f() -> u8 { { 1 } }` **already** warns
+/// in the untransformed source ("unnecessary braces around block return
+/// value"), so the shape cannot occur in a warning-clean workspace at all.
+/// Descending is what makes sure the transformer is not the one that puts a
+/// second, different diagnostic there.
+///
+/// A LABELLED block is left alone. `unused_braces` does not fire on one, and a
+/// `break '<label> <value>` inside would leave past a wrap placed within it.
+fn descend_bare_block(e: &Expr) -> &Expr {
+    let Expr::Block(b) = e else {
+        return e;
+    };
+    if b.label.is_some() {
+        return e;
+    }
+    match b.block.stmts.as_slice() {
+        [Stmt::Expr(inner, None)] => descend_bare_block(inner),
+        _ => e,
+    }
 }
 
 /// How many bytes of `text` are the operand's OUTER ATTRIBUTES.
@@ -188,13 +217,72 @@ fn strip(e: &Expr) -> &Expr {
 }
 
 fn diverges(e: &Expr) -> bool {
-    match strip(e) {
+    let e = strip(e);
+    diverges_directly(e) || diverges_compositely(e)
+}
+
+/// An operand that is itself one of the diverging constructs.
+fn diverges_directly(e: &Expr) -> bool {
+    match e {
         Expr::Return(_) | Expr::Break(_) | Expr::Continue(_) => true,
         Expr::Loop(l) => !has_valued_break(l),
         Expr::Macro(m) => diverging_macro(&m.mac),
         Expr::Call(c) => diverging_call(&c.func),
         _ => false,
     }
+}
+
+/// A composite EVERY ONE of whose arms diverges. rustc calls the `ret` call
+/// after such an operand unreachable -- `unreachable_code`, measured on rustc
+/// 1.96 under `-D warnings`, 2026-09-02 -- and a warning is a build error under
+/// a workspace's own `#![deny(warnings)]`, which would drop the whole unit to a
+/// fallback.
+///
+/// One value-carrying arm is enough to make the operand ordinary:
+/// `match x { A => panic!(), B => 1 }` IS wrapped, and
+/// `tests/golden/mixed_arms` is the fence that says so.
+fn diverges_compositely(e: &Expr) -> bool {
+    match e {
+        Expr::Block(b) => block_diverges(&b.block) && !escapes_by_label(b),
+        Expr::Unsafe(u) => block_diverges(&u.block),
+        Expr::If(i) => match &i.else_branch {
+            Some((_, otherwise)) => block_diverges(&i.then_branch) && diverges(otherwise),
+            // With no `else` the whole `if` is `()`, so it is not a
+            // value-returning function's operand and it does not diverge.
+            None => false,
+        },
+        Expr::Match(m) => !m.arms.is_empty() && m.arms.iter().all(|a| diverges(&a.body)),
+        _ => false,
+    }
+}
+
+/// Does a block's own value diverge? Its LAST statement decides -- a diverging
+/// statement anywhere earlier already makes the original source warn, so it is
+/// not this crate's to find.
+fn block_diverges(b: &Block) -> bool {
+    match b.stmts.last() {
+        Some(Stmt::Expr(e, _)) => diverges(e),
+        Some(Stmt::Macro(m)) => diverging_macro(&m.mac),
+        _ => false,
+    }
+}
+
+/// A labelled block that a `break '<label> <value>` can leave does not diverge,
+/// however its tail ends.
+fn escapes_by_label(b: &syn::ExprBlock) -> bool {
+    let Some(label) = &b.label else {
+        return false;
+    };
+    let mut walk = BreakWalk {
+        label: Some(&label.name),
+        // A block is not a loop: an unlabelled `break` inside targets the
+        // nearest LOOP, so only a labelled one can leave this block. Starting
+        // past zero is what says so.
+        nested: 1,
+        found: false,
+    };
+    walk.visit_block(&b.block);
+    walk.found
 }
 
 fn diverging_macro(mac: &Macro) -> bool {

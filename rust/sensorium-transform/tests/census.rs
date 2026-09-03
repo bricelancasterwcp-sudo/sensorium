@@ -1,17 +1,23 @@
 //! E2's identity, measured on a real workspace: the numerator and the
 //! denominator come from the same parser, per file and in aggregate.
 //!
-//! The measurement target is the LOCAL CLONE of bloomery pinned at `e209ed9`
-//! (plan §Global Constraints). `/home/brice/workspace/bloomery` itself is
-//! read-only for this plan and is never the target here. The clone's path
-//! defaults to the one the plan names and is overridable with
-//! `SENSORIUM_RUNG2_BLOOMERY`; when it is absent -- CI has no clone -- this test
-//! SKIPS BY NAME and says so, because a silently empty property test is worse
-//! than none.
+//! The measurement target is the LOCAL CLONE of bloomery pinned at
+//! `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` (plan §Global Constraints).
+//! `/home/brice/workspace/bloomery` itself is read-only for this plan and is
+//! never the target here.
 //!
-//! The default is a measurement location, not configuration: no build reads it,
-//! nothing is written to it, and pointing it elsewhere changes only which
-//! workspace the identity below is measured over.
+//! **The clone's path comes from `SENSORIUM_BLOOMERY_CLONE` and from nowhere
+//! else.** There is no default: no box path is committed (plan §Global
+//! Constraints), so a run that does not set the variable measures nothing, and
+//! this test's NAME is what says so on a CI row that libtest prints as `ok`
+//! with the skip line captured.
+//!
+//! **The pins are the point.** `instrumented + async == eligible` is an
+//! identity a walk that silently covered three files would also satisfy, so the
+//! three numbers the plan measured -- 191 files, 2051 eligible fn items, 8
+//! rewritten spawn sites -- are asserted outright, and they are asserted only
+//! against the commit they were measured on: a clone at any other HEAD skips
+//! with that named reason rather than re-pinning itself.
 //!
 //! This test opens files for reading and does nothing else: it creates no
 //! directory, writes no file, and never touches `Cargo.lock` or `target/`.
@@ -26,16 +32,52 @@ use std::path::{Path, PathBuf};
 use sensorium_transform::{census, transform};
 
 const META: &str = "b100meryb100mery";
-const DEFAULT_CLONE: &str = "/mnt/extra/sensorium-rung2/bloomery";
+
+/// The environment variable that names the clone, and the only way to name it.
+const CLONE_VAR: &str = "SENSORIUM_BLOOMERY_CLONE";
+
+/// The commit the three pins below were measured on. A clone at any other HEAD
+/// is a different measurement, and this test skips rather than assert someone
+/// else's numbers against it.
+const PINNED_COMMIT: &str = "e209ed9b00f7eef647fb31d0b0895a5ad3b90807";
+
+/// What the plan measured at [`PINNED_COMMIT`], asserted rather than printed.
+const PINNED_FILES: usize = 191;
+const PINNED_ELIGIBLE: usize = 2051;
+const PINNED_SPAWNS_WRAPPED: usize = 8;
 
 /// The spawn spelling `spawns[..].wrapped` must account for, counted in the raw
 /// text by something that is not the transformer.
 const LITERAL_SPAWN: &str = "std::thread::spawn(";
 
-fn clone_root() -> PathBuf {
-    match std::env::var_os("SENSORIUM_RUNG2_BLOOMERY") {
-        Some(p) if !p.is_empty() => PathBuf::from(p),
-        _ => PathBuf::from(DEFAULT_CLONE),
+fn clone_root() -> Option<PathBuf> {
+    match std::env::var_os(CLONE_VAR) {
+        Some(p) if !p.is_empty() => Some(PathBuf::from(p)),
+        _ => None,
+    }
+}
+
+/// The clone's HEAD commit, read from `.git` rather than by running `git`, so
+/// the test starts no subprocess. `None` when `.git` is not a shape this
+/// understands -- which is a skip with a reason, never a pass.
+fn head_commit(root: &Path) -> Option<String> {
+    let head = fs::read_to_string(root.join(".git/HEAD")).ok()?;
+    let head = head.trim();
+    match head.strip_prefix("ref: ") {
+        // A symbolic HEAD: follow it into `.git/<ref>`, or into the packed
+        // refs a fresh clone may still be using.
+        Some(reference) => match fs::read_to_string(root.join(".git").join(reference)) {
+            Ok(sha) => Some(sha.trim().to_owned()),
+            Err(_) => {
+                let packed = fs::read_to_string(root.join(".git/packed-refs")).ok()?;
+                packed.lines().find_map(|l| {
+                    let (sha, name) = l.split_once(' ')?;
+                    (name == reference).then(|| sha.to_owned())
+                })
+            }
+        },
+        // A detached HEAD is the commit itself.
+        None => Some(head.to_owned()),
     }
 }
 
@@ -104,17 +146,49 @@ struct Totals {
     literal_spawns: usize,
 }
 
+/// The three reasons this measurement does not run, each named rather than
+/// silent. libtest captures a passing test's output, so the reason a CI row
+/// says `ok` is carried by the test's NAME as well as by these lines.
+fn skip(why: &str) {
+    eprintln!(
+        "SKIP census_on_the_bloomery_clone_or_skipped_when_SENSORIUM_BLOOMERY_CLONE_is_unset: \
+         {why}"
+    );
+}
+
 #[test]
-fn the_clone_instruments_every_eligible_fn_without_moving_a_line() {
-    let root = clone_root();
+fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unset() {
+    let Some(root) = clone_root() else {
+        skip(&format!("{CLONE_VAR} is unset; nothing was measured"));
+        return;
+    };
     if !root.join("crates").is_dir() {
-        eprintln!(
-            "SKIP the_clone_instruments_every_eligible_fn_without_moving_a_line: \
-             no bloomery clone at {} (set SENSORIUM_RUNG2_BLOOMERY)",
+        skip(&format!(
+            "{CLONE_VAR}={} has no crates/ directory; nothing was measured",
             root.display()
-        );
+        ));
         return;
     }
+    match head_commit(&root) {
+        None => {
+            skip(&format!(
+                "could not read {}/.git/HEAD; the pins below belong to {PINNED_COMMIT} and \
+                 were not checked",
+                root.display()
+            ));
+            return;
+        }
+        Some(sha) if sha != PINNED_COMMIT => {
+            skip(&format!(
+                "the clone at {} is at {sha}, not the pinned {PINNED_COMMIT}; \
+                 the plan's numbers were not checked against someone else's tree",
+                root.display()
+            ));
+            return;
+        }
+        Some(_) => {}
+    }
+
     let files = collect(&root);
     assert!(
         !files.is_empty(),
@@ -272,6 +346,33 @@ fn the_clone_instruments_every_eligible_fn_without_moving_a_line() {
     assert_eq!(
         t.spawns_wrapped, t.literal_spawns,
         "every literal `{LITERAL_SPAWN}` must be rewritten, and nothing else"
+    );
+
+    // The pins. Everything above is an IDENTITY, and a walk that silently
+    // covered three files satisfies every one of them; these three numbers are
+    // what say the measurement is the one the plan made, on the tree it made it
+    // on (checked above).
+    assert_eq!(
+        files.len(),
+        PINNED_FILES,
+        "the walk covered {} files, not the {PINNED_FILES} measured at {PINNED_COMMIT}",
+        files.len()
+    );
+    assert_eq!(
+        t.files, PINNED_FILES,
+        "{} of those parsed; all {PINNED_FILES} did at {PINNED_COMMIT}",
+        t.files
+    );
+    assert_eq!(
+        t.eligible, PINNED_ELIGIBLE,
+        "eligible fn items moved: {} against the {PINNED_ELIGIBLE} measured at {PINNED_COMMIT}",
+        t.eligible
+    );
+    assert_eq!(
+        t.spawns_wrapped, PINNED_SPAWNS_WRAPPED,
+        "rewritten spawn sites moved: {} against the {PINNED_SPAWNS_WRAPPED} measured at \
+         {PINNED_COMMIT}",
+        t.spawns_wrapped
     );
     // Every real source file contains at least one item, so none of them can
     // reach the appended-final-line shape.

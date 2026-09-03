@@ -1,0 +1,45 @@
+//! The fence: ONE value-carrying arm makes the whole composite ordinary, and it
+//! is wrapped. `ret(.., match x { A => panic!(), B => 1 })` is legal and
+//! warning-free -- the oracle compiles this file's output to say so.
+
+pub fn one_arm_panics(c: u8) -> u8 {@G(7)
+    @R(7)match c {
+        0 => panic!("zero"),
+        _ => 1,
+    }@E
+}
+
+pub fn one_branch_exits(c: bool) -> u8 {@G(8)
+    @R(8)if c {
+        std::process::exit(1)
+    } else {
+        2
+    }@E
+}
+
+pub fn an_if_without_else_is_not_the_tail(c: bool) -> u8 {@G(9)
+    if c {
+        panic!("then");
+    }
+    @R(9)3@E
+}
+
+pub fn a_block_whose_tail_is_a_value() -> u8 {@G(10)
+    @R(10){
+        let _n = panic_free();
+        4
+    }@E
+}
+
+fn panic_free() -> u8 {@G(11)
+    @R(11)5@E
+}
+
+pub fn a_labelled_block_a_break_can_leave_is_wrapped() -> u8 {@G(12)
+    @R(12)'value: {
+        if true {
+            break 'value 6;
+        }
+        panic!("only reached when the break did not fire")
+    }@E
+}@U

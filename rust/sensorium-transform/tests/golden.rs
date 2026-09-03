@@ -449,6 +449,116 @@ fn syntactically_diverging_tails_are_not_wrapped() {
 }
 
 #[test]
+fn a_composite_every_arm_of_which_diverges_is_not_wrapped() {
+    // Ruling F3. Wrapping one makes the `ret` call itself unreachable, which
+    // rustc reports as `unreachable_code` under `-D warnings` -- a build error
+    // under a workspace's own `#![deny(warnings)]`.
+    let t = run("composite_diverging", 7);
+    assert_eq!(
+        sites(&t),
+        [
+            (7, "both_branches_diverge", 8, RetKind::Value),
+            (8, "every_arm_diverges", 16, RetKind::Value),
+            (9, "a_block_whose_tail_diverges", 24, RetKind::Value),
+            (
+                10,
+                "an_unsafe_block_whose_tail_diverges",
+                31,
+                RetKind::Value
+            ),
+            (11, "nested_composites_diverge", 38, RetKind::Value),
+        ]
+    );
+    assert_eq!(
+        t.source.matches("::sensorium_rt::ret(").count(),
+        0,
+        "not one of these five operands may be wrapped"
+    );
+    // The bodiless `fn abs(..);` inside `extern "C" { .. }` is neither a site
+    // nor a skip -- there is nothing there to instrument or to excuse.
+    assert!(t.skipped.is_empty());
+}
+
+#[test]
+fn one_value_carrying_arm_keeps_a_composite_wrapped() {
+    // The fence for the rule above: `ret(.., match x { A => panic!(), B => 1 })`
+    // is legal and warning-free, and `tests/oracle.rs` compiles this golden's
+    // output under `-D warnings` to say so.
+    let t = run("mixed_arms", 7);
+    assert_eq!(
+        sites(&t),
+        [
+            (7, "one_arm_panics", 5, RetKind::Value),
+            (8, "one_branch_exits", 12, RetKind::Value),
+            (9, "an_if_without_else_is_not_the_tail", 20, RetKind::Value),
+            (10, "a_block_whose_tail_is_a_value", 27, RetKind::Value),
+            (11, "panic_free", 34, RetKind::Value),
+            // A labelled block a `break '<label> <value>` can leave does not
+            // diverge, however its tail ends -- so it is wrapped, and the
+            // `break` is what says so.
+            (
+                12,
+                "a_labelled_block_a_break_can_leave_is_wrapped",
+                38,
+                RetKind::Value
+            ),
+        ]
+    );
+    assert_eq!(
+        t.source.matches("::sensorium_rt::ret(").count(),
+        6,
+        "every one of these six operands is ordinary and is wrapped"
+    );
+}
+
+#[test]
+fn a_bare_block_tail_is_wrapped_inside_its_braces() {
+    // Ruling F3's other half: `ret(.., { e })` puts braces around a call
+    // argument, which rustc reports as `unused_braces`. `{ ret(.., e) }` is the
+    // same value and the same measurement with no braces added.
+    let t = run("block_tail", 7);
+    assert_eq!(
+        sites(&t),
+        [
+            (7, "bare_block", 13, RetKind::Value),
+            (8, "nested_bare_blocks", 17, RetKind::Value),
+            (
+                9,
+                "a_block_with_statements_is_wrapped_whole",
+                21,
+                RetKind::Value
+            ),
+            (10, "a_labelled_block_is_wrapped_whole", 28, RetKind::Value),
+            // The label is the reason the descent stops here: this block IS one
+            // unsemicoloned expression, and descending would put the wrap
+            // inside braces a `break 'value 6` leaves without passing through
+            // it -- an exit the frame would then close `none`.
+            (
+                11,
+                "a_labelled_bare_block_is_wrapped_whole",
+                37,
+                RetKind::Value
+            ),
+        ]
+    );
+    // The descent stops at a block that has statements and at a labelled one:
+    // both of those are wrapped whole, and neither trips the lint.
+    assert!(t
+        .source
+        .contains("{ ::sensorium_rt::ret(&crate::__SENSORIUM_UNIT, 7"));
+    assert!(t
+        .source
+        .contains("{{ ::sensorium_rt::ret(&crate::__SENSORIUM_UNIT, 8"));
+    for site in [10, 11] {
+        assert!(
+            t.source
+                .contains(&format!("{}'value: {{", common::ret_open(site))),
+            "site {site}: a labelled block is wrapped WHOLE, never descended into"
+        );
+    }
+}
+
+#[test]
 fn a_loop_tail_is_wrapped_only_when_a_break_gives_it_a_value() {
     let t = run("loop_tail", 7);
     assert_eq!(

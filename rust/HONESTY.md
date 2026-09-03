@@ -186,9 +186,16 @@ reader renders it.
   name is no name. The `JoinHandle`, panic propagation and the OS thread name
   are unchanged.
 - **A spawn shape the transformer does not rewrite is declared, not silently
-  missed**: `Builder::spawn`, `thread::scope` and method-call shapes are listed
-  in the unit manifest's `spawns` with `wrapped: false` and a `reason`, and
-  `info` prints `J spawn sites (W wrapped)`.
+  missed**: `Builder::spawn` (`reason: "builder"`), `thread::scope`
+  (`"scoped"`), other one-argument `.spawn(f)` method calls (`"method"`), and a
+  path ending in `thread::spawn` taking an argument count
+  `std::thread::spawn` does not (`"arity"` — unreachable in code that compiles,
+  listed rather than dropped so nothing the suffix rule matched is silently
+  ignored) are listed in the unit manifest's `spawns` with `wrapped: false` and
+  that `reason`, and `info` prints `J spawn sites (W wrapped)`. A **zero**-
+  argument `.spawn()` is `Command::spawn`, not a thread, and is not a spawn
+  shape at all: listing it would put a thread in the manifest that never
+  existed.
 - **A thread spawned by dependency code has no name at all.** Its `tasks` row's
   name is NULL, `tree` identifies it only as unnamed, and `diff` compares such
   tasks as an unnamed multiset by content: a divergence inside one is reported,
@@ -465,8 +472,17 @@ bullet name. Everything here is a tested claim, not a design intention.
 
 - **Line numbers and file paths.** Injected fragments are newline-free and
   spliced at `syn`'s byte offsets, so a rewritten file has exactly the original
-  line count; the one appended line is the crate root's unit static, recorded
-  per file as the manifest's `appended_line`. `file!()`, `line!()`, panic
+  line count. **There is exactly one exception, and it is the appended line
+  itself**: on a crate root whose last token is a line doc comment or a shebang
+  that runs to EOF with no newline after it, "after the last token" is inside
+  that line, and a static spliced there is commented out or becomes part of the
+  shebang — so in that one shape the unit static's fragment carries a leading
+  newline. It can only ever add a FINAL line, no existing line moves, such a
+  file has no items (hence no `mod` declarations, hence no other file in its
+  unit, hence no guard anywhere that could reference the static), and the added
+  line is recorded per file as the manifest's `appended_line` — the same field
+  that records the item-free crate roots whose static simply lands past the
+  final newline. `file!()`, `line!()`, panic
   locations and every backtrace frame's `<file>:<line>` are the plain build's,
   because the build runs in a per-unit mirror with
   `--remap-path-prefix=<mirror>=<workspace>` appended — a flag rung 1 found to

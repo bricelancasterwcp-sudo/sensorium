@@ -143,9 +143,12 @@ pub(crate) fn run(
     let mut splices = walked.splices;
     let mut appended_line = false;
     if is_crate_root {
-        let placement = static_splice(source, prefix);
+        let placement = static_splice(source, prefix, parsed.shebang.is_some());
         appended_line = placement.appended_line;
-        splices.push(placement.splice(unit_metadata));
+        splices.push(placement.splice(
+            checked_static_offset(source, placement.offset)?,
+            unit_metadata,
+        ));
     }
     splices.sort_by(splice_order);
 
@@ -252,9 +255,12 @@ fn stripped_prefix_len(source: &str, shebang: Option<&str>) -> usize {
 /// line's newline instead.
 ///
 /// The second: when that comment runs to EOF with NO newline after it, there is
-/// no line to move past, so the fragment carries one. This is the only fragment
-/// this crate ever emits that contains a newline, and it can only ever add a
-/// FINAL line -- which is what `appended_line` says.
+/// no line to move past, so the fragment carries one. A SHEBANG that runs to
+/// EOF is the same shape and takes the same correction -- "after the last
+/// token" is the end of the shebang line, and a static appended there is part
+/// of the shebang. This is the only fragment this crate ever emits that
+/// contains a newline, and it can only ever add a FINAL line -- which is what
+/// `appended_line` says.
 ///
 /// `appended_line` is true exactly when the insertion adds a line, which a
 /// newline-free fragment does only at EOF in an empty file or after a trailing
@@ -268,7 +274,7 @@ struct StaticPlacement {
     appended_line: bool,
 }
 
-fn static_splice(source: &str, prefix: usize) -> StaticPlacement {
+fn static_splice(source: &str, prefix: usize, has_shebang: bool) -> StaticPlacement {
     let plain = |offset: usize| StaticPlacement {
         offset,
         lead_newline: false,
@@ -288,8 +294,33 @@ fn static_splice(source: &str, prefix: usize) -> StaticPlacement {
         },
         // Past the shebang's own newline, so the static cannot land inside it.
         None if source.as_bytes().get(prefix) == Some(&b'\n') => plain(prefix + 1),
+        // A shebang with nothing after it at all: no newline to move past, so
+        // the fragment brings one rather than becoming part of the shebang.
+        None if has_shebang && prefix == source.len() => StaticPlacement {
+            offset: source.len(),
+            lead_newline: true,
+            appended_line: true,
+        },
         None => plain(prefix),
     }
+}
+
+/// The crate-root static's offset, checked for the one thing every other splice
+/// producer checks and this one did not: that it lands on a character boundary.
+/// The failure mode without it is a slice panic inside [`assemble`], not the
+/// synthesised error the guards in `visit.rs` return.
+///
+/// # Errors
+/// The offset falls inside a UTF-8 character.
+fn checked_static_offset(source: &str, offset: usize) -> Result<usize, syn::Error> {
+    if source.is_char_boundary(offset) {
+        return Ok(offset);
+    }
+    Err(syn::Error::new(
+        Span::call_site(),
+        "the crate-root static's offset falls inside a UTF-8 character -- \
+         Span::byte_range() is not relative to what this crate assumes",
+    ))
 }
 
 /// Does inserting a newline-free fragment at `offset` give the file one more
@@ -297,14 +328,14 @@ fn static_splice(source: &str, prefix: usize) -> StaticPlacement {
 /// already ended a line -- which includes the empty file, whose zero lines
 /// become one.
 impl StaticPlacement {
-    fn splice(&self, unit_metadata: &str) -> Splice {
+    fn splice(&self, offset: usize, unit_metadata: &str) -> Splice {
         let mut text = unit_static(unit_metadata);
         if self.lead_newline {
             text.insert(0, '\n');
         }
         Splice {
-            start: self.offset,
-            end: self.offset,
+            start: offset,
+            end: offset,
             kind: Kind::Static,
             seq: usize::MAX,
             text,
@@ -374,6 +405,23 @@ mod tests {
             splice(2, 6, Kind::Replace, "Y"),
         ];
         assert!(assemble(source, &bad).is_err());
+    }
+
+    /// The crate-root static is the one splice producer whose offset is not
+    /// computed by `visit.rs`'s guarded paths, so its boundary check is driven
+    /// directly -- a bad offset there panics in `assemble`'s slicing rather
+    /// than returning an error a unit can fall back on.
+    #[test]
+    fn a_static_offset_inside_a_character_is_refused() {
+        let source = "// π\n";
+        // `π` is two bytes at 3..5; 4 is inside it.
+        assert_eq!(checked_static_offset(source, 3).expect("a boundary"), 3);
+        assert_eq!(checked_static_offset(source, 5).expect("a boundary"), 5);
+        let err = checked_static_offset(source, 4).expect_err("inside the character");
+        assert!(
+            err.to_string().contains("UTF-8 character"),
+            "unhelpful: {err}"
+        );
     }
 
     /// `check_line_count` is the enforcement of `rust/HONESTY.md` §9 at the

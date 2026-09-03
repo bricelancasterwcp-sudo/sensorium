@@ -270,3 +270,20 @@ fn a_file_that_ends_without_a_newline_gains_no_line() {
     assert!(!t.appended_line);
     assert_eq!(t.source.lines().count(), input.lines().count());
 }
+
+#[test]
+fn a_shebang_with_no_trailing_newline_gets_one_rather_than_swallowing_the_static() {
+    // The same shape as the trailing `//!` above: "after the last token" is the
+    // end of the shebang LINE, and a static appended there becomes part of the
+    // shebang -- the file parses, the line count holds, and the unit is gone.
+    let input = "#!/usr/bin/env run-cargo-script";
+    let t = transform(input, FILE, META, 0, true).expect("transform");
+    assert_eq!(t.source, format!("{input}\n{}", common::unit_static(META)));
+    assert!(t.appended_line);
+    assert!(
+        top_level_unit_static(&t.source),
+        "the static must be a real item, not part of the shebang: {}",
+        t.source
+    );
+    assert_eq!(t.source.lines().count(), input.lines().count() + 1);
+}
