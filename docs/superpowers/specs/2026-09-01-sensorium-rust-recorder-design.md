@@ -202,6 +202,16 @@ and braces.~~ *(struck 2026-09-02 — falsified; see amendment 1 below.)* Never
    unconditionally by the next wrapper, which never fired here (whole builds in
    5.5 s) — "evidence of *not having hit it*, not of correctness" (spike §5.12).
 
+**Amended 2026-09-03 (rung 2 shipped, decision D2).** Rung 2 replaced the
+shared, timeout-based lock with **one `flock(LOCK_EX)` per unit** on
+`<target>/sensorium/mirror/<metadata>.lock`, released by the kernel on
+process death — no timeout, no staleness rule, no shared state to go stale.
+Per-unit mirrors leave no shared mutable state to race on; the only
+contention is two cargo processes building the same unit concurrently, which
+`flock` serialises correctly. E2′ measured **108/108** units' mirrors checked
+and **0** naming another unit's metadata (acceptance §3), consistent with the
+lock holding under the acceptance run's own concurrency.
+
 ### 2.3 Linking the runtime (F24)
 
 `sensorium-rt` is never in `Cargo.toml` (Cargo.lock stays untouched). The
@@ -234,6 +244,43 @@ things this section owes rung 2 either way (findings §5.24): the
 the driver does not guard against it — and the rlib must be taken from `deps/`,
 not from cargo's uplifted `target/release/libsensorium_rt.rlib`, whose
 directory carries no `liblibc-*.rlib` at all.
+
+**Amended 2026-09-03 (rung 2 shipped, decision D1).** Rung 2 resolved this
+question with a zero-dependency runtime rather than the target-`deps/` shape
+this section originally proposed: `sensorium-rt` has **no dependencies at
+all** — no `libc`, nothing — so the two-`libc`-crates hazard measured above
+cannot recur. The driver compiles it itself with one bare
+`rustc --crate-type rlib --edition 2021 -C opt-level=3 -C panic=<strategy>`
+invocation into
+`<target>/sensorium/rt/<tool-hash>/<panic>/libsensorium_rt.rlib`; the
+runtime's eight needed OS calls (`gettid`, `getpid`, `getppid`,
+`clock_gettime`, `mmap`, `munmap`, `ftruncate`, `close`) are `extern "C"`
+declarations. The runtime's source is embedded in the driver binary
+(`include_str!`), so its version is the driver's version. The wrapper's
+linkage is `--extern sensorium_rt=<rlib>` **and**
+`-L dependency=<the rlib's own per-variant directory>` — amended a second
+time after a pre-acceptance smoke test on the bloomery clone (2026-09-03): a
+unit that depends on an ALREADY-INSTRUMENTED crate must resolve that crate's
+own transitive `sensorium_rt` too, and rustc resolves a transitive crate by
+search path, not by `--extern`. Measured: `--extern` alone gives
+`E0463: can't find crate for sensorium_rt which bloomery_substrate depends
+on`; adding `-L dependency=<rt dir>` fixes it. The probe workspace had passed
+with `--extern` alone by resolver-order luck (its crate-root static resolved
+before its `probe_core` uses); bloomery's `bloomery-daemon`
+(`use bloomery_core::…`) did not. `RUSTDOCFLAGS` needed the same pair for the
+same reason — rustdoc resolves a doctest's transitive crates by search path
+too — confirming §2.1's rung-1 finding about `RUSTDOCFLAGS` rather than
+replacing it. **Consequence, named in `rust/HONESTY.md` §8 item 7:** a unit
+whose OWN DEPENDENCIES are instrumented cannot fall back to a plain compile
+for ANY reason — the plain compile still needs `sensorium_rt` on the search
+path its rmetas already reference, so a fallback for such a unit fails the
+same `E0463` the instrumented build would have, and cargo's build fails
+outright (measured on the bloomery clone, 2026-09-03, with a wrapper missing
+the `-L`: `bloomery-daemon`'s lib unit was declared `fell_back: true` and the
+build still exited 101). "Recorded nothing, built fine" — the ordinary
+reading of a fallback — holds only for a unit whose own dependencies are
+uninstrumented: a leaf workspace crate, or one depending only on registry
+crates.
 
 ### 2.4 Site identity (F3, F33)
 
@@ -336,6 +383,27 @@ amendment 1 below; the sentence is left as written.)* Rules:
    hook that survives `exit()`, or the parent recording each child's `wait`
    status — or declare `exit_status` **unwitnessed** rather than borrowed.
 
+4. **Amended 2026-09-03 (rung 2 shipped, decisions D4 and D7).** Item 3 above
+   is resolved by **D4: a cargo runner role.** The driver sets
+   `CARGO_TARGET_<HOST>_RUNNER=<shim> --runner`; cargo invokes the shim for
+   every test binary AND — measured on cargo 1.96 — every doctest process; the
+   runner spawns, waits, and writes `<pid>.runner.json` with the real status.
+   A runner-waited process carries `exit_status_basis: "waited"` with the real
+   code (or `exit_signal` on a signal); anything the runner did not start (a
+   child a test spawned itself) carries `exit_status: null` and
+   `exit_status_basis: "unwitnessed"` — never cargo's number wearing another
+   process's name. Measured on the acceptance run's whole `-p bloomery-daemon`
+   invocation (119 processes): **`waited` × 71, `unwitnessed` × 48** — the 71
+   test binaries the runner started, the 48 `flywheel-tool` children they
+   spawned themselves. Item 1's parentage question is resolved by **D7**:
+   `capabilities.children` stays `false` (this recorder hooks no spawn
+   primitive, so it cannot witness a spawn as it happens), and the Rust-only
+   key `child_runs: [{run_id, pid, exe}]` links a same-invocation child to its
+   parent by `ppid`; `info` prints the declaration and the `child runs:` line
+   together, never one without the other (F23). Measured: **48** child run
+   ids named by a parent across the same invocation (acceptance §3, *reported
+   without a gate*).
+
 ## 3. The transformer
 
 Two hazards decide every rule: rustc can refuse an injected capture (no
@@ -362,7 +430,10 @@ paths are preserved" is a tested contract in the Rust ledger (E7).
   through `?`, `return`, and panic unwind.
 - Every exit operand of a non-`()` fn — the tail expression and each
   `return <e>` — is wrapped in place as
-  `match (<e>) { __r => { ::sensorium_rt::stash_ret(SITE, (&&Probe(&__r)).cap()); __r } }`.
+  ~~`match (<e>) { __r => { ::sensorium_rt::stash_ret(SITE, (&&Probe(&__r)).cap()); __r } }`~~
+  *(struck 2026-09-03 — replaced; see the amendment after the skip-list bullet
+  below: the parenthesised `match (<e>)` shape trips `unused_parens` under
+  `#![deny(warnings)]`, measured while building rung 2's transformer)*.
   Identical temporary scope to the original (no new borrow errors, no
   drop-order change; a return value cannot borrow a tail temporary — that is
   already E0515). The guard attaches the stashed value and outcome on drop.
@@ -393,6 +464,44 @@ paths are preserved" is a tested contract in the Rust ledger (E7).
   compiled at (spike §3 E2, §4 E2). E2 read **100.0%** with `async` on the skip
   list, so the §8 floor is untouched. Rung 2 decides whether async fns get a
   frame model or stay declared-and-skipped.
+
+**Amended 2026-09-03 (rung 2 shipped): the exit form is `ret()`, not the
+struck `match` wrap above.** The parenthesised
+`match (<e>) { __r => { … } }` shape trips rustc's `unused_parens` lint, and a
+crate under its own `#![deny(warnings)]` would fall back on every wrapped
+fn — measured while building the transformer. Rung 2 ships instead:
+
+```rust
+::sensorium_rt::ret(&crate::__SENSORIUM_UNIT, SITE, |__r| { use ::sensorium_rt::probe::*; ((&&Probe(__r)).debug_cap(), (&&Probe(__r)).outcome()) }, <e>)
+```
+
+Verified under `#![deny(warnings)]` across 14 shapes (struct-literal tail,
+`Box<dyn Trait>` tail, deref-coercion tail, `?` tail, `Err` tail, `!Debug`
+return, early `return` inside `if`, `format!` tail, a generic `T: Clone`
+return, `Option` tail, a `Drop`-logging guard held across the tail, a
+`MutexGuard` in the tail, `Ok`/`Err` outcomes): zero diagnostics, drop order
+and lock-release point unchanged. The probe traits take `&self`; the
+specialised impls (`T: Debug`, `Result<T, E>`) are on `&Probe<'_, T>` and the
+fallbacks on `Probe<'_, T>` by value, and the call site's `(&&Probe(__r))` is
+the autoref order that makes the specialised impl win when it applies. The
+closure is passed BEFORE the operand — an argument-evaluation-order
+guarantee, not a coincidence — so a diverging operand leaves nothing
+unreachable after it. **Not wrapped**, because each is syntactically
+diverging and the frame already closes `none`, the same way `-> !` does:
+`return`/`break`/`continue` expressions, a `loop` with no valued `break`,
+calls of `panic!`/`unreachable!`/`todo!`/`unimplemented!`/
+`std::process::exit`/`std::process::abort`, and — found only once real code
+was measured against the rule — **any composite whose every arm diverges by
+these rules recursively** (an `if`/`else`, `match`, or block whose every
+tail/arm diverges). A bare block tail `{ e }` with no statements is wrapped
+by wrapping `e` *inside* the braces, because a wrapped outer block fires
+`unused_braces`. Both shapes measured **0** occurrences over the bloomery
+clone's 1022 value-returning fn items — the rules exist so a workspace that
+DOES have them never falls back. Unit-returning (`RetKind::Unit`) fns get no
+`ret` call at all: the wire records outcome `none` for them, and the
+converter maps that to `ok` with the recorded value `()` via the manifest's
+`ret: unit` field, because a `-> ()` fn cannot contain a bare `?` that would
+make `none` mean anything else there.
 
 ### 3.3 `?`, sinks and Err arms (F5, F6, F11)
 
@@ -458,6 +567,29 @@ prints a task the reader cannot identify (spike §5.20; `config_test`'s 26
 threads are all named, which is why this is invisible in that half of E0).
 `spawn_child` as designed above is what names them; until it lands, per-task
 naming is complete only for threads libtest itself created.
+
+**Confirmed 2026-09-03 (rung 2 shipped), with the naming shape exactly as
+designed.** `spawn_child` ships as this section specifies: a rewritten
+`std::thread::spawn` site names its child
+`<parent task name> :: spawn@<file>:<line>` when the spawning thread has a
+TASK name, and `spawn@<file>:<line>` alone when it does not — which includes
+a spawn from `main`, because std's own `"main"` thread name is a thread name,
+not a task name (main is not a task; `rust/HONESTY.md` §3). Measured at
+acceptance scale: the registry.rs split (E5, §8 and §10 below) moved a
+`spawn_task` call site from `registry.rs:769` to `registry/mod.rs:248`, and
+all four affected spawned-task names moved with it —
+`…spawn@crates/bloomery-daemon/src/task/registry.rs:769` on one side,
+`…spawn@crates/bloomery-daemon/src/task/registry/mod.rs:248` on the other —
+while their stream hashes stayed pairwise identical
+(`04afbcbcacf6`, `5976ef054dbe` ×2, `63737389821f`). That is the mechanism
+working exactly as designed, and it is also **the cause of E5's STOP**: a
+task name that embeds a spawn site is exact and reproducible, and also
+renamed by the very kind of refactor `--ignore-moves` exists to see through.
+§8's spawn-site count: **13** raw spawn sites rewritten across 108 manifests
+(a raw sum, not a distinct count — two `(crate_name, crate_type)` pairs each
+declare two manifests) against the census's **8** distinct literal
+`std::thread::spawn(` sites over the same tree — `rust/HONESTY.md` §7 and
+the acceptance document §4 name the duplication.
 
 ### 3.6 Reentrancy and capture faults (F32)
 
@@ -566,6 +698,37 @@ for that design rather than a change to it:
   against (spike §5.3) — which §6's `refocus` sameness check depends on.
   Rung 2 fixes or declares each.
 
+**Amended 2026-09-03 (rung 2 shipped): wire format v2, verbatim, and the
+kind-last write discipline that closes the tail-loss gap above.** Every
+record is
+`u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome  u16 payload_len  [payload]`,
+and **every field except `kind` is written first, `kind` last with a Release
+store** — kind 0 marks the unwritten tail a `MAP_SHARED` file is zero-filled
+with, and a reader stops at the first zero it meets. That is the whole of the
+durability rule from the paragraph above, restated as a mechanism: **a
+record is complete iff its `kind` is non-zero**, so the file survives a
+thread that never returns, `process::exit`, `abort`, and SIGKILL, and the
+only possible loss is one record caught mid-write, at most one per thread —
+counted at conversion as `seq_gaps` (a hole the merge infers) separately from
+`records_dropped` (what the writer itself knew it could not write, e.g. a
+failed `ftruncate`/`mmap`). The 28-byte file header
+(`b"SNSR" u8 version=2 u8 flags=0 u16 name_len u32 thread_serial
+u64 records_dropped u64 truncated`, then the thread name) carries
+`records_dropped` and `truncated`, rewritten in place through the mapping and
+final only once `THREAD_END` is present; growth is `ftruncate` + remap in
+64 KiB chunks. The per-process `.proc.json` header is written
+tmp-then-renamed, so a kill between the two can leave an orphan
+`.proc.json.tmp` the converter must not match. `env_hash` is sha256 over
+`"\n".join(f"{k}={v}" for sorted env items)`, first 16 hex chars — **not**
+the Python recorder's `json.dumps(env, sort_keys=True)` formula; the two are
+comparable only within one language, and `docs/TRACE-FORMAT.md` §4 says so.
+Measured on the acceptance run's whole invocation: **0** `seq_gaps`, **0**
+`records_dropped`, **0** `panics_unrecorded`, **5729** captured return values
+truncated at the 200-byte cap, **100** live threads at process exit with
+**0 of 1250** spool files carrying a torn last record (parsed directly off
+the spool bytes, outside the converter) — rung 1's tail-loss gap is closed on
+the record side.
+
 ## 5. The contract: `docs/TRACE-FORMAT.md`, trace format 4
 
 The schema (`code_objects`, `frames`, `events`, `output`, `tasks`,
@@ -611,6 +774,27 @@ Two classes, both written by BOTH recorders:
   `env` in particular may be withheld for privacy. `late_writes` stays
   Python-only and `records_dropped` Rust-only; `Trace.dropped_writes()` reads
   either.
+
+**Amended 2026-09-03 (rung 2 shipped): the keys actually written.**
+`docs/TRACE-FORMAT.md` §4 is now the authoritative, current list (this
+section is left as written, design-time); the shipped converter
+(`rust/cargo-sensorium/src/convert/meta.rs`) writes, beyond the
+language-neutral required set: `invocation`, `pid`, `ppid`, `exe`,
+`toolchain`, `rustc_path` (an addition against this section's original
+list), `cargo_args`, `profile`, `tool_hash`, `driver_version`,
+`instrumented_units`, `uninstrumented` (workspace-scoped via the manifest's
+`workspace_root`), `skipped` / `spawns` / `unreached_files`
+(registered-unit-scoped, not workspace-scoped — `docs/TRACE-FORMAT.md` §4
+states why the two scopings differ), `units_refused`, `exit_status_basis`,
+`exit_signal`, `wall_start_ts` / `wall_end_ts`, `records_dropped`,
+`seq_gaps`, `panics_unrecorded`, `panics_outside_frames`, `child_runs`,
+`manifests_unscoped`. `partial` (this section's original list) did not
+ship — `?`-site partial instrumentation is rung 3's (§3.3 is undone this
+rung), so no manifest carries it yet. The `dbg` value tag (§5.3) rides in the
+RETURN payload's `value` key beside the required `outcome`; a Rust
+RAISE/HANDLED payload carries `loc` (where a panic fired), not the `chain`
+key this section's design-time text names — chain identity is rung 3's, with
+`?`.
 
 ### 5.2 Capabilities and command gating
 
@@ -738,6 +922,27 @@ recorders' test suites read the same vectors.
   "Vocabulary" bullet above, promoted from a renaming to a correctness fix, and
   it is why §11 moved the per-language table into rung 2.
 
+**Amended 2026-09-03 (rung 2 shipped): what landed against this section's
+list, and what did not.** Done: the lang-keyed vocabulary table
+(`src/sensorium/query/vocab.py`, `terms(trace)`), the CALL payload's `unread`
+marker rendered in `tree` and `frame` (not only `grep`), `runs` grouping by
+`invocation` with per-member `exit:`/`events:`/`cmd:`, the exit-status
+rendering (`waited`/`unwitnessed`, never a bare `None`), and refusals for
+`exceptions` (needs the Rust disposition rules, rung 3), `refocus`
+(`capabilities.refocus: false`, rung 4), and `watch`/`flow`
+(`capabilities.line: false`, rung 4) — each printing why and exiting 2, never
+answering from a capability the trace does not carry. `diff --ignore-moves`
+ships exactly as this section specifies, including the `moves:` block and the
+never-claims-values-lines-or-timing rule; it is what E5 (§8, §10) measured
+against. **Not done, carried to the rung-3 inbox**
+(`docs/superpowers/specs/2026-09-02-sensorium-rung3-inbox.md`): the Rust
+`exceptions` dispositions and chain identity (rung 3, as this section already
+said); `refocus` for `lang = rust` (rung 4, as this section already said);
+`diff --task` help text (still Python-worded for a Rust trace);
+`vocab.interp_line`'s `or "?"` fallback (no fixture reaches it, so it is
+unverified); the Python `live_threads` line's pre-existing asymmetry this
+section did not touch.
+
 ## 7. The Rust honesty ledger: `rust/HONESTY.md` (F21)
 
 Written before the transformer, one section per promise, each with the corpus
@@ -834,6 +1039,30 @@ continued*):
   same-file reading, **1723/1723 = 100.0%**, passes with no supplementary build
   at all.
 
+**Rung 2 measured column — dated addition (2026-09-03).** The table above
+still reads "not measured (rung 2)" for E3 and E5, and its E2/E7/E8 rows are
+rung 1's numbers on the *mechanics spike*, not on product code — left as
+written, because nothing above is wrong, only superseded. Rung 2
+pre-registered E2 again as **E2′**
+(`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §1,
+re-read because the transformer changed: exit wraps, spawn rewrite) and
+measured all five endpoints on the bloomery **clone**, product code,
+`sensorium-rt`/`sensorium-transform`/`cargo-sensorium` 0.1.0:
+
+| Id | Rule (§1 of the acceptance document, verbatim) | Measured | Verdict |
+|---|---|---|---|
+| E2′ | floor 98% of eligible fn items; any fell-back unit stops the rung | **100.0%** — 2051/2051 eligible fn items (workspace-wide), 1723/1723 (package build); 0 fell back | **PASS** |
+| E3 | DIVERGED 0/19 and REFUSED 0/19 | **0 DIVERGED, 0 REFUSED** over 19 diffs of 20 identical re-runs, one binary, sha256 unmoved | **PASS** |
+| E5 | A/B MATCH modulo location, every task paired by name; A/C DIVERGED naming the step | A/C **DIVERGED**, naming `Journal::open` vs `ImageStore::new` inside the swapped fn — the negative control holds. A/B **DIVERGED**: 28 code objects paired, 0 added, 0 removed, all six `task::registry::tests::*` tasks paired — but **4 spawned child tasks unpaired by name** (their spawn site moved with the split; stream hashes identical pairwise) | **STOP** |
+| E7 | any difference in a panic location, `file!()`/`line!()`, a backtrace frame, a `test …` line, or `test result:` → STOP | **0 differences**: (a) 6/6 checks on the probe (44/44 `mechanics.sh` checks); (b) 0/56 masked lines on the clone, instrumented arm wrote 60 spool files (not vacuous) | **PASS** |
+| E8 | any failed check → STOP | **0 failed checks of 5** — (a), (c)+sentinel, (d), (b) on the clone, expected `Fresh` set asserted each time | **PASS** |
+
+Four endpoints pass on mechanics; one — E5, the only endpoint that asks
+whether a trace can *verify a refactor* — reads **STOP**, on task NAMING, not
+on the causal streams `--ignore-moves` pairs (§10, §11 below carry the
+consequence). Source: the acceptance document's §3 (raw numbers) and §4 (the
+verdicts, hand-written against the pre-registered rules).
+
 ## 9. Testing story (the brainstorm's unwritten section 4; F22)
 
 - **`sensorium-transform` golden tests**: input `.rs` → spliced output, byte
@@ -926,6 +1155,28 @@ instrument working. Then the same for `pager.rs`,
 `drift.rs`, `task_loop.rs` with `--test` selectors chosen from the tests that
 import them.
 
+**Amended 2026-09-03 (rung 2 measured; the expected verdict above is
+superseded, not deleted).** The registry.rs split ran exactly as this section
+specifies, and its measured result is **not** the `MATCH modulo location`
+this section expected — the measured verdict is `DIVERGED`, and the
+divergence is *not* a test-order change (libtest ran the same six
+`task::registry::tests::*` in the same order on both sides, and all six
+paired by name). What diverged is four *spawned child* task names, because
+`spawn_task`'s own call site moved from `registry.rs:769` to
+`registry/mod.rs:248` and `spawn_child`'s derived name (§3.5) embeds the
+spawn site. This section's own escape hatch ("if it is a test-order change …
+read it as the instrument working, else STOP") therefore resolves to
+**STOP**, exactly as the acceptance document's pre-registered decision rule
+(E5, §1) requires. The planted-swap half of the target held without
+qualification: `diff --ignore-moves` on A/`e5-planted` read `DIVERGED`,
+naming `Journal::open` (A) against `ImageStore::new` (B) at the swapped step
+— the verifier is not void. Full evidence, all three verbatim `diff` outputs
+and the file-by-file split table:
+`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3
+(E5) and §4. This is a design gap in what a spawned task's NAME is built
+from, not a bug in `--ignore-moves`'s pairing (which paired all 28 non-spawn
+code objects correctly) — see §11's rung-3 entry decision below.
+
 ## 11. Order of work (rungs)
 
 0. **Python core prep** — reader fix (§6), `diff --ignore-moves` with the E5
@@ -972,6 +1223,34 @@ import them.
    `source_hashes`, no output), the Python-core ones now carried in §6
    (`tree`/`frame` `unread`, language-keyed prose), and the design questions
    (child-process linkage, per-unit site identity, unnamed spawned threads).
+
+   **Amended 2026-09-03: rung 2 is DONE-WITH-STOP.** E2′, E3, E7, E8 read
+   PASS; E5 reads STOP (§8, §10 above; full evidence in
+   `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`).
+   The pre-registered consequence is taken as written: the PR ships the
+   implementation and the evidence, ending at a findings document rather than
+   a clean GO, and E5's fix becomes a **rung-3 ENTRY DECISION for Brice**
+   rather than a rung-2 patch, because it is a choice among designs, not a
+   bug fix:
+
+   - **(a)** project task names through `moves` the way code-object keys
+     already are;
+   - **(b)** name a spawned task by something a move does not change — the
+     enclosing fn's qualname plus an ordinal (`<parent> :: spawn@<qualname>#k`)
+     instead of a file:line;
+   - **(c)** treat unpaired-by-name tasks whose *projected streams* hash equal
+     as a move in the verdict, rather than as an addition and a removal.
+
+   These three are stated neutrally; **the controller's recommendation is
+   (b)**, because it is stable across exactly the kind of move E5 tested (a
+   file split) the same way code-object keys already are, and it changes no
+   `diff` output for a workspace that never moves a spawn site. The rung-3
+   inbox (`docs/superpowers/specs/2026-09-02-sensorium-rung3-inbox.md`)
+   carries this decision first, ahead of `?`/sinks/arm work, because rung 3's
+   own corpus cases will spawn tasks and inherit whichever answer Brice
+   picks. That document also carries the smaller deferred items this rung's
+   review rounds collected (mutation-test gaps, doc precision, a file at its
+   800-line limit) — none of them block the entry decision above.
 3. **Err flow** — `?`, sinks, arm classification, closures, Rust `exceptions`
    rules, corpus swallow/panic/interleave cases. Acceptance: E6.
 4. **Focus tier** — LINE/locals under `--focus`, `watch`/`flow`, driver-side
@@ -1049,3 +1328,29 @@ repository does not carry.
 | `spawn_child` names workspace-spawned threads (§3.5) | The need is measured: **4 of 57** emitting non-main threads in the `--lib` trace carry no name at all | findings §5.20 |
 | `tree`/`frame` need no Rust-driven change (§6) | **They drop the CALL payload's `unread` marker that `grep` keeps** — `args: (none)` where the truth is "never read". A Python-core gap, now rung-2 work | findings §5.6 |
 | E2's floor derivation, "5 const of 756 excluded by rule" (§8) | Census counts **744** in `crates/*/src` (2056 with tests) → 739/744 = 99.33%; and the row's denominator crossed file sets with the lens. **Floor unchanged**; 100.0% three ways | findings §1 erratum, §3, §5.14 |
+
+### Rung-2 deltas: what shipping and measuring the recorder changed against this spec (2026-09-03)
+
+Every row is a decision this rung's plan made (its own "Decisions this plan
+makes" table) or a sentence of this spec rung 2 confirmed, sharpened, or
+falsified while shipping product code — as against rung 1's *spike*, which
+only measured mechanics. The evidence column names a decision id (D1–D10, the
+rung-2 plan's own table) or a §3/§4/§5 number of
+`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`.
+
+| This spec (or rung 1) said | Rung 2 decided or measured | Evidence |
+|---|---|---|
+| runtime rlib built into the target workspace's `deps/`, linked via `-L dependency=<spike release deps>` (§2.3, rung-1 amendment) | **Zero-dependency runtime**, compiled by the driver with one bare `rustc` line; linkage needs `-L dependency=<rt dir>` **in addition to** `--extern`, for both the wrapper and `RUSTDOCFLAGS`, whenever a unit's own dependencies are instrumented | D1; §2.3 amendment above; `rust/HONESTY.md` §8 item 7 |
+| the spike's mirror lock: shared, 120 s timeout (§2.2, rung-1 amendment) | **One `flock` per unit, no timeout** — per-unit mirrors leave nothing shared to go stale | D2; §2.2 amendment above; E2′ 108/108 checked |
+| `#[cfg_attr(.., path = ..)]` unevaluated, `unreached_files` declared (§2.4) | **Unchanged, still deferred** — 0 cases in bloomery | D3 |
+| `exit_status` borrowed from cargo, `exit_status_basis = "cargo"` (§2.5, rung-1 amendment) | **A cargo runner role**: `waited` for every runner-started process (test binaries and doctests both), `unwitnessed` for anything a test spawned itself | D4; §2.5 amendment above; `waited`×71 / `unwitnessed`×48 |
+| converter language undecided | **Rust**, `rusqlite` bundled — and its first shape committed a fsync per row, measured **1118.9 s** for one invocation before the fix landed | D5; acceptance §3.1 addendum; `docs/TRACE-FORMAT.md` §2 |
+| async fns: skipped, reason `async` (§3.2, rung-1 amendment) | **Unchanged** — 0 `async fn` in bloomery, so E2′'s 100.0% is unaffected | D6 |
+| children: parentage on disk, thrown away by the converter (§2.5, rung-1 amendment) | **N traces with a join key**: `capabilities.children = false` **and** `child_runs` linked by `ppid` — never neither | D7; §2.5 amendment above; 48 child runs named |
+| site identity per-unit, un-merged (§2.4, rung-1 amendment) | **Merged at conversion** on `(file, qualname, firstlineno)`; `diff` still cannot separate two fns sharing a file and qualname at different lines (bloomery's cfg-gated `main.rs::run` twins) | D8; `rust/HONESTY.md` §7 |
+| fingerprint file basis unresolved | **Workspace-relative** (stored), **absolute** for `code_objects.file`; `diff --ignore-moves` re-hashes the absolute string on both sides, at query time | D9; `rust/HONESTY.md` §7 |
+| RETURN values: ruled "carry them" (§12), form undesigned | **Captured at tier `call`** via `ret()` (§3.2 amendment above); the 200-byte cap bounds `Debug` *formatting*, not std's collection walk (10⁶-element `Vec`: ≈10 ms either way) | D10; acceptance §3, *reported without a gate* |
+| exit form: `match (<e>) { __r => { … } }` (§3.2) | **Replaced by `ret()`** — the `match (<e>)` shape trips `unused_parens` under `#![deny(warnings)]`, measured while building the transformer | §3.2 amendment above |
+| `spawn_child` naming, designed not shipped (§3.5) | **Shipped exactly as designed**, and its own site-in-name shape is what E5 measures as a gap: a spawn site that moves renames the task | §3.5 amendment above; E5 |
+| §10 rung 2's expected verdict: `MATCH modulo location` on the registry.rs split | **Measured `DIVERGED`** — not a test-order change, but four spawned child task names whose site moved with the split | §10 amendment above; acceptance §3 (E5), §4 |
+| §11 rung 2: entry condition only, no exit stated | **DONE-WITH-STOP.** E2′/E3/E7/E8 PASS, E5 STOP; the fix is a rung-3 entry decision for Brice among three options, stated neutrally, with the controller's own recommendation named separately | §11 amendment above; acceptance §4 |

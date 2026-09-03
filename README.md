@@ -511,6 +511,85 @@ reported skipped BY NAME and counted apart from the passes, never as them.
 `--bench` reports; it never gates. Overhead is a tracked fact about a machine
 and a workload, not a pass/fail property of the tool.
 
+## Rust
+
+`cargo sensorium test`/`cargo sensorium run` record a Rust workspace's own
+crates the same way this document's recorder records a Python program: one
+sensorium trace per process, trace format 4, read by the same `sensorium`
+command line. `rust/` ships `sensorium-rt 0.1.0` (zero dependencies, the
+runtime linked into every instrumented unit), `sensorium-transform 0.1.0`
+(the `syn` rewriter), and `cargo-sensorium 0.1.0` (driver, workspace wrapper,
+target runner, converter — one binary, four roles). What it does and does not
+see is [`rust/HONESTY.md`](rust/HONESTY.md); [`rust/README.md`](rust/README.md)
+is the full build/install/record reference. This section is the summary
+beside Python's, above.
+
+### Install and record
+
+    cd rust && cargo build --release
+    cargo install --path rust/cargo-sensorium      # from the repository root
+    cargo sensorium test [--tier off|call] <cargo test args…>
+    cargo sensorium run  [--tier off|call] <cargo run args…>
+
+Cargo stays the runner and the builder; sensorium only changes what gets
+compiled and watches what comes out. `--tier off` compiles the same
+artifacts and gates emission at runtime, so switching tiers rebuilds
+nothing. Traces land beside the Python ones, in `$SENSORIUM_DIR/traces/`.
+
+### What it answers
+
+Tier `call` — the only tier this version ships, and the default — records
+CALL and RETURN with an outcome (`ok`/`err`/`panic`/`none`) and a captured
+`Debug` return value, panics, per-thread `MAP_SHARED` spools, and libtest
+tests plus `spawn_child`-named worker threads as tasks. `runs`, `info`,
+`tree`, `frame`, `grep` and `diff` — including `diff --ignore-moves` across a
+refactor — all answer on a Rust trace; `info` adds the toolchain, per-unit
+instrumentation counts, child runs, and live threads at exit.
+
+**One known gap, measured, not yet fixed.** `diff --ignore-moves` pairs code
+objects correctly across a file split (28/28 paired, 0 added, 0 removed, in
+the acceptance run's own split of a real file), but a spawned worker thread's
+task NAME embeds its spawn site (`<parent task> :: spawn@<file>:<line>`), so
+moving that call site during the same split renames the task and the
+comparison reads DIVERGED even though nothing about the program's behaviour
+changed. Measured on bloomery's own `registry.rs` split — four spawned-task
+names moved, their stream hashes identical pairwise on both sides:
+`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3–§4,
+endpoint E5. The fix is an open entry decision for the next rung, not yet
+made: `docs/superpowers/specs/2026-09-02-sensorium-rung3-inbox.md`.
+
+### What refuses
+
+`exceptions`, `refocus`, `watch` and `flow` refuse outright on a Rust trace
+in this version — each prints why and exits 2, never answering from a
+capability the recorder declares it does not have. `exceptions` needs the
+Rust disposition rules (rung 3, not yet built); `refocus` needs
+`capabilities.refocus`; `watch`/`flow` need `capabilities.line` — both
+`false` until rung 4. Locals, `?`-site classification, and program output
+under libtest are the same kind of "not yet": declared absent in the trace,
+never silently missing.
+
+### Cost, beside Python's
+
+Measured on this same box
+(`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3.1,
+the addendum re-measured after the converter's one-fsync-per-row bug was
+fixed at commit `c90cb72`; the earlier, since-fixed reading is cited only as
+history): `cargo test -p bloomery-daemon --lib` (plain) against
+`cargo sensorium test -p bloomery-daemon --lib` (call, tier `call`, n=5 each,
+binaries pre-built) — **0.058 s plain, 0.125 s call, ×2.1552**. Before the fix
+(commit `46074ef`) that same ratio read **×28.2373** (0.059 s / 1.666 s),
+almost entirely the converter's own committed-per-row cost, not recording —
+the same invocation's conversion wall fell from **1118.867 s to 1.197 s**
+(n=3) with the fix. One recorded `--lib` invocation start to finish, build
+Fresh, conversion included: **0.102 s** (n=1); the driver's own fixed cost is
+**0.073 s** (n=5, median of 5 no-op `--tier off --no-run` invocations against
+straight cargo). Python's own per-event cost is in the Overhead section
+above (4–9 µs/event on this box); the Rust side's own reported cost lives in
+`rust/HONESTY.md` §10 and the acceptance document, on its own lens — a
+whole-suite wall ratio and a per-event µs figure are not the same unit, and
+neither section here states one as a translation of the other.
+
 ## Not yet
 
 Subprocess following, attach-to-live-server flight recording, native (rr)

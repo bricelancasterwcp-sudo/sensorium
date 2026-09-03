@@ -16,6 +16,12 @@ Three crates, all `0.1.0`, all `publish = false`:
 | `sensorium-transform` | The `syn` rewriter. Pure: source + tier config in, spliced source + a site manifest out. No I/O. |
 | `cargo-sensorium` | One binary with four roles: the `cargo sensorium` driver, the workspace wrapper cargo calls per unit, the target runner, and the converter that turns spools and manifests into traces. |
 
+`sensorium-rt`'s zero-dependency policy and `cargo-sensorium`'s own policy
+against a `sha2` dependency each carry their own from-scratch, NIST-vector-pinned
+SHA-256 (`env_hash` in the runtime, `tool_hash`/`source_hashes` in the driver) —
+two ~200-line files kept in sync by the same test vectors, a duplication
+D1 forces rather than an oversight (design spec §2.3, D1 in the rung-2 plan).
+
 **What v1 records** — tier `call`: calls and returns with an outcome and a
 captured return value, panics, threads as tasks (libtest's per-test threads and
 the ones your code spawns). Workspace crates only, Linux, stable rustc, no

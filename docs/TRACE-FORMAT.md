@@ -68,12 +68,20 @@ $SENSORIUM_DIR/traces/<run-id>.db        # default $SENSORIUM_DIR = ~/.sensorium
   invocation against the Python converter's 22.7s for the same invocation,
   ~49x slower, entirely attributable to one fsync'd transaction per `INSERT`;
   one transaction per trace measured 0.903s for that same invocation
-  afterwards. `synchronous=NORMAL` under WAL cannot corrupt the file on a
-  crash (that guarantee is unconditional under WAL; `FULL`'s extra fsync only
-  protects against losing the last few committed transactions on power loss)
-  -- and a reader can never observe an earlier "committed" state of this
-  file at all, because the tmp+rename means a trace's final name exists only
-  after `COMMIT` has already returned.
+  afterwards (n=1, read live at fix time). `synchronous=NORMAL` under WAL
+  cannot corrupt the file on a crash (that guarantee is unconditional under
+  WAL; `FULL`'s extra fsync only protects against losing the last few
+  committed transactions on power loss) -- and a reader can never observe an
+  earlier "committed" state of this file at all, because the tmp+rename means
+  a trace's final name exists only after `COMMIT` has already returned.
+  **Amended 2026-09-03 (drift closed): the acceptance document's own
+  addendum re-measured the same spool, same command, formally (n=3) and reads
+  1.197s** -- the 0.903s figure above is left as it was recorded (a single
+  ad-hoc reading taken at fix time, same box, same spool) rather than
+  silently replaced; the addendum's number is the one to quote
+  (`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`
+  §3.1). Both are the same ~1000x order of improvement over the 1118.9s
+  per-row baseline; neither reading is gated.
 - **Permissions**: the file is created with the process umask — `0644` on a
   default Linux setup, readable by every account on the machine. A trace
   holds the entire process environment, everything the program wrote to
