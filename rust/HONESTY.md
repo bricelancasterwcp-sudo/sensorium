@@ -417,6 +417,25 @@ without knowing this document exists.
    coverage check reading manifests alone would have scored it as instrumented
    (findings §5.29). A fallback in a shared `tests/common/*.rs` uninstruments
    every test binary that includes it, and the manifests say which.
+   **And a fallback is not always an escape.** A unit whose DEPENDENCIES are
+   instrumented cannot be compiled plainly: their rmetas already reference
+   `sensorium_rt`, so the passthrough rustc run needs the runtime as much as
+   the instrumented one did. When such a unit falls back for a reason that is
+   about the runtime's linkage, the plain compile fails with the same
+   `E0463: can't find crate for <dependency>` and cargo's build fails —
+   measured on the bloomery clone, 2026-09-03, on a fresh target with a wrapper
+   that sent `--extern sensorium_rt=<rlib>` and no `-L dependency=<rt dir>`:
+   `bloomery-daemon`'s lib unit was declared
+   `fell_back: true, fallback_reason: "rustc: can't find crate for
+   bloomery_core"` and the build then exited 101 anyway. The manifest is
+   therefore the record of what the recorder did NOT instrument, never a
+   promise that the build survived it; **a fallback for a reason unrelated to
+   the runtime** (`lto`, `cross-target`, an absolute crate root) is the case
+   where the unit does compile plainly, and that is the only case where a
+   fallback means "recorded nothing, built fine". The linkage this rests on is
+   the wrapper's `--extern sensorium_rt=<rlib>` **and**
+   `-L dependency=<rt dir>` (plan decision D1 as amended): rustc resolves a
+   dependency's own `sensorium_rt` through the search path, not the extern map.
 8. **A module the module walk could not reach.** `#[cfg_attr(.., path = ..)]`
    is not evaluated — the walk resolves `mod` declarations and literal
    `#[path]`, and refuses to guess at a conditional one. *Declared by* the unit
@@ -576,6 +595,6 @@ re-rolled** if the box was busy when it started.
 | 6 | Spawns are not witnessed; instrumented children are linked by `ppid`; a child that ran no instrumented code is invisible | `corpus/rust/abort`, `docs/trace-format/vectors/v11-child-runs-linked.json`, `tests/test_rust_convert.py` (`child-linked`) |
 | 7 | Sites are per unit at record time and merged on `(file, qualname, firstlineno)` at conversion; `diff` cannot separate cfg-gated twins | E3 and E5 in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/cargo-sensorium/tests/unit_identity.rs`, `rust/cargo-sensorium/tests/convert.rs` |
 | 8 | Every eligible function in a workspace crate is instrumented, or its unit says it fell back | E2′ in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/sensorium-transform/tests/census.rs` |
-| 8 | Every blind spot is declared in a manifest field, a meta key or an `info` line — including the unreached-module and unit-ceiling declarations, which reach the trace as `unreached_files` and `units_refused`; the one that does not (a config-file runner replaced rather than chained) says so | `rust/tests/mechanics.sh` (fallbacks in both channels; a config-file runner), `rust/sensorium-rt/tests/units.rs` (the unit ceiling), `docs/trace-format/vectors/v14-rust-refusals.json` |
+| 8 | Every blind spot is declared in a manifest field, a meta key or an `info` line — including the unreached-module and unit-ceiling declarations, which reach the trace as `unreached_files` and `units_refused`; the one that does not (a config-file runner replaced rather than chained) says so | `rust/tests/mechanics.sh` (fallbacks in both channels; a unit using an instrumented dependency; a config-file runner), `rust/sensorium-rt/tests/units.rs` (the unit ceiling), `docs/trace-format/vectors/v14-rust-refusals.json` |
 | 9 | Line numbers, paths, backtraces, drop order, lock hold times, freshness and plain builds are unchanged | E7 and E8 in the acceptance document and `rust/tests/mechanics.sh`, `rust/sensorium-transform/tests/oracle.rs`, `rust/sensorium-transform/tests/golden.rs`, `rust/sensorium-rt/tests/panics.rs` |
 | 10 | Cost is reported with `n` and lens, and gates nothing | the acceptance document's *reported without a gate* section |

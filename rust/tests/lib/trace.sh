@@ -139,6 +139,31 @@ c.close()
 PY
 }
 
+# <manifests dir> <leaf crate> — the units that DEPEND on an instrumented
+# workspace crate, as `<units> <fell back> <detail>`.
+#
+# Every crate of the probe except the leaf uses `probe_core`, which the wrapper
+# instruments, so reading that crate's rmeta means resolving ITS `sensorium_rt`
+# — the linkage `-L dependency=<rt dir>` exists for. Bloomery's daemon failed
+# exactly here (`E0463: can't find crate for bloomery_core`), and a fallback is
+# no escape: the dependency rmetas already reference the runtime, so the
+# passthrough compile fails the same way (`rust/HONESTY.md` §8).
+units_depending_on_an_instrumented_crate() {
+  python3 - "$1" "$2" <<'PY'
+import glob, json, sys
+mdir, leaf = sys.argv[1], sys.argv[2]
+units, fell = 0, []
+for f in sorted(glob.glob(mdir + "/*.json")):
+    m = json.load(open(f))
+    if m["crate_name"] == leaf:
+        continue
+    units += 1
+    if m.get("fell_back"):
+        fell.append("%s/%s: %s" % (m["crate_name"], m["crate_type"], m.get("fallback_reason")))
+print("%d %d %s" % (units, len(fell), "; ".join(fell) or "-"))
+PY
+}
+
 # <manifests dir> — what a module walk could not reach, as
 # `<manifests declaring one> <sorted unique paths>`.
 #

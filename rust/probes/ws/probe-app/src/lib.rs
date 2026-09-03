@@ -9,6 +9,11 @@
 /// A NON-`mod.rs` file module: its own children live under `src/deep/`.
 pub mod deep;
 
+/// A module whose FIRST item is a `use` of an instrumented dependency —
+/// bloomery's shape, and the one that needs `-L dependency` rather than
+/// `--extern` alone. See `tally.rs`.
+pub mod tally;
+
 /// An inline module. Walked in place; it is not a file. Its `#[path]` child
 /// resolves under `src/nested/`, because the path base for a `#[path]` inside
 /// an inline module in a mod-rs file is the file's directory plus the inline
@@ -130,6 +135,11 @@ mod tests {
     #[test]
     fn work_works() {
         assert_eq!(work(2), 6);
+    }
+
+    #[test]
+    fn tallying_goes_through_an_instrumented_dependencys_type() {
+        assert_eq!(tally::tally(2), 3);
     }
 
     #[test]

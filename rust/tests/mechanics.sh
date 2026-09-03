@@ -627,6 +627,22 @@ check "no_unit_of_the_probe_fell_back_in_either_channel" \
 # wrapper does not evaluate `cfg`, so a `#[cfg_attr(.., path = ..)]` module is
 # declared unreached rather than guessed at. A declaration nobody reads is not
 # a declaration, so it is read here.
+# A unit that USES an instrumented crate has to resolve that crate's own
+# `sensorium_rt`, which rustc does through the `-L dependency` search path.
+# Bloomery's daemon failed here on a fresh target before the wrapper sent that
+# flag, and falling back did not save it: the dependency rmetas already
+# reference the runtime, so the plain compile failed identically. Every probe
+# crate but the leaf is in this position.
+DEPENDENTS="$(units_depending_on_an_instrumented_crate "$MANIFESTS" probe_core)"
+DEP_UNITS="$(echo "$DEPENDENTS" | awk '{print $1}')"
+DEP_FELL="$(echo "$DEPENDENTS" | awk '{print $2}')"
+DEP_LOG="$(cat "$LOGS"/plain*.log "$LOGS"/instr*.log "$LOGS/doc-call.log" "$LOGS/record.log" \
+  "$LOGS/record-lib.log" 2>/dev/null | grep 'fell back to the real tree' | grep -vc 'unit probe_core (' || true)"
+note "[dependents] units using an instrumented crate: $DEP_UNITS   fell back: $DEP_FELL   log lines: $DEP_LOG   $(echo "$DEPENDENTS" | cut -d' ' -f3-)"
+check "a_unit_using_an_instrumented_dependency_compiles_without_falling_back" \
+  "$([ "$DEP_UNITS" -gt 0 ] && [ "$DEP_FELL" -eq 0 ] && [ "$DEP_LOG" -eq 0 ] && echo 0 || echo 1)" \
+  "$DEP_UNITS such unit(s) (wanted more than 0), $DEP_FELL flagged in a manifest, $DEP_LOG line(s) in the build logs: $(echo "$DEPENDENTS" | cut -d' ' -f3-)"
+
 UNREACHED="$(unreached_files "$MANIFESTS")"
 UNREACHED_N="${UNREACHED%% *}"
 UNREACHED_FILES="$(echo "$UNREACHED" | cut -d' ' -f2-)"

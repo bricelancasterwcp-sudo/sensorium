@@ -247,15 +247,28 @@ fn a_passthrough_unit_writes_no_manifest_and_no_log_line() {
     assert!(!stderr(&out).contains("fell back"), "{}", stderr(&out));
 }
 
-/// The positive control. Two flags are appended and nothing else: the
-/// `--extern` that makes the runtime reachable, and the
-/// `--remap-path-prefix` that rung 1 measured to be load-bearing rather than
-/// belt and braces — without it every backtrace frame prints a mirror path
-/// (findings §5.21). And no `-L dependency`: the runtime has no dependencies
-/// to find, which is what removed rung 1's two-`libc` graph (D1, findings
-/// §5.24).
+/// The positive control. THREE flags are appended, in this order, and nothing
+/// else:
+///
+/// 1. `--extern sensorium_rt=<rlib>` — binds the name this unit's own rewritten
+///    crate root writes.
+/// 2. `-L dependency=<the rlib's directory>` — how rustc resolves
+///    `sensorium_rt` as a TRANSITIVE crate, which is what a unit that merely
+///    *uses* an instrumented workspace crate needs. Measured 2026-09-03 on the
+///    bloomery clone: without it, a unit whose submodule opens with
+///    `use bloomery_core::journal::Journal;` fails `E0463` on the dependency,
+///    because reading that crate's instrumented rmeta needs ITS runtime. D1 is
+///    amended to require both flags. The directory holds exactly one rlib and
+///    the runtime has no dependencies, so there is no multiple-candidates
+///    hazard in putting it on the search path.
+/// 3. `--remap-path-prefix=<mirror>=<workspace>` — load-bearing rather than
+///    belt and braces: without it every backtrace frame prints a mirror path
+///    (findings §5.21).
+///
+/// The order matters enough to pin: the argv cargo built comes first and is
+/// untouched, and ours are appended after it.
 #[test]
-fn an_instrumented_units_argv_gains_the_extern_and_the_remap_and_nothing_else() {
+fn an_instrumented_units_argv_gains_the_three_flags_in_order_and_nothing_else() {
     let s = Scratch::new("appended");
     let rt = s.p("rt");
     let rlib = bogus_runtime(&s, &rt);
@@ -271,25 +284,40 @@ fn an_instrumented_units_argv_gains_the_extern_and_the_remap_and_nothing_else() 
     );
     let log = std::fs::read_to_string(s.p("rustc.log")).expect("the fake rustc's log");
     assert_eq!(log.lines().count(), 1, "one compile, not two: {log}");
-    assert!(
-        log.contains(&format!("--extern sensorium_rt={}", rlib.display())),
-        "the runtime is not linked: {log}"
+
+    let extern_flag = format!("--extern sensorium_rt={}", rlib.display());
+    let search_flag = format!(
+        "-L dependency={}",
+        rlib.parent().expect("the rlib has a directory").display()
     );
-    assert!(
-        log.contains(&format!(
-            "--remap-path-prefix={}={}",
-            s.p("target/sensorium/mirror").join(METADATA).display(),
-            s.p("ws").display()
-        )),
-        "the mirror is not remapped back to the workspace: {log}"
+    let remap_flag = format!(
+        "--remap-path-prefix={}={}",
+        s.p("target/sensorium/mirror").join(METADATA).display(),
+        s.p("ws").display()
     );
+    for flag in [&extern_flag, &search_flag, &remap_flag] {
+        assert!(log.contains(flag.as_str()), "missing {flag}: {log}");
+    }
+    // In that order, and each exactly once: a repeated `-L` would mean the
+    // wrapper appended per call rather than per unit, and a reordering would
+    // mean one of ours landed inside the argv cargo built.
+    let at = |flag: &str| log.find(flag).expect("just asserted present");
     assert!(
-        !log.contains("-L dependency="),
-        "the runtime has no dependencies to search for: {log}"
+        at(&extern_flag) < at(&search_flag) && at(&search_flag) < at(&remap_flag),
+        "the appended flags are out of order: {log}"
     );
-    // And the argv cargo built is otherwise untouched.
+    assert_eq!(log.matches("-L dependency=").count(), 1, "{log}");
+    assert_eq!(log.matches("--extern sensorium_rt=").count(), 1, "{log}");
+    // The ONLY search path is the runtime's own directory. The fixture's argv
+    // carries none, so anything else here came from this wrapper.
+    assert_eq!(log.matches("-L ").count(), 1, "{log}");
+    // And the argv cargo built is otherwise untouched, still in front.
     assert!(log.contains("--crate-name probe_fallback"), "{log}");
     assert!(log.contains("-C metadata=fa11bacc"), "{log}");
+    assert!(
+        at("--crate-name probe_fallback") < at(&extern_flag),
+        "{log}"
+    );
 }
 
 #[test]

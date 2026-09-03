@@ -3,7 +3,8 @@
 //! workspace root, and a workspace member's crate root is a relative path.
 //!
 //! One unit in, one rustc run out. The argv cargo built is passed through
-//! UNCHANGED except for two appended flags — `--extern sensorium_rt=<rlib>` and
+//! UNCHANGED except for three appended flags — `--extern sensorium_rt=<rlib>`,
+//! `-L dependency=<the rlib's directory>` and
 //! `--remap-path-prefix=<mirror>=<workspace>` — which is why `file!()`, panic
 //! locations, backtraces and dep-info all still say what a plain build says.
 
@@ -146,6 +147,30 @@ fn instrument(rustc: &str, args: &[String], unit: &Unit) -> Result<i32, String> 
     let mut instrumented: Vec<String> = args.to_vec();
     instrumented.push("--extern".to_owned());
     instrumented.push(format!("sensorium_rt={}", rlib.display()));
+    // BOTH, and the search path is the load-bearing one for a unit whose
+    // DEPENDENCIES are instrumented. `--extern` binds a name this unit may
+    // write; `sensorium_rt` is a TRANSITIVE crate for anything that merely uses
+    // an instrumented workspace crate, and rustc resolves a transitive crate
+    // through the `-L dependency` search paths.
+    //
+    // Measured 2026-09-03 on the bloomery clone: `bloomery-daemon`'s units
+    // failed `E0463: can't find crate for bloomery_core` -- the daemon's own
+    // rewritten crate root binds `sensorium_rt`, but the FIRST item of a
+    // submodule is `use bloomery_core::journal::Journal;`, and resolving
+    // `bloomery_core`'s instrumented rmeta needs ITS `sensorium_rt`, which
+    // `--extern` alone does not supply. The probe workspace passed the same
+    // shape by resolver-order luck. Plan decision D1 is amended to say both
+    // flags; RUSTDOCFLAGS has carried both since the doctest defect.
+    //
+    // No single-candidate hazard: this directory is `<rt dir>/<panic
+    // strategy>/`, which the driver and `rt_build::ensure` fill with exactly
+    // one `libsensorium_rt.rlib` and nothing else, because the runtime has no
+    // dependencies at all (D1).
+    instrumented.push("-L".to_owned());
+    instrumented.push(format!(
+        "dependency={}",
+        rlib.parent().unwrap_or_else(|| Path::new(".")).display()
+    ));
     // MEASURED, not belt and braces (findings §5.21): rustc records the
     // compilation directory in DWARF (`DW_AT_comp_dir`), and that directory is
     // the mirror. `file!()` and panic locations survive the mirror without this
