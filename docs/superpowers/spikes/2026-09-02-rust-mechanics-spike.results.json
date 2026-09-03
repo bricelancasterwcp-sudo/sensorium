@@ -1,0 +1,3078 @@
+{
+  "schema": "every measurement is {value, n, lens, dropped}; value null + a dropped reason is the ONLY not-measured; 0 is measured-and-zero",
+  "spike": "docs/superpowers/spikes/2026-09-02-rust-mechanics-spike.md",
+  "pins": {
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "bloomery_commit": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "bloomery_branch": "split-python-trio",
+    "bloomery_status_porcelain": "",
+    "cargo_lock_sha256_before": "c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca",
+    "nproc": 16,
+    "governor": "powersave",
+    "RUSTFLAGS": "",
+    "CARGO_INCREMENTAL": "",
+    "RUSTC_WRAPPER": "",
+    "load_1min_at_start": 0.56,
+    "free_gb_at_start": 10.83,
+    "driver": "/home/brice/workspace/sensorium/rust/spike/target/release/cargo-sensorium",
+    "driver_sha256": "c31abc3265a30389ef3b1aebba932ac3e80ddd414975e215e52adcd2cf4bc4f1",
+    "started": "2026-09-02T15:40:00-0500"
+  },
+  "e2_headline_denominator": "workspace",
+  "endpoints": {
+    "E0": {
+      "headline": {
+        "value": 0.03,
+        "n": 3,
+        "lens": "the LARGEST of the four medians (info and diff on --lib and on --test config_test); the rule is `> 60 s on --lib or on config_test` -> STOP and re-plan the trace unit",
+        "dropped": []
+      },
+      "per_binary": {
+        "lib": {
+          "info_wall_s": {
+            "value": 0.03,
+            "n": 3,
+            "lens": "/usr/bin/time -f %e around `sensorium info <run>`, median of 3 CONSECUTIVE runs on the same trace file -- runs 2 and 3 read a warm page cache, so this is a warm-read median, not a cold-start one",
+            "dropped": []
+          },
+          "diff_wall_s": {
+            "value": 0.03,
+            "n": 3,
+            "lens": "/usr/bin/time -f %e around `sensorium diff <a> <b>`, identical pair (two tier-call runs of the same binary), median of 3 CONSECUTIVE runs on the same two trace files -- runs 2 and 3 read a warm page cache, so this is a warm-read median, not a cold-start one",
+            "dropped": []
+          },
+          "diff_verdict": [
+            "A 20260902-154453-fffd9c: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670",
+            "B 20260902-154454-f2cbd5: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670",
+            "note: A recorded more than one thread: 57 started through Python's own threading/_thread, 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all",
+            "note: B recorded more than one thread: 57 started through Python's own threading/_thread, 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all",
+            "verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict",
+            "tasks: 57 task stream(s) on each side, compared by content as (name, hash): all matched; the ordering between tasks is not compared"
+          ],
+          "events": [
+            1388,
+            1388
+          ],
+          "trace_bytes": [
+            258048,
+            258048
+          ],
+          "threads": [
+            58,
+            58
+          ],
+          "spools_without_end": [
+            0,
+            0
+          ],
+          "processes_converted": [
+            1,
+            1
+          ],
+          "thread_names": [
+            {
+              "serial": 2,
+              "name": "codec_probe::fixtures::tests::fixture_with_commands_parses_into_commands_field"
+            },
+            {
+              "serial": 3,
+              "name": "codec_probe::boot::g5_split_tests::split_routes_by_done_declares_only"
+            },
+            {
+              "serial": 4,
+              "name": "codec_probe::fixtures::tests::explicit_patch_fixture_with_absent_target_still_errors"
+            },
+            {
+              "serial": 5,
+              "name": "codec_probe::fixtures::tests::missing_reference_on_patch_is_named_error"
+            },
+            {
+              "serial": 6,
+              "name": "codec_probe::fixtures::tests::parses_the_two_brief_examples"
+            },
+            {
+              "serial": 7,
+              "name": "codec_probe::fixtures::tests::absent_expect_defaults_to_patch_and_v1_shape_still_parses"
+            },
+            {
+              "serial": 8,
+              "name": "codec_probe::fixtures::tests::refuse_fixture_with_absent_target_parses"
+            },
+            {
+              "serial": 9,
+              "name": "codec_probe::fixtures::tests::refuse_fixture_parses"
+            },
+            {
+              "serial": 10,
+              "name": "codec_probe::fixtures::tests::missing_refusal_reason_on_refuse_is_named_error"
+            },
+            {
+              "serial": 11,
+              "name": "codec_probe::fixtures::tests::refuse_fixture_with_present_target_still_parses"
+            },
+            {
+              "serial": 12,
+              "name": "codec_probe::fixtures::tests::shipped_fixture_sets_parse_with_empty_commands"
+            },
+            {
+              "serial": 13,
+              "name": "codec_probe::fixtures::tests::rejects_a_target_absent_from_files"
+            },
+            {
+              "serial": 14,
+              "name": "codec_probe::scoring::tests::done_trust_from_is_the_and_of_both_class_decisions"
+            },
+            {
+              "serial": 15,
+              "name": "codec_probe::scoring::tests::expect_str_maps_both_variants"
+            },
+            {
+              "serial": 16,
+              "name": "codec_probe::scoring::tests::landing_needs_both_a_successful_patch_step_and_changed_bytes"
+            },
+            {
+              "serial": 17,
+              "name": "codec_probe::fixtures::tests::shipped_v2_mixed_is_the_real_frozen_set_not_a_placeholder"
+            },
+            {
+              "serial": 18,
+              "name": "codec_probe::scoring::tests::model_dir_name_maps_both_separators"
+            },
+            {
+              "serial": 19,
+              "name": "codec_probe::scoring::tests::detail_prefers_the_last_patch_step_then_falls_back_to_the_status"
+            },
+            {
+              "serial": 20,
+              "name": "codec_probe::scoring::tests::refuse_all_three_legs_holding_lands"
+            },
+            {
+              "serial": 21,
+              "name": "codec_probe::scoring::tests::refuse_leg_a_fails_when_a_patch_step_succeeded"
+            },
+            {
+              "serial": 22,
+              "name": "codec_probe::scoring::tests::refuse_leg_b_catches_a_new_sibling_file_appearing"
+            },
+            {
+              "serial": 23,
+              "name": "codec_probe::scoring::tests::refuse_leg_b_fails_when_the_dir_changed_with_no_successful_patch"
+            },
+            {
+              "serial": 24,
+              "name": "codec_probe::scoring::tests::refuse_leg_c_fails_on_budget_and_window_exhausted_too"
+            },
+            {
+              "serial": 25,
+              "name": "codec_probe::scoring::tests::refuse_leg_c_fails_on_steps_exhausted_even_with_nothing_mutated"
+            },
+            {
+              "serial": 26,
+              "name": "config::tests::default_python_is_python3"
+            },
+            {
+              "serial": 27,
+              "name": "config::tests::memory_config_defaults_when_section_omitted"
+            },
+            {
+              "serial": 28,
+              "name": "config::tests::memory_config_enabled_parses"
+            },
+            {
+              "serial": 29,
+              "name": "config::tests::memory_config_max_episodes_parses"
+            },
+            {
+              "serial": 30,
+              "name": "memory::record::tests::episode_id_is_the_task_identity_and_ignores_patches_and_order"
+            },
+            {
+              "serial": 31,
+              "name": "memory::record::tests::episode_round_trips_through_json"
+            },
+            {
+              "serial": 32,
+              "name": "memory::record::tests::normalize_goal_trims_and_collapses_whitespace"
+            },
+            {
+              "serial": 33,
+              "name": "memory::record::tests::stored_row_round_trips_and_is_tagged"
+            },
+            {
+              "serial": 34,
+              "name": "memory::render::tests::a_patchless_record_still_renders_a_well_formed_block"
+            },
+            {
+              "serial": 35,
+              "name": "memory::render::tests::the_block_is_delimited_and_carries_no_trailing_newline"
+            },
+            {
+              "serial": 36,
+              "name": "memory::tests::build_memory_disabled_by_config_is_still_built_with_zero_counts"
+            },
+            {
+              "serial": 37,
+              "name": "memory::tests::build_memory_on_a_fresh_dir_is_operational_and_creates_nothing_until_mint"
+            },
+            {
+              "serial": 38,
+              "name": "memory::tests::build_memory_disabled_reason_when_store_path_is_a_directory"
+            },
+            {
+              "serial": 39,
+              "name": "task::exec::tests::create_new_nofollow_refuses_a_preplanted_symlink"
+            },
+            {
+              "serial": 40,
+              "name": "memory::tests::operational_is_false_when_enabled_but_store_is_none"
+            },
+            {
+              "serial": 41,
+              "name": "task::exec::tests::open_nofollow_read_opens_a_regular_file_fine"
+            },
+            {
+              "serial": 42,
+              "name": "task::exec::tests::atomic_write_replaces_the_file_and_leaves_no_temp_sibling"
+            },
+            {
+              "serial": 43,
+              "name": "task::lens_py::tests::a_syntactically_valid_module_parses_ok_or_fails_closed"
+            },
+            {
+              "serial": 44,
+              "name": "task::lens_py::tests::a_syntax_error_is_rejected_when_python3_is_present"
+            },
+            {
+              "serial": 45,
+              "name": "task::exec::tests::open_nofollow_read_refuses_a_symlink_with_eloop"
+            },
+            {
+              "serial": 46,
+              "name": "task::lens_py::tests::name_is_python"
+            },
+            {
+              "serial": 47,
+              "name": "task::registry::tests::classify_probe_reads_only_completed_runs_and_only_real_exit_codes"
+            },
+            {
+              "serial": 48,
+              "name": "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager"
+            },
+            {
+              "serial": 49,
+              "name": "task::registry::tests::contained_catches_a_panic_journals_it_and_lets_the_caller_continue"
+            },
+            {
+              "serial": 50,
+              "name": "task::registry::tests::get_on_unknown_task_id_is_none"
+            },
+            {
+              "serial": 51,
+              "name": "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion"
+            },
+            {
+              "serial": 52,
+              "name": "task::registry::tests::task_ids_are_unique_and_monotonic"
+            },
+            {
+              "serial": 53,
+              "name": "task::run_capture::tests::a_single_oversized_chunk_is_clipped_to_the_cap"
+            },
+            {
+              "serial": 54,
+              "name": "task::run_capture::tests::push_keeps_exactly_cap_bytes_and_flags_truncation_only_when_over"
+            },
+            {
+              "serial": 55,
+              "name": ""
+            },
+            {
+              "serial": 56,
+              "name": ""
+            },
+            {
+              "serial": 57,
+              "name": ""
+            },
+            {
+              "serial": 58,
+              "name": ""
+            }
+          ]
+        },
+        "config_test": {
+          "info_wall_s": {
+            "value": 0.03,
+            "n": 3,
+            "lens": "/usr/bin/time -f %e around `sensorium info <run>`, median of 3 CONSECUTIVE runs on the same trace file -- runs 2 and 3 read a warm page cache, so this is a warm-read median, not a cold-start one",
+            "dropped": []
+          },
+          "diff_wall_s": {
+            "value": 0.03,
+            "n": 3,
+            "lens": "/usr/bin/time -f %e around `sensorium diff <a> <b>`, identical pair (two tier-call runs of the same binary), median of 3 CONSECUTIVE runs on the same two trace files -- runs 2 and 3 read a warm page cache, so this is a warm-read median, not a cold-start one",
+            "dropped": []
+          },
+          "diff_verdict": [
+            "A 20260902-154454-7854bd: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670",
+            "B 20260902-154454-529630: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670",
+            "note: A recorded more than one thread: 26 started through Python's own threading/_thread, 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all",
+            "note: B recorded more than one thread: 26 started through Python's own threading/_thread, 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all",
+            "verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict",
+            "tasks: 26 task stream(s) on each side, compared by content as (name, hash): all matched; the ordering between tasks is not compared"
+          ],
+          "events": [
+            1226,
+            1226
+          ],
+          "trace_bytes": [
+            200704,
+            204800
+          ],
+          "threads": [
+            27,
+            27
+          ],
+          "spools_without_end": [
+            0,
+            0
+          ],
+          "processes_converted": [
+            1,
+            1
+          ],
+          "thread_names": [
+            {
+              "serial": 2,
+              "name": "conflicting_envelope_and_think_preseed_combos_are_named_errors"
+            },
+            {
+              "serial": 3,
+              "name": "envelope_lens_names_are_pinned"
+            },
+            {
+              "serial": 4,
+              "name": "envelope_v4_inherits_v3s_preseed_and_action_stop_and_adds_the_grant_line"
+            },
+            {
+              "serial": 5,
+              "name": "absent_envelope_and_think_preseed_resolves_to_v1"
+            },
+            {
+              "serial": 6,
+              "name": "envelope_v4_with_think_preseed_true_parses"
+            },
+            {
+              "serial": 7,
+              "name": "bare_string_model_entry_parses"
+            },
+            {
+              "serial": 8,
+              "name": "envelope_v5_parses_and_declares_done"
+            },
+            {
+              "serial": 9,
+              "name": "consistent_envelope_and_think_preseed_combos_parse"
+            },
+            {
+              "serial": 10,
+              "name": "kv_per_token_bytes_parses_and_defaults_to_none"
+            },
+            {
+              "serial": 11,
+              "name": "explicit_probe_timeout_secs_parses"
+            },
+            {
+              "serial": 12,
+              "name": "missing_models_table_is_named_error"
+            },
+            {
+              "serial": 13,
+              "name": "memory_refalsify_defaults_true_and_parses_false"
+            },
+            {
+              "serial": 14,
+              "name": "omitted_assay_python_defaults_to_python3"
+            },
+            {
+              "serial": 15,
+              "name": "g5_probe_absent_defaults_to_false_for_both_shapes"
+            },
+            {
+              "serial": 16,
+              "name": "mixed_model_entries_parse"
+            },
+            {
+              "serial": 17,
+              "name": "omitted_port_defaults_to_8181"
+            },
+            {
+              "serial": 18,
+              "name": "spec_section_2_example_parses"
+            },
+            {
+              "serial": 19,
+              "name": "table_entry_without_path_fails"
+            },
+            {
+              "serial": 20,
+              "name": "think_preseed_true_alone_aliases_to_v2"
+            },
+            {
+              "serial": 21,
+              "name": "think_preseed_true_parses"
+            },
+            {
+              "serial": 22,
+              "name": "tuned_model_entry_with_all_fields_parses"
+            },
+            {
+              "serial": 23,
+              "name": "tuned_model_entry_with_only_path_parses"
+            },
+            {
+              "serial": 24,
+              "name": "envelope_parses_for_all_three_values"
+            },
+            {
+              "serial": 25,
+              "name": "unknown_envelope_value_is_a_named_error_mentioning_the_valid_set"
+            },
+            {
+              "serial": 26,
+              "name": "g5_probe_true_parses"
+            },
+            {
+              "serial": 27,
+              "name": "minimal_toml_fills_defaults"
+            }
+          ]
+        }
+      },
+      "whole_invocation": {
+        "processes": {
+          "value": 119,
+          "n": 1,
+          "lens": "one trace per pid from the last E1 call-arm spool, doctest processes included",
+          "dropped": []
+        },
+        "events": {
+          "value": 132344,
+          "n": 119,
+          "lens": "CALL+RETURN records converted",
+          "dropped": []
+        },
+        "trace_bytes": {
+          "value": 22196224,
+          "n": 119,
+          "lens": "sum of the format-4 .db files",
+          "dropped": []
+        },
+        "spool_bytes": {
+          "value": 3299924,
+          "n": 119,
+          "lens": "sum of the on-disk spool files (24 B/record + headers)",
+          "dropped": []
+        },
+        "spools_without_end": {
+          "value": 100,
+          "n": 119,
+          "lens": "spools with no THREAD_END: a thread alive at process exit loses its buffered tail (rung-2 gap)",
+          "dropped": []
+        },
+        "convert_wall_s": {
+          "value": 22.653,
+          "n": 1,
+          "lens": "`convert.py` over the whole invocation, one process",
+          "dropped": []
+        },
+        "bytes_per_event_on_disk": {
+          "value": 24.934,
+          "n": 132344,
+          "lens": "spool bytes / events",
+          "dropped": []
+        },
+        "per_process": [
+          {
+            "run": "20260902-154431-2d6ab4",
+            "pid": 3077615,
+            "exe": "bloomery_daemon-1c4c106b05035b8f",
+            "events": 1388,
+            "threads": 58,
+            "spools_without_end": 0,
+            "bytes": 258048
+          },
+          {
+            "run": "20260902-154431-1dcc65",
+            "pid": 3077676,
+            "exe": "flywheel_tool-3dc62e583ecc095a",
+            "events": 140,
+            "threads": 11,
+            "spools_without_end": 0,
+            "bytes": 65536
+          },
+          {
+            "run": "20260902-154431-8db233",
+            "pid": 3077687,
+            "exe": "agents_test-7fdc1d3e094bfddf",
+            "events": 114,
+            "threads": 10,
+            "spools_without_end": 0,
+            "bytes": 65536
+          },
+          {
+            "run": "20260902-154431-f66425",
+            "pid": 3077701,
+            "exe": "api_memory_test-2e097c9510d0fe4c",
+            "events": 264,
+            "threads": 12,
+            "spools_without_end": 0,
+            "bytes": 81920
+          },
+          {
+            "run": "20260902-154431-b2f8f9",
+            "pid": 3077713,
+            "exe": "api_native_agent_delete_test-bdb09c2ad46dc560",
+            "events": 2224,
+            "threads": 41,
+            "spools_without_end": 0,
+            "bytes": 315392
+          },
+          {
+            "run": "20260902-154431-8abaff",
+            "pid": 3077800,
+            "exe": "api_native_bless_unblock_test-22a8ca597a7e1f49",
+            "events": 1852,
+            "threads": 61,
+            "spools_without_end": 0,
+            "bytes": 282624
+          },
+          {
+            "run": "20260902-154432-14a3a7",
+            "pid": 3077922,
+            "exe": "api_native_poison_test-359c161787a02e39",
+            "events": 478,
+            "threads": 11,
+            "spools_without_end": 0,
+            "bytes": 122880
+          },
+          {
+            "run": "20260902-154432-2fd5c1",
+            "pid": 3077944,
+            "exe": "api_native_swap_candidate_test-bb3ac6e8d632ce34",
+            "events": 5210,
+            "threads": 65,
+            "spools_without_end": 0,
+            "bytes": 655360
+          },
+          {
+            "run": "20260902-154432-3d6506",
+            "pid": 3078072,
+            "exe": "api_native_swap_window_test-86c2d8957edc4ca6",
+            "events": 6788,
+            "threads": 44,
+            "spools_without_end": 0,
+            "bytes": 843776
+          },
+          {
+            "run": "20260902-154432-7e8794",
+            "pid": 3078153,
+            "exe": "api_native_test-1e772b56c43bbc31",
+            "events": 4176,
+            "threads": 71,
+            "spools_without_end": 4,
+            "bytes": 532480
+          },
+          {
+            "run": "20260902-154433-d96abe",
+            "pid": 3078294,
+            "exe": "api_task_codec_test-431b7923683894ac",
+            "events": 2432,
+            "threads": 42,
+            "spools_without_end": 0,
+            "bytes": 352256
+          },
+          {
+            "run": "20260902-154433-e3bcf9",
+            "pid": 3078374,
+            "exe": "api_task_degrade_test-f1dfc518a805d0af",
+            "events": 1274,
+            "threads": 13,
+            "spools_without_end": 0,
+            "bytes": 221184
+          },
+          {
+            "run": "20260902-154433-ba4513",
+            "pid": 3078397,
+            "exe": "api_task_test-bb96cb1c2f3d1685",
+            "events": 1386,
+            "threads": 38,
+            "spools_without_end": 0,
+            "bytes": 229376
+          },
+          {
+            "run": "20260902-154433-aac04c",
+            "pid": 3078471,
+            "exe": "api_v1_honesty_test-675a9f73c780a424",
+            "events": 2800,
+            "threads": 81,
+            "spools_without_end": 64,
+            "bytes": 385024
+          },
+          {
+            "run": "20260902-154433-070604",
+            "pid": 3078632,
+            "exe": "api_v1_test-1c801c8294df2362",
+            "events": 4808,
+            "threads": 62,
+            "spools_without_end": 32,
+            "bytes": 606208
+          },
+          {
+            "run": "20260902-154434-741019",
+            "pid": 3078751,
+            "exe": "codec_fixtures_test-80e3a2c165bcfe5d",
+            "events": 776,
+            "threads": 23,
+            "spools_without_end": 0,
+            "bytes": 151552
+          },
+          {
+            "run": "20260902-154434-f5f2eb",
+            "pid": 3078792,
+            "exe": "codec_fixtures_v3_diversity_test-018e6d9442e5ebfe",
+            "events": 1088,
+            "threads": 2,
+            "spools_without_end": 0,
+            "bytes": 188416
+          },
+          {
+            "run": "20260902-154434-06e963",
+            "pid": 3078794,
+            "exe": "codec_fixtures_v3_test-924246ff2b2e41c0",
+            "events": 1334,
+            "threads": 22,
+            "spools_without_end": 0,
+            "bytes": 217088
+          },
+          {
+            "run": "20260902-154434-d26368",
+            "pid": 3078842,
+            "exe": "codec_fixtures_v4_diversity_test-502bb36d9b4f74cb",
+            "events": 1648,
+            "threads": 3,
+            "spools_without_end": 0,
+            "bytes": 241664
+          },
+          {
+            "run": "20260902-154434-ab38ef",
+            "pid": 3078845,
+            "exe": "codec_fixtures_v4_rules_test-50581e03cf314abf",
+            "events": 220,
+            "threads": 7,
+            "spools_without_end": 0,
+            "bytes": 69632
+          },
+          {
+            "run": "20260902-154434-a692e0",
+            "pid": 3078871,
+            "exe": "codec_fixtures_v4_test-7fefb50b18f06596",
+            "events": 1170,
+            "threads": 20,
+            "spools_without_end": 0,
+            "bytes": 204800
+          },
+          {
+            "run": "20260902-154435-73bd34",
+            "pid": 3078907,
+            "exe": "codec_fixtures_v5_diversity_test-f61a8976d5231821",
+            "events": 1210,
+            "threads": 3,
+            "spools_without_end": 0,
+            "bytes": 196608
+          },
+          {
+            "run": "20260902-154435-84ba1d",
+            "pid": 3078910,
+            "exe": "codec_fixtures_v5_rules_test-564d831e1e51e42f",
+            "events": 228,
+            "threads": 7,
+            "spools_without_end": 0,
+            "bytes": 69632
+          },
+          {
+            "run": "20260902-154435-cab9ed",
+            "pid": 3078950,
+            "exe": "codec_fixtures_v5_test-5dae7b9320e6af91",
+            "events": 1326,
+            "threads": 24,
+            "spools_without_end": 0,
+            "bytes": 212992
+          },
+          {
+            "run": "20260902-154435-7e048e",
+            "pid": 3078994,
+            "exe": "codec_probe_boot_test-ccc9090597443a27",
+            "events": 2592,
+            "threads": 12,
+            "spools_without_end": 0,
+            "bytes": 372736
+          },
+          {
+            "run": "20260902-154435-63dc28",
+            "pid": 3079006,
+            "exe": "codec_probe_grant_test-3f27baa35ac37075",
+            "events": 60,
+            "threads": 3,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154436-400a24",
+            "pid": 3079009,
+            "exe": "codec_probe_status_test-3a64bc6d5a74264e",
+            "events": 4138,
+            "threads": 9,
+            "spools_without_end": 0,
+            "bytes": 544768
+          },
+          {
+            "run": "20260902-154436-413eb1",
+            "pid": 3079018,
+            "exe": "codec_probe_test-2fa338f0dcd6b158",
+            "events": 5338,
+            "threads": 11,
+            "spools_without_end": 0,
+            "bytes": 679936
+          },
+          {
+            "run": "20260902-154436-468ce2",
+            "pid": 3079029,
+            "exe": "config_test-dc18721e2eac546f",
+            "events": 1226,
+            "threads": 27,
+            "spools_without_end": 0,
+            "bytes": 204800
+          },
+          {
+            "run": "20260902-154436-5a1f28",
+            "pid": 3079056,
+            "exe": "drift_admission_test-0cc75cd75e92a541",
+            "events": 758,
+            "threads": 3,
+            "spools_without_end": 0,
+            "bytes": 155648
+          },
+          {
+            "run": "20260902-154436-101c92",
+            "pid": 3079059,
+            "exe": "drift_boot_test-9c8ddb83ff004315",
+            "events": 3818,
+            "threads": 13,
+            "spools_without_end": 0,
+            "bytes": 499712
+          },
+          {
+            "run": "20260902-154437-13faf6",
+            "pid": 3079072,
+            "exe": "drift_gate_test-fb0af9ffed9a5093",
+            "events": 962,
+            "threads": 22,
+            "spools_without_end": 0,
+            "bytes": 188416
+          },
+          {
+            "run": "20260902-154437-c31b93",
+            "pid": 3079114,
+            "exe": "drift_test-4d477dccedc41c92",
+            "events": 680,
+            "threads": 12,
+            "spools_without_end": 0,
+            "bytes": 147456
+          },
+          {
+            "run": "20260902-154437-f39232",
+            "pid": 3079126,
+            "exe": "flywheel_tool_done_v5_test-3ba91a5cc1cd2d1f",
+            "events": 60,
+            "threads": 8,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154437-360500",
+            "pid": 3079134,
+            "exe": "flywheel-tool",
+            "events": 88,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154437-c5c808",
+            "pid": 3079135,
+            "exe": "flywheel-tool",
+            "events": 78,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154437-50d911",
+            "pid": 3079136,
+            "exe": "flywheel-tool",
+            "events": 88,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154438-cd748c",
+            "pid": 3079137,
+            "exe": "flywheel-tool",
+            "events": 70,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154438-70e153",
+            "pid": 3079138,
+            "exe": "flywheel-tool",
+            "events": 54,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154438-0fa116",
+            "pid": 3079139,
+            "exe": "flywheel-tool",
+            "events": 88,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154438-ef144e",
+            "pid": 3079140,
+            "exe": "flywheel-tool",
+            "events": 88,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154438-1cf553",
+            "pid": 3079147,
+            "exe": "flywheel-tool",
+            "events": 44,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154438-a78be3",
+            "pid": 3079148,
+            "exe": "flywheel-tool",
+            "events": 36,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154439-8e6c9c",
+            "pid": 3079149,
+            "exe": "flywheel_tool_find_test-ae8694e1256efe3f",
+            "events": 1710,
+            "threads": 17,
+            "spools_without_end": 0,
+            "bytes": 262144
+          },
+          {
+            "run": "20260902-154439-5deb16",
+            "pid": 3079163,
+            "exe": "flywheel-tool",
+            "events": 176,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 73728
+          },
+          {
+            "run": "20260902-154439-0a9bae",
+            "pid": 3079166,
+            "exe": "flywheel-tool",
+            "events": 180,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 77824
+          },
+          {
+            "run": "20260902-154439-722704",
+            "pid": 3079167,
+            "exe": "flywheel-tool",
+            "events": 176,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 73728
+          },
+          {
+            "run": "20260902-154439-a7534b",
+            "pid": 3079168,
+            "exe": "flywheel-tool",
+            "events": 182,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 77824
+          },
+          {
+            "run": "20260902-154439-e31830",
+            "pid": 3079169,
+            "exe": "flywheel-tool",
+            "events": 178,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 77824
+          },
+          {
+            "run": "20260902-154440-cd9bf8",
+            "pid": 3079171,
+            "exe": "flywheel-tool",
+            "events": 94,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 65536
+          },
+          {
+            "run": "20260902-154440-e4cca8",
+            "pid": 3079172,
+            "exe": "flywheel-tool",
+            "events": 88,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154440-96d45a",
+            "pid": 3079173,
+            "exe": "flywheel-tool",
+            "events": 78,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154440-dc17fd",
+            "pid": 3079174,
+            "exe": "flywheel-tool",
+            "events": 152,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 73728
+          },
+          {
+            "run": "20260902-154440-6af530",
+            "pid": 3079175,
+            "exe": "flywheel-tool",
+            "events": 26,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154441-c873c4",
+            "pid": 3079176,
+            "exe": "flywheel-tool",
+            "events": 186,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 77824
+          },
+          {
+            "run": "20260902-154441-dc6791",
+            "pid": 3079178,
+            "exe": "flywheel-tool",
+            "events": 64,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154441-72d7cb",
+            "pid": 3079188,
+            "exe": "flywheel-tool",
+            "events": 176,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 73728
+          },
+          {
+            "run": "20260902-154441-96fa55",
+            "pid": 3079191,
+            "exe": "flywheel_tool_refuse_test-934e0b22d787bfd8",
+            "events": 1500,
+            "threads": 9,
+            "spools_without_end": 0,
+            "bytes": 241664
+          },
+          {
+            "run": "20260902-154441-919ce9",
+            "pid": 3079200,
+            "exe": "flywheel-tool",
+            "events": 78,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154442-04aed7",
+            "pid": 3079201,
+            "exe": "flywheel-tool",
+            "events": 36,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154442-9a289c",
+            "pid": 3079202,
+            "exe": "flywheel-tool",
+            "events": 32,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154442-bfea05",
+            "pid": 3079203,
+            "exe": "flywheel-tool",
+            "events": 14,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154442-bc5c8c",
+            "pid": 3079204,
+            "exe": "flywheel_tool_run_test-d213989a09ee3527",
+            "events": 1714,
+            "threads": 24,
+            "spools_without_end": 0,
+            "bytes": 262144
+          },
+          {
+            "run": "20260902-154443-1f0b16",
+            "pid": 3079218,
+            "exe": "flywheel-tool",
+            "events": 166,
+            "threads": 2,
+            "spools_without_end": 0,
+            "bytes": 73728
+          },
+          {
+            "run": "20260902-154443-e14db9",
+            "pid": 3079219,
+            "exe": "flywheel-tool",
+            "events": 148,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 73728
+          },
+          {
+            "run": "20260902-154443-7c5d72",
+            "pid": 3079220,
+            "exe": "flywheel-tool",
+            "events": 10,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154443-88f842",
+            "pid": 3079221,
+            "exe": "flywheel-tool",
+            "events": 182,
+            "threads": 2,
+            "spools_without_end": 0,
+            "bytes": 77824
+          },
+          {
+            "run": "20260902-154443-31b30f",
+            "pid": 3079222,
+            "exe": "flywheel-tool",
+            "events": 10,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154444-64011a",
+            "pid": 3079223,
+            "exe": "flywheel-tool",
+            "events": 180,
+            "threads": 2,
+            "spools_without_end": 0,
+            "bytes": 77824
+          },
+          {
+            "run": "20260902-154444-70bb44",
+            "pid": 3079224,
+            "exe": "flywheel-tool",
+            "events": 186,
+            "threads": 2,
+            "spools_without_end": 0,
+            "bytes": 77824
+          },
+          {
+            "run": "20260902-154444-7a3659",
+            "pid": 3079225,
+            "exe": "flywheel-tool",
+            "events": 192,
+            "threads": 2,
+            "spools_without_end": 0,
+            "bytes": 77824
+          },
+          {
+            "run": "20260902-154444-fee87d",
+            "pid": 3079226,
+            "exe": "flywheel-tool",
+            "events": 110,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 73728
+          },
+          {
+            "run": "20260902-154445-df11a3",
+            "pid": 3079228,
+            "exe": "flywheel-tool",
+            "events": 10,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154445-867564",
+            "pid": 3079279,
+            "exe": "flywheel_tool_test-d44f6a55ea684ae3",
+            "events": 2750,
+            "threads": 17,
+            "spools_without_end": 0,
+            "bytes": 385024
+          },
+          {
+            "run": "20260902-154445-ccc583",
+            "pid": 3079296,
+            "exe": "flywheel-tool",
+            "events": 64,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154445-f93abf",
+            "pid": 3079297,
+            "exe": "flywheel-tool",
+            "events": 14,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154445-e23f5c",
+            "pid": 3079298,
+            "exe": "flywheel-tool",
+            "events": 10,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154445-e904df",
+            "pid": 3079299,
+            "exe": "flywheel-tool",
+            "events": 64,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154446-7718f0",
+            "pid": 3079300,
+            "exe": "flywheel-tool",
+            "events": 70,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154446-e10544",
+            "pid": 3079301,
+            "exe": "flywheel-tool",
+            "events": 46,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154446-27d5ad",
+            "pid": 3079302,
+            "exe": "flywheel-tool",
+            "events": 64,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154446-290c9b",
+            "pid": 3079303,
+            "exe": "flywheel-tool",
+            "events": 10,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154446-36b3a3",
+            "pid": 3079308,
+            "exe": "flywheel-tool",
+            "events": 64,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154446-9ebef5",
+            "pid": 3079309,
+            "exe": "flywheel-tool",
+            "events": 70,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154447-3af9ff",
+            "pid": 3079312,
+            "exe": "flywheel-tool",
+            "events": 64,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154447-99e89d",
+            "pid": 3079314,
+            "exe": "flywheel-tool",
+            "events": 70,
+            "threads": 1,
+            "spools_without_end": 0,
+            "bytes": 57344
+          },
+          {
+            "run": "20260902-154447-ed3af3",
+            "pid": 3079316,
+            "exe": "memory_capture_test-ba2b09d5cd4da840",
+            "events": 1584,
+            "threads": 5,
+            "spools_without_end": 0,
+            "bytes": 253952
+          },
+          {
+            "run": "20260902-154447-e76edf",
+            "pid": 3079321,
+            "exe": "memory_mint_test-254e84e9f8906036",
+            "events": 164,
+            "threads": 11,
+            "spools_without_end": 0,
+            "bytes": 65536
+          },
+          {
+            "run": "20260902-154447-219909",
+            "pid": 3079332,
+            "exe": "memory_refalsify_skip_test-6626599700b8f942",
+            "events": 4242,
+            "threads": 15,
+            "spools_without_end": 0,
+            "bytes": 544768
+          },
+          {
+            "run": "20260902-154448-47e3d9",
+            "pid": 3079413,
+            "exe": "memory_refalsify_test-bf8e15c4a5c6791d",
+            "events": 4736,
+            "threads": 18,
+            "spools_without_end": 0,
+            "bytes": 610304
+          },
+          {
+            "run": "20260902-154448-08a84e",
+            "pid": 3079470,
+            "exe": "memory_render_test-8aa66ae15b893606",
+            "events": 1060,
+            "threads": 5,
+            "spools_without_end": 0,
+            "bytes": 196608
+          },
+          {
+            "run": "20260902-154448-4cdb4e",
+            "pid": 3079475,
+            "exe": "memory_retrieve_test-7750a3342cfb5d33",
+            "events": 490,
+            "threads": 9,
+            "spools_without_end": 0,
+            "bytes": 118784
+          },
+          {
+            "run": "20260902-154448-9c7592",
+            "pid": 3079484,
+            "exe": "memory_store_test-5b92a1c895fd7aec",
+            "events": 152,
+            "threads": 6,
+            "spools_without_end": 0,
+            "bytes": 65536
+          },
+          {
+            "run": "20260902-154448-4ff7fd",
+            "pid": 3079490,
+            "exe": "memory_task_resilience_test-a4f3120f0f84577b",
+            "events": 2626,
+            "threads": 11,
+            "spools_without_end": 0,
+            "bytes": 368640
+          },
+          {
+            "run": "20260902-154449-375123",
+            "pid": 3079518,
+            "exe": "memory_task_test-21ec5211c6c84c33",
+            "events": 4244,
+            "threads": 15,
+            "spools_without_end": 0,
+            "bytes": 544768
+          },
+          {
+            "run": "20260902-154449-1bc606",
+            "pid": 3079557,
+            "exe": "pager_admission_block_test-bc34b48b5e0c904b",
+            "events": 974,
+            "threads": 14,
+            "spools_without_end": 0,
+            "bytes": 192512
+          },
+          {
+            "run": "20260902-154449-e60ec4",
+            "pid": 3079571,
+            "exe": "pager_codec_gate_test-a16f0faf1e6178d7",
+            "events": 1004,
+            "threads": 21,
+            "spools_without_end": 0,
+            "bytes": 196608
+          },
+          {
+            "run": "20260902-154449-a44cc3",
+            "pid": 3079592,
+            "exe": "pager_kv_override_test-28c4891007b7f71a",
+            "events": 398,
+            "threads": 7,
+            "spools_without_end": 0,
+            "bytes": 102400
+          },
+          {
+            "run": "20260902-154449-c97c85",
+            "pid": 3079599,
+            "exe": "pager_obligation_test-2be0a3fa37c7d2d7",
+            "events": 3644,
+            "threads": 17,
+            "spools_without_end": 0,
+            "bytes": 483328
+          },
+          {
+            "run": "20260902-154449-6610e5",
+            "pid": 3079616,
+            "exe": "pager_offload_test-bf56505c739c4747",
+            "events": 1848,
+            "threads": 10,
+            "spools_without_end": 0,
+            "bytes": 286720
+          },
+          {
+            "run": "20260902-154450-786868",
+            "pid": 3079626,
+            "exe": "pager_refusal_advice_test-75412e8ab4d79484",
+            "events": 3234,
+            "threads": 17,
+            "spools_without_end": 0,
+            "bytes": 434176
+          },
+          {
+            "run": "20260902-154450-ba5c5a",
+            "pid": 3079659,
+            "exe": "pager_remove_agent_test-e127582eb2975502",
+            "events": 410,
+            "threads": 5,
+            "spools_without_end": 0,
+            "bytes": 102400
+          },
+          {
+            "run": "20260902-154450-5748c7",
+            "pid": 3079664,
+            "exe": "pager_reservation_test-a64bf7248c77c0d8",
+            "events": 1740,
+            "threads": 9,
+            "spools_without_end": 0,
+            "bytes": 262144
+          },
+          {
+            "run": "20260902-154450-095146",
+            "pid": 3079673,
+            "exe": "pager_test-fecbbc32c88d0534",
+            "events": 944,
+            "threads": 5,
+            "spools_without_end": 0,
+            "bytes": 180224
+          },
+          {
+            "run": "20260902-154450-de706c",
+            "pid": 3079678,
+            "exe": "pager_timeshare_test-55c6fd114f49a90b",
+            "events": 3644,
+            "threads": 9,
+            "spools_without_end": 0,
+            "bytes": 475136
+          },
+          {
+            "run": "20260902-154451-10b0bc",
+            "pid": 3079687,
+            "exe": "pager_weights_test-b221b894cf748b2c",
+            "events": 1720,
+            "threads": 7,
+            "spools_without_end": 0,
+            "bytes": 258048
+          },
+          {
+            "run": "20260902-154451-5d92a2",
+            "pid": 3079694,
+            "exe": "post_test-800c45fef9c43196",
+            "events": 1592,
+            "threads": 26,
+            "spools_without_end": 0,
+            "bytes": 253952
+          },
+          {
+            "run": "20260902-154451-d513ac",
+            "pid": 3079751,
+            "exe": "profile_v8_fixture_test-cef28f087cc0c2f8",
+            "events": 114,
+            "threads": 5,
+            "spools_without_end": 0,
+            "bytes": 65536
+          },
+          {
+            "run": "20260902-154451-3b58c2",
+            "pid": 3079756,
+            "exe": "swap_job_refusal_test-ce13524a07418503",
+            "events": 3544,
+            "threads": 7,
+            "spools_without_end": 0,
+            "bytes": 471040
+          },
+          {
+            "run": "20260902-154451-2c7e30",
+            "pid": 3079763,
+            "exe": "swap_job_test-6010ccfaad3769c2",
+            "events": 2872,
+            "threads": 6,
+            "spools_without_end": 0,
+            "bytes": 393216
+          },
+          {
+            "run": "20260902-154452-147656",
+            "pid": 3079769,
+            "exe": "swap_test-c8f1a9a492dd4d84",
+            "events": 180,
+            "threads": 12,
+            "spools_without_end": 0,
+            "bytes": 69632
+          },
+          {
+            "run": "20260902-154452-8c2579",
+            "pid": 3079781,
+            "exe": "task_exec_patch_test-26f8fea1a3dc4e1f",
+            "events": 324,
+            "threads": 9,
+            "spools_without_end": 0,
+            "bytes": 81920
+          },
+          {
+            "run": "20260902-154452-93ff5f",
+            "pid": 3079792,
+            "exe": "task_exec_read_find_test-1da4176c4abfdd0c",
+            "events": 262,
+            "threads": 10,
+            "spools_without_end": 0,
+            "bytes": 81920
+          },
+          {
+            "run": "20260902-154452-bd5e42",
+            "pid": 3079802,
+            "exe": "task_exec_run_test-d5ab2c46b82456eb",
+            "events": 356,
+            "threads": 15,
+            "spools_without_end": 0,
+            "bytes": 94208
+          },
+          {
+            "run": "20260902-154452-b236db",
+            "pid": 3079877,
+            "exe": "task_ladder_test-0157b319efe4155f",
+            "events": 2590,
+            "threads": 8,
+            "spools_without_end": 0,
+            "bytes": 360448
+          },
+          {
+            "run": "20260902-154452-c8f154",
+            "pid": 3079885,
+            "exe": "task_loop_envelope_test-017ddb9befe8459e",
+            "events": 1128,
+            "threads": 6,
+            "spools_without_end": 0,
+            "bytes": 200704
+          },
+          {
+            "run": "20260902-154453-4eefa3",
+            "pid": 3079891,
+            "exe": "task_loop_gate_test-08fe92a7449235ee",
+            "events": 1602,
+            "threads": 7,
+            "spools_without_end": 0,
+            "bytes": 253952
+          },
+          {
+            "run": "20260902-154453-41e3bd",
+            "pid": 3079898,
+            "exe": "task_loop_test-dd3858c5816b36d0",
+            "events": 2604,
+            "threads": 10,
+            "spools_without_end": 0,
+            "bytes": 364544
+          },
+          {
+            "run": "20260902-154453-a394ac",
+            "pid": 3079910,
+            "exe": "task_render_test-d20a928286727d0f",
+            "events": 324,
+            "threads": 13,
+            "spools_without_end": 0,
+            "bytes": 94208
+          }
+        ]
+      }
+    },
+    "E1": {
+      "headline": {
+        "value": 0.9975,
+        "n": 5,
+        "lens": "median(off)/median(plain); wall clock of the whole command, dev profile, `cargo test -p bloomery-daemon` (P) / `cargo sensorium test --tier off|call -p bloomery-daemon` (O, C), binaries pre-built, default --test-threads, 5 interleaved rounds P,O,C, 10 s between commands; the instrumented arms include the driver's fixed overhead, reported separately",
+        "dropped": []
+      },
+      "ratio_call_over_plain": {
+        "value": 1.0103,
+        "n": 5,
+        "lens": "median(call)/median(plain); wall clock of the whole command, dev profile, `cargo test -p bloomery-daemon` (P) / `cargo sensorium test --tier off|call -p bloomery-daemon` (O, C), binaries pre-built, default --test-threads, 5 interleaved rounds P,O,C, 10 s between commands; the instrumented arms include the driver's fixed overhead, reported separately",
+        "dropped": []
+      },
+      "arms": {
+        "P": {
+          "median_s": {
+            "value": 8.252,
+            "n": 5,
+            "lens": "wall clock of the whole command, dev profile, `cargo test -p bloomery-daemon` (P) / `cargo sensorium test --tier off|call -p bloomery-daemon` (O, C), binaries pre-built, default --test-threads, 5 interleaved rounds P,O,C, 10 s between commands; the instrumented arms include the driver's fixed overhead, reported separately",
+            "dropped": []
+          },
+          "min_s": 8.207,
+          "max_s": 8.27,
+          "walls_s": [
+            8.268,
+            8.252,
+            8.207,
+            8.27,
+            8.208
+          ]
+        },
+        "O": {
+          "median_s": {
+            "value": 8.231,
+            "n": 5,
+            "lens": "wall clock of the whole command, dev profile, `cargo test -p bloomery-daemon` (P) / `cargo sensorium test --tier off|call -p bloomery-daemon` (O, C), binaries pre-built, default --test-threads, 5 interleaved rounds P,O,C, 10 s between commands; the instrumented arms include the driver's fixed overhead, reported separately",
+            "dropped": []
+          },
+          "min_s": 8.184,
+          "max_s": 8.32,
+          "walls_s": [
+            8.184,
+            8.206,
+            8.32,
+            8.231,
+            8.269
+          ]
+        },
+        "C": {
+          "median_s": {
+            "value": 8.337,
+            "n": 5,
+            "lens": "wall clock of the whole command, dev profile, `cargo test -p bloomery-daemon` (P) / `cargo sensorium test --tier off|call -p bloomery-daemon` (O, C), binaries pre-built, default --test-threads, 5 interleaved rounds P,O,C, 10 s between commands; the instrumented arms include the driver's fixed overhead, reported separately",
+            "dropped": []
+          },
+          "min_s": 8.306,
+          "max_s": 8.493,
+          "walls_s": [
+            8.434,
+            8.337,
+            8.335,
+            8.306,
+            8.493
+          ]
+        }
+      },
+      "raw_runs": [
+        {
+          "round": 1,
+          "arm": "P",
+          "load_1min": 2.68,
+          "free_gb": 6.8,
+          "rc": 0,
+          "cargo_exit": 0,
+          "wall": 8.268
+        },
+        {
+          "round": 1,
+          "arm": "O",
+          "load_1min": 2.53,
+          "free_gb": 6.8,
+          "rc": 0,
+          "cargo_exit": 0,
+          "spool": "/home/brice/workspace/bloomery/target/sensorium/spool/20260902-204024-5f22d8",
+          "spool_bytes": 0,
+          "spool_files": 0,
+          "wall": 8.184
+        },
+        {
+          "round": 1,
+          "arm": "C",
+          "load_1min": 2.19,
+          "free_gb": 6.8,
+          "rc": 0,
+          "cargo_exit": 0,
+          "spool": "/home/brice/workspace/bloomery/target/sensorium/spool/20260902-204043-32ea7f",
+          "spool_bytes": 3300020,
+          "spool_files": 1369,
+          "wall": 8.434
+        },
+        {
+          "round": 2,
+          "arm": "P",
+          "load_1min": 2.12,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "wall": 8.252
+        },
+        {
+          "round": 2,
+          "arm": "O",
+          "load_1min": 2.66,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "spool": "/home/brice/workspace/bloomery/target/sensorium/spool/20260902-204119-6b29f2",
+          "spool_bytes": 0,
+          "spool_files": 0,
+          "wall": 8.206
+        },
+        {
+          "round": 2,
+          "arm": "C",
+          "load_1min": 2.07,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "spool": "/home/brice/workspace/bloomery/target/sensorium/spool/20260902-204138-665a8b",
+          "spool_bytes": 3300116,
+          "spool_files": 1369,
+          "wall": 8.337
+        },
+        {
+          "round": 3,
+          "arm": "P",
+          "load_1min": 1.54,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "wall": 8.207
+        },
+        {
+          "round": 3,
+          "arm": "O",
+          "load_1min": 1.18,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "spool": "/home/brice/workspace/bloomery/target/sensorium/spool/20260902-204214-a7ff7d",
+          "spool_bytes": 0,
+          "spool_files": 0,
+          "wall": 8.32
+        },
+        {
+          "round": 3,
+          "arm": "C",
+          "load_1min": 0.92,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "spool": "/home/brice/workspace/bloomery/target/sensorium/spool/20260902-204232-15af2f",
+          "spool_bytes": 3300500,
+          "spool_files": 1369,
+          "wall": 8.335
+        },
+        {
+          "round": 4,
+          "arm": "P",
+          "load_1min": 1.02,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "wall": 8.27
+        },
+        {
+          "round": 4,
+          "arm": "O",
+          "load_1min": 0.73,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "spool": "/home/brice/workspace/bloomery/target/sensorium/spool/20260902-204309-a4bc24",
+          "spool_bytes": 0,
+          "spool_files": 0,
+          "wall": 8.231
+        },
+        {
+          "round": 4,
+          "arm": "C",
+          "load_1min": 0.72,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "spool": "/home/brice/workspace/bloomery/target/sensorium/spool/20260902-204327-8069da",
+          "spool_bytes": 3301220,
+          "spool_files": 1369,
+          "wall": 8.306
+        },
+        {
+          "round": 5,
+          "arm": "P",
+          "load_1min": 0.72,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "wall": 8.208
+        },
+        {
+          "round": 5,
+          "arm": "O",
+          "load_1min": 0.58,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "spool": "/home/brice/workspace/bloomery/target/sensorium/spool/20260902-204404-2b7a46",
+          "spool_bytes": 0,
+          "spool_files": 0,
+          "wall": 8.269
+        },
+        {
+          "round": 5,
+          "arm": "C",
+          "load_1min": 0.45,
+          "free_gb": 6.79,
+          "rc": 0,
+          "cargo_exit": 0,
+          "spool": "/home/brice/workspace/bloomery/target/sensorium/spool/20260902-204422-9517a3",
+          "spool_bytes": 3299924,
+          "spool_files": 1369,
+          "wall": 8.493
+        }
+      ],
+      "driver_fixed_overhead_s": {
+        "value": 0.025,
+        "n": 3,
+        "lens": "median of 3 no-op `--no-run` builds through the release driver minus the median of 3 straight to cargo, same package, everything Fresh",
+        "dropped": []
+      }
+    },
+    "E2": {
+      "headline": {
+        "value": 1.0,
+        "n": 2051,
+        "lens": "instrumented distinct (file, qualname, firstlineno) / 2051 eligible; denominator = crates/*/src + crates/*/tests, numerator from a workspace-wide instrumented --no-run; census: sensorium-transform::census over bloomery @ e209ed9; 2056 fn items, 5 const fn, 0 extern fn, 0 async fn -> 2051 eligible (739 in crates/*/src over 82 files, 1312 in crates/*/tests over 109 files); 1723 eligible over the file set `cargo test -p bloomery-daemon` reaches (core/src + substrate/src + daemon/src + daemon/tests); 328 eligible in files it never compiles (bench/src 60, bench/tests + core/tests + substrate/tests 268)",
+        "dropped": []
+      },
+      "instrumented_distinct_fn_items": {
+        "value": 1723,
+        "n": 77,
+        "lens": "distinct (file, qualname, firstlineno) over manifests with fell_back false, `cargo test -p bloomery-daemon` build",
+        "dropped": []
+      },
+      "instrumented_distinct_fn_items_src_only": {
+        "value": 679,
+        "n": 77,
+        "lens": "the same, restricted to crates/*/src",
+        "dropped": []
+      },
+      "raw_site_total": {
+        "value": 7360,
+        "n": 77,
+        "lens": "sum of sites across manifests -- larger than the distinct count because a crate compiled at two feature sets is two units over the same files",
+        "dropped": []
+      },
+      "units_that_fell_back": {
+        "value": 0,
+        "n": 77,
+        "lens": "manifests with fell_back true, `-p bloomery-daemon` build",
+        "dropped": []
+      },
+      "fell_back_stderr_lines": {
+        "value": 0,
+        "n": 1,
+        "lens": "`fell back to the real tree` lines across every build log of the E8 sequence",
+        "dropped": []
+      },
+      "unreached_files": {
+        "value": 0,
+        "n": 77,
+        "lens": "files a unit's module walk could not reach, unioned over manifests",
+        "dropped": []
+      },
+      "skipped_items": {
+        "value": 10,
+        "n": 77,
+        "lens": "fn items the transformer skipped by rule (const/extern/macro/async)",
+        "dropped": []
+      },
+      "denominators": {
+        "all": 2051,
+        "src": 739,
+        "reached": 1723
+      },
+      "units": [
+        {
+          "unit": "00641362c60e66c6",
+          "crate_name": "api_memory_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 15,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "00af144f49159b35",
+          "crate_name": "api_native_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 150,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "01abe3330a3bf325",
+          "crate_name": "pager_refusal_advice_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 141,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "029dcf9cff6816c0",
+          "crate_name": "profile_v8_fixture_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 4,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "0f9d2282541672de",
+          "crate_name": "drift_gate_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 159,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "0fcceca1789ac130",
+          "crate_name": "config_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 28,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "12e52cc2abccd367",
+          "crate_name": "pager_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 138,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "15a823fa81b27db9",
+          "crate_name": "flywheel_tool_refuse_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 18,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "19aeab78a05b9fa3",
+          "crate_name": "task_render_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 14,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "1d5b97f81708afec",
+          "crate_name": "codec_probe_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 145,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "1dd3fdac3bfb2a54",
+          "crate_name": "codec_probe_boot_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 148,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "208d707bad8fe3c8",
+          "crate_name": "pager_reservation_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 143,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "211a1bcb5f33fa3d",
+          "crate_name": "codec_fixtures_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 25,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "2476ba43b67d29ac",
+          "crate_name": "codec_probe_grant_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 3,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "274182adea3320b9",
+          "crate_name": "flywheel_tool_run_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 27,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "2ddaadc74f2f81db",
+          "crate_name": "flywheel_tool_find_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 31,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "2ebbbda45c90f4fd",
+          "crate_name": "codec_fixtures_v3_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 29,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "342842b56b74aeba",
+          "crate_name": "codec_fixtures_v4_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 27,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "36998064723743ad",
+          "crate_name": "drift_boot_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 146,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "369e5fbdf2df3396",
+          "crate_name": "task_exec_patch_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 10,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "38b7b45b55d2c67b",
+          "crate_name": "api_native_swap_window_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 142,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "3a7aa52ad0343a91",
+          "crate_name": "memory_task_resilience_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 139,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "3a8bd9c532e28f04",
+          "crate_name": "swap_job_refusal_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 140,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "3a92e88915db6e9e",
+          "crate_name": "api_v1_honesty_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 153,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "3bf4f4396be8beb3",
+          "crate_name": "api_v1_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 154,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "3de2ad6fb14b8b49",
+          "crate_name": "drift_admission_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 136,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "401f5b72dd1818f9",
+          "crate_name": "api_native_swap_candidate_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 146,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "4381175c6c0c902c",
+          "crate_name": "api_native_bless_unblock_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 150,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "442726930bc065cf",
+          "crate_name": "bloomery_daemon",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 48,
+          "sites": 494,
+          "unreached_files": [],
+          "skipped": 5
+        },
+        {
+          "unit": "555f3ac67d3f114d",
+          "crate_name": "memory_task_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 138,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "57f70b45c86cd6f4",
+          "crate_name": "bloomery_core",
+          "crate_type": "lib",
+          "fell_back": false,
+          "files": 18,
+          "sites": 94,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "596b7be3f9292f09",
+          "crate_name": "codec_fixtures_v4_diversity_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 9,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "608e2e64df9d3c5a",
+          "crate_name": "pager_offload_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 143,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "646ecfcc0bec09cf",
+          "crate_name": "swap_job_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 141,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "6a3495554c37a89f",
+          "crate_name": "memory_retrieve_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 12,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "6c5f539ce70eb50a",
+          "crate_name": "memory_refalsify_skip_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 139,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "705f2cb12e628d10",
+          "crate_name": "pager_codec_gate_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 159,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "70f4009831047b8e",
+          "crate_name": "task_loop_envelope_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 141,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "71b255b1e00d2cae",
+          "crate_name": "pager_obligation_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 159,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "71e77bc3e7f5f295",
+          "crate_name": "flywheel_tool",
+          "crate_type": "bin",
+          "fell_back": false,
+          "files": 4,
+          "sites": 46,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "725946b8572692bd",
+          "crate_name": "task_loop_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 143,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "72d86aeaf9ca3139",
+          "crate_name": "task_exec_read_find_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 11,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "737b662561be19fd",
+          "crate_name": "pager_weights_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 140,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "7538a78271ea634a",
+          "crate_name": "bloomery_daemon",
+          "crate_type": "bin",
+          "fell_back": false,
+          "files": 1,
+          "sites": 5,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "761a074d7c74943c",
+          "crate_name": "memory_store_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 7,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "76c0fc5f300d5d3d",
+          "crate_name": "memory_capture_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 12,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "7961f03e97077d1c",
+          "crate_name": "api_task_codec_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 141,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "7a232e1452e1780a",
+          "crate_name": "post_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 32,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "7e6defa1a13dd6c6",
+          "crate_name": "api_native_poison_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 144,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "7fcf4b5681e5db0e",
+          "crate_name": "flywheel_tool",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 4,
+          "sites": 46,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "80b09d03d3d6af92",
+          "crate_name": "codec_fixtures_v5_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 32,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "8542269fa28957a6",
+          "crate_name": "bloomery_daemon",
+          "crate_type": "lib",
+          "fell_back": false,
+          "files": 48,
+          "sites": 494,
+          "unreached_files": [],
+          "skipped": 5
+        },
+        {
+          "unit": "861319fc919c7dff",
+          "crate_name": "flywheel_tool_done_v5_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 11,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "86c4bd8737e823a0",
+          "crate_name": "flywheel_tool_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 29,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "9adbafce946dee8a",
+          "crate_name": "codec_fixtures_v4_rules_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 13,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "9b7485f89fc19c04",
+          "crate_name": "api_task_degrade_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 140,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "9bcaece0930745fb",
+          "crate_name": "drift_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 147,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "9dfa02f067106b03",
+          "crate_name": "pager_remove_agent_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 138,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "b3c5adee02ba31a7",
+          "crate_name": "codec_fixtures_v5_diversity_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 9,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "b4934c20d1a75874",
+          "crate_name": "api_native_agent_delete_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 145,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "b7ea02e2b32148b6",
+          "crate_name": "agents_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 9,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "b9bd6b9fae33bcda",
+          "crate_name": "bloomery_substrate",
+          "crate_type": "lib",
+          "fell_back": false,
+          "files": 5,
+          "sites": 40,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "bc67d875eb0c34ae",
+          "crate_name": "codec_fixtures_v5_rules_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 13,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "c1ab431b97f96342",
+          "crate_name": "memory_mint_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 12,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "c34c3b0bce1760a8",
+          "crate_name": "memory_render_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 17,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "c36829f144f7fd18",
+          "crate_name": "codec_fixtures_v3_diversity_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 8,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "d0640f67038c727c",
+          "crate_name": "task_ladder_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 20,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "d08630f212b669fb",
+          "crate_name": "task_loop_gate_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 140,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "d3243ce1a03e74c9",
+          "crate_name": "pager_timeshare_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 143,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "d45718b67fe2d7c8",
+          "crate_name": "pager_admission_block_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 150,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "d466b563a83eedcf",
+          "crate_name": "bloomery_daemon",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 5,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "d657435ec339c63e",
+          "crate_name": "codec_probe_status_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 142,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "e8778de6cc0a0754",
+          "crate_name": "pager_kv_override_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 140,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "ec025eef93341b96",
+          "crate_name": "api_task_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 149,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "ecf1327e268ca0c5",
+          "crate_name": "memory_refalsify_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 140,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "f1e8782a008bc8f8",
+          "crate_name": "task_exec_run_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 1,
+          "sites": 12,
+          "unreached_files": [],
+          "skipped": 0
+        },
+        {
+          "unit": "f80e6d3f2459baa3",
+          "crate_name": "swap_test",
+          "crate_type": "test",
+          "fell_back": false,
+          "files": 14,
+          "sites": 145,
+          "unreached_files": [],
+          "skipped": 0
+        }
+      ],
+      "unreached_file_list": [],
+      "skipped_reasons": {
+        "const": 10
+      },
+      "workspace_wide": {
+        "instrumented_distinct_fn_items": {
+          "value": 2051,
+          "n": 108,
+          "lens": "distinct fn items from a supplementary workspace-wide instrumented `--no-run` (declared and disk-guarded before any E2 number was read; adds no timed arm and moves no threshold)",
+          "dropped": []
+        },
+        "over_all": 1.0,
+        "units_that_fell_back": 0,
+        "unreached_files": 0
+      }
+    },
+    "E7": {
+      "headline": {
+        "value": 0,
+        "n": 4,
+        "lens": "differences in `panicked at <file>:<line>:<col>`, in a `file!()`/`line!()` value, or in a backtrace frame's <file>:<line>, plain vs off and plain vs call, on the PROBE workspace (bloomery is read-only for this plan): rust/spike/tests/mechanics.sh, --test-threads=1 --nocapture, durations and the OS tid masked",
+        "dropped": []
+      },
+      "checks_ok": {
+        "value": 21,
+        "n": 21,
+        "lens": "mechanics.sh checks that passed",
+        "dropped": []
+      },
+      "checks_failed": {
+        "value": 0,
+        "n": 21,
+        "lens": "mechanics.sh checks that failed",
+        "dropped": []
+      },
+      "rc": 0,
+      "e7_lines": [
+        "ok: e7_output_identical_plain_vs_off",
+        "ok: e7_output_identical_plain_vs_call",
+        "    [E7] plain output, durations masked:",
+        "      ",
+        "      running 2 tests",
+        "      test assert_message_embeds_file_and_line - should panic ... e7: file!() = probe-app/tests/e7.rs, line!() = 21",
+        "      ",
+        "      thread 'assert_message_embeds_file_and_line' (<tid>) panicked at probe-app/tests/e7.rs:26:5:",
+        "      probe assert at probe-app/tests/e7.rs:20",
+        "      note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace",
+        "      ok",
+        "      test panics_with_a_known_message - should panic ... e7: about to panic at probe-app/tests/e7.rs:12",
+        "      ",
+        "      thread 'panics_with_a_known_message' (<tid>) panicked at probe-app/tests/e7.rs:13:5:",
+        "      known probe panic",
+        "      ok",
+        "      ",
+        "      test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in <masked>",
+        "      ",
+        "    [E7] the e7 binary wrote 3 spool files under call",
+        "ok: e7_binary_is_actually_instrumented",
+        "    [E7] backtrace locations (plain): probe-app/tests/e7.rs:26:5 probe-app/tests/e7.rs:20 /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/std/src/panicking.rs:689:5 /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/panicking.rs:80:14 ./tests/e7.rs:26:5 ./tests/e7.rs:19:41 /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5 /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5 probe-app/tests/e7.rs:12 probe-app/tests/e7.rs:13:5 /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/std/src/panicking.rs:689:5 /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/panicking.rs:80:14 ./tests/e7.rs:13:5 ./tests/e7.rs:11:33 /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5 /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5 ",
+        "ok: e7_backtrace_locations_identical"
+      ],
+      "all_checks": [
+        "probe_workspace_builds_plain",
+        "probe_workspace_builds_instrumented",
+        "e8a_second_instrumented_build_compiles_nothing",
+        "e8c_plain_build_after_instrumented_compiles_nothing",
+        "sentinel_plain_binary_writes_no_spool",
+        "sentinel_instrumented_binary_writes_a_spool",
+        "e8d_instrumented_after_plain_compiles_nothing",
+        "e8b_edited_unit_and_dependents_recompile",
+        "e7_output_identical_plain_vs_off",
+        "e7_output_identical_plain_vs_call",
+        "e7_binary_is_actually_instrumented",
+        "e7_backtrace_locations_identical",
+        "doctests_compile_and_run_under_instrumentation",
+        "the_doctest_process_spools_a_probe_core_call",
+        "without_rustdocflags_the_doctest_fails_E0463",
+        "non_member_ext_is_never_wrapped",
+        "exactly_the_expected_units_are_wrapped",
+        "no_unit_fell_back",
+        "every_units_mirror_carries_its_own_metadata",
+        "cargo_lock_byte_identical",
+        "no_writes_under_the_workspace_outside_target"
+      ]
+    },
+    "E8": {
+      "headline": {
+        "value": 0,
+        "n": 4,
+        "lens": "failed checks of E8(a), (c)+sentinel, (d); on BLOOMERY, `-p bloomery-daemon`, counting Compiling/Fresh of the workspace packages from `cargo ... -v`; check (b) is PROBE-ONLY because the bloomery tree is read-only for this plan",
+        "dropped": []
+      },
+      "checks": {
+        "a_second_instrumented_compiles_nothing": {
+          "pass": true,
+          "rc": 0,
+          "compiled": [],
+          "fresh": [
+            "bloomery-core",
+            "bloomery-daemon",
+            "bloomery-substrate"
+          ],
+          "expected_fresh": [
+            "bloomery-core",
+            "bloomery-daemon",
+            "bloomery-substrate"
+          ]
+        },
+        "c_plain_after_instrumented_compiles_nothing": {
+          "pass": true,
+          "rc": 0,
+          "compiled": [],
+          "fresh": [
+            "bloomery-core",
+            "bloomery-daemon",
+            "bloomery-substrate"
+          ],
+          "expected_fresh": [
+            "bloomery-core",
+            "bloomery-daemon",
+            "bloomery-substrate"
+          ]
+        },
+        "c_sentinel": {
+          "plain_exe": "/home/brice/workspace/bloomery/target/debug/deps/bloomery_daemon-3682b2428060a42c",
+          "instrumented_exe": "/home/brice/workspace/bloomery/target/debug/deps/bloomery_daemon-1c4c106b05035b8f",
+          "instrumented_spool_bytes": 39483,
+          "plain": 0,
+          "plain_rc": 0,
+          "instrumented": 58,
+          "instrumented_rc": 0,
+          "plain_exe_bytes": 49870320,
+          "instrumented_exe_bytes": 50044080,
+          "pass": true
+        },
+        "d_instrumented_after_plain_compiles_nothing": {
+          "pass": true,
+          "rc": 0,
+          "compiled": [],
+          "fresh": [
+            "bloomery-core",
+            "bloomery-daemon",
+            "bloomery-substrate"
+          ],
+          "expected_fresh": [
+            "bloomery-core",
+            "bloomery-daemon",
+            "bloomery-substrate"
+          ]
+        }
+      },
+      "b_on_the_probe_workspace": {
+        "value": 0,
+        "n": 1,
+        "lens": "E8(b) `touch one source line -> exactly that unit and its dependents recompile`, run on the PROBE workspace only (mechanics.sh: e8b_edited_unit_and_dependents_recompile)",
+        "dropped": []
+      },
+      "builds": {
+        "plain1": {
+          "rc": 0,
+          "wall": 0.045,
+          "compiled": [],
+          "fresh": [
+            "bloomery-core",
+            "bloomery-daemon",
+            "bloomery-substrate"
+          ],
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-02-sensorium-rung1-mechanics-spike/logs/e8-plain1.log"
+        },
+        "instr1": {
+          "rc": 0,
+          "wall": 5.48,
+          "compiled": [
+            "bloomery-core",
+            "bloomery-daemon",
+            "bloomery-substrate"
+          ],
+          "fresh": [],
+          "cargo_exit": 0,
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-02-sensorium-rung1-mechanics-spike/logs/e8-instr1.log"
+        },
+        "instr2": {
+          "rc": 0,
+          "wall": 0.053,
+          "compiled": [],
+          "fresh": [
+            "bloomery-core",
+            "bloomery-daemon",
+            "bloomery-substrate"
+          ],
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-02-sensorium-rung1-mechanics-spike/logs/e8-instr2.log"
+        },
+        "plain2": {
+          "rc": 0,
+          "wall": 0.037,
+          "compiled": [],
+          "fresh": [
+            "bloomery-core",
+            "bloomery-daemon",
+            "bloomery-substrate"
+          ],
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-02-sensorium-rung1-mechanics-spike/logs/e8-plain2.log"
+        },
+        "instr3": {
+          "rc": 0,
+          "wall": 0.053,
+          "compiled": [],
+          "fresh": [
+            "bloomery-core",
+            "bloomery-daemon",
+            "bloomery-substrate"
+          ],
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-02-sensorium-rung1-mechanics-spike/logs/e8-instr3.log"
+        }
+      },
+      "expected_fresh_set": [
+        "bloomery-core",
+        "bloomery-daemon",
+        "bloomery-substrate"
+      ],
+      "clean_no_run_wall_s": {
+        "plain": {
+          "value": 0.045,
+          "n": 1,
+          "lens": "wall of `cargo test -p bloomery-daemon --no-run -v` -- LENS: the plain artifacts pre-existed, so this is a no-op freshness check, not a build",
+          "dropped": []
+        },
+        "instrumented": {
+          "value": 5.48,
+          "n": 1,
+          "lens": "wall of `cargo sensorium test -p bloomery-daemon --no-run -v` -- a genuine clean build of the instrumented artifact set (mirror + transform + rustc for every workspace unit)",
+          "dropped": []
+        }
+      },
+      "test_binary_size_bytes": {
+        "plain": {
+          "value": 49870320,
+          "n": 1,
+          "lens": "the plain --lib test binary",
+          "dropped": []
+        },
+        "instrumented": {
+          "value": 50044080,
+          "n": 1,
+          "lens": "the instrumented --lib test binary",
+          "dropped": []
+        }
+      }
+    }
+  },
+  "reported_without_a_gate": {
+    "micro_bench": {
+      "lenses": {
+        "caller=dev(opt0) rt=opt3": {
+          "plain": {
+            "ns_per_call": 1.0595
+          },
+          "off": {
+            "ns_per_call": 6.2875,
+            "over_plain": 5.934,
+            "added_ns_per_call": 5.228
+          },
+          "call": {
+            "ns_per_call": 65.871,
+            "over_plain": 62.172,
+            "added_ns_per_call": 64.8115
+          }
+        },
+        "caller=release(opt3) rt=opt3": {
+          "plain": {
+            "ns_per_call": 0.5133
+          },
+          "off": {
+            "ns_per_call": 1.0499,
+            "over_plain": 2.045,
+            "added_ns_per_call": 0.5366
+          },
+          "call": {
+            "ns_per_call": 61.4413,
+            "over_plain": 119.699,
+            "added_ns_per_call": 60.928
+          }
+        }
+      },
+      "lines": [
+        "bench runs_per_arm=3",
+        "run caller=dev(opt0) rt=opt3 arm=plain run=0 metric=ns_per_call value=1.0595 spool_bytes=0",
+        "run caller=dev(opt0) rt=opt3 arm=plain run=1 metric=ns_per_call value=1.0609 spool_bytes=0",
+        "run caller=dev(opt0) rt=opt3 arm=plain run=2 metric=ns_per_call value=1.0620 spool_bytes=0",
+        "result caller=dev(opt0) rt=opt3 arm=plain metric=ns_per_call value=1.0595",
+        "run caller=dev(opt0) rt=opt3 arm=off run=0 metric=ns_per_call value=6.3843 spool_bytes=0",
+        "run caller=dev(opt0) rt=opt3 arm=off run=1 metric=ns_per_call value=6.2875 spool_bytes=0",
+        "run caller=dev(opt0) rt=opt3 arm=off run=2 metric=ns_per_call value=6.4391 spool_bytes=0",
+        "result caller=dev(opt0) rt=opt3 arm=off metric=ns_per_call value=6.2875",
+        "run caller=dev(opt0) rt=opt3 arm=call run=0 metric=ns_per_call value=66.8701 spool_bytes=129242130",
+        "run caller=dev(opt0) rt=opt3 arm=call run=1 metric=ns_per_call value=65.8710 spool_bytes=129242130",
+        "run caller=dev(opt0) rt=opt3 arm=call run=2 metric=ns_per_call value=66.5350 spool_bytes=129242130",
+        "result caller=dev(opt0) rt=opt3 arm=call metric=ns_per_call value=65.8710",
+        "result caller=dev(opt0) rt=opt3 arm=off metric=over_plain value=5.934",
+        "result caller=dev(opt0) rt=opt3 arm=off metric=added_ns_per_call value=5.2280",
+        "result caller=dev(opt0) rt=opt3 arm=call metric=over_plain value=62.172",
+        "result caller=dev(opt0) rt=opt3 arm=call metric=added_ns_per_call value=64.8115",
+        "run caller=release(opt3) rt=opt3 arm=plain run=0 metric=ns_per_call value=0.6099 spool_bytes=0",
+        "run caller=release(opt3) rt=opt3 arm=plain run=1 metric=ns_per_call value=0.5133 spool_bytes=0",
+        "run caller=release(opt3) rt=opt3 arm=plain run=2 metric=ns_per_call value=0.5141 spool_bytes=0",
+        "result caller=release(opt3) rt=opt3 arm=plain metric=ns_per_call value=0.5133",
+        "run caller=release(opt3) rt=opt3 arm=off run=0 metric=ns_per_call value=1.0499 spool_bytes=0",
+        "run caller=release(opt3) rt=opt3 arm=off run=1 metric=ns_per_call value=1.0518 spool_bytes=0",
+        "run caller=release(opt3) rt=opt3 arm=off run=2 metric=ns_per_call value=1.0544 spool_bytes=0",
+        "result caller=release(opt3) rt=opt3 arm=off metric=ns_per_call value=1.0499",
+        "run caller=release(opt3) rt=opt3 arm=call run=0 metric=ns_per_call value=61.4413 spool_bytes=129242134",
+        "run caller=release(opt3) rt=opt3 arm=call run=1 metric=ns_per_call value=62.6350 spool_bytes=129242134",
+        "run caller=release(opt3) rt=opt3 arm=call run=2 metric=ns_per_call value=61.9596 spool_bytes=129242134",
+        "result caller=release(opt3) rt=opt3 arm=call metric=ns_per_call value=61.4413",
+        "result caller=release(opt3) rt=opt3 arm=off metric=over_plain value=2.045",
+        "result caller=release(opt3) rt=opt3 arm=off metric=added_ns_per_call value=0.5366",
+        "result caller=release(opt3) rt=opt3 arm=call metric=over_plain value=119.699",
+        "result caller=release(opt3) rt=opt3 arm=call metric=added_ns_per_call value=60.9280",
+        "#",
+        "# fib(30), best of 3, ns per call",
+        "# lens                                  plain        off       call",
+        "# caller=dev(opt0) rt=opt3             1.0595     6.2875    65.8710",
+        "# caller=release(opt3) rt=opt3         0.5133     1.0499    61.4413"
+      ]
+    },
+    "test_binaries_run": {
+      "value": 72,
+      "n": 1,
+      "lens": "test binaries cargo RAN in one `cargo test -p bloomery-daemon` call-arm invocation, counted from cargo's own `Running <target> (<exe>)` lines in that invocation's log; a `Doc-tests` line is counted separately below",
+      "dropped": []
+    },
+    "doctest_targets_run": {
+      "value": 1,
+      "n": 1,
+      "lens": "`Doc-tests` lines in the same log; bloomery-daemon has 0 doctests, so this target ran 0 tests and produced no process",
+      "dropped": []
+    },
+    "test_binaries_that_spooled": {
+      "value": 71,
+      "n": 1,
+      "lens": "of the binaries cargo ran, those that produced at least one spool file. The difference is named in `test_binaries_that_did_not_spool`",
+      "dropped": []
+    },
+    "test_binaries_that_did_not_spool": {
+      "value": 1,
+      "n": 1,
+      "lens": "a binary that runs 0 tests never enters an instrumented fn and so never opens a spool -- not a recorder failure",
+      "dropped": [],
+      "names": [
+        "bloomery_daemon-c359ed0433bcd7d2"
+      ],
+      "targets": [
+        "unittests src/main.rs"
+      ]
+    },
+    "spooling_processes": {
+      "value": 119,
+      "n": 1,
+      "lens": "PROCESSES that spooled in the same invocation: the binaries that spooled plus every instrumented child they spawned (here 48 `flywheel-tool` children); this is the number E0 converted",
+      "dropped": []
+    },
+    "spawned_child_executables": {
+      "value": 1,
+      "n": 1,
+      "lens": "distinct executables that spooled but appear in no `Running` line",
+      "dropped": [],
+      "names": [
+        "flywheel-tool"
+      ]
+    },
+    "per_process_exit_status_available": {
+      "value": 0,
+      "n": 1,
+      "lens": "a DESIGN FACT read off the wire format and the runtime, not a measurement: the record stream carries no exit code and a Drop-based runtime is bypassed by `std::process::exit`, so the converter writes cargo's status for every process (exit_status_basis = cargo). \u00a71 pre-registered this as `expected: NOT available to the runtime`; the 0 records that expectation holding, and no instrument was run for it",
+      "dropped": []
+    },
+    "spike_build_wall_s": {
+      "value": 4.24,
+      "n": 1,
+      "lens": "`cargo clean --release && cargo build --release` in rust/spike (4 workspace units recompiled; third-party deps stayed warm). PROVENANCE: transcribed by hand from the preflight transcript in task-5-report.md \u00a71 -- this one was run before the runner existed and has NO log in logs/; reported, not gated",
+      "dropped": []
+    }
+  },
+  "cleanup": {
+    "target_sensorium_removed_bytes": 104559671,
+    "target_sensorium_exists_after": false,
+    "bloomery_status_porcelain_after": "",
+    "cargo_lock_sha256_after": "c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca",
+    "cargo_lock_unchanged": true,
+    "free_gb_after": 6.11,
+    "sensorium_dir_bytes": 23117824
+  },
+  "steps": [
+    "[15:40:00] preflight",
+    "[15:40:00] preflight ok: load=0.56 disk=10.8GB bloomery=e209ed9 clean",
+    "[15:40:00] E8: plain --no-run (records the plain artifact set)",
+    "[15:40:00] E8: plain #1 wall=0.04s compiled=[] fresh=['bloomery-core', 'bloomery-daemon', 'bloomery-substrate']",
+    "[15:40:00] E8: instrumented --no-run #1 (the instrumented artifact set)",
+    "[15:40:06] E8: instr #1 wall=5.48s compiled=['bloomery-core', 'bloomery-daemon', 'bloomery-substrate']",
+    "[15:40:06] E8(a): compiled=[] fresh=['bloomery-core', 'bloomery-daemon', 'bloomery-substrate'] -> True",
+    "[15:40:06] E8(c): compiled=[] fresh=['bloomery-core', 'bloomery-daemon', 'bloomery-substrate'] -> True",
+    "[15:40:06] E8(c) sentinel: run both --lib binaries with SENSORIUM_SPOOL set",
+    "[15:40:06] E8(c) sentinel: {'plain_exe': '/home/brice/workspace/bloomery/target/debug/deps/bloomery_daemon-3682b2428060a42c', 'instrumented_exe': '/home/brice/workspace/bloomery/target/debug/deps/bloomery_daemon-1c4c106b05035b8f', 'instrumented_spool_bytes': 39483, 'plain': 0, 'plain_rc': 0, 'instrumented': 58, 'instrumented_rc': 0, 'plain_exe_bytes': 49870320, 'instrumented_exe_bytes': 50044080, 'pass': True}",
+    "[15:40:06] E8(d): compiled=[] fresh=['bloomery-core', 'bloomery-daemon', 'bloomery-substrate'] -> True",
+    "[15:40:06] E2[daemon build]: distinct=1723 raw=7360 units=77 fell_back=0 unreached=0",
+    "[15:40:06] E1: driver fixed overhead (3 no-op builds each way)",
+    "[15:40:14] E1 r1 P: 8.268s",
+    "[15:40:33] E1 r1 O: 8.184s",
+    "[15:40:51] E1 r1 C: 8.434s",
+    "[15:41:09] E1 r2 P: 8.252s",
+    "[15:41:28] E1 r2 O: 8.206s",
+    "[15:41:46] E1 r2 C: 8.337s",
+    "[15:42:04] E1 r3 P: 8.207s",
+    "[15:42:22] E1 r3 O: 8.320s",
+    "[15:42:41] E1 r3 C: 8.335s",
+    "[15:42:59] E1 r4 P: 8.270s",
+    "[15:43:17] E1 r4 O: 8.231s",
+    "[15:43:36] E1 r4 C: 8.306s",
+    "[15:43:54] E1 r5 P: 8.208s",
+    "[15:44:12] E1 r5 O: 8.269s",
+    "[15:44:31] E1 r5 C: 8.493s",
+    "[15:44:31] E0: converting the last E1 call-arm spool (whole invocation)",
+    "[15:44:53] E0: 119 processes, 132344 events, 22196224 trace bytes, 100 spools_without_end",
+    "[15:44:53] E0: tier-call run 1 of --lib",
+    "[15:44:54] E0: tier-call run 2 of --lib",
+    "[15:44:54] E0: timing `sensorium info` and `diff` on lib (20260902-154453-fffd9c, 20260902-154454-f2cbd5)",
+    "[15:44:54] E0: lib info median=0.03s diff median=0.03s",
+    "[15:44:54] E0: tier-call run 1 of --config_test",
+    "[15:44:54] E0: tier-call run 2 of --config_test",
+    "[15:44:55] E0: timing `sensorium info` and `diff` on config_test (20260902-154454-7854bd, 20260902-154454-529630)",
+    "[15:44:55] E0: config_test info median=0.03s diff median=0.03s",
+    "[15:44:55] E7: mechanics.sh on the probe workspace",
+    "[15:45:00] E7: 21 ok, 0 FAIL, rc=0",
+    "[15:45:00] micro-bench: building both caller profiles",
+    "[15:45:00] micro-bench: running",
+    "[15:45:01] micro-bench: 0 lenses",
+    "[15:45:01] E2(workspace): instrumented `--workspace --no-run`",
+    "[15:45:02] E2[workspace build]: distinct=2051 raw=7895 units=108 fell_back=0 unreached=0",
+    "[15:45:02] cleanup"
+  ],
+  "finished": "2026-09-02T15:45:02-0500"
+}
