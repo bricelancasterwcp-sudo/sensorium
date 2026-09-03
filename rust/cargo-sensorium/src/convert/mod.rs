@@ -86,7 +86,18 @@ pub fn convert_dir(spool_dir: &Path) -> Result<Report, String> {
         ));
     }
     let all_manifests = load_all_manifests(&manifests_dir)?;
-    let uninstrumented_global = uninstrumented_list(&all_manifests);
+    // A shared `CARGO_TARGET_DIR` holds every workspace's manifests in one
+    // directory (the corpus's 13 unrelated crates measured this live): a
+    // manifest belongs to THIS invocation only when its `workspace_root`
+    // matches `invocation.json`'s. A manifest with no `workspace_root` at all
+    // predates this field (`sensorium-transform`'s `Manifest` reads it with
+    // `#[serde(default)]`) and is counted here rather than silently dropped,
+    // so a reader can say how many manifests are that old.
+    let manifests_unscoped = all_manifests
+        .values()
+        .filter(|m| m.workspace_root.is_empty())
+        .count();
+    let uninstrumented_global = uninstrumented_list(&all_manifests, &invocation.workspace_root);
 
     let traces_dir = runid::traces_dir()?;
     // Every run id is assigned FIRST, so a parent's `child_runs` can name a
@@ -106,6 +117,7 @@ pub fn convert_dir(spool_dir: &Path) -> Result<Report, String> {
             proc: header,
             all_manifests: &all_manifests,
             uninstrumented_global: &uninstrumented_global,
+            manifests_unscoped,
             spool_paths: spool_files_by_pid.get(&pid).map_or(&[][..], Vec::as_slice),
             run_id: &run_ids[&pid],
             runner: runner_records.get(&pid),
@@ -255,10 +267,21 @@ fn load_all_manifests(dir: &Path) -> Result<BTreeMap<String, Manifest>, String> 
     Ok(out)
 }
 
-fn uninstrumented_list(manifests: &BTreeMap<String, Manifest>) -> Vec<Value> {
+/// A manifest is THIS invocation's only when its `workspace_root` matches
+/// `invocation.json`'s -- a shared `CARGO_TARGET_DIR` holds every workspace's
+/// manifests in one directory, and an empty `workspace_root` (a manifest that
+/// predates the field) can never match a real one.
+fn manifest_in_scope(m: &Manifest, invocation_workspace_root: &str) -> bool {
+    !m.workspace_root.is_empty() && m.workspace_root == invocation_workspace_root
+}
+
+fn uninstrumented_list(
+    manifests: &BTreeMap<String, Manifest>,
+    invocation_workspace_root: &str,
+) -> Vec<Value> {
     manifests
         .iter()
-        .filter(|(_, m)| m.fell_back)
+        .filter(|(_, m)| m.fell_back && manifest_in_scope(m, invocation_workspace_root))
         .map(|(metadata, m)| {
             json!({
                 "unit": metadata,
@@ -325,6 +348,7 @@ struct ConvertOne<'a> {
     proc: &'a ProcHeader,
     all_manifests: &'a BTreeMap<String, Manifest>,
     uninstrumented_global: &'a [Value],
+    manifests_unscoped: usize,
     spool_paths: &'a [String],
     run_id: &'a str,
     runner: Option<&'a RunnerRecord>,
@@ -393,6 +417,18 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
             .all_manifests
             .get(metadata)
             .ok_or_else(|| format!("pid {}: no manifest for registered unit {metadata}", c.pid))?;
+        // NOT workspace-scoped, deliberately: `registered` already IS the
+        // correct scope (this process's own proc header lists exactly the
+        // units it linked), and cargo's freshness caching can leave a unit's
+        // manifest on disk from an EARLIER build of the very same source --
+        // possibly one that predates the `workspace_root` field entirely --
+        // without the wrapper running again to refresh it (measured live on
+        // the Task 10 corpus: `rust/spawned_thread`'s own cached manifest
+        // carried no `workspace_root`, and scoping this loop the same way
+        // `uninstrumented_list` is scoped silently dropped its own
+        // `spawns` entry). A stale-but-genuinely-this-unit's manifest stays
+        // visible; only the GLOBAL scan across every OTHER manifest in the
+        // shared directory needs the workspace filter.
         for (k, v) in &m.source_hashes {
             source_hashes.insert(k.clone(), v.clone());
         }
@@ -439,6 +475,7 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         driver_version: &c.invocation.driver_version,
         instrumented_units: &registered,
         uninstrumented: c.uninstrumented_global,
+        manifests_unscoped: c.manifests_unscoped,
         skipped: &skipped,
         spawns: &spawns,
         unreached_files: &unreached_files,

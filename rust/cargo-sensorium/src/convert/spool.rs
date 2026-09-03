@@ -354,6 +354,13 @@ pub struct Manifest {
     pub fallback_reason: Option<String>,
     #[serde(default)]
     pub unreached_files: Vec<String>,
+    /// The workspace the wrapper compiled this unit under
+    /// (`SENSORIUM_WS`). `#[serde(default)]` so a manifest written before
+    /// this field existed deserialises as `""` -- treated as "not in scope
+    /// of any invocation" by `manifest_in_scope`, and counted in the meta
+    /// key `manifests_unscoped` rather than silently excluded with no trace.
+    #[serde(default)]
+    pub workspace_root: String,
 }
 
 /// One site, as the converter needs it: which file it is in (the manifest's

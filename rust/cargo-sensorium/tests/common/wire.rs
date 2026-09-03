@@ -296,7 +296,9 @@ pub fn site(site: u32, qualname: &'static str, firstlineno: u32, ret: &'static s
     }
 }
 
-/// `<manifests dir>/<metadata>.json`.
+/// `<manifests dir>/<metadata>.json`, `workspace_root: "/w"` -- every
+/// fixture's `invocation.json` in this suite uses `"/w"`, so a manifest built
+/// this way is always IN SCOPE.
 #[allow(clippy::too_many_arguments)] // test scaffolding mirroring the JSON shape 1:1
 pub fn write_manifest(
     manifests_dir: &Path,
@@ -307,6 +309,38 @@ pub fn write_manifest(
     fell_back: bool,
     fallback_reason: Option<&str>,
     unreached_files: &[&str],
+) {
+    write_manifest_scoped(
+        manifests_dir,
+        metadata,
+        crate_name,
+        files,
+        source_hashes,
+        fell_back,
+        fallback_reason,
+        unreached_files,
+        &[],
+        Some("/w"),
+    );
+}
+
+/// The full shape, for the workspace-scoping fixtures: `skipped` entries
+/// (`(file, qualname, line, reason)`) and an explicit `workspace_root` --
+/// `Some(s)` writes the key as `s`; `None` OMITS the key entirely, the shape
+/// of a manifest written before this field existed (`#[serde(default)]` on
+/// the reader's side is what a converter meets there).
+#[allow(clippy::too_many_arguments)] // test scaffolding mirroring the JSON shape 1:1
+pub fn write_manifest_scoped(
+    manifests_dir: &Path,
+    metadata: &str,
+    crate_name: &str,
+    files: &[(&str, &[SiteSpec])],
+    source_hashes: &[(&str, &str)],
+    fell_back: bool,
+    fallback_reason: Option<&str>,
+    unreached_files: &[&str],
+    skipped: &[(&str, &str, u32, &str)],
+    workspace_root: Option<&str>,
 ) {
     let files_obj: serde_json::Map<String, serde_json::Value> = files
         .iter()
@@ -322,12 +356,18 @@ pub fn write_manifest(
         .iter()
         .map(|(f, h)| ((*f).to_owned(), serde_json::json!(h)))
         .collect();
-    let body = serde_json::json!({
+    let skipped_arr: Vec<serde_json::Value> = skipped
+        .iter()
+        .map(|(file, qualname, line, reason)| {
+            serde_json::json!({"file": file, "qualname": qualname, "line": line, "reason": reason})
+        })
+        .collect();
+    let mut body = serde_json::json!({
         "unit": metadata,
         "crate_name": crate_name,
         "crate_type": "lib",
         "files": files_obj,
-        "skipped": [],
+        "skipped": skipped_arr,
         "spawns": [],
         "source_hashes": hashes_obj,
         "fell_back": fell_back,
@@ -335,6 +375,9 @@ pub fn write_manifest(
         "unreached_files": unreached_files,
         "appended_line": {},
     });
+    if let Some(ws) = workspace_root {
+        body["workspace_root"] = serde_json::json!(ws);
+    }
     std::fs::create_dir_all(manifests_dir).unwrap();
     std::fs::write(
         manifests_dir.join(format!("{metadata}.json")),

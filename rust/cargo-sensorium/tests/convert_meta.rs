@@ -1,7 +1,21 @@
 //! Meta-key content this recorder's own honesty promises name, over
 //! hand-built fixtures: `uninstrumented` (a fallen-back unit still reaches
-//! the trace, `rust/HONESTY.md` §8 item 7) and `panics_outside_frames` (a
-//! PANIC record with no open frame is counted, not silently dropped, §1).
+//! the trace, `rust/HONESTY.md` §8 item 7), `panics_outside_frames` (a
+//! PANIC record with no open frame is counted, not silently dropped, §1),
+//! and the workspace scoping of `uninstrumented` (and ONLY `uninstrumented`
+//! -- see below) -- a shared `CARGO_TARGET_DIR` holds every workspace's
+//! manifests in one `sensorium/manifests/` directory (measured live on the
+//! Task 10 corpus: 13 unrelated crates sharing one target, each trace's
+//! `info` printing another crate's `fell back` line).
+//!
+//! `skipped`/`spawns`/`unreached_files`/`source_hashes` are gathered ONLY
+//! for the units `c.proc.units_in_order()` registered and are deliberately
+//! NOT workspace-filtered: that scope is already correct by construction,
+//! and cargo's freshness caching can leave a registered unit's OWN manifest
+//! on disk from a build old enough to predate `workspace_root` entirely
+//! (the same corpus caught this: `rust/spawned_thread`'s own cached
+//! manifest carried no `workspace_root`, and filtering this loop the same
+//! way `uninstrumented` is filtered silently dropped its own spawn site).
 
 mod common;
 
@@ -181,4 +195,188 @@ fn a_panic_record_with_no_open_frame_is_counted_and_never_written_as_an_event() 
         .query_row("SELECT COUNT(*) FROM events", [], |r| r.get(0))
         .unwrap();
     assert_eq!(total_events, 2, "only the CALL and the RETURN");
+}
+
+#[test]
+fn a_foreign_workspace_manifest_is_excluded_from_uninstrumented_but_never_registered_either() {
+    let f = Fixture::new("foreign-workspace-scoped-out");
+    // In scope AND registered: this invocation's own workspace ("/w",
+    // `Fixture::new`'s `write_invocation`), with its own skip.
+    wire::write_manifest_scoped(
+        &f.manifests_dir,
+        "meta1",
+        "demo",
+        &[(FILE, &[site(0, "main", 3, "unit")])],
+        &[(FILE, "deadbeef")],
+        false,
+        None,
+        &[],
+        &[(FILE, "in_scope_const", 5, "const")],
+        Some("/w"),
+    );
+    // A DIFFERENT workspace's leftover manifest in the same shared target:
+    // fell back, and carries a skip. It cannot reach `uninstrumented` (the
+    // GLOBAL scan `uninstrumented_list` builds is filtered by
+    // `workspace_root`) -- and separately, `skipped` cannot see it either,
+    // because a fallen-back unit never links the runtime, so no process ever
+    // REGISTERS it (`skipped`/`spawns`/`unreached_files` are read only for
+    // units `c.proc.units_in_order()` names, never workspace-filtered; see
+    // `a_registered_units_manifest_still_contributes_skipped_even_with_no_
+    // workspace_root_at_all` below for the case that distinction actually
+    // guards).
+    wire::write_manifest_scoped(
+        &f.manifests_dir,
+        "meta2",
+        "unrelated-crate",
+        &[],
+        &[],
+        true,
+        Some("rustc: E0999 something"),
+        &[],
+        &[("other/src/lib.rs", "foreign_fn", 9, "async")],
+        Some("/other-workspace"),
+    );
+    wire::write_proc_header(
+        &f.spool_dir,
+        1201,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    wire::SpoolBuilder::new(1201, 1, "main")
+        .call(0, 1000, 0, 0)
+        .ret_none(1, 2000, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+
+    let uninstrumented = meta(&conn, "uninstrumented");
+    assert_eq!(
+        uninstrumented,
+        serde_json::json!([]),
+        "the foreign-workspace fallback must not reach this trace: {uninstrumented}"
+    );
+
+    let skipped = meta(&conn, "skipped");
+    let skipped_arr = skipped.as_array().unwrap();
+    assert_eq!(skipped_arr.len(), 1, "{skipped}");
+    assert_eq!(skipped_arr[0]["qualname"], "in_scope_const");
+    assert!(
+        skipped.to_string().contains("in_scope_const"),
+        "the in-scope skip must still be there: {skipped}"
+    );
+    assert!(
+        !skipped.to_string().contains("foreign_fn"),
+        "an unregistered unit's skip must not reach this trace: {skipped}"
+    );
+
+    // The foreign manifest HAS a workspace_root -- just not this one -- so it
+    // is excluded, not counted as predating the field.
+    assert_eq!(meta(&conn, "manifests_unscoped"), 0);
+}
+
+/// The fix for the fix: cargo's freshness caching can leave a REGISTERED
+/// unit's own manifest on disk from a build old enough to predate the
+/// `workspace_root` field entirely, without the wrapper running again to
+/// write a fresh one (measured live on the Task 10 corpus:
+/// `rust/spawned_thread`'s own cached manifest carried no `workspace_root`).
+/// `skipped`/`spawns`/`unreached_files`/`source_hashes` must still see it --
+/// `registered` is already the correct scope, and filtering this loop by
+/// `workspace_root` too silently dropped a unit's OWN data.
+#[test]
+fn a_registered_units_manifest_still_contributes_skipped_even_with_no_workspace_root_at_all() {
+    let f = Fixture::new("registered-unit-stale-manifest");
+    wire::write_manifest_scoped(
+        &f.manifests_dir,
+        "meta1",
+        "demo",
+        &[(FILE, &[site(0, "main", 3, "unit")])],
+        &[(FILE, "deadbeef")],
+        false,
+        None,
+        &[],
+        &[(FILE, "cached_const", 5, "const")],
+        None, // no `workspace_root` key at all -- a pre-fix, cargo-cached manifest
+    );
+    wire::write_proc_header(
+        &f.spool_dir,
+        1301,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    wire::SpoolBuilder::new(1301, 1, "main")
+        .call(0, 1000, 0, 0)
+        .ret_none(1, 2000, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+
+    let skipped = meta(&conn, "skipped");
+    assert!(
+        skipped.to_string().contains("cached_const"),
+        "a registered unit's own skip must survive even with no workspace_root: {skipped}"
+    );
+    // The manifest itself still predates the field, and is still counted --
+    // `manifests_unscoped` is a fact about the manifest, not about whether
+    // this specific loop happened to use it.
+    assert_eq!(meta(&conn, "manifests_unscoped"), 1);
+}
+
+#[test]
+fn a_manifest_with_no_workspace_root_key_at_all_is_counted_in_manifests_unscoped() {
+    let f = Fixture::new("manifest-predates-workspace-root");
+    wire::write_manifest_scoped(
+        &f.manifests_dir,
+        "meta1",
+        "demo",
+        &[(FILE, &[site(0, "main", 3, "unit")])],
+        &[(FILE, "deadbeef")],
+        false,
+        None,
+        &[],
+        &[],
+        Some("/w"),
+    );
+    // No `workspace_root` key at all -- the shape a manifest written before
+    // this field existed has. `#[serde(default)]` reads it as `""`, which
+    // `manifest_in_scope` treats as not-in-scope of anything.
+    wire::write_manifest_scoped(
+        &f.manifests_dir,
+        "meta2",
+        "old-crate",
+        &[],
+        &[],
+        true,
+        Some("rustc: some old failure"),
+        &[],
+        &[],
+        None,
+    );
+    wire::write_proc_header(
+        &f.spool_dir,
+        1202,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    wire::SpoolBuilder::new(1202, 1, "main")
+        .call(0, 1000, 0, 0)
+        .ret_none(1, 2000, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+
+    assert_eq!(meta(&conn, "manifests_unscoped"), 1);
+    assert_eq!(
+        meta(&conn, "uninstrumented"),
+        serde_json::json!([]),
+        "a fell-back manifest with no workspace_root is not in scope of THIS trace either"
+    );
 }

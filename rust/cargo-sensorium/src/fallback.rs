@@ -49,13 +49,25 @@ pub fn write_manifest(path: &Path, manifest: &Manifest) -> Result<(), String> {
 /// stub: a unit with no manifest at all is invisible to a coverage check and to
 /// the converter, which is the one outcome worse than an empty manifest.
 ///
+/// `workspace_root` is written (or re-written) either way: the PATCH branch
+/// sets it too, not only the stub branch, so a manifest predating this field
+/// picks it up the moment ANY wrapper of this invocation touches it again --
+/// belt and braces alongside the fresh write every `instrument()` call
+/// already makes.
+///
 /// # Errors
 /// If the manifest cannot be written.
-pub fn mark_fallen_back(path: &Path, unit: &Unit, reason: &str) -> Result<(), String> {
+pub fn mark_fallen_back(
+    path: &Path,
+    unit: &Unit,
+    reason: &str,
+    workspace_root: &str,
+) -> Result<(), String> {
     if let Ok(text) = std::fs::read_to_string(path) {
         if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&text) {
             v["fell_back"] = serde_json::Value::Bool(true);
             v["fallback_reason"] = serde_json::Value::String(reason.to_owned());
+            v["workspace_root"] = serde_json::Value::String(workspace_root.to_owned());
             let json = serde_json::to_string(&v)
                 .map_err(|e| format!("cannot re-serialise {}: {e}", path.display()))?;
             return std::fs::write(path, json)
@@ -65,6 +77,7 @@ pub fn mark_fallen_back(path: &Path, unit: &Unit, reason: &str) -> Result<(), St
     let mut stub = Manifest::new(&unit.metadata, &unit.crate_name, &unit.crate_type);
     stub.fell_back = true;
     stub.fallback_reason = Some(reason.to_owned());
+    stub.workspace_root = workspace_root.to_owned();
     write_manifest(path, &stub)
 }
 
@@ -151,13 +164,15 @@ mod tests {
         write_manifest(&path, &m).unwrap();
         assert_eq!(read(&path)["fell_back"], false);
 
-        mark_fallen_back(&path, &unit(), "lto").unwrap();
+        mark_fallen_back(&path, &unit(), "lto", "/w").unwrap();
 
         let v = read(&path);
         assert_eq!(v["fell_back"], true);
         assert_eq!(v["fallback_reason"], "lto");
         // What WOULD have been instrumented stays on the record.
         assert_eq!(v["unreached_files"], serde_json::json!(["a/src/ghost.rs"]));
+        // The patch branch sets `workspace_root` too, not only the stub one.
+        assert_eq!(v["workspace_root"], "/w");
         std::fs::remove_dir_all(&d).ok();
     }
 
@@ -165,7 +180,7 @@ mod tests {
     fn marking_writes_a_stub_when_the_wrapper_never_got_that_far() {
         let d = tmpdir("stub");
         let path = d.join("abc.json");
-        mark_fallen_back(&path, &unit(), "wrapper: SENSORIUM_RT_DIR is unset").unwrap();
+        mark_fallen_back(&path, &unit(), "wrapper: SENSORIUM_RT_DIR is unset", "/w").unwrap();
         let v = read(&path);
         assert_eq!(v["fell_back"], true);
         assert_eq!(v["fallback_reason"], "wrapper: SENSORIUM_RT_DIR is unset");
@@ -173,6 +188,7 @@ mod tests {
         assert_eq!(v["crate_name"], "demo");
         assert_eq!(v["crate_type"], "lib");
         assert_eq!(v["files"], serde_json::json!({}));
+        assert_eq!(v["workspace_root"], "/w");
         std::fs::remove_dir_all(&d).ok();
     }
 
@@ -181,7 +197,7 @@ mod tests {
         let d = tmpdir("corrupt");
         let path = d.join("abc.json");
         std::fs::write(&path, b"{ this is not json").unwrap();
-        mark_fallen_back(&path, &unit(), "cross-target").unwrap();
+        mark_fallen_back(&path, &unit(), "cross-target", "/w").unwrap();
         let v = read(&path);
         assert_eq!(v["fell_back"], true);
         assert_eq!(v["fallback_reason"], "cross-target");

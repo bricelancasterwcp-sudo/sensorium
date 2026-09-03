@@ -69,6 +69,9 @@ fn the_manifest_has_the_shape_the_plan_names() {
     assert_eq!(j["unreached_files"][0], "src/never_walked.rs");
     assert_eq!(j["appended_line"]["src/lib.rs"], false);
     assert_eq!(j["appended_line"]["src/other.rs"], false);
+    // `Manifest::new` leaves it empty; the wrapper (which knows
+    // `SENSORIUM_WS`, not this crate) is what fills it in.
+    assert_eq!(j["workspace_root"], "");
 }
 
 #[test]
@@ -95,6 +98,7 @@ fn every_key_the_plan_names_is_present_and_no_others_are() {
             "spawns",
             "unit",
             "unreached_files",
+            "workspace_root",
         ]
     );
 }

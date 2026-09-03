@@ -53,6 +53,13 @@ pub struct Manifest {
     /// [`crate::transform`] documents. Recorded per file because a consumer
     /// checking "no line moved" needs the exception named, not assumed away.
     pub appended_line: BTreeMap<String, bool>,
+    /// The workspace this unit was compiled under (the wrapper's
+    /// `SENSORIUM_WS`). A shared `CARGO_TARGET_DIR` holds every workspace's
+    /// manifests in one `sensorium/manifests/` directory, and this is the
+    /// only field that tells the converter which invocation a given manifest
+    /// belongs to -- `Manifest::new` leaves it empty; the wrapper sets it
+    /// once it knows.
+    pub workspace_root: String,
 }
 
 impl Manifest {
@@ -70,6 +77,7 @@ impl Manifest {
             fallback_reason: None,
             unreached_files: Vec::new(),
             appended_line: BTreeMap::new(),
+            workspace_root: String::new(),
         }
     }
 

@@ -158,6 +158,15 @@ fn cargo_sensorium_test_records_a_two_function_crate() {
         let m = read_json(path);
         assert_eq!(m["fell_back"], false, "{} fell back: {m}", path.display());
         assert_eq!(m["crate_name"], "smoke");
+        // The wrapper's own `SENSORIUM_WS` wiring: a shared `CARGO_TARGET_DIR`
+        // holds every workspace's manifests in one directory, and this is the
+        // field that tells them apart at conversion.
+        assert_eq!(
+            m["workspace_root"],
+            s.p("ws").to_string_lossy().as_ref(),
+            "{} carries the wrong (or no) workspace_root: {m}",
+            path.display()
+        );
         if let Some(sites) = m["files"]["src/lib.rs"].as_array() {
             lib_sites += sites.len();
             assert!(m["source_hashes"]["src/lib.rs"].is_string(), "{m}");

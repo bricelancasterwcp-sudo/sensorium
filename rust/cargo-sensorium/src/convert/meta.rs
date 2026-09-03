@@ -54,6 +54,13 @@ pub struct MetaInput<'a> {
     pub driver_version: &'a str,
     pub instrumented_units: &'a [String],
     pub uninstrumented: &'a [Value],
+    /// Manifests under `<target>/sensorium/manifests/` with no
+    /// `workspace_root` at all -- pre-fix manifests, counted rather than
+    /// silently excluded from `uninstrumented`/`skipped`/`spawns`/
+    /// `unreached_files` (a shared `CARGO_TARGET_DIR` can hold several
+    /// workspaces' manifests, and this is the fact that a foreign one is
+    /// missing the field to compare rather than merely not matching).
+    pub manifests_unscoped: usize,
     pub skipped: &'a [Value],
     pub spawns: &'a [Value],
     pub unreached_files: &'a [String],
@@ -109,6 +116,7 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
         ("driver_version", json!(m.driver_version)),
         ("instrumented_units", json!(m.instrumented_units)),
         ("uninstrumented", json!(m.uninstrumented)),
+        ("manifests_unscoped", json!(m.manifests_unscoped)),
         ("skipped", json!(m.skipped)),
         ("spawns", json!(m.spawns)),
         ("unreached_files", json!(m.unreached_files)),
@@ -180,6 +188,7 @@ mod tests {
             driver_version: "cargo-sensorium 0.1.0",
             instrumented_units: &[],
             uninstrumented: &[],
+            manifests_unscoped: 0,
             skipped: &[],
             spawns: &[],
             unreached_files: &[],
@@ -291,5 +300,16 @@ mod tests {
         let out = as_map(&build(&minimal()));
         assert_eq!(out["exit_status"], Value::Null);
         assert_eq!(out["exit_status_basis"], json!("unwitnessed"));
+    }
+
+    #[test]
+    fn manifests_unscoped_defaults_to_zero_and_carries_a_nonzero_count() {
+        let out = as_map(&build(&minimal()));
+        assert_eq!(out["manifests_unscoped"], json!(0));
+
+        let mut m = minimal();
+        m.manifests_unscoped = 3;
+        let out = as_map(&build(&m));
+        assert_eq!(out["manifests_unscoped"], json!(3));
     }
 }

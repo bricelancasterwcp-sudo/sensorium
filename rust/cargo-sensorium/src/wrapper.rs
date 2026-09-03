@@ -65,7 +65,12 @@ fn declare_fallback(unit: &Unit, reason: &str) {
 fn record_fallback(unit: &Unit, reason: &str) -> Result<(), String> {
     let ws = std::env::current_dir().map_err(|e| format!("cannot read cwd: {e}"))?;
     let target = target_dir(&ws);
-    fallback::mark_fallen_back(&manifest_path(&target, &unit.metadata), unit, reason)
+    fallback::mark_fallen_back(
+        &manifest_path(&target, &unit.metadata),
+        unit,
+        reason,
+        &workspace_root_env(),
+    )
 }
 
 /// Run rustc exactly as cargo asked, from cargo's own cwd.
@@ -78,6 +83,17 @@ fn passthrough(rustc: &str, args: &[String]) -> i32 {
 
 fn target_dir(ws: &Path) -> PathBuf {
     std::env::var_os("SENSORIUM_TARGET").map_or_else(|| ws.join("target"), PathBuf::from)
+}
+
+/// The driver's own `workspace_root` (`invocation.json`'s field, verbatim --
+/// same source variable, same `to_string_lossy()`), as the wrapper sees it
+/// through `SENSORIUM_WS`. Empty when unset, which a manifest written this
+/// way should never be: the driver sets it for the whole cargo invocation,
+/// and `read_env` already refuses when the driver's other linkage variables
+/// are missing. An empty string here is `manifest_in_scope`'s "not in scope
+/// of anything" reading, not a crash.
+fn workspace_root_env() -> String {
+    std::env::var("SENSORIUM_WS").unwrap_or_default()
 }
 
 /// What the driver told the wrapper through the environment.
@@ -124,6 +140,14 @@ fn instrument(rustc: &str, args: &[String], unit: &Unit) -> Result<i32, String> 
         &walk,
         unit,
     );
+    // A shared `CARGO_TARGET_DIR` holds every workspace's manifests in one
+    // `sensorium/manifests/` directory; this is the field the converter uses
+    // to tell THIS invocation's manifests from another workspace's leftovers
+    // (findings, corpus Task 10: 13 unrelated crates sharing one target
+    // printed each other's fallbacks). The driver sets `SENSORIUM_WS` from
+    // the exact same `ws` it writes into `invocation.json`'s own
+    // `workspace_root`, so the two are byte-identical.
+    manifest.workspace_root = workspace_root_env();
 
     let manifest_file = manifest_path(&env.target, &unit.metadata);
     write_manifest(&manifest_file, &manifest)?;
@@ -339,6 +363,16 @@ mod tests {
         // The `const fn` is declared, not silently absent.
         assert_eq!(v["skipped"][0]["reason"], "const");
         assert_eq!(v["appended_line"]["a/src/lib.rs"], false);
+        // `workspace_root` is `build_unit`'s to leave empty -- `instrument`
+        // (below `plan_of`'s reach; it needs `SENSORIUM_WS`) is what fills
+        // it in, but the KEY is part of the shape every manifest carries,
+        // and this is the one test that pins the shape's full key set.
+        assert_eq!(v["workspace_root"], "");
+        assert_eq!(
+            v.as_object().unwrap().len(),
+            12,
+            "a key was added or removed from the manifest shape: {v}"
+        );
     }
 
     /// Rung 1 shipped `source_hashes: {}` in every trace, so nothing pinned the

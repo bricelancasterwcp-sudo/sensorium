@@ -48,6 +48,15 @@ def _build_lines(m: dict) -> list[str]:
                    f"pid: {m.get('pid', '?')}")
     if "instrumented_units" in m:
         out.append(_units_line(m))
+    unscoped = m.get("manifests_unscoped") or 0
+    if unscoped:
+        # A shared CARGO_TARGET_DIR holds every workspace's manifests in one
+        # directory; a manifest with no `workspace_root` at all predates that
+        # field and is excluded from `uninstrumented`/`skipped`/`spawns`/
+        # `unreached_files` rather than silently folded in -- this is the
+        # line that says some manifests were that old, not zero of them.
+        out.append(f"manifests unscoped: {unscoped} -- predate the "
+                   "workspace stamp")
     unreached = m.get("unreached_files") or []
     if unreached:
         # Named, never counted alone: "1 file was not reached" leaves the

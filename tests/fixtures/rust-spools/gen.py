@@ -76,6 +76,12 @@ _MANIFEST_DEFAULTS = {
     "fallback_reason": None,
     "unreached_files": [],
     "appended_line": {},
+    # `materialize` layers the REAL `workspace_root` in ahead of this dict (a
+    # case fixture cannot know that path ahead of time), so every case's own
+    # manifests are in scope of its own invocation by default. A case that
+    # wants to pin the foreign-workspace/missing-field scoping rule
+    # (`rust/cargo-sensorium/src/convert/mod.rs::manifest_in_scope`) sets
+    # `workspace_root` in its own manifest dict to override that layer.
 }
 
 
@@ -172,7 +178,8 @@ def materialize(case: dict, root: Path) -> Path:
     })
 
     for metadata, m in case.get("manifests", {}).items():
-        merged = {**_MANIFEST_DEFAULTS, **m, "unit": metadata}
+        defaults = {**_MANIFEST_DEFAULTS, "workspace_root": str(workspace_root)}
+        merged = {**defaults, **m, "unit": metadata}
         _write_json(manifests_dir / f"{metadata}.json", merged)
 
     for proc in case["processes"]:
