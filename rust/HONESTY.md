@@ -1,0 +1,489 @@
+# The Rust recorder's honesty ledger
+
+`sensorium-rt 0.1.0`, `sensorium-transform 0.1.0`, `cargo-sensorium 0.1.0` —
+v1, the call tier.
+
+Sensorium's founding rule is that **the instrument never answers from data it
+does not have**. The Python recorder keeps its half of that rule in the
+README's *What the answers claim*, *What a trace file holds* and *What
+sensorium sees at all*. This is the Rust recorder's half, and it is written to
+the same standard the standing ruling of 2026-08-20 set: a sibling recorder
+carries its own honesty ledger, and multi-language support never softens the
+core.
+
+**How to read a section.** Each one states a promise, says **what in the trace
+says it** — a manifest field, a meta key, or a line `sensorium info` prints —
+and names **what could falsify it**: a corpus case or a test, by path. A
+promise with no falsifier is not a promise, it is an assertion, and this
+document does not carry assertions. The index at the end is the whole list in
+two columns.
+
+**Provenance.** Spec §7 requires this document *before* the transformer, so it
+is written first and the code is written to it — not the other way round. The
+design is
+`docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md`; the
+measurements it rests on are
+`docs/superpowers/spikes/2026-09-02-rust-mechanics-spike.md` (rung 1, cited
+below as *findings §n*); the endpoints named E2′, E3, E5, E7 and E8 are
+pre-registered in
+`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`. Where a
+falsifier is a file that a later task of the rung-2 plan creates, the path here
+is the name that task must use.
+
+**What this version records.** Tier `call`: CALL and RETURN with an outcome and
+a captured return value, panics, per-thread spools, tasks, and `spawn_child`
+naming — for workspace crates, on Linux, on stable rustc, with no hand
+annotation. Not `?` sites (rung 3), not locals or LINE (rung 4), not program
+output. §8 is the list, with what declares each absence.
+
+---
+
+## 1. What a frame's outcome means
+
+Every frame closes with exactly one outcome, carried in the RETURN event's
+payload as `{"outcome": "ok" | "err" | "panic" | "none"}`.
+
+- **`ok` / `err` are read from the value at the exit operand** — the tail
+  expression, and every `return <e>` at closure depth 0, of a function whose
+  return type is neither `()` nor `!`. `err` means that value was
+  `Result::Err` *at the moment it crossed the function boundary*; `ok` means it
+  was anything else, `Result::Ok` and non-`Result` values alike. This is a fact
+  about the boundary, not about the body: an `Err` built and absorbed inside
+  the function never shows as `err`, and an `Ok` that wraps a failure of some
+  other kind is `ok`.
+- **A function with nothing to return** (`-> ()`, or no return type) has no
+  exit operand to probe. Its frame closes `ok` with the recorded value `()`
+  when it returned normally.
+- **`panic` comes from the panic hook**, not from a guess: the hook wrote a
+  PANIC record on this thread and the guard was dropped while
+  `std::thread::panicking()`. The frame's `closed_by` is `"unwind"` and
+  `unwind_exc` is `{"type": "panic", "msg", "serial", "loc"}`. `closed_by` is
+  never the string `"panic"` — a reader renders that as a false ` (open)`.
+- **`none` means the frame closed with nothing probed at its own site**: a `?`
+  that propagated past the tail, a syntactically diverging operand
+  (`return`/`break`/`continue`, a `loop` with no valued `break`, a call of
+  `panic!`, `unreachable!`, `todo!`, `unimplemented!`, `std::process::exit`,
+  `std::process::abort`), or a `-> !` function. `none` is not "no error"; it is
+  "this trace does not know".
+- **A generic return type reads `ok` even when the value is an `Err`.** The
+  capture probe's specialisation is resolved where the fragment sits — inside
+  the generic function, where `T` is not known to be a `Result` — so a
+  `fn f<T>() -> T` monomorphised to `Result<_, _>` and returning `Err` closes
+  `ok`. The outcome is a property of the *static* type at the exit operand.
+
+**Falsified by** `rust/sensorium-rt/tests/outcomes.rs` (one arm per outcome,
+read off the spool bytes by a parser written from the wire format, not from the
+writer), `corpus/rust/panic` (`closed_by unwind`, `unwind_exc.type panic`), and
+— for the generic case, which this rung does not fix —
+`corpus/rust/outcome_generic`, **deferred to rung 3** and named here so the
+limit has an address before it has a test.
+
+## 2. What a return value is
+
+- The RETURN payload carries `{"k": "dbg", "v": <text>, "trunc": <bool>}`.
+  `<text>` is the value's `Debug` rendering — what `{:?}` printed, not
+  `Display`, and not a structural capture of fields — formatted through a
+  writer that **stops at 200 bytes** and sets `trunc`: the writer returns an
+  error at the cap and formatting aborts there, so a million-element `Vec`
+  costs the cap rather than the vector, and what you get back is its first
+  200 bytes.
+- **A value with no `Debug` impl reads `<unread>`** (payload `{"k": "unread"}`).
+  So does a value whose `Debug` impl panics: the panic is caught inside the
+  instrument, the program is not unwound, and nothing is printed. **The two are
+  indistinguishable in the trace** — `<unread>` means "not read", and this
+  recorder does not say why.
+- **`<unread>` is never `()` and `()` is never `<unread>`.** A `()`-returning
+  function records the value `()` as a recorded fact; a value that could not be
+  read records `<unread>`. A reader that sees `()` is looking at a
+  measurement, not at a placeholder.
+- **Truncation is counted, not just marked**: per thread in the spool header,
+  summed into the meta key `truncated_count`, which `info` prints.
+
+**Falsified by** `rust/sensorium-rt/tests/values.rs` — the `!Debug` arm, the
+panicking-`Debug` arm, the 10⁶-element cap (≤ 200 text bytes, `trunc` set, and
+the work bounded), and the header counter — with
+`docs/trace-format/vectors/v08-return-outcome-dbg-value.json` pinning how a
+reader renders it.
+
+## 3. Threads, tasks and names
+
+- Every thread that emits gets a process-global serial. The thread with
+  `gettid() == getpid()` is serial 1 whether or not it ever emits, and
+  `main_thread_ident = 1` is written explicitly rather than inferred.
+- **Every non-main thread that emits is a task**, with one `tasks` row and one
+  `task_fingerprints` row; `fingerprint_basis` is `"per-task"`. A zero-count
+  fingerprint row for the main thread means "ran traced code only inside
+  tasks" — not "ran nothing".
+- **libtest names the thread it runs a `#[test]` on**, so under `cargo test` a
+  test *is* a task, named by its test path. That is what lets `diff` compare
+  two runs of a test binary whose main thread runs no workspace code at all.
+- **`spawn_child` names threads spawned by workspace code.** A rewritten
+  `std::thread::spawn` site produces the name
+  `<parent task name> :: spawn@<file>:<line>`, or `spawn@<file>:<line>` when
+  the spawning thread has no name. The `JoinHandle`, panic propagation and the
+  OS thread name are unchanged.
+- **A spawn shape the transformer does not rewrite is declared, not silently
+  missed**: `Builder::spawn`, `thread::scope` and method-call shapes are listed
+  in the unit manifest's `spawns` with `wrapped: false` and a `reason`, and
+  `info` prints `J spawn sites (W wrapped)`.
+- **A thread spawned by dependency code has no name at all.** Its `tasks` row's
+  name is NULL, `tree` identifies it only as unnamed, and `diff` compares such
+  tasks as an unnamed multiset by content: a divergence inside one is reported,
+  but *which* one it was cannot be named. Rung 1 measured the hole this closes
+  — 4 of 57 emitting non-main threads in a bloomery `--lib` trace carried no
+  name (findings §5.20).
+
+**Falsified by** `corpus/rust/spawned_thread` (a worker holding a lock inside a
+test is named in the verdict), `corpus/rust/libtest_threads` (`--test-threads=1`
+against `8` reads MATCH with the tasks carrying it — and the counter-truth
+question, which deletes the task fingerprints and expects REFUSED),
+`rust/sensorium-rt/tests/spawn.rs` (parent, grandchild, main-spawned and
+dependency-shaped names) and `rust/sensorium-rt/tests/serials.rs`.
+
+## 4. What a spool loses
+
+Spools are `MAP_SHARED` file-backed mappings, one per emitting thread. Every
+field of a record is written before its `kind` byte, and `kind` last with a
+Release store, so **a record is complete iff its `kind` is non-zero**; a reader
+stops at the first zero. The kernel owns the pages, so the file survives a
+thread that never returns, `process::exit`, `abort`, and SIGKILL.
+
+- **The loss, stated as a bound:** a record being written at the instant the
+  process dies is lost — **at most one per thread, and only that one**.
+  Everything written before it is on disk. This is the whole of what a crash
+  costs.
+- **A lost record leaves a hole in the process-global sequence**, and the
+  converter counts holes: the meta key `seq_gaps`, which `info` prints as
+  `seq gaps: n -- records minted and never found in any spool (one lost
+  mid-write per thread at most; see rust/HONESTY.md §4)`.
+- **`records_dropped` is a different number**: what the runtime *knew* it could
+  not write — a failed `ftruncate` or `mmap` sets the thread inert and counts
+  every later record. `seq_gaps` is inferred from the merge; `records_dropped`
+  is witnessed by the writer. Both are summed by `Trace.dropped_writes()`, and
+  a non-zero total makes `diff` refuse a verdict rather than issue one over a
+  hole.
+- **A thread still running when the process exits has no `THREAD_END`.** The
+  converter lists it in `live_threads` and leaves its frames open; `incomplete`
+  stays `false`, because the *process* finished even though the thread did not.
+  That is the distinction a reader most easily misreads, which is why `info`
+  prints both facts rather than one.
+- Rung 1's `BufWriter` spool lost a live thread's entire buffered tail, and
+  lost it silently: 100 spool files without `THREAD_END` in 3 of 119 processes,
+  and `abort()` losing every thread's tail including main's (findings §5.2,
+  §5.25). `MAP_SHARED` is what reduces that to the one-record bound above.
+
+**Falsified by** `rust/sensorium-rt/tests/durability.rs` — a thread blocked in
+`recv()` with N complete records while the process returns from `main`, calls
+`process::exit(0)`, calls `abort()`, and is SIGKILLed, each row read off the
+bytes; plus the synthetic disk-full arm that pins `records_dropped` — and by
+`corpus/rust/abort`. The acceptance run reports `seq_gaps`, `records_dropped`
+and per-live-thread last-record completeness for a whole invocation
+(acceptance §3, *reported without a gate*).
+
+## 5. Exit status
+
+- **`exit_status` is this process's own status, and only when sensorium's
+  runner started this process.** The driver installs itself as cargo's target
+  runner, so cargo hands it every test binary — and, on cargo 1.96, every
+  doctest process (measured 2026-09-02). The runner spawns, waits, and records
+  the status: `exit_status_basis: "waited"`, with `exit_signal` set when the
+  process died by a signal.
+- **Anything the runner did not start carries `exit_status: null` and
+  `exit_status_basis: "unwitnessed"`**, and `info` prints `exit: unwitnessed`.
+  A child a test spawned itself is the ordinary case. Not a zero, not a guess.
+- **It is never borrowed from cargo.** Rung 1 wrote cargo's status onto all 119
+  traces of one invocation, so every process of a run claimed the same number
+  (findings §5.1). This version does not: a status in a trace is a status
+  somebody waited for.
+- **A process that died inside a frame leaves that frame open.** `closed_by` is
+  NULL and `tree` shows it open — that open frame is the record of the death.
+  `incomplete` is `false` because conversion finished; the open frame and
+  `exit: unwitnessed` are what say the process did not.
+- The limitation this rests on: a runner set in a workspace's
+  `.cargo/config.toml` is replaced rather than chained (§8).
+
+**Falsified by** `rust/cargo-sensorium/tests/runner.rs` (exit 0, exit 7 and
+SIGKILL each yielding the matching record and the matching runner exit code,
+with stdio byte-identical through it), `corpus/rust/abort`,
+`rust/tests/mechanics.sh` (every test binary and the doctest process carry a
+runner record and read `waited`), and
+`docs/trace-format/vectors/v10-exit-status-unwitnessed.json`. The acceptance
+run reports the `waited`/`unwitnessed` histogram across an invocation.
+
+## 6. Children
+
+- **`capabilities.children` is `false`.** This recorder hooks no spawn
+  primitive. It cannot tell you that a process created another process, and
+  `info` says so in the recorder's own words: *declares children not witnessed
+  (capabilities.children: false), so there is no children / spawn_syscalls /
+  audit_errors record to read; absence of the record is not a record of
+  absence.*
+- **What it can tell you is the join:** an instrumented child of the same
+  invocation is linked to its parent by `ppid`, recorded as the parent's
+  `child_runs: [{run_id, pid, exe}]` and printed by `info` as
+  `child runs: N -- <run ids>` immediately after that declaration. So a
+  subprocess test shows either a child's run id or the declaration that spawns
+  are not witnessed — **never neither**.
+- **A child that ran no instrumented code is invisible.** A `ls`, a dependency
+  binary, anything outside the workspace: no spool, no run id, no row. Its
+  absence from `child_runs` is not evidence that it did not run.
+
+**Falsified by** `corpus/rust/abort` (the parent's `child_runs` names the
+aborting child; the child's own trace reads `exit: unwitnessed`),
+`docs/trace-format/vectors/v11-child-runs-linked.json`, and the `child-linked`
+fixture of `tests/test_rust_convert.py`.
+
+## 7. Site identity
+
+- **At record time a site is per compiled unit**, not per source function:
+  `unit_id` in the top 8 bits, site index in the low 24. Cargo compiles one
+  crate root as several units — lib, lib `--test`, each `tests/*.rs`, each
+  feature set — so one source function has a different site id in every unit
+  that compiles it. Measured on bloomery: 7360 raw sites across 77 manifests
+  against 1723 distinct `(file, qualname, firstlineno)` triples, a 4.3×
+  duplication (findings §5.8).
+- **At conversion they are merged.** `code_objects` is interned on
+  `(file, qualname, firstlineno)` with `file` absolute and `qualname` the
+  file-local path in Python's shape (`Type::method`, `tests::setup`,
+  `outer::{{closure}}`) — never `module_path!()`. The 13 `tests/common` files
+  compiled into 69 integration units collapse to one code object each.
+- **The consequence, named rather than left to be discovered:** `diff` keys
+  code objects on `(file, qualname, kind)` — *without* the line — so two
+  functions that share a file and a qualname and differ only in line are one
+  key to `diff` and to `--ignore-moves`' pairing. bloomery has exactly this
+  case: `crates/bloomery-daemon/src/main.rs` declares `fn run` twice, once
+  under `#[cfg(feature = "llama")]` and once under `#[cfg(not(...))]`
+  (findings §5.27). The trace distinguishes them; **`diff` cannot**.
+- **Fingerprints hash the workspace-relative path**, while `code_objects.file`
+  is absolute. Two checkouts at different paths therefore never compare equal
+  on *stored* hashes; `diff --ignore-moves` re-hashes both sides at query time,
+  which is what makes a split verifiable across trees.
+
+**Falsified by** E3 (20 identical re-runs of one test binary, same binary hash:
+DIVERGED 0/19 and REFUSED 0/19) and E5 (`diff --ignore-moves` on the
+registry.rs split, plus the planted call-site swap that must read DIVERGED) in
+`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, by
+`rust/cargo-sensorium/tests/unit_identity.rs` (two units of one crate root get
+two mirrors with two different unit statics — and the check asserts it examined
+more than zero crate roots, findings §5.29), and by the identical-pair fixture
+of `rust/cargo-sensorium/tests/convert.rs`.
+
+## 8. What this recorder cannot see
+
+Stated as categories wherever a category is honest. Five review rounds of the
+Python `refocus` each found a mechanism the tool could not see; an enumeration
+that looks complete is more dangerous than no enumeration, because a reader who
+checks the list concludes their case was covered.
+
+**What it does see, so the list below is bounded.** Every function item with a
+body in a workspace crate gets a frame, except the skips items 5 and 6 declare;
+every unit either instruments or says it fell back. Rung 1 measured 100.0% of
+eligible function items on bloomery (2051/2051), and this rung re-measures it
+as **E2′**, where a floor of 98% applies and *any* fell-back unit is a finding
+that stops the rung until it is explained. *Falsified by* E2′ in
+`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` and by
+`rust/sensorium-transform/tests/census.rs`, which requires
+`instrumented + async == eligible` over a real workspace's files.
+
+Each entry below names **what declares it** — the field or line a reader meets
+without knowing this document exists.
+
+1. **Dependency-crate internals.** Only workspace units are instrumented
+   (cargo's workspace wrapper is the hook). A call into `serde` or `tokio`
+   shows as the caller's frame and its return; the inside is not there.
+   *Declared by* the meta key `instrumented_units` and `info`'s
+   `units: N instrumented, …` line.
+2. **`?` sites, sinks, and `Err` arms — rung 3.** No RAISE or HANDLED is
+   recorded at a `?`; `.ok()`, `.unwrap_or*()`, `let _ =` and `Err(..) =>` arms
+   are not classified. Everything a rung-2 trace says about a `?` that
+   propagated is `outcome: none` on the frame it left (§1). *Declared by* the
+   refusal `exceptions` prints: `REFUSED: exceptions on a rust trace needs the
+   Rust disposition rules (rung 3); the Python rules would misread Err values
+   as exceptions; nothing was judged`. The dispositions and chain identity that
+   spec §6 defines — SWALLOWED, PANICKED, RETURNED-TO-HARNESS, and
+   AMBIGUOUS-by-default the moment an `Err` leaves the enumerated grammar —
+   are rung 3's, and this ledger gains their section when they land, not
+   before.
+3. **Locals, and per-line state — rung 4.** Nothing is captured between a
+   function's entry and its exit, so a value that changed in place mid-frame,
+   including mutation through a long-lived `&mut`, is invisible. *Declared by*
+   `capabilities.line: false` and `capabilities.locals: false`; by the
+   `"unread": ["locals"]` marker every CALL payload carries, which `tree`
+   renders as `name() <unread: locals>` and `frame` as
+   `args: <unread: locals>` — never `(none)`, which would read as "called with
+   no arguments"; and by the refusal `watch` and `flow` print:
+   `REFUSED: watch needs line, which recorder sensorium-rt 0.1.0 declares it
+   does not produce (capabilities.line: false); nothing was checked`.
+4. **What the program printed.** libtest owns the capture and the hook that
+   would take it is unstable. *Declared by* `capabilities.output: false`: the
+   `output` table is empty, and every reader prints the declaration instead of
+   a zero.
+5. **`async fn` bodies.** Skipped whole — an entry guard would live across
+   every `.await`, and the guard is the sole emitter of a RETURN (§1) — so an
+   async
+   function gets no frame at all rather than a wrong one. *Declared by* the
+   manifest's `skipped: [{reason: "async"}]`, carried into the meta key
+   `skipped` and printed by `info` as `K skipped (<reasons>)`. bloomery has
+   zero; a workspace with async functions gets one skip record each and no
+   invented frames.
+6. **`const fn`, `extern` functions, and function bodies inside
+   `macro_rules!`.** Same declaration, reasons `const`, `extern`, `macro`.
+   A `?` inside a macro argument is invisible to the parser for the same
+   reason; that is rung 3's problem and rung 3's manifest field.
+7. **A unit that fell back to the real tree.** Nothing in it is instrumented:
+   no frames, no returns, no sites. The reasons are `rustc: <first error
+   line>`, `lto`, `cross-target`, an absolute crate root, and
+   `wrapper: <error>`. *Declared by* the unit manifest's `fell_back: true` and
+   `fallback_reason`, the meta key `uninstrumented`, and `info`'s
+   `M fell back (<reasons>)`. **Every** fallback path writes or patches a
+   manifest — rung 1 had one that reported to the log channel only, and a
+   coverage check reading manifests alone would have scored it as instrumented
+   (findings §5.29). A fallback in a shared `tests/common/*.rs` uninstruments
+   every test binary that includes it, and the manifests say which.
+8. **A module the module walk could not reach.** `#[cfg_attr(.., path = ..)]`
+   is not evaluated — the walk resolves `mod` declarations and literal
+   `#[path]`, and refuses to guess at a conditional one. *Declared by* the unit
+   manifest's `unreached_files`. **This is the one declaration that does not
+   reach the trace**: rung 2's meta does not lift `unreached_files` into the
+   database, so it is readable at
+   `<target>/sensorium/manifests/<metadata>.json` and not from `info`. Named
+   here because a limit whose declaration a reader cannot reach is half a
+   declaration. bloomery has zero such files (findings §5.26).
+9. **Why a return value was unread** (§2): a missing `Debug` impl and a
+   panicking one read the same.
+10. **A runner set in a workspace's `.cargo/config.toml`.** The driver sets
+    `CARGO_TARGET_<HOST>_RUNNER` in the environment, which overrides the
+    config file, and only an env-set `SENSORIUM_INNER_RUNNER` is chained. On
+    such a workspace the recorded run is not the run the config describes —
+    and **no field in the trace says so**. It is declared here, and in the
+    acceptance document's §2 pins, which record that no config-file runner
+    existed on the box or in the tree that was measured. *Falsified by* adding
+    one to `rust/probes/ws/` and re-running `rust/tests/mechanics.sh`.
+11. **Object identity.** There is no Rust `id()`: two `Vec`s with the same
+    contents are one value to this trace. *Declared by*
+    `capabilities.object_identity: false`; `flow --object` refuses.
+12. **A deeper re-run.** `refocus` re-invokes the recorder and compares, and
+    the Rust side of it is rung 4. *Declared by* `capabilities.refocus: false`;
+    `refocus` refuses with the `caps.require` sentence, naming the capability
+    and the recorder.
+13. **A 257th instrumented unit in one process.** The runtime refuses to record
+    past 255 units rather than wrap the id and attribute events to the wrong
+    unit — but the refusal is **one line on stderr, not a field in the trace**,
+    so a trace recorded past the ceiling is short and does not say so. The
+    ceiling has never been approached (a workspace-wide bloomery build produced
+    108 units *in total*, findings §5.13). *Falsified by*
+    `rust/sensorium-rt/tests/units.rs`, which drives it.
+14. **Everything the Python README's *What sensorium sees at all* rules out**,
+    which is not language-specific: any file the program read or wrote, the
+    environment beyond the variables a command names as compared, the clock,
+    the network, and everything else the machine did. *Declared by*
+    `source_hashes`, which is the whole of what the trace pins about the world
+    outside the process — the source files the instrumented units were built
+    from, and nothing else. Config, fixtures, databases and inputs move
+    unseen.
+
+## 9. Preserved by construction, and tested
+
+Recording changes what the program does only in the ways §10 and the last
+bullet name. Everything here is a tested claim, not a design intention.
+
+- **Line numbers and file paths.** Injected fragments are newline-free and
+  spliced at `syn`'s byte offsets, so a rewritten file has exactly the original
+  line count; the one appended line is the crate root's unit static, recorded
+  per file as the manifest's `appended_line`. `file!()`, `line!()`, panic
+  locations and every backtrace frame's `<file>:<line>` are the plain build's,
+  because the build runs in a per-unit mirror with
+  `--remap-path-prefix=<mirror>=<workspace>` appended — a flag rung 1 found to
+  be load-bearing rather than belt and braces: without it backtraces print
+  mirror paths (findings §5.21).
+  *Falsified by* E7(a) in `rust/tests/mechanics.sh` and E7(b) on a real
+  workspace (acceptance §3), and by `rust/sensorium-transform/tests/golden.rs`,
+  where every golden asserts the output's line count.
+- **Temporary lifetimes, drop order and lock hold times at every wrapped
+  site.** The exit operand is passed as an argument to `ret`, evaluated exactly
+  where the tail was; the capture closure is passed *before* it, so a diverging
+  operand leaves nothing unreachable behind it. Nothing is ever `let`-hoisted:
+  a hoist is `E0716` on a guard-borrowing operand and, where it compiles,
+  releases a `MutexGuard` early.
+  *Falsified by* `rust/sensorium-transform/tests/oracle.rs` — a `Drop`-logging
+  guard held across a wrapped tail logs the same order with and without the
+  transform, and a `MutexGuard` in a wrapped tail is released at the same point
+  (read by a `try_lock` from another thread).
+- **No new diagnostics.** Every golden's output is compiled by the real rustc
+  under `-D warnings` with zero diagnostics. This is why the exit form is a
+  call and not spec §3.2's `match (<e>)` wrap: the parentheses trip
+  `unused_parens`, and under a crate's own `#![deny(warnings)]` a whole unit
+  would fall back. *Falsified by* the same `oracle.rs`.
+- **Cargo freshness, and a plain build that stays plain.** The wrapper is
+  hashed into `-C metadata`, so instrumented and plain artifacts coexist in one
+  `target/`, switching back recompiles nothing and runs the right binaries, and
+  an edit still rebuilds exactly what it should. Nothing is written under a
+  workspace except `<target>/sensorium/`. `Cargo.lock` is untouched:
+  `sensorium-rt` is never a dependency — the driver compiles it with one bare
+  `rustc` invocation and the wrapper adds one `--extern`.
+  *Falsified by* E8(a)–(d) in `rust/tests/mechanics.sh` and on a real workspace
+  (acceptance §3), including the sentinel that requires a *plain* binary run
+  with `SENSORIUM_SPOOL` set to write zero spool files.
+- **The program's own output and panic behaviour.** The panic hook writes one
+  record and then calls the hook it replaced, so stderr is byte-identical with
+  and without the runtime installed. *Falsified by*
+  `rust/sensorium-rt/tests/panics.rs`.
+- **What is *not* preserved, stated beside what is.** Wall time and disk (§10).
+  RETURN fires before a tail-expression temporary's own `Drop` under edition
+  2021 — observable only if a workspace `Drop` impl runs in a tail temporary.
+  And a `Debug` impl invoked by the instrument **runs**: reentrancy keeps it
+  from emitting and `catch_unwind` keeps its panic from escaping, but its side
+  effects are real. A `Debug` that mutates or logs will do so once per captured
+  return.
+
+## 10. Cost is reported, never gated
+
+Overhead is a tracked fact about a machine and a workload, not a pass/fail
+property of the tool. Every number ships with its `n` and its lens, and no
+number in this rung gates anything.
+
+- **The headline and its limit, together.** On bloomery's
+  `cargo test -p bloomery-daemon` suite wall, rung 1 measured tier-off/plain
+  **×0.9975** and call/plain **×1.0103** (n=5 per arm). That is
+  *indistinguishable*, not *faster*, and it is not to be quoted as a speedup —
+  the arms ran in a fixed order under a decaying background load, which biases
+  the first arm slow (findings §5.18). On `fib(30)` at `opt-level = 0` the same
+  gate costs **×5.934**, about +5.2 ns per site. Both are true: bloomery's
+  suite records 15 874 events per second where `fib(30)` records 3.04×10⁷, a
+  ≈1900× density gap. Compile-once-gate-at-runtime is free on code shaped like
+  a test suite, **and only there**.
+- **`--tier off` is a runtime gate, not a rebuild.** Everything compiles in
+  once and the tier is read from the environment, so changing it recompiles
+  nothing. That decision was made by measurement against a ×1.5 rule and is not
+  re-decided here; the first call-dense target re-opens it.
+- **What v1 adds and reports:** return-value capture at tier `call`, against
+  rung 1's ×1.0103; the conversion wall for a whole invocation; events per
+  second and bytes per event; the driver's own fixed cost.
+- If a reported wall exceeds the threshold rung 1 pre-registered, that is a
+  finding written into the acceptance document — not a silent trade, and not a
+  reason to stop recording.
+
+**Falsified by** the reported walls of the acceptance run
+(`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3,
+*reported without a gate*): plain against call in alternating order with a
+cool-down, the load recorded per arm, and an arm **dropped rather than
+re-rolled** if the box was busy when it started.
+
+---
+
+## Index: promise → falsifier
+
+| § | Promise | What could falsify it |
+|---|---|---|
+| 1 | Outcomes are `ok`/`err` from the exit operand, `panic` from the hook, `none` when nothing was probed | `rust/sensorium-rt/tests/outcomes.rs`, `corpus/rust/panic` |
+| 1 | A generic `T` that is a `Result` only after monomorphisation reads `ok` | `corpus/rust/outcome_generic` (rung 3, deferred) |
+| 2 | A return value is `Debug` text capped at 200 bytes; `!Debug` and panicking `Debug` read `<unread>`; `()` is never `<unread>` | `rust/sensorium-rt/tests/values.rs`, `docs/trace-format/vectors/v08-return-outcome-dbg-value.json` |
+| 3 | Every emitting non-main thread is a named task where a name exists; `spawn_child` derives the name; dependency threads are unnamed and compared as a multiset | `corpus/rust/spawned_thread`, `corpus/rust/libtest_threads`, `rust/sensorium-rt/tests/spawn.rs`, `rust/sensorium-rt/tests/serials.rs` |
+| 4 | A crash loses at most one record per thread; holes are `seq_gaps`; `records_dropped` is what the writer knew it lost | `rust/sensorium-rt/tests/durability.rs`, `corpus/rust/abort` |
+| 5 | `exit_status` is `waited` only for processes our runner started; everything else is `unwitnessed`, never borrowed from cargo | `rust/cargo-sensorium/tests/runner.rs`, `corpus/rust/abort`, `rust/tests/mechanics.sh`, `docs/trace-format/vectors/v10-exit-status-unwitnessed.json` |
+| 6 | Spawns are not witnessed; instrumented children are linked by `ppid`; a child that ran no instrumented code is invisible | `corpus/rust/abort`, `docs/trace-format/vectors/v11-child-runs-linked.json`, `tests/test_rust_convert.py` (`child-linked`) |
+| 7 | Sites are per unit at record time and merged on `(file, qualname, firstlineno)` at conversion; `diff` cannot separate cfg-gated twins | E3 and E5 in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/cargo-sensorium/tests/unit_identity.rs`, `rust/cargo-sensorium/tests/convert.rs` |
+| 8 | Every eligible function in a workspace crate is instrumented, or its unit says it fell back | E2′ in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/sensorium-transform/tests/census.rs` |
+| 8 | Every blind spot is declared in a manifest field, a meta key or an `info` line — and where it is not, §8 says so | `rust/tests/mechanics.sh` (fallbacks in both channels; a config-file runner), `rust/sensorium-rt/tests/units.rs` (the unit ceiling), `docs/trace-format/vectors/v14-rust-refusals.json` |
+| 9 | Line numbers, paths, backtraces, drop order, lock hold times, freshness and plain builds are unchanged | E7 and E8 in the acceptance document and `rust/tests/mechanics.sh`, `rust/sensorium-transform/tests/oracle.rs`, `rust/sensorium-transform/tests/golden.rs`, `rust/sensorium-rt/tests/panics.rs` |
+| 10 | Cost is reported with `n` and lens, and gates nothing | the acceptance document's *reported without a gate* section |
