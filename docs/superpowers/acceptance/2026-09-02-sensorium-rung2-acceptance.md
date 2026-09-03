@@ -90,7 +90,7 @@ from the same crate's `census` function. Two instruments, one number.
 
 ## 3. Results
 
-**Provenance of this section.** It is rendered by `rust/tests/render_acceptance.py` from `results.json`, which was assembled at 2026-09-03T17:24:27-0500 by `rust/tests/acceptance.py --assemble` from `results-raw.json` — the raw facts the run itself recorded — under the committed schema. Re-derived from the raw facts the run recorded, under the committed schema; no arm was re-run and no value was re-measured -- only lens text can differ from the assembly the run itself wrote. The committed `…acceptance.results.json` is that assembly, byte for byte.
+**Provenance of this section.** It is rendered by `rust/tests/render_acceptance.py` from `results.json`, which was assembled at 2026-09-03T17:35:04-0500 by `rust/tests/acceptance.py --assemble` from `results-raw.json` — the raw facts the run itself recorded — under the committed schema. Re-derived from the raw facts the run recorded, under the committed schema; no gated arm was re-run and no gated value was re-measured -- against the assembly the run itself wrote, only lens text differs, plus the dated `addendum` block when `results-addendum-raw.json` is present, which is a later reading of reported-without-a-gate items and of nothing else. The committed `…acceptance.results.json` is that assembly, byte for byte.
 
 Measured on the §2 pins. Runner: `rust/tests/acceptance.py` (raw logs and `results-raw.json` in the gitignored ledger). Started 2026-09-03T16:12:14-0500, finished 2026-09-03T16:55:47-0500. Every cell below is a number with its `n` and its lens, or `not measured (<reason>)`.
 
@@ -358,6 +358,33 @@ The expected `Fresh` set is `['bloomery-core', 'bloomery-daemon', 'bloomery-subs
 | **min** | 0.057 s | 1.661 s |
 | **max** | 0.084 s | 3.939 s |
 
+### 3.1 Addendum — reported items re-measured after the converter fix (commit `c90cb72`, 2026-09-03)
+
+**Nothing gated is re-measured here.** The five verdicts of §4 and every §3 cell they rest on are the numbers the acceptance run recorded at `46074ef`, and they stand. What changed since: the converter's one-transaction-per-trace fix (`synchronous=NORMAL` under WAL) landed after the acceptance run, so the reported-without-a-gate items -- and only those -- were read again. Measured with the release driver built from `c90cb72c6b51f5d61ac13b0bf20b12ebc29282b0`, sha256 `723fbb4839cea8b277a0195f904ab01a2676bfa1e6ba62f29fbc8c7645e61ff0`, 2026-09-03T17:30:32-0500 → 2026-09-03T17:32:19-0500, clone at `e209ed9b00f7`, 1-minute load 0.35 at the start.
+
+| Item | at `46074ef` | at `c90cb72` | n | Lens of the re-measurement |
+|---|---|---|---|---|
+| conversion wall, whole invocation (s) | 1118.867 | 1.197 | 3 | `cargo-sensorium convert <spool>` over the SAME spool directory the acceptance run recorded and had already co… |
+| wall, plain median (s) | 0.059 | 0.058 | 5 | wall clock of `cargo test -p bloomery-daemon --lib` (P) versus `cargo sensorium test -p bloomery-daemon --lib`… |
+| wall, call median (s) | 1.666 | 0.125 | 5 | wall clock of `cargo test -p bloomery-daemon --lib` (P) versus `cargo sensorium test -p bloomery-daemon --lib`… |
+| wall ratio call/plain | 28.2373 | 2.1552 | 5 | median(call)/median(plain); wall clock of `cargo test -p bloomery-daemon --lib` (P) versus `cargo sensorium te… |
+| conversion wall, one `--lib` trace (s) | not measured (no 46074ef counterpart: this row is new to the addendum) | 0.014 | 3 | `cargo-sensorium convert` over the spool of ONE recorded `--lib` invocation (1390 events, 1 process), a second… |
+| one recorded `--lib` invocation wall (s) | not measured (no 46074ef counterpart: this row is new to the addendum; the nearest 46074ef figure is E3's mean over 20 recorded runs (12.38 s), a different estimand) | 0.102 | 1 | one `cargo sensorium test -p bloomery-daemon --lib`, build Fresh, conversion included, whose spool the row abo… |
+| driver fixed cost (s) | 0.021 | 0.073 | 5 | median of 5 no-op `--tier off --no-run` invocations through the driver minus the median of 5 straight to cargo… |
+| driver no-op invocation wall (s) | not measured (no 46074ef counterpart: this row is new to the addendum) | 0.125 | 5 | the absolute wall of one no-op `--tier off --no-run` invocation, median of 5, nothing to subtract; the SAME ac… |
+| runtime rlib build (s) | 0.153 | 0.138 | 1 | one `--no-run` with `<target>/sensorium/rt` removed (1312068 bytes), minus the warm no-op median above; n=1, a… |
+
+| Round | P (plain) | C (call) | load at P | load at C |
+|---|---|---|---|---|
+| 1 | 0.058 s | 0.126 s | 1.05 | 0.96 |
+| 2 | 0.07 s | 0.115 s | 0.77 | 0.81 |
+| 3 | 0.057 s | 0.125 s | 0.65 | 0.55 |
+| 4 | 0.07 s | 0.112 s | 0.47 | 0.46 |
+| 5 | 0.058 s | 0.125 s | 0.54 | 0.46 |
+| **median** | 0.058 s | 0.125 s | — | — |
+| **min** | 0.057 s | 0.112 s | — | — |
+| **max** | 0.07 s | 0.126 s | — | — |
+
 
 ## 4. Decisions
 
@@ -567,6 +594,12 @@ entry says what was MEASURED, not what is suspected.
    32 MB of traces, and the artifact device sat at 98.8% utilisation. Rung 3 should
    wrap each trace in one transaction (and consider `synchronous=NORMAL`, which WAL
    makes safe against process crashes) before any conversion number is quoted again.
+   **Fixed in `bcc9c9f` (2026-09-03), reviewed clean at `da186e8`: one transaction
+   per trace under WAL with `synchronous=NORMAL`. Re-measured in §3.1 — the same
+   spool, converted again by the same command, now reads 1.197 s (n=3) against the
+   1118.9 s above: about 935× — and the `--lib` call/plain ratio of §5.3 falls from
+   ×28.24 to ×2.16.** The paragraph above is left as it was measured; this sentence
+   is the amendment, not a replacement.
 3. **The `--lib` call/plain wall ratio is ×28.24 and is dominated by conversion, not by
    recording.** *Measured: median plain 0.059 s against median call 1.666 s, n=5 per
    arm, 0 dropped, 1-minute load **0.51–2.17** at the arm starts (every arm under the
@@ -583,6 +616,13 @@ entry says what was MEASURED, not what is suspected.
    converted separately. Whatever
    §5.2 costs, this ratio carries it; a comparable rung-1-style number needs the
    conversion split out of the timed command.
+   **Re-measured after §5.2's fix (2026-09-03, §3.1): ×2.1552 — plain 0.058 s,
+   call 0.125 s, n=5 each — and the conversion of that same `--lib` trace, timed
+   alone, is 0.014 s (n=3). This reading confirms the claim above rather than
+   replacing it: the ratio WAS conversion-dominated, and what is left of the gap
+   after conversion is mostly the driver's own fixed cost (0.073 s, §3.1). The
+   lens caveat stands: rung 1's ×1.0103 timed a different command with the
+   conversion outside it, and the two are still not equals.**
 4. **48 of 119 processes carry `exit_status_basis = "unwitnessed"`.** *Measured: the
    histogram is `waited × 71, unwitnessed × 48`, one row per trace.* The 71 test
    binaries cargo runs go

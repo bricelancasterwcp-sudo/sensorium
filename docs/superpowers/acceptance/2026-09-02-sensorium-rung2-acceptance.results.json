@@ -3860,6 +3860,292 @@
       "WARN: this invocation produced 72 test binaries; a single-target selector (--lib, --test X, --bin X) makes one trace the answer"
     ]
   },
+  "addendum": {
+    "measured_with": {
+      "commit": "c90cb72c6b51f5d61ac13b0bf20b12ebc29282b0",
+      "driver_sha256": "723fbb4839cea8b277a0195f904ab01a2676bfa1e6ba62f29fbc8c7645e61ff0",
+      "started": "2026-09-03T17:30:32-0500",
+      "finished": "2026-09-03T17:32:19-0500",
+      "clone_head": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+      "load_1min_at_start": 0.35,
+      "sensorium_dir": "/mnt/extra/sensorium-rung2/sensorium-dir/acceptance-addendum",
+      "whole_spool": "/mnt/extra/sensorium-rung2/bloomery-target/sensorium/spool/20260903-161853-6d8414",
+      "why": "the converter's one-transaction-per-trace fix (`synchronous=NORMAL` under WAL) landed after the acceptance run, so the reported-without-a-gate items -- and only those -- were read again"
+    },
+    "rows": [
+      {
+        "item": "conversion wall, whole invocation (s)",
+        "before": {
+          "value": 1118.867,
+          "n": 119,
+          "lens": "`cargo-sensorium convert <spool>` over the SAME spool the invocation just converted in-process, so the number is a second, warm-cache pass over the whole invocation -- the shape rung 1 reported as 22.7 s",
+          "dropped": []
+        },
+        "after": {
+          "value": 1.197,
+          "n": 3,
+          "lens": "`cargo-sensorium convert <spool>` over the SAME spool directory the acceptance run recorded and had already converted in-process -- a second pass, exactly as the 46074ef cell was; 119 processes converted each pass; the SAME acceptance target directory, WARM (it holds the acceptance run's artifacts; only the driver changed), clone at e209ed9, traces to a NEW SENSORIUM_DIR so the run's own remain untouched",
+          "dropped": []
+        }
+      },
+      {
+        "item": "wall, plain median (s)",
+        "before": {
+          "value": 0.059,
+          "n": 5,
+          "lens": "wall clock of `cargo test <pkg> --lib` (P) versus `cargo sensorium test <pkg> --lib` (C), binaries pre-built, dev profile, default --test-threads, rounds interleaved with the order alternating P,C then C,P, 10 s cool-down between arms, 1-minute load recorded at each arm's start and an arm DROPPED (never re-rolled) above 4.0. The call arm carries tier call: CALL and RETURN with the captured return value, so it also carries the return-value capture cost -- plan decision D10 states that cost is LINEAR in the length of a returned std collection, so this ratio is a property of what this suite returns, not a constant",
+          "dropped": []
+        },
+        "after": {
+          "value": 0.058,
+          "n": 5,
+          "lens": "wall clock of `cargo test -p bloomery-daemon --lib` (P) versus `cargo sensorium test -p bloomery-daemon --lib` (C), binaries pre-built, 5 rounds interleaved with the order alternating P,C then C,P, 10 s cool-down, the 1-minute load read at each arm's start and an arm DROPPED above 4.0 -- the run's own protocol, re-run; the SAME acceptance target directory, WARM (it holds the acceptance run's artifacts; only the driver changed), clone at e209ed9, traces to a NEW SENSORIUM_DIR so the run's own remain untouched",
+          "dropped": []
+        }
+      },
+      {
+        "item": "wall, call median (s)",
+        "before": {
+          "value": 1.666,
+          "n": 5,
+          "lens": "wall clock of `cargo test <pkg> --lib` (P) versus `cargo sensorium test <pkg> --lib` (C), binaries pre-built, dev profile, default --test-threads, rounds interleaved with the order alternating P,C then C,P, 10 s cool-down between arms, 1-minute load recorded at each arm's start and an arm DROPPED (never re-rolled) above 4.0. The call arm carries tier call: CALL and RETURN with the captured return value, so it also carries the return-value capture cost -- plan decision D10 states that cost is LINEAR in the length of a returned std collection, so this ratio is a property of what this suite returns, not a constant",
+          "dropped": []
+        },
+        "after": {
+          "value": 0.125,
+          "n": 5,
+          "lens": "wall clock of `cargo test -p bloomery-daemon --lib` (P) versus `cargo sensorium test -p bloomery-daemon --lib` (C), binaries pre-built, 5 rounds interleaved with the order alternating P,C then C,P, 10 s cool-down, the 1-minute load read at each arm's start and an arm DROPPED above 4.0 -- the run's own protocol, re-run; the SAME acceptance target directory, WARM (it holds the acceptance run's artifacts; only the driver changed), clone at e209ed9, traces to a NEW SENSORIUM_DIR so the run's own remain untouched",
+          "dropped": []
+        }
+      },
+      {
+        "item": "wall ratio call/plain",
+        "before": {
+          "value": 28.2373,
+          "n": 5,
+          "lens": "median(call)/median(plain); wall clock of `cargo test <pkg> --lib` (P) versus `cargo sensorium test <pkg> --lib` (C), binaries pre-built, dev profile, default --test-threads, rounds interleaved with the order alternating P,C then C,P, 10 s cool-down between arms, 1-minute load recorded at each arm's start and an arm DROPPED (never re-rolled) above 4.0. The call arm carries tier call: CALL and RETURN with the captured return value, so it also carries the return-value capture cost -- plan decision D10 states that cost is LINEAR in the length of a returned std collection, so this ratio is a property of what this suite returns, not a constant",
+          "dropped": []
+        },
+        "after": {
+          "value": 2.1552,
+          "n": 5,
+          "lens": "median(call)/median(plain); wall clock of `cargo test -p bloomery-daemon --lib` (P) versus `cargo sensorium test -p bloomery-daemon --lib` (C), binaries pre-built, 5 rounds interleaved with the order alternating P,C then C,P, 10 s cool-down, the 1-minute load read at each arm's start and an arm DROPPED above 4.0 -- the run's own protocol, re-run; the SAME acceptance target directory, WARM (it holds the acceptance run's artifacts; only the driver changed), clone at e209ed9, traces to a NEW SENSORIUM_DIR so the run's own remain untouched",
+          "dropped": []
+        }
+      },
+      {
+        "item": "conversion wall, one `--lib` trace (s)",
+        "before": {
+          "value": null,
+          "n": 0,
+          "lens": "not a 46074ef row",
+          "dropped": [
+            "no 46074ef counterpart: this row is new to the addendum"
+          ]
+        },
+        "after": {
+          "value": 0.014,
+          "n": 3,
+          "lens": "`cargo-sensorium convert` over the spool of ONE recorded `--lib` invocation (1390 events, 1 process), a second pass over an already-converted spool -- subtract it from the call median above to see what the command spends outside conversion; the SAME acceptance target directory, WARM (it holds the acceptance run's artifacts; only the driver changed), clone at e209ed9, traces to a NEW SENSORIUM_DIR so the run's own remain untouched",
+          "dropped": []
+        }
+      },
+      {
+        "item": "one recorded `--lib` invocation wall (s)",
+        "before": {
+          "value": null,
+          "n": 0,
+          "lens": "not a 46074ef row",
+          "dropped": [
+            "no 46074ef counterpart: this row is new to the addendum; the nearest 46074ef figure is E3's mean over 20 recorded runs (12.38 s), a different estimand"
+          ]
+        },
+        "after": {
+          "value": 0.102,
+          "n": 1,
+          "lens": "one `cargo sensorium test -p bloomery-daemon --lib`, build Fresh, conversion included, whose spool the row above converts; the SAME acceptance target directory, WARM (it holds the acceptance run's artifacts; only the driver changed), clone at e209ed9, traces to a NEW SENSORIUM_DIR so the run's own remain untouched",
+          "dropped": []
+        }
+      },
+      {
+        "item": "driver fixed cost (s)",
+        "before": {
+          "value": 0.021,
+          "n": 3,
+          "lens": "median of 3 no-op `--no-run` builds through the release driver minus the median of 3 straight to cargo, same package, everything Fresh",
+          "dropped": []
+        },
+        "after": {
+          "value": 0.073,
+          "n": 5,
+          "lens": "median of 5 no-op `--tier off --no-run` invocations through the driver minus the median of 5 straight to cargo, same package, everything Fresh -- the 46074ef estimand at n=5 instead of n=3; the first sample of each arm (3.514 s and 2.875 s) is a cold-cache outlier the median excludes and the raw file keeps; the SAME acceptance target directory, WARM (it holds the acceptance run's artifacts; only the driver changed), clone at e209ed9, traces to a NEW SENSORIUM_DIR so the run's own remain untouched",
+          "dropped": []
+        }
+      },
+      {
+        "item": "driver no-op invocation wall (s)",
+        "before": {
+          "value": null,
+          "n": 0,
+          "lens": "not a 46074ef row",
+          "dropped": [
+            "no 46074ef counterpart: this row is new to the addendum"
+          ]
+        },
+        "after": {
+          "value": 0.125,
+          "n": 5,
+          "lens": "the absolute wall of one no-op `--tier off --no-run` invocation, median of 5, nothing to subtract; the SAME acceptance target directory, WARM (it holds the acceptance run's artifacts; only the driver changed), clone at e209ed9, traces to a NEW SENSORIUM_DIR so the run's own remain untouched",
+          "dropped": []
+        }
+      },
+      {
+        "item": "runtime rlib build (s)",
+        "before": {
+          "value": 0.153,
+          "n": 1,
+          "lens": "one `--no-run` with <target>/sensorium/rt removed, minus the warm no-op driver median above: the runtime's own rustc build",
+          "dropped": []
+        },
+        "after": {
+          "value": 0.138,
+          "n": 1,
+          "lens": "one `--no-run` with `<target>/sensorium/rt` removed (1312068 bytes), minus the warm no-op median above; n=1, as at 46074ef; the SAME acceptance target directory, WARM (it holds the acceptance run's artifacts; only the driver changed), clone at e209ed9, traces to a NEW SENSORIUM_DIR so the run's own remain untouched",
+          "dropped": []
+        }
+      }
+    ],
+    "walls": {
+      "P": {
+        "median": 0.058,
+        "min": 0.057,
+        "max": 0.07,
+        "n": 5,
+        "walls": [
+          0.058,
+          0.07,
+          0.057,
+          0.07,
+          0.058
+        ],
+        "dropped": []
+      },
+      "C": {
+        "median": 0.125,
+        "min": 0.112,
+        "max": 0.126,
+        "n": 5,
+        "walls": [
+          0.126,
+          0.115,
+          0.125,
+          0.112,
+          0.125
+        ],
+        "dropped": []
+      },
+      "runs": [
+        {
+          "round": 1,
+          "arm": "P",
+          "order": "PC",
+          "load_1min": 1.05,
+          "rc": 0,
+          "wall": 0.058
+        },
+        {
+          "round": 1,
+          "arm": "C",
+          "order": "PC",
+          "load_1min": 0.96,
+          "rc": 0,
+          "spool_bytes": 75137,
+          "events": 1390,
+          "wall": 0.126
+        },
+        {
+          "round": 2,
+          "arm": "C",
+          "order": "CP",
+          "load_1min": 0.81,
+          "rc": 0,
+          "spool_bytes": 75137,
+          "events": 1390,
+          "wall": 0.115
+        },
+        {
+          "round": 2,
+          "arm": "P",
+          "order": "CP",
+          "load_1min": 0.77,
+          "rc": 0,
+          "wall": 0.07
+        },
+        {
+          "round": 3,
+          "arm": "P",
+          "order": "PC",
+          "load_1min": 0.65,
+          "rc": 0,
+          "wall": 0.057
+        },
+        {
+          "round": 3,
+          "arm": "C",
+          "order": "PC",
+          "load_1min": 0.55,
+          "rc": 0,
+          "spool_bytes": 75135,
+          "events": 1390,
+          "wall": 0.125
+        },
+        {
+          "round": 4,
+          "arm": "C",
+          "order": "CP",
+          "load_1min": 0.46,
+          "rc": 0,
+          "spool_bytes": 75138,
+          "events": 1390,
+          "wall": 0.112
+        },
+        {
+          "round": 4,
+          "arm": "P",
+          "order": "CP",
+          "load_1min": 0.47,
+          "rc": 0,
+          "wall": 0.07
+        },
+        {
+          "round": 5,
+          "arm": "P",
+          "order": "PC",
+          "load_1min": 0.54,
+          "rc": 0,
+          "wall": 0.058
+        },
+        {
+          "round": 5,
+          "arm": "C",
+          "order": "PC",
+          "load_1min": 0.46,
+          "rc": 0,
+          "spool_bytes": 75136,
+          "events": 1390,
+          "wall": 0.125
+        }
+      ]
+    },
+    "cleanup": {
+      "clone_head_after": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+      "clone_porcelain_after": "",
+      "driver_sha256_after": "723fbb4839cea8b277a0195f904ab01a2676bfa1e6ba62f29fbc8c7645e61ff0",
+      "target_disk_free_gb_after": 100.24,
+      "addendum_traces_bytes": 99766272,
+      "finished": "2026-09-03T17:32:19-0500"
+    }
+  },
   "cleanup": {
     "clone_head_after": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
     "clone_porcelain_after": "",
@@ -3970,9 +4256,9 @@
   "started": "2026-09-03T16:12:14-0500",
   "finished": "2026-09-03T16:55:47-0500",
   "assembled": {
-    "at": "2026-09-03T17:24:27-0500",
+    "at": "2026-09-03T17:35:04-0500",
     "from": "results-raw.json",
     "by": "rust/tests/acceptance.py --assemble",
-    "note": "re-derived from the raw facts the run recorded, under the committed schema; no arm was re-run and no value was re-measured -- only lens text can differ from the assembly the run itself wrote"
+    "note": "re-derived from the raw facts the run recorded, under the committed schema; no gated arm was re-run and no gated value was re-measured -- against the assembly the run itself wrote, only lens text differs, plus the dated `addendum` block when `results-addendum-raw.json` is present, which is a later reading of reported-without-a-gate items and of nothing else"
   }
 }

@@ -13,6 +13,8 @@ document is written by hand against them.
 from __future__ import annotations
 
 from acceptance_lib import meas
+
+NOOP_N = 5      # `acceptance_addendum.py`'s sample count for the no-op walls
 from acceptance_phases import wall_summary
 
 DRY = "dry run: the plumbing was exercised, no acceptance number was measured"
@@ -422,7 +424,120 @@ def _reported(raw, dry) -> dict:
     }
 
 
+# ------------------------------------------------ the addendum (re-measured)
+
+
+def _addendum(raw, reported) -> dict | None:
+    """The reported-without-a-gate items, re-measured after the converter fix.
+
+    Nothing here touches a gated endpoint: `endpoints` and `reported` are the
+    numbers the acceptance run measured, and this block sits BESIDE them. Every
+    row carries the 46074ef value it is compared against, and a row that has no
+    46074ef counterpart says so in `dropped` rather than inventing one."""
+    a = raw.get("raw_addendum")
+    if not a or a.get("refused") or a.get("error"):
+        return None
+    pins = a.get("pins") or {}
+    cw = a.get("conversion_whole") or {}
+    lt = a.get("lib_trace") or {}
+    lc = (lt.get("conversion") or {})
+    costs = a.get("costs") or {}
+    runs = (a.get("walls") or {}).get("runs") or []
+    p, c = wall_summary(runs, "P"), wall_summary(runs, "C")
+    ratio = (round(c["median"] / p["median"], 4)
+             if c["median"] and p["median"] else None)
+    warm = ("the SAME acceptance target directory, WARM (it holds the acceptance "
+            "run's artifacts; only the driver changed), clone at e209ed9, traces "
+            "to a NEW SENSORIUM_DIR so the run's own remain untouched")
+    wall_lens = (
+        "wall clock of `cargo test -p bloomery-daemon --lib` (P) versus "
+        "`cargo sensorium test -p bloomery-daemon --lib` (C), binaries pre-built, "
+        "5 rounds interleaved with the order alternating P,C then C,P, 10 s "
+        "cool-down, the 1-minute load read at each arm's start and an arm DROPPED "
+        "above 4.0 -- the run's own protocol, re-run; " + warm)
+    new = "no 46074ef counterpart: this row is new to the addendum"
+
+    def before(key):
+        return reported.get(key)
+
+    rows = [
+        {"item": "conversion wall, whole invocation (s)",
+         "before": before("conversion_wall_s"),
+         "after": meas(cw.get("median"), cw.get("n", 0),
+                       "`cargo-sensorium convert <spool>` over the SAME spool "
+                       "directory the acceptance run recorded and had already "
+                       "converted in-process -- a second pass, exactly as the "
+                       "46074ef cell was; 119 processes converted each pass; "
+                       + warm,
+                       cw.get("dropped", []))},
+        {"item": "wall, plain median (s)", "before": before("wall_plain_median_s"),
+         "after": meas(p["median"], p["n"], wall_lens, p["dropped"])},
+        {"item": "wall, call median (s)", "before": before("wall_call_median_s"),
+         "after": meas(c["median"], c["n"], wall_lens, c["dropped"])},
+        {"item": "wall ratio call/plain",
+         "before": before("wall_ratio_call_over_plain"),
+         "after": meas(ratio, min(p["n"], c["n"]),
+                       "median(call)/median(plain); " + wall_lens,
+                       p["dropped"] + c["dropped"] if ratio is None else [])},
+        {"item": "conversion wall, one `--lib` trace (s)",
+         "before": meas(None, 0, "not a 46074ef row", [new]),
+         "after": meas(lc.get("median"), lc.get("n", 0),
+                       "`cargo-sensorium convert` over the spool of ONE recorded "
+                       "`--lib` invocation (1390 events, 1 process), a second pass "
+                       "over an already-converted spool -- subtract it from the "
+                       "call median above to see what the command spends outside "
+                       "conversion; " + warm,
+                       lc.get("dropped", []))},
+        {"item": "one recorded `--lib` invocation wall (s)",
+         "before": meas(None, 0, "not a 46074ef row", [
+             new + "; the nearest 46074ef figure is E3's mean over 20 recorded "
+             "runs (12.38 s), a different estimand"]),
+         "after": meas(lt.get("invocation_wall"), 1,
+                       "one `cargo sensorium test -p bloomery-daemon --lib`, "
+                       "build Fresh, conversion included, whose spool the row "
+                       "above converts; " + warm)},
+        {"item": "driver fixed cost (s)", "before": before("driver_fixed_cost_s"),
+         "after": meas(costs.get("driver_overhead_s"), NOOP_N,
+                       "median of 5 no-op `--tier off --no-run` invocations through "
+                       "the driver minus the median of 5 straight to cargo, same "
+                       "package, everything Fresh -- the 46074ef estimand at n=5 "
+                       "instead of n=3; the first sample of each arm (3.514 s and "
+                       "2.875 s) is a cold-cache outlier the median excludes and "
+                       "the raw file keeps; " + warm)},
+        {"item": "driver no-op invocation wall (s)",
+         "before": meas(None, 0, "not a 46074ef row", [new]),
+         "after": meas(costs.get("instrumented_median"), NOOP_N,
+                       "the absolute wall of one no-op `--tier off --no-run` "
+                       "invocation, median of 5, nothing to subtract; " + warm)},
+        {"item": "runtime rlib build (s)", "before": before("runtime_rlib_build_s"),
+         "after": meas(costs.get("rt_build_s"), 1,
+                       "one `--no-run` with `<target>/sensorium/rt` removed "
+                       f"({costs.get('rt_removed_bytes')} bytes), minus the warm "
+                       "no-op median above; n=1, as at 46074ef; " + warm)},
+    ]
+    return {
+        "measured_with": {
+            "commit": pins.get("repo_commit"),
+            "driver_sha256": pins.get("driver_sha256"),
+            "started": pins.get("started"), "finished": a.get("finished"),
+            "clone_head": pins.get("clone_head"),
+            "load_1min_at_start": pins.get("load_1min_at_start"),
+            "sensorium_dir": pins.get("sensorium_dir"),
+            "whole_spool": pins.get("whole_spool"),
+            "why": ("the converter's one-transaction-per-trace fix "
+                    "(`synchronous=NORMAL` under WAL) landed after the acceptance "
+                    "run, so the reported-without-a-gate items -- and only those -- "
+                    "were read again"),
+        },
+        "rows": rows,
+        "walls": {"P": p, "C": c, "runs": runs},
+        "cleanup": a.get("cleanup"),
+    }
+
+
 def assemble(raw: dict, dry_run: bool = False) -> dict:
+    reported = _reported(raw, dry_run)
+    addendum = _addendum(raw, reported)
     return {
         "schema": ("every measurement is {value, n, lens, dropped}; a null value "
                    "plus a dropped reason is the ONLY not-measured; 0 is "
@@ -434,7 +549,8 @@ def assemble(raw: dict, dry_run: bool = False) -> dict:
         "endpoints": {"E2prime": _e2(raw, dry_run), "E3": _e3(raw, dry_run),
                       "E5": _e5(raw, dry_run), "E7": _e7(raw, dry_run),
                       "E8": _e8(raw, dry_run)},
-        "reported": _reported(raw, dry_run),
+        "reported": reported,
+        "addendum": addendum,
         "cleanup": raw.get("cleanup"),
         "steps": raw.get("steps"),
         "refused": raw.get("refused"),

@@ -291,6 +291,11 @@ if __name__ == "__main__":
     # be corrected, or the schema re-checked, without touching a measurement.
     if "--assemble" in sys.argv[1:]:
         _raw = json.loads((LEDGER / "results-raw.json").read_text())
+        # The addendum's facts live in their OWN raw file: the run's
+        # `results-raw.json` is the record of the run and is never rewritten.
+        _add = LEDGER / "results-addendum-raw.json"
+        if _add.is_file():
+            _raw["raw_addendum"] = json.loads(_add.read_text())
         _out = assemble(_raw, _raw.get("dry_run", False))
         # Stamped, so a reader of `results.json` can never mistake a
         # re-assembly for the run: the values come from `results-raw.json`,
@@ -300,9 +305,12 @@ if __name__ == "__main__":
             "from": "results-raw.json",
             "by": "rust/tests/acceptance.py --assemble",
             "note": ("re-derived from the raw facts the run recorded, under the "
-                     "committed schema; no arm was re-run and no value was "
-                     "re-measured -- only lens text can differ from the "
-                     "assembly the run itself wrote"),
+                     "committed schema; no gated arm was re-run and no gated "
+                     "value was re-measured -- against the assembly the run "
+                     "itself wrote, only lens text differs, plus the dated "
+                     "`addendum` block when `results-addendum-raw.json` is "
+                     "present, which is a later reading of "
+                     "reported-without-a-gate items and of nothing else"),
         }
         (LEDGER / "results.json").write_text(json.dumps(_out, indent=2, default=str))
         print(f"assembled {LEDGER / 'results.json'} from results-raw.json")

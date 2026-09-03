@@ -259,6 +259,48 @@ def reported_section(r) -> list[str]:
     return out
 
 
+def addendum_section(r) -> list[str]:
+    """The dated before/after block. Rendered last inside §3 and never mixed
+    into a table above it: the 46074ef columns are the measurement, the second
+    column is a later reading of the reported items only."""
+    a = r.get("addendum")
+    if not a:
+        return []
+    m = a["measured_with"]
+    short = (m.get("commit") or "")[:7]
+    date = (m.get("started") or "")[:10]
+    out = [f"### 3.1 Addendum — reported items re-measured after the converter fix "
+           f"(commit `{short}`, {date})", "",
+           f"**Nothing gated is re-measured here.** The five verdicts of §4 and every "
+           f"§3 cell they rest on are the numbers the acceptance run recorded at "
+           f"`46074ef`, and they stand. What changed since: {m.get('why')}. "
+           f"Measured with the release driver built from "
+           f"`{m.get('commit')}`, sha256 `{m.get('driver_sha256')}`, "
+           f"{m.get('started')} → {m.get('finished')}, clone at "
+           f"`{(m.get('clone_head') or '')[:12]}`, 1-minute load "
+           f"{m.get('load_1min_at_start')} at the start.", "",
+           "| Item | at `46074ef` | at " + f"`{short}`" + " | n | Lens of the re-measurement |",
+           "|---|---|---|---|---|"]
+    for row in a["rows"]:
+        b, af = row.get("before"), row["after"]
+        out.append(f"| {row['item']} | {cell(b)} | {cell(af)} | {n_of(af)} | "
+                   f"{lens_of(af)} |")
+    w = a.get("walls") or {}
+    if w.get("P", {}).get("walls"):
+        out += ["", "| Round | P (plain) | C (call) | load at P | load at C |",
+                "|---|---|---|---|---|"]
+        runs = w.get("runs") or []
+        for rnd in sorted({x["round"] for x in runs}):
+            pr = next((x for x in runs if x["round"] == rnd and x["arm"] == "P"), {})
+            cr = next((x for x in runs if x["round"] == rnd and x["arm"] == "C"), {})
+            out.append(f"| {rnd} | {pr.get('wall')} s | {cr.get('wall')} s | "
+                       f"{pr.get('load_1min')} | {cr.get('load_1min')} |")
+        out.append(f"| **median** | {w['P']['median']} s | {w['C']['median']} s | — | — |")
+        out.append(f"| **min** | {w['P']['min']} s | {w['C']['min']} s | — | — |")
+        out.append(f"| **max** | {w['P']['max']} s | {w['C']['max']} s | — | — |")
+    return out
+
+
 def main(argv) -> int:
     path = Path(argv[0]) if argv else DEFAULT
     r = json.loads(path.read_text())
@@ -283,8 +325,10 @@ def main(argv) -> int:
               "`not measured (<reason>)`.", ""]
     lines += headline(r) + [""]
     for section in (e2_section, e3_section, e5_section, e7_section, e8_section,
-                    reported_section):
-        lines += section(r) + [""]
+                    reported_section, addendum_section):
+        rendered = section(r)
+        if rendered:
+            lines += rendered + [""]
     print("\n".join(lines))
     return 0
 
