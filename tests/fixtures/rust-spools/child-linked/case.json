@@ -1,0 +1,40 @@
+{
+  "manifests": {
+    "u0": {
+      "crate_name": "fixture",
+      "files": {
+        "src/lib.rs": [
+          {"site": 0, "qualname": "run_stage", "firstlineno": 5, "ret": "unit"}
+        ]
+      },
+      "source_hashes": {"src/lib.rs": "dddddddddddddddd"}
+    }
+  },
+  "processes": [
+    {
+      "pid": 4001,
+      "exe": "/w/target/debug/deps/fixture-parent",
+      "units": {"0": "u0"},
+      "threads": [
+        {"serial": 1, "name": "main", "records": [
+          {"op": "call", "unit": 0, "site": 0, "seq": 0, "ts": 1000},
+          {"op": "ret_none", "unit": 0, "site": 0, "seq": 1, "ts": 2000}
+        ]}
+      ],
+      "runner": {"exit_status": 0}
+    },
+    {
+      "pid": 4002,
+      "ppid": 4001,
+      "exe": "/w/target/debug/fixture-child",
+      "units": {"0": "u0"},
+      "threads": [
+        {"serial": 1, "name": "main", "records": [
+          {"op": "call", "unit": 0, "site": 0, "seq": 0, "ts": 1000},
+          {"op": "ret_none", "unit": 0, "site": 0, "seq": 1, "ts": 2000}
+        ]}
+      ],
+      "runner": {"exit_status": 0}
+    }
+  ]
+}

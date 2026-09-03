@@ -24,6 +24,70 @@ jobs:
       - name: Install (stdlib-only runtime; dev extras for the test tools)
         run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
       - name: Tests
+        # tests/test_rust_convert.py is in here too: with no
+        # SENSORIUM_CARGO_SENSORIUM set on this matrix, it skips itself BY
+        # NAME (pytest.mark.skipif with a reason) rather than needing this
+        # job to know to exclude it.
         run: python -m pytest -q
       - name: Corpus (seeded-bug regression suite)
         run: python corpus/run_corpus.py
+
+  rust:
+    runs-on: ubuntu-latest
+    name: rust
+    env:
+      # The default `rust/target`, named explicitly rather than left to
+      # cargo's own default -- never a path under /mnt/extra or any other
+      # box-specific location (this workflow must be portable to any runner).
+      CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            rust/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: Build the driver (release)
+        working-directory: rust
+        run: cargo build --release -p cargo-sensorium
+      - name: cargo test --workspace
+        working-directory: rust
+        run: cargo test --workspace
+      - name: cargo fmt --check
+        working-directory: rust
+        run: cargo fmt --all -- --check
+      - name: cargo clippy
+        working-directory: rust
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      # mechanics.sh builds its own driver copy under the same
+      # CARGO_TARGET_DIR, so this is a `Fresh` no-op build, not a second
+      # compile. SENSORIUM_PROBE_TARGET is intentionally unset: the probe
+      # builds into the default rust/probes/ws/target, and the
+      # different-filesystem check skips itself BY NAME, exactly as it does
+      # off-CI.
+      - name: Rust mechanics (probe workspace)
+        run: bash rust/tests/mechanics.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install (dev extras for the test tools)
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Cross-recorder conformance (Rust fixtures through the real CLI)
+        env:
+          SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
+        run: python -m pytest -q tests/test_rust_convert.py
+      - name: Rust corpus (Task 10; a no-op until corpus/rust exists)
+        env:
+          SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
+        run: |
+          if [ -d corpus/rust ]; then
+            python corpus/run_corpus.py --root corpus/rust
+          else
+            echo "corpus/rust not present yet (Task 10) -- nothing to run"
+          fi

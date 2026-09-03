@@ -1,0 +1,30 @@
+{
+  "manifests": {
+    "u0": {
+      "crate_name": "fixture",
+      "files": {
+        "src/lib.rs": [
+          {"site": 0, "qualname": "boom_fn", "firstlineno": 1, "ret": "never"}
+        ]
+      },
+      "source_hashes": {"src/lib.rs": "bbbbbbbbbbbbbbbb"}
+    }
+  },
+  "processes": [
+    {
+      "pid": 3001,
+      "exe": "/w/target/debug/deps/fixture-panic",
+      "units": {"0": "u0"},
+      "threads": [
+        {"serial": 1, "name": "main", "records": [
+          {"op": "call", "unit": 0, "site": 0, "seq": 0, "ts": 1000},
+          {"op": "panic", "seq": 1, "ts": 1500, "loc": "src/lib.rs:4:5",
+           "msg": "boom"},
+          {"op": "ret_panic", "unit": 0, "site": 0, "seq": 2, "ts": 2000},
+          {"op": "thread_end", "seq": 3, "ts": 2500}
+        ]}
+      ],
+      "runner": {"exit_status": 101}
+    }
+  ]
+}

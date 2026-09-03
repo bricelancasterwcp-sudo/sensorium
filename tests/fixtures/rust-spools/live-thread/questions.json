@@ -1,0 +1,20 @@
+[
+  {
+    "id": "info-lists-the-live-thread",
+    "ask": "A worker thread that never wrote THREAD_END (still blocked when the process ended) -- does `info` list it under `live threads`, distinct from an INCOMPLETE recording?",
+    "command": ["info", "$RUN"],
+    "expect_exit": 0,
+    "expect_contains": [
+      "live threads: 1 -- worker",
+      "still running when the process ended"
+    ],
+    "expect_absent": ["INCOMPLETE: recording ended"]
+  },
+  {
+    "id": "tree-still-shows-the-open-call",
+    "ask": "Is the live thread's CALL still a real, queryable event -- rendered open, not silently dropped because the thread never ended?",
+    "command": ["tree", "$RUN"],
+    "expect_exit": 0,
+    "expect_contains": ["task t2: worker", "f1 e1 spin()", "(open)"]
+  }
+]

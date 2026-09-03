@@ -1,0 +1,27 @@
+{
+  "manifests": {
+    "u0": {
+      "crate_name": "fixture",
+      "files": {
+        "src/lib.rs": [
+          {"site": 0, "qualname": "solo", "firstlineno": 7, "ret": "unit"}
+        ]
+      },
+      "source_hashes": {"src/lib.rs": "eeeeeeeeeeeeeeee"}
+    }
+  },
+  "processes": [
+    {
+      "pid": 5001,
+      "exe": "/w/target/debug/deps/fixture-solo",
+      "units": {"0": "u0"},
+      "threads": [
+        {"serial": 1, "name": "main", "records": [
+          {"op": "call", "unit": 0, "site": 0, "seq": 0, "ts": 1000},
+          {"op": "ret_none", "unit": 0, "site": 0, "seq": 1, "ts": 2000},
+          {"op": "thread_end", "seq": 2, "ts": 2500}
+        ]}
+      ]
+    }
+  ]
+}

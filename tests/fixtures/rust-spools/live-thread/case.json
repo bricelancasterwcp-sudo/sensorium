@@ -1,0 +1,26 @@
+{
+  "manifests": {
+    "u0": {
+      "crate_name": "fixture",
+      "files": {
+        "src/lib.rs": [
+          {"site": 0, "qualname": "spin", "firstlineno": 20, "ret": "never"}
+        ]
+      },
+      "source_hashes": {"src/lib.rs": "cccccccccccccccc"}
+    }
+  },
+  "processes": [
+    {
+      "pid": 6001,
+      "exe": "/w/target/debug/deps/fixture-live",
+      "units": {"0": "u0"},
+      "threads": [
+        {"serial": 2, "name": "worker", "records": [
+          {"op": "call", "unit": 0, "site": 0, "seq": 0, "ts": 1000}
+        ]}
+      ],
+      "runner": {"exit_status": 0}
+    }
+  ]
+}

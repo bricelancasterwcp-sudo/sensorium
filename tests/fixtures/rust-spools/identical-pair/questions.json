@@ -1,0 +1,13 @@
+[
+  {
+    "id": "diff-matches-with-tasks-carrying-the-verdict",
+    "ask": "Two processes whose main threads are silent (libtest-shaped: nothing runs outside the one named worker thread) and whose worker threads ran the identical (file, qualname, kind) sequence -- does `diff` read MATCH with the tasks carrying the whole verdict, rather than a vacuous match on two empty thread streams?",
+    "command": ["diff", "$RUN", "$RUN2"],
+    "expect_exit": 0,
+    "expect_contains": [
+      "verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict",
+      "tasks: 1 task stream(s) on each side, compared by content as (name, hash): all matched; the ordering between tasks is not compared"
+    ],
+    "expect_absent": ["DIVERGED", "REFUSED"]
+  }
+]

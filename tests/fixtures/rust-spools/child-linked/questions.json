@@ -1,0 +1,18 @@
+[
+  {
+    "id": "parent-info-names-the-child-run",
+    "ask": "A child process whose ppid names a process this same invocation also recorded -- does the parent's `info` print `child runs: 1` naming the child's actual run id?",
+    "command": ["info", "$RUN"],
+    "expect_exit": 0,
+    "expect_contains": ["child runs: 1 -- $RUN2"],
+    "expect_absent": ["child runs: 0"]
+  },
+  {
+    "id": "child-info-carries-no_child_runs_of_its_own",
+    "ask": "The child recorded no process of its own -- does its `info` still identify the child's own build (invocation/binary/pid), and simply omit the `child runs` line rather than printing a false zero?",
+    "command": ["info", "$RUN2"],
+    "expect_exit": 0,
+    "expect_contains": ["binary: fixture-child"],
+    "expect_absent": ["child runs:"]
+  }
+]

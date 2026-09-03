@@ -242,7 +242,15 @@ T0="$(now_s)"
 COPY_WS="$SCRATCH_DIR/stale/probes/ws"
 COPY_TARGET="$SCRATCH_DIR/stale/target"
 mkdir -p "$SCRATCH_DIR/stale/probes"
-cp -a "$RUST/probes/." "$SCRATCH_DIR/stale/probes/"
+# `--exclude ws/target`, not a bare `cp -a`: with SENSORIUM_PROBE_TARGET
+# unset (the default -- and CI's own configuration), SCRATCH_DIR is itself
+# under rust/probes/ws/target, so a plain `cp -a "$RUST/probes/."` is asked
+# to copy that directory into one of its own descendants and GNU cp refuses
+# ("cannot copy a directory into itself"). The exclusion is also strictly
+# correct on its own terms: ws/target is build output, not a source the
+# stale-mirror scenario needs, and the very next line removes whatever
+# target the copy carried over anyway.
+rsync -a --exclude='/ws/target' "$RUST/probes/" "$SCRATCH_DIR/stale/probes/"
 rm -rf "$COPY_WS/target"
 STALE_FIRST=0
 instr_build_at "$COPY_WS" "$COPY_TARGET" "$COPY_TARGET/traces" "$LOGS/stale-first.log" \
