@@ -90,6 +90,8 @@ from the same crate's `census` function. Two instruments, one number.
 
 ## 3. Results
 
+**Provenance of this section.** It is rendered by `rust/tests/render_acceptance.py` from `results.json`, which was assembled at 2026-09-03T17:24:27-0500 by `rust/tests/acceptance.py --assemble` from `results-raw.json` — the raw facts the run itself recorded — under the committed schema. Re-derived from the raw facts the run recorded, under the committed schema; no arm was re-run and no value was re-measured -- only lens text can differ from the assembly the run itself wrote. The committed `…acceptance.results.json` is that assembly, byte for byte.
+
 Measured on the §2 pins. Runner: `rust/tests/acceptance.py` (raw logs and `results-raw.json` in the gitignored ledger). Started 2026-09-03T16:12:14-0500, finished 2026-09-03T16:55:47-0500. Every cell below is a number with its `n` and its lens, or `not measured (<reason>)`.
 
 | Id | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
@@ -113,7 +115,7 @@ Measured on the §2 pins. Runner: `rust/tests/acceptance.py` (raw logs and `resu
 | `fell back to the real tree` stderr lines | 0 | 1 | `fell back to the real tree` lines across every E8 build log | none |
 | files a module walk could not reach | 0 | 108 | files a unit's module walk could not reach, unioned | none |
 | fn items skipped by rule | 10 | 108 | fn items skipped by rule (const/extern/async/macro) | none |
-| spawn sites rewritten | 13 | 108 | spawn sites replaced with ::sensorium_rt::spawn_child -- the RAW SUM over the build's manifests, so a crate co… | none |
+| spawn sites rewritten | 13 | 108 | spawn sites replaced with ::sensorium_rt::spawn_child -- the RAW SUM over the build's manifests, not a count o… | none |
 | spawn sites declared, not rewritten | 0 | 108 | spawn shapes left alone and declared with a reason | none |
 | declaring units (crate_name, crate_type) | 106 | 108 | distinct (crate_name, crate_type) pairs declaring a manifest | none |
 | manifests outside the measured build's unit set | 0 | 108 | manifest files present but NOT in the measured build's unit set | none |
@@ -340,11 +342,10 @@ The expected `Fresh` set is `['bloomery-core', 'bloomery-daemon', 'bloomery-subs
 | truncated captures | 5729 | 119 | captured values truncated at the repr cap, summed | none |
 | panics unrecorded | 0 | 119 | panics the runtime saw but could not attribute | none |
 | manifests unscoped | 0 | 119 | manifests with no workspace_root -- 0 is the expected reading on a from-scratch target | none |
+| exit_status_basis across the invocation | waited x 71, unwitnessed x 48 | 119 | the basis each process's `exit_status` was written on, one per trace: `waited` = the target runner spawned tha… | none |
 | driver fixed cost (s) | 0.021 | 3 | median of 3 no-op `--no-run` builds through the release driver minus the median of 3 straight to cargo, same p… | none |
 | runtime rlib build (s) | 0.153 | 1 | one `--no-run` with <target>/sensorium/rt removed, minus the warm no-op driver median above: the runtime's own… | none |
 | mean wall of one recorded --lib run (s) | 12.38 | 20 | mean wall of one recorded `--lib` invocation during E3 (build Fresh, conversion included) | none |
-
-`exit_status_basis` across the invocation: waited × 71, unwitnessed × 48.
 
 | Round | P (plain) | C (call) |
 |---|---|---|
@@ -356,6 +357,7 @@ The expected `Fresh` set is `['bloomery-core', 'bloomery-daemon', 'bloomery-subs
 | **median** | 0.059 s | 1.666 s |
 | **min** | 0.057 s | 1.661 s |
 | **max** | 0.084 s | 3.939 s |
+
 
 ## 4. Decisions
 
@@ -404,9 +406,11 @@ from-scratch instrumented build, read before E8(b) touched a file.
 **The per-unit assertion, and what it counted.** Every one of the 108 manifests was
 followed to its unit's mirror: **108 checked, 0 naming another unit's metadata**. The
 count is reported because a check that examined nothing proves nothing. 106 distinct
-`(crate_name, crate_type)` pairs declare those 108 manifests — two crates are compiled
-at two feature sets, which is also why the raw spawn-site sum (13) exceeds the census's
-8 distinct literal `std::thread::spawn(` sites (§5.8).
+`(crate_name, crate_type)` pairs declare those 108 manifests — two pairs declare two
+manifests each (`bloomery_daemon`/`test` and `bloomery_bench`/`test`), which is why the
+raw spawn-site sum is 13 against the census's 8 distinct literal
+`std::thread::spawn(` sites (§5.8). *Why* those two pairs each produced two manifests
+is not something this run's evidence says, and nothing here asserts it.
 
 ### E3 — 0 DIVERGED, 0 REFUSED, over a binary that provably never moved
 
@@ -432,8 +436,20 @@ still reach them, and nothing else in any item changed.
 
 The 13 `use` declarations were re-derived per file rather than moved (a directory module
 cannot share one import block); the tree compiles warning-free and all 53 `--lib` tests,
-including the six `task::registry::tests::*`, pass on both branches. Branch `e5-planted`
-adds exactly one change on top: the two consecutive independent call statements
+including the six `task::registry::tests::*`, pass on both branches. **Evidence, run
+2026-09-03 after the acceptance run and archived rather than asserted** (the acceptance
+run's own E5 arms filter to `task::registry`, so its logs read `6 passed … 47 filtered
+out` and could not support this sentence): `cargo test -p bloomery-daemon --lib` on
+`e5-split` @ `e8c79be1626f` and on `e5-planted` @ `fea50b14ba45`, exit 0 each, each
+`test result: ok. 53 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out`, each with
+the six `task::registry::tests::*` among them and **0** `warning` lines, each preceded by
+a real `Compiling bloomery-daemon` line rather than a no-op. Full logs in the ledger as
+`acceptance/logs/e5-B-lib-tests.log` and `acceptance/logs/e5-C-lib-tests.log`. The clone
+was returned to `e209ed9` with `git status --porcelain` empty afterwards. This is a
+property of the two branches, not of any gated arm: no E5 number was re-measured.
+
+Branch `e5-planted` adds exactly one change on top: the two consecutive independent
+call statements
 `let journal = Journal::open(&dir.join("pager.jsonl")).unwrap();` and
 `let images = ImageStore::new(&dir.join("img")).unwrap();` in `tests::build_pager` are
 swapped (`e5-planted.patch`, 1 insertion, 1 deletion).
@@ -544,21 +560,32 @@ entry says what was MEASURED, not what is suspected.
    code and the observed I/O rather than from a second measurement:**
    `convert/sqlite.rs` sets `journal_mode=WAL` but wraps no inserts in an explicit
    transaction and leaves `synchronous` at its default, so every row is its own
-   committed transaction — one fsync each. While the run was in `D` state the process
-   showed `wchan: jbd2_log_wait_commit`, 2.59 GB written for 32 MB of traces, and the
-   artifact device at 98.8% utilisation. Rung 3 should wrap each trace in one
-   transaction (and consider `synchronous=NORMAL`, which WAL makes safe against process
-   crashes) before any conversion number is quoted again.
+   committed transaction — one fsync each. **OBSERVED, not measured** — read live from
+   `/proc` and `iostat` while the run was in `D` state, with no artifact in the ledger
+   to check them against, unlike every other number in this section: the process
+   showed `wchan: jbd2_log_wait_commit`, `/proc/<pid>/io` reported 2.59 GB written for
+   32 MB of traces, and the artifact device sat at 98.8% utilisation. Rung 3 should
+   wrap each trace in one transaction (and consider `synchronous=NORMAL`, which WAL
+   makes safe against process crashes) before any conversion number is quoted again.
 3. **The `--lib` call/plain wall ratio is ×28.24 and is dominated by conversion, not by
    recording.** *Measured: median plain 0.059 s against median call 1.666 s, n=5 per
-   arm, 0 dropped, load 0.51–1.38 at the arm starts.* The plain arm runs 53 tests in
-   0.09 s; the call arm runs the same tests and then converts 1390 events in the same
-   process. **This is not comparable to rung 1's ×1.0103**, which timed
-   `cargo test -p bloomery-daemon` (a 8.25 s suite) and converted separately. Whatever
+   arm, 0 dropped, 1-minute load **0.51–2.17** at the arm starts (every arm under the
+   4.0 refusal threshold, so nothing was dropped and nothing may be).* The two
+   highest-load arms are round 1 — P at 2.17 and C at **1.84** — and round 1's call arm
+   is the run's outlier at **3.939 s**, more than twice each of the other four call arms
+   (1.661, 1.689, 1.664, 1.666). The medians and the ratio are taken over all five and
+   are unaffected; the outlier is named here rather than smoothed away, and its load
+   context is what a reader needs to question it.
+
+   The plain arm runs 53 tests in 0.09 s; the call arm runs the same tests and then
+   converts 1390 events in the same process. **This is not comparable to rung 1's
+   ×1.0103**, which timed `cargo test -p bloomery-daemon` (a 8.25 s suite) and
+   converted separately. Whatever
    §5.2 costs, this ratio carries it; a comparable rung-1-style number needs the
    conversion split out of the timed command.
 4. **48 of 119 processes carry `exit_status_basis = "unwitnessed"`.** *Measured: the
-   histogram is `waited × 71, unwitnessed × 48`.* The 71 test binaries cargo runs go
+   histogram is `waited × 71, unwitnessed × 48`, one row per trace.* The 71 test
+   binaries cargo runs go
    through the target runner, which waits for them and records the status nothing inside
    the process can see; the 48 `flywheel-tool` children they spawn do not, so their
    status is declared unwitnessed rather than borrowed. Rung 1's gap 1 ("`exit_status`
@@ -584,8 +611,9 @@ entry says what was MEASURED, not what is suspected.
    `--nocapture` or state that the panic half lives only in (a).
 8. **`spawn_sites_rewritten` = 13 is a raw sum across manifests, not a distinct count.**
    *Measured: 13 across the 108 manifests, against the census's 8 distinct literal
-   `std::thread::spawn(` sites over the same tree.* A crate compiled at two feature sets
-   is two units over the same files, so its sites are counted twice. The manifests carry
+   `std::thread::spawn(` sites over the same tree.* Two `(crate_name, crate_type)` pairs
+   declare two manifests each (`bloomery_daemon`/`test`, `bloomery_bench`/`test`), so
+   the sites in the files they share are summed twice. The manifests carry
    no distinct spawn-site identity today; the census is the only instrument that reports
    one.
 9. **The E5 plant could not be placed in production code.** *Measured: the registry's

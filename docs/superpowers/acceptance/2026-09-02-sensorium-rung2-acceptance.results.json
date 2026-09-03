@@ -116,7 +116,7 @@
       "spawn_sites_rewritten": {
         "value": 13,
         "n": 108,
-        "lens": "spawn sites replaced with ::sensorium_rt::spawn_child -- the RAW SUM over the build's manifests, so a crate compiled at two feature sets contributes its sites twice; the distinct count is the census's",
+        "lens": "spawn sites replaced with ::sensorium_rt::spawn_child -- the RAW SUM over the build's manifests, not a count of distinct sites: two (crate_name, crate_type) pairs declare two manifests each, so their sites are counted twice. The census counts the distinct sites",
         "dropped": []
       },
       "spawn_sites_declared_unwrapped": {
@@ -3784,6 +3784,12 @@
       "waited": 71,
       "unwitnessed": 48
     },
+    "exit_status_basis_histogram": {
+      "value": "waited x 71, unwitnessed x 48",
+      "n": 119,
+      "lens": "the basis each process's `exit_status` was written on, one per trace: `waited` = the target runner spawned that process and waited for it, so the status is witnessed; `unwitnessed` = nothing this recorder ran saw the process end (a child the runner never spawned), so the field is declared rather than borrowed from cargo",
+      "dropped": []
+    },
     "child_runs_total": {
       "value": 48,
       "n": 119,
@@ -3962,5 +3968,11 @@
   "refused": null,
   "error": null,
   "started": "2026-09-03T16:12:14-0500",
-  "finished": "2026-09-03T16:55:47-0500"
+  "finished": "2026-09-03T16:55:47-0500",
+  "assembled": {
+    "at": "2026-09-03T17:24:27-0500",
+    "from": "results-raw.json",
+    "by": "rust/tests/acceptance.py --assemble",
+    "note": "re-derived from the raw facts the run recorded, under the committed schema; no arm was re-run and no value was re-measured -- only lens text can differ from the assembly the run itself wrote"
+  }
 }

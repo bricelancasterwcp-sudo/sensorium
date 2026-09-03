@@ -239,14 +239,13 @@ def reported_section(r) -> list[str]:
             ("truncated captures", "truncated_count"),
             ("panics unrecorded", "panics_unrecorded"),
             ("manifests unscoped", "manifests_unscoped"),
+            ("exit_status_basis across the invocation",
+             "exit_status_basis_histogram"),
             ("driver fixed cost (s)", "driver_fixed_cost_s"),
             ("runtime rlib build (s)", "runtime_rlib_build_s"),
             ("mean wall of one recorded --lib run (s)", "e3_run_wall_s")):
         out.append(row(label, rep.get(key)))
-    basis = rep.get("exit_status_basis")
-    if basis:
-        out += ["", "`exit_status_basis` across the invocation: "
-                + ", ".join(f"{k} × {v}" for k, v in basis.items()) + "."]
+
     arms = rep.get("wall_arms") or {}
     if arms.get("P", {}).get("walls"):
         out += ["", "| Round | P (plain) | C (call) |", "|---|---|---|"]
@@ -268,6 +267,15 @@ def main(argv) -> int:
         lines += ["**DRY RUN — no acceptance number was measured.** Every endpoint "
                   "cell below reads `not measured (dry run …)`; what this proves is "
                   "that every step runs and every artifact is written.", ""]
+    a = r.get("assembled")
+    if a:
+        lines += [f"**Provenance of this section.** It is rendered by "
+                  f"`rust/tests/render_acceptance.py` from "
+                  f"`results.json`, which was assembled at {a['at']} by "
+                  f"`{a['by']}` from `{a['from']}` — the raw facts the run itself "
+                  f"recorded — under the committed schema. {a['note'].capitalize()}. "
+                  f"The committed `…acceptance.results.json` is that assembly, byte "
+                  f"for byte.", ""]
     lines += [f"Measured on the §2 pins. Runner: `rust/tests/acceptance.py` "
               f"(raw logs and `results-raw.json` in the gitignored ledger). "
               f"Started {r.get('started')}, finished {r.get('finished')}. "

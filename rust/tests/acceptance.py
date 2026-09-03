@@ -291,9 +291,20 @@ if __name__ == "__main__":
     # be corrected, or the schema re-checked, without touching a measurement.
     if "--assemble" in sys.argv[1:]:
         _raw = json.loads((LEDGER / "results-raw.json").read_text())
-        (LEDGER / "results.json").write_text(
-            json.dumps(assemble(_raw, _raw.get("dry_run", False)),
-                       indent=2, default=str))
+        _out = assemble(_raw, _raw.get("dry_run", False))
+        # Stamped, so a reader of `results.json` can never mistake a
+        # re-assembly for the run: the values come from `results-raw.json`,
+        # which the run wrote and nothing since has touched.
+        _out["assembled"] = {
+            "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "from": "results-raw.json",
+            "by": "rust/tests/acceptance.py --assemble",
+            "note": ("re-derived from the raw facts the run recorded, under the "
+                     "committed schema; no arm was re-run and no value was "
+                     "re-measured -- only lens text can differ from the "
+                     "assembly the run itself wrote"),
+        }
+        (LEDGER / "results.json").write_text(json.dumps(_out, indent=2, default=str))
         print(f"assembled {LEDGER / 'results.json'} from results-raw.json")
         raise SystemExit(0)
     raise SystemExit(main(sys.argv[1:]))

@@ -111,9 +111,11 @@ def _e2(raw, dry) -> dict:
                                       len(wsm.get("units", [])),
                                       "spawn sites replaced with "
                                       "::sensorium_rt::spawn_child -- the RAW SUM over "
-                                      "the build's manifests, so a crate compiled at "
-                                      "two feature sets contributes its sites twice; "
-                                      "the distinct count is the census's", dropped),
+                                      "the build's manifests, not a count of distinct "
+                                      "sites: two (crate_name, crate_type) pairs "
+                                      "declare two manifests each, so their sites are "
+                                      "counted twice. The census counts the distinct "
+                                      "sites", dropped),
         "spawn_sites_declared_unwrapped": meas(
             len(wsm.get("spawns_declared", [])) if wsm else None,
             len(wsm.get("units", [])),
@@ -363,6 +365,16 @@ def _reported(raw, dry) -> dict:
             "just converted in-process, so the number is a second, warm-cache pass "
             "over the whole invocation -- the shape rung 1 reported as 22.7 s"),
         "exit_status_basis": whole.get("exit_status_basis"),
+        "exit_status_basis_histogram": meas(
+            ", ".join(f"{k} x {v}" for k, v in
+                      (whole.get("exit_status_basis") or {}).items()) or None,
+            whole.get("processes", 0),
+            "the basis each process's `exit_status` was written on, one per trace: "
+            "`waited` = the target runner spawned that process and waited for it, so "
+            "the status is witnessed; `unwitnessed` = nothing this recorder ran saw "
+            "the process end (a child the runner never spawned), so the field is "
+            "declared rather than borrowed from cargo",
+            [] if whole.get("exit_status_basis") else ["the whole invocation did not run"]),
         "child_runs_total": meas(whole.get("child_runs_total"),
                                  whole.get("processes", 0),
                                  "child run ids named by a parent trace"),
