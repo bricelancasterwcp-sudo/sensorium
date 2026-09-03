@@ -534,19 +534,8 @@ fn write_return_payload(buf: &mut [u8; RETURN_PAYLOAD_MAX], capture: Option<&Cap
 }
 
 // ---------------------------------------------------------------------------
-// For the panic hook, and for tests
+// For tests
 // ---------------------------------------------------------------------------
-
-/// True while this thread is inside the instrument.
-///
-/// The panic hook reads it: a `Debug` impl that panics while the recorder is
-/// formatting it is caught and recorded as unread, and printing a panic message
-/// for it would be the instrument talking about itself in the program's voice.
-#[doc(hidden)]
-#[must_use]
-pub fn in_runtime() -> bool {
-    thread::in_runtime()
-}
 
 /// Run `f` with this thread marked as inside the runtime.
 ///

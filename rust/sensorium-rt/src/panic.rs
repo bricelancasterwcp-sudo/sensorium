@@ -40,7 +40,9 @@
 //! format's `u16` payload length -- `spool::record` refuses an over-long payload
 //! rather than clamping one. A PANIC record carries **no truncated byte of its
 //! own**; the witness is the thread header's `truncated` counter, which
-//! [`thread::note_truncated`] bumps whenever this writer cuts.
+//! [`thread::note_truncated`] bumps whenever this writer cuts a record it
+//! actually wrote. A cut on a thread with no spool is not counted: the record
+//! went nowhere, and the header must not describe one that is not there.
 
 use std::fmt::{self, Write as _};
 use std::panic::PanicHookInfo;
@@ -111,24 +113,29 @@ fn install_cold() {
 
 fn record(info: &PanicHookInfo<'_>) {
     let mut buf = [0u8; PAYLOAD_MAX];
-    let len = write_payload(&mut buf, info);
-    thread::emit_if_open(NO_SITE, KIND_PANIC, OUTCOME_NONE, &buf[..len]);
+    let (len, cut) = write_payload(&mut buf, info);
+    // The count follows the record, and only a record that was written: the
+    // header's counter is this record's only witness, and a witness to a record
+    // no reader will ever meet is a header describing something that is not
+    // there. `emit_if_open` writes nothing on a thread with no spool -- and that
+    // thread can still open one a moment later, from a `Drop` running in the
+    // unwind this panic started.
+    if thread::emit_if_open(NO_SITE, KIND_PANIC, OUTCOME_NONE, &buf[..len]) && cut {
+        thread::note_truncated();
+    }
 }
 
-/// `u16 loc_len, loc, msg` into `buf`, returning how much of it was used.
-fn write_payload(buf: &mut [u8; PAYLOAD_MAX], info: &PanicHookInfo<'_>) -> usize {
+/// `u16 loc_len, loc, msg` into `buf`: how much of it was used, and whether
+/// anything was cut to make it fit.
+fn write_payload(buf: &mut [u8; PAYLOAD_MAX], info: &PanicHookInfo<'_>) -> (usize, bool) {
     let mut loc = [0u8; LOC_CAP];
     let (loc_len, loc_cut) = write_location(&mut loc, info.location());
     let (msg, msg_cut) = cap_utf8(message(info), MSG_CAP);
-    if loc_cut || msg_cut {
-        // The header's counter is this record's only witness.
-        thread::note_truncated();
-    }
     buf[0..2].copy_from_slice(&(loc_len as u16).to_le_bytes());
     buf[2..2 + loc_len].copy_from_slice(&loc[..loc_len]);
     let end = 2 + loc_len + msg.len();
     buf[2 + loc_len..end].copy_from_slice(msg.as_bytes());
-    end
+    (end, loc_cut || msg_cut)
 }
 
 /// The message, borrowed straight out of the payload. Nothing is formatted and

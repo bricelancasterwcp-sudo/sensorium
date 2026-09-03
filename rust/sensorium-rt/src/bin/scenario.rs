@@ -90,6 +90,7 @@ fn main() {
         "spawn-from-main" => spawn_from_main(),
         "spawn-empty-named-parent" => spawn_empty_named_parent(),
         "panic-unrecorded-thread" => panic_unrecorded_thread(),
+        "panic-truncated-before-spool" => panic_truncated_before_spool(),
         "spawn-grandchild" => spawn_grandchild(),
         "spawn-value" => spawn_value(),
         "spawn-panics" => spawn_panics(),
@@ -714,6 +715,32 @@ fn spawn_empty_named_parent() {
 /// A thread that panics having recorded NOTHING. The hook opens no spool -- that
 /// is what makes it unable to fail, and so unable to abort a panicking process
 /// (`src/panic.rs`) -- so this thread leaves no file at all.
+/// A local whose `Drop` runs instrumented code, so this thread's FIRST spool is
+/// opened during the unwind -- after the hook has already cut an over-long panic
+/// message it had nowhere to write.
+struct EntersOnDrop;
+
+impl Drop for EntersOnDrop {
+    fn drop(&mut self) {
+        let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 211);
+    }
+}
+
+/// The hook cuts a 6000-byte message on a thread with no spool, and the spool
+/// that thread opens a moment later must not carry a truncation counter for a
+/// record that was never written.
+fn panic_truncated_before_spool() {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 212);
+    let h = std::thread::spawn(|| {
+        let _local = EntersOnDrop;
+        let msg = "\u{20ac}".repeat(2000);
+        println!("msg_bytes {}", msg.len());
+        panic!("{msg}");
+    });
+    h.join().expect_err("the child must have panicked");
+    println!("survived 1");
+}
+
 fn panic_unrecorded_thread() {
     let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 210);
     let h = std::thread::spawn(|| panic!("orphan boom"));

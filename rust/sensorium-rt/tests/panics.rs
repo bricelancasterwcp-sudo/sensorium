@@ -168,6 +168,39 @@ fn the_hook_is_silent_for_a_panic_the_instrument_provoked() {
     );
 }
 
+/// The header's `truncated` counter witnesses truncations that reached the
+/// wire. A message cut on a thread with no spool is a message no reader will
+/// ever meet, and counting it would make the header describe a record that does
+/// not exist -- in the one case where the thread goes on to open a spool anyway.
+#[test]
+fn a_truncation_the_hook_could_not_write_is_not_counted() {
+    let dir = TempDir::reserved("panics-truncated-before-spool");
+    let run = Spec::new("panic-truncated-before-spool")
+        .spool(dir.path())
+        .run();
+    assert_eq!(run.says("survived"), "1");
+    assert_eq!(run.says_u64("msg_bytes"), 6000, "past the hook's 4096 cap");
+    let child = dir
+        .spools()
+        .into_iter()
+        .find(|s| s.serial != 1)
+        .expect("the unwinding thread opened a spool from its Drop");
+    assert!(
+        child.of_kind(KIND_PANIC).is_empty(),
+        "the thread had no spool when the hook ran, so the PANIC record went \
+         nowhere -- which is what makes the counter's claim checkable"
+    );
+    assert!(
+        !child.of_kind(KIND_CALL).is_empty(),
+        "and it DID open one during the unwind, or this pins nothing"
+    );
+    assert_eq!(
+        child.truncated, 0,
+        "a cut the hook could not write is not a truncation this thread's \
+         header should claim"
+    );
+}
+
 /// The hook opens nothing. A thread that panics having recorded no event has no
 /// frame for a PANIC record to close, and buying that record would cost the
 /// guarantee that the hook cannot fail -- a hook that failed would print, and a

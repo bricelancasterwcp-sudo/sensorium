@@ -54,11 +54,26 @@ payload as `{"outcome": "ok" | "err" | "panic" | "none"}`.
 - **A function with nothing to return** (`-> ()`, or no return type) has no
   exit operand to probe. Its frame closes `ok` with the recorded value `()`
   when it returned normally.
-- **`panic` comes from the panic hook**, not from a guess: the hook wrote a
-  PANIC record on this thread and the guard was dropped while
-  `std::thread::panicking()`. The frame's `closed_by` is `"unwind"` and
-  `unwind_exc` is `{"type": "panic", "msg", "serial", "loc"}`. `closed_by` is
-  never the string `"panic"` — a reader renders that as a false ` (open)`.
+- **`panic` comes from the panic hook, and where it does not, the trace says
+  so.** The guard reads `std::thread::panicking()` when it drops; the hook —
+  installed on the process's first recording `enter`, chained to whatever was
+  there — writes a PANIC record on that thread. The frame's `closed_by` is
+  `"unwind"` and `unwind_exc` is `{"type": "panic", "msg", "serial", "loc"}`
+  taken from the most recent PANIC record on the thread. `closed_by` is never
+  the string `"panic"` — a reader renders that as a false ` (open)`.
+  **Two cases close `panic` with no PANIC record to take it from**, and neither
+  is a lookup failure: the program installed its own hook *after* ours (ours is
+  gone; the program's own output is unaffected either way), or the thread
+  panicked before it had recorded anything and only ran instrumented code
+  *during* the unwind — the hook opens no spool, because a hook that could fail
+  could print, and printing on an already-panicking thread aborts the process
+  (§4). In both the converter writes `unwind_exc` as `{"type": "panic"}` with
+  `"msg"` set to
+  `"<panic message not recorded: no PANIC record preceded this unwind>"`, and
+  counts the frame in the meta key `panics_unrecorded`. So a reader sees
+  `unwind` with a named absence, never a message the recorder guessed. Neither
+  case is reachable in a libtest-shaped run, where the test function's own
+  `enter` comes first.
 - **`none` means a *value-returning* function's frame closed with nothing
   probed at its own site** — the qualifier matters, because a `-> ()` function
   also stashes nothing and reads `ok` (above): the wire carries no per-site
@@ -90,13 +105,15 @@ payload as `{"outcome": "ok" | "err" | "panic" | "none"}`.
   `fn f<T>() -> T` monomorphised to `Result<_, _>` and returning `Err` closes
   `ok`. The outcome is a property of the *static* type at the exit operand.
 
-**Falsified by** `rust/sensorium-rt/tests/outcomes.rs` (one arm per outcome,
-read off the spool bytes by a parser written from the wire format, not from the
-writer — including the three arms that pin the stack: a `Drop` that calls a
-`-> ()` unit fn while an `Err` is pending, a `Drop` that re-enters the same site
-one level down, and a re-entered site whose own frame leaves by `?` and so must
-not take the outer frame's capture), `corpus/rust/panic` (`closed_by unwind`,
-`unwind_exc.type panic`), and
+**Falsified by** `rust/sensorium-rt/tests/panics.rs` (the PANIC record's
+location, message and non-string payload, and the wire order CALL, PANIC,
+RETURN `panic` on one thread), `rust/sensorium-rt/tests/outcomes.rs` (one arm
+per outcome, read off the spool bytes by a parser written from the wire
+format, not from the writer — including the three arms that pin the stack: a
+`Drop` that calls a `-> ()` unit fn while an `Err` is pending, a `Drop` that
+re-enters the same site one level down, and a re-entered site whose own frame
+leaves by `?` and so must not take the outer frame's capture),
+`corpus/rust/panic` (`closed_by unwind`, `unwind_exc.type panic`), and
 — for the generic case, which this rung does not fix —
 `corpus/rust/outcome_generic`, **deferred to rung 3** and named here so the
 limit has an address before it has a test.
@@ -163,8 +180,11 @@ reader renders it.
 - **`spawn_child` names threads spawned by workspace code.** A rewritten
   `std::thread::spawn` site produces the name
   `<parent task name> :: spawn@<file>:<line>`, or `spawn@<file>:<line>` when
-  the spawning thread has no name. The `JoinHandle`, panic propagation and the
-  OS thread name are unchanged.
+  the spawning thread has no *task* name — the main thread's std-given `main`
+  is a thread name, not a task name, so a child of `main` is `spawn@<site>`
+  alone (a task row belongs to every *non-main* thread, above), and an empty
+  name is no name. The `JoinHandle`, panic propagation and the OS thread name
+  are unchanged.
 - **A spawn shape the transformer does not rewrite is declared, not silently
   missed**: `Builder::spawn`, `thread::scope` and method-call shapes are listed
   in the unit manifest's `spawns` with `wrapped: false` and a `reason`, and
@@ -531,7 +551,7 @@ re-rolled** if the box was busy when it started.
 
 | § | Promise | What could falsify it |
 |---|---|---|
-| 1 | Outcomes are `ok`/`err` from the exit operand, `panic` from the hook, `none` when nothing was probed | `rust/sensorium-rt/tests/outcomes.rs`, `corpus/rust/panic` |
+| 1 | Outcomes are `ok`/`err` from the exit operand, `panic` from the hook, `none` when nothing was probed; a `panic` with no PANIC record behind it says so and is counted | `rust/sensorium-rt/tests/outcomes.rs`, `rust/sensorium-rt/tests/panics.rs`, `corpus/rust/panic` |
 | 1 | A generic `T` that is a `Result` only after monomorphisation reads `ok` | `corpus/rust/outcome_generic` (rung 3, deferred) |
 | 2 | A return value is `Debug` text capped at 200 bytes; `!Debug` and panicking `Debug` read `<unread>`; `()` is never `<unread>` | `rust/sensorium-rt/tests/values.rs`, `docs/trace-format/vectors/v08-return-outcome-dbg-value.json` |
 | 3 | Every emitting non-main thread is a named task where a name exists; `spawn_child` derives the name; dependency threads are unnamed and compared as a multiset | `corpus/rust/spawned_thread`, `corpus/rust/libtest_threads`, `rust/sensorium-rt/tests/spawn.rs`, `rust/sensorium-rt/tests/serials.rs` |
