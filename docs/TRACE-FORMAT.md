@@ -221,8 +221,8 @@ declares `capabilities.output = false` and writes no rows (§4).
 
 ### tasks
 
-One row per unit of work: an asyncio task in Python; in Rust (planned), a
-libtest test or a spawned unit. `name` NULL means **the name could not be read**,
+One row per unit of work: an asyncio task in Python; a libtest test or a
+spawned unit in Rust. `name` NULL means **the name could not be read**,
 not that the unit had no name — `tree` and `info` say exactly that. Task ids
 are per trace.
 
@@ -562,9 +562,9 @@ pins the `kind` half of the same rule.
   read as `"per-thread"`, because that is what the definition was before the
   marker existed.
 - **Every unit of work gets a `tasks` row and a `task_fingerprints` row** —
-  an asyncio task in Python; a libtest test or a spawned unit in Rust
-  (planned). A unit that ran no causal event gets a zero-count fingerprint
-  row rather than no row.
+  an asyncio task in Python; a libtest test or a spawned unit in Rust. A unit
+  that ran no causal event gets a zero-count fingerprint row rather than no
+  row.
 
 **How `runs` lists what a build recorded.** One `cargo sensorium` invocation
 writes one trace per process — a `cargo test --all-targets` run is a dozen

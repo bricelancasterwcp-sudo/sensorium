@@ -45,12 +45,19 @@
 //! `vec!`, `if`, `match`, a struct literal, a `?`, a labelled `loop` with a
 //! valued `break`.
 //!
-//! **Two residual shapes are known to warn and are NOT excluded here**, because
-//! the plan's list is the plan's: a plain block `{ e }` as the operand trips
-//! `unused_braces`, and a block, `if` or `match` all of whose arms diverge trips
-//! `unreachable_code`. Both were measured on rustc 1.96 (2026-09-02); neither
-//! occurs in the goldens or in the measured workspace, and both are reported as
-//! findings rather than decided here.
+//! **Two shapes beyond the plan's list ARE handled here, by ruling F3**, both
+//! measured on rustc 1.96 (2026-09-02):
+//!
+//! * a plain block `{ e }` as the operand would trip `unused_braces` if wrapped
+//!   whole, so `descend_bare_block` (below) descends into it and the wrap goes
+//!   on `e` -- a labelled block is left alone, because a `break '<label> <v>`
+//!   would leave past a wrap placed inside it. Golden: `block_tail`
+//!   (`tests/golden.rs::a_bare_block_tail_is_wrapped_inside_its_braces`);
+//! * a block, `if` or `match` all of whose arms diverge would make the `ret`
+//!   call unreachable, so `diverges_compositely` (below) treats it as diverging
+//!   and it is not wrapped at all. One value-carrying arm is enough to make the
+//!   operand ordinary. Goldens: `composite_diverging` and the `mixed_arms`
+//!   fence (`tests/golden.rs::a_composite_every_arm_of_which_diverges_is_not_wrapped`).
 
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use std::str::FromStr;

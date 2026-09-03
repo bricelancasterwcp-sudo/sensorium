@@ -22,6 +22,15 @@ DEFAULT = (REPO / ".superpowers" / "sdd"
 LENS_CAP = 110
 
 
+def _upper_first(text: str) -> str:
+    """`text` with its first character upper-cased and the REST UNTOUCHED.
+
+    `str.capitalize()` lower-cases everything after the first character, so a
+    note naming `results-raw.json` or an endpoint like `E5` comes back mangled.
+    """
+    return text[:1].upper() + text[1:]
+
+
 def cell(m, fmt=str) -> str:
     """One measurement as a table cell. `null` is not-measured, with why."""
     if m is None:
@@ -315,7 +324,7 @@ def main(argv) -> int:
                   f"`rust/tests/render_acceptance.py` from "
                   f"`results.json`, which was assembled at {a['at']} by "
                   f"`{a['by']}` from `{a['from']}` — the raw facts the run itself "
-                  f"recorded — under the committed schema. {a['note'].capitalize()}. "
+                  f"recorded — under the committed schema. {_upper_first(a['note'])}. "
                   f"The committed `…acceptance.results.json` is that assembly, byte "
                   f"for byte.", ""]
     lines += [f"Measured on the §2 pins. Runner: `rust/tests/acceptance.py` "

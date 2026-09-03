@@ -96,6 +96,14 @@ Python recorder writes, so one `sensorium runs` lists both. A trace holds the
 recorded process's environment, command line, source digests and captured
 values in plaintext; treat one the way you would treat a core dump.
 
+The same goes for the spool directory the recording itself writes,
+`<target>/sensorium/spool/<invocation>/`: each `<pid>.proc.json` there carries
+the **full process environment** in plaintext, at whatever your umask gives it,
+and the `.spool` files beside it hold the captured return values. Conversion
+does not remove them. Treat that directory as a core dump too — it is inside
+`target/`, so a `cargo clean` takes it, and it should not be uploaded as a
+build artifact.
+
 ## Ask
 
     sensorium runs                                 # what have I recorded

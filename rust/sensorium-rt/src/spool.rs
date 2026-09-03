@@ -13,7 +13,7 @@
 //! kind:         0 = UNWRITTEN (the mapped tail; the reader STOPS at the first kind 0), 1 = CALL, 2 = RETURN,
 //!               3 = PANIC, 255 = THREAD_END
 //! outcome:      RETURN only: 0 none, 1 ok, 2 err, 3 panic; 0 on every other kind
-//! site:         unit_id in bits 31..24, site index in bits 23..0
+//! site:         unit_id in bits 31..24, site index in bits 23..0; 0 on PANIC and THREAD_END
 //! RETURN payload:  u8 tag (0 = no value, 1 = debug text follows, 2 = unread) u8 truncated(0|1) then UTF-8 text
 //! PANIC payload:   u16 loc_len, loc UTF-8 ("<file>:<line>:<col>" as the hook saw it), then the message UTF-8 (rest)
 //! ```

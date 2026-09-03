@@ -141,7 +141,29 @@ which is ranked:
   clean up.
 - `rust/sensorium-rt/src/bin/scenario.rs` sits at exactly 800 lines (the
   house limit) — the next task that adds a test arm to it must split it into
-  `src/bin/scenario/` first; none was planned before this document.
+  `src/bin/scenario/` first; none was planned before this document. *(Still
+  true after the final fix wave: its one new arm reused an existing scenario.
+  Source: final review 2026-09-03.)*
+- `convert/mod.rs:141-147`'s WARN counts runner records, and on cargo 1.96
+  those include doctest processes — so "N test binaries" can overstate by the
+  doctest count. Source: final review 2026-09-03.
+- `convert_perf.rs:57`'s test name (`a_hundred_thousand_record_spool_converts_in_seconds_not_minutes`) promises "seconds not minutes"; its own
+  doc says the mutation it was written for measured 2.5 s under a 5 s bound.
+  Honest as a floor, but the name reads as a fence. Source: final review
+  2026-09-03.
+- Function lengths against the "under 50 where the language allows"
+  constraint: `frames::process` 274, `convert_one` 164, `wrapper::instrument`
+  112, `driver::go` 100, `convert_dir` 99, `write_proc_header` 88. Bodies are
+  linear and commented; style only. Source: final review 2026-09-03.
+- A spool whose first `ftruncate`/`mmap` fails leaves a 0-byte
+  `<pid>.<serial>.spool` (`spool.rs:126-134`) that the converter refuses by
+  name (`convert/spool.rs:66-71`), so one thread's inert-at-open costs the
+  whole invocation's conversion. **A rung-3 design choice, both options
+  stated:** unlink the file on open failure (the runtime owns the failure and
+  leaves nothing behind, at the cost of losing the evidence that a thread
+  tried), or have the converter treat a 0-byte spool as "opened and wrote
+  nothing" with `records_dropped` unknown (the evidence survives, at the cost
+  of a spool the trace cannot bound). Source: final review 2026-09-03.
 
 None of the above changes a shipped behaviour; each is either untested
 surface, a naming/factoring nit, or an operational note. They are listed here

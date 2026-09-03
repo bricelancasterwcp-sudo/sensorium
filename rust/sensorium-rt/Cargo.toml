@@ -7,9 +7,15 @@ description = "The sensorium Rust recorder's runtime: per-thread MAP_SHARED trac
 
 # ZERO DEPENDENCIES, on purpose. The driver compiles this crate with one bare
 # `rustc --crate-type rlib --edition 2021 -C opt-level=3 src/lib.rs` invocation
-# and links it into a target build with `--extern sensorium_rt=<rlib>` and no
-# `-L dependency` (plan decision D1), so anything this crate needs from libc is
-# declared here as `extern "C"` -- see `src/ffi.rs`.
+# and links it into a target build with BOTH `--extern sensorium_rt=<rlib>` and
+# `-L dependency=<the rlib's own per-variant directory>` (plan decision D1 as
+# amended -- `cargo-sensorium/src/rt_build.rs`, `driver.rs:382-401`,
+# `wrapper.rs`): `--extern` binds the name a crate may write, and the search
+# path is how a crate that reaches the runtime through an instrumented
+# DEPENDENCY resolves it. That directory holds exactly one rlib and this crate
+# has no dependencies, so the search path cannot offer a second candidate.
+# Anything this crate needs from libc is declared here as `extern "C"` -- see
+# `src/ffi.rs`.
 [dependencies]
 
 [features]

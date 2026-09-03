@@ -359,10 +359,15 @@ fixture of `tests/test_rust_convert.py`.
 - **The consequence, named rather than left to be discovered:** `diff` keys
   code objects on `(file, qualname, kind)` — *without* the line — so two
   functions that share a file and a qualname and differ only in line are one
-  key to `diff` and to `--ignore-moves`' pairing. bloomery has exactly this
-  case: `crates/bloomery-daemon/src/main.rs` declares `fn run` twice, once
-  under `#[cfg(feature = "llama")]` and once under `#[cfg(not(...))]`
-  (findings §5.27). The trace distinguishes them; **`diff` cannot**.
+  key to `diff` and to `--ignore-moves`' pairing. The common instance is two
+  trait impls on one type: `qualname` is `<self type>::<method>`
+  (`self_type_name`, `visit.rs:417-425`), so `impl Display for Row` and
+  `impl Debug for Row` in one file both give `Row::fmt`, and the trait they
+  implement is nowhere in the key. Any type with both impls has this shape.
+  The cfg-gated twin is the same collision from the other direction: bloomery's
+  `crates/bloomery-daemon/src/main.rs` declares `fn run` twice, once under
+  `#[cfg(feature = "llama")]` and once under `#[cfg(not(...))]` (findings
+  §5.27). The trace distinguishes them; **`diff` cannot**.
 - **Fingerprints hash the workspace-relative path**, while `code_objects.file`
   is absolute — and the two comparisons that follow run in opposite
   directions. *Stored* hashes are relocation-insensitive by construction (D9),
@@ -643,6 +648,6 @@ re-rolled** if the box was busy when it started.
 | 6 | Spawns are not witnessed; instrumented children are linked by `ppid`; a child that ran no instrumented code is invisible | `corpus/rust/abort`, `docs/trace-format/vectors/v11-child-runs-linked.json`, `tests/test_rust_convert.py` (`child-linked`) |
 | 7 | Sites are per unit at record time and merged on `(file, qualname, firstlineno)` at conversion; `diff` cannot separate cfg-gated twins | E3 and E5 in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/cargo-sensorium/tests/unit_identity.rs`, `rust/cargo-sensorium/tests/convert.rs` |
 | 8 | Every eligible function in a workspace crate is instrumented, or its unit says it fell back | E2′ in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/sensorium-transform/tests/census.rs` |
-| 8 | Every blind spot is declared in a manifest field, a meta key or an `info` line — including the unreached-module and unit-ceiling declarations, which reach the trace as `unreached_files` and `units_refused`; the one that does not (a config-file runner replaced rather than chained) says so | `rust/tests/mechanics.sh` (fallbacks in both channels; a unit using an instrumented dependency; a config-file runner), `rust/sensorium-rt/tests/units.rs` (the unit ceiling), `docs/trace-format/vectors/v14-rust-refusals.json` |
+| 8 | Every blind spot is declared in a manifest field, a meta key or an `info` line — including the unreached-module and unit-ceiling declarations, which reach the trace as `unreached_files` and `units_refused`; the one that does not (a config-file runner replaced rather than chained) says so | `rust/tests/mechanics.sh` (fallbacks in both channels; a unit using an instrumented dependency), `rust/sensorium-rt/tests/units.rs` (the unit ceiling), `docs/trace-format/vectors/v14-rust-refusals.json`; §8.10 itself is falsified by adding a config-file runner to `rust/probes/ws/` and re-running mechanics.sh, which no shipped check does |
 | 9 | Line numbers, paths, backtraces, drop order, lock hold times, freshness and plain builds are unchanged | E7 and E8 in the acceptance document and `rust/tests/mechanics.sh`, `rust/sensorium-transform/tests/oracle.rs`, `rust/sensorium-transform/tests/golden.rs`, `rust/sensorium-rt/tests/panics.rs` |
 | 10 | Cost is reported with `n` and lens, and gates nothing | the acceptance document's *reported without a gate* section |

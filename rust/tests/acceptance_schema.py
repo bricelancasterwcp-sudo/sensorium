@@ -13,9 +13,9 @@ document is written by hand against them.
 from __future__ import annotations
 
 from acceptance_lib import meas
+from acceptance_phases import wall_summary
 
 NOOP_N = 5      # `acceptance_addendum.py`'s sample count for the no-op walls
-from acceptance_phases import wall_summary
 
 DRY = "dry run: the plumbing was exercised, no acceptance number was measured"
 
