@@ -273,8 +273,10 @@ thread that never returns, `process::exit`, `abort`, and SIGKILL.
 **Falsified by** `rust/sensorium-rt/tests/durability.rs` — a thread blocked in
 `recv()` with N complete records while the process returns from `main`, calls
 `process::exit(0)`, calls `abort()`, and is SIGKILLed, each row read off the
-bytes; plus the synthetic disk-full arm that pins `records_dropped` — and by
-`corpus/rust/abort`. The acceptance run reports `seq_gaps`, `records_dropped`
+bytes; plus the synthetic disk-full arm that pins `records_dropped`, which is
+`#[cfg(feature = "test-hooks")]` and so has its own CI step
+(`cargo test -p sensorium-rt --features test-hooks`) — a plain
+`cargo test --workspace` compiles it out — and by `corpus/rust/abort`. The acceptance run reports `seq_gaps`, `records_dropped`
 and per-live-thread last-record completeness for a whole invocation
 (acceptance §3, *reported without a gate*).
 

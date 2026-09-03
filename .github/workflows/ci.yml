@@ -65,6 +65,14 @@ jobs:
       - name: cargo test --workspace
         working-directory: rust
         run: cargo test --workspace
+      # HONESTY §4 names the synthetic disk-full arm as THE falsifier of
+      # `records_dropped`, and `durability.rs` gates it on `test-hooks` -- so
+      # the line above compiles it out. Same target directory as every other
+      # step here: the feature adds one `env::var` read to `spool_limit()`, so
+      # this is a recompile of sensorium-rt and its tests, not of the world.
+      - name: cargo test -p sensorium-rt --features test-hooks
+        working-directory: rust
+        run: cargo test -p sensorium-rt --features test-hooks
       - name: cargo fmt --check
         working-directory: rust
         run: cargo fmt --all -- --check
