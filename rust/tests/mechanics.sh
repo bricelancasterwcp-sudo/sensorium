@@ -436,11 +436,17 @@ check "the_doctest_process_is_runner_waited" \
 # wrapper environment reconstructed by hand but WITHOUT RUSTDOCFLAGS must fail
 # E0463. That is what makes the checks above evidence rather than coincidence,
 # and it needs no sabotage switch -- the variable is simply not set.
-SHIM="$(ls -d "$PROBE_TARGET"/sensorium/shim/*/cargo-sensorium 2>/dev/null | head -1 || true)"
-if [ -z "$SHIM" ]; then
-  fail "without_rustdocflags_the_doctest_fails_E0463" "could not locate the installed shim under $PROBE_TARGET/sensorium/shim"
+# THIS run's shim, by the tool hash the driver just recorded -- not whichever
+# of them sorts first. The shim directory is content-hashed and accumulates one
+# entry per driver build, which is by design; picking blind from it ran a build
+# through a STALE wrapper and flagged a fallback that no code in this checkout
+# could produce (measured on a warm target with eleven shims, 2026-09-03).
+TOOLHASH="$( { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tool_hash"])' \
+    "$DOCSPOOL/invocation.json" 2>/dev/null || true; } )"
+SHIM="$PROBE_TARGET/sensorium/shim/$TOOLHASH/cargo-sensorium"
+if [ -z "$TOOLHASH" ] || [ ! -x "$SHIM" ]; then
+  fail "without_rustdocflags_the_doctest_fails_E0463" "no shim for this run's tool hash '${TOOLHASH:-<unread>}' under $PROBE_TARGET/sensorium/shim"
 else
-  TOOLHASH="$(basename "$(dirname "$SHIM")")"
   NORDFRC=0
   ( cd "$WS" && env -u RUSTDOCFLAGS \
       CARGO_TARGET_DIR="$PROBE_TARGET" \
@@ -615,13 +621,25 @@ check_eq "exactly_the_expected_units_are_wrapped" "$NAMES" "$WRAPPED_EXPECTED"
 # The manifest flag catches a unit rustc rejected; it does NOT catch a unit the
 # WRAPPER failed on before it could write or patch a manifest, so the build logs
 # are read for the one line the wrapper prints (`rust/HONESTY.md` §8).
+# EVERY build log this run produced, named rather than globbed, because the two
+# it must NOT read are the two whose builds are broken on purpose: the
+# stale-mirror check compiles a copy of the probe with one file made
+# unparseable, and rustc rejecting that is the point of it. `doc-nordf.log` --
+# the RUSTDOCFLAGS control -- belongs here: leaving it out is how a fallback
+# went unseen in the log channel while the manifest channel caught it.
+build_logs() {
+  cat "$LOGS"/plain1.log "$LOGS"/plain2.log \
+      "$LOGS"/instr1.log "$LOGS"/instr2.log "$LOGS"/instr3.log \
+      "$LOGS"/instr_edit.log "$LOGS"/instr_settle.log \
+      "$LOGS"/doc-call.log "$LOGS"/doc-nordf.log \
+      "$LOGS"/record.log "$LOGS"/record-lib.log 2>/dev/null
+}
 FELL_MANIFESTS="$(fell_back_manifests "$MANIFESTS")"
-FELL_LOG="$(cat "$LOGS"/plain*.log "$LOGS"/instr*.log "$LOGS/doc-call.log" "$LOGS/record.log" "$LOGS/record-lib.log" 2>/dev/null |
-  grep -c 'fell back to the real tree' || true)"
+FELL_LOG="$( { build_logs | grep -c 'fell back to the real tree' || true; } )"
 note "[fallbacks] manifests flagged: $FELL_MANIFESTS   build-log lines: $FELL_LOG"
 check "no_unit_of_the_probe_fell_back_in_either_channel" \
   "$([ "$FELL_MANIFESTS" -eq 0 ] && [ "$FELL_LOG" -eq 0 ] && echo 0 || echo 1)" \
-  "$FELL_MANIFESTS manifest(s) flagged, $FELL_LOG log line(s): $(cat "$LOGS"/*.log 2>/dev/null | grep -m1 'fell back to the real tree' || true)"
+  "$FELL_MANIFESTS manifest(s) flagged, $FELL_LOG log line(s): $( { build_logs | grep -m1 'fell back to the real tree' || true; } )"
 
 # The one blind spot the probe carries on purpose (plan decision D3): the
 # wrapper does not evaluate `cfg`, so a `#[cfg_attr(.., path = ..)]` module is
@@ -636,8 +654,7 @@ check "no_unit_of_the_probe_fell_back_in_either_channel" \
 DEPENDENTS="$(units_depending_on_an_instrumented_crate "$MANIFESTS" probe_core)"
 DEP_UNITS="$(echo "$DEPENDENTS" | awk '{print $1}')"
 DEP_FELL="$(echo "$DEPENDENTS" | awk '{print $2}')"
-DEP_LOG="$(cat "$LOGS"/plain*.log "$LOGS"/instr*.log "$LOGS/doc-call.log" "$LOGS/record.log" \
-  "$LOGS/record-lib.log" 2>/dev/null | grep 'fell back to the real tree' | grep -vc 'unit probe_core (' || true)"
+DEP_LOG="$( { build_logs | grep 'fell back to the real tree' | grep -vc 'unit probe_core (' || true; } )"
 note "[dependents] units using an instrumented crate: $DEP_UNITS   fell back: $DEP_FELL   log lines: $DEP_LOG   $(echo "$DEPENDENTS" | cut -d' ' -f3-)"
 check "a_unit_using_an_instrumented_dependency_compiles_without_falling_back" \
   "$([ "$DEP_UNITS" -gt 0 ] && [ "$DEP_FELL" -eq 0 ] && [ "$DEP_LOG" -eq 0 ] && echo 0 || echo 1)" \

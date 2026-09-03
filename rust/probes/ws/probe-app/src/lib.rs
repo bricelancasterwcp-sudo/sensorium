@@ -6,6 +6,23 @@
 //! that blocks past the end of the process, and a frame the process dies
 //! inside.
 
+// LOAD-BEARING, and the first item on purpose. An `extern crate` ITEM is
+// resolved in rustc's crate-loading pass, which runs BEFORE any item
+// signature -- including the `::sensorium_rt::Unit` static the transformer
+// appends to this crate root. So loading `probe_core` here means resolving
+// `probe_core`'s own `sensorium_rt` while nothing has yet bound that name from
+// the extern map, which is precisely the case that needs the wrapper's
+// `-L dependency=<rt dir>` and fails `E0463` without it.
+//
+// A `use probe_core::…` path (see `tally.rs`) does NOT reach that case: `use`
+// paths through the extern prelude are resolved in the import fixpoint, after
+// the crate-loading pass has already bound `sensorium_rt` via the static. That
+// ordering is why bloomery's daemon failed on a wrapper that sent `--extern`
+// alone while every unit of this probe compiled -- and why removing this line
+// makes `a_unit_using_an_instrumented_dependency_compiles_without_falling_back`
+// unfalsifiable.
+extern crate probe_core;
+
 /// A NON-`mod.rs` file module: its own children live under `src/deep/`.
 pub mod deep;
 
