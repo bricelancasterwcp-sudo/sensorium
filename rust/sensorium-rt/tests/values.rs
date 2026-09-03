@@ -118,6 +118,34 @@ fn a_debug_impl_that_panics_reads_unread_and_the_program_continues() {
     );
 }
 
+/// A `Debug` impl that writes nothing renders as the empty string -- a value
+/// that WAS read. The wire has to keep that apart from a value that could not be
+/// read at all, because a reader that conflates them turns a measurement into a
+/// placeholder (`rust/HONESTY.md` §2).
+#[test]
+fn a_debug_impl_that_writes_nothing_is_read_and_empty_not_unread() {
+    let dir = TempDir::reserved("values-emptydbg");
+    let run = Spec::new("value-empty-debug").spool(dir.path()).run();
+    assert_eq!(
+        run.says("returned"),
+        ".",
+        "the value really does render empty"
+    );
+    let r = dir.spool(1).the_return(25);
+    assert_eq!(r.outcome, OUTCOME_OK);
+    let (tag, trunc, text) = r.ret_value();
+    assert_eq!(tag, TAG_DEBUG, "tag 1: this value was read");
+    assert_ne!(tag, TAG_UNREAD);
+    assert!(!trunc);
+    assert_eq!(text, "");
+    assert_eq!(
+        r.payload,
+        vec![TAG_DEBUG, 0],
+        "two bytes, and they are not tag 2"
+    );
+    assert_eq!(dir.spool(1).truncated, 0);
+}
+
 #[test]
 fn the_thread_header_counts_every_truncated_capture() {
     let dir = TempDir::reserved("values-truncount");

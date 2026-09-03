@@ -159,6 +159,64 @@ fn the_proc_header_carries_the_process_and_its_units() {
     assert_eq!(h.get("rt_version").str(), "sensorium-rt 0.1.0");
 }
 
+/// A thread with no name: `name_len` is 0 and the records start at byte 28, the
+/// header's whole fixed size. Nothing in the format needs a name to be present.
+#[test]
+fn a_thread_with_no_name_has_a_zero_length_name_field() {
+    let dir = TempDir::reserved("wire-unnamed");
+    Spec::new("unnamed-thread").spool(dir.path()).run();
+    let s = dir.spool(2);
+    assert_eq!(s.name, "", "std::thread::spawn names nothing");
+    assert_eq!(s.header_len(), HEADER_FIXED, "records start at byte 28");
+    let calls = s.of_kind(KIND_CALL);
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].site_index(), 76);
+    assert!(s.has_thread_end());
+    assert_eq!(
+        s.file_len,
+        HEADER_FIXED + RECORD_FIXED + (RECORD_FIXED + 2) + RECORD_FIXED
+    );
+}
+
+/// A site index that needs all 24 of its bits must survive the site word.
+#[test]
+fn a_site_index_that_fills_all_twenty_four_bits_round_trips() {
+    let dir = TempDir::reserved("wire-widesite");
+    Spec::new("wide-site").spool(dir.path()).run();
+    let call = dir.spool(1).of_kind(KIND_CALL).remove(0);
+    assert_eq!(call.site_index(), 0x00ab_cdef);
+    assert!(
+        call.site_index() > u32::from(u16::MAX),
+        "and it is wider than 16 bits"
+    );
+    assert_eq!(call.unit_id(), 0, "with nothing bled into the unit id");
+    assert_eq!(call.site, 0x00ab_cdef);
+}
+
+/// The proc header is written through a temporary and renamed. A run that ends
+/// cleanly leaves no temporary behind.
+#[test]
+fn the_proc_header_leaves_no_temporary_behind() {
+    let dir = TempDir::reserved("wire-notmp");
+    let run = Spec::new("two-units").spool(dir.path()).run();
+    let left: Vec<String> = dir
+        .walk()
+        .iter()
+        .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+        .collect();
+    let mut expected = vec![
+        format!("{}.proc.json", run.pid),
+        format!("{}.1.spool", run.pid),
+    ];
+    expected.sort();
+    let mut left_sorted = left.clone();
+    left_sorted.sort();
+    assert_eq!(
+        left_sorted, expected,
+        "the spool directory holds exactly these"
+    );
+}
+
 #[test]
 fn env_hash_follows_the_environment() {
     let dir_a = TempDir::reserved("wire-envhash");

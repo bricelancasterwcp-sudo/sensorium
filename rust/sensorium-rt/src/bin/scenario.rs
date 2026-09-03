@@ -70,11 +70,17 @@ fn main() {
         "ret-panic" => ret_panic_scenario(),
         "ret-unit" => ret_unit_scenario(),
         "ret-mismatch" => ret_mismatch_scenario(),
+        "drop-calls-instrumented" => drop_calls_instrumented_scenario(),
+        "drop-recurses" => drop_recurses_scenario(arg_u32(&args, 2, 1) as u8),
+        "drop-recurses-bypass" => drop_recurses_bypass_scenario(),
+        "wide-site" => wide_site(),
+        "unnamed-thread" => unnamed_thread(),
 
         "value-nodebug" => value_nodebug(),
         "value-big" => value_big(arg_u32(&args, 2, 1_000_000)),
         "value-early-stop" => value_early_stop(arg_u32(&args, 2, 10_000_000)),
         "value-panic-debug" => value_panic_debug(),
+        "value-empty-debug" => value_empty_debug(),
         "value-truncations" => value_truncations(arg_u32(&args, 2, 3)),
 
         "blocked-main-return" => blocked(arg_u32(&args, 2, 50), End::MainReturn, None),
@@ -216,6 +222,112 @@ fn ret_mismatch_scenario() {
 }
 
 // ---------------------------------------------------------------------------
+// A `Drop` that runs instrumented code between an exit operand and its guard
+// ---------------------------------------------------------------------------
+
+/// A local whose `Drop` calls instrumented code. Declared AFTER the guard, so it
+/// drops BEFORE it -- which is the window in which a single-slot stash gets
+/// wiped and the outer frame silently reads `none`.
+struct DropCallsInstrumented;
+
+impl Drop for DropCallsInstrumented {
+    fn drop(&mut self) {
+        inner_unit_fn();
+    }
+}
+
+/// A `-> ()` fn: `enter` and no `ret`, so it stashes nothing of its own.
+fn inner_unit_fn() {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 71);
+}
+
+fn outer_with_dropping_local() -> Result<u8, String> {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 70);
+    let _local = DropCallsInstrumented;
+    sret!(70, Err("outer".to_owned()))
+}
+
+fn drop_calls_instrumented_scenario() {
+    let r = outer_with_dropping_local();
+    println!("returned {r:?}");
+}
+
+/// A `Drop` that calls the SAME instrumented function one level down. Both
+/// frames are site 72; only their depths tell them apart.
+struct DropRecurses(u8);
+
+impl Drop for DropRecurses {
+    fn drop(&mut self) {
+        if self.0 > 0 {
+            let _ = std::hint::black_box(recursive_frame(self.0 - 1));
+        }
+    }
+}
+
+fn recursive_frame(n: u8) -> Result<u8, String> {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 72);
+    let _local = DropRecurses(n);
+    sret!(72, Ok(n))
+}
+
+fn drop_recurses_scenario(n: u8) {
+    let r = recursive_frame(n);
+    println!("returned {r:?}");
+    println!("frames {}", u32::from(n) + 1);
+}
+
+/// The same shape, except the inner frame leaves by `?` and so stashes NOTHING.
+/// Matching on the site alone would let it take the OUTER frame's capture --
+/// same site, still pending -- and report `Ok(9)` as its own while the outer
+/// frame closed `none`. The depth is what forbids it.
+struct DropRecursesBypass(bool);
+
+impl Drop for DropRecursesBypass {
+    fn drop(&mut self) {
+        if self.0 {
+            let _ = std::hint::black_box(bypass_frame(false));
+        }
+    }
+}
+
+fn returns_err_at_75() -> Result<u8, String> {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 75);
+    sret!(75, Err("bypass".to_owned()))
+}
+
+fn bypass_frame(recurse: bool) -> Result<u8, String> {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 74);
+    let _local = DropRecursesBypass(recurse);
+    if !recurse {
+        let v = returns_err_at_75()?;
+        return sret!(74, Ok(v));
+    }
+    sret!(74, Ok(9))
+}
+
+fn drop_recurses_bypass_scenario() {
+    let r = bypass_frame(true);
+    println!("returned {r:?}");
+}
+
+// ---------------------------------------------------------------------------
+// Header and site-word edges
+// ---------------------------------------------------------------------------
+
+/// A site index that needs all 24 of its bits.
+fn wide_site() {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 0x00ab_cdef);
+}
+
+/// A thread with no name at all: `name_len` is 0 and records start at byte 28.
+fn unnamed_thread() {
+    let h = std::thread::spawn(|| {
+        let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 76);
+    });
+    h.join().expect("join");
+}
+
+// ---------------------------------------------------------------------------
 // Values
 // ---------------------------------------------------------------------------
 
@@ -266,6 +378,27 @@ fn returns_big(n: u32) -> Vec<u8> {
 fn value_big(n: u32) {
     let v = returns_big(n);
     println!("returned {}", v.len());
+}
+
+/// A `Debug` impl that writes nothing. Its capture is `Some("")` -- a value that
+/// WAS read and renders empty -- which the wire must keep distinct from a value
+/// that could not be read at all.
+struct EmptyDbg;
+
+impl fmt::Debug for EmptyDbg {
+    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
+    }
+}
+
+fn returns_empty_debug() -> EmptyDbg {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 25);
+    sret!(25, EmptyDbg)
+}
+
+fn value_empty_debug() {
+    let v = returns_empty_debug();
+    println!("returned {v:?}.");
 }
 
 fn returns_early_stop(n: u32) -> EarlyStop {
@@ -325,6 +458,11 @@ enum End {
 fn blocked(n: u32, end: End, ready: Option<&str>) {
     {
         let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 30);
+    }
+    // A second unit, so the proc header is rewritten twice and "names every
+    // registered unit" is a claim with more than one unit in it.
+    {
+        let _sens_guard = ::sensorium_rt::enter(&UNIT_B, 31);
     }
     spawn_blocked_thread(n);
     println!("blocked_enters {n}");

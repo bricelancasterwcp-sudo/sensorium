@@ -116,6 +116,143 @@ fn a_stash_from_another_site_cannot_poison_the_frame_that_closes_next() {
     );
 }
 
+/// A local whose `Drop` calls instrumented code runs a whole frame BETWEEN the
+/// outer frame's exit operand and its guard. With one stash slot that inner
+/// frame's guard cleared the slot, and the outer frame -- which really did
+/// return `Err` -- recorded `none`: a silent err-to-none.
+#[test]
+fn a_drop_that_calls_instrumented_code_cannot_take_the_outer_frames_value() {
+    let dir = TempDir::reserved("outcomes-dropcalls");
+    let run = Spec::new("drop-calls-instrumented").spool(dir.path()).run();
+    assert_eq!(run.says("returned"), r#"Err("outer")"#);
+    let s = dir.spool(1);
+
+    let outer = s.the_return(70);
+    assert_eq!(
+        outer.outcome, OUTCOME_ERR,
+        "the outer frame really did return Err"
+    );
+    let (tag, _, text) = outer.ret_value();
+    assert_eq!(tag, TAG_DEBUG);
+    assert_eq!(text, r#"Err("outer")"#);
+
+    let inner = s.the_return(71);
+    assert_eq!(
+        inner.outcome, OUTCOME_NONE,
+        "the -> () fn the Drop called stashed nothing of its own"
+    );
+    assert_eq!(inner.ret_value().0, TAG_NO_VALUE);
+    assert_eq!(
+        s.of_kind(common::KIND_CALL).len(),
+        s.of_kind(KIND_RETURN).len()
+    );
+}
+
+/// The same window, but the `Drop` calls the SAME function one level down, so
+/// both pending captures carry site 72 and only the frame depth separates them.
+#[test]
+fn a_drop_that_re_enters_the_same_site_keeps_each_frames_own_value() {
+    let dir = TempDir::reserved("outcomes-droprecurses");
+    let run = Spec::new("drop-recurses").spool(dir.path()).run();
+    assert_eq!(run.says("returned"), "Ok(1)");
+    let s = dir.spool(1);
+
+    let mut rets: Vec<_> = s
+        .of_kind(KIND_RETURN)
+        .into_iter()
+        .filter(|r| r.site_index() == 72)
+        .collect();
+    rets.sort_by_key(|r| r.seq);
+    assert_eq!(rets.len(), 2, "two frames at one site");
+    let texts: Vec<String> = rets.iter().map(|r| r.ret_value().2).collect();
+    assert_eq!(
+        texts,
+        vec!["Ok(0)".to_owned(), "Ok(1)".to_owned()],
+        "the inner frame closes first and with ITS value, the outer with its own"
+    );
+    assert!(rets.iter().all(|r| r.outcome == OUTCOME_OK));
+}
+
+/// The bound, measured rather than asserted. Each level of this `Drop` chain
+/// leaves one capture pending while it recurses, so 70 nested frames ask for 70
+/// pending captures and the stack holds 64. The six frames whose push was
+/// refused close `none` -- which is what `rust/HONESTY.md` §1 says they do.
+#[test]
+fn the_pending_capture_stack_is_bounded_at_sixty_four() {
+    const FRAMES: usize = 70;
+    const BOUND: usize = 64;
+
+    let dir = TempDir::reserved("outcomes-stashbound");
+    let run = Spec::new("drop-recurses")
+        .arg(&(FRAMES - 1).to_string())
+        .spool(dir.path())
+        .run();
+    assert_eq!(run.says_u64("frames"), FRAMES as u64);
+
+    let s = dir.spool(1);
+    let rets: Vec<_> = s
+        .of_kind(KIND_RETURN)
+        .into_iter()
+        .filter(|r| r.site_index() == 72)
+        .collect();
+    assert_eq!(rets.len(), FRAMES, "every frame still closes");
+    let carried = rets.iter().filter(|r| r.ret_value().0 == TAG_DEBUG).count();
+    let refused = rets
+        .iter()
+        .filter(|r| r.ret_value().0 == TAG_NO_VALUE)
+        .count();
+    assert_eq!(carried, BOUND, "exactly the bound many captures survived");
+    assert_eq!(
+        refused,
+        FRAMES - BOUND,
+        "and the rest closed knowing nothing"
+    );
+    assert!(
+        rets.iter()
+            .filter(|r| r.ret_value().0 == TAG_NO_VALUE)
+            .all(|r| r.outcome == OUTCOME_NONE),
+        "a refused push closes the frame none, not ok"
+    );
+}
+
+/// The case the frame depth is load-bearing for: the inner frame at the same
+/// site leaves by `?` and stashes nothing, so the top of the stack is the OUTER
+/// frame's still-pending capture. Matching on the site alone would hand `Ok(9)`
+/// to the inner frame and leave the outer with `none` -- both wrong, and neither
+/// visible in the trace.
+#[test]
+fn a_re_entered_site_that_stashes_nothing_does_not_take_the_outer_capture() {
+    let dir = TempDir::reserved("outcomes-dropbypass");
+    let run = Spec::new("drop-recurses-bypass").spool(dir.path()).run();
+    assert_eq!(run.says("returned"), "Ok(9)");
+    let s = dir.spool(1);
+
+    let helper = s.the_return(75);
+    assert_eq!(helper.outcome, OUTCOME_ERR);
+    assert_eq!(helper.ret_value().2, r#"Err("bypass")"#);
+
+    let mut rets: Vec<_> = s
+        .of_kind(KIND_RETURN)
+        .into_iter()
+        .filter(|r| r.site_index() == 74)
+        .collect();
+    rets.sort_by_key(|r| r.seq);
+    assert_eq!(rets.len(), 2);
+
+    let (inner, outer) = (&rets[0], &rets[1]);
+    assert_eq!(
+        inner.outcome, OUTCOME_NONE,
+        "the ? bypassed the inner frame's tail, so it knows nothing"
+    );
+    assert_eq!(inner.ret_value().0, TAG_NO_VALUE);
+    assert_eq!(inner.ret_value().2, "");
+    assert_eq!(
+        outer.outcome, OUTCOME_OK,
+        "and the outer frame still has its own"
+    );
+    assert_eq!(outer.ret_value().2, "Ok(9)");
+}
+
 #[test]
 fn every_recorded_call_gets_exactly_one_return() {
     for scenario in [

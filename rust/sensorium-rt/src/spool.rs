@@ -170,10 +170,22 @@ impl Spool {
         payload: &[u8],
     ) -> bool {
         debug_assert!(kind != 0, "kind 0 is the unwritten tail, never a record");
-        let payload_len = payload.len().min(u16::MAX as usize);
-        let payload = &payload[..payload_len];
+        // The payload arrives ALREADY BOUNDED: the caller cut it on a char
+        // boundary and set whatever flag or counter witnesses the cut (the RETURN
+        // writer's `truncated` byte and the header counter; the panic hook's own
+        // in Task 3). Clamping here instead would cut silently, mid-char, and --
+        // for a PANIC record -- possibly inside its `u16 loc_len` region. A
+        // caller that ignores this loses the record and is TOLD it lost it,
+        // rather than writing one whose length field has wrapped.
+        debug_assert!(
+            payload.len() <= u16::MAX as usize,
+            "a {}-byte payload does not fit the wire format's u16 length; cap it in the caller",
+            payload.len()
+        );
+        let payload_len = payload.len();
         let end = self.pos + RECORD_FIXED + payload_len;
-        if self.broken || (end > self.map_len && !self.grow(end)) {
+        if self.broken || payload_len > u16::MAX as usize || (end > self.map_len && !self.grow(end))
+        {
             self.count_drop();
             return false;
         }
@@ -325,18 +337,29 @@ fn spool_limit() -> Option<usize> {
     }
 }
 
-/// Thread names are bounded by the header's `u16` length. Truncation keeps a
-/// char boundary so the bytes stay valid UTF-8 for the converter.
-fn truncate_name(name: &str) -> &str {
-    const MAX: usize = u16::MAX as usize;
-    if name.len() <= MAX {
-        return name;
+/// The longest prefix of `text` that is at most `max` bytes and ends on a char
+/// boundary, and whether anything was cut.
+///
+/// Every payload the runtime writes goes through this: `record` takes bytes that
+/// are already bounded (it will refuse an over-long one rather than clamp it
+/// silently), so a caller with text to write cuts it here and reports the cut.
+/// The RETURN writer uses it for its 200-byte capture; the panic hook (Task 3)
+/// uses it for a message that an `assert_eq!` over two large collections can
+/// easily push past 64 KiB.
+pub(crate) fn cap_utf8(text: &str, max: usize) -> (&str, bool) {
+    if text.len() <= max {
+        return (text, false);
     }
-    let mut end = MAX;
-    while end > 0 && !name.is_char_boundary(end) {
+    let mut end = max;
+    while end > 0 && !text.is_char_boundary(end) {
         end -= 1;
     }
-    &name[..end]
+    (&text[..end], true)
+}
+
+/// Thread names are bounded by the header's `u16` length.
+fn truncate_name(name: &str) -> &str {
+    cap_utf8(name, u16::MAX as usize).0
 }
 
 // ---------------------------------------------------------------------------
@@ -418,10 +441,21 @@ pub(crate) fn write_proc_header(
     push_json_str(&mut json, RT_VERSION);
     json.push('}');
 
+    // Written to a per-process temporary and RENAMED into place. This file is
+    // rewritten at every unit registration -- 77 times on a bloomery invocation --
+    // and rows (c) and (d) of the durability table kill the process at an
+    // arbitrary instant. `File::create` truncates first, so a kill inside that
+    // window would leave invalid JSON and cost the whole run, against §4's
+    // promise that a crash costs at most one record per thread. `rename` within
+    // one directory is atomic, so a reader sees the old header or the new one.
+    let tmp = dir.join(format!("{pid}.proc.json.tmp"));
     let path = dir.join(format!("{pid}.proc.json"));
-    let mut f = File::create(path)?;
-    f.write_all(json.as_bytes())?;
-    f.flush()
+    {
+        let mut f = File::create(&tmp)?;
+        f.write_all(json.as_bytes())?;
+        f.flush()?;
+    }
+    std::fs::rename(&tmp, &path)
 }
 
 fn sorted_env() -> Vec<(String, String)> {
@@ -440,13 +474,12 @@ fn sorted_env() -> Vec<(String, String)> {
 /// `sha256` over `"\n".join(f"{k}={v}")` for the sorted environment, first 16
 /// hex characters.
 ///
-/// NOTE for Task 12: the plan's wire block calls this "the same formula as
-/// `sensorium.record.boot`". It is the formula the plan states, and it is the
-/// one a converter is written against, so it is what this runtime computes --
-/// but `src/sensorium/record/boot.py` in fact hashes
-/// `json.dumps(env, sort_keys=True)`, so the two recorders' `env_hash` values
-/// are NOT comparable across languages. Both are stable within one recorder,
-/// which is all any command compares today.
+/// **Deliberately not the Python recorder's formula.** `src/sensorium/record/boot.py`
+/// hashes `json.dumps(env, sort_keys=True)`; this hashes the plan's
+/// `"{k}={v}"` join. Ruled 2026-09-02: `env_hash` is a per-recorder identity,
+/// compared only between traces from the same recorder, and no command compares
+/// one across languages. Each is stable within its own language, which is the
+/// whole of what the key is for.
 fn env_hash(env: &[(String, String)]) -> String {
     let mut h = Sha256::new();
     for (i, (k, v)) in env.iter().enumerate() {
@@ -509,6 +542,103 @@ mod tests {
         let mut out = String::new();
         push_json_str(&mut out, "a\"b\\c\nd\te\u{1}f\u{e9}");
         assert_eq!(out, "\"a\\\"b\\\\c\\nd\\te\\u0001f\u{e9}\"");
+    }
+
+    #[test]
+    fn the_site_word_fields_are_the_widths_the_wire_format_names() {
+        // Literals, not a restatement of the constants: the wire format says
+        // "unit_id in bits 31..24, site index in bits 23..0", and a converter is
+        // written to those numbers.
+        assert_eq!(SITE_INDEX_MASK, 0x00ff_ffff);
+        assert_eq!(UNIT_ID_SHIFT, 24);
+        assert_eq!(
+            SITE_INDEX_MASK.count_ones(),
+            24,
+            "the index field is 24 bits wide"
+        );
+        assert_eq!(
+            SITE_INDEX_MASK >> UNIT_ID_SHIFT,
+            0,
+            "the index field and the unit id field do not overlap"
+        );
+    }
+
+    /// A scratch directory on whatever disk the suite was pointed at.
+    fn scratch_dir(what: &str) -> std::path::PathBuf {
+        let root = match std::env::var_os("CARGO_TARGET_DIR") {
+            Some(t) if !t.is_empty() => std::path::PathBuf::from(t),
+            _ => std::env::temp_dir(),
+        };
+        let dir = root
+            .join("rt-unit")
+            .join(format!("{what}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("scratch dir");
+        dir
+    }
+
+    /// `record` states its contract as a `debug_assert`: the payload arrives
+    /// already bounded, because clamping it here would cut silently and possibly
+    /// mid-char -- and, for a PANIC record, inside its own `u16 loc_len` field.
+    /// This is the falsifier Task 3's panic writer inherits.
+    #[test]
+    #[should_panic(expected = "does not fit the wire format's u16 length")]
+    fn a_payload_too_long_for_the_length_field_trips_the_contract() {
+        // Constant per profile, and deliberately asserted: this test is only
+        // meaningful where `debug_assert!` is live, and a release run should say
+        // so rather than pass for the wrong reason.
+        #[allow(clippy::assertions_on_constants)]
+        {
+            assert!(
+                cfg!(debug_assertions),
+                "this test pins a debug_assert and needs a debug build"
+            );
+        }
+        let dir = scratch_dir("oversize-payload");
+        let mut spool = Spool::open(&dir, std::process::id(), 1, "t", 0).expect("open");
+        spool.record(
+            0,
+            1,
+            0,
+            KIND_CALL,
+            OUTCOME_NONE,
+            &vec![b'x'; u16::MAX as usize + 1],
+        );
+    }
+
+    /// The same length, one byte shorter: the largest payload the format can
+    /// describe is written, not refused.
+    #[test]
+    fn the_largest_payload_the_length_field_can_describe_is_written() {
+        let dir = scratch_dir("largest-payload");
+        let mut spool = Spool::open(&dir, std::process::id(), 2, "t", 0).expect("open");
+        let big = vec![b'x'; u16::MAX as usize];
+        assert!(spool.record(0, 1, 0, KIND_RETURN, OUTCOME_NONE, &big));
+        assert_eq!(spool.records_dropped, 0);
+        assert_eq!(
+            spool.pos,
+            HEADER_FIXED + 1 + RECORD_FIXED + u16::MAX as usize
+        );
+        drop(spool);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cap_utf8_cuts_on_a_char_boundary_and_says_it_cut() {
+        assert_eq!(cap_utf8("abc", 10), ("abc", false));
+        assert_eq!(cap_utf8("abc", 3), ("abc", false));
+        assert_eq!(cap_utf8("abcdef", 3), ("abc", true));
+        // 'é' is two bytes: a cap that lands inside one steps back.
+        assert_eq!(cap_utf8("ééé", 5), ("éé", true));
+        assert_eq!(cap_utf8("ééé", 4), ("éé", true));
+        assert_eq!(cap_utf8("ééé", 1), ("", true));
+        assert_eq!(cap_utf8("", 0), ("", false));
+        // A four-byte char cut at every offset inside it.
+        for max in 1..4 {
+            let (cut, did) = cap_utf8("\u{1f600}x", max);
+            assert_eq!(cut, "", "max={max}");
+            assert!(did);
+        }
     }
 
     #[test]

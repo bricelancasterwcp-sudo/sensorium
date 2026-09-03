@@ -96,8 +96,8 @@ fn abort_leaves_the_blocked_threads_records_whole() {
     );
     assert_eq!(
         main.records.len(),
-        2,
-        "and main's own frame is still on disk, which is the whole point"
+        4,
+        "and main's own two frames are still on disk, which is the whole point"
     );
     assert!(main.stopped_on_unwritten && main.tail_is_zero);
 }
@@ -115,9 +115,28 @@ fn sigkill_leaves_the_blocked_threads_records_whole() {
     assert_blocked_thread_is_whole(&blocked_spool(&dir), "SIGKILL");
     let main = dir.spool(1);
     assert!(!main.has_thread_end(), "SIGKILL runs nothing");
-    assert_eq!(main.records.len(), 2);
+    assert_eq!(main.records.len(), 4);
+
+    // The proc header is rewritten at every unit registration, and this process
+    // was killed at an arbitrary instant. It has to be whole JSON: written to a
+    // temporary and renamed, never truncated in place, or one unlucky kill costs
+    // the entire run rather than the one record §4 bounds it to.
     let header = dir.proc_header(pid);
     assert_eq!(header.get("pid").u64(), u64::from(pid));
+    assert_eq!(header.get("rt_version").str(), "sensorium-rt 0.1.0");
+    assert!(header.get("refused").is_null());
+    let units = header.get("units");
+    assert_eq!(
+        units.obj().len(),
+        2,
+        "both units this process registered are named"
+    );
+    assert_eq!(units.get("0").str(), "scenario-unit-a");
+    assert_eq!(units.get("1").str(), "scenario-unit-b");
+    assert!(
+        header.get("env").opt("SENSORIUM_SPOOL").is_some(),
+        "and the rest of the header survived with it"
+    );
 }
 
 /// A synthetic disk-full: the runtime cannot grow the spool, goes inert for

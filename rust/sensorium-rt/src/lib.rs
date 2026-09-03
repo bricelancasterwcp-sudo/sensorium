@@ -304,26 +304,31 @@ fn refuse(unit: &'static Unit, dir: &Path, registry: &mut Registry) {
 /// The entry guard. First-declared is last-dropped, so every `let`-bound local
 /// of the instrumented body -- `MutexGuard`s included -- drops before RETURN.
 ///
-/// An inert guard carries no site and its `Drop` is a single branch.
+/// It carries its frame's depth as well as its site, because a local whose
+/// `Drop` calls instrumented code opens a frame BETWEEN this frame's exit
+/// operand and this guard's drop -- possibly at the very same site, one level
+/// down. `depth` is what keeps the two frames' values apart. Depth 0 is the
+/// inert guard, so `Drop` is still a single compare.
 #[must_use]
 pub struct Guard {
-    site: Option<u32>,
+    site: u32,
+    depth: u32,
 }
 
 impl Guard {
     #[inline]
     fn inert() -> Guard {
-        Guard { site: None }
+        Guard { site: 0, depth: 0 }
     }
 }
 
 impl Drop for Guard {
     #[inline]
     fn drop(&mut self) {
-        let Some(site) = self.site else {
+        if self.depth == 0 {
             return;
-        };
-        emit_return(site);
+        }
+        emit_return(self.site, self.depth);
     }
 }
 
@@ -376,7 +381,12 @@ fn enter_recording(unit: &'static Unit, site: u32) -> Guard {
     if !thread::emit(dir, packed, KIND_CALL, OUTCOME_NONE, &[]) {
         return Guard::inert();
     }
-    Guard { site: Some(packed) }
+    // Only now, with the CALL on the wire: an inert guard must not consume a
+    // depth, or the frames that nest inside it would be mis-keyed.
+    Guard {
+        site: packed,
+        depth: thread::open_frame(),
+    }
 }
 
 fn pack_site(unit_id: u8, site: u32) -> u32 {
@@ -388,13 +398,13 @@ fn pack_site(unit_id: u8, site: u32) -> u32 {
 /// thread). Refusal gates `enter`, never the closing of a frame already open,
 /// so the converter's frame stack cannot go negative.
 #[inline(never)]
-fn emit_return(site: u32) {
+fn emit_return(site: u32, depth: u32) {
     let _scope = thread::enter_runtime();
-    let stash = thread::take_stash();
-    // A stash that belongs to another frame is discarded, not carried on: a
-    // `return` inside an unwrapped nested construct cannot poison an outer
-    // frame.
-    let mine = stash.filter(|s| s.site == site);
+    // Only this frame's own entry, and only from the top: a capture left by
+    // another frame is neither taken nor disturbed, so nothing another frame is
+    // still owed can be reported here -- and this frame's own capture cannot be
+    // taken by a `Drop` that ran instrumented code in between.
+    let mine = thread::pop_stash_if(site, depth);
     let panicking = std::thread::panicking();
     let outcome = if panicking {
         Outcome::Panic
@@ -411,6 +421,7 @@ fn emit_return(site: u32) {
     if let Some(dir) = SPOOL_DIR.get() {
         thread::emit(dir, site, KIND_RETURN, outcome as u8, &buf[..len]);
     }
+    thread::close_frame(depth);
 }
 
 // ---------------------------------------------------------------------------
@@ -455,8 +466,19 @@ fn stash_return<T>(
     let Some(id) = unit.current_id() else {
         return;
     };
+    // With no frame open on this thread there is no guard that could ever take
+    // this, so it is not left for one.
+    let depth = thread::frame_depth();
+    if depth == 0 {
+        return;
+    }
     let (capture, outcome) = cap(v);
-    thread::stash_ret(pack_site(id, site), capture, outcome);
+    thread::push_stash(thread::Stash {
+        site: pack_site(id, site),
+        depth,
+        capture,
+        outcome,
+    });
 }
 
 /// `u8 tag, u8 truncated, then the UTF-8 text`. Always at least the two bytes,
@@ -472,24 +494,13 @@ fn write_return_payload(buf: &mut [u8; RETURN_PAYLOAD_MAX], capture: Option<&Cap
         return 2;
     };
     buf[0] = TAG_DEBUG;
-    buf[1] = u8::from(capture.truncated);
-    let n = clip_len(text, probe::CAP);
-    buf[2..2 + n].copy_from_slice(&text.as_bytes()[..n]);
-    2 + n
-}
-
-/// The largest byte length not past `cap` that lands on a char boundary, so the
-/// payload is always valid UTF-8 even if a caller hands us an over-long
-/// `Capture`.
-fn clip_len(text: &str, cap: usize) -> usize {
-    if text.len() <= cap {
-        return text.len();
-    }
-    let mut end = cap;
-    while end > 0 && !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    end
+    // `spool::record` refuses a payload it cannot describe rather than clamping
+    // one, so the cut happens here, on a char boundary -- and it is witnessed by
+    // the flag, whether the capping writer cut the text or this did.
+    let (text, cut_here) = spool::cap_utf8(text, probe::CAP);
+    buf[1] = u8::from(capture.truncated || cut_here);
+    buf[2..2 + text.len()].copy_from_slice(text.as_bytes());
+    2 + text.len()
 }
 
 // ---------------------------------------------------------------------------
@@ -579,17 +590,36 @@ mod tests {
     }
 
     #[test]
-    fn an_over_long_capture_is_clipped_on_a_char_boundary() {
+    fn an_over_long_capture_is_clipped_on_a_char_boundary_and_flagged() {
+        // `truncated: false` on purpose: the cut happens HERE, and the flag has
+        // to be set by the writer that cut, not inherited from the capture.
         let text = "é".repeat(500);
         let mut buf = [0u8; RETURN_PAYLOAD_MAX];
         let c = Capture {
             text: Some(text),
-            truncated: true,
+            truncated: false,
         };
         let n = write_return_payload(&mut buf, Some(&c));
-        assert!(n <= RETURN_PAYLOAD_MAX);
-        assert!(std::str::from_utf8(&buf[2..n]).is_ok());
-        assert_eq!(clip_len("ééé", 5), 4);
-        assert_eq!(clip_len("abc", 10), 3);
+        assert!(n <= RETURN_PAYLOAD_MAX, "{n} bytes");
+        assert_eq!(n, 2 + probe::CAP, "'é' is two bytes and the cap is even");
+        assert_eq!(
+            buf[1], 1,
+            "a payload cut here is a payload marked truncated"
+        );
+        assert_eq!(
+            std::str::from_utf8(&buf[2..n]),
+            Ok("é".repeat(probe::CAP / 2).as_str())
+        );
+    }
+
+    #[test]
+    fn an_empty_debug_rendering_is_a_read_value_not_an_unread_one() {
+        let mut buf = [0u8; RETURN_PAYLOAD_MAX];
+        let c = Capture {
+            text: Some(String::new()),
+            truncated: false,
+        };
+        assert_eq!(write_return_payload(&mut buf, Some(&c)), 2);
+        assert_eq!(&buf[..2], &[1, 0], "tag 1 with no text, never tag 2");
     }
 }

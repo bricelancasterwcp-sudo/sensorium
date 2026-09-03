@@ -63,12 +63,27 @@ payload as `{"outcome": "ok" | "err" | "panic" | "none"}`.
   probed at its own site** — the qualifier matters, because a `-> ()` function
   also stashes nothing and reads `ok` (above): the wire carries no per-site
   knowledge, and the manifest's `ret: unit` is what separates the two at
-  conversion. The cases are: a `?` that propagated past the tail, a
-  syntactically diverging operand
+  conversion. The ordinary cases, all of them properties of the source, are: a
+  `?` that propagated past the tail, a syntactically diverging operand
   (`return`/`break`/`continue`, a `loop` with no valued `break`, a call of
   `panic!`, `unreachable!`, `todo!`, `unimplemented!`, `std::process::exit`,
   `std::process::abort`), or a `-> !` function. `none` is not "no error"; it is
   "this trace does not know".
+- **That list is not closed, and the mechanism can produce `none` too.** A
+  frame's exit operand leaves its capture on a per-thread LIFO stack keyed by
+  `(site, frame depth)`, and the frame's own guard takes it back — top of stack,
+  both keys matching, or nothing. The key is what makes the ordinary case safe:
+  a local (or a tail temporary) whose `Drop` calls instrumented code opens a
+  whole frame *between* an exit operand and its guard, at the same site if the
+  `Drop` re-enters the same function, and neither frame can take the other's
+  value. What remains, stated rather than left to be found:
+  **the stack holds 64 pending captures**, and a 65th is refused, so that frame
+  closes `none` — 64 is the depth of a chain of `Drop`s that each call
+  instrumented code, not of the call stack, so no measured workload comes near
+  it; and a capture left by a frame whose CALL was never written (its spool had
+  already failed, so `records_dropped` is non-zero) is taken by nobody. Neither
+  is signalled beyond the `none` itself. A run whose `records_dropped` is zero
+  has met neither.
 - **A generic return type reads `ok` even when the value is an `Err`.** The
   capture probe's specialisation is resolved where the fragment sits — inside
   the generic function, where `T` is not known to be a `Result` — so a
@@ -77,7 +92,11 @@ payload as `{"outcome": "ok" | "err" | "panic" | "none"}`.
 
 **Falsified by** `rust/sensorium-rt/tests/outcomes.rs` (one arm per outcome,
 read off the spool bytes by a parser written from the wire format, not from the
-writer), `corpus/rust/panic` (`closed_by unwind`, `unwind_exc.type panic`), and
+writer — including the three arms that pin the stack: a `Drop` that calls a
+`-> ()` unit fn while an `Err` is pending, a `Drop` that re-enters the same site
+one level down, and a re-entered site whose own frame leaves by `?` and so must
+not take the outer frame's capture), `corpus/rust/panic` (`closed_by unwind`,
+`unwind_exc.type panic`), and
 — for the generic case, which this rung does not fix —
 `corpus/rust/outcome_generic`, **deferred to rung 3** and named here so the
 limit has an address before it has a test.
