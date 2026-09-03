@@ -42,9 +42,10 @@ jobs:
       CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      # Plain rustup, not a third-party action: ubuntu-latest ships a stable
+      # toolchain already, so this only needs the two extra components.
+      - name: Rust toolchain (rustfmt, clippy)
+        run: rustup component add rustfmt clippy
       - uses: actions/cache@v4
         with:
           path: |
@@ -82,12 +83,12 @@ jobs:
         env:
           SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
         run: python -m pytest -q tests/test_rust_convert.py
-      - name: Rust corpus (Task 10; a no-op until corpus/rust exists)
+      - name: Rust corpus (Task 10; corpus/rust does not exist yet)
         env:
           SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
         run: |
           if [ -d corpus/rust ]; then
-            python corpus/run_corpus.py --root corpus/rust
-          else
-            echo "corpus/rust not present yet (Task 10) -- nothing to run"
+            echo "corpus/rust exists but this step was never updated to run it -- Task 10 must wire its own invocation here (corpus/run_corpus.py has no --root or similar selector flag today)" >&2
+            exit 1
           fi
+          echo "corpus/rust not present yet (Task 10) -- nothing to run"

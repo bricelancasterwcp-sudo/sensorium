@@ -41,11 +41,14 @@ CASES = sorted(p.name for p in FIXTURES.iterdir()
                if (p / "case.json").is_file())
 
 CARGO_SENSORIUM = os.environ.get("SENSORIUM_CARGO_SENSORIUM")
-pytestmark = pytest.mark.skipif(
-    not CARGO_SENSORIUM,
-    reason="SENSORIUM_CARGO_SENSORIUM is not set -- built only by CI's "
-           "`rust` job; set it by hand to a built cargo-sensorium binary "
-           "to run this module locally")
+# Not a module-level `pytestmark`: only the test that actually drives the
+# built binary needs it skipped. `test_every_case_pins_a_named_invariant_
+# and_asserts_something` below is a pure JSON self-check over the fixtures
+# and needs no Rust toolchain at all -- it belongs on the Python matrix, not
+# skipped alongside the tests that do need SENSORIUM_CARGO_SENSORIUM.
+_SKIP_REASON = ("SENSORIUM_CARGO_SENSORIUM is not set -- built only by CI's "
+               "`rust` job; set it by hand to a built cargo-sensorium binary "
+               "to run this module locally")
 
 _RUN_LINE = re.compile(
     r"^run: (?P<run_id>\S+)  pid: (?P<pid>\d+)  exe: (?P<exe>\S+)  "
@@ -93,6 +96,7 @@ def _load_case(case_name: str) -> tuple[dict, list[dict]]:
     return case, questions
 
 
+@pytest.mark.skipif(not CARGO_SENSORIUM, reason=_SKIP_REASON)
 @pytest.mark.parametrize("case_name", CASES)
 def test_case_converts_and_answers_every_question(case_name, tmp_path):
     case, questions = _load_case(case_name)
