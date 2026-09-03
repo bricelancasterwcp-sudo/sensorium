@@ -319,16 +319,26 @@ fn refuse(unit: &'static Unit, dir: &Path, registry: &mut Registry) {
 /// operand and this guard's drop -- possibly at the very same site, one level
 /// down. `depth` is what keeps the two frames' values apart. Depth 0 is the
 /// inert guard, so `Drop` is still a single compare.
+///
+/// It also carries whether the thread was ALREADY unwinding when the frame was
+/// entered, because `std::thread::panicking()` at the exit cannot tell a frame
+/// a panic tore through from one a `Drop` opened during someone else's unwind.
 #[must_use]
 pub struct Guard {
     site: u32,
     depth: u32,
+    /// `std::thread::panicking()` as it read at `enter`. See `emit_return`.
+    entered_unwinding: bool,
 }
 
 impl Guard {
     #[inline]
     fn inert() -> Guard {
-        Guard { site: 0, depth: 0 }
+        Guard {
+            site: 0,
+            depth: 0,
+            entered_unwinding: false,
+        }
     }
 }
 
@@ -338,7 +348,7 @@ impl Drop for Guard {
         if self.depth == 0 {
             return;
         }
-        emit_return(self.site, self.depth);
+        emit_return(self.site, self.depth, self.entered_unwinding);
     }
 }
 
@@ -416,6 +426,7 @@ fn enter_recording(unit: &'static Unit, site: u32) -> Guard {
     Guard {
         site: packed,
         depth: thread::open_frame(),
+        entered_unwinding: std::thread::panicking(),
     }
 }
 
@@ -428,14 +439,19 @@ fn pack_site(unit_id: u8, site: u32) -> u32 {
 /// thread). Refusal gates `enter`, never the closing of a frame already open,
 /// so the converter's frame stack cannot go negative.
 #[inline(never)]
-fn emit_return(site: u32, depth: u32) {
+fn emit_return(site: u32, depth: u32, entered_unwinding: bool) {
     let _scope = thread::enter_runtime();
     // Only this frame's own entry, and only from the top: a capture left by
     // another frame is neither taken nor disturbed, so nothing another frame is
     // still owed can be reported here -- and this frame's own capture cannot be
     // taken by a `Drop` that ran instrumented code in between.
     let mine = thread::pop_stash_if(site, depth);
-    let panicking = std::thread::panicking();
+    // A panic that begins while the thread is ALREADY unwinding aborts the
+    // process, so a frame entered during an unwind and left during the same one
+    // cannot have panicked itself -- it is a `Drop` that ran instrumented code
+    // and returned. Only a false-to-true transition ACROSS this frame is a
+    // panic this frame was torn through by.
+    let panicking = !entered_unwinding && std::thread::panicking();
     let outcome = if panicking {
         Outcome::Panic
     } else {

@@ -276,3 +276,43 @@ fn every_recorded_call_gets_exactly_one_return() {
         }
     }
 }
+
+/// A frame a `Drop` opened while its thread was ALREADY unwinding returns
+/// normally, and the wire must not call that a panic.
+///
+/// `std::thread::panicking()` alone cannot tell the two apart. A panic that
+/// begins while the thread is already unwinding aborts the process, so a frame
+/// that was entered during an unwind and left during the same one cannot have
+/// panicked itself: only a false-to-true transition across the frame is one.
+///
+/// The scenario is `panic-truncated-before-spool`: its `EntersOnDrop` local
+/// (`src/bin/scenario.rs`, the only `enter` at site 211) opens this thread's
+/// first spool from inside the unwind. That frame's body has no exit operand,
+/// so its honest outcome is `none` -- what a `-> ()` body reads -- and above all
+/// not `panic`.
+#[test]
+fn a_frame_entered_during_an_unwind_did_not_itself_panic() {
+    const SITE_ENTERS_ON_DROP: u32 = 211;
+    let dir = TempDir::reserved("outcomes-enters-on-drop");
+    Spec::new("panic-truncated-before-spool")
+        .spool(dir.path())
+        .run();
+    let child = dir
+        .spools()
+        .into_iter()
+        .find(|s| s.serial != 1)
+        .expect("the unwinding thread opened a spool from its Drop");
+    let r = child.the_return(SITE_ENTERS_ON_DROP);
+    assert_ne!(
+        r.outcome, OUTCOME_PANIC,
+        "this frame was entered during the unwind and returned; it did not panic"
+    );
+    assert_eq!(
+        r.outcome, OUTCOME_NONE,
+        "and with no exit operand in its body it reads as a unit return"
+    );
+    let (tag, trunc, text) = r.ret_value();
+    assert_eq!(tag, TAG_NO_VALUE);
+    assert!(!trunc);
+    assert_eq!(text, "");
+}

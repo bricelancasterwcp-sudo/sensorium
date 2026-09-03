@@ -55,25 +55,39 @@ payload as `{"outcome": "ok" | "err" | "panic" | "none"}`.
   exit operand to probe. Its frame closes `ok` with the recorded value `()`
   when it returned normally.
 - **`panic` comes from the panic hook, and where it does not, the trace says
-  so.** The guard reads `std::thread::panicking()` when it drops; the hook —
-  installed on the process's first recording `enter`, chained to whatever was
-  there — writes a PANIC record on that thread. The frame's `closed_by` is
-  `"unwind"` and `unwind_exc` is `{"type": "panic", "msg", "serial", "loc"}`
-  taken from the most recent PANIC record on the thread. `closed_by` is never
-  the string `"panic"` — a reader renders that as a false ` (open)`.
-  **Two cases close `panic` with no PANIC record to take it from**, and neither
-  is a lookup failure: the program installed its own hook *after* ours (ours is
-  gone; the program's own output is unaffected either way), or the thread
-  panicked before it had recorded anything and only ran instrumented code
-  *during* the unwind — the hook opens no spool, because a hook that could fail
-  could print, and printing on an already-panicking thread aborts the process
-  (§4). In both the converter writes `unwind_exc` as `{"type": "panic"}` with
-  `"msg"` set to
-  `"<panic message not recorded: no PANIC record preceded this unwind>"`, and
+  so.** The guard reads `std::thread::panicking()` at *both* ends of its frame —
+  once at `enter`, once when it drops — and closes `panic` only on a
+  false-to-true transition across the frame (**amended 2026-09-03**; it used to
+  read the exit alone). A panic that begins while the thread is already
+  unwinding aborts the process, so a frame a `Drop` opened *during* someone
+  else's unwind cannot have panicked itself: it closes on its own outcome, which
+  for the usual `-> ()` `Drop` body is `ok`. Before the amendment such a frame
+  read `panic` although it had returned, and the converter then attached the
+  *outer* panic's message and serial to it. Falsifier:
+  `rust/sensorium-rt/tests/outcomes.rs::a_frame_entered_during_an_unwind_did_not_itself_panic`
+  (scenario `panic-truncated-before-spool`, whose `EntersOnDrop` local opens its
+  thread's first spool from inside the unwind).
+  The hook — installed on the process's first recording `enter`, chained to
+  whatever was there — writes a PANIC record on that thread. The frame's
+  `closed_by` is `"unwind"` and `unwind_exc` is
+  `{"type": "panic", "msg", "serial", "loc"}` taken from the most recent PANIC
+  record on the thread. `closed_by` is never the string `"panic"` — a reader
+  renders that as a false ` (open)`.
+  **A frame can still close `panic` with no PANIC record to take it from**, and
+  it is not a lookup failure: the program installed its own hook *after* ours
+  (ours is gone; the program's own output is unaffected either way), or the
+  thread's spool had gone inert and could not accept the hook's record (§4).
+  Then the converter writes `unwind_exc` as `{"type": "panic"}` with `"msg"` set
+  to `"<panic message not recorded: no PANIC record preceded this unwind>"`, and
   counts the frame in the meta key `panics_unrecorded`. So a reader sees
-  `unwind` with a named absence, never a message the recorder guessed. Neither
-  case is reachable in a libtest-shaped run, where the test function's own
-  `enter` comes first.
+  `unwind` with a named absence, never a message the recorder guessed. The
+  first case is not reachable in a libtest-shaped run, where the test function's
+  own `enter` comes first. A thread that panicked before it had recorded
+  anything still gets no PANIC record at all — the hook opens no spool, because
+  a hook that could fail could print, and printing on an already-panicking
+  thread aborts the process (§4) — but it now leaves no `panic`-closed frame
+  either: the only frames it opens are opened during the unwind, and they
+  return.
 - **`none` means a *value-returning* function's frame closed with nothing
   probed at its own site** — the qualifier matters, because a `-> ()` function
   also stashes nothing and reads `ok` (above): the wire carries no per-site
