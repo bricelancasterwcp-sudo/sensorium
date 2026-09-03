@@ -1,14 +1,25 @@
 //! Performance sanity for the trace writer: one transaction per trace under
 //! WAL + `synchronous=NORMAL`, instead of one fsync'd commit per row.
 //!
-//! Not a benchmark -- a REGRESSION FENCE. The acceptance run measured
+//! Not a benchmark, and -- disclosed here, not just in the task report --
+//! **not a regression fence either: a FLOOR**. The acceptance run measured
 //! 1118.9s for one bloomery invocation (119 processes, 134,394 events)
 //! against the Python converter's 22.7s for the same invocation, ~49x,
 //! entirely attributable to one committed (fsync'd) transaction per INSERT
 //! (`wchan: jbd2_log_wait_commit`, 2.59 GB written for 32 MB of traces, the
-//! device at 98.8%). This fixture is smaller than that invocation and still
-//! catches a regression back to per-row commits, which turns "well under
-//! 5s" into tens of seconds even at this size.
+//! device at 98.8%). At THIS fixture's size, on a fast/idle disk, that
+//! difference does not reproduce: mutation-testing this fix by removing
+//! `BEGIN`/`COMMIT` entirely (back to one commit per row) measured 2.546s
+//! here for the same 100,000 records -- still under the 5s bound below, so
+//! this test would NOT have caught that regression. The pathological
+//! `jbd2_log_wait_commit` wait is a property of the device (busier, or
+//! nearer full) and of scale (119 separate files, not one), neither of
+//! which a single small fixture on a fast disk reproduces. What actually
+//! discriminates the fix is the real acceptance-spool conversion --
+//! 1118.9s -> 0.903s for the identical 119-process invocation -- cited in
+//! the acceptance document's addendum. This test's job is narrower: stay
+//! fast on any box (a floor under 5s), and catch the fix losing or
+//! duplicating rows, which it does check for below.
 //!
 //! Row counts and meta are checked against what the fixture itself built --
 //! the transaction wrapping changes WHEN bytes hit disk, never WHAT gets
