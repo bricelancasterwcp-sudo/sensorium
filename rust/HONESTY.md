@@ -88,14 +88,33 @@ limit has an address before it has a test.
   `<text>` is the value's `Debug` rendering — what `{:?}` printed, not
   `Display`, and not a structural capture of fields — formatted through a
   writer that **stops at 200 bytes** and sets `trunc`: the writer returns an
-  error at the cap and formatting aborts there, so a million-element `Vec`
-  costs the cap rather than the vector, and what you get back is its first
-  200 bytes.
+  error at the cap, and what you get back is the value's first 200 bytes.
+- **What the cap bounds, and what it does not** (measured 2026-09-02 while
+  building the runtime; narrower than this ledger first claimed, and than the
+  design's D10 assumed). It always bounds the *bytes*: the text captured, the
+  `String` allocated and the wire payload are 200 bytes for a three-element
+  `Vec` and for a million-element one alike. It bounds the *work* only when the
+  value's `Debug` impl propagates the writer's error — the `write!(f, ..)?`
+  idiom nearly every hand-written impl uses — where formatting stops at the cap:
+  10⁷ items cost 1.5 µs with the cap against 99 ms without it. It does **not**
+  bound the work for std's collection impls: `Formatter::debug_list` and
+  `debug_map` short-circuit their *writes* once the writer errors but still walk
+  every element, so capturing a 10⁶-element `Vec<u8>` costs about 10 ms whatever
+  the cap is. Returning a huge collection from an instrumented function is
+  therefore linear in the collection, once per call. The trace is bounded; the
+  clock is not.
 - **A value with no `Debug` impl reads `<unread>`** (payload `{"k": "unread"}`).
   So does a value whose `Debug` impl panics: the panic is caught inside the
   instrument, the program is not unwound, and nothing is printed. **The two are
   indistinguishable in the trace** — `<unread>` means "not read", and this
   recorder does not say why.
+- **Both of those hold only where unwinding does.** The catch is
+  `std::panic::catch_unwind`, which catches nothing under `-C panic=abort`, and
+  the driver builds the runtime at whichever panic strategy the unit under test
+  uses (D1). On an abort-profile workspace a `Debug` impl that panics ends the
+  process instead of reading `<unread>`, and no frame ever closes `panic`
+  because nothing unwinds. Nothing in the trace says so — it is declared here,
+  and bloomery's profiles do not set it.
 - **`<unread>` is never `()` and `()` is never `<unread>`.** A `()`-returning
   function records the value `()` as a recorded fact; a value that could not be
   read records `<unread>`. A reader that sees `()` is looking at a
@@ -104,8 +123,9 @@ limit has an address before it has a test.
   summed into the meta key `truncated_count`, which `info` prints.
 
 **Falsified by** `rust/sensorium-rt/tests/values.rs` — the `!Debug` arm, the
-panicking-`Debug` arm, the 10⁶-element cap (≤ 200 text bytes, `trunc` set, and
-the work bounded), and the header counter — with
+panicking-`Debug` arm, the cap arm (a 10³- and a 10⁶-element `Vec` read back as
+the same 200 bytes with `trunc` set), the arm that pins the work bounded on an
+impl that propagates the error, and the header counter — with
 `docs/trace-format/vectors/v08-return-outcome-dbg-value.json` pinning how a
 reader renders it.
 

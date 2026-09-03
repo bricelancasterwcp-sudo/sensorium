@@ -7,12 +7,9 @@
 #   sensorium-transform  the syn rewriter
 #   cargo-sensorium      the driver, workspace wrapper, runner and converter
 #
-# Until the first of them exists, `cargo metadata` needs `--no-deps` here:
-# a virtual manifest with no members has no package to resolve dependencies
-# for. `cargo verify-project` and `cargo metadata --no-deps` both succeed.
 [workspace]
 resolver = "2"
-members = []
+members = ["sensorium-rt"]
 # `probes/ws` is its own workspace: the driver builds it as a TARGET
 # workspace, so it must never be a member of this one.
 exclude = ["probes"]
