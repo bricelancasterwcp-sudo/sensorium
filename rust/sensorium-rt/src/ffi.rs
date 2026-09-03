@@ -2,11 +2,13 @@
 //!
 //! `sensorium-rt` has NO dependencies (plan decision D1): the driver compiles
 //! it with one bare `rustc --crate-type rlib --edition 2021 -C opt-level=3
-//! src/lib.rs` invocation and links it into a target build with
-//! `--extern sensorium_rt=<rlib>` and no `-L dependency`, so a `libc` crate in
-//! the graph would have to be resolved, versioned and picked -- which is
-//! exactly the single-candidate hazard D1 removes. Seven `extern "C"` lines
-//! cost less.
+//! src/lib.rs` invocation into a directory of its own, and the wrapper links
+//! it into a target build with `--extern sensorium_rt=<rlib>` plus
+//! `-L dependency=<that directory>`. Having no dependencies is what makes the
+//! search path safe: the directory holds exactly one rlib and offers rustc
+//! nothing to choose between, whereas a `libc` crate in the graph would have
+//! to be resolved, versioned and picked -- exactly the single-candidate hazard
+//! D1 removes. Seven `extern "C"` lines cost less.
 //!
 //! Every constant below names the header it is transcribed from. v1 is
 //! Linux-only (spec §4: thread serials come from `gettid()`/`getpid()`), and

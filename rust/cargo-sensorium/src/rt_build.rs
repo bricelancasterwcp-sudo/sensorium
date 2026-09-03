@@ -4,9 +4,14 @@
 //! bare `rustc` line from source embedded in this binary
 //! ([`crate::rt_src`]), into
 //! `<target>/sensorium/rt/<tool hash>/<unwind|abort>/libsensorium_rt.rlib`.
-//! The wrapper then adds a single `--extern sensorium_rt=<rlib>` and no
-//! `-L dependency` at all, which is what removes rung 1's two-`libc` graph and
-//! its single-candidate hazard (findings §5.24).
+//! The wrapper then adds `--extern sensorium_rt=<rlib>` and
+//! `-L dependency=<the rlib's own per-variant directory>` -- the second
+//! because a unit whose DEPENDENCIES are instrumented resolves their
+//! `sensorium_rt` through the search path, not the extern map (measured on the
+//! bloomery clone 2026-09-03; D1 as amended). That directory holds exactly one
+//! rlib and the runtime has no dependencies, so the search path cannot offer a
+//! second candidate -- which is how rung 1's two-`libc` graph and its
+//! single-candidate hazard stay removed (findings §5.24).
 //!
 //! Two variants, selected from the unit's own `-C panic`. Measured on rustc
 //! 1.96 (the table on

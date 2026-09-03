@@ -380,20 +380,25 @@ fn go(args: &[String]) -> Result<i32, String> {
 
 /// `RUSTDOCFLAGS` for the doctest units, preserving the user's own.
 ///
-/// **Both flags, and `-L dependency` is not belt and braces.** For the WRAPPER
-/// (plain rustc) a bare `--extern sensorium_rt=<rlib>` is enough, and plan
-/// decision D1 says so. rustdoc is a different case and was measured to be
-/// one (2026-09-03, rustc 1.96, `rust/tests/mechanics.sh` on the probe): the
-/// doctest crate does not name `sensorium_rt`, it depends on a workspace rlib
-/// that does, and rustdoc resolves a TRANSITIVE crate through the search path
-/// rather than through the extern map. With `--extern` alone every doctest
-/// fails `error[E0463]: can't find crate for 'sensorium_rt'`; with
-/// `-L dependency=<the rlib's directory>` alone it passes. Both are sent, so
-/// the direct name is bound as well as findable.
+/// **Both flags, and `-L dependency` is not belt and braces.** The same pair
+/// the wrapper appends (`wrapper.rs`), for the same reason: `--extern` binds a
+/// name the crate being compiled may write, while a crate reached through
+/// another crate's metadata is resolved through the search path. The doctest
+/// crate does not name `sensorium_rt` -- it depends on a workspace rlib that
+/// does -- so with `--extern` alone every doctest fails
+/// `error[E0463]: can't find crate for 'sensorium_rt'`, and with
+/// `-L dependency=<the rlib's directory>` alone it passes (measured
+/// 2026-09-03, rustc 1.96, `rust/tests/mechanics.sh` on the probe). Both are
+/// sent, so the direct name is bound as well as findable.
 ///
-/// The directory holds exactly one rlib -- the runtime is built there by one
-/// bare rustc invocation and has no dependencies (D1) -- so there is no
-/// "multiple candidates" hazard in putting it on the search path.
+/// Plan decision D1 as amended requires both here AND in the wrapper: the
+/// wrapper needed the search path too, for a unit whose own dependencies are
+/// instrumented (measured on the bloomery clone the same day).
+///
+/// The directory is the rlib's own per-variant one
+/// (`<rt dir>/<unwind|abort>/`) and holds exactly one rlib -- the runtime is
+/// built there by one bare rustc invocation and has no dependencies (D1) -- so
+/// there is no "multiple candidates" hazard in putting it on the search path.
 ///
 /// The user's own `RUSTDOCFLAGS` come FIRST and are never replaced.
 #[must_use]

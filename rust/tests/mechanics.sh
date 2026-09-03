@@ -621,18 +621,31 @@ check_eq "exactly_the_expected_units_are_wrapped" "$NAMES" "$WRAPPED_EXPECTED"
 # The manifest flag catches a unit rustc rejected; it does NOT catch a unit the
 # WRAPPER failed on before it could write or patch a manifest, so the build logs
 # are read for the one line the wrapper prints (`rust/HONESTY.md` §8).
-# EVERY build log this run produced, named rather than globbed, because the two
-# it must NOT read are the two whose builds are broken on purpose: the
-# stale-mirror check compiles a copy of the probe with one file made
-# unparseable, and rustc rejecting that is the point of it. `doc-nordf.log` --
-# the RUSTDOCFLAGS control -- belongs here: leaving it out is how a fallback
-# went unseen in the log channel while the manifest channel caught it.
+# Every log this run wrote, MINUS two named exclusions -- globbed rather than
+# listed, so a log added later is read by default. Listing them by hand is how
+# `doc-nordf.log` went unread once already, and a fallback announced there was
+# seen by the manifest channel and not by this one.
+#
+# The two exclusions, and why each is safe to drop:
+#
+# * `stale-plain.log`, `stale-instr.log` -- the stale-mirror check compiles a
+#   COPY of the probe with one file deliberately made unparseable. Both builds
+#   are supposed to fail, and the instrumented one announces a fallback while
+#   failing; counting it here would report the check working as a defect.
+#
+# `stale-first.log` (that check's build BEFORE the file is broken) and
+# `driver-build.log` (the tool workspace's own cargo build, which runs no
+# wrapper and so can carry no fallback line) are deliberately NOT excluded:
+# neither is broken on purpose, and reading them costs nothing.
 build_logs() {
-  cat "$LOGS"/plain1.log "$LOGS"/plain2.log \
-      "$LOGS"/instr1.log "$LOGS"/instr2.log "$LOGS"/instr3.log \
-      "$LOGS"/instr_edit.log "$LOGS"/instr_settle.log \
-      "$LOGS"/doc-call.log "$LOGS"/doc-nordf.log \
-      "$LOGS"/record.log "$LOGS"/record-lib.log 2>/dev/null
+  local log
+  for log in "$LOGS"/*.log; do
+    [ -e "$log" ] || continue
+    case "${log##*/}" in
+      stale-plain.log | stale-instr.log) continue ;;
+      *) cat "$log" ;;
+    esac
+  done
 }
 FELL_MANIFESTS="$(fell_back_manifests "$MANIFESTS")"
 FELL_LOG="$( { build_logs | grep -c 'fell back to the real tree' || true; } )"

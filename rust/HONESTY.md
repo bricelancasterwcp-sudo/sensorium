@@ -429,13 +429,22 @@ without knowing this document exists.
    `fell_back: true, fallback_reason: "rustc: can't find crate for
    bloomery_core"` and the build then exited 101 anyway. The manifest is
    therefore the record of what the recorder did NOT instrument, never a
-   promise that the build survived it; **a fallback for a reason unrelated to
-   the runtime** (`lto`, `cross-target`, an absolute crate root) is the case
-   where the unit does compile plainly, and that is the only case where a
-   fallback means "recorded nothing, built fine". The linkage this rests on is
-   the wrapper's `--extern sensorium_rt=<rlib>` **and**
-   `-L dependency=<rt dir>` (plan decision D1 as amended): rustc resolves a
-   dependency's own `sensorium_rt` through the search path, not the extern map.
+   promise that the build survived it.
+   **The condition is the unit's own dependencies, not the fallback's reason.**
+   A fallback replays the argv cargo built, with no `--extern` and no `-L` of
+   ours, so *every* reason takes the same plain compile — including `lto` and
+   `cross-target`, which are decided before instrumenting, and
+   `wrapper: <error>`. A unit with instrumented dependencies therefore fails
+   `E0463` on a `lto` fallback exactly as it does on a runtime-linkage one.
+   "Recorded nothing, built fine" is what a fallback means **only when that
+   unit's own dependencies are uninstrumented** — a leaf workspace crate, or
+   one that depends only on registry crates. Which units those are is readable
+   from the manifests: a fallen-back unit whose dependencies have manifests of
+   their own is in the failing case.
+   The linkage this rests on is the wrapper's `--extern sensorium_rt=<rlib>`
+   **and** `-L dependency=<the rlib's own per-variant directory>` (plan
+   decision D1 as amended): rustc resolves a dependency's own `sensorium_rt`
+   through the search path, not the extern map.
 8. **A module the module walk could not reach.** `#[cfg_attr(.., path = ..)]`
    is not evaluated — the walk resolves `mod` declarations and literal
    `#[path]`, and refuses to guess at a conditional one. *Declared by* the unit
