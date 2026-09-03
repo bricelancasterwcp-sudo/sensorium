@@ -150,6 +150,7 @@ from pathlib import Path
 
 from sensorium import paths
 from sensorium.query.caps import require
+from sensorium.query.vocab import terms
 from sensorium.query.diff_cmd import (compare, print_comparison,
                                       task_drill_lines)
 # The evidence layer, split out at this file's 800-line ceiling. Re-exported
@@ -283,10 +284,14 @@ def _refusal(meta: dict, trace: Trace | None = None) -> str | None:
     return None
 
 
-def _refuse(orig_name: str, problem: str) -> int:
+def _refuse(orig_name: str, problem: str, trace: Trace) -> int:
+    """The refusal, and what may be done instead -- in the words of the
+    trace that was refused. `sensorium run --focus ...` cannot read a Rust
+    recording, so offering it there sends the reader to a second refusal;
+    the trace is required rather than defaulted, so no call site can reach
+    this line without saying which language it is speaking."""
     print(f"error: cannot refocus {orig_name}: {problem}", file=sys.stderr)
-    print("no rerun was attempted; `sensorium run --focus ...` will record a "
-          "fresh, UNVERIFIED trace if that is what you want", file=sys.stderr)
+    print(terms(trace).no_rerun_note, file=sys.stderr)
     return 2
 
 
@@ -681,7 +686,7 @@ def _rerun_and_verify(args, orig: Trace, orig_name: str, meta: dict,
     try:
         boot.resolve_target(argv)      # refuse before announcing a rerun
     except boot.TargetError as e:
-        return _refuse(orig_name, str(e))
+        return _refuse(orig_name, str(e), orig)
 
     focus = _merged_focus(meta, args.focus)
     window = args.window if args.window is not None else meta.get("window")
@@ -723,7 +728,7 @@ def run(args) -> int:
 
     problem = _refusal(meta, orig)
     if problem:
-        return _refuse(orig_name, problem)
+        return _refuse(orig_name, problem, orig)
 
     # Pin first, THEN snapshot: the environment compared must be the one the
     # target is executed with, not the one this process started with. The pin

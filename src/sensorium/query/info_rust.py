@@ -127,12 +127,22 @@ def _loss_lines(m: dict) -> list[str]:
     dropped = m.get("records_dropped") or {}
     total = sum(int(v) for v in dropped.values() if v is not None)
     if total:
-        detail = ", ".join(f"thread {k}: {v}"
-                           for k, v in sorted(dropped.items()))
+        detail = ", ".join(f"thread {k}: {v}" for k, v in
+                           sorted(dropped.items(), key=_serial_key))
         out.append(f"records dropped: {total} -- records the runtime knew it "
                    f"could not write ({detail}); a thread whose spool could "
                    "not be mapped or grown is inert from that point on")
     return out
+
+
+def _serial_key(item) -> tuple:
+    """Thread serials are NUMBERS carried in JSON object keys, which are
+    strings: sorting them as strings puts thread 10 before thread 2, and a
+    reader scanning for a thread finds it in the wrong place. Anything not a
+    plain integer sorts after the numbers, by its own text, rather than
+    raising on a key this reader did not write."""
+    key = str(item[0])
+    return (0, int(key), "") if key.isdigit() else (1, 0, key)
 
 
 def _panic_lines(m: dict) -> list[str]:

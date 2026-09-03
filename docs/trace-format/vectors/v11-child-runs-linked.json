@@ -72,9 +72,10 @@
       "expect_contains": [
         "invocation 20260101-000000-111111: cargo test --all-targets"
       ],
+      "expect_line": [["exit:0", "events:2", "cmd: probe-abc"]],
       "expect_count": {"cmd: probe-abc": 2,
                        "invocation 20260101-000000-111111": 1},
-      "expect_absent": ["cmd: /w/target"]
+      "expect_absent": ["cmd: /w/target", "(waited)"]
     }
   ]
 }

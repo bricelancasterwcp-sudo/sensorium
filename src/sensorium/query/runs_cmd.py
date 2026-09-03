@@ -1,6 +1,6 @@
 """List recorded traces, newest-last."""
 from sensorium import paths
-from sensorium.query.vocab import exit_phrase
+from sensorium.query.vocab import exit_brief
 from sensorium.store.reader import Trace
 
 
@@ -61,7 +61,7 @@ def _row(stem: str, trace: Trace) -> str:
         flags.append(f"verdict:{m.get('refocus_verdict', 'UNVERIFIED')}"
                      + _licence_flag(m))
     suffix = f"  [{','.join(flags)}]" if flags else ""
-    return (f"{stem}  exit:{exit_phrase(m)}  "
+    return (f"{stem}  exit:{exit_brief(m)}  "
             f"events:{sum(trace.counts().values())}  "
             f"cmd: {_cmd(m)}{suffix}")
 
@@ -74,8 +74,9 @@ def _header(m: dict) -> str:
     reader can see at a glance that they belong together. The trace does not
     record cargo's own exit status, so this line does not claim one.
     """
-    return (f"invocation {m['invocation']}: cargo "
-            + " ".join(m.get("cargo_args") or []))
+    args = " ".join(m.get("cargo_args") or [])
+    return (f"invocation {m['invocation']}: cargo"
+            + (f" {args}" if args else ""))
 
 
 def run(args) -> int:

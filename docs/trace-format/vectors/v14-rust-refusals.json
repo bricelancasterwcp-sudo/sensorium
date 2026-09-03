@@ -70,8 +70,9 @@
       "expect_contains": ["refocus needs refocus",
                           "sensorium-rt 0.1.0",
                           "capabilities.refocus: false",
-                          "nothing was checked"],
-      "expect_absent": ["verdict:", "refocus-of:"]
+                          "nothing was checked",
+                          "no rerun was attempted; refocus on a Rust trace arrives with rung 4"],
+      "expect_absent": ["verdict:", "refocus-of:", "sensorium run --focus"]
     },
     {
       "id": "flow-and-watch-refuse-on-line",

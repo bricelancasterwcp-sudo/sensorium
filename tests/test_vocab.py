@@ -18,7 +18,8 @@ import shutil
 
 import pytest
 
-from sensorium.query.vocab import PYTHON, RUST, exit_phrase, terms
+from sensorium.query.vocab import (PYTHON, RUST, exit_brief,
+                                   exit_phrase, terms)
 from sensorium.store.reader import Trace
 from tests.helpers import run_cli
 from tests.vectors import build, load_all
@@ -136,6 +137,19 @@ def test_exit_phrase_reads_the_basis_and_never_invents_a_status():
                         "exit_status_basis": "unwitnessed"}) == "unwitnessed"
 
 
+def test_exit_brief_is_the_status_without_the_basis():
+    """What `runs` prints. `unwitnessed` keeps its whole word -- there the
+    basis IS the answer, so nothing is shortened away."""
+    assert exit_brief({"exit_status": 0}) == "0"
+    assert exit_brief({}) == "?"
+    assert exit_brief({"exit_status": 0,
+                       "exit_status_basis": "waited"}) == "0"
+    assert exit_brief({"exit_status": None, "exit_signal": 9,
+                       "exit_status_basis": "waited"}) == "signal 9"
+    assert exit_brief({"exit_status": None,
+                       "exit_status_basis": "unwitnessed"}) == "unwitnessed"
+
+
 def test_a_signalled_exit_is_printed_by_info_and_runs(tmp_path):
     """The signalled arm of `v10-exit-status-unwitnessed`'s rule, which one
     vector cannot carry: a vector describes ONE trace, and the unwitnessed
@@ -150,5 +164,8 @@ def test_a_signalled_exit_is_printed_by_info_and_runs(tmp_path):
     info = run_cli(["info", RUN_IDS[0]], cwd=tmp_path, sensorium_dir=sdir)
     assert "exit: signal 9 (waited)" in info.stdout, info.stdout
     assert "exit: None" not in info.stdout
+    # The listing prints the bare form: one dense row per trace, and the
+    # basis is `info`'s to explain.
     runs = run_cli(["runs"], cwd=tmp_path, sensorium_dir=sdir)
-    assert "exit:signal 9 (waited)" in runs.stdout, runs.stdout
+    assert "exit:signal 9  " in runs.stdout, runs.stdout
+    assert "(waited)" not in runs.stdout, runs.stdout

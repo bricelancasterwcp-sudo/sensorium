@@ -66,6 +66,10 @@ class Terms:
     #: mints no such names -- and then no name is ever read as "no name",
     #: because there is no numbering scheme to read it as.
     default_name_note: str | None
+    #: What a reader may do INSTEAD, when `refocus` is refused. Naming a
+    #: command that cannot read this trace is worse than naming none: it
+    #: sends the reader to a second refusal.
+    no_rerun_note: str
     #: Why a frame has no local-variable timeline, and what to do about
     #: it. `{mod}` and `{qualname}` name the site. A language whose
     #: recorder produces no LINE events at all has no `--focus` to
@@ -98,6 +102,9 @@ PYTHON = Terms(
                        "creation order, not identity; name the task in the "
                        "program (asyncio.create_task(..., name=...)) to "
                        "compare it by name"),
+    no_rerun_note=("no rerun was attempted; `sensorium run --focus ...` "
+                   "will record a fresh, UNVERIFIED trace if that is what "
+                   "you want"),
     timeline_hint=("locals need line-level focus; refocus with --focus "
                    "{mod}:{qualname}"),
     interp_key="python",
@@ -115,6 +122,8 @@ RUST = Terms(
     numbered_task_note=("task(s) with no name at all (spawned by dependency "
                         "code), which no name can pick"),
     default_name_note=None,
+    no_rerun_note=("no rerun was attempted; refocus on a Rust trace "
+                   "arrives with rung 4"),
     timeline_hint=("this recorder produces no LINE events at all "
                    "(capabilities.line: false), so there is no per-line "
                    "record to focus"),
@@ -147,6 +156,23 @@ def exit_phrase(meta: dict) -> str:
     `?` is not a status either).
     """
     basis = meta.get("exit_status_basis")
+    core = exit_brief(meta)
+    # The basis is worth a word only where it says something the status does
+    # not: `unwitnessed` already IS the basis, and a trace with no basis key
+    # predates the distinction and must read exactly as it always did.
+    return f"{core} ({basis})" if basis == "waited" else core
+
+
+def exit_brief(meta: dict) -> str:
+    """The same fact without the basis, for the one-line listing.
+
+    `runs` gives every trace one dense row and the basis does not fit in it:
+    `exit:0`, `exit:signal 9`, `exit:unwitnessed`. Nothing is hidden by the
+    shortening -- `unwitnessed` is exactly the case where the basis is the
+    whole answer, and it is the word printed. `info` is where `(waited)`
+    belongs, beside the room to say what it means.
+    """
+    basis = meta.get("exit_status_basis")
     if basis is None:
         return f"{meta.get('exit_status', '?')}"
     if basis != "waited":
@@ -156,8 +182,8 @@ def exit_phrase(meta: dict) -> str:
         return "unwitnessed"
     status = meta.get("exit_status")
     if status is not None:
-        return f"{status} ({basis})"
+        return f"{status}"
     signal = meta.get("exit_signal")
     if signal is not None:
-        return f"signal {signal} ({basis})"
-    return f"? ({basis})"
+        return f"signal {signal}"
+    return "?"
