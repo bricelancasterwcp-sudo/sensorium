@@ -58,7 +58,6 @@ macro_rules! sret {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let name = args.get(1).map(String::as_str).unwrap_or("main-only");
-    install_hook();
     println!("pid {}", std::process::id());
     match name {
         "main-only" => main_only(),
@@ -83,6 +82,18 @@ fn main() {
         "value-empty-debug" => value_empty_debug(),
         "value-truncations" => value_truncations(arg_u32(&args, 2, 3)),
 
+        "panic-caught" => panic_caught_scenario(),
+        "panic-uncaught" => panic_uncaught_scenario(),
+        "panic-non-string" => panic_non_string_scenario(),
+        "panic-long" => panic_long_scenario(),
+
+        "spawn-from-main" => spawn_from_main(),
+        "spawn-empty-named-parent" => spawn_empty_named_parent(),
+        "panic-unrecorded-thread" => panic_unrecorded_thread(),
+        "spawn-grandchild" => spawn_grandchild(),
+        "spawn-value" => spawn_value(),
+        "spawn-panics" => spawn_panics(),
+
         "blocked-main-return" => blocked(arg_u32(&args, 2, 50), End::MainReturn, None),
         "blocked-exit" => blocked(arg_u32(&args, 2, 50), End::Exit, None),
         "blocked-abort" => blocked(arg_u32(&args, 2, 50), End::Abort, None),
@@ -105,19 +116,6 @@ fn main() {
 
 fn arg_u32(args: &[String], i: usize, default: u32) -> u32 {
     args.get(i).and_then(|s| s.parse().ok()).unwrap_or(default)
-}
-
-/// The panic hook Task 3 installs, in the shape it will have: silent for a
-/// panic raised *inside* the instrument (a workspace `Debug` impl that panics
-/// while the recorder is formatting it), the ordinary hook for everything else.
-fn install_hook() {
-    let previous = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {
-        if sensorium_rt::in_runtime() {
-            return;
-        }
-        previous(info);
-    }));
 }
 
 // ---------------------------------------------------------------------------
@@ -197,16 +195,19 @@ fn ret_question_scenario() {
     println!("returned {r:?}");
 }
 
+/// The `panic!` and the `line!()` that reports it are the SAME source line, so
+/// a test compares the hook's location against the source rather than against a
+/// number written down twice. `#[rustfmt::skip]` is what keeps them there.
+#[rustfmt::skip]
 fn panics() -> u8 {
     let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 14);
-    panic!("boom");
+    println!("panic_site {}:{}", file!(), line!()); panic!("boom");
 }
 
+/// No hook of its own: the runtime's hook is the one under test, and the
+/// message the previous hook prints is what E7 compares.
 fn ret_panic_scenario() {
-    let previous = std::panic::take_hook();
-    std::panic::set_hook(Box::new(|_| {}));
     let r = std::panic::catch_unwind(panics);
-    std::panic::set_hook(previous);
     assert!(r.is_err(), "the scenario must actually unwind");
     println!("unwound 1");
 }
@@ -589,4 +590,184 @@ fn unit_ceiling() {
         let _g = enter(&MANY[0], 257);
     }
     println!("attempted 258");
+}
+
+// ---------------------------------------------------------------------------
+// Panics
+// ---------------------------------------------------------------------------
+
+/// An instrumented frame that CATCHES an instrumented frame's panic. The outer
+/// returns a `u8` rather than the `Result` `catch_unwind` handed it: an `Err` at
+/// the exit operand would close the outer frame `err`, and what this arm pins is
+/// that catching a panic leaves the catching frame `ok`.
+fn caught_outer() -> u8 {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 17);
+    let caught = std::panic::catch_unwind(panicking_inner).is_err();
+    sret!(17, u8::from(caught))
+}
+
+#[rustfmt::skip]
+fn panicking_inner() -> u8 {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 16);
+    println!("panic_site {}:{}", file!(), line!()); panic!("caught boom");
+}
+
+fn panic_caught_scenario() {
+    println!("caught {}", caught_outer());
+}
+
+#[rustfmt::skip]
+fn panics_uncaught() -> u8 {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 18);
+    println!("panic_site {}:{}", file!(), line!()); panic!("uncaught boom");
+}
+
+/// Unwinds out of `main`: the thread-local destructor still runs, so the spool
+/// still ends with `THREAD_END`, and the process still exits 101.
+fn panic_uncaught_scenario() {
+    std::hint::black_box(panics_uncaught());
+}
+
+/// A payload that is neither `&str` nor `String`.
+#[rustfmt::skip]
+fn panics_with_a_number() -> u8 {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 19);
+    println!("panic_site {}:{}", file!(), line!()); std::panic::panic_any(7u32);
+}
+
+fn panic_non_string_scenario() {
+    let r = std::panic::catch_unwind(panics_with_a_number);
+    assert!(r.is_err(), "the scenario must actually unwind");
+    println!("unwound 1");
+}
+
+/// A message far past the hook's cap, in three-byte characters so a cut that
+/// did not step back to a char boundary would not be UTF-8.
+fn panics_at_length() -> u8 {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 26);
+    let msg = "\u{20ac}".repeat(2000);
+    println!("msg_bytes {}", msg.len());
+    panic!("{msg}");
+}
+
+fn panic_long_scenario() {
+    let r = std::panic::catch_unwind(panics_at_length);
+    assert!(r.is_err(), "the scenario must actually unwind");
+    println!("unwound 1");
+}
+
+// ---------------------------------------------------------------------------
+// spawn_child
+// ---------------------------------------------------------------------------
+
+/// The site strings the transformer bakes at a rewritten `std::thread::spawn`:
+/// `"<workspace-relative file>:<line>"`.
+const SITE_CHILD: &str = concat!(file!(), ":", line!());
+const SITE_GRANDCHILD: &str = concat!(file!(), ":", line!());
+const SITE_VALUE: &str = concat!(file!(), ":", line!());
+const SITE_PANIC: &str = concat!(file!(), ":", line!());
+
+/// libtest's shape: it names the thread it runs a `#[test]` on with the test's
+/// own path, and a thread that test spawns is what rung 1 found unnamed.
+const WORKER: &str = "sensorium_rt::tests::worker";
+
+/// A child of the MAIN thread. Main is not a task, so the child's name is its
+/// site alone -- no `main :: ` prefix.
+fn spawn_from_main() {
+    // `main` is instrumented too, so the main thread has a spool of its own to
+    // be unnamed-as-a-task in.
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 206);
+    println!("site {SITE_CHILD}");
+    let h = sensorium_rt::spawn_child(SITE_CHILD, || {
+        let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 200);
+        // The OS thread name is std's own -- `spawn_child` names the TASK, in a
+        // thread-local of its own, and a child of `std::thread::spawn` has no OS
+        // name. An implementation that reached for `Builder::name` instead would
+        // be changing something the program itself can see.
+        println!(
+            "child_os_name {}",
+            std::thread::current().name().unwrap_or("<none>")
+        );
+    });
+    h.join().expect("join");
+}
+
+/// A parent whose OS name is the empty string. An empty name is no name: the
+/// header writes an unnamed thread as zero bytes, so a derived `" :: spawn@..."`
+/// would name a parent no reader could ever see.
+fn spawn_empty_named_parent() {
+    println!("site {SITE_CHILD}");
+    std::thread::Builder::new()
+        .name(String::new())
+        .spawn(|| {
+            let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 208);
+            let child = sensorium_rt::spawn_child(SITE_CHILD, || {
+                let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 209);
+            });
+            child.join().expect("join the child");
+        })
+        .expect("spawn")
+        .join()
+        .expect("join the empty-named parent");
+}
+
+/// A thread that panics having recorded NOTHING. The hook opens no spool -- that
+/// is what makes it unable to fail, and so unable to abort a panicking process
+/// (`src/panic.rs`) -- so this thread leaves no file at all.
+fn panic_unrecorded_thread() {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 210);
+    let h = std::thread::spawn(|| panic!("orphan boom"));
+    h.join().expect_err("the child must have panicked");
+    println!("survived 1");
+}
+
+/// A named thread, its child and its grandchild: three names, two `::` joins.
+fn spawn_grandchild() {
+    println!("site_child {SITE_CHILD}");
+    println!("site_grandchild {SITE_GRANDCHILD}");
+    println!("parent {WORKER}");
+    std::thread::Builder::new()
+        .name(WORKER.to_owned())
+        .spawn(|| {
+            let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 201);
+            let child = sensorium_rt::spawn_child(SITE_CHILD, || {
+                let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 202);
+                let grandchild = sensorium_rt::spawn_child(SITE_GRANDCHILD, || {
+                    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 203);
+                });
+                grandchild.join().expect("join the grandchild");
+            });
+            child.join().expect("join the child");
+        })
+        .expect("spawn")
+        .join()
+        .expect("join the worker");
+}
+
+/// The handle is std's own: it carries the closure's value back.
+fn spawn_value() {
+    let h = sensorium_rt::spawn_child(SITE_VALUE, || {
+        let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 204);
+        41u32
+    });
+    println!("joined {}", h.join().expect("join"));
+}
+
+/// And it re-raises the child's panic, payload unchanged, without touching the
+/// thread that joined.
+fn spawn_panics() {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 207);
+    println!("site {SITE_PANIC}");
+    let h = sensorium_rt::spawn_child(SITE_PANIC, || {
+        let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 205);
+        panic!("child boom");
+    });
+    let payload = h.join().expect_err("the child must have panicked");
+    let msg = payload
+        .downcast_ref::<&str>()
+        .copied()
+        .unwrap_or("<not a &str>");
+    println!("join_msg {msg}");
+    println!("join_err 1");
+    println!("survived 1");
 }

@@ -189,6 +189,34 @@ pub(crate) fn note_truncated() {
     });
 }
 
+/// Append one record to a spool this thread ALREADY has, opening nothing.
+///
+/// The panic hook's writer, and the reason it cannot panic: opening a spool can
+/// fail, and reporting that failure prints -- which, on a thread that is already
+/// panicking, would be a second panic and an abort. A thread that never recorded
+/// an event has no frame for a PANIC record to close, so this is not a record
+/// lost so much as one there was nothing to attach.
+pub(crate) fn emit_if_open(site: u32, kind: u8, outcome: u8, payload: &[u8]) -> bool {
+    SPOOL
+        .try_with(|cell| {
+            let Ok(mut slot) = cell.try_borrow_mut() else {
+                return false;
+            };
+            let Some(spool) = slot.as_mut() else {
+                return false;
+            };
+            spool.record(
+                crate::next_seq(),
+                ffi::now_ns(),
+                site,
+                kind,
+                outcome,
+                payload,
+            )
+        })
+        .unwrap_or(false)
+}
+
 /// Append one record to this thread's spool, opening it on first use. Returns
 /// false if nothing was written.
 pub(crate) fn emit(dir: &Path, site: u32, kind: u8, outcome: u8, payload: &[u8]) -> bool {
@@ -199,7 +227,7 @@ pub(crate) fn emit(dir: &Path, site: u32, kind: u8, outcome: u8, payload: &[u8])
             };
             if slot.is_none() {
                 let serial = serial();
-                let name = std::thread::current().name().unwrap_or("").to_owned();
+                let name = crate::tasks::header_name();
                 let truncated = TRUNCATED.try_with(|c| c.get()).unwrap_or(0);
                 match Spool::open(dir, std::process::id(), serial, &name, truncated) {
                     Ok(s) => *slot = Some(s),

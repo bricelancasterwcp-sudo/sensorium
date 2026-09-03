@@ -19,6 +19,8 @@
 //! site:         unit_id in bits 31..24, site index in bits 23..0
 //! RETURN payload:  u8 tag (0 = no value, 1 = debug text follows, 2 = unread)
 //!                  u8 truncated(0|1) then UTF-8 text
+//! PANIC payload:   u16 loc_len, loc UTF-8 ("<file>:<line>:<col>" as the hook saw it),
+//!                  then the message UTF-8 (rest)
 //! ```
 #![allow(dead_code)]
 
@@ -206,6 +208,30 @@ impl Record {
         let text = String::from_utf8(self.payload[2..].to_vec())
             .unwrap_or_else(|e| panic!("RETURN text is not UTF-8: {e}"));
         (tag, trunc == 1, text)
+    }
+
+    /// `(location, message)` of a PANIC payload. The length field covers the
+    /// location only; the message is whatever is left, so a message that
+    /// contains no length of its own cannot be confused for one.
+    pub fn panic_value(&self) -> (String, String) {
+        assert_eq!(self.kind, KIND_PANIC, "panic_value on a non-PANIC record");
+        assert!(
+            self.payload.len() >= 2,
+            "a PANIC payload is at least its u16 loc_len, got {:?}",
+            self.payload
+        );
+        let loc_len = u16::from_le_bytes(self.payload[0..2].try_into().unwrap()) as usize;
+        let end = 2 + loc_len;
+        assert!(
+            end <= self.payload.len(),
+            "loc_len {loc_len} runs past the {}-byte payload",
+            self.payload.len()
+        );
+        let loc = String::from_utf8(self.payload[2..end].to_vec())
+            .unwrap_or_else(|e| panic!("PANIC location is not UTF-8: {e}"));
+        let msg = String::from_utf8(self.payload[end..].to_vec())
+            .unwrap_or_else(|e| panic!("PANIC message is not UTF-8: {e}"));
+        (loc, msg)
     }
 }
 

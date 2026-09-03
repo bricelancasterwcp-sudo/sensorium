@@ -32,7 +32,8 @@
 //!     ::sensorium_rt::Unit::new("<-C metadata hash>");
 //! ```
 //!
-//! Environment, read once per process on the first `enter`:
+//! Environment, read once per process on the first instrumented event -- an
+//! `enter`, or a `spawn_child` that beats every `enter` to it:
 //!
 //! * `SENSORIUM_SPOOL` -- the spool directory. Unset or empty: the runtime is
 //!   inert. Nothing is created, nothing is written, nothing is allocated.
@@ -40,6 +41,11 @@
 //!   other value is refused with one stderr line and the runtime stays inert:
 //!   recording a tier the caller did not ask for would put dishonest data in
 //!   the trace.
+//!
+//! **The panic hook** is installed by the first `enter` that records, not by
+//! `init`: it chains to whatever hook was in place, so a panicking program
+//! prints exactly what it would have printed with no recorder linked in
+//! (`src/panic.rs`).
 //!
 //! **The inert path.** `enter`'s first arm is one `Acquire` load, one compare
 //! and the guard value -- no call, no branch on anything else, no allocation.
@@ -59,10 +65,14 @@ compile_error!(
 );
 
 mod ffi;
+mod panic;
 pub mod probe;
 mod sha256;
 mod spool;
+mod tasks;
 mod thread;
+
+pub use tasks::spawn_child;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU16, AtomicU64, AtomicU8, Ordering};
@@ -348,6 +358,23 @@ pub fn enter(unit: &'static Unit, site: u32) -> Guard {
     }
 }
 
+/// True when this process is recording, initialising it if nothing has yet.
+///
+/// `spawn_child` reads it: a rewritten spawn site is inside an instrumented
+/// function, so an `enter` has all but always run first -- but the name a child
+/// carries must not depend on which of the two the process happened to reach
+/// first.
+pub(crate) fn recording() -> bool {
+    match STATE.load(Ordering::Acquire) {
+        STATE_CALL => true,
+        STATE_UNINIT => {
+            init();
+            STATE.load(Ordering::Acquire) == STATE_CALL
+        }
+        _ => false,
+    }
+}
+
 #[cold]
 fn enter_cold(unit: &'static Unit, site: u32, state: u8) -> Guard {
     if state != STATE_UNINIT {
@@ -367,6 +394,9 @@ fn enter_recording(unit: &'static Unit, site: u32) -> Guard {
     let Some(_scope) = thread::try_enter_runtime() else {
         return Guard::inert();
     };
+    // Before the CALL: from here on, a panic that crosses this frame has a hook
+    // to write its PANIC record. One `Once::is_completed` load once it is in.
+    panic::install();
     let Some(dir) = ensure_dir() else {
         return Guard::inert();
     };
