@@ -64,8 +64,31 @@ WRAPPED_EXPECTED="abort_child app_bin blocked e7 nested_panic probe_app probe_co
 # `mod.rs`, a non-mod-rs file module, a `#[path]` inside an inline module, a
 # sibling file), and a walk that regressed on any of them would go silently
 # unreached behind a check that only asked whether `maybe.rs` was in the list.
+# Two UNITS declare it, by (crate_name, crate_type): probe-app's plain lib
+# target and its `--test` (unit test binary) target both walk src/lib.rs's
+# module tree and both reach the `#[cfg_attr(.., path = ..)]` module the
+# wrapper cannot evaluate. The other ten units in the wrapped set never see
+# it: the seven integration tests and app_bin's own crate root are not
+# src/lib.rs, and probe-core's two units have no such module at all.
+#
+# `EXPECTED_UNREACHED_MANIFESTS` counts (crate_name, crate_type) pairs, not
+# raw manifest FILES, on purpose: `-C metadata` is scoped to one cargo
+# invocation (feature unification is invocation-shape-dependent), so
+# probe-app's plain-lib target can legitimately compile under a DIFFERENT
+# metadata hash in `--no-run` (E8), `--doc`, and `--all-targets` ("one
+# recorded invocation") builds within this SAME script run -- each writes
+# its OWN manifest FILE (metadata is the filename) to the one `$MANIFESTS`
+# directory, cleared only once, at the top of the run. On a target whose
+# cargo fingerprint cache is warm, TWO of those three builds were measured
+# to disagree (findings recorded in the fix report): 3 FILES for probe-app's
+# lib, all declaring the same source-code fact about the same source file,
+# from what is conceptually one unit. Counting FILES read that as a third
+# unit; `trace.sh`'s manifest readers below count DISTINCT
+# (crate_name, crate_type) pairs instead, which a fresh target (where the
+# three builds happen to agree) and a warm one (where they do not) both
+# report identically -- the number this pin states.
 EXPECTED_UNREACHED="probe-app/src/maybe.rs"
-EXPECTED_UNREACHED_MANIFESTS=3
+EXPECTED_UNREACHED_MANIFESTS=2
 
 TOOL_TARGET="${CARGO_TARGET_DIR:-$RUST/target}"
 DRIVER="$TOOL_TARGET/release/cargo-sensorium"
@@ -592,7 +615,7 @@ check_eq "exactly_the_expected_units_are_wrapped" "$NAMES" "$WRAPPED_EXPECTED"
 # The manifest flag catches a unit rustc rejected; it does NOT catch a unit the
 # WRAPPER failed on before it could write or patch a manifest, so the build logs
 # are read for the one line the wrapper prints (`rust/HONESTY.md` §8).
-FELL_MANIFESTS="$(grep -l '"fell_back":true' "$MANIFESTS"/*.json 2>/dev/null | wc -l || true)"
+FELL_MANIFESTS="$(fell_back_manifests "$MANIFESTS")"
 FELL_LOG="$(cat "$LOGS"/plain*.log "$LOGS"/instr*.log "$LOGS/doc-call.log" "$LOGS/record.log" "$LOGS/record-lib.log" 2>/dev/null |
   grep -c 'fell back to the real tree' || true)"
 note "[fallbacks] manifests flagged: $FELL_MANIFESTS   build-log lines: $FELL_LOG"

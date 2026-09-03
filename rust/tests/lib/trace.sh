@@ -145,12 +145,33 @@ PY
 # A blind spot only counts as declared if it is IN a manifest, so the count of
 # manifests carrying one is reported beside the paths: a walk that reached
 # everything and a walk whose declaration was dropped both print no paths.
+#
+# Counted per (crate_name, crate_type), not per manifest FILE: `-C metadata`
+# is scoped to ONE cargo invocation (feature unification is invocation-shape-
+# dependent), so the SAME crate's target can legitimately compile under a
+# DIFFERENT metadata hash in the several cargo invocations one mechanics.sh
+# run performs (E8's `--no-run`, the doctest's `--doc`, "one recorded
+# invocation"'s `--all-targets`) -- each writing its OWN manifest FILE to the
+# one `$MANIFESTS` directory, which is cleared once, at the top of the run,
+# not between builds. Two files with different metadata but the same
+# (crate_name, crate_type) are the SAME unit, read twice; grouping first is
+# what makes this reader agree with itself on a fresh target (where those
+# invocations happen to compute the same hash) and a warm one (where they do
+# not, measured: 3 files for probe-app's lib on a warm target, findings
+# recorded in the task-9 fix report) rather than reporting a target-dependent
+# number for a fact that is only about the source code.
 unreached_files() {
   python3 - "$1" <<'PY'
 import glob, json, sys
-declaring, paths = 0, set()
+by_pair = {}
 for f in glob.glob(sys.argv[1] + "/*.json"):
-    listed = json.load(open(f)).get("unreached_files") or []
+    m = json.load(open(f))
+    by_pair.setdefault((m["crate_name"], m["crate_type"]), []).append(m)
+declaring, paths = 0, set()
+for manifests in by_pair.values():
+    listed = set()
+    for m in manifests:
+        listed.update(m.get("unreached_files") or [])
     if listed:
         declaring += 1
         paths.update(listed)
@@ -158,12 +179,31 @@ print("%d %s" % (declaring, " ".join(sorted(paths)) or "-"))
 PY
 }
 
-# <manifests dir> — the crate names that were handed to the wrapper.
+# <manifests dir> — the crate names that were handed to the wrapper. Already
+# a set of NAMES, so the (crate_name, crate_type) duplication `unreached_files`
+# guards against cannot inflate this one -- two manifest files for probe-app's
+# lib, under two metadata hashes, are one name either way.
 wrapped_crates() {
   python3 - "$1" <<'PY'
 import glob, json, sys
 names = sorted({json.load(open(f))["crate_name"] for f in glob.glob(sys.argv[1] + "/*.json")})
 print(" ".join(names))
+PY
+}
+
+# <manifests dir> — how many DISTINCT units (by (crate_name, crate_type),
+# `unreached_files`'s reasoning) are flagged `fell_back:true` on ANY of their
+# manifest files (`rust/HONESTY.md` §8's manifest-side channel).
+fell_back_manifests() {
+  python3 - "$1" <<'PY'
+import glob, json, sys
+by_pair = {}
+for f in glob.glob(sys.argv[1] + "/*.json"):
+    m = json.load(open(f))
+    by_pair.setdefault((m["crate_name"], m["crate_type"]), []).append(m)
+n = sum(1 for manifests in by_pair.values()
+        if any(m.get("fell_back") for m in manifests))
+print(n)
 PY
 }
 
@@ -174,14 +214,21 @@ PY
 # units of the same crate root, and the loser reads as a healthy build — which
 # is how rung 1 met this (findings §5.22). `checked` is asserted greater than
 # zero because a walk that examined nothing reports no bad units either
-# (findings §5.29).
+# (findings §5.29). One manifest per (crate_name, crate_type)
+# (`unreached_files`'s reasoning, `sorted()` making the pick deterministic
+# when more than one metadata hash exists for it): checking a crate root
+# against its own mirror entry twice, once per duplicate manifest, inflates
+# `checked` without testing anything a single check did not already cover.
 unit_identity() {
   python3 - "$1" "$2" <<'PY'
 import glob, json, os, sys
 mdir, mirror = sys.argv[1], sys.argv[2]
-bad, checked = [], 0
+by_pair = {}
 for f in sorted(glob.glob(mdir + "/*.json")):
     m = json.load(open(f))
+    by_pair.setdefault((m["crate_name"], m["crate_type"]), m)
+bad, checked = [], 0
+for m in by_pair.values():
     for rel in sorted(m["files"]):
         path = os.path.join(mirror, m["unit"], rel)
         if not os.path.exists(path):
