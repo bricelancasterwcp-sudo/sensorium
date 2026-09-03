@@ -76,7 +76,9 @@ payload as `{"outcome": "ok" | "err" | "panic" | "none"}`.
   **A frame can still close `panic` with no PANIC record to take it from**, and
   it is not a lookup failure: the program installed its own hook *after* ours
   (ours is gone; the program's own output is unaffected either way), or the
-  thread's spool had gone inert and could not accept the hook's record (§4).
+  thread's spool had gone inert and could not accept the hook's record (§4)
+  (reasoned from `emit_if_open` → `Spool::record` refusing on `broken`; not
+  exercised by a test in this wave).
   Then the converter writes `unwind_exc` as `{"type": "panic"}` with `"msg"` set
   to `"<panic message not recorded: no PANIC record preceded this unwind>"`, and
   counts the frame in the meta key `panics_unrecorded`. So a reader sees
