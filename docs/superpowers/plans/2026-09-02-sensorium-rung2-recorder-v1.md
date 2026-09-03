@@ -166,7 +166,7 @@ record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome  u16 payload_len
 kind:         0 = UNWRITTEN (the mapped tail; the reader STOPS at the first kind 0), 1 = CALL, 2 = RETURN,
               3 = PANIC, 255 = THREAD_END
 outcome:      RETURN only: 0 none, 1 ok, 2 err, 3 panic; 0 on every other kind
-site:         unit_id in bits 31..24, site index in bits 23..0
+site:         unit_id in bits 31..24, site index in bits 23..0; 0 on PANIC and THREAD_END (no site applies)
 RETURN payload:  u8 tag (0 = no value, 1 = debug text follows, 2 = unread) u8 truncated(0|1) then UTF-8 text
 PANIC payload:   u16 loc_len, loc UTF-8 ("<file>:<line>:<col>" as the hook saw it), then the message UTF-8 (rest)
 write order:  every field of a record except `kind` first, then `kind` with a Release store -- a record is
@@ -204,7 +204,7 @@ proc header:  <SENSORIUM_SPOOL>/<pid>.proc.json  written at the process's first 
 - Create: `rust/sensorium-rt/src/{panic.rs, tasks.rs}`; tests `rust/sensorium-rt/tests/{panics.rs, spawn.rs}`; extend `scenario.rs`
 
 **Interfaces (exact):**
-- `pub fn spawn_child<F, T>(site: &'static str, f: F) -> std::thread::JoinHandle<T> where F: FnOnce() -> T + Send + 'static, T: Send + 'static` — reads the current thread's task name (the thread-local override if set, else `std::thread::current().name()`, else none), then `std::thread::spawn(move || { set_task_name(<derived>); f() })` where `<derived>` = `"<parent name> :: spawn@<site>"` when the parent has a name and `"spawn@<site>"` otherwise. The JoinHandle, panic propagation and the child's OS thread name are unchanged.
+- `pub fn spawn_child<F, T>(site: &'static str, f: F) -> std::thread::JoinHandle<T> where F: FnOnce() -> T + Send + 'static, T: Send + 'static` — reads the current thread's task name (the thread-local override if set, else `std::thread::current().name()`, else none), then `std::thread::spawn(move || { set_task_name(<derived>); f() })` where `<derived>` = `"<parent task name> :: spawn@<site>"` when the parent has a TASK name — the override, or the OS thread name of a NON-main thread — and `"spawn@<site>"` otherwise. The main thread is not a task even though std names it `"main"`, so a child of main is `"spawn@<site>"` (ruling, Task 3 concern 1). The JoinHandle, panic propagation and the child's OS thread name are unchanged.
 - The spool header's `name` is the task name: the override when set, else the OS thread name, else empty.
 - Panic hook: installed once at init via `std::panic::take_hook`/`set_hook`; ours writes one PANIC record (message from `payload().downcast_ref::<&str>()` / `<String>`, else `"<non-string payload>"`; location from `PanicHookInfo::location()`), then calls the previous hook so every byte of output is unchanged. While the thread is inside the runtime (depth > 0) the hook records nothing and does not chain (a `Debug` impl that panics inside the instrument is silent).
 - The panic serial is per thread, minted at each PANIC record; the converter attaches the most recent PANIC on the thread to every frame that then closes `panic`.
