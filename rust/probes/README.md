@@ -46,7 +46,7 @@ probes/
     │           └── leaf.rs         child of a mod.rs — BESIDE it, not under sub/sub/
     └── probe-app/
         ├── src/
-        │   ├── lib.rs              crate root; libc; an inline mod; the check bodies
+        │   ├── lib.rs              crate root; an inline mod; the check bodies
         │   ├── deep.rs             a NON-mod-rs file …
         │   ├── deep/inner.rs       … whose children live under its stem
         │   ├── nested/nested_child.rs   #[path] inside an inline mod
@@ -71,10 +71,13 @@ probes/
   `probes/ext` makes "not a member" a property of the layout rather than of an
   `exclude` list. No manifest may ever be written for it: cargo never hands a
   non-member to the wrapper.
-- **`probe-app` depends on `libc`.** So the unit the wrapper links
-  `sensorium_rt` into already has a `libc` in its graph, at a *different*
-  `-C metadata` from the one the runtime was built against. Whether two `libc`
-  crates coexist in one unit is measured here, not assumed.
+- **No registry dependency.** The probe carried `libc` so that a unit the
+  wrapper links `sensorium_rt` into already had a `libc` in its graph at a
+  different `-C metadata` — rung 1's open question. Plan decision D1 closed it
+  by construction (`sensorium-rt` has no dependencies and is built by one bare
+  rustc invocation), so the second `libc` cannot exist and the dependency only
+  cost every CI run a network round trip. `probe-ext` still covers "a crate
+  cargo compiles and the wrapper never sees".
 - **`sensorium-rt` is NOT a dependency.** Linkage is the wrapper's job; a
   declared dependency would make the measurement circular and would put the
   runtime in `Cargo.lock`.

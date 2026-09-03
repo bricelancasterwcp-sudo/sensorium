@@ -29,17 +29,32 @@ show_counts() {
   note "[$1] Compiling: $(compiled "$2")| Fresh: $(freshset "$2")"
 }
 
-# <log> — a plain `cargo test --no-run -v`, no recorder anywhere near it.
-plain_build() {
-  ( cd "$WS" && env -u RUSTC_WORKSPACE_WRAPPER -u RUSTDOCFLAGS \
-      CARGO_TARGET_DIR="$PROBE_TARGET" cargo test --no-run -v ) >"$1" 2>&1
+# <ws> <target> <log> [extra cargo args…] — a plain `cargo test --no-run` of
+# any workspace, with no recorder anywhere near it.
+plain_build_at() {
+  local ws="$1" target="$2" log="$3"
+  shift 3
+  ( cd "$ws" && env -u RUSTC_WORKSPACE_WRAPPER -u RUSTDOCFLAGS \
+      CARGO_TARGET_DIR="$target" cargo test --no-run "$@" ) >"$log" 2>&1
 }
 
-# <log> — the same build through the driver.
+# <ws> <target> <traces dir> <log> [extra cargo args…] — the same, through the
+# driver. The traces directory is an argument because every recording this
+# script makes goes somewhere fresh, never into the box's own trace store.
+instr_build_at() {
+  local ws="$1" target="$2" traces="$3" log="$4"
+  shift 4
+  ( cd "$ws" && env -u RUSTC_WORKSPACE_WRAPPER -u RUSTDOCFLAGS \
+      CARGO_TARGET_DIR="$target" SENSORIUM_DIR="$traces" \
+      "$DRIVER" sensorium test --no-run "$@" ) >"$log" 2>&1
+}
+
+# <log> — the probe workspace, plain, `-v` so E8 can count what cargo did.
+plain_build() { plain_build_at "$WS" "$PROBE_TARGET" "$1" -v; }
+
+# <log> — the probe workspace, instrumented.
 instr_build() {
-  ( cd "$WS" && env -u RUSTC_WORKSPACE_WRAPPER -u RUSTDOCFLAGS \
-      CARGO_TARGET_DIR="$PROBE_TARGET" SENSORIUM_DIR="$SCRATCH_DIR/traces-norun" \
-      "$DRIVER" sensorium test --no-run -v ) >"$1" 2>&1
+  instr_build_at "$WS" "$PROBE_TARGET" "$SCRATCH_DIR/traces-norun" "$1" -v
 }
 
 # <check> <log> <build rc> <expected compiled> <expected fresh>

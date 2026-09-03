@@ -379,9 +379,31 @@ fn go(args: &[String]) -> Result<i32, String> {
 }
 
 /// `RUSTDOCFLAGS` for the doctest units, preserving the user's own.
+///
+/// **Both flags, and `-L dependency` is not belt and braces.** For the WRAPPER
+/// (plain rustc) a bare `--extern sensorium_rt=<rlib>` is enough, and plan
+/// decision D1 says so. rustdoc is a different case and was measured to be
+/// one (2026-09-03, rustc 1.96, `rust/tests/mechanics.sh` on the probe): the
+/// doctest crate does not name `sensorium_rt`, it depends on a workspace rlib
+/// that does, and rustdoc resolves a TRANSITIVE crate through the search path
+/// rather than through the extern map. With `--extern` alone every doctest
+/// fails `error[E0463]: can't find crate for 'sensorium_rt'`; with
+/// `-L dependency=<the rlib's directory>` alone it passes. Both are sent, so
+/// the direct name is bound as well as findable.
+///
+/// The directory holds exactly one rlib -- the runtime is built there by one
+/// bare rustc invocation and has no dependencies (D1) -- so there is no
+/// "multiple candidates" hazard in putting it on the search path.
+///
+/// The user's own `RUSTDOCFLAGS` come FIRST and are never replaced.
 #[must_use]
 pub fn rustdoc_flags(rlib: &Path) -> String {
-    let mine = format!("--extern sensorium_rt={}", rlib.display());
+    let dir = rlib.parent().unwrap_or_else(|| Path::new("."));
+    let mine = format!(
+        "--extern sensorium_rt={} -L dependency={}",
+        rlib.display(),
+        dir.display()
+    );
     match std::env::var("RUSTDOCFLAGS") {
         Ok(existing) if !existing.trim().is_empty() => format!("{existing} {mine}"),
         _ => mine,
@@ -642,14 +664,44 @@ mod tests {
         );
     }
 
+    /// Both flags, in that order, and the user's own in front of both.
+    ///
+    /// One test, not two, because `rustdoc_flags` reads `RUSTDOCFLAGS` and the
+    /// environment is per PROCESS while libtest runs tests in threads: a second
+    /// test that set the variable would race a first that expected it unset.
+    /// Splitting them was tried and the mutation run caught the race, which is
+    /// why this comment exists instead of the split.
     #[test]
-    fn rustdoc_flags_carry_the_extern_and_nothing_else() {
-        // No `-L dependency`: the runtime has no dependencies to find (D1).
-        let f = rustdoc_flags(Path::new("/t/rt/abc/unwind/libsensorium_rt.rlib"));
-        assert_eq!(
-            f,
-            "--extern sensorium_rt=/t/rt/abc/unwind/libsensorium_rt.rlib"
-        );
+    fn rustdoc_flags_carry_the_extern_and_the_search_path_after_the_users_own() {
+        const RLIB: &str = "/t/rt/abc/unwind/libsensorium_rt.rlib";
+        const OURS: &str = "--extern sensorium_rt=/t/rt/abc/unwind/libsensorium_rt.rlib \
+                            -L dependency=/t/rt/abc/unwind";
+        let key = "RUSTDOCFLAGS";
+        let restore = std::env::var(key).ok();
+        // SAFETY (test-only): no other thread in this test binary reads or
+        // writes RUSTDOCFLAGS -- `rustdoc_flags` is the only reader and this is
+        // its only test.
+        unsafe {
+            std::env::remove_var(key);
+        }
+        // rustdoc resolves `sensorium_rt` as a TRANSITIVE dependency of a
+        // workspace rlib, which goes through the search path and not the extern
+        // map: `--extern` alone fails E0463 (measured -- see `rustdoc_flags`).
+        let bare = rustdoc_flags(Path::new(RLIB));
+        unsafe {
+            std::env::set_var(key, "--cfg docsrs");
+        }
+        let appended = rustdoc_flags(Path::new(RLIB));
+        unsafe {
+            match restore {
+                Some(v) => std::env::set_var(key, v),
+                None => std::env::remove_var(key),
+            }
+        }
+        assert_eq!(bare, OURS);
+        // The order is the promise: a flag the user set is never overridden by
+        // one of ours.
+        assert_eq!(appended, format!("--cfg docsrs {OURS}"));
     }
 
     #[test]

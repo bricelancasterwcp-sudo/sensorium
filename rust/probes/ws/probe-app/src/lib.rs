@@ -28,11 +28,12 @@ pub mod nested {
 #[cfg_attr(windows, path = "maybe_windows.rs")]
 pub mod maybe;
 
-/// The process id, straight from libc: the probe's own libc use.
+/// This process's id. `spawn_bin.rs` and `abort_child.rs` are what actually
+/// exercise child processes; this is here so the lib unit has one fn whose
+/// value is decided by the OS rather than by the source.
 #[must_use]
-pub fn probe_pid() -> i32 {
-    // SAFETY: `getpid` takes no arguments and cannot fail.
-    unsafe { libc::getpid() }
+pub fn probe_pid() -> u32 {
+    std::process::id()
 }
 
 #[must_use]
@@ -81,11 +82,10 @@ pub fn panic_inner(label: &str) -> u32 {
 /// Never: the inner panic is caught here.
 #[must_use]
 pub fn catch_inner_panic(label: &str) -> u32 {
-    let caught = std::panic::catch_unwind(|| panic_inner(label));
-    match caught {
-        Ok(value) => value,
-        Err(_) => 7,
-    }
+    // 7 is what a CAUGHT panic returns, and it is the value the trace check
+    // reads back off this frame's RETURN: an `ok` outcome carrying 7 beside an
+    // inner frame that closed `unwind` is what tells the two apart.
+    std::panic::catch_unwind(|| panic_inner(label)).unwrap_or(7)
 }
 
 /// Instrumented work, a handshake, and then a wait that never ends.

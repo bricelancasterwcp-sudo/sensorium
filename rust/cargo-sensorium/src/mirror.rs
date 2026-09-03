@@ -27,6 +27,11 @@
 //!    directory cannot un-instrument the first.
 //! 3. **Idempotent.** A rewrite whose source and tool hash are unchanged is not
 //!    written again, so its mtime does not move and cargo stays incurious.
+//! 4. **A rewrite that stops being one is undone.** A file this run does not
+//!    rewrite -- because it stopped parsing, or left the unit's module tree --
+//!    becomes the symlink to the original again and loses its cache stamp.
+//!    Keeping the old bytes made an instrumented build compile source a plain
+//!    build rejects, in a build that exited 0 (measured 2026-09-03).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -122,11 +127,20 @@ fn sync_dir(
         if rewritten.contains_key(child_rel.as_str()) {
             continue; // written as a real file below
         }
-        // A rewrite this unit's EARLIER run materialised. Symlinking over it
-        // would silently un-instrument it; the cache stamp is the record that
-        // a real file was put there on purpose.
-        if cache.join(sha256::hex(child_rel.as_bytes())).exists() {
-            continue;
+        // This unit does NOT rewrite this file in this run. If an earlier run
+        // did, the mirror still holds that run's bytes -- so the stale rewrite
+        // is replaced by the symlink below and its cache stamp goes with it.
+        //
+        // Leaving it was a real defect, measured 2026-09-03 on the probe: make
+        // one file unparseable and the wrapper honestly records it in
+        // `unreached_files`, but rustc never sees the broken bytes because the
+        // mirror still holds the last rewrite -- the instrumented build exits 0
+        // over source a plain build rejects with "unclosed delimiter". Nothing
+        // is un-instrumented by dropping the stamp: a file this run DOES
+        // rewrite took the `continue` above and is written by `write_rewrite`.
+        let stamp = cache.join(sha256::hex(child_rel.as_bytes()));
+        if stamp.exists() {
+            fs::remove_file(&stamp)?;
         }
         let is_dir = entry.file_type()?.is_dir();
         let already_real_dir = matches!(fs::symlink_metadata(&child_mirror), Ok(m) if m.is_dir());
@@ -405,8 +419,20 @@ mod tests {
         assert!(fs::symlink_metadata(t.p("mirror/.git")).is_err());
     }
 
+    /// A symlinked directory becomes real when a rewrite lands under it, and a
+    /// directory that was made real stays real (rule 2) — while a FILE the unit
+    /// no longer rewrites goes back to the original (rule 4).
+    ///
+    /// This test used to assert the opposite of that last line: that
+    /// `a/src/lib.rs` still read the earlier run's `"A\n"`. That was rung 1's
+    /// invariant, when one mirror was shared by every unit and a second unit's
+    /// `materialise` had to not clobber the first's rewrites. Mirrors are per
+    /// unit now (findings §5.22, plan decision D2), so two units never meet in
+    /// one mirror and the only way a file can leave a rewrite set is that THIS
+    /// unit stopped rewriting it — in which case keeping the old bytes is the
+    /// defect, not the invariant.
     #[test]
-    fn a_later_rewrite_upgrades_a_symlinked_directory_without_losing_the_first() {
+    fn a_later_rewrite_upgrades_a_symlinked_directory() {
         let t = Tmp::new("upgrade");
         fixture(&t);
         run(&t, &[rewrite("a/src/lib.rs", "A\n", "fn a() {}\n")], "t1");
@@ -418,13 +444,21 @@ mod tests {
             fs::read_to_string(t.p("mirror/b/src/lib.rs")).unwrap(),
             "B\n"
         );
+        // Rule 2: the directory an earlier rewrite made real stays real, so a
+        // later rewrite under it is still possible.
+        assert!(fs::symlink_metadata(t.p("mirror/a/src")).unwrap().is_dir());
+        // Rule 4: the file itself is the original again, and its stamp is gone.
+        assert!(
+            fs::symlink_metadata(t.p("mirror/a/src/lib.rs"))
+                .unwrap()
+                .is_symlink(),
+            "a rewrite this unit no longer has must not survive as a real file"
+        );
         assert_eq!(
             fs::read_to_string(t.p("mirror/a/src/lib.rs")).unwrap(),
-            "A\n"
+            "fn a() {}\n"
         );
-        assert!(!fs::symlink_metadata(t.p("mirror/a/src/lib.rs"))
-            .unwrap()
-            .is_symlink());
+        assert!(!t.p("cache").join(sha256::hex(b"a/src/lib.rs")).exists());
     }
 
     #[test]
@@ -476,6 +510,72 @@ mod tests {
         fs::remove_file(t.p("ws/a/src/other.rs")).unwrap();
         run(&t, &[rewrite("a/src/lib.rs", "A\n", "fn a() {}\n")], "t1");
         assert!(fs::symlink_metadata(t.p("mirror/a/src/other.rs")).is_err());
+    }
+
+    /// The defect this test was written for: a file that STOPS being rewritten
+    /// must go back to being a symlink to the original, and must lose its cache
+    /// stamp with it.
+    ///
+    /// A file leaves a unit's rewrite set when it stops parsing (the wrapper
+    /// records it in `unreached_files` and instruments the rest of the unit) or
+    /// when the module tree stops reaching it. Measured 2026-09-03 before the
+    /// fix: the mirror kept the previous run's rewritten bytes, so an
+    /// instrumented build of a workspace with an unparseable file exited **0**
+    /// while a plain build of the same source failed with "this file contains
+    /// an unclosed delimiter". A green build over bytes the user does not have
+    /// is the one outcome this recorder must never produce.
+    #[test]
+    fn a_file_that_stops_being_rewritten_goes_back_to_the_original() {
+        let t = Tmp::new("stale-rewrite");
+        fixture(&t);
+        // Run 1: `a/src/other.rs` is rewritten, and really is a real file.
+        run(
+            &t,
+            &[
+                rewrite("a/src/lib.rs", "A\n", "fn a() {}\n"),
+                rewrite("a/src/other.rs", "REWRITTEN\n", "fn o() {}\n"),
+            ],
+            "t1",
+        );
+        let stamp = t.p("cache").join(sha256::hex(b"a/src/other.rs"));
+        assert!(!fs::symlink_metadata(t.p("mirror/a/src/other.rs"))
+            .unwrap()
+            .is_symlink());
+        assert!(
+            stamp.exists(),
+            "run 1 must leave a cache stamp to invalidate"
+        );
+
+        // The source changes to something the transformer cannot handle, so
+        // run 2 rewrites the crate root and NOT this file.
+        t.write("ws/a/src/other.rs", "fn o( {\n");
+        run(&t, &[rewrite("a/src/lib.rs", "A\n", "fn a() {}\n")], "t1");
+
+        // The mirror entry is the symlink again, the stale bytes are gone, and
+        // what rustc reads through it is the broken source it must reject.
+        let meta = fs::symlink_metadata(t.p("mirror/a/src/other.rs")).unwrap();
+        assert!(
+            meta.is_symlink(),
+            "a file that stopped being rewritten must be a symlink again"
+        );
+        assert_eq!(
+            fs::read_link(t.p("mirror/a/src/other.rs")).unwrap(),
+            t.p("ws/a/src/other.rs")
+        );
+        assert_eq!(
+            fs::read_to_string(t.p("mirror/a/src/other.rs")).unwrap(),
+            "fn o( {\n",
+            "the mirror must read the ORIGINAL, never the previous run's rewrite"
+        );
+        assert!(
+            !stamp.exists(),
+            "the cache stamp must go with the rewrite, or the next run reinstates it"
+        );
+        // The file that IS still rewritten is untouched by any of this.
+        assert_eq!(
+            fs::read_to_string(t.p("mirror/a/src/lib.rs")).unwrap(),
+            "A\n"
+        );
     }
 
     #[test]

@@ -139,6 +139,25 @@ c.close()
 PY
 }
 
+# <manifests dir> — what a module walk could not reach, as
+# `<manifests declaring one> <sorted unique paths>`.
+#
+# A blind spot only counts as declared if it is IN a manifest, so the count of
+# manifests carrying one is reported beside the paths: a walk that reached
+# everything and a walk whose declaration was dropped both print no paths.
+unreached_files() {
+  python3 - "$1" <<'PY'
+import glob, json, sys
+declaring, paths = 0, set()
+for f in glob.glob(sys.argv[1] + "/*.json"):
+    listed = json.load(open(f)).get("unreached_files") or []
+    if listed:
+        declaring += 1
+        paths.update(listed)
+print("%d %s" % (declaring, " ".join(sorted(paths)) or "-"))
+PY
+}
+
 # <manifests dir> — the crate names that were handed to the wrapper.
 wrapped_crates() {
   python3 - "$1" <<'PY'
@@ -180,10 +199,20 @@ PY
 
 # <spool> <manifests dir> — CALLs into a probe_core lib site from a process
 # whose executable rustdoc has already deleted: `<calls> <detail>`.
+#
+# Read straight off the wire, not through the converter, because this is the
+# one process whose trace exists only if the runtime really wrote records. The
+# file header is `b"SNSR" u8 version u8 flags u16 name_len u32 serial
+# u64 dropped u64 truncated` — 28 bytes, then the name — and a record is
+# `u64 seq u64 ts u32 site u8 kind u8 outcome u16 payload_len` (24 bytes) then
+# its payload, so a record with a payload is longer than the fixed part.
+# `kind == 0` is the unwritten tail and stops the read
+# (`rust/sensorium-rt/src/spool.rs`, wire format v2).
 doctest_calls() {
   python3 - "$1" "$2" <<'PY'
 import glob, json, os, struct, sys
 spool, mdir = sys.argv[1], sys.argv[2]
+HEADER_FIXED, RECORD_FIXED, KIND_CALL = 28, 24, 1
 want = set()
 for f in glob.glob(mdir + "/*.json"):
     m = json.load(open(f))
@@ -200,11 +229,13 @@ for ph in sorted(glob.glob(spool + "/*.proc.json")):
         b = open(sp, "rb").read()
         if b[:4] != b"SNSR":
             continue
-        off = 11 + struct.unpack_from("<H", b, 9)[0]
-        while off + 24 <= len(b):
-            _seq, _ts, site, kind, _o, _r = struct.unpack_from("<QQIBBH", b, off)
-            off += 24
-            if kind == 1 and (site >> 24) in ids:
+        off = HEADER_FIXED + struct.unpack_from("<H", b, 6)[0]
+        while off + RECORD_FIXED <= len(b):
+            _seq, _ts, site, kind, _outcome, plen = struct.unpack_from("<QQIBBH", b, off)
+            if kind == 0:
+                break
+            off += RECORD_FIXED + plen
+            if kind == KIND_CALL and (site >> 24) in ids:
                 calls += 1
     if calls:
         who.append("%s(%d calls, exe=%s)" % (h["pid"], calls, h["exe"]))

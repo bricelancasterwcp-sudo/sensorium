@@ -218,6 +218,47 @@ expect_sets "e8b_an_edited_unit_and_its_dependents_recompile" "$LOGS/instr_edit.
 instr_build "$LOGS/instr_settle.log" || true   # settle the artifacts after the restore
 elapsed "E8" "$T0"
 
+# --------------------------------------------- the mirror is never stale -----
+
+section "the mirror never outlives its source"
+T0="$(now_s)"
+# A file that stops parsing leaves its unit's rewrite set and is declared in
+# `unreached_files` — and its mirror entry has to go back to the original. If
+# the previous run's rewritten bytes stay, the instrumented build compiles
+# THOSE: it exits 0 over source a plain build rejects, which is a green build
+# of code the user does not have (`rust/cargo-sensorium/src/mirror.rs`, rule 4).
+#
+# On a COPY of the probe, with its own target: this check has to break a source
+# file, and the probe tree is read-only for every other check in the run.
+COPY_WS="$SCRATCH_DIR/stale/probes/ws"
+COPY_TARGET="$SCRATCH_DIR/stale/target"
+mkdir -p "$SCRATCH_DIR/stale/probes"
+cp -a "$RUST/probes/." "$SCRATCH_DIR/stale/probes/"
+rm -rf "$COPY_WS/target"
+STALE_FIRST=0
+instr_build_at "$COPY_WS" "$COPY_TARGET" "$COPY_TARGET/traces" "$LOGS/stale-first.log" \
+  || STALE_FIRST=$?
+# Now make one file unparseable. The wrapper will record it in
+# `unreached_files` and instrument the rest of the unit — honestly — so what is
+# left to decide is which bytes rustc reads.
+printf '\nfn broken( {\n' >>"$COPY_WS/probe-core/src/helper.rs"
+STALE_PLAIN=0
+plain_build_at "$COPY_WS" "$COPY_TARGET" "$LOGS/stale-plain.log" || STALE_PLAIN=$?
+STALE_INSTR=0
+instr_build_at "$COPY_WS" "$COPY_TARGET" "$COPY_TARGET/traces" "$LOGS/stale-instr.log" \
+  || STALE_INSTR=$?
+first_error() { { grep -m1 -E '^error(\[|:)' "$1" || true; }; }
+ERR_PLAIN="$(first_error "$LOGS/stale-plain.log")"
+ERR_INSTR="$(first_error "$LOGS/stale-instr.log")"
+note "[mirror] first build rc=$STALE_FIRST; after breaking one file: plain rc=$STALE_PLAIN, instrumented rc=$STALE_INSTR"
+note "[mirror] plain says:        ${ERR_PLAIN:-<nothing>}"
+note "[mirror] instrumented says: ${ERR_INSTR:-<nothing>}"
+check "a_source_that_stops_parsing_is_not_compiled_from_a_stale_mirror" \
+  "$([ "$STALE_FIRST" -eq 0 ] && [ "$STALE_PLAIN" -ne 0 ] && [ "$STALE_INSTR" -ne 0 ] &&
+     [ -n "$ERR_PLAIN" ] && [ "$ERR_INSTR" = "$ERR_PLAIN" ] && echo 0 || echo 1)" \
+  "first build rc=$STALE_FIRST (wanted 0); then plain rc=$STALE_PLAIN and instrumented rc=$STALE_INSTR (both wanted non-zero, with the same diagnostic): plain said '${ERR_PLAIN:-<nothing>}', instrumented said '${ERR_INSTR:-<nothing>}'"
+elapsed "the stale-mirror check" "$T0"
+
 # ------------------------------------------------------------------ E7 ------
 
 section "E7(a) -- line numbers, paths and backtraces"
@@ -514,6 +555,16 @@ note "[fallbacks] manifests flagged: $FELL_MANIFESTS   build-log lines: $FELL_LO
 check "no_unit_of_the_probe_fell_back_in_either_channel" \
   "$([ "$FELL_MANIFESTS" -eq 0 ] && [ "$FELL_LOG" -eq 0 ] && echo 0 || echo 1)" \
   "$FELL_MANIFESTS manifest(s) flagged, $FELL_LOG log line(s): $(cat "$LOGS"/*.log 2>/dev/null | grep -m1 'fell back to the real tree' || true)"
+
+# The one blind spot the probe carries on purpose (plan decision D3): the
+# wrapper does not evaluate `cfg`, so a `#[cfg_attr(.., path = ..)]` module is
+# declared unreached rather than guessed at. A declaration nobody reads is not
+# a declaration, so it is read here.
+UNREACHED="$(unreached_files "$MANIFESTS")"
+note "[declared] manifests carrying an unreached file: ${UNREACHED%% *}   files: $(echo "$UNREACHED" | cut -d' ' -f2-)"
+check "the_cfg_attr_path_module_is_declared_unreached" \
+  "$([ "${UNREACHED%% *}" -gt 0 ] && echo "$UNREACHED" | grep -qF 'probe-app/src/maybe.rs' && echo 0 || echo 1)" \
+  "no manifest declares probe-app/src/maybe.rs unreached; got '$UNREACHED'"
 
 IDENTITY="$(unit_identity "$MANIFESTS" "$MIRROR")"
 ID_BAD="$(echo "$IDENTITY" | awk '{print $1}')"
