@@ -103,6 +103,29 @@ def test_every_cli_command_is_exercised_by_some_question():
                                                             - used)))
 
 
+LOGGING_TOOLS = ("dbg!", "RUST_LOG", "RUST_BACKTRACE")
+
+
+def test_every_cargo_question_names_the_logging_tool_that_fails():
+    """The Rust corpus's own version of `why_logs_fail`, per the spec: each
+    question names which of `dbg!`, RUST_LOG or RUST_BACKTRACE fails and why.
+
+    Checked rather than trusted, because a `why_logs_fail` that argues in the
+    abstract -- "no log line says which execution it came from" -- reads as a
+    real justification while never being tested against the tool a Rust
+    developer would actually reach for. Three of the first thirteen cases
+    drifted that way; this is what stops the fourteenth.
+    """
+    for case in run_corpus.load_cases():
+        if not case.is_cargo:
+            continue
+        for q in case.questions:
+            why = q["why_logs_fail"]
+            assert any(tool in why for tool in LOGGING_TOOLS), (
+                f"{case.name}/{q['id']}: why_logs_fail names none of "
+                + ", ".join(LOGGING_TOOLS))
+
+
 def test_every_question_registers_a_real_why_logs_fail():
     """The field that decides whether a case justifies the tool at all.
 
@@ -553,6 +576,23 @@ def test_run_case_reports_a_recording_that_never_started(tmp_path):
     assert len(res.failures) == 1
     assert "recording failed" in res.failures[0]
     assert res.asked == 0
+
+
+def test_a_recording_that_wrote_nothing_still_names_what_failed(tmp_path):
+    """A driver that is not the driver exits non-zero and prints nothing.
+
+    Without the code and the command in the line, the whole report is
+    `recording failed: ` -- which names neither what ran nor that it
+    refused, and reads like a harness bug rather than a bad
+    SENSORIUM_CARGO_SENSORIUM.
+    """
+    _write(tmp_path / "spec", "rust/synth", _cargo_spec())
+    case, = run_corpus.load_cases(tmp_path / "spec")
+    res = run_corpus.run_case(case, tmp_path / "work", driver="/bin/false")
+    assert res.asked == 0 and len(res.failures) == 1
+    assert "recording failed" in res.failures[0]
+    assert "/bin/false sensorium run" in res.failures[0]
+    assert "exited 1" in res.failures[0]
 
 
 def test_run2_substitution_reaches_the_second_recording(tmp_path):

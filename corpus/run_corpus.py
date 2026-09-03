@@ -334,6 +334,20 @@ def _run_ids(stdout: str) -> list[str]:
     return re.findall(r"^run: (\S+)", stdout, re.M)
 
 
+def _diagnostic(argv, r) -> str:
+    """What a recording that produced no `run:` line has to say for itself.
+
+    The command and the EXIT CODE first, because a recorder can fail
+    silently: a driver that is not the driver (a stale path, a shim, a
+    `/bin/false`) writes nothing at all, and `recording failed: ` with an
+    empty tail after it names neither what ran nor that it refused. The
+    output follows when there is any.
+    """
+    out = (r.stdout + r.stderr).strip()
+    return (f"`{' '.join(str(a) for a in argv)}` exited {r.returncode}"
+            + (f"\n{out}" if out else " and wrote nothing"))
+
+
 def _record(case: Case, wd: Path, sdir: Path, argv) -> tuple[list[str], str]:
     rec = ["run"]
     for f in case.record.get("focus") or []:
@@ -342,7 +356,8 @@ def _record(case: Case, wd: Path, sdir: Path, argv) -> tuple[list[str], str]:
         rec += ["--window", case.record["window"]]
     rec += ["--", case.program, *[str(a) for a in argv]]
     r = _cli(rec, wd, sdir)
-    return _run_ids(r.stdout), (r.stdout + r.stderr)
+    return _run_ids(r.stdout), _diagnostic([sys.executable, "-m", "sensorium",
+                                            *rec], r)
 
 
 def _record_cargo(driver: str, wd: Path, sdir: Path,
@@ -354,12 +369,12 @@ def _record_cargo(driver: str, wd: Path, sdir: Path,
     case at one warm target directory without this file naming a path that
     exists on one machine.
     """
+    argv = [driver, "sensorium", *[str(a) for a in cargo_args]]
     r = subprocess.run(
-        [driver, "sensorium", *[str(a) for a in cargo_args]], cwd=wd,
-        capture_output=True, text=True,
+        argv, cwd=wd, capture_output=True, text=True,
         env={**os.environ, "SENSORIUM_DIR": str(sdir),
              "PYTHONDONTWRITEBYTECODE": "1"})
-    return _run_ids(r.stdout), (r.stdout + r.stderr)
+    return _run_ids(r.stdout), _diagnostic(argv, r)
 
 
 def sub_run_ids(value, run_id: str, run_id2: str | None):

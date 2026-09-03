@@ -45,10 +45,13 @@ questions:
       witnessed is exactly the failure this listing avoids.
     why_logs_fail: >
       This is a question about the provenance of recorded evidence, which a
-      program cannot print about itself at all: no log line, at any level,
-      says which execution it came from once two identical-looking logs sit
-      side by side. It matters because it is what stops the second run from
-      later passing itself off as the first once the terminal has scrolled.
+      program cannot print about itself at all: `dbg!` output and RUST_LOG
+      lines are byte-identical between these two runs apart from the branch,
+      so once two such logs sit side by side nothing in either says which
+      execution it came from. RUST_BACKTRACE stamps nothing either, and
+      never fires here. It matters because it is what stops the second run
+      from later passing itself off as the first once the terminal has
+      scrolled.
     command: ["runs"]
     expect_count: {"cmd: nondeterministic": 2}
     expect_line:
