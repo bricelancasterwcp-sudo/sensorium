@@ -101,9 +101,11 @@ values in plaintext; treat one the way you would treat a core dump.
     sensorium diff --ignore-moves RUN_A RUN_B      # …across a refactor that moved code
 
 On a Rust trace, `info` adds the toolchain, the invocation and binary, the
-per-unit counts (`instrumented`, `fell back`, `skipped`, spawn sites), the
-child runs linked to this process, live threads at exit, and any `seq gaps` or
-dropped records. `runs` groups a whole invocation under one header.
+per-unit counts (`instrumented`, `fell back`, `skipped`, spawn sites), any
+`unreached files` a module walk could not reach, the `unit ceiling` line if
+this process hit the 256-unit refusal, the child runs linked to this process,
+live threads at exit, and any `seq gaps` or dropped records. `runs` groups a
+whole invocation under one header.
 
 ## What refuses, and why
 

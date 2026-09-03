@@ -59,8 +59,12 @@ payload as `{"outcome": "ok" | "err" | "panic" | "none"}`.
   `std::thread::panicking()`. The frame's `closed_by` is `"unwind"` and
   `unwind_exc` is `{"type": "panic", "msg", "serial", "loc"}`. `closed_by` is
   never the string `"panic"` — a reader renders that as a false ` (open)`.
-- **`none` means the frame closed with nothing probed at its own site**: a `?`
-  that propagated past the tail, a syntactically diverging operand
+- **`none` means a *value-returning* function's frame closed with nothing
+  probed at its own site** — the qualifier matters, because a `-> ()` function
+  also stashes nothing and reads `ok` (above): the wire carries no per-site
+  knowledge, and the manifest's `ret: unit` is what separates the two at
+  conversion. The cases are: a `?` that propagated past the tail, a
+  syntactically diverging operand
   (`return`/`break`/`continue`, a `loop` with no valued `break`, a call of
   `panic!`, `unreachable!`, `todo!`, `unimplemented!`, `std::process::exit`,
   `std::process::abort`), or a `-> !` function. `none` is not "no error"; it is
@@ -255,9 +259,16 @@ fixture of `tests/test_rust_convert.py`.
   under `#[cfg(feature = "llama")]` and once under `#[cfg(not(...))]`
   (findings §5.27). The trace distinguishes them; **`diff` cannot**.
 - **Fingerprints hash the workspace-relative path**, while `code_objects.file`
-  is absolute. Two checkouts at different paths therefore never compare equal
-  on *stored* hashes; `diff --ignore-moves` re-hashes both sides at query time,
-  which is what makes a split verifiable across trees.
+  is absolute — and the two comparisons that follow run in opposite
+  directions. *Stored* hashes are relocation-insensitive by construction (D9),
+  so two checkouts of the same tree at different paths compare equal on them.
+  `diff --ignore-moves` does not use them: it re-hashes both sides at query
+  time over what `code_objects` holds, which is the **absolute** file
+  (`src/sensorium/query/moves.py`, `hash_stream`). That is what makes a split
+  verifiable across a refactor **within one tree** — the same string on both
+  sides — and it is exactly what breaks between two checkouts at different
+  paths. Compare traces from one tree, or expect the pairing to be the thing
+  that fails.
 
 **Falsified by** E3 (20 identical re-runs of one test binary, same binary hash:
 DIVERGED 0/19 and REFUSED 0/19) and E5 (`diff --ignore-moves` on the
@@ -343,11 +354,11 @@ without knowing this document exists.
 8. **A module the module walk could not reach.** `#[cfg_attr(.., path = ..)]`
    is not evaluated — the walk resolves `mod` declarations and literal
    `#[path]`, and refuses to guess at a conditional one. *Declared by* the unit
-   manifest's `unreached_files`. **This is the one declaration that does not
-   reach the trace**: rung 2's meta does not lift `unreached_files` into the
-   database, so it is readable at
-   `<target>/sensorium/manifests/<metadata>.json` and not from `info`. Named
-   here because a limit whose declaration a reader cannot reach is half a
+   manifest's `unreached_files`, carried into the meta key of the same name
+   over the units this process registered, and printed by `info` as
+   `unreached files: N -- <paths>`. A file the walk never reached is a file
+   whose functions have no sites at all, so the declaration has to travel with
+   the trace: a limit whose declaration a reader cannot reach is half a
    declaration. bloomery has zero such files (findings §5.26).
 9. **Why a return value was unread** (§2): a missing `Debug` impl and a
    panicking one read the same.
@@ -366,13 +377,19 @@ without knowing this document exists.
     the Rust side of it is rung 4. *Declared by* `capabilities.refocus: false`;
     `refocus` refuses with the `caps.require` sentence, naming the capability
     and the recorder.
-13. **A 257th instrumented unit in one process.** The runtime refuses to record
-    past 255 units rather than wrap the id and attribute events to the wrong
-    unit — but the refusal is **one line on stderr, not a field in the trace**,
-    so a trace recorded past the ceiling is short and does not say so. The
-    ceiling has never been approached (a workspace-wide bloomery build produced
-    108 units *in total*, findings §5.13). *Falsified by*
-    `rust/sensorium-rt/tests/units.rs`, which drives it.
+13. **Anything after the 256th instrumented unit in one process.** Unit ids
+    run `0..=254`; the 256th distinct unit makes the runtime refuse to record
+    rather than wrap the id and attribute events to the wrong unit, and every
+    later `enter` in that process is inert. The refusal is **in the trace, not
+    only on stderr**: the proc header's `refused` becomes that unit's metadata,
+    the converter writes it as the meta key `units_refused`
+    (`{"refused": bool, "at": <metadata or null>}`), and `info` prints
+    `unit ceiling: recording REFUSED at unit <metadata> -- every later call in
+    this process is unrecorded`. A trace past the ceiling is short **and says
+    so**. The ceiling has never been approached (a workspace-wide bloomery
+    build produced 108 units *in total*, findings §5.13), so the path is driven
+    by a test and by nothing else yet. *Falsified by*
+    `rust/sensorium-rt/tests/units.rs`.
 14. **Everything the Python README's *What sensorium sees at all* rules out**,
     which is not language-specific: any file the program read or wrote, the
     environment beyond the variables a command names as compared, the clock,
@@ -484,6 +501,6 @@ re-rolled** if the box was busy when it started.
 | 6 | Spawns are not witnessed; instrumented children are linked by `ppid`; a child that ran no instrumented code is invisible | `corpus/rust/abort`, `docs/trace-format/vectors/v11-child-runs-linked.json`, `tests/test_rust_convert.py` (`child-linked`) |
 | 7 | Sites are per unit at record time and merged on `(file, qualname, firstlineno)` at conversion; `diff` cannot separate cfg-gated twins | E3 and E5 in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/cargo-sensorium/tests/unit_identity.rs`, `rust/cargo-sensorium/tests/convert.rs` |
 | 8 | Every eligible function in a workspace crate is instrumented, or its unit says it fell back | E2′ in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/sensorium-transform/tests/census.rs` |
-| 8 | Every blind spot is declared in a manifest field, a meta key or an `info` line — and where it is not, §8 says so | `rust/tests/mechanics.sh` (fallbacks in both channels; a config-file runner), `rust/sensorium-rt/tests/units.rs` (the unit ceiling), `docs/trace-format/vectors/v14-rust-refusals.json` |
+| 8 | Every blind spot is declared in a manifest field, a meta key or an `info` line — including the unreached-module and unit-ceiling declarations, which reach the trace as `unreached_files` and `units_refused`; the one that does not (a config-file runner replaced rather than chained) says so | `rust/tests/mechanics.sh` (fallbacks in both channels; a config-file runner), `rust/sensorium-rt/tests/units.rs` (the unit ceiling), `docs/trace-format/vectors/v14-rust-refusals.json` |
 | 9 | Line numbers, paths, backtraces, drop order, lock hold times, freshness and plain builds are unchanged | E7 and E8 in the acceptance document and `rust/tests/mechanics.sh`, `rust/sensorium-transform/tests/oracle.rs`, `rust/sensorium-transform/tests/golden.rs`, `rust/sensorium-rt/tests/panics.rs` |
 | 10 | Cost is reported with `n` and lens, and gates nothing | the acceptance document's *reported without a gate* section |
