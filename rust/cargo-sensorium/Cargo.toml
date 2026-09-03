@@ -20,6 +20,12 @@ serde_json = "1"
 # `flock` (plan decision D2) and `localtime_r` (the run-id stamp is LOCAL time,
 # as the Python recorder's is). std reaches neither.
 libc = "0.2"
+# The converter's trace store (Task 6): `db.SCHEMA` verbatim, written through a
+# bundled SQLite so the binary needs no system library.
+rusqlite = { version = "0.31", features = ["bundled"] }
+# Fingerprints: blake2b-16 over the causal-event stream (TRACE-FORMAT.md §7),
+# matching `hashlib.blake2b(digest_size=16)` on the Python side.
+blake2 = "0.10"
 
 [dev-dependencies]
 # The wrapper's fallback paths and the runner's records are driven through the

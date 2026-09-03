@@ -18,6 +18,7 @@
 //! `rust/HONESTY.md`.
 
 mod args;
+mod convert;
 mod driver;
 mod fallback;
 mod mirror;
@@ -33,6 +34,7 @@ fn main() {
     let code = match args::role(&argv) {
         args::Role::Wrapper { rustc, args } => wrapper::run(&rustc, &args),
         args::Role::Runner(args) => runner::run(&args),
+        args::Role::Convert(args) => convert::run(&args),
         args::Role::Driver(rest) => driver::run(&rest),
         args::Role::Help => {
             eprintln!("{}", driver::USAGE);

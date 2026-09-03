@@ -7,6 +7,8 @@
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+pub mod wire;
+
 /// A scratch directory that removes itself, named after the test so a failed
 /// run leaves something a person can find in `ls /tmp`.
 pub struct Scratch(pub PathBuf);

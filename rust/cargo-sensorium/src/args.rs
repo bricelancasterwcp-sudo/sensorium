@@ -27,6 +27,11 @@ pub enum Role {
     /// Cargo's `CARGO_TARGET_<HOST>_RUNNER` contract, after our own
     /// `--runner` marker: the binary to run and its arguments.
     Runner(Vec<String>),
+    /// `cargo sensorium convert <spool dir>`, `cargo-sensorium convert <spool
+    /// dir>`: run the converter over an already-recorded spool directory. The
+    /// driver calls the same function in-process at the end of a run; this is
+    /// the standalone entry point onto it.
+    Convert(Vec<String>),
     /// Nothing to do but say what this is.
     Help,
 }
@@ -43,9 +48,11 @@ pub fn role(argv: &[String]) -> Role {
         Some("sensorium") => match argv.get(2).map(String::as_str) {
             None => Role::Help,
             Some("--runner") => Role::Runner(argv[3..].to_vec()),
+            Some("convert") => Role::Convert(argv[3..].to_vec()),
             Some(_) => Role::Driver(argv[2..].to_vec()),
         },
         Some("--runner") => Role::Runner(argv[2..].to_vec()),
+        Some("convert") => Role::Convert(argv[2..].to_vec()),
         Some(a) if a == "test" || a == "run" || a.starts_with('-') => {
             Role::Driver(argv[1..].to_vec())
         }
@@ -649,6 +656,18 @@ mod tests {
                 "--nocapture"
             ])),
             Role::Runner(v(&["/t/deps/x-1", "--nocapture"]))
+        );
+    }
+
+    #[test]
+    fn role_is_convert_in_both_the_cargo_subcommand_and_direct_forms() {
+        assert_eq!(
+            role(&v(&["cargo-sensorium", "sensorium", "convert", "/spool"])),
+            Role::Convert(v(&["/spool"]))
+        );
+        assert_eq!(
+            role(&v(&["cargo-sensorium", "convert", "/spool"])),
+            Role::Convert(v(&["/spool"]))
         );
     }
 

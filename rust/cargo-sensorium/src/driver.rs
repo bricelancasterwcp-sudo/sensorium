@@ -361,11 +361,21 @@ fn go(args: &[String]) -> Result<i32, String> {
     record.cargo_exit = Some(code);
     write_invocation(&invocation_json, &record)?;
 
-    // SEAM (Task 6): the converter runs here, over `spool`, and prints its
-    // `run:` lines and the multi-binary WARN before the two lines below.
+    // The converter runs here, in-process, over `spool`: it prints its own
+    // `run:` lines and the multi-binary WARN. A conversion error is reported
+    // but does not overrule cargo's own status: cargo's non-zero exit is what
+    // a caller already understands, and this recorder does not get to make a
+    // green build red because writing its trace failed.
+    let mut exit_code = code;
+    if let Err(e) = crate::convert::convert_dir(&spool) {
+        eprintln!("cargo-sensorium: {e}");
+        if code == 0 {
+            exit_code = 2;
+        }
+    }
     eprintln!("spool: {}", spool.display());
     eprintln!("cargo exit: {code}");
-    Ok(code)
+    Ok(exit_code)
 }
 
 /// `RUSTDOCFLAGS` for the doctest units, preserving the user's own.
