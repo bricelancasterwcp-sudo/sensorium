@@ -309,3 +309,134 @@ fn an_unknown_subcommand_is_refused_with_the_usage_line() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("unknown subcommand `build`"), "{stderr}");
 }
+
+/// `CARGO_TARGET_DIR` reached through a SYMLINK, not named directly.
+///
+/// **Choice, pinned by an assertion below rather than left implicit**:
+/// `invocation.json`'s `target_dir` records the path exactly AS GIVEN --
+/// the symlink, not its canonical resolution. `driver.rs` never
+/// canonicalizes: every path this process derives (`SENSORIUM_TARGET`, the
+/// spool/manifests/mirror/rt/shim paths, the value written to
+/// `invocation.json`) is built by joining onto whatever `CARGO_TARGET_DIR`
+/// said, and every `std::fs` call downstream follows a symlink component
+/// transparently -- there is no correctness reason to resolve it, and doing
+/// so would make `target_dir` a path the environment never actually named.
+/// The one thing that has to hold for the converter (Task 6) is that a
+/// single value is used consistently everywhere within one invocation, which
+/// is what the "reachable both ways, and only one real copy exists" checks
+/// below are for.
+#[test]
+fn a_symlinked_cargo_target_dir_is_followed_not_duplicated() {
+    let s = Scratch::in_build_dir("symlink-target");
+    s.write(
+        "ws/Cargo.toml",
+        "[workspace]\n\n[package]\nname = \"symlinked\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+    );
+    s.write("ws/src/lib.rs", "pub fn one() -> u8 { 1 }\n");
+
+    let real_target = s.p("real-target");
+    std::fs::create_dir_all(&real_target).unwrap();
+    let link = s.p("target-link");
+    std::os::unix::fs::symlink(&real_target, &link).unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_cargo-sensorium"))
+        .args(["sensorium", "test"])
+        .current_dir(s.p("ws"))
+        .env("CARGO_TARGET_DIR", &link)
+        .env_remove("RUSTC_WORKSPACE_WRAPPER")
+        .env_remove("RUSTC_WRAPPER")
+        .env_remove("RUSTFLAGS")
+        .env_remove("RUSTDOCFLAGS")
+        .env_remove("CARGO_ENCODED_RUSTFLAGS")
+        .env_remove("SENSORIUM_SPOOL")
+        .env_remove("SENSORIUM_TIER")
+        .env_remove("SENSORIUM_INNER_RUNNER")
+        .output()
+        .expect("run the driver");
+
+    let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+    let context = format!("--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}");
+    assert_eq!(out.status.code(), Some(0), "{context}");
+    assert!(stdout.contains("test result: ok"), "{context}");
+
+    // Everything landed under the REAL directory: no code path may have
+    // quietly materialised a second, parallel tree at the link's own path.
+    assert!(
+        real_target.join("sensorium/manifests").is_dir(),
+        "{context}"
+    );
+    assert!(real_target.join("sensorium/mirror").is_dir(), "{context}");
+    let spools: Vec<_> = std::fs::read_dir(real_target.join("sensorium/spool"))
+        .expect("a spool directory under the real target")
+        .map(|e| e.unwrap().path())
+        .collect();
+    assert_eq!(spools.len(), 1, "{spools:?}");
+    let rt_dirs: Vec<_> = std::fs::read_dir(real_target.join("sensorium/rt"))
+        .expect("an rt directory under the real target")
+        .map(|e| e.unwrap().path())
+        .collect();
+    assert_eq!(rt_dirs.len(), 1, "{rt_dirs:?}");
+    assert!(rt_dirs[0].join("unwind/libsensorium_rt.rlib").is_file());
+    let shim_dirs: Vec<_> = std::fs::read_dir(real_target.join("sensorium/shim"))
+        .expect("a shim directory under the real target")
+        .map(|e| e.unwrap().path())
+        .collect();
+    assert_eq!(shim_dirs.len(), 1, "{shim_dirs:?}");
+    assert!(shim_dirs[0].join("cargo-sensorium").is_file());
+
+    // ...and everything is reachable the SAME way, through the link.
+    assert!(link.join("sensorium/manifests").is_dir(), "{context}");
+    assert_eq!(
+        std::fs::read_dir(link.join("sensorium/spool"))
+            .unwrap()
+            .count(),
+        1,
+        "the spool must be reachable through the symlink too"
+    );
+
+    // `invocation.json` records the path AS GIVEN -- see the doc comment
+    // above for why that, and not a canonicalised path, is the choice.
+    let invocation: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(spools[0].join("invocation.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        invocation["target_dir"],
+        link.to_string_lossy().as_ref(),
+        "{invocation}"
+    );
+
+    // Nothing was written BESIDE the link: its parent holds exactly the
+    // workspace, the real target, and the link -- no accidental duplicate
+    // directory at, or beside, the link's own path, and the link itself was
+    // never replaced by a real directory.
+    let scratch_entries: std::collections::BTreeSet<String> = std::fs::read_dir(&s.0)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(
+        scratch_entries,
+        ["ws", "real-target", "target-link"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        "unexpected entries beside the symlink: {scratch_entries:?}"
+    );
+    assert!(
+        std::fs::symlink_metadata(&link).unwrap().is_symlink(),
+        "the link itself must still be a symlink, not replaced by a real directory"
+    );
+
+    // The workspace tree itself is untouched.
+    let ws_entries: Vec<String> = std::fs::read_dir(s.p("ws"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    let expected = ["Cargo.toml", "src", "Cargo.lock"];
+    for entry in &ws_entries {
+        assert!(
+            expected.contains(&entry.as_str()),
+            "the recorder wrote {entry} into the workspace: only {expected:?} may be there"
+        );
+    }
+}
