@@ -1,0 +1,56 @@
+program: cargo
+cargo_args: ["test", "--", "--test-threads=1"]
+second_run:
+  cargo_args: ["test", "--", "--test-threads=4"]
+questions:
+  - id: does-the-thread-count-change-what-ran
+    ask: >
+      The suite passes either way, but one run was serial and one ran four
+      tests at once. Did changing the thread count change what any test
+      actually did?
+    truth: >
+      No. Every test's own causal stream is identical between the two runs:
+      four task streams on each side, compared by name and content, all
+      matched. The verdict is MATCH, and the tool must say WHERE that
+      verdict comes from -- no causal event ran outside a task on either
+      side, so the thread streams held nothing to compare and the tasks
+      carry the whole of it. It must also not claim anything about the
+      ORDER the tasks ran in, which is exactly what the thread count did
+      change.
+    why_logs_fail: >
+      This is the case where log diffing actively misleads: with four
+      threads the lines from four tests interleave, so a diff of the two
+      captured outputs is full of differences that are pure scheduling and
+      contain not one behavioural change. Neither `dbg!` nor RUST_LOG stamps
+      a line with the test it came from unless you thread that through by
+      hand, and RUST_BACKTRACE says nothing at all when nothing fails.
+    command: ["diff", "$RUN", "$RUN2"]
+    expect_contains:
+      - "the tasks below carry the whole verdict"
+      - "all matched; the ordering between tasks is not compared"
+    expect_line:
+      - ["verdict: MATCH"]
+      - ["tasks:", "4 task stream(s) on each side"]
+    expect_absent: ["DIVERGED", "REFUSED"]
+  - id: what-are-the-units-of-work-called
+    ask: >
+      The verdict rests on "tasks". In a Rust test binary, what is a task,
+      and are they named after anything I can recognise?
+    truth: >
+      Each libtest test is one task, named with the test's own path:
+      tests::labels_a_row, tests::measures_the_widest,
+      tests::normalises_whitespace and tests::tallies_a_row. Four of them,
+      beside a main thread that carries zero causal events of its own -- so
+      "4 tasks" and "the main thread ran nothing" are the two halves of what
+      makes the MATCH above meaningful.
+    why_logs_fail: >
+      A thread id in a log prefix is a number the runtime chose, different
+      on every run and attached to nothing a reader can name; mapping it
+      back to the test that owned it is exactly the bookkeeping no log
+      format does for you. `dbg!` prints no thread information at all,
+      and RUST_LOG's target is the module, not the test.
+    command: ["info", "$RUN"]
+    expect_line:
+      - ["tasks: 4", "tests::labels_a_row", "tests::normalises_whitespace"]
+      - ["fingerprint thread 1 (main):", "0 causal events outside any test"]
+      - ["threads started: 4 besides the main one"]

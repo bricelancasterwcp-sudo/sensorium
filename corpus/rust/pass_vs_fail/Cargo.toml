@@ -1,0 +1,9 @@
+[package]
+name = "corpus_pass_vs_fail"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "pass_vs_fail"
+path = "src/main.rs"

@@ -1,0 +1,9 @@
+[package]
+name = "corpus_aliasing"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "aliasing"
+path = "src/main.rs"

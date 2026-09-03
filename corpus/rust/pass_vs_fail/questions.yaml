@@ -1,0 +1,33 @@
+program: cargo
+cargo_args: ["run", "--", "1000"]
+second_run:
+  cargo_args: ["run", "--", "1001"]
+questions:
+  - id: where-do-the-two-runs-part
+    ask: >
+      1001 points prices correctly and 1000 points does not. Where is the
+      first point in execution at which the two runs stop doing the same
+      thing?
+    truth: >
+      They run identically up to and including the call to price, and part
+      at the very next causal step: the failing run calls silver where the
+      passing run calls gold. That first difference is the bug's location
+      and everything after it is downstream consequence. The two runs also
+      recorded different command lines -- 1000 against 1001 -- which the
+      tool must state rather than quietly comparing them as though they were
+      the same invocation.
+    why_logs_fail: >
+      Diffing two log files finds the first difference in what was PRINTED,
+      which here is nothing at all until the final line, and then differs by
+      a number rather than by a location: 95 against 80 tells you the prices
+      differ, which you already knew. To get logs that show the branch you
+      have to instrument the branch, which requires already knowing it is
+      the one that matters. RUST_BACKTRACE never fires; neither run panics.
+    command: ["diff", "$RUN", "$RUN2"]
+    expect_exit: 1
+    expect_contains: ["verdict: DIVERGED at causal step"]
+    expect_line:
+      - ["A:", "silver"]
+      - ["B:", "gold"]
+      - ["note:", "1000'", "1001'"]
+    expect_absent: ["verdict: MATCH", "REFUSED"]

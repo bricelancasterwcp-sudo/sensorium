@@ -1,0 +1,7 @@
+# A case is copied into a disposable work dir to be built, so nothing here
+# is ever a build output. These two are what a hand-run `cargo` inside a
+# case directory leaves behind: the lock file of a zero-dependency crate
+# (regenerated in the copy, identical every time) and the target dir, which
+# ordinarily lives in whatever CARGO_TARGET_DIR the run names.
+target/
+Cargo.lock

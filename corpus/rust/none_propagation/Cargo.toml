@@ -1,0 +1,9 @@
+[package]
+name = "corpus_none_propagation"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "none_propagation"
+path = "src/main.rs"

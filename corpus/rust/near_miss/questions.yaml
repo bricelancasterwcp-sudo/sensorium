@@ -1,0 +1,59 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: how-close-did-it-come
+    ask: >
+      The `used > 100` alert never fired. Did the buffer stay comfortably
+      small, or did it come close enough that a slightly different input
+      would have tripped it?
+    truth: >
+      It came within one byte. fill ran five times and returned the used
+      count each time -- 40, 70, 85, 99, 69 -- so the high-water mark is 99
+      against a guard of 100, and alert was never entered at all. "Never
+      fired" is a fact about how close the run came, not a proof that the
+      invariant held.
+    why_logs_fail: >
+      A log inside the alert branch fires when the condition is TRUE, and the
+      condition was never true, so a `log::warn!`-based build (or RUST_LOG at
+      any level) prints nothing at all -- and "no alert" reads identically
+      whether the peak was 99 or 9. `dbg!(used)` in fill would answer it and
+      is the edit you make only after suspecting fill; RUST_BACKTRACE prints
+      frames only at a panic, and this run never panics.
+    command: ["tree", "$RUN"]
+    expect_count: {"fill()": 5}
+    expect_line:
+      - ["fill()", "-> 99"]
+      - ["fill()", "-> 40"]
+      - ["drain()", "-> 0"]
+    expect_absent: ["alert"]
+  - id: is-the-answer-built-on-anything
+    ask: >
+      Nothing in this program's output says anything went wrong, and alert
+      appears nowhere in the trace. Is that because alert never ran, or
+      because this recording does not carry what alert would have left?
+    truth: >
+      Because it never ran. This crate compiled to ONE instrumented unit --
+      not a fallen-back one -- so every function defined in it has recorded
+      call sites, and 11 CALL events were recorded (main, five fills, five
+      drains) with alert among none of them. (The fell-back and skipped
+      counts on that same line are read from every manifest in the build's
+      target directory, so they are facts about the whole build tree and not
+      about this process; "1 instrumented" is the part that is this unit's.)
+      What this recording genuinely does NOT carry is any per-line record:
+      LINE is 0 and the recorder declares line=no and locals=no, so `used`
+      as a variable is unanswerable here while `used` as fill's return value
+      is not.
+    why_logs_fail: >
+      Whether the evidence you are about to reason from exists at all is not
+      a question about the program, so no amount of `dbg!` in fill answers
+      it: adding one changes what the next run holds, not what this run
+      held. This is the difference between "the alert never fired" and "I
+      could not have seen it fire", and conflating them is how a silent bug
+      gets declared fixed. RUST_LOG and RUST_BACKTRACE say nothing about
+      their own coverage either.
+    command: ["info", "$RUN"]
+    expect_line:
+      - ["units:", "1 instrumented"]
+      - ["recorded:", "CALL 11", "LINE 0"]
+      - ["capabilities:", "line=no", "locals=no", "return_value=yes"]
+    expect_absent: ["alert", "INCOMPLETE"]

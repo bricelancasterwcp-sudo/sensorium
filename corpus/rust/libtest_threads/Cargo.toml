@@ -1,0 +1,9 @@
+[package]
+name = "corpus_libtest_threads"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "libtest_threads"
+path = "src/lib.rs"

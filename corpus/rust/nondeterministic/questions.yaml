@@ -1,0 +1,56 @@
+program: cargo
+cargo_args: ["run"]
+second_run:
+  cargo_args: ["run"]
+questions:
+  - id: is-the-second-run-the-same-execution
+    ask: >
+      I recorded the same command a second time to get a cleaner look at it.
+      Can I reason about the first run from the second one?
+    truth: >
+      No, and the tool must say so rather than quietly presenting the second
+      trace as more of the same. This program's branch is decided by a
+      counter file outside the process, so the second recording takes the
+      other branch: the first called left, the second called right. The
+      verdict is DIVERGED at the first causal step where they part, and the
+      exit status is 1. A MATCH here would be the worst failure this command
+      has.
+    why_logs_fail: >
+      Re-running with more instrumentation is exactly what a log-based
+      workflow does, and it is precisely what fails silently here, because
+      the second run is not the run you were debugging. Neither RUST_LOG nor
+      `dbg!` nor RUST_BACKTRACE has any notion of "this output came from a
+      different execution than the one you asked about", so the richer
+      second log looks like better evidence while being evidence about
+      something else.
+    command: ["diff", "$RUN", "$RUN2"]
+    expect_exit: 1
+    expect_contains: ["verdict: DIVERGED at causal step"]
+    expect_line:
+      - ["A:", "left"]
+      - ["B:", "right"]
+    expect_absent: ["verdict: MATCH"]
+  - id: does-the-store-claim-they-are-related
+    depends_on: is-the-second-run-the-same-execution
+    ask: >
+      Two traces of the same command line are now in the store. Does the
+      tool record that the second was a rerun of the first?
+    truth: >
+      No, and it must not: the second recording was a separate cargo
+      invocation and nothing witnessed a relationship between them. Both
+      rows read the same command name and exit 0, they are grouped under two
+      different invocation ids, and no row carries a refocus stamp or a
+      verdict. The DIVERGED verdict lives in the answer `diff` gave, not in
+      the store, and inventing a provenance link the recorder never
+      witnessed is exactly the failure this listing avoids.
+    why_logs_fail: >
+      This is a question about the provenance of recorded evidence, which a
+      program cannot print about itself at all: no log line, at any level,
+      says which execution it came from once two identical-looking logs sit
+      side by side. It matters because it is what stops the second run from
+      later passing itself off as the first once the terminal has scrolled.
+    command: ["runs"]
+    expect_count: {"cmd: nondeterministic": 2}
+    expect_line:
+      - ["exit:0", "cmd: nondeterministic"]
+    expect_absent: ["refocus-of:", "verdict:", "UNVERIFIED"]

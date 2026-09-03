@@ -13,6 +13,7 @@ different lines is a FAILURE -- that is the whole reason the form exists,
 and the one mutation a naive implementation would pass.
 """
 import textwrap
+from pathlib import Path
 
 import pytest
 
@@ -116,9 +117,35 @@ def test_every_question_registers_a_real_why_logs_fail():
 
 
 def test_second_run_is_declared_wherever_run2_is_used():
+    """One Python recording is one process, so `$RUN2` needs a `second_run`.
+
+    A cargo recording is one trace per PROCESS, so a cargo case may legally
+    take `$RUN2` from the second process of a single invocation (`rust/abort`
+    records a parent and the child it spawned) and is checked at run time
+    against the ids the recording really produced. The rule is scoped here
+    rather than dropped: a Python case that used `$RUN2` without declaring a
+    second run would still be a mistake, and this is what says so.
+    """
     for case in run_corpus.load_cases():
+        if case.is_cargo:
+            continue
         uses = any("$RUN2" in q["command"] for q in case.questions)
         assert uses == (case.second_run is not None), case.name
+
+
+def test_a_cargo_case_that_uses_run2_declares_a_source_for_it():
+    """...and the cargo half of that rule, as far as YAML can carry it.
+
+    A cargo case using `$RUN2` either declares a `second_run` or expects its
+    single invocation to record two processes. The second is not decidable
+    from the file, so what is checked here is that such a case exists and is
+    the one it is meant to be -- a case using `$RUN2` with no `second_run`
+    is a deliberate shape, not a typo that slipped through.
+    """
+    without = {c.name for c in run_corpus.load_cases()
+               if c.is_cargo and c.second_run is None
+               and any("$RUN2" in q["command"] for q in c.questions)}
+    assert without == {"rust/abort"}
 
 
 # -- schema validation: a bad question must not load silently --------------
@@ -257,6 +284,140 @@ def test_a_case_missing_program_or_questions_is_refused(tmp_path):
     (d / "questions.yaml").write_text("program: main.py\n")
     with pytest.raises(ValueError, match="needs both"):
         run_corpus.load_cases(tmp_path)
+
+
+# -- the cargo half: a case the Python recorder never touches --------------
+CARGO_QUESTION = {**GOOD_QUESTION, "command": ["tree", "$RUN"]}
+
+
+def _cargo_spec(**over):
+    return {"program": "cargo", "cargo_args": ["run"],
+            "questions": [CARGO_QUESTION], **over}
+
+
+def _write(root, rel, spec):
+    import yaml
+    d = root / rel
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "questions.yaml").write_text(yaml.safe_dump(spec, sort_keys=False))
+    return d
+
+
+def test_a_cargo_case_is_found_under_rust_and_named_for_it(tmp_path):
+    """`rust/panic` and a Python `panic` must be two different cases.
+
+    The name carries the subdirectory, which is what keeps `--only`, the
+    per-case report line and the (case, question id) uniqueness check from
+    conflating a port with its original.
+    """
+    _write(tmp_path, "rust/panic", _cargo_spec())
+    _write(tmp_path, "panic", {"program": "main.py",
+                               "questions": [GOOD_QUESTION]})
+    names = [c.name for c in run_corpus.load_cases(tmp_path)]
+    assert names == ["panic", "rust/panic"]
+    assert [c.is_cargo for c in run_corpus.load_cases(tmp_path)] == [False,
+                                                                    True]
+
+
+def test_a_cargo_case_needs_cargo_args(tmp_path):
+    _write(tmp_path, "rust/synth", {"program": "cargo",
+                                    "questions": [CARGO_QUESTION]})
+    with pytest.raises(ValueError, match="needs a non-empty cargo_args"):
+        run_corpus.load_cases(tmp_path)
+
+
+def test_an_empty_cargo_args_is_refused(tmp_path):
+    _write(tmp_path, "rust/synth", _cargo_spec(cargo_args=[]))
+    with pytest.raises(ValueError, match="needs a non-empty cargo_args"):
+        run_corpus.load_cases(tmp_path)
+
+
+@pytest.mark.parametrize("key,value", [("record", {"focus": ["main:inner"]}),
+                                       ("argv", ["1000"])])
+def test_a_cargo_case_refuses_the_python_recorders_keys(tmp_path, key, value):
+    """The failure this refusal exists for: a `record: {focus: …}` that
+    reaches no recorder would leave every question passing against a
+    call-tier trace while the file says it was recorded line by line."""
+    _write(tmp_path, "rust/synth", _cargo_spec(**{key: value}))
+    with pytest.raises(ValueError, match="the Python recorder's key"):
+        run_corpus.load_cases(tmp_path)
+
+
+def test_cargo_args_on_a_python_case_is_refused(tmp_path):
+    _write(tmp_path, "synth", {"program": "main.py", "cargo_args": ["run"],
+                               "questions": [GOOD_QUESTION]})
+    with pytest.raises(ValueError, match="cargo_args belongs to"):
+        run_corpus.load_cases(tmp_path)
+
+
+def test_a_cargo_second_run_needs_its_own_cargo_args(tmp_path):
+    _write(tmp_path, "rust/synth", _cargo_spec(second_run={"argv": ["1001"]}))
+    with pytest.raises(ValueError, match="second_run of a 'cargo' case"):
+        run_corpus.load_cases(tmp_path)
+
+
+def test_a_cargo_case_with_no_driver_is_skipped_by_name(tmp_path,
+                                                        monkeypatch):
+    """Not a pass, and not a failure: a third outcome with a reason.
+
+    The Python CI matrix has no Rust toolchain, so this is the ordinary
+    state there -- and a harness that counted these as passes would report
+    a green suite for 13 cases it never ran.
+    """
+    _write(tmp_path / "spec", "rust/synth", _cargo_spec())
+    case, = run_corpus.load_cases(tmp_path / "spec")
+    monkeypatch.setattr(run_corpus, "cargo_driver", lambda: None)
+    res = run_corpus.run_case(case, tmp_path / "work")
+    assert res.skipped == run_corpus.NO_DRIVER
+    assert res.asked == 0 and res.failures == [] and res.error is None
+    # Nothing was copied and nothing was recorded: a skip is a decision made
+    # before the work, not a failure discovered during it.
+    assert not (tmp_path / "work").exists()
+
+
+def test_the_summary_line_names_the_skips_and_still_exits_zero(monkeypatch,
+                                                               capsys):
+    skipped = run_corpus.CaseResult("rust/panic",
+                                    skipped=run_corpus.NO_DRIVER)
+    ran = run_corpus.CaseResult("silent_swallow")
+    ran.asked = 2
+    monkeypatch.setattr(run_corpus, "load_cases",
+                        lambda *a, **k: [run_corpus.Case("x", Path("."), "p")])
+    monkeypatch.setattr(run_corpus, "run_case",
+                        lambda *a, **k: [ran, skipped].pop())
+    assert run_corpus.main([]) == 0
+    out = capsys.readouterr().out
+    assert "skip  rust/panic" in out
+    assert "no cargo-sensorium" in out
+    assert "1 cases (1 skipped: no cargo-sensorium), 0 questions" in out
+
+
+def test_sub_run_ids_reaches_expectations_not_only_the_command():
+    """A question that asserts a run id must have the real one substituted.
+
+    `rust/abort` pins that the parent's `info` prints `child runs: 1 --
+    <the child's id>`; with substitution limited to the command, that
+    expectation could only name the prefix, and "a child is linked" is not
+    the claim -- "THAT child is linked" is.
+    """
+    q = {"command": ["info", "$RUN"],
+         "expect_contains": ["child runs: 1 -- $RUN2"],
+         "expect_line": [["$RUN2", "open"]],
+         "expect_count": {"$RUN": 1},
+         "expect_exit": 0}
+    got = run_corpus.sub_run_ids(q, "AAA", "BBB")
+    assert got["command"] == ["info", "AAA"]
+    assert got["expect_contains"] == ["child runs: 1 -- BBB"]
+    assert got["expect_line"] == [["BBB", "open"]]
+    assert got["expect_count"] == {"AAA": 1}
+    assert got["expect_exit"] == 0
+
+
+def test_sub_run_ids_substitutes_run2_before_run():
+    """`$RUN` first would turn `$RUN2` into `<run-id>2` -- a silently wrong
+    lookup instead of an absent one."""
+    assert run_corpus.sub_run_ids("$RUN2", "AAA", "BBB") == "BBB"
+    assert run_corpus.sub_run_ids("$RUN2", "AAA", None) == "$RUN2"
 
 
 # -- each assertion form must actually bite --------------------------------
@@ -427,7 +588,12 @@ def test_run2_in_a_command_is_refused_at_run_time_too(tmp_path):
     case.questions = [_q(id="late", command=["diff", "$RUN", "$RUN2"])]
     res = run_corpus.run_case(case, tmp_path / "work")
     assert res.asked == 1
-    assert "uses $RUN2 but no second_run declared" in res.failures[0]
+    # The message says which of the two sources of a second id was missing,
+    # because both are legitimate: no `second_run`, and only one trace out of
+    # the recording.
+    assert "uses $RUN2" in res.failures[0]
+    assert "no second_run" in res.failures[0]
+    assert "produced 1 trace(s)" in res.failures[0]
 
 
 def test_main_refuses_when_no_case_matches(capsys):
@@ -446,8 +612,8 @@ def test_main_json_reports_the_same_totals(capsys):
     import json
     assert run_corpus.main(["--only", "silent_swallow", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload == {"cases": 1, "questions": 2, "failures": [],
-                       "errors": []}
+    assert payload == {"cases": 1, "questions": 2, "skipped": [],
+                       "failures": [], "errors": []}
 
 
 def test_corpus_passes():

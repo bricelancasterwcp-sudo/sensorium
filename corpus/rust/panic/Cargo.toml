@@ -1,0 +1,9 @@
+[package]
+name = "corpus_panic"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "panic_case"
+path = "src/main.rs"

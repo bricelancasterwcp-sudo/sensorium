@@ -1,0 +1,9 @@
+[package]
+name = "corpus_nondeterministic"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "nondeterministic"
+path = "src/main.rs"

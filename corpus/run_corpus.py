@@ -54,6 +54,46 @@ question are validated against a closed key set, every required key is
 checked, question ids must be unique within a file, and a question that
 asserts nothing at all (no `expect_contains`, no `expect_line`, no
 `expect_count`) is rejected outright rather than counted as a pass.
+
+TWO RECORDERS, ONE HARNESS
+--------------------------
+`program: main.py` records with `sensorium run` -- the Python recorder.
+`program: cargo` records with `cargo sensorium <cargo_args>` -- the Rust
+recorder -- and the case directory is a self-contained crate
+(`corpus/rust/<case>/{Cargo.toml, src/…, questions.yaml}`) that this harness
+copies whole, exactly as it copies a Python case's directory. `record`
+(`--focus` / `--window`) belongs to the Python recorder alone and is refused
+on a cargo case rather than silently dropped: a focus that does not reach
+the recorder is a case that quietly stops testing what it says it tests.
+
+The driver is `$SENSORIUM_CARGO_SENSORIUM`, else `cargo-sensorium` on PATH.
+Where neither exists -- the Python CI matrix has no Rust toolchain -- the
+cargo cases are SKIPPED BY NAME and counted as skipped in the summary. They
+are never counted as passed: "13 cases could not run" and "13 cases passed"
+are the two facts this harness exists to keep apart. `CARGO_TARGET_DIR` is
+inherited from the environment when it is set (one warm target directory
+across the cases is the difference between seconds and minutes) and left to
+cargo's own default -- `<workdir>/<case>/target`, inside the disposable copy
+-- when it is not.
+
+$RUN AND $RUN2, AND WHY THE SECOND ONE HAS TWO SOURCES
+------------------------------------------------------
+One `cargo sensorium` invocation records ONE TRACE PER OS PROCESS, and
+prints one `run:` line for each, in pid order. So a second run id can come
+from either of two places, and the rule is:
+
+* `$RUN`  -- the first `run:` line of the first recording, always.
+* `$RUN2` -- the SECOND `run:` line of that same invocation when the
+             invocation produced two traces and the case declares no
+             `second_run` (`rust/abort`: a parent and the child it spawned).
+             Otherwise the first `run:` line of the second recording.
+
+A Python recording prints exactly one `run:` line, so for a Python case the
+rule reduces to the one it always had, and `load_cases` still refuses a
+Python case that uses `$RUN2` without declaring `second_run`. A cargo case
+cannot be checked that way at load time -- how many processes an invocation
+records is not knowable from the YAML -- so it is checked at run time
+instead, against the ids the recording actually produced.
 """
 import argparse
 import json
@@ -72,7 +112,15 @@ ROOT = Path(__file__).resolve().parent
 ALLOWED_Q_KEYS = {"id", "ask", "truth", "why_logs_fail", "command",
                   "expect_contains", "expect_line", "expect_count",
                   "expect_absent", "expect_exit", "depends_on"}
-ALLOWED_TOP_KEYS = {"program", "argv", "record", "second_run", "questions"}
+ALLOWED_TOP_KEYS = {"program", "argv", "record", "second_run", "questions",
+                    "cargo_args"}
+#: `program:` value that selects the Rust recorder instead of the Python one.
+CARGO = "cargo"
+#: Subdirectory of the corpus holding the cargo cases. Their names carry it
+#: (`rust/panic`), so a Rust port and its Python original never collide in
+#: `--only`, in the per-case report line, or in the (case, question id)
+#: uniqueness the suite checks.
+RUST_DIR = "rust"
 # `expect_contains` is deliberately NOT in this list, unlike the original
 # schema. Requiring it by name while allowing it to be `[]` makes a question
 # that asserts nothing pass validation, which is the exact failure this
@@ -93,12 +141,23 @@ class Case:
     record: dict = field(default_factory=dict)
     second_run: dict | None = None
     questions: list = field(default_factory=list)
+    #: argv after `cargo sensorium`, for a `program: cargo` case.
+    cargo_args: list = field(default_factory=list)
+
+    @property
+    def is_cargo(self) -> bool:
+        return self.program == CARGO
 
 
 @dataclass
 class CaseResult:
     name: str
     failures: list = field(default_factory=list)
+    # Why this case did not run, if it did not. A skipped case asks no
+    # questions and reports no failures, and the summary counts it in its own
+    # column: a suite that cannot run 13 of its cases must not print a line
+    # that reads the same as one where all 33 passed.
+    skipped: str | None = None
     # Deliberately NOT called `passed`: this counts questions ASKED, and a
     # field named `passed` that also counts the ones that failed is the same
     # kind of dishonest reporting the tool under test exists to prevent.
@@ -144,15 +203,60 @@ def _validate_question(where: str, q) -> None:
             f"{' / '.join(ASSERTING_KEYS)}")
 
 
+def _validate_top(where: str, spec: dict) -> None:
+    """The keys that mean different things to the two recorders.
+
+    Each recorder ignores the other's keys, and an ignored key is the failure
+    this module refuses everywhere else: `record: {focus: …}` on a cargo case
+    would read as a line-focused recording and produce a call-tier one, with
+    every question still passing because none of them can tell.
+    """
+    extra = set(spec) - ALLOWED_TOP_KEYS
+    if extra:
+        raise ValueError(f"{where}: unknown keys {sorted(extra)}")
+    if "program" not in spec or "questions" not in spec:
+        raise ValueError(f"{where}: needs both 'program' and 'questions'")
+    if spec["program"] != CARGO:
+        if "cargo_args" in spec:
+            raise ValueError(f"{where}: cargo_args belongs to a "
+                             f"'program: {CARGO}' case; this one runs "
+                             f"{spec['program']!r} through the Python "
+                             "recorder, which never sees it")
+        return
+    for key in ("record", "argv"):
+        if key in spec:
+            raise ValueError(
+                f"{where}: {key!r} is the Python recorder's key and the "
+                f"'{CARGO}' driver never receives it; a cargo case says what "
+                "it runs in cargo_args (arguments for the program itself go "
+                "after `--`)")
+    args = spec.get("cargo_args")
+    if not isinstance(args, list) or not args:
+        raise ValueError(f"{where}: a 'program: {CARGO}' case needs a "
+                         "non-empty cargo_args list (the argv after "
+                         "`cargo sensorium`)")
+    second = spec.get("second_run")
+    if second is not None and not second.get("cargo_args"):
+        raise ValueError(f"{where}: second_run of a '{CARGO}' case needs its "
+                         "own cargo_args")
+
+
+def _question_files(root: Path) -> list[Path]:
+    """Every case file, Python cases first and cargo cases after them.
+
+    Two levels, not a recursive glob: a case is a directory of a corpus, and
+    `rust/` is the one that holds cargo cases. A `**` glob would also sweep
+    up anything a case's own build left behind.
+    """
+    return (sorted(Path(root).glob("*/questions.yaml"))
+            + sorted(Path(root).glob(f"{RUST_DIR}/*/questions.yaml")))
+
+
 def load_cases(root: Path = ROOT) -> list[Case]:
     cases = []
-    for qfile in sorted(Path(root).glob("*/questions.yaml")):
+    for qfile in _question_files(Path(root)):
         spec = yaml.safe_load(qfile.read_text())
-        extra = set(spec) - ALLOWED_TOP_KEYS
-        if extra:
-            raise ValueError(f"{qfile}: unknown keys {sorted(extra)}")
-        if "program" not in spec or "questions" not in spec:
-            raise ValueError(f"{qfile}: needs both 'program' and 'questions'")
+        _validate_top(str(qfile), spec)
         seen = set()
         for q in spec["questions"]:
             _validate_question(str(qfile), q)
@@ -169,12 +273,21 @@ def load_cases(root: Path = ROOT) -> list[Case]:
                     "question earlier in this file; questions run in file "
                     f"order and {dep!r} is not among the ones before it")
             seen.add(q["id"])
-            if "$RUN2" in q["command"] and spec.get("second_run") is None:
+            # A Python recording is exactly one process and prints exactly
+            # one `run:` line, so `$RUN2` without a `second_run` can only be
+            # a mistake and is refused here. A cargo invocation records one
+            # trace per PROCESS, so the same expression is legitimate there
+            # (`rust/abort`: parent and child) and is checked at run time
+            # against the ids the recording really produced.
+            if (spec["program"] != CARGO and "$RUN2" in q["command"]
+                    and spec.get("second_run") is None):
                 raise ValueError(f"{qfile}:{q['id']}: uses $RUN2 but the case "
                                  "declares no second_run")
-        cases.append(Case(qfile.parent.name, qfile.parent, spec["program"],
+        cases.append(Case(str(qfile.parent.relative_to(Path(root))),
+                          qfile.parent, spec["program"],
                           spec.get("argv", []), spec.get("record") or {},
-                          spec.get("second_run"), spec["questions"]))
+                          spec.get("second_run"), spec["questions"],
+                          spec.get("cargo_args") or []))
     return cases
 
 
@@ -193,7 +306,35 @@ def _cli(args, cwd, sdir):
              "PYTHONDONTWRITEBYTECODE": "1"})
 
 
-def _record(case: Case, wd: Path, sdir: Path, argv) -> tuple[str | None, str]:
+#: Why the cargo cases could not run, in the words the summary prints.
+NO_DRIVER = "no cargo-sensorium"
+
+
+def cargo_driver() -> str | None:
+    """The `cargo-sensorium` this run will record with, or None.
+
+    `SENSORIUM_CARGO_SENSORIUM` first (CI's `rust` job builds one and names
+    it; so does a developer with a release build on the second disk), then
+    PATH. Returning None is not an error: it is the ordinary state of the
+    Python CI matrix, which has no Rust toolchain, and the cases it cannot
+    record are reported as skipped BY NAME rather than passed.
+    """
+    return os.environ.get("SENSORIUM_CARGO_SENSORIUM") or shutil.which(
+        "cargo-sensorium")
+
+
+def _run_ids(stdout: str) -> list[str]:
+    """Every `run:` line's id, in the order the recorder printed them.
+
+    Not anchored at the end of the line: the Rust driver's line carries pid,
+    exe, event and thread counts and the exit status after the id, and it
+    prints ONE PER PROCESS -- so this returns a list where the Python
+    recorder always yields exactly one.
+    """
+    return re.findall(r"^run: (\S+)", stdout, re.M)
+
+
+def _record(case: Case, wd: Path, sdir: Path, argv) -> tuple[list[str], str]:
     rec = ["run"]
     for f in case.record.get("focus") or []:
         rec += ["--focus", f]
@@ -201,8 +342,64 @@ def _record(case: Case, wd: Path, sdir: Path, argv) -> tuple[str | None, str]:
         rec += ["--window", case.record["window"]]
     rec += ["--", case.program, *[str(a) for a in argv]]
     r = _cli(rec, wd, sdir)
-    m = re.search(r"^run: (\S+)$", r.stdout, re.M)
-    return (m.group(1) if m else None), (r.stdout + r.stderr)
+    return _run_ids(r.stdout), (r.stdout + r.stderr)
+
+
+def _record_cargo(driver: str, wd: Path, sdir: Path,
+                  cargo_args) -> tuple[list[str], str]:
+    """One `cargo sensorium <cargo_args>` invocation in the copied crate.
+
+    CARGO_TARGET_DIR is whatever the environment says (unset -> cargo's own
+    `<wd>/target`, inside the disposable copy), so a caller can point every
+    case at one warm target directory without this file naming a path that
+    exists on one machine.
+    """
+    r = subprocess.run(
+        [driver, "sensorium", *[str(a) for a in cargo_args]], cwd=wd,
+        capture_output=True, text=True,
+        env={**os.environ, "SENSORIUM_DIR": str(sdir),
+             "PYTHONDONTWRITEBYTECODE": "1"})
+    return _run_ids(r.stdout), (r.stdout + r.stderr)
+
+
+def sub_run_ids(value, run_id: str, run_id2: str | None):
+    """`$RUN` / `$RUN2` -> the ids this recording produced, everywhere in a
+    question -- command, expect_contains, expect_line groups, expect_absent
+    and expect_count keys -- not only the command.
+
+    A run id is minted at conversion time, so a question that wants to assert
+    a fact NAMING one (`rust/abort`: the parent's `info` prints
+    `child runs: 1 -- <the child's id>`) cannot spell it literally, and
+    without this it could only assert the prefix and leave the id itself
+    unchecked -- which is the difference between "a child is linked" and
+    "THAT child is linked".
+
+    `$RUN2` first, the same rule `tests/test_rust_convert.py` keeps:
+    substituting `$RUN` first turns `$RUN2` into `<run-id>2`, a silently
+    wrong lookup instead of an absent one.
+    """
+    if isinstance(value, str):
+        if run_id2 is not None:
+            return value.replace("$RUN2", run_id2).replace("$RUN", run_id)
+        # With no second id there is nothing to put there, and `$RUN` must
+        # not eat the prefix of `$RUN2` and leave `<run-id>2` behind: split
+        # on it, substitute around it, put it back. The caller refuses such
+        # a question by name before it is ever asked; this keeps the
+        # function from quietly manufacturing a wrong id if that guard is
+        # ever moved.
+        return "$RUN2".join(part.replace("$RUN", run_id)
+                            for part in value.split("$RUN2"))
+    if isinstance(value, list):
+        return [sub_run_ids(v, run_id, run_id2) for v in value]
+    if isinstance(value, dict):
+        # Keys as well as values: `expect_count` is keyed by the substring
+        # being counted, and that substring is where a run id would appear.
+        # A non-string value (an `expect_count` tally, an `expect_exit`)
+        # comes back untouched.
+        return {sub_run_ids(k, run_id, run_id2): sub_run_ids(v, run_id,
+                                                             run_id2)
+                for k, v in value.items()}
+    return value
 
 
 def _lines_matching(text: str, group: list) -> list[str]:
@@ -234,33 +431,66 @@ def check_question(q: dict, text: str, returncode: int) -> list[str]:
     return bad
 
 
-def run_case(case: Case, workdir: Path) -> CaseResult:
+def _record_both(case: Case, wd: Path, sdir: Path,
+                 driver: str | None) -> tuple[list[str], list[str], str]:
+    """Record the case, and its `second_run` if it declares one.
+
+    Returns (ids of the first recording, ids of the second, error text).
+    """
+    if case.is_cargo:
+        first, err = _record_cargo(driver, wd, sdir, case.cargo_args)
+    else:
+        first, err = _record(case, wd, sdir, case.argv)
+    if not first or case.second_run is None:
+        return first, [], err
+    if case.is_cargo:
+        second, err2 = _record_cargo(driver, wd, sdir,
+                                     case.second_run["cargo_args"])
+    else:
+        second, err2 = _record(case, wd, sdir,
+                               case.second_run.get("argv", []))
+    return first, second, err2
+
+
+def run_case(case: Case, workdir: Path,
+             driver: str | None = None) -> CaseResult:
     res = CaseResult(case.name)
+    if case.is_cargo and driver is None:
+        driver = cargo_driver()
+        if driver is None:
+            res.skipped = NO_DRIVER
+            return res
     wd = Path(workdir) / case.name
-    shutil.copytree(case.dir, wd,
-                    ignore=shutil.ignore_patterns("__pycache__"))
+    # `target` and `Cargo.lock` are a cargo case's build output, not its
+    # source: copying a local build into the disposable workdir would carry a
+    # stale binary in and make the run depend on what happened to be lying
+    # around.
+    shutil.copytree(case.dir, wd, ignore=shutil.ignore_patterns(
+        "__pycache__", "target", "Cargo.lock", ".sensorium"))
     sdir = wd / ".sensorium"
-    run_id, err = _record(case, wd, sdir, case.argv)
-    if run_id is None:
+    first, second, err = _record_both(case, wd, sdir, driver)
+    if not first:
         res.failures.append(f"{case.name}: recording failed: {err[:_EXCERPT]}")
         return res
-    run_id2 = None
-    if case.second_run is not None:
-        run_id2, err2 = _record(case, wd, sdir,
-                                case.second_run.get("argv", []))
-        if run_id2 is None:
-            res.failures.append(
-                f"{case.name}: second recording failed: {err2[:_EXCERPT]}")
-            return res
-    subs = {"$RUN": run_id, "$RUN2": run_id2}
-    for q in case.questions:
+    if case.second_run is not None and not second:
+        res.failures.append(
+            f"{case.name}: second recording failed: {err[:_EXCERPT]}")
+        return res
+    # $RUN2 from the second recording where there is one, else from the
+    # second PROCESS of the first -- see the module docstring. `None` when
+    # neither exists, and a question that uses it then fails by name.
+    run_id = first[0]
+    run_id2 = second[0] if second else (first[1] if len(first) > 1 else None)
+    for spec in case.questions:
         res.asked += 1
-        if "$RUN2" in q["command"] and run_id2 is None:
+        if "$RUN2" in str(spec) and run_id2 is None:
             res.failures.append(
-                f"{case.name}/{q['id']}: uses $RUN2 but no second_run "
-                "declared")
+                f"{case.name}/{spec['id']}: uses $RUN2, but this case "
+                f"declares no second_run and the recording produced "
+                f"{len(first)} trace(s)")
             continue
-        cmd = [subs.get(a, str(a)) for a in q["command"]]
+        q = sub_run_ids(spec, run_id, run_id2)
+        cmd = [str(a) for a in q["command"]]
         out = _cli(cmd, wd, sdir)
         text = out.stdout + out.stderr
         bad = check_question(q, text, out.returncode)
@@ -326,22 +556,31 @@ def main(argv=None) -> int:
                                           error=f"{type(e).__name__}: {e}"))
     failures = [f for r in results for f in r.failures]
     errors = [r for r in results if r.error]
+    skipped = [r for r in results if r.skipped]
+    # Every distinct reason, named. "13 skipped" alone would leave a reader
+    # to guess whether the cases are broken or the toolchain is absent.
+    why = ", ".join(sorted({r.skipped for r in skipped}))
     if args.json:
         print(json.dumps({"cases": len(results),
                           "questions": sum(r.asked for r in results),
+                          "skipped": [{"case": r.name, "reason": r.skipped}
+                                      for r in skipped],
                           "failures": failures,
                           "errors": [{"case": r.name, "error": r.error}
                                      for r in errors]}, indent=2))
     else:
         for r in results:
-            mark = "ERR" if r.error else ("FAIL" if r.failures else "ok")
-            print(f"{mark:>4}  {r.name}  ({r.asked} questions)")
+            mark = ("ERR" if r.error else "skip" if r.skipped
+                    else "FAIL" if r.failures else "ok")
+            print(f"{mark:>4}  {r.name}  ({r.asked} questions)"
+                  + (f"  {r.skipped}" if r.skipped else ""))
             if r.error:
                 print(f"        harness error: {r.error}")
         for f in failures:
             print("  " + f)
-        print(f"\n{len(results)} cases, "
-              f"{sum(r.asked for r in results)} questions, "
+        print(f"\n{len(results)} cases"
+              + (f" ({len(skipped)} skipped: {why})" if skipped else "")
+              + f", {sum(r.asked for r in results)} questions, "
               f"{len(failures)} failures, {len(errors)} error(s)")
     return 1 if (failures or errors) else 0
 

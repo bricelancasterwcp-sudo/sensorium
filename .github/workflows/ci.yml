@@ -30,6 +30,11 @@ jobs:
         # job to know to exclude it.
         run: python -m pytest -q
       - name: Corpus (seeded-bug regression suite)
+        # corpus/rust is in here too: with no SENSORIUM_CARGO_SENSORIUM set
+        # on this matrix and no cargo-sensorium on PATH, those 13 cases are
+        # reported skipped BY NAME in the summary rather than passed, and
+        # the Python cases still run. The `rust` job below is where they are
+        # recorded.
         run: python corpus/run_corpus.py
 
   rust:
@@ -83,12 +88,12 @@ jobs:
         env:
           SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
         run: python -m pytest -q tests/test_rust_convert.py
-      - name: Rust corpus (Task 10; corpus/rust does not exist yet)
+      # The whole corpus, Python cases included: one runner, one summary, and
+      # the Rust cases recorded rather than skipped because this job has a
+      # driver to name. CARGO_TARGET_DIR is the job's `rust/target` (above),
+      # so the 13 crates share one warm target directory and the runtime
+      # rlib is built once.
+      - name: Rust corpus (records corpus/rust with the built driver)
         env:
           SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
-        run: |
-          if [ -d corpus/rust ]; then
-            echo "corpus/rust exists but this step was never updated to run it -- Task 10 must wire its own invocation here (corpus/run_corpus.py has no --root or similar selector flag today)" >&2
-            exit 1
-          fi
-          echo "corpus/rust not present yet (Task 10) -- nothing to run"
+        run: python corpus/run_corpus.py

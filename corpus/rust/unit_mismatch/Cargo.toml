@@ -1,0 +1,9 @@
+[package]
+name = "corpus_unit_mismatch"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "unit_mismatch"
+path = "src/main.rs"
