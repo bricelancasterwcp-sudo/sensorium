@@ -1,0 +1,12 @@
+[package]
+name = "probe-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "The probe workspace's leaf library: the module-tree shapes the wrapper's walk has to resolve, the doctest that measures the rustdoc route, and the return shapes the capture probe has to classify."
+
+# The package is `probe-core`, not `core`: a lib TARGET named `core` collides
+# with the sysroot crate of that name and the unit would not build at all.
+[lib]
+name = "probe_core"
+path = "src/lib.rs"

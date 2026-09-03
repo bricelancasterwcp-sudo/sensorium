@@ -1,0 +1,18 @@
+# The mechanics probe workspace.
+#
+# Its own workspace with its own committed `Cargo.lock`: `cargo sensorium` is
+# run from here, so the driver treats this as a TARGET workspace and
+# `RUSTC_WORKSPACE_WRAPPER` must see these packages as the members. It is
+# therefore never a member of `rust/`'s workspace, which excludes `probes`.
+[workspace]
+resolver = "2"
+members = ["probe-core", "probe-app"]
+
+# `probe-ext` is a path dependency at ../ext -- OUTSIDE this directory, so
+# cargo cannot auto-adopt it as a member (cargo only auto-adopts path
+# dependencies that reside inside the workspace directory). That is what E8
+# needs: a crate cargo compiles for this build and never hands to the wrapper.
+
+# The runtime is compiled at opt-level 3 by the driver whatever profile the
+# workspace under test uses. Nothing here overrides a profile: the probe is
+# measured at cargo's own defaults, which is what a user's workspace has.
