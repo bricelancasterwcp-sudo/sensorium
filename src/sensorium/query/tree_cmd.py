@@ -20,7 +20,8 @@ those traces support and is kept exactly as arc 1 wrote it.
 """
 from sensorium import paths
 from sensorium.query.fmt import (fmt_args, fmt_exc, fmt_value, parse_eref,
-                                 parse_fref)
+                                 parse_fref, unread_marker)
+from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
 
@@ -35,9 +36,11 @@ def add_parser(sub) -> None:
 
 
 def task_label(trace, task_id) -> str:
-    # A NULL name means one thing only: get_name() raised and the name could
-    # not be read (the identity was still minted). Say that, rather than
-    # "(unnamed)", which would claim the task HAD no name.
+    # A NULL name is not "(unnamed)" in either language, and it does not
+    # mean the same thing in both: in Python the identity was minted and
+    # `get_name()` raised, in Rust the thread was spawned by dependency code
+    # and never had a name. `vocab` owns which sentence this trace earns.
+    words = terms(trace)
     if task_id is None:
         # NULL task_id means `current_task()` was None -- which is WIDER than
         # "no loop was running". A callback scheduled with call_soon, an
@@ -49,12 +52,12 @@ def task_label(trace, task_id) -> str:
             # ...and when the identity lookup itself raised, NULL means
             # "could not tell", not "no task". Both readings are live in the
             # same group, so the label must not pick one.
-            return (f"no asyncio task (or task identity unreadable: "
+            return (f"no {words.task_noun} (or task identity unreadable: "
                     f"{errs} lookup error(s), see info)")
-        return "no asyncio task"
+        return f"no {words.task_noun}"
     t = trace.task(task_id)
     name = (t.name if (t is not None and t.name is not None)
-            else "(name unreadable)")
+            else words.unnamed_task)
     return f"task t{task_id}: {name}"
 
 
@@ -127,13 +130,20 @@ def _state_tail(trace, frame) -> str:
 def frame_line(trace, frame) -> str:
     code = trace.code(frame.code_id)
     call = trace.event(frame.call_event_id)
-    args = fmt_args((call.payload or {}).get("args", {})) if call else ""
-    # Only a non-function kind is marked. "[function]" on every ordinary
-    # call would be noise, and printing it would change every line of every
-    # synchronous trace this tool has ever rendered.
-    kind = f"  [{frame.kind}]" if frame.kind != "function" else ""
+    payload = (call.payload or {}) if call else {}
+    args = fmt_args(payload.get("args", {})) if call else ""
+    # `unread: ["locals"]` says the arguments were never read. Without it
+    # this line renders `name()`, which reads as "called with no arguments"
+    # -- a positive claim about the program where the trace makes none.
+    # `grep`'s `fmt_event` has always printed the same marker for the same
+    # event; a tree that dropped it contradicted `grep` about one row.
     return (f"f{frame.id} e{frame.call_event_id} {code.qualname}({args})"
-            f"{kind}{_state_tail(trace, frame)}"
+            f"{unread_marker(payload)}"
+            # Only a non-function kind is marked. "[function]" on every
+            # ordinary call would be noise, and printing it would change
+            # every line of every synchronous trace this tool has rendered.
+            + (f"  [{frame.kind}]" if frame.kind != "function" else "")
+            + _state_tail(trace, frame)
             + _caller_tag(trace, frame))
 
 
@@ -144,9 +154,10 @@ def unframed_kind(ev) -> str:
 
 def unframed_line(trace, ev) -> str:
     code = trace.code(ev.code_id)
-    args = fmt_args((ev.payload or {}).get("args", {}))
-    return (f"e{ev.id} {code.qualname}({args})  [{unframed_kind(ev)}, unframed]"
-            + _caller_of(trace, ev))
+    payload = ev.payload or {}
+    args = fmt_args(payload.get("args", {}))
+    return (f"e{ev.id} {code.qualname}({args}){unread_marker(payload)}"
+            f"  [{unframed_kind(ev)}, unframed]" + _caller_of(trace, ev))
 
 
 def index_unframed(trace):

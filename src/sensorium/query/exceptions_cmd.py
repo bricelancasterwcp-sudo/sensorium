@@ -607,6 +607,25 @@ def _header(trace, idx) -> None:
           f"(exit {idx.exit_status}){where}")
 
 
+def _language_refusal(trace) -> str | None:
+    """Why this command cannot judge a trace another recorder wrote.
+
+    Not a vocabulary problem: the rules in this module are Python's
+    semantics. `Index` reads `exc["oid"]`, which a Rust trace does not
+    carry; it lists only RAISE events, so an `Err` returned by `return
+    Err(..)` and absorbed by a caller's `.ok()` would come back as "no
+    exceptions recorded"; and rule 2 would report SWALLOWED for a frame that
+    re-returned an `Err` without `?`. Every one of those is a confident
+    wrong answer about the program, which is worse than no answer -- so this
+    refuses until the Rust disposition rules exist (spec section 6).
+    """
+    if trace.lang == "python":
+        return None
+    return (f"REFUSED: exceptions on a {trace.lang} trace needs the Rust "
+            "disposition rules (rung 3); the Python rules would misread Err "
+            "values as exceptions; nothing was judged")
+
+
 def run(args) -> int:
     if args.limit < 1:
         print(f"--limit must be >= 1 (got {args.limit}); "
@@ -617,6 +636,10 @@ def run(args) -> int:
     # question than the one asked.
     after = parse_eref(args.after) if args.after else 0
     trace = Trace.open(paths.find_trace(args.run))
+    refusal = _language_refusal(trace)
+    if refusal:
+        print(refusal)
+        return 2
     idx = Index.build(trace, trace.meta)
     _header(trace, idx)
     if not idx.all_raises:

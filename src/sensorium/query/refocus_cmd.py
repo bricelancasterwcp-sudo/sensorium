@@ -149,6 +149,7 @@ from collections import Counter
 from pathlib import Path
 
 from sensorium import paths
+from sensorium.query.caps import require
 from sensorium.query.diff_cmd import (compare, print_comparison,
                                       task_drill_lines)
 # The evidence layer, split out at this file's 800-line ceiling. Re-exported
@@ -239,6 +240,14 @@ def _refusal(meta: dict, trace: Trace | None = None) -> str | None:
     `trace` is optional only so the metadata-shaped refusals stay callable
     from a bare dict; every real call site passes the opened trace.
     """
+    if trace is not None:
+        # First, and before anything is read about the run: a recorder that
+        # declares it cannot be refocused is refusing the whole command, not
+        # failing one of its checks. Asking the other questions of such a
+        # trace would report the first one it happens to fail as the reason.
+        declared = require(trace, "refocus", "refocus")
+        if declared:
+            return declared
     if meta.get("incomplete"):
         return ("original trace is INCOMPLETE -- recording ended without a "
                 "finalize pass, so it never recorded whether the run "

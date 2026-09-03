@@ -298,15 +298,23 @@ class Trace:
 
     def dropped_writes(self) -> int:
         """Trace writes known lost: the Python recorder's `late_writes`
-        (a lower bound), or a Rust recorder's per-thread `records_dropped`
-        summed over the threads that reported a number."""
+        (a lower bound), or a Rust recorder's two losses ADDED -- the
+        per-thread `records_dropped` a writer witnessed it could not write,
+        plus `seq_gaps`, the holes in the process-global sequence a merge
+        inferred (one record lost mid-write per thread at most,
+        `rust/HONESTY.md` section 4).
+
+        Added, not maxed: they are disjoint by construction -- a dropped
+        record was never minted into the sequence, and a gap is a minted
+        record no spool holds. Reading only one of them would let `diff`
+        issue a verdict over a hole the trace declares."""
         m = self.meta
         if "late_writes" in m:
             return int(m["late_writes"] or 0)
         rd = m.get("records_dropped")
-        if isinstance(rd, dict):
-            return sum(int(v) for v in rd.values() if v is not None)
-        return 0
+        dropped = (sum(int(v) for v in rd.values() if v is not None)
+                   if isinstance(rd, dict) else 0)
+        return dropped + int(m.get("seq_gaps") or 0)
 
     def task_fingerprints(self) -> dict[int, tuple[str | None, str, int]]:
         if not self._has_task_fps:

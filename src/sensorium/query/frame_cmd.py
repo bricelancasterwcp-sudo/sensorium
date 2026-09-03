@@ -1,9 +1,10 @@
 """One activation completely: args, local timeline, return, children."""
 from sensorium import paths
 from sensorium.query.fmt import (fmt_args, fmt_event, fmt_exc, fmt_value,
-                                 parse_fref)
+                                 parse_fref, unread_marker)
 from sensorium.query.tree_cmd import (frame_line, unframed_kind,
                                       unframed_line)
+from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
 
@@ -76,9 +77,13 @@ def run(args) -> int:
     task = ""
     if call is not None and call.task_id is not None:
         t = trace.task(call.task_id)
-        name = (t.name if (t is not None and t.name is not None)
-                else "name unreadable")
-        task = f"  task t{call.task_id} ({name})"
+        name = t.name if t is not None else None
+        # The parentheses belong to the LABEL, not to the name: a unit whose
+        # name could not be read has a whole sentence of its own, and what
+        # that sentence says differs by language (`vocab.Terms`).
+        label = (f"({name})" if name is not None
+                 else terms(trace).unnamed_task)
+        task = f"  task t{call.task_id} {label}"
     # A non-function kind is marked exactly as `tree` marks it (frame_line):
     # nothing for an ordinary call, `[coroutine]`/`[generator]`/etc. for the
     # rest. The state tail is derived by `frame_state` (spec D2) and shown
@@ -101,8 +106,15 @@ def run(args) -> int:
     if trace.parentage_basis() == "assumed":
         print("parentage: assumed (format-1 trace) -- depth and the parent "
               "chain are v1's last-opened-frame guess")
-    args_p = (call.payload or {}).get("args", {}) if call else {}
-    print("args: " + (fmt_args(args_p, limit=99) or "(none)"))
+    call_p = (call.payload or {}) if call else {}
+    # "(none)" is only true when the arguments were READ and there were
+    # none. When the payload says they went unread, that marker is the whole
+    # answer: "(none)" there is a positive claim about the call the trace
+    # never made -- the same marker `grep` and `tree` print for this event.
+    rendered = fmt_args(call_p.get("args", {}), limit=99)
+    marker = unread_marker(call_p)
+    print("args: " + (rendered + marker if rendered else marker.lstrip()
+                      or "(none)"))
     # LINE rows need --focus to be captured at all; YIELD/RESUME rows do
     # not -- they mark a real suspension point regardless. Interleaving both
     # kinds (in event order, since frame_events is ORDER BY id) means a
@@ -123,8 +135,14 @@ def run(args) -> int:
             print("  " + prefix + fmt_event(trace, e))
     else:
         mod = code.file.rsplit("/", 1)[-1].removesuffix(".py")
-        print("timeline: not captured (locals need line-level focus; "
-              f"refocus with --focus {mod}:{code.qualname})")
+        # The reason a timeline is missing is not the same in both
+        # languages, and naming a `--focus` command on a trace whose
+        # recorder produces no LINE events -- and whose `refocus` refuses --
+        # would send the reader to a command that cannot help.
+        print("timeline: not captured ("
+              + terms(trace).timeline_hint.format(mod=mod,
+                                                  qualname=code.qualname)
+              + ")")
         # Locals were never captured, but a suspension is not a local -- it
         # is still a fact this trace holds, and hiding it because --focus
         # wasn't on THIS frame would be a second, needless loss on top of
@@ -135,7 +153,13 @@ def run(args) -> int:
             for e in susp_rows:
                 print("  ~ " + fmt_event(trace, e))
     if f.closed_by == "unwind":
-        print("unwound: " + (fmt_exc(f.unwind_exc) if f.unwind_exc else "?"))
+        # A Rust panic carries the `loc` it fired at, which is not the
+        # frame's own line: printing it is the difference between "this
+        # frame unwound" and "this frame unwound HERE".
+        exc = f.unwind_exc or {}
+        loc = exc.get("loc")
+        print("unwound: " + (fmt_exc(exc) if f.unwind_exc else "?")
+              + (f" at {loc}" if loc else ""))
     elif f.return_event_id is not None:
         ret = trace.event(f.return_event_id)
         print(f"return: {fmt_value((ret.payload or {}).get('value'))}")

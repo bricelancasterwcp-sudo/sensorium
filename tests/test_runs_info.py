@@ -583,3 +583,61 @@ def test_info_prints_the_original_single_line_for_a_trace_that_predates_declarat
         "not recorded in this trace: children, threads_started, "
         "spawn_syscalls, audit_errors -- it predates that bookkeeping, so "
         "absence of the record is not a record of absence"]
+
+
+RUST_CAPS = {"line": False, "locals": False, "return_value": True,
+             "tasks": True, "threads": True, "children": False,
+             "stdin": False, "output": False, "object_identity": False,
+             "refocus": False}
+
+
+def _rust_trace(tmp_path, run_id, **meta):
+    """A finalized, format-4 trace shaped the way the Rust converter writes
+    one. Built by hand because the shapes below -- a hole in the record
+    sequence, a writer that went inert, a panic with no frame -- are what a
+    crashing process leaves, and no recording can be asked for them."""
+    w = TraceWriter(tmp_path / "sdir" / "traces" / f"{run_id}.db")
+    finalize_synthetic(w, lang="rust", recorder="sensorium-rt 0.1.0",
+                       capabilities=RUST_CAPS, threads_started=0,
+                       live_threads=[], **meta)
+    w.close()
+    return run_id
+
+
+def test_info_reports_the_two_kinds_of_lost_record_and_the_lost_panics(
+        tmp_path, monkeypatch, capsys):
+    """`seq_gaps` and `records_dropped` are two different facts with two
+    different provenances -- inferred from a hole, and witnessed by the
+    writer -- so `info` prints both, separately, and never the Python
+    recorder's "late writes dropped" lower bound, which is neither."""
+    run_id = _rust_trace(tmp_path, "20260101-000000-rustls",
+                         seq_gaps=2, records_dropped={"3": 5},
+                         panics_unrecorded=1, panics_outside_frames=2)
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "seq gaps: 2 -- records minted and never found in any spool" in out
+    assert "rust/HONESTY.md §4" in out
+    assert ("records dropped: 5 -- records the runtime knew it could not "
+            "write (thread 3: 5)") in out
+    assert ("panics unrecorded: 1 -- frames that unwound with no PANIC "
+            "record on their thread") in out
+    assert "panics outside frames: 2 -- " in out
+    # The Python lower bound describes neither of them and must not stand
+    # in for both: `dropped_writes()` sums them for `diff`, not for prose.
+    assert "late writes dropped" not in out
+
+
+def test_info_prints_no_loss_lines_for_a_rust_trace_that_lost_nothing(
+        tmp_path, monkeypatch, capsys):
+    """A printed `seq gaps: 0` would be read as proof nothing was lost --
+    the `late_writes` precedent, applied to both new counters."""
+    run_id = _rust_trace(tmp_path, "20260101-000000-rustok", seq_gaps=0,
+                         records_dropped={}, panics_unrecorded=0,
+                         panics_outside_frames=0)
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    for absent in ("seq gaps:", "records dropped:", "panics unrecorded:",
+                   "panics outside frames:", "late writes dropped"):
+        assert absent not in out, (absent, out)

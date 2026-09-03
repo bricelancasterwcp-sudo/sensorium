@@ -12,6 +12,8 @@ from collections import Counter
 from sensorium import paths
 from sensorium.query.caps import witness_gap
 from sensorium.query.fmt import fmt_exc
+from sensorium.query.info_rust import rust_lines
+from sensorium.query.vocab import exit_phrase, terms
 from sensorium.store.reader import Trace
 
 
@@ -28,7 +30,18 @@ _CHILD_BOOKKEEPING = ("children", "spawn_syscalls", "audit_errors")
 
 
 def unwitnessed_lines(trace, m: dict) -> list[str]:
-    """Everything the recorder NOTICED starting and could not witness.
+    """Everything the recorder NOTICED starting and could not witness, in
+    the order a Python trace has always printed it.
+
+    The two halves are separate functions because `info_rust` prints them
+    in the other order (declaration first, then the counts it qualifies)
+    and adds its own lines between them. Neither half's WORDING moves.
+    """
+    return witnessed_counts(trace, m) + declaration_lines(trace, m)
+
+
+def witnessed_counts(trace, m: dict) -> list[str]:
+    """The counts of what the recorder saw start and could not follow.
 
     `children` was for a long time the only one of these `info` printed, so a
     `multiprocessing` run whose child is visible ONLY as a spawn syscall, and
@@ -45,8 +58,8 @@ def unwitnessed_lines(trace, m: dict) -> list[str]:
     started = m.get("threads_started")
     if started:
         out.append(
-            f"threads started: {started} besides the main one, through "
-            "Python's own threading/_thread -- one that ran no traced code "
+            f"threads started: {started} besides the main one, "
+            f"{terms(trace).thread_origin} -- one that ran no traced code "
             "has no fingerprint above and was not otherwise seen")
     spawns = m.get("spawn_syscalls")
     if spawns:
@@ -61,6 +74,13 @@ def unwitnessed_lines(trace, m: dict) -> list[str]:
             f"audit hook errors: {errors} -- the subprocess and thread "
             "records above are INCOMPLETE, and a short list there cannot be "
             "read as 'nothing was started'")
+    return out
+
+
+def declaration_lines(trace, m: dict) -> list[str]:
+    """Why each absent bookkeeping key is absent -- as a declaration from
+    format 4 on, as "predates" only for a trace that really does."""
+    out: list[str] = []
     # An incomplete run is missing all of these for a reason already printed
     # at the top; saying it twice would bury the one that is news.
     if m.get("incomplete"):
@@ -130,8 +150,9 @@ def run(args) -> int:
     print(f"cmd: {' '.join(m.get('argv', []))}    cwd: {m.get('cwd', '?')}")
     # meta["env"] is the entire process environment -- never print it
     # wholesale; env_hash lets two runs be compared without leaking it.
-    print(f"python {m.get('python', '?')}  env:{m.get('env_hash', '?')}  "
-          f"exit: {m.get('exit_status', '?')}  events: {sum(counts.values())}"
+    words = terms(t)
+    print(f"{words.interp_line(m)}  env:{m.get('env_hash', '?')}  "
+          f"exit: {exit_phrase(m)}  events: {sum(counts.values())}"
           f"{dur}")
     print(f"recorder: {t.recorder}  lang: {t.lang}  "
           f"capabilities: {capabilities_line(t)}")
@@ -144,6 +165,15 @@ def run(args) -> int:
     caps = m.get("caps", {})
     print("caps: " + " ".join(f"{k}={v}" for k, v in caps.items())
           + f"   truncated values: {m.get('truncated_count', 0)}")
+    # A Rust trace's build facts, and its unwitnessed block, come BEFORE the
+    # fingerprints: what a fingerprint row covers depends on which units
+    # were instrumented at all, and a ceiling above it changes what every
+    # count below means. A Python trace prints neither here and keeps its
+    # unwitnessed block in its own place, below.
+    rust = t.lang == "rust"
+    if rust:
+        for line in rust_lines(t, m):
+            print(line)
     # What a fingerprint row covers is not readable from the hash, and plan
     # 2b narrowed it: under the per-task basis a thread row holds only what
     # ran in no asyncio task, and each task has a row of its own. Two traces
@@ -158,7 +188,7 @@ def run(args) -> int:
     # the same gate `refocus._thread_scope` uses, and the two commands must
     # not describe one trace differently.
     ran_tasks = per_task and bool(t.tasks())
-    scope = " outside any asyncio task" if ran_tasks else ""
+    scope = f" outside any {words.task_noun}" if ran_tasks else ""
     for tid, (h, n) in sorted(t.fingerprints().items()):
         tag = " (main)" if tid == t.main_thread_id() else ""
         print(f"fingerprint thread {tid}{tag}: {h} ({n} causal events{scope})")
@@ -171,7 +201,7 @@ def run(args) -> int:
         beside = (f"; {len(t.task_fingerprints())} task fingerprint(s) "
                   "beside it" if ran_tasks else "")
         print("fingerprints: per-task basis -- each thread row covers the "
-              f"events that ran in no asyncio task{beside}")
+              f"events that ran in no {words.task_noun}{beside}")
     else:
         # Never claimed retroactively: a trace recorded before the marker
         # existed was fingerprinted the other way, and saying "0 task
@@ -184,8 +214,9 @@ def run(args) -> int:
         print(f"uncaught: {fmt_exc(m['uncaught'])}")
     for child in m.get("children") or []:
         print(f"unwitnessed subprocess: {' '.join(child)}")
-    for line in unwitnessed_lines(t, m):
-        print(line)
+    if not rust:
+        for line in unwitnessed_lines(t, m):
+            print(line)
     # Always the JOIN, on every format. Arc 2 opens a frame for every traced
     # code object -- function, generator, coroutine, or async generator -- so
     # a format-3 trace is expected to have none of these, and the zero SAYS
@@ -208,11 +239,11 @@ def run(args) -> int:
     if t.format < 2:
         print("tasks: not recorded (format-1 trace; parentage assumed)")
     elif t.tasks():
-        print(f"tasks: {len(t.tasks())} ({_task_names(t.tasks())})")
+        print(f"tasks: {len(t.tasks())} ({_task_names(t.tasks(), words)})")
     else:
         # Not "no loop ran": a loop can run and never make a task -- and
         # loop callbacks run inside it with no current task at all.
-        print("tasks: none (no event ran inside an asyncio task)")
+        print(f"tasks: none (no event ran inside {words.a_task})")
     task_errors = m.get("task_errors", 0)
     if task_errors:
         print(f"task identity errors: {task_errors} -- the task identity "
@@ -223,7 +254,10 @@ def run(args) -> int:
     # captured can never be counted either. Only surface it when non-zero,
     # so a reader never mistakes a printed "0" for proof nothing was lost.
     late_writes = t.dropped_writes()
-    if late_writes:
+    # ...unless the loss was already reported, key by key, above: a Rust
+    # trace's `seq_gaps` and `records_dropped` are two different facts with
+    # two different provenances, and "late writes dropped" is neither.
+    if late_writes and not (m.get("seq_gaps") or m.get("records_dropped")):
         print(f"late writes dropped: >={late_writes} (trace is incomplete "
               "for still-live threads; the true count may be higher)")
     if m.get("refocus_of"):
@@ -287,21 +321,22 @@ _DEFAULT_TASK_NAME = re.compile(r"^Task-\d+\Z")
 _TASK_LIST_CAP = 8
 
 
-def _task_names(tasks) -> str:
+def _task_names(tasks, words) -> str:
     """Up to eight tasks: every one, `tN name`. More: names grouped and
     counted, most frequent first, asyncio's default `Task-N` names (a
     creation counter, not an identity) folded into one group. A FastAPI test
     run recorded 166 tasks and the flat list said nothing a reader could
     use; "2 distinct name(s): …coro x120, Task-N x46" does."""
+    default_names = words.default_name_note is not None
     if len(tasks) <= _TASK_LIST_CAP:
         return ", ".join(
-            f"t{k.id} {k.name if k.name is not None else '(name unreadable)'}"
+            f"t{k.id} {k.name if k.name is not None else words.unnamed_task}"
             for k in tasks)
     groups = Counter()
     for k in tasks:
         if k.name is None:
-            label = "(name unreadable)"
-        elif _DEFAULT_TASK_NAME.match(k.name):
+            label = words.unnamed_task
+        elif default_names and _DEFAULT_TASK_NAME.match(k.name):
             label = "Task-N (asyncio default names)"
         else:
             label = k.name

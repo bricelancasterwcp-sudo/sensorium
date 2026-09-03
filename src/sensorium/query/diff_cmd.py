@@ -84,11 +84,16 @@ import re
 from collections import Counter
 
 from sensorium import paths
-from sensorium.query.caps import witness_gap
 from sensorium.query.moves import (Moves, desc, detect_moves, for_b,
                                    modulo_location, print_key_line,
                                    print_moves_section, project, task_hashes)
+from sensorium.query.vocab import PYTHON, terms
 from sensorium.store.reader import Trace
+# The honesty-note layer, split out at this file's 800-line ceiling.
+# Re-exported so `diff_cmd.<name>` keeps resolving: these are one command's
+# internals living in two files, not two modules with two surfaces.
+from sensorium.query.diff_notes import (  # noqa: F401  (re-exported)
+    _argv_note, _thread_header, _thread_notes, safety_notes)
 
 CAUSAL = ("CALL", "RETURN", "RAISE", "HANDLED")
 
@@ -142,15 +147,24 @@ def _refused(reasons: list[str]) -> dict:
 _DEFAULT_NAME = re.compile(r"^Task-\d+\Z")
 
 
-def _unnamed(name: str | None) -> bool:
-    """Whether `name` identifies a task or merely numbers it.
+def _unnamed(name: str | None, words=PYTHON) -> bool:
+    """Whether `name` identifies a unit of work or merely numbers it.
 
     `asyncio` names every task it is not given a name for `Task-<N>` from a
     process-global counter, so such a name encodes creation order and
     nothing else -- exactly what this comparison must not compare, since
     `gather(*coros)` and one-task-per-request servers create tasks in
-    data-dependent order (Ruling 4)."""
-    return name is None or _DEFAULT_NAME.match(name) is not None
+    data-dependent order (Ruling 4).
+
+    A language that mints no such names (`Terms.default_name_note is None`)
+    has no numbering to read a name AS: a Rust test called `Task-1` would be
+    a name its program chose, and dropping it would erase content this
+    comparison exists to compare. `words` defaults to the Python table so
+    every existing caller and test reads exactly as before."""
+    if name is None:
+        return True
+    return (words.default_name_note is not None
+            and _DEFAULT_NAME.match(name) is not None)
 
 
 def _shapes(trace: Trace, moves: Moves | None = None) -> Counter:
@@ -165,12 +179,13 @@ def _shapes(trace: Trace, moves: Moves | None = None) -> Counter:
     `--ignore-moves` must hash both sides one way, and the stored rows were
     hashed over a root-relative file."""
     out: Counter = Counter()
+    words = terms(trace)
     if moves is None:
         for (name, h), k in trace.task_shapes().items():
-            out[(None if _unnamed(name) else name, h)] += k
+            out[(None if _unnamed(name, words) else name, h)] += k
         return out
     for name, h in task_hashes(trace, moves).values():
-        out[(None if _unnamed(name) else name, h)] += 1
+        out[(None if _unnamed(name, words) else name, h)] += 1
     return out
 
 
@@ -225,7 +240,8 @@ def _task_row_reasons(trace: Trace, label: str) -> list[str]:
     if (trace.fingerprint_basis != "per-task" or not tasks
             or trace.task_fingerprints()):
         return []
-    return [f"{label} ran {len(tasks)} asyncio task(s) but recorded no task "
+    return [f"{label} ran {len(tasks)} {terms(trace).task_noun_plural} but "
+            "recorded no task "
             "fingerprints (its per-thread stream excludes their events), so "
             "the tasks cannot be compared and the thread stream alone would "
             "say less than it seems -- re-record it with this version"]
@@ -402,12 +418,13 @@ def compare(trace_a: Trace, trace_b: Trace,
 def _task_choices(trace: Trace) -> str:
     """What `--task` could have been given on this side."""
     fps = trace.task_fingerprints()
-    named = sorted({n for n, _h, _c in fps.values() if not _unnamed(n)})
-    numbered = sum(1 for n, _h, _c in fps.values() if _unnamed(n))
+    words = terms(trace)
+    named = sorted({n for n, _h, _c in fps.values()
+                    if not _unnamed(n, words)})
+    numbered = sum(1 for n, _h, _c in fps.values() if _unnamed(n, words))
     have = ", ".join(named) if named else "no task with a name of its own"
     if numbered:
-        have += (f"; plus {numbered} task(s) asyncio numbered by creation "
-                 "order, which no name can pick")
+        have += f"; plus {numbered} {words.numbered_task_note}"
     return have
 
 
@@ -428,7 +445,8 @@ def _task_named(trace: Trace, label: str, name: str):
         # as emptier than it is. What is missing is the table this version
         # resolves a NAME through.
         return None, [
-            f"{label} recorded {len(trace.tasks())} asyncio task(s) and no "
+            f"{label} recorded {len(trace.tasks())} "
+            f"{terms(trace).task_noun_plural} and no "
             "task_fingerprints rows: this version resolves task names "
             "through task_fingerprints, which the recording's version did "
             "not write -- re-record it to compare by name"]
@@ -446,12 +464,12 @@ def compare_task_streams(trace_a: Trace, trace_b: Trace, name: str,
     than resolved by creation order -- see `_unnamed`.
     """
     unresolved = {"a_task": None, "b_task": None}
-    if _DEFAULT_NAME.match(name):
-        return {**_refused(
-            [f"'{name}' is asyncio's default name and encodes creation "
-             "order, not identity; name the task in the program "
-             "(asyncio.create_task(..., name=...)) to compare it by name"]),
-            **unresolved}
+    # Read on A's table: the argument is one string compared against both
+    # sides, and a language that mints no default names has no note to
+    # print -- there the name is looked up like any other.
+    note = terms(trace_a).default_name_note
+    if note and _DEFAULT_NAME.match(name):
+        return {**_refused([note.format(name=name)]), **unresolved}
     # These come first and alone: a trace whose task rows never reached the
     # disk has no task to name, and "no task named 'task-A' on A" would
     # describe the symptom as if it were the program's doing.
@@ -493,97 +511,6 @@ def compare_task_streams(trace_a: Trace, trace_b: Trace, name: str,
         "a_stream": sa, "b_stream": sb,
         "tasks": None, "moves": moves, **found,
     }
-
-
-_BASIS_LABEL = {"recorded": "recorded main thread",
-               "inferred": "INFERRED main thread -- see note below"}
-
-
-def _thread_header(label: str, name: str, trace: Trace) -> str:
-    """One line naming exactly which thread this side's causal stream came
-    from, and whether that identification is a recorded fact or a guess --
-    never just "main fp ..." with the reader left to assume it is right."""
-    fps = trace.fingerprints()
-    mtid = trace.main_thread_id()
-    if mtid is None:
-        return f"{label} {name}: threads {len(fps)}  compared: - (no events)"
-    basis = trace.main_thread_basis()
-    fp = fps.get(mtid, (None, None))[0]
-    return (f"{label} {name}: threads {len(fps)}  "
-            f"compared: t{mtid} [{_BASIS_LABEL[basis]}]  fp {fp or '-'}")
-
-
-def _argv_note(trace_a: Trace, trace_b: Trace) -> list[str]:
-    """Comparing two traces of different commands is comparing unrelated
-    programs; whatever else is compared, that must be said."""
-    aa, bb = trace_a.meta.get("argv"), trace_b.meta.get("argv")
-    if aa == bb:
-        return []
-    return [f"different commands recorded -- A: {' '.join(aa or [])!r}"
-            f"  B: {' '.join(bb or [])!r}"]
-
-
-def safety_notes(trace_a: Trace, trace_b: Trace) -> list[str]:
-    """Honesty notes that do not change the verdict but must never be
-    silently dropped: a compared thread identified by inference rather than
-    the recorder's own record may not be the thread a reader assumes, a
-    MATCH on one thread is not a MATCH on the whole run if either side has
-    other threads, and comparing two traces of different commands is
-    comparing unrelated programs."""
-    notes = _argv_note(trace_a, trace_b)
-    for label, trace in (("A", trace_a), ("B", trace_b)):
-        if trace.main_thread_basis() == "inferred":
-            notes.append(
-                f"{label}'s compared thread is INFERRED, not recorded: "
-                "this trace predates main_thread_ident, so the thread of "
-                "whichever event happened to get id 1 stands in for it -- "
-                "under --focus/--window filtering, or if a worker thread's "
-                "first traced event landed before the main thread's own, "
-                "that stand-in can be a WORKER thread; re-record to get an "
-                "exact answer")
-        notes.extend(_thread_notes(label, trace))
-    return notes
-
-
-def _thread_notes(label: str, trace: Trace) -> list[str]:
-    """How many threads this side ran, counted the way `refocus` counts them.
-
-    The count here used to be `len(fingerprints())`, which answers a
-    different question: a worker whose body is entirely stdlib runs no traced
-    code, so it leaves no fingerprint row at all. Two runs of exactly that
-    program -- a stdlib-only worker writing 4 bytes in one run and 20 in the
-    other -- gave `diff` `threads 1` and a clean MATCH with no note, while
-    `refocus` withheld its licence on the same pair citing "started 1
-    thread(s) besides the main one". One trace, two commands, two answers.
-
-    The audit hook's count of thread CREATION is the sound signal; a
-    fingerprint row is the one that can be missing. Both are reported,
-    because they are two different facts and neither subsumes the other: a
-    thread started by a C extension without going through `_thread` is
-    counted by neither, but if it runs traced Python it still leaves a
-    fingerprint.
-    """
-    fps = len(trace.fingerprints())
-    meta = trace.meta
-    if "threads_started" not in meta:
-        legacy = (f"predates the recorder's thread bookkeeping, so how "
-                  f"many threads it ran cannot be established -- {fps} left "
-                  "a fingerprint, and only the thread named above was "
-                  "compared; absence of the record is not a record of "
-                  "absence")
-        gap = witness_gap(trace, "threads", "thread", legacy)
-        # "A recorder X declares ..." reads like an indefinite article; the
-        # legacy sentence already opens with "predates" and needs no joiner.
-        joiner = "'s" if trace.declares("threads") is not None else ""
-        return [f"{label}{joiner} {gap}"]
-    started = meta["threads_started"]
-    if not started and fps <= 1:
-        return []
-    return [f"{label} recorded more than one thread: {started} started "
-            f"through Python's own threading/_thread, {fps} left a "
-            "fingerprint; only the thread named above was compared -- a "
-            "MATCH here is not a MATCH on the whole run, and a thread that "
-            "ran no traced code leaves no fingerprint to compare at all"]
 
 
 def _print_refusal(res) -> None:
