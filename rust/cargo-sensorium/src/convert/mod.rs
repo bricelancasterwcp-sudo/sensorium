@@ -62,6 +62,20 @@ pub fn convert_dir(spool_dir: &Path) -> Result<Report, String> {
     let spool_files_by_pid = group_spool_files(&entries);
     let runner_records = read_runner_records(spool_dir, &entries)?;
 
+    // Nothing recorded a process at all -- `cargo sensorium test --help`, a
+    // cargo failure before anything compiled, or a `target/sensorium` wiped
+    // between builds while cargo stayed fingerprint-fresh. There is nothing
+    // to convert, and demanding a manifests directory that was never written
+    // because nothing was ever instrumented would turn a clean run into an
+    // error. An invocation that DID record a process (`proc_headers` is
+    // non-empty) still gets the hard error below if its manifests are gone.
+    if proc_headers.is_empty() {
+        return Ok(Report {
+            traces: Vec::new(),
+            runner_processes: runner_records.len(),
+        });
+    }
+
     let manifests_dir = Path::new(&invocation.target_dir)
         .join("sensorium")
         .join("manifests");
@@ -77,10 +91,9 @@ pub fn convert_dir(spool_dir: &Path) -> Result<Report, String> {
     let traces_dir = runid::traces_dir()?;
     // Every run id is assigned FIRST, so a parent's `child_runs` can name a
     // child's run id even though the parent may convert before the child.
-    let mut run_ids: BTreeMap<u32, String> = BTreeMap::new();
-    for &pid in proc_headers.keys() {
-        run_ids.insert(pid, runid::mint(&traces_dir)?);
-    }
+    let run_ids = mint_run_ids(proc_headers.keys().copied(), |minted| {
+        runid::mint(&traces_dir, minted)
+    })?;
 
     let child_runs_by_parent = child_runs(&proc_headers, &run_ids);
 
@@ -256,6 +269,34 @@ fn uninstrumented_list(manifests: &BTreeMap<String, Manifest>) -> Vec<Value> {
         .collect()
 }
 
+/// Mint one run id per pid in `order`, deduplicated WITHIN this call: none of
+/// these ids has a `.db`/`.db.tmp` on disk yet (every id is assigned before
+/// any pid converts, so a parent's `child_runs` can name a child's id
+/// regardless of conversion order), so the directory a single `mint_one` call
+/// checks cannot see a sibling minted moments earlier in this same loop --
+/// only the growing `minted` set threaded through every call can.
+///
+/// `mint_one` is `runid::mint` in production, bound to a fixed `traces_dir`;
+/// a fake generator in `tests::mint_run_ids_dedupes_when_the_generator_
+/// repeats_a_candidate` forces the collision this function exists to close
+/// without depending on the clock or the salt to actually repeat.
+///
+/// # Errors
+/// Whatever `mint_one` returns.
+fn mint_run_ids(
+    order: impl Iterator<Item = u32>,
+    mut mint_one: impl FnMut(&std::collections::HashSet<String>) -> Result<String, String>,
+) -> Result<BTreeMap<u32, String>, String> {
+    let mut run_ids: BTreeMap<u32, String> = BTreeMap::new();
+    let mut minted_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for pid in order {
+        let id = mint_one(&minted_ids)?;
+        minted_ids.insert(id.clone());
+        run_ids.insert(pid, id);
+    }
+    Ok(run_ids)
+}
+
 fn child_runs(
     proc_headers: &BTreeMap<u32, ProcHeader>,
     run_ids: &BTreeMap<u32, String>,
@@ -423,8 +464,16 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| c.proc.exe.clone());
-    let exit_display =
-        exit_status.map_or_else(|| "unwitnessed".to_owned(), |code| code.to_string());
+    // The `run:` line's third exit form: a code when the runner waited and the
+    // process exited; `signal N` when the runner waited and it was killed by
+    // one (`exit_status` is null in EXACTLY that case, so a signal must be
+    // checked before falling back to "unwitnessed" -- a signalled process is
+    // witnessed, just not with an exit code).
+    let exit_display = match (exit_status, exit_signal) {
+        (Some(code), _) => code.to_string(),
+        (None, Some(sig)) => format!("signal {sig}"),
+        (None, None) => "unwitnessed".to_owned(),
+    };
 
     Ok(TraceSummary {
         run_id: c.run_id.to_owned(),
@@ -434,4 +483,54 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         threads: names.len(),
         exit_display,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::VecDeque;
+
+    /// Simulates two pids whose real candidates happened to collide: the
+    /// fake generator hands out `"A"` twice before `"B"`, and does its OWN
+    /// retry against `minted` -- exactly what `runid::mint` does -- so what
+    /// this test actually pins is whether `mint_run_ids` threads the growing
+    /// `minted` set from one call to the next. With the bug this fix closes
+    /// (each call given an empty set instead of the accumulated one), the
+    /// second call would accept `"A"` immediately and pid 2 would get pid 1's
+    /// id back.
+    #[test]
+    fn mint_run_ids_dedupes_when_the_generator_repeats_a_candidate() {
+        let mut candidates: VecDeque<String> =
+            ["A", "A", "B"].iter().map(|s| (*s).to_owned()).collect();
+        let ids = mint_run_ids([1u32, 2u32].into_iter(), |minted| loop {
+            let c = candidates
+                .pop_front()
+                .ok_or_else(|| "ran out of candidates".to_owned())?;
+            if !minted.contains(&c) {
+                return Ok(c);
+            }
+        })
+        .unwrap();
+        assert_eq!(ids[&1], "A");
+        assert_eq!(ids[&2], "B", "pid 2 must not receive pid 1's id back");
+        assert!(
+            candidates.is_empty(),
+            "all three candidates must be consumed"
+        );
+    }
+
+    #[test]
+    fn mint_run_ids_mints_nothing_for_an_empty_pid_set() {
+        let ids = mint_run_ids(std::iter::empty(), |_| {
+            panic!("must not call the generator for zero pids")
+        })
+        .unwrap();
+        assert!(ids.is_empty());
+    }
+
+    #[test]
+    fn mint_run_ids_propagates_a_generator_error() {
+        let err = mint_run_ids([1u32].into_iter(), |_| Err("boom".to_owned())).unwrap_err();
+        assert_eq!(err, "boom");
+    }
 }

@@ -105,8 +105,9 @@ mod tests {
     }
 
     #[test]
-    fn two_missing_seqs_count_as_two_gaps() {
-        // 0, [1, 2 missing], 3, [4 missing], 5
+    fn three_missing_seqs_across_two_gaps_count_as_three() {
+        // 0, [1, 2 missing], 3, [4 missing], 5 -- two GAPS (a run of missing
+        // seqs each count once), three missing SEQS total.
         let r = merge(vec![spool(1, &[0, 3, 5])]).unwrap();
         assert_eq!(r.seq_gaps, 3);
     }

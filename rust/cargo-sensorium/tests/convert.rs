@@ -586,6 +586,19 @@ fn a_signalled_runner_record_yields_null_exit_status_and_the_signal_number() {
     assert_eq!(meta(&conn, "exit_status"), serde_json::Value::Null);
     assert_eq!(meta(&conn, "exit_signal"), 9);
     assert_eq!(meta(&conn, "exit_status_basis"), "waited");
+    // The `run:` line's third exit form: witnessed but no exit code, because
+    // a signal killed it -- never "unwitnessed", which would say nobody saw
+    // it happen.
+    assert!(
+        out.stdout_str().contains("exit: signal 9"),
+        "{}",
+        context(&out)
+    );
+    assert!(
+        !out.stdout_str().contains("exit: unwitnessed"),
+        "a signalled process was witnessed, just not with a code: {}",
+        context(&out)
+    );
 }
 
 // ---------------------------------------------------------------------------
