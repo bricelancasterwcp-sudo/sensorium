@@ -581,7 +581,12 @@ binaries pre-built) — **0.058 s plain, 0.125 s call, ×2.1552**. Before the fi
 (commit `46074ef`) that same ratio read **×28.2373** (0.059 s / 1.666 s),
 almost entirely the converter's own committed-per-row cost, not recording —
 the same invocation's conversion wall fell from **1118.867 s to 1.197 s**
-(n=3) with the fix. One recorded `--lib` invocation start to finish, build
+(n=3) with the fix. Neither reading is comparable to rung 1's own **×1.0103**
+call/plain ratio: rung 1 timed `cargo test -p bloomery-daemon` (the whole
+8.25 s suite) with conversion OUTSIDE the timed command, while this ratio
+times `--lib` with conversion INSIDE the same invocation, so the two numbers
+are not equals (acceptance document §5.3). One recorded `--lib` invocation
+start to finish, build
 Fresh, conversion included: **0.102 s** (n=1); the driver's own fixed cost is
 **0.073 s** (n=5, median of 5 no-op `--tier off --no-run` invocations against
 straight cargo). Python's own per-event cost is in the Overhead section

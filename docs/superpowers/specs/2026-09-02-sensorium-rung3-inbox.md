@@ -100,6 +100,22 @@ which is ranked:
 - Malformed-meta robustness in the Rust converter's read path (an orphan
   `.proc.json.tmp`, a mirror path leaking into a manifest) is hard-erred by
   name today; no fixture exercises the error text itself.
+- `mint()` isolating test — `runid::mint`'s one-line forward (it must consult
+  its own `minted` parameter, not just the directory) has no deterministic
+  test that would catch that line reverting; the one mutation of Task 6's
+  review that survived was caught by inspection, not by a test
+  (`task-6-report.md`, "Concerns carried forward").
+- `Report`/`TraceSummary` unused — the in-process return value of
+  `convert_dir` is not read by either caller today (the driver seam and the
+  `convert` role both check only `Result::is_err`); kept, with an
+  `#[allow(dead_code)]` and a comment, as the extension point a future
+  in-process caller will want (`task-6-report.md` line 263).
+- Panic-RETURN tag validation — no test pins that a frame closed by a panic
+  writes the RETURN wire tag/outcome the converter expects, independent of
+  the writer that produced it (deferred at Task 6's review).
+- Panic serial numbering on outside-frame panics — a PANIC record with no
+  open frame to attach to (`panics_outside_frames`) has no test pinning how
+  its serial is assigned or read back (deferred at Task 6's review).
 - `runid`/driver id-mix helper — a small duplication between the driver's and
   the converter's run-id minting, not yet factored out.
 - A byte-exact pin for the `run:` line's own format (Task 9's conformance
