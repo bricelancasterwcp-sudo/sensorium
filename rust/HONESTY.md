@@ -246,11 +246,25 @@ thread that never returns, `process::exit`, `abort`, and SIGKILL.
   is witnessed by the writer. Both are summed by `Trace.dropped_writes()`, and
   a non-zero total makes `diff` refuse a verdict rather than issue one over a
   hole.
+- **The two are disjoint, and one line of the runtime is why** (**amended
+  2026-09-03**): the sequence number is minted *inside* `Spool::record`, after
+  the record is known to fit a mapping that can still be grown, so a refused
+  record consumes no number and leaves no hole. Until this was fixed every
+  witnessed drop was ALSO counted as a `seq_gap` — on a two-thread process with
+  a 64 KiB limit, 3382 witnessed drops read as `records_dropped` 3382 plus
+  `seq_gaps` 1190, and the bound above did not hold for `seq_gaps`. It holds
+  now: `seq_gaps` counts only records minted and lost, which is at most one
+  per thread. Falsified by
+  `rust/sensorium-rt/src/spool.rs::a_refused_record_consumes_no_sequence_number`
+  and `rust/cargo-sensorium/tests/convert.rs::a_thread_whose_spool_went_inert_costs_no_seq_gaps`.
 - **A thread still running when the process exits has no `THREAD_END`.** The
   converter lists it in `live_threads` and leaves its frames open; `incomplete`
   stays `false`, because the *process* finished even though the thread did not.
   That is the distinction a reader most easily misreads, which is why `info`
-  prints both facts rather than one.
+  prints both facts rather than one. A thread whose spool went inert could not
+  write `THREAD_END` either, so it lands in `live_threads` having finished:
+  where `records_dropped` is non-zero `info` offers that second reading beside
+  the first rather than asserting the thread was running.
 - Rung 1's `BufWriter` spool lost a live thread's entire buffered tail, and
   lost it silently: 100 spool files without `THREAD_END` in 3 of 119 processes,
   and `abort()` losing every thread's tail including main's (findings §5.2,
@@ -613,7 +627,7 @@ re-rolled** if the box was busy when it started.
 | 1 | A generic `T` that is a `Result` only after monomorphisation reads `ok` | `corpus/rust/outcome_generic` (rung 3, deferred) |
 | 2 | A return value is `Debug` text capped at 200 bytes; `!Debug` and panicking `Debug` read `<unread>`; `()` is never `<unread>` | `rust/sensorium-rt/tests/values.rs`, `docs/trace-format/vectors/v08-return-outcome-dbg-value.json` |
 | 3 | Every emitting non-main thread is a named task where a name exists; `spawn_child` derives the name; dependency threads are unnamed and compared as a multiset | `corpus/rust/spawned_thread`, `corpus/rust/libtest_threads`, `rust/sensorium-rt/tests/spawn.rs`, `rust/sensorium-rt/tests/serials.rs` |
-| 4 | A crash loses at most one record per thread; holes are `seq_gaps`; `records_dropped` is what the writer knew it lost | `rust/sensorium-rt/tests/durability.rs`, `corpus/rust/abort` |
+| 4 | A crash loses at most one record per thread; holes are `seq_gaps`; `records_dropped` is what the writer knew it lost, and the two are disjoint | `rust/sensorium-rt/tests/durability.rs`, `rust/sensorium-rt/src/spool.rs` (`a_refused_record_consumes_no_sequence_number`), `rust/cargo-sensorium/tests/convert.rs` (`a_thread_whose_spool_went_inert_costs_no_seq_gaps`), `corpus/rust/abort` |
 | 5 | `exit_status` is `waited` only for processes our runner started; everything else is `unwitnessed`, never borrowed from cargo | `rust/cargo-sensorium/tests/runner.rs`, `corpus/rust/abort`, `rust/tests/mechanics.sh`, `docs/trace-format/vectors/v10-exit-status-unwitnessed.json` |
 | 6 | Spawns are not witnessed; instrumented children are linked by `ppid`; a child that ran no instrumented code is invisible | `corpus/rust/abort`, `docs/trace-format/vectors/v11-child-runs-linked.json`, `tests/test_rust_convert.py` (`child-linked`) |
 | 7 | Sites are per unit at record time and merged on `(file, qualname, firstlineno)` at conversion; `diff` cannot separate cfg-gated twins | E3 and E5 in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/cargo-sensorium/tests/unit_identity.rs`, `rust/cargo-sensorium/tests/convert.rs` |

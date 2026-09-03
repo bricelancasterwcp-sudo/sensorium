@@ -111,12 +111,24 @@ def _child_runs(m: dict) -> list[str]:
 def _live_threads(m: dict) -> list[str]:
     """Threads that never ended. The process DID finish, so the trace is not
     INCOMPLETE -- and that is exactly the pair a reader misreads one way or
-    the other (`rust/HONESTY.md` section 4), so both halves are said."""
+    the other (`rust/HONESTY.md` section 4), so both halves are said.
+
+    "Still running" is one of two ways to end up here, and the trace can tell
+    them apart: a thread whose spool went inert could not write THREAD_END
+    either, so where `records_dropped` is non-zero the line offers that
+    reading too rather than asserting a thread was running that had
+    finished."""
     live = m.get("live_threads") or []
     if not live:
         return []
+    dropped = m.get("records_dropped") or {}
+    total = sum(int(v) for v in dropped.values() if v is not None)
+    why = "still running when the process ended"
+    if total:
+        why += (" -- or whose spool was inert at exit and could not record "
+                f"an ending (records dropped: {total})")
     return [f"live threads: {len(live)} -- " + ", ".join(str(t) for t in live)
-            + " -- still running when the process ended: their frames are "
+            + f" -- {why}: their frames are "
               "left open and no ending for them was recorded, which is not "
               "the same fact as an INCOMPLETE recording and is not printed "
               "as one"]

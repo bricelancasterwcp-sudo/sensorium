@@ -160,9 +160,15 @@ impl Spool {
 
     /// Append one record. Returns false when nothing was written, having
     /// counted the drop.
+    ///
+    /// The sequence number is minted HERE, after the record is known to be
+    /// writable, and never by the caller: a refused record must consume no
+    /// number, or every witnessed drop would also leave a hole in the
+    /// process-global sequence and be counted a second time as a `seq_gap` at
+    /// conversion. `records_dropped` and `seq_gaps` are disjoint because of
+    /// this line (`rust/HONESTY.md` §4).
     pub(crate) fn record(
         &mut self,
-        seq: u64,
         ts_ns: u64,
         site: u32,
         kind: u8,
@@ -189,6 +195,11 @@ impl Spool {
             self.count_drop();
             return false;
         }
+        // Minted only now, with the record's place in the file secured. The
+        // counter is process-global and `Relaxed` is enough: the number's job is
+        // to name a hole, and the kind-last `Release` store below is what orders
+        // these bytes against a reader.
+        let seq = crate::next_seq();
         let mut fixed = [0u8; RECORD_FIXED];
         fixed[0..8].copy_from_slice(&seq.to_le_bytes());
         fixed[8..16].copy_from_slice(&ts_ns.to_le_bytes());
@@ -266,14 +277,7 @@ impl Drop for Spool {
     /// `THREAD_END`, then the file is cut to exactly what was written -- so a
     /// spool with a kind-0 tail is precisely a spool whose thread never ended.
     fn drop(&mut self) {
-        self.record(
-            crate::next_seq(),
-            ffi::now_ns(),
-            0,
-            KIND_THREAD_END,
-            OUTCOME_NONE,
-            &[],
-        );
+        self.record(ffi::now_ns(), 0, KIND_THREAD_END, OUTCOME_NONE, &[]);
         let written = self.pos;
         unmap(self.base, self.map_len);
         self.map_len = 0;
@@ -597,7 +601,6 @@ mod tests {
         let dir = scratch_dir("oversize-payload");
         let mut spool = Spool::open(&dir, std::process::id(), 1, "t", 0).expect("open");
         spool.record(
-            0,
             1,
             0,
             KIND_CALL,
@@ -613,13 +616,65 @@ mod tests {
         let dir = scratch_dir("largest-payload");
         let mut spool = Spool::open(&dir, std::process::id(), 2, "t", 0).expect("open");
         let big = vec![b'x'; u16::MAX as usize];
-        assert!(spool.record(0, 1, 0, KIND_RETURN, OUTCOME_NONE, &big));
+        assert!(spool.record(1, 0, KIND_RETURN, OUTCOME_NONE, &big));
         assert_eq!(spool.records_dropped, 0);
         assert_eq!(
             spool.pos,
             HEADER_FIXED + 1 + RECORD_FIXED + u16::MAX as usize
         );
         drop(spool);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The seq of the record that starts at `at`, read back out of the live
+    /// mapping.
+    fn seq_at(spool: &Spool, at: usize) -> u64 {
+        // SAFETY: `at + 8` is inside the live mapping (the caller passes a
+        // position `record` has already written a whole record at), and nothing
+        // is writing this spool while the test reads it.
+        let bytes = unsafe { std::slice::from_raw_parts(spool.base.add(at), 8) };
+        u64::from_le_bytes(bytes.try_into().expect("eight bytes"))
+    }
+
+    /// A record the spool REFUSED consumes no sequence number.
+    ///
+    /// This is what makes `records_dropped` and `seq_gaps` disjoint: a witnessed
+    /// drop is counted once, by the writer, and leaves no hole for the converter
+    /// to count a second time (`rust/HONESTY.md` §4). Two spools in one process,
+    /// because the counter is process-global: a record written on one, a record
+    /// refused on the other, a record written on the first again -- and the two
+    /// written seqs are consecutive.
+    #[test]
+    fn a_refused_record_consumes_no_sequence_number() {
+        let dir = scratch_dir("refused-no-hole");
+        let pid = std::process::id();
+        let mut ok = Spool::open(&dir, pid, 5, "ok", 0).expect("open");
+        let mut full = Spool::open(&dir, pid, 6, "full", 0).expect("open");
+        // `spool_limit()`'s own field, set here rather than through the
+        // environment so this test needs neither the `test-hooks` feature nor a
+        // process-wide `set_var`: `full` may not grow past what it already has.
+        full.limit = Some(full.map_len);
+
+        let first_at = ok.pos;
+        assert!(ok.record(1, 0, KIND_CALL, OUTCOME_NONE, &[]));
+
+        let too_big = vec![b'x'; CHUNK - RECORD_FIXED];
+        assert!(
+            !full.record(2, 0, KIND_CALL, OUTCOME_NONE, &too_big),
+            "the record does not fit and the spool may not grow"
+        );
+        assert_eq!(full.records_dropped, 1, "and the writer counted it");
+
+        let second_at = ok.pos;
+        assert!(ok.record(3, 0, KIND_RETURN, OUTCOME_NONE, &[]));
+
+        assert_eq!(
+            seq_at(&ok, second_at),
+            seq_at(&ok, first_at) + 1,
+            "the refused record left a hole in the sequence"
+        );
+        drop(ok);
+        drop(full);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

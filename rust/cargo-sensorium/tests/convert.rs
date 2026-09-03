@@ -271,6 +271,61 @@ fn a_missing_seq_is_counted_as_one_gap() {
     assert_eq!(meta(&conn, "seq_gaps"), 1);
 }
 
+/// A thread whose spool went inert costs `records_dropped`, never `seq_gaps`.
+///
+/// The two counts are disjoint by construction: the runtime mints a sequence
+/// number inside `Spool::record`, only once the record is known to be writable
+/// (`sensorium-rt/src/spool.rs`), so a refused record leaves no hole for the
+/// merge to find. This fixture is a two-thread process shaped exactly like the
+/// runtime writes one: serial 2's spool broke after its CALL -- its header
+/// carries the drops, it has no THREAD_END, and the sequence it shares with
+/// serial 1 is unbroken. `dropped_writes()` is `records_dropped + seq_gaps`,
+/// so a hole here would count every witnessed drop twice.
+#[test]
+fn a_thread_whose_spool_went_inert_costs_no_seq_gaps() {
+    let f = Fixture::new("inert-spool-no-gaps");
+    f.one_site_manifest("meta1", "unit");
+    wire::write_proc_header(
+        &f.spool_dir,
+        203,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    // Serial 1 runs to the end: seqs 0, 1, 4.
+    wire::SpoolBuilder::new(203, 1, "main")
+        .call(0, 1000, 0, 0)
+        .ret_none(1, 2000, 0, 0)
+        .thread_end(4, 5000)
+        .write(&f.spool_dir);
+    // Serial 2's spool broke after seq 3: its RETURN and its THREAD_END were
+    // both refused, and refused records took no numbers with them.
+    wire::SpoolBuilder::new(203, 2, "worker")
+        .call(2, 3000, 0, 0)
+        .call(3, 4000, 0, 0)
+        .records_dropped(2)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = open(&f.traces()[0]);
+    assert_eq!(
+        meta(&conn, "records_dropped"),
+        serde_json::json!({"2": 2}),
+        "the writer witnessed both losses"
+    );
+    assert_eq!(
+        meta(&conn, "seq_gaps"),
+        0,
+        "and none of them is also a hole in the sequence"
+    );
+    assert_eq!(
+        meta(&conn, "live_threads"),
+        serde_json::json!(["worker"]),
+        "the inert thread could not write THREAD_END either"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Live thread: named in live_threads, incomplete stays false
 // ---------------------------------------------------------------------------

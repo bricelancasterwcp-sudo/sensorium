@@ -205,14 +205,7 @@ pub(crate) fn emit_if_open(site: u32, kind: u8, outcome: u8, payload: &[u8]) -> 
             let Some(spool) = slot.as_mut() else {
                 return false;
             };
-            spool.record(
-                crate::next_seq(),
-                ffi::now_ns(),
-                site,
-                kind,
-                outcome,
-                payload,
-            )
+            spool.record(ffi::now_ns(), site, kind, outcome, payload)
         })
         .unwrap_or(false)
 }
@@ -240,14 +233,7 @@ pub(crate) fn emit(dir: &Path, site: u32, kind: u8, outcome: u8, payload: &[u8])
             let Some(spool) = slot.as_mut() else {
                 return false;
             };
-            spool.record(
-                crate::next_seq(),
-                ffi::now_ns(),
-                site,
-                kind,
-                outcome,
-                payload,
-            )
+            spool.record(ffi::now_ns(), site, kind, outcome, payload)
         })
         .unwrap_or(false)
 }

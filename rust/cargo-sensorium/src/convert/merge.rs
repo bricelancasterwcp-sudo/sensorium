@@ -24,6 +24,11 @@ pub struct MergeResult {
     /// `seq` values in `[0, max]` that no spool holds a complete record for --
     /// each one a record minted (`SEQ.fetch_add`) and never found, the
     /// one-per-thread crash bound counted rather than silently absorbed.
+    ///
+    /// A record the runtime REFUSED is not one of these: the number is minted
+    /// inside `Spool::record`, after the record is known writable, so a
+    /// witnessed drop takes no number with it and is counted once, by
+    /// `records_dropped` alone (`rust/HONESTY.md` §4).
     pub seq_gaps: u64,
 }
 

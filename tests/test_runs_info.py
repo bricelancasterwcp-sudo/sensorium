@@ -597,9 +597,9 @@ def _rust_trace(tmp_path, run_id, **meta):
     sequence, a writer that went inert, a panic with no frame -- are what a
     crashing process leaves, and no recording can be asked for them."""
     w = TraceWriter(tmp_path / "sdir" / "traces" / f"{run_id}.db")
+    meta.setdefault("live_threads", [])
     finalize_synthetic(w, lang="rust", recorder="sensorium-rt 0.1.0",
-                       capabilities=RUST_CAPS, threads_started=0,
-                       live_threads=[], **meta)
+                       capabilities=RUST_CAPS, threads_started=0, **meta)
     w.close()
     return run_id
 
@@ -644,6 +644,39 @@ def test_info_prints_no_loss_lines_for_a_rust_trace_that_lost_nothing(
     for absent in ("seq gaps:", "records dropped:", "panics unrecorded:",
                    "panics outside frames:", "late writes dropped"):
         assert absent not in out, (absent, out)
+
+
+def test_info_offers_the_inert_spool_reading_of_a_live_thread(
+        tmp_path, monkeypatch, capsys):
+    """A thread whose spool went inert could not write THREAD_END either, so
+    it is listed as live having in fact finished. Where the trace witnessed
+    dropped records, `info` must not assert the thread was still running: it
+    offers the second reading and names the evidence for it."""
+    run_id = _rust_trace(tmp_path, "20260101-000000-rustinert",
+                         live_threads=["worker"], seq_gaps=0,
+                         records_dropped={"2": 7})
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert ("live threads: 1 -- worker -- still running when the process "
+            "ended -- or whose spool was inert at exit and could not record "
+            "an ending (records dropped: 7)") in out, out
+
+
+def test_info_does_not_offer_the_inert_reading_when_nothing_was_dropped(
+        tmp_path, monkeypatch, capsys):
+    """The qualifier is evidence-bound. With `records_dropped` empty there is
+    no inert spool to point at, and offering the reading anyway would be the
+    recorder guessing."""
+    run_id = _rust_trace(tmp_path, "20260101-000000-rustlive",
+                         live_threads=["worker"], seq_gaps=0,
+                         records_dropped={})
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert ("live threads: 1 -- worker -- still running when the process "
+            "ended: their frames are") in out, out
+    assert "inert at exit" not in out
 
 
 def test_the_invocation_header_has_no_trailing_space_without_cargo_args(
