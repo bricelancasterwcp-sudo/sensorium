@@ -59,7 +59,21 @@ $SENSORIUM_DIR/traces/<run-id>.db        # default $SENSORIUM_DIR = ~/.sensorium
   filename-stem prefix, plus the literal `last` (newest mtime).
 - **Journal mode**: the writer sets `PRAGMA journal_mode=WAL` at creation
   (`db.create_trace`); the read path opens the file with no pragma at all.
-  A trace is closed before it is queried in the ordinary flow.
+  A trace is closed before it is queried in the ordinary flow. The Rust
+  converter (`rust/cargo-sensorium/src/convert/sqlite.rs`) also sets
+  `PRAGMA synchronous=NORMAL` and commits the WHOLE trace -- schema, every
+  row, every meta key -- as ONE transaction, `COMMIT` immediately before the
+  `.tmp` file is renamed into place. Committing per row (this converter's
+  original shape) measured 1118.9s for one 119-process, 134,394-event
+  invocation against the Python converter's 22.7s for the same invocation,
+  ~49x slower, entirely attributable to one fsync'd transaction per `INSERT`;
+  one transaction per trace measured 0.903s for that same invocation
+  afterwards. `synchronous=NORMAL` under WAL cannot corrupt the file on a
+  crash (that guarantee is unconditional under WAL; `FULL`'s extra fsync only
+  protects against losing the last few committed transactions on power loss)
+  -- and a reader can never observe an earlier "committed" state of this
+  file at all, because the tmp+rename means a trace's final name exists only
+  after `COMMIT` has already returned.
 - **Permissions**: the file is created with the process umask — `0644` on a
   default Linux setup, readable by every account on the machine. A trace
   holds the entire process environment, everything the program wrote to

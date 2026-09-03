@@ -100,6 +100,26 @@ impl TraceWriter {
             .map_err(|e| format!("cannot create trace {}: {e}", tmp_path.display()))?;
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| format!("PRAGMA journal_mode=WAL: {e}"))?;
+        // NORMAL, not the default FULL: under WAL, NORMAL still cannot
+        // corrupt the database on a crash (the guarantee FULL adds is losing
+        // the last few committed transactions on power loss, not
+        // corruption) -- and there is no earlier "committed" state of THIS
+        // file a reader could ever be shown anyway, because `finish` renames
+        // it into place only after COMMIT. The tmp+rename is what makes
+        // "renamed" and "durably complete" the same fact; `synchronous`
+        // below that point is not load-bearing for correctness, only speed.
+        conn.pragma_update(None, "synchronous", "NORMAL")
+            .map_err(|e| format!("PRAGMA synchronous=NORMAL: {e}"))?;
+        // ONE transaction for the whole trace -- the schema, every row,
+        // every meta key -- committed once in `finish`, immediately before
+        // the rename. Before this, every `execute` call above was its own
+        // implicit transaction, so writing N rows meant N fsync'd commits;
+        // measured on the acceptance run (119 processes, 134,394 events):
+        // 1118.9s against the Python converter's 22.7s for the same
+        // invocation, ~49x, `wchan: jbd2_log_wait_commit`, 2.59 GB written
+        // for 32 MB of traces.
+        conn.execute_batch("BEGIN")
+            .map_err(|e| format!("BEGIN: {e}"))?;
         conn.execute_batch(SCHEMA)
             .map_err(|e| format!("cannot write the schema: {e}"))?;
         Ok(TraceWriter {
@@ -289,11 +309,18 @@ impl TraceWriter {
             .expect("query meta")
     }
 
-    /// Close the connection and rename the `.tmp` file into place.
+    /// Commit the one transaction this whole trace was written under, close
+    /// the connection, and rename the `.tmp` file into place. A reader can
+    /// only ever see this file at its final name, and only after COMMIT has
+    /// already returned -- so a converter killed mid-write leaves either no
+    /// file at the final name, or one that is completely written.
     ///
     /// # Errors
-    /// Any filesystem failure renaming the file.
+    /// Any SQLite failure committing, or filesystem failure renaming the file.
     pub fn finish(self, dest: &Path) -> Result<(), String> {
+        self.conn
+            .execute_batch("COMMIT")
+            .map_err(|e| format!("COMMIT: {e}"))?;
         let tmp = self.tmp_path.clone();
         drop(self.conn);
         std::fs::rename(&tmp, dest)
@@ -367,6 +394,33 @@ mod tests {
             )
             .unwrap();
         assert_eq!(v, "4");
+    }
+
+    /// `synchronous=NORMAL` under `journal_mode=WAL`: crash-safe (WAL means a
+    /// crash cannot corrupt the file either way), and this is the setting
+    /// that turns off the extra fsync FULL adds per transaction -- moot for
+    /// correctness here (the tmp+rename is what a reader's safety actually
+    /// rests on), but worth pinning directly since nothing else asserts it
+    /// took effect rather than silently failing to apply.
+    #[test]
+    fn synchronous_is_normal_and_journal_mode_is_wal() {
+        let dir = scratch("pragmas");
+        let w = TraceWriter::create(&dir.join("x.db.tmp")).unwrap();
+        let synchronous: i64 = w
+            .conn
+            .query_row("PRAGMA synchronous", [], |r| r.get(0))
+            .unwrap();
+        // SQLite reports the pragma back as its integer level: 0 OFF, 1
+        // NORMAL, 2 FULL, 3 EXTRA.
+        assert_eq!(
+            synchronous, 1,
+            "PRAGMA synchronous did not take effect as NORMAL"
+        );
+        let journal_mode: String = w
+            .conn
+            .query_row("PRAGMA journal_mode", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(journal_mode.to_lowercase(), "wal");
     }
 
     #[test]
