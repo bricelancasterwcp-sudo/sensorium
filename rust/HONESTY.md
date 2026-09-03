@@ -219,10 +219,19 @@ reader renders it.
 
 **Falsified by** `corpus/rust/spawned_thread` (a worker holding a lock inside a
 test is named in the verdict), `corpus/rust/libtest_threads` (`--test-threads=1`
-against `8` reads MATCH with the tasks carrying it — and the counter-truth
-question, which deletes the task fingerprints and expects REFUSED),
-`rust/sensorium-rt/tests/spawn.rs` (parent, grandchild, main-spawned and
-dependency-shaped names) and `rust/sensorium-rt/tests/serials.rs`.
+against `--test-threads=4` reads MATCH with the tasks carrying it, and names the
+four tests that are the tasks), `rust/sensorium-rt/tests/spawn.rs` (parent,
+grandchild, main-spawned and dependency-shaped names) and
+`rust/sensorium-rt/tests/serials.rs`. The separate promise that a per-task trace
+whose task fingerprints are gone is REFUSED rather than MATCHed is falsified by
+`tests/test_diff.py::test_diff_refuses_a_per_task_trace_whose_task_fingerprints_are_missing`
+(both the plain and the `--task` arm) and, on the positive side, by
+`docs/trace-format/vectors/v04-main-thread-silent-tasks-carry` — a zero-count
+row is kept and counted, so "no row" and "a row saying zero" stay different
+facts. (**Amended 2026-09-03**: this paragraph said `libtest_threads` ran
+against `8` and carried a counter-truth question that deletes the fingerprints.
+It runs against `4`, and the counter-truth was dropped by ruling at Task 10 as
+already pinned by the two falsifiers just named; the ledger had not followed.)
 
 ## 4. What a spool loses
 
@@ -628,7 +637,7 @@ re-rolled** if the box was busy when it started.
 | 1 | Outcomes are `ok`/`err` from the exit operand, `panic` from the hook, `none` when nothing was probed; a `panic` with no PANIC record behind it says so and is counted | `rust/sensorium-rt/tests/outcomes.rs`, `rust/sensorium-rt/tests/panics.rs`, `corpus/rust/panic` |
 | 1 | A generic `T` that is a `Result` only after monomorphisation reads `ok` | `corpus/rust/outcome_generic` (rung 3, deferred) |
 | 2 | A return value is `Debug` text capped at 200 bytes; `!Debug` and panicking `Debug` read `<unread>`; `()` is never `<unread>` | `rust/sensorium-rt/tests/values.rs`, `docs/trace-format/vectors/v08-return-outcome-dbg-value.json` |
-| 3 | Every emitting non-main thread is a named task where a name exists; `spawn_child` derives the name; dependency threads are unnamed and compared as a multiset | `corpus/rust/spawned_thread`, `corpus/rust/libtest_threads`, `rust/sensorium-rt/tests/spawn.rs`, `rust/sensorium-rt/tests/serials.rs` |
+| 3 | Every emitting non-main thread is a named task where a name exists; `spawn_child` derives the name; dependency threads are unnamed and compared as a multiset | `corpus/rust/spawned_thread`, `corpus/rust/libtest_threads` (`--test-threads=1` against `4`), `rust/sensorium-rt/tests/spawn.rs`, `rust/sensorium-rt/tests/serials.rs`; the REFUSED-on-deleted-fingerprints promise by `tests/test_diff.py` (`test_diff_refuses_a_per_task_trace_whose_task_fingerprints_are_missing`) and `docs/trace-format/vectors/v04-main-thread-silent-tasks-carry` |
 | 4 | A crash loses at most one record per thread; holes are `seq_gaps`; `records_dropped` is what the writer knew it lost, and the two are disjoint | `rust/sensorium-rt/tests/durability.rs`, `rust/sensorium-rt/src/spool.rs` (`a_refused_record_consumes_no_sequence_number`), `rust/cargo-sensorium/tests/convert.rs` (`a_thread_whose_spool_went_inert_costs_no_seq_gaps`), `corpus/rust/abort` |
 | 5 | `exit_status` is `waited` only for processes our runner started; everything else is `unwitnessed`, never borrowed from cargo | `rust/cargo-sensorium/tests/runner.rs`, `corpus/rust/abort`, `rust/tests/mechanics.sh`, `docs/trace-format/vectors/v10-exit-status-unwitnessed.json` |
 | 6 | Spawns are not witnessed; instrumented children are linked by `ppid`; a child that ran no instrumented code is invisible | `corpus/rust/abort`, `docs/trace-format/vectors/v11-child-runs-linked.json`, `tests/test_rust_convert.py` (`child-linked`) |
