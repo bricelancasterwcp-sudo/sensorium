@@ -264,13 +264,38 @@ def test_watch_near_miss_cap_states_what_was_withheld_with_a_command(
         tmp_path, monkeypatch, capsys):
     run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
     assert cli.main(["watch", run_id, "--at", "prog:fill", "--expr",
-                     "used > 100", "--near", "2"]) == NEGATIVE
+                     "used > 100", "--misses", "2"]) == NEGATIVE
     out = capsys.readouterr().out
     assert out.count("margin ") == 2
     assert "3 further near-miss(es) not shown" in out
     hint = [ln for ln in out.splitlines()
             if "see them with: " in ln][0].split("see them with: ", 1)[1]
-    assert "--near 5" in hint and "<" not in hint
+    assert "--misses 5" in hint and "<" not in hint
+
+
+def test_watch_near_alias_is_deprecated_but_behaves_identically(
+        tmp_path, monkeypatch, capsys):
+    """`--near` is the pre-X9 spelling, kept for one release (removed in
+    0.8.0). This is the ONE test in the suite still using it: every other
+    `--near` was switched to `--misses` by this same commit, and this one
+    exists to pin that the alias still works and still prints the warning,
+    so a future cleanup that deletes it does so on purpose, not by
+    accident."""
+    run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
+    argv_common = ["watch", run_id, "--at", "prog:fill", "--expr",
+                   "used > 100"]
+
+    status = cli.main([*argv_common, "--near", "2"])
+    captured = capsys.readouterr()
+    assert status == NEGATIVE
+    assert captured.err == ("sensorium: --near is deprecated; use --misses "
+                            "(removed in 0.8.0)\n")
+
+    status_misses = cli.main([*argv_common, "--misses", "2"])
+    captured_misses = capsys.readouterr()
+    assert status_misses == status == NEGATIVE
+    assert captured_misses.out == captured.out
+    assert captured_misses.err == ""              # no warning without --near
 
 
 def test_watch_says_why_an_equality_predicate_has_no_near_misses(

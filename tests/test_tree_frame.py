@@ -30,6 +30,24 @@ if __name__ == "__main__":
     main()
 """
 
+# Two functions, one qualname a substring of the other -- built for the
+# `--fn` exact-first-then-substring rule (X9). See tests.programs.HELPERS,
+# which this mirrors: kept local to this file rather than imported, since
+# `_rec` takes a raw source string, not a run builder.
+HELPERS_SRC = """
+def helper(x):
+    return x + 1
+
+def helper_two(x):
+    return x + 2
+
+def main():
+    helper(1)
+    helper_two(2)
+
+main()
+"""
+
 LOOP = """
 def accumulate(ops):
     total = 0
@@ -418,6 +436,29 @@ def test_frame_unknown_ref_is_exit_1(tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch)
     assert cli.main(["frame", run_id, "--fn", "does_not_exist"]) == 1
     assert "no such frame" in capsys.readouterr().out
+
+
+def test_frame_fn_exact_beats_substring(tmp_path, monkeypatch, capsys):
+    """X9: `helper` is a substring of `helper_two` too, but an exact
+    qualname match must win outright -- resolving to `helper`, not an
+    ambiguous reference between the two."""
+    run_id = _rec(tmp_path, monkeypatch, src=HELPERS_SRC)
+    assert cli.main(["frame", run_id, "--fn", "helper"]) == 0
+    out = capsys.readouterr().out
+    assert "helper" in out and "ambiguous" not in out
+    assert ":helper_two" not in out and "[helper_two]" not in out
+
+
+def test_frame_fn_substring_ambiguous_lists_candidates_and_exits_2(
+        tmp_path, monkeypatch, capsys):
+    """No code object is named exactly `help`, and it is a substring of
+    BOTH `helper` and `helper_two`: the reference is ambiguous, which is the
+    call being wrong (BAD_CALL), not a coin flip that silently picks one."""
+    run_id = _rec(tmp_path, monkeypatch, src=HELPERS_SRC)
+    assert cli.main(["frame", run_id, "--fn", "help"]) == BAD_CALL
+    out = capsys.readouterr().out
+    assert ("--fn 'help' is ambiguous: matches helper, helper_two; give "
+            "the exact qualname") in out
 
 
 def test_frame_well_formed_ref_to_a_frame_that_never_existed_is_refused(

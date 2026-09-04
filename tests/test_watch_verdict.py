@@ -268,16 +268,16 @@ def test_watch_deeply_nested_expression_fails_once_on_the_command_line(
     assert "Traceback" not in out
 
 
-def test_watch_near_below_one_is_exit_2(tmp_path, monkeypatch, capsys):
+def test_watch_misses_below_one_is_exit_2(tmp_path, monkeypatch, capsys):
     """Consistent with --limit, and for one more reason: near-misses are the
     answer when nothing hit, so a flag that silently suppresses them would
     make a run look clean without changing anything about the run."""
     run_id = rec(tmp_path, monkeypatch)
     for bad in ("0", "-5"):
         assert cli.main(["watch", run_id, "--at", "prog:fill", "--expr",
-                         "used > 1", "--near", bad]) == BAD_CALL
+                         "used > 1", "--misses", bad]) == BAD_CALL
     out = capsys.readouterr().out
-    assert out.count("--near must be >= 1") == 2
+    assert out.count("--misses must be >= 1") == 2
 
 
 def test_watch_nothing_checked_says_so_instead_of_reporting_zero_hits(

@@ -33,7 +33,7 @@ import pytest
 from sensorium import cli
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from tests.helpers import finalize_synthetic
-from tests.programs import CLEAN, exc_payload, record, synthetic
+from tests.programs import CLEAN, HELPERS, exc_payload, record, synthetic
 
 SYNTH_RUN = "20260101-000000-abcdef"
 
@@ -51,6 +51,12 @@ def _empty_store(tmp_path, monkeypatch):
 def _recorded(tmp_path, monkeypatch):
     """A real recording of a program that raises nothing: `add` runs once."""
     return record(tmp_path, monkeypatch, CLEAN)
+
+
+def _helpers(tmp_path, monkeypatch):
+    """Two functions, one qualname a substring of the other -- for the
+    `--fn` exact-first-then-substring rows (X9)."""
+    return record(tmp_path, monkeypatch, HELPERS)
 
 
 def _bare(tmp_path, monkeypatch):
@@ -125,6 +131,12 @@ MATRIX = [
     ("frame: no ref given at all",
      _recorded, ["frame", "$RUN"],
      BAD_CALL, "no such frame; give f<id> or --fn QUALNAME [--nth N]"),
+    # -- --fn exact-first, then substring (X9) ------------------------------
+    ("frame: --fn exact beats substring",
+     _helpers, ["frame", "$RUN", "--fn", "helper"], ANSWERED, "helper"),
+    ("frame: --fn substring ambiguous is the call being wrong",
+     _helpers, ["frame", "$RUN", "--fn", "help"], BAD_CALL,
+     "--fn 'help' is ambiguous: matches helper, helper_two"),
     ("exceptions: no exceptions recorded",
      _recorded, ["exceptions", "$RUN"], NEGATIVE, "no exceptions recorded"),
     ("exceptions: no RAISE events recorded (see INCOMPLETE above)",

@@ -3,7 +3,7 @@ import shlex
 
 from sensorium.exit import NEGATIVE, UNSETTLED
 from sensorium import cli
-from tests.programs import CLEAN, CRASH, SWALLOW, record, synthetic
+from tests.programs import CLEAN, CRASH, HELPERS, SWALLOW, record, synthetic
 
 
 # -- grep ------------------------------------------------------------------
@@ -12,6 +12,23 @@ def test_grep_by_value_content(tmp_path, monkeypatch, capsys):
     assert cli.main(["grep", run_id, "carol"]) == 0
     out = capsys.readouterr().out
     assert "parse_row" in out and "matches:" in out
+
+
+def test_grep_fn_exact_first_then_substring(tmp_path, monkeypatch, capsys):
+    """X9: `--fn` resolves EXACT-first. `helper` is a substring of
+    `helper_two` too, but an exact qualname match must win outright and
+    filter to ONLY that qualname's events; only a pattern matching no exact
+    qualname (`help`) falls back to the old substring behaviour."""
+    run_id = record(tmp_path, monkeypatch, HELPERS)
+    assert cli.main(["grep", run_id, "", "--fn", "helper"]) == 0
+    out = capsys.readouterr().out
+    assert "matches: 2" in out
+    assert "helper_two" not in out
+
+    assert cli.main(["grep", run_id, "", "--fn", "help"]) == 0
+    out = capsys.readouterr().out
+    assert "matches: 4" in out
+    assert "helper_two" in out
 
 
 def test_grep_kind_and_fn_filters(tmp_path, monkeypatch, capsys):

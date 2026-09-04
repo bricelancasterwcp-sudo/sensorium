@@ -55,7 +55,9 @@ counted, not quietly answered. Container captures are unaffected: their
 recorded length is exact even when the sample was capped, and nothing here
 reads a `sample` key (a depth-capped capture omits it entirely).
 """
+import argparse
 import shlex
+import sys
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
@@ -82,6 +84,21 @@ CLAIM = (
 )
 
 
+class _NearAlias(argparse.Action):
+    """`--near`, kept as a hidden alias for `--misses` (removed in 0.8.0).
+
+    Shares `--misses`'s `dest` so the rest of the command never branches on
+    which spelling was used, and records that the alias fired: argparse's
+    default store action never says which option string reached a shared
+    dest, and this is the one place that can still catch it, to print the
+    deprecation line exactly once in `run` rather than matching argv text
+    there.
+    """
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, values)
+        namespace.near_alias_used = True
+
+
 def add_parser(sub) -> None:
     p = sub.add_parser("watch", help="predicate over captured state")
     p.add_argument("run")
@@ -91,9 +108,16 @@ def add_parser(sub) -> None:
                         "arithmetic, len(name)")
     p.add_argument("--after", default=None, help="event ref to resume from")
     p.add_argument("--limit", type=int, default=20)
-    p.add_argument("--near", type=int, default=5,
+    p.add_argument("--misses", type=int, default=5, dest="misses",
                    help="how many near-misses to show when nothing hit")
-    p.set_defaults(func=run)
+    # Hidden alias for one release (X9): `--near N` collided with a
+    # location filter's usual meaning elsewhere in this CLI. `--misses` is
+    # the real flag; `--near` only still works so an existing script does
+    # not break mid-release, and `run` prints the deprecation line above
+    # whenever `near_alias_used` says it fired.
+    p.add_argument("--near", type=int, dest="misses", action=_NearAlias,
+                   help=argparse.SUPPRESS)
+    p.set_defaults(func=run, near_alias_used=False)
 
 
 # -- selecting sites -------------------------------------------------------
@@ -479,7 +503,7 @@ def verdict(out: Outcome, n_sites: int, ghosts: list[str]) -> Verdict:
 def continue_cmd(args, **over) -> str:
     """The exact command that shows more of *this* watch."""
     opts = {"--at": args.at, "--expr": args.expr, "--limit": str(args.limit),
-            "--near": str(args.near), **over}
+            "--misses": str(args.misses), **over}
     parts = ["sensorium", "watch", shlex.quote(args.run)]
     for flag, val in opts.items():
         parts += [flag, shlex.quote(str(val))]
@@ -496,7 +520,7 @@ def print_near(trace, expr, out: Outcome, args) -> None:
             print(f"  ({args.expr!r} has no boundary to approach; try one of "
                   "< <= > >= over numbers)")
         return
-    shown = out.near[:args.near]
+    shown = out.near[:args.misses]
     print(f"near-misses -- the {len(shown)} closest approach(es); every one "
           "of them FAILED the predicate:")
     for m, s in shown:
@@ -505,7 +529,7 @@ def print_near(trace, expr, out: Outcome, args) -> None:
     withheld = len(out.near) - len(shown)
     if withheld > 0:
         print(f"... {withheld} further near-miss(es) not shown; see them "
-              f"with: {continue_cmd(args, **{'--near': len(out.near)})}")
+              f"with: {continue_cmd(args, **{'--misses': len(out.near)})}")
 
 
 def print_hits(trace, expr, out: Outcome, args) -> None:
@@ -540,12 +564,18 @@ def _no_match(trace, args, mod_of) -> int:
 
 
 def run(args) -> int:
-    for flag, val in (("--limit", args.limit), ("--near", args.near)):
+    if args.near_alias_used:
+        # Printed exactly once per invocation, above everything else this
+        # command prints, regardless of how many times --near appeared or
+        # what value it carried -- one alias use, one warning.
+        print("sensorium: --near is deprecated; use --misses "
+              "(removed in 0.8.0)", file=sys.stderr)
+    for flag, val in (("--limit", args.limit), ("--misses", args.misses)):
         if val < 1:
-            # `--near 0` is refused for the same reason as `--limit 0`, and
-            # for one more: near-misses are the answer when nothing hit, so a
-            # flag that silently suppresses them is a way to make a run look
-            # clean without changing a thing about the run.
+            # `--misses 0` is refused for the same reason as `--limit 0`,
+            # and for one more: near-misses are the answer when nothing hit,
+            # so a flag that silently suppresses them is a way to make a run
+            # look clean without changing a thing about the run.
             print(f"{flag} must be >= 1 (got {val}); "
                   "there is no useful zero-row page")
             return BAD_CALL

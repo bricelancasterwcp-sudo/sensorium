@@ -28,7 +28,8 @@ def add_parser(sub) -> None:
     p.add_argument("run")
     p.add_argument("pattern")
     p.add_argument("--kind", default=None, choices=KINDS)
-    p.add_argument("--fn", default=None, help="qualname substring filter")
+    p.add_argument("--fn", default=None,
+                   help="qualname filter: exact match first, else substring")
     p.add_argument("--after", default=None, help="event ref to resume from")
     p.add_argument("--limit", type=int, default=50)
     p.set_defaults(func=run)
@@ -93,15 +94,29 @@ def run(args) -> int:
     # the output does not explain is a number the reader cannot act on.
     print_incomplete(trace, "the events searched below are not all the "
                             "events this run had")
+    events = trace.events(kind=args.kind, after=after)
+    # --fn exact-first (X9): if any candidate event's qualname equals --fn
+    # exactly, only exact matches pass; otherwise --fn behaves as it always
+    # has, a substring over the qualname. Decided once, over the whole
+    # candidate set, so an exact hit later in the scan cannot flip the rule
+    # partway through and mix the two behaviours in one run.
+    fn_exact = bool(args.fn) and any(
+        trace.code(e.code_id).qualname == args.fn
+        for e in events if e.code_id is not None)
     shown = total = 0
     scanned = considered = 0
     last = after
-    for e in trace.events(kind=args.kind, after=after):
+    for e in events:
         if e.code_id is None:
             continue
         scanned += 1
-        if args.fn and args.fn not in trace.code(e.code_id).qualname:
-            continue
+        if args.fn:
+            qualname = trace.code(e.code_id).qualname
+            if fn_exact:
+                if qualname != args.fn:
+                    continue
+            elif args.fn not in qualname:
+                continue
         considered += 1
         line = fmt_event(trace, e)
         if args.pattern not in line:
