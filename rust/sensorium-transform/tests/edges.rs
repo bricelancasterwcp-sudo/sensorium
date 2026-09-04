@@ -341,3 +341,81 @@ fn a_shebang_with_no_trailing_newline_gets_one_rather_than_swallowing_the_static
     );
     assert_eq!(t.source.lines().count(), input.lines().count() + 1);
 }
+
+// ---------------------------------------------------------------------------
+// The `?` counts (E2''s denominator and the `partial` blind spot beside it)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn census_counts_every_syn_visible_question_mark_wherever_it_sits() {
+    let src = "\
+fn tail() -> Result<u8, u8> { Ok(one()?) }
+fn stmt() -> Result<u8, u8> { let v = one()?; Ok(v) }
+fn closure() -> Result<u8, u8> {
+    let f = |x: u8| -> Result<u8, u8> { Ok(chain(x)?) };
+    f(1)
+}
+fn nested() -> Result<u8, u8> {
+    fn inner() -> Result<u8, u8> { Ok(one()?) }
+    inner()
+}
+";
+    let c = census(src);
+    assert!(c.parsed);
+    // A tail, a `let`, one inside a CLOSURE and one inside a NESTED fn: the
+    // count is of nodes the walk met, not of fn bodies it entered.
+    assert_eq!(c.try_syn, 4);
+    assert_eq!(c.try_macro_tokens, 0);
+    assert_eq!(c.fn_items, 5, "the closure is not a fn item; `inner` is");
+}
+
+#[test]
+fn a_question_mark_inside_a_macro_invocation_is_a_token_and_never_a_node() {
+    // `syn` hands a macro invocation an opaque token stream, so there is no
+    // `ExprTry` here at all -- which is exactly why `partial` exists.
+    let stmt = census("fn f() { println!(\"{}\", one()?); }\n");
+    assert_eq!((stmt.try_syn, stmt.try_macro_tokens), (0, 1));
+
+    let expr = census("fn f() -> u8 { ok(assert_ok!(two()?)) }\n");
+    assert_eq!((expr.try_syn, expr.try_macro_tokens), (0, 1));
+
+    // Item position counts too: the tokens are just as opaque there.
+    let item = census("some_macro!(f()?);\nfn g() {}\n");
+    assert!(item.parsed);
+    assert_eq!((item.try_syn, item.try_macro_tokens), (0, 1));
+
+    // And a `?` in a macro argument does not stop the walk seeing a real one
+    // beside it.
+    let both = census("fn f() -> Result<u8, u8> { println!(\"{}\", one()?); Ok(two()?) }\n");
+    assert_eq!((both.try_syn, both.try_macro_tokens), (1, 1));
+}
+
+#[test]
+fn the_macro_token_count_excludes_question_sized_and_never_reads_a_macro_rules_body() {
+    // Exclusion 1: `?Sized` is a trait bound's token, not an operation. The
+    // second half is the falsifier -- a `?` before any OTHER ident is counted,
+    // so this is a rule about `Sized` and not about `?` before an ident.
+    assert_eq!(
+        census("fn f() { bound!(T: ?Sized); }\n").try_macro_tokens,
+        0
+    );
+    assert_eq!(
+        census("fn f() { bound!(T: ?Unpin); }\n").try_macro_tokens,
+        1
+    );
+
+    // Exclusion 2: inside a `macro_rules!` DEFINITION `$( .. )?` is a repetition
+    // operator, and a definition is not an invocation. The falsifier is the same
+    // token stream under a name that IS an invocation.
+    let definition = "macro_rules! rep {\n    ($a:expr $(, $b:expr)?) => { $a };\n}\n";
+    assert_eq!(census(definition).try_macro_tokens, 0);
+    let invocation = definition.replacen("macro_rules!", "rep_like!", 1);
+    assert_eq!(census(&invocation).try_macro_tokens, 1);
+}
+
+#[test]
+fn an_unparseable_file_counts_no_question_marks_either() {
+    let c = census("fn f( { one()?; }\n");
+    assert!(!c.parsed);
+    assert_eq!((c.try_syn, c.try_macro_tokens), (0, 0));
+}

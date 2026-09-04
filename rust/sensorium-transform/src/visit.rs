@@ -18,9 +18,9 @@ use std::collections::HashMap;
 use proc_macro2::{Span, TokenStream, TokenTree};
 use syn::visit::Visit;
 use syn::{
-    AttrStyle, Attribute, Block, ExprCall, ExprMethodCall, ImplItemConst, ImplItemFn, ItemConst,
-    ItemFn, ItemImpl, ItemMacro, ItemMod, ItemStatic, ItemTrait, Signature, TraitItemConst,
-    TraitItemFn, Type,
+    AttrStyle, Attribute, Block, ExprCall, ExprMacro, ExprMethodCall, ExprTry, ImplItemConst,
+    ImplItemFn, ItemConst, ItemFn, ItemImpl, ItemMacro, ItemMod, ItemStatic, ItemTrait, Signature,
+    StmtMacro, TraitItemConst, TraitItemFn, Type,
 };
 
 use crate::exits::{self, Operand};
@@ -74,6 +74,12 @@ pub(crate) struct Ctx<'a> {
     const_fns: usize,
     extern_fns: usize,
     async_fns: usize,
+    /// Census only (see [`Census::try_syn`]): counted on every walk, read only
+    /// through [`Ctx::census`], and never a splice. Rung 3's transformer adds the
+    /// instrumenting side of `?` separately, gated on `emit`.
+    try_syn: usize,
+    /// Census only (see [`Census::try_macro_tokens`]).
+    try_macro_tokens: usize,
     error: Option<syn::Error>,
 }
 
@@ -101,6 +107,8 @@ impl<'a> Ctx<'a> {
             const_fns: 0,
             extern_fns: 0,
             async_fns: 0,
+            try_syn: 0,
+            try_macro_tokens: 0,
             error: None,
         }
     }
@@ -129,6 +137,8 @@ impl<'a> Ctx<'a> {
             const_fns: self.const_fns,
             extern_fns: self.extern_fns,
             async_fns: self.async_fns,
+            try_syn: self.try_syn,
+            try_macro_tokens: self.try_macro_tokens,
             parsed: true,
         }
     }
@@ -605,8 +615,36 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
         syn::visit::visit_expr_method_call(self, node);
     }
 
+    /// Every `?` the parser turned into a node. Counting only; the splices a `?`
+    /// site needs are rung 3's and are added on the `emit` side.
+    fn visit_expr_try(&mut self, node: &'ast ExprTry) {
+        self.try_syn += 1;
+        syn::visit::visit_expr_try(self, node);
+    }
+
+    /// `foo!(bar()?)` in expression position: the `?` is a TOKEN, not a node.
+    fn visit_expr_macro(&mut self, node: &'ast ExprMacro) {
+        self.try_macro_tokens += count_question_tokens(&node.mac.tokens);
+        syn::visit::visit_expr_macro(self, node);
+    }
+
+    /// The same in statement position (`assert!(f()?);`).
+    fn visit_stmt_macro(&mut self, node: &'ast StmtMacro) {
+        self.try_macro_tokens += count_question_tokens(&node.mac.tokens);
+        syn::visit::visit_stmt_macro(self, node);
+    }
+
     fn visit_item_macro(&mut self, node: &'ast ItemMacro) {
-        if !self.emit || !node.mac.path.is_ident("macro_rules") {
+        // An item-position macro INVOCATION. Its tokens are opaque, so a `?` in
+        // them is one the transformer cannot see -- counted, like the expression
+        // and statement forms above. A `macro_rules!` DEFINITION falls through to
+        // the skip scan below and its `?`s are never counted: there, `$( .. )?`
+        // is a repetition operator (`Census::try_macro_tokens`).
+        if !node.mac.path.is_ident("macro_rules") {
+            self.try_macro_tokens += count_question_tokens(&node.mac.tokens);
+            return;
+        }
+        if !self.emit {
             return;
         }
         // A fn inside a `macro_rules!` body is not an AST fn item -- `syn` sees
@@ -673,6 +711,35 @@ fn scan_macro_fns(tokens: &TokenStream, out: &mut Vec<u32>) {
     if let Some(span) = pending {
         out.push(u32::try_from(span.start().line).unwrap_or(u32::MAX));
     }
+}
+
+/// `?` punct tokens in a macro invocation's token stream, recursively through
+/// every delimited group.
+///
+/// The ONE exclusion is `?Sized`: a `?` immediately followed by the ident
+/// `Sized` is part of a trait bound (`impl_for!(T: ?Sized)`), never a fallible
+/// operation. Nothing else is excluded here -- in particular this function is
+/// never called on a `macro_rules!` DEFINITION's tokens, which is where `$( ..
+/// )?` would otherwise be miscounted (`Census::try_macro_tokens` states both).
+fn count_question_tokens(tokens: &TokenStream) -> usize {
+    let mut n = 0;
+    let mut pending = false;
+    for tt in tokens.clone() {
+        if pending {
+            pending = false;
+            let sized = matches!(&tt, TokenTree::Ident(id) if id == "Sized");
+            if !sized {
+                n += 1;
+            }
+        }
+        match tt {
+            TokenTree::Punct(ref p) if p.as_char() == '?' => pending = true,
+            TokenTree::Group(ref g) => n += count_question_tokens(&g.stream()),
+            _ => {}
+        }
+    }
+    // A `?` with nothing after it cannot be a `?Sized`.
+    usize::from(pending) + n
 }
 
 /// The impl's self type as a bare name: no generic arguments, no path prefix.

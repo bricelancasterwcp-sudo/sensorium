@@ -178,8 +178,8 @@ pub struct SpawnSite {
 /// `instrumented + async_fns == eligible`.
 ///
 /// `parsed` is the none-versus-zero discipline in a struct: a file `syn` could
-/// not parse yields `Census { parsed: false, .. }` with four zeros, and a caller
-/// that sums it as measured-zero is lying. Check `parsed` first.
+/// not parse yields `Census { parsed: false, .. }` with every count at zero, and
+/// a caller that sums it as measured-zero is lying. Check `parsed` first.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
 pub struct Census {
     pub fn_items: usize,
@@ -187,6 +187,34 @@ pub struct Census {
     pub extern_fns: usize,
     /// Skipped at this tier (plan decision D6), but INSIDE `eligible()`.
     pub async_fns: usize,
+    /// Every `syn::ExprTry` the walk meets, in any position: E2″'s denominator.
+    ///
+    /// These are the `?` the transformer CAN see, because `syn` parsed them into
+    /// an AST node. A `?` the walk meets inside a closure, a nested item or a
+    /// `const` initialiser counts the same as one in a fn's own body: the
+    /// question E2″ asks is how many of the `?` that exist as nodes were reached,
+    /// not where they sat.
+    pub try_syn: usize,
+    /// `?` PUNCT TOKENS inside the token stream of a macro INVOCATION: the `?`
+    /// the transformer cannot see, and so the size of the `partial` blind spot.
+    ///
+    /// A macro invocation's `tokens` are opaque to `syn` -- `println!("{}", f()?)`
+    /// holds no [`syn::ExprTry`] node at all -- so these are counted as raw
+    /// tokens, recursively through every delimited group. The counted set is
+    /// exactly the `syn::Macro` of an `Expr::Macro`, a `Stmt::Macro` and an
+    /// `Item::Macro`, minus two exclusions and no others:
+    ///
+    /// * a `?` immediately followed by the ident `Sized` (a `?Sized` bound in a
+    ///   macro argument is a token of a trait bound, not a fallible operation);
+    /// * the whole token stream of a `macro_rules!` DEFINITION, where `$( .. )?`
+    ///   makes `?` a repetition operator rather than an operation. A definition
+    ///   is not an invocation, and the walk never counts one.
+    ///
+    /// Nothing else is excluded: a `?` inside a nested group, inside a string's
+    /// neighbouring tokens, or in an argument that never expands is still a `?`
+    /// the transformer did not instrument, and hiding it would flatter the
+    /// measurement.
+    pub try_macro_tokens: usize,
     pub parsed: bool,
 }
 
