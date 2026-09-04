@@ -1,0 +1,49 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: what-was-the-key-at-the-lookup
+    ask: >
+      The upgraded record is still billed the basic price. What was the
+      value of `key` at the cache lookup on each of the two calls?
+    truth: >
+      A local variable at a line is not something this recording holds:
+      the recorder declares line=no, produces no LINE events, and `watch`
+      therefore refuses rather than evaluating an expression against
+      nothing. The refusal names the capability and says nothing was
+      checked; exit status 2. A tool that answered "0 hits" here would be
+      reporting an absent record as a zero.
+    why_logs_fail: >
+      This is the one question in this case a `dbg!(&key)` really would
+      answer, which is why it is asked: the honest failure to pin is the
+      TOOL's, not the log's. What matters is that the tool says it cannot
+      see the value rather than producing a hit count from a recording with
+      no line-level events in it -- the difference between "the key never
+      changed" and "I could not check".
+    command: ["watch", "$RUN", "--at", "price_of", "--expr", "key == \"A1\""]
+    expect_exit: 2
+    expect_contains:
+      - "REFUSED: watch needs line, which recorder sensorium-rt 0.1.0 declares it does not produce (capabilities.line: false); nothing was checked"
+    expect_absent: ["hits:", "near-miss", "verdict:"]
+  - id: did-the-key-move-with-the-record
+    ask: >
+      The record's tier changed between the two lookups. Did the cache key
+      change with it?
+    truth: >
+      No. build_key ran twice and returned "A1" both times, because it reads
+      only the sku, while upgrade returned "pro" in between -- so the second
+      price_of hit the memo entry inserted for the basic tier and returned
+      10.0 for a record that is no longer basic. Two identical keys spanning
+      a change of tier is the whole bug, and the return values carry it
+      without needing a single local variable.
+    why_logs_fail: >
+      The key is an internal String that is never printed, and it is
+      identical on both calls, so even a log of it would look correct in
+      isolation; the fault is only visible as "identical key, changed
+      record", which needs both halves at once and in order. RUST_LOG has
+      no logger to reach in this crate, and nothing panics, so
+      RUST_BACKTRACE never prints.
+    command: ["grep", "$RUN", "--kind", "RETURN", "\""]
+    expect_contains: ["matches: 3"]
+    expect_count: {"build_key -> \"A1\"": 2}
+    expect_line:
+      - ["RETURN", "upgrade -> \"pro\""]

@@ -1,0 +1,82 @@
+{
+  "id": "v15-unreached-files-declared",
+  "asserts": "A file the recorder knew about and never reached is DECLARED, not dropped: `unreached_files` lists it and `info` names every path. A trace that simply omitted it would read as a trace of a program in which that file does not exist, which is the difference between 'this code did not run' and 'this code was never instrumented'.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["/w/target/debug/deps/probe-abc"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "sensorium-rt 0.1.0",
+    "lang": "rust",
+    "capabilities": {"line": false, "locals": false, "return_value": true,
+                     "tasks": true, "threads": true, "children": false,
+                     "stdin": false, "output": false,
+                     "object_identity": false, "refocus": false},
+    "threads_started": 0,
+    "live_threads": [],
+    "caps": {"repr": 200},
+    "invocation": "20260101-000000-111111",
+    "pid": 100,
+    "ppid": 99,
+    "exe": "/w/target/debug/deps/probe-abc",
+    "toolchain": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo_args": ["test", "--all-targets"],
+    "profile": "dev",
+    "instrumented_units": ["92cb7d7da2d1cb0c", "be7c8fd949ffc3cd"],
+    "uninstrumented": [{"unit": "a4653491eb33a9f2", "crate_name": "dep",
+                        "reason": "lto"}],
+    "skipped": [{"file": "probe-core/src/lib.rs", "line": 36,
+                 "qualname": "always_seven", "reason": "const"}],
+    "spawns": [{"file": "probe-app/src/lib.rs", "line": 12, "wrapped": true,
+                "reason": null},
+               {"file": "probe-app/src/lib.rs", "line": 40, "wrapped": false,
+                "reason": "scoped"}],
+    "unreached_files": ["probe-app/src/maybe.rs"],
+    "units_refused": {"refused": false, "at": null},
+    "exit_status_basis": "waited",
+    "exit_signal": null,
+    "incomplete": false
+  },
+  "codes": [["/w/src/lib.rs", "main", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null,
+     "payload": {"outcome": "ok", "value": {"k": "dbg", "v": "()"}},
+     "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "info-names-the-unreached-file",
+      "ask": "Does `info` name a file the recorder knew about and never reached?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": ["unreached files: 1 -- probe-app/src/maybe.rs"],
+      "expect_absent": ["unreached files: 0"]
+    },
+    {
+      "id": "info-counts-the-units",
+      "ask": "How does `info` account for the units that were instrumented, fell back, were skipped, and the spawn sites it rewrote?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "units: 2 instrumented, 1 fell back (lto x1), 1 skipped (const x1), 2 spawn sites (1 wrapped)"
+      ],
+      "expect_absent": ["units: 2 instrumented, 0 fell back"]
+    }
+  ]
+}

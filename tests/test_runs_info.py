@@ -583,3 +583,113 @@ def test_info_prints_the_original_single_line_for_a_trace_that_predates_declarat
         "not recorded in this trace: children, threads_started, "
         "spawn_syscalls, audit_errors -- it predates that bookkeeping, so "
         "absence of the record is not a record of absence"]
+
+
+RUST_CAPS = {"line": False, "locals": False, "return_value": True,
+             "tasks": True, "threads": True, "children": False,
+             "stdin": False, "output": False, "object_identity": False,
+             "refocus": False}
+
+
+def _rust_trace(tmp_path, run_id, **meta):
+    """A finalized, format-4 trace shaped the way the Rust converter writes
+    one. Built by hand because the shapes below -- a hole in the record
+    sequence, a writer that went inert, a panic with no frame -- are what a
+    crashing process leaves, and no recording can be asked for them."""
+    w = TraceWriter(tmp_path / "sdir" / "traces" / f"{run_id}.db")
+    meta.setdefault("live_threads", [])
+    finalize_synthetic(w, lang="rust", recorder="sensorium-rt 0.1.0",
+                       capabilities=RUST_CAPS, threads_started=0, **meta)
+    w.close()
+    return run_id
+
+
+def test_info_reports_the_two_kinds_of_lost_record_and_the_lost_panics(
+        tmp_path, monkeypatch, capsys):
+    """`seq_gaps` and `records_dropped` are two different facts with two
+    different provenances -- inferred from a hole, and witnessed by the
+    writer -- so `info` prints both, separately, and never the Python
+    recorder's "late writes dropped" lower bound, which is neither."""
+    run_id = _rust_trace(tmp_path, "20260101-000000-rustls",
+                         seq_gaps=2, records_dropped={"10": 1, "2": 5},
+                         panics_unrecorded=1, panics_outside_frames=2)
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "seq gaps: 2 -- records minted and never found in any spool" in out
+    assert "rust/HONESTY.md §4" in out
+    # Thread serials are numbers carried in JSON string keys: sorted as
+    # strings, thread 10 comes before thread 2 and a reader scanning for a
+    # thread finds it in the wrong place.
+    assert ("records dropped: 6 -- records the runtime knew it could not "
+            "write (thread 2: 5, thread 10: 1)") in out
+    assert ("panics unrecorded: 1 -- frames that unwound with no PANIC "
+            "record on their thread") in out
+    assert "panics outside frames: 2 -- " in out
+    # The Python lower bound describes neither of them and must not stand
+    # in for both: `dropped_writes()` sums them for `diff`, not for prose.
+    assert "late writes dropped" not in out
+
+
+def test_info_prints_no_loss_lines_for_a_rust_trace_that_lost_nothing(
+        tmp_path, monkeypatch, capsys):
+    """A printed `seq gaps: 0` would be read as proof nothing was lost --
+    the `late_writes` precedent, applied to both new counters."""
+    run_id = _rust_trace(tmp_path, "20260101-000000-rustok", seq_gaps=0,
+                         records_dropped={}, panics_unrecorded=0,
+                         panics_outside_frames=0)
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    for absent in ("seq gaps:", "records dropped:", "panics unrecorded:",
+                   "panics outside frames:", "late writes dropped"):
+        assert absent not in out, (absent, out)
+
+
+def test_info_offers_the_inert_spool_reading_of_a_live_thread(
+        tmp_path, monkeypatch, capsys):
+    """A thread whose spool went inert could not write THREAD_END either, so
+    it is listed as live having in fact finished. Where the trace witnessed
+    dropped records, `info` must not assert the thread was still running: it
+    offers the second reading and names the evidence for it."""
+    run_id = _rust_trace(tmp_path, "20260101-000000-rustinert",
+                         live_threads=["worker"], seq_gaps=0,
+                         records_dropped={"2": 7})
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert ("live threads: 1 -- worker -- still running when the process "
+            "ended -- or whose spool was inert at exit and could not record "
+            "an ending (records dropped: 7)") in out, out
+
+
+def test_info_does_not_offer_the_inert_reading_when_nothing_was_dropped(
+        tmp_path, monkeypatch, capsys):
+    """The qualifier is evidence-bound. With `records_dropped` empty there is
+    no inert spool to point at, and offering the reading anyway would be the
+    recorder guessing."""
+    run_id = _rust_trace(tmp_path, "20260101-000000-rustlive",
+                         live_threads=["worker"], seq_gaps=0,
+                         records_dropped={})
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert ("live threads: 1 -- worker -- still running when the process "
+            "ended: their frames are") in out, out
+    assert "inert at exit" not in out
+
+
+def test_the_invocation_header_has_no_trailing_space_without_cargo_args(
+        tmp_path, monkeypatch, capsys):
+    """`runs` groups a build's traces under the cargo command they came out
+    of. With no `cargo_args` recorded there is no command to name, and the
+    header must end at the word -- a line ending in a space is whitespace
+    standing in for an argument list nobody recorded."""
+    _rust_trace(tmp_path, "20260101-000000-noargs",
+                invocation="20260101-000000-111111", cargo_args=[],
+                exe="/w/target/debug/deps/probe-abc")
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["runs"]) == 0
+    out = capsys.readouterr().out
+    assert "invocation 20260101-000000-111111: cargo\n" in out, repr(out)
+    assert "cargo \n" not in out, repr(out)

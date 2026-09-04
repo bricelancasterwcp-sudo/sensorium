@@ -1,0 +1,25 @@
+[package]
+name = "sensorium-rt"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "The sensorium Rust recorder's runtime: per-thread MAP_SHARED trace spools, the entry guard, outcomes and capped return values."
+
+# ZERO DEPENDENCIES, on purpose. The driver compiles this crate with one bare
+# `rustc --crate-type rlib --edition 2021 -C opt-level=3 src/lib.rs` invocation
+# and links it into a target build with BOTH `--extern sensorium_rt=<rlib>` and
+# `-L dependency=<the rlib's own per-variant directory>` (plan decision D1 as
+# amended -- `cargo-sensorium/src/rt_build.rs`, `driver.rs:382-401`,
+# `wrapper.rs`): `--extern` binds the name a crate may write, and the search
+# path is how a crate that reaches the runtime through an instrumented
+# DEPENDENCY resolves it. That directory holds exactly one rlib and this crate
+# has no dependencies, so the search path cannot offer a second candidate.
+# Anything this crate needs from libc is declared here as `extern "C"` -- see
+# `src/ffi.rs`.
+[dependencies]
+
+[features]
+# Hooks that exist ONLY so a test can drive a path the outside world cannot
+# reach on demand. Never enabled in a production build: the driver's bare
+# `rustc` line passes no `--cfg feature="test-hooks"`.
+test-hooks = []

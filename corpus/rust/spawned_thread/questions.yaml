@@ -1,0 +1,77 @@
+program: cargo
+cargo_args: ["test"]
+questions:
+  - id: where-did-the-work-happen
+    ask: >
+      The test asserts on a value it never computes itself. Where did the
+      work actually run, and what did it do there?
+    truth: >
+      On a worker thread the test spawned at src/lib.rs:33, which the
+      recording names for its parent test and that source line:
+      tests::a_worker_holds_the_ledger :: spawn@src/lib.rs:33. Everything
+      instrumented happened there -- drain took the lock and returned 7, and
+      the apply it called under the lock returned 7 -- while the test's own
+      task recorded a single frame that called nothing.
+    why_logs_fail: >
+      A `dbg!` inside drain prints the value with no indication of which
+      thread produced it, and a thread name printed by RUST_LOG is a runtime
+      number that means nothing on the next run and nothing at all about
+      which test owns it. The association between "this work" and "that
+      test" is what is missing, and it is precisely what no log line
+      carries; RUST_BACKTRACE fires only on a panic and nothing panics.
+    command: ["tree", "$RUN"]
+    expect_contains:
+      - "task t3: tests::a_worker_holds_the_ledger :: spawn@src/lib.rs:33"
+    expect_line:
+      - ["drain()", "-> 7"]
+      - ["apply()", "-> 7"]
+      - ["task t2: tests::a_worker_holds_the_ledger"]
+  - id: is-the-spawn-a-recorded-fact
+    ask: >
+      Is that name derived from something the recorder actually saw, or is
+      it a guess about which thread belongs to which test?
+    truth: >
+      It comes from the spawn site itself: this unit compiled with one spawn
+      site, and one of them was wrapped, so the name the worker carries was
+      minted where the thread was created rather than inferred afterwards.
+      Two threads were started besides the main one, and the main thread
+      recorded no causal events of its own -- consistent with libtest
+      running the test on its own thread and the work happening on the
+      worker.
+    why_logs_fail: >
+      "Is this attribution real or inferred?" is a question about the
+      instrument, not the program, so no `dbg!`, RUST_LOG line or
+      RUST_BACKTRACE can answer it -- they would each answer about the run
+      instead. Getting it wrong is how a thread's work is silently credited
+      to the wrong test.
+    command: ["info", "$RUN"]
+    expect_line:
+      - ["units:", "1 instrumented", "1 spawn sites (1 wrapped)"]
+      - ["threads started: 2 besides the main one"]
+      - ["tasks: 2", "spawn@src/lib.rs:33"]
+  - id: can-that-worker-be-compared-by-name
+    ask: >
+      Can I compare just that worker's stream against another run's, by
+      name?
+    truth: >
+      Yes -- the task is addressable by its name, and comparing this run's
+      worker against itself is a MATCH over the four causal events inside
+      it. The tool must also state the limit of what it just compared:
+      nothing is claimed about the thread streams, the other tasks, or the
+      order any of them ran in.
+    why_logs_fail: >
+      Comparing two runs by log means comparing interleaved output from
+      several threads, where the ordering differs run to run for reasons
+      that are not behavioural. `dbg!` prints no thread information at all
+      and RUST_LOG's target is the module, so there is no way to ask either
+      log for "just the lines this worker produced" unless every line was
+      tagged by hand in advance -- the change you make only after you
+      already know which worker matters. RUST_BACKTRACE fires only at a
+      panic, and nothing panics.
+    command: ["diff", "$RUN", "$RUN", "--task",
+              "tests::a_worker_holds_the_ledger :: spawn@src/lib.rs:33"]
+    expect_contains:
+      - "only task tests::a_worker_holds_the_ledger :: spawn@src/lib.rs:33 was compared"
+    expect_line:
+      - ["verdict: MATCH", "4 events", "spawn@src/lib.rs:33"]
+    expect_absent: ["DIVERGED", "REFUSED"]

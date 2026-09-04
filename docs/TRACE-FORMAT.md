@@ -59,7 +59,29 @@ $SENSORIUM_DIR/traces/<run-id>.db        # default $SENSORIUM_DIR = ~/.sensorium
   filename-stem prefix, plus the literal `last` (newest mtime).
 - **Journal mode**: the writer sets `PRAGMA journal_mode=WAL` at creation
   (`db.create_trace`); the read path opens the file with no pragma at all.
-  A trace is closed before it is queried in the ordinary flow.
+  A trace is closed before it is queried in the ordinary flow. The Rust
+  converter (`rust/cargo-sensorium/src/convert/sqlite.rs`) also sets
+  `PRAGMA synchronous=NORMAL` and commits the WHOLE trace -- schema, every
+  row, every meta key -- as ONE transaction, `COMMIT` immediately before the
+  `.tmp` file is renamed into place. Committing per row (this converter's
+  original shape) measured 1118.9s for one 119-process, 134,394-event
+  invocation against the Python converter's 22.7s for the same invocation,
+  ~49x slower, entirely attributable to one fsync'd transaction per `INSERT`;
+  one transaction per trace measured 0.903s for that same invocation
+  afterwards (n=1, read live at fix time). `synchronous=NORMAL` under WAL
+  cannot corrupt the file on a crash (that guarantee is unconditional under
+  WAL; `FULL`'s extra fsync only protects against losing the last few
+  committed transactions on power loss) -- and a reader can never observe an
+  earlier "committed" state of this file at all, because the tmp+rename means
+  a trace's final name exists only after `COMMIT` has already returned.
+  **Amended 2026-09-03 (drift closed): the acceptance document's own
+  addendum re-measured the same spool, same command, formally (n=3) and reads
+  1.197s** -- the 0.903s figure above is left as it was recorded (a single
+  ad-hoc reading taken at fix time, same box, same spool) rather than
+  silently replaced; the addendum's number is the one to quote
+  (`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`
+  §3.1). Both are the same ~1000x order of improvement over the 1118.9s
+  per-row baseline; neither reading is gated.
 - **Permissions**: the file is created with the process umask — `0644` on a
   default Linux setup, readable by every account on the machine. A trace
   holds the entire process environment, everything the program wrote to
@@ -199,8 +221,8 @@ declares `capabilities.output = false` and writes no rows (§4).
 
 ### tasks
 
-One row per unit of work: an asyncio task in Python; in Rust (planned), a
-libtest test or a spawned unit. `name` NULL means **the name could not be read**,
+One row per unit of work: an asyncio task in Python; a libtest test or a
+spawned unit in Rust. `name` NULL means **the name could not be read**,
 not that the unit had no name — `tree` and `info` say exactly that. Task ids
 are per trace.
 
@@ -234,16 +256,37 @@ recorder, lang, capabilities
 | `run_id` | The run's own id; matches the filename stem in the ordinary flow. |
 | `argv` | The recorded command, as a list of strings. |
 | `cwd` | Working directory at record time. |
-| `env_hash` | A short digest of the environment, so two runs can be compared without printing it. |
+| `env_hash` | A short digest of the environment, so two runs can be compared without printing it. **Per-recorder**: the Python recorder hashes `json.dumps(env, sort_keys=True)`, the Rust one sorted `k=v` lines. Two traces' digests are comparable only within one language — equal digests across recorders mean nothing, and unequal ones mean nothing either. |
 | `start_ts`, `end_ts` | Wall-clock seconds (`time.time()`); `info` prints the difference as the duration. |
-| `exit_status` | The status the recorded program ended with. |
+| `exit_status` | The status the recorded program ended with, or **null** when nobody witnessed it — read with `exit_status_basis` below, never alone. |
 | `main_thread_ident` | The **serial** of the thread the target was invoked from, recorded at boot rather than inferred (§6). |
 | `fingerprint_basis` | `"per-task"` or `"per-thread"` — what a per-thread fingerprint row covers (§7). Explicit, never defaulted by a writer. |
 | `truncated_count` | How many captured values were clipped by the capture caps. |
 | `source_hashes` | `{file: content-digest}` for every file the run traced code from. |
-| `recorder` | Who wrote the trace: `"sensorium 0.5.0"`, `"sensorium-rt 0.1.0"`. Printed in every sentence about what this trace can and cannot say. |
+| `recorder` | Who wrote the trace: `"sensorium 0.6.0"`, `"sensorium-rt 0.1.0"`. Printed in every sentence about what this trace can and cannot say. |
 | `lang` | `"python"`, `"rust"`. The reader defaults an absent `lang` to `"python"`, because nothing else existed before the key. |
 | `capabilities` | The declaration; see below. |
+
+### `exit_status` may be null, and `exit_status_basis` says why
+
+A recorder cannot observe its own process's exit; a parent can. The Rust
+driver installs a cargo runner shim that spawns each test binary, waits, and
+records the status — so a runner-waited process carries
+`exit_status_basis: "waited"` and the real status, while a process the runner
+did not start (a child a test spawned itself) carries `exit_status: null` and
+`exit_status_basis: "unwitnessed"`. `exit_signal` carries the signal number
+where a waited process was killed by one, and `exit_status` is null there
+too.
+
+The readers print the basis with the status — `exit: 0 (waited)`,
+`exit: 101 (waited)`, `exit: signal 9 (waited)`, `exit: unwitnessed`
+(`query/vocab.exit_phrase`) — and a trace with no basis key at all predates
+the distinction and prints exactly as it always did. Rendering a null as
+`None` is the failure this key exists to stop: it reads as a status the
+program ended with. An `unwitnessed` process never prints a signal either;
+nobody waited, so nothing about the ending is known.
+
+Vector: `v10-exit-status-unwitnessed`.
 
 ### Witness keys
 
@@ -309,7 +352,19 @@ What reads each one today:
 | `threads` | Gates the `threads_started` / `live_threads` witness keys. `info` and `diff` say "declares threads not witnessed" rather than "predates" or `0`. |
 | `children` | Gates `children` / `spawn_syscalls` / `audit_errors`, read the same way by `info` and `refocus`. |
 | `stdin` | Gates `stdin_consumed`. |
-| `locals`, `return_value`, `tasks`, `refocus` | Declared, and printed by `info`; no command gates on them yet. Declare them truthfully anyway — a false declaration is a lie the readers will eventually act on. |
+| `refocus` | `refocus` refuses outright, through the same `caps.require` sentence, before anything is re-run — a rerun has side effects, so it is not something to attempt speculatively. |
+| `locals`, `return_value`, `tasks` | Declared, and printed by `info`; no command gates on them yet. Declare them truthfully anyway — a false declaration is a lie the readers will eventually act on. |
+
+One refusal is keyed on `lang` rather than on a capability, because what is
+missing is not a record but a **rule**: `exceptions` on a non-Python trace
+refuses with `REFUSED: exceptions on a <lang> trace needs the Rust
+disposition rules (rung 3); the Python rules would misread Err values as
+exceptions; nothing was judged`. Its index reads `exc["oid"]` (Rust has
+none), it lists only RAISE events (so an `Err` returned and absorbed by a
+caller's `.ok()` would come back as "no exceptions recorded"), and its rule 2
+would report SWALLOWED for a frame that re-returned an `Err` without `?`.
+Each of those is a confident wrong answer about the program, which is worse
+than no answer. Vector: `v14-rust-refusals`.
 
 `Trace.declares(cap)` has **three** answers, and the three are different
 facts (`query/caps.witness_gap`):
@@ -342,21 +397,56 @@ Python-only.
 | `git_sha`, `git_dirty_hash` | Repository context — **not** a change detector; `source_hashes` is the check with that meaning. |
 | `uncaught`, `task_errors`, `spawn_witnessing`, `refocus_of`, `refocus_*` | Run outcome, task-identity failures, spawn-witnessing platform fact, and the refocus stamps `info` prints back. |
 
-**Rust-only, planned — no recorder writes them yet** (spec
-`docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md` §5.1;
-nothing in this repository reads them except `records_dropped`):
-`invocation`, `pid`, `ppid`, `exe`, `toolchain`, `cargo_args`, `profile`,
-`instrumented_units`, `uninstrumented`, `skipped`, `partial`,
-`records_dropped`. Of these only `records_dropped` has a reader today —
-`Trace.dropped_writes()` sums it over the threads that reported a number,
-the Rust counterpart of `late_writes`.
+**Rust-only, written today** by `cargo-sensorium`'s converter
+(`rust/cargo-sensorium/src/convert/meta.rs`) and read by `info`, `runs` and
+`Trace.dropped_writes()`. Every one of these is printed only when the trace
+carries the key, so a Rust trace from an older converter simply says less:
 
-**A note on wording, for the converter author.** Several sentences in
-`info`, `diff` and `refocus` are Python-worded on a fact that is not
-Python-specific: threads are described as "started through Python's own
-threading/_thread", and a unit of work as "an asyncio task". They render
-that way on a `lang: rust` trace today. The *facts* are language-neutral;
-the phrasing is a known follow-up for the Rust arc, and no vector pins it.
+| Key | Meaning, and what reads it |
+|---|---|
+| `invocation` | The id of the `cargo sensorium` invocation this process belongs to. `runs` groups every trace of one invocation under `invocation <id>: cargo <cargo_args>` (§6); `info` prints it beside the binary and the pid. |
+| `pid`, `ppid` | Process identity within the invocation. `ppid` is what `child_runs` is derived from. |
+| `exe` | Absolute path of the binary. `runs` prints its **basename** as the command; the full path stays on `info`'s `cmd:` line. |
+| `toolchain`, `rustc_path` | What compiled it. `info`'s interpreter line is `toolchain: <toolchain>` where a Python trace's is `python <version>`. |
+| `cargo_args`, `profile` | The cargo command and profile. `runs` prints `cargo_args` in the invocation header. |
+| `tool_hash`, `driver_version` | The instrumenting driver's identity. |
+| `instrumented_units` | Unit metadata hashes actually instrumented — the units THIS process registered, regardless of which workspace's target directory holds them. `info`: `units: N instrumented, ...`. |
+| `uninstrumented` | `[{unit, crate_name, reason}]` — units that fell back to a plain build, **scoped to this invocation's own workspace**. A shared `CARGO_TARGET_DIR` holds every workspace's manifests in one `sensorium/manifests/` directory (measured live on a 13-crate corpus sharing one target: every trace's `info` printed another crate's `fell back` line), and this list is built from a scan of ALL of them; a manifest is included only when its `workspace_root` equals `invocation.json`'s. `info` counts them **with their reasons**: `1 fell back (lto x1)`. |
+| `skipped` | `[{file, line, qualname, reason}]` — functions the transformer would not wrap (`const`, `extern`, `async`), for the units THIS process registered. **Not** workspace-scoped: `registered` is already the correct scope (this process's own proc header), and cargo's freshness caching can leave a unit's own manifest on disk from a build old enough to predate the `workspace_root` field entirely without the wrapper running again to refresh it (measured live on the same corpus: `rust/spawned_thread`'s own cached manifest carried no `workspace_root`, and filtering this list the same way `uninstrumented` is filtered silently dropped its own spawn site). Counted the same way as `uninstrumented`. |
+| `spawns` | `[{file, line, wrapped, reason}]` — every thread-spawning site, rewritten or declared, for the units THIS process registered. Not workspace-scoped, for the same reason as `skipped`. `info`: `J spawn sites (W wrapped)`. |
+| `unreached_files` | Files the recorder knew about and never reached, for the units THIS process registered. Not workspace-scoped, for the same reason as `skipped`. **Named, never counted alone**: `unreached files: 1 -- probe-app/src/maybe.rs`. Vector: `v15-unreached-files-declared`. |
+| `manifests_unscoped` | Manifests under `<target>/sensorium/manifests/`, across the WHOLE directory, with no `workspace_root` at all — a manifest written before that field existed (`sensorium-transform`'s `Manifest` reads it with `#[serde(default)]`, so it deserialises as `""` rather than refusing the file), counted rather than silently excluded from `uninstrumented`'s scan with no trace of why. `info`: `manifests unscoped: N -- predate the workspace stamp`, printed only when non-zero. A manifest whose `workspace_root` is simply a DIFFERENT workspace (the ordinary shared-target case) is excluded from `uninstrumented` the same way but is not counted here — it is not old, just not this invocation's. This key says nothing about `skipped`/`spawns`/`unreached_files`, which are never filtered by `workspace_root` at all. |
+| `units_refused` | `{"refused": bool, "at": <metadata or null>}`. When true, `info` prints `unit ceiling: recording REFUSED at unit <metadata> -- every later call in this process is unrecorded`: everything after that point is missing and nothing else in the trace says so. Vector: `v14-rust-refusals`. |
+| `exit_status_basis`, `exit_signal` | `"waited"` / `"unwitnessed"`, and the signal a waited process was killed by. See the exit-status rule above. |
+| `wall_start_ts`, `wall_end_ts` | The runner's own clock around the process; written only when the runner ran it. |
+| `records_dropped` | `{"<thread serial>": n}` — writes the runtime **knew** it could not make (a failed `mmap`/`ftruncate` leaves that thread inert). |
+| `seq_gaps` | Records minted and never found in any spool — a hole the merge **inferred**, at most one lost mid-write per thread (`rust/HONESTY.md` §4). The bound holds because the runtime mints the sequence number *inside* `Spool::record`, after the record is known writable: a record the spool refused consumes no number, so a witnessed drop is never also a hole. `info` prints it separately from `records_dropped`, because the two have different provenance; `Trace.dropped_writes()` **adds** them — they are disjoint, not overlapping — and a non-zero total makes `diff` refuse a verdict exactly as `late_writes` does. |
+| `panics_unrecorded` | Frames that unwound with no PANIC record on their thread (the hook was replaced, or the panic began before recording). |
+| `panics_outside_frames` | Panics recorded on a thread with no open frame — there is no frame to attach a RAISE to, and none was written. |
+| `child_runs` | `[{run_id, pid, exe}]` — same-invocation processes whose `ppid` is this one. `capabilities.children` is **false** (this recorder hooks no spawn), so `info` prints the declaration AND `child runs: N -- <run ids>`: the declaration alone hides traces the reader could open, and the list alone reads as a complete inventory of the children. Vector: `v11-child-runs-linked`. |
+
+**A note on wording, for the converter author — RESOLVED in 0.6.0 by the
+vocabulary table.** Several sentences in `info`, `diff` and `tree` were
+Python-worded on a fact that is not Python-specific: threads "started through
+Python's own threading/_thread", a unit of work as "an asyncio task", an
+interpreter line reading `python ?`. They rendered that way on a `lang: rust`
+trace, and the first of them is a positive claim about provenance the trace
+does not carry. `src/sensorium/query/vocab.py` is now the table: `terms(trace)`
+returns the column for `meta["lang"]`, every renderer reads its words from it,
+and `v13-lang-keyed-prose` plus `tests/test_vocab.py` pin the ABSENCE of
+`asyncio`, `Python's own`, `threading/_thread`, `coroutine`, `generator` and
+`python ?` from every command's output on a Rust trace. The Python column is
+the exact string each renderer printed before the table existed — a reworded
+Python sentence is a regression, and the legacy suite is the fence.
+
+| Term | Python | Rust |
+|---|---|---|
+| unit of work | `asyncio task` | `test or spawned thread` |
+| ...plural | `asyncio task(s)` | `tests or spawned threads` |
+| a nameless one | `(name unreadable)` — the name existed and `get_name()` raised | `(unnamed: spawned by dependency code)` — it never had one |
+| where threads came from | `through Python's own threading/_thread` | `as OS threads (libtest's per-test threads and threads spawned by workspace code)` |
+| what ran the program | `python <meta.python>` | `toolchain: <meta.toolchain>` |
+| a runtime-minted name | `Task-N` is read as no name at all | none exist; every name is the program's |
 
 ## 5. Enumerations
 
@@ -379,9 +469,9 @@ it was handed.
 
 | Kind | Keys |
 |---|---|
-| `CALL` | `args` — `{name: value}`, values in the shape below. Optional: `unread: ["locals"]` when the frame's locals could not be read; `caller_code` (code id) / `caller: "untraced"` naming a caller that had no open frame. Two further keys, `parent_frame` and `unframed`, belong to formats ≤ 2, where coroutine and generator bodies opened no frame; from format 3 every traced body is framed and no recorder writes them, but the readers still render them for the older files. |
-| `RETURN` | `value` — one value. |
-| `RAISE`, `HANDLED` | `exc` — `{type, msg, serial}`, plus `oid` in Python. **`type` and `msg` are required**: `query/fmt.fmt_exc` indexes them (`e['type']`, `e['msg']`), and the one way to omit `msg` is to say so — `unread: ["msg"]` inside the `exc` object, which renders as `<message unreadable: __str__ raised>`. `serial` is a per-thread exception identity, used to tell "the same exception, still travelling" from a new one. |
+| `CALL` | `args` — `{name: value}`, values in the shape below. Optional: `unread: ["locals"]` when the frame's locals could not be read — **every view that renders a call must carry that marker**: `grep`, `tree` (`name() <unread: locals>`) and `frame` (`args: <unread: locals>`). `(none)` there reads as "called with no arguments", a claim about the program the trace never made; a Rust trace is entirely locals-free, so every one of its CALLs carries it (vector `v12-call-unread-marker-in-tree-and-frame`); `caller_code` (code id) / `caller: "untraced"` naming a caller that had no open frame. Two further keys, `parent_frame` and `unframed`, belong to formats ≤ 2, where coroutine and generator bodies opened no frame; from format 3 every traced body is framed and no recorder writes them, but the readers still render them for the older files. |
+| `RETURN` | Optional `value` — one value, **absent** where nothing was captured (never a null tag standing in for one). Optional `outcome` — `"none"` (the site was never probed), `"ok"`, `"err"`, `"panic"`: what the frame ended WITH, which `err` distinguishes from `ok` without the reader having to parse the value. A frame that panicked carries `outcome: "panic"` and no `value`. Vector: `v08-return-outcome-dbg-value`. |
+| `RAISE`, `HANDLED` | `exc` — `{type, msg, serial}`, plus `oid` in Python and an optional sibling `loc` (`"<file>:<line>:<col>"`, where a Rust panic fired — not necessarily the frame's own line; `frame` prints it after the exception). **`type` and `msg` are required**: `query/fmt.fmt_exc` indexes them (`e['type']`, `e['msg']`), and the one way to omit `msg` is to say so — `unread: ["msg"]` inside the `exc` object, which renders as `<message unreadable: __str__ raised>`. `serial` is a per-thread exception identity, used to tell "the same exception, still travelling" from a new one. |
 | `LINE` | `deltas` — `{name: value}` for the locals that changed; optional `unbound` — names that went out of scope this step; optional `unread: ["locals"]`. |
 | `YIELD` | `awaiting` — a type name, what the frame parked on. |
 | `RESUME` | `thrown` — the exception thrown into the frame, in `exc` shape; absent for an ordinary resumption. |
@@ -389,10 +479,25 @@ it was handed.
 A captured **value** is a tagged object read by `query/fmt.fmt_value`:
 `{"k": "none"}`, `{"k": "num"|"bool", "v": …}`, `{"k": "str", "v": …,
 "trunc": bool}`, `{"k": "seq"|"map", "type": …, "len": n|null, "sample":
-[…], "trunc": bool}`, `{"k": "obj", "type": …, "oid": n}`, or
-`{"k": "unread", "type": …, "oid": …}`. `len: null` prints `?`; an `unread`
-list names the reads the observed object refused. A payload key a recorder
-cannot fill is **omitted**, never filled with a zero or an empty string.
+[…], "trunc": bool}`, `{"k": "obj", "type": …, "oid": n}`,
+`{"k": "dbg", "v": "<text>", "trunc": bool}`, or
+`{"k": "unread"}` (with `type` and `oid` where the recorder has them).
+`len: null` prints `?`; an `unread` list names the reads the observed object
+refused. A payload key a recorder cannot fill is **omitted**, never filled
+with a zero or an empty string.
+
+Two of those tags are what a recorder that does not decompose values writes,
+and both render as themselves rather than as `?`:
+
+- **`dbg`** — the value as the language's own formatter rendered it (Rust's
+  `Debug`). The text IS the capture; there is nothing behind it to sample.
+  `trunc: true` means the recorder's cap stopped the formatter mid-value, and
+  the readers append `…`. A unit return is `{"k": "dbg", "v": "()"}`.
+- **`unread` with no `type` and no `oid`** — the value existed and could not
+  be read at all, by a recorder that has no object identity to offer either.
+  It renders `<unread>`; `<unreadable ?#?>` would invent two fields it never
+  had. With `type`/`oid` (the Python shape) it still renders
+  `<unreadable Type#42>`.
 
 `oid` (object identity) is Python-only; a recorder that cannot produce it
 declares `capabilities.object_identity = false`, and `flow --object`
@@ -407,6 +512,15 @@ unwind — is:
 "closed_by": "unwind",
 "unwind_exc": {"type": "panic", "msg": "boom", "serial": 1, "oid": 1}
 ```
+
+A panic the converter could not match to a PANIC record on the same thread
+carries `serial: 0` and the literal message `<panic message not recorded: no
+PANIC record preceded this unwind>` — the frame still says how it ended, and
+the message says why it cannot be quoted rather than being left empty. Such
+frames are counted in `panics_unrecorded` (§4). `loc` is optional and rides
+with the panic when there was a record to read it from; `frame` prints it as
+` at <file>:<line>:<col>` after the exception, and prints nothing where the
+key is absent.
 
 `type` and `msg` are what the renderers print (`!! panic('boom')`,
 `unwound: panic('boom')`). `serial` matters for one specific derivation: a
@@ -448,9 +562,29 @@ pins the `kind` half of the same rule.
   read as `"per-thread"`, because that is what the definition was before the
   marker existed.
 - **Every unit of work gets a `tasks` row and a `task_fingerprints` row** —
-  an asyncio task in Python; a libtest test or a spawned unit in Rust
-  (planned). A unit that ran no causal event gets a zero-count fingerprint
-  row rather than no row.
+  an asyncio task in Python; a libtest test or a spawned unit in Rust. A unit
+  that ran no causal event gets a zero-count fingerprint row rather than no
+  row.
+
+**How `runs` lists what a build recorded.** One `cargo sensorium` invocation
+writes one trace per process — a `cargo test --all-targets` run is a dozen
+test binaries, their doctest processes, and any child they spawned. A trace
+carrying `invocation` is listed under a header naming the command they all
+came out of, its members indented two spaces and in name order, groups
+ordered by their first member's name; a trace with no `invocation` (every
+Python one) is listed exactly as before, in place:
+
+```
+invocation 20260903-114448-02faf3: cargo test --all-targets
+  20260903-114448-f6236e  exit:unwitnessed  events:14  cmd: app-bin --abort
+  20260903-114448-f6379a  exit:0 (waited)   events:6   cmd: e7-cb2baf323b4aa074
+```
+
+The header does **not** print cargo's own exit status: the traces do not
+record one, and a number nothing witnessed is exactly what §4's exit rule
+refuses. A member's `cmd:` is the basename of `exe` plus `argv[1:]` — the
+full path is thirty characters of build directory and is `info`'s to print.
+Vector: `v11-child-runs-linked`.
 
 **How `diff` compares** (`query/diff_cmd`), because a converter's choices
 here decide whether its traces can be compared at all:
@@ -583,11 +717,14 @@ runner refuses a vector or a question that carries neither. Add a vector for
 each new enumeration value and each new rule — a rule with no vector is a
 sentence in a document, not a contract.
 
-These seven pin the rules this document states in prose. The design spec's
-§5.3 and §5.6 promise more — one vector per value of every enumeration, per
-language — and those belong to rung 2: the values they would pin are the
-second recorder's to define, and a vector written before it exists pins this
-recorder's guess about it.
+These fifteen pin the rules this document states in prose. The first seven
+were written before the Rust recorder existed; `v08`–`v15` were added in
+0.6.0, when it did, and pin the values it actually writes rather than a guess
+about them. The design spec's §5.3 and §5.6 ask for one vector per value of
+every enumeration per language, and that is still not complete: the Rust
+`exceptions` dispositions (`err`, the chain identity, SWALLOWED vs
+AMBIGUOUS) have no vector because the rules that would define them are rung
+3's, and `v14` pins the refusal that stands in for them until then.
 
 | Vector | Rule it pins |
 |---|---|
@@ -598,3 +735,11 @@ recorder's guess about it.
 | `v05-closed-by-unwind-panic` | A panic is `closed_by = "unwind"` with an `unwind_exc`, and is never rendered as an open frame. |
 | `v06-frames-kind-function` | `frames.kind` is never NULL; `"function"` renders as no marker. |
 | `v07-flow-refuses-undeclared-line` | A command gated on a capability refuses on a trace that declares it false. |
+| `v08-return-outcome-dbg-value` | A RETURN carries `outcome` beside its optional `value`; a `dbg` value renders as its text (with `…` when clipped) and a bare `unread` as `<unread>` — never as `?`. |
+| `v09-zero-count-task-row` | A unit of work that ran no causal event still owns a `tasks` row and a zero-count fingerprint row, and `info` and `diff` count it. |
+| `v10-exit-status-unwitnessed` | `exit_status` may be null; `exit_status_basis` says whether anyone waited, and the readers print the basis rather than `None`. |
+| `v11-child-runs-linked` | `capabilities.children: false` and `child_runs` are printed together, never one without the other; `runs` groups a build's traces under their invocation. |
+| `v12-call-unread-marker-in-tree-and-frame` | A CALL's `unread: ["locals"]` reaches every view — `tree`, `frame` and `grep` — and `(none)` never stands in for it. |
+| `v13-lang-keyed-prose` | Every sentence about a trace is keyed on `meta["lang"]`: no `asyncio`, `Python's own`, `threading/_thread`, `coroutine`, `generator` or `python ?` on a Rust trace. |
+| `v14-rust-refusals` | A command whose rules are one language's refuses on another's trace rather than answering with rules that do not apply; `info` prints the unit ceiling. |
+| `v15-unreached-files-declared` | A file the recorder knew about and never reached is named, and the unit counts carry their reasons. |

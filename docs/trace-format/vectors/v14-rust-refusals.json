@@ -1,0 +1,97 @@
+{
+  "id": "v14-rust-refusals",
+  "asserts": "A command whose rules are written for one language refuses on a trace written by another, rather than answering with rules that do not apply: `exceptions` names the rung its Rust disposition rules belong to and judges nothing, and `refocus`, `flow` and `watch` refuse through the capability the trace declares false. The same trace carries `units_refused.refused: true`, and `info` prints the unit ceiling -- a recording that stopped accepting calls partway is not a recording that saw no more calls.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["/w/target/debug/deps/probe-abc"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 101,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "sensorium-rt 0.1.0",
+    "lang": "rust",
+    "capabilities": {"line": false, "locals": false, "return_value": true,
+                     "tasks": true, "threads": true, "children": false,
+                     "stdin": false, "output": false,
+                     "object_identity": false, "refocus": false},
+    "threads_started": 0,
+    "live_threads": [],
+    "caps": {"repr": 200},
+    "invocation": "20260101-000000-111111",
+    "pid": 100,
+    "ppid": 99,
+    "exe": "/w/target/debug/deps/probe-abc",
+    "toolchain": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo_args": ["test", "--all-targets"],
+    "exit_status_basis": "waited",
+    "exit_signal": null,
+    "units_refused": {"refused": true, "at": "b7402e8b24bb04bf"},
+    "incomplete": false
+  },
+  "codes": [["/w/src/lib.rs", "main", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "depth": 0, "thread": 1,
+     "closed_by": "unwind", "kind": "function",
+     "unwind_exc": {"type": "panic", "msg": "boom", "serial": 1,
+                    "loc": "src/lib.rs:4:5"}}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "RAISE", "frame": 1, "code": 1,
+     "line": 4,
+     "payload": {"exc": {"type": "panic", "msg": "boom", "serial": 1},
+                 "loc": "src/lib.rs:4:5"},
+     "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "exceptions-refuses-a-rust-trace",
+      "ask": "What does `exceptions` do on a Rust trace, whose Err values the Python disposition rules would misread?",
+      "command": ["exceptions", "$RUN"],
+      "expect_exit": 2,
+      "expect_contains": [
+        "REFUSED: exceptions on a rust trace needs the Rust disposition rules (rung 3); the Python rules would misread Err values as exceptions; nothing was judged"
+      ],
+      "expect_absent": ["no exceptions recorded", "SWALLOWED", "raised ("]
+    },
+    {
+      "id": "refocus-refuses-through-its-capability",
+      "ask": "What does `refocus` do on a trace whose recorder declares it cannot be refocused?",
+      "command": ["refocus", "$RUN", "--focus", "lib"],
+      "expect_exit": 2,
+      "expect_contains": ["refocus needs refocus",
+                          "sensorium-rt 0.1.0",
+                          "capabilities.refocus: false",
+                          "nothing was checked",
+                          "no rerun was attempted; refocus on a Rust trace arrives with rung 4"],
+      "expect_absent": ["verdict:", "refocus-of:", "sensorium run --focus"]
+    },
+    {
+      "id": "flow-and-watch-refuse-on-line",
+      "ask": "Does `watch` refuse on a recorder that declares it produces no LINE events?",
+      "command": ["watch", "$RUN", "--at", "main", "--expr", "1 == 1"],
+      "expect_exit": 2,
+      "expect_contains": ["watch needs line", "capabilities.line: false",
+                          "nothing was checked"],
+      "expect_absent": ["near-miss", "sightings"]
+    },
+    {
+      "id": "info-prints-the-unit-ceiling",
+      "ask": "How does `info` report a process in which recording refused a further unit?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "unit ceiling: recording REFUSED at unit b7402e8b24bb04bf -- every later call in this process is unrecorded"
+      ],
+      "expect_absent": ["unit ceiling: none"]
+    }
+  ]
+}

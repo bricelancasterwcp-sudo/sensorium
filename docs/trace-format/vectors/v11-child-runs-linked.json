@@ -1,0 +1,81 @@
+{
+  "id": "v11-child-runs-linked",
+  "asserts": "A recorder that declares `capabilities.children: false` still names the child runs it can join by parentage: `child_runs` is a list of {run_id, pid, exe}, and `info` prints BOTH the declaration (spawns were not witnessed) and the run ids that were joined. Either alone is a half-truth -- the declaration alone hides traces the reader could open, and the list alone reads as a complete inventory of the children. `runs` groups the traces of one `invocation` under a header naming the cargo command that produced them.",
+  "copies": 2,
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["/w/target/debug/deps/probe-abc"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "sensorium-rt 0.1.0",
+    "lang": "rust",
+    "capabilities": {"line": false, "locals": false, "return_value": true,
+                     "tasks": true, "threads": true, "children": false,
+                     "stdin": false, "output": false,
+                     "object_identity": false, "refocus": false},
+    "threads_started": 0,
+    "live_threads": [],
+    "caps": {"repr": 200},
+    "invocation": "20260101-000000-111111",
+    "pid": 100,
+    "ppid": 99,
+    "exe": "/w/target/debug/deps/probe-abc",
+    "toolchain": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo_args": ["test", "--all-targets"],
+    "exit_status_basis": "waited",
+    "exit_signal": null,
+    "child_runs": [{"run_id": "20260101-000002-cccccc", "pid": 101,
+                    "exe": "/w/target/debug/app-bin"}],
+    "incomplete": false
+  },
+  "codes": [["/w/src/lib.rs", "main", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null,
+     "payload": {"outcome": "ok", "value": {"k": "dbg", "v": "()"}},
+     "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "declaration-and-the-joined-children",
+      "ask": "Does `info` print both the children declaration and the child run ids joined by parentage?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "declares children not witnessed",
+        "child runs: 1 -- 20260101-000002-cccccc"
+      ],
+      "expect_count": {"not recorded in this trace: children": 1,
+                       "child runs: 1": 1},
+      "expect_absent": ["child runs: 0"]
+    },
+    {
+      "id": "runs-groups-by-invocation",
+      "ask": "How does `runs` list two traces written by one cargo invocation?",
+      "command": ["runs"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "invocation 20260101-000000-111111: cargo test --all-targets"
+      ],
+      "expect_line": [["exit:0", "events:2", "cmd: probe-abc"]],
+      "expect_count": {"cmd: probe-abc": 2,
+                       "invocation 20260101-000000-111111": 1},
+      "expect_absent": ["cmd: /w/target", "(waited)"]
+    }
+  ]
+}

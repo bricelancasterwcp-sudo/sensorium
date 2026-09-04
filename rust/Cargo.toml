@@ -1,0 +1,28 @@
+# The sensorium Rust recorder's workspace.
+#
+# Members are added by the task that creates each crate, so this list names
+# only what exists at this commit. The three that land in v1 are:
+#
+#   sensorium-rt         the runtime linked into every instrumented unit
+#   sensorium-transform  the syn rewriter
+#   cargo-sensorium      the driver, workspace wrapper, runner and converter
+#
+[workspace]
+resolver = "2"
+members = ["cargo-sensorium", "sensorium-rt", "sensorium-transform"]
+# `probes/ws` is its own workspace: the driver builds it as a TARGET
+# workspace, so it must never be a member of this one.
+exclude = ["probes"]
+
+# `sensorium-rt` is compiled at opt-level 3 whatever profile the workspace
+# under test uses -- the driver does the same for the runtime it links into a
+# target build, and rung 1's measurements were taken at that lens. These
+# overrides keep `cargo test` here honest about the same runtime.
+[profile.dev.package.sensorium-rt]
+opt-level = 3
+
+[profile.test.package.sensorium-rt]
+opt-level = 3
+
+[profile.release]
+opt-level = 3

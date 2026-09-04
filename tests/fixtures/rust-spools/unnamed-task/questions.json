@@ -1,0 +1,21 @@
+[
+  {
+    "id": "diff-self-matches-as-an-unnamed-multiset",
+    "ask": "A non-main thread whose spool header carries an EMPTY name (`tasks.name` NULL) -- does the task multiset comparison still MATCH (against itself), rather than tripping on a task with no name to key on?",
+    "command": ["diff", "$RUN", "$RUN"],
+    "expect_exit": 0,
+    "expect_contains": [
+      "verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict",
+      "tasks: 1 task stream(s) on each side, compared by content as (name, hash): all matched"
+    ],
+    "expect_absent": ["DIVERGED", "REFUSED"]
+  },
+  {
+    "id": "info-names-the-unnamed-task",
+    "ask": "Does `info` describe the unnamed task with the Rust-specific sentence, never the Python one?",
+    "command": ["info", "$RUN"],
+    "expect_exit": 0,
+    "expect_contains": ["(unnamed: spawned by dependency code)"],
+    "expect_absent": ["(name unreadable)"]
+  }
+]

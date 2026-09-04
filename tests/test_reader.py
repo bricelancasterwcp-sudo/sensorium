@@ -293,3 +293,46 @@ def test_children_and_roots_match_a_direct_query():
             "SELECT id FROM frames WHERE parent_id = ? ORDER BY id", (fid,))]
         assert [f.id for f in t.children(fid)] == kids
     assert t.children(10**9) == []
+
+
+def _meta_trace(tmp_path, name, meta):
+    p = Path(tmp_path) / f"{name}.db"
+    w = TraceWriter(p)
+    for k, v in meta.items():
+        w.set_meta(k, v)
+    w.close()
+    return Trace.open(p)
+
+
+def test_dropped_writes_adds_the_witnessed_drops_to_the_inferred_gaps(
+        tmp_path):
+    """A Rust recorder loses trace writes two ways, and they are DISJOINT:
+    `records_dropped` is what a writer knew it could not write (a failed
+    mmap or ftruncate leaves the thread inert), `seq_gaps` is a hole in the
+    process-global sequence the merge inferred -- a record minted and never
+    found. Reading only one of them would let `diff` issue a verdict over a
+    hole the trace itself declares (rust/HONESTY.md section 4)."""
+    t = _meta_trace(tmp_path, "both", {"records_dropped": {"2": 3, "5": 4},
+                                       "seq_gaps": 2})
+    assert t.dropped_writes() == 9
+    gaps_only = _meta_trace(tmp_path, "gaps", {"records_dropped": {},
+                                               "seq_gaps": 2})
+    assert gaps_only.dropped_writes() == 2
+    dropped_only = _meta_trace(tmp_path, "dropped",
+                               {"records_dropped": {"2": 3}})
+    assert dropped_only.dropped_writes() == 3
+    clean = _meta_trace(tmp_path, "clean", {"records_dropped": {},
+                                            "seq_gaps": 0})
+    assert clean.dropped_writes() == 0
+
+
+def test_dropped_writes_prefers_late_writes_where_a_python_run_wrote_it(
+        tmp_path):
+    """`late_writes` is the Python recorder's own count and is not summed
+    with anything: the two recorders' keys never appear on one trace, and
+    a reader that added them would be adding one recording's number to
+    another's."""
+    t = _meta_trace(tmp_path, "py", {"late_writes": 3, "seq_gaps": 99})
+    assert t.dropped_writes() == 3
+    assert _meta_trace(tmp_path, "py0",
+                       {"late_writes": 0}).dropped_writes() == 0

@@ -1,0 +1,9 @@
+[package]
+name = "corpus_double_call"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "double_call"
+path = "src/main.rs"

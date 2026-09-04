@@ -832,3 +832,23 @@ def test_diff_default_name_pattern_ignores_a_trailing_newline():
     assert not _unnamed("Task-1\n")
     assert not _unnamed("task-1") and not _unnamed("Task-") and \
         not _unnamed("xTask-1")
+
+
+def test_diff_refuses_a_trace_whose_record_sequence_has_holes(
+        tmp_path, monkeypatch, capsys):
+    """A Rust trace declares its losses as `seq_gaps` (a minted record no
+    spool holds) and `records_dropped` (a write the runtime knew it lost).
+    Neither is `late_writes`, and a `diff` that read only the key it knew
+    would issue a verdict over a hole the trace itself declares."""
+    good = _rec(tmp_path, "a", ["500"])
+    w = _synthetic(tmp_path, monkeypatch, "20260101-000000-seqgap")
+    finalize_synthetic(w)
+    w.set_meta("exit_status", 0)
+    w.set_meta("records_dropped", {})
+    w.set_meta("seq_gaps", 2)
+    w.close()
+
+    assert cli.main(["diff", good, "20260101-000000-seqgap"]) == 2
+    out = capsys.readouterr().out
+    assert "REFUSED" in out and "dropped >=2 trace write(s)" in out
+    assert "verdict: MATCH" not in out and "verdict: DIVERGED" not in out

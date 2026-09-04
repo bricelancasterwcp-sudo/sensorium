@@ -1,0 +1,50 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: where-was-the-none-born
+    ask: >
+      The program died unwrapping a None. Where did that None come from, and
+      how many frames did it travel through before it broke anything?
+    truth: >
+      lookup returned None for uid 7 -- the table miss -- and display_name
+      returned that same None to main untouched. Exactly two recorded
+      sightings, both of them RETURN values from two different frames. This
+      recorder captures return values and not locals, so the trace shows
+      what each frame handed BACK, which is enough to name the producer: the
+      None was born in lookup, not in the frame that unwrapped it.
+    why_logs_fail: >
+      The panic message and RUST_BACKTRACE both describe the stack at the
+      moment of the unwrap -- title and its callers -- and say nothing about
+      lookup, which produced the None and had already returned. The two
+      frames in between print nothing at all. `dbg!` on every return value
+      of every function would answer it, and is the change nobody makes
+      before the crash.
+    command: ["grep", "$RUN", "None", "--kind", "RETURN"]
+    expect_contains: ["matches: 2"]
+    expect_line:
+      - ["RETURN", "lookup -> None"]
+      - ["RETURN", "display_name -> None"]
+  - id: what-did-the-dying-frame-do
+    ask: >
+      Take the activation that actually died. What did it do, and did it
+      produce the None itself?
+    truth: >
+      The second activation of title closed by unwind with
+      panic('display name missing'), and it called nothing at all -- no
+      children. So the frame that died produced nothing; it only consumed
+      what two earlier frames had already returned. lookup does not appear
+      in this activation's report, which is the whole point: the crash site
+      and the fault site are different frames.
+    why_logs_fail: >
+      A backtrace gives the frames on the stack at the panic, which is the
+      consumer's chain, and the panic message gives the expect() text, which
+      was written by whoever wrote the unwrap. Neither says whether the
+      dying frame computed the bad value or merely received it -- and that
+      distinction is the difference between fixing title and fixing lookup.
+      RUST_LOG reaches no logger in this crate.
+    command: ["frame", "$RUN", "--fn", "title", "--nth", "2"]
+    expect_contains: ["children: (none)"]
+    expect_line:
+      - ["main.rs:title", "closed: unwind"]
+      - ["unwound:", "panic('display name missing')"]
+    expect_absent: ["lookup", "closed: return"]

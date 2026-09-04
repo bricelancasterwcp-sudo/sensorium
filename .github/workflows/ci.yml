@@ -24,6 +24,84 @@ jobs:
       - name: Install (stdlib-only runtime; dev extras for the test tools)
         run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
       - name: Tests
+        # tests/test_rust_convert.py is in here too: with no
+        # SENSORIUM_CARGO_SENSORIUM set on this matrix, it skips itself BY
+        # NAME (pytest.mark.skipif with a reason) rather than needing this
+        # job to know to exclude it.
         run: python -m pytest -q
       - name: Corpus (seeded-bug regression suite)
+        # corpus/rust is in here too: with no SENSORIUM_CARGO_SENSORIUM set
+        # on this matrix and no cargo-sensorium on PATH, those 13 cases are
+        # reported skipped BY NAME in the summary rather than passed, and
+        # the Python cases still run. The `rust` job below is where they are
+        # recorded.
+        run: python corpus/run_corpus.py
+
+  rust:
+    runs-on: ubuntu-latest
+    name: rust
+    env:
+      # The default `rust/target`, named explicitly rather than left to
+      # cargo's own default -- never a path under /mnt/extra or any other
+      # box-specific location (this workflow must be portable to any runner).
+      CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
+    steps:
+      - uses: actions/checkout@v4
+      # Plain rustup, not a third-party action: ubuntu-latest ships a stable
+      # toolchain already, so this only needs the two extra components.
+      - name: Rust toolchain (rustfmt, clippy)
+        run: rustup component add rustfmt clippy
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            rust/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: Build the driver (release)
+        working-directory: rust
+        run: cargo build --release -p cargo-sensorium
+      - name: cargo test --workspace
+        working-directory: rust
+        run: cargo test --workspace
+      # HONESTY §4 names the synthetic disk-full arm as THE falsifier of
+      # `records_dropped`, and `durability.rs` gates it on `test-hooks` -- so
+      # the line above compiles it out. Same target directory as every other
+      # step here: the feature adds one `env::var` read to `spool_limit()`, so
+      # this is a recompile of sensorium-rt and its tests, not of the world.
+      - name: cargo test -p sensorium-rt --features test-hooks
+        working-directory: rust
+        run: cargo test -p sensorium-rt --features test-hooks
+      - name: cargo fmt --check
+        working-directory: rust
+        run: cargo fmt --all -- --check
+      - name: cargo clippy
+        working-directory: rust
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      # mechanics.sh builds its own driver copy under the same
+      # CARGO_TARGET_DIR, so this is a `Fresh` no-op build, not a second
+      # compile. SENSORIUM_PROBE_TARGET is intentionally unset: the probe
+      # builds into the default rust/probes/ws/target, and the
+      # different-filesystem check skips itself BY NAME, exactly as it does
+      # off-CI.
+      - name: Rust mechanics (probe workspace)
+        run: bash rust/tests/mechanics.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install (dev extras for the test tools)
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Cross-recorder conformance (Rust fixtures through the real CLI)
+        env:
+          SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
+        run: python -m pytest -q tests/test_rust_convert.py
+      # The whole corpus, Python cases included: one runner, one summary, and
+      # the Rust cases recorded rather than skipped because this job has a
+      # driver to name. CARGO_TARGET_DIR is the job's `rust/target` (above),
+      # so the 13 crates share one warm target directory and the runtime
+      # rlib is built once.
+      - name: Rust corpus (records corpus/rust with the built driver)
+        env:
+          SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
         run: python corpus/run_corpus.py

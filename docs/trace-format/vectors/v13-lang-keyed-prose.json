@@ -1,0 +1,110 @@
+{
+  "id": "v13-lang-keyed-prose",
+  "asserts": "Every sentence a reader prints about a trace is keyed on `meta[\"lang\"]`. On a `lang: rust` trace the interpreter line is the toolchain, a unit of work is a test or spawned thread, a nameless one is a thread spawned by dependency code, and threads started are OS threads -- none of `asyncio`, `Python's own`, `threading/_thread`, `coroutine`, `generator` or `python ?` may appear. Those are not stylistic: 'started through Python's own threading/_thread' is a positive claim about provenance this trace does not carry, and `python ?` names an interpreter that never ran.",
+  "copies": 2,
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["/w/target/debug/deps/probe-abc"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "sensorium-rt 0.1.0",
+    "lang": "rust",
+    "capabilities": {"line": false, "locals": false, "return_value": true,
+                     "tasks": true, "threads": true, "children": false,
+                     "stdin": false, "output": false,
+                     "object_identity": false, "refocus": false},
+    "threads_started": 2,
+    "live_threads": [],
+    "caps": {"repr": 200},
+    "invocation": "20260101-000000-111111",
+    "pid": 100,
+    "ppid": 99,
+    "exe": "/w/target/debug/deps/probe-abc",
+    "toolchain": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo_args": ["test", "--all-targets"],
+    "exit_status_basis": "waited",
+    "exit_signal": null,
+    "incomplete": false
+  },
+  "codes": [["/w/src/main.rs", "main", 1],
+            ["/w/tests/it.rs", "alpha", 7],
+            ["/w/src/lib.rs", "worker", 30]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 6, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"},
+    {"parent": null, "code": 2, "call": 2, "return": 3, "depth": 0,
+     "thread": 2, "closed_by": "return", "kind": "function"},
+    {"parent": null, "code": 3, "call": 4, "return": 5, "depth": 0,
+     "thread": 3, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": null},
+    {"ts": 2000, "thread": 2, "kind": "CALL", "code": 2, "line": 7,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": 1},
+    {"ts": 3000, "thread": 2, "kind": "RETURN", "frame": 2, "code": 2,
+     "line": null,
+     "payload": {"outcome": "ok", "value": {"k": "dbg", "v": "()"}},
+     "task": 1},
+    {"ts": 4000, "thread": 3, "kind": "CALL", "code": 3, "line": 30,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": 2},
+    {"ts": 5000, "thread": 3, "kind": "RETURN", "frame": 3, "code": 3,
+     "line": null,
+     "payload": {"outcome": "ok", "value": {"k": "dbg", "v": "()"}},
+     "task": 2},
+    {"ts": 6000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null,
+     "payload": {"outcome": "ok", "value": {"k": "dbg", "v": "()"}},
+     "task": null}
+  ],
+  "tasks": [[1, "it::alpha", 2], [2, null, 3]],
+  "threads_with_rows": [1, 2, 3],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "info-speaks-rust",
+      "ask": "What words does `info` use for the interpreter, the unit of work, and where the threads came from?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "toolchain: rustc 1.96.0 (ac68faa20 2026-05-25)",
+        "outside any test or spawned thread",
+        "each thread row covers the events that ran in no test or spawned thread",
+        "as OS threads (libtest's per-test threads and threads spawned by workspace code)"
+      ],
+      "expect_absent": ["asyncio", "Python's own", "threading/_thread",
+                        "coroutine", "generator", "python ?"]
+    },
+    {
+      "id": "tree-speaks-rust",
+      "ask": "How does `tree` label a unit of work, one with no name, and a group of events that ran in neither?",
+      "command": ["tree", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": ["task t1: it::alpha",
+                          "no test or spawned thread",
+                          "task t2: (unnamed: spawned by dependency code)"],
+      "expect_absent": ["asyncio", "Python's own", "threading/_thread",
+                        "coroutine", "generator", "python ?"]
+    },
+    {
+      "id": "diff-speaks-rust",
+      "ask": "Does `diff` describe the threads it did not compare in the recorded language's words?",
+      "command": ["diff", "$RUN", "$RUN2"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "verdict: MATCH",
+        "as OS threads (libtest's per-test threads and threads spawned by workspace code)"
+      ],
+      "expect_absent": ["asyncio", "Python's own", "threading/_thread",
+                        "coroutine", "generator", "python ?"]
+    }
+  ]
+}

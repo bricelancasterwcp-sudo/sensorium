@@ -1,0 +1,64 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: did-the-child-leave-anything-behind
+    ask: >
+      The supervisor printed None for the worker's exit code and called it
+      finished. Is there any record of what the worker actually did?
+    truth: >
+      Yes: the worker was instrumented too, so this one invocation recorded
+      two processes, and the parent's trace names the child's run id -- one
+      child run, linked by ppid, not witnessed by any spawn hook. The parent
+      itself ran only two frames, main and supervise, and both returned
+      normally: nothing in the parent's own trace shows a failure.
+    why_logs_fail: >
+      The parent's own output is the whole problem -- `None` reads as "no
+      error code" -- and no log the parent can write knows anything the
+      parent did not know. A log line in the child would be lost with the
+      rest of its buffered output when abort() kills it, which is the
+      standard failure of `dbg!` and RUST_LOG under a hard crash;
+      RUST_BACKTRACE prints only for a panic and abort() is not one.
+    command: ["info", "$RUN"]
+    expect_contains: ["child runs: 1 -- $RUN2"]
+    expect_line:
+      - ["exit: 0 (waited)", "events:"]
+      - ["capabilities:", "children=no"]
+  - id: how-did-the-child-end
+    ask: How did the worker process end, and does the tool know that it did?
+    truth: >
+      It did not end in any way the tool witnessed. Nothing waited for the
+      child -- our runner started the parent, not the child -- so its exit
+      status is `unwitnessed` rather than a zero or a guess, and its main
+      thread was still live when recording stopped. That absence is the
+      honest reading of a process that died by abort() mid-frame.
+    why_logs_fail: >
+      "Which of my processes died, and did anybody see it die?" is not a
+      question the dying process can print about itself: abort() takes the
+      buffered tail of every log with it, and the parent -- which is the
+      only thing left to ask -- has already been shown to read the death as
+      None. RUST_BACKTRACE is a panic feature and abort() unwinds nothing.
+    command: ["info", "$RUN2"]
+    expect_contains: ["exit: unwitnessed"]
+    expect_line:
+      - ["live threads: 1", "main", "still running when the process ended"]
+    expect_absent: ["exit: 0", "(waited)"]
+  - id: where-was-the-child-when-it-died
+    ask: Where in the worker's own execution did it die?
+    truth: >
+      Inside compact, one call after checkpoint returned 2. main, worker and
+      compact are all still open in the child's trace -- an open frame is
+      the record of the death -- and checkpoint is the only frame that
+      closed, because it is the only one that finished. The spool kept the
+      records written before the abort rather than losing the buffered tail.
+    why_logs_fail: >
+      abort() gives the process no chance to flush: any `dbg!` or RUST_LOG
+      line still in a buffer at that instant is gone, so the log-based
+      reading of a hard crash is systematically truncated exactly where it
+      matters -- and a truncated log looks the same as a process that never
+      got that far.
+    command: ["tree", "$RUN2"]
+    expect_count: {"(open)": 3}
+    expect_line:
+      - ["main()", "(open)"]
+      - ["compact()", "(open)"]
+      - ["checkpoint()", "-> 2"]

@@ -1,0 +1,34 @@
+[package]
+name = "cargo-sensorium"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "The sensorium Rust recorder's driver: `cargo sensorium test|run`, the RUSTC_WORKSPACE_WRAPPER that mirrors and splices a unit, and the cargo target runner that witnesses each process's exit status."
+
+[[bin]]
+name = "cargo-sensorium"
+path = "src/main.rs"
+
+[dependencies]
+sensorium-transform = { path = "../sensorium-transform" }
+# `syn` walks the module tree (`mod` declarations and `#[path]`); the transform
+# crate re-parses for the splice. No third parser.
+syn = { version = "2", features = ["full", "parsing"] }
+proc-macro2 = { version = "1.0.80", features = ["span-locations"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# `flock` (plan decision D2) and `localtime_r` (the run-id stamp is LOCAL time,
+# as the Python recorder's is). std reaches neither.
+libc = "0.2"
+# The converter's trace store (Task 6): `db.SCHEMA` verbatim, written through a
+# bundled SQLite so the binary needs no system library.
+rusqlite = { version = "0.31", features = ["bundled"] }
+# Fingerprints: blake2b-16 over the causal-event stream (TRACE-FORMAT.md §7),
+# matching `hashlib.blake2b(digest_size=16)` on the Python side.
+blake2 = "0.10"
+
+[dev-dependencies]
+# The wrapper's fallback paths and the runner's records are driven through the
+# REAL binary (`CARGO_BIN_EXE_cargo-sensorium`), so the integration tests read
+# the JSON back rather than trusting the Rust shape that wrote it.
+serde_json = "1"

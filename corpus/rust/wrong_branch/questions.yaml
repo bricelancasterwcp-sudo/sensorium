@@ -1,0 +1,50 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: which-tier-per-order
+    ask: >
+      Three orders were priced. Which discount function did each one
+      actually reach, and what did each order end up costing?
+    truth: >
+      In order: 500 -> silver -> 95.0; 1000 -> silver -> 95.0 (the bug, the
+      spec says gold at exactly 1000); 1500 -> gold -> 80.0. Both discount
+      functions run during this program, so it is the position of an order
+      in the sequence paired with the branch it took that carries the
+      answer, not the mere presence of "gold" or "silver" in the output.
+      This recorder captures no arguments at the call tier, so the tree's
+      order is what identifies the boundary order -- the second of three.
+    why_logs_fail: >
+      price returns a number and prints nothing; only the summed total is
+      printed, and 270.0 is an ordinary-looking total. `dbg!(points)` inside
+      price would answer it and is exactly the edit you cannot make before
+      you already suspect the tier boundary. RUST_LOG does nothing here (the
+      crate has no logger and no log statements), and RUST_BACKTRACE prints
+      only when something panics, which nothing does.
+    command: ["tree", "$RUN"]
+    expect_count: {"silver()": 2}
+    expect_line:
+      - ["f1", "main()", "-> ()"]
+      - ["f3", "silver()", "-> 95.0"]
+      - ["f7", "gold()", "-> 80.0"]
+  - id: the-boundary-order-alone
+    ask: >
+      Take just the second order, the one worth exactly 1000 points. What
+      did that one activation of price do, start to finish?
+    truth: >
+      It called exactly one other function, silver, and returned 95.0. gold
+      is never reached from this activation -- which is the whole bug, and
+      is why gold must not appear anywhere in this activation's own report.
+    why_logs_fail: >
+      With three orders in flight, interleaved log lines have to be
+      re-associated with their call by hand, and that association is exactly
+      what is in doubt. A `dbg!` inside gold and silver would answer it, but
+      only after you have already guessed that the tier boundary is the
+      suspect; RUST_BACKTRACE gives frames only at a panic, and this run
+      never panics.
+    command: ["frame", "$RUN", "--fn", "price", "--nth", "2"]
+    expect_contains: ["children (1):"]
+    expect_line:
+      - ["main.rs:price", "closed: return"]
+      - ["silver()", "-> 95.0"]
+      - ["return:", "95.0"]
+    expect_absent: ["gold"]

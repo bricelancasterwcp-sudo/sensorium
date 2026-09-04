@@ -1,0 +1,9 @@
+[package]
+name = "corpus_wrong_branch"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "wrong_branch"
+path = "src/main.rs"

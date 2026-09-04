@@ -1,0 +1,44 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: how-many-charges
+    ask: One order was submitted. How many times was it actually charged?
+    truth: >
+      Twice. charge was entered exactly two times, and both returned a
+      receipt for 40.0 -- so the ledger total of 80 is one order billed
+      twice, not two orders of 40 each.
+    why_logs_fail: >
+      charge is a three-line function that pushes to a ledger and returns a
+      receipt; it prints nothing, and everything the program does print is an
+      aggregate. An 80 total is equally consistent with two orders of 40,
+      which is the reading that keeps this bug alive. `dbg!` inside charge
+      would answer it and is the edit you make only once charge is already
+      the suspect; RUST_LOG reaches no logger here, and RUST_BACKTRACE
+      prints only at a panic, and nothing panics.
+    command: ["grep", "$RUN", "charge", "--kind", "CALL"]
+    expect_contains: ["matches: 2"]
+    expect_count: {"CALL    charge()": 2}
+  - id: which-call-site-repeated
+    ask: >
+      Both charges came from inside one submit. What did that single submit
+      activation do, in order?
+    truth: >
+      One activation of submit made three calls: charge, which returned
+      Receipt { amount: 40.0 }; then confirm, which returned false because
+      the order was slow; then charge again, returning a second identical
+      receipt. The retry branch re-entered the payment call rather than the
+      confirmation call, and submit still closed by a normal return.
+    why_logs_fail: >
+      Counting alone localises nothing: two charges could equally have come
+      from two different call sites or from a retry loop in the caller. What
+      is needed is one activation's children in order, and no log line
+      carries "which activation of submit am I inside" -- `dbg!` output from
+      the two charges is indistinguishable, since both charge the same
+      amount, and RUST_BACKTRACE gives frames only when something panics.
+    command: ["frame", "$RUN", "--fn", "submit"]
+    expect_contains: ["children (3):"]
+    expect_count: {"charge()": 2}
+    expect_line:
+      - ["main.rs:submit", "closed: return"]
+      - ["confirm()", "-> false"]
+      - ["return:", "Receipt { amount: 40.0 }"]

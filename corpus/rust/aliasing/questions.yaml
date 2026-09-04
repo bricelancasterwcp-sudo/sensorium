@@ -1,0 +1,55 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: same-config-or-a-copy
+    ask: >
+      The production timeout changed from 30 to 1 and nothing in production
+      assigns to it. Is the config derive_sandbox mutates the same object
+      make_default returned, or a copy of it?
+    truth: >
+      This trace cannot say, and the tool must refuse instead of answering.
+      Object identity is a capability this recorder declares false -- it
+      captures a Debug rendering of a return value, which is a picture of
+      the CONTENTS, and two distinct configs with equal contents render
+      identically. The refusal names the recorder, names the capability, and
+      states that nothing was checked; exit status 2, not 0, because no
+      answer was produced.
+    why_logs_fail: >
+      Printing the config shows its contents, and at the moment you would
+      print them both configs have identical contents -- the bug is
+      IDENTITY, not value. `dbg!(Arc::as_ptr(&cfg))` would answer it, but
+      that is a change you can only make once you already suspect aliasing,
+      which is the thing being looked for. RUST_LOG and RUST_BACKTRACE
+      carry no addresses at all.
+    command: ["flow", "$RUN", "--object", "derive_sandbox:cfg"]
+    expect_exit: 2
+    expect_contains:
+      - "REFUSED: flow --object needs object_identity, which recorder sensorium-rt 0.1.0 declares it does not produce (capabilities.object_identity: false); nothing was checked"
+    expect_absent: ["flow of object #", "sightings:"]
+  - id: what-can-this-trace-say-instead
+    ask: >
+      Given identity is not recorded, what does the trace actually show
+      about the two configs?
+    truth: >
+      Values and order only: make_default returned a config with timeout 30,
+      derive_sandbox returned one with timeout 1, and both later reads --
+      the production one and the sandbox one -- returned 1. That is
+      consistent with an alias AND with a copy that was written back, and
+      the trace does not distinguish them. It narrows the bug without
+      closing it, which is the honest reading of a call-tier recording.
+    why_logs_fail: >
+      This is the one question in this case that logs DO answer: a
+      `dbg!(&cfg)` at each of these four sites prints exactly these values,
+      and that is the point of asking it. It marks the boundary between what
+      this recording adds and what it does not, so the refusal above is read
+      as a limit of the instrument rather than as a limit of the run --
+      while `dbg!` remains just as unable as the trace to say whether the
+      two configs it printed were one object. (RUST_LOG reaches no logger in
+      this crate, and RUST_BACKTRACE prints only at a panic; nothing
+      panics.)
+    command: ["tree", "$RUN"]
+    expect_count: {"read_timeout()": 2}
+    expect_line:
+      - ["make_default()", "-> Mutex { data: Config { retries: 3, timeout: 30 }"]
+      - ["derive_sandbox()", "-> Mutex { data: Config { retries: 3, timeout: 1 }"]
+      - ["read_timeout()", "-> 1"]

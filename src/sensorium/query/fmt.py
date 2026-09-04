@@ -11,7 +11,7 @@ def _size(v: dict) -> str:
     return "?" if n is None else str(n)
 
 
-def _unread(v: dict) -> str:
+def unread_marker(v: dict) -> str:
     """Which reads the observed object refused, named rather than implied."""
     names = v.get("unread")
     return f" <unread: {','.join(names)}>" if names else ""
@@ -32,17 +32,28 @@ def fmt_value(v: dict | None) -> str:
         # supplying an empty list -- always read it with .get, never [].
         inner = ", ".join(fmt_value(x) for x in v.get("sample", []))
         more = ", ..." if v.get("trunc") else ""
-        return f"{v['type']}[{_size(v)}]=[{inner}{more}]{_unread(v)}"
+        return f"{v['type']}[{_size(v)}]=[{inner}{more}]{unread_marker(v)}"
     if k == "map":
         pairs = ", ".join(f"{fmt_value(a)}: {fmt_value(b)}"
                           for a, b in v.get("sample", []))
         more = ", ..." if v.get("trunc") else ""
-        return f"{v['type']}[{_size(v)}]={{{pairs}{more}}}{_unread(v)}"
+        return f"{v['type']}[{_size(v)}]={{{pairs}{more}}}{unread_marker(v)}"
     if k == "obj":
-        return f"{v['type']}#{v['oid']}{_unread(v)}"
+        return f"{v['type']}#{v['oid']}{unread_marker(v)}"
+    if k == "dbg":
+        # A value the recorder rendered with the language's own formatter
+        # (Rust's `Debug`) rather than decomposing it. The text IS the
+        # capture; there is no type, length or sample behind it to print,
+        # and the ellipsis says the recorder's cap stopped the formatter
+        # mid-value -- not that the reader trimmed it here.
+        return f"{v.get('v', '?')}" + ("…" if v.get("trunc") else "")
     if k == "unread":
         # Nothing about this value could be read at all -- not even which
         # kind it is. Say so; do not render it as an object with no repr.
+        if "type" not in v and "oid" not in v:
+            # ...and a recorder with no object identity to offer says only
+            # that: `<unreadable ?#?>` invents two fields it never had.
+            return "<unread>"
         return f"<unreadable {v.get('type', '?')}#{v.get('oid', '?')}>"
     return "?"
 
@@ -67,7 +78,7 @@ def fmt_event(trace, e) -> str:
     q = code.qualname if code else "?"
     p = e.payload or {}
     if e.kind == "CALL":
-        body = f"{q}({fmt_args(p.get('args', {}))}){_unread(p)}"
+        body = f"{q}({fmt_args(p.get('args', {}))}){unread_marker(p)}"
     elif e.kind == "RETURN":
         body = f"{q} -> {fmt_value(p.get('value'))}"
     elif e.kind in ("RAISE", "HANDLED"):
@@ -99,7 +110,7 @@ def _fmt_line_tail(p: dict) -> str:
                        for n, v in p.get("deltas", {}).items())
     unbound = p.get("unbound", [])
     parts = [s for s in (deltas, f"unbound:{','.join(unbound)}"
-                          if unbound else "", _unread(p).strip()) if s]
+                          if unbound else "", unread_marker(p).strip()) if s]
     return "  " + "  ".join(parts) if parts else ""
 
 

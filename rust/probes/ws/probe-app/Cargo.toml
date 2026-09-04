@@ -1,0 +1,31 @@
+[package]
+name = "probe-app"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "The probe workspace's application crate -- lib + bin + integration tests, the unit shapes E7, E8, the runner, the doctest route, thread naming, panics and durability are measured on."
+
+[lib]
+name = "probe_app"
+path = "src/lib.rs"
+
+[[bin]]
+name = "app-bin"
+path = "src/main.rs"
+
+[dependencies]
+probe-core = { path = "../probe-core" }
+# OUTSIDE the workspace directory on purpose: cargo compiles it, cargo never
+# wraps it. See ../Cargo.toml.
+probe-ext = { path = "../../ext" }
+# NOTE: sensorium-rt is deliberately absent. Linkage is the wrapper's job; a
+# declared dependency would make the measurement circular and would put the
+# runtime in `Cargo.lock`.
+#
+# NOTE: there is no registry dependency here either. The probe carried `libc`
+# to put a SECOND libc in a unit the wrapper links `sensorium_rt` into, which
+# was rung 1's open question (findings §5.24). Plan decision D1 closed it by
+# construction -- `sensorium-rt` has no dependencies at all and is built by one
+# bare rustc invocation -- so the second libc no longer exists to collide, and
+# the dependency bought nothing but a network round trip for every CI run.
+# `probe-ext` still covers "a crate cargo compiles and never wraps".

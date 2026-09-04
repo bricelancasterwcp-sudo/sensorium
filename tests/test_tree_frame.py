@@ -1045,3 +1045,60 @@ def test_frame_timeline_interleaves_suspension_rows_among_line_rows(
     # the suspension rows sit strictly between the two LINE rows, not
     # trailing after both or leading before both.
     assert before_idx < yield_idx < resume_idx < after_idx
+
+
+def test_frame_prints_where_a_panic_fired_not_merely_that_one_did(
+        tmp_path, monkeypatch, capsys):
+    """A Rust `unwind_exc` carries the `loc` the panic fired at, which is
+    NOT the frame's own line: the frame is where the unwind was observed,
+    `loc` is where it began. Dropping it turns "this frame unwound HERE"
+    into "this frame unwound", and the reader has nowhere to look."""
+    from tests.vectors import build
+    vector = {
+        "id": "adhoc-panic-loc",
+        "codes": [["/w/src/lib.rs", "boom", 1]],
+        "frames": [{"parent": None, "code": 1, "call": 1, "depth": 0,
+                    "thread": 1, "closed_by": "unwind", "kind": "function",
+                    "unwind_exc": {"type": "panic", "msg": "kaboom",
+                                   "serial": 1,
+                                   "loc": "src/lib.rs:12:9"}}],
+        "events": [{"ts": 1, "thread": 1, "kind": "CALL", "code": 1,
+                    "line": 1, "payload": {"args": {}, "unread": ["locals"]},
+                    "task": None}],
+        "meta": {"trace_format": 4, "lang": "rust",
+                 "recorder": "sensorium-rt 0.1.0"},
+    }
+    build(vector, tmp_path / "sdir", ["20260101-000000-panloc"])
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["frame", "20260101-000000-panloc", "--fn", "boom"]) == 0
+    out = capsys.readouterr().out
+    assert "unwound: panic('kaboom') at src/lib.rs:12:9" in out, out
+
+
+def test_frame_prints_no_dangling_at_when_the_unwind_has_no_location(
+        tmp_path, monkeypatch, capsys):
+    """A panic the converter could not match to a PANIC record carries no
+    `loc`. The line must then end at the exception -- a trailing ` at ` is
+    a location the trace does not have, rendered as one it does."""
+    from tests.vectors import build
+    vector = {
+        "id": "adhoc-panic-noloc",
+        "codes": [["/w/src/lib.rs", "boom", 1]],
+        "frames": [{"parent": None, "code": 1, "call": 1, "depth": 0,
+                    "thread": 1, "closed_by": "unwind", "kind": "function",
+                    "unwind_exc": {"type": "panic", "serial": 0,
+                                   "msg": "<panic message not recorded: no "
+                                          "PANIC record preceded this "
+                                          "unwind>"}}],
+        "events": [{"ts": 1, "thread": 1, "kind": "CALL", "code": 1,
+                    "line": 1, "payload": {"args": {}, "unread": ["locals"]},
+                    "task": None}],
+        "meta": {"trace_format": 4, "lang": "rust",
+                 "recorder": "sensorium-rt 0.1.0"},
+    }
+    build(vector, tmp_path / "sdir", ["20260101-000000-nopanl"])
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["frame", "20260101-000000-nopanl", "--fn", "boom"]) == 0
+    out = capsys.readouterr().out
+    assert "panic message not recorded" in out
+    assert " at " not in out.split("unwound: ")[1], out

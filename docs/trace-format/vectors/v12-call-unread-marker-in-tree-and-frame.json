@@ -1,0 +1,68 @@
+{
+  "id": "v12-call-unread-marker-in-tree-and-frame",
+  "asserts": "A CALL payload's `unread: [\"locals\"]` says the frame's arguments were never read. Every view that renders a call must carry the marker: `tree` prints `name() <unread: locals>` and `frame` prints `args: <unread: locals>`. `(none)` there is the named bug class -- a value that looks like a measurement and is not: it reads as 'called with no arguments', which is a positive claim about the program, where the trace says only that nothing was read.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["/w/target/debug/deps/probe-abc"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "sensorium-rt 0.1.0",
+    "lang": "rust",
+    "capabilities": {"line": false, "locals": false, "return_value": true,
+                     "tasks": true, "threads": true, "children": false,
+                     "stdin": false, "output": false,
+                     "object_identity": false, "refocus": false},
+    "threads_started": 0,
+    "live_threads": [],
+    "caps": {"repr": 200},
+    "incomplete": false
+  },
+  "codes": [["/w/src/config.rs", "load_config", 5]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 5,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null,
+     "payload": {"outcome": "ok", "value": {"k": "dbg", "v": "()"}},
+     "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "tree-carries-the-marker",
+      "ask": "Does `tree` say the arguments were never read, or does it render the call as argument-free?",
+      "command": ["tree", "$RUN"],
+      "expect_exit": 0,
+      "expect_line": [["f1 e1", "load_config() <unread: locals>"]],
+      "expect_absent": ["load_config() ->"]
+    },
+    {
+      "id": "frame-carries-the-marker",
+      "ask": "What does `frame` print on the args line of a call whose locals were never read?",
+      "command": ["frame", "$RUN", "--fn", "load_config"],
+      "expect_exit": 0,
+      "expect_contains": ["args: <unread: locals>"],
+      "expect_absent": ["args: (none)"]
+    },
+    {
+      "id": "grep-said-so-all-along",
+      "ask": "Does `grep` render the same marker, so the three views agree about one event?",
+      "command": ["grep", "$RUN", "CALL"],
+      "expect_exit": 0,
+      "expect_line": [["e1 CALL", "load_config() <unread: locals>"]],
+      "expect_count": {"matches: 1": 1}
+    }
+  ]
+}

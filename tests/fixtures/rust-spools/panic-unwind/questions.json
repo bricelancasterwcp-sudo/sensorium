@@ -1,0 +1,19 @@
+[
+  {
+    "id": "frame-shows-the-unwind",
+    "ask": "Does `frame` report the panicked activation with `unwound: panic('boom')`, not as a false '(open)' or a bare '?'?",
+    "command": ["frame", "$RUN", "--fn", "boom_fn"],
+    "expect_exit": 0,
+    "expect_line": [["f1 lib.rs:boom_fn", "closed: unwind"]],
+    "expect_contains": ["unwound: panic('boom')"],
+    "expect_absent": ["closed: open", "state: open"]
+  },
+  {
+    "id": "grep-raise-shows-the-panic-message",
+    "ask": "Does the RAISE event for the panic render `boom_fn raise panic('boom')` at the PANIC record's own location?",
+    "command": ["grep", "$RUN", "RAISE"],
+    "expect_exit": 0,
+    "expect_line": [["e2 RAISE", "boom_fn raise panic('boom') L4"]],
+    "expect_count": {"matches: 1": 1}
+  }
+]

@@ -1,0 +1,68 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: what-happened-to-the-second-quota
+    ask: >
+      Two quotas were calculated and the total is 20, not 40. What did the
+      second calculation do?
+    truth: >
+      It panicked and the panic was absorbed. attempt ran twice: the first
+      returned Ok(20) over a risky that returned 20; the second returned
+      Ok(0) over a risky that did not return at all -- its frame closed by
+      unwind carrying panic('quota divisor was zero'). So an Ok in this
+      trace does not mean the work underneath it succeeded.
+    why_logs_fail: >
+      The default panic hook does print the message and its source location
+      to stderr, so a reader can see that SOMETHING panicked; what no log
+      says is what the caller did with it. Nothing prints attempt's return
+      value, and Ok(0) is indistinguishable in the total from a genuine zero
+      quota. RUST_BACKTRACE=1 adds the frames the panic unwound through, not
+      the value the frame above them returned; `dbg!` in the Err arm is the
+      edit you make only once you already suspect that arm.
+    command: ["tree", "$RUN"]
+    expect_count: {"attempt()": 2}
+    expect_line:
+      - ["attempt()", "-> Ok(20)"]
+      - ["attempt()", "-> Ok(0)"]
+      - ["risky()", "!! panic('quota divisor was zero')"]
+  - id: which-frame-turned-the-panic-into-an-ok
+    ask: >
+      Which frame converted the failure into a success, and what exactly did
+      it return?
+    truth: >
+      The second activation of attempt. It closed by a normal return with
+      the value Ok(0), and its single child is the risky activation that
+      panicked. One frame away from the panic, the run already looks
+      healthy -- that boundary is the bug's location.
+    why_logs_fail: >
+      A backtrace describes the stack BELOW the catch, so it stops exactly
+      where the interesting decision is made and never names the value the
+      catching frame produced. Logging every Result at every boundary would
+      answer it and is the change nobody makes before the bug is found;
+      RUST_LOG reaches no logger in this crate.
+    command: ["frame", "$RUN", "--fn", "attempt", "--nth", "2"]
+    expect_contains: ["children (1):"]
+    expect_line:
+      - ["main.rs:attempt", "closed: return"]
+      - ["return:", "Ok(0)"]
+      - ["risky()", "!! panic('quota divisor was zero')"]
+  - id: where-did-the-panic-actually-happen
+    ask: Where did the panic happen, and did that frame return anything?
+    truth: >
+      In risky, at src/main.rs:8:9 -- the `panic!` call itself. That frame
+      closed by unwind rather than by return, so it has no return value at
+      all and no children; the recorder reports the unwind and the message
+      instead of inventing a value for a frame that never produced one.
+    why_logs_fail: >
+      The panic message on stderr does carry this location, which is
+      precisely why the honest failure here is a different one: with the
+      panic caught, nothing connects that stderr line to the frame outcome
+      the rest of the run was built on, and in a run with many caught panics
+      there is nothing to pair one message with one absorbed frame.
+      `dbg!` cannot run in a frame that is unwinding past it.
+    command: ["frame", "$RUN", "--fn", "risky", "--nth", "2"]
+    expect_contains: ["children: (none)"]
+    expect_line:
+      - ["main.rs:risky", "closed: unwind"]
+      - ["unwound:", "panic('quota divisor was zero')", "at src/main.rs:8:9"]
+    expect_absent: ["return:", "closed: return"]

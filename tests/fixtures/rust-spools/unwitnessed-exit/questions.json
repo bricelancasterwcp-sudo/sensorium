@@ -1,0 +1,10 @@
+[
+  {
+    "id": "info-reads-exit-unwitnessed",
+    "ask": "A process with no `<pid>.runner.json` (nobody waited on it) -- does `info` print `exit: unwitnessed` rather than a status nobody witnessed?",
+    "command": ["info", "$RUN"],
+    "expect_exit": 0,
+    "expect_contains": ["exit: unwitnessed"],
+    "expect_absent": ["exit: 0", "(waited)"]
+  }
+]

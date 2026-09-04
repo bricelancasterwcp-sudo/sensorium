@@ -1,0 +1,43 @@
+{
+  "manifests": {
+    "u0": {
+      "crate_name": "fixture",
+      "files": {
+        "src/lib.rs": [
+          {"site": 0, "qualname": "compute", "firstlineno": 10, "ret": "value"}
+        ]
+      },
+      "source_hashes": {"src/lib.rs": "aaaaaaaaaaaaaaaa"}
+    }
+  },
+  "processes": [
+    {
+      "pid": 2001,
+      "exe": "/w/target/debug/deps/fixture-aaaa",
+      "units": {"0": "u0"},
+      "threads": [
+        {"serial": 2, "name": "worker", "records": [
+          {"op": "call", "unit": 0, "site": 0, "seq": 0, "ts": 1000},
+          {"op": "ret_ok_dbg", "unit": 0, "site": 0, "seq": 1, "ts": 2000,
+           "text": "5", "truncated": false},
+          {"op": "thread_end", "seq": 2, "ts": 2500}
+        ]}
+      ],
+      "runner": {"exit_status": 0}
+    },
+    {
+      "pid": 2002,
+      "exe": "/w/target/debug/deps/fixture-bbbb",
+      "units": {"0": "u0"},
+      "threads": [
+        {"serial": 2, "name": "worker", "records": [
+          {"op": "call", "unit": 0, "site": 0, "seq": 0, "ts": 5000},
+          {"op": "ret_ok_dbg", "unit": 0, "site": 0, "seq": 1, "ts": 6000,
+           "text": "5", "truncated": false},
+          {"op": "thread_end", "seq": 2, "ts": 6500}
+        ]}
+      ],
+      "runner": {"exit_status": 0}
+    }
+  ]
+}

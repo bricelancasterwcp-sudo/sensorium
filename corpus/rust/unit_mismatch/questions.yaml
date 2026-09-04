@@ -1,0 +1,46 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: what-did-shipping-return
+    ask: What did shipping_cost actually return for each item?
+    truth: >
+      1004.0 for the mug and 4504.0 for the kettle. Two calls, two returns,
+      no others -- and 4504.0 is 4.0 + 2.5 * 1800, so the number the
+      function priced was 1800, the gram count, not 1.8 kilograms.
+    why_logs_fail: >
+      Return values are never printed; only their rounded sum is, and the
+      sum looks like an ordinary large-ish number for a two-item order
+      rather than an obviously wrong one. `dbg!` inside shipping_cost would
+      answer it, and is the edit you make once shipping is already the
+      suspect. RUST_LOG has no logger to reach here, and RUST_BACKTRACE
+      prints only at a panic; this run exits 0.
+    command: ["grep", "$RUN", "shipping_cost", "--kind", "RETURN"]
+    expect_contains: ["matches: 2"]
+    expect_line:
+      - ["RETURN", "shipping_cost -> 1004.0"]
+      - ["RETURN", "shipping_cost -> 4504.0"]
+  - id: where-did-1800-go
+    ask: >
+      1800 is a gram count. Which value did the shipping calculation
+      actually consume for that item?
+    truth: >
+      One activation of order_total made four calls in this order:
+      item_weight -> 400.0, shipping_cost -> 1004.0, item_weight -> 1800.0,
+      shipping_cost -> 4504.0. The gram count came out of item_weight and
+      the very next call in the same activation returned 4.0 + 2.5 * that
+      number, so the unit mismatch is visible at that one call boundary --
+      as adjacency and arithmetic, since this recorder captures return
+      values and not arguments.
+    why_logs_fail: >
+      Only the final total is printed. No intermediate weight or shipping
+      figure is logged anywhere, so the 1000x error is invisible; and a
+      `dbg!(weight)` alone would still show 1800 without showing that the
+      thing that consumed it was priced per kilogram. RUST_BACKTRACE gives
+      frames only at a panic, and this run never panics.
+    command: ["frame", "$RUN", "--fn", "order_total"]
+    expect_contains: ["children (4):"]
+    expect_count: {"item_weight()": 2}
+    expect_line:
+      - ["item_weight()", "-> 1800.0"]
+      - ["shipping_cost()", "-> 4504.0"]
+      - ["return:", "5569.0"]
