@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""`results.json` -> §3 of the rung-2 acceptance document.
+"""`results.json` -> the rendered sections of an acceptance document.
 
 The renderer's one rule: a `null` value is printed as
 `not measured (<reason>)` and never as anything else -- not as a dash, not as
 a zero, not as an empty cell. `0` is a measured zero and prints as `0`.
 
+    # rung-2 acceptance, §3 (the original mode, unchanged)
     .venv/bin/python rust/tests/render_acceptance.py [results.json] > section3.md
 
-§4 is not rendered. It is written by hand against the pre-registered rules.
+    # rung-3 entry, E5': §2 and §3
+    .venv/bin/python rust/tests/render_acceptance.py --doc e5prime [results.json]
+
+§4 is never rendered, and neither is E5''s §5. They are written by hand
+against the pre-registered rules and the raw record.
 """
 
 from __future__ import annotations
@@ -310,7 +315,8 @@ def addendum_section(r) -> list[str]:
     return out
 
 
-def main(argv) -> int:
+def rung2_document(argv) -> int:
+    """§3 of the rung-2 acceptance document — the original mode."""
     path = Path(argv[0]) if argv else DEFAULT
     r = json.loads(path.read_text())
     lines = ["## 3. Results", ""]
@@ -340,6 +346,239 @@ def main(argv) -> int:
             lines += rendered + [""]
     print("\n".join(lines))
     return 0
+
+
+# --------------------------------------------------------------- E5' (rung 3)
+
+E5PRIME_DEFAULT = (REPO / "docs" / "superpowers" / "acceptance"
+                   / "2026-09-03-sensorium-rung3-entry-e5prime.results.json")
+
+
+def _yn(v) -> str:
+    return "not measured" if v is None else ("yes" if v else "NO")
+
+
+def e5prime_environment(r) -> list[str]:
+    """§2 of the E5' document: what was measured, with what, on what."""
+    e = r["environment"]
+    bl = r.get("byte_lock") or {}
+    loads = e.get("load_at_each_arm") or []
+    out = ["## 2. Environment", "",
+           f"Measured {r.get('started')} → {r.get('finished')} by "
+           f"`{r.get('runner')}`, launched detached; the raw facts it recorded "
+           f"are `results-e5prime-raw.json` in the gitignored plan ledger, with "
+           f"every command's log beside it. §3 below is rendered from "
+           f"`{Path(r['acceptance']).name.replace('.md', '.results.json')}`, "
+           f"which `acceptance_schema.assemble_e5prime` derived from that raw "
+           f"file.", "",
+           f"**§1 byte-lock.** The runner refuses to start unless §1 is "
+           f"byte-identical to the commit that locked it. Checked at "
+           f"`{bl.get('commit')}` with `{bl.get('extraction')}`: "
+           f"{bl.get('locked_bytes')} bytes, sha256 "
+           f"`{bl.get('locked_sha256')}` on both sides — "
+           f"identical: {_yn(bl.get('identical'))}.", "",
+           "| Pin | Value |", "|---|---|",
+           f"| driver commit | `{e.get('repo_commit')}` "
+           f"(branch `{e.get('repo_branch')}`) |",
+           f"| driver | `{e.get('driver')}`, built `--release` from that commit "
+           f"at {e.get('driver_mtime')} |",
+           f"| driver sha256 | `{e.get('driver_sha256')}` — unchanged across the "
+           f"run: {_yn(e.get('driver_unchanged_after'))} |",
+           f"| toolchain | {e.get('rustc')} / {e.get('cargo')} |",
+           f"| reader | {e.get('python')}, sensorium {e.get('sensorium_version')} |",
+           f"| machine | {e.get('nproc')} cpus, governor `{e.get('governor')}` |",
+           f"| clone (the workspace under measurement) | `{e.get('clone')}` at "
+           f"`{e.get('clone_head')}` |",
+           f"| arm A | `{(e.get('arm_tips') or {}).get('A')}` |",
+           f"| arm B (`e5-split`) | `{(e.get('arm_tips') or {}).get('B')}` |",
+           f"| arm C (`e5-planted`) | `{(e.get('arm_tips') or {}).get('C')}` |",
+           f"| clone porcelain before / after | "
+           f"{'empty' if not (e.get('clone_porcelain_before') or '').strip() else 'NOT EMPTY'}"
+           f" / "
+           f"{'empty' if not (e.get('clone_porcelain_after') or '').strip() else 'NOT EMPTY'}"
+           f"; restored to arm A detached: {_yn(e.get('clone_restored'))}; "
+           f"`Cargo.lock` unchanged: {_yn(e.get('cargo_lock_unchanged'))} |",
+           f"| target (lens: **WARM** — the rung-2 acceptance target, only the "
+           f"driver changed) | `{e.get('target_dir')}` |",
+           f"| manifests cleared before arm A | "
+           f"{e.get('manifests_cleared_before_arm_a')} stale manifests "
+           f"({e.get('manifests_cleared_bytes')} bytes), so every `fell_back` "
+           f"counted in §3 belongs to this invocation |",
+           f"| traces | `{e.get('sensorium_dir')}` — new and empty at the "
+           f"preflight, refused otherwise |",
+           f"| 1-minute load at the start | {e.get('load_1min_at_start')} |",
+           f"| free disk at the start | {e.get('target_disk_free_gb')} GB "
+           f"(target) / {e.get('repo_disk_free_gb')} GB (repo) |"]
+    if loads:
+        out += ["", "The 1-minute load read at each arm's own first act (the "
+                "`git checkout` that puts the arm's tree in place):", "",
+                "| Arm ref | At | 1-minute load |", "|---|---|---|"]
+        for x in loads:
+            out.append(f"| `{x['ref']}` | {x['at']} | {x['load_1min']} |")
+    out += ["", f"**`{e.get('source_bloomery')}` was never checked out.** Its "
+            f"HEAD and porcelain were read before and after: "
+            f"`{(e.get('source_bloomery_head_before') or '')[:12]}` / "
+            f"{'empty' if not (e.get('source_bloomery_porcelain_before') or '').strip() else 'NOT EMPTY'}"
+            f" before, "
+            f"`{(e.get('source_bloomery_head_after') or '')[:12]}` / "
+            f"{'empty' if not (e.get('source_bloomery_porcelain_after') or '').strip() else 'NOT EMPTY'}"
+            f" after — unchanged: {_yn(e.get('source_bloomery_unchanged'))}."]
+    u = e.get("unused_env") or {}
+    if u:
+        out += ["", f"Two environment variables the shared preflight requires "
+                f"belong to phases this runner does not call and were not read: "
+                f"`SENSORIUM_CENSUS_DRIVER`, `SENSORIUM_PROBE_TARGET`."]
+    return out
+
+
+def e5prime_results(r) -> list[str]:
+    """§3 of the E5' document: one row per §1 condition, with n and lens."""
+    m, nm, cov = (r["endpoints"]["E5prime"], r["endpoints"]["E5prime_names"],
+                  r["endpoints"]["E5prime_coverage"])
+    rep = r.get("reported") or {}
+    arms = m.get("arms") or {}
+    out = ["## 3. Results", "",
+           f"Rendered by `rust/tests/render_acceptance.py --doc e5prime` from "
+           f"`{Path(r['acceptance']).name.replace('.md', '.results.json')}`. "
+           f"Every cell is a number with its `n` and its lens, or "
+           f"`not measured (<reason>)`; `0` is a measured zero.", "",
+           "| Id | Value | n | Lens (abridged; the full lens is in the "
+           "`results.json`) | Dropped |", "|---|---|---|---|---|"]
+    for label, e, rule in (
+            ("E5′", m["headline"],
+             "A/B MATCH-class with ≥1 moved, 0 added, 0 removed, all ten task "
+             "streams paired; A/C DIVERGED inside the swapped fn"),
+            ("E5′-names", nm["headline"],
+             "BOTH conjuncts — every spawn@ name exactly the predicted string "
+             "on A and on B, AND A's multiset of (name, hash) equal to B's"),
+            ("E5′-coverage", cov["headline"], "0 units fell back")):
+        out.append(f"| {label} | {cell(e)} (rule: {rule}) | {n_of(e)} | "
+                   f"{lens_of(e)} | {dropped_of(e)} |")
+
+    out += ["", "### The three arms", "",
+            "| Arm | Tree | run | events | threads | tests | wall (s) |",
+            "|---|---|---|---|---|---|---|"]
+    for k in ("A", "B", "C"):
+        a = arms.get(k) or {}
+        out.append(f"| {k} | `{a.get('head')}` | `{a.get('run')}` | "
+                   f"{a.get('events')} | {a.get('threads')} | "
+                   f"{len(a.get('tests') or [])} | {a.get('wall')} |")
+    out += ["", "The wall is reported without a gate: nothing pre-registered "
+            "rests on it."]
+
+    out += ["", "### E5′ — does `diff --ignore-moves` verify the split now?", "",
+            "| Pre-registered condition | Met |", "|---|---|"]
+    for k, v in (m.get("conditions") or {}).items():
+        out.append(f"| `{k}` | {_yn(v)} |")
+    out += ["", "| Quantity | Value | n | Lens | Dropped |", "|---|---|---|---|---|",
+            row("E5′ conditions not met", m.get("headline")),
+            row("code objects paired across a move (A/B)", m.get("ab_moved")),
+            row("task streams on each side (A/B)", m.get("ab_tasks_each_side")),
+            "", f"**How the A/B verdict line is read.** {m.get('ab_reading')}"]
+
+    out += ["", "### E5′-names — the four children's names, and their hashes", "",
+            "| Quantity | Value | n | Lens | Dropped |", "|---|---|---|---|---|",
+            row("§1 conjuncts missed, of 2", nm.get("headline")),
+            row("spawn@ names equal to the predicted string",
+                nm.get("names_as_predicted")),
+            row("spawn@ names NOT the predicted string",
+                nm.get("names_not_as_predicted")),
+            row("spawn@ task streams on arm A", nm.get("spawn_tasks_a")),
+            row("spawn@ task streams on arm B", nm.get("spawn_tasks_b")),
+            row("(name, hash) pairs whose STORED hash differs, A vs B",
+                nm.get("stored_hash_pairs_differing")),
+            "",
+            "| §1 conjunct | Met |", "|---|---|"] + [
+                f"| `{k}` | {_yn(v)} |"
+                for k, v in (nm.get("conjuncts") or {}).items()] + [
+            "",
+            f"Predicted string: `{nm.get('predicted_shape')}`. The stored "
+            f"multiset of (name, hash) pairs on A equals B's: "
+            f"{_yn(nm.get('stored_multiset_equal'))}. What the differ itself "
+            f"says about the same pairs, verbatim from the A/B "
+            f"`--ignore-moves` run:", "",
+            "```", str(nm.get("differ_tasks_line")), "```", "",
+            "The four `spawn@` streams on each side, verbatim, with the stored "
+            "`task_fingerprints.hash`:", "",
+            "| Side | Task name | Stored hash |", "|---|---|---|"]
+    for side, key in (("A", "a_multiset"), ("B", "b_multiset")):
+        for name, h in (nm.get(key) or []):
+            out.append(f"| {side} | `{name}` | `{h}` |")
+
+    out += ["", "### E5′-coverage — did the transformer instrument every unit?",
+            "", "| Quantity | Value | n | Lens | Dropped |", "|---|---|---|---|---|",
+            row("units that fell back to the real tree", cov.get("units_fell_back")),
+            "", "| Arm | unit manifests read | written by this arm | fell back | "
+            "spawn sites wrapped | spawn sites declared, not wrapped | unreached "
+            "files |", "|---|---|---|---|---|---|---|"]
+    for k in ("A", "B", "C"):
+        out.append(
+            f"| {k} | {(cov.get('units_seen_per_arm') or {}).get(k)} | "
+            f"{len([u for u in (cov.get('units') or {}).get(k, []) if u['written_during_this_arm']])} | "
+            f"{(cov.get('per_arm_fell_back') or {}).get(k)} | "
+            f"{(cov.get('spawn_sites_wrapped_per_arm') or {}).get(k)} | "
+            f"{(cov.get('spawn_sites_declared_unwrapped_per_arm') or {}).get(k)} | "
+            f"{len((cov.get('unreached_files_per_arm') or {}).get(k) or [])} |")
+    out += ["", "| Arm | crate | type | fell back | files | sites | spawn sites | "
+            "compiled by this arm |", "|---|---|---|---|---|---|---|---|"]
+    for k in ("A", "B", "C"):
+        for u in (cov.get("units") or {}).get(k, []):
+            out.append(f"| {k} | `{u['crate_name']}` | {u['crate_type']} | "
+                       f"{'**YES**' if u['fell_back'] else 'no'} | {u['files']} | "
+                       f"{u['sites']} | {u['spawns']} | "
+                       f"{'yes' if u['written_during_this_arm'] else 'no'} |")
+    rr = cov.get("unreached_reasons") or {}
+    out += ["", f"`unreached_reasons` (the manifest key a refusal on real code "
+            f"would show up in) was empty on every unit of every arm: "
+            f"{'no reason recorded on any unit' if not rr else rr}."]
+
+    out += ["", "### The four diffs, verbatim", ""]
+    for label, key in (("A/B `--ignore-moves` — the endpoint", "ab_ignore_moves"),
+                       ("A/C `--ignore-moves` — the negative control",
+                        "ac_ignore_moves"),
+                       ("A/B plain `diff` (reported without a gate)", "ab_plain"),
+                       ("A/C, one task (reported without a gate)", "ac_task")):
+        d = (m.get("diffs") or {}).get(key)
+        if not d:
+            continue
+        out += [f"**{label}** — `sensorium {' '.join(d['argv'])}`, exit "
+                f"{d.get('rc')}:", "", "```", d.get("stdout", "").rstrip(),
+                "```", ""]
+    return out
+
+
+def e5prime_document(argv) -> int:
+    """§2 and §3 of the rung-3-entry E5' document, from its own results.json.
+
+    §4 and §5 are not rendered. They are written by hand against §1's rules
+    and against the raw record."""
+    path = Path(argv[0]) if argv else E5PRIME_DEFAULT
+    r = json.loads(path.read_text())
+    lines = e5prime_environment(r) + [""] + e5prime_results(r)
+    print("\n".join(lines))
+    return 0
+
+
+def main(argv) -> int:
+    """`--doc e5prime` renders the rung-3-entry E5' document; with no `--doc`
+    the original rung-2 §3 is printed, unchanged.
+
+        .venv/bin/python rust/tests/render_acceptance.py [results.json]
+        .venv/bin/python rust/tests/render_acceptance.py --doc e5prime [results.json]
+    """
+    argv = list(argv)
+    doc = "rung2"
+    if "--doc" in argv:
+        i = argv.index("--doc")
+        doc = argv[i + 1] if i + 1 < len(argv) else ""
+        del argv[i:i + 2]
+    if doc == "e5prime":
+        return e5prime_document(argv)
+    if doc != "rung2":
+        print(f"unknown --doc {doc!r}: expected `rung2` or `e5prime`",
+              file=sys.stderr)
+        return 2
+    return rung2_document(argv)
 
 
 if __name__ == "__main__":
