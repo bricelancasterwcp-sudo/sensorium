@@ -14,6 +14,19 @@ negative messages (`tests/test_tree_frame.py`,
 `tests/test_format{1,2}_fixture.py`), `exceptions` dispositions listed /
 `--limit < 1` (`tests/test_exceptions.py`), and `grep matches: 0`
 (`tests/test_grep.py`, moved 0 -> 1 by this commit).
+
+`watch` and `flow` are the exception to that, and deliberately: both now
+decide their status STRUCTURALLY -- `watch` from the verdict class its
+`verdict()` returns, `flow` from the status `resolve_object` carries
+alongside its message -- so each mapping has arms that only differ from one
+another. A file that pinned the arms one at a time, in the command's own
+test module, cannot show that the arms disagree; the rows below are the
+whole mapping in one place, so collapsing either one to a single code fails
+here. The per-command modules keep their own richer pins (the verdict's
+exact wording, the message text), and those moved with this commit too:
+`tests/test_watch_verdict.py`, `tests/test_watch.py`,
+`tests/test_format2_fixture.py`, `tests/test_flow.py`,
+`tests/test_flow_identity.py`.
 """
 import pytest
 
@@ -77,6 +90,19 @@ def _rust(tmp_path, monkeypatch):
     return SYNTH_RUN
 
 
+def _undeclared(tmp_path, monkeypatch):
+    """A recorder that declares it produces neither LINE events nor object
+    identity -- the two capabilities `watch` and `flow` are gated on."""
+    w = synthetic(tmp_path, monkeypatch)
+    c = w.intern_code("/tmp/prog.rs", "main", 1)
+    w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
+    finalize_synthetic(w, lang="rust", recorder="sensorium-rt 0.0",
+                       capabilities={"line": False,
+                                     "object_identity": False})
+    w.close()
+    return SYNTH_RUN
+
+
 # -- the matrix ------------------------------------------------------------
 # (site-table row, trace shape, argv, expected status, text that must show)
 # "$RUN" is replaced by the builder's run id.
@@ -113,6 +139,55 @@ MATRIX = [
     ("exceptions: REFUSED on a trace another recorder wrote",
      _rust, ["exceptions", "$RUN"],
      UNSETTLED, "REFUSED: exceptions on a rust trace"),
+    # -- watch: the three verdict classes are three different answers ------
+    # `add(1, 2)` is recorded with its arguments and no LINE event, so one
+    # CALL site carries `a`, and `ghost` is bound nowhere: the same command
+    # over the same trace reaches all three arms by the predicate alone.
+    ("watch: SATISFIED",
+     _recorded, ["watch", "$RUN", "--at", "add", "--expr", "a > 0"],
+     ANSWERED, "verdict: SATISFIED"),
+    ("watch: not satisfied",
+     _recorded, ["watch", "$RUN", "--at", "add", "--expr", "a > 100"],
+     NEGATIVE, "verdict: not satisfied"),
+    ("watch: verdict NOTHING WAS CHECKED",
+     _recorded, ["watch", "$RUN", "--at", "add", "--expr", "ghost > 1"],
+     UNSETTLED, "verdict: NOTHING WAS CHECKED"),
+    ("watch: no recorded code matches --at",
+     _recorded, ["watch", "$RUN", "--at", "nosuch", "--expr", "a > 0"],
+     NEGATIVE, "no recorded code matches --at"),
+    ("watch: REFUSED: watch needs line",
+     _undeclared, ["watch", "$RUN", "--at", "main", "--expr", "1 == 1"],
+     UNSETTLED, "REFUSED: watch needs line"),
+    # -- flow -------------------------------------------------------------
+    ("flow: sightings printed",
+     _recorded, ["flow", "$RUN", "--value", "1"], ANSWERED, "sightings: 1"),
+    ("flow: zero sightings",
+     _recorded, ["flow", "$RUN", "--value", "999999"],
+     NEGATIVE, "sightings: 0"),
+    ("flow: REFUSED: flow needs line",
+     _undeclared, ["flow", "$RUN", "--value", "1"],
+     UNSETTLED, "REFUSED: flow needs line"),
+    ("flow: REFUSED: flow --object needs object_identity",
+     _undeclared, ["flow", "$RUN", "--object", "main:x"],
+     UNSETTLED, "REFUSED: flow --object needs object_identity"),
+    # The `resolve_object` split (X6): a reference the trace does not hold
+    # is the trace saying "no"; a spec that cannot name anything, or a name
+    # whose value has no identity to follow, is the call being wrong.
+    ("flow: no event eN",
+     _recorded, ["flow", "$RUN", "--object", "e99999:a"],
+     NEGATIVE, "no event e99999 in this trace"),
+    ("flow: no CALL of X was recorded",
+     _recorded, ["flow", "$RUN", "--object", "nosuchfn:a"],
+     NEGATIVE, "no CALL of 'nosuchfn' was recorded"),
+    ("flow: X is not captured at eN",
+     _recorded, ["flow", "$RUN", "--object", "add:nope"],
+     NEGATIVE, "'nope' is not captured at e"),
+    ("flow: malformed --object spec",
+     _recorded, ["flow", "$RUN", "--object", "cfg"],
+     BAD_CALL, "object spec must be e<id>:<name> or <qualname>:<name>"),
+    ("flow: primitive has no identity to follow",
+     _recorded, ["flow", "$RUN", "--object", "add:a"],
+     BAD_CALL, "has no identity to follow; use --value"),
 ]
 
 

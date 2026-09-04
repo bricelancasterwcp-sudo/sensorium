@@ -57,9 +57,11 @@ reads a `sample` key (a depth-capped capture omits it entirely).
 """
 import shlex
 from dataclasses import dataclass
+from enum import Enum, auto
 from pathlib import Path
 
 from sensorium import paths
+from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.caps import require
 from sensorium.query.expr import (CLIPPED, CONTAINER, NO_VALUE, NOT_CAPTURED,
                                   OUT_OF_SCOPE, TRUNCATED, EvalError,
@@ -393,7 +395,52 @@ def unchecked_caveats(out: Outcome, n_sites: int) -> list[str]:
     return caveats
 
 
-def verdict(out: Outcome, n_sites: int, ghosts: list[str]) -> list[str]:
+class Says(Enum):
+    """Which of three things a verdict says, as its own value.
+
+    The split that has to survive into the exit status is the module
+    docstring's last one: `hits: 0` because every evaluated site failed
+    (NOT_SATISFIED) versus `hits: 0` because nothing could be evaluated at
+    all (NOTHING_CHECKED). An agent branching on the status never reaches
+    the prose, so a NOTHING_CHECKED leaving as a 0 is "I could not check"
+    read as "the invariant held" -- this command's worst outcome, arriving
+    through the one channel the prose cannot qualify.
+
+    A partially-checked run is NOT a fourth class. Some sites evaluated and
+    some did not is still the trace answering "no" about the ones it could
+    check, so it reads NOT_SATISFIED, and the count it could not check is
+    carried in the caveat line rather than in the status (plan X7). Only a
+    run where NOTHING evaluated has no answer to give.
+    """
+    SATISFIED = auto()
+    NOT_SATISFIED = auto()
+    NOTHING_CHECKED = auto()
+
+
+# The convention, applied once. NOT_SATISFIED is the trace answering "no"
+# about what it recorded; NOTHING_CHECKED is the trace unable to answer at
+# all, which is fixed by recording again, not by asking differently.
+STATUS = {Says.SATISFIED: ANSWERED,
+          Says.NOT_SATISFIED: NEGATIVE,
+          Says.NOTHING_CHECKED: UNSETTLED}
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """What the verdict says, and which of the three it is.
+
+    The class travels WITH the lines because only `verdict` knows which
+    branch it took. `run` could recover it by matching "NOTHING WAS CHECKED"
+    in the printed text -- and then the exit status would depend on the
+    wording of a sentence this command rewrites whenever it can be made
+    clearer, silently turning a 3 back into a 0 on the next rewording. The
+    same reasoning, and the same shape, as `frame._resolve`.
+    """
+    says: Says
+    lines: list[str]
+
+
+def verdict(out: Outcome, n_sites: int, ghosts: list[str]) -> Verdict:
     decided_without = ("the predicate was decided WITHOUT "
                        + ", ".join(repr(g) for g in ghosts))
     caveats = unchecked_caveats(out, n_sites)
@@ -407,23 +454,26 @@ def verdict(out: Outcome, n_sites: int, ghosts: list[str]) -> list[str]:
         if ghosts:
             lines.append(("  and " if caveats else "  but ") + decided_without
                          + ", so these hits do not answer the whole predicate")
-        return lines
+        return Verdict(Says.SATISFIED, lines)
     if out.evaluated == 0:
-        return ["verdict: NOTHING WAS CHECKED -- the predicate could not be "
-                f"evaluated at any of the {n_sites} recorded site(s)",
-                "  'hits: 0' here means 'could not evaluate', NOT 'the "
-                "invariant held'"]
+        return Verdict(Says.NOTHING_CHECKED, [
+            "verdict: NOTHING WAS CHECKED -- the predicate could not be "
+            f"evaluated at any of the {n_sites} recorded site(s)",
+            "  'hits: 0' here means 'could not evaluate', NOT 'the "
+            "invariant held'"])
     if ghosts:
         caveats.append(decided_without)
     if caveats:
-        return [f"verdict: not satisfied at any of the {out.evaluated} site(s)"
-                f" that could be evaluated -- but " + ", and ".join(caveats)
-                + ",",
-                "  so this is not a claim that the invariant held"]
-    return [f"verdict: not satisfied at any of the {n_sites} recorded "
-            "site(s), every one of which was evaluated",
-            "  that is a fact about what was RECORDED, not a claim that the "
-            "invariant held: only recorded sites were checked"]
+        return Verdict(Says.NOT_SATISFIED, [
+            f"verdict: not satisfied at any of the {out.evaluated} site(s)"
+            f" that could be evaluated -- but " + ", and ".join(caveats)
+            + ",",
+            "  so this is not a claim that the invariant held"])
+    return Verdict(Says.NOT_SATISFIED, [
+        f"verdict: not satisfied at any of the {n_sites} recorded "
+        "site(s), every one of which was evaluated",
+        "  that is a fact about what was RECORDED, not a claim that the "
+        "invariant held: only recorded sites were checked"])
 
 
 def continue_cmd(args, **over) -> str:
@@ -483,7 +533,10 @@ def _no_match(trace, args, mod_of) -> int:
     if extra > 0:
         print(f"  ... and {extra} more (sensorium info "
               f"{shlex.quote(args.run)} lists the hot ones)")
-    return 1
+    # The trace answering "no": it holds code, and none of it is what --at
+    # named. The listing above is what it does hold, so the next move is a
+    # different --at, not a different recording.
+    return NEGATIVE
 
 
 def run(args) -> int:
@@ -495,18 +548,22 @@ def run(args) -> int:
             # clean without changing a thing about the run.
             print(f"{flag} must be >= 1 (got {val}); "
                   "there is no useful zero-row page")
-            return 2
+            return BAD_CALL
     try:
         expr = compile_expr(args.expr)
     except ExprError as e:
         print(f"error: {e}")
-        return 2
+        return BAD_CALL
     after = parse_eref(args.after) if args.after else 0
     trace = Trace.open(paths.find_trace(args.run))
     refusal = require(trace, "line", "watch")
     if refusal:
         print(f"REFUSED: {refusal}")
-        return 2
+        # UNSETTLED, not BAD_CALL: the command is spelled correctly and the
+        # trace is readable -- it simply holds no LINE event, because the
+        # recorder said it produces none. Nothing about the call can fix
+        # that; only a recording that captures lines can.
+        return UNSETTLED
     m = trace.meta
     root = Path(m["cwd"]).resolve() if m.get("cwd") else None
 
@@ -545,10 +602,13 @@ def run(args) -> int:
     all_unf = all_unframed_codes(trace, codes)
     # Above the verdict on purpose: the verdict cannot be read without it.
     print_never_recorded(ghosts, all_unf)
-    for line in verdict(out, n, ghosts):
+    v = verdict(out, n, ghosts)
+    for line in v.lines:
         print(line)
     print_hits(trace, expr, out, args)
     print_unavailable(trace, out, sites, ever, codes, n, all_unf)
     print_errors(out)
     print_near(trace, expr, out, args)
-    return 0
+    # The status IS the verdict, mapped once: the sentence above and the
+    # number the caller branches on must never be able to disagree.
+    return STATUS[v.says]

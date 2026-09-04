@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from sensorium.exit import NEGATIVE
+from sensorium.exit import NEGATIVE, UNSETTLED
 from sensorium import cli
 from sensorium.store.reader import Trace
 
@@ -159,7 +159,8 @@ def test_watch_on_a_format2_trace_keeps_the_unframed_wording(
     format-3 branch (a coroutine focus DOES contribute sites now) must not
     retroactively claim any on a trace that never recorded them."""
     assert cli.main(["watch", installed_fixture2, "--at",
-                     "format2_async:worker", "--expr", "name == 'A'"]) == 0
+                     "format2_async:worker", "--expr",
+                     "name == 'A'"]) == UNSETTLED
     out = capsys.readouterr().out
     assert "NOTHING WAS CHECKED" in out
     assert "opens no frame in this version" in out

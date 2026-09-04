@@ -11,8 +11,16 @@ them exactly. Substring-matching the whole of stdout cannot tell the two
 verdict branches apart: the caveated one contains the clean one's closing
 words, and replacing the clean branch's entire second line with "(recorded
 sites only)" once left the whole suite green.
+
+Each case's exit status is pinned beside those lines, by name, because the
+status IS the verdict: SATISFIED answers yes (ANSWERED), "not satisfied"
+answers no about what was recorded (NEGATIVE), and NOTHING WAS CHECKED is
+the trace unable to answer at all (UNSETTLED). A reader who branches on the
+number never reaches the prose above, so a case whose sentence and whose
+status disagreed would tell two different stories to two different readers.
 """
 from sensorium import cli
+from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from tests.watch_programs import KEEP, LOOPDEL, MIXED, line_events, rec
 
 # -- 0 hits must never read as "the invariant held" ------------------------
@@ -35,7 +43,7 @@ def test_watch_zero_hits_with_unchecked_sites_refuses_the_conclusion(
         tmp_path, monkeypatch, capsys):
     run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", "used > 100"]) == 0
+                     "--expr", "used > 100"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "sites: 19   evaluated: 5   hits: 0   not-captured: 14" in out
     assert _verdict(out) == [
@@ -56,7 +64,7 @@ def test_watch_zero_hits_with_every_site_checked_still_scopes_the_claim(
     """
     run_id = rec(tmp_path, monkeypatch, KEEP)
     assert cli.main(["watch", run_id, "--at", "prog:keep",
-                     "--expr", "n > 9000"]) == 0
+                     "--expr", "n > 9000"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "sites: 4   evaluated: 4   hits: 0   not-captured: 0   errors: 0" \
         in out
@@ -74,7 +82,7 @@ def test_watch_verdict_says_which_sites_errored_rather_than_summing_them(
     testing, kept here where its name matches its branch."""
     run_id = rec(tmp_path, monkeypatch, MIXED)
     assert cli.main(["watch", run_id, "--at", "prog:tally",
-                     "--expr", "n > 9000"]) == 0
+                     "--expr", "n > 9000"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "sites: 2   evaluated: 1   hits: 0   not-captured: 0   errors: 1" \
         in out                                       # "five" > 9000
@@ -94,7 +102,7 @@ def test_watch_warns_when_a_predicate_name_was_never_recorded_anywhere(
     invariant check into a tautology that reads as maximally reassuring."""
     run_id = rec(tmp_path, monkeypatch, KEEP)
     assert cli.main(["watch", run_id, "--at", "prog:keep",
-                     "--expr", "n > 1000 and ghost > 1"]) == 0
+                     "--expr", "n > 1000 and ghost > 1"]) == NEGATIVE
     out = capsys.readouterr().out
     # Every site really did evaluate: nothing else in the output is shouting.
     assert "sites: 4   evaluated: 4   hits: 0   not-captured: 0   errors: 0" \
@@ -117,7 +125,7 @@ def test_watch_does_not_warn_when_every_predicate_name_was_recorded(
     reflex. Same program, same shape of predicate, all names present."""
     run_id = rec(tmp_path, monkeypatch, KEEP)
     assert cli.main(["watch", run_id, "--at", "prog:keep",
-                     "--expr", "n > 1000 and n > 2"]) == 0
+                     "--expr", "n > 1000 and n > 2"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "sites: 4   evaluated: 4   hits: 0   not-captured: 0   errors: 0" \
         in out
@@ -137,7 +145,7 @@ def test_watch_warns_about_a_phantom_name_that_rode_along_with_a_real_hit(
     refusal to call the verdict complete."""
     run_id = rec(tmp_path, monkeypatch, KEEP)
     assert cli.main(["watch", run_id, "--at", "prog:keep",
-                     "--expr", "n > 2 or ghost > 1"]) == 0
+                     "--expr", "n > 2 or ghost > 1"]) == ANSWERED
     out = capsys.readouterr().out
     # `or` only reaches `ghost` where `n` failed, so 2 sites do land in the
     # not-captured bucket -- which is exactly why this mirror is milder by
@@ -157,7 +165,7 @@ def test_watch_phantom_caveat_survives_a_run_where_every_site_hit(
     This is the hit-path shape with no other caveat to hide behind."""
     run_id = rec(tmp_path, monkeypatch, KEEP)
     assert cli.main(["watch", run_id, "--at", "prog:keep",
-                     "--expr", "n > 0 or ghost > 1"]) == 0
+                     "--expr", "n > 0 or ghost > 1"]) == ANSWERED
     out = capsys.readouterr().out
     assert "sites: 4   evaluated: 4   hits: 4   not-captured: 0   errors: 0" \
         in out
@@ -187,7 +195,7 @@ def test_watch_never_recorded_is_judged_over_the_run_not_the_after_page(
     assert len(tail) == 2 and "peak" not in tail[-1].payload["deltas"]
 
     assert cli.main(["watch", run_id, "--at", "prog:scan", "--expr",
-                     "peak > 5", "--after", f"e{tail[0].id}"]) == 0
+                     "peak > 5", "--after", f"e{tail[0].id}"]) == UNSETTLED
     out = capsys.readouterr().out
     assert "sites: 1   evaluated: 0   hits: 0   not-captured: 1   errors: 0" \
         in out
@@ -202,7 +210,7 @@ def test_watch_tally_line_accounts_for_every_site(tmp_path, monkeypatch,
     itself rather than trusted."""
     run_id = rec(tmp_path, monkeypatch, MIXED)
     assert cli.main(["watch", run_id, "--at", "prog:tally",
-                     "--expr", "n > 3"]) == 0
+                     "--expr", "n > 3"]) == ANSWERED
     out = capsys.readouterr().out
     line = [ln for ln in out.splitlines() if ln.startswith("sites: ")][0]
     got = dict(p.split(": ") for p in line.split("   "))
@@ -220,7 +228,7 @@ def test_watch_satisfied_verdict_names_the_sites_that_raised(
     the hit path has to as well."""
     run_id = rec(tmp_path, monkeypatch, MIXED)
     assert cli.main(["watch", run_id, "--at", "prog:tally",
-                     "--expr", "n > 3"]) == 0
+                     "--expr", "n > 3"]) == ANSWERED
     out = capsys.readouterr().out
     assert "verdict: SATISFIED at 1 of the 1 site(s) the predicate could be " \
         "evaluated at" in out
@@ -236,7 +244,7 @@ def test_watch_satisfied_verdict_names_the_sites_it_could_not_check(
     said so; this one used to name only the errors."""
     run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", "used > 30"]) == 0
+                     "--expr", "used > 30"]) == ANSWERED
     out = capsys.readouterr().out
     assert ("sites: 19   evaluated: 5   hits: 5   not-captured: 14   "
             "errors: 0") in out
@@ -254,7 +262,7 @@ def test_watch_deeply_nested_expression_fails_once_on_the_command_line(
     run_id = rec(tmp_path, monkeypatch)
     deep = "x" + " + x" * 1000 + " > 1"
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", deep]) == 2
+                     "--expr", deep]) == BAD_CALL
     out = capsys.readouterr().out
     assert "error: expression nests deeper than 50 levels" in out
     assert "Traceback" not in out
@@ -267,7 +275,7 @@ def test_watch_near_below_one_is_exit_2(tmp_path, monkeypatch, capsys):
     run_id = rec(tmp_path, monkeypatch)
     for bad in ("0", "-5"):
         assert cli.main(["watch", run_id, "--at", "prog:fill", "--expr",
-                         "used > 1", "--near", bad]) == 2
+                         "used > 1", "--near", bad]) == BAD_CALL
     out = capsys.readouterr().out
     assert out.count("--near must be >= 1") == 2
 
@@ -276,7 +284,7 @@ def test_watch_nothing_checked_says_so_instead_of_reporting_zero_hits(
         tmp_path, monkeypatch, capsys):
     run_id = rec(tmp_path, monkeypatch)
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", "used > 100"]) == 0
+                     "--expr", "used > 100"]) == UNSETTLED
     out = capsys.readouterr().out
     assert "verdict: NOTHING WAS CHECKED" in out
     assert "'could not evaluate', NOT 'the invariant held'" in out
@@ -287,7 +295,7 @@ def test_watch_refocus_guidance_is_an_exact_runnable_command(
         tmp_path, monkeypatch, capsys):
     run_id = rec(tmp_path, monkeypatch)
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", "used > 100"]) == 0
+                     "--expr", "used > 100"]) == UNSETTLED
     out = capsys.readouterr().out
     hint = [ln for ln in out.splitlines() if "sensorium run" in ln][0]
     assert "--focus prog:fill -- prog.py" in hint
@@ -302,7 +310,7 @@ def test_watch_does_not_offer_refocus_when_the_name_is_merely_out_of_scope(
     the capture they need."""
     run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", "used > 100"]) == 0
+                     "--expr", "used > 100"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "sensorium run" not in out
     assert "scope, not capture depth" in out

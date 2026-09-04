@@ -16,6 +16,7 @@ import sys
 import pytest
 
 from sensorium import cli
+from sensorium.exit import BAD_CALL, NEGATIVE
 from sensorium.query import flow_cmd
 from tests.programs import (ALIAS, GRAMS, flow_rows, flow_shown_ids,
                             interleaved_address, obj_captures, open_trace,
@@ -337,7 +338,7 @@ def test_flow_object_on_primitive_is_clear_error(tmp_path, monkeypatch,
                                                  capsys):
     run_id = record(tmp_path, monkeypatch, GRAMS)
     assert cli.main(["flow", run_id, "--object",
-                     "shipping_cost:weight_kg"]) == 1
+                     "shipping_cost:weight_kg"]) == BAD_CALL
     assert "use --value" in capsys.readouterr().out
 
 
@@ -647,16 +648,19 @@ def test_flow_object_follows_what_a_call_handed_back(tmp_path, monkeypatch,
 
 def test_flow_object_bad_specs_fail_loudly(tmp_path, monkeypatch, capsys):
     run_id = record(tmp_path, monkeypatch, ALIAS)
-    assert cli.main(["flow", run_id, "--object", "cfg"]) == 1
+    assert cli.main(["flow", run_id, "--object", "cfg"]) == BAD_CALL
     assert "e<id>:<name>" in capsys.readouterr().out
 
-    assert cli.main(["flow", run_id, "--object", "nosuchfn:cfg"]) == 1
+    assert cli.main(["flow", run_id, "--object",
+                     "nosuchfn:cfg"]) == NEGATIVE
     assert "no CALL of 'nosuchfn'" in capsys.readouterr().out
 
-    assert cli.main(["flow", run_id, "--object", "e99999:cfg"]) == 1
+    assert cli.main(["flow", run_id, "--object",
+                     "e99999:cfg"]) == NEGATIVE
     assert "no event e99999" in capsys.readouterr().out
 
-    assert cli.main(["flow", run_id, "--object", "derive_sandbox:nope"]) == 1
+    assert cli.main(["flow", run_id, "--object",
+                     "derive_sandbox:nope"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "'nope' is not captured" in out and "captured there: cfg" in out
 
@@ -664,7 +668,8 @@ def test_flow_object_bad_specs_fail_loudly(tmp_path, monkeypatch, capsys):
     focused = record(tmp_path / "b", monkeypatch, ALIAS,
                      extra=("--focus", "prog:main"))
     line = open_trace(focused).events(kind="LINE")[0]
-    assert cli.main(["flow", focused, "--object", f"e{line.id}:return"]) == 1
+    assert cli.main(["flow", focused,
+                     "--object", f"e{line.id}:return"]) == NEGATIVE
     assert f"'return' is not captured at e{line.id}" in capsys.readouterr().out
 
 
@@ -686,7 +691,8 @@ def test_flow_object_witnesses_across_a_frame_that_unwound(
     assert "0 unwitnessed" in out
 
     # ...and that frame handed nothing back, so there is no return to follow
-    assert cli.main(["flow", run_id, "--object", "blow:return"]) == 1
+    assert cli.main(["flow", run_id,
+                     "--object", "blow:return"]) == NEGATIVE
     assert "'return' is not captured" in capsys.readouterr().out
 
 

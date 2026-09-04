@@ -78,7 +78,7 @@
       "id": "flow-and-watch-refuse-on-line",
       "ask": "Does `watch` refuse on a recorder that declares it produces no LINE events?",
       "command": ["watch", "$RUN", "--at", "main", "--expr", "1 == 1"],
-      "expect_exit": 2,
+      "expect_exit": 3,
       "expect_contains": ["watch needs line", "capabilities.line: false",
                           "nothing was checked"],
       "expect_absent": ["near-miss", "sightings"]

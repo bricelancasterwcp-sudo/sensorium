@@ -129,6 +129,7 @@ import shlex
 from dataclasses import dataclass
 
 from sensorium import paths
+from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.caps import require
 from sensorium.query.fmt import fmt_event, fmt_value, more_note, parse_eref
 from sensorium.store.reader import Trace
@@ -158,6 +159,26 @@ class ObjTarget:
     """One object, as well as this trace can name one."""
     oid: int
     type: str
+
+
+@dataclass(frozen=True)
+class Unresolved:
+    """Why `--object` named nothing, and what the reader should do next.
+
+    The status travels WITH the message, for the reason `frame._resolve`
+    gives: the two say the same thing, and only the resolver knows which of
+    the two it is saying. Deciding it in `run` would mean matching on the
+    message text, and the text is rewritten whenever it can be made clearer.
+
+    Carried only on FAILURE, and deliberately: `--object` resolving is not
+    yet an answer. Whether this flow says yes or no is the sightings count,
+    which is not known until the scan below has run -- so a success status
+    handed back from here would be a constant nothing reads, which is the
+    shape that left `frame`'s two success statuses dead until a review
+    caught them.
+    """
+    message: str
+    status: int
 
 
 @dataclass(frozen=True)
@@ -554,23 +575,36 @@ def continuity_line(gs: list[Gap]) -> str:
 
 
 def resolve_object(trace, idx: Index, spec: str):
-    """(target, canonical ref, resolution note, error)."""
+    """(target, canonical ref, resolution note, `Unresolved` | None).
+
+    Which status each failure carries is the convention applied to what
+    went wrong. A reference the trace simply does not hold -- no such event,
+    no CALL of that qualname, that name not captured at that event -- is the
+    trace answering "no" about what was recorded (NEGATIVE); only a
+    recording that holds it can say otherwise. A spec that cannot name
+    anything, and a name whose recorded value is a primitive and so has no
+    identity to follow, are the CALL being wrong (BAD_CALL): the trace is
+    fine, the command has to change -- and the second one even says which
+    command to run instead (`--value`).
+    """
     ref, sep, name = spec.rpartition(":")
     if not sep or not ref or not name:
-        return None, None, None, (
+        return None, None, None, Unresolved(
             f"object spec must be e<id>:<name> or <qualname>:<name>; "
-            f"got {spec!r}")
+            f"got {spec!r}", BAD_CALL)
     note = None
     if ref[0] == "e" and ref[1:].isdigit():
         ev = idx.by_id.get(int(ref[1:]))
         if ev is None:
-            return None, None, None, f"no event {ref} in this trace"
+            return None, None, None, Unresolved(
+                f"no event {ref} in this trace", NEGATIVE)
     else:
         calls = [e for e in idx.events
                  if e.kind == "CALL" and e.code_id is not None
                  and trace.code(e.code_id).qualname == ref]
         if not calls:
-            return None, None, None, f"no CALL of {ref!r} was recorded"
+            return None, None, None, Unresolved(
+                f"no CALL of {ref!r} was recorded", NEGATIVE)
         ev = calls[0]
         note = (f"resolved {spec!r} at e{ev.id} -- the first of {len(calls)} "
                 f"recorded CALL(s) of {ref}")
@@ -581,13 +615,15 @@ def resolve_object(trace, idx: Index, spec: str):
                      + (f" (+{extra} more)" if extra else ""))
     v, at, err = _capture_at(trace, idx, ev, name)
     if err:
-        return None, None, None, err
+        # "not captured at eN": the event is real and the trace does not
+        # hold that name there. It answers, negatively, about the recording.
+        return None, None, None, Unresolved(err, NEGATIVE)
     if at is not ev and note:
         note += f"; its return is captured at e{at.id}"
     if v.get("k") not in CONTAINER_KINDS:
-        return None, None, None, (
+        return None, None, None, Unresolved(
             f"{name!r} at e{at.id} is a primitive ({fmt_value(v)}) and has no "
-            f"identity to follow; use --value {fmt_value(v)}")
+            f"identity to follow; use --value {fmt_value(v)}", BAD_CALL)
     return ObjTarget(v["oid"], v["type"]), f"e{at.id}:{name}", note, None
 
 
@@ -652,7 +688,11 @@ def add_parser(sub) -> None:
 
 
 def _header(trace, idx: Index, args) -> tuple:
-    """(target, canonical ref, header lines, error)."""
+    """(target, canonical ref, header lines, `Unresolved` | None).
+
+    A failed resolution is passed through whole: this function adds a
+    header, never a judgement about why resolution failed.
+    """
     if args.object is not None:
         target, ref, note, err = resolve_object(trace, idx, args.object)
         if err:
@@ -664,6 +704,8 @@ def _header(trace, idx: Index, args) -> tuple:
             head.append("  " + note)
         return target, ref, head, None
     target = parse_literal(args.value)
+    # `--value` cannot fail to resolve: any literal is a legal target, and
+    # whether anything matched it is the sightings count's answer below.
     return target, None, [
         f"flow of {target!r} ({type(target).__name__}) in {trace.path.stem}",
         "  captured-value equality, not true dataflow analysis: the trace "
@@ -739,7 +781,7 @@ def run(args) -> int:
     if args.limit < 1:
         print(f"--limit must be >= 1 (got {args.limit}); "
               "there is no useful zero-row page")
-        return 2
+        return BAD_CALL
     after = parse_eref(args.after) if args.after else 0
     trace = Trace.open(paths.find_trace(args.run))
     refusal = ((require(trace, "object_identity", "flow --object")
@@ -747,12 +789,15 @@ def run(args) -> int:
                or require(trace, "line", "flow"))
     if refusal:
         print(f"REFUSED: {refusal}")
-        return 2
+        # The command is well formed and the trace is readable; the
+        # recorder declared it does not produce what this search reads.
+        # Re-recording is the only thing that changes the answer.
+        return UNSETTLED
     idx = Index(trace)
     target, ref, head, err = _header(trace, idx, args)
     if err:
-        print(f"error: {err}")
-        return 1
+        print(f"error: {err.message}")
+        return err.status
     if idx.incomplete:
         print("INCOMPLETE: this recording never finalized, so it may stop "
               "mid-run")
@@ -775,4 +820,10 @@ def run(args) -> int:
     _print_rows(trace, shown, gap_lines(visible), lead)
     _print_footer(args, ref, idx, (len(found), searched, seen, trunc),
                   scope, shown, counted, after)
-    return 0
+    # The status follows the `sightings:` line the footer just printed, and
+    # so is read over `scope` rather than `found`: what this invocation was
+    # asked for is the sightings after `--after`, and an empty page is that
+    # question answered "none". The count line is already there for the zero
+    # case ("sightings: 0 event(s), 0 capture(s)"), so nothing is added to
+    # the output -- only the number the caller branches on changes.
+    return ANSWERED if scope else NEGATIVE
