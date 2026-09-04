@@ -1,0 +1,129 @@
+# Rung 3 — Err flow: `?`, sinks, arms, chains, and `exceptions` on a Rust trace
+
+2026-09-04. Design authority: Claude, delegated by Brice on 2026-09-04
+("continue as you recommend … you have design authority"). Parent spec:
+`docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md` §3.3
+(`?`, sinks and Err arms), §6 (`exceptions` for `lang = rust`), §8 (E2's
+`?`-site floor, E6), §9 (the corpus ports), §11 rung 3. This document does not
+restate what those sections settle; it records the decisions that turn them
+into a buildable rung, each with what it costs if wrong, and the falsifiers.
+Rung 2's record (`rust/HONESTY.md` §1, the E5′ ruling, the inbox) is the
+starting state.
+
+## 0. What rung 3 must make true
+
+`sensorium exceptions <rust run>` answers instead of refusing, and every
+answer it gives is one the recording can support: a **swallowed** `Err` is
+named only when a written sink absorbed it and its frame returned `ok`; an
+`Err` whose fate the grammar did not see is **ambiguous**, never
+"propagated by default"; a chain that crossed frames by `?` is reported once,
+at its origin, with every hop; a panic on an `Err` is **panicked**; a test
+fn that returned `Err` is **returned to the harness**. The falsifier for the
+whole rung is E6: zero false SWALLOWED on the Rust corpus.
+
+## 1. Three ways to place the engine, and the one taken
+
+| | where chains and dispositions are computed | cost |
+|---|---|---|
+| A | in the runtime: per-thread chain serial minted at the origin RAISE, carried on the wire | the runtime learns program semantics; every rule change is a wire change; no synthetic-trace tests |
+| B **(taken)** | runtime records *sites* (RAISE/HANDLED with the Err's type and text); the converter writes them as events with a **chain serial minted at conversion** from the per-thread order; the Python rule module computes dispositions | the runtime stays dumb and cheap; conversion is deterministic and re-runnable over a spool; the rules are unit-testable on hand-built traces (`tests.helpers.finalize_synthetic`) exactly like the Python rules |
+| C | converter computes dispositions and writes them into meta | two places to render a verdict; the reader's `exceptions` would print a converter opinion |
+
+B is the parent spec's own placement (§6: "a Rust rule module with its own
+index, chain identity and dispositions behind the shared renderer").
+
+## 2. Decisions (R1–R16)
+
+Amended after the 2026-09-04 critic pass (opus; every "compiles"/"errors" claim below was measured on rustc 1.96 at `-D warnings`): R2 and R7 were rewritten, the rest tightened. Cost-if-wrong is stated per row.
+
+| # | Decision | Why | Cost if wrong |
+|---|---|---|---|
+| R1 | **Wire v3**: record kinds 4 `RAISE`, 5 `HANDLED` (1 CALL, 2 RETURN, 3 PANIC, 255 THREAD_END stay). On kinds 4/5 the record header's idle `outcome` byte carries `how` (R2's table). Payload: `flags` u8 (bit 0 msg present, bit 1 msg truncated, **bit 2 type truncated**), `type_len` u16 + type bytes (`std::any::type_name::<E>()`, capped at 120 bytes), then the capped `Debug` text of the `Err` (200 bytes, the rung-2 cap) when the site holds the value. **RETURN records with outcome `err` gain the same `type` field** (the exit probe knows `E`), so a frame closing `err` carries what the reader needs to synthesise the origin RAISE. Expected size per RAISE/HANDLED: 24 + 3 + \|type\| + \|msg\| ≈ 60–350 bytes against a CALL's 24 — no type-intern table (ruled: simplicity; E1″ reports the cost). `SNSR` version 3; a v2 spool still converts. | One record shape; the reader's `exc` object already has the fields. | A v3 reader on a v2 spool reads nothing new. |
+| R1b | **One site-index space, typed in the manifest**: `?`/sink/arm/closure sites take numbers from the same per-unit `next_site` counter as fn items; `ManifestSite` gains `kind: "fn" \| "closure" \| "try" \| "sink" \| "arm"` (+ `how` and `line` on non-fn rows; `test: true` on `#[test]`/`#[bench]`-attributed fns; `main: true` on a bin crate root's `fn main`, which the wrapper tells the transformer since only it knows the crate type). The converter refuses a CALL/RETURN on a non-frame site or a RAISE/HANDLED on a frame site as malformed, by name. A manifest without `kind` (0.2.0) reads every site as `fn`. | One lookup (`sites_by_index`), no second table to drift. | none |
+| R2 | **Sites the transformer probes, and the `how` byte each writes**: `?` on a `Result` → `try` (RAISE, only when the operand is `Err`; `Option::None` writes nothing); `.ok()`, `.unwrap_or(..)`, `.unwrap_or_else(..)`, `.unwrap_or_default()` receivers → `sink_ok` / `sink_unwrap_or` (HANDLED, only when the receiver is `Err`); `let _ = <value expression>` → `sink_let_underscore` (HANDLED when `Err`; a place expression gets nothing). **`.is_err()` / `.is_ok()` are NOT probed**: they take `&self`, so the wrap on a place-expression receiver is E0507 (measured), and they observe rather than absorb — a HANDLED there would report a predicate as a swallow (the critic's `healthy(&self) -> bool { self.conn.ping().is_ok() }`). `Err(..) =>` arms and `if let Err(..)` bodies are classified syntactically at closure depth 0: **PROPAGATE** (body contains `?`, `return Err(..)`, or ends in `Err(..)`) → `arm_propagate` (RAISE at arm entry); **PANIC** (a panic-family macro in the body) → **no probe at all** (the panic hook records the panic; the chain machine reads the frame's unwind — and a probe there would shift the panic's column, which E7 measures); **ESCAPED** → `arm_ambiguous` (HANDLED-class, never a SWALLOWED candidate) when the arm binds the error and the bound name appears anywhere other than a provable shared borrow (a `{}`/`{:?}` format argument, or a `&e` argument) — the mechanical form of the parent's "bound to a name and stored → AMBIGUOUS"; else `arm_handled` (HANDLED). `return Err(..)` and a tail `Err(..)` write nothing extra: the frame's `err` outcome (now carrying the type) is the RAISE. `.unwrap()`/`.expect()` are not probed. | The parent §3.3 list minus the two predicates, plus the ESCAPED bucket the parent §6 demanded. | A sink outside the list makes its `Err` AMBIGUOUS — the designed default. |
+| R3 | **In-place wrap, temporaries untouched**: `match <operand> { __t => { ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, SITE, HOW, (&&&Probe(&__t))); __t } }` — statement-position `?` and `.ok()` parse and compile through the wrap; drop order and the `let _` drop point are preserved (measured). The probe is a **three-level autoref ladder** on `Probe<'_, Result<T, E>>`: `&&Probe` with `E: Debug` → type + capped `Debug` of `e`; `&Probe` on any `Result<T, E>` → type only (`unread: ["msg"]`); `Probe` on anything else → writes nothing. Rung 2's two-level trick reads `Result<!Debug, Debug>` as unread — hence three levels (all four arms measured). | Verified shapes. | A shape that warns under `-D warnings` falls back per HONESTY §8, loudly. |
+| R4 | **Arm probes get their own entry point** `err_site_value<E: ?Sized>(unit, SITE, HOW, (&&Probe(&e)))` — an arm is handed the bound `E`, not a `Result`, so R3's ladder does not apply (two levels: `Debug` / not). `Err(_)`, `Err(..)`, `Err(E::Variant)` → `err_site_unbound(unit, SITE, HOW)` (no type, no text; the converter fills `type` from the chain it continues, else `"Err"` with `unread: ["type", "msg"]`). Match ergonomics may bind by reference (`e: &io::Error`): the converter strips a leading `&` from a recorded type so a by-ref arm and a `?` record the same `E`. | Never invent a type; normalise the one artefact the transformer cannot see. | none |
+| R5 | **Closures containing `?` get their own frame**: guard at the closure body's entry, qualname `<enclosing>::{{closure}}#k` (k = ordinal among `?`-bearing closures in the enclosing item, source order), exit operand probed like a fn's. Closures without `?` stay unframed. **`async {}` blocks and async closures get no guard** (the future may complete on another thread — the same reason `async fn` is skipped); a `?` inside one is `partial` with reason `"async-block"`. | A `?` in a closure returns from the closure. | A framed closure costs one CALL/RETURN pair per call. |
+| R6 | **`?` the transformer cannot reach is declared**: `partial` is a flat, registered-unit-scoped list `[{file, line, qualname, reason}]` in the manifest (like `skipped`), reasons `"macro-arg"` (a `?` inside a macro invocation's tokens) and `"async-block"`; `info` prints `partial fns: N (?-sites the transformer could not reach)` in the house style; the census reports both counts. | Honesty over coverage. | none |
+| R7 | **The chain machine** — §2a below is the artefact T4 (converter) and T6 (rules) are written against: a total transition table over per-thread state × next record. Chain serials are minted at conversion in a namespace **disjoint from panic serials** and every `exc` object carries `kind: "err" \| "panic"`; the Rust `Index` selects by `kind`, never by `type == "panic"`. Identity across hops is (holder frame, and `(type, msg)` equality of the Err's recorded text); with no wire identity, two `Err`s of one type with identical `Debug` text in one window are one chain — documented. | Deterministic from the stream; the parent's interleave rule made mechanical. | A shape the table cannot follow reads AMBIGUOUS, never SWALLOWED. |
+| R8 | **Dispositions** (Rust `Disposition` tags, in tally order `swallowed, panicked, returned-to-harness, propagated, ambiguous`): **SWALLOWED** — a HANDLED sink (`sink_*`, `arm_handled`) absorbed the chain in frame F and F later closed `ok` with no later RAISE of the chain — this includes a chain **born in dependency code** (a HANDLED that opens no chain: `let _ = fs::remove_file(p);`), reported with the detail "born outside instrumented code; absorbed at <sink>"; **PANICKED** — the frame holding the chain unwound (`unwind_exc` quoted, or "message not recorded" per HONESTY §1) — the verdict says "the frame holding it unwound", never that the panic was *because of* the `Err`; **RETURNED_TO_HARNESS** — the chain left a frame whose manifest site is `test: true` or `main: true`; **PROPAGATED** — the chain crossed ≥ 1 frame by `?`/err-close and was still open when the recording ended on a frame that is neither (only possible on an INCOMPLETE recording or a thread whose frames were not all instrumented) — every hop listed; **AMBIGUOUS** — the default: a HANDLED-class `arm_ambiguous`, a merged window, a chain whose holder closed `ok` with no sink seen, a chain whose holder closed `err`/`none` after a sink (handled, then the frame failed for another reason — noted, HONESTY names this as the "cleanup then fail" blind spot), or a chain that left a **spawned thread's** outermost frame ("left its thread into a JoinHandle; whether it was ever read is not recorded"). A chain whose recorded type changes across hops (`From` in a `match` arm) is one chain; the header prints the origin's type, each hop its own, and the change is labelled `translated`. | Parent §6, made mechanical, with the critic's false-SWALLOWED generators closed. | A wrong disposition is a false accusation only for SWALLOWED — E6 gates it. |
+| R9 | **Capability `err_flow`** (Rust-only key; the Python column never declares it — `boot.CAPABILITIES` and `tests/test_format4.py` untouched): the rung-3 proc header declares `capabilities.err_flow: true`; `exceptions` dispatches on `trace.lang` FIRST — Python → the Python rules unchanged; Rust → `caps.require(trace, "err_flow", "exceptions")` (a 0.2.0 trace refuses with the standard sentence, exit 3), then the Rust rules; any other language → `_language_refusal`'s default arm (kept; only its `rust` branch retires). TRACE-FORMAT §4's "keyed on lang, not a capability" paragraph is amended: with rung 3 the missing thing on an older Rust trace is a record. | Honest refusal on old traces; no Python regression. | none |
+| R10 | **Tier**: RAISE/HANDLED and closure frames emit at tier `call`; `off` emits nothing; no new tier. | Parent §3.7. | Per-site cost at `call` grows; E1″ reports it. |
+| R11 | **`exceptions` on Rust**: `src/sensorium/query/exceptions_rust.py` — its own `Index` (RAISE/HANDLED events by `exc.kind`, `exc.serial` chains, frame outcomes/`closed_by`/`unwind_exc`, `test`/`main` marks from meta's site table); the shared `Disposition` dataclass, header, tally, `--after`/`--limit` paging, `fmt_event`; exit codes per 0.7.0 (dispositions listed → 0; `no exceptions recorded` → 1, or 3 on INCOMPLETE; refusal → 3). | Parent §6. | none |
+| R12 | **Fingerprints**: RAISE/HANDLED are causal kinds (TRACE-FORMAT §5, "and only they"), so every Rust fingerprint and `events.id` moves; **E3 and E5′ are re-run as E3″/E5″** with their pre-registered expectations unchanged, and the existing Rust corpus questions that pin event ids are re-pinned with the reason stated per question. `type_name` text never enters a fingerprint (file/qualname/kind only), so its drift across compilers cannot move a `diff` verdict — said out loud; goldens and vectors pin no std type string. | Forced by the contract. | none |
+| R13 | **Versions / vectors**: runtime 0.3.0 (wire v3, `err_flow`), transform 0.3.0, driver 0.3.0, Python 0.8.0; vectors v16 (`raise-handled-chain-serial-kind`), v17 (`exceptions-rust-swallowed`), v18 (`exceptions-rust-ambiguous-merge`), v19 (`err-flow-capability-refusal`: a 0.2.0-shaped trace refuses); v14's `exceptions` question is replaced by v19. | Each new claim gets a vector. | none |
+| R14 | **`scenario.rs` is split first** (`src/bin/scenario/`), before any new arm. | The 800-line ceiling. | none |
+| R15 | **Acceptance, pre-registered before the transformer changes**: **E6** — on every Rust corpus case with an `exceptions` question, the printed SWALLOWED lines `==` the pre-registered set (equality, not subset), every swallow case's set non-empty, the `dispositions:` tally compared whole; T8 owns a cross-case collector; **E6′** — `exceptions` on the bloomery clone's `--lib` run: every SWALLOWED line hand-adjudicated against the source (an `Err` that was stored, returned, or merely observed = a false accusation); reported count and adjudication, gate = 0 false; **E2″** — instrumented `?` sites / syn-visible `?` sites ≥ 95% on the clone, with macro-argument `?` tokens reported as a second number (counted on the clone **before** the byte-lock, `?Sized` and `$(…)?` confusions stated); 0 units fell back; the denominator from a checked-in census binary (`rust/sensorium-transform/src/bin/census.rs`); **E7″** — the mechanics E7 checks unchanged (lines AND columns) on the probe's existing panics, plus one new probe panic literal inside a `?` operand whose column shift is predicted in advance (the wrap prefix's byte length) — lines never move, columns shift only inside a wrapped operand, and HONESTY's "panic locations preserved" promise gains that clause; **E3″/E5″** re-runs (R12); **E0″** — `info` and `diff` on the rung-3 bloomery run under E0's 60 s kill; **reported, no gate**: E1″ (the `--lib` plain/call walls, rung-2 addendum lens) and the RAISE/HANDLED count and bytes per record. | The parent's E6 and E2 floors made measurable, and the critic's gaps closed. | A STOP is a finding. |
+| R16 | **Named blind spots** (HONESTY §"cannot see", each with the corpus case that pins it where one exists): `let … else`, `while let Err(..)`, `matches!(x, Err(_))`, `.err()`, the closure of `.unwrap_or_else(\|e\| …)` storing `e`, `.is_err()/.is_ok()` — all unprobed, their `Err`s AMBIGUOUS; a genuine swallow in a frame that later fails (`let _ = cleanup(); work()?`) reads AMBIGUOUS, not SWALLOWED; a generic `T` that is a `Result` after monomorphisation reads `ok` (`outcome_generic`); two `Err`s with identical `Debug` text in one window are one chain. | A rule with an unstated edge surprises. | none |
+
+## 2a. The chain machine (R7) — per-thread state × next record
+
+State per thread: a **stack of open chains** (innermost last), each `c = {serial, holder: frame, last: (type, msg), hops, sink: Option<how>}` where the **holder** is the frame the chain currently sits in; a chain can also be `Merged` (a group whose every member is AMBIGUOUS; it closes when its holder closes). Rows below apply to the open chain whose holder is the frame named; a record in a frame that holds no open chain behaves as `None`. `None` = no open chain whose holder is that frame.
+
+| next record (thread-ordered) | `None` | `Open(c)`, holder H | `Merged` |
+|---|---|---|---|
+| RAISE `try`/`arm_propagate` in frame G, text T | open `c` = {new serial, holder G, last T, hops [G]} — a callee raising its own `Err` while an outer chain is in flight opens a **nested** chain (pushed on the stack), never a merge | G == H and T == c.last (the `?` on the Err the callee just handed back): **hop** — holder stays G, hops += G. G == H and T ≠ c.last: a second, different `Err` in H's window → **Merged({c, new})** | stays; serial added |
+| frame F closes `err`, type/msg T | open `c` = {new serial, holder F's parent, last T, hops [F], origin = F}; the converter emits a synthetic RAISE (`how: exit`) before the RETURN | F == H (F re-returned it, possibly translated: T ≠ c.last → label `translated`): holder ← F's parent, hops += F. F ≠ H and F is a callee of H: a nested chain opens (stack) | stays |
+| frame F closes `none` | — | F == H: the `?` propagated: holder ← F's parent (hop already recorded by the `try` RAISE) | stays |
+| frame F closes `ok` | — | F == H: if c.sink is set → **SWALLOWED** (close c); else → **AMBIGUOUS** ("left the grammar in F"; close c). F ≠ H: no transition (a callee returning ok while the chain is in flight, e.g. `identity(inner())`) | F == holder: close as AMBIGUOUS |
+| frame F closes `panic` (unwind) | — | F == H: **PANICKED** (unwind_exc quoted or "not recorded"); close c. F ≠ H: no transition | F == holder: PANICKED for each; close |
+| HANDLED (`sink_*`, `arm_handled`), frame G, text T | **chainless swallow**: open-and-close a chain `{holder G, sink}` pending G's close: G closes `ok` → SWALLOWED ("born outside instrumented code"); else → AMBIGUOUS | G == H and T == c.last: c.sink ← how (pending H's `ok` close); G == H and T ≠ c.last: a different Err absorbed in H → a **chainless** HANDLED (as `None`); G ≠ H: as `None` in G | as `None` in G |
+| HANDLED `arm_ambiguous`, frame G | chainless: AMBIGUOUS ("bound and escaped at <arm>") | G == H and T == c.last: **AMBIGUOUS**; close c. else as `None` | stays |
+| CALL | — | — (the holder is a frame, so callees returning do not close it) | — |
+| THREAD_END / recording ends | — | c still open: holder's manifest site `test`/`main` → **RETURNED_TO_HARNESS**; holder is a spawned thread's outermost frame → **AMBIGUOUS** ("left its thread into a JoinHandle"); otherwise → **PROPAGATED** (only on an INCOMPLETE or partially instrumented thread; the verdict says so) | AMBIGUOUS for each |
+
+Every row is a test in `tests/test_exceptions_rust.py` on a synthetic trace, and the converter's chain minting is pinned on hand-built spools for the hop, the interleave (Merged), the nested-chain stack, the translated hop, and the chainless swallow.
+
+## 3. What the corpus pins (the rung's falsifiers, each with `why_logs_fail`)
+
+Under `corpus/rust/`: `silent_swallow` (`.ok()` and `let _ =` on a `?`-born
+chain: exactly two SWALLOWED, no uncaught); `err_propagation` (one chain
+through three frames by `?`, reported once at its origin with three hops:
+PROPAGATED / RETURNED_TO_HARNESS from the test); `interleaved_chains` (two
+distinct `Err`s in one window → AMBIGUOUS, **never** SWALLOWED); `unwrap_panic`
+(`.unwrap()` on an `Err` → PANICKED with the panic message); `err_arms` (three
+`Err(..) =>` arms — one propagates, one panics, one handles — one disposition
+each); `closure_try` (a closure with `?` gets its own frame; its `?` does not
+close the enclosing fn); `returned_to_harness` (a `#[test]` fn that returns
+`Err`); `macro_arg_partial` (`?` inside `assert!(..)`'s argument → `info`
+prints the partial fn, `exceptions` says the fn is partial rather than
+guessing); `err_stored` (an `Err(e) =>` arm that pushes `e` into a Vec → AMBIGUOUS, never SWALLOWED — the critic's retry-loop shape); `dependency_swallow` (`let _ = fs::remove_file(..)` → SWALLOWED "born outside instrumented code"); `cleanup_then_fail` (`let _ = cleanup(); work()?` → AMBIGUOUS, the named blind spot); `join_handle` (a spawned thread returns `Err` into a `JoinHandle` the parent `.ok()`s → child AMBIGUOUS, parent SWALLOWED); `outcome_generic` (HONESTY §1's named falsifier: a generic `T`
+that is a `Result` only after monomorphisation reads `ok` — the documented
+limit, pinned so it cannot drift); `err_flow_refusal` (a rung-2-shaped trace —
+recorded with `err_flow: false` via a test hook — refuses with exit 3). The
+existing `panic`, `none_propagation` and `abort` cases gain an `exceptions`
+question each.
+
+## 4. Testing story
+
+- Transform: goldens for every R2 shape and for each not-wrapped shape (a
+  place-expression `let _ = x;`, `?` on a `Option`, `?` inside a macro
+  argument, a closure without `?`), the rustc oracle at `-D warnings`, the
+  census extended with a `?`-site count pinned against the clone.
+- Runtime: `err_site` unit tests through the scenario binary (Err with/without
+  `Debug`, truncation, `Option` writes nothing), wire v3 parse round-trip in
+  the converter's fixtures (`gen.py` learns kinds 4/5).
+- Converter: chain minting on hand-built spools — the `?`-then-return shape,
+  the interleave shape, a HANDLED with no open chain.
+- Python: `tests/test_exceptions_rust.py` on synthetic traces for every
+  disposition and the merge; the four vectors; the corpus.
+- Mutation-tested throughout, as the house rules require.
+
+## 5. Order of work (the plan's tasks, in dependency order)
+
+T0 branch + pre-registration byte-lock (E6/E2″/E7″ + the reported items) +
+`scenario.rs` split; T1 wire v3 + `err_site` in the runtime + capability;
+T2 transformer: `?` and sinks; T3 transformer: arms (PROPAGATE/ESCAPED/handled; PANIC unprobed), `let _`, closures with
+`?`, `partial`, the checked-in census binary + the `?`-site count pinned; T4 converter: RAISE/HANDLED events, chain minting,
+`test` marks, `loc`; T5 TRACE-FORMAT + vectors + `gen.py`; T6 Python
+`exceptions_rust.py` + dispatch + capability refusal; T7 corpus (ten cases);
+T8 acceptance run (E6, E6′ hand-adjudication, E2″, E7″, E3″, E5″, E0″ + reported); T9 docs (HONESTY §1/§3 new
+promises, README, spec amendments), versions, PR body.
+
+## 6. What this rung does not do
+
+`refocus` on Rust (rung 4); LINE/locals (rung 4); `async fn` (still skipped);
+`Option` flow (no RAISE on `None` — a `?` on `Option` is not an error in this
+model); `impl Try` types other than `Result`/`Option`; a `unwrap` probe
+(derived from the panic instead); sinks the list does not name (AMBIGUOUS by
+design).
