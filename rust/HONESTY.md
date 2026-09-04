@@ -266,8 +266,17 @@ thread that never returns, `process::exit`, `abort`, and SIGKILL.
   `seq_gaps` 1190, and the bound above did not hold for `seq_gaps`. It holds
   now: `seq_gaps` counts only records minted and lost, which is at most one
   per thread. Falsified by
-  `rust/sensorium-rt/src/spool.rs::a_refused_record_consumes_no_sequence_number`
-  and `rust/cargo-sensorium/tests/convert.rs::a_thread_whose_spool_went_inert_costs_no_seq_gaps`.
+  `rust/sensorium-rt/tests/seq_contiguity.rs::a_refused_record_consumes_no_sequence_number`
+  — the seqs a whole process WROTE are `0..=max` with nothing missing — and by
+  `rust/cargo-sensorium/tests/convert.rs::a_thread_whose_spool_went_inert_costs_no_seq_gaps`
+  on the converter's side. The first needs `SENSORIUM_TEST_SPOOL_LIMIT` to force
+  the refusals, so like the disk-full arm it is `test-hooks`-gated and runs in
+  that CI step rather than in `cargo test --workspace`. It must be
+  multi-threaded to have content: on a single thread the spool breaks and stays
+  broken, so every refusal falls past that thread's last write and the union is
+  contiguous either way (measured — with the seq minted before the check,
+  `spool-limit 6000` reads 0 gaps while `two-threads 3000` reads 1282), which is
+  why the test asserts that interleaving as a precondition.
 - **A thread still running when the process exits has no `THREAD_END`.** The
   converter lists it in `live_threads` and leaves its frames open; `incomplete`
   stays `false`, because the *process* finished even though the thread did not.
@@ -645,7 +654,7 @@ re-rolled** if the box was busy when it started.
 | 1 | A generic `T` that is a `Result` only after monomorphisation reads `ok` | `corpus/rust/outcome_generic` (rung 3, deferred) |
 | 2 | A return value is `Debug` text capped at 200 bytes; `!Debug` and panicking `Debug` read `<unread>`; `()` is never `<unread>` | `rust/sensorium-rt/tests/values.rs`, `docs/trace-format/vectors/v08-return-outcome-dbg-value.json` |
 | 3 | Every emitting non-main thread is a named task where a name exists; `spawn_child` derives the name; dependency threads are unnamed and compared as a multiset | `corpus/rust/spawned_thread`, `corpus/rust/libtest_threads` (`--test-threads=1` against `4`), `rust/sensorium-rt/tests/spawn.rs`, `rust/sensorium-rt/tests/serials.rs`; the REFUSED-on-deleted-fingerprints promise by `tests/test_diff.py` (`test_diff_refuses_a_per_task_trace_whose_task_fingerprints_are_missing`) and `docs/trace-format/vectors/v04-main-thread-silent-tasks-carry` |
-| 4 | A crash loses at most one record per thread; holes are `seq_gaps`; `records_dropped` is what the writer knew it lost, and the two are disjoint | `rust/sensorium-rt/tests/durability.rs`, `rust/sensorium-rt/src/spool.rs` (`a_refused_record_consumes_no_sequence_number`), `rust/cargo-sensorium/tests/convert.rs` (`a_thread_whose_spool_went_inert_costs_no_seq_gaps`), `corpus/rust/abort` |
+| 4 | A crash loses at most one record per thread; holes are `seq_gaps`; `records_dropped` is what the writer knew it lost, and the two are disjoint | `rust/sensorium-rt/tests/durability.rs`, `rust/sensorium-rt/tests/seq_contiguity.rs` (`a_refused_record_consumes_no_sequence_number`, `test-hooks`), `rust/cargo-sensorium/tests/convert.rs` (`a_thread_whose_spool_went_inert_costs_no_seq_gaps`), `corpus/rust/abort` |
 | 5 | `exit_status` is `waited` only for processes our runner started; everything else is `unwitnessed`, never borrowed from cargo | `rust/cargo-sensorium/tests/runner.rs`, `corpus/rust/abort`, `rust/tests/mechanics.sh`, `docs/trace-format/vectors/v10-exit-status-unwitnessed.json` |
 | 6 | Spawns are not witnessed; instrumented children are linked by `ppid`; a child that ran no instrumented code is invisible | `corpus/rust/abort`, `docs/trace-format/vectors/v11-child-runs-linked.json`, `tests/test_rust_convert.py` (`child-linked`) |
 | 7 | Sites are per unit at record time and merged on `(file, qualname, firstlineno)` at conversion; `diff` cannot separate cfg-gated twins | E3 and E5 in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/cargo-sensorium/tests/unit_identity.rs`, `rust/cargo-sensorium/tests/convert.rs` |
