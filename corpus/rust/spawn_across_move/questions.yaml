@@ -1,0 +1,94 @@
+program: cargo
+cargo_args: ["test"]
+second_run:
+  cargo_args: ["test", "--features", "moved"]
+questions:
+  - id: what-is-the-worker-called
+    ask: >
+      The test's assertion is satisfied on a thread the test never names.
+      What is that unit of work called, and what is its name made of?
+    truth: >
+      tests::the_worker_is_named_across_a_move :: spawn@start#1 -- the
+      parent task (the test), then the qualname of the named item the spawn
+      call sits inside (start, at file scope of src/worker.rs) and #1
+      because it is the first wrapped spawn site in that item. No file and
+      no line is in the name; the recording carries the location in its
+      manifest, one lookup away, so that moving the code cannot rename the
+      work. Under that name the worker holds one frame, apply() -> 5, and
+      the test's own task t2 holds the test and the start() it called.
+    why_logs_fail: >
+      A `dbg!` inside the spawned closure prints 5 with nothing saying which
+      thread or which test produced it, and the thread identity RUST_LOG can
+      print is a runtime number minted afresh every run, so it names nothing
+      a second run could be asked about. RUST_BACKTRACE fires only on a
+      panic, and nothing here panics.
+    command: ["tree", "$RUN"]
+    expect_contains:
+      - "spawn@start#1"
+    expect_line:
+      - ["task t3: tests::the_worker_is_named_across_a_move :: spawn@start#1"]
+      - ["apply()", "-> 5"]
+  - id: is-the-worker-the-same-work-after-the-move
+    ask: >
+      The spawning function moved to another file between the two runs and
+      nothing else changed. Is the worker in run 2 the same unit of work as
+      the worker in run 1?
+    truth: >
+      Yes. With the one moved code object paired by qualname -- start,
+      worker.rs -> worker_moved.rs -- both runs carry 2 task streams that
+      match by content as (name, hash): the worker is spawn@start#1 on both
+      sides because a move does not touch a name built from a qualname and
+      an ordinal, and its stream is identical. The MATCH is carried entirely
+      by the tasks, and the tool says so rather than dressing up two empty
+      thread streams as agreement: no causal event ran outside a task on
+      either side. Nothing is only in A and nothing is only in B.
+    why_logs_fail: >
+      "Is this the same worker as last time" is a question about identity
+      across two runs, and no log line carries an identity that survives a
+      refactor: `dbg!` prints values with no owner, RUST_LOG's thread field
+      is a fresh runtime number on each run and its target is the module --
+      which is exactly the thing that changed here -- and RUST_BACKTRACE
+      prints nothing at all unless something panics.
+    command: ["diff", "--ignore-moves", "$RUN", "$RUN2"]
+    expect_line:
+      - ["verdict: MATCH -- no causal event ran outside a task on either side"]
+      - ["key: (file, qualname, kind), with 1 code object(s) paired across a move by qualname"]
+      - ["moved: start", "worker.rs -> worker_moved.rs"]
+      - ["tasks: 2 task stream(s) on each side", "(name, hash): all matched"]
+    expect_absent: ["DIVERGED", "REFUSED", "only in A", "only in B"]
+  - id: does-a-plain-comparison-see-the-move
+    ask: >
+      Without --ignore-moves, what does the same pair of runs compare to?
+    truth: >
+      DIVERGED, and that is the whole point of the pair. Compared as
+      recorded, the key carries the file, so start in src/worker.rs and
+      start in src/worker_moved.rs are two different code objects: the
+      thread streams hold no causal events on either side and the tasks
+      diverge, 2 streams on A against 2 on B, with the test's own task
+      tests::the_worker_is_named_across_a_move only in A and only in B --
+      the same name, two content hashes. The first difference is at causal
+      step 1, the CALL to start, named against src/worker.rs on A and
+      src/worker_moved.rs on B. The worker itself never appears in that
+      divergence at all: spawn@start#1 matched on both sides even here,
+      because nothing inside it moved. So the projected comparison and the
+      recorded one separate what changed -- where start lives -- from what
+      did not: the worker's name and the stream under it.
+    why_logs_fail: >
+      Two runs of a test suite across a refactor produce log output that
+      differs in file and module fields for reasons that are not
+      behavioural, so `dbg!` and RUST_LOG give a developer no way to ask
+      which differences are the move and which are the program; the
+      distinction this pair of verdicts draws is not in any line either tool
+      emits, and RUST_BACKTRACE fires only on a panic.
+    command: ["diff", "$RUN", "$RUN2"]
+    expect_exit: 1
+    expect_line:
+      - ["verdict:", "DIVERGED on the tasks"]
+      - ["tasks: DIVERGED -- 2 task stream(s) on A, 2 on B",
+         "only in A: tests::the_worker_is_named_across_a_move",
+         "only in B: tests::the_worker_is_named_across_a_move"]
+      - ["first difference inside tests::the_worker_is_named_across_a_move",
+         "at causal step 1"]
+      - ["A:", "CALL", "start", "src/worker.rs"]
+      - ["B:", "CALL", "start", "src/worker_moved.rs"]
+    expect_absent: ["verdict: MATCH", "spawn@start#1"]

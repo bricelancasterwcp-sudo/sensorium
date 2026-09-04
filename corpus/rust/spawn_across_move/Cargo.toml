@@ -1,0 +1,12 @@
+[package]
+name = "corpus_spawn_across_move"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "spawn_across_move"
+path = "src/lib.rs"
+
+[features]
+moved = []

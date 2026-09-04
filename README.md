@@ -495,16 +495,18 @@ start order flips between a recording and its rerun still MATCH, because
 tasks are compared by content and the interleaving is not; re-recorded with
 one task's content branching, the verdict is DIVERGED, naming that task.
 
-Thirteen more cases live under `corpus/rust/`, recorded by the Rust recorder
+Fourteen more cases live under `corpus/rust/`, recorded by the Rust recorder
 instead: seven ports of the cases above (the same class of planted bug,
 asked differently, because that recorder captures return values and not
-arguments), four that only Rust has — a caught panic turned into an `Ok`,
+arguments), five that only Rust has — a caught panic turned into an `Ok`,
 an `abort()` that leaves its frames open and its exit `unwitnessed`, libtest
 under `--test-threads=1` against `=4`, a worker thread named for the test
-that spawned it — and two whose pinned answer is a REFUSAL, where the
-question needs object identity or per-line events that recorder declares it
-does not produce. They need a built `cargo-sensorium`
-(`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on `PATH`); without it they are
+that spawned it and the item the spawn sits in, and a spawning function that
+moves to another file without the worker's name changing — and two whose
+pinned answer is a REFUSAL, where the question needs object identity or
+per-line events that recorder declares it does not produce. They need a
+built `cargo-sensorium` (`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on
+`PATH`); without it they are
 reported skipped BY NAME and counted apart from the passes, never as them.
 `corpus/rust/README.md` is the case-by-case list.
 
