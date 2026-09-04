@@ -146,10 +146,16 @@ pub struct SpawnSite {
     /// `std::thread::spawn` does not (which valid code cannot contain, and which
     /// is listed rather than dropped). `None` when `wrapped`.
     pub reason: Option<&'static str>,
-    /// The enclosing fn ITEM's file-local qualname, in the same spelling
-    /// [`Site::qualname`] uses (`Type::method`, `outer::inner`, `tests::t`).
-    /// A closure, block or `match` arm pushes no scope of its own, so a spawn
-    /// inside one belongs to the fn item around it (plan decision N5).
+    /// The enclosing NAMED ITEM's file-local qualname (plan decision N5, as
+    /// amended in fix round 1). A closure, block or `match` arm pushes no scope
+    /// of its own, so a spawn inside one belongs to the item around it.
+    ///
+    /// For a spawn in a fn body this is exactly that fn's [`Site::qualname`]
+    /// (`Type::method`, `outer::inner`, `tests::t`), which is what joins a task
+    /// to a recorded frame. For a spawn in a `const`/`static`/associated-const
+    /// INITIALISER it is that item's own file-local path (`F`, `m::H`, `T::F`)
+    /// -- a shape [`Site`] never carries, because a const is not a fn item and
+    /// nothing about it is instrumented; only the child it spawns is named.
     pub qualname: String,
     /// The 1-based rank of this site among the WRAPPED spawn sites of this
     /// `(file, qualname)`, in byte-offset source order -- the `<k>` of the

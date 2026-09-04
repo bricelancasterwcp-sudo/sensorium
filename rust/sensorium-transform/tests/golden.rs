@@ -678,34 +678,64 @@ fn a_spawn_site_is_named_by_its_enclosing_fn_and_its_ordinal() {
     assert_eq!(
         sites(&t),
         [
-            (7, "a", 11, RetKind::Value),
-            (8, "T::m", 21, RetKind::Value),
-            (9, "outer", 26, RetKind::Value),
-            (10, "outer::inner", 27, RetKind::Value),
-            (11, "c", 33, RetKind::Value),
-            (12, "X::drop", 39, RetKind::Unit),
-            (13, "tests::t", 47, RetKind::Unit),
+            (7, "a", 13, RetKind::Value),
+            (8, "T::m", 23, RetKind::Value),
+            (9, "outer", 35, RetKind::Value),
+            (10, "outer::inner", 36, RetKind::Value),
+            (11, "c", 42, RetKind::Value),
+            (12, "X::drop", 48, RetKind::Unit),
+            // The twins: two `fn fmt` for one self type, two sites, one
+            // qualname. A `const`/`static` is not a fn item and is no site.
+            (13, "T::fmt", 58, RetKind::Value),
+            (14, "T::fmt", 65, RetKind::Value),
+            (15, "tests::t", 95, RetKind::Unit),
         ]
     );
     assert_eq!(
         spawn_names(&t),
         [
             // Two wrapped sites in one fn, numbered in source order ...
-            (12, "a", Some(1), true, None),
+            (14, "a", Some(1), true, None),
             // ... with a declared shape between them that consumes no ordinal.
-            (14, "a", None, false, Some("builder")),
-            (16, "a", Some(2), true, None),
+            (16, "a", None, false, Some("builder")),
+            (18, "a", Some(2), true, None),
             // An inherent method: `Type::method`, the manifest's own spelling.
-            (22, "T::m", Some(1), true, None),
+            (24, "T::m", Some(1), true, None),
+            // An associated const's initialiser: the CONST names it, not the
+            // `impl` -- `T::F`, not `T` (and not shared with `T::m`).
+            (30, "T::F", Some(1), true, None),
             // A fn item nested in a fn body.
-            (28, "outer::inner", Some(1), true, None),
+            (37, "outer::inner", Some(1), true, None),
             // A closure pushes no scope: the spawn belongs to the fn item.
-            (34, "c", Some(1), true, None),
+            (43, "c", Some(1), true, None),
             // A trait impl names the SELF TYPE, never the trait.
-            (40, "X::drop", Some(1), true, None),
+            (49, "X::drop", Some(1), true, None),
+            // N6-iv: `Display::fmt` and `Debug::fmt` share `T::fmt`, so the
+            // ordinals CONTINUE across the twins in source order.
+            (59, "T::fmt", Some(1), true, None),
+            (66, "T::fmt", Some(2), true, None),
+            // Initialisers at file scope: a `static`, a `const`, a `static`
+            // whose closure is nested in a slice of tuples, and a `static` in
+            // an inline module. None is a fn item; each still names its child.
+            (72, "F", Some(1), true, None),
+            (77, "G", Some(1), true, None),
+            (82, "TABLE", Some(1), true, None),
+            (88, "m::H", Some(1), true, None),
             // An inline module.
-            (48, "tests::t", Some(1), true, None),
+            (96, "tests::t", Some(1), true, None),
         ]
+    );
+    // `F` the file-scope static and `T::F` the associated const are two
+    // qualnames, not one: each child is named `F#1` and `T::F#1`.
+    assert!(
+        t.source.contains(r#"spawn_child("F#1", "#),
+        "got: {}",
+        t.source
+    );
+    assert!(
+        t.source.contains(r#"spawn_child("T::F#1", "#),
+        "got: {}",
+        t.source
     );
 }
 

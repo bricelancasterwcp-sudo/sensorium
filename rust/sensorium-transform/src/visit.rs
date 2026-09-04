@@ -18,8 +18,9 @@ use std::collections::HashMap;
 use proc_macro2::{Span, TokenStream, TokenTree};
 use syn::visit::Visit;
 use syn::{
-    AttrStyle, Attribute, Block, ExprCall, ExprMethodCall, ImplItemFn, ItemFn, ItemImpl, ItemMacro,
-    ItemMod, ItemTrait, Signature, TraitItemFn, Type,
+    AttrStyle, Attribute, Block, ExprCall, ExprMethodCall, ImplItemConst, ImplItemFn, ItemConst,
+    ItemFn, ItemImpl, ItemMacro, ItemMod, ItemStatic, ItemTrait, Signature, TraitItemConst,
+    TraitItemFn, Type,
 };
 
 use crate::exits::{self, Operand};
@@ -36,12 +37,26 @@ pub(crate) struct Walked {
     pub splices: Vec<Splice>,
 }
 
+/// One frame of the scope stack.
+///
+/// `named_item` is what tells a spawn which item to blame. A `fn`, a `const`, a
+/// `static` and an associated `const` all NAME the code inside them, and an
+/// expression can sit directly in one. A `mod`, an `impl` and a `trait` only
+/// hold items -- an expression cannot sit directly in one -- so they contribute
+/// their name to a qualname without ever being the innermost frame a spawn is
+/// attributed to.
+struct Frame {
+    name: String,
+    named_item: bool,
+}
+
 pub(crate) struct Ctx<'a> {
     source: &'a str,
     prefix: usize,
     file: &'a str,
-    /// Push/pop of `mod`, `impl` self type, `trait` and enclosing fn names.
-    scope: Vec<String>,
+    /// Push/pop of `mod`, `impl` self type, `trait`, enclosing fn, `const` and
+    /// `static` names -- see [`Frame`].
+    scope: Vec<Frame>,
     /// How many WRAPPED spawn sites each enclosing qualname has had so far.
     /// `Ctx` is per file, so this is the per-`(file, qualname)` counter plan
     /// decision N1 names, and `splice::run` re-derives it from source order
@@ -148,27 +163,51 @@ impl<'a> Ctx<'a> {
         if self.scope.is_empty() {
             return name.to_owned();
         }
-        let mut out = self.scope.join("::");
+        let mut out = self.scope_path();
         out.push_str("::");
         out.push_str(name);
         out
     }
 
-    /// The qualname of the fn ITEM a spawn call sits in.
+    /// Every frame's name joined -- containers included, since `Type::method`
+    /// is what the manifest spells.
+    fn scope_path(&self) -> String {
+        self.scope
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect::<Vec<_>>()
+            .join("::")
+    }
+
+    /// The qualname of the NAMED ITEM a spawn call sits in (plan decision N5,
+    /// as amended in fix round 1).
     ///
-    /// Every spawn is classified from inside a fn body, and a closure pushes no
-    /// scope, so the scope stack at that point IS the enclosing fn item's
-    /// qualname -- the same string that fn's [`Site::qualname`] carries.
+    /// A spawn is an expression, and almost every expression sits inside a
+    /// named item: a `fn` body, or a `const`/`static`/associated-const
+    /// initialiser (`pub static F: fn() = || { thread::spawn(..); };` compiles,
+    /// and the closure is what makes it legal -- the spawn runs when `F` is
+    /// CALLED, not at const-evaluation time). Closures, blocks and `match` arms
+    /// push no scope, so for those the stack's innermost frame IS that item.
     ///
-    /// `None` only for an empty scope, which valid Rust cannot produce: a call
-    /// to `std::thread::spawn` outside every fn item would have to sit in a
-    /// `const`/`static` initialiser, where it does not const-evaluate. It is
-    /// still refused rather than named `"#1"` (plan decision N5).
+    /// For a fn the answer is exactly that fn's [`Site::qualname`]; for a
+    /// `const`/`static` it is the item's own file-local path (`m::H`, `T::F`),
+    /// which no `Site` carries because a const is not a fn item.
+    ///
+    /// `None` when the innermost frame is a `mod`, an `impl` or a `trait`, or
+    /// when there is no frame at all. That is REACHABLE in valid Rust, and
+    /// `tests/edges.rs` is the falsifier: an enum DISCRIMINANT and an array
+    /// LENGTH in a struct field's type are both expressions that sit in a `mod`
+    /// body with no fn/const/static frame between them and the `mod`, and both
+    /// compile on rustc 1.96 with `-D warnings` with a spawning closure inside.
+    /// Such a file is REFUSED -- it costs that file its instrumentation -- in
+    /// preference to naming the child after a container, which would put it in
+    /// the same counter as an unrelated `fn m()` and give the manifest a
+    /// qualname no item has.
     fn enclosing_qualname(&self) -> Option<String> {
-        if self.scope.is_empty() {
+        if !self.scope.last()?.named_item {
             return None;
         }
-        Some(self.scope.join("::"))
+        Some(self.scope_path())
     }
 
     /// The byte offset the guard goes at, with the grammar checked.
@@ -353,10 +392,13 @@ impl<'a> Ctx<'a> {
     /// Record one spawn shape, rewriting the callee when it is the one spelling
     /// this rung rewrites.
     fn spawn_shape(&mut self, shape: &Shape, line: u32, span: Span) {
-        // Unreachable by construction (see `enclosing_qualname`), so it has no
-        // test: refusing the file is what it costs if it ever stops being so.
+        // Reachable, and tested: an enum discriminant or an array length in a
+        // struct field's type is an expression inside a `mod` body with no
+        // named frame around it (see `enclosing_qualname` and
+        // `tests/edges.rs`). Refusing the file is what that costs; naming the
+        // child after the `mod` is what NOT refusing would cost.
         let Some(qualname) = self.enclosing_qualname() else {
-            self.fail(span, "spawn site outside any fn item");
+            self.fail(span, "spawn site outside any named item");
             return;
         };
         match shape {
@@ -432,8 +474,22 @@ impl<'a> Ctx<'a> {
         self.declare_spawn(path_start, line, None, qualname.to_owned(), Some(ordinal));
     }
 
-    fn in_scope<F: FnOnce(&mut Self)>(&mut self, name: String, f: F) {
-        self.scope.push(name);
+    /// Descend into an item whose body or initialiser holds EXPRESSIONS: a fn, a
+    /// `const`, a `static`, an associated const. A spawn met inside is named
+    /// after it.
+    fn in_item<F: FnOnce(&mut Self)>(&mut self, name: String, f: F) {
+        self.in_frame(name, true, f);
+    }
+
+    /// Descend into a container whose body holds ITEMS only: a `mod`, an
+    /// `impl`, a `trait`. It contributes its name to a qualname and can never
+    /// be what a spawn is named after.
+    fn in_container<F: FnOnce(&mut Self)>(&mut self, name: String, f: F) {
+        self.in_frame(name, false, f);
+    }
+
+    fn in_frame<F: FnOnce(&mut Self)>(&mut self, name: String, named_item: bool, f: F) {
+        self.scope.push(Frame { name, named_item });
         f(self);
         self.scope.pop();
     }
@@ -444,13 +500,13 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
         let name = node.sig.ident.to_string();
         self.fn_item(&node.sig, &node.attrs, &node.block, &name);
         // Nested items (a `fn` in a `fn`, an `impl` in a `fn`) are fn items too.
-        self.in_scope(name, |ctx| syn::visit::visit_block(ctx, &node.block));
+        self.in_item(name, |ctx| syn::visit::visit_block(ctx, &node.block));
     }
 
     fn visit_impl_item_fn(&mut self, node: &'ast ImplItemFn) {
         let name = node.sig.ident.to_string();
         self.fn_item(&node.sig, &node.attrs, &node.block, &name);
-        self.in_scope(name, |ctx| syn::visit::visit_block(ctx, &node.block));
+        self.in_item(name, |ctx| syn::visit::visit_block(ctx, &node.block));
     }
 
     fn visit_trait_item_fn(&mut self, node: &'ast TraitItemFn) {
@@ -461,13 +517,13 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
         };
         let name = node.sig.ident.to_string();
         self.fn_item(&node.sig, &node.attrs, block, &name);
-        self.in_scope(name, |ctx| syn::visit::visit_block(ctx, block));
+        self.in_item(name, |ctx| syn::visit::visit_block(ctx, block));
     }
 
     fn visit_item_impl(&mut self, node: &'ast ItemImpl) {
         // `impl<T> Holder<T>` -> `Holder`: the self type without generics or
         // path, which is what Python's `Type::method` looks like (spec §5.4).
-        self.in_scope(self_type_name(&node.self_ty), |ctx| {
+        self.in_container(self_type_name(&node.self_ty), |ctx| {
             for item in &node.items {
                 ctx.visit_impl_item(item);
             }
@@ -475,7 +531,7 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
     }
 
     fn visit_item_trait(&mut self, node: &'ast ItemTrait) {
-        self.in_scope(node.ident.to_string(), |ctx| {
+        self.in_container(node.ident.to_string(), |ctx| {
             for item in &node.items {
                 ctx.visit_trait_item(item);
             }
@@ -487,10 +543,44 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
         let Some((_, items)) = node.content.as_ref() else {
             return;
         };
-        self.in_scope(node.ident.to_string(), |ctx| {
+        self.in_container(node.ident.to_string(), |ctx| {
             for item in items {
                 ctx.visit_item(item);
             }
+        });
+    }
+
+    // A `const`/`static` initialiser is the ONE place besides a fn body where an
+    // expression -- and so a spawn -- can sit. `pub static F: fn() = || {
+    // thread::spawn(..); };` compiles on rustc 1.96 with `-D warnings`; the
+    // closure is what makes it legal, since the spawn runs when `F` is CALLED
+    // and never at const-evaluation time. Each pushes its own name so the spawn
+    // is attributed to the item rather than to the `mod` or `impl` around it.
+    //
+    // None of these is a fn item, so none of them touches the census, the site
+    // numbering or `skipped`: the frame is the whole effect.
+
+    fn visit_item_const(&mut self, node: &'ast ItemConst) {
+        self.in_item(node.ident.to_string(), |ctx| {
+            syn::visit::visit_item_const(ctx, node);
+        });
+    }
+
+    fn visit_item_static(&mut self, node: &'ast ItemStatic) {
+        self.in_item(node.ident.to_string(), |ctx| {
+            syn::visit::visit_item_static(ctx, node);
+        });
+    }
+
+    fn visit_impl_item_const(&mut self, node: &'ast ImplItemConst) {
+        self.in_item(node.ident.to_string(), |ctx| {
+            syn::visit::visit_impl_item_const(ctx, node);
+        });
+    }
+
+    fn visit_trait_item_const(&mut self, node: &'ast TraitItemConst) {
+        self.in_item(node.ident.to_string(), |ctx| {
+            syn::visit::visit_trait_item_const(ctx, node);
         });
     }
 

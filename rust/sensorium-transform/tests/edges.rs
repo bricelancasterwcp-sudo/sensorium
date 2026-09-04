@@ -123,7 +123,7 @@ fn a_byte_order_mark_shifts_every_offset() {
 #[test]
 fn the_spawn_site_string_is_the_qualname_and_ordinal_not_the_path() {
     // The site string names the TASK, not the location: the enclosing fn item's
-    // qualname and this site's ordinal in it (plan decision N1). The file path
+    // qualname of the enclosing NAMED ITEM and its ordinal (N1). The file path
     // is not in it -- the manifest's `spawns` entry keeps that -- so a path with
     // a quote or a backslash in it cannot reach the literal at all.
     let t = transform(
@@ -134,14 +134,18 @@ fn the_spawn_site_string_is_the_qualname_and_ordinal_not_the_path() {
         false,
     )
     .expect("transform");
+    // Asserted FIRST, and on a substring BOTH spellings share, so an unescaped
+    // leak (`a"b.rs`) is caught as well as an escaped one (`a\\"b.rs`) -- and
+    // so this is the assertion that reports when a path reaches the source at
+    // all.
     assert!(
-        t.source.contains(r#"spawn_child("f#1", "#),
-        "got: {}",
+        !t.source.contains("b.rs"),
+        "the path is not baked into the rewritten source: {}",
         t.source
     );
     assert!(
-        !t.source.contains("a\\\"b"),
-        "the path is not baked into the rewritten source: {}",
+        t.source.contains(r#"spawn_child("f#1", "#),
+        "got: {}",
         t.source
     );
     // It is still what the manifest's entry says, spelled as the caller gave it.
@@ -149,6 +153,45 @@ fn the_spawn_site_string_is_the_qualname_and_ordinal_not_the_path() {
     assert_eq!(t.spawns[0].qualname, "f");
     assert_eq!(t.spawns[0].ordinal, Some(1));
     syn::parse_file(&t.source).expect("re-parses");
+}
+
+/// A spawn whose innermost scope is a CONTAINER -- a `mod`, an `impl`, a
+/// `trait` -- has no named item to belong to, and is refused rather than named
+/// after the container (which would share a counter with an unrelated fn of the
+/// same name).
+///
+/// Fix round 1 ruled this branch "unreachable in valid Rust". It is not, and
+/// this test is the falsifier: both shapes below compile on rustc 1.96 with
+/// `-D warnings`, and both put an expression inside a `mod` body with no fn,
+/// `const` or `static` frame between it and the `mod` -- an enum DISCRIMINANT
+/// and an array LENGTH in a struct field's type. So the branch is measured
+/// here rather than assumed away, and the cost is stated: one file's
+/// instrumentation, not a task named `m#1`.
+#[test]
+fn a_spawn_with_no_enclosing_named_item_is_refused_not_named_after_the_container() {
+    let discriminant = "pub mod m {\n\
+                        pub enum E {\n\
+                        A = { let f: fn() = || { std::thread::spawn(|| ()).join().unwrap(); }; \
+                        let _ = f; 1 },\n\
+                        }\n\
+                        }\n";
+    let array_len = "pub mod m {\n\
+                     pub struct S {\n\
+                     pub a: [u8; { let f: fn() = || { std::thread::spawn(|| ()).join().unwrap(); }; \
+                     let _ = f; 2 }],\n\
+                     }\n\
+                     }\n";
+    for (what, source) in [("discriminant", discriminant), ("array length", array_len)] {
+        syn::parse_file(source).unwrap_or_else(|e| panic!("{what} is not valid Rust: {e}"));
+        let err = transform(source, FILE, META, 0, false)
+            .err()
+            .unwrap_or_else(|| panic!("{what}: a spawn inside `mod m` must not be named `m#1`"));
+        assert_eq!(
+            err.to_string(),
+            "spawn site outside any named item",
+            "{what}"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------

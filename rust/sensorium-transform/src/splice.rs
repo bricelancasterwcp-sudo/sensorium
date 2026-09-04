@@ -206,9 +206,16 @@ fn assemble(source: &str, splices: &[Splice]) -> Result<String, syn::Error> {
 /// the measurement: `spawns` arrives sorted by byte offset, so ranking the
 /// wrapped sites of one qualname as they are met here IS source order.
 ///
-/// A disagreement costs this unit its instrumentation -- the driver sees the
-/// error, marks the unit `fell_back` and names the site -- rather than shipping
-/// a task under a name that is not the one the manifest promises.
+/// A disagreement costs instrumentation rather than shipping a task under a name
+/// that is not the one the manifest promises. What it costs TODAY, measured
+/// rather than assumed: the driver's `wrapper.rs` matches this `Err` as
+/// `Err(_) => manifest.unreached_files.push(rel)`, so an ordinary file is
+/// listed in `unreached_files` and this message is DISCARDED -- `fell_back`
+/// stays false and no reason is recorded -- while a failure on the CRATE ROOT
+/// leaves the whole unit uninstrumented with nothing said about why. The driver
+/// is being changed in Task 2 to print and record the message; until it lands,
+/// this error is a silent loss of one file's instrumentation, not a declared
+/// fallback.
 ///
 /// # Errors
 /// A wrapped site's ordinal is not its rank among the wrapped sites of its
