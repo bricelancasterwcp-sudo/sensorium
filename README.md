@@ -128,9 +128,10 @@ The exit status is the caller's next action, not a health code:
 itself.
 
 Every invocation is appended to `<trace root>/invocations.jsonl` (default
-`~/.sensorium/invocations.jsonl`, or under `$SENSORIUM_DIR`) as one JSON line
-carrying `argv` and the exit status, nothing else — set
-`SENSORIUM_NO_INVOCATION_LOG=1` to turn it off.
+`~/.sensorium/invocations.jsonl`, or under `$SENSORIUM_DIR`) as one JSON
+line with `utc`, `argv`, `exit` and `error` — the exception class name or
+null — and nothing else: never the environment, never the working
+directory. Set `SENSORIUM_NO_INVOCATION_LOG=1` to turn it off.
 
 ## What the answers claim
 
