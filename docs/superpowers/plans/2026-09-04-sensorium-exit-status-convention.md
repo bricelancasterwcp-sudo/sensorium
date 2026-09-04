@@ -65,6 +65,7 @@
 | `exceptions` | at least one disposition listed | 0 | exists |
 | `exceptions` | `no exceptions recorded` | 1 | new → flip |
 | `exceptions` | `no RAISE events recorded (see INCOMPLETE above)` | 3 | new → flip |
+| `exceptions` | an uncaught exception is known (unwind/exit meta) but no RAISE row carries its identity (**row added 2026-09-04 after Task 2 found the third arm**) | 3 | new → flip |
 | `exceptions` | `REFUSED: exceptions on a rust trace … nothing was judged` | 3 | vector `v14` `exceptions-refuses-a-rust-trace` 2→3; new unit test |
 | `exceptions` | `--limit < 1` | 2 | exists |
 | `flow` | sightings printed | 0 | exists |
