@@ -16,6 +16,11 @@
 /// bare `rustc` line is pointed at.
 pub const FILES: &[(&str, &str)] = &[
     ("lib.rs", include_str!("../../sensorium-rt/src/lib.rs")),
+    (
+        "errflow.rs",
+        include_str!("../../sensorium-rt/src/errflow.rs"),
+    ),
+    ("exit.rs", include_str!("../../sensorium-rt/src/exit.rs")),
     ("ffi.rs", include_str!("../../sensorium-rt/src/ffi.rs")),
     ("panic.rs", include_str!("../../sensorium-rt/src/panic.rs")),
     ("probe.rs", include_str!("../../sensorium-rt/src/probe.rs")),

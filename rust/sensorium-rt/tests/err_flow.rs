@@ -297,3 +297,52 @@ fn err_records_sit_in_the_frame_that_wrote_them_and_carry_ascending_seqs() {
     sorted.dedup();
     assert_eq!(seqs, sorted, "seqs ascend and never repeat: {seqs:?}");
 }
+
+// ---------------------------------------------------------------------------
+// The capture closure is lazy (fix round 1, item 2)
+// ---------------------------------------------------------------------------
+
+/// At tier `off` an err site is one `Acquire` load and a return: the capture
+/// closure is never called, so a `Debug` impl at a probed site is not invoked,
+/// nothing is formatted and nothing is allocated. `CountingDbg` counts its own
+/// invocations and then panics, so a run that reports `debug_calls 0` is a run
+/// in which the closure was not entered -- and there is nothing for the panic to
+/// have been caught by.
+#[test]
+fn at_tier_off_the_capture_closure_is_never_called() {
+    let dir = TempDir::reserved("errflow-lazy-off");
+    let run = Spec::new("errflow-lazy")
+        .spool(dir.path())
+        .tier("off")
+        .run();
+    assert_eq!(run.says("debug_calls"), "0");
+    assert_eq!(
+        run.says("returned"),
+        "true",
+        "the value itself is unchanged"
+    );
+    assert!(
+        !dir.exists(),
+        "tier off creates nothing at all: {:?}",
+        dir.walk()
+    );
+}
+
+/// The same site with the recorder on: the closure runs exactly once, its
+/// panicking `Debug` is caught by `capture_debug` rather than unwinding the
+/// program, and the record says the message was unread.
+#[test]
+fn at_tier_call_the_closure_runs_once_and_a_panicking_debug_is_caught() {
+    let dir = TempDir::reserved("errflow-lazy-call");
+    let run = Spec::new("errflow-lazy").spool(dir.path()).run();
+    assert_eq!(run.says("debug_calls"), "1", "called once, not twice");
+    let s = dir.spool(1);
+    let e = s.the_record(KIND_RAISE, 561).err_site();
+    assert_eq!(e.how, HOW_TRY);
+    assert!(
+        type_of(&e).ends_with("CountingDbg"),
+        "the type is known without formatting: {e:?}"
+    );
+    assert_eq!(e.msg, None, "a Debug impl that panicked reads unread");
+    assert!(!e.msg_truncated);
+}

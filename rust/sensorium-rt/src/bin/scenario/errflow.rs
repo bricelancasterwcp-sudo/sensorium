@@ -10,6 +10,7 @@
 //! recorder can see.
 
 use std::io;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Dependency code that fails. No guard: the `Err` is born outside.
 fn failing() -> Result<u8, String> {
@@ -48,10 +49,15 @@ fn try_verbatim(inner: Result<u8, String>) -> Result<u8, String> {
     let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 500);
     let v = match inner {
         __t => {
-            ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, 501, ::sensorium_rt::HOW_TRY, {
-                use ::sensorium_rt::probe::*;
-                (&&&Probe(&__t)).err_cap()
-            });
+            ::sensorium_rt::err_site(
+                &crate::__SENSORIUM_UNIT,
+                501,
+                ::sensorium_rt::HOW_TRY,
+                || {
+                    use ::sensorium_rt::probe::*;
+                    (&&&Probe(&__t)).err_cap()
+                },
+            );
             __t
         }
     }?;
@@ -208,4 +214,47 @@ pub(crate) fn typed_err_return() {
     println!("err {}", typed_err().is_err());
     println!("ok {}", typed_ok().is_ok());
     println!("unread {}", typed_err_unread().is_err());
+}
+
+// ---------------------------------------------------------------------------
+// The capture closure is lazy
+// ---------------------------------------------------------------------------
+
+/// How many times [`CountingDbg`]'s `Debug` impl was entered in this process.
+/// Printed at the end of the `errflow-lazy` arm, so a test can see whether the
+/// capture ran without needing a spool to exist at all.
+static DEBUG_CALLS: AtomicUsize = AtomicUsize::new(0);
+
+/// A `Debug` impl that counts its own invocations and then panics.
+///
+/// The panic is the second half of the claim: at tier `call` it is caught by
+/// `capture_debug` and the record reads unread, and at tier `off` it must never
+/// be reached at all -- so a run that prints `debug_calls 0` proves the closure
+/// was not called, and one that survives at tier `call` proves the catch still
+/// holds for err sites.
+struct CountingDbg;
+
+impl std::fmt::Debug for CountingDbg {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        DEBUG_CALLS.fetch_add(1, Ordering::Relaxed);
+        panic!("this Debug impl panics on purpose");
+    }
+}
+
+/// One `?` on an `Err(CountingDbg)`. Run at tier `off` the capture closure must
+/// not be entered; run at tier `call` it is entered exactly once and its panic
+/// is caught.
+fn lazy_inner() -> Result<u8, CountingDbg> {
+    let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, 560);
+    let v = serr!(561, ::sensorium_rt::HOW_TRY, Err(CountingDbg))?;
+    sret!(560, Ok(v))
+}
+
+pub(crate) fn errflow_lazy() {
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let r = lazy_inner();
+    std::panic::set_hook(previous);
+    println!("returned {}", r.is_err());
+    println!("debug_calls {}", DEBUG_CALLS.load(Ordering::Relaxed));
 }

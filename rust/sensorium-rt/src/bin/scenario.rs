@@ -19,14 +19,14 @@
 //! }, <e>)
 //!
 //! match <operand> { __t => {
-//!     ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, <site>, <how>, {
+//!     ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, <site>, <how>, || {
 //!         use ::sensorium_rt::probe::*;
 //!         (&&&Probe(&__t)).err_cap()
 //!     });
 //!     __t
 //! } }
 //!
-//! ::sensorium_rt::err_site_value(&crate::__SENSORIUM_UNIT, <site>, <how>, {
+//! ::sensorium_rt::err_site_value(&crate::__SENSORIUM_UNIT, <site>, <how>, || {
 //!     use ::sensorium_rt::probe::*;
 //!     (&&Probe(&e)).err_cap_value()
 //! });
@@ -69,7 +69,7 @@ macro_rules! serr {
     ($site:expr, $how:expr, $e:expr) => {
         match $e {
             __t => {
-                ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, $site, $how, {
+                ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, $site, $how, || {
                     use ::sensorium_rt::probe::*;
                     (&&&Probe(&__t)).err_cap()
                 });
@@ -82,7 +82,7 @@ macro_rules! serr {
 /// The `Err(e) =>` arm form, verbatim: the ladder is handed the BOUND error.
 macro_rules! serr_value {
     ($site:expr, $how:expr, $e:expr) => {
-        ::sensorium_rt::err_site_value(&crate::__SENSORIUM_UNIT, $site, $how, {
+        ::sensorium_rt::err_site_value(&crate::__SENSORIUM_UNIT, $site, $how, || {
             use ::sensorium_rt::probe::*;
             (&&Probe(&$e)).err_cap_value()
         })
@@ -120,8 +120,8 @@ mod values;
 use sensorium_rt::Unit;
 
 use errflow::{
-    arm_unbound, arm_value_debug, arm_value_nodebug, err_big, err_nodebug, let_underscore_err,
-    sink_ok_err, sink_ok_ok, try_err, try_ok, try_option, typed_err_return,
+    arm_unbound, arm_value_debug, arm_value_nodebug, err_big, err_nodebug, errflow_lazy,
+    let_underscore_err, sink_ok_err, sink_ok_ok, try_err, try_ok, try_option, typed_err_return,
 };
 use panics::{
     panic_caught_scenario, panic_long_scenario, panic_non_string_scenario, panic_uncaught_scenario,
@@ -226,6 +226,7 @@ fn main() {
         "err-nodebug" => err_nodebug(),
         "err-big" => err_big(),
         "typed-err-return" => typed_err_return(),
+        "errflow-lazy" => errflow_lazy(),
         "errflow-two-threads" => errflow_two_threads(arg_u32(&args, 2, 400)),
         "errflow-spool-limit" => errflow_spool_limit(arg_u32(&args, 2, 3000)),
 

@@ -95,45 +95,12 @@ impl Exit {
     }
 }
 
-/// What an err-flow site read off the value it was handed.
-///
-/// `seen_err` is the only field that decides whether a record is written at all:
-/// an `Ok`, an `Option`, and a non-`Result` all answer `false`, and
-/// [`crate::err_site`] writes nothing for them. `type_name: None` means the
-/// ladder could not name the error type; `text: None` means it could not read
-/// one -- *unread*, never empty.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ErrCapture {
-    pub seen_err: bool,
-    pub type_name: Option<&'static str>,
-    pub text: Option<String>,
-    pub truncated: bool,
-}
-
-impl ErrCapture {
-    /// Nothing was seen: no record, nothing to say.
-    pub(crate) const fn nothing() -> ErrCapture {
-        ErrCapture {
-            seen_err: false,
-            type_name: None,
-            text: None,
-            truncated: false,
-        }
-    }
-
-    /// An `Err` was seen and its type is known; the text may not be.
-    fn seen(type_name: &'static str, capture: Capture) -> ErrCapture {
-        ErrCapture {
-            seen_err: true,
-            type_name: Some(type_name),
-            text: capture.text,
-            truncated: capture.truncated,
-        }
-    }
-}
-
 /// The wrapper the injected closure builds around a borrow of the return value.
 pub struct Probe<'a, T: ?Sized>(pub &'a T);
+
+/// Re-exported so that `use ::sensorium_rt::probe::*;` -- the one `use` the
+/// transformer injects -- brings the ladders' return type into scope with them.
+pub use crate::errflow::ErrCapture;
 
 /// The specialised capture: the value has a `Debug` impl.
 pub trait DebugCap {
