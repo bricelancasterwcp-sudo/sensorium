@@ -21,7 +21,8 @@ _QUERY_MODULES = [runs_cmd, info_cmd, tree_cmd, frame_cmd, grep_cmd,
 
 
 def _add_run_parser(sub):
-    p = sub.add_parser("run", help="record one execution")
+    p = sub.add_parser("run", help="record one execution",
+                        epilog="exit: the target's own status")
     p.add_argument("--focus", action="append", default=[],
                    help="pkg.module or pkg.module:qualname; repeatable")
     p.add_argument("--include", action="append", default=[])

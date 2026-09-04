@@ -18,7 +18,9 @@ from sensorium.store.reader import Trace
 
 
 def add_parser(sub) -> None:
-    p = sub.add_parser("info", help="summarize one trace")
+    p = sub.add_parser(
+        "info", help="summarize one trace",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run")
     p.set_defaults(func=run)
 

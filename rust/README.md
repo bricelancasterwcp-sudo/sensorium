@@ -125,15 +125,18 @@ whole invocation under one header.
 
 ## What refuses, and why
 
-Four commands refuse outright on a Rust trace in this version. Each prints why
-and exits 2; none of them answers from a capability the recorder declared it
-does not have.
+Four commands refuse outright on a Rust trace in this version, none of them
+answering from a capability the recorder declared it does not have.
+`exceptions`, `watch` and `flow` each print why and exit **3** — change the
+recording, not the call. `refocus` exits **2**: its capability check runs
+before anything is re-run, so nothing was re-run and the reader's next move
+is a different command.
 
-| Command | Why |
-|---|---|
-| `exceptions` | The Rust disposition rules are rung 3; the Python rules would misread `Err` values as exceptions. Nothing is judged. |
-| `refocus` | Rung 4 — `capabilities.refocus: false`. |
-| `watch`, `flow` | Per-line state and locals are rung 4 — `capabilities.line: false`. |
+| Command | Exit | Why |
+|---|---|---|
+| `exceptions` | 3 | The Rust disposition rules are rung 3; the Python rules would misread `Err` values as exceptions. Nothing is judged. |
+| `refocus` | 2 | Rung 4 — `capabilities.refocus: false`, caught before any rerun. |
+| `watch`, `flow` | 3 | Per-line state and locals are rung 4 — `capabilities.line: false`. |
 
 ## Not yet
 

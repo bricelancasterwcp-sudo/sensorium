@@ -126,7 +126,9 @@ TAG_ORDER = ("swallowed", "uncaught", "re-raised", "propagated", "ambiguous")
 
 
 def add_parser(sub) -> None:
-    p = sub.add_parser("exceptions", help="raises, handles, swallows")
+    p = sub.add_parser(
+        "exceptions", help="raises, handles, swallows",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run")
     p.add_argument("--after", default=None, help="event ref to resume from")
     p.add_argument("--limit", type=int, default=50)

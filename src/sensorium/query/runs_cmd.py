@@ -27,7 +27,9 @@ def _licence_flag(m: dict) -> str:
 
 
 def add_parser(sub) -> None:
-    p = sub.add_parser("runs", help="list recorded traces")
+    p = sub.add_parser(
+        "runs", help="list recorded traces",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.set_defaults(func=run)
 
 

@@ -688,7 +688,8 @@ def print_task_comparison(trace_a, trace_b, res, name_a, name_b, task,
 
 def add_parser(sub) -> None:
     p = sub.add_parser(
-        "diff", help="first causal divergence between two runs")
+        "diff", help="first causal divergence between two runs",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run_a")
     p.add_argument("run_b")
     p.add_argument("--context", type=int, default=3,

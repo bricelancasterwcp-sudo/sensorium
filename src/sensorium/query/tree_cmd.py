@@ -28,7 +28,9 @@ from sensorium.store.reader import Trace
 
 
 def add_parser(sub) -> None:
-    p = sub.add_parser("tree", help="call-tree slice")
+    p = sub.add_parser(
+        "tree", help="call-tree slice",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run")
     p.add_argument("--root", default=None, help="frame ref (f12)")
     p.add_argument("--around", default=None, help="event ref (e40)")

@@ -669,7 +669,9 @@ def continue_cmd(args, ref: str | None, last: int) -> str:
 
 
 def add_parser(sub) -> None:
-    p = sub.add_parser("flow", help="provenance of a value or an object")
+    p = sub.add_parser(
+        "flow", help="provenance of a value or an object",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run")
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--value", default=None,

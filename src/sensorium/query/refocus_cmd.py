@@ -214,7 +214,8 @@ def _print_blind_spots() -> None:
 def add_parser(sub) -> None:
     p = sub.add_parser(
         "refocus",
-        help="re-run a recorded command with deeper capture, verified")
+        help="re-run a recorded command with deeper capture, verified",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run")
     p.add_argument(
         "--focus", action="append", default=[], required=True,

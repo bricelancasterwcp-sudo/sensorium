@@ -100,7 +100,9 @@ class _NearAlias(argparse.Action):
 
 
 def add_parser(sub) -> None:
-    p = sub.add_parser("watch", help="predicate over captured state")
+    p = sub.add_parser(
+        "watch", help="predicate over captured state",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run")
     p.add_argument("--at", required=True, help="module:qualname or qualname")
     p.add_argument("--expr", required=True,

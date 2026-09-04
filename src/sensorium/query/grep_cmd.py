@@ -24,7 +24,9 @@ KINDS = ("CALL", "RETURN", "RAISE", "HANDLED", "LINE")
 
 
 def add_parser(sub) -> None:
-    p = sub.add_parser("grep", help="search events by name or value")
+    p = sub.add_parser(
+        "grep", help="search events by name or value",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run")
     p.add_argument("pattern")
     p.add_argument("--kind", default=None, choices=KINDS)

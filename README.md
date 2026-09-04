@@ -100,13 +100,37 @@ A run reference is a full run id, a unique prefix, or `last` (the most
 recently written trace). Every query takes one — `runs` takes none and `diff`
 takes two. Events are addressed as `eN` and frames as `fN`, and those ids are
 stable, so an answer from one command is a runnable argument to the next:
-`frame --fn NAME --nth N` picks among repeated activations and says how many
-there are when `N` is out of range, and `flow --object` takes either
-`e<id>:<name>` — any name captured at that event — or `<qualname>:<name>`,
-which resolves to that function's **first CALL** and so names one of its
-**arguments** (`<qualname>:return` follows the same activation to what it
-handed back). A name that was not captured at the event a spec resolves to is
-refused, with the names that *were* captured there listed.
+`--fn NAME`, in both `grep` and `frame`, matches a qualname **exactly
+first**, then falls back to substring over the trace's distinct qualnames —
+one substring hit is used as if it had been named exactly, more than one is
+an ambiguous call, refused with every candidate listed rather than guessed
+among. `frame --fn NAME --nth N` picks among repeated activations and says
+how many there are when `N` is out of range, and `flow --object` takes
+either `e<id>:<name>` — any name captured at that event — or
+`<qualname>:<name>`, which resolves to that function's **first CALL** and so
+names one of its **arguments** (`<qualname>:return` follows the same
+activation to what it handed back). A name that was not captured at the
+event a spec resolves to is refused, with the names that *were* captured
+there listed.
+
+## Exit statuses
+
+The exit status is the caller's next action, not a health code:
+
+| exit | meaning | examples |
+|---|---|---|
+| 0 | the question was answered affirmatively — the trace says yes | `grep` found a match; `refocus` MATCH; `watch` SATISFIED |
+| 1 | the question was answered negatively — the trace says no, or none | `grep` `matches: 0`; `exceptions` `no exceptions recorded`; `refocus` DIVERGED |
+| 2 | the call is wrong — edit the command and ask again | an ambiguous `--fn`; `--nth` out of range; a run reference that resolves to nothing; `refocus` refusing before any rerun was attempted |
+| 3 | the trace cannot settle it — change the recording and re-record | `watch` `NOTHING WAS CHECKED`; `refocus` REFUSED after a rerun; `exceptions`' uncaught-without-RAISE arm |
+
+`run` exits with the target's own status — it never applies this table to
+itself.
+
+Every invocation is appended to `<trace root>/invocations.jsonl` (default
+`~/.sensorium/invocations.jsonl`, or under `$SENSORIUM_DIR`) as one JSON line
+carrying `argv` and the exit status, nothing else — set
+`SENSORIUM_NO_INVOCATION_LOG=1` to turn it off.
 
 ## What the answers claim
 
@@ -129,13 +153,25 @@ planted call-site swap under the same move reads DIVERGED
 ### `refocus` — three verdicts, and a bounded licence
 
 `refocus` re-runs the recorded command with deeper capture and then asks
-whether the rerun was the same execution.
+whether the rerun was the same execution — two gates, two different exit
+codes, because "the call is wrong" and "the recording can't settle it" are
+different next actions (see ["Exit statuses"](#exit-statuses)).
+
+**Cannot refocus at all (exit 2, no rerun was attempted):** original trace
+is INCOMPLETE; original run consumed stdin; the target no longer resolves;
+the original working directory is gone; the original was recorded under the
+per-thread fingerprint basis and ran asyncio tasks; or the recorder declares
+`capabilities.refocus: false`. Every one of these is caught before the
+program runs again, so the reader's next move is a different command, not a
+different recording.
+
+The program DID re-run, and the verdict below is about what came back:
 
 | verdict | exit | means |
 |---|---|---|
 | MATCH | 0 | every thread that left a fingerprint in both runs produced the **identical sequence of `(file, qualname, kind)` for CALL/RETURN/RAISE/HANDLED** outside any asyncio task, every asyncio task's own stream has a counterpart of the same name and content on the other side (a multiset — the order tasks interleaved in is never compared), and there was at least one such event to compare |
 | DIVERGED | 1 | the causal streams part, and the first divergence is named with a drill-in command for each side |
-| REFUSED | 2 | no verdict could be issued. Four ways to get here: there was nothing to compare (neither side recorded a causal event); the recording could not be trusted (INCOMPLETE, or writes dropped after its database sealed); the two traces define a thread stream differently (a pre-0.4.0 trace against a 0.4.0 one, whenever either ran a task); or a 0.4.0 trace ran asyncio tasks and holds no task fingerprint rows, so what those tasks did would drop out of the comparison in silence |
+| REFUSED | 3 | the rerun happened — a new trace exists and is queryable — but no verdict could be issued against it. Four post-rerun reasons: there was nothing to compare (neither side recorded a causal event); a side could not be trusted (INCOMPLETE, or writes dropped after its database sealed); the two traces define a thread stream differently (a pre-0.4.0 trace against a 0.4.0 one, whenever either ran a task); or a trace ran asyncio tasks and holds no task fingerprint rows, so what those tasks did would drop out of the comparison in silence. Treat the new trace as a separate, UNVERIFIED execution — a new recording is what would settle it, which is what 3 means |
 
 `diff --task NAME` diffs one task's stream by name; unnamed tasks match only
 unnamed tasks. Traces recorded before 0.4.0 define a thread stream to
@@ -267,7 +303,9 @@ A predicate naming something the trace never recorded anywhere raises a
 warning even when the rest of the predicate produced hits — a typo'd name is
 otherwise a silent zero. When there are no hits, `watch` reports the closest
 approaches with their margins, which is the question a threshold log throws
-away: it fires when the condition is true, and it never was.
+away: it fires when the condition is true, and it never was. `--misses N`
+sets how many of those near-misses to show (default 5); `--near` is kept as
+a hidden, deprecated alias for one release and will be removed in 0.8.0.
 
 ### `flow` — lineage, not dataflow analysis
 
@@ -581,13 +619,18 @@ this:
 ### What refuses
 
 `exceptions`, `refocus`, `watch` and `flow` refuse outright on a Rust trace
-in this version — each prints why and exits 2, never answering from a
-capability the recorder declares it does not have. `exceptions` needs the
-Rust disposition rules (rung 3, not yet built); `refocus` needs
-`capabilities.refocus`; `watch`/`flow` need `capabilities.line` — both
-`false` until rung 4. Locals, `?`-site classification, and program output
-under libtest are the same kind of "not yet": declared absent in the trace,
-never silently missing.
+in this version, never answering from a capability the recorder declares it
+does not have. `exceptions`, `watch` and `flow` each print why and exit
+**3** — the recording, not the call, is what would have to change.
+`refocus` exits **2**: its capability check runs before anything is
+re-run, so it is one of `refocus`'s own "cannot refocus at all" reasons
+(see the `refocus` section above), and the reader's next move is a
+different command, not a different recording.
+`exceptions` needs the Rust disposition rules (rung 3, not yet built);
+`refocus` needs `capabilities.refocus`; `watch`/`flow` need
+`capabilities.line` — both `false` until rung 4. Locals, `?`-site
+classification, and program output under libtest are the same kind of "not
+yet": declared absent in the trace, never silently missing.
 
 ### Cost, beside Python's
 
