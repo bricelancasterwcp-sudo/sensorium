@@ -378,10 +378,15 @@ def e5prime_environment(r) -> list[str]:
            f"`{bl.get('locked_sha256')}` on both sides — "
            f"identical: {_yn(bl.get('identical'))}.", "",
            "| Pin | Value |", "|---|---|",
-           f"| driver commit | `{e.get('repo_commit')}` "
+           # Only what the raw record holds. `repo_commit` is HEAD at the run,
+           # `driver_mtime` is the binary's mtime: two separate facts, and
+           # joining them into "built from that commit at <mtime>" was an
+           # inference the renderer had no ground for. The driver's provenance
+           # is stated by hand in the document's §5.3.
+           f"| repo HEAD at the run | `{e.get('repo_commit')}` "
            f"(branch `{e.get('repo_branch')}`) |",
-           f"| driver | `{e.get('driver')}`, built `--release` from that commit "
-           f"at {e.get('driver_mtime')} |",
+           f"| driver | `{e.get('driver')}`, mtime {e.get('driver_mtime')} as "
+           f"recorded (provenance: §5.3) |",
            f"| driver sha256 | `{e.get('driver_sha256')}` — unchanged across the "
            f"run: {_yn(e.get('driver_unchanged_after'))} |",
            f"| toolchain | {e.get('rustc')} / {e.get('cargo')} |",

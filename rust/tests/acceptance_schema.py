@@ -12,6 +12,8 @@ document is written by hand against them.
 
 from __future__ import annotations
 
+from collections import Counter
+
 from acceptance_lib import meas
 from acceptance_phases import wall_summary
 
@@ -684,9 +686,14 @@ def _e5prime_names(raw: dict) -> dict:
     bad = len(e.get("not_as_predicted") or [])
     pairs_differing = None
     if e.get("a_multiset") is not None and e.get("b_multiset") is not None:
-        ma = sorted(e["a_multiset"])
-        mb = sorted(e["b_multiset"])
-        pairs_differing = sum(1 for x, y in zip(ma, mb) if x[1] != y[1])
+        # A true multiset difference over the WHOLE (name, hash) pair: how many
+        # of A's pairs have no equal pair left in B. Reported post-run as a
+        # positional zip over two hash-sorted lists, which is not a pairing --
+        # A [(x,h1),(x,h2)] against B [(x,h2),(x,h3)] would have read 2, not 1.
+        # The value on this record is unchanged (4 of 4); only the definition is.
+        ma = Counter(tuple(x) for x in e["a_multiset"])
+        mb = Counter(tuple(x) for x in e["b_multiset"])
+        pairs_differing = sum((ma - mb).values())
     name_lens = ("every task name containing `spawn@` on arms A and B, read from "
                  "each arm's own trace with `select task_id, name, hash, n_events "
                  "from task_fingerprints order by task_id` against "
@@ -699,7 +706,9 @@ def _e5prime_names(raw: dict) -> dict:
                  "stored hash is a blake2b over `file\\x1fqualname\\x1fkind` per "
                  "causal event, so a file move changes it by construction; "
                  "`diff --ignore-moves` re-hashes both sides at query time "
-                 "instead of reading this column")
+                 "instead of reading this column; counted as the multiset "
+                 "difference A - B over whole (name, hash) pairs, i.e. A-pairs "
+                 "with no equal pair left in B, not a positional zip")
     conjuncts = {
         "every_spawn_name_is_the_predicted_string": (
             None if dropped else bad == 0 and total > 0),

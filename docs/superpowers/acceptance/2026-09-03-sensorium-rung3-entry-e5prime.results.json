@@ -549,7 +549,7 @@
       "stored_hash_pairs_differing": {
         "value": 4,
         "n": 4,
-        "lens": "of the four (name, hash) pairs, those whose HASH component differs between A and B; the STORED `task_fingerprints.hash` of the same four children, A against B as a multiset of (name, hash). TRACE-FORMAT \u00a77: the stored hash is a blake2b over `file\\x1fqualname\\x1fkind` per causal event, so a file move changes it by construction; `diff --ignore-moves` re-hashes both sides at query time instead of reading this column",
+        "lens": "of the four (name, hash) pairs, those whose HASH component differs between A and B; the STORED `task_fingerprints.hash` of the same four children, A against B as a multiset of (name, hash). TRACE-FORMAT \u00a77: the stored hash is a blake2b over `file\\x1fqualname\\x1fkind` per causal event, so a file move changes it by construction; `diff --ignore-moves` re-hashes both sides at query time instead of reading this column; counted as the multiset difference A - B over whole (name, hash) pairs, i.e. A-pairs with no equal pair left in B, not a positional zip",
         "dropped": []
       },
       "stored_multiset_equal": false,
@@ -973,7 +973,7 @@
   "started": "2026-09-03T23:46:00-0500",
   "finished": "2026-09-03T23:46:09-0500",
   "assembled": {
-    "at": "2026-09-03T23:53:21-0500",
+    "at": "2026-09-04T00:37:29-0500",
     "from": "results-e5prime-raw.json",
     "by": "rust/tests/acceptance_e5prime.py --assemble",
     "note": "derived from the raw facts the run recorded, which nothing since has touched; no arm was re-run and no value re-measured"

@@ -33,8 +33,8 @@ Measured 2026-09-03T23:46:00-0500 → 2026-09-03T23:46:09-0500 by `rust/tests/ac
 
 | Pin | Value |
 |---|---|
-| driver commit | `0cb6b8b727735c1ca665a78245421a38d3b4de8b` (branch `feat/rung3-entry-spawn-names`) |
-| driver | `/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium`, built `--release` from that commit at 2026-09-03T23:20:07-0500 |
+| repo HEAD at the run | `0cb6b8b727735c1ca665a78245421a38d3b4de8b` (branch `feat/rung3-entry-spawn-names`) |
+| driver | `/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium`, mtime 2026-09-03T23:20:07-0500 as recorded (provenance: §5.3) |
 | driver sha256 | `ee3eca57d85c1cfa9bc31bbeb4d2e5c49cca2e72cfa698ecba9fa252df133675` — unchanged across the run: yes |
 | toolchain | rustc 1.96.0 (ac68faa20 2026-05-25) / cargo 1.96.0 (30a34c682 2026-05-25) |
 | reader | Python 3.14.4, sensorium 0.6.0 |
@@ -401,6 +401,15 @@ reading the number is exactly what the protocol forbids:
 
 Ruling owed to Brice. Until then E5′-names stands as STOP with 4 of 4.
 
+One instrument correction, made after the run and changing no measured value:
+the reported quantity "(name, hash) pairs whose STORED hash differs, A vs B"
+was computed by a positional zip over the two hash-sorted lists, which is not
+a pairing (A `[(x,h1),(x,h2)]` against B `[(x,h2),(x,h3)]` would have read 2,
+not 1). It is now a true multiset difference over whole pairs — how many of
+A's pairs have no equal pair left in B. Re-assembled from the same untouched
+`results-e5prime-raw.json`, the value is 4 of 4, as it was; the conjunct
+itself always used exact multiset equality, so no verdict is affected.
+
 ### 5.2 `MATCH modulo location` is a label, not a string the tool prints
 
 Rung 2's §1 and this document's §1 both name the A/B endpoint
@@ -434,6 +443,30 @@ a ruling each time it is measured.
 * **One process per arm.** Each arm's recorded invocation printed exactly one
   `run:` line (890 events, 10 threads, exit 0), so `phase_e5`'s "the run with
   the most events" dropped nothing.
+* **The driver's provenance, as recorded and as verified.** §2's pin table
+  states three separate facts, because three separate facts are what the raw
+  record holds: the repo HEAD at the run (`0cb6b8b…`), the binary's path and
+  mtime (2026-09-03T23:20:07-0500), and its sha256 (`ee3eca57…`). An earlier
+  rendering joined the first two into "built `--release` from that commit at
+  2026-09-03T23:20:07" — an inference the renderer added, and a false one:
+  `0cb6b8b` was committed at 23:39:10, nineteen minutes after that mtime. The
+  binary was built by Task 3 from the tree at `6a691e8` (23:09:27). `git diff
+  -- rust/cargo-sensorium rust/sensorium-transform rust/sensorium-rt
+  rust/Cargo.lock` is empty over `6a691e8..0cb6b8b` and over
+  `0cb6b8b..f4b8232`, so the Rust sources it was built from are byte-identical
+  to the run's HEAD and to the branch tip's; the final whole-branch review
+  (2026-09-04) also ran `cargo build --release -p cargo-sensorium` at
+  `f4b8232` and found the binary fresh — nothing recompiled, same mtime, same
+  sha256. The renderer was corrected in the commit that adds this note. No
+  measured value depended on the inference.
+* **The committed runner differs from the one that ran, in one respect.**
+  `rust/tests/acceptance_e5prime.py` was untracked when it ran — the record's
+  `pins.repo_porcelain` carries `?? rust/tests/acceptance_e5prime.py` — and it
+  located the read-only source tree by a hard-coded path. `c120637` deleted
+  that constant: the committed file reads `SENSORIUM_SOURCE_BLOOMERY` and the
+  preflight refuses when it is unset. That is the only difference between the
+  two, and §2's "Measured … by `rust/tests/acceptance_e5prime.py`" names the
+  path that ran, not the committed bytes.
 
 ### 5.4 Reported without a gate
 
