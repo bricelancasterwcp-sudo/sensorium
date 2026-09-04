@@ -87,6 +87,7 @@
 | `refocus` | DIVERGED | 1 | exists |
 | `refocus` | pre-rerun refusal (`no rerun was attempted`, `cannot resolve target`, missing `--focus`, unknown run) | 2 | exists (`tests/test_refocus.py:571-681`); vector `v14` `refocus-refuses-through-its-capability` stays 2 |
 | `refocus` | post-rerun `refocus verdict: REFUSED … UNVERIFIED` | 3 | `tests/test_refocus.py:518-568` 2→3 |
+| `grep` / `tree` / `flow` / `exceptions` | an EMPTY answer (`matches: 0`, `no frames recorded`, `sightings: 0`, `no exceptions recorded`) on a trace whose meta says `incomplete` (**general row added 2026-09-04 after Task 3 found the gap**): the recording cannot settle "none" | 3 | one shared predicate (`query/…: none_status(trace)`), one matrix row per command → flip |
 | `run` | target's own status | as-is | untouched |
 
 Corpus: every question that today relies on the default `expect_exit: 0` and whose command now answers "none"/"no"/"unsettled" gets an explicit `expect_exit` with the table row as its justification in the commit message; the honesty cases (`near_miss`, `suspended_handler`, `silent_swallow`, `async_handler`) are re-read individually and their outcome stated in the Task-4 report.
