@@ -146,6 +146,17 @@ pub struct SpawnSite {
     /// `std::thread::spawn` does not (which valid code cannot contain, and which
     /// is listed rather than dropped). `None` when `wrapped`.
     pub reason: Option<&'static str>,
+    /// The enclosing fn ITEM's file-local qualname, in the same spelling
+    /// [`Site::qualname`] uses (`Type::method`, `outer::inner`, `tests::t`).
+    /// A closure, block or `match` arm pushes no scope of its own, so a spawn
+    /// inside one belongs to the fn item around it (plan decision N5).
+    pub qualname: String,
+    /// The 1-based rank of this site among the WRAPPED spawn sites of this
+    /// `(file, qualname)`, in byte-offset source order -- the `<k>` of the
+    /// `"<qualname>#<k>"` the child thread is named. `None` for a declared
+    /// shape: it is not rewritten, so it takes no name and consumes no ordinal
+    /// from the wrapped sites around it (plan decision N1).
+    pub ordinal: Option<u32>,
 }
 
 /// E2's denominator, counted by the same parser and the same eligibility rules

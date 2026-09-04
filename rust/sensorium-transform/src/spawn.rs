@@ -28,7 +28,7 @@
 //! is a block that re-states it:
 //!
 //! ```ignore
-//! ::sensorium_rt::spawn_child({ #[allow(unused_imports)] use thread::spawn as _; "src/a.rs:11" }, f)
+//! ::sensorium_rt::spawn_child({ #[allow(unused_imports)] use thread::spawn as _; "Type::method#1" }, f)
 //! ```
 //!
 //! `as _` binds no name, the `use` is an item and costs nothing at runtime, and
@@ -87,10 +87,13 @@ pub(crate) enum Shape {
 pub(crate) const CALLEE: &str = "::sensorium_rt::spawn_child";
 
 /// The site argument the rewritten callee is given, spliced just past the `(`.
-/// The file path is escaped: a workspace path with a quote or a backslash in it
-/// must not end the literal early, and a newline in one must not move a line.
-pub(crate) fn site_argument(file: &str, line: u32, use_path: Option<&str>) -> String {
-    let site = format!("\"{}:{line}\"", crate::splice::escape_string_literal(file));
+///
+/// `site_name` is `"<enclosing fn qualname>#<ordinal>"` (plan decision N1), and
+/// it is ESCAPED even though a qualname is only identifier text and `::`: the
+/// escape is what makes "the literal cannot end early and cannot move a line" a
+/// property of this function rather than of its callers.
+pub(crate) fn site_argument(site_name: &str, use_path: Option<&str>) -> String {
+    let site = format!("\"{}\"", crate::splice::escape_string_literal(site_name));
     match use_path {
         None => format!("{site}, "),
         Some(path) => {
@@ -209,5 +212,23 @@ impl PathRange for syn::Path {
             last.span().byte_range().end
         };
         (start, end)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A qualname is identifier text and `::`, so no site name this crate
+    /// builds can need escaping -- which is precisely why the escape is driven
+    /// directly here: nothing else in the suite can falsify it.
+    #[test]
+    fn the_site_argument_escapes_the_name_it_is_given() {
+        assert_eq!(site_argument("a#1", None), "\"a#1\", ");
+        assert_eq!(site_argument("a\"b\\c\nd", None), "\"a\\\"b\\\\c\\nd\", ");
+        assert_eq!(
+            site_argument("T::m#2", Some("thread::spawn")),
+            "{ #[allow(unused_imports)] use thread::spawn as _; \"T::m#2\" }, "
+        );
     }
 }

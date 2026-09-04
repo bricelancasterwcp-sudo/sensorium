@@ -13,6 +13,8 @@
 //! otherwise mis-splice silently, and every measurement downstream of this crate
 //! would inherit it.
 
+use std::collections::HashMap;
+
 use proc_macro2::{Span, TokenStream, TokenTree};
 use syn::visit::Visit;
 use syn::{
@@ -40,6 +42,11 @@ pub(crate) struct Ctx<'a> {
     file: &'a str,
     /// Push/pop of `mod`, `impl` self type, `trait` and enclosing fn names.
     scope: Vec<String>,
+    /// How many WRAPPED spawn sites each enclosing qualname has had so far.
+    /// `Ctx` is per file, so this is the per-`(file, qualname)` counter plan
+    /// decision N1 names, and `splice::run` re-derives it from source order
+    /// afterwards rather than trusting it (N4).
+    spawn_ordinals: HashMap<String, u32>,
     next_site: u32,
     /// False in census mode: classification runs, splicing does not.
     emit: bool,
@@ -68,6 +75,7 @@ impl<'a> Ctx<'a> {
             prefix,
             file,
             scope: Vec::new(),
+            spawn_ordinals: HashMap::new(),
             next_site: first_site,
             emit,
             sites: Vec::new(),
@@ -144,6 +152,23 @@ impl<'a> Ctx<'a> {
         out.push_str("::");
         out.push_str(name);
         out
+    }
+
+    /// The qualname of the fn ITEM a spawn call sits in.
+    ///
+    /// Every spawn is classified from inside a fn body, and a closure pushes no
+    /// scope, so the scope stack at that point IS the enclosing fn item's
+    /// qualname -- the same string that fn's [`Site::qualname`] carries.
+    ///
+    /// `None` only for an empty scope, which valid Rust cannot produce: a call
+    /// to `std::thread::spawn` outside every fn item would have to sit in a
+    /// `const`/`static` initialiser, where it does not const-evaluate. It is
+    /// still refused rather than named `"#1"` (plan decision N5).
+    fn enclosing_qualname(&self) -> Option<String> {
+        if self.scope.is_empty() {
+            return None;
+        }
+        Some(self.scope.join("::"))
     }
 
     /// The byte offset the guard goes at, with the grammar checked.
@@ -328,16 +353,29 @@ impl<'a> Ctx<'a> {
     /// Record one spawn shape, rewriting the callee when it is the one spelling
     /// this rung rewrites.
     fn spawn_shape(&mut self, shape: &Shape, line: u32, span: Span) {
+        // Unreachable by construction (see `enclosing_qualname`), so it has no
+        // test: refusing the file is what it costs if it ever stops being so.
+        let Some(qualname) = self.enclosing_qualname() else {
+            self.fail(span, "spawn site outside any fn item");
+            return;
+        };
         match shape {
             Shape::Declare(reason) => {
                 let offset = self.start_of(span);
-                self.declare_spawn(offset, line, Some(reason));
+                self.declare_spawn(offset, line, Some(reason), qualname, None);
             }
-            Shape::Rewrite(r) => self.rewrite_spawn(r, line, span),
+            Shape::Rewrite(r) => self.rewrite_spawn(r, line, span, &qualname),
         }
     }
 
-    fn declare_spawn(&mut self, offset: usize, line: u32, reason: Option<&'static str>) {
+    fn declare_spawn(
+        &mut self,
+        offset: usize,
+        line: u32,
+        reason: Option<&'static str>,
+        qualname: String,
+        ordinal: Option<u32>,
+    ) {
         self.spawns.push((
             offset,
             SpawnSite {
@@ -345,13 +383,20 @@ impl<'a> Ctx<'a> {
                 line,
                 wrapped: reason.is_none(),
                 reason,
+                qualname,
+                ordinal,
             },
         ));
     }
 
     /// The callee path becomes `::sensorium_rt::spawn_child` and the site
     /// argument goes in past the `(`; the bytes between them are untouched.
-    fn rewrite_spawn(&mut self, r: &Rewrite, line: u32, span: Span) {
+    ///
+    /// The child is named `"<qualname>#<k>"`, where `k` counts the WRAPPED
+    /// sites of this qualname in this file. A declared shape between two of
+    /// them takes no ordinal, so an unrelated `Builder::spawn` nearby cannot
+    /// renumber them (plan decision N1).
+    fn rewrite_spawn(&mut self, r: &Rewrite, line: u32, span: Span, qualname: &str) {
         let path_start = self.prefix + r.path_start;
         let path_end = self.prefix + r.path_end;
         let paren_start = self.prefix + r.paren_open_start;
@@ -373,13 +418,18 @@ impl<'a> Ctx<'a> {
             Kind::Replace,
             spawn::CALLEE.to_owned(),
         );
+        let ordinal = *self
+            .spawn_ordinals
+            .entry(qualname.to_owned())
+            .and_modify(|k| *k += 1)
+            .or_insert(1);
         self.push(
             paren_end,
             paren_end,
             Kind::SpawnArg,
-            spawn::site_argument(self.file, line, r.use_path.as_deref()),
+            spawn::site_argument(&format!("{qualname}#{ordinal}"), r.use_path.as_deref()),
         );
-        self.declare_spawn(path_start, line, None);
+        self.declare_spawn(path_start, line, None, qualname.to_owned(), Some(ordinal));
     }
 
     fn in_scope<F: FnOnce(&mut Self)>(&mut self, name: String, f: F) {

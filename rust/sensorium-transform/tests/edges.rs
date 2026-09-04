@@ -121,9 +121,11 @@ fn a_byte_order_mark_shifts_every_offset() {
 }
 
 #[test]
-fn the_spawn_site_string_escapes_the_path_it_is_given() {
-    // The site string is baked into a Rust string literal; a path with a quote
-    // or a backslash in it must not end the literal early or move a line.
+fn the_spawn_site_string_is_the_qualname_and_ordinal_not_the_path() {
+    // The site string names the TASK, not the location: the enclosing fn item's
+    // qualname and this site's ordinal in it (plan decision N1). The file path
+    // is not in it -- the manifest's `spawns` entry keeps that -- so a path with
+    // a quote or a backslash in it cannot reach the literal at all.
     let t = transform(
         "fn f() { std::thread::spawn(|| ()); }\n",
         "src\\a\"b.rs",
@@ -133,10 +135,19 @@ fn the_spawn_site_string_escapes_the_path_it_is_given() {
     )
     .expect("transform");
     assert!(
-        t.source.contains(r#"spawn_child("src\\a\"b.rs:1", "#),
+        t.source.contains(r#"spawn_child("f#1", "#),
         "got: {}",
         t.source
     );
+    assert!(
+        !t.source.contains("a\\\"b"),
+        "the path is not baked into the rewritten source: {}",
+        t.source
+    );
+    // It is still what the manifest's entry says, spelled as the caller gave it.
+    assert_eq!(t.spawns[0].file, "src\\a\"b.rs");
+    assert_eq!(t.spawns[0].qualname, "f");
+    assert_eq!(t.spawns[0].ordinal, Some(1));
     syn::parse_file(&t.source).expect("re-parses");
 }
 
