@@ -54,6 +54,7 @@
 | `info` | always | 0 | exists |
 | `grep` | `matches: N`, N ≥ 1 | 0 | exists |
 | `grep` | `matches: 0` (+ `_empty_note`) | 1 | `tests/test_grep.py:92` moves 0→1 → flip back |
+| `grep` | `--kind LINE` on a trace that recorded no LINE events at all (the note says re-record with `--focus`) (**row added 2026-09-04 after the Task-2 review**) | 3 | new → flip |
 | `grep` | `--limit < 1` | 2 | exists |
 | `tree` | frames printed | 0 | exists |
 | `tree` | `no frames recorded` | 1 | new test → flip |
