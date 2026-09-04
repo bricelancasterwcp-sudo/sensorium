@@ -1,7 +1,10 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.1.0`, `sensorium-transform 0.1.0`, `cargo-sensorium 0.1.0` —
-v1, the call tier.
+`sensorium-rt 0.1.0`, `sensorium-transform 0.2.0`, `cargo-sensorium 0.2.0` —
+v1, the call tier. (`sensorium-transform` and `cargo-sensorium` moved to
+`0.2.0` on 2026-09-03 for the `spawn_child` naming change in §3; `HONESTY.md`
+was not versioned per-crate before this, so no prior edition of this line is
+struck.)
 
 Sensorium's founding rule is that **the instrument never answers from data it
 does not have**. The Python recorder keeps its half of that rule in the
@@ -193,14 +196,74 @@ reader renders it.
 - **libtest names the thread it runs a `#[test]` on**, so under `cargo test` a
   test *is* a task, named by its test path. That is what lets `diff` compare
   two runs of a test binary whose main thread runs no workspace code at all.
-- **`spawn_child` names threads spawned by workspace code.** A rewritten
+- **`spawn_child` names threads spawned by workspace code.** ~~A rewritten
   `std::thread::spawn` site produces the name
   `<parent task name> :: spawn@<file>:<line>`, or `spawn@<file>:<line>` when
   the spawning thread has no *task* name — the main thread's std-given `main`
   is a thread name, not a task name, so a child of `main` is `spawn@<site>`
   alone (a task row belongs to every *non-main* thread, above), and an empty
-  name is no name. The `JoinHandle`, panic propagation and the OS thread name
-  are unchanged.
+  name is no name.~~ **Superseded 2026-09-03** (rung-3 entry decision (b),
+  `docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`
+  decisions N1, N5, N6): a rewritten `std::thread::spawn` site now produces
+  the name `<parent task name> :: spawn@<qualname>#<k>`, or
+  `spawn@<qualname>#<k>` alone when the spawning thread has no *task* name
+  (the main thread's std-given `main` is a thread name, not a task name, so a
+  child of `main` still carries no parent prefix — a task row belongs to
+  every *non-main* thread, above — and an empty name is still no name).
+  `qualname` is the enclosing NAMED ITEM's file-local qualname: a fn item,
+  where it is exactly that fn's manifest `Site.qualname` (`Type::method`,
+  `outer::inner`, `tests::t`); or, when the spawn sits in a closure inside a
+  `const`/`static`/associated-`const` initialiser with no fn frame above it,
+  that item's own file-local path (`F`, `m::H`, `T::F`) — a path no `Site`
+  carries, because the item itself is not instrumented, only the child it
+  spawns is named. `k` is the 1-based ordinal among the WRAPPED spawn sites
+  of that `(file, qualname)`, in byte-offset source order; a declared
+  (unwrapped) shape consumes no ordinal. The unit manifest's `spawns`
+  entries carry both `qualname` and `ordinal` (`null` for a declared shape)
+  alongside the existing `file`/`line`, so the location stays one lookup
+  away from the name. The `JoinHandle`, panic propagation and the OS thread
+  name are unchanged.
+  - **Caveats** (each is a real observable consequence, not a hypothetical):
+    (i) inserting a wrapped spawn earlier in the same item renumbers every
+    later ordinal in that item — an honest DIVERGED, not silent corruption;
+    (ii) the qualname is file-local, so renaming an `impl` block's self type,
+    or moving the fn between `impl` blocks, renames the task; (iii) two
+    files in one compilation unit that share an identical file-local
+    qualname each start their own `#1`, and the tasks are compared as a
+    multiset by content (§7's twin rule); (iv) trait-impl twins in one file
+    (`Type::fmt` for `Display` and for `Debug`) share one qualname, so their
+    ordinals CONTINUE across the twins in source order rather than each
+    starting at `#1`; (v) a spawn whose innermost scope is a
+    `mod`/`impl`/`trait` container — with no fn/const/static frame above it
+    — is REFUSED: that file is not instrumented at all, loudly on stderr,
+    rather than being named after the container, and this is REACHABLE, not
+    theoretical — an enum discriminant expression and an array-length
+    expression in a struct field's type are both expressions that sit
+    directly inside a `mod` body, both compile with a spawning closure
+    inside (measured on rustc 1.96), and syn's default visitors reach them;
+    (vi) a spawn inside a fn's SIGNATURE expression (an array-length
+    expression in a return type is the shape that surfaced it) is neither
+    rewritten nor declared — the three fn visitors descend into the body
+    only — a pre-existing rung-2 hole, found and dated 2026-09-03, carried
+    as an open item in
+    `docs/superpowers/specs/2026-09-02-sensorium-rung3-inbox.md` §3; (vii) a
+    `fn` item nested inside a `const`/`static` initialiser now carries that
+    item's name as a qualname prefix (`X::h`, where rung 2 wrote `h`) — a
+    `Site.qualname` change, more correct, zero instances on bloomery.
+
+  **Falsified by** (the naming rule, 2026-09-03):
+  `rust/sensorium-transform/tests/golden.rs`
+  (`a_spawn_site_is_named_by_its_enclosing_fn_and_its_ordinal`, run against
+  fixture `spawn_ordinals` — the seven fn shapes, the five initialiser
+  shapes, and the `T::fmt` twins), `rust/sensorium-transform/tests/edges.rs`
+  (`a_spawn_with_no_enclosing_named_item_is_refused_not_named_after_the_container`
+  — the container refusal, both the enum-discriminant and array-length
+  shapes), `corpus/rust/spawn_across_move` (the same worker paired across a
+  file move by `diff --ignore-moves`, and seen as moved by plain `diff`),
+  `corpus/rust/spawned_thread`, `rust/tests/mechanics.sh` (two checks pin
+  `<test fn> :: spawn@<test fn>#1`), and the E5′ acceptance record
+  `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`
+  (its §4 — this ledger does not assert that document's verdict).
 - **A spawn shape the transformer does not rewrite is declared, not silently
   missed**: `Builder::spawn` (`reason: "builder"`), `thread::scope`
   (`"scoped"`), other one-argument `.spawn(f)` method calls (`"method"`), and a
@@ -509,6 +572,28 @@ without knowing this document exists.
    whose functions have no sites at all, so the declaration has to travel with
    the trace: a limit whose declaration a reader cannot reach is half a
    declaration. bloomery has zero such files (findings §5.26).
+   **Amended 2026-09-03** (rung-3 entry, Task-1 review B): `unreached_files`
+   is not only the cfg-gated-path case above. A file the walk resolved but
+   the wrapper could not READ, and a file the walk read but
+   `sensorium-transform` REFUSED (an unparseable file, or one of the
+   transformer's own synthesised errors — a spawn with no named item around
+   it, a rewrite that would move a line, a wrapped spawn's ordinal
+   disagreeing with source order) both land in `unreached_files` too, and
+   only the last case carries a message: the wrapper prints `sensorium: unit
+   <crate> (<metadata>): <rel>: <message>` on stderr and records `<message>`
+   under the manifest key `unreached_reasons`, keyed by the same
+   workspace-relative path. A file the wrapper cannot read gets no entry in
+   `unreached_reasons` — `read` hands back an `Option`, so there is no
+   message to quote, and inventing one would be worse than the silence.
+   `fell_back` stays `false` for a refused file: this is one file's
+   instrumentation lost, not the whole unit's, and every other file in the
+   unit still is. The one exception is the crate root: if the file holding
+   `__SENSORIUM_UNIT` is among the refused files, the whole unit ends up with
+   no files instrumented at all (every guard would otherwise reference a
+   static that does not exist) — still not `fell_back: true`; only
+   `unreached_reasons` says why the unit came back empty. *Falsified by*
+   `rust/cargo-sensorium/tests/wrapper_fallback.rs`'s
+   `a_file_the_transformer_refused_names_its_reason_on_both_channels`.
 9. **Why a return value was unread** (§2): a missing `Debug` impl and a
    panicking one read the same.
 10. **A runner set in a workspace's `.cargo/config.toml`.** The driver sets
@@ -654,11 +739,12 @@ re-rolled** if the box was busy when it started.
 | 1 | A generic `T` that is a `Result` only after monomorphisation reads `ok` | `corpus/rust/outcome_generic` (rung 3, deferred) |
 | 2 | A return value is `Debug` text capped at 200 bytes; `!Debug` and panicking `Debug` read `<unread>`; `()` is never `<unread>` | `rust/sensorium-rt/tests/values.rs`, `docs/trace-format/vectors/v08-return-outcome-dbg-value.json` |
 | 3 | Every emitting non-main thread is a named task where a name exists; `spawn_child` derives the name; dependency threads are unnamed and compared as a multiset | `corpus/rust/spawned_thread`, `corpus/rust/libtest_threads` (`--test-threads=1` against `4`), `rust/sensorium-rt/tests/spawn.rs`, `rust/sensorium-rt/tests/serials.rs`; the REFUSED-on-deleted-fingerprints promise by `tests/test_diff.py` (`test_diff_refuses_a_per_task_trace_whose_task_fingerprints_are_missing`) and `docs/trace-format/vectors/v04-main-thread-silent-tasks-carry` |
+| 3 | A rewritten spawn site's child is named `<parent> :: spawn@<qualname>#<k>` — `qualname` the enclosing named item's file-local path, `k` a source-order ordinal among that item's wrapped sites (rung-3 entry, 2026-09-03) | `rust/sensorium-transform/tests/golden.rs` (`a_spawn_site_is_named_by_its_enclosing_fn_and_its_ordinal`, fixture `spawn_ordinals`), `rust/sensorium-transform/tests/edges.rs` (`a_spawn_with_no_enclosing_named_item_is_refused_not_named_after_the_container`), `corpus/rust/spawn_across_move`, `corpus/rust/spawned_thread`, `rust/tests/mechanics.sh`, E5′ in `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md` (§4) |
 | 4 | A crash loses at most one record per thread; holes are `seq_gaps`; `records_dropped` is what the writer knew it lost, and the two are disjoint | `rust/sensorium-rt/tests/durability.rs`, `rust/sensorium-rt/tests/seq_contiguity.rs` (`a_refused_record_consumes_no_sequence_number`, `test-hooks`), `rust/cargo-sensorium/tests/convert.rs` (`a_thread_whose_spool_went_inert_costs_no_seq_gaps`), `corpus/rust/abort` |
 | 5 | `exit_status` is `waited` only for processes our runner started; everything else is `unwitnessed`, never borrowed from cargo | `rust/cargo-sensorium/tests/runner.rs`, `corpus/rust/abort`, `rust/tests/mechanics.sh`, `docs/trace-format/vectors/v10-exit-status-unwitnessed.json` |
 | 6 | Spawns are not witnessed; instrumented children are linked by `ppid`; a child that ran no instrumented code is invisible | `corpus/rust/abort`, `docs/trace-format/vectors/v11-child-runs-linked.json`, `tests/test_rust_convert.py` (`child-linked`) |
 | 7 | Sites are per unit at record time and merged on `(file, qualname, firstlineno)` at conversion; `diff` cannot separate cfg-gated twins | E3 and E5 in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/cargo-sensorium/tests/unit_identity.rs`, `rust/cargo-sensorium/tests/convert.rs` |
 | 8 | Every eligible function in a workspace crate is instrumented, or its unit says it fell back | E2′ in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/sensorium-transform/tests/census.rs` |
-| 8 | Every blind spot is declared in a manifest field, a meta key or an `info` line — including the unreached-module and unit-ceiling declarations, which reach the trace as `unreached_files` and `units_refused`; the one that does not (a config-file runner replaced rather than chained) says so | `rust/tests/mechanics.sh` (fallbacks in both channels; a unit using an instrumented dependency), `rust/sensorium-rt/tests/units.rs` (the unit ceiling), `docs/trace-format/vectors/v14-rust-refusals.json`; §8.10 itself is falsified by adding a config-file runner to `rust/probes/ws/` and re-running mechanics.sh, which no shipped check does |
+| 8 | Every blind spot is declared in a manifest field, a meta key or an `info` line — including the unreached-module and unit-ceiling declarations, which reach the trace as `unreached_files` and `units_refused`, and (amended 2026-09-03) a REFUSED file's own message, which reaches it as `unreached_reasons`; the one declaration that does not exist (a config-file runner replaced rather than chained) says so | `rust/tests/mechanics.sh` (fallbacks in both channels; a unit using an instrumented dependency), `rust/sensorium-rt/tests/units.rs` (the unit ceiling), `rust/cargo-sensorium/tests/wrapper_fallback.rs` (`a_file_the_transformer_refused_names_its_reason_on_both_channels`), `docs/trace-format/vectors/v14-rust-refusals.json`; §8.10 itself is falsified by adding a config-file runner to `rust/probes/ws/` and re-running mechanics.sh, which no shipped check does |
 | 9 | Line numbers, paths, backtraces, drop order, lock hold times, freshness and plain builds are unchanged | E7 and E8 in the acceptance document and `rust/tests/mechanics.sh`, `rust/sensorium-transform/tests/oracle.rs`, `rust/sensorium-transform/tests/golden.rs`, `rust/sensorium-rt/tests/panics.rs` |
 | 10 | Cost is reported with `n` and lens, and gates nothing | the acceptance document's *reported without a gate* section |

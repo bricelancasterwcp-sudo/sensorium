@@ -548,17 +548,22 @@ tests plus `spawn_child`-named worker threads as tasks. `runs`, `info`,
 refactor — all answer on a Rust trace; `info` adds the toolchain, per-unit
 instrumentation counts, child runs, and live threads at exit.
 
-**One known gap, measured, not yet fixed.** `diff --ignore-moves` pairs code
+**One gap, measured, then fixed.** `diff --ignore-moves` pairs code
 objects correctly across a file split (28/28 paired, 0 added, 0 removed, in
 the acceptance run's own split of a real file), but a spawned worker thread's
-task NAME embeds its spawn site (`<parent task> :: spawn@<file>:<line>`), so
-moving that call site during the same split renames the task and the
-comparison reads DIVERGED even though nothing about the program's behaviour
+task NAME embedded its spawn site (`<parent task> :: spawn@<file>:<line>`),
+so moving that call site during the same split renamed the task and the
+comparison read DIVERGED even though nothing about the program's behaviour
 changed. Measured on bloomery's own `registry.rs` split — four spawned-task
 names moved, their stream hashes identical pairwise on both sides:
 `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3–§4,
-endpoint E5. The fix is an open entry decision for the next rung, not yet
-made: `docs/superpowers/specs/2026-09-02-sensorium-rung3-inbox.md`.
+endpoint E5. **Fixed 2026-09-03** (rung-3 entry decision, Brice's ruling
+(b)): a spawned task is now named `<parent task> :: spawn@<qualname>#<k>` —
+the enclosing named item's file-local qualname plus a source-order ordinal
+among its wrapped spawn sites, neither of which a file move changes
+(`docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`,
+decisions N1–N6; `rust/HONESTY.md` §3). Verified by E5′ (see that document's
+§4): `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`.
 
 ### What refuses
 

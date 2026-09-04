@@ -79,6 +79,17 @@ dated amendment recording the rule actually shipped, and a new corpus case
 (`corpus/rust/spawn_across_move` or similar) pinning it — a rule with no
 falsifier is not a promise (`rust/HONESTY.md`'s own standard).**
 
+**Shipped 2026-09-03.** Both amendments landed: spec §3.5 and
+`rust/HONESTY.md` §3 state the `<parent> :: spawn@<qualname>#<k>` rule. Its
+falsifiers are `rust/sensorium-transform/tests/golden.rs`
+(`a_spawn_site_is_named_by_its_enclosing_fn_and_its_ordinal`, fixture
+`spawn_ordinals`), `rust/sensorium-transform/tests/edges.rs` (the
+container-scope refusal), the new corpus case `corpus/rust/spawn_across_move`
+(the spawning fn moved between two files across two runs of one crate, paired
+by `diff --ignore-moves` and seen by plain `diff`), `corpus/rust/spawned_thread`
+re-pinned to the new name, `rust/tests/mechanics.sh`, and the E5′ acceptance
+record `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`.
+
 ## 2. Rung 3's own scope, unchanged from the spec
 
 `?`, sinks, `Err`-arm classification, closures containing `?`, the Rust
@@ -169,6 +180,22 @@ which is ranked:
   tried), or have the converter treat a 0-byte spool as "opened and wrote
   nothing" with `records_dropped` unknown (the evidence survives, at the cost
   of a spool the trace cannot bound). Source: final review 2026-09-03.
+- A spawn inside a fn's SIGNATURE expression (an array-length expression in a
+  return type, e.g. `fn n(&self) -> [u8; { ..closure that spawns.. }]`) is
+  neither rewritten nor declared — the three fn visitors descend into the
+  body only, never the signature. Source: rung-3 entry slice 2026-09-03.
+- `visit_trait_item_const` (an associated const's default value inside a
+  `trait` item) is a real code path — `in_item` names it exactly like
+  `visit_item_const`/`visit_impl_item_const` — but no golden or edge-case
+  fixture reaches it. Source: rung-3 entry slice 2026-09-03.
+- `diff`'s verdict vocabulary: `MATCH modulo location` prints only on the
+  thread-stream branch that has at least one causal event outside a task; a
+  trace whose events all live in tasks instead reads `verdict: MATCH -- no
+  causal event ran outside a task on either side, so the thread streams held
+  nothing to compare; the tasks below carry the whole verdict`, even when
+  code objects paired across a move (the `key:` line says so) — the wording
+  should carry "modulo location" there too. Source: rung-3 entry slice
+  2026-09-03.
 
 None of the above changes a shipped behaviour; each is either untested
 surface, a naming/factoring nit, or an operational note. They are listed here
