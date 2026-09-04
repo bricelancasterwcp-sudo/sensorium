@@ -75,7 +75,7 @@
 | `flow` | `no event eN` / `no CALL of X` / `X is not captured at eN` | 1 | new per message |
 | `flow` | malformed `--object` spec / primitive has no identity (`use --value`) / `--limit < 1` | 2 | new per message |
 | `watch` | SATISFIED | 0 | exists |
-| `watch` | `not satisfied` (hits ≥ 1, some failed) | 1 | `tests/test_watch_verdict.py` rows for not-satisfied move 0→1 |
+| `watch` | `not satisfied` (hits: 0 with at least one site evaluated — **parenthetical corrected 2026-09-04 after the Task-3 review**; hits ≥ 1 is SATISFIED) | 1 | `tests/test_watch_verdict.py` rows for not-satisfied move 0→1 |
 | `watch` | `verdict: NOTHING WAS CHECKED` | 3 | `test_watch_verdict.py:279` and `test_format2_fixture.py:161` move 0→3 |
 | `watch` | `REFUSED: watch needs line` | 3 | `tests/test_watch.py:647-649` 2→3; vector `v14` `flow-and-watch-refuse-on-line` 2→3 |
 | `watch` | `error: no recorded code matches --at` | 1 | exists |
