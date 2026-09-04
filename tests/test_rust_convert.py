@@ -141,6 +141,8 @@ def test_case_converts_and_answers_every_question(case_name, tmp_path):
     # Rust-writer/contract drift is exactly what would fail here.
     dbs = sorted((sdir / "traces").glob("*.db"))
     assert dbs, f"{case_name}: no trace file written under {sdir / 'traces'}"
+    expected_spawns = [s for m in case.get("manifests", {}).values()
+                       for s in m.get("spawns", [])]
     for db_path in dbs:
         try:
             trace = Trace.open(db_path)
@@ -150,6 +152,19 @@ def test_case_converts_and_answers_every_question(case_name, tmp_path):
         assert missing == [], (
             f"{case_name}: {db_path.name} is missing required meta key(s) "
             f"{missing}")
+        # The manifest's `spawns` entries reach the trace WHOLE. The converter
+        # carries an entry as opaque JSON (`convert/spool.rs`'s
+        # `Vec<serde_json::Value>`), so no Rust code names `qualname` or
+        # `ordinal` and nothing but a read of the finished trace says the two
+        # fields `docs/TRACE-FORMAT.md` §4 promises survived the crossing.
+        # Only cases whose single process registers every unit reach this --
+        # `spawns` is scoped to the units a process registered, and the one
+        # case that declares any (`spawn-sites`) has exactly one process.
+        if expected_spawns:
+            assert trace.meta.get("spawns") == expected_spawns, (
+                f"{case_name}: {db_path.name} meta spawns "
+                f"{trace.meta.get('spawns')!r} is not the manifest's "
+                f"{expected_spawns!r}")
 
 
 def test_every_case_pins_a_named_invariant_and_asserts_something():
@@ -158,11 +173,27 @@ def test_every_case_pins_a_named_invariant_and_asserts_something():
     the one thing a conformance suite must not contain."""
     assert CASES, "no rust-spool fixtures found"
     for name in ("identical-pair", "panic-unwind", "live-thread",
-                 "child-linked", "unwitnessed-exit", "unnamed-task"):
+                 "child-linked", "unwitnessed-exit", "unnamed-task",
+                 "spawn-sites"):
         assert name in CASES, f"missing fixture case {name!r}"
     for case_name in CASES:
         case, questions = _load_case(case_name)
         assert case.get("processes"), f"{case_name}: no processes"
+        # A manifest spawn entry carries every field `docs/TRACE-FORMAT.md`
+        # §4 names, `qualname` and `ordinal` included -- a fixture that
+        # dropped one would still convert and still answer its questions,
+        # and the passthrough it is here to exercise would go untested.
+        for metadata, m in case.get("manifests", {}).items():
+            for i, spawn in enumerate(m.get("spawns", [])):
+                assert set(spawn) == {"file", "line", "wrapped", "reason",
+                                      "qualname", "ordinal"}, (
+                    f"{case_name}/{metadata}: spawn entry {i} is "
+                    f"{sorted(spawn)}, not the manifest's spawn shape")
+                assert (spawn["ordinal"] is None) != bool(spawn["wrapped"]), (
+                    f"{case_name}/{metadata}: spawn entry {i} has "
+                    f"wrapped={spawn['wrapped']} with ordinal="
+                    f"{spawn['ordinal']!r}; a declared site takes no ordinal "
+                    "and a wrapped one always has its rank")
         assert questions, f"{case_name}: questions.json asserts nothing"
         for q in questions:
             where = f"{case_name}/{q.get('id')}"

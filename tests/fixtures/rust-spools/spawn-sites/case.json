@@ -1,0 +1,34 @@
+{
+  "manifests": {
+    "u0": {
+      "crate_name": "fixture",
+      "files": {
+        "src/lib.rs": [
+          {"site": 0, "qualname": "Registry::spawn_worker", "firstlineno": 11, "ret": "unit"}
+        ]
+      },
+      "source_hashes": {"src/lib.rs": "eeeeeeeeeeeeeeee"},
+      "spawns": [
+        {"file": "src/lib.rs", "line": 13, "wrapped": true, "reason": null,
+         "qualname": "Registry::spawn_worker", "ordinal": 1},
+        {"file": "src/lib.rs", "line": 19, "wrapped": false, "reason": "builder",
+         "qualname": "Registry::spawn_named", "ordinal": null}
+      ]
+    }
+  },
+  "processes": [
+    {
+      "pid": 8001,
+      "exe": "/w/target/debug/deps/fixture-spawns",
+      "units": {"0": "u0"},
+      "threads": [
+        {"serial": 2, "name": "main :: spawn@Registry::spawn_worker#1", "records": [
+          {"op": "call", "unit": 0, "site": 0, "seq": 0, "ts": 1000},
+          {"op": "ret_none", "unit": 0, "site": 0, "seq": 1, "ts": 2000},
+          {"op": "thread_end", "seq": 2, "ts": 2500}
+        ]}
+      ],
+      "runner": {"exit_status": 0}
+    }
+  ]
+}

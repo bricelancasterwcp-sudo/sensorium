@@ -257,6 +257,9 @@ pub fn build_unit(
     let mut next_site: u32 = 0;
     for (i, rel) in walk.files.iter().enumerate() {
         let Some(source) = read(rel) else {
+            // No reason recorded: `read` hands back an `Option`, so there is no
+            // message to quote and inventing one would be worse than the
+            // silence. `unreached_reasons` holds only what was actually said.
             manifest.unreached_files.push(rel.clone());
             continue;
         };
@@ -277,7 +280,21 @@ pub fn build_unit(
                     source_hash,
                 });
             }
-            Err(_) => manifest.unreached_files.push(rel.clone()),
+            // Both channels, the same two a fallback uses: the build log a
+            // person reads and the manifest a check reads. Rung 2 matched this
+            // as `Err(_)`, so a file the transformer REFUSED -- including every
+            // error `sensorium-transform` synthesises for itself -- looked in
+            // the manifest exactly like one the walk never opened, and the only
+            // statement of what went wrong was dropped (Task-1 review B).
+            Err(e) => {
+                let message = e.to_string();
+                eprintln!(
+                    "sensorium: unit {} ({}): {rel}: {message}",
+                    unit.crate_name, unit.metadata
+                );
+                manifest.unreached_files.push(rel.clone());
+                manifest.unreached_reasons.insert(rel.clone(), message);
+            }
         }
     }
     dedup(&mut manifest.unreached_files);
@@ -297,6 +314,9 @@ pub fn build_unit(
         manifest.spawns.clear();
         manifest.source_hashes.clear();
         manifest.appended_line.clear();
+        // `unreached_reasons` is deliberately NOT cleared: it is the only thing
+        // left saying why this unit is empty. Everything above describes work
+        // that is being thrown away; this describes why.
     }
     UnitPlan { manifest, rewrites }
 }
@@ -368,9 +388,14 @@ mod tests {
         // it in, but the KEY is part of the shape every manifest carries,
         // and this is the one test that pins the shape's full key set.
         assert_eq!(v["workspace_root"], "");
+        // A file the WALK could not reach has no transform error to quote, so
+        // the map is empty here: `unreached_reasons` says why a file the walk
+        // DID reach was still not rewritten, and inventing a reason for the
+        // other kind would be worse than saying nothing.
+        assert_eq!(v["unreached_reasons"], serde_json::json!({}));
         assert_eq!(
             v.as_object().unwrap().len(),
-            12,
+            13,
             "a key was added or removed from the manifest shape: {v}"
         );
     }
@@ -470,6 +495,45 @@ mod tests {
         assert_eq!(plan.manifest.unreached_files, ["a/src/bad.rs"]);
         assert_eq!(plan.rewrites.len(), 1);
         assert_eq!(plan.rewrites[0].rel, "a/src/lib.rs");
+        // The parse error is quoted, not thrown away: `unreached_files` alone
+        // cannot be told from a file that was never opened.
+        let v = json(&plan);
+        assert!(
+            v["unreached_reasons"]["a/src/bad.rs"]
+                .as_str()
+                .is_some_and(|r| !r.is_empty()),
+            "{v}"
+        );
+    }
+
+    /// Task-1 review finding B. `sensorium-transform` synthesises errors of its
+    /// own — a spawn with no named item around it, a rewrite that moved a line,
+    /// an ordinal that disagrees with source order — and the wrapper used to
+    /// match them all as `Err(_)`, so the ONLY statement of what went wrong was
+    /// dropped on the floor and the file appeared in `unreached_files` looking
+    /// exactly like one the walk never opened.
+    #[test]
+    fn a_synthesised_transform_error_is_recorded_verbatim_not_discarded() {
+        // A spawn inside an enum discriminant: valid Rust, and an expression
+        // with no NAMED ITEM around it -- the enum is not a fn, a const or a
+        // static -- so there is no qualname to name the child by and the
+        // transformer refuses the file (`visit.rs`'s `spawn_shape`).
+        let discriminant = "pub enum E {\n\
+                            A = { let f: fn() = || { std::thread::spawn(|| ()).join().unwrap(); }; \
+                            let _ = f; 1 },\n\
+                            }\n";
+        let plan = plan_of(
+            &[
+                ("a/src/lib.rs", "mod m;\nfn a() {}\n"),
+                ("a/src/m.rs", discriminant),
+            ],
+            &[],
+        );
+        assert_eq!(plan.manifest.unreached_files, ["a/src/m.rs"]);
+        assert_eq!(
+            json(&plan)["unreached_reasons"]["a/src/m.rs"],
+            "spawn site outside any named item"
+        );
     }
 
     #[test]
@@ -489,6 +553,13 @@ mod tests {
         assert!(plan.manifest.files.is_empty());
         assert!(plan.manifest.source_hashes.is_empty());
         assert_eq!(plan.manifest.unreached_files, ["a/src/lib.rs"]);
+        // Everything the unit had worked out is cleared -- except the reasons,
+        // which are the only surviving trace of WHY the unit ended up empty.
+        let v = json(&plan);
+        assert!(
+            v["unreached_reasons"]["a/src/lib.rs"].is_string(),
+            "the only record of why this unit is empty was cleared with it: {v}"
+        );
     }
 
     #[test]

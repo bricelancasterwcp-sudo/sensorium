@@ -8,7 +8,9 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `0.1.0`, all `publish = false`:
+Three crates, all `publish = false` (`sensorium-transform` and
+`cargo-sensorium` are `0.2.0` since the spawn-naming change of 2026-09-03;
+`sensorium-rt` is `0.1.0`, unchanged by it):
 
 | Crate | What it is |
 |---|---|

@@ -228,6 +228,73 @@ fn a_runtime_that_cannot_be_built_falls_back_rather_than_failing_the_build() {
     assert_declared_on_both_channels(&out, &s, "wrapper: ");
 }
 
+/// Task-1 review finding B: a file the transformer REFUSED used to be
+/// indistinguishable from one the walk never opened. Both channels now, the
+/// same two a fallback uses: one stderr line a person reads, and a manifest key
+/// a check reads. Not a fallback — one file of one unit is left unrewritten and
+/// the rest is still instrumented — which is exactly why the reason has to be
+/// somewhere: `fell_back` stays false and `fallback_reason` stays null.
+#[test]
+fn a_file_the_transformer_refused_names_its_reason_on_both_channels() {
+    let s = Scratch::new("refused-file");
+    let rt = s.p("rt");
+    bogus_runtime(&s, &rt);
+    let rustc = fake_rustc(&s);
+    s.write("ws/src/lib.rs", "pub mod m;\npub fn f() -> u8 { 7 }\n");
+    // Valid Rust, and a spawn with no NAMED ITEM around it: an enum
+    // discriminant's expression sits in a module body, not in a fn, a const or
+    // a static, so there is no qualname to name the child by and the
+    // transformer refuses the file (`visit.rs`'s `spawn_shape`).
+    s.write(
+        "ws/src/m.rs",
+        "pub enum E {\n\
+         A = { let f: fn() = || { std::thread::spawn(|| ()).join().unwrap(); }; let _ = f; 1 },\n\
+         }\n",
+    );
+    std::fs::create_dir_all(s.p("out")).unwrap();
+    let mut args: Vec<String> = [
+        "--crate-name",
+        "probe_fallback",
+        "--edition=2021",
+        "src/lib.rs",
+        "--crate-type",
+        "lib",
+        "-C",
+        "debuginfo=0",
+        "-C",
+    ]
+    .iter()
+    .map(|a| (*a).to_owned())
+    .collect();
+    args.push(format!("metadata={METADATA}"));
+    args.push("--out-dir".to_owned());
+    args.push(s.p("out").to_string_lossy().into_owned());
+
+    let out = wrap(&s, &rustc, &args, Some(&rt));
+
+    assert!(out.status.success(), "{}", stderr(&out));
+    assert_eq!(fake_rustc_runs(&s), 1, "one compile, not a fallback retry");
+    let log = stderr(&out);
+    assert!(
+        log.contains(&format!(
+            "sensorium: unit probe_fallback ({METADATA}): src/m.rs: \
+             spawn site outside any named item"
+        )),
+        "the build log does not name the refused file: {log}"
+    );
+    let m = manifest(&s.p("target"), METADATA);
+    assert_eq!(
+        m["unreached_reasons"]["src/m.rs"], "spawn site outside any named item",
+        "{m}"
+    );
+    assert_eq!(m["unreached_files"], serde_json::json!(["src/m.rs"]), "{m}");
+    // The unit itself is instrumented: this is one refused FILE, not a unit
+    // that fell back, and nothing but `unreached_reasons` would say so.
+    assert_eq!(m["fell_back"], false, "{m}");
+    assert_eq!(m["fallback_reason"], serde_json::Value::Null, "{m}");
+    assert_eq!(m["files"]["src/lib.rs"][0]["qualname"], "f", "{m}");
+}
+
 /// Passing through is not falling back. These argvs are not units this recorder
 /// has anything to say about, and several carry no `-C metadata` to key a
 /// manifest by, so writing one would invent a unit that does not exist.

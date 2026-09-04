@@ -380,3 +380,62 @@ fn a_manifest_with_no_workspace_root_key_at_all_is_counted_in_manifests_unscoped
         "a fell-back manifest with no workspace_root is not in scope of THIS trace either"
     );
 }
+
+/// The converter carries a manifest `spawns` entry as opaque JSON
+/// (`convert/spool.rs`'s `Vec<serde_json::Value>`), so the two fields the
+/// transformer added in this slice -- `qualname` (always) and `ordinal` (an
+/// integer for a wrapped site, `null` for a declared one) -- reach the trace
+/// with no code that names them. That is exactly why it needs a test: nothing
+/// downstream would fail if they were dropped, and `docs/TRACE-FORMAT.md` §4
+/// promises the whole entry.
+#[test]
+fn a_manifest_spawn_entry_reaches_the_trace_verbatim_including_qualname_and_ordinal() {
+    let f = Fixture::new("spawn-entry-passthrough");
+    // Written as a literal, not through `wire::write_manifest`: the claim is
+    // about bytes the wrapper wrote reaching the trace unchanged, so the
+    // fixture spells the entry out.
+    std::fs::write(
+        f.manifests_dir.join("meta1.json"),
+        r#"{"unit":"meta1","crate_name":"demo","crate_type":"lib",
+            "files":{"crates/demo/src/lib.rs":[{"site":0,"qualname":"main","firstlineno":3,"ret":"unit"}]},
+            "skipped":[],
+            "spawns":[{"file":"src/lib.rs","line":9,"wrapped":true,"reason":null,"qualname":"a","ordinal":2},
+                      {"file":"src/lib.rs","line":14,"wrapped":false,"reason":"builder","qualname":"b","ordinal":null}],
+            "source_hashes":{"crates/demo/src/lib.rs":"deadbeef"},
+            "fell_back":false,"fallback_reason":null,"unreached_files":[],
+            "appended_line":{},"workspace_root":"/w"}"#,
+    )
+    .unwrap();
+    wire::write_proc_header(
+        &f.spool_dir,
+        1401,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    wire::SpoolBuilder::new(1401, 1, "main")
+        .call(0, 1000, 0, 0)
+        .ret_none(1, 2000, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+
+    let spawns = meta(&conn, "spawns");
+    assert_eq!(
+        spawns,
+        serde_json::json!([
+            {"file":"src/lib.rs","line":9,"wrapped":true,"reason":null,"qualname":"a","ordinal":2},
+            {"file":"src/lib.rs","line":14,"wrapped":false,"reason":"builder","qualname":"b","ordinal":null}
+        ]),
+        "the manifest's spawn entries did not reach the trace verbatim: {spawns}"
+    );
+    // Named one at a time as well as compared whole: an entry that lost
+    // `ordinal` would fail the whole-value assertion with a diff a reader has
+    // to squint at, and these two fields are the point of this test.
+    assert_eq!(spawns[0]["qualname"], "a");
+    assert_eq!(spawns[0]["ordinal"], 2);
+    assert_eq!(spawns[1]["qualname"], "b");
+    assert_eq!(spawns[1]["ordinal"], serde_json::Value::Null);
+}

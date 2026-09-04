@@ -73,6 +73,11 @@ fn the_manifest_has_the_shape_the_plan_names() {
     assert_eq!(j["fell_back"], false);
     assert!(j["fallback_reason"].is_null());
     assert_eq!(j["unreached_files"][0], "src/never_walked.rs");
+    // Empty, and PRESENT: this crate never sees an error come back, so it has
+    // nothing to say here, and a key that appeared only when non-empty would
+    // make "nothing went wrong" and "written by a wrapper that predates the
+    // key" the same bytes.
+    assert_eq!(j["unreached_reasons"], serde_json::json!({}));
     assert_eq!(j["appended_line"]["src/lib.rs"], false);
     assert_eq!(j["appended_line"]["src/other.rs"], false);
     // `Manifest::new` leaves it empty; the wrapper (which knows
@@ -104,6 +109,7 @@ fn every_key_the_plan_names_is_present_and_no_others_are() {
             "spawns",
             "unit",
             "unreached_files",
+            "unreached_reasons",
             "workspace_root",
         ]
     );
