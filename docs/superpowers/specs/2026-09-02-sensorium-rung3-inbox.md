@@ -18,6 +18,11 @@ lands.
 
 ## 1. Entry decision: how should a spawned task's identity survive a move?
 
+**DECIDED 2026-09-03: (b), by Brice.** The three options below are kept as
+the record of the decision; the executing plan is
+`docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`
+(endpoint E5′, `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`).
+
 **The measured gap (E5, STOP).** `diff --ignore-moves` pairs **code objects**
 correctly across a source-file split — 28 paired, 0 added, 0 removed, on the
 bloomery `registry.rs` split the acceptance run performed. It does **not**
