@@ -10,6 +10,7 @@ import re
 from collections import Counter
 
 from sensorium import paths
+from sensorium.exit import ANSWERED
 from sensorium.query.caps import witness_gap
 from sensorium.query.fmt import fmt_exc
 from sensorium.query.info_rust import rust_lines
@@ -316,7 +317,7 @@ def run(args) -> int:
         for code, n in hot:
             if n:
                 print(f"  {n}x {code.file.rsplit('/', 1)[-1]}:{code.qualname}")
-    return 0
+    return ANSWERED
 
 
 _DEFAULT_TASK_NAME = re.compile(r"^Task-\d+\Z")

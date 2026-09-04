@@ -1,5 +1,6 @@
 """The invocation log: one JSON line per `cli.main` return."""
 import json
+from pathlib import Path
 
 from sensorium import cli, invocations
 from tests.helpers import record_script
@@ -64,7 +65,8 @@ def test_line_has_exactly_the_four_keys(tmp_path, monkeypatch):
     assert set(lines[0].keys()) == {"utc", "argv", "exit", "error"}
 
 
-# -- invariant 3: SENSORIUM_NO_INVOCATION_LOG=1 -> no file, no output ----
+# -- invariant 3: SENSORIUM_NO_INVOCATION_LOG -> any non-empty value other
+# than "0" disables the log; "0" does not --------------------------------
 def test_opt_out_env_var_writes_nothing(tmp_path, monkeypatch, capsys):
     run_id = record(tmp_path, monkeypatch, CRASH)
     _reset_log()
@@ -72,6 +74,20 @@ def test_opt_out_env_var_writes_nothing(tmp_path, monkeypatch, capsys):
     assert cli.main(["info", run_id]) == 0
     capsys.readouterr()                      # drop the command's own output
     assert not invocations.path().exists()
+
+
+def test_opt_out_env_var_set_to_zero_keeps_logging(tmp_path, monkeypatch,
+                                                     capsys):
+    """`SENSORIUM_NO_INVOCATION_LOG=0` is set, but not to a disabling
+    value -- the log keeps writing, same as unset."""
+    run_id = record(tmp_path, monkeypatch, CRASH)
+    _reset_log()
+    monkeypatch.setenv("SENSORIUM_NO_INVOCATION_LOG", "0")
+    assert cli.main(["info", run_id]) == 0
+    capsys.readouterr()
+    lines = _lines(invocations.path())
+    assert len(lines) == 1
+    assert lines[0]["argv"] == ["info", run_id]
 
 
 # -- invariant 4: an unwritable log location prints one stderr line and
@@ -99,6 +115,32 @@ def test_unwritable_log_prints_one_stderr_line_and_exit_is_unchanged(
                  if ln.startswith("sensorium: invocation log unwritable:")]
     assert len(unwritable) == 1
     assert not (blocker / "sub").exists()      # the write never landed
+
+
+# -- invariant 4b: `Path.home()` can raise RuntimeError (not OSError) when
+# no home directory can be determined -- `record` must drop that the same
+# way, not let it escape as a traceback ------------------------------------
+def test_unresolvable_home_prints_one_stderr_line_and_exit_is_unchanged(
+        monkeypatch, capsys):
+    # SENSORIUM_DIR unset so paths.trace_root() falls through to
+    # Path.home(); the version guard is, again, the one main() return that
+    # never touches the trace store on its own, so patching Path.home
+    # cannot affect anything but the invocation log's own write.
+    monkeypatch.delenv("SENSORIUM_DIR", raising=False)
+    monkeypatch.setattr(cli.sys, "version_info", (3, 11, 9, "final", 0))
+
+    def _no_home():
+        raise RuntimeError("could not determine home directory")
+
+    monkeypatch.setattr(Path, "home", _no_home)
+
+    exit_status = cli.main(["runs"])
+
+    assert exit_status == 2                    # unwritable log, same exit
+    err_lines = [ln for ln in capsys.readouterr().err.splitlines() if ln]
+    unwritable = [ln for ln in err_lines
+                 if ln.startswith("sensorium: invocation log unwritable:")]
+    assert len(unwritable) == 1
 
 
 # -- invariant 5: `runs` never lists the log; it globs traces/*.db only --

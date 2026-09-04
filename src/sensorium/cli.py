@@ -3,9 +3,10 @@
 Every `main()` return is appended to the invocation log (see
 `sensorium.invocations`) after dispatch, including the version guard
 below and the three exception classes caught around `args.func(args)`.
-The one shape this never sees is a parse failure: `argparse.parse_args`
-raises `SystemExit` straight out of `main()`, before dispatch, so it
-escapes without a record -- do not wrap it.
+The one shape this never sees is any argparse exit: a parse failure and
+`--help`/`--version` alike raise `SystemExit` straight out of
+`argparse.parse_args`, before dispatch, so both escape `main()` without
+a record -- do not wrap it.
 """
 import argparse
 import sys

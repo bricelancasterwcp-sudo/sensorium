@@ -15,7 +15,9 @@
   not "the call is wrong." `refocus`'s other gate — refusing before any
   rerun is attempted (INCOMPLETE original, stdin consumed, the target no
   longer resolves, the working directory gone, a per-thread-basis original
-  that ran tasks, `capabilities.refocus: false`) — stays exit 2, unchanged.
+  that ran tasks, the trace records no command to re-run or no working
+  directory to re-run from, `capabilities.refocus: false`) — stays exit 2,
+  unchanged.
 - **`watch --misses N`** replaces `--near N` as the flag that sets how many
   near-misses to show when nothing hit; `--near` is kept as a hidden,
   deprecated alias for this release only (prints a deprecation line on

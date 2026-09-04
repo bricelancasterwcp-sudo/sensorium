@@ -9,7 +9,11 @@ air (finding §4) -- not to reconstruct the process, so a line carries
 exactly `utc`, `argv`, `exit`, `error`: never the environment, never the
 working directory.
 
-Default on. Opt out for one process with `SENSORIUM_NO_INVOCATION_LOG=1`.
+Default on. Opt out for one process by setting `SENSORIUM_NO_INVOCATION_LOG`
+to any non-empty value other than `"0"` -- so `=1`, `=true`, `=yes` all
+disable it, `=0` does not (logging stays on), and unset or empty is the
+default (also on).
+
 The log lives at `paths.trace_root() / "invocations.jsonl"`, a *sibling*
 of `traces/` -- `runs` and `find_trace` only glob `traces/*.db`, so this
 file is invisible to every trace lookup, by construction rather than by
@@ -40,9 +44,16 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
 
 
+def _log_disabled() -> bool:
+    """Any non-empty value other than `"0"` disables the log; `"0"` and
+    unset/empty both mean "keep logging" -- see the module docstring."""
+    value = os.environ.get(_DISABLE_VAR)
+    return bool(value) and value != "0"
+
+
 def record(argv: list[str], exit_status: int, error: str | None) -> None:
     """Append one JSON line to `path()`. Never raises."""
-    if os.environ.get(_DISABLE_VAR):
+    if _log_disabled():
         return
     line = {"utc": _utc_now(), "argv": list(argv), "exit": exit_status,
             "error": error}
@@ -51,5 +62,10 @@ def record(argv: list[str], exit_status: int, error: str | None) -> None:
         p.parent.mkdir(parents=True, exist_ok=True)
         with p.open("a", encoding="utf-8") as f:
             f.write(json.dumps(line) + "\n")
-    except OSError as e:
+    except (OSError, RuntimeError) as e:
+        # OSError: the usual "can't write there" (missing/uncreatable
+        # directory, a file sitting where one belongs). RuntimeError:
+        # `path()` -> `paths.trace_root()` -> `Path.home()` raises this,
+        # not OSError, when no home directory can be determined and
+        # SENSORIUM_DIR is unset -- same best-effort drop, same one line.
         print(f"sensorium: invocation log unwritable: {e}", file=sys.stderr)

@@ -131,7 +131,8 @@ Every invocation is appended to `<trace root>/invocations.jsonl` (default
 `~/.sensorium/invocations.jsonl`, or under `$SENSORIUM_DIR`) as one JSON
 line with `utc`, `argv`, `exit` and `error` — the exception class name or
 null — and nothing else: never the environment, never the working
-directory. Set `SENSORIUM_NO_INVOCATION_LOG=1` to turn it off.
+directory. Set `SENSORIUM_NO_INVOCATION_LOG` to any non-empty value other
+than `0` to turn it off for one process — `=0` leaves logging on.
 
 ## What the answers claim
 
@@ -161,10 +162,11 @@ different next actions (see ["Exit statuses"](#exit-statuses)).
 **Cannot refocus at all (exit 2, no rerun was attempted):** original trace
 is INCOMPLETE; original run consumed stdin; the target no longer resolves;
 the original working directory is gone; the original was recorded under the
-per-thread fingerprint basis and ran asyncio tasks; or the recorder declares
-`capabilities.refocus: false`. Every one of these is caught before the
-program runs again, so the reader's next move is a different command, not a
-different recording.
+per-thread fingerprint basis and ran asyncio tasks; the original trace
+records no command to re-run, or no working directory to re-run from; or
+the recorder declares `capabilities.refocus: false`. Every one of these is
+caught before the program runs again, so the reader's next move is a
+different command, not a different recording.
 
 The program DID re-run, and the verdict below is about what came back:
 
