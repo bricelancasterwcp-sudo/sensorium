@@ -1,6 +1,6 @@
 # The Rust corpus
 
-Thirteen cases recorded by the **Rust** recorder (`cargo sensorium …`) and
+Fourteen cases recorded by the **Rust** recorder (`cargo sensorium …`) and
 questioned through the same Python CLI as the rest of the corpus. Each case
 directory is a self-contained, dependency-free crate plus its
 `questions.yaml`; `corpus/run_corpus.py` copies one whole directory into a
@@ -34,7 +34,8 @@ never as a pass.
 | `panic` | a caught panic turned into `Ok(0)`: the panicking frame `closed: unwind` with `unwound: panic('…')`, the `catch_unwind` frame `-> Ok(0)` | `tree`, `frame` ×2 |
 | `abort` | one invocation, two processes: the parent's `child runs:` names the child, the child reads `exit: unwitnessed` and its aborting frames are left open | `info` ×2, `tree` |
 | `libtest_threads` | `--test-threads=1` against `=4` is a MATCH carried entirely by the tasks, which are named after the tests | `diff`, `info` |
-| `spawned_thread` | a worker spawned inside a test is a task named `<test> :: spawn@src/lib.rs:33`, comparable by that name | `tree`, `info`, `diff --task` |
+| `spawned_thread` | a worker spawned inside a test is a task named `<test> :: spawn@<enclosing qualname>#<k>`, comparable by that name | `tree`, `info`, `diff --task` |
+| `spawn_across_move` | the spawning function moves to another file between two runs of one crate and the worker keeps its name: `diff --ignore-moves` MATCHes across the move, a plain `diff` DIVERGED on the file the CALL is keyed to | `tree`, `diff --ignore-moves`, `diff` |
 | `aliasing` | an identity question this recorder cannot answer: `flow --object` REFUSES through `object_identity: false` (exit 2), and the values it does hold do not settle it | `flow --object`, `tree` |
 | `stale_cache` | a per-line question this recorder cannot answer: `watch` REFUSES through `line: false` (exit 2) — while the same fault is still reachable through return values | `watch`, `grep` |
 

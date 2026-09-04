@@ -62,11 +62,22 @@ fn the_manifest_has_the_shape_the_plan_names() {
     assert_eq!(spawns[0]["line"], 6);
     assert_eq!(spawns[0]["wrapped"], true);
     assert!(spawns[0]["reason"].is_null());
+    // The name the child thread is given: the enclosing fn item's qualname and
+    // this site's 1-based ordinal within it (plan decision N3).
+    assert_eq!(spawns[0]["qualname"], "fully_qualified");
+    assert_eq!(spawns[0]["ordinal"], 1);
+    assert_eq!(spawns[1]["qualname"], "imported");
+    assert_eq!(spawns[1]["ordinal"], 1);
 
     assert_eq!(j["source_hashes"]["src/lib.rs"], "00".repeat(32));
     assert_eq!(j["fell_back"], false);
     assert!(j["fallback_reason"].is_null());
     assert_eq!(j["unreached_files"][0], "src/never_walked.rs");
+    // Empty, and PRESENT: this crate never sees an error come back, so it has
+    // nothing to say here, and a key that appeared only when non-empty would
+    // make "nothing went wrong" and "written by a wrapper that predates the
+    // key" the same bytes.
+    assert_eq!(j["unreached_reasons"], serde_json::json!({}));
     assert_eq!(j["appended_line"]["src/lib.rs"], false);
     assert_eq!(j["appended_line"]["src/other.rs"], false);
     // `Manifest::new` leaves it empty; the wrapper (which knows
@@ -98,9 +109,42 @@ fn every_key_the_plan_names_is_present_and_no_others_are() {
             "spawns",
             "unit",
             "unreached_files",
+            "unreached_reasons",
             "workspace_root",
         ]
     );
+}
+
+#[test]
+fn a_declared_spawn_carries_a_qualname_and_a_null_ordinal() {
+    // `wrapped: false` means the callee was left alone, so there is no name to
+    // give and no ordinal to spend -- but the qualname still says where it is,
+    // which is what makes the declaration readable (HONESTY §3).
+    let mut m = Manifest::new(META, "k", "lib");
+    let t =
+        transform(&read("spawn_shapes", "in"), "src/lib.rs", META, 0, false).expect("transform");
+    m.add_file("src/lib.rs", &t);
+    let j: serde_json::Value =
+        serde_json::from_str(&m.to_json().expect("serialise")).expect("JSON");
+    let spawns = j["spawns"].as_array().expect("spawns");
+    assert_eq!(spawns.len(), 3);
+    for (i, (qualname, reason)) in [
+        ("builder", "builder"),
+        ("scoped", "scoped"),
+        ("scoped", "method"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        assert_eq!(spawns[i]["qualname"], *qualname);
+        assert_eq!(spawns[i]["reason"], *reason);
+        assert_eq!(spawns[i]["wrapped"], false);
+        assert!(
+            spawns[i]["ordinal"].is_null(),
+            "a declared shape spends no ordinal: {}",
+            spawns[i]
+        );
+    }
 }
 
 #[test]

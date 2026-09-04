@@ -550,9 +550,13 @@ by path suffix; all 8 bloomery sites are literal `std::thread::spawn`; other
 shapes are listed in the manifest as unwrapped) become
 `::sensorium_rt::spawn_child(SITE, f)`: on the parent thread it reads the
 current task's name, mints a NEW task serial named
-`<parent task name> :: spawn@<file>:<line>`, and sets the child's thread-local
-task before running `f`. The child's events carry its own task id and its own
-fingerprint, so a worker holding a lock inside a test is IN the verdict.
+~~`<parent task name> :: spawn@<file>:<line>`~~ [^spawn-name-amended], and
+sets the child's thread-local task before running `f`. The child's events
+carry its own task id and its own fingerprint, so a worker holding a lock
+inside a test is IN the verdict.
+
+[^spawn-name-amended]: Superseded 2026-09-03 — see the dated amendment at the
+end of this section; the site string is no longer `<file>:<line>`.
 Threads spawned by dependency code (tiny_http's accept thread) get no name
 and are compared as unnamed tasks by content multiset (arc-2b Ruling R4).
 
@@ -590,6 +594,48 @@ renamed by the very kind of refactor `--ignore-moves` exists to see through.
 declare two manifests) against the census's **8** distinct literal
 `std::thread::spawn(` sites over the same tree — `rust/HONESTY.md` §7 and
 the acceptance document §4 name the duplication.
+
+**Amended 2026-09-03 (Brice's ruling, rung-3 entry):** the site string in the
+naming rule above is superseded. Brice ruled option (b) of the rung-2 exit
+amendment (§11) and the rung-3 inbox
+(`docs/superpowers/specs/2026-09-02-sensorium-rung3-inbox.md` §1): a spawned
+task is named by something a move does not change — the enclosing fn's
+qualname plus an ordinal — not by `<file>:<line>`. Executed as the rung-3
+entry slice, plan
+`docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`,
+endpoint E5′
+(`docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`).
+
+N1 (verbatim, from that plan's Decisions table): "The site string is
+`<qualname>#<k>`: `qualname` is the enclosing **fn item's** file-local
+qualname exactly as the manifest's `files[<rel>][..].qualname` writes it
+(`Type::method`, `outer::inner`, `tests::a_test`); `k` is the **1-based
+ordinal among the WRAPPED spawn sites of that (file, qualname), in
+byte-offset source order**. Unwrapped (declared) sites consume no ordinal."
+
+N3: manifest `spawns` entries gain `"qualname": "<qualname>"` and
+`"ordinal": <k>|null` (null when `wrapped: false`); `file` and `line` stay,
+so the trace keeps the name ↔ location mapping without a converter change.
+
+N6 documents four caveats, each with its observable consequence: (i)
+inserting a wrapped spawn earlier in the same fn renumbers later ones — an
+honest DIVERGED on their names, not a bug; (ii) the qualname is file-local,
+so renaming the impl's self type or moving the fn into another `impl` block
+renames the task; (iii) two files in one unit with an identical file-local
+qualname each start at `#1` — the tasks share a name and `diff` compares
+them as a multiset by content (HONESTY §7's twin rule); (iv) trait-impl
+twins in one file (e.g. `Type::fmt` for `Display` and `Debug`) share the
+qualname, so their ordinals continue across the twins in source order.
+
+N1 and N6 above are quoted as the plan first wrote them; **N5 was then amended
+twice on 2026-09-03** (both amendments are in the plan's Decisions table, with
+their evidence): a spawn inside a `const`/`static`/associated-`const`
+initialiser is named by that item, not refused; and the container refusal (a
+spawn whose innermost frame is a `mod`/`impl`/`trait`) is REACHABLE — measured
+on rustc 1.96 — and is kept as a refusal rather than named after the
+container. So a `static F` initialiser's spawn is defined, not undefined. The
+**shipped** rule, with all seven caveats (i)–(vii) rather than N6's four, is
+`rust/HONESTY.md` §3's; this section is a pointer to it, not a second copy.
 
 ### 3.6 Reentrancy and capture faults (F32)
 
@@ -1251,6 +1297,10 @@ code objects correctly) — see §11's rung-3 entry decision below.
    picks. That document also carries the smaller deferred items this rung's
    review rounds collected (mutation-test gaps, doc precision, a file at its
    800-line limit) — none of them block the entry decision above.
+
+   **Decided 2026-09-03 by Brice: option (b).** Executed as the rung-3 entry
+   slice (plan `docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`,
+   endpoint E5′).
 3. **Err flow** — `?`, sinks, arm classification, closures, Rust `exceptions`
    rules, corpus swallow/panic/interleave cases. Acceptance: E6.
 4. **Focus tier** — LINE/locals under `--focus`, `watch`/`flow`, driver-side
@@ -1352,5 +1402,6 @@ rung-2 plan's own table) or a §3/§4/§5 number of
 | RETURN values: ruled "carry them" (§12), form undesigned | **Captured at tier `call`** via `ret()` (§3.2 amendment above); the 200-byte cap bounds `Debug` *formatting*, not std's collection walk (10⁶-element `Vec`: ≈10 ms with the cap, ≈8 ms without it — the counterintuitive direction, `rust/sensorium-rt/tests/values.rs`) | D10; acceptance §3, *reported without a gate* |
 | exit form: `match (<e>) { __r => { … } }` (§3.2) | **Replaced by `ret()`** — the `match (<e>)` shape trips `unused_parens` under `#![deny(warnings)]`, measured while building the transformer | §3.2 amendment above |
 | `spawn_child` naming, designed not shipped (§3.5) | **Shipped exactly as designed**, and its own site-in-name shape is what E5 measures as a gap: a spawn site that moves renames the task | §3.5 amendment above; E5 |
+| `spawn_child` naming (§3.5) | **Renamed 2026-09-03** (rung-3 entry, Brice's ruling (b)): `<parent> :: spawn@<qualname>#<k>`, closing the E5 gap the row above measured | §3.5 amendment; `docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`; E5′ in `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md` |
 | §10 rung 2's expected verdict: `MATCH modulo location` on the registry.rs split | **Measured `DIVERGED`** — not a test-order change, but four spawned child task names whose site moved with the split | §10 amendment above; acceptance §3 (E5), §4 |
 | §11 rung 2: entry condition only, no exit stated | **DONE-WITH-STOP.** E2′/E3/E7/E8 PASS, E5 STOP; the fix is a rung-3 entry decision for Brice among three options, stated neutrally, with the controller's own recommendation named separately | §11 amendment above; acceptance §4 |

@@ -33,13 +33,14 @@
 //! splice is an error rather than a corrupted file.
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use proc_macro2::{Span, TokenStream};
 use syn::visit::Visit;
 
 use crate::visit::Ctx;
-use crate::{Census, Transformed};
+use crate::{Census, SpawnSite, Transformed};
 
 /// The entry guard. Newline-free, and the ONLY place its text is written.
 pub(crate) fn guard_fragment(site: u32) -> String {
@@ -157,6 +158,7 @@ pub(crate) fn run(
 
     let mut spawns = walked.spawns;
     spawns.sort_by_key(|(offset, _)| *offset);
+    check_spawn_ordinals(&spawns)?;
 
     Ok(Transformed {
         source: out,
@@ -194,6 +196,53 @@ fn assemble(source: &str, splices: &[Splice]) -> Result<String, syn::Error> {
     }
     out.push_str(&source[cut..]);
     Ok(out)
+}
+
+/// Plan decision N4: the ordinals the walk assigned, re-derived from SOURCE
+/// ORDER and compared.
+///
+/// The walk counts in DFS order and N1 promises source order. They agree for
+/// every construct the goldens exercise, but "agree" is an argument and this is
+/// the measurement: `spawns` arrives sorted by byte offset, so ranking the
+/// wrapped sites of one qualname as they are met here IS source order.
+///
+/// A disagreement costs instrumentation rather than shipping a task under a name
+/// that is not the one the manifest promises. What it costs, measured rather
+/// than assumed: the driver's `wrapper.rs` lists the file in `unreached_files`
+/// and instruments the rest of the unit -- `fell_back` stays false, because one
+/// refused file is not a unit that fell back -- while a failure on the CRATE
+/// ROOT leaves the whole unit uninstrumented. Either way this message survives:
+/// since 2026-09-03 the wrapper prints it (`sensorium: unit <crate> (<meta>):
+/// <file>: <message>`) and records it under the manifest's
+/// `unreached_reasons`, so the loss is declared on both channels rather than
+/// looking like a module the walk never opened.
+///
+/// # Errors
+/// A wrapped site's ordinal is not its rank among the wrapped sites of its
+/// qualname.
+fn check_spawn_ordinals(spawns: &[(usize, SpawnSite)]) -> Result<(), syn::Error> {
+    let mut ranks: HashMap<&str, u32> = HashMap::new();
+    for (_, site) in spawns {
+        if !site.wrapped {
+            continue;
+        }
+        let rank = ranks.entry(site.qualname.as_str()).or_insert(0);
+        *rank += 1;
+        if site.ordinal == Some(*rank) {
+            continue;
+        }
+        let walked = site
+            .ordinal
+            .map_or_else(|| "none".to_owned(), |k| k.to_string());
+        return Err(syn::Error::new(
+            Span::call_site(),
+            format!(
+                "spawn ordinal for {} at line {}: walk said #{walked}, source order says #{rank}",
+                site.qualname, site.line,
+            ),
+        ));
+    }
+    Ok(())
 }
 
 /// The promise of `rust/HONESTY.md` §9, enforced where it is made rather than
@@ -422,6 +471,68 @@ mod tests {
             err.to_string().contains("UTF-8 character"),
             "unhelpful: {err}"
         );
+    }
+
+    fn spawn(offset: usize, qualname: &str, line: u32, ordinal: Option<u32>) -> (usize, SpawnSite) {
+        (
+            offset,
+            SpawnSite {
+                file: "src/lib.rs".to_owned(),
+                line,
+                wrapped: ordinal.is_some(),
+                reason: None,
+                qualname: qualname.to_owned(),
+                ordinal,
+            },
+        )
+    }
+
+    fn declared(offset: usize, qualname: &str, line: u32) -> (usize, SpawnSite) {
+        let mut s = spawn(offset, qualname, line, None);
+        s.1.wrapped = false;
+        s.1.reason = Some("builder");
+        s
+    }
+
+    /// N4's re-derivation. The walk and the source order agree for every
+    /// construct the goldens exercise, so the DISAGREEMENT is built here by
+    /// hand -- the check cannot be weakened to make it reachable, and a
+    /// disagreement that only ever showed up in the field would ship a task
+    /// under the wrong name.
+    #[test]
+    fn a_walk_assigned_ordinal_that_is_not_the_source_order_rank_is_refused() {
+        let good = [
+            spawn(10, "a", 3, Some(1)),
+            declared(20, "a", 4),
+            spawn(30, "a", 5, Some(2)),
+            spawn(40, "T::m", 9, Some(1)),
+        ];
+        check_spawn_ordinals(&good).expect("the ranks the walk assigned");
+
+        // The second site of `a` says #3 where source order says #2.
+        let bad = [
+            spawn(10, "a", 3, Some(1)),
+            declared(20, "a", 4),
+            spawn(30, "a", 5, Some(3)),
+        ];
+        let err = check_spawn_ordinals(&bad).expect_err("a rank that is not the walk's");
+        assert_eq!(
+            err.to_string(),
+            "spawn ordinal for a at line 5: walk said #3, source order says #2"
+        );
+
+        // A declared shape that consumed an ordinal would renumber the wrapped
+        // sites after it, which is exactly what N1 promises it does not.
+        let counted = [spawn(10, "a", 3, Some(1)), spawn(30, "a", 5, Some(3))];
+        let err = check_spawn_ordinals(&counted).expect_err("a declared shape was counted");
+        assert!(
+            err.to_string().contains("spawn ordinal"),
+            "unhelpful: {err}"
+        );
+
+        // Two files' worth of one qualname never mix here: `Ctx` is per file.
+        let per_qualname = [spawn(10, "a", 3, Some(1)), spawn(20, "b", 4, Some(1))];
+        check_spawn_ordinals(&per_qualname).expect("each qualname counts from 1");
     }
 
     /// `check_line_count` is the enforcement of `rust/HONESTY.md` §9 at the

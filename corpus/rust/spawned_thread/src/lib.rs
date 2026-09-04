@@ -5,9 +5,9 @@
 //!
 //! Nothing here is buggy. The planted truth is about the INSTRUMENT: a
 //! thread spawned by workspace code is a named unit of work, named for the
-//! test that spawned it and the source line that spawned it -- so the work
-//! can be found and compared by a name, not by a thread number that means
-//! nothing on the next run.
+//! test that spawned it and the qualname and ordinal of the spawn site --
+//! so the work can be found and compared by a name, not by a thread number
+//! that means nothing on the next run.
 
 use std::sync::{Arc, Mutex};
 

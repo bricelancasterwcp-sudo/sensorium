@@ -1,0 +1,981 @@
+{
+  "schema": "every measurement is {value, n, lens, dropped}; a null value plus a dropped reason is the ONLY not-measured; 0 is measured-and-zero",
+  "acceptance": "docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md",
+  "runner": "rust/tests/acceptance_e5prime.py",
+  "byte_lock": {
+    "commit": "10f2c59",
+    "doc": "docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md",
+    "locked_sha256": "2a036074ccf4eca0433f73b6b8e2698eda720078a07ab8afd908359d8ee8b9ff",
+    "working_tree_sha256": "2a036074ccf4eca0433f73b6b8e2698eda720078a07ab8afd908359d8ee8b9ff",
+    "locked_bytes": 3149,
+    "working_tree_bytes": 3149,
+    "identical": true,
+    "extraction": "awk '/^## 1/,/^## 2/'"
+  },
+  "pins": {
+    "started": "2026-09-03T23:46:00-0500",
+    "repo_commit": "0cb6b8b727735c1ca665a78245421a38d3b4de8b",
+    "repo_branch": "feat/rung3-entry-spawn-names",
+    "repo_porcelain": "?? docs/superpowers/specs/2026-09-02-query-cli-exit-status-finding.md\n?? rust/tests/acceptance_e5prime.py",
+    "driver": "/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium",
+    "driver_sha256": "ee3eca57d85c1cfa9bc31bbeb4d2e5c49cca2e72cfa698ecba9fa252df133675",
+    "driver_mtime": "2026-09-03T23:20:07-0500",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "toolchains": "stable-x86_64-unknown-linux-gnu (active, default)",
+    "python": "Python 3.14.4",
+    "sensorium_version": "0.6.0",
+    "nproc": 16,
+    "governor": "powersave",
+    "RUSTFLAGS": "",
+    "CARGO_INCREMENTAL": "",
+    "RUSTC_WRAPPER": "",
+    "load_1min_at_start": 0.12,
+    "target_disk_free_gb": 98.13,
+    "repo_disk_free_gb": 13.58,
+    "clone": "/mnt/extra/sensorium-rung2/bloomery",
+    "clone_head": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "clone_porcelain_before": "",
+    "clone_branches_before": "* (HEAD detached at e209ed9) e209ed9 refactor: split the Python trio, verified by trace rather than pass count\n  e5-planted                 fea50b1 test(daemon): swap two independent call statements in registry tests::build_pager\n  e5-split                   e8c79be refactor(daemon): split task/registry.rs into a registry/ directory module\n  split-python-trio          e209ed9 refactor: split the Python trio, verified by trace rather than pass count",
+    "arm_tips": {
+      "A": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+      "B": "e8c79be1626f5808eb48a967d02a17217e614843",
+      "C": "fea50b14ba453a179e94dc96ca71a89a90c35f26"
+    },
+    "clone_cargo_lock_sha256_before": "c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca",
+    "source_bloomery": "/home/brice/workspace/bloomery",
+    "source_bloomery_head_before": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "source_bloomery_porcelain_before": "",
+    "target_dir": "/mnt/extra/sensorium-rung2/bloomery-target",
+    "target_warm": true,
+    "target_bytes_before": 15287103148,
+    "manifests_cleared_before_arm_a": [
+      "003e8758fb5e452c.json",
+      "00d5f0af6b745472.json",
+      "01428c785dbc37a9.json",
+      "04264b72eaddb308.json",
+      "04af0779c8fbd467.json",
+      "058dbd24b886f701.json",
+      "05e6618acaa35827.json",
+      "087fa8adc2f9c1ff.json",
+      "0aa7958df376c5e8.json",
+      "0af5528d8b82d3fa.json",
+      "0be3a55b70d00734.json",
+      "0bf6a15efb9a1063.json",
+      "0ca048f7e5174d42.json",
+      "0ccc3dbbc4e9792f.json",
+      "0e9b115e0e8c5346.json",
+      "0eaad94a99fcb29f.json",
+      "0f49f0a2ee106d8a.json",
+      "0fa7509a8a848e08.json",
+      "13d2890543595417.json",
+      "159bf107a4b04b07.json",
+      "175ea69276a6d31f.json",
+      "17841ea35ed58865.json",
+      "189066d94ec242c8.json",
+      "18ae5f61c0d07f68.json",
+      "1ac30ea3f962df9b.json",
+      "1d5a6c0919167ea4.json",
+      "1fa52f4b99f76fc3.json",
+      "2323f0384952d8a6.json",
+      "2346bd1c317785a2.json",
+      "269b24b41131f959.json",
+      "287a6abf40a43d7e.json",
+      "29ed3c6909eb2fcd.json",
+      "2a44850c28f8cb8b.json",
+      "2bc5d3366511fa8c.json",
+      "2bef6f7a5a9b0bfe.json",
+      "326db881ac45fae0.json",
+      "37444bdabb0c13dd.json",
+      "37e9cb313aa8e4fd.json",
+      "3a4ca02494e008c1.json",
+      "3c4e8ca5db3b1489.json",
+      "3dd9bcf881f6fb6d.json",
+      "3e5c551cbad966a1.json",
+      "3f842f4204f20a7b.json",
+      "409c96959fb7172f.json",
+      "422abecd9f63af8d.json",
+      "430f844325f17a84.json",
+      "43fd567a91a8b063.json",
+      "4459159f868ee8d4.json",
+      "46499999341bedf8.json",
+      "4922d62476348546.json",
+      "4940625ed7a70ef7.json",
+      "4982c0b089a23203.json",
+      "4a88af648ad40c39.json",
+      "4ad7d0d7448dd850.json",
+      "4b3b5172c471c7f0.json",
+      "4cd41f63d03b988c.json",
+      "4d27c26d979bc98f.json",
+      "52b8e1801b8aa3ed.json",
+      "5435d2af506532ce.json",
+      "54a509e6859072a4.json",
+      "55be6cbe600fd3bd.json",
+      "5673aa3e2f175538.json",
+      "568cc97801f66a72.json",
+      "571d34b55a5f6fd8.json",
+      "57f58c902e3ccfb3.json",
+      "581e63dad81cbf25.json",
+      "58ad98cec24b1209.json",
+      "5a39101c6210e1cd.json",
+      "5deb4dd024a571d2.json",
+      "5f79ed0b3b893600.json",
+      "60d107a1aa794428.json",
+      "618314f6ed6e5109.json",
+      "65a890cfae108024.json",
+      "684faad697d4ccb6.json",
+      "6a1a1d4f1cb646bc.json",
+      "6e1525ab4f7b8848.json",
+      "6e3676b1bd6689a9.json",
+      "6ebec775d21271a1.json",
+      "6f117369e0f3d700.json",
+      "6fabf4bd23a9a6b8.json",
+      "6fc3dd5da8d3e5f5.json",
+      "719a93690db9e73f.json",
+      "726100326684b39a.json",
+      "731efd4d204994d4.json",
+      "74b2cf8ba9916416.json",
+      "763431baad230275.json",
+      "76c9f53ffa69e5fe.json",
+      "77462842de93da1a.json",
+      "786b93353e4f2068.json",
+      "7b22a2544fefe0ec.json",
+      "7d12c4fe654d13dc.json",
+      "821b595d4060ff93.json",
+      "83238393087a07af.json",
+      "86a49043a24af7ce.json",
+      "87da73755b26ca55.json",
+      "88bc93a2cc470efe.json",
+      "8929ce5d07462aec.json",
+      "895838c3a5f4edc4.json",
+      "8b78cbb0114df141.json",
+      "8b94af285a25b466.json",
+      "8be6cdf2b4bc36a2.json",
+      "8c5180f73a520b98.json",
+      "8f3fc5778531e9a0.json",
+      "8fb04bccd3ba28b7.json",
+      "8ff91ababbbb287a.json",
+      "9026527f84e9b97e.json",
+      "90499492a50361e4.json",
+      "9063e8eb65708a43.json",
+      "90ed688c87d3c6de.json",
+      "91573319592a9810.json",
+      "9283b662551a5e7e.json",
+      "944f61d40121e609.json",
+      "955ca5449e6b4405.json",
+      "99656c815c9cd906.json",
+      "9b69f7cea6ab010a.json",
+      "9b6f7e57066f9573.json",
+      "a063b84d0106a5a4.json",
+      "a06589f3c906cb1c.json",
+      "a07ebd0475d00ca8.json",
+      "a31f70bd9f970bb3.json",
+      "a81d3a506bf340f2.json",
+      "a81e81d3fde581d8.json",
+      "a8a07aa2d97e6c33.json",
+      "a918ba91803c6283.json",
+      "a972a86a7aeaec93.json",
+      "aa469b74b947a055.json",
+      "aad92751a24dbd89.json",
+      "abc32ee530e5350b.json",
+      "adf1b5eb61188180.json",
+      "afac01849ca0aad5.json",
+      "afe45728e8bb8731.json",
+      "b05a6346a0e31bd3.json",
+      "b0acc8217ba466a7.json",
+      "b1406981cb3ec0ac.json",
+      "b1a5e7c576e17079.json",
+      "b1ef5a18999a2505.json",
+      "b24376c5838cce78.json",
+      "b3cda87a49ef69f8.json",
+      "b57f0ecf425c74d3.json",
+      "b58d84da3f131d5e.json",
+      "b80a5f91c76d2797.json",
+      "b86e6ec889642910.json",
+      "c005c3e5a075efa2.json",
+      "c013c53d00d28e33.json",
+      "c08260deb803a0bf.json",
+      "c122dd43e115d568.json",
+      "c46a2d737b6c0341.json",
+      "c49b4345778b7c8f.json",
+      "c63ba018d29ef1c1.json",
+      "c7b03aac6a3a1490.json",
+      "ca60494cfc85b347.json",
+      "cbdd52a15ac4e701.json",
+      "cd2bd058f075e5bd.json",
+      "cd766cb2e849fe77.json",
+      "cdf75e1c4cc9d6c1.json",
+      "d42e83ef49b435e4.json",
+      "d50da37435c98eec.json",
+      "d6d72e3c610b0505.json",
+      "da05e0408561e85e.json",
+      "da43790d22dff1f1.json",
+      "db4b34c8bc03592a.json",
+      "de76eb35d50d8397.json",
+      "e04ae6b728fcbe0c.json",
+      "e2c41d0bf121acbf.json",
+      "e3f7348e7aab16d4.json",
+      "e599d27a1a88ad99.json",
+      "e653df378396cb66.json",
+      "e653fd0b5fd293d5.json",
+      "e66ec42baafbdc99.json",
+      "e6bf84b4a31046b5.json",
+      "e933e8fd7833c3bc.json",
+      "e94562b4cedb03d3.json",
+      "ea91d30ce79ea103.json",
+      "eca2164643a6ea7b.json",
+      "ed88e8c7d3c4ab38.json",
+      "ede5940d54d7329f.json",
+      "efc4f348e9cc15b3.json",
+      "f2632d92df8f11e1.json",
+      "f3169c437bcb4b75.json",
+      "f419d5f6fa825642.json",
+      "f48e23503f0a0624.json",
+      "f5ea702cd704a046.json",
+      "fa80a11fc1b30606.json",
+      "fc420b9db7f610ea.json",
+      "fd798b59d8ba3ddd.json"
+    ],
+    "manifests_cleared_bytes": 1513858,
+    "sensorium_dir": "/mnt/extra/sensorium-rung2/sensorium-dir/e5prime",
+    "packages": [
+      "bloomery-bench",
+      "bloomery-core",
+      "bloomery-daemon",
+      "bloomery-substrate"
+    ],
+    "unused_env": {
+      "SENSORIUM_CENSUS_DRIVER": "/mnt/extra/sensorium-rung2/tmp/census-target/release/census-driver",
+      "SENSORIUM_PROBE_TARGET": "/mnt/extra/sensorium-rung2/probe-target",
+      "why": "required by acceptance_lib.env_paths for phases this runner does not call (census, E7(a)); neither is read here"
+    }
+  },
+  "environment": {
+    "byte_lock": {
+      "commit": "10f2c59",
+      "doc": "docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md",
+      "locked_sha256": "2a036074ccf4eca0433f73b6b8e2698eda720078a07ab8afd908359d8ee8b9ff",
+      "working_tree_sha256": "2a036074ccf4eca0433f73b6b8e2698eda720078a07ab8afd908359d8ee8b9ff",
+      "locked_bytes": 3149,
+      "working_tree_bytes": 3149,
+      "identical": true,
+      "extraction": "awk '/^## 1/,/^## 2/'"
+    },
+    "driver": "/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium",
+    "driver_sha256": "ee3eca57d85c1cfa9bc31bbeb4d2e5c49cca2e72cfa698ecba9fa252df133675",
+    "driver_mtime": "2026-09-03T23:20:07-0500",
+    "driver_unchanged_after": true,
+    "repo_commit": "0cb6b8b727735c1ca665a78245421a38d3b4de8b",
+    "repo_branch": "feat/rung3-entry-spawn-names",
+    "repo_porcelain": "?? docs/superpowers/specs/2026-09-02-query-cli-exit-status-finding.md\n?? rust/tests/acceptance_e5prime.py",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "python": "Python 3.14.4",
+    "sensorium_version": "0.6.0",
+    "nproc": 16,
+    "governor": "powersave",
+    "clone": "/mnt/extra/sensorium-rung2/bloomery",
+    "clone_head": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "arm_tips": {
+      "A": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+      "B": "e8c79be1626f5808eb48a967d02a17217e614843",
+      "C": "fea50b14ba453a179e94dc96ca71a89a90c35f26"
+    },
+    "arm_heads": {
+      "A": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+      "B": "e8c79be1626f5808eb48a967d02a17217e614843",
+      "C": "fea50b14ba453a179e94dc96ca71a89a90c35f26"
+    },
+    "clone_porcelain_before": "",
+    "clone_porcelain_after": "",
+    "clone_restored": true,
+    "cargo_lock_unchanged": true,
+    "target_dir": "/mnt/extra/sensorium-rung2/bloomery-target",
+    "target_warm": true,
+    "manifests_cleared_before_arm_a": 185,
+    "manifests_cleared_bytes": 1513858,
+    "sensorium_dir": "/mnt/extra/sensorium-rung2/sensorium-dir/e5prime",
+    "source_bloomery": "/home/brice/workspace/bloomery",
+    "source_bloomery_head_before": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "source_bloomery_head_after": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "source_bloomery_porcelain_before": "",
+    "source_bloomery_porcelain_after": "",
+    "source_bloomery_unchanged": true,
+    "load_1min_at_start": 0.12,
+    "load_at_each_arm": [
+      {
+        "ref": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+        "load_1min": 0.19,
+        "at": "2026-09-03T23:46:02-0500"
+      },
+      {
+        "ref": "e5-split",
+        "load_1min": 0.19,
+        "at": "2026-09-03T23:46:06-0500"
+      },
+      {
+        "ref": "e5-planted",
+        "load_1min": 0.26,
+        "at": "2026-09-03T23:46:08-0500"
+      },
+      {
+        "ref": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+        "load_1min": 0.26,
+        "at": "2026-09-03T23:46:08-0500"
+      }
+    ],
+    "target_disk_free_gb": 98.13,
+    "repo_disk_free_gb": 13.58,
+    "unused_env": {
+      "SENSORIUM_CENSUS_DRIVER": "/mnt/extra/sensorium-rung2/tmp/census-target/release/census-driver",
+      "SENSORIUM_PROBE_TARGET": "/mnt/extra/sensorium-rung2/probe-target",
+      "why": "required by acceptance_lib.env_paths for phases this runner does not call (census, E7(a)); neither is read here"
+    }
+  },
+  "endpoints": {
+    "E5prime": {
+      "headline": {
+        "value": 0,
+        "n": 7,
+        "lens": "pre-registered E5' conditions not met, of 7; three arms on three trees of the clone (A = e209ed9, B = e5-split, C = e5-planted), each `cargo sensorium test -p bloomery-daemon --lib -- task::registry` under the driver of \u00a72 on the warm rung-2 target; verdicts from `sensorium diff --ignore-moves`. \u00a71's label `MATCH modulo location` denotes the committed rung-2 `_e5` condition class (verdict token startswith MATCH; >= 1 moved; 0 added; 0 removed; every task paired), because on a trace whose causal events all live in tasks the literal string prints only on the thread-stream branch. Ruled in the ledger before the run, not after the number.",
+        "dropped": []
+      },
+      "conditions": {
+        "ab_verdict_is_match": true,
+        "ab_moved_at_least_one": true,
+        "ab_zero_added": true,
+        "ab_zero_removed": true,
+        "ab_every_task_paired": true,
+        "ac_verdict_is_diverged": true,
+        "ab_all_ten_task_streams_paired": true
+      },
+      "conditions_failed": [],
+      "ab_reading": "\u00a71's label `MATCH modulo location` denotes the committed rung-2 `_e5` condition class (verdict token startswith MATCH; >= 1 moved; 0 added; 0 removed; every task paired), because on a trace whose causal events all live in tasks the literal string prints only on the thread-stream branch. Ruled in the ledger before the run, not after the number.",
+      "ab_verdict": "MATCH",
+      "ab_verdict_line": "verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict",
+      "ac_verdict": "DIVERGED",
+      "ac_verdict_line": "verdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)",
+      "ab_plain_verdict": "DIVERGED",
+      "ab_plain_verdict_line": "verdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)",
+      "ac_task_verdict": "DIVERGED",
+      "ac_task_verdict_line": "verdict: DIVERGED at causal step 4",
+      "ab_moved": {
+        "value": 28,
+        "n": 1,
+        "lens": "code objects paired across a move by qualname (A/B `--ignore-moves`, from the `key:` line)",
+        "dropped": []
+      },
+      "ab_tasks_each_side": {
+        "value": 10,
+        "n": 10,
+        "lens": "task streams on each side of the A/B `--ignore-moves` diff, compared by content as (name, hash) -- the tool's own `tasks:` line",
+        "dropped": []
+      },
+      "arms": {
+        "A": {
+          "ref": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+          "head": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+          "rc": 0,
+          "wall": 0.07,
+          "run": "20260903-234606-be8f1c",
+          "events": 890,
+          "threads": 10,
+          "tests": [
+            "task::registry::tests::classify_probe_reads_only_completed_runs_and_only_real_exit_codes",
+            "task::registry::tests::get_on_unknown_task_id_is_none",
+            "task::registry::tests::contained_catches_a_panic_journals_it_and_lets_the_caller_continue",
+            "task::registry::tests::task_ids_are_unique_and_monotonic",
+            "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager",
+            "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion"
+          ],
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-03-sensorium-rung3-entry-spawn-names/acceptance/logs/e5-A-run.log"
+        },
+        "B": {
+          "ref": "e5-split",
+          "head": "e8c79be1626f5808eb48a967d02a17217e614843",
+          "rc": 0,
+          "wall": 0.07,
+          "run": "20260903-234608-042036",
+          "events": 890,
+          "threads": 10,
+          "tests": [
+            "task::registry::tests::get_on_unknown_task_id_is_none",
+            "task::registry::tests::classify_probe_reads_only_completed_runs_and_only_real_exit_codes",
+            "task::registry::tests::contained_catches_a_panic_journals_it_and_lets_the_caller_continue",
+            "task::registry::tests::task_ids_are_unique_and_monotonic",
+            "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager",
+            "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion"
+          ],
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-03-sensorium-rung3-entry-spawn-names/acceptance/logs/e5-B-run.log"
+        },
+        "C": {
+          "ref": "e5-planted",
+          "head": "fea50b14ba453a179e94dc96ca71a89a90c35f26",
+          "rc": 0,
+          "wall": 0.07,
+          "run": "20260903-234608-74a53f",
+          "events": 890,
+          "threads": 10,
+          "tests": [
+            "task::registry::tests::get_on_unknown_task_id_is_none",
+            "task::registry::tests::classify_probe_reads_only_completed_runs_and_only_real_exit_codes",
+            "task::registry::tests::contained_catches_a_panic_journals_it_and_lets_the_caller_continue",
+            "task::registry::tests::task_ids_are_unique_and_monotonic",
+            "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager",
+            "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion"
+          ],
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-03-sensorium-rung3-entry-spawn-names/acceptance/logs/e5-C-run.log"
+        }
+      },
+      "diffs": {
+        "ab_ignore_moves": {
+          "argv": [
+            "diff",
+            "--ignore-moves",
+            "20260903-234606-be8f1c",
+            "20260903-234608-042036"
+          ],
+          "rc": 0,
+          "verdict": "MATCH",
+          "verdict_line": "verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict",
+          "moved": 28,
+          "added": false,
+          "removed": false,
+          "unpaired": false,
+          "tasks_all_matched": true,
+          "tasks_each_side": 10,
+          "stdout": "A 20260903-234606-be8f1c: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nB 20260903-234608-042036: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nkey: (file, qualname, kind), with 28 code object(s) paired across a move by qualname -- see moves below\nnote: A recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nnote: B recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nverdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict\ntasks: 10 task stream(s) on each side, compared by content as (name, hash): all matched; the ordering between tasks is not compared\nmoves:\n  moved: OrganDecision::off  registry.rs -> mod.rs\n  moved: TaskRegistry::get  registry.rs -> mod.rs\n  moved: TaskRegistry::new  registry.rs -> mod.rs\n  moved: TaskRegistry::spawn_task  registry.rs -> mod.rs\n  moved: classify_probe  registry.rs -> organ.rs\n  moved: contained  registry.rs -> helpers.rs\n  moved: degrade  registry.rs -> helpers.rs\n  moved: lock_entries  registry.rs -> helpers.rs\n  moved: organ_after_run  registry.rs -> organ.rs\n  moved: organ_before_run  registry.rs -> organ.rs\n  moved: panic_message  registry.rs -> helpers.rs\n  moved: panic_note  registry.rs -> helpers.rs\n  ... +16 more moved",
+          "stderr": ""
+        },
+        "ab_plain": {
+          "argv": [
+            "diff",
+            "20260903-234606-be8f1c",
+            "20260903-234608-042036"
+          ],
+          "rc": 1,
+          "verdict": "DIVERGED",
+          "verdict_line": "verdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)",
+          "moved": null,
+          "added": false,
+          "removed": false,
+          "unpaired": false,
+          "tasks_all_matched": false,
+          "tasks_each_side": null,
+          "stdout": "A 20260903-234606-be8f1c: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nB 20260903-234608-042036: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nnote: A recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nnote: B recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nverdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)\ntasks: DIVERGED -- 10 task stream(s) on A, 10 on B; only in A: task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager 26a265597336, task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager :: spawn@TaskRegistry::spawn_task#1 5da1393dcf56, task::registry::tests::classify_probe_reads_only_completed_runs_and_only_real_exit_codes 36ff86c6f2f7, task::registry::tests::contained_catches_a_panic_journals_it_and_lets_the_caller_continue c63a56b6024d, task::registry::tests::get_on_unknown_task_id_is_none e833efccb6ca, task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion 4d3f4bbfbc54, task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion :: spawn@TaskRegistry::spawn_task#1 f40193423b12, task::registry::tests::task_ids_are_unique_and_monotonic 3a0ca087b26a, task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1 47d897532d1b, task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1 f40193423b12; only in B: task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager ed73375d7a1d, task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager :: spawn@TaskRegistry::spawn_task#1 0763e6a2f9a4, task::registry::tests::classify_probe_reads_only_completed_runs_and_only_real_exit_codes 3bd10a0c2c57, task::registry::tests::contained_catches_a_panic_journals_it_and_lets_the_caller_continue bf5999564745, task::registry::tests::get_on_unknown_task_id_is_none 873c6645ba56, task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion b165faa53908, task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion :: spawn@TaskRegistry::spawn_task#1 2d03ae901491, task::registry::tests::task_ids_are_unique_and_monotonic d0e11f792e4a, task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1 2d03ae901491, task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1 82e1d6d4fbdc; the ordering between tasks is not compared\nfirst difference inside task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager (A task t7, B task t7) at causal step 0:\n  A:      e43 CALL    tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs)\n  B:      e40 CALL    tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry/mod.rs)\ndrill into A: sensorium tree 20260903-234606-be8f1c --around e43\ndrill into B: sensorium tree 20260903-234608-042036 --around e40",
+          "stderr": ""
+        },
+        "ac_ignore_moves": {
+          "argv": [
+            "diff",
+            "--ignore-moves",
+            "20260903-234606-be8f1c",
+            "20260903-234608-74a53f"
+          ],
+          "rc": 1,
+          "verdict": "DIVERGED",
+          "verdict_line": "verdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)",
+          "moved": 28,
+          "added": false,
+          "removed": false,
+          "unpaired": false,
+          "tasks_all_matched": false,
+          "tasks_each_side": null,
+          "stdout": "A 20260903-234606-be8f1c: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nB 20260903-234608-74a53f: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nkey: (file, qualname, kind), with 28 code object(s) paired across a move by qualname -- see moves below\nnote: A recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nnote: B recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nverdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)\ntasks: DIVERGED -- 10 task stream(s) on A, 10 on B; only in A: task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion eb531e6a661d, task::registry::tests::task_ids_are_unique_and_monotonic 175adcac1853; only in B: task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion f5438bbd0630, task::registry::tests::task_ids_are_unique_and_monotonic 00f0f252acd4; the ordering between tasks is not compared\nfirst difference inside task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion (A task t6, B task t5) at causal step 4:\n  A:      e40 CALL    Journal::open  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-core/src/journal.rs)\n  B:      e18 CALL    ImageStore::new  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/agents.rs)\ndrill into A: sensorium tree 20260903-234606-be8f1c --around e40\ndrill into B: sensorium tree 20260903-234608-74a53f --around e18\nmoves:\n  moved: OrganDecision::off  registry.rs -> mod.rs\n  moved: TaskRegistry::get  registry.rs -> mod.rs\n  moved: TaskRegistry::new  registry.rs -> mod.rs\n  moved: TaskRegistry::spawn_task  registry.rs -> mod.rs\n  moved: classify_probe  registry.rs -> organ.rs\n  moved: contained  registry.rs -> helpers.rs\n  moved: degrade  registry.rs -> helpers.rs\n  moved: lock_entries  registry.rs -> helpers.rs\n  moved: organ_after_run  registry.rs -> organ.rs\n  moved: organ_before_run  registry.rs -> organ.rs\n  moved: panic_message  registry.rs -> helpers.rs\n  moved: panic_note  registry.rs -> helpers.rs\n  ... +16 more moved",
+          "stderr": ""
+        },
+        "ac_task": {
+          "argv": [
+            "diff",
+            "--ignore-moves",
+            "--task",
+            "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion",
+            "20260903-234606-be8f1c",
+            "20260903-234608-74a53f"
+          ],
+          "rc": 1,
+          "verdict": "DIVERGED",
+          "verdict_line": "verdict: DIVERGED at causal step 4",
+          "moved": 28,
+          "added": false,
+          "removed": false,
+          "unpaired": false,
+          "tasks_all_matched": false,
+          "tasks_each_side": null,
+          "stdout": "A 20260903-234606-be8f1c: compared: task task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion (t6)\nB 20260903-234608-74a53f: compared: task task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion (t5)\nkey: (file, qualname, kind), with 28 code object(s) paired across a move by qualname -- see moves below\nnote: only task task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion was compared -- nothing is claimed here about the thread streams, the other tasks, or the order any of them ran in\nverdict: DIVERGED at causal step 4\n  common  e31 CALL    tests::fresh_dir  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs) (paired with mod.rs)\n  common  e38 RETURN  tests::fresh_dir  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs) (paired with mod.rs)\n  common  e39 CALL    tests::build_pager  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs) (paired with mod.rs)\n  A:      e40 CALL    Journal::open  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-core/src/journal.rs)\n  B:      e18 CALL    ImageStore::new  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/agents.rs)\ndrill into A: sensorium tree 20260903-234606-be8f1c --around e40\ndrill into B: sensorium tree 20260903-234608-74a53f --around e18\nmoves:\n  moved: OrganDecision::off  registry.rs -> mod.rs\n  moved: TaskRegistry::get  registry.rs -> mod.rs\n  moved: TaskRegistry::new  registry.rs -> mod.rs\n  moved: TaskRegistry::spawn_task  registry.rs -> mod.rs\n  moved: classify_probe  registry.rs -> organ.rs\n  moved: contained  registry.rs -> helpers.rs\n  moved: degrade  registry.rs -> helpers.rs\n  moved: lock_entries  registry.rs -> helpers.rs\n  moved: organ_after_run  registry.rs -> organ.rs\n  moved: organ_before_run  registry.rs -> organ.rs\n  moved: panic_message  registry.rs -> helpers.rs\n  moved: panic_note  registry.rs -> helpers.rs\n  ... +16 more moved",
+          "stderr": ""
+        }
+      }
+    },
+    "E5prime_names": {
+      "predicted_shape": "task::registry::tests::<test> :: spawn@TaskRegistry::spawn_task#1",
+      "conjuncts": {
+        "every_spawn_name_is_the_predicted_string": true,
+        "stored_name_hash_multiset_a_equals_b": false
+      },
+      "conjuncts_missed": [
+        "stored_name_hash_multiset_a_equals_b"
+      ],
+      "headline": {
+        "value": 1,
+        "n": 2,
+        "lens": "\u00a71 E5'-names conjuncts missed, of 2 \u2014 (a) every spawn@ name is the predicted string, (b) the multiset of (name, hash) pairs on A equals B's. Each conjunct's own number is in the table below; the hash conjunct is read on the STORED column, which is the source \u00a71's Method names",
+        "dropped": []
+      },
+      "names_not_as_predicted": {
+        "value": 0,
+        "n": 8,
+        "lens": "spawned-child task names that are NOT the predicted string, of the four on A plus the four on B; every task name containing `spawn@` on arms A and B, read from each arm's own trace with `select task_id, name, hash, n_events from task_fingerprints order by task_id` against `$SENSORIUM_DIR/traces/<run>.db` opened read-only (the CLI has no `tasks` command); compared to `task::registry::tests::<test> :: spawn@TaskRegistry::spawn_task#1`",
+        "dropped": []
+      },
+      "names_as_predicted": {
+        "value": 8,
+        "n": 8,
+        "lens": "spawned-child task names equal to the predicted string; every task name containing `spawn@` on arms A and B, read from each arm's own trace with `select task_id, name, hash, n_events from task_fingerprints order by task_id` against `$SENSORIUM_DIR/traces/<run>.db` opened read-only (the CLI has no `tasks` command); compared to `task::registry::tests::<test> :: spawn@TaskRegistry::spawn_task#1`",
+        "dropped": []
+      },
+      "spawn_tasks_a": {
+        "value": 4,
+        "n": 10,
+        "lens": "task streams on arm A whose name contains `spawn@`, of every task stream in that trace",
+        "dropped": []
+      },
+      "spawn_tasks_b": {
+        "value": 4,
+        "n": 10,
+        "lens": "task streams on arm B whose name contains `spawn@`, of every task stream in that trace",
+        "dropped": []
+      },
+      "stored_hash_pairs_differing": {
+        "value": 4,
+        "n": 4,
+        "lens": "of the four (name, hash) pairs, those whose HASH component differs between A and B; the STORED `task_fingerprints.hash` of the same four children, A against B as a multiset of (name, hash). TRACE-FORMAT \u00a77: the stored hash is a blake2b over `file\\x1fqualname\\x1fkind` per causal event, so a file move changes it by construction; `diff --ignore-moves` re-hashes both sides at query time instead of reading this column; counted as the multiset difference A - B over whole (name, hash) pairs, i.e. A-pairs with no equal pair left in B, not a positional zip",
+        "dropped": []
+      },
+      "stored_multiset_equal": false,
+      "a_multiset": [
+        [
+          "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager :: spawn@TaskRegistry::spawn_task#1",
+          "5da1393dcf56b99067778684b4bdcbb5"
+        ],
+        [
+          "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion :: spawn@TaskRegistry::spawn_task#1",
+          "f40193423b122b4f5d2325ae30cbae10"
+        ],
+        [
+          "task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1",
+          "47d897532d1b52bf4c7369c0b37cb8e8"
+        ],
+        [
+          "task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1",
+          "f40193423b122b4f5d2325ae30cbae10"
+        ]
+      ],
+      "b_multiset": [
+        [
+          "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager :: spawn@TaskRegistry::spawn_task#1",
+          "0763e6a2f9a4aa017b9a49b1a1fe11dd"
+        ],
+        [
+          "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion :: spawn@TaskRegistry::spawn_task#1",
+          "2d03ae9014910e0c41941cced47760b2"
+        ],
+        [
+          "task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1",
+          "2d03ae9014910e0c41941cced47760b2"
+        ],
+        [
+          "task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1",
+          "82e1d6d4fbdcc7597302ac8102394140"
+        ]
+      ],
+      "not_as_predicted": [],
+      "differ_tasks_line": "tasks: 10 task stream(s) on each side, compared by content as (name, hash): all matched; the ordering between tasks is not compared",
+      "differ_all_matched": true,
+      "names": {
+        "A": {
+          "run": "20260903-234606-be8f1c",
+          "query": "select task_id, name, hash, n_events from task_fingerprints order by task_id",
+          "task_count": 10,
+          "spawn_tasks": [
+            {
+              "task_id": 8,
+              "name": "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "5da1393dcf56b99067778684b4bdcbb5",
+              "n_events": 117
+            },
+            {
+              "task_id": 9,
+              "name": "task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "f40193423b122b4f5d2325ae30cbae10",
+              "n_events": 154
+            },
+            {
+              "task_id": 10,
+              "name": "task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "47d897532d1b52bf4c7369c0b37cb8e8",
+              "n_events": 98
+            },
+            {
+              "task_id": 11,
+              "name": "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "f40193423b122b4f5d2325ae30cbae10",
+              "n_events": 154
+            }
+          ]
+        },
+        "B": {
+          "run": "20260903-234608-042036",
+          "query": "select task_id, name, hash, n_events from task_fingerprints order by task_id",
+          "task_count": 10,
+          "spawn_tasks": [
+            {
+              "task_id": 8,
+              "name": "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "0763e6a2f9a4aa017b9a49b1a1fe11dd",
+              "n_events": 117
+            },
+            {
+              "task_id": 9,
+              "name": "task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "2d03ae9014910e0c41941cced47760b2",
+              "n_events": 154
+            },
+            {
+              "task_id": 10,
+              "name": "task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "82e1d6d4fbdcc7597302ac8102394140",
+              "n_events": 98
+            },
+            {
+              "task_id": 11,
+              "name": "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "2d03ae9014910e0c41941cced47760b2",
+              "n_events": 154
+            }
+          ]
+        },
+        "C": {
+          "run": "20260903-234608-74a53f",
+          "query": "select task_id, name, hash, n_events from task_fingerprints order by task_id",
+          "task_count": 10,
+          "spawn_tasks": [
+            {
+              "task_id": 8,
+              "name": "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "0763e6a2f9a4aa017b9a49b1a1fe11dd",
+              "n_events": 117
+            },
+            {
+              "task_id": 9,
+              "name": "task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "2d03ae9014910e0c41941cced47760b2",
+              "n_events": 154
+            },
+            {
+              "task_id": 10,
+              "name": "task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "82e1d6d4fbdcc7597302ac8102394140",
+              "n_events": 98
+            },
+            {
+              "task_id": 11,
+              "name": "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion :: spawn@TaskRegistry::spawn_task#1",
+              "hash": "2d03ae9014910e0c41941cced47760b2",
+              "n_events": 154
+            }
+          ]
+        }
+      }
+    },
+    "E5prime_coverage": {
+      "headline": {
+        "value": 0,
+        "n": 12,
+        "lens": "`fell_back: true` over the manifests each arm's build left in `<target>/sensorium/manifests/`, snapshotted the moment that arm's build returned; the directory was cleared before arm A, so no rung-2 manifest can enter the count. n counts unit-manifests read across the three arms (8 of them written by the arm that read them; the rest were units cargo found fresh and did not recompile, so no new manifest was written for them)",
+        "dropped": []
+      },
+      "units_fell_back": {
+        "value": 0,
+        "n": 12,
+        "lens": "`fell_back: true` over the manifests each arm's build left in `<target>/sensorium/manifests/`, snapshotted the moment that arm's build returned; the directory was cleared before arm A, so no rung-2 manifest can enter the count. n counts unit-manifests read across the three arms (8 of them written by the arm that read them; the rest were units cargo found fresh and did not recompile, so no new manifest was written for them)",
+        "dropped": []
+      },
+      "per_arm_fell_back": {
+        "A": 0,
+        "B": 0,
+        "C": 0
+      },
+      "units_seen_per_arm": {
+        "A": 4,
+        "B": 4,
+        "C": 4
+      },
+      "unit_manifests_written_by_their_own_arm": 8,
+      "unreached_reasons": {},
+      "spawn_sites_wrapped_per_arm": {
+        "A": 8,
+        "B": 8,
+        "C": 8
+      },
+      "spawn_sites_declared_unwrapped_per_arm": {
+        "A": 0,
+        "B": 0,
+        "C": 0
+      },
+      "unreached_files_per_arm": {
+        "A": [],
+        "B": [],
+        "C": []
+      },
+      "units": {
+        "A": [
+          {
+            "crate_name": "bloomery_core",
+            "crate_type": "lib",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 18,
+            "sites": 94,
+            "spawns": 0,
+            "written_during_this_arm": true
+          },
+          {
+            "crate_name": "bloomery_daemon",
+            "crate_type": "lib",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 48,
+            "sites": 494,
+            "spawns": 4,
+            "written_during_this_arm": true
+          },
+          {
+            "crate_name": "bloomery_substrate",
+            "crate_type": "lib",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 5,
+            "sites": 40,
+            "spawns": 0,
+            "written_during_this_arm": true
+          },
+          {
+            "crate_name": "bloomery_daemon",
+            "crate_type": "test",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 48,
+            "sites": 494,
+            "spawns": 4,
+            "written_during_this_arm": true
+          }
+        ],
+        "B": [
+          {
+            "crate_name": "bloomery_core",
+            "crate_type": "lib",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 18,
+            "sites": 94,
+            "spawns": 0,
+            "written_during_this_arm": false
+          },
+          {
+            "crate_name": "bloomery_daemon",
+            "crate_type": "lib",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 50,
+            "sites": 494,
+            "spawns": 4,
+            "written_during_this_arm": true
+          },
+          {
+            "crate_name": "bloomery_substrate",
+            "crate_type": "lib",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 5,
+            "sites": 40,
+            "spawns": 0,
+            "written_during_this_arm": false
+          },
+          {
+            "crate_name": "bloomery_daemon",
+            "crate_type": "test",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 50,
+            "sites": 494,
+            "spawns": 4,
+            "written_during_this_arm": true
+          }
+        ],
+        "C": [
+          {
+            "crate_name": "bloomery_core",
+            "crate_type": "lib",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 18,
+            "sites": 94,
+            "spawns": 0,
+            "written_during_this_arm": false
+          },
+          {
+            "crate_name": "bloomery_daemon",
+            "crate_type": "lib",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 50,
+            "sites": 494,
+            "spawns": 4,
+            "written_during_this_arm": true
+          },
+          {
+            "crate_name": "bloomery_substrate",
+            "crate_type": "lib",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 5,
+            "sites": 40,
+            "spawns": 0,
+            "written_during_this_arm": false
+          },
+          {
+            "crate_name": "bloomery_daemon",
+            "crate_type": "test",
+            "fell_back": false,
+            "fallback_reason": null,
+            "files": 50,
+            "sites": 494,
+            "spawns": 4,
+            "written_during_this_arm": true
+          }
+        ]
+      }
+    }
+  },
+  "reported": {
+    "arm_walls_s": {
+      "A": 0.07,
+      "B": 0.07,
+      "C": 0.07
+    },
+    "arm_events": {
+      "A": 890,
+      "B": 890,
+      "C": 890
+    },
+    "arm_threads": {
+      "A": 10,
+      "B": 10,
+      "C": 10
+    },
+    "arm_tests": {
+      "A": 6,
+      "B": 6,
+      "C": 6
+    },
+    "arm_run_lines": {
+      "A": {
+        "run_lines": [
+          {
+            "run": "20260903-234606-be8f1c",
+            "pid": 2970510,
+            "exe": "bloomery_daemon-abab7f58e67e8e9e",
+            "events": 890,
+            "threads": 10,
+            "exit": "0"
+          }
+        ],
+        "rc": 0,
+        "wall": 0.07
+      },
+      "B": {
+        "run_lines": [
+          {
+            "run": "20260903-234608-042036",
+            "pid": 2971180,
+            "exe": "bloomery_daemon-abab7f58e67e8e9e",
+            "events": 890,
+            "threads": 10,
+            "exit": "0"
+          }
+        ],
+        "rc": 0,
+        "wall": 0.07
+      },
+      "C": {
+        "run_lines": [
+          {
+            "run": "20260903-234608-74a53f",
+            "pid": 2971810,
+            "exe": "bloomery_daemon-abab7f58e67e8e9e",
+            "events": 890,
+            "threads": 10,
+            "exit": "0"
+          }
+        ],
+        "rc": 0,
+        "wall": 0.07
+      }
+    },
+    "ab_plain_verdict": "DIVERGED",
+    "ac_task_verdict": "DIVERGED"
+  },
+  "cleanup": {
+    "clone_head_after": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "clone_restored": true,
+    "clone_porcelain_after": "",
+    "clone_clean_after": true,
+    "clone_branches_after": "* (HEAD detached at e209ed9) e209ed9 refactor: split the Python trio, verified by trace rather than pass count\n  e5-planted                 fea50b1 test(daemon): swap two independent call statements in registry tests::build_pager\n  e5-split                   e8c79be refactor(daemon): split task/registry.rs into a registry/ directory module\n  split-python-trio          e209ed9 refactor: split the Python trio, verified by trace rather than pass count",
+    "clone_cargo_lock_sha256_after": "c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca",
+    "cargo_lock_unchanged": true,
+    "source_bloomery_head_after": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "source_bloomery_porcelain_after": "",
+    "source_bloomery_unchanged": true,
+    "driver_sha256_after": "ee3eca57d85c1cfa9bc31bbeb4d2e5c49cca2e72cfa698ecba9fa252df133675",
+    "driver_unchanged": true,
+    "repo_porcelain_after": "?? docs/superpowers/specs/2026-09-02-query-cli-exit-status-finding.md\n?? rust/tests/acceptance_e5prime.py",
+    "target_bytes_after": 15718443956,
+    "sensorium_dir_bytes": 790528,
+    "target_disk_free_gb_after": 97.77,
+    "repo_disk_free_gb_after": 13.58,
+    "finished": "2026-09-03T23:46:09-0500"
+  },
+  "steps": [
+    "[23:46:00] byte-lock ok: \u00a71 == 10f2c59:docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md (sha256 2a036074ccf4, 3149 bytes)",
+    "[23:46:00] E5' preflight",
+    "[23:46:00] preflight: cleared 185 stale manifest(s) (1513858 bytes) from /mnt/extra/sensorium-rung2/bloomery-target/sensorium/manifests",
+    "[23:46:02] preflight ok: load=0.12 target_free=98.1GB driver=ee3eca57d85c arms={'A': 'e209ed9b00f7eef647fb31d0b0895a5ad3b90807', 'B': 'e8c79be1626f5808eb48a967d02a17217e614843', 'C': 'fea50b14ba453a179e94dc96ca71a89a90c35f26'}",
+    "[23:46:02] E5': three arms, four diffs (phase_e5, unchanged)",
+    "[23:46:06] E5' arm A manifests: units=4 (written by this arm: 4) fell_back=0 spawns_wrapped=8",
+    "[23:46:06] E5 arm A (e209ed9b00f7eef647fb31d0b0895a5ad3b90807): run=20260903-234606-be8f1c events=890",
+    "[23:46:07] E5' arm B manifests: units=4 (written by this arm: 2) fell_back=0 spawns_wrapped=8",
+    "[23:46:08] E5 arm B (e5-split): run=20260903-234608-042036 events=890",
+    "[23:46:08] E5' arm C manifests: units=4 (written by this arm: 2) fell_back=0 spawns_wrapped=8",
+    "[23:46:08] E5 arm C (e5-planted): run=20260903-234608-74a53f events=890",
+    "[23:46:08] E5 ab_ignore_moves: MATCH (rc=0)",
+    "[23:46:08] E5 ab_plain: DIVERGED (rc=1)",
+    "[23:46:08] E5 ac_ignore_moves: DIVERGED (rc=1)",
+    "[23:46:08] E5 ac_task: DIVERGED (rc=1)",
+    "[23:46:08] E5' names arm A: tasks=10 spawn@=4 as_predicted=True",
+    "[23:46:08] E5' names arm B: tasks=10 spawn@=4 as_predicted=True",
+    "[23:46:08] E5' names arm C: tasks=10 spawn@=4 as_predicted=True",
+    "[23:46:08] E5' coverage: fell_back per arm {'A': 0, 'B': 0, 'C': 0}",
+    "[23:46:09] cleanup: clone at e209ed9b00f7 restored=True clean=True source_unchanged=True"
+  ],
+  "refused": null,
+  "error": null,
+  "started": "2026-09-03T23:46:00-0500",
+  "finished": "2026-09-03T23:46:09-0500",
+  "assembled": {
+    "at": "2026-09-04T00:37:29-0500",
+    "from": "results-e5prime-raw.json",
+    "by": "rust/tests/acceptance_e5prime.py --assemble",
+    "note": "derived from the raw facts the run recorded, which nothing since has touched; no arm was re-run and no value re-measured"
+  }
+}

@@ -75,6 +75,12 @@ _MANIFEST_DEFAULTS = {
     "fell_back": False,
     "fallback_reason": None,
     "unreached_files": [],
+    # Present and empty, exactly as the wrapper writes it: a file the walk
+    # reached and the transformer refused is keyed here with the message, and
+    # the converter has no field for this key at all (it ignores it). A case
+    # carrying one is therefore also a check that an unknown manifest key does
+    # not make the manifest unreadable.
+    "unreached_reasons": {},
     "appended_line": {},
     # `materialize` layers the REAL `workspace_root` in ahead of this dict (a
     # case fixture cannot know that path ahead of time), so every case's own

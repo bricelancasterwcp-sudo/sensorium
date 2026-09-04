@@ -18,6 +18,11 @@ lands.
 
 ## 1. Entry decision: how should a spawned task's identity survive a move?
 
+**DECIDED 2026-09-03: (b), by Brice.** The three options below are kept as
+the record of the decision; the executing plan is
+`docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`
+(endpoint E5′, `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`).
+
 **The measured gap (E5, STOP).** `diff --ignore-moves` pairs **code objects**
 correctly across a source-file split — 28 paired, 0 added, 0 removed, on the
 bloomery `registry.rs` split the acceptance run performed. It does **not**
@@ -73,6 +78,27 @@ above, which are stated neutrally.
 dated amendment recording the rule actually shipped, and a new corpus case
 (`corpus/rust/spawn_across_move` or similar) pinning it — a rule with no
 falsifier is not a promise (`rust/HONESTY.md`'s own standard).**
+
+**Shipped 2026-09-03.** Both amendments landed: spec §3.5 and
+`rust/HONESTY.md` §3 state the `<parent> :: spawn@<qualname>#<k>` rule. Its
+falsifiers are `rust/sensorium-transform/tests/golden.rs`
+(`a_spawn_site_is_named_by_its_enclosing_fn_and_its_ordinal`, fixture
+`spawn_ordinals`), `rust/sensorium-transform/tests/edges.rs` (the
+container-scope refusal), the new corpus case `corpus/rust/spawn_across_move`
+(the spawning fn moved between two files across two runs of one crate, paired
+by `diff --ignore-moves` and seen by plain `diff`), `corpus/rust/spawned_thread`
+re-pinned to the new name, `rust/tests/mechanics.sh`, and the E5′ acceptance
+record `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`.
+
+**Measured 2026-09-03:** E5′ (does `diff --ignore-moves` pair spawned tasks
+across the move under rule (b)?) reads PASS and E5′-coverage reads PASS, but
+E5′-names reads STOP on its second conjunct — a pre-registration defect, not
+a product defect, because §1 named the trace's *stored* `task_fingerprints`
+hash (which hashes `file` by design and so cannot equal across a move) as the
+Method while its derivation column actually quoted the differ's *projected*
+values; the repair (read the conjunct on the projected comparison, or drop it
+and let E5′'s own pairing condition carry it) is a ruling owed to Brice —
+acceptance document §5.1.
 
 ## 2. Rung 3's own scope, unchanged from the spec
 
@@ -164,6 +190,46 @@ which is ranked:
   tried), or have the converter treat a 0-byte spool as "opened and wrote
   nothing" with `records_dropped` unknown (the evidence survives, at the cost
   of a spool the trace cannot bound). Source: final review 2026-09-03.
+- A spawn in an expression position the overridden container visitors skip is
+  neither rewritten nor declared. The class: a fn's SIGNATURE (an array-length
+  expression in a return type, e.g. `fn n(&self) -> [u8; { ..closure that
+  spawns.. }]`, is the shape that surfaced it), an `impl` header's self type,
+  and a trait's const-generic default. The three fn visitors descend into the
+  body only, and `visit_item_impl`/`visit_item_trait` visit `items` only.
+  Source: rung-3 entry slice 2026-09-03; class widened by the final review
+  2026-09-04.
+- `visit_trait_item_const` (an associated const's default value inside a
+  `trait` item) is a real code path — `in_item` names it exactly like
+  `visit_item_const`/`visit_impl_item_const` — but no golden or edge-case
+  fixture reaches it. Source: rung-3 entry slice 2026-09-03.
+- `diff`'s verdict vocabulary: `MATCH modulo location` prints only on the
+  thread-stream branch that has at least one causal event outside a task; a
+  trace whose events all live in tasks instead reads `verdict: MATCH -- no
+  causal event ran outside a task on either side, so the thread streams held
+  nothing to compare; the tasks below carry the whole verdict`, even when
+  code objects paired across a move (the `key:` line says so) — the wording
+  should carry "modulo location" there too. Source: rung-3 entry slice
+  2026-09-03.
+- Golden for a fn nested inside a const/static initialiser (`X::h` prefix) —
+  Source: rung-3 entry slice 2026-09-03.
+- Fixture for a REFUSED crate-root file on the WRAPPER-BINARY path — the
+  stderr line, `fell_back: false`, and the empty `files` as the driver writes
+  them, for a root refused by a synthesised error. The plan level is already
+  unit-tested: `wrapper.rs`'s
+  `a_unit_whose_crate_root_cannot_be_rewritten_is_left_wholly_alone` builds a
+  unit whose root does not parse and asserts `files`/`source_hashes`/
+  `rewrites` cleared with `unreached_reasons` surviving; `wrapper_fallback.rs`'s
+  `a_file_the_transformer_refused_names_its_reason_on_both_channels` covers a
+  refused child file on the binary path. Source: rung-3 entry slice 2026-09-03
+  (fix round 1); narrowed by the final review 2026-09-04.
+- No unit tests on the acceptance instruments (`rust/tests/acceptance*.py`,
+  `render_acceptance.py`) — repo-wide; mitigated by byte-identical re-renders
+  in review. Source: rung-3 entry slice 2026-09-03 (Task 5 review).
+- The converter's `spool.rs` tests create a temp dir under
+  `std::env::temp_dir()` and never remove it
+  (`rust/cargo-sensorium/src/convert/spool.rs:534`, `:549`, `:575`) — the
+  module's pattern, not a regression of the newest of the three; a scope guard
+  would tidy all three. Source: final review 2026-09-04.
 
 None of the above changes a shipped behaviour; each is either untested
 surface, a naming/factoring nit, or an operational note. They are listed here

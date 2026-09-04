@@ -12,9 +12,11 @@
 
 mod common;
 
+use std::collections::BTreeMap;
+
 use common::{expand, read, top_level_unit_static, FILE, META};
 
-use sensorium_transform::{transform, RetKind, Transformed};
+use sensorium_transform::{transform, RetKind, SpawnSite, Transformed};
 
 /// Run one golden case and assert the invariants every case shares: exact
 /// output, line count preserved, the result re-parses, and the unit static is a
@@ -59,6 +61,19 @@ fn spawns(t: &Transformed) -> Vec<(u32, bool, Option<&str>)> {
     t.spawns
         .iter()
         .map(|s| (s.line, s.wrapped, s.reason))
+        .collect()
+}
+
+/// `(line, qualname, ordinal, wrapped, reason)`.
+type SpawnName<'a> = (u32, &'a str, Option<u32>, bool, Option<&'a str>);
+
+/// Every field of a spawn entry that names the task, in one tuple: the manifest
+/// promises `qualname` on every entry and `ordinal` on exactly the wrapped ones,
+/// so both are read here rather than assumed.
+fn spawn_names(t: &Transformed) -> Vec<SpawnName<'_>> {
+    t.spawns
+        .iter()
+        .map(|s| (s.line, s.qualname.as_str(), s.ordinal, s.wrapped, s.reason))
         .collect()
 }
 
@@ -651,6 +666,121 @@ fn spawn_shapes_that_are_left_alone_are_declared_with_a_reason() {
     assert!(
         !t.source.contains("spawn_child"),
         "none of these shapes may be rewritten"
+    );
+}
+
+#[test]
+fn a_spawn_site_is_named_by_its_enclosing_fn_and_its_ordinal() {
+    // The seven shapes the name rule has to get right, plus a `Builder::spawn`
+    // between two wrapped sites of one fn: it is declared, takes no ordinal,
+    // and does not renumber the wrapped sites around it.
+    let t = run("spawn_ordinals", 7);
+    assert_eq!(
+        sites(&t),
+        [
+            (7, "a", 13, RetKind::Value),
+            (8, "T::m", 23, RetKind::Value),
+            (9, "outer", 35, RetKind::Value),
+            (10, "outer::inner", 36, RetKind::Value),
+            (11, "c", 42, RetKind::Value),
+            (12, "X::drop", 48, RetKind::Unit),
+            // The twins: two `fn fmt` for one self type, two sites, one
+            // qualname. A `const`/`static` is not a fn item and is no site.
+            (13, "T::fmt", 58, RetKind::Value),
+            (14, "T::fmt", 65, RetKind::Value),
+            (15, "tests::t", 95, RetKind::Unit),
+        ]
+    );
+    assert_eq!(
+        spawn_names(&t),
+        [
+            // Two wrapped sites in one fn, numbered in source order ...
+            (14, "a", Some(1), true, None),
+            // ... with a declared shape between them that consumes no ordinal.
+            (16, "a", None, false, Some("builder")),
+            (18, "a", Some(2), true, None),
+            // An inherent method: `Type::method`, the manifest's own spelling.
+            (24, "T::m", Some(1), true, None),
+            // An associated const's initialiser: the CONST names it, not the
+            // `impl` -- `T::F`, not `T` (and not shared with `T::m`).
+            (30, "T::F", Some(1), true, None),
+            // A fn item nested in a fn body.
+            (37, "outer::inner", Some(1), true, None),
+            // A closure pushes no scope: the spawn belongs to the fn item.
+            (43, "c", Some(1), true, None),
+            // A trait impl names the SELF TYPE, never the trait.
+            (49, "X::drop", Some(1), true, None),
+            // N6-iv: `Display::fmt` and `Debug::fmt` share `T::fmt`, so the
+            // ordinals CONTINUE across the twins in source order.
+            (59, "T::fmt", Some(1), true, None),
+            (66, "T::fmt", Some(2), true, None),
+            // Initialisers at file scope: a `static`, a `const`, a `static`
+            // whose closure is nested in a slice of tuples, and a `static` in
+            // an inline module. None is a fn item; each still names its child.
+            (72, "F", Some(1), true, None),
+            (77, "G", Some(1), true, None),
+            (82, "TABLE", Some(1), true, None),
+            (88, "m::H", Some(1), true, None),
+            // An inline module.
+            (96, "tests::t", Some(1), true, None),
+        ]
+    );
+    // `F` the file-scope static and `T::F` the associated const are two
+    // qualnames, not one: each child is named `F#1` and `T::F#1`.
+    assert!(
+        t.source.contains(r#"spawn_child("F#1", "#),
+        "got: {}",
+        t.source
+    );
+    assert!(
+        t.source.contains(r#"spawn_child("T::F#1", "#),
+        "got: {}",
+        t.source
+    );
+}
+
+#[test]
+fn every_wrapped_ordinal_is_that_sites_source_order_rank_in_its_qualname() {
+    // The rule N1 states, re-derived from the OUTSIDE for every golden that has
+    // a spawn: rank the wrapped entries of one qualname by line, and the
+    // ordinal must be that rank. A declared shape carries no ordinal at all.
+    let mut with_spawns = 0usize;
+    for case in common::CASES {
+        let t = transform(&read(case, "in"), FILE, META, 7, true)
+            .unwrap_or_else(|e| panic!("{case}: transform failed: {e}"));
+        if t.spawns.is_empty() {
+            continue;
+        }
+        with_spawns += 1;
+        for s in &t.spawns {
+            assert_eq!(
+                s.wrapped,
+                s.ordinal.is_some(),
+                "{case}: only a wrapped site has an ordinal ({s:?})"
+            );
+        }
+        let mut by_qualname: BTreeMap<&str, Vec<&SpawnSite>> = BTreeMap::new();
+        for s in t.spawns.iter().filter(|s| s.wrapped) {
+            by_qualname.entry(s.qualname.as_str()).or_default().push(s);
+        }
+        for (qualname, mut group) in by_qualname {
+            // `t.spawns` is already in byte-offset order and this sort is
+            // stable, so two sites on one line keep their source order.
+            group.sort_by_key(|s| s.line);
+            for (rank, s) in group.iter().enumerate() {
+                let expected = u32::try_from(rank + 1).expect("a small rank");
+                assert_eq!(
+                    s.ordinal,
+                    Some(expected),
+                    "{case}: {qualname} at line {} is rank {expected} in source order",
+                    s.line
+                );
+            }
+        }
+    }
+    assert!(
+        with_spawns >= 4,
+        "only {with_spawns} goldens have spawns: this test is checking nothing"
     );
 }
 

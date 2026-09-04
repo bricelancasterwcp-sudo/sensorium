@@ -563,4 +563,29 @@ mod tests {
         assert_eq!(sites[&0].file, "a/lib.rs");
         assert_eq!(sites[&1].ret, RetKind::Value);
     }
+
+    /// The wrapper writes `unreached_reasons` (why a file the walk reached was
+    /// still not rewritten) and this converter has nothing to say about it: the
+    /// trace format carries no such key. That only works because this struct
+    /// does NOT deny unknown fields -- add `#[serde(deny_unknown_fields)]` and
+    /// every manifest the current wrapper writes becomes unreadable, taking the
+    /// whole unit's sites down with it.
+    #[test]
+    fn a_manifest_key_this_converter_has_no_field_for_is_ignored_not_refused() {
+        let dir = std::env::temp_dir().join(format!("manifest-unknown-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("m.json");
+        std::fs::write(
+            &path,
+            r#"{"unit":"a","crate_name":"c","crate_type":"lib",
+               "files":{"a/lib.rs":[{"site":0,"qualname":"root","firstlineno":1,"ret":"unit"}]},
+               "skipped":[],"spawns":[],"source_hashes":{},"fell_back":false,"fallback_reason":null,
+               "unreached_files":["a/bad.rs"],
+               "unreached_reasons":{"a/bad.rs":"spawn site outside any named item"}}"#,
+        )
+        .unwrap();
+        let m = Manifest::read(&path).expect("a manifest with an extra key still reads");
+        assert_eq!(m.unreached_files, ["a/bad.rs"]);
+        assert_eq!(m.sites_by_index()[&0].qualname, "root");
+    }
 }

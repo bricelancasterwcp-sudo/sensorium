@@ -146,6 +146,7 @@ pub const CASES: &[&str] = &[
     "run_drop_order",
     "run_mutex_guard",
     "shebang_utf8",
+    "spawn_ordinals",
     "spawn_shapes",
     "spawn_thread",
     "struct_tail",

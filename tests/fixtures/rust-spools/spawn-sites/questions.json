@@ -1,0 +1,18 @@
+[
+  {
+    "id": "info-counts-the-declared-spawn-site-as-well-as-the-wrapped-one",
+    "ask": "A manifest with one WRAPPED spawn site and one DECLARED one (a `Builder::spawn` chain the transformer left alone) -- does `info` count both and say how many were wrapped, rather than reporting only the sites it rewrote?",
+    "command": ["info", "$RUN"],
+    "expect_exit": 0,
+    "expect_contains": ["2 spawn sites (1 wrapped)"],
+    "expect_absent": ["1 spawn sites", "0 spawn sites"]
+  },
+  {
+    "id": "the-spawned-task-is-named-by-qualname-and-ordinal",
+    "ask": "Does a spawned task's name reach the Python reader in the rung-3 shape `<parent> :: spawn@<qualname>#<k>` -- the name that survives a source-file move -- rather than the rung-2 `spawn@<file>:<line>`?",
+    "command": ["tree", "$RUN"],
+    "expect_exit": 0,
+    "expect_contains": ["task t2: main :: spawn@Registry::spawn_worker#1"],
+    "expect_absent": ["spawn@src/lib.rs:"]
+  }
+]

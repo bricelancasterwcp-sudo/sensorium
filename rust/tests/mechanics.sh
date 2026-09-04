@@ -517,13 +517,15 @@ elapsed "recording" "$T0"
 section "naming, panics, children and durability"
 T0="$(now_s)"
 
-# `spawn_child` naming (§3). The site's LINE is read out of the source, so this
-# is a check of the name AND of the line number the transformer baked in.
-# The site's LINE, read out of the source. An absent call leaves it empty, and
-# the check below then fails naming a task nothing could be called -- which is
-# the right answer when the spawn shape the naming rests on has gone.
-SPAWN_LINE="$( { grep -n 'thread::spawn(' "$WS/probe-app/tests/threads.rs" || true; } | head -1 | cut -d: -f1)"
-WANT_TASK="a_spawned_thread_does_instrumented_work :: spawn@probe-app/tests/threads.rs:$SPAWN_LINE"
+# `spawn_child` naming (§3). Since 2026-09-03 the site is the ENCLOSING NAMED
+# ITEM's file-local qualname plus the site's 1-based rank among that item's
+# wrapped spawn sites -- not `<file>:<line>` -- so a spawn that moves with its
+# fn keeps its name. `threads.rs` holds one wrapped spawn, directly in the test
+# fn's body, so the qualname is the test's own name and the ordinal is 1. The
+# name being spelled out (rather than derived from the source, as the line
+# number used to be) is the point: a derivation that follows the source cannot
+# fail when the transformer names the site differently.
+WANT_TASK="a_spawned_thread_does_instrumented_work :: spawn@a_spawned_thread_does_instrumented_work#1"
 if TH_DB="$(trace_for "$TRACES" threads- 2>"$LOGS/trace_for.threads")"; then
   note "[naming] tasks in the threads trace:"
   tasks_of "$TH_DB" | sed 's/^/      /'
@@ -583,8 +585,9 @@ else
 fi
 
 # Durability (§4): a thread still blocked when the process exited.
-BLOCK_LINE="$( { grep -n 'thread::spawn(' "$WS/probe-app/tests/blocked.rs" || true; } | head -1 | cut -d: -f1)"
-WANT_LIVE="a_worker_blocks_past_the_end_of_the_test :: spawn@probe-app/tests/blocked.rs:$BLOCK_LINE"
+# Named by qualname and ordinal, as above: `blocked.rs`'s one wrapped spawn is
+# in the test fn's own body, so `<test fn>#1`.
+WANT_LIVE="a_worker_blocks_past_the_end_of_the_test :: spawn@a_worker_blocks_past_the_end_of_the_test#1"
 if BL_DB="$(trace_for "$TRACES" blocked- 2>"$LOGS/trace_for.blocked")"; then
   BL_LIVE="$(meta_of "$BL_DB" live_threads)"
   BL_GAPS="$(meta_of "$BL_DB" seq_gaps)"

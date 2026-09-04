@@ -495,16 +495,18 @@ start order flips between a recording and its rerun still MATCH, because
 tasks are compared by content and the interleaving is not; re-recorded with
 one task's content branching, the verdict is DIVERGED, naming that task.
 
-Thirteen more cases live under `corpus/rust/`, recorded by the Rust recorder
+Fourteen more cases live under `corpus/rust/`, recorded by the Rust recorder
 instead: seven ports of the cases above (the same class of planted bug,
 asked differently, because that recorder captures return values and not
-arguments), four that only Rust has — a caught panic turned into an `Ok`,
+arguments), five that only Rust has — a caught panic turned into an `Ok`,
 an `abort()` that leaves its frames open and its exit `unwitnessed`, libtest
 under `--test-threads=1` against `=4`, a worker thread named for the test
-that spawned it — and two whose pinned answer is a REFUSAL, where the
-question needs object identity or per-line events that recorder declares it
-does not produce. They need a built `cargo-sensorium`
-(`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on `PATH`); without it they are
+that spawned it and the item the spawn sits in, and a spawning function that
+moves to another file without the worker's name changing — and two whose
+pinned answer is a REFUSAL, where the question needs object identity or
+per-line events that recorder declares it does not produce. They need a
+built `cargo-sensorium` (`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on
+`PATH`); without it they are
 reported skipped BY NAME and counted apart from the passes, never as them.
 `corpus/rust/README.md` is the case-by-case list.
 
@@ -546,17 +548,34 @@ tests plus `spawn_child`-named worker threads as tasks. `runs`, `info`,
 refactor — all answer on a Rust trace; `info` adds the toolchain, per-unit
 instrumentation counts, child runs, and live threads at exit.
 
-**One known gap, measured, not yet fixed.** `diff --ignore-moves` pairs code
+**One gap, measured, then fixed.** `diff --ignore-moves` pairs code
 objects correctly across a file split (28/28 paired, 0 added, 0 removed, in
 the acceptance run's own split of a real file), but a spawned worker thread's
-task NAME embeds its spawn site (`<parent task> :: spawn@<file>:<line>`), so
-moving that call site during the same split renames the task and the
-comparison reads DIVERGED even though nothing about the program's behaviour
+task NAME embedded its spawn site (`<parent task> :: spawn@<file>:<line>`),
+so moving that call site during the same split renamed the task and the
+comparison read DIVERGED even though nothing about the program's behaviour
 changed. Measured on bloomery's own `registry.rs` split — four spawned-task
 names moved, their stream hashes identical pairwise on both sides:
 `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3–§4,
-endpoint E5. The fix is an open entry decision for the next rung, not yet
-made: `docs/superpowers/specs/2026-09-02-sensorium-rung3-inbox.md`.
+endpoint E5. **Fixed 2026-09-03** (rung-3 entry decision, Brice's ruling
+(b)): a spawned task is now named `<parent task> :: spawn@<qualname>#<k>` —
+the enclosing named item's file-local qualname plus a source-order ordinal
+among its wrapped spawn sites, neither of which a file move changes
+(`docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`,
+decisions N1–N6; `rust/HONESTY.md` §3). Verified by E5′ on the endpoint the
+fix exists for, which reads **PASS** (§4): across that same split, 28 code
+objects pair and all ten task streams pair, where rung 2 read DIVERGED; the
+four spawned children carry byte-identical names on both sides (E5′-names'
+first conjunct, 8 of 8 exactly the predicted string).
+**E5′-coverage** reads **PASS** (0 units fell back). The record's
+overall line is **STOP**, on a third endpoint, **E5′-names**, whose second
+conjunct asked that the multiset of `(name, hash)` pairs be equal across the
+split while naming the trace's STORED hash as the source — and that hash is
+defined over `file`, so a file move changes it by construction. That is a
+defect in the pre-registration rather than in the naming rule; it was read
+once, no repair was applied after the number, and a **ruling is owed to
+Brice**. Read §4 and §5.1 before citing any of this:
+`docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`.
 
 ### What refuses
 

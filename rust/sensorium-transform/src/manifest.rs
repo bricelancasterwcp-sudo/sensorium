@@ -6,9 +6,23 @@
 //! recorder deliberately does not do, it is the DECLARATION: `skipped` carries
 //! the fn items that were left alone and why (`rust/HONESTY.md` §8 items 5 and
 //! 6), `spawns` the thread-spawning shapes that were not rewritten (§3),
-//! `unreached_files` the modules the walk could not reach (§8 item 8), and
+//! `unreached_files` the modules the walk could not reach (§8 item 8),
+//! `unreached_reasons` what a file the walk DID reach failed with, and
 //! `fell_back`/`fallback_reason` a unit that is not instrumented at all (§8
 //! item 7).
+//!
+//! `unreached_reasons` (added 2026-09-03) is keyed by the same
+//! workspace-relative path as `unreached_files` and holds only the entries the
+//! wrapper has an actual message for -- in practice, the files
+//! [`crate::transform`] returned an `Err` for. A file the transformer REFUSED
+//! (an unparseable file, or one of this crate's own synthesised errors: a spawn
+//! with no named item around it, a rewrite that moved a line, an ordinal that
+//! disagrees with source order) is a different fact from a module path the walk
+//! never resolved, and before this key both arrived at a reader as one
+//! undifferentiated list with the message dropped. Nothing downstream reads it:
+//! `docs/TRACE-FORMAT.md` gives it no trace key, and the converter's own
+//! `Manifest` has no field for it (it ignores unknown keys) -- so it is a
+//! record for a person, not an input to a join.
 
 use std::collections::BTreeMap;
 
@@ -48,6 +62,15 @@ pub struct Manifest {
     /// absolute crate root, or `wrapper: <error>`.
     pub fallback_reason: Option<String>,
     pub unreached_files: Vec<String>,
+    /// Why, for the subset of `unreached_files` the wrapper has words for: the
+    /// parse error, or one of the errors this crate synthesises. A file the
+    /// wrapper could not even READ is absent from here on purpose -- there is
+    /// no message to quote, and an invented one would be worse than the
+    /// silence. Serialised always, empty when there is nothing to say --
+    /// a key that appears only when non-empty makes "no reasons" and "a reader
+    /// that predates the key" the same bytes. Filled by the wrapper: this crate
+    /// never opens a file and never sees its own errors come back.
+    pub unreached_reasons: BTreeMap<String, String>,
     /// Per file: did the crate-root static have to be APPENDED past the end of
     /// the text, adding a final line? True only for the item-free crate roots
     /// [`crate::transform`] documents. Recorded per file because a consumer
@@ -76,6 +99,7 @@ impl Manifest {
             fell_back: false,
             fallback_reason: None,
             unreached_files: Vec::new(),
+            unreached_reasons: BTreeMap::new(),
             appended_line: BTreeMap::new(),
             workspace_root: String::new(),
         }
