@@ -97,8 +97,8 @@ a product defect, because §1 named the trace's *stored* `task_fingerprints`
 hash (which hashes `file` by design and so cannot equal across a move) as the
 Method while its derivation column actually quoted the differ's *projected*
 values; the repair (read the conjunct on the projected comparison, or drop it
-and let E5′'s own pairing condition carry it) is a ruling owed to Brice —
-acceptance document §5.1.
+and let E5′'s own pairing condition carry it) was ruled 2026-09-04: (b)
+withdrawn; see the record §5.1.
 
 ## 2. Rung 3's own scope, unchanged from the spec
 

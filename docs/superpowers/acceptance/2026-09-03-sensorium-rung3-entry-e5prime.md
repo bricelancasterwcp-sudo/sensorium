@@ -401,6 +401,22 @@ reading the number is exactly what the protocol forbids:
 
 Ruling owed to Brice. Until then E5′-names stands as STOP with 4 of 4.
 
+**Ruling 2026-09-04 (Claude, under design authority delegated by Brice the
+same day).** Repair 2 is adopted: the hash conjunct is dropped from
+E5′-names, and the pairing question it was standing in for is carried
+instead by E5′'s own `every task paired` condition, which read all matched.
+This is not a re-reading of the number — repair 1 is not silently applied —
+because the conjunct was unsatisfiable by construction, not merely unmet:
+stored task fingerprints are move-sensitive by design (`TRACE-FORMAT.md` §7
+hashes `file` per causal event; `docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md`
+§5.4 keys code identity by file), so no implementation of the naming rule,
+including a perfect one, could have satisfied a conjunct comparing stored
+hashes across a file move. The STOP row above stands exactly as measured;
+this ruling withdraws the conjunct as mis-specified, it does not revise the
+recorded outcome. No E5″ is run: E5′'s `every task paired` reading is
+already a measured condition on this record (§4), and an E5″ would only
+restate it.
+
 One instrument correction, made after the run and changing no measured value:
 the reported quantity "(name, hash) pairs whose STORED hash differs, A vs B"
 was computed by a positional zip over the two hash-sorted lists, which is not

@@ -573,8 +573,9 @@ conjunct asked that the multiset of `(name, hash)` pairs be equal across the
 split while naming the trace's STORED hash as the source — and that hash is
 defined over `file`, so a file move changes it by construction. That is a
 defect in the pre-registration rather than in the naming rule; it was read
-once, no repair was applied after the number, and a **ruling is owed to
-Brice**. Read §4 and §5.1 before citing any of this:
+once, no repair was applied after the number, and it was **ruled 2026-09-04:
+(b) withdrawn; see the record §5.1**. Read §4 and §5.1 before citing any of
+this:
 `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`.
 
 ### What refuses
