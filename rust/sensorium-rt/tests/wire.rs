@@ -26,7 +26,7 @@ fn header_and_records_are_exactly_the_documented_bytes() {
         format!("{}.1.spool", run.pid),
         "spool files are named <pid>.<thread_serial>.spool"
     );
-    assert_eq!(s.version, 2, "wire version");
+    assert_eq!(s.version, 3, "wire version");
     assert_eq!(s.flags, 0, "flags are reserved and zero in v1");
     assert_eq!(s.serial, 1, "the main thread is serial 1");
     assert_eq!(s.name, "main", "the header carries the thread name");
@@ -156,7 +156,11 @@ fn the_proc_header_carries_the_process_and_its_units() {
     );
     assert_eq!(h.get("units").get("0").str(), "scenario-unit-a");
     assert!(h.get("refused").is_null(), "nothing was refused");
-    assert_eq!(h.get("rt_version").str(), "sensorium-rt 0.1.0");
+    assert_eq!(h.get("rt_version").str(), "sensorium-rt 0.3.0");
+    assert!(
+        h.get("capabilities").get("err_flow").bool(),
+        "the runtime declares its own Rust-only capability keys (design R9)"
+    );
 }
 
 /// A thread with no name: `name_len` is 0 and the records start at byte 28, the

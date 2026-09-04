@@ -8,17 +8,26 @@
 //! transcribed from:
 //!
 //! ```text
-//! file header:  b"SNSR" u8 version=2 u8 flags=0 u16 name_len u32 thread_serial
+//! file header:  b"SNSR" u8 version=3 u8 flags=0 u16 name_len u32 thread_serial
 //!               u64 records_dropped u64 truncated  name_bytes
 //!               (fixed 28 bytes, then name_bytes; records start at 28 + name_len)
-//! record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome  u16 payload_len
+//! record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome_or_how  u16 payload_len
 //!               [payload_len bytes]
 //! kind:         0 = UNWRITTEN (the reader STOPS here), 1 = CALL, 2 = RETURN,
-//!               3 = PANIC, 255 = THREAD_END
-//! outcome:      RETURN only: 0 none, 1 ok, 2 err, 3 panic; 0 on every other kind
+//!               3 = PANIC, 4 = RAISE, 5 = HANDLED, 255 = THREAD_END
+//! outcome:      RETURN only: 0 none, 1 ok, 2 err, 3 panic; 0 on CALL, PANIC, THREAD_END
+//! how:          RAISE/HANDLED only, in the same byte: 1 try, 2 sink_ok,
+//!               3 sink_unwrap_or, 4 sink_let_underscore, 5 arm_propagate,
+//!               6 arm_handled, 7 arm_ambiguous, 8 exit (converter-only, never on the wire)
 //! site:         unit_id in bits 31..24, site index in bits 23..0
 //! RETURN payload:  u8 tag (0 = no value, 1 = debug text follows, 2 = unread)
-//!                  u8 truncated(0|1) then UTF-8 text
+//!                  u8 truncated(0|1)
+//!                  then ON OUTCOME 2 (err) ONLY: u8 type_flags (bit0 present, bit1 truncated)
+//!                  u16 type_len, type UTF-8
+//!                  then the value's UTF-8 text (rest)
+//! RAISE/HANDLED payload:  u8 flags (bit0 msg present, bit1 msg truncated,
+//!                  bit2 type truncated, bit3 type present)
+//!                  u16 type_len, type UTF-8, then the Err's UTF-8 message (rest)
 //! PANIC payload:   u16 loc_len, loc UTF-8 ("<file>:<line>:<col>" as the hook saw it),
 //!                  then the message UTF-8 (rest)
 //! ```
@@ -33,6 +42,8 @@ pub const KIND_UNWRITTEN: u8 = 0;
 pub const KIND_CALL: u8 = 1;
 pub const KIND_RETURN: u8 = 2;
 pub const KIND_PANIC: u8 = 3;
+pub const KIND_RAISE: u8 = 4;
+pub const KIND_HANDLED: u8 = 5;
 pub const KIND_THREAD_END: u8 = 255;
 
 pub const OUTCOME_NONE: u8 = 0;
@@ -43,6 +54,19 @@ pub const OUTCOME_PANIC: u8 = 3;
 pub const TAG_NO_VALUE: u8 = 0;
 pub const TAG_DEBUG: u8 = 1;
 pub const TAG_UNREAD: u8 = 2;
+
+pub const HOW_TRY: u8 = 1;
+pub const HOW_SINK_OK: u8 = 2;
+pub const HOW_SINK_UNWRAP_OR: u8 = 3;
+pub const HOW_SINK_LET_UNDERSCORE: u8 = 4;
+pub const HOW_ARM_PROPAGATE: u8 = 5;
+pub const HOW_ARM_HANDLED: u8 = 6;
+pub const HOW_ARM_AMBIGUOUS: u8 = 7;
+
+/// The two caps the wire block names, so a test can assert a cut length without
+/// asking the writer what its own cap is.
+pub const TYPE_CAP: usize = 120;
+pub const MSG_CAP: usize = 200;
 
 /// Fixed part of the file header, before the thread name.
 pub const HEADER_FIXED: usize = 28;
@@ -194,7 +218,9 @@ impl Record {
         self.site & 0x00ff_ffff
     }
 
-    /// `(tag, truncated, text)` of a RETURN payload.
+    /// `(tag, truncated, text)` of a RETURN payload. On outcome 2 (`err`) the
+    /// error-type block sits between the flags and the text, so the text starts
+    /// past it; on every other outcome the payload is what wire v2 wrote.
     pub fn ret_value(&self) -> (u8, bool, String) {
         assert_eq!(self.kind, KIND_RETURN, "ret_value on a non-RETURN record");
         assert!(
@@ -205,9 +231,96 @@ impl Record {
         let tag = self.payload[0];
         let trunc = self.payload[1];
         assert!(trunc <= 1, "truncated flag is 0 or 1, got {trunc}");
-        let text = String::from_utf8(self.payload[2..].to_vec())
+        let at = if self.outcome == OUTCOME_ERR {
+            self.err_type_block().0
+        } else {
+            2
+        };
+        let text = String::from_utf8(self.payload[at..].to_vec())
             .unwrap_or_else(|e| panic!("RETURN text is not UTF-8: {e}"));
         (tag, trunc == 1, text)
+    }
+
+    /// `(end offset, type, truncated)` of an `err` RETURN's type block.
+    fn err_type_block(&self) -> (usize, Option<String>, bool) {
+        assert_eq!(
+            self.outcome, OUTCOME_ERR,
+            "only an err RETURN carries an error type"
+        );
+        assert!(
+            self.payload.len() >= 5,
+            "an err RETURN carries u8 tag, u8 truncated, u8 type_flags, u16 type_len, got {:?}",
+            self.payload
+        );
+        let flags = self.payload[2];
+        assert!(flags <= 3, "type_flags has two bits, got {flags:#b}");
+        let len = u16::from_le_bytes(self.payload[3..5].try_into().unwrap()) as usize;
+        let end = 5 + len;
+        assert!(
+            end <= self.payload.len(),
+            "type_len {len} runs past the {}-byte payload",
+            self.payload.len()
+        );
+        let text = String::from_utf8(self.payload[5..end].to_vec())
+            .unwrap_or_else(|e| panic!("RETURN error type is not UTF-8: {e}"));
+        let present = flags & 1 == 1;
+        assert!(
+            present || len == 0,
+            "a type block that is not present cannot carry {len} bytes"
+        );
+        (end, present.then_some(text), flags & 2 == 2)
+    }
+
+    /// `(type, truncated)` of an `err` RETURN. `None` means the probe could not
+    /// name the error type at all -- never "the type was empty".
+    pub fn ret_err_type(&self) -> (Option<String>, bool) {
+        let (_, text, truncated) = self.err_type_block();
+        (text, truncated)
+    }
+
+    /// The `how`, type and message of a RAISE or HANDLED record.
+    pub fn err_site(&self) -> ErrSite {
+        assert!(
+            self.kind == KIND_RAISE || self.kind == KIND_HANDLED,
+            "err_site on a kind-{} record",
+            self.kind
+        );
+        assert!(
+            self.payload.len() >= 3,
+            "a RAISE/HANDLED payload is at least u8 flags and u16 type_len, got {:?}",
+            self.payload
+        );
+        let flags = self.payload[0];
+        assert!(flags <= 0b1111, "flags has four bits, got {flags:#b}");
+        let type_len = u16::from_le_bytes(self.payload[1..3].try_into().unwrap()) as usize;
+        let end = 3 + type_len;
+        assert!(
+            end <= self.payload.len(),
+            "type_len {type_len} runs past the {}-byte payload",
+            self.payload.len()
+        );
+        let type_present = flags & 0b1000 != 0;
+        assert!(
+            type_present || type_len == 0,
+            "an absent type cannot carry {type_len} bytes"
+        );
+        let type_name = String::from_utf8(self.payload[3..end].to_vec())
+            .unwrap_or_else(|e| panic!("RAISE/HANDLED type is not UTF-8: {e}"));
+        let msg = String::from_utf8(self.payload[end..].to_vec())
+            .unwrap_or_else(|e| panic!("RAISE/HANDLED message is not UTF-8: {e}"));
+        let msg_present = flags & 0b0001 != 0;
+        assert!(
+            msg_present || msg.is_empty(),
+            "an absent message cannot carry {:?}",
+            msg
+        );
+        ErrSite {
+            how: self.outcome,
+            type_name: type_present.then_some(type_name),
+            msg: msg_present.then_some(msg),
+            msg_truncated: flags & 0b0010 != 0,
+            type_truncated: flags & 0b0100 != 0,
+        }
     }
 
     /// `(location, message)` of a PANIC payload. The length field covers the
@@ -233,6 +346,16 @@ impl Record {
             .unwrap_or_else(|e| panic!("PANIC message is not UTF-8: {e}"));
         (loc, msg)
     }
+}
+
+/// A RAISE or HANDLED record, unpacked. `None` is *absent*, never empty.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ErrSite {
+    pub how: u8,
+    pub type_name: Option<String>,
+    pub msg: Option<String>,
+    pub msg_truncated: bool,
+    pub type_truncated: bool,
 }
 
 #[derive(Debug)]
@@ -338,18 +461,32 @@ impl SpoolFile {
 
     /// The one RETURN record for `site_index`, asserting there is exactly one.
     pub fn the_return(&self, site_index: u32) -> Record {
+        self.the_record(KIND_RETURN, site_index)
+    }
+
+    /// The one record of `kind` at `site_index`, asserting there is exactly one.
+    pub fn the_record(&self, kind: u8, site_index: u32) -> Record {
         let mut hits: Vec<Record> = self
-            .of_kind(KIND_RETURN)
+            .of_kind(kind)
             .into_iter()
             .filter(|r| r.site_index() == site_index)
             .collect();
         assert_eq!(
             hits.len(),
             1,
-            "expected exactly one RETURN at site {site_index}, found {}: {hits:?}",
+            "expected exactly one kind-{kind} record at site {site_index}, found {}: {hits:?}",
             hits.len()
         );
         hits.pop().unwrap()
+    }
+
+    /// Every RAISE and HANDLED record, in wire order, as `(kind, site, unpacked)`.
+    pub fn err_sites(&self) -> Vec<(u8, u32, ErrSite)> {
+        self.records
+            .iter()
+            .filter(|r| r.kind == KIND_RAISE || r.kind == KIND_HANDLED)
+            .map(|r| (r.kind, r.site_index(), r.err_site()))
+            .collect()
     }
 }
 
@@ -592,6 +729,13 @@ impl Json {
         match self {
             Json::Obj(m) => m,
             other => panic!("expected an object, got {other:?}"),
+        }
+    }
+
+    pub fn bool(&self) -> bool {
+        match self {
+            Json::Bool(b) => *b,
+            other => panic!("expected a bool, got {other:?}"),
         }
     }
 

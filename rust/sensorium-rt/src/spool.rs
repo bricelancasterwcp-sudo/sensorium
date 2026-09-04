@@ -1,20 +1,28 @@
 //! The on-disk wire format: one `MAP_SHARED` spool file per emitting thread,
 //! and the per-process JSON header beside them.
 //!
-//! Wire format v2 (verbatim from the plan; a converter is written against it,
-//! so nothing here may drift):
+//! Wire format v3 (verbatim from the plan; a converter is written against it,
+//! so nothing here may drift). v3 adds the two err-flow kinds and the error type
+//! on an `err` RETURN; every other payload is byte-identical to v2:
 //!
 //! ```text
 //! spool file:   <SENSORIUM_SPOOL>/<pid>.<thread_serial>.spool   -- one per emitting thread, MAP_SHARED
-//! file header:  b"SNSR" u8 version=2 u8 flags=0 u16 name_len u32 thread_serial u64 records_dropped u64 truncated  name_bytes
+//! file header:  b"SNSR" u8 version=3 u8 flags=0 u16 name_len u32 thread_serial u64 records_dropped u64 truncated  name_bytes
 //!               (fixed 28 bytes, then name_bytes; records start at 28 + name_len; records_dropped and truncated are
 //!                rewritten IN PLACE through the mapping and are final only once THREAD_END is present)
-//! record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome  u16 payload_len  [payload_len bytes]
+//! record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome_or_how  u16 payload_len  [payload_len bytes]
 //! kind:         0 = UNWRITTEN (the mapped tail; the reader STOPS at the first kind 0), 1 = CALL, 2 = RETURN,
-//!               3 = PANIC, 255 = THREAD_END
-//! outcome:      RETURN only: 0 none, 1 ok, 2 err, 3 panic; 0 on every other kind
+//!               3 = PANIC, 4 = RAISE, 5 = HANDLED, 255 = THREAD_END
+//! outcome:      RETURN only: 0 none, 1 ok, 2 err, 3 panic; 0 on CALL, PANIC and THREAD_END
+//! how:          RAISE/HANDLED only, in the same byte: 1 try, 2 sink_ok, 3 sink_unwrap_or, 4 sink_let_underscore,
+//!               5 arm_propagate, 6 arm_handled, 7 arm_ambiguous, 8 exit (converter-synthesised only, NEVER on the wire)
 //! site:         unit_id in bits 31..24, site index in bits 23..0; 0 on PANIC and THREAD_END
-//! RETURN payload:  u8 tag (0 = no value, 1 = debug text follows, 2 = unread) u8 truncated(0|1) then UTF-8 text
+//! RETURN payload:  u8 tag (0 = no value, 1 = debug text follows, 2 = unread) u8 truncated(0|1)
+//!                  then, ON OUTCOME 2 (err) ONLY: u8 type_flags (bit0 type present, bit1 type truncated)
+//!                  u16 type_len, type UTF-8
+//!                  then the value's UTF-8 text (rest)
+//! RAISE/HANDLED payload:  u8 flags (bit0 msg present, bit1 msg truncated, bit2 type truncated, bit3 type present)
+//!                  u16 type_len, type UTF-8, then the Err's UTF-8 message (rest)
 //! PANIC payload:   u16 loc_len, loc UTF-8 ("<file>:<line>:<col>" as the hook saw it), then the message UTF-8 (rest)
 //! ```
 //!
@@ -54,7 +62,7 @@ use crate::ffi;
 use crate::sha256::{hex_prefix, Sha256};
 
 pub(crate) const MAGIC: [u8; 4] = *b"SNSR";
-pub(crate) const VERSION: u8 = 2;
+pub(crate) const VERSION: u8 = 3;
 pub(crate) const FLAGS: u8 = 0;
 
 /// Fixed part of the file header, before the thread name.
@@ -74,6 +82,13 @@ pub(crate) const KIND_CALL: u8 = 1;
 pub(crate) const KIND_RETURN: u8 = 2;
 #[allow(dead_code)] // written by the panic hook (Task 3); pinned here so the format has one home.
 pub(crate) const KIND_PANIC: u8 = 3;
+/// An `Err` seen at a site that lets it OUT of the frame: a `?`, an
+/// `Err(..) =>` arm that propagates. The record's `outcome` byte carries the
+/// `how` (design R2), not an outcome.
+pub(crate) const KIND_RAISE: u8 = 4;
+/// An `Err` seen at a site that ABSORBS it: `.ok()`, `.unwrap_or(..)`,
+/// `let _ =`, a handling or an ambiguous arm.
+pub(crate) const KIND_HANDLED: u8 = 5;
 pub(crate) const KIND_THREAD_END: u8 = 255;
 
 pub(crate) const OUTCOME_NONE: u8 = 0;
@@ -89,7 +104,7 @@ pub(crate) const UNIT_ID_SHIFT: u32 = 24;
 /// crate with a bare `rustc` invocation (D1), where cargo's environment does
 /// not exist and `env!` would not compile. A unit test below holds it to the
 /// manifest.
-pub(crate) const RT_VERSION: &str = "sensorium-rt 0.1.0";
+pub(crate) const RT_VERSION: &str = "sensorium-rt 0.3.0";
 
 fn round_up_to_chunk(n: usize) -> usize {
     n.div_ceil(CHUNK) * CHUNK
@@ -443,6 +458,13 @@ pub(crate) fn write_proc_header(
     }
     json.push_str(",\"rt_version\":");
     push_json_str(&mut json, RT_VERSION);
+    // The Rust-only capability keys this RUNTIME declares (design R9). A trace
+    // converted from a 0.2.0 spool set has no `capabilities` object here at all,
+    // and a reader that finds no key treats the capability as absent -- which is
+    // the honest reading: what is missing on an older trace is a RECORD, not an
+    // opinion. Written by the runtime rather than assumed by the converter so
+    // that the declaration and the records travel together.
+    json.push_str(",\"capabilities\":{\"err_flow\":true}");
     json.push('}');
 
     // Written to a per-process temporary and RENAMED into place. This file is

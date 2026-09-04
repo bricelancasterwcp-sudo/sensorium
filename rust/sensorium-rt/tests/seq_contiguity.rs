@@ -40,13 +40,25 @@ fn max_seq(s: &SpoolFile) -> Option<u64> {
 
 #[test]
 fn a_refused_record_consumes_no_sequence_number() {
-    let dir = TempDir::reserved("seq-contiguity");
-    let run = Spec::new("two-threads")
-        .arg(&PER_THREAD.to_string())
+    assert_contiguous("two-threads", PER_THREAD, "seq-contiguity");
+}
+
+/// The same property with kinds 4 and 5 in the stream. The seq is minted inside
+/// `Spool::record`, which every kind goes through -- so an err record refused by
+/// a broken spool must take no number with it either, and this is what says so.
+#[test]
+fn a_refused_err_record_consumes_no_sequence_number() {
+    assert_contiguous("errflow-two-threads", PER_THREAD, "seq-contiguity-errflow");
+}
+
+fn assert_contiguous(scenario: &str, per_thread: u32, label: &str) {
+    let dir = TempDir::reserved(label);
+    let run = Spec::new(scenario)
+        .arg(&per_thread.to_string())
         .spool(dir.path())
         .env("SENSORIUM_TEST_SPOOL_LIMIT", LIMIT.to_string())
         .run();
-    assert_eq!(run.says_u64("per_thread"), u64::from(PER_THREAD));
+    assert_eq!(run.says_u64("per_thread"), u64::from(per_thread));
 
     let spools = dir.spools();
     assert_eq!(

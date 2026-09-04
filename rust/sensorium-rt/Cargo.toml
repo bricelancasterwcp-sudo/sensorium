@@ -1,6 +1,6 @@
 [package]
 name = "sensorium-rt"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 publish = false
 description = "The sensorium Rust recorder's runtime: per-thread MAP_SHARED trace spools, the entry guard, outcomes and capped return values."

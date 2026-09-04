@@ -17,6 +17,21 @@
 //!     use ::sensorium_rt::probe::*;
 //!     ((&&Probe(__r)).debug_cap(), (&&Probe(__r)).outcome())
 //! }, <e>)
+//!
+//! match <operand> { __t => {
+//!     ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, <site>, <how>, {
+//!         use ::sensorium_rt::probe::*;
+//!         (&&&Probe(&__t)).err_cap()
+//!     });
+//!     __t
+//! } }
+//!
+//! ::sensorium_rt::err_site_value(&crate::__SENSORIUM_UNIT, <site>, <how>, {
+//!     use ::sensorium_rt::probe::*;
+//!     (&&Probe(&e)).err_cap_value()
+//! });
+//!
+//! ::sensorium_rt::err_site_unbound(&crate::__SENSORIUM_UNIT, <site>, <how>);
 //! ```
 //!
 //! Usage: `scenario <name> [args]`.
@@ -24,6 +39,13 @@
 //! The scenarios themselves live in `scenario/`, one module per group; this file
 //! is the dispatch, the units the transformer would append, and the injected
 //! exit-operand macro.
+
+// The in-place err-flow wrap is a single-binding `match` BY DESIGN (design R3):
+// binding the operand to `__t` and handing it straight back is what preserves
+// drop order and the `let _` drop point. Clippy calls that shape redundant; the
+// transformer will emit it in every workspace all the same, so the scenario
+// binary compiles it rather than dodging it.
+#![allow(clippy::match_single_binding)]
 
 /// The exit-operand form, verbatim. `ret_verbatim` below spells it out longhand
 /// once, so the macro can never quietly drift from the injected text.
@@ -41,11 +63,47 @@ macro_rules! sret {
     };
 }
 
+/// The in-place `?`/sink form, verbatim. `errflow::try_verbatim` spells it out
+/// longhand once.
+macro_rules! serr {
+    ($site:expr, $how:expr, $e:expr) => {
+        match $e {
+            __t => {
+                ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, $site, $how, {
+                    use ::sensorium_rt::probe::*;
+                    (&&&Probe(&__t)).err_cap()
+                });
+                __t
+            }
+        }
+    };
+}
+
+/// The `Err(e) =>` arm form, verbatim: the ladder is handed the BOUND error.
+macro_rules! serr_value {
+    ($site:expr, $how:expr, $e:expr) => {
+        ::sensorium_rt::err_site_value(&crate::__SENSORIUM_UNIT, $site, $how, {
+            use ::sensorium_rt::probe::*;
+            (&&Probe(&$e)).err_cap_value()
+        })
+    };
+}
+
+/// The `Err(_)`/`Err(..)` arm form, verbatim: nothing is bound, so nothing is
+/// probed.
+macro_rules! serr_unbound {
+    ($site:expr, $how:expr) => {
+        ::sensorium_rt::err_site_unbound(&crate::__SENSORIUM_UNIT, $site, $how)
+    };
+}
+
 // A file directly under `src/bin/` is a crate ROOT, so a plain `mod ret;` would
 // look for `src/bin/ret.rs`; `#[path]` puts the scenario modules in
 // `src/bin/scenario/` instead. The dispatch itself stays in a file NAMED
 // `scenario.rs` because `file!()` is part of the `SITE_*` constants below and
 // `tests/spawn.rs` pins that file name as the shape of a baked spawn site.
+#[path = "scenario/errflow.rs"]
+mod errflow;
 #[path = "scenario/panics.rs"]
 mod panics;
 #[path = "scenario/ret.rs"]
@@ -61,6 +119,10 @@ mod values;
 
 use sensorium_rt::Unit;
 
+use errflow::{
+    arm_unbound, arm_value_debug, arm_value_nodebug, err_big, err_nodebug, let_underscore_err,
+    sink_ok_err, sink_ok_ok, try_err, try_ok, try_option, typed_err_return,
+};
 use panics::{
     panic_caught_scenario, panic_long_scenario, panic_non_string_scenario, panic_uncaught_scenario,
 };
@@ -73,7 +135,10 @@ use spawn::{
     panic_truncated_before_spool, panic_unrecorded_thread, spawn_empty_named_parent,
     spawn_from_main, spawn_grandchild, spawn_panics, spawn_value,
 };
-use threads::{blocked, sequential_threads, spawn_first, spool_limit, two_threads, End};
+use threads::{
+    blocked, blocked_errflow, errflow_spool_limit, errflow_two_threads, sequential_threads,
+    spawn_first, spool_limit, two_threads, End,
+};
 use units::{two_units, unit_ceiling};
 use values::{
     value_big, value_early_stop, value_empty_debug, value_nodebug, value_panic_debug,
@@ -140,11 +205,29 @@ fn main() {
         "blocked-exit" => blocked(arg_u32(&args, 2, 50), End::Exit, None),
         "blocked-abort" => blocked(arg_u32(&args, 2, 50), End::Abort, None),
         "blocked-forever" => blocked(50, End::Forever, args.get(2).map(String::as_str)),
+        "blocked-errflow" => {
+            blocked_errflow(arg_u32(&args, 2, 50), args.get(3).map(String::as_str))
+        }
         "spool-limit" => spool_limit(arg_u32(&args, 2, 6000)),
 
         "spawn-first" => spawn_first(),
         "two-threads" => two_threads(arg_u32(&args, 2, 400)),
         "sequential-threads" => sequential_threads(arg_u32(&args, 2, 8)),
+
+        "try-err" => try_err(),
+        "try-ok" => try_ok(),
+        "try-option" => try_option(),
+        "sink-ok-err" => sink_ok_err(),
+        "sink-ok-ok" => sink_ok_ok(),
+        "let-underscore-err" => let_underscore_err(),
+        "arm-value-debug" => arm_value_debug(),
+        "arm-value-nodebug" => arm_value_nodebug(),
+        "arm-unbound" => arm_unbound(),
+        "err-nodebug" => err_nodebug(),
+        "err-big" => err_big(),
+        "typed-err-return" => typed_err_return(),
+        "errflow-two-threads" => errflow_two_threads(arg_u32(&args, 2, 400)),
+        "errflow-spool-limit" => errflow_spool_limit(arg_u32(&args, 2, 3000)),
 
         "two-units" => two_units(),
         "unit-ceiling" => unit_ceiling(),
