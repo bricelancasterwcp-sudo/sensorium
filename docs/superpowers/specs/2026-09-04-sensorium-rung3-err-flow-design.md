@@ -89,8 +89,8 @@ close the enclosing fn); `returned_to_harness` (a `#[test]` fn that returns
 prints the partial fn, `exceptions` says the fn is partial rather than
 guessing); `err_stored` (an `Err(e) =>` arm that pushes `e` into a Vec → AMBIGUOUS, never SWALLOWED — the critic's retry-loop shape); `dependency_swallow` (`let _ = fs::remove_file(..)` → SWALLOWED "born outside instrumented code"); `cleanup_then_fail` (`let _ = cleanup(); work()?` → AMBIGUOUS, the named blind spot); `join_handle` (a spawned thread returns `Err` into a `JoinHandle` the parent `.ok()`s → child AMBIGUOUS, parent SWALLOWED); `outcome_generic` (HONESTY §1's named falsifier: a generic `T`
 that is a `Result` only after monomorphisation reads `ok` — the documented
-limit, pinned so it cannot drift); `err_flow_refusal` (a rung-2-shaped trace —
-recorded with `err_flow: false` via a test hook — refuses with exit 3). The
+limit, pinned so it cannot drift); the capability refusal (a rung-2-shaped trace refuses with exit 3) is pinned by
+vector v19 on a synthetic trace, not by a cargo case (no test hook in the runtime — ruled 2026-09-04). The
 existing `panic`, `none_propagation` and `abort` cases gain an `exceptions`
 question each.
 
