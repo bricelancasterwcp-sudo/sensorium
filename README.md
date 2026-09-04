@@ -562,8 +562,20 @@ endpoint E5. **Fixed 2026-09-03** (rung-3 entry decision, Brice's ruling
 the enclosing named item's file-local qualname plus a source-order ordinal
 among its wrapped spawn sites, neither of which a file move changes
 (`docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`,
-decisions N1–N6; `rust/HONESTY.md` §3). Verified by E5′ (see that document's
-§4): `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`.
+decisions N1–N6; `rust/HONESTY.md` §3). Verified by E5′ on the endpoint the
+fix exists for, which reads **PASS** (§4): across that same split, 28 code
+objects pair and all ten task streams pair, where rung 2 read DIVERGED; the
+four spawned children carry byte-identical names on both sides (E5′-names'
+first conjunct, 8 of 8 exactly the predicted string).
+**E5′-coverage** reads **PASS** (0 units fell back). The record's
+overall line is **STOP**, on a third endpoint, **E5′-names**, whose second
+conjunct asked that the multiset of `(name, hash)` pairs be equal across the
+split while naming the trace's STORED hash as the source — and that hash is
+defined over `file`, so a file move changes it by construction. That is a
+defect in the pre-registration rather than in the naming rule; it was read
+once, no repair was applied after the number, and a **ruling is owed to
+Brice**. Read §4 and §5.1 before citing any of this:
+`docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`.
 
 ### What refuses
 

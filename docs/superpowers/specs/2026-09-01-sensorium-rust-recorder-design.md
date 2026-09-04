@@ -627,6 +627,16 @@ them as a multiset by content (HONESTY §7's twin rule); (iv) trait-impl
 twins in one file (e.g. `Type::fmt` for `Display` and `Debug`) share the
 qualname, so their ordinals continue across the twins in source order.
 
+N1 and N6 above are quoted as the plan first wrote them; **N5 was then amended
+twice on 2026-09-03** (both amendments are in the plan's Decisions table, with
+their evidence): a spawn inside a `const`/`static`/associated-`const`
+initialiser is named by that item, not refused; and the container refusal (a
+spawn whose innermost frame is a `mod`/`impl`/`trait`) is REACHABLE — measured
+on rustc 1.96 — and is kept as a refusal rather than named after the
+container. So a `static F` initialiser's spawn is defined, not undefined. The
+**shipped** rule, with all seven caveats (i)–(vii) rather than N6's four, is
+`rust/HONESTY.md` §3's; this section is a pointer to it, not a second copy.
+
 ### 3.6 Reentrancy and capture faults (F32)
 
 A thread-local capture depth with a drop-guard (so a panicking `Debug::fmt`

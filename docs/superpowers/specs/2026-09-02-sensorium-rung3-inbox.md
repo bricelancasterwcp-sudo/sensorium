@@ -190,10 +190,14 @@ which is ranked:
   tried), or have the converter treat a 0-byte spool as "opened and wrote
   nothing" with `records_dropped` unknown (the evidence survives, at the cost
   of a spool the trace cannot bound). Source: final review 2026-09-03.
-- A spawn inside a fn's SIGNATURE expression (an array-length expression in a
-  return type, e.g. `fn n(&self) -> [u8; { ..closure that spawns.. }]`) is
-  neither rewritten nor declared — the three fn visitors descend into the
-  body only, never the signature. Source: rung-3 entry slice 2026-09-03.
+- A spawn in an expression position the overridden container visitors skip is
+  neither rewritten nor declared. The class: a fn's SIGNATURE (an array-length
+  expression in a return type, e.g. `fn n(&self) -> [u8; { ..closure that
+  spawns.. }]`, is the shape that surfaced it), an `impl` header's self type,
+  and a trait's const-generic default. The three fn visitors descend into the
+  body only, and `visit_item_impl`/`visit_item_trait` visit `items` only.
+  Source: rung-3 entry slice 2026-09-03; class widened by the final review
+  2026-09-04.
 - `visit_trait_item_const` (an associated const's default value inside a
   `trait` item) is a real code path — `in_item` names it exactly like
   `visit_item_const`/`visit_impl_item_const` — but no golden or edge-case
@@ -208,15 +212,24 @@ which is ranked:
   2026-09-03.
 - Golden for a fn nested inside a const/static initialiser (`X::h` prefix) —
   Source: rung-3 entry slice 2026-09-03.
-- Golden/fixture for a REFUSED crate-root file (`unreached_reasons` recorded,
-  the whole unit left with no files instrumented, `fell_back` still `false`)
-  — today's falsifier (`wrapper_fallback.rs`'s
-  `a_file_the_transformer_refused_names_its_reason_on_both_channels`) covers
-  only a refused child file. Source: rung-3 entry slice 2026-09-03 (fix round
-  1).
+- Fixture for a REFUSED crate-root file on the WRAPPER-BINARY path — the
+  stderr line, `fell_back: false`, and the empty `files` as the driver writes
+  them, for a root refused by a synthesised error. The plan level is already
+  unit-tested: `wrapper.rs`'s
+  `a_unit_whose_crate_root_cannot_be_rewritten_is_left_wholly_alone` builds a
+  unit whose root does not parse and asserts `files`/`source_hashes`/
+  `rewrites` cleared with `unreached_reasons` surviving; `wrapper_fallback.rs`'s
+  `a_file_the_transformer_refused_names_its_reason_on_both_channels` covers a
+  refused child file on the binary path. Source: rung-3 entry slice 2026-09-03
+  (fix round 1); narrowed by the final review 2026-09-04.
 - No unit tests on the acceptance instruments (`rust/tests/acceptance*.py`,
   `render_acceptance.py`) — repo-wide; mitigated by byte-identical re-renders
   in review. Source: rung-3 entry slice 2026-09-03 (Task 5 review).
+- The converter's `spool.rs` tests create a temp dir under
+  `std::env::temp_dir()` and never remove it
+  (`rust/cargo-sensorium/src/convert/spool.rs:534`, `:549`, `:575`) — the
+  module's pattern, not a regression of the newest of the three; a scope guard
+  would tidy all three. Source: final review 2026-09-04.
 
 None of the above changes a shipped behaviour; each is either untested
 surface, a naming/factoring nit, or an operational note. They are listed here

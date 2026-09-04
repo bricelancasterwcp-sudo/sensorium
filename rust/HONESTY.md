@@ -241,11 +241,13 @@ reader renders it.
     expression in a struct field's type are both expressions that sit
     directly inside a `mod` body, both compile with a spawning closure
     inside (measured on rustc 1.96), and syn's default visitors reach them;
-    (vi) a spawn inside a fn's SIGNATURE expression (an array-length
-    expression in a return type is the shape that surfaced it) is neither
-    rewritten nor declared — the three fn visitors descend into the body
-    only — a pre-existing rung-2 hole, found and dated 2026-09-03, carried
-    as an open item in
+    (vi) a spawn in an expression position the overridden
+    container visitors skip — a fn's SIGNATURE (an array-length expression in
+    a return type is the shape that surfaced it), an `impl` header's self
+    type, a trait's const-generic default — is neither rewritten nor declared:
+    the three fn visitors descend into the body only, and
+    `visit_item_impl`/`visit_item_trait` visit `items` only — a pre-existing
+    rung-2 hole, found and dated 2026-09-03, carried as an open item in
     `docs/superpowers/specs/2026-09-02-sensorium-rung3-inbox.md` §3; (vii) a
     `fn` item nested inside a `const`/`static` initialiser now carries that
     item's name as a qualname prefix (`X::h`, where rung 2 wrote `h`) — a
@@ -595,9 +597,16 @@ without knowing this document exists.
    static that does not exist) — still not `fell_back: true`; only
    `unreached_reasons` says why the unit came back empty. *Falsified by*
    (the refused CHILD-file half) `rust/cargo-sensorium/tests/wrapper_fallback.rs`'s
-   `a_file_the_transformer_refused_names_its_reason_on_both_channels`; the
-   refused CRATE-ROOT half is untested by fixture as of 2026-09-03 — traced
-   only in `wrapper.rs`'s `root_rewritten` branch; rung-3 inbox.
+   `a_file_the_transformer_refused_names_its_reason_on_both_channels`, and (the
+   refused CRATE-ROOT half, at the plan level) `wrapper.rs`'s unit test
+   `a_unit_whose_crate_root_cannot_be_rewritten_is_left_wholly_alone`, which
+   builds a unit whose root does not parse and asserts that `files`,
+   `source_hashes` and `rewrites` are all cleared while
+   `unreached_reasons["a/src/lib.rs"]` survives. What is untested as of
+   2026-09-03 is narrower than "the crate-root half": the wrapper-BINARY path
+   for a root refused by a SYNTHESISED error — the stderr line,
+   `fell_back: false`, and the empty `files` as the driver writes them —
+   has no fixture; rung-3 inbox.
 9. **Why a return value was unread** (§2): a missing `Debug` impl and a
    panicking one read the same.
 10. **A runner set in a workspace's `.cargo/config.toml`.** The driver sets
