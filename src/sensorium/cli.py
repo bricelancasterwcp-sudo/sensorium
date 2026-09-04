@@ -1,8 +1,17 @@
-"""sensorium command-line interface."""
+"""sensorium command-line interface.
+
+Every `main()` return is appended to the invocation log (see
+`sensorium.invocations`) after dispatch, including the version guard
+below and the three exception classes caught around `args.func(args)`.
+The one shape this never sees is any argparse exit: a parse failure and
+`--help`/`--version` alike raise `SystemExit` straight out of
+`argparse.parse_args`, before dispatch, so both escape `main()` without
+a record -- do not wrap it.
+"""
 import argparse
 import sys
 
-from sensorium import paths
+from sensorium import invocations, paths
 from sensorium.query import (diff_cmd, exceptions_cmd, flow_cmd, fmt,
                              frame_cmd, grep_cmd, info_cmd, refocus_cmd,
                              runs_cmd, tree_cmd, watch_cmd)
@@ -13,7 +22,8 @@ _QUERY_MODULES = [runs_cmd, info_cmd, tree_cmd, frame_cmd, grep_cmd,
 
 
 def _add_run_parser(sub):
-    p = sub.add_parser("run", help="record one execution")
+    p = sub.add_parser("run", help="record one execution",
+                        epilog="exit: the target's own status")
     p.add_argument("--focus", action="append", default=[],
                    help="pkg.module or pkg.module:qualname; repeatable")
     p.add_argument("--include", action="append", default=[])
@@ -52,9 +62,13 @@ def _run(args) -> int:
 
 
 def main(argv=None) -> int:
+    # The argv the invocation log records: what this call received, never
+    # the environment or the working directory.
+    recorded_argv = list(argv) if argv is not None else list(sys.argv[1:])
     if sys.version_info < (3, 12):
         print("sensorium requires Python 3.12+ (sys.monitoring); running "
               f"under {sys.version.split()[0]}", file=sys.stderr)
+        invocations.record(recorded_argv, 2, None)
         return 2
     parser = argparse.ArgumentParser(
         prog="sensorium",
@@ -65,11 +79,15 @@ def main(argv=None) -> int:
     for mod in _QUERY_MODULES:
         mod.add_parser(sub)
     args = parser.parse_args(argv)
+    error = None
     try:
-        return args.func(args)
+        exit_status = args.func(args)
     except (paths.TraceLookupError, fmt.RefError, db.TraceFormatError) as e:
         # "the reference you gave does not name anything", or "this trace is
         # from a newer sensorium" -- user-facing conditions every query command
         # can hit, and never a reason to hand back a traceback.
         print(f"error: {e}", file=sys.stderr)
-        return 2
+        exit_status = 2
+        error = type(e).__name__
+    invocations.record(recorded_argv, exit_status, error)
+    return exit_status

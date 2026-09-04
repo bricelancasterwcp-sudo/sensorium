@@ -318,7 +318,7 @@ def test_diff_names_a_declared_but_incomplete_recording_in_the_note(
     w.set_meta("recorder", "sensorium 9.9.9")
     w.set_meta("incomplete", True)
     w.close()
-    assert cli.main(["diff", run_id, run_id]) == 2
+    assert cli.main(["diff", run_id, run_id]) == 3
     out = capsys.readouterr().out
     assert "REFUSED" in out
     note = next(l for l in out.splitlines()
@@ -414,7 +414,7 @@ def test_diff_refuses_an_incomplete_trace(tmp_path, monkeypatch, capsys):
     w.set_meta("incomplete", True)
     w.close()
 
-    assert cli.main(["diff", good, "20260101-000000-incmpl"]) == 2
+    assert cli.main(["diff", good, "20260101-000000-incmpl"]) == 3
     out = capsys.readouterr().out
     assert "REFUSED" in out
     assert "INCOMPLETE" in out
@@ -429,7 +429,7 @@ def test_diff_refuses_when_either_side_is_incomplete_regardless_of_order(
     w.set_meta("incomplete", True)
     w.close()
 
-    assert cli.main(["diff", "20260101-000000-incmpl", good]) == 2
+    assert cli.main(["diff", "20260101-000000-incmpl", good]) == 3
     out = capsys.readouterr().out
     assert "REFUSED" in out and "INCOMPLETE" in out
 
@@ -446,7 +446,7 @@ def test_diff_refuses_a_trace_with_dropped_late_writes(
     w.set_meta("late_writes", 3)
     w.close()
 
-    assert cli.main(["diff", good, "20260101-000000-latewr"]) == 2
+    assert cli.main(["diff", good, "20260101-000000-latewr"]) == 3
     out = capsys.readouterr().out
     assert "REFUSED" in out
     assert "late_writes" in out or "late write" in out
@@ -609,7 +609,7 @@ def test_diff_task_flag_refuses_an_unknown_name(tmp_path, monkeypatch,
     a = _rec_async(tmp_path, ["AB", "same"])
     b = _rec_async(tmp_path, ["AB", "same"])
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
-    assert cli.main(["diff", a, b, "--task", "nope"]) == 2
+    assert cli.main(["diff", a, b, "--task", "nope"]) == 3
     out = capsys.readouterr().out
     assert "REFUSED" in out and "no task named 'nope'" in out
     assert "task-A, task-B" in out
@@ -623,7 +623,7 @@ def test_diff_task_flag_refuses_a_name_that_picks_two_tasks(
     a = _rec_prog(tmp_path, DUP_TASK_NAMES)
     b = _rec_prog(tmp_path, DUP_TASK_NAMES)
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
-    assert cli.main(["diff", a, b, "--task", "dup"]) == 2
+    assert cli.main(["diff", a, b, "--task", "dup"]) == 3
     out = capsys.readouterr().out
     assert "REFUSED" in out
     assert "'dup' names 2 tasks on A" in out
@@ -657,7 +657,7 @@ def test_diff_default_task_names_are_compared_as_unnamed(
     out = capsys.readouterr().out
     assert "verdict: MATCH" in out
     assert "all matched" in out
-    assert cli.main(["diff", a, b, "--task", "Task-2"]) == 2
+    assert cli.main(["diff", a, b, "--task", "Task-2"]) == 3
     out = capsys.readouterr().out
     assert "REFUSED" in out
     assert ("'Task-2' is asyncio's default name and encodes creation order, "
@@ -688,7 +688,7 @@ def test_diff_refuses_to_compare_across_fingerprint_bases_when_tasks_ran(
     from tests.test_format3_fixture import FIXTURE as OLD3
     old3 = _installed(tmp_path, monkeypatch, OLD3, "old3")
     new = _rec_async(tmp_path, ["AB", "same"])
-    assert cli.main(["diff", old3, new]) == 2
+    assert cli.main(["diff", old3, new]) == 3
     out = capsys.readouterr().out
     assert "verdict: REFUSED" in out
     assert ("recorded under different fingerprint bases "
@@ -708,7 +708,7 @@ def test_diff_by_name_on_a_per_thread_trace_names_the_missing_table(
     from tests.test_format2_fixture import _installed
     from tests.test_format3_fixture import FIXTURE as OLD3
     old3 = _installed(tmp_path, monkeypatch, OLD3, "old3")
-    assert cli.main(["diff", old3, old3, "--task", "task-A"]) == 2
+    assert cli.main(["diff", old3, old3, "--task", "task-A"]) == 3
     out = capsys.readouterr().out
     assert "verdict: REFUSED" in out
     for label in ("A", "B"):
@@ -808,14 +808,14 @@ def test_diff_refuses_a_per_task_trace_whose_task_fingerprints_are_missing(
     c.execute("DELETE FROM task_fingerprints")
     c.commit(); c.close()
 
-    assert cli.main(["diff", a, b]) == 2
+    assert cli.main(["diff", a, b]) == 3
     out = capsys.readouterr().out
     assert "verdict: REFUSED" in out
     assert "verdict: MATCH" not in out
     assert ("A ran 3 asyncio task(s) but recorded no task fingerprints") in out
     assert "re-record it with this version" in out
 
-    assert cli.main(["diff", a, b, "--task", "task-A"]) == 2
+    assert cli.main(["diff", a, b, "--task", "task-A"]) == 3
     out = capsys.readouterr().out
     assert "REFUSED" in out
     assert ("A ran 3 asyncio task(s) but recorded no task fingerprints") in out
@@ -848,7 +848,7 @@ def test_diff_refuses_a_trace_whose_record_sequence_has_holes(
     w.set_meta("seq_gaps", 2)
     w.close()
 
-    assert cli.main(["diff", good, "20260101-000000-seqgap"]) == 2
+    assert cli.main(["diff", good, "20260101-000000-seqgap"]) == 3
     out = capsys.readouterr().out
     assert "REFUSED" in out and "dropped >=2 trace write(s)" in out
     assert "verdict: MATCH" not in out and "verdict: DIVERGED" not in out

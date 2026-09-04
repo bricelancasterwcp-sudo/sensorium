@@ -19,6 +19,8 @@ That whole rendering, and the "unframed" wording that goes with it, is what
 those traces support and is kept exactly as arc 1 wrote it.
 """
 from sensorium import paths
+from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
+from sensorium.query.caps import none_status, print_incomplete
 from sensorium.query.fmt import (fmt_args, fmt_exc, fmt_value, parse_eref,
                                  parse_fref, unread_marker)
 from sensorium.query.vocab import terms
@@ -26,7 +28,9 @@ from sensorium.store.reader import Trace
 
 
 def add_parser(sub) -> None:
-    p = sub.add_parser("tree", help="call-tree slice")
+    p = sub.add_parser(
+        "tree", help="call-tree slice",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run")
     p.add_argument("--root", default=None, help="frame ref (f12)")
     p.add_argument("--around", default=None, help="event ref (e40)")
@@ -304,12 +308,17 @@ def run(args) -> int:
     if args.limit < 1:
         print(f"--limit must be >= 1 (got {args.limit}); "
               "there is no useful zero-row page")
-        return 2
+        return BAD_CALL
     if args.depth < 0:
         print(f"--depth must be >= 0 (got {args.depth}); "
               "depth 0 shows the root frames alone")
-        return 2
+        return BAD_CALL
     trace = Trace.open(paths.find_trace(args.run))
+    # Above the tree, because `no frames recorded` on such a trace exits 3
+    # and a 3 the output does not explain is a number the reader cannot
+    # act on.
+    print_incomplete(trace, "the frames below are not all the frames this "
+                            "run had")
     by_parent, parentless = index_unframed(trace)
     n_unframed = sum(len(v) for v in by_parent.values()) + len(parentless)
     if args.around:
@@ -326,7 +335,7 @@ def run(args) -> int:
                       f"{args.run} {q}")
             else:
                 print(f"no frame contains {args.around}")
-            return 1
+            return NEGATIVE
         chain = [f]
         while chain[-1].parent_id is not None:
             chain.append(trace.frame(chain[-1].parent_id))
@@ -347,7 +356,7 @@ def run(args) -> int:
             print(note)
         for ln in _basis_footer(trace):
             print(ln)
-        return 0
+        return ANSWERED
     if args.root:
         # Resolve and refuse a missing frame, like `--around` and
         # `frame f<id>`. Filtering it silently to `[]` reaches the "no
@@ -356,7 +365,7 @@ def run(args) -> int:
         root = trace.frame(parse_fref(args.root))
         if root is None:
             print(f"no such frame: {args.root} does not exist")
-            return 1
+            return NEGATIVE
         lines, cut_frames, cut_u, _shown = render_tree(
             trace, [root], args.depth, args.limit, by_parent)
         for ln in lines:
@@ -367,7 +376,7 @@ def run(args) -> int:
             print(note)
         for ln in _basis_footer(trace):
             print(ln)
-        return 0
+        return ANSWERED
     # One path for every trace. A synchronous trace has no tasks, so it is
     # one unlabelled group whose roots render at indent 0 in event order --
     # byte-identical to v1 -- and --limit is one budget across the whole
@@ -406,10 +415,18 @@ def run(args) -> int:
     # withheld descendants make unframed calls nobody ever walks past).
     note = _truncation_note(args.run, args.depth, args.limit, cut_frames_all,
                             n_unframed - shown_unframed)
+    empty = False
     if note:
         print(note)
     elif printed == 0:
+        # The walk covered the whole trace and nothing was withheld, so
+        # "none" is the trace's own answer -- not a view that showed
+        # nothing because --depth or --limit cut it away.
         print("no frames recorded")
+        empty = True
     for ln in _footers(trace, n_unframed):
         print(ln)
-    return 0
+    # "no frames recorded" is the trace answering "none" only if the
+    # recording finished; `none_status` is that question, asked the same
+    # way here as in `grep` and `flow`.
+    return none_status(trace) if empty else ANSWERED

@@ -1,5 +1,6 @@
 """One activation completely: args, local timeline, return, children."""
 from sensorium import paths
+from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
 from sensorium.query.fmt import (fmt_args, fmt_event, fmt_exc, fmt_value,
                                  parse_fref, unread_marker)
 from sensorium.query.tree_cmd import (frame_line, unframed_kind,
@@ -9,33 +10,68 @@ from sensorium.store.reader import Trace
 
 
 def add_parser(sub) -> None:
-    p = sub.add_parser("frame", help="one activation in full")
+    p = sub.add_parser(
+        "frame", help="one activation in full",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run")
     p.add_argument("frame", nargs="?", default=None, help="frame ref (f12)")
-    p.add_argument("--fn", default=None, help="qualname of the function")
+    p.add_argument("--fn", default=None,
+                   help="qualname of the function: exact match first, else "
+                        "substring")
     p.add_argument("--nth", type=int, default=1, help="which activation (1-based)")
     p.set_defaults(func=run)
 
 
 def _resolve(trace, args):
-    """Return (frame, error). `error` is set (and frame is None) whenever
-    resolution fails, so `run` can report exactly why instead of a single
-    catch-all message -- an out-of-range --nth (<=0, or beyond how many
-    activations were actually recorded) must refuse loudly, never silently
-    wrap to the wrong activation or raise an uncaught IndexError."""
+    """Return (frame, error, exit status). `error` is set (and frame is
+    None) whenever resolution fails, so `run` can report exactly why
+    instead of a single catch-all message -- an out-of-range --nth (<=0, or
+    beyond how many activations were actually recorded) must refuse loudly,
+    never silently wrap to the wrong activation or raise an uncaught
+    IndexError.
+
+    The status travels WITH the message because the two say the same thing
+    and only this function knows which it is: a reference the trace simply
+    does not hold is the trace answering "no" (NEGATIVE), while an --nth
+    past the end or no reference at all is the call being wrong
+    (BAD_CALL). Deciding that in `run` would mean matching on the message
+    text, and the text is rewritten whenever it can be made clearer.
+
+    `--fn` resolves EXACT-first (X9): a code object whose qualname equals
+    `--fn` wins outright, even when it also happens to be a substring of
+    another qualname this trace holds. Only when no code object matches
+    exactly does `--fn` fall back to a substring over the DISTINCT
+    qualnames recorded -- one candidate is used as if it had been named
+    exactly, more than one is an ambiguous reference (the call is wrong,
+    not a coin flip among them) and exits BAD_CALL with every candidate
+    listed, and none falls straight through to the ordinary "no recorded
+    activations" message below."""
     if args.frame:
         f = trace.frame(parse_fref(args.frame))
         if f is None:
-            return None, f"no such frame: {args.frame} does not exist"
-        return f, None
+            return (None, f"no such frame: {args.frame} does not exist",
+                    NEGATIVE)
+        return f, None, ANSWERED
     if args.fn:
+        fn = args.fn
+        codes = [c for c in trace.codes() if c.qualname == fn]
+        if not codes:
+            distinct = sorted({c.qualname for c in trace.codes()
+                               if fn in c.qualname})
+            if len(distinct) > 1:
+                return None, (
+                    f"--fn {fn!r} is ambiguous: matches "
+                    + ", ".join(distinct)
+                    + "; give the exact qualname"), BAD_CALL
+            if distinct:
+                fn = distinct[0]
+                codes = [c for c in trace.codes() if c.qualname == fn]
         matches = [f for f in trace.frames()
-                   if trace.code(f.code_id).qualname == args.fn]
+                   if trace.code(f.code_id).qualname == fn]
         # Computed for BOTH branches: one qualname can name several code
         # objects (two modules, a def rebound), and some of them can be
         # coroutines while others are plain functions. Counting only the
         # frames then reports a total `grep` contradicts.
-        codes = [c for c in trace.codes() if c.qualname == args.fn]
         calls = [e for c in codes for e in trace.unframed_calls(code_id=c.id)]
         kinds = "/".join(sorted({unframed_kind(c) for c in calls}))
         if not matches:
@@ -46,31 +82,35 @@ def _resolve(trace, args):
                 # naming the first call's kind would claim every one of them
                 # was that kind.
                 return None, (
-                    f"{args.fn!r} was recorded as {len(calls)} call(s) but "
+                    f"{fn!r} was recorded as {len(calls)} call(s) but "
                     f"not framed ({kinds}): no frame, locals "
                     "or children to show; its events: sensorium grep "
-                    f"{args.run} {args.fn}")
+                    f"{args.run} {fn}"), NEGATIVE
             return None, ("no such frame: no recorded activations of "
-                          f"{args.fn!r}")
+                          f"{fn!r}"), NEGATIVE
         if not (1 <= args.nth <= len(matches)):
             mixed = (f" and {len(calls)} recorded but unframed ({kinds})"
                      if calls else "")
             tail = (f"; its unframed events: sensorium grep {args.run} "
-                    f"{args.fn}" if calls else "")
+                    f"{fn}" if calls else "")
             return None, (
-                f"--nth {args.nth} is out of range: {args.fn!r} has "
+                f"--nth {args.nth} is out of range: {fn!r} has "
                 f"{len(matches)} framed activation(s){mixed}; valid --nth "
-                f"is 1..{len(matches)} over the framed ones{tail}")
-        return matches[args.nth - 1], None
-    return None, "no such frame; give f<id> or --fn QUALNAME [--nth N]"
+                f"is 1..{len(matches)} over the framed ones{tail}"), BAD_CALL
+        return matches[args.nth - 1], None, ANSWERED
+    return (None, "no such frame; give f<id> or --fn QUALNAME [--nth N]",
+            BAD_CALL)
 
 
 def run(args) -> int:
     trace = Trace.open(paths.find_trace(args.run))
-    f, err = _resolve(trace, args)
+    # `status` is carried past the refusal branch and returned at the end:
+    # `_resolve` is the one place that decides this command's answer, and a
+    # second ANSWERED written down here would be a second place to change.
+    f, err, status = _resolve(trace, args)
     if f is None:
         print(err)
-        return 1
+        return status
     code = trace.code(f.code_id)
     end = f"e{f.return_event_id}" if f.return_event_id is not None else "?"
     call = trace.event(f.call_event_id)
@@ -178,4 +218,4 @@ def run(args) -> int:
                           else unframed_line(trace, obj)))
     else:
         print("children: (none)")
-    return 0
+    return status

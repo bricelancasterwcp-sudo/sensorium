@@ -12,6 +12,7 @@ this file's 800-line ceiling along the seam the material has.
 import shlex
 
 from sensorium import cli
+from sensorium.exit import NEGATIVE, UNSETTLED
 from sensorium.query import flow_cmd
 from tests.programs import (ALIAS, GRAMS, flow_rows, flow_shown_ids,
                             open_trace, record, synthetic)
@@ -239,7 +240,7 @@ def test_flow_does_not_search_exception_payloads(tmp_path, monkeypatch,
 def test_flow_value_says_what_it_searched_when_nothing_matched(
         tmp_path, monkeypatch, capsys):
     run_id = record(tmp_path, monkeypatch, GRAMS)
-    assert cli.main(["flow", run_id, "--value", "999999"]) == 0
+    assert cli.main(["flow", run_id, "--value", "999999"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "sightings: 0" in out
     assert "capture(s) searched" in out
@@ -349,14 +350,21 @@ def test_flow_skips_locals_that_went_out_of_scope(tmp_path, monkeypatch,
 
 def test_flow_flags_an_incomplete_run(tmp_path, monkeypatch, capsys):
     """A run whose recording never finalized may simply stop mid-program, so
-    an empty result is not evidence the value never appeared."""
+    an empty result is not evidence the value never appeared.
+
+    Which is why it exits 3 and not 1: the docstring's own sentence is the
+    definition of UNSETTLED. `sightings: 0` here reports where the RECORDING
+    stopped, and only a recording that finished can turn it into "none"
+    (`caps.none_status`, the general table row of 2026-09-04).
+    """
     w = synthetic(tmp_path, monkeypatch)
     c = w.intern_code("/tmp/prog.py", "add", 1)
     w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
     w.set_meta("incomplete", True)
     w.close()
 
-    assert cli.main(["flow", "20260101-000000-abcdef", "--value", "1"]) == 0
+    assert cli.main(["flow", "20260101-000000-abcdef",
+                     "--value", "1"]) == UNSETTLED
     out = capsys.readouterr().out
     assert "INCOMPLETE" in out
     assert "sightings: 0" in out
@@ -371,8 +379,10 @@ def test_flow_refuses_a_trace_that_declares_no_line_events(tmp_path, monkeypatch
     finalize_synthetic(w, lang="rust", recorder="sensorium-rt 0.0",
                        capabilities={"line": False, "object_identity": False})
     w.close()
-    assert cli.main(["flow", "20260101-000000-abcdef", "--value", "1"]) == 2
+    assert cli.main(["flow", "20260101-000000-abcdef",
+                     "--value", "1"]) == UNSETTLED
     out = capsys.readouterr().out
     assert "flow needs line" in out and "sensorium-rt 0.0" in out
-    assert cli.main(["flow", "20260101-000000-abcdef", "--object", "0x1:int"]) == 2
+    assert cli.main(["flow", "20260101-000000-abcdef",
+                     "--object", "0x1:int"]) == UNSETTLED
     assert "flow --object needs object_identity" in capsys.readouterr().out

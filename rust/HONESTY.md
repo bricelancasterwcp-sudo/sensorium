@@ -267,7 +267,9 @@ reader renders it.
   `corpus/rust/spawned_thread`, `rust/tests/mechanics.sh` (two checks pin
   `<test fn> :: spawn@<test fn>#1`), and the E5′ acceptance record
   `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`
-  (its §4 — this ledger does not assert that document's verdict).
+  (its §4 — this ledger does not assert that document's verdict; the
+  STOP-conjunct question its §5.1 left open was ruled 2026-09-04: (b)
+  withdrawn; see the record §5.1).
 - **A spawn shape the transformer does not rewrite is declared, not silently
   missed**: `Builder::spawn` (`reason: "builder"`), `thread::scope`
   (`"scoped"`), other one-argument `.spawn(f)` method calls (`"method"`), and a

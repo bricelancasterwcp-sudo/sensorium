@@ -45,20 +45,36 @@ jobs:
       # cargo's own default -- never a path under /mnt/extra or any other
       # box-specific location (this workflow must be portable to any runner).
       CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
+      # rust/rust-toolchain.toml (read above by `rustup show`) only pins
+      # builds run from inside rust/, or a descendant of it: rustup finds
+      # the file by walking up from the current directory. The corpus's
+      # Rust fixtures (corpus/rust/*/Cargo.toml) are compiled by the driver
+      # in temp dirs OUTSIDE rust/, where that file is not an ancestor, so
+      # without this line they would build under whatever toolchain is
+      # ubuntu-latest's default. This variable is honoured by rustup for
+      # every cargo invocation in this job's environment regardless of
+      # working directory, so it pins those fixture builds too.
+      RUSTUP_TOOLCHAIN: "1.96.0"
     steps:
       - uses: actions/checkout@v4
-      # Plain rustup, not a third-party action: ubuntu-latest ships a stable
-      # toolchain already, so this only needs the two extra components.
-      - name: Rust toolchain (rustfmt, clippy)
-        run: rustup component add rustfmt clippy
+      # The job-level RUSTUP_TOOLCHAIN above outranks rust-toolchain.toml
+      # (rustup's precedence: env var beats the file), so on a fresh runner
+      # `rustup show` would install 1.96.0 through the env-var route, which
+      # carries no component list -- rustfmt/clippy would NOT come along,
+      # even though the file names them. rust-toolchain.toml still matters
+      # for local developers, who don't set this env var and so pick up the
+      # file (and its components) the normal way; here in CI, where the env
+      # var is set, the components have to be requested explicitly.
+      - name: Rust toolchain (pinned; components installed explicitly)
+        run: rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             rust/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-1.96.0-${{ hashFiles('rust/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-cargo-1.96.0-
       - name: Build the driver (release)
         working-directory: rust
         run: cargo build --release -p cargo-sensorium

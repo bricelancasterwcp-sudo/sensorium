@@ -672,6 +672,25 @@ def main():
 main()
 """
 
+# Two functions, one qualname a substring of the other -- built for the
+# `--fn` exact-first-then-substring rule (X9): an exact `helper` must never
+# be shadowed by the coincidence that it is also a substring of
+# `helper_two`, and a pattern matching neither exactly (`help`) must name
+# both as ambiguous rather than picking one silently.
+HELPERS = """
+def helper(x):
+    return x + 1
+
+def helper_two(x):
+    return x + 2
+
+def main():
+    helper(1)
+    helper_two(2)
+
+main()
+"""
+
 # Re-raised through an inner frame, then genuinely caught by an OUTER traced
 # frame -- which afterwards dies of an unrelated exception. The inner frame
 # unwinds carrying the ValueError (a re-raise), but the exception did NOT

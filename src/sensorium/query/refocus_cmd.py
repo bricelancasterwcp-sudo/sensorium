@@ -149,6 +149,7 @@ from collections import Counter
 from pathlib import Path
 
 from sensorium import paths
+from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.caps import require
 from sensorium.query.vocab import terms
 from sensorium.query.diff_cmd import (compare, print_comparison,
@@ -213,7 +214,8 @@ def _print_blind_spots() -> None:
 def add_parser(sub) -> None:
     p = sub.add_parser(
         "refocus",
-        help="re-run a recorded command with deeper capture, verified")
+        help="re-run a recorded command with deeper capture, verified",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run")
     p.add_argument(
         "--focus", action="append", default=[], required=True,
@@ -292,7 +294,12 @@ def _refuse(orig_name: str, problem: str, trace: Trace) -> int:
     this line without saying which language it is speaking."""
     print(f"error: cannot refocus {orig_name}: {problem}", file=sys.stderr)
     print(terms(trace).no_rerun_note, file=sys.stderr)
-    return 2
+    # 2, not 3, and the two gates of this command differ here (X4). Nothing
+    # was re-run: the reader's next move is a different command -- another
+    # run to refocus, a `--focus` that resolves, `sensorium run --focus`
+    # instead. `report()` below is the other gate: there the rerun HAPPENED
+    # and could not be verified, and only a new recording settles that.
+    return BAD_CALL
 
 
 # -- run settings ----------------------------------------------------------
@@ -612,7 +619,12 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
         # Stated here too: "on every verdict" has to include the verdict
         # that says nothing, or the sentence is not true.
         _print_blind_spots()
-        return 2
+        # The second gate (X4). The program DID re-run -- the new trace
+        # exists and is queryable -- and what failed is the verification
+        # against the original. No edit to this command changes that; a
+        # recording the comparison can stand on does, which is what 3
+        # means. The pre-rerun refusals in `_refuse` keep 2.
+        return UNSETTLED
 
     _print_thread_line(orig, new, a)
 
@@ -647,7 +659,7 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
               "and slows the run down; the fingerprint cannot tell that "
               "apart from the program genuinely taking another path")
         _print_blind_spots()
-        return 1
+        return NEGATIVE
 
     # The headline may claim only what was compared. Under the per-task
     # basis the thread rows cover what ran OUTSIDE every task, so for a run
@@ -674,7 +686,7 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
         for fact in a["verified"]:
             print(f"  - {fact}")
     _print_blind_spots()
-    return 0
+    return ANSWERED
 
 
 # -- driving ---------------------------------------------------------------

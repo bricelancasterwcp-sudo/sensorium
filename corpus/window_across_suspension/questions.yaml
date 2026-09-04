@@ -33,6 +33,10 @@ questions:
       have inspected -- and a print can only report on the calls somebody
       remembered to put it in, never on the ones a tool decided to skip.
     command: ["watch", "$RUN", "--at", "main:helper", "--expr", "x == 'out'"]
+    # Site table (2026-09-04): `watch` "not satisfied" is 1. The caveat
+    # this case exists for -- 5 of 7 sites could not be evaluated -- is
+    # still in the text below, and is still what the reader must read.
+    expect_exit: 1
     expect_line:
       - ["sites: 7", "evaluated: 2", "hits: 0", "not-captured: 5"]
     expect_contains:

@@ -18,6 +18,10 @@ questions:
       identically whether the peak was 99 or 9. The distance to the boundary
       is exactly the information a threshold log throws away.
     command: ["watch", "$RUN", "--at", "main:fill", "--expr", "used > 100"]
+    # Site table (2026-09-04): `watch` "not satisfied" answers the
+    # question in the negative, and a negative answer is 1. The verdict
+    # and every near-miss line below are unchanged -- only the status is.
+    expect_exit: 1
     expect_contains: ["hits: 0", "near-misses"]
     expect_line:
       - ["margin 1", "used=99"]

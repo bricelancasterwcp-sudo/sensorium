@@ -97,8 +97,8 @@ a product defect, because §1 named the trace's *stored* `task_fingerprints`
 hash (which hashes `file` by design and so cannot equal across a move) as the
 Method while its derivation column actually quoted the differ's *projected*
 values; the repair (read the conjunct on the projected comparison, or drop it
-and let E5′'s own pairing condition carry it) is a ruling owed to Brice —
-acceptance document §5.1.
+and let E5′'s own pairing condition carry it) was ruled 2026-09-04: (b)
+withdrawn; see the record §5.1.
 
 ## 2. Rung 3's own scope, unchanged from the spec
 
@@ -230,6 +230,10 @@ which is ranked:
   (`rust/cargo-sensorium/src/convert/spool.rs:534`, `:549`, `:575`) — the
   module's pattern, not a regression of the newest of the three; a scope guard
   would tidy all three. Source: final review 2026-09-04.
+- `refocus --window QUALNAME` reads as a size/range to the prior; rename
+  candidate `--lines-in` or fold into `--focus` — deferred until the
+  invocation-log census says agents trip on it. Source: exit-status slice
+  2026-09-04 (X9).
 
 None of the above changes a shipped behaviour; each is either untested
 surface, a naming/factoring nit, or an operational note. They are listed here

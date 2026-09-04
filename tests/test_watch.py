@@ -25,6 +25,7 @@ same seam as `test_refocus.py` / `test_refocus_licence.py`.
 import shlex
 
 from sensorium import cli
+from sensorium.exit import NEGATIVE, UNSETTLED
 from sensorium.query.expr import OUT_OF_SCOPE
 from sensorium.query.watch_cmd import _guidance
 from sensorium.store import db
@@ -45,7 +46,7 @@ def _hit_ids(out: str) -> list[int]:
 def test_watch_near_miss_when_no_hits(tmp_path, monkeypatch, capsys):
     run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", "used > 100"]) == 0
+                     "--expr", "used > 100"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "hits: 0" in out
     assert "near-misses" in out and "margin 1:" in out and "used=99" in out
@@ -72,7 +73,7 @@ def test_watch_hits_reported_with_env(tmp_path, monkeypatch, capsys):
 def test_watch_counts_not_captured_sites(tmp_path, monkeypatch, capsys):
     run_id = rec(tmp_path, monkeypatch)           # no focus: no locals
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", "used > 100"]) == 0
+                     "--expr", "used > 100"]) == UNSETTLED
     out = capsys.readouterr().out
     assert "not-captured: 5" in out                # 5 CALL sites lack `used`
     assert "refocus" in out
@@ -192,7 +193,7 @@ def test_watch_refuses_a_truncated_capture_rather_than_compare_a_prefix(
     assert [c.get("trunc") for c in caps] == [True, None]   # precondition
 
     assert cli.main(["watch", run_id, "--at", "prog:note",
-                     "--expr", "len(msg) > 100"]) == 0
+                     "--expr", "len(msg) > 100"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "sites: 2   evaluated: 1   hits: 0   not-captured: 1" in out
     assert "recorded truncated" in out
@@ -204,7 +205,7 @@ def test_watch_bare_container_name_points_at_len(tmp_path, monkeypatch,
                                                  capsys):
     run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", "buf > 100"]) == 0
+                     "--expr", "buf > 100"]) == UNSETTLED
     out = capsys.readouterr().out
     assert "sites: 19   evaluated: 0   hits: 0   not-captured: 19" in out
     assert "compare its length with len(buf)" in out
@@ -251,7 +252,7 @@ def test_watch_near_misses_are_labelled_as_misses_and_sorted_by_margin(
         tmp_path, monkeypatch, capsys):
     run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", "used > 100"]) == 0
+                     "--expr", "used > 100"]) == NEGATIVE
     out = capsys.readouterr().out
     margins = [float(ln.split("margin ", 1)[1].split(":", 1)[0])
                for ln in out.splitlines() if "margin " in ln]
@@ -263,20 +264,45 @@ def test_watch_near_miss_cap_states_what_was_withheld_with_a_command(
         tmp_path, monkeypatch, capsys):
     run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
     assert cli.main(["watch", run_id, "--at", "prog:fill", "--expr",
-                     "used > 100", "--near", "2"]) == 0
+                     "used > 100", "--misses", "2"]) == NEGATIVE
     out = capsys.readouterr().out
     assert out.count("margin ") == 2
     assert "3 further near-miss(es) not shown" in out
     hint = [ln for ln in out.splitlines()
             if "see them with: " in ln][0].split("see them with: ", 1)[1]
-    assert "--near 5" in hint and "<" not in hint
+    assert "--misses 5" in hint and "<" not in hint
+
+
+def test_watch_near_alias_is_deprecated_but_behaves_identically(
+        tmp_path, monkeypatch, capsys):
+    """`--near` is the pre-X9 spelling, kept for one release (removed in
+    0.8.0). This is the ONE test in the suite still using it: every other
+    `--near` was switched to `--misses` by this same commit, and this one
+    exists to pin that the alias still works and still prints the warning,
+    so a future cleanup that deletes it does so on purpose, not by
+    accident."""
+    run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
+    argv_common = ["watch", run_id, "--at", "prog:fill", "--expr",
+                   "used > 100"]
+
+    status = cli.main([*argv_common, "--near", "2"])
+    captured = capsys.readouterr()
+    assert status == NEGATIVE
+    assert captured.err == ("sensorium: --near is deprecated; use --misses "
+                            "(removed in 0.8.0)\n")
+
+    status_misses = cli.main([*argv_common, "--misses", "2"])
+    captured_misses = capsys.readouterr()
+    assert status_misses == status == NEGATIVE
+    assert captured_misses.out == captured.out
+    assert captured_misses.err == ""              # no warning without --near
 
 
 def test_watch_says_why_an_equality_predicate_has_no_near_misses(
         tmp_path, monkeypatch, capsys):
     run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", "used == 12345"]) == 0
+                     "--expr", "used == 12345"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "sites: 19   evaluated: 5   hits: 0   not-captured: 14" in out
     assert "no near-misses:" in out
@@ -395,7 +421,7 @@ def test_watch_flags_an_incomplete_recording(tmp_path, monkeypatch, capsys):
     w.close()
 
     assert cli.main(["watch", "20260101-000000-abcdef", "--at", "fill",
-                     "--expr", "used > 100"]) == 0
+                     "--expr", "used > 100"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "INCOMPLETE" in out
     assert "sites: 2   evaluated: 1   hits: 0   not-captured: 1" in out
@@ -428,7 +454,7 @@ def test_watch_survives_a_line_payload_with_no_deltas_key(
     finalize_synthetic(w)
     w.close()
     assert cli.main(["watch", "20260101-000000-beefed", "--at", "fill",
-                     "--expr", "used > 100"]) == 0
+                     "--expr", "used > 100"]) == UNSETTLED
     assert "sites: 2   evaluated: 0   hits: 0   not-captured: 2" in \
         capsys.readouterr().out
 
@@ -465,7 +491,7 @@ def test_watch_reports_a_trace_whose_meta_lacks_cwd_without_crashing(
     w.set_meta("incomplete", False)
     w.close()
     assert cli.main(["watch", "20260101-000000-nocwd", "--at", "fill",
-                     "--expr", "used > 100"]) == 0
+                     "--expr", "used > 100"]) == UNSETTLED
     out = capsys.readouterr().out
     assert "sensorium run --focus prog:fill -- prog.py" in out
     assert "cd " not in out
@@ -497,7 +523,7 @@ def test_watch_incomplete_flag_survives_a_real_recording(
     assert Trace.open(path).meta["incomplete"] is False    # precondition
     _mark_incomplete(path)
     assert cli.main(["watch", run_id, "--at", "prog:fill",
-                     "--expr", "used > 100"]) == 0
+                     "--expr", "used > 100"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "INCOMPLETE" in out
     assert "sites: 19   evaluated: 5   hits: 0   not-captured: 14" in out
@@ -645,5 +671,5 @@ def test_watch_refuses_a_trace_that_declares_no_line_events(tmp_path, monkeypatc
                        capabilities={"line": False})
     w.close()
     assert cli.main(["watch", "20260101-000000-abcdef", "--at", "main",
-                     "--expr", "x > 1"]) == 2
+                     "--expr", "x > 1"]) == UNSETTLED
     assert "watch needs line" in capsys.readouterr().out

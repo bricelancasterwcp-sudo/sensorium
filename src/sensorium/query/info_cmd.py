@@ -10,6 +10,7 @@ import re
 from collections import Counter
 
 from sensorium import paths
+from sensorium.exit import ANSWERED
 from sensorium.query.caps import witness_gap
 from sensorium.query.fmt import fmt_exc
 from sensorium.query.info_rust import rust_lines
@@ -18,7 +19,9 @@ from sensorium.store.reader import Trace
 
 
 def add_parser(sub) -> None:
-    p = sub.add_parser("info", help="summarize one trace")
+    p = sub.add_parser(
+        "info", help="summarize one trace",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run")
     p.set_defaults(func=run)
 
@@ -314,7 +317,7 @@ def run(args) -> int:
         for code, n in hot:
             if n:
                 print(f"  {n}x {code.file.rsplit('/', 1)[-1]}:{code.qualname}")
-    return 0
+    return ANSWERED
 
 
 _DEFAULT_TASK_NAME = re.compile(r"^Task-\d+\Z")

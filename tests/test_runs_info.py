@@ -2,6 +2,7 @@ import sys
 
 import pytest
 
+from sensorium.exit import NEGATIVE
 from sensorium import cli, paths
 from sensorium.record import boot
 from sensorium.store.writer import TraceWriter
@@ -167,7 +168,7 @@ def test_runs_says_the_store_is_empty_instead_of_printing_nothing(
     """Silence would read as "the command did nothing", which is the one
     thing it did not do."""
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "empty-sdir"))
-    assert cli.main(["runs"]) == 0
+    assert cli.main(["runs"]) == NEGATIVE
     assert capsys.readouterr().out.strip() == "no traces recorded"
 
 

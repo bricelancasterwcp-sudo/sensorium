@@ -84,6 +84,7 @@ import re
 from collections import Counter
 
 from sensorium import paths
+from sensorium.exit import ANSWERED, NEGATIVE, UNSETTLED
 from sensorium.query.moves import (Moves, desc, detect_moves, for_b,
                                    modulo_location, print_key_line,
                                    print_moves_section, project, task_hashes)
@@ -687,7 +688,8 @@ def print_task_comparison(trace_a, trace_b, res, name_a, name_b, task,
 
 def add_parser(sub) -> None:
     p = sub.add_parser(
-        "diff", help="first causal divergence between two runs")
+        "diff", help="first causal divergence between two runs",
+        epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run_a")
     p.add_argument("run_b")
     p.add_argument("--context", type=int, default=3,
@@ -713,6 +715,14 @@ def run(args) -> int:
     else:
         res = compare(ta, tb, moves)
         print_comparison(ta, tb, res, pa.stem, pb.stem, args.context)
+    # A refusal is not a bad call: the command was well formed and the
+    # traces were readable. What it says is that no comparison could be
+    # made against THESE recordings -- incomplete, dropped writes, empty on
+    # both sides, mismatched fingerprint bases, tasks with no fingerprints,
+    # a name that picks none or two -- and every one of those is fixed by
+    # recording again, which is what 3 means (X5). The `error:` exits in
+    # `cli.main` keep 2: an unreadable trace or an unresolvable ref IS the
+    # call being wrong.
     if res["verdict"] == "REFUSED":
-        return 2
-    return 0 if res["verdict"] == "MATCH" else 1
+        return UNSETTLED
+    return ANSWERED if res["verdict"] == "MATCH" else NEGATIVE

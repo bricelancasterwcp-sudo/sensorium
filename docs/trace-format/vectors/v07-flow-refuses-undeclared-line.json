@@ -34,7 +34,7 @@
       "id": "flow-refuses",
       "ask": "What does `flow` do on a trace whose recorder declares it produces no LINE events?",
       "command": ["flow", "$RUN", "--value", "1"],
-      "expect_exit": 2,
+      "expect_exit": 3,
       "expect_contains": [
         "flow needs line",
         "vector 1.0",
