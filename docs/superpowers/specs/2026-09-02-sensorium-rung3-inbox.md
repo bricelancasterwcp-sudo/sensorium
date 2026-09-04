@@ -196,6 +196,14 @@ which is ranked:
   code objects paired across a move (the `key:` line says so) — the wording
   should carry "modulo location" there too. Source: rung-3 entry slice
   2026-09-03.
+- Golden for a fn nested inside a const/static initialiser (`X::h` prefix) —
+  Source: rung-3 entry slice 2026-09-03.
+- Golden/fixture for a REFUSED crate-root file (`unreached_reasons` recorded,
+  the whole unit left with no files instrumented, `fell_back` still `false`)
+  — today's falsifier (`wrapper_fallback.rs`'s
+  `a_file_the_transformer_refused_names_its_reason_on_both_channels`) covers
+  only a refused child file. Source: rung-3 entry slice 2026-09-03 (fix round
+  1).
 
 None of the above changes a shipped behaviour; each is either untested
 surface, a naming/factoring nit, or an operational note. They are listed here
