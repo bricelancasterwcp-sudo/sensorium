@@ -45,6 +45,16 @@ jobs:
       # cargo's own default -- never a path under /mnt/extra or any other
       # box-specific location (this workflow must be portable to any runner).
       CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
+      # rust/rust-toolchain.toml (read above by `rustup show`) only pins
+      # builds run from inside rust/, or a descendant of it: rustup finds
+      # the file by walking up from the current directory. The corpus's
+      # Rust fixtures (corpus/rust/*/Cargo.toml) are compiled by the driver
+      # in temp dirs OUTSIDE rust/, where that file is not an ancestor, so
+      # without this line they would build under whatever toolchain is
+      # ubuntu-latest's default. This variable is honoured by rustup for
+      # every cargo invocation in this job's environment regardless of
+      # working directory, so it pins those fixture builds too.
+      RUSTUP_TOOLCHAIN: "1.96.0"
     steps:
       - uses: actions/checkout@v4
       # rust/rust-toolchain.toml pins the channel and lists rustfmt/clippy as
