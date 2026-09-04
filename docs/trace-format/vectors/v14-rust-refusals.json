@@ -56,7 +56,7 @@
       "id": "exceptions-refuses-a-rust-trace",
       "ask": "What does `exceptions` do on a Rust trace, whose Err values the Python disposition rules would misread?",
       "command": ["exceptions", "$RUN"],
-      "expect_exit": 2,
+      "expect_exit": 3,
       "expect_contains": [
         "REFUSED: exceptions on a rust trace needs the Rust disposition rules (rung 3); the Python rules would misread Err values as exceptions; nothing was judged"
       ],

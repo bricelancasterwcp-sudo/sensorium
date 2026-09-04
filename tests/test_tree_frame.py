@@ -4,6 +4,7 @@ import sys
 
 import pytest
 
+from sensorium.exit import BAD_CALL, NEGATIVE
 from sensorium import cli, paths
 from sensorium.query import tree_cmd
 from sensorium.store.writer import TraceWriter
@@ -213,7 +214,7 @@ def test_tree_zero_frames_says_so_instead_of_printing_nothing(
     w = TraceWriter(paths.traces_dir() / f"{run_id}.db", batch=1)
     w.set_meta("run_id", run_id)
     w.close()
-    assert cli.main(["tree", run_id]) == 0
+    assert cli.main(["tree", run_id]) == NEGATIVE
     out = capsys.readouterr().out
     assert out.strip() == "no frames recorded"
 
@@ -328,7 +329,7 @@ def test_frame_positional_ref_and_nth_distinguish_activations(
 def test_frame_nth_zero_is_rejected_not_silently_wrapped(
         tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch)     # SRC: silver() runs twice
-    assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "0"]) == 1
+    assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "0"]) == BAD_CALL
     out = capsys.readouterr().out
     assert "--nth 0" in out and "2 framed activation(s)" in out
     assert "1..2" in out
@@ -336,7 +337,7 @@ def test_frame_nth_zero_is_rejected_not_silently_wrapped(
 
 def test_frame_nth_negative_does_not_crash(tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch, src=LOOP)   # accumulate() runs once
-    assert cli.main(["frame", run_id, "--fn", "accumulate", "--nth", "-5"]) == 1
+    assert cli.main(["frame", run_id, "--fn", "accumulate", "--nth", "-5"]) == BAD_CALL
     out = capsys.readouterr().out
     assert "--nth -5" in out and "1 framed activation(s)" in out
 
@@ -344,7 +345,7 @@ def test_frame_nth_negative_does_not_crash(tmp_path, monkeypatch, capsys):
 def test_frame_nth_too_high_names_activation_count(
         tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch)     # SRC: silver() runs twice
-    assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "9"]) == 1
+    assert cli.main(["frame", run_id, "--fn", "silver", "--nth", "9"]) == BAD_CALL
     out = capsys.readouterr().out
     assert "--nth 9" in out and "2 framed activation(s)" in out
 
@@ -433,7 +434,7 @@ def test_frame_well_formed_ref_to_a_frame_that_never_existed_is_refused(
 def test_frame_with_no_selector_at_all_says_what_to_give_it(
         tmp_path, monkeypatch, capsys):
     run_id = _rec(tmp_path, monkeypatch)
-    assert cli.main(["frame", run_id]) == 1
+    assert cli.main(["frame", run_id]) == BAD_CALL
     out = capsys.readouterr().out
     assert "f<id>" in out and "--fn" in out
 
@@ -910,7 +911,7 @@ if __name__ == "__main__":
     assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "3"]) == 0
     out = capsys.readouterr().out
     assert out.splitlines()[0].startswith("f")
-    assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "4"]) == 1
+    assert cli.main(["frame", run_id, "--fn", "worker", "--nth", "4"]) == BAD_CALL
     out = capsys.readouterr().out
     assert "3 framed activation(s)" in out
     assert "valid --nth is 1..3 over the framed ones" in out

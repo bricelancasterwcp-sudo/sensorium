@@ -118,6 +118,7 @@ import shlex
 from dataclasses import dataclass
 
 from sensorium import paths
+from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.fmt import fmt_event, fmt_exc, more_note, parse_eref
 from sensorium.store.reader import Trace
 
@@ -630,7 +631,7 @@ def run(args) -> int:
     if args.limit < 1:
         print(f"--limit must be >= 1 (got {args.limit}); "
               "there is no useful zero-row page")
-        return 2
+        return BAD_CALL
     # Parsed before any work: a trace with no raises returns early below, and
     # accepting a malformed --after there would silently answer a different
     # question than the one asked.
@@ -638,16 +639,26 @@ def run(args) -> int:
     trace = Trace.open(paths.find_trace(args.run))
     refusal = _language_refusal(trace)
     if refusal:
+        # Nothing was judged, and no edit to this command would change
+        # that: what is missing is a recording the Rust disposition rules
+        # can read.
         print(refusal)
-        return 2
+        return UNSETTLED
     idx = Index.build(trace, trace.meta)
     _header(trace, idx)
     if not idx.all_raises:
         if idx.uncaught is None and not idx.incomplete:
+            # A finalized trace with no raise: the trace answered "none".
             print("no exceptions recorded")
-        elif idx.uncaught is None:
+            return NEGATIVE
+        if idx.uncaught is None:
+            # The recording stopped early, so silence here is not "none" --
+            # it is a gap, and only a complete recording closes it.
             print("no RAISE events recorded (see INCOMPLETE above)")
-        return 0
+            return UNSETTLED
+        # An uncaught exception with no RAISE row of its own: the header
+        # above has already reported it, so the question was answered.
+        return ANSWERED
 
     scope = [r for r in idx.all_raises if r.id > after]
     skipped = len(idx.all_raises) - len(scope)
@@ -677,4 +688,4 @@ def run(args) -> int:
                      f"--after e{last} --limit {args.limit}")
     if note:
         print(note)
-    return 0
+    return ANSWERED

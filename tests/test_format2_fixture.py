@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from sensorium.exit import NEGATIVE
 from sensorium import cli
 from sensorium.store.reader import Trace
 
@@ -245,7 +246,7 @@ def test_exceptions_on_a_format2_generator_trace_claims_no_state(
     state to leak in as a stray tail. The file holds no YIELD/RESUME rows,
     so nothing here was ever cancelled, abandoned or suspended as far as it
     can say, and the command still exits 0."""
-    assert cli.main(["exceptions", installed_fixture2gen]) == 0
+    assert cli.main(["exceptions", installed_fixture2gen]) == NEGATIVE
     out = capsys.readouterr().out
     assert "no exceptions recorded" in out
     for claim in ("~ ", "frame later", "cancelled", "abandoned", "suspended",

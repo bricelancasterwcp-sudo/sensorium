@@ -1,5 +1,6 @@
 """List recorded traces, newest-last."""
 from sensorium import paths
+from sensorium.exit import ANSWERED, NEGATIVE
 from sensorium.query.vocab import exit_brief
 from sensorium.store.reader import Trace
 
@@ -83,7 +84,7 @@ def run(args) -> int:
     files = sorted(paths.traces_dir().glob("*.db"), key=lambda p: p.name)
     if not files:
         print("no traces recorded")
-        return 0
+        return NEGATIVE
     # Opened in name order, exactly as before, and rendered in one pass
     # afterwards: a group's members are its whole invocation, which can be
     # anywhere in the listing, so the rows have to exist before the first
@@ -102,4 +103,4 @@ def run(args) -> int:
         for stem2, t2 in rows:
             if t2.meta.get("invocation") == inv:
                 print("  " + _row(stem2, t2))
-    return 0
+    return ANSWERED

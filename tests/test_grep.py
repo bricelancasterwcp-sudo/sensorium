@@ -1,6 +1,7 @@
 """`grep`: search events by name or captured-value content."""
 import shlex
 
+from sensorium.exit import NEGATIVE
 from sensorium import cli
 from tests.programs import CLEAN, CRASH, SWALLOW, record, synthetic
 
@@ -89,7 +90,7 @@ def test_grep_reports_the_true_total_not_just_what_it_printed(
 
 def test_grep_no_match_says_what_it_looked_at(tmp_path, monkeypatch, capsys):
     run_id = record(tmp_path, monkeypatch, CLEAN)
-    assert cli.main(["grep", run_id, "nonexistent-token"]) == 0
+    assert cli.main(["grep", run_id, "nonexistent-token"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "matches: 0" in out
     assert "scanned" in out and "event" in out
@@ -106,7 +107,7 @@ def test_grep_zero_match_note_owns_up_to_the_fn_filter(
                     if ln.startswith("matches:")).split()[1])
     assert hits > 0                              # 'alice' really is in there
 
-    assert cli.main(["grep", run_id, "alice", "--fn", "nosuchfn"]) == 0
+    assert cli.main(["grep", run_id, "alice", "--fn", "nosuchfn"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "matches: 0" in out
     assert "excluded by --fn 'nosuchfn'" in out
@@ -117,7 +118,7 @@ def test_grep_zero_match_note_owns_up_to_the_fn_filter(
 def test_grep_line_kind_with_no_line_capture_says_why(
         tmp_path, monkeypatch, capsys):
     run_id = record(tmp_path, monkeypatch, CLEAN)      # recorded without --focus
-    assert cli.main(["grep", run_id, "a", "--kind", "LINE"]) == 0
+    assert cli.main(["grep", run_id, "a", "--kind", "LINE"]) == NEGATIVE
     out = capsys.readouterr().out
     assert "matches: 0" in out
     assert "--focus" in out

@@ -11,6 +11,7 @@ import shlex
 
 import pytest
 
+from sensorium.exit import NEGATIVE, UNSETTLED
 from sensorium import cli, paths
 from sensorium.store.reader import Trace
 from tests.helpers import finalize_synthetic
@@ -538,7 +539,7 @@ def test_exceptions_will_not_call_a_swallow_in_a_still_parked_generator(
 def test_exceptions_says_so_when_nothing_was_raised(
         tmp_path, monkeypatch, capsys):
     run_id = record(tmp_path, monkeypatch, CLEAN)
-    assert cli.main(["exceptions", run_id]) == 0
+    assert cli.main(["exceptions", run_id]) == NEGATIVE
     assert capsys.readouterr().out.strip() == "no exceptions recorded"
 
 
@@ -889,7 +890,7 @@ def test_exceptions_incomplete_run_with_no_raises_does_not_say_none(
     w.set_meta("incomplete", True)
     w.close()
 
-    assert cli.main(["exceptions", "20260101-000000-abcdef"]) == 0
+    assert cli.main(["exceptions", "20260101-000000-abcdef"]) == UNSETTLED
     out = capsys.readouterr().out
     assert "no exceptions recorded" not in out
     assert "no RAISE events recorded" in out and "INCOMPLETE" in out

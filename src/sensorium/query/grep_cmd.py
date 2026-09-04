@@ -15,6 +15,7 @@ quietly show rows the first page had excluded.
 import shlex
 
 from sensorium import paths
+from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
 from sensorium.query.fmt import fmt_event, more_note, parse_eref
 from sensorium.store.reader import Trace
 
@@ -72,7 +73,7 @@ def run(args) -> int:
     if args.limit < 1:
         print(f"--limit must be >= 1 (got {args.limit}); "
               "there is no useful zero-row page")
-        return 2
+        return BAD_CALL
     after = parse_eref(args.after) if args.after else 0
     trace = Trace.open(paths.find_trace(args.run))
     shown = total = 0
@@ -98,8 +99,9 @@ def run(args) -> int:
     if total == 0:
         for note in _empty_note(trace, args, scanned, considered, after):
             print(note)
-        return 0
+        # Nothing matched: the trace answered, and its answer was "none".
+        return NEGATIVE
     note = more_note(total, shown, continue_cmd(args, last))
     if note:
         print(note)
-    return 0
+    return ANSWERED

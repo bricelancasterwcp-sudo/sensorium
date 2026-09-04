@@ -1,5 +1,6 @@
 """One activation completely: args, local timeline, return, children."""
 from sensorium import paths
+from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
 from sensorium.query.fmt import (fmt_args, fmt_event, fmt_exc, fmt_value,
                                  parse_fref, unread_marker)
 from sensorium.query.tree_cmd import (frame_line, unframed_kind,
@@ -18,16 +19,25 @@ def add_parser(sub) -> None:
 
 
 def _resolve(trace, args):
-    """Return (frame, error). `error` is set (and frame is None) whenever
-    resolution fails, so `run` can report exactly why instead of a single
-    catch-all message -- an out-of-range --nth (<=0, or beyond how many
-    activations were actually recorded) must refuse loudly, never silently
-    wrap to the wrong activation or raise an uncaught IndexError."""
+    """Return (frame, error, exit status). `error` is set (and frame is
+    None) whenever resolution fails, so `run` can report exactly why
+    instead of a single catch-all message -- an out-of-range --nth (<=0, or
+    beyond how many activations were actually recorded) must refuse loudly,
+    never silently wrap to the wrong activation or raise an uncaught
+    IndexError.
+
+    The status travels WITH the message because the two say the same thing
+    and only this function knows which it is: a reference the trace simply
+    does not hold is the trace answering "no" (NEGATIVE), while an --nth
+    past the end or no reference at all is the call being wrong
+    (BAD_CALL). Deciding that in `run` would mean matching on the message
+    text, and the text is rewritten whenever it can be made clearer."""
     if args.frame:
         f = trace.frame(parse_fref(args.frame))
         if f is None:
-            return None, f"no such frame: {args.frame} does not exist"
-        return f, None
+            return (None, f"no such frame: {args.frame} does not exist",
+                    NEGATIVE)
+        return f, None, ANSWERED
     if args.fn:
         matches = [f for f in trace.frames()
                    if trace.code(f.code_id).qualname == args.fn]
@@ -49,9 +59,9 @@ def _resolve(trace, args):
                     f"{args.fn!r} was recorded as {len(calls)} call(s) but "
                     f"not framed ({kinds}): no frame, locals "
                     "or children to show; its events: sensorium grep "
-                    f"{args.run} {args.fn}")
+                    f"{args.run} {args.fn}"), NEGATIVE
             return None, ("no such frame: no recorded activations of "
-                          f"{args.fn!r}")
+                          f"{args.fn!r}"), NEGATIVE
         if not (1 <= args.nth <= len(matches)):
             mixed = (f" and {len(calls)} recorded but unframed ({kinds})"
                      if calls else "")
@@ -60,17 +70,18 @@ def _resolve(trace, args):
             return None, (
                 f"--nth {args.nth} is out of range: {args.fn!r} has "
                 f"{len(matches)} framed activation(s){mixed}; valid --nth "
-                f"is 1..{len(matches)} over the framed ones{tail}")
-        return matches[args.nth - 1], None
-    return None, "no such frame; give f<id> or --fn QUALNAME [--nth N]"
+                f"is 1..{len(matches)} over the framed ones{tail}"), BAD_CALL
+        return matches[args.nth - 1], None, ANSWERED
+    return (None, "no such frame; give f<id> or --fn QUALNAME [--nth N]",
+            BAD_CALL)
 
 
 def run(args) -> int:
     trace = Trace.open(paths.find_trace(args.run))
-    f, err = _resolve(trace, args)
+    f, err, status = _resolve(trace, args)
     if f is None:
         print(err)
-        return 1
+        return status
     code = trace.code(f.code_id)
     end = f"e{f.return_event_id}" if f.return_event_id is not None else "?"
     call = trace.event(f.call_event_id)
@@ -178,4 +189,4 @@ def run(args) -> int:
                           else unframed_line(trace, obj)))
     else:
         print("children: (none)")
-    return 0
+    return ANSWERED

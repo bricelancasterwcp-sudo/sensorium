@@ -3,6 +3,7 @@ import re
 from sensorium import cli
 from sensorium.record.capture import CAPS, capture_exc, capture_stats, capture_value
 from sensorium.store.writer import TraceWriter
+from sensorium.exit import ANSWERED, NEGATIVE
 from tests.helpers import record_inproc, record_script
 
 
@@ -435,16 +436,23 @@ main()
 """
 
 
-def _runs_clean(tmp_path, monkeypatch, capsys, src, expect, extra=()):
+def _runs_clean(tmp_path, monkeypatch, capsys, src, expect, extra=(),
+                exit_status=NEGATIVE):
     """Record `src`, assert it completed, and that `exceptions` reports
-    nothing the recorder injected."""
+    nothing the recorder injected.
+
+    `exit_status` is NEGATIVE because most of these programs raise nothing
+    at all, and "no exceptions recorded" is the trace answering "none". A
+    program that DOES raise (and has its exception classified) answers
+    affirmatively and passes ANSWERED -- pinning one code for both would
+    stop the status saying which of the two happened."""
     run_id, _trace, r = record_script(tmp_path, src, extra=extra)
     assert r.returncode == 0, r.stdout + r.stderr
     assert expect in r.stdout, r.stdout
     assert "INJECTED" not in r.stderr, r.stderr
 
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
-    assert cli.main(["exceptions", run_id]) == 0
+    assert cli.main(["exceptions", run_id]) == exit_status
     out = capsys.readouterr().out
     assert "INJECTED" not in out, out
     assert not re.search(r"^uncaught:", out, re.M), out
@@ -596,7 +604,8 @@ def test_a_hostile_exception_type_name_does_not_reach_the_hook(
     is why the program does both a plain catch and a re-raise.
     """
     _run_id, out = _runs_clean(tmp_path, monkeypatch, capsys,
-                               HOSTILE_EXC_NAME, "risky handled rethrown")
+                               HOSTILE_EXC_NAME, "risky handled rethrown",
+                               exit_status=ANSWERED)
     assert _line(out, "dispositions:").startswith("dispositions: swallowed ")
 
 
