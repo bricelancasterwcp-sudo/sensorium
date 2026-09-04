@@ -90,6 +90,16 @@ by `diff --ignore-moves` and seen by plain `diff`), `corpus/rust/spawned_thread`
 re-pinned to the new name, `rust/tests/mechanics.sh`, and the E5′ acceptance
 record `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`.
 
+**Measured 2026-09-03:** E5′ (does `diff --ignore-moves` pair spawned tasks
+across the move under rule (b)?) reads PASS and E5′-coverage reads PASS, but
+E5′-names reads STOP on its second conjunct — a pre-registration defect, not
+a product defect, because §1 named the trace's *stored* `task_fingerprints`
+hash (which hashes `file` by design and so cannot equal across a move) as the
+Method while its derivation column actually quoted the differ's *projected*
+values; the repair (read the conjunct on the projected comparison, or drop it
+and let E5′'s own pairing condition carry it) is a ruling owed to Brice —
+acceptance document §5.1.
+
 ## 2. Rung 3's own scope, unchanged from the spec
 
 `?`, sinks, `Err`-arm classification, closures containing `?`, the Rust
@@ -204,6 +214,9 @@ which is ranked:
   `a_file_the_transformer_refused_names_its_reason_on_both_channels`) covers
   only a refused child file. Source: rung-3 entry slice 2026-09-03 (fix round
   1).
+- No unit tests on the acceptance instruments (`rust/tests/acceptance*.py`,
+  `render_acceptance.py`) — repo-wide; mitigated by byte-identical re-renders
+  in review. Source: rung-3 entry slice 2026-09-03 (Task 5 review).
 
 None of the above changes a shipped behaviour; each is either untested
 surface, a naming/factoring nit, or an operational note. They are listed here
