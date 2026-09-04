@@ -57,14 +57,16 @@ jobs:
       RUSTUP_TOOLCHAIN: "1.96.0"
     steps:
       - uses: actions/checkout@v4
-      # rust/rust-toolchain.toml pins the channel and lists rustfmt/clippy as
-      # components: querying rustup's active toolchain, below, reads that
-      # file and installs the pinned toolchain plus its components on
-      # demand, rather than adding them to whatever toolchain ubuntu-latest
-      # ships.
-      - name: Rust toolchain (pinned via rust-toolchain.toml)
-        working-directory: rust
-        run: rustup show
+      # The job-level RUSTUP_TOOLCHAIN above outranks rust-toolchain.toml
+      # (rustup's precedence: env var beats the file), so on a fresh runner
+      # `rustup show` would install 1.96.0 through the env-var route, which
+      # carries no component list -- rustfmt/clippy would NOT come along,
+      # even though the file names them. rust-toolchain.toml still matters
+      # for local developers, who don't set this env var and so pick up the
+      # file (and its components) the normal way; here in CI, where the env
+      # var is set, the components have to be requested explicitly.
+      - name: Rust toolchain (pinned; components installed explicitly)
+        run: rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
       - uses: actions/cache@v4
         with:
           path: |
