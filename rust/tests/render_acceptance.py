@@ -456,7 +456,7 @@ def e5prime_results(r) -> list[str]:
                    f"{lens_of(e)} | {dropped_of(e)} |")
 
     out += ["", "### The three arms", "",
-            "| Arm | Tree | run | events | threads | tests | wall (s) |",
+            "| Arm | Tree | run | events | threads | tests | run wall (s) |",
             "|---|---|---|---|---|---|---|"]
     for k in ("A", "B", "C"):
         a = arms.get(k) or {}

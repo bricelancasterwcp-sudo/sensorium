@@ -75,7 +75,7 @@ Rendered by `rust/tests/render_acceptance.py --doc e5prime` from `2026-09-03-sen
 
 ### The three arms
 
-| Arm | Tree | run | events | threads | tests | wall (s) |
+| Arm | Tree | run | events | threads | tests | run wall (s) |
 |---|---|---|---|---|---|---|
 | A | `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` | `20260903-234606-be8f1c` | 890 | 10 | 6 | 0.07 |
 | B | `e8c79be1626f5808eb48a967d02a17217e614843` | `20260903-234608-042036` | 890 | 10 | 6 | 0.07 |
@@ -281,7 +281,7 @@ ledger). One row per §1 endpoint, with the number that decided it.
 
 | Id | §1's rule, verbatim | What was measured | Verdict |
 |---|---|---|---|
-| E5′ | "**A/B = `MATCH modulo location` with ≥ 1 moved, 0 added, 0 removed, and EVERY task paired by name — all ten task streams, the six `task::registry::tests::<test>` tasks AND the four spawned children. A/C = `DIVERGED` naming a step inside the swapped fn.** Any miss → STOP" | A/B: 28 moved, 0 added, 0 removed, 0 unpaired, **10 task streams on each side, all matched**; verdict line quoted below. A/C: DIVERGED, first difference at causal step 4 inside `task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion` — A `Journal::open`, B `ImageStore::new`, the two statements the plant swapped inside `tests::build_pager`. **0 of 7 conditions missed.** | **PASS** |
+| E5′ | "**A/B = `MATCH modulo location` with ≥ 1 moved, 0 added, 0 removed, and EVERY task paired by name — all ten task streams, the six `task::registry::tests::<test>` tasks AND the four spawned children. A/C = `DIVERGED` naming a step inside the swapped fn.** Any miss → STOP" | A/B: 28 moved, 0 added, 0 removed, 0 unpaired, **10 task streams on each side, all matched**; verdict line quoted below. A/C: DIVERGED, first difference at causal step 4 inside `task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion` — A `Journal::open`, B `ImageStore::new`, the two statements the plant swapped inside `tests::build_pager`. **0 of 7 conditions missed** (the seven are not seven independent facts: `ab_all_ten_task_streams_paired` implies `ab_every_task_paired`, so that pair overlaps). | **PASS** |
 | E5′-names | "**On A and on B, every spawned-child task name is exactly `task::registry::tests::<test> :: spawn@TaskRegistry::spawn_task#1`, and the multiset of `(name, hash)` pairs on A equals B's.** A different suffix → STOP." | Conjunct (a): **8 of 8** spawned-child names (four on A, four on B) are exactly the predicted string; **0** carry a different suffix. Conjunct (b), read on the source §1's Method names — the trace's `task_fingerprints` table: the multisets are **not** equal, **4 of 4** pairs differ in the hash component. **1 of 2 conjuncts missed.** | **STOP** |
 | E5′-coverage | "**0 units fell back across the three arms.** ≥ 1 → STOP (N4's fallback fired on real code)." | **0** units with `fell_back: true`, over 12 unit-manifests read across the three arms (4 distinct units; `unreached_reasons` empty on every one). | **PASS** |
 
@@ -314,7 +314,10 @@ therefore denotes the condition **class** the committed rung-2 schema
 `acceptance_schema._e5` already encodes — verdict token startswith `MATCH`;
 ≥ 1 moved; 0 added; 0 removed; every task paired — and E5′'s A/B condition is
 judged by that class, with §1's "all ten task streams" clause added as a
-seventh condition. All seven are met.
+seventh condition. All seven are met — and the seven overlap rather than
+stacking: `ab_all_ten_task_streams_paired` is the stronger form of
+`ab_every_task_paired` (it adds only the count), so the score is six
+independent facts plus one refinement, not seven independent ones.
 
 The A/C control printed:
 
@@ -377,6 +380,15 @@ restatement of §1's derivation column, which says rung-2's four children had
 (`04afbcbcacf6`, `5976ef054dbe`, `5976ef054dbe`, `63737389821f` in the rung-2
 record) are the differ's **re-hashed, move-lenient** values, not the stored
 column. The two are different quantities and §1 conflated them.
+
+Arm C corroborates the mechanism from the other side: its four stored
+spawn-child hashes are byte-identical to B's (`0763e6a2…`, `2d03ae90…`,
+`82e1d6d4…`, `2d03ae90…`, in task-id order), because `e5-planted` sits on
+`e5-split`'s file layout and the planted swap is in the parent helper
+`tests::build_pager`, not in the children. A behavioural change that the
+A/C diff *does* catch leaves these four stored hashes untouched, while a
+pure file move changes all four: the stored hash tracks file layout, not
+the children's behaviour.
 
 Two repairs are available; neither is applied here, because applying one after
 reading the number is exactly what the protocol forbids:

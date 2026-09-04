@@ -30,9 +30,14 @@ The rung-2 ledger is READ-ONLY for this slice: `LEDGER` and `LOGS` are
 re-pointed at this plan's own workspace before anything runs.
 
 Every location is an environment variable, as in the run (`acceptance_lib.
-env_paths`); a missing one refuses in the preflight. Two of the six --
+env_paths`); a missing one refuses in the preflight, and NO path to a tree or
+a binary is written into this file. Two of the six --
 `SENSORIUM_CENSUS_DRIVER` and `SENSORIUM_PROBE_TARGET` -- belong to phases
 this runner does not call; they are recorded in the pins as unused.
+`SENSORIUM_SOURCE_BLOOMERY` is optional to `env_paths` but REQUIRED here: it
+names the read-only source tree whose HEAD and porcelain are asserted
+unchanged before and after, and a run that cannot name it refuses rather than
+quietly assert nothing.
 
 Launch it detached and read nothing before the marker exists:
 
@@ -84,7 +89,6 @@ ph.LOGS = LOGS
 DOC = REPO / "docs" / "superpowers" / "acceptance" / \
     "2026-09-03-sensorium-rung3-entry-e5prime.md"
 BYTE_LOCK = "10f2c59"
-SOURCE_BLOOMERY = Path("/home/brice/workspace/bloomery")   # read-only; see pins
 
 # §1's tips, as the pre-registration names them.
 ARM_TIPS = {"A": CLONE_PIN, "B": "e8c79be", "C": "fea50b1"}
@@ -198,8 +202,13 @@ def preflight(paths, cfg) -> dict:
                       "NEW traces directory")
     sdir.mkdir(parents=True, exist_ok=True)
 
-    src_head = out("git", "-C", str(SOURCE_BLOOMERY), "rev-parse", "HEAD")
-    src_porcelain = out("git", "-C", str(SOURCE_BLOOMERY), "status", "--porcelain")
+    src = paths["source_bloomery"]
+    if src is None:
+        raise Refused("SENSORIUM_SOURCE_BLOOMERY is unset: name the read-only "
+                      "source tree this run asserts unchanged, or the assertion "
+                      "is vacuous")
+    src_head = out("git", "-C", str(src), "rev-parse", "HEAD")
+    src_porcelain = out("git", "-C", str(src), "status", "--porcelain")
 
     # The manifests directory is cleared before arm A, so every `fell_back`
     # counted below belongs to THIS invocation. The rest of the warm target is
@@ -242,7 +251,7 @@ def preflight(paths, cfg) -> dict:
         "clone_branches_before": git(paths, "branch", "-v").strip(),
         "arm_tips": tips,
         "clone_cargo_lock_sha256_before": sha256_file(clone / "Cargo.lock"),
-        "source_bloomery": str(SOURCE_BLOOMERY),
+        "source_bloomery": str(src),
         "source_bloomery_head_before": src_head,
         "source_bloomery_porcelain_before": src_porcelain,
         "target_dir": str(target), "target_warm": True,
@@ -443,8 +452,9 @@ def cleanup(paths, pins) -> dict:
     git(paths, "checkout", "-q", "--detach", CLONE_PIN)
     head = git(paths, "rev-parse", "HEAD").strip()
     porcelain = git(paths, "status", "--porcelain")
-    src_head = out("git", "-C", str(SOURCE_BLOOMERY), "rev-parse", "HEAD")
-    src_porcelain = out("git", "-C", str(SOURCE_BLOOMERY), "status", "--porcelain")
+    src = paths["source_bloomery"]
+    src_head = out("git", "-C", str(src), "rev-parse", "HEAD")
+    src_porcelain = out("git", "-C", str(src), "status", "--porcelain")
     c = {
         "clone_head_after": head,
         "clone_restored": head == CLONE_PIN,
