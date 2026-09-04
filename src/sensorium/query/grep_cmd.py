@@ -15,7 +15,7 @@ quietly show rows the first page had excluded.
 import shlex
 
 from sensorium import paths
-from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
+from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.fmt import fmt_event, more_note, parse_eref
 from sensorium.store.reader import Trace
 
@@ -45,6 +45,18 @@ def continue_cmd(args, last: int) -> str:
     return " ".join(parts)
 
 
+def _no_line_capture(trace, args) -> bool:
+    """`--kind LINE` against a run that recorded no LINE event at all.
+
+    Zero matches here is not the trace saying "no": nothing of that kind was
+    ever written down, so the search had nothing to be true or false about.
+    The note below and the exit status are the same fact, so both read it
+    from here -- deciding the status by matching the note's wording would
+    break the next time the wording improves.
+    """
+    return args.kind == "LINE" and not trace.counts().get("LINE")
+
+
 def _empty_note(trace, args, scanned: int, considered: int,
                 after: int) -> list[str]:
     """Zero matches is ambiguous on its own -- say what was searched.
@@ -63,7 +75,7 @@ def _empty_note(trace, args, scanned: int, considered: int,
                  f"contained {args.pattern!r}"]
     else:
         lines = [f"{head}; none contained {args.pattern!r}"]
-    if args.kind == "LINE" and not trace.counts().get("LINE"):
+    if _no_line_capture(trace, args):
         lines.append("this run recorded no LINE events at all: line-level "
                      "capture needs --focus MODULE[:QUALNAME] at record time")
     return lines
@@ -99,6 +111,10 @@ def run(args) -> int:
     if total == 0:
         for note in _empty_note(trace, args, scanned, considered, after):
             print(note)
+        if _no_line_capture(trace, args):
+            # The recording, not the program, is why there is nothing to
+            # show: re-record with --focus and ask again.
+            return UNSETTLED
         # Nothing matched: the trace answered, and its answer was "none".
         return NEGATIVE
     note = more_note(total, shown, continue_cmd(args, last))

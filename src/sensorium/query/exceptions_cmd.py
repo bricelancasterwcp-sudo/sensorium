@@ -656,9 +656,13 @@ def run(args) -> int:
             # it is a gap, and only a complete recording closes it.
             print("no RAISE events recorded (see INCOMPLETE above)")
             return UNSETTLED
-        # An uncaught exception with no RAISE row of its own: the header
-        # above has already reported it, so the question was answered.
-        return ANSWERED
+        # An exception escaped, but no RAISE row carries its identity, so
+        # the header could only say so ("-- no recorded RAISE carries its
+        # identity"). WHICH exception it was is exactly what this command
+        # answers, and this recording cannot say -- the same gap as the
+        # INCOMPLETE arm above, which is why an incomplete trace that DID
+        # capture an uncaught record lands here too rather than in it.
+        return UNSETTLED
 
     scope = [r for r in idx.all_raises if r.id > after]
     skipped = len(idx.all_raises) - len(scope)

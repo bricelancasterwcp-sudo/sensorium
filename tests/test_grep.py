@@ -1,7 +1,7 @@
 """`grep`: search events by name or captured-value content."""
 import shlex
 
-from sensorium.exit import NEGATIVE
+from sensorium.exit import NEGATIVE, UNSETTLED
 from sensorium import cli
 from tests.programs import CLEAN, CRASH, SWALLOW, record, synthetic
 
@@ -118,7 +118,7 @@ def test_grep_zero_match_note_owns_up_to_the_fn_filter(
 def test_grep_line_kind_with_no_line_capture_says_why(
         tmp_path, monkeypatch, capsys):
     run_id = record(tmp_path, monkeypatch, CLEAN)      # recorded without --focus
-    assert cli.main(["grep", run_id, "a", "--kind", "LINE"]) == NEGATIVE
+    assert cli.main(["grep", run_id, "a", "--kind", "LINE"]) == UNSETTLED
     out = capsys.readouterr().out
     assert "matches: 0" in out
     assert "--focus" in out

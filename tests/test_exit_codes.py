@@ -85,6 +85,12 @@ MATRIX = [
      _recorded, ["runs"], ANSWERED, "$RUN"),
     ("runs: no traces recorded",
      _empty_store, ["runs"], NEGATIVE, "no traces recorded"),
+    # `matches: 0` is NEGATIVE (pinned in tests/test_grep.py), but zero
+    # matches for --kind LINE on a run that recorded no LINE event at all
+    # is a gap in the recording, not the trace saying "no".
+    ("grep: --kind LINE with no LINE capture",
+     _recorded, ["grep", "$RUN", "a", "--kind", "LINE"],
+     UNSETTLED, "line-level capture needs --focus"),
     ("tree: no frames recorded",
      _bare, ["tree", "$RUN"], NEGATIVE, "no frames recorded"),
     ("frame: --nth N is out of range",
@@ -98,12 +104,12 @@ MATRIX = [
     ("exceptions: no RAISE events recorded (see INCOMPLETE above)",
      _incomplete, ["exceptions", "$RUN"],
      UNSETTLED, "no RAISE events recorded (see INCOMPLETE above)"),
-    # Not a site-table row: the third arm of the same `if not all_raises`
-    # block, where an escaping exception was reported by the header and
-    # nothing was listed under it. It answered before this commit and
-    # answers after it -- pinned so the split above cannot swallow it.
+    # The third arm of the same `if not all_raises` block: an exception
+    # escaped and the header said so, but no RAISE row carries its
+    # identity. WHICH exception it was is the question, and only a
+    # recording that captured the raise can settle it.
     ("exceptions: uncaught reported, no RAISE row of its own",
-     _uncaught_only, ["exceptions", "$RUN"], ANSWERED, "uncaught: "),
+     _uncaught_only, ["exceptions", "$RUN"], UNSETTLED, "uncaught: "),
     ("exceptions: REFUSED on a trace another recorder wrote",
      _rust, ["exceptions", "$RUN"],
      UNSETTLED, "REFUSED: exceptions on a rust trace"),

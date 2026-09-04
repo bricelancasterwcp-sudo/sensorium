@@ -78,6 +78,9 @@ def _resolve(trace, args):
 
 def run(args) -> int:
     trace = Trace.open(paths.find_trace(args.run))
+    # `status` is carried past the refusal branch and returned at the end:
+    # `_resolve` is the one place that decides this command's answer, and a
+    # second ANSWERED written down here would be a second place to change.
     f, err, status = _resolve(trace, args)
     if f is None:
         print(err)
@@ -189,4 +192,4 @@ def run(args) -> int:
                           else unframed_line(trace, obj)))
     else:
         print("children: (none)")
-    return ANSWERED
+    return status
