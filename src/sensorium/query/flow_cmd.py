@@ -130,7 +130,7 @@ from dataclasses import dataclass
 
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
-from sensorium.query.caps import require
+from sensorium.query.caps import none_status, print_incomplete, require
 from sensorium.query.fmt import fmt_event, fmt_value, more_note, parse_eref
 from sensorium.store.reader import Trace
 
@@ -798,11 +798,8 @@ def run(args) -> int:
     if err:
         print(f"error: {err.message}")
         return err.status
-    if idx.incomplete:
-        print("INCOMPLETE: this recording never finalized, so it may stop "
-              "mid-run")
-        print("  what is missing below is not evidence about the rest of the "
-              "run")
+    print_incomplete(trace, "what is missing below is not evidence about "
+                            "the rest of the run")
     for line in head:
         print(line)
 
@@ -823,7 +820,10 @@ def run(args) -> int:
     # The status follows the `sightings:` line the footer just printed, and
     # so is read over `scope` rather than `found`: what this invocation was
     # asked for is the sightings after `--after`, and an empty page is that
-    # question answered "none". The count line is already there for the zero
-    # case ("sightings: 0 event(s), 0 capture(s)"), so nothing is added to
-    # the output -- only the number the caller branches on changes.
-    return ANSWERED if scope else NEGATIVE
+    # question answered "none". Reading `found` instead would answer 0 for a
+    # page that printed `sightings: 0`, about a run-wide total the caller
+    # did not ask for. The count line is already there for the zero case
+    # ("sightings: 0 event(s), 0 capture(s)"), so nothing is added to the
+    # output -- only the number the caller branches on changes. Whether an
+    # empty page is "none" or "the recording stopped" is `none_status`.
+    return ANSWERED if scope else none_status(trace)

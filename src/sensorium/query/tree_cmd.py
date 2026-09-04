@@ -20,6 +20,7 @@ those traces support and is kept exactly as arc 1 wrote it.
 """
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
+from sensorium.query.caps import none_status, print_incomplete
 from sensorium.query.fmt import (fmt_args, fmt_exc, fmt_value, parse_eref,
                                  parse_fref, unread_marker)
 from sensorium.query.vocab import terms
@@ -311,6 +312,11 @@ def run(args) -> int:
               "depth 0 shows the root frames alone")
         return BAD_CALL
     trace = Trace.open(paths.find_trace(args.run))
+    # Above the tree, because `no frames recorded` on such a trace exits 3
+    # and a 3 the output does not explain is a number the reader cannot
+    # act on.
+    print_incomplete(trace, "the frames below are not all the frames this "
+                            "run had")
     by_parent, parentless = index_unframed(trace)
     n_unframed = sum(len(v) for v in by_parent.values()) + len(parentless)
     if args.around:
@@ -418,4 +424,7 @@ def run(args) -> int:
         empty = True
     for ln in _footers(trace, n_unframed):
         print(ln)
-    return NEGATIVE if empty else ANSWERED
+    # "no frames recorded" is the trace answering "none" only if the
+    # recording finished; `none_status` is that question, asked the same
+    # way here as in `grep` and `flow`.
+    return none_status(trace) if empty else ANSWERED

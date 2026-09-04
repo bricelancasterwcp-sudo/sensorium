@@ -188,6 +188,27 @@ MATRIX = [
     ("flow: primitive has no identity to follow",
      _recorded, ["flow", "$RUN", "--object", "add:a"],
      BAD_CALL, "has no identity to follow; use --value"),
+    # `--after` past every sighting: the run HAS one, this page has none.
+    # The status follows the `sightings:` line that was printed, which is
+    # the page's -- a status read off the run-wide total would answer a
+    # question this invocation did not ask.
+    ("flow: --after past every sighting",
+     _recorded, ["flow", "$RUN", "--value", "1", "--after", "e999"],
+     NEGATIVE, "earlier sighting(s) skipped by --after e999"),
+    # -- an EMPTY answer on an INCOMPLETE trace is not "none" -------------
+    # The general row added to the table on 2026-09-04. One predicate
+    # (`caps.none_status`) decides all three, so they cannot drift; each is
+    # exercised here against the same unfinalized trace, and each must
+    # print the banner that explains the 3.
+    ("grep: matches: 0 on an INCOMPLETE trace",
+     _incomplete, ["grep", "$RUN", "anything"],
+     UNSETTLED, "INCOMPLETE: this recording never finalized"),
+    ("tree: no frames recorded on an INCOMPLETE trace",
+     _incomplete, ["tree", "$RUN"],
+     UNSETTLED, "INCOMPLETE: this recording never finalized"),
+    ("flow: sightings: 0 on an INCOMPLETE trace",
+     _incomplete, ["flow", "$RUN", "--value", "1"],
+     UNSETTLED, "INCOMPLETE: this recording never finalized"),
 ]
 
 

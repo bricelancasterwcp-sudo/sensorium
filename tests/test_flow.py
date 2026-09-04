@@ -350,7 +350,13 @@ def test_flow_skips_locals_that_went_out_of_scope(tmp_path, monkeypatch,
 
 def test_flow_flags_an_incomplete_run(tmp_path, monkeypatch, capsys):
     """A run whose recording never finalized may simply stop mid-program, so
-    an empty result is not evidence the value never appeared."""
+    an empty result is not evidence the value never appeared.
+
+    Which is why it exits 3 and not 1: the docstring's own sentence is the
+    definition of UNSETTLED. `sightings: 0` here reports where the RECORDING
+    stopped, and only a recording that finished can turn it into "none"
+    (`caps.none_status`, the general table row of 2026-09-04).
+    """
     w = synthetic(tmp_path, monkeypatch)
     c = w.intern_code("/tmp/prog.py", "add", 1)
     w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
@@ -358,7 +364,7 @@ def test_flow_flags_an_incomplete_run(tmp_path, monkeypatch, capsys):
     w.close()
 
     assert cli.main(["flow", "20260101-000000-abcdef",
-                     "--value", "1"]) == NEGATIVE
+                     "--value", "1"]) == UNSETTLED
     out = capsys.readouterr().out
     assert "INCOMPLETE" in out
     assert "sightings: 0" in out

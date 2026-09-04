@@ -62,7 +62,7 @@ from pathlib import Path
 
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
-from sensorium.query.caps import require
+from sensorium.query.caps import print_incomplete, require
 from sensorium.query.expr import (CLIPPED, CONTAINER, NO_VALUE, NOT_CAPTURED,
                                   OUT_OF_SCOPE, TRUNCATED, EvalError,
                                   ExprError, NotCaptured, _Sized, compile_expr,
@@ -586,10 +586,8 @@ def run(args) -> int:
     print(f"watch {args.expr!r} at {args.at} in {trace.path.stem}")
     for line in CLAIM:
         print("  " + line)
-    if m.get("incomplete"):
-        print("INCOMPLETE: this recording never finalized, so it may stop "
-              "mid-run")
-        print("  the sites below are not all the sites this run had")
+    print_incomplete(trace, "the sites below are not all the sites this "
+                            "run had")
     # Every bucket, so the arithmetic is checkable: sites = evaluated +
     # not-captured + errors.
     print(f"sites: {n}   evaluated: {out.evaluated}   hits: {len(out.hits)}"

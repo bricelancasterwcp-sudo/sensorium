@@ -15,7 +15,8 @@ quietly show rows the first page had excluded.
 import shlex
 
 from sensorium import paths
-from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
+from sensorium.exit import ANSWERED, BAD_CALL, UNSETTLED
+from sensorium.query.caps import none_status, print_incomplete
 from sensorium.query.fmt import fmt_event, more_note, parse_eref
 from sensorium.store.reader import Trace
 
@@ -88,6 +89,10 @@ def run(args) -> int:
         return BAD_CALL
     after = parse_eref(args.after) if args.after else 0
     trace = Trace.open(paths.find_trace(args.run))
+    # Above the rows, because `matches: 0` on such a trace exits 3 and a 3
+    # the output does not explain is a number the reader cannot act on.
+    print_incomplete(trace, "the events searched below are not all the "
+                            "events this run had")
     shown = total = 0
     scanned = considered = 0
     last = after
@@ -115,8 +120,11 @@ def run(args) -> int:
             # The recording, not the program, is why there is nothing to
             # show: re-record with --focus and ask again.
             return UNSETTLED
-        # Nothing matched: the trace answered, and its answer was "none".
-        return NEGATIVE
+        # Nothing matched. Whether that is the trace answering "none" or a
+        # recording that stopped before the match would have been written
+        # is the one question `none_status` answers, for every command that
+        # can print an empty result.
+        return none_status(trace)
     note = more_note(total, shown, continue_cmd(args, last))
     if note:
         print(note)
