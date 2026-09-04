@@ -47,18 +47,22 @@ jobs:
       CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
     steps:
       - uses: actions/checkout@v4
-      # Plain rustup, not a third-party action: ubuntu-latest ships a stable
-      # toolchain already, so this only needs the two extra components.
-      - name: Rust toolchain (rustfmt, clippy)
-        run: rustup component add rustfmt clippy
+      # rust/rust-toolchain.toml pins the channel and lists rustfmt/clippy as
+      # components: querying rustup's active toolchain, below, reads that
+      # file and installs the pinned toolchain plus its components on
+      # demand, rather than adding them to whatever toolchain ubuntu-latest
+      # ships.
+      - name: Rust toolchain (pinned via rust-toolchain.toml)
+        working-directory: rust
+        run: rustup show
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             rust/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-1.96.0-${{ hashFiles('rust/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-cargo-1.96.0-
       - name: Build the driver (release)
         working-directory: rust
         run: cargo build --release -p cargo-sensorium
