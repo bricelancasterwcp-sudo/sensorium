@@ -36,8 +36,8 @@ never as a pass.
 | `libtest_threads` | `--test-threads=1` against `=4` is a MATCH carried entirely by the tasks, which are named after the tests | `diff`, `info` |
 | `spawned_thread` | a worker spawned inside a test is a task named `<test> :: spawn@<enclosing qualname>#<k>`, comparable by that name | `tree`, `info`, `diff --task` |
 | `spawn_across_move` | the spawning function moves to another file between two runs of one crate and the worker keeps its name: `diff --ignore-moves` MATCHes across the move, a plain `diff` DIVERGED on the file the CALL is keyed to | `tree`, `diff --ignore-moves`, `diff` |
-| `aliasing` | an identity question this recorder cannot answer: `flow --object` REFUSES through `object_identity: false` (exit 2), and the values it does hold do not settle it | `flow --object`, `tree` |
-| `stale_cache` | a per-line question this recorder cannot answer: `watch` REFUSES through `line: false` (exit 2) — while the same fault is still reachable through return values | `watch`, `grep` |
+| `aliasing` | an identity question this recorder cannot answer: `flow --object` REFUSES through `object_identity: false` (exit 3), and the values it does hold do not settle it | `flow --object`, `tree` |
+| `stale_cache` | a per-line question this recorder cannot answer: `watch` REFUSES through `line: false` (exit 3) — while the same fault is still reachable through return values | `watch`, `grep` |
 
 `corpus/rust/outcome_generic`, named in `rust/HONESTY.md` §1, is **rung 3's**
 and is deliberately absent: this tier reads a generic `T` that is an `Err`

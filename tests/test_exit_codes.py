@@ -195,6 +195,24 @@ MATRIX = [
     ("flow: --after past every sighting",
      _recorded, ["flow", "$RUN", "--value", "1", "--after", "e999"],
      NEGATIVE, "earlier sighting(s) skipped by --after e999"),
+    # -- diff --------------------------------------------------------------
+    # Every reason `diff` refuses for is one code (X5): a refusal names a
+    # recording that would settle the comparison, and re-recording is the
+    # only thing that makes one. An unfinalized trace compared with itself
+    # reaches the refusal on the first reason `_unsafe_reasons` holds --
+    # which reason it is does not change the status, and `tests/test_diff.py`
+    # pins each of the others at the same code.
+    ("diff: verdict REFUSED",
+     _incomplete, ["diff", "$RUN", "$RUN"], UNSETTLED, "verdict: REFUSED"),
+    # `refocus`'s post-rerun REFUSED (the other half of X4) has no row here
+    # and cannot get one: reaching it requires actually re-running the
+    # recorded program, which is a subprocess, not a synthetic trace. It is
+    # pinned end-to-end in `tests/test_refocus.py` instead
+    # (`test_refocus_refuses_a_verdict_over_two_empty_causal_streams` and
+    # `test_refocus_states_its_blind_spots_on_a_refused_verdict`, both moved
+    # to 3 by this commit); the pre-rerun refusals stay at 2 there too, and
+    # a matrix that showed only one of the two gates would misreport the
+    # split as a single code.
     # -- an EMPTY answer on an INCOMPLETE trace is not "none" -------------
     # The general row added to the table on 2026-09-04. One predicate
     # (`caps.none_status`) decides all three, so they cannot drift; each is

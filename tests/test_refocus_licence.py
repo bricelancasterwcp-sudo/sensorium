@@ -557,7 +557,7 @@ def test_report_refuses_a_verdict_when_the_new_trace_is_lossy(tmp_path,
     rc = refocus_cmd.report(ta, tb, res, a.stem, b.stem,
                             refocus_cmd.assess(ta, tb, res))
     out = capsys.readouterr().out
-    assert rc == 2
+    assert rc == 3
     assert "refocus verdict: REFUSED" in out and "UNVERIFIED" in out
     assert "refocus verdict: MATCH" not in out
     assert "refocus verdict: DIVERGED" not in out

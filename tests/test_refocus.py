@@ -537,7 +537,7 @@ def test_refocus_refuses_a_verdict_over_two_empty_causal_streams(tmp_path):
     # the target itself is digested even though it produced no traced code,
     # so "did the program change" is still answerable for a run like this
     assert "source: unchanged (1 file(s) compared by content" in r.stdout
-    assert r.returncode == 2, r.stdout + r.stderr
+    assert r.returncode == 3, r.stdout + r.stderr
     assert "verdict: REFUSED" in r.stdout
     assert "nothing to compare" in r.stdout
     assert "licence:" not in r.stdout
@@ -558,7 +558,7 @@ def test_refocus_states_its_blind_spots_on_a_refused_verdict(tmp_path):
     run_id = new_run(first.stdout)
 
     r = refocus(sdir, run_id, "--focus", "tool:main", cwd=work)
-    assert r.returncode == 2
+    assert r.returncode == 3
     lines = r.stdout.splitlines()
     start = next(i for i, ln in enumerate(lines)
                  if ln.startswith("what sensorium sees at all"))

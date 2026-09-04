@@ -346,13 +346,13 @@ What reads each one today:
 
 | Capability | Who reads it, and what happens when it is `false` |
 |---|---|
-| `line` | `flow` and `watch` refuse outright, printing `REFUSED: <command> needs line, which recorder <r> declares it does not produce (capabilities.line: false); nothing was checked` and exiting 2 (`query/caps.require`). |
+| `line` | `flow` and `watch` refuse outright, printing `REFUSED: <command> needs line, which recorder <r> declares it does not produce (capabilities.line: false); nothing was checked` and exiting 3 — the recording, not the call, is what would have to change (`query/caps.require`). |
 | `object_identity` | `flow --object` refuses the same way. |
 | `output` | `refocus` prints a blind-spot line — `"the program's output was not recorded on <side> (recorder <r> declares output: false), so the observer-effect cross-check did not run"` — instead of comparing two empty output tables and reporting agreement. |
 | `threads` | Gates the `threads_started` / `live_threads` witness keys. `info` and `diff` say "declares threads not witnessed" rather than "predates" or `0`. |
 | `children` | Gates `children` / `spawn_syscalls` / `audit_errors`, read the same way by `info` and `refocus`. |
 | `stdin` | Gates `stdin_consumed`. |
-| `refocus` | `refocus` refuses outright, through the same `caps.require` sentence, before anything is re-run — a rerun has side effects, so it is not something to attempt speculatively. |
+| `refocus` | `refocus` refuses outright, through the same `caps.require` sentence, before anything is re-run — a rerun has side effects, so it is not something to attempt speculatively. That refusal exits **2**, not 3: nothing was re-run, so the reader's next move is a different command; `refocus`'s POST-rerun `verdict: REFUSED` exits 3. |
 | `locals`, `return_value`, `tasks` | Declared, and printed by `info`; no command gates on them yet. Declare them truthfully anyway — a false declaration is a lie the readers will eventually act on. |
 
 One refusal is keyed on `lang` rather than on a capability, because what is
@@ -606,7 +606,8 @@ here decide whether its traces can be compared at all:
 4. **Refusals, not hedges.** `incomplete`, dropped writes, two empty streams
    with no task on either side, mismatched fingerprint bases, and a trace
    that ran units of work but recorded no fingerprints for them all produce
-   `verdict: REFUSED` (exit 2). A converter that leaves `task_fingerprints`
+   `verdict: REFUSED` (exit 3: a refusal names a recording that would
+   settle the comparison). A converter that leaves `task_fingerprints`
    empty for a run that had tasks makes every comparison of it refuse.
 
 ## 7. Fingerprints

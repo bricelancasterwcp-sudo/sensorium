@@ -10,8 +10,9 @@ questions:
       the recorder declares line=no, produces no LINE events, and `watch`
       therefore refuses rather than evaluating an expression against
       nothing. The refusal names the capability and says nothing was
-      checked; exit status 2. A tool that answered "0 hits" here would be
-      reporting an absent record as a zero.
+      checked; exit status 3 -- what is missing is LINE capture in the
+      recording, not a flag in the command. A tool that answered "0 hits"
+      here would be reporting an absent record as a zero.
     why_logs_fail: >
       This is the one question in this case a `dbg!(&key)` really would
       answer, which is why it is asked: the honest failure to pin is the
@@ -20,7 +21,9 @@ questions:
       no line-level events in it -- the difference between "the key never
       changed" and "I could not check".
     command: ["watch", "$RUN", "--at", "price_of", "--expr", "key == \"A1\""]
-    expect_exit: 2
+    # Site table (2026-09-04): `REFUSED: watch needs line` is 3 -- what
+    # is missing is LINE capture in the recording, not a flag here.
+    expect_exit: 3
     expect_contains:
       - "REFUSED: watch needs line, which recorder sensorium-rt 0.1.0 declares it does not produce (capabilities.line: false); nothing was checked"
     expect_absent: ["hits:", "near-miss", "verdict:"]

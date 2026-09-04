@@ -12,8 +12,10 @@ questions:
       captures a Debug rendering of a return value, which is a picture of
       the CONTENTS, and two distinct configs with equal contents render
       identically. The refusal names the recorder, names the capability, and
-      states that nothing was checked; exit status 2, not 0, because no
-      answer was produced.
+      states that nothing was checked; exit status 3, not 0, because no
+      answer was produced -- and 3 rather than 2 because the call is not
+      the thing that would have to change: only a recorder that produces
+      object identity could settle this.
     why_logs_fail: >
       Printing the config shows its contents, and at the moment you would
       print them both configs have identical contents -- the bug is
@@ -22,7 +24,11 @@ questions:
       which is the thing being looked for. RUST_LOG and RUST_BACKTRACE
       carry no addresses at all.
     command: ["flow", "$RUN", "--object", "derive_sandbox:cfg"]
-    expect_exit: 2
+    # Site table (2026-09-04): `REFUSED: flow --object needs
+    # object_identity` is 3, not 2 -- the call is well formed and the
+    # only thing that would answer it is a recorder that produces
+    # object identity.
+    expect_exit: 3
     expect_contains:
       - "REFUSED: flow --object needs object_identity, which recorder sensorium-rt 0.1.0 declares it does not produce (capabilities.object_identity: false); nothing was checked"
     expect_absent: ["flow of object #", "sightings:"]
