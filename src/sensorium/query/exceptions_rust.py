@@ -538,18 +538,19 @@ def _print_panics(panics: int) -> None:
           "panic is a frame's unwind, printed by `tree` and `frame`")
 
 
-def _print_partial(rows, runs=None, hint="sensorium info") -> None:
+def _print_partial(rows, wheres=None, hint="sensorium info") -> None:
     """`meta.partial` (design R6): `?` sites the transformer could not
     reach. Printed BEFORE the answer because it qualifies the whole of it --
     an `Err` raised at one of these sites is recorded by nothing, so its
     absence from the list below says nothing about the program.
 
-    `runs` is invocation mode's parallel list of the run id each row came
-    from -- there the union spans processes, and a row that did not say
-    which one it came from would name a site the reader cannot go and look
-    at. `None` in single-run mode, where the process is the ref the reader
-    already typed. `hint` is the continuation for the rows the cap hides,
-    which that mode narrows to a member when they are all one member's.
+    `wheres` is invocation mode's parallel list of where each site was seen
+    -- a run id, or `"<k> processes"` for one several members carry. There
+    the list is a union across processes, and a row that did not say where
+    it came from would name a site the reader cannot go and look at. `None`
+    in single-run mode, where the process is the ref the reader already
+    typed. `hint` is the continuation for the rows the cap hides, which
+    that mode points at the first hidden row's process.
     """
     if not rows:
         return
@@ -558,7 +559,7 @@ def _print_partial(rows, runs=None, hint="sensorium info") -> None:
           "an Err raised at one is recorded by nothing and appears nowhere "
           "below")
     for i, r in enumerate(rows[:PARTIAL_SHOWN]):
-        where = f" in {runs[i]}" if runs else ""
+        where = f" in {wheres[i]}" if wheres else ""
         print(f"  {r.get('qualname', '?')} {r.get('file', '?')}:"
               f"{r.get('line', '?')} ({r.get('reason', '?')}){where}")
     if len(rows) > PARTIAL_SHOWN:

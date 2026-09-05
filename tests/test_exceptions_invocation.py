@@ -106,6 +106,64 @@ def escaped_trace(tmp_path, monkeypatch, *, fn, line, **meta):
         **meta)
 
 
+def sink31_trace(tmp_path, monkeypatch, *, origin_fn, origin_line, msg,
+                 **meta):
+    """A chain raised in `origin_fn` and absorbed by the SAME `.ok()` every
+    other member's is: `sink_ok` at `load L31`.
+
+    The verdict is therefore word-for-word identical across members once
+    ids are masked, and the site it names is the same -- one shape -- while
+    the origin, the message and the route differ, which is exactly what the
+    key does not look at and the vary lines must report.
+
+    Event ids: e1 CALL load, e2 CALL `origin_fn`, e3 RAISE (the chain's
+    origin), e4 RETURN err, e5 HANDLED (the sink), e6 RETURN load ok.
+    """
+    return rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "load", 30], [FILE, origin_fn, origin_line]],
+        frames=[frame(1, 1, 6), frame(2, 2, 4, parent=1, depth=1)],
+        events=[
+            call(1000, 1, 30),
+            call(2000, 2, origin_line),
+            flow(3000, "RAISE", 2, 2, origin_line + 2,
+                 err_flow("exit", "demo::ConfigError", msg, S1, hop=1)),
+            ret(4000, 2, 2, "err", f"Err({msg})"),
+            flow(5000, "HANDLED", 1, 1, 31,
+                 err_flow("sink_ok", "demo::ConfigError", msg, S1, hop=1,
+                          terminal="swallowed_candidate")),
+            ret(6000, 1, 1, "ok", "None"),
+        ],
+        sites=[fn_site("load", SITE_FILE, 30),
+               fn_site(origin_fn, SITE_FILE, origin_line)],
+        **meta)
+
+
+def outside_sink31_trace(tmp_path, monkeypatch, **meta):
+    """The same `.ok()` at `load L31`, absorbing a chain first seen AT the
+    sink: born outside this thread's instrumented frames, so it has a
+    detail and -- being one event -- no route at all."""
+    return rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "load", 30]],
+        frames=[frame(1, 1, 3)],
+        events=[
+            call(1000, 1, 30),
+            flow(2000, "HANDLED", 1, 1, 31,
+                 err_flow("sink_ok", "std::io::Error", "Os { code: 2 }", S1,
+                          hop=1, origin="outside",
+                          terminal="swallowed_candidate")),
+            ret(3000, 1, 1, "ok", "None"),
+        ],
+        sites=[fn_site("load", SITE_FILE, 30)],
+        **meta)
+
+
+def partial_row(qualname, line):
+    return {"file": SITE_FILE, "line": line, "qualname": qualname,
+            "kind": "try", "reason": "macro-arg"}
+
+
 def quiet_trace(tmp_path, monkeypatch, **meta):
     """A member that recorded no `Err` chain at all."""
     return rust_trace(
@@ -175,6 +233,11 @@ def test_an_invocation_id_answers_for_every_member(
     assert o.count("(load L45)") == 1, o
     assert f"  [in {M2}]" in o, o
     assert "dispositions: swallowed 3" in o, o
+    # the merged members agree in everything the key does not look at, so
+    # the block flags nothing: a vary line means something because it is
+    # not printed here.
+    assert "origins:" not in o and "messages:" not in o, o
+    assert "details vary" not in o and "routes:" not in o, o
 
 
 def test_incomplete_members_are_named_before_the_answer(
@@ -234,6 +297,64 @@ def test_two_origin_sites_stay_two_shapes_across_processes(
     assert f"  [in {M1}]" in o and f"  [in {M2}]" in o, o
     assert "alpha raise" in o and "beta raise" in o, o
     assert "dispositions: ambiguous 2" in o, o
+
+
+def test_the_vary_sets_are_unioned_across_the_members(
+        tmp_path, monkeypatch, capsys):
+    """One sink, three processes, and everything the key does not look at
+    differing: the flags count across the INVOCATION.
+
+    Without the union each set would hold only the printed member's own
+    values, and a block absorbing errors from three origins in three
+    processes would report no variation at all -- the one reading a reader
+    cannot get back by asking again.
+    """
+    sink31_trace(tmp_path, monkeypatch, origin_fn="read_config",
+                 origin_line=12, msg='Missing("port")', run_id=M1,
+                 invocation=INV, cargo_args=CARGO)
+    sink31_trace(tmp_path, monkeypatch, origin_fn="fetch", origin_line=60,
+                 msg='Missing("host")', run_id=M2, invocation=INV,
+                 cargo_args=CARGO)
+    outside_sink31_trace(tmp_path, monkeypatch, run_id=M3, invocation=INV,
+                         cargo_args=CARGO)
+    assert cli.main(["exceptions", INV]) == ANSWERED
+    o = out(capsys)
+    assert o.count("SWALLOWED --") == 1, o
+    assert f"  [×3 over 3 processes: first e3 in {M1}, +2]" in o, o
+    assert "      origins: 3 distinct (first shown)" in o, o
+    assert "      messages: 3 distinct (first shown)" in o, o
+    # the printed member has no detail and does have a route, and each
+    # parenthetical says so (R-G5)
+    assert "      details vary (2 distinct; this one has none)" in o, o
+    assert "      routes: 3 distinct (first shown)" in o, o
+    assert "dispositions: swallowed 3" in o, o
+
+
+def test_the_partial_rows_are_a_union_and_not_a_concatenation(
+        tmp_path, monkeypatch, capsys):
+    """`meta.partial` lists the sites of every unit a process LINKED, so a
+    site in a shared crate is repeated in every member that links it
+    (ruling R-G10). The block counts PLACES, names the process for a site
+    only one member carries, and says how many carry the rest."""
+    shared = partial_row("shared", 21)
+    swallow_trace(tmp_path, monkeypatch, run_id=M1, invocation=INV,
+                  cargo_args=CARGO,
+                  partial=[shared, partial_row("u1", 22),
+                           partial_row("u2", 23)])
+    swallow_trace(tmp_path, monkeypatch, run_id=M2, invocation=INV,
+                  cargo_args=CARGO,
+                  partial=[shared, partial_row("u3", 24)])
+    assert cli.main(["exceptions", INV]) == ANSWERED
+    o = out(capsys)
+    # four places, not the five rows the two members hold between them
+    assert "partial: 4 ?-sites the transformer could not reach" in o, o
+    assert f"  shared {SITE_FILE}:21 (macro-arg) in 2 processes" in o, o
+    assert f"  u1 {SITE_FILE}:22 (macro-arg) in {M1}" in o, o
+    assert f"  u2 {SITE_FILE}:23 (macro-arg) in {M1}" in o, o
+    # the cap hides the fourth place, and its continuation names the
+    # process that carries it
+    assert "u3" not in o, o
+    assert f"  ... 1 more (sensorium info {M2})" in o, o
 
 
 def test_the_partial_rows_and_panics_are_the_union_and_the_sum(

@@ -118,14 +118,26 @@ class Merged:
     """One shape, seen across an invocation.
 
     `shape` is the FIRST member's -- the block that is printed, and whose
-    vary sets are unioned with the others' as they arrive. `trace` and
-    `run_id` are that member's, because the block's ids are its ids.
+    vary sets and CHAINS are unioned with the others' as they arrive, so a
+    merged shape is internally consistent: `len(shape.chains)` is the count
+    the bracket prints. `trace` and `run_id` are the first member's,
+    because the block's ids are its ids.
+
+    Its `chains` therefore span traces, and `exceptions_group.bracket` must
+    never be called on one: that bracket LISTS event ids, and ids from
+    different processes are not one sequence. `bracket(merged)` below is
+    this mode's, and it names processes instead.
     """
     shape: Shape
     trace: object
     run_id: str
-    n: int = 0                                    # chains, over all members
     processes: list = field(default_factory=list)  # run ids, member order
+
+    @property
+    def n(self) -> int:
+        """Chains, over every member: the shape's own list, so there is no
+        second count here to drift away from it."""
+        return len(self.shape.chains)
 
 
 def _processes(n: int) -> str:
@@ -169,11 +181,11 @@ def _merge(members) -> tuple[list[Merged], dict]:
                 by_key[shape.key] = m
                 merged.append(m)
             else:
+                m.shape.chains.extend(shape.chains)
                 m.shape.origins |= shape.origins
                 m.shape.messages |= shape.messages
                 m.shape.details |= shape.details
                 m.shape.hops |= shape.hops
-            m.n += len(shape.chains)
             m.processes.append(run_id)
     return merged, tally
 
@@ -198,22 +210,42 @@ def bracket(m: Merged) -> str:
 
 
 def _print_partial(members) -> None:
-    """Every member's unreachable `?` sites, in member order, each row
-    naming the process it came from.
+    """The DISTINCT unreachable `?` sites across the invocation, in
+    first-appearance order, each row saying where it was seen.
 
-    The cap's continuation hint names a member only when every hidden row
-    is that member's; otherwise `sensorium info` takes a run id this list
-    cannot supply, and the plain form is the honest one.
+    A union, not a concatenation (ruling R-G10). `meta.partial` holds, per
+    process, the sites of every unit that process LINKED, so in a workspace
+    each shared crate's unreachable sites are repeated in every trace that
+    links it: concatenating 144 members announced `partial: 432 ?-sites`
+    for 3 distinct ones, showed 3 rows all from the first member, and hid
+    429 copies. The count a reader needs is how many PLACES the recorder
+    could not watch.
+
+    Where each site was seen still matters, so a site carried by exactly
+    one process names it -- that is the trace to go and read -- and one
+    carried by several says how many, rather than listing run ids that
+    would outgrow the row.
     """
-    rows, runs = [], []
+    rows, seen_at = [], []
+    at: dict[tuple, int] = {}
     for run_id, _trace, idx in members:
         for row in (idx.partial or []):
-            rows.append(row)
-            runs.append(run_id)
-    hidden = set(runs[exceptions_rust.PARTIAL_SHOWN:])
-    hint = (f"sensorium info {hidden.pop()}" if len(hidden) == 1
-            else "sensorium info")
-    exceptions_rust._print_partial(rows, runs, hint)
+            key = (row.get("qualname"), row.get("file"), row.get("line"),
+                   row.get("reason"))
+            i = at.get(key)
+            if i is None:
+                at[key] = len(rows)
+                rows.append(row)
+                seen_at.append([run_id])
+            elif seen_at[i][-1] != run_id:
+                seen_at[i].append(run_id)
+    wheres = [runs[0] if len(runs) == 1 else _processes(len(runs))
+              for runs in seen_at]
+    # The hint names the FIRST hidden row's process: it is the one a reader
+    # continuing the list opens next, and it is a run id `info` takes.
+    hidden = seen_at[exceptions_rust.PARTIAL_SHOWN:]
+    hint = f"sensorium info {hidden[0][0]}" if hidden else "sensorium info"
+    exceptions_rust._print_partial(rows, wheres, hint)
 
 
 def _header(members) -> int:

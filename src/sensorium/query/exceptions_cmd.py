@@ -129,7 +129,9 @@ def add_parser(sub) -> None:
     p = sub.add_parser(
         "exceptions", help="raises, handles, swallows",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
-    p.add_argument("run")
+    p.add_argument("run", help="a run id (or a unique prefix), 'last', or "
+                                "an invocation id as `runs` prints it; "
+                                "--after is refused for an invocation")
     p.add_argument("--after", default=None, help="event ref to resume from")
     p.add_argument("--limit", type=int, default=50)
     p.set_defaults(func=run)
