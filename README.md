@@ -322,8 +322,8 @@ warning even when the rest of the predicate produced hits — a typo'd name is
 otherwise a silent zero. When there are no hits, `watch` reports the closest
 approaches with their margins, which is the question a threshold log throws
 away: it fires when the condition is true, and it never was. `--misses N`
-sets how many of those near-misses to show (default 5); `--near` is kept as
-a hidden, deprecated alias for one release and will be removed in 0.8.0.
+sets how many of those near-misses to show (default 5); the pre-0.8.0
+`--near` alias has been removed.
 
 ### `flow` — lineage, not dataflow analysis
 

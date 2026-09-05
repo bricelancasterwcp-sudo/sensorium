@@ -205,9 +205,14 @@ pub struct ChainEvent {
     pub seq: u64,
     pub at: At,
     pub serial: u64,
-    /// 1-based: the origin event is hop 1, and each frame the chain crosses
-    /// afterwards is the next. An event that absorbs or observes a chain
-    /// without crossing a frame carries the hop it happened at.
+    /// 1-based: the origin event is hop 1, and every RAISE-class event that
+    /// continues the chain -- a `?` or an `arm_propagate` -- takes the next
+    /// number, including one that fires INSIDE the frame the chain already
+    /// holds (an in-frame `?` on the `Err` a callee just handed back still
+    /// increments it). A hop is "one more step this `Err` took", not "one
+    /// more frame boundary crossed"; see `docs/TRACE-FORMAT.md` §5. An event
+    /// that absorbs or observes a chain (the HANDLED classes) crosses
+    /// nothing and carries the hop it happened at.
     pub hop: u32,
     pub origin: Origin,
     /// This event's recorded type differs from the one the chain carried into

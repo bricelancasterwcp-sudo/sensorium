@@ -34,13 +34,14 @@ stays the record for rungs 0–2.
 
 ### Deferred, awaiting rulings
 
-- **`watch --near` outlived its deprecation.** 0.7.0 said the hidden alias
+- ~~**`watch --near` outlived its deprecation.** 0.7.0 said the hidden alias
   would be removed in 0.8.0; 0.8.0 ships with it still present, because the
   release slice was documentation and version metadata only. Three ways out,
   and the choice is a ruling: remove it now in a code slice; re-date the
   promise in `README.md`, `watch_cmd.py` and `tests/test_watch.py` together;
   or keep it indefinitely and say so. Doing nothing leaves a 0.8.0 binary
-  printing "(removed in 0.8.0)".
+  printing "(removed in 0.8.0)".~~ — resolved: `--near` removed from the
+  parser (this slice); see `CHANGELOG.md` 0.8.0.
 - **A `chain.holder` field on the wire.** The holder frame is derived twice
   today — once by the converter's chain machine, once by the Python reader
   walking outward from a chain's last event (`Index.unwound_holder` and

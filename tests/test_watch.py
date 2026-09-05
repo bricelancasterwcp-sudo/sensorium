@@ -24,6 +24,8 @@ same seam as `test_refocus.py` / `test_refocus_licence.py`.
 """
 import shlex
 
+import pytest
+
 from sensorium import cli
 from sensorium.exit import NEGATIVE, UNSETTLED
 from sensorium.query.expr import OUT_OF_SCOPE
@@ -273,29 +275,31 @@ def test_watch_near_miss_cap_states_what_was_withheld_with_a_command(
     assert "--misses 5" in hint and "<" not in hint
 
 
-def test_watch_near_alias_is_deprecated_but_behaves_identically(
+def test_watch_near_is_rejected_as_promised_in_0_7_0(
         tmp_path, monkeypatch, capsys):
-    """`--near` is the pre-X9 spelling, kept for one release (removed in
-    0.8.0). This is the ONE test in the suite still using it: every other
-    `--near` was switched to `--misses` by this same commit, and this one
-    exists to pin that the alias still works and still prints the warning,
-    so a future cleanup that deletes it does so on purpose, not by
-    accident."""
+    """0.7.0 kept `--near` as a hidden, deprecated alias for `--misses` and
+    said it "will be removed in 0.8.0" (see CHANGELOG.md). This release
+    keeps that promise: `--near` is gone from the parser entirely, so
+    passing it is an unrecognized argument like any other unknown flag --
+    argparse raises `SystemExit` straight out of `parse_args`, before
+    `cli.main` ever dispatches (see `cli.py`'s own docstring, and the same
+    shape `test_help_epilogs.py` pins for `--help`), at the standard "fix
+    the call" exit status."""
     run_id = rec(tmp_path, monkeypatch, extra=("--focus", "prog:fill"))
     argv_common = ["watch", run_id, "--at", "prog:fill", "--expr",
                    "used > 100"]
 
-    status = cli.main([*argv_common, "--near", "2"])
-    captured = capsys.readouterr()
-    assert status == NEGATIVE
-    assert captured.err == ("sensorium: --near is deprecated; use --misses "
-                            "(removed in 0.8.0)\n")
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main([*argv_common, "--near", "2"])
+    assert excinfo.value.code == 2
+    err = capsys.readouterr().err
+    assert "unrecognized arguments: --near" in err
 
+    # `--misses` alone is unaffected: the replacement flag still works.
     status_misses = cli.main([*argv_common, "--misses", "2"])
     captured_misses = capsys.readouterr()
-    assert status_misses == status == NEGATIVE
-    assert captured_misses.out == captured.out
-    assert captured_misses.err == ""              # no warning without --near
+    assert status_misses == NEGATIVE
+    assert captured_misses.err == ""
 
 
 def test_watch_says_why_an_equality_predicate_has_no_near_misses(

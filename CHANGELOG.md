@@ -43,12 +43,9 @@
   Rust fingerprint moved; E3″ (0 DIVERGED of 19) and E5″ re-measured it.
 - **`sensorium-rt`, `sensorium-transform` and `cargo-sensorium` → 0.3.0**
   (wire v3). A v2 spool still converts.
-- **Known, and carried rather than quietly dropped**: 0.7.0 said the hidden
-  `watch --near` alias "will be removed in 0.8.0". It is **still present** in
-  this release — removing it is a code change, and this release's own slice
-  was documentation and version metadata only. The flag stays hidden and
-  still prints its deprecation line; the removal is owed a ruling and is
-  recorded in `docs/CARRIED-DEBT.md`.
+- **`watch --near` removed, as 0.7.0 promised.** The hidden deprecated alias
+  is gone from the parser; `--misses` is the only spelling now, and passing
+  `--near` is an unrecognized argument like any other unknown flag (exit 2).
 
 ## 0.7.0 — 2026-09-04
 
