@@ -175,3 +175,22 @@ Invariants → falsifiers: one test per §2a row's verdict on a synthetic trace 
 - **Spec coverage:** R1/R1b → T1/T2/T4; R2 → T2/T3; R3/R4 → T1 (ladders) + T2/T3 (fragments); R5 → T3; R6 → T2/T3/T4/T5; R7/§2a → T4 (`chains.rs`) + T6 (verdicts); R8 → T6; R9 → T1/T5/T6; R10 → T1; R11 → T6; R12 → T4 (fingerprint test) + T8 (E3″/E5″) + T7 (re-pins); R13 → T5/T9; R14 → T0; R15 → T0/T8; R16 → T7 (cases) + T9 (HONESTY).
 - **Placeholders:** `<N1>`/`<N2>` are filled by Task 0 before the byte-lock — by design, not a placeholder left to the run; the arm-classification rulings inside Task 3 are stated (only the four diverging macros; only format args and `&e` count as non-escaping).
 - **Type consistency:** `how` names (`HOW_TRY`, `HOW_SINK_OK`, `HOW_SINK_UNWRAP_OR`, `HOW_SINK_LET_UNDERSCORE`, `HOW_ARM_PROPAGATE`, `HOW_ARM_HANDLED`, `HOW_ARM_AMBIGUOUS`) are the rt's constants used verbatim by T2/T3 and mirrored by T4's parser; `exc.kind ∈ {"err","panic"}`; chain serials `≥ 1<<32`; manifest `kind ∈ {fn, closure, try, sink, arm}`; `partial` reasons `{macro-arg, async-block, struct-literal}`.
+
+---
+
+## Addendum 2026-09-05 — repair slice after E6′ STOP (design R2 amendment)
+
+### Task 10: R2 amendment — format products escape; corpus case; E6‴ pre-registration
+
+**Files:** Modify `rust/sensorium-transform/src/arms.rs` (`FORMAT_MACROS` → the logging family only; `format`/`format_args`/`write`/`writeln` mentions escape), its unit rows and goldens (`tests/golden/err_arm_escaped*`), `rust/sensorium-transform/src/bin/census.rs` unchanged; Create `corpus/rust/err_rendered_into_value/` (an `Err(e) =>` arm whose tail value carries `format!("..{e}")` into the function's return → `dispositions: ambiguous 1`, `expect_absent: ["SWALLOWED", "dispositions: swallowed"]`, `why_logs_fail`); Modify `corpus/rust/README.md`; Create `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §1 (pre-registration, committed ALONE after everything else in this task).
+
+**Interfaces:** Consumes the escape test (`EscapeWalk`, `format_arg_escapes`) and `Class`; Produces no new wire/manifest shape (the arm's `how` byte is unchanged; only the classification moves HANDLED→ESCAPED for the affected shapes).
+
+- [ ] Failing unit rows: `Err(e) => Wrap { msg: format!("{e}") }` → Escaped; `Err(e) => { let s = format!("{e}"); v.push(s); 0 }` → Escaped; `Err(e) => { write!(buf, "{e}").ok(); 0 }` → Escaped; controls: `Err(e) => { eprintln!("{e:?}"); 0 }` → Handled; `Err(e) => { log::warn!("{e}"); 0 }` → Handled; `Err(e) => println!("{e}")` → Handled. Run red → implement → green; goldens updated with the reason in the commit; clone census re-run and the escaped/handled counts reported (expect handled ↓ by ≈ the ~32 format-product arms, escaped ↑ by the same).
+- [ ] Corpus case built and run through the real toolchain; mutation: change the arm to `eprintln!` → the question must go red (`swallowed 1`).
+- [ ] `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §1: E6‴-A (E6′'s row verbatim, gate 0 false, both readings reported), E6‴-W (`cargo sensorium test --workspace --lib` on the clone; every SWALLOWED line hand-adjudicated; gate 0 false; reported: lines per disposition, executed-vs-static count of the ~32 blast-radius arms), E6-again (the corpus collector, equality, incl. the new case), E7‴ (mechanics unchanged, 0 differences). Lens rows verbatim from the rung-3 doc. Commit ALONE: `docs(rung3): pre-register E6‴-A/E6‴-W/E6-again/E7‴` — record the sha in the ledger.
+
+### Task 11: E6‴ measurement
+
+**Files:** `rust/tests/acceptance_rung3.py` (+ `--doc e6ppp` mode or a sibling runner reusing `phase_e6`, the E6′ phase, the byte-lock check against Task 10's sha), the acceptance doc §2–§5.
+- [ ] Preflight (clone HEAD/porcelain, fresh `SENSORIUM_DIR`, driver built --release from HEAD, sha recorded); run detached; measure ONCE; hand-adjudicate every SWALLOWED line in both arms (both readings); write §2–§5; commit `docs(rung3): E6‴ measured — <verdicts>`.
