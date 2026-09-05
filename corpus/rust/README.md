@@ -49,7 +49,7 @@ swallow set: as `expect_line` groups whose FIRST needle is `SWALLOWED`, or,
 where the set is empty, as `expect_absent: ["SWALLOWED", "dispositions:
 swallowed"]` -- the convention the Python `suspended_handler` case already
 uses, and the one `tests/test_corpus.py` checks. An empty swallow set is a
-claim like any other: nine of these fifteen exist to pin that nothing is
+claim like any other: ten of these seventeen exist to pin that nothing is
 accused.
 
 | Case | Planted truth | Commands |
