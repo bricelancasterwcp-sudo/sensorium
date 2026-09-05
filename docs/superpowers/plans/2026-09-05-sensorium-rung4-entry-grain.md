@@ -358,3 +358,32 @@ Whole-branch review (fable) on `e307d90..HEAD` with the design, the record and t
 - Spec coverage: N1/N2 → T1; N3/N4/N5 → T2; N6 → T3; N7 → T2/T3 tests + T6 README; N8 → T6; design §4 H1–H6 → T4/T5; §5's test list → T1/T2/T3/T4; §6 order kept.
 - Placeholders: `<sha>`, `<date>`, `<verdicts>` are values the ledger supplies at the named step; the T2/T3 test lists name behaviours with exact expected strings where the string is fixed by the design (the bracket, the note, the header).
 - Type consistency: `Disposition.site` (T2) is what `site_of` reads; `Shape` fields named identically in T2 and T4's parser expectations; `resolve_invocation`/`InvocationLookupError`/`run(args, invocation_id, members)` named identically in T3's interface and `exceptions_cmd.run`'s dispatch; `parse_shapes`/`oracle`/`compare_sites`/`site_of_event` named identically in T4's interface and tests.
+
+---
+
+## Addendum 2026-09-05 — repair slice after H4's STOP (ruling R-G12)
+
+The first measurement (`docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain.md`, commit `5841e3f`) read H4 **STOP**: the shape key's site was `qualname L<line>` with no file, and two test files sharing a `sandbox L42` (and two sharing a `fresh_dir L64`) merged across processes — 21 chains booked under a sibling file, every count conserved. That record stands as written. The repair is a NEW pre-registration measured once, on this branch, before T6.
+
+### Task 7: The site key gains the file; collision disambiguation; the repair pre-registration locked ALONE
+
+**Files:**
+- Modify: `src/sensorium/query/exceptions_cmd.py` (`Disposition.site` becomes the SITE EVENT's identity the key needs — a `(file, line, qualname)` triple — or a small `Site` dataclass; the Python path never sets it), `src/sensorium/query/exceptions_rust.py` (`_swallowed`/`_escaped`/`_handled_then_failed` build it from the event's code object: `trace.code(e.code_id).file`, `e.line`, `qualname`; `_at` unchanged for PRINTING), `src/sensorium/query/exceptions_group.py` (`site_of` returns the triple for the key — origin fallback likewise; `print_shape` gains a `disambiguate: bool` so a colliding block prints `(<qualname> L<line> in <file basename>)` in its verdict parenthetical; `print_shapes` computes the collision set = shapes whose printed site text `qualname L<line>` occurs in more than one shape of THIS answer), `src/sensorium/query/exceptions_invocation.py` (merge on the same key; the collision set computed over the merged shapes; the `[in <run>]`/`[×N over …]` brackets unchanged).
+- Create: `rust/tests/acceptance_grain_repair.py` (a sibling of `acceptance_grain.py`: imports its `main`/phases and overrides `DOC = …-grain-repair.md`, `BYTE_LOCK`, the ledger subdirectory `acceptance-grain-repair/` and the marker names; nothing else), `tests/test_acceptance_grain_repair.py` (the lock tests + "the sibling differs from the original only in DOC/BYTE_LOCK/paths"), `docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain-repair.md` (header + §1 ALONE).
+- Test: `tests/test_exceptions_rust_grouping.py` (+2: a single trace whose two code objects share `qualname`+`line` in two files → two shapes, both verdict lines carrying `in <basename>`; the no-collision case byte-identical), `tests/test_exceptions_invocation.py` (+1: two members, same `qualname L<line>` in different files → two merged shapes with the basenames; the positive control from the record: the same `sandbox L42` shape).
+
+**Interfaces:**
+- Consumes: T2's `Shape`/`group_chains`/`print_shape(s)`; T3's `_merge`/`bracket`; `Trace.code(code_id).file`.
+- Produces: `Disposition.site: tuple[str, int, str] | None` (`(file, line, qualname)`); `exceptions_group.site_text(site) -> str` (`qualname L<line>`), `site_file(site) -> str` (basename); `collisions(shapes) -> set[key]`; `print_shape(trace, shape, bracket_text=…, disambiguate=False)`.
+
+- [ ] **Step 1: failing tests** (the three above, exact strings: `(sandbox L42 in task_exec_run_test.rs)`; the byte-identity pins of T2 must still pass unchanged).
+- [ ] **Step 2: implement**; corpus `51/108/0` (no case collides — if one does, STOP and report); the whole exceptions family + vectors green; mutants: (1) key drops the file → the two-files test red; (2) disambiguation off → the basename assertion red; (3) collision set computed per member instead of per answer in invocation mode → red.
+- [ ] **Step 3: commit** the `src/` + test files by explicit path (`fix(exceptions): the shape key carries the file; colliding site texts print their file (R-G12)`).
+- [ ] **Step 4: the sibling runner + its tests** (`BYTE_LOCK = None`), commit.
+- [ ] **Step 5: §1′ ALONE** — `…-grain-repair.md`: header (this is the repair of the 2026-09-05 record's H4 STOP; that record stands; the oracle and the stores are the same), `## 1. Pre-registration` = the first document's §1 rows H1–H6 VERBATIM except: H4′'s endpoint reads "**ws: exactly 91 SWALLOWED shapes, one per (file, line) site, whose multiset equals the record's 91-row table (782 chains); ws0: 98 shapes / 812; summed tally, in the tool's `TAG_ORDER`, `swallowed 782, panicked 2, ambiguous 330` / `swallowed 812, panicked 2, ambiguous 300`; header 144/114/30; INCOMPLETE 0; collisions disambiguated: every shape whose site text collides carries its file basename (count reported)**"; H2′/H3′ state the tally lines as the tool prints them; H1′ names the by-rule pins (unchanged set); the lens names the first record and its lock. Commit ALONE; record the sha; set `BYTE_LOCK` in the sibling; `-k lock` passes.
+
+### Task 8: Measure the repair once; §2–§5 of the repair record
+
+Exactly Task 5's discipline (build the debug driver first; launch the SIBLING runner detached under `acceptance-grain-repair/`; read nothing before its marker; `.FAILED` before numbers = infrastructure, after = STOP). §2–§5 in the repair document; §4's verdicts table; §5 names what the repair changed against the first record (89/96 sites → 91/98; the disambiguated shapes counted). Commit the record + its `.results.json`. If H4′ is still a STOP, it is recorded with its number and the slice ships with two STOP records and no third measurement — the ruling is Brice's.
+
+Task 6 then documents BOTH records (CHANGELOG 0.8.2: "measured twice; the first read STOP on the key's file; the second …").
