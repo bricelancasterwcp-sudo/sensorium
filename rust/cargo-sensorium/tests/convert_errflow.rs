@@ -538,6 +538,60 @@ fn a_run_whose_try_fired_has_a_different_fingerprint_from_one_whose_did_not() {
     );
 }
 
+/// The other half of R12, and the one the mutation above cannot reach: the
+/// contract names `CALL`, `RETURN`, `RAISE` **and `HANDLED`** as causal, so a
+/// run whose sink absorbed an `Err` and one whose sink never fired are two
+/// different runs. A converter that fed only RAISE to the hasher would keep
+/// every other test in this file green while making a swallow invisible to
+/// `diff` -- which is the one thing a fingerprint exists to prevent.
+#[test]
+fn a_run_whose_sink_absorbed_an_err_has_a_different_fingerprint_from_one_whose_did_not() {
+    fn fingerprint(name: &str, pid: u32, with_sink: bool) -> String {
+        let f = Fixture::new(name);
+        f.manifest(&[
+            site(0, "outer", 3, "value"),
+            err_site(1, "outer", 5, "sink", "sink_ok"),
+        ]);
+        wire::write_proc_header_caps(
+            &f.spool_dir,
+            pid,
+            1,
+            "/w/target/deps/demo",
+            &[(0, "meta1")],
+            None,
+            Some(true),
+        );
+        let mut b = wire::SpoolBuilder::new(pid, 1, "main")
+            .version(3)
+            .call(0, 1000, 0, 0);
+        if with_sink {
+            b = b.err_flow(
+                1,
+                1100,
+                0,
+                1,
+                KIND_HANDLED,
+                HOW_SINK_OK,
+                Some("demo::E"),
+                Some("E1"),
+            );
+        }
+        b.ret_ok_dbg(2, 1200, 0, 0, "Ok(())", false)
+            .thread_end(3, 1300)
+            .write(&f.spool_dir);
+        let conn = f.converted();
+        conn.query_row("SELECT hash FROM fingerprints", [], |r| r.get(0))
+            .unwrap()
+    }
+
+    let with = fingerprint("errflow-fp-handled", 614, true);
+    let without = fingerprint("errflow-fp-no-handled", 615, false);
+    assert_ne!(
+        with, without,
+        "a HANDLED must enter the causal stream the fingerprint is taken over"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Panics keep their own namespace (design R7)
 // ---------------------------------------------------------------------------
