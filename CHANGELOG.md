@@ -33,9 +33,12 @@
   older runtime wrote refuses by name at exit 3 — what it lacks is a record,
   not a rule. Python traces are untouched: `exceptions` output on a Python
   trace is byte-identical to 0.7.0.
-- **Panic locations keep their promise, with one measured clause**: lines
-  never move, and a column shifts only inside a wrapped operand, by the wrap
-  prefix's 6 bytes — predicted before each run and met exactly at both tiers.
+- **Panic locations keep their promise, with a two-place clause**: lines never
+  move, and a column shifts in exactly two places. Inside a wrapped `?`/sink/
+  `let _` operand, by the wrap prefix's 6 bytes — **measured**, predicted
+  before each run and met exactly at both tiers. And after an arm probe or
+  closure guard spliced at a same-line `{`, by that probe's own byte length —
+  **stated, unmeasured**: no check exercises it (`docs/CARRIED-DEBT.md`).
 - **Trace format 4 gains** `exc.kind`, `how`, `chain` and a typed `err`
   RETURN (`docs/TRACE-FORMAT.md` §5), meta keys `partial`,
   `err_flow_records`, `err_flow_outside_frames`, `closure_frames`, and

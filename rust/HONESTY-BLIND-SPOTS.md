@@ -240,9 +240,11 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     verdicts on arms that in fact handled, and never a false SWALLOWED.
     *Falsified by* the golden `err_arm_escaped`, whose controls are the two
     provable shapes; the `ref` binding itself is **untested by fixture**.
-23. **The escape test reads a macro's TOP-LEVEL arguments.** Two residuals
+23. **What the escape test proves, and what it leaves.** Three residuals
     follow. They are **not the same kind of thing, and only one of them was
-    measured**, so they are stated apart rather than together.
+    measured**, so they are stated apart rather than together. (a) and (b) are
+    the macro rule: the test reads a macro's TOP-LEVEL arguments. (c) is the
+    `&e` rule.
     (a) A value-format macro *nested* inside a logging macro's argument
     (`eprintln!("{}", keep(format!("{e}")))`) reads HANDLED and can therefore
     still reach SWALLOWED: a **false-accusation generator**, the same class
@@ -256,7 +258,23 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     direction**: it can never produce an accusation, only withhold a verdict.
     **Its exposure is measured nowhere** — no run counted it, and nothing here
     should be read as saying it is rare.
-    Both are **untested by fixture**.
+    (c) A `&e` handed to a FUNCTION is exempt **regardless of what the call's
+    product does**. The exemption (design R2, `escape.rs::visit_expr_reference`)
+    is a fact about the borrow — the arm still owns the error afterwards — and
+    says nothing about the value the call returns, so
+    `Err(e) => { let (status, value) = map_error(&e, ..);
+    V1Result::json(status, value) }` reads `arm_handled` and can reach
+    SWALLOWED while the failure reached the caller as an HTTP error. A
+    **false-accusation generator**, the R2 amendment's class one function call
+    out rather than one macro nesting in. Static exposure on the bloomery
+    clone: **2 arms** (`crates/bloomery-daemon/src/api_v1.rs:396` and `:515`,
+    both `arm_handled` in the E6‴ prep build's manifests), and **neither is
+    executed by `--lib`** — which is why no E6‴ line is affected and why the
+    repair waits on a `--workspace` arm that is not `--lib`
+    (`docs/CARRIED-DEBT.md`). Found by the whole-branch review of 2026-09-05,
+    after the numbers were read, and recorded rather than repaired for the
+    reason (a) was.
+    All three are **untested by fixture**.
 24. **`tracing`-style field syntax escapes unconditionally.** `err = ?e`,
     `error = %e` mention the bound name as a token, so every such arm reads
     `arm_ambiguous`: **no log-and-continue arm can read SWALLOWED on a

@@ -25,12 +25,17 @@ stays the record for rungs 0–2.
 - A `?` the transformer cannot reach is a declared `partial` row, not a
   silent gap. E2″ 392/401 = 97.76 % with the `partial` count pre-registered
   and met.
-- Panic locations: lines never move; a column shifts only inside a wrapped
-  operand, by exactly 6 bytes, predicted before both runs and met at both
-  tiers.
+- Panic locations: lines never move; a column shifts in exactly two places —
+  inside a wrapped `?`/sink/`let _` operand by the 6 bytes of `match `
+  (**measured**, predicted before both runs and met at both tiers), and after
+  an arm probe or closure guard spliced at a same-line `{` by that probe's own
+  byte length (**stated, unmeasured**; the shape is
+  `rust/sensorium-transform/tests/golden/err_arms_three_ways.out.rs:14`).
 - The ledger split: `rust/HONESTY.md` §8's list is now
   `rust/HONESTY-BLIND-SPOTS.md`, numbering unchanged, with rung 3's blind
-  spots as items 15–26.
+  spots as items 15–26; the promise→falsifier index is
+  `rust/HONESTY-INDEX.md` (moved at the final fix wave, rows unchanged but
+  for §11's column row).
 
 ### Deferred, awaiting rulings
 
@@ -59,10 +64,25 @@ stays the record for rungs 0–2.
   23 (b), the whole-word-`e` over-escape, is a different kind of thing — safe
   direction, AMBIGUOUS never an accusation — and its exposure is measured
   nowhere; the zero above covers (a) only.
-- **A `--workspace` E6 slice with no `--lib`.** E6‴-W widened the selector
-  and executed the same 2 of the 29 located blast-radius arms as
-  `-p bloomery-daemon --lib`, so the widening bought no reach. Integration
-  tests, binaries and doctests are where the next reach would come from.
+- **The `&e` rule repair, and the `--workspace` E6 arm that would measure it
+  — one slice, both halves.** *The repair:* the escape test exempts `&e`
+  because the borrow proves the arm kept the error, but the exemption is
+  silent about what the CALL does with its product, so
+  `Err(e) => { let (status, value) = map_error(&e, ..);
+  V1Result::json(status, value) }` reads `arm_handled` and could print
+  SWALLOWED while the failure reached the caller as an HTTP error — the R2
+  amendment's class, one function call out (`rust/HONESTY-BLIND-SPOTS.md`
+  item 23 (c), design R16). The shape of the repair: `&e` exempt only in a
+  statement whose value is dropped. Static exposure on the clone is **2 arms**
+  (`crates/bloomery-daemon/src/api_v1.rs:396` and `:515`), and **`--lib`
+  executes neither** — which is the other half. *The arm:* E6‴-W widened the
+  selector and executed the same 2 of the 29 located blast-radius arms as
+  `-p bloomery-daemon --lib`, so the widening bought no reach; integration
+  tests, binaries and doctests are where reach would come from. A
+  `--workspace` E6 arm with no `--lib` is what makes the repair measurable
+  rather than asserted, so both are pre-registered together. Found by the
+  whole-branch review AFTER the numbers were read; recorded, not repaired, for
+  the reason the process lesson below states.
 - **The reviewer's static list and the census's 31 are different sets.** At
   most 27 of the reviewer's 31 entries can be among the census's 31, and at
   least 4 of the census's 31 are arms the list does not name. A BEFORE/AFTER
@@ -72,10 +92,22 @@ stays the record for rungs 0–2.
   as a trace id.** A case that printed `run: Err(..)` was misread; the case
   worked around it. Key the id line unambiguously in a later slice.
 - **`rust/tests/mechanics.sh` is at 795 of 800 lines.** The next check added
-  to it must split it first.
-- **`rust/HONESTY.md` is at 796 of 800** after §11, even with §8's list moved
-  out. The next promise added to it needs the next split chosen deliberately
-  — the index, or §1 — rather than discovered at the ceiling.
+  to it must split it first — and there is now a named check waiting for that
+  split: **an E7 check for the second place a column can move.** The clause
+  adopted at the final fix wave says a column shifts inside a wrapped operand
+  by 6 bytes (measured) *and* after an arm probe or closure guard spliced at a
+  same-line `{` by the probe's own byte length (stated, unmeasured). A probe
+  panic in a one-line `Err(_) => { .. }` arm, plain against instrumented,
+  would measure the second half; the shape is
+  `rust/sensorium-transform/tests/golden/err_arms_three_ways.out.rs:14`.
+- ~~**`rust/HONESTY.md` is at 796 of 800** after §11, even with §8's list
+  moved out. The next promise added to it needs the next split chosen
+  deliberately — the index, or §1 — rather than discovered at the
+  ceiling.~~ — the split was taken at the final fix wave: the
+  promise→falsifier index is `rust/HONESTY-INDEX.md`. It bought 17 lines and
+  the wave's two clauses (the two-place column rule, the `&e` residual) spent
+  them, so **the file is at 796 of 800 again** and the next split is now
+  named: **§1**. Stated rather than left to be discovered, which is the point.
 - **The parent spec is at 1 458 lines**, over the house ceiling and already
   over it (1 407) before this slice added §11's rung-3 verdict and §13's
   deltas table. Splitting a design spec's history is not a docs pass's call.
@@ -86,6 +118,17 @@ stays the record for rungs 0–2.
 - **Rung-2's `acceptance_lib.read_manifests` breaks on rung-3 manifests** —
   it killed the first E6′ launch before any number was read, and was worked
   around in a rung-3 module rather than fixed at the source.
+- **A frame closing `err` while it holds TWO chains hops the INNERMOST one,
+  whatever the text says.** `chains/mod.rs`'s exit hop is minted on the
+  innermost held chain and does not run the text-matching search the RAISE and
+  HANDLED rows use, so a keep-first-error shape (A calls B → `Err` B1, A calls
+  C → `Err` C1, A returns B1) records the hop on C1, labelled `translated`,
+  and leaves B1 without its hop. **Hop data wrong; never a SWALLOWED**, since
+  both chains stay open and both end AMBIGUOUS or PROPAGATED. Named in design
+  §2a and R16 on 2026-09-05, found by the whole-branch review after the
+  numbers were read. The fix (`held_matching` first, innermost as the
+  fallback) rides the next pre-registered slice, with a converter test on a
+  hand-built spool as its falsifier.
 - **Three `chain.terminal` values have no conformance vector** —
   `panicked`, pinned by `tests/test_exceptions_rust.py` alone
   (`test_a_panic_on_the_holder_quotes_the_panic_and_claims_no_cause`), and
