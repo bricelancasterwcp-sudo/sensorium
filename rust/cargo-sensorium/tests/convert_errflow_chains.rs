@@ -10,7 +10,9 @@
 
 mod common;
 
-use common::spooldir::{events, meta, Fixture, HOW_ARM_PROPAGATE, HOW_TRY, KIND_RAISE};
+use common::spooldir::{
+    events, meta, Fixture, HOW_ARM_PROPAGATE, HOW_SINK_OK, HOW_TRY, KIND_HANDLED, KIND_RAISE,
+};
 use common::wire::{self, err_site, marked_site, site};
 
 /// Every RAISE/HANDLED payload in `events.id` order, for the assertions that
@@ -295,6 +297,88 @@ fn a_callee_raising_its_own_err_converts_to_a_second_stacked_chain() {
         rows[1]["exc"]["type"],
         serde_json::json!("demo::Other"),
         "each chain keeps the type it was born with"
+    );
+}
+
+/// The other half of the stack: when a frame holds an older chain AND a nested
+/// one, a sink absorbs the chain whose `Err` it NAMES. Reading only the
+/// innermost would report this as a chainless swallow of an `Err` "born outside
+/// instrumented code" (design R8) -- a claim about a value this recording
+/// watched `first` produce.
+#[test]
+fn a_sink_absorbs_the_held_chain_it_names_over_the_nested_one() {
+    let f = Fixture::new("errflow-chains-nested-sink");
+    f.manifest(&[
+        site(0, "outer", 3, "value"),
+        site(1, "first", 10, "value"),
+        site(2, "second", 20, "value"),
+        err_site(3, "second", 21, "try", "try"),
+        err_site(4, "outer", 6, "sink", "sink_ok"),
+    ]);
+    wire::write_proc_header_caps(
+        &f.spool_dir,
+        625,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+        Some(true),
+    );
+    wire::SpoolBuilder::new(625, 1, "main")
+        .version(3)
+        .call(0, 1000, 0, 0)
+        .call(1, 1100, 0, 1)
+        // Chain A is born in `first` and comes to rest in `outer`.
+        .ret_err_typed(2, 1200, 0, 1, Some("demo::E"), Some("Err(E1)"))
+        .call(3, 1300, 0, 2)
+        // Chain B is raised in `second` and hops up into `outer` on top of A.
+        .err_flow(
+            4,
+            1400,
+            0,
+            3,
+            KIND_RAISE,
+            HOW_TRY,
+            Some("demo::Other"),
+            Some("E2"),
+        )
+        .ret_none(5, 1500, 0, 2)
+        // The sink names A's `Err`, not the one on top.
+        .err_flow(
+            6,
+            1600,
+            0,
+            4,
+            KIND_HANDLED,
+            HOW_SINK_OK,
+            Some("demo::E"),
+            Some("E1"),
+        )
+        .ret_ok_dbg(7, 1700, 0, 0, "Ok(())", false)
+        .thread_end(8, 1800)
+        .write(&f.spool_dir);
+    let rows = chain_events(&f.converted());
+
+    assert_eq!(rows.len(), 3, "{rows:#?}");
+    let (a_origin, nested, sink) = (&rows[0], &rows[1], &rows[2]);
+    assert_eq!(
+        sink["chain"]["serial"], a_origin["chain"]["serial"],
+        "the sink absorbed the chain it named: {rows:#?}"
+    );
+    assert_ne!(nested["chain"]["serial"], a_origin["chain"]["serial"]);
+    assert_eq!(
+        sink["chain"]["terminal"],
+        serde_json::json!("swallowed_candidate")
+    );
+    assert_eq!(
+        sink["chain"]["origin"],
+        serde_json::json!("workspace"),
+        "the Err was made in `first`, which this recording watched: {rows:#?}"
+    );
+    assert_eq!(
+        nested["chain"]["terminal"],
+        serde_json::json!("ambiguous_escaped"),
+        "the nested chain was never absorbed"
     );
 }
 

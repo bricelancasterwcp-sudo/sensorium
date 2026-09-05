@@ -23,9 +23,14 @@
 //!
 //! **Where §2a is refined, and why.** The table is written for the one open
 //! chain whose holder is the frame a row names; a frame can hold more than one
-//! (a nested chain hops up into it). This module applies the row to EVERY
-//! chain the closing frame holds, innermost first, which is what makes the
-//! table total. And a chain whose sink already fired does NOT hop when its
+//! (a nested chain hops up into it). Two rules make the table total over that.
+//! A CLOSE row applies to EVERY chain the closing frame holds, innermost
+//! first. An ERR-FLOW row applies to the chain whose recorded text the record
+//! carries, searched innermost-first across every chain the frame holds -- not
+//! to the innermost one and no other, which would report a sink absorbing the
+//! outer of two held chains as a swallow of an `Err` born outside instrumented
+//! code. The search is exact rather than a guess: see [`Machine::held_matching`].
+//! And a chain whose sink already fired does NOT hop when its
 //! holder closes `err`/`none`: design R8 names that shape ("handled, then the
 //! frame failed for another reason") and gives it its own reading, so it ends
 //! here as [`Terminal::HandledThenFailed`] and the `Err` leaving the frame
@@ -438,19 +443,26 @@ impl Machine {
             // as no event at all, so there is nothing for a chain to hold.
             return;
         };
+        // The chain this record is ABOUT is the one carrying its `Err`, which is
+        // not always the innermost the frame holds: a nested chain hops up into
+        // a frame and sits on top of one that was already there, and the `?` or
+        // the sink that follows may well be about the older one.
+        if let Some(i) = self.held_matching(frame.id, text) {
+            if self.chains[i].merged {
+                self.merged_row(i, seq, how, frame, text);
+            } else if how.is_raise() {
+                self.hop_in_place(i, seq, text);
+            } else {
+                self.absorb(i, seq, how, text);
+            }
+            return;
+        }
+        // No chain this frame holds carries this `Err`, so the row is one of
+        // §2a's "T != c.last" cells, read against the innermost.
         let held = self.chains.iter().rposition(|c| c.holder == Some(frame.id));
         match held {
             Some(i) if self.chains[i].merged => self.merged_row(i, seq, how, frame, text),
-            Some(i) if how.is_raise() => {
-                if text.matches(&self.chains[i].last) {
-                    self.hop_in_place(i, seq, text);
-                } else {
-                    self.merge_with(i, seq, frame, text);
-                }
-            }
-            Some(i) if text.matches(&self.chains[i].last) => {
-                self.absorb(i, seq, how, text);
-            }
+            Some(i) if how.is_raise() => self.merge_with(i, seq, frame, text),
             // §2a's `None` column, first row: a `?` or a propagating arm in a
             // frame that holds no chain OPENS one, and it is born at an
             // instrumented site -- so `workspace`, never `outside`. The one
@@ -472,6 +484,29 @@ impl Machine {
             // it would in a frame holding nothing (§2a's `None` column).
             _ => self.chainless(seq, how, frame, text),
         }
+    }
+
+    /// The innermost chain this frame holds whose recorded text this record's
+    /// matches -- the chain the record is about.
+    ///
+    /// **Why the search is exact, not a guess.** Identity is `(type, msg)`
+    /// equality (design R7), and two chains held by ONE frame can never share a
+    /// text: equal text is what makes a record a hop, so a second chain with
+    /// the same text would have hopped the first rather than being opened
+    /// beside it. For a record that carries a text, at most one held chain can
+    /// match and the order decides nothing.
+    ///
+    /// **The one case where the order is observable** is a record with NO text
+    /// -- an `Err(_) =>` arm, which binds nothing (design R4) and whose
+    /// [`ErrText::matches`] is a wildcard against every held chain. Innermost
+    /// first is the answer there: the chain most recently in play in that frame
+    /// is the one an unbound arm is most likely about, and it is the same stack
+    /// discipline every other row keeps. Pinned, because an unbound arm is the
+    /// only thing that can tell the two orders apart.
+    fn held_matching(&self, frame_id: u64, text: &ErrText) -> Option<usize> {
+        self.chains
+            .iter()
+            .rposition(|c| c.holder == Some(frame_id) && text.matches(&c.last))
     }
 
     /// The `Merged` column: a RAISE adds a serial to the group, a HANDLED

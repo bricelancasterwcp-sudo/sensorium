@@ -287,6 +287,122 @@ fn a_sink_then_an_err_close_ends_that_chain_as_handled_then_failed() {
     );
 }
 
+/// A frame that holds TWO chains -- an older one that hopped up into it and a
+/// nested one raised in a callee -- absorbs the `Err` the sink actually names,
+/// which here is the OLDER chain's. Reading only the innermost would make this
+/// a chainless swallow of an `Err` "born outside instrumented code", which is a
+/// claim about a value this recording watched being made (design R8).
+#[test]
+fn a_sink_absorbs_the_chain_whose_err_it_names_not_merely_the_innermost() {
+    let events = mint(
+        &[
+            call(0),                                // outer
+            call(1),                                // first
+            ret_err(2, "demo::E", "E1"),            // chain A, holder outer
+            call(3),                                // second
+            flow(4, How::Try, "demo::Other", "E2"), // chain B, born nested
+            ret(5, Outcome::None),                  // B changes hands to outer
+            flow(6, How::SinkOk, "demo::E", "E1"),  // the sink names A, not B
+            ret(7, Outcome::Ok),
+        ],
+        false,
+    );
+    let s = serials(&events);
+    assert_eq!(s.len(), 2, "the nested chain is still its own: {events:#?}");
+    let (a, b) = (s[0], s[1]);
+    assert_eq!(
+        events[2].serial, a,
+        "the sink's event belongs to the chain it named: {events:#?}"
+    );
+    assert_eq!(
+        last_of(&events, a).terminal,
+        Some(Terminal::SwallowedCandidate)
+    );
+    assert_eq!(
+        last_of(&events, a).origin,
+        Origin::Workspace,
+        "the Err was made in `first`, which this recording watched"
+    );
+    assert_eq!(
+        last_of(&events, b).terminal,
+        Some(Terminal::AmbiguousEscaped),
+        "the nested chain was never absorbed"
+    );
+}
+
+/// The same search for a RAISE: a `?` on the older of two held chains hops
+/// THAT one. Merging is §2a's answer for a text no held chain carries, not for
+/// one that is merely not on top.
+#[test]
+fn a_try_hops_the_older_held_chain_whose_err_it_names() {
+    let events = mint(
+        &[
+            call(0),
+            call(1),
+            ret_err(2, "demo::E", "E1"), // chain A, holder outer
+            call(3),
+            flow(4, How::Try, "demo::Other", "E2"), // chain B, nested
+            ret(5, Outcome::None),                  // B changes hands to outer
+            flow(6, How::Try, "demo::E", "E1"),     // the `?` names A
+            ret(7, Outcome::Ok),
+        ],
+        false,
+    );
+    let s = serials(&events);
+    assert_eq!(
+        s.len(),
+        2,
+        "no third serial: a hop, not a merge: {events:#?}"
+    );
+    assert_eq!(events[2].serial, s[0], "the older chain's own hop");
+    assert_eq!(events[2].hop, 2);
+    for serial in s {
+        assert_ne!(
+            last_of(&events, serial).terminal,
+            Some(Terminal::Merged),
+            "neither chain was merged: {events:#?}"
+        );
+    }
+}
+
+/// An `Err(_) =>` arm records neither type nor text, so it matches every chain
+/// its frame holds -- the ONE record that can tell the search's order apart.
+/// It continues the innermost: the chain most recently in play in that frame.
+#[test]
+fn an_unbound_record_continues_the_innermost_of_two_held_chains() {
+    let events = mint(
+        &[
+            call(0),
+            call(1),
+            ret_err(2, "demo::E", "E1"), // chain A, holder outer
+            call(3),
+            flow(4, How::Try, "demo::Other", "E2"), // chain B, nested
+            ret(5, Outcome::None),                  // B changes hands to outer
+            Input {
+                seq: 6,
+                rec: Rec::ErrFlow {
+                    how: How::ArmPropagate,
+                    text: ErrText::default(),
+                },
+            },
+            ret(7, Outcome::Ok),
+        ],
+        false,
+    );
+    let s = serials(&events);
+    assert_eq!(s.len(), 2, "no third chain: {events:#?}");
+    assert_eq!(
+        events[2].serial, s[1],
+        "the unbound arm continued the innermost chain: {events:#?}"
+    );
+    assert_eq!(events[2].hop, 2);
+    assert_eq!(
+        events[2].origin_type.as_deref(),
+        Some("demo::Other"),
+        "and takes its type from that chain (design R4)"
+    );
+}
+
 /// §2a row 4, no sink: "left the grammar in F".
 #[test]
 fn an_ok_close_with_no_sink_ends_the_chain_as_ambiguous() {
