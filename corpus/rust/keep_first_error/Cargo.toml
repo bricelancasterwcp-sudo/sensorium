@@ -1,0 +1,9 @@
+[package]
+name = "corpus_keep_first_error"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "keep_first_error"
+path = "src/main.rs"

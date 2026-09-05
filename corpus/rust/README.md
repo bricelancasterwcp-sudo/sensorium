@@ -1,6 +1,6 @@
 # The Rust corpus
 
-Twenty-nine cases recorded by the **Rust** recorder (`cargo sensorium …`) and
+Thirty-one cases recorded by the **Rust** recorder (`cargo sensorium …`) and
 questioned through the same Python CLI as the rest of the corpus. Each case
 directory is a self-contained, dependency-free crate plus its
 `questions.yaml`; `corpus/run_corpus.py` copies one whole directory into a
@@ -41,7 +41,7 @@ never as a pass.
 
 ## The rung-3 cases: Err flow
 
-Fifteen cases added with the `?`/sink/arm probes and `exceptions` on a Rust
+Seventeen cases added with the `?`/sink/arm probes and `exceptions` on a Rust
 trace. Every one of them registers, in its `exceptions` question, both the
 tally line WHOLE (`dispositions: ...`, printed tags only, in the fixed order
 `swallowed, panicked, returned-to-harness, propagated, ambiguous`) and its
@@ -65,6 +65,8 @@ accused.
 | `err_stored` | an `Err(e) =>` arm that pushes `e` into a Vec: bound and escaped, so ambiguous -- the retry-loop shape a swallow detector must not accuse | `exceptions`, `grep` |
 | `logged_arm` | the other side of that line: an `Err(e) =>` arm that only BORROWS the error to print it and carries on is a swallow, because the failure reached stderr and nothing else | `exceptions`, `tree` |
 | `err_rendered_into_value` | the third side of it: an `Err(e) =>` arm whose `format!` PRODUCT is the value the function returns carries the failure to every caller, so it is ambiguous -- the shape endpoint E6' STOPped on (`build_memory` at the bloomery clone's `memory.rs:131`) | `exceptions`, `tree` |
+| `err_borrowed_into_value` | an `Err(e) =>` arm that hands `&e` to a helper and keeps the helper's product -- the failure travelled to the caller inside the reply, so the arm reads ambiguous and NEVER a swallow (the shape E6⁗ measured on bloomery's `api_v1.rs`) | `exceptions`, `tree` |
+| `keep_first_error` | a frame holding two different errors that returns the FIRST: the exit hop follows the returned text (no `translated`), the first error is swallowed by `main`'s log-and-continue arm, the second reads ambiguous | `exceptions`, `tree` |
 | `dependency_swallow` | `let _ = fs::remove_file(..)`: a swallow whose error was born outside THIS THREAD's instrumented frames, with no producing frame to name, and a verdict that says so | `exceptions`, `tree` |
 | `cleanup_then_fail` | the named blind spot: a GENUINE swallow in a frame that then fails for another reason reads ambiguous, not a swallow, and names which blind spot it is | `exceptions`, `tree` |
 | `join_handle` | one error, two verdicts: in the child it left the thread into a `JoinHandle` (ambiguous, and why), in the parent it reached a sink in a frame that returned ok (a swallow) | `exceptions`, `tree` |
