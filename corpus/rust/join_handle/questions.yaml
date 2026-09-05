@@ -1,0 +1,60 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: what-happened-to-the-workers-error
+    ask: >
+      The worker thread failed and the parent printed `ingested: 0`. What
+      does this recording say happened to the worker's error -- on each
+      side?
+    truth: >
+      Two different things, and the split is the answer. In the CHILD the
+      chain left the spawned thread's outermost frame into a `JoinHandle`,
+      and whether anybody ever read that handle is not something the child's
+      thread recorded: ambiguous, with the reason stated. In the PARENT the
+      same text arrives at a sink -- `unwrap_or(0)` in `collect` -- in a
+      frame that then returned normally: a swallow. One error, two verdicts,
+      because a thread boundary is a place where the recording genuinely
+      stops knowing and the tool must not paper over it by carrying the
+      child's verdict into the parent or the parent's into the child.
+    why_logs_fail: >
+      The worker's failure never reaches stdout: it is a return value, and
+      the parent turns it into a number on the same expression that receives
+      it. `dbg!` in the worker would print the error without saying what the
+      parent did with it, which is the half that matters, and neither
+      `dbg!` nor RUST_LOG stamps a line with the thread it came from unless
+      somebody threads that through by hand. RUST_BACKTRACE never fires --
+      the worker returned `Err`, it did not panic, so the parent's `join`
+      succeeds and the process exits 0.
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: swallowed 1, ambiguous 1"]
+    expect_line:
+      - ["SWALLOWED", "sink_unwrap_or", "collect L26", "which returned ok"]
+      - ["ambiguous", "it left its thread into a JoinHandle",
+         "whether it was ever read is not recorded"]
+      - ["hops:", "ingest L12 exit", "worker L17 try"]
+    expect_count: {"SWALLOWED": 1}
+    expect_absent: ["panicked", "returned to the harness"]
+  - id: which-thread-did-the-work
+    ask: >
+      Which of the two threads ran the ingest, and is it named after
+      anything I can find in the source?
+    truth: >
+      The spawned one, and it is named after the spawn site: the task is
+      `spawn@collect#1`, so the worker's frames are attributed to the
+      `thread::spawn` call in `collect` rather than to an opaque thread id.
+      `worker` returned nothing (its `?` propagated past the tail) and
+      `ingest` beneath it returned the error, while on the main thread
+      `collect` returned an ordinary 0. Two threads, two stories, joined by
+      a name that points at a line of source.
+    why_logs_fail: >
+      A thread id in a log line is a number that changes every run and
+      corresponds to no line of source, so pairing "the failure" with "the
+      spawn that caused it" is manual work a log does not do. `dbg!` prints
+      no thread at all; RUST_LOG needs the thread threaded into the format
+      by hand; and RUST_BACKTRACE never fires, since nothing panicked.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["task", "spawn@collect#1"]
+      - ["collect()", "-> 0"]
+      - ["worker()", "-> ?"]
+      - ["ingest()", '-> Err("ingest refused 9 rows")']

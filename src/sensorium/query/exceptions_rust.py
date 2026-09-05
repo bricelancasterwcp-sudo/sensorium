@@ -205,22 +205,49 @@ class Index:
             seen += 1
         return None
 
-    def marked_holder(self, e):
-        """The innermost frame at or above `e`'s that the site table marks
-        `test` or `main`, as `(frame, mark)`; `(None, None)` where no row
-        names one. Same walk, same reason as `unwound_holder`."""
+    def harness_holder(self, e):
+        """The frame a chain that ended at THREAD_END was sitting in, as
+        `(frame, mark, still_open)`; `(None, None, False)` where there is no
+        frame to name.
+
+        NOT "the innermost MARKED ancestor", which is the fix-round-1 bug:
+        a `#[test] fn t()` calling a bin crate's `main()` that re-returns an
+        `Err` puts the chain's last event inside `main` -- marked `main` --
+        while §2a moved the holder OUT of `main` the moment it closed `err`,
+        into `t`. Naming the innermost mark reported the binary's entry
+        point for a chain the test harness received.
+
+        The converter's own rule (`chains`, M4) is the one followed here:
+        the holder is the frame the chain SITS in whenever that frame is
+        still on the stack, and the frame it LEFT once the holder is gone.
+        A frame still on the stack at THREAD_END is one with no close
+        recorded, so the search is for the innermost ancestor-or-self that
+        is still open; with every ancestor closed, the frame it left is the
+        last event's own -- which is where an `Err` returned out of a
+        `#[test]` fn puts it.
+
+        The mark is then taken from THAT frame and no other. Walking on to
+        find a mark is what produced the wrong answer, so an unmarked holder
+        earns the no-mark verdict rather than a borrowed claim.
+        """
         f = self.frame_of(e)
-        seen = 0
+        holder, seen = None, 0
         while f is not None and seen < 512:
-            code = (self.trace.code(f.code_id)
-                    if f.code_id is not None else None)
-            mark = self.marks.get((code.qualname, code.file)) if code else None
-            if mark:
-                return f, mark
+            if f.closed_by is None and f.return_event_id is None:
+                holder = f
+                break
             f = (self.trace.frame(f.parent_id)
                  if f.parent_id is not None else None)
             seen += 1
-        return None, None
+        still_open = holder is not None
+        if holder is None:
+            holder = self.frame_of(e)
+        if holder is None:
+            return None, None, False
+        code = (self.trace.code(holder.code_id)
+                if holder.code_id is not None else None)
+        mark = self.marks.get((code.qualname, code.file)) if code else None
+        return holder, mark, still_open
 
 
 def _marks(meta) -> dict:
@@ -264,6 +291,21 @@ def _same_file(absolute: str, relative: str) -> bool:
 
 
 # -- the disposition table (design R8) --------------------------------------
+# The `how` values that ABSORB an `Err` -- the sinks of design R2 plus a
+# handling arm. `_absorbed` names the site only for these: a terminal that
+# says a chain was absorbed can ride any event a converter chooses to put it
+# on, and naming a `?` as the thing that swallowed an `Err` would be this
+# command inventing a site from a key it merely happened to read.
+ABSORBING_HOWS = ("sink_ok", "sink_unwrap_or", "sink_let_underscore",
+                  "arm_handled")
+
+
+def _absorbed(trace, h) -> str:
+    if _how(h) in ABSORBING_HOWS:
+        return f"absorbed by {_how(h)} at e{h.id} ({_at(trace, h)})"
+    return f"absorbed at e{h.id} ({_at(trace, h)})"
+
+
 def _swallowed(trace, chain, idx) -> Disposition:
     """The one accusation this command makes, and the whole reason its bar
     is high: a WRITTEN sink absorbed the chain and the frame holding it then
@@ -276,8 +318,8 @@ def _swallowed(trace, chain, idx) -> Disposition:
               if chain.born_outside else None)
     return Disposition(
         "swallowed",
-        f"SWALLOWED -- absorbed by {_how(h)} at e{h.id} ({_at(trace, h)})"
-        f"{where}, which returned ok", detail)
+        f"SWALLOWED -- {_absorbed(trace, h)}{where}, which returned ok",
+        detail)
 
 
 def _panicked(trace, chain, idx) -> Disposition:
@@ -299,8 +341,17 @@ _MARK_WORDS = {"test": "a #[test] fn", "main": "the bin crate's fn main"}
 
 
 def _returned_to_harness(trace, chain, idx) -> Disposition:
-    f, mark = idx.marked_holder(chain.last)
-    if f is None:
+    """The chain went back to libtest or out of `fn main`.
+
+    Two verbs, because two things happen. A frame that CLOSED handed the
+    `Err` out of itself -- "it left f3". A frame still on the stack when the
+    thread ended never returned at all, and the chain is sitting in it --
+    "it came to rest in f1", with the detail saying the recording stopped
+    before that frame finished. Printing "left" there would claim a return
+    this trace never saw.
+    """
+    f, mark, still_open = idx.harness_holder(chain.last)
+    if f is None or mark is None:
         return Disposition(
             "returned-to-harness",
             "returned to the harness -- it left a frame the recording marks "
@@ -308,6 +359,14 @@ def _returned_to_harness(trace, chain, idx) -> Disposition:
             "the site table carries no row naming which of the two, so the "
             "disposition stands without the claim")
     q = trace.code(f.code_id).qualname
+    if still_open:
+        return Disposition(
+            "returned-to-harness",
+            f"returned to the harness -- it came to rest in f{f.id} ({q}), "
+            f"which the manifest marks as {_MARK_WORDS[mark]}",
+            f"f{f.id} had not returned when the recording ended, so what the "
+            "harness did with the Err is the next thing that would have "
+            "happened, not something this trace watched")
     return Disposition(
         "returned-to-harness",
         f"returned to the harness -- it left f{f.id} ({q}), which the "
@@ -350,7 +409,7 @@ def _merged(trace, chain, idx) -> Disposition:
         "ambiguous",
         "ambiguous -- it shared a frame's window with another, different Err",
         "identity across hops is (type, Debug text) and a window holding two "
-        "distinct Errs cannot be split, so neither of them is ever reported "
+        "distinct Errs cannot be split, so a merged window is never reported "
         "as a swallow")
 
 
@@ -362,8 +421,7 @@ def _handled_then_failed(trace, chain, idx) -> Disposition:
         "its frame then failed anyway")
     return Disposition(
         "ambiguous",
-        f"ambiguous -- absorbed by {_how(h)} at e{h.id} ({_at(trace, h)})"
-        f"{where}, but {tail}",
+        f"ambiguous -- {_absorbed(trace, h)}{where}, but {tail}",
         "handled, then the frame failed for another reason -- the "
         "cleanup-then-fail blind spot (design R8): a genuine swallow in a "
         "frame that later fails reads ambiguous, not a swallow")

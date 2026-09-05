@@ -1,0 +1,61 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: which-frames-raised-the-error
+    ask: >
+      Two errors of the same type passed through two wrapper functions that
+      do the same job. Which frames are recorded as having raised one?
+    truth: >
+      Three raises for two errors, and `measured` is not among them.
+      `fetch` raised both -- one per call -- and `direct` raised the one it
+      re-returned, because `direct` closes `err`. `measured` handed back the
+      other error and closed `ok`, so it produced no raise record at all.
+      That is the documented limit (`rust/HONESTY.md` §1): the capture probe
+      is specialised where the fragment sits, inside the generic function,
+      where `T` is not known to be a `Result`, so a generic return type
+      reads `ok` even when the value is an `Err`. The outcome is a property
+      of the STATIC type at the exit operand, not of the value.
+    why_logs_fail: >
+      This is a question about the instrument, not about the program, and no
+      log can answer it: `dbg!` and RUST_LOG report values the program
+      computed and say nothing about which returns the recorder could
+      classify. The trap is the opposite of silence -- both wrappers print
+      identically under `dbg!`, so a log-based reading would treat the two
+      paths as the same and never learn that one of them is invisible here.
+      RUST_BACKTRACE never fires; the run exits 0.
+    command: ["grep", "$RUN", "Missing", "--kind", "RAISE"]
+    expect_contains: ["matches: 3"]
+    expect_line:
+      - ["RAISE", "fetch raise", "Missing(7)"]
+      - ["RAISE", "fetch raise", "Missing(8)"]
+      - ["RAISE", "direct raise", "Missing(8)"]
+    expect_absent: ["measured"]
+  - id: does-the-chain-follow-the-error-through-the-generic-frame
+    ask: >
+      Follow each error as far as the recording can. Where does each one's
+      trail end?
+    truth: >
+      The concrete path's chain has a hop: `fetch` raised it and `direct`
+      re-raised it on its way out, so the chain crosses that frame boundary
+      and the tool prints the crossing. The generic path's chain has NO hop
+      at all -- it ends where it was born, because `measured` closed `ok`
+      and there is nothing on the wire to say the error crossed it. Both
+      read ambiguous, and the difference between them is not in the verdict
+      but in the trail: one error's route is recorded and the other's stops
+      at a signature. Pinning that difference is what stops the limit from
+      being quietly "fixed" into an answer nobody measured.
+    why_logs_fail: >
+      Both calls print the same `Err(Missing(..))` under `dbg!` and both
+      wrappers are one line long, so nothing a log shows distinguishes them
+      -- the difference lives in the type system, not in the values. That is
+      why the honest report is a MISSING hop rather than a wrong one:
+      RUST_LOG and RUST_BACKTRACE have no notion of "this boundary was not
+      classifiable", and a reader is entitled to see one.
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: ambiguous 2"]
+    expect_line:
+      - ["hops:", "fetch L14 exit", "direct L22 exit"]
+      - ["RAISE", "fetch", "Missing(7)"]
+    expect_count: {"hops:": 1}
+    expect_absent: ["SWALLOWED", "dispositions: swallowed", "panicked",
+                    "measured L", "returned to the harness"]

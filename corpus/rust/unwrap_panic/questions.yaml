@@ -1,0 +1,61 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: what-happened-to-the-refusal
+    ask: >
+      The process died on an `.unwrap()`. Was there an error before the
+      panic, and what does this recording actually claim about the relation
+      between the two?
+    truth: >
+      Yes: `quota` returned `Err(Refused(7))`, and the frame holding that
+      error -- `charge` -- unwound. So the disposition is `panicked`, and
+      the verdict must be careful about what it claims: the trace says the
+      frame holding the Err unwound, NOT that the Err caused the panic. The
+      recording has no causal link between an error and a subsequent panic;
+      it has a frame that held one and then unwound. Saying more than that
+      would be inventing causation, and saying less would lose the only
+      pairing that matters.
+    why_logs_fail: >
+      The panic message quotes the `Debug` of the error, which is why this
+      case looks answered by the default hook -- and it is not. What stderr
+      cannot say is which FRAME was holding the value when it unwound, and
+      that is the frame you have to change. RUST_BACKTRACE=1 gives the stack
+      below the unwrap, `charge` included, without saying that `charge` is
+      where the Result was still a Result; and it degrades to nothing the
+      moment the panic is caught. `dbg!` cannot run in a frame that is
+      already unwinding past it.
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: panicked 1"]
+    expect_line:
+      - ["RAISE", "quota", "Refused(7)"]
+      - ["panicked", "the frame holding it unwound",
+         "called `Result::unwrap()` on an `Err` value: Refused(7)"]
+      - ["unwound while holding this Err, not that the Err caused the panic"]
+      - ["panics: 1 recorded", "a panic is a frame's unwind"]
+    expect_absent: ["SWALLOWED", "dispositions: swallowed", "ambiguous",
+                    "returned to the harness"]
+  - id: which-frame-was-holding-it
+    ask: >
+      Three frames are on the stack at the panic. Which of them was holding
+      the Result, and which merely inherited the unwind?
+    truth: >
+      `charge` was holding it: `quota` handed the Err back to `charge`,
+      which is the frame that closed by unwind carrying the unwrap message.
+      `main` closed by unwind too, but it never held a Result -- it was
+      passed the unwind, not the error. `quota` itself closed by an ordinary
+      return with a value, so the frame that PRODUCED the error is the one
+      frame on the stack that did not die.
+    why_logs_fail: >
+      A backtrace lists all three frames with nothing to separate the one
+      that held the value from the two that did not, which is the whole
+      distinction between the line to fix and the lines above it. It also
+      lists them only while the panic is uncaught; wrap this call in
+      `catch_unwind` and RUST_BACKTRACE goes silent while the bug stays.
+      `dbg!` and RUST_LOG print nothing here -- the process dies before any
+      reporting code runs.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["charge()", "!! panic('called `Result::unwrap()` on an `Err` value: Refused(7)')"]
+      - ["main()", "!! panic('called `Result::unwrap()` on an `Err` value: Refused(7)')"]
+      - ["quota()", "-> Err(Refused(7))"]
+    expect_count: {"!! panic(": 2}

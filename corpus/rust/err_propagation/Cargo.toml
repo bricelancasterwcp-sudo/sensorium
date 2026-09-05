@@ -1,0 +1,9 @@
+[package]
+name = "corpus_err_propagation"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "err_propagation"
+path = "src/lib.rs"

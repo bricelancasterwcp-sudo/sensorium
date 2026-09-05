@@ -1,0 +1,9 @@
+[package]
+name = "corpus_cleanup_then_fail"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "cleanup_then_fail"
+path = "src/main.rs"

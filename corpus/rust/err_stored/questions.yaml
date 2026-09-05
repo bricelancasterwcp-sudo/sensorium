@@ -1,0 +1,57 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: were-the-retry-failures-swallowed
+    ask: >
+      Two attempts were refused and `retry` returned 0. Were those two
+      failures dropped?
+    truth: >
+      In this program, yes -- and the tool must NOT say so. Each `Err(e) =>`
+      arm bound the error to a name and let the name escape into a Vec, and
+      a bound error that is stored, returned or logged is not a swallow. The
+      recording cannot tell this program from the one that reports the
+      collected errors at the end, because the two record identically: the
+      only thing on the wire is that a name was bound and used. So both
+      chains read ambiguous, the verdict names the arm that bound them, and
+      the tally carries no swallow at all. Under-claiming here is the
+      designed behaviour; a false accusation is the one failure this command
+      must never produce.
+    why_logs_fail: >
+      The retry loop is the shape where log-based reading is at its worst:
+      the failures ARE collected, so a developer who adds `dbg!(&errors)`
+      inside the loop sees them and concludes the code handles them, while
+      the bug is entirely in what happens after the loop. RUST_LOG reaches
+      no logger and RUST_BACKTRACE never fires -- the run exits 0 with a
+      plausible number.
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: ambiguous 2"]
+    expect_line:
+      - ["RAISE", "attempt", "Refused(1)"]
+      - ["RAISE", "attempt", "Refused(2)"]
+      - ["an Err(..) arm at", "retry L27", "bound it to a name and let the name escape"]
+      - ["a bound error that is stored, returned or logged is not a swallow"]
+    expect_count:
+      {"bound it to a name and let the name escape": 2}
+    expect_absent: ["SWALLOWED", "dispositions: swallowed", "panicked",
+                    "returned to the harness"]
+  - id: how-many-attempts-were-refused
+    ask: >
+      How many attempts did the loop make, and did any of them succeed?
+    truth: >
+      Two, and neither succeeded: both `attempt` activations returned
+      `Err(Refused(..))` with the attempt number in them, and `retry`
+      returned the initial 0 rather than a value any attempt produced. The
+      loop ran to its limit, which is what a caller reading `0` cannot tell
+      from a first attempt that legitimately returned zero.
+    why_logs_fail: >
+      Nothing in this crate prints per attempt; the only output is the final
+      number, and 0 is a value the loop can also produce honestly. `dbg!` on
+      each attempt would answer it and is the edit you make after deciding
+      the loop is the suspect. RUST_LOG has no logger to reach and
+      RUST_BACKTRACE never fires: nothing panics.
+    command: ["grep", "$RUN", "Refused", "--kind", "RETURN"]
+    expect_contains: ["matches: 2"]
+    expect_line:
+      - ["RETURN", "attempt -> Err(Refused(1))"]
+      - ["RETURN", "attempt -> Err(Refused(2))"]
+    expect_absent: ["Refused(3)"]

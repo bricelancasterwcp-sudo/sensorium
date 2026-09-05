@@ -1,0 +1,9 @@
+[package]
+name = "corpus_returned_to_harness"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "returned_to_harness"
+path = "src/lib.rs"

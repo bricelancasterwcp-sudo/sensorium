@@ -1,0 +1,55 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: did-the-cleanup-actually-work
+    ask: >
+      The run reports `scratch: clean`. Did the scratch file actually get
+      removed?
+    truth: >
+      No: `fs::remove_file` returned an `io::Error` with kind `NotFound` and
+      `let _ =` threw it away, in a frame that then returned normally. That
+      is a swallow, and the verdict has to carry a second fact with it --
+      the error was born OUTSIDE instrumented code. No frame in this
+      recording produced it, because the standard library is not
+      instrumented here; only the absorbing site is ours. A verdict that
+      named a producing frame would be inventing one, and a rule that
+      required a producing frame before it would report a swallow would miss
+      this entire class -- which is most of the `let _ =` in real code.
+    why_logs_fail: >
+      `let _ =` is the syntax for producing no evidence: there is no
+      statement, no branch and no value to hang a `dbg!` on, and adding one
+      means rewriting the line you have not yet suspected. RUST_LOG reaches
+      no logger in this crate, and RUST_BACKTRACE never fires because
+      nothing panics -- the process exits 0 having printed a word that says
+      the opposite of what happened.
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: swallowed 1"]
+    expect_line:
+      - ["SWALLOWED", "sink_let_underscore", "cleanup L14", "which returned ok"]
+      - ["born outside instrumented code", "absorbed at sink_let_underscore"]
+      - ["HANDLED", "cleanup", "std::io::error::Error", "kind: NotFound"]
+    expect_count: {"SWALLOWED": 1}
+    expect_absent: ["ambiguous", "panicked", "returned to the harness"]
+  - id: does-any-frame-report-the-failure
+    ask: >
+      Looking at what the frames returned, is there any sign the removal
+      failed?
+    truth: >
+      None at all. `cleanup` returns `()` -- it has nothing to hand back --
+      `finish` returned the string "clean", and `main` returned `()`. Three
+      frames, no error among them, because the only frame that ever held the
+      error had no way to express it in a return value. The failure exists
+      in this recording solely as the absorbed value at the sink, which is
+      why the sink is the thing that has to be recorded.
+    why_logs_fail: >
+      The program's own output is `scratch: clean` -- an affirmative claim
+      that is false -- and every return value agrees with it. `dbg!(&path)`
+      or a RUST_LOG line at the call site prints the path and the intent,
+      never the outcome, because the outcome was discarded on the same line
+      it was produced. RUST_BACKTRACE has nothing to print: nothing panicked.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["cleanup()", "-> ()"]
+      - ["finish()", '-> "clean"']
+      - ["main()", "-> ()"]
+    expect_absent: ["NotFound", "Err(", "closed: unwind"]

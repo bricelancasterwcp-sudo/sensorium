@@ -1,0 +1,58 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: was-either-failure-swallowed
+    ask: >
+      `survey` printed 0. Two things went wrong inside it -- the probe could
+      not reach its host, and the count would not parse. Which of the two
+      did `survey` throw away?
+    truth: >
+      The trace cannot say, and the tool must refuse to guess. Error
+      identity on this wire is (type, `Debug` text) and nothing else: there
+      is no per-error token, so a frame's window holding two DIFFERENT
+      errors cannot be split into "this one was absorbed and that one was
+      only observed". Both must therefore be reported ambiguous, and the
+      verdict must SAY that the window is what made it ambiguous. Reporting
+      either of them as a swallow would be an accusation the recording does
+      not support -- and there is a real program with this exact record
+      where the answer is "neither".
+    why_logs_fail: >
+      The failure of a log-based reading here is not that it is silent but
+      that it is confident: whatever you print inside the two arms, the two
+      errors have different types and different text, and nothing in a
+      `dbg!` line or a RUST_LOG record says which of them the frame's
+      returned 0 came from. RUST_BACKTRACE never fires -- neither error
+      panics -- so the tool that would name a frame is not running.
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: ambiguous 2"]
+    expect_line:
+      - ["RAISE", "probe", '"probe db-3 unreachable"']
+      - ["RAISE", "survey", "ParseIntError"]
+      - ["it shared a frame's window with another, different Err"]
+      - ["identity across hops is (type, Debug text)",
+         "cannot be split", "never reported as a swallow"]
+    expect_count: {"it shared a frame's window with another, different Err": 2}
+    expect_absent: ["SWALLOWED", "dispositions: swallowed", "panicked",
+                    "returned to the harness"]
+  - id: what-did-the-frames-return
+    ask: >
+      Ignoring the errors, what do the return values alone say happened?
+    truth: >
+      That `survey` returned 0 and `probe` returned an Err -- and nothing at
+      all about the second failure, which never crossed a frame boundary
+      because it was born in the standard library's parser and turned into a
+      new error inside `survey` itself. So one of the two failures is
+      invisible to a return-value reading, which is exactly why the two of
+      them sharing one window is undecidable rather than merely unrecorded.
+    why_logs_fail: >
+      `survey`'s own value is a plausible zero and the caller prints it as
+      one. A `dbg!` on the return value shows `0`, which is the bug wearing
+      its disguise, and no RUST_LOG record exists in this crate. The one
+      failure that DOES cross a boundary is `probe`'s, and printing it would
+      point at the host that was down rather than at the count that did not
+      parse.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["survey()", "-> 0"]
+      - ["probe()", '-> Err("probe db-3 unreachable")']
+    expect_absent: ["ParseIntError", "closed: unwind"]

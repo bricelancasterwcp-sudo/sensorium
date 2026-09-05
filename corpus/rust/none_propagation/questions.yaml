@@ -48,3 +48,31 @@ questions:
       - ["main.rs:title", "closed: unwind"]
       - ["unwound:", "panic('display name missing')"]
     expect_absent: ["lookup", "closed: return"]
+  - id: was-there-an-error-behind-the-panic
+    ask: >
+      The process died. Was there a Result failure anywhere behind that, or
+      is the panic the whole of it?
+    truth: >
+      The panic is the whole of it. Nothing in this program produces a
+      `Result::Err` -- the miss is an `Option::None`, and a `None` is not an
+      error in this model -- so the Err-flow answer is "none recorded", with
+      the status that means a real "no" rather than "I stopped looking":
+      this recording is whole. The command must still declare that one panic
+      WAS recorded, because an Err-flow answer that said nothing at all
+      about a run that died would read as a clean run. Two absences kept
+      apart: no Err flow, and a panic that is not one.
+    why_logs_fail: >
+      This is the shape where the log-based reading over-reads: the panic
+      message and RUST_BACKTRACE are loud, and a developer looking at them
+      has every reason to believe the failing thing was an error being
+      mishandled somewhere. Neither `dbg!` nor RUST_LOG has any notion of
+      "and here is the class of failure that did NOT occur", so nothing in a
+      log distinguishes "no error was swallowed" from "no one looked".
+    command: ["exceptions", "$RUN"]
+    expect_exit: 1
+    expect_contains: ["no exceptions recorded"]
+    expect_line:
+      - ["panics: 1 recorded", "a panic is a frame's unwind",
+         "printed by `tree` and `frame`"]
+    expect_absent: ["SWALLOWED", "dispositions: swallowed", "dispositions:",
+                    "raised ("]

@@ -1,0 +1,9 @@
+[package]
+name = "corpus_silent_swallow"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "silent_swallow"
+path = "src/main.rs"

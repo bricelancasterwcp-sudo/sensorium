@@ -1,0 +1,62 @@
+program: cargo
+cargo_args: ["test", "--", "--test-threads=1"]
+questions:
+  - id: what-did-each-arm-do-with-its-error
+    ask: >
+      Three functions match on the same failing `step` and each writes its
+      `Err(..) =>` arm differently. What became of the error in each?
+    truth: >
+      Three different fates, one per arm, and the tool must give three
+      different verdicts rather than one summary. `handling`'s arm returned
+      a zero and its frame then returned normally: that is a swallow, and it
+      is the only one of the three. `panicking`'s arm called `panic!`, so
+      the frame holding the error unwound. `propagating`'s arm handed the
+      error back, it crossed into the test function, and the test returned
+      it to libtest. The tally reads exactly `swallowed 1, panicked 1,
+      returned-to-harness 1`, in that fixed order.
+    why_logs_fail: >
+      The three arms differ by one line each and none of them logs. From
+      outside, the test prints one failure -- the propagated one -- and the
+      other two arms leave no trace at all: the swallow is silent by
+      construction, and the panic is caught by `catch_unwind`, which is
+      exactly where RUST_BACKTRACE stops being useful. `dbg!` in all three
+      arms would answer it and is the change you make after you already know
+      the three arms are the suspects. RUST_LOG reaches no logger here.
+    command: ["exceptions", "$RUN"]
+    expect_contains:
+      - "dispositions: swallowed 1, panicked 1, returned-to-harness 1"
+      - "raised (3):"
+    expect_line:
+      - ["SWALLOWED", "arm_handled", "handling L21", "which returned ok"]
+      - ["panicked", "the frame holding it unwound", "step 2 refused"]
+      - ["returned to the harness", "tests::three_arms_three_fates",
+         "manifest marks as a #[test] fn"]
+      - ["RAISE", "step", "Refused(1)"]
+      - ["RAISE", "step", "Refused(2)"]
+      - ["RAISE", "step", "Refused(3)"]
+    expect_count: {"SWALLOWED": 1}
+    expect_absent: ["ambiguous"]
+  - id: which-arm-produced-the-zero-the-test-asserted-on
+    ask: >
+      The test asserts `handling(1) == 0`. Is that zero a computed value or
+      an absorbed failure, and how far from it did the failure happen?
+    truth: >
+      An absorbed failure, one frame down. `handling` returned 0 while its
+      only child, `step`, returned `Err(Refused(1))` -- so the assertion the
+      test makes is an assertion about the swallow, not about the
+      computation. `propagating` is the contrast in the same trace: its
+      frame returned `Err(Refused(3))`, which is what a failure looks like
+      when it is not absorbed, and `panicking` closed by unwind instead of
+      returning at all.
+    why_logs_fail: >
+      The test passes this assertion, so nothing is printed and nothing is
+      looked at. `dbg!(handling(1))` prints `0`, which is the disguise
+      rather than the bug. RUST_BACKTRACE fires only for the caught panic in
+      the middle of the same test and says nothing about the arm two lines
+      above it, and RUST_LOG reaches no logger in this crate.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["handling()", "-> 0"]
+      - ["step()", "-> Err(Refused(1))"]
+      - ["propagating()", "-> Err(Refused(3))"]
+      - ["panicking()", "!! panic('step 2 refused')"]

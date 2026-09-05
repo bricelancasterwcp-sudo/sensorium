@@ -1,0 +1,9 @@
+[package]
+name = "corpus_macro_arg_partial"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "macro_arg_partial"
+path = "src/main.rs"

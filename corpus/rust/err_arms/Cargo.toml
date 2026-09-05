@@ -1,0 +1,9 @@
+[package]
+name = "corpus_err_arms"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "err_arms"
+path = "src/lib.rs"

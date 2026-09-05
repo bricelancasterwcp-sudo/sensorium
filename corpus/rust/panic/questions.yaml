@@ -66,3 +66,33 @@ questions:
       - ["main.rs:risky", "closed: unwind"]
       - ["unwound:", "panic('quota divisor was zero')", "at src/main.rs:8:9"]
     expect_absent: ["return:", "closed: return"]
+  - id: what-did-the-catch-do-with-the-panic
+    ask: >
+      The `catch_unwind` arm turned a panic into `Ok(0)`. Does the Err-flow
+      reading of this trace see that as a failure being dropped, or is a
+      caught panic outside what it judges?
+    truth: >
+      It sees it, and it must, because a caught panic arrives at the
+      catching frame AS an `Err` -- the `Err(_) =>` arm absorbed it and
+      `attempt` then returned normally, which is a swallow. The verdict
+      names the arm and the frame, and it adds the fact that makes it
+      honest: the error was born outside instrumented code, since
+      `catch_unwind` is the standard library's and no frame here produced
+      it. The command also declares, separately, that one panic was recorded
+      -- an Err-flow answer that stayed silent about a panicking run would
+      read as "nothing went wrong" on a run where something did.
+    why_logs_fail: >
+      The panic hook prints the message to stderr, so a reader knows a panic
+      happened and has no way to learn it was ABSORBED -- and once absorbed,
+      RUST_BACKTRACE describes a stack that was unwound and discarded, below
+      a frame whose return value nothing prints. `dbg!` in the `Err(_)` arm
+      would answer it and is the edit you make only after suspecting that
+      arm; RUST_LOG reaches no logger in this crate.
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: swallowed 1"]
+    expect_line:
+      - ["SWALLOWED", "arm_handled", "attempt L17", "which returned ok"]
+      - ["born outside instrumented code", "absorbed at arm_handled"]
+      - ["panics: 1 recorded", "a panic is a frame's unwind"]
+    expect_count: {"SWALLOWED": 1}
+    expect_absent: ["ambiguous", "returned to the harness"]

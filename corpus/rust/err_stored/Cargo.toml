@@ -1,0 +1,9 @@
+[package]
+name = "corpus_err_stored"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "err_stored"
+path = "src/main.rs"
