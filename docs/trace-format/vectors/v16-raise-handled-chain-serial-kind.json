@@ -30,7 +30,7 @@
           "cargo_args": ["test"],
           "exit_status_basis": "waited",
           "exit_signal": null,
-          "partial": [{"file": "demo/src/lib.rs", "line": 21,
+          "partial": [{"file": "demo/src/lib.rs", "line": 32,
                        "qualname": "load", "kind": "try",
                        "reason": "macro-arg"}],
           "sites": [{"unit": "u0", "site": 0, "file": "demo/src/lib.rs",
