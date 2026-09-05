@@ -393,15 +393,23 @@ def _escaped(trace, chain, idx) -> Disposition:
     """Two shapes wear one terminal, and the `how` of the last event says
     which: an `arm_ambiguous` HANDLED bound the error to a name and let the
     name escape, and anything else is a frame that returned ok with nothing
-    recorded absorbing what it held."""
+    recorded absorbing what it held.
+
+    Only the MOVE is ambiguous. An arm that borrows the error to format it
+    and then carries on is an `arm_handled` and reaches `_swallowed`: the
+    failure never got past that arm, and the log is where it went (design
+    R15/§3, ruled 2026-09-04). `corpus/rust/err_stored` and
+    `corpus/rust/logged_arm` are the two sides of that line.
+    """
     e = chain.last
     if _how(e) == "arm_ambiguous":
         return Disposition(
             "ambiguous",
             f"ambiguous -- an Err(..) arm at e{e.id} ({_at(trace, e)}) bound "
             "it to a name and let the name escape",
-            "a bound error that is stored, returned or logged is not a "
-            "swallow, and the recording cannot say which of those happened")
+            "a bound error that is stored, returned or moved out of the arm "
+            "is not a swallow; an arm that only formats or logs it and "
+            "continues is one")
     return Disposition(
         "ambiguous",
         "ambiguous -- the frame holding it returned ok with no sink recorded",

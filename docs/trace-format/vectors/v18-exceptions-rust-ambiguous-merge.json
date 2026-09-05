@@ -1,5 +1,5 @@
 {"id": "v18-exceptions-rust-ambiguous-merge",
- "asserts": "AMBIGUOUS is the default and nothing falls through to an accusation. Two DIFFERENT `Err`s sharing one frame's window are `merged` -- there is no error identity on the wire, so a window holding two of them cannot be split -- and both are reported ambiguous, never as a swallow. An `Err(e) =>` arm that bound the error and let the name escape is ambiguous too, because a bound error that is stored, returned or logged is not a swallow and the recording cannot say which of those happened. Each verdict says what the trace could not settle rather than picking a reading, and the tally is printed in the fixed order `swallowed, panicked, returned-to-harness, propagated, ambiguous` whatever order the chains were encountered in.",
+ "asserts": "AMBIGUOUS is the default and nothing falls through to an accusation. Two DIFFERENT `Err`s sharing one frame's window are `merged` -- there is no error identity on the wire, so a window holding two of them cannot be split -- and both are reported ambiguous, never as a swallow. An `Err(e) =>` arm that bound the error and let the name escape is ambiguous too, because a bound error that is stored, returned or MOVED OUT of the arm is not a swallow and the recording cannot say which of those happened -- while an arm that only formats or logs it and carries on is a swallow, and is classified `arm_handled` rather than reaching here. Each verdict says what the trace could not settle rather than picking a reading, and the tally is printed in the fixed order `swallowed, panicked, returned-to-harness, propagated, ambiguous` whatever order the chains were encountered in.",
  "meta": {"trace_format": 4,
           "run_id": "$RUN",
           "argv": ["/w/target/debug/deps/demo-abc"],
@@ -146,7 +146,7 @@
     "expect_exit": 0,
     "expect_contains": [
       "ambiguous -- an Err(..) arm at e11 (collect L43) bound it to a name and let the name escape",
-      "a bound error that is stored, returned or logged is not a swallow",
+      "a bound error that is stored, returned or moved out of the arm is not a swallow; an arm that only formats or logs it and continues is one",
       "hops: e9 inner L14 exit -> e11 collect L43 arm_ambiguous"],
     "expect_absent": ["SWALLOWED"]},
    {"id": "the-tally-names-only-the-dispositions-that-happened",

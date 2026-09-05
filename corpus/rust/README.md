@@ -63,7 +63,8 @@ accused.
 | `returned_to_harness` | a `#[test]` fn that returns `Err`: the verdict names the frame and the `#[test]` mark that makes it a harness return, and the sibling passing test contributes no chain | `exceptions`, `tree` |
 | `macro_arg_partial` | a `?` inside a `format!` invocation's tokens cannot be wrapped, so the site is DECLARED (`info`'s `partial fns:` line and `exceptions`' `partial:` header) rather than leaving an answer that only looks complete | `exceptions`, `info` |
 | `err_stored` | an `Err(e) =>` arm that pushes `e` into a Vec: bound and escaped, so ambiguous -- the retry-loop shape a swallow detector must not accuse | `exceptions`, `grep` |
-| `dependency_swallow` | `let _ = fs::remove_file(..)`: a swallow whose error was born OUTSIDE instrumented code, with no producing frame to name, and a verdict that says so | `exceptions`, `tree` |
+| `logged_arm` | the other side of that line: an `Err(e) =>` arm that only BORROWS the error to print it and carries on is a swallow, because the failure reached stderr and nothing else | `exceptions`, `tree` |
+| `dependency_swallow` | `let _ = fs::remove_file(..)`: a swallow whose error was born outside THIS THREAD's instrumented frames, with no producing frame to name, and a verdict that says so | `exceptions`, `tree` |
 | `cleanup_then_fail` | the named blind spot: a GENUINE swallow in a frame that then fails for another reason reads ambiguous, not a swallow, and names which blind spot it is | `exceptions`, `tree` |
 | `join_handle` | one error, two verdicts: in the child it left the thread into a `JoinHandle` (ambiguous, and why), in the parent it reached a sink in a frame that returned ok (a swallow) | `exceptions`, `tree` |
 | `outcome_generic` | `rust/HONESTY.md` §1's named limit: a generic `T` that is an `Err` reads `ok`, so the generic frame raises nothing and its chain has NO hop, while the concrete frame beside it does | `grep`, `exceptions` |

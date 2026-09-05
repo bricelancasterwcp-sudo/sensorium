@@ -1,0 +1,58 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: was-the-refused-attempt-swallowed
+    ask: >
+      The charge came back as 20 and stderr carried one "attempt failed"
+      line. Did anything act on that failure, or was it dropped?
+    truth: >
+      Dropped. `attempt(1)` returned `Err(Refused(1))`, the `Err(e) =>` arm
+      in `charge` borrowed the error to format it and then let it go, the
+      loop continued, and `charge` returned `Ok(20)`. Nothing about the
+      refusal reached the caller: a bound error that is stored, returned or
+      moved out of the arm is not a swallow, but an arm that only formats or
+      logs it and continues is one -- the failure went to stderr and nowhere
+      else. That is the line between this case and `err_stored`, whose arm
+      moves the error into a Vec and is therefore ambiguous.
+    why_logs_fail: >
+      The log shows the error's text, not that the caller went on as if the
+      call had succeeded. `attempt failed: Refused(1)` and `charged: 20` are
+      both on the terminal and nothing connects them: the second is the
+      value a DIFFERENT attempt produced, and no line says the returned
+      charge was not the one that was refused. RUST_LOG reaches no logger
+      here and RUST_BACKTRACE never fires -- the process exits 0.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_contains: ["dispositions: swallowed 1"]
+    expect_line:
+      - ["SWALLOWED",
+         "absorbed by arm_handled at e6 (charge L30) in f2, which returned ok"]
+      - ["e4 RAISE", "attempt raise logged_arm::Refused('Refused(1)') L17"]
+      - ["hops: e4 attempt L17 exit -> e6 charge L30 arm_handled"]
+    expect_count: {"SWALLOWED": 1}
+    expect_absent: ["ambiguous", "born outside", "returned to the harness",
+                    "panicked"]
+  - id: which-attempt-produced-the-number-that-was-charged
+    ask: >
+      Two attempts ran and one number came out. Which activation produced
+      it, and what did the other one return?
+    truth: >
+      The second: `attempt` returned `Ok(20)` on its second activation and
+      `Err(Refused(1))` on its first, and `charge` returned `Ok(20)`. One
+      frame above the refusal the run already reads as a clean success --
+      that boundary is where the bug lives, and it is invisible from the
+      value alone because 20 is a perfectly ordinary charge.
+    why_logs_fail: >
+      Only the final number is printed, and it is indistinguishable from a
+      first attempt that succeeded at the same price; the stderr line names
+      the failure but not which activation produced the value that replaced
+      it. `dbg!` on each attempt would answer it and is the edit you make
+      after already suspecting the loop. Nothing panics, so RUST_BACKTRACE
+      never fires.
+    command: ["tree", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["f2 e2", "charge()", "-> Ok(20)"]
+      - ["f3 e3", "attempt()", "-> Err(Refused(1))"]
+      - ["f4 e7", "attempt()", "-> Ok(20)"]
+    expect_absent: ["!! ", "(open)"]
