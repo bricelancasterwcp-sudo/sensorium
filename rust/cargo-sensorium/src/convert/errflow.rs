@@ -177,9 +177,24 @@ fn err_debug(p: &spool::ReturnPayload) -> Option<String> {
     Some(unwrap_err_debug(&p.text)?.to_owned())
 }
 
-/// `Err(<inner>)` -> `<inner>`.
-pub fn unwrap_err_debug(text: &str) -> Option<&str> {
+/// `Err(<inner>)` -> `<inner>`, for IDENTITY: both delimiters must be there,
+/// because a rendering the probe had to cut is a PREFIX of an identity and not
+/// one (two sites cutting at different lengths would split one chain).
+fn unwrap_err_debug(text: &str) -> Option<&str> {
     text.strip_prefix("Err(")?.strip_suffix(')')
+}
+
+/// The same unwrapping, for DISPLAY, where a cut rendering is still the error's
+/// text: only the closing `)` is missing, and keeping `Err(` on it would make
+/// `exc.msg` mean the error on every event except a truncated one. The `trunc`
+/// flag beside it is what says the text is short; the `Result`'s wrapper was
+/// never part of the error.
+#[must_use]
+pub fn err_debug_text(text: &str) -> &str {
+    match text.strip_prefix("Err(") {
+        Some(inner) => inner.strip_suffix(')').unwrap_or(inner),
+        None => text,
+    }
 }
 
 fn site_of<'a>(input: &'a IndexInput, site_word: u32) -> Option<&'a SiteInfo> {
@@ -455,6 +470,17 @@ mod tests {
             None,
             "a cut rendering is not one"
         );
+    }
+
+    /// Display is the other half of the same rule: identity refuses a cut
+    /// rendering (above), and `exc.msg` still shows the error's own text out of
+    /// it -- so `msg` means the same thing on every event, truncated or not.
+    #[test]
+    fn a_cut_rendering_still_loses_the_results_wrapper_when_it_is_displayed() {
+        assert_eq!(err_debug_text("Err(Os { code: 2 })"), "Os { code: 2 }");
+        assert_eq!(err_debug_text("Err(Os { code: 2"), "Os { code: 2");
+        assert_eq!(err_debug_text("Ok(())"), "Ok(())", "not an Err rendering");
+        assert_eq!(err_debug_text(""), "");
     }
 
     fn ret_payload(tag: u8, truncated: bool, text: &str) -> spool::ReturnPayload {

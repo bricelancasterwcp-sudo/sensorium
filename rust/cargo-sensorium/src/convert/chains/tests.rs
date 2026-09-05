@@ -179,6 +179,46 @@ fn an_err_close_with_a_new_type_is_the_same_chain_labelled_translated() {
     );
 }
 
+/// §2a row 1, `None` column: a `?` in a frame that holds no chain OPENS one --
+/// and it is born at an instrumented site, so its origin is the workspace.
+/// `outside` belongs to a HANDLED with nothing to continue and to nothing else
+/// (design R8): reading a `?` as `outside` would report every error the
+/// recording watched being raised as one it had never seen made.
+#[test]
+fn a_try_with_no_open_chain_opens_a_workspace_chain() {
+    let events = mint(
+        &[
+            call(0),
+            flow(1, How::Try, "io::Error", "ENOENT"),
+            ret(2, Outcome::None),
+        ],
+        false,
+    );
+    assert_eq!(events.len(), 1, "{events:#?}");
+    assert_eq!(events[0].origin, Origin::Workspace);
+    assert_eq!(events[0].serial, FIRST_CHAIN_SERIAL);
+    assert_eq!(events[0].hop, 1);
+    assert_eq!(
+        events[0].origin_type.as_deref(),
+        Some("io::Error"),
+        "the chain is born with the type the `?` recorded"
+    );
+}
+
+/// The same for a propagating arm, which is the other RAISE-class `how`.
+#[test]
+fn a_propagating_arm_with_no_open_chain_opens_a_workspace_chain() {
+    let events = mint(
+        &[
+            call(0),
+            flow(1, How::ArmPropagate, "io::Error", "ENOENT"),
+            ret(2, Outcome::None),
+        ],
+        false,
+    );
+    assert_eq!(events[0].origin, Origin::Workspace);
+}
+
 /// §2a row 6, `None` column: a HANDLED with no chain to continue is its own
 /// chain, born outside instrumented code (design R8's `dependency_swallow`).
 #[test]
@@ -360,6 +400,32 @@ fn a_chain_left_open_on_the_main_frame_returned_to_the_harness() {
     assert_eq!(
         last_of(&events, FIRST_CHAIN_SERIAL).terminal,
         Some(Terminal::ReturnedToHarness)
+    );
+}
+
+/// §2a row 8 judges the frame the chain SITS in, which on an INCOMPLETE thread
+/// is a frame that never closed. Judging the frame it last LEFT instead would
+/// report a `#[test]` fn that was still running as a propagation -- the one
+/// disposition R8 reserves for a thread whose frames were not all instrumented.
+#[test]
+fn a_chain_still_inside_an_unclosed_test_frame_returned_to_the_harness() {
+    let events = mint(
+        &[
+            call_marked(0, true, false),
+            call(1),
+            ret_err(2, "E", "x"),
+            // No RETURN for the test frame: the recording ended inside it.
+            Input {
+                seq: 3,
+                rec: Rec::ThreadEnd,
+            },
+        ],
+        false,
+    );
+    assert_eq!(
+        last_of(&events, FIRST_CHAIN_SERIAL).terminal,
+        Some(Terminal::ReturnedToHarness),
+        "the holder is the test frame, which is still open: {events:#?}"
     );
 }
 

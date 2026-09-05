@@ -1,166 +1,20 @@
-//! Err flow through the REAL binary: wire v3's two record kinds and the typed
-//! `err` RETURN in, RAISE/HANDLED rows with minted chains out.
+//! Err flow through the REAL binary: what wire v3's two record kinds and its
+//! typed `err` RETURN BECOME -- events, payloads, refusals and meta.
 //!
-//! Every spool here is hand-built from the wire block (`tests/common/wire.rs`),
-//! never from running the runtime, for the reason that module states: a bug
-//! shared by the writer and the reader would pass a fixture built by the
-//! writer and cannot pass one built from the format.
+//! What a SEQUENCE of them becomes -- §2a's chain identity, end to end -- is
+//! `convert_errflow_chains.rs`. The two were one file until it passed 800
+//! lines; the fixture they share is `tests/common/spooldir.rs`.
 
 mod common;
 
-use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
-
-use common::wire::{self, closure_site, err_site, marked_site, site, SiteSpec};
-use common::Scratch;
-use rusqlite::Connection;
-
-const FILE: &str = "crates/demo/src/lib.rs";
-
-/// Record kinds and `how` bytes as NUMBERS: these are wire-format values, and
-/// asserting them against the converter's own constants would pin nothing.
-const KIND_RAISE: u8 = 4;
-const KIND_HANDLED: u8 = 5;
-const HOW_TRY: u8 = 1;
-const HOW_SINK_OK: u8 = 2;
-const HOW_ARM_PROPAGATE: u8 = 5;
-const HOW_ARM_AMBIGUOUS: u8 = 7;
-
-#[allow(dead_code)] // `scratch` is held only for its Drop cleanup.
-struct Fixture {
-    scratch: Scratch,
-    spool_dir: PathBuf,
-    manifests_dir: PathBuf,
-    sensorium_dir: PathBuf,
-}
-
-impl Fixture {
-    fn new(name: &str) -> Fixture {
-        let scratch = Scratch::in_build_dir(name);
-        let target = scratch.p("target");
-        let spool_dir = target.join("sensorium/spool/20260904-000000-000000");
-        let manifests_dir = target.join("sensorium/manifests");
-        let sensorium_dir = scratch.p("sensorium-dir");
-        std::fs::create_dir_all(&spool_dir).unwrap();
-        std::fs::create_dir_all(&manifests_dir).unwrap();
-        wire::write_invocation(
-            &spool_dir,
-            "20260904-000000-000000",
-            "/w",
-            &target.to_string_lossy(),
-        );
-        Fixture {
-            scratch,
-            spool_dir,
-            manifests_dir,
-            sensorium_dir,
-        }
-    }
-
-    fn manifest(&self, sites: &[SiteSpec]) {
-        wire::write_manifest(
-            &self.manifests_dir,
-            "meta1",
-            "demo",
-            &[(FILE, sites)],
-            &[(FILE, "deadbeef")],
-            false,
-            None,
-            &[],
-        );
-    }
-
-    fn convert(&self) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_cargo-sensorium"))
-            .args(["convert", &self.spool_dir.to_string_lossy()])
-            .env("SENSORIUM_DIR", &self.sensorium_dir)
-            .output()
-            .expect("run cargo-sensorium convert")
-    }
-
-    /// Convert, insisting it succeeded, and open the single trace it wrote.
-    fn converted(&self) -> Connection {
-        let out = self.convert();
-        assert!(out.status.success(), "{}", context(&out));
-        let dir = self.sensorium_dir.join("traces");
-        let mut found: Vec<PathBuf> = std::fs::read_dir(&dir)
-            .unwrap_or_else(|e| panic!("no traces dir at {}: {e}", dir.display()))
-            .map(|e| e.unwrap().path())
-            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("db"))
-            .collect();
-        found.sort();
-        assert_eq!(found.len(), 1, "one trace, got {found:?}");
-        open(&found[0])
-    }
-
-    fn refusal(&self) -> String {
-        let out = self.convert();
-        assert!(
-            !out.status.success(),
-            "expected a refusal: {}",
-            context(&out)
-        );
-        String::from_utf8_lossy(&out.stderr).into_owned()
-    }
-}
-
-fn open(db: &Path) -> Connection {
-    Connection::open(db).unwrap_or_else(|e| panic!("cannot open {}: {e}", db.display()))
-}
-
-fn context(out: &Output) -> String {
-    format!(
-        "status: {:?}\n--- stdout ---\n{}\n--- stderr ---\n{}",
-        out.status.code(),
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr)
-    )
-}
-
-fn meta(conn: &Connection, key: &str) -> serde_json::Value {
-    let raw: String = conn
-        .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
-        .unwrap_or_else(|e| panic!("no meta key {key}: {e}"));
-    serde_json::from_str(&raw).unwrap()
-}
-
-/// Every event, in id order: `(kind, line, payload)`.
-fn events(conn: &Connection) -> Vec<(String, Option<i64>, serde_json::Value)> {
-    let mut stmt = conn
-        .prepare("SELECT kind, line, payload FROM events ORDER BY id")
-        .unwrap();
-    let rows = stmt
-        .query_map([], |r| {
-            let payload: Option<String> = r.get(2)?;
-            Ok((
-                r.get::<_, String>(0)?,
-                r.get::<_, Option<i64>>(1)?,
-                payload.map_or(serde_json::Value::Null, |p| {
-                    serde_json::from_str(&p).unwrap()
-                }),
-            ))
-        })
-        .unwrap();
-    rows.map(Result::unwrap).collect()
-}
-
-fn kinds(conn: &Connection) -> Vec<String> {
-    events(conn).into_iter().map(|(k, _, _)| k).collect()
-}
-
-/// `outer` calls `inner`; `inner` returns `Err`; `outer`'s `?` re-raises it and
-/// `outer` returns by the `?` bypass (wire outcome `none`). The manifest below
-/// is the one every fixture in this file starts from.
-fn two_fns_and_a_try() -> Vec<SiteSpec> {
-    vec![
-        site(0, "outer", 3, "value"),
-        site(1, "inner", 10, "value"),
-        err_site(2, "outer", 5, "try", "try"),
-    ]
-}
+use common::spooldir::{
+    events, kinds, meta, two_fns_and_a_try, Fixture, HOW_ARM_AMBIGUOUS, HOW_SINK_OK, HOW_TRY,
+    KIND_HANDLED, KIND_RAISE,
+};
+use common::wire::{self, closure_site, err_site, marked_site, site};
 
 // ---------------------------------------------------------------------------
-// The chain a `?` makes, end to end
+// The events a `?` chain becomes
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -386,70 +240,6 @@ fn an_unbound_arm_takes_its_type_from_the_chain_and_declares_its_message_unread(
         arm["chain"]["terminal"],
         serde_json::json!("ambiguous_escaped")
     );
-}
-
-/// Design R8: a chain whose recorded type changes on the way out is ONE chain,
-/// each hop printing its own type, and the change is labelled. The synthesised
-/// origin RAISE at the translating frame's exit carries the NEW type -- the
-/// chain's birth type is what `chain.serial` already ties it to.
-#[test]
-fn a_hop_that_changes_the_error_type_is_the_same_chain_labelled_translated() {
-    let f = Fixture::new("errflow-translated");
-    f.manifest(&[
-        site(0, "outer", 3, "value"),
-        site(1, "inner", 10, "value"),
-        err_site(2, "outer", 8, "arm", "arm_propagate"),
-    ]);
-    wire::write_proc_header_caps(
-        &f.spool_dir,
-        616,
-        1,
-        "/w/target/deps/demo",
-        &[(0, "meta1")],
-        None,
-        Some(true),
-    );
-    wire::SpoolBuilder::new(616, 1, "main")
-        .version(3)
-        .call(0, 1000, 0, 0)
-        .call(1, 1100, 0, 1)
-        .ret_err_typed(2, 1200, 0, 1, Some("demo::E"), Some("Err(E1)"))
-        .err_flow(
-            3,
-            1300,
-            0,
-            2,
-            KIND_RAISE,
-            HOW_ARM_PROPAGATE,
-            Some("demo::E"),
-            Some("E1"),
-        )
-        .ret_err_typed(4, 1400, 0, 0, Some("demo::AppError"), Some("Err(Wrapped)"))
-        .thread_end(5, 1500)
-        .write(&f.spool_dir);
-    let rows = events(&f.converted());
-    let raises: Vec<&serde_json::Value> = rows
-        .iter()
-        .filter(|(k, _, _)| k == "RAISE")
-        .map(|(_, _, p)| p)
-        .collect();
-    assert_eq!(raises.len(), 3, "origin, arm, and the translating exit");
-    let serial = raises[0]["exc"]["serial"].clone();
-    assert!(
-        raises.iter().all(|r| r["exc"]["serial"] == serial),
-        "one chain across the translation: {raises:#?}"
-    );
-    assert_eq!(raises[0]["exc"]["type"], serde_json::json!("demo::E"));
-    assert_eq!(raises[1]["chain"]["hop"], serde_json::json!(2));
-    assert_eq!(
-        raises[2]["exc"]["type"],
-        serde_json::json!("demo::AppError"),
-        "each hop prints the type IT recorded"
-    );
-    assert_eq!(raises[2]["exc"]["msg"], serde_json::json!("Wrapped"));
-    assert_eq!(raises[2]["chain"]["translated"], serde_json::json!(true));
-    assert_eq!(raises[2]["chain"]["hop"], serde_json::json!(3));
-    assert_eq!(raises[0]["chain"]["translated"], serde_json::json!(false));
 }
 
 // ---------------------------------------------------------------------------
@@ -693,84 +483,6 @@ fn the_meta_carries_the_err_flow_counters_the_marks_and_the_partial_list() {
     assert_eq!(
         events(&conn)[3].2["chain"]["origin"],
         serde_json::json!("outside")
-    );
-}
-
-/// A chain left open on a `#[test]` fn went back to the harness (design R8),
-/// and that is the fact the trace carries.
-#[test]
-fn a_chain_that_left_a_test_fn_is_recorded_as_returned_to_the_harness() {
-    let f = Fixture::new("errflow-returned-to-harness");
-    f.manifest(&[
-        marked_site(0, "tests::t", 3, "value", true, false),
-        site(1, "inner", 10, "value"),
-    ]);
-    wire::write_proc_header_caps(
-        &f.spool_dir,
-        611,
-        1,
-        "/w/target/deps/demo",
-        &[(0, "meta1")],
-        None,
-        Some(true),
-    );
-    wire::SpoolBuilder::new(611, 1, "main")
-        .version(3)
-        .call(0, 1000, 0, 0)
-        .call(1, 1100, 0, 1)
-        .ret_err_typed(2, 1200, 0, 1, Some("demo::E"), Some("Err(E1)"))
-        .ret_err_typed(3, 1300, 0, 0, Some("demo::E"), Some("Err(E1)"))
-        .thread_end(4, 1400)
-        .write(&f.spool_dir);
-    let rows = events(&f.converted());
-    let last_raise = rows
-        .iter()
-        .rfind(|(k, _, _)| k == "RAISE")
-        .expect("two RAISEs");
-    assert_eq!(
-        last_raise.2["chain"]["terminal"],
-        serde_json::json!("returned_to_harness")
-    );
-    assert_eq!(last_raise.2["chain"]["hop"], serde_json::json!(2));
-}
-
-/// The same chain on a SPAWNED thread went into a `JoinHandle` instead
-/// (design R8): the thread it ran on is the only fact outside the record
-/// stream that tells the two apart.
-#[test]
-fn a_chain_that_left_a_spawned_threads_outermost_frame_is_recorded_as_left_thread() {
-    let f = Fixture::new("errflow-left-thread");
-    f.manifest(&[site(0, "worker", 3, "value"), site(1, "inner", 10, "value")]);
-    wire::write_proc_header_caps(
-        &f.spool_dir,
-        615,
-        1,
-        "/w/target/deps/demo",
-        &[(0, "meta1")],
-        None,
-        Some(true),
-    );
-    // The main thread does nothing; thread 2 is the spawned one.
-    wire::SpoolBuilder::new(615, 1, "main")
-        .version(3)
-        .thread_end(0, 900)
-        .write(&f.spool_dir);
-    wire::SpoolBuilder::new(615, 2, "worker")
-        .version(3)
-        .call(1, 1000, 0, 0)
-        .call(2, 1100, 0, 1)
-        .ret_err_typed(3, 1200, 0, 1, Some("demo::E"), Some("Err(E1)"))
-        .ret_err_typed(4, 1300, 0, 0, Some("demo::E"), Some("Err(E1)"))
-        .thread_end(5, 1400)
-        .write(&f.spool_dir);
-    let rows = events(&f.converted());
-    let last_raise = rows
-        .iter()
-        .rfind(|(k, _, _)| k == "RAISE")
-        .expect("two RAISEs");
-    assert_eq!(
-        last_raise.2["chain"]["terminal"],
-        serde_json::json!("left_thread")
     );
 }
 

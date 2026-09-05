@@ -468,9 +468,31 @@ mod tests {
         // DID reach was still not rewritten, and inventing a reason for the
         // other kind would be worse than saying nothing.
         assert_eq!(v["unreached_reasons"], serde_json::json!({}));
+        // The exact SET, not the count: a count says a key moved and leaves a
+        // person to diff two manifests to learn which, while this names it.
+        // `partial` is here because the converter reads it (design R6) and a
+        // manifest that quietly stopped carrying it would leave every
+        // unreachable `?` undeclared with nothing failing.
+        let mut keys: Vec<&str> = v.as_object().unwrap().keys().map(String::as_str).collect();
+        keys.sort_unstable();
         assert_eq!(
-            v.as_object().unwrap().len(),
-            14,
+            keys,
+            [
+                "appended_line",
+                "crate_name",
+                "crate_type",
+                "fallback_reason",
+                "fell_back",
+                "files",
+                "partial",
+                "skipped",
+                "source_hashes",
+                "spawns",
+                "unit",
+                "unreached_files",
+                "unreached_reasons",
+                "workspace_root",
+            ],
             "a key was added or removed from the manifest shape: {v}"
         );
     }

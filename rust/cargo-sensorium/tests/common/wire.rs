@@ -140,6 +140,26 @@ impl SpoolBuilder {
         self.ret(seq, ts_ns, unit_id, site_index, 2, &payload)
     }
 
+    /// The same, for a value the probe had to CUT: the `truncated` byte is set
+    /// and the text arrives without its closing `)`, which is what a 200-byte
+    /// cap does to a long `Debug` rendering.
+    #[must_use]
+    pub fn ret_err_typed_cut(
+        self,
+        seq: u64,
+        ts_ns: u64,
+        unit_id: u8,
+        site_index: u32,
+        type_name: &str,
+        text: &str,
+    ) -> SpoolBuilder {
+        let mut payload = vec![1u8, 1u8, 1u8];
+        payload.extend_from_slice(&(type_name.len() as u16).to_le_bytes());
+        payload.extend_from_slice(type_name.as_bytes());
+        payload.extend_from_slice(text.as_bytes());
+        self.ret(seq, ts_ns, unit_id, site_index, 2, &payload)
+    }
+
     /// A RAISE (kind 4) or HANDLED (kind 5) record: `how` in the outcome byte,
     /// then `u8 flags, u16 type_len, type, msg`.
     #[must_use]

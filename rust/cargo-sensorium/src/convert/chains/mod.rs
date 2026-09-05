@@ -45,9 +45,12 @@ pub enum Origin {
     /// Born at an instrumented site: a `?`, a propagating arm, or a frame that
     /// closed `err`.
     Workspace,
-    /// Absorbed at a sink with no chain to continue -- the `Err` was made
-    /// somewhere this recording never saw (design R8's "born in dependency
-    /// code").
+    /// A HANDLED-class record -- a sink, a handling or an ambiguous arm --
+    /// with no chain to continue: the `Err` was made somewhere this recording
+    /// never saw (design R8's "born in dependency code"). Only a HANDLED opens
+    /// one. A RAISE with no chain to continue is a `?` or a propagating arm on
+    /// an `Err` this recording DID see made, and opens a [`Origin::Workspace`]
+    /// chain like any other instrumented site.
     Outside,
 }
 
@@ -317,7 +320,17 @@ impl Machine {
             let terminal = if c.merged {
                 Terminal::Merged
             } else {
-                let f = c.last_frame;
+                // The frame the chain SITS in, when that frame is still open --
+                // a thread that ended inside a `#[test]` fn (an INCOMPLETE
+                // recording) held its chain there, and judging the frame it
+                // last LEFT would report a harness return as a propagation.
+                // Only when the holder is gone (it closed, or the chain left
+                // the outermost frame) is the frame it left the right one to
+                // judge.
+                let f = c
+                    .holder
+                    .and_then(|id| self.stack.iter().find(|f| f.id == id).copied())
+                    .unwrap_or(c.last_frame);
                 if f.test || f.main {
                     Terminal::ReturnedToHarness
                 } else if self.spawned && f.outermost {
@@ -437,6 +450,22 @@ impl Machine {
             }
             Some(i) if text.matches(&self.chains[i].last) => {
                 self.absorb(i, seq, how, text);
+            }
+            // §2a's `None` column, first row: a `?` or a propagating arm in a
+            // frame that holds no chain OPENS one, and it is born at an
+            // instrumented site -- so `workspace`, never `outside`. The one
+            // thing that opens an `outside` chain is a HANDLED with nothing to
+            // continue (design R8's "born in dependency code"), which is the
+            // arm below.
+            None if how.is_raise() => {
+                self.open_chain(
+                    seq,
+                    At::Record,
+                    Some(frame.id),
+                    frame,
+                    text,
+                    Origin::Workspace,
+                );
             }
             // A HANDLED whose text is a DIFFERENT `Err` from the one this
             // frame holds is not that chain's business: it behaves exactly as

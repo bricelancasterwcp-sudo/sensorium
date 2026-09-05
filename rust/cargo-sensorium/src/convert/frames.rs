@@ -283,8 +283,8 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                 // chain has a record of its own to be reported at. `how: exit`
                 // is the converter's, and no runtime may write it.
                 if let Some(chain) = chains.at_exit(thread_id, r.seq) {
-                    let msg = (payload.tag == TAG_DEBUG)
-                        .then(|| errflow::unwrap_err_debug(&payload.text).unwrap_or(&payload.text));
+                    let msg =
+                        (payload.tag == TAG_DEBUG).then(|| errflow::err_debug_text(&payload.text));
                     let exc = errflow::payload(&ErrFlowEvent {
                         how: How::Exit,
                         type_name: payload.err_type.as_deref(),
