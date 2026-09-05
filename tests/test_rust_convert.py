@@ -166,6 +166,8 @@ def test_case_converts_and_answers_every_question(case_name, tmp_path):
                 f"{trace.meta.get('spawns')!r} is not the manifest's "
                 f"{expected_spawns!r}")
         _check_err_flow_payloads(case_name, db_path.name, trace)
+        if case_name == "errflow":
+            _check_errflow_chain_terminals(db_path.name, trace)
 
 
 def _check_err_flow_payloads(case_name: str, db_name: str, trace) -> None:
@@ -219,6 +221,77 @@ def _check_err_flow_payloads(case_name: str, db_name: str, trace) -> None:
                 "chain namespace")
             assert chain is None, (
                 f"{where} is a panic carrying a chain object {chain!r}")
+
+
+def _chains(trace) -> dict:
+    """`(thread, chain serial)` -> the chain's events in trace order, the
+    same grouping `query/exceptions_rust.Index` does. Serials are minted
+    per THREAD, so the thread is half the key."""
+    out: dict = {}
+    for e in trace.events(kind=("RAISE", "HANDLED")):
+        p = e.payload or {}
+        if (p.get("exc") or {}).get("kind") != "err":
+            continue
+        out.setdefault((e.thread_id, p["chain"]["serial"]), []).append(e)
+    return out
+
+
+def _check_errflow_chain_terminals(db_name: str, trace) -> None:
+    """The `errflow` case's two chains end with the exact terminals the
+    §2a machine owes them, and every event before a chain's last carries
+    NO terminal at all.
+
+    This is the one place the two halves of the rung are held against each
+    other by VALUE. `_check_err_flow_payloads` above pins that a `chain`
+    object exists and `tests/test_exceptions_rust.py` pins what each
+    terminal MEANS, but both would stay green if the converter stopped
+    writing terminals: the shape check does not require the key, and the
+    Python tests build their own traces. Deleting `terminal` from the
+    machine would then be a silent change that turned every real Rust
+    answer into "the recording records no ending for this chain".
+
+    The fixture is two chains of one `Err` type: `inner`'s first `Err`,
+    which `swallow`'s `.ok()` absorbs before `swallow` returns ok
+    (`swallowed_candidate` on the HANDLED), and `inner`'s second, which
+    `run` takes by `?` and returns from a `#[test]` fn
+    (`returned_to_harness` on the synthesised `exit` RAISE that is the
+    chain's last event). Both were BORN at an instrumented site, so both
+    say `origin: "workspace"` -- `"outside"` there would be the trace
+    claiming an `Err` it watched being made had arrived from a dependency.
+    """
+    chains = _chains(trace)
+    assert len(chains) == 2, (
+        f"errflow/{db_name}: {len(chains)} err chains, expected 2 "
+        f"({sorted(chains)})")
+    ends = {}
+    for key, events in chains.items():
+        for e in events[:-1]:
+            assert "terminal" not in e.payload["chain"], (
+                f"errflow/{db_name}: e{e.id} is not chain {key[1]}'s last "
+                f"event and carries terminal "
+                f"{e.payload['chain']['terminal']!r}; the key rides the last "
+                "event and is omitted everywhere else")
+        for e in events:
+            assert e.payload["chain"]["origin"] == "workspace", (
+                f"errflow/{db_name}: e{e.id} says origin "
+                f"{e.payload['chain']['origin']!r}; this chain was born at "
+                "an instrumented site")
+        last = events[-1]
+        chain = last.payload["chain"]
+        # Named, not indexed: a converter that stopped writing terminals
+        # would otherwise fail here as a KeyError, which says nothing about
+        # the trace to whoever reads the run.
+        assert "terminal" in chain, (
+            f"errflow/{db_name}: e{last.id} is chain {key[1]}'s last event "
+            "and carries no terminal; the disposition rules read a chain's "
+            "ending from there and recompute nothing, so a chain with no "
+            "terminal reads as one whose ending was never recorded")
+        ends[chain["terminal"]] = (last.kind, last.payload["how"])
+    assert ends == {"swallowed_candidate": ("HANDLED", "sink_ok"),
+                    "returned_to_harness": ("RAISE", "exit")}, ends
+    hops = {key: [e.payload["chain"]["hop"] for e in events]
+            for key, events in chains.items()}
+    assert sorted(hops.values()) == [[1, 1], [1, 2, 3]], hops
 
 
 def test_gen_refuses_an_err_flow_how_that_belongs_to_the_other_record_kind():

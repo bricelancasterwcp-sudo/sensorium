@@ -150,5 +150,51 @@
     "expect_count": {
       "events: 13": 1
     }
+  },
+  {
+    "id": "exceptions-judges-the-two-chains-this-spool-recorded",
+    "ask": "End to end, through the real converter: does `exceptions` report one line per Err CHAIN with the disposition each terminal earns -- the `.ok()`d one SWALLOWED, the one the `#[test]` fn returned back to the harness -- and does it warn about the `?` site the transformer could not reach?",
+    "command": [
+      "exceptions",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_line": [
+      [
+        "e4 RAISE",
+        "inner raise demo::Boom('Boom(7)') L18"
+      ],
+      [
+        "SWALLOWED -- absorbed by sink_ok at e6 (swallow L12) in f2, which returned ok"
+      ],
+      [
+        "hops: e4 inner L18 exit -> e6 swallow L12 sink_ok"
+      ],
+      [
+        "e9 RAISE",
+        "inner raise demo::Boom('Boom(9)') L18"
+      ],
+      [
+        "returned to the harness -- it left f1 (run), which the manifest marks as a #[test] fn"
+      ],
+      [
+        "hops: e9 inner L18 exit -> e11 run L6 try -> e12 run L3 exit"
+      ]
+    ],
+    "expect_contains": [
+      "partial: 1 ?-site the transformer could not reach",
+      "run src/lib.rs:7 (macro-arg)",
+      "dispositions: swallowed 1, returned-to-harness 1"
+    ],
+    "expect_count": {
+      "SWALLOWED": 1,
+      "raised (2):": 1
+    },
+    "expect_absent": [
+      "ambiguous",
+      "born outside instrumented code",
+      "no exceptions recorded",
+      "REFUSED"
+    ]
   }
 ]
