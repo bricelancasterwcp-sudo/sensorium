@@ -105,7 +105,7 @@ DOC = (REPO / "docs" / "superpowers" / "acceptance"
 #: The commit that committed §1 ALONE, before any E6⁗ number was read. `None`
 #: until that commit exists, and a `None` lock REFUSES rather than measuring
 #: against a pre-registration that can still be edited.
-BYTE_LOCK = None
+BYTE_LOCK = "559e617"
 #: §1 of this document is committed once and never amended, so there is no
 #: second sha to carry. E6‴'s §1 was amended (dated, pre-measurement) and its
 #: record carries both; a `None` here says this one was not.
