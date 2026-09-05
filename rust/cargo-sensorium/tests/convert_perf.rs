@@ -120,11 +120,18 @@ fn a_hundred_thousand_record_spool_converts_in_seconds_not_minutes() {
         "convert_perf: 100,000 records converted in {:.3}s (debug build)",
         elapsed.as_secs_f64()
     );
+    // The fence is an ORDER-OF-MAGNITUDE floor against the regression this
+    // test exists for (one transaction per record: minutes), not a benchmark:
+    // a debug build on a shared CI runner with two matrices in flight measured
+    // 5.04 s against the old 5.0 s fence on 2026-09-05 (rung 3 added
+    // RAISE/HANDLED parsing, chain minting and `meta.sites` per record).
+    // The wall that matters is measured by the acceptance runs (E0/E0″),
+    // never gated here.
     assert!(
-        elapsed.as_secs_f64() < 5.0,
+        elapsed.as_secs_f64() < 30.0,
         "converting 100,000 records took {:.2}s in a debug build; one \
-         transaction per trace should keep this to a couple of seconds at \
-         most: {}",
+         transaction per trace should keep this to seconds, not minutes \
+         (fence 30 s, an order of magnitude above the measured ~5 s): {}",
         elapsed.as_secs_f64(),
         context(&out)
     );
