@@ -78,9 +78,9 @@ Measured 2026-09-05T09:10:46-0500 → 2026-09-05T09:13:13-0500 by `rust/tests/ac
 | repo HEAD at the run | `caf371afa8807992b2d2185a3c44fcb85d14261a` (branch `feat/rung3-borrow-repair`) |
 | HEAD driver (E6⁗-A, E6⁗-WS) | `/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium`, mtime 2026-09-05T09:10:53-0500 |
 | HEAD driver sha256 | `ef95dc4fef1b7015422d254f65a7d1ce05eaff55f8bbf59d2a5922b8b1da438e` — unchanged across the run: yes |
-| BASE driver (E6⁗-WS0, the control) | `/mnt/extra/sensorium-rung2/rust-target-base/release/cargo-sensorium` (sha256 `09def88613fd566acfad4d047731a0b9831493f3158d4a19661024345ecf28fc`, mtime 2026-09-05T07:07:44-0500), built from worktree `/mnt/extra/sensorium-rung2/base-d1b1b57` at `d1b1b57e20353a8ef76ee93d270394e8b47893d5` — expected `d1b1b57`: yes, clean: yes. after the run, from each arm's own trace (`meta.driver_version`): `cargo-sensorium` has no `--version` flag and is never invoked to identify itself |
+| BASE driver (E6⁗-WS0, the control) | `/mnt/extra/sensorium-rung2/rust-target-base/release/cargo-sensorium` (sha256 `09def88613fd566acfad4d047731a0b9831493f3158d4a19661024345ecf28fc`, mtime 2026-09-05T07:07:44-0500), built from worktree `/mnt/extra/sensorium-rung2/base-d1b1b57` at `d1b1b57e20353a8ef76ee93d270394e8b47893d5` — expected `d1b1b57`: yes, clean: yes. |
 | driver each arm ran | E6⁗-A `/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium`, E6⁗-WS `/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium`, E6⁗-WS0 `/mnt/extra/sensorium-rung2/rust-target-base/release/cargo-sensorium` |
-| driver version each arm's own trace carries | E6⁗-A ['cargo-sensorium 0.3.0'], E6⁗-WS ['cargo-sensorium 0.3.0'], E6⁗-WS0 ['cargo-sensorium 0.3.0'] |
+| driver version each arm's own trace carries | E6⁗-A ['cargo-sensorium 0.3.0'], E6⁗-WS ['cargo-sensorium 0.3.0'], E6⁗-WS0 ['cargo-sensorium 0.3.0'] — after the run, from each arm's own trace (`meta.driver_version`): `cargo-sensorium` has no `--version` flag and is never invoked to identify itself |
 | census driver | `/mnt/extra/sensorium-rung2/rust-target/debug/census` (sha256 `2bffb9dab11180f825e9e74c3a3f2ed9a108e81342fb27e3acd590acb2945c63`) |
 | toolchain | rustc 1.96.0 (ac68faa20 2026-05-25) / cargo 1.96.0 (30a34c682 2026-05-25) |
 | reader | Python 3.14.4, sensorium 0.6.0 |
@@ -150,7 +150,7 @@ Every measurement is `{value, n, lens, dropped}`; a `null` value with a reason i
 | SWALLOWED lines over EVERY process (primary + sweep) | 14 | 1 | printed SWALLOWED lines over EVERY process this arm recorded (primary + sweep), of the processes recorded; `ca… | none |
 | SWALLOWED lines the sweep added | not measured (the arm recorded a single process, so the sweep read none and there was nothing to add: a 0 here would be a 0 of 0) | 0 | SWALLOWED lines the sweep added, of the processes swept; reported without a gate | the arm recorded a single process, so the sweep read none and there was nothing to add: a 0 here would be a 0 of 0 |
 | SWALLOWED lines the collector could not parse | 0 | 14 | SWALLOWED lines the collector could not parse into (how, event, qualname, line) -- anything but 0 means a row … | none |
-| guarded arms (B4/R15; restates §5, not a new measurement) | 2 | 14 | SWALLOWED lines whose `Err` binding is read ONLY by a match GUARD -- the class §1's reading of "merely observe… | none |
+| guarded arms (B4/R15; restates §4.4, not a new measurement) | 2 | 14 | SWALLOWED lines whose `Err` binding is read ONLY by a match GUARD -- the class §1's reading of "merely observe… | none |
 | Err chains judged on the primary (`raised (N):`) | 22 | None | `raised (N):` on the primary process -- Err chains the command judged | none |
 | processes recorded | 1 | None | processes the arm recorded (one per test binary, including integration-test and doctest binaries on a `--works… | none |
 | false accusations | not measured (adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed") | 14 | FALSE ACCUSATIONS. Not measurable by this instrument: §1 asks for every printed SWALLOWED line to be adjudicat… | adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed" |
@@ -191,7 +191,7 @@ Every SWALLOWED line, with the sink the trace names for it (the adjudication its
 | SWALLOWED lines over EVERY process (primary + sweep) | 782 | 144 | printed SWALLOWED lines over EVERY process this arm recorded (primary + sweep), of the processes recorded; `ca… | none |
 | SWALLOWED lines the sweep added | 781 | 143 | SWALLOWED lines the sweep added, of the processes swept; reported without a gate | none |
 | SWALLOWED lines the collector could not parse | 0 | 782 | SWALLOWED lines the collector could not parse into (how, event, qualname, line) -- anything but 0 means a row … | none |
-| guarded arms (B4/R15; restates §5, not a new measurement) | 374 | 782 | SWALLOWED lines whose `Err` binding is read ONLY by a match GUARD -- the class §1's reading of "merely observe… | none |
+| guarded arms (B4/R15; restates §4.4, not a new measurement) | 374 | 782 | SWALLOWED lines whose `Err` binding is read ONLY by a match GUARD -- the class §1's reading of "merely observe… | none |
 | Err chains judged on the primary (`raised (N):`) | 1 | None | `raised (N):` on the primary process -- Err chains the command judged | none |
 | processes recorded | 144 | None | processes the arm recorded (one per test binary, including integration-test and doctest binaries on a `--works… | none |
 | false accusations | not measured (adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed") | 782 | FALSE ACCUSATIONS. Not measurable by this instrument: §1 asks for every printed SWALLOWED line to be adjudicat… | adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed" |
@@ -1000,7 +1000,7 @@ Every SWALLOWED line, with the sink the trace names for it (the adjudication its
 | SWALLOWED lines over EVERY process (primary + sweep) | 812 | 144 | printed SWALLOWED lines over EVERY process this arm recorded (primary + sweep), of the processes recorded; `ca… | none |
 | SWALLOWED lines the sweep added | 811 | 143 | SWALLOWED lines the sweep added, of the processes swept; reported without a gate | none |
 | SWALLOWED lines the collector could not parse | 0 | 812 | SWALLOWED lines the collector could not parse into (how, event, qualname, line) -- anything but 0 means a row … | none |
-| guarded arms (B4/R15; restates §5, not a new measurement) | 374 | 812 | SWALLOWED lines whose `Err` binding is read ONLY by a match GUARD -- the class §1's reading of "merely observe… | none |
+| guarded arms (B4/R15; restates §4.4, not a new measurement) | 374 | 812 | SWALLOWED lines whose `Err` binding is read ONLY by a match GUARD -- the class §1's reading of "merely observe… | none |
 | Err chains judged on the primary (`raised (N):`) | 1 | None | `raised (N):` on the primary process -- Err chains the command judged | none |
 | processes recorded | 144 | None | processes the arm recorded (one per test binary, including integration-test and doctest binaries on a `--works… | none |
 | SWALLOWED lines at a flipped site (computed evidence) | 30 | 11 | COMPUTED EVIDENCE for §4: SWALLOWED lines of this arm whose sink resolves to a (file, line) the E-flip diff li… | none |
@@ -1978,6 +1978,12 @@ re-classified after a number was read, and §1 was not touched (its sha256 is
 `c911724b0c391c801e7d67883ba9f8a8b71833e92728201c13bbb941550e7c27` before and
 after, §2).
 
+**Corrections of 2026-09-05, fix round 1.** Four sentences in §4 and §5 were
+reworded after the review; **no number, count or verdict moved**. Each is
+struck through where it stood or quoted verbatim in **§5.10**, which lists
+them with the evidence that falsified each one. Nothing in §1 was touched: its
+sha256 is unchanged, checked again after this round.
+
 | Id | §1's rule, verbatim | What was measured | Verdict |
 |---|---|---|---|
 | E6⁗-A | "**0 false accusations**; both readings reported (amended = the gate; strictest pre-lock beside it); the guarded-arm count beside both." | **14** SWALLOWED lines on the clone's `-p bloomery-daemon --lib` run under the HEAD driver (22 chains judged; tally `swallowed 14, ambiguous 8`; 1 process, so the sweep had nothing to add), every one adjudicated against the clone's source in §4.1. **0** false accusations under the amended reading; **0** under the strictest pre-lock reading — §4.4. §1's no-gate prediction ("14 lines, the five source shapes of E6‴ §4.1") is met exactly: 14 lines over the same five sites. | **PASS** |
@@ -1990,7 +1996,8 @@ after, §2).
 
 **Overall: PASS, and — for the first time in this line of records — the
 control discriminated.** The repaired rule reads 782 SWALLOWED lines across
-every binary a `--workspace` run builds, and not one of them is false. The
+every one of the 144 processes the run recorded, and not one of them is
+false. The
 pre-repair driver, on the same command, the same clone, the same 144
 processes, prints those same 782 plus exactly **30 more**, all at
 `&e`-through-a-function arms, all of them false. The two arms' summed
@@ -2236,7 +2243,7 @@ only **FALSE** verdicts in this record.
 | 35 | `SWALLOWED -- absorbed by sink_let_underscore at e238 (tests::fresh_dir L156) in f116, which returned ok` | `crates/bloomery-daemon/src/memory.rs:156` (sink_let_underscore, `tests::fresh_dir`) | 3 | no (no binding) | **TRUE** | `let _ = std::fs::remove_dir_all(&dir);` — a WRITTEN sink with no binding: `let _ =` discards the error at the semicolon and nothing downstream can tell. |
 | 36 | `SWALLOWED -- absorbed by arm_handled at e138 (MemoryStore::load L92) in f59, which returned ok` | `crates/bloomery-daemon/src/memory/store.rs:92` (arm_handled, `MemoryStore::load`) | 1 | no (the pattern binds nothing) | **TRUE** | `Err(_) => parse_errors += 1,` — a wildcard: the row's decode error is counted, never kept. |
 | 37 | `SWALLOWED -- absorbed by arm_handled at e250 (MemoryStore::load L96) in f128, which returned ok` | `crates/bloomery-daemon/src/memory/store.rs:96` (arm_handled, `MemoryStore::load`) | 41 | **no** (the body never reads `e`) | **TRUE** | `Err(e) if e.kind() == io::ErrorKind::NotFound => { }` — an EMPTY body; `load` returns `Ok(MemoryStore { … })`, so no caller can tell a `NotFound` occurred. (E6‴ §4.1 row 3, unchanged.) |
-| 38 | `SWALLOWED -- absorbed by arm_handled at e2778 (Pager::restore_image L673) in f1391, which returned ok` | `crates/bloomery-daemon/src/pager/paging.rs:673` (arm_handled, `Pager::restore_image`) | 1 | no (the borrow's PRODUCT escapes) | **FALSE** | `Err(e) => substrate_msg(&e),` as the tail of a `let failure = match … ;` — `failure` is then tested and embedded in the `PagerError::Substrate(..)` this frame returns. |
+| 38 | `SWALLOWED -- absorbed by arm_handled at e2778 (Pager::restore_image L673) in f1391, which returned ok` | `crates/bloomery-daemon/src/pager/paging.rs:673` (arm_handled, `Pager::restore_image`) | 1 | no (the borrow's PRODUCT escapes) | **FALSE** | ~~`Err(e) => substrate_msg(&e),` as the tail of a `let failure = match … ;` — `failure` is then tested and embedded in the `PagerError::Substrate(..)` this frame returns.~~ **Erratum (2026-09-05, fix round 1) — §5.10.** The verdict STANDS; the ground was wrong. The observed line's payload is `msg: "State(\"state size mismatch: 3 vs 4\")"`, so both `!failure.contains(STATE_SIZE_MISMATCH)` tests (`:676`, `:694`) are FALSE: neither `PagerError::Substrate` return (`:689`, `:702`) ran, the frame took `jrnl::degraded(… "image for {id} invalidated ({failure}), cold start")` at `:704` and returned **ok**, as the printed line itself says. **FALSE** on the half that is true: `substrate_msg(&e)`'s product is MOVED OUT of the arm into `failure`, which then steers control flow at `:676` and `:694` and is rendered into the journal at `:704` — R15's "its value moved out of the arm", not the log-and-continue clause. |
 | 39 | `SWALLOWED -- absorbed by sink_let_underscore at e4409 (PostRunner::probe L192) in f2196, which returned ok` | `crates/bloomery-daemon/src/post.rs:192` (sink_let_underscore, `PostRunner::probe`) | 39 | no (no binding) | **TRUE** | `let _ = std::fs::remove_file(out);` — a WRITTEN sink with no binding: `let _ =` discards the error at the semicolon and nothing downstream can tell. |
 | 40 | `SWALLOWED -- absorbed by arm_handled at e1984 (exec_patch L380) in f956, which returned ok` | `crates/bloomery-daemon/src/task/exec.rs:380` (arm_handled, `exec_patch`) | 4 | **no** (the body never reads `e`) | **TRUE** | `Err(e) if e.kind() == NotFound => (String::new(), PreTouch::Absent),` — a constant tuple; `e` is read only by the guard. (The two arms below it DO render `e` and are `arm_ambiguous`.) |
 | 41 | `SWALLOWED -- absorbed by sink_let_underscore at e390 (tests::tempdir L606) in f195, which returned ok` | `crates/bloomery-daemon/src/task/exec.rs:606` (sink_let_underscore, `tests::tempdir`) | 4 | no (no binding) | **TRUE** | `let _ = std::fs::remove_dir_all(&dir);` — a WRITTEN sink with no binding: `let _ =` discards the error at the semicolon and nothing downstream can tell. |
@@ -2303,9 +2310,8 @@ only **FALSE** verdicts in this record.
 §1 requires the count under the amended reading (the gate) and under the
 strictest pre-lock reading, with the guarded-arm count beside both (design
 B4, parent R15), "so a reader who rejects the amendment can re-derive the
-verdict". Every number below is a sum over the rows above it — §4.1's rows
-are one printed line each, §4.2's and §4.3's carry a `lines` column — and
-nothing here is computed by the instrument.
+verdict". Every number below is the sum of the `lines` column of the rows
+above it — nothing here is computed by the instrument.
 
 | Arm | Reading | Count | Guarded arms (B4/R15) | Verdict |
 |---|---|---|---|---|
@@ -2319,9 +2325,8 @@ nothing here is computed by the instrument.
 The two readings agree in all three arms, and the record says why rather than
 leaving it to be assumed: **not one of the 1 608 adjudicated lines is a
 log-and-continue arm.** The class the amendment was written for still does
-not occur anywhere this workspace's tests reach — now measured over 144
-processes and every binary a `--workspace` build produces, not just the lib
-ones. It is pinned by `corpus/rust/logged_arm`, which E6-again′ exercised and
+not occur anywhere this workspace's tests reach — now measured over every one of the 144
+processes the run recorded, not over three lib ones. It is pinned by `corpus/rust/logged_arm`, which E6-again′ exercised and
 passed. §5.4 says why that is a fact about bloomery rather than a general one.
 
 The guarded column is where the two arms of this record differ from E6‴'s,
@@ -2345,7 +2350,7 @@ repaired driver.
 | `crates/bloomery-daemon/src/api_native/agents.rs:57` (`create_agent`) | **yes**, 3 events, `arm_ambiguous` | **yes**, 3 events, `arm_handled` | **3** | 0 | **FALSE** under WS0, same shape |
 | `crates/bloomery-daemon/src/api_native/agents.rs:156` (`delete_agent`) | **yes**, 2 events, `arm_ambiguous` | **yes**, 2 events, `arm_handled` | **2** | 0 | **FALSE** under WS0, same shape |
 | `crates/bloomery-daemon/src/api_native/models.rs:140` (`unblock`) | **yes**, 1 event, `arm_ambiguous` | **yes**, 1 event, `arm_handled` | **1** | 0 | **FALSE** under WS0, same shape |
-| `crates/bloomery-daemon/src/pager/paging.rs:673` (`Pager::restore_image`) | **yes**, 2 events, `arm_ambiguous` | **yes**, 2 events, `arm_handled` | **1** | 0 | **FALSE** under WS0: `substrate_msg(&e)` is bound to `failure`, tested, and embedded in the returned `PagerError::Substrate(..)` |
+| `crates/bloomery-daemon/src/pager/paging.rs:673` (`Pager::restore_image`) | **yes**, 2 events, `arm_ambiguous` | **yes**, 2 events, `arm_handled` | **1** | 0 | ~~**FALSE** under WS0: `substrate_msg(&e)` is bound to `failure`, tested, and embedded in the returned `PagerError::Substrate(..)`~~ **Erratum (2026-09-05, fix round 1) — §5.10:** the executed path returned **ok** via `jrnl::degraded(… cold start)` at `:704`; **FALSE** stands because `substrate_msg(&e)`'s product is moved out of the arm into `failure`, which steers `:676`/`:694` and is rendered into the journal at `:704` |
 | `crates/bloomery-daemon/src/api_native/agents.rs:93` (`suspend`) | no | no | — | — | never reached; not evidence either way |
 | `crates/bloomery-daemon/src/api_native/agents.rs:104` (`resume`) | no | no | — | — | never reached |
 | `crates/bloomery-daemon/src/api_native/models.rs:25` (`unload`) | no | no | — | — | never reached |
@@ -2356,6 +2361,16 @@ keeps them apart: `paging.rs:673` fired **twice** (two HANDLED events) and
 printed **one** SWALLOWED line under the control. An arm executing and a
 chain reaching a verdict at that arm are different events, and collapsing
 them would inflate either column.
+
+**Erratum (2026-09-05, fix round 1), §5.10.** The `paging.rs:673` row above
+and §4.3's row 38 both originally said `failure` is "embedded in the
+`PagerError::Substrate(..)` this frame returns". The line's own payload
+(`State("state size mismatch: 3 vs 4")`) and its own closing words ("which
+returned ok") falsify that: the frame took the third downstream path. The
+**FALSE** verdict is unchanged and rests on R15's "its value moved out of the
+arm"; the original sentence is kept struck through in both places. A reader
+who rejected the corrected ground would move the count 30 → 29 over 6 arms,
+and **DISCRIMINATING is unaffected** either way.
 
 **`api_v1.rs:396` and `:515` — §1 names both, and the run answers both.** §1
 predicted `:515` would be reached (by `api_v1_test.rs::oversized_prompt_*`)
@@ -2469,6 +2484,38 @@ the sink the trace resolved for it, so any reader can map a printed line to
 its row and re-derive every count in §4.4. The per-site counts sum to 14, 782
 and 812 exactly — no line is unaccounted and none is counted twice.
 
+**The first of those two is weaker than it sounds, and this record contains
+its own counter-example** (corrected in fix round 1, §5.10). The SOURCE at a
+site is indeed one text, but R15's operative criterion is not a property of
+the source — it is *whether the failure reached the caller*, and that is a
+property of the EXECUTION. One site whose arm hands a value to code that then
+branches can end the frame differently on different runs, and a row's stated
+reason can therefore be true of the source and false of the run that produced
+the line. `paging.rs:673` is exactly that: one arm, three downstream endings
+(`PagerError::Substrate` at `:689`, at `:702`, or `jrnl::degraded` and `Ok`
+at `:704`), and the row as first written named an ending the observed line did
+not take.
+
+So the per-site collapse is safe only where the site has ONE downstream
+disposition, or where nothing derived from the error survives the arm. Read
+against the clone, the sites in §4.2/§4.3 whose arm leaves something behind
+that later code reads are **four**:
+
+| Site | what outlives the arm | downstream endings | does it carry the error? |
+|---|---|---|---|
+| `pager/paging.rs:673` (WS0 only) | `failure`, the rendering of `e` | **three** (`:689`, `:702`, `:704`) | **yes** — this is the one |
+| `task/exec.rs:380` | `(current, pre)` = `(String::new(), PreTouch::Absent)` | several (`land` / `atomic_write` can fail) | no — constants; `e` is read only by the guard |
+| `task/task_loop.rs:690` | `rung`, incremented | several (the loop may later succeed or fail) | no — the pattern binds nothing |
+| `memory/store.rs:92` | `parse_errors`, incremented and returned in `MemoryCounts` | one | no — a count, not the error |
+
+Every other site in both tables leaves nothing behind that later code could
+read: the arm is a `return`, or its value is the function's tail, or the error
+is discarded at the site (`let _ =`, `.ok()`, `.unwrap_or…`, an empty
+test-assertion body). Some of those frames can still end several ways — a test
+that panics on a later assertion — but no such ending can carry a value the
+arm did not keep. **`paging.rs:673` is the only site in this record whose
+verdict could turn on which path ran**, and it is the one that did.
+
 What a per-line table would have added is nothing but repetition: 303 of
 E6⁗-WS's rows would have read `http.rs:236` and 46 more `common/drift.rs:181`.
 
@@ -2539,6 +2586,23 @@ arm is a true swallow of the value — and yet a caller does receive a
 statement that the read failed. It is (b) with a guard on top, and it is
 listed separately because a reader scanning for "did anything downstream
 learn?" will stop here first.
+
+**What each class would do to the gate, stated the way §5.3 states it for the
+guarded arms.** These are not hypotheticals a reader has to compute:
+
+| Class | lines (WS) | sites | if a reader rules the class FALSE |
+|---|---|---|---|
+| (a) test assertion arms | 31 | 31 | **31 false of 782** — E6⁗-WS becomes a **STOP** |
+| (b) payload-free failures translated into a synthesised value | 22 | 4 | **22 false of 782** — E6⁗-WS becomes a **STOP** |
+| (c) `drift.rs:694`'s re-worded absence (a subset of the guarded 374) | 14 | 1 | **14 false of 782** — E6⁗-WS becomes a **STOP** |
+| the guarded class (§5.3), which contains (c) | 374 | 6 | **374 false of 782** — E6⁗-WS becomes a **STOP** |
+
+Every one of them is a STOP if ruled FALSE, because §1's gate is **0**: any
+single line ruled false ends the endpoint. That is the honest shape of a
+zero-gate and it is why the ruled reading has to be settled in §1's wording
+rather than in a record — §5.3's wording debt, restated from the other side.
+The classes are not disjoint: (c)'s 14 lines are inside the guarded class's
+374, and (a) and (b) are outside both.
 
 None of the three is a `&e`-through-a-function shape, so none is touched by
 this slice's repair, and no rule was changed after these numbers were read. A
@@ -2618,7 +2682,10 @@ no signal; the fix belongs to the release task, which moves the string.
 
 ### 5.8 What was committed with this record, and why it is not an instrument change
 
-Two files change alongside §2–§5, and neither moves a measured number:
+Two files change alongside §2–§5, and neither moves a measured number
+**(fix round 1, 2026-09-05: a third, `rust/tests/render_e6q.py` — a
+presentation fix to two §2 rows and one §3 column label, computing nothing;
+§5.10)**:
 
 * `rust/tests/acceptance_schema_e6q.py`'s `GUARDED_ARMS_E6Q` goes from
   `{None, None, None}` to `{2, 374, 374}` — the count §4.4 publishes by hand,
@@ -2658,5 +2725,89 @@ And the two the earlier tasks recorded, unchanged by this run: design B2's
 side-channel blind spot (`self.record(&e);` still reads `arm_handled`,
 `rust/HONESTY-BLIND-SPOTS.md` item 23 (d)), and E6‴ §5.3's nested
 value-format macro inside a logging macro. Neither has any exposure on this
-clone, and this run — 1 608 adjudicated lines over every binary a
-`--workspace` build produces — could not have falsified either and does not.
+clone, and this run — 1 608 adjudicated lines over every one of
+the 144 processes the run recorded — could not have falsified either and does
+not.
+
+### 5.10 Corrections of 2026-09-05, fix round 1 — every original sentence, kept
+
+Written after the review of this record, under the house rule that records are
+appended and never rewritten. **No number, count or verdict moved**, §1 was
+not touched (its sha256 is unchanged and was re-checked after this round), and
+nothing was re-run. Four sentences were wrong or too strong; each original is
+below, with what falsified it.
+
+**(a) `paging.rs:673`'s reason named a downstream path the run did not take.**
+Struck through in §4.3 row 38 and in §4.5's table. The original, both places:
+
+> `Err(e) => substrate_msg(&e),` as the tail of a `let failure = match … ;` —
+> `failure` is then tested and embedded in the `PagerError::Substrate(..)`
+> this frame returns.
+
+The observed line's own payload is
+`msg: "State(\"state size mismatch: 3 vs 4\")"` and the printed line ends
+"which returned ok". `STATE_SIZE_MISMATCH` is exactly that marker, so both
+`!failure.contains(STATE_SIZE_MISMATCH)` tests — `paging.rs:676` and `:694` —
+are **false**: `self.images.put_ram(..)` did not run, neither
+`PagerError::Substrate` return (`:689`, `:702`) ran, and the frame took
+`jrnl::degraded(&mut self.journal, format!("image for {id} invalidated
+({failure}), cold start"))` at `:704` and returned `Ok`. The row described the
+`:702` ending, which this execution did not reach.
+
+**The FALSE verdict stands, on the half of the sentence that is true**:
+`substrate_msg(&e)`'s product is *moved out of the arm* into `failure`, which
+then steers control flow at `:676` and `:694` and is rendered into the journal
+at `:704`. That is R15's "its value moved out of the arm" — the criterion the
+verdict always rested on. What does *not* apply, and was never claimed, is the
+log-and-continue clause (a body that ONLY formats or logs).
+
+A reader who rejects the corrected ground as well would move the control's
+count from **30 to 29**, spread over **6** arms instead of 7. **E6⁗-WS0 is
+DISCRIMINATING either way** (29 ≥ 1), E6⁗-WS's 0-of-782 is untouched, and no
+other row in this record depends on it.
+
+**(b) "every binary a `--workspace` run builds" claimed coverage the
+instrument cannot establish.** Corrected in three places — §4's "Overall"
+paragraph, §4.4's closing note, and §5.9's last sentence. The originals:
+
+> …reads 782 SWALLOWED lines across every binary a `--workspace` run builds…
+> …now measured over 144 processes and every binary a `--workspace` build
+> produces, not just the lib ones.
+> …this run — 1 608 adjudicated lines over every binary a `--workspace` build
+> produces — could not have falsified either and does not.
+
+All three now say "every one of the 144 processes the run recorded". §5.6
+already states that the runner does not classify processes by target kind and
+that the doctest split is therefore absent from this record — so "every
+binary" was a claim this document elsewhere says it cannot make. The recorded
+fact is 144 processes; what kinds of binary they are is not.
+
+**(c) §5.2's safety argument for the per-site table was too strong.** The
+original clause stood alone:
+
+> the adjudication is a reading of the clone's SOURCE, which cannot differ
+> between two lines that resolve to the same `(file, line)`
+
+True of the source, and not sufficient: R15's criterion is whether the failure
+reached the caller, which is a property of the execution. §5.2 now names that
+limit and lists the four sites in §4.2/§4.3 whose arm leaves anything behind
+for later code to read, with the one — `paging.rs:673` — where the surviving
+value is derived from the error.
+
+**(d) §5.4 gave no gate counterfactual for its classes.** §5.3 states what the
+guarded class would do to the verdict; §5.4 did not do the same for (a), (b)
+and (c). It now carries the table: 31, 22 and 14 lines respectively, each a
+**STOP** on E6⁗-WS if ruled FALSE, because §1's gate is zero.
+
+**What changed outside the record, in the same commit.** Three presentation
+fixes, none of which computes a number: `GUARDED_PROVENANCE_E6Q` now points at
+**§4.4**, where the authoritative hand count is, rather than at §5 (§5.3
+restates it), with the schema's own lens and the renderer's column label
+following; the guarded-arm test's assertion follows the same label (a
+substitution — `tests/test_acceptance_e6q.py` stays at its 800-line ceiling);
+and `render_e6q.py` no longer appends the raw record's `version_read` sentence
+to the BASE-driver row, where it read as part of that driver's provenance, but
+to the "driver version each arm's own trace carries" row it actually
+describes. `results.json` was re-derived by `--assemble` from the untouched
+`results-e6q-raw.json` and §2/§3 re-rendered, so the record and its renderer
+still agree byte for byte.

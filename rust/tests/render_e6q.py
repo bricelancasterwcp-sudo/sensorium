@@ -84,14 +84,18 @@ def environment(r) -> list[str]:
          f"mtime {base.get('driver_mtime')}), built from worktree "
          f"`{base.get('worktree')}` at `{base.get('head')}` — expected "
          f"`{base.get('expected_commit')}`: {_yn(base.get('head_matches'))}, "
-         f"clean: {_yn(base.get('clean'))}. "
-         f"{base.get('version_read') or ''}"),
+         f"clean: {_yn(base.get('clean'))}."),
         ("driver each arm ran",
          ", ".join(f"{k} `{v}`"
                    for k, v in (env.get("driver_per_arm") or {}).items())),
+        # The `version_read` sentence belongs to THIS row, not to the BASE
+        # driver's: it says how the version was obtained, and it was being
+        # swallowed mid-cell three rows above (fix round 1, 2026-09-05).
         ("driver version each arm's own trace carries",
          ", ".join(f"{k} {v}" for k, v in
-                   (env.get("driver_version_per_arm") or {}).items())),
+                   (env.get("driver_version_per_arm") or {}).items())
+         + (f" — {base.get('version_read')}" if base.get("version_read")
+            else "")),
         ("census driver",
          f"`{env.get('census_driver')}` (sha256 "
          f"`{env.get('census_driver_sha256')}`)"),
@@ -175,7 +179,7 @@ def _arm(r, key) -> list[str]:
             ("SWALLOWED lines the sweep added", "sweep_swallowed_lines"),
             ("SWALLOWED lines the collector could not parse",
              "unparsed_swallowed_lines"),
-            ("guarded arms (B4/R15; restates §5, not a new measurement)",
+            ("guarded arms (B4/R15; restates §4.4, not a new measurement)",
              "guarded_arms"),
             ("Err chains judged on the primary (`raised (N):`)",
              "chains_in_scope"),

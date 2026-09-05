@@ -76,7 +76,7 @@ BY_HAND_CONTROL = ("decided by the hand adjudication of §4: ≥ 1 FALSE "
 #: record publishes by hand, in the cell where a reader compares the readings.
 GUARDED_ARMS_E6Q: dict = {"raw_arm_a": 2, "raw_arm_ws": 374,
                           "raw_arm_ws0": 374}
-GUARDED_PROVENANCE_E6Q = "hand adjudication, §5 of this document"
+GUARDED_PROVENANCE_E6Q = "hand adjudication, §4.4 of this document"
 
 
 def _frozen(raw) -> dict:
@@ -149,8 +149,8 @@ def _arm(raw, spec: dict) -> dict:
                    "match GUARD -- the class §1's reading of \"merely "
                    "observed\" does not settle, reported beside both "
                    "readings per design B4/R15. NOT a new measurement: it "
-                   "restates the count §5 of this document publishes by "
-                   "hand.",
+                   "restates the count §4.4 of this document publishes by "
+                   "hand, which §5.3 repeats.",
                    ["the arm did not run, so there is no adjudication to "
                     "restate"] if n is None else []),
             "provenance": GUARDED_PROVENANCE_E6Q},

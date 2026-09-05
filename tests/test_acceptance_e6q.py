@@ -668,7 +668,7 @@ def test_the_guarded_arm_count_is_published_with_its_provenance():
     for key, want in (("E6qA", 2), ("E6qWS", 374), ("E6qWS0", 374)):
         g = doc["endpoints"][key]["guarded_arms"]
         assert g["value"] == want and g["dropped"] == []
-        assert "§5" in g["provenance"]
+        assert "§4.4" in g["provenance"]
         assert none["endpoints"][key]["guarded_arms"]["value"] is None
 
 
