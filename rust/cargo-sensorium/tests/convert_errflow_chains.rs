@@ -475,6 +475,51 @@ fn a_chain_still_inside_an_unclosed_test_frame_returned_to_the_harness() {
     );
 }
 
+/// Design B3 (2026-09-05): a frame closing `err` while holding two chains
+/// hands the exit hop to the chain whose text the RETURN carries.
+#[test]
+fn an_err_close_holding_two_chains_hops_the_one_whose_text_it_returns() {
+    let f = Fixture::new("errflow-chains-keep-first-error");
+    f.manifest(&[
+        site(0, "outer", 3, "value"),
+        site(1, "first", 10, "value"),
+        site(2, "second", 20, "value"),
+    ]);
+    wire::write_proc_header_caps(
+        &f.spool_dir,
+        626,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+        Some(true),
+    );
+    wire::SpoolBuilder::new(626, 1, "main")
+        .version(3)
+        .call(0, 1000, 0, 0)
+        .call(1, 1100, 0, 1)
+        .ret_err_typed(2, 1200, 0, 1, Some("demo::E"), Some("Err(B1)"))
+        .call(3, 1300, 0, 2)
+        .ret_err_typed(4, 1400, 0, 2, Some("demo::E"), Some("Err(C1)"))
+        // `outer` returns the FIRST error while holding both chains.
+        .ret_err_typed(5, 1500, 0, 0, Some("demo::E"), Some("Err(B1)"))
+        .thread_end(6, 1600)
+        .write(&f.spool_dir);
+    let rows = chain_events(&f.converted());
+
+    let b1 = rows[0]["chain"]["serial"].clone();
+    let exits: Vec<_> = rows
+        .iter()
+        .filter(|r| r["chain"]["hop"] == serde_json::json!(2))
+        .collect();
+    assert_eq!(exits.len(), 1, "one exit hop: {rows:#?}");
+    assert_eq!(
+        exits[0]["chain"]["serial"], b1,
+        "the hop is the first error's: {rows:#?}"
+    );
+    assert_eq!(exits[0]["chain"]["translated"], serde_json::json!(false));
+}
+
 /// A cut `Debug` rendering has no closing `)` left. `exc.msg` still means the
 /// ERROR's own text -- the `Result`'s wrapper was never part of it -- and
 /// `trunc` is what says the text is short.

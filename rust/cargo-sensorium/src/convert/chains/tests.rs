@@ -644,3 +644,91 @@ fn an_err_flow_record_with_no_open_frame_mints_nothing() {
     let events = mint(&[flow(0, How::Try, "E", "x")], false);
     assert!(events.is_empty());
 }
+
+/// The keep-first-error shape (design §3, CARRIED-DEBT 2026-09-05): A holds
+/// TWO chains -- B1 from `first`, then C1 from `second` on top -- and returns
+/// B1. The exit hop belongs to the chain whose text the RETURN carries, not to
+/// the innermost; before the borrow-repair slice it went to C1 labelled
+/// `translated`, and B1 was left without its hop.
+#[test]
+fn an_err_close_hops_the_held_chain_whose_text_it_carries_not_the_innermost() {
+    let events = mint(
+        &[
+            call(0),                     // A
+            call(1),                     // first
+            ret_err(2, "demo::E", "B1"), // chain B1, holder A
+            call(3),                     // second
+            ret_err(4, "demo::E", "C1"), // chain C1, holder A, innermost
+            ret_err(5, "demo::E", "B1"), // A returns the FIRST error
+        ],
+        false,
+    );
+    let s = serials(&events);
+    assert_eq!(s.len(), 2, "two chains, no merge: {events:#?}");
+    let (b1, c1) = (events[0].serial, events[1].serial);
+    let exit = events
+        .iter()
+        .find(|e| e.seq == 5)
+        .unwrap_or_else(|| panic!("no event at A's close: {events:#?}"));
+    assert_eq!(
+        exit.serial, b1,
+        "the hop is B1's, whose text the RETURN carries"
+    );
+    assert!(
+        !exit.translated,
+        "same text, so not a translation: {exit:#?}"
+    );
+    assert_eq!(exit.hop, 2);
+    assert!(
+        !events.iter().any(|e| e.seq == 5 && e.serial == c1),
+        "C1 took no exit hop: {events:#?}"
+    );
+    for serial in [b1, c1] {
+        assert_ne!(last_of(&events, serial).terminal, Some(Terminal::Merged));
+    }
+}
+
+/// Mutation guard for `preferred`'s `!c.sink` filter (design B3): the held
+/// chain whose text the RETURN carries can be `sink` -- about to end
+/// `handled_then_failed`, not take an exit hop -- and that must not make
+/// `preferred` name it anyway. When the matching chain is `sink`, the
+/// innermost NON-matching chain takes the fallback hop, exactly as when no
+/// held chain matches at all; a `preferred` that ignored `sink` would instead
+/// leave the fallback chain unhopped and open a THIRD chain at the exit.
+#[test]
+fn a_sink_chain_matching_the_return_text_still_falls_back_to_the_innermost() {
+    let events = mint(
+        &[
+            call(0),                               // A
+            call(1),                               // first
+            ret_err(2, "demo::E", "B1"),           // chain B1, holder A
+            call(3),                               // second
+            ret_err(4, "demo::E", "C1"),           // chain C1, holder A, innermost
+            flow(5, How::SinkOk, "demo::E", "B1"), // A absorbs B1: B1.sink = true
+            ret_err(6, "demo::E", "B1"),           // A closes err with B1's text, but B1 is sink
+        ],
+        false,
+    );
+    let s = serials(&events);
+    assert_eq!(
+        s.len(),
+        2,
+        "no third chain is born at the exit: {events:#?}"
+    );
+    let (b1, c1) = (events[0].serial, events[1].serial);
+    assert_eq!(
+        last_of(&events, b1).terminal,
+        Some(Terminal::HandledThenFailed),
+        "B1 was absorbed, then its holder failed anyway: {events:#?}"
+    );
+    let exit = events
+        .iter()
+        .find(|e| e.seq == 6)
+        .unwrap_or_else(|| panic!("no event at A's close: {events:#?}"));
+    assert_eq!(
+        exit.serial, c1,
+        "B1 matches the text but is sink, so C1 -- the innermost eligible held \
+         chain -- takes the fallback hop: {events:#?}"
+    );
+    assert_eq!(exit.hop, 2, "a hop of C1, not a fresh chain: {events:#?}");
+}
