@@ -44,10 +44,26 @@ from acceptance_schema_e6ppp import assemble_e6ppp                 # noqa: E402
 # -- the byte-lock on the new document -------------------------------------
 
 
+def _require_lock_commits(*shas):
+    """The real-document lock tests read `git show <sha>:<doc>`; a shallow
+    checkout (CI at depth 1, a `--depth` clone) has no such commit. Skip BY
+    NAME rather than pass on a missing commit -- a skipped lock check must
+    never look like a passed one."""
+    import subprocess
+    for sha in shas:
+        ok = subprocess.run(["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+                            cwd=REPO, capture_output=True).returncode == 0
+        if not ok:
+            pytest.skip(f"lock commit {sha} is not in this checkout "
+                        "(shallow clone) -- the byte-lock test is skipped "
+                        "BY NAME, not passed")
+
+
 def test_the_e6ppp_byte_lock_passes_on_the_real_document():
     """The same comparison the runner refuses on, run in the suite so a stray
     edit to §1 is caught before a run is launched rather than by a refusal
     with the target already emptied."""
+    _require_lock_commits(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
     rec = rung3.byte_lock_check(runner.DOC, runner.BYTE_LOCK,
                                 runner.ORIGINAL_LOCK)
     assert rec["identical"] is True
@@ -57,6 +73,7 @@ def test_the_e6ppp_lock_carries_BOTH_shas_and_says_it_was_amended():
     """§1 was amended once, dated, before any number was read. A record that
     carried only the current sha would make that invisible -- the amendment
     would be a claim in prose with nothing behind it."""
+    _require_lock_commits(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
     rec = rung3.byte_lock_facts(runner.DOC, runner.BYTE_LOCK,
                                 runner.ORIGINAL_LOCK)
     assert rec["amended_after_the_original_lock"] is True

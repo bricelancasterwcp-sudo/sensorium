@@ -171,11 +171,27 @@ def test_the_footnote_block_stops_at_a_blank_line_or_the_next_definition():
     assert runner.footnote_block(text, "missing") is None
 
 
+def _require_lock_commits(*shas):
+    """The real-document lock tests read `git show <sha>:<doc>`; a shallow
+    checkout (CI at depth 1, a `--depth` clone) has no such commit. Skip BY
+    NAME rather than pass on a missing commit -- a skipped lock check must
+    never look like a passed one."""
+    import subprocess
+    for sha in shas:
+        ok = subprocess.run(["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+                            cwd=REPO, capture_output=True).returncode == 0
+        if not ok:
+            pytest.skip(f"lock commit {sha} is not in this checkout "
+                        "(shallow clone) -- the byte-lock test is skipped "
+                        "BY NAME, not passed")
+
+
 def test_the_byte_lock_check_passes_on_the_real_document():
     """The committed §1 and the working tree's must agree right now: this is
     the same comparison the runner refuses on, run in the suite so a stray
     edit to §1 is caught before a run is launched rather than by a refusal
     two hours in."""
+    _require_lock_commits(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
     rec = runner.byte_lock_check()
     assert rec["identical"] is True
     assert rec["commit"] == runner.BYTE_LOCK
