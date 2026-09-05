@@ -1,0 +1,56 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: was-the-open-failure-swallowed
+    ask: >
+      The process printed `503 store unavailable: cannot open store.db` and
+      exited 0. Was the failure to open the store dropped somewhere?
+    truth: >
+      No, and the tool must not say it was. `open` returned
+      `Err(Unavailable("store.db"))`, the `Err(e) =>` arm in `respond`
+      handed a BORROW of it to `describe`, and `describe`'s product -- a
+      status and a body that render the failure -- is the `Reply` every
+      caller gets. The borrow proves the arm still owns the error; it says
+      nothing about the value the call returned, and that value carried the
+      failure out. This is `err_rendered_into_value` one function call out,
+      and the shape endpoint E6⁗ measured on the bloomery clone
+      (`api_v1.rs:396`, `:515`). The arm reads ambiguous; the tally carries
+      no swallow.
+    why_logs_fail: >
+      The terminal shows the 503 and nothing else: which call failed, and
+      that the arm in `respond` is where a status was chosen for it, is not
+      on the terminal. A tool that read this arm as a swallow -- the reading
+      before the 2026-09-05 borrow repair -- would send a reader hunting for
+      a dropped error that was in the reply all along. Nothing panics, so
+      RUST_BACKTRACE never fires.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_contains: ["dispositions: ambiguous 1"]
+    expect_line:
+      - ["an Err(..) arm at", "respond L45",
+         "bound it to a name and let the name escape"]
+      - ["hops:", "open L30 exit", "respond L45 arm_ambiguous"]
+    expect_absent: ["SWALLOWED", "dispositions: swallowed", "panicked",
+                    "returned to the harness"]
+  - id: what-did-respond-hand-back
+    ask: >
+      `open` failed and `respond` returned normally. What did `respond`
+      hand back?
+    truth: >
+      A `Reply { code: 503, body: "store unavailable: cannot open store.db" }`
+      -- the failure travelled out of the frame inside the return value, by
+      way of `describe`, which took the error by reference and returned the
+      rendering. One frame down, `open` returned `Err(Unavailable("store.db"))`.
+    why_logs_fail: >
+      The printed line is the reply's own text; that it was built from an
+      `Err` two frames down, by a helper that only borrowed it, is nowhere on
+      the terminal. `dbg!(&reply)` in `main` would answer it and is the edit
+      you make only after already suspecting `respond`. Nothing panics, so
+      RUST_BACKTRACE never fires.
+    command: ["tree", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["respond(", "-> Reply { code: 503, body: \"store unavailable: cannot open store.db\" }"]
+      - ["open(", "-> Err(Unavailable(\"store.db\"))"]
+      - ["describe(", "-> (503, \"store unavailable: cannot open store.db\")"]
+    expect_absent: ["!! ", "(open)"]

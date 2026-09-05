@@ -23,18 +23,24 @@
 //!
 //! **Where §2a is refined, and why.** The table is written for the one open
 //! chain whose holder is the frame a row names; a frame can hold more than one
-//! (a nested chain hops up into it). Two rules make the table total over that.
-//! A CLOSE row applies to EVERY chain the closing frame holds, innermost
-//! first. An ERR-FLOW row applies to the chain whose recorded text the record
-//! carries, searched innermost-first across every chain the frame holds -- not
-//! to the innermost one and no other, which would report a sink absorbing the
-//! outer of two held chains as a swallow of an `Err` born outside instrumented
-//! code. The search is exact rather than a guess: see [`Machine::held_matching`].
-//! And a chain whose sink already fired does NOT hop when its
-//! holder closes `err`/`none`: design R8 names that shape ("handled, then the
-//! frame failed for another reason") and gives it its own reading, so it ends
-//! here as [`Terminal::HandledThenFailed`] and the `Err` leaving the frame
-//! opens a chain of its own -- the `cleanup_then_fail` corpus case.
+//! (a nested chain hops up into it). Three rules make the table total over
+//! that. A CLOSE row applies to EVERY chain the closing frame holds; on
+//! `Outcome::Err` the exit hop goes to the held chain whose recorded text the
+//! RETURN carries (design B3, 2026-09-05, borrow-repair design §3), falling
+//! back to the innermost eligible held chain when no eligible one matches -- a
+//! wildcard text (cut or unread) matches every chain, so the fallback IS that
+//! case; every chain the hop does not name still changes hands to the parent,
+//! innermost first, exactly as before. An ERR-FLOW row applies to the chain
+//! whose recorded text the record carries, searched innermost-first across
+//! every chain the frame holds -- not to the innermost one and no other,
+//! which would report a sink absorbing the outer of two held chains as a
+//! swallow of an `Err` born outside instrumented code. The search is exact
+//! rather than a guess: see [`Machine::held_matching`]. And a chain whose sink
+//! already fired does NOT hop when its holder closes `err`/`none`: design R8
+//! names that shape ("handled, then the frame failed for another reason") and
+//! gives it its own reading, so it ends here as [`Terminal::HandledThenFailed`]
+//! and the `Err` leaving the frame opens a chain of its own -- the
+//! `cleanup_then_fail` corpus case.
 
 use crate::convert::spool::How;
 
@@ -356,7 +362,14 @@ impl Machine {
     // -- rows -------------------------------------------------------------
 
     /// The four close rows of §2a, applied to every chain the closing frame
-    /// holds (innermost first).
+    /// holds. On `Outcome::Err`, the exit hop goes to the held chain whose
+    /// text the RETURN carries (design B3, 2026-09-05,
+    /// `docs/superpowers/specs/2026-09-05-sensorium-rung3-borrow-repair-design.md`
+    /// §3), falling back to the innermost eligible held chain when no
+    /// eligible one matches -- a wildcard text (cut or unread) matches every
+    /// chain, so the fallback IS that case. Every other row (`Ok`, `Panic`,
+    /// `None`, and any chain the `Err` hop does not name) is still applied
+    /// innermost first.
     fn close_frame(&mut self, seq: u64, outcome: Outcome, text: &ErrText) {
         let Some(frame) = self.stack.pop() else {
             // A RETURN with no open frame is a malformed stream, refused by
@@ -364,6 +377,14 @@ impl Machine {
             return;
         };
         let parent = self.stack.last().map(|f| f.id);
+        // The chain the RETURN is ABOUT is the held one whose text it carries
+        // (design B3, 2026-09-05): the same `held_matching` rule the RAISE and
+        // HANDLED rows use, restricted to chains that can still take a hop.
+        // Innermost is the fallback, which is also the answer for a RETURN
+        // whose text is a wildcard (cut or unread) -- it matches every chain.
+        let preferred = self.chains.iter().rposition(|c| {
+            c.holder == Some(frame.id) && !c.merged && !c.sink && text.matches(&c.last)
+        });
         let mut consumed_err = false;
         let mut i = self.chains.len();
         while i > 0 {
@@ -396,12 +417,15 @@ impl Machine {
                         self.end(&c, Terminal::HandledThenFailed);
                         continue;
                     }
-                    if outcome == Outcome::Err && !consumed_err {
+                    if outcome == Outcome::Err && !consumed_err && preferred.is_none_or(|p| p == i)
+                    {
                         consumed_err = true;
                         self.hop_out(i, seq, &frame, parent, text);
                     } else {
                         // The `?` propagated: the hop was already recorded by
-                        // the try RAISE, so the chain only changes hands.
+                        // the try RAISE, so the chain only changes hands --
+                        // or the exit hop went to the chain the RETURN's text
+                        // names (design B3), and this one only changes hands.
                         self.chains[i].holder = parent;
                         self.chains[i].last_frame = frame;
                     }

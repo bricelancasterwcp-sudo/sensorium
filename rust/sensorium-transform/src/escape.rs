@@ -1,14 +1,46 @@
 //! The escape test: does an `Err` arm's bound name leave the arm?
 //!
-//! Split out of [`crate::arms`] in the 2026-09-05 repair slice, unchanged, so
-//! that both files stay under the crate's 800-line ceiling. The rule it
-//! implements is design R2's ESCAPED class: an arm that binds the error and
-//! uses the name anywhere other than a provably non-escaping position writes
-//! `arm_ambiguous` and can never become a SWALLOWED verdict.
+//! Split out of [`crate::arms`] in the 2026-09-05 repair slice so that both
+//! files stay under the crate's 800-line ceiling. The rule it implements is
+//! design R2's ESCAPED class: an arm that binds the error and uses the name
+//! anywhere other than a provably non-escaping position writes `arm_ambiguous`
+//! and can never become a SWALLOWED verdict.
+//!
+//! # The two provable non-escapes, as the borrow repair of 2026-09-05 leaves them
+//!
+//! 1. A LOGGING macro's BARE argument (`println!("{}", e)`): `format_args!`
+//!    takes it by reference and the macro's own value is `()`. See
+//!    [`LOGGING_MACROS`].
+//! 2. A shared borrow `&<bound name>` that is a DIRECT argument of a call or
+//!    method call whose PRODUCT is provably dropped -- an expression statement
+//!    ending in `;`, a `let _ = ..;` (typed or not, no `else`), or a logging
+//!    macro's argument. See [`EscapeWalk::visit_stmt`] for the first two
+//!    contexts and [`format_arg_escapes`] for the third -- a logging macro's
+//!    tokens are opaque to `syn`, so its argument list is read there, not by
+//!    the statement walk.
+//!
+//! Rule 2 replaced an older one on 2026-09-05 -- the borrow repair, design B1
+//! of `docs/superpowers/specs/2026-09-05-sensorium-rung3-borrow-repair-design.md`
+//! §2, which closes blind spot 23 (c). A `&e` used to be exempt WHEREVER it
+//! stood. That proved the BORROW could not outlive the arm and said nothing
+//! about the borrowing call's VALUE: `let (status, body) = map_error(&e, ..);
+//! json(status, body)` -- the bloomery clone's `api_v1.rs:396` and `:515` --
+//! hands the caller the failure as an HTTP status and body and still read
+//! `arm_handled`, which is a false accusation waiting to be printed. "Dropped
+//! at the semicolon" is the only syntactic fact that closes the product
+//! channel, so it is now the whole of the rule: a `&e` anywhere else walks
+//! into the name and escapes.
+//!
+//! What the repaired rule still cannot see is named rather than hidden (blind
+//! spot 23 (d)): a callee that STORES a rendering of what it is handed,
+//! through `&self`, a capture or a global -- `self.record(&e);` -- is
+//! invisible to a syntactic test, and such an arm still reads `arm_handled`.
+//! Closing that channel needs the inter-procedural analysis this recorder does
+//! not do, so it is recorded in `rust/HONESTY-BLIND-SPOTS.md` instead.
 
 use proc_macro2::{Ident, Spacing, TokenStream, TokenTree};
 use syn::visit::Visit;
-use syn::{Expr, ExprPath, Macro};
+use syn::{Expr, ExprPath, Macro, Pat, Stmt};
 
 use crate::arms::{strip, Body};
 
@@ -93,6 +125,45 @@ impl EscapeWalk<'_> {
     fn is_name(&self, e: &Expr) -> bool {
         bare_name(e).is_some_and(|n| self.names.contains(&n))
     }
+
+    /// `&<bound name>` -- a SHARED borrow of exactly one of the names, with
+    /// nothing else around it. `&mut e`, `&&e` and `&e.source` are all false.
+    fn is_shared_borrow_of_name(&self, e: &Expr) -> bool {
+        matches!(strip(e), Expr::Reference(r) if r.mutability.is_none() && self.is_name(&r.expr))
+    }
+
+    /// Walk `f(.., &e, ..)` or `x.f(.., &e, ..)` at a dropped site, exempting
+    /// exactly the arguments that are a shared borrow of a bound name. Returns
+    /// `false`, having walked nothing, when `e` is not a call at all -- the
+    /// caller then walks the statement the ordinary way.
+    fn walk_dropped_call(&mut self, e: &Expr) -> bool {
+        match strip(e) {
+            Expr::Call(c) => {
+                self.visit_expr(&c.func);
+                for a in &c.args {
+                    self.visit_arg(a);
+                }
+                true
+            }
+            Expr::MethodCall(m) => {
+                self.visit_expr(&m.receiver);
+                for a in &m.args {
+                    self.visit_arg(a);
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// One argument of a dropped call: `&e` is exempt outside a `move`
+    /// capture; anything else is walked.
+    fn visit_arg(&mut self, a: &Expr) {
+        if self.moved == 0 && self.is_shared_borrow_of_name(a) {
+            return;
+        }
+        self.visit_expr(a);
+    }
 }
 
 impl<'ast> Visit<'ast> for EscapeWalk<'_> {
@@ -102,19 +173,37 @@ impl<'ast> Visit<'ast> for EscapeWalk<'_> {
         }
     }
 
-    /// `&e` -- a SHARED borrow of exactly the name -- is design R2's second
-    /// provable non-escape: the arm still owns the error afterwards, and a
-    /// `&E` cannot be stored past the arm without a lifetime the arm does not
-    /// have. `&mut e` is not on that list and is walked like anything else.
+    /// The DROPPED call sites, and with them the whole of the shared-borrow
+    /// exemption (the borrow repair of 2026-09-05, design B1; see the module
+    /// docs). A statement is dropped when it is an expression statement ending
+    /// in `;`, or a `let _ = ..;` -- a plain wildcard pattern, with or without
+    /// a type ascription, and no `else` block. A call or method call that IS
+    /// such a statement may take a shared borrow of a bound name as a DIRECT
+    /// argument without escaping it: the borrow cannot outlive the arm, and
+    /// the call's product dies at the semicolon, so neither channel carries
+    /// the failure out. Everything else in the statement -- the callee, the
+    /// receiver, every other argument, and anything nested inside an argument
+    /// -- is walked as usual, and a `&e` met anywhere else escapes.
     ///
     /// Inside a `move` closure the borrow is of the closure's OWN copy, which
-    /// the closure took by value: `move || note(&e)` moves `e` out of the arm,
-    /// so the exemption does not apply there (see [`EscapeWalk::moved`]).
-    fn visit_expr_reference(&mut self, node: &'ast syn::ExprReference) {
-        if self.moved == 0 && node.mutability.is_none() && self.is_name(&node.expr) {
-            return;
+    /// the closure took by value: `move || { note(&e); }` moves `e` out of the
+    /// arm, so the exemption does not apply there (see [`EscapeWalk::moved`]).
+    ///
+    /// What this cannot see is design B2's residual, blind spot 23 (d): a
+    /// callee that stores a rendering of the borrow through a side channel.
+    fn visit_stmt(&mut self, node: &'ast Stmt) {
+        let dropped: Option<&'ast Expr> = match node {
+            Stmt::Expr(e, Some(_)) => Some(e),
+            Stmt::Local(l) => match &l.init {
+                Some(init) if init.diverge.is_none() && is_wild(&l.pat) => Some(&init.expr),
+                _ => None,
+            },
+            _ => None,
+        };
+        match dropped {
+            Some(e) if self.walk_dropped_call(e) => {}
+            _ => syn::visit::visit_stmt(self, node),
         }
-        syn::visit::visit_expr_reference(self, node);
     }
 
     /// A `move` closure takes what it names BY VALUE, so inside one neither
@@ -181,6 +270,15 @@ impl<'ast> Visit<'ast> for EscapeWalk<'_> {
     fn visit_item(&mut self, _node: &'ast syn::Item) {}
 }
 
+/// `_` or `_: T` -- the `let` patterns whose value is dropped by construction.
+fn is_wild(p: &Pat) -> bool {
+    match p {
+        Pat::Wild(_) => true,
+        Pat::Type(t) => is_wild(&t.pat),
+        _ => false,
+    }
+}
+
 /// A path expression that is exactly one plain segment: `e`, never `E::e`,
 /// `<T>::e` or `::e`.
 fn bare_name(e: &Expr) -> Option<String> {
@@ -199,7 +297,9 @@ fn path_name(p: &ExprPath) -> Option<String> {
 }
 
 /// Does any argument of a LOGGING macro use one of the names in a way that is
-/// not a shared borrow?
+/// not a provable non-escape -- neither the bare name, nor a shared borrow of
+/// it, nor a shared borrow handed straight to a call whose product the macro
+/// prints and drops?
 ///
 /// Only the logging family reaches here: since the R2 amendment of 2026-09-05
 /// and its fix round 1, a mention inside ANY other macro escapes outright,
@@ -208,11 +308,18 @@ fn path_name(p: &ExprPath) -> Option<String> {
 /// level can tell that from a macro that drops it.
 ///
 /// An argument that is exactly the bare name is safe: `format_args!` takes each
-/// of its arguments by reference, so `println!("{}", e)` cannot move `e`. An
-/// argument that MENTIONS the name in any other shape -- `take(e)`,
-/// `e.to_string()`, `&mut e` -- is put through the ordinary escape walk, and one
-/// that does not parse as an expression at all (a `tracing` key-value, say) is
-/// an escape by default rather than a guess. A name captured implicitly by the
+/// of its arguments by reference, so `println!("{}", e)` cannot move `e`. The
+/// macro's own argument list is a DROPPED call site too (design B1 (3), the
+/// borrow repair of 2026-09-05): a bare `&e` is exempt for the same reason the
+/// bare name is, and a call or method call taking `&e` as a DIRECT argument
+/// goes through [`EscapeWalk::walk_dropped_call`], because the macro prints
+/// that call's product and keeps nothing. So `println!("{}", render(&e))` is
+/// HANDLED, while `println!("{}", wrap(render(&e)))` -- whose borrow sits one
+/// call deeper than the dropped site -- is not. An argument that MENTIONS the
+/// name in any other shape -- `take(e)`, `e.to_string()`, `&mut e` -- is put
+/// through the ordinary escape walk, and one that does not parse as an
+/// expression at all (a `tracing` key-value, say) is an escape by default
+/// rather than a guess. A name captured implicitly by the
 /// format string (`"{e}"`) is not a token at this level and is never seen, which
 /// is correct HERE and only here: outside a `move` closure a logging macro's
 /// implicit capture is a shared borrow of a value nothing keeps. Inside one it
@@ -234,8 +341,17 @@ fn format_arg_escapes(tokens: &TokenStream, names: &[String]) -> bool {
         if bare_name(&expr).is_some_and(|n| names.contains(&n)) {
             continue;
         }
+        // A bare `&e` goes to `format_args!` by reference and the macro's
+        // value is `()`: exempt, as the bare name is. A CALL taking `&e` as a
+        // direct argument is treated as a dropped call site -- the logging
+        // macro prints its product and keeps nothing (design B1 (3)).
         let mut walk = EscapeWalk::new(names);
-        walk.visit_expr(&expr);
+        if walk.is_shared_borrow_of_name(&expr) {
+            continue;
+        }
+        if !walk.walk_dropped_call(&expr) {
+            walk.visit_expr(&expr);
+        }
         if walk.escaped {
             return true;
         }

@@ -327,15 +327,21 @@ def _trace_counts(paths, run_id: str) -> dict:
     }
 
 
-def phase_e6prime(paths, cfg) -> dict:
+def phase_e6prime(paths, cfg, tail: tuple[str, ...] = ("--lib",)) -> dict:
     """E6': `cargo sensorium test -p bloomery-daemon --lib` on the clone, then
     `sensorium exceptions <run> --limit 100000` captured WHOLE.
 
     The adjudication is not here: §4 of the acceptance document is written by
     hand against the clone's source. What this returns is every SWALLOWED
-    line, parsed into the fields that table needs."""
-    step("E6': one instrumented --lib run of the clone")
-    res = run(driver_cmd(paths, *cfg["pkg"], "--lib"),
+    line, parsed into the fields that table needs.
+
+    `tail` is what follows the package selector. It defaults to `--lib`, which
+    is what rung 3 and E6‴ measured and what every existing caller gets
+    unchanged; the borrow repair's `--workspace` arm passes `()` so no `--lib`
+    is appended (design B4). The selector itself stays `cfg["pkg"]`."""
+    step(f"E6': one instrumented {' '.join((*cfg['pkg'], *tail))} run of the "
+         f"clone")
+    res = run(driver_cmd(paths, *cfg["pkg"], *tail),
               paths["sensorium_bloomery_clone"], "e6prime-run.log",
               target_env(paths), timeout=cfg.get("e6prime_timeout", 7200))
     lines = run_lines(res)

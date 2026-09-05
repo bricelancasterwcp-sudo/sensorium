@@ -8,11 +8,13 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false`, all `0.3.0` since the err-flow rung of
-2026-09-05 (wire v3: RAISE/HANDLED records, a typed `err` RETURN, and the
-`err_flow` capability). Before that, `sensorium-transform` and
-`cargo-sensorium` were `0.2.0` from the spawn-naming change of 2026-09-03 and
-`sensorium-rt` was `0.1.0`:
+Three crates, all `publish = false`. All three moved to `0.3.0` at the
+err-flow rung of 2026-09-05 (wire v3: RAISE/HANDLED records, a typed `err`
+RETURN, and the `err_flow` capability); later that day the borrow repair moved
+`sensorium-transform` and `cargo-sensorium` to `0.3.1` and left `sensorium-rt`
+at `0.3.0`, because neither the wire nor the runtime changed. Before all that,
+`sensorium-transform` and `cargo-sensorium` were `0.2.0` from the spawn-naming
+change of 2026-09-03 and `sensorium-rt` was `0.1.0`:
 
 | Crate | What it is |
 |---|---|

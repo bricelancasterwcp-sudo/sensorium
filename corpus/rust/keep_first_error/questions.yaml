@@ -1,0 +1,52 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: which-error-was-swallowed-and-which-way-did-it-travel
+    ask: >
+      stderr says `pick failed: Refused(1)` and the process exited 0 with
+      `ok: 0`. Which failure was dropped, and where did it come from?
+    truth: >
+      The FIRST one. `first` returned `Err(Refused(1))`; `pick` held it,
+      called `second` (which failed with `Refused(2)`), and returned the first
+      error; `main`'s `Err(e) =>` arm printed it and carried on -- a swallow
+      of `Refused(1)` at that arm. The hops name `first`, then `pick`'s exit,
+      then the arm, with no `translated` on the way: the exit hop belongs to
+      the chain whose text `pick` returned. `Refused(2)` never left `pick`
+      and reads ambiguous, not swallowed. Before the 2026-09-05 borrow
+      repair the machine gave `pick`'s exit hop to the INNERMOST chain --
+      `Refused(2)`'s -- labelled `translated`, and the swallow would have
+      been reported as the second error's chain.
+    why_logs_fail: >
+      stderr shows one refusal and stdout shows a success. That the printed
+      refusal was the first of two, and that the second was discarded inside
+      `pick` without a word, is not on the terminal; RUST_BACKTRACE never
+      fires because nothing panics.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_contains: ["dispositions: swallowed 1, ambiguous 1"]
+    expect_line:
+      - ["SWALLOWED", "arm_handled", "main L41", "returned ok"]
+      - ["hops:", "first L19 exit", "pick L28 exit", "main L41 arm_handled"]
+      - ["Refused(2)"]
+      - ["ambiguous -- the frame holding it returned ok with no sink recorded"]
+    expect_count: {"SWALLOWED": 1}
+    expect_absent: ["translated", "dispositions: swallowed 2", "panicked",
+                    "returned to the harness"]
+  - id: what-did-pick-return
+    ask: >
+      Both helpers failed. Which error did `pick` return?
+    truth: >
+      `Err(Refused(1))` -- the first. `second` also returned
+      `Err(Refused(2))`, and `pick` dropped it on the floor.
+    why_logs_fail: >
+      Only the first refusal is printed, by `main`; the second is never
+      printed anywhere. `dbg!` on both calls inside `pick` would answer it
+      and is the edit you make only after already suspecting the frame is
+      holding two errors. Nothing panics, so RUST_BACKTRACE never fires.
+    command: ["tree", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["pick(", "-> Err(Refused(1))"]
+      - ["first(", "-> Err(Refused(1))"]
+      - ["second(", "-> Err(Refused(2))"]
+    expect_absent: ["!! ", "(open)"]
