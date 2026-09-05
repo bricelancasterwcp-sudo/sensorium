@@ -90,6 +90,7 @@ mod arms;
 mod attrs;
 mod closures;
 mod errflow;
+mod escape;
 mod exits;
 mod manifest;
 mod marks;
