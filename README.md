@@ -551,8 +551,9 @@ start order flips between a recording and its rerun still MATCH, because
 tasks are compared by content and the interleaving is not; re-recorded with
 one task's content branching, the verdict is DIVERGED, naming that task.
 
-Fourteen more cases live under `corpus/rust/`, recorded by the Rust recorder
-instead: seven ports of the cases above (the same class of planted bug,
+Thirty-one more cases live under `corpus/rust/`, recorded by the Rust
+recorder instead. Fourteen of them are rungs 0–2's: seven ports of the cases
+above (the same class of planted bug,
 asked differently, because that recorder captures return values and not
 arguments), five that only Rust has — a caught panic turned into an `Ok`,
 an `abort()` that leaves its frames open and its exit `unwitnessed`, libtest
@@ -560,7 +561,10 @@ under `--test-threads=1` against `=4`, a worker thread named for the test
 that spawned it and the item the spawn sits in, and a spawning function that
 moves to another file without the worker's name changing — and two whose
 pinned answer is a REFUSAL, where the question needs object identity or
-per-line events that recorder declares it does not produce. They need a
+per-line events that recorder declares it does not produce. The other
+seventeen are rung 3's err-flow cases, each registering both its
+`dispositions:` tally and its swallow set — ten of them to pin that nothing
+is accused. They need a
 built `cargo-sensorium` (`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on
 `PATH`); without it they are
 reported skipped BY NAME and counted apart from the passes, never as them.
@@ -575,8 +579,8 @@ and a workload, not a pass/fail property of the tool.
 crates the same way this document's recorder records a Python program: one
 sensorium trace per process, trace format 4, read by the same `sensorium`
 command line. `rust/` ships `sensorium-rt 0.3.0` (zero dependencies, the
-runtime linked into every instrumented unit), `sensorium-transform 0.3.0`
-(the `syn` rewriter), and `cargo-sensorium 0.3.0` (driver, workspace wrapper,
+runtime linked into every instrumented unit), `sensorium-transform 0.3.1`
+(the `syn` rewriter), and `cargo-sensorium 0.3.1` (driver, workspace wrapper,
 target runner, converter — one binary, four roles). What it does and does not
 see is [`rust/HONESTY.md`](rust/HONESTY.md) with
 [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);

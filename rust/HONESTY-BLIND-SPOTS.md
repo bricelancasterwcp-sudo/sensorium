@@ -240,11 +240,11 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     verdicts on arms that in fact handled, and never a false SWALLOWED.
     *Falsified by* the golden `err_arm_escaped`, whose controls are the two
     provable shapes; the `ref` binding itself is **untested by fixture**.
-23. **What the escape test proves, and what it leaves.** Three residuals
-    follow. They are **not the same kind of thing, and only one of them was
-    measured**, so they are stated apart rather than together. (a) and (b) are
-    the macro rule: the test reads a macro's TOP-LEVEL arguments. (c) is the
-    `&e` rule.
+23. **What the escape test proves, and what it leaves.** Four residuals
+    follow. They are **not the same kind of thing**, so they are stated apart
+    rather than together. (a) and (b) are the macro rule: the test reads a
+    macro's TOP-LEVEL arguments. (c) was the `&e` rule and is **repaired and
+    measured**; (d) is what that repair leaves.
     (a) A value-format macro *nested* inside a logging macro's argument
     (`eprintln!("{}", keep(format!("{e}")))`) reads HANDLED and can therefore
     still reach SWALLOWED: a **false-accusation generator**, the same class
@@ -258,23 +258,41 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     direction**: it can never produce an accusation, only withhold a verdict.
     **Its exposure is measured nowhere** — no run counted it, and nothing here
     should be read as saying it is rare.
-    (c) A `&e` handed to a FUNCTION is exempt **regardless of what the call's
-    product does**. The exemption (design R2, `escape.rs::visit_expr_reference`)
-    is a fact about the borrow — the arm still owns the error afterwards — and
-    says nothing about the value the call returns, so
+    (c) A `&e` handed to a FUNCTION was exempt **regardless of what the
+    call's product does** — the exemption (design R2,
+    `escape.rs::visit_expr_reference`) was a fact about the borrow and said
+    nothing about the value the call returns, so
     `Err(e) => { let (status, value) = map_error(&e, ..);
-    V1Result::json(status, value) }` reads `arm_handled` and can reach
-    SWALLOWED while the failure reached the caller as an HTTP error. A
+    V1Result::json(status, value) }` read `arm_handled` and could reach
+    SWALLOWED while the failure reached the caller as an HTTP error: a
     **false-accusation generator**, the R2 amendment's class one function call
-    out rather than one macro nesting in. Static exposure on the bloomery
-    clone: **2 arms** (`crates/bloomery-daemon/src/api_v1.rs:396` and `:515`,
-    both `arm_handled` in the E6‴ prep build's manifests), and **neither is
-    executed by `--lib`** — which is why no E6‴ line is affected and why the
-    repair waits on a `--workspace` arm that is not `--lib`
-    (`docs/CARRIED-DEBT.md`). Found by the whole-branch review of 2026-09-05,
-    after the numbers were read, and recorded rather than repaired for the
-    reason (a) was.
-    All three are **untested by fixture**.
+    out rather than one macro nesting in. **Repaired 2026-09-05** (the borrow
+    repair, design B1): the exemption now holds only where the borrowing
+    call's product is provably dropped — an expression statement, a `let _ =`,
+    or a logging macro's argument — and that arm reads `arm_ambiguous`.
+    **Measured, and the control discriminated**
+    (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`):
+    **E6⁗-A PASS**, 0 false accusations of 14; **E6⁗-WS PASS**, 0 false of 782
+    over 144 processes of `cargo sensorium test --workspace`; **E6⁗-WS0
+    DISCRIMINATING** — the same command under the PRE-repair driver printed 30
+    more lines, every one false, at 7 of the 11 arms the repair moved, where
+    the repaired driver printed none; 4 of the 11 were never executed by any
+    arm of that run (§5.5 there). *Falsified by* the `class_of` rows of
+    `rust/sensorium-transform/src/arms.rs` (the dropped-site and escaping
+    shapes of the borrow-repair design §2) and by
+    `corpus/rust/err_borrowed_into_value`.
+    (d) **A callee that STORES a rendering through a side channel.** A `&e`
+    handed to a call whose product is dropped — `self.record(&e);`, or a call
+    that writes through a capture or a global — is exempt by (c)'s repaired
+    rule, and the callee may keep what it was handed all the same, so the arm
+    still reads `arm_handled` and can reach SWALLOWED. A syntactic rule cannot
+    see it; closing it needs the inter-procedural analysis this recorder does
+    not do (design B2). Today's reading is *pinned* by
+    `a_dropped_call_that_stores_what_it_is_handed_is_still_handled_and_says_so`
+    (`rust/sensorium-transform/src/arms.rs`), which documents the reading
+    rather than falsifying the gap. Added 2026-09-05; design R16 (vii).
+    (a), (b) and (d) are **untested by fixture**; (c) is measured, by the
+    endpoints named in it.
 24. **`tracing`-style field syntax escapes unconditionally.** `err = ?e`,
     `error = %e` mention the bound name as a token, so every such arm reads
     `arm_ambiguous`: **no log-and-continue arm can read SWALLOWED on a

@@ -107,7 +107,7 @@ def test_every_rust_exceptions_question_preregisters_its_swallow_set():
     * a question that pins neither a `SWALLOWED` line nor an explicit absence
       registers no swallow set at all, and a collector reading it would take
       that as "the empty set" -- an accusation-count of zero asserted by
-      nobody. Eight of the thirteen rung-3 cases legitimately have an empty
+      nobody. Ten of the seventeen rung-3 cases legitimately have an empty
       swallow set, so the empty case has to be SAID.
 
     The `no exceptions recorded` answers are the third shape: they carry no
