@@ -1,10 +1,12 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.1.0`, `sensorium-transform 0.2.0`, `cargo-sensorium 0.2.0` —
-v1, the call tier. (`sensorium-transform` and `cargo-sensorium` moved to
-`0.2.0` on 2026-09-03 for the `spawn_child` naming change in §3; `HONESTY.md`
-was not versioned per-crate before this, so no prior edition of this line is
-struck.)
+`sensorium-rt 0.3.0`, `sensorium-transform 0.3.0`, `cargo-sensorium 0.3.0` —
+v1, the call tier, with err flow. (~~`sensorium-rt 0.1.0`,
+`sensorium-transform 0.2.0`, `cargo-sensorium 0.2.0`~~: `sensorium-transform`
+and `cargo-sensorium` moved to `0.2.0` on 2026-09-03 for the `spawn_child`
+naming change in §3, and all three moved to `0.3.0` on 2026-09-05 for wire v3
+and the err-flow records of §11; `HONESTY.md` was not versioned per-crate
+before 2026-09-03, so no edition older than that is struck.)
 
 Sensorium's founding rule is that **the instrument never answers from data it
 does not have**. The Python recorder keeps its half of that rule in the
@@ -18,8 +20,8 @@ core.
 says it** — a manifest field, a meta key, or a line `sensorium info` prints —
 and names **what could falsify it**: a corpus case or a test, by path. A
 promise with no falsifier is not a promise, it is an assertion, and this
-document does not carry assertions. The index at the end is the whole list in
-two columns.
+document does not carry assertions. The index is
+[`rust/HONESTY-INDEX.md`](HONESTY-INDEX.md): the whole list, two columns.
 
 **Provenance.** Spec §7 requires this document *before* the transformer, so it
 is written first and the code is written to it — not the other way round. The
@@ -36,8 +38,12 @@ is the name that task must use.
 **What this version records.** Tier `call`: CALL and RETURN with an outcome and
 a captured return value, panics, per-thread spools, tasks, and `spawn_child`
 naming — for workspace crates, on Linux, on stable rustc, with no hand
-annotation. Not `?` sites (rung 3), not locals or LINE (rung 4), not program
-output. §8 is the list, with what declares each absence.
+annotation. **Added 2026-09-05 (rung 3):** RAISE and HANDLED at `?` sites, the
+four written sinks, `let _ =` and classified `Err` arms; frames for closures
+holding a `?`; chains minted at conversion; and the dispositions
+`sensorium exceptions` prints on a Rust trace — §11. Not locals or LINE
+(rung 4), not `refocus`, not program output. §8 is the list, with what
+declares each absence.
 
 ---
 
@@ -54,6 +60,17 @@ payload as `{"outcome": "ok" | "err" | "panic" | "none"}`.
   about the boundary, not about the body: an `Err` built and absorbed inside
   the function never shows as `err`, and an `Ok` that wraps a failure of some
   other kind is `ok`.
+  **Amended 2026-09-05 (rung 3, design R1): an `err` outcome is now typed.**
+  The exit probe knows `E`, so a RETURN record closing `err` carries
+  `std::any::type_name::<E>()` beside the outcome, and the converter spends
+  it on the origin RAISE it synthesises immediately before that RETURN
+  (`how: exit`) — which is where a reader looks for the type, because the
+  RETURN event itself carries no error-type key of its own
+  (`docs/TRACE-FORMAT.md` §5). The outcome's *meaning* is unchanged; what is
+  new is that an `Err` born by being **returned** now has an event to be
+  reported at, instead of only a frame that closed. *Falsified by*
+  `rust/sensorium-rt/tests/err_flow.rs`, `rust/cargo-sensorium/tests/convert.rs`
+  and `docs/trace-format/vectors/v16-raise-handled-chain-serial-kind.json`.
 - **A function with nothing to return** (`-> ()`, or no return type) has no
   exit operand to probe. Its frame closes `ok` with the recorded value `()`
   when it returned normally.
@@ -476,177 +493,14 @@ Python `refocus` each found a mechanism the tool could not see; an enumeration
 that looks complete is more dangerous than no enumeration, because a reader who
 checks the list concludes their case was covered.
 
-**What it does see, so the list below is bounded.** Every function item with a
-body in a workspace crate gets a frame, except the skips items 5 and 6 declare;
-every unit either instruments or says it fell back. Rung 1 measured 100.0% of
-eligible function items on bloomery (2051/2051), and this rung re-measures it
-as **E2′**, where a floor of 98% applies and *any* fell-back unit is a finding
-that stops the rung until it is explained. *Falsified by* E2′ in
-`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` and by
-`rust/sensorium-transform/tests/census.rs`, which requires
-`instrumented + async == eligible` over a real workspace's files.
-
-Each entry below names **what declares it** — the field or line a reader meets
-without knowing this document exists.
-
-1. **Dependency-crate internals.** Only workspace units are instrumented
-   (cargo's workspace wrapper is the hook). A call into `serde` or `tokio`
-   shows as the caller's frame and its return; the inside is not there.
-   *Declared by* the meta key `instrumented_units` and `info`'s
-   `units: N instrumented, …` line.
-2. **`?` sites, sinks, and `Err` arms — rung 3.** No RAISE or HANDLED is
-   recorded at a `?`; `.ok()`, `.unwrap_or*()`, `let _ =` and `Err(..) =>` arms
-   are not classified. Everything a rung-2 trace says about a `?` that
-   propagated is `outcome: none` on the frame it left (§1). *Declared by* the
-   refusal `exceptions` prints: `REFUSED: exceptions on a rust trace needs the
-   Rust disposition rules (rung 3); the Python rules would misread Err values
-   as exceptions; nothing was judged`. The dispositions and chain identity that
-   spec §6 defines — SWALLOWED, PANICKED, RETURNED-TO-HARNESS, and
-   AMBIGUOUS-by-default the moment an `Err` leaves the enumerated grammar —
-   are rung 3's, and this ledger gains their section when they land, not
-   before.
-3. **Locals, and per-line state — rung 4.** Nothing is captured between a
-   function's entry and its exit, so a value that changed in place mid-frame,
-   including mutation through a long-lived `&mut`, is invisible. *Declared by*
-   `capabilities.line: false` and `capabilities.locals: false`; by the
-   `"unread": ["locals"]` marker every CALL payload carries, which `tree`
-   renders as `name() <unread: locals>` and `frame` as
-   `args: <unread: locals>` — never `(none)`, which would read as "called with
-   no arguments"; and by the refusal `watch` and `flow` print:
-   `REFUSED: watch needs line, which recorder sensorium-rt 0.1.0 declares it
-   does not produce (capabilities.line: false); nothing was checked`.
-4. **What the program printed.** libtest owns the capture and the hook that
-   would take it is unstable. *Declared by* `capabilities.output: false`: the
-   `output` table is empty, and every reader prints the declaration instead of
-   a zero.
-5. **`async fn` bodies.** Skipped whole — an entry guard would live across
-   every `.await`, and the guard is the sole emitter of a RETURN (§1) — so an
-   async
-   function gets no frame at all rather than a wrong one. *Declared by* the
-   manifest's `skipped: [{reason: "async"}]`, carried into the meta key
-   `skipped` and printed by `info` as `K skipped (<reasons>)`. bloomery has
-   zero; a workspace with async functions gets one skip record each and no
-   invented frames.
-6. **`const fn`, `extern` functions, and function bodies inside
-   `macro_rules!`.** Same declaration, reasons `const`, `extern`, `macro`.
-   A `?` inside a macro argument is invisible to the parser for the same
-   reason; that is rung 3's problem and rung 3's manifest field.
-7. **A unit that fell back to the real tree.** Nothing in it is instrumented:
-   no frames, no returns, no sites. The reasons are `rustc: <first error
-   line>`, `lto`, `cross-target`, an absolute crate root, and
-   `wrapper: <error>`. *Declared by* the unit manifest's `fell_back: true` and
-   `fallback_reason`, the meta key `uninstrumented`, and `info`'s
-   `M fell back (<reasons>)`. **Every** fallback path writes or patches a
-   manifest — rung 1 had one that reported to the log channel only, and a
-   coverage check reading manifests alone would have scored it as instrumented
-   (findings §5.29). A fallback in a shared `tests/common/*.rs` uninstruments
-   every test binary that includes it, and the manifests say which.
-   **And a fallback is not always an escape.** A unit whose DEPENDENCIES are
-   instrumented cannot be compiled plainly: their rmetas already reference
-   `sensorium_rt`, so the passthrough rustc run needs the runtime as much as
-   the instrumented one did. When such a unit falls back for a reason that is
-   about the runtime's linkage, the plain compile fails with the same
-   `E0463: can't find crate for <dependency>` and cargo's build fails —
-   measured on the bloomery clone, 2026-09-03, on a fresh target with a wrapper
-   that sent `--extern sensorium_rt=<rlib>` and no `-L dependency=<rt dir>`:
-   `bloomery-daemon`'s lib unit was declared
-   `fell_back: true, fallback_reason: "rustc: can't find crate for
-   bloomery_core"` and the build then exited 101 anyway. The manifest is
-   therefore the record of what the recorder did NOT instrument, never a
-   promise that the build survived it.
-   **The condition is the unit's own dependencies, not the fallback's reason.**
-   A fallback replays the argv cargo built, with no `--extern` and no `-L` of
-   ours, so *every* reason takes the same plain compile — including `lto` and
-   `cross-target`, which are decided before instrumenting, and
-   `wrapper: <error>`. A unit with instrumented dependencies therefore fails
-   `E0463` on a `lto` fallback exactly as it does on a runtime-linkage one.
-   "Recorded nothing, built fine" is what a fallback means **only when that
-   unit's own dependencies are uninstrumented** — a leaf workspace crate, or
-   one that depends only on registry crates. Which units those are is readable
-   from the manifests: a fallen-back unit whose dependencies have manifests of
-   their own is in the failing case.
-   The linkage this rests on is the wrapper's `--extern sensorium_rt=<rlib>`
-   **and** `-L dependency=<the rlib's own per-variant directory>` (plan
-   decision D1 as amended): rustc resolves a dependency's own `sensorium_rt`
-   through the search path, not the extern map.
-8. **A module the module walk could not reach.** `#[cfg_attr(.., path = ..)]`
-   is not evaluated — the walk resolves `mod` declarations and literal
-   `#[path]`, and refuses to guess at a conditional one. *Declared by* the unit
-   manifest's `unreached_files`, carried into the meta key of the same name
-   over the units this process registered, and printed by `info` as
-   `unreached files: N -- <paths>`. A file the walk never reached is a file
-   whose functions have no sites at all, so the declaration has to travel with
-   the trace: a limit whose declaration a reader cannot reach is half a
-   declaration. bloomery has zero such files (findings §5.26).
-   **Amended 2026-09-03** (rung-3 entry, Task-1 review B): `unreached_files`
-   is not only the cfg-gated-path case above. A file the walk resolved but
-   the wrapper could not READ, and a file the walk read but
-   `sensorium-transform` REFUSED (an unparseable file, or one of the
-   transformer's own synthesised errors — a spawn with no named item around
-   it, a rewrite that would move a line, a wrapped spawn's ordinal
-   disagreeing with source order) both land in `unreached_files` too, and
-   only the last case carries a message: the wrapper prints `sensorium: unit
-   <crate> (<metadata>): <rel>: <message>` on stderr and records `<message>`
-   under the manifest key `unreached_reasons`, keyed by the same
-   workspace-relative path. A file the wrapper cannot read gets no entry in
-   `unreached_reasons` — `read` hands back an `Option`, so there is no
-   message to quote, and inventing one would be worse than the silence.
-   `fell_back` stays `false` for a refused file: this is one file's
-   instrumentation lost, not the whole unit's, and every other file in the
-   unit still is. The one exception is the crate root: if the file holding
-   `__SENSORIUM_UNIT` is among the refused files, the whole unit ends up with
-   no files instrumented at all (every guard would otherwise reference a
-   static that does not exist) — still not `fell_back: true`; only
-   `unreached_reasons` says why the unit came back empty. *Falsified by*
-   (the refused CHILD-file half) `rust/cargo-sensorium/tests/wrapper_fallback.rs`'s
-   `a_file_the_transformer_refused_names_its_reason_on_both_channels`, and (the
-   refused CRATE-ROOT half, at the plan level) `wrapper.rs`'s unit test
-   `a_unit_whose_crate_root_cannot_be_rewritten_is_left_wholly_alone`, which
-   builds a unit whose root does not parse and asserts that `files`,
-   `source_hashes` and `rewrites` are all cleared while
-   `unreached_reasons["a/src/lib.rs"]` survives. What is untested as of
-   2026-09-03 is narrower than "the crate-root half": the wrapper-BINARY path
-   for a root refused by a SYNTHESISED error — the stderr line,
-   `fell_back: false`, and the empty `files` as the driver writes them —
-   has no fixture; rung-3 inbox.
-9. **Why a return value was unread** (§2): a missing `Debug` impl and a
-   panicking one read the same.
-10. **A runner set in a workspace's `.cargo/config.toml`.** The driver sets
-    `CARGO_TARGET_<HOST>_RUNNER` in the environment, which overrides the
-    config file, and only an env-set `SENSORIUM_INNER_RUNNER` is chained. On
-    such a workspace the recorded run is not the run the config describes —
-    and **no field in the trace says so**. It is declared here, and in the
-    acceptance document's §2 pins, which record that no config-file runner
-    existed on the box or in the tree that was measured. *Falsified by* adding
-    one to `rust/probes/ws/` and re-running `rust/tests/mechanics.sh`.
-11. **Object identity.** There is no Rust `id()`: two `Vec`s with the same
-    contents are one value to this trace. *Declared by*
-    `capabilities.object_identity: false`; `flow --object` refuses.
-12. **A deeper re-run.** `refocus` re-invokes the recorder and compares, and
-    the Rust side of it is rung 4. *Declared by* `capabilities.refocus: false`;
-    `refocus` refuses with the `caps.require` sentence, naming the capability
-    and the recorder.
-13. **Anything after the 256th instrumented unit in one process.** Unit ids
-    run `0..=254`; the 256th distinct unit makes the runtime refuse to record
-    rather than wrap the id and attribute events to the wrong unit, and every
-    later `enter` in that process is inert. The refusal is **in the trace, not
-    only on stderr**: the proc header's `refused` becomes that unit's metadata,
-    the converter writes it as the meta key `units_refused`
-    (`{"refused": bool, "at": <metadata or null>}`), and `info` prints
-    `unit ceiling: recording REFUSED at unit <metadata> -- every later call in
-    this process is unrecorded`. A trace past the ceiling is short **and says
-    so**. The ceiling has never been approached (a workspace-wide bloomery
-    build produced 108 units *in total*, findings §5.13), so the path is driven
-    by a test and by nothing else yet. *Falsified by*
-    `rust/sensorium-rt/tests/units.rs`.
-14. **Everything the Python README's *What sensorium sees at all* rules out**,
-    which is not language-specific: any file the program read or wrote, the
-    environment beyond the variables a command names as compared, the clock,
-    the network, and everything else the machine did. *Declared by*
-    `source_hashes`, which is the whole of what the trace pins about the world
-    outside the process — the source files the instrumented units were built
-    from, and nothing else. Config, fixtures, databases and inputs move
-    unseen.
+The list itself — items 1–14 from rung 2, and items 15–26 that rung 3 adds
+for err flow — is
+[`rust/HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) (moved 2026-09-05,
+rung 3, so this file stays under 800 lines; **the numbering there is
+unchanged**, so `§8 item 7` still names what it always named, one file away).
+Item 2 is the one entry rung 3 rewrote: `?` sites, sinks and `Err` arms are
+recorded now, and that item is narrowed to the traces an earlier runtime
+wrote rather than struck.
 
 ## 9. Preserved by construction, and tested
 
@@ -744,22 +598,199 @@ number in this rung gates anything.
 cool-down, the load recorded per arm, and an arm **dropped rather than
 re-rolled** if the box was busy when it started.
 
+## 11. Err flow
+
+Added 2026-09-05 by rung 3
+(`docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`,
+R1–R16 and its §2a chain machine). `sensorium exceptions` answers on a Rust
+trace instead of refusing, and this section is what that answer may mean. It
+is **§11, not the §10 the plan wrote**: §10 is rung 2's shipped cost section,
+and §-numbers here are cited from code comments as identifiers.
+
+**Only written sites are recorded, and the words are the site's own.** A
+record exists at a `?` on a `Result` (`how: try`), at an `.ok()` receiver
+(`sink_ok`), at an `.unwrap_or(..)` / `.unwrap_or_else(..)` /
+`.unwrap_or_default()` receiver (`sink_unwrap_or`), at a
+`let _ = <value expression>` (`sink_let_underscore`), and at an `Err(..) =>`
+arm or `if let Err(..)` body classified by what its body does —
+`arm_propagate`, `arm_handled`, or `arm_ambiguous`. `exit` is the converter's own `how`, on the origin RAISE it
+synthesises in front of a frame that closed `err`, and never arrives on the
+wire. Everything else is unprobed **on purpose**, and its `Err` reads
+AMBIGUOUS rather than being guessed at: `.unwrap()`, `.expect()`,
+`.is_err()`, `.is_ok()`, a panicking arm, and the shapes §8 items 15–26
+enumerate. *Falsified by* `rust/sensorium-transform/tests/errflow.rs` and
+`golden_errflow.rs` (a golden per shape, compiled by the real rustc under
+`-D warnings`), and `rust/sensorium-rt/tests/err_flow.rs`.
+
+**A `?` the transformer could not reach is declared, not lost.** The unit
+manifest carries a `partial` row `{file, line, qualname, kind, reason}` for
+each, reason `macro-arg` (a `?` among a macro invocation's tokens),
+`async-block`, or `struct-literal` (a `match` scrutinee beginning with a
+struct literal does not parse, so the wrap is refused). They reach the trace
+as the meta key `partial`, and both `info` and `exceptions` print the block —
+so a reader is told the grammar had a hole *before* reading a tally computed
+without it. *Falsified by* `corpus/rust/macro_arg_partial`, the goldens
+`try_in_macro_arg` / `async_block_try` / `struct_literal_partial`, and E2″
+below, whose `partial` count was pre-registered as a number and met it.
+
+**The wrap moves no line, and shifts a column in exactly two places.** Every
+injected fragment is newline-free (§9), so `file!()`, `line!()`, panic
+locations and backtraces stay the plain build's under rung 3's new wraps too.
+The two places are the 2026-09-04 record's §5.4 clause, adopted here
+2026-09-05. **(a) Inside a wrapped `?`/sink/`let _` operand** — a panic literal
+moves right by the wrap prefix's byte length, `match ` = **6 bytes**, and by
+nothing else: **measured**, predicted before the run and met exactly at both
+tiers (plain `e7_operand.rs:33:24`, instrumented `:33:30`). **(b) After an arm
+probe or closure guard spliced at a same-line `{`** (or a `{ probe; expr }`
+wrap) — everything after the probe on that line moves by *the probe's own byte
+length*, not by 6; the shape is
+`rust/sensorium-transform/tests/golden/err_arms_three_ways.out.rs:14`
+(`Err(e) => { @P(9,HOW_ARM_PROPAGATE,e) Err(e) },`): **stated, unmeasured**.
+*Falsified by* E7″ and E7‴ (§3 of the two acceptance records below) and
+`rust/tests/mechanics.sh`'s six E7 checks, 0 differences in both runs — which
+cover (a) and the *nowhere else* half; the missing check for (b) is
+`docs/CARRIED-DEBT.md`.
+
+**Chain identity is a derivation, and its limits are stated on the wire.**
+There is no error identity on the wire at all: chain serials are minted at
+CONVERSION from the per-thread record order, in a namespace disjoint from
+panic serials (`exc.kind` is `"err"` or `"panic"`, and a reader selects on
+that key, never on `type == "panic"`). A chain is followed by
+`(holder frame, type, Debug text)`, so **two `Err`s of one type with
+identical `Debug` text in one window are one chain**, and a text the probe
+had to truncate is no identity at all — matching falls back to the type,
+which can only merge, never split. The **holder** of a chain is likewise
+derived, not carried: the Python reader walks outward from the chain's last
+event to name the frame that held it. *Falsified by*
+`rust/cargo-sensorium/src/convert/chains/`'s unit tests (`tests.rs`) on hand-built
+spools, `corpus/rust/interleaved_chains`, and the vector
+`v16-raise-handled-chain-serial-kind`.
+
+**What each verdict claims, and what it does not.**
+
+- **SWALLOWED** — a written sink or an `arm_handled` absorbed the chain in a
+  frame that then closed `ok`, with no later RAISE of it. It says the failure
+  did not reach the caller, not that the program was wrong to do that. A
+  chain first seen at the sink itself is still SWALLOWED, detailed *born
+  outside this thread's instrumented frames* — *this thread*, because the
+  machine is per-thread and an `Err` handed over a `JoinHandle` is
+  unknowable to the receiver by construction.
+- **PANICKED** — the frame holding the chain unwound, quoting `unwind_exc`
+  or saying the message was not recorded (§1). It says **the frame holding
+  it unwound**, never that the panic happened *because of* the `Err`.
+- **RETURNED_TO_HARNESS** — the chain left a frame whose manifest site is
+  `test: true` or `main: true`. A fact about the mark, not about intent.
+- **PROPAGATED** — the chain crossed ≥ 1 frame and was still open when the
+  recording ended, on a frame neither marked. Every hop is listed, and the
+  verdict says so: reachable only where the thread was still live at the end
+  (`live_threads`) or its frames were not all instrumented.
+- **AMBIGUOUS** — the default, and the largest class by design: an escaped
+  binding, a merged window, a holder that closed `ok` with no sink seen, a
+  chain absorbed in a frame that then failed for another reason
+  (`handled_then_failed`), a chain that left a spawned thread into a
+  `JoinHandle`. It is what the instrument says instead of guessing, and E6's
+  whole job is that nothing leaks from here into SWALLOWED.
+
+*Falsified by* `tests/test_exceptions_rust.py` and
+`tests/test_exceptions_rust_ambiguous.py` — one test per §2a row, split
+across the two at the 800-line ceiling — the vectors
+`v17-exceptions-rust-swallowed` and `v18-exceptions-rust-ambiguous-merge`,
+and fourteen `corpus/rust/*` cases: `silent_swallow`, `logged_arm`,
+`dependency_swallow`, `err_stored`, `err_rendered_into_value`,
+`cleanup_then_fail`, `interleaved_chains`, `err_arms`, `err_propagation`,
+`returned_to_harness`, `closure_try`, `join_handle`, `unwrap_panic`,
+`outcome_generic`. **Three `chain.terminal` values are pinned by the Python
+suite only**, with no conformance vector behind them: `panicked` by
+`test_a_panic_on_the_holder_quotes_the_panic_and_claims_no_cause` in the
+first file; `left_thread` and `handled_then_failed` by
+`test_a_chain_that_left_a_spawned_threads_outermost_frame_is_ambiguous` and
+`test_a_sink_whose_frame_then_failed_is_ambiguous_not_swallowed` in the
+second. `docs/trace-format/VECTORS.md` says so too; closing it is a vector,
+not a rule change.
+
+**The capability, and the refusal on an older trace.** The runtime declares
+`capabilities.err_flow: true` in the proc header and the converter passes it
+through untouched rather than asserting it on its own authority — a header
+without it reads `false`. `exceptions` dispatches on `trace.lang`, then
+requires the capability, so a trace an earlier runtime wrote is REFUSED by
+name at exit 3 and no rule sees its records. *Falsified by*
+`docs/trace-format/vectors/v19-err-flow-capability-refusal.json` and
+`tests/test_exceptions_rust_gate.py`.
+
+**One thing the instrument does to your build that nothing else declares.**
+The instrumented mirror carries
+`#![allow(clippy::match_single_binding, clippy::needless_borrow)]` on every
+crate root — the wraps are single-binding `match`es and can borrow needlessly
+— so **a `cargo clippy` run UNDER the recorder would not report those two
+lints in workspace code**. The plain tree is unaffected (§9: nothing is
+written under a workspace except `<target>/sensorium/`), and a `Debug` impl
+the probe invokes still runs, exactly as §9's last bullet says of return
+values. *Falsified by*
+`rust/sensorium-transform/tests/errflow.rs::the_crate_root_carries_the_allow_the_wraps_need`.
+
+**One guard with no test, named rather than hidden.** The converter refuses a
+RAISE/HANDLED record the chain machine minted no chain for
+(`<label>: no chain was minted for this RAISE record`) — a defect guard on an
+unreachable path (`err_flow_outside_frames` and the machine skip exactly the
+same records), so no test exists: no input produces one without breaking the
+converter first. Named here so a reader who ever sees that message knows it is
+a converter bug, not a fact about their program.
+
+**What this rung measured, both records.** Rung 3 was measured twice, and
+both documents stand:
+
+- `docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md` —
+  **overall STOP**, on E6′. Six of seven endpoints PASS (E6 on 17 corpus
+  cases, E2″ 392/401 = 97.76 %, E7″, E3″ 0/19, E5″, E0″ 0.046/0.047 s). E6′
+  printed **15** SWALLOWED lines on the clone's `--lib` suite and **1 was
+  false** under both readings: `build_memory` at `memory.rs:131`, an
+  `Err(e) =>` arm whose `format!` PRODUCT is the value the function returns.
+  The rule was wrong; the record says so, and nothing was re-run after the
+  number was read.
+- `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` — the
+  repair slice, **overall PASS**. The R2 amendment (a bound name mentioned
+  in `format!`/`format_args!`/`write!`/`writeln!` ESCAPES; only the logging
+  family's bare arguments stay exempt) removed that accusation and bought no
+  new one: **0 false of 14** on `-p bloomery-daemon --lib` and **0 false of
+  14** on `--workspace --lib`, under the amended reading *and* the strictest
+  pre-lock reading; E6-again equal on all three conjuncts over 18 corpus
+  cases; E7‴ unchanged.
+
+Two limits are part of that PASS, not footnotes to it. The widening to
+`--workspace --lib` executed **the same 2** of the 29 located blast-radius
+arms, buying no extra reach (§5.1 there). And **2 of the 14 lines are
+match-guard arms** (`Err(e) if e.kind() == NotFound => { }`), which under a
+letter-reading of "merely observed" would each be false and the verdict a
+STOP; the gate is the amended reading, ruled durably in design R15 on
+2026-09-05 — the disposition is the BODY's, and every table reports the
+guarded-arm count beside both readings.
+
+**The blind spots are §8, items 15–26**: the shapes err flow does not probe;
+**one** residual false-accusation generator of the amended class (a
+value-format macro nested inside a logging macro's argument), exposure on the
+clone **measured zero** (2026-09-05 record §5.3), recorded rather than
+repaired; a whole-word literal `e` in a non-logging macro, which over-escapes
+in the **safe direction** (AMBIGUOUS, never an accusation) and whose exposure
+is **measured nowhere**; and the `tracing`-field-syntax non-detection that
+makes a low SWALLOWED count on some trees evidence of nothing. Each carries a
+falsifier or the words **untested by fixture**.
+
+**And one more the review found after the numbers were read:** the escape
+test's `&e` exemption is a fact about the BORROW alone, silent on what the CALL
+does with its product, so an arm whose body is
+`let (status, value) = map_error(&e, ..); V1Result::json(status, value)` reads
+`arm_handled` and would print SWALLOWED while the failure reached the caller as
+an HTTP error. Static exposure on the clone: **2 arms**
+(`crates/bloomery-daemon/src/api_v1.rs:396` and `:515`, both `arm_handled` in
+the E6‴ prep build's manifests), **neither executed by `--lib`** — no E6‴ line
+is affected, and the repair waits for a `--workspace` arm that is not `--lib`.
+Recorded, not repaired (the lock): item 23 **(c)**, R16, `docs/CARRIED-DEBT.md`.
+
 ---
 
 ## Index: promise → falsifier
 
-| § | Promise | What could falsify it |
-|---|---|---|
-| 1 | Outcomes are `ok`/`err` from the exit operand, `panic` from the hook, `none` when nothing was probed; a `panic` with no PANIC record behind it says so and is counted | `rust/sensorium-rt/tests/outcomes.rs`, `rust/sensorium-rt/tests/panics.rs`, `corpus/rust/panic` |
-| 1 | A generic `T` that is a `Result` only after monomorphisation reads `ok` | `corpus/rust/outcome_generic` (rung 3, deferred) |
-| 2 | A return value is `Debug` text capped at 200 bytes; `!Debug` and panicking `Debug` read `<unread>`; `()` is never `<unread>` | `rust/sensorium-rt/tests/values.rs`, `docs/trace-format/vectors/v08-return-outcome-dbg-value.json` |
-| 3 | Every emitting non-main thread is a named task where a name exists; `spawn_child` derives the name; dependency threads are unnamed and compared as a multiset | `corpus/rust/spawned_thread`, `corpus/rust/libtest_threads` (`--test-threads=1` against `4`), `rust/sensorium-rt/tests/spawn.rs`, `rust/sensorium-rt/tests/serials.rs`; the REFUSED-on-deleted-fingerprints promise by `tests/test_diff.py` (`test_diff_refuses_a_per_task_trace_whose_task_fingerprints_are_missing`) and `docs/trace-format/vectors/v04-main-thread-silent-tasks-carry` |
-| 3 | A rewritten spawn site's child is named `<parent> :: spawn@<qualname>#<k>` — `qualname` the enclosing named item's file-local path, `k` a source-order ordinal among that item's wrapped sites (rung-3 entry, 2026-09-03) | `rust/sensorium-transform/tests/golden.rs` (`a_spawn_site_is_named_by_its_enclosing_fn_and_its_ordinal`, fixture `spawn_ordinals`), `rust/sensorium-transform/tests/edges.rs` (`a_spawn_with_no_enclosing_named_item_is_refused_not_named_after_the_container`), `corpus/rust/spawn_across_move`, `corpus/rust/spawned_thread`, `rust/tests/mechanics.sh`, E5′ in `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md` (§4) |
-| 4 | A crash loses at most one record per thread; holes are `seq_gaps`; `records_dropped` is what the writer knew it lost, and the two are disjoint | `rust/sensorium-rt/tests/durability.rs`, `rust/sensorium-rt/tests/seq_contiguity.rs` (`a_refused_record_consumes_no_sequence_number`, `test-hooks`), `rust/cargo-sensorium/tests/convert.rs` (`a_thread_whose_spool_went_inert_costs_no_seq_gaps`), `corpus/rust/abort` |
-| 5 | `exit_status` is `waited` only for processes our runner started; everything else is `unwitnessed`, never borrowed from cargo | `rust/cargo-sensorium/tests/runner.rs`, `corpus/rust/abort`, `rust/tests/mechanics.sh`, `docs/trace-format/vectors/v10-exit-status-unwitnessed.json` |
-| 6 | Spawns are not witnessed; instrumented children are linked by `ppid`; a child that ran no instrumented code is invisible | `corpus/rust/abort`, `docs/trace-format/vectors/v11-child-runs-linked.json`, `tests/test_rust_convert.py` (`child-linked`) |
-| 7 | Sites are per unit at record time and merged on `(file, qualname, firstlineno)` at conversion; `diff` cannot separate cfg-gated twins | E3 and E5 in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/cargo-sensorium/tests/unit_identity.rs`, `rust/cargo-sensorium/tests/convert.rs` |
-| 8 | Every eligible function in a workspace crate is instrumented, or its unit says it fell back | E2′ in `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, `rust/sensorium-transform/tests/census.rs` |
-| 8 | Every blind spot is declared in a manifest field, a meta key or an `info` line — including the unreached-module and unit-ceiling declarations, which reach the trace as `unreached_files` and `units_refused`, and (amended 2026-09-03) a REFUSED file's own message, which reaches it as `unreached_reasons`; the one declaration that does not exist (a config-file runner replaced rather than chained) says so | `rust/tests/mechanics.sh` (fallbacks in both channels; a unit using an instrumented dependency), `rust/sensorium-rt/tests/units.rs` (the unit ceiling), `rust/cargo-sensorium/tests/wrapper_fallback.rs` (`a_file_the_transformer_refused_names_its_reason_on_both_channels`), `docs/trace-format/vectors/v14-rust-refusals.json`; §8.10 itself is falsified by adding a config-file runner to `rust/probes/ws/` and re-running mechanics.sh, which no shipped check does |
-| 9 | Line numbers, paths, backtraces, drop order, lock hold times, freshness and plain builds are unchanged | E7 and E8 in the acceptance document and `rust/tests/mechanics.sh`, `rust/sensorium-transform/tests/oracle.rs`, `rust/sensorium-transform/tests/golden.rs`, `rust/sensorium-rt/tests/panics.rs` |
-| 10 | Cost is reported with `n` and lens, and gates nothing | the acceptance document's *reported without a gate* section |
+The whole list — one row per promise, with what could falsify it — moved to
+[`rust/HONESTY-INDEX.md`](HONESTY-INDEX.md) on 2026-09-05 (rung 3's final fix
+wave) so this file stays under 800 lines: the deliberate split
+`docs/CARRIED-DEBT.md` asked for. Same rows, same order, keyed by section.

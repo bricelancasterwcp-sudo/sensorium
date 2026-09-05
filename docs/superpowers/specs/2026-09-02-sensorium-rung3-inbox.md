@@ -109,6 +109,57 @@ falsifier named ahead of time, in `rust/HONESTY.md` §1: `corpus/rust/outcome_ge
 — a generic `T` that is a `Result` only after monomorphisation reads `ok`,
 untested until the generic-return-type case has a home.
 
+**DONE 2026-09-05, DONE-WITH-PASS after a STOP and a repair slice.** Every
+item above shipped: design
+`docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`
+(R1–R16, §2a), plan
+`docs/superpowers/plans/2026-09-04-sensorium-rung3-err-flow.md`, ledger
+`rust/HONESTY.md` §11 with `rust/HONESTY-BLIND-SPOTS.md` items 15–26,
+versions 0.3.0 / Python 0.8.0. E6′ read **STOP** (1 false SWALLOWED of 15,
+`memory.rs:131`) on 2026-09-04; the R2 amendment was pre-registered and
+re-measured, and E6‴ read **PASS** (0 false of 14, both arms, both readings)
+on 2026-09-05 — the two acceptance records are
+`docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md` and
+`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md`. The
+falsifier named ahead of time now has a home and is green:
+`corpus/rust/outcome_generic`.
+
+## 2a. Rung 4's inbox, opened by rung 3
+
+Written the way rung 2 wrote this document's §1–§3: what the next rung starts
+with, none of it ranked, each item with the thing that would settle it.
+
+- **LINE and locals under `--focus`** — the focus tier itself, spec §11 rung 4
+  and §3.7. `capabilities.line`/`locals` are `false` today and every `watch`
+  and `flow` refusal names them.
+- **`refocus` on a Rust trace** — `capabilities.refocus: false`; the Rust side
+  is re-invocation, and the E4 endpoint is unmeasured.
+- **`.is_err()` / `.is_ok()` as OBSERVATION tags, not sinks.** Rung 3 dropped
+  them from the probe list because a HANDLED there would report a predicate as
+  a swallow (R2's erratum). The shape a reader still wants is a third class —
+  *observed* — that says the program looked at the failure and names where,
+  without ever being a SWALLOWED candidate. It would also settle the match-guard
+  wording debt that E6‴ §5.2 leaves open (R15's ruling settles the verdict;
+  it does not give the reader a word for what the guard did).
+- **An `.unwrap()` / `.expect()` probe — NOT demanded by the measurement.**
+  Rung 3 derived PANICKED from the panic hook instead, and said an E6′ demand
+  would re-open it. There was none: the clone's tallies are
+  `swallowed 15, ambiguous 7` (E6′) and `swallowed 14, ambiguous 8` (E6‴) —
+  **no PANICKED line at all on either run**, so the shape the probe would
+  sharpen never occurred. Re-open it on the first target whose tally carries
+  panics, not before.
+- **A `--workspace` E6 slice with no `--lib`.** E6‴-W widened the selector and
+  reached the same 2 of 29 located blast-radius arms, so the widening bought
+  no coverage (E6‴ §5.1). Dropping `--lib` — integration tests, binaries,
+  doctests — is the next measurement that could.
+- **A `chain.holder` field on the wire.** The holder is derived twice today
+  (once in the converter's machine, once by the Python reader walking outward
+  from a chain's last event); one field would delete both walks.
+- **Three `chain.terminal` values with no conformance vector** —
+  `panicked` (`tests/test_exceptions_rust.py`), `left_thread` and
+  `handled_then_failed` (`tests/test_exceptions_rust_ambiguous.py`), pinned by
+  the Python suite alone (`docs/trace-format/VECTORS.md`).
+
 ## 3. Deferred minors carried out of rung 2's task reviews
 
 Collected from `deferred-minors.md` (gitignored, in the rung-2 ledger) and

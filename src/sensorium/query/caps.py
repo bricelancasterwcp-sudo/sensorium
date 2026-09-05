@@ -84,10 +84,12 @@ def none_status(trace) -> int:
     so they cannot drift: a status decided command by command is a status
     that reads 1 in `grep` and 3 in `flow` about one trace.
 
-    `exceptions` is deliberately not a caller. Its empty answer already
-    splits three ways on facts this predicate cannot see (`no RAISE events
-    recorded (see INCOMPLETE above)` is 3, `no exceptions recorded` is 1),
-    and it reads the flag itself to do that.
+    `exceptions` on a PYTHON trace is deliberately not a caller. Its empty
+    answer already splits three ways on facts this predicate cannot see
+    (`no RAISE events recorded (see INCOMPLETE above)` is 3, `no exceptions
+    recorded` is 1), and it reads the flag itself to do that. The RUST arm
+    (`query/exceptions_rust`, rung 3) IS a caller: it has one empty answer
+    and no uncaught record to split it on, so it takes the shared rule.
     """
     return UNSETTLED if trace.meta.get("incomplete") else NEGATIVE
 

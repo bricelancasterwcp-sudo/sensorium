@@ -1,0 +1,9 @@
+[package]
+name = "corpus_closure_try"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "closure_try"
+path = "src/main.rs"

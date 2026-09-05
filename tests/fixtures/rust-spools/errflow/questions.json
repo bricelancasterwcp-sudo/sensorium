@@ -1,0 +1,201 @@
+[
+  {
+    "id": "raise-rows-name-the-err-type-not-a-panic",
+    "ask": "Does every RAISE this converter wrote for an `Err` render as that error's own type -- the two the exit probe synthesised and the one the `?` recorded -- rather than as a panic?",
+    "command": [
+      "grep",
+      "$RUN",
+      "RAISE"
+    ],
+    "expect_exit": 0,
+    "expect_line": [
+      [
+        "e4 RAISE",
+        "inner raise demo::Boom('Boom(7)') L18"
+      ],
+      [
+        "e9 RAISE",
+        "inner raise demo::Boom('Boom(9)') L18"
+      ],
+      [
+        "e11 RAISE",
+        "run raise demo::Boom('Boom(9)') L6"
+      ],
+      [
+        "e12 RAISE",
+        "run raise demo::Boom('Boom(9)') L3"
+      ]
+    ],
+    "expect_count": {
+      "matches: 4": 1
+    },
+    "expect_absent": [
+      "panic(",
+      "<message unreadable",
+      "<value not read"
+    ]
+  },
+  {
+    "id": "handled-row-is-at-the-sinks-own-line",
+    "ask": "Does the `.ok()` sink's HANDLED render against the frame it fired in, at the SINK's line rather than the enclosing fn's?",
+    "command": [
+      "grep",
+      "$RUN",
+      "HANDLED"
+    ],
+    "expect_exit": 0,
+    "expect_line": [
+      [
+        "e6 HANDLED",
+        "swallow handled demo::Boom('Boom(7)') L12"
+      ]
+    ],
+    "expect_count": {
+      "matches: 1": 1
+    },
+    "expect_absent": [
+      "L10"
+    ]
+  },
+  {
+    "id": "an-err-that-was-raised-is-still-a-returned-frame",
+    "ask": "A frame that recorded a RAISE and then returned its `Err` ended by RETURNING. Does `tree` render it that way, rather than as an unwind or as still open?",
+    "command": [
+      "tree",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_line": [
+      [
+        "f1 e1",
+        "run()",
+        "-> Err(Boom(9))"
+      ],
+      [
+        "f2 e2",
+        "swallow()",
+        "-> ()"
+      ],
+      [
+        "f3 e3",
+        "inner()",
+        "-> Err(Boom(7))"
+      ]
+    ],
+    "expect_absent": [
+      "!! ",
+      "(open)"
+    ]
+  },
+  {
+    "id": "the-swallowing-frame-reads-as-a-plain-return",
+    "ask": "Does `frame` on the frame whose `.ok()` absorbed the error report a normal return, with the RAISE/HANDLED rows changing nothing about how it closed?",
+    "command": [
+      "frame",
+      "$RUN",
+      "--fn",
+      "swallow"
+    ],
+    "expect_exit": 0,
+    "expect_line": [
+      [
+        "f2 lib.rs:swallow",
+        "closed: return"
+      ]
+    ],
+    "expect_contains": [
+      "return: ()"
+    ],
+    "expect_absent": [
+      "unwound:",
+      "closed: open"
+    ]
+  },
+  {
+    "id": "the-runtimes-err-flow-declaration-reaches-the-trace",
+    "ask": "The runtime declares `err_flow` in its process header. Does that declaration reach the trace's capabilities -- where the Rust `exceptions` rules will require it -- rather than being something the converter asserted on its own?",
+    "command": [
+      "info",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_line": [
+      [
+        "capabilities:",
+        "err_flow=yes"
+      ],
+      [
+        "recorder: sensorium-rt 0.3.0",
+        "lang: rust"
+      ]
+    ],
+    "expect_absent": [
+      "err_flow=no"
+    ]
+  },
+  {
+    "id": "the-synthesised-origin-raises-are-real-events",
+    "ask": "One `?` record and one sink record were written to the wire, but three frames closed `err`. Does the trace hold the four RAISE events that implies -- the converter's synthesised origins counted among them?",
+    "command": [
+      "info",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_line": [
+      [
+        "recorded:",
+        "RAISE 4",
+        "HANDLED 1"
+      ]
+    ],
+    "expect_count": {
+      "events: 13": 1
+    }
+  },
+  {
+    "id": "exceptions-judges-the-two-chains-this-spool-recorded",
+    "ask": "End to end, through the real converter: does `exceptions` report one line per Err CHAIN with the disposition each terminal earns -- the `.ok()`d one SWALLOWED, the one the `#[test]` fn returned back to the harness -- and does it warn about the `?` site the transformer could not reach?",
+    "command": [
+      "exceptions",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_line": [
+      [
+        "e4 RAISE",
+        "inner raise demo::Boom('Boom(7)') L18"
+      ],
+      [
+        "SWALLOWED -- absorbed by sink_ok at e6 (swallow L12) in f2, which returned ok"
+      ],
+      [
+        "hops: e4 inner L18 exit -> e6 swallow L12 sink_ok"
+      ],
+      [
+        "e9 RAISE",
+        "inner raise demo::Boom('Boom(9)') L18"
+      ],
+      [
+        "returned to the harness -- it left f1 (run), which the manifest marks as a #[test] fn"
+      ],
+      [
+        "hops: e9 inner L18 exit -> e11 run L6 try -> e12 run L3 exit"
+      ]
+    ],
+    "expect_contains": [
+      "partial: 1 ?-site the transformer could not reach",
+      "run src/lib.rs:7 (macro-arg)",
+      "dispositions: swallowed 1, returned-to-harness 1"
+    ],
+    "expect_count": {
+      "SWALLOWED": 1,
+      "raised (2):": 1
+    },
+    "expect_absent": [
+      "ambiguous",
+      "born outside this thread's instrumented frames",
+      "no exceptions recorded",
+      "REFUSED"
+    ]
+  }
+]

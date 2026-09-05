@@ -1,4 +1,4 @@
-pub fn with_inner_stmt_attr() {@G(7)
+@Wpub fn with_inner_stmt_attr() {@G(7)
     #[allow(unused_mut)]
     let mut x = 1;
     let _ = x;

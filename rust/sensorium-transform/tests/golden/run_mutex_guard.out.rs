@@ -1,7 +1,7 @@
 //! Run probe: a `MutexGuard` held across a wrapped tail, and one that is a
 //! temporary of the tail itself. A second thread's `try_lock` must succeed and
 //! fail at exactly the same points in both builds.
-
+@W
 use std::sync::{Arc, Mutex};
 use std::thread;
 

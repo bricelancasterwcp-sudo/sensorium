@@ -1,0 +1,57 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: is-the-list-of-errors-complete
+    ask: >
+      Two calls failed the same way. Does this recording contain both of
+      them, and how would I know if it did not?
+    truth: >
+      It contains both origins but only one of the two `?` sites, and the
+      tool must say so BEFORE it lists anything. `banner`'s `?` sits inside
+      a `format!` invocation's tokens, which the transformer cannot wrap, so
+      that site is declared as a partial `?`-site -- named, with its file,
+      line and the reason `macro-arg` -- rather than left to be inferred
+      from an answer that looks complete. `margin`'s `?` was reachable and
+      its hop is in the chain; `banner`'s chain has no hop at all, which is
+      the visible consequence of the declared gap. An answer that printed
+      the two chains without the declaration would be a complete-looking
+      answer over an incomplete instrument.
+    why_logs_fail: >
+      "Is my instrument covering this code?" is not a question the program
+      can print about itself at all. `dbg!` and RUST_LOG report what ran,
+      never what was not instrumented, and their coverage gaps are silent by
+      construction -- a `?` you forgot to log looks exactly like a `?` that
+      did not fire. RUST_BACKTRACE never fires here; the run exits 0.
+    command: ["exceptions", "$RUN"]
+    expect_contains:
+      - "dispositions: ambiguous 2"
+      - "partial: 1 ?-site the transformer could not reach"
+    expect_line:
+      - ["banner", "src/main.rs:21", "(macro-arg)"]
+      - ["an Err raised at one is recorded by nothing and appears nowhere below"]
+      - ["hops:", "width L10 exit", "margin L16 try"]
+    expect_count: {"hops:": 1}
+    expect_absent: ["SWALLOWED", "dispositions: swallowed",
+                    "banner L21 try", "banner L21 exit"]
+  - id: does-info-declare-the-same-gap
+    ask: >
+      Before I read any answer from this trace, how many `?` sites in this
+      build could not be instrumented?
+    truth: >
+      One, and `info` says so in its own right rather than only as a
+      footnote on an answer: `partial fns: 1 (?-sites the transformer could
+      not reach)`. The count is a fact about the BUILD, so it belongs beside
+      the units line and has to be readable before any question is asked --
+      a reader who learns about the gap only from the command that happened
+      to hit it will believe every other command that did not.
+    why_logs_fail: >
+      There is no log-based equivalent of this line, which is the point.
+      `dbg!` and RUST_LOG describe a run; nothing in either describes the
+      instrumentation's own coverage, so a log-based workflow has no place
+      to put "and here is what I could not see". RUST_BACKTRACE is a panic
+      feature and this run does not panic.
+    command: ["info", "$RUN"]
+    expect_contains: ["partial fns: 1 (?-sites the transformer could not reach)"]
+    expect_line:
+      - ["units: 1 instrumented", "0 fell back", "0 skipped"]
+    expect_absent: ["partial fns: 0"]

@@ -1,6 +1,6 @@
 //! Run probe: `Drop` order across a wrapped tail and a wrapped `return`.
 //! The transformed and the untransformed build must print the same lines.
-
+@W
 use std::cell::RefCell;
 
 thread_local! {

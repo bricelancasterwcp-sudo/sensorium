@@ -1,4 +1,4 @@
-pub fn under_test() -> u8 {@G(7)
+@Wpub fn under_test() -> u8 {@G(7)
     @R(7)7@E
 }
 

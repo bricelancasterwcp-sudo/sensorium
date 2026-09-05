@@ -11,7 +11,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::ffi;
-use crate::probe::{Capture, Outcome};
+use crate::probe::{Capture, Exit};
 use crate::spool::Spool;
 
 /// Serials are minted from 2 upward. Serial 1 is RESERVED for the main thread
@@ -37,7 +37,9 @@ pub(crate) struct Stash {
     pub(crate) site: u32,
     pub(crate) depth: u32,
     pub(crate) capture: Capture,
-    pub(crate) outcome: Outcome,
+    /// The outcome AND, on an `err`, the static type of the error -- the exit
+    /// probe is the only place that type is knowable (design R1).
+    pub(crate) exit: Exit,
 }
 
 thread_local! {

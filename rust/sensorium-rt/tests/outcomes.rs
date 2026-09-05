@@ -12,6 +12,18 @@ use common::{
     TAG_NO_VALUE,
 };
 
+/// The v2 payload of a RETURN that is not an `err`: tag, truncated flag, text
+/// and nothing else. Spelled out as bytes rather than through the parser, so a
+/// type block that leaked onto the wrong outcome would fail here.
+fn assert_v2_shaped(r: &common::Record, text: &[u8]) {
+    let mut expected = vec![TAG_DEBUG, 0];
+    expected.extend_from_slice(text);
+    assert_eq!(
+        r.payload, expected,
+        "outcomes other than err carry no type block"
+    );
+}
+
 #[test]
 fn an_ok_return_reads_outcome_ok_with_its_debug_text() {
     let dir = TempDir::reserved("outcomes-ok");
@@ -22,6 +34,7 @@ fn an_ok_return_reads_outcome_ok_with_its_debug_text() {
     assert_eq!(tag, TAG_DEBUG);
     assert!(!trunc);
     assert_eq!(text, "Ok(3)");
+    assert_v2_shaped(&r, b"Ok(3)");
 }
 
 #[test]
@@ -34,6 +47,23 @@ fn an_err_return_reads_outcome_err_with_its_debug_text() {
     assert_eq!(tag, TAG_DEBUG);
     assert!(!trunc);
     assert_eq!(text, r#"Err("x")"#);
+    // v3: the error's static type travels with it, so a converter can synthesise
+    // the origin RAISE of a chain that left this frame by returning `Err`.
+    let (ty, truncated) = r.ret_err_type();
+    assert!(
+        ty.as_deref()
+            .expect("an err knows its E")
+            .ends_with("String"),
+        "{ty:?}"
+    );
+    assert!(!truncated);
+    // The type sits BETWEEN the flags and the text: three bytes of block, the
+    // type, then the value.
+    assert_eq!(r.payload[0], TAG_DEBUG);
+    assert_eq!(r.payload[1], 0);
+    assert_eq!(r.payload[2], 1, "type present, not truncated");
+    let len = u16::from_le_bytes([r.payload[3], r.payload[4]]) as usize;
+    assert_eq!(r.payload.len(), 5 + len + r#"Err("x")"#.len());
 }
 
 #[test]
@@ -47,6 +77,11 @@ fn a_question_mark_that_bypassed_the_tail_reads_none_with_no_value() {
         inner.outcome, OUTCOME_ERR,
         "the inner frame did reach its tail"
     );
+    assert!(inner
+        .ret_err_type()
+        .0
+        .expect("and it names the type it returned")
+        .ends_with("String"));
 
     let outer = s.the_return(13);
     assert_eq!(
@@ -57,6 +92,11 @@ fn a_question_mark_that_bypassed_the_tail_reads_none_with_no_value() {
     assert_eq!(tag, TAG_NO_VALUE);
     assert!(!trunc);
     assert_eq!(text, "");
+    assert_eq!(
+        outer.payload,
+        vec![TAG_NO_VALUE, 0],
+        "a none RETURN is the two bytes v2 wrote, and no more"
+    );
 }
 
 #[test]
@@ -65,6 +105,11 @@ fn a_frame_unwound_by_a_panic_reads_outcome_panic() {
     Spec::new("ret-panic").spool(dir.path()).run();
     let r = dir.spool(1).the_return(14);
     assert_eq!(r.outcome, OUTCOME_PANIC);
+    assert_eq!(
+        r.payload,
+        vec![TAG_NO_VALUE, 0],
+        "a panic RETURN is the two bytes v2 wrote, and no more"
+    );
     let (tag, _, text) = r.ret_value();
     assert_eq!(
         tag, TAG_NO_VALUE,

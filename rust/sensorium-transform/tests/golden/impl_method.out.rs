@@ -1,4 +1,4 @@
-pub struct Counter {
+@Wpub struct Counter {
     n: u32,
 }
 

@@ -122,7 +122,7 @@ The exit status is the caller's next action, not a health code:
 | 0 | the question was answered affirmatively — the trace says yes | `grep` found a match; `refocus` MATCH; `watch` SATISFIED |
 | 1 | the question was answered negatively — the trace says no, or none | `grep` `matches: 0`; `exceptions` `no exceptions recorded`; `refocus` DIVERGED |
 | 2 | the call is wrong — edit the command and ask again | an ambiguous `--fn`; `--nth` out of range; a run reference that resolves to nothing; `refocus` refusing before any rerun was attempted |
-| 3 | the trace cannot settle it — change the recording and re-record | `watch` `NOTHING WAS CHECKED`; `refocus` REFUSED after a rerun; `exceptions`' uncaught-without-RAISE arm |
+| 3 | the trace cannot settle it — change the recording and re-record | `watch` `NOTHING WAS CHECKED`; `refocus` REFUSED after a rerun; `exceptions`' uncaught-without-RAISE arm; `exceptions` on a Rust trace whose recorder predates err flow (`recorder sensorium-rt 0.2.0 declares it does not produce (capabilities.err_flow: false)`) |
 
 `run` exits with the target's own status — it never applies this table to
 itself.
@@ -286,6 +286,21 @@ particular:
 So: `exceptions` finds swallowed exceptions it can prove, and names the ones
 it cannot classify. It does not detect all swallowed exceptions.
 
+**On a Rust trace the vocabulary is the language's, and so are the rules.**
+An `Err` value travelling is not an exception unwinding, so `exceptions`
+switches to a Rust rule module with five dispositions of its own —
+`swallowed`, `panicked`, `returned-to-harness`, `propagated`, `ambiguous` —
+computed over chains that the converter mints from `?` sites, the four
+written sinks, `let _ =` and classified `Err` arms. **SWALLOWED is claimed
+only where a written sink absorbed the chain and its frame then closed
+`ok`**; `panicked` says the frame holding the chain unwound and never that
+the panic was *caused by* the `Err`; and everything the grammar did not see
+is `ambiguous` by design, never "propagated by default". What each verdict
+may mean, and the twelve shapes err flow cannot see, are
+[`rust/HONESTY.md`](rust/HONESTY.md) §11 and
+[`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md) items 15–26; the
+two measurements behind them are in the Rust section below.
+
 ### `watch` — a predicate at every recorded site
 
 `watch` evaluates a restricted expression at every recorded site of the named
@@ -307,8 +322,8 @@ warning even when the rest of the predicate produced hits — a typo'd name is
 otherwise a silent zero. When there are no hits, `watch` reports the closest
 approaches with their margins, which is the question a threshold log throws
 away: it fires when the condition is true, and it never was. `--misses N`
-sets how many of those near-misses to show (default 5); `--near` is kept as
-a hidden, deprecated alias for one release and will be removed in 0.8.0.
+sets how many of those near-misses to show (default 5); the pre-0.8.0
+`--near` alias has been removed.
 
 ### `flow` — lineage, not dataflow analysis
 
@@ -559,11 +574,13 @@ and a workload, not a pass/fail property of the tool.
 `cargo sensorium test`/`cargo sensorium run` record a Rust workspace's own
 crates the same way this document's recorder records a Python program: one
 sensorium trace per process, trace format 4, read by the same `sensorium`
-command line. `rust/` ships `sensorium-rt 0.1.0` (zero dependencies, the
-runtime linked into every instrumented unit), `sensorium-transform 0.1.0`
-(the `syn` rewriter), and `cargo-sensorium 0.1.0` (driver, workspace wrapper,
+command line. `rust/` ships `sensorium-rt 0.3.0` (zero dependencies, the
+runtime linked into every instrumented unit), `sensorium-transform 0.3.0`
+(the `syn` rewriter), and `cargo-sensorium 0.3.0` (driver, workspace wrapper,
 target runner, converter — one binary, four roles). What it does and does not
-see is [`rust/HONESTY.md`](rust/HONESTY.md); [`rust/README.md`](rust/README.md)
+see is [`rust/HONESTY.md`](rust/HONESTY.md) with
+[`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
+[`rust/README.md`](rust/README.md)
 is the full build/install/record reference. This section is the summary
 beside Python's, above.
 
@@ -584,10 +601,27 @@ nothing. Traces land beside the Python ones, in `$SENSORIUM_DIR/traces/`.
 Tier `call` — the only tier this version ships, and the default — records
 CALL and RETURN with an outcome (`ok`/`err`/`panic`/`none`) and a captured
 `Debug` return value, panics, per-thread `MAP_SHARED` spools, and libtest
-tests plus `spawn_child`-named worker threads as tasks. `runs`, `info`,
-`tree`, `frame`, `grep` and `diff` — including `diff --ignore-moves` across a
-refactor — all answer on a Rust trace; `info` adds the toolchain, per-unit
-instrumentation counts, child runs, and live threads at exit.
+tests plus `spawn_child`-named worker threads as tasks. **From 0.3.0 it also
+records err flow**: a RAISE at every `?` on a `Result`, a HANDLED at each of
+the four written sinks (`.ok()`, `.unwrap_or(..)`, `.unwrap_or_else(..)`,
+`.unwrap_or_default()`), at `let _ = <value>`, and at every `Err(..) =>` arm
+or `if let Err(..)` body, classified by what its body does. `runs`, `info`,
+`tree`, `frame`, `grep`, `diff` — including `diff --ignore-moves` across a
+refactor — and now `exceptions` all answer on a Rust trace; `info` adds the
+toolchain, per-unit instrumentation counts, child runs, live threads at exit,
+and the `?` sites the transformer could not reach (`partial fns: N`), which it
+declares rather than losing.
+
+**What `exceptions` was measured to be worth.** On the bloomery clone's
+`--lib` suite it printed 15 SWALLOWED lines and **one was a false accusation**
+— an `Err(e) =>` arm whose `format!` product is the value the function
+returns — so the rung's pre-registered endpoint read **STOP**, the rule was
+amended, and the repair was re-measured rather than declared:
+**0 false accusations of 14**, on two selectors and under both readings of the
+endpoint. Both records stand and both are worth reading before quoting any of
+it: `docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md`
+(§4, §5.1) and
+`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` (§4, §5).
 
 **One gap, measured, then fixed.** `diff --ignore-moves` pairs code
 objects correctly across a file split (28/28 paired, 0 added, 0 removed, in
@@ -621,19 +655,22 @@ this:
 
 ### What refuses
 
-`exceptions`, `refocus`, `watch` and `flow` refuse outright on a Rust trace
-in this version, never answering from a capability the recorder declares it
-does not have. `exceptions`, `watch` and `flow` each print why and exit
-**3** — the recording, not the call, is what would have to change.
-`refocus` exits **2**: its capability check runs before anything is
-re-run, so it is one of `refocus`'s own "cannot refocus at all" reasons
-(see the `refocus` section above), and the reader's next move is a
-different command, not a different recording.
-`exceptions` needs the Rust disposition rules (rung 3, not yet built);
-`refocus` needs `capabilities.refocus`; `watch`/`flow` need
-`capabilities.line` — both `false` until rung 4. Locals, `?`-site
-classification, and program output under libtest are the same kind of "not
-yet": declared absent in the trace, never silently missing.
+`refocus`, `watch` and `flow` refuse outright on a Rust trace in this
+version, never answering from a capability the recorder declares it does not
+have. `watch` and `flow` print why and exit **3** — the recording, not the
+call, is what would have to change — because both need `capabilities.line`,
+`false` until rung 4. `refocus` exits **2**: its capability check runs before
+anything is re-run, so it is one of `refocus`'s own "cannot refocus at all"
+reasons (see the `refocus` section above), and the reader's next move is a
+different command, not a different recording; it needs
+`capabilities.refocus`.
+
+`exceptions` **answers** from 0.3.0, and refuses on exactly one thing: a
+trace an older runtime wrote. The gate is `capabilities.err_flow`, so such a
+trace exits **3** naming the recorder and the capability, and no rule ever
+sees its records — what it lacks is a record, not a rule. Locals, per-line
+state and program output under libtest are the same kind of "not yet":
+declared absent in the trace, never silently missing.
 
 ### Cost, beside Python's
 
@@ -662,6 +699,10 @@ whole-suite wall ratio and a per-event µs figure are not the same unit, and
 neither section here states one as a translation of the other.
 
 ## Not yet
+
+What each slice deferred, and the ruling each deferral is waiting on, is
+[`docs/CARRIED-DEBT.md`](docs/CARRIED-DEBT.md) — appended at every merge,
+resolved items struck through rather than deleted.
 
 Subprocess following, attach-to-live-server flight recording, native (rr)
 substrates, MCP wrapper. See

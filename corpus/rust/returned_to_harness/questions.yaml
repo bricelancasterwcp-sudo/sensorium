@@ -1,0 +1,65 @@
+program: cargo
+cargo_args: ["test", "--", "--test-threads=1"]
+questions:
+  - id: where-did-the-error-the-harness-printed-come-from
+    ask: >
+      libtest printed `Missing("height")` and stopped. Two tests ran and one
+      of them reads two settings. Which read failed, and what did the test
+      itself do with the error?
+    truth: >
+      The second read. `setting("height")` produced it, `layout`'s `?`
+      carried it, and the test function's own `?` handed it out of the test
+      -- so the disposition is `returned to the harness`, and the verdict
+      must name the frame it left AND say why that frame is special: the
+      manifest marks `tests::the_default_layout_fits` as a `#[test]` fn.
+      That mark is the difference between "this error escaped" and "this
+      error was handed to the thing whose job is to receive it". The other
+      test produced no chain at all: exactly one error was raised in this
+      run.
+    why_logs_fail: >
+      A test that returns `Err` does not panic, so RUST_BACKTRACE prints
+      nothing whatsoever -- the first tool a Rust developer reaches for is
+      silent by construction on this shape, which is what makes it worth a
+      case. libtest's own line is the `Debug` of the value and names neither
+      the call that produced it nor the `?` that carried it. `dbg!` would
+      answer it once you know which of the two `layout` calls to wrap, which
+      is the question. RUST_LOG reaches no logger in this crate.
+    command: ["exceptions", "$RUN"]
+    expect_contains:
+      - "dispositions: returned-to-harness 1"
+      - "raised (1):"
+    expect_line:
+      - ["RAISE", "setting", 'Missing("height")']
+      - ["returned to the harness", "tests::the_default_layout_fits",
+         "manifest marks as a #[test] fn"]
+      - ["hops:", "setting L9 exit", "layout L17 try",
+         "tests::the_default_layout_fits L35 try"]
+    expect_absent: ["SWALLOWED", "dispositions: swallowed", "ambiguous",
+                    "panicked", "tests::the_width_setting_is_readable"]
+  - id: did-the-passing-test-touch-the-same-code
+    ask: >
+      The other test calls the same `setting` function. Did it contribute
+      anything to the failure, and how does the recording keep the two
+      apart?
+    truth: >
+      It called `setting("width")`, got `Ok(80)` and finished -- so it
+      touched the same function and produced no error. The two tests are
+      separate tasks in the recording, named after the tests themselves, so
+      the failing read belongs to `the_default_layout_fits` and not merely
+      to "somewhere in the suite". Inside the failing task the first
+      `layout` call also succeeded (`Ok(82)`), which is why "the `height`
+      read failed" is a claim about an activation rather than about a
+      function.
+    why_logs_fail: >
+      With two tests in one binary, `dbg!` output from both is interleaved
+      on one stream and carries no test name -- attributing a line to a test
+      is exactly what neither `dbg!` nor RUST_LOG does unless somebody
+      threads the test name through by hand. RUST_BACKTRACE stamps nothing
+      and, again, never fires: no test here panicked.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["task", "tests::the_default_layout_fits"]
+      - ["task", "tests::the_width_setting_is_readable"]
+      - ["layout()", "-> Ok(82)"]
+      - ["setting()", '-> Err(Missing("height"))']
+    expect_count: {"setting()": 3}

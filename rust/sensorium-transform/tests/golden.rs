@@ -1,6 +1,10 @@
 //! Golden pairs for the byte-offset splicer: one `.in.rs`/`.out.rs` pair per
 //! rule, byte-exact, with the line count and a re-parse asserted on every one.
 //!
+//! The rung-1 and rung-2 rules are here; rung 3's err-flow cases are in
+//! `tests/errflow.rs`, and `common::CASES` is what keeps the two files and the
+//! directory in agreement.
+//!
 //! The placeholders every `.out.rs` is written with -- and the fragments they
 //! expand to -- live in `tests/common/mod.rs`, so the text the transformer
 //! emits is pinned by the TESTS and is never read back out of the
@@ -8,47 +12,15 @@
 //! which is the point.
 //!
 //! **Every case is transformed as a crate root**, so every `.out.rs` is a
-//! self-contained crate `tests/oracle.rs` can hand to the real rustc.
+//! self-contained crate `tests/oracle.rs` can hand to the real rustc -- and
+//! every one of them carries the crate-root `allow` (`@W`) as well as the unit
+//! static.
 
 mod common;
 
-use std::collections::BTreeMap;
+use common::{run, sites, FILE};
 
-use common::{expand, read, top_level_unit_static, FILE, META};
-
-use sensorium_transform::{transform, RetKind, SpawnSite, Transformed};
-
-/// Run one golden case and assert the invariants every case shares: exact
-/// output, line count preserved, the result re-parses, and the unit static is a
-/// real top-level item rather than text inside a comment.
-fn run(case: &str, first_site: u32) -> Transformed {
-    let input = read(case, "in");
-    let expected = expand(&read(case, "out"));
-    let t = transform(&input, FILE, META, first_site, true)
-        .unwrap_or_else(|e| panic!("{case}: transform failed: {e}"));
-
-    assert_eq!(t.source, expected, "{case}: transformed source differs");
-    assert_eq!(
-        t.source.lines().count(),
-        input.lines().count() + usize::from(t.appended_line),
-        "{case}: line count moved (appended_line = {})",
-        t.appended_line
-    );
-    syn::parse_file(&t.source)
-        .unwrap_or_else(|e| panic!("{case}: transformed source does not re-parse: {e}"));
-    assert!(
-        top_level_unit_static(&t.source),
-        "{case}: the unit static must be a real top-level item, not commented out"
-    );
-    t
-}
-
-fn sites(t: &Transformed) -> Vec<(u32, &str, u32, RetKind)> {
-    t.sites
-        .iter()
-        .map(|s| (s.site, s.qualname.as_str(), s.firstlineno, s.ret))
-        .collect()
-}
+use sensorium_transform::{RetKind, Transformed};
 
 fn skips(t: &Transformed) -> Vec<(&str, u32, &str)> {
     t.skipped
@@ -341,12 +313,14 @@ fn a_function_with_nothing_to_return_gets_no_wrap() {
     // `early_return_unit` has no expression, so there is nothing to wrap there
     // either.
     let t = run("unit_fn", 7);
+    // The three `let _ = <literal>` sinks take 8, 10 and 12 from the same
+    // counter, which is why the fn sites are not contiguous here.
     assert_eq!(
         sites(&t),
         [
             (7, "nothing", 3, RetKind::Unit),
-            (8, "explicit_unit", 7, RetKind::Unit),
-            (9, "early_return_unit", 11, RetKind::Unit),
+            (9, "explicit_unit", 7, RetKind::Unit),
+            (11, "early_return_unit", 11, RetKind::Unit),
         ]
     );
 }
@@ -412,11 +386,12 @@ fn a_struct_literal_tail_is_wrapped() {
 #[test]
 fn a_try_tail_is_wrapped() {
     let t = run("try_tail", 7);
+    // 8 and 10 are the two `?` sites, minted between the fn sites.
     assert_eq!(
         sites(&t),
         [
             (7, "forwarded", 6, RetKind::Value),
-            (8, "tail_is_try", 10, RetKind::Value),
+            (9, "tail_is_try", 10, RetKind::Value),
         ]
     );
 }
@@ -481,7 +456,8 @@ fn a_composite_every_arm_of_which_diverges_is_not_wrapped() {
                 31,
                 RetKind::Value
             ),
-            (11, "nested_composites_diverge", 38, RetKind::Value),
+            // 11 is the `let _ = abs(-1)` sink inside the fn above.
+            (12, "nested_composites_diverge", 38, RetKind::Value),
         ]
     );
     assert_eq!(
@@ -635,10 +611,29 @@ fn thread_spawn_is_rewritten_in_both_spellings() {
         [
             (7, "fully_qualified", 5, RetKind::Value),
             (8, "imported", 10, RetKind::Value),
+            // The `let _ = <spawn>` pair: the two `let` sinks take 10 and 11.
+            (9, "discarded_handles", 16, RetKind::Unit),
         ]
     );
-    assert_eq!(spawns(&t), [(6, true, None), (11, true, None)]);
+    assert_eq!(
+        spawns(&t),
+        [
+            (6, true, None),
+            (11, true, None),
+            (17, true, None),
+            (18, true, None),
+        ]
+    );
     assert!(t.spawns.iter().all(|s| s.file == FILE));
+    // Kind ordering, pinned by bytes: an err wrap's `match ` opens on the same
+    // byte the spawn callee's REPLACED range starts at, in both spellings, and
+    // has to be spliced in first or `assemble` refuses the pair.
+    assert_eq!(
+        t.source
+            .matches("match ::sensorium_rt::spawn_child(")
+            .count(),
+        2
+    );
 }
 
 #[test]
@@ -740,51 +735,6 @@ fn a_spawn_site_is_named_by_its_enclosing_fn_and_its_ordinal() {
 }
 
 #[test]
-fn every_wrapped_ordinal_is_that_sites_source_order_rank_in_its_qualname() {
-    // The rule N1 states, re-derived from the OUTSIDE for every golden that has
-    // a spawn: rank the wrapped entries of one qualname by line, and the
-    // ordinal must be that rank. A declared shape carries no ordinal at all.
-    let mut with_spawns = 0usize;
-    for case in common::CASES {
-        let t = transform(&read(case, "in"), FILE, META, 7, true)
-            .unwrap_or_else(|e| panic!("{case}: transform failed: {e}"));
-        if t.spawns.is_empty() {
-            continue;
-        }
-        with_spawns += 1;
-        for s in &t.spawns {
-            assert_eq!(
-                s.wrapped,
-                s.ordinal.is_some(),
-                "{case}: only a wrapped site has an ordinal ({s:?})"
-            );
-        }
-        let mut by_qualname: BTreeMap<&str, Vec<&SpawnSite>> = BTreeMap::new();
-        for s in t.spawns.iter().filter(|s| s.wrapped) {
-            by_qualname.entry(s.qualname.as_str()).or_default().push(s);
-        }
-        for (qualname, mut group) in by_qualname {
-            // `t.spawns` is already in byte-offset order and this sort is
-            // stable, so two sites on one line keep their source order.
-            group.sort_by_key(|s| s.line);
-            for (rank, s) in group.iter().enumerate() {
-                let expected = u32::try_from(rank + 1).expect("a small rank");
-                assert_eq!(
-                    s.ordinal,
-                    Some(expected),
-                    "{case}: {qualname} at line {} is rank {expected} in source order",
-                    s.line
-                );
-            }
-        }
-    }
-    assert!(
-        with_spawns >= 4,
-        "only {with_spawns} goldens have spawns: this test is checking nothing"
-    );
-}
-
-#[test]
 fn the_run_probes_are_goldens_too() {
     // They are compiled AND RUN by `tests/oracle.rs`; here they are held to the
     // same byte-exact, line-count and re-parse invariants as every other case.
@@ -811,26 +761,4 @@ fn the_run_probes_are_goldens_too() {
         ]
     );
     assert_eq!(spawns(&t), [(10, true, None)]);
-}
-
-#[test]
-fn every_golden_case_is_covered_by_a_test_in_this_file() {
-    // The list `oracle.rs` compiles and the files on disk must agree, or a
-    // golden could be added and silently never compiled.
-    let mut on_disk: Vec<String> =
-        std::fs::read_dir(common::golden_path("free_fn", "in").parent().unwrap())
-            .expect("golden directory")
-            .filter_map(Result::ok)
-            .filter_map(|e| {
-                let name = e.file_name().to_string_lossy().into_owned();
-                name.strip_suffix(".in.rs").map(ToOwned::to_owned)
-            })
-            .collect();
-    on_disk.sort();
-    let mut listed: Vec<String> = common::CASES.iter().map(|s| (*s).to_owned()).collect();
-    listed.sort();
-    assert_eq!(on_disk, listed, "tests/golden and common::CASES disagree");
-    for case in common::RUN_CASES {
-        assert!(common::CASES.contains(case), "{case} is not a golden");
-    }
 }

@@ -1,4 +1,4 @@
-pub async fn plain() -> u8 {
+@Wpub async fn plain() -> u8 {
     1
 }
 

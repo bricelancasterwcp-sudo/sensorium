@@ -1,0 +1,62 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: which-settings-were-dropped
+    ask: >
+      The service came up on 8080 with 3 retries, which is exactly the
+      built-in default, although the operator set both. Which of the two
+      settings was thrown away, and where?
+    truth: >
+      Both of them, in `load`, at two different sinks. The port's failure was
+      absorbed by `.ok()` on line 31 and the retry setting's by `let _ =` on
+      line 33; each error was born two frames down in `parse_port`
+      (BadSetting("http") and BadSetting("many")), travelled up through
+      read_port's `?`, and ended at a sink in a frame that then returned
+      normally. The tally must read exactly two swallows and name a
+      DIFFERENT sink for each -- one `.ok()` and one `let _ =` -- because
+      two swallows attributed to one sink would say the second setting was
+      never read at all.
+    why_logs_fail: >
+      There is no logging in either sink; a `let _ =` is the syntax for
+      "produce no evidence". `dbg!` on the whole of `load` would print two
+      Results and answer it, and is the edit you cannot make until you
+      already suspect `load`. RUST_LOG reaches no logger in this crate and
+      RUST_BACKTRACE fires only for a panic, and nothing here panics: the
+      run exits 0 with a plausible line on stdout.
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: swallowed 2"]
+    expect_line:
+      - ["SWALLOWED", "sink_ok", "load L31", "which returned ok"]
+      - ["SWALLOWED", "sink_let_underscore", "load L33", "which returned ok"]
+      - ["RAISE", "parse_port", 'BadSetting("http")']
+      - ["RAISE", "parse_port", 'BadSetting("many")']
+      - ["hops:", "parse_port L10 exit", "read_port L17 try", "load L31 sink_ok"]
+    expect_count: {"SWALLOWED": 2}
+    expect_absent: ["ambiguous", "panicked", "returned to the harness"]
+  - id: does-anything-the-frames-returned-show-the-loss
+    ask: >
+      Forget the sinks for a moment. Looking only at what each frame handed
+      back, is there anything that says a setting was lost?
+    truth: >
+      No, and that is the case. `load` returned
+      `Config { port: 8080, retries: 3 }` -- a perfectly ordinary config --
+      and the two `read_port` activations returned nothing at all (`?`
+      propagated past their tails, so the recorder has no value for them and
+      prints `?` rather than inventing one). The only frames whose return
+      values name the failure are the two `parse_port` activations, two
+      levels below the frame that decided to ignore them.
+    why_logs_fail: >
+      This is the counterfactual the whole case rests on: the program's own
+      output is the config it built, and that config is well formed. A
+      `dbg!(&cfg)` at the end of `load` prints the same healthy struct.
+      RUST_LOG has no logger to reach and RUST_BACKTRACE never fires,
+      because nothing failed loudly -- the failure is that a value the
+      operator wrote is not in the struct, and no rendering of the struct
+      can show what is not in it.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["load()", "-> Config { port: 8080, retries: 3 }"]
+      - ["read_port()", "-> ?"]
+      - ["parse_port()", '-> Err(BadSetting("http"))']
+      - ["parse_port()", '-> Err(BadSetting("many"))']
+    expect_absent: ["closed: unwind", "panic("]

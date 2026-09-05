@@ -24,8 +24,11 @@ questions:
     # Site table (2026-09-04): `REFUSED: watch needs line` is 3 -- what
     # is missing is LINE capture in the recording, not a flag here.
     expect_exit: 3
+    # Re-pinned 2026-09-04 (rung 3): 0.1.0 -> 0.3.0, the runtime's version
+    # bump for wire v3 and err_flow (design R13). `line` is still false and
+    # the refusal is still 3; only the recorder's name in the sentence moved.
     expect_contains:
-      - "REFUSED: watch needs line, which recorder sensorium-rt 0.1.0 declares it does not produce (capabilities.line: false); nothing was checked"
+      - "REFUSED: watch needs line, which recorder sensorium-rt 0.3.0 declares it does not produce (capabilities.line: false); nothing was checked"
     expect_absent: ["hits:", "near-miss", "verdict:"]
   - id: did-the-key-move-with-the-record
     ask: >

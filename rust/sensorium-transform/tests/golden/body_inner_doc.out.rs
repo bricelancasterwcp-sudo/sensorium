@@ -1,4 +1,4 @@
-pub fn line_doc() -> u8 {
+@Wpub fn line_doc() -> u8 {
     //! An inner line doc comment.
 @G(7)    @R(7)1@E
 }

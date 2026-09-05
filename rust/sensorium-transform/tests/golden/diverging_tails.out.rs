@@ -1,6 +1,6 @@
 //! Operands the transformer leaves alone because they diverge. Wrapping one
 //! makes the `ret` call itself unreachable, which rustc reports.
-
+@W
 pub fn not_yet() -> u8 {@G(7)
     todo!()
 }

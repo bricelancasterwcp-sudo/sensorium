@@ -1,0 +1,61 @@
+{
+  "version": 3,
+  "manifests": {
+    "u0": {
+      "crate_name": "demo",
+      "files": {
+        "src/lib.rs": [
+          {"site": 0, "qualname": "run", "kind": "fn", "firstlineno": 3,
+           "ret": "value", "test": true},
+          {"site": 1, "qualname": "swallow", "kind": "fn", "firstlineno": 10,
+           "ret": "unit"},
+          {"site": 2, "qualname": "inner", "kind": "fn", "firstlineno": 18,
+           "ret": "value"},
+          {"site": 3, "qualname": "swallow", "kind": "sink", "line": 12,
+           "how": "sink_ok"},
+          {"site": 4, "qualname": "run", "kind": "try", "line": 6,
+           "how": "try"}
+        ]
+      },
+      "partial": [
+        {"file": "src/lib.rs", "line": 7, "qualname": "run", "kind": "try",
+         "reason": "macro-arg"}
+      ],
+      "source_hashes": {"src/lib.rs": "cccccccccccccccc"}
+    }
+  },
+  "processes": [
+    {
+      "pid": 4101,
+      "exe": "/w/target/debug/deps/demo-errflow",
+      "rt_version": "sensorium-rt 0.3.0",
+      "capabilities": {"err_flow": true},
+      "units": {"0": "u0"},
+      "threads": [
+        {
+          "serial": 1,
+          "name": "main",
+          "records": [
+            {"op": "call", "unit": 0, "site": 0, "seq": 0, "ts": 1000},
+            {"op": "call", "unit": 0, "site": 1, "seq": 1, "ts": 1100},
+            {"op": "call", "unit": 0, "site": 2, "seq": 2, "ts": 1200},
+            {"op": "ret_err_typed", "unit": 0, "site": 2, "seq": 3, "ts": 1300,
+             "text": "Err(Boom(7))", "err_type": "demo::Boom"},
+            {"op": "handled", "unit": 0, "site": 3, "seq": 4, "ts": 1400,
+             "how": "sink_ok", "type": "demo::Boom", "msg": "Boom(7)"},
+            {"op": "ret_none", "unit": 0, "site": 1, "seq": 5, "ts": 1500},
+            {"op": "call", "unit": 0, "site": 2, "seq": 6, "ts": 1600},
+            {"op": "ret_err_typed", "unit": 0, "site": 2, "seq": 7, "ts": 1700,
+             "text": "Err(Boom(9))", "err_type": "demo::Boom"},
+            {"op": "raise", "unit": 0, "site": 4, "seq": 8, "ts": 1800,
+             "how": "try", "type": "demo::Boom", "msg": "Boom(9)"},
+            {"op": "ret_err_typed", "unit": 0, "site": 0, "seq": 9, "ts": 1900,
+             "text": "Err(Boom(9))", "err_type": "demo::Boom"},
+            {"op": "thread_end", "seq": 10, "ts": 2000}
+          ]
+        }
+      ],
+      "runner": {"exit_status": 0}
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 //! Composites every arm of which diverges. Wrapping one makes the `ret` call
 //! itself unreachable, which rustc reports as `unreachable_code`.
-
+@W
 extern "C" {
     fn abs(v: i32) -> i32;
 }
@@ -30,12 +30,12 @@ pub fn a_block_whose_tail_diverges() -> u8 {@G(9)
 
 pub fn an_unsafe_block_whose_tail_diverges() -> u8 {@G(10)
     unsafe {
-        let _ = abs(-1);
+        let _ = @L(11)abs(-1)@LE;
         panic!("after the unsafe call")
     }
 }
 
-pub fn nested_composites_diverge(c: bool, d: u8) -> u8 {@G(11)
+pub fn nested_composites_diverge(c: bool, d: u8) -> u8 {@G(12)
     if c {
         match d {
             0 => panic!("zero"),

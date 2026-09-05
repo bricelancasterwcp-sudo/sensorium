@@ -69,7 +69,7 @@ the recorder is a case that quietly stops testing what it says it tests.
 The driver is `$SENSORIUM_CARGO_SENSORIUM`, else `cargo-sensorium` on PATH.
 Where neither exists -- the Python CI matrix has no Rust toolchain -- the
 cargo cases are SKIPPED BY NAME and counted as skipped in the summary. They
-are never counted as passed: "13 cases could not run" and "13 cases passed"
+are never counted as passed: "27 cases could not run" and "27 cases passed"
 are the two facts this harness exists to keep apart. `CARGO_TARGET_DIR` is
 inherited from the environment when it is set (one warm target directory
 across the cases is the difference between seconds and minutes) and left to

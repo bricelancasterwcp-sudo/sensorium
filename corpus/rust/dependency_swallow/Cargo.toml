@@ -1,0 +1,9 @@
+[package]
+name = "corpus_dependency_swallow"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "dependency_swallow"
+path = "src/main.rs"

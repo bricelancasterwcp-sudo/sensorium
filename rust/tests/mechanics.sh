@@ -55,8 +55,17 @@ EXT="$RUST/probes/ext"
 # What the probe workspace is expected to contain. Pins, not derivations: a
 # wrapper that stopped seeing the integration tests would otherwise pass every
 # check that counts what it did see.
-EXPECTED_TEST_BINARIES=9
-WRAPPED_EXPECTED="abort_child app_bin blocked e7 nested_panic probe_app probe_core spawn_bin threads"
+EXPECTED_TEST_BINARIES=10
+WRAPPED_EXPECTED="abort_child app_bin blocked e7 e7_operand nested_panic probe_app probe_core spawn_bin threads"
+
+# E7''(rung 3): the wrap prefix `crate::splice::ERR_OPEN` is the six bytes
+# `match `, spliced at the first byte of a `?` operand. A panic whose call site
+# is INSIDE that operand therefore moves by exactly six columns and by no
+# lines. The number is the one pre-registered in
+# `docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md` §1,
+# written here as a constant rather than read from the transformer's source: a
+# check that derives its prediction from the thing under test predicts nothing.
+E7_OPERAND_SHIFT=6
 # The ONLY file a module walk may fail to reach, and how many of this run's
 # units declare it: `probe-app/src/maybe.rs` behind its `#[cfg_attr(path)]`
 # (plan decision D3). An exact set, not a membership test — the probe exercises
@@ -391,6 +400,64 @@ else
     "the binary E7 diffs wrote no spool, so every E7 comparison above is vacuous"
 fi
 elapsed "E7" "$T0"
+
+# ------------------------------------------------------------- E7'' (rung 3) --
+
+section "E7'' -- a panic inside a ? operand moves by exactly the wrap prefix"
+T0="$(now_s)"
+# The one shape rung 3's wrap CAN move. `tests/e7.rs`'s panics sit in plain
+# positions and the checks above demand byte-identical output for them; this
+# probe's panic literal sits inside the operand of a `?`, which the transformer
+# wraps as `match <operand> { __t => .. }`. The prediction, pre-registered
+# before the transformer changed: the LINE is identical and the COLUMN is the
+# plain one plus $E7_OPERAND_SHIFT, exactly.
+#
+# The plain arm is read first and on its own, for the reason E7's is: two empty
+# outputs diff clean, and a comparison of nothing would pass hardest when the
+# probe stopped panicking.
+E7O_PLAIN="$(plain_exe e7_operand)"
+E7O_INSTR="$(instr_exe e7_operand)"
+# `<file>:<line>:<col>` of the FIRST panic in one run's output.
+panic_loc() {
+  { grep -m1 -oE 'panicked at [A-Za-z0-9_./-]+\.rs:[0-9]+:[0-9]+' "$1" || true; } |
+    sed 's/^panicked at //'
+}
+if [ -z "$E7O_PLAIN" ] || [ -z "$E7O_INSTR" ] || [ "$E7O_PLAIN" = "$E7O_INSTR" ]; then
+  for name in e7_operand_plain_arm_panicked_once \
+              e7_operand_line_identical_and_column_shifts_by_the_wrap_prefix \
+              e7_operand_off_tier_shifts_identically; do
+    fail "$name" "could not resolve two distinct e7_operand binaries (plain='$E7O_PLAIN' instrumented='$E7O_INSTR')"
+  done
+else
+  run_e7 "$E7O_PLAIN" "$LOGS/e7op.plain" SENSORIUM_SPOOL= RUST_BACKTRACE=0
+  run_e7 "$E7O_INSTR" "$LOGS/e7op.off"  SENSORIUM_TIER=off  SENSORIUM_SPOOL="$SCRATCH_DIR/e7op-off"  RUST_BACKTRACE=0
+  run_e7 "$E7O_INSTR" "$LOGS/e7op.call" SENSORIUM_TIER=call SENSORIUM_SPOOL="$SCRATCH_DIR/e7op-call" RUST_BACKTRACE=0
+  OP_PLAIN="$(panic_loc "$LOGS/e7op.plain")"
+  OP_OFF="$(panic_loc "$LOGS/e7op.off")"
+  OP_CALL="$(panic_loc "$LOGS/e7op.call")"
+  # These three lines are what the acceptance runner reads out of this log.
+  note "[E7-operand] plain: ${OP_PLAIN:-<none>}"
+  note "[E7-operand] off: ${OP_OFF:-<none>}"
+  note "[E7-operand] call: ${OP_CALL:-<none>}"
+  OP_RESULT="$( { grep -c '^test result: ok\. 1 passed' "$LOGS/e7op.plain" || true; } )"
+  check "e7_operand_plain_arm_panicked_once" \
+    "$([ -n "$OP_PLAIN" ] && [ "$OP_RESULT" = "1" ] && echo 0 || echo 1)" \
+    "plain location='${OP_PLAIN:-<none>}', 'test result: ok. 1 passed' lines=$OP_RESULT; with nothing here the comparisons below compare nothing"
+  op_field() { echo "$1" | awk -F: -v f="$2" '{print $f}'; }
+  OP_WANT=""
+  if [ -n "$OP_PLAIN" ]; then
+    OP_WANT="$(op_field "$OP_PLAIN" 1):$(op_field "$OP_PLAIN" 2):$(( $(op_field "$OP_PLAIN" 3) + E7_OPERAND_SHIFT ))"
+  fi
+  note "[E7-operand] predicted (plain column + $E7_OPERAND_SHIFT): ${OP_WANT:-<none>}"
+  check_eq "e7_operand_line_identical_and_column_shifts_by_the_wrap_prefix" \
+    "${OP_CALL:-<none>}" "${OP_WANT:-<no plain location>}"
+  # Tier `off` compiles the same wrapped bytes; only the runtime's answer
+  # differs. A shift that appeared only under `call` would mean the column
+  # moved for some reason other than the splice.
+  check_eq "e7_operand_off_tier_shifts_identically" \
+    "${OP_OFF:-<none>}" "${OP_WANT:-<no plain location>}"
+fi
+elapsed "E7''" "$T0"
 
 # -------------------------------------------------------- the doctest route --
 

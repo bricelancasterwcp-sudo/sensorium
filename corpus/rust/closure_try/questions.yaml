@@ -1,0 +1,58 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: what-did-the-question-mark-in-the-closure-return-from
+    ask: >
+      The total is 6 for two rows, one of which should have doubled to
+      something. The `?` is inside a closure. What did it return from, and
+      where did the error end up?
+    truth: >
+      It returned from the CLOSURE, not from `total`. The closure has its
+      own frame -- `total::{{closure}}#1` -- so the `?` closed that frame and
+      left `total` running; the error then travelled one more hop into
+      `total` itself and was absorbed by the `unwrap_or(0)` at line 18,
+      after which `total` returned normally. That is a swallow, and its
+      chain has to name all three sites: the parse that produced it, the
+      closure's `?` that carried it, and the sink in the enclosing function
+      that ended it. A reading that stopped at the closure would say the
+      error left the program.
+    why_logs_fail: >
+      The value that would answer this never reaches a statement you could
+      log: it leaves the closure through `?` and dies inside `unwrap_or`,
+      which is one expression with no body to put a `dbg!` in. Printing the
+      total prints 6, which is a number with no failure in it. RUST_LOG
+      reaches no logger and RUST_BACKTRACE never fires -- the run exits 0.
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: swallowed 1"]
+    expect_line:
+      - ["SWALLOWED", "sink_unwrap_or", "total L18", "which returned ok"]
+      - ["hops:", "parse_one L6 exit", "total::{{closure}}#1 L13 try",
+         "total L18 sink_unwrap_or"]
+    expect_count: {"SWALLOWED": 1}
+    expect_absent: ["ambiguous", "panicked", "returned to the harness"]
+  - id: does-the-closure-have-a-frame-of-its-own
+    ask: >
+      Is the closure a frame in this recording, or is its work folded into
+      the function that defines it?
+    truth: >
+      A frame of its own, named for the function that encloses it, and that
+      is what makes the `?` legible: the closure ran twice, returned `Ok(6)`
+      the first time, and the second time returned nothing at all because
+      `?` propagated past its tail. `total`, meanwhile, returned 6 and never
+      failed. If the closure had no frame, the second row's `?` would look
+      like an early return from `total`, and `total` visibly did not return
+      early.
+    why_logs_fail: >
+      A closure has no name to log under: `dbg!` inside it prints values
+      with no indication of which invocation they came from, and the
+      interesting invocation is the one that leaves through `?` before
+      reaching any statement you could have put a print in. RUST_BACKTRACE
+      would name a closure frame, but only during a panic, and nothing here
+      panics; RUST_LOG reaches no logger in this crate.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["total()", "-> 6"]
+      - ["total::{{closure}}#1()", "-> Ok(6)"]
+      - ["total::{{closure}}#1()", "-> ?"]
+      - ["parse_one()", '-> Err("row \"x\" is not a number")']
+    expect_count: {"total::{{closure}}#1()": 2}

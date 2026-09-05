@@ -62,3 +62,30 @@ questions:
       - ["main()", "(open)"]
       - ["compact()", "(open)"]
       - ["checkpoint()", "-> 2"]
+  - id: did-the-dying-child-drop-an-error
+    ask: >
+      The worker died mid-frame. Did it swallow an error on the way, and how
+      confident can this trace be about the answer?
+    truth: >
+      It did not, and the trace can be definite about it rather than
+      hedging. abort() takes the process, not the records: everything the
+      child wrote before it died is in the spool and the conversion
+      finished, so the recording is not marked incomplete and an empty
+      Err-flow answer here is a real "none" -- status 1, the answer "no",
+      not 3, the answer "record it again". That sits beside the OTHER
+      absence in the same trace, which is genuinely unknown: the child's
+      exit is `unwitnessed` and three of its frames are still open. The tool
+      must keep those two apart -- what the program did not do, and what
+      nobody saw.
+    why_logs_fail: >
+      Under a hard crash the log-based reading cannot distinguish these two
+      absences at all: abort() discards the buffered tail, so a missing
+      `dbg!` or RUST_LOG line means either that the code never ran or that
+      its output died in a buffer, and there is no way to tell which.
+      RUST_BACKTRACE is a panic feature and abort() unwinds nothing, so it
+      prints nothing here either.
+    command: ["exceptions", "$RUN2"]
+    expect_exit: 1
+    expect_contains: ["no exceptions recorded"]
+    expect_absent: ["SWALLOWED", "dispositions: swallowed", "dispositions:",
+                    "raised (", "panics:", "REFUSED"]

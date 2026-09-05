@@ -1,7 +1,7 @@
 //! The fence: ONE value-carrying arm makes the whole composite ordinary, and it
 //! is wrapped. `ret(.., match x { A => panic!(), B => 1 })` is legal and
 //! warning-free -- the oracle compiles this file's output to say so.
-
+@W
 pub fn one_arm_panics(c: u8) -> u8 {@G(7)
     @R(7)match c {
         0 => panic!("zero"),

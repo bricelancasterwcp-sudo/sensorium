@@ -7,6 +7,7 @@
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+pub mod spooldir;
 pub mod wire;
 
 /// A scratch directory that removes itself, named after the test so a failed

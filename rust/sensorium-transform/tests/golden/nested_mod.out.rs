@@ -1,4 +1,4 @@
-pub mod outer {
+@Wpub mod outer {
     pub fn top() {@G(7)}
 
     pub mod inner {

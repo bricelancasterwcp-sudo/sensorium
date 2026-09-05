@@ -1,0 +1,9 @@
+[package]
+name = "corpus_outcome_generic"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "outcome_generic"
+path = "src/main.rs"

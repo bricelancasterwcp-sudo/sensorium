@@ -1,0 +1,63 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: was-the-cleanup-error-swallowed
+    ask: >
+      `run` throws its cleanup error away with `let _ =` and then fails on
+      its own work. Is the cleanup error reported as a swallow?
+    truth: >
+      No, and that under-claim is the designed behaviour -- this is the
+      named blind spot. The cleanup error really was dropped, but the frame
+      that dropped it then closed `err` for an unrelated reason, and the
+      recording cannot separate "absorbed, and then the frame failed anyway"
+      from "the absorption is part of how the frame failed". So the verdict
+      is ambiguous, it names the sink and the frame that failed after it,
+      and it says which blind spot it is. The second error -- the one from
+      `work` -- is a separate chain that left `run` through `?` and reached
+      a `main` that returned normally with no sink recorded: also ambiguous,
+      for a different stated reason. The tally is two ambiguous and no
+      swallow at all.
+    why_logs_fail: >
+      Neither error prints. The `let _ =` produces no evidence by
+      construction, and the `?` returns before any reporting code in `run`
+      could run, so a `dbg!` at the end of `run` never executes for either.
+      `main` prints the outer failure, which is the one you already knew
+      about and is not the dropped one. RUST_LOG reaches no logger in this
+      crate and RUST_BACKTRACE never fires -- nothing panics, the process
+      exits 0.
+    command: ["exceptions", "$RUN"]
+    expect_contains: ["dispositions: ambiguous 2"]
+    expect_line:
+      - ["ambiguous", "absorbed by sink_let_underscore", "run L22",
+         "but f2 then failed anyway"]
+      - ["handled, then the frame failed for another reason",
+         "cleanup-then-fail blind spot"]
+      - ["RAISE", "cleanup", '"cleanup scratch.tmp failed"']
+      - ["RAISE", "work", '"work 7 failed"']
+      - ["hops:", "cleanup L12 exit", "run L22 sink_let_underscore"]
+    expect_absent: ["SWALLOWED", "dispositions: swallowed", "panicked",
+                    "returned to the harness"]
+  - id: which-of-the-two-errors-reached-main
+    ask: >
+      `main` printed one failure. Which of the two did it get, and what
+      happened to the other?
+    truth: >
+      `main` got `work`'s. `run` closed with nothing to hand back -- `?`
+      propagated past its tail, so the recorder has no value for that frame
+      and prints `?` rather than guessing -- while both `cleanup` and `work`
+      returned their errors one level down. So the run's own output names
+      the second failure and the first one exists in the recording only as
+      the value absorbed at the sink, which is precisely why one of them is
+      easy to find and the other is not.
+    why_logs_fail: >
+      The printed line IS the second error, so a reader working from output
+      alone has one failure, believes it is the failure, and never learns
+      the cleanup failed. `dbg!` on `run`'s return value cannot be written
+      for a value that leaves through `?`. RUST_LOG reaches no logger and
+      RUST_BACKTRACE never fires here.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["run()", "-> ?"]
+      - ["cleanup()", '-> Err("cleanup scratch.tmp failed")']
+      - ["work()", '-> Err("work 7 failed")']
+    expect_count: {"-> ?": 1}

@@ -1,5 +1,5 @@
 //! `-> !` has no value to probe: a guard, no wrap, and `ret: never`.
-
+@W
 pub fn stop() -> ! {@G(7)
     panic!("stop");
 }

@@ -1,5 +1,5 @@
 //! A struct literal is an expression, and it is still one as a call argument.
-
+@W
 pub struct Counter {
     pub n: u32,
 }

@@ -24,6 +24,16 @@
 //! }, <e>)
 //! ```
 //!
+//! wraps every `?`, sink receiver and `Err(..)` arm the grammar can reach as
+//! (rung 3, `src/errflow.rs`):
+//!
+//! ```ignore
+//! ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, <site>, <how>, {
+//!     use ::sensorium_rt::probe::*;
+//!     (&&&Probe(&__t)).err_cap()
+//! });
+//! ```
+//!
 //! and appends to each instrumented crate root:
 //!
 //! ```ignore
@@ -64,6 +74,8 @@ compile_error!(
      MAP_SHARED mapping grown with ftruncate (spec §4). Portability is designed, not patched in."
 );
 
+mod errflow;
+mod exit;
 mod ffi;
 mod panic;
 pub mod probe;
@@ -72,13 +84,22 @@ mod spool;
 mod tasks;
 mod thread;
 
+// The seven `how` bytes an instrumented program can write. `HOW_EXIT` is
+// deliberately absent: it is the converter's own synthesised how (errflow.rs),
+// no runtime path can write it, and the writer refuses it.
+pub use errflow::{
+    err_site, err_site_unbound, err_site_value, ErrCapture, HOW_ARM_AMBIGUOUS, HOW_ARM_HANDLED,
+    HOW_ARM_PROPAGATE, HOW_SINK_LET_UNDERSCORE, HOW_SINK_OK, HOW_SINK_UNWRAP_OR, HOW_TRY,
+};
+pub use exit::ret;
 pub use tasks::spawn_child;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU16, AtomicU64, AtomicU8, Ordering};
 use std::sync::{Mutex, Once, OnceLock};
 
-use probe::{Capture, Outcome};
+use exit::{write_return_payload, RETURN_PAYLOAD_MAX};
+use probe::{Exit, Outcome};
 use spool::{KIND_CALL, KIND_RETURN, OUTCOME_NONE, SITE_INDEX_MASK, UNIT_ID_SHIFT};
 
 // ---------------------------------------------------------------------------
@@ -89,7 +110,7 @@ const STATE_UNINIT: u8 = 0;
 /// Configured off, or no spool directory. Inert.
 const STATE_OFF: u8 = 1;
 /// Recording CALL/RETURN.
-const STATE_CALL: u8 = 2;
+pub(crate) const STATE_CALL: u8 = 2;
 /// More units than the wire format's 8-bit unit id can carry. Inert.
 const STATE_REFUSED: u8 = 3;
 /// An I/O error took the recorder down. Inert.
@@ -97,7 +118,7 @@ const STATE_FAILED: u8 = 4;
 
 /// The single word the hot path reads. Stored with `Release` and loaded with
 /// `Acquire`, so a thread that sees `STATE_CALL` also sees `SPOOL_DIR`.
-static STATE: AtomicU8 = AtomicU8::new(STATE_UNINIT);
+pub(crate) static STATE: AtomicU8 = AtomicU8::new(STATE_UNINIT);
 static INIT: Once = Once::new();
 static SPOOL_DIR: OnceLock<PathBuf> = OnceLock::new();
 static START_NS: AtomicU64 = AtomicU64::new(0);
@@ -190,7 +211,7 @@ pub(crate) fn fail_process(what: &str, e: &std::io::Error) {
 
 /// The spool directory, created (once) on the process's first event. `None`
 /// once the recorder is inert for any reason.
-fn ensure_dir() -> Option<&'static Path> {
+pub(crate) fn ensure_dir() -> Option<&'static Path> {
     let dir = SPOOL_DIR.get()?;
     DIR_READY.call_once(|| {
         if let Err(e) = std::fs::create_dir_all(dir) {
@@ -262,7 +283,7 @@ impl Unit {
     }
 }
 
-fn unit_id(unit: &'static Unit, dir: &Path) -> Option<u8> {
+pub(crate) fn unit_id(unit: &'static Unit, dir: &Path) -> Option<u8> {
     match unit.current_id() {
         Some(id) => Some(id),
         None => register_unit(unit, dir),
@@ -430,7 +451,7 @@ fn enter_recording(unit: &'static Unit, site: u32) -> Guard {
     }
 }
 
-fn pack_site(unit_id: u8, site: u32) -> u32 {
+pub(crate) fn pack_site(unit_id: u8, site: u32) -> u32 {
     (u32::from(unit_id) << UNIT_ID_SHIFT) | (site & SITE_INDEX_MASK)
 }
 
@@ -452,10 +473,19 @@ fn emit_return(site: u32, depth: u32, entered_unwinding: bool) {
     // and returned. Only a false-to-true transition ACROSS this frame is a
     // panic this frame was torn through by.
     let panicking = !entered_unwinding && std::thread::panicking();
-    let outcome = if panicking {
-        Outcome::Panic
+    let exit = if panicking {
+        Exit {
+            outcome: Outcome::Panic,
+            err_type: None,
+        }
     } else {
-        mine.as_ref().map_or(Outcome::None, |s| s.outcome)
+        mine.as_ref().map_or(
+            Exit {
+                outcome: Outcome::None,
+                err_type: None,
+            },
+            |s| s.exit,
+        )
     };
     let capture = if panicking {
         None
@@ -463,90 +493,12 @@ fn emit_return(site: u32, depth: u32, entered_unwinding: bool) {
         mine.as_ref().map(|s| &s.capture)
     };
     let mut buf = [0u8; RETURN_PAYLOAD_MAX];
-    let len = write_return_payload(&mut buf, capture);
+    let len = write_return_payload(&mut buf, capture, exit);
+    let outcome = exit.outcome;
     if let Some(dir) = SPOOL_DIR.get() {
         thread::emit(dir, site, KIND_RETURN, outcome as u8, &buf[..len]);
     }
     thread::close_frame(depth);
-}
-
-// ---------------------------------------------------------------------------
-// The exit operand
-// ---------------------------------------------------------------------------
-
-const TAG_NO_VALUE: u8 = 0;
-const TAG_DEBUG: u8 = 1;
-const TAG_UNREAD: u8 = 2;
-const RETURN_PAYLOAD_MAX: usize = 2 + probe::CAP;
-
-/// Stash `(site, cap(&v))` for this frame's guard and hand `v` straight back.
-///
-/// `cap` is called ONLY when the recorder is live on this thread: at tier `off`
-/// this function is a move and a compare, and a `Debug` impl that would have
-/// been invoked is not invoked.
-pub fn ret<T>(
-    unit: &'static Unit,
-    site: u32,
-    cap: impl FnOnce(&T) -> (Capture, Outcome),
-    v: T,
-) -> T {
-    if STATE.load(Ordering::Acquire) == STATE_CALL {
-        stash_return(unit, site, cap, &v);
-    }
-    v
-}
-
-#[inline(never)]
-fn stash_return<T>(
-    unit: &'static Unit,
-    site: u32,
-    cap: impl FnOnce(&T) -> (Capture, Outcome),
-    v: &T,
-) {
-    // The capture runs INSIDE the runtime scope, so a workspace `Debug` impl
-    // that calls instrumented code records nothing (spec §3.6).
-    let Some(_scope) = thread::try_enter_runtime() else {
-        return;
-    };
-    // No registration here: a unit with no id has no open frame at this site.
-    let Some(id) = unit.current_id() else {
-        return;
-    };
-    // With no frame open on this thread there is no guard that could ever take
-    // this, so it is not left for one.
-    let depth = thread::frame_depth();
-    if depth == 0 {
-        return;
-    }
-    let (capture, outcome) = cap(v);
-    thread::push_stash(thread::Stash {
-        site: pack_site(id, site),
-        depth,
-        capture,
-        outcome,
-    });
-}
-
-/// `u8 tag, u8 truncated, then the UTF-8 text`. Always at least the two bytes,
-/// on every RETURN, so a reader never has to ask whether a payload is there.
-fn write_return_payload(buf: &mut [u8; RETURN_PAYLOAD_MAX], capture: Option<&Capture>) -> usize {
-    buf[1] = 0;
-    let Some(capture) = capture else {
-        buf[0] = TAG_NO_VALUE;
-        return 2;
-    };
-    let Some(text) = capture.text.as_deref() else {
-        buf[0] = TAG_UNREAD;
-        return 2;
-    };
-    buf[0] = TAG_DEBUG;
-    // `spool::record` refuses a payload it cannot describe rather than clamping
-    // one, so the cut happens here, on a char boundary -- and it is witnessed by
-    // the flag, whether the capping writer cut the text or this did.
-    let (text, cut_here) = spool::cap_utf8(text, probe::CAP);
-    buf[1] = u8::from(capture.truncated || cut_here);
-    buf[2..2 + text.len()].copy_from_slice(text.as_bytes());
-    2 + text.len()
 }
 
 // ---------------------------------------------------------------------------
@@ -579,82 +531,5 @@ mod tests {
     #[test]
     fn a_site_index_that_would_alias_is_masked_not_bled_into_the_unit_id() {
         assert_eq!(pack_site(2, SITE_INDEX_MASK + 1), 2 << 24);
-    }
-
-    /// The tags are wire-format numbers, so they are written out here as
-    /// numbers. Asserting against the constants would move with them and pin
-    /// nothing -- which is exactly what these three tests did until a mutation
-    /// run walked through them untouched.
-    #[test]
-    fn the_payload_tags_are_the_numbers_the_wire_format_names() {
-        assert_eq!(TAG_NO_VALUE, 0);
-        assert_eq!(TAG_DEBUG, 1);
-        assert_eq!(TAG_UNREAD, 2);
-    }
-
-    #[test]
-    fn a_return_with_no_capture_is_two_bytes() {
-        let mut buf = [0u8; RETURN_PAYLOAD_MAX];
-        assert_eq!(write_return_payload(&mut buf, None), 2);
-        assert_eq!(&buf[..2], &[0, 0]);
-    }
-
-    #[test]
-    fn an_unread_value_is_two_bytes_with_tag_two() {
-        let mut buf = [0u8; RETURN_PAYLOAD_MAX];
-        let c = Capture {
-            text: None,
-            truncated: false,
-        };
-        assert_eq!(write_return_payload(&mut buf, Some(&c)), 2);
-        assert_eq!(&buf[..2], &[2, 0]);
-    }
-
-    #[test]
-    fn a_read_value_carries_its_text_and_its_flag() {
-        let mut buf = [0u8; RETURN_PAYLOAD_MAX];
-        let c = Capture {
-            text: Some("Ok(3)".to_owned()),
-            truncated: true,
-        };
-        let n = write_return_payload(&mut buf, Some(&c));
-        assert_eq!(n, 7);
-        assert_eq!(buf[0], 1);
-        assert_eq!(buf[1], 1);
-        assert_eq!(&buf[2..n], b"Ok(3)");
-    }
-
-    #[test]
-    fn an_over_long_capture_is_clipped_on_a_char_boundary_and_flagged() {
-        // `truncated: false` on purpose: the cut happens HERE, and the flag has
-        // to be set by the writer that cut, not inherited from the capture.
-        let text = "é".repeat(500);
-        let mut buf = [0u8; RETURN_PAYLOAD_MAX];
-        let c = Capture {
-            text: Some(text),
-            truncated: false,
-        };
-        let n = write_return_payload(&mut buf, Some(&c));
-        assert!(n <= RETURN_PAYLOAD_MAX, "{n} bytes");
-        assert_eq!(n, 2 + probe::CAP, "'é' is two bytes and the cap is even");
-        assert_eq!(
-            buf[1], 1,
-            "a payload cut here is a payload marked truncated"
-        );
-        assert_eq!(
-            std::str::from_utf8(&buf[2..n]),
-            Ok("é".repeat(probe::CAP / 2).as_str())
-        );
-    }
-
-    #[test]
-    fn an_empty_debug_rendering_is_a_read_value_not_an_unread_one() {
-        let mut buf = [0u8; RETURN_PAYLOAD_MAX];
-        let c = Capture {
-            text: Some(String::new()),
-            truncated: false,
-        };
-        assert_eq!(write_return_payload(&mut buf, Some(&c)), 2);
-        assert_eq!(&buf[..2], &[1, 0], "tag 1 with no text, never tag 2");
     }
 }

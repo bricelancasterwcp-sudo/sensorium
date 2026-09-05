@@ -1,0 +1,65 @@
+program: cargo
+cargo_args: ["test", "--", "--test-threads=1"]
+questions:
+  - id: how-many-failures-were-there
+    ask: >
+      The test failed with a bare `BadRow("4o")` and no stack. Four
+      functions in this crate can produce that type. How many failures
+      actually happened, and which function produced the one that ended the
+      test?
+    truth: >
+      One failure, not four. A single error was born in `field` -- the only
+      frame that built it -- and then handed up through `threshold`,
+      `budget` and `plan` by `?`, and out of the test function by a fourth
+      `?`. So the answer is one chain reported ONCE, at its origin, with
+      every hop named: `field` raised it, three `?` sites carried it, and
+      the test function returned it to libtest. A reading that reported four
+      failures, or that named `plan` (the last frame to touch it) as the
+      producer, would send the reader to the wrong file.
+    why_logs_fail: >
+      libtest prints the `Debug` of the returned error and nothing else --
+      no frame, no line, no stack -- because a test that returns `Err` did
+      not panic, so RUST_BACKTRACE prints nothing at all here. That is the
+      trap: the tool a Rust developer reaches for first is silent by
+      construction on this shape. `dbg!` at each `?` would answer it and is
+      four edits across four functions, made only once you already know
+      which four.
+    command: ["exceptions", "$RUN"]
+    expect_contains:
+      - "dispositions: returned-to-harness 1"
+      - "raised (1):"
+    expect_line:
+      - ["RAISE", "field", 'BadRow("4o")']
+      - ["returned to the harness", "tests::the_plan_reads_the_threshold_row",
+         "manifest marks as a #[test] fn"]
+      - ["hops:", "field L9 exit", "threshold L14 try", "budget L19 try",
+         "plan L24 try", "tests::the_plan_reads_the_threshold_row L37 try"]
+    expect_count: {"RAISE": 1}
+    expect_absent: ["SWALLOWED", "dispositions: swallowed", "ambiguous",
+                    "panicked"]
+  - id: did-the-first-row-fail-too
+    ask: >
+      The test reads two rows. Did the good row fail quietly on its way
+      through the same four functions?
+    truth: >
+      No. The first row parsed: `field -> Ok(4)`, `threshold -> Ok(4)`,
+      `budget -> Ok(40)`, `plan -> Ok(41)`, four returns with values. The
+      second row's four frames returned nothing at all -- `?` propagated
+      past each tail, so the recorder has no value to report and prints `?`
+      -- and the bottom of that second stack is the one frame that produced
+      an Err. Two passes through the same four functions, and the trace
+      keeps them apart by activation rather than by function name.
+    why_logs_fail: >
+      A log line per function would print eight lines with nothing to say
+      which four belong to which row, and the four that matter print the
+      least: a function that returns early through `?` never reaches a log
+      statement placed at its end. `dbg!` on the return value cannot be
+      written at all for a value that leaves through `?`. RUST_LOG has no
+      logger here and RUST_BACKTRACE never fires on a returned `Err`.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["plan()", "-> Ok(41)"]
+      - ["budget()", "-> Ok(40)"]
+      - ["field()", "-> Ok(4)"]
+      - ["field()", '-> Err(BadRow("4o"))']
+    expect_count: {"-> ?": 4}

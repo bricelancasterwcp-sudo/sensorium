@@ -55,9 +55,7 @@ counted, not quietly answered. Container captures are unaffected: their
 recorded length is exact even when the sample was capped, and nothing here
 reads a `sample` key (a depth-capped capture omits it entirely).
 """
-import argparse
 import shlex
-import sys
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
@@ -84,21 +82,6 @@ CLAIM = (
 )
 
 
-class _NearAlias(argparse.Action):
-    """`--near`, kept as a hidden alias for `--misses` (removed in 0.8.0).
-
-    Shares `--misses`'s `dest` so the rest of the command never branches on
-    which spelling was used, and records that the alias fired: argparse's
-    default store action never says which option string reached a shared
-    dest, and this is the one place that can still catch it, to print the
-    deprecation line exactly once in `run` rather than matching argv text
-    there.
-    """
-    def __call__(self, parser, namespace, values, option_string=None):
-        setattr(namespace, self.dest, values)
-        namespace.near_alias_used = True
-
-
 def add_parser(sub) -> None:
     p = sub.add_parser(
         "watch", help="predicate over captured state",
@@ -112,14 +95,7 @@ def add_parser(sub) -> None:
     p.add_argument("--limit", type=int, default=20)
     p.add_argument("--misses", type=int, default=5, dest="misses",
                    help="how many near-misses to show when nothing hit")
-    # Hidden alias for one release (X9): `--near N` collided with a
-    # location filter's usual meaning elsewhere in this CLI. `--misses` is
-    # the real flag; `--near` only still works so an existing script does
-    # not break mid-release, and `run` prints the deprecation line above
-    # whenever `near_alias_used` says it fired.
-    p.add_argument("--near", type=int, dest="misses", action=_NearAlias,
-                   help=argparse.SUPPRESS)
-    p.set_defaults(func=run, near_alias_used=False)
+    p.set_defaults(func=run)
 
 
 # -- selecting sites -------------------------------------------------------
@@ -566,12 +542,6 @@ def _no_match(trace, args, mod_of) -> int:
 
 
 def run(args) -> int:
-    if args.near_alias_used:
-        # Printed exactly once per invocation, above everything else this
-        # command prints, regardless of how many times --near appeared or
-        # what value it carried -- one alias use, one warning.
-        print("sensorium: --near is deprecated; use --misses "
-              "(removed in 0.8.0)", file=sys.stderr)
     for flag, val in (("--limit", args.limit), ("--misses", args.misses)):
         if val < 1:
             # `--misses 0` is refused for the same reason as `--limit 0`,

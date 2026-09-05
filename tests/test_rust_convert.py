@@ -165,6 +165,154 @@ def test_case_converts_and_answers_every_question(case_name, tmp_path):
                 f"{case_name}: {db_path.name} meta spawns "
                 f"{trace.meta.get('spawns')!r} is not the manifest's "
                 f"{expected_spawns!r}")
+        _check_err_flow_payloads(case_name, db_path.name, trace)
+        if case_name == "errflow":
+            _check_errflow_chain_terminals(db_path.name, trace)
+
+
+def _check_err_flow_payloads(case_name: str, db_name: str, trace) -> None:
+    """Every `exc` object a Rust trace carries says which KIND of thing it
+    is, and the two kinds' serials never collide.
+
+    `docs/TRACE-FORMAT.md` §5: a Rust RAISE/HANDLED carries `exc.kind` --
+    `"err"` for an `Err` value, `"panic"` for a panic -- and the `Err` chain
+    serials are minted in a namespace starting at `1 << 32`, disjoint from
+    the per-thread panic serials that start at 1. A rule that instead read
+    `type == "panic"` would misread a workspace error type spelled that way,
+    and a shared serial namespace would let one panic and one chain claim to
+    be the same thing. An `err` event also carries the `chain` object the
+    rung-3 disposition rules are computed from; a panic RAISE carries none.
+    """
+    for e in trace.events():
+        if e.kind not in ("RAISE", "HANDLED"):
+            continue
+        exc = (e.payload or {}).get("exc")
+        where = f"{case_name}/{db_name}: e{e.id} {e.kind}"
+        assert exc is not None, f"{where} carries no exc object"
+        kind = exc.get("kind")
+        assert kind in ("err", "panic"), (
+            f"{where} carries exc.kind {kind!r}; a Rust exc object says "
+            "which of the two kinds it is")
+        serial = exc.get("serial")
+        # Named before it is compared: an absent serial would otherwise fail
+        # as a TypeError against `2 ** 32`, which says nothing about the
+        # trace.
+        assert isinstance(serial, int), (
+            f"{where} carries exc.serial {serial!r}; every Rust exc object "
+            "is identified by an integer serial")
+        chain = (e.payload or {}).get("chain")
+        if kind == "err":
+            assert serial >= 2 ** 32, (
+                f"{where} is an Err with serial {serial}, below the "
+                "1 << 32 the chain namespace starts at -- it could collide "
+                "with a panic serial on the same thread")
+            assert isinstance(chain, dict), (
+                f"{where} is an Err with chain {chain!r}; the disposition "
+                "rules read a chain object off every err-flow event")
+            assert set(chain) >= {"serial", "hop", "origin", "translated"}, (
+                f"{where} chain is {sorted(chain)}, missing one of "
+                "serial/hop/origin/translated")
+            assert chain["serial"] == serial, (
+                f"{where} chain serial {chain['serial']} is not the exc's "
+                f"{serial}")
+        else:
+            assert serial < 2 ** 32, (
+                f"{where} is a panic with serial {serial}, inside the "
+                "chain namespace")
+            assert chain is None, (
+                f"{where} is a panic carrying a chain object {chain!r}")
+
+
+def _chains(trace) -> dict:
+    """`(thread, chain serial)` -> the chain's events in trace order, the
+    same grouping `query/exceptions_rust.Index` does. Serials are minted
+    per THREAD, so the thread is half the key."""
+    out: dict = {}
+    for e in trace.events(kind=("RAISE", "HANDLED")):
+        p = e.payload or {}
+        if (p.get("exc") or {}).get("kind") != "err":
+            continue
+        out.setdefault((e.thread_id, p["chain"]["serial"]), []).append(e)
+    return out
+
+
+def _check_errflow_chain_terminals(db_name: str, trace) -> None:
+    """The `errflow` case's two chains end with the exact terminals the
+    §2a machine owes them, and every event before a chain's last carries
+    NO terminal at all.
+
+    This is the one place the two halves of the rung are held against each
+    other by VALUE. `_check_err_flow_payloads` above pins that a `chain`
+    object exists and `tests/test_exceptions_rust.py` pins what each
+    terminal MEANS, but both would stay green if the converter stopped
+    writing terminals: the shape check does not require the key, and the
+    Python tests build their own traces. Deleting `terminal` from the
+    machine would then be a silent change that turned every real Rust
+    answer into "the recording records no ending for this chain".
+
+    The fixture is two chains of one `Err` type: `inner`'s first `Err`,
+    which `swallow`'s `.ok()` absorbs before `swallow` returns ok
+    (`swallowed_candidate` on the HANDLED), and `inner`'s second, which
+    `run` takes by `?` and returns from a `#[test]` fn
+    (`returned_to_harness` on the synthesised `exit` RAISE that is the
+    chain's last event). Both were BORN at an instrumented site, so both
+    say `origin: "workspace"` -- `"outside"` there would be the trace
+    claiming an `Err` it watched being made had arrived from a dependency.
+    """
+    chains = _chains(trace)
+    assert len(chains) == 2, (
+        f"errflow/{db_name}: {len(chains)} err chains, expected 2 "
+        f"({sorted(chains)})")
+    ends = {}
+    for key, events in chains.items():
+        for e in events[:-1]:
+            assert "terminal" not in e.payload["chain"], (
+                f"errflow/{db_name}: e{e.id} is not chain {key[1]}'s last "
+                f"event and carries terminal "
+                f"{e.payload['chain']['terminal']!r}; the key rides the last "
+                "event and is omitted everywhere else")
+        for e in events:
+            assert e.payload["chain"]["origin"] == "workspace", (
+                f"errflow/{db_name}: e{e.id} says origin "
+                f"{e.payload['chain']['origin']!r}; this chain was born at "
+                "an instrumented site")
+        last = events[-1]
+        chain = last.payload["chain"]
+        # Named, not indexed: a converter that stopped writing terminals
+        # would otherwise fail here as a KeyError, which says nothing about
+        # the trace to whoever reads the run.
+        assert "terminal" in chain, (
+            f"errflow/{db_name}: e{last.id} is chain {key[1]}'s last event "
+            "and carries no terminal; the disposition rules read a chain's "
+            "ending from there and recompute nothing, so a chain with no "
+            "terminal reads as one whose ending was never recorded")
+        ends[chain["terminal"]] = (last.kind, last.payload["how"])
+    assert ends == {"swallowed_candidate": ("HANDLED", "sink_ok"),
+                    "returned_to_harness": ("RAISE", "exit")}, ends
+    hops = {key: [e.payload["chain"]["hop"] for e in events]
+            for key, events in chains.items()}
+    assert sorted(hops.values()) == [[1, 1], [1, 2, 3]], hops
+
+
+def test_gen_refuses_an_err_flow_how_that_belongs_to_the_other_record_kind():
+    """A fixture cannot describe a record no runtime could write.
+
+    The transformer writes the manifest row and the runtime writes the `how`
+    byte from ONE splice, so a RAISE carrying a sink's `how` is corruption --
+    the converter refuses it by name, and a case that spelled one would be
+    pinning the refusal by accident instead of the shape it meant to.
+    """
+    with pytest.raises(ValueError, match="belongs to a handled record"):
+        gen._encode_op({"op": "raise", "unit": 0, "site": 0, "seq": 0,
+                        "ts": 1, "how": "sink_ok"})
+    with pytest.raises(ValueError, match="belongs to a raise record"):
+        gen._encode_op({"op": "handled", "unit": 0, "site": 0, "seq": 0,
+                        "ts": 1, "how": "try"})
+    # 8 is `exit`, the converter's own synthesised origin, which never
+    # appears on the wire -- so a case cannot write one by name either.
+    with pytest.raises(ValueError, match="unknown err-flow how 'exit'"):
+        gen._encode_op({"op": "raise", "unit": 0, "site": 0, "seq": 0,
+                        "ts": 1, "how": "exit"})
 
 
 def test_every_case_pins_a_named_invariant_and_asserts_something():
@@ -174,7 +322,7 @@ def test_every_case_pins_a_named_invariant_and_asserts_something():
     assert CASES, "no rust-spool fixtures found"
     for name in ("identical-pair", "panic-unwind", "live-thread",
                  "child-linked", "unwitnessed-exit", "unnamed-task",
-                 "spawn-sites"):
+                 "spawn-sites", "errflow"):
         assert name in CASES, f"missing fixture case {name!r}"
     for case_name in CASES:
         case, questions = _load_case(case_name)

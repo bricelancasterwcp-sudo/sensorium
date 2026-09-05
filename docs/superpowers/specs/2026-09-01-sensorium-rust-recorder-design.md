@@ -1303,6 +1303,37 @@ code objects correctly) — see §11's rung-3 entry decision below.
    endpoint E5′).
 3. **Err flow** — `?`, sinks, arm classification, closures, Rust `exceptions`
    rules, corpus swallow/panic/interleave cases. Acceptance: E6.
+
+   **Amended 2026-09-05: rung 3 is DONE-WITH-PASS, after a STOP and a repair
+   slice.** Design:
+   `docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`
+   (R1–R16, §2a the chain machine; design authority delegated to Claude by
+   Brice on 2026-09-04). Plan:
+   `docs/superpowers/plans/2026-09-04-sensorium-rung3-err-flow.md`.
+   Versions: `sensorium-rt`/`sensorium-transform`/`cargo-sensorium` 0.3.0
+   (wire v3), Python 0.8.0. Ledger: `rust/HONESTY.md` §11 and
+   `rust/HONESTY-BLIND-SPOTS.md` items 15–26.
+
+   The first measurement
+   (`docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md`)
+   read **STOP** on E6′: 15 SWALLOWED lines on the bloomery clone's `--lib`
+   suite, **1 false** under both readings — an `Err(e) =>` arm whose
+   `format!` PRODUCT is the value the function returns (`memory.rs:131`).
+   E6, E2″ (392/401 = 97.76 %), E7″, E3″, E5″ and E0″ all PASS. The
+   pre-registered consequence was taken as written: the rule was amended
+   (R2 amendment, 2026-09-05 — `format!`/`format_args!`/`write!`/`writeln!`
+   leave the exemption; only the logging family's bare arguments keep it),
+   a new endpoint set was pre-registered and byte-locked, and the repair was
+   re-measured rather than declared.
+   The second measurement
+   (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md`) reads
+   **PASS**: E6‴-A and E6‴-W both **0 false of 14**, under the amended
+   reading and the strictest pre-lock reading; E6-again equal on all three
+   conjuncts over 18 corpus cases; E7‴ unchanged. Two limits are part of that
+   PASS: `--workspace --lib` reached the same 2 of 29 located blast-radius
+   arms as `-p bloomery-daemon --lib`, and 2 of the 14 lines are match-guard
+   arms whose reading is settled by R15's ruling of 2026-09-05, not by a
+   measurement.
 4. **Focus tier** — LINE/locals under `--focus`, `watch`/`flow`, driver-side
    focus resolution, `refocus` via re-invocation, reentrancy, E4, the
    through-reference and fell-back corpus cases.
@@ -1405,3 +1436,23 @@ rung-2 plan's own table) or a §3/§4/§5 number of
 | `spawn_child` naming (§3.5) | **Renamed 2026-09-03** (rung-3 entry, Brice's ruling (b)): `<parent> :: spawn@<qualname>#<k>`, closing the E5 gap the row above measured | §3.5 amendment; `docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`; E5′ in `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md` |
 | §10 rung 2's expected verdict: `MATCH modulo location` on the registry.rs split | **Measured `DIVERGED`** — not a test-order change, but four spawned child task names whose site moved with the split | §10 amendment above; acceptance §3 (E5), §4 |
 | §11 rung 2: entry condition only, no exit stated | **DONE-WITH-STOP.** E2′/E3/E7/E8 PASS, E5 STOP; the fix is a rung-3 entry decision for Brice among three options, stated neutrally, with the controller's own recommendation named separately | §11 amendment above; acceptance §4 |
+
+### Rung-3 deltas: what designing and measuring err flow changed against this spec (2026-09-05)
+
+Every row is a sentence of this spec's §3.3, §6 or §8 that rung 3's design
+(`docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`, rows
+R1–R16 and §2a) changed, or that its two measurements falsified. The evidence
+column names an R-row, a §2a refinement, or a §3/§4/§5 number of one of the
+two acceptance records — 2026-09-04 (E6′ **STOP**) and 2026-09-05 (E6‴
+**PASS**).
+
+| This spec said | Rung 3 decided or measured | Evidence |
+|---|---|---|
+| HANDLED at every `.ok()`/`unwrap_or`/`let _`/`if let Err`/`Err` arm (§3.3, §13's own rung-0 row) | **`.is_err()`/`.is_ok()` are dropped from the list.** They take `&self` and observe rather than absorb, so a HANDLED there would report a predicate (`fn healthy(&self) -> bool { self.conn.ping().is_ok() }`) as a swallow. The four by-value sinks stay, and a place-expression receiver of them IS wrapped — the critic's E0507 argument applies only to the two predicates | R2 and its erratum of 2026-09-04 (measured on rustc 1.96 at `-D warnings`) |
+| `Err` arms are classified; the classes were not enumerated (§3.3, §6's "bound to a name and stored → AMBIGUOUS") | **Four classes, three of them probed.** PROPAGATE → `arm_propagate`; ESCAPED → `arm_ambiguous`, a HANDLED-class record that can never reach SWALLOWED, whenever the bound name appears anywhere but a provable shared borrow; else `arm_handled`; and **PANIC arms get no probe at all** — the panic hook is the record, and a probe there would shift the panic's column, which E7″ measures | R2; goldens `err_arms_three_ways`, `err_arm_escaped`, `mixed_arms` |
+| a chain serial "carried with the Err" was left open (§6) | **Chains are minted at CONVERSION**, from the per-thread record order, in a namespace disjoint from panic serials (`1 << 32` upward); the runtime stays dumb and the rules are unit-testable on hand-built traces. There is no error identity on the wire, so identity is `(holder frame, type, Debug text)` — two `Err`s of one type with identical text in one window are one chain, and a truncated text falls back to the type (merge-only) | R7, §2a; `docs/TRACE-FORMAT.md` §5; `convert/chains/` |
+| "a swallowed `Err` is named only when a written sink absorbed it" (§6) | **A chain the recording never saw born is still SWALLOWED**, and the detail says where the blindness is: *born outside this thread's instrumented frames* — amended 2026-09-04 from "outside instrumented code", which was false for an `Err` produced by an instrumented frame on ANOTHER thread (`corpus/rust/join_handle`; the machine is per-thread by design) | R8 amendment; `fa5f5d7` |
+| E6's floor: "zero false SWALLOWED" (§8) | **Measured twice. First run STOP at 1 false of 15** — a format argument's PRODUCT can escape, which the exemption was silent about — then, after the R2 amendment, **0 false of 14 on two selectors and both readings** | acceptance 2026-09-04 §4/§5.1; acceptance 2026-09-05 §4/§4.3 |
+| E7's promise, "panic locations preserved" (§8) | **Preserved with one measured clause and one stated clause** (amended 2026-09-05, final review): lines never move; (a) a column inside a wrapped `?` operand shifts by the wrap prefix's byte length — predicted as **+6** before the run and met exactly, at both tiers, in both runs; (b) after an arm probe or closure guard spliced at a same-line `{`, a column shifts by the probe's byte length — stated, unmeasured (CARRIED-DEBT: a mechanics check) | R15; E7″ and E7‴ §3 |
+| `exceptions` for `lang = rust` is keyed on the language (§6) | **Keyed on the language AND gated on a capability.** `capabilities.err_flow` is a Rust-only key the runtime declares and the converter passes through; a trace an earlier runtime wrote is REFUSED by name at exit 3, because what it lacks is a record, not a rule | R9; `docs/TRACE-FORMAT.md` §4; vector `v19` |
+| the blind spots of `?`-flow were not enumerated (§3.3) | **Twelve named, each with a falsifier or the words "untested by fixture"**, including ONE residual false-accusation generator of the amended class (a value-format macro nested inside a logging argument), RECORDED rather than repaired after its exposure on the clone measured **zero**. The whole-word-`e` over-escape beside it is NOT of that kind: it yields AMBIGUOUS, never an accusation, and its exposure is **measured nowhere** — the two are stated apart so the zero is not read as covering both | R16; `rust/HONESTY-BLIND-SPOTS.md` items 15–26 (item 23 (a) and (b)); acceptance 2026-09-05 §5.3, §5.4 |

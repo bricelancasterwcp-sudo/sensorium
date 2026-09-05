@@ -1,6 +1,6 @@
 //! A macro call that is not one of the diverging four is an ordinary expression
 //! and is wrapped -- including the brace-delimited statement-macro spelling.
-
+@W
 macro_rules! pick {
     ($e:expr) => {
         $e

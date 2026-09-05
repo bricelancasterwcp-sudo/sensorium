@@ -10,8 +10,11 @@
 //! `<pid>.runner.json` is read against that set -- a spool file whose pid has
 //! no proc header is an orphan and a hard error, never silently skipped.
 
+mod chains;
+mod errflow;
 mod fingerprint;
 mod frames;
+mod manifest;
 mod merge;
 mod meta;
 mod runid;
@@ -23,7 +26,8 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 
-use spool::{InvocationRecord, Manifest, ProcHeader, RunnerRecord};
+use manifest::Manifest;
+use spool::{InvocationRecord, ProcHeader, RunnerRecord};
 
 /// One pid's worth of the report `convert_dir` prints.
 pub struct TraceSummary {
@@ -337,6 +341,40 @@ fn child_runs(
     out
 }
 
+/// The site table the `exceptions` reader joins a frame to its marks with
+/// (design R1b/R8): one row per site of the units THIS process registered.
+///
+/// Registered-unit-scoped for the same reason `skipped` is -- the proc header
+/// lists exactly the units this process linked -- and it carries every kind,
+/// not just the frames, because the row an err-flow event was recorded at is
+/// what names the sink a chain was absorbed at.
+fn site_table(registered: &[String], manifests: &BTreeMap<String, Manifest>) -> Vec<Value> {
+    let mut out = Vec::new();
+    for metadata in registered {
+        let Some(m) = manifests.get(metadata) else {
+            continue;
+        };
+        for (file, sites) in &m.files {
+            for s in sites {
+                let mut row = serde_json::Map::new();
+                row.insert("unit".to_owned(), json!(metadata));
+                row.insert("site".to_owned(), json!(s.site));
+                row.insert("file".to_owned(), json!(file));
+                row.insert("qualname".to_owned(), json!(s.qualname));
+                row.insert("kind".to_owned(), json!(s.kind.as_str()));
+                row.insert("line".to_owned(), json!(s.firstlineno.or(s.line)));
+                if let Some(how) = &s.how {
+                    row.insert("how".to_owned(), json!(how));
+                }
+                row.insert("test".to_owned(), json!(s.test));
+                row.insert("main".to_owned(), json!(s.main));
+                out.push(Value::Object(row));
+            }
+        }
+    }
+    out
+}
+
 // ---------------------------------------------------------------------------
 // Per-pid conversion
 // ---------------------------------------------------------------------------
@@ -368,6 +406,10 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         .iter()
         .map(|s| (s.serial, (s.records_dropped, s.truncated)))
         .collect();
+    // Per THREAD, because that is the granularity a spool file has: one
+    // process's threads all write the same version in practice, and a reader
+    // that assumed it would be reading the header of one file into another.
+    let versions: BTreeMap<u32, u8> = spools.iter().map(|s| (s.serial, s.version)).collect();
 
     let merged = merge::merge(spools)?;
 
@@ -378,12 +420,15 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
 
     let result = frames::process(
         &writer,
-        &merged,
-        c.proc,
-        c.all_manifests,
-        &c.invocation.workspace_root,
-        c.pid,
-        &names,
+        &frames::Walk {
+            merged: &merged,
+            proc: c.proc,
+            manifests: c.all_manifests,
+            workspace_root: &c.invocation.workspace_root,
+            pid: c.pid,
+            names: &names,
+            versions: &versions,
+        },
     )?;
 
     let threads_started = names.keys().filter(|&&s| s != 1).count();
@@ -410,6 +455,7 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
     let registered = c.proc.units_in_order();
     let mut source_hashes = BTreeMap::new();
     let mut skipped = Vec::new();
+    let mut partial = Vec::new();
     let mut spawns = Vec::new();
     let mut unreached_files = Vec::new();
     for metadata in &registered {
@@ -433,6 +479,7 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
             source_hashes.insert(k.clone(), v.clone());
         }
         skipped.extend(m.skipped.iter().cloned());
+        partial.extend(m.partial.iter().cloned());
         spawns.extend(m.spawns.iter().cloned());
         unreached_files.extend(m.unreached_files.iter().cloned());
     }
@@ -477,6 +524,8 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         uninstrumented: c.uninstrumented_global,
         manifests_unscoped: c.manifests_unscoped,
         skipped: &skipped,
+        partial: &partial,
+        sites: &site_table(&registered, c.all_manifests),
         spawns: &spawns,
         unreached_files: &unreached_files,
         refused_at: c.proc.refused.as_ref().map(|r| r.at.as_str()),
@@ -487,6 +536,16 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         seq_gaps: merged.seq_gaps,
         panics_unrecorded: result.panics_unrecorded,
         panics_outside_frames: result.panics_outside_frames,
+        err_flow_raise: result.err_flow_raise,
+        err_flow_handled: result.err_flow_handled,
+        err_flow_outside_frames: result.err_flow_outside_frames,
+        closure_frames: result.closure_frames,
+        err_flow_capability: c
+            .proc
+            .capabilities
+            .get("err_flow")
+            .copied()
+            .unwrap_or(false),
         child_runs: c.child_runs,
     };
     for (key, value) in meta::build(&meta_input) {

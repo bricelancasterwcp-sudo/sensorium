@@ -20,6 +20,16 @@
 //!   `try_lock` from another thread before and after, so the lock's hold time
 //!   is measured too.
 //!
+//! Two more things are measured here rather than argued, both rung 3's:
+//!
+//! * the crate-root `#![allow(clippy::match_single_binding)]` the transformer
+//!   injects actually silences the lint every err wrap provokes -- run through
+//!   the real `clippy-driver`, with the attribute REMOVED as the falsifier, and
+//!   skipped by name when clippy is not installed;
+//! * the E0507 the design gives as the reason not to wrap a place-expression
+//!   sink receiver does NOT reproduce for the four written sinks, and does
+//!   reproduce for the `&self` predicates design R2 already refuses.
+//!
 //! Nothing is written outside `$CARGO_TARGET_DIR` (or the system temp directory
 //! when that is unset). No path is hard-coded.
 
@@ -40,6 +50,18 @@ const RUN_TIMEOUT: Duration = Duration::from_secs(60);
 const TAG_COMPILE: &str = "compile";
 const TAG_PLAIN: &str = "plain";
 const TAG_RUN: &str = "run";
+const TAG_CLIPPY: &str = "clippy";
+const TAG_BORROW: &str = "borrow";
+
+/// The two lints every err wrap provokes, and the only ones denied when clippy
+/// runs here: this test is about the transformer's own attribute, not about
+/// what clippy thinks of a golden's hand-written Rust.
+///
+/// * `match_single_binding` -- every wrap is a `match` with one binding.
+/// * `needless_borrow` -- on an operand that is not a `Result` the runtime's
+///   autoref ladder resolves to its by-value fallback, and clippy then asks for
+///   `Probe(&__t)` where the fragment must write `(&&&Probe(&__t))`.
+const WRAP_LINTS: [&str; 2] = ["clippy::match_single_binding", "clippy::needless_borrow"];
 
 fn out_root() -> &'static Path {
     static ROOT: OnceLock<PathBuf> = OnceLock::new();
@@ -99,6 +121,15 @@ fn write_transformed(tag: &str, case: &str) -> PathBuf {
     std::fs::create_dir_all(&dir).expect("creating a per-test output directory");
     let path = dir.join(format!("{case}.out.rs"));
     std::fs::write(&path, expand(&read(case, "out"))).expect("writing the transformed golden");
+    path
+}
+
+/// Write an arbitrary source string where rustc (or clippy) can read it.
+fn write_source(tag: &str, name: &str, text: &str) -> PathBuf {
+    let dir = out_root().join(tag);
+    std::fs::create_dir_all(&dir).expect("creating a per-test output directory");
+    let path = dir.join(format!("{name}.rs"));
+    std::fs::write(&path, text).expect("writing a probe source");
     path
 }
 
@@ -268,4 +299,185 @@ fn the_run_probes_behave_identically_transformed_and_not() {
             "{case}: a probe that prints nothing compares nothing"
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// The crate-root allow (rung 3)
+// ---------------------------------------------------------------------------
+
+/// Run `clippy-driver` over one source with EVERY lint allowed except the one
+/// the wrap provokes. `None` when clippy is not installed.
+fn clippy(tag: &str, name: &str, source: &Path) -> Option<Compiled> {
+    let dir = out_root().join(tag).join(name);
+    std::fs::create_dir_all(&dir).expect("creating a per-case output directory");
+    let mut extern_arg = std::ffi::OsString::from("sensorium_rt=");
+    extern_arg.push(runtime_rlib());
+    let out = Command::new("clippy-driver")
+        .args(["--edition", "2021", "--crate-type", "lib"])
+        .arg("--crate-name")
+        .arg(format!("c_{name}"))
+        .arg(source)
+        .arg("--out-dir")
+        .arg(&dir)
+        .arg("--extern")
+        .arg(extern_arg)
+        // Allow everything, then deny exactly the two: a golden's own
+        // hand-written Rust is not what this test is about.
+        .args(["-A", "warnings"])
+        .args(["-D", WRAP_LINTS[0], "-D", WRAP_LINTS[1]])
+        .output()
+        .ok()?;
+    Some(Compiled {
+        status: out.status.code().unwrap_or(-1),
+        stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+        artifact: dir,
+    })
+}
+
+#[test]
+fn the_injected_allow_silences_both_lints_the_wraps_provoke() {
+    let mut checked = 0usize;
+    let mut fired: Vec<&str> = Vec::new();
+    for case in CASES {
+        if RUN_CASES.contains(case) {
+            continue;
+        }
+        let transformed = expand(&read(case, "out"));
+        // Every err-flow fragment, not only the `?`/sink one: an arm probe
+        // (`err_site_value`/`err_site_unbound`) carries the same `&&Probe(..)`
+        // ladder and can provoke the same `needless_borrow`.
+        if !transformed.contains("::sensorium_rt::err_site") {
+            continue;
+        }
+        let with = write_source(TAG_CLIPPY, case, &transformed);
+        let Some(c) = clippy(TAG_CLIPPY, case, &with) else {
+            eprintln!(
+                "SKIP the_injected_allow_silences_both_lints_the_wraps_provoke: \
+                 clippy-driver is not installed; nothing was measured"
+            );
+            return;
+        };
+        assert_eq!(
+            (c.status, c.stderr.as_str()),
+            (0, ""),
+            "{case}: the injected allow did not silence {} and {}",
+            WRAP_LINTS[0],
+            WRAP_LINTS[1]
+        );
+
+        // The falsifier: without the attribute the lint fires, so the check
+        // above is measuring something.
+        let without = transformed.replace(
+            "#![allow(clippy::match_single_binding, clippy::needless_borrow)]",
+            "",
+        );
+        assert_ne!(without, transformed, "{case}: no allow to remove");
+        let path = write_source(TAG_CLIPPY, &format!("{case}_noallow"), &without);
+        let c =
+            clippy(TAG_CLIPPY, &format!("{case}_noallow"), &path).expect("clippy ran a moment ago");
+        // Which of the two fires depends on what the case contains: a golden
+        // whose only probe is an ARM one has no `match` wrap at all, so
+        // `match_single_binding` cannot fire there. What has to be true per
+        // case is that SOMETHING fires -- otherwise the check above is
+        // measuring an allow nothing needed.
+        let mut here: Vec<&str> = Vec::new();
+        for lint in WRAP_LINTS {
+            let short = lint.trim_start_matches("clippy::");
+            if c.stderr.contains(short) {
+                here.push(short);
+                if !fired.contains(&short) {
+                    fired.push(short);
+                }
+            }
+        }
+        assert!(
+            !here.is_empty(),
+            "{case}: with the allow removed at least one of the two lints must \
+             fire, got:\n{}",
+            c.stderr
+        );
+        checked += 1;
+    }
+    assert!(
+        checked >= 12,
+        "only {checked} goldens carry an err-flow probe: this test is checking \
+         nothing"
+    );
+    // BOTH halves measured rather than asserted. `needless_borrow` fires only
+    // where an operand is not a `Result` -- an `Option` `?`, `let _ = 1` -- so
+    // it is checked across the SET, not per case: an allow that named a lint
+    // nothing ever emits would be an allow nobody could justify.
+    fired.sort_unstable();
+    assert_eq!(
+        fired,
+        ["match_single_binding", "needless_borrow"],
+        "with the allow removed, both of the lints it names must actually fire"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// The E0507 the design names (rung 3), re-measured
+// ---------------------------------------------------------------------------
+
+/// Design R2 used to decline a sink whose receiver is a place expression, with
+/// E0507 as the reason. This is the measurement that retired that exception
+/// (erratum, 2026-09-04), and it says two things:
+///
+/// * for the FOUR WRITTEN SINKS the asymmetry does not exist -- all four take
+///   `self` by value, so a receiver the wrap cannot move is one the sink could
+///   not move either, and every place receiver that compiles plain compiles
+///   wrapped;
+/// * for the `&self` PREDICATES it is real, which is exactly why design R2
+///   refuses to probe `.is_err()`/`.is_ok()`.
+///
+/// So a place receiver is now wrapped like any other, and the `sink-place`
+/// partial reason is gone: on the bloomery clone that moved 11 declined sinks
+/// into the 302 wrapped ones (`tests/census.rs`).
+#[test]
+fn a_place_receiver_is_not_the_e0507_the_predicates_are() {
+    const PLAIN_SINKS: &str = "\
+pub struct S { pub c: Result<u8, u8> }
+pub fn field(s: &S) -> u8 { s.c.unwrap_or(0) }
+pub fn index(v: &[Result<u8, u8>]) -> u8 { v[0].unwrap_or(0) }
+pub fn deref(p: &Result<u8, u8>) -> u8 { (*p).unwrap_or(0) }
+pub fn local(r: Result<String, String>) -> Option<String> { r.ok() }
+";
+    const WRAPPED_SINKS: &str = "\
+#![allow(clippy::match_single_binding)]
+pub struct S { pub c: Result<u8, u8> }
+pub fn field(s: &S) -> u8 { match s.c { __t => { let _ = &__t; __t } }.unwrap_or(0) }
+pub fn index(v: &[Result<u8, u8>]) -> u8 { match v[0] { __t => { let _ = &__t; __t } }.unwrap_or(0) }
+pub fn deref(p: &Result<u8, u8>) -> u8 { match *p { __t => { let _ = &__t; __t } }.unwrap_or(0) }
+pub fn local(r: Result<String, String>) -> Option<String> { match r { __t => { let _ = &__t; __t } }.ok() }
+";
+    const PLAIN_PREDICATE: &str = "\
+pub struct T { pub last: Result<String, String> }
+pub fn observed(t: &T) -> bool { t.last.is_err() }
+";
+    const WRAPPED_PREDICATE: &str = "\
+#![allow(clippy::match_single_binding)]
+pub struct T { pub last: Result<String, String> }
+pub fn observed(t: &T) -> bool { match t.last { __t => { let _ = &__t; __t } }.is_err() }
+";
+    for (name, source) in [
+        ("plain_sinks", PLAIN_SINKS),
+        ("wrapped_sinks", WRAPPED_SINKS),
+        ("plain_predicate", PLAIN_PREDICATE),
+    ] {
+        let path = write_source(TAG_BORROW, name, source);
+        let c = compile(TAG_BORROW, name, &path, "lib", false);
+        assert_eq!(
+            (c.status, c.stderr.as_str()),
+            (0, ""),
+            "{name} must compile clean"
+        );
+    }
+    let path = write_source(TAG_BORROW, "wrapped_predicate", WRAPPED_PREDICATE);
+    let c = compile(TAG_BORROW, "wrapped_predicate", &path, "lib", false);
+    assert!(
+        c.stderr.contains("E0507"),
+        "the predicates ARE the E0507 case -- design R2's reason for never \
+         probing them -- got:\n{}",
+        c.stderr
+    );
 }

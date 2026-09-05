@@ -1,0 +1,9 @@
+[package]
+name = "corpus_interleaved_chains"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "interleaved_chains"
+path = "src/main.rs"

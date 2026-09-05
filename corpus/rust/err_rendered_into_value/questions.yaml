@@ -1,0 +1,68 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: was-the-unreadable-settings-error-swallowed
+    ask: >
+      `retries` came back 0 and the process exited 0 with nothing on
+      stderr. The settings file could not be read. Was that failure
+      dropped?
+    truth: >
+      No, and the tool must not say it was. `load` returned
+      `Err(Unreadable("settings.toml"))`, the `Err(e) =>` arm in `build`
+      rendered it with `format!` and put the rendering in the `Settings` it
+      returned, and that struct is what every caller gets: the failure
+      reached the caller, in `disabled_reason`. This is the third shape
+      beside `logged_arm` (the arm only BORROWS the error to print it and
+      drops it -- a swallow, because the failure went to stderr and nowhere
+      else) and `err_stored` (the arm moves the error into a Vec). A format
+      macro's argument is a shared borrow, but its PRODUCT is a value the
+      arm is holding, so the arm reads ambiguous and the tally carries no
+      swallow at all. Whether anything ever acts on `disabled_reason` is
+      not on the wire -- this program does not, and one that printed it
+      would record identically.
+    why_logs_fail: >
+      The only line on the terminal is `retries: 0`, which is also what a
+      settings file that legitimately disables retries produces. The
+      rendered failure exists, in the returned struct, and the run never
+      prints it: the crate's own `--why` flag is the thing nobody passes,
+      which is the shape of every "the error is in the response body"
+      bug. RUST_LOG reaches no logger here and RUST_BACKTRACE never fires --
+      nothing panics and the process exits 0.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_contains: ["dispositions: ambiguous 1"]
+    expect_line:
+      - ["e4 RAISE", "load raise",
+         "err_rendered_into_value::Unreadable('Unreadable(\"settings.toml\")')"]
+      - ["an Err(..) arm at", "build L48",
+         "bound it to a name and let the name escape"]
+      - ["a bound error that is stored, returned or moved out of the arm",
+         "is not a swallow; an arm that only formats or logs it and continues is one"]
+      - ["hops: e4 load L39 exit -> e6 build L48 arm_ambiguous"]
+    expect_absent: ["SWALLOWED", "dispositions: swallowed", "panicked",
+                    "returned to the harness"]
+  - id: where-did-the-failure-end-up
+    ask: >
+      `load` failed and `build` returned normally. What did `build` hand
+      back?
+    truth: >
+      A `Settings` whose `disabled_reason` is
+      `Some("settings unreadable: cannot read settings.toml")` and whose
+      `retries` is the disabled default 0 -- the failure travelled out of
+      the frame inside the return value. One frame down, `load` returned
+      `Err(Unreadable("settings.toml"))`. The boundary between the two is
+      where the bug lives: `build` looks like a function that succeeded,
+      and the reason it did not is a field of what it returned.
+    why_logs_fail: >
+      Nothing prints the struct. `retries: 0` is the whole output, and a
+      reader cannot tell it from a settings file that asked for zero
+      retries; `dbg!(&settings)` in `main` would answer it and is the edit
+      you make after already suspecting the loader. Nothing panics, so
+      RUST_BACKTRACE never fires.
+    command: ["tree", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["f2 e2", "build()",
+         "-> Settings { retries: 0, disabled_reason: Some(\"settings unreadable: cannot read settings.toml\") }"]
+      - ["f3 e3", "load()", "-> Err(Unreadable(\"settings.toml\"))"]
+    expect_absent: ["!! ", "(open)"]

@@ -632,6 +632,39 @@ def test_info_reports_the_two_kinds_of_lost_record_and_the_lost_panics(
     assert "late writes dropped" not in out
 
 
+def test_info_prints_the_err_flow_records_that_never_found_a_frame(
+        tmp_path, monkeypatch, capsys):
+    """A RAISE or HANDLED on a thread with no open frame is counted and never
+    written as an event, so a reader tallying swallows off the event list is
+    reading a number with a hole in it. Printed beside `panics outside
+    frames`, which is the same fact about panics -- and printed AT ZERO,
+    because the zero is what says the tally has no hole."""
+    seen = _rust_trace(tmp_path, "20260101-000000-rusterr",
+                       panics_outside_frames=2, err_flow_outside_frames=3)
+    none = _rust_trace(tmp_path, "20260101-000000-rustzero",
+                       err_flow_outside_frames=0)
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", seen]) == 0
+    out = capsys.readouterr().out
+    assert ("err_flow_outside_frames: 3 -- RAISE/HANDLED records on a thread "
+            "with no open frame") in out
+    assert out.index("panics outside frames:") < out.index(
+        "err_flow_outside_frames:"), "printed beside the panic line, after it"
+    assert cli.main(["info", none]) == 0
+    assert "err_flow_outside_frames: 0 -- " in capsys.readouterr().out
+
+
+def test_info_says_nothing_about_err_flow_on_a_trace_with_no_such_key(
+        tmp_path, monkeypatch, capsys):
+    """The key's ABSENCE is a different fact from a zero: a converter older
+    than err flow counted nothing, and printing `0` for it would claim a
+    measurement nobody made."""
+    run_id = _rust_trace(tmp_path, "20260101-000000-rustold")
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    assert cli.main(["info", run_id]) == 0
+    assert "err_flow_outside_frames" not in capsys.readouterr().out
+
+
 def test_info_prints_no_loss_lines_for_a_rust_trace_that_lost_nothing(
         tmp_path, monkeypatch, capsys):
     """A printed `seq gaps: 0` would be read as proof nothing was lost --

@@ -1,14 +1,19 @@
 //! `sensorium-transform` -- the sensorium Rust recorder's source rewriter.
 //!
-//! It puts three things into a workspace's own source, WITHOUT moving a single
-//! line number: an entry guard at the top of every eligible fn body, a capture
-//! around every exit operand of a value-returning fn, and a named `spawn_child`
-//! in place of `std::thread::spawn`. Spec §3.1 is the whole reason it works this
-//! way -- re-printing the AST with `quote` collapses a file to one line and
-//! destroys `line!()`, panic locations and rustc's own diagnostics. The AST is
-//! therefore a MEASURING instrument only: `syn` says where the braces and the
-//! operands are, and the original bytes are copied through with newline-free
-//! fragments spliced in at those offsets. The AST is never printed.
+//! It puts seven things into a workspace's own source, WITHOUT moving a single
+//! line number: an entry guard at the top of every eligible fn body AND of every
+//! closure that holds a `?`, a capture around every exit operand of those, a
+//! probe around every `?` operand and every written sink's value, a probe at the
+//! entry of every classified `Err(..) =>` arm and `if let Err(..)` body, a named
+//! `spawn_child` in place of `std::thread::spawn`, and one `allow` attribute on
+//! the crate root.
+//!
+//! Spec §3.1 is the whole reason it works this way -- re-printing the AST with
+//! `quote` collapses a file to one line and destroys `line!()`, panic locations
+//! and rustc's own diagnostics. The AST is therefore a MEASURING instrument
+//! only: `syn` says where the braces and the operands are, and the original
+//! bytes are copied through with newline-free fragments spliced in at those
+//! offsets. The AST is never printed.
 //!
 //! Injected as the first statement of every eligible fn body:
 //!
@@ -27,6 +32,31 @@
 //! }, <e>)
 //! ```
 //!
+//! around the operand of every `?`, the receiver of every written sink and the
+//! value of every `let _ = <value expression>` -- an opening `match ` before the
+//! operand and the arm after it, so that the program's own `?` and `.ok()` stay
+//! OUTSIDE the wrap and nothing about its control flow moves (`errflow`, design
+//! R2/R3):
+//!
+//! ```ignore
+//! match <operand> { __t => {
+//!     ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, <site>, <how>,
+//!         || { use ::sensorium_rt::probe::*; (&&&Probe(&__t)).err_cap() });
+//!     __t
+//! } }
+//! ```
+//!
+//! at the entry of an `Err(..) =>` arm or an `if let Err(..)` body the grammar
+//! could classify -- as a STATEMENT, so what the arm evaluates to is untouched;
+//! an expression body is wrapped in a block to give the statement somewhere to
+//! stand, and a PANIC-classified arm gets nothing at all (`arms`, design R2/R4):
+//!
+//! ```ignore
+//! Err(e) => { ::sensorium_rt::err_site_value(&crate::__SENSORIUM_UNIT, <site>,
+//!     ::sensorium_rt::HOW_ARM_PROPAGATE,
+//!     || { use ::sensorium_rt::probe::*; (&&Probe(&e)).err_cap_value() }); <body> }
+//! ```
+//!
 //! over the callee of a `std::thread::spawn` call, so the child thread has a
 //! name (`rust/HONESTY.md` §3):
 //!
@@ -34,9 +64,14 @@
 //! ::sensorium_rt::spawn_child("<file>:<line>", <f>)
 //! ```
 //!
-//! and, when the file is the crate root, once per file:
+//! and, when the file is the crate root, once per file -- the static past the
+//! last token, the `allow` on the same line as the last inner attribute (every
+//! wrap above is a `match` with one binding, and on a non-`Result` operand the
+//! runtime's ladder falls to a by-value impl the fragment's three `&` then look
+//! needless -- the two lints the wraps provoke and the only two silenced):
 //!
 //! ```ignore
+//! #![allow(clippy::match_single_binding, clippy::needless_borrow)]
 //! #[doc(hidden)] pub static __SENSORIUM_UNIT: ::sensorium_rt::Unit =
 //!     ::sensorium_rt::Unit::new("<-C metadata hash>");
 //! ```
@@ -51,8 +86,15 @@
 //! through the real rustc, and `tests/census.rs` measures the identity on a real
 //! workspace.
 
+mod arms;
+mod attrs;
+mod closures;
+mod errflow;
+mod escape;
 mod exits;
 mod manifest;
+mod marks;
+mod names;
 mod spawn;
 mod splice;
 mod visit;
@@ -69,6 +111,9 @@ pub struct Transformed {
     pub sites: Vec<Site>,
     /// Fn items this tier deliberately does not instrument, with the reason.
     pub skipped: Vec<Skipped>,
+    /// Err-flow sites the transformer could not reach, with the reason
+    /// (design R6). Empty is a measured empty: the walk ran and found none.
+    pub partial: Vec<Partial>,
     /// Every spawn shape the file contains, in source order: the ones that were
     /// rewritten and the ones that were left alone with a reason.
     pub spawns: Vec<SpawnSite>,
@@ -96,7 +141,34 @@ pub enum RetKind {
     Never,
 }
 
-/// One instrumented fn item. Mirrors a Python `code_object` (spec §5.4).
+/// What one site IS. Every kind takes its number from the same per-unit
+/// counter (design R1b), so a manifest reader needs this to know which records
+/// may name it: a CALL/RETURN belongs to a `fn` site, a RAISE/HANDLED to a
+/// `try` or `sink` one.
+///
+/// A manifest written before this field existed (transform 0.2.0) reads every
+/// site as [`SiteKind::Fn`], which is what it had.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SiteKind {
+    /// An instrumented fn item: an entry guard, and exit wraps when it returns
+    /// a value.
+    Fn,
+    /// A closure whose body contains a `?` (design R5). A FRAME kind like
+    /// [`SiteKind::Fn`]: it carries a guard and its exits are wrapped, so a
+    /// CALL/RETURN may name it. A closure without a `?` is not a site at all.
+    Closure,
+    /// The operand of a `?` (design R2).
+    Try,
+    /// A written sink: `.ok()`, `.unwrap_or*()`, `let _ = <value expr>`.
+    Sink,
+    /// An `Err(..) =>` arm or an `if let Err(..)` body, classified (design R2).
+    /// A PANIC-classified arm is NOT one of these: it is not probed at all.
+    Arm,
+}
+
+/// One instrumented site. A [`SiteKind::Fn`] one mirrors a Python
+/// `code_object` (spec §5.4); the others are the err-flow sites of design R2.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Site {
     /// The 24-bit site INDEX. The runtime packs the unit id into bits 31..24;
@@ -105,11 +177,72 @@ pub struct Site {
     /// The workspace-relative path as the caller named it. Never a mirror path.
     pub file: String,
     /// File-local path in Python's shape: `Type::method`, `mod_a::mod_b::f`.
+    /// For an err-flow site, the enclosing named item's.
     pub qualname: String,
-    /// 1-based line of the `fn` keyword -- not of the opening brace.
+    /// The site's own 1-based line: the `fn` keyword for a [`SiteKind::Fn`]
+    /// (not the opening brace), the `?` for a try site, the method name for a
+    /// sink, the `let` for a `let _`. The manifest spells it `firstlineno` on a
+    /// fn row and `line` on the others, because those are two different facts.
     pub firstlineno: u32,
-    /// What the signature says the fn returns.
-    pub ret: RetKind,
+    /// What the signature says the fn returns. `None` on an err-flow site:
+    /// there is no signature there, and `unit` would be an answer rather than
+    /// a silence.
+    pub ret: Option<RetKind>,
+    /// Which kind of site this is.
+    pub kind: SiteKind,
+    /// The `how` this site writes, by name (`"try"`, `"sink_ok"`,
+    /// `"sink_unwrap_or"`, `"sink_let_underscore"`, `"arm_propagate"`,
+    /// `"arm_handled"`, `"arm_ambiguous"`). `None` on a frame site.
+    pub how: Option<&'static str>,
+    /// A fn item carrying `#[test]`, `#[bench]` or an attribute whose path
+    /// ends in `test` (design R1b). The converter reads it to say that a chain
+    /// which left this frame was RETURNED_TO_HARNESS rather than lost.
+    pub test: bool,
+    /// A BIN crate root's file-scope `fn main`, which only the caller can know
+    /// (the crate type is the driver's knowledge, not the parser's) -- see
+    /// [`FileRole::is_bin_root`]. Read for the same disposition as `test`.
+    pub main: bool,
+}
+
+/// An err-flow site the transformer knows is there and cannot reach, declared
+/// rather than dropped (design R6). Registered-unit-scoped, like [`Skipped`].
+///
+/// `reason` is one of:
+///
+/// * `"macro-arg"` -- a `?` inside a macro invocation's tokens. `syn` gives an
+///   invocation an opaque token stream, so no `syn::ExprTry` node exists for
+///   it; these are the `?` [`Census::try_macro_tokens`] counts.
+/// * `"struct-literal"` -- a site whose operand would put a struct literal in
+///   an EXTERIOR position of the wrap's `match` scrutinee, which rustc does not
+///   allow. Decided by re-parsing the wrap, not by a rule
+///   (`errflow::Ctx::err_wrap`).
+/// * `"async-block"` -- a `?` inside an `async {}` block or an `async` closure
+///   (design R5/R6). The future may be polled on a thread other than the one
+///   that built it, so a probe there would record the site against whichever
+///   thread happened to poll -- the same reason an `async fn` gets no guard. A
+///   plain closure created INSIDE an async block is not affected: its body runs
+///   when it is called, so its `?` is wrapped like any other.
+///
+/// A `let _ = <place expression>;` is NOT here: `_` does not bind, so that
+/// statement moves nothing and drops nothing, and no error is absorbed at it.
+///
+/// `kind` is what the site WOULD have been. Design R6 wrote this list as a
+/// four-tuple when its only reason was `"macro-arg"`, which can only ever mark
+/// a `?`; `"struct-literal"` can mark a `?`, a sink or a `let _`, so a row that
+/// did not say which would make R6's own `info` sentence ("?-sites the
+/// transformer could not reach") untrue and would leave the census identity
+/// (`try` rows + declined `?` == `try_syn`) uncomputable from the manifest.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct Partial {
+    pub file: String,
+    /// 1-based line of the `?`, of the sink's method name, or of the `let`.
+    pub line: u32,
+    /// The enclosing named item's file-local path, or the enclosing container's
+    /// when there is no named item between the site and the file.
+    pub qualname: String,
+    /// Which kind of site this would have been: `"try"` or `"sink"`.
+    pub kind: SiteKind,
+    pub reason: &'static str,
 }
 
 /// A fn item that was parsed, understood, and deliberately left alone.
@@ -178,8 +311,8 @@ pub struct SpawnSite {
 /// `instrumented + async_fns == eligible`.
 ///
 /// `parsed` is the none-versus-zero discipline in a struct: a file `syn` could
-/// not parse yields `Census { parsed: false, .. }` with four zeros, and a caller
-/// that sums it as measured-zero is lying. Check `parsed` first.
+/// not parse yields `Census { parsed: false, .. }` with every count at zero, and
+/// a caller that sums it as measured-zero is lying. Check `parsed` first.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
 pub struct Census {
     pub fn_items: usize,
@@ -187,6 +320,60 @@ pub struct Census {
     pub extern_fns: usize,
     /// Skipped at this tier (plan decision D6), but INSIDE `eligible()`.
     pub async_fns: usize,
+    /// Every `syn::ExprTry` the walk meets, in any position: E2″'s denominator.
+    ///
+    /// These are the `?` the transformer CAN see, because `syn` parsed them into
+    /// an AST node. A `?` the walk meets inside a closure, a nested item or a
+    /// `const` initialiser counts the same as one in a fn's own body: the
+    /// question E2″ asks is how many of the `?` that exist as nodes were reached,
+    /// not where they sat.
+    pub try_syn: usize,
+    /// `?` PUNCT TOKENS inside the token stream of a macro INVOCATION: the `?`
+    /// the transformer cannot see, and so the size of the `partial` blind spot.
+    ///
+    /// A macro invocation's `tokens` are opaque to `syn` -- `println!("{}", f()?)`
+    /// holds no [`syn::ExprTry`] node at all -- so these are counted as raw
+    /// tokens, recursively through every delimited group. The counted set is
+    /// exactly the `syn::Macro` of an `Expr::Macro`, a `Stmt::Macro` and an
+    /// `Item::Macro`, minus two exclusions and no others:
+    ///
+    /// * a `?` immediately followed by the ident `Sized` (a `?Sized` bound in a
+    ///   macro argument is a token of a trait bound, not a fallible operation);
+    /// * the whole token stream of a `macro_rules!` DEFINITION, where `$( .. )?`
+    ///   makes `?` a repetition operator rather than an operation. A definition
+    ///   is not an invocation, and the walk never counts one.
+    ///
+    /// Nothing else is excluded: a `?` inside a nested group, inside a string's
+    /// neighbouring tokens, or in an argument that never expands is still a `?`
+    /// the transformer did not instrument, and hiding it would flatter the
+    /// measurement.
+    pub try_macro_tokens: usize,
+    /// `Err(..) =>` arms and `if let Err(..)` bodies by classification (design
+    /// R2), counted by the SAME decision that places the probes: a PROPAGATE, an
+    /// ESCAPED and a HANDLED arm each mint a [`SiteKind::Arm`] site, and a PANIC
+    /// arm mints nothing at all -- so `arms_propagate + arms_escaped +
+    /// arms_handled` is the number of arm sites a walk of the same file emits.
+    ///
+    /// Reported, never pinned: what a real tree's arms are classified as is a
+    /// property of that tree, and a pin would only say the tree had not changed.
+    pub arms_propagate: usize,
+    /// Arms holding one of the four DIVERGING macros at closure depth 0. These
+    /// are the arms that are deliberately NOT probed (a probe would move the
+    /// `panic!`'s own column, which E7 measures).
+    pub arms_panic: usize,
+    /// Arms whose bound error name appears somewhere that is not a provable
+    /// shared borrow: `arm_ambiguous`, never a SWALLOWED candidate.
+    pub arms_escaped: usize,
+    /// Arms whose bound name never escapes, or that bind nothing: `arm_handled`.
+    pub arms_handled: usize,
+    /// Closures given a frame because their body holds a `?` at their own depth
+    /// (design R5). Equal to the number of [`SiteKind::Closure`] sites.
+    pub closures_framed: usize,
+    /// `?` inside an `async {}` block or an `async` closure: declared `partial`
+    /// with reason `"async-block"` rather than wrapped. These ARE counted in
+    /// [`Census::try_syn`], so the rung-3 identity is
+    /// `try rows + partial(try) == try_syn`.
+    pub async_partials: usize,
     pub parsed: bool,
 }
 
@@ -197,6 +384,25 @@ impl Census {
     pub fn eligible(&self) -> usize {
         self.fn_items - self.const_fns - self.extern_fns
     }
+}
+
+/// What the CALLER knows about a file that the parser cannot see (design R1b).
+///
+/// Both flags are the driver's knowledge, not a guess this crate could make:
+/// rustc's argv says which `.rs` is the crate root, and the unit's crate TYPE
+/// says whether that root is a binary's. [`Default`] is "an ordinary module
+/// file", which is what every file but one in a unit is.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FileRole {
+    /// This file is the unit's crate root: it gets the `__SENSORIUM_UNIT`
+    /// static and the crate-root `allow`.
+    pub is_crate_root: bool,
+    /// This file is a BIN crate's root, so a file-scope `fn main` in it is the
+    /// program's entry point and its manifest row carries `main: true` -- which
+    /// is what lets the converter say an `Err` that left it was returned to the
+    /// harness rather than lost (design R8). False on a lib root, on a module
+    /// file, and whenever the caller does not know.
+    pub is_bin_root: bool,
 }
 
 /// The largest site index the wire format's 24-bit field can carry (spec §4).
@@ -224,8 +430,11 @@ pub const MAX_SITE_INDEX: u32 = 0x00FF_FFFF;
 /// (`"macro"`, invisible to `syn` as items). A bodiless trait fn is none of
 /// these: there is nothing to instrument and nothing to excuse.
 ///
-/// Closures get no guard at this rung (spec §3.3's closure frames are rung 3),
-/// and are not counted as fn items.
+/// A CLOSURE is not a fn item and is never counted as one, but a closure whose
+/// body holds a `?` at its own depth gets a frame of its own (design R5,
+/// [`closures`]): a guard, wrapped exits, and a [`SiteKind::Closure`] row named
+/// `<enclosing item>::{{closure}}#k`. An `async` closure never does, and neither
+/// does a closure with no `?`.
 ///
 /// # Exits
 ///
@@ -271,7 +480,35 @@ pub fn transform(
     first_site: u32,
     is_crate_root: bool,
 ) -> Result<Transformed, syn::Error> {
-    splice::run(source, file, unit_metadata, first_site, is_crate_root)
+    transform_file(
+        source,
+        file,
+        unit_metadata,
+        first_site,
+        FileRole {
+            is_crate_root,
+            is_bin_root: false,
+        },
+    )
+}
+
+/// [`transform`] with the caller's full knowledge of the file (design R1b).
+///
+/// The two entry points exist so that adding `is_bin_root` did not silently
+/// change what an existing caller means: [`transform`] is exactly this function
+/// with `is_bin_root: false`, which is the honest answer for a caller that does
+/// not know the crate type.
+///
+/// # Errors
+/// As [`transform`].
+pub fn transform_file(
+    source: &str,
+    file: &str,
+    unit_metadata: &str,
+    first_site: u32,
+    role: FileRole,
+) -> Result<Transformed, syn::Error> {
+    splice::run(source, file, unit_metadata, first_site, role)
 }
 
 /// Count fn items the way [`transform`] classifies them, without rewriting.

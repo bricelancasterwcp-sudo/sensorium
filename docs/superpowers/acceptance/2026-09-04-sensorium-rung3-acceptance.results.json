@@ -1,0 +1,2282 @@
+{
+  "schema": "every measurement is {value, n, lens, dropped}; a null value plus a dropped reason is the ONLY not-measured; 0 is measured-and-zero",
+  "acceptance": "docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md",
+  "runner": "rust/tests/acceptance_rung3.py",
+  "byte_lock": {
+    "commit": "5bc71f7",
+    "doc": "docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md",
+    "extraction": "awk '/^## 1/,/^## 2/'",
+    "locked_sha256": "98705aa3c7f7e88811efe9e020fa311ccaf968bce175465c471838c3b30d512a",
+    "locked_bytes": 3820,
+    "working_tree_sha256": "98705aa3c7f7e88811efe9e020fa311ccaf968bce175465c471838c3b30d512a",
+    "working_tree_bytes": 3820,
+    "identical": true,
+    "original_lock": "e34623c",
+    "original_lock_sha256": "bd04140521ee31ccc0f158083d5af2f2990ad8c7ab8860bb38a2d077b89181dd",
+    "original_lock_bytes": 3808,
+    "amended_after_the_original_lock": true,
+    "amendment_bytes": 12
+  },
+  "byte_lock_extended": {
+    "verified_at": "2026-09-05T01:31:03-0500",
+    "derived": "after the run, by `acceptance_rung3.byte_lock_facts` over committed text; the run's own \u00a71-only lock is in `byte_lock` above and is unchanged",
+    "range": "awk '/^## 1/,/^## 2/' PLUS the definition of every footnote \u00a71 references",
+    "footnotes_in_range": [
+      "e6p-amend"
+    ],
+    "commit": "5bc71f7",
+    "sha256": "78b8e60c653f3011c728e2c7612b08f8675448a2e85ddf9dd8920735a0b0ca7e",
+    "bytes": 4958,
+    "original_lock": "e34623c",
+    "original_lock_sha256": "bd04140521ee31ccc0f158083d5af2f2990ad8c7ab8860bb38a2d077b89181dd",
+    "original_lock_bytes": 3808,
+    "amendment_bytes": 1150,
+    "working_tree_sha256": "78b8e60c653f3011c728e2c7612b08f8675448a2e85ddf9dd8920735a0b0ca7e",
+    "identical": true,
+    "dropped": null
+  },
+  "pins": {
+    "started": "2026-09-05T00:58:26-0500",
+    "repo_commit": "a5322f9247fb2e0655bdac88d03fe992bedf642c",
+    "repo_branch": "feat/rung3-err-flow",
+    "repo_porcelain": "",
+    "driver": "/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium",
+    "driver_sha256": "797240307f819e8df2004d8721343e22f3359e825e3b153a846c3899ff102a48",
+    "driver_mtime": "2026-09-04T23:21:50-0500",
+    "census_driver": "/mnt/extra/sensorium-rung2/rust-target/debug/census",
+    "census_driver_sha256": "1bda6e5c9a8c82d5870c8583b9510c735be8dde3deaa0f09ca7952e7afd3d06d",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "toolchains": "stable-x86_64-unknown-linux-gnu (active, default)\n1.96.0-x86_64-unknown-linux-gnu",
+    "python": "Python 3.14.4",
+    "sensorium_version": "0.6.0",
+    "nproc": 16,
+    "governor": "powersave",
+    "RUSTFLAGS": "",
+    "CARGO_INCREMENTAL": "",
+    "RUSTC_WRAPPER": "",
+    "load_1min_at_start": 0.49,
+    "target_disk_free_gb": 102.76,
+    "repo_disk_free_gb": 12.81,
+    "clone": "/mnt/extra/sensorium-rung2/bloomery",
+    "clone_head": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "clone_porcelain_before": "",
+    "clone_branches_before": "* (HEAD detached at e209ed9) e209ed9 refactor: split the Python trio, verified by trace rather than pass count\n  e5-planted                 fea50b1 test(daemon): swap two independent call statements in registry tests::build_pager\n  e5-split                   e8c79be refactor(daemon): split task/registry.rs into a registry/ directory module\n  split-python-trio          e209ed9 refactor: split the Python trio, verified by trace rather than pass count",
+    "arm_tips": {
+      "A": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+      "B": "e8c79be1626f5808eb48a967d02a17217e614843",
+      "C": "fea50b14ba453a179e94dc96ca71a89a90c35f26"
+    },
+    "clone_cargo_lock_sha256_before": "c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca",
+    "source_bloomery": "/home/brice/workspace/bloomery",
+    "source_bloomery_head_before": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "source_bloomery_porcelain_before": "",
+    "target_dir": "/mnt/extra/sensorium-rung2/bloomery-target",
+    "target_warm_at_start": true,
+    "target_bytes_before": 5707718404,
+    "manifests_present_before": [
+      "06e5b0ac222ba552.json",
+      "07484549e7512d71.json",
+      "0858de04b9d7ba53.json",
+      "0d6e9f952d46b603.json",
+      "10bc07bb76e68d39.json",
+      "13087e3da8945c6f.json",
+      "1385948d485d35b7.json",
+      "16129218da5560a6.json",
+      "1dd9b8c3dc262691.json",
+      "202768a4a7ae21e6.json",
+      "20a513c603a9258f.json",
+      "22829960504d1ad3.json",
+      "2328ef32e770c56f.json",
+      "2428dd803747f6dd.json",
+      "25942802be7a8cbf.json",
+      "25ed618fedb02065.json",
+      "296e07ff5c237382.json",
+      "2eaddf52ddbd3f1d.json",
+      "358f5f4293b28a1e.json",
+      "36388c4c75539bc8.json",
+      "37246f357b28eb7c.json",
+      "376b89ec8b660236.json",
+      "38cd78de6401b97b.json",
+      "38f932605edf89c8.json",
+      "39ce512016fd6f60.json",
+      "3a439658fc4acc92.json",
+      "3afb285f423eed75.json",
+      "3e977cba666f8621.json",
+      "40f73bbbb7fa3e38.json",
+      "42189caee8ed9dba.json",
+      "434e218b9f5d0da4.json",
+      "452ad9bf0dbc8b4d.json",
+      "4995ed499d956001.json",
+      "4ca5d79e908780d2.json",
+      "4cc6c23f30c48ff2.json",
+      "4e06406a36b30524.json",
+      "4f8fb58e286ecdeb.json",
+      "5082396dfb90c2de.json",
+      "53044c3591e69cc6.json",
+      "538f301130d40b3f.json",
+      "5799711ad7adb3c5.json",
+      "5f254c39184a440b.json",
+      "666ba6f85eed9105.json",
+      "6905c1212be713c4.json",
+      "6a3c7886c7101a67.json",
+      "6bdf66a6781d361f.json",
+      "6e7dc6604fc4c3cf.json",
+      "70e31387d13fc3c6.json",
+      "731bfe01848c4533.json",
+      "7394dbdebec77d69.json",
+      "73c2adb764b267ed.json",
+      "75d2ac9ed8dc93a5.json",
+      "78213d3a47bf3593.json",
+      "7a1bcf12b1584e18.json",
+      "7afa7285eec08bf7.json",
+      "7c94b59a978db0d3.json",
+      "7db3e3ec59b1723f.json",
+      "7e339977a7cb1461.json",
+      "80ac2f9b5fe6b404.json",
+      "82d334e80cb4abec.json",
+      "85f55480096da128.json",
+      "89f1a9c68354928c.json",
+      "8cf827860e029176.json",
+      "8eb81f9c3e579104.json",
+      "8f4750f15393325f.json",
+      "916983cb0b991702.json",
+      "95b8258df2e0ad1f.json",
+      "95d8890487656add.json",
+      "97af4abf9bba10f1.json",
+      "984d3fc632806794.json",
+      "9986a3c685173ed5.json",
+      "9a0e5327dbd52100.json",
+      "9ced7883559e31a0.json",
+      "a185eb37bca7a7ea.json",
+      "a54224b07a911374.json",
+      "af6a4c66f874a0d2.json",
+      "b03caf3b24c9486f.json",
+      "b5e4571392467541.json",
+      "b6076c6cc1109d6f.json",
+      "b726d924d1aad7b2.json",
+      "ba7a648192d52e6f.json",
+      "bb9c333e5456336b.json",
+      "bfae4247c726f7a1.json",
+      "c2fddb98d6ef72b5.json",
+      "cc07a88408f7f6b7.json",
+      "d0ad77864480af35.json",
+      "d2dfcdc65169e949.json",
+      "d3482c071900a389.json",
+      "d94f85e135dc6544.json",
+      "d99d1f2f1dd9352e.json",
+      "db93248d20ca7921.json",
+      "dbf5345522ee670a.json",
+      "de98a00f62eb5c56.json",
+      "dee9b49ffefb3057.json",
+      "e133f29bd1950a0f.json",
+      "e4082b3d2ab2ac37.json",
+      "e56d86179dbd1b5d.json",
+      "e8d013f9b27fc5c8.json",
+      "e95c3d54454006d7.json",
+      "ea7ebb29ed800c56.json",
+      "ebbe109e2569ea5c.json",
+      "ed26d2eadcf7ad20.json",
+      "ef5defad106334f5.json",
+      "f049b2727a5a1a7c.json",
+      "f3283dc0b707be9d.json",
+      "f786a8d400960db0.json",
+      "facd3805040ae5a9.json",
+      "ffbbb3052fa84086.json"
+    ],
+    "corpus_target": "/mnt/extra/sensorium-rung2/corpus-target",
+    "corpus_target_bytes_before": 1113802919,
+    "probe_target": "/mnt/extra/sensorium-rung2/probe-target",
+    "sensorium_dir": "/mnt/extra/sensorium-rung2/sensorium-dir/rung3",
+    "packages": [
+      "bloomery-bench",
+      "bloomery-core",
+      "bloomery-daemon",
+      "bloomery-substrate"
+    ],
+    "frozen_denominator": {
+      "try_syn": 401,
+      "try_macro_tokens": 1,
+      "source": "\u00a71, counted by Task 0 before the byte-lock"
+    }
+  },
+  "environment": {
+    "repo_commit": "a5322f9247fb2e0655bdac88d03fe992bedf642c",
+    "repo_branch": "feat/rung3-err-flow",
+    "repo_porcelain": "",
+    "driver": "/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium",
+    "driver_sha256": "797240307f819e8df2004d8721343e22f3359e825e3b153a846c3899ff102a48",
+    "driver_mtime": "2026-09-04T23:21:50-0500",
+    "driver_unchanged_after": true,
+    "census_driver": "/mnt/extra/sensorium-rung2/rust-target/debug/census",
+    "census_driver_sha256": "1bda6e5c9a8c82d5870c8583b9510c735be8dde3deaa0f09ca7952e7afd3d06d",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "python": "Python 3.14.4",
+    "sensorium_version": "0.6.0",
+    "nproc": 16,
+    "governor": "powersave",
+    "clone": "/mnt/extra/sensorium-rung2/bloomery",
+    "clone_head": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "arm_tips": {
+      "A": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+      "B": "e8c79be1626f5808eb48a967d02a17217e614843",
+      "C": "fea50b14ba453a179e94dc96ca71a89a90c35f26"
+    },
+    "clone_porcelain_before": "",
+    "clone_porcelain_after": "",
+    "clone_restored": true,
+    "cargo_lock_unchanged": true,
+    "target_dir": "/mnt/extra/sensorium-rung2/bloomery-target",
+    "target_warm_at_start": true,
+    "target_emptied_by_e2pp_bytes": 5707718404,
+    "corpus_target": "/mnt/extra/sensorium-rung2/corpus-target",
+    "probe_target": "/mnt/extra/sensorium-rung2/probe-target",
+    "sensorium_dir": "/mnt/extra/sensorium-rung2/sensorium-dir/rung3",
+    "source_bloomery": "/home/brice/workspace/bloomery",
+    "source_bloomery_head_before": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "source_bloomery_head_after": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "source_bloomery_porcelain_before": "",
+    "source_bloomery_porcelain_after": "",
+    "source_bloomery_unchanged": true,
+    "load_1min_at_start": 0.49,
+    "load_at_each_arm": [
+      {
+        "ref": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+        "load_1min": 3.09,
+        "at": "2026-09-05T00:58:42-0500"
+      },
+      {
+        "ref": "e5-split",
+        "load_1min": 3.09,
+        "at": "2026-09-05T00:58:42-0500"
+      },
+      {
+        "ref": "e5-planted",
+        "load_1min": 3.09,
+        "at": "2026-09-05T00:58:44-0500"
+      },
+      {
+        "ref": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+        "load_1min": 3.0,
+        "at": "2026-09-05T00:58:45-0500"
+      }
+    ],
+    "target_disk_free_gb": 102.76,
+    "target_disk_free_gb_after": 102.39,
+    "repo_disk_free_gb": 12.81,
+    "frozen_denominator": {
+      "try_syn": 401,
+      "try_macro_tokens": 1,
+      "source": "\u00a71, counted by Task 0 before the byte-lock"
+    }
+  },
+  "endpoints": {
+    "E6": {
+      "headline": {
+        "value": 0,
+        "n": 17,
+        "lens": "printed SWALLOWED lines no registered group claims -- \u00a71's false accusations; every `corpus/rust/*` case with an `exceptions` question, copied to a disposable workdir and recorded ONCE under the rung-3 driver; the printed SWALLOWED lines matched against the case's registered `expect_line` groups by a PERFECT bipartite matching (so two groups cannot both claim one line while a second line goes unclaimed) with the count pinned by `expect_count[\"SWALLOWED\"]`, and the printed `dispositions:` line compared WHOLE against the case's single `expect_contains` tally",
+        "dropped": []
+      },
+      "extra_swallowed_lines": {
+        "value": 0,
+        "n": 17,
+        "lens": "every `corpus/rust/*` case with an `exceptions` question, copied to a disposable workdir and recorded ONCE under the rung-3 driver; the printed SWALLOWED lines matched against the case's registered `expect_line` groups by a PERFECT bipartite matching (so two groups cannot both claim one line while a second line goes unclaimed) with the count pinned by `expect_count[\"SWALLOWED\"]`, and the printed `dispositions:` line compared WHOLE against the case's single `expect_contains` tally",
+        "dropped": []
+      },
+      "missing_swallow_groups": {
+        "value": 0,
+        "n": 17,
+        "lens": "registered SWALLOWED groups with no printed line; every `corpus/rust/*` case with an `exceptions` question, copied to a disposable workdir and recorded ONCE under the rung-3 driver; the printed SWALLOWED lines matched against the case's registered `expect_line` groups by a PERFECT bipartite matching (so two groups cannot both claim one line while a second line goes unclaimed) with the count pinned by `expect_count[\"SWALLOWED\"]`, and the printed `dispositions:` line compared WHOLE against the case's single `expect_contains` tally",
+        "dropped": []
+      },
+      "cases_with_an_unequal_swallow_set": {
+        "value": 0,
+        "n": 17,
+        "lens": "questions whose printed swallow set is not EQUAL to the registered one (count, and a perfect matching both ways)",
+        "dropped": []
+      },
+      "cases_with_an_unequal_tally": {
+        "value": 0,
+        "n": 17,
+        "lens": "questions whose printed `dispositions:` line differs from the registered whole line (or which printed one where the case registered none)",
+        "dropped": []
+      },
+      "swallow_cases_with_an_empty_set": {
+        "value": 0,
+        "n": 17,
+        "lens": "questions registering a non-empty swallow set that printed no SWALLOWED line",
+        "dropped": []
+      },
+      "corpus_reading_failures": {
+        "value": 0,
+        "n": 17,
+        "lens": "the CORPUS's own reading of the same output (`run_corpus.check_question`: substring, not equality) -- reported beside \u00a71's stricter one, never gated",
+        "dropped": []
+      },
+      "unequal_swallow_sets": [],
+      "unequal_tallies": [],
+      "empty_swallow_sets": [],
+      "corpus_failures": [],
+      "cases": [
+        {
+          "case": "rust/abort",
+          "run_ids": [
+            "20260905-005848-5c60e6",
+            "20260905-005848-5c1fae"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "did-the-dying-child-drop-an-error",
+              "printed": 0,
+              "expected": 0,
+              "equal": true,
+              "printed_tally": null,
+              "pinned_tally": null,
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 1,
+              "expect_exit": 1,
+              "swallowed_lines": []
+            }
+          ]
+        },
+        {
+          "case": "rust/cleanup_then_fail",
+          "run_ids": [
+            "20260905-005848-8882f4"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "was-the-cleanup-error-swallowed",
+              "printed": 0,
+              "expected": 0,
+              "equal": true,
+              "printed_tally": "dispositions: ambiguous 2",
+              "pinned_tally": "dispositions: ambiguous 2",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": []
+            }
+          ]
+        },
+        {
+          "case": "rust/closure_try",
+          "run_ids": [
+            "20260905-005849-15cb7f"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "what-did-the-question-mark-in-the-closure-return-from",
+              "printed": 1,
+              "expected": 1,
+              "equal": true,
+              "printed_tally": "dispositions: swallowed 1",
+              "pinned_tally": "dispositions: swallowed 1",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": [
+                "    SWALLOWED -- absorbed by sink_unwrap_or at e13 (total L18) in f2, which returned ok"
+              ]
+            }
+          ]
+        },
+        {
+          "case": "rust/dependency_swallow",
+          "run_ids": [
+            "20260905-005849-169a61"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "did-the-cleanup-actually-work",
+              "printed": 1,
+              "expected": 1,
+              "equal": true,
+              "printed_tally": "dispositions: swallowed 1",
+              "pinned_tally": "dispositions: swallowed 1",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": [
+                "    SWALLOWED -- absorbed by sink_let_underscore at e4 (cleanup L14) in f3, which returned ok"
+              ]
+            }
+          ]
+        },
+        {
+          "case": "rust/err_arms",
+          "run_ids": [
+            "20260905-005849-b3df36"
+          ],
+          "record_rc": 101,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "what-did-each-arm-do-with-its-error",
+              "printed": 1,
+              "expected": 1,
+              "equal": true,
+              "printed_tally": "dispositions: swallowed 1, panicked 1, returned-to-harness 1",
+              "pinned_tally": "dispositions: swallowed 1, panicked 1, returned-to-harness 1",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": [
+                "    SWALLOWED -- absorbed by arm_handled at e6 (handling L21) in f2, which returned ok"
+              ]
+            }
+          ]
+        },
+        {
+          "case": "rust/err_propagation",
+          "run_ids": [
+            "20260905-005849-671ca9"
+          ],
+          "record_rc": 101,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "how-many-failures-were-there",
+              "printed": 0,
+              "expected": 0,
+              "equal": true,
+              "printed_tally": "dispositions: returned-to-harness 1",
+              "pinned_tally": "dispositions: returned-to-harness 1",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": []
+            }
+          ]
+        },
+        {
+          "case": "rust/err_stored",
+          "run_ids": [
+            "20260905-005849-38c075"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "were-the-retry-failures-swallowed",
+              "printed": 0,
+              "expected": 0,
+              "equal": true,
+              "printed_tally": "dispositions: ambiguous 2",
+              "pinned_tally": "dispositions: ambiguous 2",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": []
+            }
+          ]
+        },
+        {
+          "case": "rust/interleaved_chains",
+          "run_ids": [
+            "20260905-005849-390add"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "was-either-failure-swallowed",
+              "printed": 0,
+              "expected": 0,
+              "equal": true,
+              "printed_tally": "dispositions: ambiguous 2",
+              "pinned_tally": "dispositions: ambiguous 2",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": []
+            }
+          ]
+        },
+        {
+          "case": "rust/join_handle",
+          "run_ids": [
+            "20260905-005849-455daa"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "what-happened-to-the-workers-error",
+              "printed": 1,
+              "expected": 1,
+              "equal": true,
+              "printed_tally": "dispositions: swallowed 1, ambiguous 1",
+              "pinned_tally": "dispositions: swallowed 1, ambiguous 1",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": [
+                "    SWALLOWED -- absorbed by sink_unwrap_or at e9 (collect L26) in f2, which returned ok"
+              ]
+            }
+          ]
+        },
+        {
+          "case": "rust/logged_arm",
+          "run_ids": [
+            "20260905-005849-f52b85"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "was-the-refused-attempt-swallowed",
+              "printed": 1,
+              "expected": 1,
+              "equal": true,
+              "printed_tally": "dispositions: swallowed 1",
+              "pinned_tally": "dispositions: swallowed 1",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": [
+                "    SWALLOWED -- absorbed by arm_handled at e6 (charge L30) in f2, which returned ok"
+              ]
+            }
+          ]
+        },
+        {
+          "case": "rust/macro_arg_partial",
+          "run_ids": [
+            "20260905-005849-ab94c6"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "is-the-list-of-errors-complete",
+              "printed": 0,
+              "expected": 0,
+              "equal": true,
+              "printed_tally": "dispositions: ambiguous 2",
+              "pinned_tally": "dispositions: ambiguous 2",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": []
+            }
+          ]
+        },
+        {
+          "case": "rust/none_propagation",
+          "run_ids": [
+            "20260905-005850-01eadc"
+          ],
+          "record_rc": 101,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "was-there-an-error-behind-the-panic",
+              "printed": 0,
+              "expected": 0,
+              "equal": true,
+              "printed_tally": null,
+              "pinned_tally": null,
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 1,
+              "expect_exit": 1,
+              "swallowed_lines": []
+            }
+          ]
+        },
+        {
+          "case": "rust/outcome_generic",
+          "run_ids": [
+            "20260905-005850-168400"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "does-the-chain-follow-the-error-through-the-generic-frame",
+              "printed": 0,
+              "expected": 0,
+              "equal": true,
+              "printed_tally": "dispositions: ambiguous 2",
+              "pinned_tally": "dispositions: ambiguous 2",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": []
+            }
+          ]
+        },
+        {
+          "case": "rust/panic",
+          "run_ids": [
+            "20260905-005850-1aada9"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "what-did-the-catch-do-with-the-panic",
+              "printed": 1,
+              "expected": 1,
+              "equal": true,
+              "printed_tally": "dispositions: swallowed 1",
+              "pinned_tally": "dispositions: swallowed 1",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": [
+                "    SWALLOWED -- absorbed by arm_handled at e10 (attempt L17) in f4, which returned ok"
+              ]
+            }
+          ]
+        },
+        {
+          "case": "rust/returned_to_harness",
+          "run_ids": [
+            "20260905-005850-2ef630"
+          ],
+          "record_rc": 101,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "where-did-the-error-the-harness-printed-come-from",
+              "printed": 0,
+              "expected": 0,
+              "equal": true,
+              "printed_tally": "dispositions: returned-to-harness 1",
+              "pinned_tally": "dispositions: returned-to-harness 1",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": []
+            }
+          ]
+        },
+        {
+          "case": "rust/silent_swallow",
+          "run_ids": [
+            "20260905-005850-6129b9"
+          ],
+          "record_rc": 0,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "which-settings-were-dropped",
+              "printed": 2,
+              "expected": 2,
+              "equal": true,
+              "printed_tally": "dispositions: swallowed 2",
+              "pinned_tally": "dispositions: swallowed 2",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": [
+                "    SWALLOWED -- absorbed by sink_ok at e9 (load L31) in f2, which returned ok",
+                "    SWALLOWED -- absorbed by sink_let_underscore at e16 (load L33) in f2, which returned ok"
+              ]
+            }
+          ]
+        },
+        {
+          "case": "rust/unwrap_panic",
+          "run_ids": [
+            "20260905-005850-bfa6c6"
+          ],
+          "record_rc": 101,
+          "dropped": null,
+          "questions": [
+            {
+              "id": "what-happened-to-the-refusal",
+              "printed": 0,
+              "expected": 0,
+              "equal": true,
+              "printed_tally": "dispositions: panicked 1",
+              "pinned_tally": "dispositions: panicked 1",
+              "tally_equal": true,
+              "extra": [],
+              "missing": [],
+              "rc": 0,
+              "expect_exit": 0,
+              "swallowed_lines": []
+            }
+          ]
+        }
+      ]
+    },
+    "E6prime": {
+      "headline": {
+        "value": null,
+        "n": 15,
+        "lens": "FALSE ACCUSATIONS. Not measurable by this instrument: \u00a71 asks for every printed SWALLOWED line to be adjudicated against the clone's SOURCE, which is a reading, not a computation. The count and the adjudication table are \u00a74 of the document; what is here is every line that had to be adjudicated. `cargo sensorium test -p bloomery-daemon --lib` on the clone at e209ed9 under the driver of \u00a72, then `sensorium exceptions <run> --limit 100000` captured whole (the limit is above the chain count, so nothing was paged away)",
+        "dropped": [
+          "adjudicated by hand in \u00a74 of the acceptance document, under both the amended and the strictest pre-lock readings of \"merely observed\""
+        ]
+      },
+      "swallowed_lines": {
+        "value": 15,
+        "n": 22,
+        "lens": "printed SWALLOWED lines, of the chains in scope; `cargo sensorium test -p bloomery-daemon --lib` on the clone at e209ed9 under the driver of \u00a72, then `sensorium exceptions <run> --limit 100000` captured whole (the limit is above the chain count, so nothing was paged away)",
+        "dropped": []
+      },
+      "unparsed_swallowed_lines": {
+        "value": 0,
+        "n": 15,
+        "lens": "SWALLOWED lines the collector could not parse into (how, event, qualname, line) -- anything but 0 means the adjudication table below was assembled by hand for that row",
+        "dropped": []
+      },
+      "chains_in_scope": {
+        "value": 22,
+        "n": null,
+        "lens": "`raised (N):` -- Err chains the command judged",
+        "dropped": []
+      },
+      "tally": {
+        "swallowed": 15,
+        "ambiguous": 7
+      },
+      "tally_line": "dispositions: swallowed 15, ambiguous 7",
+      "partial_line": null,
+      "panics_line": "panics: 2 recorded -- this command judges Err flow; a panic is a frame's unwind, printed by `tree` and `frame`",
+      "more_note": null,
+      "run": "20260905-005838-53c4c3",
+      "events": 1424,
+      "rc": 0,
+      "exceptions_rc": 0,
+      "wall_s": 0.367,
+      "exceptions_wall_s": 0.068,
+      "swallowed": [
+        {
+          "line": "SWALLOWED -- absorbed by sink_let_underscore at e317 (tests::fresh_dir L156) in f154, which returned ok",
+          "how": "sink_let_underscore",
+          "event": 317,
+          "qualname": "tests::fresh_dir",
+          "site_line": 156,
+          "frame": "154",
+          "unparsed": false,
+          "sink": {
+            "event": 317,
+            "line": 156,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/memory.rs",
+            "qualname": "tests::fresh_dir",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/memory.rs:156\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967296,\"type\":\"std::io::error::Error\"},\"how\":\"sink_let_underscore\"}",
+            "frame_id": 154,
+            "thread_id": 37
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by sink_let_underscore at e318 (tests::fresh_dir L156) in f157, which returned ok",
+          "how": "sink_let_underscore",
+          "event": 318,
+          "qualname": "tests::fresh_dir",
+          "site_line": 156,
+          "frame": "157",
+          "unparsed": false,
+          "sink": {
+            "event": 318,
+            "line": 156,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/memory.rs",
+            "qualname": "tests::fresh_dir",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/memory.rs:156\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967296,\"type\":\"std::io::error::Error\"},\"how\":\"sink_let_underscore\"}",
+            "frame_id": 157,
+            "thread_id": 38
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by sink_let_underscore at e319 (tests::fresh_dir L156) in f159, which returned ok",
+          "how": "sink_let_underscore",
+          "event": 319,
+          "qualname": "tests::fresh_dir",
+          "site_line": 156,
+          "frame": "159",
+          "unparsed": false,
+          "sink": {
+            "event": 319,
+            "line": 156,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/memory.rs",
+            "qualname": "tests::fresh_dir",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/memory.rs:156\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967296,\"type\":\"std::io::error::Error\"},\"how\":\"sink_let_underscore\"}",
+            "frame_id": 159,
+            "thread_id": 36
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by sink_let_underscore at e353 (tests::tempdir L606) in f176, which returned ok",
+          "how": "sink_let_underscore",
+          "event": 353,
+          "qualname": "tests::tempdir",
+          "site_line": 606,
+          "frame": "176",
+          "unparsed": false,
+          "sink": {
+            "event": 353,
+            "line": 606,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/exec.rs",
+            "qualname": "tests::tempdir",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/task/exec.rs:606\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967296,\"type\":\"std::io::error::Error\"},\"how\":\"sink_let_underscore\"}",
+            "frame_id": 176,
+            "thread_id": 39
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by arm_handled at e372 (MemoryStore::load L96) in f181, which returned ok",
+          "how": "arm_handled",
+          "event": 372,
+          "qualname": "MemoryStore::load",
+          "site_line": 96,
+          "frame": "181",
+          "unparsed": false,
+          "sink": {
+            "event": 372,
+            "line": 96,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/memory/store.rs",
+            "qualname": "MemoryStore::load",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967297,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/memory/store.rs:96\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967297,\"type\":\"std::io::error::Error\"},\"how\":\"arm_handled\"}",
+            "frame_id": 181,
+            "thread_id": 38
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by arm_handled at e391 (build_memory L131) in f192, which returned ok",
+          "how": "arm_handled",
+          "event": 391,
+          "qualname": "build_memory",
+          "site_line": 131,
+          "frame": "192",
+          "unparsed": false,
+          "sink": {
+            "event": 391,
+            "line": 131,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/memory.rs",
+            "qualname": "build_memory",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"workspace\",\"serial\":4294967297,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/memory.rs:131\",\"msg\":\"Os { code: 21, kind: IsADirectory, message: \\\"Is a directory\\\" }\",\"serial\":4294967297,\"type\":\"std::io::error::Error\"},\"how\":\"arm_handled\"}",
+            "frame_id": 192,
+            "thread_id": 37
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by arm_handled at e388 (MemoryStore::load L96) in f195, which returned ok",
+          "how": "arm_handled",
+          "event": 388,
+          "qualname": "MemoryStore::load",
+          "site_line": 96,
+          "frame": "195",
+          "unparsed": false,
+          "sink": {
+            "event": 388,
+            "line": 96,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/memory/store.rs",
+            "qualname": "MemoryStore::load",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967297,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/memory/store.rs:96\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967297,\"type\":\"std::io::error::Error\"},\"how\":\"arm_handled\"}",
+            "frame_id": 195,
+            "thread_id": 36
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by sink_let_underscore at e459 (tests::tempdir L606) in f221, which returned ok",
+          "how": "sink_let_underscore",
+          "event": 459,
+          "qualname": "tests::tempdir",
+          "site_line": 606,
+          "frame": "221",
+          "unparsed": false,
+          "sink": {
+            "event": 459,
+            "line": 606,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/exec.rs",
+            "qualname": "tests::tempdir",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/task/exec.rs:606\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967296,\"type\":\"std::io::error::Error\"},\"how\":\"sink_let_underscore\"}",
+            "frame_id": 221,
+            "thread_id": 42
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by sink_let_underscore at e460 (tests::tempdir L606) in f219, which returned ok",
+          "how": "sink_let_underscore",
+          "event": 460,
+          "qualname": "tests::tempdir",
+          "site_line": 606,
+          "frame": "219",
+          "unparsed": false,
+          "sink": {
+            "event": 460,
+            "line": 606,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/exec.rs",
+            "qualname": "tests::tempdir",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/task/exec.rs:606\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967296,\"type\":\"std::io::error::Error\"},\"how\":\"sink_let_underscore\"}",
+            "frame_id": 219,
+            "thread_id": 41
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by sink_let_underscore at e486 (tests::tempdir L606) in f237, which returned ok",
+          "how": "sink_let_underscore",
+          "event": 486,
+          "qualname": "tests::tempdir",
+          "site_line": 606,
+          "frame": "237",
+          "unparsed": false,
+          "sink": {
+            "event": 486,
+            "line": 606,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/exec.rs",
+            "qualname": "tests::tempdir",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/task/exec.rs:606\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967296,\"type\":\"std::io::error::Error\"},\"how\":\"sink_let_underscore\"}",
+            "frame_id": 237,
+            "thread_id": 45
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by sink_let_underscore at e499 (tests::fresh_dir L1084) in f242, which returned ok",
+          "how": "sink_let_underscore",
+          "event": 499,
+          "qualname": "tests::fresh_dir",
+          "site_line": 1084,
+          "frame": "242",
+          "unparsed": false,
+          "sink": {
+            "event": 499,
+            "line": 1084,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs",
+            "qualname": "tests::fresh_dir",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/task/registry.rs:1084\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967296,\"type\":\"std::io::error::Error\"},\"how\":\"sink_let_underscore\"}",
+            "frame_id": 242,
+            "thread_id": 47
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by sink_ok at e523 (classify_probe L379) in f256, which returned ok",
+          "how": "sink_ok",
+          "event": 523,
+          "qualname": "classify_probe",
+          "site_line": 379,
+          "frame": "256",
+          "unparsed": false,
+          "sink": {
+            "event": 523,
+            "line": 379,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs",
+            "qualname": "classify_probe",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/task/registry.rs:379\",\"msg\":\"ParseIntError { kind: InvalidDigit }\",\"serial\":4294967296,\"type\":\"core::num::error::ParseIntError\"},\"how\":\"sink_ok\"}",
+            "frame_id": 256,
+            "thread_id": 48
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by sink_let_underscore at e545 (tests::fresh_dir L1084) in f265, which returned ok",
+          "how": "sink_let_underscore",
+          "event": 545,
+          "qualname": "tests::fresh_dir",
+          "site_line": 1084,
+          "frame": "265",
+          "unparsed": false,
+          "sink": {
+            "event": 545,
+            "line": 1084,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs",
+            "qualname": "tests::fresh_dir",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/task/registry.rs:1084\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967296,\"type\":\"std::io::error::Error\"},\"how\":\"sink_let_underscore\"}",
+            "frame_id": 265,
+            "thread_id": 51
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by sink_let_underscore at e549 (tests::fresh_dir L1084) in f268, which returned ok",
+          "how": "sink_let_underscore",
+          "event": 549,
+          "qualname": "tests::fresh_dir",
+          "site_line": 1084,
+          "frame": "268",
+          "unparsed": false,
+          "sink": {
+            "event": 549,
+            "line": 1084,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs",
+            "qualname": "tests::fresh_dir",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/task/registry.rs:1084\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967296,\"type\":\"std::io::error::Error\"},\"how\":\"sink_let_underscore\"}",
+            "frame_id": 268,
+            "thread_id": 49
+          }
+        },
+        {
+          "line": "SWALLOWED -- absorbed by sink_let_underscore at e563 (tests::fresh_dir L1084) in f274, which returned ok",
+          "how": "sink_let_underscore",
+          "event": 563,
+          "qualname": "tests::fresh_dir",
+          "site_line": 1084,
+          "frame": "274",
+          "unparsed": false,
+          "sink": {
+            "event": 563,
+            "line": 1084,
+            "kind": "HANDLED",
+            "file": "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs",
+            "qualname": "tests::fresh_dir",
+            "payload": "{\"chain\":{\"hop\":1,\"origin\":\"outside\",\"serial\":4294967296,\"terminal\":\"swallowed_candidate\",\"translated\":false},\"exc\":{\"kind\":\"err\",\"loc\":\"crates/bloomery-daemon/src/task/registry.rs:1084\",\"msg\":\"Os { code: 2, kind: NotFound, message: \\\"No such file or directory\\\" }\",\"serial\":4294967296,\"type\":\"std::io::error::Error\"},\"how\":\"sink_let_underscore\"}",
+            "frame_id": 274,
+            "thread_id": 52
+          }
+        }
+      ],
+      "trace": {
+        "event_kinds": {
+          "CALL": 697,
+          "HANDLED": 17,
+          "RAISE": 13,
+          "RETURN": 697
+        },
+        "events": 1424,
+        "raise": 13,
+        "handled": 17,
+        "frame_kinds": {
+          "function": 697
+        },
+        "closure_frames": 0,
+        "code_objects": 214,
+        "partial_rows": 0,
+        "site_kinds": {
+          "fn": 628,
+          "try": 305,
+          "sink": 102,
+          "arm": 141,
+          "closure": 8
+        },
+        "sites": 1184,
+        "meta_sites_bytes": 230893,
+        "trace_bytes": 577536,
+        "bytes_per_record": 405.573,
+        "incomplete": false,
+        "dropped": null
+      }
+    },
+    "E2pp": {
+      "headline": {
+        "value": 0.977556,
+        "n": 401,
+        "lens": "instrumented 392 / 401 syn-visible `?`; numerator = DISTINCT (file, line) over `kind: \"try\"` manifest rows from ONE from-scratch workspace `--no-run` build (the target directory was emptied first, so cargo compiled every unit and the `-C metadata=` scope in its own `cargo -v` log is complete); denominator = \u00a71's FROZEN try_syn = 401, counted by Task 0 over the clone at e209ed9 BEFORE the byte-lock",
+        "dropped": []
+      },
+      "numerator": {
+        "value": 392,
+        "n": 108,
+        "lens": "distinct `kind: \"try\"` manifest rows",
+        "dropped": []
+      },
+      "numerator_raw": {
+        "value": 801,
+        "n": 108,
+        "lens": "the RAW sum of `try` rows over the build's manifests: two (crate_name, crate_type) pairs declare two manifests for one unit, so this double-counts a source `?`",
+        "dropped": []
+      },
+      "denominator": {
+        "value": 401,
+        "n": 191,
+        "lens": "\u00a71's frozen `try_syn` over the clone",
+        "dropped": []
+      },
+      "units_that_fell_back": {
+        "value": 0,
+        "n": 108,
+        "lens": "manifests with `fell_back: true` in the from-scratch workspace build",
+        "dropped": []
+      },
+      "fell_back_stderr_lines": {
+        "value": 0,
+        "n": 1,
+        "lens": "`fell back to the real tree` lines in the build's own log",
+        "dropped": []
+      },
+      "partial_rows": {
+        "value": 1,
+        "n": 108,
+        "lens": "distinct `partial` rows; \u00a71 reports these against try_macro_tokens = 1 per file",
+        "dropped": []
+      },
+      "partial_by_file": {
+        "crates/bloomery-bench/src/main.rs": 1
+      },
+      "partial_reasons": {
+        "macro-arg": 1
+      },
+      "partial_detail": [
+        {
+          "file": "crates/bloomery-bench/src/main.rs",
+          "line": 108,
+          "qualname": "run_report",
+          "kind": "try",
+          "reason": "macro-arg"
+        }
+      ],
+      "try_rows_by_file": {
+        "crates/bloomery-bench/src/http.rs": 7,
+        "crates/bloomery-bench/src/switch.rs": 33,
+        "crates/bloomery-daemon/tests/memory_render_test.rs": 1,
+        "crates/bloomery-daemon/src/agents.rs": 4,
+        "crates/bloomery-daemon/src/codec_probe/boot.rs": 5,
+        "crates/bloomery-daemon/src/codec_probe/fixtures.rs": 3,
+        "crates/bloomery-daemon/src/codec_probe/mod.rs": 17,
+        "crates/bloomery-daemon/src/codec_probe/refuse.rs": 20,
+        "crates/bloomery-daemon/src/config.rs": 4,
+        "crates/bloomery-daemon/src/drift.rs": 10,
+        "crates/bloomery-daemon/src/drift/watch.rs": 8,
+        "crates/bloomery-daemon/src/memory/mint.rs": 3,
+        "crates/bloomery-daemon/src/memory/store.rs": 11,
+        "crates/bloomery-daemon/src/pager.rs": 25,
+        "crates/bloomery-daemon/src/pager/codec_gate.rs": 3,
+        "crates/bloomery-daemon/src/pager/drift_watch.rs": 7,
+        "crates/bloomery-daemon/src/pager/error.rs": 1,
+        "crates/bloomery-daemon/src/pager/paging.rs": 36,
+        "crates/bloomery-daemon/src/pager/probing.rs": 1,
+        "crates/bloomery-daemon/src/pager/tuning.rs": 3,
+        "crates/bloomery-daemon/src/post.rs": 13,
+        "crates/bloomery-daemon/src/swap/job.rs": 10,
+        "crates/bloomery-daemon/src/task/exec.rs": 4,
+        "crates/bloomery-daemon/src/task/lens_py.rs": 2,
+        "crates/bloomery-daemon/src/task/task_loop.rs": 1,
+        "crates/bloomery-daemon/src/main.rs": 1,
+        "crates/bloomery-daemon/src/bin/flywheel_tool.rs": 3,
+        "crates/bloomery-daemon/src/bin/flywheel_tool/render.rs": 1,
+        "crates/bloomery-daemon/src/bin/flywheel_tool/scratch.rs": 6,
+        "crates/bloomery-daemon/src/bin/flywheel_tool/trajectories.rs": 26,
+        "crates/bloomery-bench/src/main.rs": 12,
+        "crates/bloomery-core/src/action/envelope.rs": 1,
+        "crates/bloomery-core/src/action/mod.rs": 3,
+        "crates/bloomery-core/src/action/patch.rs": 3,
+        "crates/bloomery-core/src/action/verbs.rs": 7,
+        "crates/bloomery-core/src/gguf.rs": 58,
+        "crates/bloomery-core/src/grant/mod.rs": 1,
+        "crates/bloomery-core/src/journal.rs": 6,
+        "crates/bloomery-core/src/profile.rs": 2,
+        "crates/bloomery-core/src/vram.rs": 3,
+        "crates/bloomery-substrate/src/fake.rs": 3,
+        "crates/bloomery-substrate/src/llama.rs": 24
+      },
+      "site_kinds_raw": {
+        "fn": 7895,
+        "sink": 1095,
+        "arm": 450,
+        "try": 801,
+        "closure": 18
+      },
+      "unreached_files": {
+        "value": 0,
+        "n": 108,
+        "lens": "files a unit's module walk could not reach, unioned",
+        "dropped": []
+      },
+      "build": {
+        "rc": 0,
+        "wall": 9.632,
+        "compiled": [
+          "bloomery-bench",
+          "bloomery-core",
+          "bloomery-daemon",
+          "bloomery-substrate"
+        ],
+        "fresh": [],
+        "cargo_exit": 0,
+        "metadata_units": [
+          "02abfd3143a129d1",
+          "039d09b8824873e0",
+          "0505a80b1aafcc07",
+          "06e5b0ac222ba552",
+          "07484549e7512d71",
+          "0858de04b9d7ba53",
+          "0d6e9f952d46b603",
+          "10bc07bb76e68d39",
+          "12e629918e93b9b2",
+          "13087e3da8945c6f",
+          "1385948d485d35b7",
+          "16129218da5560a6",
+          "188cef134c03727f",
+          "1dd9b8c3dc262691",
+          "202768a4a7ae21e6",
+          "20a513c603a9258f",
+          "216056177c935c87",
+          "22829960504d1ad3",
+          "2328ef32e770c56f",
+          "2428dd803747f6dd",
+          "24fedb80d745218e",
+          "25942802be7a8cbf",
+          "25ed618fedb02065",
+          "25f50d72d875287a",
+          "292318e00fcd29fc",
+          "296e07ff5c237382",
+          "2eaddf52ddbd3f1d",
+          "358f5f4293b28a1e",
+          "36388c4c75539bc8",
+          "37246f357b28eb7c",
+          "376b89ec8b660236",
+          "38cd78de6401b97b",
+          "38f932605edf89c8",
+          "39ae07f3b7539b00",
+          "39ce512016fd6f60",
+          "3a439658fc4acc92",
+          "3af9443503151183",
+          "3afb285f423eed75",
+          "3cab33eba3dacfd1",
+          "3e977cba666f8621",
+          "40f73bbbb7fa3e38",
+          "42189caee8ed9dba",
+          "42fe3fa8a67f901a",
+          "431e8a8aaf146f63",
+          "434e218b9f5d0da4",
+          "452ad9bf0dbc8b4d",
+          "4829afac68614996",
+          "494aec3fd47e2aa1",
+          "4995ed499d956001",
+          "4c9db01d35d1f5e6",
+          "4ca5d79e908780d2",
+          "4cc6c23f30c48ff2",
+          "4dddff865df532ba",
+          "4e06406a36b30524",
+          "4f8fb58e286ecdeb",
+          "5082396dfb90c2de",
+          "53044c3591e69cc6",
+          "538f301130d40b3f",
+          "5799711ad7adb3c5",
+          "59bbb61d9ae1811d",
+          "5bc6471f1e492dc3",
+          "5d60c1334185fbe3",
+          "5f254c39184a440b",
+          "62480788fb9f5fef",
+          "640294ddd4662da2",
+          "64b351a4b1fad5fb",
+          "666ba6f85eed9105",
+          "6905c1212be713c4",
+          "6a3c7886c7101a67",
+          "6bdf66a6781d361f",
+          "6e7dc6604fc4c3cf",
+          "70e31387d13fc3c6",
+          "731bfe01848c4533",
+          "7394dbdebec77d69",
+          "73c2adb764b267ed",
+          "75d2ac9ed8dc93a5",
+          "78213d3a47bf3593",
+          "7a1bcf12b1584e18",
+          "7afa7285eec08bf7",
+          "7c94b59a978db0d3",
+          "7db3e3ec59b1723f",
+          "7e339977a7cb1461",
+          "806fe41910f9d815",
+          "80ac2f9b5fe6b404",
+          "826b493f2075542d",
+          "82d334e80cb4abec",
+          "83304495dca11a53",
+          "85f55480096da128",
+          "85fb905f9ea0893e",
+          "89bb1e362148f366",
+          "89f1a9c68354928c",
+          "8cf827860e029176",
+          "8eb81f9c3e579104",
+          "8f4750f15393325f",
+          "916983cb0b991702",
+          "928f323cd73857cc",
+          "95b8258df2e0ad1f",
+          "95d8890487656add",
+          "97af4abf9bba10f1",
+          "984d3fc632806794",
+          "9986a3c685173ed5",
+          "9a0e5327dbd52100",
+          "9ce88deb12c3066a",
+          "9ced7883559e31a0",
+          "a185eb37bca7a7ea",
+          "a54224b07a911374",
+          "a9901e17794f3eec",
+          "af6a4c66f874a0d2",
+          "b03caf3b24c9486f",
+          "b295d4fbe3705c89",
+          "b299674d3fce04e0",
+          "b5e4571392467541",
+          "b6076c6cc1109d6f",
+          "b726d924d1aad7b2",
+          "ba7a648192d52e6f",
+          "bb9c333e5456336b",
+          "bfae4247c726f7a1",
+          "c2fddb98d6ef72b5",
+          "cc07a88408f7f6b7",
+          "ce160373ee8e5251",
+          "d0ad77864480af35",
+          "d2dfcdc65169e949",
+          "d3482c071900a389",
+          "d386f4584d7e45f2",
+          "d94f85e135dc6544",
+          "d99d1f2f1dd9352e",
+          "db93248d20ca7921",
+          "dbf5345522ee670a",
+          "dc012f95690462c4",
+          "de98a00f62eb5c56",
+          "dee9b49ffefb3057",
+          "e1056fba05c3b495",
+          "e133f29bd1950a0f",
+          "e1d518c4bb6e01b4",
+          "e4082b3d2ab2ac37",
+          "e45703238835970f",
+          "e56d86179dbd1b5d",
+          "e8d013f9b27fc5c8",
+          "e95c3d54454006d7",
+          "ea632e41d824192a",
+          "ea7ebb29ed800c56",
+          "ebbe109e2569ea5c",
+          "ed26d2eadcf7ad20",
+          "ee14d56c6246e115",
+          "eee42d8d88047b58",
+          "ef5defad106334f5",
+          "f049b2727a5a1a7c",
+          "f2dbefd3e1783984",
+          "f3283dc0b707be9d",
+          "f786a8d400960db0",
+          "f7f08c1cd746eb4f",
+          "facd3805040ae5a9",
+          "feb855b81406bc75",
+          "ffbbb3052fa84086"
+        ],
+        "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance/logs/e2pp-workspace.log"
+      },
+      "census_rerun_try_syn": {
+        "value": 401,
+        "n": 191,
+        "lens": "the census binary re-run over the clone at run time. REPORTED, not the denominator: \u00a71 froze try_syn before the byte-lock and the ratio above is taken over that number",
+        "dropped": []
+      },
+      "census_rerun_try_macro_tokens": {
+        "value": 1,
+        "n": 191,
+        "lens": "the same re-run's macro-argument `?` tokens",
+        "dropped": []
+      },
+      "census_rerun_agrees_with_the_frozen_denominator": true,
+      "census_rerun": {
+        "files": 191,
+        "parsed": 191,
+        "try_by_file": {
+          "crates/bloomery-bench/src/http.rs": 7,
+          "crates/bloomery-bench/src/main.rs": 13,
+          "crates/bloomery-bench/src/switch.rs": 38,
+          "crates/bloomery-core/src/action/envelope.rs": 1,
+          "crates/bloomery-core/src/action/mod.rs": 3,
+          "crates/bloomery-core/src/action/patch.rs": 3,
+          "crates/bloomery-core/src/action/verbs.rs": 7,
+          "crates/bloomery-core/src/gguf.rs": 58,
+          "crates/bloomery-core/src/grant/mod.rs": 1,
+          "crates/bloomery-core/src/journal.rs": 6,
+          "crates/bloomery-core/src/profile.rs": 4,
+          "crates/bloomery-core/src/vram.rs": 3,
+          "crates/bloomery-daemon/src/agents.rs": 4,
+          "crates/bloomery-daemon/src/bin/flywheel_tool/render.rs": 1,
+          "crates/bloomery-daemon/src/bin/flywheel_tool/scratch.rs": 6,
+          "crates/bloomery-daemon/src/bin/flywheel_tool/trajectories.rs": 26,
+          "crates/bloomery-daemon/src/bin/flywheel_tool.rs": 3,
+          "crates/bloomery-daemon/src/codec_probe/boot.rs": 5,
+          "crates/bloomery-daemon/src/codec_probe/fixtures.rs": 3,
+          "crates/bloomery-daemon/src/codec_probe/mod.rs": 17,
+          "crates/bloomery-daemon/src/codec_probe/refuse.rs": 20,
+          "crates/bloomery-daemon/src/config.rs": 4,
+          "crates/bloomery-daemon/src/drift/watch.rs": 8,
+          "crates/bloomery-daemon/src/drift.rs": 11,
+          "crates/bloomery-daemon/src/main.rs": 1,
+          "crates/bloomery-daemon/src/memory/mint.rs": 3,
+          "crates/bloomery-daemon/src/memory/store.rs": 11,
+          "crates/bloomery-daemon/src/pager/codec_gate.rs": 3,
+          "crates/bloomery-daemon/src/pager/drift_watch.rs": 7,
+          "crates/bloomery-daemon/src/pager/error.rs": 1,
+          "crates/bloomery-daemon/src/pager/paging.rs": 36,
+          "crates/bloomery-daemon/src/pager/probing.rs": 1,
+          "crates/bloomery-daemon/src/pager/tuning.rs": 3,
+          "crates/bloomery-daemon/src/pager.rs": 25,
+          "crates/bloomery-daemon/src/post.rs": 13,
+          "crates/bloomery-daemon/src/swap/job.rs": 10,
+          "crates/bloomery-daemon/src/task/exec.rs": 4,
+          "crates/bloomery-daemon/src/task/lens_py.rs": 2,
+          "crates/bloomery-daemon/src/task/task_loop.rs": 1,
+          "crates/bloomery-daemon/tests/memory_render_test.rs": 1,
+          "crates/bloomery-substrate/src/fake.rs": 3,
+          "crates/bloomery-substrate/src/llama.rs": 24
+        },
+        "macro_by_file": {
+          "crates/bloomery-bench/src/main.rs": 1
+        }
+      },
+      "census_rung2_columns": {
+        "files": 191,
+        "parsed": 191,
+        "totals": {
+          "fn_items": 2056,
+          "const_fns": 5,
+          "extern_fns": 0,
+          "async_fns": 0,
+          "eligible": 2051
+        }
+      }
+    },
+    "E7pp": {
+      "headline": {
+        "value": 0,
+        "n": 6,
+        "lens": "FAILED E7 checks on the probe's EXISTING panics (lines and columns), of the E7 checks that ran; `rust/tests/mechanics.sh`",
+        "dropped": []
+      },
+      "existing_checks_passed": {
+        "value": 6,
+        "n": 6,
+        "lens": "E7 checks that passed",
+        "dropped": []
+      },
+      "existing_check_failures": [],
+      "operand_column_shift": {
+        "value": 6,
+        "n": 1,
+        "lens": "instrumented column minus plain column for the panic literal inside a `?` operand, tier `call`; \u00a71 predicted 6 (the wrap prefix `match `)",
+        "dropped": []
+      },
+      "operand_column_shift_off": {
+        "value": 6,
+        "n": 1,
+        "lens": "the same, tier `off`: the wrapped bytes are identical, only the runtime's answer differs",
+        "dropped": []
+      },
+      "operand_line_identical": {
+        "value": 1,
+        "n": 1,
+        "lens": "1 when the panic's LINE is the same in both arms",
+        "dropped": []
+      },
+      "operand_locations": {
+        "plain": {
+          "file": "probe-app/tests/e7_operand.rs",
+          "line": 33,
+          "col": 24
+        },
+        "off": {
+          "file": "probe-app/tests/e7_operand.rs",
+          "line": 33,
+          "col": 30
+        },
+        "call": {
+          "file": "probe-app/tests/e7_operand.rs",
+          "line": 33,
+          "col": 30
+        }
+      },
+      "operand_predicted_shift": 6,
+      "operand_check_failures": [],
+      "operand_checks": [
+        "e7_operand_plain_arm_panicked_once",
+        "e7_operand_line_identical_and_column_shifts_by_the_wrap_prefix",
+        "e7_operand_off_tier_shifts_identically"
+      ],
+      "mechanics_rc": 0,
+      "mechanics_ok": 47,
+      "mechanics_fail": [],
+      "mechanics_skip": [],
+      "driver_unchanged": true
+    },
+    "E3pp": {
+      "headline": {
+        "value": 0,
+        "n": 19,
+        "lens": "DIVERGED + REFUSED verdicts over 19 diffs; `sensorium diff <run 1> <run K>` for K = 2..N over N recorded runs of ONE test binary built once; the binary's sha256 was re-asserted equal before every run, so no pair spans a rebuild",
+        "dropped": []
+      },
+      "diverged": {
+        "value": 0,
+        "n": 19,
+        "lens": "`sensorium diff <run 1> <run K>` for K = 2..N over N recorded runs of ONE test binary built once; the binary's sha256 was re-asserted equal before every run, so no pair spans a rebuild",
+        "dropped": []
+      },
+      "refused": {
+        "value": 0,
+        "n": 19,
+        "lens": "`sensorium diff <run 1> <run K>` for K = 2..N over N recorded runs of ONE test binary built once; the binary's sha256 was re-asserted equal before every run, so no pair spans a rebuild",
+        "dropped": []
+      },
+      "matched": {
+        "value": 19,
+        "n": 19,
+        "lens": "`sensorium diff <run 1> <run K>` for K = 2..N over N recorded runs of ONE test binary built once; the binary's sha256 was re-asserted equal before every run, so no pair spans a rebuild",
+        "dropped": []
+      },
+      "runs": {
+        "value": 20,
+        "n": 20,
+        "lens": "recorded runs that produced a trace",
+        "dropped": []
+      },
+      "binary_sha256": "b2b4edd3b430b8178759dafa5e21e009f4cfbf45cfe1e1f49e9364bc7ffe6542",
+      "sha256_mismatches": {
+        "value": 0,
+        "n": 20,
+        "lens": "runs whose binary sha256 differed from run 1's",
+        "dropped": []
+      },
+      "events_per_run": [
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424,
+        1424
+      ],
+      "table": [
+        {
+          "k": 2,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005838-7fe328",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 3,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005839-29d612",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 4,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005839-b776fd",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 5,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005839-07d43c",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 6,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005839-da819b",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 7,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005839-3c9cfa",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 8,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005839-822173",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 9,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005839-db8d13",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 10,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005840-45919d",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 11,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005840-64f49c",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 12,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005840-bcc54a",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 13,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005840-39c286",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 14,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005840-71af79",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 15,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005840-52ed66",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 16,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005840-94c986",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 17,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005841-65247c",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 18,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005841-b9257f",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 19,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005841-54633b",
+          "verdict": "MATCH",
+          "rc": 0
+        },
+        {
+          "k": 20,
+          "a": "20260905-005838-a9749c",
+          "b": "20260905-005841-bceaa3",
+          "verdict": "MATCH",
+          "rc": 0
+        }
+      ]
+    },
+    "E5pp": {
+      "headline": {
+        "value": 0,
+        "n": 6,
+        "lens": "pre-registered E5 conditions not met, of 6; three arms on three trees (original / split / split + one planted swap of two consecutive independent call statements), each `cargo sensorium test <pkg> --lib -- <filter>`; verdicts from `sensorium diff --ignore-moves`",
+        "dropped": []
+      },
+      "conditions": {
+        "ab_verdict_is_match": true,
+        "ab_moved_at_least_one": true,
+        "ab_zero_added": true,
+        "ab_zero_removed": true,
+        "ab_every_task_paired": true,
+        "ac_verdict_is_diverged": true
+      },
+      "conditions_failed": [],
+      "ab_verdict": "MATCH",
+      "ab_verdict_line": "verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict",
+      "ab_moved": {
+        "value": 28,
+        "n": 1,
+        "lens": "code objects paired across a move by qualname (A/B)",
+        "dropped": []
+      },
+      "ac_verdict": "DIVERGED",
+      "ac_verdict_line": "verdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)",
+      "ab_plain_verdict": "DIVERGED",
+      "arms": {
+        "A": {
+          "ref": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+          "head": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+          "rc": 0,
+          "wall": 0.099,
+          "run": "20260905-005842-495d6b",
+          "events": 900,
+          "threads": 10,
+          "tests": [
+            "task::registry::tests::classify_probe_reads_only_completed_runs_and_only_real_exit_codes",
+            "task::registry::tests::get_on_unknown_task_id_is_none",
+            "task::registry::tests::contained_catches_a_panic_journals_it_and_lets_the_caller_continue",
+            "task::registry::tests::task_ids_are_unique_and_monotonic",
+            "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager",
+            "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion"
+          ],
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance/logs/e5-A-run.log"
+        },
+        "B": {
+          "ref": "e5-split",
+          "head": "e8c79be1626f5808eb48a967d02a17217e614843",
+          "rc": 0,
+          "wall": 0.251,
+          "run": "20260905-005844-997a09",
+          "events": 900,
+          "threads": 10,
+          "tests": [
+            "task::registry::tests::classify_probe_reads_only_completed_runs_and_only_real_exit_codes",
+            "task::registry::tests::get_on_unknown_task_id_is_none",
+            "task::registry::tests::contained_catches_a_panic_journals_it_and_lets_the_caller_continue",
+            "task::registry::tests::task_ids_are_unique_and_monotonic",
+            "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager",
+            "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion"
+          ],
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance/logs/e5-B-run.log"
+        },
+        "C": {
+          "ref": "e5-planted",
+          "head": "fea50b14ba453a179e94dc96ca71a89a90c35f26",
+          "rc": 0,
+          "wall": 0.093,
+          "run": "20260905-005845-a992df",
+          "events": 900,
+          "threads": 10,
+          "tests": [
+            "task::registry::tests::classify_probe_reads_only_completed_runs_and_only_real_exit_codes",
+            "task::registry::tests::get_on_unknown_task_id_is_none",
+            "task::registry::tests::contained_catches_a_panic_journals_it_and_lets_the_caller_continue",
+            "task::registry::tests::task_ids_are_unique_and_monotonic",
+            "task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager",
+            "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion"
+          ],
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance/logs/e5-C-run.log"
+        }
+      },
+      "diffs": {
+        "ab_ignore_moves": {
+          "argv": [
+            "diff",
+            "--ignore-moves",
+            "20260905-005842-495d6b",
+            "20260905-005844-997a09"
+          ],
+          "rc": 0,
+          "verdict": "MATCH",
+          "verdict_line": "verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict",
+          "moved": 28,
+          "added": false,
+          "removed": false,
+          "unpaired": false,
+          "tasks_all_matched": true,
+          "tasks_each_side": 10,
+          "stdout": "A 20260905-005842-495d6b: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nB 20260905-005844-997a09: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nkey: (file, qualname, kind), with 28 code object(s) paired across a move by qualname -- see moves below\nnote: A recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nnote: B recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nverdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict\ntasks: 10 task stream(s) on each side, compared by content as (name, hash): all matched; the ordering between tasks is not compared\nmoves:\n  moved: OrganDecision::off  registry.rs -> mod.rs\n  moved: TaskRegistry::get  registry.rs -> mod.rs\n  moved: TaskRegistry::new  registry.rs -> mod.rs\n  moved: TaskRegistry::spawn_task  registry.rs -> mod.rs\n  moved: classify_probe  registry.rs -> organ.rs\n  moved: contained  registry.rs -> helpers.rs\n  moved: degrade  registry.rs -> helpers.rs\n  moved: lock_entries  registry.rs -> helpers.rs\n  moved: organ_after_run  registry.rs -> organ.rs\n  moved: organ_before_run  registry.rs -> organ.rs\n  moved: panic_message  registry.rs -> helpers.rs\n  moved: panic_note  registry.rs -> helpers.rs\n  ... +16 more moved",
+          "stderr": ""
+        },
+        "ab_plain": {
+          "argv": [
+            "diff",
+            "20260905-005842-495d6b",
+            "20260905-005844-997a09"
+          ],
+          "rc": 1,
+          "verdict": "DIVERGED",
+          "verdict_line": "verdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)",
+          "moved": null,
+          "added": false,
+          "removed": false,
+          "unpaired": false,
+          "tasks_all_matched": false,
+          "tasks_each_side": null,
+          "stdout": "A 20260905-005842-495d6b: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nB 20260905-005844-997a09: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nnote: A recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nnote: B recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nverdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)\ntasks: DIVERGED -- 10 task stream(s) on A, 10 on B; only in A: task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager b64c50c7c2ac, task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager :: spawn@TaskRegistry::spawn_task#1 5da1393dcf56, task::registry::tests::classify_probe_reads_only_completed_runs_and_only_real_exit_codes 87bcee66bfd8, task::registry::tests::contained_catches_a_panic_journals_it_and_lets_the_caller_continue 311e0d06251c, task::registry::tests::get_on_unknown_task_id_is_none e833efccb6ca, task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion b98c6c0b6d94, task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion :: spawn@TaskRegistry::spawn_task#1 f40193423b12, task::registry::tests::task_ids_are_unique_and_monotonic 3f55326df7b1, task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1 47d897532d1b, task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1 f40193423b12; only in B: task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager 64de794cba08, task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager :: spawn@TaskRegistry::spawn_task#1 0763e6a2f9a4, task::registry::tests::classify_probe_reads_only_completed_runs_and_only_real_exit_codes b98ab1aa559b, task::registry::tests::contained_catches_a_panic_journals_it_and_lets_the_caller_continue 47e14493ba92, task::registry::tests::get_on_unknown_task_id_is_none 873c6645ba56, task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion b0be23858b27, task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion :: spawn@TaskRegistry::spawn_task#1 2d03ae901491, task::registry::tests::task_ids_are_unique_and_monotonic 97195ba6cd51, task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1 2d03ae901491, task::registry::tests::task_ids_are_unique_and_monotonic :: spawn@TaskRegistry::spawn_task#1 82e1d6d4fbdc; the ordering between tasks is not compared\nfirst difference inside task::registry::tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager (A task t7, B task t7) at causal step 0:\n  A:      e44 CALL    tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs)\n  B:      e44 CALL    tests::a_panicking_worker_becomes_error_not_stuck_running_and_does_not_poison_the_pager  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry/mod.rs)\ndrill into A: sensorium tree 20260905-005842-495d6b --around e44\ndrill into B: sensorium tree 20260905-005844-997a09 --around e44",
+          "stderr": ""
+        },
+        "ac_ignore_moves": {
+          "argv": [
+            "diff",
+            "--ignore-moves",
+            "20260905-005842-495d6b",
+            "20260905-005845-a992df"
+          ],
+          "rc": 1,
+          "verdict": "DIVERGED",
+          "verdict_line": "verdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)",
+          "moved": 28,
+          "added": false,
+          "removed": false,
+          "unpaired": false,
+          "tasks_all_matched": false,
+          "tasks_each_side": null,
+          "stdout": "A 20260905-005842-495d6b: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nB 20260905-005845-a992df: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670\nkey: (file, qualname, kind), with 28 code object(s) paired across a move by qualname -- see moves below\nnote: A recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nnote: B recorded more than one thread: 10 started as OS threads (libtest's per-test threads and threads spawned by workspace code), 1 left a fingerprint; only the thread named above was compared -- a MATCH here is not a MATCH on the whole run, and a thread that ran no traced code leaves no fingerprint to compare at all\nverdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)\ntasks: DIVERGED -- 10 task stream(s) on A, 10 on B; only in A: task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion c0fd6f422bc3, task::registry::tests::task_ids_are_unique_and_monotonic f89d072a03be; only in B: task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion 63956242fa5f, task::registry::tests::task_ids_are_unique_and_monotonic 6fdd8c12f416; the ordering between tasks is not compared\nfirst difference inside task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion (A task t4, B task t6) at causal step 5:\n  A:      e62 CALL    Journal::open  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-core/src/journal.rs)\n  B:      e46 CALL    ImageStore::new  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/agents.rs)\ndrill into A: sensorium tree 20260905-005842-495d6b --around e62\ndrill into B: sensorium tree 20260905-005845-a992df --around e46\nmoves:\n  moved: OrganDecision::off  registry.rs -> mod.rs\n  moved: TaskRegistry::get  registry.rs -> mod.rs\n  moved: TaskRegistry::new  registry.rs -> mod.rs\n  moved: TaskRegistry::spawn_task  registry.rs -> mod.rs\n  moved: classify_probe  registry.rs -> organ.rs\n  moved: contained  registry.rs -> helpers.rs\n  moved: degrade  registry.rs -> helpers.rs\n  moved: lock_entries  registry.rs -> helpers.rs\n  moved: organ_after_run  registry.rs -> organ.rs\n  moved: organ_before_run  registry.rs -> organ.rs\n  moved: panic_message  registry.rs -> helpers.rs\n  moved: panic_note  registry.rs -> helpers.rs\n  ... +16 more moved",
+          "stderr": ""
+        },
+        "ac_task": {
+          "argv": [
+            "diff",
+            "--ignore-moves",
+            "--task",
+            "task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion",
+            "20260905-005842-495d6b",
+            "20260905-005845-a992df"
+          ],
+          "rc": 1,
+          "verdict": "DIVERGED",
+          "verdict_line": "verdict: DIVERGED at causal step 5",
+          "moved": 28,
+          "added": false,
+          "removed": false,
+          "unpaired": false,
+          "tasks_all_matched": false,
+          "tasks_each_side": null,
+          "stdout": "A 20260905-005842-495d6b: compared: task task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion (t4)\nB 20260905-005845-a992df: compared: task task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion (t6)\nkey: (file, qualname, kind), with 28 code object(s) paired across a move by qualname -- see moves below\nnote: only task task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion was compared -- nothing is claimed here about the thread streams, the other tasks, or the order any of them ran in\nverdict: DIVERGED at causal step 5\n  common  e9 HANDLED tests::fresh_dir  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs) (paired with mod.rs)\n  common  e32 RETURN  tests::fresh_dir  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs) (paired with mod.rs)\n  common  e36 CALL    tests::build_pager  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs) (paired with mod.rs)\n  A:      e62 CALL    Journal::open  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-core/src/journal.rs)\n  B:      e46 CALL    ImageStore::new  (/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/agents.rs)\ndrill into A: sensorium tree 20260905-005842-495d6b --around e62\ndrill into B: sensorium tree 20260905-005845-a992df --around e46\nmoves:\n  moved: OrganDecision::off  registry.rs -> mod.rs\n  moved: TaskRegistry::get  registry.rs -> mod.rs\n  moved: TaskRegistry::new  registry.rs -> mod.rs\n  moved: TaskRegistry::spawn_task  registry.rs -> mod.rs\n  moved: classify_probe  registry.rs -> organ.rs\n  moved: contained  registry.rs -> helpers.rs\n  moved: degrade  registry.rs -> helpers.rs\n  moved: lock_entries  registry.rs -> helpers.rs\n  moved: organ_after_run  registry.rs -> organ.rs\n  moved: organ_before_run  registry.rs -> organ.rs\n  moved: panic_message  registry.rs -> helpers.rs\n  moved: panic_note  registry.rs -> helpers.rs\n  ... +16 more moved",
+          "stderr": ""
+        }
+      }
+    },
+    "E0pp": {
+      "headline": {
+        "value": 0,
+        "n": 2,
+        "lens": "arms at or over the 60 s ceiling; `sensorium info <run>` and `sensorium diff <run> <run>` on the E6' trace, wall-timed, with E0's 60.0 s kill ARMED (a command that hits it is killed, never waited out)",
+        "dropped": []
+      },
+      "info_wall_s": {
+        "value": 0.046,
+        "n": 1,
+        "lens": "`sensorium info <run>` and `sensorium diff <run> <run>` on the E6' trace, wall-timed, with E0's 60.0 s kill ARMED (a command that hits it is killed, never waited out)",
+        "dropped": []
+      },
+      "diff_wall_s": {
+        "value": 0.047,
+        "n": 1,
+        "lens": "`sensorium info <run>` and `sensorium diff <run> <run>` on the E6' trace, wall-timed, with E0's 60.0 s kill ARMED (a command that hits it is killed, never waited out)",
+        "dropped": []
+      },
+      "max_wall_s": {
+        "value": 0.047,
+        "n": 2,
+        "lens": "`sensorium info <run>` and `sensorium diff <run> <run>` on the E6' trace, wall-timed, with E0's 60.0 s kill ARMED (a command that hits it is killed, never waited out)",
+        "dropped": []
+      },
+      "diff_verdict_line": "verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict",
+      "arms": {
+        "info": {
+          "argv": [
+            "info",
+            "20260905-005838-53c4c3"
+          ],
+          "rc": 0,
+          "wall": 0.046,
+          "killed": false,
+          "under_ceiling": true,
+          "verdict_line": null,
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance/logs/cli-e0pp-info.log",
+          "stdout_bytes": 2531
+        },
+        "diff": {
+          "argv": [
+            "diff",
+            "20260905-005838-53c4c3",
+            "20260905-005838-53c4c3"
+          ],
+          "rc": 0,
+          "wall": 0.047,
+          "killed": false,
+          "under_ceiling": true,
+          "verdict_line": "verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict",
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance/logs/cli-e0pp-diff.log",
+          "stdout_bytes": 1150
+        }
+      }
+    }
+  },
+  "reported": {
+    "E1pp_plain_median_s": {
+      "value": 0.063,
+      "n": 5,
+      "lens": "`cargo test -p bloomery-daemon --lib` versus `cargo sensorium test -p bloomery-daemon --lib`, 5 rounds, order alternating P,C then C,P, 10 s cool-down, the 1-minute load read at each arm's start and an arm DROPPED (never re-rolled) above 4.0 -- the rung-2 addendum's protocol and lens",
+      "dropped": []
+    },
+    "E1pp_call_median_s": {
+      "value": 0.132,
+      "n": 5,
+      "lens": "`cargo test -p bloomery-daemon --lib` versus `cargo sensorium test -p bloomery-daemon --lib`, 5 rounds, order alternating P,C then C,P, 10 s cool-down, the 1-minute load read at each arm's start and an arm DROPPED (never re-rolled) above 4.0 -- the rung-2 addendum's protocol and lens",
+      "dropped": []
+    },
+    "E1pp_overhead_s": {
+      "value": 0.069,
+      "n": 5,
+      "lens": "call median minus plain median; `cargo test -p bloomery-daemon --lib` versus `cargo sensorium test -p bloomery-daemon --lib`, 5 rounds, order alternating P,C then C,P, 10 s cool-down, the 1-minute load read at each arm's start and an arm DROPPED (never re-rolled) above 4.0 -- the rung-2 addendum's protocol and lens",
+      "dropped": []
+    },
+    "E1pp_walls": {
+      "plain": {
+        "median": 0.063,
+        "min": 0.058,
+        "max": 0.074,
+        "n": 5,
+        "walls": [
+          0.063,
+          0.074,
+          0.058,
+          0.073,
+          0.06
+        ],
+        "dropped": []
+      },
+      "call": {
+        "median": 0.132,
+        "min": 0.12,
+        "max": 0.147,
+        "n": 5,
+        "walls": [
+          0.147,
+          0.137,
+          0.129,
+          0.12,
+          0.132
+        ],
+        "dropped": []
+      },
+      "runs": [
+        {
+          "round": 1,
+          "arm": "P",
+          "order": "PC",
+          "load_1min": 2.84,
+          "rc": 0,
+          "wall": 0.063
+        },
+        {
+          "round": 1,
+          "arm": "C",
+          "order": "PC",
+          "load_1min": 2.4,
+          "rc": 0,
+          "spool_bytes": 78065,
+          "events": 1424,
+          "wall": 0.147
+        },
+        {
+          "round": 2,
+          "arm": "C",
+          "order": "CP",
+          "load_1min": 2.0,
+          "rc": 0,
+          "spool_bytes": 78065,
+          "events": 1424,
+          "wall": 0.137
+        },
+        {
+          "round": 2,
+          "arm": "P",
+          "order": "CP",
+          "load_1min": 1.7,
+          "rc": 0,
+          "wall": 0.074
+        },
+        {
+          "round": 3,
+          "arm": "P",
+          "order": "PC",
+          "load_1min": 1.74,
+          "rc": 0,
+          "wall": 0.058
+        },
+        {
+          "round": 3,
+          "arm": "C",
+          "order": "PC",
+          "load_1min": 1.55,
+          "rc": 0,
+          "spool_bytes": 78065,
+          "events": 1424,
+          "wall": 0.129
+        },
+        {
+          "round": 4,
+          "arm": "C",
+          "order": "CP",
+          "load_1min": 1.69,
+          "rc": 0,
+          "spool_bytes": 78065,
+          "events": 1424,
+          "wall": 0.12
+        },
+        {
+          "round": 4,
+          "arm": "P",
+          "order": "CP",
+          "load_1min": 1.87,
+          "rc": 0,
+          "wall": 0.073
+        },
+        {
+          "round": 5,
+          "arm": "P",
+          "order": "PC",
+          "load_1min": 1.59,
+          "rc": 0,
+          "wall": 0.06
+        },
+        {
+          "round": 5,
+          "arm": "C",
+          "order": "PC",
+          "load_1min": 1.34,
+          "rc": 0,
+          "spool_bytes": 78066,
+          "events": 1424,
+          "wall": 0.132
+        }
+      ]
+    },
+    "raise_events": {
+      "value": 13,
+      "n": 1424,
+      "lens": "RAISE events on the E6' trace",
+      "dropped": []
+    },
+    "handled_events": {
+      "value": 17,
+      "n": 1424,
+      "lens": "HANDLED events on the E6' trace",
+      "dropped": []
+    },
+    "bytes_per_record": {
+      "value": 405.573,
+      "n": 1424,
+      "lens": "the E6' trace's size in bytes divided by its event count",
+      "dropped": []
+    },
+    "trace_bytes": {
+      "value": 577536,
+      "n": 1,
+      "lens": "the E6' trace file's size",
+      "dropped": []
+    },
+    "meta_sites_bytes": {
+      "value": 230893,
+      "n": 1,
+      "lens": "JSON bytes of `meta.sites` on the E6' trace (the Task-4 watch item)",
+      "dropped": []
+    },
+    "partial_rows_on_the_trace": {
+      "value": 0,
+      "n": 1,
+      "lens": "`meta.partial` rows on the E6' trace",
+      "dropped": []
+    },
+    "closure_frames": {
+      "value": 0,
+      "n": 697,
+      "lens": "frames whose kind is `closure`, of every frame on the E6' trace",
+      "dropped": []
+    },
+    "site_kinds": {
+      "fn": 628,
+      "try": 305,
+      "sink": 102,
+      "arm": 141,
+      "closure": 8
+    },
+    "event_kinds": {
+      "CALL": 697,
+      "HANDLED": 17,
+      "RAISE": 13,
+      "RETURN": 697
+    },
+    "frame_kinds": {
+      "function": 697
+    },
+    "dispositions_on_the_clone": {
+      "swallowed": 15,
+      "ambiguous": 7
+    }
+  },
+  "cleanup": {
+    "clone_head_after": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "clone_restored": true,
+    "clone_porcelain_after": "",
+    "clone_clean_after": true,
+    "clone_branches_after": "* (HEAD detached at e209ed9) e209ed9 refactor: split the Python trio, verified by trace rather than pass count\n  e5-planted                 fea50b1 test(daemon): swap two independent call statements in registry tests::build_pager\n  e5-split                   e8c79be refactor(daemon): split task/registry.rs into a registry/ directory module\n  split-python-trio          e209ed9 refactor: split the Python trio, verified by trace rather than pass count",
+    "clone_cargo_lock_sha256_after": "c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca",
+    "cargo_lock_unchanged": true,
+    "source_bloomery_head_after": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "source_bloomery_porcelain_after": "",
+    "source_bloomery_unchanged": true,
+    "driver_sha256_after": "797240307f819e8df2004d8721343e22f3359e825e3b153a846c3899ff102a48",
+    "driver_unchanged": true,
+    "repo_porcelain_after": "",
+    "target_bytes_after": 6090542658,
+    "corpus_target_bytes_after": 1124494987,
+    "sensorium_dir_bytes": 16391729,
+    "target_disk_free_gb_after": 102.39,
+    "repo_disk_free_gb_after": 12.8,
+    "finished": "2026-09-05T01:00:26-0500"
+  },
+  "steps": [
+    "[00:58:26] byte-lock ok: \u00a71 == 5bc71f7:docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md (sha256 98705aa3c7f7, 3820 bytes); original lock e34623c sha256 bd04140521ee, amended=True",
+    "[00:58:26] rung-3 preflight",
+    "[00:58:26] preflight: 108 manifest(s) present before E2'' empties the whole target directory",
+    "[00:58:26] preflight ok: load=0.49 target_free=102.8GB driver=797240307f81 arms={'A': 'e209ed9b00f7eef647fb31d0b0895a5ad3b90807', 'B': 'e8c79be1626f5808eb48a967d02a17217e614843', 'C': 'fea50b14ba453a179e94dc96ca71a89a90c35f26'}",
+    "[00:58:26] census: the E2'' denominator instrument, re-run and reported",
+    "[00:58:27] census: files=191 eligible=2051 reached=1723 over 158 files",
+    "[00:58:27] census(try): files=191 try_syn=401 try_macro_tokens=1 (\u00a71 froze 401 / 1)",
+    "[00:58:27] E2'': from-scratch workspace build (empties the target first)",
+    "[00:58:28] E2'': emptied the target (5707718404 bytes) at 2026-09-05T00:58:28-0500",
+    "[00:58:38] E2'': try rows 392 distinct (801 raw) over 108 units; fell_back 0; partial 1",
+    "[00:58:38] E6': the clone's --lib suite, then `exceptions` paged whole",
+    "[00:58:38] E6': one instrumented --lib run of the clone",
+    "[00:58:38] E6': run=20260905-005838-53c4c3 events=1424",
+    "[00:58:38] E6': 15 SWALLOWED line(s); tally {'swallowed': 15, 'ambiguous': 7}; chains 22",
+    "[00:58:38] E0'': info and diff on the E6' trace, 60 s kill armed",
+    "[00:58:38] E0'' info: 0.046s killed=False",
+    "[00:58:38] E0'' diff: 0.047s killed=False",
+    "[00:58:38] E3'': the rung-2 E3 protocol verbatim",
+    "[00:58:38] E3 run 1: 20260905-005838-a9749c events=1424",
+    "[00:58:38] E3 run 2: 20260905-005838-7fe328 events=1424",
+    "[00:58:39] E3 run 3: 20260905-005839-29d612 events=1424",
+    "[00:58:39] E3 run 4: 20260905-005839-b776fd events=1424",
+    "[00:58:39] E3 run 5: 20260905-005839-07d43c events=1424",
+    "[00:58:39] E3 run 6: 20260905-005839-da819b events=1424",
+    "[00:58:39] E3 run 7: 20260905-005839-3c9cfa events=1424",
+    "[00:58:39] E3 run 8: 20260905-005839-822173 events=1424",
+    "[00:58:39] E3 run 9: 20260905-005839-db8d13 events=1424",
+    "[00:58:40] E3 run 10: 20260905-005840-45919d events=1424",
+    "[00:58:40] E3 run 11: 20260905-005840-64f49c events=1424",
+    "[00:58:40] E3 run 12: 20260905-005840-bcc54a events=1424",
+    "[00:58:40] E3 run 13: 20260905-005840-39c286 events=1424",
+    "[00:58:40] E3 run 14: 20260905-005840-71af79 events=1424",
+    "[00:58:40] E3 run 15: 20260905-005840-52ed66 events=1424",
+    "[00:58:40] E3 run 16: 20260905-005840-94c986 events=1424",
+    "[00:58:41] E3 run 17: 20260905-005841-65247c events=1424",
+    "[00:58:41] E3 run 18: 20260905-005841-b9257f events=1424",
+    "[00:58:41] E3 run 19: 20260905-005841-54633b events=1424",
+    "[00:58:41] E3 run 20: 20260905-005841-bceaa3 events=1424",
+    "[00:58:41] E3 diff 1 vs 2: MATCH (rc=0)",
+    "[00:58:41] E3 diff 1 vs 3: MATCH (rc=0)",
+    "[00:58:41] E3 diff 1 vs 4: MATCH (rc=0)",
+    "[00:58:41] E3 diff 1 vs 5: MATCH (rc=0)",
+    "[00:58:41] E3 diff 1 vs 6: MATCH (rc=0)",
+    "[00:58:41] E3 diff 1 vs 7: MATCH (rc=0)",
+    "[00:58:41] E3 diff 1 vs 8: MATCH (rc=0)",
+    "[00:58:41] E3 diff 1 vs 9: MATCH (rc=0)",
+    "[00:58:42] E3 diff 1 vs 10: MATCH (rc=0)",
+    "[00:58:42] E3 diff 1 vs 11: MATCH (rc=0)",
+    "[00:58:42] E3 diff 1 vs 12: MATCH (rc=0)",
+    "[00:58:42] E3 diff 1 vs 13: MATCH (rc=0)",
+    "[00:58:42] E3 diff 1 vs 14: MATCH (rc=0)",
+    "[00:58:42] E3 diff 1 vs 15: MATCH (rc=0)",
+    "[00:58:42] E3 diff 1 vs 16: MATCH (rc=0)",
+    "[00:58:42] E3 diff 1 vs 17: MATCH (rc=0)",
+    "[00:58:42] E3 diff 1 vs 18: MATCH (rc=0)",
+    "[00:58:42] E3 diff 1 vs 19: MATCH (rc=0)",
+    "[00:58:42] E3 diff 1 vs 20: MATCH (rc=0)",
+    "[00:58:42] E5'': the E5' protocol verbatim (three arms, four diffs)",
+    "[00:58:42] E5 arm A (e209ed9b00f7eef647fb31d0b0895a5ad3b90807): run=20260905-005842-495d6b events=900",
+    "[00:58:44] E5 arm B (e5-split): run=20260905-005844-997a09 events=900",
+    "[00:58:45] E5 arm C (e5-planted): run=20260905-005845-a992df events=900",
+    "[00:58:45] E5 ab_ignore_moves: MATCH (rc=0)",
+    "[00:58:45] E5 ab_plain: DIVERGED (rc=1)",
+    "[00:58:45] E5 ac_ignore_moves: DIVERGED (rc=1)",
+    "[00:58:45] E5 ac_task: DIVERGED (rc=1)",
+    "[00:58:45] E7'': mechanics.sh, with the new ?-operand panic",
+    "[00:58:48] E7(a): 47 ok, 0 FAIL, 0 skip, rc=0",
+    "[00:58:48] E7'': operand plain={'file': 'probe-app/tests/e7_operand.rs', 'line': 33, 'col': 24} call={'file': 'probe-app/tests/e7_operand.rs', 'line': 33, 'col': 30} shift=6 (predicted 6)",
+    "[00:58:48] E6: the Rust corpus cases with an `exceptions` question",
+    "[00:58:48] E6 rust/abort/did-the-dying-child-drop-an-error: swallowed 0/0 equal=True tally=True",
+    "[00:58:48] E6 rust/cleanup_then_fail/was-the-cleanup-error-swallowed: swallowed 0/0 equal=True tally=True",
+    "[00:58:49] E6 rust/closure_try/what-did-the-question-mark-in-the-closure-return-from: swallowed 1/1 equal=True tally=True",
+    "[00:58:49] E6 rust/dependency_swallow/did-the-cleanup-actually-work: swallowed 1/1 equal=True tally=True",
+    "[00:58:49] E6 rust/err_arms/what-did-each-arm-do-with-its-error: swallowed 1/1 equal=True tally=True",
+    "[00:58:49] E6 rust/err_propagation/how-many-failures-were-there: swallowed 0/0 equal=True tally=True",
+    "[00:58:49] E6 rust/err_stored/were-the-retry-failures-swallowed: swallowed 0/0 equal=True tally=True",
+    "[00:58:49] E6 rust/interleaved_chains/was-either-failure-swallowed: swallowed 0/0 equal=True tally=True",
+    "[00:58:49] E6 rust/join_handle/what-happened-to-the-workers-error: swallowed 1/1 equal=True tally=True",
+    "[00:58:49] E6 rust/logged_arm/was-the-refused-attempt-swallowed: swallowed 1/1 equal=True tally=True",
+    "[00:58:49] E6 rust/macro_arg_partial/is-the-list-of-errors-complete: swallowed 0/0 equal=True tally=True",
+    "[00:58:50] E6 rust/none_propagation/was-there-an-error-behind-the-panic: swallowed 0/0 equal=True tally=True",
+    "[00:58:50] E6 rust/outcome_generic/does-the-chain-follow-the-error-through-the-generic-frame: swallowed 0/0 equal=True tally=True",
+    "[00:58:50] E6 rust/panic/what-did-the-catch-do-with-the-panic: swallowed 1/1 equal=True tally=True",
+    "[00:58:50] E6 rust/returned_to_harness/where-did-the-error-the-harness-printed-come-from: swallowed 0/0 equal=True tally=True",
+    "[00:58:50] E6 rust/silent_swallow/which-settings-were-dropped: swallowed 2/2 equal=True tally=True",
+    "[00:58:50] E6 rust/unwrap_panic/what-happened-to-the-refusal: swallowed 0/0 equal=True tally=True",
+    "[00:58:50] E1'': the --lib plain/call walls (reported, not gated)",
+    "[00:58:50] walls: pre-building both arms",
+    "[00:58:54] walls r1 P: 0.063s (load 2.84)",
+    "[00:59:05] walls r1 C: 0.147s (load 2.4)",
+    "[00:59:15] walls r2 C: 0.137s (load 2.0)",
+    "[00:59:25] walls r2 P: 0.074s (load 1.7)",
+    "[00:59:35] walls r3 P: 0.058s (load 1.74)",
+    "[00:59:45] walls r3 C: 0.129s (load 1.55)",
+    "[00:59:55] walls r4 C: 0.12s (load 1.69)",
+    "[01:00:05] walls r4 P: 0.073s (load 1.87)",
+    "[01:00:15] walls r5 P: 0.06s (load 1.59)",
+    "[01:00:25] walls r5 C: 0.132s (load 1.34)",
+    "[01:00:26] cleanup: clone at e209ed9b00f7 restored=True clean=True source_unchanged=True"
+  ],
+  "refused": null,
+  "error": null,
+  "started": "2026-09-05T00:58:26-0500",
+  "finished": "2026-09-05T01:00:26-0500",
+  "assembled": {
+    "at": "2026-09-05T01:31:03-0500",
+    "from": "results-rung3-raw.json",
+    "by": "rust/tests/acceptance_rung3.py --assemble",
+    "note": "derived from the raw facts the run recorded, which nothing since has touched; no arm was re-run and no value re-measured"
+  }
+}

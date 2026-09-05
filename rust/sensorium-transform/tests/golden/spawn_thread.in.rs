@@ -10,3 +10,10 @@ pub fn fully_qualified() -> u8 {
 pub fn imported() -> u8 {
     thread::spawn(|| 2u8).join().unwrap()
 }
+
+/// `let _ = <spawn>`: the err wrap's `match ` opens on the byte the spawn
+/// callee's REPLACED range starts at, and has to go in first.
+pub fn discarded_handles() {
+    let _ = std::thread::spawn(|| ());
+    let _ = thread::spawn(|| ());
+}

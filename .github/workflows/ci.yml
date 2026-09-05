@@ -18,6 +18,11 @@ jobs:
     name: py${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the acceptance byte-lock tests read §1 at its lock
+          # commit (`git show <sha>:<doc>`); a depth-1 checkout cannot, and
+          # the tests then skip BY NAME instead of passing vacuously.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -31,7 +36,7 @@ jobs:
         run: python -m pytest -q
       - name: Corpus (seeded-bug regression suite)
         # corpus/rust is in here too: with no SENSORIUM_CARGO_SENSORIUM set
-        # on this matrix and no cargo-sensorium on PATH, those 13 cases are
+        # on this matrix and no cargo-sensorium on PATH, those 29 cases are
         # reported skipped BY NAME in the summary rather than passed, and
         # the Python cases still run. The `rust` job below is where they are
         # recorded.
@@ -57,6 +62,11 @@ jobs:
       RUSTUP_TOOLCHAIN: "1.96.0"
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the acceptance byte-lock tests read §1 at its lock
+          # commit (`git show <sha>:<doc>`); a depth-1 checkout cannot, and
+          # the tests then skip BY NAME instead of passing vacuously.
+          fetch-depth: 0
       # The job-level RUSTUP_TOOLCHAIN above outranks rust-toolchain.toml
       # (rustup's precedence: env var beats the file), so on a fresh runner
       # `rustup show` would install 1.96.0 through the env-var route, which

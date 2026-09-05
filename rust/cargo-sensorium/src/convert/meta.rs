@@ -62,6 +62,16 @@ pub struct MetaInput<'a> {
     /// missing the field to compare rather than merely not matching).
     pub manifests_unscoped: usize,
     pub skipped: &'a [Value],
+    /// Err-flow sites the transformer could not reach (design R6), from the
+    /// manifests of the units THIS process registered -- scoped exactly as
+    /// `skipped` is, and for the same reason.
+    pub partial: &'a [Value],
+    /// One row per site of those units: `{unit, site, file, qualname, kind,
+    /// line, how?, test, main}`. The `exceptions` reader needs `test`/`main`
+    /// to say that a chain which left a frame went back to the harness rather
+    /// than being lost (design R8), and there is nowhere else in a trace those
+    /// marks could come from.
+    pub sites: &'a [Value],
     pub spawns: &'a [Value],
     pub unreached_files: &'a [String],
     pub refused_at: Option<&'a str>,
@@ -74,6 +84,19 @@ pub struct MetaInput<'a> {
     pub seq_gaps: u64,
     pub panics_unrecorded: u64,
     pub panics_outside_frames: u64,
+    /// RAISE and HANDLED RECORDS on the wire, which is not the number of
+    /// events: a record with no open frame is counted here and written as no
+    /// event, and the origin RAISE the converter synthesises is an event that
+    /// was never a record.
+    pub err_flow_raise: u64,
+    pub err_flow_handled: u64,
+    pub err_flow_outside_frames: u64,
+    pub closure_frames: u64,
+    /// What the RUNTIME declared in the proc header (design R9). Passed
+    /// through, never assumed: a rung-2 spool set declares nothing, and its
+    /// trace must say so rather than claim a capability its records cannot
+    /// support.
+    pub err_flow_capability: bool,
     /// `{run_id, pid, exe}` for a same-invocation process whose `ppid` is
     /// this one.
     pub child_runs: &'a [Value],
@@ -99,7 +122,7 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
         ("source_hashes", json!(m.source_hashes)),
         ("recorder", json!(m.recorder)),
         ("lang", json!("rust")),
-        ("capabilities", capabilities_json()),
+        ("capabilities", capabilities_json(m.err_flow_capability)),
         ("threads_started", json!(m.threads_started)),
         ("live_threads", json!(m.live_threads)),
         ("env", json!(m.env)),
@@ -118,6 +141,8 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
         ("uninstrumented", json!(m.uninstrumented)),
         ("manifests_unscoped", json!(m.manifests_unscoped)),
         ("skipped", json!(m.skipped)),
+        ("partial", json!(m.partial)),
+        ("sites", json!(m.sites)),
         ("spawns", json!(m.spawns)),
         ("unreached_files", json!(m.unreached_files)),
         (
@@ -130,6 +155,12 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
         ("seq_gaps", json!(m.seq_gaps)),
         ("panics_unrecorded", json!(m.panics_unrecorded)),
         ("panics_outside_frames", json!(m.panics_outside_frames)),
+        (
+            "err_flow_records",
+            json!({"raise": m.err_flow_raise, "handled": m.err_flow_handled}),
+        ),
+        ("err_flow_outside_frames", json!(m.err_flow_outside_frames)),
+        ("closure_frames", json!(m.closure_frames)),
         ("child_runs", json!(m.child_runs)),
     ];
     if let Some((start, end)) = m.wall {
@@ -139,11 +170,18 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
     out
 }
 
-fn capabilities_json() -> Value {
+/// The shared declaration, plus the Rust-only `err_flow` the RUNTIME declared
+/// (design R9). `err_flow` is not in [`CAPABILITIES`] because that list is the
+/// column Python's `boot.CAPABILITIES` also answers, and this key belongs to
+/// neither: it is the runtime's own statement that its records carry err flow,
+/// and a converter that wrote `true` on its own authority would be declaring a
+/// capability for a spool set that has none.
+fn capabilities_json(err_flow: bool) -> Value {
     let mut obj = Map::new();
     for (k, v) in CAPABILITIES {
         obj.insert((*k).to_owned(), json!(v));
     }
+    obj.insert("err_flow".to_owned(), json!(err_flow));
     Value::Object(obj)
 }
 
@@ -190,6 +228,8 @@ mod tests {
             uninstrumented: &[],
             manifests_unscoped: 0,
             skipped: &[],
+            partial: &[],
+            sites: &[],
             spawns: &[],
             unreached_files: &[],
             refused_at: None,
@@ -200,6 +240,11 @@ mod tests {
             seq_gaps: 0,
             panics_unrecorded: 0,
             panics_outside_frames: 0,
+            err_flow_raise: 0,
+            err_flow_handled: 0,
+            err_flow_outside_frames: 0,
+            closure_frames: 0,
+            err_flow_capability: false,
             child_runs: &[],
         }
     }
@@ -246,9 +291,66 @@ mod tests {
             json!({
                 "line": false, "locals": false, "return_value": true, "tasks": true,
                 "threads": true, "children": false, "stdin": false, "output": false,
-                "object_identity": false, "refocus": false
+                "object_identity": false, "refocus": false, "err_flow": false
             })
         );
+    }
+
+    /// `err_flow` is the RUNTIME's declaration, passed through (design R9): a
+    /// rung-2 spool set says nothing and its trace must not claim otherwise.
+    #[test]
+    fn the_err_flow_capability_is_the_runtimes_word_not_the_converters() {
+        let mut m = minimal();
+        m.err_flow_capability = true;
+        let out = as_map(&build(&m));
+        assert_eq!(out["capabilities"]["err_flow"], json!(true));
+        assert_eq!(
+            as_map(&build(&minimal()))["capabilities"]["err_flow"],
+            json!(false)
+        );
+    }
+
+    /// The three err-flow counters are records, not events, and each is
+    /// present at zero rather than absent -- "none seen" and "not counted" are
+    /// different facts.
+    #[test]
+    fn the_err_flow_counters_are_present_even_when_nothing_was_recorded() {
+        let out = as_map(&build(&minimal()));
+        assert_eq!(out["err_flow_records"], json!({"raise": 0, "handled": 0}));
+        assert_eq!(out["err_flow_outside_frames"], json!(0));
+        assert_eq!(out["closure_frames"], json!(0));
+
+        let mut m = minimal();
+        m.err_flow_raise = 3;
+        m.err_flow_handled = 5;
+        m.err_flow_outside_frames = 1;
+        m.closure_frames = 2;
+        let out = as_map(&build(&m));
+        assert_eq!(out["err_flow_records"], json!({"raise": 3, "handled": 5}));
+        assert_eq!(out["err_flow_outside_frames"], json!(1));
+        assert_eq!(out["closure_frames"], json!(2));
+    }
+
+    /// `partial` rides beside `skipped`, and the site table beside both: an
+    /// empty list is "the walk found none", which a missing key would not say.
+    #[test]
+    fn partial_and_the_site_table_are_always_present() {
+        let out = as_map(&build(&minimal()));
+        assert_eq!(out["partial"], json!([]));
+        assert_eq!(out["sites"], json!([]));
+
+        let mut m = minimal();
+        let partial = vec![json!({"file": "a.rs", "line": 3, "qualname": "f",
+                                  "kind": "try", "reason": "macro-arg"})];
+        let sites = vec![
+            json!({"unit": "u", "site": 0, "file": "a.rs", "qualname": "f",
+                                "kind": "fn", "line": 1, "test": true, "main": false}),
+        ];
+        m.partial = Box::leak(Box::new(partial));
+        m.sites = Box::leak(Box::new(sites));
+        let out = as_map(&build(&m));
+        assert_eq!(out["partial"][0]["reason"], json!("macro-arg"));
+        assert_eq!(out["sites"][0]["test"], json!(true));
     }
 
     #[test]

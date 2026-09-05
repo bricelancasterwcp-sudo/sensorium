@@ -11,6 +11,10 @@ a zero, not as an empty cell. `0` is a measured zero and prints as `0`.
     # rung-3 entry, E5': §2 and §3
     .venv/bin/python rust/tests/render_acceptance.py --doc e5prime [results.json]
 
+    # rung 3 (Err flow): §2 and §3
+    .venv/bin/python rust/tests/render_acceptance.py --doc rung3 [results.json]
+    .venv/bin/python rust/tests/render_acceptance.py --doc e6ppp [results.json]
+
 §4 is never rendered, and neither is E5''s §5. They are written by hand
 against the pre-registered rules and the raw record.
 """
@@ -579,8 +583,21 @@ def main(argv) -> int:
         del argv[i:i + 2]
     if doc == "e5prime":
         return e5prime_document(argv)
+    if doc == "e6ppp":
+        # Its own module, for the reason `render_rung3` is one: §2 and §3 of
+        # the E6‴ document are another ~300 lines.
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from render_e6ppp import document                          # noqa: PLC0415
+        return document(argv)
+    if doc == "rung3":
+        # Its own module: §2 and §3 of the rung-3 document are another ~300
+        # lines, and this file is already 590.
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from render_rung3 import document                          # noqa: PLC0415
+        return document(argv)
     if doc != "rung2":
-        print(f"unknown --doc {doc!r}: expected `rung2` or `e5prime`",
+        print(f"unknown --doc {doc!r}: expected `rung2`, `e5prime`, `rung3` "
+              f"or `e6ppp`",
               file=sys.stderr)
         return 2
     return rung2_document(argv)

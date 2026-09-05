@@ -95,6 +95,56 @@ def test_the_classifiers_under_claim_is_registered_somewhere():
     assert "dispositions: swallowed" in q["expect_absent"]
 
 
+def test_every_rust_exceptions_question_preregisters_its_swallow_set():
+    """E6 (design R15) compares the printed SWALLOWED lines against a
+    PRE-REGISTERED set, and the `dispositions:` tally WHOLE. Both live in the
+    question file and both are checked here rather than trusted, because the
+    two ways a rung-3 case can quietly stop testing anything are silent:
+
+    * a question that pins a verdict sentence but not the tally lets a chain
+      change disposition without failing anything, since the sentence for
+      the OTHER chains is still on some line somewhere;
+    * a question that pins neither a `SWALLOWED` line nor an explicit absence
+      registers no swallow set at all, and a collector reading it would take
+      that as "the empty set" -- an accusation-count of zero asserted by
+      nobody. Eight of the thirteen rung-3 cases legitimately have an empty
+      swallow set, so the empty case has to be SAID.
+
+    The `no exceptions recorded` answers are the third shape: they carry no
+    tally line at all, so what they must pin is that none was printed.
+    """
+    for case in run_corpus.load_cases():
+        if not case.is_cargo:
+            continue
+        for q in case.questions:
+            if q["command"][0] != "exceptions":
+                continue
+            where = f"{case.name}/{q['id']}"
+            contains = q.get("expect_contains") or []
+            absent = q.get("expect_absent") or []
+            swallows = [g for g in (q.get("expect_line") or [])
+                        if g[0] == "SWALLOWED"]
+            if "no exceptions recorded" in contains:
+                assert "dispositions:" in absent, (
+                    f"{where}: an empty answer must pin that no tally was "
+                    "printed")
+                continue
+            tally = [c for c in contains if c.startswith("dispositions: ")]
+            assert len(tally) == 1, (
+                f"{where}: needs exactly one whole `dispositions: ...` line "
+                f"in expect_contains, found {tally}")
+            if swallows:
+                assert q.get("expect_count", {}).get("SWALLOWED") == \
+                    len(swallows), (
+                        f"{where}: {len(swallows)} SWALLOWED line(s) "
+                        "registered but expect_count does not pin that many")
+            else:
+                assert "SWALLOWED" in absent, (
+                    f"{where}: registers no swallow and does not say so")
+                assert "dispositions: swallowed" in absent, (
+                    f"{where}: must pin that the tally carries no swallow")
+
+
 def test_every_cli_command_is_exercised_by_some_question():
     used = {q["command"][0] for c in run_corpus.load_cases()
             for q in c.questions}
@@ -114,7 +164,7 @@ def test_every_cargo_question_names_the_logging_tool_that_fails():
     abstract -- "no log line says which execution it came from" -- reads as a
     real justification while never being tested against the tool a Rust
     developer would actually reach for. Three of the first thirteen cases
-    drifted that way; this is what stops the fourteenth.
+    drifted that way; this is what stops the twenty-eighth.
     """
     for case in run_corpus.load_cases():
         if not case.is_cargo:
@@ -385,7 +435,7 @@ def test_a_cargo_case_with_no_driver_is_skipped_by_name(tmp_path,
 
     The Python CI matrix has no Rust toolchain, so this is the ordinary
     state there -- and a harness that counted these as passes would report
-    a green suite for 13 cases it never ran.
+    a green suite for 27 cases it never ran.
     """
     _write(tmp_path / "spec", "rust/synth", _cargo_spec())
     case, = run_corpus.load_cases(tmp_path / "spec")

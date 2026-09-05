@@ -149,3 +149,89 @@ def finalize_synthetic(w, **overrides) -> None:
         if k in overrides or k not in present:
             w.set_meta(k, v)
     w.set_meta("incomplete", False)
+
+
+# -- Rust traces, hand-built ------------------------------------------------
+# The rung-3 disposition rules are computed from facts a converter writes
+# (`chain.terminal`, `exc.kind`, the `sites` marks), so their tests state a
+# recording as data rather than compiling Rust: one §2a row per trace, built
+# through the same `tests/vectors.py` builder the conformance suite uses so
+# a test and a vector can never describe two different trace shapes.
+
+RUST_CAPABILITIES = {
+    "line": False, "locals": False, "return_value": True, "tasks": True,
+    "threads": True, "children": False, "stdin": False, "output": False,
+    "object_identity": False, "refocus": False, "err_flow": True,
+}
+
+RUST_META = {
+    "trace_format": 4, "run_id": "$RUN",
+    "argv": ["/w/target/debug/deps/demo-abc"], "cwd": "/w",
+    "env_hash": "0" * 16, "start_ts": 0.0, "end_ts": 1.0, "exit_status": 0,
+    "main_thread_ident": 1, "fingerprint_basis": "per-task",
+    "truncated_count": 0, "source_hashes": {},
+    "recorder": "sensorium-rt 0.3.0", "lang": "rust",
+    "capabilities": RUST_CAPABILITIES,
+    "threads_started": 0, "live_threads": [], "incomplete": False,
+}
+
+
+def rust_exc(type_, msg, serial, loc=None, kind="err", unread=None):
+    """One `exc` object as a Rust recorder writes it (TRACE-FORMAT §5).
+
+    `msg=None` OMITS the key, which is what a recorder does with a field it
+    could not fill ("a payload key a recorder cannot fill is omitted, never
+    filled with a zero or an empty string"); pair it with
+    `unread=["type", "msg"]` for an unbound `Err(_) =>` arm.
+    """
+    exc = {"kind": kind, "type": type_, "serial": serial}
+    if msg is not None:
+        exc["msg"] = msg
+    if loc is not None:
+        exc["loc"] = loc
+    if unread is not None:
+        exc["unread"] = unread
+    return exc
+
+
+def err_flow(how, type_, msg, serial, hop=1, origin="workspace",
+             translated=False, terminal=None, loc=None, unread=None):
+    """A RAISE/HANDLED payload for an `Err` travelling: `exc` + `how` +
+    `chain`. `terminal` is written ONLY where the caller passes one -- the
+    converter omits the key on every event but the chain's last, and a
+    reader that defaulted it would invent an ending."""
+    chain = {"serial": serial, "hop": hop, "origin": origin,
+             "translated": translated}
+    if terminal is not None:
+        chain["terminal"] = terminal
+    return {"exc": rust_exc(type_, msg, serial, loc, unread=unread),
+            "how": how, "chain": chain}
+
+
+def fn_site(qualname, file="demo/src/lib.rs", line=1, test=False, main=False,
+            unit="u0", site=0, kind="fn"):
+    """One `meta.sites` row. `test`/`main` are the reason the table is in a
+    trace at all: nothing else can say a chain went back to the harness."""
+    return {"unit": unit, "site": site, "file": file, "qualname": qualname,
+            "kind": kind, "line": line, "test": test, "main": main}
+
+
+def rust_trace(tmp_path, monkeypatch, *, codes, events, frames=(), sites=(),
+               run_id="20260101-000000-rust01", **meta):
+    """Build a Rust-shaped trace from a vector body and point the CLI at it.
+
+    `codes`/`frames`/`events` are the vector vocabulary (ids are 1-based
+    positions; see docs/trace-format/VECTORS.md). Anything in `meta`
+    overrides `RUST_META`, so a test can drop `err_flow`, mark the trace
+    incomplete, or name a different recorder in one keyword.
+    """
+    from tests.vectors import build
+    body = {"id": "adhoc-rust", "codes": codes, "frames": list(frames),
+            "events": events, "fingerprints": "compute",
+            "meta": {**RUST_META, **meta}}
+    if sites:
+        body["meta"] = {**body["meta"], "sites": list(sites)}
+    sdir = Path(tmp_path) / "sdir"
+    build(body, sdir, [run_id])
+    monkeypatch.setenv("SENSORIUM_DIR", str(sdir))
+    return run_id

@@ -8,9 +8,11 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false` (`sensorium-transform` and
-`cargo-sensorium` are `0.2.0` since the spawn-naming change of 2026-09-03;
-`sensorium-rt` is `0.1.0`, unchanged by it):
+Three crates, all `publish = false`, all `0.3.0` since the err-flow rung of
+2026-09-05 (wire v3: RAISE/HANDLED records, a typed `err` RETURN, and the
+`err_flow` capability). Before that, `sensorium-transform` and
+`cargo-sensorium` were `0.2.0` from the spawn-naming change of 2026-09-03 and
+`sensorium-rt` was `0.1.0`:
 
 | Crate | What it is |
 |---|---|
@@ -26,10 +28,14 @@ D1 forces rather than an oversight (design spec §2.3, D1 in the rung-2 plan).
 
 **What v1 records** — tier `call`: calls and returns with an outcome and a
 captured return value, panics, threads as tasks (libtest's per-test threads and
-the ones your code spawns). Workspace crates only, Linux, stable rustc, no
+the ones your code spawns), and — since 0.3.0 — **err flow**: a record at every
+`?` on a `Result`, at the four written sinks, at `let _ = <value>` and at every
+classified `Err` arm, which is what makes `sensorium exceptions` answer here
+instead of refusing. Workspace crates only, Linux, stable rustc, no
 nightly, no root, no hand annotation. What it does *not* see, and what says so
-in the trace, is [`HONESTY.md`](HONESTY.md) — read that before you trust an
-answer. The trace contract both recorders are written against is
+in the trace, is [`HONESTY.md`](HONESTY.md) with
+[`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) — read those before you
+trust an answer. The trace contract both recorders are written against is
 [`../docs/TRACE-FORMAT.md`](../docs/TRACE-FORMAT.md).
 
 ## Build
@@ -50,9 +56,12 @@ coexist and what makes it cost disk.
 
 That puts `cargo-sensorium` on `PATH`, which is what makes `cargo sensorium` a
 cargo subcommand. Reading the traces needs the Python side too: `sensorium`
-0.6.0+ reads these traces. An older reader opens them — they are format 4 and
-carry every required key — but narrates them in Python's words, which is a
-claim about provenance the trace does not carry.
+0.6.0+ reads these traces, and **0.8.0+ is what `exceptions` needs** — an
+0.6.0/0.7.0 reader opens a 0.3.0 trace and answers every other question, but
+its `exceptions` still refuses, because the Rust disposition rules are 0.8.0's.
+A reader older than 0.6.0 opens them too — they are format 4 and carry every
+required key — but narrates them in Python's words, which is a claim about
+provenance the trace does not carry.
 
 ## Record
 
@@ -125,26 +134,28 @@ whole invocation under one header.
 
 ## What refuses, and why
 
-Four commands refuse outright on a Rust trace in this version, none of them
-answering from a capability the recorder declared it does not have.
-`exceptions`, `watch` and `flow` each print why and exit **3** — change the
-recording, not the call. `refocus` exits **2**: its capability check runs
-before anything is re-run, so nothing was re-run and the reader's next move
-is a different command.
+Three commands refuse outright on a Rust trace in this version, none of them
+answering from a capability the recorder declared it does not have. `watch`
+and `flow` print why and exit **3** — change the recording, not the call.
+`refocus` exits **2**: its capability check runs before anything is re-run,
+so nothing was re-run and the reader's next move is a different command.
+`exceptions` answers from 0.3.0, and refuses on exactly one thing: a trace an
+older runtime wrote, which carries no err-flow records to judge.
 
 | Command | Exit | Why |
 |---|---|---|
-| `exceptions` | 3 | The Rust disposition rules are rung 3; the Python rules would misread `Err` values as exceptions. Nothing is judged. |
+| `exceptions` | 3, **only on a pre-0.3.0 trace** | `capabilities.err_flow: false` — the recorder produced no RAISE/HANDLED records, so there is nothing to judge. On a 0.3.0 trace it answers. |
 | `refocus` | 2 | Rung 4 — `capabilities.refocus: false`, caught before any rerun. |
 | `watch`, `flow` | 3 | Per-line state and locals are rung 4 — `capabilities.line: false`. |
 
 ## Not yet
 
-`?` sites, sinks and `Err`-arm classification (rung 3, with the Rust
-`exceptions` rules); locals and LINE capture under `--focus`, and `refocus` by
-re-invocation (rung 4); program output under libtest; `async fn` bodies, which
-are declared-and-skipped rather than given a frame that would be wrong;
-object identity, which Rust does not have an equivalent of.
+Locals and LINE capture under `--focus`, and `refocus` by re-invocation
+(rung 4); program output under libtest; `async fn` bodies, which are
+declared-and-skipped rather than given a frame that would be wrong; object
+identity, which Rust does not have an equivalent of. `?` sites, sinks and
+`Err`-arm classification **shipped in rung 3** (0.3.0) — what they still
+cannot see is `HONESTY.md` §11 and `HONESTY-BLIND-SPOTS.md` items 15–26.
 
 The design and its rungs are in
 `../docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md`; what
@@ -159,3 +170,16 @@ indistinguishable from a plain run at the suite's own granularity, and about
 1900× apart in event density, and both true. `HONESTY.md` §10 states them
 together, with the lens on each; the acceptance document carries the numbers
 with their `n`.
+
+**What err flow added, reported the same way.** On the rung-3 acceptance run
+(`../docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md`,
+*reported without a gate*) the clone's `-p bloomery-daemon --lib` suite ran
+**0.063 s plain against 0.132 s recorded**, medians of n=5 alternating arms
+with the load recorded per arm — a difference of 0.069 s on a near-vacuous
+workload, which is the honest way to read it rather than as a ratio. The
+records themselves are cheap and rare: **13 RAISE and 17 HANDLED events in
+1 424** on that trace, at 405.573 bytes per record over a 577 536-byte file.
+A RAISE or HANDLED costs more bytes than a CALL — it carries a type name and
+the `Err`'s capped `Debug` text, ≈ 60–350 bytes against a CALL's 24 — and
+there is no type-intern table, which was a decision for simplicity with this
+number as its check.

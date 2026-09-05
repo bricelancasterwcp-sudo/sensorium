@@ -54,7 +54,12 @@
 //! zero-argument method of that name). It is not a thread, and listing it would
 //! put a lie in the manifest, so it is not a spawn shape at all.
 
+use proc_macro2::Span;
 use syn::{Expr, ExprCall, ExprMethodCall};
+
+use crate::splice::Kind;
+use crate::visit::Ctx;
+use crate::SpawnSite;
 
 /// Where a rewritten spawn's two splices go, as RAW `Span::byte_range()`
 /// offsets.
@@ -212,6 +217,96 @@ impl PathRange for syn::Path {
             last.span().byte_range().end
         };
         (start, end)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Placing the sites
+// ---------------------------------------------------------------------------
+
+/// The spawn half of the walk. It lives here rather than in [`crate::visit`]
+/// for the same reason [`crate::errflow`]'s does: that file carries the walk
+/// itself and is at the 800-line ceiling. The `Visit` override that calls this
+/// is still there, where the rest of the walk is.
+impl Ctx<'_> {
+    /// Record one spawn shape, rewriting the callee when it is the one spelling
+    /// this rung rewrites.
+    pub(crate) fn spawn_shape(&mut self, shape: &Shape, line: u32, span: Span) {
+        // Reachable, and tested: an enum discriminant or an array length in a
+        // struct field's type is an expression inside a `mod` body with no
+        // named frame around it (see `enclosing_qualname` and
+        // `tests/edges.rs`). Refusing the file is what that costs; naming the
+        // child after the `mod` is what NOT refusing would cost.
+        let Some(qualname) = self.enclosing_qualname() else {
+            self.fail(span, "spawn site outside any named item");
+            return;
+        };
+        match shape {
+            Shape::Declare(reason) => {
+                let offset = self.start_of(span);
+                self.declare_spawn(offset, line, Some(reason), qualname, None);
+            }
+            Shape::Rewrite(r) => self.rewrite_spawn(r, line, span, &qualname),
+        }
+    }
+
+    fn declare_spawn(
+        &mut self,
+        offset: usize,
+        line: u32,
+        reason: Option<&'static str>,
+        qualname: String,
+        ordinal: Option<u32>,
+    ) {
+        self.spawns.push((
+            offset,
+            SpawnSite {
+                file: self.file.to_owned(),
+                line,
+                wrapped: reason.is_none(),
+                reason,
+                qualname,
+                ordinal,
+            },
+        ));
+    }
+
+    /// The callee path becomes `::sensorium_rt::spawn_child` and the site
+    /// argument goes in past the `(`; the bytes between them are untouched.
+    ///
+    /// The child is named `"<qualname>#<k>"`, where `k` counts the WRAPPED
+    /// sites of this qualname in this file. A declared shape between two of
+    /// them takes no ordinal, so an unrelated `Builder::spawn` nearby cannot
+    /// renumber them (plan decision N1).
+    fn rewrite_spawn(&mut self, r: &Rewrite, line: u32, span: Span, qualname: &str) {
+        let path_start = self.prefix + r.path_start;
+        let path_end = self.prefix + r.path_end;
+        let paren_start = self.prefix + r.paren_open_start;
+        let paren_end = self.prefix + r.paren_open_end;
+        if self.source.as_bytes().get(paren_start) != Some(&b'(') {
+            self.fail(
+                span,
+                "spawn call's opening paren is not where its span says",
+            );
+            return;
+        }
+        if !self.source.is_char_boundary(path_start) || !self.source.is_char_boundary(path_end) {
+            self.fail(span, "spawn callee offset falls inside a UTF-8 character");
+            return;
+        }
+        self.push(path_start, path_end, Kind::Replace, CALLEE.to_owned());
+        let ordinal = *self
+            .spawn_ordinals
+            .entry(qualname.to_owned())
+            .and_modify(|k| *k += 1)
+            .or_insert(1);
+        self.push(
+            paren_end,
+            paren_end,
+            Kind::SpawnArg,
+            site_argument(&format!("{qualname}#{ordinal}"), r.use_path.as_deref()),
+        );
+        self.declare_spawn(path_start, line, None, qualname.to_owned(), Some(ordinal));
     }
 }
 

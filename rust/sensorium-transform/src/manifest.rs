@@ -5,7 +5,8 @@
 //! trace and the source it was recorded from -- and, for everything this
 //! recorder deliberately does not do, it is the DECLARATION: `skipped` carries
 //! the fn items that were left alone and why (`rust/HONESTY.md` §8 items 5 and
-//! 6), `spawns` the thread-spawning shapes that were not rewritten (§3),
+//! 6), `partial` the err-flow sites the transformer could not reach (design
+//! R6), `spawns` the thread-spawning shapes that were not rewritten (§3),
 //! `unreached_files` the modules the walk could not reach (§8 item 8),
 //! `unreached_reasons` what a file the walk DID reach failed with, and
 //! `fell_back`/`fallback_reason` a unit that is not instrumented at all (§8
@@ -28,19 +29,64 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
-use crate::{RetKind, Skipped, SpawnSite, Transformed};
+use crate::{Partial, RetKind, SiteKind, Skipped, SpawnSite, Transformed};
 
-/// One instrumented fn item as it appears in a manifest. The manifest keys sites
+/// One instrumented site as it appears in a manifest. The manifest keys sites
 /// by file, so [`crate::Site::file`] is not repeated inside.
+///
+/// A `fn` row and an err-flow row are DIFFERENT SHAPES on purpose, and the two
+/// line keys are the reason: `firstlineno` is where a fn item begins -- the
+/// thing a Python `code_object` carries and a frame is reported at -- while
+/// `line` is where one operator sits. Spelling both `firstlineno` would make a
+/// reader that joins on it silently wrong. `ret` is a signature's answer and
+/// only a fn has a signature; `how` is what a site writes and only an err-flow
+/// site writes one. Each is present exactly where it means something (design
+/// R1b), and `kind` is what says which shape a row is.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ManifestSite {
     pub site: u32,
     pub qualname: String,
-    pub firstlineno: u32,
+    /// `"fn"`, `"closure"`, `"try"`, `"sink"` or `"arm"`. A manifest with no
+    /// `kind` at all (transform 0.2.0) is read as all-`fn`, which is what it
+    /// was.
+    pub kind: SiteKind,
+    /// 1-based line of the `fn` keyword. `fn` rows only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub firstlineno: Option<u32>,
+    /// 1-based line of the `?`, the sink's method name, the `let`, the `Err`
+    /// pattern, or a closure's `|`. Every row that is not a `fn` ITEM, which
+    /// includes the `closure` frames: `firstlineno` is where an ITEM begins and
+    /// a closure is not one, so a reader joining on it cannot be handed a
+    /// closure by accident (design R1b).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line: Option<u32>,
+    /// `"try"`, `"sink_ok"`, `"sink_unwrap_or"` or `"sink_let_underscore"` --
+    /// the `how` byte this site writes, by name. Err-flow rows only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub how: Option<&'static str>,
     /// `"unit"`, `"value"` or `"never"`. The wire carries no per-site knowledge,
     /// so this is what tells the converter that a frame which stashed nothing
-    /// closed `ok` with `()` rather than `none` (`rust/HONESTY.md` §1).
-    pub ret: RetKind,
+    /// closed `ok` with `()` rather than `none` (`rust/HONESTY.md` §1). FRAME
+    /// rows only -- `fn`, and `closure`, which is always `"value"` because a
+    /// closure declares no return type to read.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ret: Option<RetKind>,
+    /// The fn carries `#[test]`, `#[bench]` or an attribute whose path ends in
+    /// `test` (design R1b). Serialised only when TRUE: the mark is the
+    /// exception, and a `false` on every row of a manifest would say nothing.
+    #[serde(skip_serializing_if = "is_false")]
+    pub test: bool,
+    /// The fn is a BIN crate root's file-scope `main`. Serialised only when
+    /// true, for the same reason.
+    #[serde(skip_serializing_if = "is_false")]
+    pub main: bool,
+}
+
+/// `#[serde(skip_serializing_if)]` needs a path, and `bool` has no method that
+/// is one.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// The unit manifest, in the shape the plan names.
@@ -52,6 +98,11 @@ pub struct Manifest {
     /// Keyed by the ORIGINAL workspace-relative path, never a mirror path.
     pub files: BTreeMap<String, Vec<ManifestSite>>,
     pub skipped: Vec<Skipped>,
+    /// Err-flow sites the transformer could not reach, with the reason (design
+    /// R6). Registered-unit-scoped like `skipped`, and serialised always: an
+    /// empty list is "the walk found none", which is a different fact from a
+    /// manifest written before the key existed.
+    pub partial: Vec<Partial>,
     pub spawns: Vec<SpawnSite>,
     /// SHA-256, hex, of each file's ORIGINAL bytes. Filled by the wrapper: this
     /// crate never opens a file, so it never sees the bytes to hash.
@@ -94,6 +145,7 @@ impl Manifest {
             crate_type: crate_type.to_owned(),
             files: BTreeMap::new(),
             skipped: Vec::new(),
+            partial: Vec::new(),
             spawns: Vec::new(),
             source_hashes: BTreeMap::new(),
             fell_back: false,
@@ -111,14 +163,21 @@ impl Manifest {
     pub fn add_file(&mut self, path: &str, transformed: &Transformed) {
         let entry = self.files.entry(path.to_owned()).or_default();
         for site in &transformed.sites {
+            let is_fn = site.kind == SiteKind::Fn;
             entry.push(ManifestSite {
                 site: site.site,
                 qualname: site.qualname.clone(),
-                firstlineno: site.firstlineno,
+                kind: site.kind,
+                firstlineno: is_fn.then_some(site.firstlineno),
+                line: (!is_fn).then_some(site.firstlineno),
+                how: site.how,
                 ret: site.ret,
+                test: site.test,
+                main: site.main,
             });
         }
         self.skipped.extend(transformed.skipped.iter().cloned());
+        self.partial.extend(transformed.partial.iter().cloned());
         self.spawns.extend(transformed.spawns.iter().cloned());
         self.appended_line
             .insert(path.to_owned(), transformed.appended_line);
