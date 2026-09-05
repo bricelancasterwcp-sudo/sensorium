@@ -507,6 +507,12 @@ mod tests {
             "Err(e) => { thread::spawn(move || eprintln!(\"{}\", e)); 0 },",
             // A shared borrow of the closure's OWN copy, moved.
             "Err(e) => { let c = move || note(&e); store(c); 0 },",
+            // The same, at a DROPPED call site inside the closure: the borrow
+            // repair's exemption is `moved == 0` too, or a `move` closure that
+            // logs through a helper would keep the error and read HANDLED.
+            // (Added 2026-09-05 -- mutant 1 of the borrow repair survived
+            // without it: no other row reaches `visit_arg` with `moved > 0`.)
+            "Err(e) => { let c = move || { note(&e); }; store(c); 0 },",
             // Implicit capture through the format STRING, where the name is not
             // a token at all.
             "Err(e) => { let c = move || println!(\"{e}\"); store(c); 0 },",
@@ -528,7 +534,8 @@ mod tests {
         // arm's error cannot outlive the arm.
         for text in [
             "Err(e) => { let c = || println!(\"{e}\"); c(); 0 },",
-            "Err(e) => { let c = || note(&e); c(); 0 },",
+            // `|| note(&e)` moved to the borrow-repair rows on 2026-09-05: a
+            // closure TAIL is not a dropped site.
             "Err(e) => { let c = || eprintln!(\"{}\", e); c(); 0 },",
             // A plain `async` block borrows, exactly as a plain closure does.
             "Err(e) => { let c = async { println!(\"{e}\") }; drop(c); 0 },",
@@ -539,6 +546,69 @@ mod tests {
         ] {
             assert_eq!(class_of(text), Some(Class::Handled), "{text}");
         }
+    }
+
+    #[test]
+    fn a_borrow_is_exempt_only_where_the_borrowing_calls_product_is_dropped() {
+        // The 2026-09-05 borrow repair (design B1). The old exemption proved
+        // the BORROW could not outlive the arm and said nothing about the
+        // call's VALUE: `map_error(&e, ..)` on the bloomery clone returns the
+        // failure as a status and body the caller receives (api_v1.rs:396,
+        // :515). A `&e` is now exempt only as a direct argument of a call
+        // whose product is provably dropped -- a `;` statement, a `let _ =`,
+        // or a logging macro's argument.
+        for text in [
+            // dropped: an expression statement
+            "Err(e) => { note(&e); 0 },",
+            "Err(e) => { self.report(&e); 0 },",
+            "Err(e) => { note(&e, 1, \"x\"); 0 },",
+            "Err(e) => { if c { note(&e); } 0 },",
+            // dropped: `let _ =`, typed or not
+            "Err(e) => { let _ = note(&e); 0 },",
+            "Err(e) => { let _: () = note(&e); 0 },",
+            // dropped: a logging macro's argument, bare or through one call
+            "Err(e) => { println!(\"{}\", &e); 0 },",
+            "Err(e) => { println!(\"{}\", render(&e)); 0 },",
+            // a plain closure whose BODY drops the product
+            "Err(e) => { let c = || { note(&e); }; c(); 0 },",
+            // a `move` closure that never names the error leaves the arm alone
+            "Err(e) => { let c = move || 1; drop(c); note(&e); 0 },",
+        ] {
+            assert_eq!(class_of(text), Some(Class::Handled), "{text}");
+        }
+        for text in [
+            // the clone's :396 -- a `let` keeps the product
+            "Err(e) => { let (s, v) = map_error(&e, None); json(s, v) },",
+            // the clone's api_native shape -- the product is the arm's value
+            "Err(e) => map_error(&e),",
+            "Err(e) => { let r = describe(&e); r },",
+            // nested: `render`'s product is handed on
+            "Err(e) => { v.push(render(&e)); 0 },",
+            // a condition, a scrutinee: the value flows
+            "Err(e) => { if check(&e) { 1 } else { 0 } },",
+            "Err(e) => match &e { _ => 0 },",
+            // a block tail and a closure tail are not dropped sites
+            "Err(e) => { note(&e) },",
+            "Err(e) => { let c = || note(&e); c(); 0 },",
+            // nested inside the logging argument's own call
+            "Err(e) => { println!(\"{}\", wrap(render(&e))); 0 },",
+            // `move`: unchanged
+            "Err(e) => { thread::spawn(move || note(&e)); 0 },",
+        ] {
+            assert_eq!(class_of(text), Some(Class::Escaped), "{text}");
+        }
+    }
+
+    /// Blind spot 23 (d): a callee that STORES a rendering of the borrow
+    /// through `&self`, a capture or a global is invisible to a syntactic
+    /// rule. This row documents today's reading; it is not a claim that the
+    /// reading is right on every tree.
+    #[test]
+    fn a_dropped_call_that_stores_what_it_is_handed_is_still_handled_and_says_so() {
+        assert_eq!(
+            class_of("Err(e) => { self.record(&e); 0 },"),
+            Some(Class::Handled)
+        );
     }
 
     #[test]
