@@ -360,10 +360,7 @@ fn block_tail(b: &Block) -> Option<&Expr> {
 // ---------------------------------------------------------------------------
 
 fn escapes(body: Body<'_>, names: &[String]) -> bool {
-    let mut walk = EscapeWalk {
-        names,
-        escaped: false,
-    };
+    let mut walk = EscapeWalk::new(names);
     body.walk(&mut walk);
     walk.escaped
 }
@@ -371,9 +368,32 @@ fn escapes(body: Body<'_>, names: &[String]) -> bool {
 struct EscapeWalk<'a> {
     names: &'a [String],
     escaped: bool,
+    /// How many `move` closures the walk is currently inside.
+    ///
+    /// Both exemptions below are arguments about a BORROW that cannot outlive
+    /// the arm. A `move` closure breaks that argument outright: it takes the
+    /// error by value, and the closure can be spawned, boxed or stored, so
+    /// `move || eprintln!("{e}")` is a way of keeping `e`, not a way of
+    /// printing it. Inside one, every mention of a bound name escapes --
+    /// including one that is only a token of a format string, which is where
+    /// implicit capture hides it (the reviewer's three measured
+    /// false-HANDLED generators, 2026-09-04).
+    ///
+    /// A counter rather than a flag, and never reset by a nested plain
+    /// closure: a `||` inside a `move ||` borrows from a copy that has already
+    /// left the arm.
+    moved: usize,
 }
 
 impl EscapeWalk<'_> {
+    fn new(names: &[String]) -> EscapeWalk<'_> {
+        EscapeWalk {
+            names,
+            escaped: false,
+            moved: 0,
+        }
+    }
+
     fn is_name(&self, e: &Expr) -> bool {
         bare_name(e).is_some_and(|n| self.names.contains(&n))
     }
@@ -390,11 +410,39 @@ impl<'ast> Visit<'ast> for EscapeWalk<'_> {
     /// provable non-escape: the arm still owns the error afterwards, and a
     /// `&E` cannot be stored past the arm without a lifetime the arm does not
     /// have. `&mut e` is not on that list and is walked like anything else.
+    ///
+    /// Inside a `move` closure the borrow is of the closure's OWN copy, which
+    /// the closure took by value: `move || note(&e)` moves `e` out of the arm,
+    /// so the exemption does not apply there (see [`EscapeWalk::moved`]).
     fn visit_expr_reference(&mut self, node: &'ast syn::ExprReference) {
-        if node.mutability.is_none() && self.is_name(&node.expr) {
+        if self.moved == 0 && node.mutability.is_none() && self.is_name(&node.expr) {
             return;
         }
         syn::visit::visit_expr_reference(self, node);
+    }
+
+    /// A `move` closure takes what it names BY VALUE, so inside one neither
+    /// exemption holds. Everything below is walked with
+    /// [`EscapeWalk::moved`] raised.
+    fn visit_expr_closure(&mut self, node: &'ast syn::ExprClosure) {
+        let takes = usize::from(node.capture.is_some());
+        self.moved += takes;
+        syn::visit::visit_expr_closure(self, node);
+        self.moved -= takes;
+    }
+
+    /// `async move { .. }` is the same capture by another spelling -- the
+    /// future owns what it named and can be spawned or stored -- so it raises
+    /// [`EscapeWalk::moved`] too. A plain `async { .. }` borrows, exactly as a
+    /// plain closure does, and keeps both exemptions.
+    ///
+    /// (An `async move` CLOSURE needs nothing here: `ExprClosure::capture` is
+    /// what it sets, and the override above already reads it.)
+    fn visit_expr_async(&mut self, node: &'ast syn::ExprAsync) {
+        let takes = usize::from(node.capture.is_some());
+        self.moved += takes;
+        syn::visit::visit_expr_async(self, node);
+        self.moved -= takes;
     }
 
     /// A macro's tokens are opaque to `syn`, so nothing below would see a name
@@ -402,6 +450,15 @@ impl<'ast> Visit<'ast> for EscapeWalk<'_> {
     /// [`format_arg_escapes`]); every other macro is treated as an escape the
     /// moment it so much as mentions the name.
     fn visit_macro(&mut self, node: &'ast Macro) {
+        if self.moved > 0 {
+            // Inside a `move` closure there is no exemption to apply, and the
+            // name may not be a token at all: `move || println!("{e}")`
+            // captures `e` through the format STRING. Literals are read too.
+            if tokens_mention_captured(&node.tokens, self.names) {
+                self.escaped = true;
+            }
+            return;
+        }
         let format_family = node
             .path
             .segments
@@ -450,7 +507,10 @@ fn path_name(p: &ExprPath) -> Option<String> {
 /// that does not parse as an expression at all (a `tracing` key-value, say) is
 /// an escape by default rather than a guess. A name captured implicitly by the
 /// format string (`"{e}"`) is not a token at this level and is never seen, which
-/// is correct: that capture is a shared borrow too.
+/// is correct HERE and only here: outside a `move` closure that capture is a
+/// shared borrow. Inside one it is a MOVE, and this function is never reached
+/// -- [`EscapeWalk::visit_macro`] reads the whole token stream, literals
+/// included, the moment [`EscapeWalk::moved`] is raised.
 fn format_arg_escapes(tokens: &TokenStream, names: &[String]) -> bool {
     for arg in top_level_args(tokens) {
         let arg = strip_named_argument(arg);
@@ -464,10 +524,7 @@ fn format_arg_escapes(tokens: &TokenStream, names: &[String]) -> bool {
         if bare_name(&expr).is_some_and(|n| names.contains(&n)) {
             continue;
         }
-        let mut walk = EscapeWalk {
-            names,
-            escaped: false,
-        };
+        let mut walk = EscapeWalk::new(names);
         walk.visit_expr(&expr);
         if walk.escaped {
             return true;
@@ -504,6 +561,36 @@ fn strip_named_argument(arg: Vec<TokenTree>) -> Vec<TokenTree> {
         return arg.into_iter().skip(2).collect();
     }
     arg
+}
+
+/// Every mention of a name inside a `move` closure's macro tokens, INCLUDING
+/// one that is only part of a string literal.
+///
+/// `move || println!("{e}")` holds no `e` token at all: the capture is written
+/// inside the format string, and it is a capture by VALUE. A whole-word search
+/// of each literal is what finds it. The search is deliberately loose -- a
+/// literal `"e"` that means something else reads as an escape -- because a
+/// false ESCAPED costs one AMBIGUOUS and a false HANDLED costs a false
+/// accusation.
+fn tokens_mention_captured(tokens: &TokenStream, names: &[String]) -> bool {
+    tokens.clone().into_iter().any(|tt| match tt {
+        TokenTree::Ident(id) => mentions(&id, names),
+        TokenTree::Literal(lit) => literal_mentions(&lit.to_string(), names),
+        TokenTree::Group(g) => tokens_mention_captured(&g.stream(), names),
+        TokenTree::Punct(_) => false,
+    })
+}
+
+/// Does this literal's text hold one of the names as a WHOLE word?
+fn literal_mentions(text: &str, names: &[String]) -> bool {
+    let ident_char = |c: char| c.is_alphanumeric() || c == '_';
+    names.iter().any(|name| {
+        text.match_indices(name.as_str()).any(|(at, _)| {
+            let before = text[..at].chars().next_back();
+            let after = text[at + name.len()..].chars().next();
+            !before.is_some_and(ident_char) && !after.is_some_and(ident_char)
+        })
+    })
 }
 
 fn tokens_mention(tokens: &TokenStream, names: &[String]) -> bool {
@@ -619,6 +706,51 @@ mod tests {
             "Err(_) => 0,",
             "Err(..) => 0,",
             "Err(MyErr::Timeout) => 0,",
+        ] {
+            assert_eq!(class_of(text), Some(Class::Handled), "{text}");
+        }
+    }
+
+    #[test]
+    fn a_move_closure_defeats_both_exemptions() {
+        // The reviewer's three measured false-HANDLED generators (2026-09-04).
+        // A `move` closure takes the error BY VALUE, so what looks like a
+        // shared borrow of it is a way of keeping it: the closure can be
+        // spawned, boxed or stored, and the arm no longer owns what it matched.
+        for text in [
+            // A format ARGUMENT, moved.
+            "Err(e) => { thread::spawn(move || eprintln!(\"{}\", e)); 0 },",
+            // A shared borrow of the closure's OWN copy, moved.
+            "Err(e) => { let c = move || note(&e); store(c); 0 },",
+            // Implicit capture through the format STRING, where the name is not
+            // a token at all.
+            "Err(e) => { let c = move || println!(\"{e}\"); store(c); 0 },",
+            // A plain closure nested inside a `move` one is borrowing from a
+            // copy that has already left the arm.
+            "Err(e) => { let c = move || { let d = || println!(\"{e}\"); d() }; store(c); 0 },",
+            // `async move` is the same capture by another spelling.
+            "Err(e) => { let c = async move { eprintln!(\"{}\", e) }; store(c); 0 },",
+            "Err(e) => { let c = async move { println!(\"{e}\") }; store(c); 0 },",
+        ] {
+            assert_eq!(class_of(text), Some(Class::Escaped), "{text}");
+        }
+    }
+
+    #[test]
+    fn a_plain_closure_keeps_both_exemptions() {
+        // The controls, and the reason the fix above is a rule about `move`
+        // and not about closures: a `||` closure BORROWS, and a borrow of the
+        // arm's error cannot outlive the arm.
+        for text in [
+            "Err(e) => { let c = || println!(\"{e}\"); c(); 0 },",
+            "Err(e) => { let c = || note(&e); c(); 0 },",
+            "Err(e) => { let c = || eprintln!(\"{}\", e); c(); 0 },",
+            // A plain `async` block borrows, exactly as a plain closure does.
+            "Err(e) => { let c = async { println!(\"{e}\") }; drop(c); 0 },",
+            // `moved` is scoped to the closure's own subtree: a `move` closure
+            // that never names the error leaves the rest of the arm alone.
+            "Err(e) => { let c = move || 1; drop(c); println!(\"{e}\"); 0 },",
+            "Err(e) => { let c = move || 1; drop(c); note(&e); 0 },",
         ] {
             assert_eq!(class_of(text), Some(Class::Handled), "{text}");
         }

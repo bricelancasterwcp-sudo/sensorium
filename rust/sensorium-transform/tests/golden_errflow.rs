@@ -256,10 +256,18 @@ fn a_question_mark_in_an_async_block_is_declared_and_the_closure_beside_it_is_no
             (7, "one", 10, RetKind::Value),
             (8, "later", 14, RetKind::Value),
             (9, "closure_inside", 21, RetKind::Value),
+            (12, "async_closure", 31, RetKind::Value),
         ]
     );
-    // The async block is not a frame, and the `?` at line 16 is declared.
-    assert_eq!(partials(&t), [(16, "later", SiteKind::Try, "async-block")]);
+    // Neither the async BLOCK nor the async CLOSURE is a frame, and the `?` in
+    // each is declared rather than wrapped.
+    assert_eq!(
+        partials(&t),
+        [
+            (16, "later", SiteKind::Try, "async-block"),
+            (32, "async_closure", SiteKind::Try, "async-block"),
+        ]
+    );
     // The closure INSIDE the second async block is framed anyway: its body runs
     // when it is called, on the caller's thread.
     assert_eq!(
@@ -277,7 +285,7 @@ fn a_question_mark_in_an_async_block_is_declared_and_the_closure_beside_it_is_no
         )]
     );
     let c = census(&read("async_block_try", "in"));
-    assert_eq!((c.async_partials, c.closures_framed, c.try_syn), (1, 1, 2));
+    assert_eq!((c.async_partials, c.closures_framed, c.try_syn), (2, 1, 3));
 }
 
 // ---------------------------------------------------------------------------

@@ -23,4 +23,12 @@ pub fn closure_inside() -> impl Future<Output = Result<u8, String>> {@G(9)
         let f = |n: u8| -> Result<u8, String> {@K(10) @R(10)Ok(@T(11)one()@TE? + n)@E };
         f(1)
     }@E
+}
+
+/// An `async` CLOSURE is a future-maker too: `asyncness` is what decides,
+/// not `move` and not the shape of the body. Never framed, its `?` declared,
+/// and not one byte of it moved.
+pub fn async_closure() -> impl Future<Output = Result<u8, String>> {@G(12)
+    let f = async |n: u8| -> Result<u8, String> { Ok(one()? + n) };
+    @R(12)f(1)@E
 }@U
