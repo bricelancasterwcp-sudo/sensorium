@@ -41,6 +41,8 @@ Measured 2026-09-05T00:58:26-0500 → 2026-09-05T01:00:26-0500 by `rust/tests/ac
 
 **§1 byte-lock.** The runner refuses to start unless §1 is byte-identical to the commit that locked it. Checked at `5bc71f7` with `awk '/^## 1/,/^## 2/'`: 3820 bytes, sha256 `98705aa3c7f7e88811efe9e020fa311ccaf968bce175465c471838c3b30d512a` on both sides — identical: yes. The ORIGINAL lock is `e34623c` (sha256 `bd04140521ee31ccc0f158083d5af2f2990ad8c7ab8860bb38a2d077b89181dd`, 3808 bytes); §1 was amended after it: yes (12 bytes added — the dated E6′ footnote).
 
+**Byte-lock, extended — verified 2026-09-05T01:28:28-0500, AFTER the run, on the Task-8 review.** The range above is §1 alone, which covers the `[^e6p-amend]` MARKER and not the footnote's body — the sentence the whole E6′ adjudication turns on — so the lock had a hole at exactly the text it exists to pin. The locked range is now §1 **plus the definition of every footnote §1 references** (here: `[^e6p-amend]`). Over that range: at `5bc71f7` 4958 bytes, sha256 `78b8e60c653f3011c728e2c7612b08f8675448a2e85ddf9dd8920735a0b0ca7e`; at `e34623c` 3808 bytes, sha256 `bd04140521ee31ccc0f158083d5af2f2990ad8c7ab8860bb38a2d077b89181dd` — the amendment is 1150 bytes wide on this range (marker AND body), where the §1-only range showed only the marker's 12. Working tree identical to `5bc71f7`'s: yes. Derived after the run, by `acceptance_rung3.byte_lock_facts` over committed text; the run's own §1-only lock is in `byte_lock` above and is unchanged. No measured number depends on either range; §1 itself is byte-unchanged.
+
 | Pin | Value |
 |---|---|
 | repo HEAD at the run | `a5322f9247fb2e0655bdac88d03fe992bedf642c` (branch `feat/rung3-err-flow`) |
@@ -263,7 +265,7 @@ read.
 |---|---|---|---|
 | E6 | "**For every case: printed SWALLOWED lines == the case's pre-registered swallow set (equality); every swallow case's set is non-empty; every `dispositions:` tally line equals the case's pre-registered tally. Any extra SWALLOWED line = a false accusation = STOP; any missing = STOP.**" | 17 `corpus/rust/*` cases with an `exceptions` question, each recorded once under the driver of §2. **0** printed SWALLOWED lines that no registered group claims, **0** registered groups with no printed line, **0** questions whose set is unequal, **0** whose `dispositions:` line differs from the registered whole line, **0** swallow cases that printed nothing. Seven of the seventeen questions print a swallow — eight lines in total (`closure_try` 1, `dependency_swallow` 1, `err_arms` 1, `join_handle` 1, `logged_arm` 1, `panic` 1, `silent_swallow` 2) — and the other ten registered an empty set and printed one. | **PASS** |
 | E6′ | "**0 false accusations** (an `Err` that was stored, returned, re-raised, or merely observed = false).[^e6p-amend]" | **15** SWALLOWED lines printed on the clone's `--lib` run (22 chains judged; tally `swallowed 15, ambiguous 7`), every one adjudicated against the clone's source in §4.1. **1** of the 15 is a false accusation: row 6, `build_memory` at `crates/bloomery-daemon/src/memory.rs:131`, whose arm renders the error into the value it returns. **The same count, 1, under the strictest pre-lock reading** — §4.3. | **STOP** |
-| E2″ | "**numerator / try_syn ≥ 95.0%; 0 units fell back; `partial` rows == try_macro_tokens per file (reported).**" | **392 / 401 = 97.7556 %** (≥ 95.0 %). **0** units with `fell_back: true` over the 108 unit-manifests of the from-scratch `--workspace --no-run` build, and **0** `fell back to the real tree` lines in that build's own log. **1** distinct `partial` row, in `crates/bloomery-bench/src/main.rs`, reason `macro-arg` — equal to §1's frozen `try_macro_tokens = 1`, in the one file that carries it. | **PASS** |
+| E2″ | "**numerator / try_syn ≥ 95.0%; 0 units fell back; `partial` rows == try_macro_tokens per file (reported).**" | **392 / 401 = 97.7556 %** (≥ 95.0 %). **0** units with `fell_back: true` over the 108 unit-manifests of the from-scratch `--workspace --no-run` build, and **0** `fell back to the real tree` lines in that build's own log. **1** distinct `partial` row, in `crates/bloomery-bench/src/main.rs`, reason `macro-arg` — equal to §1's frozen `try_macro_tokens = 1`, in the one file that carries it. The 9-site residual is an instrument artifact of the numerator's `(file, line)` dedup, not unreached code — §5.7 names the eight lines and recounts 401 / 401. | **PASS** |
 | E7″ | "**Existing checks: 0 differences. New check: line identical, column = original + 6 exactly.**" | **0** failures over the 6 existing E7 checks (`mechanics.sh` exit 0, 47 checks passed, 0 failed, 0 skipped). New check: plain `probe-app/tests/e7_operand.rs:33:24`, instrumented `…:33:30` — **line identical, column + 6 exactly**, on tier `call` AND on tier `off`. | **PASS** |
 | E3″ | "**DIVERGED 0/19, REFUSED 0/19.**" | 20 recorded runs of one `bloomery_daemon` `--lib` binary whose sha256 was re-asserted equal before each (**0** mismatches), 19 diffs against the first: **DIVERGED 0/19, REFUSED 0/19, MATCH 19/19**. | **PASS** |
 | E5″ | "**A/B MATCH class with every task paired; A/C DIVERGED naming a step in the swapped fn.**" | **0 of 6** conditions missed. A/B `--ignore-moves`: MATCH class, **28** code objects paired across the move, 0 added, 0 removed, every task paired. A/C: **DIVERGED**. | **PASS** |
@@ -318,8 +320,14 @@ The chain the tool printed, whole:
       hops: e387 MemoryStore::load L84 try -> e391 build_memory L131 arm_handled
 ```
 
-The `Err` is born at `store.rs:84` (`std::fs::create_dir_all(parent)?` on a
-path whose parent is a file), leaves `load` through that `?`, and arrives at
+The `Err` is born at `store.rs:84` — `let line = line?;` inside `load`'s
+`Ok(file)` arm. The test that produces it (`memory.rs:235`,
+`build_memory_disabled_reason_when_store_path_is_a_directory`) makes
+`episodes.jsonl` itself a **directory**: `File::open` on a directory
+succeeds on Linux and the first `read` fails with `EISDIR`, which is the
+`Os { code: 21, kind: IsADirectory }` the trace carries. `store.rs:74`'s
+`create_dir_all(parent)?` is a different statement and is not the origin.
+The chain leaves `load` through the `?` on line 84 and arrives at
 
 ```rust
     match store::MemoryStore::load(&store_path) {
@@ -444,6 +452,18 @@ runner refuses to start unless the working tree's §1 is byte-identical to
 `5bc71f7`'s and records both shas; §2 prints them. §4.3 reports the count under
 both readings. The original wording is still in §1, in the footnote, unedited.
 
+**The locked range was widened on 2026-09-05, after the run** (Task-8 review):
+`awk '/^## 1/,/^## 2/'` covers the `[^e6p-amend]` **marker** and not the
+footnote's **body**, so the lock had a hole at exactly the sentence the E6′
+adjudication turns on — and the "12 bytes" above is the marker alone. The range
+is now §1 plus the definition of every footnote §1 references; over it the
+amendment is **1150** bytes wide (marker and body), at `5bc71f7` 4958 bytes
+sha256 `78b8e60c653f…` against `e34623c`'s 3808 and `bd04140521ee…`. §2 carries
+both, `acceptance_rung3.locked_range` implements it, and
+`tests/test_acceptance_rung3.py` pins that editing the footnote body moves the
+locked sha while leaving the §1-only sha untouched — the hole, demonstrated.
+No measured number depends on either range, and §1 is byte-unchanged.
+
 ### 5.4 E7″'s clause: which columns can move, and when
 
 §1's E7″ endpoint measured one wrapped operand and found the predicted +6.
@@ -516,5 +536,71 @@ length rather than 6.
   compared by a perfect matching in both directions, not by a per-group
   membership test — two registered groups cannot both claim one printed line
   while a second line goes unclaimed.
+
+### 5.7 E2″'s residual of 9 is the numerator's line-dedup, not unreached code
+
+*Clarification added **2026-09-05**, after the run, on the Task-8 review. **No
+measured number changes**: the ratio is **392 / 401 = 97.7556 %** and its
+verdict is **PASS**, exactly as measured and locked. What follows names an
+instrument artifact the record did not name, from the run's own recorded
+numbers.*
+
+**Where the numerator is defined.** `acceptance_phases_rung3._try_rows` counts
+**distinct `(file, line)`** over the `kind: "try"` rows of the manifests in the
+measured build's own `-C metadata=` scope. The denominator `try_syn` counts
+`syn` **`ExprTry` nodes**. The two are not the same unit: a source line
+carrying two `?` contributes **2** to the denominator and **1** to the
+numerator. Every one of the nine missing sites is that collapse.
+
+**The eight lines**, from the clone at `e209ed9`. Per-file, the run's own
+records (`raw_census_try.try_by_file` against `raw_e2pp.try.try_rows_by_file`)
+disagree on **exactly four files and nowhere else**:
+
+| File | `try_syn` | distinct rows | collapsed |
+|---|---|---|---|
+| `crates/bloomery-bench/src/switch.rs` | 38 | 33 | 5 |
+| `crates/bloomery-core/src/profile.rs` | 4 | 2 | 2 |
+| `crates/bloomery-bench/src/main.rs` | 13 | 12 | 1 |
+| `crates/bloomery-daemon/src/drift.rs` | 11 | 10 | 1 |
+| **total** | **401** | **392** | **9** |
+
+and the lines are:
+
+```
+switch.rs:146   crate::pressure::check(&pressure, &observed, &status_line(client)?)?;
+switch.rs:165   let status = client.expect("GET", "/status", "", 200)?.json()?;
+switch.rs:219   let status = client.expect("GET", "/status", "", 200)?.json()?;
+switch.rs:277   let status = client.expect("GET", "/status", "", 200)?.json()?;
+switch.rs:415   let value = client.expect("POST", "/agents", &body, 201)?.json()?;
+profile.rs:198  let cell = self.data.codecs.as_ref()?.get(codec)?.get(VERDICT_GRADE)?;
+main.rs:80      let client = Client::new(required(args, "--daemon")?)?;
+drift.rs:404    found.push((entry.metadata()?.modified()?, name, entry.path()));
+```
+
+Seven lines carry two `?` and one (`profile.rs:198`) carries three: 7 × 1 + 1 ×
+2 = **9**.
+
+**The recount: 401 / 401.** Counting, per `(file, line)`, the **maximum**
+number of `try` rows any single unit-manifest declared there — which un-does
+the dedup without double-counting the units that declare one source file twice
+— gives **401 over 401, with zero per-file disagreement**, and the only keys
+carrying more than one row are exactly the eight lines above (five at 2, two at
+2, one at 3). The transformer reached every syn-visible `?` on the clone; the
+9-site shortfall is in the numerator's *unit of count*, not in its coverage.
+
+*Provenance of the recount.* It reads the manifests the measured build left on
+the target, scoped to that build's own `-C metadata=` set. 106 of the 108 carry
+mtimes inside E2″'s window (00:58:28–00:58:36); two were rewritten at
+00:58:53–54 by an E5″ arm's build of the same units. That cannot move these
+rows: all four files are byte-identical across the three arms — `switch.rs`
+`68d1abb5…`, `profile.rs` `cd8c163d…`, `main.rs` `224a9475…`, `drift.rs`
+`793040ba…` at `e209ed9`, `e5-split` **and** `e5-planted`.
+
+**CARRIED-DEBT.** The `(file, line)` dedup erodes the ratio on any workspace
+with more multi-`?` lines: it is a floor, not an estimate, and a codebase that
+chains `?` more densely than bloomery would read materially lower through no
+fault of the transformer. The repair is to dedup by `(file, line, col)` — the
+manifest row would have to carry the column — or to count nodes directly, in a
+later slice. It is not applied here: the ratio above is locked as measured.
 
 [^e6p-amend]: **Amended 2026-09-05, AFTER the byte-lock (e34623c) and BEFORE any E6′ number was read.** "Merely observed" is clarified to mean: read by a `&self` predicate (`.is_err()`), or its value moved out of the arm (stored / returned / re-raised). An `Err(e) =>` arm whose body only formats or logs `e` and then continues (`eprintln!("{e:?}")`, `log::warn!`) is a TRUE swallow — the failure never reached the caller; the log is where it went. Trigger: the Task-7 corpus reviewer observed that R2 classifies format-only arms `arm_handled` (a format argument is a provable shared borrow) so the tool reports them SWALLOWED, while the pre-lock wording could be read as counting them "merely observed". Ruled by the design authority (design R15, §3 `logged_arm`; commit c4d2beb). **Both readings are reported in §4**: the adjudication table marks every log-and-continue SWALLOWED line as such, and the verdict line states the count of false accusations under the amended reading (the gate) AND under the strictest pre-lock reading (log-and-continue counted false), so a reader who rejects the amendment can re-derive the verdict.

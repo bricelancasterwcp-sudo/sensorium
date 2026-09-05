@@ -52,6 +52,30 @@ def environment(r) -> list[str]:
         f"{_yn(bl.get('amended_after_the_original_lock'))} "
         f"({bl.get('amendment_bytes')} bytes added — the dated E6′ footnote).",
         ""]
+    ex = r.get("byte_lock_extended") or {}
+    if ex.get("dropped"):
+        out += [f"**Byte-lock, extended.** Not derived: {ex['dropped']}", ""]
+    elif ex:
+        out += [
+            f"**Byte-lock, extended — verified {ex.get('verified_at')}, AFTER "
+            f"the run, on the Task-8 review.** The range above is §1 alone, "
+            f"which covers the `[^e6p-amend]` MARKER and not the footnote's "
+            f"body — the sentence the whole E6′ adjudication turns on — so "
+            f"the lock had a hole at exactly the text it exists to pin. The "
+            f"locked range is now §1 **plus the definition of every footnote "
+            f"§1 references** "
+            f"(here: {', '.join('`[^' + l + ']`' for l in ex.get('footnotes_in_range') or []) or 'none'}). "
+            f"Over that range: at `{ex.get('commit')}` "
+            f"{ex.get('bytes')} bytes, sha256 `{ex.get('sha256')}`; at "
+            f"`{ex.get('original_lock')}` {ex.get('original_lock_bytes')} "
+            f"bytes, sha256 `{ex.get('original_lock_sha256')}` — the "
+            f"amendment is {ex.get('amendment_bytes')} bytes wide on this "
+            f"range (marker AND body), where the §1-only range showed only "
+            f"the marker's 12. Working tree identical to "
+            f"`{ex.get('commit')}`'s: {_yn(ex.get('identical'))}. "
+            f"Derived {ex.get('derived')}. No measured number depends on "
+            f"either range; §1 itself is byte-unchanged.",
+            ""]
     rows = [
         ("repo HEAD at the run",
          f"`{env.get('repo_commit')}` (branch `{env.get('repo_branch')}`)"),

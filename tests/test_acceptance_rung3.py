@@ -82,6 +82,95 @@ def test_an_edit_outside_section1_does_not_change_the_lock_sha():
     assert a == b
 
 
+#: A document with §1, a footnote REFERENCE inside it, and the definition at
+#: the end -- the shape the acceptance document has.
+FIXTURE = """# A document
+
+## 1. Pre-registration
+
+| Id | Endpoint |
+|---|---|
+| E6 | 0 false accusations[^amend] |
+
+## 2. Environment
+
+filled later
+
+## 5. Gaps
+
+written later
+
+[^amend]: **Amended.** "Merely observed" means read by a `&self` predicate.
+"""
+
+
+def _fixture(tmp_path: Path, text: str = FIXTURE) -> Path:
+    p = tmp_path / "doc.md"
+    p.write_text(text)
+    return p
+
+
+def _reader(text: str):
+    """A stand-in for `git show <commit>:<path>`."""
+    return lambda rel, commit: text
+
+
+def test_the_byte_lock_accepts_an_identical_document(tmp_path):
+    """The control. Without it the refusal test below could pass because the
+    check refuses everything."""
+    rec = runner.byte_lock_check(_fixture(tmp_path), "aaaaaaa", "aaaaaaa",
+                                 _reader(FIXTURE))
+    assert rec["identical"] is True
+    assert rec["footnotes_in_range"] == ["amend"]
+
+
+def test_the_byte_lock_REFUSES_a_document_that_differs_by_one_byte(tmp_path):
+    """The refusal path itself. A lock that computes two shas, reports them
+    unequal and then proceeds is not a lock -- the run would measure against a
+    moved endpoint and say so in a field nobody reads."""
+    moved = FIXTURE.replace("0 false accusations", "1 false accusations")
+    assert len(moved) == len(FIXTURE)           # one byte, not a rewrite
+    with pytest.raises(runner.Refused) as e:
+        runner.byte_lock_check(_fixture(tmp_path, moved), "aaaaaaa",
+                               "aaaaaaa", _reader(FIXTURE))
+    assert "differs from the byte-lock" in str(e.value)
+
+
+def test_the_locked_range_covers_the_FOOTNOTE_BODY_not_just_the_marker(tmp_path):
+    """Item 4 of the Task-8 review, as a regression guard.
+
+    §1 ends its E6′ endpoint in a footnote marker, and the sentence that
+    marker points at is the one the whole E6′ adjudication turns on. It lives
+    at the END of the document, outside `awk '/^## 1/,/^## 2/'`. Editing it
+    must move the locked sha -- and, to show the hole was real, must NOT move
+    the §1-only sha the run itself locked."""
+    edited = FIXTURE.replace("read by a `&self` predicate",
+                             "read by ANY predicate")
+    rec = runner.byte_lock_facts(_fixture(tmp_path, edited), "aaaaaaa",
+                                 "aaaaaaa", _reader(FIXTURE))
+    assert rec["identical"] is False                 # the extended range sees it
+    assert rec["section1_identical"] is True         # §1 alone does not
+    with pytest.raises(runner.Refused):
+        runner.byte_lock_check(_fixture(tmp_path, edited), "aaaaaaa",
+                               "aaaaaaa", _reader(FIXTURE))
+
+
+def test_a_footnote_referenced_by_section1_but_undefined_is_refused(tmp_path):
+    """A dangling reference would shrink the locked range without changing a
+    byte of §1 -- the same hole, reopened by deletion instead of by scope."""
+    gone = "\n".join(l for l in FIXTURE.splitlines() if not l.startswith("[^"))
+    with pytest.raises(runner.Refused) as e:
+        runner.locked_range(gone)
+    assert "defines no such footnote" in str(e.value)
+
+
+def test_the_footnote_block_stops_at_a_blank_line_or_the_next_definition():
+    text = ("[^a]: first line\n    continued\n[^b]: second\n\ntail\n")
+    assert runner.footnote_block(text, "a") == "[^a]: first line\n    continued\n"
+    assert runner.footnote_block(text, "b") == "[^b]: second\n"
+    assert runner.footnote_block(text, "missing") is None
+
+
 def test_the_byte_lock_check_passes_on_the_real_document():
     """The committed §1 and the working tree's must agree right now: this is
     the same comparison the runner refuses on, run in the suite so a stray
@@ -94,6 +183,11 @@ def test_the_byte_lock_check_passes_on_the_real_document():
     # The E6' amendment is a FACT of this record, not a claim in prose.
     assert rec["amended_after_the_original_lock"] is True
     assert rec["amendment_bytes"] > 0
+    # The range really does carry the footnote the E6' adjudication turns on,
+    # and it is strictly wider than the §1-only range the run locked.
+    assert rec["footnotes_in_range"] == ["e6p-amend"]
+    assert rec["locked_bytes"] > rec["section1_bytes"]
+    assert rec["section1_identical"] is True
 
 
 # -- the E6 collector ------------------------------------------------------

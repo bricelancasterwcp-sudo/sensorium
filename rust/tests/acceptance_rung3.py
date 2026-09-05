@@ -44,6 +44,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -114,50 +115,144 @@ def section1(text: str) -> str:
     return "".join(buf)
 
 
+#: A footnote REFERENCE (`[^label]`), as distinct from its definition
+#: (`[^label]:`). §1 carries the reference; the body it points at lives at the
+#: end of the document, outside the `^## 1` .. `^## 2` range.
+FOOTNOTE_REF = re.compile(r"\[\^([A-Za-z0-9_-]+)\](?!:)")
+
+
+def footnote_block(text: str, label: str) -> str | None:
+    """One footnote DEFINITION: the `[^label]:` line and its continuations.
+
+    A definition ends at the first blank line, the next definition, or the
+    next heading -- the three things that can follow one in this document."""
+    lines = text.splitlines(keepends=True)
+    head = f"[^{label}]:"
+    for i, line in enumerate(lines):
+        if not line.startswith(head):
+            continue
+        buf = [line]
+        for nxt in lines[i + 1:]:
+            if (not nxt.strip() or nxt.startswith("[^")
+                    or nxt.startswith("#")):
+                break
+            buf.append(nxt)
+        return "".join(buf)
+    return None
+
+
+def locked_range(text: str) -> str:
+    """The bytes the lock covers: §1, plus the DEFINITION of every footnote
+    §1 references.
+
+    Extended 2026-09-05, after the acceptance run, on the Task-8 review.
+    §1's E6' endpoint ends in `[^e6p-amend]`, and the sentence that marker
+    points at -- the clarification of "merely observed" that the whole E6'
+    adjudication turns on -- sits at the END of the document, outside
+    `awk '/^## 1/,/^## 2/'`. Locking the reference and not the referent left
+    the lock with a hole at exactly the sentence it exists to pin. A footnote
+    §1 references but the document does not define is refused rather than
+    silently dropped: a dangling reference would shrink the range without
+    changing a byte of §1."""
+    s1 = section1(text)
+    parts = [s1]
+    for label in sorted(set(FOOTNOTE_REF.findall(s1))):
+        block = footnote_block(text, label)
+        if block is None:
+            raise Refused(
+                f"§1 references [^{label}] but the document defines no such "
+                f"footnote; the locked range would silently omit it")
+        parts.append(block)
+    return "".join(parts)
+
+
 def _committed(rel: str, commit: str) -> str | None:
     r = subprocess.run(["git", "-C", str(REPO), "show", f"{commit}:{rel}"],
                        capture_output=True, text=True)
     return r.stdout if r.returncode == 0 else None
 
 
-def byte_lock_check() -> dict:
-    """§1 of the acceptance document, as committed, versus the working tree.
+def byte_lock_facts(doc: Path = DOC, commit: str = BYTE_LOCK,
+                    original: str = ORIGINAL_LOCK,
+                    read_committed=_committed) -> dict:
+    """The lock's numbers, computed and never enforced.
 
-    The endpoint is decided before the instrument exists; this is the check
-    that it did not move afterwards. BOTH locks are recorded: the run refuses
-    unless the tree matches `BYTE_LOCK`, and the sha at `ORIGINAL_LOCK` is
-    carried beside it so the post-lock amendment is a visible fact of the
-    record rather than a claim in prose."""
-    rel = DOC.relative_to(REPO).as_posix()
-    now_text = section1(DOC.read_text())
-    locked_text = _committed(rel, BYTE_LOCK)
+    Split from [`byte_lock_check`] so the record can also be re-derived after
+    a run -- `acceptance_schema_rung3` calls this to put the EXTENDED range's
+    shas beside the §1-only ones the run itself recorded -- without a
+    mismatch taking an assembly down.
+
+    Both ranges are carried. `locked_*` is the extended range (§1 + the
+    footnotes it references), which is what a run is now refused on;
+    `section1_*` is the §1-only range the 2026-09-05 run locked, kept so the
+    published record stays continuous."""
+    # Repo-relative where it is a repo file (the `git show <commit>:<path>`
+    # spelling); the path itself otherwise, so a fixture outside the repo can
+    # exercise this function without a special case inside it.
+    rel = (doc.relative_to(REPO).as_posix() if doc.is_relative_to(REPO)
+           else doc.as_posix())
+    working_text = doc.read_text()
+    locked_text = read_committed(rel, commit)
     if locked_text is None:
-        raise Refused(f"cannot read {rel} at {BYTE_LOCK}")
-    locked = section1(locked_text)
-    orig_text = _committed(rel, ORIGINAL_LOCK)
-    orig = section1(orig_text) if orig_text is not None else None
-    rec = {
-        "commit": BYTE_LOCK, "doc": rel,
-        "extraction": "awk '/^## 1/,/^## 2/'",
+        raise Refused(f"cannot read {rel} at {commit}")
+    orig_text = read_committed(rel, original) if original else None
+
+    locked, working = locked_range(locked_text), locked_range(working_text)
+    orig = locked_range(orig_text) if orig_text is not None else None
+    s1_locked, s1_working = section1(locked_text), section1(working_text)
+    s1_orig = section1(orig_text) if orig_text is not None else None
+    labels = sorted(set(FOOTNOTE_REF.findall(s1_locked)))
+    return {
+        "commit": commit, "doc": rel,
+        "range": ("awk '/^## 1/,/^## 2/' PLUS the definition of every "
+                  "footnote §1 references"),
+        "footnotes_in_range": labels,
+        "extraction": "awk '/^## 1/,/^## 2/'",   # the §1 half, named as before
         "locked_sha256": _sha(locked), "locked_bytes": len(locked.encode()),
-        "working_tree_sha256": _sha(now_text),
-        "working_tree_bytes": len(now_text.encode()),
-        "identical": locked == now_text,
-        "original_lock": ORIGINAL_LOCK,
+        "working_tree_sha256": _sha(working),
+        "working_tree_bytes": len(working.encode()),
+        "identical": locked == working,
+        "original_lock": original,
         "original_lock_sha256": _sha(orig) if orig is not None else None,
         "original_lock_bytes": len(orig.encode()) if orig is not None else None,
         "amended_after_the_original_lock": (orig is not None
                                             and orig != locked),
         "amendment_bytes": (len(locked.encode()) - len(orig.encode())
                             if orig is not None else None),
+        # The §1-only range, as the 2026-09-05 run locked it.
+        "section1_sha256": _sha(s1_locked),
+        "section1_bytes": len(s1_locked.encode()),
+        "section1_working_tree_sha256": _sha(s1_working),
+        "section1_identical": s1_locked == s1_working,
+        "section1_original_lock_sha256": (_sha(s1_orig) if s1_orig is not None
+                                          else None),
+        "section1_original_lock_bytes": (len(s1_orig.encode())
+                                         if s1_orig is not None else None),
     }
+
+
+def byte_lock_check(doc: Path = DOC, commit: str = BYTE_LOCK,
+                    original: str = ORIGINAL_LOCK,
+                    read_committed=_committed) -> dict:
+    """The locked range of the acceptance document, as committed, versus the
+    working tree.
+
+    The endpoint is decided before the instrument exists; this is the check
+    that it did not move afterwards. BOTH locks are recorded: the run refuses
+    unless the tree matches `commit`, and the sha at `original` is carried
+    beside it so the post-lock amendment is a visible fact of the record
+    rather than a claim in prose."""
+    rec = byte_lock_facts(doc, commit, original, read_committed)
     if not rec["identical"]:
         raise Refused(
-            f"§1 of {rel} differs from the byte-lock at {BYTE_LOCK}: "
-            f"{rec['locked_sha256'][:12]} vs {rec['working_tree_sha256'][:12]}")
-    step(f"byte-lock ok: §1 == {BYTE_LOCK}:{rel} "
-         f"(sha256 {rec['locked_sha256'][:12]}, {rec['locked_bytes']} bytes); "
-         f"original lock {ORIGINAL_LOCK} sha256 "
+            f"the locked range of {rec['doc']} differs from the byte-lock at "
+            f"{commit}: {rec['locked_sha256'][:12]} vs "
+            f"{rec['working_tree_sha256'][:12]} "
+            f"(range: {rec['range']})")
+    step(f"byte-lock ok: locked range == {commit}:{rec['doc']} "
+         f"(sha256 {rec['locked_sha256'][:12]}, {rec['locked_bytes']} bytes, "
+         f"footnotes {rec['footnotes_in_range'] or 'none'}); "
+         f"original lock {original} sha256 "
          f"{(rec['original_lock_sha256'] or '?')[:12]}, amended="
          f"{rec['amended_after_the_original_lock']}")
     return rec

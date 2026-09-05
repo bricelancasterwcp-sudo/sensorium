@@ -17,6 +17,24 @@
     "amended_after_the_original_lock": true,
     "amendment_bytes": 12
   },
+  "byte_lock_extended": {
+    "verified_at": "2026-09-05T01:31:03-0500",
+    "derived": "after the run, by `acceptance_rung3.byte_lock_facts` over committed text; the run's own \u00a71-only lock is in `byte_lock` above and is unchanged",
+    "range": "awk '/^## 1/,/^## 2/' PLUS the definition of every footnote \u00a71 references",
+    "footnotes_in_range": [
+      "e6p-amend"
+    ],
+    "commit": "5bc71f7",
+    "sha256": "78b8e60c653f3011c728e2c7612b08f8675448a2e85ddf9dd8920735a0b0ca7e",
+    "bytes": 4958,
+    "original_lock": "e34623c",
+    "original_lock_sha256": "bd04140521ee31ccc0f158083d5af2f2990ad8c7ab8860bb38a2d077b89181dd",
+    "original_lock_bytes": 3808,
+    "amendment_bytes": 1150,
+    "working_tree_sha256": "78b8e60c653f3011c728e2c7612b08f8675448a2e85ddf9dd8920735a0b0ca7e",
+    "identical": true,
+    "dropped": null
+  },
   "pins": {
     "started": "2026-09-05T00:58:26-0500",
     "repo_commit": "a5322f9247fb2e0655bdac88d03fe992bedf642c",
@@ -2256,7 +2274,7 @@
   "started": "2026-09-05T00:58:26-0500",
   "finished": "2026-09-05T01:00:26-0500",
   "assembled": {
-    "at": "2026-09-05T01:06:15-0500",
+    "at": "2026-09-05T01:31:03-0500",
     "from": "results-rung3-raw.json",
     "by": "rust/tests/acceptance_rung3.py --assemble",
     "note": "derived from the raw facts the run recorded, which nothing since has touched; no arm was re-run and no value re-measured"

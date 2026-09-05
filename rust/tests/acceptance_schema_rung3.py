@@ -13,6 +13,8 @@ can do, because it is a reading of the clone's SOURCE -- is carried as a
 
 from __future__ import annotations
 
+import time
+
 from acceptance_lib import meas
 from acceptance_phases import wall_summary
 from acceptance_schema import _e3, _e5                             # noqa: F401
@@ -370,6 +372,42 @@ def _reported(raw) -> dict:
 # ------------------------------------------------------------------ assemble
 
 
+def _byte_lock_extended() -> dict | None:
+    """The EXTENDED locked range, re-derived at assembly time.
+
+    The 2026-09-05 run locked `awk '/^## 1/,/^## 2/'`, which covers §1's
+    footnote MARKER and not the footnote's body -- the sentence the whole E6'
+    adjudication turns on. The Task-8 review closed that hole by widening the
+    range to §1 plus the definition of every footnote §1 references.
+
+    It is computed HERE rather than taken from the raw record because the raw
+    record is the run's own and is never rewritten: this block is stamped
+    `verified_at` and says plainly that it was derived after the run. It reads
+    only committed text and the document, so it is deterministic; a mismatch
+    is reported, never raised, so a failed run still assembles."""
+    try:
+        import acceptance_rung3 as runner                          # noqa: PLC0415
+        rec = runner.byte_lock_facts()
+    except Exception as e:                                         # noqa: BLE001
+        return {"dropped": f"the extended range could not be derived: {e}"}
+    return {
+        "verified_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "derived": ("after the run, by `acceptance_rung3.byte_lock_facts` "
+                    "over committed text; the run's own §1-only lock is in "
+                    "`byte_lock` above and is unchanged"),
+        "range": rec["range"], "footnotes_in_range": rec["footnotes_in_range"],
+        "commit": rec["commit"], "sha256": rec["locked_sha256"],
+        "bytes": rec["locked_bytes"],
+        "original_lock": rec["original_lock"],
+        "original_lock_sha256": rec["original_lock_sha256"],
+        "original_lock_bytes": rec["original_lock_bytes"],
+        "amendment_bytes": rec["amendment_bytes"],
+        "working_tree_sha256": rec["working_tree_sha256"],
+        "identical": rec["identical"],
+        "dropped": None,
+    }
+
+
 def assemble_rung3(raw: dict) -> dict:
     """Raw rung-3 facts -> the acceptance document's `results.json`."""
     pins = raw.get("pins") or {}
@@ -381,6 +419,7 @@ def assemble_rung3(raw: dict) -> dict:
         "acceptance": DOC,
         "runner": raw.get("runner"),
         "byte_lock": raw.get("byte_lock"),
+        "byte_lock_extended": _byte_lock_extended(),
         "pins": pins,
         "environment": {
             "repo_commit": pins.get("repo_commit"),
