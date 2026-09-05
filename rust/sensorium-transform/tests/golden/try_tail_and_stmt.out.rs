@@ -25,4 +25,13 @@ pub fn try_is_the_tail() -> Result<u8, String> {@G(11)
 pub fn nested_try() -> Result<u8, String> {@G(13)
     let v = @T(14)@T(15)twice()@TE?@TE?;
     @R(13)Ok(v)@E
+}
+
+/// A `?` inside a `return` operand: the exit wrap and the err wrap meet there
+/// exactly as they do on a tail.
+pub fn returned(c: bool) -> Result<u8, String> {@G(16)
+    if c {
+        return @R(16)Ok(@T(17)one()@TE?)@E;
+    }
+    @R(16)Ok(0)@E
 }@U

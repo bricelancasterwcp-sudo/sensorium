@@ -40,7 +40,9 @@ fn the_manifest_has_the_shape_the_plan_names() {
     assert_eq!(j["crate_type"], "lib");
 
     let sites = j["files"]["src/lib.rs"].as_array().expect("files entry");
-    assert_eq!(sites.len(), 2);
+    // Three fn rows and the two `let _ = <spawn>` sink rows, in one list and
+    // one index space (design R1b).
+    assert_eq!(sites.len(), 5);
     assert_eq!(sites[0]["site"], 0);
     assert_eq!(sites[0]["qualname"], "fully_qualified");
     assert_eq!(sites[0]["kind"], "fn");
@@ -62,7 +64,8 @@ fn the_manifest_has_the_shape_the_plan_names() {
     assert_eq!(skipped[0]["reason"], "async");
 
     let spawns = j["spawns"].as_array().expect("spawns");
-    assert_eq!(spawns.len(), 2);
+    // Two named handles and the two discarded ones.
+    assert_eq!(spawns.len(), 4);
     assert_eq!(spawns[0]["file"], "src/lib.rs");
     assert_eq!(spawns[0]["line"], 6);
     assert_eq!(spawns[0]["wrapped"], true);
@@ -73,6 +76,9 @@ fn the_manifest_has_the_shape_the_plan_names() {
     assert_eq!(spawns[0]["ordinal"], 1);
     assert_eq!(spawns[1]["qualname"], "imported");
     assert_eq!(spawns[1]["ordinal"], 1);
+    assert_eq!(spawns[2]["qualname"], "discarded_handles");
+    assert_eq!(spawns[2]["ordinal"], 1);
+    assert_eq!(spawns[3]["ordinal"], 2);
 
     assert_eq!(j["source_hashes"]["src/lib.rs"], "00".repeat(32));
     assert_eq!(j["fell_back"], false);
@@ -220,7 +226,7 @@ fn the_partial_list_is_registered_unit_scoped_like_skipped() {
         transform(&read("try_in_macro_arg", "in"), "src/lib.rs", META, 0, true).expect("transform");
     m.add_file("src/lib.rs", &a);
     let b = transform(
-        &read("sink_place_receiver", "in"),
+        &read("struct_literal_partial", "in"),
         "src/other.rs",
         META,
         u32::try_from(a.sites.len()).expect("fits"),
@@ -233,12 +239,18 @@ fn the_partial_list_is_registered_unit_scoped_like_skipped() {
     let partial = j["partial"].as_array().expect("partial");
     // Both files' rows in one flat list, each naming its own file -- the shape
     // `skipped` has, and the one design R6 names.
-    assert_eq!(partial.len(), 6);
+    assert_eq!(partial.len(), 7);
     assert_eq!(partial[0]["file"], "src/lib.rs");
     assert_eq!(partial[0]["line"], 10);
     assert_eq!(partial[0]["qualname"], "printed");
+    assert_eq!(partial[0]["kind"], "try");
     assert_eq!(partial[0]["reason"], "macro-arg");
     assert_eq!(partial[2]["file"], "src/other.rs");
-    assert_eq!(partial[2]["qualname"], "Holder::defaulted");
-    assert_eq!(partial[2]["reason"], "sink-place");
+    assert_eq!(partial[2]["qualname"], "leftmost");
+    assert_eq!(partial[2]["kind"], "try");
+    assert_eq!(partial[2]["reason"], "struct-literal");
+    // The row a four-key shape could not tell apart from the one above: same
+    // reason, same fn, and a SINK rather than a `?`.
+    assert_eq!(partial[3]["kind"], "sink");
+    assert_eq!(partial[3]["reason"], "struct-literal");
 }

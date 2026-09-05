@@ -26,3 +26,12 @@ pub fn nested_try() -> Result<u8, String> {
     let v = twice()??;
     Ok(v)
 }
+
+/// A `?` inside a `return` operand: the exit wrap and the err wrap meet there
+/// exactly as they do on a tail.
+pub fn returned(c: bool) -> Result<u8, String> {
+    if c {
+        return Ok(one()?);
+    }
+    Ok(0)
+}

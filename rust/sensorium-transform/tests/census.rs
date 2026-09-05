@@ -66,6 +66,12 @@ const PINNED_TRY_MACRO: usize = 1;
 /// tree there are none, which is the third pin.
 const PINNED_PARTIAL_STRUCT_LITERAL: usize = 0;
 
+/// Every written sink on this tree is wrapped, and none is declined. Before the
+/// R2 erratum of 2026-09-04 this read 291 wrapped and 11 declined
+/// (`sink-place`); the eleven were place-expression receivers of by-value
+/// sinks, which move exactly as the wrap does.
+const PINNED_SINKS_WRAPPED: usize = 302;
+
 /// The spawn spelling `spawns[..].wrapped` must account for, counted in the raw
 /// text by something that is not the transformer.
 const LITERAL_SPAWN: &str = "std::thread::spawn(";
@@ -166,7 +172,6 @@ struct Totals {
     try_sites: usize,
     sink_sites: usize,
     partial_macro_arg: usize,
-    partial_sink_place: usize,
     partial_struct_literal: usize,
     spawns_wrapped: usize,
     spawns_declared: usize,
@@ -299,12 +304,17 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
             let try_sites = kinds(SiteKind::Try);
             let partial = |reason: &str| out.partial.iter().filter(|p| p.reason == reason).count();
             let macro_arg = partial("macro-arg");
-            let struct_literal = partial("struct-literal");
+            // A `struct-literal` row can mark a sink as well as a `?`, so the
+            // identity subtracts only the ones whose KIND is `try`.
+            let struct_literal = out
+                .partial
+                .iter()
+                .filter(|p| p.kind == SiteKind::Try && p.reason == "struct-literal")
+                .count();
             t.instrumented += fn_sites;
             t.try_sites += try_sites;
             t.sink_sites += kinds(SiteKind::Sink);
             t.partial_macro_arg += macro_arg;
-            t.partial_sink_place += partial("sink-place");
             t.partial_struct_literal += struct_literal;
             // Rung 3's identity, PER FILE. `try_syn` counts the `?` the parser
             // gave a node for, and every one of those is either wrapped or
@@ -353,7 +363,6 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
     println!("`?` sites wrapped:    {}", t.try_sites);
     println!("sink sites wrapped:   {}", t.sink_sites);
     println!("partial macro-arg:    {}", t.partial_macro_arg);
-    println!("partial sink-place:   {}", t.partial_sink_place);
     println!("partial struct-lit:   {}", t.partial_struct_literal);
     println!("spawn sites wrapped:  {}", t.spawns_wrapped);
     println!("spawn sites declared: {}", t.spawns_declared);
@@ -467,8 +476,14 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
     );
     assert_eq!(
         t.partial_struct_literal, PINNED_PARTIAL_STRUCT_LITERAL,
-        "a `?` or sink was declined for a leading struct literal: {} at {PINNED_COMMIT}",
+        "a `?` was declined for an exterior struct literal: {} at {PINNED_COMMIT}",
         t.partial_struct_literal
+    );
+    assert_eq!(
+        t.sink_sites, PINNED_SINKS_WRAPPED,
+        "wrapped sink sites: {} against the {PINNED_SINKS_WRAPPED} measured at \
+         {PINNED_COMMIT}",
+        t.sink_sites
     );
     // Every real source file contains at least one item, so none of them can
     // reach the appended-final-line shape.

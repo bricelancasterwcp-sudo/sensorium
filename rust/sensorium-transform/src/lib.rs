@@ -53,11 +53,12 @@
 //!
 //! and, when the file is the crate root, once per file -- the static past the
 //! last token, the `allow` on the same line as the last inner attribute (every
-//! wrap above is a `match` with one binding, which is what clippy's
-//! `match_single_binding` is about):
+//! wrap above is a `match` with one binding, and on a non-`Result` operand the
+//! runtime's ladder falls to a by-value impl the fragment's three `&` then look
+//! needless -- the two lints the wraps provoke and the only two silenced):
 //!
 //! ```ignore
-//! #![allow(clippy::match_single_binding)]
+//! #![allow(clippy::match_single_binding, clippy::needless_borrow)]
 //! #[doc(hidden)] pub static __SENSORIUM_UNIT: ::sensorium_rt::Unit =
 //!     ::sensorium_rt::Unit::new("<-C metadata hash>");
 //! ```
@@ -177,21 +178,30 @@ pub struct Site {
 /// * `"macro-arg"` -- a `?` inside a macro invocation's tokens. `syn` gives an
 ///   invocation an opaque token stream, so no `syn::ExprTry` node exists for
 ///   it; these are the `?` [`Census::try_macro_tokens`] counts.
-/// * `"sink-place"` -- a written sink whose receiver is a place expression
-///   (design R2; see `errflow::is_place_expression` for the re-measurement).
-/// * `"struct-literal"` -- a site whose operand's leading token opens a struct
-///   literal, which a `match` scrutinee may not contain outside parentheses.
+/// * `"struct-literal"` -- a site whose operand would put a struct literal in
+///   an EXTERIOR position of the wrap's `match` scrutinee, which rustc does not
+///   allow. Decided by re-parsing the wrap, not by a rule
+///   (`errflow::Ctx::err_wrap`).
 ///
 /// A `let _ = <place expression>;` is NOT here: `_` does not bind, so that
 /// statement moves nothing and drops nothing, and no error is absorbed at it.
+///
+/// `kind` is what the site WOULD have been. Design R6 wrote this list as a
+/// four-tuple when its only reason was `"macro-arg"`, which can only ever mark
+/// a `?`; `"struct-literal"` can mark a `?`, a sink or a `let _`, so a row that
+/// did not say which would make R6's own `info` sentence ("?-sites the
+/// transformer could not reach") untrue and would leave the census identity
+/// (`try` rows + declined `?` == `try_syn`) uncomputable from the manifest.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Partial {
     pub file: String,
-    /// 1-based line of the `?`, or of the sink's method name.
+    /// 1-based line of the `?`, of the sink's method name, or of the `let`.
     pub line: u32,
     /// The enclosing named item's file-local path, or the enclosing container's
     /// when there is no named item between the site and the file.
     pub qualname: String,
+    /// Which kind of site this would have been: `"try"` or `"sink"`.
+    pub kind: SiteKind,
     pub reason: &'static str,
 }
 

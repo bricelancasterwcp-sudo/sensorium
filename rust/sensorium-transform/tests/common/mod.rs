@@ -46,8 +46,10 @@ pub fn ret_open(site: u32) -> String {
 pub const ERR_OPEN: &str = "match ";
 
 /// The crate root's allow, with the leading space that keeps it off the
-/// previous attribute's `]`.
-pub const CRATE_ALLOW: &str = " #![allow(clippy::match_single_binding)]";
+/// previous attribute's `]`. Two lints: every wrap is a single-binding `match`,
+/// and on a non-`Result` operand the runtime ladder's by-value fallback makes
+/// the fragment's three `&` look needless.
+pub const CRATE_ALLOW: &str = " #![allow(clippy::match_single_binding, clippy::needless_borrow)]";
 
 /// The closing half of an err wrap. `how` is the `sensorium_rt` constant the
 /// fragment names, spelled out here so a golden shows which `how` it writes.
@@ -65,7 +67,7 @@ pub fn err_close(site: u32, how: &str) -> String {
 /// so an inner attribute may still legally sit in front of the static.
 pub fn unit_static_with_allow(metadata: &str) -> String {
     format!(
-        "#![allow(clippy::match_single_binding)] {}",
+        "#![allow(clippy::match_single_binding, clippy::needless_borrow)] {}",
         unit_static(metadata)
     )
 }
@@ -259,11 +261,11 @@ pub fn err_sites(t: &Transformed) -> Vec<(u32, &str, u32, SiteKind, &'static str
         .collect()
 }
 
-/// The `partial` rows of a result: `(line, qualname, reason)`.
-pub fn partials(t: &Transformed) -> Vec<(u32, &str, &'static str)> {
+/// The `partial` rows of a result: `(line, qualname, kind, reason)`.
+pub fn partials(t: &Transformed) -> Vec<(u32, &str, SiteKind, &'static str)> {
     t.partial
         .iter()
-        .map(|p| (p.line, p.qualname.as_str(), p.reason))
+        .map(|p| (p.line, p.qualname.as_str(), p.kind, p.reason))
         .collect()
 }
 
@@ -294,6 +296,7 @@ pub const CASES: &[&str] = &[
     "crate_root",
     "crate_root_docs",
     "crate_root_docs2",
+    "crate_root_attrs",
     "crate_root_docs_todo",
     "diverging_tails",
     "empty_body",
@@ -322,6 +325,7 @@ pub const CASES: &[&str] = &[
     "spawn_ordinals",
     "spawn_shapes",
     "spawn_thread",
+    "struct_literal_partial",
     "struct_tail",
     "test_fn",
     "trait_default",

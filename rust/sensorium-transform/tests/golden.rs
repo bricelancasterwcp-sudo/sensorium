@@ -611,10 +611,29 @@ fn thread_spawn_is_rewritten_in_both_spellings() {
         [
             (7, "fully_qualified", 5, RetKind::Value),
             (8, "imported", 10, RetKind::Value),
+            // The `let _ = <spawn>` pair: the two `let` sinks take 10 and 11.
+            (9, "discarded_handles", 16, RetKind::Unit),
         ]
     );
-    assert_eq!(spawns(&t), [(6, true, None), (11, true, None)]);
+    assert_eq!(
+        spawns(&t),
+        [
+            (6, true, None),
+            (11, true, None),
+            (17, true, None),
+            (18, true, None),
+        ]
+    );
     assert!(t.spawns.iter().all(|s| s.file == FILE));
+    // Kind ordering, pinned by bytes: an err wrap's `match ` opens on the same
+    // byte the spawn callee's REPLACED range starts at, in both spellings, and
+    // has to be spliced in first or `assemble` refuses the pair.
+    assert_eq!(
+        t.source
+            .matches("match ::sensorium_rt::spawn_child(")
+            .count(),
+        2
+    );
 }
 
 #[test]

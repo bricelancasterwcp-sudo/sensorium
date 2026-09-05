@@ -448,8 +448,9 @@ fn the_crate_root_allow_shares_the_last_inner_attributes_line() {
     // an attribute that needed one would move every line below it.
     let t = transform("#![no_std]\nfn f() {}\n", FILE, META, 0, true).expect("transform");
     assert!(
-        t.source
-            .starts_with("#![no_std] #![allow(clippy::match_single_binding)]\n"),
+        t.source.starts_with(
+            "#![no_std] #![allow(clippy::match_single_binding, clippy::needless_borrow)]\n"
+        ),
         "got: {}",
         t.source
     );
@@ -465,15 +466,16 @@ fn with_no_inner_attribute_the_allow_goes_in_front_of_the_first_token() {
     for (src, head) in [
         (
             "fn f() {}\n",
-            " #![allow(clippy::match_single_binding)]fn f()",
+            " #![allow(clippy::match_single_binding, clippy::needless_borrow)]fn f()",
         ),
         (
             "#[allow(dead_code)]\nfn f() {}\n",
-            " #![allow(clippy::match_single_binding)]#[allow(dead_code)]",
+            " #![allow(clippy::match_single_binding, clippy::needless_borrow)]\
+             #[allow(dead_code)]",
         ),
         (
             "/// doc\npub fn f() {}\n",
-            " #![allow(clippy::match_single_binding)]/// doc",
+            " #![allow(clippy::match_single_binding, clippy::needless_borrow)]/// doc",
         ),
     ] {
         let t = transform(src, FILE, META, 0, true).expect("transform");
@@ -527,9 +529,9 @@ fn f() -> Result<u8, u8> {
     assert_eq!(
         partials(&t),
         [
-            (2, "f", "struct-literal"),
-            (3, "f", "struct-literal"),
-            (4, "f", "struct-literal"),
+            (2, "f", SiteKind::Try, "struct-literal"),
+            (3, "f", SiteKind::Sink, "struct-literal"),
+            (4, "f", SiteKind::Sink, "struct-literal"),
         ]
     );
     // The census still counts the `?`, which is why the identity subtracts the
@@ -659,10 +661,10 @@ fn a_macro_argument_question_mark_outside_any_named_item_is_still_declared() {
     // string at file scope -- which says exactly that, rather than naming an
     // item that does not exist.
     let t = transform("some_macro!(f()?);\nfn g() {}\n", FILE, META, 0, false).expect("transform");
-    assert_eq!(partials(&t), [(1, "", "macro-arg")]);
+    assert_eq!(partials(&t), [(1, "", SiteKind::Try, "macro-arg")]);
     let t =
         transform("mod m {\n    some_macro!(f()?);\n}\n", FILE, META, 0, false).expect("transform");
-    assert_eq!(partials(&t), [(2, "m", "macro-arg")]);
+    assert_eq!(partials(&t), [(2, "m", SiteKind::Try, "macro-arg")]);
 }
 
 // ---------------------------------------------------------------------------
@@ -733,5 +735,24 @@ fn every_golden_case_on_disk_is_in_the_list_the_oracle_compiles() {
     assert_eq!(on_disk, listed, "tests/golden and common::CASES disagree");
     for case in common::RUN_CASES {
         assert!(common::CASES.contains(case), "{case} is not a golden");
+    }
+}
+
+#[test]
+fn every_golden_output_re_parses_both_as_a_crate_root_and_as_a_module() {
+    // The struct-literal fence's whole job is to keep the transformer from
+    // emitting a file `syn` (and so rustc) cannot read. `common::run` checks
+    // this per case as part of a byte-exact diff; this checks it for every case
+    // in both crate-root modes, which is the shape the wrapper actually calls,
+    // and it is the test a broken fence reddens first.
+    for case in common::CASES {
+        let input = read(case, "in");
+        for is_crate_root in [false, true] {
+            let t = transform(&input, FILE, META, 7, is_crate_root)
+                .unwrap_or_else(|e| panic!("{case} (crate_root={is_crate_root}): {e}"));
+            syn::parse_file(&t.source).unwrap_or_else(|e| {
+                panic!("{case} (crate_root={is_crate_root}): output does not re-parse: {e}")
+            });
+        }
     }
 }

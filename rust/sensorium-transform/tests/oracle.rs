@@ -53,10 +53,15 @@ const TAG_RUN: &str = "run";
 const TAG_CLIPPY: &str = "clippy";
 const TAG_BORROW: &str = "borrow";
 
-/// The one lint every err wrap provokes, and the only one denied when clippy
+/// The two lints every err wrap provokes, and the only ones denied when clippy
 /// runs here: this test is about the transformer's own attribute, not about
 /// what clippy thinks of a golden's hand-written Rust.
-const WRAP_LINT: &str = "clippy::match_single_binding";
+///
+/// * `match_single_binding` -- every wrap is a `match` with one binding.
+/// * `needless_borrow` -- on an operand that is not a `Result` the runtime's
+///   autoref ladder resolves to its by-value fallback, and clippy then asks for
+///   `Probe(&__t)` where the fragment must write `(&&&Probe(&__t))`.
+const WRAP_LINTS: [&str; 2] = ["clippy::match_single_binding", "clippy::needless_borrow"];
 
 fn out_root() -> &'static Path {
     static ROOT: OnceLock<PathBuf> = OnceLock::new();
@@ -316,9 +321,10 @@ fn clippy(tag: &str, name: &str, source: &Path) -> Option<Compiled> {
         .arg(&dir)
         .arg("--extern")
         .arg(extern_arg)
-        // Allow everything, then deny exactly one: a golden's own hand-written
-        // Rust is not what this test is about.
-        .args(["-A", "warnings", "-D", WRAP_LINT])
+        // Allow everything, then deny exactly the two: a golden's own
+        // hand-written Rust is not what this test is about.
+        .args(["-A", "warnings"])
+        .args(["-D", WRAP_LINTS[0], "-D", WRAP_LINTS[1]])
         .output()
         .ok()?;
     Some(Compiled {
@@ -329,8 +335,9 @@ fn clippy(tag: &str, name: &str, source: &Path) -> Option<Compiled> {
 }
 
 #[test]
-fn the_injected_allow_silences_the_lint_every_wrap_provokes() {
+fn the_injected_allow_silences_both_lints_the_wraps_provoke() {
     let mut checked = 0usize;
+    let mut fired: Vec<&str> = Vec::new();
     for case in CASES {
         if RUN_CASES.contains(case) {
             continue;
@@ -342,7 +349,7 @@ fn the_injected_allow_silences_the_lint_every_wrap_provokes() {
         let with = write_source(TAG_CLIPPY, case, &transformed);
         let Some(c) = clippy(TAG_CLIPPY, case, &with) else {
             eprintln!(
-                "SKIP the_injected_allow_silences_the_lint_every_wrap_provokes: \
+                "SKIP the_injected_allow_silences_both_lints_the_wraps_provoke: \
                  clippy-driver is not installed; nothing was measured"
             );
             return;
@@ -350,12 +357,17 @@ fn the_injected_allow_silences_the_lint_every_wrap_provokes() {
         assert_eq!(
             (c.status, c.stderr.as_str()),
             (0, ""),
-            "{case}: the injected allow did not silence {WRAP_LINT}"
+            "{case}: the injected allow did not silence {} and {}",
+            WRAP_LINTS[0],
+            WRAP_LINTS[1]
         );
 
         // The falsifier: without the attribute the lint fires, so the check
         // above is measuring something.
-        let without = transformed.replace("#![allow(clippy::match_single_binding)]", "");
+        let without = transformed.replace(
+            "#![allow(clippy::match_single_binding, clippy::needless_borrow)]",
+            "",
+        );
         assert_ne!(without, transformed, "{case}: no allow to remove");
         let path = write_source(TAG_CLIPPY, &format!("{case}_noallow"), &without);
         let c =
@@ -365,11 +377,27 @@ fn the_injected_allow_silences_the_lint_every_wrap_provokes() {
             "{case}: with the allow removed the lint must fire, got:\n{}",
             c.stderr
         );
+        for lint in WRAP_LINTS {
+            let short = lint.trim_start_matches("clippy::");
+            if c.stderr.contains(short) && !fired.contains(&short) {
+                fired.push(short);
+            }
+        }
         checked += 1;
     }
     assert!(
         checked >= 6,
         "only {checked} goldens carry an err wrap: this test is checking nothing"
+    );
+    // BOTH halves measured rather than asserted. `needless_borrow` fires only
+    // where an operand is not a `Result` -- an `Option` `?`, `let _ = 1` -- so
+    // it is checked across the SET, not per case: an allow that named a lint
+    // nothing ever emits would be an allow nobody could justify.
+    fired.sort_unstable();
+    assert_eq!(
+        fired,
+        ["match_single_binding", "needless_borrow"],
+        "with the allow removed, both of the lints it names must actually fire"
     );
 }
 
@@ -377,9 +405,9 @@ fn the_injected_allow_silences_the_lint_every_wrap_provokes() {
 // The E0507 the design names (rung 3), re-measured
 // ---------------------------------------------------------------------------
 
-/// Design R2 declines to wrap a sink whose receiver is a place expression, and
-/// the brief gives E0507 as the reason. This is the re-measurement, and it says
-/// two things:
+/// Design R2 used to decline a sink whose receiver is a place expression, with
+/// E0507 as the reason. This is the measurement that retired that exception
+/// (erratum, 2026-09-04), and it says two things:
 ///
 /// * for the FOUR WRITTEN SINKS the asymmetry does not exist -- all four take
 ///   `self` by value, so a receiver the wrap cannot move is one the sink could
@@ -388,11 +416,11 @@ fn the_injected_allow_silences_the_lint_every_wrap_provokes() {
 /// * for the `&self` PREDICATES it is real, which is exactly why design R2
 ///   refuses to probe `.is_err()`/`.is_ok()`.
 ///
-/// The rule is kept as ruled (it is the conservative direction, and the
-/// declined sites are declared), but the justification belongs to the
-/// predicates, not to the sinks. Lifting it would raise sink coverage.
+/// So a place receiver is now wrapped like any other, and the `sink-place`
+/// partial reason is gone: on the bloomery clone that moved 11 declined sinks
+/// into the 302 wrapped ones (`tests/census.rs`).
 #[test]
-fn a_place_receiver_is_the_conservative_choice_not_the_e0507_the_brief_names() {
+fn a_place_receiver_is_not_the_e0507_the_predicates_are() {
     const PLAIN_SINKS: &str = "\
 pub struct S { pub c: Result<u8, u8> }
 pub fn field(s: &S) -> u8 { s.c.unwrap_or(0) }

@@ -59,6 +59,7 @@ fn an_err_wrap_nests_inside_an_exit_wrap_and_inside_itself() {
             (9, "wrapped_tail", 14, RetKind::Value),
             (11, "try_is_the_tail", 19, RetKind::Value),
             (13, "nested_try", 25, RetKind::Value),
+            (16, "returned", 32, RetKind::Value),
         ]
     );
     assert_eq!(
@@ -70,6 +71,8 @@ fn an_err_wrap_nests_inside_an_exit_wrap_and_inside_itself() {
             // one closes first.
             (14, "nested_try", 26, SiteKind::Try, "try"),
             (15, "nested_try", 26, SiteKind::Try, "try"),
+            // A `return` operand meets both wraps exactly as a tail does.
+            (17, "returned", 34, SiteKind::Try, "try"),
         ]
     );
 }
@@ -101,7 +104,10 @@ fn a_question_mark_inside_a_macro_argument_is_declared_not_wrapped() {
     assert_eq!(err_sites(&t), [(10, "both", 18, SiteKind::Try, "try")]);
     assert_eq!(
         partials(&t),
-        [(10, "printed", "macro-arg"), (17, "both", "macro-arg"),]
+        [
+            (10, "printed", SiteKind::Try, "macro-arg"),
+            (17, "both", SiteKind::Try, "macro-arg"),
+        ]
     );
 }
 
@@ -128,38 +134,43 @@ fn the_four_written_sinks_are_wrapped_at_their_receiver() {
 }
 
 #[test]
-fn a_place_expression_receiver_is_declared_rather_than_wrapped() {
+fn a_place_expression_receiver_is_wrapped_like_any_other() {
+    // Design R2 as amended 2026-09-04: all four written sinks take `self` BY
+    // VALUE, so the call moves the receiver exactly as the wrap does -- an
+    // E0507 the wrap could cause is one the sink caused already.
+    // `tests/oracle.rs::a_place_receiver_is_not_the_e0507_the_predicates_are`
+    // is the measurement; this is the placement.
     let t = run("sink_place_receiver", 7);
     assert_eq!(
         sites(&t),
         [
-            (7, "returns_ref_result", 11, RetKind::Value),
-            (8, "Holder::defaulted", 19, RetKind::Value),
-            (9, "indexed", 24, RetKind::Value),
-            (10, "dereferenced", 28, RetKind::Value),
-            (11, "a_local", 32, RetKind::Value),
-            (12, "ref_result", 39, RetKind::Unit),
-            (14, "place_let", 44, RetKind::Unit),
+            (7, "returns_ref_result", 15, RetKind::Value),
+            (8, "Holder::defaulted", 22, RetKind::Value),
+            (10, "indexed", 27, RetKind::Value),
+            (12, "dereferenced", 33, RetKind::Value),
+            (14, "a_local", 37, RetKind::Value),
+            (16, "ref_result", 44, RetKind::Unit),
+            (18, "place_let", 49, RetKind::Unit),
         ]
     );
-    // The one wrap in the file is the `let _` on a CALL -- design R16's
-    // `&Result<T, E>` blind spot, which compiles and records nothing.
     assert_eq!(
         err_sites(&t),
-        [(13, "ref_result", 40, SiteKind::Sink, "sink_let_underscore")]
-    );
-    assert_eq!(
-        partials(&t),
         [
-            (20, "Holder::defaulted", "sink-place"),
-            (25, "indexed", "sink-place"),
-            (29, "dereferenced", "sink-place"),
-            (33, "a_local", "sink-place"),
+            // A field behind `&self`, a slice index, a deref inside the
+            // source's own parentheses, an owned local ...
+            (9, "Holder::defaulted", 23, SiteKind::Sink, "sink_unwrap_or"),
+            (11, "indexed", 28, SiteKind::Sink, "sink_unwrap_or"),
+            (13, "dereferenced", 34, SiteKind::Sink, "sink_unwrap_or"),
+            (15, "a_local", 38, SiteKind::Sink, "sink_unwrap_or"),
+            // ... and design R16's `&Result<T, E>` blind spot, which compiles
+            // and records nothing.
+            (17, "ref_result", 45, SiteKind::Sink, "sink_let_underscore"),
         ]
     );
-    // `let _ = r;` is not among them: `_` does not bind, so that statement
-    // moves nothing, drops nothing and absorbs no error.
-    assert!(t.partial.iter().all(|p| p.line != 45));
+    // Nothing is declined here any more: the `sink-place` reason is retired.
+    assert!(t.partial.is_empty(), "{:?}", t.partial);
+    // `let _ = r;` on a place is still left alone -- `_` does not bind.
+    assert_eq!(t.source.matches("::sensorium_rt::err_site(").count(), 5);
 }
 
 #[test]
@@ -205,10 +216,11 @@ fn the_crate_root_carries_the_allow_the_wraps_need() {
             .unwrap_or_else(|e| panic!("{case}: {e}"));
         assert_eq!(
             t.source
-                .matches("#![allow(clippy::match_single_binding)]")
+                .matches("#![allow(clippy::match_single_binding, clippy::needless_borrow)]")
                 .count(),
             1,
-            "{case}: exactly one crate-root allow"
+            "{case}: exactly one crate-root allow, naming BOTH lints the wrap \
+             provokes"
         );
     }
     // ... and only on the crate root: a module file of the same unit inherits
@@ -235,10 +247,13 @@ fn every_golden_wraps_exactly_the_question_marks_the_census_counts() {
         let t = transform(&source, FILE, META, 7, true).unwrap_or_else(|e| panic!("{case}: {e}"));
         let try_rows = t.sites.iter().filter(|s| s.kind == SiteKind::Try).count();
         let macro_rows = t.partial.iter().filter(|p| p.reason == "macro-arg").count();
+        // A `struct-literal` row can mark a sink as well as a `?`, so the
+        // subtraction is over the rows whose KIND is `try` -- which is what
+        // `Partial::kind` is on the row for.
         let unreached = t
             .partial
             .iter()
-            .filter(|p| p.reason == "struct-literal")
+            .filter(|p| p.kind == SiteKind::Try && p.reason == "struct-literal")
             .count();
         assert_eq!(
             try_rows + unreached,
@@ -288,4 +303,61 @@ fn the_err_run_probe_is_a_golden_too() {
             (15, "through_let", 43, SiteKind::Sink, "sink_let_underscore"),
         ]
     );
+}
+
+// ---------------------------------------------------------------------------
+// The struct-literal fence, and the crate root's inner attributes
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_struct_literal_in_any_exterior_position_is_declared_not_wrapped() {
+    // rustc forbids a struct literal in EVERY exterior position of a `match`
+    // scrutinee, not just the leftmost, and a wrap that emitted one would give
+    // the unit a file rustc rejects. The fence is a post-condition: the wrap is
+    // re-parsed, and a site whose wrap does not parse is declared.
+    let t = run("struct_literal_partial", 7);
+    assert_eq!(
+        sites(&t),
+        [
+            (7, "C::go", 13, RetKind::Value),
+            (8, "leftmost", 19, RetKind::Value),
+            (9, "exterior", 27, RetKind::Unit),
+            (10, "protected", 35, RetKind::Value),
+        ]
+    );
+    // The ONE wrap in the file is the parenthesised fence.
+    assert_eq!(err_sites(&t), [(11, "protected", 36, SiteKind::Try, "try")]);
+    assert_eq!(
+        partials(&t),
+        [
+            // The leftmost shape, which the fast path answers with no parse:
+            // once as a `?` and once as a `let _`.
+            (20, "leftmost", SiteKind::Try, "struct-literal"),
+            (21, "leftmost", SiteKind::Sink, "struct-literal"),
+            // The three the fast path cannot see: a binary operand, a range
+            // end and a closure body.
+            (28, "exterior", SiteKind::Sink, "struct-literal"),
+            (29, "exterior", SiteKind::Sink, "struct-literal"),
+            (30, "exterior", SiteKind::Sink, "struct-literal"),
+        ]
+    );
+    // And the identity still closes: two `?` nodes, one wrapped and one
+    // declared AS A `?`.
+    assert_eq!(census(&read("struct_literal_partial", "in")).try_syn, 2);
+}
+
+#[test]
+fn a_crate_root_with_real_inner_attributes_keeps_its_line_count() {
+    // The allow goes just past the LAST inner attribute's `]`, on the line that
+    // was already there. `#![deny(warnings)]` is the golden's own, so the
+    // oracle compiles this file under a workspace-style deny.
+    let t = run("crate_root_attrs", 7);
+    assert_eq!(
+        sites(&t),
+        [(7, "f", 9, RetKind::Value), (9, "g", 14, RetKind::Value),]
+    );
+    assert_eq!(err_sites(&t), [(8, "f", 10, SiteKind::Try, "try")]);
+    assert!(t
+        .source
+        .starts_with("#![deny(warnings)]\n#![allow(dead_code)] #![allow("));
 }

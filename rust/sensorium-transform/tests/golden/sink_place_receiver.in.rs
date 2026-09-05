@@ -1,6 +1,10 @@
-//! Sinks whose receiver is a PLACE expression are declared, not wrapped
-//! (design R2), and `let _ = <place>` is neither: `_` does not bind, so that
-//! statement moves nothing, drops nothing and absorbs no error.
+//! A sink whose receiver is a PLACE expression is wrapped like any other: all
+//! four written sinks take `self` BY VALUE, so the call moves the receiver
+//! exactly as the wrap does, and an E0507 the wrap could cause is one the sink
+//! caused already (design R2 as amended 2026-09-04).
+//!
+//! `let _ = <place>` is the one shape still left alone -- `_` does not bind, so
+//! that statement moves nothing, drops nothing and absorbs no error.
 
 pub struct Holder {
     pub last: Result<u8, u8>,
@@ -13,9 +17,8 @@ fn returns_ref_result() -> &'static Result<u8, u8> {
 }
 
 impl Holder {
-    /// A field behind a shared borrow. `Result<u8, u8>` is `Copy`, so the sink
-    /// compiles -- and the receiver is declared rather than wrapped all the
-    /// same.
+    /// A field behind a shared borrow. `Result<u8, u8>` is `Copy`, so the
+    /// original copies the receiver and so does the wrap.
     pub fn defaulted(&self) -> u8 {
         self.last.unwrap_or(0)
     }
@@ -25,6 +28,8 @@ pub fn indexed(v: &[Result<u8, u8>]) -> u8 {
     v[0].unwrap_or(0)
 }
 
+/// The parentheses are the SOURCE's own, and the wrap goes INSIDE them:
+/// `match (*p) { .. }` is `unused_parens`.
 pub fn dereferenced(p: &Result<u8, u8>) -> u8 {
     (*p).unwrap_or(0)
 }

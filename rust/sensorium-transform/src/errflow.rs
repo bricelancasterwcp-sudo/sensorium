@@ -24,16 +24,24 @@
 //! Every claim below was measured on rustc 1.96 at `-D warnings` on 2026-09-04;
 //! `tests/oracle.rs` is where the measurements live as tests.
 //!
-//! * **Place-expression sink receivers are not wrapped** and are declared
-//!   `partial` with reason [`SINK_PLACE`] (design R2, brief invariant 2). See
-//!   [`is_place_expression`] for what the re-measurement found.
+//! * **A place-expression receiver of one of the four sinks IS wrapped**
+//!   (design R2 as amended 2026-09-04). All four take `self` BY VALUE, so the
+//!   original call moves the receiver exactly as the wrap does: an E0507 the
+//!   wrap could cause is one the sink caused already. Re-measured in
+//!   `tests/oracle.rs`.
 //! * **A parenthesised operand is descended into** ([`strip_parens`]):
 //!   `match (g()) { .. }` is `unused_parens`, which is a build error under a
 //!   workspace's own `#![deny(warnings)]`; `(match g() { .. })?` is clean.
-//! * **An operand whose leading token opens a struct literal is not wrapped**
-//!   ([`leads_with_struct_literal`]) and is declared `partial` with reason
-//!   [`STRUCT_LITERAL`]: `match C { v: 1 }.go() { .. }` is
-//!   "struct literals are not allowed here", which does not even parse.
+//! * **An operand that would put a struct literal in an exterior position of
+//!   the scrutinee is not wrapped** and is declared `partial` with reason
+//!   [`STRUCT_LITERAL`]. rustc forbids one in EVERY exterior position, not
+//!   just the leftmost: `match C { v: 1 }.go() { .. }`,
+//!   `match 1 + C { v: 1 }.v { .. }`, `match 1..C { v: 1 }.v { .. }` and
+//!   `match || C { v: 1 } { .. }` are all "struct literals are not allowed
+//!   here", and none of them parses. [`leads_with_struct_literal`] is the fast
+//!   path for the first shape; [`Ctx::err_wrap`]'s RE-PARSE is what decides the
+//!   rest, because a syntactic rule this crate re-derived by hand would be a
+//!   rule with a hole in it.
 //! * **`.is_err()`/`.is_ok()` are never sinks** (design R2): they take `&self`,
 //!   so the original autorefs where the wrap moves --
 //!   `match t.last { __t => .. }.is_err()` on a `&T` is E0507 where
@@ -53,13 +61,11 @@ use crate::{Partial, Site, SiteKind, MAX_SITE_INDEX};
 /// exists for it, so the transformer cannot reach it (design R6).
 pub(crate) const MACRO_ARG: &str = "macro-arg";
 
-/// A written sink whose receiver is a place expression (design R2).
-pub(crate) const SINK_PLACE: &str = "sink-place";
-
-/// A site whose operand's leading token opens a struct literal, which a `match`
-/// scrutinee may not (see the module docs). Not in design R6's list of reasons:
-/// it is added here because the alternative is emitting a file that does not
-/// parse, and a `?` that was not reached is a `?` to declare whatever the cause.
+/// A site whose operand would put a struct literal in an EXTERIOR position of
+/// the wrap's `match` scrutinee, which rustc does not allow (see the module
+/// docs). Not in design R6's original list of reasons: it is added because the
+/// alternative is emitting a file that does not parse, and a `?` that was not
+/// reached is a `?` to declare whatever the cause.
 pub(crate) const STRUCT_LITERAL: &str = "struct-literal";
 
 /// The `how` byte a site writes, as the transformer knows it: a name for the
@@ -145,21 +151,20 @@ pub(crate) fn strip_parens(e: &Expr) -> &Expr {
 
 /// Is this expression a PLACE expression -- a path, a field, an index, a deref?
 ///
-/// Design R2 does not wrap a sink whose receiver is one, and the brief's
-/// invariant 2 gives the reason as E0507. **Re-measured 2026-09-04 (rustc
-/// 1.96), and the E0507 does not reproduce for these four sinks**: they all
-/// take `self` by value, so a receiver the wrap cannot move is one the sink
-/// could not move either (`t.last.ok()` on a `&T` is E0507 with or without the
-/// wrap), and the shapes that do compile -- a `Copy` field behind a `&`, an
-/// owned local, a slice index of a `Copy` element, `*p` -- compile wrapped too.
-/// The asymmetry is real only for the `&self` PREDICATES `.is_err()`/`.is_ok()`,
-/// which design R2 already refuses to probe for exactly this reason.
+/// The one rule that still turns on this: `let _ = <place>;` is left alone,
+/// because `_` does not bind, so that statement moves nothing, drops nothing
+/// and absorbs no error -- there is no sink there to miss.
 ///
-/// The rule is kept as ruled -- it is the conservative direction, and the sites
-/// it declines are declared rather than dropped ([`SINK_PLACE`]) -- but the
-/// justification in the design is an erratum, and lifting the rule would raise
-/// sink coverage. `tests/oracle.rs::a_wrapped_place_receiver_is_not_the_e0507`
-/// is where the re-measurement lives.
+/// It is NOT a rule about sink RECEIVERS any more. Design R2 used to decline
+/// those, with E0507 as the reason; re-measured on rustc 1.96 (2026-09-04) the
+/// E0507 does not exist for the four written sinks, which all take `self` by
+/// value -- a receiver the wrap cannot move is one the sink could not move
+/// either (`t.last.ok()` on a `&T` is E0507 with or without the wrap), and
+/// every place receiver that compiles plain compiles wrapped. The asymmetry is
+/// real only for the `&self` PREDICATES `.is_err()`/`.is_ok()`, which R2
+/// refuses to probe for exactly that reason.
+/// `tests/oracle.rs::a_place_receiver_is_not_the_e0507_the_predicates_are` is
+/// where the measurement lives.
 pub(crate) fn is_place_expression(e: &Expr) -> bool {
     match strip_parens(e) {
         Expr::Path(_) | Expr::Field(_) | Expr::Index(_) => true,
@@ -193,6 +198,42 @@ pub(crate) fn leads_with_struct_literal(e: &Expr) -> bool {
         // A parenthesised or bracketed literal is protected, and everything
         // else either cannot have an expression to its left or is not legal
         // Rust with one.
+        _ => false,
+    }
+}
+
+/// Does the wrap this crate would emit around `operand` parse at all?
+///
+/// The scrutinee is the only part of the fragment that can fail, and it fails
+/// for exactly one reason (an exterior struct literal), so the arm is the
+/// shortest one that keeps the shape: `match <operand> { __t => __t }`. `syn`
+/// applies the same no-struct-literal restriction to a `match` scrutinee that
+/// rustc does, which is what makes this a faithful pre-flight rather than an
+/// approximation of one.
+///
+/// A false NEGATIVE costs one declared site and nothing else; a false positive
+/// costs the unit its instrumentation, which is why the answer comes from the
+/// parser rather than from a rule.
+fn wrap_reparses(operand: &str) -> bool {
+    syn::parse_str::<Expr>(&format!("match {operand} {{ __t => __t }}")).is_ok()
+}
+
+/// Is this expression a leading atom followed only by POSTFIX operators?
+///
+/// Such an expression can hold a struct literal only in its leading position --
+/// which [`leads_with_struct_literal`] has already answered -- or inside a
+/// bracket, where it is protected. Everything else is re-parsed.
+fn is_postfix_chain(e: &Expr) -> bool {
+    match e {
+        // Leading atoms. A parenthesised or macro-delimited expression carries
+        // its own brackets, so whatever is inside is protected.
+        Expr::Path(_) | Expr::Lit(_) | Expr::Paren(_) | Expr::Group(_) | Expr::Macro(_) => true,
+        Expr::Call(c) => is_postfix_chain(&c.func),
+        Expr::MethodCall(m) => is_postfix_chain(&m.receiver),
+        Expr::Field(f) => is_postfix_chain(&f.base),
+        Expr::Index(i) => is_postfix_chain(&i.expr),
+        Expr::Try(t) => is_postfix_chain(&t.expr),
+        Expr::Await(a) => is_postfix_chain(&a.base),
         _ => false,
     }
 }
@@ -253,12 +294,13 @@ impl Ctx<'_> {
     /// Declare an err-flow site the transformer knows about and cannot reach
     /// (design R6). Honesty over coverage: `info` prints these, and E2''s
     /// numerator is measured against them.
-    pub(crate) fn declare_partial(&mut self, line: u32, reason: &'static str) {
+    pub(crate) fn declare_partial(&mut self, line: u32, kind: SiteKind, reason: &'static str) {
         let qualname = self.err_qualname();
         self.partial.push(Partial {
             file: self.file.to_owned(),
             line,
             qualname,
+            kind,
             reason,
         });
     }
@@ -291,12 +333,30 @@ impl Ctx<'_> {
 
     /// The two splices of one err wrap: `match ` before the operand and the arm
     /// after it. The program's own `?`, `.ok()` or `;` is left OUTSIDE both.
+    ///
+    /// # The struct-literal fence
+    ///
+    /// A `match` scrutinee may not contain a struct literal in any EXTERIOR
+    /// position, and the operand becomes one. The fence is a POST-CONDITION
+    /// rather than a syntactic rule this crate re-derives: the wrap is built,
+    /// the wrapped SCRUTINEE is handed back to `syn` -- the same parser that
+    /// read the file -- and a site whose wrap does not re-parse is declared
+    /// instead of emitted. A hand-written rule that missed a shape would emit a
+    /// file rustc rejects, and the whole unit would fall back.
+    ///
+    /// Two things keep it cheap. [`leads_with_struct_literal`] answers the
+    /// common shape without a parse at all, and the re-parse itself is skipped
+    /// for an operand that is a pure postfix chain
+    /// ([`is_postfix_chain`]) -- a chain can only hold a struct literal in a
+    /// leading position, which the fast path already saw, or inside brackets,
+    /// where it is protected. A `let _ = <value>` is re-parsed whatever its
+    /// shape: it is the one site whose operand can be an arbitrary expression.
     fn err_wrap(&mut self, target: &Expr, how: How, line: u32) {
         let span = target.span();
         if leads_with_struct_literal(target) {
             // `match C { v: 1 }.go() { .. }` is "struct literals are not
             // allowed here" -- the wrapped file would not parse at all.
-            self.declare_partial(line, STRUCT_LITERAL);
+            self.declare_partial(line, how.site_kind(), STRUCT_LITERAL);
             return;
         }
         let range = span.byte_range();
@@ -307,6 +367,18 @@ impl Ctx<'_> {
                 span,
                 "err-flow operand offset falls inside a UTF-8 character",
             );
+            return;
+        }
+        let Some(text) = self.source.get(start..end) else {
+            self.fail(
+                span,
+                "err-flow operand span is not a byte range of the source",
+            );
+            return;
+        };
+        let must_check = how == How::SinkLetUnderscore || !is_postfix_chain(target);
+        if must_check && !wrap_reparses(text) {
+            self.declare_partial(line, how.site_kind(), STRUCT_LITERAL);
             return;
         }
         let Some(site) = self.mint_err_site(how, line, span) else {
@@ -326,15 +398,15 @@ impl Ctx<'_> {
     }
 
     /// One of the four written sinks: the wrap goes around the RECEIVER and the
-    /// method call stays outside. A place-expression receiver is declared
-    /// rather than wrapped (see [`is_place_expression`]).
+    /// method call stays outside.
+    ///
+    /// A PLACE-expression receiver is wrapped like any other -- all four sinks
+    /// take `self` by value, so the call moves the receiver exactly as the wrap
+    /// does (see [`is_place_expression`] for the measurement that retired the
+    /// old exception).
     pub(crate) fn sink_site(&mut self, node: &ExprMethodCall, how: How) {
         let line = line_of(node.method.span());
         let target = strip_parens(&node.receiver);
-        if is_place_expression(target) {
-            self.declare_partial(line, SINK_PLACE);
-            return;
-        }
         self.err_wrap(target, how, line);
     }
 
@@ -350,7 +422,7 @@ impl Ctx<'_> {
             return;
         }
         for span in spans {
-            self.declare_partial(line_of(span), MACRO_ARG);
+            self.declare_partial(line_of(span), SiteKind::Try, MACRO_ARG);
         }
     }
 

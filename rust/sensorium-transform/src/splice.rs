@@ -81,20 +81,31 @@ pub(crate) fn err_close_fragment(site: u32, how: How) -> String {
     )
 }
 
-/// The one lint the wraps themselves provoke: every one of them is a `match`
-/// with a single binding, which is exactly what `clippy::match_single_binding`
-/// is about (measured 2026-09-04: ten wraps, ten lints, and this attribute
-/// silences all ten). It goes on the crate ROOT, because a wrap in any file of
-/// the unit is what needs it.
+/// The two lints the wraps themselves provoke, both measured on the emitted
+/// bytes (2026-09-04) and both silenced by this one attribute:
+///
+/// * `clippy::match_single_binding` -- every wrap is a `match` with one
+///   binding, which is what that lint is about;
+/// * `clippy::needless_borrow` -- on an operand that is not a `Result` (an
+///   `Option` `?`, a non-`Result` sink receiver, `let _ = 1`) the runtime's
+///   autoref ladder resolves to its by-value fallback, and clippy then asks for
+///   `Probe(&__t)` where the fragment must write `(&&&Probe(&__t))` or the
+///   specialised impls can never win.
+///
+/// It goes on the crate ROOT, because a wrap in any file of the unit is what
+/// needs it. `tests/oracle.rs` runs the real `clippy-driver` with both lints
+/// denied, and with the attribute removed as the falsifier.
 ///
 /// The leading space is what keeps it off the previous attribute's `]`; there
 /// is no trailing one, because a golden's checked-in bytes should not end a
 /// line with whitespace.
-pub(crate) const CRATE_ALLOW: &str = " #![allow(clippy::match_single_binding)]";
+pub(crate) const CRATE_ALLOW: &str =
+    " #![allow(clippy::match_single_binding, clippy::needless_borrow)]";
 
 /// The same attribute where it has to share the static's fragment (see
 /// [`AllowPlacement::WithStatic`]): no leading space, one trailing.
-const CRATE_ALLOW_LEADING: &str = "#![allow(clippy::match_single_binding)] ";
+const CRATE_ALLOW_LEADING: &str =
+    "#![allow(clippy::match_single_binding, clippy::needless_borrow)] ";
 
 /// The crate root's unit declaration. Newline-free -- which is why a newline in
 /// the metadata is escaped rather than passed through: a Rust string literal
@@ -128,8 +139,13 @@ pub(crate) fn escape_string_literal(s: &str) -> String {
 /// is the rule and not a description of one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Kind {
-    /// An err wrap's arm. Before an exit wrap's `)` at the same byte, because
-    /// the err wrap sits INSIDE the exit wrap: `ret(.., match g() { .. }?)`.
+    /// An err wrap's arm. Ordered before an exit wrap's `)` because the err
+    /// wrap sits INSIDE the exit wrap (`ret(.., match g() { .. }?)`) -- an
+    /// ordering that is DEFENSIVE rather than exercised: the two cannot share a
+    /// byte, since an exit operand that ends where an err operand ends would
+    /// have to be that err operand, and the `?` or `.ok()` between them is at
+    /// least one byte wide. Unreachable by construction, ordered so that if the
+    /// construction ever changes the bytes still come out nested.
     ErrClose,
     /// An exit wrap's `)`. Closes what is already open before anything new.
     Close,
@@ -139,7 +155,11 @@ pub(crate) enum Kind {
     Open,
     /// An err wrap's `match `. After an exit wrap's opening fragment at the same
     /// byte (a `?` tail is `ret(.., match g() { .. }?)`, not the other way
-    /// round) and before a spawn rewrite, whose replaced bytes start there.
+    /// round), and before a spawn rewrite, whose REPLACED bytes start on that
+    /// same byte in `let _ = std::thread::spawn(f);` -- `assemble` walks in
+    /// sorted order and refuses a splice that starts before its cut, so the
+    /// zero-width insert has to come first. Both are exercised by goldens
+    /// (`try_tail_and_stmt`, `spawn_thread`), not argued.
     ErrOpen,
     /// A spawn callee replaced in place.
     Replace,
