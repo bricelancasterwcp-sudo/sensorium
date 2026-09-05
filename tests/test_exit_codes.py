@@ -96,6 +96,18 @@ def _rust(tmp_path, monkeypatch):
     return SYNTH_RUN
 
 
+def _other_lang(tmp_path, monkeypatch):
+    """A finalized trace in a language no rule module exists for. Rung 3
+    retired only the `rust` arm of the lang-keyed refusal (design R9); a
+    third language still meets the sentence unchanged."""
+    w = synthetic(tmp_path, monkeypatch)
+    c = w.intern_code("/tmp/prog.go", "main", 1)
+    w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
+    finalize_synthetic(w, lang="go", recorder="sensorium-go 0.0")
+    w.close()
+    return SYNTH_RUN
+
+
 def _undeclared(tmp_path, monkeypatch):
     """A recorder that declares it produces neither LINE events nor object
     identity -- the two capabilities `watch` and `flow` are gated on."""
@@ -148,9 +160,16 @@ MATRIX = [
     # recording that captured the raise can settle it.
     ("exceptions: uncaught reported, no RAISE row of its own",
      _uncaught_only, ["exceptions", "$RUN"], UNSETTLED, "uncaught: "),
-    ("exceptions: REFUSED on a trace another recorder wrote",
+    # Two different absences, two different sentences, one status. A Rust
+    # trace HAS rules from rung 3 on, so what an old one lacks is the
+    # RECORD and it refuses through the capability; a language with no rule
+    # module at all still lacks the RULE (design R9).
+    ("exceptions: REFUSED, a Rust recording with no err-flow record",
      _rust, ["exceptions", "$RUN"],
-     UNSETTLED, "REFUSED: exceptions on a rust trace"),
+     UNSETTLED, "REFUSED: exceptions needs err_flow"),
+    ("exceptions: REFUSED on a trace another recorder wrote",
+     _other_lang, ["exceptions", "$RUN"],
+     UNSETTLED, "REFUSED: exceptions on a go trace"),
     # -- watch: the three verdict classes are three different answers ------
     # `add(1, 2)` is recorded with its arguments and no LINE event, so one
     # CALL site carries `a`, and `ghost` is bound nowhere: the same command

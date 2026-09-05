@@ -76,18 +76,20 @@ runner refuses a vector or a question that carries neither. Add a vector for
 each new enumeration value and each new rule — a rule with no vector is a
 sentence in a document, not a contract.
 
-These sixteen pin the rules this document states in prose. The first seven
+These nineteen pin the rules this document states in prose. The first seven
 were written before the Rust recorder existed; `v08`–`v15` were added in
 0.6.0, when it did, and pin the values it actually writes rather than a guess
-about them. `v16` was added in rung 3, with the err-flow payloads. The design
+about them. `v16`–`v19` were added in rung 3: `v16` pins the SHAPE of an
+`Err` chain (`exc.kind`, the serial namespace, `how` and `chain`), and
+`v17`–`v19` pin what the Rust `exceptions` rules do with it — the one shape
+called SWALLOWED, the shapes that are ambiguous by design, and the
+capability refusal on a recording made before err-flow records existed.
+`v14`'s `exceptions` question, which stood in for them while the rules did
+not exist, retired into `v19`; its other three questions stand. The design
 spec's §5.3 and §5.6 ask for one vector per value of every enumeration per
-language, and that is still not complete: `v16` pins the SHAPE of an `Err`
-chain — `exc.kind`, the serial namespace, `how` and `chain` — but the Rust
-`exceptions` **dispositions** (SWALLOWED vs AMBIGUOUS, the merged window,
-the capability refusal) have no vector yet, because a verdict vector cannot
-precede the verdicts: the rules that would define them ship with
-`query/exceptions_rust.py` as `v17`–`v19`, and `v14` pins the refusal that
-stands in for them until then.
+language, and that is still not complete: three `chain.terminal` values
+(`panicked`, `left_thread`, `handled_then_failed`) are pinned only by
+`tests/test_exceptions_rust.py`, not by a vector.
 
 | Vector | Rule it pins |
 |---|---|
@@ -107,3 +109,6 @@ stands in for them until then.
 | `v14-rust-refusals` | A command whose rules are one language's refuses on another's trace rather than answering with rules that do not apply; `info` prints the unit ceiling. |
 | `v15-unreached-files-declared` | A file the recorder knew about and never reached is named, and the unit counts carry their reasons. |
 | `v16-raise-handled-chain-serial-kind` | A Rust `Err` RAISE/HANDLED carries `exc.kind: "err"`, a chain serial from the `1 << 32` namespace, and a `chain` object beside its `how`; the frames those events fired in still read as RETURNED, not unwound. |
+| `v17-exceptions-rust-swallowed` | `exceptions` reports one line per Err CHAIN at its origin, with every hop; a sink whose frame then returned ok is the one shape called SWALLOWED, a `#[test]` fn's return is `returned-to-harness` (the mark from `meta.sites`), `chain.terminal` is read and never recomputed, a clipped page never clips the tally, and `meta.partial` is printed by both `info` and `exceptions`. |
+| `v18-exceptions-rust-ambiguous-merge` | AMBIGUOUS is the default and nothing falls through to an accusation: two different `Err`s in one window are `merged` and both ambiguous, a bound-and-escaped `Err(e) =>` arm is ambiguous, and the tally prints in the fixed order. |
+| `v19-err-flow-capability-refusal` | What an older Rust recording lacks is a RECORD, so `exceptions` refuses through `capabilities.err_flow` with the standard sentence and exit 3, before any rule reads an event; the retired lang-keyed sentence does not come back, and no other command is gated. |

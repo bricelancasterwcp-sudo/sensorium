@@ -48,6 +48,14 @@ def _build_lines(m: dict) -> list[str]:
                    f"pid: {m.get('pid', '?')}")
     if "instrumented_units" in m:
         out.append(_units_line(m))
+    if "partial" in m:
+        # Design R6. Beside the units line because it is the same kind of
+        # fact -- what the transformer could not reach -- and printed at
+        # ZERO, because zero is what says every `?` site in the workspace is
+        # watched. The key's ABSENCE is a different fact (a converter that
+        # predates the list, or a Python trace), and prints nothing.
+        out.append(f"partial fns: {len(m['partial'] or [])} "
+                   "(?-sites the transformer could not reach)")
     unscoped = m.get("manifests_unscoped") or 0
     if unscoped:
         # A shared CARGO_TARGET_DIR holds every workspace's manifests in one

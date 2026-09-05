@@ -614,13 +614,19 @@ def _language_refusal(trace) -> str | None:
     """Why this command cannot judge a trace another recorder wrote.
 
     Not a vocabulary problem: the rules in this module are Python's
-    semantics. `Index` reads `exc["oid"]`, which a Rust trace does not
+    semantics. `Index` reads `exc["oid"]`, which a non-Python trace does not
     carry; it lists only RAISE events, so an `Err` returned by `return
     Err(..)` and absorbed by a caller's `.ok()` would come back as "no
     exceptions recorded"; and rule 2 would report SWALLOWED for a frame that
     re-returned an `Err` without `?`. Every one of those is a confident
-    wrong answer about the program, which is worse than no answer -- so this
-    refuses until the Rust disposition rules exist (spec section 6).
+    wrong answer about the program, which is worse than no answer.
+
+    Kept VERBATIM after rung 3 (design R9), and only its `rust` arm retired:
+    `run` now dispatches Rust to `exceptions_rust`, which has the rules and
+    gates on the `err_flow` capability instead. What a third language is
+    missing is still a rule, and this is still the sentence for it -- it
+    names the rung the first non-Python rules shipped in, which is where the
+    reader looks to see what writing another set would take.
     """
     if trace.lang == "python":
         return None
@@ -639,6 +645,18 @@ def run(args) -> int:
     # question than the one asked.
     after = parse_eref(args.after) if args.after else 0
     trace = Trace.open(paths.find_trace(args.run))
+    if trace.lang == "rust":
+        # Dispatched on `lang` FIRST (design R9), before any Python rule
+        # touches the trace: an `Err` is a value being returned, and the
+        # rules below are written about an exception unwinding. The Rust
+        # module gates on `capabilities.err_flow` itself, so an older Rust
+        # recording still refuses -- with the capability sentence, because
+        # what it is missing is now a record rather than a rule.
+        #
+        # Local: `exceptions_rust` imports `Disposition` from this module,
+        # so a module-level import here would be a cycle.
+        from sensorium.query import exceptions_rust
+        return exceptions_rust.run(trace, args, after)
     refusal = _language_refusal(trace)
     if refusal:
         # Nothing was judged, and no edit to this command would change
