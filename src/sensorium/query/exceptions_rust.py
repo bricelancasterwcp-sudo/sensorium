@@ -40,8 +40,10 @@ THE FIVE DISPOSITIONS (design R8)
                the chain left a frame the manifest marks ``test`` or
                ``main`` -- it went back to libtest or out of `fn main`.
 ``propagated`` still open when the thread ended, on a frame that is neither.
-               Only reachable on an INCOMPLETE recording or a thread whose
-               frames were not all instrumented, and the verdict says so.
+               Only reachable where the thread was still live when the
+               recording ended (`live_threads`) or its frames were not all
+               instrumented, and the verdict says so -- never "INCOMPLETE",
+               which `info` keeps for a recording that never finalized.
 ``ambiguous``  THE DEFAULT, for everything else and for every terminal these
                rules do not know: a merged window, a bound-and-escaped arm,
                an ok close with no sink, a sink whose frame then failed
@@ -384,9 +386,9 @@ def _propagated(trace, chain, idx) -> Disposition:
         "propagated",
         f"propagated -- {chain.hops} hops, and still open when the thread "
         "ended",
-        "a chain still open at the end of a thread is only possible on an "
-        "INCOMPLETE recording or a thread whose frames were not all "
-        "instrumented; every hop it took is listed below")
+        "a chain still open at the end of a thread means the thread was "
+        "still live when the recording ended (`live_threads`) or its frames "
+        "were not all instrumented; every hop it took is listed below")
 
 
 def _escaped(trace, chain, idx) -> Disposition:

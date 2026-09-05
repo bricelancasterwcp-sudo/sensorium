@@ -1,12 +1,14 @@
 //! Rolling blake2b-16 fingerprints over the causal-event stream.
 //!
 //! TRACE-FORMAT.md §7: `h.update(f"{file}\x1f{qualname}\x1f{kind}\n")` per
-//! causal event (`CALL`, `RETURN`, `RAISE`; `HANDLED` never appears on a Rust
-//! trace, rung 3's), where `file` is the **workspace-relative** path (D9) --
-//! never `code_objects.file`, which is absolute. One [`Fingerprint`] per
-//! `fingerprints`/`task_fingerprints` row, so a thread or task that ran no
-//! causal event still has a `finish()`-able hasher: `hashlib.blake2b(b"",
-//! digest_size=16).hexdigest()`.
+//! causal event -- `CALL`, `RETURN`, `RAISE` and `HANDLED`, all four of them
+//! since rung 3 (a sink that absorbed an `Err` is part of what a run DID, so
+//! two runs differing only in a swallow must differ here; the falsifier is
+//! `tests/convert_errflow.rs`'s two fingerprint tests) -- where `file` is the
+//! **workspace-relative** path (D9), never `code_objects.file`, which is
+//! absolute. One [`Fingerprint`] per `fingerprints`/`task_fingerprints` row,
+//! so a thread or task that ran no causal event still has a `finish()`-able
+//! hasher: `hashlib.blake2b(b"", digest_size=16).hexdigest()`.
 
 use blake2::digest::consts::U16;
 use blake2::{Blake2b, Digest};

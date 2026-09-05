@@ -10,9 +10,10 @@ by accident.
 Every line is gated on the meta key it reports, never on the language: a
 Rust trace written by an older converter that carries none of these keys
 prints none of these lines, which is the same rule the rest of `info`
-follows. Zero counts are printed where the count IS the finding (`units:`),
-and withheld where a printed zero would read as proof (`seq gaps`,
-`records dropped`, `panics unrecorded`) -- the `late_writes` precedent.
+follows. Zero counts are printed where the count IS the finding (`units:`,
+`partial fns`, `err_flow_outside_frames`), and withheld where a printed zero
+would read as proof (`seq gaps`, `records dropped`, `panics unrecorded`) --
+the `late_writes` precedent.
 """
 from collections import Counter
 
@@ -37,7 +38,8 @@ def rust_lines(trace, m: dict) -> list[str]:
             + _live_threads(m)
             + witnessed_counts(trace, m)
             + _loss_lines(m)
-            + _panic_lines(m))
+            + _panic_lines(m)
+            + _err_flow_lines(m))
 
 
 def _build_lines(m: dict) -> list[str]:
@@ -187,3 +189,26 @@ def _panic_lines(m: dict) -> list[str]:
                    "a thread with no open frame, so there is no frame to "
                    "attach a RAISE to and none was written")
     return out
+
+
+def _err_flow_lines(m: dict) -> list[str]:
+    """Err flow's version of the line above, printed beside it because it is
+    the same fact about a different record kind: a RAISE or HANDLED on a
+    thread with no open frame has nothing to be reported against, so the
+    converter counts it and writes no event (design R16, `rust/HONESTY.md`
+    §11).
+
+    Printed at ZERO, unlike the panic lines: this is the `partial fns` rule,
+    not the `late_writes` one. A zero here says every err-flow record the
+    runtime wrote reached the trace as an event -- which is exactly what a
+    reader tallying swallows needs to know before trusting the tally. The
+    key's ABSENCE is a different fact (a Python trace, or a converter older
+    than err flow) and prints nothing.
+    """
+    if "err_flow_outside_frames" not in m:
+        return []
+    return [f"err_flow_outside_frames: {m['err_flow_outside_frames'] or 0} "
+            "-- RAISE/HANDLED records on a thread with no open frame (a sink "
+            "or arm inside an `async {}` block polled off-frame, or a site "
+            "whose enclosing CALL was refused), counted and never written as "
+            "events"]

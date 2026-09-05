@@ -682,8 +682,8 @@ spools, `corpus/rust/interleaved_chains`, and the vector
   `test: true` or `main: true`. A fact about the mark, not about intent.
 - **PROPAGATED** — the chain crossed ≥ 1 frame and was still open when the
   recording ended, on a frame neither marked. Every hop is listed, and the
-  verdict says so: reachable only on an INCOMPLETE recording or a partially
-  instrumented thread.
+  verdict says so: reachable only where the thread was still live at the end
+  (`live_threads`) or its frames were not all instrumented.
 - **AMBIGUOUS** — the default, and the largest class by design: an escaped
   binding, a merged window, a holder that closed `ok` with no sink seen, a
   chain absorbed in a frame that then failed for another reason

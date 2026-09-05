@@ -325,8 +325,12 @@ def test_a_chain_still_open_when_the_thread_ended_is_propagated(
     assert "INCOMPLETE: this recording never finalized" in o, o
     # five events, four frames crossed
     assert "propagated -- 4 hops, and still open when the thread ended" in o, o
-    assert ("only possible on an INCOMPLETE recording or a thread whose "
-            "frames were not all instrumented") in o, o
+    # The reason names `live_threads`, the fact this trace actually carries.
+    # "INCOMPLETE" is `info`'s word for a recording that never finalized --
+    # a different fact, and `info` prints the two apart (vector v10).
+    assert ("means the thread was still live when the recording ended "
+            "(`live_threads`) or its frames were not all instrumented") in o, o
+    assert "only possible on an INCOMPLETE recording" not in o, o
     assert ("hops: e4 deep L18 exit -> e6 mid L11 try -> e7 mid L9 exit "
             "-> e9 outer L7 try -> e10 outer L8 sink_ok") in o, o
     assert "dispositions: propagated 1" in o, o

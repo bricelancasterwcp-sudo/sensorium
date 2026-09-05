@@ -31,7 +31,7 @@ jobs:
         run: python -m pytest -q
       - name: Corpus (seeded-bug regression suite)
         # corpus/rust is in here too: with no SENSORIUM_CARGO_SENSORIUM set
-        # on this matrix and no cargo-sensorium on PATH, those 13 cases are
+        # on this matrix and no cargo-sensorium on PATH, those 29 cases are
         # reported skipped BY NAME in the summary rather than passed, and
         # the Python cases still run. The `rust` job below is where they are
         # recorded.
