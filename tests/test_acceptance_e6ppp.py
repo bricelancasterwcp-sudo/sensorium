@@ -453,3 +453,95 @@ def test_results_json_if_present_matches_the_committed_schema():
     assert set(doc["endpoints"]) == {"E6pppA", "E6pppW", "E6again", "E7ppp"}
     for key in ("E6pppA", "E6pppW"):
         assert doc["endpoints"][key]["headline"]["value"] is None
+
+
+# -- fix round 1 -----------------------------------------------------------
+
+
+def test_the_prep_build_logs_beside_its_OWN_document(tmp_path, monkeypatch):
+    """The 2026-09-05 run's `prep-workspace.log` landed in the RUNG-3 slice's
+    log directory: importing `acceptance_rung3` re-points
+    `acceptance_lib.LOGS`, and the prep phase ran outside a `logs_at` block.
+    Nothing was clobbered, but a later run could overwrite another record's
+    log, and a reader looking for the evidence would not find it. The phase
+    now owns where it logs, so this pins the directory rather than the call
+    site."""
+    import acceptance_lib as lib
+    seen = {}
+
+    def fake_build(paths, cfg, args, log, instrumented, timeout=0):
+        seen["logs"] = lib.LOGS
+        seen["log_name"] = log
+        return ({"rc": 1, "wall": 0.0, "log": str(lib.LOGS / log)},
+                {"rc": 1, "log": str(lib.LOGS / log)})
+
+    monkeypatch.setattr(runner.ph, "_build", fake_build)
+    monkeypatch.setattr(lib, "LOGS", tmp_path / "somewhere-else")
+    p = _paths(tmp_path)
+    p["sensorium_acceptance_target"].mkdir()
+    runner.phase_prep_build(p, {"workspace_sel": ["--workspace"],
+                                "packages": [], "e2pp_timeout": 1})
+    assert seen["log_name"] == "prep-workspace.log"
+    assert str(seen["logs"]).startswith(str(runner.LOGS)), seen["logs"]
+    assert lib.LOGS == tmp_path / "somewhere-else"      # and restored
+
+
+def test_importing_the_runner_leaves_the_shared_log_pointer_on_THIS_document():
+    """`acceptance_rung3`'s module body re-points `acceptance_lib.LOGS` and
+    `acceptance_lib.LEDGER` when it is imported. The runner must re-assert
+    them AFTER that import, or every log written outside a `logs_at` block
+    lands beside the rung-3 record."""
+    import acceptance_lib as lib
+    assert lib.LOGS == runner.LOGS
+    assert lib.LEDGER == runner.LEDGER
+
+
+def test_the_guarded_arm_count_is_published_with_its_provenance():
+    """Design R15 wants the guarded-arm count beside both readings. It is a
+    RESTATEMENT of §5.2's hand adjudication, and a cell that did not say so
+    would read as a number this schema derived."""
+    doc = assemble_e6ppp(RAW_ARM)
+    for key in ("E6pppA", "E6pppW"):
+        g = doc["endpoints"][key]["guarded_arms"]
+        assert g["value"] == 2
+        assert g["provenance"] == "hand adjudication, §5.2"
+        assert g["dropped"] == []
+
+
+def test_the_guarded_arm_count_is_null_when_the_arm_did_not_run():
+    """A constant published for a phase that never ran is an invented number —
+    the same failure the false-accusation headline exists to avoid."""
+    doc = assemble_e6ppp({})
+    for key in ("E6pppA", "E6pppW"):
+        g = doc["endpoints"][key]["guarded_arms"]
+        assert g["value"] is None and g["dropped"]
+
+
+def test_built_from_is_null_with_a_reason_when_the_runner_did_not_build():
+    """The 2026-09-05 run's driver was built by the operator before launch, so
+    `built_from` has nothing to report. A zero or an empty dict here would
+    read as "the runner checked"."""
+    doc = assemble_e6ppp({})
+    bf = doc["environment"]["built_from"]
+    assert bf.get("dropped") and "not recorded" in bf["dropped"][0]
+
+
+def test_built_from_is_carried_through_when_the_runner_did_build():
+    raw = {"raw_built_from": {"repo_head_at_build": "abc", "cargo_rc": 0,
+                              "rebuilt": False}}
+    bf = assemble_e6ppp(raw)["environment"]["built_from"]
+    assert bf["repo_head_at_build"] == "abc" and bf["cargo_rc"] == 0
+    assert not bf.get("dropped")
+
+
+def test_the_log_location_note_fires_only_for_a_log_outside_the_logs_dir():
+    """The §2 note is DERIVED from the record, not asserted: a run whose logs
+    all landed together must not carry a paragraph saying one did not."""
+    from render_e6ppp import log_locations
+    inside = {"environment": {"logs_dir": "/l", "prep_build_log": "/l/prep.log"},
+              "finished": "2026-09-05T02:20:49-0500"}
+    outside = {"environment": {"logs_dir": "/l", "prep_build_log": "/other/p.log"},
+               "finished": "2026-09-05T02:20:49-0500"}
+    assert "One exception" not in "\n".join(log_locations(inside))
+    note = "\n".join(log_locations(outside))
+    assert "One exception, recorded 2026-09-05" in note and "/other/p.log" in note

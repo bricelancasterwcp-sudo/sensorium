@@ -100,6 +100,14 @@ def environment(r) -> list[str]:
          f" → "
          f"{'empty' if not env.get('source_bloomery_porcelain_after') else 'DIRTY'}"
          f"; unchanged: {_yn(env.get('source_bloomery_unchanged'))}"),
+        ("driver `built_from` (recorded by the runner)",
+         (f"HEAD `{(env.get('built_from') or {}).get('repo_head_at_build')}`, "
+          f"`cargo build --release` exit "
+          f"{(env.get('built_from') or {}).get('cargo_rc')}, rebuilt: "
+          f"{_yn((env.get('built_from') or {}).get('rebuilt'))}")
+         if not (env.get("built_from") or {}).get("dropped") else
+         "not measured (" + "; ".join((env.get("built_from") or {})
+                                      .get("dropped") or []) + ")"),
         ("1-minute load at the start", f"{env.get('load_1min_at_start')}"),
         ("disk free on the target's filesystem, before / after",
          f"{env.get('target_disk_free_gb')} GB / "
@@ -110,11 +118,39 @@ def environment(r) -> list[str]:
     ]
     out += ["| Pin | Value |", "|---|---|"]
     out += [f"| {k} | {v} |" for k, v in pins]
+    out += log_locations(r)
     loads = env.get("load_at_each_arm") or []
     out += ["", "1-minute load at each arm's start: "
             + ", ".join(f"{a.get('arm')} {a.get('load_1min')}"
                         for a in loads) + "."]
     return out
+
+
+def log_locations(r) -> list[str]:
+    """Where this run's logs actually landed.
+
+    Derived, never asserted: the prep build's log path is compared with the
+    document's own logs directory, both read from the record. A log outside
+    that directory is stated with the date the run finished, because the
+    reader's next move is to go and find it."""
+    env = r["environment"]
+    logs, prep = env.get("logs_dir"), env.get("prep_build_log")
+    out = ["", f"**Log locations.** Every command's log is under `{logs}`, "
+                "one subdirectory per phase (`built-from`, `prep`, `arm-a`, "
+                "`arm-w`, `e6-again`, `e7ppp`)."]
+    if prep and logs and not str(prep).startswith(str(logs)):
+        date = (r.get("finished") or "")[:10]
+        out[-1] += (
+            f" **One exception, recorded {date}, after the run:** the prep "
+            f"build's own log went to `{prep}` — the rung-3 slice's log "
+            f"directory, not this document's. `acceptance_rung3`'s module "
+            f"body re-points `acceptance_lib.LOGS` when it is imported, and "
+            f"the prep phase ran outside a `logs_at` block, so it inherited "
+            f"that pointer. Nothing was clobbered (the rung-3 run writes no "
+            f"file of that name) and no measured number depends on it; the "
+            f"runner now re-asserts the pointer after the import AND wraps "
+            f"the phase, so a later run logs beside its own document.")
+    return out + [""]
 
 
 def _arm(r, key, title) -> list[str]:
@@ -127,6 +163,8 @@ def _arm(r, key, title) -> list[str]:
                      ("SWALLOWED lines the sweep added", "sweep_swallowed_lines"),
                      ("SWALLOWED lines the collector could not parse",
                       "unparsed_swallowed_lines"),
+                     ("guarded arms (R15; restates §5.2, not a new "
+                      "measurement)", "guarded_arms"),
                      ("Err chains judged on the primary (`raised (N):`)",
                       "chains_in_scope"),
                      ("processes recorded", "processes"),
