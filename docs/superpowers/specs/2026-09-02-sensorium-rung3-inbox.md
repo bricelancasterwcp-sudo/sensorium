@@ -155,9 +155,10 @@ with, none of it ranked, each item with the thing that would settle it.
 - **A `chain.holder` field on the wire.** The holder is derived twice today
   (once in the converter's machine, once by the Python reader walking outward
   from a chain's last event); one field would delete both walks.
-- **Three `chain.terminal` values with no conformance vector** — `panicked`,
-  `left_thread`, `handled_then_failed`, pinned by `tests/test_exceptions_rust.py`
-  alone (`docs/trace-format/VECTORS.md`).
+- **Three `chain.terminal` values with no conformance vector** —
+  `panicked` (`tests/test_exceptions_rust.py`), `left_thread` and
+  `handled_then_failed` (`tests/test_exceptions_rust_ambiguous.py`), pinned by
+  the Python suite alone (`docs/trace-format/VECTORS.md`).
 
 ## 3. Deferred minors carried out of rung 2's task reviews
 

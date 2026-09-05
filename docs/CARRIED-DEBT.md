@@ -55,7 +55,10 @@ stays the record for rungs 0–2.
   the bloomery clone was measured **zero** before the decision, and the
   pre-registration was already locked, so a zero-exposure change would have
   bought no measurement. Named in design R16 and
-  `rust/HONESTY-BLIND-SPOTS.md` item 23; untested by fixture.
+  `rust/HONESTY-BLIND-SPOTS.md` item 23 **(a)**; untested by fixture. Item
+  23 (b), the whole-word-`e` over-escape, is a different kind of thing — safe
+  direction, AMBIGUOUS never an accusation — and its exposure is measured
+  nowhere; the zero above covers (a) only.
 - **A `--workspace` E6 slice with no `--lib`.** E6‴-W widened the selector
   and executed the same 2 of the 29 located blast-radius arms as
   `-p bloomery-daemon --lib`, so the widening bought no reach. Integration
@@ -70,7 +73,7 @@ stays the record for rungs 0–2.
   worked around it. Key the id line unambiguously in a later slice.
 - **`rust/tests/mechanics.sh` is at 795 of 800 lines.** The next check added
   to it must split it first.
-- **`rust/HONESTY.md` is at 788 of 800** after §11, even with §8's list moved
+- **`rust/HONESTY.md` is at 796 of 800** after §11, even with §8's list moved
   out. The next promise added to it needs the next split chosen deliberately
   — the index, or §1 — rather than discovered at the ceiling.
 - **The parent spec is at 1 458 lines**, over the house ceiling and already
@@ -84,13 +87,18 @@ stays the record for rungs 0–2.
   it killed the first E6′ launch before any number was read, and was worked
   around in a rung-3 module rather than fixed at the source.
 - **Three `chain.terminal` values have no conformance vector** —
-  `panicked`, `left_thread`, `handled_then_failed`, pinned by
-  `tests/test_exceptions_rust.py` alone.
-- **`convert/chains/mod.rs`'s doc comment for `hop`** still carries the
+  `panicked`, pinned by `tests/test_exceptions_rust.py` alone
+  (`test_a_panic_on_the_holder_quotes_the_panic_and_claims_no_cause`), and
+  `left_thread` and `handled_then_failed`, pinned by
+  `tests/test_exceptions_rust_ambiguous.py` alone
+  (`test_a_chain_that_left_a_spawned_threads_outermost_frame_is_ambiguous`,
+  `test_a_sink_whose_frame_then_failed_is_ambiguous_not_swallowed`).
+- ~~**`convert/chains/mod.rs`'s doc comment for `hop`** still carries the
   pre-correction wording ("each frame the chain crosses"), which
   `docs/TRACE-FORMAT.md` §5 corrected on 2026-09-05 to count in-frame hops
   too. A comment-only fix, deferred because this slice may not touch
-  `rust/**/src`.
+  `rust/**/src`.~~ — resolved at `50c21c3`: the comment now states in-frame
+  hops and cites `docs/TRACE-FORMAT.md` §5.
 
 ### Process lessons
 

@@ -263,7 +263,7 @@ recorder, lang, capabilities
 | `fingerprint_basis` | `"per-task"` or `"per-thread"` — what a per-thread fingerprint row covers (§7). Explicit, never defaulted by a writer. |
 | `truncated_count` | How many captured values were clipped by the capture caps. |
 | `source_hashes` | `{file: content-digest}` for every file the run traced code from. |
-| `recorder` | Who wrote the trace: `"sensorium 0.6.0"`, `"sensorium-rt 0.1.0"`. Printed in every sentence about what this trace can and cannot say. |
+| `recorder` | Who wrote the trace: `"sensorium 0.8.0"`, `"sensorium-rt 0.3.0"`. Printed in every sentence about what this trace can and cannot say. Both are examples of the SHAPE, not pins — the value is whatever wrote the file, and a reader that compares against a literal is reading it wrong. |
 | `lang` | `"python"`, `"rust"`. The reader defaults an absent `lang` to `"python"`, because nothing else existed before the key. |
 | `capabilities` | The declaration; see below. |
 

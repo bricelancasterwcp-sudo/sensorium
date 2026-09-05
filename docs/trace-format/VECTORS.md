@@ -87,9 +87,10 @@ capability refusal on a recording made before err-flow records existed.
 `v14`'s `exceptions` question, which stood in for them while the rules did
 not exist, retired into `v19`; its other three questions stand. The design
 spec's §5.3 and §5.6 ask for one vector per value of every enumeration per
-language, and that is still not complete: three `chain.terminal` values
-(`panicked`, `left_thread`, `handled_then_failed`) are pinned only by
-`tests/test_exceptions_rust.py`, not by a vector.
+language, and that is still not complete: three `chain.terminal` values are
+pinned only by the Python suite, not by a vector: `panicked` by
+`tests/test_exceptions_rust.py`, and `left_thread` and `handled_then_failed`
+by `tests/test_exceptions_rust_ambiguous.py`.
 
 | Vector | Rule it pins |
 |---|---|

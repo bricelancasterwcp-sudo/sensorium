@@ -212,7 +212,9 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     not SWALLOWED. The absorption is real and the instrument declines to name
     it, because the frame did not go on as if the call had succeeded.
     *Falsified by* `corpus/rust/cleanup_then_fail` and the `handled_then_failed`
-    row of `tests/test_exceptions_rust.py`.
+    row of `tests/test_exceptions_rust_ambiguous.py`
+    (`test_a_sink_whose_frame_then_failed_is_ambiguous_not_swallowed`; the §2a
+    rows split across two files at the 800-line ceiling).
 19. **A generic `T` that is a `Result` only after monomorphisation** reads
     `ok`: the exit probe's ladder resolves on the pre-substitution type, so
     `Result`-ness gained at monomorphisation is invisible to it (§1).
@@ -239,16 +241,22 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     *Falsified by* the golden `err_arm_escaped`, whose controls are the two
     provable shapes; the `ref` binding itself is **untested by fixture**.
 23. **The escape test reads a macro's TOP-LEVEL arguments.** Two residuals
-    follow, both recorded rather than repaired in rung 3, and both measured to
-    have **zero exposure** on the bloomery clone
-    (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §5.3):
-    a value-format macro *nested* inside a logging macro's argument
+    follow. They are **not the same kind of thing, and only one of them was
+    measured**, so they are stated apart rather than together.
+    (a) A value-format macro *nested* inside a logging macro's argument
     (`eprintln!("{}", keep(format!("{e}")))`) reads HANDLED and can therefore
-    still reach SWALLOWED — the same class the R2 amendment of 2026-09-05 was
-    written for, one nesting level in; and a whole-word literal `e` inside a
-    NON-logging macro's string over-escapes, costing an AMBIGUOUS where the
-    arm handled (the safe direction). **Untested by fixture**; the exposure
-    check is a measurement on one workspace, not a promise about any other.
+    still reach SWALLOWED: a **false-accusation generator**, the same class
+    the R2 amendment of 2026-09-05 was written for, one nesting level in. Its
+    exposure on the bloomery clone was **measured zero**
+    (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §5.3) —
+    a fact about that workspace, not a promise about any other — and it was
+    recorded rather than repaired.
+    (b) A whole-word literal `e` inside a NON-logging macro's string
+    over-escapes, so an arm that handled reads AMBIGUOUS. That is the **safe
+    direction**: it can never produce an accusation, only withhold a verdict.
+    **Its exposure is measured nowhere** — no run counted it, and nothing here
+    should be read as saying it is rare.
+    Both are **untested by fixture**.
 24. **`tracing`-style field syntax escapes unconditionally.** `err = ?e`,
     `error = %e` mention the bound name as a token, so every such arm reads
     `arm_ambiguous`: **no log-and-continue arm can read SWALLOWED on a
