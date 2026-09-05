@@ -1,10 +1,11 @@
 """Turn a `case.json` description into a real spool directory `cargo-
 sensorium convert` can read: `invocation.json`, `<pid>.proc.json`,
-`<pid>.<serial>.spool` (wire format v2) and the unit manifests under
+`<pid>.<serial>.spool` (wire format v2 by default, v3 where a case or a
+thread says `"version": 3`) and the unit manifests under
 `<target>/sensorium/manifests/`.
 
 Every byte this module writes is encoded from the wire block reproduced in
-`rust/cargo-sensorium/src/convert/spool.rs`'s doc comment and
+`rust/cargo-sensorium/src/convert/spool/mod.rs`'s doc comment and
 `rust/HONESTY.md` §4 -- never by running the runtime or importing
 `sensorium-rt`'s writer. This is the Python-side counterpart of
 `rust/cargo-sensorium/tests/common/wire.rs`'s `SpoolBuilder`; the two are
@@ -28,6 +29,30 @@ import sys
 from pathlib import Path
 
 HEADER_FIXED = 28
+
+# The wire version a case gets when it does not ask for one. v2, not v3:
+# every case checked in before rung 3 describes a rung-2 recording, and
+# writing a 3 into their headers would change what the converter reads out
+# of their `err` RETURN payloads (v3 puts a type block there) -- a fixture
+# would then be pinning a recording no runtime of its era produced.
+DEFAULT_VERSION = 2
+
+# The `how` byte of a RAISE/HANDLED record, which the header's otherwise idle
+# `outcome` byte carries (design R2). 8 (`exit`) is deliberately absent: it is
+# the converter's own synthesised origin and never appears on the wire, so a
+# case cannot write one by name.
+_HOW = {"try": 1, "sink_ok": 2, "sink_unwrap_or": 3, "sink_let_underscore": 4,
+        "arm_propagate": 5, "arm_handled": 6, "arm_ambiguous": 7}
+_RAISE_HOWS = frozenset({"try", "arm_propagate"})
+
+# The `err` RETURN's type-block flag bits, and -- a DIFFERENT byte with a
+# different layout -- the RAISE/HANDLED payload's.
+_RET_TYPE_PRESENT = 1 << 0
+_RET_TYPE_TRUNCATED = 1 << 1
+_ERR_MSG_PRESENT = 1 << 0
+_ERR_MSG_TRUNCATED = 1 << 1
+_ERR_TYPE_TRUNCATED = 1 << 2
+_ERR_TYPE_PRESENT = 1 << 3
 
 # Default field values shared by every case, so a case.json only states what
 # is meaningful for the behaviour it pins.
@@ -57,6 +82,11 @@ _PROC_DEFAULTS = {
     "units": {},
     "refused": None,
     "rt_version": "sensorium-rt 0.1.0",
+    # The Rust-only capability keys the RUNTIME declared (design R9), passed
+    # into the trace's `capabilities` untouched. Empty by default because a
+    # rung-2 header carried none, and `err_flow` absent is what makes an old
+    # trace read as "not witnessed" rather than as a capability it never had.
+    "capabilities": {},
 }
 
 _RUNNER_DEFAULTS = {
@@ -111,6 +141,74 @@ def _return_payload(tag: int, truncated: bool, text: str) -> bytes:
     return bytes([tag, 1 if truncated else 0]) + text.encode()
 
 
+def _err_return_payload(tag: int, truncated: bool, text: str,
+                        err_type: str | None,
+                        type_truncated: bool = False) -> bytes:
+    """A v3 `err` RETURN: the two fixed bytes, then the error TYPE block, then
+    the value's text.
+
+    The block is `u8 type_flags (bit0 present, bit1 truncated) u16 type_len`
+    and it rides an `err` RETURN and nothing else -- it is what lets the
+    converter synthesise an origin RAISE for an `Err` born by being returned
+    (design R1). `err_type: None` writes the block with its present bit clear
+    and no bytes: the exit probe met a `Result` whose `E` the ladder could not
+    name, which is a different fact from a v2 spool having no block at all.
+    """
+    type_b = err_type.encode() if err_type is not None else b""
+    flags = ((_RET_TYPE_PRESENT if err_type is not None else 0)
+             | (_RET_TYPE_TRUNCATED if type_truncated else 0))
+    return (bytes([tag, 1 if truncated else 0, flags])
+            + struct.pack("<H", len(type_b)) + type_b + text.encode())
+
+
+def _errflow_payload(type_name: str | None, msg: str | None,
+                     type_truncated: bool = False,
+                     msg_truncated: bool = False) -> bytes:
+    """A RAISE/HANDLED payload: `u8 flags u16 type_len type msg`.
+
+    `None` is UNREAD, never empty: the flags byte is the only thing that
+    separates a `Debug` that rendered nothing from a ladder rung that could
+    not read the value at all, and the converter refuses a payload whose
+    flags contradict its bytes -- so a case that says a field is absent must
+    carry none of it.
+    """
+    flags = 0
+    type_b = b""
+    if type_name is not None:
+        flags |= _ERR_TYPE_PRESENT
+        type_b = type_name.encode()
+    if type_truncated:
+        flags |= _ERR_TYPE_TRUNCATED
+    msg_b = b""
+    if msg is not None:
+        flags |= _ERR_MSG_PRESENT
+        msg_b = msg.encode()
+    if msg_truncated:
+        flags |= _ERR_MSG_TRUNCATED
+    return bytes([flags]) + struct.pack("<H", len(type_b)) + type_b + msg_b
+
+
+def _how_byte(op: dict, kind_name: str) -> int:
+    """The `how` of an err-flow op, refused by name when the op's record kind
+    and its `how` disagree.
+
+    The transformer writes the manifest row and the runtime writes this byte
+    from one splice, so the two can never disagree in a real recording; a
+    fixture that spelled `{"op": "raise", "how": "sink_ok"}` would be
+    describing corruption, and the converter refuses it. Catching it here
+    says which fixture line is wrong instead.
+    """
+    how = op["how"]
+    if how not in _HOW:
+        raise ValueError(f"gen.py: unknown err-flow how {how!r}")
+    if (how in _RAISE_HOWS) != (kind_name == "raise"):
+        raise ValueError(
+            f"gen.py: how {how!r} belongs to a "
+            f"{'raise' if how in _RAISE_HOWS else 'handled'} record, not a "
+            f"{kind_name}")
+    return _HOW[how]
+
+
 def _panic_payload(loc: str, msg: str) -> bytes:
     loc_b = loc.encode()
     return struct.pack("<H", len(loc_b)) + loc_b + msg.encode()
@@ -139,9 +237,25 @@ def _encode_op(op: dict) -> bytes:
         site = _site(op["unit"], op["site"])
         payload = bytes([2, 0])
         return _record(seq, ts, site, 2, op["outcome"], payload)
+    if kind == "ret_err_typed":
+        # v3 only: on a v2 spool the converter reads the payload's third byte
+        # as the first byte of the value's text, so a case using this op must
+        # declare `"version": 3`.
+        site = _site(op["unit"], op["site"])
+        payload = _err_return_payload(1, op.get("truncated", False),
+                                      op["text"], op.get("err_type"),
+                                      op.get("type_truncated", False))
+        return _record(seq, ts, site, 2, 2, payload)
     if kind == "ret_panic":
         site = _site(op["unit"], op["site"])
         return _record(seq, ts, site, 2, 3, bytes([0, 0]))
+    if kind in ("raise", "handled"):
+        site = _site(op["unit"], op["site"])
+        payload = _errflow_payload(op.get("type"), op.get("msg"),
+                                   op.get("type_truncated", False),
+                                   op.get("msg_truncated", False))
+        return _record(seq, ts, site, 4 if kind == "raise" else 5,
+                       _how_byte(op, kind), payload)
     if kind == "panic":
         payload = _panic_payload(op["loc"], op["msg"])
         return _record(seq, ts, 0, 3, 0, payload)
@@ -151,9 +265,10 @@ def _encode_op(op: dict) -> bytes:
 
 
 def _encode_spool(serial: int, name: str, records: list[dict],
-                  records_dropped: int = 0, truncated: int = 0) -> bytes:
+                  records_dropped: int = 0, truncated: int = 0,
+                  version: int = DEFAULT_VERSION) -> bytes:
     name_b = name.encode()
-    header = b"SNSR" + struct.pack("<BBHIQQ", 2, 0, len(name_b), serial,
+    header = b"SNSR" + struct.pack("<BBHIQQ", version, 0, len(name_b), serial,
                                    records_dropped, truncated)
     assert len(header) == HEADER_FIXED, len(header)
     body = b"".join(_encode_op(r) for r in records)
@@ -205,12 +320,18 @@ def materialize(case: dict, root: Path) -> Path:
             "units": merged_proc["units"],
             "refused": merged_proc["refused"],
             "rt_version": merged_proc["rt_version"],
+            "capabilities": merged_proc["capabilities"],
         })
         for thread in proc.get("threads", []):
+            # Per THREAD, falling back to the case's: the wire version is a
+            # property of one spool file, and a directory holding both is a
+            # shape the converter reads (`SpoolFile.version`).
+            version = thread.get("version",
+                                 case.get("version", DEFAULT_VERSION))
             data = _encode_spool(thread["serial"], thread.get("name", ""),
                                  thread.get("records", []),
                                  thread.get("records_dropped", 0),
-                                 thread.get("truncated", 0))
+                                 thread.get("truncated", 0), version)
             (spool_dir / f"{pid}.{thread['serial']}.spool").write_bytes(data)
         runner = proc.get("runner")
         if runner is not None:

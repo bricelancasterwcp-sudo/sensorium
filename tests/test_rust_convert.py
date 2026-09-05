@@ -165,6 +165,81 @@ def test_case_converts_and_answers_every_question(case_name, tmp_path):
                 f"{case_name}: {db_path.name} meta spawns "
                 f"{trace.meta.get('spawns')!r} is not the manifest's "
                 f"{expected_spawns!r}")
+        _check_err_flow_payloads(case_name, db_path.name, trace)
+
+
+def _check_err_flow_payloads(case_name: str, db_name: str, trace) -> None:
+    """Every `exc` object a Rust trace carries says which KIND of thing it
+    is, and the two kinds' serials never collide.
+
+    `docs/TRACE-FORMAT.md` §5: a Rust RAISE/HANDLED carries `exc.kind` --
+    `"err"` for an `Err` value, `"panic"` for a panic -- and the `Err` chain
+    serials are minted in a namespace starting at `1 << 32`, disjoint from
+    the per-thread panic serials that start at 1. A rule that instead read
+    `type == "panic"` would misread a workspace error type spelled that way,
+    and a shared serial namespace would let one panic and one chain claim to
+    be the same thing. An `err` event also carries the `chain` object the
+    rung-3 disposition rules are computed from; a panic RAISE carries none.
+    """
+    for e in trace.events():
+        if e.kind not in ("RAISE", "HANDLED"):
+            continue
+        exc = (e.payload or {}).get("exc")
+        where = f"{case_name}/{db_name}: e{e.id} {e.kind}"
+        assert exc is not None, f"{where} carries no exc object"
+        kind = exc.get("kind")
+        assert kind in ("err", "panic"), (
+            f"{where} carries exc.kind {kind!r}; a Rust exc object says "
+            "which of the two kinds it is")
+        serial = exc.get("serial")
+        # Named before it is compared: an absent serial would otherwise fail
+        # as a TypeError against `2 ** 32`, which says nothing about the
+        # trace.
+        assert isinstance(serial, int), (
+            f"{where} carries exc.serial {serial!r}; every Rust exc object "
+            "is identified by an integer serial")
+        chain = (e.payload or {}).get("chain")
+        if kind == "err":
+            assert serial >= 2 ** 32, (
+                f"{where} is an Err with serial {serial}, below the "
+                "1 << 32 the chain namespace starts at -- it could collide "
+                "with a panic serial on the same thread")
+            assert isinstance(chain, dict), (
+                f"{where} is an Err with chain {chain!r}; the disposition "
+                "rules read a chain object off every err-flow event")
+            assert set(chain) >= {"serial", "hop", "origin", "translated"}, (
+                f"{where} chain is {sorted(chain)}, missing one of "
+                "serial/hop/origin/translated")
+            assert chain["serial"] == serial, (
+                f"{where} chain serial {chain['serial']} is not the exc's "
+                f"{serial}")
+        else:
+            assert serial < 2 ** 32, (
+                f"{where} is a panic with serial {serial}, inside the "
+                "chain namespace")
+            assert chain is None, (
+                f"{where} is a panic carrying a chain object {chain!r}")
+
+
+def test_gen_refuses_an_err_flow_how_that_belongs_to_the_other_record_kind():
+    """A fixture cannot describe a record no runtime could write.
+
+    The transformer writes the manifest row and the runtime writes the `how`
+    byte from ONE splice, so a RAISE carrying a sink's `how` is corruption --
+    the converter refuses it by name, and a case that spelled one would be
+    pinning the refusal by accident instead of the shape it meant to.
+    """
+    with pytest.raises(ValueError, match="belongs to a handled record"):
+        gen._encode_op({"op": "raise", "unit": 0, "site": 0, "seq": 0,
+                        "ts": 1, "how": "sink_ok"})
+    with pytest.raises(ValueError, match="belongs to a raise record"):
+        gen._encode_op({"op": "handled", "unit": 0, "site": 0, "seq": 0,
+                        "ts": 1, "how": "try"})
+    # 8 is `exit`, the converter's own synthesised origin, which never
+    # appears on the wire -- so a case cannot write one by name either.
+    with pytest.raises(ValueError, match="unknown err-flow how 'exit'"):
+        gen._encode_op({"op": "raise", "unit": 0, "site": 0, "seq": 0,
+                        "ts": 1, "how": "exit"})
 
 
 def test_every_case_pins_a_named_invariant_and_asserts_something():
@@ -174,7 +249,7 @@ def test_every_case_pins_a_named_invariant_and_asserts_something():
     assert CASES, "no rust-spool fixtures found"
     for name in ("identical-pair", "panic-unwind", "live-thread",
                  "child-linked", "unwitnessed-exit", "unnamed-task",
-                 "spawn-sites"):
+                 "spawn-sites", "errflow"):
         assert name in CASES, f"missing fixture case {name!r}"
     for case_name in CASES:
         case, questions = _load_case(case_name)
