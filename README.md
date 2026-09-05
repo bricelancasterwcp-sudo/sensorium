@@ -553,22 +553,20 @@ one task's content branching, the verdict is DIVERGED, naming that task.
 
 Thirty-one more cases live under `corpus/rust/`, recorded by the Rust
 recorder instead. Fourteen of them are rungs 0–2's: seven ports of the cases
-above (the same class of planted bug,
-asked differently, because that recorder captures return values and not
-arguments), five that only Rust has — a caught panic turned into an `Ok`,
-an `abort()` that leaves its frames open and its exit `unwitnessed`, libtest
-under `--test-threads=1` against `=4`, a worker thread named for the test
-that spawned it and the item the spawn sits in, and a spawning function that
-moves to another file without the worker's name changing — and two whose
-pinned answer is a REFUSAL, where the question needs object identity or
-per-line events that recorder declares it does not produce. The other
-seventeen are rung 3's err-flow cases, each registering both its
-`dispositions:` tally and its swallow set — ten of them to pin that nothing
-is accused. They need a
-built `cargo-sensorium` (`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on
-`PATH`); without it they are
-reported skipped BY NAME and counted apart from the passes, never as them.
-`corpus/rust/README.md` is the case-by-case list.
+above (the same class of planted bug, asked differently, because that
+recorder captures return values and not arguments), five that only Rust has
+— a caught panic turned into an `Ok`, an `abort()` that leaves its frames
+open and its exit `unwitnessed`, libtest under `--test-threads=1` against
+`=4`, a worker thread named for the test that spawned it and the item the
+spawn sits in, and a spawning function that moves to another file without
+the worker's name changing — and two whose pinned answer is a REFUSAL, where
+the question needs object identity or per-line events that recorder declares
+it does not produce. The other seventeen are rung 3's err-flow cases, each
+registering both its `dispositions:` tally and its swallow set — ten of them
+to pin that nothing is accused. All thirty-one need a built
+`cargo-sensorium` (`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on `PATH`);
+without it they are reported skipped BY NAME and counted apart from the
+passes, never as them. `corpus/rust/README.md` is the case-by-case list.
 
 `--bench` reports; it never gates. Overhead is a tracked fact about a machine
 and a workload, not a pass/fail property of the tool.

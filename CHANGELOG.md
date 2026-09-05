@@ -10,10 +10,11 @@
   `Err(e) => { let (status, value) = map_error(&e, ..);
   V1Result::json(status, value) }` reads `arm_ambiguous` where it read
   `arm_handled` and could print SWALLOWED while the failure reached the caller
-  as an HTTP error. On the bloomery clone (`e209ed9`) the census moves
-  `arm_handled` **65 → 54** and `arm_escaped` **121 → 132** over the same
-  **225** arm sites; `arm_propagate` stays **39**. No splice fragment changed,
-  so no line moved.
+  as an HTTP error. On the bloomery clone (`e209ed9`) the census moves arms
+  handled (`arm_handled`) **65 → 54** and arms escaped (`arm_ambiguous`)
+  **121 → 132** over the same **225** arm sites; arms propagate
+  (`arm_propagate`) stays **39**. No splice fragment changed, so no line
+  moved.
 - **An `err` close hops the held chain whose text the RETURN carries.** A
   frame closing `err` while it held two chains minted the exit hop on the
   INNERMOST one whatever the text said, so a keep-first-error shape recorded

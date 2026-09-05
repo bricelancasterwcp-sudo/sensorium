@@ -133,7 +133,7 @@ stays the record for rungs 0–2.
   named: **§1**. Stated rather than left to be discovered, which is the point.
   — and taken 2026-09-05 by the borrow repair: §1 is now
   `rust/HONESTY-OUTCOMES.md`, wording and order unchanged, leaving
-  `rust/HONESTY.md` at 707 lines after §11's repaired `&e` clause.
+  `rust/HONESTY.md` at 713 lines after §11's repaired `&e` clause.
 - **The parent spec is at 1 458 lines**, over the house ceiling and already
   over it (1 407) before this slice added §11's rung-3 verdict and §13's
   deltas table. Splitting a design spec's history is not a docs pass's call.
@@ -209,8 +209,9 @@ stays the record for rungs 0–2.
   argument of a call that is a dropped call site — an expression statement, a
   `let _ =` with a plain wildcard, or a logging macro's argument; everywhere
   else it ESCAPES. On the bloomery clone (`e209ed9`) the census moves
-  `arm_handled` 65 → 54 and `arm_escaped` 121 → 132 over the same 225 arm
-  sites, with `arm_propagate` unchanged at 39, and no line moved.
+  arms handled (`arm_handled`) 65 → 54 and arms escaped (`arm_ambiguous`)
+  121 → 132 over the same 225 arm sites, with arms propagate
+  (`arm_propagate`) unchanged at 39, and no line moved.
 - **Measured, with a control that discriminated**
   (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`): **E6⁗-A
   PASS** (0 false accusations of 14 SWALLOWED lines, both readings, 2
@@ -226,8 +227,8 @@ stays the record for rungs 0–2.
   `c911724b…550e7c27`, and measured once.
 - **The exit hop prefers text** (design B3). `close_frame` on `Outcome::Err`
   now gives the hop to the innermost hop-eligible held chain whose `last`
-  text matches the RETURN's, falling back to the innermost — today's rule —
-  only when none matches. Hop data only; no disposition and no wire field
+  text matches the RETURN's, falling back to the innermost — the pre-repair
+  rule — only when none matches. Hop data only; no disposition and no wire field
   moved.
 - **Two Rust corpus cases**, taking the Rust corpus to thirty-one:
   `err_borrowed_into_value` and `keep_first_error`.
@@ -238,7 +239,7 @@ stays the record for rungs 0–2.
   `sensorium-rt` at 0.3.0.
 - **`rust/HONESTY.md` §1 is `rust/HONESTY-OUTCOMES.md`** — the split rung 3
   named rather than one discovered at the ceiling. Wording and order
-  unchanged; the file is at 707 lines with §11's repaired `&e` clause in it.
+  unchanged; the file is at 713 lines with §11's repaired `&e` clause in it.
 - **Two stale doc counts corrected**: `tests/test_corpus.py`'s docstring said
   "Eight of the thirteen rung-3 cases" have an empty swallow set and now says
   ten of seventeen (`corpus/rust/README.md`'s number); the top-level

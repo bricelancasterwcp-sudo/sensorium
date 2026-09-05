@@ -233,13 +233,20 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     AMBIGUOUS. *Falsified by* (the unconditional half)
     `rust/sensorium-transform/tests/golden_errflow.rs::a_panic_arm_is_left_byte_for_byte_where_it_was`.
     The conditional half is **untested by fixture**.
-22. **`Err(ref e) => note(e)` reads ESCAPED.** Only the literal `&e` argument
-    and a `{}`/`{:?}` format argument of the logging family count as a
-    provable shared borrow, so a binding reached any other way is treated as
-    escaping. **ESCAPED is an upper bound, deliberately**: it costs AMBIGUOUS
-    verdicts on arms that in fact handled, and never a false SWALLOWED.
-    *Falsified by* the golden `err_arm_escaped`, whose controls are the two
-    provable shapes; the `ref` binding itself is **untested by fixture**.
+22. **`Err(ref e) => note(e)` reads ESCAPED.** Exactly two shapes count as a
+    provable shared borrow, and **since 2026-09-05 the first of them is
+    narrower than it was** (the borrow repair, item 23 (c) below): a literal
+    `&e` argument of a call at a DROPPED call site — the whole expression of a
+    statement ending in `;`, a `let _ =` with a plain wildcard, or a logging
+    macro's argument — and a `{}`/`{:?}` format argument of the logging
+    family. A literal `&e` argument anywhere else ESCAPES too, which it did
+    not before that date: `Err(e) => map_error(&e),` is a literal `&e`
+    argument and reads `arm_ambiguous`. A binding reached any other way was
+    already treated as escaping. **ESCAPED is an upper bound, deliberately**:
+    it costs AMBIGUOUS verdicts on arms that in fact handled, and never a
+    false SWALLOWED. *Falsified by* the golden `err_arm_escaped`, whose
+    controls are the two provable shapes (its `&e` control is `note(&e);`, a
+    dropped site); the `ref` binding itself is **untested by fixture**.
 23. **What the escape test proves, and what it leaves.** Four residuals
     follow. They are **not the same kind of thing**, so they are stated apart
     rather than together. (a) and (b) are the macro rule: the test reads a

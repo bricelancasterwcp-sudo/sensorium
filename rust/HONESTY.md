@@ -600,12 +600,16 @@ spools, `corpus/rust/interleaved_chains`, and the vector
 `tests/test_exceptions_rust_ambiguous.py` — one test per §2a row, split
 across the two at the 800-line ceiling — the vectors
 `v17-exceptions-rust-swallowed` and `v18-exceptions-rust-ambiguous-merge`,
-and fourteen `corpus/rust/*` cases: `silent_swallow`, `logged_arm`,
+and sixteen `corpus/rust/*` cases: `silent_swallow`, `logged_arm`,
 `dependency_swallow`, `err_stored`, `err_rendered_into_value`,
 `cleanup_then_fail`, `interleaved_chains`, `err_arms`, `err_propagation`,
 `returned_to_harness`, `closure_try`, `join_handle`, `unwrap_panic`,
-`outcome_generic`. **Three `chain.terminal` values are pinned by the Python
-suite only**, with no conformance vector behind them: `panicked` by
+`outcome_generic`, and — added 2026-09-05 by the borrow repair —
+`err_borrowed_into_value` (`dispositions: ambiguous 1`, SWALLOWED registered
+absent) and `keep_first_error` (`dispositions: swallowed 1, ambiguous 1`, the
+one SWALLOWED line pinned to the arm that absorbed the chain).
+**Three `chain.terminal` values are pinned by the Python suite only**, with
+no conformance vector behind them: `panicked` by
 `test_a_panic_on_the_holder_quotes_the_panic_and_claims_no_cause` in the
 first file; `left_thread` and `handled_then_failed` by
 `test_a_chain_that_left_a_spawned_threads_outermost_frame_is_ambiguous` and
