@@ -659,16 +659,17 @@ def test_an_arm_that_swept_nothing_reports_null_not_a_measured_zero():
     assert any("0 of 0" in d for d in a["dropped"]), a["dropped"]
 
 
-def test_the_guarded_arm_count_is_null_until_section_5_is_written():
-    """Design B4 wants the guarded-arm count beside both readings, and it
-    RESTATES a hand adjudication this document's §5 does not carry until the
-    measurement task writes it -- so the cell is null with that reason, never
-    E6‴'s constant borrowed from another document."""
-    doc = assemble_e6q(RAW_ARMS)
-    for key in ("E6qA", "E6qWS", "E6qWS0"):
+def test_the_guarded_arm_count_is_published_with_its_provenance():
+    """Design B4 wants the guarded-arm count beside both readings. It RESTATES
+    the hand adjudication §4.4 of this document carries (§5.3 repeats it), so
+    an arm that RAN names that provenance and drops nothing, while an arm that
+    never ran has nothing to restate and stays null with a reason."""
+    doc, none = assemble_e6q(RAW_ARMS), assemble_e6q({})
+    for key, want in (("E6qA", 2), ("E6qWS", 374), ("E6qWS0", 374)):
         g = doc["endpoints"][key]["guarded_arms"]
-        assert g["value"] is None and g["dropped"]
+        assert g["value"] == want and g["dropped"] == []
         assert "§5" in g["provenance"]
+        assert none["endpoints"][key]["guarded_arms"]["value"] is None
 
 
 def test_a_phase_that_did_not_run_is_null_with_a_reason_never_zero():
