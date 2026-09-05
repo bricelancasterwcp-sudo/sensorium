@@ -698,10 +698,16 @@ reads AMBIGUOUS. **Measured, and the control discriminated**
 **DISCRIMINATING** — the same command under the PRE-repair driver printed 30
 more lines, every one of them false, at 7 of the 11 arms the repair moved,
 where the repaired driver printed none. Four of those 11 were never executed
-by any arm of that run (§5.5 there). One residual stands: a callee handed
-`&e` at a dropped call site that STORES a rendering through `&self`, a capture
-or a global still reads `arm_handled` — item 23 **(d)**, R16 (vii),
-**untested by fixture** on a real tree.
+by any arm of that run (§5.5 there). **Two residuals stand, of two different
+kinds.** A callee handed `&e` at a dropped call site that STORES a rendering
+through `&self`, a capture or a global still reads `arm_handled` — item 23
+**(d)**, R16 (vii), **untested by fixture** on a real tree. And the one
+genuinely distinct shape among the four never-executed arms —
+`codec_probe/boot.rs:110`, `return journal_degraded(pager,
+fixture_set_unparseable_reason(&e))`, a borrow nested inside another call's
+argument — is in the flip set but was never executed by any arm of this run,
+so the repaired rule's treatment of the nested-argument shape is **asserted
+and unit-tested, not measured** on a running tree (record §5.5).
 
 ---
 

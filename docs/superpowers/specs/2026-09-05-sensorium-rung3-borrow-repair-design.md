@@ -83,6 +83,20 @@ exempt (the borrow goes to `format_args!`, whose product goes to the log).
 Nothing else about the borrow is exempt: `visit_expr_reference` no longer
 returns early, so a `&name` anywhere else walks into the name and escapes.
 
+**Added 2026-09-05, after the final review — a gap the shipped rule leaves.**
+`walk_dropped_call` matches only `Expr::Call` and `Expr::MethodCall` after
+`strip`; `log(&e).await;` and `note(&e)?;` are, after `strip`, an
+`Expr::Await` and an `Expr::Try` wrapping the call, not the call itself, so
+neither matches and the borrow inside ESCAPES (`arm_ambiguous`) even though
+the surrounding statement drops the call's product exactly as `note(&e);`
+does. This is the **safe direction**: it costs a lost AMBIGUOUS read on an
+async-logging or `?`-forwarding-and-log arm, never a false SWALLOWED. It is
+not exercised on the bloomery clone — E-flip's 11 changed rows equal the
+frozen census delta, so no `&e` arm on that clone takes either shape — and it
+is not measured anywhere else either. A row unwrapping `Expr::Await`/
+`Expr::Try` before the `Expr::Call`/`Expr::MethodCall` match may be added in a
+later slice.
+
 **Shapes, as the unit rows will pin them** (`class_of`, `rust/sensorium-transform/src/arms.rs` tests):
 
 | Shape | Class | Why |
@@ -139,9 +153,19 @@ Falsifiers, each mutation-tested by restoring the innermost-first line:
 - `rust/cargo-sensorium/tests/convert_errflow_chains.rs` — the same shape
   through the real binary on a hand-built spool (`SpoolBuilder`), asserting
   the converted RAISE row's `chain.serial` and `chain.translated`.
-- `corpus/rust/keep_first_error` — a crate whose `main` calls two failing
+- `corpus/rust/keep_first_error` — ~~a crate whose `main` calls two failing
   helpers and returns the FIRST error; `exceptions` prints the first chain's
-  hops without `(translated …)` and the tally carries no swallow (§5).
+  hops without `(translated …)` and the tally carries no swallow (§5).~~
+  **Amended 2026-09-05 after the final review:** the falsifier needs a frame
+  that RETURNS the first error, and `main`'s return type here is `()`, so
+  `main` cannot be that frame. The shape the plan's T3 built and this branch
+  shipped: `pick()` calls both failing helpers, holds both errors, and
+  RETURNS the first; `main`'s `Err(e) =>` arm then log-and-continues on
+  `pick`'s result — the one thing a frame returning `()` can do that a frame
+  returning the error cannot. `exceptions` prints the first chain's hops
+  without `(translated …)`, and the tally carries ONE swallow — the first
+  error, at `main`'s log-and-continue arm — not zero, as this bullet
+  originally read (§5).
 
 The Python reader derives holders by walking frames, not hops
 (`Index.unwound_holder`, `Index.harness_holder`); the suite runs unchanged
@@ -195,11 +219,20 @@ wall on `--workspace` (the rung-2 addendum lens); the guarded-arm rows named.
   the name escape`; a `tree` question shows the reply carrying the rendering.
   Seeded bug in the `why_logs_fail` shape of the sibling. Mutation: change the
   arm to `report(&e);` + a default → the question goes red with `swallowed 1`.
-- **`corpus/rust/keep_first_error`** — `main` calls `first()` (Err A1) then
+- **`corpus/rust/keep_first_error`** — ~~`main` calls `first()` (Err A1) then
   `second()` (Err B1) and returns A1; `exceptions` prints A1's chain with an
   exit hop and no `(translated …)`, B1's chain ambiguous, no swallow; a `tree`
-  question pins both returns. Mutation: revert B3 → the hop lands on B1's
-  chain labelled translated → red.
+  question pins both returns.~~ **Amended 2026-09-05 after the final
+  review:** the shape the plan's T3 built and this branch shipped has
+  `pick()` — not `main` — call `first()` (Err, the first error) then
+  `second()` (Err, the second error) and RETURN the first; `main`'s
+  `Err(e) =>` arm then log-and-continues (`eprintln!`, then a default),
+  which `main` can do and a frame returning the error cannot. `exceptions`
+  prints the first chain's hops with an exit hop and no `(translated …)`,
+  the second chain ambiguous, and the tally carries ONE swallow — the first
+  error, at `main`'s arm — not zero, as this bullet originally read; a
+  `tree` question pins both returns. Mutation: revert B3 → the hop lands on
+  the second chain labelled translated → red.
 - **Transformer**: the §2 rows; goldens re-derived; the rustc oracle at
   `-D warnings`; the census re-run on the clone (numbers into §1).
 - **Converter**: the two B3 falsifiers; the existing chain tests unchanged.

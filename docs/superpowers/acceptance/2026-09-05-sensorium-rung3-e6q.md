@@ -2799,6 +2799,16 @@ guarded class would do to the verdict; §5.4 did not do the same for (a), (b)
 and (c). It now carries the table: 31, 22 and 14 lines respectively, each a
 **STOP** on E6⁗-WS if ruled FALSE, because §1's gate is zero.
 
+**(e) — added 2026-09-05, final review fix wave.** §4.6 says this record
+"settles, for THIS repair, the CARRIED-DEBT item rung 3 left open as 'the
+census's 31 and the reviewer's 31 are not the same set'." That sentence is
+true only of ITS clause: `docs/CARRIED-DEBT.md`'s own annotation on that item
+leaves it **OPEN** for the E6‴-era 31-vs-31 sets, which E-flip did not
+enumerate — E-flip enumerated only this repair's own eleven-row flip set.
+§4.6's claim is scoped to those eleven rows; the broader item stays open in
+`docs/CARRIED-DEBT.md` until someone enumerates the two E6‴-era sets side by
+side. A reader of either document should find this note.
+
 **What changed outside the record, in the same commit.** Three presentation
 fixes, none of which computes a number: `GUARDED_PROVENANCE_E6Q` now points at
 **§4.4**, where the authoritative hand count is, rather than at §5 (§5.3

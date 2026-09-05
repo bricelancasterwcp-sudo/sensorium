@@ -287,7 +287,12 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     arm of that run (§5.5 there). *Falsified by* the `class_of` rows of
     `rust/sensorium-transform/src/arms.rs` (the dropped-site and escaping
     shapes of the borrow-repair design §2) and by
-    `corpus/rust/err_borrowed_into_value`.
+    `corpus/rust/err_borrowed_into_value`. **One more gap in the same
+    direction, found after the numbers were read:** `log(&e).await;` and
+    `note(&e)?;` are not matched by `walk_dropped_call` (they are
+    `Expr::Await`/`Expr::Try` over the call, not the call), so both ESCAPE
+    too — the safe direction, unmeasured, added 2026-09-05 to the
+    borrow-repair design's §2.
     (d) **A callee that STORES a rendering through a side channel.** A `&e`
     handed to a call whose product is dropped — `self.record(&e);`, or a call
     that writes through a capture or a global — is exempt by (c)'s repaired

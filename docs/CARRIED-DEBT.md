@@ -329,8 +329,24 @@ stays the record for rungs 0–2.
   the `Err` branch reads it; `rust/tests/render_e6q.py` is not reachable from
   `render_acceptance.py --doc`; the base driver's sha256 is verified before
   the run but not re-checked at cleanup; `ARM_A["selector"] ==
-  real_config(paths)["pkg"]` is unpinned; and the E0‴ lens substitution
-  yields the grammar "events's size" in two cells.
+  real_config(paths)["pkg"]` is unpinned; the E0‴ lens substitution
+  yields the grammar "events's size" in two cells; **added at the final
+  review**: no unit row pins the escape walker's CALLEE walk
+  (`walk_dropped_call`'s `self.visit_expr(&c.func)`) — no test has a dropped
+  call whose callee mentions the bound name; `phase_e6prime`'s step text now
+  prints the selector, so the E6‴ runner's step line changed while its
+  command did not; and `rust/tests/acceptance_schema_e6q.py::_prep`'s
+  `arm_sites_distinct` cell can go null via `dropped = _drop(raw, key)`,
+  which can be `[]` — a null with no reason, against the module's own rule,
+  unreachable today because `arm_rows` always writes `distinct`.
+- **`.await`/`?` wrapping a dropped call is not recognized as a dropped
+  site.** `log(&e).await;` and `note(&e)?;` are, after `strip`, an
+  `Expr::Await`/`Expr::Try` over the call, not the call itself, so
+  `walk_dropped_call` does not match and the borrow ESCAPES — the safe
+  direction (a lost AMBIGUOUS read, never a false SWALLOWED). Not exercised
+  on the bloomery clone (E-flip's 11 changed rows == the frozen census
+  delta) and not measured elsewhere. A later slice may unwrap
+  `Expr::Await`/`Expr::Try` before matching `Expr::Call`/`Expr::MethodCall`.
 
 ### Process lessons
 
