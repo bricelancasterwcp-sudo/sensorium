@@ -21,7 +21,9 @@ recorded in §2.
 **§1 is byte-locked.** It is committed ALONE, after the transformer change and
 its tests but before any E6‴ number has been read, and it is the plan
 addendum's pre-registration with the two numbers Task 10 measured on the clone
-before this section was written (the arm census, below) filled in. Task 11
+before this section was written (the arm census, below) filled in. It was
+**amended once, dated, before any measurement** — the note is inside §1 itself,
+in "Reported without a gate", so the lock covers it; §2 records both shas. Task 11
 refuses to run if this section differs from the commit that locked it —
 compared with `awk '/^## 1/,/^## 2/'`, both shas recorded in §2. A completed
 measurement is never re-rolled, and a miss is a STOP with its number.
@@ -38,6 +40,8 @@ measurement is never re-rolled, and a miss is a STOP with its number.
 Lens for every endpoint: dev profile; the clone at `e209ed9`; the driver built `--release` from this branch's HEAD at run time (commit + sha256 recorded); warm target (stated); `~/workspace/bloomery` untouched (HEAD/porcelain before and after); loads recorded at every arm's start; nothing gated on a wall.
 
 **Reported without a gate:** the total lines per disposition in BOTH arms (E6‴-A and E6‴-W), side by side, so the widening's cost in volume is visible; the executed-versus-static count of the blast-radius arms (above); and the clone's arm census across the repair, measured by Task 10 with `SENSORIUM_BLOOMERY_CLONE` at `e209ed9` before this section was locked — **arms escaped 90 → 121, arms handled 96 → 65** (31 arms moved), with every other census number unchanged (191 files, 2051 eligible, 401 `?` as syn nodes and 401 wrapped, 1 `?` in macro tokens, 302 sinks, 225 arm sites, 39 propagate, 0 panic, 9 closure frames, 8 spawns wrapped, 0 line moves, 0 re-parse failures). The Task-8 reviewer's static scan of the same tree estimated ~32; the measured number is 31 and no rule was tuned toward the estimate.
+
+**Amended 2026-09-05, after `33396b0` and before any E6‴ number was read** (fix round 1 of the R2 amendment, commit `321e204`): the escape test's catch-all branch now scans string LITERALS as well as idents for every macro outside the logging family, so a bound name written as a format placeholder inside `anyhow!("{e}")`, `bail!`, `format_err!`, `ensure!` or a workspace render macro escapes rather than reading HANDLED — the same false-accusation class the amendment was written for, reached through a macro the amendment did not name. The frozen numbers above stand unaltered, and this change moved **0** further arms: the clone census re-run read-only at `e209ed9` is byte-for-byte the same, **arms handled 65 / arms escaped 121**, with every other pin unchanged. Corroborated independently: the clone contains 0 occurrences of `anyhow!`, `bail!`, `format_err!` and `ensure!`, so the hole's exposure on THIS tree is zero — a fact about bloomery, not about the rule. E6‴-W is where a non-zero exposure would show up, and its gate is unchanged.
 
 ## 2. Environment
 
