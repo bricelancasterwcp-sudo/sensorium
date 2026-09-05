@@ -81,6 +81,7 @@ LOGS = BASE / "logs"
 lib.LEDGER = LEDGER
 lib.LOGS = LOGS
 
+import acceptance_grain_phases as gph                              # noqa: E402
 import acceptance_phases as ph                                     # noqa: E402
 import acceptance_rung3 as rung3                                   # noqa: E402
 from acceptance_e6ppp import LOADS                                # noqa: E402
@@ -107,9 +108,16 @@ from acceptance_lib import (LOAD_CEILING, REPO_DISK_FLOOR_GB,      # noqa: E402
 # slice's workspace, and `acceptance_e6ppp` at the E6‴ document's. Without
 # this second assignment every log written outside a `logs_at` block would
 # land beside another record (measured on the 2026-09-05 E6‴ run).
+#
+# `gph.LOGS` is the THIRD pointer and is assigned here for the same reason:
+# the phases moved into `acceptance_grain_phases` in fix round 1 and each one
+# opens `logs_at(LOGS / "<phase>")` in ITS OWN namespace, where the name has
+# to exist. It did not, and the first launch of 2026-09-05 died in H2 on
+# `NameError: name 'LOGS' is not defined` before any measurement was taken.
 lib.LEDGER = LEDGER
 lib.LOGS = LOGS
 ph.LOGS = LOGS
+gph.LOGS = LOGS
 
 DOC = (REPO / "docs" / "superpowers" / "acceptance"
        / "2026-09-05-sensorium-rung4-entry-grain.md")

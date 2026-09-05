@@ -34,6 +34,25 @@ from acceptance_grain_read import (ARMS, MULTI, compare_sites, measure_sites,
 from acceptance_lib import (REPO, plain_env, run, sensorium_cli,   # noqa: F401
                             sha256_file, step)
 
+#: The run's log ROOT -- the directory each phase opens its own `logs_at`
+#: subdirectory under. DECLARED here so the name exists in the namespace the
+#: phases resolve it in, and `None` here because this module owns no
+#: location: `acceptance_grain` assigns it beside `acceptance_lib.LOGS` and
+#: `acceptance_phases.LOGS`, from the same `BASE / "logs"` every other
+#: pointer comes from. A phase reached without that assignment fails loudly
+#: on `None / "h2"` instead of writing a run's evidence somewhere plausible
+#: and wrong -- which is the failure a default copied from `lib.LOGS` would
+#: have hidden, since `lib.LOGS` happens to hold this run's root at the
+#: moment this module is imported and would stop doing so on any import
+#: reorder.
+#:
+#: It is NOT what `logs_at` rebinds. `logs_at` moves `lib.LOGS`/`ph.LOGS` --
+#: the pointers `acceptance_lib.run` resolves at call time -- and restores
+#: them; this one stays the root for the whole run, which is why every
+#: `logs_at(LOGS / "<phase>")` below names a sibling directory rather than
+#: nesting inside the previous phase's.
+LOGS: Path | None = None
+
 # ------------------------------------------------------------- H2, H3, H4
 
 

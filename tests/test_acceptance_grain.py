@@ -761,3 +761,74 @@ def test_a_named_member_is_not_mistaken_for_the_banner():
     h = runner.parse_header(INVOCATION)
     assert h["incomplete"] == ["r3"]
     assert h["incomplete_banner"] is False
+
+
+# -- fix round 2: every phase's log root exists in ITS OWN namespace --------
+
+
+def test_the_runner_gives_the_phases_module_the_run_s_log_root():
+    """The wiring the first launch of 2026-09-05 died on.
+
+    Fix round 1 moved the five phases out of `acceptance_grain.py` into
+    `acceptance_grain_phases.py`, and each one opens `logs_at(LOGS /
+    "<phase>")` in the namespace it now lives in. The front door assigned
+    `acceptance_lib.LOGS` and `acceptance_phases.LOGS` and not that third
+    pointer, so H2 raised `NameError: name 'LOGS' is not defined` fourteen
+    seconds into a detached run -- after the byte-lock, the preflight and the
+    oracle, and before one number was measured. This asserts the assignment
+    the runner makes, not the default the module carries."""
+    assert phases.LOGS == runner.LOGS
+    assert runner.LOGS == runner.BASE / "logs"
+
+
+def test_phase_h2_opens_its_log_directory_under_that_root(tmp_path, monkeypatch):
+    """...and the phase actually RUNS with it: `monkeypatch.setattr` refuses
+    a name the module does not define, and `logs_at` is the first statement
+    inside every phase, so this is the crash reproduced end to end with the
+    two box-touching calls stubbed out."""
+    answer = ("raised (1):\n"
+              "  e1 HANDLED f handled io::Error('x') L156\n"
+              "    SWALLOWED -- absorbed by sink_ok at e1 (f L156) in f1, "
+              "which returned ok\n"
+              "dispositions: swallowed 1\n")
+    monkeypatch.setattr(phases, "LOGS", tmp_path / "logs")
+    monkeypatch.setattr(phases, "_ask", lambda *a, **k: {
+        "rc": 0, "out": answer, "err": "", "wall": 0.01,
+        "log": str(tmp_path / "logs" / "h2" / "cli-h2-a.log"),
+        "command": "sensorium exceptions <run> --limit 100000",
+        "timed_out": False, "stdout_bytes": len(answer),
+        "stdout_lines": len(answer.splitlines())})
+    monkeypatch.setattr(phases, "measure_sites", lambda *a, **k: {
+        "sites": Counter({("/w/memory.rs", 156): 1}), "groups": 1,
+        "chains": 1, "unresolved_count": 0, "unresolved": [],
+        "runs_named": {"20260905-091115-5da3dc"}})
+    orc = {"a": Counter({("/w/memory.rs", 156): 1}),
+           "per_process": {"a": {"20260905-091115-5da3dc":
+                                 "dispositions: swallowed 1"}}}
+    out = phases.phase_h2({"e6q_stores": tmp_path / "e6q",
+                           "sensorium_dir": tmp_path / "fresh"},
+                          {"limit": 100000, "cli_timeout": 99}, orc)
+    assert (tmp_path / "logs" / "h2").is_dir()
+    assert out["groups"] == 1 and out["chains"] == 1
+    assert out["tally_line_equal"] is True
+    assert out["compare"]["differences"] == 0
+
+
+def test_the_phases_module_declares_the_name_and_owns_no_location():
+    """The other half, tested where the runner's assignment cannot mask it: a
+    FRESH load of the module, with no front door to hand it a pointer.
+
+    The name must EXIST (a module that defined it nowhere would still look
+    wired inside this suite, because importing `acceptance_grain` creates the
+    attribute) and must hold no location: a default copied from
+    `acceptance_lib.LOGS` would equal this run's root today, by the order the
+    front door happens to import in, and would silently stop doing so on any
+    reorder -- writing an hour of evidence somewhere plausible and wrong."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "acceptance_grain_phases__fresh",
+        REPO / "rust" / "tests" / "acceptance_grain_phases.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert "LOGS" in vars(mod)
+    assert mod.LOGS is None
