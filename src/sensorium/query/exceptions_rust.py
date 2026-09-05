@@ -523,32 +523,46 @@ def _header(trace, idx) -> None:
     caps.print_incomplete(
         trace, "an Err whose fate was recorded after the cut is not below, "
                "and its absence here is not evidence it had none")
-    if idx.panics:
-        # An answer of "no exceptions recorded" about a run that panicked
-        # is a false negative, and a tally with no panic in it reads as one
-        # even when chains ARE listed.
-        print(f"panics: {idx.panics} recorded -- this command judges Err "
-              "flow; a panic is a frame's unwind, printed by `tree` and "
-              "`frame`")
+    _print_panics(idx.panics)
     _print_partial(idx.partial)
 
 
-def _print_partial(rows) -> None:
+def _print_panics(panics: int) -> None:
+    """An answer of "no exceptions recorded" about a run that panicked is a
+    false negative, and a tally with no panic in it reads as one even when
+    chains ARE listed. One spelling, shared with invocation mode, which
+    prints the SUM over its members."""
+    if not panics:
+        return
+    print(f"panics: {panics} recorded -- this command judges Err flow; a "
+          "panic is a frame's unwind, printed by `tree` and `frame`")
+
+
+def _print_partial(rows, runs=None, hint="sensorium info") -> None:
     """`meta.partial` (design R6): `?` sites the transformer could not
     reach. Printed BEFORE the answer because it qualifies the whole of it --
     an `Err` raised at one of these sites is recorded by nothing, so its
-    absence from the list below says nothing about the program."""
+    absence from the list below says nothing about the program.
+
+    `runs` is invocation mode's parallel list of the run id each row came
+    from -- there the union spans processes, and a row that did not say
+    which one it came from would name a site the reader cannot go and look
+    at. `None` in single-run mode, where the process is the ref the reader
+    already typed. `hint` is the continuation for the rows the cap hides,
+    which that mode narrows to a member when they are all one member's.
+    """
     if not rows:
         return
     noun = "?-site" if len(rows) == 1 else "?-sites"
     print(f"partial: {len(rows)} {noun} the transformer could not reach -- "
           "an Err raised at one is recorded by nothing and appears nowhere "
           "below")
-    for r in rows[:PARTIAL_SHOWN]:
+    for i, r in enumerate(rows[:PARTIAL_SHOWN]):
+        where = f" in {runs[i]}" if runs else ""
         print(f"  {r.get('qualname', '?')} {r.get('file', '?')}:"
-              f"{r.get('line', '?')} ({r.get('reason', '?')})")
+              f"{r.get('line', '?')} ({r.get('reason', '?')}){where}")
     if len(rows) > PARTIAL_SHOWN:
-        print(f"  ... {len(rows) - PARTIAL_SHOWN} more (sensorium info)")
+        print(f"  ... {len(rows) - PARTIAL_SHOWN} more ({hint})")
 
 
 def run(trace, args, after: int) -> int:

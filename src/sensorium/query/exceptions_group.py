@@ -230,6 +230,30 @@ def vary_lines(shape: Shape) -> list[str]:
     return lines
 
 
+def print_shape(trace, shape: Shape, bracket_text: str | None = None) -> None:
+    """One shape's block: the first member's chain, printed exactly as a
+    lone chain would be, plus the bracket naming the group.
+
+    `bracket_text` is passed by INVOCATION mode (`exceptions_invocation`),
+    whose bracket names processes rather than sibling event ids -- an id
+    list would name events of traces the reader did not ask about. The
+    block itself is the same one in both modes, printed here and nowhere
+    else: two renderers of one block are two places for the sentences to
+    drift apart.
+    """
+    chain, d = shape.first, shape.disposition
+    text = bracket(shape) if bracket_text is None else bracket_text
+    print("  " + fmt_event(trace, chain.origin))
+    print("    " + d.verdict + text)
+    if d.detail:
+        print("      " + d.detail)
+    hops = _hops_line(trace, chain)
+    if hops:
+        print("      " + hops)
+    for line in vary_lines(shape):
+        print("      " + line)
+
+
 def print_shapes(trace, shapes, limit: int) -> int:
     """Print up to `limit` shapes; return how many were printed.
 
@@ -241,15 +265,6 @@ def print_shapes(trace, shapes, limit: int) -> int:
     for shape in shapes:
         if shown >= limit:
             break
-        chain, d = shape.first, shape.disposition
-        print("  " + fmt_event(trace, chain.origin))
-        print("    " + d.verdict + bracket(shape))
-        if d.detail:
-            print("      " + d.detail)
-        hops = _hops_line(trace, chain)
-        if hops:
-            print("      " + hops)
-        for line in vary_lines(shape):
-            print("      " + line)
+        print_shape(trace, shape)
         shown += 1
     return shown

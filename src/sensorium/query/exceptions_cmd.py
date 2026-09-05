@@ -652,7 +652,26 @@ def run(args) -> int:
     # accepting a malformed --after there would silently answer a different
     # question than the one asked.
     after = parse_eref(args.after) if args.after else 0
-    trace = Trace.open(paths.find_trace(args.run))
+    try:
+        path = paths.find_trace(args.run)
+    except paths.TraceLookupError as e:
+        # ONLY "this ref names no trace" opens the second namespace (design
+        # N6). An ambiguous run prefix, or a store with no traces at all,
+        # is already an answered question and keeps the answer it had: a
+        # ref that resolves to a TRACE, or that fails for any other reason,
+        # is never re-read as an invocation id.
+        #
+        # Local: `exceptions_invocation` imports this module's Rust sibling,
+        # which imports `Disposition` from here.
+        if not str(e).startswith("no trace matches"):
+            raise
+        from sensorium.query import exceptions_invocation
+        # `InvocationLookupError` is a `TraceLookupError`, so a ref that
+        # names neither namespace is rendered by `cli.main` exactly as a
+        # bad run ref always has been -- one line on stderr, exit 2.
+        inv, members = exceptions_invocation.resolve_invocation(args.run)
+        return exceptions_invocation.run(args, inv, members)
+    trace = Trace.open(path)
     if trace.lang == "rust":
         # Dispatched on `lang` FIRST (design R9), before any Python rule
         # touches the trace: an `Err` is a value being returned, and the
