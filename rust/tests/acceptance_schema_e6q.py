@@ -74,10 +74,18 @@ GUARDED_PROVENANCE_E6Q = "hand adjudication, §5 of this document"
 
 
 def _frozen(raw) -> dict:
-    """§1's frozen census, from wherever the run recorded it. Never
-    re-derived: a denominator computed at run time is not a frozen one."""
+    """§1's frozen census -- the FIVE numbers §1 carries -- from wherever the
+    run recorded it. Never re-derived: a denominator computed at run time is
+    not a frozen one."""
     return (raw.get("frozen_census")
             or (raw.get("config") or {}).get("frozen_census") or {})
+
+
+def _ledger_census(raw) -> dict:
+    """Census numbers the T0/T1 runs read that §1 does NOT freeze. Published
+    beside the frozen five, never under their label."""
+    return (raw.get("ledger_census")
+            or (raw.get("config") or {}).get("ledger_census") or {})
 
 
 def _arm(raw, spec: dict) -> dict:
@@ -268,6 +276,7 @@ def _flip(raw) -> dict:
             + lens, dropped),
         "frozen_delta": delta,
         "frozen_census": frozen,
+        "ledger_census": _ledger_census(raw),
         "named": f.get("named"),
         "transitions": tr,
         "changed": f.get("changed"),
@@ -277,6 +286,24 @@ def _flip(raw) -> dict:
         "sites_before": f.get("sites_before"),
         "sites_after": f.get("sites_after"),
     }
+
+
+#: The rung-3 lens names the trace E0″ read. This run passes the E6⁗-WS arm's
+#: process with the most events, so the string is rewritten -- and ONLY the
+#: string: the numbers, the shape and the 60 s gate are the committed
+#: function's, because a second copy would be a second protocol.
+E0_LENS_WAS = "E6' trace"
+E0_LENS_IS = "E6⁗-WS process with the most events"
+
+
+def _e0ppp(raw) -> dict:
+    """E0‴: `acceptance_schema_rung3._e0pp` over this document's raw key,
+    with the lens saying which trace was actually read."""
+    block = _e0pp({"raw_e0pp": raw.get("raw_e0ppp")})
+    for cell in block.values():
+        if isinstance(cell, dict) and isinstance(cell.get("lens"), str):
+            cell["lens"] = cell["lens"].replace(E0_LENS_WAS, E0_LENS_IS)
+    return block
 
 
 def _dispositions(raw) -> dict:
@@ -315,12 +342,19 @@ def _executed_flipped(raw) -> dict:
     for spec in ARMS.values():
         label = spec["key"].removeprefix("raw_arm_")
         e = ev.get(label) or {}
+        # A null ALWAYS carries its reason: without one the renderer prints
+        # `not measured (no reason recorded)`, which is this module's own rule
+        # broken at the cell that says which arms the run reached.
+        dropped = [*_drop(raw, spec["key"])] if not e else []
+        if not e and not dropped:
+            dropped = ["the flip set was not joined against this arm's "
+                       "traces on this run"]
         out[spec["label"]] = {
             "executed": meas(e.get("executed"), e.get("static"),
                              f"{spec['label']}: flipped arm sites this arm "
                              f"EXECUTED (a HANDLED event whose `how` starts "
                              f"`arm_` at that site), of the flipped sites",
-                             []),
+                             dropped),
             "executed_rows": [{"file": r.get("file"), "line": r.get("line"),
                                "qualname": r.get("qualname"),
                                "events": r.get("events")}
@@ -341,6 +375,11 @@ def _prep(raw, key: str) -> dict:
     r = raw.get(key) or {}
     b = r.get("build") or {}
     arms = r.get("arms") or {}
+    # As above: a prep that did not run, or that dropped, must say so rather
+    # than render as `not measured (no reason recorded)`.
+    dropped = _drop(raw, key)
+    if not arms and not dropped:
+        dropped = ["this prep build recorded no `kind: \"arm\"` manifest rows"]
     return {
         "label": r.get("label"), "driver": r.get("driver"),
         "driver_sha256": r.get("driver_sha256"), "target": r.get("target"),
@@ -352,7 +391,9 @@ def _prep(raw, key: str) -> dict:
         "log": b.get("log"),
         "arm_sites_distinct": meas(arms.get("distinct"), None,
                                    "distinct (file, line) `kind: \"arm\"` "
-                                   "manifest rows of this build", []),
+                                   "manifest rows of this build",
+                                   dropped if arms.get("distinct") is None
+                                   else []),
         "arm_sites_raw": arms.get("raw"),
         "arm_sites_by_how": arms.get("by_how"),
         "dropped": r.get("dropped"),
@@ -447,6 +488,7 @@ def assemble_e6q(raw: dict) -> dict:
             "target_disk_free_gb_after": cl.get("target_disk_free_gb_after"),
             "repo_disk_free_gb": pins.get("repo_disk_free_gb"),
             "frozen_census": _frozen(raw),
+            "ledger_census": _ledger_census(raw),
         },
         "endpoints": {
             "E6qA": _arm(raw, ARMS["E6qA"]),
@@ -455,7 +497,7 @@ def assemble_e6q(raw: dict) -> dict:
             "Eflip": _flip(raw),
             "E6again": _e6(raw),
             "E7q": _e7pp(raw),
-            "E0ppp": _e0pp({"raw_e0pp": raw.get("raw_e0ppp")}),
+            "E0ppp": _e0ppp(raw),
         },
         "reported": {
             "dispositions": _dispositions(raw),

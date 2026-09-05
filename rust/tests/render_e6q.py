@@ -139,17 +139,24 @@ def environment(r) -> list[str]:
         ("disk free on the target's filesystem, before / after",
          f"{env.get('target_disk_free_gb')} GB / "
          f"{env.get('target_disk_free_gb_after')} GB"),
-        ("§1's frozen census (Tasks 0 and 1, before the lock)",
+        ("§1's frozen census (Tasks 0 and 1, before the lock) — the five "
+         "numbers §1 carries",
          ", ".join(f"{k} {v}" for k, v in
                    (env.get("frozen_census") or {}).items())),
+        ("census numbers from the T0/T1 ledger that §1 does NOT freeze",
+         ", ".join(f"{k} {v}" for k, v in
+                   (env.get("ledger_census") or {}).items())),
     ]
     out += ["| Pin | Value |", "|---|---|"]
     out += [f"| {k} | {v} |" for k, v in pins]
     out += ["", f"**Log locations.** Every command's log is under "
                 f"`{env.get('logs_dir')}`, one subdirectory per phase "
                 f"(`built-from`, `prep-head`, `prep-base`, `arm-a`, `arm-ws`, "
-                f"`arm-ws0`, `e6-again`, `e7q`, `e0ppp`). The two prep "
-                f"builds' own logs: `{env.get('prep_head_log')}` and "
+                f"`arm-ws0`, `e6-again`, `e7q`, `e0ppp`). Each prep build "
+                f"opens its own `logs_at` block inside itself, so its "
+                f"`cargo -v` log lands under that prep's directory and the "
+                f"two cannot overwrite each other: "
+                f"`{env.get('prep_head_log')}` and "
                 f"`{env.get('prep_base_log')}`.", ""]
     loads = env.get("load_at_each_arm") or []
     out += ["1-minute load at each phase's start: "
@@ -234,7 +241,9 @@ def _flip(r) -> list[str]:
         out.append(row(label, e.get(k)))
     out += ["",
             f"Transitions: `{e.get('transitions')}`; frozen delta "
-            f"{e.get('frozen_delta')} from `{e.get('frozen_census')}`.  ",
+            f"{e.get('frozen_delta')} from `{e.get('frozen_census')}` (§1's "
+            f"five). Beside them, not frozen in §1: "
+            f"`{e.get('ledger_census')}`.  ",
             f"Arm sites declared: BASE {e.get('sites_before')}, HEAD "
             f"{e.get('sites_after')}.  ",
             f"Rows declared with more than one `how` (excluded from the "

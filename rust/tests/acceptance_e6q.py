@@ -136,13 +136,21 @@ NAMED_ROWS = ["crates/bloomery-daemon/src/api_v1.rs:396",
 HANDLED, AMBIGUOUS = "arm_handled", "arm_ambiguous"
 ALLOWED_TRANSITION = f"{HANDLED}->{AMBIGUOUS}"
 
-#: §1's frozen census: the numbers Tasks 0 and 1 measured on the clone across
-#: the repair, read BEFORE the lock and repeated here as the pins the record
-#: cites rather than re-derives. The E-flip gate's delta is
-#: `arms_handled_before - arms_handled_after` = 11.
+#: §1's frozen census: the FIVE numbers §1 freezes, measured by Tasks 0 and 1
+#: on the clone across the repair, read BEFORE the lock and repeated here as
+#: the pins the record cites rather than re-derives. The E-flip gate's delta
+#: is `arms_handled_before - arms_handled_after` = 11.
 FROZEN_CENSUS = {"arms_handled_before": 65, "arms_handled_after": 54,
                  "arms_escaped_before": 121, "arms_escaped_after": 132,
-                 "arm_sites": 225, "arms_propagate": 39, "source": "§1"}
+                 "arm_sites": 225, "source": "§1"}
+
+#: A census number the T0/T1 runs also read, which §1 does NOT freeze. It is
+#: published beside the frozen five and never under their label: a number
+#: stamped "§1" that §1 does not carry would give a ledger line the standing
+#: of a pre-registered pin.
+LEDGER_CENSUS = {"arms_propagate": 39,
+                 "source": "T0/T1 ledger census lines (unchanged across the "
+                           "repair); NOT frozen in §1"}
 
 #: The three locations the control arm adds, and the `paths` keys they land
 #: under. Missing ones are refused together.
@@ -249,6 +257,7 @@ def e6q_config(paths) -> dict:
         "e6_workdir": LOGS / "e6-cases",
         "arms": {a["label"]: a for a in ARMS},
         "frozen_census": FROZEN_CENSUS,
+        "ledger_census": LEDGER_CENSUS,
         "base_commit": BASE_COMMIT,
         "named_rows": list(NAMED_ROWS),
     })
@@ -472,12 +481,27 @@ def lines_at_flipped_sites(parsed: list, flip: dict, clone_root: str) -> dict:
 def _prep(paths, cfg, label: str, arm=None) -> dict:
     """One from-scratch `--workspace --no-run` build, in its own log
     directory. PREP, never an endpoint: it empties its target so every unit
-    is compiled by THAT build's driver and the manifest set is complete."""
+    is compiled by THAT build's driver and the manifest set is complete.
+
+    `e6ppp.LOGS` is bound to this prep's directory for the duration, and not
+    only `lib.LOGS`/`ph.LOGS` through `logs_at`: `phase_prep_build` opens its
+    OWN `logs_at(LOGS / "prep")` block, and that `LOGS` resolves in
+    `acceptance_e6ppp`'s namespace (that is the phase owning where it logs --
+    the E6‴ §2 lesson). With the module global left at this document's root
+    BOTH preps would write `prep/prep-workspace.log`, the BASE prep would
+    destroy the HEAD prep's `cargo -v` log, and the record would publish one
+    file under two names."""
     p = paths if arm is None else arm_paths_for(paths, arm)
+    here = LOGS / f"prep-{label}"
     step(f"prep ({label}): from-scratch --workspace --no-run into "
          f"{p['sensorium_acceptance_target']}")
-    with logs_at(LOGS / f"prep-{label}"):
-        out = phase_prep_build(p, cfg)
+    saved = e6ppp.LOGS
+    try:
+        e6ppp.LOGS = here
+        with logs_at(here):
+            out = phase_prep_build(p, cfg)
+    finally:
+        e6ppp.LOGS = saved
     out["driver"] = str(p["sensorium_driver"])
     out["driver_sha256"] = sha256_file(p["sensorium_driver"])
     out["target"] = str(p["sensorium_acceptance_target"])
@@ -494,7 +518,8 @@ def main(argv) -> int:
                  "runner": "rust/tests/acceptance_e6q.py",
                  "document": str(DOC.relative_to(REPO)),
                  "ledger": str(LEDGER), "logs": str(LOGS),
-                 "frozen_census": FROZEN_CENSUS}
+                 "frozen_census": FROZEN_CENSUS,
+                 "ledger_census": LEDGER_CENSUS}
     rc = 0
     paths = cfg = pins = None
     try:

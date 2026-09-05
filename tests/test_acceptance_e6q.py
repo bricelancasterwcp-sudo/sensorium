@@ -5,26 +5,23 @@ that it did not itself build in `tmp_path`, or needs an environment variable
 to be set by whoever launched pytest. What it tests is the places this run
 could report a wrong number while every command it ran succeeded:
 
-* the §1 byte-lock on the NEW document -- a lock that compared the wrong
-  slice, or that passed on a changed §1, would let an endpoint move after a
-  number was read; and a runner whose `BYTE_LOCK` is still `None` must REFUSE
-  rather than measure against an unlocked pre-registration;
+* the §1 byte-lock -- a lock that compared the wrong slice, that passed on a
+  changed §1, or that fell through while `BYTE_LOCK` is still `None`, lets an
+  endpoint move after a number is read;
 * the three arms' identity -- A and WS differ only in the selector and the
-  `--lib` tail, and WS0 is WS under the BASE driver, in its OWN target and
-  its OWN trace store. A control that shared the acceptance target or the
-  HEAD driver would be no control at all, and the whole discrimination check
-  (design B5) would be a run of the repaired driver against itself;
-* the flip diff's arithmetic -- E-flip's gate is "every changed row is
-  `arm_handled -> arm_ambiguous` and the count equals the frozen census
-  delta". A transition mislabelled, a row present in one build only, or a
-  named row missing from a build and assumed flipped, each turns that gate
-  into one that cannot fail;
-* the WS0 control's computed evidence -- `lines_at_flipped_sites` counts the
-  control's SWALLOWED lines that land at a flipped site. It is EVIDENCE for
-  the hand adjudication of §4 and never its verdict, so the `discriminating`
-  cell stays `null`;
-* the schema's none-versus-zero discipline -- no arm's false-accusation count
-  may ever be invented, because §1 asks for a reading of the clone's source.
+  `--lib` tail; WS0 is WS under the BASE driver in its OWN target and trace
+  store, and a control sharing either would be the repaired driver run
+  against itself (design B5);
+* the two prep builds -- each is one half of the flip diff, and they must not
+  overwrite each other's log or each other's driver and target;
+* the flip diff's arithmetic -- a transition mislabelled, a row present in
+  one build only, or a named row missing and assumed flipped, each turns
+  E-flip's gate into one that cannot fail;
+* the provenance of every published number -- `source: "§1"` covers the five
+  numbers §1 freezes and no sixth;
+* none-versus-zero -- no arm's false-accusation count and no control verdict
+  may ever be invented (§1 asks for a reading of the clone's source), and
+  every null carries its reason.
 
 Every test states the failure it would catch. The mutations run against them
 are in the task report.
@@ -52,15 +49,12 @@ from acceptance_lib import Refused, driver_cmd                     # noqa: E402
 from acceptance_schema_e6q import assemble_e6q                     # noqa: E402
 
 # Importing the runner re-points the SHARED log pointers at THIS document's
-# workspace -- that is the runner's job, and
-# `test_importing_the_runner_leaves_the_shared_log_pointer_on_THIS_document`
-# below pins it by reloading the module. But `tests/test_acceptance_e6ppp.py`
-# asserts the SAME invariant for ITS runner, and both modules are imported at
-# COLLECTION time, so whichever pytest collected last would otherwise own the
-# pointer and the sibling assertion would fail on collection order alone.
-# Restoring the E6‴ runner's pointers here makes both suites order-independent
-# and costs nothing: every phase this runner runs is inside a `logs_at` block
-# that sets the pointer itself.
+# workspace (the runner's job; the reload test at the end pins it). But
+# `tests/test_acceptance_e6ppp.py` asserts the SAME invariant for ITS runner
+# and both modules are imported at COLLECTION time, so whichever pytest
+# collected last would own the pointer and the sibling assertion would fail on
+# collection order alone. Restoring E6‴'s pointers here makes both suites
+# order-independent and costs nothing: every phase runs inside a `logs_at`.
 lib.LOGS, lib.LEDGER, ph.LOGS = e6ppp.LOGS, e6ppp.LEDGER, e6ppp.LOGS
 
 
@@ -160,11 +154,9 @@ def _paths(tmp_path) -> dict:
 
 def test_the_two_head_arms_differ_only_in_the_selector_and_the_lib_tail(
         tmp_path):
-    """§1 states one difference between E6⁗-A and E6⁗-WS: `-p bloomery-daemon
-    --lib` becomes `--workspace` with no `--lib`. A WS arm that quietly kept
-    `--lib` would measure E6‴-W again -- the arm that reached 2 of 29
-    blast-radius arms -- and the repaired shapes live behind the integration
-    tests `--lib` does not run."""
+    """A WS arm that quietly kept `--lib` would measure E6‴-W again -- the arm
+    that reached 2 of 29 blast-radius arms -- and the shapes B1 repairs live
+    behind the integration tests `--lib` does not run."""
     p = _paths(tmp_path)
     a = driver_cmd(p, *runner.ARM_A["selector"], *runner.ARM_A["tail"])
     ws = driver_cmd(p, *runner.ARM_WS["selector"], *runner.ARM_WS["tail"])
@@ -175,11 +167,10 @@ def test_the_two_head_arms_differ_only_in_the_selector_and_the_lib_tail(
 
 def test_the_control_arm_is_the_ws_arm_under_the_base_driver_in_its_own_target_and_store(
         tmp_path):
-    """Design B5: the control is the SAME command under the PRE-repair driver.
-    Sharing the acceptance target would let it run test binaries the HEAD
-    driver compiled (the transformer's output is baked into the binary), and
-    sharing the trace store would let the sweep read the other arm's
-    processes -- either way the control would not be measuring the old rule."""
+    """Design B5: the SAME command under the PRE-repair driver. Sharing the
+    acceptance target would run test binaries the HEAD driver compiled (the
+    transformer's output is baked in); sharing the trace store would let the
+    sweep read the other arm's processes."""
     p = _paths(tmp_path)
     ws = runner.arm_paths_for(p, runner.ARM_WS)
     ws0 = runner.arm_paths_for(p, runner.ARM_WS0)
@@ -215,10 +206,9 @@ def test_each_arm_records_into_its_own_trace_directory(tmp_path):
 
 def test_the_three_control_locations_are_refused_TOGETHER_when_unset(
         monkeypatch, tmp_path):
-    """One launch must report every missing variable, not one per attempt --
-    `acceptance_lib.env_paths`' own rule, extended to the three locations the
-    control arm adds. A control launched with two of the three set would run
-    the base driver into the ACCEPTANCE target."""
+    """One launch reports every missing variable, not one per attempt
+    (`env_paths`' own rule). A control launched with two of the three set
+    would run the base driver into the ACCEPTANCE target."""
     for k in ("SENSORIUM_BLOOMERY_CLONE", "SENSORIUM_ACCEPTANCE_TARGET",
               "SENSORIUM_DIR", "SENSORIUM_DRIVER", "SENSORIUM_CENSUS_DRIVER",
               "SENSORIUM_PROBE_TARGET"):
@@ -256,11 +246,10 @@ def _base_driver(tmp_path):
 
 def test_the_base_driver_is_verified_by_its_worktrees_commit_never_by_running_it(
         tmp_path):
-    """`cargo-sensorium` has no `--version` flag (measured at Task 0), and a
-    runner that invoked the binary to identify it would either crash or
-    quietly accept whatever it printed. The identity is the worktree's HEAD
-    plus the binary's sha256; the driver's own version string is read AFTER
-    the run, out of the trace the arm wrote."""
+    """`cargo-sensorium` has no `--version` flag (measured at Task 0): a runner
+    that invoked the binary would crash or accept whatever it printed. The
+    identity is the worktree's HEAD plus the binary's sha256; the version
+    string is read AFTER the run, out of the trace the arm wrote."""
     p = _paths(tmp_path)
     p["sensorium_base_driver"] = _base_driver(tmp_path)
     p["sensorium_control_target"].mkdir()
@@ -316,10 +305,9 @@ def _trace_meta(paths, run_id, meta: dict):
 
 def test_each_arms_driver_version_is_read_from_the_trace_that_arm_wrote(
         tmp_path):
-    """The record must be able to show `cargo-sensorium 0.3.0` for the control
-    and the repaired version for the HEAD arms. The only place the driver says
-    what it is, is the trace it wrote -- so that is where it is read from,
-    after the run, rather than asserted by the operator."""
+    """The record must show `cargo-sensorium 0.3.0` for the control and the
+    repaired version for the HEAD arms. The only place the driver says what it
+    is, is the trace it wrote."""
     p = _paths(tmp_path)
     _trace_meta(p, "r1", {"driver_version": "cargo-sensorium 0.3.0",
                           "tool_hash": "abc"})
@@ -411,9 +399,8 @@ def test_a_row_carrying_two_hows_is_reported_and_kept_out_of_the_transitions():
 
 
 def test_the_flip_set_feeds_the_committed_executed_vs_static_reader():
-    """§1 reports, of the flip set, which arms EXECUTED -- named one by one.
-    The join is the committed E6‴ reader (absolute trace paths against
-    workspace-relative manifest paths), so the flip rows are shaped for it
+    """§1 reports which of the flipped arms EXECUTED, named one by one. The
+    join is the committed E6‴ reader, so the flip rows are shaped for it
     rather than joined a second way."""
     flip = {"changed": [{"file": "src/a.rs", "line": 10, "qualname": "f",
                          "before": "arm_handled", "after": "arm_ambiguous"},
@@ -438,11 +425,10 @@ def test_control_lines_at_flipped_sites_is_computed_only_over_the_flip_set():
 
 
 def test_lines_at_flipped_sites_reads_the_sink_dict_the_collector_actually_writes():
-    """`acceptance_phases_rung3._sink_files` attaches the sink as a DICT
-    (`{file, line, ...}`), not as a `"<file>:<line>"` string. A reader that
-    understood only one shape would count 0 on the real record and read as
-    "the control reached nothing" -- the strongest possible wrong answer for
-    a discrimination control."""
+    """`_sink_files` attaches the sink as a DICT, not a `"<file>:<line>"`
+    string. A reader that understood one shape only would count 0 on the real
+    record and read as "the control reached nothing" -- the strongest possible
+    wrong answer for a discrimination control."""
     flip = {"changed": [{"file": "crates/x/src/a.rs", "line": 5}]}
     parsed = [{"sink": {"file": "/clone/crates/x/src/a.rs", "line": 5,
                         "qualname": "f"}},
@@ -459,6 +445,69 @@ def test_a_sink_outside_the_clone_root_is_counted_and_reported():
     out = runner.lines_at_flipped_sites(parsed, flip, "/clone")
     assert out["count"] == 0
     assert out["not_under_the_clone_root"] == 1 and out["unresolved"] == 1
+
+
+# -- the two prep builds ---------------------------------------------------
+
+
+def test_each_prep_build_logs_under_its_OWN_directory(tmp_path, monkeypatch):
+    """`phase_prep_build` re-points logging INSIDE itself, resolving
+    `acceptance_e6ppp.LOGS` in ITS namespace. Left at this document's log
+    root, BOTH preps write `logs/prep/prep-workspace.log`: the BASE prep (it
+    runs second) destroys the HEAD prep's `cargo -v` log -- the evidence of
+    which units that build compiled -- and the record publishes one file under
+    two names. The wrapper binds the global and restores it."""
+    seen = []
+
+    def fake_prep(p, cfg):
+        seen.append(e6ppp.LOGS)
+        return {"build": {"log": str(e6ppp.LOGS / "prep" /
+                                     "prep-workspace.log")}}
+
+    monkeypatch.setattr(runner, "phase_prep_build", fake_prep)
+    monkeypatch.setattr(runner, "LOGS", tmp_path / "logs")
+    before = e6ppp.LOGS
+    p = _paths(tmp_path)
+    head = runner._prep(p, {}, "head")
+    base = runner._prep(p, {}, "base", runner.ARM_WS0)
+    assert seen == [tmp_path / "logs" / "prep-head",
+                    tmp_path / "logs" / "prep-base"]
+    assert len(set(seen)) == 2
+    assert head["build"]["log"] != base["build"]["log"]
+    assert e6ppp.LOGS == before                      # restored, both times
+
+
+def test_the_prep_wrapper_restores_the_shared_pointer_even_when_the_build_raises(
+        tmp_path, monkeypatch):
+    """A prep that raises must not leave every later phase logging into
+    `prep-base/`."""
+    def boom(p, cfg):
+        raise RuntimeError("cargo died")
+
+    monkeypatch.setattr(runner, "phase_prep_build", boom)
+    monkeypatch.setattr(runner, "LOGS", tmp_path / "logs")
+    before = e6ppp.LOGS
+    with pytest.raises(RuntimeError):
+        runner._prep(_paths(tmp_path), {}, "head")
+    assert e6ppp.LOGS == before
+
+
+def test_the_two_preps_run_under_their_own_driver_and_target(tmp_path,
+                                                             monkeypatch):
+    """The BASE prep must build with the pre-repair driver into the control
+    target: it is the BEFORE half of the flip diff, and a BEFORE built by the
+    HEAD driver would make E-flip a diff of one build against itself."""
+    seen = []
+    monkeypatch.setattr(runner, "phase_prep_build",
+                        lambda p, cfg: seen.append(
+                            (p["sensorium_driver"],
+                             p["sensorium_acceptance_target"])) or {})
+    monkeypatch.setattr(runner, "LOGS", tmp_path / "logs")
+    p = _paths(tmp_path)
+    runner._prep(p, {}, "head")
+    runner._prep(p, {}, "base", runner.ARM_WS0)
+    assert seen == [(p["sensorium_driver"], p["sensorium_acceptance_target"]),
+                    (p["sensorium_base_driver"], p["sensorium_control_target"])]
 
 
 # -- the schema ------------------------------------------------------------
@@ -507,9 +556,8 @@ def test_the_control_verdict_is_not_measured_until_the_hand_adjudication_is_past
 
 
 def test_the_controls_computed_evidence_is_published_beside_its_null_verdict():
-    """A `null` verdict with nothing beside it would leave the hand
-    adjudication with no numbers to work from. The COUNT is computed and
-    published; the verdict is not."""
+    """A null verdict with nothing beside it leaves the hand adjudication no
+    numbers to work from: the COUNT is computed, the verdict is not."""
     doc = assemble_e6q({"raw_arm_ws0": {"swallowed_count": 4,
                                         "union_swallowed_count": 11},
                         "raw_flip_lines": {"ws0": {"count": 2, "lines": [],
@@ -546,16 +594,40 @@ def test_a_flip_diff_without_a_transition_table_is_null_not_a_clean_zero():
     assert h["value"] is None and h["dropped"]
 
 
-def test_the_frozen_census_is_the_ledgers_numbers_and_names_section_1():
+def test_the_frozen_census_is_the_five_numbers_section_1_actually_carries():
     """The delta the flip gate is taken against is FROZEN before the lock. A
     runner that re-derived it at run time would have no frozen denominator at
-    all."""
+    all -- and a number stamped `source: "§1"` that §1 does not carry would
+    give a ledger line the standing of a pre-registered pin."""
     assert runner.FROZEN_CENSUS == {
         "arms_handled_before": 65, "arms_handled_after": 54,
         "arms_escaped_before": 121, "arms_escaped_after": 132,
-        "arm_sites": 225, "arms_propagate": 39, "source": "§1"}
+        "arm_sites": 225, "source": "§1"}
     assert (runner.FROZEN_CENSUS["arms_handled_before"]
             - runner.FROZEN_CENSUS["arms_handled_after"]) == 11
+    # §1 freezes five numbers and no sixth.
+    assert "arms_propagate" not in runner.FROZEN_CENSUS
+    assert len(runner.FROZEN_CENSUS) == 6                # five + the source
+    doc = (runner.DOC.read_text() if runner.DOC.is_file() else "")
+    if doc:
+        s1 = doc[doc.index("## 1. Pre-registration"):doc.index("\n## 2. ")]
+        for k, v in runner.FROZEN_CENSUS.items():
+            if k != "source":
+                assert f"`{k} = {v}`" in s1, k
+        assert "arms_propagate" not in s1
+
+
+def test_the_census_number_section_1_does_not_freeze_carries_its_own_source():
+    """`arms_propagate` is a T0/T1 ledger line, published beside the frozen
+    five and never under their label."""
+    assert runner.LEDGER_CENSUS["arms_propagate"] == 39
+    assert "NOT frozen in §1" in runner.LEDGER_CENSUS["source"]
+    doc = assemble_e6q({"frozen_census": runner.FROZEN_CENSUS,
+                        "ledger_census": runner.LEDGER_CENSUS})
+    env = doc["environment"]
+    assert env["frozen_census"] == runner.FROZEN_CENSUS
+    assert env["ledger_census"] == runner.LEDGER_CENSUS
+    assert "arms_propagate" not in env["frozen_census"]
 
 
 def test_the_schemas_arm_descriptions_match_the_runners_arms():
@@ -588,10 +660,10 @@ def test_an_arm_that_swept_nothing_reports_null_not_a_measured_zero():
 
 
 def test_the_guarded_arm_count_is_null_until_section_5_is_written():
-    """Design B4 wants the guarded-arm count beside both readings. It
-    RESTATES a hand adjudication, and this document's §5 does not exist until
-    the measurement task writes it -- so the cell is null with that reason,
-    never E6‴'s constant borrowed from another arm."""
+    """Design B4 wants the guarded-arm count beside both readings, and it
+    RESTATES a hand adjudication this document's §5 does not carry until the
+    measurement task writes it -- so the cell is null with that reason, never
+    E6‴'s constant borrowed from another document."""
     doc = assemble_e6q(RAW_ARMS)
     for key in ("E6qA", "E6qWS", "E6qWS0"):
         g = doc["endpoints"][key]["guarded_arms"]
@@ -628,7 +700,45 @@ def test_e6again_and_e7q_and_e0ppp_are_the_committed_rung3_schema_not_copies():
     doc = assemble_e6q(raw)
     assert doc["endpoints"]["E6again"] == rung3_e6(raw)
     assert doc["endpoints"]["E7q"] == _e7pp(raw)
-    assert doc["endpoints"]["E0ppp"] == _e0pp({"raw_e0pp": raw["raw_e0ppp"]})
+    # E0‴ is the committed block with ONLY its lens rewritten (below).
+    from acceptance_schema_e6q import E0_LENS_IS, E0_LENS_WAS
+    got, want = doc["endpoints"]["E0ppp"], _e0pp({"raw_e0pp": raw["raw_e0ppp"]})
+    assert set(got) == set(want)
+    for k, v in want.items():
+        if isinstance(v, dict) and isinstance(v.get("lens"), str):
+            assert got[k] == dict(v, lens=v["lens"].replace(E0_LENS_WAS,
+                                                            E0_LENS_IS))
+        else:
+            assert got[k] == v
+
+
+def test_the_e0ppp_lens_names_the_trace_this_run_actually_read():
+    """The rung-3 string says "the E6' trace". This run passes the E6⁗-WS
+    arm's process with the most events, and a lens naming another document's
+    arm would misdescribe every wall in the row."""
+    doc = assemble_e6q({"raw_e0ppp": {"kill_s": 60.0, "run": "r1", "arms": {
+        "info": {"wall": 1.0, "under_ceiling": True}}}})
+    for k in ("headline", "info_wall_s", "diff_wall_s", "max_wall_s"):
+        lens = doc["endpoints"]["E0ppp"][k]["lens"]
+        assert "E6⁗-WS process with the most events" in lens, k
+        assert "E6' trace" not in lens, k
+
+
+def test_a_reported_cell_that_did_not_run_carries_its_reason_not_an_empty_list():
+    """A `null` with an empty `dropped` renders as `not measured (no reason
+    recorded)` — this module's own rule broken at the two cells that say how
+    much of the tree each build declared and which flipped arms each arm
+    reached."""
+    rep = assemble_e6q({})["reported"]
+    for key in ("prep_head", "prep_base"):
+        m = rep[key]["arm_sites_distinct"]
+        assert m["value"] is None and m["dropped"], key
+    for label, e in rep["executed_flipped_arms"].items():
+        assert e["executed"]["value"] is None and e["executed"]["dropped"], label
+    # ... and a cell that DID run keeps its measured value with no reason.
+    ran = assemble_e6q({"raw_prep_head": {"arms": {"distinct": 7}}})
+    m = ran["reported"]["prep_head"]["arm_sites_distinct"]
+    assert m["value"] == 7 and m["dropped"] == []
 
 
 def test_the_renderer_prints_not_measured_rather_than_a_dash():
@@ -670,16 +780,13 @@ def test_logs_at_moves_the_shared_log_directory_and_restores_it(tmp_path):
 
 
 def test_importing_the_runner_leaves_the_shared_log_pointer_on_THIS_document():
-    """`acceptance_rung3` AND `acceptance_e6ppp` both re-point
-    `acceptance_lib.LOGS`/`LEDGER` in their module bodies, and this runner's
-    prep phases call `e6ppp.phase_prep_build`, which resolves `e6ppp.LOGS` and
-    `e6ppp.BASE` in ITS namespace. All five pointers must land on THIS
-    document or a log lands beside another record (the E6‴ §2 lesson).
-
-    Reloaded rather than read off the session: the sibling suite asserts the
-    same invariant for its own runner, and both modules are imported at
-    collection time. The reload re-runs exactly the module body this test is
-    about; the pointers are restored afterwards."""
+    """`acceptance_rung3` AND `acceptance_e6ppp` re-point
+    `acceptance_lib.LOGS`/`LEDGER` in their module bodies, and
+    `e6ppp.phase_prep_build` resolves `e6ppp.LOGS`/`BASE` in ITS namespace.
+    All five must land on THIS document or a log lands beside another record
+    (the E6‴ §2 lesson). Reloaded rather than read off the session, because
+    the sibling suite asserts the same invariant and both modules are imported
+    at collection time; the pointers are restored afterwards."""
     saved = (lib.LOGS, lib.LEDGER, ph.LOGS, e6ppp.LOGS, e6ppp.BASE)
     try:
         importlib.reload(runner)
