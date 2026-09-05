@@ -31,21 +31,6 @@ BY_HAND = ("adjudicated by hand in §4 of the acceptance document, under both "
            "the amended reading (the gate) and the strictest pre-lock reading "
            "of \"merely observed\"")
 
-#: The GUARDED-ARM count of each arm: the SWALLOWED lines whose `Err` binding
-#: is read only by a match GUARD (`Err(e) if e.kind() == io::ErrorKind::
-#: NotFound => { }`), which is the one class §1's "read by a `&self`
-#: predicate" clause does not settle. Design R15 (`1770515`, committed AFTER
-#: the 2026-09-05 run) requires it beside both readings in every acceptance
-#: table.
-#:
-#: These are NOT a new measurement and nothing here derives them. They restate
-#: the number §5.2 of the document already published by hand -- rows 3 and 5
-#: of §4.1, rows 2 and 7 of §4.2 -- and every cell carries that provenance. A
-#: run whose arm printed nothing has nothing to restate and gets `null` with a
-#: reason, never this constant.
-GUARDED_ARMS = {"raw_e6ppp_a": 2, "raw_e6ppp_w": 2}
-GUARDED_PROVENANCE = "hand adjudication, §5.2"
-
 
 def _arm(raw, key: str, selector: str) -> dict:
     """One E6‴ arm, in §1's shape.
@@ -94,20 +79,6 @@ def _arm(raw, key: str, selector: str) -> dict:
             "SWALLOWED lines the collector could not parse into "
             "(how, event, qualname, line) -- anything but 0 means a row of "
             "the adjudication table was assembled by hand", dropped),
-        "guarded_arms": {
-            **meas(GUARDED_ARMS.get(key) if n is not None else None,
-                   union if union is not None else n,
-                   "SWALLOWED lines whose `Err` binding is read ONLY by a "
-                   "match GUARD -- the class §1's \"read by a `&self` "
-                   "predicate\" clause does not settle, reported beside both "
-                   "readings per design R15. NOT a new measurement: it "
-                   "restates the count §5.2 of the document published by "
-                   "hand, and under the letter-reading of that clause these "
-                   "lines would be FALSE and the endpoint a STOP.",
-                   [] if n is not None else
-                   ["the arm did not run, so there is no adjudication to "
-                    "restate"]),
-            "provenance": GUARDED_PROVENANCE},
         "chains_in_scope": meas(r.get("chains_in_scope"), None,
                                 "`raised (N):` on the primary process -- Err "
                                 "chains the command judged", dropped),
@@ -228,7 +199,6 @@ def _prep(raw) -> dict:
         "cargo_exit": b.get("cargo_exit"),
         "units": len(b.get("metadata_units") or []),
         "target_emptied_bytes": r.get("target_emptied_bytes"),
-        "log": (r.get("build") or {}).get("log"),
         "arm_sites_distinct": meas(arms.get("distinct"), None,
                                    "distinct (file, line) `kind: \"arm\"` "
                                    "manifest rows of this build", []),
@@ -291,15 +261,6 @@ def assemble_e6ppp(raw: dict) -> dict:
             "source_bloomery_porcelain_after":
                 cl.get("source_bloomery_porcelain_after"),
             "source_bloomery_unchanged": cl.get("source_bloomery_unchanged"),
-            "built_from": raw.get("raw_built_from") or {
-                "dropped": [
-                    "not recorded: this run's driver was built by the "
-                    "operator before launch and evidenced by its sha256 and "
-                    "mtime (§2, §5.8). `built_from` is recorded by the runner "
-                    "itself from this commit onward"]},
-            "logs_dir": raw.get("logs"),
-            "prep_build_log": ((raw.get("raw_prep") or {}).get("build")
-                               or {}).get("log"),
             "load_1min_at_start": pins.get("load_1min_at_start"),
             "load_at_each_arm": raw.get("arm_loads"),
             "target_disk_free_gb": pins.get("target_disk_free_gb"),

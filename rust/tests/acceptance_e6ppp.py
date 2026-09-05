@@ -53,7 +53,6 @@ from __future__ import annotations
 import contextlib
 import json
 import sqlite3
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -76,19 +75,9 @@ import acceptance_phases as ph                                     # noqa: E402
 import acceptance_phases_rung3 as r3                               # noqa: E402
 import acceptance_rung3 as rung3                                   # noqa: E402
 from acceptance_lib import (Refused, driver_cmd, free_gb,          # noqa: E402
-                            loadavg, manifests_dir, plain_env, rmtree,
-                            run, sensorium_cli, sha256_file, step)
+                            loadavg, manifests_dir, rmtree,
+                            sensorium_cli, step)
 
-# Re-asserted AFTER the imports above, and not only before them: importing
-# `acceptance_rung3` runs ITS module body, which points `acceptance_lib.LEDGER`
-# and `acceptance_lib.LOGS` at the RUNG-3 slice's own workspace. Without this
-# second assignment every log written outside a `logs_at` block lands beside
-# the rung-3 record instead of beside this document -- measured on the
-# 2026-09-05 run, whose `prep-workspace.log` went to
-# `<plan>/acceptance/logs/` (nothing was clobbered; the rung-3 run writes no
-# file of that name).
-lib.LEDGER = LEDGER
-lib.LOGS = LOGS
 ph.LOGS = LOGS
 
 DOC = (REPO / "docs" / "superpowers" / "acceptance"
@@ -185,61 +174,6 @@ def e6ppp_config(paths) -> dict:
     return cfg
 
 
-# ------------------------------------------------------------- built_from
-
-
-def build_driver(paths) -> dict:
-    """`cargo build --release -p cargo-sensorium`, run BY the runner, and the
-    record of what it built from.
-
-    §1's lens says the driver is "built `--release` from this branch's HEAD at
-    run time (commit + sha256 recorded)". Before this function that was an
-    operator's claim corroborated after the fact by two mtimes; here it is the
-    run's own fact: the repo HEAD at build time, cargo's exit code, and the
-    driver's sha256 before and after, so a run that measured a STALE binary
-    says so in its own record rather than in a reviewer's note.
-
-    It builds into the driver's own target directory (`<driver>/../..`), which
-    is where the driver already lives -- the same convention
-    `acceptance_phases.phase_e7a` uses -- so a fresh tree is a no-op and a
-    stale one is rebuilt before anything is measured."""
-    driver = Path(paths["sensorium_driver"])
-    before = sha256_file(driver)
-    env = plain_env() | {"CARGO_TARGET_DIR": str(driver.parents[1])}
-    with logs_at(LOGS / "built-from"):
-        res = run(["cargo", "build", "--release", "-p", "cargo-sensorium"],
-                  REPO / "rust", "built-from.log", env,
-                  timeout=cfg_build_timeout())
-    after = sha256_file(driver)
-    rec = {
-        "repo_head_at_build": subprocess.run(
-            ["git", "-C", str(REPO), "rev-parse", "HEAD"],
-            capture_output=True, text=True).stdout.strip(),
-        "repo_porcelain_at_build": subprocess.run(
-            ["git", "-C", str(REPO), "status", "--porcelain"],
-            capture_output=True, text=True).stdout,
-        "cargo_rc": res["rc"], "cargo_wall": round(res["wall"], 3),
-        "driver": str(driver),
-        "driver_sha256_before_build": before,
-        "driver_sha256_after_build": after,
-        "rebuilt": before != after,
-        "cargo_target_dir": str(driver.parents[1]),
-        "log": res["log"],
-    }
-    if res["rc"] != 0:
-        raise Refused(f"`cargo build --release -p cargo-sensorium` exited "
-                      f"{res['rc']}: the driver is not this HEAD's")
-    step(f"built_from: HEAD {rec['repo_head_at_build'][:12]} cargo rc 0 in "
-         f"{rec['cargo_wall']}s; driver {(after or '?')[:12]} "
-         f"rebuilt={rec['rebuilt']}")
-    return rec
-
-
-def cfg_build_timeout() -> int:
-    """The driver build's own ceiling, named rather than inlined."""
-    return 3600
-
-
 # ------------------------------------------------------- prep: the manifests
 
 
@@ -255,13 +189,9 @@ def phase_prep_build(paths, cfg) -> dict:
     target = paths["sensorium_acceptance_target"]
     removed = sum(rmtree(child) for child in sorted(target.iterdir()))
     step(f"prep: emptied the target ({removed} bytes)")
-    # `logs_at` is INSIDE the phase, not at its call site: on the 2026-09-05
-    # run it was neither, and `prep-workspace.log` went to the rung-3 slice's
-    # log directory (§2 of the document). A phase owns where it logs.
-    with logs_at(LOGS / "prep"):
-        res, b = ph._build(paths, cfg, [*cfg["workspace_sel"], "--no-run"],
-                           "prep-workspace.log", True,
-                           timeout=cfg.get("e2pp_timeout", 14400))
+    res, b = ph._build(paths, cfg, [*cfg["workspace_sel"], "--no-run"],
+                       "prep-workspace.log", True,
+                       timeout=cfg.get("e2pp_timeout", 14400))
     out = {"build": b, "target_emptied_bytes": removed,
            "emptied_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
            "target_free_gb_after": round(free_gb(target), 2)}
@@ -540,7 +470,6 @@ def main(argv) -> int:
         cfg = e6ppp_config(paths)
         res["config"] = {k: str(v) if isinstance(v, Path) else v
                          for k, v in cfg.items()}
-        res["raw_built_from"] = build_driver(paths)
         pins = rung3.preflight(paths, cfg)
         res["pins"] = pins
 
