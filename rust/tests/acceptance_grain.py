@@ -112,7 +112,7 @@ DOC = (REPO / "docs" / "superpowers" / "acceptance"
 #: The commit that committed §1 ALONE, before any number below was read.
 #: `None` until that commit exists, and a `None` lock REFUSES rather than
 #: measuring against a pre-registration that can still be edited.
-BYTE_LOCK = None
+BYTE_LOCK = "05c3124"
 #: §1 of this document is committed once and never amended, so there is no
 #: second sha to carry.
 ORIGINAL_LOCK = None
