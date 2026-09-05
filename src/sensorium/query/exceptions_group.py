@@ -18,6 +18,17 @@ and the chain's ORIGIN for every verdict that names no site -- and it comes
 from the classifier (`Disposition.site`), never from parsing the sentence back
 out of itself.
 
+A site is `(file, line, qualname)`, not the `qualname L<line>` a verdict
+PRINTS (ruling R-G12, 2026-09-05). The first rung-4 measurement keyed on the
+printed text and the E6⁗ workspace had two `sandbox` helpers at L42 in
+different test files, and two `fresh_dir`s at L64: 21 chains were booked
+under a sibling file, with every count conserved, and one file vanished from
+the answer entirely. Where the SAME answer prints two shapes whose site text
+collides, each of their verdicts names its file -- `(sandbox L42 in
+task_exec_run_test.rs)` -- and where nothing collides, which is every corpus
+case and every answer a reader has already read, the notation does not move
+at all.
+
 The head and the detail are NOT in the key. Neither is the ROUTE, for a
 verdict that names a site: keying a sink on the path would split it into as
 many rows as there are ways to reach it, which is precisely the split the
@@ -70,7 +81,8 @@ from dataclasses import dataclass, field
 # names a site the way every verdict in that module does, and `_hops_line`
 # is the block's own last line. Rendering them a second time here would be
 # two spellings of one journey.
-from sensorium.query.exceptions_rust import _at, _hops_line
+from sensorium.query.exceptions_rust import (_at, _hops_line, _site,
+                                             site_file, site_text)
 from sensorium.query.fmt import fmt_event, fmt_exc
 
 #: An event or frame reference in printed text. Anchored on word boundaries
@@ -104,6 +116,14 @@ class Shape:
     first_detail: str | None = None
     first_route: str | None = None
 
+    @property
+    def site(self) -> tuple:
+        """The site this shape is keyed on, `(file, line, qualname)`. Read
+        out of the KEY rather than stored a second time: a shape whose site
+        and whose key disagreed would print one place and group by another.
+        """
+        return self.key[1]
+
 
 def mask(text: str) -> str:
     """`e412` -> `e#`, `f204` -> `f#`, in printed text only. `f64` and its
@@ -128,14 +148,34 @@ def _message(event) -> str:
     return fmt_exc(exc) if exc else "?"
 
 
-def site_of(trace, chain, d) -> str:
-    """The site the verdict is ABOUT.
+def site_of(trace, chain, d) -> tuple:
+    """The site the verdict is ABOUT, as `(file, line, qualname)`.
 
     The classifier names it where the sentence does (the sink, the arm);
     everywhere else the verdict speaks of the chain rather than of a place,
-    and the chain's ORIGIN is the site a reader would group it by.
+    and the chain's ORIGIN is the site a reader would group it by -- read
+    here as the same triple, so both kinds of key hold the same kind of
+    thing.
     """
-    return d.site if d.site is not None else _at(trace, chain.origin)
+    return d.site if d.site is not None else _site(trace, chain.origin)
+
+
+def collisions(shapes) -> set:
+    """The keys of the shapes whose printed site text names more than one
+    PLACE in this answer.
+
+    Two shapes exist because their files differ (R-G12); both print
+    `sandbox L42`, and a reader given two identical parentheticals cannot
+    tell which sink each block accuses. So the set is computed over the
+    whole answer -- every shape the grouping produced, not the page
+    `--limit` will print -- because a block whose sentence changed when the
+    limit was raised would be a sentence about the page rather than about
+    the run.
+    """
+    at: dict[str, list] = {}
+    for shape in shapes:
+        at.setdefault(site_text(shape.site), []).append(shape.key)
+    return {key for keys in at.values() if len(keys) > 1 for key in keys}
 
 
 def group_chains(trace, chains, idx, classify):
@@ -230,7 +270,24 @@ def vary_lines(shape: Shape) -> list[str]:
     return lines
 
 
-def print_shape(trace, shape: Shape, bracket_text: str | None = None) -> None:
+def _disambiguated(verdict: str, shape: Shape) -> str:
+    """The verdict with the file added to the site it names:
+    `(sandbox L42)` -> `(sandbox L42 in task_exec_run_test.rs)`.
+
+    A substitution rather than a rewrite, and only of the FIRST occurrence:
+    the sentence goes on being a sentence about the block's own named
+    chain, with one more fact in the parenthetical it already had. A verdict
+    that names no site of its own carries no such parenthetical, and then
+    nothing is substituted -- the block keeps today's words, because there
+    is no place in it to put the file that would still be true.
+    """
+    named = f"({site_text(shape.site)})"
+    return verdict.replace(
+        named, f"({site_text(shape.site)} in {site_file(shape.site)})", 1)
+
+
+def print_shape(trace, shape: Shape, bracket_text: str | None = None,
+                disambiguate: bool = False) -> None:
     """One shape's block: the first member's chain, printed exactly as a
     lone chain would be, plus the bracket naming the group.
 
@@ -240,11 +297,19 @@ def print_shape(trace, shape: Shape, bracket_text: str | None = None) -> None:
     block itself is the same one in both modes, printed here and nowhere
     else: two renderers of one block are two places for the sentences to
     drift apart.
+
+    `disambiguate` is set by the caller for a shape whose site text is not
+    unique in this answer (`collisions`), and adds the file's basename to
+    the verdict's parenthetical. It is off by default and off for every
+    answer with nothing to tell apart, which is why the corpus, the vectors
+    and every block a reader has already read print the same bytes as
+    before (R-G12).
     """
     chain, d = shape.first, shape.disposition
     text = bracket(shape) if bracket_text is None else bracket_text
+    verdict = _disambiguated(d.verdict, shape) if disambiguate else d.verdict
     print("  " + fmt_event(trace, chain.origin))
-    print("    " + d.verdict + text)
+    print("    " + verdict + text)
     if d.detail:
         print("      " + d.detail)
     hops = _hops_line(trace, chain)
@@ -260,11 +325,16 @@ def print_shapes(trace, shapes, limit: int) -> int:
     `limit` counts SHAPES (N5): a page that clipped chains would show part
     of a group and name it `×52`, which is a printed block contradicting
     its own bracket.
+
+    The collision set is computed over every shape of the answer before the
+    first block is printed, so which blocks name their file does not depend
+    on how many of them fit.
     """
+    colliding = collisions(shapes)
     shown = 0
     for shape in shapes:
         if shown >= limit:
             break
-        print_shape(trace, shape)
+        print_shape(trace, shape, disambiguate=shape.key in colliding)
         shown += 1
     return shown

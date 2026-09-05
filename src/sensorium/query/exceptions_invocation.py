@@ -14,8 +14,15 @@ already think in.
 WHAT MERGING MEANS HERE, AND WHAT IT REFUSES TO MEAN
 ----------------------------------------------------
 Shapes merge across processes on the SAME key `exceptions_group` uses
-within one -- the disposition, the site the verdict is about, the verdict's
-own words once ids are masked. Nothing else is merged: the block that is
+within one -- the disposition, the site the verdict is about as
+`(file, line, qualname)`, the verdict's own words once ids are masked. The
+FILE is in that key because of this mode: within one process two helpers
+sharing a qualname and a line are rare, and across 144 they are not. The
+first measurement keyed on the printed `qualname L<line>` and merged two
+`sandbox L42`s that were in different test files, booking 18 chains under
+one of them and printing the other nowhere (ruling R-G12). Where two shapes
+of ONE answer still print the same site text, each verdict now names its
+file. Nothing else is merged: the block that is
 printed is the FIRST member's first chain, rendered by the one renderer
 both modes share, so every printed sentence stays true of a NAMED chain in
 a NAMED process. The bracket is what changes. Within one trace it lists the
@@ -59,7 +66,8 @@ from pathlib import Path
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query import caps, exceptions_rust, runs_cmd
-from sensorium.query.exceptions_group import Shape, group_chains, print_shape
+from sensorium.query.exceptions_group import (Shape, collisions, group_chains,
+                                              print_shape)
 from sensorium.query.fmt import more_note
 from sensorium.store.reader import Trace
 
@@ -302,11 +310,16 @@ def run(args, invocation_id: str, members: list) -> int:
     sites = sum(1 for m in merged if m.shape.tag == "swallowed")
     print(f"raised ({chains} chains over {_processes(with_chains)}, "
           f"{sites} swallowing sites):")
+    # Over the whole ANSWER, never per member: the collision this mode
+    # exists to have caught is between processes -- `sandbox L42` in two
+    # test files, one process each -- so a set computed inside a member
+    # would be empty in exactly the case that needs it (R-G12).
+    colliding = collisions([m.shape for m in merged])
     shown = 0
     for m in merged:
         if shown >= args.limit:
             break
-        print_shape(m.trace, m.shape, bracket(m))
+        print_shape(m.trace, m.shape, bracket(m), m.shape.key in colliding)
         shown += 1
     print("dispositions: " + ", ".join(f"{t} {tally[t]}"
                                        for t in exceptions_rust.TAG_ORDER

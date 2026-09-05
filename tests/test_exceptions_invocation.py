@@ -471,3 +471,104 @@ def test_a_run_id_still_wins_over_an_invocation_prefix(
     o = out(capsys)
     assert "raised (1):" in o, o
     assert "invocation " not in o and "processes" not in o, o
+
+
+# -- R-G12: two files, one site text, one answer ---------------------------
+#: The E6⁗ workspace's own collision, and the reason the first measurement's
+#: H4 was a STOP: `sandbox` sits at L42 in both of these `bloomery-daemon`
+#: test files, and the file-less key merged their chains ACROSS processes --
+#: 18 of them booked under `task_exec_read_find_test.rs` while
+#: `task_exec_run_test.rs` vanished from the table entirely
+#: (`docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain.md`
+#: §4.3/§5.1). The names are the record's, so the pin below is that shape.
+READ_FIND = "/w/bloomery-daemon/tests/task_exec_read_find_test.rs"
+RUN_TEST = "/w/bloomery-daemon/tests/task_exec_run_test.rs"
+M4 = "20260101-000000-aaa004"
+
+
+def sandbox42_trace(tmp_path, monkeypatch, *, file, **meta):
+    """One `Err` absorbed by a `let _ =` at `sandbox L42` in `file`.
+
+    Two members built from two different files print the same site text and
+    the same masked verdict: the code object's FILE is the only component of
+    the key that tells them apart.
+
+    Event ids: e1 CALL sandbox, e2 CALL read_config, e3 RAISE (the chain's
+    origin), e4 RETURN err, e5 HANDLED (the sink at L42), e6 RETURN ok.
+    """
+    return rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[file, "sandbox", 40], [FILE, "read_config", 12]],
+        frames=[frame(1, 1, 6), frame(2, 2, 4, parent=1, depth=1)],
+        events=[
+            call(1000, 1, 40),
+            call(2000, 2, 12),
+            flow(3000, "RAISE", 2, 2, 14,
+                 err_flow("exit", "demo::ConfigError", 'Missing("port")', S1,
+                          hop=1)),
+            ret(4000, 2, 2, "err", 'Err(Missing("port"))'),
+            flow(5000, "HANDLED", 1, 1, 42,
+                 err_flow("sink_let_underscore", "demo::ConfigError",
+                          'Missing("port")', S1, hop=1,
+                          terminal="swallowed_candidate")),
+            ret(6000, 1, 1, "ok", "None"),
+        ],
+        sites=[fn_site("sandbox", file, 40),
+               fn_site("read_config", SITE_FILE, 12)],
+        **meta)
+
+
+def test_two_members_whose_site_texts_collide_are_two_shapes_naming_their_files(
+        tmp_path, monkeypatch, capsys):
+    """The record's own miss, made small (ruling R-G12). Two processes sink
+    an `Err` at a `sandbox L42` that is not the same place: two shapes, each
+    verdict naming its file, and two swallowing sites in the header. Under
+    the key the first measurement shipped this printed ONE block of two
+    chains, and the second file appeared nowhere in the answer."""
+    sandbox42_trace(tmp_path, monkeypatch, file=READ_FIND, run_id=M1,
+                    invocation=INV, cargo_args=CARGO)
+    sandbox42_trace(tmp_path, monkeypatch, file=RUN_TEST, run_id=M2,
+                    invocation=INV, cargo_args=CARGO)
+    assert cli.main(["exceptions", INV]) == ANSWERED
+    o = out(capsys)
+    assert "raised (2 chains over 2 processes, 2 swallowing sites):" in o, o
+    assert ("    SWALLOWED -- absorbed by sink_let_underscore at e5 "
+            "(sandbox L42 in task_exec_read_find_test.rs) in f1, which "
+            f"returned ok  [in {M1}]") in o, o
+    assert ("    SWALLOWED -- absorbed by sink_let_underscore at e5 "
+            "(sandbox L42 in task_exec_run_test.rs) in f1, which "
+            f"returned ok  [in {M2}]") in o, o
+    assert "dispositions: swallowed 2" in o, o
+
+
+def test_the_collision_is_a_property_of_the_answer_not_of_a_member(
+        tmp_path, monkeypatch, capsys):
+    """No member of this invocation collides with itself: three processes
+    sink at a `sandbox L42` -- two of them in the SAME file, one in another
+    -- and a fourth sinks somewhere else entirely. The two `sandbox` shapes
+    still name their files, because the answer is where they are read
+    together; and the shape nothing collides with is printed exactly as it
+    is today, with no file in it."""
+    sandbox42_trace(tmp_path, monkeypatch, file=READ_FIND, run_id=M1,
+                    invocation=INV, cargo_args=CARGO)
+    sandbox42_trace(tmp_path, monkeypatch, file=READ_FIND, run_id=M2,
+                    invocation=INV, cargo_args=CARGO)
+    sandbox42_trace(tmp_path, monkeypatch, file=RUN_TEST, run_id=M3,
+                    invocation=INV, cargo_args=CARGO)
+    swallow_trace(tmp_path, monkeypatch, run_id=M4, invocation=INV,
+                  cargo_args=CARGO)
+    assert cli.main(["exceptions", INV]) == ANSWERED
+    o = out(capsys)
+    assert "raised (4 chains over 4 processes, 3 swallowing sites):" in o, o
+    assert ("    SWALLOWED -- absorbed by sink_let_underscore at e5 "
+            "(sandbox L42 in task_exec_read_find_test.rs) in f1, which "
+            f"returned ok  [×2 over 2 processes: first e3 in {M1}, +1]"
+            ) in o, o
+    assert ("    SWALLOWED -- absorbed by sink_let_underscore at e5 "
+            "(sandbox L42 in task_exec_run_test.rs) in f1, which "
+            f"returned ok  [in {M3}]") in o, o
+    # the shape with nothing to be told apart from: today's sentence exactly
+    assert ("    SWALLOWED -- absorbed by sink_ok at e5 (load L31) in f1, "
+            f"which returned ok  [in {M4}]") in o, o
+    assert "(load L31 in " not in o, o
+    assert "dispositions: swallowed 4" in o, o

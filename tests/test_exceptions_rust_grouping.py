@@ -474,3 +474,105 @@ def test_the_mask_does_not_eat_rust_float_type_names():
         "expected f64, found f32 at e# in f#")
     assert mask("f16 f128 f1 f4 f321 e0") == "f16 f128 f# f# f# e#"
     assert mask("kind: NotFound, code: 2") == "kind: NotFound, code: 2"
+
+
+# -- R-G12: the site the key holds is a (file, line), not a name and a line -
+#: The two `bloomery-daemon` test files whose `sandbox` helpers each sink an
+#: `Err` at their own L42. They are the E6⁗ workspace's own collision -- the
+#: one that made the first measurement's H4 a STOP, with 18 chains booked
+#: under a sibling file (`…-rung4-entry-grain.md` §4.3/§5.1) -- so the shapes
+#: pinned here are that workspace's shapes, spelled as small as they go.
+READ_FIND = "/w/bloomery-daemon/tests/task_exec_read_find_test.rs"
+RUN_TEST = "/w/bloomery-daemon/tests/task_exec_run_test.rs"
+
+
+def two_files_one_site_trace(tmp_path, monkeypatch):
+    """One process, two `sandbox` fns in DIFFERENT files, each absorbing two
+    `Err`s with a `let _ =` at ITS OWN L42.
+
+    Every printed sentence about the four chains is identical once ids are
+    masked, and so is the site text `sandbox L42`: the FILE is the only
+    thing that tells the two sinks apart.
+
+    Event ids, per file f (0-based, base = 10*f): e(base+1) CALL sandbox;
+    then per repeat i (0-based) e(base+2+4i) CALL read_config, e(base+3+4i)
+    RAISE (the chain's ORIGIN), e(base+4+4i) RETURN err, e(base+5+4i)
+    HANDLED (the sink at L42); finally e(base+10) RETURN sandbox ok. So the
+    origins are e3, e7, e13, e17 and the sinks e5, e9, e15, e19.
+    """
+    files = (READ_FIND, RUN_TEST)
+    codes = [[files[0], "sandbox", 40], [files[1], "sandbox", 40],
+             [FILE, "read_config", 12]]
+    events, frames, sites = [], [], []
+    for f, path in enumerate(files):
+        base, ts0, holder = 10 * f, 10000 * f, 3 * f + 1
+        frames.append(frame(f + 1, base + 1, base + 10))
+        events.append(call(ts0 + 1000, f + 1, 40))
+        for i in range(2):
+            ev, ts = base + 2 + 4 * i, ts0 + 2000 + 1000 * i
+            serial, inner = S1 + 2 * f + i, holder + 1 + i
+            frames.append(frame(3, ev, ev + 2, parent=holder, depth=1))
+            events += [
+                call(ts, 3, 12),
+                flow(ts + 100, "RAISE", inner, 3, 14,
+                     err_flow("exit", "demo::ConfigError", 'Missing("port")',
+                              serial, hop=1)),
+                ret(ts + 200, inner, 3, "err", 'Err(Missing("port"))'),
+                flow(ts + 300, "HANDLED", holder, f + 1, 42,
+                     err_flow("sink_let_underscore", "demo::ConfigError",
+                              'Missing("port")', serial, hop=1,
+                              terminal="swallowed_candidate")),
+            ]
+        events.append(ret(ts0 + 9000, holder, f + 1, "ok", "None"))
+        sites.append(fn_site("sandbox", path, 40))
+    sites.append(fn_site("read_config", SITE_FILE, 12))
+    return rust_trace(tmp_path, monkeypatch, codes=codes, frames=frames,
+                      events=events, sites=sites)
+
+
+def test_two_files_sharing_a_qualname_and_a_line_are_two_shapes_that_name_the_file(
+        tmp_path, monkeypatch, capsys):
+    """The repair, at its smallest (ruling R-G12). Two sinks that print the
+    same site text are two SHAPES because the key holds the code object's
+    file, and -- because both are in this one answer -- each verdict says
+    which file it is about. A key without the file merges all four chains
+    into one block that names one of the two files and hides the other."""
+    run_id = two_files_one_site_trace(tmp_path, monkeypatch)
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    text = out(capsys)
+    assert text.count("SWALLOWED --") == 2, text
+    assert ("    SWALLOWED -- absorbed by sink_let_underscore at e5 "
+            "(sandbox L42 in task_exec_read_find_test.rs) in f1, which "
+            "returned ok  [×2: e3, e7]") in text, text
+    assert ("    SWALLOWED -- absorbed by sink_let_underscore at e15 "
+            "(sandbox L42 in task_exec_run_test.rs) in f4, which "
+            "returned ok  [×2: e13, e17]") in text, text
+    # the tally still counts CHAINS, and no chain was lost by the split
+    assert "dispositions: swallowed 4" in text, text
+    assert "raised (4):" in text, text
+
+
+def test_an_answer_whose_site_texts_do_not_collide_is_byte_identical(
+        tmp_path, monkeypatch, capsys):
+    """The other half of R-G12: the notation does not move on an answer that
+    has nothing to disambiguate. Two shapes, two site texts, and not one
+    byte of file anywhere -- the same block the corpus and the vectors pin.
+    """
+    run_id = repeat_sink_trace(tmp_path, monkeypatch, repeats=2,
+                               sink_lines=[31, 33])
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    text = out(capsys)
+    assert "\n".join([
+        "raised (2):",
+        "  e3 RAISE   read_config raise "
+        "demo::ConfigError('Missing(\"port\")') L14",
+        "    SWALLOWED -- absorbed by sink_ok at e5 (load L31) in f1, "
+        "which returned ok",
+        "      hops: e3 read_config L14 exit -> e5 load L31 sink_ok",
+        "  e7 RAISE   read_config raise "
+        "demo::ConfigError('Missing(\"port\")') L14",
+        "    SWALLOWED -- absorbed by sink_ok at e9 (load L33) in f1, "
+        "which returned ok",
+        "      hops: e7 read_config L14 exit -> e9 load L33 sink_ok",
+        "dispositions: swallowed 2",
+    ]) + "\n" == text, text

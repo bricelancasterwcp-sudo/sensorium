@@ -68,6 +68,7 @@ from ``meta.partial``: its silence would otherwise read as "nothing
 happened there".
 """
 import shlex
+from pathlib import Path
 
 from sensorium.exit import ANSWERED, UNSETTLED
 from sensorium.query import caps
@@ -141,9 +142,44 @@ def _how(event) -> str:
     return (event.payload or {}).get("how") or "?"
 
 
+def _site(trace, e) -> tuple:
+    """The site an event IS: `(file, line, qualname)` -- the code object's
+    file, the event's own line, and the code object's qualname.
+
+    The identity, not the rendering. Two `sandbox` helpers in two test files
+    each holding a `let _ =` at L42 print the same words and are not the
+    same place, and the first rung-4 measurement keyed on the words: 18 of
+    the workspace's chains were booked under a sibling file while every
+    count stayed right (ruling R-G12, `docs/superpowers/acceptance/
+    2026-09-05-sensorium-rung4-entry-grain.md` §4.3/§5.1). A code object
+    this trace does not carry is `("?", line, "?")` -- the same `?` `_at`
+    printed before there was a triple, so a site with no code object is
+    still one site and not a crash.
+    """
+    code = trace.code(e.code_id) if e.code_id is not None else None
+    return ((code.file if code is not None else "?"), e.line,
+            (code.qualname if code is not None else "?"))
+
+
+def site_text(site) -> str:
+    """`qualname L<line>` -- the way every verdict in this module names a
+    place, and the only spelling of it: `_at` renders through here, so the
+    text the grouper compares for a COLLISION cannot drift from the text the
+    verdict prints."""
+    _file, line, qualname = site
+    return f"{qualname} L{line}"
+
+
+def site_file(site) -> str:
+    """The site's file, basename only. What a colliding block adds to its
+    verdict (`sandbox L42 in task_exec_run_test.rs`): the full path is in
+    the trace for anyone who wants it, and the basename is what tells two
+    same-named helpers apart on one line."""
+    return Path(site[0]).name
+
+
 def _at(trace, e) -> str:
-    q = trace.code(e.code_id).qualname if e.code_id is not None else "?"
-    return f"{q} L{e.line}"
+    return site_text(_site(trace, e))
 
 
 class Index:
@@ -327,7 +363,7 @@ def _swallowed(trace, chain, idx) -> Disposition:
     return Disposition(
         "swallowed",
         f"SWALLOWED -- {_absorbed(trace, h)}{where}, which returned ok",
-        detail, site=_at(trace, h))
+        detail, site=_site(trace, h))
 
 
 def _panicked(trace, chain, idx) -> Disposition:
@@ -419,7 +455,7 @@ def _escaped(trace, chain, idx) -> Disposition:
             "ambiguous",
             f"ambiguous -- an Err(..) arm at e{e.id} ({_at(trace, e)}) bound "
             "it to a name and let the name escape",
-            ESCAPED_DETAIL, site=_at(trace, e))
+            ESCAPED_DETAIL, site=_site(trace, e))
     return Disposition(
         "ambiguous",
         "ambiguous -- the frame holding it returned ok with no sink recorded",
@@ -449,7 +485,7 @@ def _handled_then_failed(trace, chain, idx) -> Disposition:
         "handled, then the frame failed for another reason -- the "
         "cleanup-then-fail blind spot (design R8): a genuine swallow in a "
         "frame that later fails reads ambiguous, not a swallow",
-        site=_at(trace, h))
+        site=_site(trace, h))
 
 
 def _left_thread(trace, chain, idx) -> Disposition:
