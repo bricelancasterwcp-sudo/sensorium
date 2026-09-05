@@ -15,7 +15,12 @@ questions:
       frame that then returned normally: a swallow. One error, two verdicts,
       because a thread boundary is a place where the recording genuinely
       stops knowing and the tool must not paper over it by carrying the
-      child's verdict into the parent or the parent's into the child.
+      child's verdict into the parent or the parent's into the child. The
+      parent's detail says which boundary it is: the chain machine is
+      per-thread, so from the parent's side nothing was open and the error
+      was born outside THIS THREAD's instrumented frames -- not outside
+      instrumented code, which is what the wording claimed until this case
+      showed it was false of an error born in `ingest`.
     why_logs_fail: >
       The worker's failure never reaches stdout: it is a return value, and
       the parent turns it into a number on the same expression that receives
@@ -29,6 +34,7 @@ questions:
     expect_contains: ["dispositions: swallowed 1, ambiguous 1"]
     expect_line:
       - ["SWALLOWED", "sink_unwrap_or", "collect L26", "which returned ok"]
+      - ["born outside this thread's instrumented frames; absorbed at sink_unwrap_or"]
       - ["ambiguous", "it left its thread into a JoinHandle",
          "whether it was ever read is not recorded"]
       - ["hops:", "ingest L12 exit", "worker L17 try"]
