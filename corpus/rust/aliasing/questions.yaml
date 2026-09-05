@@ -29,8 +29,13 @@ questions:
     # only thing that would answer it is a recorder that produces
     # object identity.
     expect_exit: 3
+    # Re-pinned 2026-09-04 (rung 3): the version in this sentence moved
+    # 0.1.0 -> 0.3.0 because the runtime shipped wire v3 and the err_flow
+    # capability (design R13), not because the refusal changed. The
+    # sentence names the RECORDER, so it is re-pinned by value rather
+    # than loosened -- "some recorder said no" is not the claim.
     expect_contains:
-      - "REFUSED: flow --object needs object_identity, which recorder sensorium-rt 0.1.0 declares it does not produce (capabilities.object_identity: false); nothing was checked"
+      - "REFUSED: flow --object needs object_identity, which recorder sensorium-rt 0.3.0 declares it does not produce (capabilities.object_identity: false); nothing was checked"
     expect_absent: ["flow of object #", "sightings:"]
   - id: what-can-this-trace-say-instead
     ask: >
