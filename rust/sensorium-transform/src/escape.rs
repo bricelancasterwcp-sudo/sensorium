@@ -14,7 +14,10 @@
 //! 2. A shared borrow `&<bound name>` that is a DIRECT argument of a call or
 //!    method call whose PRODUCT is provably dropped -- an expression statement
 //!    ending in `;`, a `let _ = ..;` (typed or not, no `else`), or a logging
-//!    macro's argument. See [`EscapeWalk::visit_stmt`].
+//!    macro's argument. See [`EscapeWalk::visit_stmt`] for the first two
+//!    contexts and [`format_arg_escapes`] for the third -- a logging macro's
+//!    tokens are opaque to `syn`, so its argument list is read there, not by
+//!    the statement walk.
 //!
 //! Rule 2 replaced an older one on 2026-09-05 -- the borrow repair, design B1
 //! of `docs/superpowers/specs/2026-09-05-sensorium-rung3-borrow-repair-design.md`
@@ -294,7 +297,9 @@ fn path_name(p: &ExprPath) -> Option<String> {
 }
 
 /// Does any argument of a LOGGING macro use one of the names in a way that is
-/// not a shared borrow?
+/// not a provable non-escape -- neither the bare name, nor a shared borrow of
+/// it, nor a shared borrow handed straight to a call whose product the macro
+/// prints and drops?
 ///
 /// Only the logging family reaches here: since the R2 amendment of 2026-09-05
 /// and its fix round 1, a mention inside ANY other macro escapes outright,
@@ -303,11 +308,18 @@ fn path_name(p: &ExprPath) -> Option<String> {
 /// level can tell that from a macro that drops it.
 ///
 /// An argument that is exactly the bare name is safe: `format_args!` takes each
-/// of its arguments by reference, so `println!("{}", e)` cannot move `e`. An
-/// argument that MENTIONS the name in any other shape -- `take(e)`,
-/// `e.to_string()`, `&mut e` -- is put through the ordinary escape walk, and one
-/// that does not parse as an expression at all (a `tracing` key-value, say) is
-/// an escape by default rather than a guess. A name captured implicitly by the
+/// of its arguments by reference, so `println!("{}", e)` cannot move `e`. The
+/// macro's own argument list is a DROPPED call site too (design B1 (3), the
+/// borrow repair of 2026-09-05): a bare `&e` is exempt for the same reason the
+/// bare name is, and a call or method call taking `&e` as a DIRECT argument
+/// goes through [`EscapeWalk::walk_dropped_call`], because the macro prints
+/// that call's product and keeps nothing. So `println!("{}", render(&e))` is
+/// HANDLED, while `println!("{}", wrap(render(&e)))` -- whose borrow sits one
+/// call deeper than the dropped site -- is not. An argument that MENTIONS the
+/// name in any other shape -- `take(e)`, `e.to_string()`, `&mut e` -- is put
+/// through the ordinary escape walk, and one that does not parse as an
+/// expression at all (a `tracing` key-value, say) is an escape by default
+/// rather than a guess. A name captured implicitly by the
 /// format string (`"{e}"`) is not a token at this level and is never seen, which
 /// is correct HERE and only here: outside a `move` closure a logging macro's
 /// implicit capture is a shared borrow of a value nothing keeps. Inside one it

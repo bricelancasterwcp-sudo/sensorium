@@ -31,14 +31,19 @@
 //!    may pass, and an arm that only asserts still handles its error.
 //! 3. **ESCAPED** -- the pattern binds a name and that name appears anywhere
 //!    other than the two uses design R2 calls provable: a LOGGING macro's bare
-//!    argument, and a shared borrow `&e`. Writes `arm_ambiguous`, which is
-//!    HANDLED-class but never a SWALLOWED candidate. The test itself lives in
-//!    [`crate::escape`], which is also where the R2 amendment of 2026-09-05
-//!    sits: `format!`, `format_args!`, `write!` and `writeln!` RETURN the text
-//!    they render, so a mention of the error inside one escapes -- the arm is
-//!    holding a rendering of the failure and its own value can carry it to the
-//!    caller. Design R16 states the cost: an arm that renders the error into a
-//!    local it then drops reads AMBIGUOUS, which is the safe direction.
+//!    argument, and -- since the borrow repair of 2026-09-05 (design B1) -- a
+//!    shared borrow `&e` that is a DIRECT argument of a call whose product is
+//!    provably dropped: an expression statement ending in `;`, a `let _ = ..;`,
+//!    or a logging macro's argument. A `&e` anywhere else escapes. Writes
+//!    `arm_ambiguous`, which is HANDLED-class but never a SWALLOWED candidate.
+//!    The test itself lives in [`crate::escape`], whose module doc states the
+//!    repaired rule in full and which is also where the R2 amendment of
+//!    2026-09-05 sits: `format!`, `format_args!`, `write!` and `writeln!`
+//!    RETURN the text they render, so a mention of the error inside one
+//!    escapes -- the arm is holding a rendering of the failure and its own
+//!    value can carry it to the caller. Design R16 states the cost: an arm
+//!    that renders the error into a local it then drops reads AMBIGUOUS,
+//!    which is the safe direction.
 //! 4. **HANDLED** -- everything else. This is the only class that can become a
 //!    SWALLOWED verdict, which is why 3 is deliberately generous: a false
 //!    ESCAPED costs one AMBIGUOUS, a false HANDLED costs a false accusation
