@@ -280,7 +280,7 @@ Python logs `/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-05-sensori
 
 **144 per-process answers versus one invocation answer**: 182334 bytes over 1634 lines, against 128167 bytes over 927 lines. both halves measured by THIS run, under 0.8.2
 
-**Vary lines that fired, by kind** (an honesty count, not a gate): `{'messages': 152, 'origins': 38, 'routes': 38}` — summed over every answer this run read: H2, H3/ws, H3/ws0, H4/ws, H4/ws0. blocks that printed a vary line, summed over EVERY answer this run read and named in `vary_counted_over` (H2, H3/ws, H3/ws0, H4/ws, H4/ws0); an honesty count, not a gate
+**Vary lines that fired, by kind** (an honesty count, not a gate): `{'origins': 38, 'messages': 152, 'details': 0, 'routes': 38}` — summed over every answer this run read: H2, H3/ws, H3/ws0, H4/ws, H4/ws0. blocks that printed a vary line, summed over EVERY answer this run read and named in `vary_counted_over` (H2, H3/ws, H3/ws0, H4/ws, H4/ws0); an honesty count, not a gate
 
 
 ## 4. Verdicts
@@ -293,15 +293,31 @@ re-classified after a number was read, and §1 was not touched — its sha256 is
 `bdb9089249e6767738fbd1c6f1fbbe20168d6f0fbf68c4f3f9ca90a73d8bea52` before and
 after (§2).
 
+**Corrections of 2026-09-05, fix round 1.** Sentences in §4 and §5 were
+corrected after the review; **no number, count or verdict moved**, and no
+phase was re-run. Each is struck through where it stood and quoted verbatim
+in **§5.9**, with the evidence that falsified it. Nothing in §1 was touched:
+its sha256 is unchanged, checked again after this round.
+
 **One launch of this runner did not measure anything, and it is not this
-one.** The first detached launch (2026-09-05T17:59:23-0500) died fourteen
-seconds in, inside H2, on `NameError: name 'LOGS' is not defined` — after the
-byte-lock, the preflight and the oracle read, and **before one `exceptions`
-answer was asked for or one oracle comparison was printed**. That is
-infrastructure, not a result: the plumbing was fixed and committed alone
-(`d699b4c`, §5.5), the fresh locations were emptied, and the run below
-started from zero. No number below was read twice, and none was read at all
-before that commit.
+one.** The first detached launch (2026-09-05T17:59:23-0500) died ~~fourteen
+seconds in~~ **within a second of starting**, inside H2, on `NameError: name
+'LOGS' is not defined` — after the byte-lock, the preflight and the oracle
+read, and **before one `exceptions` answer was asked for or one oracle
+comparison was printed**. That is infrastructure, not a result: the plumbing
+was fixed and committed alone (`d699b4c`, §5.5), the fresh locations were
+emptied, and the run below started from zero. No number below was read twice,
+and none was read at all before that commit.
+
+*(Corrected 2026-09-05, fix round 1: "fourteen seconds in" was this author's
+poll time, not the run's. The archived raw record has `started == finished ==
+2026-09-05T17:59:23-0500`, every line of its log is stamped `[17:59:23]`, and
+`grain.FAILED`'s mtime is 17:59:23.63 — the launch died inside the same
+second; 17:59:37 was when the bounded polling loop next looked. **The
+licensing conclusion never rested on the timing**: the same archived record's
+cleanup line reads `audit rows added {'a': 0, 'ws': 0, 'ws0': 0}`, and since
+`cli.main` appends one `invocations.jsonl` row per CLI call, zero rows is
+positive evidence that **no `exceptions` call ran at all** — §5.5, §5.9.)*
 
 | Id | §1's rule, verbatim | What was measured | Verdict |
 |---|---|---|---|
@@ -416,7 +432,11 @@ Every difference, both arms, in full — this is the whole of the miss:
 The two count differences on each arm are exactly the two missing sites'
 chains: 2 + 1 = 3 at one `:64`, 9 + 9 = 18 at one `:42`, on both arms. No
 chain was lost, invented or double-counted anywhere — the arm totals are the
-record's to the chain. §5.1 is the mechanism, with the processes named.
+record's to the chain. §5.1 is the mechanism, with all eight processes named
+— four on `ws` and, added in fix round 1, the four on `ws0`
+(`20260905-091219-04e884` / `…-093072` at `:64`, `20260905-091219-094ebf` /
+`…-09573f` at `:42`) whose ordering is why the `:64` pair swaps roles between
+the arms.
 
 ### 4.4 H5 — the walls
 
@@ -497,15 +517,53 @@ vanishes from the table.
 `20260905-091125-fc4de2` (`…/tests/api_native_agent_delete_test.rs:64`, 2
 chains), printed as `[×3 over 2 processes: first e5 in
 20260905-091125-815542, +2]`. All 3 resolve to `pager_refusal_advice_test.rs`
-and the other file vanishes. On `ws0` the same shape's first member is the
-other process, which is why the two files swap roles between the arms in
-§4.3's table — the direction of the loss follows whichever process the
-invocation happened to reach first, which is itself worth knowing.
+and the other file vanishes.
 
-The per-process answers are not affected and were checked: H3 read all 288
+**On `ws0` the same two shapes collide between different processes, and one
+of them names the other file first** — which is why the two files swap roles
+between the arms in §4.3's table. Verified against the `ws0` store read-only
+(`SENSORIUM_NO_INVOCATION_LOG=1`, added 2026-09-05, fix round 1): `fresh_dir`
+L64 prints `[×3 over 2 processes: first e16 in 20260905-091219-04e884, +2]`,
+and `20260905-091219-04e884` is `…/tests/api_native_agent_delete_test.rs:64`
+(2 chains) while the unnamed member `20260905-091219-093072` is
+`…/tests/pager_refusal_advice_test.rs:64` (1 chain) — so on `ws0` it is
+`pager_refusal_advice_test.rs` that vanishes, the mirror of `ws`. `sandbox`
+L42 prints `[×18 over 2 processes: first e3 in 20260905-091219-094ebf, +17]`,
+with `20260905-091219-094ebf` at `…/tests/task_exec_read_find_test.rs:42` (9
+chains) and the unnamed `20260905-091219-09573f` at
+`…/tests/task_exec_run_test.rs:42` (9 chains) — the same direction as `ws`,
+which is why `task_exec_run_test.rs:42` is missing on both arms. The
+direction of the loss follows whichever process the invocation happened to
+reach first, which is itself worth knowing.
+
+~~The per-process answers are not affected and were checked: H3 read all 288
 and found the file attribution right in every one (0 unequal swallow counts,
 0 unequal tally lines). The record's per-site table is therefore still
-derivable from this build — from 144 answers, not from one.
+derivable from this build — from 144 answers, not from one.~~
+
+*(Corrected 2026-09-05, fix round 1 — the struck sentences credit H3 with a
+comparison H3 did not make.)* **The per-process answers were not HIT by this,
+which is not the same as being immune to it.** The per-process view uses the
+SAME file-less key; H3 compared each process's `dispositions:` line and the Σ
+of its SWALLOWED group counts against the record, and **compared no sites at
+all** — an intra-process collision would merge two blocks while conserving
+both of those numbers, and H3 would still read 0 differences. So H3's 0 of
+288 is not evidence about file attribution.
+
+What is evidence is a read-only sweep of the traces themselves, run by the
+reviewer on 2026-09-05 and reproduced here (`SENSORIUM_NO_INVOCATION_LOG=1`,
+sqlite `mode=ro`, no CLI call and no audit row): over all 144 `ws` traces —
+and, extending it, all 144 `ws0` traces — **0 traces contain a `(qualname,
+line)` pair that maps to more than one file**. The margin is thin and the
+sweep shows it: `20260905-091125-815542` and `20260905-091125-fc4de2` each
+carry `fresh_dir` in two files, and they miss colliding only because the
+lines differ (64 in the test file, 74 in `test_support.rs`). The per-process
+view is therefore un-hit **on this workspace**, empirically, not by
+construction.
+
+With that caveat the practical conclusion stands: on this evidence the
+record's per-site table is still derivable from this build — from 144
+answers, not from one.
 
 **Under both readings of §1's H4, this is a STOP.** The strict reading
 ("91 SWALLOWED groups whose (site, count) multiset equals the record's 91-row
@@ -520,9 +578,17 @@ the header's 144 / 114 / 30 are the record's, exactly. It says the invocation
 view is less specific than the record about WHERE, at 11 chains of 782 and 10
 of 812, and that the answer gives a reader no way to notice.
 
+**The design sentence this falsifies, named.** Design N3's rationale cell
+reads: *"The record's per-site table IS this key: 91 rows for 782 swallows,
+keyed by sink."* It is not: the key is keyed by the sink's qualname and line,
+and the record's table is keyed by the sink's FILE and line. On this
+workspace those two keys agree on 89 of 91 rows and disagree on two, which is
+the whole of H4's miss.
+
 **Nothing was repaired.** Post-lock, no code changed. A fix has a shape — put
 the file in the shape key, or name the file in the merged bracket — and
-choosing between them is a design question this record does not decide.
+choosing between them is a design question this record does not decide (the
+forward rule is §5.8).
 
 ### 5.2 §1 predicted the group count from the record's SITE count, and shapes are not sites
 
@@ -581,13 +647,23 @@ which the site multiset decided.
 ### 5.5 The launch that measured nothing, and the commit that fixed it
 
 The first detached launch (17:59:23) raised `NameError: name 'LOGS' is not
-defined` in H2, fourteen seconds in. Fix round 1 of the instrument task had
+defined` in H2, ~~fourteen seconds in~~ **within a second of starting**
+*(corrected 2026-09-05, fix round 1: `started == finished ==
+2026-09-05T17:59:23-0500` in the archived `results-grain-raw.json`, all six
+log lines stamped `[17:59:23]`, `grain.FAILED` mtime 17:59:23.63; the
+fourteen seconds were the polling loop's, not the run's)*. Fix round 1 of the
+instrument task had
 moved the five phases into `acceptance_grain_phases.py`, where each opens
 `logs_at(LOGS / "<phase>")` in its own namespace; the front door assigned
 `acceptance_lib.LOGS` and `acceptance_phases.LOGS` and not that third
 pointer. It failed **before any oracle comparison was printed** — the
 byte-lock, the preflight and the oracle read had run, and no `exceptions`
-command had — so under §1's own rule it is infrastructure. The plumbing was
+command had — so under §1's own rule it is infrastructure. That last clause is
+not an inference from the traceback: the archived cleanup line reads `audit
+rows added {'a': 0, 'ws': 0, 'ws0': 0}`, and every `sensorium` call appends
+exactly one row to the store's `invocations.jsonl` (this run's own 1 / 145 /
+145 in §2 is the same counter). **Zero rows on all three stores is the
+measurement that no `exceptions` call ran.** The plumbing was
 fixed and committed ALONE (`d699b4c`), with three mutation-checked tests: the
 runner assigns the phases module the run's root (dropping the assignment goes
 red; pointing it one directory up goes red), `phase_h2` runs end to end and
@@ -624,6 +700,16 @@ them are the point of the slice:
   and R-G6 settled fired on this evidence; `details vary` never did, so that
   spelling is unexercised by this record and its wording is untested here.
 
+  *(Fix round 1, 2026-09-05: `details` is now RECORDED as a measured zero.
+  The published `results.json` carried `{'messages': 152, 'origins': 38,
+  'routes': 38}` — a dict a reader cannot tell from one that never looked for
+  `details`. `acceptance_grain_read.with_every_vary_kind` zero-fills every
+  spelling the `VARY` regex matches, and `acceptance_grain_schema` applies it
+  where the document is derived, so the record re-assembles from the
+  UNTOUCHED raw file with `"details": 0` present. The raw record's md5 is
+  unchanged and the only difference in the regenerated `results.json` is that
+  one added key: no count moved.)*
+
 ### 5.7 Residuals found by this run, recorded and not repaired
 
 1. **The shape key carries no file** (§5.1) — 11 chains of 782 and 10 of 812
@@ -650,3 +736,81 @@ H4's comparison and this run read it 0 times, both arms printing 100 and 103
 swallowing sites), rung-3's R16 (v) by-value handoff blind spot, and design
 B2's `self.record(&e);` side channel. None had exposure here and this run
 falsifies none of them.
+
+### 5.8 What a repair would have to be, and what it must not be
+
+Added 2026-09-05, fix round 1, so that the next slice cannot mistake this
+record for a licence to re-measure.
+
+A repair means **amending design N3** — the site key gains the file:
+**ruling R-G12, key = `(file, line, qualname)`**, with the printed site text
+unchanged, and, on a printed-site collision within one answer, the colliding
+blocks' verdict parenthetical carrying the file basename so a reader can tell
+them apart. It then means **locking a NEW pre-registration in a sibling
+document and measuring once under it**.
+
+What it must **not** be: editing this record's §1, or re-measuring H4 under a
+changed key against this lock. §1 here is byte-locked to `05c3124` and its
+sha256 is unchanged; a measurement taken under a different key is a different
+question, and answering it inside this document would turn a STOP into a
+result by moving the instrument after the number was read. This record's H4
+stays STOP with 4 differences per arm, whatever the next one measures.
+
+### 5.9 Corrections of 2026-09-05, fix round 1 — every original sentence, kept
+
+Written after the review of this record, under the house rule that records
+are appended and never rewritten. **No number, count or verdict moved**, and
+§1 was not touched: its sha256 is
+`bdb9089249e6767738fbd1c6f1fbbe20168d6f0fbf68c4f3f9ca90a73d8bea52` before and
+after this round. Each original sentence is struck through where it stood and
+quoted here with the evidence that falsified it.
+
+1. **"died fourteen seconds in"** (§4's preamble, §5.5). Falsified by the
+   instrument's own archived record: `failed-launch-1/results-grain-raw.json`
+   has `started == finished == 2026-09-05T17:59:23-0500`, all six lines of
+   `failed-launch-1/grain.log` are stamped `[17:59:23]`, and `grain.FAILED`'s
+   mtime is 17:59:23.63. The launch died inside the same second it started;
+   fourteen seconds was the interval to the polling loop's next look. The
+   licensing conclusion is untouched and was always separately proven — see
+   the next item.
+2. **The licensing evidence, made explicit.** The original argued from the
+   traceback's position ("it failed in H2 before any `exceptions` command").
+   The archived cleanup line proves it directly: `audit rows added {'a': 0,
+   'ws': 0, 'ws0': 0}`. `cli.main` appends one `invocations.jsonl` row per
+   invocation, so zero rows on all three stores means no `sensorium` call ran
+   at all. Added, not corrected.
+3. **"The per-process answers are not affected and were checked: H3 read all
+   288 and found the file attribution right in every one"** (§5.1).
+   Falsified by reading H3's own comparison: it compares the `dispositions:`
+   line and the Σ of SWALLOWED group counts, and **no sites** — an
+   intra-process `(qualname, line)` collision would merge two blocks and
+   conserve both numbers, and H3 would report 0 either way. The per-process
+   view uses the same file-less key; it was **not hit** on this workspace,
+   which is an empirical fact from the reviewer's read-only sweep (144 `ws`
+   traces, reproduced here and extended to 144 `ws0`: 0 traces with a
+   `(qualname, line)` mapping to more than one file), not a property of the
+   build. The dependent sentence — "The record's per-site table is therefore
+   still derivable from this build" — carries the same caveat.
+4. **`details` was omitted from the ungated vary count** (§3, §5.6). The
+   published dict was `{'messages': 152, 'origins': 38, 'routes': 38}`; the
+   run printed no `details vary` line, which is measured-and-zero, and an
+   absent key reads as not-measured. Fixed where the document is derived, not
+   in the raw record: `acceptance_grain_read.with_every_vary_kind` and its
+   use in `acceptance_grain_schema`, re-assembled from the untouched raw file
+   (md5 `ce7f376d77aa780363c1031c839e5c73` before and after). The only change
+   in `results.json` is the added `"details": 0`.
+5. **The falsified design sentence was not named** (§5.1). It is design N3's
+   rationale: *"The record's per-site table IS this key: 91 rows for 782
+   swallows, keyed by sink."* Added.
+6. **The `ws0` processes behind the role-swap were not named** (§4.3, §5.1).
+   Added and verified read-only against the `ws0` store: `fresh_dir` L64 —
+   `20260905-091219-04e884` (`api_native_agent_delete_test.rs:64`, 2 chains,
+   named first) and `20260905-091219-093072`
+   (`pager_refusal_advice_test.rs:64`, 1 chain); `sandbox` L42 —
+   `20260905-091219-094ebf` (`task_exec_read_find_test.rs:42`, 9 chains,
+   named first) and `20260905-091219-09573f`
+   (`task_exec_run_test.rs:42`, 9 chains).
+7. **The forward rule was missing** (§5.8). Added: a repair amends design N3
+   under ruling R-G12 and locks a NEW pre-registration in a sibling document;
+   it never edits this §1 and never re-measures H4 against this lock.
+

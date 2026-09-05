@@ -24,6 +24,7 @@ would be a second schema.
 
 from __future__ import annotations
 
+from acceptance_grain_read import with_every_vary_kind
 from acceptance_lib import meas
 from acceptance_schema_rung3 import _drop, _e6                     # noqa: F401
 
@@ -304,6 +305,22 @@ def _h6(raw) -> dict:
 # --------------------------------------------------------------- assemble
 
 
+def _reported(raw: dict) -> dict | None:
+    """§1's ungated block, as the run recorded it -- with every vary spelling
+    zero-filled.
+
+    The raw record is never rewritten, so a run whose `reported` predates
+    `with_every_vary_kind` (2026-09-05, fix round 1) still assembles with
+    `details: 0` present. Nothing else here is derived: no count is changed,
+    and a kind that fired keeps the number the run measured.
+    """
+    rep = raw.get("raw_reported")
+    if not rep:
+        return rep
+    return dict(rep) | {
+        "vary_lines_by_kind": with_every_vary_kind(rep.get("vary_lines_by_kind"))}
+
+
 def assemble_grain(raw: dict) -> dict:
     """Raw rung-4 entry facts -> the acceptance document's `results.json`."""
     pins = raw.get("pins") or {}
@@ -374,7 +391,7 @@ def assemble_grain(raw: dict) -> dict:
             "H2": _h2(raw), "H3": _h3(raw), "H4": _h4(raw),
             "H5": _h5(raw), "H6": _h6(raw),
         },
-        "reported": raw.get("raw_reported"),
+        "reported": _reported(raw),
         "cleanup": raw.get("cleanup") or raw.get("cleanup_after_failure"),
         "steps": raw.get("steps"),
         "refused": raw.get("refused"), "error": raw.get("error"),

@@ -86,8 +86,14 @@ B_OVER = re.compile(r" {2}\[×(?P<n>\d+) over (?P<m>\d+) process(?:es)?: "
 B_IN = re.compile(r" {2}\[in (?P<run>[^\]]+)\]$")
 
 #: The four vary lines `exceptions_group.vary_lines` can print, by the word
-#: that names what varied (rulings R-G3, R-G5, R-G6).
-VARY = re.compile(r"^(origins|messages|details|routes)\b")
+#: that names what varied (rulings R-G3, R-G5, R-G6). Named as a TUPLE, and
+#: the regex built from it, so the pattern and the ungated count cannot drift
+#: apart: every kind is reported, and one that never fired is a measured 0
+#: rather than an absent key (fix round 1, 2026-09-05 -- the first draft
+#: dropped `details` from the published count because no block printed it,
+#: which reads as "not measured" and was measured-and-zero).
+VARY_KINDS = ("origins", "messages", "details", "routes")
+VARY = re.compile(r"^(" + "|".join(VARY_KINDS) + r")\b")
 
 INV = re.compile(r"^invocation (?P<id>\S+): cargo(?P<args>.*?) -- "
                  r"(?P<n>\d+) process(?:es)?, (?P<k>\d+) with Err chains, "
@@ -209,6 +215,18 @@ def vary_counts(stdout: str) -> dict:
         for line in s["vary"]:
             counts[VARY.match(line).group(1)] += 1
     return dict(counts)
+
+
+def with_every_vary_kind(counts) -> dict:
+    """`{kind: n}` for EVERY spelling `VARY` can match, zero-filled.
+
+    A kind no block printed is measured-and-zero, and a published count that
+    simply omits it cannot be told apart from one that never looked. Used by
+    `reported` for a fresh run and by `acceptance_grain_schema.assemble_grain`
+    for a record already on disk, so the same record assembles the same way
+    whenever it is re-derived.
+    """
+    return {kind: int((counts or {}).get(kind, 0)) for kind in VARY_KINDS}
 
 
 def parse_tally(stdout: str) -> str | None:
@@ -498,7 +516,7 @@ def reported(cfg, orc, h2, h3, h4) -> dict:
     # Every answer this run actually READ, named. The first draft summed H2,
     # the H3 arms and H4's `ws` only -- `ws0`'s invocation answer, one of the
     # two the slice exists to produce, was silently outside the total.
-    vary: Counter = Counter()
+    vary: Counter = Counter({kind: 0 for kind in VARY_KINDS})
     counted = []
     if h2:
         vary.update(h2.get("vary") or {})
@@ -534,12 +552,13 @@ def reported(cfg, orc, h2, h3, h4) -> dict:
             "invocation_lines": inv.get("stdout_lines"),
             "note": "both halves measured by THIS run, under 0.8.2",
         },
-        "vary_lines_by_kind": dict(vary),
+        "vary_lines_by_kind": with_every_vary_kind(vary),
         "vary_counted_over": counted,
         "vary_lens": ("blocks that printed a vary line, summed over EVERY "
                       "answer this run read and named in `vary_counted_over` "
-                      "(" + ", ".join(counted) + "); an honesty count, not a "
-                      "gate"),
+                      "(" + ", ".join(counted) + "); every spelling is "
+                      "reported, so a kind at 0 printed none rather than "
+                      "going unlooked-at; an honesty count, not a gate"),
     }
 
 

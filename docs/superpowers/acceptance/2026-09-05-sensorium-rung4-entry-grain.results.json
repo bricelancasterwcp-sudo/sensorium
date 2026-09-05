@@ -7427,8 +7427,9 @@
       "note": "both halves measured by THIS run, under 0.8.2"
     },
     "vary_lines_by_kind": {
-      "messages": 152,
       "origins": 38,
+      "messages": 152,
+      "details": 0,
       "routes": 38
     },
     "vary_counted_over": [
@@ -7810,7 +7811,7 @@
   "started": "2026-09-05T18:04:58-0500",
   "finished": "2026-09-05T18:07:10-0500",
   "assembled": {
-    "at": "2026-09-05T18:14:29-0500",
+    "at": "2026-09-05T18:32:51-0500",
     "from": "results-grain-raw.json",
     "by": "rust/tests/acceptance_grain.py --assemble",
     "note": "derived from the raw facts the run recorded, which nothing since has touched; no phase was re-run and no value re-measured"

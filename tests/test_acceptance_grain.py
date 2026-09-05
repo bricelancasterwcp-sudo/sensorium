@@ -832,3 +832,50 @@ def test_the_phases_module_declares_the_name_and_owns_no_location():
     spec.loader.exec_module(mod)
     assert "LOGS" in vars(mod)
     assert mod.LOGS is None
+
+
+# -- fix round 1 of the RECORD: a vary kind that never fired is a zero ------
+
+
+def test_a_vary_kind_no_block_printed_is_reported_as_a_measured_zero():
+    """MUTANT: the count omits the kind instead of carrying 0.
+
+    The published run printed no `details vary` line at all, and the first
+    draft of the record therefore published `{messages, origins, routes}` --
+    a dict a reader cannot tell from one that never looked for `details`.
+    Every spelling rulings R-G3/R-G5/R-G6 settled is reported; an absent key
+    and a zero are different claims."""
+    h2, h3, h4 = _vary_fixture()
+    h4["arms"]["ws"]["vary"] = {}          # nothing printed `details` anywhere
+    rep = runner.reported({"busiest_ws_run": runner.BUSIEST_WS_RUN},
+                          runner.oracle(runner.ORACLE), h2, h3, h4)
+    assert rep["vary_lines_by_kind"] == {"origins": 17, "messages": 2,
+                                         "routes": 4, "details": 0}
+    assert set(rep["vary_lines_by_kind"]) == set(read.VARY_KINDS)
+
+
+def test_every_spelling_the_vary_regex_matches_is_a_key_of_the_count():
+    """The regex and the reported kinds are one list, so a fifth spelling
+    cannot be matched by the parser and silently missing from the count."""
+    for kind in read.VARY_KINDS:
+        assert read.VARY.match(f"{kind}: 2 distinct (first shown)")
+    assert read.with_every_vary_kind({"routes": 3}) == {
+        "origins": 0, "messages": 0, "details": 0, "routes": 3}
+
+
+def test_assembling_an_old_raw_record_zero_fills_the_vary_count(tmp_path):
+    """The RAW record is evidence and is never rewritten, so the zero-fill
+    has to happen where the document is derived. A raw `reported` recorded
+    before this fix -- exactly the one this slice measured -- must assemble
+    with `details: 0`, and with every other number untouched."""
+    raw = {"raw_reported": {"vary_lines_by_kind": {"messages": 152,
+                                                   "origins": 38,
+                                                   "routes": 38},
+                            "vary_counted_over": ["H2"],
+                            "busiest_ws_process": {"run": "r"}}}
+    doc = assemble_grain(raw)
+    assert doc["reported"]["vary_lines_by_kind"] == {
+        "messages": 152, "origins": 38, "routes": 38, "details": 0}
+    # nothing else in the block moved
+    assert doc["reported"]["busiest_ws_process"] == {"run": "r"}
+    assert doc["reported"]["vary_counted_over"] == ["H2"]
