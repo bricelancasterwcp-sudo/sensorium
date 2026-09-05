@@ -168,7 +168,7 @@ versus the one invocation view; the number of groups whose `origins vary` /
   naming the run, groups merged `×N over M processes`, the summed tally,
   exit 0/1/3 by the rule, `--after` refused with exit 2, a member without
   `err_flow` refusing the whole, an ambiguous prefix refused, a ref that is
-  neither a trace nor an invocation → the existing `no trace matches` error.
+  neither a trace nor an invocation → the existing `no trace matches` error *(amended 2026-09-05 at Task 3's review, ruling R-G11: the sentence is `no trace or invocation matches '<ref>'`, rendered by `cli.main` as `error: …` with exit 2 like every other lookup failure — `exceptions` is the one command that looks in both namespaces, so its sentence names both)*.
 - `tests/test_honesty_prose.py` (new): the tool's `_escaped` sentence is a
   substring of `rust/HONESTY.md` §11; the SWALLOWED bullet contains the
   four load-bearing phrases ("no value derived from the `Err` left the
