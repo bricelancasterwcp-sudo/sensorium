@@ -749,6 +749,15 @@ blocks' verdict parenthetical carrying the file basename so a reader can tell
 them apart. It then means **locking a NEW pre-registration in a sibling
 document and measuring once under it**.
 
+That successor now exists by name. Design N3 was amended after this
+measurement (`7c10e49`): the repair is carried by
+`docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain-repair.md`,
+where the endpoint is **H4′** under its own lock — and whose §1, per the
+amendment, also carries the two clauses §5.2 and §5.3 falsified here: the
+summed tally stated in the tool's own `TAG_ORDER`, and group count predicted
+== site count rather than assumed equal to it. Those two are fixed where a
+pre-registration can be fixed — in the NEXT one, before it is locked.
+
 What it must **not** be: editing this record's §1, or re-measuring H4 under a
 changed key against this lock. §1 here is byte-locked to `05c3124` and its
 sha256 is unchanged; a measurement taken under a different key is a different
