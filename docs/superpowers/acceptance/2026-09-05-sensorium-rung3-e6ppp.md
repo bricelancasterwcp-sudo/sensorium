@@ -65,9 +65,13 @@ Measured 2026-09-05T02:20:30-0500 → 2026-09-05T02:20:49-0500 by `rust/tests/ac
 | probe target (E7‴) | `/mnt/extra/sensorium-rung2/probe-target` |
 | trace store (new and empty at the start) | `/mnt/extra/sensorium-rung2/sensorium-dir/e6ppp`; per arm E6‴-A `/mnt/extra/sensorium-rung2/sensorium-dir/e6ppp/a`, E6‴-W `/mnt/extra/sensorium-rung2/sensorium-dir/e6ppp/w` |
 | `~/workspace/bloomery` (READ-ONLY) | `/home/brice/workspace/bloomery` at `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` → `e209ed9b00f7eef647fb31d0b0895a5ad3b90807`; porcelain empty → empty; unchanged: yes |
+| driver `built_from` (recorded by the runner) | not measured (not recorded: this run's driver was built by the operator before launch and evidenced by its sha256 and mtime (§2, §5.8). `built_from` is recorded by the runner itself from this commit onward) |
 | 1-minute load at the start | 0.59 |
 | disk free on the target's filesystem, before / after | 101.89 GB / 101.96 GB |
 | §1's frozen census (Task 10, before the lock) | arms_escaped_before 90, arms_escaped_after 121, arms_handled_before 96, arms_handled_after 65, arms_moved 31, arm_sites 225, source §1 |
+
+**Log locations.** Every command's log is under `/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance-e6ppp/logs`, one subdirectory per phase (`built-from`, `prep`, `arm-a`, `arm-w`, `e6-again`, `e7ppp`). **One exception, recorded 2026-09-05, after the run:** the prep build's own log went to `/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance/logs/prep-workspace.log` — the rung-3 slice's log directory, not this document's. `acceptance_rung3`'s module body re-points `acceptance_lib.LOGS` when it is imported, and the prep phase ran outside a `logs_at` block, so it inherited that pointer. Nothing was clobbered (the rung-3 run writes no file of that name) and no measured number depends on it; the runner now re-asserts the pointer after the import AND wraps the phase, so a later run logs beside its own document.
+
 
 1-minute load at each arm's start: prep (--workspace --no-run, from scratch) 0.62, E6‴-A 1.23, E6‴-W 1.23, E6-again 1.23, E7‴ 1.23.
 
@@ -90,6 +94,7 @@ Every measurement is `{value, n, lens, dropped}`; a `null` value with a reason i
 | SWALLOWED lines over EVERY process (primary + sweep) | 14 | 1 | printed SWALLOWED lines over EVERY process this arm recorded (primary + sweep), of the processes recorded; `ca… | none |
 | SWALLOWED lines the sweep added | 0 | 0 | SWALLOWED lines the sweep added, of the processes swept; reported without a gate | none |
 | SWALLOWED lines the collector could not parse | 0 | 14 | SWALLOWED lines the collector could not parse into (how, event, qualname, line) -- anything but 0 means a row … | none |
+| guarded arms (R15; restates §5.2, not a new measurement) | 2 | 14 | SWALLOWED lines whose `Err` binding is read ONLY by a match GUARD -- the class §1's "read by a `&self` predica… | none |
 | Err chains judged on the primary (`raised (N):`) | 22 | None | `raised (N):` on the primary process -- Err chains the command judged | none |
 | processes recorded | 1 | None | processes the arm recorded (one per test binary) | none |
 | false accusations | not measured (adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed") | 14 | FALSE ACCUSATIONS. Not measurable by this instrument: §1 asks for every printed SWALLOWED line to be adjudicat… | adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed" |
@@ -128,6 +133,7 @@ Every SWALLOWED line, with the sink the trace names for it (the adjudication its
 | SWALLOWED lines over EVERY process (primary + sweep) | 14 | 3 | printed SWALLOWED lines over EVERY process this arm recorded (primary + sweep), of the processes recorded; `ca… | none |
 | SWALLOWED lines the sweep added | 0 | 2 | SWALLOWED lines the sweep added, of the processes swept; reported without a gate | none |
 | SWALLOWED lines the collector could not parse | 0 | 14 | SWALLOWED lines the collector could not parse into (how, event, qualname, line) -- anything but 0 means a row … | none |
+| guarded arms (R15; restates §5.2, not a new measurement) | 2 | 14 | SWALLOWED lines whose `Err` binding is read ONLY by a match GUARD -- the class §1's "read by a `&self` predica… | none |
 | Err chains judged on the primary (`raised (N):`) | 22 | None | `raised (N):` on the primary process -- Err chains the command judged | none |
 | processes recorded | 3 | None | processes the arm recorded (one per test binary) | none |
 | false accusations | not measured (adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed") | 14 | FALSE ACCUSATIONS. Not measurable by this instrument: §1 asks for every printed SWALLOWED line to be adjudicat… | adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed" |
@@ -342,12 +348,24 @@ either.
 strictest pre-lock reading, "so a reader who rejects the amendment can
 re-derive the verdict".
 
-| Arm | Reading | Count | Verdict |
-|---|---|---|---|
-| E6‴-A | **The amended reading** (the GATE): a log-and-continue arm is a TRUE swallow | **0 false accusations of 14** | **PASS** |
-| E6‴-A | **The strictest pre-lock reading**: every log-and-continue arm counted FALSE as well | **0 false accusations of 14** | **PASS** |
-| E6‴-W | **The amended reading** (the GATE) | **0 false accusations of 14** | **PASS** |
-| E6‴-W | **The strictest pre-lock reading** | **0 false accusations of 14** | **PASS** |
+| Arm | Reading | Count | Guarded arms (R15) | Verdict |
+|---|---|---|---|---|
+| E6‴-A | **The amended reading** (the GATE): a log-and-continue arm is a TRUE swallow | **0 false accusations of 14** | **2 of 14** (§4.1 rows 3, 5) | **PASS** |
+| E6‴-A | **The strictest pre-lock reading**: every log-and-continue arm counted FALSE as well | **0 false accusations of 14** | **2 of 14** (§4.1 rows 3, 5) | **PASS** |
+| E6‴-W | **The amended reading** (the GATE) | **0 false accusations of 14** | **2 of 14** (§4.2 rows 2, 7) | **PASS** |
+| E6‴-W | **The strictest pre-lock reading** | **0 false accusations of 14** | **2 of 14** (§4.2 rows 2, 7) | **PASS** |
+
+**The `guarded arms` column, added 2026-09-05 after the run**, on design R15
+at `1770515` — committed after this run and requiring every acceptance table
+to report the guarded-arm count beside both readings. It is **not a new
+measurement**: it restates, in the table where a reader compares the two
+readings, the number §5.2 below already published by hand — the SWALLOWED
+lines whose `Err` binding is read ONLY by a match guard
+(`Err(e) if e.kind() == io::ErrorKind::NotFound => { }`). Both counts are also
+in `results.json` as `endpoints.<arm>.guarded_arms`, each carrying
+`provenance: "hand adjudication, §5.2"`. No verdict, count or measured number
+moved; under the letter-reading of §1's `&self`-predicate clause these are the
+lines that would flip, which is exactly why R15 wants them visible here.
 
 The two readings agree in both arms, and the record says why rather than
 leaving it to be assumed: **none of the twenty-eight lines is a
@@ -561,3 +579,50 @@ re-measurement.
   They are counted as unlocated in every table and matched by nothing.
 * **The census was not re-run.** §1 froze it before the lock; this document
   cites those numbers and §5.6 reports the manifests' independent agreement.
+
+### 5.8 The driver's provenance, corroborated after the run
+
+**Recorded 2026-09-05, after the run.** §1's lens says the driver is "built
+`--release` from this branch's HEAD at run time (commit + sha256 recorded)".
+This run evidenced that with the binary's existence and sha256
+(`0ce80ad5aa88…`, unchanged across the run and after both commits) and with
+cargo's own report that every unit was Fresh — which is a claim about the
+operator's `cargo build`, not a fact the runner produced. The reviewer's
+independent corroboration, from mtimes on this box, is therefore recorded
+here rather than left implicit:
+
+| Fact | Value |
+|---|---|
+| driver binary mtime | 2026-09-05T01:48:00.339-0500 |
+| newest driver-source mtime | 2026-09-05T01:47:16.900-0500 (`rust/sensorium-transform/src/arms.rs`; `escape.rs` 01:47:16.897) |
+| gap | **43.4 s** — the binary is younger than the last edit to the transformer |
+| the commit those bytes became | `321e204` (`fix(transform): every non-logging macro's literals are scanned for a bound Err name`), authored 01:49:22, i.e. after the build |
+
+So the measured binary contains the literal-scan fix of fix round 1, and not
+an earlier transformer. This is corroboration of a lens claim, not a
+measurement: nothing in §3 or §4 depends on it, and it could only ever have
+falsified the run, never changed a number in it.
+
+The instrument no longer needs the corroboration. `acceptance_e6ppp.py` now
+runs `cargo build --release -p cargo-sensorium` itself before the preflight
+and records `built_from` — the repo HEAD at build time, cargo's exit code, and
+the driver's sha256 before and after, with a non-zero exit REFUSING the run.
+This run predates that, so `environment.built_from` in `results.json` is
+`null` with exactly that reason; runs from this commit onward carry the fact
+instead of the argument.
+
+### 5.9 Row 11 is a true swallow that a reader may reasonably want to whitelist
+
+`classify_probe` at `crates/bloomery-daemon/src/task/registry.rs:379` —
+`.and_then(\|i\| obs.outcome[i + " exit ".len()..].parse::<i64>().ok())`, with a
+deliberate `_ => "inconclusive"` fallback and a comment saying so — is the one
+accusation in this record a bloomery author is most likely to contest, and it
+is worth naming plainly: it IS a true swallow under §1, R2 and R8 (`.ok()` is
+a written sink, the `ParseIntError` reaches no caller, and the frame returned
+ok), *and* it is deliberate, documented, correct code whose author would
+reasonably want the tool to stop mentioning it. Those two facts are not in
+tension — the disposition is about where the failure went, not about whether
+the code is right — but a tool that cannot be told the difference will be
+argued with. A per-site `--allow` (or an in-source marker) is the shape that
+would settle it; it is CARRIED-DEBT for the docs task, not a change to this
+record or to any rule measured here.

@@ -229,6 +229,13 @@
     "source_bloomery_porcelain_before": "",
     "source_bloomery_porcelain_after": "",
     "source_bloomery_unchanged": true,
+    "built_from": {
+      "dropped": [
+        "not recorded: this run's driver was built by the operator before launch and evidenced by its sha256 and mtime (\u00a72, \u00a75.8). `built_from` is recorded by the runner itself from this commit onward"
+      ]
+    },
+    "logs_dir": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance-e6ppp/logs",
+    "prep_build_log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance/logs/prep-workspace.log",
     "load_1min_at_start": 0.59,
     "load_at_each_arm": [
       {
@@ -303,6 +310,13 @@
         "n": 14,
         "lens": "SWALLOWED lines the collector could not parse into (how, event, qualname, line) -- anything but 0 means a row of the adjudication table was assembled by hand",
         "dropped": []
+      },
+      "guarded_arms": {
+        "value": 2,
+        "n": 14,
+        "lens": "SWALLOWED lines whose `Err` binding is read ONLY by a match GUARD -- the class \u00a71's \"read by a `&self` predicate\" clause does not settle, reported beside both readings per design R15. NOT a new measurement: it restates the count \u00a75.2 of the document published by hand, and under the letter-reading of that clause these lines would be FALSE and the endpoint a STOP.",
+        "dropped": [],
+        "provenance": "hand adjudication, \u00a75.2"
       },
       "chains_in_scope": {
         "value": 22,
@@ -678,6 +692,13 @@
         "n": 14,
         "lens": "SWALLOWED lines the collector could not parse into (how, event, qualname, line) -- anything but 0 means a row of the adjudication table was assembled by hand",
         "dropped": []
+      },
+      "guarded_arms": {
+        "value": 2,
+        "n": 14,
+        "lens": "SWALLOWED lines whose `Err` binding is read ONLY by a match GUARD -- the class \u00a71's \"read by a `&self` predicate\" clause does not settle, reported beside both readings per design R15. NOT a new measurement: it restates the count \u00a75.2 of the document published by hand, and under the letter-reading of that clause these lines would be FALSE and the endpoint a STOP.",
+        "dropped": [],
+        "provenance": "hand adjudication, \u00a75.2"
       },
       "chains_in_scope": {
         "value": 22,
@@ -2302,6 +2323,7 @@
       "cargo_exit": 0,
       "units": 154,
       "target_emptied_bytes": 6090542658,
+      "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance/logs/prep-workspace.log",
       "arm_sites_distinct": {
         "value": 225,
         "n": null,
@@ -2391,7 +2413,7 @@
   "started": "2026-09-05T02:20:30-0500",
   "finished": "2026-09-05T02:20:49-0500",
   "assembled": {
-    "at": "2026-09-05T02:26:35-0500",
+    "at": "2026-09-05T02:49:37-0500",
     "from": "results-e6ppp-raw.json",
     "by": "rust/tests/acceptance_e6ppp.py --assemble",
     "note": "derived from the raw facts the run recorded, which nothing since has touched; no arm was re-run and no value re-measured"
