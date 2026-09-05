@@ -731,4 +731,41 @@ fn a_sink_chain_matching_the_return_text_still_falls_back_to_the_innermost() {
          chain -- takes the fallback hop: {events:#?}"
     );
     assert_eq!(exit.hop, 2, "a hop of C1, not a fresh chain: {events:#?}");
+    assert!(
+        exit.translated,
+        "the fallback hop carries B1's text onto C1's chain, a type/text \
+         change from what C1 last recorded: {exit:#?}"
+    );
+}
+
+/// Design B3's wildcard case, pinned: a RETURN with an UNREAD text (both
+/// `ErrText` fields `None`, e.g. an untyped `err` close or one whose `Debug`
+/// impl panicked) matches every held chain, so `preferred` resolves to the
+/// innermost and the fallback IS today's pre-borrow-repair behaviour.
+#[test]
+fn an_err_close_with_an_unread_text_falls_back_to_the_innermost_held_chain() {
+    let events = mint(
+        &[
+            call(0),                     // A
+            call(1),                     // first
+            ret_err(2, "demo::E", "B1"), // chain B1, holder A
+            call(3),                     // second
+            ret_err(4, "demo::E", "C1"), // chain C1, holder A, innermost
+            ret(5, Outcome::Err),        // A closes err with an UNREAD (wildcard) text
+        ],
+        false,
+    );
+    let s = serials(&events);
+    assert_eq!(s.len(), 2, "two chains, no merge: {events:#?}");
+    let c1 = events[1].serial;
+    let exit = events
+        .iter()
+        .find(|e| e.seq == 5)
+        .unwrap_or_else(|| panic!("no event at A's close: {events:#?}"));
+    assert_eq!(
+        exit.serial, c1,
+        "a wildcard text matches every chain, so the fallback is the \
+         innermost: {events:#?}"
+    );
+    assert_eq!(exit.hop, 2);
 }
