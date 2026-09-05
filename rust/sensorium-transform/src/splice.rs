@@ -25,10 +25,15 @@
 //! # Order
 //!
 //! Splices are sorted by offset, then by KIND, because several land on the same
-//! byte and only one order is right: an exit wrap's closing `)` before anything
-//! that starts there, then the entry guard (a statement, which must precede the
-//! block's value), then an exit wrap's opening fragment, then a spawn rewrite,
-//! then the crate-root static. Nested wraps close innermost-first. The
+//! byte and only one order is right. Reading [`Kind`] top to bottom is reading
+//! that order: an err wrap's arm closes before an exit wrap's `)` (the err wrap
+//! is INSIDE it: `ret(.., match g() { .. }?)`), both close before anything that
+//! starts there, then the entry guard (a statement, which must precede the
+//! block's value), then an exit wrap's opening fragment, then an err wrap's
+//! `match ` (again inside it), then a spawn rewrite, then the crate root's
+//! `allow` and its static. Nested wraps of either kind close innermost-first,
+//! which is what the reversed `seq` in [`splice_order`] is for; opens of one
+//! kind at one byte go outermost-first, which is the walk's own order. The
 //! assembled output is checked for overlap as it is built, so a mis-ordered
 //! splice is an error rather than a corrupted file.
 
@@ -38,8 +43,10 @@ use std::str::FromStr;
 
 use proc_macro2::{Span, TokenStream};
 use syn::visit::Visit;
+use syn::{AttrStyle, Attribute};
 
-use crate::visit::Ctx;
+use crate::errflow::How;
+use crate::visit::{self, Ctx};
 use crate::{Census, SpawnSite, Transformed};
 
 /// The entry guard. Newline-free, and the ONLY place its text is written.
@@ -57,6 +64,37 @@ pub(crate) fn ret_open_fragment(site: u32) -> String {
 }
 
 pub(crate) const RET_CLOSE: &str = ")";
+
+/// The opening half of an err wrap (design R3). Six bytes, and the whole reason
+/// `tests/oracle.rs` can predict the column shift inside a wrapped operand.
+pub(crate) const ERR_OPEN: &str = "match ";
+
+/// The closing half of an err wrap: the single arm that probes the value and
+/// hands it straight back. The capture is a CLOSURE, so at tier `off` the
+/// runtime never renders anything.
+pub(crate) fn err_close_fragment(site: u32, how: How) -> String {
+    format!(
+        " {{ __t => {{ ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, {site}, \
+         ::sensorium_rt::{}, || {{ use ::sensorium_rt::probe::*; \
+         (&&&Probe(&__t)).err_cap() }}); __t }} }}",
+        how.constant()
+    )
+}
+
+/// The one lint the wraps themselves provoke: every one of them is a `match`
+/// with a single binding, which is exactly what `clippy::match_single_binding`
+/// is about (measured 2026-09-04: ten wraps, ten lints, and this attribute
+/// silences all ten). It goes on the crate ROOT, because a wrap in any file of
+/// the unit is what needs it.
+///
+/// The leading space is what keeps it off the previous attribute's `]`; there
+/// is no trailing one, because a golden's checked-in bytes should not end a
+/// line with whitespace.
+pub(crate) const CRATE_ALLOW: &str = " #![allow(clippy::match_single_binding)]";
+
+/// The same attribute where it has to share the static's fragment (see
+/// [`AllowPlacement::WithStatic`]): no leading space, one trailing.
+const CRATE_ALLOW_LEADING: &str = "#![allow(clippy::match_single_binding)] ";
 
 /// The crate root's unit declaration. Newline-free -- which is why a newline in
 /// the metadata is escaped rather than passed through: a Rust string literal
@@ -85,19 +123,32 @@ pub(crate) fn escape_string_literal(s: &str) -> String {
     out
 }
 
-/// What a splice is, and what has to happen first when two share a byte.
+/// What a splice is, and what has to happen first when two share a byte. The
+/// DECLARATION ORDER is the tie-break order (the derived `Ord`), so this list
+/// is the rule and not a description of one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Kind {
+    /// An err wrap's arm. Before an exit wrap's `)` at the same byte, because
+    /// the err wrap sits INSIDE the exit wrap: `ret(.., match g() { .. }?)`.
+    ErrClose,
     /// An exit wrap's `)`. Closes what is already open before anything new.
     Close,
     /// The entry guard: a statement, so ahead of the block's value.
     Guard,
     /// An exit wrap's opening fragment, outside a spawn rewrite at the same byte.
     Open,
+    /// An err wrap's `match `. After an exit wrap's opening fragment at the same
+    /// byte (a `?` tail is `ret(.., match g() { .. }?)`, not the other way
+    /// round) and before a spawn rewrite, whose replaced bytes start there.
+    ErrOpen,
     /// A spawn callee replaced in place.
     Replace,
     /// The spawn site string, just past the call's `(`.
     SpawnArg,
+    /// The crate root's `allow`, on the last inner attribute's line. Before the
+    /// static, which shares its byte on a file whose whole content is doc
+    /// comments -- and an inner attribute may not follow an item.
+    Allow,
     /// The crate root's unit static, past the file's last token.
     Static,
 }
@@ -118,7 +169,7 @@ fn splice_order(a: &Splice, b: &Splice) -> Ordering {
         .cmp(&b.start)
         .then(a.kind.cmp(&b.kind))
         .then_with(|| {
-            if a.kind == Kind::Close {
+            if matches!(a.kind, Kind::Close | Kind::ErrClose) {
                 // The wrap opened LAST closes first.
                 b.seq.cmp(&a.seq)
             } else {
@@ -146,9 +197,20 @@ pub(crate) fn run(
     if is_crate_root {
         let placement = static_splice(source, prefix, parsed.shebang.is_some());
         appended_line = placement.appended_line;
+        let allow = allow_placement(source, prefix, &parsed.attrs);
+        if let AllowPlacement::At(offset) = allow {
+            splices.push(Splice {
+                start: offset,
+                end: offset,
+                kind: Kind::Allow,
+                seq: usize::MAX,
+                text: CRATE_ALLOW.to_owned(),
+            });
+        }
         splices.push(placement.splice(
             checked_static_offset(source, placement.offset)?,
             unit_metadata,
+            allow == AllowPlacement::WithStatic,
         ));
     }
     splices.sort_by(splice_order);
@@ -164,6 +226,7 @@ pub(crate) fn run(
         source: out,
         sites: walked.sites,
         skipped: walked.skipped,
+        partial: walked.partial,
         spawns: spawns.into_iter().map(|(_, s)| s).collect(),
         appended_line,
     })
@@ -377,8 +440,11 @@ fn checked_static_offset(source: &str, offset: usize) -> Result<usize, syn::Erro
 /// already ended a line -- which includes the empty file, whose zero lines
 /// become one.
 impl StaticPlacement {
-    fn splice(&self, offset: usize, unit_metadata: &str) -> Splice {
+    fn splice(&self, offset: usize, unit_metadata: &str, with_allow: bool) -> Splice {
         let mut text = unit_static(unit_metadata);
+        if with_allow {
+            text.insert_str(0, CRATE_ALLOW_LEADING);
+        }
         if self.lead_newline {
             text.insert(0, '\n');
         }
@@ -394,6 +460,58 @@ impl StaticPlacement {
 
 fn adds_a_final_line(source: &str, offset: usize) -> bool {
     offset == source.len() && (source.is_empty() || source.ends_with('\n'))
+}
+
+/// Where the crate root's `allow` attribute goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AllowPlacement {
+    /// A byte offset on a line that already exists: just past the last inner
+    /// attribute, or at the file's first token when there is none. Either way
+    /// the attribute lands before every item, which is where an inner attribute
+    /// has to be, and adds no line.
+    At(usize),
+    /// There is nowhere on an existing line to put it: the file has no tokens
+    /// at all, or its last inner attribute is a line doc comment that runs to
+    /// EOF with no newline after it. Such a file has no items (an item after a
+    /// `//!` at EOF is not a file this parses), so the attribute rides on the
+    /// crate-root static's own fragment, which already carries the only newline
+    /// this crate ever emits.
+    WithStatic,
+}
+
+/// Compute [`AllowPlacement`] for a crate root.
+///
+/// The MAXIMUM inner-attribute end is taken rather than the last one in the
+/// list, for the same reason [`Ctx::body_offset`] does: `#![a]` and `//! doc`
+/// are both inner attributes and nothing promises which order `syn` reports
+/// them in.
+fn allow_placement(source: &str, prefix: usize, attrs: &[Attribute]) -> AllowPlacement {
+    let mut offset: Option<usize> = None;
+    for attr in attrs {
+        if !matches!(attr.style, AttrStyle::Inner(_)) {
+            continue;
+        }
+        match visit::inner_attr_end(source, prefix, attr) {
+            Ok(end) => {
+                if offset.is_none_or(|had| end > had) {
+                    offset = Some(end);
+                }
+            }
+            Err(_) => return AllowPlacement::WithStatic,
+        }
+    }
+    match offset.or_else(|| first_token_start(&source[prefix..]).map(|start| prefix + start)) {
+        Some(o) if source.is_char_boundary(o) => AllowPlacement::At(o),
+        _ => AllowPlacement::WithStatic,
+    }
+}
+
+/// The start of the file's FIRST token, past whatever `syn::parse_file`
+/// stripped. `None` for a file with no tokens at all.
+fn first_token_start(content: &str) -> Option<usize> {
+    let stream = TokenStream::from_str(content).ok()?;
+    let first = stream.into_iter().next()?;
+    Some(first.span().byte_range().start)
 }
 
 /// The end of the file's last token, and whether that token's own text is a

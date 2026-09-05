@@ -1,4 +1,4 @@
-pub fn outer() -> u8 {@G(7)
+@Wpub fn outer() -> u8 {@G(7)
     fn helper() -> u8 {@G(8)
         @R(8)1@E
     }

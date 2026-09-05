@@ -1,4 +1,4 @@
-macro_rules! make_fn {
+@Wmacro_rules! make_fn {
     ($name:ident) => {
         fn $name() -> u8 {
             5

@@ -1,5 +1,5 @@
 //! Crate root whose last line is a comment.
-
+@W
 pub fn root_fn() -> u8 {@G(7)
     @R(7)3@E
 }@U

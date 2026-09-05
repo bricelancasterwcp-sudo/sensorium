@@ -18,20 +18,23 @@ use std::collections::HashMap;
 use proc_macro2::{Span, TokenStream, TokenTree};
 use syn::visit::Visit;
 use syn::{
-    AttrStyle, Attribute, Block, ExprCall, ExprMacro, ExprMethodCall, ExprTry, ImplItemConst,
-    ImplItemFn, ItemConst, ItemFn, ItemImpl, ItemMacro, ItemMod, ItemStatic, ItemTrait, Signature,
-    StmtMacro, TraitItemConst, TraitItemFn, Type,
+    AttrStyle, Attribute, Block, ExprCall, ExprClosure, ExprConst, ExprMacro, ExprMethodCall,
+    ExprTry, ImplItemConst, ImplItemFn, ItemConst, ItemFn, ItemImpl, ItemMacro, ItemMod,
+    ItemStatic, ItemTrait, Local, Pat, Signature, StmtMacro, TraitItemConst, TraitItemFn,
 };
 
+use crate::errflow;
 use crate::exits::{self, Operand};
+use crate::names::{line_of, path_span, self_type_name};
 use crate::spawn::{self, Rewrite, Shape};
 use crate::splice::{guard_fragment, ret_open_fragment, Kind, Splice, RET_CLOSE};
-use crate::{Census, RetKind, Site, Skipped, SpawnSite, MAX_SITE_INDEX};
+use crate::{Census, Partial, RetKind, Site, SiteKind, Skipped, SpawnSite, MAX_SITE_INDEX};
 
 /// What one walk found: everything `splice.rs` needs and nothing it does not.
 pub(crate) struct Walked {
     pub sites: Vec<Site>,
     pub skipped: Vec<Skipped>,
+    pub partial: Vec<Partial>,
     /// Byte offset (for source order) and the site.
     pub spawns: Vec<(usize, SpawnSite)>,
     pub splices: Vec<Splice>,
@@ -50,10 +53,17 @@ struct Frame {
     named_item: bool,
 }
 
+/// The walk's state.
+///
+/// The fields are `pub(crate)` rather than private because the err-flow half of
+/// the walk lives in [`crate::errflow`] (this file is at the 800-line ceiling
+/// with the rung-1 and rung-2 halves in it). Nothing outside the crate can see
+/// them, and `Ctx` itself is still only constructed here and in
+/// [`crate::splice`].
 pub(crate) struct Ctx<'a> {
-    source: &'a str,
-    prefix: usize,
-    file: &'a str,
+    pub(crate) source: &'a str,
+    pub(crate) prefix: usize,
+    pub(crate) file: &'a str,
     /// Push/pop of `mod`, `impl` self type, `trait`, enclosing fn, `const` and
     /// `static` names -- see [`Frame`].
     scope: Vec<Frame>,
@@ -62,11 +72,25 @@ pub(crate) struct Ctx<'a> {
     /// decision N1 names, and `splice::run` re-derives it from source order
     /// afterwards rather than trusting it (N4).
     spawn_ordinals: HashMap<String, u32>,
-    next_site: u32,
+    pub(crate) next_site: u32,
     /// False in census mode: classification runs, splicing does not.
-    emit: bool,
-    sites: Vec<Site>,
+    pub(crate) emit: bool,
+    pub(crate) sites: Vec<Site>,
     skipped: Vec<Skipped>,
+    /// Err-flow sites the walk met and could not reach (design R6).
+    pub(crate) partial: Vec<Partial>,
+    /// True inside a `const fn` body, a `const`/`static` initialiser or a
+    /// `const { .. }` block -- and false again inside a closure within one,
+    /// whose body runs when the closure is CALLED.
+    ///
+    /// No err-flow probe is placed in a const context: `err_site` is not a
+    /// `const fn`, so a wrap there is E0015 (measured on rustc 1.96,
+    /// 2026-09-04). It costs nothing measurable, because `?` and the four
+    /// sinks are themselves rejected in const contexts ("`?` is not allowed
+    /// ... in constant functions", "cannot call conditionally-const method
+    /// `Result::<u8, u8>::unwrap_or`"); the one shape that does reach here is
+    /// `let _ = <expr>;`, which absorbs nothing anyway.
+    pub(crate) const_ctx: bool,
     /// Byte offset (for source order) and the site.
     spawns: Vec<(usize, SpawnSite)>,
     splices: Vec<Splice>,
@@ -79,7 +103,7 @@ pub(crate) struct Ctx<'a> {
     /// instrumenting side of `?` separately, gated on `emit`.
     try_syn: usize,
     /// Census only (see [`Census::try_macro_tokens`]).
-    try_macro_tokens: usize,
+    pub(crate) try_macro_tokens: usize,
     error: Option<syn::Error>,
 }
 
@@ -101,6 +125,8 @@ impl<'a> Ctx<'a> {
             emit,
             sites: Vec::new(),
             skipped: Vec::new(),
+            partial: Vec::new(),
+            const_ctx: false,
             spawns: Vec::new(),
             splices: Vec::new(),
             fn_items: 0,
@@ -125,6 +151,7 @@ impl<'a> Ctx<'a> {
         Ok(Walked {
             sites: self.sites,
             skipped: self.skipped,
+            partial: self.partial,
             spawns: self.spawns,
             splices: self.splices,
         })
@@ -143,13 +170,13 @@ impl<'a> Ctx<'a> {
         }
     }
 
-    fn fail(&mut self, span: Span, msg: &str) {
+    pub(crate) fn fail(&mut self, span: Span, msg: &str) {
         if self.error.is_none() {
             self.error = Some(syn::Error::new(span, msg));
         }
     }
 
-    fn start_of(&self, span: Span) -> usize {
+    pub(crate) fn start_of(&self, span: Span) -> usize {
         self.prefix + span.byte_range().start
     }
 
@@ -157,7 +184,7 @@ impl<'a> Ctx<'a> {
         self.prefix + span.byte_range().end
     }
 
-    fn push(&mut self, start: usize, end: usize, kind: Kind, text: String) {
+    pub(crate) fn push(&mut self, start: usize, end: usize, kind: Kind, text: String) {
         let seq = self.splices.len();
         self.splices.push(Splice {
             start,
@@ -181,7 +208,7 @@ impl<'a> Ctx<'a> {
 
     /// Every frame's name joined -- containers included, since `Type::method`
     /// is what the manifest spells.
-    fn scope_path(&self) -> String {
+    pub(crate) fn scope_path(&self) -> String {
         self.scope
             .iter()
             .map(|f| f.name.as_str())
@@ -213,7 +240,7 @@ impl<'a> Ctx<'a> {
     /// preference to naming the child after a container, which would put it in
     /// the same counter as an unrelated `fn m()` and give the manifest a
     /// qualname no item has.
-    fn enclosing_qualname(&self) -> Option<String> {
+    pub(crate) fn enclosing_qualname(&self) -> Option<String> {
         if !self.scope.last()?.named_item {
             return None;
         }
@@ -252,50 +279,16 @@ impl<'a> Ctx<'a> {
         Some(offset)
     }
 
-    /// The byte offset just past one inner attribute of a body.
-    ///
-    /// Three forms reach here, and only the first ends on a `]`:
-    ///
-    /// * `#![allow(..)]` -- a real attribute; the span covers the brackets.
-    /// * `//! doc` -- `syn` reports a doc comment as an `AttrStyle::Inner`
-    ///   attribute whose bracket span covers the COMMENT TEXT. Its end is inside
-    ///   a line comment, so the guard moves past that line's newline; the
-    ///   fragment is still newline-free and the line count still holds. Both
-    ///   forms are legal Rust and both appear in real code, so rejecting the
-    ///   file (which is what requiring `]` did) is not an option.
-    /// * `/*! doc */` -- the same, except the span already ends after the `*/`.
+    /// [`inner_attr_end`] with this walk's source, failing the file rather than
+    /// answering with a guess.
     fn inner_attr_end(&mut self, attr: &Attribute) -> Option<usize> {
-        let close = attr.bracket_token.span.close();
-        let start = self.start_of(attr.bracket_token.span.join());
-        let end = self.end_of(close);
-        let Some(text) = self.source.get(start..end) else {
-            self.fail(
-                close,
-                "inner attribute span is not a byte range of the source",
-            );
-            return None;
-        };
-        if text.starts_with("//") {
-            // Past the comment's own newline.
-            return match self.source[end..].find('\n') {
-                Some(nl) => Some(end + nl + 1),
-                None => {
-                    self.fail(
-                        close,
-                        "inner line doc comment is not terminated by a newline",
-                    );
-                    None
-                }
-            };
+        match inner_attr_end(self.source, self.prefix, attr) {
+            Ok(end) => Some(end),
+            Err(msg) => {
+                self.fail(attr.bracket_token.span.close(), msg);
+                None
+            }
         }
-        if text.starts_with("/*") {
-            return Some(end);
-        }
-        if end == 0 || self.source.as_bytes().get(end - 1) != Some(&b']') {
-            self.fail(close, "inner attribute does not end where its span says");
-            return None;
-        }
-        Some(end)
     }
 
     /// Which disjoint bucket this signature falls in, if any, counting it as it
@@ -372,7 +365,9 @@ impl<'a> Ctx<'a> {
             file: self.file.to_owned(),
             qualname,
             firstlineno: line,
-            ret,
+            ret: Some(ret),
+            kind: SiteKind::Fn,
+            how: None,
         });
     }
 
@@ -503,20 +498,36 @@ impl<'a> Ctx<'a> {
         f(self);
         self.scope.pop();
     }
+
+    /// Descend with [`Ctx::const_ctx`] set, and put it back afterwards. A
+    /// `const fn` inside a plain one sets it; a closure inside a `const fn`
+    /// clears it.
+    fn in_const<F: FnOnce(&mut Self)>(&mut self, const_ctx: bool, f: F) {
+        let saved = self.const_ctx;
+        self.const_ctx = const_ctx;
+        f(self);
+        self.const_ctx = saved;
+    }
 }
 
 impl<'ast> Visit<'ast> for Ctx<'_> {
     fn visit_item_fn(&mut self, node: &'ast ItemFn) {
         let name = node.sig.ident.to_string();
         self.fn_item(&node.sig, &node.attrs, &node.block, &name);
+        let is_const = node.sig.constness.is_some();
         // Nested items (a `fn` in a `fn`, an `impl` in a `fn`) are fn items too.
-        self.in_item(name, |ctx| syn::visit::visit_block(ctx, &node.block));
+        self.in_item(name, |ctx| {
+            ctx.in_const(is_const, |ctx| syn::visit::visit_block(ctx, &node.block));
+        });
     }
 
     fn visit_impl_item_fn(&mut self, node: &'ast ImplItemFn) {
         let name = node.sig.ident.to_string();
         self.fn_item(&node.sig, &node.attrs, &node.block, &name);
-        self.in_item(name, |ctx| syn::visit::visit_block(ctx, &node.block));
+        let is_const = node.sig.constness.is_some();
+        self.in_item(name, |ctx| {
+            ctx.in_const(is_const, |ctx| syn::visit::visit_block(ctx, &node.block));
+        });
     }
 
     fn visit_trait_item_fn(&mut self, node: &'ast TraitItemFn) {
@@ -527,7 +538,10 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
         };
         let name = node.sig.ident.to_string();
         self.fn_item(&node.sig, &node.attrs, block, &name);
-        self.in_item(name, |ctx| syn::visit::visit_block(ctx, block));
+        let is_const = node.sig.constness.is_some();
+        self.in_item(name, |ctx| {
+            ctx.in_const(is_const, |ctx| syn::visit::visit_block(ctx, block));
+        });
     }
 
     fn visit_item_impl(&mut self, node: &'ast ItemImpl) {
@@ -572,25 +586,25 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
 
     fn visit_item_const(&mut self, node: &'ast ItemConst) {
         self.in_item(node.ident.to_string(), |ctx| {
-            syn::visit::visit_item_const(ctx, node);
+            ctx.in_const(true, |ctx| syn::visit::visit_item_const(ctx, node));
         });
     }
 
     fn visit_item_static(&mut self, node: &'ast ItemStatic) {
         self.in_item(node.ident.to_string(), |ctx| {
-            syn::visit::visit_item_static(ctx, node);
+            ctx.in_const(true, |ctx| syn::visit::visit_item_static(ctx, node));
         });
     }
 
     fn visit_impl_item_const(&mut self, node: &'ast ImplItemConst) {
         self.in_item(node.ident.to_string(), |ctx| {
-            syn::visit::visit_impl_item_const(ctx, node);
+            ctx.in_const(true, |ctx| syn::visit::visit_impl_item_const(ctx, node));
         });
     }
 
     fn visit_trait_item_const(&mut self, node: &'ast TraitItemConst) {
         self.in_item(node.ident.to_string(), |ctx| {
-            syn::visit::visit_trait_item_const(ctx, node);
+            ctx.in_const(true, |ctx| syn::visit::visit_trait_item_const(ctx, node));
         });
     }
 
@@ -611,26 +625,62 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
                 let span = node.method.span();
                 self.spawn_shape(&shape, line_of(span), span);
             }
+            if !self.const_ctx {
+                if let Some(how) = errflow::sink_how(node) {
+                    self.sink_site(node, how);
+                }
+            }
         }
         syn::visit::visit_expr_method_call(self, node);
     }
 
-    /// Every `?` the parser turned into a node. Counting only; the splices a `?`
-    /// site needs are rung 3's and are added on the `emit` side.
+    /// Every `?` the parser turned into a node: counted for the census, and --
+    /// on the emitting side, outside a const context -- probed. The count and
+    /// the probe are the same set by construction, which is the identity
+    /// `tests/census.rs` measures on a real workspace.
     fn visit_expr_try(&mut self, node: &'ast ExprTry) {
         self.try_syn += 1;
+        if self.emit && !self.const_ctx {
+            self.try_site(node);
+        }
         syn::visit::visit_expr_try(self, node);
+    }
+
+    /// `let _ = <value expression>;` -- the third written sink (design R2).
+    ///
+    /// Only the bare `_` pattern: `let _: T = e;` is a different spelling the
+    /// design does not name, and it is left alone rather than guessed at.
+    fn visit_local(&mut self, node: &'ast Local) {
+        if self.emit && !self.const_ctx && matches!(node.pat, Pat::Wild(_)) {
+            if let Some(init) = node.init.as_ref() {
+                self.let_underscore_site(&init.expr, node.let_token.span);
+            }
+        }
+        syn::visit::visit_local(self, node);
+    }
+
+    /// A closure body is not a const context, whatever it sits in: a closure
+    /// declared in a `const fn` may call a non-const fn, because its body runs
+    /// when the closure is CALLED (measured on rustc 1.96, 2026-09-04).
+    fn visit_expr_closure(&mut self, node: &'ast ExprClosure) {
+        self.in_const(false, |ctx| syn::visit::visit_expr_closure(ctx, node));
+    }
+
+    /// `const { .. }` is a const context: nothing inside it may call
+    /// `err_site`.
+    fn visit_expr_const(&mut self, node: &'ast ExprConst) {
+        self.in_const(true, |ctx| syn::visit::visit_expr_const(ctx, node));
     }
 
     /// `foo!(bar()?)` in expression position: the `?` is a TOKEN, not a node.
     fn visit_expr_macro(&mut self, node: &'ast ExprMacro) {
-        self.try_macro_tokens += count_question_tokens(&node.mac.tokens);
+        self.macro_question_tokens(&node.mac.tokens);
         syn::visit::visit_expr_macro(self, node);
     }
 
     /// The same in statement position (`assert!(f()?);`).
     fn visit_stmt_macro(&mut self, node: &'ast StmtMacro) {
-        self.try_macro_tokens += count_question_tokens(&node.mac.tokens);
+        self.macro_question_tokens(&node.mac.tokens);
         syn::visit::visit_stmt_macro(self, node);
     }
 
@@ -641,7 +691,7 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
         // the skip scan below and its `?`s are never counted: there, `$( .. )?`
         // is a repetition operator (`Census::try_macro_tokens`).
         if !node.mac.path.is_ident("macro_rules") {
-            self.try_macro_tokens += count_question_tokens(&node.mac.tokens);
+            self.macro_question_tokens(&node.mac.tokens);
             return;
         }
         if !self.emit {
@@ -668,25 +718,47 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
     }
 }
 
-/// The 1-based line a span starts on.
-fn line_of(span: Span) -> u32 {
-    u32::try_from(span.start().line).unwrap_or(u32::MAX)
-}
-
-/// The span of a callee path's FIRST token: `Spanned` on the whole path would
-/// answer with a join that is only as good as `proc-macro2`'s, and the line is
-/// all this needs.
-fn path_span(func: &syn::Expr) -> Span {
-    match func {
-        syn::Expr::Path(p) => match &p.path.leading_colon {
-            Some(c) => c.spans[0],
-            None => p.path.segments[0].ident.span(),
-        },
-        other => {
-            use syn::spanned::Spanned;
-            other.span()
-        }
+/// The byte offset just past one inner attribute.
+///
+/// Three forms reach here, and only the first ends on a `]`:
+///
+/// * `#![allow(..)]` -- a real attribute; the span covers the brackets.
+/// * `//! doc` -- `syn` reports a doc comment as an `AttrStyle::Inner`
+///   attribute whose bracket span covers the COMMENT TEXT. Its end is inside a
+///   line comment, so the caller moves past that line's newline; the fragment
+///   is still newline-free and the line count still holds. Both forms are legal
+///   Rust and both appear in real code, so rejecting the file (which is what
+///   requiring `]` did) is not an option.
+/// * `/*! doc */` -- the same, except the span already ends after the `*/`.
+///
+/// # Errors
+/// The span is not a byte range of the source, an unterminated line doc
+/// comment (there is no next line to move onto), or an attribute that does not
+/// end where its span says.
+pub(crate) fn inner_attr_end(
+    source: &str,
+    prefix: usize,
+    attr: &Attribute,
+) -> Result<usize, &'static str> {
+    let start = prefix + attr.bracket_token.span.join().byte_range().start;
+    let end = prefix + attr.bracket_token.span.close().byte_range().end;
+    let Some(text) = source.get(start..end) else {
+        return Err("inner attribute span is not a byte range of the source");
+    };
+    if text.starts_with("//") {
+        // Past the comment's own newline.
+        return match source[end..].find('\n') {
+            Some(nl) => Ok(end + nl + 1),
+            None => Err("inner line doc comment is not terminated by a newline"),
+        };
     }
+    if text.starts_with("/*") {
+        return Ok(end);
+    }
+    if end == 0 || source.as_bytes().get(end - 1) != Some(&b']') {
+        return Err("inner attribute does not end where its span says");
+    }
+    Ok(end)
 }
 
 /// Lines of `fn` tokens inside a macro body, skipping fn-POINTER types
@@ -710,70 +782,5 @@ fn scan_macro_fns(tokens: &TokenStream, out: &mut Vec<u32>) {
     // A trailing `fn` with nothing after it cannot be a fn pointer.
     if let Some(span) = pending {
         out.push(u32::try_from(span.start().line).unwrap_or(u32::MAX));
-    }
-}
-
-/// `?` punct tokens in a macro invocation's token stream, recursively through
-/// every delimited group.
-///
-/// The ONE exclusion is `?Sized`: a `?` immediately followed by the ident
-/// `Sized` is part of a trait bound (`impl_for!(T: ?Sized)`), never a fallible
-/// operation. Nothing else is excluded here -- in particular this function is
-/// never called on a `macro_rules!` DEFINITION's tokens, which is where `$( ..
-/// )?` would otherwise be miscounted (`Census::try_macro_tokens` states both).
-fn count_question_tokens(tokens: &TokenStream) -> usize {
-    let mut n = 0;
-    let mut pending = false;
-    for tt in tokens.clone() {
-        if pending {
-            pending = false;
-            let sized = matches!(&tt, TokenTree::Ident(id) if id == "Sized");
-            if !sized {
-                n += 1;
-            }
-        }
-        match tt {
-            TokenTree::Punct(ref p) if p.as_char() == '?' => pending = true,
-            TokenTree::Group(ref g) => n += count_question_tokens(&g.stream()),
-            _ => {}
-        }
-    }
-    // A `?` with nothing after it cannot be a `?Sized`.
-    usize::from(pending) + n
-}
-
-/// The impl's self type as a bare name: no generic arguments, no path prefix.
-fn self_type_name(ty: &Type) -> String {
-    match ty {
-        Type::Path(p) => p
-            .path
-            .segments
-            .last()
-            .map_or_else(|| "<type>".to_owned(), |s| s.ident.to_string()),
-        Type::Reference(r) => self_type_name(&r.elem),
-        Type::Ptr(p) => self_type_name(&p.elem),
-        Type::Paren(p) => self_type_name(&p.elem),
-        Type::Group(g) => self_type_name(&g.elem),
-        Type::Slice(s) => format!("[{}]", self_type_name(&s.elem)),
-        Type::Array(a) => format!("[{}]", self_type_name(&a.elem)),
-        Type::Tuple(t) => {
-            let inner: Vec<String> = t.elems.iter().map(self_type_name).collect();
-            format!("({})", inner.join(", "))
-        }
-        Type::Never(_) => "!".to_owned(),
-        Type::TraitObject(t) => {
-            let name = t
-                .bounds
-                .iter()
-                .find_map(|b| match b {
-                    syn::TypeParamBound::Trait(tr) => {
-                        tr.path.segments.last().map(|s| s.ident.to_string())
-                    }
-                    _ => None,
-                })
-                .unwrap_or_else(|| "<type>".to_owned());
-            format!("dyn {name}")
-        }
-        _ => "<type>".to_owned(),
     }
 }

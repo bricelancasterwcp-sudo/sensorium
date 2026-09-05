@@ -1,5 +1,5 @@
 //! `return <e>` at closure depth 0, wherever the block nesting puts it.
-
+@W
 pub fn in_if(c: bool) -> u8 {@G(7)
     if c {
         return @R(7)1@E;

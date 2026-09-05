@@ -1,14 +1,17 @@
 //! `sensorium-transform` -- the sensorium Rust recorder's source rewriter.
 //!
-//! It puts three things into a workspace's own source, WITHOUT moving a single
+//! It puts five things into a workspace's own source, WITHOUT moving a single
 //! line number: an entry guard at the top of every eligible fn body, a capture
-//! around every exit operand of a value-returning fn, and a named `spawn_child`
-//! in place of `std::thread::spawn`. Spec §3.1 is the whole reason it works this
-//! way -- re-printing the AST with `quote` collapses a file to one line and
-//! destroys `line!()`, panic locations and rustc's own diagnostics. The AST is
-//! therefore a MEASURING instrument only: `syn` says where the braces and the
-//! operands are, and the original bytes are copied through with newline-free
-//! fragments spliced in at those offsets. The AST is never printed.
+//! around every exit operand of a value-returning fn, a probe around every `?`
+//! operand and every written sink's value, a named `spawn_child` in place of
+//! `std::thread::spawn`, and one `allow` attribute on the crate root.
+//!
+//! Spec §3.1 is the whole reason it works this way -- re-printing the AST with
+//! `quote` collapses a file to one line and destroys `line!()`, panic locations
+//! and rustc's own diagnostics. The AST is therefore a MEASURING instrument
+//! only: `syn` says where the braces and the operands are, and the original
+//! bytes are copied through with newline-free fragments spliced in at those
+//! offsets. The AST is never printed.
 //!
 //! Injected as the first statement of every eligible fn body:
 //!
@@ -27,6 +30,20 @@
 //! }, <e>)
 //! ```
 //!
+//! around the operand of every `?`, the receiver of every written sink and the
+//! value of every `let _ = <value expression>` -- an opening `match ` before the
+//! operand and the arm after it, so that the program's own `?` and `.ok()` stay
+//! OUTSIDE the wrap and nothing about its control flow moves (`errflow`, design
+//! R2/R3):
+//!
+//! ```ignore
+//! match <operand> { __t => {
+//!     ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, <site>, <how>,
+//!         || { use ::sensorium_rt::probe::*; (&&&Probe(&__t)).err_cap() });
+//!     __t
+//! } }
+//! ```
+//!
 //! over the callee of a `std::thread::spawn` call, so the child thread has a
 //! name (`rust/HONESTY.md` §3):
 //!
@@ -34,9 +51,13 @@
 //! ::sensorium_rt::spawn_child("<file>:<line>", <f>)
 //! ```
 //!
-//! and, when the file is the crate root, once per file:
+//! and, when the file is the crate root, once per file -- the static past the
+//! last token, the `allow` on the same line as the last inner attribute (every
+//! wrap above is a `match` with one binding, which is what clippy's
+//! `match_single_binding` is about):
 //!
 //! ```ignore
+//! #![allow(clippy::match_single_binding)]
 //! #[doc(hidden)] pub static __SENSORIUM_UNIT: ::sensorium_rt::Unit =
 //!     ::sensorium_rt::Unit::new("<-C metadata hash>");
 //! ```
@@ -51,8 +72,10 @@
 //! through the real rustc, and `tests/census.rs` measures the identity on a real
 //! workspace.
 
+mod errflow;
 mod exits;
 mod manifest;
+mod names;
 mod spawn;
 mod splice;
 mod visit;
@@ -69,6 +92,9 @@ pub struct Transformed {
     pub sites: Vec<Site>,
     /// Fn items this tier deliberately does not instrument, with the reason.
     pub skipped: Vec<Skipped>,
+    /// Err-flow sites the transformer could not reach, with the reason
+    /// (design R6). Empty is a measured empty: the walk ran and found none.
+    pub partial: Vec<Partial>,
     /// Every spawn shape the file contains, in source order: the ones that were
     /// rewritten and the ones that were left alone with a reason.
     pub spawns: Vec<SpawnSite>,
@@ -96,7 +122,27 @@ pub enum RetKind {
     Never,
 }
 
-/// One instrumented fn item. Mirrors a Python `code_object` (spec §5.4).
+/// What one site IS. Every kind takes its number from the same per-unit
+/// counter (design R1b), so a manifest reader needs this to know which records
+/// may name it: a CALL/RETURN belongs to a `fn` site, a RAISE/HANDLED to a
+/// `try` or `sink` one.
+///
+/// A manifest written before this field existed (transform 0.2.0) reads every
+/// site as [`SiteKind::Fn`], which is what it had.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SiteKind {
+    /// An instrumented fn item: an entry guard, and exit wraps when it returns
+    /// a value.
+    Fn,
+    /// The operand of a `?` (design R2).
+    Try,
+    /// A written sink: `.ok()`, `.unwrap_or*()`, `let _ = <value expr>`.
+    Sink,
+}
+
+/// One instrumented site. A [`SiteKind::Fn`] one mirrors a Python
+/// `code_object` (spec §5.4); the others are the err-flow sites of design R2.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Site {
     /// The 24-bit site INDEX. The runtime packs the unit id into bits 31..24;
@@ -105,11 +151,48 @@ pub struct Site {
     /// The workspace-relative path as the caller named it. Never a mirror path.
     pub file: String,
     /// File-local path in Python's shape: `Type::method`, `mod_a::mod_b::f`.
+    /// For an err-flow site, the enclosing named item's.
     pub qualname: String,
-    /// 1-based line of the `fn` keyword -- not of the opening brace.
+    /// The site's own 1-based line: the `fn` keyword for a [`SiteKind::Fn`]
+    /// (not the opening brace), the `?` for a try site, the method name for a
+    /// sink, the `let` for a `let _`. The manifest spells it `firstlineno` on a
+    /// fn row and `line` on the others, because those are two different facts.
     pub firstlineno: u32,
-    /// What the signature says the fn returns.
-    pub ret: RetKind,
+    /// What the signature says the fn returns. `None` on an err-flow site:
+    /// there is no signature there, and `unit` would be an answer rather than
+    /// a silence.
+    pub ret: Option<RetKind>,
+    /// Which kind of site this is.
+    pub kind: SiteKind,
+    /// The `how` this site writes, by name (`"try"`, `"sink_ok"`,
+    /// `"sink_unwrap_or"`, `"sink_let_underscore"`). `None` on a fn site.
+    pub how: Option<&'static str>,
+}
+
+/// An err-flow site the transformer knows is there and cannot reach, declared
+/// rather than dropped (design R6). Registered-unit-scoped, like [`Skipped`].
+///
+/// `reason` is one of:
+///
+/// * `"macro-arg"` -- a `?` inside a macro invocation's tokens. `syn` gives an
+///   invocation an opaque token stream, so no `syn::ExprTry` node exists for
+///   it; these are the `?` [`Census::try_macro_tokens`] counts.
+/// * `"sink-place"` -- a written sink whose receiver is a place expression
+///   (design R2; see `errflow::is_place_expression` for the re-measurement).
+/// * `"struct-literal"` -- a site whose operand's leading token opens a struct
+///   literal, which a `match` scrutinee may not contain outside parentheses.
+///
+/// A `let _ = <place expression>;` is NOT here: `_` does not bind, so that
+/// statement moves nothing and drops nothing, and no error is absorbed at it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct Partial {
+    pub file: String,
+    /// 1-based line of the `?`, or of the sink's method name.
+    pub line: u32,
+    /// The enclosing named item's file-local path, or the enclosing container's
+    /// when there is no named item between the site and the file.
+    pub qualname: String,
+    pub reason: &'static str,
 }
 
 /// A fn item that was parsed, understood, and deliberately left alone.

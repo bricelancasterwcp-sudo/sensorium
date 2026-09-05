@@ -1,5 +1,5 @@
 //! A `loop` tail is wrapped only when a `break` gives it a value.
-
+@W
 pub fn counted() -> u8 {@G(7)
     let mut n = 0u8;
     @R(7)loop {

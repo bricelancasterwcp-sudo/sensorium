@@ -8,7 +8,7 @@
 //! because it covers "around function argument" too, it is `tests/golden.rs`'s
 //! byte-exact diff, not the oracle, that pins the wrap to the INSIDE of the
 //! braces here.
-#![allow(unused_braces)]
+#![allow(unused_braces)]@W
 
 pub fn bare_block() -> u8 {@G(7)
     { @R(7)1@E }

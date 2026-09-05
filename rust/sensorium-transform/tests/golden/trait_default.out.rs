@@ -1,4 +1,4 @@
-pub trait Greeter {
+@Wpub trait Greeter {
     fn name(&self) -> String;
 
     fn greet(&self) -> String {@G(7)

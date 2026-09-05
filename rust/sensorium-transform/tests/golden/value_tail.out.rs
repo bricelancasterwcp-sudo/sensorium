@@ -1,6 +1,6 @@
 //! Ordinary value tails. Each is wrapped exactly once, and the operand is a
 //! call ARGUMENT, so every coercion a tail position performs still performs.
-
+@W
 pub fn literal() -> u8 {@G(7)
     @R(7)7@E
 }

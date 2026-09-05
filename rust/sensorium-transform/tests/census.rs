@@ -35,7 +35,7 @@ mod common;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use sensorium_transform::{census, transform};
+use sensorium_transform::{census, transform, SiteKind};
 
 const META: &str = "b100meryb100mery";
 
@@ -58,6 +58,13 @@ const PINNED_TRY_SYN: usize = 401;
 /// AST node exists for. One, at `crates/bloomery-bench/src/main.rs:108` -- the
 /// last token of a `println!` argument. Reported, never subtracted.
 const PINNED_TRY_MACRO: usize = 1;
+
+/// What rung 3 pins beside them: every `?` `syn` sees is WRAPPED, and the one
+/// `?` token inside a macro invocation is DECLARED. The identity that makes
+/// E2's `?` ratio a ratio over ONE set is `try rows == try_syn` per file, with
+/// any `?` the transformer had to decline subtracted by name -- and on this
+/// tree there are none, which is the third pin.
+const PINNED_PARTIAL_STRUCT_LITERAL: usize = 0;
 
 /// The spawn spelling `spawns[..].wrapped` must account for, counted in the raw
 /// text by something that is not the transformer.
@@ -156,6 +163,11 @@ struct Totals {
     macro_skips: usize,
     eligible: usize,
     instrumented: usize,
+    try_sites: usize,
+    sink_sites: usize,
+    partial_macro_arg: usize,
+    partial_sink_place: usize,
+    partial_struct_literal: usize,
     spawns_wrapped: usize,
     spawns_declared: usize,
     literal_spawns: usize,
@@ -219,6 +231,7 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
     let mut reparse_failures: Vec<String> = Vec::new();
     let mut missing_static: Vec<String> = Vec::new();
     let mut per_file_mismatch: Vec<String> = Vec::new();
+    let mut try_mismatch: Vec<String> = Vec::new();
     let mut appended: Vec<String> = Vec::new();
     let mut spawn_mismatch: Vec<String> = Vec::new();
 
@@ -281,7 +294,30 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
             if is_crate_root {
                 continue;
             }
-            t.instrumented += out.sites.len();
+            let kinds = |k: SiteKind| out.sites.iter().filter(|s| s.kind == k).count();
+            let fn_sites = kinds(SiteKind::Fn);
+            let try_sites = kinds(SiteKind::Try);
+            let partial = |reason: &str| out.partial.iter().filter(|p| p.reason == reason).count();
+            let macro_arg = partial("macro-arg");
+            let struct_literal = partial("struct-literal");
+            t.instrumented += fn_sites;
+            t.try_sites += try_sites;
+            t.sink_sites += kinds(SiteKind::Sink);
+            t.partial_macro_arg += macro_arg;
+            t.partial_sink_place += partial("sink-place");
+            t.partial_struct_literal += struct_literal;
+            // Rung 3's identity, PER FILE. `try_syn` counts the `?` the parser
+            // gave a node for, and every one of those is either wrapped or
+            // declined by name; the `?` TOKENS inside macro invocations are a
+            // disjoint set -- no node exists for them -- and are matched
+            // against their own count.
+            if try_sites + struct_literal != c.try_syn || macro_arg != c.try_macro_tokens {
+                try_mismatch.push(format!(
+                    "{rel}: try {try_sites} + struct-literal {struct_literal} vs try_syn {}, \
+                     macro-arg {macro_arg} vs try_macro_tokens {}",
+                    c.try_syn, c.try_macro_tokens
+                ));
+            }
             t.macro_skips += out.skipped.iter().filter(|s| s.reason == "macro").count();
             let wrapped = out.spawns.iter().filter(|s| s.wrapped).count();
             t.spawns_wrapped += wrapped;
@@ -291,10 +327,9 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
             }
             // PER FILE, not just in aggregate: a file that over-instruments and
             // another that under-instruments would cancel in the sum.
-            if out.sites.len() + c.async_fns != c.eligible() {
+            if fn_sites + c.async_fns != c.eligible() {
                 per_file_mismatch.push(format!(
-                    "{rel}: sites {} + async {} != eligible {}",
-                    out.sites.len(),
+                    "{rel}: fn sites {fn_sites} + async {} != eligible {}",
                     c.async_fns,
                     c.eligible()
                 ));
@@ -314,7 +349,12 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
     println!("eligible (E2 denom):  {}", t.eligible);
     println!("`?` as syn nodes:     {}", t.try_syn);
     println!("`?` in macro tokens:  {}", t.try_macro_tokens);
-    println!("instrumented:         {}", t.instrumented);
+    println!("instrumented (fns):   {}", t.instrumented);
+    println!("`?` sites wrapped:    {}", t.try_sites);
+    println!("sink sites wrapped:   {}", t.sink_sites);
+    println!("partial macro-arg:    {}", t.partial_macro_arg);
+    println!("partial sink-place:   {}", t.partial_sink_place);
+    println!("partial struct-lit:   {}", t.partial_struct_literal);
     println!("spawn sites wrapped:  {}", t.spawns_wrapped);
     println!("spawn sites declared: {}", t.spawns_declared);
     println!("literal `{LITERAL_SPAWN}`: {}", t.literal_spawns);
@@ -356,6 +396,11 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
         spawn_mismatch.is_empty(),
         "wrapped spawn sites do not match the literal spelling in: {}",
         head(&spawn_mismatch)
+    );
+    assert!(
+        try_mismatch.is_empty(),
+        "the `?` the walk counted and the `?` it wrapped are not one set in: {}",
+        head(&try_mismatch)
     );
     assert_eq!(
         t.instrumented + t.async_fns,
@@ -404,6 +449,26 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
         "`?` tokens inside macro invocations moved: {} against the {PINNED_TRY_MACRO} measured \
          at {PINNED_COMMIT}",
         t.try_macro_tokens
+    );
+    // Rung 3, in aggregate: every `syn`-visible `?` on this tree is instrumented
+    // and the one macro-argument `?` is declared. The third number is what makes
+    // the first two a ratio over ONE set -- a `?` the transformer had to decline
+    // for a reason of its own would show up here rather than quietly shrinking
+    // the numerator.
+    assert_eq!(
+        t.try_sites, PINNED_TRY_SYN,
+        "wrapped `?` sites: {} against the {PINNED_TRY_SYN} `?` nodes at {PINNED_COMMIT}",
+        t.try_sites
+    );
+    assert_eq!(
+        t.partial_macro_arg, PINNED_TRY_MACRO,
+        "declared macro-argument `?`: {} against {PINNED_TRY_MACRO}",
+        t.partial_macro_arg
+    );
+    assert_eq!(
+        t.partial_struct_literal, PINNED_PARTIAL_STRUCT_LITERAL,
+        "a `?` or sink was declined for a leading struct literal: {} at {PINNED_COMMIT}",
+        t.partial_struct_literal
     );
     // Every real source file contains at least one item, so none of them can
     // reach the appended-final-line shape.

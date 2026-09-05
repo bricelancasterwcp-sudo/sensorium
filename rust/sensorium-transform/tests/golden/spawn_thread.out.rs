@@ -1,5 +1,5 @@
 //! The two spellings the transformer rewrites, so the child thread has a name.
-
+@W
 use std::thread;
 
 pub fn fully_qualified() -> u8 {@G(7)

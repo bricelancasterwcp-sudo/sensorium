@@ -1,4 +1,4 @@
-pub struct Empty;
+@Wpub struct Empty;
 
 pub fn nothing() {@G(7)}
 

@@ -1,6 +1,6 @@
 //! Spawn shapes left alone, each declared with its reason -- and one `.spawn()`
 //! that is not a thread at all.
-
+@W
 use std::thread;
 
 pub fn builder() -> u8 {@G(7)

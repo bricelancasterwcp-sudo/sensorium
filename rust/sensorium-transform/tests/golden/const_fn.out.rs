@@ -1,4 +1,4 @@
-pub const fn limit() -> usize {
+@Wpub const fn limit() -> usize {
     16
 }
 

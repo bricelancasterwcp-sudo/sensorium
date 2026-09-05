@@ -1,4 +1,4 @@
-#[no_mangle]
+@W#[no_mangle]
 pub extern "C" fn callback(v: i32) -> i32 {
     v + 1
 }

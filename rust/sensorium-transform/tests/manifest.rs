@@ -43,8 +43,13 @@ fn the_manifest_has_the_shape_the_plan_names() {
     assert_eq!(sites.len(), 2);
     assert_eq!(sites[0]["site"], 0);
     assert_eq!(sites[0]["qualname"], "fully_qualified");
+    assert_eq!(sites[0]["kind"], "fn");
     assert_eq!(sites[0]["firstlineno"], 5);
     assert_eq!(sites[0]["ret"], "value");
+    // A fn row carries no `line` and no `how`: those are an err-flow row's two
+    // fields, and a fn is neither an operator nor a `how` (design R1b).
+    assert!(sites[0].get("line").is_none());
+    assert!(sites[0].get("how").is_none());
     // A `Site`'s own `file` is not repeated inside a manifest entry: the map key
     // is the file, and two spellings of one fact are one fact too many.
     assert!(sites[0].get("file").is_none());
@@ -78,6 +83,10 @@ fn the_manifest_has_the_shape_the_plan_names() {
     // make "nothing went wrong" and "written by a wrapper that predates the
     // key" the same bytes.
     assert_eq!(j["unreached_reasons"], serde_json::json!({}));
+    // Present and empty: neither of these two files has an err-flow site the
+    // transformer could not reach, which is a different fact from a manifest
+    // written before the key existed.
+    assert_eq!(j["partial"], serde_json::json!([]));
     assert_eq!(j["appended_line"]["src/lib.rs"], false);
     assert_eq!(j["appended_line"]["src/other.rs"], false);
     // `Manifest::new` leaves it empty; the wrapper (which knows
@@ -104,6 +113,7 @@ fn every_key_the_plan_names_is_present_and_no_others_are() {
             "fallback_reason",
             "fell_back",
             "files",
+            "partial",
             "skipped",
             "source_hashes",
             "spawns",
@@ -179,4 +189,56 @@ fn a_manifest_cannot_disagree_with_what_was_spliced() {
         assert_eq!(got["qualname"], want.qualname);
         assert_eq!(got["firstlineno"], want.firstlineno);
     }
+}
+
+#[test]
+fn an_err_flow_row_carries_kind_how_and_line_and_no_signature() {
+    let mut m = Manifest::new(META, "k", "lib");
+    let t = transform(&read("try_stmt", "in"), "src/lib.rs", META, 0, true).expect("transform");
+    m.add_file("src/lib.rs", &t);
+    let j: serde_json::Value =
+        serde_json::from_str(&m.to_json().expect("serialise")).expect("JSON");
+    let sites = j["files"]["src/lib.rs"].as_array().expect("files entry");
+    // Fn and err-flow rows share one index space, so they interleave: `one`,
+    // `discard`, `discard`'s `?`, `bound`, its `?`, ...
+    assert_eq!(sites[1]["kind"], "fn");
+    assert_eq!(sites[2]["site"], 2);
+    assert_eq!(sites[2]["kind"], "try");
+    assert_eq!(sites[2]["how"], "try");
+    assert_eq!(sites[2]["qualname"], "discard");
+    // The `?`'s own line, spelled `line` -- NOT `firstlineno`, which is where a
+    // fn item begins and is what a frame is reported at.
+    assert_eq!(sites[2]["line"], 10);
+    assert!(sites[2].get("firstlineno").is_none());
+    assert!(sites[2].get("ret").is_none());
+}
+
+#[test]
+fn the_partial_list_is_registered_unit_scoped_like_skipped() {
+    let mut m = Manifest::new(META, "k", "lib");
+    let a =
+        transform(&read("try_in_macro_arg", "in"), "src/lib.rs", META, 0, true).expect("transform");
+    m.add_file("src/lib.rs", &a);
+    let b = transform(
+        &read("sink_place_receiver", "in"),
+        "src/other.rs",
+        META,
+        u32::try_from(a.sites.len()).expect("fits"),
+        false,
+    )
+    .expect("transform");
+    m.add_file("src/other.rs", &b);
+    let j: serde_json::Value =
+        serde_json::from_str(&m.to_json().expect("serialise")).expect("JSON");
+    let partial = j["partial"].as_array().expect("partial");
+    // Both files' rows in one flat list, each naming its own file -- the shape
+    // `skipped` has, and the one design R6 names.
+    assert_eq!(partial.len(), 6);
+    assert_eq!(partial[0]["file"], "src/lib.rs");
+    assert_eq!(partial[0]["line"], 10);
+    assert_eq!(partial[0]["qualname"], "printed");
+    assert_eq!(partial[0]["reason"], "macro-arg");
+    assert_eq!(partial[2]["file"], "src/other.rs");
+    assert_eq!(partial[2]["qualname"], "Holder::defaulted");
+    assert_eq!(partial[2]["reason"], "sink-place");
 }

@@ -1,9 +1,9 @@
 [package]
 name = "sensorium-transform"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 publish = false
-description = "The sensorium Rust recorder's source transformer: entry guards, exit operands and spawn sites spliced into the original bytes at syn's offsets, without moving a line."
+description = "The sensorium Rust recorder's source transformer: entry guards, exit operands, err-flow probes and spawn sites spliced into the original bytes at syn's offsets, without moving a line."
 
 [dependencies]
 # `span-locations` is what makes `Span::byte_range()` and `Span::start()` exist
