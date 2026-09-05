@@ -12,33 +12,49 @@ use syn::{Expr, ExprPath, Macro};
 
 use crate::arms::{strip, Body};
 
-/// The macros whose argument list is a provable SHARED BORROW of what it names.
+/// The macros whose bare argument is a provable SHARED BORROW of what it
+/// names: the LOGGING family, and only it.
 ///
 /// `format_args!` -- which every one of these expands through -- takes each
 /// argument by reference, so an argument that is exactly `e` cannot escape
-/// through it. The `log`/`tracing` five are here because they are the other
-/// spelling of "print the error and carry on", which is the shape design R2's
-/// HANDLED class exists for.
+/// through it. These nine are here because their own value is `()` and their
+/// text goes to a sink OUTSIDE the program's values: printing the error and
+/// carrying on is exactly the shape design R2's HANDLED class exists for, and
+/// design R15's clarification of 2026-09-05 says out loud that such an arm is
+/// a true swallow (`corpus/rust/logged_arm`).
 ///
 /// Being ON this list is what makes an arm a SWALLOWED candidate, so the list
 /// is short on purpose: a workspace macro that happened to be called `debug!`
 /// and stored its argument is the cost, and it is bounded by the fact that its
 /// argument still has to be the BARE name (see [`format_arg_escapes`]).
-const FORMAT_MACROS: [&str; 13] = [
-    "format",
-    "format_args",
-    "print",
-    "println",
-    "eprint",
-    "eprintln",
-    "write",
-    "writeln",
-    "error",
-    "warn",
-    "info",
-    "debug",
-    "trace",
+const LOGGING_MACROS: [&str; 9] = [
+    "print", "println", "eprint", "eprintln", "error", "warn", "info", "debug", "trace",
 ];
+
+/// The format-family macros whose value is the rendered TEXT, which the arm is
+/// then holding (the R2 amendment of 2026-09-05, after endpoint E6' STOPped on
+/// `build_memory` at `memory.rs:131` of the bloomery clone).
+///
+/// The old exemption was true of the BORROW and silent about the PRODUCT:
+///
+/// ```ignore
+/// Err(e) => Arc::new(MemoryContext {
+///     disabled_reason: Some(format!("memory store unreadable: {e}")),
+///     store: None,
+/// })
+/// ```
+///
+/// takes `e` by reference and still carries a rendering of the failure to
+/// every caller, so calling that arm HANDLED made the tool report a frame that
+/// had reported its failure as having absorbed it. A bound name MENTIONED
+/// anywhere in one of these four escapes -- including through implicit format
+/// capture (`"{e}"`), where the name is not a token at all, which is why the
+/// test below reads literals as well as idents.
+///
+/// The cost is stated in design R16: an arm that renders the error into a
+/// local it then drops reads AMBIGUOUS. That is the safe direction -- a false
+/// ESCAPED costs one AMBIGUOUS, a false HANDLED costs a false accusation.
+const VALUE_FORMAT_MACROS: [&str; 4] = ["format", "format_args", "write", "writeln"];
 
 pub(crate) fn escapes(body: Body<'_>, names: &[String]) -> bool {
     let mut walk = EscapeWalk::new(names);
@@ -127,26 +143,33 @@ impl<'ast> Visit<'ast> for EscapeWalk<'_> {
     }
 
     /// A macro's tokens are opaque to `syn`, so nothing below would see a name
-    /// inside one. A format-family macro's arguments are read (see
-    /// [`format_arg_escapes`]); every other macro is treated as an escape the
-    /// moment it so much as mentions the name.
+    /// inside one. A LOGGING macro's arguments are read (see
+    /// [`format_arg_escapes`]); the four value-producing format macros and
+    /// every other macro are treated as an escape the moment they so much as
+    /// mention the name (design R2's amendment of 2026-09-05).
     fn visit_macro(&mut self, node: &'ast Macro) {
         if self.moved > 0 {
             // Inside a `move` closure there is no exemption to apply, and the
             // name may not be a token at all: `move || println!("{e}")`
             // captures `e` through the format STRING. Literals are read too.
-            if tokens_mention_captured(&node.tokens, self.names) {
+            if tokens_mention_deep(&node.tokens, self.names) {
                 self.escaped = true;
             }
             return;
         }
-        let format_family = node
-            .path
-            .segments
-            .last()
-            .is_some_and(|s| FORMAT_MACROS.contains(&s.ident.to_string().as_str()));
-        if !format_family {
-            if tokens_mention(&node.tokens, self.names) {
+        let name = node.path.segments.last().map(|s| s.ident.to_string());
+        let name = name.as_deref().unwrap_or("");
+        if !LOGGING_MACROS.contains(&name) {
+            // Everything that is not a logging macro: a mention of the name is
+            // an escape. For the four value-producing format macros the
+            // mention may be implicit -- `format!("{e}")` holds no `e` token --
+            // so their whole token stream is read, literals included.
+            let mentioned = if VALUE_FORMAT_MACROS.contains(&name) {
+                tokens_mention_deep(&node.tokens, self.names)
+            } else {
+                tokens_mention(&node.tokens, self.names)
+            };
+            if mentioned {
                 self.escaped = true;
             }
             return;
@@ -178,8 +201,12 @@ fn path_name(p: &ExprPath) -> Option<String> {
     seg.arguments.is_none().then(|| seg.ident.to_string())
 }
 
-/// Does any argument of a format-family macro use one of the names in a way
-/// that is not a shared borrow?
+/// Does any argument of a LOGGING macro use one of the names in a way that is
+/// not a shared borrow?
+///
+/// Only the logging family reaches here: since the R2 amendment of 2026-09-05
+/// a mention inside `format!`, `format_args!`, `write!` or `writeln!` escapes
+/// outright, because those four hand the arm the rendered text.
 ///
 /// An argument that is exactly the bare name is safe: `format_args!` takes each
 /// of its arguments by reference, so `println!("{}", e)` cannot move `e`. An
@@ -188,10 +215,13 @@ fn path_name(p: &ExprPath) -> Option<String> {
 /// that does not parse as an expression at all (a `tracing` key-value, say) is
 /// an escape by default rather than a guess. A name captured implicitly by the
 /// format string (`"{e}"`) is not a token at this level and is never seen, which
-/// is correct HERE and only here: outside a `move` closure that capture is a
-/// shared borrow. Inside one it is a MOVE, and this function is never reached
-/// -- [`EscapeWalk::visit_macro`] reads the whole token stream, literals
-/// included, the moment [`EscapeWalk::moved`] is raised.
+/// is correct HERE and only here: outside a `move` closure a logging macro's
+/// implicit capture is a shared borrow of a value nothing keeps. Inside one it
+/// is a MOVE, and this function is never reached -- [`EscapeWalk::visit_macro`]
+/// reads the whole token stream, literals included, the moment
+/// [`EscapeWalk::moved`] is raised. It is not reached for the four
+/// value-producing format macros either, for the same reason read the other
+/// way round: their implicit capture builds a String the arm is then holding.
 fn format_arg_escapes(tokens: &TokenStream, names: &[String]) -> bool {
     for arg in top_level_args(tokens) {
         let arg = strip_named_argument(arg);
@@ -244,20 +274,22 @@ fn strip_named_argument(arg: Vec<TokenTree>) -> Vec<TokenTree> {
     arg
 }
 
-/// Every mention of a name inside a `move` closure's macro tokens, INCLUDING
-/// one that is only part of a string literal.
+/// Every mention of a name in a macro's tokens, INCLUDING one that is only
+/// part of a string literal.
 ///
-/// `move || println!("{e}")` holds no `e` token at all: the capture is written
-/// inside the format string, and it is a capture by VALUE. A whole-word search
-/// of each literal is what finds it. The search is deliberately loose -- a
-/// literal `"e"` that means something else reads as an escape -- because a
-/// false ESCAPED costs one AMBIGUOUS and a false HANDLED costs a false
-/// accusation.
-fn tokens_mention_captured(tokens: &TokenStream, names: &[String]) -> bool {
+/// Two callers, one reason: a name can be named by a format string rather than
+/// by a token. `move || println!("{e}")` holds no `e` token at all -- the
+/// capture is written inside the literal, and inside a `move` closure it is a
+/// capture by VALUE -- and `format!("{e}")` hides the same mention in the same
+/// place while RETURNING the text it built. A whole-word search of each
+/// literal is what finds both. The search is deliberately loose -- a literal
+/// `"e"` that means something else reads as an escape -- because a false
+/// ESCAPED costs one AMBIGUOUS and a false HANDLED costs a false accusation.
+fn tokens_mention_deep(tokens: &TokenStream, names: &[String]) -> bool {
     tokens.clone().into_iter().any(|tt| match tt {
         TokenTree::Ident(id) => mentions(&id, names),
         TokenTree::Literal(lit) => literal_mentions(&lit.to_string(), names),
-        TokenTree::Group(g) => tokens_mention_captured(&g.stream(), names),
+        TokenTree::Group(g) => tokens_mention_deep(&g.stream(), names),
         TokenTree::Punct(_) => false,
     })
 }

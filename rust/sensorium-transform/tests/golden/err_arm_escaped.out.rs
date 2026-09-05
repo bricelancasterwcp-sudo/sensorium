@@ -46,12 +46,22 @@ pub fn remembered(last: &mut Option<String>) -> u8 {@G(14)
     }@E
 }
 
+/// The R2 amendment of 2026-09-05: `format!` RETURNS the rendered text, and
+/// here that text is the arm's own value, so a rendering of the failure
+/// reaches every caller. Endpoint E6' STOPped on this shape.
+pub fn rendered_into_value() -> String {@G(16)
+    @R(16)match one() {
+        Ok(v) => v.to_string(),
+        Err(e) => { @P(17,HOW_ARM_AMBIGUOUS,e) format!("unreadable: {e}") },
+    }@E
+}
+
 /// The controls: a format argument and a shared borrow, the only two uses
 /// design R2 calls provable. This arm is HANDLED, not ESCAPED.
-pub fn printed() -> u8 {@G(16)
-    @R(16)match one() {
+pub fn printed() -> u8 {@G(18)
+    @R(18)match one() {
         Ok(v) => v,
-        Err(e) => {@P(17,HOW_ARM_HANDLED,e)
+        Err(e) => {@P(19,HOW_ARM_HANDLED,e)
             println!("{e}");
             note(&e);
             0

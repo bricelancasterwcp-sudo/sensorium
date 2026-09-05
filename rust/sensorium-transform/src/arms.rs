@@ -30,10 +30,15 @@
 //!    `assert!` is deliberately not in the set (ruling, 2026-09-04) -- an assert
 //!    may pass, and an arm that only asserts still handles its error.
 //! 3. **ESCAPED** -- the pattern binds a name and that name appears anywhere
-//!    other than the two uses design R2 calls provable: a format-family macro's
+//!    other than the two uses design R2 calls provable: a LOGGING macro's bare
 //!    argument, and a shared borrow `&e`. Writes `arm_ambiguous`, which is
 //!    HANDLED-class but never a SWALLOWED candidate. The test itself lives in
-//!    [`crate::escape`].
+//!    [`crate::escape`], which is also where the R2 amendment of 2026-09-05
+//!    sits: `format!`, `format_args!`, `write!` and `writeln!` RETURN the text
+//!    they render, so a mention of the error inside one escapes -- the arm is
+//!    holding a rendering of the failure and its own value can carry it to the
+//!    caller. Design R16 states the cost: an arm that renders the error into a
+//!    local it then drops reads AMBIGUOUS, which is the safe direction.
 //! 4. **HANDLED** -- everything else. This is the only class that can become a
 //!    SWALLOWED verdict, which is why 3 is deliberately generous: a false
 //!    ESCAPED costs one AMBIGUOUS, a false HANDLED costs a false accusation
@@ -421,6 +426,35 @@ mod tests {
             "Err(_) => 0,",
             "Err(..) => 0,",
             "Err(MyErr::Timeout) => 0,",
+        ] {
+            assert_eq!(class_of(text), Some(Class::Handled), "{text}");
+        }
+    }
+
+    #[test]
+    fn a_format_products_value_escapes_and_only_the_logging_family_is_exempt() {
+        // The R2 amendment of 2026-09-05, after E6' STOP: `format!` and its
+        // three relatives RETURN the rendered text, so an arm that mentions
+        // the error inside one is holding a rendering of it that the arm's own
+        // value can carry to the caller (`memory.rs:131` on the bloomery
+        // clone). Only the macros whose value is `()` -- the logging family --
+        // keep the bare-argument exemption.
+        for text in [
+            // The measured shape: the product IS the arm's value.
+            "Err(e) => Wrap { msg: format!(\"{e}\") },",
+            // The product stored, then the local moved on.
+            "Err(e) => { let s = format!(\"{e}\"); v.push(s); 0 },",
+            // `write!`/`writeln!` render into a buffer the frame owns.
+            "Err(e) => { write!(buf, \"{e}\").ok(); 0 },",
+        ] {
+            assert_eq!(class_of(text), Some(Class::Escaped), "{text}");
+        }
+        // The controls: log-and-continue stays HANDLED, which is what keeps it
+        // a SWALLOWED candidate (design R15's clarification, `logged_arm`).
+        for text in [
+            "Err(e) => { eprintln!(\"{e:?}\"); 0 },",
+            "Err(e) => { log::warn!(\"{e}\"); 0 },",
+            "Err(e) => println!(\"{e}\"),",
         ] {
             assert_eq!(class_of(text), Some(Class::Handled), "{text}");
         }

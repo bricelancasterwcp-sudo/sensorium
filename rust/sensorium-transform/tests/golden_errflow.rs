@@ -125,9 +125,18 @@ fn a_bound_name_that_escapes_writes_arm_ambiguous() {
             (11, "stored", 20, SiteKind::Arm, "arm_ambiguous"),
             (13, "handed_over", 31, SiteKind::Arm, "arm_ambiguous"),
             (15, "remembered", 42, SiteKind::Arm, "arm_ambiguous"),
-            // The control: a format argument and a shared borrow are the only
-            // two uses design R2 calls provable.
-            (17, "printed", 54, SiteKind::Arm, "arm_handled"),
+            // The R2 amendment of 2026-09-05: `format!` hands the arm the
+            // rendered text, and here that text is what the function returns.
+            (
+                17,
+                "rendered_into_value",
+                55,
+                SiteKind::Arm,
+                "arm_ambiguous"
+            ),
+            // The control: a LOGGING macro's bare argument and a shared borrow
+            // are the only two uses design R2 still calls provable.
+            (19, "printed", 64, SiteKind::Arm, "arm_handled"),
         ]
     );
     let c = census(&read("err_arm_escaped", "in"));
@@ -138,7 +147,7 @@ fn a_bound_name_that_escapes_writes_arm_ambiguous() {
             c.arms_escaped,
             c.arms_handled
         ),
-        (0, 0, 3, 1)
+        (0, 0, 4, 1)
     );
 }
 
