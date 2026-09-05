@@ -573,13 +573,27 @@ spools, `corpus/rust/interleaved_chains`, and the vector
 
 **What each verdict claims, and what it does not.**
 
-- **SWALLOWED** — a written sink or an `arm_handled` absorbed the chain in a
-  frame that then closed `ok`, with no later RAISE of it. It says the failure
-  did not reach the caller, not that the program was wrong to do that. A
-  chain first seen at the sink itself is still SWALLOWED, detailed *born
-  outside this thread's instrumented frames* — *this thread*, because the
-  machine is per-thread and an `Err` handed over a `JoinHandle` is
-  unknowable to the receiver by construction.
+- **SWALLOWED** — a written sink (`.ok()`, `.unwrap_or*`, `let _ =`) or an
+  `arm_handled` absorbed the chain in a frame that then closed `ok`, with no
+  later RAISE of it, and **no value derived from the `Err` left the arm**: not
+  the error itself (a return, a store, a move), not a rendering of it (a
+  `format!` product), not the product of a call it was handed to (design B1: a
+  `&e` is exempt only where that product is dropped).
+  **Reading the error does not carry it out** — a match guard (`Err(e) if
+  e.kind() == NotFound => {}`), a `&self` predicate whose result only steers
+  control, a log line (`eprintln!("{e:?}")`) — so the failure never reached the
+  caller and the verdict stands; **a guarded arm's disposition is its body's**.
+  The verdict says the failure did not reach the caller, not that the program
+  was wrong to drop it. A chain first seen at the sink itself is still
+  SWALLOWED, detailed *born outside this thread's instrumented frames*. A
+  reader who finds a value derived from the `Err` reaching the caller has found
+  a FALSE accusation, and every pre-registration's gate on this verdict is
+  0 of them. Adopted 2026-09-05 (rung-4 entry, N1) from design R15's rulings of
+  2026-09-05 and the borrow repair's B1; the acceptance records of 2026-09-04
+  and 2026-09-05 were adjudicated under this reading and say so. The tool's own
+  words under an escaped arm are a quotation of this bullet:
+  `a bound error that is stored, returned or moved out of the arm is not a swallow; an arm that only reads it (a guard, a predicate), formats or logs it and continues is one`
+  (`tests/test_honesty_prose.py` pins it).
 - **PANICKED** — the frame holding the chain unwound, quoting `unwind_exc`
   or saying the message was not recorded (§1). It says **the frame holding
   it unwound**, never that the panic happened *because of* the `Err`.

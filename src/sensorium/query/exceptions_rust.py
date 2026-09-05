@@ -391,6 +391,15 @@ def _propagated(trace, chain, idx) -> Disposition:
         "were not all instrumented; every hop it took is listed below")
 
 
+#: The one sentence the tool prints under an escaped arm. It is a QUOTATION
+#: of `rust/HONESTY.md` §11's SWALLOWED definition (design N2, 2026-09-05):
+#: reading the error -- a guard, a predicate -- does not carry it out of the
+#: arm; only a value derived from it leaving the arm does.
+ESCAPED_DETAIL = ("a bound error that is stored, returned or moved out of the arm "
+                  "is not a swallow; an arm that only reads it (a guard, a "
+                  "predicate), formats or logs it and continues is one")
+
+
 def _escaped(trace, chain, idx) -> Disposition:
     """Two shapes wear one terminal, and the `how` of the last event says
     which: an `arm_ambiguous` HANDLED bound the error to a name and let the
@@ -409,9 +418,7 @@ def _escaped(trace, chain, idx) -> Disposition:
             "ambiguous",
             f"ambiguous -- an Err(..) arm at e{e.id} ({_at(trace, e)}) bound "
             "it to a name and let the name escape",
-            "a bound error that is stored, returned or moved out of the arm "
-            "is not a swallow; an arm that only formats or logs it and "
-            "continues is one")
+            ESCAPED_DETAIL)
     return Disposition(
         "ambiguous",
         "ambiguous -- the frame holding it returned ok with no sink recorded",
