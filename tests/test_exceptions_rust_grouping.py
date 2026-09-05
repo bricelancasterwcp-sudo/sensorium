@@ -25,6 +25,7 @@ import shlex
 
 from sensorium import cli
 from sensorium.exit import ANSWERED
+from sensorium.query.exceptions_group import mask
 from tests.programs import LOOP_SAME_MESSAGE, record
 from tests.rust_traces import (FILE, S1, SITE_FILE, call, err_flow, flow,
                                fn_site, frame, out, ret, rust_trace,
@@ -132,9 +133,9 @@ def test_two_chains_at_one_sink_print_once_with_a_bracket_and_the_tally_counts_t
     # the second chain's own sentence is NOT printed
     assert "at e9 (load L31)" not in text, text
     assert "dispositions: swallowed 2" in text, text
-    # nothing varies: one origin site, one detail, one hops path
-    assert "origins:" not in text and "details vary" not in text, text
-    assert "distinct paths" not in text, text
+    # nothing varies: one origin site, one message, one detail, one route
+    assert "origins:" not in text and "messages:" not in text, text
+    assert "details vary" not in text and "routes:" not in text, text
 
 
 def test_a_group_of_one_is_byte_identical_to_the_ungrouped_block(
@@ -172,12 +173,13 @@ def test_two_sinks_are_two_shapes(tmp_path, monkeypatch, capsys):
     assert "dispositions: swallowed 2" in text, text
 
 
-def test_a_sink_shape_whose_origins_differ_says_so(
+def test_a_sink_shape_whose_messages_differ_says_so_and_not_origins(
         tmp_path, monkeypatch, capsys):
-    """One sink, two `Err`s that are not the same error: the group is real
-    (same tag, same site, same masked verdict) and the block says its
-    members' heads are not all one thing rather than merging them
-    silently."""
+    """One sink, two `Err`s raised at ONE site that are not the same
+    error. The group is real (same tag, same site, same masked verdict) and
+    the block says the members' ERRORS are not all one thing -- `messages:`
+    (ruling R-G6). The old single `heads` set called this "2 distinct
+    origins", which was a false statement about where they came from."""
     run_id = repeat_sink_trace(
         tmp_path, monkeypatch, repeats=2,
         origin_msgs=['Missing("port")', 'Missing("host")'])
@@ -185,10 +187,11 @@ def test_a_sink_shape_whose_origins_differ_says_so(
     text = out(capsys)
     assert text.count("SWALLOWED --") == 1, text
     assert "[×2: e3, e7]" in text, text
-    assert "      origins: 2 distinct (first shown)" in text, text
-    # the hops of the two chains differ only by ids, which the mask
-    # explains, so no hops line is printed
-    assert "distinct paths" not in text, text
+    assert "      messages: 2 distinct (first shown)" in text, text
+    # one site, so nothing to say about origins; and the two routes differ
+    # only by ids, which the mask explains
+    assert "origins:" not in text, text
+    assert "routes:" not in text, text
     assert "details vary" not in text, text
     assert "dispositions: swallowed 2" in text, text
 
@@ -339,37 +342,53 @@ def test_one_origin_two_routes_are_two_shapes(tmp_path, monkeypatch, capsys):
 
 
 # -- R-G3: the route's vary line does not answer to `hops:` ----------------
-def mixed_sink_trace(tmp_path, monkeypatch):
+def mixed_sink_trace(tmp_path, monkeypatch, *, outside_first=False):
     """One `.ok()` at `load L31` absorbing two chains that reached it
     differently: one raised in `read_config` and hopped out, one first seen
-    at the sink itself (born outside). Same tag, same SINK site, same
-    masked verdict -- one shape, whose members differ in every set the key
-    does not look at.
+    at the sink itself (born outside, so it has a detail and no route).
+    Same tag, same SINK site, same masked verdict -- one shape, whose
+    members differ in every set the key does not look at.
 
-    Event ids: e1 CALL load, e2 CALL read_config, e3 RAISE (origin 1),
-    e4 RETURN err, e5 HANDLED (the sink, ending chain 1), e6 HANDLED (the
-    whole of chain 2), e7 RETURN load ok.
+    `outside_first` puts the born-outside chain FIRST, which is what makes
+    the two parentheticals of ruling R-G5 observable: the printed member
+    then has a detail and no route, and with the default it has a route and
+    no detail.
+
+    Event ids, default order: e1 CALL load, e2 CALL read_config, e3 RAISE
+    (chain 1's origin), e4 RETURN err, e5 HANDLED (the sink, ending chain
+    1), e6 HANDLED (the whole of chain 2), e7 RETURN load ok. With
+    `outside_first`: e1 CALL load, e2 HANDLED (the whole of the outside
+    chain), e3 CALL read_config, e4 RAISE, e5 RETURN err, e6 HANDLED,
+    e7 RETURN load ok.
     """
+    outside = err_flow("sink_ok", "std::io::Error", 'Os { code: 2 }',
+                       S1 + 1, hop=1, origin="outside",
+                       terminal="swallowed_candidate")
+    raised = err_flow("exit", "demo::ConfigError", 'Missing("port")', S1,
+                      hop=1)
+    sunk = err_flow("sink_ok", "demo::ConfigError", 'Missing("port")', S1,
+                    hop=1, terminal="swallowed_candidate")
+    if outside_first:
+        events = [call(1000, 1, 30),
+                  flow(1050, "HANDLED", 1, 1, 31, outside),
+                  call(1100, 2, 12),
+                  flow(1200, "RAISE", 2, 2, 14, raised),
+                  ret(1300, 2, 2, "err", 'Err(Missing("port"))'),
+                  flow(1400, "HANDLED", 1, 1, 31, sunk)]
+        frames = [frame(1, 1, 7), frame(2, 3, 5, parent=1, depth=1)]
+    else:
+        events = [call(1000, 1, 30),
+                  call(1100, 2, 12),
+                  flow(1200, "RAISE", 2, 2, 14, raised),
+                  ret(1300, 2, 2, "err", 'Err(Missing("port"))'),
+                  flow(1400, "HANDLED", 1, 1, 31, sunk),
+                  flow(1500, "HANDLED", 1, 1, 31, outside)]
+        frames = [frame(1, 1, 7), frame(2, 2, 4, parent=1, depth=1)]
     return rust_trace(
         tmp_path, monkeypatch,
         codes=[[FILE, "load", 30], [FILE, "read_config", 12]],
-        frames=[frame(1, 1, 7), frame(2, 2, 4, parent=1, depth=1)],
-        events=[
-            call(1000, 1, 30),
-            call(1100, 2, 12),
-            flow(1200, "RAISE", 2, 2, 14,
-                 err_flow("exit", "demo::ConfigError", 'Missing("port")', S1,
-                          hop=1)),
-            ret(1300, 2, 2, "err", 'Err(Missing("port"))'),
-            flow(1400, "HANDLED", 1, 1, 31,
-                 err_flow("sink_ok", "demo::ConfigError", 'Missing("port")',
-                          S1, hop=1, terminal="swallowed_candidate")),
-            flow(1500, "HANDLED", 1, 1, 31,
-                 err_flow("sink_ok", "std::io::Error", 'Os { code: 2 }',
-                          S1 + 1, hop=1, origin="outside",
-                          terminal="swallowed_candidate")),
-            ret(1600, 1, 1, "ok", "None"),
-        ])
+        frames=frames,
+        events=events + [ret(1600, 1, 1, "ok", "None")])
 
 
 def test_the_route_vary_line_is_spelled_routes_not_hops(
@@ -390,12 +409,68 @@ def test_the_route_vary_line_is_spelled_routes_not_hops(
                 if ln.strip().startswith("hops:")]) == 1, text
     assert "      routes: 2 distinct (first shown)" in text, text
     assert "distinct paths" not in text, text
-    # all three sets differ, and they are named in the pinned order
-    body = text.splitlines()
-    order = [i for i, ln in enumerate(body)
-             if ln.strip().startswith(("origins:", "details vary",
-                                       "routes:"))]
-    assert len(order) == 3 and order == sorted(order), text
+    # every set differs, and they are named in the pinned order
+    body = [ln.strip() for ln in text.splitlines()]
+    labels = [ln.split(":")[0] if ":" in ln.split(" (")[0] else "details"
+              for ln in body
+              if ln.startswith(("origins:", "messages:", "details vary",
+                                "routes:"))]
+    assert labels == ["origins", "messages", "details", "routes"], text
     assert "      origins: 2 distinct (first shown)" in text, text
+    assert "      messages: 2 distinct (first shown)" in text, text
+    # the printed member HAS a route and HAS no detail, and each
+    # parenthetical says which (ruling R-G5)
+    assert "      details vary (2 distinct; this one has none)" in text, text
+    assert "dispositions: swallowed 2" in text, text
+
+
+def test_a_flag_says_so_when_the_printed_block_has_none_of_what_it_counts(
+        tmp_path, monkeypatch, capsys):
+    """The same sink, with the born-outside chain printed FIRST: that
+    member has a detail and no hops line, so `routes:` must not claim the
+    first is shown (ruling R-G5) while `details vary` may."""
+    run_id = mixed_sink_trace(tmp_path, monkeypatch, outside_first=True)
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    text = out(capsys)
+    assert text.count("SWALLOWED --") == 1, text
+    assert "[×2: e2, e4]" in text, text
+    # the printed member is the born-outside one: a detail, and no route
+    assert ("      born outside this thread's instrumented frames; "
+            "absorbed at sink_ok") in text, text
+    assert "hops:" not in text, text
+    assert "      routes: 2 distinct (this one has none)" in text, text
     assert "      details vary (2 distinct; first shown)" in text, text
     assert "dispositions: swallowed 2" in text, text
+
+
+# -- R-G7: the continuation carries the reader's own --after ---------------
+def test_the_note_keeps_the_after_the_reader_gave(
+        tmp_path, monkeypatch, capsys):
+    """`--after e3 --limit 1` over four chains in three shapes: the
+    continuation must answer the SAME question, so it carries the
+    `--after`. Without it the next page reports four chains where the
+    reader asked about three."""
+    run_id = escaped_trace(tmp_path, monkeypatch, origins=[2, 2, 3, 4])
+    assert cli.main(["exceptions", run_id, "--after", "e3",
+                     "--limit", "1"]) == ANSWERED
+    text = out(capsys)
+    assert "raised (3 of 4; 1 earlier chain(s) skipped by --after e3):" in text
+    assert (f"... 2 more; continue with: sensorium exceptions {run_id} "
+            "--after e3 --limit 3") in text, text
+    # and the continuation is runnable and answers the same three chains
+    hint = text.strip().splitlines()[-1].split("continue with: ", 1)[1]
+    assert cli.main(shlex.split(hint)[1:]) == ANSWERED
+    rest = out(capsys)
+    assert "raised (3 of 4; 1 earlier chain(s) skipped by --after e3):" in rest
+    assert "dispositions: ambiguous 3" in rest, rest
+    assert "... " not in rest, rest
+
+
+# -- R-G8: the mask leaves Rust's float type names alone -------------------
+def test_the_mask_does_not_eat_rust_float_type_names():
+    """`f64` in a panic message is a TYPE, not a frame. Masking it merged
+    two verdicts that name different types -- and `f3` is still a frame."""
+    assert mask("expected f64, found f32 at e12 in f3") == (
+        "expected f64, found f32 at e# in f#")
+    assert mask("f16 f128 f1 f4 f321 e0") == "f16 f128 f# f# f# e#"
+    assert mask("kind: NotFound, code: 2") == "kind: NotFound, code: 2"

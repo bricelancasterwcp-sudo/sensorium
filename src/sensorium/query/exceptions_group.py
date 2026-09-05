@@ -31,10 +31,16 @@ signature. Merging those would have deleted the answer.
 
 A group whose members differ in something the key did not look at is
 FLAGGED rather than silently merged -- one extra line per differing set,
-naming how many distinct ones there are and saying that the first is what
-is shown. The route's line is spelled `routes:` and not `hops:` (ruling
-R-G3): the corpus caught the first spelling sharing its prefix with the
-real `hops:` line, where it double-counted under every counter.
+in the order `origins:` / `messages:` / `details vary` / `routes:`. Each
+names how many distinct ones there are and where the reader can see one:
+`(first shown)`, or `(this one has none)` where the printed member has no
+such line (ruling R-G5) -- a flag must not point at a line that is not
+there. `origins` counts SITES and `messages` the errors' rendered text
+(ruling R-G6): one head line carries both, so counting heads called two
+errors raised at one site "2 distinct origins". The route's line is spelled
+`routes:` and not `hops:` (ruling R-G3): the corpus caught the first
+spelling sharing its prefix with the real `hops:` line, where it
+double-counted under every counter.
 
 Ids are masked (`e412` -> `e#`, `f204` -> `f#`) everywhere a set is
 compared: two chains absorbed by the same `.ok()` differ in every id they
@@ -65,11 +71,16 @@ from dataclasses import dataclass, field
 # is the block's own last line. Rendering them a second time here would be
 # two spellings of one journey.
 from sensorium.query.exceptions_rust import _at, _hops_line
-from sensorium.query.fmt import fmt_event
+from sensorium.query.fmt import fmt_event, fmt_exc
 
 #: An event or frame reference in printed text. Anchored on word boundaries
-#: so `e412` masks and `kind: NotFound` does not.
-MASK = re.compile(r"\b([ef])\d+\b")
+#: so `e412` masks and `kind: NotFound` does not, and guarded against the
+#: Rust FLOAT TYPE NAMES (ruling R-G8): `f32`/`f64` are spellings a panic
+#: message or an error text carries -- *"expected f64, found f32"* -- and
+#: masking them to `f#` merged two verdicts that name different types.
+#: Keying on the classifier's own components instead of on masked prose is
+#: the better answer and is CARRIED-DEBT, not this slice.
+MASK = re.compile(r"\b(?!f(?:16|32|64|128)\b)([ef])\d+\b")
 
 #: How many ids a bracket names before it says only how many more there
 #: are. A group of 303 is a fact about a site, not a list to read.
@@ -84,13 +95,19 @@ class Shape:
     first: object               # the first Chain of the shape, origin order
     disposition: object         # ITS Disposition -- the one printed
     chains: list = field(default_factory=list)
-    heads: set = field(default_factory=set)      # masked head lines
+    origins: set = field(default_factory=set)    # origin SITES, `q L<line>`
+    messages: set = field(default_factory=set)   # the origin errors' text
     details: set = field(default_factory=set)    # masked details (None ok)
     hops: set = field(default_factory=set)       # masked routes (None ok)
+    #: The FIRST member's detail and route, so a vary line can say whether
+    #: the block above it actually shows one of the things it counts.
+    first_detail: str | None = None
+    first_route: str | None = None
 
 
 def mask(text: str) -> str:
-    """`e412` -> `e#`, `f204` -> `f#`, in printed text only."""
+    """`e412` -> `e#`, `f204` -> `f#`, in printed text only. `f64` and its
+    three siblings are type names, not frames, and are left alone."""
     return MASK.sub(r"\1#", text)
 
 
@@ -100,6 +117,15 @@ def _masked(text: str | None) -> str | None:
     collapsing that to `""` would make "some members have hops and some do
     not" read as "they all agree"."""
     return None if text is None else mask(text)
+
+
+def _message(event) -> str:
+    """The origin error as the head line renders it: `type('msg')`. Every
+    chain event carries an `exc` (the index selects on `exc.kind == "err"`),
+    and this is the same `fmt_exc` call `fmt_event` makes for a RAISE or a
+    HANDLED, so the set counts exactly what a reader sees."""
+    exc = (event.payload or {}).get("exc")
+    return fmt_exc(exc) if exc else "?"
 
 
 def site_of(trace, chain, d) -> str:
@@ -141,11 +167,19 @@ def group_chains(trace, chains, idx, classify):
                hops if d.site is None else None)
         shape = by_key.get(key)
         if shape is None:
-            shape = Shape(key=key, tag=d.tag, first=chain, disposition=d)
+            shape = Shape(key=key, tag=d.tag, first=chain, disposition=d,
+                          first_detail=d.detail, first_route=hops)
             by_key[key] = shape
             shapes.append(shape)
         shape.chains.append(chain)
-        shape.heads.add(mask(fmt_event(trace, chain.origin)))
+        # R-G6: two sets, not one masked head line. A head carries the site
+        # AND the error's text, so counting heads reported two errors from
+        # ONE site as two origins -- `corpus/rust/err_stored`'s retry loop
+        # raises twice at `attempt L14` with `Refused(1)` and `Refused(2)`,
+        # which is one origin and two messages. Neither is masked: a site
+        # and an error's rendering carry no ids this tool assigned.
+        shape.origins.add(_at(trace, chain.origin))
+        shape.messages.add(_message(chain.origin))
         shape.details.add(_masked(d.detail))
         shape.hops.add(hops)
     return shapes, tally
@@ -165,20 +199,34 @@ def bracket(shape: Shape, max_ids: int = MAX_IDS) -> str:
     return f"  [×{n}: {ids}{more}]"
 
 
+def _which(present: bool) -> str:
+    """`(first shown)` -- unless the printed member has no such line at all,
+    in which case saying "first shown" points at nothing (ruling R-G5). A
+    flag whose parenthetical is false about the block it sits under is
+    worse than no flag."""
+    return "first shown" if present else "this one has none"
+
+
 def vary_lines(shape: Shape) -> list[str]:
     """What the key did not look at and the members do not agree on.
 
     Only the sets with more than one member speak. A group that varies in
     nothing prints nothing, so these lines mean something when they appear.
+    Order: where it came from (site, then error), then what the tool said
+    about it (detail), then how it travelled (route).
     """
     lines = []
-    if len(shape.heads) > 1:
-        lines.append(f"origins: {len(shape.heads)} distinct (first shown)")
+    if len(shape.origins) > 1:
+        lines.append(f"origins: {len(shape.origins)} distinct (first shown)")
+    if len(shape.messages) > 1:
+        lines.append(f"messages: {len(shape.messages)} distinct "
+                     "(first shown)")
     if len(shape.details) > 1:
         lines.append(f"details vary ({len(shape.details)} distinct; "
-                     "first shown)")
+                     f"{_which(shape.first_detail is not None)})")
     if len(shape.hops) > 1:
-        lines.append(f"routes: {len(shape.hops)} distinct (first shown)")
+        lines.append(f"routes: {len(shape.hops)} distinct "
+                     f"({_which(shape.first_route is not None)})")
     return lines
 
 

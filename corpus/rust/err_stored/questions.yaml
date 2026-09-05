@@ -19,9 +19,10 @@ questions:
       designed behaviour; a false accusation is the one failure this command
       must never produce. Both chains were bound by ONE arm, so since 0.8.2
       they print as one shape (design N3/N4): the first chain's block, a
-      `[×2: e4, e8]` bracket naming both, `origins: 2 distinct (first
-      shown)` because the two errors are not the same error -- and a tally
-      that still counts two chains.
+      `[×2: e4, e8]` bracket naming both, and `messages: 2 distinct (first
+      shown)` -- both were raised at the one site `attempt L14`, so what
+      differs is the ERROR (`Refused(1)`, `Refused(2)`) and not where it
+      came from (ruling R-G6); the tally still counts two chains.
     why_logs_fail: >
       The retry loop is the shape where log-based reading is at its worst:
       the failures ARE collected, so a developer who adds `dbg!(&errors)`
@@ -35,13 +36,13 @@ questions:
       - ["RAISE", "attempt", "Refused(1)"]
       - ["an Err(..) arm at", "retry L27", "bound it to a name and let the name escape",
          "[×2: e4, e8]"]
-      - ["origins: 2 distinct (first shown)"]
+      - ["messages: 2 distinct (first shown)"]
       - ["a bound error that is stored, returned or moved out of the arm",
          "is not a swallow; an arm that only reads it (a guard, a predicate), formats or logs it and continues is one"]
     expect_count:
       {"bound it to a name and let the name escape": 1}
     expect_absent: ["SWALLOWED", "dispositions: swallowed", "panicked",
-                    "returned to the harness"]
+                    "returned to the harness", "origins:"]
   - id: how-many-attempts-were-refused
     ask: >
       How many attempts did the loop make, and did any of them succeed?

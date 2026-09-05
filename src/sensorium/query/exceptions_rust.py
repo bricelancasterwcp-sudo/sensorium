@@ -596,9 +596,13 @@ def run(trace, args, after: int) -> int:
     # Paging RAISES THE LIMIT rather than naming an event to resume after:
     # `--after` cuts chains, and a cursor that cut a group in half would
     # re-show it as a partial block still labelled with the whole count.
+    # The reader's OWN `--after` is carried through (ruling R-G7): dropping
+    # it made the continuation answer over a wider scope than the question
+    # asked, which is a hint that lies about what it will show.
+    scoped = f"--after e{after} " if after else ""
     note = more_note(len(shapes), shown,
                      f"sensorium exceptions {shlex.quote(args.run)} "
-                     f"--limit {len(shapes)}")
+                     f"{scoped}--limit {len(shapes)}")
     if note:
         print(note)
     return ANSWERED
