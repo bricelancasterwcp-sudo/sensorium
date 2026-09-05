@@ -78,6 +78,7 @@ mod tests {
             name: String::new(),
             records_dropped: 0,
             truncated: 0,
+            version: 3,
             records: seqs
                 .iter()
                 .map(|&seq| RawRecord {

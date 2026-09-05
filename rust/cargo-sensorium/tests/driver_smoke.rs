@@ -122,7 +122,7 @@ fn cargo_sensorium_test_records_a_two_function_crate() {
     assert_eq!(invocation["cargo_args"], serde_json::json!(["test"]));
     assert_eq!(invocation["tier"], "call");
     assert_eq!(invocation["profile"], "dev");
-    assert_eq!(invocation["driver_version"], "cargo-sensorium 0.2.0");
+    assert_eq!(invocation["driver_version"], "cargo-sensorium 0.3.0");
     assert_eq!(invocation["cargo_exit"], 0);
     assert_eq!(
         invocation["workspace_root"],
