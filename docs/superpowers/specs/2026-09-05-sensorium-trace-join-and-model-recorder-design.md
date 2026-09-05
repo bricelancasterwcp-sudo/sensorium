@@ -452,7 +452,13 @@ re-rolled.
 | R8 | `exit_status: null` + `exit_status_basis: "not-a-process-exit"`. | Writing the daemon's exit — the daemon has not exited when the trace is finalized. | One new basis word in `exit_phrase`; vector m06. |
 | R9 | S4's probe capabilities named and declared false now, with the flash-attention gap sentence fixed. | Leave them out until S4 — an omitted key reads `false` anyway, but the *sentence* is what stops "attention wasn't measured" reading as "the model didn't attend". | None. |
 
-## 12. Open for Brice (recommendation inline)
+## 12. Open for Brice (recommendation inline) — **RULED 2026-09-05**
+
+> Brice, 2026-09-05: "go with your recommendations on all rulings" — so: `topk` default **8**; the
+> model recorder is **off by default, on by config**; `bless-noise` writes **into A**. Also ruled:
+> sensorium work for this program stays on its own branches until Brice merges (another session
+> owns the Rust recorder on main). The three items are left below as the record of the choice.
+
 
 1. **`topk` default 8 vs 16.** 8 matches the G5 divergence pattern seen so far (two identical
    boots differ by prose choice, not by exotic tokens); 16 costs 2× row size for margins nobody
