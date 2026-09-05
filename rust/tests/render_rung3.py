@@ -337,8 +337,8 @@ def results(r) -> list[str]:
            "with a reason is the ONLY not-measured, and `0` is "
            "measured-and-zero. Rendered by "
            "`rust/tests/render_acceptance.py --doc rung3` from "
-           f"`{Path(r['acceptance']).name}`'s `results.json`. No verdict is "
-           "decided here — §4 is.", "",
+           f"`{Path(r['acceptance']).with_suffix('').name}.results.json`. No "
+           "verdict is decided here — §4 is.", "",
            "| Id | Headline | n | Lens (abridged) | Dropped |",
            "|---|---|---|---|---|"]
     for label, key in keys.items():
