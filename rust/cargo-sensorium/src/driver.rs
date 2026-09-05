@@ -721,7 +721,7 @@ mod tests {
 
     #[test]
     fn the_driver_version_is_the_crates_own() {
-        assert_eq!(DRIVER_VERSION, "cargo-sensorium 0.3.0");
+        assert_eq!(DRIVER_VERSION, "cargo-sensorium 0.3.1");
     }
 
     #[test]
@@ -754,7 +754,7 @@ mod tests {
         assert_eq!(value["workspace_root"], "/w");
         assert_eq!(value["target_dir"], "/t");
         assert_eq!(value["tool_hash"], "0123456789abcdef");
-        assert_eq!(value["driver_version"], "cargo-sensorium 0.3.0");
+        assert_eq!(value["driver_version"], "cargo-sensorium 0.3.1");
         assert_eq!(value["rustc_path"], "/u/bin/rustc");
         // Null, not absent: the converter tells "cargo has not finished" from
         // "cargo exited 0" by the value, and an absent key is neither.

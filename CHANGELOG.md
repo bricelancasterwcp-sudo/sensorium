@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.8.1 — 2026-09-05
+
+- **The `&e` exemption is now a rule about the borrowing call's product.** A
+  shared borrow of an `Err` binding is a provable non-escape only where the
+  borrowing call's product is dropped — the whole expression of a statement
+  ending in `;`, a `let _ =` with a plain wildcard, or a logging macro's
+  argument. Everywhere else the borrow ESCAPES, so
+  `Err(e) => { let (status, value) = map_error(&e, ..);
+  V1Result::json(status, value) }` reads `arm_ambiguous` where it read
+  `arm_handled` and could print SWALLOWED while the failure reached the caller
+  as an HTTP error. On the bloomery clone (`e209ed9`) the census moves
+  `arm_handled` **65 → 54** and `arm_escaped` **121 → 132** over the same
+  **225** arm sites; `arm_propagate` stays **39**. No splice fragment changed,
+  so no line moved.
+- **An `err` close hops the held chain whose text the RETURN carries.** A
+  frame closing `err` while it held two chains minted the exit hop on the
+  INNERMOST one whatever the text said, so a keep-first-error shape recorded
+  the hop on the wrong chain and labelled it `translated`. The converter now
+  runs the text-preferring search the RAISE and HANDLED rows already ran, with
+  the innermost as the fallback. **Hop data only**: no disposition moved, and
+  the wire is unchanged.
+- **Two Rust corpus cases**, taking the Rust corpus to thirty-one:
+  `err_borrowed_into_value` (an arm hands `&e` to a helper and keeps the
+  helper's product — `dispositions: ambiguous 1`, never a swallow) and
+  `keep_first_error` (a frame holding two different errors returns the FIRST:
+  the exit hop follows the returned text with no `translated`, that first
+  error is swallowed by `main`'s log-and-continue arm, and the second reads
+  ambiguous).
+- **Measured, and — for the first time in this line of records — the control
+  discriminated**
+  (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`).
+  **E6⁗-A PASS**: 0 false accusations of 14 SWALLOWED lines on the clone's
+  `-p bloomery-daemon --lib` suite, under both readings. **E6⁗-WS PASS**: 0
+  false of 782 lines over all 144 processes of
+  `cargo sensorium test --workspace`, resolving to 91 sink sites, under both
+  readings. **E6⁗-WS0 DISCRIMINATING**: the same command under the pre-repair
+  driver printed 812 lines — the same 782 plus 30 more, every one of the 30
+  false, at 7 of the 11 arms the repair moved, where the repaired driver
+  printed none. **E-flip PASS**: 11 changed manifest rows, every transition
+  `arm_handled → arm_ambiguous`, and `11 == 65 − 54`. **E6-again′ PASS**: 0
+  unequal sets over 20 corpus `exceptions` questions. **E7⁗ PASS**:
+  `mechanics.sh` exit 0, 47 ok and 0 FAIL. **E0‴ PASS**: `info` 1.507 s and
+  `diff` 1.500 s on the widest trace this project has recorded. Four of the
+  eleven flipped arms were never executed by any arm of the run, and nothing
+  in the record is evidence about them.
+- **`sensorium-transform` and `cargo-sensorium` → 0.3.1** (the rule and the
+  hop). **`sensorium-rt` stays 0.3.0**: no wire and no runtime change, and a
+  trace recorded before this release needs no re-recording.
+
 ## 0.8.0 — 2026-09-05
 
 - **Rust err flow, and `sensorium exceptions` on a Rust trace.** The

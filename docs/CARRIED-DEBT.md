@@ -64,7 +64,7 @@ stays the record for rungs 0–2.
   23 (b), the whole-word-`e` over-escape, is a different kind of thing — safe
   direction, AMBIGUOUS never an accusation — and its exposure is measured
   nowhere; the zero above covers (a) only.
-- **The `&e` rule repair, and the `--workspace` E6 arm that would measure it
+- ~~**The `&e` rule repair, and the `--workspace` E6 arm that would measure it
   — one slice, both halves.** *The repair:* the escape test exempts `&e`
   because the borrow proves the arm kept the error, but the exemption is
   silent about what the CALL does with its product, so
@@ -82,12 +82,35 @@ stays the record for rungs 0–2.
   `--workspace` E6 arm with no `--lib` is what makes the repair measurable
   rather than asserted, so both are pre-registered together. Found by the
   whole-branch review AFTER the numbers were read; recorded, not repaired, for
-  the reason the process lesson below states.
+  the reason the process lesson below states.~~ — resolved 2026-09-05 by the
+  borrow repair: the exemption now holds only where the borrowing call's
+  product is provably dropped (design B1), and the
+  `--workspace` arm measured it — **E6⁗-A PASS** (0 false accusations of 14),
+  **E6⁗-WS PASS** (0 false of 782 over 144 processes), **E6⁗-WS0
+  DISCRIMINATING** (the pre-repair driver printed 30 more lines, every one
+  false, at 7 of the 11 flipped arms; the repaired driver printed none). See
+  `CHANGELOG.md` 0.8.1 and
+  `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`. What the
+  repair leaves is the new section below.
 - **The reviewer's static list and the census's 31 are different sets.** At
   most 27 of the reviewer's 31 entries can be among the census's 31, and at
   least 4 of the census's 31 are arms the list does not name. A BEFORE/AFTER
   manifest diff across the repair commit would settle it; this run did not
   take one.
+  **Annotated 2026-09-05, and left OPEN.** The borrow repair took exactly
+  that diff for ITS repair (E-flip): two from-scratch
+  `--workspace --no-run` builds, 225 arm sites declared by each, **11**
+  changed rows, every transition `arm_handled → arm_ambiguous`,
+  `only_before = only_after = []`, and every row named —
+  `crates/bloomery-daemon/src/api_native/agents.rs:57, :82, :93, :104,
+  :156`, `api_native/models.rs:25, :140`, `api_v1.rs:396, :515`,
+  `codec_probe/boot.rs:110`, `pager/paging.rs:673`. That settles the
+  METHOD, and it settles the flip set of THIS repair. It does **not**
+  settle this item: the two 31-element sets are the E6‴-era reviewer list
+  and the E6‴-era census, neither of which was ever enumerated side by
+  side, and no diff taken here identifies them. Open until someone
+  enumerates those two sets, or rules that the question no longer needs
+  answering.
 - **`corpus/run_corpus.py::_run_ids` reads any stdout line starting `run: `
   as a trace id.** A case that printed `run: Err(..)` was misread; the case
   worked around it. Key the id line unambiguously in a later slice.
@@ -108,6 +131,9 @@ stays the record for rungs 0–2.
   the wave's two clauses (the two-place column rule, the `&e` residual) spent
   them, so **the file is at 796 of 800 again** and the next split is now
   named: **§1**. Stated rather than left to be discovered, which is the point.
+  — and taken 2026-09-05 by the borrow repair: §1 is now
+  `rust/HONESTY-OUTCOMES.md`, wording and order unchanged, leaving
+  `rust/HONESTY.md` at 707 lines after §11's repaired `&e` clause.
 - **The parent spec is at 1 458 lines**, over the house ceiling and already
   over it (1 407) before this slice added §11's rung-3 verdict and §13's
   deltas table. Splitting a design spec's history is not a docs pass's call.
@@ -118,7 +144,7 @@ stays the record for rungs 0–2.
 - **Rung-2's `acceptance_lib.read_manifests` breaks on rung-3 manifests** —
   it killed the first E6′ launch before any number was read, and was worked
   around in a rung-3 module rather than fixed at the source.
-- **A frame closing `err` while it holds TWO chains hops the INNERMOST one,
+- ~~**A frame closing `err` while it holds TWO chains hops the INNERMOST one,
   whatever the text says.** `chains/mod.rs`'s exit hop is minted on the
   innermost held chain and does not run the text-matching search the RAISE and
   HANDLED rows use, so a keep-first-error shape (A calls B → `Err` B1, A calls
@@ -128,7 +154,13 @@ stays the record for rungs 0–2.
   §2a and R16 on 2026-09-05, found by the whole-branch review after the
   numbers were read. The fix (`held_matching` first, innermost as the
   fallback) rides the next pre-registered slice, with a converter test on a
-  hand-built spool as its falsifier.
+  hand-built spool as its falsifier.~~ — resolved 2026-09-05 by the borrow
+  repair (design B3): `close_frame` now runs the text-preferring search
+  first and falls back to the innermost.
+  Falsifiers:
+  `chains/tests.rs::an_err_close_hops_the_held_chain_whose_text_it_carries_not_the_innermost`,
+  `rust/cargo-sensorium/tests/convert_errflow_chains.rs`, and
+  `corpus/rust/keep_first_error`.
 - **Three `chain.terminal` values have no conformance vector** —
   `panicked`, pinned by `tests/test_exceptions_rust.py` alone
   (`test_a_panic_on_the_holder_quotes_the_panic_and_claims_no_cause`), and
@@ -167,3 +199,163 @@ stays the record for rungs 0–2.
   would have changed the instrument between the lock and the reading. They
   are in the ledger, in the design, and in the acceptance record's own gaps
   section instead.
+
+## 2026-09-05 — the borrow repair (Python 0.8.1 / transform + driver 0.3.1)
+
+### Settled
+
+- **The `&e` exemption is a rule about the borrowing call's dropped product**
+  (design B1). A shared borrow is a provable non-escape only as a direct
+  argument of a call that is a dropped call site — an expression statement, a
+  `let _ =` with a plain wildcard, or a logging macro's argument; everywhere
+  else it ESCAPES. On the bloomery clone (`e209ed9`) the census moves
+  `arm_handled` 65 → 54 and `arm_escaped` 121 → 132 over the same 225 arm
+  sites, with `arm_propagate` unchanged at 39, and no line moved.
+- **Measured, with a control that discriminated**
+  (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`): **E6⁗-A
+  PASS** (0 false accusations of 14 SWALLOWED lines, both readings, 2
+  guarded); **E6⁗-WS PASS** (0 false of 782 lines over 144 recorded processes
+  at 91 sink sites, both readings, 374 guarded lines at 6 sites); **E6⁗-WS0
+  DISCRIMINATING** (the pre-repair driver printed 812 — the same 782 plus 30,
+  all 30 false, at 7 of the 11 flipped arms; the repaired driver printed none
+  there); **E-flip PASS** (11 changed rows, all `arm_handled →
+  arm_ambiguous`, `11 == 65 − 54`, `only_before = only_after = []`);
+  **E6-again′ PASS** (0 unequal of 20 corpus `exceptions` questions); **E7⁗
+  PASS** (`mechanics.sh` 47 ok, 0 FAIL); **E0‴ PASS** (`info` 1.507 s, `diff`
+  1.500 s). §1 was committed alone at `559e617`, sha256
+  `c911724b…550e7c27`, and measured once.
+- **The exit hop prefers text** (design B3). `close_frame` on `Outcome::Err`
+  now gives the hop to the innermost hop-eligible held chain whose `last`
+  text matches the RETURN's, falling back to the innermost — today's rule —
+  only when none matches. Hop data only; no disposition and no wire field
+  moved.
+- **Two Rust corpus cases**, taking the Rust corpus to thirty-one:
+  `err_borrowed_into_value` and `keep_first_error`.
+- **`driver_version` separates the two drivers again.** The record's §5.7
+  notes that all three arms reported `cargo-sensorium 0.3.0`, because the
+  version bump runs after the measurement; this release moves
+  `sensorium-transform` and `cargo-sensorium` to 0.3.1 and leaves
+  `sensorium-rt` at 0.3.0.
+- **`rust/HONESTY.md` §1 is `rust/HONESTY-OUTCOMES.md`** — the split rung 3
+  named rather than one discovered at the ceiling. Wording and order
+  unchanged; the file is at 707 lines with §11's repaired `&e` clause in it.
+- **Two stale doc counts corrected**: `tests/test_corpus.py`'s docstring said
+  "Eight of the thirteen rung-3 cases" have an empty swallow set and now says
+  ten of seventeen (`corpus/rust/README.md`'s number); the top-level
+  `README.md` said "Fourteen more cases live under `corpus/rust/`" and now
+  says thirty-one, fourteen from rungs 0–2 and seventeen from rung 3.
+
+### Deferred, awaiting rulings
+
+- **The guarded-arm wording debt, now deciding 48 % of a headline** (record
+  §5.3). §1's "merely observed" clause admits a letter-reading under which a
+  match guard's read is the arm's disposition; under it **374 of E6⁗-WS's 782
+  lines** would be false and BOTH workspace endpoints would STOP. The gate is
+  design R15's ruled reading (the disposition is the BODY's), and every table
+  reports the guarded count beside both readings. E6‴ could call this a
+  wording debt at 2 lines of 14; it should be **paid in §1's wording before
+  rung 4** rather than inherited a third time.
+- **Three classes a reader may reasonably contest** (record §5.4), each
+  adjudicated TRUE and each a STOP if a reader rules it false, because the
+  gate is 0: (a) test-assertion arms, 31 lines at 31 sites; (b) payload-free
+  failures translated into a synthesised value, 22 lines at 4 sites; (c)
+  `drift.rs:694`'s re-worded absence, 14 lines (inside the guarded 374).
+  None is a `&e`-through-a-function shape, so this repair touches none of
+  them. **A per-site `--allow`, or an in-source marker, is the shape that
+  would settle all three** — a design question, not a record's to answer.
+- **Per-site adjudication is a reading of SOURCE, and R15's criterion is a
+  property of EXECUTION** (record §5.2). Of the 1 608 lines adjudicated,
+  §4.2 and §4.3 collapse the two workspace arms' 782 and 812 to one row per
+  distinct sink site (§4.1's 14 keep E6‴'s per-line shape); the collapse is
+  safe only where a site has one downstream disposition or nothing derived
+  from the error survives the arm. **`pager/paging.rs:673` is the one site in
+  the record whose verdict could turn on which path ran** (three downstream
+  endings),
+  and its row's stated reason had to be corrected in fix round 1.
+- **Four of the eleven flipped arms were never executed** by any arm of the
+  run (record §5.5): `api_native/agents.rs:93`, `:104`,
+  `api_native/models.rs:25`, `codec_probe/boot.rs:110`. Three are the same
+  `Err(e) => map_error(&e),` tail as arms that did run; `boot.rs:110` is the
+  one genuinely distinct shape — a borrow nested inside another call's
+  argument — so **the repaired rule's treatment of the nested-argument shape
+  is asserted and unit-tested, not measured on a running tree**.
+- **Two rows §1 asks for are ABSENT, not zero** (record §5.6): the
+  plain-versus-instrumented `--workspace` wall (the rung-2 addendum lens) was
+  not taken — no uninstrumented `--workspace` run was timed; and the
+  **doctest-process split is not something the runner computes** — it records
+  144 processes per WS arm and does not classify them by target kind. The
+  second needs a per-process target-kind field in the instrument.
+- **The side-channel residual, blind spot 23 (d).** A callee handed `&e` at a
+  dropped call site that STORES a rendering through `&self`, a capture or a
+  global still reads `arm_handled` and can reach SWALLOWED. A syntactic rule
+  cannot see it; closing it needs inter-procedural analysis this recorder
+  does not do. Pinned as today's reading by
+  `a_dropped_call_that_stores_what_it_is_handed_is_still_handled_and_says_so`
+  (`rust/sensorium-transform/src/arms.rs`) and named in design R16 (vii);
+  **untested by fixture** on a real tree. The nested-literal gap (23 (a)) and
+  the `tracing`-syntax non-detection (24) are unchanged by this slice and
+  stay carried in the rung-3 section above.
+- **`RUSTDOCFLAGS="-D warnings" cargo doc -p sensorium-transform --no-deps`
+  fails** on two PRE-EXISTING private-module intra-doc links
+  (`rust/sensorium-transform/src/lib.rs:435` and `:442`), verified identical
+  before this branch. Rustdoc is not in the gate set (workspace tests,
+  clippy `-D warnings`, `cargo fmt --check`, pytest), so nothing red was
+  introduced and nothing was fixed here; the ruling is whether rustdoc joins
+  the gate.
+- **`tests/test_acceptance_e6q.py` is at 800 of 800 lines.** The next test
+  added there must split the file first — the `rust/tests/mechanics.sh`
+  precedent, stated before it is discovered at the ceiling.
+- **A golden fixture carries the PRE-repair sentence in a comment.**
+  `rust/sensorium-transform/tests/golden/err_arm_escaped.in.rs:59-60` says "a
+  format argument and a shared borrow, the only two uses design R2 calls
+  provable". Goldens were deliberately untouched this slice (E7⁗ rests on
+  nothing moving), so the sweep waits for the next legitimate golden
+  re-derivation.
+- **The acceptance runner's own docs still carry the falsified expectation.**
+  `rust/tests/acceptance_e6q.py`'s module doc (and the docstring of
+  `test_each_arms_driver_version_is_read_from_the_trace_that_arm_wrote` in
+  `tests/test_acceptance_e6q.py`) say the control's traces must read
+  `cargo-sensorium 0.3.0` and the HEAD arms' the repaired version. Record
+  §5.7 falsifies it — all three arms read 0.3.0 — and the measurement is
+  complete, so the instrument was left as it stood rather than edited after
+  the lock. Sweep when that runner is next legitimately touched.
+- **Review minors, deferred rather than repaired after the lock**, one line
+  each: the escape walker's `visit_stmt` match guard
+  `Some(e) if self.walk_dropped_call(e)` is side-effecting (it walks before
+  the arm is chosen; harmless today); no unit row pins a dropped call in
+  RECEIVER position (`note(&e).ok();` reads Escaped — design-correct,
+  unpinned); `close_frame` computes `preferred` on every outcome though only
+  the `Err` branch reads it; `rust/tests/render_e6q.py` is not reachable from
+  `render_acceptance.py --doc`; the base driver's sha256 is verified before
+  the run but not re-checked at cleanup; `ARM_A["selector"] ==
+  real_config(paths)["pkg"]` is unpinned; and the E0‴ lens substitution
+  yields the grammar "events's size" in two cells.
+
+### Process lessons
+
+- **A control arm under the PRE-repair instrument is what makes a "0 false"
+  PASS mean something.** E6⁗-WS's 0 of 782 would have been compatible with an
+  arm that never reached the repaired shape; E6⁗-WS0 printed 30 false
+  accusations at 7 arms under the old driver where the new one printed none,
+  and only then could the record write **measured** rather than *asserted*.
+  Design B5 wrote both branches before the numbers, so the downgrade was
+  available and unattractive rather than unthinkable.
+- **A §1 prediction can be falsified by its own run, and that is recorded as
+  such.** §1 predicted `api_v1.rs:396` would NOT be reached ("no test found
+  that posts an unknown model without an agent header"); it was reached, and
+  was the busier of the two (7 events and 7 false accusations under the
+  control, against 5 and 5 for `:515`). A "no test reaches this" claim
+  derived by reading is a hypothesis. Nothing was re-scoped; §1 stands as
+  written and record §5.1 says it was wrong.
+- **A per-site adjudication table needs the source-versus-execution caveat
+  stated, not assumed.** Collapsing lines to sites is safe only where the
+  site has one downstream disposition; `paging.rs:673` is the counter-example
+  this record contains, and it was caught by review rather than by the
+  instrument.
+- **Two implementers are never in one worktree.** Rung 3 lost staged files
+  twice that way; this slice dispatched one implementer at a time and lost
+  none.
+- **The runner building its own driver was load-bearing.** The binary on the
+  HEAD path was byte-identical to the base driver before the runner rebuilt
+  it, so an arm that trusted the path would have measured the control twice
+  and called it a PASS.
