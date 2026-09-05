@@ -46,14 +46,18 @@ use crate::{Partial, RetKind, SiteKind, Skipped, SpawnSite, Transformed};
 pub struct ManifestSite {
     pub site: u32,
     pub qualname: String,
-    /// `"fn"`, `"try"` or `"sink"`. A manifest with no `kind` at all
-    /// (transform 0.2.0) is read as all-`fn`, which is what it was.
+    /// `"fn"`, `"closure"`, `"try"`, `"sink"` or `"arm"`. A manifest with no
+    /// `kind` at all (transform 0.2.0) is read as all-`fn`, which is what it
+    /// was.
     pub kind: SiteKind,
     /// 1-based line of the `fn` keyword. `fn` rows only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub firstlineno: Option<u32>,
-    /// 1-based line of the `?`, the sink's method name, or the `let`. Err-flow
-    /// rows only.
+    /// 1-based line of the `?`, the sink's method name, the `let`, the `Err`
+    /// pattern, or a closure's `|`. Every row that is not a `fn` ITEM, which
+    /// includes the `closure` frames: `firstlineno` is where an ITEM begins and
+    /// a closure is not one, so a reader joining on it cannot be handed a
+    /// closure by accident (design R1b).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub line: Option<u32>,
     /// `"try"`, `"sink_ok"`, `"sink_unwrap_or"` or `"sink_let_underscore"` --
@@ -62,10 +66,27 @@ pub struct ManifestSite {
     pub how: Option<&'static str>,
     /// `"unit"`, `"value"` or `"never"`. The wire carries no per-site knowledge,
     /// so this is what tells the converter that a frame which stashed nothing
-    /// closed `ok` with `()` rather than `none` (`rust/HONESTY.md` §1). `fn`
-    /// rows only.
+    /// closed `ok` with `()` rather than `none` (`rust/HONESTY.md` §1). FRAME
+    /// rows only -- `fn`, and `closure`, which is always `"value"` because a
+    /// closure declares no return type to read.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ret: Option<RetKind>,
+    /// The fn carries `#[test]`, `#[bench]` or an attribute whose path ends in
+    /// `test` (design R1b). Serialised only when TRUE: the mark is the
+    /// exception, and a `false` on every row of a manifest would say nothing.
+    #[serde(skip_serializing_if = "is_false")]
+    pub test: bool,
+    /// The fn is a BIN crate root's file-scope `main`. Serialised only when
+    /// true, for the same reason.
+    #[serde(skip_serializing_if = "is_false")]
+    pub main: bool,
+}
+
+/// `#[serde(skip_serializing_if)]` needs a path, and `bool` has no method that
+/// is one.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// The unit manifest, in the shape the plan names.
@@ -151,6 +172,8 @@ impl Manifest {
                 line: (!is_fn).then_some(site.firstlineno),
                 how: site.how,
                 ret: site.ret,
+                test: site.test,
+                main: site.main,
             });
         }
         self.skipped.extend(transformed.skipped.iter().cloned());

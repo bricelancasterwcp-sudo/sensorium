@@ -171,8 +171,17 @@ struct Totals {
     instrumented: usize,
     try_sites: usize,
     sink_sites: usize,
+    arm_sites: usize,
+    closure_sites: usize,
+    arms_propagate: usize,
+    arms_panic: usize,
+    arms_escaped: usize,
+    arms_handled: usize,
+    closures_framed: usize,
+    async_partials: usize,
     partial_macro_arg: usize,
     partial_struct_literal: usize,
+    partial_async_block: usize,
     spawns_wrapped: usize,
     spawns_declared: usize,
     literal_spawns: usize,
@@ -262,6 +271,12 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
         t.async_fns += c.async_fns;
         t.try_syn += c.try_syn;
         t.try_macro_tokens += c.try_macro_tokens;
+        t.arms_propagate += c.arms_propagate;
+        t.arms_panic += c.arms_panic;
+        t.arms_escaped += c.arms_escaped;
+        t.arms_handled += c.arms_handled;
+        t.closures_framed += c.closures_framed;
+        t.async_partials += c.async_partials;
         t.eligible += c.eligible();
         let literal = source.matches(LITERAL_SPAWN).count();
         t.literal_spawns += literal;
@@ -305,17 +320,24 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
             let partial = |reason: &str| out.partial.iter().filter(|p| p.reason == reason).count();
             let macro_arg = partial("macro-arg");
             // A `struct-literal` row can mark a sink as well as a `?`, so the
-            // identity subtracts only the ones whose KIND is `try`.
+            // identity subtracts only the ones whose KIND is `try` -- and, since
+            // rung 3's task 3, the `async-block` rows beside them: a `?` inside
+            // a future is a `syn::ExprTry` that was deliberately not wrapped.
             let struct_literal = out
                 .partial
                 .iter()
-                .filter(|p| p.kind == SiteKind::Try && p.reason == "struct-literal")
+                .filter(|p| {
+                    p.kind == SiteKind::Try && matches!(p.reason, "struct-literal" | "async-block")
+                })
                 .count();
             t.instrumented += fn_sites;
             t.try_sites += try_sites;
             t.sink_sites += kinds(SiteKind::Sink);
+            t.arm_sites += kinds(SiteKind::Arm);
+            t.closure_sites += kinds(SiteKind::Closure);
             t.partial_macro_arg += macro_arg;
             t.partial_struct_literal += struct_literal;
+            t.partial_async_block += partial("async-block");
             // Rung 3's identity, PER FILE. `try_syn` counts the `?` the parser
             // gave a node for, and every one of those is either wrapped or
             // declined by name; the `?` TOKENS inside macro invocations are a
@@ -362,8 +384,18 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
     println!("instrumented (fns):   {}", t.instrumented);
     println!("`?` sites wrapped:    {}", t.try_sites);
     println!("sink sites wrapped:   {}", t.sink_sites);
+    // Rung 3 task 3, REPORTED and not pinned: what a real tree's arms are
+    // classified as is a property of that tree, and a pin on it would only say
+    // the tree had not changed. The identities below are what is asserted.
+    println!("arm sites:            {}", t.arm_sites);
+    println!("  arms propagate:     {}", t.arms_propagate);
+    println!("  arms panic (unprobed): {}", t.arms_panic);
+    println!("  arms escaped:       {}", t.arms_escaped);
+    println!("  arms handled:       {}", t.arms_handled);
+    println!("closure frames:       {}", t.closure_sites);
     println!("partial macro-arg:    {}", t.partial_macro_arg);
     println!("partial struct-lit:   {}", t.partial_struct_literal);
+    println!("partial async-block:  {}", t.partial_async_block);
     println!("spawn sites wrapped:  {}", t.spawns_wrapped);
     println!("spawn sites declared: {}", t.spawns_declared);
     println!("literal `{LITERAL_SPAWN}`: {}", t.literal_spawns);
@@ -415,6 +447,24 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
         t.instrumented + t.async_fns,
         t.eligible,
         "instrumented + async != eligible over the clone"
+    );
+    // Rung 3 task 3's identities over the clone: one decision behind each
+    // counter and each site, so these cannot drift apart without one of the two
+    // being wrong.
+    assert_eq!(
+        t.arms_propagate + t.arms_escaped + t.arms_handled,
+        t.arm_sites,
+        "classified arms and arm sites disagree over the clone \
+         ({} panic arms are deliberately unprobed)",
+        t.arms_panic
+    );
+    assert_eq!(
+        t.closures_framed, t.closure_sites,
+        "framed closures and closure sites disagree over the clone"
+    );
+    assert_eq!(
+        t.async_partials, t.partial_async_block,
+        "`?` inside an async block, counted and declared, disagree over the clone"
     );
     assert_eq!(
         t.spawns_wrapped, t.literal_spawns,

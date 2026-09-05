@@ -27,15 +27,20 @@
 //! Splices are sorted by offset, then by KIND, because several land on the same
 //! byte and only one order is right. Reading [`Kind`] top to bottom is reading
 //! that order: an err wrap's arm closes before an exit wrap's `)` (the err wrap
-//! is INSIDE it: `ret(.., match g() { .. }?)`), both close before anything that
-//! starts there, then the entry guard (a statement, which must precede the
-//! block's value), then an exit wrap's opening fragment, then an err wrap's
-//! `match ` (again inside it), then a spawn rewrite, then the crate root's
-//! `allow` and its static. Nested wraps of either kind close innermost-first,
-//! which is what the reversed `seq` in [`splice_order`] is for; opens of one
-//! kind at one byte go outermost-first, which is the walk's own order. The
-//! assembled output is checked for overlap as it is built, so a mis-ordered
-//! splice is an error rather than a corrupted file.
+//! is INSIDE it: `ret(.., match g() { .. }?)`), that closes before the `}` of a
+//! block an arm's or a closure's expression body was wrapped in (the exit wrap
+//! is inside THAT: `{ guard; ret(.., f(n)) }`), all of them close before
+//! anything that starts there, then the entry guard (a statement, which must
+//! precede the block's value), then that same block's `{ <statement> ` opening
+//! -- ahead of an exit wrap's opening fragment, since a closure's expression
+//! body is its own tail operand and both land on that byte -- then an exit
+//! wrap's opening fragment, then an err wrap's `match ` (again inside it), then
+//! a spawn rewrite, then the crate root's `allow` and its static. Nested wraps
+//! of every kind close innermost-first, which is what the reversed `seq` in
+//! [`splice_order`] is for; opens of one kind at one byte go outermost-first,
+//! which is the walk's own order. The assembled output is checked for overlap as
+//! it is built, so a mis-ordered splice is an error rather than a corrupted
+//! file.
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -46,8 +51,8 @@ use syn::visit::Visit;
 use syn::{AttrStyle, Attribute};
 
 use crate::errflow::How;
-use crate::visit::{self, Ctx};
-use crate::{Census, SpawnSite, Transformed};
+use crate::visit::Ctx;
+use crate::{Census, FileRole, SpawnSite, Transformed};
 
 /// The entry guard. Newline-free, and the ONLY place its text is written.
 pub(crate) fn guard_fragment(site: u32) -> String {
@@ -64,6 +69,49 @@ pub(crate) fn ret_open_fragment(site: u32) -> String {
 }
 
 pub(crate) const RET_CLOSE: &str = ")";
+
+/// The probe an `Err(..) =>` arm or an `if let Err(..)` body writes at its
+/// ENTRY (design R2/R4). `bound` is the ident the pattern destructured the error
+/// into, when it destructured one into exactly one name.
+///
+/// The two entry points differ in what the runtime can be told, not in when it
+/// is called: `err_site_value` is handed the error itself and always records,
+/// `err_site_unbound` records that an error was seen here and nothing more. The
+/// capture is a CLOSURE for the same reason [`err_close_fragment`]'s is -- at
+/// tier `off` no `Debug` impl runs.
+///
+/// `&e` is the right borrow for every binding mode the grammar allows: a
+/// by-value `Err(e)` gives `Probe<'_, E>`, and match ergonomics' `e: &E` gives
+/// `Probe<'_, &E>` whose `type_name` carries a leading `&` that design R4 has
+/// the converter strip. Nothing is moved either way, so the body still owns
+/// whatever it was given.
+pub(crate) fn arm_probe_fragment(site: u32, how: How, bound: Option<&str>) -> String {
+    match bound {
+        Some(name) => format!(
+            "::sensorium_rt::err_site_value(&crate::__SENSORIUM_UNIT, {site}, \
+             ::sensorium_rt::{}, || {{ use ::sensorium_rt::probe::*; \
+             (&&Probe(&{name})).err_cap_value() }});",
+            how.constant()
+        ),
+        None => format!(
+            "::sensorium_rt::err_site_unbound(&crate::__SENSORIUM_UNIT, {site}, \
+             ::sensorium_rt::{});",
+            how.constant()
+        ),
+    }
+}
+
+/// The opening half of the block an EXPRESSION body is wrapped in so that a
+/// statement can go in front of it: `Err(e) => 0` becomes
+/// `Err(e) => { <stmt> 0 }`, and `|n| f(n)?` becomes `{ <stmt> f(n)? }`. The
+/// value of the block is the original expression, so nothing about what the arm
+/// or the closure evaluates to moves.
+pub(crate) fn scope_open_fragment(stmt: &str) -> String {
+    format!("{{ {stmt} ")
+}
+
+/// Its closing half.
+pub(crate) const SCOPE_CLOSE: &str = " }";
 
 /// The opening half of an err wrap (design R3). Six bytes, and the whole reason
 /// `tests/oracle.rs` can predict the column shift inside a wrapped operand.
@@ -149,8 +197,20 @@ pub(crate) enum Kind {
     ErrClose,
     /// An exit wrap's `)`. Closes what is already open before anything new.
     Close,
-    /// The entry guard: a statement, so ahead of the block's value.
+    /// The `}` closing the block an arm's or a closure's EXPRESSION body was
+    /// wrapped in. OUTSIDE an exit wrap's `)`, because the exit wrap goes
+    /// around the block's value: a closure body `|n| f(n)` becomes
+    /// `{ guard; ret(.., f(n)) }`, so the `)` closes first. Two of these can
+    /// share a byte -- an arm whose body IS a `?`-bearing closure -- and the
+    /// reversed `seq` in [`splice_order`] closes the innermost first.
+    ScopeClose,
+    /// The entry guard, and an arm probe in a BLOCK body: a statement, so ahead
+    /// of the block's value.
     Guard,
+    /// The `{ <statement> ` opening that same block. Ahead of an exit wrap's
+    /// opening fragment, since a closure's expression body is its own tail
+    /// operand and both land on that byte.
+    ScopeOpen,
     /// An exit wrap's opening fragment, outside a spawn rewrite at the same byte.
     Open,
     /// An err wrap's `match `. After an exit wrap's opening fragment at the same
@@ -189,7 +249,7 @@ fn splice_order(a: &Splice, b: &Splice) -> Ordering {
         .cmp(&b.start)
         .then(a.kind.cmp(&b.kind))
         .then_with(|| {
-            if matches!(a.kind, Kind::Close | Kind::ErrClose) {
+            if matches!(a.kind, Kind::Close | Kind::ErrClose | Kind::ScopeClose) {
                 // The wrap opened LAST closes first.
                 b.seq.cmp(&a.seq)
             } else {
@@ -203,12 +263,14 @@ pub(crate) fn run(
     file: &str,
     unit_metadata: &str,
     first_site: u32,
-    is_crate_root: bool,
+    role: FileRole,
 ) -> Result<Transformed, syn::Error> {
+    let is_crate_root = role.is_crate_root;
     let parsed = syn::parse_file(source)?;
     let prefix = stripped_prefix_len(source, parsed.shebang.as_deref());
 
     let mut ctx = Ctx::new(source, prefix, file, first_site, true);
+    ctx.is_bin_root = role.is_bin_root;
     ctx.visit_file(&parsed);
     let walked = ctx.finish()?;
 
@@ -511,7 +573,7 @@ fn allow_placement(source: &str, prefix: usize, attrs: &[Attribute]) -> AllowPla
         if !matches!(attr.style, AttrStyle::Inner(_)) {
             continue;
         }
-        match visit::inner_attr_end(source, prefix, attr) {
+        match crate::attrs::inner_attr_end(source, prefix, attr) {
             Ok(end) => {
                 if offset.is_none_or(|had| end > had) {
                     offset = Some(end);

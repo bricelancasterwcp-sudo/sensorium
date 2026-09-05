@@ -249,11 +249,15 @@ fn every_golden_wraps_exactly_the_question_marks_the_census_counts() {
         let macro_rows = t.partial.iter().filter(|p| p.reason == "macro-arg").count();
         // A `struct-literal` row can mark a sink as well as a `?`, so the
         // subtraction is over the rows whose KIND is `try` -- which is what
-        // `Partial::kind` is on the row for.
+        // `Partial::kind` is on the row for. `async-block` joined it in rung 3
+        // (task 3): a `?` inside a future IS a `syn::ExprTry`, so it is in
+        // `try_syn` and has to be subtracted by name like any other decline.
         let unreached = t
             .partial
             .iter()
-            .filter(|p| p.kind == SiteKind::Try && p.reason == "struct-literal")
+            .filter(|p| {
+                p.kind == SiteKind::Try && matches!(p.reason, "struct-literal" | "async-block")
+            })
             .count();
         assert_eq!(
             try_rows + unreached,

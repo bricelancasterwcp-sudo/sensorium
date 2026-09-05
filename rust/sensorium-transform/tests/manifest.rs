@@ -10,7 +10,7 @@ mod common;
 
 use common::{read, META};
 
-use sensorium_transform::{transform, Manifest};
+use sensorium_transform::{transform, transform_file, FileRole, Manifest};
 
 fn manifest_json() -> serde_json::Value {
     let mut m = Manifest::new(META, "bloomery_daemon", "lib");
@@ -253,4 +253,81 @@ fn the_partial_list_is_registered_unit_scoped_like_skipped() {
     // reason, same fn, and a SINK rather than a `?`.
     assert_eq!(partial[3]["kind"], "sink");
     assert_eq!(partial[3]["reason"], "struct-literal");
+}
+
+// ---------------------------------------------------------------------------
+// Rung 3 task 3: closure frames and the two marks
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_closure_frame_and_an_arm_are_rows_of_their_own_kind() {
+    let mut m = Manifest::new(META, "bloomery_daemon", "bin");
+    let t = transform_file(
+        &read("closure_try", "in"),
+        "src/main.rs",
+        META,
+        0,
+        FileRole {
+            is_crate_root: true,
+            is_bin_root: true,
+        },
+    )
+    .expect("transform");
+    m.add_file("src/main.rs", &t);
+    let j: serde_json::Value =
+        serde_json::from_str(&m.to_json().expect("serialise")).expect("valid JSON");
+    let sites = j["files"]["src/main.rs"].as_array().expect("files entry");
+
+    let closure = sites
+        .iter()
+        .find(|s| s["kind"] == "closure")
+        .expect("a closure row");
+    assert_eq!(closure["qualname"], "block_body::{{closure}}#1");
+    // A closure is a FRAME, so it carries `ret` -- always `value`, since there
+    // is no declared return type to read -- and it is not a fn ITEM, so its
+    // line is spelled `line` and never `firstlineno`.
+    assert_eq!(closure["ret"], "value");
+    assert_eq!(closure["line"], 13);
+    assert!(closure.get("firstlineno").is_none());
+    assert!(closure.get("how").is_none());
+    // Neither mark is written on a row that does not carry it: `false` on every
+    // row would make the marks unreadable as exceptions.
+    assert!(closure.get("test").is_none());
+    assert!(closure.get("main").is_none());
+}
+
+#[test]
+fn the_marks_are_written_only_where_they_are_true() {
+    let mut m = Manifest::new(META, "bloomery_daemon", "bin");
+    let t = transform_file(
+        &read("test_marks", "in"),
+        "src/main.rs",
+        META,
+        0,
+        FileRole {
+            is_crate_root: true,
+            is_bin_root: true,
+        },
+    )
+    .expect("transform");
+    m.add_file("src/main.rs", &t);
+    let j: serde_json::Value =
+        serde_json::from_str(&m.to_json().expect("serialise")).expect("valid JSON");
+    let sites = j["files"]["src/main.rs"].as_array().expect("files entry");
+
+    let by_name = |name: &str| {
+        sites
+            .iter()
+            .find(|s| s["qualname"] == name)
+            .unwrap_or_else(|| panic!("no row for {name}"))
+            .clone()
+    };
+    assert_eq!(by_name("main")["main"], true);
+    assert!(by_name("main").get("test").is_none());
+    assert_eq!(by_name("plain_test")["test"], true);
+    assert_eq!(by_name("qualified_test")["test"], true);
+    // `helper` is neither, and `inner::main` is a `main` in a module.
+    assert!(by_name("helper").get("test").is_none());
+    assert!(by_name("helper").get("main").is_none());
+    assert!(by_name("inner::main").get("main").is_none());
 }

@@ -68,6 +68,14 @@ pub(crate) const MACRO_ARG: &str = "macro-arg";
 /// reached is a `?` to declare whatever the cause.
 pub(crate) const STRUCT_LITERAL: &str = "struct-literal";
 
+/// A `?` inside an `async {}` block or an `async` closure (design R5/R6). The
+/// future may be polled on a thread other than the one that built it, so a
+/// probe there would record the site against whichever thread happened to
+/// poll -- the same reason an `async fn` gets no guard. A plain closure created
+/// INSIDE an async block is a different thing: its body runs when it is CALLED,
+/// so `Ctx::in_async` is cleared on entering one and its `?` is wrapped.
+pub(crate) const ASYNC_BLOCK: &str = "async-block";
+
 /// The `how` byte a site writes, as the transformer knows it: a name for the
 /// manifest and the constant's own spelling for the fragment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,6 +88,16 @@ pub(crate) enum How {
     SinkUnwrapOr,
     /// `let _ = <value expression>;`. HANDLED.
     SinkLetUnderscore,
+    /// An `Err(..) =>` arm or `if let Err(..)` body whose error leaves the
+    /// frame (design R2). RAISE, written at the arm's ENTRY.
+    ArmPropagate,
+    /// One whose bound name never escapes, or that binds nothing. HANDLED --
+    /// and so a SWALLOWED candidate, which is why the escape test is
+    /// deliberately strict.
+    ArmHandled,
+    /// One whose bound name escapes: HANDLED-class, but never a SWALLOWED
+    /// candidate. The design's mechanical form of "bound to a name and stored".
+    ArmAmbiguous,
 }
 
 impl How {
@@ -90,6 +108,9 @@ impl How {
             How::SinkOk => "sink_ok",
             How::SinkUnwrapOr => "sink_unwrap_or",
             How::SinkLetUnderscore => "sink_let_underscore",
+            How::ArmPropagate => "arm_propagate",
+            How::ArmHandled => "arm_handled",
+            How::ArmAmbiguous => "arm_ambiguous",
         }
     }
 
@@ -102,6 +123,9 @@ impl How {
             How::SinkOk => "HOW_SINK_OK",
             How::SinkUnwrapOr => "HOW_SINK_UNWRAP_OR",
             How::SinkLetUnderscore => "HOW_SINK_LET_UNDERSCORE",
+            How::ArmPropagate => "HOW_ARM_PROPAGATE",
+            How::ArmHandled => "HOW_ARM_HANDLED",
+            How::ArmAmbiguous => "HOW_ARM_AMBIGUOUS",
         }
     }
 
@@ -110,6 +134,7 @@ impl How {
         match self {
             How::Try => SiteKind::Try,
             How::SinkOk | How::SinkUnwrapOr | How::SinkLetUnderscore => SiteKind::Sink,
+            How::ArmPropagate | How::ArmHandled | How::ArmAmbiguous => SiteKind::Arm,
         }
     }
 }
@@ -286,7 +311,21 @@ impl Ctx<'_> {
     /// descriptive only, so the container's path is a better answer than
     /// failing the file over it. At file scope with no container at all the
     /// answer is the empty string, which says exactly that.
-    fn err_qualname(&self) -> String {
+    pub(crate) fn err_qualname(&self) -> String {
+        match self.closure_frames.last() {
+            // Inside a FRAMED closure the err-flow rows belong to the closure:
+            // a `?` there returns from the closure, so the RAISE the converter
+            // reads has to name the frame it actually left (design R5, and the
+            // task-3 invariant `closure_try` pins).
+            Some(name) => name.clone(),
+            None => self.item_qualname(),
+        }
+    }
+
+    /// The enclosing NAMED ITEM's qualname, ignoring any closure frame -- what a
+    /// closure's own `{{closure}}#k` name is built from, and what an err-flow
+    /// row falls back to.
+    pub(crate) fn item_qualname(&self) -> String {
         self.enclosing_qualname()
             .unwrap_or_else(|| self.scope_path())
     }
@@ -308,7 +347,7 @@ impl Ctx<'_> {
     /// Mint a site index for an err-flow site and record its manifest row. Err
     /// sites take their numbers from the SAME per-unit counter as fn items
     /// (design R1b), which is why `kind` has to be on the row.
-    fn mint_err_site(&mut self, how: How, line: u32, span: Span) -> Option<u32> {
+    pub(crate) fn mint_err_site(&mut self, how: How, line: u32, span: Span) -> Option<u32> {
         if self.next_site > MAX_SITE_INDEX {
             self.fail(
                 span,
@@ -327,6 +366,8 @@ impl Ctx<'_> {
             ret: None,
             kind: how.site_kind(),
             how: Some(how.name()),
+            test: false,
+            main: false,
         });
         Some(site)
     }

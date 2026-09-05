@@ -15,19 +15,21 @@
 
 use std::collections::HashMap;
 
-use proc_macro2::{Span, TokenStream, TokenTree};
+use proc_macro2::Span;
 use syn::visit::Visit;
 use syn::{
-    AttrStyle, Attribute, Block, ExprCall, ExprClosure, ExprConst, ExprMacro, ExprMethodCall,
-    ExprTry, ImplItemConst, ImplItemFn, ItemConst, ItemFn, ItemImpl, ItemMacro, ItemMod,
-    ItemStatic, ItemTrait, Local, Pat, Signature, StmtMacro, TraitItemConst, TraitItemFn,
+    Arm, AttrStyle, Attribute, Block, ExprAsync, ExprCall, ExprClosure, ExprConst, ExprIf,
+    ExprMacro, ExprMethodCall, ExprTry, ImplItemConst, ImplItemFn, ItemConst, ItemFn, ItemImpl,
+    ItemMacro, ItemMod, ItemStatic, ItemTrait, Local, Pat, Signature, StmtMacro, TraitItemConst,
+    TraitItemFn,
 };
 
-use crate::errflow;
+use crate::attrs::{inner_attr_end, scan_macro_fns};
 use crate::exits::{self, Operand};
 use crate::names::{line_of, path_span, self_type_name};
-use crate::spawn::{self, Rewrite, Shape};
+use crate::spawn;
 use crate::splice::{guard_fragment, ret_open_fragment, Kind, Splice, RET_CLOSE};
+use crate::{arms, closures, errflow, marks};
 use crate::{Census, Partial, RetKind, Site, SiteKind, Skipped, SpawnSite, MAX_SITE_INDEX};
 
 /// What one walk found: everything `splice.rs` needs and nothing it does not.
@@ -71,7 +73,7 @@ pub(crate) struct Ctx<'a> {
     /// `Ctx` is per file, so this is the per-`(file, qualname)` counter plan
     /// decision N1 names, and `splice::run` re-derives it from source order
     /// afterwards rather than trusting it (N4).
-    spawn_ordinals: HashMap<String, u32>,
+    pub(crate) spawn_ordinals: HashMap<String, u32>,
     pub(crate) next_site: u32,
     /// False in census mode: classification runs, splicing does not.
     pub(crate) emit: bool,
@@ -91,8 +93,28 @@ pub(crate) struct Ctx<'a> {
     /// `Result::<u8, u8>::unwrap_or`"); the one shape that does reach here is
     /// `let _ = <expr>;`, which absorbs nothing anyway.
     pub(crate) const_ctx: bool,
+    /// True inside an `async {}` block or an `async` closure body, and false
+    /// again inside a plain closure within one -- whose body runs when the
+    /// closure is CALLED, on the caller's thread, not when the future is
+    /// polled. A `?` met while this is set is DECLARED, never wrapped
+    /// (`errflow::ASYNC_BLOCK`), and no closure is framed while it is set.
+    pub(crate) in_async: bool,
+    /// The unit's crate root is a BINARY's, so a file-scope `fn main` here is
+    /// the program's entry (design R1b). Set by [`crate::splice::run`] from the
+    /// caller's [`crate::FileRole`]; false for every file whose caller does not
+    /// know.
+    pub(crate) is_bin_root: bool,
+    /// The qualnames of the FRAMED closures the walk is currently inside,
+    /// innermost last. An err-flow row inside one belongs to the closure rather
+    /// than to the item ([`Ctx::err_qualname`]); a spawn does not, so this is
+    /// deliberately separate from `scope`.
+    pub(crate) closure_frames: Vec<String>,
+    /// How many FRAMED closures each enclosing ITEM qualname has had, which is
+    /// the `#k` of a closure's `{{closure}}#k` name (design R5). Keyed by the
+    /// item, never by an enclosing closure, so the names stay flat.
+    pub(crate) closure_ordinals: HashMap<String, u32>,
     /// Byte offset (for source order) and the site.
-    spawns: Vec<(usize, SpawnSite)>,
+    pub(crate) spawns: Vec<(usize, SpawnSite)>,
     splices: Vec<Splice>,
     fn_items: usize,
     const_fns: usize,
@@ -104,6 +126,13 @@ pub(crate) struct Ctx<'a> {
     try_syn: usize,
     /// Census only (see [`Census::try_macro_tokens`]).
     pub(crate) try_macro_tokens: usize,
+    /// Counted on every walk, by the same classification that places the arm
+    /// probes: `[propagate, panic, escaped, handled]` (see [`Census`]).
+    pub(crate) arms: [usize; 4],
+    /// Counted on every walk: closures given a frame, and `?` inside an async
+    /// block. Both are decisions, not splices, so a census sees them too.
+    pub(crate) closures_framed: usize,
+    pub(crate) async_partials: usize,
     error: Option<syn::Error>,
 }
 
@@ -127,6 +156,10 @@ impl<'a> Ctx<'a> {
             skipped: Vec::new(),
             partial: Vec::new(),
             const_ctx: false,
+            in_async: false,
+            is_bin_root: false,
+            closure_frames: Vec::new(),
+            closure_ordinals: HashMap::new(),
             spawns: Vec::new(),
             splices: Vec::new(),
             fn_items: 0,
@@ -135,6 +168,9 @@ impl<'a> Ctx<'a> {
             async_fns: 0,
             try_syn: 0,
             try_macro_tokens: 0,
+            arms: [0; 4],
+            closures_framed: 0,
+            async_partials: 0,
             error: None,
         }
     }
@@ -166,6 +202,12 @@ impl<'a> Ctx<'a> {
             async_fns: self.async_fns,
             try_syn: self.try_syn,
             try_macro_tokens: self.try_macro_tokens,
+            arms_propagate: self.arms[0],
+            arms_panic: self.arms[1],
+            arms_escaped: self.arms[2],
+            arms_handled: self.arms[3],
+            closures_framed: self.closures_framed,
+            async_partials: self.async_partials,
             parsed: true,
         }
     }
@@ -180,7 +222,7 @@ impl<'a> Ctx<'a> {
         self.prefix + span.byte_range().start
     }
 
-    fn end_of(&self, span: Span) -> usize {
+    pub(crate) fn end_of(&self, span: Span) -> usize {
         self.prefix + span.byte_range().end
     }
 
@@ -248,7 +290,7 @@ impl<'a> Ctx<'a> {
     }
 
     /// The byte offset the guard goes at, with the grammar checked.
-    fn body_offset(&mut self, attrs: &[Attribute], block: &Block) -> Option<usize> {
+    pub(crate) fn body_offset(&mut self, attrs: &[Attribute], block: &Block) -> Option<usize> {
         let open = block.brace_token.span.open();
         let open_start = self.start_of(open);
         if self.source.as_bytes().get(open_start) != Some(&b'{') {
@@ -368,13 +410,18 @@ impl<'a> Ctx<'a> {
             ret: Some(ret),
             kind: SiteKind::Fn,
             how: None,
+            test: marks::is_test_fn(attrs),
+            // A `main` inside a `mod`, an `impl` or another fn is an ordinary
+            // fn: the scope stack being EMPTY is what says this one is the
+            // crate root's, and only the caller knows the root is a binary's.
+            main: self.is_bin_root && self.scope.is_empty() && name == "main",
         });
     }
 
     /// The two splices of one exit wrap, with the operand's own outer attributes
     /// left outside: an attribute belongs to the statement, and
     /// `f(#[cfg(x)] e)` is not Rust.
-    fn wrap_operand(&mut self, site: u32, operand: Operand, span: Span) {
+    pub(crate) fn wrap_operand(&mut self, site: u32, operand: Operand, span: Span) {
         let start = self.prefix + operand.start;
         let end = self.prefix + operand.end;
         let Some(text) = self.source.get(start..end) else {
@@ -392,91 +439,6 @@ impl<'a> Ctx<'a> {
         }
         self.push(open, open, Kind::Open, ret_open_fragment(site));
         self.push(end, end, Kind::Close, RET_CLOSE.to_owned());
-    }
-
-    /// Record one spawn shape, rewriting the callee when it is the one spelling
-    /// this rung rewrites.
-    fn spawn_shape(&mut self, shape: &Shape, line: u32, span: Span) {
-        // Reachable, and tested: an enum discriminant or an array length in a
-        // struct field's type is an expression inside a `mod` body with no
-        // named frame around it (see `enclosing_qualname` and
-        // `tests/edges.rs`). Refusing the file is what that costs; naming the
-        // child after the `mod` is what NOT refusing would cost.
-        let Some(qualname) = self.enclosing_qualname() else {
-            self.fail(span, "spawn site outside any named item");
-            return;
-        };
-        match shape {
-            Shape::Declare(reason) => {
-                let offset = self.start_of(span);
-                self.declare_spawn(offset, line, Some(reason), qualname, None);
-            }
-            Shape::Rewrite(r) => self.rewrite_spawn(r, line, span, &qualname),
-        }
-    }
-
-    fn declare_spawn(
-        &mut self,
-        offset: usize,
-        line: u32,
-        reason: Option<&'static str>,
-        qualname: String,
-        ordinal: Option<u32>,
-    ) {
-        self.spawns.push((
-            offset,
-            SpawnSite {
-                file: self.file.to_owned(),
-                line,
-                wrapped: reason.is_none(),
-                reason,
-                qualname,
-                ordinal,
-            },
-        ));
-    }
-
-    /// The callee path becomes `::sensorium_rt::spawn_child` and the site
-    /// argument goes in past the `(`; the bytes between them are untouched.
-    ///
-    /// The child is named `"<qualname>#<k>"`, where `k` counts the WRAPPED
-    /// sites of this qualname in this file. A declared shape between two of
-    /// them takes no ordinal, so an unrelated `Builder::spawn` nearby cannot
-    /// renumber them (plan decision N1).
-    fn rewrite_spawn(&mut self, r: &Rewrite, line: u32, span: Span, qualname: &str) {
-        let path_start = self.prefix + r.path_start;
-        let path_end = self.prefix + r.path_end;
-        let paren_start = self.prefix + r.paren_open_start;
-        let paren_end = self.prefix + r.paren_open_end;
-        if self.source.as_bytes().get(paren_start) != Some(&b'(') {
-            self.fail(
-                span,
-                "spawn call's opening paren is not where its span says",
-            );
-            return;
-        }
-        if !self.source.is_char_boundary(path_start) || !self.source.is_char_boundary(path_end) {
-            self.fail(span, "spawn callee offset falls inside a UTF-8 character");
-            return;
-        }
-        self.push(
-            path_start,
-            path_end,
-            Kind::Replace,
-            spawn::CALLEE.to_owned(),
-        );
-        let ordinal = *self
-            .spawn_ordinals
-            .entry(qualname.to_owned())
-            .and_modify(|k| *k += 1)
-            .or_insert(1);
-        self.push(
-            paren_end,
-            paren_end,
-            Kind::SpawnArg,
-            spawn::site_argument(&format!("{qualname}#{ordinal}"), r.use_path.as_deref()),
-        );
-        self.declare_spawn(path_start, line, None, qualname.to_owned(), Some(ordinal));
     }
 
     /// Descend into an item whose body or initialiser holds EXPRESSIONS: a fn, a
@@ -502,11 +464,20 @@ impl<'a> Ctx<'a> {
     /// Descend with [`Ctx::const_ctx`] set, and put it back afterwards. A
     /// `const fn` inside a plain one sets it; a closure inside a `const fn`
     /// clears it.
-    fn in_const<F: FnOnce(&mut Self)>(&mut self, const_ctx: bool, f: F) {
+    pub(crate) fn in_const<F: FnOnce(&mut Self)>(&mut self, const_ctx: bool, f: F) {
         let saved = self.const_ctx;
         self.const_ctx = const_ctx;
         f(self);
         self.const_ctx = saved;
+    }
+
+    /// The same for [`Ctx::in_async`]. Set on an `async` block or an `async`
+    /// closure, CLEARED on a plain closure inside one.
+    fn in_async_scope<F: FnOnce(&mut Self)>(&mut self, in_async: bool, f: F) {
+        let saved = self.in_async;
+        self.in_async = in_async;
+        f(self);
+        self.in_async = saved;
     }
 }
 
@@ -640,7 +611,15 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
     /// `tests/census.rs` measures on a real workspace.
     fn visit_expr_try(&mut self, node: &'ast ExprTry) {
         self.try_syn += 1;
-        if self.emit && !self.const_ctx {
+        if self.in_async {
+            // Inside a future: declared, never wrapped (design R5/R6). Counted
+            // on every walk so that a census sees the blind spot too.
+            self.async_partials += 1;
+            if self.emit {
+                let line = line_of(node.question_token.spans[0]);
+                self.declare_partial(line, SiteKind::Try, errflow::ASYNC_BLOCK);
+            }
+        } else if self.emit && !self.const_ctx {
             self.try_site(node);
         }
         syn::visit::visit_expr_try(self, node);
@@ -659,13 +638,6 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
         syn::visit::visit_local(self, node);
     }
 
-    /// A closure body is not a const context, whatever it sits in: a closure
-    /// declared in a `const fn` may call a non-const fn, because its body runs
-    /// when the closure is CALLED (measured on rustc 1.96, 2026-09-04).
-    fn visit_expr_closure(&mut self, node: &'ast ExprClosure) {
-        self.in_const(false, |ctx| syn::visit::visit_expr_closure(ctx, node));
-    }
-
     /// `const { .. }` is a const context: nothing inside it may call
     /// `err_site`.
     fn visit_expr_const(&mut self, node: &'ast ExprConst) {
@@ -682,6 +654,58 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
     fn visit_stmt_macro(&mut self, node: &'ast StmtMacro) {
         self.macro_question_tokens(&node.mac.tokens);
         syn::visit::visit_stmt_macro(self, node);
+    }
+
+    /// Every `match` arm: an `Err(..) =>` one is classified and probed
+    /// (design R2), and everything else is walked unchanged.
+    fn visit_arm(&mut self, node: &'ast Arm) {
+        if !self.const_ctx {
+            self.err_arm(&node.pat, arms::Body::Expr(&node.body));
+        }
+        syn::visit::visit_arm(self, node);
+    }
+
+    /// `if let Err(..) = <scrutinee> { .. }`: the THEN block is classified
+    /// exactly as an arm body is. An `else` branch is not an `Err` body and is
+    /// left alone -- `syn::visit` walks it as usual.
+    fn visit_expr_if(&mut self, node: &'ast ExprIf) {
+        if !self.const_ctx {
+            if let syn::Expr::Let(cond) = &*node.cond {
+                self.err_arm(&cond.pat, arms::Body::Block(&node.then_branch));
+            }
+        }
+        syn::visit::visit_expr_if(self, node);
+    }
+
+    /// A closure body is not a const context, whatever it sits in: a closure
+    /// declared in a `const fn` may call a non-const fn, because its body runs
+    /// when the closure is CALLED (measured on rustc 1.96, 2026-09-04). For the
+    /// same reason a PLAIN closure inside an `async` block is not async code:
+    /// its body runs on whichever thread calls it, so `in_async` is cleared.
+    ///
+    /// A closure holding a `?` at its own depth is given a frame (design R5)
+    /// WHEREVER it was written -- inside an async block included, since its body
+    /// still runs on whichever thread calls it. An `async` closure never is, and
+    /// the `?` inside one is declared.
+    fn visit_expr_closure(&mut self, node: &'ast ExprClosure) {
+        let is_async = node.asyncness.is_some();
+        let framed = !is_async && closures::holds_try(&node.body);
+        if framed {
+            self.closures_framed += 1;
+        }
+        let pushed = framed && self.frame_closure(node);
+        self.in_async_scope(is_async, |ctx| {
+            ctx.in_const(false, |ctx| syn::visit::visit_expr_closure(ctx, node));
+        });
+        if pushed {
+            self.closure_frames.pop();
+        }
+    }
+
+    /// An `async {}` block: never framed, and every `?` inside is declared
+    /// rather than wrapped (design R5/R6).
+    fn visit_expr_async(&mut self, node: &'ast ExprAsync) {
+        self.in_async_scope(true, |ctx| syn::visit::visit_expr_async(ctx, node));
     }
 
     fn visit_item_macro(&mut self, node: &'ast ItemMacro) {
@@ -715,72 +739,5 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
                 reason: "macro",
             });
         }
-    }
-}
-
-/// The byte offset just past one inner attribute.
-///
-/// Three forms reach here, and only the first ends on a `]`:
-///
-/// * `#![allow(..)]` -- a real attribute; the span covers the brackets.
-/// * `//! doc` -- `syn` reports a doc comment as an `AttrStyle::Inner`
-///   attribute whose bracket span covers the COMMENT TEXT. Its end is inside a
-///   line comment, so the caller moves past that line's newline; the fragment
-///   is still newline-free and the line count still holds. Both forms are legal
-///   Rust and both appear in real code, so rejecting the file (which is what
-///   requiring `]` did) is not an option.
-/// * `/*! doc */` -- the same, except the span already ends after the `*/`.
-///
-/// # Errors
-/// The span is not a byte range of the source, an unterminated line doc
-/// comment (there is no next line to move onto), or an attribute that does not
-/// end where its span says.
-pub(crate) fn inner_attr_end(
-    source: &str,
-    prefix: usize,
-    attr: &Attribute,
-) -> Result<usize, &'static str> {
-    let start = prefix + attr.bracket_token.span.join().byte_range().start;
-    let end = prefix + attr.bracket_token.span.close().byte_range().end;
-    let Some(text) = source.get(start..end) else {
-        return Err("inner attribute span is not a byte range of the source");
-    };
-    if text.starts_with("//") {
-        // Past the comment's own newline.
-        return match source[end..].find('\n') {
-            Some(nl) => Ok(end + nl + 1),
-            None => Err("inner line doc comment is not terminated by a newline"),
-        };
-    }
-    if text.starts_with("/*") {
-        return Ok(end);
-    }
-    if end == 0 || source.as_bytes().get(end - 1) != Some(&b']') {
-        return Err("inner attribute does not end where its span says");
-    }
-    Ok(end)
-}
-
-/// Lines of `fn` tokens inside a macro body, skipping fn-POINTER types
-/// (`fn(u8) -> u8`), whose `fn` is followed by `(`.
-fn scan_macro_fns(tokens: &TokenStream, out: &mut Vec<u32>) {
-    let mut pending: Option<Span> = None;
-    for tt in tokens.clone() {
-        if let Some(span) = pending.take() {
-            let is_fn_pointer = matches!(&tt, TokenTree::Group(g)
-                if g.delimiter() == proc_macro2::Delimiter::Parenthesis);
-            if !is_fn_pointer {
-                out.push(u32::try_from(span.start().line).unwrap_or(u32::MAX));
-            }
-        }
-        match tt {
-            TokenTree::Ident(ref id) if id == "fn" => pending = Some(id.span()),
-            TokenTree::Group(ref g) => scan_macro_fns(&g.stream(), out),
-            _ => {}
-        }
-    }
-    // A trailing `fn` with nothing after it cannot be a fn pointer.
-    if let Some(span) = pending {
-        out.push(u32::try_from(span.start().line).unwrap_or(u32::MAX));
     }
 }

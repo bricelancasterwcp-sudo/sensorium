@@ -343,7 +343,10 @@ fn the_injected_allow_silences_both_lints_the_wraps_provoke() {
             continue;
         }
         let transformed = expand(&read(case, "out"));
-        if !transformed.contains("::sensorium_rt::err_site(") {
+        // Every err-flow fragment, not only the `?`/sink one: an arm probe
+        // (`err_site_value`/`err_site_unbound`) carries the same `&&Probe(..)`
+        // ladder and can provoke the same `needless_borrow`.
+        if !transformed.contains("::sensorium_rt::err_site") {
             continue;
         }
         let with = write_source(TAG_CLIPPY, case, &transformed);
@@ -372,22 +375,33 @@ fn the_injected_allow_silences_both_lints_the_wraps_provoke() {
         let path = write_source(TAG_CLIPPY, &format!("{case}_noallow"), &without);
         let c =
             clippy(TAG_CLIPPY, &format!("{case}_noallow"), &path).expect("clippy ran a moment ago");
-        assert!(
-            c.stderr.contains("match_single_binding"),
-            "{case}: with the allow removed the lint must fire, got:\n{}",
-            c.stderr
-        );
+        // Which of the two fires depends on what the case contains: a golden
+        // whose only probe is an ARM one has no `match` wrap at all, so
+        // `match_single_binding` cannot fire there. What has to be true per
+        // case is that SOMETHING fires -- otherwise the check above is
+        // measuring an allow nothing needed.
+        let mut here: Vec<&str> = Vec::new();
         for lint in WRAP_LINTS {
             let short = lint.trim_start_matches("clippy::");
-            if c.stderr.contains(short) && !fired.contains(&short) {
-                fired.push(short);
+            if c.stderr.contains(short) {
+                here.push(short);
+                if !fired.contains(&short) {
+                    fired.push(short);
+                }
             }
         }
+        assert!(
+            !here.is_empty(),
+            "{case}: with the allow removed at least one of the two lints must \
+             fire, got:\n{}",
+            c.stderr
+        );
         checked += 1;
     }
     assert!(
-        checked >= 6,
-        "only {checked} goldens carry an err wrap: this test is checking nothing"
+        checked >= 12,
+        "only {checked} goldens carry an err-flow probe: this test is checking \
+         nothing"
     );
     // BOTH halves measured rather than asserted. `needless_borrow` fires only
     // where an operand is not a `Result` -- an `Option` `?`, `let _ = 1` -- so

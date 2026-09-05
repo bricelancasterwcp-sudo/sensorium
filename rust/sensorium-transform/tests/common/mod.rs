@@ -16,6 +16,14 @@
 //! * `@S(<site>,<HOW>)` .. `@SE` -- an err wrap around a sink receiver, `<HOW>`
 //!   spelled as the runtime constant the fragment must name.
 //! * `@L(<site>)` .. `@LE`  -- an err wrap around a `let _ =` value.
+//! * `@P(<site>,<HOW>[,<name>])` -- the probe statement an `Err(..) =>` arm or
+//!   an `if let Err(..)` body writes at its entry. With a third argument it is
+//!   the BOUND form and `<name>` is the ident the pattern destructured into;
+//!   without one it is the unbound form. The braces an expression body is
+//!   wrapped in are spelled out in the golden itself, so an `.out.rs` shows
+//!   exactly the block that was added.
+//! * `@K(<site>)` -- the guard of a CLOSURE frame. The same bytes `@G` expands
+//!   to, under a name that says which kind of frame a golden is pinning.
 //!
 //! The three err-wrap pairs are one fragment with three `how` bytes, so they
 //! share an expansion; the marker still has to MATCH its opener, which is what
@@ -25,7 +33,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use sensorium_transform::{transform, RetKind, SiteKind, Transformed};
+use sensorium_transform::{transform_file, FileRole, RetKind, SiteKind, Transformed};
 
 pub const META: &str = "d41d8cd98f00b204";
 pub const FILE: &str = "src/lib.rs";
@@ -44,6 +52,23 @@ pub fn ret_open(site: u32) -> String {
 
 /// The opening half of an err wrap: six bytes, and nothing else.
 pub const ERR_OPEN: &str = "match ";
+
+/// The probe an `Err(..) =>` arm or an `if let Err(..)` body writes at its
+/// entry. `bound` is the ident the pattern destructured the error into, when
+/// the pattern destructured one into exactly one name.
+pub fn arm_probe(site: u32, how: &str, bound: Option<&str>) -> String {
+    match bound {
+        Some(name) => format!(
+            "::sensorium_rt::err_site_value(&crate::__SENSORIUM_UNIT, {site}, \
+             ::sensorium_rt::{how}, || {{ use ::sensorium_rt::probe::*; \
+             (&&Probe(&{name})).err_cap_value() }});"
+        ),
+        None => format!(
+            "::sensorium_rt::err_site_unbound(&crate::__SENSORIUM_UNIT, {site}, \
+             ::sensorium_rt::{how});"
+        ),
+    }
+}
 
 /// The crate root's allow, with the leading space that keeps it off the
 /// previous attribute's `]`. Two lints: every wrap is a single-binding `match`,
@@ -127,6 +152,21 @@ pub fn expand(template: &str) -> String {
             open_wraps.push(("S", parse_site(site, "@S("), how.to_owned()));
             out.push_str(ERR_OPEN);
             rest = next;
+        } else if let Some(after) = tail.strip_prefix("@P(") {
+            let (arg, next) = split_arg(after, "@P(");
+            let mut parts = arg.split(',');
+            let site = parse_site(parts.next().expect("@P( needs a site )"), "@P(");
+            let how = parts.next().expect("@P( needs <site>,<HOW> )");
+            out.push_str(&arm_probe(site, how, parts.next()));
+            assert!(
+                parts.next().is_none(),
+                "@P( takes at most three arguments )"
+            );
+            rest = next;
+        } else if let Some(after) = tail.strip_prefix("@K(") {
+            let (arg, next) = split_arg(after, "@K(");
+            out.push_str(&guard(parse_site(arg, "@K(")));
+            rest = next;
         } else if let Some((marker, after)) = close_marker(tail) {
             let (opened, site, how) = open_wraps
                 .pop()
@@ -204,9 +244,24 @@ pub fn read(case: &str, ext: &str) -> String {
 /// self-contained crate `tests/oracle.rs` can hand to the real rustc -- and
 /// every one of them carries the crate-root `allow` as well as the static.
 pub fn run(case: &str, first_site: u32) -> Transformed {
+    run_role(
+        case,
+        first_site,
+        FileRole {
+            is_crate_root: true,
+            is_bin_root: false,
+        },
+    )
+}
+
+/// [`run`] with the caller's [`FileRole`]. The marks it carries change the
+/// manifest ROWS and never a byte of the source, so every case's `.out.rs` is
+/// the same whichever role it is transformed under -- which is what
+/// `golden_errflow.rs::the_marks_change_no_byte_of_the_source` measures.
+pub fn run_role(case: &str, first_site: u32, role: FileRole) -> Transformed {
     let input = read(case, "in");
     let expected = expand(&read(case, "out"));
-    let t = transform(&input, FILE, META, first_site, true)
+    let t = transform_file(&input, FILE, META, first_site, role)
         .unwrap_or_else(|e| panic!("{case}: transform failed: {e}"));
 
     assert_eq!(t.source, expected, "{case}: transformed source differs");
@@ -248,7 +303,7 @@ pub fn sites(t: &Transformed) -> Vec<(u32, &str, u32, RetKind)> {
 pub fn err_sites(t: &Transformed) -> Vec<(u32, &str, u32, SiteKind, &'static str)> {
     t.sites
         .iter()
-        .filter(|s| s.kind != SiteKind::Fn)
+        .filter(|s| !matches!(s.kind, SiteKind::Fn | SiteKind::Closure))
         .map(|s| {
             (
                 s.site,
@@ -258,6 +313,34 @@ pub fn err_sites(t: &Transformed) -> Vec<(u32, &str, u32, SiteKind, &'static str
                 s.how.expect("an err-flow row carries the how it writes"),
             )
         })
+        .collect()
+}
+
+/// The CLOSURE frames of a result: `(site, qualname, line)`. Their `ret` is
+/// always `value` -- a closure declares no return type to read -- so it is not
+/// repeated per row.
+pub fn closure_sites(t: &Transformed) -> Vec<(u32, &str, u32)> {
+    t.sites
+        .iter()
+        .filter(|s| s.kind == SiteKind::Closure)
+        .map(|s| {
+            assert_eq!(
+                s.ret,
+                Some(RetKind::Value),
+                "a closure frame's exits are wrapped like a value fn's"
+            );
+            (s.site, s.qualname.as_str(), s.firstlineno)
+        })
+        .collect()
+}
+
+/// The MARKS of a result's fn rows: `(qualname, test, main)`, for the rows that
+/// carry one. A row with neither is not listed: the marks are the exception.
+pub fn marked(t: &Transformed) -> Vec<(&str, bool, bool)> {
+    t.sites
+        .iter()
+        .filter(|s| s.test || s.main)
+        .map(|s| (s.qualname.as_str(), s.test, s.main))
         .collect()
 }
 
@@ -286,11 +369,14 @@ pub fn top_level_unit_static(source: &str) -> bool {
 /// and `oracle.rs` compiles every entry, so a case added here is covered by
 /// both.
 pub const CASES: &[&str] = &[
+    "async_block_try",
     "async_fn",
     "attr_operand",
     "block_tail",
     "body_attr",
     "body_inner_doc",
+    "closure_no_try",
+    "closure_try",
     "composite_diverging",
     "const_fn",
     "crate_root",
@@ -300,10 +386,13 @@ pub const CASES: &[&str] = &[
     "crate_root_docs_todo",
     "diverging_tails",
     "empty_body",
+    "err_arm_escaped",
+    "err_arms_three_ways",
     "extern_fn",
     "format_tail",
     "free_fn",
     "generic_fn",
+    "if_let_err",
     "impl_method",
     "inner_attr",
     "let_underscore",
@@ -328,6 +417,7 @@ pub const CASES: &[&str] = &[
     "struct_literal_partial",
     "struct_tail",
     "test_fn",
+    "test_marks",
     "trait_default",
     "try_in_macro_arg",
     "try_option",

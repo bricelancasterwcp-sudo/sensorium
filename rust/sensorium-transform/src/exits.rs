@@ -115,6 +115,23 @@ pub(crate) fn operands(block: &Block) -> Vec<Operand> {
     out
 }
 
+/// Every operand of one closure's EXPRESSION body, in source order.
+///
+/// A block-bodied closure goes through [`operands`] like a fn; this is the
+/// other shape, where the body IS the tail. A `return` inside it is still this
+/// closure's exit, so [`ReturnWalk`] runs over the expression too -- and stops
+/// at a nested closure exactly as it does inside a block.
+pub(crate) fn expr_operands(e: &Expr) -> Vec<Operand> {
+    let mut walk = ReturnWalk { out: Vec::new() };
+    walk.visit_expr(e);
+    let mut out = walk.out;
+    if let Some(tail) = operand_of(e) {
+        out.push(tail);
+    }
+    out.sort_unstable_by_key(|o| (o.start, o.end));
+    out
+}
+
 /// The block's value, when it has one and it is worth probing.
 fn tail_operand(block: &Block) -> Option<Operand> {
     match block.stmts.last()? {
