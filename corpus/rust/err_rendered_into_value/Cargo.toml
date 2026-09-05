@@ -1,0 +1,9 @@
+[package]
+name = "corpus_err_rendered_into_value"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "err_rendered_into_value"
+path = "src/main.rs"

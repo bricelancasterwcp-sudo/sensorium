@@ -1,6 +1,6 @@
 # The Rust corpus
 
-Twenty-seven cases recorded by the **Rust** recorder (`cargo sensorium …`) and
+Twenty-nine cases recorded by the **Rust** recorder (`cargo sensorium …`) and
 questioned through the same Python CLI as the rest of the corpus. Each case
 directory is a self-contained, dependency-free crate plus its
 `questions.yaml`; `corpus/run_corpus.py` copies one whole directory into a
@@ -41,7 +41,7 @@ never as a pass.
 
 ## The rung-3 cases: Err flow
 
-Thirteen cases added with the `?`/sink/arm probes and `exceptions` on a Rust
+Fifteen cases added with the `?`/sink/arm probes and `exceptions` on a Rust
 trace. Every one of them registers, in its `exceptions` question, both the
 tally line WHOLE (`dispositions: ...`, printed tags only, in the fixed order
 `swallowed, panicked, returned-to-harness, propagated, ambiguous`) and its
@@ -49,7 +49,7 @@ swallow set: as `expect_line` groups whose FIRST needle is `SWALLOWED`, or,
 where the set is empty, as `expect_absent: ["SWALLOWED", "dispositions:
 swallowed"]` -- the convention the Python `suspended_handler` case already
 uses, and the one `tests/test_corpus.py` checks. An empty swallow set is a
-claim like any other: eight of these thirteen exist to pin that nothing is
+claim like any other: nine of these fifteen exist to pin that nothing is
 accused.
 
 | Case | Planted truth | Commands |
@@ -64,6 +64,7 @@ accused.
 | `macro_arg_partial` | a `?` inside a `format!` invocation's tokens cannot be wrapped, so the site is DECLARED (`info`'s `partial fns:` line and `exceptions`' `partial:` header) rather than leaving an answer that only looks complete | `exceptions`, `info` |
 | `err_stored` | an `Err(e) =>` arm that pushes `e` into a Vec: bound and escaped, so ambiguous -- the retry-loop shape a swallow detector must not accuse | `exceptions`, `grep` |
 | `logged_arm` | the other side of that line: an `Err(e) =>` arm that only BORROWS the error to print it and carries on is a swallow, because the failure reached stderr and nothing else | `exceptions`, `tree` |
+| `err_rendered_into_value` | the third side of it: an `Err(e) =>` arm whose `format!` PRODUCT is the value the function returns carries the failure to every caller, so it is ambiguous -- the shape endpoint E6' STOPped on (`build_memory` at the bloomery clone's `memory.rs:131`) | `exceptions`, `tree` |
 | `dependency_swallow` | `let _ = fs::remove_file(..)`: a swallow whose error was born outside THIS THREAD's instrumented frames, with no producing frame to name, and a verdict that says so | `exceptions`, `tree` |
 | `cleanup_then_fail` | the named blind spot: a GENUINE swallow in a frame that then fails for another reason reads ambiguous, not a swallow, and names which blind spot it is | `exceptions`, `tree` |
 | `join_handle` | one error, two verdicts: in the child it left the thread into a `JoinHandle` (ambiguous, and why), in the parent it reached a sink in a frame that returned ok (a swallow) | `exceptions`, `tree` |
