@@ -21,7 +21,7 @@
 - **Pre-registration byte-locked before the transformer changes** (Task 0's last commit); Task 8 refuses to run if §1 differs; a completed measurement is never re-rolled; a miss is STOP with its number.
 - **`rust/sensorium-rt/src/bin/scenario.rs` is split in Task 0** before any arm is added; no file over 800 lines afterwards.
 - **The line count of every instrumented file is unchanged by the transform** (`splice::check_line_count`) — every new fragment is single-line.
-- **Panic locations**: lines never move; a column shifts only inside a wrapped operand, by the wrap prefix's byte length (E7″ measures it; HONESTY states it).
+- **Panic locations**: lines never move; a column shifts only inside a wrapped operand, by the wrap prefix's byte length (E7″ measures it; HONESTY states it). **[annotation 2026-09-05: HONESTY §11 states TWO places — the wrapped operand (measured, +6) and a same-line arm/closure probe (stated, unmeasured); plan text kept, not rewritten]**
 - The untracked-file rule: never `git add -A`; explicit paths; commit messages end with the two trailer lines
   `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`
   `Claude-Session: https://claude.ai/code/session_01D5ALVP7MSxhfTzxp4TFDPn`
