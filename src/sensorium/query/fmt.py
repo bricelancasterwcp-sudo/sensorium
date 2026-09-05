@@ -65,11 +65,33 @@ def fmt_args(args: dict, limit: int = 4) -> str:
     return ", ".join(parts)
 
 
+def _no_message(e: dict) -> str:
+    """WHY a recorded exception carries no message, in the words of the
+    recorder that wrote it.
+
+    `''` here would read as an exception raised with no message at all, so
+    something must be said -- and until rung 3 the something was Python's
+    reason printed about every trace. On a Rust trace `__str__` does not
+    exist; `msg` is unread there because an `Err(_) =>` arm binds no name,
+    so the probe was handed nothing to read (design R4's
+    `err_site_unbound`). Naming a method that raised, about a language with
+    no such method, is a false statement about why the field is missing.
+
+    `exc.kind` is the discriminator TRACE-FORMAT section 5 gives for exactly
+    this: every `exc` a Rust recorder writes carries one, and an `exc` with
+    no `kind` at all is the Python recorder's. The unbound arm is the ONLY
+    site that leaves a Rust `msg` unread -- a panic always carries text,
+    even where that text says the panic was not recorded -- so one Rust
+    sentence covers the Rust column today; a new `kind` would need its own.
+    """
+    if e.get("kind") is None:
+        return "<message unreadable: __str__ raised>"
+    return "<value not read: the arm binds no name>"
+
+
 def fmt_exc(e: dict) -> str:
-    # An exception whose `__str__` raised has no message the trace can quote.
-    # `''` there would read as an exception raised with no message at all.
     if "msg" in (e.get("unread") or ()):
-        return f"{e['type']}(<message unreadable: __str__ raised>)"
+        return f"{e['type']}({_no_message(e)})"
     return f"{e['type']}({e['msg']!r})"
 
 

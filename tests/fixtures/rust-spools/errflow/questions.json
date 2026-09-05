@@ -31,7 +31,8 @@
     },
     "expect_absent": [
       "panic(",
-      "<message unreadable"
+      "<message unreadable",
+      "<value not read"
     ]
   },
   {
@@ -192,7 +193,7 @@
     },
     "expect_absent": [
       "ambiguous",
-      "born outside instrumented code",
+      "born outside this thread's instrumented frames",
       "no exceptions recorded",
       "REFUSED"
     ]

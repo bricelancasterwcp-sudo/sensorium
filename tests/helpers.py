@@ -177,8 +177,16 @@ RUST_META = {
 
 
 def rust_exc(type_, msg, serial, loc=None, kind="err", unread=None):
-    """One `exc` object as a Rust recorder writes it (TRACE-FORMAT §5)."""
-    exc = {"kind": kind, "type": type_, "msg": msg, "serial": serial}
+    """One `exc` object as a Rust recorder writes it (TRACE-FORMAT §5).
+
+    `msg=None` OMITS the key, which is what a recorder does with a field it
+    could not fill ("a payload key a recorder cannot fill is omitted, never
+    filled with a zero or an empty string"); pair it with
+    `unread=["type", "msg"]` for an unbound `Err(_) =>` arm.
+    """
+    exc = {"kind": kind, "type": type_, "serial": serial}
+    if msg is not None:
+        exc["msg"] = msg
     if loc is not None:
         exc["loc"] = loc
     if unread is not None:

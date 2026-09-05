@@ -126,7 +126,7 @@ def test_a_chain_born_outside_instrumented_code_says_so_under_its_verdict(
     o = out(capsys)
     assert ("SWALLOWED -- absorbed by sink_let_underscore at e2 "
             "(cleanup L52) in f1, which returned ok") in o, o
-    assert ("born outside instrumented code; absorbed at "
+    assert ("born outside this thread's instrumented frames; absorbed at "
             "sink_let_underscore") in o, o
     assert "dispositions: swallowed 1" in o, o
 
@@ -464,3 +464,37 @@ def test_a_terminal_on_an_event_that_absorbs_nothing_names_no_sink(
     assert ("SWALLOWED -- absorbed at e2 (run L5) in f1, which returned ok"
             in o), o
     assert "absorbed by" not in o, o
+
+def test_an_unbound_arm_says_what_it_read_in_the_recorders_own_terms(
+        tmp_path, monkeypatch, capsys):
+    """`corpus/rust/panic`'s shape, as data: `catch_unwind` hands an `Err`
+    to an `Err(_) =>` arm, which absorbs it, and `attempt` returns ok.
+
+    Two sentences here were Python's until fix round 2. The value renders
+    `Err(<value not read: the arm binds no name>)` -- design R4's
+    `err_site_unbound` records neither field, which has nothing to do with
+    a `__str__` that raised. And the chain is chainless because no chain was
+    open ON THIS THREAD, which is not the same claim as "born in dependency
+    code" (R8, amended after Task 7's `join_handle`).
+    """
+    run_id = rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "attempt", 13]],
+        frames=[frame(1, 1, 3)],
+        events=[
+            call(1000, 1, 13),
+            flow(2000, "HANDLED", 1, 1, 17,
+                 err_flow("arm_handled", "Err", None, S1, hop=1,
+                          origin="outside", terminal="swallowed_candidate",
+                          unread=["type", "msg"])),
+            ret(3000, 1, 1, "ok", "Ok(0)"),
+        ])
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    o = out(capsys)
+    assert ("e2 HANDLED attempt handled "
+            "Err(<value not read: the arm binds no name>) L17") in o, o
+    assert "__str__" not in o and "message unreadable" not in o, o
+    assert ("SWALLOWED -- absorbed by arm_handled at e2 (attempt L17) in f1, "
+            "which returned ok") in o, o
+    assert ("born outside this thread's instrumented frames; absorbed at "
+            "arm_handled") in o, o

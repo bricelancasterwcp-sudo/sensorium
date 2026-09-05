@@ -314,8 +314,14 @@ def _swallowed(trace, chain, idx) -> Disposition:
     h = chain.last
     fid = h.frame_id
     where = f" in f{fid}" if fid is not None else ""
-    detail = (f"born outside instrumented code; absorbed at {_how(h)}"
-              if chain.born_outside else None)
+    # R8, amended 2026-09-04 (Task 7's `join_handle`): the chain machine is
+    # PER THREAD, so a HANDLED that opens no chain means only that no chain
+    # was open ON THIS THREAD -- the `Err` may have been made in dependency
+    # code, or in an instrumented frame on another thread and carried across
+    # a `JoinHandle`. The wording before the amendment named dependency
+    # code outright, and asserted that about both.
+    detail = (f"born outside this thread's instrumented frames; absorbed at "
+              f"{_how(h)}" if chain.born_outside else None)
     return Disposition(
         "swallowed",
         f"SWALLOWED -- {_absorbed(trace, h)}{where}, which returned ok",

@@ -76,9 +76,10 @@ questions:
       catching frame AS an `Err` -- the `Err(_) =>` arm absorbed it and
       `attempt` then returned normally, which is a swallow. The verdict
       names the arm and the frame, and it adds the fact that makes it
-      honest: the error was born outside instrumented code, since
-      `catch_unwind` is the standard library's and no frame here produced
-      it. The command also declares, separately, that one panic was recorded
+      honest: the error was born outside this thread's instrumented frames,
+      since `catch_unwind` is the standard library's and no frame here
+      produced it. The command also declares, separately, that one panic was
+      recorded
       -- an Err-flow answer that stayed silent about a panicking run would
       read as "nothing went wrong" on a run where something did.
     why_logs_fail: >
@@ -92,7 +93,37 @@ questions:
     expect_contains: ["dispositions: swallowed 1"]
     expect_line:
       - ["SWALLOWED", "arm_handled", "attempt L17", "which returned ok"]
-      - ["born outside instrumented code", "absorbed at arm_handled"]
+      - ["born outside this thread's instrumented frames",
+         "absorbed at arm_handled"]
       - ["panics: 1 recorded", "a panic is a frame's unwind"]
     expect_count: {"SWALLOWED": 1}
     expect_absent: ["ambiguous", "returned to the harness"]
+  - id: which-error-did-the-arm-absorb
+    ask: >
+      The swallow is reported at an `Err(_) =>` arm. Which error did it
+      absorb -- what type, and what value?
+    truth: >
+      The recording cannot say, and says which kind of cannot: `Err(_)`
+      binds no name, so nothing at that site was ever handed a value to
+      read. The row renders
+      `Err(<value not read: the arm binds no name>)`. That is a fact about
+      the source line, and it is not the same fact as a message the
+      recorder tried to read and could not -- which would be a fact about
+      the error type and would send a reader to its `Debug` impl. The
+      disposition is unaffected either way: the arm absorbed it and
+      `attempt` returned ok, which is a swallow whether or not the value can
+      be named.
+    why_logs_fail: >
+      The one print that would answer it cannot be written without first
+      binding the name the bug depends on not binding -- turning `Err(_)`
+      into `Err(e)` to `dbg!` it changes the program under study, and the
+      arm is only interesting because it discards without looking. The panic
+      hook's stderr line names the panic, not the `Err` that `catch_unwind`
+      handed back, and nothing prints that value; RUST_BACKTRACE describes
+      the discarded stack below it.
+    command: ["grep", "$RUN", "HANDLED"]
+    expect_line:
+      - ["HANDLED", "attempt handled",
+         "Err(<value not read: the arm binds no name>) L17"]
+    expect_count: {"matches: 1": 1}
+    expect_absent: ["__str__", "message unreadable"]

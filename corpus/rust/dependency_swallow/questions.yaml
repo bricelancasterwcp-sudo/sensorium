@@ -26,7 +26,8 @@ questions:
     expect_contains: ["dispositions: swallowed 1"]
     expect_line:
       - ["SWALLOWED", "sink_let_underscore", "cleanup L14", "which returned ok"]
-      - ["born outside instrumented code", "absorbed at sink_let_underscore"]
+      - ["born outside this thread's instrumented frames",
+         "absorbed at sink_let_underscore"]
       - ["HANDLED", "cleanup", "std::io::error::Error", "kind: NotFound"]
     expect_count: {"SWALLOWED": 1}
     expect_absent: ["ambiguous", "panicked", "returned to the harness"]

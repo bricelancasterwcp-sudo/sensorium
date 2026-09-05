@@ -51,6 +51,28 @@ def test_fmt_exc_does_not_quote_a_message_it_could_not_read():
         == "ValueError('')"
 
 
+def test_fmt_exc_explains_a_missing_message_in_its_own_recorders_terms():
+    """`__str__ raised` is a PYTHON explanation, and it was printed about
+    Rust traces -- where `__str__` does not exist and the reason is a
+    different one: an `Err(_) =>` arm binds no name, so the probe was handed
+    nothing to read (design R4's `err_site_unbound`). Two recorders, two
+    facts, and the `exc.kind` a Rust recorder writes on every `exc` object
+    is what tells them apart (an `exc` with no `kind` is Python's, TRACE-
+    FORMAT section 5).
+
+    Both sentences are load-bearing: the Python one names a method that
+    raised, which is a thing to go and fix; the Rust one names a binding
+    that was never made, which is not.
+    """
+    assert fmt.fmt_exc({"kind": "err", "type": "Err", "serial": 1,
+                        "unread": ["type", "msg"]}) \
+        == "Err(<value not read: the arm binds no name>)"
+    # a Rust exc that DID read its message is quoted like any other
+    assert fmt.fmt_exc({"kind": "err", "type": "demo::Boom",
+                        "msg": "Boom(7)", "serial": 1}) \
+        == "demo::Boom('Boom(7)')"
+
+
 def test_fmt_args_caps_at_limit():
     args = {f"a{i}": {"k": "num", "v": i} for i in range(6)}
     s = fmt.fmt_args(args)
