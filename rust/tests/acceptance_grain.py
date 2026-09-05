@@ -385,13 +385,23 @@ def _ask(paths, label: str, ref: str, cfg, tag: str, kill=None) -> dict:
         res = sensorium_cli(sp, args, tag, timeout=timeout)
         res["timed_out"] = False
     except subprocess.TimeoutExpired as e:
+        # The kill's OWN evidence. `acceptance_lib.run` writes its log after
+        # the call returns, so a killed command leaves none; the partial
+        # output `subprocess.run` attaches to the exception is written here
+        # instead, because "what it had printed when the ceiling fired" is
+        # the whole of what an H5 STOP has to show for itself.
         wall = time.monotonic() - t0
-        text = e.output if isinstance(e.output, str) else (e.output or b""
-                                                           ).decode("replace",
-                                                                    )
-        res = {"rc": None, "out": text or "", "err": "", "wall": wall,
-               "log": None, "timed_out": True}
-        step(f"{tag}: KILLED at {timeout} s -- H5 STOP")
+        raw = e.output or ("" if isinstance(e.output, str) else b"")
+        text = raw if isinstance(raw, str) else raw.decode("utf-8", "replace")
+        log = lib.LOGS / f"cli-{tag}.KILLED.log"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text(f"$ sensorium {' '.join(args)}\n"
+                       f"--- KILLED at {timeout} s (wall {wall:.3f}) ---\n"
+                       f"--- partial stdout ---\n{text}\n")
+        res = {"rc": None, "out": text, "err": "", "wall": wall,
+               "log": str(log), "timed_out": True}
+        step(f"{tag}: KILLED at {timeout} s -- H5 STOP "
+             f"({len(text)} byte(s) printed before the kill)")
     res["command"] = "sensorium " + " ".join(args)
     res["stdout_bytes"] = len(res["out"])
     res["stdout_lines"] = len(res["out"].splitlines())

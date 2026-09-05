@@ -563,6 +563,32 @@ def test_each_arm_reads_its_own_kept_store_and_H1_records_into_neither(
         assert d != p["sensorium_dir"]
 
 
+def test_a_killed_answer_is_recorded_as_a_kill_and_not_raised(
+        tmp_path, monkeypatch):
+    """H5's ceiling. A `TimeoutExpired` that escaped would take H1 and H6
+    down with it and lose four measured endpoints to one slow answer, so the
+    kill is a FACT of the record: the wall, whatever the command had printed
+    before it fired, and a log of its own — `acceptance_lib.run` writes its
+    log only after the call returns, so a killed command otherwise leaves no
+    evidence at all."""
+    import subprocess
+
+    def killed(*a, **k):
+        raise subprocess.TimeoutExpired(["sensorium"], 60, output="partial\n")
+
+    monkeypatch.setattr(runner, "sensorium_cli", killed)
+    monkeypatch.setattr(lib, "LOGS", tmp_path / "logs")
+    p = {"e6q_stores": tmp_path / "e6q", "sensorium_dir": tmp_path / "fresh"}
+    res = runner._ask(p, "ws", "inv", {"limit": 10, "cli_timeout": 99},
+                      "h4-ws", kill=60)
+    assert res["timed_out"] is True
+    assert res["rc"] is None
+    assert res["out"] == "partial\n"
+    assert res["stdout_bytes"] == 8
+    assert Path(res["log"]).is_file()
+    assert "KILLED at 60 s" in Path(res["log"]).read_text()
+
+
 def test_no_module_of_this_instrument_names_a_box_path():
     """Every location is an environment variable. A path compiled into the
     runner would make the record unreproducible and the file wrong on any
