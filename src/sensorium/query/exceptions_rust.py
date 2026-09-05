@@ -72,7 +72,7 @@ import shlex
 from sensorium.exit import ANSWERED, UNSETTLED
 from sensorium.query import caps
 from sensorium.query.exceptions_cmd import Disposition
-from sensorium.query.fmt import fmt_event, fmt_exc, more_note
+from sensorium.query.fmt import fmt_exc, more_note
 
 TAG_ORDER = ("swallowed", "panicked", "returned-to-harness", "propagated",
              "ambiguous")
@@ -327,7 +327,7 @@ def _swallowed(trace, chain, idx) -> Disposition:
     return Disposition(
         "swallowed",
         f"SWALLOWED -- {_absorbed(trace, h)}{where}, which returned ok",
-        detail)
+        detail, site=_at(trace, h))
 
 
 def _panicked(trace, chain, idx) -> Disposition:
@@ -408,9 +408,10 @@ def _escaped(trace, chain, idx) -> Disposition:
 
     Only the MOVE is ambiguous. An arm that borrows the error to format it
     and then carries on is an `arm_handled` and reaches `_swallowed`: the
-    failure never got past that arm, and the log is where it went (design
-    R15/§3, ruled 2026-09-04). `corpus/rust/err_stored` and
-    `corpus/rust/logged_arm` are the two sides of that line.
+    failure never got past that arm, and the log is where it went
+    (`rust/HONESTY.md` §11, the definition's one home).
+    `corpus/rust/err_stored` and `corpus/rust/logged_arm` are the two sides
+    of that line.
     """
     e = chain.last
     if _how(e) == "arm_ambiguous":
@@ -418,7 +419,7 @@ def _escaped(trace, chain, idx) -> Disposition:
             "ambiguous",
             f"ambiguous -- an Err(..) arm at e{e.id} ({_at(trace, e)}) bound "
             "it to a name and let the name escape",
-            ESCAPED_DETAIL)
+            ESCAPED_DETAIL, site=_at(trace, e))
     return Disposition(
         "ambiguous",
         "ambiguous -- the frame holding it returned ok with no sink recorded",
@@ -447,7 +448,8 @@ def _handled_then_failed(trace, chain, idx) -> Disposition:
         f"ambiguous -- {_absorbed(trace, h)}{where}, but {tail}",
         "handled, then the frame failed for another reason -- the "
         "cleanup-then-fail blind spot (design R8): a genuine swallow in a "
-        "frame that later fails reads ambiguous, not a swallow")
+        "frame that later fails reads ambiguous, not a swallow",
+        site=_at(trace, h))
 
 
 def _left_thread(trace, chain, idx) -> Disposition:
@@ -578,27 +580,25 @@ def run(trace, args, after: int) -> int:
     else:
         print(f"raised ({len(scope)}):")
 
-    tally: dict[str, int] = {}
-    shown, last = 0, after
-    for chain in scope:
-        d = classify(trace, chain, idx)
-        tally[d.tag] = tally.get(d.tag, 0) + 1
-        if shown < args.limit:
-            print("  " + fmt_event(trace, chain.origin))
-            print("    " + d.verdict)
-            if d.detail:
-                print("      " + d.detail)
-            hops = _hops_line(trace, chain)
-            if hops:
-                print("      " + hops)
-            shown, last = shown + 1, chain.origin.id
-    # Counted over every chain in scope, not just the printed ones, so the
-    # tally never shrinks because a page was clipped.
+    # One block per SHAPE, not per chain (design N3): `--after` has already
+    # chosen the CHAINS in scope, and the groups form over exactly those.
+    #
+    # Local: `exceptions_group` imports `_at` and `_hops_line` from this
+    # module, so a module-level import here would be a cycle.
+    from sensorium.query.exceptions_group import group_chains, print_shapes
+    shapes, tally = group_chains(trace, scope, idx, classify)
+    shown = print_shapes(trace, shapes, args.limit)
+    # Counted over every chain in scope, not just the printed ones and not
+    # per shape: the tally never shrinks because a page was clipped, and it
+    # stays comparable line-for-line with every record already written (N5).
     print("dispositions: " + ", ".join(f"{t} {tally[t]}" for t in TAG_ORDER
                                        if tally.get(t)))
-    note = more_note(len(scope), shown,
+    # Paging RAISES THE LIMIT rather than naming an event to resume after:
+    # `--after` cuts chains, and a cursor that cut a group in half would
+    # re-show it as a partial block still labelled with the whole count.
+    note = more_note(len(shapes), shown,
                      f"sensorium exceptions {shlex.quote(args.run)} "
-                     f"--after e{last} --limit {args.limit}")
+                     f"--limit {len(shapes)}")
     if note:
         print(note)
     return ANSWERED

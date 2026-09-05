@@ -178,6 +178,14 @@ class Disposition:
     tag: str                    # summary bucket, one of TAG_ORDER
     verdict: str                # the claim, printed under the RAISE
     detail: str | None = None   # the evidence or the refusal to conclude
+    #: The site the verdict is ABOUT -- the sink it names, the arm it names
+    #: -- as `qualname Lline`, for the Rust grouping key (design N3). Set
+    #: only by a rule whose SENTENCE names a place; `None` means the verdict
+    #: speaks of the chain rather than of a site, and the grouper falls back
+    #: to the chain's origin. Never parsed back out of `verdict`: a site
+    #: recovered by reading a sentence is a second, drifting spelling of it.
+    #: Unused by the Python rules (N7), which do not group.
+    site: str | None = None
 
 
 @dataclass(frozen=True)
