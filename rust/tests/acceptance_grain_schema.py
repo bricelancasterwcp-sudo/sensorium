@@ -208,6 +208,7 @@ def _h4_arm(a: dict | None, label: str, dropped: list) -> dict:
                                  "does not hold -- a hole, not a difference",
                                  dropped),
         "compare": c, "header": a.get("header"),
+        "measured_sites": a.get("measured_sites"),
         "oracle_tally": a.get("oracle_tally"),
         "invocation": a.get("invocation"), "command": a.get("command"),
         "rc": a.get("rc"), "wall_s": a.get("wall"), "log": a.get("log"),

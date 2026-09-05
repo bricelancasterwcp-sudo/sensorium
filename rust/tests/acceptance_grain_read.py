@@ -92,7 +92,17 @@ VARY = re.compile(r"^(origins|messages|details|routes)\b")
 INV = re.compile(r"^invocation (?P<id>\S+): cargo(?P<args>.*?) -- "
                  r"(?P<n>\d+) process(?:es)?, (?P<k>\d+) with Err chains, "
                  r"(?P<m>\d+) with none$", re.M)
+#: The INCOMPLETE line an INVOCATION answer prints per member
+#: (`exceptions_invocation._header`), which NAMES the process.
 INCOMPLETE = re.compile(r"^INCOMPLETE: (?P<run>\S+) never finalized", re.M)
+#: The banner a SINGLE-RUN answer prints instead (`caps.print_incomplete`),
+#: which names no process because the ref the reader typed is the process.
+#: It is a different sentence and the member regex does not match it (checked
+#: 2026-09-05, fix round 1), so a run that stopped mid-flight was invisible to
+#: H2 and H3 until this line existed -- and an empty answer on an unfinalized
+#: recording reports where the RECORDING ended, not what the program did.
+INCOMPLETE_BANNER = re.compile(
+    r"^INCOMPLETE: this recording never finalized", re.M)
 RAISED_INV = re.compile(r"^raised \((?P<chains>\d+) chains over "
                         r"(?P<procs>\d+) process(?:es)?, (?P<sites>\d+) "
                         r"swallowing sites\):$", re.M)
@@ -233,6 +243,7 @@ def parse_header(stdout: str) -> dict:
         "with_chains": int(inv.group("k")) if inv else None,
         "without_chains": int(inv.group("m")) if inv else None,
         "incomplete": INCOMPLETE.findall(stdout),
+        "incomplete_banner": bool(INCOMPLETE_BANNER.search(stdout)),
         "chains": chains,
         "over_processes": (int(raised_inv.group("procs")) if raised_inv
                            else None),
@@ -283,6 +294,17 @@ def site_of_event(db_path, event_id) -> tuple:
     folded into the multiset as an extra site."""
     return sites_of_events(db_path, [event_id]).get(int(event_id),
                                                     (None, None))
+
+
+def store_paths(paths, label: str) -> dict:
+    """A `paths` dict pointing at ONE kept store.
+
+    `sensorium_cli` and `acceptance_phases_rung3._sink_files` both resolve a
+    store through `paths["sensorium_dir"]`, so this is the whole of what an
+    arm needs. It is deliberately NOT `paths["sensorium_dir"]` itself: that
+    one is the fresh directory H1's preflight requires to be empty, and an
+    arm reading it would find no traces at all."""
+    return dict(paths) | {"sensorium_dir": paths["e6q_stores"] / label}
 
 
 def trace_db(paths, run_id: str) -> Path:
@@ -354,6 +376,32 @@ def oracle(results_json) -> dict:
     return orc
 
 
+def site_table(sites) -> dict:
+    """A per-site multiset with STRING keys: `{"<file>:<line>": n}`.
+
+    `oracle`'s and `measure_sites`' tables are keyed by `(file, line)`
+    TUPLES, because that is the key a multiset comparison needs. JSON has no
+    such key: `json.dumps` raises `TypeError: keys must be str, int, float,
+    bool or None, not tuple`, and `default=` never applies to KEYS, so no
+    fallback rescues it. Everything that goes into the raw record passes
+    through here first (fix round 1: the raw-json write is the last act of an
+    hour-long run and was outside the try, so one tuple key lost the whole
+    record AND both markers).
+    """
+    return {f"{f}:{ln}": n for (f, ln), n in sorted(sites.items(), key=str)}
+
+
+def oracle_json(orc: dict) -> dict:
+    """`oracle()`'s record, with the three per-arm site tables stringified so
+    the whole thing serialises. Every other value it holds is already a
+    scalar, a list or a string-keyed dict."""
+    out = dict(orc)
+    for label in ARMS:
+        if isinstance(out.get(label), dict):
+            out[label] = site_table(out[label])
+    return out
+
+
 def compare_sites(measured: Counter, expected: Counter) -> dict:
     """Two per-site multisets, compared as multisets.
 
@@ -394,11 +442,29 @@ def measure_sites(store: dict, stdout: str, default_run: str) -> dict:
     """
     sp = store
     shapes = swallowed_shapes(stdout)
-    by_run: dict = {}
-    for s in shapes:
-        by_run.setdefault(s["run"] or default_run, []).append(s)
+    # Whether this is an invocation answer is read off the ANSWER, not passed
+    # in: a caller that could say which mode it was reading could say it
+    # wrongly, and the header is the answer's own word for it.
+    invocation = parse_header(stdout)["invocation"] is not None
     sites: Counter = Counter()
+    by_run: dict = {}
     unresolved = []
+    for s in shapes:
+        run_id = s["run"] or (None if invocation else default_run)
+        if run_id is None:
+            # In invocation mode EVERY block carries a bracket naming its
+            # process (ruling R-G9), so a block without one is a bracket this
+            # parser could not read. Falling back to the primary would look
+            # its sink id up in the FIRST member's trace and return a REAL
+            # but WRONG (file, line) -- a wrong site is worse than a missing
+            # one, because nothing downstream can tell it from a measurement.
+            unresolved.append({
+                "run": None, "event": s["event"], "verdict": s["verdict"],
+                "n": s["n"],
+                "why": "the block named no process, and in invocation mode "
+                       "there is no primary trace to fall back to"})
+            continue
+        by_run.setdefault(run_id, []).append(s)
     for run_id, group in by_run.items():
         found = sites_of_events(trace_db(sp, run_id),
                                 [s["event"] for s in group
@@ -429,12 +495,20 @@ def reported(cfg, orc, h2, h3, h4) -> dict:
         "rows") or [] if r["run"] == busiest), None)
     ws = ((h3.get("arms") or {}).get("ws") or {})
     inv = ((h4.get("arms") or {}).get("ws") or {})
+    # Every answer this run actually READ, named. The first draft summed H2,
+    # the H3 arms and H4's `ws` only -- `ws0`'s invocation answer, one of the
+    # two the slice exists to produce, was silently outside the total.
     vary: Counter = Counter()
-    for src in (h2 or {}, inv):
-        vary.update(src.get("vary") or {})
-    for label in (h3.get("arms") or {}):
-        vary.update(((h3.get("arms") or {}).get(label) or {}).get("vary")
-                    or {})
+    counted = []
+    if h2:
+        vary.update(h2.get("vary") or {})
+        counted.append("H2")
+    for label, a in sorted((h3.get("arms") or {}).items()):
+        vary.update((a or {}).get("vary") or {})
+        counted.append(f"H3/{label}")
+    for label, a in sorted((h4.get("arms") or {}).items()):
+        vary.update((a or {}).get("vary") or {})
+        counted.append(f"H4/{label}")
     return {
         "busiest_ws_process": {
             "run": busiest,
@@ -461,6 +535,11 @@ def reported(cfg, orc, h2, h3, h4) -> dict:
             "note": "both halves measured by THIS run, under 0.8.2",
         },
         "vary_lines_by_kind": dict(vary),
+        "vary_counted_over": counted,
+        "vary_lens": ("blocks that printed a vary line, summed over EVERY "
+                      "answer this run read and named in `vary_counted_over` "
+                      "(" + ", ".join(counted) + "); an honesty count, not a "
+                      "gate"),
     }
 
 

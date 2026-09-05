@@ -47,6 +47,8 @@ sys.path.insert(0, str(REPO / "rust" / "tests"))
 
 import acceptance_e6ppp as e6ppp                                   # noqa: E402
 import acceptance_grain as runner                                  # noqa: E402
+import acceptance_grain_phases as phases                           # noqa: E402
+import acceptance_grain_read as read                               # noqa: E402
 import acceptance_lib as lib                                       # noqa: E402
 import acceptance_phases as ph                                     # noqa: E402
 import acceptance_rung3 as rung3                                   # noqa: E402
@@ -574,9 +576,17 @@ def test_a_killed_answer_is_recorded_as_a_kill_and_not_raised(
     import subprocess
 
     def killed(*a, **k):
-        raise subprocess.TimeoutExpired(["sensorium"], 60, output="partial\n")
+        # BYTES, which is what `subprocess.run(text=True)` attaches on some
+        # platforms -- and the branch that decodes them is the one that
+        # carried the `LookupError` this test was written for.
+        raise subprocess.TimeoutExpired(["sensorium"], 60,
+                                        output=b"partial\n")
 
-    monkeypatch.setattr(runner, "sensorium_cli", killed)
+    # Patched on the PHASES module, not on the front door: `acceptance_grain`
+    # re-exports `_ask` by NAME, and `_ask` resolves `sensorium_cli` in the
+    # namespace it was defined in. Patching the re-export would leave the
+    # real command in place -- the same lesson as E6‴ §2's `logs_at`.
+    monkeypatch.setattr(phases, "sensorium_cli", killed)
     monkeypatch.setattr(lib, "LOGS", tmp_path / "logs")
     p = {"e6q_stores": tmp_path / "e6q", "sensorium_dir": tmp_path / "fresh"}
     res = runner._ask(p, "ws", "inv", {"limit": 10, "cli_timeout": 99},
@@ -593,8 +603,161 @@ def test_no_module_of_this_instrument_names_a_box_path():
     """Every location is an environment variable. A path compiled into the
     runner would make the record unreproducible and the file wrong on any
     other machine."""
-    for name in ("acceptance_grain.py", "acceptance_grain_schema.py",
+    for name in ("acceptance_grain.py", "acceptance_grain_read.py",
+                 "acceptance_grain_phases.py", "acceptance_grain_schema.py",
                  "render_grain.py"):
         text = (REPO / "rust" / "tests" / name).read_text()
         assert "/mnt/" not in text, name
         assert "/home/" not in text, name
+
+# -- fix round 1: the record must survive being written --------------------
+
+
+def test_the_whole_raw_record_and_the_assembled_document_serialise():
+    """The round trip the runner's LAST act depends on.
+
+    `oracle()`'s per-arm tables are keyed by `(file, line)` TUPLES, and
+    `json.dumps` cannot write a tuple KEY at all -- `default=` applies to
+    values only, so nothing rescues it. Storing them raw made the raw-json
+    write raise `TypeError` after an hour of measurement, losing the record,
+    the `results.json` AND both markers. `oracle_json` is what the runner
+    stores, and this asserts the whole shape goes out and comes back."""
+    raw = {"runner": "rust/tests/acceptance_grain.py",
+           "oracle": runner.oracle_json(runner.oracle(runner.ORACLE)),
+           "config": {"oracle_record": "x", "oracle_commit": "y"},
+           "pins": {}, "cleanup": {}}
+    text = json.dumps(raw, indent=2, default=str)
+    assert json.loads(text)["oracle"]["ws"], "the ws site table is empty"
+    doc = assemble_grain(raw)
+    back = json.loads(json.dumps(doc, indent=2, default=str))
+    assert back["oracle"]["sites"] == {"a": 5, "ws": 91, "ws0": 98}
+
+
+def test_the_oracles_site_tables_are_stringified_and_keep_every_count():
+    """`"<file>:<line>"`, and the same multiset. A projection that lost a
+    site or merged two would move H2's and H4's expected tables."""
+    orc = runner.oracle(runner.ORACLE)
+    js = runner.oracle_json(orc)
+    for arm in ("a", "ws", "ws0"):
+        assert all(isinstance(k, str) for k in js[arm]), arm
+        assert len(js[arm]) == len(orc[arm]), arm
+        assert sum(js[arm].values()) == sum(orc[arm].values()), arm
+    assert js["ws"][
+        "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-core/src/"
+        "geometry.rs:192"] > 0
+
+
+def test_a_record_with_one_unwritable_value_still_writes_the_rest():
+    """The fallback the guarded write uses. A run that measured for an hour
+    must lose the one value a serialisation defect touched, not all of them,
+    and a reader must be told which key went."""
+    text = runner._partial_json({"started": "t", "bad": {("a", 1): 2},
+                                 "steps": ["one"]})
+    got = json.loads(text)
+    assert got["started"] == "t" and got["steps"] == ["one"]
+    assert got["keys_that_could_not_be_serialised"] == ["bad"]
+    assert "bad" not in got
+
+
+# -- fix round 1: the ungated vary count is over EVERY answer ---------------
+
+
+def _vary_fixture():
+    h2 = {"vary": {"origins": 1}}
+    h3 = {"arms": {"ws": {"vary": {"messages": 2}, "rows": [],
+                          "stdout_bytes_total": 9, "stdout_lines_total": 3,
+                          "processes": 144},
+                   "ws0": {"vary": {"routes": 4}, "rows": []}}}
+    h4 = {"arms": {"ws": {"vary": {"details": 8}, "stdout_bytes": 5,
+                          "stdout_lines": 2},
+                   "ws0": {"vary": {"origins": 16}}}}
+    return h2, h3, h4
+
+
+def test_the_vary_count_sums_every_answer_this_run_read():
+    """MUTANT: an arm left out of the sum. The first draft counted H2, both
+    H3 arms and H4's `ws` -- `ws0`'s invocation answer, one of the two the
+    slice exists to produce, was silently outside the total, and a partial
+    sum published as a total is a wrong number, not a missing one."""
+    h2, h3, h4 = _vary_fixture()
+    rep = runner.reported({"busiest_ws_run": runner.BUSIEST_WS_RUN},
+                          runner.oracle(runner.ORACLE), h2, h3, h4)
+    assert rep["vary_lines_by_kind"] == {"origins": 17, "messages": 2,
+                                         "routes": 4, "details": 8}
+    assert rep["vary_counted_over"] == ["H2", "H3/ws", "H3/ws0", "H4/ws",
+                                        "H4/ws0"]
+    # the cell names the set it summed, so a reader can see what is in it
+    for name in rep["vary_counted_over"]:
+        assert name in rep["vary_lens"]
+
+
+# -- fix round 1: no fallback run in invocation mode ------------------------
+
+UNBRACKETED_INVOCATION = """\
+invocation i1: cargo test --workspace -- 2 processes, 2 with Err chains, 0 with none
+raised (2 chains over 2 processes, 2 swallowing sites):
+  e1 HANDLED f handled io::Error('x') L156
+    SWALLOWED -- absorbed by sink_ok at e1 (f L156) in f1, which returned ok
+  e2 HANDLED g handled io::Error('y') L606
+    SWALLOWED -- absorbed by sink_ok at e2 (g L606) in f2, which returned ok  [in r1]
+dispositions: swallowed 2
+"""
+
+
+def test_an_invocation_block_that_names_no_process_is_unresolved(tmp_path):
+    """MUTANT: falling back to the primary run. In invocation mode EVERY
+    block carries a bracket naming its process (R-G9), so a block without one
+    is a bracket the parser could not read -- and looking its sink id up in
+    the FIRST member's trace returns a REAL but WRONG `(file, line)`. A wrong
+    site is worse than a missing one: nothing downstream can tell it from a
+    measurement. Here e1 EXISTS in `r1` at `/w/memory.rs:156`, so the
+    fallback would have booked exactly that."""
+    _trace(tmp_path, "r1")
+    store = {"sensorium_dir": tmp_path}
+    m = runner.measure_sites(store, UNBRACKETED_INVOCATION, "r1")
+    assert m["unresolved_count"] == 1, m
+    assert m["unresolved"][0]["event"] == 1
+    assert m["unresolved"][0]["run"] is None
+    assert m["unresolved"][0]["why"]
+    assert dict(m["sites"]) == {("/w/exec.rs", 606): 1}, m
+    assert ("/w/memory.rs", 156) not in m["sites"], "the fallback fired"
+
+
+def test_a_single_run_answer_still_uses_the_run_it_was_asked_about(tmp_path):
+    """The other half: single-run mode has exactly one trace, the ref the
+    reader typed, and a bare block there is a group of one -- so the default
+    run is right and must still be used."""
+    _trace(tmp_path, "r1")
+    single = ("raised (1):\n"
+              "  e1 HANDLED f handled io::Error('x') L156\n"
+              "    SWALLOWED -- absorbed by sink_ok at e1 (f L156) in f1, "
+              "which returned ok\n"
+              "dispositions: swallowed 1\n")
+    m = runner.measure_sites({"sensorium_dir": tmp_path}, single, "r1")
+    assert m["unresolved_count"] == 0, m
+    assert dict(m["sites"]) == {("/w/memory.rs", 156): 1}, m
+
+
+# -- fix round 1: both INCOMPLETE spellings --------------------------------
+
+
+def test_the_single_run_incomplete_banner_is_reported(tmp_path):
+    """`caps.print_incomplete`'s banner names no process, because the ref the
+    reader typed IS the process, and the member regex does not match it
+    (checked 2026-09-05). H2 and H3 could not report a truncated recording at
+    all until this was read: an empty answer on a run that never finalized
+    reports where the RECORDING ended, not what the program did."""
+    banner = ("INCOMPLETE: this recording never finalized, so it may stop "
+              "mid-run\n  its Err chains after the cut are not below\n"
+              "no exceptions recorded\n")
+    h = runner.parse_header(banner)
+    assert h["incomplete_banner"] is True
+    # ...and it is NOT mistaken for a named member of an invocation
+    assert h["incomplete"] == []
+    assert h["empty"] is True
+
+
+def test_a_named_member_is_not_mistaken_for_the_banner():
+    h = runner.parse_header(INVOCATION)
+    assert h["incomplete"] == ["r3"]
+    assert h["incomplete_banner"] is False

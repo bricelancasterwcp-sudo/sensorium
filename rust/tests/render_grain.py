@@ -306,7 +306,9 @@ def _reported(r) -> list[str]:
         f"{v.get('invocation_bytes')} bytes over "
         f"{v.get('invocation_lines')} lines. {v.get('note')}", "",
         f"**Vary lines that fired, by kind** (an honesty count, not a gate): "
-        f"`{rep.get('vary_lines_by_kind')}`.", ""]
+        f"`{rep.get('vary_lines_by_kind')}` — summed over every answer this "
+        f"run read: {', '.join(rep.get('vary_counted_over') or []) or 'none'}."
+        f" {rep.get('vary_lens', '')}", ""]
 
 
 def results(r) -> list[str]:
