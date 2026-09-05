@@ -396,6 +396,19 @@ def test_the_union_is_the_primary_plus_the_sweep():
     assert w["union_swallowed_lines"]["value"] == 6
 
 
+def test_an_arm_that_swept_nothing_reports_null_not_a_measured_zero():
+    """E6‴-A recorded ONE process, so its sweep read none and added none: `0`
+    there is a 0 OF 0, and beside E6‴-W's real `0` over two swept processes
+    the two cells would read alike. The schema's own rule is that only a null
+    with a reason means not-measured."""
+    doc = assemble_e6ppp(RAW_ARM)
+    a = doc["endpoints"]["E6pppA"]["sweep_swallowed_lines"]
+    assert a["value"] is None and a["n"] == 0
+    assert any("0 of 0" in d for d in a["dropped"]), a["dropped"]
+    # ... and an arm that DID sweep keeps its measured zero-or-more.
+    assert doc["endpoints"]["E6pppW"]["sweep_swallowed_lines"]["value"] == 4
+
+
 def test_the_dispositions_block_sums_every_processs_tally():
     """§1 reports the tallies without a gate so the widening's cost in volume
     is visible. Reporting only the primary's would hide it."""

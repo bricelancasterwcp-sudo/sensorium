@@ -92,7 +92,7 @@ Every measurement is `{value, n, lens, dropped}`; a `null` value with a reason i
 |---|---|---|---|---|
 | SWALLOWED lines on the primary process (each adjudicated in §4) | 14 | 22 | printed SWALLOWED lines on the PRIMARY process, of the chains in scope; `cargo sensorium test -p bloomery-daem… | none |
 | SWALLOWED lines over EVERY process (primary + sweep) | 14 | 1 | printed SWALLOWED lines over EVERY process this arm recorded (primary + sweep), of the processes recorded; `ca… | none |
-| SWALLOWED lines the sweep added | 0 | 0 | SWALLOWED lines the sweep added, of the processes swept; reported without a gate | none |
+| SWALLOWED lines the sweep added | not measured (the arm recorded a single process, so the sweep read none and there was nothing to add: a 0 here would be a 0 of 0) | 0 | SWALLOWED lines the sweep added, of the processes swept; reported without a gate | the arm recorded a single process, so the sweep read none and there was nothing to add: a 0 here would be a 0 of 0 |
 | SWALLOWED lines the collector could not parse | 0 | 14 | SWALLOWED lines the collector could not parse into (how, event, qualname, line) -- anything but 0 means a row … | none |
 | guarded arms (R15; restates §5.2, not a new measurement) | 2 | 14 | SWALLOWED lines whose `Err` binding is read ONLY by a match GUARD -- the class §1's "read by a `&self` predica… | none |
 | Err chains judged on the primary (`raised (N):`) | 22 | None | `raised (N):` on the primary process -- Err chains the command judged | none |
@@ -626,3 +626,36 @@ the code is right — but a tool that cannot be told the difference will be
 argued with. A per-site `--allow` (or an in-source marker) is the shape that
 would settle it; it is CARRIED-DEBT for the docs task, not a change to this
 record or to any rule measured here.
+
+### 5.10 Two things this record fixed AFTER it was published, and neither is a number
+
+Added 2026-09-05 by the whole-branch review. Both are recorded here rather
+than corrected silently, and **§1, §3's measured values and §4's adjudications
+are untouched**.
+
+**(a) §1 was locked with a clause it already knew was ambiguous, and the
+ruling that settles it landed after the numbers.** §5.2 above states the
+disagreement: §1's "merely observed" admits a letter-reading under which each
+arm's **2** guarded lines are false accusations and **both endpoints are a
+STOP (2 false of 14)**. The 2026-09-04 record's own §5.2 had already flagged
+that clause as unsettled *for guards* — so this run's §1 was byte-locked with
+a known hole at the sentence the verdict turns on. Design **R15's guard ruling
+was committed at `1770515` (02:30)**, and the run's numbers were committed at
+**`d42c1bc` (02:27)**: **the rule was ruled three minutes after the reading**.
+The gate is the ruled reading, and this section is why the letter-reading's
+verdict stays published beside it rather than being retired — §4.3 reports
+both, §3's `guarded arms` cell restates the count, and a reader who rejects
+R15 can re-derive the STOP from what is printed here. What this record cannot
+claim is that the ruling preceded the reading.
+
+**(b) §3's arm-A "SWALLOWED lines the sweep added" was a measured `0` that is
+a 0 of 0.** E6‴-A recorded ONE process, so its sweep read none and had nothing
+to add; under this document's own rule a printed `0` says "the sweep looked at
+other processes and found nothing", which is E6‴-W's claim, not arm A's. The
+cell is now **`not measured`, with the reason**, through the schema
+(`acceptance_schema_e6ppp._sweep_added`) rather than by editing the table:
+`acceptance_e6ppp.py --assemble` re-derived `results.json` from the untouched
+`results-e6ppp-raw.json`, and the derivation is byte-identical to the
+published one except that one cell and the `assembled.at` stamp. No arm was
+re-run, no number re-read, and nothing downstream consumed the cell — E6‴-A's
+adjudication is over the 14 lines of the primary process either way.

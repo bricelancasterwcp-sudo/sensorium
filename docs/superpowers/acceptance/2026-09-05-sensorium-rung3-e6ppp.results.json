@@ -300,10 +300,12 @@
         "dropped": []
       },
       "sweep_swallowed_lines": {
-        "value": 0,
+        "value": null,
         "n": 0,
         "lens": "SWALLOWED lines the sweep added, of the processes swept; reported without a gate",
-        "dropped": []
+        "dropped": [
+          "the arm recorded a single process, so the sweep read none and there was nothing to add: a 0 here would be a 0 of 0"
+        ]
       },
       "unparsed_swallowed_lines": {
         "value": 0,
@@ -2413,7 +2415,7 @@
   "started": "2026-09-05T02:20:30-0500",
   "finished": "2026-09-05T02:20:49-0500",
   "assembled": {
-    "at": "2026-09-05T02:49:37-0500",
+    "at": "2026-09-05T03:58:50-0500",
     "from": "results-e6ppp-raw.json",
     "by": "rust/tests/acceptance_e6ppp.py --assemble",
     "note": "derived from the raw facts the run recorded, which nothing since has touched; no arm was re-run and no value re-measured"

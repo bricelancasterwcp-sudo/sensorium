@@ -81,10 +81,7 @@ def _arm(raw, key: str, selector: str) -> dict:
             union, r.get("processes"),
             "printed SWALLOWED lines over EVERY process this arm recorded "
             "(primary + sweep), of the processes recorded; " + lens, dropped),
-        "sweep_swallowed_lines": meas(
-            sweep.get("swallowed_count"), sweep.get("processes_swept"),
-            "SWALLOWED lines the sweep added, of the processes swept; "
-            "reported without a gate", dropped),
+        "sweep_swallowed_lines": _sweep_added(sweep, dropped),
         "unparsed_swallowed_lines": meas(
             (None if n is None else
              r.get("unparsed_swallowed", 0)
@@ -129,6 +126,30 @@ def _arm(raw, key: str, selector: str) -> dict:
         "trace": r.get("counts"),
         "sensorium_dir": r.get("sensorium_dir"),
     }
+
+
+def _sweep_added(sweep: dict, dropped: list) -> dict:
+    """What the sweep ADDED -- or `null` with its reason when there was no
+    sweep to add anything.
+
+    An arm that recorded ONE process sweeps none, and a `0` there is a 0 OF 0.
+    Under this schema's own rule a measured zero says "the sweep read other
+    processes and found no SWALLOWED line in them", which is a stronger claim
+    than an arm with nothing to sweep can make: the renderer would print `0`
+    beside E6‴-W's real `0` over 2 swept processes and the two would read
+    alike. Recorded 2026-09-05 by the whole-branch review, after the run: no
+    verdict ever read this cell, and no measured number moves (§5.10 of the
+    document).
+    """
+    lens = ("SWALLOWED lines the sweep added, of the processes swept; "
+            "reported without a gate")
+    swept = sweep.get("processes_swept")
+    if not swept:
+        return meas(None, swept, lens,
+                    [*dropped, "the arm recorded a single process, so the "
+                               "sweep read none and there was nothing to add: "
+                               "a 0 here would be a 0 of 0"])
+    return meas(sweep.get("swallowed_count"), swept, lens, dropped)
 
 
 def _dispositions(raw) -> dict:
