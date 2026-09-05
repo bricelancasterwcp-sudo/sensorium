@@ -461,6 +461,42 @@ mod tests {
     }
 
     #[test]
+    fn a_non_logging_macros_literals_are_read_for_the_bound_name() {
+        // Fix round 1 of the R2 amendment: a name can be named by a format
+        // PLACEHOLDER instead of by a token, and every macro that is not a
+        // logging macro may render it into a value it returns -- `anyhow!`,
+        // `bail!`, `format_err!` and any workspace macro that expands through
+        // `format_args!`. Reading idents only left those HANDLED, which is a
+        // SWALLOWED candidate of exactly the class this amendment is about.
+        for text in [
+            // The tail IS the rendered error, in a macro `syn` cannot see into.
+            "Err(e) => anyhow!(\"open failed: {e}\"),",
+            // A statement macro whose expansion keeps the rendering.
+            "Err(e) => { let _r = bail!(\"x {e}\"); },",
+            // A workspace macro nothing in this crate knows anything about.
+            "Err(e) => { render!(\"{e}\"); 0 },",
+        ] {
+            assert_eq!(class_of(text), Some(Class::Escaped), "{text}");
+        }
+        // The grammar reads an `Err(..)` tail FIRST, so this one is PROPAGATE
+        // rather than ESCAPED -- either way it is never HANDLED, which is the
+        // only class that can become a false accusation.
+        assert_eq!(
+            class_of("Err(e) => Err(format_err!(\"{e:?}\")),"),
+            Some(Class::Propagate)
+        );
+        // The controls: the logging family keeps its exemption whichever way
+        // the name is written, and a macro that never mentions it is not a use.
+        for text in [
+            "Err(e) => { eprintln!(\"{e}\"); 0 },",
+            "Err(e) => { warn!(\"{e:?}\"); 0 },",
+            "Err(e) => { other!(\"no mention\"); 0 },",
+        ] {
+            assert_eq!(class_of(text), Some(Class::Handled), "{text}");
+        }
+    }
+
+    #[test]
     fn a_move_closure_defeats_both_exemptions() {
         // The reviewer's three measured false-HANDLED generators (2026-09-04).
         // A `move` closure takes the error BY VALUE, so what looks like a
