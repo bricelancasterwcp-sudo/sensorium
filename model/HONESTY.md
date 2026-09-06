@@ -119,7 +119,7 @@ before that point means the recorder mis-mapped spans.
 child process, or `null` when no child ran under this action — never a value guessed or
 reconstructed from the filesystem.
 
-**What says it.** `spans.ref.action.exec.run_id` is the join field itself; `SENSORIUM_JOIN`,
+**What says it.** `spans.ref.exec.run_id` is the join field itself; `SENSORIUM_JOIN`,
 copied verbatim by the program recorder into its own `meta.join`, is the independent trail that
 lets a reader confirm the id the model trace cites is the id the child process actually received,
 not a guess.
