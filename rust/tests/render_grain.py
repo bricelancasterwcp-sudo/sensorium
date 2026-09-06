@@ -308,7 +308,10 @@ def _reported(r) -> list[str]:
         f"**Vary lines that fired, by kind** (an honesty count, not a gate): "
         f"`{rep.get('vary_lines_by_kind')}` — summed over every answer this "
         f"run read: {', '.join(rep.get('vary_counted_over') or []) or 'none'}."
-        f" {rep.get('vary_lens', '')}", ""]
+        f" {rep.get('vary_lens', '')}", "",
+        f"**Shapes that named their file** (R-G12, an honesty count, not a "
+        f"gate): `{rep.get('disambiguated_shapes')}`. "
+        f"{rep.get('disambiguated_lens', '')}", ""]
 
 
 def results(r) -> list[str]:

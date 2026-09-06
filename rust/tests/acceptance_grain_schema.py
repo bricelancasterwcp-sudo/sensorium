@@ -95,6 +95,7 @@ def _h2(raw) -> dict:
         "stdout_bytes": r.get("stdout_bytes"),
         "stdout_lines": r.get("stdout_lines"),
         "vary": r.get("vary"), "header": r.get("header"),
+        "disambiguated_shapes": r.get("disambiguated"),
     }
 
 
@@ -152,6 +153,7 @@ def _h3(raw) -> dict:
             "stdout_bytes_total": a.get("stdout_bytes_total"),
             "stdout_lines_total": a.get("stdout_lines_total"),
             "vary": a.get("vary"),
+            "disambiguated_shapes": a.get("disambiguated"),
             "rows": [{k: v for k, v in row.items() if k != "stdout"}
                      for row in a.get("rows") or []],
         }
@@ -217,6 +219,7 @@ def _h4_arm(a: dict | None, label: str, dropped: list) -> dict:
         "stdout_lines": a.get("stdout_lines"),
         "processes_named": a.get("processes_named"),
         "vary": a.get("vary"),
+        "disambiguated_shapes": a.get("disambiguated"),
     }
 
 
@@ -312,7 +315,10 @@ def _reported(raw: dict) -> dict | None:
     The raw record is never rewritten, so a run whose `reported` predates
     `with_every_vary_kind` (2026-09-05, fix round 1) still assembles with
     `details: 0` present. Nothing else here is derived: no count is changed,
-    and a kind that fired keeps the number the run measured.
+    and a kind that fired keeps the number the run measured -- R-G12's
+    `disambiguated_shapes` map included, which is carried through exactly as
+    recorded and is ABSENT (never zero-filled) for a run that did not record
+    it: an answer nobody counted is not an answer with no collisions.
     """
     rep = raw.get("raw_reported")
     if not rep:

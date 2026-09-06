@@ -33,6 +33,7 @@ sys.path.insert(0, str(REPO / "rust" / "tests"))
 import acceptance_e6ppp as e6ppp                                   # noqa: E402
 import acceptance_grain as grain                                   # noqa: E402
 import acceptance_grain_phases as gph                              # noqa: E402
+import acceptance_grain_read as read                              # noqa: E402
 import acceptance_grain_repair as runner                           # noqa: E402
 import acceptance_lib as lib                                       # noqa: E402
 import acceptance_phases as ph                                     # noqa: E402
@@ -241,3 +242,95 @@ def test_the_sibling_produces_the_first_record_s_schema(monkeypatch,
     assert mine["assembled"]["from"] == runner.RAW
     assert mine["assembled"]["by"].startswith(runner.RUNNER)
     assert mine["assembled"]["from"] != theirs["assembled"]["from"]
+
+
+# -- the instrument reads a disambiguated verdict (C2) and counts it (I3) --
+#: One answer in which two blocks name their file (R-G12's collision) and one
+#: does not. The shared parser must read all three, and the ungated count
+#: must be 2 -- not 3, and not 0.
+DISAMBIGUATED = """raised (3 chains over 3 processes, 3 swallowing sites):
+  e1 HANDLED f handled io::Error('x') L156
+    SWALLOWED -- absorbed by sink_let_underscore at e1 (f L156 in memory.rs) in f1, which returned ok  [in r1]
+  e2 HANDLED f handled io::Error('y') L156
+    SWALLOWED -- absorbed by sink_let_underscore at e2 (f L156 in exec.rs) in f2, which returned ok  [in r2]
+  e2 HANDLED g handled io::Error('z') L606
+    SWALLOWED -- absorbed by sink_ok at e2 (g L606) in f3, which returned ok  [in r3]
+dispositions: swallowed 3
+"""
+
+
+def test_the_site_parser_reads_a_verdict_that_names_its_file():
+    """C2. `SITE` required `)` straight after `L<line>`, so a disambiguated
+    block parsed to `(None, None, None)` -- `measure_sites` would drop every
+    colliding shape into `unresolved` and H4′ would STOP on an artifact of
+    its own instrument, on exactly the two shapes the repair exists for."""
+    shapes = read.parse_shapes(DISAMBIGUATED)
+    assert len(shapes) == 3, shapes
+    assert [s["event"] for s in shapes] == [1, 2, 2], shapes
+    assert [s["qualname"] for s in shapes] == ["f", "f", "g"], shapes
+    assert [s["site_line"] for s in shapes] == [156, 156, 606], shapes
+    # the basename is captured rather than merely tolerated: it is the fact
+    # the block adds, and a parser that skipped over it could not report it
+    assert [s["site_file"] for s in shapes] == ["memory.rs", "exec.rs",
+                                                None], shapes
+
+
+def test_a_plain_verdict_still_parses_and_names_no_file():
+    """The other side of C2: an answer with nothing to disambiguate parses
+    exactly as it did, with `site_file` None rather than an empty string --
+    a `""` would count as a file under any truth test."""
+    plain = ("raised (1):\n"
+             "  e1 HANDLED f handled io::Error('x') L156\n"
+             "    SWALLOWED -- absorbed by sink_ok at e1 (f L156) in f1, "
+             "which returned ok\n"
+             "dispositions: swallowed 1\n")
+    s, = read.parse_shapes(plain)
+    assert (s["event"], s["qualname"], s["site_line"]) == (1, "f", 156)
+    assert s["site_file"] is None, s
+
+
+def test_disambiguated_shapes_counts_the_blocks_that_name_a_file():
+    """I3. §1′ promises this number per answer; nothing computed it. It
+    counts BLOCKS THAT NAME A FILE, not blocks -- a count of every block
+    would report 3 where 2 collided and would never be able to say zero."""
+    assert read.disambiguated_shapes(DISAMBIGUATED) == 2
+    assert read.disambiguated_shapes("raised (0):\n") == 0
+
+
+def test_a_disambiguated_block_is_measured_at_its_site_not_dropped(tmp_path):
+    """C2 end to end, through the phase that gates H4′: the block that names
+    its file must reach the per-site multiset like any other. Before the fix
+    this answer measured 0 sites and 1 unresolved."""
+    import sqlite3
+    d = tmp_path / "traces"
+    d.mkdir(parents=True)
+    con = sqlite3.connect(d / "r1.db")
+    con.execute("create table code_objects (id integer primary key, "
+                "file text, qualname text)")
+    con.execute("create table events (id integer primary key, line integer, "
+                "code_id integer)")
+    con.execute("insert into code_objects values (10, '/w/memory.rs', 'f')")
+    con.execute("insert into events values (1, 156, 10)")
+    con.commit()
+    con.close()
+    single = ("raised (1):\n"
+              "  e1 HANDLED f handled io::Error('x') L156\n"
+              "    SWALLOWED -- absorbed by sink_let_underscore at e1 "
+              "(f L156 in memory.rs) in f1, which returned ok\n"
+              "dispositions: swallowed 1\n")
+    m = read.measure_sites({"sensorium_dir": tmp_path}, single, "r1")
+    assert m["unresolved_count"] == 0, m
+    assert dict(m["sites"]) == {("/w/memory.rs", 156): 1}, m
+
+
+def test_reported_publishes_the_collision_count_per_answer():
+    """§1′'s ungated promise, assembled: one number per ANSWER, named, with
+    a lens -- not one total a reader cannot attribute to an arm."""
+    h2 = {"disambiguated": 0}
+    h3 = {"arms": {"ws": {"disambiguated": 4}, "ws0": {"disambiguated": 3}}}
+    h4 = {"arms": {"ws": {"disambiguated": 2}, "ws0": {"disambiguated": 2}}}
+    rep = read.reported({"busiest_ws_run": "r"}, grain.oracle(grain.ORACLE),
+                        h2, h3, h4)
+    assert rep["disambiguated_shapes"] == {
+        "H2": 0, "H3/ws": 4, "H3/ws0": 3, "H4/ws": 2, "H4/ws0": 2}
+    assert rep["disambiguated_lens"]

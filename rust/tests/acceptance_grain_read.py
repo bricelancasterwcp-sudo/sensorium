@@ -73,8 +73,19 @@ UNDER = re.compile(r"^ {6}(?P<line>\S.*)$")
 #: swallow -- the id the E6⁗ record's own collector resolved to a file
 #: (`acceptance_phases_rung3.SWALLOW_LINE`) -- and the ARM for an escaped
 #: `Err`. It is NOT the origin: the bracket's ids are origins.
+#: Since R-G12 the parenthetical may also carry the site's FILE, where two
+#: shapes of one answer print the same `qualname L<line>`:
+#: `absorbed by sink_let_underscore at e5 (sandbox L42 in
+#: task_exec_run_test.rs)`. The trailing group is OPTIONAL, so an answer with
+#: nothing to disambiguate parses exactly as it always did -- and the
+#: basename is CAPTURED rather than skipped over, because it is the fact the
+#: block adds and §1′ reports how many blocks carry it. Without this the
+#: colliding blocks parsed to `(None, None, None)`, `measure_sites` dropped
+#: each into `unresolved`, and H4′ would have STOPped on an artifact of its
+#: own instrument -- on precisely the shapes the repair exists for (review
+#: fix, 2026-09-05).
 SITE = re.compile(r"\bat e(?P<event>\d+) \((?P<qualname>.+?) "
-                  r"L(?P<line>\d+)\)")
+                  r"L(?P<line>\d+)(?: in (?P<file>[^)]*))?\)")
 
 #: `exceptions_group.bracket`: `  [×4: e412, e417, …, … +44]`.
 B_IDS = re.compile(r" {2}\[×(?P<n>\d+): (?P<ids>[^\]]*)\]$")
@@ -190,6 +201,7 @@ def parse_shapes(stdout: str) -> list[dict]:
                 "event": int(site.group("event")) if site else None,
                 "qualname": site.group("qualname") if site else None,
                 "site_line": int(site.group("line")) if site else None,
+                "site_file": site.group("file") if site else None,
                 "vary": [], **_bracket(verdict), **(head or {})})
             head = None
             continue
@@ -204,6 +216,18 @@ def swallowed_shapes(stdout: str) -> list[dict]:
     `SWALLOWED` is printed by exactly one sentence, so this is the whole set
     the record's per-site table was built from."""
     return [s for s in parse_shapes(stdout) if s["swallowed"]]
+
+
+def disambiguated_shapes(stdout: str) -> int:
+    """How many printed blocks name their site's FILE -- §1′'s ungated
+    collision count (R-G12).
+
+    Blocks that NAME A FILE, never blocks: a count of every block could not
+    report zero and would say nothing about how ambiguous the answer was.
+    Read off the answer itself rather than recomputed from the traces,
+    because what §1′ asks is how many blocks a READER sees a file on.
+    """
+    return sum(1 for s in parse_shapes(stdout) if s["site_file"])
 
 
 def vary_counts(stdout: str) -> dict:
@@ -518,15 +542,26 @@ def reported(cfg, orc, h2, h3, h4) -> dict:
     # two the slice exists to produce, was silently outside the total.
     vary: Counter = Counter({kind: 0 for kind in VARY_KINDS})
     counted = []
+    # R-G12's count is kept PER ANSWER, not summed: §1′ predicts >= 2 in each
+    # invocation arm (`sandbox L42`, `fresh_dir L64`), and one total could
+    # not be read against that. A phase that recorded no count is absent from
+    # the dict rather than a 0 -- not-looked-at is not measured-and-zero.
+    disambiguated: dict = {}
     if h2:
         vary.update(h2.get("vary") or {})
         counted.append("H2")
+        if h2.get("disambiguated") is not None:
+            disambiguated["H2"] = h2["disambiguated"]
     for label, a in sorted((h3.get("arms") or {}).items()):
         vary.update((a or {}).get("vary") or {})
         counted.append(f"H3/{label}")
+        if (a or {}).get("disambiguated") is not None:
+            disambiguated[f"H3/{label}"] = a["disambiguated"]
     for label, a in sorted((h4.get("arms") or {}).items()):
         vary.update((a or {}).get("vary") or {})
         counted.append(f"H4/{label}")
+        if (a or {}).get("disambiguated") is not None:
+            disambiguated[f"H4/{label}"] = a["disambiguated"]
     return {
         "busiest_ws_process": {
             "run": busiest,
@@ -552,6 +587,13 @@ def reported(cfg, orc, h2, h3, h4) -> dict:
             "invocation_lines": inv.get("stdout_lines"),
             "note": "both halves measured by THIS run, under 0.8.2",
         },
+        "disambiguated_shapes": disambiguated,
+        "disambiguated_lens": (
+            "printed blocks whose site parenthetical carries ` in <file>` "
+            "because their site text named more than one place in THAT "
+            "answer (R-G12), one number per answer read; an honesty count, "
+            "not a gate. An answer absent from this map recorded no count "
+            "rather than a zero."),
         "vary_lines_by_kind": with_every_vary_kind(vary),
         "vary_counted_over": counted,
         "vary_lens": ("blocks that printed a vary line, summed over EVERY "

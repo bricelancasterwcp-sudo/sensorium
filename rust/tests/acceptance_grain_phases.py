@@ -30,7 +30,8 @@ import acceptance_phases_rung3 as r3
 from acceptance_e6ppp import logs_at, mark_load
 from acceptance_grain_read import (ARMS, MULTI, compare_sites, measure_sites,
                                    parse_header, parse_tally, site_table,
-                                   store_paths, swallowed_shapes, vary_counts)
+                                   store_paths, swallowed_shapes, vary_counts,
+                                   disambiguated_shapes)
 from acceptance_lib import (REPO, plain_env, run, sensorium_cli,   # noqa: F401
                             sha256_file, step)
 
@@ -129,6 +130,7 @@ def phase_h2(paths, cfg, orc) -> dict:
         "tally_line": header["tally_line"],
         "oracle_tally_line": (orc["per_process"]["a"] or {}).get(spec["run"]),
         "vary": vary_counts(res["out"]),
+        "disambiguated": disambiguated_shapes(res["out"]),
         "incomplete_banner": header["incomplete_banner"],
         "header": header,
     }
@@ -185,6 +187,7 @@ def phase_h3(paths, cfg, orc) -> dict:
                        "oracle_swallowed_count": counts.get(run_id),
                        "tally_equal": ok_tally, "count_equal": ok_count,
                        "vary": vary_counts(res["out"]),
+                       "disambiguated": disambiguated_shapes(res["out"]),
                        "incomplete_banner": header["incomplete_banner"],
                        "log": res["log"]}
                 if run_id == cfg["busiest_ws_run"]:
@@ -207,6 +210,10 @@ def phase_h3(paths, cfg, orc) -> dict:
             "groups_total": sum(r["groups"] for r in rows),
             "chains_total": sum(r["chains"] for r in rows),
             "vary": dict(sum((Counter(r["vary"]) for r in rows), Counter())),
+            # Summed over the arm's 144 answers: each per-process answer is
+            # its own answer, so a block can only be disambiguated against
+            # the process it was printed in (R-G12).
+            "disambiguated": sum(r["disambiguated"] for r in rows),
         }
         step(f"H3 {label}: {len(rows)} process(es); unequal tally lines "
              f"{len(bad_tally)}; unequal swallow counts {len(bad_count)}")
@@ -270,6 +277,7 @@ def phase_h4(paths, cfg, orc) -> dict:
                 == orc["without_a_tally_line"][label]),
             "incomplete_members": header["incomplete"],
             "vary": vary_counts(res["out"]),
+            "disambiguated": disambiguated_shapes(res["out"]),
         }
         step(f"H4 {label}: {m['groups']} group(s) over "
              f"{arms[label]['processes_named']} named process(es) in "
