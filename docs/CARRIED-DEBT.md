@@ -56,8 +56,9 @@ Closed in the fix wave, 2026-09-05: the TRACE-FORMAT `ts_ns` forward pointer (M1
 `SENSORIUM_JOIN` copy rule being the `program` role's only (M13), `exit_brief` beside
 `exit_phrase` (M14), `p01`'s module-qualified qualnames (M16), and `m08`'s question id. Left
 deferred, each with the reason it was not worth a change now:
-- MODEL-TRACES: bare `(R3)`/`(R4)`/`(R5)` citations (§1, §5, §7) not in the "design spec §11 Rn"
-  form; three `###` subsection headings in §6/§7 beyond the spec's transcription. Both are
+- MODEL-TRACES: two bare citations remain, `(R4)` (§5, one-trace-per-boot) and `(R5)` (§7's
+  `meta.join` heading), not in the "design spec §11 Rn" form — `R3`'s was converted in the fix
+  wave; and three `###` subsection headings in §6/§7 beyond the spec's transcription. Both are
   house-style, neither changes what the contract says.
 - pending vectors: `m02` passes a placeholder `grep` pattern `x`; README could say that
   `start_ts`/`end_ts` (wall seconds) and token `ts` (monotonic ns) are different clocks by
