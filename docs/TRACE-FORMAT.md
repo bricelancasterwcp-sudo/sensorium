@@ -203,7 +203,7 @@ recorder writes evidence; the reader names the state.
 | Column | Meaning and NULL semantics |
 |---|---|
 | `id` | Causal order (§6). 1-based, dense, assigned in write order. |
-| `ts_ns` | Monotonic nanoseconds (`time.monotonic_ns()` in the Python recorder). For display and duration only — never compared, never hashed. |
+| `ts_ns` | Monotonic nanoseconds (`time.monotonic_ns()` in the Python recorder). For display and duration only — never compared, never hashed (§6 names the one cross-file exception). |
 | `thread_id` | Thread serial (§6). |
 | `kind` | One of the seven kinds in §5. |
 | `frame_id` | The frame this event ran INSIDE. **NULL on every CALL**, including the ones that open a frame: the frame does not exist yet when the CALL row is written (`tracer._on_start` passes `None`), and the link runs the other way, through `frames.call_event_id`. NULL too for any other event a recorder emits outside a frame. `RETURN`, `RAISE`, `HANDLED`, `LINE`, `YIELD` and `RESUME` carry the open frame's id. |
@@ -264,11 +264,11 @@ recorder, lang, capabilities
 | `start_ts`, `end_ts` | Wall-clock seconds (`time.time()`); `info` prints the difference as the duration. |
 | `exit_status` | The status the recorded program ended with, or **null** when nobody witnessed it — read with `exit_status_basis` below, never alone. |
 | `main_thread_ident` | The **serial** of the thread the target was invoked from, recorded at boot rather than inferred (§6). |
-| `fingerprint_basis` | `"per-task"` or `"per-thread"` — what a per-thread fingerprint row covers (§7). Explicit, never defaulted by a writer. |
+| `fingerprint_basis` | `"per-task"` or `"per-thread"` — what a per-thread fingerprint row covers (§7) — and `"per-generation"` on a format-5 model trace ([MODEL-TRACES §6](trace-format/MODEL-TRACES.md#6-fingerprints-and-diff)), where the unit is one generation. Explicit, never defaulted by a writer. |
 | `truncated_count` | How many captured values were clipped by the capture caps. |
 | `source_hashes` | `{file: content-digest}` for every file the run traced code from. |
 | `recorder` | Who wrote the trace: `"sensorium 0.8.0"`, `"sensorium-rt 0.3.0"`. Printed in every sentence about what this trace can and cannot say. Both are examples of the SHAPE, not pins — the value is whatever wrote the file, and a reader that compares against a literal is reading it wrong. |
-| `lang` | `"python"`, `"rust"`. The reader defaults an absent `lang` to `"python"`, because nothing else existed before the key. |
+| `lang` | `"python"`, `"rust"`, and `"model"` on a format-5 model trace ([MODEL-TRACES §1](trace-format/MODEL-TRACES.md#1-subject-and-vocabulary)), whose subject is a model being decoded rather than a process running code. The reader defaults an absent `lang` to `"python"`, because nothing else existed before the key. |
 | `capabilities` | The declaration; see below. |
 
 ### `exit_status` may be null, and `exit_status_basis` says why
@@ -416,8 +416,12 @@ capture caps in force (`{"str": 200, "repr": 200, "sample": 8, "depth": 3}`
 in the Python recorder), and the record-time filters `focus`, `include`,
 `exclude`, `window`. These six, plus `join` — the cross-trace group and anchor object defined in
 [MODEL-TRACES §7](trace-format/MODEL-TRACES.md#7-the-join), written by whichever recorder was
-launched or written by a daemon session, copied verbatim from `SENSORIUM_JOIN` when that variable
-holds a JSON object and omitted otherwise — are the shared optional set; they are not Python-only.
+launched or written by a daemon session. Only a `role: "program"` trace's `join` is copied
+verbatim from `SENSORIUM_JOIN`, and omitted entirely when that variable is absent or is not a
+JSON object; a `role: "model"` one is written by the daemon into its own trace out of what it
+already knows, and a `role: "harness"` one by the converter — the environment copy is the
+program role's rule, not everyone's. These are the shared optional set; they are not
+Python-only.
 
 **Python-only, present today:**
 
