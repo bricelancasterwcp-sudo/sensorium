@@ -67,6 +67,13 @@
 //!   built. Only `#[cfg]` and `#[cfg_attr]` can do that: `#[allow(..)]`,
 //!   `#[rustfmt::skip]` and the rest leave the statement in the build and take
 //!   their LINE like any other ([`is_conditionally_compiled`]).
+//! * **A `loop` a `break` leaves, but nested inside a COMPOSITE statement**
+//!   (`unsafe { loop { break; } }`, a `match` every arm of which is such a
+//!   loop): [`stmt_diverges`] answers a bare `Expr::Loop` itself and delegates
+//!   a composite to [`crate::exits::diverges`], which recurses with its own
+//!   "has this loop a VALUE" rule and calls it diverging. Such a statement
+//!   loses its LINE. It costs a row and never a build, and closing it means
+//!   duplicating `exits`'s composite walk here.
 //! * **A place write** (`*p = e`, `a.b = e`, `v[i] = e`) and a `&mut` mutation
 //!   are not deltas (design §3.2), so those statements mint `|| []`.
 //! * **A name that is not a plausible binding**: `syn` cannot tell the pattern
@@ -607,6 +614,7 @@ fn expr_attrs(expr: &Expr) -> &[Attribute] {
         Expr::Paren(e) => &e.attrs,
         Expr::Path(e) => &e.attrs,
         Expr::Range(e) => &e.attrs,
+        Expr::RawAddr(e) => &e.attrs,
         Expr::Reference(e) => &e.attrs,
         Expr::Repeat(e) => &e.attrs,
         Expr::Return(e) => &e.attrs,

@@ -386,14 +386,15 @@ pub fn sites(t: &Transformed) -> Vec<(u32, &str, u32, RetKind)> {
 
 /// The ERR-FLOW sites of a result: `(site, qualname, line, kind, how)`.
 ///
-/// The two FRAME kinds are excluded because they carry no `how`, and so is
-/// `line`, for the same reason: a LINE is not an err-flow site and writes no
-/// `how` byte. (Listing it here made this helper panic on the first golden that
-/// had both -- `focus_err_arm`, fix round 1.)
+/// The filter names the err-flow kinds POSITIVELY. Written as "not a frame" it
+/// swept in `SiteKind::Line` the moment that kind existed and panicked on
+/// `.how.expect(..)` (fix round 1, `focus_err_arm`); a positive list makes the
+/// next new kind a compile error here instead of a panic in an unrelated test
+/// (fix round 2, F3).
 pub fn err_sites(t: &Transformed) -> Vec<(u32, &str, u32, SiteKind, &'static str)> {
     t.sites
         .iter()
-        .filter(|s| !matches!(s.kind, SiteKind::Fn | SiteKind::Closure | SiteKind::Line))
+        .filter(|s| matches!(s.kind, SiteKind::Try | SiteKind::Sink | SiteKind::Arm))
         .map(|s| {
             (
                 s.site,
@@ -529,7 +530,7 @@ pub const FOCUS_CASES: &[(&str, &str)] = &[
     ("focus_err_arm", "handled,bare"),
     ("focus_fill", "fill"),
     ("focus_loop", "sum_to_three"),
-    ("focus_loop_break", "wait_then"),
+    ("focus_loop_break", "wait_then,spins,labelled"),
     ("focus_match", "classify"),
     ("focus_moved_value", "move_it"),
     ("focus_params", "Counter"),

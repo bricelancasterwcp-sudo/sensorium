@@ -189,6 +189,12 @@ fn a_loop_a_plain_break_leaves_completes_and_takes_its_line() {
             (11, "wait_then", 13), // n += 1;
             (12, "wait_then", 9),  // the `loop` STATEMENT, past its `}`
             (13, "wait_then", 15), // let b = n + 1;
+            // `spins`: the parameters LINE and NOTHING else -- see below.
+            (15, "spins", 24),
+            (17, "labelled", 34), // parameters
+            (18, "labelled", 37), // n += 1; inside the INNER loop
+            (19, "labelled", 35), // the labelled loop STATEMENT, past its `}`
+            (20, "labelled", 41), // let b = n;
         ]
     );
     // The `break;` itself takes none: a probe after it is unreachable code.
@@ -196,6 +202,50 @@ fn a_loop_a_plain_break_leaves_completes_and_takes_its_line() {
     assert!(t
         .source
         .contains("    }::sensorium_rt::line(&crate::__SENSORIUM_UNIT, 12, || []);"));
+}
+
+/// Fix round 2, F1. The depth rule in the break walk -- an UNLABELLED `break`
+/// belongs to the innermost loop -- is the one direction that breaks a build if
+/// it is wrong: read it as "any break counts" and `loop { loop { break; } }`
+/// reads as completing, a probe lands after a statement of type `!`, and the
+/// unit fails `-D warnings`. `spins` is that shape and `oracle.rs` compiles it;
+/// `labelled` is the control that a `break 'o` from inside the inner loop DOES
+/// leave the outer one.
+#[test]
+fn an_unlabelled_break_belongs_to_the_innermost_loop_and_a_labelled_one_does_not() {
+    let t = run("focus_loop_break");
+    let spins: Vec<_> = line_sites(&t)
+        .into_iter()
+        .filter(|(_, q, _)| *q == "spins")
+        .collect();
+    assert_eq!(
+        spins,
+        [(15, "spins", 24)],
+        "the outer loop never completes: only the parameters LINE"
+    );
+    assert!(
+        t.source.contains("    };\n}"),
+        "nothing may follow a `!` statement"
+    );
+    // The labelled loop DOES complete, so its own LINE sits past its `}`.
+    assert!(t
+        .source
+        .contains("    }::sensorium_rt::line(&crate::__SENSORIUM_UNIT, 19, || []);"));
+}
+
+/// Fix round 2, F2. `syn::Expr` is `#[non_exhaustive]`, so `expr_attrs`'s
+/// catch-all answers "no attributes" -- and a variant it forgot would take a
+/// probe on a statement a `cfg` can strip. `RawAddr` was the one it forgot.
+#[test]
+fn a_cfg_on_a_raw_address_statement_declines_its_line() {
+    let source = "static X: i32 = 1;\npub fn f() {\n    #[cfg(any())]\n    \
+                  &raw const X;\n    let a = 1;\n}\n";
+    let t = transform(source, "src/lib.rs", META, 7, true, &Focus::parse("f")).expect("transform");
+    assert_eq!(
+        line_sites(&t),
+        [(8, "f", 2), (9, "f", 5)],
+        "the parameters LINE and `let a = 1;` -- nothing for the `cfg`-able statement"
+    );
 }
 
 /// Fix round 1, I2. Only `cfg`/`cfg_attr` can take the statement out of the
