@@ -5,9 +5,9 @@
 //! every statement of every matched function,
 //!
 //! ```ignore
-//! ::sensorium_rt::line(&crate::__SENSORIUM_UNIT, <site>, &[
-//!     ("x", ::sensorium_rt::probe_cap!(&x)),
-//! ]);
+//! ::sensorium_rt::line(&crate::__SENSORIUM_UNIT, <site>, || {
+//!     [("x", ::sensorium_rt::probe_cap!(&x))]
+//! });
 //! ```
 //!
 //! and the payload that produces is `exit.rs`'s RETURN value block -- tag,
@@ -30,13 +30,24 @@
 //! `a_generic_fn_cannot_carry_the_ladder_which_is_why_probe_cap_is_a_macro`
 //! measures exactly that, so the reason survives someone tidying the macro away.
 //!
-//! **The capture runs inside the runtime scope.** `ret` invokes its probe
-//! closure inside `stash_return`, which is what keeps a workspace `Debug` impl
-//! that calls instrumented code from putting rows in the trace (spec §3.6,
-//! `rust/HONESTY.md` §9). A LINE's deltas are built at the call site, BEFORE
-//! `line` is entered, so the scope has to travel with the capture instead:
-//! `probe_cap!` formats inside [`__probe_cap_scope`]. The impl still runs -- once
-//! per captured delta -- it just records nothing.
+//! **The deltas are a CLOSURE, and that is the whole reason a `Debug` impl is
+//! never invoked at tier `off`** -- the same sentence `exit.rs` opens with, and
+//! the same shape: `ret` takes `cap: impl FnOnce(&T)`, `line` takes
+//! `impl FnOnce() -> [..; N]`. The closure is called inside the `STATE ==
+//! STATE_CALL` gate AND inside the runtime scope, after the unit and the spool
+//! directory have answered -- so a focused workspace run at `--tier off`
+//! formats nothing, allocates nothing, and runs no `Debug` side effect, even
+//! though the probes are spliced unconditionally at compile time (the focus is
+//! a compile-time decision, design F2). Design amendment A5, 2026-09-06.
+//!
+//! **And it formats inside the runtime scope.** `ret` invokes its probe closure
+//! inside `stash_return`, which is what keeps a workspace `Debug` impl that
+//! calls instrumented code from putting rows in the trace (spec §3.6,
+//! `rust/HONESTY.md` §9). Two things keep that true here: `emit_line` takes the
+//! scope BEFORE it calls the closure, and `probe_cap!` formats inside
+//! [`__probe_cap_scope`] as well -- so the promise holds even for a capture
+//! somebody builds outside a `line` call. The impl still runs -- once per
+//! captured delta -- it just records nothing.
 //!
 //! **What a dropped delta is.** The payload is bounded by [`LINE_PAYLOAD_MAX`],
 //! the same buffer `exit.rs` writes a RETURN into. When the next delta would not
@@ -46,7 +57,7 @@
 
 use std::sync::atomic::Ordering;
 
-use crate::exit::{RETURN_PAYLOAD_MAX, TAG_DEBUG, TAG_UNREAD};
+use crate::exit::{TAG_DEBUG, TAG_UNREAD};
 use crate::probe::{self, Capture};
 use crate::spool::{self, KIND_LINE, OUTCOME_NONE, SITE_INDEX_MASK};
 use crate::{thread, Unit, STATE, STATE_CALL};
@@ -58,13 +69,21 @@ pub(crate) const FLAG_DELTAS_DROPPED: u8 = 1 << 0;
 /// The payload's fixed head: `u8 flags`, `u16 n`.
 const LINE_HEADER: usize = 3;
 
-/// The most one LINE payload can carry.
+/// The most one LINE payload can carry: room for eight capped deltas with
+/// their names (design amendment A5, 2026-09-06).
 ///
-/// The RETURN buffer's capacity, deliberately: one statement's deltas cost what
-/// one returned value costs, the wire's `u16` length field is honoured with room
-/// to spare, and the buffer stays a stack array a probe on every statement can
-/// afford. What does not fit is dropped and said to be dropped.
-pub(crate) const LINE_PAYLOAD_MAX: usize = RETURN_PAYLOAD_MAX;
+/// A delta costs `2 + name + 1 + 1 + 2 + text` bytes, so a fully capped one with
+/// an eight-character name is 214 and eight of them plus the three-byte head are
+/// 1_715 -- the sizing this number is chosen for. It is NOT `exit.rs`'s
+/// [`crate::exit::RETURN_PAYLOAD_MAX`] (325, which fits exactly one capped
+/// delta): a
+/// statement can write several bindings, and a bound that drops the second one
+/// of a `let (a, b) = ..` would make the honest `flags.bit0` a routine event
+/// rather than a rare one. Still far inside the wire's `u16` payload length, and
+/// still a stack array -- one built in `emit_line`, which is `#[inline(never)]`
+/// and reached only when the recorder is live, so the inert path never grows a
+/// 2 KiB frame. What does not fit is dropped and said to be dropped.
+pub(crate) const LINE_PAYLOAD_MAX: usize = 2048;
 
 /// Read one borrowed value through `probe.rs`'s ladder: capped `Debug` text, or
 /// *unread* when the type has no `Debug` impl.
@@ -102,19 +121,34 @@ pub fn __probe_cap_scope(read: impl FnOnce() -> Capture) -> Capture {
 /// Record one completed statement of a focused function and the bindings it
 /// wrote.
 ///
-/// Inert -- no record, no allocation -- when the recorder is not recording, and
-/// when the runtime is already running on this thread. Unlike `enter` it never
-/// initialises the process and never registers a unit: a LINE belongs to a frame
-/// some `enter` already opened, and a unit with no id has no such frame.
+/// `deltas` is a closure returning an array of `(name, capture)` -- the array
+/// the transformer writes as a literal, `|| [("x", probe_cap!(&x))]`, and `|| []`
+/// for a statement that wrote nothing (a parameters LINE of a function with no
+/// parameters, design amendment A2). It is called ONLY when this thread is
+/// actually about to write the record, so at tier `off` no `Debug` impl runs.
+///
+/// Inert -- no record, no capture, no allocation -- when the recorder is not
+/// recording, and when the runtime is already running on this thread. Unlike
+/// `enter` it never initialises the process and never registers a unit: a LINE
+/// belongs to a frame some `enter` already opened, and a unit with no id has no
+/// such frame.
 #[inline]
-pub fn line(unit: &'static Unit, site: u32, deltas: &[(&str, Capture)]) {
+pub fn line<const N: usize>(
+    unit: &'static Unit,
+    site: u32,
+    deltas: impl FnOnce() -> [(&'static str, Capture); N],
+) {
     if STATE.load(Ordering::Acquire) == STATE_CALL {
         emit_line(unit, site, deltas);
     }
 }
 
 #[inline(never)]
-fn emit_line(unit: &'static Unit, site: u32, deltas: &[(&str, Capture)]) {
+fn emit_line<const N: usize>(
+    unit: &'static Unit,
+    site: u32,
+    deltas: impl FnOnce() -> [(&'static str, Capture); N],
+) {
     // Reentrancy: a statement reached from inside the instrument records
     // nothing, the same rule `enter`, `ret` and the err sites keep (spec §3.6).
     let Some(_scope) = thread::try_enter_runtime() else {
@@ -135,8 +169,13 @@ fn emit_line(unit: &'static Unit, site: u32, deltas: &[(&str, Capture)]) {
         site <= SITE_INDEX_MASK,
         "site index {site} does not fit the wire format's 24 bits and would alias"
     );
+    // The probe runs HERE and nowhere earlier: inside the tier gate, inside the
+    // runtime scope, and after the unit and the spool directory have answered.
+    // A `Debug` impl this formats therefore records nothing, and one that is
+    // never formatted has no side effect to have.
+    let deltas = deltas();
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, _dropped) = write_line_payload(&mut buf, deltas);
+    let (len, _dropped) = write_line_payload(&mut buf, &deltas);
     thread::emit(
         dir,
         crate::pack_site(id, site),
@@ -207,9 +246,10 @@ pub(crate) fn write_line_payload(
 mod tests {
     use super::*;
 
+    use std::cell::Cell;
     use std::fmt::{self, Debug};
     use std::path::{Path, PathBuf};
-    use std::sync::atomic::Ordering;
+    use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::{Mutex, MutexGuard, OnceLock};
 
     use crate::probe::Capture;
@@ -450,6 +490,52 @@ mod tests {
         }
     }
 
+    /// (g) The boundary [`LINE_PAYLOAD_MAX`] was sized for (A5): eight fully
+    /// capped deltas WITH their names fit, and nothing is dropped. The exact
+    /// boundary at that shape -- an eight-character name and a 200-byte text,
+    /// 214 bytes a delta -- is nine; the tenth is dropped. Both sides pinned,
+    /// so a change to the constant has to come here and say what it did.
+    // The four assertions below are constant BY DESIGN: they hold the boundary
+    // arithmetic against `LINE_PAYLOAD_MAX` itself, so moving the constant has
+    // to move this test.
+    #[allow(clippy::assertions_on_constants)]
+    #[test]
+    fn eight_fully_capped_deltas_fit_and_the_boundary_is_nine() {
+        const PER_DELTA: usize = 2 + 8 + 1 + 1 + 2 + 200;
+        assert_eq!(
+            PER_DELTA, 214,
+            "u16 name_len, name, tag, truncated, u16 text_len, text"
+        );
+        assert_eq!(3 + 9 * PER_DELTA, 1929);
+        assert!(3 + 9 * PER_DELTA <= LINE_PAYLOAD_MAX, "nine fit");
+        assert!(3 + 10 * PER_DELTA > LINE_PAYLOAD_MAX, "ten do not");
+
+        for (k, want_dropped, want_n) in [(8usize, false, 8), (9, false, 9), (10, true, 9)] {
+            let names: Vec<String> = (0..k).map(|i| format!("delta_{i:02}")).collect();
+            let text = "t".repeat(crate::probe::CAP);
+            let deltas: Vec<(&str, Capture)> = names
+                .iter()
+                .map(|n| {
+                    assert_eq!(n.len(), 8, "the arithmetic above assumes an 8-byte name");
+                    (n.as_str(), debug(&text))
+                })
+                .collect();
+            let mut buf = [0u8; LINE_PAYLOAD_MAX];
+            let (len, dropped) = write_line_payload(&mut buf, &deltas);
+            assert_eq!(dropped, want_dropped, "k={k}");
+            let (flags, written) = parse(&buf[..len as usize]);
+            assert_eq!(flags & 1, u8::from(want_dropped), "k={k}");
+            assert_eq!(written.len(), want_n, "k={k}");
+            for delta in &written {
+                assert_eq!(
+                    delta.truncated, 0,
+                    "k={k}: a 200-byte text is at the cap, not over it"
+                );
+                assert_eq!(delta.text.as_deref().map(str::len), Some(crate::probe::CAP));
+            }
+        }
+    }
+
     #[test]
     fn the_payload_bound_fits_the_wire_formats_length_field() {
         assert!(LINE_PAYLOAD_MAX <= u16::MAX as usize, "{LINE_PAYLOAD_MAX}");
@@ -558,11 +644,23 @@ mod tests {
     /// The positive control and the negative one in the same test, at the same
     /// site: a `line` that writes nothing at tier `off` proves nothing unless
     /// the same call writes something when the recorder is on.
+    /// (e) The deltas closure is called exactly once when the record is
+    /// written, and NOT AT ALL when it is not: at tier `off` a focused
+    /// workspace formats no `Debug`, allocates nothing and runs no `Debug` side
+    /// effect, although the probes are spliced unconditionally.
     #[test]
     fn line_writes_one_record_when_recording_and_nothing_at_tier_off() {
         let rec = Recording::start();
-        let deltas = [("x", debug("5"))];
-        line(rec.unit, 11, &deltas);
+        let probes = Cell::new(0u32);
+        line(rec.unit, 11, || {
+            probes.set(probes.get() + 1);
+            [("x", debug("5"))]
+        });
+        assert_eq!(
+            probes.get(),
+            1,
+            "the probe ran once, for the record written"
+        );
         let written = rec.records_at(11);
         assert_eq!(written.len(), 1, "one statement, one record");
         assert_eq!(written[0].0, KIND_LINE);
@@ -574,21 +672,47 @@ mod tests {
         assert_eq!(parsed[0].text.as_deref(), Some("5"));
 
         STATE.store(STATE_OFF, Ordering::Release);
-        line(rec.unit, 11, &deltas);
+        line(rec.unit, 11, || {
+            probes.set(probes.get() + 1);
+            [("x", debug("5"))]
+        });
         assert_eq!(
             rec.records_at(11).len(),
             1,
             "tier off writes no LINE record at all"
         );
+        assert_eq!(
+            probes.get(),
+            1,
+            "and tier off does not even CALL the probe: no Debug impl runs"
+        );
     }
 
-    /// A `Debug` impl that calls `line` again. The outer capture runs inside
-    /// the runtime scope, so the inner call is inert: one record, not two.
+    /// A2: a statement that wrote nothing -- the parameters LINE of a function
+    /// with no parameters -- splices `|| []`, which has to type-check with no
+    /// turbofish and no annotation.
+    #[test]
+    fn an_empty_delta_array_is_still_a_record() {
+        let rec = Recording::start();
+        line(rec.unit, 15, || []);
+        let written = rec.records_at(15);
+        assert_eq!(written.len(), 1);
+        assert_eq!(written[0].1, vec![0, 0, 0], "flags 0, n 0");
+    }
+
+    /// (f) A `Debug` impl that calls `line` again. The outer capture runs
+    /// inside the runtime scope, so the inner call is inert -- and its probe
+    /// closure is never called either.
+    static INNER_PROBES: AtomicU32 = AtomicU32::new(0);
+
     struct CallsLine(&'static Unit);
 
     impl Debug for CallsLine {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            line(self.0, 13, &[("inner", debug("re-entered"))]);
+            line(self.0, 13, || {
+                INNER_PROBES.fetch_add(1, Ordering::Relaxed);
+                [("inner", debug("re-entered"))]
+            });
             f.write_str("outer")
         }
     }
@@ -596,15 +720,19 @@ mod tests {
     #[test]
     fn a_line_reached_from_inside_the_instrument_records_nothing() {
         let rec = Recording::start();
-        line(
-            rec.unit,
-            12,
-            &[("v", crate::probe_cap!(&CallsLine(rec.unit)))],
-        );
+        INNER_PROBES.store(0, Ordering::Relaxed);
+        line(rec.unit, 12, || {
+            [("v", crate::probe_cap!(&CallsLine(rec.unit)))]
+        });
         assert_eq!(
             rec.records_at(13).len(),
             0,
             "the Debug impl's own line() is inert: the instrument adds no rows"
+        );
+        assert_eq!(
+            INNER_PROBES.load(Ordering::Relaxed),
+            0,
+            "and an inert line() never calls its probe"
         );
         let written = rec.records_at(12);
         assert_eq!(written.len(), 1, "exactly one record, the outer one");
@@ -617,7 +745,14 @@ mod tests {
     #[test]
     fn line_is_inert_while_the_runtime_is_already_running() {
         let rec = Recording::start();
-        crate::__in_runtime(|| line(rec.unit, 14, &[("x", debug("5"))]));
+        let probes = Cell::new(0u32);
+        crate::__in_runtime(|| {
+            line(rec.unit, 14, || {
+                probes.set(probes.get() + 1);
+                [("x", debug("5"))]
+            })
+        });
         assert_eq!(rec.records_at(14).len(), 0);
+        assert_eq!(probes.get(), 0, "an inert line() calls no probe");
     }
 }
