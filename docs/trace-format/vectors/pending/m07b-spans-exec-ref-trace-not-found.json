@@ -1,6 +1,6 @@
 {
-  "id": "m06-exit-status-not-a-process-exit",
-  "asserts": "a model trace's null exit_status with basis not-a-process-exit renders as 'exit: n/a (model trace)' and never as None or 0",
+  "id": "m07b-spans-exec-ref-trace-not-found",
+  "asserts": "An action span's exec ref can name a run id the builder minted but never wrote a trace for: spans says the trace was not found, rather than fabricating an exit from the cached ref fields or silently omitting the reference.",
   "meta": {
     "trace_format": 5,
     "incomplete": false,
@@ -58,6 +58,7 @@
       "flash_attention": true
     }
   },
+  "absent2": true,
   "tasks": [
     [
       1,
@@ -85,47 +86,40 @@
   "spans": [
     {
       "task": 1,
-      "kind": "stop",
+      "kind": "action",
       "first_pos": 0,
       "last_pos": 0,
-      "text": null,
+      "text": "<action verb=\"run\">python3 -m unittest</action>",
       "ref": {
-        "reason": "eog"
+        "verb": "run",
+        "attrs": {},
+        "exec": {
+          "run_id": "$RUN2",
+          "exit_status": 1,
+          "exit_status_basis": "waited"
+        }
       }
     }
   ],
   "fingerprints": "compute",
   "questions": [
     {
-      "id": "info-exit-na",
-      "ask": "Does info print exit: n/a (model trace)?",
+      "id": "exec-ref-to-a-trace-that-was-never-built-says-so",
+      "ask": "The generation's action names $RUN2, a run id that was minted but never built: does spans say the trace was not found, rather than printing the cached exit as if the file existed?",
       "command": [
-        "info",
-        "$RUN"
+        "spans",
+        "$RUN",
+        "--gen",
+        "fx/patch-01"
       ],
       "expect_exit": 0,
       "expect_line": [
         [
-          "exit:",
-          "n/a (model trace)"
-        ]
-      ],
-      "expect_absent": [
-        "exit: None",
-        "exit: 0"
-      ]
-    },
-    {
-      "id": "runs-exit-na",
-      "ask": "Does runs show exit:n/a for the row?",
-      "command": [
-        "runs"
-      ],
-      "expect_exit": 0,
-      "expect_line": [
+          "exec run",
+          "$RUN2"
+        ],
         [
-          "$RUN",
-          "exit:n/a"
+          "(trace not found)"
         ]
       ]
     }

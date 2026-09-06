@@ -5,6 +5,15 @@
     "trace_format": 5,
     "incomplete": false,
     "run_id": "$RUN",
+    "argv": [
+      "bloomery-daemon",
+      "--config",
+      "/w/daemon.toml"
+    ],
+    "cwd": "/w",
+    "env_hash": "e0e0e0e0",
+    "start_ts": 1000.0,
+    "end_ts": 1002.0,
     "lang": "model",
     "recorder": "sensorium-model 0.1.0",
     "fingerprint_basis": "per-generation",

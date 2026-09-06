@@ -88,6 +88,7 @@
       "unwind_exc": {
         "type": "TypeError",
         "msg": "bad",
+        "serial": 1,
         "oid": 1
       }
     },
@@ -103,6 +104,7 @@
       "unwind_exc": {
         "type": "TypeError",
         "msg": "bad",
+        "serial": 1,
         "oid": 1
       }
     }
@@ -141,6 +143,7 @@
         "exc": {
           "type": "TypeError",
           "msg": "bad",
+          "serial": 1,
           "oid": 1
         }
       },
@@ -172,6 +175,7 @@
       "unwind_exc": {
         "type": "TypeError",
         "msg": "bad",
+        "serial": 1,
         "oid": 1
       }
     },
@@ -187,6 +191,7 @@
       "unwind_exc": {
         "type": "TypeError",
         "msg": "bad",
+        "serial": 1,
         "oid": 1
       }
     }
@@ -225,6 +230,7 @@
         "exc": {
           "type": "TypeError",
           "msg": "bad",
+          "serial": 1,
           "oid": 1
         }
       },
