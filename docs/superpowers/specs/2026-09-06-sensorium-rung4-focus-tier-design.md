@@ -411,4 +411,17 @@ of them — its gate value 26 is the value these amendments make unambiguous.
   inside its function's CALL; a LINE record whose thread has no open frame
   is a malformed stream and the converter refuses it naming the record,
   never attaching it to a guessed frame.
+- **A7 (2026-09-06, after Task 1's review) — the exact runtime surface Task 2
+  emits.** `pub fn line<const N: usize>(unit: &'static Unit, site: u32,
+  deltas: impl FnOnce() -> [(&'static str, Capture); N])` (names are
+  `&'static str`, tighter than §3.4's prose) and the macro
+  `::sensorium_rt::probe_cap!(&<binding>)`. The transform emits, after a
+  statement that wrote `x` and `y`:
+  `::sensorium_rt::line(&crate::__SENSORIUM_UNIT, <site>, || [("x", ::sensorium_rt::probe_cap!(&x)), ("y", ::sensorium_rt::probe_cap!(&y))]);`
+  and for a statement that wrote nothing `… || []);` (no turbofish needed,
+  pinned by a runtime test). Verified by an external-crate compile under
+  name shadowing for `&x`, `!Debug`, `&&T`, `&mut T`, `?Sized`, `&self` and
+  by-value `self`. Nine fully capped 8-char-named deltas fit one record; the
+  tenth drops with `flags.bit0`. Tag 0 is legal in the grammar and
+  unwritable by the runtime; the converter REFUSES it naming the record.
 
