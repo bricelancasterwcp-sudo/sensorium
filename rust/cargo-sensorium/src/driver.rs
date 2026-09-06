@@ -37,6 +37,11 @@ pub struct Invocation {
     pub subcommand: String,
     pub cargo_args: Vec<String>,
     pub tier: String,
+    /// The `--focus` values, de-duplicated and in the order typed. The
+    /// converter's ONE source for a trace's `focus` (design A9): the driver
+    /// knows what it was asked for, and the manifests -- one per focus the
+    /// workspace was ever built under (A8) -- cannot say which is this run's.
+    pub focus: Vec<String>,
     /// `rustc -vV`'s first line, from the rustc this invocation actually used.
     pub toolchain: String,
     /// Which rustc that was: `RUSTC` when set, otherwise whatever `rustc` on
@@ -263,6 +268,10 @@ fn go(args: &[String]) -> Result<i32, String> {
         subcommand: parsed.subcommand().to_owned(),
         cargo_args: parsed.cargo_args.clone(),
         tier: parsed.tier.as_str().to_owned(),
+        // The canonical list, not `parsed.focus`: this is byte-for-byte what
+        // `SENSORIUM_FOCUS` carries and therefore what each manifest records
+        // as its `focus.values`, which is what R-F11 compares against.
+        focus: focus.values().to_vec(),
         toolchain,
         rustc_path: rustc.clone(),
         host: host.clone(),
@@ -670,6 +679,7 @@ mod tests {
             subcommand: "test".to_owned(),
             cargo_args: vec!["test".to_owned(), "--lib".to_owned()],
             tier: "call".to_owned(),
+            focus: vec!["load".to_owned()],
             toolchain: "rustc 1.96.0".to_owned(),
             rustc_path: "/u/bin/rustc".to_owned(),
             host: "x86_64-unknown-linux-gnu".to_owned(),
@@ -688,6 +698,8 @@ mod tests {
         assert_eq!(value["subcommand"], "test");
         assert_eq!(value["cargo_args"], serde_json::json!(["test", "--lib"]));
         assert_eq!(value["tier"], "call");
+        // The converter's only source for a trace's `focus` (R-F11).
+        assert_eq!(value["focus"], serde_json::json!(["load"]));
         assert_eq!(value["host"], "x86_64-unknown-linux-gnu");
         assert_eq!(value["profile"], "dev");
         assert_eq!(value["workspace_root"], "/w");

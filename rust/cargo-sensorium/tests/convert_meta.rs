@@ -88,6 +88,14 @@ fn meta(conn: &Connection, key: &str) -> serde_json::Value {
     serde_json::from_str(&raw).unwrap()
 }
 
+/// How many `meta` rows carry `key`: 0 is the absent-not-empty assertion.
+fn meta_rows(conn: &Connection, key: &str) -> i64 {
+    conn.query_row("SELECT COUNT(*) FROM meta WHERE key = ?1", [key], |r| {
+        r.get(0)
+    })
+    .unwrap()
+}
+
 fn context(out: &Output) -> String {
     format!(
         "status: {:?}\n--- stdout ---\n{}\n--- stderr ---\n{}",
@@ -459,6 +467,7 @@ fn a_focused_units_manifest_writes_focus_focus_matched_and_the_line_capability()
         &["fill", "missing"],
         &["fill"],
     );
+    wire::set_invocation_focus(&f.spool_dir, &["fill", "missing"]);
     wire::write_proc_header(
         &f.spool_dir,
         1401,
@@ -505,6 +514,7 @@ fn a_focus_record_with_no_line_sites_leaves_line_and_locals_false() {
         &["missing"],
         &[],
     );
+    wire::set_invocation_focus(&f.spool_dir, &["missing"]);
     wire::write_proc_header(
         &f.spool_dir,
         1402,
@@ -616,6 +626,7 @@ fn focus_matched_unions_over_the_build_while_the_line_capability_stays_registere
         &["helper", "missing"],
         &["helper"],
     );
+    wire::set_invocation_focus(&f.spool_dir, &["helper", "missing"]);
     // Only meta1 is registered: meta2 was compiled by this invocation and
     // linked, but this process's proc header never lists it.
     wire::write_proc_header(
@@ -652,4 +663,96 @@ fn focus_matched_unions_over_the_build_while_the_line_capability_stays_registere
         meta(&conn, "capabilities")["locals"],
         serde_json::json!(false)
     );
+}
+
+/// R-F11 (design A9), end to end over the shape A8's accumulation leaves in a
+/// target directory: **M1** carries no focus record and is the only unit this
+/// process REGISTERED (it holds the run's only `line` site), **M2** was built
+/// under `["load"]` and never registered, **M3** under `["other"]`. All three
+/// are in scope -- same workspace, one shared manifests directory.
+///
+/// What varies is the INVOCATION's list, and it alone decides the answer.
+fn a9_run(name: &str, invocation_focus: &[&str]) -> (Fixture, Connection) {
+    let f = Fixture::new(name);
+    wire::write_manifest(
+        &f.manifests_dir,
+        "m1",
+        "demo",
+        &[(
+            FILE,
+            &[site(0, "main", 3, "unit"), wire::line_site(1, "main", 5)],
+        )],
+        &[(FILE, "deadbeef")],
+        false,
+        None,
+        &[],
+    );
+    wire::write_manifest_focus(
+        &f.manifests_dir,
+        "m2",
+        "loaded",
+        &[("crates/a/src/lib.rs", &[site(0, "load", 2, "unit")])],
+        &[("crates/a/src/lib.rs", "feedface")],
+        &["load"],
+        &["load"],
+    );
+    wire::write_manifest_focus(
+        &f.manifests_dir,
+        "m3",
+        "othered",
+        &[("crates/b/src/lib.rs", &[site(0, "other", 2, "unit")])],
+        &[("crates/b/src/lib.rs", "c0ffee11")],
+        &["other"],
+        &["other"],
+    );
+    if !invocation_focus.is_empty() {
+        wire::set_invocation_focus(&f.spool_dir, invocation_focus);
+    }
+    wire::write_proc_header(
+        &f.spool_dir,
+        1410,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "m1")],
+        None,
+    );
+    wire::SpoolBuilder::new(1410, 1, "main")
+        .call(0, 1000, 0, 0)
+        .ret_none(1, 1200, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+    (f, conn)
+}
+
+/// An unfocused invocation with two focused manifests beside it: BOTH keys
+/// absent -- not empty lists. Measured 2026-09-06 before R-F11, this run
+/// reported `focus: ["load"]`, a previous invocation's.
+#[test]
+fn an_unfocused_invocation_carries_no_focus_key_however_many_manifests_have_one() {
+    let (_f, conn) = a9_run("a9-none", &[]);
+    assert_eq!(meta_rows(&conn, "focus"), 0, "absent, not []");
+    assert_eq!(meta_rows(&conn, "focus_matched"), 0, "absent, not []");
+    // Registered-scoped and unaffected: M1 holds a `line` site and ran.
+    assert_eq!(meta(&conn, "capabilities")["line"], serde_json::json!(true));
+}
+
+/// `--focus load`: M2 speaks though it never registered (A9 -- a unit built
+/// under this focus whose code never ran still matched); M3 cannot, however
+/// in scope it is.
+#[test]
+fn a_focused_invocation_unions_only_the_manifests_built_under_its_own_list() {
+    let (_f, conn) = a9_run("a9-load", &["load"]);
+    assert_eq!(meta(&conn, "focus"), serde_json::json!(["load"]));
+    assert_eq!(
+        meta(&conn, "focus_matched"),
+        serde_json::json!(["load"]),
+        "`other` belongs to another build"
+    );
+    assert_eq!(meta(&conn, "capabilities")["line"], serde_json::json!(true));
+
+    let (_f2, conn) = a9_run("a9-other", &["other"]);
+    assert_eq!(meta(&conn, "focus"), serde_json::json!(["other"]));
+    assert_eq!(meta(&conn, "focus_matched"), serde_json::json!(["other"]));
 }

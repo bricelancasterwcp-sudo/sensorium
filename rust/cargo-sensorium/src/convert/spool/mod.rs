@@ -572,6 +572,15 @@ pub struct InvocationRecord {
     pub target_dir: String,
     pub tool_hash: String,
     pub driver_version: String,
+    /// The `--focus` values this invocation was given, de-duplicated and in
+    /// the order typed (design A9 / ruling R-F11). THE source of a trace's
+    /// `focus`: the driver knows what it was asked for, and a manifests
+    /// directory -- which accumulates one manifest per focus a workspace was
+    /// ever built under (A8) -- does not. `#[serde(default)]` so an
+    /// `invocation.json` written before the key existed reads as no focus,
+    /// which is what it was.
+    #[serde(default)]
+    pub focus: Vec<String>,
 }
 
 impl InvocationRecord {

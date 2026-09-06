@@ -13,6 +13,7 @@
 mod chains;
 mod errflow;
 mod fingerprint;
+mod focus;
 mod frames;
 mod manifest;
 mod merge;
@@ -26,7 +27,7 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 
-use manifest::{FocusRecord, Manifest, SiteKind};
+use manifest::{Manifest, SiteKind};
 use spool::{InvocationRecord, ProcHeader, RunnerRecord};
 
 /// One pid's worth of the report `convert_dir` prints.
@@ -391,51 +392,6 @@ fn site_table(registered: &[String], manifests: &BTreeMap<String, Manifest>) -> 
 /// RECORD can only come from a unit this process linked and registered, so a
 /// capability read off registered units cannot promise rows that cannot exist.
 ///
-/// `values` comes from a REGISTERED unit's manifest and from nowhere else:
-/// the focus of a run is the focus the code that RAN was compiled under. A
-/// focus changes the shim's path, which changes `-C metadata`, which gives
-/// every focus its own unit and its own manifest file -- so a manifests
-/// directory holds one manifest PER FOCUS a workspace was ever built under,
-/// all of them equally "in scope". Taking `values` from the first in-scope
-/// manifest instead made an unfocused run of `corpus/rust/silent_swallow`
-/// report `focus: ["load"]` from a previous invocation (measured 2026-09-06).
-/// `None` when no registered unit carries a record -- the unfocused build --
-/// which is what makes `focus`/`focus_matched` absent rather than empty.
-///
-/// `matched` is then the sorted, de-duplicated union over every manifest built
-/// under THOSE SAME values that is either this invocation's (`workspace_root`
-/// matches -- a shared `CARGO_TARGET_DIR` holds every workspace's manifests in
-/// one directory) or registered by this process. Manifests from another focus
-/// are excluded; nothing else is.
-fn focus_record(
-    registered: &[String],
-    manifests: &BTreeMap<String, Manifest>,
-    invocation_workspace_root: &str,
-) -> Option<FocusRecord> {
-    let values = registered
-        .iter()
-        .filter_map(|metadata| manifests.get(metadata))
-        .find_map(|m| m.focus.as_ref().map(|focus| focus.values.clone()))?;
-    let mut matched: Vec<String> = Vec::new();
-    for (metadata, m) in manifests {
-        let mine = manifest_in_scope(m, invocation_workspace_root)
-            || registered.iter().any(|r| r == metadata);
-        if !mine {
-            continue;
-        }
-        let Some(focus) = m.focus.as_ref() else {
-            continue;
-        };
-        if focus.values != values {
-            continue;
-        }
-        matched.extend(focus.matched.iter().cloned());
-    }
-    matched.sort();
-    matched.dedup();
-    Some(FocusRecord { values, matched })
-}
-
 /// How many `line` sites the units this process REGISTERED hold. The whole
 /// basis for `capabilities.line`/`locals`: a run with none cannot produce a
 /// LINE row, whatever was typed on the command line.
@@ -575,7 +531,11 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         None => (None, None, "unwitnessed", None),
     };
 
-    let focus = focus_record(&registered, c.all_manifests, &c.invocation.workspace_root);
+    let focus = focus::record(
+        &c.invocation.focus,
+        c.all_manifests,
+        &c.invocation.workspace_root,
+    );
     let meta_input = meta::MetaInput {
         run_id: c.run_id,
         argv: &c.proc.argv,
@@ -710,77 +670,5 @@ mod tests {
     fn mint_run_ids_propagates_a_generator_error() {
         let err = mint_run_ids([1u32].into_iter(), |_| Err("boom".to_owned())).unwrap_err();
         assert_eq!(err, "boom");
-    }
-
-    /// One fixture row: `(metadata, workspace_root, focus values, focus
-    /// matched)`. A `None` focus is a unit built without one.
-    type Row<'a> = (&'a str, &'a str, Option<(&'a [&'a str], &'a [&'a str])>);
-
-    /// Through the real `Deserialize`, so the fixture cannot say anything a
-    /// manifest on disk could not.
-    fn manifests(rows: &[Row<'_>]) -> BTreeMap<String, Manifest> {
-        rows.iter()
-            .map(|(metadata, ws, focus)| {
-                let record = focus.map_or_else(String::new, |(values, matched)| {
-                    format!(
-                        r#","focus":{{"values":{},"matched":{}}}"#,
-                        json!(values),
-                        json!(matched)
-                    )
-                });
-                let text = format!(
-                    r#"{{"unit":"u","crate_name":"c","fell_back":false,
-                         "fallback_reason":null,"workspace_root":"{ws}"{record}}}"#
-                );
-                (
-                    (*metadata).to_owned(),
-                    serde_json::from_str(&text).expect("a manifest"),
-                )
-            })
-            .collect()
-    }
-
-    /// A focus makes cargo build a DISTINCT unit (the shim's path carries the
-    /// focus hash, so `-C metadata` changes with it), so a manifests directory
-    /// holds one manifest per focus the workspace was ever built under.
-    /// Measured 2026-09-06 on `corpus/rust/silent_swallow`: three invocations
-    /// (`--focus load`, none, `--focus main`) left three manifests, and a
-    /// union over every in-scope one made the UNFOCUSED run's trace claim
-    /// `focus: ["load"]`. A run's focus is its REGISTERED units' own.
-    #[test]
-    fn the_focus_is_the_registered_units_own_and_never_a_previous_builds() {
-        let m = manifests(&[
-            ("load", "/w", Some((&["load"], &["load"]))),
-            ("none", "/w", None),
-            ("main", "/w", Some((&["main"], &["main"]))),
-        ]);
-        assert_eq!(
-            focus_record(&["none".to_owned()], &m, "/w"),
-            None,
-            "an unfocused run must not inherit a previous focus"
-        );
-        let r = focus_record(&["main".to_owned()], &m, "/w").expect("a record");
-        assert_eq!(r.values, ["main"]);
-        assert_eq!(r.matched, ["main"], "`load`'s matches are another build's");
-    }
-
-    /// Build-scoped, still (ruling R-F10): a unit compiled under THIS focus
-    /// whose code never ran still contributed its matches, or a value that
-    /// selected only a never-executed function would be indistinguishable
-    /// from one that selected nothing anywhere.
-    #[test]
-    fn a_unit_built_under_this_focus_counts_even_when_it_never_registered() {
-        let m = manifests(&[
-            ("ran", "/w", Some((&["f"], &["a::f"]))),
-            ("linked", "/w", Some((&["f"], &["b::f"]))),
-            ("elsewhere", "/other", Some((&["f"], &["z::f"]))),
-        ]);
-        let r = focus_record(&["ran".to_owned()], &m, "/w").expect("a record");
-        assert_eq!(r.values, ["f"]);
-        assert_eq!(
-            r.matched,
-            ["a::f", "b::f"],
-            "another workspace's is not ours"
-        );
     }
 }

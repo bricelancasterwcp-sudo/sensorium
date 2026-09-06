@@ -440,6 +440,18 @@ pub fn write_invocation(dir: &Path, invocation: &str, workspace_root: &str, targ
     .unwrap();
 }
 
+/// The `--focus` this invocation was given (design A9 / ruling R-F11): the
+/// ONE source of a trace's `focus`. Patched onto the `invocation.json`
+/// `write_invocation` already wrote, the way `write_manifest_focus` patches a
+/// manifest, so that every existing fixture keeps its unfocused shape.
+pub fn set_invocation_focus(spool_dir: &Path, focus: &[&str]) {
+    let path = spool_dir.join("invocation.json");
+    let mut body: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    body["focus"] = serde_json::json!(focus);
+    std::fs::write(&path, serde_json::to_vec(&body).unwrap()).unwrap();
+}
+
 /// One site entry of a manifest's `files` map. A `fn` row and an err-flow row
 /// are different SHAPES (design R1b), and this one struct writes both: which
 /// keys are emitted is decided by `kind`, exactly as the transformer decides
