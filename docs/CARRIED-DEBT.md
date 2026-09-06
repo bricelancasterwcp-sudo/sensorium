@@ -10,6 +10,54 @@ the rung-3 inbox
 gitignored plan ledgers; nothing there is restated here, and that document
 stays the record for rungs 0–2.
 
+## 2026-09-05 — S0, trace contract for the sensor-suite program (docs only; no version moves)
+
+### Settled
+- Trace format 5 defined for model traces (`docs/trace-format/MODEL-TRACES.md`): `tokens` + `spans`
+  tables, generations as `tasks` rows, `lang: "model"`, `fingerprint_basis: "per-generation"`,
+  `exit_status_basis: "not-a-process-exit"`. Program recorders stay on 4.
+- The cross-trace join: `meta.join` (shared optional key), references over clocks, the one
+  same-process `ts_ns` exception (TRACE-FORMAT §6).
+- `signature` reading for program traces (MODEL-TRACES §8) — requested by crucible phase D.
+- Design spec rulings R1–R10; Brice ruled §12 as recommended (topk 8, recorder off by default,
+  `bless-noise` writes into A). Ledger: `.superpowers/sdd/2026-09-05-sensorium-s0-trace-contract/`.
+
+### Deferred, awaiting S1 (each named where it lands)
+- `query/vocab.py` model column; `exit_phrase` `n/a (model trace)`; `Trace` format-5 reader;
+  `gens`/`tokens`/`spans`/`bless-noise`/`signature` commands; program-command refusals on a model
+  trace (exit 2) — all pinned by `vectors/pending/m01–m10, p01`, promoted with the builder.
+- `tests/vectors.py` must learn `tokens`/`spans` rows, two-trace vectors (`meta2`/`tokens2`), a
+  pinned-reader harness (`m01`), `expect_absent`, `expect_col0`, `expect_same_key` — record each
+  in VECTORS.md at promotion.
+- README's three "trace format 4" sentences (lines ~345/387/578) stay true for program traces;
+  add the format-5 sentence when the recorder ships, not before.
+- `SENSORIUM_JOIN` → `meta.join` copy in `record/boot.py` (S3), with `tests/test_join_env.py`.
+- The pending vector set is `m01–m10` with `m05` as three files (a/b/c) and `m07` as two
+  (`m07a` present program trace, `m07b` trace-not-found), plus `p01`; README documents the extra
+  keys `meta2`/`tokens2`/`spans2`/`codes2`/`frames2`/`events2`/`absent2`/`harness`.
+
+### Deferred minors from the task reviews (the final review triages)
+- MODEL-TRACES: bare `(R3)`/`(R4)`/`(R5)` citations (§1, §5, §7) not in the "design spec §11 Rn"
+  form; three `###` subsection headings in §6/§7 beyond the spec's transcription.
+- TRACE-FORMAT: the events-table sentence "`ts_ns` … never compared" has no forward pointer to
+  §6's same-process exception.
+- pending vectors: `m08`'s question id names the model trace as the joinless one (it is `meta2`);
+  `m02` passes a placeholder `grep` pattern `x`; README could say that `start_ts`/`end_ts` (wall
+  seconds) and token `ts` (monotonic ns) are different clocks by contract.
+- model/HONESTY: index column header reads `Falsifier` where `rust/HONESTY-INDEX.md` says `What
+  could falsify it`.
+
+### Process lessons
+- A docs-only slice still needs a pytest run per task: `test_vectors.py`'s count is the fence that
+  `pending/` stayed invisible.
+- The S2 fork's reading of GATE-B/C found seven plan-level corrections before any pre-registration
+  was written; brief a fresh reader on the findings docs before locking anything.
+- Design authority used for R1–R10 with cost-if-wrong recorded; Brice reviewed the spec, not each
+  ruling — the ledger is what makes that reviewable later.
+- A plan that quotes shell heredocs must be written with a unique outer terminator; `EOF` inside
+  a code block truncated this plan's first write and ran its tail as shell (harmless, caught by
+  `git log`/`git status` before anything else).
+
 ## 2026-09-05 — rung 3, Err flow (Python 0.8.0 / crates 0.3.0)
 
 ### Settled
