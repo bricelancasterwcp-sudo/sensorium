@@ -1,0 +1,188 @@
+{
+  "id": "m04-diff-first-divergence-and-margin",
+  "asserts": "diff on two model traces pairs generations by name, names the first divergent position with both pieces and both margins, and reports a token outside the other side's top-k as '> topk-floor' rather than as a number",
+  "meta": {
+    "trace_format": 5,
+    "incomplete": false,
+    "run_id": "$RUN",
+    "lang": "model",
+    "recorder": "sensorium-model 0.1.0",
+    "fingerprint_basis": "per-generation",
+    "exit_status": null,
+    "exit_status_basis": "not-a-process-exit",
+    "topk": 2,
+    "main_thread_ident": 1,
+    "truncated_count": 0,
+    "source_hashes": {},
+    "capabilities": {
+      "line": false,
+      "locals": false,
+      "return_value": false,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": false,
+      "refocus": false,
+      "tokens": true,
+      "topk": true,
+      "entropy": true,
+      "spans": true,
+      "routing": false,
+      "activations": false,
+      "attention": false
+    },
+    "model": {
+      "name": "fixture-model",
+      "engine": "llama.cpp",
+      "engine_build": "b10200",
+      "weights_path": "/w/m.gguf",
+      "weights_sha256": "00",
+      "adapters": [],
+      "n_ctx": 4096,
+      "n_vocab": 8,
+      "backend": "vulkan",
+      "sampler": {
+        "kind": "greedy"
+      },
+      "flash_attention": true
+    }
+  },
+  "meta2": {
+    "same_as": "meta",
+    "run_id": "$RUN2"
+  },
+  "tasks": [
+    [
+      1,
+      "fx/patch-01",
+      1
+    ]
+  ],
+  "tokens": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "The",
+      "logprob": -0.1,
+      "entropy": 0.3,
+      "topk": [
+        [
+          3,
+          -0.1
+        ],
+        [
+          5,
+          -2.4
+        ]
+      ],
+      "ts": 1000
+    },
+    {
+      "task": 1,
+      "pos": 1,
+      "token": 5,
+      "piece": " fix",
+      "logprob": -0.2,
+      "entropy": 0.6,
+      "topk": [
+        [
+          5,
+          -0.2
+        ],
+        [
+          6,
+          -1.7
+        ]
+      ],
+      "ts": 2000
+    }
+  ],
+  "tokens2": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "The",
+      "logprob": -0.1,
+      "entropy": 0.3,
+      "topk": [
+        [
+          3,
+          -0.1
+        ],
+        [
+          5,
+          -2.4
+        ]
+      ],
+      "ts": 1000
+    },
+    {
+      "task": 1,
+      "pos": 1,
+      "token": 7,
+      "piece": " patch",
+      "logprob": -0.9,
+      "entropy": 1.1,
+      "topk": [
+        [
+          7,
+          -0.9
+        ],
+        [
+          5,
+          -1.0
+        ]
+      ],
+      "ts": 2000
+    }
+  ],
+  "spans": [],
+  "spans2": [],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "first-divergence-named",
+      "ask": "Does diff name generation fx/patch-01, position 1, pieces ' fix' vs ' patch'?",
+      "command": [
+        "diff",
+        "$RUN",
+        "$RUN2"
+      ],
+      "expect_exit": 1,
+      "expect_line": [
+        [
+          "fx/patch-01",
+          "p1"
+        ],
+        [
+          " fix",
+          " patch"
+        ]
+      ]
+    },
+    {
+      "id": "margin-outside-topk-is-not-a-number",
+      "ask": "Under A's distribution token 7 is outside top-2: is the margin printed as '> topk-floor' and under B's as 0.10?",
+      "command": [
+        "diff",
+        "$RUN",
+        "$RUN2"
+      ],
+      "expect_exit": 1,
+      "expect_line": [
+        [
+          "margin",
+          "> topk-floor"
+        ],
+        [
+          "margin",
+          "0.10"
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "id": "m10-zero-token-generation-row",
+  "asserts": "A generation that sampled zero tokens still gets a tasks row and a stop span naming why (eog at no position), and diff calls two identical zero-token generations MATCH -- the zero is a measured fact, not an absence.",
+  "meta": {
+    "trace_format": 5,
+    "incomplete": false,
+    "run_id": "$RUN",
+    "lang": "model",
+    "recorder": "sensorium-model 0.1.0",
+    "fingerprint_basis": "per-generation",
+    "exit_status": null,
+    "exit_status_basis": "not-a-process-exit",
+    "topk": 8,
+    "main_thread_ident": 1,
+    "truncated_count": 0,
+    "source_hashes": {},
+    "capabilities": {
+      "line": false,
+      "locals": false,
+      "return_value": false,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": false,
+      "refocus": false,
+      "tokens": true,
+      "topk": true,
+      "entropy": true,
+      "spans": true,
+      "routing": false,
+      "activations": false,
+      "attention": false
+    },
+    "model": {
+      "name": "fixture-model",
+      "engine": "llama.cpp",
+      "engine_build": "b10200",
+      "weights_path": "/w/m.gguf",
+      "weights_sha256": "00",
+      "adapters": [],
+      "n_ctx": 4096,
+      "n_vocab": 8,
+      "backend": "vulkan",
+      "sampler": {
+        "kind": "greedy"
+      },
+      "flash_attention": true
+    }
+  },
+  "meta2": {
+    "same_as": "meta",
+    "run_id": "$RUN2"
+  },
+  "tasks": [
+    [
+      1,
+      "fx/empty",
+      1
+    ]
+  ],
+  "tokens": [],
+  "tokens2": [],
+  "spans": [
+    {
+      "task": 1,
+      "kind": "stop",
+      "first_pos": null,
+      "last_pos": null,
+      "text": null,
+      "ref": {
+        "reason": "eog"
+      }
+    }
+  ],
+  "spans2": [
+    {
+      "task": 1,
+      "kind": "stop",
+      "first_pos": null,
+      "last_pos": null,
+      "text": null,
+      "ref": {
+        "reason": "eog"
+      }
+    }
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "zero-token-generation-reports-tokens-0",
+      "ask": "Does gens report the empty generation as tokens:0, stop:eog, rather than omitting it?",
+      "command": [
+        "gens",
+        "$RUN"
+      ],
+      "expect_exit": 0,
+      "expect_line": [
+        [
+          "g1",
+          "fx/empty",
+          "tokens:0",
+          "stop:eog"
+        ]
+      ]
+    },
+    {
+      "id": "two-identical-empty-generations-match",
+      "ask": "Two runs whose only generation sampled nothing: does diff call it MATCH?",
+      "command": [
+        "diff",
+        "$RUN",
+        "$RUN2"
+      ],
+      "expect_exit": 0,
+      "expect_line": [
+        [
+          "MATCH"
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,275 @@
+{
+  "id": "p01-signature-canonical-json",
+  "asserts": "signature's canonical JSON is derived from a program trace's causal stream, not from its source location: a run that raised, unwound and never returned reports outcome raised / disposition PROPAGATED / fork.qualname naming the raising frame, excludes exc.msg, and hashes to the same key when the same code is renamed to a different file at composition.",
+  "meta": {
+    "run_id": "$RUN",
+    "argv": [
+      "prog"
+    ],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 1,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "sensorium 0.8.1",
+    "lang": "python",
+    "capabilities": {
+      "line": true,
+      "locals": true,
+      "return_value": true,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": true,
+      "refocus": true
+    },
+    "trace_format": 4,
+    "incomplete": false
+  },
+  "meta2": {
+    "run_id": "$RUN2",
+    "argv": [
+      "prog"
+    ],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 1,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "sensorium 0.8.1",
+    "lang": "python",
+    "capabilities": {
+      "line": true,
+      "locals": true,
+      "return_value": true,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": true,
+      "refocus": true
+    },
+    "trace_format": 4,
+    "incomplete": false
+  },
+  "codes": [
+    [
+      "/w/unit_17.py",
+      "unit_17.helper",
+      3
+    ],
+    [
+      "/w/unit_17.py",
+      "unit_17.run",
+      9
+    ]
+  ],
+  "frames": [
+    {
+      "parent": null,
+      "code": 2,
+      "call": 1,
+      "return": null,
+      "depth": 0,
+      "thread": 1,
+      "closed_by": "unwind",
+      "kind": "function",
+      "unwind_exc": {
+        "type": "TypeError",
+        "msg": "bad",
+        "oid": 1
+      }
+    },
+    {
+      "parent": 1,
+      "code": 1,
+      "call": 2,
+      "return": null,
+      "depth": 1,
+      "thread": 1,
+      "closed_by": "unwind",
+      "kind": "function",
+      "unwind_exc": {
+        "type": "TypeError",
+        "msg": "bad",
+        "oid": 1
+      }
+    }
+  ],
+  "events": [
+    {
+      "ts": 1000,
+      "thread": 1,
+      "kind": "CALL",
+      "code": 2,
+      "line": 9,
+      "payload": {
+        "args": {}
+      },
+      "task": null
+    },
+    {
+      "ts": 2000,
+      "thread": 1,
+      "kind": "CALL",
+      "code": 1,
+      "line": 3,
+      "payload": {
+        "args": {}
+      },
+      "task": null
+    },
+    {
+      "ts": 3000,
+      "thread": 1,
+      "kind": "RAISE",
+      "frame": 2,
+      "code": 1,
+      "line": 4,
+      "payload": {
+        "exc": {
+          "type": "TypeError",
+          "msg": "bad",
+          "oid": 1
+        }
+      },
+      "task": null
+    }
+  ],
+  "codes2": [
+    [
+      "/w/unit_18.py",
+      "unit_17.helper",
+      3
+    ],
+    [
+      "/w/unit_18.py",
+      "unit_17.run",
+      9
+    ]
+  ],
+  "frames2": [
+    {
+      "parent": null,
+      "code": 2,
+      "call": 1,
+      "return": null,
+      "depth": 0,
+      "thread": 1,
+      "closed_by": "unwind",
+      "kind": "function",
+      "unwind_exc": {
+        "type": "TypeError",
+        "msg": "bad",
+        "oid": 1
+      }
+    },
+    {
+      "parent": 1,
+      "code": 1,
+      "call": 2,
+      "return": null,
+      "depth": 1,
+      "thread": 1,
+      "closed_by": "unwind",
+      "kind": "function",
+      "unwind_exc": {
+        "type": "TypeError",
+        "msg": "bad",
+        "oid": 1
+      }
+    }
+  ],
+  "events2": [
+    {
+      "ts": 1000,
+      "thread": 1,
+      "kind": "CALL",
+      "code": 2,
+      "line": 9,
+      "payload": {
+        "args": {}
+      },
+      "task": null
+    },
+    {
+      "ts": 2000,
+      "thread": 1,
+      "kind": "CALL",
+      "code": 1,
+      "line": 3,
+      "payload": {
+        "args": {}
+      },
+      "task": null
+    },
+    {
+      "ts": 3000,
+      "thread": 1,
+      "kind": "RAISE",
+      "frame": 2,
+      "code": 1,
+      "line": 4,
+      "payload": {
+        "exc": {
+          "type": "TypeError",
+          "msg": "bad",
+          "oid": 1
+        }
+      },
+      "task": null
+    }
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "signature-json-shape-and-msg-excluded",
+      "ask": "unit_17.run called unit_17.helper, which raised TypeError('bad') and unwound both frames with no RETURN: does signature --json report basis signature-v1, outcome raised, fork.qualname unit_17.helper, disposition PROPAGATED, and omit exc.msg entirely?",
+      "command": [
+        "signature",
+        "$RUN",
+        "--json"
+      ],
+      "expect_exit": 0,
+      "expect_line": [
+        [
+          "\"basis\": \"signature-v1\""
+        ],
+        [
+          "\"outcome\": \"raised\""
+        ],
+        [
+          "\"qualname\": \"unit_17.helper\""
+        ],
+        [
+          "\"disposition\": \"PROPAGATED\""
+        ]
+      ],
+      "expect_absent": [
+        "\"msg\""
+      ]
+    },
+    {
+      "id": "same-signature-after-file-rename-at-composition",
+      "ask": "The identical frames and events, recorded under codes whose file is /w/unit_18.py instead of /w/unit_17.py but whose qualnames are unchanged: does signature --json hash to the SAME key, since qualname (not file) is what the identity is keyed on?",
+      "command": [
+        "signature",
+        "$RUN2",
+        "--json"
+      ],
+      "expect_exit": 0,
+      "expect_same_key": true
+    }
+  ]
+}

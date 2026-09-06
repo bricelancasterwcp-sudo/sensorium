@@ -1,0 +1,163 @@
+{
+  "id": "m05a-diff-within-noise-needs-blessed-band",
+  "asserts": "A divergence outside any blessed noise band is DIVERGED even when both tokens sit inside each other's top-k -- proximity alone never earns MATCH (within noise).",
+  "meta": {
+    "trace_format": 5,
+    "incomplete": false,
+    "run_id": "$RUN",
+    "lang": "model",
+    "recorder": "sensorium-model 0.1.0",
+    "fingerprint_basis": "per-generation",
+    "exit_status": null,
+    "exit_status_basis": "not-a-process-exit",
+    "topk": 8,
+    "main_thread_ident": 1,
+    "truncated_count": 0,
+    "source_hashes": {},
+    "capabilities": {
+      "line": false,
+      "locals": false,
+      "return_value": false,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": false,
+      "refocus": false,
+      "tokens": true,
+      "topk": true,
+      "entropy": true,
+      "spans": true,
+      "routing": false,
+      "activations": false,
+      "attention": false
+    },
+    "model": {
+      "name": "fixture-model",
+      "engine": "llama.cpp",
+      "engine_build": "b10200",
+      "weights_path": "/w/m.gguf",
+      "weights_sha256": "00",
+      "adapters": [],
+      "n_ctx": 4096,
+      "n_vocab": 8,
+      "backend": "vulkan",
+      "sampler": {
+        "kind": "greedy"
+      },
+      "flash_attention": true
+    }
+  },
+  "meta2": {
+    "same_as": "meta",
+    "run_id": "$RUN2"
+  },
+  "tasks": [
+    [
+      1,
+      "fx/patch-01",
+      1
+    ]
+  ],
+  "tokens": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "The",
+      "logprob": -0.1,
+      "entropy": 0.3,
+      "topk": [
+        [
+          3,
+          -0.1
+        ],
+        [
+          5,
+          -2.4
+        ]
+      ],
+      "ts": 1000
+    },
+    {
+      "task": 1,
+      "pos": 1,
+      "token": 5,
+      "piece": " fix",
+      "logprob": -0.2,
+      "entropy": 0.6,
+      "topk": [
+        [
+          5,
+          -0.2
+        ],
+        [
+          6,
+          -0.25
+        ]
+      ],
+      "ts": 2000
+    }
+  ],
+  "tokens2": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "The",
+      "logprob": -0.1,
+      "entropy": 0.3,
+      "topk": [
+        [
+          3,
+          -0.1
+        ],
+        [
+          5,
+          -2.4
+        ]
+      ],
+      "ts": 1000
+    },
+    {
+      "task": 1,
+      "pos": 1,
+      "token": 6,
+      "piece": " match",
+      "logprob": -0.23,
+      "entropy": 0.58,
+      "topk": [
+        [
+          6,
+          -0.23
+        ],
+        [
+          5,
+          -0.3
+        ]
+      ],
+      "ts": 2000
+    }
+  ],
+  "spans": [],
+  "spans2": [],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "no-band-no-within-noise-reading",
+      "ask": "Both tokens sit in each other's top-2 with small margins, but A carries no `noise_band`: is the verdict DIVERGED, not MATCH (within noise)?",
+      "command": [
+        "diff",
+        "$RUN",
+        "$RUN2"
+      ],
+      "expect_exit": 1,
+      "expect_line": [
+        [
+          "DIVERGED"
+        ]
+      ]
+    }
+  ]
+}

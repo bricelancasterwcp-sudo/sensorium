@@ -1,0 +1,172 @@
+{
+  "id": "m02-model-trace-program-commands-refuse",
+  "asserts": "The program-reading commands (tree, frame, grep, exceptions) refuse on a model trace with one sentence naming the model's own commands, rather than reading the empty code_objects/frames/events tables as an empty program.",
+  "meta": {
+    "trace_format": 5,
+    "incomplete": false,
+    "run_id": "$RUN",
+    "lang": "model",
+    "recorder": "sensorium-model 0.1.0",
+    "fingerprint_basis": "per-generation",
+    "exit_status": null,
+    "exit_status_basis": "not-a-process-exit",
+    "topk": 8,
+    "main_thread_ident": 1,
+    "truncated_count": 0,
+    "source_hashes": {},
+    "capabilities": {
+      "line": false,
+      "locals": false,
+      "return_value": false,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": false,
+      "refocus": false,
+      "tokens": true,
+      "topk": true,
+      "entropy": true,
+      "spans": true,
+      "routing": false,
+      "activations": false,
+      "attention": false
+    },
+    "model": {
+      "name": "fixture-model",
+      "engine": "llama.cpp",
+      "engine_build": "b10200",
+      "weights_path": "/w/m.gguf",
+      "weights_sha256": "00",
+      "adapters": [],
+      "n_ctx": 4096,
+      "n_vocab": 8,
+      "backend": "vulkan",
+      "sampler": {
+        "kind": "greedy"
+      },
+      "flash_attention": true
+    }
+  },
+  "tasks": [
+    [
+      1,
+      "fx/patch-01",
+      1
+    ]
+  ],
+  "tokens": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "ok",
+      "logprob": -0.05,
+      "entropy": 0.1,
+      "topk": [
+        [
+          3,
+          -0.05
+        ]
+      ],
+      "ts": 1000
+    }
+  ],
+  "spans": [
+    {
+      "task": 1,
+      "kind": "stop",
+      "first_pos": 0,
+      "last_pos": 0,
+      "text": null,
+      "ref": {
+        "reason": "eog"
+      }
+    }
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "tree-refuses",
+      "ask": "Does `tree` refuse on a model trace with the model-trace sentence?",
+      "command": [
+        "tree",
+        "$RUN"
+      ],
+      "expect_exit": 2,
+      "expect_line": [
+        [
+          "REFUSED:",
+          "reads program"
+        ],
+        [
+          "this is a model trace",
+          "use gens/tokens/spans"
+        ]
+      ]
+    },
+    {
+      "id": "frame-refuses",
+      "ask": "Does `frame --fn x` refuse on a model trace with the model-trace sentence?",
+      "command": [
+        "frame",
+        "$RUN",
+        "--fn",
+        "x"
+      ],
+      "expect_exit": 2,
+      "expect_line": [
+        [
+          "REFUSED:",
+          "reads program"
+        ],
+        [
+          "this is a model trace",
+          "use gens/tokens/spans"
+        ]
+      ]
+    },
+    {
+      "id": "grep-refuses",
+      "ask": "Does `grep --kind RETURN` refuse on a model trace with the model-trace sentence?",
+      "command": [
+        "grep",
+        "$RUN",
+        "x",
+        "--kind",
+        "RETURN"
+      ],
+      "expect_exit": 2,
+      "expect_line": [
+        [
+          "REFUSED:",
+          "reads program"
+        ],
+        [
+          "this is a model trace",
+          "use gens/tokens/spans"
+        ]
+      ]
+    },
+    {
+      "id": "exceptions-refuses",
+      "ask": "Does `exceptions` refuse on a model trace with the model-trace sentence, rather than its lang-keyed or capability refusal?",
+      "command": [
+        "exceptions",
+        "$RUN"
+      ],
+      "expect_exit": 2,
+      "expect_line": [
+        [
+          "REFUSED:",
+          "reads program"
+        ],
+        [
+          "this is a model trace",
+          "use gens/tokens/spans"
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,185 @@
+{
+  "id": "m07-spans-exec-ref-joins-program-trace",
+  "asserts": "An action span's exec ref is the join to a program trace: spans prints the referenced run's exit and basis when that trace exists, and says plainly when it does not, rather than silently omitting the reference or reading a missing one as exit 0.",
+  "meta": {
+    "trace_format": 5,
+    "incomplete": false,
+    "run_id": "$RUN",
+    "lang": "model",
+    "recorder": "sensorium-model 0.1.0",
+    "fingerprint_basis": "per-generation",
+    "exit_status": null,
+    "exit_status_basis": "not-a-process-exit",
+    "topk": 8,
+    "main_thread_ident": 1,
+    "truncated_count": 0,
+    "source_hashes": {},
+    "capabilities": {
+      "line": false,
+      "locals": false,
+      "return_value": false,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": false,
+      "refocus": false,
+      "tokens": true,
+      "topk": true,
+      "entropy": true,
+      "spans": true,
+      "routing": false,
+      "activations": false,
+      "attention": false
+    },
+    "model": {
+      "name": "fixture-model",
+      "engine": "llama.cpp",
+      "engine_build": "b10200",
+      "weights_path": "/w/m.gguf",
+      "weights_sha256": "00",
+      "adapters": [],
+      "n_ctx": 4096,
+      "n_vocab": 8,
+      "backend": "vulkan",
+      "sampler": {
+        "kind": "greedy"
+      },
+      "flash_attention": true
+    }
+  },
+  "meta2": {
+    "trace_format": 4,
+    "run_id": "$RUN2",
+    "argv": [
+      "python3",
+      "-m",
+      "unittest"
+    ],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 1,
+    "exit_status_basis": "waited",
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "sensorium 0.8.1",
+    "lang": "python",
+    "capabilities": {
+      "line": true,
+      "locals": true,
+      "return_value": true,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": true,
+      "refocus": true
+    },
+    "incomplete": false
+  },
+  "tasks": [
+    [
+      1,
+      "fx/patch-01",
+      1
+    ]
+  ],
+  "tokens": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "ok",
+      "logprob": -0.05,
+      "entropy": 0.1,
+      "topk": [
+        [
+          3,
+          -0.05
+        ]
+      ],
+      "ts": 1000
+    }
+  ],
+  "spans": [
+    {
+      "task": 1,
+      "kind": "action",
+      "first_pos": 0,
+      "last_pos": 0,
+      "text": "<action verb=\"run\">python3 -m unittest</action>",
+      "ref": {
+        "verb": "run",
+        "attrs": {},
+        "exec": {
+          "run_id": "$RUN2",
+          "exit_status": 1,
+          "exit_status_basis": "waited"
+        }
+      }
+    },
+    {
+      "task": 1,
+      "kind": "action",
+      "first_pos": 1,
+      "last_pos": 1,
+      "text": "<action verb=\"run\">python3 -m pytest tests/missing.py</action>",
+      "ref": {
+        "verb": "run",
+        "attrs": {},
+        "exec": {
+          "run_id": "20260101-000000-dangling",
+          "exit_status": null,
+          "exit_status_basis": "unwitnessed"
+        }
+      }
+    }
+  ],
+  "absent2": true,
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "exec-ref-joins-present-program-trace",
+      "ask": "The generation's first action ran under sensorium as $RUN2, which exists and exited 1 (waited): does spans print that fact against the action?",
+      "command": [
+        "spans",
+        "$RUN",
+        "--gen",
+        "fx/patch-01"
+      ],
+      "expect_exit": 0,
+      "expect_line": [
+        [
+          "exec run",
+          "$RUN2"
+        ],
+        [
+          "exit 1 (waited)"
+        ]
+      ]
+    },
+    {
+      "id": "exec-ref-to-a-trace-that-was-never-built-says-so",
+      "ask": "The generation's second action names a run id that was never built: does spans say the trace was not found, rather than printing a fabricated exit?",
+      "command": [
+        "spans",
+        "$RUN",
+        "--gen",
+        "fx/patch-01"
+      ],
+      "expect_exit": 0,
+      "expect_line": [
+        [
+          "exec run",
+          "(trace not found)"
+        ]
+      ]
+    }
+  ]
+}
