@@ -228,6 +228,9 @@ Optional on every trace, written by whoever launched or wrote it:
           "pid": 41213, "anchor": {"clock": "monotonic", "process": 41213}}}
 ```
 
+`gen` is the generation name for a `model` or `program` join and **null** for a `harness`
+join (a whole-process trace is tied to no single generation).
+
 | `role` | Who writes it |
 |---|---|
 | `model` | The model recorder itself, into its own trace, at finalize. |
@@ -282,7 +285,9 @@ before anyone stores one:
 | Field | Alternatives |
 |---|---|
 | `outcome` | `"raised"` \| `"returned"` \| `"unwound"` \| `"open"` |
+| `exc` | the `{type, kind}` object when the run raised, **null** when `outcome` is `returned` or `open` |
 | `disposition` | `"PROPAGATED"` \| `"SWALLOWED"` \| `"HANDLED"` \| `"AMBIGUOUS"` \| `null` |
+| `fork` | the frame object when a raising or diverging frame exists, **null** when the run returned with no divergence from the reference (or no reference was given and nothing raised) |
 | `closed_by` | `"unwind"` \| `"return"` \| `null` |
 
 - **Identity, not description**: it hashes to a key by content (`blake2b-16` over the canonical
