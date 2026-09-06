@@ -91,7 +91,7 @@ DOC = (REPO / "docs" / "superpowers" / "acceptance"
 #: The commit that committed THIS document's §1 ALONE, before any number
 #: below was read. `None` until that commit exists, and a `None` lock REFUSES
 #: rather than measuring against a pre-registration that can still be edited.
-BYTE_LOCK = None
+BYTE_LOCK = "9bf64df"
 
 #: The record this run assembles. A different file from the first record's,
 #: so a repair that ran twice could never be mistaken for the STOP it repairs.
