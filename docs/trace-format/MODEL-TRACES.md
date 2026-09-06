@@ -105,9 +105,12 @@ CREATE INDEX idx_spans_task ON spans(task_id);
 | kind | ref keys |
 |---|---|
 | `prompt` | `{"bytes": n, "sha256": "…", "memory_stamp": {"kind": "injected"\|"silent"\|"off", "episode_id": …\|null}, "grant": {…}\|null, "trunc": bool}` — the stamp and grant are **copied from the daemon's journal row for this turn**, so the trace says what the prompt carried without a reader re-rendering it. |
-| `action` | `{"verb": "read"\|"patch"\|"run"\|"find"\|"done"\|…, "attrs": {…}, "exec": {"run_id": "<program trace run_id>"\|null, "exit_status": n\|null, "exit_status_basis": "waited"\|"unwitnessed"\|"not-run"}}` — `exec.run_id` is the join to the program trace (§7); `not-run` means the action was refused or never executed. |
-| `answer` | `{"trunc": bool}` — completion text outside any action block. |
+| `action` | `{"verb": "read"\|"patch"\|"run"\|"find"\|"done"\|…, "attrs": {…}, "exec": {"run_id": "<program trace run_id>"\|null, "exit_status": n\|null, "exit_status_basis": "waited"\|"unwitnessed"\|"not-run"}, "boundary_inside_token": true}` — `exec.run_id` is the join to the program trace (§7); `not-run` means the action was refused or never executed. |
+| `answer` | `{"trunc": bool, "boundary_inside_token": true}` — completion text outside any action block. |
 | `stop` | `{"reason": "eog"\|"stop-string"\|"max-tokens"\|"window"\|"error", "detail": …}` |
+
+`boundary_inside_token` is optional and present only when a scanner byte boundary fell inside a
+multi-byte token; the boundary is then assigned to the token that completes it (design spec §7).
 
 ## 4. Capabilities
 
