@@ -424,4 +424,27 @@ of them — its gate value 26 is the value these amendments make unambiguous.
   by-value `self`. Nine fully capped 8-char-named deltas fit one record; the
   tenth drops with `flags.bit0`. Tag 0 is legal in the grammar and
   unwritable by the runtime; the converter REFUSES it naming the record.
+- **A8 (2026-09-06, after Task 3) — the focus reaches cargo's fingerprint
+  through the shim path.** §2.3's mirror stamp is necessary but not
+  sufficient: cargo consults no `SENSORIUM_*` variable, so with the stamp
+  alone a second invocation under a new focus printed `Finished in 0.00s`
+  and re-ran the first build's binary. The wrapper shim path therefore
+  carries the focus hash (`<tool_hash>-<focus_hash>`, the mechanism
+  `install_shim` already documents); an unfocused build keeps the bare tool
+  hash. Consequence: every focus has its own `-C metadata`, its own mirror
+  and its own unit manifests, which accumulate in the target directory
+  across invocations. Cost: one shim copy (~40 MB) and one artifact set per
+  distinct focus — accepted for slice 1, CARRIED-DEBT for a hard link.
+- **A9 (2026-09-06, R-F11) — which manifests speak for THIS invocation.**
+  Because manifests accumulate (A8), §2.4's union "over all in-scope
+  manifests" would let an earlier focused build's manifest label an
+  unfocused run (`focus: ["load"]` on a run that had none — observed). Rule:
+  `meta.focus` is THE INVOCATION'S list, handed to the converter by the
+  driver, never read from manifests; `meta.focus_matched` is the sorted
+  union of `matched` over in-scope manifests whose `focus.values` equals the
+  invocation's list (an absent record equals the empty list), so it stays a
+  fact about this build and cannot borrow another's; `capabilities.line` /
+  `locals` stay registered-scoped (a LINE record cannot exist for an
+  unregistered unit). §2.2's `skipped_only` carries `(value, qualname,
+  reason)`, the three things its sentence names.
 
