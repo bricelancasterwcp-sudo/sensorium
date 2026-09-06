@@ -43,7 +43,6 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "rust" / "tests"))
@@ -53,7 +52,6 @@ import acceptance_grain as runner                                  # noqa: E402
 import acceptance_grain_read as read                               # noqa: E402
 import acceptance_lib as lib                                       # noqa: E402
 import acceptance_phases as ph                                     # noqa: E402
-from acceptance_lib import Refused                                 # noqa: E402
 
 # Importing this runner re-points the SHARED log pointers at THIS document's
 # workspace (its job). `tests/test_acceptance_e6q.py` and `..._e6ppp.py`

@@ -44,7 +44,6 @@ sys.path.insert(0, str(REPO / "rust" / "tests"))
 import acceptance_e6ppp as e6ppp                                   # noqa: E402
 import acceptance_grain as runner                                  # noqa: E402
 import acceptance_grain_phases as phases                           # noqa: E402
-import acceptance_grain_read as read                               # noqa: E402
 import acceptance_lib as lib                                       # noqa: E402
 import acceptance_phases as ph                                     # noqa: E402
 import acceptance_rung3 as rung3                                   # noqa: E402
