@@ -184,5 +184,5 @@
     "expect_exit": 0,
     "expect_contains": ["dispositions: swallowed 1, returned-to-harness 1"],
     "expect_line": [["... 1 more; continue with: sensorium exceptions",
-                     "--after e4 --limit 1"]],
+                     "--limit 2"]],
     "expect_absent": ["e9 RAISE"]}]}

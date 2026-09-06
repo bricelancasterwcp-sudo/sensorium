@@ -140,7 +140,12 @@ with, none of it ranked, each item with the thing that would settle it.
   *observed* — that says the program looked at the failure and names where,
   without ever being a SWALLOWED candidate. It would also settle the match-guard
   wording debt that E6‴ §5.2 leaves open (R15's ruling settles the verdict;
-  it does not give the reader a word for what the guard did).
+  it does not give the reader a word for what the guard did). *(2026-09-05,
+  rung-4 entry N1: the WORDING debt is paid — `rust/HONESTY.md` §11 now says
+  "Reading the error does not carry it out" and "a guarded arm's disposition
+  is its body's" in the rule itself. What stays open here is the second half:
+  a reader still has no WORD for what the guard did, which is what an
+  observation tag would give.)*
 - **An `.unwrap()` / `.expect()` probe — NOT demanded by the measurement.**
   Rung 3 derived PANICKED from the panic hook instead, and said an E6′ demand
   would re-open it. There was none: the clone's tallies are
@@ -159,6 +164,25 @@ with, none of it ranked, each item with the thing that would settle it.
   `panicked` (`tests/test_exceptions_rust.py`), `left_thread` and
   `handled_then_failed` (`tests/test_exceptions_rust_ambiguous.py`), pinned by
   the Python suite alone (`docs/trace-format/VECTORS.md`).
+- **The in-source acknowledgment marker** — *added 2026-09-05 by the rung-4
+  entry slice (design N8, deferred with its notation decided).*
+  `// sensorium: acknowledged swallow — <reason>`, read by the transformer,
+  carried through the manifest and the converter, and printed as
+  `acknowledged N`. It is the shape that settles the three classes a reader
+  may reasonably contest (`docs/CARRIED-DEBT.md`, the borrow-repair section):
+  test-assertion arms, payload-free failures translated into a synthesised
+  value, and a re-worded absence. It is Rust-side and a slice of its own. A
+  file:line allowlist is rejected rather than deferred — such keys rot when
+  lines move.
+- **Grouping for Python traces** — *added 2026-09-05 by the rung-4 entry
+  slice (design N7).* `exceptions` now prints one block per SHAPE on a Rust
+  trace and one block per RAISE on a Python one, so the two languages differ
+  in grain for a release. Closing it needs the thing the Rust side had to
+  define first: **the site each Python disposition's verdict is about**, which
+  is what the shape key is built from. The Rust key is
+  `(tag, (file, line, qualname) of that site, masked verdict)`, with the
+  origin site — and its masked route — standing in for every verdict that
+  names no site.
 
 ## 3. Deferred minors carried out of rung 2's task reviews
 

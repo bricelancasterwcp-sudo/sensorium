@@ -68,11 +68,12 @@ from ``meta.partial``: its silence would otherwise read as "nothing
 happened there".
 """
 import shlex
+from pathlib import Path
 
 from sensorium.exit import ANSWERED, UNSETTLED
 from sensorium.query import caps
 from sensorium.query.exceptions_cmd import Disposition
-from sensorium.query.fmt import fmt_event, fmt_exc, more_note
+from sensorium.query.fmt import fmt_exc, more_note
 
 TAG_ORDER = ("swallowed", "panicked", "returned-to-harness", "propagated",
              "ambiguous")
@@ -141,9 +142,44 @@ def _how(event) -> str:
     return (event.payload or {}).get("how") or "?"
 
 
+def _site(trace, e) -> tuple:
+    """The site an event IS: `(file, line, qualname)` -- the code object's
+    file, the event's own line, and the code object's qualname.
+
+    The identity, not the rendering. Two `sandbox` helpers in two test files
+    each holding a `let _ =` at L42 print the same words and are not the
+    same place, and the first rung-4 measurement keyed on the words: 18 of
+    the workspace's chains were booked under a sibling file while every
+    count stayed right (ruling R-G12, `docs/superpowers/acceptance/
+    2026-09-05-sensorium-rung4-entry-grain.md` §4.3/§5.1). A code object
+    this trace does not carry is `("?", line, "?")` -- the same `?` `_at`
+    printed before there was a triple, so a site with no code object is
+    still one site and not a crash.
+    """
+    code = trace.code(e.code_id) if e.code_id is not None else None
+    return ((code.file if code is not None else "?"), e.line,
+            (code.qualname if code is not None else "?"))
+
+
+def site_text(site) -> str:
+    """`qualname L<line>` -- the way every verdict in this module names a
+    place, and the only spelling of it: `_at` renders through here, so the
+    text the grouper compares for a COLLISION cannot drift from the text the
+    verdict prints."""
+    _file, line, qualname = site
+    return f"{qualname} L{line}"
+
+
+def site_file(site) -> str:
+    """The site's file, basename only. What a colliding block adds to its
+    verdict (`sandbox L42 in task_exec_run_test.rs`): the full path is in
+    the trace for anyone who wants it, and the basename is what tells two
+    same-named helpers apart on one line."""
+    return Path(site[0]).name
+
+
 def _at(trace, e) -> str:
-    q = trace.code(e.code_id).qualname if e.code_id is not None else "?"
-    return f"{q} L{e.line}"
+    return site_text(_site(trace, e))
 
 
 class Index:
@@ -327,7 +363,7 @@ def _swallowed(trace, chain, idx) -> Disposition:
     return Disposition(
         "swallowed",
         f"SWALLOWED -- {_absorbed(trace, h)}{where}, which returned ok",
-        detail)
+        detail, site=_site(trace, h))
 
 
 def _panicked(trace, chain, idx) -> Disposition:
@@ -391,6 +427,15 @@ def _propagated(trace, chain, idx) -> Disposition:
         "were not all instrumented; every hop it took is listed below")
 
 
+#: The one sentence the tool prints under an escaped arm. It is a QUOTATION
+#: of `rust/HONESTY.md` §11's SWALLOWED definition (design N2, 2026-09-05):
+#: reading the error -- a guard, a predicate -- does not carry it out of the
+#: arm; only a value derived from it leaving the arm does.
+ESCAPED_DETAIL = ("a bound error that is stored, returned or moved out of the arm "
+                  "is not a swallow; an arm that only reads it (a guard, a "
+                  "predicate), formats or logs it and continues is one")
+
+
 def _escaped(trace, chain, idx) -> Disposition:
     """Two shapes wear one terminal, and the `how` of the last event says
     which: an `arm_ambiguous` HANDLED bound the error to a name and let the
@@ -399,9 +444,10 @@ def _escaped(trace, chain, idx) -> Disposition:
 
     Only the MOVE is ambiguous. An arm that borrows the error to format it
     and then carries on is an `arm_handled` and reaches `_swallowed`: the
-    failure never got past that arm, and the log is where it went (design
-    R15/§3, ruled 2026-09-04). `corpus/rust/err_stored` and
-    `corpus/rust/logged_arm` are the two sides of that line.
+    failure never got past that arm, and the log is where it went
+    (`rust/HONESTY.md` §11, the definition's one home).
+    `corpus/rust/err_stored` and `corpus/rust/logged_arm` are the two sides
+    of that line.
     """
     e = chain.last
     if _how(e) == "arm_ambiguous":
@@ -409,9 +455,7 @@ def _escaped(trace, chain, idx) -> Disposition:
             "ambiguous",
             f"ambiguous -- an Err(..) arm at e{e.id} ({_at(trace, e)}) bound "
             "it to a name and let the name escape",
-            "a bound error that is stored, returned or moved out of the arm "
-            "is not a swallow; an arm that only formats or logs it and "
-            "continues is one")
+            ESCAPED_DETAIL, site=_site(trace, e))
     return Disposition(
         "ambiguous",
         "ambiguous -- the frame holding it returned ok with no sink recorded",
@@ -440,7 +484,8 @@ def _handled_then_failed(trace, chain, idx) -> Disposition:
         f"ambiguous -- {_absorbed(trace, h)}{where}, but {tail}",
         "handled, then the frame failed for another reason -- the "
         "cleanup-then-fail blind spot (design R8): a genuine swallow in a "
-        "frame that later fails reads ambiguous, not a swallow")
+        "frame that later fails reads ambiguous, not a swallow",
+        site=_site(trace, h))
 
 
 def _left_thread(trace, chain, idx) -> Disposition:
@@ -514,32 +559,47 @@ def _header(trace, idx) -> None:
     caps.print_incomplete(
         trace, "an Err whose fate was recorded after the cut is not below, "
                "and its absence here is not evidence it had none")
-    if idx.panics:
-        # An answer of "no exceptions recorded" about a run that panicked
-        # is a false negative, and a tally with no panic in it reads as one
-        # even when chains ARE listed.
-        print(f"panics: {idx.panics} recorded -- this command judges Err "
-              "flow; a panic is a frame's unwind, printed by `tree` and "
-              "`frame`")
+    _print_panics(idx.panics)
     _print_partial(idx.partial)
 
 
-def _print_partial(rows) -> None:
+def _print_panics(panics: int) -> None:
+    """An answer of "no exceptions recorded" about a run that panicked is a
+    false negative, and a tally with no panic in it reads as one even when
+    chains ARE listed. One spelling, shared with invocation mode, which
+    prints the SUM over its members."""
+    if not panics:
+        return
+    print(f"panics: {panics} recorded -- this command judges Err flow; a "
+          "panic is a frame's unwind, printed by `tree` and `frame`")
+
+
+def _print_partial(rows, wheres=None, hint="sensorium info") -> None:
     """`meta.partial` (design R6): `?` sites the transformer could not
     reach. Printed BEFORE the answer because it qualifies the whole of it --
     an `Err` raised at one of these sites is recorded by nothing, so its
-    absence from the list below says nothing about the program."""
+    absence from the list below says nothing about the program.
+
+    `wheres` is invocation mode's parallel list of where each site was seen
+    -- a run id, or `"<k> processes"` for one several members carry. There
+    the list is a union across processes, and a row that did not say where
+    it came from would name a site the reader cannot go and look at. `None`
+    in single-run mode, where the process is the ref the reader already
+    typed. `hint` is the continuation for the rows the cap hides, which
+    that mode points at the first hidden row's process.
+    """
     if not rows:
         return
     noun = "?-site" if len(rows) == 1 else "?-sites"
     print(f"partial: {len(rows)} {noun} the transformer could not reach -- "
           "an Err raised at one is recorded by nothing and appears nowhere "
           "below")
-    for r in rows[:PARTIAL_SHOWN]:
+    for i, r in enumerate(rows[:PARTIAL_SHOWN]):
+        where = f" in {wheres[i]}" if wheres else ""
         print(f"  {r.get('qualname', '?')} {r.get('file', '?')}:"
-              f"{r.get('line', '?')} ({r.get('reason', '?')})")
+              f"{r.get('line', '?')} ({r.get('reason', '?')}){where}")
     if len(rows) > PARTIAL_SHOWN:
-        print(f"  ... {len(rows) - PARTIAL_SHOWN} more (sensorium info)")
+        print(f"  ... {len(rows) - PARTIAL_SHOWN} more ({hint})")
 
 
 def run(trace, args, after: int) -> int:
@@ -571,27 +631,29 @@ def run(trace, args, after: int) -> int:
     else:
         print(f"raised ({len(scope)}):")
 
-    tally: dict[str, int] = {}
-    shown, last = 0, after
-    for chain in scope:
-        d = classify(trace, chain, idx)
-        tally[d.tag] = tally.get(d.tag, 0) + 1
-        if shown < args.limit:
-            print("  " + fmt_event(trace, chain.origin))
-            print("    " + d.verdict)
-            if d.detail:
-                print("      " + d.detail)
-            hops = _hops_line(trace, chain)
-            if hops:
-                print("      " + hops)
-            shown, last = shown + 1, chain.origin.id
-    # Counted over every chain in scope, not just the printed ones, so the
-    # tally never shrinks because a page was clipped.
+    # One block per SHAPE, not per chain (design N3): `--after` has already
+    # chosen the CHAINS in scope, and the groups form over exactly those.
+    #
+    # Local: `exceptions_group` imports `_at` and `_hops_line` from this
+    # module, so a module-level import here would be a cycle.
+    from sensorium.query.exceptions_group import group_chains, print_shapes
+    shapes, tally = group_chains(trace, scope, idx, classify)
+    shown = print_shapes(trace, shapes, args.limit)
+    # Counted over every chain in scope, not just the printed ones and not
+    # per shape: the tally never shrinks because a page was clipped, and it
+    # stays comparable line-for-line with every record already written (N5).
     print("dispositions: " + ", ".join(f"{t} {tally[t]}" for t in TAG_ORDER
                                        if tally.get(t)))
-    note = more_note(len(scope), shown,
+    # Paging RAISES THE LIMIT rather than naming an event to resume after:
+    # `--after` cuts chains, and a cursor that cut a group in half would
+    # re-show it as a partial block still labelled with the whole count.
+    # The reader's OWN `--after` is carried through (ruling R-G7): dropping
+    # it made the continuation answer over a wider scope than the question
+    # asked, which is a hint that lies about what it will show.
+    scoped = f"--after e{after} " if after else ""
+    note = more_note(len(shapes), shown,
                      f"sensorium exceptions {shlex.quote(args.run)} "
-                     f"--after e{last} --limit {args.limit}")
+                     f"{scoped}--limit {len(shapes)}")
     if note:
         print(note)
     return ANSWERED
