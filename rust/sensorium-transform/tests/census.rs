@@ -35,7 +35,7 @@ mod common;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use sensorium_transform::{census, transform, SiteKind};
+use sensorium_transform::{census, transform, Focus, SiteKind};
 
 const META: &str = "b100meryb100mery";
 
@@ -285,7 +285,7 @@ fn census_on_the_bloomery_clone_or_skipped_when_sensorium_bloomery_clone_is_unse
         // most likely to break on real trailing comments, so it is exercised on
         // all of them, not just on the handful of real roots.
         for is_crate_root in [false, true] {
-            let out = transform(&source, &rel, META, next_site, is_crate_root)
+            let out = transform(&source, &rel, META, next_site, is_crate_root, &Focus::EMPTY)
                 .unwrap_or_else(|e| panic!("{rel} (crate_root={is_crate_root}): {e}"));
             if out.source.lines().count() != source.lines().count() + usize::from(out.appended_line)
             {

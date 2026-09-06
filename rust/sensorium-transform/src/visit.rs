@@ -26,10 +26,11 @@ use syn::{
 
 use crate::attrs::{inner_attr_end, scan_macro_fns};
 use crate::exits::{self, Operand};
+use crate::focus::Focus;
 use crate::names::{line_of, path_span, self_type_name};
 use crate::spawn;
 use crate::splice::{guard_fragment, ret_open_fragment, Kind, Splice, RET_CLOSE};
-use crate::{arms, closures, errflow, marks};
+use crate::{arms, closures, errflow, lines, marks};
 use crate::{Census, Partial, RetKind, Site, SiteKind, Skipped, SpawnSite, MAX_SITE_INDEX};
 
 /// What one walk found: everything `splice.rs` needs and nothing it does not.
@@ -40,6 +41,9 @@ pub(crate) struct Walked {
     /// Byte offset (for source order) and the site.
     pub spawns: Vec<(usize, SpawnSite)>,
     pub splices: Vec<Splice>,
+    /// The qualnames of the fn items this walk FOCUSED, in source order. Empty
+    /// under an empty focus, and the manifest's `focus.matched` for this file.
+    pub focused: Vec<String>,
 }
 
 /// One frame of the scope stack.
@@ -64,6 +68,12 @@ struct Frame {
 /// [`crate::splice`].
 pub(crate) struct Ctx<'a> {
     pub(crate) source: &'a str,
+    /// Which functions carry LINE probes (design 2026-09-06 §2.1). Empty for a
+    /// census and for every unfocused build, and the ONE thing that makes the
+    /// transformer's output depend on more than the source.
+    focus: &'a Focus,
+    /// The qualnames the focus matched here, in source order.
+    focused: Vec<String>,
     pub(crate) prefix: usize,
     pub(crate) file: &'a str,
     /// Push/pop of `mod`, `impl` self type, `trait`, enclosing fn, `const` and
@@ -143,9 +153,12 @@ impl<'a> Ctx<'a> {
         file: &'a str,
         first_site: u32,
         emit: bool,
+        focus: &'a Focus,
     ) -> Self {
         Ctx {
             source,
+            focus,
+            focused: Vec::new(),
             prefix,
             file,
             scope: Vec::new(),
@@ -190,6 +203,7 @@ impl<'a> Ctx<'a> {
             partial: self.partial,
             spawns: self.spawns,
             splices: self.splices,
+            focused: self.focused,
         })
     }
 
@@ -405,7 +419,7 @@ impl<'a> Ctx<'a> {
         self.sites.push(Site {
             site,
             file: self.file.to_owned(),
-            qualname,
+            qualname: qualname.clone(),
             firstlineno: line,
             ret: Some(ret),
             kind: SiteKind::Fn,
@@ -416,6 +430,16 @@ impl<'a> Ctx<'a> {
             // crate root's, and only the caller knows the root is a binary's.
             main: self.is_bin_root && self.scope.is_empty() && name == "main",
         });
+
+        // The focus is read AFTER `classify`, so an `async`/`const`/`extern` fn
+        // is never focused (design §2.2), and the LINE sites are minted after
+        // this fn's own so that `sites` stays in site-index order. `offset` is
+        // the guard's byte: the parameters LINE goes there too and sorts behind
+        // it (amendment A6).
+        if self.focus.matches(&qualname) {
+            lines::walk_body(self, sig, block, &qualname, offset);
+            self.focused.push(qualname);
+        }
     }
 
     /// The two splices of one exit wrap, with the operand's own outer attributes

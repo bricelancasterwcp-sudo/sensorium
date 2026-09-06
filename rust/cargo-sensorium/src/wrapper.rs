@@ -13,7 +13,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use sensorium_transform::{transform_file, FileRole, Manifest};
+use sensorium_transform::{transform_file, FileRole, Focus, Manifest};
 
 use crate::args::{self, Plan, Unit};
 use crate::fallback::{self, manifest_path, write_manifest};
@@ -273,7 +273,10 @@ pub fn build_unit(
             is_crate_root: i == 0,
             is_bin_root: i == 0 && unit.crate_type == "bin",
         };
-        match transform_file(&source, rel, &unit.metadata, next_site, role) {
+        // No focus yet: Task 3 reads `SENSORIUM_FOCUS` here and passes the
+        // value it parses. `Focus::EMPTY` is the unfocused build, whose output
+        // is byte-identical to the build before the focus tier existed.
+        match transform_file(&source, rel, &unit.metadata, next_site, role, &Focus::EMPTY) {
             Ok(t) => {
                 next_site += u32::try_from(t.sites.len()).unwrap_or(u32::MAX);
                 manifest.add_file(rel, &t);

@@ -1,0 +1,354 @@
+//! The focus tier: which functions are selected, where a LINE probe goes, what
+//! it carries, and what a manifest says about all of it.
+//!
+//! Golden pairs live in `tests/golden_focus/`, apart from `tests/golden/`,
+//! because five other tests transform every case in THAT directory with no focus
+//! and require the bytes not to move. Keeping the focused cases out of it is
+//! what lets "an empty focus is byte-identical to the build before this task"
+//! stay a measurement rather than a promise.
+//!
+//! The probe's text is written a second time in `tests/common/mod.rs` (`@N`), so
+//! the bytes these goldens pin are the TEST's statement of what amendment A7
+//! says and never a read-back of `lines::line_fragment`.
+
+mod common;
+
+use std::collections::BTreeSet;
+
+use common::{line_sites, read_focus, run_focus, sites, FOCUS_CASES, META};
+
+use sensorium_transform::{transform, Focus, Manifest, RetKind, SiteKind};
+
+/// Every case's focus value, by name.
+fn focus_for(case: &str) -> Focus {
+    let (_, value) = FOCUS_CASES
+        .iter()
+        .find(|(name, _)| *name == case)
+        .unwrap_or_else(|| panic!("{case} is not in common::FOCUS_CASES"));
+    Focus::parse(value)
+}
+
+fn run(case: &str) -> sensorium_transform::Transformed {
+    run_focus(case, 7, &focus_for(case))
+}
+
+// ---------------------------------------------------------------------------
+// Where a probe goes, and what it carries
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_focused_fn_mints_a_parameters_line_and_one_line_per_statement() {
+    let t = run("focus_fill");
+    assert_eq!(sites(&t), [(7, "fill", 3, RetKind::Unit)]);
+    assert_eq!(
+        line_sites(&t),
+        [
+            // The parameters LINE is at the `fn` line, like the fn's own site.
+            (8, "fill", 3),
+            (9, "fill", 4),
+            (10, "fill", 5),
+            (11, "fill", 6),
+        ]
+    );
+}
+
+#[test]
+fn a_loop_pattern_enters_the_body_and_a_compound_assignment_writes_its_left() {
+    let t = run("focus_loop");
+    assert_eq!(sites(&t), [(7, "sum_to_three", 5, RetKind::Value)]);
+    assert_eq!(
+        line_sites(&t),
+        [
+            (8, "sum_to_three", 5),
+            (9, "sum_to_three", 6),
+            // The loop-entry probe is at the `for` line, once per iteration ...
+            (10, "sum_to_three", 7),
+            (11, "sum_to_three", 8),
+            // ... and the loop is itself a statement, whose LINE is also the
+            // `for` line but is spliced past the body's closing brace.
+            (12, "sum_to_three", 7),
+        ]
+    );
+}
+
+#[test]
+fn an_arm_that_binds_gets_an_entry_line_and_an_arm_that_does_not_gets_none() {
+    let t = run("focus_match");
+    // Four LINEs for five arm-ish places: the `match` is the fn's TAIL and is
+    // not a statement, and `None => {}` binds nothing (amendment A3).
+    assert_eq!(
+        line_sites(&t),
+        [
+            (8, "classify", 5),
+            (9, "classify", 7),
+            (10, "classify", 8),
+            (11, "classify", 9),
+        ]
+    );
+    assert_eq!(t.source.matches("::sensorium_rt::line(").count(), 4);
+}
+
+#[test]
+fn a_bare_expression_arm_body_is_wrapped_in_a_block_amendment_a1() {
+    let t = run("focus_arm_bare");
+    assert_eq!(
+        line_sites(&t),
+        [(8, "pick", 6), (9, "pick", 8)],
+        "the parameters LINE and the one arm that binds"
+    );
+    // The block the wrap added is the arm's value, and the exit wrap is INSIDE
+    // it: `Some(n) => { <probe> ret(.., n * 2) }` would be the shape if the
+    // operand were per-arm. It is not -- the whole `match` is the operand -- so
+    // the two never share a byte, which is what this pins.
+    assert!(t.source.contains("Some(n) => { ::sensorium_rt::line("));
+    assert!(t.source.contains("n * 2 },"));
+}
+
+#[test]
+fn a_closure_inside_a_focused_fn_gets_no_probes() {
+    let t = run("focus_closure");
+    assert_eq!(line_sites(&t), [(8, "outer", 4), (9, "outer", 5)]);
+    // Nothing between the closure's `{` and its `}`.
+    let body = t
+        .source
+        .split_once("|x: i32| {")
+        .expect("the closure is still there")
+        .1;
+    let closed = body.split_once("};").expect("the closure still closes").0;
+    assert!(
+        !closed.contains("::sensorium_rt::"),
+        "a closure body carried instrumentation: {closed}"
+    );
+}
+
+#[test]
+fn parameters_are_read_including_a_receiver_and_a_destructured_pattern() {
+    let t = run("focus_params");
+    assert_eq!(
+        sites(&t),
+        [
+            (7, "Counter::bump", 11, RetKind::Value),
+            (10, "Counter::zero", 16, RetKind::Value),
+        ],
+        "the container value `Counter` selects both methods"
+    );
+    assert_eq!(
+        line_sites(&t),
+        [
+            (8, "Counter::bump", 11),
+            (9, "Counter::bump", 12),
+            // Amendment A2: no parameters, and still a LINE.
+            (11, "Counter::zero", 16),
+        ]
+    );
+    assert!(t.source.contains(
+        "|| [(\"self\", ::sensorium_rt::probe_cap!(&self)), \
+         (\"lo\", ::sensorium_rt::probe_cap!(&lo)), \
+         (\"hi\", ::sensorium_rt::probe_cap!(&hi))]"
+    ));
+    // `self.n += lo + hi;` is a PLACE write: the row says the line ran and
+    // names nothing (design §3.2).
+    assert!(t
+        .source
+        .contains("self.n += lo + hi;::sensorium_rt::line(&crate::__SENSORIUM_UNIT, 9, || []);"));
+}
+
+#[test]
+fn a_value_a_later_statement_moves_is_still_captured() {
+    let t = run("focus_moved_value");
+    assert_eq!(
+        line_sites(&t),
+        [
+            (8, "move_it", 7),
+            (9, "move_it", 8),
+            (10, "move_it", 9),
+            (11, "move_it", 10),
+            (12, "move_it", 11),
+            (13, "move_it", 12),
+        ]
+    );
+    // `let w = v;` moves `v`, and the probe on the line before still borrowed
+    // it. `tests/oracle.rs` compiles this output, which is the actual proof.
+    assert!(t.source.contains("let w = v;::sensorium_rt::line("));
+}
+
+// ---------------------------------------------------------------------------
+// What is NOT focused
+// ---------------------------------------------------------------------------
+
+#[test]
+fn an_async_fn_named_in_the_focus_is_skipped_with_its_existing_reason() {
+    let t = run("focus_skipped");
+    assert!(t.sites.is_empty(), "an async fn is not instrumented at all");
+    assert_eq!(
+        t.skipped
+            .iter()
+            .map(|s| (s.qualname.as_str(), s.line, s.reason))
+            .collect::<Vec<_>>(),
+        [("spun", 5, "async")]
+    );
+    assert!(t.focused.is_empty(), "a skipped fn is not a match");
+    assert!(!t.source.contains("::sensorium_rt::line("));
+}
+
+#[test]
+fn a_focus_that_matches_nothing_here_leaves_the_file_unfocused() {
+    let t = run("focus_unmatched");
+    assert!(line_sites(&t).is_empty());
+    assert!(t.focused.is_empty());
+    assert!(
+        !t.source.contains("::sensorium_rt::line("),
+        "a focused-but-unmatched file must carry no LINE probe at all"
+    );
+}
+
+#[test]
+fn an_empty_focus_and_a_focus_that_matches_nothing_produce_the_same_bytes() {
+    let input = read_focus("focus_unmatched", "in");
+    let unfocused = transform(&input, "src/lib.rs", META, 7, true, &Focus::EMPTY).expect("plain");
+    let missed = transform(
+        &input,
+        "src/lib.rs",
+        META,
+        7,
+        true,
+        &Focus::parse("nothing_here"),
+    )
+    .expect("focused");
+    assert_eq!(unfocused.source, missed.source);
+    assert_eq!(unfocused.sites, missed.sites);
+}
+
+/// The other half of "an empty focus changes nothing": every case in
+/// `tests/golden_focus` transformed with NO focus is byte-identical to the same
+/// case transformed with a focus that misses. (`tests/golden`'s own cases are
+/// covered by `golden.rs`, which passes them an empty focus and diffs the
+/// checked-in bytes.)
+#[test]
+fn no_golden_focus_case_moves_a_byte_under_an_empty_focus() {
+    for (case, _) in FOCUS_CASES {
+        let input = read_focus(case, "in");
+        let plain = transform(&input, "src/lib.rs", META, 7, true, &Focus::EMPTY)
+            .unwrap_or_else(|e| panic!("{case}: {e}"));
+        let missed = transform(
+            &input,
+            "src/lib.rs",
+            META,
+            7,
+            true,
+            &Focus::parse("a_name_no_file_here_uses"),
+        )
+        .unwrap_or_else(|e| panic!("{case}: {e}"));
+        assert_eq!(plain.source, missed.source, "{case}");
+        assert!(
+            !plain.source.contains("::sensorium_rt::line("),
+            "{case}: an unfocused build carries no LINE probe"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The manifest
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_line_site_is_a_line_row_with_a_line_and_no_firstlineno() {
+    let t = run("focus_fill");
+    let mut manifest = Manifest::new("m", "c", "lib");
+    manifest.set_focus(&Focus::parse("fill"));
+    manifest.add_file("src/lib.rs", &t);
+    let json: serde_json::Value =
+        serde_json::from_str(&manifest.to_json().expect("json")).expect("parse");
+    let rows = json["files"]["src/lib.rs"].as_array().expect("rows");
+    assert_eq!(rows.len(), 5);
+    assert_eq!(rows[0]["kind"], "fn");
+    assert_eq!(rows[0]["firstlineno"], 3);
+    for (i, line) in [3u64, 4, 5, 6].iter().enumerate() {
+        let row = &rows[i + 1];
+        assert_eq!(row["kind"], "line", "row {i}");
+        assert_eq!(row["line"], *line, "row {i}");
+        assert_eq!(row["qualname"], "fill", "row {i}");
+        assert!(row.get("firstlineno").is_none(), "row {i}");
+        assert!(row.get("how").is_none(), "row {i}");
+        assert!(row.get("ret").is_none(), "row {i}");
+    }
+    assert_eq!(json["focus"]["values"][0], "fill");
+    assert_eq!(json["focus"]["matched"][0], "fill");
+}
+
+#[test]
+fn the_manifest_records_the_values_as_given_and_the_matches_sorted() {
+    let t = run("focus_params");
+    let mut manifest = Manifest::new("m", "c", "lib");
+    manifest.set_focus(&Focus::parse("Counter, missing"));
+    manifest.add_file("src/lib.rs", &t);
+    let record = manifest.focus.as_ref().expect("a focus record");
+    assert_eq!(record.values, ["Counter", "missing"], "as given, in order");
+    assert_eq!(
+        record.matched,
+        BTreeSet::from(["Counter::bump".to_owned(), "Counter::zero".to_owned()])
+    );
+}
+
+#[test]
+fn an_unfocused_manifest_has_no_focus_key_at_all() {
+    let t = run_focus("focus_unmatched", 7, &Focus::EMPTY);
+    let mut manifest = Manifest::new("m", "c", "lib");
+    manifest.set_focus(&Focus::EMPTY);
+    manifest.add_file("src/lib.rs", &t);
+    let json: serde_json::Value =
+        serde_json::from_str(&manifest.to_json().expect("json")).expect("parse");
+    assert!(
+        json.get("focus").is_none(),
+        "an absent key and an empty one are different facts to a reader"
+    );
+    assert!(manifest.focus.is_none());
+}
+
+// ---------------------------------------------------------------------------
+// The directory and the list agree
+// ---------------------------------------------------------------------------
+
+#[test]
+fn tests_golden_focus_and_common_focus_cases_hold_the_same_cases() {
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden_focus");
+    let mut on_disk: Vec<String> = std::fs::read_dir(&dir)
+        .expect("the focus golden directory")
+        .filter_map(Result::ok)
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            name.strip_suffix(".in.rs").map(ToOwned::to_owned)
+        })
+        .collect();
+    on_disk.sort();
+    let mut listed: Vec<String> = FOCUS_CASES.iter().map(|(c, _)| (*c).to_owned()).collect();
+    listed.sort();
+    assert_eq!(
+        on_disk, listed,
+        "tests/golden_focus and FOCUS_CASES disagree"
+    );
+}
+
+/// Every focus golden's sites are contiguous from `first_site` and every LINE
+/// row is named after a fn the focus actually matched. Both are identities the
+/// wrapper depends on: it advances `next_site` by `sites.len()`.
+#[test]
+fn every_focus_case_numbers_its_sites_contiguously_and_names_them_after_a_match() {
+    for (case, _) in FOCUS_CASES {
+        let t = run(case);
+        for (i, site) in t.sites.iter().enumerate() {
+            assert_eq!(
+                site.site,
+                7 + u32::try_from(i).expect("a small index"),
+                "{case}: sites are contiguous from first_site, in push order"
+            );
+        }
+        for site in t.sites.iter().filter(|s| s.kind == SiteKind::Line) {
+            assert!(
+                t.focused.contains(&site.qualname),
+                "{case}: a LINE row named {} which was not focused",
+                site.qualname
+            );
+        }
+    }
+}

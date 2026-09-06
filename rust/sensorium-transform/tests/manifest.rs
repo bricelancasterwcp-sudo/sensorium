@@ -10,12 +10,19 @@ mod common;
 
 use common::{read, META};
 
-use sensorium_transform::{transform, transform_file, FileRole, Manifest};
+use sensorium_transform::{transform, transform_file, FileRole, Focus, Manifest};
 
 fn manifest_json() -> serde_json::Value {
     let mut m = Manifest::new(META, "bloomery_daemon", "lib");
-    let root = transform(&read("spawn_thread", "in"), "src/lib.rs", META, 0, true)
-        .expect("transform the root");
+    let root = transform(
+        &read("spawn_thread", "in"),
+        "src/lib.rs",
+        META,
+        0,
+        true,
+        &Focus::EMPTY,
+    )
+    .expect("transform the root");
     m.add_file("src/lib.rs", &root);
     let other = transform(
         &read("async_fn", "in"),
@@ -23,6 +30,7 @@ fn manifest_json() -> serde_json::Value {
         META,
         u32::try_from(root.sites.len()).expect("fits"),
         false,
+        &Focus::EMPTY,
     )
     .expect("transform the second file");
     m.add_file("src/other.rs", &other);
@@ -137,8 +145,15 @@ fn a_declared_spawn_carries_a_qualname_and_a_null_ordinal() {
     // give and no ordinal to spend -- but the qualname still says where it is,
     // which is what makes the declaration readable (HONESTY §3).
     let mut m = Manifest::new(META, "k", "lib");
-    let t =
-        transform(&read("spawn_shapes", "in"), "src/lib.rs", META, 0, false).expect("transform");
+    let t = transform(
+        &read("spawn_shapes", "in"),
+        "src/lib.rs",
+        META,
+        0,
+        false,
+        &Focus::EMPTY,
+    )
+    .expect("transform");
     m.add_file("src/lib.rs", &t);
     let j: serde_json::Value =
         serde_json::from_str(&m.to_json().expect("serialise")).expect("JSON");
@@ -166,12 +181,35 @@ fn a_declared_spawn_carries_a_qualname_and_a_null_ordinal() {
 #[test]
 fn ret_kinds_serialise_as_the_three_words_the_converter_reads() {
     let mut m = Manifest::new(META, "k", "lib");
-    let t = transform(&read("never_fn", "in"), "src/never.rs", META, 0, false).expect("transform");
+    let t = transform(
+        &read("never_fn", "in"),
+        "src/never.rs",
+        META,
+        0,
+        false,
+        &Focus::EMPTY,
+    )
+    .expect("transform");
     m.add_file("src/never.rs", &t);
-    let t = transform(&read("unit_fn", "in"), "src/unit.rs", META, 2, false).expect("transform");
+    let t = transform(
+        &read("unit_fn", "in"),
+        "src/unit.rs",
+        META,
+        2,
+        false,
+        &Focus::EMPTY,
+    )
+    .expect("transform");
     m.add_file("src/unit.rs", &t);
-    let t =
-        transform(&read("value_tail", "in"), "src/value.rs", META, 5, false).expect("transform");
+    let t = transform(
+        &read("value_tail", "in"),
+        "src/value.rs",
+        META,
+        5,
+        false,
+        &Focus::EMPTY,
+    )
+    .expect("transform");
     m.add_file("src/value.rs", &t);
     let j: serde_json::Value =
         serde_json::from_str(&m.to_json().expect("serialise")).expect("JSON");
@@ -185,7 +223,15 @@ fn a_manifest_cannot_disagree_with_what_was_spliced() {
     // The file key comes from the caller, but every site inside comes from the
     // `Transformed` the splicer produced, so the two can never drift.
     let mut m = Manifest::new(META, "k", "lib");
-    let t = transform(&read("value_tail", "in"), "src/value.rs", META, 40, false).unwrap();
+    let t = transform(
+        &read("value_tail", "in"),
+        "src/value.rs",
+        META,
+        40,
+        false,
+        &Focus::EMPTY,
+    )
+    .unwrap();
     m.add_file("src/value.rs", &t);
     let j: serde_json::Value = serde_json::from_str(&m.to_json().unwrap()).unwrap();
     let sites = j["files"]["src/value.rs"].as_array().unwrap();
@@ -200,7 +246,15 @@ fn a_manifest_cannot_disagree_with_what_was_spliced() {
 #[test]
 fn an_err_flow_row_carries_kind_how_and_line_and_no_signature() {
     let mut m = Manifest::new(META, "k", "lib");
-    let t = transform(&read("try_stmt", "in"), "src/lib.rs", META, 0, true).expect("transform");
+    let t = transform(
+        &read("try_stmt", "in"),
+        "src/lib.rs",
+        META,
+        0,
+        true,
+        &Focus::EMPTY,
+    )
+    .expect("transform");
     m.add_file("src/lib.rs", &t);
     let j: serde_json::Value =
         serde_json::from_str(&m.to_json().expect("serialise")).expect("JSON");
@@ -222,8 +276,15 @@ fn an_err_flow_row_carries_kind_how_and_line_and_no_signature() {
 #[test]
 fn the_partial_list_is_registered_unit_scoped_like_skipped() {
     let mut m = Manifest::new(META, "k", "lib");
-    let a =
-        transform(&read("try_in_macro_arg", "in"), "src/lib.rs", META, 0, true).expect("transform");
+    let a = transform(
+        &read("try_in_macro_arg", "in"),
+        "src/lib.rs",
+        META,
+        0,
+        true,
+        &Focus::EMPTY,
+    )
+    .expect("transform");
     m.add_file("src/lib.rs", &a);
     let b = transform(
         &read("struct_literal_partial", "in"),
@@ -231,6 +292,7 @@ fn the_partial_list_is_registered_unit_scoped_like_skipped() {
         META,
         u32::try_from(a.sites.len()).expect("fits"),
         false,
+        &Focus::EMPTY,
     )
     .expect("transform");
     m.add_file("src/other.rs", &b);
@@ -271,6 +333,7 @@ fn a_closure_frame_and_an_arm_are_rows_of_their_own_kind() {
             is_crate_root: true,
             is_bin_root: true,
         },
+        &Focus::EMPTY,
     )
     .expect("transform");
     m.add_file("src/main.rs", &t);
@@ -308,6 +371,7 @@ fn the_marks_are_written_only_where_they_are_true() {
             is_crate_root: true,
             is_bin_root: true,
         },
+        &Focus::EMPTY,
     )
     .expect("transform");
     m.add_file("src/main.rs", &t);

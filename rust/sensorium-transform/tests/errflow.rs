@@ -13,7 +13,7 @@ mod common;
 
 use common::{err_sites, partials, read, run, sites, FILE, META};
 
-use sensorium_transform::{census, transform, RetKind, SiteKind};
+use sensorium_transform::{census, transform, Focus, RetKind, SiteKind};
 
 // ---------------------------------------------------------------------------
 // `?`
@@ -212,7 +212,7 @@ fn the_crate_root_carries_the_allow_the_wraps_need() {
     // ROOT because a wrap in any file of the unit is what needs it -- so it is
     // emitted even for a file with no wrap at all.
     for case in ["try_stmt", "sinks", "free_fn", "never_fn"] {
-        let t = transform(&read(case, "in"), FILE, META, 7, true)
+        let t = transform(&read(case, "in"), FILE, META, 7, true, &Focus::EMPTY)
             .unwrap_or_else(|e| panic!("{case}: {e}"));
         assert_eq!(
             t.source
@@ -225,7 +225,8 @@ fn the_crate_root_carries_the_allow_the_wraps_need() {
     }
     // ... and only on the crate root: a module file of the same unit inherits
     // the attribute from the root and must not repeat it.
-    let t = transform(&read("try_stmt", "in"), FILE, META, 7, false).expect("transform");
+    let t =
+        transform(&read("try_stmt", "in"), FILE, META, 7, false, &Focus::EMPTY).expect("transform");
     assert!(!t.source.contains("match_single_binding"));
 }
 
@@ -244,7 +245,8 @@ fn every_golden_wraps_exactly_the_question_marks_the_census_counts() {
     for case in common::CASES {
         let source = read(case, "in");
         let c = census(&source);
-        let t = transform(&source, FILE, META, 7, true).unwrap_or_else(|e| panic!("{case}: {e}"));
+        let t = transform(&source, FILE, META, 7, true, &Focus::EMPTY)
+            .unwrap_or_else(|e| panic!("{case}: {e}"));
         let try_rows = t.sites.iter().filter(|s| s.kind == SiteKind::Try).count();
         let macro_rows = t.partial.iter().filter(|p| p.reason == "macro-arg").count();
         // A `struct-literal` row can mark a sink as well as a `?`, so the

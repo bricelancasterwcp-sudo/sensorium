@@ -31,7 +31,9 @@
 //! block an arm's or a closure's expression body was wrapped in (the exit wrap
 //! is inside THAT: `{ guard; ret(.., f(n)) }`), all of them close before
 //! anything that starts there, then the entry guard (a statement, which must
-//! precede the block's value), then that same block's `{ <statement> ` opening
+//! precede the block's value), then a focus tier LINE probe (a statement too,
+//! and behind the guard because a LINE must fall inside its function's CALL),
+//! then that same block's `{ <statement> ` opening
 //! -- ahead of an exit wrap's opening fragment, since a closure's expression
 //! body is its own tail operand and both land on that byte -- then an exit
 //! wrap's opening fragment, then an err wrap's `match ` (again inside it), then
@@ -51,6 +53,7 @@ use syn::visit::Visit;
 use syn::{AttrStyle, Attribute};
 
 use crate::errflow::How;
+use crate::focus::Focus;
 use crate::visit::Ctx;
 use crate::{Census, FileRole, SpawnSite, Transformed};
 
@@ -207,6 +210,17 @@ pub(crate) enum Kind {
     /// The entry guard, and an arm probe in a BLOCK body: a statement, so ahead
     /// of the block's value.
     Guard,
+    /// A focus tier LINE probe: the parameters LINE, a statement's own LINE, or
+    /// an arm-entry LINE written into a block body. A statement, so ahead of the
+    /// block's value -- and AFTER [`Kind::Guard`], which is design amendment A6:
+    /// the parameters LINE shares the entry guard's byte and a LINE must fall
+    /// INSIDE its function's CALL, so it can never precede the guard that opens
+    /// the frame. (An arm-entry LINE shares a byte with an `Err(..) =>` arm's
+    /// probe for the same reason and comes second there too; both are statements
+    /// at the arm's entry and either order runs, so the one rule that matters is
+    /// the guard's.) An arm-entry LINE in a bare-EXPRESSION body is a
+    /// [`Kind::ScopeOpen`]/[`Kind::ScopeClose`] pair instead (amendment A1).
+    Line,
     /// The `{ <statement> ` opening that same block. Ahead of an exit wrap's
     /// opening fragment, since a closure's expression body is its own tail
     /// operand and both land on that byte.
@@ -264,12 +278,13 @@ pub(crate) fn run(
     unit_metadata: &str,
     first_site: u32,
     role: FileRole,
+    focus: &Focus,
 ) -> Result<Transformed, syn::Error> {
     let is_crate_root = role.is_crate_root;
     let parsed = syn::parse_file(source)?;
     let prefix = stripped_prefix_len(source, parsed.shebang.as_deref());
 
-    let mut ctx = Ctx::new(source, prefix, file, first_site, true);
+    let mut ctx = Ctx::new(source, prefix, file, first_site, true, focus);
     ctx.is_bin_root = role.is_bin_root;
     ctx.visit_file(&parsed);
     let walked = ctx.finish()?;
@@ -310,6 +325,7 @@ pub(crate) fn run(
         skipped: walked.skipped,
         partial: walked.partial,
         spawns: spawns.into_iter().map(|(_, s)| s).collect(),
+        focused: walked.focused,
         appended_line,
     })
 }
@@ -421,7 +437,10 @@ pub(crate) fn census(source: &str) -> Census {
         return Census::default();
     };
     let prefix = stripped_prefix_len(source, parsed.shebang.as_deref());
-    let mut ctx = Ctx::new(source, prefix, "", 0, false);
+    // A census classifies and never splices, so it never needs a focus: the
+    // counts are the same under every one.
+    let none = Focus::EMPTY;
+    let mut ctx = Ctx::new(source, prefix, "", 0, false, &none);
     ctx.visit_file(&parsed);
     ctx.census()
 }

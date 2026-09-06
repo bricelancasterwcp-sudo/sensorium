@@ -40,7 +40,7 @@ use std::process::{Command, Stdio};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-use common::{expand, read, CASES, RUN_CASES};
+use common::{expand, read, read_focus, CASES, FOCUS_CASES, RUN_CASES};
 
 /// A probe that has not finished in this long is hung, not slow. Killed by pid
 /// and reaped, so a failing run never leaves a process behind.
@@ -52,6 +52,8 @@ const TAG_PLAIN: &str = "plain";
 const TAG_RUN: &str = "run";
 const TAG_CLIPPY: &str = "clippy";
 const TAG_BORROW: &str = "borrow";
+const TAG_FOCUS: &str = "focus";
+const TAG_FOCUS_PLAIN: &str = "focus-plain";
 
 /// The two lints every err wrap provokes, and the only ones denied when clippy
 /// runs here: this test is about the transformer's own attribute, not about
@@ -234,6 +236,68 @@ fn every_golden_output_compiles_with_zero_diagnostics() {
         failures.is_empty(),
         "rustc reported {} diagnostic(s) on transformed output:\n{}",
         failures.len(),
+        failures.join("\n")
+    );
+}
+
+/// The focus tier's compile proof (design 2026-09-06 §3.2's borrow paragraph).
+///
+/// A golden pair says the splices landed where the test said. It does not say
+/// that a program with a `probe_cap!(&x)` after every statement still BORROWS --
+/// that the capture of a value a later statement moves is legal, that a `&mut`
+/// reborrow survives being read, that a `Vec::new()` whose element type is not
+/// yet known does not stall the autoref ladder, and that an arm body wrapped in
+/// a block still type-checks inside the exit wrap. Every focus golden's output
+/// is therefore handed to the real rustc with `-D warnings`, exactly as the
+/// unfocused ones are: an empty stderr is the claim, and the shapes named above
+/// are in `focus_moved_value` and `focus_arm_bare` on purpose.
+#[test]
+fn every_focus_golden_output_compiles_with_zero_diagnostics() {
+    let mut failures = Vec::new();
+    for (case, _) in FOCUS_CASES {
+        let dir = out_root().join(TAG_FOCUS);
+        std::fs::create_dir_all(&dir).expect("creating a per-test output directory");
+        let path = dir.join(format!("{case}.out.rs"));
+        std::fs::write(&path, expand(&read_focus(case, "out"))).expect("writing the focus golden");
+        let c = compile(TAG_FOCUS, case, &path, "lib", true);
+        println!(
+            "{case:<24} lib exit {:<3} stderr {} bytes",
+            c.status,
+            c.stderr.len()
+        );
+        if c.status != 0 || !c.stderr.is_empty() {
+            failures.push(format!("--- {case} (exit {}) ---\n{}", c.status, c.stderr));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "rustc reported {} diagnostic(s) on focused output:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn the_untransformed_focus_goldens_are_warning_free_to_begin_with() {
+    // Same reason as the unfocused twin below: without this, "no NEW
+    // diagnostics under a focus" is unmeasurable.
+    let mut failures = Vec::new();
+    for (case, _) in FOCUS_CASES {
+        let source = common::focus_path(case, "in");
+        let c = compile(
+            TAG_FOCUS_PLAIN,
+            &format!("{case}_in"),
+            &source,
+            "lib",
+            false,
+        );
+        if c.status != 0 || !c.stderr.is_empty() {
+            failures.push(format!("--- {case} (exit {}) ---\n{}", c.status, c.stderr));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "a focus golden INPUT is not warning free:\n{}",
         failures.join("\n")
     );
 }
