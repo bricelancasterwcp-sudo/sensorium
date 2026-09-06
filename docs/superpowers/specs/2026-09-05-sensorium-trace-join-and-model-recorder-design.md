@@ -390,17 +390,18 @@ Familiar spellings; nothing novel (designing-notation §2). Exits per the 0/1/2/
 
 | Command | On a model trace |
 |---|---|
-| `runs` | Lists model traces under `session <group>: <model.name>` when `join.group` is present; otherwise in place. `exit: n/a (model trace)` in the row. |
+| `runs` | Lists model traces under `session <group>: <model.name>` when `join.group` is present; otherwise in place. The row's exit cell comes from `vocab.exit_brief` (not `exit_phrase`, which `info` uses): `exit:n/a (model trace)`. `exit_brief` today answers `unwitnessed` for **any** non-`waited` basis, which on a model trace would be a false claim — nobody failed to witness an exit; there was no process exit to witness — so S1 must teach it `not-a-process-exit` alongside `exit_phrase` (amended 2026-09-05, final review). |
 | `info` | Prints `model: <name> via <engine> <build>`, weights sha (short), adapters, `n_ctx`, `sampler: greedy`, `topk`, generations count, tokens count, mean entropy, declared-not-witnessed line for routing/activations/attention with the flash-attention gap sentence when applicable, `noise_band` if blessed, `join` if present. |
-| `gens <run>` | **New.** One line per generation: `g<id> <name> tokens:<n> stop:<reason> H̄:<mean entropy> minH:<min> at p<pos>` in causal order. Exit 0 with rows, 1 with none. A generation with `tokens:0` has no sampled position to summarize: it prints `H̄:n/a minH:n/a` and **omits `at p<pos>` entirely** — never `H̄:0`, `minH:0` or `at p0`, which would read as a measured zero-entropy token that was never sampled (amended 2026-09-05, final review, I10). |
+| `gens <run>` | **New.** One line per generation: `g<id> <name> tokens:<n> stop:<reason> H̄:<mean entropy> minH:<min> at p<pos>` in causal order. Exit 0 with rows, 1 with none. A generation with `tokens:0` has no sampled position to summarize: it prints `H̄:n/a minH:n/a` and **omits `at p<pos>` entirely** — never `H̄:0`, `minH:0` or `at p0`, which would read as a measured zero-entropy token that was never sampled (amended 2026-09-05, final review). |
 | `tokens <run> --gen <name> [--from P --to Q] [--min-margin X]` | **New.** Token rows with piece, logprob, entropy, top-k. `--min-margin X` keeps positions where the top-1/top-2 gap ≤ X (the "swallowed uncertainty" view). `--gen` exact-first, then unique prefix, as `--fn` does. |
 | `spans <run> --gen <name>` | **New.** The generation's prompt/action/answer/stop spans with refs. An `action` prints **two labeled facts, never one merged** (amended 2026-09-05, final review, R17): first the daemon's own witness, out of `ref.exec` — `exec run <id>: daemon saw exit 1 (waited)`, or `daemon saw: unwitnessed`, or `not run` — and then, separately, what the referenced program trace itself says: `program trace: exit 1 (waited)` when that trace is found, `program trace: (trace not found)` when it is not. Two sources witnessed two things; neither may stand in for the other, and a cached ref never speaks for a file nobody opened. |
 | `diff A B` | §4.2. Auto-dispatches on `lang == "model"` both sides; mixed → exit 2 `REFUSED: A is a model trace and B is a program trace; diff compares like with like`. |
 | `bless-noise A B` | **New**, §4.3. |
 | `tree`, `frame`, `grep`, `flow`, `watch`, `exceptions`, `refocus` | **Refuse with exit 2** and one sentence: `REFUSED: <cmd> reads program <frames|events|…>; this is a model trace (recorder <r>) -- use gens/tokens/spans`. `flow`/`watch` already refuse via `line: false` (exit 3); the model-trace sentence takes precedence because the fix is a different command, not a different recording. `exceptions` already refuses on an unknown lang; its wording is replaced by the same sentence on `lang == "model"`. |
 
-`vocab.terms()` gains the `MODEL` column (§2). `exit_phrase` gains `n/a (model trace)` for
-basis `not-a-process-exit`.
+`vocab.terms()` gains the `MODEL` column (§2). `exit_phrase` **and `exit_brief`** gain
+`n/a (model trace)` for basis `not-a-process-exit` — both, because `info` reads the first and
+`runs` the second, and only `exit_brief` would otherwise print `unwitnessed`.
 
 ## 7. The bloomery seam (what S1 will do; recorded here so the contract fits it)
 
