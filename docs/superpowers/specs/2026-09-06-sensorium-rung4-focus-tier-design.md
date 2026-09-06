@@ -367,3 +367,48 @@ rung-4 entry slice left them (CARRIED-DEBT).
   shows a need.
 - **`dbg` text semantics** (§4.2) are weaker than Python's typed captures;
   stated in TRACE-FORMAT so a reader knows `x == 5` compared text.
+
+## 10. Dated amendments
+
+Each entry is added, never edited into the sections above; the sections read
+with the amendment applied. E9's locked §1 (a4264b5) is not touched by any
+of them — its gate value 26 is the value these amendments make unambiguous.
+
+- **A1 (2026-09-06, R-F4) — bare-expression arm bodies.** §3.1/§3.2: a
+  `match` / `if let` arm whose body is a bare expression (no block) is
+  spliced as `{ <arm-entry probe>; <expr> }` — two point splices, the way
+  exit wraps already surround an expression — so the arm-entry LINE exists
+  for it too. The expression is the wrapper's tail, not a statement: no
+  statement LINE for it.
+- **A2 (2026-09-06) — zero parameters.** §3.2, parameters row: a function
+  with no parameters still mints its parameters LINE, with empty `deltas`
+  ("the row says the function was entered"), so every focused activation
+  has a first LINE.
+- **A3 (2026-09-06) — arms without bindings.** §3.2: an arm or loop pattern
+  that binds no identifier (`_`, `Err(_)`, a literal pattern) mints NO
+  arm-entry LINE. Only patterns with bindings do.
+- **A4 (2026-09-06, R-F5) — verdict words and H4's bindings.** §7: verdict
+  words in a record are the tool's own (`watch`: SATISFIED / not satisfied /
+  NOTHING WAS CHECKED, exits 0/1/3), never "MATCH". H4 prefers integer/bool
+  bindings; where the named subjects bind none (they do not — 17 and 7
+  bindings, all paths, strings and opaque structs), the triples use §4.2's
+  quoted-string branch and the unevaluable-`len` branch, as E9 §1 does; the
+  integer branch is pinned by the corpus (`focus_let_chain`,
+  `focus_loop_counter`).
+- **A5 (2026-09-06, after Task 1) — the probe is lazy, and formats inside
+  the runtime scope.** §3.2/§3.4: `line` takes the deltas as a closure,
+  `::sensorium_rt::line(&UNIT, site, || [("x", probe_cap!(&x)), …])`,
+  evaluated only when the runtime is recording (`STATE == STATE_CALL` and not
+  inside `RuntimeScope`), exactly as `ret` takes its capture closure — so
+  under `--tier off` no `Debug` impl runs for a delta. `probe_cap!` is a
+  macro (the autoref ladder specialises at the call site's type; a generic
+  fn cannot carry it) and formats inside `thread::enter_runtime()`, which is
+  what keeps the §3.2 reentrancy promise true for LINE. `LINE_PAYLOAD_MAX`
+  is 2048 bytes (room for eight capped deltas with names), not RETURN's 325;
+  the drop rule beyond it stands.
+- **A6 (2026-09-06) — a LINE needs an open frame.** §3.1/§3.5: the
+  parameters LINE is spliced AFTER the entry guard, so a LINE always falls
+  inside its function's CALL; a LINE record whose thread has no open frame
+  is a malformed stream and the converter refuses it naming the record,
+  never attaching it to a guessed frame.
+
