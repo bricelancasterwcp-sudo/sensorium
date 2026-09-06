@@ -52,7 +52,8 @@ New optional keys, all written by the model recorder, read with defaults:
 |---|---|
 | `model` | `{name, engine, engine_build, weights_path, weights_sha256, adapters: [{name, sha256}], n_ctx, n_vocab, backend, sampler: {"kind": "greedy"}, flash_attention: bool}`. `weights_sha256` is the file digest actually read at boot, not a card value. `flash_attention` is here because §4's attention gap depends on it. |
 | `topk` | The `k` recorded per token (default 8). |
-| `noise_band` | Present only on a trace that was **blessed** as a diff baseline (§6): `{"basis": "two-identical-boots", "against": "<run_id>", "max_margin": f, "positions": n, "gens": n}`. |
+| `topk_basis` | `"logprob"` \| `"logit"` — what the second element of each `topk` pair is. Absent reads `"logprob"`. `"logit"` is written only under the entropy fallback (design spec §7), where `capabilities.entropy` is false and no full log-softmax was taken: the values are then raw logits and are **not** comparable with another trace's logprobs (added 2026-09-05, final review; design spec §11 R13). |
+| `noise_band` | Present only on a trace that was **blessed** as a diff baseline (§6): `{"basis": "two-identical-boots", "against": "<run_id>", "weights_sha256": "…", "adapters": [{"name": …, "sha256": …}], "max_margin": f, "positions": n, "gens": n}`. `against` names the boot the band was measured against; `weights_sha256` and `adapters` are what it was measured **under**, so the band still says what it covers after the other trace is deleted (amended 2026-09-05, final review; design spec §11 R14). |
 | `join` | §7. |
 | `spans_basis` | How action-span boundaries were found: `"envelope-scanner"` (bloomery's `<action …>…</action>` scanner, byte offsets mapped to tokens) — so a reader knows a span is a scanner's judgement, not a model's. |
 
@@ -71,8 +72,10 @@ CREATE TABLE tokens (
   pos INTEGER NOT NULL,            -- 0-based position within the generation's completion
   token INTEGER NOT NULL,          -- the sampled token id
   piece TEXT,                      -- the token's bytes as text; NULL = not decodable alone
-  logprob REAL NOT NULL,           -- log p(token) under the full softmax
-  entropy REAL NOT NULL,           -- H of the full distribution at this position, nats
+  logprob REAL,                    -- log p(token) under the full softmax; NULL exactly when
+                                   -- capabilities.entropy is false (§4, R13)
+  entropy REAL,                    -- H of the full distribution at this position, nats; NULL
+                                   -- exactly when capabilities.entropy is false
   topk TEXT NOT NULL,              -- JSON [[token_id, logprob], ...] length ≤ meta.topk, desc
   ts_ns INTEGER NOT NULL           -- monotonic ns; display and join anchor only (§7)
 );
@@ -81,7 +84,8 @@ CREATE TABLE spans (
   task_id INTEGER NOT NULL,        -- → tasks.id
   kind TEXT NOT NULL,              -- 'prompt' | 'action' | 'answer' | 'stop'
   first_pos INTEGER,               -- NULL for 'prompt' (not sampled)
-  last_pos INTEGER,                -- inclusive; NULL while open
+  last_pos INTEGER,                -- inclusive; NULL while open, and NULL on a span with no
+                                   -- sampled position ('prompt', or a 'stop' after zero tokens)
   text TEXT,                       -- the span's text; capped, trunc flag in ref
   ref TEXT                         -- JSON, keys by kind (§3)
 );
@@ -99,6 +103,11 @@ CREATE INDEX idx_spans_task ON spans(task_id);
   program trace keeps its zero-count main-thread row.
 - Rows a recorder cannot fill are **omitted or NULL by rule above, never zero**: `piece` NULL
   means the bytes are not a standalone UTF-8 sequence, not an empty piece.
+- **`logprob` and `entropy` are NULL exactly when `capabilities.entropy` is declared false**
+  (amended 2026-09-05, final review; design spec §11 R13). Both derive from the same
+  full-vocabulary log-softmax, so they are absent together; never a zero standing in for an
+  absence — a zero logprob is `p = 1`, the most confident value there is. Under that fallback
+  `topk` holds the sampler's raw logits and `meta.topk_basis` reads `"logit"` (§2).
 
 ### `spans.ref` by kind
 
@@ -168,7 +177,9 @@ floating point did to the third decimal.
 `fingerprint_basis = "per-generation"`. `diff` refuses to compare a model trace with a program
 trace (**exit 2** — a different call would settle it, §9), and refuses (**exit 3** — a different
 recording would) two model traces with unequal `topk` **only when** the within-noise reading of
-§6 is asked for — token-id comparison needs no `topk` at all.
+§6 applies — that is, when A carries a `noise_band` and `--strict` was not given (amended
+2026-09-05, final review; design spec §11 R12: nothing "asks for" the reading, so nothing may be
+inferred from whether it was asked). Token-id comparison needs no `topk` at all.
 
 ### The verdict, stepwise per generation
 
@@ -181,15 +192,21 @@ recording would) two model traces with unequal `topk` **only when** the within-n
    A's distribution, `logprob_A(a_p) − logprob_A(b_p)` (read from A's `topk`; if `b_p` is not in
    A's top-k the margin is `> topk-floor` and reported as such, never as a number); and
    symmetrically under B.
-4. Verdict:
+4. Verdict (amended 2026-09-05, final review; design spec §11 R12 — the within-noise reading is
+   **on by default** whenever A carries a `noise_band`, so one state has exactly one verdict;
+   `--strict` is what turns the reading off):
    - `MATCH` — every paired generation's hash equal, and no unpaired named generation.
-   - `MATCH (within noise)` — every divergence is *within noise* (§6) **and** a `noise_band`
-     is cited; the output names the baseline it was read from.
-   - `DIVERGED` — at least one divergence outside the band, or any divergence with no band
-     available. The first such generation, by A's order, is the one printed in full.
+   - `MATCH (within noise)` — every divergence is *within noise* (§6) under A's band; the
+     output names the baseline the band was measured against.
+   - `DIVERGED` — at least one divergence outside the band, or any divergence at all when A
+     carries no band. The first such generation, by A's order, is printed in full; when there
+     was no band to read, one further line says so rather than leaving the absence to be
+     guessed at: `no noise band on <A>; run bless-noise to read within noise`.
    - `REFUSED` — either side `incomplete`, bases differ, a side has generations but no
-     `task_fingerprints`, or (for the within-noise reading) `noise_band` absent or computed
-     against a different `model.weights_sha256`.
+     `task_fingerprints`, or a `noise_band` is present but **cannot apply**: its
+     `weights_sha256` or `adapters` differ from either side's `model`. An absent band is never
+     a refusal — it is a missing reading, and `DIVERGED` plus that one line is what the
+     instrument honestly has.
 
 Exit statuses follow the house convention (0 yes = MATCH incl. within-noise, 1 no = DIVERGED,
 3 = REFUSED; 2 = a bad call, e.g. mixed subjects). `--strict` drops the noise reading entirely
@@ -204,13 +221,21 @@ fixtures**, and nothing else:
 
 - **`bless`**: `sensorium bless-noise <A> <B>` (new, §9) requires equal `model.weights_sha256`,
   equal adapters, equal fixture name sets; computes every divergence's margin under both
-  sides; writes `noise_band = {max_margin, positions, gens, against: B}` **into A**. If A and B
-  produced zero divergences the band is `{max_margin: 0.0, positions: 0, gens: 0}` — a measured
-  zero, and any later divergence is outside it.
+  sides; writes `noise_band = {basis, against: B, weights_sha256, adapters, max_margin,
+  positions, gens}` **into A** (amended 2026-09-05, final review; design spec §11 R14).
+  `against` names the boot; `weights_sha256` and `adapters` are what the band was measured
+  **under**, copied from the two sides' agreed `model`, so the band remains self-contained —
+  readable, and refusable, after B is deleted. If A and B produced zero divergences the band is
+  `{max_margin: 0.0, positions: 0, gens: 0}` — a measured zero, and any later divergence is
+  outside it.
 - **Within noise** at a divergence: both tokens appear in each other's top-k **and**
   `|margin| ≤ noise_band.max_margin` under both distributions.
 - The band is **not** a tolerance a caller may widen. A caller who disagrees with it re-runs
   two identical boots and blesses again; the trace records which baseline said so.
+- **When it applies**: only while the band's own `weights_sha256` and `adapters` equal both
+  sides' `model`. Different weights or different adapters are not a wider band and not a silent
+  skip — `diff` refuses (§6, exit 3), because the band was never measured under what is now
+  being read.
 
 ## 7. The join
 
@@ -227,12 +252,15 @@ join is **anchors and references**, and the reader says which of the three kinds
 Optional on every trace, written by whoever launched or wrote it:
 
 ```json
-{"join": {"group": "<daemon session id>", "role": "model", "gen": "g5-mixed/patch-07",
+{"join": {"group": "<daemon session id>", "role": "model", "gen": null,
           "pid": 41213, "anchor": {"clock": "monotonic", "process": 41213}}}
 ```
 
-`gen` is the generation name for a `model` or `program` join and **null** for a `harness`
-join (a whole-process trace is tied to no single generation).
+`gen` is the generation name **only for a `program` join**; it is `null` for `model` and
+`harness` joins, both of which cover a whole boot and many generations (amended 2026-09-05,
+final review — a model trace holds every generation of its boot (design spec §11 R4), so no
+single generation name can name it, and the example above is a `model` join written by the
+daemon).
 
 | `role` | Who writes it |
 |---|---|
@@ -244,12 +272,18 @@ join (a whole-process trace is tied to no single generation).
   exists *because of* that boot carries it. `runs` groups traces by `join.group` the way it
   groups Rust traces by `invocation`, header `session <group>: <model.name>`.
 - **model → program.** When a granted `run` executes under sensorium, the daemon passes
-  `--run-id <group>-<gen>-<n>` (a single path component; `paths.is_valid_run_id` accepts it)
-  and sets `SENSORIUM_JOIN='{"group": …, "role": "program", "gen": …}'` in the child's
-  environment. The Python recorder (S3) copies that JSON into `meta.join` at boot, verbatim,
-  or omits the key when the variable is absent or is not a JSON object (never partially). The
-  model trace's `action` span carries `exec.run_id` = that run id. This edge is a **reference**:
-  exact, no clock involved.
+  `--run-id <group>-<slug>-<n>` (amended 2026-09-05, final review; design spec §11 R11), where
+  `slug` is the generation name with every character outside `[A-Za-z0-9_-]` replaced by `_`,
+  truncated to 64 characters, and `<n>` is a per-boot monotonic counter. The slug exists because
+  generation names hold `/` — `g5-mixed/patch-07` is one — while `paths.is_valid_run_id` accepts
+  only a **single path component**, and the counter exists because two names may slug alike and
+  must still get distinct ids: `sess-20260905-01-g5-mixed_patch-07-3`. The name is not lost to
+  the slug: the program trace's `join.gen` carries the **full unslugged** generation name, and
+  `spans.ref.exec.run_id` on the model side carries the literal id that was passed. The daemon
+  also sets `SENSORIUM_JOIN='{"group": …, "role": "program", "gen": …}'` in the child's
+  environment; the Python recorder (S3) copies that JSON into `meta.join` at boot, verbatim, or
+  omits the key when the variable is absent or is not a JSON object (never partially). This edge
+  is a **reference**: exact, no clock involved.
 - **model ↔ harness.** Both are the same process. `join.anchor` says which clock and which
   process; two traces with equal `anchor.process` and `anchor.clock == "monotonic"` may have
   their `ts_ns` compared — **the only case where `ts_ns` is comparable across files**, and
@@ -281,8 +315,9 @@ before anyone stores one:
  "outcome": "raised",
  "exc": {"type": "TypeError", "kind": null},
  "disposition": "PROPAGATED",
- "fork": {"qualname": "unit_17.helper", "kind": "RAISE", "depth": 2},
- "closed_by": "unwind"}
+ "fork": {"qualname": "helper", "kind": "RAISE", "depth": 2},
+ "closed_by": "unwind",
+ "key": "9f2c…"}
 ```
 
 | Field | Alternatives |
@@ -293,9 +328,12 @@ before anyone stores one:
 | `fork` | the frame object when a raising or diverging frame exists, **null** when the run returned with no divergence from the reference (or no reference was given and nothing raised) |
 | `closed_by` | `"unwind"` \| `"return"` \| `null` |
 
-- **Identity, not description**: it hashes to a key by content (`blake2b-16` over the canonical
-  JSON with `recorder` removed), and two units whose failing runs share a key are *signature
-  siblings* whatever their source text says. The key is what S2's `sig` arm retrieves on.
+- **Identity, not description**: it hashes to a key by content, and two units whose failing runs
+  share a key are *signature siblings* whatever their source text says. The key is what S2's
+  `sig` arm retrieves on, and `--json` **prints it** as `"key"`: `blake2b-16` over the canonical
+  JSON — sorted keys, no whitespace — with `recorder` and `key` themselves removed (amended
+  2026-09-05, final review; design spec §11 R16; two callers recomputing it independently would
+  canonicalize differently, so the reader is the one place it is computed).
 - `fork` is the frame at which the run's causal stream first departs from a *reference* run when
   one is given (`--against <run>`), else the outermost frame that raised. `qualname` is
   **file-local** (TRACE-FORMAT §3 `code_objects.qualname`) so a unit renamed `unit_<id>` at
@@ -312,16 +350,17 @@ Familiar spellings; nothing novel (designing-notation §2). Exits per the 0/1/2/
 
 | Command | On a model trace |
 |---|---|
-| `runs` | Lists model traces under `session <group>: <model.name>` when `join.group` is present; otherwise in place. `exit: n/a (model trace)` in the row. |
+| `runs` | Lists model traces under `session <group>: <model.name>` when `join.group` is present; otherwise in place. The row's exit cell comes from `vocab.exit_brief` (not `exit_phrase`, which `info` uses): `exit:n/a (model trace)`. `exit_brief` today answers `unwitnessed` for **any** non-`waited` basis, which on a model trace would be a false claim — nobody failed to witness an exit; there was no process exit to witness — so S1 must teach it `not-a-process-exit` alongside `exit_phrase` (amended 2026-09-05, final review). |
 | `info` | Prints `model: <name> via <engine> <build>`, weights sha (short), adapters, `n_ctx`, `sampler: greedy`, `topk`, generations count, tokens count, mean entropy, declared-not-witnessed line for routing/activations/attention with the flash-attention gap sentence when applicable, `noise_band` if blessed, `join` if present. |
-| `gens <run>` | **New.** One line per generation: `g<id> <name> tokens:<n> stop:<reason> H̄:<mean entropy> minH:<min> at p<pos>` in causal order. Exit 0 with rows, 1 with none. |
+| `gens <run>` | **New.** One line per generation: `g<id> <name> tokens:<n> stop:<reason> H̄:<mean entropy> minH:<min> at p<pos>` in causal order. Exit 0 with rows, 1 with none. A generation with `tokens:0` has no sampled position to summarize: it prints `H̄:n/a minH:n/a` and **omits `at p<pos>` entirely** — never `H̄:0`, `minH:0` or `at p0`, which would read as a measured zero-entropy token that was never sampled (amended 2026-09-05, final review). |
 | `tokens <run> --gen <name> [--from P --to Q] [--min-margin X]` | **New.** Token rows with piece, logprob, entropy, top-k. `--min-margin X` keeps positions where the top-1/top-2 gap ≤ X (the "swallowed uncertainty" view). `--gen` exact-first, then unique prefix, as `--fn` does. |
-| `spans <run> --gen <name>` | **New.** The generation's prompt/action/answer/stop spans with refs; `action` prints `exec run <id> exit …` or `not run`. |
+| `spans <run> --gen <name>` | **New.** The generation's prompt/action/answer/stop spans with refs. An `action` prints **two labeled facts, never one merged** (amended 2026-09-05, final review; design spec §11 R17): first the daemon's own witness, out of `ref.exec` — `exec run <id>: daemon saw exit 1 (waited)`, or `daemon saw: unwitnessed`, or `not run` — and then, separately, what the referenced program trace itself says: `program trace: exit 1 (waited)` when that trace is found, `program trace: (trace not found)` when it is not. Two sources witnessed two things; neither may stand in for the other, and a cached ref never speaks for a file nobody opened. |
 | `diff A B` | §6. Auto-dispatches on `lang == "model"` both sides; mixed → exit 2 `REFUSED: A is a model trace and B is a program trace; diff compares like with like`. |
 | `bless-noise A B` | **New**, §6. |
 | `tree`, `frame`, `grep`, `flow`, `watch`, `exceptions`, `refocus` | **Refuse with exit 2** and one sentence: `REFUSED: <cmd> reads program <frames|events|…>; this is a model trace (recorder <r>) -- use gens/tokens/spans`. `flow`/`watch` already refuse via `line: false` (exit 3); the model-trace sentence takes precedence because the fix is a different command, not a different recording. `exceptions` already refuses on an unknown lang; its wording is replaced by the same sentence on `lang == "model"`. |
 
-`vocab.terms()` gains the `MODEL` column (§1). `exit_phrase` gains `n/a (model trace)` for
-basis `not-a-process-exit`.
+`vocab.terms()` gains the `MODEL` column (§1). `exit_phrase` **and `exit_brief`** gain
+`n/a (model trace)` for basis `not-a-process-exit` — both, because `info` reads the first and
+`runs` the second, and only `exit_brief` would otherwise print `unwitnessed`.
 
-None of these commands exists in 0.8.1; this table is what S1 implements and what `pending/m01–m10.json` pin.
+None of these commands exists in 0.8.1; this table is what S1 implements and what `pending/m01–m11.json` pin.
