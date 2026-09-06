@@ -153,6 +153,14 @@ E9_ENV = {
 #: a fact worth recording, not a slow machine.
 CARGO_TIMEOUT = 3600
 READER_TIMEOUT = 120
+
+#: `flow`'s page size for H5. §1.3 spells the command without a `--limit`
+#: and the CLI's default is 50, but every H5 number is read off the PRINTED
+#: rows -- a gate over a default page would be a smaller number about a
+#: smaller question. 1000 is far above any sighting count this trace can
+#: hold, and `page_truncated` is recorded so a page that still truncated
+#: nulls the gate instead of under-reporting it.
+FLOW_LIMIT = 1000
 CORPUS_TIMEOUT = 7200
 PYTEST_TIMEOUT = 3600
 CARGO_TEST_TIMEOUT = 7200
@@ -204,6 +212,7 @@ def e9_config(paths) -> dict:
         "corpus_target": (Path(corpus) if corpus
                           else e9t.parent / (e9t.name + "-corpus")),
         "corpus_target_from_env": bool(corpus),
+        "flow_limit": FLOW_LIMIT,
         "cargo_timeout": CARGO_TIMEOUT,
         "reader_timeout": READER_TIMEOUT,
         "corpus_timeout": CORPUS_TIMEOUT,
@@ -250,9 +259,12 @@ def build_driver_e9(paths) -> dict:
     if profile == "release":
         cmd.insert(2, "--release")
     with logs_at(LOGS / "built-from"):
-        res = run(cmd, REPO / "rust", "built-from.log",
-                  plain_env() | {"CARGO_TARGET_DIR": str(target)},
-                  timeout=CARGO_TIMEOUT)
+        # Through `guarded`, so a build that hits the ceiling is a RECORDED
+        # `timed_out` with its partial output kept, not a `TimeoutExpired`
+        # raised out of the preflight with no log at all.
+        res = guarded(cmd, REPO / "rust", "built-from.log",
+                      plain_env() | {"CARGO_TARGET_DIR": str(target)},
+                      CARGO_TIMEOUT, "built-from")
     after = sha256_file(driver)
     rec = {
         "repo_head_at_build": out("git", "-C", str(REPO), "rev-parse", "HEAD"),
@@ -261,12 +273,16 @@ def build_driver_e9(paths) -> dict:
         "command": " ".join(cmd), "profile": profile,
         "cargo_target_dir": str(target),
         "cargo_rc": res["rc"], "cargo_wall_s": round(res["wall"], 3),
+        "timed_out": res["timed_out"], "kill_s": res["kill_s"],
         "driver": str(driver),
         "driver_sha256_before_build": before,
         "driver_sha256_after_build": after,
         "rebuilt": before != after,
         "log": res["log"],
     }
+    if res["timed_out"]:
+        raise Refused(f"`{' '.join(cmd)}` was KILLED at {CARGO_TIMEOUT} s: "
+                      "the driver cannot be shown to be this HEAD's")
     if res["rc"] != 0:
         raise Refused(f"`{' '.join(cmd)}` exited {res['rc']}: the driver is "
                       "not this HEAD's")
@@ -404,6 +420,11 @@ def cleanup_e9(paths, cfg, pins) -> dict:
         restored = sha256_file(lockfile)
     sdir = paths["sensorium_dir"]
     log = sdir / "invocations.jsonl"
+    traces = sdir / "traces"
+    # `None` is "there is nothing there to count", `0` is "counted, and
+    # zero". A store the run never created and a store it created and left
+    # empty are different facts about the run, and a 0 for both would report
+    # the first as the second.
     c = {
         "clone_head_after": clone_git(paths, "rev-parse", "HEAD"),
         "clone_porcelain_after": clone_git(paths, "status", "--porcelain"),
@@ -416,15 +437,19 @@ def cleanup_e9(paths, cfg, pins) -> dict:
         "driver_sha256_after": sha256_file(paths["sensorium_driver"]),
         "driver_unchanged": (sha256_file(paths["sensorium_driver"])
                              == pins.get("driver_sha256")),
-        "store_bytes": dir_bytes(sdir) if sdir.is_dir() else 0,
-        "traces_recorded": len(list((sdir / "traces").glob("*.db")))
-        if (sdir / "traces").is_dir() else 0,
+        "store_bytes": dir_bytes(sdir) if sdir.is_dir() else None,
+        "traces_recorded": (len(list(traces.glob("*.db")))
+                            if traces.is_dir() else None),
         "invocations_jsonl_lines": (len(log.read_text().splitlines())
-                                    if log.is_file() else 0),
+                                    if log.is_file() else None),
+        "absent_after_the_run": [
+            str(pth) for pth, ok in (
+                (sdir, sdir.is_dir()), (traces, traces.is_dir()),
+                (log, log.is_file())) if not ok],
         "e9_target_bytes": dir_bytes(paths["sensorium_e9_target"])
-        if paths["sensorium_e9_target"].is_dir() else 0,
+        if paths["sensorium_e9_target"].is_dir() else None,
         "corpus_target_bytes": dir_bytes(cfg["corpus_target"])
-        if cfg["corpus_target"].is_dir() else 0,
+        if cfg["corpus_target"].is_dir() else None,
         "repo_porcelain_after": out("git", "-C", str(REPO), "status",
                                     "--porcelain"),
         "repo_disk_free_gb_after": round(free_gb(REPO), 2),
@@ -520,12 +545,30 @@ def main(argv) -> int:
         # phase measured with.
         res["raw_h7"] = phase_h7(paths, cfg)
         res["cleanup"] = cleanup_e9(paths, cfg, pins)
-        # §1's kill 1: a compile failure of a FOCUSED unit is a STOP, and the
-        # marker says so. Every number already read stays in the record.
-        if records["focused_build_failed"]:
-            res["stop"] = ("§1 kill 1: focused run(s) "
-                           f"{records['focused_build_failed']} did not "
-                           "complete; no fallback and no retry was made")
+        # §1's kill 1 is a COMPILE failure of a focused unit, and only that.
+        # A libtest failure is H2's equality reading, not a kill; a `--focus`
+        # refusal is a third case. Each is labelled under its own name so the
+        # marker cannot call a failing assertion in the clone's suite "a
+        # compile failure of a focused unit" and stop the rung on it.
+        stops = []
+        if records["focused_compile_failures"]:
+            stops.append("§1 kill 1: focused run(s) "
+                         f"{records['focused_compile_failures']} did not "
+                         "COMPILE; no fallback and no retry was made")
+        if records["focused_refusals"]:
+            stops.append("the driver REFUSED the focus of run(s) "
+                         f"{records['focused_refusals']} before cargo ran "
+                         "-- infrastructure before any number, a finding "
+                         "after")
+        if records["focused_killed"]:
+            stops.append(f"focused run(s) {records['focused_killed']} were "
+                         "KILLED at the ceiling")
+        if records["focused_test_failures"]:
+            # NOT a kill: the unit compiled and ran. H2's equality reading is
+            # what adjudicates it, and it does so with a number.
+            res["focused_test_failures"] = records["focused_test_failures"]
+        if stops:
+            res["stop"] = "; ".join(stops)
             rc = rc or 7
         if (res["raw_h3"] or {}).get("stop"):
             res["stop"] = ("§1 kill 4: H3's N = "
@@ -565,15 +608,25 @@ def main(argv) -> int:
              "writing what CAN be serialised instead")
         RAW.write_text(_partial_json(res))
         rc = rc or 6
-    try:
-        assemble_only(res)
-        render_only()
-    except Exception:                                          # noqa: BLE001
-        import traceback
-        (LOGS / "assemble-error.txt").write_text(traceback.format_exc())
-        step("assemble/render FAILED (logs/assemble-error.txt); the raw "
-             "record is intact")
-        rc = rc or 5
+    if res.get("refused"):
+        # A refusal measured NOTHING. Assembling would write a TRACKED
+        # `results.json` (and a rendered §2/§3) full of not-measured cells
+        # into `docs/`, where the next reader would take it for a record of
+        # a run -- and Task 8 would have to notice and delete it. The raw
+        # record and the marker are the whole evidence of a refusal.
+        step("REFUSED before any measurement: no results.json is assembled "
+             "and nothing is rendered; the raw record and the marker are the "
+             "evidence")
+    else:
+        try:
+            assemble_only(res)
+            render_only()
+        except Exception:                                      # noqa: BLE001
+            import traceback
+            (LOGS / "assemble-error.txt").write_text(traceback.format_exc())
+            step("assemble/render FAILED (logs/assemble-error.txt); the raw "
+                 "record is intact")
+            rc = rc or 5
     (BASE / ("e9.DONE" if rc == 0 else "e9.FAILED")).write_text(
         f"exit={rc}\n{time.strftime('%Y-%m-%dT%H:%M:%S%z')}\n"
         f"{res.get('refused') or res.get('stop') or res.get('error') or ''}\n")

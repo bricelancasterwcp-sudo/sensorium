@@ -20,7 +20,8 @@ from acceptance_e9_cells import (MEASUREMENT_CELLS, NEEDS,         # noqa: F401
                                  NOT_RUN, SURVIVES_A_DROPPED_RECORDING,
                                  _apply_record_drops, _drop, _h1, _h2, _h3,
                                  _h4, _h5, _h6, _h7, _null, _null_cells,
-                                 _reader_drop, _record_drops, _records)
+                                 _reader_drop, _record_drops, _records,
+                                 measurement_keys)
 
 DOC = "docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md"
 
@@ -72,7 +73,40 @@ def _reported(raw) -> dict:
     cl = raw.get("cleanup") or raw.get("cleanup_after_failure") or {}
     pins = raw.get("pins") or {}
     runs = _records(raw)
+    h4 = raw.get("raw_h4") or {}
+    # §1.4's ungated honesty counts, per run: the deltas that came back
+    # `{"k": "unread"}`, the deltas that came back truncated, and whether
+    # `flags.bit0` (a dropped delta, `unread: ["locals"]` on a LINE payload)
+    # was ever set. `meta.truncated_count` is the recorder's own whole-trace
+    # figure and sits beside the walked one, because they count different
+    # things and are only comparable if both are stated.
+    #
+    # `unread` on a CALL payload is NOT bit0: every Rust CALL row carries
+    # `{"args": {}, "unread": ["locals"]}` because Rust CALL rows have no
+    # args at all, so counting it there would report a dropped delta on every
+    # activation (`convert/frames.rs:162` vs `:367`).
+    census = {n: r.get("census") for n, r in runs.items()}
     return {
+        "unread_and_truncated_captures": {
+            "per_run": census,
+            "recorder_truncated_count": {n: r.get("truncated_count")
+                                         for n, r in runs.items()},
+            "bit0_ever_set": {n: (c or {}).get("bit0_ever_set")
+                              for n, c in census.items()},
+            "note": ("§1.4's honesty count, reported without a gate; "
+                     "`journal`, `images`, `p`, `p2` and `fake` are expected "
+                     "among the unread"),
+        },
+        "watch_bucket_counts": (raw.get("raw_h4") or {}) and {
+            t.get("id"): {k: t.get(k) for k in
+                          ("sites", "evaluated", "hits", "not_captured",
+                           "errors")}
+            for t in (h4.get("triples") or []) if "dropped" not in t},
+        "flow_pages": {s.get("id"): {"limit": s.get("flow_limit"),
+                                     "rows_printed": s.get("rows_printed"),
+                                     "showing": s.get("showing"),
+                                     "page_truncated": s.get("page_truncated")}
+                       for s in (h5.get("sightings") or [])},
         "walls_s": h6.get("walls_s"),
         "libtest_s": h6.get("libtest_s"),
         "pairs": h6.get("pairs"),
@@ -114,6 +148,7 @@ def _recordings(raw) -> dict:
             "wall_s", "timed_out", "kill_s", "log", "focus_lines",
             "focus_refusal", "cargo_exit", "run", "run_pick_rule",
             "run_candidates", "outcome", "libtest_secs", "trace_bytes")
+    keep = keep + ("outcome_class", "outcome_class_why", "truncated_count")
     return {n: {k: r.get(k) for k in keep}
             | {"test_result_lines": [s["line"] for s in
                                      (r.get("test_results") or [])]}

@@ -18,6 +18,7 @@ the same predictions with the prefix substituted rather than the wrong ones.
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from pathlib import Path
@@ -149,6 +150,17 @@ NOTHING_AT = re.compile(
 NOT_SATISFIED_AT = re.compile(
     r"^verdict: not satisfied at any of the (?P<n>\d+) (?:recorded )?site", re.M)
 
+#: `watch_cmd` prints one line carrying every bucket, above the verdict:
+#: `sites: N   evaluated: N   hits: N   not-captured: N   errors: N`, where
+#: `sites = evaluated + not-captured + errors`. It is the AUTHORITATIVE
+#: source for §1.4's "W1's and W3's hit and not-captured counts": the verdict
+#: sentence carries only two of the five, and the HIT rows below it are a
+#: PAGE (`--limit`, default 20) and cannot be counted.
+COUNTS_LINE = re.compile(
+    r"^sites: (?P<sites>\d+)\s+evaluated: (?P<evaluated>\d+)\s+"
+    r"hits: (?P<hits>\d+)\s+not-captured: (?P<not_captured>\d+)\s+"
+    r"errors: (?P<errors>\d+)", re.M)
+
 
 def parse_watch(text: str) -> dict:
     """The verdict CLASS `watch` printed, and the numbers beside it.
@@ -164,6 +176,7 @@ def parse_watch(text: str) -> dict:
     out: dict = {"classes": classes,
                  "verdict_class": classes[0] if len(classes) == 1 else None,
                  "hits": None, "evaluated": None, "sites": None,
+                 "not_captured": None, "errors": None, "counts_line": None,
                  "verdict_line": None, "refusal_line": None,
                  "hit_rows": [ln.strip() for ln in text.splitlines()
                               if ln.strip().startswith("HIT ")]}
@@ -184,6 +197,14 @@ def parse_watch(text: str) -> dict:
     if m:
         out["hits"] = 0
         out["sites"] = int(m.group("n"))
+    # LAST, and overriding: the counts line is the command's own tally of
+    # every bucket. The verdict sentence carries two of them and the HIT rows
+    # are a page, so where this line exists it is what the record reports.
+    m = COUNTS_LINE.search(text)
+    if m:
+        out["counts_line"] = m.group(0)
+        for key in ("sites", "evaluated", "hits", "not_captured", "errors"):
+            out[key] = int(m.group(key))
     return out
 
 
@@ -205,7 +226,13 @@ def refusal_sentence(recorder: str, cap: str = "line",
 # ------------------------------------------------------------------ `flow`
 
 SIGHTINGS = re.compile(r"^sightings: (?P<events>\d+) event\(s\), "
-                       r"(?P<captures>\d+) capture\(s\)", re.M)
+                       r"(?P<captures>\d+) capture\(s\)"
+                       r"(?P<tail>.*)$", re.M)
+
+#: `flow_cmd._print_footer` appends this when the PAGE is smaller than the
+#: sighting set (`--limit`, default 50). Every H5 number is read off the
+#: printed rows, so a truncated page silently under-counts the gate.
+SHOWING = re.compile(r"\(showing (?P<shown>\d+)\)")
 SCOPE = re.compile(r"^scope: (?P<captures>\d+) capture\(s\) searched across "
                    r"(?P<events>\d+) event\(s\)", re.M)
 
@@ -248,8 +275,19 @@ def parse_flow(text: str) -> dict:
     rows = [r for r in (parse_event_row(ln) for ln in text.splitlines())
             if r]
     s, sc = SIGHTINGS.search(text), SCOPE.search(text)
+    total = int(s.group("events")) if s else None
+    showing = SHOWING.search(s.group("tail")) if s else None
+    # TRUE when the printed rows are not the whole sighting set: either the
+    # footer said so outright, or the row count does not reach the total. A
+    # gate read off a truncated page is a smaller number about a smaller
+    # question, and H5 must publish it as not-measured instead.
+    page_truncated = bool(showing) or (total is not None
+                                       and len(rows) != total)
     return {
-        "sighting_events": int(s.group("events")) if s else None,
+        "page_truncated": page_truncated,
+        "rows_printed": len(rows),
+        "showing": int(showing.group("shown")) if showing else None,
+        "sighting_events": total,
         "sighting_captures": int(s.group("captures")) if s else None,
         "scope_captures": int(sc.group("captures")) if sc else None,
         "scope_events": int(sc.group("events")) if sc else None,
@@ -391,3 +429,98 @@ def histogram_diff(measured: dict, expected: dict) -> dict:
 def int_keys(d: dict | None) -> dict:
     """A `{line: count}` map read back from JSON, with its keys ints again."""
     return {int(k): v for k, v in (d or {}).items()}
+
+
+# --------------------------------------------- §1.4's ungated honesty counts
+
+
+#: What a LINE payload looks like in a converted Rust trace
+#: (`convert/frames.rs`): `{"deltas": {name: capture}}`, plus a sibling
+#: `"unread": ["locals"]` when the runtime set `flags.bit0` -- at least one
+#: delta did not fit the payload and every later one was dropped
+#: (`sensorium-rt/src/line.rs`). A capture is `{"k": "dbg", "v": text,
+#: "trunc": bool}` or the bare `{"k": "unread"}` for a value the probe could
+#: not read at all.
+CAPTURE_ROLES = {"CALL": "args", "RETURN": "value", "LINE": "deltas"}
+
+
+def _captures_of(kind: str, payload: dict):
+    """Every (name, capture) this event carries, whatever its role."""
+    if kind == "RETURN":
+        v = payload.get("value")
+        return [("<return>", v)] if isinstance(v, dict) else []
+    key = CAPTURE_ROLES.get(kind)
+    if key is None:
+        return []
+    slot = payload.get(key)
+    if not isinstance(slot, dict):
+        return []
+    return [(n, c) for n, c in slot.items() if isinstance(c, dict)]
+
+
+def delta_census(db: Path) -> dict:
+    """§1.4's ungated honesty counts over one trace.
+
+    Pre-registered without a gate: "the number of `deltas` that came back
+    `{"k": "unread"}` and the number that came back truncated, per run (an
+    honesty count -- `journal`, `images`, `p`, `p2` and `fake` are expected
+    among the first); whether `flags.bit0` (a dropped delta, `unread`:
+    ["locals"]) was ever set".
+
+    LINE deltas are counted on their own, because that is what §1.4 names;
+    the whole-trace figure over CALL args and RETURN values is counted beside
+    them, because `meta.truncated_count` is a whole-trace number and the two
+    are only comparable if both are stated.
+    """
+    con = _connect(db)
+    try:
+        rows = con.execute(
+            "select e.kind, e.payload, c.qualname from events e "
+            "left join code_objects c on c.id = e.code_id "
+            "where e.payload is not null").fetchall()
+    finally:
+        con.close()
+    out = {
+        "line_events": 0, "line_deltas": 0,
+        "line_deltas_unread": 0, "line_deltas_truncated": 0,
+        "line_rows_with_dropped_locals": 0, "bit0_ever_set": False,
+        "unread_delta_names": {}, "truncated_delta_names": {},
+        "all_captures": 0, "all_captures_unread": 0,
+        "all_captures_truncated": 0,
+    }
+    for kind, payload, _qualname in rows:
+        try:
+            p = json.loads(payload)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(p, dict):
+            continue
+        captures = _captures_of(kind, p)
+        if kind == "LINE":
+            out["line_events"] += 1
+            out["line_deltas"] += len(captures)
+            if p.get("unread") == ["locals"]:
+                out["line_rows_with_dropped_locals"] += 1
+                out["bit0_ever_set"] = True
+        for name, cap in captures:
+            out["all_captures"] += 1
+            unread = cap.get("k") == "unread"
+            trunc = bool(cap.get("trunc"))
+            if unread:
+                out["all_captures_unread"] += 1
+            if trunc:
+                out["all_captures_truncated"] += 1
+            if kind != "LINE":
+                continue
+            if unread:
+                out["line_deltas_unread"] += 1
+                out["unread_delta_names"][name] = (
+                    out["unread_delta_names"].get(name, 0) + 1)
+            if trunc:
+                out["line_deltas_truncated"] += 1
+                out["truncated_delta_names"][name] = (
+                    out["truncated_delta_names"].get(name, 0) + 1)
+    out["unread_delta_names"] = dict(sorted(out["unread_delta_names"].items()))
+    out["truncated_delta_names"] = dict(
+        sorted(out["truncated_delta_names"].items()))
+    return out

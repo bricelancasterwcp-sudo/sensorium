@@ -37,14 +37,30 @@ MEASUREMENT_CELLS = {
     "H2": ("headline", "outcomes_equal", "line_qualname_sets",
            "exit_status_equal", "focused_build_failures"),
     "H3": ("headline", "equals_the_gate", "line_differences", "activations",
-           "joins_agree"),
+           "joins_agree", "in_the_accounted_range"),
     "H4": ("headline", "class_as_predicted", "exit_as_predicted",
            "readings_disagree"),
     "H5": ("headline", "unpredicted_gated_sightings",
            "whole_trace_sightings"),
     "H6": ("headline", "libtest_s", "invocation_s"),
-    "H7": ("headline", "corpus_rc", "pytest_rc", "cargo_rc"),
+    "H7": ("headline", "corpus_rc", "corpus_errors", "corpus_skipped",
+           "pytest_rc", "pytest_summary", "cargo_rc"),
 }
+
+
+def measurement_keys(block: dict) -> set:
+    """Every key of one endpoint whose value IS a measurement.
+
+    Derived from the assembled block rather than declared, so
+    `MEASUREMENT_CELLS` can be CHECKED against what the schema actually
+    publishes. A cell that was added to a block and forgotten in the list
+    would escape `_apply_record_drops` entirely and publish a number from a
+    killed recording -- which is exactly what happened to H3's
+    `in_the_accounted_range` on the first round.
+    """
+    return {k for k, v in block.items()
+            if isinstance(v, dict)
+            and {"value", "n", "lens", "dropped"} <= set(v)}
 
 
 #: The one sentence every "this phase did not run" reason is built from, so
@@ -317,6 +333,8 @@ def _h3(raw) -> dict:
             "activations": _null(why, "activations of the focus value"),
             "joins_agree": _null(why, "the frame join and the code join "
                                       "count the same rows"),
+            "in_the_accounted_range": _null(
+                why, "N is inside {25, 26, 27}; outside it is §1's kill 4"),
         }
     diff = r.get("diff") or {}
     block = {
@@ -419,6 +437,15 @@ def _h4(raw) -> dict:
     block["stdout"] = {t["id"]: t.get("stdout") for t in rows
                        if t.get("stdout")}
     block["disagreeing"] = r.get("class_disagreements")
+    # §1.4 reports W1's and W3's hit AND not-captured counts without a gate.
+    # They come from `watch`'s own counts line, which is the only complete
+    # source: the verdict sentence carries two of the five buckets and the
+    # HIT rows below it are a page.
+    block["bucket_counts"] = {
+        t.get("id"): {k: t.get(k) for k in
+                      ("sites", "evaluated", "hits", "not_captured",
+                       "errors", "counts_line")}
+        for t in (r.get("triples") or []) if "dropped" not in t}
     return _apply_record_drops(block, "H4", _record_drops(raw, "H4"))
 
 
@@ -475,6 +502,17 @@ def _h5(raw) -> dict:
                 "SECOND reading (reported, not gated): every printed "
                 "sighting row per literal, gated set included", dropped),
         }
+    # §1.3's command has no `--limit` and `flow`'s default page is 50. The
+    # runner asks for 1000, and if the footer STILL says the page is smaller
+    # than the sighting set then every number below was read off part of an
+    # answer: the gate is not-measured, with the truncation as its reason.
+    truncated = [s["id"] for s in rows if s.get("page_truncated")]
+    if truncated:
+        _null_cells(block, ("headline", "unpredicted_gated_sightings"),
+                    [f"the printed page of sighting(s) {truncated} was "
+                     "SMALLER than the sighting set; every gated count comes "
+                     "from the printed rows"])
+    block["page_truncated"] = truncated
     block["sightings"] = [{k: v for k, v in s.items() if k != "stdout"}
                           for s in rows]
     block["stdout"] = {s["id"]: s.get("stdout") for s in rows
@@ -546,14 +584,19 @@ def _h7(raw) -> dict:
     if not r:
         return {"headline": _null(NOT_RUN, "corpus failures; " + H7_LENS),
                 "corpus_rc": _null(NOT_RUN, "the collector's exit status"),
+                "corpus_errors": _null(NOT_RUN, "cases that crashed the "
+                                                "collector"),
+                "corpus_skipped": _null(NOT_RUN, "cases the collector "
+                                                 "SKIPPED"),
                 "pytest_rc": _null(NOT_RUN, "`pytest -q` exit status"),
+                "pytest_summary": _null(NOT_RUN, "the suite's summary line"),
                 "cargo_rc": _null(NOT_RUN, "`cargo test --workspace` exit "
                                            "status")}
     c, py, cargo = (r.get("corpus") or {}), (r.get("python") or {}), \
         (r.get("cargo") or {})
     c_drop = dropped + _reader_drop(c, "run_corpus")
     failures = c.get("failures")
-    return {
+    out = {
         "headline": meas(
             (len(failures) if failures is not None else None),
             c.get("questions"),
@@ -574,6 +617,15 @@ def _h7(raw) -> dict:
             "nothing and is not a pass",
             c_drop + ([] if c.get("json") is not None
                       else ["the collector printed no JSON"])),
+        "corpus_skipped": meas(
+            (len(c.get("skipped") or []) if c.get("json") is not None
+             else None), c.get("cases"),
+            "cases the collector SKIPPED, of the cases -- `run_corpus` skips "
+            "a cargo case when it can find no driver and still exits 0, so a "
+            "green H7 over a skipped corpus is not `every case equal`; the "
+            "gate is 0",
+            c_drop + ([] if c.get("json") is not None
+                      else ["the collector printed no JSON"])),
         "pytest_rc": meas(py.get("rc"), None,
                           "`pytest -q` exit status -- 0 is green",
                           dropped + _reader_drop(py, "pytest")),
@@ -586,7 +638,11 @@ def _h7(raw) -> dict:
                          "result:` lines",
                          dropped + _reader_drop(cargo, "cargo test")),
         "corpus_failures": failures,
-        "corpus_skipped": c.get("skipped"),
+        # The SKIPPED rows themselves, under a name of their own: the
+        # measurement cell above is `corpus_skipped`, and a second key of
+        # that name in this literal silently replaced it (caught by the
+        # completeness test on the first attempt).
+        "corpus_skipped_cases": c.get("skipped"),
         "corpus_cases": c.get("cases"),
         "corpus_questions": c.get("questions"),
         "cargo_result_lines": cargo.get("result_lines"),
@@ -596,3 +652,14 @@ def _h7(raw) -> dict:
                  "cargo": cargo.get("log")},
         "driver_sha256_after": r.get("driver_sha256_after"),
     }
+    # The same rule as everywhere else, applied to H7's three commands: a
+    # collector, a suite or a `cargo test` cut off at its ceiling printed
+    # part of an answer, and the exit status it never returned is `None`.
+    # Only the cells that command answers are nulled.
+    for names, block_, label in (
+            (("headline", "corpus_rc", "corpus_errors", "corpus_skipped"),
+             c, "run_corpus"),
+            (("pytest_rc", "pytest_summary"), py, "pytest"),
+            (("cargo_rc",), cargo, "cargo test")):
+        _null_cells(out, names, _reader_drop(block_, label))
+    return out

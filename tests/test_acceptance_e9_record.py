@@ -29,7 +29,9 @@ import acceptance_e9_phases as phases                              # noqa: E402
 import acceptance_lib as lib                                       # noqa: E402
 import acceptance_phases as ph                                     # noqa: E402
 import render_e9                                                   # noqa: E402
-from acceptance_e9_schema import MEASUREMENT_CELLS, assemble_e9    # noqa: E402
+from acceptance_e9_schema import (MEASUREMENT_CELLS, NEEDS,       # noqa: E402
+                                  SURVIVES_A_DROPPED_RECORDING,
+                                  assemble_e9, measurement_keys)
 
 # The same collection-order restore `tests/test_acceptance_e9.py` makes, and
 # for the same reason: importing a runner re-points the SHARED log pointers,
@@ -56,7 +58,19 @@ def _raw(**over) -> dict:
                "outcome": {"targets": 1, "passed": 1, "failed": 0,
                            "ignored": 0, "measured": 0, "filtered_out": 0,
                            "verdicts": ["ok"]},
-               "test_results": [{"line": "test result: ok. 1 passed; …"}],
+               "test_results": [{"line": "test result: ok. 1 passed; …",
+                                 "failed": 0, "libtest_secs": 0.4}],
+               "outcome_class": "completed", "outcome_class_why": "exit 0",
+               "truncated_count": 0,
+               "census": {"line_events": 0, "line_deltas": 0,
+                          "line_deltas_unread": 0,
+                          "line_deltas_truncated": 0,
+                          "line_rows_with_dropped_locals": 0,
+                          "bit0_ever_set": False,
+                          "unread_delta_names": {},
+                          "truncated_delta_names": {},
+                          "all_captures": 8, "all_captures_unread": 2,
+                          "all_captures_truncated": 0},
                "meta": {"counts": {"LINE": 0}}},
     }
     for name, wall, focus in (("F1", 44.0, [phases.FOCUS_A]),
@@ -119,6 +133,10 @@ def _raw(**over) -> dict:
                                for s in phases.flow_sightings(
                                    {"temp_root": "/tmp"})]},
         "raw_records": {"runs": runs, "focused_build_failed": [],
+                        "focused_compile_failures": [],
+                        "focused_refusals": [], "focused_test_failures": [],
+                        "focused_killed": [],
+                        "outcome_classes": {n: "completed" for n in runs},
                         "killed": []},
         "raw_h1": {"run": "20260906-101010-aaaaaa",
                    "capabilities_line": False, "capabilities_locals": False,
@@ -170,7 +188,11 @@ def _raw(**over) -> dict:
              "verdict_class": t["predicted_class"],
              "rc": t["predicted_exit"], "timed_out": False,
              "class_as_predicted": True, "exit_as_predicted": True,
-             "readings_agree": True, "stdout": "verdict: …"}
+             "readings_agree": True, "stdout": "verdict: …",
+             "sites": 5, "evaluated": 2, "hits": 2, "not_captured": 3,
+             "errors": 0,
+             "counts_line": "sites: 5   evaluated: 2   hits: 2   "
+                            "not-captured: 3   errors: 0"}
             for t in phases.watch_triples({"temp_root": "/tmp"})],
             "measured": 3, "as_predicted": 3, "class_disagreements": [],
             "killed": []},
@@ -181,9 +203,11 @@ def _raw(**over) -> dict:
              "found_at_predicted_line": True, "unpredicted_gated_rows": [],
              "whole_trace_count": 2, "gated_rows": ["e5 LINE …"],
              "whole_trace_rows": ["e5 LINE …", "e2 RETURN …"],
-             "stdout": "sightings: …"}
+             "page_truncated": False, "rows_printed": 2, "showing": None,
+             "flow_limit": 1000, "stdout": "sightings: …"}
             for s in phases.flow_sightings({"temp_root": "/tmp"})],
-            "both_found": True, "unpredicted": 0, "killed": []},
+            "both_found": True, "unpredicted": 0, "killed": [],
+            "page_truncated": []},
         "raw_h6": {"walls_s": {n: r["wall_s"] for n, r in runs.items()},
                    "libtest_s": {n: r["libtest_secs"] for n, r in runs.items()},
                    "trace_bytes": {n: 900 for n in runs},
@@ -437,3 +461,182 @@ def test_a_stop_is_rendered_as_a_stop():
     doc = assemble_e9(_raw(stop="§1 kill 4: H3's N = 31"))
     text = "\n".join(render_e9.results(doc))
     assert "**STOP.**" in text and "N = 31" in text
+
+
+# -- fix round 1: the killed-cell rule is STRUCTURAL ------------------------
+
+
+def _all_killed() -> dict:
+    """A raw record in which EVERY recording hit its ceiling."""
+    raw = _raw()
+    for r in raw["raw_records"]["runs"].values():
+        r["timed_out"] = True
+        r["outcome_class"] = "killed"
+    raw["raw_records"]["focused_killed"] = ["F1", "F2"]
+    raw["raw_records"]["focused_build_failed"] = ["F1", "F2"]
+    return raw
+
+
+def test_NO_cell_survives_a_record_whose_every_recording_was_killed():
+    """The rule, walked over what the schema ACTUALLY publishes rather than
+    over the list it declares.
+
+    `MEASUREMENT_CELLS` is what `_apply_record_drops` iterates, so a cell
+    added to a block and forgotten in the list escapes the rule entirely —
+    which is what happened to H3's `in_the_accounted_range`, published as
+    `True` beside a `null` headline on a killed F1. Walking every
+    measurement-shaped value in the assembled record catches the next one
+    without anybody having to remember."""
+    doc = assemble_e9(_all_killed())
+    seen = 0
+    for h, block in doc["endpoints"].items():
+        if h not in NEEDS:
+            # H7 measures THIS repository, not the clone, so no recording of
+            # the clone can drop it. Asserted from the map rather than from a
+            # hand-written exemption, so an endpoint that stopped needing a
+            # recording could not quietly leave the walk.
+            assert h == "H7", h
+            continue
+        for k in measurement_keys(block):
+            if k in SURVIVES_A_DROPPED_RECORDING.get(h, ()):
+                continue
+            m, seen = block[k], seen + 1
+            assert m["value"] is None, f"{h}.{k} survived a killed recording"
+            assert m["dropped"], f"{h}.{k} is null with no reason"
+            assert any("KILLED" in d for d in m["dropped"]), (h, k,
+                                                              m["dropped"])
+    assert seen >= 20, f"only {seen} cells walked — the record shrank"
+
+
+def test_H7s_own_commands_null_their_own_cells_when_they_are_killed():
+    """H7 reads no recording, so the walk above cannot reach it — and its
+    three commands have ceilings of their own. A `cargo test` cut off at two
+    hours has no exit status, and `None` published as a number would read as
+    the green 0."""
+    raw = _raw()
+    for key in ("corpus", "python", "cargo"):
+        raw["raw_h7"][key]["timed_out"] = True
+        raw["raw_h7"][key]["kill_s"] = 7200
+    h7 = assemble_e9(raw)["endpoints"]["H7"]
+    for k in MEASUREMENT_CELLS["H7"]:
+        assert h7[k]["value"] is None, k
+        assert any("KILLED" in d for d in h7[k]["dropped"]), (k, h7[k])
+    # one killed command does not null the other two
+    raw = _raw()
+    raw["raw_h7"]["cargo"]["timed_out"] = True
+    h7 = assemble_e9(raw)["endpoints"]["H7"]
+    assert h7["cargo_rc"]["value"] is None
+    assert h7["headline"]["value"] == 0 and h7["pytest_rc"]["value"] == 0
+
+
+def test_the_declared_cell_list_is_what_the_schema_publishes():
+    """The other half: `MEASUREMENT_CELLS` must not drift from the blocks.
+
+    A cell in a block but not in the list escapes the drop rule; a name in
+    the list but not in a block makes `_apply_record_drops` a no-op for it
+    and the completeness test vacuous."""
+    doc = assemble_e9(_raw())
+    for h, block in doc["endpoints"].items():
+        assert measurement_keys(block) == set(MEASUREMENT_CELLS[h]), h
+    # and on the did-not-run path, where the blocks are built by a different
+    # branch that has drifted from the measured one before
+    empty = assemble_e9({})
+    for h, block in empty["endpoints"].items():
+        assert measurement_keys(block) == set(MEASUREMENT_CELLS[h]), h
+
+
+def test_H3s_accounted_range_cell_dies_with_a_killed_F1():
+    """The CRITICAL of fix round 1, pinned by name. The assembled record read
+    `H3.headline None` beside `in_the_accounted_range True`, and the renderer
+    printed the second — a killed build reporting that N was inside
+    {25, 26, 27} when no N had been measured at all."""
+    raw = _raw()
+    raw["raw_records"]["runs"]["F1"]["timed_out"] = True
+    raw["raw_records"]["runs"]["F1"]["outcome_class"] = "killed"
+    h3 = assemble_e9(raw)["endpoints"]["H3"]
+    assert h3["headline"]["value"] is None
+    assert h3["in_the_accounted_range"]["value"] is None
+    assert h3["in_the_accounted_range"]["dropped"]
+
+
+# -- fix round 1: H5's page, H7's skips, the kill-1 label -------------------
+
+
+def test_a_TRUNCATED_flow_page_nulls_H5s_gate():
+    """`flow`'s default page is 50 and every H5 number is read off the
+    printed rows. A gate over a truncated page is a smaller number about a
+    smaller question, and would read as a PASS with sightings unseen."""
+    raw = _raw()
+    raw["raw_h5"]["sightings"][0]["page_truncated"] = True
+    raw["raw_h5"]["page_truncated"] = ["S1"]
+    h5 = assemble_e9(raw)["endpoints"]["H5"]
+    assert h5["headline"]["value"] is None
+    assert any("SMALLER than the sighting set" in d
+               for d in h5["headline"]["dropped"])
+    assert h5["unpredicted_gated_sightings"]["value"] is None
+    # the untruncated case still measures
+    assert assemble_e9(_raw())["endpoints"]["H5"]["headline"]["value"] == 2
+
+
+def test_skipped_corpus_cases_are_a_measurement_with_gate_zero():
+    """`run_corpus` skips a cargo case it can find no driver for and exits 0.
+    H7 read only the exit status and the failures would call a corpus that
+    ran nothing green — the strongest possible pass over no evidence."""
+    doc = assemble_e9(_raw())
+    assert doc["endpoints"]["H7"]["corpus_skipped"]["value"] == 0
+    raw = _raw()
+    raw["raw_h7"]["corpus"]["skipped"] = [
+        {"case": "rust/focus_let_chain", "reason": "no cargo-sensorium"}]
+    h7 = assemble_e9(raw)["endpoints"]["H7"]
+    assert h7["corpus_skipped"]["value"] == 1
+    assert h7["corpus_rc"]["value"] == 0        # green, and NOT every case
+    assert h7["corpus_skipped_cases"][0]["case"] == "rust/focus_let_chain"
+
+
+def test_a_libtest_failure_is_not_1s_kill_1():
+    """§1's kill 1 is a COMPILE failure of a focused unit. A failing
+    assertion in the clone's own suite exits non-zero WITH a summary line;
+    calling that "a compile failure of a focused unit" would stop the rung on
+    the clone's test and put the wrong finding in the record."""
+    raw = _raw()
+    raw["raw_records"]["runs"]["F1"].update(
+        rc=101, outcome_class="test_failure",
+        outcome_class_why="exit 101 with 1 libtest summary line(s), 1 "
+                          "test(s) failed: the unit compiled and ran")
+    raw["raw_records"].update(focused_test_failures=["F1"],
+                              focused_build_failed=["F1"])
+    doc = assemble_e9(raw)
+    assert doc["recordings"]["F1"]["outcome_class"] == "test_failure"
+    # it still drops the numbers derived from that recording ...
+    assert doc["endpoints"]["H3"]["headline"]["value"] is None
+    # ... and H2's count of focused runs that did not complete is the honest
+    # one, because that cell survives a dropped recording by name
+    assert doc["endpoints"]["H2"]["focused_build_failures"]["value"] == 1
+
+
+def test_the_ungated_honesty_counts_reach_the_record_and_the_renderer():
+    """§1.4 pre-registers them without a gate: the unread deltas, the
+    truncated ones, whether `flags.bit0` was ever set, and `watch`'s bucket
+    counts. A block that was measured and never published is a measurement
+    nobody can read."""
+    doc = assemble_e9(_raw())
+    u = doc["reported"]["unread_and_truncated_captures"]
+    assert set(u["per_run"]) == {"U1", "F1", "U2", "F2"}
+    assert u["bit0_ever_set"]["F1"] is False
+    assert u["recorder_truncated_count"]["F1"] == 0
+    assert doc["reported"]["watch_bucket_counts"]["W1"]["not_captured"] == 3
+    assert doc["reported"]["flow_pages"]["S1"]["limit"] == 1000
+    text = "\n".join(render_e9.results(doc))
+    assert "§1.4's honesty counts" in text
+    assert "not-captured" in text
+
+
+def test_an_unparsed_outcome_is_None_and_never_a_failed_comparison():
+    """`outcome_equal: False` is a claim about two outcomes. A run whose
+    output carried no summary line has no outcome, and reporting the pair as
+    unequal would make H2 fail on a missing parse rather than on a
+    difference."""
+    raw = _raw()
+    raw["raw_h2"]["pairs"]["F1/U1"]["outcome_equal"] = None
+    m = assemble_e9(raw)["endpoints"]["H2"]["outcomes_equal"]
+    assert m["value"] == 1 and m["n"] == 2      # the OTHER pair still counts

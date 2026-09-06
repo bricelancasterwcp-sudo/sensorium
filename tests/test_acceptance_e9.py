@@ -32,6 +32,7 @@ are in the task report.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -59,9 +60,9 @@ lib.LOGS, lib.LEDGER, ph.LOGS = e6ppp.LOGS, e6ppp.LEDGER, e6ppp.LOGS
 
 DOC_SHA = "15f0537587f55ec949a60c86543e6c4e1f7a0929cc57eb4a15320424185b67a5"
 
-INSTRUMENT = ("acceptance_e9.py", "acceptance_e9_phases.py",
-              "acceptance_e9_read.py", "acceptance_e9_schema.py",
-              "render_e9.py")
+INSTRUMENT = ("acceptance_e9.py", "acceptance_e9_cells.py",
+              "acceptance_e9_phases.py", "acceptance_e9_read.py",
+              "acceptance_e9_schema.py", "render_e9.py")
 
 
 # -- the byte-lock ---------------------------------------------------------
@@ -296,6 +297,31 @@ def test_the_test_binarys_process_is_picked_by_a_stated_rule():
     assert phases.pick_run([], "x")["run"] is None
 
 
+def test_H5_asks_flow_for_a_page_big_enough_to_hold_the_answer(tmp_path,
+                                                               monkeypatch):
+    """§1.3 spells `flow <run> --value <literal>` with no `--limit`, and the
+    CLI's default page is 50. Every H5 number is read off the PRINTED rows,
+    so the command as spelled would gate on part of an answer whenever the
+    literal is sighted more than fifty times — and the page guard would then
+    have to null a gate that a bigger page would have measured."""
+    asked = []
+    monkeypatch.setattr(phases, "LOGS", tmp_path / "logs")
+    monkeypatch.setattr(phases, "_read", lambda p, args, tag, cfg: (
+        asked.append(args) or {"rc": 0, "out": "sightings: 0 event(s), "
+                               "0 capture(s)\n", "err": "", "wall": 0.0,
+                               "log": "l", "timed_out": False,
+                               "command": "sensorium " + " ".join(args),
+                               "kill_s": 120}))
+    monkeypatch.setattr(phases, "has_trace", lambda *a, **k: True)
+    records = {"runs": {"F1": {"run": "r", "timed_out": False, "rc": 0}}}
+    phases.phase_h5({}, {"temp_root": "/tmp", "flow_limit": 1000,
+                         "reader_timeout": 120}, records)
+    assert asked, "phase_h5 issued no command"
+    for args in asked:
+        assert "--limit" in args, args
+        assert args[args.index("--limit") + 1] == "1000", args
+
+
 def test_a_run_line_without_a_trace_on_disk_is_a_DROP_and_not_a_crash(
         tmp_path):
     """A KILLED `cargo sensorium` can still have printed a `run:` line for a
@@ -328,20 +354,56 @@ def test_the_watch_triples_and_sightings_are_ones_1_2_and_1_3_pin():
         ("S2", "/tmp/bloomery-pager-contract2/j.jsonl", 264)]
 
 
-def test_the_expected_line_table_is_1_1s_hand_count():
-    """N is 26 because §1.1 counted 26 lines. A table that had drifted from
-    the count would make the gate and the diff disagree, and H3's MISS
-    reading would name lines against the wrong reference."""
-    assert sum(runner.EXPECTED_BY_LINE.values()) == runner.GATE_N == 26
-    assert len(runner.EXPECTED_BY_LINE) == 26
-    assert all(v == 1 for v in runner.EXPECTED_BY_LINE.values())
-    assert min(runner.EXPECTED_BY_LINE) == 250
-    assert max(runner.EXPECTED_BY_LINE) == 300
-    # the two lines §1.1 deliberately does NOT count, named so a table that
-    # quietly grew a row would fail here
-    assert 260 not in runner.EXPECTED_BY_LINE
-    assert 280 not in runner.EXPECTED_BY_LINE
+def _table_from_the_locked_document() -> dict:
+    """§1.1's per-line table, read out of the LOCKED document.
+
+    The `awk '/^### 1.1/,/^### 1.2/'` slice, then the `| <line> | … | 1 |`
+    rows: the header row (`| source line | … | + |`) and the total row
+    (`| **N** | | **26** |`) do not match, because neither begins with a
+    bare number."""
+    import re
+    text, keep, buf = runner.DOC.read_text(), False, []
+    for line in text.splitlines():
+        if line.startswith("### 1.1"):
+            keep = True
+        elif line.startswith("### 1.2"):
+            break
+        if keep:
+            buf.append(line)
+    rows = re.findall(r"^\| (\d+) \|.*\| (\d+) \|\s*$", "\n".join(buf),
+                      re.M)
+    return {int(ln): int(n) for ln, n in rows}
+
+
+def test_the_expected_line_table_IS_1_1s_table_row_for_row():
+    """N is 26 because §1.1 counted 26 specific lines, and the diff names
+    lines against them. A constant retyped from prose can drift by one row
+    and still sum to 26 — a `286 -> 285` typo would make H3 report a missing
+    line and an unexpected one on a correct recorder, and read as the
+    §3.1/§3.2 under-specification §1.1 accounts for.
+
+    So the table is DERIVED from the byte-locked document here and asserted
+    equal to the instrument's constant. The runner keeps the constant (it
+    must not parse prose at run time, and the lock is what makes the constant
+    trustworthy); this is the pin between them."""
+    _require_lock_commits(runner.BYTE_LOCK)
+    from_doc = _table_from_the_locked_document()
+    assert len(from_doc) == 26, from_doc
+    assert from_doc == runner.EXPECTED_BY_LINE
+    assert sum(from_doc.values()) == runner.GATE_N == 26
+    # the two lines §1.1 deliberately does NOT count -- the arms not taken
+    assert 260 not in from_doc and 280 not in from_doc
     assert runner.ACCOUNTED_N == frozenset({25, 26, 27})
+
+
+def test_the_derived_table_actually_reads_the_document():
+    """The pin above is only worth anything if the derivation can fail. A
+    regex that matched nothing would make `from_doc == EXPECTED_BY_LINE`
+    an assertion about two empty dicts."""
+    from_doc = _table_from_the_locked_document()
+    assert from_doc, "the §1.1 slice yielded no rows"
+    assert min(from_doc) == 250 and max(from_doc) == 300
+    assert all(v == 1 for v in from_doc.values())
 
 
 def test_a_kill_is_recorded_as_a_fact_and_not_raised(tmp_path, monkeypatch):
@@ -412,3 +474,133 @@ def test_no_module_of_this_instrument_names_a_box_path():
         text = (REPO / "rust" / "tests" / name).read_text()
         assert "/mnt/" not in text, name
         assert "/home/" not in text, name
+
+
+# -- fix round 1 -----------------------------------------------------------
+
+
+def test_kill_1_is_a_COMPILE_failure_and_not_the_other_two():
+    """§1's kill 1 is "a compile failure of a focused unit". A libtest
+    failure (the unit compiled, ran and reported) and the driver's own
+    `--focus` refusal (exit 2, printed before cargo is invoked at all) are
+    different findings, and labelling either "a compile failure of a focused
+    unit" would stop the rung on the wrong fact — a failing assertion in the
+    clone's own suite, or a mistyped qualname.
+
+    The discriminator is libtest's own summary line: a unit that printed one
+    was compiled and run."""
+    summary = [{"failed": 1, "libtest_secs": 1.0}]
+    base = {"timed_out": False, "kill_s": 3600, "focus_refusal": None}
+
+    # compiled and ran, one test failed -> NOT kill 1
+    got = phases._outcome_class({**base, "rc": 101}, summary, {})
+    assert got["outcome_class"] == phases.TEST_FAILURE
+    assert "compiled and ran" in got["outcome_class_why"]
+
+    # never ran: non-zero and NO summary line -> kill 1
+    got = phases._outcome_class({**base, "rc": 101}, [], {})
+    assert got["outcome_class"] == phases.COMPILE_FAILURE
+    assert "never ran" in got["outcome_class_why"]
+
+    # the driver refused the focus before cargo -> a third case
+    got = phases._outcome_class({**base, "rc": 2}, [], {})
+    assert got["outcome_class"] == phases.REFUSAL
+    got = phases._outcome_class(
+        {**base, "rc": 101,
+         "focus_refusal": "REFUSED: --focus nope matches no function"},
+        summary, {})
+    assert got["outcome_class"] == phases.REFUSAL
+
+    assert phases._outcome_class({**base, "rc": 0}, summary, {})[
+        "outcome_class"] == phases.COMPLETED
+    assert phases._outcome_class(
+        {**base, "rc": None, "timed_out": True}, [], {})[
+            "outcome_class"] == phases.KILLED
+
+
+def test_libtest_time_is_None_when_no_summary_reported_one():
+    """H6's first reading. `0.0` compares equal to a run that reported
+    nothing and renders in §3 as "the focused binary took no time at all"."""
+    from acceptance_e9_read import test_results
+    rows = test_results("test result: ok. 1 passed; 0 failed; 0 ignored; "
+                        "0 measured; 0 filtered out\n")
+    assert rows and rows[0]["libtest_secs"] is None
+    assert all(s["libtest_secs"] is not None for s in test_results(
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; "
+        "0 filtered out; finished in 0.4s\n"))
+
+
+def test_the_driver_build_goes_through_the_guard(tmp_path, monkeypatch):
+    """A build that hits the hour ceiling must be a RECORDED `timed_out`
+    with its partial output kept, not a `TimeoutExpired` raised out of the
+    preflight — which leaves no log at all, because `acceptance_lib.run`
+    writes its log after the call returns."""
+    import subprocess as sp
+
+    def killed(*a, **k):
+        raise sp.TimeoutExpired(["cargo"], 3600, output=b"partial\n")
+
+    monkeypatch.setattr(phases, "run", killed)
+    monkeypatch.setattr(lib, "LOGS", tmp_path / "logs")
+    # `build_driver_e9` opens `logs_at(LOGS / "built-from")` in the RUNNER's
+    # namespace, so the run's own log root has to move too — otherwise this
+    # box-free test writes its kill log into the real ledger.
+    monkeypatch.setattr(runner, "LOGS", tmp_path / "logs")
+    d = tmp_path / "t" / "debug"
+    d.mkdir(parents=True)
+    (d / "cargo-sensorium").write_text("")
+    with pytest.raises(Refused) as e:
+        runner.build_driver_e9({"sensorium_driver": d / "cargo-sensorium"})
+    assert "KILLED" in str(e.value)
+    log = tmp_path / "logs" / "built-from" / "built-from.log.KILLED.log"
+    assert log.is_file() and "KILLED at 3600 s" in log.read_text()
+
+
+def test_a_REFUSED_run_assembles_nothing(tmp_path, monkeypatch):
+    """A refusal measured NOTHING. Assembling would write a TRACKED
+    `results.json` full of not-measured cells into `docs/`, where the next
+    reader would take it for the record of a run and Task 8 would have to
+    notice and delete it."""
+    calls = []
+    monkeypatch.setattr(runner, "assemble_only",
+                        lambda *a, **k: calls.append("assemble"))
+    monkeypatch.setattr(runner, "render_only",
+                        lambda *a, **k: calls.append("render"))
+    monkeypatch.setattr(runner, "BASE", tmp_path)
+    monkeypatch.setattr(runner, "LOGS", tmp_path / "logs")
+    monkeypatch.setattr(runner, "RAW", tmp_path / "raw.json")
+    monkeypatch.setattr(runner, "check_byte_lock",
+                        lambda: (_ for _ in ()).throw(Refused("no lock")))
+    assert runner.main([]) == 3
+    assert calls == [], "a refusal must assemble and render nothing"
+    assert (tmp_path / "e9.FAILED").read_text().startswith("exit=3")
+    # ...and the raw record and the marker ARE the evidence
+    assert json.loads((tmp_path / "raw.json").read_text())["refused"]
+
+
+def test_cleanup_reports_None_for_a_store_that_is_not_there(tmp_path):
+    """`None` is "there is nothing there to count"; `0` is "counted, and
+    zero". A store the run never created and one it created and left empty
+    are different facts, and a 0 for both reports the first as the second."""
+    paths = {"sensorium_bloomery": tmp_path / "clone",
+             "sensorium_dir": tmp_path / "gone",
+             "sensorium_e9_target": tmp_path / "gone2",
+             "sensorium_driver": tmp_path / "no-driver"}
+    (tmp_path / "clone").mkdir()
+    cfg = {"corpus_target": tmp_path / "gone3"}
+    c = runner.cleanup_e9(paths, cfg, {"clone_cargo_lock_sha256": None})
+    assert c["store_bytes"] is None
+    assert c["traces_recorded"] is None
+    assert c["invocations_jsonl_lines"] is None
+    assert c["e9_target_bytes"] is None and c["corpus_target_bytes"] is None
+    assert str(tmp_path / "gone") in c["absent_after_the_run"]
+
+
+def test_stdout_and_stderr_are_joined_with_a_newline():
+    """`out + err` glues the last line of one to the first of the other:
+    `…filtered out` + `focus: fill` becomes one line that neither regex
+    matches, and both facts vanish from the record."""
+    import re
+    for name in ("acceptance_e9_phases.py",):
+        text = (REPO / "rust" / "tests" / name).read_text()
+        assert not re.search(r'\["out"\]\s*\+\s*\w+\["err"\]', text), name

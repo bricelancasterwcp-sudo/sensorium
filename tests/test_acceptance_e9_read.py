@@ -25,6 +25,8 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "rust" / "tests"))
 
 import acceptance_e9_read as rd                                    # noqa: E402
+from acceptance_e9_read import (delta_census, parse_flow,          # noqa: E402
+                                parse_watch)
 
 # -- the driver ------------------------------------------------------------
 
@@ -397,3 +399,168 @@ def test_a_histogram_read_back_from_json_has_int_keys_again():
     assert rd.int_keys({"250": 1, "251": 2}) == {250: 1, 251: 2}
     assert rd.histogram_diff(rd.int_keys({"250": 1, "251": 1, "252": 1}),
                              EXPECTED)["differences"] == 0
+
+
+# -- fix round 1: §1.4's ungated counts -------------------------------------
+
+#: The real shapes, captured from a recording of `corpus/rust/focus_let_chain`
+#: under the driver at HEAD (2026-09-06) and pasted here so this suite never
+#: needs one again.
+W_REAL = """\
+watch 'b == 2' at fill in 20260906-182425-1549cb
+  a site is one RECORDED event in a matching frame: a CALL (its arguments)
+sites: 5   evaluated: 2   hits: 2   not-captured: 3   errors: 0
+verdict: SATISFIED at 2 of the 2 site(s) the predicate could be evaluated at
+  but 3 of 5 recorded site(s) could NOT be evaluated, so these are not \
+necessarily every time it held
+  HIT   e5 LINE    fill L13  b=2   state: b=2
+  HIT   e6 LINE    fill L14  s="2"   state: b=2
+not captured at 3 of 5 site(s) -- the predicate could not be checked there:
+  b: not in scope at this site   [3 site(s)]
+"""
+
+F_REAL = """\
+flow of 2 (int) in 20260906-182425-1549cb
+  captured-value equality, not true dataflow analysis: the trace records \
+values, not the edges between them
+  e5 LINE    fill L13  b=2   [local b]
+sightings: 1 event(s), 1 capture(s)
+scope: 5 capture(s) searched across 5 event(s) in CALL args, RETURN values \
+and LINE local deltas
+"""
+
+
+def test_watchs_counts_line_gives_every_bucket():
+    """§1.4 reports W1's and W3's hit AND not-captured counts. The verdict
+    sentence carries two of the five buckets and the HIT rows below it are a
+    PAGE (`--limit`, default 20), so the counts line is the only complete
+    source — a record that counted the printed HIT rows would under-report
+    every watch with more than twenty hits."""
+    w = parse_watch(W_REAL)
+    assert (w["sites"], w["evaluated"], w["hits"], w["not_captured"],
+            w["errors"]) == (5, 2, 2, 3, 0)
+    assert w["counts_line"] == ("sites: 5   evaluated: 2   hits: 2   "
+                               "not-captured: 3   errors: 0")
+    assert w["verdict_class"] == "SATISFIED"
+    assert len(w["hit_rows"]) == 2
+
+
+def test_the_counts_line_OVERRIDES_the_verdict_sentences_numbers():
+    """Where both exist they must agree, and where they do not the command's
+    own tally is the record's. A parser that let the verdict sentence win
+    would publish `sites` from a sentence that never carries `not-captured`
+    or `errors` at all."""
+    text = W_REAL.replace("sites: 5   evaluated: 2   hits: 2",
+                          "sites: 9   evaluated: 4   hits: 3")
+    w = parse_watch(text)
+    assert w["sites"] == 9 and w["evaluated"] == 4 and w["hits"] == 3
+    # with no counts line the verdict sentence still answers
+    no_counts = "\n".join(ln for ln in W_REAL.splitlines()
+                          if not ln.startswith("sites: "))
+    w = parse_watch(no_counts)
+    assert w["counts_line"] is None
+    assert w["hits"] == 2 and w["evaluated"] == 2
+
+
+def test_a_whole_flow_page_is_not_truncated():
+    """The real output, unpaged. A guard that fired on a complete answer
+    would null H5's gate on every run."""
+    f = parse_flow(F_REAL)
+    assert f["sighting_events"] == 1 and f["rows_printed"] == 1
+    assert f["page_truncated"] is False and f["showing"] is None
+    assert f["scope_captures"] == 5 and f["scope_events"] == 5
+
+
+def test_a_TRUNCATED_flow_page_is_noticed_both_ways():
+    """`flow`'s default `--limit` is 50 and the footer says `(showing K)`
+    when the page is smaller than the set. Every H5 number is read off the
+    printed rows, so an unnoticed truncation is a silent under-count of the
+    gate — and the footer is not the only tell: a total that the printed rows
+    do not reach says the same thing."""
+    footer = F_REAL.replace("sightings: 1 event(s), 1 capture(s)",
+                            "sightings: 90 event(s), 90 capture(s) "
+                            "(showing 50)")
+    f = parse_flow(footer)
+    assert f["page_truncated"] is True and f["showing"] == 50
+    assert f["sighting_events"] == 90 and f["rows_printed"] == 1
+    # no `(showing)` at all, but the rows do not reach the total
+    counted = F_REAL.replace("sightings: 1 event(s), 1 capture(s)",
+                             "sightings: 4 event(s), 4 capture(s)")
+    assert parse_flow(counted)["page_truncated"] is True
+
+
+def _trace_with_payloads(tmp_path, rows) -> Path:
+    db = tmp_path / "c.db"
+    con = sqlite3.connect(db)
+    con.executescript(
+        "create table code_objects (id integer primary key, file text, "
+        "qualname text, firstlineno integer);"
+        "create table events (id integer primary key, kind text, "
+        "frame_id integer, code_id integer, line integer, payload text);")
+    con.execute("insert into code_objects values (1,'f','fill',10)")
+    con.executemany("insert into events values (?,?,1,1,?,?)", rows)
+    con.commit()
+    con.close()
+    return db
+
+
+def test_the_census_counts_unread_and_truncated_LINE_deltas(tmp_path):
+    """§1.4's honesty count, over the payload shapes a real converted trace
+    carries (`convert/frames.rs`): `{"deltas": {name: {"k","v","trunc"}}}`,
+    with `{"k": "unread"}` for a value the probe could not read at all."""
+    db = _trace_with_payloads(tmp_path, [
+        (1, "LINE", 11, '{"deltas":{}}'),
+        (2, "LINE", 12, '{"deltas":{"a":{"k":"dbg","trunc":false,"v":"1"}}}'),
+        (3, "LINE", 13, '{"deltas":{"journal":{"k":"unread"},'
+                        '"p":{"k":"dbg","trunc":true,"v":"Pager { .."}}}'),
+        (4, "RETURN", None, '{"outcome":"ok","value":{"k":"dbg","v":"()"}}'),
+    ])
+    c = delta_census(db)
+    assert c["line_events"] == 3 and c["line_deltas"] == 3
+    assert c["line_deltas_unread"] == 1
+    assert c["line_deltas_truncated"] == 1
+    assert c["unread_delta_names"] == {"journal": 1}
+    assert c["truncated_delta_names"] == {"p": 1}
+    assert c["all_captures"] == 4          # 3 deltas + 1 RETURN value
+    assert c["bit0_ever_set"] is False
+
+
+def test_bit0_is_read_from_a_LINE_payload_and_NEVER_from_a_CALL(tmp_path):
+    """The trap this count would otherwise fall into.
+
+    `flags.bit0` means a delta did not fit and every later one was dropped
+    (`sensorium-rt/src/line.rs`), and the converter spells it as
+    `"unread": ["locals"]` on the LINE payload (`frames.rs:367`). But EVERY
+    Rust CALL row carries `{"args": {}, "unread": ["locals"]}` as well —
+    Rust CALL rows have no args at all (`frames.rs:162`) — so a census that
+    looked for the key anywhere would report a dropped delta on every single
+    activation and §1.4's honesty count would be a constant."""
+    db = _trace_with_payloads(tmp_path, [
+        (1, "CALL", 10, '{"args":{},"unread":["locals"]}'),
+        (2, "LINE", 11, '{"deltas":{"a":{"k":"dbg","trunc":false,"v":"1"}}}'),
+    ])
+    c = delta_census(db)
+    assert c["bit0_ever_set"] is False
+    assert c["line_rows_with_dropped_locals"] == 0
+    other = tmp_path / "x"
+    other.mkdir()
+    db2 = _trace_with_payloads(other, [
+        (1, "CALL", 10, '{"args":{},"unread":["locals"]}'),
+        (2, "LINE", 11, '{"deltas":{},"unread":["locals"]}'),
+    ])
+    c2 = delta_census(db2)
+    assert c2["bit0_ever_set"] is True
+    assert c2["line_rows_with_dropped_locals"] == 1
+
+
+def test_an_unparseable_payload_is_skipped_and_not_a_crash(tmp_path):
+    """The census walks every payload in the trace. One row the converter
+    wrote in a shape this reader does not know must not take an hour-long
+    run's last phase down."""
+    db = _trace_with_payloads(tmp_path, [
+        (1, "LINE", 11, "not json at all"),
+        (2, "LINE", 12, "[1, 2, 3]"),
+        (3, "LINE", 13, '{"deltas":{"a":{"k":"unread"}}}'),
+    ])
+    c = delta_census(db)
+    assert c["line_events"] == 1 and c["line_deltas_unread"] == 1

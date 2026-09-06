@@ -280,6 +280,16 @@ def _h4(r) -> list[str]:
             f"{t.get('predicted_class')} / {t.get('predicted_exit')} | "
             f"{t.get('verdict_class')} | {t.get('rc')} |")
     out.append("")
+    buckets = e.get("bucket_counts") or {}
+    if buckets:
+        out += ["§1.4's ungated bucket counts, from `watch`'s own counts "
+                "line:", "",
+                "| # | sites | evaluated | hits | not-captured | errors |",
+                "|---|---|---|---|---|---|"]
+        out += [f"| {k} | {b.get('sites')} | {b.get('evaluated')} | "
+                f"{b.get('hits')} | {b.get('not_captured')} | "
+                f"{b.get('errors')} |" for k, b in buckets.items()]
+        out.append("")
     return out
 
 
@@ -292,12 +302,20 @@ def _h5(r) -> list[str]:
         ("every printed sighting row, per literal (2nd reading)",
          "whole_trace_sightings"),
     ))
-    out += ["", f"Rule: {RULES['H5']}.", "",
-            "| # | literal | sighting events | gated to A's LINE deltas | "
-            "at the predicted line |", "|---|---|---|---|---|"]
+    trunc = e.get("page_truncated")
+    out += ["", f"Rule: {RULES['H5']}.  ",
+            ("Every printed page held the whole sighting set."
+             if not trunc else
+             f"**The page was TRUNCATED for {trunc}** — the gate is "
+             f"not-measured, because every gated count is read off the "
+             f"printed rows."), "",
+            "| # | literal | sighting events | rows printed (`--limit`) | "
+            "gated to A's LINE deltas | at the predicted line |",
+            "|---|---|---|---|---|---|"]
     for s in e.get("sightings") or []:
         out.append(f"| {s.get('id')} | `{s.get('literal')}` | "
-                   f"{s.get('sighting_events')} | {s.get('gated_count')} | "
+                   f"{s.get('sighting_events')} | {s.get('rows_printed')} "
+                   f"({s.get('flow_limit')}) | {s.get('gated_count')} | "
                    f"{_yn(s.get('found_at_predicted_line'))} |")
     out.append("")
     return out
@@ -328,16 +346,51 @@ def _h7(r) -> list[str]:
         ("corpus questions whose answer is not the registered one (the gate)",
          "headline"),
         ("the collector's exit status (2nd reading)", "corpus_rc"),
+        ("cases that crashed the collector", "corpus_errors"),
+        ("cases the collector SKIPPED (gate: 0)", "corpus_skipped"),
         ("`pytest -q` exit status", "pytest_rc"),
+        ("the suite's summary line", "pytest_summary"),
         ("`cargo test --workspace` exit status", "cargo_rc"),
     ))
     out += ["", f"Rule: {RULES['H7']}.  ",
             f"Corpus: {e.get('corpus_cases')} cases, "
             f"{e.get('corpus_questions')} questions, failures "
             f"`{e.get('corpus_failures')}`, skipped "
-            f"`{e.get('corpus_skipped')}`.  ",
-            f"Python: `{cell(e.get('pytest_summary'))}`.  ",
+            f"`{e.get('corpus_skipped_cases')}`.  ",
             f"Rust: `{e.get('cargo_result_lines')}`.", ""]
+    return out
+
+
+def ungated(r) -> list[str]:
+    """§1.4's "reported without a gate" block: the honesty counts."""
+    rep = r.get("reported") or {}
+    u = rep.get("unread_and_truncated_captures") or {}
+    per = u.get("per_run") or {}
+    if not per:
+        return []
+    out = ["### Reported without a gate — §1.4's honesty counts", "",
+           "| run | LINE rows | LINE deltas | `{\"k\": \"unread\"}` | "
+           "truncated | rows with `unread: [\"locals\"]` (`flags.bit0`) | "
+           "recorder's `truncated_count` |",
+           "|---|---|---|---|---|---|---|"]
+    rec = u.get("recorder_truncated_count") or {}
+    for name in ("U1", "F1", "U2", "F2"):
+        c = per.get(name)
+        if not c:
+            out.append(f"| {name} | not measured | | | | | |")
+            continue
+        out.append(
+            f"| {name} | {c.get('line_events')} | {c.get('line_deltas')} | "
+            f"{c.get('line_deltas_unread')} | "
+            f"{c.get('line_deltas_truncated')} | "
+            f"{c.get('line_rows_with_dropped_locals')} "
+            f"(bit0 ever set: {_yn(c.get('bit0_ever_set'))}) | "
+            f"{rec.get(name)} |")
+    names = {n: (c or {}).get("unread_delta_names")
+             for n, c in per.items() if (c or {}).get("unread_delta_names")}
+    out += ["", f"{u.get('note')}", ""]
+    if names:
+        out += [f"Unread delta names, per run: `{names}`.", ""]
     return out
 
 
@@ -345,7 +398,7 @@ def results(r) -> list[str]:
     out = ["## 3. Results", "", "The gate of each row, and both readings "
            "where §1 pre-committed two. A `null` is not-measured with its "
            "reason; `0` is a measured zero.", ""]
-    for fn in (_h1, _h2, _h3, _h4, _h5, _h6, _h7):
+    for fn in (_h1, _h2, _h3, _h4, _h5, _h6, _h7, ungated):
         out += fn(r) + [""]
     stop = r.get("stop")
     if stop:

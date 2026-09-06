@@ -24,7 +24,8 @@ from pathlib import Path
 
 import acceptance_lib as lib
 from acceptance_e6ppp import logs_at, mark_load
-from acceptance_e9_read import (focus_lines, histogram_diff,      # noqa: F401
+from acceptance_e9_read import (delta_census, focus_lines,        # noqa: F401
+                                histogram_diff,
                                 line_deltas_of, line_histogram,
                                 line_qualnames, line_rows_total,
                                 outcome_counts, parse_flow, parse_info,
@@ -168,7 +169,7 @@ def record(paths, cfg, name: str) -> dict:
         step(f"{name}: {' '.join(cmd[1:])}")
         res = guarded(cmd, paths["sensorium_bloomery"], f"{name.lower()}.log",
                       record_env(paths), cfg["cargo_timeout"], name)
-    both = res["out"] + res["err"]
+    both = "\n".join((res["out"], res["err"]))
     summaries = test_results(both)
     lines = run_lines(res)
     picked = pick_run(lines, spec["test"])
@@ -188,37 +189,112 @@ def record(paths, cfg, name: str) -> dict:
         "run_candidates": picked.get("candidates"),
         "test_results": summaries,
         "outcome": outcome_counts(summaries),
-        # H6, first reading: libtest's own time, summed over the targets.
-        "libtest_secs": (sum(s["libtest_secs"] or 0.0 for s in summaries)
-                         if summaries else None),
-        "trace_bytes": None,
+        # H6, first reading: libtest's own time, summed over the targets --
+        # and `None`, never 0.0, when no summary carried a `finished in`. A
+        # zero would compare EQUAL to a run that reported nothing and would
+        # read in §3 as "the focused binary took no time at all".
+        "libtest_secs": (sum(s["libtest_secs"] for s in summaries)
+                         if summaries and all(s["libtest_secs"] is not None
+                                              for s in summaries) else None),
+        "trace_bytes": None, "census": None, "truncated_count": None,
     }
-    if out["run"]:
+    out.update(_outcome_class(out, summaries, res))
+    if out["run"] and _trace_db(paths, out["run"]).is_file():
         out["trace_bytes"] = lib.trace_bytes(paths, out["run"])
         out["meta"] = lib.trace_meta(paths, out["run"])
+        # §1.4's ungated honesty counts, per run.
+        out["census"] = delta_census(_trace_db(paths, out["run"]))
+        out["truncated_count"] = (out["meta"] or {}).get("truncated_count")
     step(f"{name}: rc={out['rc']} run={out['run']} focus={out['focus_lines']} "
          f"outcome={out['outcome']} wall={out['wall_s']}s")
     return out
 
 
+#: What a non-zero `cargo sensorium` exit MEANS, which §1's kill 1 turns on.
+#: Kill 1 is "a compile failure of a focused unit", and only one of these
+#: three is that.
+COMPILE_FAILURE = "compile_failure"
+TEST_FAILURE = "test_failure"
+REFUSAL = "refusal"
+COMPLETED = "completed"
+KILLED = "killed"
+
+
+def _outcome_class(out: dict, summaries: list, res: dict) -> dict:
+    """Which of §1's cases this run's exit status is.
+
+    §1's kill 1 is a COMPILE FAILURE of a focused unit -- the pattern the
+    transform could not build. It is not a libtest failure (the unit built,
+    ran and reported; H2's equality is what decides that) and it is not the
+    driver's own `--focus` refusal (exit 2, printed before cargo is invoked
+    at all: infrastructure if it happens before any number is read, and a
+    STOP-worthy finding after). Collapsing the three would label a failing
+    assertion in the clone's own test suite "a compile failure of a focused
+    unit" and stop the rung on it.
+
+    The discriminator is libtest's own summary line: a unit that printed one
+    was compiled and run.
+    """
+    if out["timed_out"]:
+        return {"outcome_class": KILLED,
+                "outcome_class_why": f"killed at {out['kill_s']} s"}
+    if out["rc"] == 0:
+        return {"outcome_class": COMPLETED, "outcome_class_why": "exit 0"}
+    if out["focus_refusal"] or out["rc"] == 2:
+        return {"outcome_class": REFUSAL,
+                "outcome_class_why": (out["focus_refusal"]
+                                      or f"exit {out['rc']} before cargo ran")}
+    if summaries:
+        failed = sum(s["failed"] for s in summaries)
+        return {"outcome_class": TEST_FAILURE,
+                "outcome_class_why": (f"exit {out['rc']} with "
+                                      f"{len(summaries)} libtest summary "
+                                      f"line(s), {failed} test(s) failed: "
+                                      "the unit compiled and ran")}
+    return {"outcome_class": COMPILE_FAILURE,
+            "outcome_class_why": (f"exit {out['rc']} and NO libtest summary "
+                                  "line: the unit never ran")}
+
+
 def phase_records(paths, cfg) -> dict:
     """§1's four runs, in §1's order.
 
-    §1's kill criterion 1: a compile failure of a FOCUSED run is a STOP. The
-    fact is recorded here (`focused_build_failed`) and `main` writes
-    `e9.FAILED`; no unfocused fallback is attempted and no narrower focus is
-    retried, so the pattern that failed is what the record holds.
+    §1's kill criterion 1 is a COMPILE FAILURE of a focused unit, and only
+    that: `focused_compile_failures` carries it, `main` writes `e9.FAILED`,
+    and no unfocused fallback is attempted and no narrower focus is retried,
+    so the pattern that failed is what the record holds. A focused run that
+    compiled and reported a libtest FAILURE is not kill 1 -- H2's equality
+    reading decides that one -- and a `--focus` refusal is a third case
+    again. All three are recorded under their own names.
     """
     mark_load("records")
     runs = {}
     for name in RUNS:
         runs[name] = record(paths, cfg, name)
-    focused_failed = [n for n in ("F1", "F2")
-                      if runs[n]["rc"] not in (0, None) or runs[n]["timed_out"]]
-    if focused_failed:
-        step(f"STOP (§1 kill 1): focused run(s) {focused_failed} did not "
-             f"complete; no unfocused fallback and no narrower focus is tried")
-    return {"runs": runs, "focused_build_failed": focused_failed,
+    by = lambda cls: [n for n in ("F1", "F2")                     # noqa: E731
+                      if runs[n]["outcome_class"] == cls]
+    compile_failures, refusals = by(COMPILE_FAILURE), by(REFUSAL)
+    test_failures, killed_focus = by(TEST_FAILURE), by(KILLED)
+    incomplete = compile_failures + refusals + test_failures + killed_focus
+    if compile_failures:
+        step(f"STOP (§1 kill 1): focused run(s) {compile_failures} did not "
+             f"COMPILE; no unfocused fallback and no narrower focus is tried")
+    for label, names in (("REFUSED by the driver", refusals),
+                         ("libtest FAILURE (not kill 1; H2 decides)",
+                          test_failures),
+                         ("KILLED at the ceiling", killed_focus)):
+        if names:
+            step(f"focused run(s) {names}: {label}")
+    return {"runs": runs,
+            "focused_compile_failures": compile_failures,
+            "focused_refusals": refusals,
+            "focused_test_failures": test_failures,
+            "focused_killed": killed_focus,
+            # Every focused run that did not come back at exit 0, whatever
+            # the reason -- the set H2's `focused_build_failures` counts and
+            # the set the schema drops numbers for.
+            "focused_build_failed": incomplete,
+            "outcome_classes": {n: r["outcome_class"] for n, r in runs.items()},
             "killed": [n for n, r in runs.items() if r["timed_out"]]}
 
 
@@ -292,7 +368,7 @@ def phase_h1(paths, cfg, records) -> dict:
                       "--expr", "events == 0"]
         w = _read(paths, watch_args, "h1-watch", cfg)
     parsed_info = parse_info(info["out"])
-    parsed_watch = parse_watch(w["out"] + w["err"])
+    parsed_watch = parse_watch("\n".join((w["out"], w["err"])))
     expected = (refusal_sentence(recorder) if recorder else None)
     # A sqlite read over the converted trace: it does not depend on the
     # `watch` above, and a count that went missing because a READER hit its
@@ -310,7 +386,8 @@ def phase_h1(paths, cfg, records) -> dict:
         "line_rows": rows,
         "line_rows_query": "select count(*) from events where kind = 'LINE'",
         "watch": {"rc": w["rc"], "command": w["command"], "log": w["log"],
-                  "stdout": w["out"] + w["err"], "timed_out": w["timed_out"],
+                  "stdout": "\n".join((w["out"], w["err"])),
+                  "timed_out": w["timed_out"],
                   **parsed_watch},
         "expected_refusal": expected,
         "refusal_token_source": ("the trace's own `recorder` meta value, "
@@ -364,8 +441,12 @@ def phase_h2(paths, cfg, records) -> dict:
         pairs[f"{focused}/{unfocused}"] = {
             "focused": focused, "unfocused": unfocused,
             "focused_outcome": f["outcome"], "unfocused_outcome": u["outcome"],
-            "outcome_equal": (f["outcome"] is not None
-                              and f["outcome"] == u["outcome"]),
+            # `None`, not `False`, when either run printed no summary at
+            # all: "these two are not equal" is a claim about two outcomes,
+            # and an unparsed one is not an outcome.
+            "outcome_equal": (None if f["outcome"] is None
+                              or u["outcome"] is None
+                              else f["outcome"] == u["outcome"]),
             "focused_rc": f["rc"], "unfocused_rc": u["rc"],
             "exit_status_equal": f["rc"] == u["rc"],
             "focused_summary_lines": [s["line"] for s in f["test_results"]],
@@ -465,10 +546,10 @@ def phase_h4(paths, cfg, records) -> dict:
                 continue
             args = ["watch", src["run"], "--at", t["at"], "--expr", t["expr"]]
             res = _read(paths, args, f"h4-{t['id'].lower()}", cfg)
-            p = parse_watch(res["out"] + res["err"])
+            p = parse_watch("\n".join((res["out"], res["err"])))
             row = {**t, "run_id": src["run"], "command": res["command"],
                    "rc": res["rc"], "timed_out": res["timed_out"],
-                   "log": res["log"], "stdout": res["out"] + res["err"],
+                   "log": res["log"], "stdout": "\n".join((res["out"], res["err"])),
                    "wall_s": round(res["wall"], 3), **p}
             row["class_as_predicted"] = (p["verdict_class"]
                                          == t["predicted_class"])
@@ -478,7 +559,8 @@ def phase_h4(paths, cfg, records) -> dict:
             rows.append(row)
             step(f"H4 {t['id']}: class {p['verdict_class']!r} (predicted "
                  f"{t['predicted_class']!r}), exit {res['rc']} (predicted "
-                 f"{t['predicted_exit']})")
+                 f"{t['predicted_exit']}); sites {p['sites']} hits "
+                 f"{p['hits']} not-captured {p['not_captured']}")
     measured = [r for r in rows if "dropped" not in r]
     return {
         "triples": rows,
@@ -522,22 +604,32 @@ def phase_h5(paths, cfg, records) -> dict:
                            f"killed {f1['timed_out']})", "sightings": []}
     with logs_at(LOGS / "h5"):
         for s in flow_sightings(cfg):
-            args = ["flow", f1["run"], "--value", s["literal"]]
+            # `--limit 1000`. §1.3 spells the command without one and
+            # `flow`'s default is 50: every H5 number is read off the
+            # PRINTED rows, so the gate over a default page would be a
+            # smaller number about a smaller question. The deviation is
+            # stated here and in the cell's lens rather than left implicit.
+            args = ["flow", f1["run"], "--value", s["literal"],
+                    "--limit", str(cfg["flow_limit"])]
             res = _read(paths, args, f"h5-{s['id'].lower()}", cfg)
-            p = parse_flow(res["out"] + res["err"])
+            p = parse_flow("\n".join((res["out"], res["err"])))
             gated = line_deltas_of(p["rows"], FOCUS_A)
             at_line = [r for r in gated if r["line"] == s["line"]]
             rows.append({
                 **s, "run_id": f1["run"], "command": res["command"],
                 "rc": res["rc"], "timed_out": res["timed_out"],
                 "log": res["log"], "wall_s": round(res["wall"], 3),
-                "stdout": res["out"] + res["err"],
+                "stdout": "\n".join((res["out"], res["err"])),
                 "sighting_events": p["sighting_events"],
                 "sighting_captures": p["sighting_captures"],
                 "scope_captures": p["scope_captures"],
                 "scope_events": p["scope_events"],
                 "sightings_line": p["sightings_line"],
                 "scope_line": p["scope_line"],
+                "page_truncated": p["page_truncated"],
+                "rows_printed": p["rows_printed"],
+                "showing": p["showing"],
+                "flow_limit": cfg["flow_limit"],
                 # The GATE: A's LINE deltas only.
                 "gated_rows": [r["text"] for r in gated],
                 "gated_count": len(gated),
@@ -553,6 +645,7 @@ def phase_h5(paths, cfg, records) -> dict:
                  f"{s['line']} {bool(at_line)}")
     return {
         "sightings": rows,
+        "page_truncated": [r["id"] for r in rows if r["page_truncated"]],
         "both_found": all(r["found_at_predicted_line"] for r in rows),
         "unpredicted": sum(len(r["unpredicted_gated_rows"]) for r in rows),
         "killed": [r["id"] for r in rows if r["timed_out"]],
@@ -646,12 +739,14 @@ def phase_h7(paths, cfg) -> dict:
         parsed = _json.loads(corpus["out"])
     except (ValueError, TypeError):
         parsed = None
-    tail = [ln for ln in (suite["out"] + suite["err"]).splitlines()
+    tail = [ln for ln in "\n".join(
+            (suite["out"], suite["err"])).splitlines()
             if ln.strip()]
     summary = next((ln for ln in reversed(tail)
                     if " passed" in ln or " failed" in ln or " error" in ln),
                    None)
-    results = [ln for ln in (cargo["out"] + cargo["err"]).splitlines()
+    results = [ln for ln in "\n".join(
+            (cargo["out"], cargo["err"])).splitlines()
                if ln.startswith("test result:")]
     out = {
         "corpus": {"rc": corpus["rc"], "wall_s": round(corpus["wall"], 3),
@@ -681,7 +776,9 @@ def phase_h7(paths, cfg) -> dict:
     return out
 
 
-__all__ = ["FOCUS_A", "FOCUS_B", "RUNS", "PAIRS", "argv_of", "record_env",
+__all__ = ["COMPILE_FAILURE", "COMPLETED", "KILLED", "REFUSAL",
+           "TEST_FAILURE", "_outcome_class",
+           "FOCUS_A", "FOCUS_B", "RUNS", "PAIRS", "argv_of", "record_env",
            "guarded", "has_trace", "pick_run", "record", "phase_records",
            "phase_h1",
            "phase_h2", "phase_h3", "phase_h4", "phase_h5", "phase_h6",
