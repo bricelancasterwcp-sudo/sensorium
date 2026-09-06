@@ -457,4 +457,16 @@ of them — its gate value 26 is the value these amendments make unambiguous.
   values as given. A `--focus` whose value is only commas is refused like an
   empty one; a value that matches only skipped functions names every such
   function in its refusal.
+- **A11 (2026-09-06, after Task 5's review) — `resolve` and `matches` are
+  inverses on the literal domain.** §4.2 as first written let `flow --value
+  1e20` report a sighting that `watch --expr x == 1e20` at the same site then
+  denied (observed; likewise `1e400`/`inf` and `None`). Rule: the reading side
+  parses exactly what the writing side can spell for a literal target —
+  integers; floats in Rust's Debug spellings including the exponent form
+  (`1e20`, `1e-5`), `inf`, `-inf` and `NaN`; `true`/`false`; the bare `None`
+  (to Python `None`); a quoted string (unescaped). Everything else stays
+  text. So for any literal `L`, `resolve(dbg(debug_text(L))) == L` (NaN
+  excepted, as in Rust), and the two commands cannot disagree about one
+  capture. `len()` over any `dbg` value is refused with one reason,
+  NOTHING WAS CHECKED, exit 3.
 
