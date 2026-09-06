@@ -306,10 +306,11 @@ chains are one *shape* when they share a disposition, the site the verdict is
 about — the sink for `swallowed`, the arm for an escaped `ambiguous`, the
 origin site for every verdict that names no site — and the verdict text once
 event and frame ids are masked. A shape prints the FIRST chain's block exactly
-as a lone chain prints it and appends a bracket naming the group:
-`SWALLOWED -- absorbed by sink_ok at e5 (load L31) in f1, which returned ok
-[×2: e3, e7]`. The ids are the members' ORIGIN event ids — what the head line
-above prints, what `--after` filters on, what `grep` and `tree` take — so the
+as a lone chain prints it and appends a bracket naming the group — two spaces,
+then `[×2: e3, e7]` — to the verdict line
+`SWALLOWED -- absorbed by sink_ok at e5 (load L31) in f1, which returned ok`.
+The ids are the members' ORIGIN event ids — what the head line above prints,
+what `--after` filters on, what `grep` and `tree` take — so the
 printed sentence is always true of a named chain; eight show, then `… +K`.
 The `raised (N):` header and the `dispositions:` tally both still count
 CHAINS, so every tally in every record stays comparable line for line — which

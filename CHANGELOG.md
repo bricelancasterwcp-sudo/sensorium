@@ -20,12 +20,13 @@
   `ambiguous`, the origin site — with its masked route — for every verdict
   that names no site) and the verdict text once event and frame ids are
   masked. The shape prints the FIRST chain's block byte-for-byte as before and
-  appends a bracket of the members' ORIGIN ids: `… which returned ok
-  [×2: e3, e7]`, eight ids then `… +K`. Where members differ in something the
-  key does not look at, one line says so — `origins:`, `messages:`,
-  `details vary`, `routes:`, each `(first shown)` or `(this one has none)` —
-  so a merge is never silent. The `dispositions:` tally still counts CHAINS;
-  `--limit` counts SHAPES and its continuation raises the limit
+  appends to the verdict line, two spaces after it, a bracket of the members'
+  ORIGIN ids: `[×2: e3, e7]`; eight ids show, then `… +K`. Where members
+  differ in something the key does not look at, one line says so —
+  `origins:`, `messages:`, `details vary`, `routes:`, each `(first shown)` or
+  `(this one has none)` — so a merge is never silent. The `dispositions:`
+  tally still counts CHAINS; `--limit` counts SHAPES and its continuation
+  raises the limit
   (`... K more; continue with: sensorium exceptions <run> --limit N`, carrying
   `--after` when the reader gave one) because an event cursor over grouped
   output would re-show a partial group. A group of one is byte-identical to

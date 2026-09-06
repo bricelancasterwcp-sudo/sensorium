@@ -428,6 +428,23 @@ stays the record for rungs 0–2.
   `byte_lock.doc`; re-assembled once from the untouched raw file, exactly two
   leaf paths changed (`acceptance`, `assembled.at`) and no number moved
   (`e9f050d`; repair record §5.7.1).
+- **A killed H4 arm can no longer be published as a measured one** (whole-branch
+  review, fixed `9d17d62`). `phase_h4` runs `measure_sites` on an arm's stdout
+  whether or not the 60 s kill fired, and the schema built `site_differences`,
+  `groups`, `chains`, `tally_equal` and `header_counts_equal` out of that
+  partial text without consulting `timed_out` — so H4 could have PASSED on half
+  a sweep. Those five cells are now `null` with `killed at <kill_s> s; the
+  answer is partial`; the wall, the rc, the bytes, the log, the INCOMPLETE
+  members and the unresolved sinks stay measured, because a partial answer
+  still makes them true. **No number in either record moves**: no arm of either
+  run timed out, and both `results.json` re-assemble from their untouched raw
+  records with only `assembled.at` (plus the first record's five known
+  `disambiguated_shapes: null`) changed.
+- **`null` with an empty `dropped` is now unreachable in H5's headline**
+  (same review, same commit). `raw_h4` present with an empty `walls` gave
+  `value: null, dropped: []` — the one shape this schema forbids, since the
+  renderer prints it as not-measured while naming no reason. H4 having RUN is
+  not H4 having timed an arm, and the guard says which.
 
 ### Deferred, awaiting rulings
 
@@ -504,10 +521,21 @@ stays the record for rungs 0–2.
   (`:75`). All three are struck and corrected in the repair record's PROSE
   (§5.7); the code was not repaired, because `OVERRIDES` covers the runner's
   own literals and not a collaborator's. That boundary is the debt.
+- **The design's §3 and N6 examples show the pre-ship spelling; amended in
+  place with dated notes.** §3's invocation sketch reads `91 swallowing sites`
+  where the shipped header counts BLOCKS (103 on the measured `ws` arm), and
+  N6's `--after` refusal quotes `spans 144 — page with --limit` where the tool
+  prints `spans 144 processes -- page with --limit`. Corrected the way every
+  other amendment in that document is — beside the text, dated — rather than
+  rewritten, because a design two measurements were pre-registered against is
+  evidence and not a description.
 - **Files at or near the 800-line ceiling**: the repair acceptance record is
-  **800 exactly**; `README.md` is **782** after this slice's `exceptions`
-  section; `tests/test_exceptions_rust_grouping.py` is 662 and
-  `tests/test_acceptance_grain_read.py` 516. The next line added to the record
+  **795** after the post-review fix wave struck two sentences in place (it was
+  800 exactly); `README.md` is **783** after this slice's `exceptions` section;
+  `tests/test_exceptions_rust_grouping.py` is 702,
+  `tests/test_exceptions_invocation.py` 671,
+  `tests/test_acceptance_grain_read.py` 516 and
+  `tests/test_acceptance_grain.py` 506. The next paragraph added to the record
   must split it first, and the next paragraph the README's `exceptions`
   section wants should go to a `docs/exceptions.md` it links, not into the
   README — the split is named here rather than discovered at the ceiling.

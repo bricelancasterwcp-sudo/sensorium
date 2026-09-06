@@ -15,9 +15,7 @@ count stayed right (that record's §4.3 and §5.1). **That record stands
 exactly as written**; nothing here amends it, and no number in it is
 re-measured. Ruling R-G12 put the code object's `(file, line)` into the key
 and gives a block whose site text collides inside one answer its file's
-basename; commit `a86d67e` is that repair, and it is the only difference
-between the reader measured there and the reader measured here. This
-document's §1′ was written and locked before any number below was read.
+basename. ~~Commit `a86d67e` is that repair, and it is the only difference between the reader measured there and the reader measured here.~~ **Commit `a86d67e` is that repair, and it is not the only difference: `git log 05c3124..261c2e1 -- src/` lists TWO src commits, `a86d67e` and `166a0c8` — the review fix that makes a collision two PLACES wearing one site text rather than two shapes wearing one, which this document's own §1′ amendment and §4.6 already name. The struck sentence predates that fix and was never updated; corrected in place 2026-09-05 by the post-review fix wave, and it sits OUTSIDE the byte-locked range, which begins at `## 1`, so §1′'s sha is untouched (§5.7 item 2).** This document's §1′ was written and locked before any number below was read.
 
 **Nothing here measures a program.** This slice changes what the reader
 PRINTS and changes no crate (`cargo-sensorium` stays 0.3.1), so its question
@@ -555,10 +553,7 @@ disambiguate, and all twenty print the tally the first measurement read.
 The Python suite is the pin for the REPAIR too — vectors v01–v19 including
 v17's single-shape blocks and v18's ambiguous merge, the Python corpus,
 `tests/test_exceptions*.py` — and it is green with no expectation changed by
-this slice: `a86d67e`, `166a0c8` and `34ab82e` touch
-`src/sensorium/query/exceptions_*.py` and ADD tests, editing no vector, no
-`corpus/*/questions.yaml` and no existing expectation. 1276 → 1301 as those
-three and the sibling runner's test module added tests. `cargo test
+this slice: ~~`a86d67e`, `166a0c8` and `34ab82e` touch `src/sensorium/query/exceptions_*.py` and ADD tests, editing no vector, no `corpus/*/questions.yaml` and no existing expectation.~~ **`a86d67e` and `166a0c8` touch `src/sensorium/query/exceptions_*.py` and ADD tests; `34ab82e` touches no source at all — `git show --stat 34ab82e` lists `rust/tests/acceptance_grain_{phases,read,schema}.py`, `rust/tests/render_grain.py` and `tests/test_acceptance_grain_repair.py`, which is the INSTRUMENT, not the reader. All three edit no vector, no `corpus/*/questions.yaml` and no existing expectation. Corrected in place 2026-09-05 by the post-review fix wave; §4 is outside the byte-locked range, so §1′'s sha is untouched (§5.7 item 2).** 1276 → 1301 as those three and the sibling runner's test module added tests. `cargo test
 --workspace` compiled nothing, and the driver's sha256 afterwards is the
 preflight's, so H1′, which ran before H6′, ran the binary §2 pins.
 
