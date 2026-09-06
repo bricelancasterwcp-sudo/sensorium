@@ -98,7 +98,13 @@ pub(crate) const KIND_HANDLED: u8 = 5;
 /// One completed statement of a FOCUSED function, and the bindings it wrote
 /// (rung 4 slice 1, `src/line.rs`). Written only under `--focus`, which is a
 /// compile-time decision: a trace with no LINE record is a run of a workspace
-/// nothing was focused in, and says so through `capabilities.line`.
+/// nothing was focused in.
+///
+/// `capabilities.line` says so in the trace, but it is NOT written here:
+/// unlike `err_flow`, which this runtime declares in its proc header below, the
+/// line capability is declared by `cargo-sensorium`'s CONVERTER, from whether
+/// any unit of the run actually carries a LINE site (design 2026-09-06 §2.4).
+/// Do not look for it in `write_proc_header`.
 pub(crate) const KIND_LINE: u8 = 6;
 pub(crate) const KIND_THREAD_END: u8 = 255;
 
