@@ -32,13 +32,15 @@ pub struct Resolution {
     /// `(value, up to three closest eligible qualnames)` for a value that
     /// selected nothing at all.
     pub unmatched: Vec<(String, Vec<String>)>,
-    /// `(value, the qualname it found, the transform's skip reason)` for a
-    /// value whose only hits are functions the transform never instruments.
+    /// `(value, every (qualname, skip reason) it found)` for a value whose
+    /// only hits are functions the transform never instruments.
     ///
-    /// Three fields and not two: §2.2's refusal sentence names all three, and
-    /// for a CONTAINER value (`--focus m` where `m` holds only `async fn g`)
-    /// the value and the qualname are different words.
-    pub skipped_only: Vec<(String, String, String)>,
+    /// EVERY hit, in qualname order, because §2.2's refusal names them: a
+    /// person told only the first of a `mod` of three `async fn`s would fix
+    /// that one and meet the same refusal twice more. The value is carried
+    /// beside them because for a CONTAINER value (`--focus m` where `m` holds
+    /// only `async fn g`) the value and the qualname are different words.
+    pub skipped_only: Vec<(String, Vec<(String, String)>)>,
 }
 
 impl Resolution {
@@ -70,10 +72,13 @@ pub fn resolve_focus(ws_root: &Path, focus: &Focus) -> Result<Resolution, String
             matched.extend(hits.into_iter().cloned());
             continue;
         }
-        if let Some((qualname, reason)) = skipped.iter().find(|(q, _)| one.matches(q)) {
-            resolution
-                .skipped_only
-                .push((value.clone(), qualname.clone(), (*reason).to_owned()));
+        let skipped_hits: Vec<(String, String)> = skipped
+            .iter()
+            .filter(|(q, _)| one.matches(q))
+            .map(|(q, reason)| (q.clone(), (*reason).to_owned()))
+            .collect();
+        if !skipped_hits.is_empty() {
+            resolution.skipped_only.push((value.clone(), skipped_hits));
             continue;
         }
         resolution
@@ -223,6 +228,10 @@ mod tests {
 
     impl Tmp {
         fn new(name: &str) -> Tmp {
+            Tmp::with(name, LIB)
+        }
+
+        fn with(name: &str, lib: &str) -> Tmp {
             let base = std::env::temp_dir().join(format!(
                 "sensorium-resolve-test-{}-{}-{name}",
                 std::process::id(),
@@ -238,7 +247,7 @@ mod tests {
                  \n[lib]\nname = \"focus_fixture\"\npath = \"src/lib.rs\"\n",
             )
             .unwrap();
-            fs::write(base.join("src/lib.rs"), LIB).unwrap();
+            fs::write(base.join("src/lib.rs"), lib).unwrap();
             Tmp(base)
         }
     }
@@ -288,7 +297,10 @@ mod tests {
         assert_eq!(r.unmatched, vec![]);
         assert_eq!(
             r.skipped_only,
-            vec![("m::g".to_owned(), "m::g".to_owned(), "async".to_owned())]
+            vec![(
+                "m::g".to_owned(),
+                vec![("m::g".to_owned(), "async".to_owned())]
+            )]
         );
         assert!(r.refuses());
     }
@@ -336,5 +348,31 @@ mod tests {
         assert_eq!(shared_suffix_segments(&["a", "b"], "m::a::b"), 2);
         assert_eq!(shared_suffix_segments(&["a", "b"], "m::x::b"), 1);
         assert_eq!(shared_suffix_segments(&["zz"], "m::f"), 0);
+    }
+
+    /// Every skipped function the value found, not just the first: a person
+    /// told "`m` matches only `m::a`" over a `mod m` of three `async fn`s
+    /// would fix `m::a` and meet the same refusal twice more.
+    #[test]
+    fn a_value_that_finds_only_skipped_functions_names_all_of_them() {
+        let t = Tmp::with(
+            "many-skipped",
+            "mod m {\n    pub async fn a() {}\n    pub async fn b() {}\n    \
+             pub const fn c() -> u8 { 1 }\n}\nfn keep() {}\n",
+        );
+        let r = resolve(&t, "m");
+        assert!(r.matched.is_empty());
+        assert_eq!(
+            r.skipped_only,
+            vec![(
+                "m".to_owned(),
+                vec![
+                    ("m::a".to_owned(), "async".to_owned()),
+                    ("m::b".to_owned(), "async".to_owned()),
+                    ("m::c".to_owned(), "const".to_owned()),
+                ]
+            )]
+        );
+        assert!(r.refuses());
     }
 }

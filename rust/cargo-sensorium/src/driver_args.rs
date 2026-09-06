@@ -5,6 +5,8 @@
 //! tier needed room. A PURE move: every item here is the one `driver.rs`
 //! held, re-exported from it so that no caller's spelling changed.
 
+use sensorium_transform::Focus;
+
 /// How much the runtime records. `off` is the inert arm E1 measures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tier {
@@ -106,14 +108,18 @@ pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
 pub const USAGE: &str =
     "usage: cargo sensorium test|run [--tier off|call] [--focus <qualname>]... [cargo args]";
 
-/// One `--focus` value: a qualname, trimmed, and never empty.
+/// One `--focus` value: a qualname that survives [`Focus::parse`].
 ///
 /// An empty value is refused rather than dropped: it would match every
 /// qualname's prefix, so a stray `--focus=` would instrument the whole
-/// workspace instead of saying nothing was asked for.
+/// workspace instead of saying nothing was asked for. The test is
+/// `Focus::parse` itself and not "non-empty after trimming", because a value
+/// of only commas passes the latter and is then dropped by the former --
+/// `--focus ,` used to run UNFOCUSED at exit 0, with no `focus:` line and a
+/// trace whose missing LINE rows had no stated cause.
 fn parse_focus(v: Option<&str>) -> Result<String, String> {
     match v.map(str::trim) {
-        Some(value) if !value.is_empty() => Ok(value.to_owned()),
+        Some(value) if !Focus::parse(value).is_empty() => Ok(value.to_owned()),
         _ => Err("--focus needs a qualname".to_owned()),
     }
 }
@@ -203,6 +209,11 @@ mod tests {
             v(&["--focus="]),
             v(&["--focus=", "test"]),
             v(&["--focus", "  ", "test"]),
+            // Only commas: non-empty after trimming, and `Focus::parse`
+            // drops it, so the run went ahead unfocused at exit 0.
+            v(&["--focus", ",", "test"]),
+            v(&["--focus=,,", "test"]),
+            v(&["--focus", "a", "--focus", ",", "test"]),
         ] {
             assert_eq!(
                 parse_args(&form).unwrap_err(),

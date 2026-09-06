@@ -207,7 +207,7 @@ pub fn run(args: &[String]) -> i32 {
 fn go(args: &[String]) -> Result<i32, String> {
     let parsed = parse_args(args)?;
     let ws = workspace_root()?;
-    let focus = Focus::parse(&parsed.focus.join(","));
+    let focus = parsed_focus(&parsed.focus)?;
     // BEFORE everything (design 2026-09-06 §2.2): before the runtime is
     // compiled, before the shim is installed, before a spool directory exists
     // and before cargo is invoked. A focus is a compile-time decision, so a
@@ -441,6 +441,25 @@ fn workspace_root() -> Result<PathBuf, String> {
         .ok_or_else(|| format!("cargo located a manifest with no parent: {manifest}"))
 }
 
+/// The `--focus` values as a [`Focus`], refusing a list that parses to nothing.
+///
+/// `Focus::parse` drops an empty entry -- an empty value would match every
+/// qualname's prefix and focus the whole workspace -- and `--focus ,` is
+/// non-empty after trimming, so it reaches here and then vanishes. Without
+/// this check the run went ahead UNFOCUSED at exit 0, with no `focus:` line
+/// and a trace whose missing LINE rows had no stated cause.
+///
+/// # Errors
+/// The same sentence `parse_args` gives an empty value, since it is the same
+/// mistake: a value that names no function.
+fn parsed_focus(values: &[String]) -> Result<Focus, String> {
+    let focus = Focus::parse(&values.join(","));
+    if !values.is_empty() && focus.is_empty() {
+        return Err("--focus needs a qualname".to_owned());
+    }
+    Ok(focus)
+}
+
 /// §2.2's refusal, one line per offending value, and nothing built.
 fn report_refusal(resolved: &resolve::Resolution) {
     for (value, closest) in &resolved.unmatched {
@@ -457,10 +476,17 @@ fn report_refusal(resolved: &resolve::Resolution) {
              built.{suggestion}"
         );
     }
-    for (value, qualname, reason) in &resolved.skipped_only {
+    for (value, hits) in &resolved.skipped_only {
+        // Every one of them, not just the first: a person told only about the
+        // first would fix it and meet the same refusal again.
+        let named = hits
+            .iter()
+            .map(|(qualname, reason)| format!("{qualname} ({reason})"))
+            .collect::<Vec<_>>()
+            .join(", ");
         eprintln!(
-            "REFUSED: --focus {value} matches only {qualname}, which the transform skips \
-             ({reason}); nothing was built."
+            "REFUSED: --focus {value} matches only functions the transform skips: {named}; \
+             nothing was built."
         );
     }
 }
@@ -711,5 +737,27 @@ mod tests {
         // "cargo exited 0" by the value, and an absent key is neither.
         assert_eq!(value["end_ts"], serde_json::Value::Null);
         assert_eq!(value["cargo_exit"], serde_json::Value::Null);
+    }
+
+    /// The belt to `parse_focus`'s braces: any list of values that survives
+    /// argv parsing and still leaves an EMPTY focus is refused here rather
+    /// than run unfocused. `--focus ,` is the case that reached production --
+    /// exit 0, no `focus:` line, a trace with no LINE row and nothing
+    /// anywhere saying the flag had been discarded.
+    #[test]
+    fn a_focus_that_parses_to_nothing_is_refused_rather_than_silently_dropped() {
+        for form in [v(&[","]), v(&[",,"]), v(&[" "])] {
+            assert_eq!(
+                parsed_focus(&form).unwrap_err(),
+                "--focus needs a qualname",
+                "{form:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn no_focus_values_is_the_unfocused_build_and_not_an_error() {
+        assert!(parsed_focus(&[]).unwrap().is_empty());
+        assert_eq!(parsed_focus(&v(&["b", "a"])).unwrap().values(), ["b", "a"]);
     }
 }

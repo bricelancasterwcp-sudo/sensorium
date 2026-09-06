@@ -97,11 +97,31 @@ impl Focus {
         if self.0.is_empty() {
             return "0".to_owned();
         }
-        let mut sorted: Vec<&str> = self.0.iter().map(String::as_str).collect();
-        sorted.sort_unstable();
-        sorted.dedup();
-        sha256::hex(sorted.join("\n").as_bytes())[..16].to_owned()
+        sha256::hex(self.canonical().join("\n").as_bytes())[..16].to_owned()
     }
+
+    /// This focus as a SET: sorted and de-duplicated (design A10).
+    ///
+    /// The form [`Focus::focus_hash`] hashes, and therefore the form every
+    /// OTHER "is this the same focus?" question must be asked in. Two spellings
+    /// that share a hash share a shim path, artifacts and manifests, so a
+    /// consumer comparing them any other way -- ordered `Vec` equality, say --
+    /// answers "different" about one indivisible build.
+    #[must_use]
+    pub fn canonical(&self) -> Vec<String> {
+        canonical_values(&self.0)
+    }
+}
+
+/// [`Focus::canonical`] for a list that is not a [`Focus`]: a manifest's
+/// recorded `focus.values`, which the converter compares against an
+/// invocation's list.
+#[must_use]
+pub fn canonical_values(values: &[String]) -> Vec<String> {
+    let mut out = values.to_vec();
+    out.sort_unstable();
+    out.dedup();
+    out
 }
 
 /// One fn item of a file, as the transform itself classifies it.
@@ -202,6 +222,28 @@ mod tests {
         let focus = Focus::parse(" b , a ,b,,a ");
         assert_eq!(focus.values(), ["b", "a"]);
         assert!(!focus.is_empty());
+    }
+
+    /// The canonical form and the hash are ONE rule: whatever shares a
+    /// `focus_hash` shares a shim path, artifacts and manifests, so every
+    /// other consumer that asks "is this the same focus?" -- the converter
+    /// matching a manifest's `values` against an invocation's -- has to reach
+    /// the same answer or it will read `focus_matched: []` off a build that
+    /// matched (design A10).
+    #[test]
+    fn the_canonical_form_is_sorted_de_duplicated_and_what_the_hash_is_over() {
+        assert_eq!(Focus::parse("b,a,b").canonical(), ["a", "b"]);
+        assert_eq!(Focus::parse("a,b").canonical(), ["a", "b"]);
+        assert!(Focus::default().canonical().is_empty());
+        assert_eq!(
+            super::canonical_values(&["b".to_owned(), "a".to_owned(), "b".to_owned()]),
+            ["a", "b"]
+        );
+        // The hash is the hash OF the canonical form, not a parallel rule.
+        assert_eq!(
+            Focus::parse("b,a").focus_hash(),
+            crate::sha256::hex(Focus::parse("b,a").canonical().join("\n").as_bytes())[..16]
+        );
     }
 
     #[test]

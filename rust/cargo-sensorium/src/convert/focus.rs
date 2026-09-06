@@ -7,6 +7,8 @@
 
 use std::collections::BTreeMap;
 
+use sensorium_transform::canonical_values;
+
 use super::manifest::{FocusRecord, Manifest};
 use super::manifest_in_scope;
 
@@ -45,6 +47,11 @@ pub fn record(
     if invocation_focus.is_empty() {
         return None;
     }
+    // A SET comparison (design A10): `focus_hash` sorts and de-duplicates
+    // before hashing, so two orders of the same values are ONE build, sharing
+    // a shim path, artifacts and manifests. Compared as ordered `Vec`s the
+    // second order read `focus_matched: []` off a build with LINE rows.
+    let wanted = canonical_values(invocation_focus);
     let mut matched: Vec<String> = Vec::new();
     for m in manifests.values() {
         if !manifest_in_scope(m, invocation_workspace_root) {
@@ -53,7 +60,7 @@ pub fn record(
         let Some(focus) = m.focus.as_ref() else {
             continue;
         };
-        if focus.values != invocation_focus {
+        if canonical_values(&focus.values) != wanted {
             continue;
         }
         matched.extend(focus.matched.iter().cloned());
@@ -163,6 +170,30 @@ mod tests {
             ("theirs", "/other", Some((&["f"], &["z::f"]))),
         ]);
         let r = super::record(&["f".to_owned()], &m, "/w").expect("a record");
+        assert_eq!(r.matched, ["a::f"]);
+    }
+
+    /// A focus is a SET (design A10). `focus_hash` sorts and de-duplicates
+    /// before hashing, so `--focus main --focus load` and `--focus load
+    /// --focus main` share a shim path, artifacts and manifests -- and
+    /// measured 2026-09-06 on `corpus/rust/silent_swallow`, the second order
+    /// then read `focus_matched: []` off a build with six LINE rows and
+    /// `line: true`, the exact reading A9 exists to forbid. Both sides of the
+    /// comparison are canonicalised the same way; `values` still records what
+    /// was typed.
+    #[test]
+    fn the_order_the_values_were_typed_in_is_not_part_of_the_comparison() {
+        let m = manifests(&[("m", "/w", Some((&["load", "main"], &["load", "main"])))]);
+        let r = super::record(&["main".to_owned(), "load".to_owned()], &m, "/w").expect("a record");
+        assert_eq!(r.values, ["main", "load"], "as GIVEN, not canonicalised");
+        assert_eq!(r.matched, ["load", "main"]);
+    }
+
+    /// A repeated value is the same set too -- `focus_hash` de-duplicates.
+    #[test]
+    fn a_repeated_value_is_the_same_focus() {
+        let m = manifests(&[("m", "/w", Some((&["a"], &["a::f"])))]);
+        let r = super::record(&["a".to_owned(), "a".to_owned()], &m, "/w").expect("a record");
         assert_eq!(r.matched, ["a::f"]);
     }
 }
