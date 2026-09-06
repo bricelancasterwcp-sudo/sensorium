@@ -113,6 +113,11 @@ phases, the site comparison, the schema and the renderer as the same objects
 (`tests/test_acceptance_grain_repair.py` asserts that), and differing only
 in this document, its lock, the ledger subdirectory
 `acceptance-grain-repair/`, the markers and the record's file names.
+*Amended 2026-09-05 before any measurement: the reader commit measured is
+`166a0c8` (a `collisions()` defect — it counted shapes sharing a site TEXT
+rather than the distinct PLACES that text named, so two shapes at one place
+printed a file no answer needed — found by Task 7's review after the lock at
+`9bf64df`); both shas are recorded in §2.*
 
 **The pins updated BY RULE before this section was locked.** H1′'s "20 of 20
 equal" is stated against these, not against the 0.8.1 pins:
