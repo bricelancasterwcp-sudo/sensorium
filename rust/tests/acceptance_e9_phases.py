@@ -636,9 +636,12 @@ def phase_h5(paths, cfg, records) -> dict:
                 "found_at_predicted_line": bool(at_line),
                 "unpredicted_gated_rows": [r["text"] for r in gated
                                            if r["line"] != s["line"]],
-                # REPORTED beside it: every printed sighting row.
+                # REPORTED beside it. The rows are the PRINTED page; the
+                # second reading's number is `sighting_events`, which `flow`
+                # computes over its whole scope (`flow_cmd._print_footer`),
+                # so a page smaller than the set cannot understate it.
                 "whole_trace_rows": [r["text"] for r in p["rows"]],
-                "whole_trace_count": len(p["rows"]),
+                "printed_row_count": len(p["rows"]),
             })
             step(f"H5 {s['id']}: {p['sighting_events']} sighting event(s); "
                  f"gated to A's LINE deltas {len(gated)}; at line "

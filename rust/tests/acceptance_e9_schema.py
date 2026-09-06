@@ -239,7 +239,3 @@ def assemble_e9(raw: dict) -> dict:
         "refused": raw.get("refused"), "error": raw.get("error"),
         "started": raw.get("started"), "finished": raw.get("finished"),
     }
-
-
-#: Every endpoint the schema publishes, and every cell inside it whose value
-#: is a `{value, n, lens, dropped}` measurement. Named once so the

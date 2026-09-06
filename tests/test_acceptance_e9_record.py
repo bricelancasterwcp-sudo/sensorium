@@ -207,7 +207,7 @@ def _raw(**over) -> dict:
              "binding": s["binding"], "timed_out": False,
              "sighting_events": 2, "gated_count": 1,
              "found_at_predicted_line": True, "unpredicted_gated_rows": [],
-             "whole_trace_count": 2, "gated_rows": ["e5 LINE …"],
+             "printed_row_count": 2, "gated_rows": ["e5 LINE …"],
              "whole_trace_rows": ["e5 LINE …", "e2 RETURN …"],
              "page_truncated": False, "rows_printed": 2, "showing": None,
              "flow_limit": 1000, "stdout": "sightings: …"}
@@ -571,20 +571,44 @@ def test_H3s_accounted_range_cell_dies_with_a_killed_F1():
 # -- fix round 1: H5's page, H7's skips, the kill-1 label -------------------
 
 
-def test_a_TRUNCATED_flow_page_nulls_H5s_gate():
-    """`flow`'s default page is 50 and every H5 number is read off the
-    printed rows. A gate over a truncated page is a smaller number about a
-    smaller question, and would read as a PASS with sightings unseen."""
+def test_a_TRUNCATED_flow_page_nulls_EVERY_H5_cell():
+    """`flow`'s default page is 50 and both of H5's gated numbers are read
+    off the printed rows. A gate over a truncated page is a smaller number
+    about a smaller question, and would read as a PASS with sightings unseen.
+
+    The SECOND reading goes with them. Its number is `flow`'s own whole-scope
+    `sightings:` count, so a truncated page does not understate it — but on a
+    truncated answer the two readings were computed over different things,
+    and publishing one beside a nulled gate would let a reader take the pair
+    for a comparison."""
     raw = _raw()
     raw["raw_h5"]["sightings"][0]["page_truncated"] = True
     raw["raw_h5"]["page_truncated"] = ["S1"]
     h5 = assemble_e9(raw)["endpoints"]["H5"]
-    assert h5["headline"]["value"] is None
-    assert any("SMALLER than the sighting set" in d
-               for d in h5["headline"]["dropped"])
-    assert h5["unpredicted_gated_sightings"]["value"] is None
-    # the untruncated case still measures
-    assert assemble_e9(_raw())["endpoints"]["H5"]["headline"]["value"] == 2
+    for k in MEASUREMENT_CELLS["H5"]:
+        assert h5[k]["value"] is None, k
+        assert any("SMALLER than the sighting set" in d
+                   for d in h5[k]["dropped"]), (k, h5[k]["dropped"])
+    # the untruncated case still measures, all three
+    ok = assemble_e9(_raw())["endpoints"]["H5"]
+    assert ok["headline"]["value"] == 2
+    assert all(ok[k]["value"] is not None for k in MEASUREMENT_CELLS["H5"])
+
+
+def test_H5s_second_reading_is_flows_whole_scope_count_not_the_page():
+    """§1 pre-registers the second reading as "every sighting of that literal
+    ANYWHERE in the trace". The printed rows are a page; `flow`'s own
+    `sightings:` line is computed over its whole scope
+    (`flow_cmd._print_footer`), so it is the number that answers the
+    question. Publishing `len(rows)` would silently report the page size
+    under a name that claims the whole trace."""
+    raw = _raw()
+    for s in raw["raw_h5"]["sightings"]:
+        s["sighting_events"] = 9      # what flow counted over its whole scope
+        s["printed_row_count"] = 2    # what it printed
+    m = assemble_e9(raw)["endpoints"]["H5"]["whole_trace_sightings"]
+    assert m["value"] == {"S1": 9, "S2": 9}
+    assert "ANYWHERE in the trace" in m["lens"]
 
 
 def test_skipped_corpus_cases_are_a_measurement_with_gate_zero():

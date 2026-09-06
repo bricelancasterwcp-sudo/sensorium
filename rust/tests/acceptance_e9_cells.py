@@ -498,9 +498,12 @@ def _h5(raw) -> dict:
                 "line -- the gate is 0, and `--value` is equality, never a "
                 "prefix test", dropped),
             "whole_trace_sightings": meas(
-                {s["id"]: s["whole_trace_count"] for s in rows}, len(rows),
-                "SECOND reading (reported, not gated): every printed "
-                "sighting row per literal, gated set included", dropped),
+                {s["id"]: s["sighting_events"] for s in rows}, len(rows),
+                "SECOND reading (reported, not gated): every sighting of the "
+                "literal ANYWHERE in the trace, per literal, gated set "
+                "included -- `flow`'s own `sightings:` count, which it "
+                "computes over its whole scope and not over the printed "
+                "page (`flow_cmd._print_footer`)", dropped),
         }
     # §1.3's command has no `--limit` and `flow`'s default page is 50. The
     # runner asks for 1000, and if the footer STILL says the page is smaller
@@ -508,7 +511,13 @@ def _h5(raw) -> dict:
     # answer: the gate is not-measured, with the truncation as its reason.
     truncated = [s["id"] for s in rows if s.get("page_truncated")]
     if truncated:
-        _null_cells(block, ("headline", "unpredicted_gated_sightings"),
+        # `whole_trace_sightings` is in the list even though its number comes
+        # from `flow`'s whole-scope count rather than from the page: on a
+        # truncated answer the two readings were computed over different
+        # things, and publishing one of them beside a nulled gate would let a
+        # reader take the pair for a comparison.
+        _null_cells(block, ("headline", "unpredicted_gated_sightings",
+                            "whole_trace_sightings"),
                     [f"the printed page of sighting(s) {truncated} was "
                      "SMALLER than the sighting set; every gated count comes "
                      "from the printed rows"])
