@@ -45,7 +45,13 @@ measurement.
 **What says it.** `capabilities.entropy` gates whether the key is trustworthy at all
 (`caps.require`, exit 3, per TRACE-FORMAT §4); `meta.model.n_vocab` is the width the recorder
 promises `logprob`/`entropy` were taken over, so a reader can check the log-softmax denominator
-matches the model's own vocabulary size rather than a truncated one.
+matches the model's own vocabulary size rather than a truncated one. And the fallback is visible
+in the rows themselves: `tokens.logprob` and `tokens.entropy` are **NULL** — never `0.0`, which
+would be `p = 1`, the most confident claim the column can make — exactly when
+`capabilities.entropy` is false, both deriving from the same full-vocabulary log-softmax; and
+`meta.topk_basis` then reads `"logit"` instead of its default `"logprob"`, so the surviving
+`topk` values are not silently read as logprobs they are not (MODEL-TRACES §2/§3, design spec
+§11 R13).
 
 **Falsifier.** `tests/test_model_writer.py::test_entropy_matches_reference_softmax_over_n_vocab`
 (S1), comparing the written `entropy` against an independent full-vocabulary softmax of the same
@@ -77,9 +83,12 @@ tokens fingerprint identical no matter what GPU floating-point noise did to the 
 `task_fingerprints.hash` column is the rolling blake2b-16 built only from the `f"{token}\n"`
 updates §6 of the contract describes.
 
-**Falsifier.** `m05b-diff-within-noise-needs-blessed-band` — two generations with identical
-token ids but different recorded logprobs must fingerprint equal; a vector where they fingerprint
-unequal falsifies the "token ids only" promise directly.
+**Falsifier.** `m11-fingerprint-ignores-measurement` — two traces whose generations chose the
+**identical token id at every position** while every recorded measurement about those tokens
+(`logprob`, `entropy`, `topk`, `ts`) differs must fingerprint equal and read `MATCH`; a reading
+of `DIVERGED` there means measurement entered the hash, which falsifies the "token ids only"
+promise directly. `m05b-diff-within-noise-needs-blessed-band` is the second citation, for the
+neighbouring case where the token ids themselves differ and the noise band is what decides.
 
 ## 5
 
@@ -108,10 +117,15 @@ range.
 
 **Falsifier.** `tests/test_model_spans.py::test_boundary_inside_multibyte_token_is_flagged` (S1),
 which must show a boundary landing inside a multi-byte token's bytes sets `boundary_inside_token:
-true` rather than silently rounding to the nearest token edge; and E-mem — every divergence
-between memory-on and memory-off boots must fall at or after the `prompt` span's end, since the
-injected stamp lives in the prompt and the prefix is golden-tested byte-identical, so a divergence
-before that point means the recorder mis-mapped spans.
+true` rather than silently rounding to the nearest token edge; and E-mem as restated 2026-09-05
+(design spec §10, §11 R18): every memory-on `prompt` span must carry
+`memory_stamp.kind: "injected"` with the journal's own `episode_id` and every memory-off one
+`"off"`, and the sha256 of the prompt bytes *before* the injection point must be equal across the
+two arms — a stamp that disagrees with the journal, or a prefix that does not hash equal, is the
+recorder mis-reading what it mapped. The endpoint's earlier wording — every divergence at or
+after the `prompt` span's end — is withdrawn: `pos` counts sampled tokens only and a `prompt`
+span has none, so nothing could ever have failed it, and a falsifier that cannot fail is not
+one.
 
 ## 7
 
@@ -122,7 +136,12 @@ reconstructed from the filesystem.
 **What says it.** `spans.ref.exec.run_id` is the join field itself; `SENSORIUM_JOIN`,
 copied verbatim by the program recorder into its own `meta.join`, is the independent trail that
 lets a reader confirm the id the model trace cites is the id the child process actually received,
-not a guess.
+not a guess. The exit beside that id has **two sources and the reader names both**:
+`ref.exec.exit_status`/`exit_status_basis` is the daemon's own witness — what the daemon saw, or
+`unwitnessed`, or `not run` — and the referenced program trace's `meta.exit_status` is what that
+file says; `spans` prints them as two labeled facts and merges them never, so a cached ref never
+speaks for a file nobody opened and a missing file never erases what the daemon did see
+(MODEL-TRACES §9, design spec §11 R17).
 
 **Falsifier.** `m07a-spans-exec-ref-joins-program-trace` — when the referenced program trace is
 present, `spans` must print `exec run <id> exit <n> (waited)` read from that program trace, and a
@@ -188,12 +207,12 @@ falsifies the "never gated" half of the promise.
 | § | Promise | Falsifier |
 |---|---|---|
 | 1 | a `tokens` row is a sampled token | `tests/test_model_writer.py::test_row_per_sampled_token_only` (S1); E-noise's kill (a divergence at p=0) |
-| 2 | logprob/entropy over the full vocabulary or declared false | `tests/test_model_writer.py::test_entropy_matches_reference_softmax_over_n_vocab` (S1); E-overhead's fallback clause |
+| 2 | logprob/entropy over the full vocabulary or declared false (NULL under the fallback, `topk_basis: "logit"`) | `tests/test_model_writer.py::test_entropy_matches_reference_softmax_over_n_vocab` (S1); E-overhead's fallback clause |
 | 3 | `topk` is the true top-k, descending, ties by id | `tests/test_model_writer.py::test_topk_is_sorted_prefix_of_full_distribution` (S1) |
-| 4 | fingerprint over token ids only | `m05b-diff-within-noise-needs-blessed-band` (identical ids, different logprobs → equal hash) |
+| 4 | fingerprint over token ids only | `m11-fingerprint-ignores-measurement` (identical ids at every position, different logprob/entropy/topk/ts → equal hash, `MATCH`); `m05b-diff-within-noise-needs-blessed-band` |
 | 5 | names are the caller's; `gen-N` is unnamed | `m03-gens-unnamed-pairs-by-order` |
-| 6 | spans are the scanner's judgement | `tests/test_model_spans.py::test_boundary_inside_multibyte_token_is_flagged` (S1); E-mem |
-| 7 | `exec.run_id` is the id passed to the child or null | `m07a-spans-exec-ref-joins-program-trace`; `tests/test_join_env.py::test_join_copied_verbatim_or_omitted` (S3) |
+| 6 | spans are the scanner's judgement | `tests/test_model_spans.py::test_boundary_inside_multibyte_token_is_flagged` (S1); E-mem as restated (stamp agrees with the journal, pre-injection prefix hashes equal) |
+| 7 | `exec.run_id` is the id passed to the child or null; the daemon's witness and the program trace's exit are two labeled facts | `m07a-spans-exec-ref-joins-program-trace` (daemon unwitnessed, trace exit 1) and `m07b-spans-exec-ref-trace-not-found` (daemon saw exit 1, trace not found); `tests/test_join_env.py::test_join_copied_verbatim_or_omitted` (S3) |
 | 8 | `noise_band` only on a blessed trace, naming its baseline | `m05c-diff-within-noise-needs-blessed-band` (REFUSED when weights differ); E-noise′ |
 | 9 | nothing says why; attention under FA declared unwitnessable | `m09-attention-declared-unwitnessable-under-fa` |
 | 10 | cost reported, never gated | E-overhead published either way; the acceptance record carries the ratio whichever way it reads: `docs/superpowers/acceptance/<S1 date>-model-recorder.md` §E-overhead |
