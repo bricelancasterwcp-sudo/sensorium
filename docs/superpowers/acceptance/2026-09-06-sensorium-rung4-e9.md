@@ -21,8 +21,11 @@ exists — so no value below was chosen after seeing an instrument behave. The
 lock is `awk '/^## 1/,/^## 2/' | sha256sum`; the runner refuses to start
 unless the range is byte-identical to the commit that locked it, and refuses
 outright while no lock sha is set. §1 references no footnote, so the extended
-lock range and the `awk` range are the same bytes. §1 is not amended: there is
-one sha and no dated note inside it.
+lock range and the `awk` range are the same bytes. ~~§1 is not amended: there is one sha and no dated note inside it.~~ **Corrected
+2026-09-06, before any measurement: §1 IS amended — one dated note in §1.4's
+lens (the reader's `--limit 1000`), committed alone at `ffaed19`; the runner
+carries both shas (original `a4264b5`, amended `ffaed19`) and no table row
+moved.**
 
 **The subject is a workspace this project did not write.** The bloomery clone
 at `e209ed9` is read-only for the whole run; its HEAD and porcelain are
