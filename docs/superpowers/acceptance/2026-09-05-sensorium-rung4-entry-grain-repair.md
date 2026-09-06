@@ -62,8 +62,7 @@ order, which the first measurement recorded under both readings; and the lens
 and the ungated list name this run's instrument, its markers, the first record
 and the collision count. The runner refuses to run if this section differs
 from the commit that locked it — compared with `awk '/^## 1/,/^## 2/'`, the
-sha recorded in §2 — and refuses outright while no lock sha is set. §1′ is not
-amended: there is one sha and no dated note inside it. A completed measurement
+sha recorded in §2 — and refuses outright while no lock sha is set. ~~§1′ is not amended: there is one sha and no dated note inside it.~~ **§1′ carries TWO shas — the original lock `9bf64df` and the amendment `ae9a15b` — and one dated note, at §1′'s line 47, naming the reader commit measured. The struck sentence predates that amendment; corrected in place 2026-09-05 by Task 8's fix round 1, and it sits OUTSIDE the byte-locked range, which begins at `## 1`, so §1′'s sha is untouched (§5.7 item 2).** A completed measurement
 is never re-rolled, and a miss is a STOP with its number — a second STOP here
 is recorded as one, and what happens next is Brice's ruling.
 
@@ -144,12 +143,9 @@ therefore carry their file's basename (R-G12), per arm.
 ## 2. Environment
 
 Rendered by `rust/tests/render_grain.py` from the assembled record and pasted
-here **with three clauses struck through and corrected**: the renderer and
-schema are the FIRST record's objects, shared by reference — this
-instrument's design — and three of the clauses they print are wrong for this
-document (§5.7). Nothing they misname is a measurement.
+here **with the two clauses still wrong for this document struck through and corrected**: the renderer and schema are the FIRST record's objects, shared by reference — this instrument's design — and two of the strings `render_grain` hardcodes are that record's (§5.7 items 1–2). A third, the results file's name, was a wrong VALUE rather than a literal and is repaired at its derivation instead (R-G15, §5.7 item 1). Nothing they misname is a measurement.
 
-Measured 2026-09-05T19:46:28-0500 → 2026-09-05T19:49:12-0500 by `rust/tests/acceptance_grain_repair.py`, launched detached; the raw facts it recorded are ~~`results-grain-raw.json`~~ **`results-grain-repair-raw.json`** in the gitignored plan ledger, with every command's log beside it. §3 below is rendered from ~~`2026-09-05-sensorium-rung4-entry-grain.results.json`~~ **`2026-09-05-sensorium-rung4-entry-grain-repair.results.json`**, which `acceptance_grain_schema.assemble_grain` derived from that raw file.
+Measured 2026-09-05T19:46:28-0500 → 2026-09-05T19:49:12-0500 by `rust/tests/acceptance_grain_repair.py`, launched detached; the raw facts it recorded are ~~`results-grain-raw.json`~~ **`results-grain-repair-raw.json`** in the gitignored plan ledger, with every command's log beside it. §3 below is rendered from `2026-09-05-sensorium-rung4-entry-grain-repair.results.json`, which `acceptance_grain_schema.assemble_grain` derived from that raw file.
 
 **§1 byte-lock.** The runner refuses to start unless the locked range is byte-identical to the commit that locked it — and refuses outright while no lock sha is set. The range is awk '/^## 1/,/^## 2/' PLUS the definition of every footnote §1 references — here §1 references no footnote (`footnotes_in_range` = none), so the extended range and `awk '/^## 1/,/^## 2/'` are the same bytes. Checked at `ae9a15b`: 7437 bytes, sha256 `e894f473b79c0ee432088b0a913fb01fd4702c2acce9894a134442379ece8015` on both sides — identical: yes. ~~§1 was committed ALONE and never amended: there is no second sha (`original_lock` = 9bf64df).~~ **§1′ was committed ALONE at `9bf64df` (sha256 `62ddc575fb3d37d426bf5d091edd9307748f17da94617aacb44307586ca86038`, 7087 bytes) and AMENDED ONCE before any number below was read, at `ae9a15b` (sha256 `e894f473b79c0ee432088b0a913fb01fd4702c2acce9894a134442379ece8015`, 7437 bytes) — a 350-byte dated sentence in the lens naming the reader commit actually measured. The run's own byte-lock check carries both shas and the flag `amended_after_the_original_lock: true`; the renderer's sentence is written for the unamended case and prints the second sha beside a denial of it.**
 
@@ -227,7 +223,7 @@ hand as well as by the runner.
 
 ## 3. Results
 
-Every measurement is `{value, n, lens, dropped}`; a `null` value with a reason is the ONLY not-measured, and `0` is measured-and-zero. Rendered by `rust/tests/render_grain.py` from ~~`2026-09-05-sensorium-rung4-entry-grain.results.json`~~ **`2026-09-05-sensorium-rung4-entry-grain-repair.results.json`**. No verdict is decided here — §4 is. **The renderer prints the endpoint ids unprimed (`H1`…`H6`) because it is the first record's object; in this document they are H1′–H6′ throughout, and §4 uses the primed ids — §5.7.**
+Every measurement is `{value, n, lens, dropped}`; a `null` value with a reason is the ONLY not-measured, and `0` is measured-and-zero. Rendered by `rust/tests/render_grain.py` from `2026-09-05-sensorium-rung4-entry-grain-repair.results.json`. No verdict is decided here — §4 is. **The renderer prints the endpoint ids unprimed (`H1`…`H6`) because it is the first record's object; in this document they are H1′–H6′ throughout, and §4 uses the primed ids — §5.7.**
 
 | Id | Headline | n | Lens (abridged) | Dropped |
 |---|---|---|---|---|
@@ -395,23 +391,25 @@ the raw record's md5 `33c7341ec64d9479a3266d365a54feff` before and after.
 | H1′ | "**20 of 20 equal** (swallow sets, tallies, and every pinned line)." | **20** `corpus/rust/*` cases with an `exceptions` question, each recorded once under the 0.3.1 driver into a corpus target that was 0 bytes at the start. **0** printed SWALLOWED lines no registered group claims, **0** registered groups with no printed line, **0** unequal swallow sets, **0** unequal `dispositions:` lines, **0** swallow cases that printed nothing, and the corpus's own substring reading fails **0** of 20 — against the pins §1′ names as updated BY RULE (§4.5). | **PASS** |
 | H2′ | "**Exactly 5 SWALLOWED groups**, counts `memory.rs:156 ×3, task/exec.rs:606 ×4, memory/store.rs:96 ×2, task/registry.rs:1084 ×4, task/registry.rs:379 ×1`; tally line byte-identical to the record's (`dispositions: swallowed 14, ambiguous 8`)." | **5** SWALLOWED groups accounting for **14** chains on the kept `a` store, at exactly the five sites with exactly the five counts §1′ names — **0** differences over the record's 5 sites, **0** sinks the join could not resolve, **0** blocks disambiguated. Printed tally `dispositions: swallowed 14, ambiguous 8`, byte-identical to the record's. The whole answer is byte-identical to the first measurement's (§4.1). | **PASS** |
 | H3′ | "**Every tally line byte-identical** to the record's per-process `tally_line` (114 + 114 processes with chains; the 30 + 30 without print `no exceptions recorded`), and per trace the sum of SWALLOWED group counts == the record's `swallowed_count`." | **288** per-process comparisons — every trace of `ws` and of `ws0` — with **0** differences: **0** tally lines that are not the record's and **0** swallow counts that are not the record's, on each arm. 114 processes per arm printed a tally line and 30 printed `no exceptions recorded`, with **0** INCOMPLETE banners and **0** blocks disambiguated. Chains sum to **782** and **812**, the record's own totals. Every one of the 288 answers is identical to the first measurement's in bytes, lines, tally, groups and chains (§4.2). | **PASS** |
-| H4′ | "**ws: exactly 91 SWALLOWED shapes, one per (file, line) site, whose (site, count) multiset equals the record's 91-row table (782 chains); ws0: exactly 98 shapes / 812; the summed `dispositions:` line, in the tool's `TAG_ORDER`, reads `swallowed 782, panicked 2, ambiguous 330` (ws) and `swallowed 812, panicked 2, ambiguous 300` (ws0); header counts 144 / 114 / 30; INCOMPLETE members 0.**" (its ungated `Reported:` clause — the collision count — is §5.6) | **0 site differences on each arm, 0 in all.** `ws`: **103** merged shapes accounting for **782** chains over **91** distinct sites against the record's 91 — 0 missing, 0 extra, 0 count differences, **0** chains booked at a sibling file. `ws0`: **105** shapes, **812** chains, **98** sites against 98 — 0 / 0 / 0. The summed `dispositions:` lines print byte-identical to §1′'s two quoted strings; header counts **144 / 114 / 30**; INCOMPLETE members **0**; unresolved sinks **0** (§4.3). **The one clause that missed is the shape COUNT: 103 ≠ 91 and 105 ≠ 98, and shapes are not one-per-site — §5.2, which also states the verdict under a strict conjunctive reading.** | **PASS** (0 site differences, each arm) |
+| H4′ | "**ws: exactly 91 SWALLOWED shapes, one per (file, line) site, whose (site, count) multiset equals the record's 91-row table (782 chains); ws0: exactly 98 shapes / 812; the summed `dispositions:` line, in the tool's `TAG_ORDER`, reads `swallowed 782, panicked 2, ambiguous 330` (ws) and `swallowed 812, panicked 2, ambiguous 300` (ws0); header counts 144 / 114 / 30; INCOMPLETE members 0.**" (its ungated `Reported:` clause — the collision count — is §5.6) | **0 site differences on each arm, 0 in all.** `ws`: **103** merged shapes accounting for **782** chains over **91** distinct sites against the record's 91 — 0 missing, 0 extra, 0 count differences, **0** chains booked at a sibling file. `ws0`: **105** shapes, **812** chains, **98** sites against 98 — 0 / 0 / 0. The summed `dispositions:` lines print byte-identical to §1′'s two quoted strings; header counts **144 / 114 / 30**; INCOMPLETE members **0**; unresolved sinks **0** (§4.3). **The one clause that missed is the shape COUNT: 103 ≠ 91 and 105 ≠ 98, and shapes are not one-per-site — §5.2.** | 0 site differences per arm — **PASS** under the gate reading (the site multiset, the instrument's committed rule); **STOP** under the strict reading (103 / 105 shapes ≠ 91 / 98) — ruling: **Brice** (§5.2) |
 | H5′ | "**Both under 60 s.**" | **0** arms at or over the ceiling: `ws` **0.565 s**, `ws0` **0.581 s**, neither killed, both exit 0 — 144 traces opened and merged per answer (§4.4). | **PASS** |
 | H6′ | "**Python `exceptions` output byte-identical to 0.8.1** (the suite is the pin; no Python expectation changes); Rust workspace green; v17's single-shape blocks byte-identical." | `pytest -q` exit **0**: **1301 passed, 1 skipped** in 110.3 s, with no Python expectation changed by this slice — the suite carries the vectors v01–v19, the Python corpus and `tests/test_exceptions*.py`, and it is the pin. `cargo test --workspace` exit **0**: **38** `test result: ok.` lines, **606 passed, 0 failed, 19 ignored** (§4.6). | **PASS** |
 
-**Overall: the repair did the one thing it was for, and nothing else moved.**
-The first record's H4 STOP was 4 site differences per arm — 11 chains of 782
-and 10 of 812 booked at a sibling test file, invisibly to a reader. Under
-R-G12 that number is **0 on both arms**. Everywhere the first record already
-reproduced the published E6⁗ record — the A run, all 288 per-process answers,
-all 20 corpus cases — this run reproduces it again, identically rather than
-merely equivalently: H2′'s answer has the same sha256, and all 288
-per-process answers match in bytes, lines, tally, groups and chains. **Only
-the two invocation views changed**, by +3 and +2 blocks, where the collisions
-were. What did NOT come true is §1′'s prediction of how MANY blocks that
-would take: 91 and 98 predicted, 103 and 105 measured. The addressing is
-exact; the block count is not the site count and never could have been —
-§5.2, under both readings, with the one this verdict takes.
+**Overall: five PASS, and H4′'s verdict depends on the reading (§5.2).** Not in
+doubt is that the repair did its one job and moved nothing else. The first
+record's H4 STOP was 4 site differences per arm — 11 chains of 782 and 10 of 812
+booked at a sibling test file, invisibly to a reader. Under R-G12 that number is
+**0 on both arms**. Everywhere the first record already reproduced the published
+E6⁗ record — the A run, all 288 per-process answers, all 20 corpus cases — this
+run reproduces it again, identically rather than merely equivalently: H2′'s
+answer has the same sha256, and all 288 per-process answers match in bytes,
+lines, tally, groups and chains. **Only the two invocation views changed**, by +3
+and +2 blocks, where the collisions were. What did NOT come true is §1′'s
+prediction of how MANY blocks that would take: 91 and 98 predicted, 103 and 105
+measured. The addressing is exact; the block count is not the site count and
+never could have been. H4′ therefore reads **PASS** under the gate reading and
+**STOP** under the strict one; which binds is **Brice's ruling**, and no number
+here turns on it (§5.2).
 
 ### 4.1 H2′ — the A run's five shapes, at the site grain
 
@@ -611,59 +609,56 @@ is now un-hit because the key carries the file.
 ### 5.2 §1′ asserted one shape per site, and that clause was unreachable before it was locked
 
 §1′'s H4′ endpoint opens *"ws: exactly 91 SWALLOWED shapes, one per (file,
-line) site …; ws0: exactly 98 shapes"*. Measured: **103 and 105**, over 91
-and 98 sites, with the (site, count) multiset exact. Twelve `ws` blocks and
-seven `ws0` blocks share a site with another block, because a shape is not a
-site: one site can carry several, split by the absorbing frame, the verdict
-or the `how` (§4.3 shows both `sandbox L42` files doing it on `ws`).
+line) site …; ws0: exactly 98 shapes"*. Measured: **103 and 105**, over 91 and
+98 sites, with the (site, count) multiset exact. Twelve `ws` blocks and seven
+`ws0` blocks share a site with another block, because a shape is not a site:
+one site can carry several, split by the absorbing frame, the verdict or the
+`how` (§4.3 shows both `sandbox L42` files doing it on `ws`).
 
-This is the first record's §5.2 **repeated**, and its §5.8 asked the
-successor not to repeat it: *"whose §1 … also carries the two clauses §5.2
-and §5.3 falsified here: the summed tally stated in the tool's own
-`TAG_ORDER`, and group count predicted == site count rather than assumed
-equal to it."* §1′'s preamble claims that was done — *"H4′'s endpoint states
-the multiset the repaired key predicts (one shape per `(file, line)` site)"*
-— but the endpoint sentence still spells the equality as a requirement.
+This is the first record's §5.2 **repeated**, and its §5.8 asked the successor
+not to repeat it: *"whose §1 … also carries the two clauses §5.2 and §5.3
+falsified here: the summed tally stated in the tool's own `TAG_ORDER`, and group
+count predicted == site count rather than assumed equal to it."* §1′'s preamble
+claims that was done — *"H4′'s endpoint states the multiset the repaired key
+predicts (one shape per `(file, line)` site)"* — but the endpoint sentence still
+spells the equality as a requirement.
 
-**And this time the clause could not have come true.** §1′ was locked AFTER
-the first measurement, which had already published 100 `ws` shapes and 103 on
-`ws0`; adding a component to a key can only SPLIT shapes, never merge them,
-so the counts could only rise, and no outcome could have produced 91 and 98.
-A clause no result can satisfy does not discriminate; §1′ carried one.
+**And this time the clause could not have come true.** §1′ was locked AFTER the
+first measurement, which had already published 100 `ws` shapes and 103 on `ws0`;
+adding a component to a key can only SPLIT shapes, never merge them, so the
+counts could only rise and no outcome could have produced 91 and 98. A clause no
+result can satisfy does not discriminate; §1′ carried one.
 
-**Both readings, and the one this record takes.**
+**Both readings, and how §4 reports them.**
 
-* **Strict conjunctive** — every clause must hold. It does not: 103 ≠ 91 and
-  105 ≠ 98. H4′ is then a **STOP** with 0 site differences and the wrong
-  number of blocks.
-* **The gate reading** — the endpoint is the (site, count) multiset and the
-  shape count a prediction beside it. H4′ is then a **PASS** at 0 site
-  differences per arm.
+* **Strict conjunctive** — every clause must hold. It does not: 103 ≠ 91 and 105
+  ≠ 98. H4′ is then a **STOP** with 0 site differences and the wrong block count.
+* **The gate reading** — the endpoint is the (site, count) multiset and the shape
+  count a prediction beside it. H4′ is then a **PASS**, 0 differences per arm.
 
-§4 takes the gate reading, and the three things deciding it all **predate the
-lock and the number**:
+§4's cell carries BOTH and names **Brice** as the ruler. It puts the gate
+reading first, on three things that all **predate the lock and the number**: (1)
+H4′'s Question column asks *"Does the invocation view reproduce the record's
+per-site table?"* — the table, not the block count; (2) the instrument's
+operationalisation of H4 is committed in `4525227`, before either lock, where
+`render_grain.py:41` prints §3's headline rule as *"the record's per-site tables
+reproduced — 0 differences; the summed tallies equal; header counts 144 / 114 /
+30"* — no shape count in it — and `:199` labels the headline measurement
+*"site-table differences over both arms (the gate)"*; (3) the first record
+decided the identical clause the same way on the same instrument — *"It is
+recorded here, not repaired, and it is not the reason H4 stopped"* (its §5.2) —
+where it cost nothing, since both readings said STOP. Here it costs the verdict,
+which is why the reading is argued from evidence older than the number rather
+than chosen after it, and why the verdict cell states both and defers.
 
-1. H4′'s Question column asks *"Does the invocation view reproduce the
-   record's per-site table?"* — the table, not the block count.
-2. The instrument's operationalisation of H4 is committed in `4525227`,
-   before either lock, and printed as §3's headline rule: *"the record's
-   per-site tables reproduced — 0 differences; the summed tallies equal;
-   header counts 144 / 114 / 30"*. No shape count in it, and the same code
-   labels `site_diffs` "the gate".
-3. The first record decided the identical clause the same way on the same
-   instrument: *"It is recorded here, not repaired, and it is not the reason
-   H4 stopped"* (its §5.2). There it cost nothing, since both readings said
-   STOP; here it costs the verdict — which is why the reading is argued from
-   evidence older than the number rather than chosen after it.
-
-**No number in §3 or §4 depends on which reading binds**: 0 site differences
-per arm, 103 and 105 shapes, 91 and 98 sites, either way. If Brice takes the
-strict reading, H4′ is a STOP at 103 / 105 and the slice ships with two STOP
-records — and §1′ is still never edited to make it otherwise. What a
-correctly stated H4′ would have said: *the (site, count) multiset equals the
-record's table; the number of shapes is REPORTED, expected to be at least the
-site count and at least the first measurement's 100 / 103* — a sentence for a
-third pre-registration, written here rather than into §1′.
+**No number in §3 or §4 depends on which reading binds**: 0 site differences per
+arm, 103 and 105 shapes, 91 and 98 sites, either way. If Brice takes the strict
+reading, H4′ is a STOP at 103 / 105 and the slice ships with two STOP records —
+and §1′ is still never edited to make it otherwise. What a correctly stated H4′
+would have said: *the (site, count) multiset equals the record's table; the shape
+count is REPORTED, expected to be at least the site count and at least the first
+measurement's 100 / 103* — a sentence for a third pre-registration, written here
+rather than into §1′.
 
 ### 5.3 Of the two clauses the first record sent forward, one landed
 
@@ -729,7 +724,10 @@ Restated from §3 with the set each number was counted over:
   `messages` **152**, `origins` **38**, `routes` **38**, `details` **0** —
   identical to the first measurement's counts over 1282 blocks; the five
   extra blocks are the split shapes and none printed a vary line. `details
-  vary` **still never fired**, unexercised here too.
+  vary` **still never fired**, unexercised here too. The 1287 and 1282
+  denominators are **not** a `results.json` field: they are counted from the
+  phase logs with `parse_shapes` (11+385+383+256+252 here, 11+385+383+253+250
+  for the first run), as the first record's §5.6 did.
 * **Blocks that named their file** (R-G12): `{'H2': 0, 'H3/ws': 0,
   'H3/ws0': 0, 'H4/ws': 6, 'H4/ws0': 4}` — §1′ expected ≥ 2 per invocation
   arm (`sandbox L42`, `fresh_dir L64`); both clear it. An answer absent from
@@ -737,24 +735,26 @@ Restated from §3 with the set each number was counted over:
 
 ### 5.7 Residuals found by this run, recorded and not repaired
 
-1. **The shared renderer and schema carry the FIRST record's literals**, and
-   four are wrong here: `results.json`'s `acceptance` field names
-   `…-rung4-entry-grain.md` (`assemble_grain` hardcodes the first runner's
-   `DOC`), §2's prose names the raw record `results-grain-raw.json` and the
-   results file from that field, and §3 prints the ids unprimed — all four
-   struck through and corrected where they appear. `byte_lock.doc` in the
-   same file names this document correctly, so the record stays
-   self-checkable. The sibling's `OVERRIDES` covers the runner's literals,
-   not its collaborators' — the residue of that boundary. **Not repaired
-   here**: this task commits documents only, and the fix belongs with a test
-   that a sibling's assembled record names the sibling's document.
-2. **The byte-lock sentence contradicts itself on an amended lock.**
-   `render_grain` prints *"§1 was committed ALONE and never amended: there is
-   no second sha"* and then interpolates the second sha. The truth is in the
-   same `results.json` (`original_lock` `9bf64df`, 7087 bytes;
-   `amended_after_the_original_lock: true`; 350 bytes of amendment) and in
-   the run's first log line. The sentence is written for the unamended case,
-   and this is the first record to exercise the other one.
+1. **`results.json` named the wrong document — REPAIRED at its derivation
+   (ruling R-G15).** `assemble_grain` published the module constant `DOC`, the
+   FIRST record's path, so this record's `acceptance` attributed its numbers to
+   the record it exists to repair while `byte_lock.doc` two keys below named the
+   right one. Fixed 2026-09-05 in `e9f050d`, which DERIVES it from the raw
+   record's own `byte_lock.doc` — what `assembled.note` already claimed of every
+   value in the file. Re-assembled ONCE from the UNTOUCHED raw file (md5
+   `33c7341ec64d9479a3266d365a54feff` before and after), **exactly two leaf paths
+   changed: `acceptance` and `assembled.at`** — no phase re-ran, no number moved.
+   The FIRST record is unaffected: its `byte_lock.doc` IS `DOC`, and re-assembling
+   it with and without the change gives the identical diff against its file.
+2. **Two prose literals and one self-contradicting sentence remain, struck in
+   place and carried as debt.** `render_grain` hardcodes the raw record's name
+   (`:60`) and prints the ids unprimed (`:327`); its byte-lock sentence says *"§1 was committed ALONE and never amended: there is no second sha"* and
+   then interpolates the second sha (`:75`) — written for the unamended case this
+   record is the first to fall outside. **The same false sentence stood in this
+   document's own header prose**, struck and corrected there too, above `## 1`
+   and outside the locked range, so §1′'s sha is unmoved. Not
+   repaired now — `OVERRIDES` covers the runner's literals, not its
+   collaborators', and that boundary is the debt.
 3. **The invocation header's `panics:` line counts events, not the tally's
    tag** — both arms print `panics: 8 recorded` beside `panicked 2`, as in
    the first record's §5.7 item 4; untouched by R-G12.

@@ -1,6 +1,6 @@
 {
   "schema": "every measurement is {value, n, lens, dropped}; a null value plus a dropped reason is the ONLY not-measured; 0 is measured-and-zero",
-  "acceptance": "docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain.md",
+  "acceptance": "docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain-repair.md",
   "runner": "rust/tests/acceptance_grain_repair.py",
   "byte_lock": {
     "commit": "ae9a15b",
@@ -8076,7 +8076,7 @@
   "started": "2026-09-05T19:46:28-0500",
   "finished": "2026-09-05T19:49:12-0500",
   "assembled": {
-    "at": "2026-09-05T19:51:20-0500",
+    "at": "2026-09-05T20:27:45-0500",
     "from": "results-grain-repair-raw.json",
     "by": "rust/tests/acceptance_grain_repair.py --assemble",
     "note": "derived from the raw facts the run recorded, which nothing since has touched; no phase was re-run and no value re-measured"
