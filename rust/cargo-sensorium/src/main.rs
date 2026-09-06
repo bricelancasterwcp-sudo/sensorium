@@ -20,6 +20,7 @@
 mod args;
 mod convert;
 mod driver;
+mod driver_args;
 mod fallback;
 mod mirror;
 mod modtree;
