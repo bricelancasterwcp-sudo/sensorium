@@ -104,18 +104,29 @@ pub struct MetaInput<'a> {
     /// trace must say so rather than claim a capability its records cannot
     /// support.
     pub err_flow_capability: bool,
-    /// The focus this RUN was built under, gathered from the manifests of the
-    /// units this process registered: `values` as the invocation gave them
-    /// (every unit of one run carries the same list) and `matched` the sorted
-    /// union of what each unit actually focused. `None` when no unit carried
-    /// the record -- an unfocused run, or one whose transformer predates the
-    /// key -- and then `focus`/`focus_matched` are ABSENT from the trace, which
-    /// is a different fact from a focus that selected nothing.
+    /// The focus this BUILD was made under: `values` as the invocation gave
+    /// them (every unit of one invocation carries the same list) and `matched`
+    /// the sorted union of what each unit actually focused. `None` when no
+    /// manifest carried the record -- an unfocused build, or one whose
+    /// transformer predates the key -- and then `focus`/`focus_matched` are
+    /// ABSENT from the trace, which is a different fact from a focus that
+    /// selected nothing.
+    ///
+    /// **Build-scoped** (ruling R-F10): the union runs over every manifest of
+    /// this invocation, not just the units this process registered, because
+    /// `focus_matched` answers "did this value select anything in the
+    /// workspace?" -- a question about the compile. A value that matched a
+    /// function in a linked unit whose code never ran did match, and a
+    /// registered-scoped union would report it as `[]`, indistinguishable from
+    /// a value that matched nowhere.
     pub focus: Option<&'a FocusRecord>,
-    /// `line` sites across those same manifests. The ONLY basis for
+    /// `line` sites in the manifests of the units this process REGISTERED --
+    /// the narrower scope, deliberately (ruling R-F10). The ONLY basis for
     /// `capabilities.line`/`locals`: a focus that matched nothing produces no
     /// LINE record, so declaring the capability from the flag would promise a
-    /// reader rows that cannot exist.
+    /// reader rows that cannot exist, and a LINE record can only arrive from a
+    /// unit this process linked, so a non-registered unit's `line` sites
+    /// promise nothing either.
     pub line_sites: usize,
     /// `{run_id, pid, exe}` for a same-invocation process whose `ppid` is
     /// this one.
@@ -190,11 +201,17 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
         out.push(("wall_start_ts", json!(start)));
         out.push(("wall_end_ts", json!(end)));
     }
-    // Both keys or neither, and only when a unit carried the record: an
-    // unfocused run says nothing, exactly as a Python run with no `--focus`
+    // Both keys or neither, and only when a manifest carried the record: an
+    // unfocused build says nothing, exactly as a Python run with no `--focus`
     // writes no `focus` beyond the empty list `boot.py` gives it. Absent and
     // empty are different facts here -- `focus: []` would say "a focus was
     // given and selected nothing".
+    //
+    // `focus_matched` is BUILD-scoped and `capabilities.line` above is
+    // REGISTERED-scoped (ruling R-F10), so the two can honestly disagree: a
+    // trace may say a value matched `Counter::bump` while declaring no `line`
+    // capability, because the unit holding that match was linked but never
+    // registered by this process and can therefore emit no LINE record.
     if let Some(focus) = m.focus {
         out.push(("focus", json!(focus.values)));
         out.push(("focus_matched", json!(focus.matched)));

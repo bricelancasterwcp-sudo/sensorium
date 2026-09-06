@@ -577,3 +577,79 @@ fn an_unfocused_run_carries_no_focus_keys_at_all() {
         serde_json::json!(false)
     );
 }
+
+/// Ruling R-F10: `focus_matched` is a fact about the BUILD and
+/// `capabilities.line` a fact about what this process can RECORD, so the two
+/// have different scopes and a trace can honestly carry both.
+///
+/// `meta1` is registered and matched nothing; `meta2` belongs to the same
+/// invocation (same `workspace_root`), matched `helper` and holds the run's
+/// only `line` site -- but this process never linked it. The match must reach
+/// `focus_matched` (a registered-scoped union would report `[]` here, which a
+/// reader could not tell from "matched nowhere"), while `capabilities.line`
+/// must stay false: no LINE record can arrive from a unit this process never
+/// registered.
+#[test]
+fn focus_matched_unions_over_the_build_while_the_line_capability_stays_registered_scoped() {
+    let f = Fixture::new("meta-focus-scope");
+    wire::write_manifest_focus(
+        &f.manifests_dir,
+        "meta1",
+        "demo",
+        &[(FILE, &[site(0, "main", 3, "unit")])],
+        &[(FILE, "deadbeef")],
+        &["helper", "missing"],
+        &[],
+    );
+    wire::write_manifest_focus(
+        &f.manifests_dir,
+        "meta2",
+        "helper-crate",
+        &[(
+            "crates/helper/src/lib.rs",
+            &[
+                site(0, "helper", 2, "unit"),
+                wire::line_site(1, "helper", 4),
+            ],
+        )],
+        &[("crates/helper/src/lib.rs", "feedface")],
+        &["helper", "missing"],
+        &["helper"],
+    );
+    // Only meta1 is registered: meta2 was compiled by this invocation and
+    // linked, but this process's proc header never lists it.
+    wire::write_proc_header(
+        &f.spool_dir,
+        1404,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    wire::SpoolBuilder::new(1404, 1, "main")
+        .call(0, 1000, 0, 0)
+        .ret_none(1, 1200, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+
+    assert_eq!(
+        meta(&conn, "focus"),
+        serde_json::json!(["helper", "missing"])
+    );
+    assert_eq!(
+        meta(&conn, "focus_matched"),
+        serde_json::json!(["helper"]),
+        "a match in a linked-but-unregistered unit is still a match"
+    );
+    assert_eq!(
+        meta(&conn, "capabilities")["line"],
+        serde_json::json!(false),
+        "the only `line` site belongs to a unit this process never registered"
+    );
+    assert_eq!(
+        meta(&conn, "capabilities")["locals"],
+        serde_json::json!(false)
+    );
+}

@@ -38,10 +38,16 @@ const LINE_HEADER: usize = 3;
 /// A LINE payload decoded: the statement's deltas, in the order the record
 /// carries them, each already in its converted capture shape.
 ///
-/// `deltas` is a `Vec` and not a map because ORDER is the record's, and the
-/// caller is what turns it into the payload's `deltas` object -- after this
-/// reader has refused a duplicate name, which is the only way that object can
-/// lose a reading.
+/// `deltas` is a `Vec` and not a map for one reason: the duplicate-name check
+/// below has to see every reading before any of them is keyed, and that check
+/// is the only thing standing between a corrupt record and a silently
+/// overwritten delta.
+///
+/// The ROW's `deltas` object is name-keyed, and the record's order is NOT
+/// preserved into it: this crate builds `serde_json` without `preserve_order`,
+/// so its `Map` is a `BTreeMap` and a reader sees the deltas sorted by name.
+/// Nothing downstream depends on the order the record carried -- a delta is
+/// found by the binding it names.
 #[derive(Debug)]
 pub struct LinePayload {
     /// The record says it is short: `unread: ["locals"]` on the row.
@@ -73,7 +79,12 @@ pub fn parse_line_payload(label: &str, payload: &[u8]) -> Result<LinePayload, St
     let dropped = payload[0] & FLAG_DELTAS_DROPPED != 0;
     let n = u16::from_le_bytes([payload[1], payload[2]]);
     let mut at = LINE_HEADER;
-    let mut deltas: Vec<(String, Value)> = Vec::with_capacity(n as usize);
+    // `n` is UNVALIDATED here: a corrupt three-byte payload can claim 65_535
+    // deltas. The smallest a delta block can be is four bytes (`u16 name_len`
+    // with an empty name, `u8 tag`, `u8 truncated`), so the payload's own
+    // length is the honest bound -- reserving `n` would let that three-byte
+    // record allocate megabytes on its way to being refused.
+    let mut deltas: Vec<(String, Value)> = Vec::with_capacity((n as usize).min(payload.len() / 4));
     for i in 0..n {
         let name = read_name(label, payload, &mut at, i)?;
         let value = read_value(label, payload, &mut at, &name)?;

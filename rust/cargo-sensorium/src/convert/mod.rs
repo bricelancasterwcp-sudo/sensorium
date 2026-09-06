@@ -375,25 +375,48 @@ fn site_table(registered: &[String], manifests: &BTreeMap<String, Manifest>) -> 
     out
 }
 
-/// The focus THIS run was built under, gathered from the manifests of the
-/// units this process registered (design 2026-09-06 §2.4).
+/// The focus THIS BUILD was made under (design 2026-09-06 §2.4, ruling R-F10),
+/// gathered from every manifest of this invocation.
 ///
-/// Registered-unit-scoped, exactly as [`site_table`] is: a manifest belonging
-/// to some other binary of the same invocation says nothing about what this
-/// process was focused on. `values` is taken from the first unit that carries
-/// a record -- every unit of one run is built under the same invocation's
-/// focus, so the lists agree -- while `matched` is the sorted, deduplicated
-/// UNION, because a value can select a function in one unit and nothing in
-/// another. `None` when no registered unit carried the record at all, which is
-/// what makes `focus`/`focus_matched` absent rather than empty.
+/// **Build-scoped, deliberately -- unlike [`site_table`] and
+/// [`line_site_count`], which are registered-unit-scoped.** `focus_matched` is
+/// a fact about what the TRANSFORMER matched while compiling, not about what
+/// this process ran: a focus value that selected a function in a linked unit
+/// whose code never executed still matched. Unioning only over registered
+/// units would report `focus: ["fill"], focus_matched: []` for it --
+/// indistinguishable from a value that matched nowhere in the workspace, which
+/// is the one question `focus_matched` exists to answer.
+///
+/// `capabilities.line`/`locals` keep the narrower scope on purpose: a LINE
+/// RECORD can only come from a unit this process linked and registered, so a
+/// capability read off registered units cannot promise rows that cannot exist.
+///
+/// A manifest counts when it is this invocation's (`workspace_root` matches --
+/// a shared `CARGO_TARGET_DIR` holds every workspace's manifests in one
+/// directory) OR when this process registered it: `registered` is correct by
+/// construction, and cargo's freshness caching can leave a registered unit's
+/// own manifest on disk from a build old enough to predate `workspace_root`
+/// entirely, which `manifest_in_scope` cannot match.
+///
+/// `values` is taken from the first such manifest that carries a record --
+/// every unit of one invocation is built under the same `--focus`, so the
+/// lists agree -- and `matched` is the sorted, deduplicated union. `None` when
+/// no manifest in that set carried the record at all, which is what makes
+/// `focus`/`focus_matched` absent rather than empty.
 fn focus_record(
     registered: &[String],
     manifests: &BTreeMap<String, Manifest>,
+    invocation_workspace_root: &str,
 ) -> Option<FocusRecord> {
     let mut values: Option<Vec<String>> = None;
     let mut matched: Vec<String> = Vec::new();
-    for metadata in registered {
-        let Some(focus) = manifests.get(metadata).and_then(|m| m.focus.as_ref()) else {
+    for (metadata, m) in manifests {
+        let mine = manifest_in_scope(m, invocation_workspace_root)
+            || registered.iter().any(|r| r == metadata);
+        if !mine {
+            continue;
+        }
+        let Some(focus) = m.focus.as_ref() else {
             continue;
         };
         if values.is_none() {
@@ -406,9 +429,14 @@ fn focus_record(
     values.map(|values| FocusRecord { values, matched })
 }
 
-/// How many `line` sites the units this process registered hold. The whole
+/// How many `line` sites the units this process REGISTERED hold. The whole
 /// basis for `capabilities.line`/`locals`: a run with none cannot produce a
 /// LINE row, whatever was typed on the command line.
+///
+/// Narrower than [`focus_record`]'s scope on purpose (ruling R-F10): a LINE
+/// record can only arrive from a unit this process linked, so counting a
+/// non-registered unit's `line` sites here would declare a capability whose
+/// rows could never appear.
 fn line_site_count(registered: &[String], manifests: &BTreeMap<String, Manifest>) -> usize {
     registered
         .iter()
@@ -540,7 +568,7 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         None => (None, None, "unwitnessed", None),
     };
 
-    let focus = focus_record(&registered, c.all_manifests);
+    let focus = focus_record(&registered, c.all_manifests, &c.invocation.workspace_root);
     let meta_input = meta::MetaInput {
         run_id: c.run_id,
         argv: &c.proc.argv,

@@ -506,16 +506,45 @@ mod tests {
             .is_ok());
     }
 
+    /// `require_err_flow` is a positive whitelist (`try`/`sink`/`arm`), so a
+    /// kind added later -- `line` was -- is refused here rather than passing
+    /// for the accident of opening no frame. Reverting the whitelist to
+    /// `self.kind.is_frame()` must make the `line` row of this table red.
+    ///
+    /// The two NOUNS are pinned separately, because the byte-preservation
+    /// claim lives here: a frame site keeps the exact wording every earlier
+    /// version of this converter wrote (`\`fn\` frame site`, which the
+    /// `convert_errflow` suite also asserts), while a `line` site is just a
+    /// site -- calling it a frame would be false.
     #[test]
-    fn an_err_flow_record_on_a_frame_site_is_refused_by_name() {
-        for kind in [SiteKind::Fn, SiteKind::Closure] {
+    fn an_err_flow_record_on_a_site_that_writes_no_err_flow_is_refused_by_name() {
+        for (kind, noun) in [
+            (SiteKind::Fn, "`fn` frame site"),
+            (SiteKind::Closure, "`closure` frame site"),
+            (SiteKind::Line, "`line` site"),
+        ] {
             let err = site_of(kind, None)
                 .require_err_flow("RAISE", How::Try)
                 .unwrap_err();
             assert!(err.contains("RAISE"), "{err}");
             assert!(err.contains("a/lib.rs:12"), "{err}");
-            assert!(err.contains(kind.as_str()), "{err}");
+            assert!(err.contains(noun), "{err}: expected the noun {noun}");
             assert!(err.contains("not an err-flow site"), "{err}");
+        }
+        assert!(
+            !site_of(SiteKind::Line, None)
+                .require_err_flow("RAISE", How::Try)
+                .unwrap_err()
+                .contains("frame"),
+            "a `line` site is not a frame, and the sentence must not call it one"
+        );
+        // The whitelist's positive half: the three kinds that DO write an
+        // err-flow record still pass, so the tightening refuses nothing it
+        // used to admit.
+        for kind in [SiteKind::Try, SiteKind::Sink, SiteKind::Arm] {
+            assert!(site_of(kind, None)
+                .require_err_flow("RAISE", How::Try)
+                .is_ok());
         }
     }
 
