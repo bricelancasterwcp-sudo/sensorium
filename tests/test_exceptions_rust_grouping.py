@@ -25,7 +25,7 @@ import shlex
 
 from sensorium import cli
 from sensorium.exit import ANSWERED
-from sensorium.query.exceptions_group import mask
+from sensorium.query.exceptions_group import Shape, _disambiguated, mask
 from tests.programs import LOOP_SAME_MESSAGE, record
 from tests.rust_traces import (FILE, S1, SITE_FILE, call, err_flow, flow,
                                fn_site, frame, out, ret, rust_trace,
@@ -576,3 +576,87 @@ def test_an_answer_whose_site_texts_do_not_collide_is_byte_identical(
         "      hops: e7 read_config L14 exit -> e9 load L33 sink_ok",
         "dispositions: swallowed 2",
     ]) + "\n" == text, text
+
+
+def two_hows_one_site_trace(tmp_path, monkeypatch):
+    """`load()` sinks two `Err`s at the SAME `.ok()` LINE with two different
+    sinks -- `sink_ok` and `sink_unwrap_or` at L31.
+
+    Two shapes, because the verdicts differ; ONE place, because the file, the
+    line and the qualname are the same. Nothing here is ambiguous to a
+    reader, so nothing here may print a file.
+
+    Event ids: e1 CALL load, e2 CALL read_config, e3 RAISE (chain 1's
+    origin), e4 RETURN err, e5 HANDLED (`sink_ok`), e6 CALL read_config,
+    e7 RAISE (chain 2's origin), e8 RETURN err, e9 HANDLED
+    (`sink_unwrap_or`), e10 RETURN load ok.
+    """
+    events = [call(1000, 1, 30)]
+    frames = [frame(1, 1, 10)]
+    for i, how in enumerate(("sink_ok", "sink_unwrap_or")):
+        base, ts = 2 + 4 * i, 2000 + 1000 * i
+        frames.append(frame(2, base, base + 2, parent=1, depth=1))
+        events += [
+            call(ts, 2, 12),
+            flow(ts + 100, "RAISE", 2 + i, 2, 14,
+                 err_flow("exit", "demo::ConfigError", 'Missing("port")',
+                          S1 + i, hop=1, loc=f"{SITE_FILE}:14")),
+            ret(ts + 200, 2 + i, 2, "err", 'Err(Missing("port"))'),
+            flow(ts + 300, "HANDLED", 1, 1, 31,
+                 err_flow(how, "demo::ConfigError", 'Missing("port")',
+                          S1 + i, hop=1, terminal="swallowed_candidate",
+                          loc=f"{SITE_FILE}:31")),
+        ]
+    events.append(ret(6000, 1, 1, "ok", "None"))
+    return rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "load", 30], [FILE, "read_config", 12]],
+        frames=frames, events=events,
+        sites=[fn_site("load", SITE_FILE, 30),
+               fn_site("read_config", SITE_FILE, 12)])
+
+
+def test_two_shapes_at_ONE_place_name_no_file(tmp_path, monkeypatch, capsys):
+    """A collision is two PLACES wearing one site text, never two shapes.
+    Two sinks on one line are one place: the reader can already tell the
+    blocks apart by their words, and adding `in lib.rs` to both would put a
+    file in an answer that has nothing to disambiguate -- breaking the
+    byte-identity R-G12 promises to every answer that never collides.
+    """
+    run_id = two_hows_one_site_trace(tmp_path, monkeypatch)
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    text = out(capsys)
+    assert text.count("SWALLOWED --") == 2, text
+    assert " in " not in text.replace(" in f1", ""), text
+    assert "\n".join([
+        "raised (2):",
+        "  e3 RAISE   read_config raise "
+        "demo::ConfigError('Missing(\"port\")') L14",
+        "    SWALLOWED -- absorbed by sink_ok at e5 (load L31) in f1, "
+        "which returned ok",
+        "      hops: e3 read_config L14 exit -> e5 load L31 sink_ok",
+        "  e7 RAISE   read_config raise "
+        "demo::ConfigError('Missing(\"port\")') L14",
+        "    SWALLOWED -- absorbed by sink_unwrap_or at e9 (load L31) in f1, "
+        "which returned ok",
+        "      hops: e7 read_config L14 exit -> e9 load L31 sink_unwrap_or",
+        "dispositions: swallowed 2",
+    ]) + "\n" == text, text
+
+
+def test_the_file_is_added_at_the_site_event_s_own_parenthetical_only():
+    """The substitution is anchored on ` at e<id> (` -- the site EVENT's id,
+    which is what makes that parenthetical the site's and not some other
+    text's. An unanchored `(<qualname> L<line>)` would fire on the first
+    parenthetical that happened to read the same way, and rewrite a part of
+    the sentence the file is not true of."""
+    site = ("/w/bloomery-daemon/tests/task_exec_run_test.rs", 42, "sandbox")
+    shape = Shape(key=("swallowed", site, "masked", None), tag="swallowed",
+                  first=None, disposition=None)
+    verdict = ("SWALLOWED -- (sandbox L42) was reached from (sandbox L42); "
+               "absorbed by sink_ok at e5 (sandbox L42) in f1, which "
+               "returned ok")
+    assert _disambiguated(verdict, shape) == (
+        "SWALLOWED -- (sandbox L42) was reached from (sandbox L42); "
+        "absorbed by sink_ok at e5 (sandbox L42 in task_exec_run_test.rs) "
+        "in f1, which returned ok")

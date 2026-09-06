@@ -164,18 +164,28 @@ def collisions(shapes) -> set:
     """The keys of the shapes whose printed site text names more than one
     PLACE in this answer.
 
-    Two shapes exist because their files differ (R-G12); both print
-    `sandbox L42`, and a reader given two identical parentheticals cannot
-    tell which sink each block accuses. So the set is computed over the
-    whole answer -- every shape the grouping produced, not the page
-    `--limit` will print -- because a block whose sentence changed when the
-    limit was raised would be a sentence about the page rather than about
-    the run.
+    PLACES, not shapes. One site can wear several shapes without being
+    ambiguous at all -- two sinks on one line (`sink_ok` and
+    `sink_unwrap_or` at `load L31`), or a swallow and a
+    `handled_then_failed` at one place -- and those blocks already tell
+    themselves apart by their words. Counting shapes instead of places put
+    `in lib.rs` into answers that had nothing to disambiguate, which is the
+    byte-identity R-G12 promises to every answer that never collides
+    (review fix, 2026-09-05). What is ambiguous is a site TEXT that names
+    two different `(file, line, qualname)`s: both blocks say `sandbox L42`
+    and a reader cannot tell which sink each accuses.
+
+    The set is computed over the whole answer -- every shape the grouping
+    produced, not the page `--limit` will print -- because a block whose
+    sentence changed when the limit was raised would be a sentence about
+    the page rather than about the run.
     """
-    at: dict[str, list] = {}
+    at: dict[str, set] = {}
     for shape in shapes:
-        at.setdefault(site_text(shape.site), []).append(shape.key)
-    return {key for keys in at.values() if len(keys) > 1 for key in keys}
+        at.setdefault(site_text(shape.site), set()).add(shape.site)
+    ambiguous = {text for text, places in at.items() if len(places) > 1}
+    return {shape.key for shape in shapes
+            if site_text(shape.site) in ambiguous}
 
 
 def group_chains(trace, chains, idx, classify):
@@ -280,10 +290,21 @@ def _disambiguated(verdict: str, shape: Shape) -> str:
     that names no site of its own carries no such parenthetical, and then
     nothing is substituted -- the block keeps today's words, because there
     is no place in it to put the file that would still be true.
+
+    Anchored on ` at e<id> (` -- the SITE EVENT's own id, which is what
+    makes that parenthetical the site's. Every verdict that names a place
+    spells it that way (`absorbed by <how> at e5 (...)`, `an Err(..) arm at
+    e11 (...)`), and an unanchored match would fire on the first
+    parenthetical that happened to read the same way and put the file in a
+    clause it is not true of (review fix, 2026-09-05).
     """
-    named = f"({site_text(shape.site)})"
-    return verdict.replace(
-        named, f"({site_text(shape.site)} in {site_file(shape.site)})", 1)
+    text = site_text(shape.site)
+    at_site = re.compile(r"( at e\d+ \()" + re.escape(text) + r"(\))")
+    named = f"{text} in {site_file(shape.site)}"
+    # A function replacement, not a template: a file name is data and a
+    # backslash in one would be read as a group reference by `re.sub`.
+    return at_site.sub(lambda m: m.group(1) + named + m.group(2), verdict,
+                       count=1)
 
 
 def print_shape(trace, shape: Shape, bracket_text: str | None = None,
