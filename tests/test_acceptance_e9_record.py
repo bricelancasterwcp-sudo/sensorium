@@ -39,7 +39,9 @@ from acceptance_e9_schema import (MEASUREMENT_CELLS, NEEDS,       # noqa: E402
 # would otherwise own them.
 lib.LOGS, lib.LEDGER, ph.LOGS = e6ppp.LOGS, e6ppp.LEDGER, e6ppp.LOGS
 
-DOC_SHA = "15f0537587f55ec949a60c86543e6c4e1f7a0929cc57eb4a15320424185b67a5"
+DOC_SHA = "473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163"
+ORIGINAL_DOC_SHA = ("15f0537587f55ec949a60c86543e6c4e1f7a0929cc57eb4a1"
+                    "5320424185b67a5")
 
 
 # -- the record ------------------------------------------------------------
@@ -84,14 +86,18 @@ def _raw(**over) -> dict:
         "document": str(runner.DOC.relative_to(REPO)),
         "byte_lock": {"doc": "docs/superpowers/acceptance/"
                              "2026-09-06-sensorium-rung4-e9.md",
-                      "commit": "a4264b5", "locked_sha256": DOC_SHA,
+                      "commit": "ffaed19", "locked_sha256": DOC_SHA,
                       "identical": True, "footnotes_in_range": [],
+                      "original_lock": "a4264b5",
+                      "original_lock_sha256": ORIGINAL_DOC_SHA,
+                      "original_lock_bytes": 23424,
+                      "amended_after_the_original_lock": True,
+                      "amendment_bytes": 671,
                       "range": "awk '/^## 1/,/^## 2/' PLUS the definition of "
                                "every footnote §1 references",
                       "extraction": "awk '/^## 1/,/^## 2/'",
-                      "locked_bytes": 23424,
-                      "original_lock": None,
-                      "amended_after_the_original_lock": False},
+                      "locked_bytes": 24095,
+                      },
         "config": {"focus_a": phases.FOCUS_A, "focus_b": phases.FOCUS_B,
                    "gate_n": 26, "accounted_n": [25, 26, 27],
                    "expected_by_line": {str(k): v for k, v in
@@ -439,7 +445,10 @@ def test_the_renderer_produces_2_and_3_from_the_record():
     text = "\n".join(env + res)
     for h in MEASUREMENT_CELLS:
         assert f"### {h} —" in text, h
-    assert "a4264b5" in text
+    assert "ffaed19" in text                 # the lock the runner refuses on
+    assert "a4264b5" in text                 # the ORIGINAL lock, beside it
+    assert ORIGINAL_DOC_SHA in text
+    assert "Amended: yes" in text
     assert phases.FOCUS_A in text
 
 

@@ -78,10 +78,20 @@ def environment(r) -> list[str]:
         f"and `{bl.get('extraction')}` are the same bytes. Checked at "
         f"`{bl.get('commit')}`: {bl.get('locked_bytes')} bytes, sha256 "
         f"`{bl.get('locked_sha256')}` on both sides — identical: "
-        f"{_yn(bl.get('identical'))}. §1 was committed ALONE and never "
-        f"amended: there is no second sha (`original_lock` = "
-        f"{bl.get('original_lock')}, amended: "
-        f"{_yn(bl.get('amended_after_the_original_lock'))}).", ""]
+        f"{_yn(bl.get('identical'))}.", "",
+        f"**Both locks.** §1 was committed ALONE at the ORIGINAL lock "
+        f"`{bl.get('original_lock')}` "
+        f"({bl.get('original_lock_bytes')} bytes, sha256 "
+        f"`{bl.get('original_lock_sha256')}`), and its §1.4 LENS was then "
+        f"amended — after that lock and before any number was read — to name "
+        f"the reader the instrument runs. Amended: "
+        f"{_yn(bl.get('amended_after_the_original_lock'))}"
+        + (f" (+{bl.get('amendment_bytes')} bytes)"
+           if bl.get("amendment_bytes") else "")
+        + ". Both shas are recorded here, and no endpoint, method, "
+          "derivation or table row moved: every `|` row of the locked range "
+          "is byte-identical at the two commits "
+          "(`tests/test_acceptance_e9.py`).", ""]
     pins = [
         ("repo HEAD at the run",
          f"`{env.get('repo_commit')}` (branch `{env.get('repo_branch')}`)"),

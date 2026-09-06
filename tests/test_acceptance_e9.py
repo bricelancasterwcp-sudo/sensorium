@@ -58,7 +58,12 @@ from acceptance_lib import Refused                                 # noqa: E402
 # inside a `logs_at` block.
 lib.LOGS, lib.LEDGER, ph.LOGS = e6ppp.LOGS, e6ppp.LEDGER, e6ppp.LOGS
 
-DOC_SHA = "15f0537587f55ec949a60c86543e6c4e1f7a0929cc57eb4a15320424185b67a5"
+#: The locked range's sha256 at the AMENDED lock (`ffaed19`) -- what the
+#: runner refuses on -- and at the ORIGINAL lock (`a4264b5`), carried beside
+#: it so the amendment is a checkable fact rather than a claim.
+DOC_SHA = "473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163"
+ORIGINAL_DOC_SHA = ("15f0537587f55ec949a60c86543e6c4e1f7a0929cc57eb4a1"
+                    "5320424185b67a5")
 
 INSTRUMENT = ("acceptance_e9.py", "acceptance_e9_cells.py",
               "acceptance_e9_phases.py", "acceptance_e9_read.py",
@@ -83,12 +88,19 @@ def _require_lock_commits(*shas):
                         "(shallow clone) — skipped BY NAME, not passed")
 
 
-def test_the_lock_sha_is_task_zeros_commit():
-    """The one fact the whole pre-registration hangs on. A runner locked to
-    a later commit would be locked to a §1 that could have moved after the
-    instrument was written."""
-    assert runner.BYTE_LOCK == "a4264b5"
-    assert runner.ORIGINAL_LOCK is None
+def test_the_runner_carries_BOTH_locks():
+    """The two facts the whole pre-registration hangs on.
+
+    `BYTE_LOCK` is what the runner refuses on -- the AMENDED §1, whose §1.4
+    lens names the reader the instrument runs (`flow --limit 1000`, R-F13).
+    `ORIGINAL_LOCK` is Task 0's commit, before the instrument existed. Both
+    are carried so the amendment is visible in the record; a runner that
+    dropped the original would make a post-lock edit indistinguishable from
+    no edit at all, and one that refused on the original would refuse on the
+    document as it now stands."""
+    assert runner.BYTE_LOCK == "ffaed19"
+    assert runner.ORIGINAL_LOCK == "a4264b5"
+    assert runner.BYTE_LOCK != runner.ORIGINAL_LOCK
 
 
 def test_the_e9_byte_lock_passes_on_the_real_document():
@@ -102,18 +114,65 @@ def test_the_e9_byte_lock_passes_on_the_real_document():
     assert rec["locked_sha256"] == DOC_SHA
 
 
-def test_the_e9_lock_is_one_sha_and_records_no_amendment():
-    """§1 of this document is committed once and never amended. A record
-    that silently reported an amendment would be describing another
-    document, and one that referenced a footnote would have a hole at
-    exactly the sentence the lock exists to pin."""
-    _require_lock_commits(runner.BYTE_LOCK)
+def test_the_e9_record_carries_both_shas_and_the_amendment_flag():
+    """§1.4's lens was amended after the original lock and before any number
+    was read. The record must say so with two shas and a flag: a record that
+    reported no amendment would be describing another document, and one that
+    referenced a footnote would have a hole at exactly the sentence the lock
+    exists to pin."""
+    _require_lock_commits(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
     rec = rung3.byte_lock_facts(runner.DOC, runner.BYTE_LOCK,
                                 runner.ORIGINAL_LOCK)
-    assert rec["amended_after_the_original_lock"] is False
-    assert rec["original_lock_sha256"] is None
-    assert rec["footnotes_in_range"] == []
+    assert rec["amended_after_the_original_lock"] is True
     assert rec["locked_sha256"] == rec["section1_sha256"] == DOC_SHA
+    assert rec["original_lock_sha256"] == ORIGINAL_DOC_SHA
+    assert rec["original_lock"] == "a4264b5"
+    # The amendment ADDED a paragraph; it did not shrink or replace §1.
+    assert rec["amendment_bytes"] > 0
+    assert rec["locked_bytes"] == (rec["original_lock_bytes"]
+                                   + rec["amendment_bytes"])
+    assert rec["footnotes_in_range"] == []
+
+
+def test_the_amendment_moved_no_ROW_of_the_pre_registration():
+    """The rule the amendment lives by: a lens may name the reader that was
+    measured; an endpoint, a method or a derivation may not move after a
+    lock. Every table row of §1 at the original lock is a row of §1 now --
+    the four runs, H1-H7 with both readings, §1.1's 26 lines, §1.2's three
+    triples and §1.3's two sightings, byte for byte."""
+    _require_lock_commits(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
+
+    def rows(sha):
+        rel = runner.DOC.relative_to(REPO).as_posix()
+        text = subprocess.run(["git", "show", f"{sha}:{rel}"], cwd=REPO,
+                              capture_output=True, text=True).stdout
+        return [ln for ln in rung3.locked_range(text).splitlines()
+                if ln.startswith("|")]
+
+    before, after = rows(runner.ORIGINAL_LOCK), rows(runner.BYTE_LOCK)
+    assert before == after, "a row moved after the lock"
+    # A row count, so a comparison of two EMPTY lists could not pass: the
+    # four runs, H1-H7, §1.1's table, §1.2's triples and §1.3's sightings.
+    assert len(after) > 50, len(after)
+
+
+def test_the_amendment_is_ONE_dated_paragraph_and_nothing_else():
+    """What R-F13 permits is a dated lens paragraph. A diff that also touched
+    a sentence of §1.4's rules -- or anything outside §1 -- would be an
+    endpoint moving under cover of a lens note."""
+    _require_lock_commits(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
+    rel = runner.DOC.relative_to(REPO).as_posix()
+    diff = subprocess.run(
+        ["git", "diff", f"{runner.ORIGINAL_LOCK}..{runner.BYTE_LOCK}", "--",
+         rel], cwd=REPO, capture_output=True, text=True).stdout
+    removed = [ln for ln in diff.splitlines()
+               if ln.startswith("-") and not ln.startswith("---")]
+    added = [ln for ln in diff.splitlines()
+             if ln.startswith("+") and not ln.startswith("+++")]
+    assert removed == [], removed
+    assert added, "the amendment changed nothing"
+    assert any("Amended 2026-09-06" in ln for ln in added), added
+    assert any("--limit 1000" in ln for ln in added), added
 
 
 def test_the_e9_byte_lock_REFUSES_a_document_that_differs_by_one_byte(
@@ -125,7 +184,7 @@ def test_the_e9_byte_lock_REFUSES_a_document_that_differs_by_one_byte(
     doc.write_text(text.replace("N = 26", "N = 27", 1))
     assert doc.read_text() != text, "the fixture did not change a byte"
     with pytest.raises(Refused) as e:
-        rung3.byte_lock_check(doc, runner.BYTE_LOCK, None,
+        rung3.byte_lock_check(doc, runner.BYTE_LOCK, runner.ORIGINAL_LOCK,
                               read_committed=lambda rel, c: text)
     assert "differs from the byte-lock" in str(e.value)
 

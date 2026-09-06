@@ -16,9 +16,11 @@ THREE RULES RUN THROUGH IT
 --------------------------
 * **§1 is the contract, and it is byte-locked.** `check_byte_lock` refuses to
   start unless the locked range is byte-identical to the commit that locked
-  it. §1 was committed ALONE and never amended, so there is one sha and
-  `ORIGINAL_LOCK` is `None`; the record carries `amended_after_the_original_
-  lock: False` as a fact rather than as a claim in prose.
+  it. §1.4's LENS was amended after the original lock and before any number
+  was read (R-F13), so BOTH shas are carried -- the original `a4264b5` and
+  the amended `ffaed19` -- and the record states
+  `amended_after_the_original_lock: True` as a fact rather than as a claim in
+  prose. No endpoint, method, derivation or table row moved.
 * **No endpoint is ever filled from a prediction.** §1's numbers -- N = 26,
   §1.1's per-line table, the three `watch` triples, the two sightings -- are
   in the room, and a headline that borrowed from one could not fail. They
@@ -110,14 +112,26 @@ e6ppp.BASE = BASE
 DOC = (REPO / "docs" / "superpowers" / "acceptance"
        / "2026-09-06-sensorium-rung4-e9.md")
 
-#: The commit that committed §1 ALONE, before any number below was read. A
-#: `None` lock REFUSES rather than measuring against a pre-registration that
-#: can still be edited.
-BYTE_LOCK = "a4264b5"
-#: §1 of this document is committed once and never amended, so there is no
-#: second sha to carry -- `byte_lock_facts` records
-#: `amended_after_the_original_lock: False` and `original_lock_sha256: None`.
-ORIGINAL_LOCK = None
+#: The commit §1 is byte-locked against NOW: the AMENDED lens. A `None` lock
+#: REFUSES rather than measuring against a pre-registration that can still be
+#: edited.
+#:
+#: §1.4's lens was amended on 2026-09-06, after the original lock and BEFORE
+#: any number was read, to name the reader the instrument actually runs:
+#: `flow --value` is called with `--limit 1000` so H5's gate is computed over
+#: every sighting the trace holds rather than over the tool's default printed
+#: page of 50 (R-F13, under the rule the entry slice set as R-G13 -- a reader
+#: fix after the lock and before a measurement is a dated lens amendment, and
+#: the runner carries BOTH shas). No endpoint, no method, no derivation and
+#: no table row moved: `tests/test_acceptance_e9.py` asserts row identity
+#: between the two commits.
+BYTE_LOCK = "ffaed19"
+#: The ORIGINAL lock, committed alone by Task 0 before the instrument existed.
+#: §1 at this commit differs from the one above by exactly the dated §1.4
+#: paragraph; both shas are recorded (`original_lock_sha256`,
+#: `amended_after_the_original_lock`) so the amendment is a visible fact of
+#: the record rather than a claim in prose.
+ORIGINAL_LOCK = "a4264b5"
 
 RUNNER = "rust/tests/acceptance_e9.py"
 RAW = LEDGER / "results-e9-raw.json"
