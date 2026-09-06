@@ -21,6 +21,10 @@ SPELLING (`"A1"` is four characters, the string is two), so the site is
 reported as one the predicate could not be checked at -- UNSETTLED, never a
 comparison to nothing.
 """
+import math
+
+import pytest
+
 from sensorium import cli
 from sensorium.exit import ANSWERED, NEGATIVE, UNSETTLED
 from sensorium.query.expr import NOT_CAPTURED, TRUNCATED, resolve
@@ -50,7 +54,13 @@ def test_resolve_reads_the_value_a_debug_text_spells():
     assert resolve(dbg("2.5")) == 2.5
     assert resolve(dbg("true")) is True
     assert resolve(dbg("false")) is False
-    assert resolve(dbg("None")) == "None"      # Option::None is text, not None
+    # the exponent spellings Rust prints for the extremes, READ back as the
+    # floats they are -- `flow --value 1e20` sights them, so a predicate at
+    # that site has to see a number too (design amendment A11)
+    assert resolve(dbg("1e20")) == 1e20
+    assert resolve(dbg("1e-5")) == 1e-5
+    assert resolve(dbg("1.5e-7")) == 1.5e-7
+    assert resolve(dbg("None")) is None        # `Option::None`, the value
 
 
 def test_resolve_unquotes_a_debug_string_and_undoes_its_escapes():
@@ -65,15 +75,23 @@ def test_resolve_unquotes_a_debug_string_and_undoes_its_escapes():
     assert resolve(dbg('"café 日"')) == "café 日"
 
 
+def test_resolve_reads_the_floats_rust_spells_as_words():
+    """`inf`, `-inf` and `NaN` are Rust's spellings for the three floats
+    that are not digits (measured). They are read as those floats, because
+    `flow --value 1e400` sights one and the two commands may not disagree
+    about a capture (design amendment A11)."""
+    assert resolve(dbg("inf")) == float("inf")
+    assert resolve(dbg("-inf")) == float("-inf")
+    assert math.isnan(resolve(dbg("NaN")))
+
+
 def test_resolve_hands_back_the_text_when_it_spells_no_literal():
-    """A struct, an enum, a Vec, and the two floats Rust spells as words:
-    the text is what the trace holds, so the text is what a predicate sees.
-    `inf`/`NaN` are deliberately NOT read as floats -- a comparison against
-    the word is a comparison the reader can see, a silent float is not."""
+    """A struct, an enum, a Vec: the text is what the trace holds, so the
+    text is what a predicate sees."""
     assert resolve(dbg("Counter { n: 7 }")) == "Counter { n: 7 }"
     assert resolve(dbg("[1, 2, 3]")) == "[1, 2, 3]"
-    assert resolve(dbg("inf")) == "inf"
-    assert resolve(dbg("NaN")) == "NaN"
+    assert resolve(dbg("Basic")) == "Basic"
+    assert resolve(dbg("Some(3)")) == "Some(3)"
 
 
 def test_resolve_refuses_a_truncated_dbg_and_an_unread_delta():
@@ -83,6 +101,37 @@ def test_resolve_refuses_a_truncated_dbg_and_an_unread_delta():
     assert resolve(dbg("[1, 2, 3, ", trunc=True)) is TRUNCATED
     assert resolve(dbg('"A1"', trunc=True)) is TRUNCATED
     assert resolve({"k": "unread"}) is NOT_CAPTURED
+
+
+# -- the two directions are inverses (design amendment A11) ----------------
+# Every literal a command can name, spelled by the side that writes Debug
+# text and read back by the side that reads it. The list is the domain: an
+# entry either round-trips or the two commands can disagree about one
+# capture, which is what A11 exists to prevent.
+LITERALS = [0, 5, -3, 2.0, -3.5, 1e20, 1e-5, float("inf"), float("-inf"),
+            True, False, None, "A1", 'q"uote', "café 日", "", "Basic"]
+
+
+@pytest.mark.parametrize("literal", LITERALS, ids=repr)
+def test_resolve_reads_back_everything_debug_text_can_spell(literal):
+    """`resolve(dbg(debug_text(L))) == L`, for every L. Measured against the
+    disagreement it fixes: `flow --value 1e20` used to report a sighting at
+    a site where `watch --expr x == 1e20` said `not satisfied`."""
+    text = debug_text(literal)
+    assert text is not None, "debug_text must spell every literal"
+    got = resolve(dbg(text))
+    assert got == literal
+    # `0 == False` in Python, so equality alone would let a bool pass for a
+    # number and back again
+    assert isinstance(got, bool) is isinstance(literal, bool)
+    assert (got is None) is (literal is None)
+
+
+def test_the_one_literal_that_does_not_read_back_is_nan():
+    """As in Rust, and as in Python: NaN equals nothing, itself included.
+    The rendering still round-trips to A float that is NaN."""
+    assert debug_text(float("nan")) == "NaN"
+    assert math.isnan(resolve(dbg(debug_text(float("nan")))))
 
 
 # -- (c) matching a literal against a dbg capture --------------------------
@@ -141,7 +190,7 @@ def test_watch_answers_over_the_line_rows_of_a_focused_rust_trace(
     assert cli.main(["watch", run_id, "--at", "fill",
                      "--expr", "b == 2"]) == ANSWERED
     text = out(capsys)
-    assert "verdict: SATISFIED at 1 of the 1 site(s)" in text
+    assert "verdict: SATISFIED at 2 of the 2 site(s)" in text
     assert "state: b=2" in text
 
 
@@ -195,6 +244,25 @@ def test_a_bare_word_debug_text_is_not_a_sighting_of_that_string(
     assert "verdict: SATISFIED" in out(capsys)
 
 
+@pytest.mark.parametrize("name,spelled,literal", [
+    ("big", "1e20", "1e20"),
+    ("huge", "1e400", "1e400"),      # `float("1e400")` is inf, and Rust's
+    ("opt", "None", "None"),         # `Option::None` is the word `None`
+], ids=["exponent-float", "infinity", "none"])
+def test_flow_and_watch_agree_about_one_capture(
+        name, spelled, literal, tmp_path, monkeypatch, capsys):
+    """The disagreement A11 was written for: each of these three used to be
+    a sighting for `flow` and a `not satisfied` for `watch`, about the same
+    capture at the same site. Both now answer yes."""
+    run_id = focused_trace(tmp_path, monkeypatch)
+    assert cli.main(["flow", run_id, "--value", spelled]) == ANSWERED
+    assert f"[local {name}]" in out(capsys)
+
+    assert cli.main(["watch", run_id, "--at", "fill",
+                     "--expr", f"{name} == {literal}"]) == ANSWERED
+    assert "verdict: SATISFIED" in out(capsys)
+
+
 # -- (e) the length of a rendering is not the length of the value ----------
 def test_len_over_a_dbg_string_is_reported_unsettled_never_answered(
         tmp_path, monkeypatch, capsys):
@@ -207,6 +275,14 @@ def test_len_over_a_dbg_string_is_reported_unsettled_never_answered(
     text = out(capsys)
     assert "verdict: NOTHING WAS CHECKED" in text
     assert "s: recorded as a value that has no length" in text
+    # the guidance under it, in full: the reason line says what is missing,
+    # this says what to do about it, and it must not send a reader after
+    # scope (the name IS bound here) or after a re-recording (nothing about
+    # a rendering has a length to record)
+    assert ("what the trace holds there is the value itself -- a number, a "
+            "bool, or a rendering the recorder could only format -- and none "
+            "of those carries a recorded length; compare the name itself "
+            "instead") in " ".join(text.split())
     assert "'hits: 0' here means 'could not evaluate'" in text
     # and no count of characters leaked into the answer
     assert "hits: 0" in text and "SATISFIED at" not in text

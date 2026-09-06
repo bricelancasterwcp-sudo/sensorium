@@ -17,15 +17,25 @@ two of them differ from Python's `repr` in ways no reader would guess:
     2.0        -> "2.0"        (same as repr)
     1e20       -> "1e20"       (repr says `1e+20`)
     1e-5       -> "1e-5"       (repr says `1e-05`)
-    "café 日"  -> "café 日"    (Debug escapes neither: non-ASCII is printable)
+    "café"     -> "café"       (Debug escapes neither: non-ASCII is printable)
+    inf/-inf   -> "inf"/"-inf"  and NaN -> "NaN" (measured, all three)
     "a\"b"     -> "a\\"b"      (`"` and `\\` are escaped, `'` is NOT)
     '\\x07'     -> "\\u{7}"      (unprintables, minimal lowercase hex)
     None       -> "None"       (an `Option`, printed as the word)
 
-`inf` and `NaN` are Rust's own spellings for the two floats that are not
-decimal, and `read_debug` deliberately leaves them as TEXT: a predicate
-comparing against the word `inf` is one a reader can see, and a float
-silently conjured out of a word is not.
+THE TWO DIRECTIONS ARE INVERSES ON THE LITERAL DOMAIN
+-----------------------------------------------------
+Design amendment A11: `read_debug` parses exactly what `debug_text` can
+spell, so `resolve(dbg(debug_text(L))) == L` for every literal `L` a
+command accepts. This is not tidiness -- it is the fix for a measured
+disagreement. With `read_debug` stopping at the decimal forms, `flow
+--value 1e20` reported a sighting of a capture that `watch --expr x ==
+1e20` at that same site then denied (a plain False out of comparing text
+with a float), and the same went for `1e400`/`inf` and for `None`. One
+instrument answering yes and no about one capture is worse than either
+answer, so the domains are pinned together: integers, floats in every
+Debug spelling Rust uses (`2.5`, `1e20`, `1e-5`, `inf`, `-inf`, `NaN`),
+`true`/`false`, the bare `None`, and quoted strings.
 
 THE ONE THING NEITHER DIRECTION DOES
 ------------------------------------
@@ -36,12 +46,14 @@ and a capture then matches nothing rather than matching approximately.
 """
 import re
 
-# A Debug integer, and a Debug float -- which requires a decimal POINT. Rust
-# prints an exponent form for the extremes (`1e20`), and those stay text on
-# purpose: reading `1e20` as a float would make `x > 3` answer at a site
-# whose capture the reader has no reason to believe is numeric.
+# A Debug integer, and a Debug float -- a decimal POINT, an EXPONENT, or
+# both, which is every shape Rust prints (`2.5`, `1e20`, `1e-5`, `1.5e-7`).
+# The integer is tried first, so `5` is an int and never a float.
 _INT = re.compile(r"-?\d+")
-_FLOAT = re.compile(r"-?\d+\.\d+([eE][-+]?\d+)?")
+_FLOAT = re.compile(r"-?\d+\.\d+([eE][-+]?\d+)?|-?\d+([eE][-+]?\d+)")
+# The three floats Rust spells as words rather than digits (measured).
+_WORD_FLOATS = {"inf": float("inf"), "-inf": float("-inf"),
+                "NaN": float("nan")}
 # Python's repr writes an exponent's sign and pads it to two digits; Rust
 # writes neither. `1e+20` -> `1e20`, `1e-05` -> `1e-5`.
 _EXP = re.compile(r"e\+?(-?)0*(\d)")
@@ -57,7 +69,7 @@ _HEX = "0123456789abcdefABCDEF"
 
 
 def read_debug(text: str):
-    """The value a Debug text spells: int, float, bool, str, or the text.
+    """The value a Debug text spells: int, float, bool, None, str, or text.
 
     The caller has already dealt with truncation -- a clipped rendering is
     not a rendering, and nothing here may be applied to a prefix.
@@ -66,8 +78,15 @@ def read_debug(text: str):
         return int(text)
     if _FLOAT.fullmatch(text):
         return float(text)
+    if text in _WORD_FLOATS:
+        return _WORD_FLOATS[text]
     if text in ("true", "false"):
         return text == "true"
+    if text == "None":
+        # `Option::None`, and the one way a reader can name it: `flow
+        # --value None` already searches for this text, so a predicate at
+        # the same site has to see the same thing (A11).
+        return None
     if len(text) >= 2 and text[0] == '"' == text[-1]:
         return unescape_debug(text[1:-1])
     return text
@@ -149,6 +168,8 @@ def debug_text(target) -> str | None:
     if isinstance(target, int):
         return str(target)
     if isinstance(target, float):
+        if target != target:
+            return "NaN"                     # `repr` says `nan`; Rust `NaN`
         return _EXP.sub(r"e\1\2", repr(target))
     if isinstance(target, str):
         return '"' + escape_debug(target) + '"'

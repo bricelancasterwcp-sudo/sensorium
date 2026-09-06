@@ -308,8 +308,9 @@ def _guidance(reason: str, name: str, ever: bool, has_line: bool,
                 "compare; refocusing cannot change that"]
     if reason == NO_LENGTH:
         return ["what the trace holds there is the value itself -- a number, "
-                "a bool, or a Debug rendering -- and none of those carries a "
-                "recorded length; compare the name itself instead"]
+                "a bool, or a rendering the recorder could only format -- "
+                "and none of those carries a recorded length; compare the "
+                "name itself instead"]
     if reason == CLIPPED:
         return ["the capture is a prefix cut at the string cap, so the value "
                 "itself was never recorded",

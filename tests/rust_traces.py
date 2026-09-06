@@ -17,6 +17,7 @@ from tests.helpers import (RUST_CAPABILITIES, err_flow, fn_site,
 
 FILE = "/w/demo/src/lib.rs"
 SITE_FILE = "demo/src/lib.rs"
+MAIN_THREAD = 1          # `RUST_META["main_thread_ident"]`
 S1 = 4294967296          # 1 << 32: the first chain serial on a thread
 S2 = 4294967297
 S3 = 4294967298
@@ -199,23 +200,33 @@ def dbg(text, trunc=False):
 def line(ts, fr, code, line_no, deltas, thread=1, dropped=False):
     """One LINE event in the payload shape `cargo-sensorium` writes: the
     bindings the statement wrote, plus `unread: ["locals"]` when the record
-    was short and deltas were dropped (design §3.5)."""
+    was short and deltas were dropped (design §3.5).
+
+    `task` follows the converter rather than being hardcoded:
+    `convert/frames.rs` writes `task_id = (thread_id != MAIN_SERIAL)
+    .then_some(thread_id)`, so a LINE on a spawned thread or a test carries
+    that unit's id and one on the main thread carries none. A fixture that
+    said `None` on every thread would describe a row the converter does not
+    write.
+    """
     payload = {"deltas": deltas}
     if dropped:
         payload["unread"] = ["locals"]
     return {"ts": ts, "thread": thread, "kind": "LINE", "frame": fr,
-            "code": code, "line": line_no, "payload": payload, "task": None}
+            "code": code, "line": line_no, "payload": payload,
+            "task": None if thread == MAIN_THREAD else thread}
 
 
 def focused_trace(tmp_path, monkeypatch, **meta):
     """`cargo sensorium --focus fill --focus Counter run`, as a trace.
 
     Two focused functions, so one trace holds both things the query side
-    gained: `fill` writes a `String`, an integer and an enum variant through
-    the Debug ladder, and `Counter::new` is reachable only if a qualname
-    spec knows the `::` boundary. The parameters LINE of `new` carries
-    EMPTY deltas -- design amendment A2: a function with no parameters still
-    mints one, saying that it was entered.
+    gained: `fill` writes a `String`, an integer, an enum variant and the
+    three values whose two spellings used to disagree (an exponent float, an
+    `inf`, an `Option::None` -- design amendment A11), and `Counter::new` is
+    reachable only if a qualname spec knows the `::` boundary. The
+    parameters LINE of `new` carries EMPTY deltas -- design amendment A2: a
+    function with no parameters still mints one, saying it was entered.
 
     `capabilities.line`/`locals` are true because some unit of this run
     carries a LINE site; an unfocused Rust trace declares both false, which
@@ -225,12 +236,14 @@ def focused_trace(tmp_path, monkeypatch, **meta):
     return rust_trace(
         tmp_path, monkeypatch,
         codes=[[FILE, "fill", 10], [FILE, "Counter::new", 30]],
-        frames=[frame(1, 1, 4), frame(2, 5, 8)],
+        frames=[frame(1, 1, 5), frame(2, 6, 9)],
         events=[
             call(1000, 1, 10),
             line(1100, 1, 1, 10, {"s": dbg('"A1"')}),
             line(1200, 1, 1, 12, {"b": dbg("2"),
                                   "tier": dbg("Basic")}),
+            line(1250, 1, 1, 13, {"big": dbg("1e20"), "huge": dbg("inf"),
+                                  "opt": dbg("None")}),
             ret(1300, 1, 1, "ok", "()"),
             call(2000, 2, 30),
             line(2100, 2, 2, 30, {}),
