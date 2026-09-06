@@ -337,6 +337,16 @@ truncated, per run (an honesty count — `journal`, `images`, `p`, `p2` and
 the whole-trace sighting sets of S1 and S2 beside the gated ones; the store's
 size and the disk free before and after.
 
+**Amended 2026-09-06, before any measurement — the reader, not the endpoint.**
+The instrument at commit `e2fc083` passes `--limit 1000` to the two
+`flow --value` commands of §1.3, so the H5 gate is computed over every
+sighting the trace holds rather than over the tool's default printed page of
+50, and it publishes the H5 cells as null with a reason if that page still
+truncates. The commands' literals, runs, predictions and both readings are
+unchanged. Recorded under the rule the entry slice set (its R-G13): a reader
+fix after the lock and before a number is a dated lens amendment, and the
+runner carries both shas — the original lock `a4264b5` and this one.
+
 ## 2. Environment
 
 (written by Task 8)
