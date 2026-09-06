@@ -1,6 +1,6 @@
 # The Rust corpus
 
-Thirty-one cases recorded by the **Rust** recorder (`cargo sensorium …`) and
+Thirty-seven cases recorded by the **Rust** recorder (`cargo sensorium …`) and
 questioned through the same Python CLI as the rest of the corpus. Each case
 directory is a self-contained, dependency-free crate plus its
 `questions.yaml`; `corpus/run_corpus.py` copies one whole directory into a
@@ -83,6 +83,36 @@ and is reported as one; a run that died by panic with no `Result` in it
 answers `no exceptions recorded` with status 1 while still declaring that a
 panic was recorded; and the aborted child answers 1 rather than 3, because
 abort() took the process and not the records.
+
+## The rung-4 cases: the focus tier
+
+Six cases added with `cargo sensorium --focus <qualname>`, which splices one
+LINE probe after every statement of the named functions and gives the trace
+`capabilities.line: true`. Five of them record WITH a focus; the sixth
+records without one and exists so that the unfocused reading has a case whose
+name says what it is.
+
+Each of the five focused cases pins a LINE COUNT derived from the design's
+rules before it was measured -- one probe per completed statement (§3.1), the
+statement's own written bindings as its deltas (§3.2), a parameters LINE even
+for a function taking none (amendment A2), an entry LINE for a pattern that
+binds and none for one that does not (A3) -- and each pins at least one
+ABSENCE, because that is where a miscounted rule shows up.
+
+| Case | Planted truth | Commands |
+|---|---|---|
+| `focus_let_chain` | the straight-line shape: 4 rows for 3 statements, the fourth being the parameters LINE, and none for the tail expression whose value is the RETURN's | `watch`, `frame`, `info` |
+| `focus_loop_counter` | three passes and one completion at the same source line: 9 rows, `i` bound three times by the loop's entry row, and the value 3 reached on the third pass and nowhere else | `flow`, `watch`, `frame` |
+| `focus_match_binding` | an `if let` that binds and a `match` arm that binds each mint an entry row; `None` binds nothing and mints none; a `match` in tail position is not a statement; and the parameters row is the only place a Rust argument exists | `watch` ×2, `frame` |
+| `focus_moved_value` | the borrow-by-construction proof: a focused function that moves a `Vec` still COMPILES, because a delta is captured right after its own write and never re-read; `[1, 2]` is not a sighting of `2` | `info`, `frame`, `flow`, `watch` |
+| `focus_non_debug` | a binding whose type has no `Debug` is recorded as a NAME with `<unread>`, and `watch` answers NOTHING WAS CHECKED (exit 3) rather than "not satisfied" | `frame`, `watch` |
+| `focus_unfocused_refuses` | the counterfactual: the same driver, one flag apart -- `line=no`, `LINE 0`, no `focus` key in the meta, and `watch` REFUSED at exit 3 | `watch`, `info` |
+
+The driver's OTHER refusal -- `--focus` naming a function that does not exist,
+which exits 2 with `Closest:` suggestions and builds nothing -- is not a case
+here, because a corpus case records once and a refused recording leaves no
+trace to question. It is pinned by `tests/test_focus_refusal.py`, which skips
+by name when no driver is on the box exactly as these cases do.
 
 ## Two things a case here must know
 

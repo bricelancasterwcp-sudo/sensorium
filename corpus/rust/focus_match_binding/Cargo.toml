@@ -1,0 +1,9 @@
+[package]
+name = "corpus_focus_match_binding"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "focus_match_binding"
+path = "src/main.rs"

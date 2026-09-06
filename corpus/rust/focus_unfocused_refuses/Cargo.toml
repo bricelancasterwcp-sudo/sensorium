@@ -1,0 +1,9 @@
+[package]
+name = "corpus_focus_unfocused_refuses"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "focus_unfocused_refuses"
+path = "src/main.rs"

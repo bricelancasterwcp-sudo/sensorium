@@ -1,0 +1,59 @@
+program: cargo
+cargo_args: ["--focus", "make", "run"]
+questions:
+  - id: what-does-the-row-say-about-a-value-it-could-not-read
+    ask: >
+      `Opaque` does not derive `Debug`. What did the LINE for
+      `let h = Opaque(7);` record about `h`?
+    truth: >
+      The name, and `<unread>` where the value would be. Design §3.2's
+      capture goes through the runtime's autoref ladder -- `Debug` gives
+      capped text, no `Debug` gives `unread` -- and §3.5 writes that as
+      `{"k": "unread"}`, which `fmt` renders `h=<unread>`. So the row still
+      states that line 12 ran and that it wrote `h`, and states separately
+      that the value was not read. Two rows in total: the parameters LINE at
+      L11 (amendment A2, empty deltas) and this one; the tail `h.0` on L13
+      is not a statement (§3.1) and mints none.
+    why_logs_fail: >
+      `dbg!(&h)` here does not compile, and neither does a `{h}` or a
+      `{h:?}` -- `Opaque` implements neither trait, which is the ordinary
+      reason a value is missing from a log, and RUST_LOG has no logger to
+      reach in this crate either. The recorder does not get to opt out the
+      same way: it has to say something, and what it says is "there is a
+      binding here whose value I could not read", which is a different claim
+      from an empty row and from silence.
+    command: ["frame", "$RUN", "f2"]
+    expect_count: {"LINE": 2}
+    expect_line:
+      - ["e3", "LINE", "make L11"]
+      - ["e4", "LINE", "make L12", "h=<unread>"]
+    expect_absent: ["make L13"]
+  - id: was-h-seven
+    ask: >
+      `make` returns 7 and the value came out of `h`. Was `h == 7` at the
+      line that wrote it?
+    truth: >
+      Unanswerable from this recording, and the tool says so rather than
+      guessing. `watch`'s verdict is NOTHING WAS CHECKED (amendment A4:
+      SATISFIED / not satisfied / NOTHING WAS CHECKED, exits 0/1/3) with
+      exit 3, and it names the reason per site: at 2 sites `h` is not in
+      scope, and at the one site where it IS bound it was "recorded as an
+      object, which has no comparable value". `hits: 0` here means "could
+      not evaluate", not "the invariant held" -- the tool prints that
+      sentence itself. A verdict of "not satisfied" would have been a claim
+      about a value nobody read.
+    why_logs_fail: >
+      A `dbg!(&h)` would answer this the moment someone added
+      `#[derive(Debug)]` to `Opaque`, which is why the question is asked: the
+      honest failure to pin is the TOOL's, and it is the same failure the log
+      has before that derive is written. What matters is that a recording
+      holding a name with no value refuses to compare it, instead of
+      reporting 0 hits out of 3 sites and letting a reader take that for
+      "never 7". Nothing panics here, so RUST_BACKTRACE never prints.
+    command: ["watch", "$RUN", "--at", "make", "--expr", "h == 7"]
+    expect_contains:
+      - "verdict: NOTHING WAS CHECKED -- the predicate could not be evaluated at any of the 3 recorded site(s)"
+      - "'hits: 0' here means 'could not evaluate', NOT 'the invariant held'"
+      - "h: recorded as an object, which has no comparable value"
+    expect_absent: ["SATISFIED at", "not satisfied", "HIT "]
+    expect_exit: 3

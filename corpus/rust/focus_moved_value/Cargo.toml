@@ -1,0 +1,9 @@
+[package]
+name = "corpus_focus_moved_value"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "focus_moved_value"
+path = "src/main.rs"
