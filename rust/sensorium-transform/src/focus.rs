@@ -104,6 +104,49 @@ impl Focus {
     }
 }
 
+/// One fn item of a file, as the transform itself classifies it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FnItem {
+    /// The file-local `::` path -- exactly the spelling a focus value takes.
+    pub qualname: String,
+    /// `None` for a fn a focus CAN select; the transform's own skip reason
+    /// (`"const"`, `"extern"`, `"async"`, `"macro"`) for one it cannot.
+    pub skipped: Option<&'static str>,
+}
+
+/// Every fn item of `source`, so that a caller can answer "would a focus
+/// select this?" without guessing at the transform's rules.
+///
+/// It runs the ORDINARY unfocused walk and reads its result back rather than
+/// classifying a second time: a `Fn` site is exactly a fn this transform
+/// instruments -- and therefore exactly one a focus can select -- and
+/// [`Transformed::skipped`] is exactly the set it will not, with the reason it
+/// gives. A second classifier here could drift from the first, and the drift
+/// would show up as a `--focus` the driver accepts and the transform ignores.
+///
+/// A file that does not parse yields NO items: it is not instrumented either,
+/// so it holds nothing a focus could select.
+#[must_use]
+pub fn fn_items(source: &str, file: &str) -> Vec<FnItem> {
+    let Ok(transformed) = crate::transform(source, file, "", 0, false, &Focus::EMPTY) else {
+        return Vec::new();
+    };
+    let mut items: Vec<FnItem> = transformed
+        .sites
+        .iter()
+        .filter(|site| site.kind == crate::SiteKind::Fn)
+        .map(|site| FnItem {
+            qualname: site.qualname.clone(),
+            skipped: None,
+        })
+        .collect();
+    items.extend(transformed.skipped.iter().map(|s| FnItem {
+        qualname: s.qualname.clone(),
+        skipped: Some(s.reason),
+    }));
+    items
+}
+
 #[cfg(test)]
 mod tests {
     use super::Focus;
@@ -175,5 +218,33 @@ mod tests {
         assert_eq!(Focus::parse("a").focus_hash().len(), 16);
         // The value, not just its shape: sha256("a\nb")[..16].
         assert_eq!(Focus::parse("b,a").focus_hash(), "7e18f737311b2dc3");
+    }
+
+    /// The eligible set a `--focus` is resolved against IS the set this
+    /// transform instruments -- the one rule `cargo-sensorium`'s resolver
+    /// leans on entirely.
+    #[test]
+    fn fn_items_names_what_is_instrumented_and_what_is_skipped_with_the_reason() {
+        let items = super::fn_items(
+            "mod m {\n    pub fn f() {}\n    pub async fn g() {}\n    pub const fn c() {}\n}\n\
+             fn h() {}\nstruct S;\nimpl S {\n    fn k(&self) {}\n}\n",
+            "src/lib.rs",
+        );
+        let eligible: Vec<&str> = items
+            .iter()
+            .filter(|i| i.skipped.is_none())
+            .map(|i| i.qualname.as_str())
+            .collect();
+        assert_eq!(eligible, ["m::f", "h", "S::k"]);
+        let skipped: Vec<(&str, &str)> = items
+            .iter()
+            .filter_map(|i| i.skipped.map(|r| (i.qualname.as_str(), r)))
+            .collect();
+        assert_eq!(skipped, [("m::g", "async"), ("m::c", "const")]);
+    }
+
+    #[test]
+    fn a_file_that_does_not_parse_holds_nothing_a_focus_could_select() {
+        assert!(super::fn_items("fn (", "src/lib.rs").is_empty());
     }
 }

@@ -115,7 +115,7 @@ mod spawn;
 mod splice;
 mod visit;
 
-pub use focus::Focus;
+pub use focus::{fn_items, FnItem, Focus};
 pub use manifest::{FocusRecord, Manifest, ManifestSite};
 
 /// The result of rewriting one file.

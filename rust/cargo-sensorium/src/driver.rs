@@ -12,6 +12,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
+use sensorium_transform::Focus;
+
+use crate::resolve;
 use crate::rt_build::{self, Panic};
 use crate::rt_src;
 
@@ -199,6 +202,25 @@ pub fn run(args: &[String]) -> i32 {
 fn go(args: &[String]) -> Result<i32, String> {
     let parsed = parse_args(args)?;
     let ws = workspace_root()?;
+    let focus = Focus::parse(&parsed.focus.join(","));
+    // BEFORE everything (design 2026-09-06 §2.2): before the runtime is
+    // compiled, before the shim is installed, before a spool directory exists
+    // and before cargo is invoked. A focus is a compile-time decision, so a
+    // value that names nothing would otherwise cost a full instrumented build
+    // and hand back a trace with no LINE row and no reason.
+    if !focus.is_empty() {
+        let resolved = resolve::resolve_focus(&ws, &focus)?;
+        if resolved.refuses() {
+            report_refusal(&resolved);
+            return Ok(2);
+        }
+        // One line per matched qualname, on stderr, so that a record of a run
+        // can quote what the focus actually selected rather than what was
+        // typed.
+        for qualname in &resolved.matched {
+            eprintln!("focus: {qualname}");
+        }
+    }
     let target = target_dir(&ws);
     // Cargo splits `CARGO_TARGET_<HOST>_RUNNER` and `RUSTDOCFLAGS` on
     // whitespace, and both carry a path under `<target>`. A target directory
@@ -221,7 +243,15 @@ fn go(args: &[String]) -> Result<i32, String> {
     // front beats N wrappers racing for it. `abort` is built by the wrapper
     // that first meets a `-C panic=abort` unit, and most workspaces never do.
     let rlib = rt_build::ensure(&rt, &rustc, Panic::Unwind, rt_src::FILES)?;
-    let shim = rt_build::install_shim(&target, &exe, &tool_hash)?;
+    // The focus joins the shim's path, not just the mirror's cache key: see
+    // `install_shim`. An unfocused build keeps the bare tool hash it has
+    // always had, so nothing about it moves.
+    let shim_key = if focus.is_empty() {
+        tool_hash.clone()
+    } else {
+        format!("{tool_hash}-{}", focus.focus_hash())
+    };
+    let shim = rt_build::install_shim(&target, &exe, &shim_key)?;
 
     let invocation = invocation_id()?;
     let spool = target.join("sensorium").join("spool").join(&invocation);
@@ -265,6 +295,10 @@ fn go(args: &[String]) -> Result<i32, String> {
         )
         .env("SENSORIUM_SPOOL", &spool)
         .env("SENSORIUM_TIER", parsed.tier.as_str())
+        // Design §2.3: the values as given, comma-joined; qualnames cannot
+        // contain a comma. Always set, so an outer run's focus can never leak
+        // into this one -- empty is exactly "no focus" to the wrapper.
+        .env("SENSORIUM_FOCUS", focus.values().join(","))
         .env("SENSORIUM_TARGET", &target)
         .env("SENSORIUM_WS", &ws)
         .env("SENSORIUM_RT_DIR", &rt)
@@ -364,7 +398,7 @@ fn resolve_on_path(program: &str) -> Option<String> {
         .map(|found| found.to_string_lossy().into_owned())
 }
 
-fn cargo_path() -> String {
+pub(crate) fn cargo_path() -> String {
     // Cargo sets `CARGO` when it invokes a subcommand, so `cargo +nightly
     // sensorium test` uses the nightly cargo rather than whatever is on PATH.
     std::env::var("CARGO")
@@ -396,6 +430,30 @@ fn workspace_root() -> Result<PathBuf, String> {
         .parent()
         .map(Path::to_path_buf)
         .ok_or_else(|| format!("cargo located a manifest with no parent: {manifest}"))
+}
+
+/// §2.2's refusal, one line per offending value, and nothing built.
+fn report_refusal(resolved: &resolve::Resolution) {
+    for (value, closest) in &resolved.unmatched {
+        // `Closest:` is dropped only when the workspace holds no eligible
+        // function at all; an empty list would read as a claim that nothing
+        // is near, which is a different and wrong statement.
+        let suggestion = if closest.is_empty() {
+            String::new()
+        } else {
+            format!(" Closest: {}", closest.join(", "))
+        };
+        eprintln!(
+            "REFUSED: --focus {value} matches no function in the workspace; nothing was \
+             built.{suggestion}"
+        );
+    }
+    for (value, qualname, reason) in &resolved.skipped_only {
+        eprintln!(
+            "REFUSED: --focus {value} matches only {qualname}, which the transform skips \
+             ({reason}); nothing was built."
+        );
+    }
 }
 
 fn now() -> f64 {
@@ -602,7 +660,7 @@ mod tests {
 
     #[test]
     fn the_driver_version_is_the_crates_own() {
-        assert_eq!(DRIVER_VERSION, "cargo-sensorium 0.3.1");
+        assert_eq!(DRIVER_VERSION, "cargo-sensorium 0.4.0");
     }
 
     #[test]
@@ -635,7 +693,7 @@ mod tests {
         assert_eq!(value["workspace_root"], "/w");
         assert_eq!(value["target_dir"], "/t");
         assert_eq!(value["tool_hash"], "0123456789abcdef");
-        assert_eq!(value["driver_version"], "cargo-sensorium 0.3.1");
+        assert_eq!(value["driver_version"], "cargo-sensorium 0.4.0");
         assert_eq!(value["rustc_path"], "/u/bin/rustc");
         // Null, not absent: the converter tells "cargo has not finished" from
         // "cargo exited 0" by the value, and an absent key is neither.

@@ -186,18 +186,27 @@ fn write_sources(rt_dir: &Path, files: &[(&str, &str)]) -> Result<(), String> {
     Ok(())
 }
 
-/// Copy the running binary to
-/// `<target>/sensorium/shim/<tool hash>/cargo-sensorium`.
+/// Copy the running binary to `<target>/sensorium/shim/<key>/cargo-sensorium`.
 ///
 /// Cargo keys `RUSTC_WORKSPACE_WRAPPER` by path and not by content, so the
 /// hash has to be IN the path: that is what makes a rebuilt driver rebuild the
 /// units it wrapped.
 ///
+/// `key` is the tool hash for an unfocused build and `<tool hash>-<focus
+/// hash>` for a focused one. **The focus has to be in this path**, and the
+/// per-file mirror stamp of design §2.3 is not enough on its own: cargo
+/// decides whether to invoke the wrapper AT ALL before the wrapper can decide
+/// anything, and `SENSORIUM_FOCUS` is not part of any cargo fingerprint.
+/// Measured on cargo 1.96, 2026-09-06, on `corpus/rust/silent_swallow`:
+/// `--focus load run` then `run` then `--focus main run` left cargo printing
+/// `Finished in 0.00s` for the second and third, so all three invocations ran
+/// the FIRST build's binary and all three traces claimed `focus: ["load"]`.
+///
 /// # Errors
 /// Any filesystem failure, naming the path.
-pub fn install_shim(target: &Path, exe: &Path, tool_hash: &str) -> Result<PathBuf, String> {
+pub fn install_shim(target: &Path, exe: &Path, key: &str) -> Result<PathBuf, String> {
     use std::os::unix::fs::PermissionsExt;
-    let dir = target.join("sensorium").join("shim").join(tool_hash);
+    let dir = target.join("sensorium").join("shim").join(key);
     std::fs::create_dir_all(&dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
     let shim = dir.join("cargo-sensorium");
     if shim.is_file() {

@@ -26,6 +26,9 @@ impl Tier {
 #[derive(Debug, PartialEq, Eq)]
 pub struct DriverArgs {
     pub tier: Tier,
+    /// The `--focus` values, in the order given (design 2026-09-06 §2.1).
+    /// Empty is the unfocused build.
+    pub focus: Vec<String>,
     /// The argv handed to cargo, starting with the subcommand.
     pub cargo_args: Vec<String>,
 }
@@ -39,14 +42,17 @@ impl DriverArgs {
 
 /// Split the driver's own flags out of cargo's.
 ///
-/// `--tier` is recognised only BEFORE the first bare `--`, so a test binary's
-/// own `--tier` argument (after `cargo test -- …`) is never stolen.
+/// `--tier` and `--focus` are recognised only BEFORE the first bare `--`, so a
+/// test binary's own `--tier`/`--focus` argument (after `cargo test -- …`) is
+/// never stolen.
 ///
 /// # Errors
-/// A usage message when the subcommand is missing or unknown, or when `--tier`
-/// has no value or a value this recorder does not implement.
+/// A usage message when the subcommand is missing or unknown, when `--tier`
+/// has no value or a value this recorder does not implement, or when `--focus`
+/// has no qualname.
 pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
     let mut tier = Tier::Call;
+    let mut focus: Vec<String> = Vec::new();
     let mut cargo_args: Vec<String> = Vec::new();
     let mut past_separator = false;
     let mut i = 0;
@@ -69,12 +75,26 @@ pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
                 i += 2;
                 continue;
             }
+            if let Some(v) = a.strip_prefix("--focus=") {
+                focus.push(parse_focus(Some(v))?);
+                i += 1;
+                continue;
+            }
+            if a == "--focus" {
+                focus.push(parse_focus(args.get(i + 1).map(String::as_str))?);
+                i += 2;
+                continue;
+            }
         }
         cargo_args.push(a.clone());
         i += 1;
     }
     match cargo_args.first().map(String::as_str) {
-        Some("test" | "run") => Ok(DriverArgs { tier, cargo_args }),
+        Some("test" | "run") => Ok(DriverArgs {
+            tier,
+            focus,
+            cargo_args,
+        }),
         Some(other) => Err(format!(
             "unknown subcommand `{other}`; this version implements `cargo sensorium test` and \
              `cargo sensorium run`"
@@ -83,7 +103,20 @@ pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
     }
 }
 
-pub const USAGE: &str = "usage: cargo sensorium test|run [--tier off|call] [cargo args]";
+pub const USAGE: &str =
+    "usage: cargo sensorium test|run [--tier off|call] [--focus <qualname>]... [cargo args]";
+
+/// One `--focus` value: a qualname, trimmed, and never empty.
+///
+/// An empty value is refused rather than dropped: it would match every
+/// qualname's prefix, so a stray `--focus=` would instrument the whole
+/// workspace instead of saying nothing was asked for.
+fn parse_focus(v: Option<&str>) -> Result<String, String> {
+    match v.map(str::trim) {
+        Some(value) if !value.is_empty() => Ok(value.to_owned()),
+        _ => Err("--focus needs a qualname".to_owned()),
+    }
+}
 
 fn parse_tier(v: &str) -> Result<Tier, String> {
     match v {
@@ -137,5 +170,51 @@ mod tests {
         assert!(parse_args(&v(&["build"])).is_err());
         assert!(parse_args(&v(&["bench"])).is_err());
         assert!(parse_args(&[]).is_err());
+    }
+
+    #[test]
+    fn focus_values_are_taken_out_of_cargos_argv_in_the_order_given() {
+        let p = parse_args(&v(&[
+            "--focus",
+            "a::b",
+            "--focus=c",
+            "test",
+            "--",
+            "--focus",
+            "x",
+        ]))
+        .unwrap();
+        assert_eq!(p.focus, v(&["a::b", "c"]));
+        // A test binary's own `--focus` is never stolen.
+        assert_eq!(p.cargo_args, v(&["test", "--", "--focus", "x"]));
+    }
+
+    #[test]
+    fn no_focus_is_the_default_and_the_unfocused_build() {
+        assert!(parse_args(&v(&["test", "--lib"])).unwrap().focus.is_empty());
+    }
+
+    #[test]
+    fn a_focus_with_no_qualname_is_refused_rather_than_ignored() {
+        // An empty value would match every qualname's prefix, so it is a typo
+        // and never a request to instrument the whole workspace.
+        for form in [
+            v(&["--focus"]),
+            v(&["--focus="]),
+            v(&["--focus=", "test"]),
+            v(&["--focus", "  ", "test"]),
+        ] {
+            assert_eq!(
+                parse_args(&form).unwrap_err(),
+                "--focus needs a qualname",
+                "{form:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_repeated_focus_keeps_every_value_for_the_resolver_to_judge() {
+        let p = parse_args(&v(&["--focus", "a", "--focus", "a", "run"])).unwrap();
+        assert_eq!(p.focus, v(&["a", "a"]));
     }
 }
