@@ -1,6 +1,6 @@
 {
   "id": "m07a-spans-exec-ref-joins-program-trace",
-  "asserts": "An action span's exec ref is the join to a program trace: when that trace exists, spans prints its exit and basis against the action.",
+  "asserts": "An action span carries two exit sources -- the daemon's own witness in ref.exec, and the referenced program trace -- and spans prints both as labeled facts: here the daemon did not wait (unwitnessed) while the trace it named recorded exit 1 (waited), and neither reading is allowed to stand in for the other.",
   "meta": {
     "trace_format": 5,
     "incomplete": false,
@@ -128,8 +128,8 @@
         "attrs": {},
         "exec": {
           "run_id": "$RUN2",
-          "exit_status": 1,
-          "exit_status_basis": "waited"
+          "exit_status": null,
+          "exit_status_basis": "unwitnessed"
         }
       }
     }
@@ -138,7 +138,7 @@
   "questions": [
     {
       "id": "exec-ref-joins-present-program-trace",
-      "ask": "The generation's action ran under sensorium as $RUN2, which exists and exited 1 (waited): does spans print that fact against the action?",
+      "ask": "The daemon never waited on the child and its own ref says so, while the program trace $RUN2 exists and recorded exit 1 (waited): does spans print the daemon's witness as unwitnessed AND the program trace's exit 1 (waited) as a second, separately labeled fact?",
       "command": [
         "spans",
         "$RUN",
@@ -152,6 +152,11 @@
           "$RUN2"
         ],
         [
+          "daemon saw",
+          "unwitnessed"
+        ],
+        [
+          "program trace",
           "exit 1 (waited)"
         ]
       ]

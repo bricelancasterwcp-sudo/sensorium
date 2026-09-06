@@ -1,6 +1,6 @@
 {
   "id": "m07b-spans-exec-ref-trace-not-found",
-  "asserts": "An action span's exec ref can name a run id the builder minted but never wrote a trace for: spans says the trace was not found, rather than fabricating an exit from the cached ref fields or silently omitting the reference.",
+  "asserts": "An action span's exec ref can name a run id the builder minted but never wrote a trace for: spans still prints the daemon's own witness (exit 1, waited) and says separately that the program trace was not found, rather than reporting the cached ref as if the file had been read or dropping the reference.",
   "meta": {
     "trace_format": 5,
     "incomplete": false,
@@ -105,7 +105,7 @@
   "questions": [
     {
       "id": "exec-ref-to-a-trace-that-was-never-built-says-so",
-      "ask": "The generation's action names $RUN2, a run id that was minted but never built: does spans say the trace was not found, rather than printing the cached exit as if the file existed?",
+      "ask": "The daemon waited on the child and saw exit 1, but $RUN2 was minted and never built: does spans print the daemon's own witness as its own fact and say the program trace was not found, rather than letting the cached ref speak for a file nobody opened?",
       "command": [
         "spans",
         "$RUN",
@@ -119,6 +119,10 @@
           "$RUN2"
         ],
         [
+          "daemon saw exit 1 (waited)"
+        ],
+        [
+          "program trace",
           "(trace not found)"
         ]
       ]

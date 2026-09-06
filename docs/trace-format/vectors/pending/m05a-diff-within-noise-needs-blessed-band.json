@@ -1,6 +1,6 @@
 {
   "id": "m05a-diff-within-noise-needs-blessed-band",
-  "asserts": "A divergence outside any blessed noise band is DIVERGED even when both tokens sit inside each other's top-k -- proximity alone never earns MATCH (within noise).",
+  "asserts": "A divergence outside any blessed noise band is DIVERGED even when both tokens sit inside each other's top-k -- proximity alone never earns MATCH (within noise) -- and an absent band is reported as a missing reading, never as a refusal and never silently.",
   "meta": {
     "trace_format": 5,
     "incomplete": false,
@@ -155,7 +155,7 @@
   "questions": [
     {
       "id": "no-band-no-within-noise-reading",
-      "ask": "Both tokens sit in each other's top-2 with small margins, but A carries no `noise_band`: is the verdict DIVERGED, not MATCH (within noise)?",
+      "ask": "Both tokens sit in each other's top-2 with small margins, but A carries no `noise_band`: is the verdict DIVERGED -- and does the output say the within-noise reading did not happen because there was no band, rather than leaving the absence to be guessed at?",
       "command": [
         "diff",
         "$RUN",
@@ -165,6 +165,10 @@
       "expect_line": [
         [
           "DIVERGED"
+        ],
+        [
+          "no noise band",
+          "bless-noise"
         ]
       ]
     }

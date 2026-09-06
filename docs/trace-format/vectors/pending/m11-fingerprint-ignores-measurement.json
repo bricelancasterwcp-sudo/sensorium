@@ -1,6 +1,6 @@
 {
-  "id": "m05b-diff-within-noise-needs-blessed-band",
-  "asserts": "A divergence within a blessed noise_band's max_margin, with both tokens in each other's top-k, reads MATCH (within noise) and names the baseline it was read from.",
+  "id": "m11-fingerprint-ignores-measurement",
+  "asserts": "A generation's fingerprint hashes token ids only: two traces whose generations chose the identical token at every position, but whose recorded logprob, entropy, top-k and timestamps all differ, hash equal and read MATCH. Measurement is what the GPU's floating point moved between two boots; behavior is the token that was chosen, and only behavior enters the hash.",
   "meta": {
     "trace_format": 5,
     "incomplete": false,
@@ -56,21 +56,11 @@
         "kind": "greedy"
       },
       "flash_attention": true
-    },
-    "noise_band": {
-      "basis": "two-identical-boots",
-      "against": "$RUN2",
-      "weights_sha256": "00",
-      "adapters": [],
-      "max_margin": 0.1,
-      "positions": 1,
-      "gens": 1
     }
   },
   "meta2": {
     "same_as": "meta",
-    "run_id": "$RUN2",
-    "noise_band": null
+    "run_id": "$RUN2"
   },
   "tasks": [
     [
@@ -125,38 +115,38 @@
       "pos": 0,
       "token": 3,
       "piece": "The",
-      "logprob": -0.1,
-      "entropy": 0.3,
+      "logprob": -0.44,
+      "entropy": 0.71,
       "topk": [
         [
           3,
-          -0.1
+          -0.44
         ],
         [
           5,
-          -2.4
+          -1.9
         ]
       ],
-      "ts": 1000
+      "ts": 5000
     },
     {
       "task": 1,
       "pos": 1,
-      "token": 6,
-      "piece": " match",
-      "logprob": -0.23,
-      "entropy": 0.58,
+      "token": 5,
+      "piece": " fix",
+      "logprob": -0.31,
+      "entropy": 0.52,
       "topk": [
         [
-          6,
-          -0.23
+          5,
+          -0.31
         ],
         [
-          5,
-          -0.3
+          6,
+          -0.9
         ]
       ],
-      "ts": 2000
+      "ts": 9000
     }
   ],
   "spans": [],
@@ -164,8 +154,8 @@
   "fingerprints": "compute",
   "questions": [
     {
-      "id": "within-blessed-band-is-match",
-      "ask": "With a noise_band blessed against $RUN2, measured under the same weights_sha256 both sides declare, and a max_margin that covers this divergence, does diff read MATCH (within noise) and name $RUN2 as the baseline?",
+      "id": "identical-token-ids-with-different-measurements-hash-equal",
+      "ask": "Both traces sampled token 3 then token 5, and every recorded measurement about those tokens -- logprob, entropy, top-k, timestamp -- differs between them: does diff read MATCH, the two generations having fingerprinted equal?",
       "command": [
         "diff",
         "$RUN",
@@ -174,8 +164,7 @@
       "expect_exit": 0,
       "expect_line": [
         [
-          "MATCH (within noise)",
-          "$RUN2"
+          "MATCH"
         ]
       ]
     }

@@ -1,6 +1,6 @@
 {
   "id": "p01-signature-canonical-json",
-  "asserts": "signature's canonical JSON is derived from a program trace's causal stream, not from its source location: a run that raised, unwound and never returned reports outcome raised / disposition PROPAGATED / fork.qualname naming the raising frame, excludes exc.msg, and hashes to the same key when the same code is renamed to a different file at composition.",
+  "asserts": "signature's canonical JSON is derived from a program trace's causal stream, not from its source location: a run that raised, unwound and never returned reports outcome raised / disposition PROPAGATED / fork.qualname naming the raising frame by its file-local qualname, excludes exc.msg, and hashes to the same key when the same code is renamed to a different file at composition.",
   "meta": {
     "run_id": "$RUN",
     "argv": [
@@ -66,12 +66,12 @@
   "codes": [
     [
       "/w/unit_17.py",
-      "unit_17.helper",
+      "helper",
       3
     ],
     [
       "/w/unit_17.py",
-      "unit_17.run",
+      "run",
       9
     ]
   ],
@@ -153,12 +153,12 @@
   "codes2": [
     [
       "/w/unit_18.py",
-      "unit_17.helper",
+      "helper",
       3
     ],
     [
       "/w/unit_18.py",
-      "unit_17.run",
+      "run",
       9
     ]
   ],
@@ -241,7 +241,7 @@
   "questions": [
     {
       "id": "signature-json-shape-and-msg-excluded",
-      "ask": "unit_17.run called unit_17.helper, which raised TypeError('bad') and unwound both frames with no RETURN: does signature --json report basis signature-v1, outcome raised, fork.qualname unit_17.helper, disposition PROPAGATED, and omit exc.msg entirely?",
+      "ask": "run called helper, which raised TypeError('bad') and unwound both frames with no RETURN: does signature --json report basis signature-v1, outcome raised, fork.qualname helper (file-local, as code_objects.qualname is), disposition PROPAGATED, and omit exc.msg entirely?",
       "command": [
         "signature",
         "$RUN",
@@ -256,7 +256,7 @@
           "\"outcome\": \"raised\""
         ],
         [
-          "\"qualname\": \"unit_17.helper\""
+          "\"qualname\": \"helper\""
         ],
         [
           "\"disposition\": \"PROPAGATED\""

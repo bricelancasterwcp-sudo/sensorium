@@ -99,7 +99,7 @@
   "questions": [
     {
       "id": "zero-token-generation-reports-tokens-0",
-      "ask": "Does gens report the empty generation as tokens:0, stop:eog, rather than omitting it?",
+      "ask": "Does gens report the empty generation as tokens:0, stop:eog with H̄:n/a minH:n/a and no position at all, rather than omitting the row or printing a zero entropy for a token that was never sampled?",
       "command": [
         "gens",
         "$RUN"
@@ -110,8 +110,15 @@
           "g1",
           "fx/empty",
           "tokens:0",
-          "stop:eog"
+          "stop:eog",
+          "H̄:n/a",
+          "minH:n/a"
         ]
+      ],
+      "expect_absent": [
+        "H̄:0",
+        "minH:0",
+        "at p0"
       ]
     },
     {

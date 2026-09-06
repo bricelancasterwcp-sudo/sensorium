@@ -138,7 +138,7 @@
   "fingerprints": "compute",
   "questions": [
     {
-      "id": "session-group-headers-the-model-trace-joinless-run-is-column0",
+      "id": "session-group-headers-the-model-trace-the-joinless-program-trace-is-column0",
       "ask": "Does runs group the model trace under 'session sess-20260905-01: fixture-model' indented, while the joinless program trace prints ungrouped starting at column 0?",
       "command": [
         "runs"

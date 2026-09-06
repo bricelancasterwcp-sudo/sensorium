@@ -1,6 +1,6 @@
 {
   "id": "m05c-diff-within-noise-needs-blessed-band",
-  "asserts": "A noise_band blessed for one model.weights_sha256 does not travel to a trace that now declares a different one; diff refuses rather than apply a band the current weights were never measured against.",
+  "asserts": "A noise_band records the weights_sha256 it was measured under, so a trace that now declares a different one is refused on the band's own evidence: diff never applies a band the current weights were never measured against, and never has to open the baseline trace to discover that.",
   "meta": {
     "trace_format": 5,
     "incomplete": false,
@@ -60,6 +60,8 @@
     "noise_band": {
       "basis": "two-identical-boots",
       "against": "$RUN2",
+      "weights_sha256": "00",
+      "adapters": [],
       "max_margin": 0.1,
       "positions": 1,
       "gens": 1
@@ -67,7 +69,23 @@
   },
   "meta2": {
     "same_as": "meta",
-    "run_id": "$RUN2"
+    "run_id": "$RUN2",
+    "noise_band": null,
+    "model": {
+      "name": "fixture-model",
+      "engine": "llama.cpp",
+      "engine_build": "b10200",
+      "weights_path": "/w/m.gguf",
+      "weights_sha256": "00",
+      "adapters": [],
+      "n_ctx": 4096,
+      "n_vocab": 8,
+      "backend": "vulkan",
+      "sampler": {
+        "kind": "greedy"
+      },
+      "flash_attention": true
+    }
   },
   "tasks": [
     [
@@ -162,7 +180,7 @@
   "questions": [
     {
       "id": "band-computed-against-different-weights-sha256-refuses",
-      "ask": "A carries a noise_band but now declares model.weights_sha256 '01' instead of the '00' it was blessed under: does diff refuse, naming weights_sha256 as why?",
+      "ask": "A's band was measured under weights_sha256 '00' -- which is what B still declares -- but A now declares '01': does diff refuse, naming weights_sha256 as why?",
       "command": [
         "diff",
         "$RUN",
