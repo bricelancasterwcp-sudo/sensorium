@@ -240,6 +240,82 @@ def test_an_invocation_id_answers_for_every_member(
     assert "details vary" not in o and "routes:" not in o, o
 
 
+def one_process_two_chains_trace(tmp_path, monkeypatch, **meta):
+    """`load()` sinks TWO `Err`s at the SAME `.ok()` (L31), so one process
+    carries a shape of two chains.
+
+    Event ids: e1 CALL load, e2 CALL read_config, e3 RAISE (chain 1's
+    origin), e4 RETURN err, e5 HANDLED at L31, e6 CALL read_config, e7 RAISE
+    (chain 2's origin), e8 RETURN err, e9 HANDLED at L31, e10 RETURN ok.
+    """
+    return rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "load", 30], [FILE, "read_config", 12]],
+        frames=[frame(1, 1, 10), frame(2, 2, 4, parent=1, depth=1),
+                frame(2, 6, 8, parent=1, depth=1)],
+        events=[
+            call(1000, 1, 30),
+            call(2000, 2, 12),
+            flow(3000, "RAISE", 2, 2, 14,
+                 err_flow("exit", "demo::ConfigError", 'Missing("port")', S1,
+                          hop=1, loc=f"{SITE_FILE}:14")),
+            ret(4000, 2, 2, "err", 'Err(Missing("port"))'),
+            flow(5000, "HANDLED", 1, 1, 31,
+                 err_flow("sink_ok", "demo::ConfigError", 'Missing("port")',
+                          S1, hop=1, terminal="swallowed_candidate",
+                          loc=f"{SITE_FILE}:31")),
+            call(6000, 2, 12),
+            flow(7000, "RAISE", 3, 2, 14,
+                 err_flow("exit", "demo::ConfigError", 'Missing("port")', S2,
+                          hop=1, loc=f"{SITE_FILE}:14")),
+            ret(8000, 3, 2, "err", 'Err(Missing("port"))'),
+            flow(9000, "HANDLED", 1, 1, 31,
+                 err_flow("sink_ok", "demo::ConfigError", 'Missing("port")',
+                          S2, hop=1, terminal="swallowed_candidate",
+                          loc=f"{SITE_FILE}:31")),
+            ret(10000, 1, 1, "ok", "None"),
+        ],
+        sites=[fn_site("load", SITE_FILE, 30),
+               fn_site("read_config", SITE_FILE, 12)],
+        **meta)
+
+
+def test_a_group_confined_to_one_member_says_process_in_the_singular(
+        tmp_path, monkeypatch, capsys):
+    """A count that reads `1 processes` is the tell that a number was
+    printed by a template rather than said by anyone, and in this mode the
+    singular is the COMMON case: most shapes of a 144-process sweep live in
+    one member. Two processes, a shape of two chains that both came from the
+    first, and the header's own `over N processes` counting the members that
+    had a chain -- both singular here, and neither is the member count."""
+    one_process_two_chains_trace(tmp_path, monkeypatch, run_id=M1,
+                                 invocation=INV, cargo_args=CARGO)
+    quiet_trace(tmp_path, monkeypatch, run_id=M2, invocation=INV,
+                cargo_args=CARGO)
+    assert cli.main(["exceptions", INV]) == ANSWERED
+    o = out(capsys)
+    assert (f"invocation {INV}: cargo test --workspace -- 2 processes, "
+            "1 with Err chains, 1 with none") in o, o
+    assert "raised (2 chains over 1 process, 1 swallowing sites):" in o, o
+    assert f"  [×2 over 1 process: first e3 in {M1}, +1]" in o, o
+    assert "1 processes" not in o, o
+    assert "dispositions: swallowed 2" in o, o
+
+
+def test_the_after_refusal_counts_a_lone_member_in_the_singular(
+        tmp_path, monkeypatch, capsys):
+    """The refusal's other use of the same speller. An invocation of one
+    process still refuses `--after` -- the id is minted per process and the
+    mode is the invocation's -- and the sentence that says why must not read
+    `spans 1 processes`."""
+    swallow_trace(tmp_path, monkeypatch, run_id=M1, invocation=INV,
+                  cargo_args=CARGO)
+    assert cli.main(["exceptions", INV, "--after", "e1"]) == BAD_CALL
+    o = out(capsys)
+    assert ("--after names an event of one process; this answer spans "
+            "1 process -- page with --limit") in o, o
+
+
 def test_incomplete_members_are_named_before_the_answer(
         tmp_path, monkeypatch, capsys):
     """A process that stopped mid-flight is a gap in the whole answer, so it
@@ -442,6 +518,27 @@ def test_an_ambiguous_prefix_is_refused(tmp_path, monkeypatch, capsys):
     assert cli.main(["exceptions", "20260101-000000-aaaaa"]) == BAD_CALL
     err = capsys.readouterr().err
     assert f"is ambiguous: {a}, {b}" in err, err
+
+
+def test_an_ambiguous_TRACE_prefix_keeps_its_own_answer(
+        tmp_path, monkeypatch, capsys):
+    """The guard on the fall-through, which nothing else exercises.
+
+    `exceptions_cmd.run` opens the invocation namespace on ONE lookup
+    failure -- "this ref names no trace". Every other `TraceLookupError` is
+    an answered question and is re-raised: a run prefix that matches two
+    trace stems is ambiguous, and re-reading it as an invocation id would
+    answer `no trace or invocation matches` to a ref that matches two
+    traces, sending the reader to look for a recording rather than to type
+    a longer prefix.
+    """
+    swallow_trace(tmp_path, monkeypatch, run_id=M1)
+    swallow_trace(tmp_path, monkeypatch, run_id=M2)
+    assert cli.main(["exceptions", "20260101-000000-aaa00"]) == BAD_CALL
+    err = capsys.readouterr().err
+    assert (f"error: '20260101-000000-aaa00' is ambiguous: {M1}, {M2}"
+            in err), err
+    assert "no trace or invocation matches" not in err, err
 
 
 def test_a_ref_that_is_neither_keeps_the_old_error(

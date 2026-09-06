@@ -252,6 +252,21 @@ def test_after_still_scopes_by_origin_id(tmp_path, monkeypatch, capsys):
     assert "dispositions: swallowed 1" in text, text
 
 
+def test_eight_ids_print_all_eight_and_no_plus_zero(
+        tmp_path, monkeypatch, capsys):
+    """The boundary the `+K` note is written at. `MAX_IDS` ids fit, so the
+    bracket is the whole group and there is nothing more to promise: a
+    comparison one off here would append `… +0` to a complete list and tell
+    a reader there are members the bracket is not showing."""
+    run_id = escaped_trace(tmp_path, monkeypatch, origins=[2] * 8)
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    text = out(capsys)
+    assert text.count(NO_SINK) == 1, text
+    assert "[×8: e3, e6, e9, e12, e15, e18, e21, e24]" in text, text
+    assert "+0" not in text and "…" not in text, text
+    assert "dispositions: ambiguous 8" in text, text
+
+
 def test_nine_ids_print_eight_and_a_plus_one(tmp_path, monkeypatch, capsys):
     """The bracket is a name for the group, not a dump of it: eight ids,
     then how many more there are."""
@@ -550,6 +565,31 @@ def test_two_files_sharing_a_qualname_and_a_line_are_two_shapes_that_name_the_fi
     # the tally still counts CHAINS, and no chain was lost by the split
     assert "dispositions: swallowed 4" in text, text
     assert "raised (4):" in text, text
+
+
+def test_a_clipped_page_still_names_the_file_of_a_block_that_collides(
+        tmp_path, monkeypatch, capsys):
+    """The collision set is a property of the ANSWER, not of the page.
+
+    `--limit 1` prints the first of two shapes whose site texts collide, and
+    the shape it prints is ambiguous whether or not the block it collides
+    with fits: `sandbox L42` names two places in this run, and a sentence
+    that dropped its file because the reader passed a smaller `--limit`
+    would be a sentence about the page. Computed over the shapes the page
+    shows, this block loses its file exactly when a reader looks at one
+    block at a time -- the way a reader looks at a big answer.
+    """
+    run_id = two_files_one_site_trace(tmp_path, monkeypatch)
+    assert cli.main(["exceptions", run_id, "--limit", "1"]) == ANSWERED
+    text = out(capsys)
+    assert text.count("SWALLOWED --") == 1, text
+    assert ("    SWALLOWED -- absorbed by sink_let_underscore at e5 "
+            "(sandbox L42 in task_exec_read_find_test.rs) in f1, which "
+            "returned ok  [×2: e3, e7]") in text, text
+    # the block it collides with is off the page, and the tally still counts
+    # every chain of the answer
+    assert "task_exec_run_test.rs" not in text, text
+    assert "dispositions: swallowed 4" in text, text
 
 
 def test_an_answer_whose_site_texts_do_not_collide_is_byte_identical(
