@@ -28,7 +28,7 @@
     {
       "pid": 4101,
       "exe": "/w/target/debug/deps/demo-errflow",
-      "rt_version": "sensorium-rt 0.3.0",
+      "rt_version": "sensorium-rt 0.4.0",
       "capabilities": {"err_flow": true},
       "units": {"0": "u0"},
       "threads": [
