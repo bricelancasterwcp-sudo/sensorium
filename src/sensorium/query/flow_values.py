@@ -11,6 +11,7 @@ import re
 from dataclasses import dataclass
 
 from sensorium.query.fmt import fmt_value
+from sensorium.query.rust_debug import debug_text
 
 CONTAINER_KINDS = ("obj", "seq", "map")
 
@@ -65,6 +66,16 @@ def matches(cap: dict, target) -> bool:
     if isinstance(target, ObjTarget):
         return (k in CONTAINER_KINDS and cap.get("oid") == target.oid
                 and cap.get("type") == target.type)
+    if k == "dbg":
+        # Debug TEXT (design 2026-09-06 §4.2): a sighting is the literal's
+        # own Debug RENDERING, spelled the way Rust spells it -- so `"A1"`
+        # sights a `String`, and the bare word `A1` sights an enum variant
+        # or a type name instead. A truncated text is a prefix of a
+        # rendering and equals none. An `ObjTarget` never reaches here: a
+        # rendering carries no address, so it is nobody's identity.
+        text = debug_text(target)
+        return (not cap.get("trunc") and text is not None
+                and cap.get("v") == text)
     if target is None:
         return k == "none"
     if isinstance(target, bool):

@@ -63,10 +63,10 @@ from pathlib import Path
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.caps import print_incomplete, require
-from sensorium.query.expr import (CLIPPED, CONTAINER, NO_VALUE, NOT_CAPTURED,
-                                  OUT_OF_SCOPE, TRUNCATED, EvalError,
-                                  ExprError, NotCaptured, _Sized, compile_expr,
-                                  resolve)
+from sensorium.query.expr import (CLIPPED, CONTAINER, NO_LENGTH, NO_VALUE,
+                                  NOT_CAPTURED, OUT_OF_SCOPE, TRUNCATED,
+                                  EvalError, ExprError, NotCaptured, _Sized,
+                                  compile_expr, resolve)
 from sensorium.query.fmt import fmt_event, fmt_value, more_note, parse_eref
 from sensorium.record.tracer import module_name_for
 from sensorium.store.reader import Trace
@@ -100,8 +100,22 @@ def add_parser(sub) -> None:
 
 # -- selecting sites -------------------------------------------------------
 def _qual_matches(qualname: str, spec: str) -> bool:
-    """`Pot` selects `Pot.add`, the same way `--focus` reads a qualname."""
-    return qualname == spec or qualname.startswith(spec + ".")
+    """`Pot` selects `Pot.add`, and `Counter` selects `Counter::new`.
+
+    A prefix counts only where it ends at a BOUNDARY -- Python's `.` or
+    Rust's `::` -- or `--at Counter` would quietly answer about
+    `Counters::new`, a different function the reader never named. One rule
+    holding both separators, and no `lang` branch anywhere near it: `watch`
+    takes the qualname its own recorder printed (design 2026-09-06 §4.1).
+
+    This is the only prefix rule in `query/`. `flow --object
+    <qualname>:<name>` names ONE function and resolves it by equality, so
+    there is no second copy of the rule to keep in step with this one; the
+    recorder's own focus matcher (`record/tracer`) is a different question,
+    asked of Python source before a run rather than of a recorded trace.
+    """
+    return (qualname == spec or qualname.startswith(spec + ".")
+            or qualname.startswith(spec + "::"))
 
 
 def site_matches(code, at: str, module: str | None) -> bool:
@@ -292,6 +306,10 @@ def _guidance(reason: str, name: str, ever: bool, has_line: bool,
     if reason == NO_VALUE:
         return ["only its type and repr were recorded, so there is nothing to "
                 "compare; refocusing cannot change that"]
+    if reason == NO_LENGTH:
+        return ["what the trace holds there is the value itself -- a number, "
+                "a bool, or a Debug rendering -- and none of those carries a "
+                "recorded length; compare the name itself instead"]
     if reason == CLIPPED:
         return ["the capture is a prefix cut at the string cap, so the value "
                 "itself was never recorded",

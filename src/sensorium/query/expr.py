@@ -62,6 +62,8 @@ A clipped *string* is the real truncation case, and it is refused.
 import ast
 import operator
 
+from sensorium.query.rust_debug import read_debug
+
 # Why a name the predicate needs has no usable value at some site. `NAME` is
 # substituted with the actual name when the message is rendered.
 OUT_OF_SCOPE = "not in scope at this site"
@@ -134,6 +136,20 @@ class _Sized:
         return f"<len {self.n}>"
 
 
+class _DbgText(str):
+    """A string read out of a Debug TEXT capture (Rust's `{:?}`).
+
+    A `str`, because that is what the trace holds and what a predicate may
+    compare: `s == "A1"` and `"A" in s` are answered by the very characters
+    the recorder wrote, and design 2026-09-06 §4.2 says they are answered.
+    Its own class, because `len()` over it is not: `"A1"` is four characters
+    as Rust spells it and two as the program held it, and the recorder
+    measured NEITHER number -- it recorded a rendering. `_length` refuses it,
+    so such a site is reported as one the predicate could not be checked at.
+    """
+    __slots__ = ()
+
+
 _CMP = {ast.Lt: operator.lt, ast.LtE: operator.le, ast.Gt: operator.gt,
         ast.GtE: operator.ge, ast.Eq: operator.eq, ast.NotEq: operator.ne}
 _BIN = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
@@ -185,6 +201,18 @@ def resolve(v: dict):
             return NOT_CAPTURED
         members, complete = _members(v, n)
         return _Sized(n, members, complete)
+    if k == "dbg":
+        # A value the recorder could only RENDER, with the language's own
+        # formatter, because it cannot decompose the type (Rust). The text
+        # is the capture, so the value is whatever the text spells -- and a
+        # truncated one is a prefix of the rendering, which spells nothing.
+        if v.get("trunc"):
+            return TRUNCATED
+        t = v.get("v")
+        if not isinstance(t, str):
+            return NOT_CAPTURED         # a `dbg` with no text is malformed
+        val = read_debug(t)
+        return _DbgText(val) if isinstance(val, str) else val
     return NOT_CAPTURED
 
 
@@ -469,6 +497,11 @@ def _length(name: str, env: dict) -> int:
     val = env.get(name, NOT_CAPTURED)
     if isinstance(val, _Sized):
         return val.n
+    if isinstance(val, _DbgText):
+        # BEFORE the `str` arm, which it would otherwise satisfy. What the
+        # trace holds is a rendering, and a rendering's length is not the
+        # value's -- no length was recorded here at all.
+        raise NotCaptured(name, NO_LENGTH)
     if isinstance(val, str):
         return len(val)
     if val is NOT_CAPTURED:

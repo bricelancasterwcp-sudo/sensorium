@@ -12,7 +12,8 @@ ceiling, along the seam the material has: the shapes are shared by three
 suites (the accusation family, the ambiguous family, and the gate) and
 belong to none of them.
 """
-from tests.helpers import err_flow, fn_site, rust_trace
+from tests.helpers import (RUST_CAPABILITIES, err_flow, fn_site,
+                           rust_trace)
 
 FILE = "/w/demo/src/lib.rs"
 SITE_FILE = "demo/src/lib.rs"
@@ -183,3 +184,60 @@ def five_dispositions(tmp_path, monkeypatch):
         ],
         sites=[fn_site("run", SITE_FILE, 3, test=True)],
         incomplete=True, live_threads=[2])
+
+
+# -- the focus tier (rung 4): LINE rows and `dbg` deltas --------------------
+def dbg(text, trunc=False):
+    """One `dbg` capture: the text a probe got from the value's `Debug`.
+
+    `trunc` is the recorder saying its 200-byte cap stopped the formatter
+    mid-value, so the text is a PREFIX of the rendering.
+    """
+    return {"k": "dbg", "v": text, "trunc": trunc}
+
+
+def line(ts, fr, code, line_no, deltas, thread=1, dropped=False):
+    """One LINE event in the payload shape `cargo-sensorium` writes: the
+    bindings the statement wrote, plus `unread: ["locals"]` when the record
+    was short and deltas were dropped (design §3.5)."""
+    payload = {"deltas": deltas}
+    if dropped:
+        payload["unread"] = ["locals"]
+    return {"ts": ts, "thread": thread, "kind": "LINE", "frame": fr,
+            "code": code, "line": line_no, "payload": payload, "task": None}
+
+
+def focused_trace(tmp_path, monkeypatch, **meta):
+    """`cargo sensorium --focus fill --focus Counter run`, as a trace.
+
+    Two focused functions, so one trace holds both things the query side
+    gained: `fill` writes a `String`, an integer and an enum variant through
+    the Debug ladder, and `Counter::new` is reachable only if a qualname
+    spec knows the `::` boundary. The parameters LINE of `new` carries
+    EMPTY deltas -- design amendment A2: a function with no parameters still
+    mints one, saying that it was entered.
+
+    `capabilities.line`/`locals` are true because some unit of this run
+    carries a LINE site; an unfocused Rust trace declares both false, which
+    is what `RUST_CAPABILITIES` holds.
+    """
+    caps = {**RUST_CAPABILITIES, "line": True, "locals": True}
+    return rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "fill", 10], [FILE, "Counter::new", 30]],
+        frames=[frame(1, 1, 4), frame(2, 5, 8)],
+        events=[
+            call(1000, 1, 10),
+            line(1100, 1, 1, 10, {"s": dbg('"A1"')}),
+            line(1200, 1, 1, 12, {"b": dbg("2"),
+                                  "tier": dbg("Basic")}),
+            ret(1300, 1, 1, "ok", "()"),
+            call(2000, 2, 30),
+            line(2100, 2, 2, 30, {}),
+            line(2200, 2, 2, 31, {"n": dbg("7")}),
+            ret(2300, 2, 2, "ok", "Counter { n: 7 }"),
+        ],
+        sites=[fn_site("fill", SITE_FILE, 10),
+               fn_site("Counter::new", SITE_FILE, 30)],
+        capabilities=caps, focus=["fill", "Counter"],
+        focus_matched=["Counter::new", "fill"], **meta)
