@@ -143,10 +143,14 @@ file says; `spans` prints them as two labeled facts and merges them never, so a 
 speaks for a file nobody opened and a missing file never erases what the daemon did see
 (MODEL-TRACES §9, design spec §11 R17).
 
-**Falsifier.** `m07a-spans-exec-ref-joins-program-trace` — when the referenced program trace is
-present, `spans` must print `exec run <id> exit <n> (waited)` read from that program trace, and a
-vector where the printed exit status is synthesized rather than read from the program trace
-falsifies the promise; and `tests/test_join_env.py::test_join_copied_verbatim_or_omitted` (S3),
+**Falsifier.** `m07a-spans-exec-ref-joins-program-trace` — with the daemon's witness
+`unwitnessed` and the referenced program trace present, `spans` must print **two labeled facts**,
+`daemon saw: unwitnessed` and `program trace: exit 1 (waited)`, never one merged line; a vector
+where the two are collapsed, or where the printed exit is synthesized rather than read from the
+program trace, falsifies the promise. `m07b-spans-exec-ref-trace-not-found` — with the daemon's
+witness `exit 1 (waited)` and no program trace, the two facts are `daemon saw exit 1 (waited)`
+and `program trace: (trace not found)`: the daemon's witness survives the missing file, and the
+cached ref never stands in for it. And `tests/test_join_env.py::test_join_copied_verbatim_or_omitted` (S3),
 which must show the program recorder copies `SENSORIUM_JOIN` verbatim or omits the key entirely
 on a missing or non-JSON value, never a partial copy.
 
@@ -158,7 +162,11 @@ carried onto a trace whose weights don't match the baseline.
 
 **What says it.** `meta.noise_band.against` is the run id of the boot the band was measured
 against; the band's presence at all is the signal that this trace, and only this trace, may be
-read within-noise against that named baseline.
+read within-noise against that named baseline. Beside it, `meta.noise_band.weights_sha256` and
+`meta.noise_band.adapters` are what the band was measured **under**, and they are what
+applicability is decided on: a band applies only while they equal both sides' `model`, and
+differ → `REFUSED` (MODEL-TRACES §6, design spec §11 R14). The promise is therefore readable
+from A alone — no one has to open the baseline trace, and deleting it takes nothing away.
 
 **Falsifier.** `m05c-diff-within-noise-needs-blessed-band` — a `diff` between two model traces
 whose `model.weights_sha256` differ must read `REFUSED`, never `MATCH (within noise)`, even if a
