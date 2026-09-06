@@ -184,3 +184,190 @@ fn each_threads_frame_stack_is_its_own_not_a_shared_process_global_view() {
     assert_eq!(x.depth, 0, "x's depth must not count thread 2's open frame");
     assert_eq!(x.thread_id, 3);
 }
+
+/// A row read back from `events`.
+struct EventRow {
+    kind: String,
+    frame_id: Option<i64>,
+    code_id: Option<i64>,
+    line: Option<i64>,
+    payload: serde_json::Value,
+}
+
+fn event_rows(conn: &Connection) -> Vec<EventRow> {
+    let mut stmt = conn
+        .prepare("SELECT kind, frame_id, code_id, line, payload FROM events ORDER BY id")
+        .unwrap();
+    let rows = stmt
+        .query_map([], |r| {
+            let payload: Option<String> = r.get(4)?;
+            Ok(EventRow {
+                kind: r.get(0)?,
+                frame_id: r.get(1)?,
+                code_id: r.get(2)?,
+                line: r.get(3)?,
+                payload: payload.map_or(serde_json::Value::Null, |p| {
+                    serde_json::from_str(&p).unwrap()
+                }),
+            })
+        })
+        .unwrap();
+    rows.map(Result::unwrap).collect()
+}
+
+fn line_fixture(name: &str, pid: u32) -> Fixture {
+    let f = Fixture::new(name);
+    wire::write_manifest(
+        &f.manifests_dir,
+        "meta1",
+        "demo",
+        &[(
+            FILE,
+            &[site(0, "fill", 3, "unit"), wire::line_site(1, "fill", 5)],
+        )],
+        &[(FILE, "deadbeef")],
+        false,
+        None,
+        &[],
+    );
+    wire::write_proc_header(
+        &f.spool_dir,
+        pid,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    f
+}
+
+/// Design §3.5: a LINE record becomes an `events` row on the frame that is
+/// OPEN -- the CALL's -- carrying the fn's code object, the STATEMENT's line
+/// (not the fn's), and the deltas in the capture shape a RETURN value already
+/// uses. It pushes and pops nothing, and it is not a fingerprint event.
+#[test]
+fn a_line_record_becomes_a_row_on_the_open_frame_with_the_statements_own_line() {
+    let f = line_fixture("frames-line-row", 1301);
+    wire::SpoolBuilder::new(1301, 1, "main")
+        .call(0, 1000, 0, 0)
+        .line(
+            1,
+            1100,
+            0,
+            1,
+            false,
+            &[
+                ("x", wire::LineDelta::Dbg("5", false)),
+                ("buf", wire::LineDelta::Unread),
+            ],
+        )
+        .ret_none(2, 1200, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+
+    let rows = event_rows(&conn);
+    let kinds: Vec<&str> = rows.iter().map(|r| r.kind.as_str()).collect();
+    assert_eq!(
+        kinds,
+        ["CALL", "LINE", "RETURN"],
+        "three rows, in seq order"
+    );
+
+    let frame_id: i64 = conn
+        .query_row("SELECT id FROM frames", [], |r| r.get(0))
+        .expect("exactly one frame");
+    let code_id: i64 = conn
+        .query_row(
+            "SELECT id FROM code_objects WHERE qualname = 'fill'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("the fn's code object");
+    let frames: i64 = conn
+        .query_row("SELECT COUNT(*) FROM frames", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(frames, 1, "a LINE pushes and pops nothing");
+
+    let line = &rows[1];
+    assert_eq!(
+        line.frame_id,
+        Some(frame_id),
+        "the LINE row sits on the CALL's frame"
+    );
+    assert_eq!(
+        line.code_id,
+        Some(code_id),
+        "and carries the fn's code object"
+    );
+    assert_eq!(line.line, Some(5), "the statement's line, not the fn's 3");
+    assert_eq!(
+        line.payload,
+        serde_json::json!({
+            "deltas": {"x": {"k": "dbg", "v": "5", "trunc": false},
+                       "buf": {"k": "unread"}}
+        }),
+        "no `unread` key when nothing was dropped"
+    );
+
+    let n_events: i64 = conn
+        .query_row(
+            "SELECT n_events FROM fingerprints WHERE thread_id = 1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        n_events, 2,
+        "the fingerprint still counts CALL and RETURN only"
+    );
+}
+
+/// `flags.bit0` is the runtime saying the record is SHORT, and the row must
+/// say so in the one key a reader already knows: `unread: ["locals"]`.
+#[test]
+fn a_line_record_whose_deltas_were_dropped_says_unread_locals() {
+    let f = line_fixture("frames-line-dropped", 1302);
+    wire::SpoolBuilder::new(1302, 1, "main")
+        .call(0, 1000, 0, 0)
+        .line(
+            1,
+            1100,
+            0,
+            1,
+            true,
+            &[("x", wire::LineDelta::Dbg("5", false))],
+        )
+        .ret_none(2, 1200, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+    let rows = event_rows(&conn);
+    assert_eq!(
+        rows[1].payload,
+        serde_json::json!({
+            "deltas": {"x": {"k": "dbg", "v": "5", "trunc": false}},
+            "unread": ["locals"]
+        })
+    );
+}
+
+/// A statement that wrote nothing is still a row: the empty `deltas` object
+/// says the line RAN, which is the whole point of a LINE with no bindings.
+#[test]
+fn a_line_record_with_no_deltas_is_still_a_row_that_says_the_line_ran() {
+    let f = line_fixture("frames-line-empty", 1303);
+    wire::SpoolBuilder::new(1303, 1, "main")
+        .call(0, 1000, 0, 0)
+        .line(1, 1100, 0, 1, false, &[])
+        .ret_none(2, 1200, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+    let rows = event_rows(&conn);
+    assert_eq!(rows[1].kind, "LINE");
+    assert_eq!(rows[1].payload, serde_json::json!({"deltas": {}}));
+}

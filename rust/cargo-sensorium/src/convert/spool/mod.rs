@@ -18,7 +18,7 @@
 //!               u64 truncated  name_bytes   (28 bytes fixed, then name_bytes)
 //! record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome_or_how  u16 payload_len  [payload]
 //! kind:         0 unwritten tail (STOP here), 1 CALL, 2 RETURN, 3 PANIC, 4 RAISE, 5 HANDLED,
-//!               255 THREAD_END
+//!               6 LINE, 255 THREAD_END
 //! outcome:      RETURN only: 0 none, 1 ok, 2 err, 3 panic
 //! how:          RAISE/HANDLED only, the same byte: 1 try, 2 sink_ok, 3 sink_unwrap_or,
 //!               4 sink_let_underscore, 5 arm_propagate, 6 arm_handled, 7 arm_ambiguous.
@@ -30,7 +30,15 @@
 //! RAISE/HANDLED payload:  u8 flags (bit0 msg present, bit1 msg truncated, bit2 type truncated,
 //!                  bit3 type present)  u16 type_len  type UTF-8  msg UTF-8 (rest)
 //! PANIC payload:   u16 loc_len  loc UTF-8  msg UTF-8 (rest)
+//! LINE payload:    u8 flags (bit0 deltas dropped)  u16 n  n × {u16 name_len, name UTF-8,
+//!                  u8 tag, u8 truncated, [u16 text_len, text UTF-8] iff tag = 1} -- see [`line`]
 //! ```
+//!
+//! LINE (kind 6) arrives only on a spool written by a 0.4.0 runtime, and only
+//! under a focus; its version byte is v3 like everything else, because the
+//! record header did not move (design 2026-09-06 §3.4).
+
+pub mod line;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -46,6 +54,10 @@ pub const KIND_RETURN: u8 = 2;
 pub const KIND_PANIC: u8 = 3;
 pub const KIND_RAISE: u8 = 4;
 pub const KIND_HANDLED: u8 = 5;
+/// The focus tier's per-statement record (design 2026-09-06 §3.4). Mirrored
+/// here as a NUMBER, like every other kind: this reader agrees with the writer
+/// on the wire, not on a shared constant.
+pub const KIND_LINE: u8 = 6;
 pub const KIND_THREAD_END: u8 = 255;
 
 /// The wire versions this converter reads. v2 is rung 2's; v3 is rung 3's

@@ -15,7 +15,7 @@ use crate::convert::fingerprint::Fingerprint;
 use crate::convert::manifest::{Manifest, RetKind, SiteInfo, SiteKind};
 use crate::convert::merge::MergeResult;
 use crate::convert::spool::{
-    self, How, ProcHeader, KIND_CALL, KIND_HANDLED, KIND_PANIC, KIND_RAISE, KIND_RETURN,
+    self, How, ProcHeader, KIND_CALL, KIND_HANDLED, KIND_LINE, KIND_PANIC, KIND_RAISE, KIND_RETURN,
     KIND_THREAD_END, TAG_DEBUG, TAG_NO_VALUE, TAG_UNREAD,
 };
 use crate::convert::sqlite::TraceWriter;
@@ -330,6 +330,58 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                     &top.qualname,
                     "RETURN",
                 );
+            }
+            KIND_LINE => {
+                let label = format!("pid {pid} thread {thread_id} seq {}", r.seq);
+                let site = resolve_site(&unit_by_id, &site_lookup, pid, &label, "LINE", r.site)?;
+                // `LINE record` and not the bare label: the confusion this
+                // catches is between a LINE RECORD and a `line` SITE, and a
+                // sentence that named only the record's position would leave
+                // a reader to work out which of the two it meant.
+                site.require_line(&format!("{label}: LINE record"))?;
+                let parsed = spool::line::parse_line_payload(&label, &r.payload)?;
+                // Design amendment A6: the parameters LINE is spliced AFTER
+                // the entry guard, so a LINE always falls inside its
+                // function's CALL. No open frame is therefore a malformed
+                // stream -- NOT the "counted and written as no event" shape an
+                // err-flow record outside every frame has, because that one is
+                // a `?` inside a skipped `async fn` and this one cannot happen
+                // to a well-formed spool at all. Attaching it to whatever
+                // frame happens to be open elsewhere would put a statement's
+                // locals in a function that never ran it.
+                let Some(top) = stacks.get(&thread_id).and_then(|s| s.last()) else {
+                    return Err(format!(
+                        "pid {pid}: a LINE record with no open frame on thread {thread_id} at seq \
+                         {}; the spool is malformed",
+                        r.seq
+                    ));
+                };
+                let task_id = (thread_id != MAIN_SERIAL).then_some(thread_id);
+                let mut deltas = Map::new();
+                for (name, capture) in parsed.deltas {
+                    deltas.insert(name, capture);
+                }
+                let mut obj = Map::new();
+                obj.insert("deltas".to_owned(), Value::Object(deltas));
+                if parsed.dropped {
+                    obj.insert("unread".to_owned(), json!(["locals"]));
+                }
+                let payload = Value::Object(obj);
+                // The frame's own code object and the SITE's line: the row
+                // says which function is running and which of its statements
+                // just completed. No push, no pop, and no fingerprint update
+                // -- a fingerprint is causal events, and a LINE adds none.
+                writer.insert_event(
+                    r.ts_ns,
+                    thread_id,
+                    "LINE",
+                    Some(top.frame_id),
+                    Some(top.code_id),
+                    Some(site.line),
+                    Some(&payload),
+                    task_id,
+                )?;
+                events_written += 1;
             }
             KIND_PANIC => {
                 let label = format!("pid {pid} thread {thread_id} seq {}", r.seq);

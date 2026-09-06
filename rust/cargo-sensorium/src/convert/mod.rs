@@ -26,7 +26,7 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 
-use manifest::Manifest;
+use manifest::{FocusRecord, Manifest, SiteKind};
 use spool::{InvocationRecord, ProcHeader, RunnerRecord};
 
 /// One pid's worth of the report `convert_dir` prints.
@@ -375,6 +375,50 @@ fn site_table(registered: &[String], manifests: &BTreeMap<String, Manifest>) -> 
     out
 }
 
+/// The focus THIS run was built under, gathered from the manifests of the
+/// units this process registered (design 2026-09-06 §2.4).
+///
+/// Registered-unit-scoped, exactly as [`site_table`] is: a manifest belonging
+/// to some other binary of the same invocation says nothing about what this
+/// process was focused on. `values` is taken from the first unit that carries
+/// a record -- every unit of one run is built under the same invocation's
+/// focus, so the lists agree -- while `matched` is the sorted, deduplicated
+/// UNION, because a value can select a function in one unit and nothing in
+/// another. `None` when no registered unit carried the record at all, which is
+/// what makes `focus`/`focus_matched` absent rather than empty.
+fn focus_record(
+    registered: &[String],
+    manifests: &BTreeMap<String, Manifest>,
+) -> Option<FocusRecord> {
+    let mut values: Option<Vec<String>> = None;
+    let mut matched: Vec<String> = Vec::new();
+    for metadata in registered {
+        let Some(focus) = manifests.get(metadata).and_then(|m| m.focus.as_ref()) else {
+            continue;
+        };
+        if values.is_none() {
+            values = Some(focus.values.clone());
+        }
+        matched.extend(focus.matched.iter().cloned());
+    }
+    matched.sort();
+    matched.dedup();
+    values.map(|values| FocusRecord { values, matched })
+}
+
+/// How many `line` sites the units this process registered hold. The whole
+/// basis for `capabilities.line`/`locals`: a run with none cannot produce a
+/// LINE row, whatever was typed on the command line.
+fn line_site_count(registered: &[String], manifests: &BTreeMap<String, Manifest>) -> usize {
+    registered
+        .iter()
+        .filter_map(|metadata| manifests.get(metadata))
+        .flat_map(|m| m.files.values())
+        .flatten()
+        .filter(|s| s.kind == SiteKind::Line)
+        .count()
+}
+
 // ---------------------------------------------------------------------------
 // Per-pid conversion
 // ---------------------------------------------------------------------------
@@ -496,6 +540,7 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         None => (None, None, "unwitnessed", None),
     };
 
+    let focus = focus_record(&registered, c.all_manifests);
     let meta_input = meta::MetaInput {
         run_id: c.run_id,
         argv: &c.proc.argv,
@@ -546,6 +591,8 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
             .get("err_flow")
             .copied()
             .unwrap_or(false),
+        focus: focus.as_ref(),
+        line_sites: line_site_count(&registered, c.all_manifests),
         child_runs: c.child_runs,
     };
     for (key, value) in meta::build(&meta_input) {

@@ -439,3 +439,141 @@ fn a_manifest_spawn_entry_reaches_the_trace_verbatim_including_qualname_and_ordi
     assert_eq!(spawns[1]["qualname"], "b");
     assert_eq!(spawns[1]["ordinal"], serde_json::Value::Null);
 }
+
+/// Design §2.4, end to end: the per-unit `focus` record reaches the trace as
+/// `focus` (the values as given) and `focus_matched` (the sorted union of the
+/// units' matches), and `capabilities.line`/`locals` turn true because this
+/// run's manifests actually hold `line` sites.
+#[test]
+fn a_focused_units_manifest_writes_focus_focus_matched_and_the_line_capability() {
+    let f = Fixture::new("meta-focus");
+    wire::write_manifest_focus(
+        &f.manifests_dir,
+        "meta1",
+        "demo",
+        &[(
+            FILE,
+            &[site(0, "fill", 3, "unit"), wire::line_site(1, "fill", 5)],
+        )],
+        &[(FILE, "deadbeef")],
+        &["fill", "missing"],
+        &["fill"],
+    );
+    wire::write_proc_header(
+        &f.spool_dir,
+        1401,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    wire::SpoolBuilder::new(1401, 1, "main")
+        .call(0, 1000, 0, 0)
+        .line(
+            1,
+            1100,
+            0,
+            1,
+            false,
+            &[("x", wire::LineDelta::Dbg("5", false))],
+        )
+        .ret_none(2, 1200, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+
+    assert_eq!(meta(&conn, "focus"), serde_json::json!(["fill", "missing"]));
+    assert_eq!(meta(&conn, "focus_matched"), serde_json::json!(["fill"]));
+    let caps = meta(&conn, "capabilities");
+    assert_eq!(caps["line"], serde_json::json!(true));
+    assert_eq!(caps["locals"], serde_json::json!(true));
+}
+
+/// The capability is the SITES, not the flag: a focus that was given and
+/// matched nothing in this run leaves `line`/`locals` false, because no LINE
+/// record can exist for it. `focus` still reports what was asked for.
+#[test]
+fn a_focus_record_with_no_line_sites_leaves_line_and_locals_false() {
+    let f = Fixture::new("meta-focus-no-sites");
+    wire::write_manifest_focus(
+        &f.manifests_dir,
+        "meta1",
+        "demo",
+        &[(FILE, &[site(0, "fill", 3, "unit")])],
+        &[(FILE, "deadbeef")],
+        &["missing"],
+        &[],
+    );
+    wire::write_proc_header(
+        &f.spool_dir,
+        1402,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    wire::SpoolBuilder::new(1402, 1, "main")
+        .call(0, 1000, 0, 0)
+        .ret_none(1, 1200, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+
+    assert_eq!(meta(&conn, "focus"), serde_json::json!(["missing"]));
+    assert_eq!(meta(&conn, "focus_matched"), serde_json::json!([]));
+    let caps = meta(&conn, "capabilities");
+    assert_eq!(
+        caps["line"],
+        serde_json::json!(false),
+        "no `line` site in any unit of this run"
+    );
+    assert_eq!(caps["locals"], serde_json::json!(false));
+}
+
+/// An unfocused run says nothing at all: absent keys, not empty lists. A
+/// reader that met `focus: []` could not tell it from a focus that selected
+/// nothing.
+#[test]
+fn an_unfocused_run_carries_no_focus_keys_at_all() {
+    let f = Fixture::new("meta-no-focus");
+    wire::write_manifest(
+        &f.manifests_dir,
+        "meta1",
+        "demo",
+        &[(FILE, &[site(0, "fill", 3, "unit")])],
+        &[(FILE, "deadbeef")],
+        false,
+        None,
+        &[],
+    );
+    wire::write_proc_header(
+        &f.spool_dir,
+        1403,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    wire::SpoolBuilder::new(1403, 1, "main")
+        .call(0, 1000, 0, 0)
+        .ret_none(1, 1200, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+
+    for key in ["focus", "focus_matched"] {
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM meta WHERE key = ?1", [key], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(n, 0, "an unfocused trace must not carry {key}");
+    }
+    assert_eq!(
+        meta(&conn, "capabilities")["line"],
+        serde_json::json!(false)
+    );
+}

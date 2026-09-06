@@ -36,6 +36,11 @@ pub enum SiteKind {
     Try,
     Sink,
     Arm,
+    /// The focus tier's per-statement site (design 2026-09-06 §2.4): one per
+    /// completed statement of a focused function, spelling its position `line`
+    /// and carrying the ENCLOSING function's qualname. Only a LINE record may
+    /// name one, and it opens no frame.
+    Line,
 }
 
 impl SiteKind {
@@ -54,6 +59,7 @@ impl SiteKind {
             SiteKind::Try => "try",
             SiteKind::Sink => "sink",
             SiteKind::Arm => "arm",
+            SiteKind::Line => "line",
         }
     }
 }
@@ -90,6 +96,22 @@ pub struct ManifestSite {
     pub main: bool,
 }
 
+/// What focus a unit was built under (design 2026-09-06 §2.4), read back off
+/// its manifest.
+///
+/// `values` is what the invocation asked for, in the order given; `matched` is
+/// what the transformer actually focused in THAT unit, sorted. Both are the
+/// only durable record of a focus: nothing in a spool says which functions
+/// carry LINE sites, so a manifest read a week later is where a trace's
+/// `focus`/`focus_matched` come from.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct FocusRecord {
+    pub values: Vec<String>,
+    /// Sorted by the transformer (it holds them in a `BTreeSet`); read here as
+    /// a plain list because the converter only unions and re-sorts them.
+    pub matched: Vec<String>,
+}
+
 /// `<target>/sensorium/manifests/<metadata>.json`, read back. A separate type
 /// from `sensorium_transform::Manifest`, which is serialise-only.
 #[derive(Debug, Deserialize)]
@@ -124,6 +146,15 @@ pub struct Manifest {
     /// key `manifests_unscoped` rather than silently excluded with no trace.
     #[serde(default)]
     pub workspace_root: String,
+    /// The focus this unit was built under, ABSENT when there was none.
+    ///
+    /// `#[serde(default)]` for the same reason `partial` has one, and it
+    /// matters more here: every manifest written before the focus tier, and
+    /// every unfocused one written after it, has no `focus` key at all, and a
+    /// reader that demanded it would refuse a whole unit's sites over a key
+    /// whose absence IS the fact ("no LINE sites").
+    #[serde(default)]
+    pub focus: Option<FocusRecord>,
 }
 
 /// One site, as the converter needs it: which file it is in (the manifest's
@@ -170,15 +201,49 @@ impl SiteInfo {
     }
 
     /// # Errors
+    /// This site is not a `line` site, so no LINE record may name it (design
+    /// 2026-09-06 §2.4). The manifest row and the spliced `line` call come out
+    /// of the same walk over the same statement, so a disagreement is
+    /// corruption -- and the refusal names the SITE, as [`require_frame`]'s
+    /// does, because that is what a person goes and looks at.
+    ///
+    /// [`require_frame`]: SiteInfo::require_frame
+    pub fn require_line(&self, what: &str) -> Result<(), String> {
+        if self.kind == SiteKind::Line {
+            return Ok(());
+        }
+        Err(format!(
+            "{what} names site {}:{} ({}), which the manifest says is a `{}` site, not a `line` \
+             site",
+            self.file,
+            self.line,
+            self.qualname,
+            self.kind.as_str()
+        ))
+    }
+
+    /// # Errors
     /// This site is a frame, so no err-flow record may name it (design R1b) --
     /// or the `how` the record carries is not the one the manifest says this
     /// site writes. The transformer wrote the row and the runtime wrote the
     /// byte from the SAME splice, so a disagreement is corruption, and the
     /// check is the one place the two halves of R2 are held against each other.
     pub fn require_err_flow(&self, what: &str, how: How) -> Result<(), String> {
-        if self.kind.is_frame() {
+        // Positively: the three err-flow kinds and nothing else. Written as a
+        // whitelist rather than "not a frame" so that a kind added later --
+        // `line` was -- is refused here until someone decides it belongs,
+        // instead of silently passing because it opens no frame.
+        if !matches!(self.kind, SiteKind::Try | SiteKind::Sink | SiteKind::Arm) {
+            // A frame site is named as one, because "a CALL site, not an
+            // err-flow site" is the sentence that tells a person what went
+            // wrong; every other non-err-flow kind (`line`) is just a site.
+            let noun = if self.kind.is_frame() {
+                "frame site"
+            } else {
+                "site"
+            };
             return Err(format!(
-                "{what} names site {}:{} ({}), which the manifest says is a `{}` frame site, not \
+                "{what} names site {}:{} ({}), which the manifest says is a `{}` {noun}, not \
                  an err-flow site",
                 self.file,
                 self.line,
@@ -486,5 +551,81 @@ mod tests {
         );
         let m = Manifest::read(&path).unwrap();
         assert_eq!(m.sites_by_index()[&0].line, 0);
+    }
+
+    /// The 0.4.0 shape: a `line` row spells its position `line` (the
+    /// statement's first line), carries no `firstlineno` and no `ret`, and is
+    /// NOT a frame -- and the per-unit `focus` record rides beside `files`.
+    #[test]
+    fn a_line_row_and_a_focus_record_read_as_the_transformer_wrote_them() {
+        let path = write(
+            "line-rows",
+            r#"{"unit":"a","crate_name":"c","crate_type":"lib",
+               "files":{"a/lib.rs":[
+                 {"site":0,"qualname":"fill","kind":"fn","firstlineno":3,"ret":"unit"},
+                 {"site":1,"qualname":"fill","kind":"line","line":4},
+                 {"site":2,"qualname":"fill","kind":"line","line":5}]},
+               "focus":{"values":["fill","missing"],"matched":["fill"]},
+               "skipped":[],"spawns":[],"source_hashes":{},"fell_back":false,
+               "fallback_reason":null,"unreached_files":[]}"#,
+        );
+        let m = Manifest::read(&path).unwrap();
+        let sites = m.sites_by_index();
+        assert_eq!(sites[&1].kind, SiteKind::Line);
+        assert_eq!(sites[&1].kind.as_str(), "line");
+        assert!(!sites[&1].kind.is_frame(), "a LINE opens no frame");
+        assert_eq!(sites[&1].line, 4, "a line row spells its position `line`");
+        assert_eq!(sites[&1].qualname, "fill", "the ENCLOSING fn's qualname");
+        assert_eq!(sites[&2].line, 5);
+        assert_eq!(sites[&1].ret, None);
+        let focus = m.focus.as_ref().expect("a focus record");
+        assert_eq!(focus.values, ["fill", "missing"], "as given, in order");
+        assert_eq!(focus.matched, ["fill"], "what this unit actually matched");
+    }
+
+    /// A manifest with no `focus` key at all -- every manifest written before
+    /// the focus tier, and every unfocused one written after it -- still
+    /// parses, and says `None` rather than an empty record. Without
+    /// `#[serde(default)]` the missing key would take the whole unit's sites
+    /// down with it.
+    #[test]
+    fn a_manifest_with_no_focus_key_parses_and_reads_as_no_focus() {
+        let path = write(
+            "no-focus",
+            r#"{"unit":"a","crate_name":"c","crate_type":"lib",
+               "files":{"a/lib.rs":[{"site":0,"qualname":"f","kind":"fn","firstlineno":1,"ret":"unit"}]},
+               "skipped":[],"spawns":[],"source_hashes":{},"fell_back":false,
+               "fallback_reason":null,"unreached_files":[]}"#,
+        );
+        let m = Manifest::read(&path).expect("a manifest with no focus key still reads");
+        assert!(m.focus.is_none(), "absent and empty are different facts");
+        assert_eq!(m.sites_by_index()[&0].qualname, "f");
+    }
+
+    /// A LINE record may name only a `line` site, and a CALL/RETURN may not
+    /// name one: the refusal names the SITE, as `require_frame`'s does.
+    #[test]
+    fn a_line_record_on_a_non_line_site_is_refused_by_name_and_the_reverse() {
+        for kind in [
+            SiteKind::Fn,
+            SiteKind::Closure,
+            SiteKind::Try,
+            SiteKind::Sink,
+            SiteKind::Arm,
+        ] {
+            let err = site_of(kind, None).require_line("LINE").unwrap_err();
+            assert!(err.contains("LINE"), "{err}");
+            assert!(err.contains("a/lib.rs:12"), "{err}");
+            assert!(err.contains("(f)"), "{err}");
+            assert!(err.contains(kind.as_str()), "{err}");
+            assert!(err.contains("not a `line` site"), "{err}");
+        }
+        assert!(site_of(SiteKind::Line, None).require_line("LINE").is_ok());
+
+        let err = site_of(SiteKind::Line, None)
+            .require_frame("CALL")
+            .unwrap_err();
+        assert!(err.contains("line"), "{err}");
+        assert!(err.contains("not a frame"), "{err}");
     }
 }

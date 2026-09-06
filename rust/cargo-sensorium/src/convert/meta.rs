@@ -9,9 +9,16 @@ use std::collections::BTreeMap;
 
 use serde_json::{json, Map, Value};
 
-/// The fixed declaration every trace this recorder writes carries. `line`,
-/// `locals`, `stdin`, `output`, `object_identity` and `refocus` are `false` at
-/// this rung; `return_value`, `tasks` and `threads` are witnessed.
+use crate::convert::manifest::FocusRecord;
+
+/// The declaration every trace this recorder writes carries. `stdin`,
+/// `output`, `object_identity` and `refocus` are `false` at this rung;
+/// `return_value`, `tasks` and `threads` are witnessed.
+///
+/// `line` and `locals` are `false` HERE and computed per run by
+/// [`capabilities_json`]: they are true exactly when some unit of the run
+/// carries a `line` site, which is a fact about the manifests, never about
+/// whether a `--focus` was typed (design 2026-09-06 §2.4).
 pub const CAPABILITIES: &[(&str, bool)] = &[
     ("line", false),
     ("locals", false),
@@ -97,6 +104,19 @@ pub struct MetaInput<'a> {
     /// trace must say so rather than claim a capability its records cannot
     /// support.
     pub err_flow_capability: bool,
+    /// The focus this RUN was built under, gathered from the manifests of the
+    /// units this process registered: `values` as the invocation gave them
+    /// (every unit of one run carries the same list) and `matched` the sorted
+    /// union of what each unit actually focused. `None` when no unit carried
+    /// the record -- an unfocused run, or one whose transformer predates the
+    /// key -- and then `focus`/`focus_matched` are ABSENT from the trace, which
+    /// is a different fact from a focus that selected nothing.
+    pub focus: Option<&'a FocusRecord>,
+    /// `line` sites across those same manifests. The ONLY basis for
+    /// `capabilities.line`/`locals`: a focus that matched nothing produces no
+    /// LINE record, so declaring the capability from the flag would promise a
+    /// reader rows that cannot exist.
+    pub line_sites: usize,
     /// `{run_id, pid, exe}` for a same-invocation process whose `ppid` is
     /// this one.
     pub child_runs: &'a [Value],
@@ -122,7 +142,10 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
         ("source_hashes", json!(m.source_hashes)),
         ("recorder", json!(m.recorder)),
         ("lang", json!("rust")),
-        ("capabilities", capabilities_json(m.err_flow_capability)),
+        (
+            "capabilities",
+            capabilities_json(m.err_flow_capability, m.line_sites > 0),
+        ),
         ("threads_started", json!(m.threads_started)),
         ("live_threads", json!(m.live_threads)),
         ("env", json!(m.env)),
@@ -167,6 +190,15 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
         out.push(("wall_start_ts", json!(start)));
         out.push(("wall_end_ts", json!(end)));
     }
+    // Both keys or neither, and only when a unit carried the record: an
+    // unfocused run says nothing, exactly as a Python run with no `--focus`
+    // writes no `focus` beyond the empty list `boot.py` gives it. Absent and
+    // empty are different facts here -- `focus: []` would say "a focus was
+    // given and selected nothing".
+    if let Some(focus) = m.focus {
+        out.push(("focus", json!(focus.values)));
+        out.push(("focus_matched", json!(focus.matched)));
+    }
     out
 }
 
@@ -176,11 +208,18 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
 /// neither: it is the runtime's own statement that its records carry err flow,
 /// and a converter that wrote `true` on its own authority would be declaring a
 /// capability for a spool set that has none.
-fn capabilities_json(err_flow: bool) -> Value {
+/// `line` and `locals` ride on `has_line_sites`, which the caller counts off
+/// the manifests: the same discipline `err_flow` follows one line below, for
+/// the same reason -- a capability is a statement about what the RECORDS can
+/// support, and a converter that declared one from an invocation's flag would
+/// promise rows that do not exist.
+fn capabilities_json(err_flow: bool, has_line_sites: bool) -> Value {
     let mut obj = Map::new();
     for (k, v) in CAPABILITIES {
         obj.insert((*k).to_owned(), json!(v));
     }
+    obj.insert("line".to_owned(), json!(has_line_sites));
+    obj.insert("locals".to_owned(), json!(has_line_sites));
     obj.insert("err_flow".to_owned(), json!(err_flow));
     Value::Object(obj)
 }
@@ -245,6 +284,8 @@ mod tests {
             err_flow_outside_frames: 0,
             closure_frames: 0,
             err_flow_capability: false,
+            focus: None,
+            line_sites: 0,
             child_runs: &[],
         }
     }
@@ -402,6 +443,71 @@ mod tests {
         let out = as_map(&build(&minimal()));
         assert_eq!(out["exit_status"], Value::Null);
         assert_eq!(out["exit_status_basis"], json!("unwitnessed"));
+    }
+
+    /// Design §2.4: `line` and `locals` are the RUNTIME's own statement, read
+    /// off the manifests' `line` sites -- never off the presence of a focus.
+    /// A focus that matched nothing in this run leaves both `false`, because
+    /// no LINE record can exist for it.
+    #[test]
+    fn line_and_locals_are_true_only_where_a_line_site_exists() {
+        let out = as_map(&build(&minimal()));
+        assert_eq!(out["capabilities"]["line"], json!(false), "no focus at all");
+        assert_eq!(out["capabilities"]["locals"], json!(false));
+
+        let mut m = minimal();
+        m.focus = Some(Box::leak(Box::new(FocusRecord {
+            values: vec!["fill".to_owned()],
+            matched: vec!["fill".to_owned()],
+        })));
+        m.line_sites = 4;
+        let out = as_map(&build(&m));
+        assert_eq!(out["capabilities"]["line"], json!(true));
+        assert_eq!(out["capabilities"]["locals"], json!(true));
+
+        // A focus was GIVEN and no unit of this run holds a `line` site: the
+        // flag is not the capability, the sites are.
+        let mut m = minimal();
+        m.focus = Some(Box::leak(Box::new(FocusRecord {
+            values: vec!["missing".to_owned()],
+            matched: vec![],
+        })));
+        m.line_sites = 0;
+        let out = as_map(&build(&m));
+        assert_eq!(
+            out["capabilities"]["line"],
+            json!(false),
+            "a focus that selected nothing declares no LINE capability"
+        );
+        assert_eq!(out["capabilities"]["locals"], json!(false));
+    }
+
+    /// `focus` and `focus_matched` are ABSENT when no unit carried the record
+    /// -- an empty list would say "a focus was given and matched nothing",
+    /// which is a different fact from "no focus was given".
+    #[test]
+    fn focus_keys_are_absent_without_a_focus_record_and_present_with_one() {
+        let out = as_map(&build(&minimal()));
+        assert!(!out.contains_key("focus"), "no focus, no key");
+        assert!(!out.contains_key("focus_matched"));
+
+        let mut m = minimal();
+        m.focus = Some(Box::leak(Box::new(FocusRecord {
+            values: vec!["fill".to_owned(), "missing".to_owned()],
+            matched: vec!["Counter::bump".to_owned(), "fill".to_owned()],
+        })));
+        m.line_sites = 2;
+        let out = as_map(&build(&m));
+        assert_eq!(
+            out["focus"],
+            json!(["fill", "missing"]),
+            "the values as given, in order"
+        );
+        assert_eq!(
+            out["focus_matched"],
+            json!(["Counter::bump", "fill"]),
+            "the sorted union of the units' matches"
+        );
     }
 
     #[test]
