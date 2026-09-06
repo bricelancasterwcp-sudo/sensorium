@@ -1,5 +1,92 @@
 # Changelog
 
+## 0.8.2 — 2026-09-05
+
+- **SWALLOWED has one definition, and it lives in `rust/HONESTY.md` §11.**
+  Three records had restated the reading and the third let it decide 48 % of a
+  headline, so the rule is written once and everything that cites it — design
+  R15, the tool's own sentence, the next pre-registration's row — cites §11 by
+  name and restates nothing. The definition adds what was only implied:
+  **reading the error does not carry it out** (a match guard, a `&self`
+  predicate that only steers control, a log line), and a guarded arm's
+  disposition is its body's. `exceptions`' own detail sentence now says it —
+  *"a bound error that is stored, returned or moved out of the arm is not a
+  swallow; an arm that only reads it (a guard, a predicate), formats or logs
+  it and continues is one"* — and a test asserts that sentence is a substring
+  of §11.
+- **`exceptions` on a Rust trace prints one block per SHAPE, not one per
+  chain.** Two chains are one shape when they share a disposition, the site
+  the verdict is about (the sink for `swallowed`, the arm for an escaped
+  `ambiguous`, the origin site — with its masked route — for every verdict
+  that names no site) and the verdict text once event and frame ids are
+  masked. The shape prints the FIRST chain's block byte-for-byte as before and
+  appends a bracket of the members' ORIGIN ids: `… which returned ok
+  [×2: e3, e7]`, eight ids then `… +K`. Where members differ in something the
+  key does not look at, one line says so — `origins:`, `messages:`,
+  `details vary`, `routes:`, each `(first shown)` or `(this one has none)` —
+  so a merge is never silent. The `dispositions:` tally still counts CHAINS;
+  `--limit` counts SHAPES and its continuation raises the limit
+  (`... K more; continue with: sensorium exceptions <run> --limit N`, carrying
+  `--after` when the reader gave one) because an event cursor over grouped
+  output would re-show a partial group. A group of one is byte-identical to
+  0.8.1.
+- **The shape key carries the file.** The first measurement keyed the site on
+  `qualname L<line>` alone, and two test files each holding a `sandbox` at L42
+  merged across processes; the key is now the code object's `(file, line)`
+  plus the qualname. The printed site text is unchanged, except that when ONE
+  answer prints two shapes whose site text collides, each colliding verdict
+  names its file — `(sandbox L42 in task_exec_run_test.rs)` — so answers that
+  never collide look exactly as they did.
+- **`sensorium exceptions <invocation-id>` answers for a whole
+  `cargo sensorium test` invocation**, on the id `runs` already prints above
+  the group. It opens every member trace, classifies each with the Rust rules
+  and merges shapes across processes on the same key, the bracket naming the
+  spread (`[×N over M processes: first e<id> in <run-id>, +K]`; a shape seen
+  once carries `[in <run-id>]`). The header is
+  `invocation <id>: cargo <args> -- 144 processes, 114 with Err chains, 30
+  with none`; every INCOMPLETE member is named before any answer about chains;
+  `partial` rows are the union with their process named and the tally is the
+  members' sum. `--after` is refused here (exit **2**: an event id belongs to
+  one process), and a member whose recorder declares `err_flow: false` refuses
+  the whole answer, naming it.
+- **Four pins moved BY RULE before the pre-registration was locked**, and the
+  record lists them: `corpus/rust/err_stored/questions.yaml` and
+  `corpus/rust/err_rendered_into_value/questions.yaml` (the tool's new
+  sentence), `docs/trace-format/vectors/v18-exceptions-rust-ambiguous-merge.json`
+  (the same sentence) and
+  `docs/trace-format/vectors/v17-exceptions-rust-swallowed.json` (the new
+  continuation note) — with `err_stored` moving twice, because its retry arm's
+  two chains are one shape, so the bracket and `messages: 2 distinct (first
+  shown)` are pinned where a second block used to be.
+  `tests/test_exceptions_rust_gate.py`'s continuation-note pin moved with v17.
+- **Measured twice, and neither record is rewritten.**
+  The first
+  (`docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain.md`)
+  read H1 PASS, H2 PASS, H3 PASS, **H4 STOP**, H5 PASS, H6 PASS: **4 site
+  differences per arm**, the invocation view resolving to **89** and **96**
+  distinct sites against the published E6⁗ record's 91 and 98, with 11 chains
+  of 782 and 10 of 812 booked at a sibling test file while every count was
+  conserved. That is the missing file in the key, and it was repaired under a
+  NEW pre-registration rather than by re-rolling the record. The second
+  (`…-rung4-entry-grain-repair.md`) read **0 site differences per arm** — 91
+  and 98 sites against the record's 91 and 98, over **103** and **105** shapes
+  — with the A run's answer and all 288 per-process answers byte-identical to
+  the first measurement's, so only the two invocation views moved. **H4′'s
+  verdict depends on the reading and the ruling is Brice's**: §1′ asked for
+  "exactly 91 / 98 shapes, one per (file, line) site", a clause that was
+  unsatisfiable as written — it was locked after the first measurement had
+  already published 100 and 103 shapes, and adding a key component can only
+  split. Under the gate reading (the site multiset, the instrument's committed
+  rule) H4′ is a PASS; under the strict reading it is a STOP at 103 / 105.
+  No number in either record turns on it. Read §4 and §5.2 of the repair
+  record before quoting any of this.
+- **Python traces are untouched** — byte-identical output, one block per raise,
+  paging by event id. Grouping there waits on a definition of the site each
+  Python disposition's verdict is about, and is a rung-4 inbox item.
+- **Python 0.8.2. The crates do not move**: no Rust changed in this slice, so
+  `sensorium-transform` and `cargo-sensorium` stay **0.3.1** and `sensorium-rt`
+  stays **0.3.0**, and no trace needs re-recording.
+
 ## 0.8.1 — 2026-09-05
 
 - **The `&e` exemption is now a rule about the borrowing call's product.** A
