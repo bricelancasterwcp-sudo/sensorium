@@ -62,10 +62,10 @@ import acceptance_rung3 as rung3                                   # noqa: E402
 # are the SAME objects, never copies.
 from acceptance_grain import (ARMS, DRIVER_VERSION, GRAIN_ENV,      # noqa: E402,F401
                               KILL_S, LEDGER, ORACLE, ORACLE_COMMIT,
-                              ORIGINAL_LOCK, PLAN, REPO, cleanup_grain,
-                              env_paths_grain, oracle, oracle_json, phase_h1,
-                              phase_h2, phase_h3, phase_h4, phase_h6,
-                              preflight_grain, reported)
+                              PLAN, REPO, cleanup_grain, env_paths_grain,
+                              oracle, oracle_json, phase_h1, phase_h2,
+                              phase_h3, phase_h4, phase_h6, preflight_grain,
+                              reported)
 from acceptance_lib import Refused, step                           # noqa: E402
 
 #: This run's ledger workspace. A SIBLING of `acceptance-grain/`, so nothing
@@ -88,10 +88,18 @@ gph.LOGS = LOGS
 DOC = (REPO / "docs" / "superpowers" / "acceptance"
        / "2026-09-05-sensorium-rung4-entry-grain-repair.md")
 
-#: The commit that committed THIS document's §1 ALONE, before any number
-#: below was read. `None` until that commit exists, and a `None` lock REFUSES
-#: rather than measuring against a pre-registration that can still be edited.
-BYTE_LOCK = "9bf64df"
+#: The commit §1′ is byte-locked against NOW: the amendment that named the
+#: reader commit actually measured, committed ALONE and before any number of
+#: the repair run was read. `None` until a lock exists, and a `None` lock
+#: REFUSES rather than measuring against a pre-registration that can still be
+#: edited.
+BYTE_LOCK = "ae9a15b"
+#: The ORIGINAL lock: §1′ committed ALONE with no measurement taken. Both
+#: shas are carried, as `acceptance_e6ppp` carries `33396b0`/`254765b`, so
+#: `byte_lock_check` reports the amendment as a fact of the record
+#: (`amended_after_the_original_lock`) rather than a claim in prose. No ROW
+#: of §1′ moved: the amendment is one dated sentence in the lens.
+ORIGINAL_LOCK = "9bf64df"
 
 #: The record this run assembles. A different file from the first record's,
 #: so a repair that ran twice could never be mistaken for the STOP it repairs.
@@ -109,7 +117,8 @@ RUNNER = "rust/tests/acceptance_grain_repair.py"
 #: sibling's whole claim is that it is the same instrument pointed at another
 #: document, and this list is that claim written down where a test can check
 #: it (`tests/test_acceptance_grain_repair.py`).
-OVERRIDES = ("DOC", "BYTE_LOCK", "BASE", "LOGS", "RESULTS", "RAW",
+OVERRIDES = ("DOC", "BYTE_LOCK", "ORIGINAL_LOCK", "BASE", "LOGS",
+             "RESULTS", "RAW",
              "MARKER_DONE", "MARKER_FAILED", "RUNNER", "OVERRIDES",
              "grain_config", "check_byte_lock", "main", "assemble_only",
              "render_only")

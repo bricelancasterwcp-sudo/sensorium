@@ -80,20 +80,48 @@ def test_the_repair_byte_lock_passes_on_the_real_document():
     assert rec["identical"] is True
 
 
-def test_the_repair_lock_is_one_sha_and_records_no_amendment():
-    """§1′ is committed once and never amended. A record that silently
-    reported an amendment would be describing another document."""
-    _require_lock_commits(runner.BYTE_LOCK)
-    assert runner.ORIGINAL_LOCK is None
+def test_the_repair_lock_carries_BOTH_shas_and_shows_the_amendment():
+    """§1′ was locked ALONE (`9bf64df`), then amended ALONE before any number
+    was read: Task 7's review found a `collisions()` defect, so the lens
+    names the reader commit actually measured. Both shas are carried, as
+    `acceptance_e6ppp` carries `33396b0`/`254765b`, so the amendment is a
+    computed fact of the record and not a claim in prose. A record that
+    reported no amendment here would be describing another document."""
+    _require_lock_commits(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
+    assert runner.ORIGINAL_LOCK == "9bf64df"
+    assert runner.BYTE_LOCK != runner.ORIGINAL_LOCK
     rec = rung3.byte_lock_facts(runner.DOC, runner.BYTE_LOCK,
                                 runner.ORIGINAL_LOCK)
-    assert rec["amended_after_the_original_lock"] is False
-    assert rec["original_lock_sha256"] is None
+    assert rec["amended_after_the_original_lock"] is True
+    assert rec["original_lock_sha256"] is not None
+    assert rec["original_lock_sha256"] != rec["locked_sha256"]
+    # the amendment ADDED text and moved no row: it is one sentence longer,
+    # and the table above it is untouched (asserted by the row test below)
+    assert rec["amendment_bytes"] > 0
     # No footnote is referenced by this §1, so the extended range and §1 are
     # the same bytes -- asserted, because a footnote added later would
     # silently widen the locked range.
     assert rec["footnotes_in_range"] == []
     assert rec["locked_sha256"] == rec["section1_sha256"]
+
+
+def test_the_amendment_moved_no_ROW_of_the_pre_registration():
+    """The rule the amendment lives by: a lens may name the reader that was
+    measured; an endpoint, a method or a derivation may not move after a
+    lock. Every table row of §1′ at the original lock is a row of §1′ now."""
+    _require_lock_commits(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
+    import subprocess
+
+    def rows(sha):
+        rel = runner.DOC.relative_to(runner.REPO).as_posix()
+        text = subprocess.run(["git", "show", f"{sha}:{rel}"], cwd=REPO,
+                              capture_output=True, text=True).stdout
+        return [ln for ln in rung3.section1(text).splitlines()
+                if ln.startswith("|")]
+
+    before, after = rows(runner.ORIGINAL_LOCK), rows(runner.BYTE_LOCK)
+    assert before == after, "a row moved after the lock"
+    assert len(after) == 8, after      # header, rule, H1′..H6′
 
 
 def test_the_repair_byte_lock_REFUSES_a_document_that_differs_by_one_byte(
@@ -168,10 +196,10 @@ def test_every_override_is_the_document_the_lock_a_path_or_a_marker():
     """The overrides are allowed to exist; they are not allowed to be
     anything else. A sibling that quietly overrode `ARMS`, `KILL_S` or the
     oracle would still pass the test above."""
-    allowed = {"DOC", "BYTE_LOCK", "BASE", "LOGS", "RESULTS", "RAW",
-               "MARKER_DONE", "MARKER_FAILED", "RUNNER", "OVERRIDES",
-               "grain_config", "check_byte_lock", "main", "assemble_only",
-               "render_only"}
+    allowed = {"DOC", "BYTE_LOCK", "ORIGINAL_LOCK", "BASE", "LOGS",
+               "RESULTS", "RAW", "MARKER_DONE", "MARKER_FAILED", "RUNNER",
+               "OVERRIDES", "grain_config", "check_byte_lock", "main",
+               "assemble_only", "render_only"}
     assert set(runner.OVERRIDES) == allowed
     # the shared instrument's own settings are untouched
     for name in ("ARMS", "KILL_S", "ORACLE", "ORACLE_COMMIT", "GRAIN_ENV",
