@@ -48,7 +48,8 @@ import acceptance_lib as lib                                       # noqa: E402
 import acceptance_phases as ph                                     # noqa: E402
 import acceptance_rung3 as rung3                                   # noqa: E402
 import render_grain                                                # noqa: E402
-from acceptance_grain_schema import assemble_grain                 # noqa: E402
+from acceptance_grain_schema import (KILLED_CELLS,                 # noqa: E402
+                                     assemble_grain)
 from acceptance_lib import Refused                                 # noqa: E402
 
 # Importing this runner re-points the SHARED log pointers at THIS document's
@@ -187,6 +188,78 @@ def test_a_measured_zero_is_a_measured_zero():
     assert m["value"] == 0 and m["dropped"] == []
 
 
+def _h4_arm_raw(**over) -> dict:
+    """One H4 arm's raw facts, complete enough for every cell of its block
+    to be a number. The numbers are the ws arm's published ones, so a cell
+    that came back measured is recognisably measured."""
+    arm = {"arm": "ws", "invocation": "inv", "rc": 0, "wall": 0.565,
+           "timed_out": False, "kill_s": 60, "groups": 91, "chains": 782,
+           "tally_equal": True, "header_counts_equal": True,
+           "unresolved_sinks": 0, "incomplete_members": [],
+           "header": {"processes": 144},
+           "compare": {"equal": True, "differences": 0, "expected_sites": 91,
+                       "expected_lines": 782}}
+    arm.update(over)
+    return arm
+
+
+def test_a_KILLED_H4_arm_is_not_measured_and_a_finished_one_still_is():
+    """The kill leaves a PARTIAL answer, and the reader parses partial text
+    as happily as whole text: `phase_h4` calls `measure_sites` on the arm's
+    stdout whether or not the kill fired. So every cell whose number is only
+    true of a complete answer -- the site differences, the groups, the
+    chains, the summed tally and the header counts -- would publish half a
+    sweep as a measurement, and H4 could PASS on an answer that never
+    finished. Not measured, with the kill as the reason.
+
+    The second arm is the control: without it a guard that nulled every arm
+    would pass this test."""
+    doc = assemble_grain(_raw(raw_h4={"arms": {
+        "ws": _h4_arm_raw(timed_out=True, rc=None, wall=60.0,
+                          groups=17, chains=104,
+                          compare={"differences": 74, "expected_sites": 91,
+                                   "expected_lines": 782}),
+        "ws0": _h4_arm_raw(arm="ws0")}}))
+    ws = doc["endpoints"]["H4"]["arms"]["ws"]
+    for name in KILLED_CELLS:
+        assert ws[name]["value"] is None, name
+        assert ws[name]["dropped"] == [
+            "killed at 60 s; the answer is partial"], name
+    # what a partial answer DOES make true is still recorded, so the kill is
+    # evidence rather than a hole
+    assert ws["wall_s"] == 60.0 and ws["rc"] is None
+    assert ws["incomplete_members"]["value"] == 0
+    # the control arm, measured
+    ws0 = doc["endpoints"]["H4"]["arms"]["ws0"]
+    assert ws0["site_differences"]["value"] == 0
+    assert ws0["groups"]["value"] == 91 and ws0["chains"]["value"] == 782
+    assert ws0["tally_equal"]["value"] is True
+    assert ws0["header_counts_equal"]["value"] is True
+    assert ws0["site_differences"]["dropped"] == []
+    # and H4's headline is not summed out of the one arm that finished
+    assert doc["endpoints"]["H4"]["headline"]["value"] is None
+    assert doc["endpoints"]["H4"]["headline"]["dropped"] == [
+        "one or both arms did not produce a comparison"]
+
+
+def test_H5s_headline_is_null_WITH_a_reason_when_no_arm_was_timed():
+    """`max` of nothing is not a slowest answer. H4 having RUN is not H4
+    having timed an arm, and the headline that took `None` from an empty
+    `walls` published a null with an EMPTY `dropped` -- the one shape this
+    schema forbids, because the renderer prints it as not-measured while
+    naming no reason."""
+    doc = assemble_grain(_raw(raw_h4={"arms": {}, "walls": {}, "killed": []}))
+    m = doc["endpoints"]["H5"]["headline"]
+    assert m["value"] is None
+    assert m["dropped"] == ["H4 ran but timed no arm, so there is no "
+                            "slowest answer"]
+    # and an arm that WAS timed still reports the slowest of them
+    doc = assemble_grain(_raw(raw_h4={"arms": {}, "killed": [],
+                                      "walls": {"ws": 0.565, "ws0": 0.581}}))
+    m = doc["endpoints"]["H5"]["headline"]
+    assert m["value"] == 0.581 and m["dropped"] == []
+
+
 # -- the renderer ----------------------------------------------------------
 
 
@@ -317,9 +390,15 @@ def test_the_oracles_site_tables_are_stringified_and_keep_every_count():
         assert all(isinstance(k, str) for k in js[arm]), arm
         assert len(js[arm]) == len(orc[arm]), arm
         assert sum(js[arm].values()) == sum(orc[arm].values()), arm
-    assert js["ws"][
-        "/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-core/src/"
-        "geometry.rs:192"] > 0
+    # One named row behind the three aggregates, matched by SUFFIX: the
+    # oracle's paths are the absolute ones of the box that recorded it, and
+    # a test that spelled one would pin this suite to that machine -- the
+    # rule the scan above holds the runner's own modules to.
+    rows = [k for k in js["ws"]
+            if k.endswith("bloomery-core/src/geometry.rs:192")]
+    assert len(rows) == 1, rows
+    assert js["ws"][rows[0]] == orc["ws"][
+        (rows[0].rsplit(":", 1)[0], 192)] > 0
 
 
 def test_a_record_with_one_unwritable_value_still_writes_the_rest():

@@ -35,6 +35,11 @@ DOC = ("docs/superpowers/acceptance/"
 #: six cells cannot drift apart in what they say they did not measure.
 NOT_RUN = "the phase did not run, so there is nothing to compare"
 
+#: The H4 arm cells whose number is only true of a COMPLETE answer. Named
+#: once so the kill guard and its test cannot list different sets.
+KILLED_CELLS = ("site_differences", "groups", "chains", "tally_equal",
+                "header_counts_equal")
+
 #: Named once and used by every cell that mentions where the expected number
 #: came from, so no cell can quietly claim the oracle was re-measured.
 ORACLE_LENS = ("compared against the PUBLISHED E6⁗ record "
@@ -182,7 +187,7 @@ def _h4_arm(a: dict | None, label: str, dropped: list) -> dict:
                                                "resolve"),
         }
     c = a.get("compare") or {}
-    return {
+    block = {
         "site_differences": meas(c.get("differences"), c.get("expected_sites"),
                                  "missing + extra + count diffs against the "
                                  "record's per-site table, of its sites; "
@@ -221,6 +226,22 @@ def _h4_arm(a: dict | None, label: str, dropped: list) -> dict:
         "vary": a.get("vary"),
         "disambiguated_shapes": a.get("disambiguated"),
     }
+    if a.get("timed_out"):
+        # The kill leaves whatever the command had printed before it fired,
+        # and `measure_sites` reads that partial text exactly as it reads a
+        # whole answer -- so every cell above whose number is only true of a
+        # COMPLETE answer would publish a killed arm as a measured one, and
+        # H4 could pass on half a sweep. Not measured, with the kill as the
+        # reason, the same way the did-not-run branch above says it (review
+        # fix, 2026-09-05). What stays measured is what a partial answer
+        # still makes true: the wall, the rc, the bytes, the log, the
+        # members named INCOMPLETE and the sinks the join could not resolve.
+        killed = f"killed at {a.get('kill_s')} s; the answer is partial"
+        for name in KILLED_CELLS:
+            cell = block[name]
+            block[name] = _null(killed, cell["lens"], cell["n"])
+            block[name]["dropped"] += dropped
+    return block
 
 
 def _h4(raw) -> dict:
@@ -256,10 +277,22 @@ def _h5(raw) -> dict:
     dropped = _drop(raw, "raw_h4")
     walls = r.get("walls") or {}
     killed = r.get("killed") or []
+    slowest = ("the SLOWEST of the two answers, seconds, of the arms timed; "
+               + lens)
+    if walls:
+        headline = meas(max(walls.values()), len(walls), slowest, dropped)
+    else:
+        # `max` of nothing is not a slowest answer. H4 having RUN is not H4
+        # having timed an arm -- a phase that fell over before its first
+        # command wrote a wall leaves `walls` empty with nothing in
+        # `dropped` to explain it, and `null` with an empty `dropped` is the
+        # one shape this schema forbids: it renders as not-measured while
+        # naming no reason (review fix, 2026-09-05).
+        headline = _null("H4 ran but timed no arm, so there is no slowest "
+                         "answer", slowest, 0)
+        headline["dropped"] += dropped
     return {
-        "headline": meas(max(walls.values()) if walls else None, len(walls),
-                         "the SLOWEST of the two answers, seconds, of the "
-                         "arms timed; " + lens, dropped),
+        "headline": headline,
         "walls_s": meas(walls, len(walls), lens, dropped),
         "killed": meas(len(killed), len(walls),
                        "arms the 60 s kill fired on -- any is a STOP on H5",
