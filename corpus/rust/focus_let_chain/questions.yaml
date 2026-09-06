@@ -12,10 +12,11 @@ questions:
       value is pinned to the write rather than to the function, and `watch`
       names the event that carries it. The verdict word is the tool's own
       (amendment A4): SATISFIED, exit 0. It is SATISFIED at 2 of 2
-      evaluable sites and says so beside the 3 it could not evaluate --
-      `b` is not in scope at the parameters LINE or at the `let a` LINE, and
-      "not in scope" is reported as its own reason rather than folded into
-      the hit count.
+      evaluable sites and says so beside the 3 it could not evaluate: the
+      CALL row -- `watch` counts the activation's CALL as a site before any
+      LINE -- and the parameters LINE and the `let a` LINE, at neither of
+      which `b` is bound yet. "Not in scope" is reported as its own reason
+      rather than folded into the hit count.
     why_logs_fail: >
       A `dbg!(&b)` on line 13 really would print this one value, so the
       claim here is not that the value is unreachable -- it is that reaching

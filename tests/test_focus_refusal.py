@@ -30,10 +30,30 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 CASE = ROOT / "corpus" / "rust" / "focus_let_chain"
 
-#: A scratch target directory on the second disk, beside the corpus gate's
-#: own. Never the shared `corpus-target`: this invocation must not be able to
-#: reuse -- or poison -- artifacts the corpus cases depend on.
-TARGET = Path("/mnt/extra/sensorium-rung2/corpus-target-refusal")
+
+def _scratch_target(tmp_path: Path) -> Path:
+    """Where the control test's real build goes.
+
+    Only the control needs this. The two refusal tests point at a fresh
+    `tmp_path` subdirectory instead, because their assertion is that the
+    directory never comes to exist -- and an assertion of non-existence
+    against a path another test in the same file creates would pass or fail
+    on test ORDER rather than on the driver's behaviour.
+
+    A SUBDIRECTORY of `CARGO_TARGET_DIR` when the caller set one, so the
+    build lands wherever the gate already puts its artifacts (off a
+    near-full root disk, inside a CI runner's workspace) -- but never that
+    directory ITSELF, because a focused build of this crate must not be able
+    to reuse or poison the artifacts the corpus cases depend on. With no
+    `CARGO_TARGET_DIR`, pytest's own `tmp_path`, which is cleaned up for us.
+
+    No path in this file is specific to one machine: a test that names a
+    mount point fails with `PermissionError` on a box that lacks it instead
+    of skipping, which is the one failure mode the skip-by-name discipline
+    exists to prevent.
+    """
+    base = os.environ.get("CARGO_TARGET_DIR")
+    return Path(base) / "focus-refusal" if base else tmp_path / "target"
 
 
 def _driver() -> str | None:
@@ -94,6 +114,8 @@ def test_the_refusal_builds_nothing(crate, tmp_path):
     """Design §2.2: the resolution happens BEFORE cargo is invoked. If the
     refusal came after a rewrite, the sentence would be identical and only
     the filesystem would know."""
+    # A path pytest guarantees is fresh, so "it must not come to exist" is a
+    # claim about the driver and about nothing else.
     target = tmp_path / "target"
     assert _run(crate, "no_such_fn", target).returncode == 2
     assert not target.exists(), "a refused focus built into the target dir"
@@ -105,11 +127,22 @@ def test_the_refusal_builds_nothing(crate, tmp_path):
 
 
 @requires_driver
-def test_a_focus_that_matches_is_not_refused(crate):
+def test_a_focus_that_matches_is_not_refused(crate, tmp_path):
     """The control. Without it, a driver that refused EVERY `--focus` would
-    pass both tests above."""
-    TARGET.mkdir(parents=True, exist_ok=True)
-    r = _run(crate, "fill", TARGET)
+    pass both tests above.
+
+    This is the only test here that really builds, so it is also the only one
+    that leaves anything behind -- a shim copy and one artifact set, tens of
+    megabytes (design amendment A8: every distinct focus gets its own). It is
+    REMOVED rather than reused: the reuse would save a second on a rerun and
+    cost a scratch directory that nothing on the box owns.
+    """
+    target = _scratch_target(tmp_path)
+    target.mkdir(parents=True, exist_ok=True)
+    try:
+        r = _run(crate, "fill", target)
+    finally:
+        shutil.rmtree(target, ignore_errors=True)
     assert r.returncode == 0, f"exit {r.returncode}\n{r.stdout}\n{r.stderr}"
     out = r.stdout + r.stderr
     assert "REFUSED" not in out
