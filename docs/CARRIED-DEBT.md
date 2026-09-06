@@ -10,82 +10,6 @@ the rung-3 inbox
 gitignored plan ledgers; nothing there is restated here, and that document
 stays the record for rungs 0–2.
 
-## 2026-09-05 — S0, trace contract for the sensor-suite program (docs only; no version moves)
-
-### Settled
-- Trace format 5 defined for model traces (`docs/trace-format/MODEL-TRACES.md`): `tokens` + `spans`
-  tables, generations as `tasks` rows, `lang: "model"`, `fingerprint_basis: "per-generation"`,
-  `exit_status_basis: "not-a-process-exit"`. Program recorders stay on 4.
-- The cross-trace join: `meta.join` (shared optional key), references over clocks, the one
-  same-process `ts_ns` exception (TRACE-FORMAT §6).
-- `signature` reading for program traces (MODEL-TRACES §8) — requested by crucible phase D.
-- Design spec rulings R1–R10, plus **R11–R18 from the final whole-branch review** (2026-09-05):
-  the join run id's slug, one verdict per state for an absent noise band, nullable
-  `logprob`/`entropy` with `topk_basis`, a self-contained `noise_band`, `m11` as HONESTY §4's
-  falsifier, `signature --json`'s printed `key`, `spans`' two labeled exit facts, and E-mem
-  restated so it can fail. Brice ruled §12 as recommended (topk 8, recorder off by default,
-  `bless-noise` writes into A). Ledger: `.superpowers/sdd/2026-09-05-sensorium-s0-trace-contract/`.
-
-### Deferred, awaiting S1 (each named where it lands)
-- `query/vocab.py` model column; `exit_phrase` **and `exit_brief`** `n/a (model trace)` for basis
-  `not-a-process-exit` — `runs` reads `exit_brief`, which today answers `unwitnessed` for any
-  non-`waited` basis and would therefore make a false claim about a trace that never had a
-  process exit to witness; `Trace` format-5 reader;
-  `gens`/`tokens`/`spans`/`bless-noise`/`signature` commands; program-command refusals on a model
-  trace (exit 2) — all pinned by `vectors/pending/m01–m10, p01`, promoted with the builder.
-- `tests/vectors.py` must learn `tokens`/`spans` rows, two-trace vectors (`meta2`/`tokens2`), a
-  pinned-reader harness (`m01`), `expect_absent`, `expect_col0`, `expect_same_key` — record each
-  in VECTORS.md at promotion.
-- README's three "trace format 4" sentences (lines ~345/387/578) stay true for program traces;
-  add the format-5 sentence when the recorder ships, not before.
-- `SENSORIUM_JOIN` → `meta.join` copy in `record/boot.py` (S3), with `tests/test_join_env.py`.
-- The pending vector set is `m01–m11` with `m05` as three files (a/b/c) and `m07` as two
-  (`m07a` present program trace, `m07b` trace-not-found), plus `p01`; README documents the extra
-  keys `meta2`/`tokens2`/`spans2`/`codes2`/`frames2`/`events2`/`absent2`/`harness` and the
-  `same_as` override semantics (a listed key replaces the whole top-level key; `null` removes it).
-- The tests `model/HONESTY.md` names as its own falsifiers, none of which exists yet:
-  `tests/test_model_writer.py::test_row_per_sampled_token_only`,
-  `::test_entropy_matches_reference_softmax_over_n_vocab`,
-  `::test_topk_is_sorted_prefix_of_full_distribution` and
-  `tests/test_model_spans.py::test_boundary_inside_multibyte_token_is_flagged` (all S1), plus
-  `tests/test_join_env.py::test_join_copied_verbatim_or_omitted` (S3). A promise whose falsifier
-  is a path is debt until the path exists.
-
-### Deferred minors from the task reviews (the final review triaged; the fix wave closed the rest)
-Closed in the fix wave, 2026-09-05: the TRACE-FORMAT `ts_ns` forward pointer (M12), the
-`SENSORIUM_JOIN` copy rule being the `program` role's only (M13), `exit_brief` beside
-`exit_phrase` (M14), `p01`'s module-qualified qualnames (M16), and `m08`'s question id. Left
-deferred, each with the reason it was not worth a change now:
-- MODEL-TRACES: two bare citations remain, `(R4)` (§5, one-trace-per-boot) and `(R5)` (§7's
-  `meta.join` heading), not in the "design spec §11 Rn" form — `R3`'s was converted in the fix
-  wave; and three `###` subsection headings in §6/§7 beyond the spec's transcription. Both are
-  house-style, neither changes what the contract says.
-- pending vectors: `m02` passes a placeholder `grep` pattern `x`; README could say that
-  `start_ts`/`end_ts` (wall seconds) and token `ts` (monotonic ns) are different clocks by
-  contract.
-- `m03` pins wording only: it asserts the `(unnamed: …)` sentence, not that an unnamed generation
-  pairs **by order** rather than by content — the discriminating case (two unnamed generations
-  whose contents would pair them differently from their creation order) is not built. Fix at
-  promotion, where the builder can write it.
-- model/HONESTY: index column header reads `Falsifier` where `rust/HONESTY-INDEX.md` says `What
-  could falsify it`.
-
-### Process lessons
-- A docs-only slice still needs a pytest run per task: `test_vectors.py`'s count is the fence that
-  `pending/` stayed invisible.
-- The S2 fork's reading of GATE-B/C found seven plan-level corrections before any pre-registration
-  was written; brief a fresh reader on the findings docs before locking anything.
-- Design authority used for R1–R10 with cost-if-wrong recorded; Brice reviewed the spec, not each
-  ruling — the ledger is what makes that reviewable later.
-- A plan that quotes shell heredocs must be written with a unique outer terminator; `EOF` inside
-  a code block truncated this plan's first write and ran its tail as shell (harmless, caught by
-  `git log`/`git status` before anything else).
-- Two promotion-blocking defects (m05c's `same_as` inheritance, HONESTY §4's falsifier) were
-  plan-table rows transcribed faithfully — the implementer wrote exactly what the brief said, and
-  what the brief said could not discriminate. A vector's `meta2 same_as` needs its overrides
-  stated explicitly in the brief; a falsifier cited in a brief needs the case it would fail on
-  stated with it. Faithful transcription is not a check on the thing transcribed.
-
 ## 2026-09-05 — rung 3, Err flow (Python 0.8.0 / crates 0.3.0)
 
 ### Settled
@@ -663,3 +587,79 @@ deferred, each with the reason it was not worth a change now:
   `c862c5f`) rather than spending a review seat on it. That was a ruling for
   a mechanical, fully-diffable change, and it is recorded as a ruling rather
   than adopted as a habit.
+
+## 2026-09-05 — S0, trace contract for the sensor-suite program (docs only; no version moves)
+
+### Settled
+- Trace format 5 defined for model traces (`docs/trace-format/MODEL-TRACES.md`): `tokens` + `spans`
+  tables, generations as `tasks` rows, `lang: "model"`, `fingerprint_basis: "per-generation"`,
+  `exit_status_basis: "not-a-process-exit"`. Program recorders stay on 4.
+- The cross-trace join: `meta.join` (shared optional key), references over clocks, the one
+  same-process `ts_ns` exception (TRACE-FORMAT §6).
+- `signature` reading for program traces (MODEL-TRACES §8) — requested by crucible phase D.
+- Design spec rulings R1–R10, plus **R11–R18 from the final whole-branch review** (2026-09-05):
+  the join run id's slug, one verdict per state for an absent noise band, nullable
+  `logprob`/`entropy` with `topk_basis`, a self-contained `noise_band`, `m11` as HONESTY §4's
+  falsifier, `signature --json`'s printed `key`, `spans`' two labeled exit facts, and E-mem
+  restated so it can fail. Brice ruled §12 as recommended (topk 8, recorder off by default,
+  `bless-noise` writes into A). Ledger: `.superpowers/sdd/2026-09-05-sensorium-s0-trace-contract/`.
+
+### Deferred, awaiting S1 (each named where it lands)
+- `query/vocab.py` model column; `exit_phrase` **and `exit_brief`** `n/a (model trace)` for basis
+  `not-a-process-exit` — `runs` reads `exit_brief`, which today answers `unwitnessed` for any
+  non-`waited` basis and would therefore make a false claim about a trace that never had a
+  process exit to witness; `Trace` format-5 reader;
+  `gens`/`tokens`/`spans`/`bless-noise`/`signature` commands; program-command refusals on a model
+  trace (exit 2) — all pinned by `vectors/pending/m01–m10, p01`, promoted with the builder.
+- `tests/vectors.py` must learn `tokens`/`spans` rows, two-trace vectors (`meta2`/`tokens2`), a
+  pinned-reader harness (`m01`), `expect_absent`, `expect_col0`, `expect_same_key` — record each
+  in VECTORS.md at promotion.
+- README's three "trace format 4" sentences (lines ~345/387/578) stay true for program traces;
+  add the format-5 sentence when the recorder ships, not before.
+- `SENSORIUM_JOIN` → `meta.join` copy in `record/boot.py` (S3), with `tests/test_join_env.py`.
+- The pending vector set is `m01–m11` with `m05` as three files (a/b/c) and `m07` as two
+  (`m07a` present program trace, `m07b` trace-not-found), plus `p01`; README documents the extra
+  keys `meta2`/`tokens2`/`spans2`/`codes2`/`frames2`/`events2`/`absent2`/`harness` and the
+  `same_as` override semantics (a listed key replaces the whole top-level key; `null` removes it).
+- The tests `model/HONESTY.md` names as its own falsifiers, none of which exists yet:
+  `tests/test_model_writer.py::test_row_per_sampled_token_only`,
+  `::test_entropy_matches_reference_softmax_over_n_vocab`,
+  `::test_topk_is_sorted_prefix_of_full_distribution` and
+  `tests/test_model_spans.py::test_boundary_inside_multibyte_token_is_flagged` (all S1), plus
+  `tests/test_join_env.py::test_join_copied_verbatim_or_omitted` (S3). A promise whose falsifier
+  is a path is debt until the path exists.
+
+### Deferred minors from the task reviews (the final review triaged; the fix wave closed the rest)
+Closed in the fix wave, 2026-09-05: the TRACE-FORMAT `ts_ns` forward pointer (M12), the
+`SENSORIUM_JOIN` copy rule being the `program` role's only (M13), `exit_brief` beside
+`exit_phrase` (M14), `p01`'s module-qualified qualnames (M16), and `m08`'s question id. Left
+deferred, each with the reason it was not worth a change now:
+- MODEL-TRACES: two bare citations remain, `(R4)` (§5, one-trace-per-boot) and `(R5)` (§7's
+  `meta.join` heading), not in the "design spec §11 Rn" form — `R3`'s was converted in the fix
+  wave; and three `###` subsection headings in §6/§7 beyond the spec's transcription. Both are
+  house-style, neither changes what the contract says.
+- pending vectors: `m02` passes a placeholder `grep` pattern `x`; README could say that
+  `start_ts`/`end_ts` (wall seconds) and token `ts` (monotonic ns) are different clocks by
+  contract.
+- `m03` pins wording only: it asserts the `(unnamed: …)` sentence, not that an unnamed generation
+  pairs **by order** rather than by content — the discriminating case (two unnamed generations
+  whose contents would pair them differently from their creation order) is not built. Fix at
+  promotion, where the builder can write it.
+- model/HONESTY: index column header reads `Falsifier` where `rust/HONESTY-INDEX.md` says `What
+  could falsify it`.
+
+### Process lessons
+- A docs-only slice still needs a pytest run per task: `test_vectors.py`'s count is the fence that
+  `pending/` stayed invisible.
+- The S2 fork's reading of GATE-B/C found seven plan-level corrections before any pre-registration
+  was written; brief a fresh reader on the findings docs before locking anything.
+- Design authority used for R1–R10 with cost-if-wrong recorded; Brice reviewed the spec, not each
+  ruling — the ledger is what makes that reviewable later.
+- A plan that quotes shell heredocs must be written with a unique outer terminator; `EOF` inside
+  a code block truncated this plan's first write and ran its tail as shell (harmless, caught by
+  `git log`/`git status` before anything else).
+- Two promotion-blocking defects (m05c's `same_as` inheritance, HONESTY §4's falsifier) were
+  plan-table rows transcribed faithfully — the implementer wrote exactly what the brief said, and
+  what the brief said could not discriminate. A vector's `meta2 same_as` needs its overrides
+  stated explicitly in the brief; a falsifier cited in a brief needs the case it would fail on
+  stated with it. Faithful transcription is not a check on the thing transcribed.
