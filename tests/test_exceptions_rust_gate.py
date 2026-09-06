@@ -102,8 +102,11 @@ def test_limit_clips_the_rows_but_never_the_tally(
     # every chain in scope is counted, printed or not
     assert ("dispositions: swallowed 1, panicked 1, returned-to-harness 1, "
             "propagated 1, ambiguous 1") in o, o
+    # `--limit` counts SHAPES and the continuation RAISES it (design N5):
+    # these five chains are five shapes, and an event cursor over grouped
+    # output would resume in the middle of one.
     assert ("... 3 more; continue with: sensorium exceptions "
-            f"{run_id} --after e8 --limit 2") in o, o
+            f"{run_id} --limit 5") in o, o
 
 def test_after_resumes_from_a_chains_origin_and_says_what_it_skipped(
         tmp_path, monkeypatch, capsys):

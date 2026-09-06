@@ -248,14 +248,20 @@ stays the record for rungs 0–2.
 
 ### Deferred, awaiting rulings
 
-- **The guarded-arm wording debt, now deciding 48 % of a headline** (record
+- ~~**The guarded-arm wording debt, now deciding 48 % of a headline** (record
   §5.3). §1's "merely observed" clause admits a letter-reading under which a
   match guard's read is the arm's disposition; under it **374 of E6⁗-WS's 782
   lines** would be false and BOTH workspace endpoints would STOP. The gate is
   design R15's ruled reading (the disposition is the BODY's), and every table
   reports the guarded count beside both readings. E6‴ could call this a
   wording debt at 2 lines of 14; it should be **paid in §1's wording before
-  rung 4** rather than inherited a third time.
+  rung 4** rather than inherited a third time.~~ — resolved 2026-09-05 at its
+  source (rung-4 entry, N1): the definition now lives once, in
+  `rust/HONESTY.md` §11, and says **"Reading the error does not carry it
+  out"** and **"a guarded arm's disposition is its body's"** in the rule
+  itself; design R15, the tool's own sentence and every later
+  pre-registration cite §11 by name and restate nothing. No fourth
+  pre-registration can copy the clause, because there is no clause to copy.
 - **Three classes a reader may reasonably contest** (record §5.4), each
   adjudicated TRUE and each a STOP if a reader rules it false, because the
   gate is 0: (a) test-assertion arms, 31 lines at 31 sites; (b) payload-free
@@ -264,6 +270,13 @@ stays the record for rungs 0–2.
   None is a `&e`-through-a-function shape, so this repair touches none of
   them. **A per-site `--allow`, or an in-source marker, is the shape that
   would settle all three** — a design question, not a record's to answer.
+  *Annotated 2026-09-05 (rung-4 entry): grouping makes the three classes
+  READABLE — each is now a shape with a `×N` count instead of N scattered
+  lines, which is what let the E6⁗ adjudicator's hand-built per-site table be
+  printed by the tool. It settles none of them. The in-source acknowledgment
+  marker is still the settlement, its notation decided under N8 and its
+  implementation deferred to a Rust-side slice of its own; a file:line
+  allowlist stays rejected, because such keys rot when lines move.*
 - **Per-site adjudication is a reading of SOURCE, and R15's criterion is a
   property of EXECUTION** (record §5.2). Of the 1 608 lines adjudicated,
   §4.2 and §4.3 collapse the two workspace arms' 782 and 812 to one row per
@@ -376,3 +389,201 @@ stays the record for rungs 0–2.
   HEAD path was byte-identical to the base driver before the runner rebuilt
   it, so an arm that trusted the path would have measured the control twice
   and called it a PASS.
+
+## 2026-09-05 — rung-4 entry, the grain of exceptions (Python 0.8.2)
+
+### Settled
+
+- **SWALLOWED has one definition and one home** (design N1/N2):
+  `rust/HONESTY.md` §11, carrying the read clause ("Reading the error does not
+  carry it out"; "a guarded arm's disposition is its body's") in the rule
+  rather than in a record's adjudication. The tool's own `_escaped` sentence
+  gained it and `tests/test_honesty_prose.py` asserts that sentence is a
+  substring of §11. This pays the guarded-arm wording debt struck in the
+  borrow-repair section above.
+- **`exceptions` prints one block per SHAPE on a Rust trace** (N3–N5): same
+  disposition, same site the verdict is about, same verdict text once event
+  and frame ids are masked. The first chain's block is printed byte-for-byte
+  as before with a bracket of the members' origin ids; `origins:`,
+  `messages:`, `details vary` and `routes:` flag anything the key does not
+  look at; `--limit` counts SHAPES and its note raises the limit; the
+  `raised (N):` header and the `dispositions:` tally still count CHAINS. A
+  group of one is byte-identical to 0.8.1, and Python output is untouched.
+- **`sensorium exceptions <invocation-id>` answers for a whole invocation**
+  (N6), on the id `runs` prints: members merged on the same key, INCOMPLETE
+  members named before any answer about chains, the tally summed, `--after`
+  refused with exit 2, and a member declaring `err_flow: false` refusing the
+  whole. Measured at **0.565 s** and **0.581 s** over 144 traces per answer,
+  against a 60 s ceiling (repair record §4.4).
+- **The shape key carries the file** (ruling R-G12), after the first
+  measurement STOPped on it. Two test files each holding a `sandbox` at L42
+  had merged across processes; the key is now `(file, line, qualname)` and a
+  site text that names two places in ONE answer prints its file basename in
+  each colliding verdict. Re-measured under a new pre-registration: **0 site
+  differences per arm**, where the file-less key read 4 (repair record §4.3).
+- **A derived file named the wrong document, and the fix is at the
+  derivation** (ruling R-G15). `assemble_grain` published a module constant,
+  so the repair record's `results.json` attributed its numbers to the record
+  it exists to repair. It now derives that name from the raw record's own
+  `byte_lock.doc`; re-assembled once from the untouched raw file, exactly two
+  leaf paths changed (`acceptance`, `assembled.at`) and no number moved
+  (`e9f050d`; repair record §5.7.1).
+- **A killed H4 arm can no longer be published as a measured one** (whole-branch
+  review, fixed `9d17d62`). `phase_h4` runs `measure_sites` on an arm's stdout
+  whether or not the 60 s kill fired, and the schema built `site_differences`,
+  `groups`, `chains`, `tally_equal` and `header_counts_equal` out of that
+  partial text without consulting `timed_out` — so H4 could have PASSED on half
+  a sweep. Those five cells are now `null` with `killed at <kill_s> s; the
+  answer is partial`; the wall, the rc, the bytes, the log, the INCOMPLETE
+  members and the unresolved sinks stay measured, because a partial answer
+  still makes them true. **No number in either record moves**: no arm of either
+  run timed out, and both `results.json` re-assemble from their untouched raw
+  records with only `assembled.at` (plus the first record's five known
+  `disambiguated_shapes: null`) changed.
+- **`null` with an empty `dropped` is now unreachable in H5's headline**
+  (same review, same commit). `raw_h4` present with an empty `walls` gave
+  `value: null, dropped: []` — the one shape this schema forbids, since the
+  renderer prints it as not-measured while naming no reason. H4 having RUN is
+  not H4 having timed an arm, and the guard says which.
+
+### Deferred, awaiting rulings
+
+- **H4′'s verdict is OPEN, and the ruling is Brice's** (repair record §5.2).
+  §1′ asked for "exactly 91 / 98 shapes, one per (file, line) site" and the
+  answer printed 103 and 105 over exactly 91 and 98 sites, with 0 site
+  differences per arm. Under the gate reading — the (site, count) multiset,
+  which is the instrument's committed rule at `4525227`, before either lock —
+  H4′ is a PASS; under the strict conjunctive reading it is a STOP at 103 /
+  105. **No number in either record turns on it**, and §1′ is not edited
+  either way. If the strict reading binds, the slice ships with two STOP
+  records.
+- **The first record's `results.json` no longer re-assembles byte-identical**
+  apart from `assembled.at`: `34ab82e` added `disambiguated_shapes` keys the
+  first raw record does not carry, so a re-assembly today emits five
+  `disambiguated_shapes: null` — unmeasured, which is the none-vs-zero rule
+  holding rather than breaking. The committed file was left as measured and
+  derived at `62d8956`. **Ruling owed**: either pin a schema version in each
+  `results.json`, or accept that a re-derivation under a later schema is a NEW
+  derivation and say so once, in the renderer.
+- **The in-source acknowledgment marker (N8) is decided but unbuilt.**
+  `// sensorium: acknowledged swallow — <reason>`, read by the transformer,
+  carried through the manifest and converter, printed as `acknowledged N`. It
+  is the shape that settles the three contestable classes above, and it is a
+  Rust-side slice of its own. A file:line allowlist stays rejected: such keys
+  rot when lines move.
+- **Python traces still print one block per raise** (N7). Grouping there waits
+  on a definition of the site each Python disposition's verdict is about, and
+  is a rung-4 inbox item.
+- **An origin-keyed collision prints no file.** R-G12 disambiguates by
+  appending the basename to the verdict's SITE parenthetical, and an
+  origin-keyed shape has no site parenthetical to append to. Two such shapes
+  in one answer are correctly two blocks, but a reader cannot tell them apart
+  from the printed text. Narrowed by the key, not fixed by the notation.
+- **The shape key still reads masked PROSE** (ruling R-G8's carried half).
+  `Shape.origins` and the verdict component of the key hold rendered text, and
+  the mask has to spare the Rust float type names `f16`/`f32`/`f64`/`f128`
+  because a panic message can carry them. Keying on the classifier's own
+  components instead of on masked prose deletes the mask and its exceptions.
+- **`exceptions_cmd` dispatch sniffs an error MESSAGE.** The fall-through from
+  a run reference to an invocation lookup tests the text `"no trace matches"`.
+  It is correct today and pinned, and it will break silently the day that
+  sentence is reworded.
+- **Rung-3 blind spot R16 (v) is in no ledger but this one.** A `Result` born
+  in an instrumented callee and handed BY VALUE to a helper that sinks it
+  produces a HANDLED matching no chain the helper's frame holds: a chainless
+  swallow whose detail prints a false *born outside this thread's instrumented
+  frames* — it was born inside, one frame away — beside a second AMBIGUOUS
+  line for the chain the callee's `err` close opened. The verdict class is
+  right and the DETAIL is wrong, which sends a reader looking outside the
+  workspace for an error the workspace raised.
+- **The §11 sweep N1 did not finish.** `rust/HONESTY-INDEX.md`'s §11 row still
+  states the promise in its pre-N1 form; §11's `JoinHandle` line lost the
+  "because the machine is per-thread" gloss and wants a pointer to blind spot
+  25 beside it; `docs/trace-format/vectors/v18-exceptions-rust-ambiguous-merge.json`
+  asserts the tool's SENTENCE as prose rather than any structure; and
+  `tests/test_honesty_prose.py` pins its four phrases to §11 as a whole, not
+  to the SWALLOWED bullet.
+- **The invocation header's noun is wrong at both ends.** It reads
+  `N swallowing sites` where N counts printed BLOCKS — `ws` prints 103 and
+  `ws0` 105 where the published record has 91 and 98 SITES, and R-G12 widened
+  that gap precisely by making the addressing right — and it says `sites`
+  when N is 1. The phrase was frozen through both measurements deliberately;
+  it is free to fix now.
+- **Two residuals the repair recorded and did not touch**: `details vary`
+  printed **0** times in every answer either run read (measured-and-zero,
+  never absent — so the flag is unexercised on real data), and the header's
+  `panics: 8 recorded` counts panic EVENTS beside a tally reading
+  `panicked 2`, two different questions under one word.
+- **`rust/tests/render_grain.py` still carries the first document's
+  literals**: the raw record's name (`:60`), the ids printed unprimed
+  (`:327`), and a byte-lock sentence that says *"§1 was committed ALONE and
+  never amended: there is no second sha"* and then interpolates the second sha
+  (`:75`). All three are struck and corrected in the repair record's PROSE
+  (§5.7); the code was not repaired, because `OVERRIDES` covers the runner's
+  own literals and not a collaborator's. That boundary is the debt.
+- **The design's §3 and N6 examples show the pre-ship spelling; amended in
+  place with dated notes.** §3's invocation sketch reads `91 swallowing sites`
+  where the shipped header counts BLOCKS (103 on the measured `ws` arm), and
+  N6's `--after` refusal quotes `spans 144 — page with --limit` where the tool
+  prints `spans 144 processes -- page with --limit`. Corrected the way every
+  other amendment in that document is — beside the text, dated — rather than
+  rewritten, because a design two measurements were pre-registered against is
+  evidence and not a description.
+- **Files at or near the 800-line ceiling**: the repair acceptance record is
+  **795** after the post-review fix wave struck two sentences in place (it was
+  800 exactly); `README.md` is **783** after this slice's `exceptions` section;
+  `tests/test_exceptions_rust_grouping.py` is 702,
+  `tests/test_exceptions_invocation.py` 671,
+  `tests/test_acceptance_grain_read.py` 516 and
+  `tests/test_acceptance_grain.py` 506. The next paragraph added to the record
+  must split it first, and the next paragraph the README's `exceptions`
+  section wants should go to a `docs/exceptions.md` it links, not into the
+  README — the split is named here rather than discovered at the ceiling.
+- **`tests/test_acceptance_grain.py`'s box-path scan does not list
+  `rust/tests/acceptance_grain_repair.py`.** The sibling runner names no box
+  path today, and nothing asserts that it goes on naming none.
+- **Design §5's test line still spells the continuation note
+  `... 1 more shape; continue with: …`**, which ruling R-G7 replaced with
+  `fmt.more_note`'s wording (no "shape(s)" word). The tests and the tool are
+  right; the design's example is stale. Amend at the next legitimate touch of
+  that document.
+- **Review minors, deferred rather than repaired**, one line each:
+  `_at`/`_hops_line` became cross-module API without being named as such; the
+  Python-path pin asserts substrings rather than a whole answer;
+  `group_chains` renders every chain in scope before clipping to `--limit`
+  (watched at H5 and cheap there, unbounded in principle);
+  `resolve_invocation` does not close the `Trace` handles it opens;
+  `grain_config` is a fifth override on the acceptance runner; and the repair
+  runner restates its sibling's `main`.
+
+### Process lessons
+
+- **A pre-registration written AFTER a first measurement must be checked
+  against that measurement's published numbers for satisfiability before it is
+  locked — and we did not check.** §1′'s H4′ clause asked for "exactly 91 / 98
+  shapes, one per site" at a moment when the first measurement had already
+  published 100 and 103 shapes; adding a component to a key can only SPLIT
+  shapes, so no outcome could have satisfied it. A clause no result can
+  satisfy does not discriminate.
+- **The controller wrote that clause, after being asked in writing not to.**
+  §1′ was authored by the controller — the design authority for this slice,
+  not the implementer — and it repeated verbatim the shape-count equality the
+  FIRST record's §5.2 had already falsified, in the same document whose §5.8
+  told the successor: *"whose §1 … also carries the two clauses §5.2 and §5.3
+  falsified here."* Of the two corrections that record sent forward, the tally
+  one landed and this one did not: one of two, this loop's measured rate at
+  carrying its own corrections. The cost is that H4′'s verdict is not ours to
+  state (R-G14) and must be ruled by Brice. Recorded here, dated 2026-09-05,
+  because a pre-registration defect by the person who owns the design is the
+  failure this project is least likely to catch by review.
+- **A reader fix after a lock is a dated lens amendment, never a rewrite**
+  (ruling R-G13). §1′'s lens was amended pre-measurement in its own commit
+  (`ae9a15b`), and the record carries BOTH locks — original `9bf64df`,
+  amended `ae9a15b` — with the sha256 checked before and after the run.
+- **File ceilings are checked at every fix round, not only at task end.** A
+  test file crossed 800 lines mid-slice and had to be split under a fix
+  (`eb110fc`), which is a worse moment to restructure than any planned one.
+- **The controller verified one fix round itself** (the three dead imports of
+  `c862c5f`) rather than spending a review seat on it. That was a ruling for
+  a mechanical, fully-diffable change, and it is recorded as a ruling rather
+  than adopted as a habit.

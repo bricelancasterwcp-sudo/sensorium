@@ -37,7 +37,7 @@ questions:
       - ["an Err(..) arm at", "build L48",
          "bound it to a name and let the name escape"]
       - ["a bound error that is stored, returned or moved out of the arm",
-         "is not a swallow; an arm that only formats or logs it and continues is one"]
+         "is not a swallow; an arm that only reads it (a guard, a predicate), formats or logs it and continues is one"]
       - ["hops: e4 load L39 exit -> e6 build L48 arm_ambiguous"]
     expect_absent: ["SWALLOWED", "dispositions: swallowed", "panicked",
                     "returned to the harness"]

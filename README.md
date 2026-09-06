@@ -301,6 +301,69 @@ may mean, and the twelve shapes err flow cannot see, are
 [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md) items 15–26; the
 two measurements behind them are in the Rust section below.
 
+**One block per shape, not one per chain** (0.8.2, Rust traces only). Two
+chains are one *shape* when they share a disposition, the site the verdict is
+about — the sink for `swallowed`, the arm for an escaped `ambiguous`, the
+origin site for every verdict that names no site — and the verdict text once
+event and frame ids are masked. A shape prints the FIRST chain's block exactly
+as a lone chain prints it and appends a bracket naming the group — two spaces,
+then `[×2: e3, e7]` — to the verdict line
+`SWALLOWED -- absorbed by sink_ok at e5 (load L31) in f1, which returned ok`.
+The ids are the members' ORIGIN event ids — what the head line above prints,
+what `--after` filters on, what `grep` and `tree` take — so the
+printed sentence is always true of a named chain; eight show, then `… +K`.
+The `raised (N):` header and the `dispositions:` tally both still count
+CHAINS, so every tally in every record stays comparable line for line — which
+means `raised (54):` can stand above three blocks.
+
+**Members differing in something the key does not look at are flagged, never
+merged silently**: `origins: N distinct (first shown)` (different origin
+sites), `messages: N distinct (first shown)` (different error texts),
+`details vary (N distinct; first shown)`, `routes: N distinct (first shown)`
+— with `(this one has none)` in place of `(first shown)` where the printed
+member has no line of that kind, so a flag never points at a line that is not
+there. `--limit` counts SHAPES, and the continuation raises the limit instead
+of handing back an event cursor, which over grouped output would re-show a
+partial group: `... 2 more; continue with: sensorium exceptions <run>
+--limit 3`.
+
+**`sensorium exceptions <invocation-id>` answers for a whole
+`cargo sensorium test` invocation** — the id is the one `runs` already prints
+above the group. Every member trace is opened, classified and merged on the
+same key, the bracket naming the spread across processes; a member that never
+finalized is NAMED before any answer about chains, and the tally is the sum:
+
+    invocation 20260101-000000-abcdef: cargo test --workspace -- 3 processes, 2 with Err chains, 1 with none
+    INCOMPLETE: 20260101-000000-aaa003 never finalized -- its Err chains after the cut are not below
+    raised (3 chains over 2 processes, 2 swallowing sites):
+      e3 RAISE   read_config raise demo::ConfigError('Missing("port")') L14
+        SWALLOWED -- absorbed by sink_ok at e5 (load L31) in f1, which returned ok  [×2 over 2 processes: first e3 in 20260101-000000-aaa001, +1]
+      e7 RAISE   read_config raise demo::ConfigError('Missing("port")') L14
+        SWALLOWED -- absorbed by sink_ok at e9 (load L45) in f1, which returned ok  [in 20260101-000000-aaa002]
+    dispositions: swallowed 3
+
+— the tool's own output, pinned by `tests/test_exceptions_invocation.py`. That
+header's `swallowing sites` counts printed BLOCKS, not distinct sites, and the
+two are not equal on a real sweep: a known misnomer, carried in
+[`docs/CARRIED-DEBT.md`](docs/CARRIED-DEBT.md). `--after` is **refused** in
+this mode and exits **2** — an event id belongs to one process and this answer
+spans many — and a member whose recorder declares `capabilities.err_flow:
+false` refuses the whole answer, naming it.
+
+**What the grain was measured to be worth.** On the E6⁗ workspace sweep's
+busiest process, 54 SWALLOWED lines print as **3** shapes (20 166 bytes under
+0.8.1 → 3 360 bytes over 32 lines); the 144 per-process answers that sweep
+needed — 182 334 bytes over 1634 lines — become **one** answer of 128 167
+bytes over 927 lines
+(`docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain.md` §3;
+the repair's re-measurement under the shipped key reads 129 355 bytes over 936
+lines, its §3). It was measured twice and the second record's H4′ verdict is
+open — read §4 and §5.2 of both records before quoting any of this.
+
+**Python traces are untouched**: they still print one block per raise and page
+by event id. Grouping there waits on a definition of the site each Python
+disposition's verdict is about, and is a rung-4 item.
+
 ### `watch` — a predicate at every recorded site
 
 `watch` evaluates a restricted expression at every recorded site of the named
