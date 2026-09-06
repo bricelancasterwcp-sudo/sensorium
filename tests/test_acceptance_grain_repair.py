@@ -35,6 +35,7 @@ import acceptance_grain as grain                                   # noqa: E402
 import acceptance_grain_phases as gph                              # noqa: E402
 import acceptance_grain_read as read                              # noqa: E402
 import acceptance_grain_repair as runner                           # noqa: E402
+import acceptance_grain_schema as schema                           # noqa: E402
 import acceptance_lib as lib                                       # noqa: E402
 import acceptance_phases as ph                                     # noqa: E402
 import acceptance_rung3 as rung3                                   # noqa: E402
@@ -362,3 +363,29 @@ def test_reported_publishes_the_collision_count_per_answer():
     assert rep["disambiguated_shapes"] == {
         "H2": 0, "H3/ws": 4, "H3/ws0": 3, "H4/ws": 2, "H4/ws0": 2}
     assert rep["disambiguated_lens"]
+
+
+def test_assembled_record_names_the_document_its_lock_names():
+    """R-G15. `assemble_grain` published the module constant -- the FIRST
+    record's path -- so the SIBLING's `results.json` named a document it had
+    never read, while `byte_lock.doc` beside it named the right one. The
+    value is now DERIVED from the raw facts, which is what the record's own
+    `assembled.note` already claimed of everything in it.
+
+    Would catch: a sibling runner assembling a record that attributes its
+    numbers to the record it exists to repair.
+    """
+    repair = ("docs/superpowers/acceptance/"
+              "2026-09-05-sensorium-rung4-entry-grain-repair.md")
+    doc = schema.assemble_grain({"byte_lock": {"doc": repair},
+                                 "runner": runner.RUNNER})
+    assert doc["acceptance"] == repair
+    assert doc["acceptance"].endswith("-repair.md"), doc["acceptance"]
+    assert doc["acceptance"] != schema.DOC
+    # The FIRST record still assembles to its own document, from its own
+    # lock: the derivation is not a rename, it is a read.
+    first = schema.assemble_grain({"byte_lock": {"doc": schema.DOC}})
+    assert first["acceptance"] == schema.DOC
+    # And a raw record with no byte-lock at all (a run refused before the
+    # check) falls back rather than publishing None.
+    assert schema.assemble_grain({})["acceptance"] == schema.DOC

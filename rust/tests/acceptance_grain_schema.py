@@ -336,7 +336,15 @@ def assemble_grain(raw: dict) -> dict:
         "schema": ("every measurement is {value, n, lens, dropped}; a null "
                    "value plus a dropped reason is the ONLY not-measured; 0 "
                    "is measured-and-zero"),
-        "acceptance": DOC,
+        # DERIVED, not asserted: the document this run was byte-locked
+        # against, taken from the raw record's own `byte_lock.doc`. The
+        # module constant is the FIRST record's path, and a sibling runner
+        # measuring another document assembled a `results.json` that named a
+        # record it had never read -- R-G15. `DOC` remains only as the last
+        # resort for a raw record with no byte-lock at all (a run refused
+        # before the check), where there is nothing to derive from.
+        "acceptance": ((raw.get("byte_lock") or {}).get("doc")
+                       or raw.get("document") or DOC),
         "runner": raw.get("runner"),
         "byte_lock": raw.get("byte_lock"),
         "pins": pins,
