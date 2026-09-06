@@ -15,7 +15,7 @@ mod common;
 
 use std::collections::BTreeSet;
 
-use common::{line_sites, read_focus, run_focus, sites, FOCUS_CASES, META};
+use common::{err_sites, line_sites, read_focus, run_focus, sites, FOCUS_CASES, META};
 
 use sensorium_transform::{transform, Focus, Manifest, RetKind, SiteKind};
 
@@ -170,6 +170,118 @@ fn a_value_a_later_statement_moves_is_still_captured() {
     // `let w = v;` moves `v`, and the probe on the line before still borrowed
     // it. `tests/oracle.rs` compiles this output, which is the actual proof.
     assert!(t.source.contains("let w = v;::sensorium_rt::line("));
+}
+
+/// Fix round 1, I1. `exits::diverges` says a `loop` with no VALUED `break`
+/// diverges, which is the right answer to "may this operand be wrapped" and the
+/// wrong one to "does this statement complete". Before the repair this fn's
+/// `loop` and everything the reviewer measured -- the `if`, the `n += 1;` and
+/// the loop's own row -- were simply absent.
+#[test]
+fn a_loop_a_plain_break_leaves_completes_and_takes_its_line() {
+    let t = run("focus_loop_break");
+    assert_eq!(
+        line_sites(&t),
+        [
+            (8, "wait_then", 7),   // parameters
+            (9, "wait_then", 8),   // let mut n = a;
+            (10, "wait_then", 10), // the `if` statement, past its `}`
+            (11, "wait_then", 13), // n += 1;
+            (12, "wait_then", 9),  // the `loop` STATEMENT, past its `}`
+            (13, "wait_then", 15), // let b = n + 1;
+        ]
+    );
+    // The `break;` itself takes none: a probe after it is unreachable code.
+    assert!(t.source.contains("break;\n"));
+    assert!(t
+        .source
+        .contains("    }::sensorium_rt::line(&crate::__SENSORIUM_UNIT, 12, || []);"));
+}
+
+/// Fix round 1, I2. Only `cfg`/`cfg_attr` can take the statement out of the
+/// build, so only those decline its LINE; `#[allow(..)]` is far more common on
+/// a statement and used to cost it its row and its delta.
+#[test]
+fn only_a_cfg_attribute_declines_a_statements_line() {
+    let t = run("focus_attrs");
+    assert_eq!(
+        line_sites(&t),
+        [
+            (8, "attributed", 5),
+            // The `let` line, not the `#[allow]` line above it.
+            (9, "attributed", 7),
+        ]
+    );
+    assert!(t.source.contains("let mut c = 3;::sensorium_rt::line("));
+    assert!(
+        t.source.contains("let d = 4;\n"),
+        "a `cfg`-able statement takes no probe at all"
+    );
+}
+
+/// Fix round 1, I3. The `?` keeps its err wrap and the statement's LINE goes
+/// after the `;`, so the LINE runs only where the `?` did not propagate.
+#[test]
+fn a_try_statement_keeps_its_err_wrap_and_takes_its_line_after_the_semicolon() {
+    let t = run("focus_try");
+    assert_eq!(
+        line_sites(&t),
+        [(8, "read_one", 5), (9, "read_one", 6), (10, "read_one", 7)]
+    );
+    assert_eq!(
+        err_sites(&t),
+        [(11, "read_one", 6, SiteKind::Try, "try")],
+        "the try site is minted by the MAIN walk, after this fn's LINE sites"
+    );
+    assert!(t.source.contains("?;::sensorium_rt::line(&crate::__SENSORIUM_UNIT, 9, || [(\"v\", ::sensorium_rt::probe_cap!(&v))]);"));
+}
+
+/// Fix round 1, I3. An arm-entry LINE and an `Err(..) =>` arm probe land on the
+/// same byte, and the two forms of an arm body must not disagree about which
+/// comes first. Both put the LINE outside: a block body writes it in front of
+/// the arm probe (`Kind::LineEntry`), a bare-expression body wraps the arm
+/// probe's own wrap. `oracle.rs` compiles the result.
+#[test]
+fn an_arm_entry_line_sits_outside_an_err_arm_probe_in_both_arm_forms() {
+    let t = run("focus_err_arm");
+    assert_eq!(
+        sites(&t),
+        [
+            (7, "handled", 6, RetKind::Value),
+            (13, "bare", 16, RetKind::Value)
+        ]
+    );
+    assert_eq!(
+        err_sites(&t),
+        [
+            (12, "handled", 9, SiteKind::Arm, "arm_handled"),
+            (17, "bare", 19, SiteKind::Arm, "arm_ambiguous"),
+        ]
+    );
+    assert_eq!(
+        line_sites(&t),
+        [
+            (8, "handled", 6),
+            (9, "handled", 8),
+            (10, "handled", 9),
+            (11, "handled", 10),
+            (14, "bare", 16),
+            (15, "bare", 18),
+            (16, "bare", 19),
+        ]
+    );
+    // BLOCK body: LINE first, then the arm probe, both as statements.
+    assert!(t.source.contains(
+        "Err(e) => {::sensorium_rt::line(&crate::__SENSORIUM_UNIT, 10, \
+         || [(\"e\", ::sensorium_rt::probe_cap!(&e))]);::sensorium_rt::err_site_value("
+    ));
+    // BARE body: the LINE wrap is OUTSIDE the arm probe's wrap, same order.
+    assert!(t.source.contains(
+        "Err(e) => { ::sensorium_rt::line(&crate::__SENSORIUM_UNIT, 16, \
+         || [(\"e\", ::sensorium_rt::probe_cap!(&e))]); \
+         { ::sensorium_rt::err_site_value("
+    ));
+    assert!(t.source.contains("e.len() as i32 } },"));
 }
 
 // ---------------------------------------------------------------------------

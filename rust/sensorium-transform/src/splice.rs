@@ -31,9 +31,10 @@
 //! block an arm's or a closure's expression body was wrapped in (the exit wrap
 //! is inside THAT: `{ guard; ret(.., f(n)) }`), all of them close before
 //! anything that starts there, then the entry guard (a statement, which must
-//! precede the block's value), then a focus tier LINE probe (a statement too,
-//! and behind the guard because a LINE must fall inside its function's CALL),
-//! then that same block's `{ <statement> ` opening
+//! precede the block's value) -- with an arm-entry LINE ahead of it and a
+//! parameters or statement LINE behind it (a LINE must fall inside its
+//! function's CALL, so it can never precede the guard) -- then that same
+//! block's `{ <statement> ` opening
 //! -- ahead of an exit wrap's opening fragment, since a closure's expression
 //! body is its own tail operand and both land on that byte -- then an exit
 //! wrap's opening fragment, then an err wrap's `match ` (again inside it), then
@@ -207,19 +208,27 @@ pub(crate) enum Kind {
     /// share a byte -- an arm whose body IS a `?`-bearing closure -- and the
     /// reversed `seq` in [`splice_order`] closes the innermost first.
     ScopeClose,
+    /// A focus tier arm-entry LINE written into a BLOCK body. Ahead of an
+    /// `Err(..) =>` arm's own probe at the same byte, so that the two forms of
+    /// the same construct nest the same way: a bare-EXPRESSION arm body comes
+    /// out `{ <LINE> { <arm probe> <expr> } }` (the LINE wrap is pushed first
+    /// and is therefore outermost), and without this kind a BLOCK body would
+    /// come out arm-probe-first -- the same two statements in the opposite
+    /// order, for no reason a reader could name. Measured by
+    /// `tests/golden_focus/focus_err_arm`.
+    LineEntry,
     /// The entry guard, and an arm probe in a BLOCK body: a statement, so ahead
     /// of the block's value.
     Guard,
-    /// A focus tier LINE probe: the parameters LINE, a statement's own LINE, or
-    /// an arm-entry LINE written into a block body. A statement, so ahead of the
-    /// block's value -- and AFTER [`Kind::Guard`], which is design amendment A6:
-    /// the parameters LINE shares the entry guard's byte and a LINE must fall
-    /// INSIDE its function's CALL, so it can never precede the guard that opens
-    /// the frame. (An arm-entry LINE shares a byte with an `Err(..) =>` arm's
-    /// probe for the same reason and comes second there too; both are statements
-    /// at the arm's entry and either order runs, so the one rule that matters is
-    /// the guard's.) An arm-entry LINE in a bare-EXPRESSION body is a
-    /// [`Kind::ScopeOpen`]/[`Kind::ScopeClose`] pair instead (amendment A1).
+    /// A focus tier LINE probe: the parameters LINE, or a statement's own LINE.
+    /// A statement, so ahead of the block's value -- and AFTER [`Kind::Guard`],
+    /// which is design amendment A6: the parameters LINE shares the entry
+    /// guard's byte and a LINE must fall INSIDE its function's CALL, so it can
+    /// never precede the guard that opens the frame. An ARM-entry LINE is
+    /// [`Kind::LineEntry`] (block body) or a
+    /// [`Kind::ScopeOpen`]/[`Kind::ScopeClose`] pair (bare expression,
+    /// amendment A1), both of which sit outside an `Err(..) =>` arm's probe
+    /// rather than inside it.
     Line,
     /// The `{ <statement> ` opening that same block. Ahead of an exit wrap's
     /// opening fragment, since a closure's expression body is its own tail

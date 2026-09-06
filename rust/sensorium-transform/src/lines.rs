@@ -51,7 +51,8 @@
 //!   LINE either -- an item declaration is not on any execution path, so a row
 //!   for it would say a line ran that never runs.
 //! * **A diverging statement** (`return`, `break`, `continue`, `panic!(..)`,
-//!   `std::process::exit(..)`, and the composites [`crate::exits`] already
+//!   `std::process::exit(..)`, a `loop` NO `break` leaves, and the composites
+//!   [`crate::exits`] already
 //!   classifies): the probe after it would be unreachable code -- a WARNING,
 //!   which under a workspace's `#![deny(warnings)]` is a build error and costs
 //!   the unit its instrumentation. Design §3.1 says the same thing from the
@@ -59,11 +60,13 @@
 //! * **The tail expression**, which is not a statement: its value is the
 //!   block's, and a statement placed after it would be placed after the block's
 //!   value. Its own sub-blocks are still walked.
-//! * **A statement carrying an outer attribute**: `#[cfg(unix)] let a = 1;` is
-//!   one statement to `syn` and zero or one to rustc, and the probe -- spliced
+//! * **A statement a `cfg` can remove**: `#[cfg(unix)] let a = 1;` is one
+//!   statement to `syn` and zero or one to rustc, and the probe -- spliced
 //!   AFTER it -- survives a `cfg` that strips it. A probe naming `a` would then
 //!   not compile, and even an empty one would claim a line ran that was never
-//!   built. Declining costs a row; not declining costs the build.
+//!   built. Only `#[cfg]` and `#[cfg_attr]` can do that: `#[allow(..)]`,
+//!   `#[rustfmt::skip]` and the rest leave the statement in the build and take
+//!   their LINE like any other ([`is_conditionally_compiled`]).
 //! * **A place write** (`*p = e`, `a.b = e`, `v[i] = e`) and a `&mut` mutation
 //!   are not deltas (design §3.2), so those statements mint `|| []`.
 //! * **A name that is not a plausible binding**: `syn` cannot tell the pattern
@@ -89,8 +92,8 @@ use proc_macro2::Span;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
 use syn::{
-    Arm, BinOp, Block, Expr, ExprAsync, ExprClosure, ExprConst, ExprForLoop, ExprIf, ExprWhile,
-    FnArg, Item, MacroDelimiter, Pat, Signature, Stmt,
+    Arm, Attribute, BinOp, Block, Expr, ExprAsync, ExprBreak, ExprClosure, ExprConst, ExprForLoop,
+    ExprIf, ExprLoop, ExprWhile, FnArg, Item, Lifetime, MacroDelimiter, Pat, Signature, Stmt,
 };
 
 use crate::arms::bound_names;
@@ -174,11 +177,16 @@ impl Walk<'_, '_> {
     /// Mint a site and put one probe at `at`. Nothing is emitted if the site
     /// index would overflow the wire format's 24 bits.
     fn emit(&mut self, at: usize, line: u32, names: &[String], span: Span) {
+        self.emit_kind(at, line, names, span, Kind::Line);
+    }
+
+    /// [`Walk::emit`] with the splice kind said out loud -- the one thing that
+    /// differs between a statement's LINE and an arm-entry's.
+    fn emit_kind(&mut self, at: usize, line: u32, names: &[String], span: Span, kind: Kind) {
         let Some(site) = self.mint(line, span) else {
             return;
         };
-        self.ctx
-            .push(at, at, Kind::Line, line_fragment(site, names));
+        self.ctx.push(at, at, kind, line_fragment(site, names));
     }
 
     fn mint(&mut self, line: u32, span: Span) -> Option<u32> {
@@ -209,23 +217,15 @@ impl Walk<'_, '_> {
 
     /// One statement's probe: after its last byte, with the names it wrote.
     fn statement(&mut self, stmt: &Stmt, is_tail: bool) {
-        if self.has_outer_attribute(stmt) {
+        if is_conditionally_compiled(stmt) {
             return;
         }
         let Some(at) = self.statement_end(stmt, is_tail) else {
             return;
         };
         let names = statement_deltas(stmt);
-        let span = stmt.span();
+        let span = statement_span(stmt);
         self.emit(at, line_of(span), &names, span);
-    }
-
-    /// Does the statement start with a `#`? That is an outer attribute and
-    /// nothing else in the grammar, and an attributed statement is declined
-    /// (see the module docs).
-    fn has_outer_attribute(&self, stmt: &Stmt) -> bool {
-        let start = self.ctx.start_of(stmt.span());
-        self.ctx.source[start..].starts_with('#')
     }
 
     /// Where the probe goes, or `None` when this statement takes none.
@@ -236,12 +236,12 @@ impl Walk<'_, '_> {
             // A nested item declaration is not on an execution path.
             Stmt::Item(_) => None,
             Stmt::Expr(expr, Some(semi)) => {
-                (!exits::diverges(expr)).then(|| self.ctx.end_of(semi.span))
+                (!stmt_diverges(expr)).then(|| self.ctx.end_of(semi.span))
             }
             // No semicolon: either the block's TAIL (not a statement), or a
             // block-like expression used as one.
             Stmt::Expr(expr, None) => {
-                if is_tail || exits::diverges(expr) {
+                if is_tail || stmt_diverges(expr) {
                     return None;
                 }
                 self.block_like_end(expr)
@@ -302,7 +302,11 @@ impl Walk<'_, '_> {
         };
         if let Some((attrs, block)) = block {
             if let Some(offset) = self.ctx.body_offset(attrs, block) {
-                self.emit(offset, line, names, span);
+                // `Kind::LineEntry`, not `Kind::Line`: an `Err(..) =>` arm's
+                // own probe lands on this byte too, and the arm-entry LINE goes
+                // in front of it -- which is where the bare-expression form
+                // (A1) puts it, and the two forms must not disagree.
+                self.emit_kind(offset, line, names, span, Kind::LineEntry);
             }
             return;
         }
@@ -431,6 +435,191 @@ fn is_block_like(expr: &Expr) -> bool {
             | Expr::Async(_)
             | Expr::Const(_)
     )
+}
+
+/// The span whose line a statement's LINE site reports: the first token AFTER
+/// its outer attributes.
+///
+/// `Spanned` on a `Stmt` starts at the `#` of an attribute, so
+/// `#[allow(unused_mut)]\n let mut c = 3;` would report the attribute's line
+/// for a statement a reader sees on the next one. `let` and a macro's path are
+/// reachable directly; an attributed EXPRESSION statement is not, and reports
+/// the attribute's line -- declared rather than guessed at.
+fn statement_span(stmt: &Stmt) -> Span {
+    match stmt {
+        Stmt::Local(local) => local.let_token.span,
+        Stmt::Macro(mac) => mac.mac.path.span(),
+        Stmt::Expr(expr, _) => expr.span(),
+        Stmt::Item(_) => stmt.span(),
+    }
+}
+
+/// Does this statement fail to complete normally, so that a probe after it
+/// would be unreachable code?
+///
+/// [`crate::exits::diverges`] answers a DIFFERENT question -- "would wrapping
+/// this operand put the `ret` call after code of type `!`" -- and the two
+/// answers part company on exactly one construct: `loop`. There the test is
+/// `has_valued_break`, because a loop only YIELDS a value through `break
+/// <expr>`; so `loop { if c { break; } }` is "diverging" to `exits` even though
+/// it plainly completes as a statement -- the `break` leaves it and the next
+/// statement runs. Reusing that predicate here dropped the LINE of every
+/// `loop`-with-a-plain-`break` and of the statement's own row -- a §3.1
+/// violation found in review (fix round 1, I1).
+///
+/// So `loop` is answered here -- it diverges only when NO `break` targets it,
+/// valued or not -- and everything else still delegates. What still delegates
+/// and is therefore still wrong is a `loop { break; }` buried inside a
+/// COMPOSITE (`unsafe { loop { break; } }`, a `match` all of whose arms are
+/// such a loop): `exits::diverges` recurses with its own rule. That costs those
+/// statements their LINE and never costs a build, and is declared rather than
+/// fixed by duplicating `exits`'s composite walk here.
+fn stmt_diverges(expr: &Expr) -> bool {
+    match expr {
+        Expr::Paren(inner) => stmt_diverges(&inner.expr),
+        Expr::Group(inner) => stmt_diverges(&inner.expr),
+        Expr::Loop(l) => !has_break(l),
+        other => exits::diverges(other),
+    }
+}
+
+/// Does any `break` -- with a value or without -- leave THIS loop?
+fn has_break(l: &ExprLoop) -> bool {
+    let mut walk = BreakWalk {
+        label: l.label.as_ref().map(|l| &l.name),
+        nested: 0,
+        found: false,
+    };
+    walk.visit_block(&l.body);
+    walk.found
+}
+
+/// The walk `has_break` runs. A sibling of `exits.rs`'s `BreakWalk` and not a
+/// reuse of it: that one requires `break <expr>` and counts only `loop` as a
+/// nesting level, and both differences are wrong for this question. An
+/// unlabelled `break` targets the innermost `loop`/`while`/`for`, so all three
+/// count here.
+struct BreakWalk<'a> {
+    label: Option<&'a Lifetime>,
+    nested: usize,
+    found: bool,
+}
+
+impl BreakWalk<'_> {
+    fn targets_this_loop(&self, b: &ExprBreak) -> bool {
+        match (&b.label, self.label) {
+            (Some(l), Some(mine)) => l.ident == mine.ident,
+            (Some(_), None) => false,
+            (None, _) => self.nested == 0,
+        }
+    }
+}
+
+impl<'ast> Visit<'ast> for BreakWalk<'_> {
+    fn visit_expr_break(&mut self, node: &'ast ExprBreak) {
+        if self.targets_this_loop(node) {
+            self.found = true;
+        }
+        syn::visit::visit_expr_break(self, node);
+    }
+
+    fn visit_expr_loop(&mut self, node: &'ast ExprLoop) {
+        self.nested += 1;
+        syn::visit::visit_expr_loop(self, node);
+        self.nested -= 1;
+    }
+
+    fn visit_expr_while(&mut self, node: &'ast ExprWhile) {
+        self.nested += 1;
+        syn::visit::visit_expr_while(self, node);
+        self.nested -= 1;
+    }
+
+    fn visit_expr_for_loop(&mut self, node: &'ast ExprForLoop) {
+        self.nested += 1;
+        syn::visit::visit_expr_for_loop(self, node);
+        self.nested -= 1;
+    }
+
+    // A `break` cannot cross any of these, so neither does the walk.
+    fn visit_expr_closure(&mut self, _: &'ast ExprClosure) {}
+    fn visit_expr_async(&mut self, _: &'ast ExprAsync) {}
+    fn visit_expr_const(&mut self, _: &'ast ExprConst) {}
+    fn visit_item(&mut self, _: &'ast Item) {}
+}
+
+/// Can `cfg` REMOVE this statement from the build?
+///
+/// Only `#[cfg]` and `#[cfg_attr]` can, and the probe is spliced AFTER the
+/// statement, so it survives a strip that takes the statement (and its
+/// bindings) away. Every other attribute -- `#[allow(..)]`, `#[rustfmt::skip]`,
+/// a doc comment -- leaves the statement in the build and takes its LINE
+/// normally. Fix round 1 (I2): this used to be "the statement's first byte is
+/// `#`", which cost `#[allow(unused)] let c = 3;` its row and its `c` delta,
+/// and `#[allow]` on a statement is far more common than `#[cfg]`.
+fn is_conditionally_compiled(stmt: &Stmt) -> bool {
+    let attrs = match stmt {
+        Stmt::Local(local) => local.attrs.as_slice(),
+        Stmt::Macro(mac) => mac.attrs.as_slice(),
+        Stmt::Expr(expr, _) => expr_attrs(expr),
+        // Never probed anyway -- `statement_end` declines an item statement
+        // before its attributes could matter.
+        Stmt::Item(_) => return false,
+    };
+    attrs
+        .iter()
+        .any(|a| a.path().is_ident("cfg") || a.path().is_ident("cfg_attr"))
+}
+
+/// One expression's own outer attributes.
+///
+/// `syn` gives every `Expr` variant but `Verbatim` an `attrs` field and no way
+/// to reach it generically, so this is the match. The catch-all is required --
+/// `syn::Expr` is `#[non_exhaustive]` -- and answers "no attributes", which is
+/// what a variant this crate has never seen would have to be assumed to have;
+/// the cost of being wrong is one probe on a statement a `cfg` could strip.
+fn expr_attrs(expr: &Expr) -> &[Attribute] {
+    match expr {
+        Expr::Array(e) => &e.attrs,
+        Expr::Assign(e) => &e.attrs,
+        Expr::Async(e) => &e.attrs,
+        Expr::Await(e) => &e.attrs,
+        Expr::Binary(e) => &e.attrs,
+        Expr::Block(e) => &e.attrs,
+        Expr::Break(e) => &e.attrs,
+        Expr::Call(e) => &e.attrs,
+        Expr::Cast(e) => &e.attrs,
+        Expr::Closure(e) => &e.attrs,
+        Expr::Const(e) => &e.attrs,
+        Expr::Continue(e) => &e.attrs,
+        Expr::Field(e) => &e.attrs,
+        Expr::ForLoop(e) => &e.attrs,
+        Expr::Group(e) => &e.attrs,
+        Expr::If(e) => &e.attrs,
+        Expr::Index(e) => &e.attrs,
+        Expr::Infer(e) => &e.attrs,
+        Expr::Let(e) => &e.attrs,
+        Expr::Lit(e) => &e.attrs,
+        Expr::Loop(e) => &e.attrs,
+        Expr::Macro(e) => &e.attrs,
+        Expr::Match(e) => &e.attrs,
+        Expr::MethodCall(e) => &e.attrs,
+        Expr::Paren(e) => &e.attrs,
+        Expr::Path(e) => &e.attrs,
+        Expr::Range(e) => &e.attrs,
+        Expr::Reference(e) => &e.attrs,
+        Expr::Repeat(e) => &e.attrs,
+        Expr::Return(e) => &e.attrs,
+        Expr::Struct(e) => &e.attrs,
+        Expr::Try(e) => &e.attrs,
+        Expr::TryBlock(e) => &e.attrs,
+        Expr::Tuple(e) => &e.attrs,
+        Expr::Unary(e) => &e.attrs,
+        Expr::Unsafe(e) => &e.attrs,
+        Expr::While(e) => &e.attrs,
+        Expr::Yield(e) => &e.attrs,
+        _ => &[],
+    }
 }
 
 /// The deltas of one statement (design §3.2).

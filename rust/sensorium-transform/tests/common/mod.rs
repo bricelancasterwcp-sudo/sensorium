@@ -385,10 +385,15 @@ pub fn sites(t: &Transformed) -> Vec<(u32, &str, u32, RetKind)> {
 }
 
 /// The ERR-FLOW sites of a result: `(site, qualname, line, kind, how)`.
+///
+/// The two FRAME kinds are excluded because they carry no `how`, and so is
+/// `line`, for the same reason: a LINE is not an err-flow site and writes no
+/// `how` byte. (Listing it here made this helper panic on the first golden that
+/// had both -- `focus_err_arm`, fix round 1.)
 pub fn err_sites(t: &Transformed) -> Vec<(u32, &str, u32, SiteKind, &'static str)> {
     t.sites
         .iter()
-        .filter(|s| !matches!(s.kind, SiteKind::Fn | SiteKind::Closure))
+        .filter(|s| !matches!(s.kind, SiteKind::Fn | SiteKind::Closure | SiteKind::Line))
         .map(|s| {
             (
                 s.site,
@@ -519,13 +524,17 @@ pub const CASES: &[&str] = &[
 /// output, so a case added here is covered by both.
 pub const FOCUS_CASES: &[(&str, &str)] = &[
     ("focus_arm_bare", "pick"),
+    ("focus_attrs", "attributed"),
     ("focus_closure", "outer"),
+    ("focus_err_arm", "handled,bare"),
     ("focus_fill", "fill"),
     ("focus_loop", "sum_to_three"),
+    ("focus_loop_break", "wait_then"),
     ("focus_match", "classify"),
     ("focus_moved_value", "move_it"),
     ("focus_params", "Counter"),
     ("focus_skipped", "spun"),
+    ("focus_try", "read_one"),
     ("focus_unmatched", "nothing_here"),
 ];
 
