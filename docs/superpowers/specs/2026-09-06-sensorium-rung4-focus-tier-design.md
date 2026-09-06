@@ -447,4 +447,14 @@ of them — its gate value 26 is the value these amendments make unambiguous.
   `locals` stay registered-scoped (a LINE record cannot exist for an
   unregistered unit). §2.2's `skipped_only` carries `(value, qualname,
   reason)`, the three things its sentence names.
+- **A10 (2026-09-06, after Task 3's review) — "equals" in A9 means the same
+  SET.** `focus_hash` sorts and de-duplicates before hashing, so `--focus a
+  --focus b` and `--focus b --focus a` share a shim path, artifacts and
+  manifests; the converter's comparison of a manifest's `focus.values` with
+  the invocation's list therefore canonicalises both sides the same way
+  (sort, de-dup) — otherwise the second order read `focus_matched: []` on a
+  focused build with LINE rows (observed). `meta.focus` still records the
+  values as given. A `--focus` whose value is only commas is refused like an
+  empty one; a value that matches only skipped functions names every such
+  function in its refusal.
 
