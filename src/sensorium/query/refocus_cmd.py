@@ -160,7 +160,7 @@ from sensorium.query.diff_cmd import (compare, print_comparison,
 from sensorium.query.refocus_world import (  # noqa: F401
     _UNCOMPARED_ENV, _clip, _env_diff, _env_state, _licence_caveats,
     _output_difference, _output_text, _source_state, _spawn_witnessed,
-    _verified_facts)
+    _verified_facts, harness_note, uncompared_threads)
 from sensorium.store import db
 from sensorium.store.reader import Trace
 
@@ -543,12 +543,20 @@ def _print_thread_line(orig: Trace, new: Trace, a: dict) -> None:
         # compared. Say how many were compared, and say plainly when more
         # existed than that.
         n = len(new.fingerprints())
-        unseen = max(orig.meta.get("threads_started", 0),
-                     new.meta.get("threads_started", 0)) + 1 - n
+        # `uncompared_threads` and not `threads_started + 1 - n`: that was
+        # arithmetic across two populations. This converter writes one
+        # thread row and puts every other thread in `task_fingerprints`, so
+        # the old sum reported EVERY non-main Rust thread as one that "ran
+        # no traced code" -- including the thread the code under test runs
+        # on, whose call shape had just been compared. None from either
+        # side means the count cannot be established, and then the clause
+        # is absent rather than derived from a key that was never written.
+        counts = [uncompared_threads(t) for t in (orig, new)]
+        unseen = None if None in counts else max(counts)
         tail = (f"; {unseen} further thread(s) ran no traced code, left no "
-                "fingerprint, and were NOT compared" if unseen > 0 else "")
+                "fingerprint, and were NOT compared" if unseen else "")
         print(f"threads: {n} recorded fingerprint(s) compared"
-              f"{a['thread_scope']}, all matching{tail}")
+              f"{a['thread_scope']}, all matching{tail}{harness_note(new)}")
     else:
         print("threads: no per-thread fingerprints were recorded on either "
               "side -- there was nothing to compare beyond the stream above")

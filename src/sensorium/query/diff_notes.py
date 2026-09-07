@@ -11,6 +11,7 @@ None of these change the verdict. All of them must survive to the screen: a
 MATCH with the note missing is a stronger claim than the comparison made.
 """
 from sensorium.query.caps import witness_gap
+from sensorium.query.refocus_world import harness_exclusion
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
@@ -99,8 +100,17 @@ def _thread_notes(label: str, trace: Trace) -> list[str]:
     started = meta["threads_started"]
     if not started and fps <= 1:
         return []
-    return [f"{label} recorded more than one thread: {started} started "
-            f"{terms(trace).thread_origin}, {fps} left a "
+    # The recorder's OWN threads come out of the count and are named where
+    # they were taken from (design 2026-09-07 R1). The emit test above
+    # still reads the raw count on purpose: a run whose only extra thread
+    # is the harness's has still recorded more than one thread, and a note
+    # that vanished would be this line answering a question it was not
+    # asked. Python: no harness threads, so both the number and the string
+    # are what they were.
+    harness, harness_clause = harness_exclusion(trace)
+    return [f"{label} recorded more than one thread: {started - harness} "
+            f"started {terms(trace).thread_origin}{harness_clause}, {fps} "
+            "left a "
             "fingerprint; only the thread named above was compared -- a "
             "MATCH here is not a MATCH on the whole run, and a thread that "
             "ran no traced code leaves no fingerprint to compare at all"]

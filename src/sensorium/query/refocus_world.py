@@ -332,13 +332,19 @@ def harness_threads(trace: Trace) -> set[int]:
     excludes nothing either.
 
     Empty for a recorder whose traces carry no site marks at all -- every
-    Python trace -- and empty when the trace does not say which thread was
-    the main one. Neither is a harness thread that went unfound: both leave
-    every count exactly as it was, which is the direction that claims less.
+    Python trace -- and empty unless the main thread is a RECORDED fact.
+    `main_thread_id()` never reports "the trace does not say": it falls
+    back to the thread of whichever event got id 1, which under `--focus`
+    filtering or ordinary scheduling jitter can name a worker. Subtracting
+    on a guess is the one way this rule can take a thread out of a count it
+    was never in, so `main_thread_basis()` -- "recorded", "inferred", or
+    None for a trace with no events at all -- is what the exclusion rests
+    on. Neither empty case is a harness thread that went unfound: both
+    leave every count exactly as it was, the direction that claims less.
     """
-    main = trace.main_thread_id()
-    if main is None:
+    if trace.main_thread_basis() != "recorded":
         return set()
+    main = trace.main_thread_id()
     marks = _site_marks(trace.meta)
     found = set()
     for root in trace.roots():
@@ -350,7 +356,7 @@ def harness_threads(trace: Trace) -> set[int]:
     return found
 
 
-def _harness_exclusion(trace: Trace) -> tuple[int, str]:
+def harness_exclusion(trace: Trace) -> tuple[int, str]:
     """How many threads this recorder started itself, and the clause that
     NAMES them wherever one of its thread counts is printed.
 
@@ -367,6 +373,76 @@ def _harness_exclusion(trace: Trace) -> tuple[int, str]:
     if not n:
         return 0, ""
     return n, f" and {n} harness thread{'' if n == 1 else 's'} ({phrase})"
+
+
+def harness_note(trace: Trace) -> str:
+    """The harness exclusion as a clause of its OWN, for a line whose counts
+    it is not one of.
+
+    `harness_exclusion`'s clause follows a count and joins it (" and 1
+    harness thread ..."); on a line that counts what was NOT compared, the
+    same words would say the harness thread is one of them. Same fact, same
+    vocabulary, a grammatical slot that does not lie. Empty where the
+    recorder starts no thread of its own.
+    """
+    n, _clause = harness_exclusion(trace)
+    if not n:
+        return ""
+    plural, verb = ("", "is") if n == 1 else ("s", "are")
+    return (f"; {n} harness thread{plural} ({terms(trace).harness_thread}) "
+            f"{verb} not among these counts")
+
+
+def compared_threads(trace: Trace) -> set[int]:
+    """The threads whose call shape this trace actually had compared.
+
+    NOT `fingerprints()`. The Rust converter writes exactly ONE thread row
+    -- the main thread's -- and routes every other thread's events into
+    `task_fingerprints` (`convert/frames.rs`), so a count of thread rows
+    reported every non-main Rust thread as one that "ran no traced code,
+    left no fingerprint, and was NOT compared" while its whole call shape
+    had been compared, on the very thread the code under test runs on.
+
+    A task row is followed back to its thread through the `tasks` table
+    rather than assumed to be one: in Python a task is an asyncio task and
+    many of them share a thread, so adding task rows to a thread count
+    would be the same error facing the other way. A task whose `tasks` row
+    is missing names no thread and adds none -- that reports MORE
+    uncompared threads, which is the direction that claims less.
+    """
+    threads = set(trace.fingerprints())
+    thread_of = {task.id: task.thread_id for task in trace.tasks()}
+    for task_id in trace.task_fingerprints():
+        thread = thread_of.get(task_id)
+        if thread is not None:
+            threads.add(thread)
+    return threads
+
+
+def uncompared_threads(trace: Trace) -> int | None:
+    """How many threads this trace records STARTING and did not compare.
+
+    None when it does not record how many threads it started: absence of
+    the record is not a record of absence, and a count derived from a
+    missing key is the one number a line about what went uncompared must
+    never print.
+
+    Harness threads are the recorder's own, so they are not among the
+    program's uncompared threads -- but only the ones NOT already compared
+    are subtracted, or a harness thread whose stream WAS compared (the
+    ordinary case: it is the thread the `#[test]` fn runs on) would come
+    off the count twice. Clamped at zero rather than printed negative: a
+    thread can leave a fingerprint without the audit hook counting its
+    creation -- a C extension's thread in Python -- and a negative here
+    would be arithmetic across two populations reported as a measurement.
+    """
+    started = trace.meta.get("threads_started")
+    if started is None:
+        return None
+    compared = compared_threads(trace)
+    unfound_harness = harness_threads(trace) - compared
+    return max(started - len(compared - {trace.main_thread_id()})
+               - len(unfound_harness), 0)
 
 
 def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
@@ -421,7 +497,7 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
         # trace this project wrote -- and a hand-built one that says
         # otherwise gets no caveat rather than a negative count printed as
         # though it had been measured.
-        harness, harness_clause = _harness_exclusion(trace)
+        harness, harness_clause = harness_exclusion(trace)
         started = meta["threads_started"] - harness
         if started > 0:
             out.append(
@@ -539,7 +615,7 @@ def _verified_facts(orig: Trace, new: Trace, scope: str) -> list[str]:
     # bounded list, so the harness thread appears on it as an exclusion
     # rather than being dropped from a sentence that then reads as though
     # only the main thread ever ran.
-    harness, harness_clause = _harness_exclusion(new)
+    harness, harness_clause = harness_exclusion(new)
     thread_fact = (
         f"no thread started besides the main one{harness_clause}"
         if harness else

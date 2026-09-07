@@ -14,7 +14,8 @@ from sensorium.exit import ANSWERED
 from sensorium.query.caps import witness_gap
 from sensorium.query.fmt import fmt_exc
 from sensorium.query.info_rust import rust_lines
-from sensorium.query.refocus_world import unverifiable_line
+from sensorium.query.refocus_world import (harness_exclusion,
+                                           unverifiable_line)
 from sensorium.query.vocab import exit_phrase, terms
 from sensorium.store.reader import Trace
 
@@ -61,8 +62,16 @@ def witnessed_counts(trace, m: dict) -> list[str]:
     out = []
     started = m.get("threads_started")
     if started:
+        # Partitioned the way the licence partitions it, and on the same
+        # screen as the licence lines `info` replays below (design R1): the
+        # recorder's own harness threads come out of the count and are
+        # named. The emit test reads the raw count, so a run whose only
+        # extra thread is the harness's still says so. Python starts none,
+        # and both the number and the string are unchanged there.
+        harness, harness_clause = harness_exclusion(trace)
         out.append(
-            f"threads started: {started} besides the main one, "
+            f"threads started: {started - harness} besides the main one"
+            f"{harness_clause}, "
             f"{terms(trace).thread_origin} -- one that ran no traced code "
             "has no fingerprint above and was not otherwise seen")
     spawns = m.get("spawn_syscalls")

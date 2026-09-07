@@ -31,8 +31,9 @@ from sensorium.query.vocab import PYTHON, RUST
 from sensorium.store.reader import Trace
 from tests.helpers import fn_site, rust_trace
 from tests.refocus_programs import LOOP, drop_meta, rec, refocus, set_meta
-from tests.refocus_rust_fixtures import (ORIG, PAIR, _drive, _read_meta,
-                                         libtest_original, original)
+from tests.refocus_rust_fixtures import (ORIG, PAIR, _drive, _drop_meta,
+                                         _read_meta, libtest_original,
+                                         original)
 from tests.rust_traces import (FILE, HARNESS_SERIAL, MAIN_THREAD, SITE_FILE,
                                TEST_FN, WORKER_FN, call, frame,
                                rerunnable_trace, ret)
@@ -392,3 +393,107 @@ def test_info_says_nothing_when_the_unverifiable_stamp_is_empty(
         refocus_licence_unverifiable=[])
     assert cli.main(["info", run_id]) == 0
     assert "licence unverifiable" not in capsys.readouterr().out
+
+
+# -- R1's partition on the rest of the screen ------------------------------
+#
+# Fix round 1. The licence's own two sentences applied R1; three other lines
+# on the SAME screen still counted threads without it -- `diff`'s thread
+# note, `refocus`'s `threads:` line and `info`'s `threads started:` -- so a
+# reader saw "1 started as OS threads" directly above "no thread started
+# besides the main one and 1 harness thread". One trace, one screen, two
+# partitions. And the `threads:` line was arithmetic across two populations:
+# the Rust converter writes ONE `fingerprints` row and routes every other
+# thread into `task_fingerprints`, so every non-main Rust thread was
+# reported as "ran no traced code ... NOT compared" when its whole call
+# shape HAD been compared as a task stream.
+
+def test_the_thread_note_applies_the_licence_partition(
+        tmp_path, monkeypatch, capsys):
+    _libtest(tmp_path, monkeypatch)
+    out = capsys.readouterr().out
+    assert ("recorded more than one thread: 0 started as OS threads "
+            "(libtest's per-test threads and threads spawned by workspace "
+            f"code) and {HARNESS_PHRASE}, 1 left a fingerprint") in out
+    assert "1 started as OS threads" not in out
+
+
+def test_the_threads_line_names_the_harness_thread_it_does_not_count(
+        tmp_path, monkeypatch, capsys):
+    _libtest(tmp_path, monkeypatch)
+    out = capsys.readouterr().out
+    assert f"; {HARNESS_PHRASE} is not among these counts" in out
+
+
+def test_a_thread_compared_as_a_task_stream_is_not_reported_uncompared(
+        tmp_path, monkeypatch, capsys):
+    """The arithmetic bug. Two spawned threads whose call shapes were both
+    compared -- as task streams, which is where this converter puts them --
+    must not be reported as threads that ran no traced code."""
+    _libtest(tmp_path, monkeypatch, program_threads=2)
+    out = capsys.readouterr().out
+    assert "ran no traced code, left no fingerprint, and were NOT compared" \
+        not in out
+
+
+def test_a_thread_that_really_ran_nothing_is_still_reported_uncompared(
+        tmp_path, monkeypatch, capsys):
+    """...and the clause does not go away: two threads that started, ran no
+    traced code and left no row of any kind are still named, and the count
+    is the program's own -- the harness thread is not among them."""
+    _libtest(tmp_path, monkeypatch, silent_threads=2)
+    out = capsys.readouterr().out
+    assert ("2 further thread(s) ran no traced code, left no fingerprint, "
+            "and were NOT compared") in out
+    assert f"; {HARNESS_PHRASE} is not among these counts" in out
+    # ...and the licence, three lines below, counts the same two.
+    assert (f"the original started 2 thread(s) besides the main one and "
+            f"{HARNESS_PHRASE}.") in out
+
+
+def test_info_applies_the_licence_partition_to_its_thread_count(
+        tmp_path, monkeypatch, capsys):
+    """`info` prints the licence lines on the same screen as this count."""
+    run, _root = libtest_original(tmp_path, monkeypatch, program_threads=1)
+    assert cli.main(["info", run]) == 0
+    out = capsys.readouterr().out
+    assert f"threads started: 1 besides the main one and {HARNESS_PHRASE}" \
+        in out
+    assert "threads started: 2 besides" not in out
+
+
+def test_the_libtest_fixture_records_a_task_stream_per_thread(
+        tmp_path, monkeypatch):
+    """The fixture's fidelity claim, asserted rather than asserted about.
+    `write_task_fingerprints` fills each name by `INSERT ... SELECT` from
+    `tasks`, so a vector that declares no task rows silently writes no task
+    fingerprints at all -- and every `task=` argument threaded through the
+    events above would then change nothing observable."""
+    run, _root = libtest_original(tmp_path, monkeypatch, program_threads=2)
+    t = Trace.open(paths.traces_dir() / f"{run}.db")
+    assert set(t.fingerprints()) == {MAIN_THREAD}
+    assert {task.id: task.thread_id for task in t.tasks()} == {2: 2, 3: 3,
+                                                              4: 4}
+    named = {tid: name for tid, (name, _h, _n) in t.task_fingerprints().items()}
+    assert named == {2: TEST_FN, 3: "worker-0", 4: "worker-1"}
+
+
+def test_an_inferred_main_thread_names_no_harness_thread(
+        tmp_path, monkeypatch):
+    """`main_thread_id()` never says "I do not know": it falls back to the
+    thread of whichever event got id 1. On that basis a misidentified main
+    could take a thread out of a count it was never in -- the defect the
+    `--test-threads=1` test above exists for, arrived at from the other
+    side. The rule wants the main thread as a RECORDED fact and refuses to
+    guess when it is not one.
+
+    The trace is INCOMPLETE, which is the state the store lets the key be
+    missing in (`db.missing_required` exempts a recording that never
+    finalized): a `cargo test` run that died mid-recording is exactly a
+    trace `refocus` and `diff` will still be handed."""
+    run, _root = libtest_original(tmp_path, monkeypatch, program_threads=1,
+                                  incomplete=True)
+    _drop_meta(tmp_path, run, "main_thread_ident")
+    t = Trace.open(paths.traces_dir() / f"{run}.db")
+    assert t.main_thread_basis() == "inferred"
+    assert harness_threads(t) == set()
