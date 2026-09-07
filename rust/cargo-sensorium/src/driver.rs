@@ -15,6 +15,7 @@ use sensorium_transform::Focus;
 use crate::invocation::{
     invocation_id, profile, toolchain_and_host, write_invocation, Invocation, DRIVER_VERSION,
 };
+use crate::launch;
 use crate::refocus_of;
 use crate::resolve;
 use crate::rt_build::{self, Panic};
@@ -34,21 +35,10 @@ pub use crate::driver_args::{parse_args, USAGE};
 // move a caller's path.
 pub use crate::invocation::local_stamp;
 
-/// Cargo's per-target runner variable for a host triple: the triple uppercased
-/// with `-` replaced by `_`.
-#[must_use]
-pub fn runner_env_var(host: &str) -> String {
-    let mut out = String::from("CARGO_TARGET_");
-    for c in host.chars() {
-        out.push(if c == '-' {
-            '_'
-        } else {
-            c.to_ascii_uppercase()
-        });
-    }
-    out.push_str("_RUNNER");
-    out
-}
+// The cargo child's environment and launch moved to `launch.rs` in the same
+// split. `cargo_path` went with it and is re-exported for the same reason
+// `local_stamp` is: `resolve` spells it through this module.
+pub(crate) use crate::launch::cargo_path;
 
 /// Run the driver. Returns the exit code to leave with.
 pub fn run(args: &[String]) -> i32 {
@@ -153,32 +143,20 @@ fn go(args: &[String]) -> Result<i32, String> {
     // directory that says what it was.
     write_invocation(&invocation_json, &record)?;
 
-    let status = Command::new(cargo_path())
-        .args(&parsed.cargo_args)
-        .current_dir(&ws)
-        // Doctests are not routed through `RUSTC_WORKSPACE_WRAPPER` — cargo
-        // says nothing about rustdoc — but they DO link the instrumented rlibs
-        // and they DO spool, so without this a doctest fails with E0463
-        // (findings §5.23). Appended to the user's own, never replacing it.
-        .env("RUSTDOCFLAGS", rustdoc_flags(&rlib))
-        .env("RUSTC_WORKSPACE_WRAPPER", &shim)
-        .env(
-            runner_env_var(&host),
-            format!("{} --runner", shim.display()),
-        )
-        .env("SENSORIUM_SPOOL", &spool)
-        .env("SENSORIUM_TIER", parsed.tier.as_str())
-        // Design §2.3: the values as given, comma-joined; qualnames cannot
-        // contain a comma. Always set, so an outer run's focus can never leak
-        // into this one -- empty is exactly "no focus" to the wrapper.
-        .env("SENSORIUM_FOCUS", focus.values().join(","))
-        .env("SENSORIUM_TARGET", &target)
-        .env("SENSORIUM_WS", &ws)
-        .env("SENSORIUM_RT_DIR", &rt)
-        .env("SENSORIUM_TOOL_HASH", &tool_hash)
-        .env("SENSORIUM_INVOCATION", &invocation)
-        .status()
-        .map_err(|e| format!("cannot run cargo: {e}"))?;
+    let status = launch::run_cargo(&launch::Ground {
+        cargo_args: &parsed.cargo_args,
+        ws: &ws,
+        rlib: &rlib,
+        shim: &shim,
+        host: &host,
+        spool: &spool,
+        tier: parsed.tier.as_str(),
+        focus: &focus,
+        target: &target,
+        rt: &rt,
+        tool_hash: &tool_hash,
+        invocation: &invocation,
+    })?;
 
     // `exec` would be cheaper, but then nothing could run after cargo: the
     // process would be gone. Cargo is a child, waited for, and reported on.
@@ -202,43 +180,6 @@ fn go(args: &[String]) -> Result<i32, String> {
     eprintln!("spool: {}", spool.display());
     eprintln!("cargo exit: {code}");
     Ok(exit_code)
-}
-
-/// `RUSTDOCFLAGS` for the doctest units, preserving the user's own.
-///
-/// **Both flags, and `-L dependency` is not belt and braces.** The same pair
-/// the wrapper appends (`wrapper.rs`), for the same reason: `--extern` binds a
-/// name the crate being compiled may write, while a crate reached through
-/// another crate's metadata is resolved through the search path. The doctest
-/// crate does not name `sensorium_rt` -- it depends on a workspace rlib that
-/// does -- so with `--extern` alone every doctest fails
-/// `error[E0463]: can't find crate for 'sensorium_rt'`, and with
-/// `-L dependency=<the rlib's directory>` alone it passes (measured
-/// 2026-09-03, rustc 1.96, `rust/tests/mechanics.sh` on the probe). Both are
-/// sent, so the direct name is bound as well as findable.
-///
-/// Plan decision D1 as amended requires both here AND in the wrapper: the
-/// wrapper needed the search path too, for a unit whose own dependencies are
-/// instrumented (measured on the bloomery clone the same day).
-///
-/// The directory is the rlib's own per-variant one
-/// (`<rt dir>/<unwind|abort>/`) and holds exactly one rlib -- the runtime is
-/// built there by one bare rustc invocation and has no dependencies (D1) -- so
-/// there is no "multiple candidates" hazard in putting it on the search path.
-///
-/// The user's own `RUSTDOCFLAGS` come FIRST and are never replaced.
-#[must_use]
-pub fn rustdoc_flags(rlib: &Path) -> String {
-    let dir = rlib.parent().unwrap_or_else(|| Path::new("."));
-    let mine = format!(
-        "--extern sensorium_rt={} -L dependency={}",
-        rlib.display(),
-        dir.display()
-    );
-    match std::env::var("RUSTDOCFLAGS") {
-        Ok(existing) if !existing.trim().is_empty() => format!("{existing} {mine}"),
-        _ => mine,
-    }
 }
 
 /// Where cargo will put its artifacts, which is also where everything this
@@ -269,15 +210,6 @@ fn resolve_on_path(program: &str) -> Option<String> {
         .map(|dir| dir.join(program))
         .find(|candidate| candidate.is_file())
         .map(|found| found.to_string_lossy().into_owned())
-}
-
-pub(crate) fn cargo_path() -> String {
-    // Cargo sets `CARGO` when it invokes a subcommand, so `cargo +nightly
-    // sensorium test` uses the nightly cargo rather than whatever is on PATH.
-    std::env::var("CARGO")
-        .ok()
-        .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| "cargo".to_owned())
 }
 
 fn workspace_root() -> Result<PathBuf, String> {
@@ -360,58 +292,6 @@ mod tests {
 
     fn v(items: &[&str]) -> Vec<String> {
         items.iter().map(|s| (*s).to_owned()).collect()
-    }
-
-    #[test]
-    fn the_runner_variable_is_the_triple_uppercased_with_underscores() {
-        assert_eq!(
-            runner_env_var("x86_64-unknown-linux-gnu"),
-            "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER"
-        );
-        assert_eq!(
-            runner_env_var("aarch64-apple-darwin"),
-            "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER"
-        );
-    }
-
-    /// Both flags, in that order, and the user's own in front of both.
-    ///
-    /// One test, not two, because `rustdoc_flags` reads `RUSTDOCFLAGS` and the
-    /// environment is per PROCESS while libtest runs tests in threads: a second
-    /// test that set the variable would race a first that expected it unset.
-    /// Splitting them was tried and the mutation run caught the race, which is
-    /// why this comment exists instead of the split.
-    #[test]
-    fn rustdoc_flags_carry_the_extern_and_the_search_path_after_the_users_own() {
-        const RLIB: &str = "/t/rt/abc/unwind/libsensorium_rt.rlib";
-        const OURS: &str = "--extern sensorium_rt=/t/rt/abc/unwind/libsensorium_rt.rlib \
-                            -L dependency=/t/rt/abc/unwind";
-        let key = "RUSTDOCFLAGS";
-        let restore = std::env::var(key).ok();
-        // SAFETY (test-only): no other thread in this test binary reads or
-        // writes RUSTDOCFLAGS -- `rustdoc_flags` is the only reader and this is
-        // its only test.
-        unsafe {
-            std::env::remove_var(key);
-        }
-        // rustdoc resolves `sensorium_rt` as a TRANSITIVE dependency of a
-        // workspace rlib, which goes through the search path and not the extern
-        // map: `--extern` alone fails E0463 (measured -- see `rustdoc_flags`).
-        let bare = rustdoc_flags(Path::new(RLIB));
-        unsafe {
-            std::env::set_var(key, "--cfg docsrs");
-        }
-        let appended = rustdoc_flags(Path::new(RLIB));
-        unsafe {
-            match restore {
-                Some(v) => std::env::set_var(key, v),
-                None => std::env::remove_var(key),
-            }
-        }
-        assert_eq!(bare, OURS);
-        // The order is the promise: a flag the user set is never overridden by
-        // one of ours.
-        assert_eq!(appended, format!("--cfg docsrs {OURS}"));
     }
 
     #[test]

@@ -23,6 +23,7 @@ mod driver;
 mod driver_args;
 mod fallback;
 mod invocation;
+mod launch;
 mod mirror;
 mod modtree;
 mod refocus_of;
