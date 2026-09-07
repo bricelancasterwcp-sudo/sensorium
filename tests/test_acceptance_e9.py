@@ -535,6 +535,48 @@ def test_no_module_of_this_instrument_names_a_box_path():
         assert "/home/" not in text, name
 
 
+def _crate_test_files():
+    """Every test file of every Rust crate, `golden*/` fixtures excluded.
+
+    A fixture under `golden/` or `golden_focus/` is transformer OUTPUT compared
+    byte for byte, so a string in one is data and not a location the suite
+    would go looking for."""
+    for pattern in ("rust/*/tests/**/*.rs", "rust/*/tests/**/*.py"):
+        for path in sorted(REPO.glob(pattern)):
+            if any(part.startswith("golden") for part in path.parts):
+                continue
+            yield path
+
+
+def test_no_rust_crate_test_file_names_a_box_path():
+    """The scan above reaches six instrument modules and nothing else, which is
+    how a box path sat in `sensorium-transform/tests/census.rs` since `089768d`
+    with no test able to see it (final review, item 6). This walks every crate's
+    tests instead.
+
+    Widening it is the coverage half of that debt; the neutral wording in
+    `census.rs` is the other half, and neither alone would have caught the
+    next one."""
+    offenders = []
+    for path in _crate_test_files():
+        for number, line in enumerate(path.read_text().splitlines(), 1):
+            if "/mnt/" in line or "/home/" in line:
+                offenders.append(f"{path.relative_to(REPO)}:{number}: {line.strip()}")
+    assert not offenders, (
+        "a box-local path in a committed test file makes the suite wrong on "
+        "any other machine:\n" + "\n".join(offenders))
+
+
+def test_the_widened_scan_actually_reaches_the_file_that_motivated_it():
+    """A scan that matched nothing would pass for the wrong reason -- an empty
+    walk is not a clean tree. `census.rs` is the file the debt named, so the
+    walk has to contain it, and the walk has to be more than the instrument."""
+    reached = {p.relative_to(REPO).as_posix() for p in _crate_test_files()}
+    assert "rust/sensorium-transform/tests/census.rs" in reached
+    assert len(reached) > len(INSTRUMENT)
+    assert not any("/golden" in name for name in reached), reached
+
+
 # -- fix round 1 -----------------------------------------------------------
 
 

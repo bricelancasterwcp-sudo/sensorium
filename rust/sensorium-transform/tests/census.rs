@@ -3,7 +3,7 @@
 //!
 //! The measurement target is the LOCAL CLONE of bloomery pinned at
 //! `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` (plan §Global Constraints).
-//! `/home/brice/workspace/bloomery` itself is read-only for this plan and is
+//! The bloomery checkout the plan names is read-only for this plan and is
 //! never the target here.
 //!
 //! **The clone's path comes from `SENSORIUM_BLOOMERY_CLONE` and from nowhere

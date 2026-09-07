@@ -15,7 +15,9 @@ mod common;
 
 use std::collections::BTreeSet;
 
-use common::{err_sites, line_sites, read_focus, run_focus, sites, FOCUS_CASES, META};
+use common::{
+    err_sites, line_sites, read_focus, run_focus, sites, COMPILE_FAIL_CASES, FOCUS_CASES, META,
+};
 
 use sensorium_transform::{transform, Focus, Manifest, RetKind, SiteKind};
 
@@ -102,6 +104,47 @@ fn a_bare_expression_arm_body_is_wrapped_in_a_block_amendment_a1() {
     // the two never share a byte, which is what this pins.
     assert!(t.source.contains("Some(n) => { ::sensorium_rt::line("));
     assert!(t.source.contains("n * 2 },"));
+}
+
+/// Final review, item 3. `let x;` writes nothing at its own line -- the guard
+/// is `statement_deltas`'s `local.init.is_some()` -- and the binding appears at
+/// the assignment instead. The two assertions below pin BOTH halves, because a
+/// guard that dropped the row entirely would also satisfy "no `x` at line 10".
+///
+/// The build-breaking direction is why this is a golden PAIR and not an
+/// assertion about `line_sites` alone, and it is carried by two links: this
+/// test pins the BYTES against the real transform's output, and `oracle.rs`
+/// hands those same bytes to the real rustc. The mutant breaks the first link
+/// (measured: red here and in `every_focus_case_numbers_its_sites_...`), and
+/// its output compiled by hand gives `error[E0381]: used binding `x` is
+/// possibly-uninitialized`. The oracle cannot be the one that catches it: it
+/// compiles what is checked in, and a mutant changes what the transform
+/// emits.
+#[test]
+fn a_let_with_no_initializer_writes_its_binding_at_the_assignment_instead() {
+    let t = run("focus_deferred_init");
+    assert_eq!(
+        line_sites(&t),
+        [
+            (8, "deferred", 20),
+            (9, "deferred", 21),
+            (10, "deferred", 22),
+            (11, "deferred", 23),
+        ],
+        "the declaration still takes a row: the line RAN"
+    );
+    assert!(
+        t.source
+            .contains("let x;::sensorium_rt::line(&crate::__SENSORIUM_UNIT, 9, || []);"),
+        "the declaration's probe names nothing"
+    );
+    assert!(
+        t.source.contains(
+            "x = 1;::sensorium_rt::line(&crate::__SENSORIUM_UNIT, 10, \
+             || [(\"x\", ::sensorium_rt::probe_cap!(&x))]);"
+        ),
+        "the assignment is where `x` is written, and where its delta belongs"
+    );
 }
 
 #[test]
@@ -488,6 +531,33 @@ fn tests_golden_focus_and_common_focus_cases_hold_the_same_cases() {
     assert_eq!(
         on_disk, listed,
         "tests/golden_focus and FOCUS_CASES disagree"
+    );
+}
+
+/// The same identity for the compile-fail inputs. They are not goldens -- there
+/// is no legal output to check in -- so nothing else walks that directory, and
+/// a file dropped there without a `COMPILE_FAIL_CASES` row would be measured by
+/// nothing at all.
+#[test]
+fn tests_focus_compile_fail_and_common_compile_fail_cases_hold_the_same_cases() {
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/focus_compile_fail");
+    let mut on_disk: Vec<String> = std::fs::read_dir(&dir)
+        .expect("the compile-fail directory")
+        .filter_map(Result::ok)
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            name.strip_suffix(".rs").map(ToOwned::to_owned)
+        })
+        .collect();
+    on_disk.sort();
+    let mut listed: Vec<String> = COMPILE_FAIL_CASES
+        .iter()
+        .map(|(c, _, _)| (*c).to_owned())
+        .collect();
+    listed.sort();
+    assert_eq!(
+        on_disk, listed,
+        "tests/focus_compile_fail and COMPILE_FAIL_CASES disagree"
     );
 }
 

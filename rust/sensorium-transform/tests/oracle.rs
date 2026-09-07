@@ -40,7 +40,11 @@ use std::process::{Command, Stdio};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-use common::{expand, read, read_focus, CASES, FOCUS_CASES, RUN_CASES};
+use common::{
+    expand, read, read_compile_fail, read_focus, CASES, COMPILE_FAIL_CASES, FOCUS_CASES,
+    META, RUN_CASES,
+};
+use sensorium_transform::{transform, Focus};
 
 /// A probe that has not finished in this long is hung, not slow. Killed by pid
 /// and reaped, so a failing run never leaves a process behind.
@@ -54,6 +58,8 @@ const TAG_CLIPPY: &str = "clippy";
 const TAG_BORROW: &str = "borrow";
 const TAG_FOCUS: &str = "focus";
 const TAG_FOCUS_PLAIN: &str = "focus-plain";
+const TAG_FAIL: &str = "compile-fail";
+const TAG_FAIL_PLAIN: &str = "compile-fail-plain";
 
 /// The two lints every err wrap provokes, and the only ones denied when clippy
 /// runs here: this test is about the transformer's own attribute, not about
@@ -251,6 +257,16 @@ fn every_golden_output_compiles_with_zero_diagnostics() {
 /// is therefore handed to the real rustc with `-D warnings`, exactly as the
 /// unfocused ones are: an empty stderr is the claim, and the shapes named above
 /// are in `focus_moved_value` and `focus_arm_bare` on purpose.
+///
+/// **Corrected 2026-09-06 (final review, item 2).** "Does not stall the autoref
+/// ladder" was the wrong mechanism and claimed too much. The probe does not
+/// stall the ladder -- it COMMITS it, at the probe, to the `Debug` rung. So a
+/// `Vec::new()` whose element type resolves LATER compiles only when it resolves
+/// to something that implements `Debug`, which is why `focus_moved_value`
+/// (element `usize`) is here and passes. When it resolves to a type that does
+/// not, the unit fails E0277 and falls back whole; that half is measured by
+/// `a_documented_compile_failure_still_fails_and_in_the_named_class` below and
+/// stated by `rust/HONESTY-BLIND-SPOTS.md` item 3.
 #[test]
 fn every_focus_golden_output_compiles_with_zero_diagnostics() {
     let mut failures = Vec::new();
@@ -300,6 +316,67 @@ fn the_untransformed_focus_goldens_are_warning_free_to_begin_with() {
         "a focus golden INPUT is not warning free:\n{}",
         failures.join("\n")
     );
+}
+
+/// The two shapes the focus tier is DOCUMENTED not to reach, measured rather
+/// than described (`rust/HONESTY-BLIND-SPOTS.md` item 3, the final review's
+/// items 1 and 2).
+///
+/// Each case is compiled clean UNTRANSFORMED first -- without that half, "the
+/// transform broke it" is unmeasurable and a typo in the fixture would read as
+/// the limitation. Then the REAL transform runs over it under the case's focus
+/// (never a hand-written `.out.rs`: a hand-written one would prove only that
+/// the text I wrote fails to compile), and rustc must reject THAT output with
+/// the named error class.
+///
+/// A failure here is one of two findings, and both are worth a stop: either the
+/// limitation was repaired and this test is the thing that says so, or rustc's
+/// diagnostic moved and the class the prose names is no longer the class the
+/// compiler emits.
+#[test]
+fn a_documented_compile_failure_still_fails_and_in_the_named_class() {
+    let mut wrong = Vec::new();
+    for (case, focus, expected) in COMPILE_FAIL_CASES {
+        let input = read_compile_fail(case);
+
+        // Half one: the input is legal, warning-free Rust on its own.
+        let plain_src = write_source(TAG_FAIL_PLAIN, case, &input);
+        let plain = compile(TAG_FAIL_PLAIN, case, &plain_src, "lib", false);
+        assert_eq!(
+            (plain.status, plain.stderr.as_str()),
+            (0, ""),
+            "{case}: the UNTRANSFORMED input must compile clean, or this \
+             measures a broken fixture and not the limitation"
+        );
+
+        // Half two: the real transform's output, handed to the real rustc.
+        let t = transform(&input, "src/lib.rs", META, 7, true, &Focus::parse(focus))
+            .unwrap_or_else(|e| panic!("{case}: transforming: {e}"));
+        assert!(
+            t.source.contains("::sensorium_rt::line("),
+            "{case}: the focus matched nothing, so nothing is being measured"
+        );
+        let source = write_source(TAG_FAIL, case, &t.source);
+        let c = compile(TAG_FAIL, case, &source, "lib", true);
+        println!(
+            "{case:<20} exit {:<3} first diagnostic: {}",
+            c.status,
+            c.stderr.lines().next().unwrap_or("<none>")
+        );
+        if c.status == 0 {
+            wrong.push(format!(
+                "--- {case}: COMPILED. Either the limitation is repaired (say so \
+                 in rust/HONESTY-BLIND-SPOTS.md item 3 and delete this case) or \
+                 the focus stopped reaching the shape."
+            ));
+        } else if !c.stderr.contains(expected) {
+            wrong.push(format!(
+                "--- {case}: failed, but not as `{expected}` ---\n{}",
+                c.stderr
+            ));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
 }
 
 #[test]

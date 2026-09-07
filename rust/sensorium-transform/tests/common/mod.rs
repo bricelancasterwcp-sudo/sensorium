@@ -527,6 +527,7 @@ pub const FOCUS_CASES: &[(&str, &str)] = &[
     ("focus_arm_bare", "pick"),
     ("focus_attrs", "attributed"),
     ("focus_closure", "outer"),
+    ("focus_deferred_init", "deferred"),
     ("focus_err_arm", "handled,bare"),
     ("focus_fill", "fill"),
     ("focus_loop", "sum_to_three"),
@@ -538,6 +539,34 @@ pub const FOCUS_CASES: &[(&str, &str)] = &[
     ("focus_try", "read_one"),
     ("focus_unmatched", "nothing_here"),
 ];
+
+/// The shapes whose FOCUSED output does not compile, with the focus to apply
+/// and the rustc error class the failure must be: `(case, focus, expected)`.
+///
+/// These are documented LIMITATIONS, not goldens, so they live in
+/// `tests/focus_compile_fail/` as inputs only (`<case>.rs`) -- there is no
+/// legal `.out.rs` to check in. `oracle.rs::a_documented_compile_failure_still_fails`
+/// compiles each INPUT clean, transforms it with the real transform, compiles
+/// THAT and requires a non-zero rustc exit whose stderr names `expected`. The
+/// limitation is measured rather than described, and the day one of them is
+/// repaired this test fails loudly instead of the prose quietly going stale.
+pub const COMPILE_FAIL_CASES: &[(&str, &str, &str)] = &[
+    ("focus_infer_debug", "collect_them", "E0277"),
+    ("focus_macro_tail", "wrapped", "expected one of"),
+];
+
+/// The compile-fail inputs' directory, kept out of `golden_focus/` because
+/// every case there is a PAIR and is compiled with an empty stderr required.
+pub fn compile_fail_path(case: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/focus_compile_fail")
+        .join(format!("{case}.rs"))
+}
+
+pub fn read_compile_fail(case: &str) -> String {
+    let path = compile_fail_path(case);
+    fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {}: {e}", path.display()))
+}
 
 /// The cases `oracle.rs` compiles as a BINARY and runs, comparing the
 /// transformed build's stdout against the untransformed build's.
