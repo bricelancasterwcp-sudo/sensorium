@@ -530,6 +530,24 @@ sizes; the store's size and the disk free before and after; the invocation-log
 row count; and, for each of the three `watch` triples, the sites / evaluated /
 hits / not-captured / errors counts beside the gated class and exit.
 
+**Amended 2026-09-07, before the instrument exists — the lens, not the
+endpoints (ruling R-H1, after Task 0's review).** (1) *Scope of the
+survey.* §1.2's "no clock anywhere" reads over the seven test files and
+`tests/common/*.rs`, not over the instrumented crate the 61 also record;
+that crate has clock sites, and the one on every test's path
+(`Pager::new`'s clock closure, read at `pager.rs:854`) stores a value and
+branches on nothing, while the clock-branching scheduler lives in
+`pager_timeshare_test.rs`, which is not one of the seven. No verdict can
+move on it. (2) *A discriminator for the three-test hazard.* A DIVERGED on
+`pager_refusal_advice_test`'s three server tests is read as the named
+scheduler hazard only when both hold: the total causal event count over
+the four worker tasks is the same in both traces (a different partition of
+the same total) and the MAIN stream's fingerprint MATCHes; otherwise it is
+H3's finding like any other. (3) The `.collect()` citations name the
+ascription heads (93, 137, 226; 609); the tokens sit two lines later (95,
+139, 228; 611). The 61 names, the expected-MATCH list, every endpoint and
+every reading are unchanged; the runner carries both shas.
+
 ## 2. Environment
 
 *(written by Task 6)*
