@@ -254,8 +254,9 @@ asyncio task (code before/after the loop, and loop callbacks such as
 
 The three commands whose claims need the most saying are
 [`docs/query.md`](docs/query.md), moved there 2026-09-06 so this file stays
-under 800 lines, wording and order unchanged. What each claims, in one
-paragraph:
+under 800 lines, wording and order unchanged — and, since 2026-09-07, that
+file also holds a fourth section, `refocus` on a Rust trace, added there
+rather than moved. What each of the three claims, in one paragraph:
 
 **`exceptions`** classifies every raise as `swallowed`, `uncaught`,
 `re-raised`, `propagated` or `ambiguous`, and **SWALLOWED is claimed only when

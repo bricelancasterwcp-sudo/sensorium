@@ -175,7 +175,9 @@ command says so in its own header.
 ### `refocus` on a Rust trace — the recorded command, run again
 
 **Added 2026-09-07 (rung 4 slice 2, `cargo-sensorium` 0.5.0).** `refocus`
-answers on a Rust trace instead of refusing on `capabilities.refocus`. The
+answers on a Rust trace that this driver converted, instead of refusing on
+`capabilities.refocus` — a recording an EARLIER driver made still declares
+`refocus: false` and still meets that refusal at exit 2, unchanged. The
 three verdicts, their exits and the licence's shape are `../README.md`'s
 `refocus` section, unchanged; what follows is the Rust half.
 

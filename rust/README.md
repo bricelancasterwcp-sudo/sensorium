@@ -228,13 +228,16 @@ have, and each refusal names the capability and the recorder. `watch` and
 only on a trace recorded WITHOUT a `--focus`; on a focused one they answer.
 `exceptions` answers from 0.3.0, and refuses on exactly one thing: a trace an
 older runtime wrote, which carries no err-flow records to judge. `refocus`
-answers from 0.5.0 and no longer refuses on the capability at all; its five
-pre-rerun refusals are about this particular RUN, and each exits **2** with
+answers from 0.5.0 and no longer refuses on the capability for traces that
+driver converts; on a recording an OLDER driver made it still does, because
+that trace declares `capabilities.refocus: false`. On a 0.5.0 trace the five
+refusals are about this particular RUN instead, and each exits **2** with
 `nothing was re-run` in it — see below.
 
 | Command | Exit | Why |
 |---|---|---|
 | `exceptions` | 3, **only on a pre-0.3.0 trace** | `capabilities.err_flow: false` — the recorder produced no RAISE/HANDLED records, so there is nothing to judge. On a 0.3.0 trace it answers. |
+| `refocus` | 2, **only on a pre-0.5.0 trace** | `capabilities.refocus: false` — recorded before the driver could be re-invoked, so nothing was re-run and the reader's next move is a different command. A trace a 0.5.0 driver converted declares `refocus: true` and is refused, if at all, by one of the five per-run sentences below. |
 | `watch`, `flow` | 3, **only on an unfocused trace** | `capabilities.line: false` — no `--focus` was given, so no LINE record exists. On a focused trace they answer. |
 
 The unfocused refusal, in full — the sentence

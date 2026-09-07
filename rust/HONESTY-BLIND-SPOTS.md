@@ -313,8 +313,9 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       `--focus` keys a fresh wrapper shim and rebuilds the matched units, so a
       refocus is not a cheap replay: E4 measured a flat ~7 s per pair on its
       subject, of which about half is cargo's own reported build, and 61
-      focused re-runs left **62** shim entries totalling **2 506 729 440**
-      bytes (record §3, §5.4). *Declared by* the third blind-spot line the
+      focused re-runs plus pass 1's own unfocused base key left **62** shim
+      entries totalling **2 506 729 440** bytes — one base key and exactly 61
+      focused keys, none reused (record §3, §5.4). *Declared by* the third blind-spot line the
       verdict prints (`vocab.RUST.refocus_blind_spots`).
     * **A per-thread fingerprint can partition differently under a scheduler
       split, and only the comparator's multiset absorbs it.** Where a test
