@@ -158,10 +158,17 @@ def finalize_synthetic(w, **overrides) -> None:
 # through the same `tests/vectors.py` builder the conformance suite uses so
 # a test and a vector can never describe two different trace shapes.
 
+# `refocus` reads TRUE by rule from `cargo-sensorium 0.5.0` on: the driver
+# can be re-invoked, which is a fact about the recorder and not about one
+# trace. Whether a PARTICULAR trace can be refocused -- one binary of
+# several, a workspace since deleted -- is a refusal with a sentence, not a
+# capability. A trace written by an EARLIER driver still declares False, and
+# `tests/test_exceptions_rust_gate.py` and the `docs/trace-format/vectors`
+# keep saying so on purpose.
 RUST_CAPABILITIES = {
     "line": False, "locals": False, "return_value": True, "tasks": True,
     "threads": True, "children": False, "stdin": False, "output": False,
-    "object_identity": False, "refocus": False, "err_flow": True,
+    "object_identity": False, "refocus": True, "err_flow": True,
 }
 
 RUST_META = {

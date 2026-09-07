@@ -587,10 +587,12 @@ def test_info_prints_the_original_single_line_for_a_trace_that_predates_declarat
         "absence of the record is not a record of absence"]
 
 
+# `refocus` true by rule from `cargo-sensorium 0.5.0` on -- see
+# `tests.helpers.RUST_CAPABILITIES`.
 RUST_CAPS = {"line": False, "locals": False, "return_value": True,
              "tasks": True, "threads": True, "children": False,
              "stdin": False, "output": False, "object_identity": False,
-             "refocus": False}
+             "refocus": True}
 
 
 def _rust_trace(tmp_path, run_id, **meta):
@@ -748,6 +750,8 @@ def test_info_prints_refocus_of_on_a_rust_trace_the_same_way_it_does_python(
     out = capsys.readouterr().out
     assert "refocus-of: 20260101-000000-original" in out
     assert "verdict: UNVERIFIED" in out
+    # The capability the 0.5.0 driver declares, as `info` spells it.
+    assert "refocus=yes" in out
 
 
 def test_info_on_a_rust_trace_with_no_refocus_of_prints_no_such_line(
