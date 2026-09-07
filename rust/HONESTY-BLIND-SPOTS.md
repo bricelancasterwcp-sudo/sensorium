@@ -112,7 +112,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
      The repair is a ruling, not an oversight: an opt-out spelling, or
      declining the delta on an initializer with no type witness, costs
      something either way, and both are `docs/CARRIED-DEBT.md`.
-   * **A brace-delimited MACRO in TAIL position** — `fn f() -> i32 { m! { 1 } }`,
+   * ~~**A brace-delimited MACRO in TAIL position** — `fn f() -> i32 { m! { 1 } }`,
      which is the shape of a `quote!`/`html!`-terminated function and so of
      proc-macro and markup crates. **Measured mechanism**: `syn` reads that
      tail as a `Stmt::Macro` whose `semi_token` is `None`, and `lines.rs`'s
@@ -127,7 +127,23 @@ that stops the rung until it is explained. *Falsified by* E2′ in
      *Falsified by* `rust/sensorium-transform/tests/focus_compile_fail/focus_macro_tail.rs`.
      The guard is one line — `lines.rs`'s `Stmt::Macro` arm returning `None`
      when `is_tail` — and it is NOT taken here: it is a `src` change after the
-     measurement (R-F14), so it is `docs/CARRIED-DEBT.md` for Brice or slice 2.
+     measurement (R-F14), so it is `docs/CARRIED-DEBT.md` for Brice or slice
+     2.~~ — **Struck as FIXED in `sensorium-transform` 0.4.1**, ruling G1 of
+     slice 2 (design §3.3). The mechanism above was measured and is accurate
+     for 0.4.0; the guard is the one line it named, and it is the same guard
+     `Stmt::Expr(_, None)` already applied one arm above — a tail is not a
+     statement whichever `syn` node spells it. The compile-fail case is deleted
+     with the repair, and the shape is now a compile-PASS golden,
+     `tests/golden_focus/focus_macro_tail.{in,out}.rs`: the value fn pins
+     `ret(…, pick! { 1 })` with no `line(` after it, and
+     `tests/oracle.rs::every_focus_golden_output_compiles_with_zero_diagnostics`
+     hands those bytes to the real rustc under `-D warnings` and requires an
+     empty stderr. The golden carries a UNIT fn (`shout! { a }`) as well,
+     because that half of the shape was never loud: with no RETURN wrap to
+     collide with, the extra LINE compiled and simply recorded a completed
+     statement for what is the function's value — a wrong row rather than a
+     lost build, and the only thing that would have said so is the row count
+     the golden now pins.
    * **A focused function that was BUILT but never RAN** leaves
      `capabilities.line: true` with zero LINE rows (`--focus tests::x` under
      `cargo run`). That is honest under design §2.4 — the capability is a

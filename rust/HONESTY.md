@@ -1,16 +1,22 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.4.0`, `sensorium-transform 0.4.0`, `cargo-sensorium 0.4.0` —
+`sensorium-rt 0.4.0`, `sensorium-transform 0.4.1`, `cargo-sensorium 0.4.0` —
 v1, the call tier, with err flow and the focus tier.
-(~~`sensorium-rt 0.3.0`, `sensorium-transform 0.3.1`,
-`cargo-sensorium 0.3.1`~~, and before them ~~`sensorium-rt 0.1.0`,
-`sensorium-transform 0.2.0`, `cargo-sensorium 0.2.0`~~: `sensorium-transform`
+(~~`sensorium-rt 0.4.0`, `sensorium-transform 0.4.0`,
+`cargo-sensorium 0.4.0`~~, before them ~~`sensorium-rt 0.3.0`,
+`sensorium-transform 0.3.1`, `cargo-sensorium 0.3.1`~~, and before those
+~~`sensorium-rt 0.1.0`, `sensorium-transform 0.2.0`,
+`cargo-sensorium 0.2.0`~~: `sensorium-transform`
 and `cargo-sensorium` moved to `0.2.0` on 2026-09-03 for the `spawn_child`
 naming change in §3, all three moved to `0.3.0` on 2026-09-05 for wire v3
 and the err-flow records of §11, those same two moved to `0.3.1` later
 that day for the borrow repair — `sensorium-rt` did not move, because neither
-the wire nor the runtime changed — and all three moved to `0.4.0` on
-2026-09-06 for the focus tier's new wire kind, LINE (§12). `HONESTY.md` was
+the wire nor the runtime changed — all three moved to `0.4.0` on
+2026-09-06 for the focus tier's new wire kind, LINE (§12), and
+`sensorium-transform` alone moved to `0.4.1` on 2026-09-07 for the
+brace-delimited-macro-tail guard (ruling G1): a `src` fix to what a focused
+build EMITS, so neither the wire nor the runtime nor the driver moved.
+`HONESTY.md` was
 not versioned per-crate before 2026-09-03, so no edition older than that is
 struck.)
 

@@ -215,6 +215,37 @@ fn a_value_a_later_statement_moves_is_still_captured() {
     assert!(t.source.contains("let w = v;::sensorium_rt::line("));
 }
 
+/// Ruling G1 (`sensorium-transform` 0.4.1). A BRACE-delimited macro that is the
+/// block's tail takes no probe: `exits::tail_operand` has already claimed that
+/// same `Stmt::Macro` as the block's value, and a tail is not a statement
+/// whichever syn node spells it.
+///
+/// The two shapes failed differently before the guard, which is why both are in
+/// the case. In `wrapped` the LINE landed after the RETURN wrap's closing paren
+/// -- `..., pick! { 1 })::sensorium_rt::line(..)` -- a PARSE error that took the
+/// whole unit; in `spoken` there is no wrap to collide with, so the extra LINE
+/// compiled and quietly recorded a completed statement for what is the
+/// function's value. Each fn now mints its parameters row and nothing else, and
+/// `tests/oracle.rs::every_focus_golden_output_compiles_with_zero_diagnostics`
+/// compiles this output with `-D warnings` -- which is what says the value half
+/// is repaired rather than merely re-spelled.
+#[test]
+fn a_brace_delimited_macro_in_tail_position_takes_no_line() {
+    let t = run("focus_macro_tail");
+    assert_eq!(
+        sites(&t),
+        [
+            (7, "wrapped", 29, RetKind::Value),
+            (9, "spoken", 33, RetKind::Unit),
+        ]
+    );
+    assert_eq!(line_sites(&t), [(8, "wrapped", 29), (10, "spoken", 33)]);
+    assert!(
+        !t.source.contains("}::sensorium_rt::line("),
+        "no probe follows a tail macro's closing brace"
+    );
+}
+
 /// Fix round 1, I1. `exits::diverges` says a `loop` with no VALUED `break`
 /// diverges, which is the right answer to "may this operand be wrapped" and the
 /// wrong one to "does this statement complete". Before the repair this fn's

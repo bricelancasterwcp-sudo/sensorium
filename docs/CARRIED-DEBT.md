@@ -68,7 +68,7 @@ what that code recorded, so each is written here with its fix spelled out —
 for Brice now, or for slice 2 — rather than repaired under the measurement.
 Each is marked *ruling: Brice / slice 2*.
 
-- **A brace-delimited macro in TAIL position breaks the focused build.**
+- ~~**A brace-delimited macro in TAIL position breaks the focused build.**
   `fn f() -> i32 { m! { 1 } }` — the shape of every `quote!`- or `html!`-
   terminated function, so of proc-macro and markup crates. `syn` reads the
   tail as a `Stmt::Macro` with `semi_token: None`; `lines.rs`'s
@@ -82,7 +82,17 @@ Each is marked *ruling: Brice / slice 2*.
   Measured by `rust/sensorium-transform/tests/focus_compile_fail/focus_macro_tail.rs`,
   which will fail loudly on the day the guard lands — that is the signal to
   delete the case and the blind-spot bullet together. Not in E9's subject.
-  *Ruling: Brice / slice 2 — a `src` change after the measurement (R-F14).*
+  *Ruling: Brice / slice 2 — a `src` change after the measurement (R-F14).*~~
+  — **TAKEN 2026-09-07 in slice 2 (ruling G1, design §3.3), this commit**, as
+  the one line the bullet named: `sensorium-transform` **0.4.1**. The signal
+  fired exactly as written — the compile-fail case is deleted and the shape is
+  now the compile-PASS golden `tests/golden_focus/focus_macro_tail.{in,out}.rs`,
+  whose output the real-rustc oracle compiles under `-D warnings` with an empty
+  stderr required. The golden carries the UNIT-fn half too (`fn u() { m! { a } }`,
+  one fewer LINE), which never failed to build and so was never measured before:
+  it recorded a completed statement for what is the function's value.
+  `rust/HONESTY-BLIND-SPOTS.md` item 3's bullet is struck and corrected in
+  place.
 - **The autoref ladder COMMITS an open inference variable to `Debug`.** A
   `let` whose head type is still an inference variable at the probe —
   `let mut v = Vec::new();` then `v.push(Opaque)`, `let mut x = None;` then

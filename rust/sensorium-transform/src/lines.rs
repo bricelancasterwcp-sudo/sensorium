@@ -259,9 +259,17 @@ impl Walk<'_, '_> {
                 }
                 match (&mac.semi_token, &mac.mac.delimiter) {
                     (Some(semi), _) => Some(self.ctx.end_of(semi.span)),
-                    // `foo! { .. }` in statement position needs no `;`.
+                    // `foo! { .. }` in statement position needs no `;`. When it
+                    // is the block's TAIL it is not a statement at all -- it is
+                    // the block's value, and `exits::tail_operand` has already
+                    // claimed these same bytes as the operand a RETURN wrap
+                    // closes around. Probing past the closing brace anyway put
+                    // the LINE after that wrap's `)`, which rustc rejects as
+                    // `found `::``; the guard is the same one `Stmt::Expr(_,
+                    // None)` above already applies, because a tail is not a
+                    // statement whichever syn node spells it (ruling G1, 0.4.1).
                     (None, MacroDelimiter::Brace(brace)) => {
-                        Some(self.ctx.end_of(brace.span.close()))
+                        (!is_tail).then(|| self.ctx.end_of(brace.span.close()))
                     }
                     (None, _) => None,
                 }
