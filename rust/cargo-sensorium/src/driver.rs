@@ -285,7 +285,7 @@ fn go(args: &[String]) -> Result<i32, String> {
         // `SENSORIUM_FOCUS` carries and therefore what each manifest records
         // as its `focus.values`, which is what R-F11 compares against.
         focus: focus.values().to_vec(),
-        refocus_of: parsed.refocus_of.clone(),
+        refocus_of: refocus_of::canonical(parsed.refocus_of.as_deref()),
         toolchain,
         rustc_path: rustc.clone(),
         host: host.clone(),

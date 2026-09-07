@@ -57,11 +57,15 @@ pub struct MetaInput<'a> {
     pub live_threads: &'a [String],
     pub env: &'a BTreeMap<String, String>,
     pub invocation: &'a str,
-    /// How many test binaries this invocation produced -- the count the
-    /// driver already prints its multi-binary WARN from. Written on every
-    /// trace of the invocation, so a reader of ONE trace can tell whether it
-    /// is the whole answer (design 2026-09-07 §2.2); `refocus` refuses a
-    /// re-run when it is not 1.
+    /// Runner processes -- test binaries AND doctests; a single-target
+    /// selector makes it 1. It is the count the driver already prints its
+    /// multi-binary WARN from, which is `runner_records.len()`: cargo 1.96
+    /// hands the target runner every test binary and every doctest process
+    /// (`runner.rs`, `rust/HONESTY.md` §"the runner started this process",
+    /// measured 2026-09-02), so a `cargo test` with doctests counts more
+    /// than its test binaries. Written on every trace of the invocation, so
+    /// a reader of ONE trace can tell whether it is the whole answer (design
+    /// 2026-09-07 §2.2, B2); `refocus` refuses a re-run when it is not 1.
     pub invocation_processes: usize,
     /// The run id this invocation was a re-run OF, from `invocation.json`.
     /// `None` for an ordinary run, and then the key is ABSENT: `refocus`'s

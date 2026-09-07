@@ -26,9 +26,10 @@ const FILE: &str = "crates/demo/src/lib.rs";
 const WS: &str = "/w";
 const ORIGINAL: &str = "20260101-000000-aaaaaa";
 
-/// A spool directory with N recorded test binaries, each one a pid with a
-/// proc header, a spool and a runner record -- which is what makes the
-/// invocation's process count something other than 1.
+/// A spool directory with N recorded processes, each one a pid with a proc
+/// header, a spool and a runner record -- a runner record per pid is what
+/// makes the invocation's process count something other than 1 (cargo hands
+/// the runner test binaries and doctests alike).
 struct Fixture {
     #[allow(dead_code)] // held for its Drop cleanup
     scratch: Scratch,
@@ -123,7 +124,7 @@ fn the_refocus_of_the_invocation_was_given_reaches_every_process() {
     let f = Fixture::new("refocus-of-two-pids", &[7001, 7002]);
     f.refocus_of(ORIGINAL);
     let traces = f.traces();
-    assert_eq!(traces.len(), 2, "two test binaries, two traces");
+    assert_eq!(traces.len(), 2, "two runner processes, two traces");
     for conn in &traces {
         assert_eq!(meta(conn, "refocus_of"), ORIGINAL);
     }
@@ -142,15 +143,18 @@ fn an_ordinary_run_carries_no_refocus_of_key_at_all() {
     );
 }
 
+/// Runner processes, which on cargo 1.96 is every test binary AND every
+/// doctest process (design B2) -- the fixture below writes a runner record
+/// per pid, which is what the count reads.
 #[test]
-fn invocation_processes_is_the_number_of_test_binaries_this_invocation_ran() {
+fn invocation_processes_is_the_number_of_runner_processes_this_invocation_ran() {
     let one = Fixture::new("invocation-processes-1", &[7201]);
     assert_eq!(meta(&one.traces()[0], "invocation_processes"), 1);
 
     let two = Fixture::new("invocation-processes-2", &[7301, 7302]);
     let traces = two.traces();
     assert_eq!(traces.len(), 2);
-    // On BOTH traces: `refocus` refuses a re-run of one binary out of
+    // On BOTH traces: `refocus` refuses a re-run of one process out of
     // several, and it is handed one trace, not the pair.
     for conn in &traces {
         assert_eq!(meta(conn, "invocation_processes"), 2);

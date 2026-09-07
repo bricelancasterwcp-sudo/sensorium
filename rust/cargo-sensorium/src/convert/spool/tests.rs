@@ -562,3 +562,36 @@ fn bytes_after_the_last_delta_are_refused() {
 fn the_line_kind_is_the_number_the_wire_format_names() {
     assert_eq!(KIND_LINE, 6);
 }
+
+/// The two `#[serde(default)]` fields of `InvocationRecord`, pinned on the
+/// PARSE rather than only end to end: an `invocation.json` written by an
+/// older driver carries neither key, and a converter that failed to read it
+/// would turn every pre-0.5.0 spool directory into a hard error.
+///
+/// `focus` reads as no focus and `refocus_of` as no link -- which is what
+/// those runs were. `refocus_of` in particular must be `None` and not a
+/// parse failure: `meta::build` writes the key only for `Some`, so a
+/// wrongly-defaulted value would put a link on every old trace.
+#[test]
+fn an_invocation_record_without_focus_or_refocus_of_reads_as_neither() {
+    let json = r#"{"invocation": "20260907-000000-000000", "cargo_args": ["test"],
+        "toolchain": "rustc 1.96.0", "rustc_path": "/u/bin/rustc", "profile": "dev",
+        "workspace_root": "/w", "target_dir": "/t", "tool_hash": "0123456789abcdef",
+        "driver_version": "cargo-sensorium 0.4.0"}"#;
+    let record: InvocationRecord = serde_json::from_str(json).expect("a pre-0.5.0 record");
+    assert!(record.focus.is_empty(), "{:?}", record.focus);
+    assert_eq!(record.refocus_of, None);
+}
+
+/// ...and both are read back verbatim when they ARE there.
+#[test]
+fn an_invocation_record_reads_the_focus_and_the_refocus_of_it_carries() {
+    let json = r#"{"invocation": "20260907-000000-000000", "cargo_args": ["run"],
+        "toolchain": "rustc 1.96.0", "rustc_path": "/u/bin/rustc", "profile": "dev",
+        "workspace_root": "/w", "target_dir": "/t", "tool_hash": "0123456789abcdef",
+        "driver_version": "cargo-sensorium 0.5.0", "focus": ["load"],
+        "refocus_of": "20260101-000000-aaaaaa"}"#;
+    let record: InvocationRecord = serde_json::from_str(json).expect("an 0.5.0 record");
+    assert_eq!(record.focus, ["load"]);
+    assert_eq!(record.refocus_of.as_deref(), Some("20260101-000000-aaaaaa"));
+}
