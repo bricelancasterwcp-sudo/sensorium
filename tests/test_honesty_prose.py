@@ -3,7 +3,13 @@
 `rust/HONESTY.md` §11 is the one home of the definition; the sentence the
 tool prints under an escaped arm, and the four load-bearing phrases of the
 definition, must be found there verbatim -- so the promise a reader meets
-in the output cannot drift from the promise the ledger makes."""
+in the output cannot drift from the promise the ledger makes.
+
+The section moved to `rust/HONESTY-ERR-FLOW.md` on 2026-09-06 (the focus
+tier's own split, the way §1 and §8's list moved before it), wording and
+order unchanged. What this file pins is the DEFINITION, not the path it
+lives at, so the reader below follows the section and the assertions are
+untouched."""
 from pathlib import Path
 
 from sensorium.query import exceptions_rust
@@ -12,7 +18,7 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 def _section_11() -> str:
-    text = (REPO / "rust" / "HONESTY.md").read_text()
+    text = (REPO / "rust" / "HONESTY-ERR-FLOW.md").read_text()
     start = text.index("\n## 11. Err flow")
     end = text.find("\n## ", start + 1)
     return text[start:end if end != -1 else None]

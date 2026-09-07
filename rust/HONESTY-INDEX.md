@@ -7,6 +7,13 @@ at the ceiling; this is that choice, and the rows are unchanged in wording and
 order except row §11's column clause, which this wave widened to the two places
 the 2026-09-04 acceptance record's §5.4 states.
 
+Three sections themselves live one file away, each moved for the same ceiling
+and each unchanged in wording and order: §1 is
+[`rust/HONESTY-OUTCOMES.md`](HONESTY-OUTCOMES.md), §8's list is
+[`rust/HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md), and §11 is
+[`rust/HONESTY-ERR-FLOW.md`](HONESTY-ERR-FLOW.md) (moved 2026-09-06 by the
+focus tier). A `§n` below is still the section it always was.
+
 A promise with no falsifier is not a promise, it is an assertion, and the
 ledger does not carry assertions: every row below names a corpus case, a test,
 a vector or an acceptance endpoint, by path.
@@ -31,5 +38,5 @@ a vector or an acceptance endpoint, by path.
 | 11 | Only written sites are recorded — `?`, the four sinks, `let _ =`, classified `Err` arms — each under its own `how`; every other shape reads AMBIGUOUS rather than being guessed at, and an unreachable `?` is declared as a `partial` row | `rust/sensorium-transform/tests/errflow.rs`, `golden_errflow.rs`, `rust/sensorium-rt/tests/err_flow.rs`, `corpus/rust/macro_arg_partial`, E2″ in `docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md` |
 | 11 | The wrap moves no line, and shifts a column in exactly TWO places: inside a wrapped `?`/sink/`let _` operand, by the 6 bytes of `match ` (**measured**); and after an arm probe or closure guard spliced at a same-line `{`, by that probe's own byte length (**stated, unmeasured**) | E7″ (2026-09-04 record §3, whose §5.4 states the two-place clause), E7‴ (2026-09-05 record §3), `rust/tests/mechanics.sh` — these cover the first place and the *nowhere else* half; the second place has no check, and that is `docs/CARRIED-DEBT.md` |
 | 11 | Chain identity is derived at conversion, not carried: same type + identical `Debug` text in one window is one chain, and a truncated text falls back to the type (merge-only) | `rust/cargo-sensorium/src/convert/chains/` (`mod.rs` + `tests.rs`), `corpus/rust/interleaved_chains`, `corpus/rust/keep_first_error`, `docs/trace-format/vectors/v16-raise-handled-chain-serial-kind.json` |
-| 11 | SWALLOWED is claimed only where a written sink absorbed the chain and its frame then closed `ok`; PANICKED says the holder frame unwound, never that the panic was caused by the `Err`; everything else is AMBIGUOUS | `tests/test_exceptions_rust.py` and `tests/test_exceptions_rust_ambiguous.py`, vectors `v17`/`v18`, sixteen `corpus/rust/*` cases (the sixteen `rust/HONESTY.md` §11 names), and E6/E6′ (2026-09-04, **STOP**) with E6‴-A/E6‴-W/E6-again (2026-09-05, **PASS**), and E6⁗-A/E6⁗-WS/E6⁗-WS0 (2026-09-05 e6q record: **PASS**/**PASS**/**DISCRIMINATING**) |
+| 11 | SWALLOWED is claimed only where a written sink absorbed the chain and its frame then closed `ok`; PANICKED says the holder frame unwound, never that the panic was caused by the `Err`; everything else is AMBIGUOUS | `tests/test_exceptions_rust.py` and `tests/test_exceptions_rust_ambiguous.py`, vectors `v17`/`v18`, sixteen `corpus/rust/*` cases (the sixteen `rust/HONESTY-ERR-FLOW.md` §11 names), and E6/E6′ (2026-09-04, **STOP**) with E6‴-A/E6‴-W/E6-again (2026-09-05, **PASS**), and E6⁗-A/E6⁗-WS/E6⁗-WS0 (2026-09-05 e6q record: **PASS**/**PASS**/**DISCRIMINATING**) |
 | 11 | `exceptions` on a Rust trace requires `capabilities.err_flow`; a trace an earlier runtime wrote is refused by name at exit 3 | `docs/trace-format/vectors/v19-err-flow-capability-refusal.json`, `tests/test_exceptions_rust_gate.py` |
