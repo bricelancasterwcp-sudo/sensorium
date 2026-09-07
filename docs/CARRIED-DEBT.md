@@ -68,7 +68,7 @@ what that code recorded, so each is written here with its fix spelled out —
 for Brice now, or for slice 2 — rather than repaired under the measurement.
 Each is marked *ruling: Brice / slice 2*.
 
-- **A brace-delimited macro in TAIL position breaks the focused build.**
+- ~~**A brace-delimited macro in TAIL position breaks the focused build.**
   `fn f() -> i32 { m! { 1 } }` — the shape of every `quote!`- or `html!`-
   terminated function, so of proc-macro and markup crates. `syn` reads the
   tail as a `Stmt::Macro` with `semi_token: None`; `lines.rs`'s
@@ -82,7 +82,17 @@ Each is marked *ruling: Brice / slice 2*.
   Measured by `rust/sensorium-transform/tests/focus_compile_fail/focus_macro_tail.rs`,
   which will fail loudly on the day the guard lands — that is the signal to
   delete the case and the blind-spot bullet together. Not in E9's subject.
-  *Ruling: Brice / slice 2 — a `src` change after the measurement (R-F14).*
+  *Ruling: Brice / slice 2 — a `src` change after the measurement (R-F14).*~~
+  — **TAKEN 2026-09-07 in slice 2 (ruling G1, design §3.3) at `2747c1c`**, as
+  the one line the bullet named: `sensorium-transform` **0.4.1**. The signal
+  fired exactly as written — the compile-fail case is deleted and the shape is
+  now the compile-PASS golden `tests/golden_focus/focus_macro_tail.{in,out}.rs`,
+  whose output the real-rustc oracle compiles under `-D warnings` with an empty
+  stderr required. The golden carries the UNIT-fn half too (`fn u() { m! { a } }`,
+  one fewer LINE), which never failed to build and so was never measured before:
+  it recorded a completed statement for what is the function's value.
+  `rust/HONESTY-BLIND-SPOTS.md` item 3's bullet is struck and corrected in
+  place.
 - **The autoref ladder COMMITS an open inference variable to `Debug`.** A
   `let` whose head type is still an inference variable at the probe —
   `let mut v = Vec::new();` then `v.push(Opaque)`, `let mut x = None;` then
@@ -306,3 +316,217 @@ Each is marked *ruling: Brice / slice 2*.
   (R-F13, and R-G13 before it). E9's `--limit 1000` was amended in its own
   commit `ffaed19` after the original lock `a4264b5`, before any number was
   read, and the record carries both.
+
+## 2026-09-07 — rung 4 slice 2, refocus and E4 (Python 0.8.4 / driver 0.5.0 / transform 0.4.1)
+
+### Settled
+
+- **The brace-delimited-macro-tail guard** — slice 1's first deferred item,
+  struck above as taken at `2747c1c` under ruling G1. `sensorium-transform`
+  **0.4.1**; the compile-FAIL case is gone and the shape is a compile-PASS
+  golden through the real-rustc oracle, carrying the unit-fn half nobody had
+  measured. It was the one slice-1 debt that was a broken build rather than a
+  cost or a bound.
+- **`refocus` on a Rust trace.** The driver takes `--refocus-of <run id>` and
+  every run records `refocus_of`, `workspace_root` and `invocation_processes`;
+  `capabilities.refocus` is **true** for every trace this driver converts, and
+  whether one particular trace can be refocused is a refusal with a sentence.
+  Python's Rust branch re-runs the RECORDED command from the recorded
+  workspace into the same store, five pre-rerun refusals first, finds the pair
+  in the STORE by `refocus_of` (ruling G3), and issues the unchanged
+  comparator's verdict. `rust/HONESTY.md` §13 is the promise; what a re-run
+  still does not compare is `rust/HONESTY-BLIND-SPOTS.md` item 12, narrowed
+  rather than struck.
+- **E4, measured once: five PASS and two REPORTED, all seven rows as
+  pre-registered** (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4.md`,
+  §1 byte-locked at `8e7d837` and amended once before the instrument existed
+  at `413f601`, both shas carried). **61 of 61 MATCH**, 0 DIVERGED, 0 REFUSED,
+  0 pre-rerun refusals, 0 focused build failures. No kill fired, nothing was
+  dropped, the loop closed in 8 min 22 s of a 2-hour bound, and no endpoint
+  fell back to an expectation. §1's own expectation that "the first focus pays
+  for the rt build" was **falsified** and reported as such (first 6.661 s
+  against a later mean of 6.988 s).
+- **`RUST.no_rerun_note`'s "arrives with rung 4" is retired.** Nothing in the
+  tree says it any more (grepped and pinned); the note now names the command a
+  reader may run instead of the re-run that was refused, and it names
+  `cargo sensorium`, never `sensorium run`, which cannot record this workspace.
+- **Rulings G1–G3, B1, B2 and R-H1**, each in the ledger with its text: G1 the
+  guard; G2 refocus lives in Python's re-run path (`refocus_rust.py`), not in
+  the driver; G3 `--refocus-of` plus a store lookup on `refocus_of`, never a
+  parse of the driver's `run:` line; B1 two §4 sentences of the design
+  corrected before the lock (the `fresh_dir` forms; the scheduler hazard); B2
+  the not-a-run-id refusal ratified and `invocation_processes` defined as the
+  RUNNER's processes, doctests included; R-H1 the E4 lens amended
+  pre-instrument (the survey's scope, the worker-thread discriminator, the
+  citation lines).
+
+### Deferred, awaiting rulings
+
+- **The licence's untraced-thread clause fires on every `cargo test` pair, so
+  the licence is structurally never granted there.** E4 measured
+  `licences granted` **0** on all 61 pairs while every count H4 gates on was
+  exactly as pre-registered: libtest runs each test on a thread it spawns, and
+  a thread that ran no traced code has no fingerprint to compare (measured
+  counts 57×1, 1×2, 3×5 — record §5.2). **The candidate fix, named in the
+  record and deliberately not applied:** treat libtest's per-test thread as
+  the RECORDER's own rather than the program's, so it raises no caveat — the
+  precedent being the recorder's own environment variables, which the same
+  licence already names and excludes. It is a design question about what "the
+  program's threads" means on a test harness, and it is not a `src` change to
+  make after the measurement. **Ruling owed** (Brice / slice 3). Until it is
+  made, a reader of a `cargo test` refocus should read the four printed
+  counts, not the word — which `docs/query.md` now says.
+- **`--window` for Rust is still not shipped**, and is now refused by name at
+  exit 2 rather than silently absent. It needs a per-activation runtime check
+  the Rust runtime does not have. **Ruling owed** on whether the window is a
+  runtime check or a second compile-time selector — slice 1 carried this and
+  slice 2 did not take it.
+- **A refocus of a multi-process invocation is refused, not compared.** One
+  `cargo sensorium test --workspace` is many runner processes and no single
+  trace answers a question about the invocation, so `refocus` refuses at exit
+  2 naming the count and the single-target selector. What a reader actually
+  wants there — a verdict over the whole invocation, the way
+  `sensorium exceptions <invocation-id>` already answers — is unbuilt and
+  unspecified. **Ruling owed** on whether the unit of a refocus can be an
+  invocation.
+- **A single-target re-run whose test spawns a workspace CHILD is refused by
+  count, and the sentence names the wrong cause.** The driver stamps
+  `refocus_of` into every trace the invocation writes, and a child process the
+  test itself spawns is instrumented and gets one — while
+  `meta.invocation_processes` counts only the processes cargo hands the RUNNER
+  (test binaries and doctests), so the original's count is 1 and no pre-rerun
+  refusal fires. `find_pair` then finds TWO linked traces, and
+  `refocus_rust.py` refuses at exit 3 with the single-target sentence
+  (`refocus needs an invocation with a single-target selector (--lib, --test
+  X, --bin X) so one trace is the answer`) at a caller whose selector was
+  already single-target. **The verdict is right — two traces is not a pair —
+  and the diagnosis is wrong**, which is the part that costs a reader time.
+  Unmeasured: E4's subject spawns no child from a test (every pass-1
+  invocation produced exactly one process), so this is derived from the code
+  and the trace format, not observed. **Two candidate fixes, neither applied:**
+  (1) exclude a linked trace whose `ppid` is another linked trace's `pid` — the
+  converter already records `ppid` and already derives `child_runs` from it
+  (`docs/TRACE-FORMAT.md`), so the parent of a pair is identifiable without a
+  new key, and the refocus compares the parent; (2) keep the refusal but name
+  the child runs in the sentence, so the reader is told a child was recorded
+  rather than told to narrow a selector. (1) changes what a refocus ANSWERS
+  and (2) only what it says, which is the choice to make. It is a `src` change
+  after the measurement either way. **Ruling owed** (Brice / slice 3).
+- **The autoref ladder still COMMITS an open inference variable to `Debug`**,
+  and the opt-out spelling is still unchosen. Slice 1's item stands verbatim
+  above with its two candidate designs; slice 2 took the guard beside it and
+  not this. The compile-fail golden `focus_infer_debug.rs` still measures it.
+  **Ruling owed** (Brice).
+- **The shim is a COPY, once per distinct focus — and the cost is now
+  MEASURED.** Slice 1 estimated ~40 MB per focus; E4 counted **62** entries
+  under `<CARGO_TARGET_DIR>/sensorium/shim` totalling **2 506 729 440** bytes
+  (~40.4 MB each) after one unfocused pass and 61 focused re-runs, none
+  reused, inside a fresh target that reached **25.8 GB** (record §3, §5.4). A
+  hard link would delete the copy but needs a cross-filesystem fallback and a
+  rule for when the source binary is replaced. **Ruling owed**, and it now has
+  a number to be sized against.
+- **`fn_items` still runs the whole splicing transform just to enumerate.**
+  Slice 1's item stands verbatim above, fix included (take `splice::census`'s
+  route). Unmeasured cost then and unmeasured now: E4's H6 separates the
+  refocus wall from cargo's build but not the resolution from the build.
+  **Ruling owed** (Brice).
+- **`focus_matched` can still carry a STALE unit's match.** Slice 1's item
+  stands verbatim above with its candidate filter. `rust/HONESTY.md` §12
+  states the bound in the meantime, and nothing in slice 2 touched it.
+  **Ruling owed** (Brice).
+- **`info` does not print `refocus_licence_unverifiable`.** The stamp is
+  written into the new trace's meta and `info` prints `licence: granted` or
+  `WITHHELD` without saying which checks could not run at all — so the two
+  UNVERIFIABLE checks survive in the trace and not in the line a later reader
+  meets. Raised at Task 3's review as Minor 4 and eligible for a small `src`
+  change only BEFORE the measurement; Task 6 has measured, so it is carried
+  here instead. **The fix, spelled out so the next slice need not re-derive
+  it:** `info`'s refocus line reads the `refocus_licence*` stamps already;
+  append the unverifiable check names where the stamp holds them.
+- **`rust/cargo-sensorium/src/driver.rs` is at 791 of 800**, up from 763 by
+  this slice's `--refocus-of` parsing and its two refusals. The next change to
+  that file splits it first — the natural seam is the argv parsing, which
+  `driver_args.rs` and `refocus_of.rs` already carry most of.
+- **`last` is mtime-ordered.** A refocus writes a trace whose id nothing could
+  have spelled in advance, so `last` is how a corpus case and a reader address
+  it — and `last` is the store's newest by FILE MTIME, not by any recorded
+  clock. It is unambiguous inside a corpus case, whose store holds exactly two
+  traces; it is not in a shared store, and a case that refocused twice would
+  need `runs` to name which trace it means. Stated in `docs/query.md` and
+  `corpus/rust/README.md`; the reader-side fix (order by the recorded start,
+  or let `refocus` print an addressable id) is not taken.
+- **The digest floor is a number, and it is 16 hex characters.**
+  `refocus_world._MIN_DIGEST = 16` is the narrowest width either recorder
+  writes (`boot.hash_file` keeps 16 of the sha256; `cargo-sensorium` writes
+  all 64), so no real trace is refused by it — and without it an empty digest
+  would prefix-match every file and read `source: unchanged` over code nobody
+  hashed. It is a floor chosen against today's two recorders, and a third that
+  wrote narrower digests would meet a refusal rather than a rule.
+- **One driver resolution, THREE copies of it.** `refocus_rust.driver`,
+  `corpus/run_corpus.cargo_driver` and `tests/test_focus_refusal._driver`
+  each resolve `SENSORIUM_CARGO_SENSORIUM` then `PATH`. They are separate on
+  purpose — `corpus/` is not in the wheel, so the query command cannot import
+  it — which makes drift between them silent, so
+  `tests/test_refocus_rust.py::test_all_three_driver_resolutions_agree` pins
+  all three against four inputs. **Pinned equal, not unified**; unifying them
+  needs the shared helper to live under `src/sensorium/`.
+- **The pre-registered discriminator's second condition has no subject on
+  `cargo test` material.** §1.4's rule for telling the named worker-thread
+  hazard from a recorder finding is two conditions — the worker tasks' total
+  event count preserved, AND the MAIN stream MATCHing — and every one of E4's
+  122 traces carries a **0-event** MAIN stream, because libtest runs each test
+  on a spawned thread the converter records as a *task*. Condition (2) is
+  therefore true by construction and would have discriminated nothing; a
+  DIVERGED would have rested entirely on condition (1). The discriminator was
+  never asked, so no verdict depends on it (record §5.3). A discriminator that
+  works on `cargo test` material is a **pre-registration for a later record**,
+  not a repair of this one.
+- **The named hazard fired once and the comparator absorbed it, which is a
+  reading to keep rather than a defect to fix.** On 1 of the 61 pairs the
+  per-`task_id` assignment moved between the two runs — the workers carried
+  (216, 205, 151, 233, 151) events on one side and (216, 205, 233, 151, 151)
+  on the other, total 956 both sides — while the multiset of `(name, hash)`
+  was identical, so the verdict was MATCH (record §5.3). B1's reasoning was
+  exercised, not merely unfalsified. What is carried is that **a MATCH does
+  not say the two runs scheduled the same way**, which no printed line
+  currently states beside a Rust verdict.
+- **Rung-5 candidates**, both wanting a measurement first: a per-site volume
+  cap (slice 1's item, still with no cost to size against), and the cost
+  instrument E4's H6 and E9's §5.5 both asked for — a subject whose test
+  binary takes long enough to time, and an instrument that separates compile
+  from run.
+
+### Process lessons
+
+- **A reviewer's proof-by-PROBE found an agreement no golden could.** Six
+  macro-tail shapes were pushed through the real transform rather than
+  reasoned about against a fixture, and what came back settled the guard's
+  scope — the negative half included (a brace macro that is NOT a tail keeps
+  its probe), which is what stops the arm being widened to every brace macro
+  without the suite saying so. It is the same lesson slice 1 recorded about
+  reviewers producing real output shapes, now on a second mechanism.
+- **The corpus is the printing gate for a re-run, and a real re-invocation
+  inside a question works.** The three `refocus_*` cases are the only cases
+  whose QUESTIONS record: the harness records the case once and the question
+  then launches the driver itself, through the environment `run_corpus._cli`
+  passes down. That the pattern works at all was not obvious before it ran.
+- **A pre-registered discriminator turns a post-hoc diagnosis into a check.**
+  R-H1 amended E4's lens BEFORE the instrument existed, so the worker-thread
+  hazard had a rule to be judged by rather than an explanation to be offered
+  afterwards. The rule then proved to have no subject here (above) — which is
+  itself a finding, and only available because the rule was written first.
+- **One implementer at a time, even for a fix round.** Task 1's post-review
+  fixes queued behind Task 2 by rule rather than sharing the worktree; the
+  alternative is a second implementer's commit sweeping the first's staged
+  files, which this project has already paid for once.
+- **`pgrep` before every cargo when a reviewer may be holding it.** A build
+  and a reviewer's `cargo test` share one target lock, and the second one
+  blocks silently rather than failing.
+- **A record's version token comes from installed distribution metadata, not
+  from the tree.** Both E9 and E4 printed the reader as `sensorium 0.6.0`
+  because that is what `importlib.metadata.version('sensorium')` reports in
+  this `.venv`; `pyproject.toml` said 0.8.3 and 0.8.4 at those HEADs. Nothing
+  in either record gates on the token, so no number moved — but a record that
+  names its own reader wrongly twice will eventually name it wrongly where it
+  matters. **`pip install -e .` before the next record**, and read the token
+  back in the preflight rather than in the finished document.

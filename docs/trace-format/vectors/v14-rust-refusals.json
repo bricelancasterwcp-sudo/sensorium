@@ -1,6 +1,6 @@
 {
   "id": "v14-rust-refusals",
-  "asserts": "A command whose rules are written for one language refuses on a trace written by another, rather than answering with rules that do not apply: `refocus`, `flow` and `watch` refuse through the capability the trace declares false. The same trace carries `units_refused.refused: true`, and `info` prints the unit ceiling -- a recording that stopped accepting calls partway is not a recording that saw no more calls. (`exceptions` asked the fourth question here until rung 3 gave Rust its own disposition rules; what an 0.1.0 Rust trace now lacks is the RECORD, so that question moved to `v19-err-flow-capability-refusal` and the lang-keyed sentence is pinned on a third language by `tests/test_exit_codes.py`.)",
+  "asserts": "A command whose rules are written for one language refuses on a trace written by another, rather than answering with rules that do not apply: `refocus`, `flow` and `watch` refuse through the capability the trace declares false. The same trace carries `units_refused.refused: true`, and `info` prints the unit ceiling -- a recording that stopped accepting calls partway is not a recording that saw no more calls. (`exceptions` asked the fourth question here until rung 3 gave Rust its own disposition rules; what an 0.1.0 Rust trace now lacks is the RECORD, so that question moved to `v19-err-flow-capability-refusal` and the lang-keyed sentence is pinned on a third language by `tests/test_exit_codes.py`.) Rung 4 gave `refocus` a real path on a Rust trace, and this vector still holds: it describes a recording by `cargo-sensorium` 0.4.0 or earlier, whose `capabilities.refocus: false` is exactly what a current `refocus` refuses through -- a trace this driver converts declares `refocus: true` and is refused, if at all, by one of the five sentences of design 2026-09-07 section 2.3 instead.",
   "meta": {
     "trace_format": 4,
     "run_id": "$RUN",
@@ -126,7 +126,7 @@
         "sensorium-rt 0.1.0",
         "capabilities.refocus: false",
         "nothing was checked",
-        "no rerun was attempted; refocus on a Rust trace arrives with rung 4"
+        "no rerun was attempted; `cargo sensorium --focus ... test|run` will record a fresh, UNVERIFIED trace if that is what you want"
       ],
       "expect_absent": [
         "verdict:",

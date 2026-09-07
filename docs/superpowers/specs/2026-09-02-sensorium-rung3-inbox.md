@@ -139,13 +139,28 @@ with, none of it ranked, each item with the thing that would settle it.
   (`docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md`). The
   promise is `rust/HONESTY.md` §12; what a focus still does not reach is
   `rust/HONESTY-BLIND-SPOTS.md` item 3, narrowed rather than struck.
-- **`refocus` on a Rust trace** — `capabilities.refocus: false`; the Rust side
+- ~~**`refocus` on a Rust trace** — `capabilities.refocus: false`; the Rust side
   is re-invocation, and the E4 endpoint is unmeasured. *(2026-09-06: this and
   `--window` are what rung 4's **slice 2** is, the focus tier having taken
-  slice 1. `--window` needs a per-activation runtime check the Rust runtime
-  does not have — `docs/CARRIED-DEBT.md`, this slice's section, carries the
-  ruling owed on whether it is a runtime check or a second compile-time
-  selector.)*
+  slice 1.)*~~ — **shipped 2026-09-07** as rung 4 slice 2 (Python 0.8.4 /
+  `cargo-sensorium` 0.5.0 / `sensorium-transform` 0.4.1). `sensorium refocus
+  <run> --focus <name>` re-runs the RECORDED invocation from the recorded
+  `workspace_root` under the added focus, finds the pair in the store by
+  `refocus_of`, and issues the comparator's unchanged verdict; five pre-rerun
+  refusals answer first, each at exit 2. **E4 is measured** — five PASS and
+  two REPORTED, all seven rows as pre-registered, **61 of 61 MATCH** with 0
+  DIVERGED and 0 REFUSED over every `#[test]` of a real workspace
+  (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4.md`). The
+  promise is `rust/HONESTY.md` §13; what a re-run still does not compare is
+  `rust/HONESTY-BLIND-SPOTS.md` item 12, narrowed rather than struck. One
+  finding is carried rather than fixed: the licence is structurally WITHHELD
+  on every `cargo test` pair, by its untraced-thread clause
+  (`docs/CARRIED-DEBT.md`, this slice's section).
+- **`--window` on a Rust trace remains open.** It needs a per-activation
+  runtime check the Rust runtime does not have, so slice 2 refuses it by name
+  at exit 2 rather than approximating it. `docs/CARRIED-DEBT.md` carries the
+  ruling owed on whether the window is a runtime check or a second
+  compile-time selector.
 - **`.is_err()` / `.is_ok()` as OBSERVATION tags, not sinks.** Rung 3 dropped
   them from the probe list because a HANDLED there would report a predicate as
   a swallow (R2's erratum). The shape a reader still wants is a third class —

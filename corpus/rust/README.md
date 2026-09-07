@@ -1,6 +1,6 @@
 # The Rust corpus
 
-Thirty-eight cases recorded by the **Rust** recorder (`cargo sensorium …`) and
+Forty-one cases recorded by the **Rust** recorder (`cargo sensorium …`) and
 questioned through the same Python CLI as the rest of the corpus. Each case
 directory is a self-contained, dependency-free crate plus its
 `questions.yaml`; `corpus/run_corpus.py` copies one whole directory into a
@@ -114,6 +114,32 @@ which exits 2 with `Closest:` suggestions and builds nothing -- is not a case
 here, because a corpus case records once and a refused recording leaves no
 trace to question. It is pinned by `tests/test_focus_refusal.py`, which skips
 by name when no driver is on the box exactly as these cases do.
+
+## The rung-4 cases: the refocus loop
+
+Three cases added with `sensorium refocus` on a Rust trace, which re-invokes
+`cargo sensorium` under an added `--focus` and compares the pair. They are the
+only cases here whose QUESTIONS record: the harness records the case once, and
+a `refocus` question then launches the driver itself (the same
+`SENSORIUM_CARGO_SENSORIUM` the recording used, passed through by
+`run_corpus._cli` along with the case's `SENSORIUM_DIR`). A focused rebuild of
+a one-file crate is seconds, and the re-run's cost is a blind spot the verdict
+prints about itself.
+
+The re-run's trace is a NEW run whose id no `questions.yaml` can spell, so the
+questions after a refocus address it as `last` — the store's newest trace,
+which the refocus just wrote — and read the PAIR through `runs`, where
+`refocus-of:<original>` and the verdict ride together. **`last` is
+mtime-ordered, not clock-ordered**, so it is unambiguous here only because a
+case runs in a store of its own that holds exactly two traces, the second
+written by the refocus under test; a case that refocused twice would need
+`runs` to name which trace it means, and none of the three does.
+
+| Case | Planted truth | Commands |
+|---|---|---|
+| `refocus_match` | the loop closed: a run with no LINE row at all is re-run one flag deeper, MATCHes, and answers `b == 2` at the statement that wrote it — with the licence granted over exactly four points and `output`/`children` reported as checks that could NOT run rather than as two empty sets agreeing | `refocus`, `runs`, `info`, `watch` |
+| `refocus_diverged` | a program that branches on a marker file its own first run wrote: the re-run cannot take the first run's path, so the verdict is DIVERGED at causal step 1 with `first_path` against `other`, exit 1, and the listing carries the divergence beside the link | `refocus`, `runs` |
+| `refocus_refused_many` | `cargo test` on a crate with two integration tests is two processes, and refocus refuses BEFORE building anything — exit 2, the single-target sentence, and a store with no third trace in it | `refocus`, `runs` |
 
 ## Two things a case here must know
 

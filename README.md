@@ -254,8 +254,9 @@ asyncio task (code before/after the loop, and loop callbacks such as
 
 The three commands whose claims need the most saying are
 [`docs/query.md`](docs/query.md), moved there 2026-09-06 so this file stays
-under 800 lines, wording and order unchanged. What each claims, in one
-paragraph:
+under 800 lines, wording and order unchanged — and, since 2026-09-07, that
+file also holds a fourth section, `refocus` on a Rust trace, added there
+rather than moved. What each of the three claims, in one paragraph:
 
 **`exceptions`** classifies every raise as `swallowed`, `uncaught`,
 `re-raised`, `propagated` or `ambiguous`, and **SWALLOWED is claimed only when
@@ -525,8 +526,8 @@ and a workload, not a pass/fail property of the tool.
 crates the same way this document's recorder records a Python program: one
 sensorium trace per process, trace format 4, read by the same `sensorium`
 command line. `rust/` ships `sensorium-rt 0.4.0` (zero dependencies, the
-runtime linked into every instrumented unit), `sensorium-transform 0.4.0`
-(the `syn` rewriter), and `cargo-sensorium 0.4.0` (driver, workspace wrapper,
+runtime linked into every instrumented unit), `sensorium-transform 0.4.1`
+(the `syn` rewriter), and `cargo-sensorium 0.5.0` (driver, workspace wrapper,
 target runner, converter — one binary, four roles). What it does and does not
 see is [`rust/HONESTY.md`](rust/HONESTY.md) with
 [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
@@ -629,22 +630,28 @@ a reader meets it.
 
 ### What refuses
 
-`refocus` refuses outright on a Rust trace, and `watch` and `flow` refuse on
-an UNFOCUSED one — never answering from a capability the recorder declares it
-does not have. `watch` and `flow` print why and exit **3** — the recording,
-not the call, is what would have to change — because both need
-`capabilities.line`, which a build with no `--focus` declares `false`.
-`refocus` exits **2**: its capability check runs before anything is re-run,
-so it is one of `refocus`'s own "cannot refocus at all" reasons (see the
-`refocus` section above), and the reader's next move is a different command,
-not a different recording; it needs `capabilities.refocus`, still `false`.
+`watch` and `flow` refuse on an UNFOCUSED trace — never answering from a
+capability the recorder declares it does not have. They print why and exit
+**3** — the recording, not the call, is what would have to change — because
+both need `capabilities.line`, which a build with no `--focus` declares
+`false`.
+
+`refocus` **answers** from `cargo-sensorium` 0.5.0: `capabilities.refocus` is
+`true` for every trace that driver converts, and whether one PARTICULAR
+recording can be re-run is a refusal about that run, not about the recorder.
+Five such refusals exit **2** with `nothing was re-run` in them — `--window`,
+which the Rust runtime has no per-activation check for; a run that is one of
+*n* processes of its invocation, so no single trace is the answer; a trace
+recording no `workspace_root`; a workspace that has since moved; and no
+`cargo-sensorium` to re-run with. What the verdict then claims, and the two
+licence checks it cannot run at all, is [`docs/query.md`](docs/query.md).
 
 `exceptions` **answers** from 0.3.0, and refuses on exactly one thing: a
 trace an older runtime wrote. The gate is `capabilities.err_flow`, so such a
 trace exits **3** naming the recorder and the capability, and no rule ever
-sees its records — what it lacks is a record, not a rule. `refocus`, program
-output under libtest and per-line state in an unfocused build are the same
-kind of "not yet": declared absent in the trace, never silently missing.
+sees its records — what it lacks is a record, not a rule. Program output under
+libtest and per-line state in an unfocused build are the remaining "not yet"s:
+declared absent in the trace, never silently missing.
 
 ### Cost, beside Python's
 

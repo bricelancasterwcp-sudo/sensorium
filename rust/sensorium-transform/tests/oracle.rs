@@ -318,9 +318,11 @@ fn the_untransformed_focus_goldens_are_warning_free_to_begin_with() {
     );
 }
 
-/// The two shapes the focus tier is DOCUMENTED not to reach, measured rather
-/// than described (`rust/HONESTY-BLIND-SPOTS.md` item 3, the final review's
-/// items 1 and 2).
+/// The shapes the focus tier is DOCUMENTED not to reach, measured rather than
+/// described (`rust/HONESTY-BLIND-SPOTS.md` item 3, the final review's items 1
+/// and 2). There were two; the brace-delimited macro tail was repaired by ruling
+/// G1 in `sensorium-transform` 0.4.1 and is now the compile-PASS golden
+/// `focus_macro_tail`, so what is left here is the inference-variable commit.
 ///
 /// Each case is compiled clean UNTRANSFORMED first -- without that half, "the
 /// transform broke it" is unmeasurable and a typo in the fixture would read as

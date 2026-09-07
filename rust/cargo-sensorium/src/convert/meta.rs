@@ -12,8 +12,15 @@ use serde_json::{json, Map, Value};
 use crate::convert::manifest::FocusRecord;
 
 /// The declaration every trace this recorder writes carries. `stdin`,
-/// `output`, `object_identity` and `refocus` are `false` at this rung;
-/// `return_value`, `tasks` and `threads` are witnessed.
+/// `output` and `object_identity` are `false` at this rung; `return_value`,
+/// `tasks`, `threads` and `refocus` are witnessed.
+///
+/// `refocus` is `true` UNCONDITIONALLY (design 2026-09-07 §2.2): it says the
+/// recorder can be re-invoked, which is a fact about this driver and not
+/// about one trace. Whether one particular trace can be refocused -- one
+/// binary of several, a workspace since deleted -- is a refusal `refocus`
+/// itself makes, with a sentence naming what is wrong, and a capability
+/// that answered it would say only "no".
 ///
 /// `line` and `locals` are `false` HERE and computed per run by
 /// [`capabilities_json`]: they are true exactly when some unit of the run
@@ -29,7 +36,7 @@ pub const CAPABILITIES: &[(&str, bool)] = &[
     ("stdin", false),
     ("output", false),
     ("object_identity", false),
-    ("refocus", false),
+    ("refocus", true),
 ];
 
 /// Everything [`build`] needs, gathered by `mod.rs` from `invocation.json`,
@@ -50,6 +57,21 @@ pub struct MetaInput<'a> {
     pub live_threads: &'a [String],
     pub env: &'a BTreeMap<String, String>,
     pub invocation: &'a str,
+    /// Runner processes -- test binaries AND doctests; a single-target
+    /// selector makes it 1. It is the count the driver already prints its
+    /// multi-binary WARN from, which is `runner_records.len()`: cargo 1.96
+    /// hands the target runner every test binary and every doctest process
+    /// (`runner.rs`, `rust/HONESTY.md` §"the runner started this process",
+    /// measured 2026-09-02), so a `cargo test` with doctests counts more
+    /// than its test binaries. Written on every trace of the invocation, so
+    /// a reader of ONE trace can tell whether it is the whole answer (design
+    /// 2026-09-07 §2.2, B2); `refocus` refuses a re-run when it is not 1.
+    pub invocation_processes: usize,
+    /// The run id this invocation was a re-run OF, from `invocation.json`.
+    /// `None` for an ordinary run, and then the key is ABSENT: `refocus`'s
+    /// pair lookup asks which traces carry it, and a null would be a link to
+    /// nothing.
+    pub refocus_of: Option<&'a str>,
     pub pid: u32,
     pub ppid: u32,
     pub exe: &'a str,
@@ -57,6 +79,10 @@ pub struct MetaInput<'a> {
     pub rustc_path: &'a str,
     pub cargo_args: &'a [String],
     pub profile: &'a str,
+    /// The workspace this invocation ran in, from `invocation.json`. Only
+    /// the invocation record knows it, and `refocus` re-runs the driver FROM
+    /// it -- a trace that did not record it cannot be re-run at all.
+    pub workspace_root: &'a str,
     pub tool_hash: &'a str,
     pub driver_version: &'a str,
     pub instrumented_units: &'a [String],
@@ -162,6 +188,7 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
         ("env", json!(m.env)),
         ("caps", json!({"repr": 200})),
         ("invocation", json!(m.invocation)),
+        ("invocation_processes", json!(m.invocation_processes)),
         ("pid", json!(m.pid)),
         ("ppid", json!(m.ppid)),
         ("exe", json!(m.exe)),
@@ -169,6 +196,7 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
         ("rustc_path", json!(m.rustc_path)),
         ("cargo_args", json!(m.cargo_args)),
         ("profile", json!(m.profile)),
+        ("workspace_root", json!(m.workspace_root)),
         ("tool_hash", json!(m.tool_hash)),
         ("driver_version", json!(m.driver_version)),
         ("instrumented_units", json!(m.instrumented_units)),
@@ -200,6 +228,13 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
     if let Some((start, end)) = m.wall {
         out.push(("wall_start_ts", json!(start)));
         out.push(("wall_end_ts", json!(end)));
+    }
+    // Only when there was one, and never as a null: `refocus` finds the new
+    // trace of a re-run by asking the store which traces carry this key, and
+    // a null on every ordinary trace would make every ordinary trace an
+    // answer to that question.
+    if let Some(original) = m.refocus_of {
+        out.push(("refocus_of", json!(original)));
     }
     // Both keys or neither, and only when a manifest carried the record: an
     // unfocused build says nothing, exactly as a Python run with no `--focus`
@@ -271,6 +306,8 @@ mod tests {
             live_threads: &[],
             env: Box::leak(Box::new(BTreeMap::new())),
             invocation: "20260903-000000-000000",
+            invocation_processes: 1,
+            refocus_of: None,
             pid: 1,
             ppid: 0,
             exe: "/w/target/x",
@@ -278,6 +315,7 @@ mod tests {
             rustc_path: "/u/bin/rustc",
             cargo_args: &[],
             profile: "dev",
+            workspace_root: "/w",
             tool_hash: "0123456789abcdef",
             driver_version: "cargo-sensorium 0.1.0",
             instrumented_units: &[],
@@ -349,9 +387,47 @@ mod tests {
             json!({
                 "line": false, "locals": false, "return_value": true, "tasks": true,
                 "threads": true, "children": false, "stdin": false, "output": false,
-                "object_identity": false, "refocus": false, "err_flow": false
+                "object_identity": false, "refocus": true, "err_flow": false
             })
         );
+    }
+
+    /// `refocus` says the RECORDER can be re-invoked, which is true of every
+    /// trace this driver converts -- unlike `line`/`locals`/`err_flow`, it is
+    /// not computed from what the run happened to record.
+    #[test]
+    fn the_refocus_capability_is_true_on_every_trace_this_driver_writes() {
+        let mut m = minimal();
+        m.refocus_of = None;
+        assert_eq!(as_map(&build(&m))["capabilities"]["refocus"], json!(true));
+        m.refocus_of = Some("20260101-000000-aaaaaa");
+        assert_eq!(as_map(&build(&m))["capabilities"]["refocus"], json!(true));
+    }
+
+    /// Absent, not null: `refocus` finds a re-run's new trace by asking which
+    /// traces carry `refocus_of`, so a null on an ordinary trace would make
+    /// every ordinary trace an answer.
+    #[test]
+    fn refocus_of_is_written_only_when_there_was_one() {
+        assert!(
+            !as_map(&build(&minimal())).contains_key("refocus_of"),
+            "an ordinary run must carry no refocus_of key at all"
+        );
+        let mut m = minimal();
+        m.refocus_of = Some("20260101-000000-aaaaaa");
+        assert_eq!(
+            as_map(&build(&m))["refocus_of"],
+            json!("20260101-000000-aaaaaa")
+        );
+    }
+
+    #[test]
+    fn the_workspace_root_and_the_process_count_are_written_on_every_trace() {
+        let mut m = minimal();
+        m.invocation_processes = 3;
+        let out = as_map(&build(&m));
+        assert_eq!(out["workspace_root"], json!("/w"));
+        assert_eq!(out["invocation_processes"], json!(3));
     }
 
     /// `err_flow` is the RUNTIME's declaration, passed through (design R9): a

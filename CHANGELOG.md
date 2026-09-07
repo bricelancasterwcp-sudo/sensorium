@@ -1,5 +1,132 @@
 # Changelog
 
+## 0.8.4 — 2026-09-07
+
+Rung 4, slice 2: **`refocus` for Rust traces** — `sensorium refocus <run>
+--focus <name>` re-runs the recorded `cargo sensorium` invocation one flag
+deeper and issues the comparator's verdict on the pair, instead of refusing.
+Python **0.8.4**; the crates move apart for the first time —
+**`sensorium-rt 0.4.0`** unchanged (neither the wire nor the runtime moved),
+**`sensorium-transform 0.4.1`** for the macro-tail guard, and
+**`cargo-sensorium 0.5.0`** for `--refocus-of` and the three meta keys it
+writes. `TRACE_FORMAT` stays **4**: all three keys are optional meta.
+
+- **The brace-delimited-macro-tail guard, the one slice-1 debt that was a
+  broken build** (ruling G1). `fn f() -> i32 { m! { 1 } }` — the shape of
+  every `quote!`- or `html!`-terminated function — minted a LINE after the
+  return value and produced a parse error, so the unit fell back whole. The
+  `Stmt::Macro` arm now returns `None` when the macro is the block's tail,
+  exactly as `Stmt::Expr(expr, None)` beside it already did. The compile-FAIL
+  case is deleted and the shape is a compile-PASS golden through the
+  real-rustc oracle under `-D warnings`; the golden carries the unit-fn half
+  (`fn u() { m! { a } }`, one fewer LINE) that never failed to build and so
+  had never been measured. `sensorium-transform` **0.4.1**;
+  `rust/HONESTY-BLIND-SPOTS.md`'s bullet and `docs/CARRIED-DEBT.md`'s item are
+  struck as taken.
+- **The driver takes `--refocus-of <run id>`, and every run now records three
+  invocation-scoped facts.** The flag is parsed where `--tier` and `--focus`
+  are — only before the first bare `--`, at most once — and refuses twice
+  before anything is rewritten or built: `REFUSED: --refocus-of <v> is not a
+  run id; nothing was built.` for a path separator, `.`, `..`, an absolute
+  path or an empty value (a trailing `.db` is stripped once), and
+  `REFUSED: --refocus-of <id> names no trace in <store>; nothing was built.`
+  for a value the current store does not hold. The shape check runs FIRST, on
+  purpose: `--refocus-of ../traces/<a real run>` would otherwise stamp a link
+  the store could never resolve. The converter writes `refocus_of`,
+  `workspace_root` (the workspace the invocation ran in) and
+  `invocation_processes` (the runner processes it produced — test binaries and
+  doctests alike), and `capabilities.refocus` becomes **`true`** for every
+  trace this driver converts: the recorder CAN be re-invoked, and whether one
+  particular trace can be is a refusal, not a capability.
+- **`refocus` has a Rust branch, and it re-runs the RECORDED command.** argv
+  is `--refocus-of <run>` first and unconditional, then the ORIGINAL's
+  recorded tier — never one the call asserts — then the original's
+  `meta.focus` followed by the values this call added, then the original's own
+  cargo argv; cwd is the recorded `workspace_root` and the store is the
+  original's. So a refocus only ever captures MORE. **Five refusals come
+  first**, each at exit 2 with `nothing was re-run` in it: `--window` (no
+  per-activation runtime check exists on the Rust side); a run that is one of
+  *n* processes of its invocation, naming the single-target selector that
+  makes the count 1; no `workspace_root` recorded; a workspace since deleted;
+  no `cargo-sensorium` to re-run with. **The pair is found in the STORE** by
+  `refocus_of` plus the launch timestamp, never by parsing the driver's
+  printed `run:` lines — zero candidates is `verdict: REFUSED` after the rerun
+  at exit 3, more than one is REFUSED by count, and neither guesses. The
+  comparator is unchanged: MATCH / DIVERGED / REFUSED keep their meanings and
+  exits, the fingerprint is per task over CALL/RETURN/RAISE/HANDLED, and a
+  LINE row never enters the hash — which is what lets a deeper re-run MATCH
+  the run it came from.
+- **The licence on a Rust pair says what it could not check.** Source,
+  environment and exit status run for real; `output` and `children` are
+  printed and stamped `unverifiable (not recorded)` / `unverifiable (not
+  witnessed)` rather than compared, because `capabilities.output` and
+  `capabilities.children` are false and comparing them would compare two empty
+  sets and report agreement. **An unverifiable check is never counted as a
+  verified one**, and the two counts are never summed. The blind-spot block
+  after a Rust verdict is the Rust vocabulary's — output not recorded, threads
+  from dependency code unnamed, and the line only a re-run can owe: the
+  rebuild is its own cost, since `--focus` keys a fresh shim and rebuilds the
+  matched units. `RUST.no_rerun_note`'s "arrives with rung 4" is retired and
+  now names the command a reader may run instead.
+- **Three Rust corpus cases, and they are the only cases whose QUESTIONS
+  record.** The harness records each case once and a `refocus` question then
+  launches the driver itself, through the gate's own driver environment:
+  `refocus_match` (MATCH at exit 0, the licence GRANTED over four points, the
+  pair in `runs`, and `watch last --at fill --expr b == 2` SATISFIED — the
+  loop closed), `refocus_diverged` (a program that branches on a marker file
+  its first run wrote: DIVERGED at causal step 1, exit 1) and
+  `refocus_refused_many` (two test binaries: the single-target sentence at
+  exit 2, and a store with no third trace in it).
+- **Three pins moved with the capability, and each is a statement about a
+  different recorder.** `tests/helpers.py`'s `RUST_CAPABILITIES` and
+  `tests/test_runs_info.py`'s `RUST_CAPS` now read `refocus: True`, being the
+  0.5.0 driver's traces; `docs/trace-format/vectors/v14-rust-refusals.json`
+  keeps `refocus: false` and gains a sentence saying why it still holds — it
+  describes a recording by `cargo-sensorium 0.4.0` or earlier, which is
+  exactly what a current `refocus` refuses through — and its `no rerun was
+  attempted` needle moves to the retired note's new text.
+- **E4, measured once on a workspace nobody wrote this recorder for: five
+  PASS and two REPORTED — all seven rows as pre-registered.** All 61 `#[test]`
+  functions of the seven `pager_*_test.rs` files, one at a time under
+  `--exact`, against an expected-MATCH list written and byte-locked first.
+  H1 **0 of 61** pre-rerun refusals and 61 of 61 invocations reaching the
+  driver; H2 **61 of 61** re-runs complete with libtest counts equal to the
+  original's and **0** focused build failures; **H3 61 of 61 MATCH**, 0
+  DIVERGED, 0 REFUSED, verdict word and exit agreeing on every one; H4
+  REPORTED — source, environment and exit verified 61 of 61, output and
+  children UNVERIFIABLE 61 of 61, and **0** licence lines claiming an
+  unverifiable check as verified; H5 all three `watch` triples as predicted on
+  both readings; H6 REPORTED; H7 every corpus case equal, the Python suite
+  green, `cargo test --workspace` green. **The licence was WITHHELD on every
+  one of the 61 pairs** — its untraced-thread clause cannot not fire on a
+  `cargo test` trace, because libtest runs each test on a thread it spawns
+  (counts 57×1, 1×2, 3×5). That is a finding about the licence's thread
+  clause, not about the recorder; the candidate fix is named in the record and
+  deliberately not applied, and is carried to `docs/CARRIED-DEBT.md` for a
+  ruling. Recorded beside it: §1.4's expectation that "the first focus pays
+  for the rt build" is falsified (first **6.661 s** against a later mean of
+  **6.988 s**), and the pre-registered discriminator's MAIN condition has no
+  subject here — every one of the 122 traces carries a 0-event MAIN stream.
+  The named worker-pool hazard fired on exactly one pair and the comparator's
+  order-independent multiset absorbed it into a MATCH. The record is
+  `docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4.md`, byte-locked
+  at `8e7d837` and amended once before the instrument existed at `413f601`
+  (both shas carried); read §4 and §5 before quoting any of it, and §5.6 for
+  what it does and does not license.
+- **What it cost, measured.** 61 focused rebuilds at a flat ~7 s each — about
+  half of it cargo's own reported build — leaving **62** entries under
+  `<target>/sensorium/shim` totalling **2 506 729 440** bytes (~2.5 GB), one
+  unfocused base key from pass 1 and exactly 61 focused keys, none reused. The
+  fresh E4 target reached **25.8 GB**. The per-focus shim COPY is now a
+  measured debt rather than an estimated one, and the hard-link that would
+  close it is `docs/CARRIED-DEBT.md`.
+- **Versions: four pins accounted, three of them move.** `sensorium-rt` stays
+  **0.4.0** — neither the wire nor the runtime changed — `sensorium-transform`
+  0.4.0 → **0.4.1** (the macro-tail guard, a `src` fix to what a focused build
+  emits), `cargo-sensorium` 0.4.0 → **0.5.0** (`--refocus-of`, the three meta
+  keys, `capabilities.refocus`) and Python `sensorium` 0.8.3 → **0.8.4**. The
+  fourth pin, `TRACE_FORMAT`, is accounted by staying **4**.
+
 ## 0.8.3 — 2026-09-06
 
 Rung 4, slice 1: **the focus tier** — LINE and locals for Rust, under a

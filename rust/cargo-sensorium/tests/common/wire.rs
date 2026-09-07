@@ -452,6 +452,18 @@ pub fn set_invocation_focus(spool_dir: &Path, focus: &[&str]) {
     std::fs::write(&path, serde_json::to_vec(&body).unwrap()).unwrap();
 }
 
+/// The `--refocus-of` this invocation was given (design 2026-09-07 §2.1),
+/// patched onto the `invocation.json` `write_invocation` already wrote --
+/// so every existing fixture keeps its shape, with no `refocus_of` key at
+/// all, which is what an ordinary run writes.
+pub fn set_invocation_refocus_of(spool_dir: &Path, run_id: &str) {
+    let path = spool_dir.join("invocation.json");
+    let mut body: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    body["refocus_of"] = serde_json::json!(run_id);
+    std::fs::write(&path, serde_json::to_vec(&body).unwrap()).unwrap();
+}
+
 /// One site entry of a manifest's `files` map. A `fn` row and an err-flow row
 /// are different SHAPES (design R1b), and this one struct writes both: which
 /// keys are emitted is decided by `kind`, exactly as the transformer decides

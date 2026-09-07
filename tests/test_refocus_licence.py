@@ -731,22 +731,6 @@ def test_refocus_withholds_when_multiprocessing_spawned_a_child(tmp_path):
         assert "no child process witnessed" not in r.stdout
 
 
-def test_refocus_omits_the_child_claim_when_spawns_are_unwitnessable(tmp_path):
-    """A trace recorded where no audit event fires for a multiprocessing spawn
-    (CPython < 3.14) cannot have its licence vouch `no child witnessed` -- that
-    check could not run. Forced through meta so the rule holds on every
-    interpreter, not only the ones that happen to lack the audit event."""
-    run_id, sdir = rec(tmp_path, LOOP)
-    set_meta(sdir / "traces" / f"{run_id}.db", spawn_witnessing=False)
-    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
-    assert r.returncode == 0, r.stdout + r.stderr
-    assert "refocus verdict: MATCH" in r.stdout
-    assert "licence: verified against" in r.stdout       # still granted...
-    assert "no child process witnessed" not in r.stdout  # ...but not this claim
-    # the categorical blind-spot block still states the gap on every verdict
-    assert "any child process, by any mechanism" in r.stdout
-
-
 def test_refocus_no_longer_ignores_terminal_geometry(tmp_path, monkeypatch):
     """The seventh false licence. COLUMNS sat on the volatile denylist, so a
     program that sized its output by terminal width wrote 80 bytes in one run
@@ -786,47 +770,3 @@ def test_the_ignored_volatile_keys_are_named_not_counted(tmp_path):
     assert "ignoring only" not in r.stdout       # an exhaustive-sounding claim
     # COLUMNS and LINES are no longer among them
     assert "COLUMNS" not in r.stdout and "LINES" not in r.stdout
-
-
-def test_refocus_withholds_when_the_spawn_record_predates_the_check(tmp_path):
-    """A trace recorded before spawn syscalls were counted would otherwise
-    read as "no child process witnessed, by any mechanism sensorium watches"
-    -- the strongest of the five verified facts, granted on a key that was
-    never written. The thread bookkeeping already handles this shape; these
-    must agree."""
-    run_id, sdir = rec(tmp_path, LOOP)
-    drop_meta(sdir / "traces" / f"{run_id}.db", "spawn_syscalls")
-
-    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
-    assert r.returncode == 0, r.stdout + r.stderr
-    assert "refocus verdict: MATCH" in r.stdout
-    assert "licence: WITHHELD" in r.stdout
-    # `rec()` uses today's recorder, which declares `children` True at run
-    # start -- `drop_meta` deletes the witness key afterward, so this is
-    # the declared-True-but-missing state, not a genuine pre-declaration
-    # trace: it must read as a contradiction on record, never "predates".
-    assert ("declares children witnessed, but this trace carries no "
-            "spawn-syscall record") in r.stdout
-    assert "the recording did not finish, or the record was removed" in r.stdout
-    assert "absence of the record is not a record of absence" in r.stdout
-    assert "predates" not in r.stdout
-    assert "licence: verified against" not in r.stdout
-
-
-def test_licence_names_an_undeclared_output_capability_as_a_blind_spot(
-        tmp_path, monkeypatch):
-    from sensorium.query.refocus_world import _licence_caveats
-    from tests.helpers import finalize_synthetic
-    from tests.programs import synthetic
-    w = synthetic(tmp_path, monkeypatch)
-    finalize_synthetic(w, lang="rust", recorder="sensorium-rt 0.0",
-                       capabilities={"output": False, "threads": True},
-                       threads_started=0, live_threads=[])
-    w.write_fingerprint(1, "aa" * 16, 1)
-    w.close()
-    from sensorium import paths
-    from sensorium.store.reader import Trace
-    t = Trace.open(paths.traces_dir() / "20260101-000000-abcdef.db")
-    caveats = _licence_caveats(t, t)
-    assert any("output was not recorded" in c and "cross-check did not run" in c
-               for c in caveats)

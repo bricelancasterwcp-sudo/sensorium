@@ -1,0 +1,65 @@
+program: cargo
+cargo_args: ["test"]
+questions:
+  - id: can-a-run-that-is-one-of-two-test-binaries-be-refocused
+    ask: >
+      `cargo test` on this crate builds two test binaries, so the invocation
+      recorded two traces. Can either of them be re-run under a deeper
+      focus?
+    truth: >
+      No, and the refusal comes BEFORE anything is built: exit 2, with the
+      sentence design 2026-09-07 §2.3 fixes verbatim -- "run <id> is one of 2
+      processes of its invocation (test binaries and doctests); refocus needs
+      an invocation with a single-target selector (--lib, --test X, --bin X)
+      so one trace is the answer; nothing was re-run". The count 2 is
+      `invocation_processes`, recorded by the driver's own WARN count (§2.2),
+      not inferred here. Exit 2 rather than 3 is the design's split between
+      the command's two gates (§2.3, and `refocus_cmd._refuse`): nothing ran,
+      so the reader's next move is a different CALL -- `cargo sensorium
+      --test a` -- and the note that follows says what may be done instead,
+      naming the command that can read a Rust recording rather than
+      `sensorium run --focus`, which cannot. Re-running one of two would
+      leave "which of these two is the re-run of this trace" with no answer,
+      and a rebuild costs minutes to reach that non-answer.
+    why_logs_fail: >
+      A `dbg!` would print, from whichever test binary reached it, a value
+      out of a re-run nobody had checked -- which is the very thing being
+      refused here, done silently and by hand. RUST_LOG has no logger to
+      reach in this crate, and RUST_BACKTRACE prints only on a panic, while
+      both tests pass. No log line can report the refusal itself, because
+      the refusal is a fact about an invocation's shape rather than about
+      anything a program executed.
+    command: ["refocus", "$RUN", "--focus", "a_doubles"]
+    expect_line:
+      - ["cannot refocus $RUN",
+         "is one of 2 processes of its invocation (test binaries and doctests)",
+         "single-target selector (--lib, --test X, --bin X)",
+         "nothing was re-run"]
+    expect_contains:
+      - "no rerun was attempted; `cargo sensorium --focus ... test|run` will record a fresh, UNVERIFIED trace if that is what you want"
+    expect_exit: 2
+  - id: did-the-refusal-leave-the-store-alone
+    ask: >
+      "Nothing was re-run" is a claim about the world, not just about this
+      command. Does the store agree?
+    truth: >
+      Yes: one invocation, its two traces, and no third. The listing groups
+      by `invocation` (§2.2's key), so a second invocation would print a
+      second `cargo` header, and a trace produced by a re-run would carry a
+      `refocus-of:` flag -- neither is there. This is the pin that makes the
+      refusal a pre-rerun refusal rather than a report written after a build
+      that already happened: design 2026-09-07 §2.3 puts all five refusals
+      before the launch precisely because a cargo rebuild has side effects.
+    why_logs_fail: >
+      The absence of a third recording is an absence, and `dbg!` can state a
+      presence and nothing else; a RUST_LOG line that was never emitted and
+      a RUST_BACKTRACE that never fired are indistinguishable from a build
+      that never ran and one that ran and printed nothing. Only a listing of
+      what the store holds can say that nothing was added.
+    command: ["runs"]
+    depends_on: can-a-run-that-is-one-of-two-test-binaries-be-refocused
+    expect_line:
+      - ["invocation ", "cargo test"]
+    expect_count: {"invocation ": 1}
+    expect_absent: ["refocus-of"]
+    expect_exit: 0

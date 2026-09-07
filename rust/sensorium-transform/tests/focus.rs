@@ -215,6 +215,74 @@ fn a_value_a_later_statement_moves_is_still_captured() {
     assert!(t.source.contains("let w = v;::sensorium_rt::line("));
 }
 
+/// Ruling G1 (`sensorium-transform` 0.4.1). A BRACE-delimited macro that is a
+/// block's tail takes no probe, because a tail is not a statement whichever syn
+/// node spells it -- the same answer `Stmt::Expr(_, None)` already gives.
+///
+/// Four functions, because the guard has four distinguishable effects and one of
+/// them is a NEGATIVE.
+///
+/// * `wrapped` and `spoken` are the two halves of the shape it repairs, and they
+///   failed differently. In `wrapped` the LINE landed after the RETURN wrap's
+///   closing paren -- `..., pick! { 1 })::sensorium_rt::line(..)` -- a PARSE
+///   error that took the whole unit; in `spoken` there is no wrap to collide
+///   with, so the extra LINE compiled and quietly recorded a completed statement
+///   for what is the function's value.
+/// * `declared` is the negative: a brace macro that is NOT a tail keeps its
+///   probe, spliced after the closing brace and carrying no deltas (a macro's
+///   expansion is not inspected). Widening the arm to `None` for every brace
+///   macro passes every other assertion here; this one is what stops it.
+/// * `looped` is a brace-macro tail of a NESTED block. Nothing claims a loop
+///   body's tail as an operand -- only a FN body's tail is one -- so the reason
+///   it takes no probe is the plainer half of the guard's justification, and the
+///   count is what says so: three LINE sites before the guard, two after.
+///
+/// The LINE sites are derived, not read back. Per design §3.2 a focused fn mints
+/// one parameters row plus one row per completed STATEMENT, and an entry probe
+/// per binding site: `wrapped` and `spoken` mint parameters alone; `declared`
+/// mints parameters and the non-tail macro; `looped` mints parameters and the
+/// loop-entry row for `x`, its `for` being the fn body's own tail and its body's
+/// tail being the macro. The loop-entry SITE is minted once and fires once per
+/// iteration -- twice here -- which is a run-time count and not a site count.
+///
+/// `tests/oracle.rs::every_focus_golden_output_compiles_with_zero_diagnostics`
+/// compiles the checked-in `.out.rs` with `-D warnings`; `run_focus` asserts
+/// three lines below that the transform's output IS those bytes, and the two
+/// together are what say the value half is repaired rather than re-spelled.
+#[test]
+fn a_brace_delimited_macro_in_tail_position_takes_no_line() {
+    let t = run("focus_macro_tail");
+    assert_eq!(
+        sites(&t),
+        [
+            (7, "wrapped", 48, RetKind::Value),
+            (9, "spoken", 52, RetKind::Unit),
+            (11, "declared", 56, RetKind::Value),
+            (14, "looped", 61, RetKind::Unit),
+        ]
+    );
+    assert_eq!(
+        line_sites(&t),
+        [
+            (8, "wrapped", 48),   // parameters, and nothing for the tail macro
+            (10, "spoken", 52),   // parameters
+            (12, "declared", 56), // parameters
+            (13, "declared", 57), // the NON-tail macro keeps its probe
+            (15, "looped", 61),   // parameters
+            (16, "looped", 62),   // the loop entry binding `x`
+        ]
+    );
+    // Positively: the non-tail brace macro's probe is spliced after its closing
+    // brace and carries no deltas. This is the assertion a widened arm fails.
+    assert!(t
+        .source
+        .contains("decl! { a }::sensorium_rt::line(&crate::__SENSORIUM_UNIT, 13, || []);"));
+    // And negatively, for the three tails -- the fn body's, the unit fn's, and
+    // the loop body's: exactly one `}::sensorium_rt::line(` in the whole file,
+    // and it belongs to `decl!`.
+    assert_eq!(t.source.matches("}::sensorium_rt::line(").count(), 1);
+}
+
 /// Fix round 1, I1. `exits::diverges` says a `loop` with no VALUED `break`
 /// diverges, which is the right answer to "may this operand be wrapped" and the
 /// wrong one to "does this statement complete". Before the repair this fn's

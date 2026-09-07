@@ -532,6 +532,7 @@ pub const FOCUS_CASES: &[(&str, &str)] = &[
     ("focus_fill", "fill"),
     ("focus_loop", "sum_to_three"),
     ("focus_loop_break", "wait_then,spins,labelled"),
+    ("focus_macro_tail", "wrapped,spoken,declared,looped"),
     ("focus_match", "classify"),
     ("focus_moved_value", "move_it"),
     ("focus_params", "Counter"),
@@ -550,10 +551,8 @@ pub const FOCUS_CASES: &[(&str, &str)] = &[
 /// THAT and requires a non-zero rustc exit whose stderr names `expected`. The
 /// limitation is measured rather than described, and the day one of them is
 /// repaired this test fails loudly instead of the prose quietly going stale.
-pub const COMPILE_FAIL_CASES: &[(&str, &str, &str)] = &[
-    ("focus_infer_debug", "collect_them", "E0277"),
-    ("focus_macro_tail", "wrapped", "found `::`"),
-];
+pub const COMPILE_FAIL_CASES: &[(&str, &str, &str)] =
+    &[("focus_infer_debug", "collect_them", "E0277")];
 
 /// The compile-fail inputs' directory, kept out of `golden_focus/` because
 /// every case there is a PAIR and is compiled with an empty stderr required.

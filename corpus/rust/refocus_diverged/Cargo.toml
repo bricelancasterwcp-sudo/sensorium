@@ -1,0 +1,9 @@
+[package]
+name = "corpus_refocus_diverged"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "refocus_diverged"
+path = "src/main.rs"

@@ -31,6 +31,10 @@ pub struct DriverArgs {
     /// The `--focus` values, in the order given (design 2026-09-06 §2.1).
     /// Empty is the unfocused build.
     pub focus: Vec<String>,
+    /// The run id this invocation is a re-run OF (design 2026-09-07 §2.1).
+    /// `None` is an ordinary run. At most one: a re-run answers to exactly
+    /// one original, and a second value would silently pick a winner.
+    pub refocus_of: Option<String>,
     /// The argv handed to cargo, starting with the subcommand.
     pub cargo_args: Vec<String>,
 }
@@ -44,17 +48,18 @@ impl DriverArgs {
 
 /// Split the driver's own flags out of cargo's.
 ///
-/// `--tier` and `--focus` are recognised only BEFORE the first bare `--`, so a
-/// test binary's own `--tier`/`--focus` argument (after `cargo test -- …`) is
-/// never stolen.
+/// `--tier`, `--focus` and `--refocus-of` are recognised only BEFORE the first
+/// bare `--`, so a test binary's own `--tier`/`--focus`/`--refocus-of`
+/// argument (after `cargo test -- …`) is never stolen.
 ///
 /// # Errors
 /// A usage message when the subcommand is missing or unknown, when `--tier`
-/// has no value or a value this recorder does not implement, or when `--focus`
-/// has no qualname.
+/// has no value or a value this recorder does not implement, when `--focus`
+/// has no qualname, or when `--refocus-of` has no run id or was given twice.
 pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
     let mut tier = Tier::Call;
     let mut focus: Vec<String> = Vec::new();
+    let mut refocus_of: Option<String> = None;
     let mut cargo_args: Vec<String> = Vec::new();
     let mut past_separator = false;
     let mut i = 0;
@@ -87,6 +92,17 @@ pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
                 i += 2;
                 continue;
             }
+            if let Some(v) = a.strip_prefix("--refocus-of=") {
+                refocus_of = Some(parse_refocus_of(refocus_of.as_deref(), Some(v))?);
+                i += 1;
+                continue;
+            }
+            if a == "--refocus-of" {
+                let v = args.get(i + 1).map(String::as_str);
+                refocus_of = Some(parse_refocus_of(refocus_of.as_deref(), v)?);
+                i += 2;
+                continue;
+            }
         }
         cargo_args.push(a.clone());
         i += 1;
@@ -95,6 +111,7 @@ pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
         Some("test" | "run") => Ok(DriverArgs {
             tier,
             focus,
+            refocus_of,
             cargo_args,
         }),
         Some(other) => Err(format!(
@@ -105,8 +122,8 @@ pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
     }
 }
 
-pub const USAGE: &str =
-    "usage: cargo sensorium test|run [--tier off|call] [--focus <qualname>]... [cargo args]";
+pub const USAGE: &str = "usage: cargo sensorium test|run [--tier off|call] \
+                         [--focus <qualname>]... [--refocus-of <run id>] [cargo args]";
 
 /// One `--focus` value: a qualname that survives [`Focus::parse`].
 ///
@@ -121,6 +138,27 @@ fn parse_focus(v: Option<&str>) -> Result<String, String> {
     match v.map(str::trim) {
         Some(value) if !Focus::parse(value).is_empty() => Ok(value.to_owned()),
         _ => Err("--focus needs a qualname".to_owned()),
+    }
+}
+
+/// One `--refocus-of` value, against whatever an earlier one already set.
+///
+/// A re-run answers to exactly ONE original, so a second occurrence is
+/// refused rather than resolved by last-wins: the new trace would otherwise
+/// carry a link its caller did not choose, and `refocus`'s pair lookup would
+/// find it under a run id nobody asked about. The DUPLICATE is reported
+/// whatever the second value is -- correcting that value would only meet the
+/// same refusal.
+///
+/// An empty value is refused rather than dropped, exactly as an empty
+/// `--focus` is: a run id names a trace, and the empty string names none.
+fn parse_refocus_of(already: Option<&str>, v: Option<&str>) -> Result<String, String> {
+    if already.is_some() {
+        return Err("--refocus-of given twice".to_owned());
+    }
+    match v.map(str::trim) {
+        Some(value) if !value.is_empty() => Ok(value.to_owned()),
+        _ => Err("--refocus-of needs a run id".to_owned()),
     }
 }
 
@@ -227,5 +265,92 @@ mod tests {
     fn a_repeated_focus_keeps_every_value_for_the_resolver_to_judge() {
         let p = parse_args(&v(&["--focus", "a", "--focus", "a", "run"])).unwrap();
         assert_eq!(p.focus, v(&["a", "a"]));
+    }
+
+    const ORIGINAL: &str = "20260101-000000-aaaaaa";
+
+    #[test]
+    fn refocus_of_is_taken_out_of_cargos_argv_in_both_forms() {
+        for form in [
+            v(&["--refocus-of", ORIGINAL, "run"]),
+            v(&["--refocus-of=20260101-000000-aaaaaa", "run"]),
+        ] {
+            let p = parse_args(&form).unwrap();
+            assert_eq!(p.refocus_of.as_deref(), Some(ORIGINAL), "{form:?}");
+            assert_eq!(p.cargo_args, v(&["run"]), "{form:?}");
+        }
+    }
+
+    #[test]
+    fn no_refocus_of_is_the_default_and_an_ordinary_run() {
+        assert!(parse_args(&v(&["test", "--lib"]))
+            .unwrap()
+            .refocus_of
+            .is_none());
+    }
+
+    #[test]
+    fn a_refocus_of_after_the_separator_belongs_to_the_test_binary() {
+        let p = parse_args(&v(&["test", "--", "--refocus-of", ORIGINAL])).unwrap();
+        assert!(p.refocus_of.is_none());
+        assert_eq!(p.cargo_args, v(&["test", "--", "--refocus-of", ORIGINAL]));
+    }
+
+    /// A re-run answers to exactly ONE original. Last-wins would pick a
+    /// winner silently and stamp the new trace with a link its caller did
+    /// not choose.
+    #[test]
+    fn a_second_refocus_of_is_refused_rather_than_quietly_last_wins() {
+        for form in [
+            v(&["--refocus-of", "a", "--refocus-of", "b", "run"]),
+            v(&["--refocus-of=a", "--refocus-of=b", "run"]),
+            v(&["--refocus-of", "a", "--refocus-of=a", "run"]),
+            // The duplicate is the fact reported, whatever the second value
+            // is: fixing the value would only meet the same refusal.
+            v(&["--refocus-of", "a", "--refocus-of=", "run"]),
+        ] {
+            assert_eq!(
+                parse_args(&form).unwrap_err(),
+                "--refocus-of given twice",
+                "{form:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_refocus_of_with_no_run_id_is_refused_rather_than_ignored() {
+        for form in [
+            v(&["--refocus-of"]),
+            v(&["--refocus-of="]),
+            v(&["--refocus-of=", "run"]),
+            v(&["--refocus-of", "  ", "run"]),
+            v(&["--refocus-of", "", "run"]),
+        ] {
+            assert_eq!(
+                parse_args(&form).unwrap_err(),
+                "--refocus-of needs a run id",
+                "{form:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn refocus_of_focus_and_tier_interleave_without_stealing_from_each_other() {
+        let p = parse_args(&v(&[
+            "--focus",
+            "a::b",
+            "--refocus-of",
+            ORIGINAL,
+            "--tier",
+            "off",
+            "--focus=c",
+            "test",
+            "--lib",
+        ]))
+        .unwrap();
+        assert_eq!(p.tier, Tier::Off);
+        assert_eq!(p.focus, v(&["a::b", "c"]));
+        assert_eq!(p.refocus_of.as_deref(), Some(ORIGINAL));
+        assert_eq!(p.cargo_args, v(&["test", "--lib"]));
     }
 }

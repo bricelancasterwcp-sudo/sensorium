@@ -12,27 +12,38 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// different value even when the clock has not ticked.
 static SALT: AtomicU32 = AtomicU32::new(0);
 
-/// `$SENSORIUM_DIR/traces`, creating it if absent. `SENSORIUM_DIR` defaults to
-/// `~/.sensorium`, `HOME` read from the environment -- there is no `dirs`
-/// crate in this workspace's dependency policy, so `Path::home()`'s Python
-/// equivalent is one `env::var` here.
+/// The store itself: `$SENSORIUM_DIR`, or `~/.sensorium` when it is unset.
+/// `HOME` is read from the environment -- there is no `dirs` crate in this
+/// workspace's dependency policy, so `Path::home()`'s Python equivalent is
+/// one `env::var` here.
+///
+/// Nothing is created and nothing is checked: this answers only "which store
+/// is this invocation's", which is the question `--refocus-of`'s lookup asks
+/// and the question [`traces_dir`] then builds on. ONE resolution, so the
+/// default can never drift between the two.
 ///
 /// # Errors
-/// If `HOME` is unset and `SENSORIUM_DIR` is not given, or the directory
-/// cannot be created.
-pub fn traces_dir() -> Result<PathBuf, String> {
-    let root = match std::env::var("SENSORIUM_DIR")
+/// If `HOME` is unset and `SENSORIUM_DIR` is not given.
+pub fn store_root() -> Result<PathBuf, String> {
+    match std::env::var("SENSORIUM_DIR")
         .ok()
         .filter(|v| !v.is_empty())
     {
-        Some(dir) => PathBuf::from(dir),
+        Some(dir) => Ok(PathBuf::from(dir)),
         None => {
             let home = std::env::var("HOME")
                 .map_err(|_| "SENSORIUM_DIR is unset and HOME is unset too".to_owned())?;
-            Path::new(&home).join(".sensorium")
+            Ok(Path::new(&home).join(".sensorium"))
         }
-    };
-    let dir = root.join("traces");
+    }
+}
+
+/// `$SENSORIUM_DIR/traces`, creating it if absent.
+///
+/// # Errors
+/// If [`store_root`] cannot be resolved, or the directory cannot be created.
+pub fn traces_dir() -> Result<PathBuf, String> {
+    let dir = store_root()?.join("traces");
     std::fs::create_dir_all(&dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
     Ok(dir)
 }

@@ -1,0 +1,64 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: is-the-rerun-the-same-execution-and-where-did-it-part
+    ask: >
+      This program decides its path from a file its own first run wrote, so
+      the re-run cannot take the first run's branch. Does `refocus` notice,
+      and at which step did the two executions part?
+    truth: >
+      DIVERGED, exit 1, at causal step 1: A took `first_path`, B took
+      `other`. Derived before it was measured. Design 2026-09-07 §3.1 keeps
+      DIVERGED's meaning and its exit code (0 MATCH / 1 DIVERGED / 3
+      REFUSED) and keeps `diff_cmd.compare` as the comparator, so the
+      divergence is reported at the first differing step of the CALL /
+      RETURN / RAISE / HANDLED stream, with both sides named -- the shared
+      `main` CALL as the common run-up, then A's `first_path` against B's
+      `other`. The `--focus main` of this call cannot be what parted them:
+      LINE rows never enter the fingerprint (§3.1). The headline says the
+      re-run is a DIFFERENT execution and is still queryable, which is the
+      whole point of naming the branch rather than reporting a failure: the
+      new trace holds facts about ITSELF and none about the original.
+    why_logs_fail: >
+      A `dbg!` in either branch prints from whichever execution ran it and
+      says nothing about the other, so two `dbg!` outputs from two runs
+      cannot tell "the program took another path" from "I ran it twice and
+      read the second one". RUST_LOG has no logger to reach in this crate,
+      and nothing panics, so RUST_BACKTRACE never prints. The fact under
+      test is a comparison between two recordings, which no single run's
+      output can carry.
+    command: ["refocus", "$RUN", "--focus", "main"]
+    expect_contains:
+      - "verdict: DIVERGED at causal step 1"
+      - "refocus verdict: DIVERGED -- the compared thread took a different path"
+      - "is a DIFFERENT execution than $RUN"
+    expect_line:
+      - ["common", "CALL", "main"]
+      - ["A:", "CALL", "first_path"]
+      - ["B:", "CALL", "other"]
+    expect_exit: 1
+  - id: does-the-listing-carry-the-divergence-with-the-link
+    ask: >
+      The store now holds both runs. Does the listing say the second is a
+      refocus of the first WITHOUT letting that read as a clean bill of
+      health?
+    truth: >
+      Yes: the row reads `refocus-of:<original>` and `verdict:DIVERGED`
+      together, and no licence flag follows, because a DIVERGED pair grants
+      none. The link is `refocus_of`, stamped by the driver
+      (design 2026-09-07 §2.1/§2.2, ruling G3) and the verdict is the stamp
+      §3.1 writes into the NEW trace, so both survive the terminal. A bare
+      `refocus-of` would read as a pedigree; the verdict rides with it for
+      exactly that reason.
+    why_logs_fail: >
+      A `dbg!` line, a RUST_LOG record and a RUST_BACKTRACE dump are all
+      written by one execution about itself; none of them can state that a
+      later recording was launched from this one and then failed to
+      reproduce it. That relationship is the fact this question asks for,
+      and it lives in the store rather than in any run's output.
+    command: ["runs"]
+    depends_on: is-the-rerun-the-same-execution-and-where-did-it-part
+    expect_line:
+      - ["refocus-of:$RUN", "verdict:DIVERGED"]
+    expect_count: {"invocation ": 2}
+    expect_exit: 0

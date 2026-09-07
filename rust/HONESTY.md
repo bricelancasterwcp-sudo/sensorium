@@ -1,16 +1,27 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.4.0`, `sensorium-transform 0.4.0`, `cargo-sensorium 0.4.0` —
+`sensorium-rt 0.4.0`, `sensorium-transform 0.4.1`, `cargo-sensorium 0.5.0` —
 v1, the call tier, with err flow and the focus tier.
-(~~`sensorium-rt 0.3.0`, `sensorium-transform 0.3.1`,
-`cargo-sensorium 0.3.1`~~, and before them ~~`sensorium-rt 0.1.0`,
-`sensorium-transform 0.2.0`, `cargo-sensorium 0.2.0`~~: `sensorium-transform`
+(~~`cargo-sensorium 0.4.0`~~, before it ~~`sensorium-rt 0.4.0`,
+`sensorium-transform 0.4.0`,
+`cargo-sensorium 0.4.0`~~, before them ~~`sensorium-rt 0.3.0`,
+`sensorium-transform 0.3.1`, `cargo-sensorium 0.3.1`~~, and before those
+~~`sensorium-rt 0.1.0`, `sensorium-transform 0.2.0`,
+`cargo-sensorium 0.2.0`~~: `sensorium-transform`
 and `cargo-sensorium` moved to `0.2.0` on 2026-09-03 for the `spawn_child`
 naming change in §3, all three moved to `0.3.0` on 2026-09-05 for wire v3
 and the err-flow records of §11, those same two moved to `0.3.1` later
 that day for the borrow repair — `sensorium-rt` did not move, because neither
-the wire nor the runtime changed — and all three moved to `0.4.0` on
-2026-09-06 for the focus tier's new wire kind, LINE (§12). `HONESTY.md` was
+the wire nor the runtime changed — all three moved to `0.4.0` on
+2026-09-06 for the focus tier's new wire kind, LINE (§12), and
+`sensorium-transform` alone moved to `0.4.1` on 2026-09-07 for the
+brace-delimited-macro-tail guard (ruling G1): a `src` fix to what a focused
+build EMITS, so neither the wire nor the runtime nor the driver moved, and
+`cargo-sensorium` alone moved to `0.5.0` later that day for `--refocus-of`
+and the three invocation-scoped meta keys it writes (design 2026-09-07
+§2.1-§2.2) — a driver and converter change that neither the wire, the
+runtime nor the transformer felt.
+`HONESTY.md` was
 not versioned per-crate before 2026-09-03, so no edition older than that is
 struck.)
 
@@ -606,6 +617,92 @@ Debug TEXT, and the two are inverses on the literal domain (A11) — what one
 calls a sighting the other cannot deny at the same site. That is weaker than
 Python's typed captures, and is stated as such rather than presented as an
 equivalent.
+
+## 13. Refocus: the recorded command, run again one flag deeper
+
+Added 2026-09-07 by rung 4, slice 2
+(`docs/superpowers/specs/2026-09-07-sensorium-rung4-refocus-design.md`,
+rulings G1–G3 with amendments B1 and B2). `sensorium refocus <run> --focus
+<name>` answers on a Rust trace instead of refusing, and this section is what
+that answer may mean. **None of it is a claim that the two runs were the same
+run** — §13's whole subject is a pair of executions and what comparing them
+does and does not establish.
+
+**What is re-run is the RECORDED command, never a command the reader
+retyped.** `refocus` takes the original trace's own `cargo_args`, runs them
+from the `workspace_root` that original recorded, under the same store, with
+`--refocus-of <run>` first and unconditional, then the original's recorded
+tier, then the original's `meta.focus` followed by the values this call added
+— so a refocus only ever captures MORE, never differently (design §2.3). Five
+questions are asked BEFORE anything is launched, and each answers at exit 2
+with `nothing was re-run` in it: `--window` was given; the run is one of *n*
+processes of its invocation (test binaries and doctests), so no single trace
+is the answer; the trace records no `workspace_root`; that workspace is gone;
+there is no `cargo-sensorium` to re-run with. A re-run has side effects, so
+nothing about it is attempted speculatively.
+
+**The pair is found in the store, never parsed out of what the driver
+printed** (ruling G3). The driver stamps `refocus_of` into every process of
+the new invocation; Python then lists the traces carrying that link whose
+recording started after the launch. Exactly one is the pair. Zero — the driver
+refused, cargo failed before recording, the invocation produced nothing — is
+`verdict: REFUSED` after the rerun at exit 3, carrying the driver's exit ~~and
+its last stderr line~~. **Corrected 2026-09-07** (design amendment B3): the
+child's stderr is STREAMED and never captured — a focused rebuild's progress
+belongs to the person waiting for it — so there is no last line to carry. The
+refusal names the exit and points at what already printed: `the re-run
+produced no trace linked to <run> (driver exit <n>); see the driver's output
+above`. More than one is REFUSED by count. Neither case guesses.
+
+**The verdict is about call shape and nothing else.** `diff_cmd.compare` is
+slice-1's, unchanged: for a Rust pair the fingerprint is per task — a test, or
+a spawned thread — over CALL, RETURN, RAISE and HANDLED, and **a LINE row
+never enters the hash**, which is what lets a deeper re-run MATCH the run it
+came from at all. Tasks are compared as an order-independent multiset of
+`(name, hash)`, so which worker of a pool served which request is not a
+difference; MATCH, DIVERGED and REFUSED keep the meanings and the exits (0 /
+1 / 3) the README's `refocus` section gives them.
+*What says it in the trace*: `meta.refocus_of`, the link; `meta.workspace_root`
+and `meta.invocation_processes`, the two facts three of the five refusals are
+read from; `capabilities.refocus`, true for every trace this driver converts —
+whether one PARTICULAR trace can be refocused is a refusal, not a capability;
+and the stamps `refocus_verdict`, `refocus_diverge_*`,
+`refocus_refused_reasons` and `refocus_licence*` written into the NEW trace's
+meta, which is what makes a verdict outlive the terminal it printed in.
+
+*Falsified by* **E4 H3**
+(`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4.md` §4: **61 of
+61 MATCH**, 0 DIVERGED and 0 REFUSED over every `#[test]` of the seven
+`pager_*_test.rs` files of a workspace nobody wrote this recorder for, one
+test at a time under `--exact`, against an expected-MATCH list written and
+byte-locked before the instrument existed); by `corpus/rust/refocus_match`,
+`corpus/rust/refocus_diverged` and `corpus/rust/refocus_refused_many`, which
+pin the three outcomes through the real driver; and by
+`tests/test_refocus_rust.py` on fixture traces. A **MATCH on a pair whose
+per-task fingerprints differ** would falsify it, and so would **a pair not
+linked by `refocus_of`** — a verdict issued against a trace the store cannot
+show came from this re-run is the failure this design's G3 exists to prevent.
+
+**The licence beside the verdict is an enumeration, and on a `cargo test` pair
+it is never granted.** Source and environment are checked for real
+(`source_hashes` re-hashed now; the two traces' recorded `env` compared), and
+so is the recorded process exit; `output` and `children` are printed and
+stamped **`unverifiable`** rather than compared, because `capabilities.output`
+and `capabilities.children` are `false` on a Rust trace and comparing two
+empty sets would read as agreement — the named bug class (design §3.2). An
+unverifiable check is **never counted as a verified one**; the two counts are
+printed as two numbers and never summed. E4 measured that at n = 61: source
+61 of 61, environment 61 of 61, exit 61 of 61, output and children
+UNVERIFIABLE 61 of 61, and **0 licence lines claiming an unverifiable check as
+verified** (record §3, §4 H4). What the same run also measured is that the
+printed WORD was **WITHHELD on all 61** — the licence's untraced-thread clause
+fires on every `cargo test` trace, because libtest runs each test on a thread
+it spawns (thread counts 57×1, 1×2 and 3×5 across the 61 pairs). That is a
+design question about what "the program's threads" means on a test harness,
+recorded as a finding in that record's §5.2 and carried to
+`docs/CARRIED-DEBT.md`; it is not applied here and no promise above depends on
+it. On a `cargo run` pair with no harness thread the licence IS granted, which
+`corpus/rust/refocus_match` pins over exactly four points.
 
 ---
 

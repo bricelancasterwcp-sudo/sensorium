@@ -10,6 +10,7 @@ from tests.helpers import LEGACY_FORMAT, finalize_synthetic, record_script
 from tests.programs import synthetic
 from tests.refocus_programs import (ASYNC_CONTENT_FLIP, COUNTER, new_run, rec,
                                     refocus)
+from tests.rust_traces import rerunnable_trace
 from tests.test_async import TWO_TASKS
 
 # TWO_TASKS defines main() and no entry point; `record_script` runs the file.
@@ -586,10 +587,12 @@ def test_info_prints_the_original_single_line_for_a_trace_that_predates_declarat
         "absence of the record is not a record of absence"]
 
 
+# `refocus` true by rule from `cargo-sensorium 0.5.0` on -- see
+# `tests.helpers.RUST_CAPABILITIES`.
 RUST_CAPS = {"line": False, "locals": False, "return_value": True,
              "tasks": True, "threads": True, "children": False,
              "stdin": False, "output": False, "object_identity": False,
-             "refocus": False}
+             "refocus": True}
 
 
 def _rust_trace(tmp_path, run_id, **meta):
@@ -727,3 +730,34 @@ def test_the_invocation_header_has_no_trailing_space_without_cargo_args(
     out = capsys.readouterr().out
     assert "invocation 20260101-000000-111111: cargo\n" in out, repr(out)
     assert "cargo \n" not in out, repr(out)
+
+
+# -- The 0.5.0 driver's invocation-scoped meta on a Rust trace --------------
+def test_info_prints_refocus_of_on_a_rust_trace_the_same_way_it_does_python(
+        tmp_path, monkeypatch, capsys):
+    """`refocus_of` is ONE key, printed by ONE branch. `info` reads it off
+    the meta with no `lang` test anywhere near it, so a Rust re-run's trace
+    shows its link exactly as a Python one does -- which is what makes the
+    driver's `--refocus-of` readable without a second printer.
+
+    The verdict beside it is `UNVERIFIED` here on purpose: this trace was
+    written by the driver, and nothing has compared the pair yet. A verdict
+    that appeared without a comparison would be the instrument answering
+    from data it does not have."""
+    run_id = rerunnable_trace(tmp_path, monkeypatch,
+                              refocus_of="20260101-000000-original")
+    assert cli.main(["info", run_id]) == 0
+    out = capsys.readouterr().out
+    assert "refocus-of: 20260101-000000-original" in out
+    assert "verdict: UNVERIFIED" in out
+    # The capability the 0.5.0 driver declares, as `info` spells it.
+    assert "refocus=yes" in out
+
+
+def test_info_on_a_rust_trace_with_no_refocus_of_prints_no_such_line(
+        tmp_path, monkeypatch, capsys):
+    """Absence of the key is absence of the line: an ordinary run is not a
+    re-run whose verdict is unknown."""
+    run_id = rerunnable_trace(tmp_path, monkeypatch)
+    assert cli.main(["info", run_id]) == 0
+    assert "refocus-of:" not in capsys.readouterr().out
