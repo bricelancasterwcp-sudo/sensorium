@@ -239,3 +239,20 @@ limitation; any change to the comparator or to Python's own refocus branch;
 - **The licence reads as weaker than Python's** on a Rust pair (two
   UNVERIFIABLE checks). That is the honest reading; the alternative was a
   false "verified".
+
+## 7. Dated amendments
+
+- **B1 (2026-09-07, after Task 0's review) — two sentences of §4 were
+  wrong as written.** "`fresh_dir` uses fixed names" holds for
+  `common::pager::fresh_dir`, which six of the seven files use;
+  `pager_refusal_advice_test.rs:60` defines its own pid-plus-sequence form
+  (harmless to the fingerprint, which hashes file, qualname and kind only).
+  "The survey found no nondeterminism" holds for values and clocks; three
+  tests of that same file drive `serve_fake`'s four worker threads over one
+  queue, and which worker serves which request is the scheduler's, so their
+  per-thread fingerprints can legitimately partition differently. E4's
+  locked §1 pre-registers both, keeps the 61-of-61 gate, and (by its lens
+  amendment under ruling R-H1) names the discriminator: a DIVERGED on those
+  three is the hazard only when the worker tasks' total event count is
+  preserved and the MAIN stream MATCHes.
+
