@@ -53,4 +53,4 @@ questions:
     expect_line:
       - ["tasks: 4", "tests::labels_a_row", "tests::normalises_whitespace"]
       - ["fingerprint thread 1 (main):", "0 causal events outside any test"]
-      - ["threads started: 4 besides the main one"]
+      - ["threads started: 0 besides the main one and 4 harness threads (libtest's per-test thread, excluded as the recorder's own)"]
