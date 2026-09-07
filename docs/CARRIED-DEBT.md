@@ -83,7 +83,7 @@ Each is marked *ruling: Brice / slice 2*.
   which will fail loudly on the day the guard lands — that is the signal to
   delete the case and the blind-spot bullet together. Not in E9's subject.
   *Ruling: Brice / slice 2 — a `src` change after the measurement (R-F14).*~~
-  — **TAKEN 2026-09-07 in slice 2 (ruling G1, design §3.3), this commit**, as
+  — **TAKEN 2026-09-07 in slice 2 (ruling G1, design §3.3) at `2747c1c`**, as
   the one line the bullet named: `sensorium-transform` **0.4.1**. The signal
   fired exactly as written — the compile-fail case is deleted and the shape is
   now the compile-PASS golden `tests/golden_focus/focus_macro_tail.{in,out}.rs`,
