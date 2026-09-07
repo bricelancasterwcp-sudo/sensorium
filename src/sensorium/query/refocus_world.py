@@ -298,11 +298,15 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
     shown = ", ".join(names[:8])
     if len(names) > 8:
         shown += f", +{len(names) - 8} more"
+    # The clause is the FACT here, alone: this branch has no unchanged
+    # environment to vouch for, but the keys the check explained are a
+    # finding it made and `assess` keeps them even when the licence is
+    # withheld. `None` when nothing relocated, exactly as before.
     return (f"env: CHANGED since the original run -- {len(names)} "
             f"variable(s) differ: {shown}   (names only){on_line}",
             f"{len(names)} environment variable(s) differ between the two "
             f"runs ({shown}); a program that reads them got different input",
-            None)
+            clause or None)
 
 
 # -- everything else that bears on the licence -----------------------------

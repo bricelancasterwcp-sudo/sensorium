@@ -123,3 +123,92 @@ def test_a_path_that_merely_starts_like_the_root_is_still_a_change(
     assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
             "LD_LIBRARY_PATH") in out
     assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+# -- what the review found the first round left open -----------------------
+
+def test_an_entry_the_rerun_LOST_is_still_a_change(
+        tmp_path, monkeypatch, capsys):
+    """The mirror of the control above, and the half the entry-count check
+    had no fence on: `LD_LIBRARY_PATH` here DROPS a directory the original
+    had. A loader path that lost an entry is as much a change as one that
+    gained it, and a count check enforced in one direction only is a check
+    that reads whichever way the last edit left it."""
+    _pair(tmp_path, monkeypatch, cargo_env(OLD_ROOT, ld_extra=":/opt/lib"),
+          cargo_env(NEW_ROOT))
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "LD_LIBRARY_PATH   (names only)  3 variable(s) differ only by "
+            "the target directory: CARGO_BIN_EXE_demo, CARGO_TARGET_DIR, "
+            "RUSTDOCFLAGS; treated as unchanged") in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_a_relative_root_matches_only_at_a_path_segment_start(
+        tmp_path, monkeypatch, capsys):
+    """`CARGO_TARGET_DIR=target-a` is a directory named `target-a` under the
+    workspace, so the root is anchored on the left as well as the right:
+    `mytarget-a` ENDS with it and is a different directory. The right
+    boundary was anchored from the start; the left one was anchored only by
+    the accident that an absolute root begins with a separator, and a
+    relative root has no such accident."""
+    was = {"PATH": "/usr/bin", "CARGO_TARGET_DIR": "target-a",
+           "LD_LIBRARY_PATH": "/ws/mytarget-a/lib"}
+    now = {"PATH": "/usr/bin", "CARGO_TARGET_DIR": "target-b",
+           "LD_LIBRARY_PATH": "/ws/mytarget-b/lib"}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "LD_LIBRARY_PATH   (names only)  1 variable(s) differ only by "
+            "the target directory: CARGO_TARGET_DIR; treated as unchanged"
+            ) in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_a_relative_root_still_relocates_where_it_does_name_the_path(
+        tmp_path, monkeypatch, capsys):
+    """...and the anchor is an anchor, not a refusal: the same relative root
+    under a real path segment relocates exactly as an absolute one does."""
+    was = {"PATH": "/usr/bin", "CARGO_TARGET_DIR": "target-a",
+           "LD_LIBRARY_PATH": "/ws/target-a/lib:/usr/lib"}
+    now = {"PATH": "/usr/bin", "CARGO_TARGET_DIR": "target-b",
+           "LD_LIBRARY_PATH": "/ws/target-b/lib:/usr/lib"}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert "env: CHANGED" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "granted"
+
+
+def test_a_withheld_pair_keeps_the_relocated_names_too(
+        tmp_path, monkeypatch, capsys):
+    """Both channels or neither, in the branch that was neither. The
+    terminal named the three keys the check explained; before this the
+    trace kept only the accusation, so `info` replayed a withheld licence
+    whose screen had said more than the record does. A reader coming back
+    to the trace must be able to see that three of the four differences
+    were the tool's own doing."""
+    _pair(tmp_path, monkeypatch, cargo_env(OLD_ROOT),
+          cargo_env(NEW_ROOT, ld_extra=":/opt/lib"))
+    capsys.readouterr()
+    relocated = ("3 variable(s) differ only by the target directory: "
+                 "CARGO_BIN_EXE_demo, CARGO_TARGET_DIR, RUSTDOCFLAGS; "
+                 "treated as unchanged")
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+    assert relocated in _read_meta(PAIR, "refocus_licence_verified")
+    from sensorium import cli
+    assert cli.main(["info", PAIR]) == 0
+    replayed = capsys.readouterr().out
+    assert f"  licence verified: {relocated}" in replayed
+    assert "licence withheld: 1 environment variable(s) differ" in replayed
+
+
+def test_a_withheld_pair_with_no_relocation_records_nothing_extra(
+        tmp_path, monkeypatch, capsys):
+    """The fence on the fix above: a pair that relocated nothing keeps the
+    empty verified list it always kept, so no trace gains a `licence
+    verified:` line it did not earn."""
+    _pair(tmp_path, monkeypatch, {"PATH": "/usr/bin", "TZ": "UTC"},
+          {"PATH": "/usr/bin", "TZ": "CET"})
+    capsys.readouterr()
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+    assert _read_meta(PAIR, "refocus_licence_verified") == []

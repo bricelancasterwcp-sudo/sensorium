@@ -151,6 +151,7 @@ from pathlib import Path
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.caps import require
+from sensorium.query.refocus_env import is_relocation_note
 from sensorium.query.vocab import print_blind_spots, terms
 from sensorium.query.diff_cmd import (compare, print_comparison,
                                       task_drill_lines)
@@ -485,6 +486,16 @@ def assess(orig: Trace, new: Trace, res: dict, world_caveats=(),
         if not caveats:
             facts = _verified_facts(orig, new, scope)
             verified = facts[:1] + list(world_verified) + facts[1:]
+        else:
+            # A withheld licence rests on nothing, so it lists nothing --
+            # with one exception, and it is an exception about NAMES rather
+            # than about standing. A world-fact that says which variables
+            # differed only because the tool re-ran the program somewhere
+            # else is printed on the env line either way, and a trace that
+            # kept only the accusation replayed less than its own screen
+            # had said. Empty for every pair that relocated nothing, which
+            # is every pair before this rule existed.
+            verified = [f for f in world_verified if is_relocation_note(f)]
     # Everything the report and the stamp need, derived ONCE. `report` used
     # to reach back into `res` for `index` and `tasks` beside this dict,
     # which is two sources for one verdict -- the exact shape that let the

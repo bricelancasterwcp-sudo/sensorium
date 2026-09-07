@@ -35,12 +35,17 @@ to the re-run's? If it does, the key is named as relocated and the licence
 still holds. If anything else about the value moved, it is a change, and it
 withholds exactly as it did before.
 """
+import re
 
 #: The variable that names the root every other one embeds. Present only on
 #: a trace `cargo sensorium` recorded, which is what makes the whole rule a
 #: no-op on a Python trace: no root, nothing to normalise, and every string
 #: below is the one it was before this module existed.
 TARGET_ROOT = "CARGO_TARGET_DIR"
+
+#: The phrase that both WRITES the relocation note and RECOGNISES it. One
+#: constant, so the sentence and the reader of the sentence cannot drift.
+_RELOCATED = "differ only by the target directory: "
 
 
 def relocation(was: dict, now: dict) -> tuple[str, str] | None:
@@ -59,18 +64,49 @@ def relocation(was: dict, now: dict) -> tuple[str, str] | None:
     return old, new
 
 
+#: What may appear INSIDE a path component. A root preceded by one of
+#: these is the tail of a longer name, not the name itself -- `mytarget-a`
+#: ends with `target-a` and is a different directory. A root preceded by a
+#: separator, a space, an `=` or nothing at all begins a component and is
+#: the root.
+_NAME_CHAR = re.compile(r"[A-Za-z0-9_.+~@-]")
+
+
 def _reroot(segment: str, old: str, new: str) -> str:
     """`segment` with every path rooted at `old` re-rooted at `new`.
 
-    Where the root NAMES A PATH -- followed by a separator, or ending the
-    segment -- and nowhere else. `/build/target-abc` is not
-    `/build/target-a` relocated, and a substitution that treated it as one
-    would grant a licence over a directory that really did move.
+    Where the root NAMES A PATH and nowhere else, anchored on BOTH sides:
+    followed by a separator or the end of the segment, and preceded by the
+    start of the segment or a character no path component may contain.
+    A substitution that skipped either anchor would grant a licence over a
+    directory that really did move -- `/build/target-abc` is not
+    `/build/target-a` relocated on the right, and `/ws/mytarget-a` is not
+    `target-a` relocated on the left. The left anchor matters most for a
+    RELATIVE root (`CARGO_TARGET_DIR=target-a`), which carries no leading
+    separator of its own to stand in for it.
+
+    Only the root is re-rooted, never a component that repeats it: `/a/a`
+    under `/a` -> `/z` is `/z/a`, because the second `/a` is the child.
     """
-    out = segment.replace(old + "/", new + "/")
-    if out.endswith(old):
-        out = out[:-len(old)] + new
-    return out
+    out, i = [], 0
+    while True:
+        at = segment.find(old, i)
+        if at < 0:
+            break
+        end = at + len(old)
+        begins = at == 0 or not _NAME_CHAR.match(segment[at - 1])
+        ends = end == len(segment) or segment[end] == "/"
+        if begins and ends:
+            out.append(segment[i:at])
+            out.append(new)
+            i = end
+        else:
+            # Advance by ONE, not past the whole occurrence: a root that
+            # overlaps itself would otherwise lose its second start.
+            out.append(segment[i:at + 1])
+            i = at + 1
+    out.append(segment[i:])
+    return "".join(out)
 
 
 def differs_only_by_root(was: str, now: str, old: str, new: str) -> bool:
@@ -115,5 +151,21 @@ def relocated_clause(names: list[str]) -> str:
     """
     if not names:
         return ""
-    return (f"{len(names)} variable(s) differ only by the target directory: "
+    return (f"{len(names)} variable(s) {_RELOCATED}"
             f"{', '.join(names)}; treated as unchanged")
+
+
+def is_relocation_note(fact: str) -> bool:
+    """Whether a world-fact carries the names this rule explained.
+
+    A withheld licence records no verified facts -- it rests on nothing --
+    but the keys this check EXPLAINED are a finding of its own, and the
+    terminal already prints them beside the accusation. Without this the
+    trace kept only the accusation, and `info` replayed a licence whose
+    screen had said more than the record does.
+
+    Recognised by the one phrase `relocated_clause` builds, from the same
+    constant, so a rewording moves both halves together and cannot leave
+    this reading a sentence that no longer exists.
+    """
+    return _RELOCATED in fact
