@@ -24,6 +24,10 @@ from tests.rust_traces import rerunnable_trace
 ORIG = "20260101-000000-rust01"
 PAIR = "20260101-000100-pair01"
 STALE = "20250101-000000-stale1"
+# A trace written by a CONCURRENT refocus of a different original: linked,
+# and recent, so only the identity of what it is linked TO excludes it.
+OTHER = "20260101-000050-other1"
+OTHER_ORIGINAL = "20250101-000000-orig02"
 
 
 def args(run, *focus, window=None):

@@ -23,10 +23,11 @@ from sensorium.query.vocab import PYTHON, RUST
 from sensorium.store import db
 from sensorium.store.reader import Trace
 from tests.helpers import RUST_CAPABILITIES
-from tests.refocus_rust_fixtures import (ORIG, PAIR, STALE, FakeDriver,
-                                         _drive, _drop_meta, _never,
-                                         _read_meta, args, original, refuse,
-                                         rust_digest, workspace)
+from tests.refocus_rust_fixtures import (ORIG, OTHER, OTHER_ORIGINAL, PAIR,
+                                         STALE, FakeDriver, _drive,
+                                         _drop_meta, _never, _read_meta, args,
+                                         original, refuse, rust_digest,
+                                         workspace)
 
 # -- the five pre-rerun refusals, in the design's order ---------------------
 def test_window_is_refused_first_and_nothing_is_re_run(tmp_path, monkeypatch,
@@ -237,6 +238,24 @@ def test_find_pair_excludes_a_link_recorded_before_this_launch(tmp_path,
     launched = time.time()
     original(tmp_path, monkeypatch, run_id=STALE, refocus_of=run,
              start_ts=launched - 100)
+    original(tmp_path, monkeypatch, run_id=PAIR, refocus_of=run,
+             start_ts=launched + 1)
+    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == [PAIR]
+
+
+def test_find_pair_excludes_a_link_to_a_DIFFERENT_original(tmp_path,
+                                                           monkeypatch):
+    """The link filter is an EQUALITY, and only this case says so. A refocus
+    of a DIFFERENT original, running at the same time and into the same
+    store, writes a trace that is linked and whose recording started after
+    this launch -- every condition but the one that matters. Read as `if not
+    linked` it would join this pair, and a re-run that produced exactly one
+    trace would be refused by count, naming the single-target selector at a
+    caller whose selector was already single."""
+    run, _ = original(tmp_path, monkeypatch)
+    launched = time.time()
+    original(tmp_path, monkeypatch, run_id=OTHER, refocus_of=OTHER_ORIGINAL,
+             start_ts=launched + 1)
     original(tmp_path, monkeypatch, run_id=PAIR, refocus_of=run,
              start_ts=launched + 1)
     assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == [PAIR]

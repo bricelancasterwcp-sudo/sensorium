@@ -45,6 +45,7 @@ questions:
       - "output not recorded (capabilities.output: false)"
       - "threads from dependency code are unnamed"
       - "the re-run's rebuild is its own cost: --focus keys a fresh shim and a rebuild of the matched units"
+      - "no thread started besides the main one as OS threads (libtest's per-test threads and threads spawned by workspace code), and none left running when recording stopped"
     expect_line:
       - ["refocus-of: $RUN", "--refocus-of $RUN", "--tier call", "--focus fill"]
       - ["licence: verified against $RUN on exactly these points, and no others:"]
