@@ -1,0 +1,1560 @@
+{
+  "schema": "every measurement is {value, n, lens, dropped}; a null value plus a dropped reason is the ONLY not-measured; 0 is measured-and-zero",
+  "acceptance": "docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md",
+  "runner": "rust/tests/acceptance_e9.py",
+  "byte_lock": {
+    "commit": "ffaed19",
+    "doc": "docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md",
+    "range": "awk '/^## 1/,/^## 2/' PLUS the definition of every footnote \u00a71 references",
+    "footnotes_in_range": [],
+    "extraction": "awk '/^## 1/,/^## 2/'",
+    "locked_sha256": "473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163",
+    "locked_bytes": 24095,
+    "working_tree_sha256": "473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163",
+    "working_tree_bytes": 24095,
+    "identical": true,
+    "original_lock": "a4264b5",
+    "original_lock_sha256": "15f0537587f55ec949a60c86543e6c4e1f7a0929cc57eb4a15320424185b67a5",
+    "original_lock_bytes": 23424,
+    "amended_after_the_original_lock": true,
+    "amendment_bytes": 671,
+    "section1_sha256": "473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163",
+    "section1_bytes": 24095,
+    "section1_working_tree_sha256": "473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163",
+    "section1_identical": true,
+    "section1_original_lock_sha256": "15f0537587f55ec949a60c86543e6c4e1f7a0929cc57eb4a15320424185b67a5",
+    "section1_original_lock_bytes": 23424
+  },
+  "pins": {
+    "started": "2026-09-06T18:59:05-0500",
+    "repo_commit": "5e943833cf358da67536a7b96dc91b7d096f145f",
+    "repo_branch": "feat/rung4-focus-tier",
+    "repo_porcelain": "",
+    "clone": "/mnt/extra/sensorium-rung2/bloomery",
+    "clone_head": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "clone_pin": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "clone_porcelain": "",
+    "clone_cargo_lock_sha256": "c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca",
+    "clone_read_only_reading": "the clone is an INPUT: nothing writes into it but cargo's own `Cargo.lock` refresh, whose sha256 is recorded before and after and which the cleanup restores to the pin",
+    "driver": "/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium",
+    "driver_sha256": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+    "driver_rebuilt_by_this_run": false,
+    "driver_profile": "debug",
+    "driver_mtime": "2026-09-06T16:08:53-0500",
+    "built_from": {
+      "repo_head_at_build": "5e943833cf358da67536a7b96dc91b7d096f145f",
+      "repo_porcelain_at_build": "",
+      "command": "cargo build -p cargo-sensorium",
+      "profile": "debug",
+      "cargo_target_dir": "/mnt/extra/sensorium-rung2/rust-target",
+      "cargo_rc": 0,
+      "cargo_wall_s": 0.059,
+      "timed_out": false,
+      "kill_s": 3600,
+      "driver": "/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium",
+      "driver_sha256_before_build": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+      "driver_sha256_after_build": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+      "rebuilt": false,
+      "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/built-from/built-from.log"
+    },
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "python": "Python 3.14.4",
+    "sensorium_version": "0.6.0",
+    "nproc": 16,
+    "governor": "powersave",
+    "load_1min_at_start": 1.03,
+    "repo_disk_free_gb": 12.73,
+    "target_disk_free_gb": 92.12,
+    "sensorium_dir": "/mnt/extra/sensorium-rung2/sensorium-dir/e9",
+    "e9_target": "/mnt/extra/sensorium-rung2/bloomery-target-e9",
+    "rust_target": "/mnt/extra/sensorium-rung2/rust-target",
+    "corpus_target": "/mnt/extra/sensorium-rung2/bloomery-target-e9-corpus",
+    "corpus_target_from_env": false,
+    "tmpdir_observed": null,
+    "temp_root": "/tmp",
+    "tmpdir_reading": "TMPDIR was unset, so `std::env::temp_dir()` is `/tmp` and W1/W3/S1/S2 read as \u00a71.2 and \u00a71.3 derive them",
+    "sensorium_tier": "unset -- \u00a71.4 leaves the coarse tier at its default `call` for all four runs, so U1/U2 and F1/F2 differ only by `--focus`",
+    "invocation_log": "NOT silenced: SENSORIUM_NO_INVOCATION_LOG is unset, so every reader call this record makes appends a row to the store's `invocations.jsonl`, and the count is recorded at the end"
+  },
+  "environment": {
+    "repo_commit": "5e943833cf358da67536a7b96dc91b7d096f145f",
+    "repo_branch": "feat/rung4-focus-tier",
+    "repo_porcelain": "",
+    "repo_porcelain_after": "",
+    "clone": "/mnt/extra/sensorium-rung2/bloomery",
+    "clone_head": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "clone_pin": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "clone_head_after": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "clone_porcelain": "",
+    "clone_porcelain_after": "",
+    "clone_cargo_lock_sha256": "c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca",
+    "clone_cargo_lock_sha256_after": "c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca",
+    "clone_cargo_lock_moved": false,
+    "clone_cargo_lock_back_on_the_pin": true,
+    "clone_read_only_reading": "the clone is an INPUT: nothing writes into it but cargo's own `Cargo.lock` refresh, whose sha256 is recorded before and after and which the cleanup restores to the pin",
+    "driver": "/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium",
+    "driver_sha256": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+    "driver_sha256_after": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+    "driver_unchanged_after": true,
+    "driver_profile": "debug",
+    "driver_mtime": "2026-09-06T16:08:53-0500",
+    "driver_rebuilt_by_this_run": false,
+    "built_from": {
+      "repo_head_at_build": "5e943833cf358da67536a7b96dc91b7d096f145f",
+      "repo_porcelain_at_build": "",
+      "command": "cargo build -p cargo-sensorium",
+      "profile": "debug",
+      "cargo_target_dir": "/mnt/extra/sensorium-rung2/rust-target",
+      "cargo_rc": 0,
+      "cargo_wall_s": 0.059,
+      "timed_out": false,
+      "kill_s": 3600,
+      "driver": "/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium",
+      "driver_sha256_before_build": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+      "driver_sha256_after_build": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+      "rebuilt": false,
+      "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/built-from/built-from.log"
+    },
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "python": "Python 3.14.4",
+    "sensorium_version": "0.6.0",
+    "nproc": 16,
+    "governor": "powersave",
+    "sensorium_dir": "/mnt/extra/sensorium-rung2/sensorium-dir/e9",
+    "e9_target": "/mnt/extra/sensorium-rung2/bloomery-target-e9",
+    "rust_target": "/mnt/extra/sensorium-rung2/rust-target",
+    "corpus_target": "/mnt/extra/sensorium-rung2/bloomery-target-e9-corpus",
+    "corpus_target_from_env": false,
+    "tmpdir_observed": null,
+    "tmpdir_reading": "TMPDIR was unset, so `std::env::temp_dir()` is `/tmp` and W1/W3/S1/S2 read as \u00a71.2 and \u00a71.3 derive them",
+    "temp_root": "/tmp",
+    "sensorium_tier": "unset -- \u00a71.4 leaves the coarse tier at its default `call` for all four runs, so U1/U2 and F1/F2 differ only by `--focus`",
+    "invocation_log": "NOT silenced: SENSORIUM_NO_INVOCATION_LOG is unset, so every reader call this record makes appends a row to the store's `invocations.jsonl`, and the count is recorded at the end",
+    "invocations_jsonl_lines": 7,
+    "load_1min_at_start": 1.03,
+    "load_at_each_phase": [
+      {
+        "arm": "records",
+        "load_1min": 1.03,
+        "at": "2026-09-06T18:59:05-0500"
+      },
+      {
+        "arm": "H1",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:26-0500"
+      },
+      {
+        "arm": "H2",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:26-0500"
+      },
+      {
+        "arm": "H3",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:26-0500"
+      },
+      {
+        "arm": "H4",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:26-0500"
+      },
+      {
+        "arm": "H5",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:27-0500"
+      },
+      {
+        "arm": "H6",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:27-0500"
+      },
+      {
+        "arm": "H7",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:27-0500"
+      }
+    ],
+    "repo_disk_free_gb": 12.73,
+    "repo_disk_free_gb_after": 12.73,
+    "target_disk_free_gb": 92.12,
+    "target_disk_free_gb_after": 90.12,
+    "logs_dir": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs"
+  },
+  "recordings": {
+    "U1": {
+      "name": "U1",
+      "command": "/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium sensorium test -p bloomery-daemon --test pager_obligation_test",
+      "cwd": "/mnt/extra/sensorium-rung2/bloomery",
+      "focus_flags": [],
+      "test_target": "pager_obligation_test",
+      "rc": 0,
+      "wall_s": 6.693,
+      "timed_out": false,
+      "kill_s": 3600,
+      "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/record-u1/u1.log",
+      "focus_lines": [],
+      "focus_refusal": null,
+      "cargo_exit": 0,
+      "run": "20260906-185911-1ba726",
+      "run_pick_rule": "exe basename matches the --test target",
+      "run_candidates": null,
+      "outcome": {
+        "targets": 1,
+        "passed": 15,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "verdicts": [
+          "ok"
+        ]
+      },
+      "libtest_secs": 0.0,
+      "trace_bytes": 942080,
+      "outcome_class": "completed",
+      "outcome_class_why": "exit 0",
+      "truncated_count": 20,
+      "test_result_lines": [
+        "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "F1": {
+      "name": "F1",
+      "command": "/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium sensorium --focus missing_stats_is_a_contract_violation_not_a_reply test -p bloomery-daemon --test pager_obligation_test",
+      "cwd": "/mnt/extra/sensorium-rung2/bloomery",
+      "focus_flags": [
+        "--focus",
+        "missing_stats_is_a_contract_violation_not_a_reply"
+      ],
+      "test_target": "pager_obligation_test",
+      "rc": 0,
+      "wall_s": 6.69,
+      "timed_out": false,
+      "kill_s": 3600,
+      "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/record-f1/f1.log",
+      "focus_lines": [
+        "missing_stats_is_a_contract_violation_not_a_reply"
+      ],
+      "focus_refusal": null,
+      "cargo_exit": 0,
+      "run": "20260906-185918-bbfa7c",
+      "run_pick_rule": "exe basename matches the --test target",
+      "run_candidates": null,
+      "outcome": {
+        "targets": 1,
+        "passed": 15,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "verdicts": [
+          "ok"
+        ]
+      },
+      "libtest_secs": 0.0,
+      "trace_bytes": 958464,
+      "outcome_class": "completed",
+      "outcome_class_why": "exit 0",
+      "truncated_count": 23,
+      "test_result_lines": [
+        "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "U2": {
+      "name": "U2",
+      "command": "/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium sensorium test -p bloomery-daemon --test pager_codec_gate_test",
+      "cwd": "/mnt/extra/sensorium-rung2/bloomery",
+      "focus_flags": [],
+      "test_target": "pager_codec_gate_test",
+      "rc": 0,
+      "wall_s": 1.448,
+      "timed_out": false,
+      "kill_s": 3600,
+      "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/record-u2/u2.log",
+      "focus_lines": [],
+      "focus_refusal": null,
+      "cargo_exit": 0,
+      "run": "20260906-185920-580f4e",
+      "run_pick_rule": "exe basename matches the --test target",
+      "run_candidates": null,
+      "outcome": {
+        "targets": 1,
+        "passed": 20,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "verdicts": [
+          "ok"
+        ]
+      },
+      "libtest_secs": 0.0,
+      "trace_bytes": 507904,
+      "outcome_class": "completed",
+      "outcome_class_why": "exit 0",
+      "truncated_count": 24,
+      "test_result_lines": [
+        "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "F2": {
+      "name": "F2",
+      "command": "/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium sensorium --focus pager_with_model test -p bloomery-daemon --test pager_codec_gate_test",
+      "cwd": "/mnt/extra/sensorium-rung2/bloomery",
+      "focus_flags": [
+        "--focus",
+        "pager_with_model"
+      ],
+      "test_target": "pager_codec_gate_test",
+      "rc": 0,
+      "wall_s": 6.587,
+      "timed_out": false,
+      "kill_s": 3600,
+      "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/record-f2/f2.log",
+      "focus_lines": [
+        "pager_with_model"
+      ],
+      "focus_refusal": null,
+      "cargo_exit": 0,
+      "run": "20260906-185926-fbede9",
+      "run_pick_rule": "exe basename matches the --test target",
+      "run_candidates": null,
+      "outcome": {
+        "targets": 1,
+        "passed": 20,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "verdicts": [
+          "ok"
+        ]
+      },
+      "libtest_secs": 0.0,
+      "trace_bytes": 520192,
+      "outcome_class": "completed",
+      "outcome_class_why": "exit 0",
+      "truncated_count": 24,
+      "test_result_lines": [
+        "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    }
+  },
+  "endpoints": {
+    "H1": {
+      "headline": {
+        "value": 0,
+        "n": null,
+        "lens": "LINE rows over the whole U1 trace -- the gate is 0; U1 -- `cargo sensorium test -p bloomery-daemon --test pager_obligation_test` on the clone at e209ed9 -- then `info <run>`, a `select count(*) from events where kind = 'LINE'` over the WHOLE trace, and `watch <run> --at missing_stats_is_a_contract_violation_not_a_reply --expr events == 0`",
+        "dropped": []
+      },
+      "capabilities_line": {
+        "value": false,
+        "n": null,
+        "lens": "the trace's own meta `capabilities.line`, read from the converted trace and not from the printed row",
+        "dropped": []
+      },
+      "capabilities_locals": {
+        "value": false,
+        "n": null,
+        "lens": "the trace's own meta `capabilities.locals`",
+        "dropped": []
+      },
+      "watch_exit": {
+        "value": 3,
+        "n": null,
+        "lens": "the exit status `watch` returned -- 3 is UNSETTLED, `record again with what it lacks`",
+        "dropped": []
+      },
+      "watch_verdict_class": {
+        "value": "REFUSED",
+        "n": 1,
+        "lens": "the class `watch` printed, of the verdict sentences found (more than one is itself a defect and leaves the class null)",
+        "dropped": []
+      },
+      "refusal_sentence_equal": {
+        "value": true,
+        "n": null,
+        "lens": "SECOND reading: the pinned refusal sentence with the version token taken from the trace's own `recorder` meta value -- \u00a71 reads that token from \u00a72, never from the design's plan",
+        "dropped": []
+      },
+      "recorder": "sensorium-rt 0.4.0",
+      "expected_refusal": "REFUSED: watch needs line, which recorder sensorium-rt 0.4.0 declares it does not produce (capabilities.line: false); nothing was checked",
+      "printed_refusal": "REFUSED: watch needs line, which recorder sensorium-rt 0.4.0 declares it does not produce (capabilities.line: false); nothing was checked",
+      "info": {
+        "rc": 0,
+        "command": "sensorium info 20260906-185911-1ba726",
+        "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/h1/cli-h1-info.log",
+        "timed_out": false,
+        "recorder": "sensorium-rt 0.4.0",
+        "lang": "rust",
+        "capabilities": {
+          "children": false,
+          "err_flow": true,
+          "line": false,
+          "locals": false,
+          "object_identity": false,
+          "output": false,
+          "refocus": false,
+          "return_value": true,
+          "stdin": false,
+          "tasks": true,
+          "threads": true
+        },
+        "capabilities_text": "children=no err_flow=yes line=no locals=no object_identity=no output=no refocus=no return_value=yes stdin=no tasks=yes threads=yes",
+        "recorded": {
+          "CALL": 1945,
+          "RETURN": 1945,
+          "RAISE": 27,
+          "HANDLED": 10,
+          "YIELD": 0,
+          "RESUME": 0,
+          "LINE": 0
+        },
+        "focus": [],
+        "window": "-"
+      },
+      "info_stdout": "run 20260906-185911-1ba726  trace: /mnt/extra/sensorium-rung2/sensorium-dir/e9/traces/20260906-185911-1ba726.db\ncmd: /mnt/extra/sensorium-rung2/bloomery-target-e9/debug/deps/pager_obligation_test-8dd9595e982e5264    cwd: /mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon\ntoolchain: rustc 1.96.0 (ac68faa20 2026-05-25)  env:5c62e70cff650908  exit: 0 (waited)  events: 3927  duration: 0.00s\nrecorder: sensorium-rt 0.4.0  lang: rust  capabilities: children=no err_flow=yes line=no locals=no object_identity=no output=no refocus=no return_value=yes stdin=no tasks=yes threads=yes\nrecorded: CALL 1945  RETURN 1945  RAISE 27  HANDLED 10  YIELD 0  RESUME 0  LINE 0\nfocus: -    window: -\ncaps: repr=200   truncated values: 20\ninvocation: 20260906-185906-ed4e0f  binary: pager_obligation_test-8dd9595e982e5264  pid: 2071353\nunits: 4 instrumented, 0 fell back, 5 skipped (const x5), 5 spawn sites (5 wrapped)\npartial fns: 0 (?-sites the transformer could not reach)\nnot recorded in this trace: children, spawn_syscalls, audit_errors -- recorder sensorium-rt 0.4.0 declares children not witnessed (capabilities.children: false), so there is no child-process record to read; absence of the record is not a record of absence\nthreads started: 16 besides the main one, as OS threads (libtest's per-test threads and threads spawned by workspace code) -- one that ran no traced code has no fingerprint above and was not otherwise seen\nerr_flow_outside_frames: 0 -- RAISE/HANDLED records on a thread with no open frame (a sink or arm inside an `async {}` block polled off-frame, or a site whose enclosing CALL was refused), counted and never written as events\nfingerprint thread 1 (main): cae66941d9efbd404e4d88758ea67670 (0 causal events outside any test or spawned thread)\nfingerprints: per-task basis -- each thread row covers the events that ran in no test or spawned thread; 16 task fingerprint(s) beside it\nunframed calls: 0 (all calls framed in format 3)\ntasks: 16 (16 distinct name(s): missing_stats_is_a_contract_violation_not_a_reply x1, agent_ids_are_unique_and_status_is_a_snapshot x1, a_model_with_no_admission_block_renders_none x1, a_transient_restore_failure_keeps_the_image_for_the_retry x1, corrupt_spilled_image_cold_starts_and_journals_degraded x1, suspend_resume_round_trips_the_kv_image_through_nvme x1; and 10 more name(s))\nhot functions:\n  127x journal.rs:append\n  127x journal.rs:Journal::append\n  123x journal.rs:replay::{{closure}}#1\n  114x agents.rs:AgentTable::get\n  64x tuning.rs:ModelEntry::effective_kv_per_token\n  53x fake.rs:FakeSubstrate::log\n  52x tuning.rs:ModelEntry::effective_weights_bytes\n  52x agents.rs:AgentTable::residents\n",
+      "watch_stdout": "REFUSED: watch needs line, which recorder sensorium-rt 0.4.0 declares it does not produce (capabilities.line: false); nothing was checked\n\n",
+      "watch_command": "sensorium watch 20260906-185911-1ba726 --at missing_stats_is_a_contract_violation_not_a_reply --expr events == 0",
+      "line_rows_query": "select count(*) from events where kind = 'LINE'",
+      "run": "20260906-185911-1ba726"
+    },
+    "H2": {
+      "headline": {
+        "value": 2,
+        "n": 2,
+        "lens": "FIRST reading: `--focus` values that resolved to exactly one qualname, of the values given; the driver's own `focus:` lines, printed on stderr BEFORE cargo was invoked, and each focused run's libtest summary against its unfocused partner's (F1/U1 and F2/U2)",
+        "dropped": []
+      },
+      "outcomes_equal": {
+        "value": 2,
+        "n": 2,
+        "lens": "FIRST reading of `equal outcome`: pairs whose summed libtest pass/fail/ignored/measured/filtered counts are equal, of the pairs",
+        "dropped": []
+      },
+      "line_qualname_sets": {
+        "value": 2,
+        "n": 2,
+        "lens": "SECOND reading of `resolved to that one`: focused traces whose set of distinct qualnames carrying LINE rows is exactly the focus value, of the focused runs",
+        "dropped": []
+      },
+      "exit_status_equal": {
+        "value": 2,
+        "n": 2,
+        "lens": "SECOND reading of `equal outcome`: pairs whose `cargo sensorium` process exit status is equal, of the pairs",
+        "dropped": []
+      },
+      "focused_build_failures": {
+        "value": 0,
+        "n": 2,
+        "lens": "focused runs that did not complete -- \u00a71's kill 1 makes any a STOP: no unfocused fallback, no narrower focus, no retry",
+        "dropped": []
+      },
+      "resolution": {
+        "F1": {
+          "value": "missing_stats_is_a_contract_violation_not_a_reply",
+          "focus_lines": [
+            "missing_stats_is_a_contract_violation_not_a_reply"
+          ],
+          "matched": 1,
+          "resolved_to_exactly_one": true,
+          "refusal": null
+        },
+        "F2": {
+          "value": "pager_with_model",
+          "focus_lines": [
+            "pager_with_model"
+          ],
+          "matched": 1,
+          "resolved_to_exactly_one": true,
+          "refusal": null
+        }
+      },
+      "pairs": {
+        "F1/U1": {
+          "focused": "F1",
+          "unfocused": "U1",
+          "focused_outcome": {
+            "targets": 1,
+            "passed": 15,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered_out": 0,
+            "verdicts": [
+              "ok"
+            ]
+          },
+          "unfocused_outcome": {
+            "targets": 1,
+            "passed": 15,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered_out": 0,
+            "verdicts": [
+              "ok"
+            ]
+          },
+          "outcome_equal": true,
+          "focused_rc": 0,
+          "unfocused_rc": 0,
+          "exit_status_equal": true,
+          "focused_summary_lines": [
+            "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ],
+          "unfocused_summary_lines": [
+            "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        },
+        "F2/U2": {
+          "focused": "F2",
+          "unfocused": "U2",
+          "focused_outcome": {
+            "targets": 1,
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered_out": 0,
+            "verdicts": [
+              "ok"
+            ]
+          },
+          "unfocused_outcome": {
+            "targets": 1,
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered_out": 0,
+            "verdicts": [
+              "ok"
+            ]
+          },
+          "outcome_equal": true,
+          "focused_rc": 0,
+          "unfocused_rc": 0,
+          "exit_status_equal": true,
+          "focused_summary_lines": [
+            "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ],
+          "unfocused_summary_lines": [
+            "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        }
+      },
+      "line_qualnames": {
+        "F1": {
+          "qualnames_with_line_rows": {
+            "missing_stats_is_a_contract_violation_not_a_reply": 26
+          },
+          "set": [
+            "missing_stats_is_a_contract_violation_not_a_reply"
+          ],
+          "is_exactly_the_focus_value": true
+        },
+        "F2": {
+          "qualnames_with_line_rows": {
+            "pager_with_model": 160
+          },
+          "set": [
+            "pager_with_model"
+          ],
+          "is_exactly_the_focus_value": true
+        }
+      },
+      "failed_runs": []
+    },
+    "H3": {
+      "headline": {
+        "value": 26,
+        "n": 26,
+        "lens": "N: the LINE rows of focus value A's activation, of \u00a71.1's hand count; the gate is 26, 25 and 27 are the two readings \u00a71.1 accounts for, anything else is a STOP; F1's trace: the LINE rows of the activations of focus value A, joined `events` (kind LINE) -> `frames` -> `code_objects` on the qualname, as a per-line histogram; the same rows counted through the event's own `code_id` are recorded beside them and must agree",
+        "dropped": []
+      },
+      "equals_the_gate": {
+        "value": true,
+        "n": 26,
+        "lens": "N equals \u00a71.1's reading A, the gate",
+        "dropped": []
+      },
+      "line_differences": {
+        "value": 0,
+        "n": 26,
+        "lens": "SECOND reading: missing + unexpected + count-differing lines against \u00a71.1's per-line table, of its 26 rows -- this is what lets a miss NAME lines rather than report a number",
+        "dropped": []
+      },
+      "activations": {
+        "value": 1,
+        "n": null,
+        "lens": "frames whose code object is focus value A -- \u00a71 derives N from ONE activation, so anything but 1 changes what N means",
+        "dropped": []
+      },
+      "joins_agree": {
+        "value": true,
+        "n": null,
+        "lens": "the frame join and the code-object join count the same rows; a disagreement is a finding about attribution, not a number to choose",
+        "dropped": []
+      },
+      "in_the_accounted_range": {
+        "value": true,
+        "n": 3,
+        "lens": "N is inside {25, 26, 27}; outside it is \u00a71's kill 4, a STOP",
+        "dropped": []
+      },
+      "measured_by_line": {
+        "250": 1,
+        "251": 1,
+        "252": 1,
+        "253": 1,
+        "254": 1,
+        "255": 1,
+        "257": 1,
+        "259": 1,
+        "263": 1,
+        "264": 1,
+        "265": 1,
+        "266": 1,
+        "267": 1,
+        "268": 1,
+        "274": 1,
+        "275": 1,
+        "276": 1,
+        "277": 1,
+        "278": 1,
+        "282": 1,
+        "283": 1,
+        "286": 1,
+        "287": 1,
+        "292": 1,
+        "293": 1,
+        "300": 1
+      },
+      "measured_by_line_via_code_id": {
+        "250": 1,
+        "251": 1,
+        "252": 1,
+        "253": 1,
+        "254": 1,
+        "255": 1,
+        "257": 1,
+        "259": 1,
+        "263": 1,
+        "264": 1,
+        "265": 1,
+        "266": 1,
+        "267": 1,
+        "268": 1,
+        "274": 1,
+        "275": 1,
+        "276": 1,
+        "277": 1,
+        "278": 1,
+        "282": 1,
+        "283": 1,
+        "286": 1,
+        "287": 1,
+        "292": 1,
+        "293": 1,
+        "300": 1
+      },
+      "diff": {
+        "missing_lines": [],
+        "unexpected_lines": [],
+        "count_diffs": [],
+        "differences": 0,
+        "measured_total": 26,
+        "expected_total": 26
+      },
+      "run": "20260906-185918-bbfa7c",
+      "frame_ids": [
+        31
+      ]
+    },
+    "H4": {
+      "headline": {
+        "value": 3,
+        "n": 3,
+        "lens": "triples whose verdict class AND exit status are both as \u00a71.2 predicts, of the three; \u00a71.2's three triples, each `watch <run> --at <qualname> --expr <expr>` on the run named there; the verdict CLASS the command printed and the EXIT status it returned are read separately, and a disagreement between them is a finding about `Verdict`/`STATUS` rather than a reading resolved in favour of either",
+        "dropped": []
+      },
+      "class_as_predicted": {
+        "value": 3,
+        "n": 3,
+        "lens": "FIRST reading: verdict classes as predicted (SATISFIED / NOTHING WAS CHECKED / not satisfied)",
+        "dropped": []
+      },
+      "exit_as_predicted": {
+        "value": 3,
+        "n": 3,
+        "lens": "SECOND reading: exit statuses as predicted (0 / 3 / 1)",
+        "dropped": []
+      },
+      "readings_disagree": {
+        "value": 0,
+        "n": 3,
+        "lens": "triples where the class and the exit do not agree -- itself a finding about `Verdict`/`STATUS`",
+        "dropped": []
+      },
+      "triples": [
+        {
+          "id": "W1",
+          "run": "F1",
+          "at": "missing_stats_is_a_contract_violation_not_a_reply",
+          "expr": "dir == \"/tmp/bloomery-pager-contract\"",
+          "predicted_class": "SATISFIED",
+          "predicted_exit": 0,
+          "line": 251,
+          "run_id": "20260906-185918-bbfa7c",
+          "command": "sensorium watch 20260906-185918-bbfa7c --at missing_stats_is_a_contract_violation_not_a_reply --expr dir == \"/tmp/bloomery-pager-contract\"",
+          "rc": 0,
+          "timed_out": false,
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/h4/cli-h4-w1.log",
+          "wall_s": 0.067,
+          "classes": [
+            "SATISFIED"
+          ],
+          "verdict_class": "SATISFIED",
+          "hits": 25,
+          "evaluated": 25,
+          "sites": 27,
+          "not_captured": 2,
+          "errors": 0,
+          "counts_line": "sites: 27   evaluated: 25   hits: 25   not-captured: 2   errors: 0",
+          "verdict_line": "verdict: SATISFIED at 25 of the 25 site(s) the predicate could be evaluated at",
+          "refusal_line": null,
+          "hit_rows": [
+            "HIT   e76 LINE    missing_stats_is_a_contract_violation_not_a_reply L251  dir=\"/tmp/bloomery-pager-contract\"   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e373 LINE    missing_stats_is_a_contract_violation_not_a_reply L252  jpath=\"/tmp/bloomery-pager-contract/j.jsonl\", p=<unread>   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e426 LINE    missing_stats_is_a_contract_violation_not_a_reply L253  gguf=\"/tmp/bloomery-pager-contract/fake.gguf\"   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e601 LINE    missing_stats_is_a_contract_violation_not_a_reply L254   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e958 LINE    missing_stats_is_a_contract_violation_not_a_reply L255  a=AgentInfo { id: \"a1\", window_tokens: 4096, bound_by: \"training_ctx\" }   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e2068 LINE    missing_stats_is_a_contract_violation_not_a_reply L259  msg=\"script exhausted\"   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e2083 LINE    missing_stats_is_a_contract_violation_not_a_reply L257   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e2603 LINE    missing_stats_is_a_contract_violation_not_a_reply L263  dir2=\"/tmp/bloomery-pager-contract2\"   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e2619 LINE    missing_stats_is_a_contract_violation_not_a_reply L264  jpath2=\"/tmp/bloomery-pager-contract2/j.jsonl\"   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e2701 LINE    missing_stats_is_a_contract_violation_not_a_reply L265  journal=<unread>   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e2768 LINE    missing_stats_is_a_contract_violation_not_a_reply L266  images=<unread>   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e2792 LINE    missing_stats_is_a_contract_violation_not_a_reply L267  fake=<unread>   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e2812 LINE    missing_stats_is_a_contract_violation_not_a_reply L268   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e2854 LINE    missing_stats_is_a_contract_violation_not_a_reply L274  p2=<unread>   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e2908 LINE    missing_stats_is_a_contract_violation_not_a_reply L275  gguf2=\"/tmp/bloomery-pager-contract2/fake.gguf\"   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e3645 LINE    missing_stats_is_a_contract_violation_not_a_reply L276   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e3741 LINE    missing_stats_is_a_contract_violation_not_a_reply L277  a2=AgentInfo { id: \"a1\", window_tokens: 4096, bound_by: \"training_ctx\" }   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e3870 LINE    missing_stats_is_a_contract_violation_not_a_reply L278   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e3904 LINE    missing_stats_is_a_contract_violation_not_a_reply L282  events=[Degraded { reason: \"admitting agents on qwen with no capability profile (allow_unprofiled); its ceiling and codecs are unmeasured\" }, AgentCreated { id: \"a1\", model: \"qwen\", priority: 50, window_toke\u2026   state: dir=\"/tmp/bloomery-pager-contract\"",
+            "HIT   e3905 LINE    missing_stats_is_a_contract_violation_not_a_reply L283   state: dir=\"/tmp/bloomery-pager-contract\""
+          ],
+          "class_as_predicted": true,
+          "exit_as_predicted": true,
+          "readings_agree": true
+        },
+        {
+          "id": "W2",
+          "run": "F1",
+          "at": "missing_stats_is_a_contract_violation_not_a_reply",
+          "expr": "len(events) == 0",
+          "predicted_class": "NOTHING WAS CHECKED",
+          "predicted_exit": 3,
+          "line": 282,
+          "run_id": "20260906-185918-bbfa7c",
+          "command": "sensorium watch 20260906-185918-bbfa7c --at missing_stats_is_a_contract_violation_not_a_reply --expr len(events) == 0",
+          "rc": 3,
+          "timed_out": false,
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/h4/cli-h4-w2.log",
+          "wall_s": 0.066,
+          "classes": [
+            "NOTHING WAS CHECKED"
+          ],
+          "verdict_class": "NOTHING WAS CHECKED",
+          "hits": 0,
+          "evaluated": 0,
+          "sites": 27,
+          "not_captured": 27,
+          "errors": 0,
+          "counts_line": "sites: 27   evaluated: 0   hits: 0   not-captured: 27   errors: 0",
+          "verdict_line": "verdict: NOTHING WAS CHECKED -- the predicate could not be evaluated at any of the 27 recorded site(s)",
+          "refusal_line": null,
+          "hit_rows": [],
+          "class_as_predicted": true,
+          "exit_as_predicted": true,
+          "readings_agree": true
+        },
+        {
+          "id": "W3",
+          "run": "F2",
+          "at": "pager_with_model",
+          "expr": "dir == \"/tmp/bloomery-pager-contract\"",
+          "predicted_class": "not satisfied",
+          "predicted_exit": 1,
+          "line": 22,
+          "run_id": "20260906-185926-fbede9",
+          "command": "sensorium watch 20260906-185926-fbede9 --at pager_with_model --expr dir == \"/tmp/bloomery-pager-contract\"",
+          "rc": 1,
+          "timed_out": false,
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/h4/cli-h4-w3.log",
+          "wall_s": 0.066,
+          "classes": [
+            "not satisfied"
+          ],
+          "verdict_class": "not satisfied",
+          "hits": 0,
+          "evaluated": 160,
+          "sites": 180,
+          "not_captured": 20,
+          "errors": 0,
+          "counts_line": "sites: 180   evaluated: 160   hits: 0   not-captured: 20   errors: 0",
+          "verdict_line": "verdict: not satisfied at any of the 160 site(s) that could be evaluated -- but 20 of 180 recorded site(s) could NOT be evaluated,",
+          "refusal_line": null,
+          "hit_rows": [],
+          "class_as_predicted": true,
+          "exit_as_predicted": true,
+          "readings_agree": true
+        }
+      ],
+      "stdout": {
+        "W1": "watch 'dir == \"/tmp/bloomery-pager-contract\"' at missing_stats_is_a_contract_violation_not_a_reply in 20260906-185918-bbfa7c\n  a site is one RECORDED event in a matching frame: a CALL (its arguments)\n  or a LINE (that frame's locals, folded forward and dropped again when a\n  name goes out of scope). Whatever ran between two recorded sites\n  was not checked, and code this run never recorded is not in this trace.\nsites: 27   evaluated: 25   hits: 25   not-captured: 2   errors: 0\nverdict: SATISFIED at 25 of the 25 site(s) the predicate could be evaluated at\n  but 2 of 27 recorded site(s) could NOT be evaluated, so these are not necessarily every time it held\n  HIT   e76 LINE    missing_stats_is_a_contract_violation_not_a_reply L251  dir=\"/tmp/bloomery-pager-contract\"   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e373 LINE    missing_stats_is_a_contract_violation_not_a_reply L252  jpath=\"/tmp/bloomery-pager-contract/j.jsonl\", p=<unread>   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e426 LINE    missing_stats_is_a_contract_violation_not_a_reply L253  gguf=\"/tmp/bloomery-pager-contract/fake.gguf\"   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e601 LINE    missing_stats_is_a_contract_violation_not_a_reply L254   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e958 LINE    missing_stats_is_a_contract_violation_not_a_reply L255  a=AgentInfo { id: \"a1\", window_tokens: 4096, bound_by: \"training_ctx\" }   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e2068 LINE    missing_stats_is_a_contract_violation_not_a_reply L259  msg=\"script exhausted\"   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e2083 LINE    missing_stats_is_a_contract_violation_not_a_reply L257   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e2603 LINE    missing_stats_is_a_contract_violation_not_a_reply L263  dir2=\"/tmp/bloomery-pager-contract2\"   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e2619 LINE    missing_stats_is_a_contract_violation_not_a_reply L264  jpath2=\"/tmp/bloomery-pager-contract2/j.jsonl\"   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e2701 LINE    missing_stats_is_a_contract_violation_not_a_reply L265  journal=<unread>   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e2768 LINE    missing_stats_is_a_contract_violation_not_a_reply L266  images=<unread>   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e2792 LINE    missing_stats_is_a_contract_violation_not_a_reply L267  fake=<unread>   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e2812 LINE    missing_stats_is_a_contract_violation_not_a_reply L268   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e2854 LINE    missing_stats_is_a_contract_violation_not_a_reply L274  p2=<unread>   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e2908 LINE    missing_stats_is_a_contract_violation_not_a_reply L275  gguf2=\"/tmp/bloomery-pager-contract2/fake.gguf\"   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e3645 LINE    missing_stats_is_a_contract_violation_not_a_reply L276   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e3741 LINE    missing_stats_is_a_contract_violation_not_a_reply L277  a2=AgentInfo { id: \"a1\", window_tokens: 4096, bound_by: \"training_ctx\" }   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e3870 LINE    missing_stats_is_a_contract_violation_not_a_reply L278   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e3904 LINE    missing_stats_is_a_contract_violation_not_a_reply L282  events=[Degraded { reason: \"admitting agents on qwen with no capability profile (allow_unprofiled); its ceiling and codecs are unmeasured\" }, AgentCreated { id: \"a1\", model: \"qwen\", priority: 50, window_toke\u2026   state: dir=\"/tmp/bloomery-pager-contract\"\n  HIT   e3905 LINE    missing_stats_is_a_contract_violation_not_a_reply L283   state: dir=\"/tmp/bloomery-pager-contract\"\n... 5 more; continue with: sensorium watch 20260906-185918-bbfa7c --at missing_stats_is_a_contract_violation_not_a_reply --expr 'dir == \"/tmp/bloomery-pager-contract\"' --limit 20 --misses 5 --after e3905\nnot captured at 2 of 27 site(s) -- the predicate could not be checked there:\n  dir: not in scope at this site   [2 site(s)]\n      recorded at other sites in these frames, so this is scope, not capture depth:\n      at those sites it was not bound yet, or had gone out of scope again (`del`, or the\n      implicit unbind that ends an `except E as e:` block)\n\n",
+        "W2": "watch 'len(events) == 0' at missing_stats_is_a_contract_violation_not_a_reply in 20260906-185918-bbfa7c\n  a site is one RECORDED event in a matching frame: a CALL (its arguments)\n  or a LINE (that frame's locals, folded forward and dropped again when a\n  name goes out of scope). Whatever ran between two recorded sites\n  was not checked, and code this run never recorded is not in this trace.\nsites: 27   evaluated: 0   hits: 0   not-captured: 27   errors: 0\nverdict: NOTHING WAS CHECKED -- the predicate could not be evaluated at any of the 27 recorded site(s)\n  'hits: 0' here means 'could not evaluate', NOT 'the invariant held'\nnot captured at 27 of 27 site(s) -- the predicate could not be checked there:\n  events: not in scope at this site   [20 site(s)]\n      recorded at other sites in these frames, so this is scope, not capture depth:\n      at those sites it was not bound yet, or had gone out of scope again (`del`, or the\n      implicit unbind that ends an `except E as e:` block)\n  events: recorded truncated, so the trace does not hold the whole value   [7 site(s)]\n      the capture is a prefix cut at the string cap, so the value itself was never recorded\n      see the caps this run used with: sensorium info 20260906-185918-bbfa7c\nno near-misses: a near-miss distance is only defined for a single numeric ordering comparison\n  ('len(events) == 0' has no boundary to approach; try one of < <= > >= over numbers)\n\n",
+        "W3": "watch 'dir == \"/tmp/bloomery-pager-contract\"' at pager_with_model in 20260906-185926-fbede9\n  a site is one RECORDED event in a matching frame: a CALL (its arguments)\n  or a LINE (that frame's locals, folded forward and dropped again when a\n  name goes out of scope). Whatever ran between two recorded sites\n  was not checked, and code this run never recorded is not in this trace.\nsites: 180   evaluated: 160   hits: 0   not-captured: 20   errors: 0\nverdict: not satisfied at any of the 160 site(s) that could be evaluated -- but 20 of 180 recorded site(s) could NOT be evaluated,\n  so this is not a claim that the invariant held\nnot captured at 20 of 180 site(s) -- the predicate could not be checked there:\n  dir: not in scope at this site   [20 site(s)]\n      recorded at other sites in these frames, so this is scope, not capture depth:\n      at those sites it was not bound yet, or had gone out of scope again (`del`, or the\n      implicit unbind that ends an `except E as e:` block)\nno near-misses: a near-miss distance is only defined for a single numeric ordering comparison\n  ('dir == \"/tmp/bloomery-pager-contract\"' has no boundary to approach; try one of < <= > >= over numbers)\n\n"
+      },
+      "disagreeing": [],
+      "bucket_counts": {
+        "W1": {
+          "sites": 27,
+          "evaluated": 25,
+          "hits": 25,
+          "not_captured": 2,
+          "errors": 0,
+          "counts_line": "sites: 27   evaluated: 25   hits: 25   not-captured: 2   errors: 0"
+        },
+        "W2": {
+          "sites": 27,
+          "evaluated": 0,
+          "hits": 0,
+          "not_captured": 27,
+          "errors": 0,
+          "counts_line": "sites: 27   evaluated: 0   hits: 0   not-captured: 27   errors: 0"
+        },
+        "W3": {
+          "sites": 180,
+          "evaluated": 160,
+          "hits": 0,
+          "not_captured": 20,
+          "errors": 0,
+          "counts_line": "sites: 180   evaluated: 160   hits: 0   not-captured: 20   errors: 0"
+        }
+      }
+    },
+    "H5": {
+      "headline": {
+        "value": 2,
+        "n": 2,
+        "lens": "FIRST reading (the gate): sightings found among focus value A's LINE deltas at the line \u00a71.3 derives, of the two; \u00a71.3's two `flow <F1 run> --value <literal>` sightings; the GATE is the sighting set restricted to focus value A's LINE deltas, and every sighting anywhere in the trace is reported beside it -- the unfocused `common::pager` helpers are still instrumented at the call tier and their RETURN values carry the same texts",
+        "dropped": []
+      },
+      "unpredicted_gated_sightings": {
+        "value": 0,
+        "n": 2,
+        "lens": "sightings of the literal among A's LINE deltas at any OTHER line -- the gate is 0, and `--value` is equality, never a prefix test",
+        "dropped": []
+      },
+      "whole_trace_sightings": {
+        "value": {
+          "S1": 2,
+          "S2": 1
+        },
+        "n": 2,
+        "lens": "SECOND reading (reported, not gated): every sighting of the literal ANYWHERE in the trace, per literal, gated set included -- `flow`'s own `sightings:` count, which it computes over its whole scope and not over the printed page (`flow_cmd._print_footer`)",
+        "dropped": []
+      },
+      "page_truncated": [],
+      "sightings": [
+        {
+          "id": "S1",
+          "literal": "/tmp/bloomery-pager-contract",
+          "binding": "dir",
+          "line": 251,
+          "run_id": "20260906-185918-bbfa7c",
+          "command": "sensorium flow 20260906-185918-bbfa7c --value /tmp/bloomery-pager-contract --limit 1000",
+          "rc": 0,
+          "timed_out": false,
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/h5/cli-h5-s1.log",
+          "wall_s": 0.074,
+          "sighting_events": 2,
+          "sighting_captures": 2,
+          "scope_captures": 1951,
+          "scope_events": 1950,
+          "sightings_line": "sightings: 2 event(s), 2 capture(s)",
+          "scope_line": "scope: 1951 capture(s) searched across 1950 event(s)",
+          "page_truncated": false,
+          "rows_printed": 2,
+          "showing": null,
+          "flow_limit": 1000,
+          "gated_rows": [
+            "e76 LINE    missing_stats_is_a_contract_violation_not_a_reply L251  dir=\"/tmp/bloomery-pager-contract\"   [local dir]"
+          ],
+          "gated_count": 1,
+          "found_at_predicted_line": true,
+          "unpredicted_gated_rows": [],
+          "whole_trace_rows": [
+            "e72 RETURN  fresh_dir -> \"/tmp/bloomery-pager-contract\"   [return]",
+            "e76 LINE    missing_stats_is_a_contract_violation_not_a_reply L251  dir=\"/tmp/bloomery-pager-contract\"   [local dir]"
+          ],
+          "printed_row_count": 2
+        },
+        {
+          "id": "S2",
+          "literal": "/tmp/bloomery-pager-contract2/j.jsonl",
+          "binding": "jpath2",
+          "line": 264,
+          "run_id": "20260906-185918-bbfa7c",
+          "command": "sensorium flow 20260906-185918-bbfa7c --value /tmp/bloomery-pager-contract2/j.jsonl --limit 1000",
+          "rc": 0,
+          "timed_out": false,
+          "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/h5/cli-h5-s2.log",
+          "wall_s": 0.076,
+          "sighting_events": 1,
+          "sighting_captures": 1,
+          "scope_captures": 1951,
+          "scope_events": 1950,
+          "sightings_line": "sightings: 1 event(s), 1 capture(s)",
+          "scope_line": "scope: 1951 capture(s) searched across 1950 event(s)",
+          "page_truncated": false,
+          "rows_printed": 1,
+          "showing": null,
+          "flow_limit": 1000,
+          "gated_rows": [
+            "e2619 LINE    missing_stats_is_a_contract_violation_not_a_reply L264  jpath2=\"/tmp/bloomery-pager-contract2/j.jsonl\"   [local jpath2]"
+          ],
+          "gated_count": 1,
+          "found_at_predicted_line": true,
+          "unpredicted_gated_rows": [],
+          "whole_trace_rows": [
+            "e2619 LINE    missing_stats_is_a_contract_violation_not_a_reply L264  jpath2=\"/tmp/bloomery-pager-contract2/j.jsonl\"   [local jpath2]"
+          ],
+          "printed_row_count": 1
+        }
+      ],
+      "stdout": {
+        "S1": "flow of '/tmp/bloomery-pager-contract' (str) in 20260906-185918-bbfa7c\n  captured-value equality, not true dataflow analysis: the trace records values, not the edges between them\n  e72 RETURN  fresh_dir -> \"/tmp/bloomery-pager-contract\"   [return]\n  e76 LINE    missing_stats_is_a_contract_violation_not_a_reply L251  dir=\"/tmp/bloomery-pager-contract\"   [local dir]\nsightings: 2 event(s), 2 capture(s)\nscope: 1951 capture(s) searched across 1950 event(s) in CALL args, RETURN values and LINE local deltas\nnote: 23 of 1951 capture(s) searched were truncated (over-cap or depth-capped containers, or clipped strings); the parts not recorded could not be compared, so a value present only there is not listed\n\n",
+        "S2": "flow of '/tmp/bloomery-pager-contract2/j.jsonl' (str) in 20260906-185918-bbfa7c\n  captured-value equality, not true dataflow analysis: the trace records values, not the edges between them\n  e2619 LINE    missing_stats_is_a_contract_violation_not_a_reply L264  jpath2=\"/tmp/bloomery-pager-contract2/j.jsonl\"   [local jpath2]\nsightings: 1 event(s), 1 capture(s)\nscope: 1951 capture(s) searched across 1950 event(s) in CALL args, RETURN values and LINE local deltas\nnote: 23 of 1951 capture(s) searched were truncated (over-cap or depth-capped containers, or clipped strings); the parts not recorded could not be compared, so a value present only there is not listed\n\n"
+      }
+    },
+    "H6": {
+      "headline": {
+        "value": 6.693,
+        "n": 4,
+        "lens": "REPORTED, NOT GATED: the slowest of the four invocation walls, seconds, of the runs timed; F1 against U1 and F2 against U2, under both readings: libtest's own reported time (`finished in <n>s`, summed over the run's targets) and the wall of the whole `cargo sensorium` invocation including the focused rebuild",
+        "dropped": []
+      },
+      "libtest_s": {
+        "value": {
+          "U1": 0.0,
+          "F1": 0.0,
+          "U2": 0.0,
+          "F2": 0.0
+        },
+        "n": 4,
+        "lens": "FIRST reading: libtest's own reported time per run, seconds (null for a run whose summary line carried none)",
+        "dropped": []
+      },
+      "invocation_s": {
+        "value": {
+          "U1": 6.693,
+          "F1": 6.69,
+          "U2": 1.448,
+          "F2": 6.587
+        },
+        "n": 4,
+        "lens": "SECOND reading: the wall of each whole `cargo sensorium` invocation, seconds",
+        "dropped": []
+      },
+      "pairs": {
+        "F1/U1": {
+          "focused_libtest_s": 0.0,
+          "unfocused_libtest_s": 0.0,
+          "focused_invocation_s": 6.69,
+          "unfocused_invocation_s": 6.693,
+          "libtest_delta_s": 0.0,
+          "invocation_delta_s": -0.003
+        },
+        "F2/U2": {
+          "focused_libtest_s": 0.0,
+          "unfocused_libtest_s": 0.0,
+          "focused_invocation_s": 6.587,
+          "unfocused_invocation_s": 1.448,
+          "libtest_delta_s": 0.0,
+          "invocation_delta_s": 5.139
+        }
+      },
+      "trace_bytes": {
+        "U1": 942080,
+        "F1": 958464,
+        "U2": 507904,
+        "F2": 520192
+      }
+    },
+    "H7": {
+      "headline": {
+        "value": 0,
+        "n": 125,
+        "lens": "FIRST reading: corpus questions whose printed answer is not the case's registered expectation, of the questions asked; THIS repository, not the clone: `corpus/run_corpus.py --json` over EVERY case (the six new Rust focus cases included) under a FRESH corpus target and `SENSORIUM_CARGO_SENSORIUM`; the whole Python suite under `plain_env()` plus that same variable, so the module skipped without a built driver RUNS; and `cargo test --workspace` in `rust/` under the workspace target",
+        "dropped": []
+      },
+      "corpus_rc": {
+        "value": 0,
+        "n": 57,
+        "lens": "SECOND reading: the collector's exit status, of the cases it ran -- 0 is every case equal",
+        "dropped": []
+      },
+      "corpus_errors": {
+        "value": 0,
+        "n": 57,
+        "lens": "harness errors -- a case that crashed the collector answered nothing and is not a pass",
+        "dropped": []
+      },
+      "corpus_skipped": {
+        "value": 0,
+        "n": 57,
+        "lens": "cases the collector SKIPPED, of the cases -- `run_corpus` skips a cargo case when it can find no driver and still exits 0, so a green H7 over a skipped corpus is not `every case equal`; the gate is 0",
+        "dropped": []
+      },
+      "pytest_rc": {
+        "value": 0,
+        "n": null,
+        "lens": "`pytest -q` exit status -- 0 is green",
+        "dropped": []
+      },
+      "pytest_summary": {
+        "value": "1437 passed, 1 skipped in 125.03s (0:02:05)",
+        "n": null,
+        "lens": "the suite's own summary line, recorded whole",
+        "dropped": []
+      },
+      "cargo_rc": {
+        "value": 0,
+        "n": 39,
+        "lens": "`cargo test --workspace` exit status, of its `test result:` lines",
+        "dropped": []
+      },
+      "corpus_failures": [],
+      "corpus_skipped_cases": [],
+      "corpus_cases": 57,
+      "corpus_questions": 125,
+      "cargo_result_lines": [
+        "test result: ok. 278 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.14s",
+        "test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.29s",
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s",
+        "test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+        "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+        "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.73s",
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.38s",
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s",
+        "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+        "test result: ok. 81 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s",
+        "test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+        "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s",
+        "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+        "test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+        "test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+        "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s",
+        "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.59s",
+        "test result: ok. 0 passed; 0 failed; 9 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 14 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "walls_s": {
+        "corpus": 54.852,
+        "python": 125.31,
+        "cargo": 11.028
+      },
+      "logs": {
+        "corpus": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/h7/h7-corpus.log",
+        "python": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/h7/h7-pytest.log",
+        "cargo": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/h7/h7-cargo.log"
+      },
+      "driver_sha256_after": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930"
+    }
+  },
+  "predictions": {
+    "note": "\u00a71's pre-registration, recorded beside the measurements and never inside one; a headline that borrowed from here could not fail",
+    "focus_values": {
+      "A": "missing_stats_is_a_contract_violation_not_a_reply",
+      "B": "pager_with_model"
+    },
+    "N": 26,
+    "accounted_N": [
+      25,
+      26,
+      27
+    ],
+    "expected_by_line": {
+      "250": 1,
+      "251": 1,
+      "252": 1,
+      "253": 1,
+      "254": 1,
+      "255": 1,
+      "257": 1,
+      "259": 1,
+      "263": 1,
+      "264": 1,
+      "265": 1,
+      "266": 1,
+      "267": 1,
+      "268": 1,
+      "274": 1,
+      "275": 1,
+      "276": 1,
+      "277": 1,
+      "278": 1,
+      "282": 1,
+      "283": 1,
+      "286": 1,
+      "287": 1,
+      "292": 1,
+      "293": 1,
+      "300": 1
+    },
+    "watch_triples": [
+      {
+        "id": "W1",
+        "run": "F1",
+        "at": "missing_stats_is_a_contract_violation_not_a_reply",
+        "expr": "dir == \"/tmp/bloomery-pager-contract\"",
+        "predicted_class": "SATISFIED",
+        "predicted_exit": 0,
+        "line": 251
+      },
+      {
+        "id": "W2",
+        "run": "F1",
+        "at": "missing_stats_is_a_contract_violation_not_a_reply",
+        "expr": "len(events) == 0",
+        "predicted_class": "NOTHING WAS CHECKED",
+        "predicted_exit": 3,
+        "line": 282
+      },
+      {
+        "id": "W3",
+        "run": "F2",
+        "at": "pager_with_model",
+        "expr": "dir == \"/tmp/bloomery-pager-contract\"",
+        "predicted_class": "not satisfied",
+        "predicted_exit": 1,
+        "line": 22
+      }
+    ],
+    "flow_sightings": [
+      {
+        "id": "S1",
+        "literal": "/tmp/bloomery-pager-contract",
+        "binding": "dir",
+        "line": 251
+      },
+      {
+        "id": "S2",
+        "literal": "/tmp/bloomery-pager-contract2/j.jsonl",
+        "binding": "jpath2",
+        "line": 264
+      }
+    ],
+    "temp_root": "/tmp",
+    "tmpdir_observed": null
+  },
+  "reported": {
+    "unread_and_truncated_captures": {
+      "per_run": {
+        "U1": {
+          "line_events": 0,
+          "line_deltas": 0,
+          "line_deltas_unread": 0,
+          "line_deltas_truncated": 0,
+          "line_rows_with_dropped_locals": 0,
+          "bit0_ever_set": false,
+          "unread_delta_names": {},
+          "truncated_delta_names": {},
+          "all_captures": 1934,
+          "all_captures_unread": 264,
+          "all_captures_truncated": 20
+        },
+        "F1": {
+          "line_events": 26,
+          "line_deltas": 17,
+          "line_deltas_unread": 5,
+          "line_deltas_truncated": 3,
+          "line_rows_with_dropped_locals": 0,
+          "bit0_ever_set": false,
+          "unread_delta_names": {
+            "fake": 1,
+            "images": 1,
+            "journal": 1,
+            "p": 1,
+            "p2": 1
+          },
+          "truncated_delta_names": {
+            "events": 1,
+            "failed": 1,
+            "status": 1
+          },
+          "all_captures": 1951,
+          "all_captures_unread": 269,
+          "all_captures_truncated": 23
+        },
+        "U2": {
+          "line_events": 0,
+          "line_deltas": 0,
+          "line_deltas_unread": 0,
+          "line_deltas_truncated": 0,
+          "line_rows_with_dropped_locals": 0,
+          "bit0_ever_set": false,
+          "unread_delta_names": {},
+          "truncated_delta_names": {},
+          "all_captures": 499,
+          "all_captures_unread": 130,
+          "all_captures_truncated": 24
+        },
+        "F2": {
+          "line_events": 160,
+          "line_deltas": 140,
+          "line_deltas_unread": 80,
+          "line_deltas_truncated": 0,
+          "line_rows_with_dropped_locals": 0,
+          "bit0_ever_set": false,
+          "unread_delta_names": {
+            "fake": 20,
+            "images": 20,
+            "journal": 20,
+            "p": 20
+          },
+          "truncated_delta_names": {},
+          "all_captures": 639,
+          "all_captures_unread": 210,
+          "all_captures_truncated": 24
+        }
+      },
+      "recorder_truncated_count": {
+        "U1": 20,
+        "F1": 23,
+        "U2": 24,
+        "F2": 24
+      },
+      "bit0_ever_set": {
+        "U1": false,
+        "F1": false,
+        "U2": false,
+        "F2": false
+      },
+      "note": "\u00a71.4's honesty count, reported without a gate; `journal`, `images`, `p`, `p2` and `fake` are expected among the unread"
+    },
+    "watch_bucket_counts": {
+      "W1": {
+        "sites": 27,
+        "evaluated": 25,
+        "hits": 25,
+        "not_captured": 2,
+        "errors": 0
+      },
+      "W2": {
+        "sites": 27,
+        "evaluated": 0,
+        "hits": 0,
+        "not_captured": 27,
+        "errors": 0
+      },
+      "W3": {
+        "sites": 180,
+        "evaluated": 160,
+        "hits": 0,
+        "not_captured": 20,
+        "errors": 0
+      }
+    },
+    "flow_pages": {
+      "S1": {
+        "limit": 1000,
+        "rows_printed": 2,
+        "showing": null,
+        "page_truncated": false
+      },
+      "S2": {
+        "limit": 1000,
+        "rows_printed": 1,
+        "showing": null,
+        "page_truncated": false
+      }
+    },
+    "walls_s": {
+      "U1": 6.693,
+      "F1": 6.69,
+      "U2": 1.448,
+      "F2": 6.587
+    },
+    "libtest_s": {
+      "U1": 0.0,
+      "F1": 0.0,
+      "U2": 0.0,
+      "F2": 0.0
+    },
+    "pairs": {
+      "F1/U1": {
+        "focused_libtest_s": 0.0,
+        "unfocused_libtest_s": 0.0,
+        "focused_invocation_s": 6.69,
+        "unfocused_invocation_s": 6.693,
+        "libtest_delta_s": 0.0,
+        "invocation_delta_s": -0.003
+      },
+      "F2/U2": {
+        "focused_libtest_s": 0.0,
+        "unfocused_libtest_s": 0.0,
+        "focused_invocation_s": 6.587,
+        "unfocused_invocation_s": 1.448,
+        "libtest_delta_s": 0.0,
+        "invocation_delta_s": 5.139
+      }
+    },
+    "line_histogram": {
+      "250": 1,
+      "251": 1,
+      "252": 1,
+      "253": 1,
+      "254": 1,
+      "255": 1,
+      "257": 1,
+      "259": 1,
+      "263": 1,
+      "264": 1,
+      "265": 1,
+      "266": 1,
+      "267": 1,
+      "268": 1,
+      "274": 1,
+      "275": 1,
+      "276": 1,
+      "277": 1,
+      "278": 1,
+      "282": 1,
+      "283": 1,
+      "286": 1,
+      "287": 1,
+      "292": 1,
+      "293": 1,
+      "300": 1
+    },
+    "line_histogram_via_code_id": {
+      "250": 1,
+      "251": 1,
+      "252": 1,
+      "253": 1,
+      "254": 1,
+      "255": 1,
+      "257": 1,
+      "259": 1,
+      "263": 1,
+      "264": 1,
+      "265": 1,
+      "266": 1,
+      "267": 1,
+      "268": 1,
+      "274": 1,
+      "275": 1,
+      "276": 1,
+      "277": 1,
+      "278": 1,
+      "282": 1,
+      "283": 1,
+      "286": 1,
+      "287": 1,
+      "292": 1,
+      "293": 1,
+      "300": 1
+    },
+    "line_rows_per_run": {
+      "U1": null,
+      "F1": null,
+      "U2": null,
+      "F2": null
+    },
+    "trace_bytes": {
+      "U1": 942080,
+      "F1": 958464,
+      "U2": 507904,
+      "F2": 520192
+    },
+    "whole_trace_sightings": {
+      "S1": [
+        "e72 RETURN  fresh_dir -> \"/tmp/bloomery-pager-contract\"   [return]",
+        "e76 LINE    missing_stats_is_a_contract_violation_not_a_reply L251  dir=\"/tmp/bloomery-pager-contract\"   [local dir]"
+      ],
+      "S2": [
+        "e2619 LINE    missing_stats_is_a_contract_violation_not_a_reply L264  jpath2=\"/tmp/bloomery-pager-contract2/j.jsonl\"   [local jpath2]"
+      ]
+    },
+    "gated_sightings": {
+      "S1": [
+        "e76 LINE    missing_stats_is_a_contract_violation_not_a_reply L251  dir=\"/tmp/bloomery-pager-contract\"   [local dir]"
+      ],
+      "S2": [
+        "e2619 LINE    missing_stats_is_a_contract_violation_not_a_reply L264  jpath2=\"/tmp/bloomery-pager-contract2/j.jsonl\"   [local jpath2]"
+      ]
+    },
+    "driver": "/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium",
+    "driver_sha256": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+    "driver_sha256_after": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+    "driver_built_from": {
+      "repo_head_at_build": "5e943833cf358da67536a7b96dc91b7d096f145f",
+      "repo_porcelain_at_build": "",
+      "command": "cargo build -p cargo-sensorium",
+      "profile": "debug",
+      "cargo_target_dir": "/mnt/extra/sensorium-rung2/rust-target",
+      "cargo_rc": 0,
+      "cargo_wall_s": 0.059,
+      "timed_out": false,
+      "kill_s": 3600,
+      "driver": "/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium",
+      "driver_sha256_before_build": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+      "driver_sha256_after_build": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+      "rebuilt": false,
+      "log": "/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-06-sensorium-rung4-focus-tier/acceptance-e9/logs/built-from/built-from.log"
+    },
+    "tmpdir_observed": null,
+    "tmpdir_reading": "TMPDIR was unset, so `std::env::temp_dir()` is `/tmp` and W1/W3/S1/S2 read as \u00a71.2 and \u00a71.3 derive them",
+    "sensorium_tier": "unset -- \u00a71.4 leaves the coarse tier at its default `call` for all four runs, so U1/U2 and F1/F2 differ only by `--focus`",
+    "invocation_log": "NOT silenced: SENSORIUM_NO_INVOCATION_LOG is unset, so every reader call this record makes appends a row to the store's `invocations.jsonl`, and the count is recorded at the end",
+    "invocations_jsonl_lines": 7,
+    "store_bytes": 2995448,
+    "traces_recorded": 4,
+    "e9_target_bytes": 1613203557,
+    "corpus_target_bytes": 657035678,
+    "disk_free_gb": {
+      "repo_before": 12.73,
+      "repo_after": 12.73,
+      "target_before": 92.12,
+      "target_after": 90.12
+    },
+    "load_at_each_phase": [
+      {
+        "arm": "records",
+        "load_1min": 1.03,
+        "at": "2026-09-06T18:59:05-0500"
+      },
+      {
+        "arm": "H1",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:26-0500"
+      },
+      {
+        "arm": "H2",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:26-0500"
+      },
+      {
+        "arm": "H3",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:26-0500"
+      },
+      {
+        "arm": "H4",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:26-0500"
+      },
+      {
+        "arm": "H5",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:27-0500"
+      },
+      {
+        "arm": "H6",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:27-0500"
+      },
+      {
+        "arm": "H7",
+        "load_1min": 1.22,
+        "at": "2026-09-06T18:59:27-0500"
+      }
+    ]
+  },
+  "cleanup": {
+    "clone_head_after": "e209ed9b00f7eef647fb31d0b0895a5ad3b90807",
+    "clone_porcelain_after": "",
+    "clone_cargo_lock_sha256_after": "c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca",
+    "clone_cargo_lock_moved": false,
+    "clone_cargo_lock_sha256_restored": null,
+    "clone_cargo_lock_back_on_the_pin": true,
+    "driver_sha256_after": "cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930",
+    "driver_unchanged": true,
+    "store_bytes": 2995448,
+    "traces_recorded": 4,
+    "invocations_jsonl_lines": 7,
+    "absent_after_the_run": [],
+    "e9_target_bytes": 1613203557,
+    "corpus_target_bytes": 657035678,
+    "repo_porcelain_after": "",
+    "repo_disk_free_gb_after": 12.73,
+    "target_disk_free_gb_after": 90.12,
+    "finished": "2026-09-06T19:02:38-0500"
+  },
+  "steps": [
+    "[18:59:05] byte-lock ok: locked range == ffaed19:docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md (sha256 473f86203189, 24095 bytes, footnotes none); original lock a4264b5 sha256 15f0537587f5, amended=True",
+    "[18:59:05] rung-4 focus-tier (E9) preflight",
+    "[18:59:05] built_from: HEAD 5e943833cf35 rc 0 in 0.059s; driver cf0c3f7fe425 rebuilt=False",
+    "[18:59:05] preflight ok: load=1.03 clone=e209ed9b00f7 driver=cf0c3f7fe425 target free 92.1 GB; TMPDIR=None",
+    "[18:59:05] U1: sensorium test -p bloomery-daemon --test pager_obligation_test",
+    "[18:59:11] U1: rc=0 run=20260906-185911-1ba726 focus=[] outcome={'targets': 1, 'passed': 15, 'failed': 0, 'ignored': 0, 'measured': 0, 'filtered_out': 0, 'verdicts': ['ok']} wall=6.693s",
+    "[18:59:11] F1: sensorium --focus missing_stats_is_a_contract_violation_not_a_reply test -p bloomery-daemon --test pager_obligation_test",
+    "[18:59:18] F1: rc=0 run=20260906-185918-bbfa7c focus=['missing_stats_is_a_contract_violation_not_a_reply'] outcome={'targets': 1, 'passed': 15, 'failed': 0, 'ignored': 0, 'measured': 0, 'filtered_out': 0, 'verdicts': ['ok']} wall=6.69s",
+    "[18:59:18] U2: sensorium test -p bloomery-daemon --test pager_codec_gate_test",
+    "[18:59:20] U2: rc=0 run=20260906-185920-580f4e focus=[] outcome={'targets': 1, 'passed': 20, 'failed': 0, 'ignored': 0, 'measured': 0, 'filtered_out': 0, 'verdicts': ['ok']} wall=1.448s",
+    "[18:59:20] F2: sensorium --focus pager_with_model test -p bloomery-daemon --test pager_codec_gate_test",
+    "[18:59:26] F2: rc=0 run=20260906-185926-fbede9 focus=['pager_with_model'] outcome={'targets': 1, 'passed': 20, 'failed': 0, 'ignored': 0, 'measured': 0, 'filtered_out': 0, 'verdicts': ['ok']} wall=6.587s",
+    "[18:59:26] H1: caps line=False locals=False; LINE rows 0; watch exit 3; refusal equal True",
+    "[18:59:26] H2: resolved-to-one True; outcomes equal True; focused failures []",
+    "[18:59:26] H3: N=26 (gate 26); activations 1; line differences 0; joins agree True",
+    "[18:59:26] H4 W1: class 'SATISFIED' (predicted 'SATISFIED'), exit 0 (predicted 0); sites 27 hits 25 not-captured 2",
+    "[18:59:26] H4 W2: class 'NOTHING WAS CHECKED' (predicted 'NOTHING WAS CHECKED'), exit 3 (predicted 3); sites 27 hits 0 not-captured 27",
+    "[18:59:27] H4 W3: class 'not satisfied' (predicted 'not satisfied'), exit 1 (predicted 1); sites 180 hits 0 not-captured 20",
+    "[18:59:27] H5 S1: 2 sighting event(s); gated to A's LINE deltas 1; at line 251 True",
+    "[18:59:27] H5 S2: 1 sighting event(s); gated to A's LINE deltas 1; at line 264 True",
+    "[18:59:27] H7(corpus): the collector over every case",
+    "[19:00:22] H7(python): the whole suite",
+    "[19:02:27] H7(rust): cargo test --workspace",
+    "[19:02:38] H7: corpus rc 0 (57 cases, 0 failures); pytest rc 0; cargo rc 0",
+    "[19:02:38] cleanup: clone HEAD e209ed9b00f7, Cargo.lock moved False back-on-the-pin True; 4 trace(s), 2995448 store bytes; driver unchanged True"
+  ],
+  "stop": null,
+  "refused": null,
+  "error": null,
+  "started": "2026-09-06T18:59:05-0500",
+  "finished": "2026-09-06T19:02:38-0500",
+  "assembled": {
+    "at": "2026-09-06T19:04:12-0500",
+    "from": "results-e9-raw.json",
+    "by": "rust/tests/acceptance_e9.py --assemble",
+    "note": "derived from the raw facts the run recorded, which nothing since has touched; no phase was re-run and no value re-measured"
+  }
+}

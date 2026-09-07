@@ -1,0 +1,108 @@
+program: cargo
+cargo_args: ["--focus", "go", "run"]
+questions:
+  - id: does-a-focused-function-that-moves-a-value-still-build
+    ask: >
+      `go` moves a `Vec` out of `v` and into `w`. A probe that captured
+      every live binding after every statement would have to borrow `v`
+      after it was moved, and that does not compile. Did this focused build
+      succeed, and what did it declare?
+    truth: >
+      It did -- the existence of this recording is the answer, since a
+      focused unit that fails to compile records nothing at all (design §9
+      names it a STOP, not a silent fallback to unfocused). It compiles
+      because of design §3.2's F3 rule: a LINE's deltas are the bindings
+      THAT STATEMENT wrote, taken by shared borrow immediately after the
+      write, before any later move -- so `v` is captured at its own `let`
+      and never touched again. `focus: go` is the invocation's own list
+      (amendment A9) and `line=yes locals=yes` is the recorder's statement
+      that some unit of this run carries LINE sites (§2.4).
+    why_logs_fail: >
+      This question is about the instrument, not the program, and no
+      arrangement of prints in the program can answer it: a `dbg!(&v)` after
+      the move would not compile either, which is the whole point. Borrow
+      safety by construction is a property of where probes are put, and the
+      only evidence for it is a build that succeeded and a trace that
+      exists.
+    command: ["info", "$RUN"]
+    expect_contains:
+      - "line=yes locals=yes"
+      - "LINE 4"
+    expect_line:
+      - ["focus: go", "window: -"]
+  - id: what-was-captured-on-either-side-of-the-move
+    ask: >
+      What do the rows for `v` and `w` hold, given that they are the same
+      allocation and only one of them still owns it?
+    truth: >
+      Both hold the Debug text `[1, 2]`, at L8 and L9 -- `v` captured at its
+      own `let` before the move, `w` at its own after it, exactly design
+      §6's reading of this case. Then `n=2` at L10. Four rows: 1 parameters
+      LINE (amendment A2; `go` takes no parameters and the row is minted
+      anyway) + 3 statements; the tail `n` on L11 is not a statement and
+      mints none. The trace does not claim the two names are the same
+      object -- this recorder declares `object_identity: false` -- it
+      reports two captures whose text is equal, which is all the wire holds.
+    why_logs_fail: >
+      `dbg!(&v)` after line 9 does not compile -- the value has moved --
+      and `dbg!(&v)` before it does not tell you that line 9 is where
+      ownership left. What the rows carry is the pair, in order, from one
+      unmodified run; the ordering IS the answer and no single `dbg!`
+      carries it.
+    command: ["frame", "$RUN", "f2"]
+    expect_count: {"LINE": 4, "[1, 2]": 2}
+    expect_line:
+      - ["e3", "LINE", "go L7"]
+      - ["e4", "LINE", "go L8", "v=[1, 2]"]
+      - ["e5", "LINE", "go L9", "w=[1, 2]"]
+      - ["e6", "LINE", "go L10", "n=2"]
+    expect_absent: ["go L11"]
+  - id: where-does-the-value-two-appear
+    ask: >
+      `go` returns 2. Is that 2 the length it computed, and does the literal
+      2 appear anywhere else in this run -- inside `[1, 2]`, for instance?
+    truth: >
+      Two sightings, both the same number: the LINE delta `n=2` at L10 and
+      the RETURN of `go`. The vector rows do NOT match, because design §4.2
+      compares a `dbg` capture's whole text against the literal's Debug
+      rendering -- `[1, 2]` is not `2` -- and amendment A11 makes that
+      reading the exact inverse of what `watch --expr n == 2` resolves, so
+      the two commands cannot disagree about one capture. A tool that
+      substring-matched inside a container's Debug text would report four
+      sightings here and call two of them dataflow.
+    why_logs_fail: >
+      "Where else did this value appear" is a whole-run question with a
+      stated search scope (5 captures across 5 events), and a `dbg!` answers
+      only for the line it is written on -- to answer this one you would have
+      to have already written it everywhere. The counterfactual matters as
+      much as the hits: the pin is that the elements of the vector are not
+      sighted, and no arrangement of `dbg!` states a non-sighting.
+    command: ["flow", "$RUN", "--value", "2"]
+    expect_contains:
+      - "sightings: 2 event(s), 2 capture(s)"
+      - "scope: 5 capture(s) searched across 5 event(s)"
+    expect_line:
+      - ["e6", "LINE", "go L10", "n=2", "[local n]"]
+      - ["e7", "RETURN", "go -> 2"]
+  - id: was-the-length-two
+    ask: >
+      Did `w.len()` really produce 2?
+    truth: >
+      Yes, at L10 and at the one site where `n` is bound. SATISFIED
+      (amendment A4), exit 0. The four sites the predicate could not be
+      evaluated at are the ones before the `let n`, reported as "not in
+      scope" rather than as misses -- the distinction between "it was not 2"
+      and "there was nothing to compare".
+    why_logs_fail: >
+      The value is printed by `main`, so the answer is not hidden; the pin
+      is that `watch` reaches it through the LINE record and separates the
+      one evaluable site from the four unevaluable ones. A `dbg!(n)` reports
+      a hit and is silent about everywhere it was not written, which is the
+      distinction that matters when the same predicate is asked of a function
+      that runs a thousand times.
+    command: ["watch", "$RUN", "--at", "go", "--expr", "n == 2"]
+    expect_contains:
+      - "verdict: SATISFIED at 1 of the 1 site(s) the predicate could be evaluated at"
+    expect_line:
+      - ["HIT", "e6", "LINE", "go L10", "n=2"]
+    expect_exit: 0

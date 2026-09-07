@@ -1,0 +1,92 @@
+program: cargo
+cargo_args: ["--focus", "fill", "run"]
+questions:
+  - id: what-was-b-when-the-statement-wrote-it
+    ask: >
+      `fill` returns the string "2" and nothing else about its inside is
+      printed. What was the local `b` at the statement that wrote it?
+    truth: >
+      2, at `main.rs:13` -- the `let b = a + 1;` statement. Under a focus the
+      recorder produces one LINE per completed statement and the LINE's
+      deltas are the bindings that statement wrote (design §3.2, F3), so the
+      value is pinned to the write rather than to the function, and `watch`
+      names the event that carries it. The verdict word is the tool's own
+      (amendment A4): SATISFIED, exit 0. It is SATISFIED at 2 of 2
+      evaluable sites and says so beside the 3 it could not evaluate: the
+      CALL row -- `watch` counts the activation's CALL as a site before any
+      LINE -- and the parameters LINE and the `let a` LINE, at neither of
+      which `b` is bound yet. "Not in scope" is reported as its own reason
+      rather than folded into the hit count.
+    why_logs_fail: >
+      A `dbg!(&b)` on line 13 really would print this one value, so the
+      claim here is not that the value is unreachable -- it is that reaching
+      it costs an edit, a rebuild, and a guess made in advance about WHICH
+      line and WHICH name matter. This recording answers for every statement
+      of `fill` at once, after the fact, and states the sites where the
+      predicate could not be checked instead of leaving them silent. A tool
+      that printed "hits: 2" without the 3 unevaluable sites would be
+      claiming the invariant held throughout the frame.
+    command: ["watch", "$RUN", "--at", "fill", "--expr", "b == 2"]
+    expect_contains:
+      - "verdict: SATISFIED at 2 of the 2 site(s) the predicate could be evaluated at"
+      - "but 3 of 5 recorded site(s) could NOT be evaluated"
+    expect_line:
+      - ["HIT", "e5", "LINE", "fill L13", "b=2"]
+    expect_exit: 0
+  - id: how-many-line-rows-does-one-activation-carry
+    ask: >
+      `fill` has three statements and a tail expression. How many LINE rows
+      did its single activation record, and at which lines?
+    truth: >
+      Four, and the count is derived from the rules before it is measured.
+      Design §3.1: one probe per statement, and the tail expression is NOT a
+      statement -- its value is the RETURN's -- so line 15 mints nothing.
+      Amendment A2: a function with no parameters still mints its parameters
+      LINE, with empty deltas, "so every focused activation has a first
+      LINE". 1 + 3 = 4: L11 (the `fn` line, no deltas), L12 `a=1`, L13
+      `b=2`, L14 `s="2"`. The absence of L15 is the pinned half: a row there
+      would be the transform double-counting the tail.
+    why_logs_fail: >
+      A `dbg!` per statement produces the same four lines only if someone
+      has already decided that four is the right number -- which is the fact
+      under test. The row no `dbg!` would ever emit is the first one: an
+      empty-delta LINE that says the function was entered and its parameter
+      list bound nothing. And the fifth row, the one at line 15 that must NOT
+      exist, is an absence; `dbg!` can state a presence and nothing else.
+      RUST_LOG has no logger to reach in this crate and nothing panics, so
+      RUST_BACKTRACE never prints.
+    command: ["frame", "$RUN", "f2"]
+    expect_count: {"LINE": 4}
+    expect_line:
+      - ["e3", "LINE", "fill L11"]
+      - ["e4", "LINE", "fill L12", "a=1"]
+      - ["e5", "LINE", "fill L13", "b=2"]
+      - ["e6", "LINE", "fill L14", "s=\"2\""]
+    expect_absent: ["fill L15"]
+  - id: does-the-trace-declare-what-it-was-focused-on
+    ask: >
+      Was this recording focused, and does it say so where a reader who did
+      not launch it would look?
+    truth: >
+      Yes. `focus: fill` is the invocation's own list, handed to the
+      converter by the driver and never read back out of an accumulated
+      manifest (amendment A9), so it is a fact about THIS run. Beside it,
+      `capabilities` reads `line=yes locals=yes`, which design §2.4 makes
+      true only because some unit of this run carries at least one LINE site
+      -- the recorder's statement about itself, on the same footing as
+      `err_flow`, not the converter's guess. `LINE 4` in the `recorded:`
+      tally is the same four rows the frame shows.
+    why_logs_fail: >
+      Neither a `dbg!` nor a RUST_LOG level tells a later reader which
+      functions were instrumented, and that is precisely what makes a
+      per-line answer trustworthy or not: on an unfocused run of this same
+      driver the capability reads `line=no` and `watch` refuses (see
+      `rust/focus_unfocused_refuses`). Without the declaration, an empty LINE
+      tally and a function that never ran are indistinguishable -- and a
+      `dbg!` that was never added leaves exactly that same silence.
+    command: ["info", "$RUN"]
+    expect_contains:
+      - "line=yes locals=yes"
+      - "LINE 4"
+    expect_line:
+      - ["focus: fill", "window: -"]

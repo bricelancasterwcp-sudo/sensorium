@@ -58,9 +58,11 @@ pub struct Rewrite {
 
 /// Materialise `rewrites` into `mirror`, mirroring `ws`.
 ///
-/// `tool_hash` is the other half of the cache key: a new transformer or a new
-/// driver must invalidate every cached rewrite even where the source did not
-/// change.
+/// `tool_hash` and `focus_hash` are the other two thirds of the cache key: a
+/// new transformer or driver must invalidate every cached rewrite even where
+/// the source did not change, and so must a new focus, whose splices are a
+/// pure function of (source, focus) and nothing else (design 2026-09-06
+/// §2.3). `focus_hash` is `"0"` for the unfocused build.
 ///
 /// # Errors
 /// Any filesystem error, with the path that caused it already in the message.
@@ -69,6 +71,7 @@ pub fn materialise(
     mirror: &Path,
     cache: &Path,
     tool_hash: &str,
+    focus_hash: &str,
     rewrites: &[Rewrite],
 ) -> io::Result<()> {
     let rewritten: BTreeMap<&str, &Rewrite> =
@@ -91,7 +94,7 @@ pub fn materialise(
     fs::create_dir_all(cache)?;
     sync_dir(ws, mirror, cache, "", &required, &rewritten)?;
     for r in rewrites {
-        write_rewrite(mirror, cache, tool_hash, r)?;
+        write_rewrite(mirror, cache, tool_hash, focus_hash, r)?;
     }
     Ok(())
 }
@@ -197,8 +200,14 @@ fn remove_any(path: &Path) -> io::Result<()> {
 /// Write one rewritten file unless the cache says the identical bytes are
 /// already there. Skipping is not an optimisation: rewriting would move the
 /// mtime and make cargo rebuild a unit nothing changed in.
-fn write_rewrite(mirror: &Path, cache: &Path, tool_hash: &str, r: &Rewrite) -> io::Result<()> {
-    let key = format!("{tool_hash}:{}", r.source_hash);
+fn write_rewrite(
+    mirror: &Path,
+    cache: &Path,
+    tool_hash: &str,
+    focus_hash: &str,
+    r: &Rewrite,
+) -> io::Result<()> {
+    let key = format!("{tool_hash}:{focus_hash}:{}", r.source_hash);
     let stamp = cache.join(sha256::hex(r.rel.as_bytes()));
     let dest = join(mirror, &r.rel);
     let fresh = matches!(fs::read_to_string(&stamp), Ok(s) if s == key)
@@ -374,7 +383,19 @@ mod tests {
     }
 
     fn run(t: &Tmp, rewrites: &[Rewrite], tool: &str) {
-        materialise(&t.p("ws"), &t.p("mirror"), &t.p("cache"), tool, rewrites).unwrap();
+        run_focused(t, rewrites, tool, "0");
+    }
+
+    fn run_focused(t: &Tmp, rewrites: &[Rewrite], tool: &str, focus: &str) {
+        materialise(
+            &t.p("ws"),
+            &t.p("mirror"),
+            &t.p("cache"),
+            tool,
+            focus,
+            rewrites,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -691,5 +712,42 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(20));
         }
+    }
+
+    /// The stamp is `{tool}:{focus}:{source}` (design 2026-09-06 §2.3). A
+    /// focus changes what the transformer splices into the SAME source bytes,
+    /// so without its hash in the key the second build would find the first
+    /// build's file "fresh" and compile the wrong splices.
+    #[test]
+    fn the_cache_key_carries_the_focus_so_two_focuses_do_not_share_a_stamp() {
+        let t = Tmp::new("focuskey");
+        fixture(&t);
+        let source = "fn a() {}\n";
+        let source_hash = sha256::hex(source.as_bytes());
+        let stamp = t.p("cache").join(sha256::hex(b"a/src/lib.rs"));
+
+        run(&t, &[rewrite("a/src/lib.rs", "GUARDED\n", source)], "t1");
+        assert_eq!(
+            fs::read_to_string(&stamp).unwrap(),
+            format!("t1:0:{source_hash}"),
+            "the unfocused build reads as the absence of a focus"
+        );
+
+        // Same tool, same source bytes, a focus: the rewrite must happen again.
+        run_focused(
+            &t,
+            &[rewrite("a/src/lib.rs", "FOCUSED\n", source)],
+            "t1",
+            "7e18f737311b2dc3",
+        );
+        assert_eq!(
+            fs::read_to_string(&stamp).unwrap(),
+            format!("t1:7e18f737311b2dc3:{source_hash}")
+        );
+        assert_eq!(
+            fs::read_to_string(t.p("mirror/a/src/lib.rs")).unwrap(),
+            "FOCUSED\n",
+            "a new focus must not find the old file fresh"
+        );
     }
 }

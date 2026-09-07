@@ -170,7 +170,7 @@ RUST_META = {
     "env_hash": "0" * 16, "start_ts": 0.0, "end_ts": 1.0, "exit_status": 0,
     "main_thread_ident": 1, "fingerprint_basis": "per-task",
     "truncated_count": 0, "source_hashes": {},
-    "recorder": "sensorium-rt 0.3.0", "lang": "rust",
+    "recorder": "sensorium-rt 0.4.0", "lang": "rust",
     "capabilities": RUST_CAPABILITIES,
     "threads_started": 0, "live_threads": [], "incomplete": False,
 }

@@ -12,7 +12,7 @@
 //!                rewritten IN PLACE through the mapping and are final only once THREAD_END is present)
 //! record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome_or_how  u16 payload_len  [payload_len bytes]
 //! kind:         0 = UNWRITTEN (the mapped tail; the reader STOPS at the first kind 0), 1 = CALL, 2 = RETURN,
-//!               3 = PANIC, 4 = RAISE, 5 = HANDLED, 255 = THREAD_END
+//!               3 = PANIC, 4 = RAISE, 5 = HANDLED, 6 = LINE, 255 = THREAD_END
 //! outcome:      RETURN only: 0 none, 1 ok, 2 err, 3 panic; 0 on CALL, PANIC and THREAD_END
 //! how:          RAISE/HANDLED only, in the same byte: 1 try, 2 sink_ok, 3 sink_unwrap_or, 4 sink_let_underscore,
 //!               5 arm_propagate, 6 arm_handled, 7 arm_ambiguous, 8 exit (converter-synthesised only, NEVER on the wire)
@@ -24,6 +24,12 @@
 //! RAISE/HANDLED payload:  u8 flags (bit0 msg present, bit1 msg truncated, bit2 type truncated, bit3 type present)
 //!                  u16 type_len, type UTF-8, then the Err's UTF-8 message (rest)
 //! PANIC payload:   u16 loc_len, loc UTF-8 ("<file>:<line>:<col>" as the hook saw it), then the message UTF-8 (rest)
+//! LINE payload:    u8 flags (bit0 deltas dropped) u16 n, then n ×
+//!                  { u16 name_len, name UTF-8, u8 tag (0 no value, 1 debug text, 2 unread),
+//!                    u8 truncated, [u16 text_len, text UTF-8 -- present iff tag == 1] }
+//!                  The value block is the RETURN payload's, repeated, with the binding's name in
+//!                  front of it. Tag 0 never appears on a LINE: a delta is a binding a statement
+//!                  wrote, so it has a value or it is unread. `outcome_or_how` is 0.
 //! ```
 //!
 //! Everything is little-endian. `ts_ns` is `CLOCK_MONOTONIC` nanoseconds and
@@ -89,6 +95,17 @@ pub(crate) const KIND_RAISE: u8 = 4;
 /// An `Err` seen at a site that ABSORBS it: `.ok()`, `.unwrap_or(..)`,
 /// `let _ =`, a handling or an ambiguous arm.
 pub(crate) const KIND_HANDLED: u8 = 5;
+/// One completed statement of a FOCUSED function, and the bindings it wrote
+/// (rung 4 slice 1, `src/line.rs`). Written only under `--focus`, which is a
+/// compile-time decision: a trace with no LINE record is a run of a workspace
+/// nothing was focused in.
+///
+/// `capabilities.line` says so in the trace, but it is NOT written here:
+/// unlike `err_flow`, which this runtime declares in its proc header below, the
+/// line capability is declared by `cargo-sensorium`'s CONVERTER, from whether
+/// any unit of the run actually carries a LINE site (design 2026-09-06 §2.4).
+/// Do not look for it in `write_proc_header`.
+pub(crate) const KIND_LINE: u8 = 6;
 pub(crate) const KIND_THREAD_END: u8 = 255;
 
 pub(crate) const OUTCOME_NONE: u8 = 0;
@@ -104,7 +121,7 @@ pub(crate) const UNIT_ID_SHIFT: u32 = 24;
 /// crate with a bare `rustc` invocation (D1), where cargo's environment does
 /// not exist and `env!` would not compile. A unit test below holds it to the
 /// manifest.
-pub(crate) const RT_VERSION: &str = "sensorium-rt 0.3.0";
+pub(crate) const RT_VERSION: &str = "sensorium-rt 0.4.0";
 
 fn round_up_to_chunk(n: usize) -> usize {
     n.div_ceil(CHUNK) * CHUNK

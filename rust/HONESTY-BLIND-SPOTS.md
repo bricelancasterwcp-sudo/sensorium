@@ -5,8 +5,10 @@ The numbered list of [`rust/HONESTY.md`](HONESTY.md) §8, **moved here
 framing paragraphs stay there; **the numbering is unchanged**, so item *n*
 here is `rust/HONESTY.md` §8 item *n* — the spelling every code comment and
 the ledger's index already use. Items 1–14 are rung 2's, verbatim except
-item 2, which rung 3 narrowed to the recordings it is still true of. Items
-15–26 are rung 3's own, from the design's R16 (`?`, sinks and `Err` arms:
+item 2, which rung 3 narrowed to the recordings it is still true of, and
+item 3, which rung 4's focus tier narrowed 2026-09-06 to what a focus still
+does not reach. Items 15–26 are rung 3's own, from the design's R16 (`?`,
+sinks and `Err` arms:
 `docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`).
 
 Each entry names **what declares it** — the field or line a reader meets
@@ -42,15 +44,111 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    declares it does not produce (capabilities.err_flow: false); nothing was
    checked` — exit 3. *Falsified by* `docs/trace-format/vectors/v19-err-flow-capability-refusal.json`
    and `tests/test_exceptions_rust_gate.py`.
-3. **Locals, and per-line state — rung 4.** Nothing is captured between a
-   function's entry and its exit, so a value that changed in place mid-frame,
-   including mutation through a long-lived `&mut`, is invisible. *Declared by*
-   `capabilities.line: false` and `capabilities.locals: false`; by the
-   `"unread": ["locals"]` marker every CALL payload carries, which `tree`
-   renders as `name() <unread: locals>` and `frame` as
-   `args: <unread: locals>` — never `(none)`, which would read as "called with
-   no arguments"; and by the refusal `watch` and `flow` print:
-   `REFUSED: watch needs line, which recorder sensorium-rt 0.1.0 declares it
+3. **Locals, and per-line state — what a `--focus` still does not reach.**
+   **Narrowed 2026-09-06** (rung 4 slice 1, design §3.3), not struck: the
+   focus tier gives one LINE per completed statement of a focused function,
+   with the bindings that statement wrote (`rust/HONESTY.md` §12), and what is
+   left is exactly this list.
+   * **Every function no `--focus` named.** Nothing is captured between its
+     entry and its exit, so a value that changed in place mid-frame — mutation
+     through a long-lived `&mut` included — is invisible there, which is what
+     this item said of every function before this rung.
+   * **Closure bodies, `async fn` bodies and `async` blocks**, focused or not:
+     the statement walk stops at them (call-level instrumentation only, and an
+     `async fn` is skipped whole for item 5's reason).
+   * **Macro bodies.** A macro invocation is ONE statement with empty
+     `deltas`; the expansion is not inspected, so a binding written inside it
+     mints nothing.
+   * **Place writes and `&mut` mutation.** `*p = e`, `a.b = e`, `v[i] = e` and
+     a mutating method call are not deltas (design §3.2): those statements
+     mint a row with empty `deltas`, which says the line ran and nothing about
+     what it changed.
+   * **A `loop` a `break` leaves, nested inside a COMPOSITE statement**
+     (`unsafe { loop { break; } }`, a `match` whose every arm is such a loop):
+     the divergence walk calls it diverging and it loses its row. It costs a
+     row and never a build.
+   * **Statements under `#[cfg]` / `#[cfg_attr]`**, which are declined: the
+     probe is spliced after the statement and would survive a `cfg` that
+     stripped it, so the row would name a binding that was never built.
+   * **A pattern name whose first character is uppercase** is read as a path
+     pattern (`None`, a unit variant, a const) and mints no delta — `syn`
+     cannot tell it from a binding, and resolution is rustc's job. The cost is
+     a missed delta for a binding written against Rust's own naming
+     convention.
+   * ~~**A `let` whose head type is wholly unresolved** (`let x =
+     Default::default();`, resolved by a later use) is design §9's named
+     compile risk: the probe constrains nothing and the unit may fail to
+     compile. E9 H2 measured **0** focused build failures over two units,
+     which does not reach this shape — named, not measured.~~ **Struck and
+     corrected 2026-09-06** (the whole-branch review's item 2, after E9): the
+     mechanism named here is wrong, and wrong in the direction that matters. A
+     probe on such a `let` does not *constrain nothing* — it constrains the
+     variable to `Debug`, at the probe. The replacement is the next bullet;
+     E9 H2's **0** build failures over two units still stands and still does
+     not reach the shape.
+   * **A `let` whose head type is an INFERENCE VARIABLE that a later statement
+     resolves to a non-`Debug` type.** `let mut v = Vec::new();` followed by
+     `v.push(Opaque)`; `let mut x = None;` followed by `x = Some(Opaque)`;
+     `let x = Default::default();`; a `.collect()` whose collection type
+     arrives later. **Measured mechanism**: the autoref ladder is resolved
+     where the probe is spliced, and at that point the head type is an open
+     inference variable, so the ladder COMMITS the variable to its `Debug`
+     rung. The later resolution then has to satisfy `Debug` and does not:
+     `error[E0277]: `Opaque` doesn't implement `Debug``, and the unit does not
+     build. This is not "`Vec::new()` is unsupported" — `let mut v =
+     Vec::new();` resolving to `Vec<u8>` compiles (compiled by hand at the fix wave; no case in the tree pins it), and so does a
+     `Vec<T>` for a generic `T` with no `Debug` bound, because there the bound
+     is unprovable rather than open and the ladder takes its fallback rung and
+     records `unread` (compiled by hand at the fix wave; not pinned by a case). What breaks it is an OPEN variable that
+     closes on a type without `Debug`.
+     *Declared by* the whole unit falling back to the real tree and saying so
+     on stderr — `sensorium: unit <crate> (<metadata>) fell back to the real
+     tree: <rustc's first error>` (`fallback::announce`) — so the trace has no
+     LINE row for anything in that unit and the build named the reason.
+     *Falsified by* `rust/sensorium-transform/tests/focus_compile_fail/focus_infer_debug.rs`
+     (the failure, in its error class) against
+     `tests/golden_focus/focus_moved_value.in.rs` (the same `Vec::new()` shape
+     resolving to a type that does implement `Debug`, compiled clean).
+     The repair is a ruling, not an oversight: an opt-out spelling, or
+     declining the delta on an initializer with no type witness, costs
+     something either way, and both are `docs/CARRIED-DEBT.md`.
+   * **A brace-delimited MACRO in TAIL position** — `fn f() -> i32 { m! { 1 } }`,
+     which is the shape of a `quote!`/`html!`-terminated function and so of
+     proc-macro and markup crates. **Measured mechanism**: `syn` reads that
+     tail as a `Stmt::Macro` whose `semi_token` is `None`, and `lines.rs`'s
+     `statement_end` hands a brace-delimited macro the byte after its closing
+     brace without asking whether it is the block's tail — so a LINE is minted
+     after a macro that IS the return value. The tail takes the RETURN wrap as
+     well, and the two together give `…, m! { 1 })::sensorium_rt::line(…)`,
+     which rustc rejects as `expected one of `.`, `;`, `?`, `}`, or an
+     operator, found `::``. Being a PARSE error it takes the file, so the unit
+     fails to build under a focus.
+     *Declared by* the same loud whole-unit fallback as the bullet above.
+     *Falsified by* `rust/sensorium-transform/tests/focus_compile_fail/focus_macro_tail.rs`.
+     The guard is one line — `lines.rs`'s `Stmt::Macro` arm returning `None`
+     when `is_tail` — and it is NOT taken here: it is a `src` change after the
+     measurement (R-F14), so it is `docs/CARRIED-DEBT.md` for Brice or slice 2.
+   * **A focused function that was BUILT but never RAN** leaves
+     `capabilities.line: true` with zero LINE rows (`--focus tests::x` under
+     `cargo run`). That is honest under design §2.4 — the capability is a
+     statement about what the recorder produces, not a promise that it did —
+     and the two facts are scoped differently on purpose: `focus_matched` is
+     about the BUILD (the manifests built under this invocation's focus),
+     `capabilities.line` / `locals` about the RUN (its registered units).
+   *Declared by* `capabilities.line` and `capabilities.locals`, which are
+   `true` for `lang = rust` **only under a `--focus`**; by `meta.focus` (the
+   invocation's own list) and `meta.focus_matched` (what this build matched),
+   both printed by `info`; by the `"unread": ["locals"]` marker every CALL
+   payload carries, which `tree` renders as `name() <unread: locals>` and
+   `frame` as `args: <unread: locals>` — never `(none)`, which would read as
+   "called with no arguments" — and which a LINE row carries too when a delta
+   was dropped; by the driver's exit-2 refusals, which name a `--focus` value
+   that matches nothing (`REFUSED: --focus <v> matches no function in the
+   workspace; nothing was built.` with up to three `Closest:` suggestions) or
+   that matches only functions the transform skips, each named with its
+   reason, and build nothing; and, on an unfocused trace, by the unchanged
+   refusal `watch` and `flow` print:
+   `REFUSED: watch needs line, which recorder sensorium-rt 0.4.0 declares it
    does not produce (capabilities.line: false); nothing was checked`.
 4. **What the program printed.** libtest owns the capture and the hook that
    would take it is unstable. *Declared by* `capabilities.output: false`: the

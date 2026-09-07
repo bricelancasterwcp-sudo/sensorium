@@ -219,7 +219,7 @@ fn err_payload(pat: &Pat) -> Option<&Pat> {
 /// The escape test runs over ALL of them: `Err(MyErr { source })` binds
 /// `source`, and a `source` that escapes is an error that escaped whether or
 /// not the probe could name it.
-fn bound_names(pat: &Pat, out: &mut Vec<String>) {
+pub(crate) fn bound_names(pat: &Pat, out: &mut Vec<String>) {
     struct Walk<'a>(&'a mut Vec<String>);
     impl<'ast> Visit<'ast> for Walk<'_> {
         fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {

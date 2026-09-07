@@ -24,6 +24,9 @@
 //!   exactly the block that was added.
 //! * `@K(<site>)` -- the guard of a CLOSURE frame. The same bytes `@G` expands
 //!   to, under a name that says which kind of frame a golden is pinning.
+//! * `@N(<site>[,<name>]*)` -- one focus tier LINE probe. With no names it is
+//!   the `|| []` form a statement that wrote nothing mints; each name adds one
+//!   `("<name>", ::sensorium_rt::probe_cap!(&<name>))` delta, in order.
 //!
 //! The three err-wrap pairs are one fragment with three `how` bytes, so they
 //! share an expansion; the marker still has to MATCH its opener, which is what
@@ -33,13 +36,27 @@
 use std::fs;
 use std::path::PathBuf;
 
-use sensorium_transform::{transform_file, FileRole, RetKind, SiteKind, Transformed};
+use sensorium_transform::{transform_file, FileRole, Focus, RetKind, SiteKind, Transformed};
 
 pub const META: &str = "d41d8cd98f00b204";
 pub const FILE: &str = "src/lib.rs";
 
 pub fn guard(site: u32) -> String {
     format!("let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, {site});")
+}
+
+/// One LINE probe, exactly as design amendment A7 spells it. Written here a
+/// second time on purpose: a golden that disagrees with `lines::line_fragment`
+/// is what says the emitted text changed.
+pub fn line_probe(site: u32, names: &[&str]) -> String {
+    let deltas: Vec<String> = names
+        .iter()
+        .map(|n| format!("(\"{n}\", ::sensorium_rt::probe_cap!(&{n}))"))
+        .collect();
+    format!(
+        "::sensorium_rt::line(&crate::__SENSORIUM_UNIT, {site}, || [{}]);",
+        deltas.join(", ")
+    )
 }
 
 pub fn ret_open(site: u32) -> String {
@@ -163,6 +180,13 @@ pub fn expand(template: &str) -> String {
                 "@P( takes at most three arguments )"
             );
             rest = next;
+        } else if let Some(after) = tail.strip_prefix("@N(") {
+            let (arg, next) = split_arg(after, "@N(");
+            let mut parts = arg.split(',');
+            let site = parse_site(parts.next().expect("@N( needs a site )"), "@N(");
+            let names: Vec<&str> = parts.collect();
+            out.push_str(&line_probe(site, &names));
+            rest = next;
         } else if let Some(after) = tail.strip_prefix("@K(") {
             let (arg, next) = split_arg(after, "@K(");
             out.push_str(&guard(parse_site(arg, "@K(")));
@@ -236,6 +260,67 @@ pub fn read(case: &str, ext: &str) -> String {
     fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {}: {e}", path.display()))
 }
 
+/// The FOCUS goldens live in their own directory, because every case in
+/// `tests/golden` is transformed with NO focus by five different tests and must
+/// stay byte-identical under one -- which is the point those tests make.
+pub fn focus_path(case: &str, ext: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/golden_focus")
+        .join(format!("{case}.{ext}.rs"))
+}
+
+pub fn read_focus(case: &str, ext: &str) -> String {
+    let path = focus_path(case, ext);
+    fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {}: {e}", path.display()))
+}
+
+/// Run one FOCUS golden case, with the same invariants [`run`] asserts: exact
+/// output, line count preserved, a re-parse, and a real top-level static.
+pub fn run_focus(case: &str, first_site: u32, focus: &Focus) -> Transformed {
+    let input = read_focus(case, "in");
+    let expected = expand(&read_focus(case, "out"));
+    let t = transform_file(
+        &input,
+        FILE,
+        META,
+        first_site,
+        FileRole {
+            is_crate_root: true,
+            is_bin_root: false,
+        },
+        focus,
+    )
+    .unwrap_or_else(|e| panic!("{case}: transform failed: {e}"));
+
+    assert_eq!(t.source, expected, "{case}: transformed source differs");
+    assert_eq!(
+        t.source.lines().count(),
+        input.lines().count() + usize::from(t.appended_line),
+        "{case}: line count moved (appended_line = {})",
+        t.appended_line
+    );
+    syn::parse_file(&t.source)
+        .unwrap_or_else(|e| panic!("{case}: transformed source does not re-parse: {e}"));
+    assert!(
+        top_level_unit_static(&t.source),
+        "{case}: the unit static must be a real top-level item, not commented out"
+    );
+    t
+}
+
+/// The LINE sites of a result: `(site, qualname, line)`.
+pub fn line_sites(t: &Transformed) -> Vec<(u32, &str, u32)> {
+    t.sites
+        .iter()
+        .filter(|s| s.kind == SiteKind::Line)
+        .map(|s| {
+            assert_eq!(s.ret, None, "a line row has no signature to read");
+            assert_eq!(s.how, None, "a line row writes no how byte");
+            (s.site, s.qualname.as_str(), s.firstlineno)
+        })
+        .collect()
+}
+
 /// Run one golden case and assert the invariants every case shares: exact
 /// output, line count preserved, the result re-parses, and the unit static is a
 /// real top-level item rather than text inside a comment.
@@ -261,7 +346,7 @@ pub fn run(case: &str, first_site: u32) -> Transformed {
 pub fn run_role(case: &str, first_site: u32, role: FileRole) -> Transformed {
     let input = read(case, "in");
     let expected = expand(&read(case, "out"));
-    let t = transform_file(&input, FILE, META, first_site, role)
+    let t = transform_file(&input, FILE, META, first_site, role, &Focus::EMPTY)
         .unwrap_or_else(|e| panic!("{case}: transform failed: {e}"));
 
     assert_eq!(t.source, expected, "{case}: transformed source differs");
@@ -300,10 +385,16 @@ pub fn sites(t: &Transformed) -> Vec<(u32, &str, u32, RetKind)> {
 }
 
 /// The ERR-FLOW sites of a result: `(site, qualname, line, kind, how)`.
+///
+/// The filter names the err-flow kinds POSITIVELY. Written as "not a frame" it
+/// swept in `SiteKind::Line` the moment that kind existed and panicked on
+/// `.how.expect(..)` (fix round 1, `focus_err_arm`); a positive list makes the
+/// next new kind a compile error here instead of a panic in an unrelated test
+/// (fix round 2, F3).
 pub fn err_sites(t: &Transformed) -> Vec<(u32, &str, u32, SiteKind, &'static str)> {
     t.sites
         .iter()
-        .filter(|s| !matches!(s.kind, SiteKind::Fn | SiteKind::Closure))
+        .filter(|s| matches!(s.kind, SiteKind::Try | SiteKind::Sink | SiteKind::Arm))
         .map(|s| {
             (
                 s.site,
@@ -428,6 +519,54 @@ pub const CASES: &[&str] = &[
     "unsafe_fn",
     "value_tail",
 ];
+
+/// Every FOCUS golden case, with the `--focus` value it is transformed under.
+/// `focus.rs` asserts one test per entry and `oracle.rs` compiles every entry's
+/// output, so a case added here is covered by both.
+pub const FOCUS_CASES: &[(&str, &str)] = &[
+    ("focus_arm_bare", "pick"),
+    ("focus_attrs", "attributed"),
+    ("focus_closure", "outer"),
+    ("focus_deferred_init", "deferred"),
+    ("focus_err_arm", "handled,bare"),
+    ("focus_fill", "fill"),
+    ("focus_loop", "sum_to_three"),
+    ("focus_loop_break", "wait_then,spins,labelled"),
+    ("focus_match", "classify"),
+    ("focus_moved_value", "move_it"),
+    ("focus_params", "Counter"),
+    ("focus_skipped", "spun"),
+    ("focus_try", "read_one"),
+    ("focus_unmatched", "nothing_here"),
+];
+
+/// The shapes whose FOCUSED output does not compile, with the focus to apply
+/// and the rustc error class the failure must be: `(case, focus, expected)`.
+///
+/// These are documented LIMITATIONS, not goldens, so they live in
+/// `tests/focus_compile_fail/` as inputs only (`<case>.rs`) -- there is no
+/// legal `.out.rs` to check in. `oracle.rs::a_documented_compile_failure_still_fails`
+/// compiles each INPUT clean, transforms it with the real transform, compiles
+/// THAT and requires a non-zero rustc exit whose stderr names `expected`. The
+/// limitation is measured rather than described, and the day one of them is
+/// repaired this test fails loudly instead of the prose quietly going stale.
+pub const COMPILE_FAIL_CASES: &[(&str, &str, &str)] = &[
+    ("focus_infer_debug", "collect_them", "E0277"),
+    ("focus_macro_tail", "wrapped", "found `::`"),
+];
+
+/// The compile-fail inputs' directory, kept out of `golden_focus/` because
+/// every case there is a PAIR and is compiled with an empty stderr required.
+pub fn compile_fail_path(case: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/focus_compile_fail")
+        .join(format!("{case}.rs"))
+}
+
+pub fn read_compile_fail(case: &str) -> String {
+    let path = compile_fail_path(case);
+    fs::read_to_string(&path).unwrap_or_else(|e| panic!("reading {}: {e}", path.display()))
+}
 
 /// The cases `oracle.rs` compiles as a BINARY and runs, comparing the
 /// transformed build's stdout against the untransformed build's.

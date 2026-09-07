@@ -8,11 +8,13 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false`. All three moved to `0.3.0` at the
-err-flow rung of 2026-09-05 (wire v3: RAISE/HANDLED records, a typed `err`
-RETURN, and the `err_flow` capability); later that day the borrow repair moved
-`sensorium-transform` and `cargo-sensorium` to `0.3.1` and left `sensorium-rt`
-at `0.3.0`, because neither the wire nor the runtime changed. Before all that,
+Three crates, all `publish = false`, all three at **`0.4.0`** since the focus
+tier of 2026-09-06 (a new wire kind, LINE, and the `--focus` flag that mints
+it). Before that all three were `0.3.0` at the err-flow rung of 2026-09-05
+(wire v3: RAISE/HANDLED records, a typed `err` RETURN, and the `err_flow`
+capability); later that day the borrow repair moved `sensorium-transform` and
+`cargo-sensorium` to `0.3.1` and left `sensorium-rt` at `0.3.0`, because
+neither the wire nor the runtime changed. Before all that,
 `sensorium-transform` and `cargo-sensorium` were `0.2.0` from the spawn-naming
 change of 2026-09-03 and `sensorium-rt` was `0.1.0`:
 
@@ -33,10 +35,14 @@ captured return value, panics, threads as tasks (libtest's per-test threads and
 the ones your code spawns), and — since 0.3.0 — **err flow**: a record at every
 `?` on a `Result`, at the four written sinks, at `let _ = <value>` and at every
 classified `Err` arm, which is what makes `sensorium exceptions` answer here
-instead of refusing. Workspace crates only, Linux, stable rustc, no
+instead of refusing. Since 0.4.0, and only under a `--focus`, it also records
+**one LINE per completed statement** of the named functions, carrying the
+bindings that statement wrote — which is what makes `watch` and `flow` answer
+here. Workspace crates only, Linux, stable rustc, no
 nightly, no root, no hand annotation. What it does *not* see, and what says so
 in the trace, is [`HONESTY.md`](HONESTY.md) with
-[`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) — read those before you
+[`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) and
+[`HONESTY-ERR-FLOW.md`](HONESTY-ERR-FLOW.md) — read those before you
 trust an answer. The trace contract both recorders are written against is
 [`../docs/TRACE-FORMAT.md`](../docs/TRACE-FORMAT.md).
 
@@ -58,7 +64,9 @@ coexist and what makes it cost disk.
 
 That puts `cargo-sensorium` on `PATH`, which is what makes `cargo sensorium` a
 cargo subcommand. Reading the traces needs the Python side too: `sensorium`
-0.6.0+ reads these traces, and **0.8.0+ is what `exceptions` needs** — an
+0.6.0+ reads these traces, **0.8.0+ is what `exceptions` needs**, and
+**0.8.3+ is what `watch` and `flow` need on a focused trace** — the `::`
+qualname boundary and the rules for reading a `dbg` capture are 0.8.3's. An
 0.6.0/0.7.0 reader opens a 0.3.0 trace and answers every other question, but
 its `exceptions` still refuses, because the Rust disposition rules are 0.8.0's.
 A reader older than 0.6.0 opens them too — they are format 4 and carry every
@@ -67,16 +75,50 @@ provenance the trace does not carry.
 
 ## Record
 
-    cargo sensorium test [--tier off|call] <cargo test args…>
-    cargo sensorium run  [--tier off|call] <cargo run args…>
+    cargo sensorium test [--tier off|call] [--focus <qualname>…] <cargo test args…>
+    cargo sensorium run  [--tier off|call] [--focus <qualname>…] <cargo run args…>
 
-Everything after the tier flag is your cargo command line, unchanged: `-p`,
+Everything after the flags is your cargo command line, unchanged: `-p`,
 `--lib`, `--test NAME`, `--exact`, `-- --test-threads=1`, all of it. Cargo
 stays the runner and the builder; sensorium only changes what gets compiled and
 watches what comes out.
 
 `--tier off` compiles exactly the same artifacts and gates emission at runtime,
 so switching tiers rebuilds nothing.
+
+### `--focus`: per-line answers, for the functions you name
+
+`--focus <qualname>` splices a probe after every statement of each function it
+selects, so the trace carries one LINE event per completed statement with the
+bindings that statement wrote. It is **repeatable**, it takes the file-local
+qualname the recorder itself prints (`Counter::new`, `tests::fill`), and a
+value that names a CONTAINER selects its children — `--focus Counter` selects
+`Counter::new` and `Counter::add`, matching on the `::` boundary so
+`--focus Counter` never quietly selects `Counters::new`.
+
+Resolution happens **before anything is built**, against the workspace's own
+sources and the transform's own eligibility rule. A value that matches
+nothing is refused at exit **2** with nothing built and up to three
+suggestions:
+
+    REFUSED: --focus no_such_fn matches no function in the workspace; nothing was built. Closest: fill, …
+
+A value whose only matches are functions the transform never instruments
+(`async`, `const`, `extern`, macro-produced) is refused the same way, naming
+every one of them with its reason — being told only the first would mean
+meeting the same refusal again. A focus that resolves prints one line per
+selected qualname on stderr before cargo runs, so a record of a run can quote
+what the focus actually selected rather than what was typed:
+
+    focus: fill
+
+The tier is a **compile-time** decision, so it is the build that carries it:
+a focused build declares `capabilities.line` and `capabilities.locals` true
+and records `focus` and `focus_matched` in the trace's meta, and an unfocused
+build of the same crate declares both false and carries no LINE row at all.
+`sensorium info` prints both — `line=yes locals=yes`, and the `focus:` line —
+so a later reader knows what was instrumented without having launched it.
+What a focus still does not reach is `HONESTY-BLIND-SPOTS.md` item 3.
 
 Everything the tool writes inside your workspace lives under
 `<target>/sensorium/` — the mirror it builds in, the per-unit manifests, and
@@ -136,9 +178,10 @@ whole invocation under one header.
 
 ## What refuses, and why
 
-Three commands refuse outright on a Rust trace in this version, none of them
-answering from a capability the recorder declared it does not have. `watch`
-and `flow` print why and exit **3** — change the recording, not the call.
+No command here answers from a capability the recorder declared it does not
+have, and each refusal names the capability and the recorder. `watch` and
+`flow` print why and exit **3** — change the recording, not the call — but
+only on a trace recorded WITHOUT a `--focus`; on a focused one they answer.
 `refocus` exits **2**: its capability check runs before anything is re-run,
 so nothing was re-run and the reader's next move is a different command.
 `exceptions` answers from 0.3.0, and refuses on exactly one thing: a trace an
@@ -147,17 +190,26 @@ older runtime wrote, which carries no err-flow records to judge.
 | Command | Exit | Why |
 |---|---|---|
 | `exceptions` | 3, **only on a pre-0.3.0 trace** | `capabilities.err_flow: false` — the recorder produced no RAISE/HANDLED records, so there is nothing to judge. On a 0.3.0 trace it answers. |
-| `refocus` | 2 | Rung 4 — `capabilities.refocus: false`, caught before any rerun. |
-| `watch`, `flow` | 3 | Per-line state and locals are rung 4 — `capabilities.line: false`. |
+| `refocus` | 2 | Slice 2 of rung 4 — `capabilities.refocus: false`, caught before any rerun. |
+| `watch`, `flow` | 3, **only on an unfocused trace** | `capabilities.line: false` — no `--focus` was given, so no LINE record exists. On a focused trace they answer. |
+
+The unfocused refusal, in full — the sentence
+`corpus/rust/focus_unfocused_refuses` pins byte for byte:
+
+    REFUSED: watch needs line, which recorder sensorium-rt 0.4.0 declares it does not produce (capabilities.line: false); nothing was checked
 
 ## Not yet
 
-Locals and LINE capture under `--focus`, and `refocus` by re-invocation
-(rung 4); program output under libtest; `async fn` bodies, which are
-declared-and-skipped rather than given a frame that would be wrong; object
-identity, which Rust does not have an equivalent of. `?` sites, sinks and
+`refocus` by re-invocation and `--window` (a per-activation runtime check the
+Rust runtime lacks) — both slice 2 of rung 4; program output under libtest;
+probes in closure and `async` bodies; place writes (`*p = e`, `a.b = e`) and
+`&mut` mutation as deltas; arguments on a CALL row; `flow --object`, since
+object identity is not a thing Rust has an equivalent of. `?` sites, sinks and
 `Err`-arm classification **shipped in rung 3** (0.3.0) — what they still
-cannot see is `HONESTY.md` §11 and `HONESTY-BLIND-SPOTS.md` items 15–26.
+cannot see is `HONESTY-ERR-FLOW.md` §11 and `HONESTY-BLIND-SPOTS.md` items
+15–26. LINE and locals under a `--focus` **shipped in rung 4 slice 1**
+(0.4.0) — what they still cannot see is `HONESTY.md` §12 and
+`HONESTY-BLIND-SPOTS.md` item 3, narrowed to exactly that.
 
 The design and its rungs are in
 `../docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md`; what
@@ -185,3 +237,21 @@ A RAISE or HANDLED costs more bytes than a CALL — it carries a type name and
 the `Err`'s capped `Debug` text, ≈ 60–350 bytes against a CALL's 24 — and
 there is no type-intern table, which was a decision for simplicity with this
 number as its check.
+
+**What a focus costs, reported the same way — and what E9 could not measure.**
+A focus is part of the build's cache key: the wrapper shim's path carries the
+focus hash, so every distinct focus gets its own `-C metadata`, its own mirror
+and its own unit manifests, and those **accumulate in the target directory**
+across invocations. Budget roughly one shim copy (~40 MB) and one artifact set
+per distinct focus, and expect a focused build after an unfocused one to
+compile rather than to be `Fresh`. The runtime cost of the probes themselves
+is **not measured**: on the rung-4 acceptance run
+(`../docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md`, endpoint
+**H6**, whose verdict is **REPORTED** with no gate) libtest reported
+**0.00 s** for all four binaries — too fast to time at its resolution — and
+the four invocation walls (U1 **6.693 s**, F1 **6.690 s**, U2 **1.448 s**,
+F2 **6.587 s**) are each dominated by compilation, so *"neither isolates
+run-time overhead"* (record §5.3). A cost claim needs a subject whose test
+binary takes long enough to time and an instrument that separates compile from
+run; this repository has neither yet, and says so rather than quoting a wall
+as an overhead.

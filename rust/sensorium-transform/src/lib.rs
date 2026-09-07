@@ -1,12 +1,13 @@
 //! `sensorium-transform` -- the sensorium Rust recorder's source rewriter.
 //!
-//! It puts seven things into a workspace's own source, WITHOUT moving a single
+//! It puts eight things into a workspace's own source, WITHOUT moving a single
 //! line number: an entry guard at the top of every eligible fn body AND of every
 //! closure that holds a `?`, a capture around every exit operand of those, a
 //! probe around every `?` operand and every written sink's value, a probe at the
 //! entry of every classified `Err(..) =>` arm and `if let Err(..)` body, a named
-//! `spawn_child` in place of `std::thread::spawn`, and one `allow` attribute on
-//! the crate root.
+//! `spawn_child` in place of `std::thread::spawn`, one `allow` attribute on
+//! the crate root, and -- only under a [`Focus`] -- one LINE probe after every
+//! statement of every focused function.
 //!
 //! Spec §3.1 is the whole reason it works this way -- re-printing the AST with
 //! `quote` collapses a file to one line and destroys `line!()`, panic locations
@@ -78,6 +79,18 @@
 //!
 //! (each emitted on one line -- see [`transform`] for where they land and why).
 //!
+//! and, in a function the caller's [`Focus`] selects, after every statement of
+//! its body at every block depth -- carrying the bindings that statement wrote,
+//! by shared borrow, immediately after the write (design 2026-09-06 §3.2,
+//! amendment A7; [`lines`] is where the whole rule lives):
+//!
+//! ```ignore
+//! ::sensorium_rt::line(&crate::__SENSORIUM_UNIT, <site>, || [("x", ::sensorium_rt::probe_cap!(&x))]);
+//! ```
+//!
+//! An EMPTY focus is the whole of the recorder before this existed: not one
+//! byte of any file changes, which `tests/focus.rs` measures per case.
+//!
 //! **What this crate promises**, and where each promise is falsified:
 //! `rust/HONESTY.md` §1 (what an outcome means), §3 (spawn shapes that are
 //! declared rather than rewritten), §8 items 5 and 6 (the declared skips) and §9
@@ -92,14 +105,18 @@ mod closures;
 mod errflow;
 mod escape;
 mod exits;
+pub mod focus;
+mod lines;
 mod manifest;
 mod marks;
 mod names;
+mod sha256;
 mod spawn;
 mod splice;
 mod visit;
 
-pub use manifest::{Manifest, ManifestSite};
+pub use focus::{canonical_values, fn_items, FnItem, Focus};
+pub use manifest::{FocusRecord, Manifest, ManifestSite};
 
 /// The result of rewriting one file.
 #[derive(Debug, Clone)]
@@ -117,6 +134,10 @@ pub struct Transformed {
     /// Every spawn shape the file contains, in source order: the ones that were
     /// rewritten and the ones that were left alone with a reason.
     pub spawns: Vec<SpawnSite>,
+    /// The qualnames of this file's fn items the focus matched, in source
+    /// order. Always empty under an empty focus; the manifest folds these into
+    /// its per-unit `focus.matched`.
+    pub focused: Vec<String>,
     /// True when the crate-root static had to be placed past the end of the
     /// text, so the file gained a FINAL line where there was none. No existing
     /// line moves. See [`transform`]'s "Line numbers" for the only shapes that
@@ -165,6 +186,11 @@ pub enum SiteKind {
     /// An `Err(..) =>` arm or an `if let Err(..)` body, classified (design R2).
     /// A PANIC-classified arm is NOT one of these: it is not probed at all.
     Arm,
+    /// One completed statement of a FOCUSED function, or the parameters LINE
+    /// that opens one, or the entry of an arm or loop body whose pattern binds
+    /// (design 2026-09-06 §3.1). Exists only under a `--focus`, which is what
+    /// makes `capabilities.line` true for a run.
+    Line,
 }
 
 /// One instrumented site. A [`SiteKind::Fn`] one mirrors a Python
@@ -420,6 +446,15 @@ pub const MAX_SITE_INDEX: u32 = 0x00FF_FFFF;
 /// positional `.rs` in rustc's argv is a crate root, and only it gets the
 /// `__SENSORIUM_UNIT` static.
 ///
+/// # The focus
+///
+/// `focus` decides which functions carry LINE probes (design 2026-09-06 §2.1):
+/// a value selects the qualname it names and everything under it at a `::`
+/// boundary. It is read AFTER eligibility, so a `const`/`extern`/`async` fn is
+/// never focused, and [`Focus::EMPTY`] produces byte-for-byte the output this
+/// crate produced before the focus tier existed. [`Transformed::focused`] names
+/// what was selected here.
+///
 /// # Eligibility
 ///
 /// `ItemFn`, `ImplItemFn` and `TraitItemFn` WITH A BODY, at any nesting.
@@ -479,6 +514,7 @@ pub fn transform(
     unit_metadata: &str,
     first_site: u32,
     is_crate_root: bool,
+    focus: &Focus,
 ) -> Result<Transformed, syn::Error> {
     transform_file(
         source,
@@ -489,6 +525,7 @@ pub fn transform(
             is_crate_root,
             is_bin_root: false,
         },
+        focus,
     )
 }
 
@@ -507,8 +544,9 @@ pub fn transform_file(
     unit_metadata: &str,
     first_site: u32,
     role: FileRole,
+    focus: &Focus,
 ) -> Result<Transformed, syn::Error> {
-    splice::run(source, file, unit_metadata, first_site, role)
+    splice::run(source, file, unit_metadata, first_site, role, focus)
 }
 
 /// Count fn items the way [`transform`] classifies them, without rewriting.

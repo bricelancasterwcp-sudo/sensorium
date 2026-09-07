@@ -25,10 +25,11 @@
 //! `Manifest` has no field for it (it ignores unknown keys) -- so it is a
 //! record for a person, not an input to a join.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 
+use crate::focus::Focus;
 use crate::{Partial, RetKind, SiteKind, Skipped, SpawnSite, Transformed};
 
 /// One instrumented site as it appears in a manifest. The manifest keys sites
@@ -46,16 +47,17 @@ use crate::{Partial, RetKind, SiteKind, Skipped, SpawnSite, Transformed};
 pub struct ManifestSite {
     pub site: u32,
     pub qualname: String,
-    /// `"fn"`, `"closure"`, `"try"`, `"sink"` or `"arm"`. A manifest with no
-    /// `kind` at all (transform 0.2.0) is read as all-`fn`, which is what it
-    /// was.
+    /// `"fn"`, `"closure"`, `"try"`, `"sink"`, `"arm"` or `"line"`. A manifest
+    /// with no `kind` at all (transform 0.2.0) is read as all-`fn`, which is
+    /// what it was.
     pub kind: SiteKind,
     /// 1-based line of the `fn` keyword. `fn` rows only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub firstlineno: Option<u32>,
     /// 1-based line of the `?`, the sink's method name, the `let`, the `Err`
-    /// pattern, or a closure's `|`. Every row that is not a `fn` ITEM, which
-    /// includes the `closure` frames: `firstlineno` is where an ITEM begins and
+    /// pattern, a closure's `|`, or -- on a `line` row -- the first line of the
+    /// statement whose completion it records. Every row that is not a `fn` ITEM,
+    /// which includes the `closure` frames: `firstlineno` is where an ITEM begins and
     /// a closure is not one, so a reader joining on it cannot be handed a
     /// closure by accident (design R1b).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -87,6 +89,22 @@ pub struct ManifestSite {
 #[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_false(b: &bool) -> bool {
     !*b
+}
+
+/// What focus this unit was built under (design 2026-09-06 §2.4).
+///
+/// `values` is what the caller asked for, in the order given; `matched` is what
+/// the transformer actually focused in THIS unit, sorted, so that a reader can
+/// see a value that selected nothing here without re-running the walk. The
+/// record is per unit and needs no environment to survive: a manifest read a
+/// week later still says which functions carry LINE sites and why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FocusRecord {
+    pub values: Vec<String>,
+    /// A `BTreeSet` because the join is by name and the design says *sorted*:
+    /// the same qualname can be reached from two files of a unit only if it is
+    /// the same name, and it should appear once.
+    pub matched: BTreeSet<String>,
 }
 
 /// The unit manifest, in the shape the plan names.
@@ -134,6 +152,15 @@ pub struct Manifest {
     /// belongs to -- `Manifest::new` leaves it empty; the wrapper sets it
     /// once it knows.
     pub workspace_root: String,
+    /// The focus this unit was built under, ABSENT when there was none.
+    ///
+    /// Absent rather than empty on purpose: a unit built without a focus and a
+    /// unit built by a transformer that predates the key are the same fact --
+    /// no LINE sites -- and a reader that does not know the key parses both.
+    /// `Task 4`'s converter reads it; `convert/manifest.rs` must keep parsing a
+    /// manifest that has no `focus` at all.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub focus: Option<FocusRecord>,
 }
 
 impl Manifest {
@@ -154,7 +181,23 @@ impl Manifest {
             unreached_reasons: BTreeMap::new(),
             appended_line: BTreeMap::new(),
             workspace_root: String::new(),
+            focus: None,
         }
+    }
+
+    /// Record the focus this unit is being built under.
+    ///
+    /// A no-op for an empty focus, so an unfocused manifest never grows the
+    /// key. Call it before [`Manifest::add_file`]: `matched` is filled from each
+    /// file's result and only while the record exists.
+    pub fn set_focus(&mut self, focus: &Focus) {
+        if focus.is_empty() {
+            return;
+        }
+        self.focus = Some(FocusRecord {
+            values: focus.values().to_vec(),
+            matched: BTreeSet::new(),
+        });
     }
 
     /// Fold one file's result in. Everything except the key comes from the
@@ -175,6 +218,9 @@ impl Manifest {
                 test: site.test,
                 main: site.main,
             });
+        }
+        if let Some(record) = self.focus.as_mut() {
+            record.matched.extend(transformed.focused.iter().cloned());
         }
         self.skipped.extend(transformed.skipped.iter().cloned());
         self.partial.extend(transformed.partial.iter().cloned());

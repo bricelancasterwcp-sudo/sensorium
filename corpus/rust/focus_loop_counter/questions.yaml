@@ -1,0 +1,93 @@
+program: cargo
+cargo_args: ["--focus", "sum", "run"]
+questions:
+  - id: which-pass-of-the-loop-made-total-three
+    ask: >
+      `sum` returns 3. The loop runs three times and `total` is 0, then 1,
+      then 3. On which pass did it first become 3, and is there any other
+      place in this run where the value 3 was held?
+    truth: >
+      On the third pass, at `main.rs:13` -- the `total += i;` statement --
+      and nowhere else in the loop. `flow --value 3` reports two sightings:
+      that LINE delta and the RETURN of `sum`, which is the same 3 leaving
+      the function. Under design §4.2 a `dbg` capture is Debug text and a
+      sighting requires the text to equal the literal's Debug rendering, so
+      the two intermediate values (`total=0`, `total=1`) and the loop
+      counter are correctly not sighted. The scope line says what was
+      searched: 9 captures across 9 events, in CALL args, RETURN values and
+      LINE deltas.
+    why_logs_fail: >
+      A `dbg!(total)` inside the loop prints three lines that all look
+      alike; telling which one is the third means counting them, and counting
+      them is exactly what goes wrong when the loop is not three passes but
+      three thousand. The recording is asked for the VALUE and hands back the
+      event and the line, with a stated search scope -- and it also answers
+      the second half, "where else did this value appear", which a `dbg!`
+      placed in one function cannot answer at all.
+    command: ["flow", "$RUN", "--value", "3"]
+    expect_contains:
+      - "sightings: 2 event(s), 2 capture(s)"
+      - "scope: 9 capture(s) searched across 9 event(s)"
+    expect_line:
+      - ["e10", "LINE", "sum L13", "total=3", "[local total]"]
+      - ["e12", "RETURN", "sum -> 3"]
+    expect_count: {"total=": 1}
+  - id: was-the-counter-two-on-the-last-pass
+    ask: >
+      Did the loop counter `i` ever reach 2, and where?
+    truth: >
+      Yes, at `main.rs:12` on the third entry into the body. Design §3.2's
+      loop row mints a synthetic LINE at the loop's own line once per
+      iteration carrying the pattern's bindings, so `i` exists as a delta
+      three times (0, 1, 2) rather than only as whatever the body happened
+      to print. `watch` reads SATISFIED (amendment A4) at 3 of the 7
+      evaluable sites -- the hit at e9 is the entry itself, and the two
+      after it are the folded-forward state at the rest of that pass, which
+      `watch`'s own preamble explains. The 3 sites it could not evaluate are
+      the ones before `i` was ever bound.
+    why_logs_fail: >
+      `RUST_LOG` has no logger to reach in this crate and nothing panics, so
+      `RUST_BACKTRACE` never prints. A `dbg!(i)` would answer this one
+      question and would have to be written before the run; the point of the
+      pin is that the recording answers it, and the previous question, and
+      the row-count question below, from ONE recording of an unmodified
+      program.
+    command: ["watch", "$RUN", "--at", "sum", "--expr", "i == 2"]
+    expect_contains:
+      - "verdict: SATISFIED at 3 of the 7 site(s) the predicate could be evaluated at"
+    expect_line:
+      - ["HIT", "e9", "LINE", "sum L12", "i=2"]
+    expect_exit: 0
+  - id: how-many-line-rows-does-a-three-pass-loop-carry
+    ask: >
+      How many LINE rows does one activation of `sum` record, and which of
+      them belong to the `for` statement itself rather than to a pass?
+    truth: >
+      Nine, derived from the rules before measuring. 1 parameters LINE
+      (amendment A2 -- `sum` takes none and the row is minted anyway) + 1
+      for `let mut total = 0;` + 3 passes x (1 loop-entry LINE binding `i`,
+      per design §3.2's loop row, + 1 for the compound assignment, whose
+      delta is the bare local on its left) + 1 for the `for` statement
+      itself, which is a statement of the body and takes its own LINE at its
+      own first line (§3.1) once the loop completes. 1+1+6+1 = 9. So L12
+      appears four times: three entries carrying `i`, and once carrying
+      nothing -- the `for` completing. The tail `total` on L15 is not a
+      statement and mints no row.
+    why_logs_fail: >
+      The distinction being pinned -- three loop ENTRIES and one loop
+      COMPLETION, reported at the same source line -- has no `dbg!`-shaped
+      equivalent: a `dbg!` at the top of the body fires three times and says
+      nothing about the loop finishing, and one after the loop says nothing
+      about the passes; two `dbg!`s tell them apart only for a reader who
+      already knew to ask. It is also the falsifier named in design §3.6: a
+      focused function's completed-statement count not matching its LINE
+      count is the recorder breaking its promise.
+    command: ["frame", "$RUN", "f2"]
+    expect_count: {"LINE": 9, "sum L12": 4, "i=": 3}
+    expect_line:
+      - ["e3", "LINE", "sum L10"]
+      - ["e4", "LINE", "sum L11", "total=0"]
+      - ["e5", "LINE", "sum L12", "i=0"]
+      - ["e10", "LINE", "sum L13", "total=3"]
+      - ["e11", "LINE", "sum L12"]
+    expect_absent: ["sum L15"]

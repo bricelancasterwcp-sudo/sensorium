@@ -240,7 +240,7 @@ fn strip(e: &Expr) -> &Expr {
     }
 }
 
-fn diverges(e: &Expr) -> bool {
+pub(crate) fn diverges(e: &Expr) -> bool {
     let e = strip(e);
     diverges_directly(e) || diverges_compositely(e)
 }
@@ -309,7 +309,7 @@ fn escapes_by_label(b: &syn::ExprBlock) -> bool {
     walk.found
 }
 
-fn diverging_macro(mac: &Macro) -> bool {
+pub(crate) fn diverging_macro(mac: &Macro) -> bool {
     mac.path
         .segments
         .last()

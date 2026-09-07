@@ -17,6 +17,17 @@ use std::path::{Path, PathBuf};
 
 const HEADER_FIXED: usize = 28;
 
+/// One delta of a LINE payload, as the two tags a runtime may write for it:
+/// tag 1 (a `Debug` rendering, with the writer's own truncation flag) and tag
+/// 2 (a value the ladder could not read). Tag 0 is legal in the grammar and
+/// unwritable by the runtime (design amendment A7), so no fixture builds one
+/// from here -- the converter's own unit tests are where that byte is met.
+#[derive(Clone, Copy)]
+pub enum LineDelta<'a> {
+    Dbg(&'a str, bool),
+    Unread,
+}
+
 /// One `<pid>.<serial>.spool` file under construction.
 pub struct SpoolBuilder {
     pid: u32,
@@ -189,6 +200,45 @@ impl SpoolBuilder {
         payload.extend_from_slice(ty.as_bytes());
         payload.extend_from_slice(msg.unwrap_or("").as_bytes());
         self.raw(seq, ts_ns, site, kind, how, &payload)
+    }
+
+    /// A LINE record (kind 6, outcome 0), payload by the grammar in design
+    /// 2026-09-06 §3.4: `u8 flags, u16 n, n × {u16 name_len, name, u8 tag,
+    /// u8 truncated, [u16 text_len, text] iff tag == 1}`.
+    ///
+    /// `dropped` is the flags byte's bit0: the record says the deltas it does
+    /// NOT carry were left out, which is a different fact from a statement
+    /// that wrote nothing.
+    #[must_use]
+    pub fn line(
+        self,
+        seq: u64,
+        ts_ns: u64,
+        unit_id: u8,
+        site_index: u32,
+        dropped: bool,
+        deltas: &[(&str, LineDelta)],
+    ) -> SpoolBuilder {
+        let site = (u32::from(unit_id) << 24) | (site_index & 0x00ff_ffff);
+        let mut payload = vec![u8::from(dropped)];
+        payload.extend_from_slice(&(deltas.len() as u16).to_le_bytes());
+        for (name, delta) in deltas {
+            payload.extend_from_slice(&(name.len() as u16).to_le_bytes());
+            payload.extend_from_slice(name.as_bytes());
+            match delta {
+                LineDelta::Dbg(text, truncated) => {
+                    payload.push(1);
+                    payload.push(u8::from(*truncated));
+                    payload.extend_from_slice(&(text.len() as u16).to_le_bytes());
+                    payload.extend_from_slice(text.as_bytes());
+                }
+                LineDelta::Unread => {
+                    payload.push(2);
+                    payload.push(0);
+                }
+            }
+        }
+        self.raw(seq, ts_ns, site, 6, 0, &payload)
     }
 
     /// RETURN, outcome `none`, tag 0 (no value) -- what a `-> ()` fn's guard
@@ -390,6 +440,18 @@ pub fn write_invocation(dir: &Path, invocation: &str, workspace_root: &str, targ
     .unwrap();
 }
 
+/// The `--focus` this invocation was given (design A9 / ruling R-F11): the
+/// ONE source of a trace's `focus`. Patched onto the `invocation.json`
+/// `write_invocation` already wrote, the way `write_manifest_focus` patches a
+/// manifest, so that every existing fixture keeps its unfocused shape.
+pub fn set_invocation_focus(spool_dir: &Path, focus: &[&str]) {
+    let path = spool_dir.join("invocation.json");
+    let mut body: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    body["focus"] = serde_json::json!(focus);
+    std::fs::write(&path, serde_json::to_vec(&body).unwrap()).unwrap();
+}
+
 /// One site entry of a manifest's `files` map. A `fn` row and an err-flow row
 /// are different SHAPES (design R1b), and this one struct writes both: which
 /// keys are emitted is decided by `kind`, exactly as the transformer decides
@@ -477,6 +539,18 @@ pub fn closure_site(index: u32, qualname: &'static str, line: u32) -> SiteSpec {
     }
 }
 
+/// A `line` row: the focus tier's per-statement site (design 2026-09-06 §2.4).
+/// It spells its position `line`, carries no `firstlineno` (it is not an item)
+/// and no `ret` (it is not a signature's answer) -- [`SiteSpec::json`] already
+/// makes both of those follow from `kind`.
+#[must_use]
+pub fn line_site(index: u32, qualname: &'static str, line: u32) -> SiteSpec {
+    SiteSpec {
+        kind: "line",
+        ..site(index, qualname, line, "value")
+    }
+}
+
 /// An err-flow row: `try`, `sink` or `arm`, with the `how` it writes.
 #[must_use]
 pub fn err_site(
@@ -531,6 +605,39 @@ pub fn write_manifest(
         &[],
         Some("/w"),
     );
+}
+
+/// The same manifest, plus the per-unit `focus` record the transformer writes
+/// under a focus: `{values: [as given], matched: [sorted qualnames]}`.
+///
+/// The two lists are written verbatim and INDEPENDENTLY of `files`, on purpose:
+/// a fixture can hand the converter a focus record whose unit holds no `line`
+/// site at all, which is what pins `capabilities.line` to the SITES rather than
+/// to the presence of the record.
+pub fn write_manifest_focus(
+    manifests_dir: &Path,
+    metadata: &str,
+    crate_name: &str,
+    files: &[(&str, &[SiteSpec])],
+    source_hashes: &[(&str, &str)],
+    focus_values: &[&str],
+    focus_matched: &[&str],
+) {
+    write_manifest(
+        manifests_dir,
+        metadata,
+        crate_name,
+        files,
+        source_hashes,
+        false,
+        None,
+        &[],
+    );
+    let path = manifests_dir.join(format!("{metadata}.json"));
+    let mut body: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    body["focus"] = serde_json::json!({"values": focus_values, "matched": focus_matched});
+    std::fs::write(&path, serde_json::to_vec(&body).unwrap()).unwrap();
 }
 
 /// The full shape, for the workspace-scoping fixtures: `skipped` entries

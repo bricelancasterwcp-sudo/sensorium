@@ -1,0 +1,9 @@
+[package]
+name = "corpus_focus_let_chain"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "focus_let_chain"
+path = "src/main.rs"

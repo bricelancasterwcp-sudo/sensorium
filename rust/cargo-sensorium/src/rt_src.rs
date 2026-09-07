@@ -22,6 +22,7 @@ pub const FILES: &[(&str, &str)] = &[
     ),
     ("exit.rs", include_str!("../../sensorium-rt/src/exit.rs")),
     ("ffi.rs", include_str!("../../sensorium-rt/src/ffi.rs")),
+    ("line.rs", include_str!("../../sensorium-rt/src/line.rs")),
     ("panic.rs", include_str!("../../sensorium-rt/src/panic.rs")),
     ("probe.rs", include_str!("../../sensorium-rt/src/probe.rs")),
     (

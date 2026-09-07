@@ -13,6 +13,7 @@
 mod chains;
 mod errflow;
 mod fingerprint;
+mod focus;
 mod frames;
 mod manifest;
 mod merge;
@@ -26,7 +27,7 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 
-use manifest::Manifest;
+use manifest::{Manifest, SiteKind};
 use spool::{InvocationRecord, ProcHeader, RunnerRecord};
 
 /// One pid's worth of the report `convert_dir` prints.
@@ -375,6 +376,40 @@ fn site_table(registered: &[String], manifests: &BTreeMap<String, Manifest>) -> 
     out
 }
 
+/// The focus THIS BUILD was made under (design 2026-09-06 §2.4, ruling R-F10),
+/// gathered from every manifest of this invocation.
+///
+/// **Build-scoped, deliberately -- unlike [`site_table`] and
+/// [`line_site_count`], which are registered-unit-scoped.** `focus_matched` is
+/// a fact about what the TRANSFORMER matched while compiling, not about what
+/// this process ran: a focus value that selected a function in a linked unit
+/// whose code never executed still matched. Unioning only over registered
+/// units would report `focus: ["fill"], focus_matched: []` for it --
+/// indistinguishable from a value that matched nowhere in the workspace, which
+/// is the one question `focus_matched` exists to answer.
+///
+/// `capabilities.line`/`locals` keep the narrower scope on purpose: a LINE
+/// RECORD can only come from a unit this process linked and registered, so a
+/// capability read off registered units cannot promise rows that cannot exist.
+///
+/// How many `line` sites the units this process REGISTERED hold. The whole
+/// basis for `capabilities.line`/`locals`: a run with none cannot produce a
+/// LINE row, whatever was typed on the command line.
+///
+/// Narrower than [`focus_record`]'s scope on purpose (ruling R-F10): a LINE
+/// record can only arrive from a unit this process linked, so counting a
+/// non-registered unit's `line` sites here would declare a capability whose
+/// rows could never appear.
+fn line_site_count(registered: &[String], manifests: &BTreeMap<String, Manifest>) -> usize {
+    registered
+        .iter()
+        .filter_map(|metadata| manifests.get(metadata))
+        .flat_map(|m| m.files.values())
+        .flatten()
+        .filter(|s| s.kind == SiteKind::Line)
+        .count()
+}
+
 // ---------------------------------------------------------------------------
 // Per-pid conversion
 // ---------------------------------------------------------------------------
@@ -496,6 +531,11 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         None => (None, None, "unwitnessed", None),
     };
 
+    let focus = focus::record(
+        &c.invocation.focus,
+        c.all_manifests,
+        &c.invocation.workspace_root,
+    );
     let meta_input = meta::MetaInput {
         run_id: c.run_id,
         argv: &c.proc.argv,
@@ -546,6 +586,8 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
             .get("err_flow")
             .copied()
             .unwrap_or(false),
+        focus: focus.as_ref(),
+        line_sites: line_site_count(&registered, c.all_manifests),
         child_runs: c.child_runs,
     };
     for (key, value) in meta::build(&meta_input) {

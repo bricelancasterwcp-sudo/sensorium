@@ -20,9 +20,11 @@
 mod args;
 mod convert;
 mod driver;
+mod driver_args;
 mod fallback;
 mod mirror;
 mod modtree;
+mod resolve;
 mod rt_build;
 mod rt_src;
 mod runner;

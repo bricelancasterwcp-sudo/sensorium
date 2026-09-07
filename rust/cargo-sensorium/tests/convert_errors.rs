@@ -71,6 +71,18 @@ fn stderr(out: &Output) -> String {
     String::from_utf8_lossy(&out.stderr).into_owned()
 }
 
+/// Whether the refused run left a `.db` behind. The writer builds into a
+/// `.db.tmp` and renames only after every row is written, so a refusal must
+/// produce no `.db` at all -- a half-written trace a reader could open is the
+/// thing the tmp+rename exists to prevent.
+fn traces_exist(f: &Fixture) -> bool {
+    std::fs::read_dir(f.sensorium_dir.join("traces")).is_ok_and(|entries| {
+        entries
+            .filter_map(Result::ok)
+            .any(|e| e.path().extension().and_then(|x| x.to_str()) == Some("db"))
+    })
+}
+
 #[test]
 fn a_spool_file_with_no_matching_proc_header_is_an_orphan_spool_error() {
     let f = Fixture::new("orphan-spool");
@@ -189,4 +201,121 @@ fn a_missing_manifests_directory_is_a_named_error() {
     assert_eq!(out.status.code(), Some(2));
     let err = stderr(&out);
     assert!(err.contains("manifests"), "{err}");
+}
+
+/// Design amendment A6: the parameters LINE is spliced AFTER the entry guard,
+/// so a LINE always falls inside its function's CALL. A LINE whose thread has
+/// no open frame is a malformed stream, and the converter refuses it naming
+/// the record rather than attaching it to a guessed frame -- and leaves no
+/// trace behind for a reader to believe.
+#[test]
+fn a_line_record_with_no_open_frame_on_its_thread_is_a_named_error() {
+    let f = Fixture::new("line-no-frame");
+    wire::write_manifest(
+        &f.manifests_dir,
+        "meta1",
+        "demo",
+        &[(
+            FILE,
+            &[site(0, "fill", 3, "unit"), wire::line_site(1, "fill", 5)],
+        )],
+        &[(FILE, "deadbeef")],
+        false,
+        None,
+        &[],
+    );
+    wire::write_proc_header(
+        &f.spool_dir,
+        560,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    // A LINE with no preceding CALL on this thread at all.
+    wire::SpoolBuilder::new(560, 1, "main")
+        .line(0, 1000, 0, 1, false, &[("x", wire::LineDelta::Unread)])
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(2));
+    let err = stderr(&out);
+    assert!(err.contains("LINE record with no open frame"), "{err}");
+    assert!(err.contains("pid 560"), "{err}: pid");
+    assert!(err.contains("thread 1"), "{err}: thread serial");
+    assert!(err.contains("seq 0"), "{err}: seq");
+    assert!(err.contains("malformed"), "{err}");
+    assert!(
+        !traces_exist(&f),
+        "a refused conversion leaves no .db a reader could open"
+    );
+}
+
+/// A LINE may name only a `line` site. One that names the fn's own site is
+/// corruption -- the manifest row and the spliced call come from the same
+/// walk -- and the refusal names the SITE, which is what a person looks at.
+#[test]
+fn a_line_record_naming_a_site_the_manifest_says_is_a_fn_is_refused() {
+    let f = Fixture::new("line-wrong-site-kind");
+    f.one_site_manifest("meta1");
+    wire::write_proc_header(
+        &f.spool_dir,
+        561,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    wire::SpoolBuilder::new(561, 1, "main")
+        .call(0, 1000, 0, 0)
+        .line(1, 1100, 0, 0, false, &[]) // site 0 is a `fn` row
+        .ret_none(2, 1200, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(2));
+    let err = stderr(&out);
+    assert!(err.contains("LINE"), "{err}");
+    assert!(err.contains("crates/demo/src/lib.rs:3"), "{err}");
+    assert!(err.contains("not a `line` site"), "{err}");
+}
+
+/// A LINE payload this reader cannot decode is a refusal naming the record,
+/// never a row guessed from what it could read (design §3.5).
+#[test]
+fn a_malformed_line_payload_is_a_refusal_naming_the_record() {
+    let f = Fixture::new("line-bad-payload");
+    wire::write_manifest(
+        &f.manifests_dir,
+        "meta1",
+        "demo",
+        &[(
+            FILE,
+            &[site(0, "fill", 3, "unit"), wire::line_site(1, "fill", 5)],
+        )],
+        &[(FILE, "deadbeef")],
+        false,
+        None,
+        &[],
+    );
+    wire::write_proc_header(
+        &f.spool_dir,
+        562,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    // `n = 1` with no delta block behind it: kind 6, site 1, raw payload.
+    wire::SpoolBuilder::new(562, 1, "main")
+        .call(0, 1000, 0, 0)
+        .raw(1, 1100, 1, 6, 0, &[0u8, 1u8, 0u8])
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(2));
+    let err = stderr(&out);
+    assert!(err.contains("pid 562"), "{err}");
+    assert!(err.contains("seq 1"), "{err}");
+    assert!(
+        !traces_exist(&f),
+        "no trace is written for a refused record"
+    );
 }

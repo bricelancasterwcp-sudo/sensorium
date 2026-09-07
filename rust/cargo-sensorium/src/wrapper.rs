@@ -13,7 +13,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use sensorium_transform::{transform_file, FileRole, Manifest};
+use sensorium_transform::{transform_file, FileRole, Focus, Manifest};
 
 use crate::args::{self, Plan, Unit};
 use crate::fallback::{self, manifest_path, write_manifest};
@@ -132,6 +132,7 @@ fn instrument(rustc: &str, args: &[String], unit: &Unit) -> Result<i32, String> 
 
     let walk = modtree::walk(&DiskFs { root: &env.ws }, &unit.crate_root);
     let root_for_read = env.ws.clone();
+    let focus = focus_from_env();
     let UnitPlan {
         mut manifest,
         rewrites,
@@ -139,6 +140,7 @@ fn instrument(rustc: &str, args: &[String], unit: &Unit) -> Result<i32, String> 
         &move |rel: &str| std::fs::read_to_string(root_for_read.join(rel)).ok(),
         &walk,
         unit,
+        &focus,
     );
     // A shared `CARGO_TARGET_DIR` holds every workspace's manifests in one
     // `sensorium/manifests/` directory; this is the field the converter uses
@@ -164,6 +166,7 @@ fn instrument(rustc: &str, args: &[String], unit: &Unit) -> Result<i32, String> 
         &mirror_dir,
         &sens.join("cache").join(&unit.metadata),
         &env.tool_hash,
+        &focus.focus_hash(),
         &rewrites,
     )
     .map_err(|e| format!("mirror: {e}"))?;
@@ -232,6 +235,14 @@ fn instrument(rustc: &str, args: &[String], unit: &Unit) -> Result<i32, String> 
     Ok(passthrough(rustc, args))
 }
 
+/// The focus this build was made under, as the driver set it (design §2.3).
+///
+/// Absent or empty is the unfocused build, whose output is byte-identical to
+/// a build made before the focus tier existed.
+fn focus_from_env() -> Focus {
+    Focus::parse(&std::env::var("SENSORIUM_FOCUS").unwrap_or_default())
+}
+
 /// The manifest and the rewrites for one unit: everything the wrapper decides
 /// before it touches the filesystem, so it can be tested without one.
 pub struct UnitPlan {
@@ -250,8 +261,14 @@ pub fn build_unit(
     read: &dyn Fn(&str) -> Option<String>,
     walk: &modtree::Walk,
     unit: &Unit,
+    focus: &Focus,
 ) -> UnitPlan {
     let mut manifest = Manifest::new(&unit.metadata, &unit.crate_name, &unit.crate_type);
+    // Before the first `add_file`: the record is what collects each file's
+    // matched qualnames, and it is the ONLY durable statement of what this
+    // unit was built under -- nothing in a spool says which functions carried
+    // LINE probes (design §2.4).
+    manifest.set_focus(focus);
     manifest.unreached_files.clone_from(&walk.unreached);
     let mut rewrites: Vec<Rewrite> = Vec::new();
     let mut next_site: u32 = 0;
@@ -273,7 +290,7 @@ pub fn build_unit(
             is_crate_root: i == 0,
             is_bin_root: i == 0 && unit.crate_type == "bin",
         };
-        match transform_file(&source, rel, &unit.metadata, next_site, role) {
+        match transform_file(&source, rel, &unit.metadata, next_site, role, focus) {
             Ok(t) => {
                 next_site += u32::try_from(t.sites.len()).unwrap_or(u32::MAX);
                 manifest.add_file(rel, &t);
@@ -359,7 +376,12 @@ mod tests {
             files: files.iter().map(|(p, _)| (*p).to_owned()).collect(),
             unreached: unreached.iter().map(|s| (*s).to_owned()).collect(),
         };
-        build_unit(&move |rel: &str| map.get(rel).cloned(), &walk, &unit())
+        build_unit(
+            &move |rel: &str| map.get(rel).cloned(),
+            &walk,
+            &unit(),
+            &Focus::EMPTY,
+        )
     }
 
     /// The same, for a unit whose crate type is what the wrapper read off
@@ -377,7 +399,12 @@ mod tests {
             crate_type: crate_type.to_owned(),
             ..unit()
         };
-        build_unit(&move |rel: &str| map.get(rel).cloned(), &walk, &unit)
+        build_unit(
+            &move |rel: &str| map.get(rel).cloned(),
+            &walk,
+            &unit,
+            &Focus::EMPTY,
+        )
     }
 
     /// Design R1b: only the wrapper knows the crate TYPE, so only it can say
@@ -669,6 +696,7 @@ mod tests {
             &|rel: &str| (rel == "a/src/lib.rs").then(|| "fn a() {}\n".to_owned()),
             &walk,
             &unit(),
+            &Focus::EMPTY,
         );
         assert_eq!(plan.manifest.unreached_files, ["a/src/gone.rs"]);
     }

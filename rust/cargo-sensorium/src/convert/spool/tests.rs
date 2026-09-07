@@ -379,3 +379,186 @@ fn a_v3_spool_carries_its_err_flow_records_through_the_reader() {
     assert_eq!(s.records[2].kind, KIND_HANDLED);
     assert_eq!(s.records[2].outcome, 2);
 }
+
+// ---------------------------------------------------------------------------
+// LINE payloads (wire kind 6)
+// ---------------------------------------------------------------------------
+
+use super::line::parse_line_payload;
+
+/// One delta block, by the grammar: `u16 name_len, name, u8 tag, u8 truncated,
+/// [u16 text_len, text] iff tag == 1`. Built here rather than by a typed helper
+/// so the tag byte can be anything -- including the 0 the runtime never writes.
+fn delta(name: &[u8], tag: u8, truncated: u8, text: Option<&str>) -> Vec<u8> {
+    let mut b = (name.len() as u16).to_le_bytes().to_vec();
+    b.extend_from_slice(name);
+    b.push(tag);
+    b.push(truncated);
+    if let Some(text) = text {
+        b.extend_from_slice(&(text.len() as u16).to_le_bytes());
+        b.extend_from_slice(text.as_bytes());
+    }
+    b
+}
+
+fn line_payload(flags: u8, blocks: &[Vec<u8>]) -> Vec<u8> {
+    let mut b = vec![flags];
+    b.extend_from_slice(&(blocks.len() as u16).to_le_bytes());
+    for block in blocks {
+        b.extend_from_slice(block);
+    }
+    b
+}
+
+/// Task 1's own pinned vector for `("x", debug "5"), ("buf", unread)`, byte for
+/// byte (`sensorium-rt/src/line/tests.rs`
+/// `two_deltas_encode_to_the_bytes_the_wire_format_names`). The two sides are
+/// written independently from the same grammar; this is where they are held
+/// against each other.
+#[test]
+fn a_line_payload_round_trips_the_vector_the_runtimes_own_test_pins() {
+    #[rustfmt::skip]
+    let payload: Vec<u8> = vec![
+        0x00,                         // flags: nothing dropped
+        0x02, 0x00,                   // n = 2
+        0x01, 0x00, b'x',             // name_len 1, "x"
+        0x01, 0x00,                   // tag 1 (debug text), truncated 0
+        0x01, 0x00, b'5',             // text_len 1, "5"
+        0x03, 0x00, b'b', b'u', b'f', // name_len 3, "buf"
+        0x02, 0x00,                   // tag 2 (unread), truncated 0
+    ];
+    let p = parse_line_payload("t", &payload).unwrap();
+    assert!(!p.dropped);
+    assert_eq!(p.deltas.len(), 2);
+    assert_eq!(p.deltas[0].0, "x");
+    assert_eq!(
+        p.deltas[0].1,
+        serde_json::json!({"k": "dbg", "v": "5", "trunc": false})
+    );
+    assert_eq!(p.deltas[1].0, "buf");
+    assert_eq!(p.deltas[1].1, serde_json::json!({"k": "unread"}));
+}
+
+/// A statement that wrote nothing is still a row: three bytes, no deltas, and
+/// NOT a refusal.
+#[test]
+fn a_line_payload_with_no_deltas_is_a_record_not_an_error() {
+    let p = parse_line_payload("t", &[0, 0, 0]).unwrap();
+    assert!(!p.dropped);
+    assert!(p.deltas.is_empty());
+}
+
+/// `flags.bit0` is the runtime saying the record is SHORT. A reader that
+/// dropped it would report a partial statement as a complete one.
+#[test]
+fn the_dropped_flag_is_read_off_bit_zero() {
+    let p = parse_line_payload("t", &line_payload(1, &[delta(b"x", 2, 0, None)])).unwrap();
+    assert!(p.dropped);
+    assert_eq!(p.deltas.len(), 1);
+}
+
+/// The writer's own truncation flag rides the delta, exactly as it does on a
+/// RETURN value.
+#[test]
+fn a_cut_debug_text_carries_trunc_true() {
+    let p = parse_line_payload("t", &line_payload(0, &[delta(b"s", 1, 1, Some("ab"))])).unwrap();
+    assert_eq!(
+        p.deltas[0].1,
+        serde_json::json!({"k": "dbg", "v": "ab", "trunc": true})
+    );
+}
+
+/// An empty `Debug` rendering was READ and rendered nothing (tag 1); a value
+/// with no `Debug` impl was not read at all (tag 2). The runtime keeps the two
+/// apart in bytes, and so must this reader.
+#[test]
+fn an_empty_debug_rendering_stays_a_read_value_here_too() {
+    let p = parse_line_payload("t", &line_payload(0, &[delta(b"s", 1, 0, Some(""))])).unwrap();
+    assert_eq!(
+        p.deltas[0].1,
+        serde_json::json!({"k": "dbg", "v": "", "trunc": false})
+    );
+}
+
+#[test]
+fn a_line_payload_shorter_than_its_three_fixed_bytes_is_refused_by_label() {
+    let err = parse_line_payload("pid 1 thread 1 seq 4", &[0, 0]).unwrap_err();
+    assert!(err.contains("pid 1 thread 1 seq 4"), "{err}");
+    assert!(err.contains("LINE payload"), "{err}");
+}
+
+/// Three ways one record can run off its own end: a name, a text, and a delta
+/// block that stops mid-header. Each names the label and the delta.
+#[test]
+fn a_line_payload_that_runs_past_its_end_is_refused_by_label_and_field() {
+    let mut name_past = line_payload(0, &[delta(b"xyz", 2, 0, None)]);
+    name_past.truncate(6); // "xyz" cut to one byte
+    let err = parse_line_payload("L", &name_past).unwrap_err();
+    assert!(err.contains('L'), "{err}");
+    assert!(err.contains("name"), "{err}");
+
+    let mut text_past = line_payload(0, &[delta(b"x", 1, 0, Some("hello"))]);
+    text_past.truncate(text_past.len() - 3);
+    let err = parse_line_payload("L", &text_past).unwrap_err();
+    assert!(err.contains("delta `x`"), "{err}");
+    assert!(err.contains("text"), "{err}");
+
+    let short_block = line_payload(0, &[vec![0x01, 0x00, b'x']]); // no tag byte
+    let err = parse_line_payload("L", &short_block).unwrap_err();
+    assert!(err.contains("delta `x`"), "{err}");
+}
+
+/// Design amendment A7: tag 0 is legal in the grammar and unwritable by the
+/// runtime, so meeting one is corruption -- and the refusal names the delta,
+/// never a row guessed from it.
+#[test]
+fn a_delta_carrying_tag_zero_is_refused_by_name() {
+    let err = parse_line_payload("L", &line_payload(0, &[delta(b"x", 0, 0, None)])).unwrap_err();
+    assert!(err.contains('L'), "{err}");
+    assert!(err.contains("delta `x`"), "{err}");
+    assert!(err.contains("tag 0"), "{err}");
+}
+
+#[test]
+fn a_delta_carrying_an_unknown_tag_is_refused_by_number() {
+    let err = parse_line_payload("L", &line_payload(0, &[delta(b"x", 3, 0, None)])).unwrap_err();
+    assert!(err.contains("delta `x`"), "{err}");
+    assert!(err.contains('3'), "{err}");
+}
+
+/// The deltas become one JSON OBJECT, so a repeated name would silently
+/// overwrite the earlier reading and the row would claim a statement wrote one
+/// value where the record says two. The transformer never emits a duplicate
+/// (one splice, one `bound_names` walk), so meeting one is corruption.
+#[test]
+fn a_duplicate_delta_name_within_one_record_is_refused() {
+    let payload = line_payload(0, &[delta(b"x", 2, 0, None), delta(b"x", 1, 0, Some("5"))]);
+    let err = parse_line_payload("L", &payload).unwrap_err();
+    assert!(err.contains('L'), "{err}");
+    assert!(err.contains("delta `x`"), "{err}");
+    assert!(err.contains("twice"), "{err}");
+}
+
+#[test]
+fn a_delta_name_that_is_not_utf8_is_refused() {
+    let err = parse_line_payload("L", &line_payload(0, &[delta(&[0xff], 2, 0, None)])).unwrap_err();
+    assert!(err.contains("not UTF-8"), "{err}");
+}
+
+/// `n` and the payload's length must agree exactly: bytes after the last delta
+/// are a record this reader cannot account for, not padding to skip.
+#[test]
+fn bytes_after_the_last_delta_are_refused() {
+    let mut payload = line_payload(0, &[delta(b"x", 2, 0, None)]);
+    payload.push(0);
+    let err = parse_line_payload("L", &payload).unwrap_err();
+    assert!(err.contains("L: "), "{err}");
+    assert!(err.contains("after"), "{err}");
+}
+
+/// The mirrored constant, as a NUMBER: the converter reads the wire, and
+/// asserting it against the writer's own constant would pin nothing.
+#[test]
+fn the_line_kind_is_the_number_the_wire_format_names() {
+    assert_eq!(KIND_LINE, 6);
+}

@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-sensorium"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "blake2",
  "libc",
@@ -210,11 +210,11 @@ dependencies = [
 
 [[package]]
 name = "sensorium-rt"
-version = "0.3.0"
+version = "0.4.0"
 
 [[package]]
 name = "sensorium-transform"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "proc-macro2",
  "serde",

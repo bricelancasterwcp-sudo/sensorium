@@ -118,10 +118,15 @@ jobs:
           python-version: "3.14"
       - name: Install (dev extras for the test tools)
         run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      # test_focus_refusal.py rides along here for the same reason: it needs
+      # a driver to invoke, and this is the only job that has one. It builds
+      # into a subdirectory of the job's CARGO_TARGET_DIR and removes it
+      # again; without a driver it would skip BY NAME, and a gate that only
+      # ever skips is not a gate.
       - name: Cross-recorder conformance (Rust fixtures through the real CLI)
         env:
           SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
-        run: python -m pytest -q tests/test_rust_convert.py
+        run: python -m pytest -q tests/test_rust_convert.py tests/test_focus_refusal.py
       # The whole corpus, Python cases included: one runner, one summary, and
       # the Rust cases recorded rather than skipped because this job has a
       # driver to name. CARGO_TARGET_DIR is the job's `rust/target` (above),

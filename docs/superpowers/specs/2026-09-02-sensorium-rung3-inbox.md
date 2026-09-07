@@ -129,11 +129,23 @@ falsifier named ahead of time now has a home and is green:
 Written the way rung 2 wrote this document's §1–§3: what the next rung starts
 with, none of it ranked, each item with the thing that would settle it.
 
-- **LINE and locals under `--focus`** — the focus tier itself, spec §11 rung 4
+- ~~**LINE and locals under `--focus`** — the focus tier itself, spec §11 rung 4
   and §3.7. `capabilities.line`/`locals` are `false` today and every `watch`
-  and `flow` refusal names them.
+  and `flow` refusal names them.~~ — **shipped 2026-09-06** as rung 4 slice 1
+  (Python 0.8.3 / crates 0.4.0). One LINE per completed statement of a focused
+  function, its `deltas` the bindings that statement wrote; `watch` and `flow`
+  answer on such a trace. Measured once as **E9**, six PASS and one REPORTED,
+  all seven rows as pre-registered, with **N = 26** and no line differing
+  (`docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md`). The
+  promise is `rust/HONESTY.md` §12; what a focus still does not reach is
+  `rust/HONESTY-BLIND-SPOTS.md` item 3, narrowed rather than struck.
 - **`refocus` on a Rust trace** — `capabilities.refocus: false`; the Rust side
-  is re-invocation, and the E4 endpoint is unmeasured.
+  is re-invocation, and the E4 endpoint is unmeasured. *(2026-09-06: this and
+  `--window` are what rung 4's **slice 2** is, the focus tier having taken
+  slice 1. `--window` needs a per-activation runtime check the Rust runtime
+  does not have — `docs/CARRIED-DEBT.md`, this slice's section, carries the
+  ruling owed on whether it is a runtime check or a second compile-time
+  selector.)*
 - **`.is_err()` / `.is_ok()` as OBSERVATION tags, not sinks.** Rung 3 dropped
   them from the probe list because a HANDLED there would report a predicate as
   a swallow (R2's erratum). The shape a reader still wants is a third class —

@@ -1,0 +1,86 @@
+program: cargo
+cargo_args: ["--focus", "pick", "run"]
+questions:
+  - id: what-did-the-match-arm-bind
+    ask: >
+      `pick` is handed an `Option<i32>` and returns 42. What did the
+      `Some(n)` arm bind `n` to, and at which line?
+    truth: >
+      21, at `main.rs:15` -- the arm's own line. Design §3.2's arm row mints
+      a synthetic LINE carrying the pattern's bindings once per entry into
+      the arm, so the bound name exists as a delta at the arm rather than
+      only inside whatever the arm's body writes. `watch` reads SATISFIED
+      (amendment A4) at 2 of 2 evaluable sites: the entry itself and the
+      `let d` after it, where `n` is still in scope. The 5 sites it could
+      not evaluate are the ones outside the arm, and it reports them as
+      "not in scope" rather than as misses.
+    why_logs_fail: >
+      The binding is the pattern's, not the program's: there is no statement
+      to put a print in front of, and a `dbg!(n)` has to be written INSIDE
+      the arm, which is the one place a reader debugging a wrong-arm bug has
+      not yet decided to look. The row exists because the arm was entered,
+      which is the fact the question is really about.
+    command: ["watch", "$RUN", "--at", "pick", "--expr", "n == 21"]
+    expect_contains:
+      - "verdict: SATISFIED at 2 of the 2 site(s) the predicate could be evaluated at"
+    expect_line:
+      - ["HIT", "e7", "LINE", "pick L15", "n=21"]
+    expect_exit: 0
+  - id: what-did-the-arm-body-compute
+    ask: >
+      The arm's body doubles what it bound. What was `d`?
+    truth: >
+      42, at `main.rs:16`, and at exactly one site -- the statement that
+      wrote it. `d` is a plain `let`, so design §3.2's first row applies and
+      the delta is every identifier the pattern binds. It is evaluable at 1
+      of the 7 recorded sites because the tail expression `d` on line 17 is
+      not a statement (§3.1) and mints no row of its own: the value leaves
+      through the RETURN. SATISFIED, exit 0.
+    why_logs_fail: >
+      42 is already printed by `main`, so this value is not hidden -- what
+      is hidden is WHERE it was computed and that it was computed once. The
+      pin is the site count and the line, neither of which a printed result
+      carries and neither of which a `dbg!(d)` adds: `dbg!` reports the file
+      and line it is written on, which is the answer assumed rather than
+      found.
+    command: ["watch", "$RUN", "--at", "pick", "--expr", "d == 42"]
+    expect_contains:
+      - "verdict: SATISFIED at 1 of the 1 site(s) the predicate could be evaluated at"
+    expect_line:
+      - ["HIT", "e8", "LINE", "pick L16", "d=42"]
+    expect_exit: 0
+  - id: which-patterns-minted-an-entry-row-and-which-did-not
+    ask: >
+      `pick` contains an `if let`, a `match` in tail position, and an arm
+      that binds nothing. Which of them left a row, and what did the
+      parameters row hold?
+    truth: >
+      Six rows, derived from the rules before measuring. L10, the parameters
+      LINE, carries `o=Some(21)` -- design §3.2's parameters row, captured
+      through the Debug ladder, so the argument is readable here even though
+      Rust CALL rows carry none. L11 carries `k=21`: the `if let` binds, so
+      it mints an entry row. L12 is the `println!`, an expression statement
+      with no write, empty deltas -- "the row still says the line ran". L11
+      appears a SECOND time with nothing: the `if let` is itself a statement
+      and takes its own LINE at its own first line (§3.1) when it completes.
+      L15 carries `n=21` (the arm entry) and L16 `d=42`. What is NOT there
+      is the assertion: no row at L14, because a `match` in tail position is
+      not a statement; no row at L19, because `None` is a path pattern that
+      binds no identifier and amendment A3 mints no entry LINE for it; no
+      row at L17, the arm's tail expression.
+    why_logs_fail: >
+      Three of the four pinned facts here are absences -- no row at L14,
+      L17 or L19 -- and `dbg!` can state a presence and nothing else. The one
+      fact a `dbg!(&o)` at the top of `pick` could reach is `o` itself, and
+      that is the one Rust CALL rows do not record at all (`tree` prints
+      `pick() <unread: locals>`), so under a focus the parameters LINE is the
+      only place the argument exists.
+    command: ["frame", "$RUN", "f2"]
+    expect_count: {"LINE": 6, "pick L11": 2}
+    expect_line:
+      - ["e3", "LINE", "pick L10", "o=Some(21)"]
+      - ["e4", "LINE", "pick L11", "k=21"]
+      - ["e5", "LINE", "pick L12"]
+      - ["e7", "LINE", "pick L15", "n=21"]
+      - ["e8", "LINE", "pick L16", "d=42"]
+    expect_absent: ["pick L14", "pick L17", "pick L19"]

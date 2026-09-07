@@ -77,6 +77,7 @@ compile_error!(
 mod errflow;
 mod exit;
 mod ffi;
+mod line;
 mod panic;
 pub mod probe;
 mod sha256;
@@ -92,6 +93,9 @@ pub use errflow::{
     HOW_ARM_PROPAGATE, HOW_SINK_LET_UNDERSCORE, HOW_SINK_OK, HOW_SINK_UNWRAP_OR, HOW_TRY,
 };
 pub use exit::ret;
+// `probe_cap!` is `#[macro_export]`ed and so already sits at the crate root;
+// `__probe_cap_scope` is the body it expands to and has to be reachable there too.
+pub use line::{__probe_cap_scope, line};
 pub use tasks::spawn_child;
 
 use std::path::{Path, PathBuf};

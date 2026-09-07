@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use common::{partials, read, top_level_unit_static, FILE, META};
 
-use sensorium_transform::{census, transform, SiteKind, SpawnSite, MAX_SITE_INDEX};
+use sensorium_transform::{census, transform, Focus, SiteKind, SpawnSite, MAX_SITE_INDEX};
 
 // ---------------------------------------------------------------------------
 // The crate-root static, off the golden files
@@ -23,7 +23,8 @@ fn a_trailing_block_doc_comment_still_takes_the_static_in_place() {
     // A `/*! .. */` crate doc is safe -- its span already ends after the `*/`.
     // A `/*! .. */` IS an inner attribute, so the `allow` sits just past its
     // `*/` -- on the line that was already there.
-    let t = transform("/*! Crate docs. */\n", FILE, META, 0, true).expect("transform");
+    let t =
+        transform("/*! Crate docs. */\n", FILE, META, 0, true, &Focus::EMPTY).expect("transform");
     assert_eq!(
         t.source,
         format!(
@@ -39,7 +40,7 @@ fn a_trailing_block_doc_comment_still_takes_the_static_in_place() {
 #[test]
 fn a_non_root_file_gets_no_static() {
     let input = read("crate_root", "in");
-    let t = transform(&input, FILE, META, 7, false).expect("transform");
+    let t = transform(&input, FILE, META, 7, false, &Focus::EMPTY).expect("transform");
     assert!(
         !t.source.contains("pub static __SENSORIUM_UNIT"),
         "only the crate root declares the unit"
@@ -54,7 +55,7 @@ fn a_file_with_no_tokens_takes_the_static_at_offset_zero() {
     // A `//` comment is not a token at all, so there is no first token for the
     // `allow` to sit in front of: it rides on the static's own fragment, which
     // is legal because a file with no tokens has no items either.
-    let t = transform("// nothing here\n", FILE, META, 0, true).expect("transform");
+    let t = transform("// nothing here\n", FILE, META, 0, true, &Focus::EMPTY).expect("transform");
     assert_eq!(
         t.source,
         format!("{}// nothing here\n", common::unit_static_with_allow(META))
@@ -65,7 +66,7 @@ fn a_file_with_no_tokens_takes_the_static_at_offset_zero() {
 
 #[test]
 fn an_empty_crate_root_is_the_one_documented_line_count_exception() {
-    let t = transform("", FILE, META, 0, true).expect("transform");
+    let t = transform("", FILE, META, 0, true, &Focus::EMPTY).expect("transform");
     assert_eq!(t.source, common::unit_static_with_allow(META));
     assert_eq!("".lines().count(), 0);
     assert_eq!(t.source.lines().count(), 1);
@@ -74,7 +75,7 @@ fn an_empty_crate_root_is_the_one_documented_line_count_exception() {
 
 #[test]
 fn the_metadata_is_escaped_into_the_static() {
-    let t = transform("fn f() {}\n", FILE, "a\"b\\c", 0, true).expect("transform");
+    let t = transform("fn f() {}\n", FILE, "a\"b\\c", 0, true, &Focus::EMPTY).expect("transform");
     assert!(
         t.source.contains(r#"Unit::new("a\"b\\c")"#),
         "got: {}",
@@ -88,7 +89,7 @@ fn a_newline_in_the_metadata_cannot_move_a_line() {
     // A Rust string literal spans lines happily, so an unescaped newline here
     // would push every line below the static down by one.
     let input = "fn f() {}\n";
-    let t = transform(input, FILE, "a\nb\r\tc", 0, true).expect("transform");
+    let t = transform(input, FILE, "a\nb\r\tc", 0, true, &Focus::EMPTY).expect("transform");
     assert!(
         t.source.contains(r#"Unit::new("a\nb\r\tc")"#),
         "got: {}",
@@ -105,7 +106,7 @@ fn a_newline_in_the_metadata_cannot_move_a_line() {
 #[test]
 fn crlf_line_endings_keep_their_offsets() {
     let input = "fn f() -> u8 {\r\n    1\r\n}\r\n";
-    let t = transform(input, FILE, META, 3, false).expect("transform");
+    let t = transform(input, FILE, META, 3, false, &Focus::EMPTY).expect("transform");
     assert_eq!(
         t.source,
         format!(
@@ -120,7 +121,7 @@ fn crlf_line_endings_keep_their_offsets() {
 #[test]
 fn a_byte_order_mark_shifts_every_offset() {
     let input = "\u{feff}fn f() -> u8 { 1 }\n";
-    let t = transform(input, FILE, META, 3, false).expect("transform");
+    let t = transform(input, FILE, META, 3, false, &Focus::EMPTY).expect("transform");
     assert_eq!(
         t.source,
         format!(
@@ -143,6 +144,7 @@ fn the_spawn_site_string_is_the_qualname_and_ordinal_not_the_path() {
         META,
         0,
         false,
+        &Focus::EMPTY,
     )
     .expect("transform");
     // Asserted FIRST, and on a substring BOTH spellings share, so an unescaped
@@ -194,7 +196,7 @@ fn a_spawn_with_no_enclosing_named_item_is_refused_not_named_after_the_container
                      }\n";
     for (what, source) in [("discriminant", discriminant), ("array length", array_len)] {
         syn::parse_file(source).unwrap_or_else(|e| panic!("{what} is not valid Rust: {e}"));
-        let err = transform(source, FILE, META, 0, false)
+        let err = transform(source, FILE, META, 0, false, &Focus::EMPTY)
             .err()
             .unwrap_or_else(|| panic!("{what}: a spawn inside `mod m` must not be named `m#1`"));
         assert_eq!(
@@ -212,7 +214,7 @@ fn a_spawn_with_no_enclosing_named_item_is_refused_not_named_after_the_container
 #[test]
 fn sites_are_contiguous_from_first_site_in_source_order() {
     let input = read("test_fn", "in");
-    let t = transform(&input, FILE, META, 1000, false).expect("transform");
+    let t = transform(&input, FILE, META, 1000, false, &Focus::EMPTY).expect("transform");
     let got: Vec<u32> = t.sites.iter().map(|s| s.site).collect();
     assert_eq!(got, [1000, 1001, 1002]);
     let lines: Vec<u32> = t.sites.iter().map(|s| s.firstlineno).collect();
@@ -227,14 +229,15 @@ fn a_site_index_past_24_bits_is_refused() {
     let input = read("free_fn", "in");
     // The first fn fits at 0x00FF_FFFF; the second would be 0x0100_0000, which
     // the runtime's `site` field cannot carry -- it would silently alias unit 1.
-    let err = transform(&input, FILE, META, 0x00FF_FFFF, false)
+    let err = transform(&input, FILE, META, 0x00FF_FFFF, false, &Focus::EMPTY)
         .expect_err("a 25-bit site index must be refused, not truncated");
     assert!(
         err.to_string().contains("site index"),
         "unhelpful error: {err}"
     );
     // One site exactly at the ceiling is fine.
-    let t = transform("fn f() {}\n", FILE, META, 0x00FF_FFFF, false).expect("ceiling is legal");
+    let t = transform("fn f() {}\n", FILE, META, 0x00FF_FFFF, false, &Focus::EMPTY)
+        .expect("ceiling is legal");
     assert_eq!(t.sites[0].site, 0x00FF_FFFF);
 }
 
@@ -278,7 +281,7 @@ fn the_census_agrees_with_what_was_instrumented() {
     for case in common::CASES {
         let input = read(case, "in");
         let c = census(&input);
-        let t = transform(&input, FILE, META, 0, false).expect("transform");
+        let t = transform(&input, FILE, META, 0, false, &Focus::EMPTY).expect("transform");
         assert!(c.parsed, "{case}: census must report parsed");
         // `eligible()` is E2 as pre-registered (const and extern only), so the
         // identity carries the async skip explicitly rather than by moving the
@@ -297,7 +300,7 @@ fn an_unparseable_file_censuses_as_not_measured_not_as_zero() {
     let c = census("fn f( {");
     assert!(!c.parsed);
     assert_eq!((c.fn_items, c.const_fns, c.extern_fns), (0, 0, 0));
-    assert!(transform("fn f( {", FILE, META, 0, false).is_err());
+    assert!(transform("fn f( {", FILE, META, 0, false, &Focus::EMPTY).is_err());
 }
 
 #[test]
@@ -305,7 +308,7 @@ fn a_trailing_line_doc_comment_with_no_newline_gets_one_rather_than_swallowing_t
     // "After the last token" is inside the comment, and there is no newline to
     // move past. The static brings one -- the only fragment this crate emits
     // that contains a newline, and it can only ever add a FINAL line.
-    let t = transform("//! docs", FILE, META, 0, true).expect("transform");
+    let t = transform("//! docs", FILE, META, 0, true, &Focus::EMPTY).expect("transform");
     assert_eq!(
         t.source,
         format!("//! docs\n{}", common::unit_static_with_allow(META))
@@ -322,7 +325,7 @@ fn a_trailing_line_doc_comment_with_no_newline_gets_one_rather_than_swallowing_t
 #[test]
 fn a_shebang_only_crate_root_reports_the_line_it_gains() {
     let input = "#!/usr/bin/env run-cargo-script\n";
-    let t = transform(input, FILE, META, 0, true).expect("transform");
+    let t = transform(input, FILE, META, 0, true, &Focus::EMPTY).expect("transform");
     assert!(t.appended_line, "the static lands past the final newline");
     assert_eq!(
         t.source.lines().count(),
@@ -335,7 +338,7 @@ fn a_shebang_only_crate_root_reports_the_line_it_gains() {
 #[test]
 fn a_file_that_ends_without_a_newline_gains_no_line() {
     let input = "fn f() {}";
-    let t = transform(input, FILE, META, 0, true).expect("transform");
+    let t = transform(input, FILE, META, 0, true, &Focus::EMPTY).expect("transform");
     assert!(!t.appended_line);
     assert_eq!(t.source.lines().count(), input.lines().count());
 }
@@ -346,7 +349,7 @@ fn a_shebang_with_no_trailing_newline_gets_one_rather_than_swallowing_the_static
     // end of the shebang LINE, and a static appended there becomes part of the
     // shebang -- the file parses, the line count holds, and the unit is gone.
     let input = "#!/usr/bin/env run-cargo-script";
-    let t = transform(input, FILE, META, 0, true).expect("transform");
+    let t = transform(input, FILE, META, 0, true, &Focus::EMPTY).expect("transform");
     assert_eq!(
         t.source,
         format!("{input}\n{}", common::unit_static_with_allow(META))
@@ -446,7 +449,15 @@ fn an_unparseable_file_counts_no_question_marks_either() {
 fn the_crate_root_allow_shares_the_last_inner_attributes_line() {
     // Not a line of its own: `rust/HONESTY.md` §9 promises no line moves, and
     // an attribute that needed one would move every line below it.
-    let t = transform("#![no_std]\nfn f() {}\n", FILE, META, 0, true).expect("transform");
+    let t = transform(
+        "#![no_std]\nfn f() {}\n",
+        FILE,
+        META,
+        0,
+        true,
+        &Focus::EMPTY,
+    )
+    .expect("transform");
     assert!(
         t.source.starts_with(
             "#![no_std] #![allow(clippy::match_single_binding, clippy::needless_borrow)]\n"
@@ -478,7 +489,7 @@ fn with_no_inner_attribute_the_allow_goes_in_front_of_the_first_token() {
             " #![allow(clippy::match_single_binding, clippy::needless_borrow)]/// doc",
         ),
     ] {
-        let t = transform(src, FILE, META, 0, true).expect("transform");
+        let t = transform(src, FILE, META, 0, true, &Focus::EMPTY).expect("transform");
         assert!(t.source.starts_with(head), "got: {}", t.source);
         assert_eq!(
             t.source.lines().count(),
@@ -494,7 +505,7 @@ fn with_no_inner_attribute_the_allow_goes_in_front_of_the_first_token() {
 fn a_module_file_of_the_same_unit_carries_no_allow() {
     // It is a CRATE-level attribute: the root's covers every file of the unit,
     // and a second one in a module would not even be legal there.
-    let t = transform("fn f() {}\n", FILE, META, 0, false).expect("transform");
+    let t = transform("fn f() {}\n", FILE, META, 0, false, &Focus::EMPTY).expect("transform");
     assert!(
         !t.source.contains("match_single_binding"),
         "got: {}",
@@ -520,7 +531,7 @@ fn f() -> Result<u8, u8> {
     Ok(v)
 }
 ";
-    let t = transform(src, FILE, META, 0, false).expect("transform");
+    let t = transform(src, FILE, META, 0, false, &Focus::EMPTY).expect("transform");
     assert!(
         !t.source.contains("err_site"),
         "not one of these may be wrapped: {}",
@@ -544,7 +555,7 @@ fn parentheses_protect_a_struct_literal_and_the_site_is_wrapped() {
     // The fence for the rule above: rustc's own suggestion is the parentheses,
     // and with them the scrutinee is ordinary.
     let src = "fn f() -> Result<u8, u8> { let v = (C { v: 1 }).go()?; Ok(v) }\n";
-    let t = transform(src, FILE, META, 0, false).expect("transform");
+    let t = transform(src, FILE, META, 0, false, &Focus::EMPTY).expect("transform");
     assert!(t.partial.is_empty(), "{:?}", t.partial);
     assert_eq!(t.source.matches("::sensorium_rt::err_site(").count(), 1);
 }
@@ -585,7 +596,7 @@ fn one() -> u8 {
     1
 }
 ";
-    let t = transform(src, FILE, META, 0, false).expect("transform");
+    let t = transform(src, FILE, META, 0, false, &Focus::EMPTY).expect("transform");
     assert_eq!(
         t.source.matches("::sensorium_rt::err_site(").count(),
         2,
@@ -627,7 +638,7 @@ fn g() -> Result<u8, u8> {
     Ok(1)
 }
 ";
-    let t = transform(src, FILE, META, 1000, false).expect("transform");
+    let t = transform(src, FILE, META, 1000, false, &Focus::EMPTY).expect("transform");
     assert_eq!(
         t.sites
             .iter()
@@ -647,7 +658,7 @@ fn an_err_site_index_past_24_bits_is_refused_too() {
     // The fn takes the last legal index and its `?` would be the first illegal
     // one, which the runtime's 24-bit site word cannot carry.
     let src = "fn f() -> Result<u8, u8> { let v = g()?; Ok(v) }\n";
-    let err = transform(src, FILE, META, MAX_SITE_INDEX, false)
+    let err = transform(src, FILE, META, MAX_SITE_INDEX, false, &Focus::EMPTY)
         .expect_err("the `?` site would be a 25-bit index");
     assert!(
         err.to_string().contains("site index"),
@@ -660,10 +671,25 @@ fn a_macro_argument_question_mark_outside_any_named_item_is_still_declared() {
     // The qualname falls back to the enclosing CONTAINER, and to the empty
     // string at file scope -- which says exactly that, rather than naming an
     // item that does not exist.
-    let t = transform("some_macro!(f()?);\nfn g() {}\n", FILE, META, 0, false).expect("transform");
+    let t = transform(
+        "some_macro!(f()?);\nfn g() {}\n",
+        FILE,
+        META,
+        0,
+        false,
+        &Focus::EMPTY,
+    )
+    .expect("transform");
     assert_eq!(partials(&t), [(1, "", SiteKind::Try, "macro-arg")]);
-    let t =
-        transform("mod m {\n    some_macro!(f()?);\n}\n", FILE, META, 0, false).expect("transform");
+    let t = transform(
+        "mod m {\n    some_macro!(f()?);\n}\n",
+        FILE,
+        META,
+        0,
+        false,
+        &Focus::EMPTY,
+    )
+    .expect("transform");
     assert_eq!(partials(&t), [(2, "m", SiteKind::Try, "macro-arg")]);
 }
 
@@ -678,7 +704,7 @@ fn every_wrapped_ordinal_is_that_sites_source_order_rank_in_its_qualname() {
     // ordinal must be that rank. A declared shape carries no ordinal at all.
     let mut with_spawns = 0usize;
     for case in common::CASES {
-        let t = transform(&read(case, "in"), FILE, META, 7, true)
+        let t = transform(&read(case, "in"), FILE, META, 7, true, &Focus::EMPTY)
             .unwrap_or_else(|e| panic!("{case}: transform failed: {e}"));
         if t.spawns.is_empty() {
             continue;
@@ -748,7 +774,7 @@ fn every_golden_output_re_parses_both_as_a_crate_root_and_as_a_module() {
     for case in common::CASES {
         let input = read(case, "in");
         for is_crate_root in [false, true] {
-            let t = transform(&input, FILE, META, 7, is_crate_root)
+            let t = transform(&input, FILE, META, 7, is_crate_root, &Focus::EMPTY)
                 .unwrap_or_else(|e| panic!("{case} (crate_root={is_crate_root}): {e}"));
             syn::parse_file(&t.source).unwrap_or_else(|e| {
                 panic!("{case} (crate_root={is_crate_root}): output does not re-parse: {e}")

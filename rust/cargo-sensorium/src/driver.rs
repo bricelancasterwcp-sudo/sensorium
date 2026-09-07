@@ -12,43 +12,21 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
+use sensorium_transform::Focus;
+
+use crate::resolve;
 use crate::rt_build::{self, Panic};
 use crate::rt_src;
 
 /// This binary's name and version, as it reaches a trace.
 pub const DRIVER_VERSION: &str = concat!("cargo-sensorium ", env!("CARGO_PKG_VERSION"));
 
-/// How much the runtime records. `off` is the inert arm E1 measures.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Tier {
-    Off,
-    Call,
-}
-
-impl Tier {
-    #[must_use]
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Tier::Off => "off",
-            Tier::Call => "call",
-        }
-    }
-}
-
-/// What the driver was asked to do.
-#[derive(Debug, PartialEq, Eq)]
-pub struct DriverArgs {
-    pub tier: Tier,
-    /// The argv handed to cargo, starting with the subcommand.
-    pub cargo_args: Vec<String>,
-}
-
-impl DriverArgs {
-    #[must_use]
-    pub fn subcommand(&self) -> &str {
-        self.cargo_args.first().map_or("", String::as_str)
-    }
-}
+// The argv parse moved to `driver_args.rs` when this file reached 764 lines
+// and the focus tier needed room. The two items other modules spell through
+// this one are re-exported so that no caller's path changed; `DriverArgs`
+// and `Tier` are named from `driver_args` itself, which is the only place
+// that needs them.
+pub use crate::driver_args::{parse_args, USAGE};
 
 /// `invocation.json`, written before cargo starts and completed after it exits.
 /// The converter reads it: it is where a trace's workspace root, toolchain,
@@ -59,6 +37,11 @@ pub struct Invocation {
     pub subcommand: String,
     pub cargo_args: Vec<String>,
     pub tier: String,
+    /// The `--focus` values, de-duplicated and in the order typed. The
+    /// converter's ONE source for a trace's `focus` (design A9): the driver
+    /// knows what it was asked for, and the manifests -- one per focus the
+    /// workspace was ever built under (A8) -- cannot say which is this run's.
+    pub focus: Vec<String>,
     /// `rustc -vV`'s first line, from the rustc this invocation actually used.
     pub toolchain: String,
     /// Which rustc that was: `RUSTC` when set, otherwise whatever `rustc` on
@@ -73,62 +56,6 @@ pub struct Invocation {
     pub start_ts: f64,
     pub end_ts: Option<f64>,
     pub cargo_exit: Option<i32>,
-}
-
-/// Split the driver's own flags out of cargo's.
-///
-/// `--tier` is recognised only BEFORE the first bare `--`, so a test binary's
-/// own `--tier` argument (after `cargo test -- …`) is never stolen.
-///
-/// # Errors
-/// A usage message when the subcommand is missing or unknown, or when `--tier`
-/// has no value or a value this recorder does not implement.
-pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
-    let mut tier = Tier::Call;
-    let mut cargo_args: Vec<String> = Vec::new();
-    let mut past_separator = false;
-    let mut i = 0;
-    while i < args.len() {
-        let a = &args[i];
-        if a == "--" {
-            past_separator = true;
-        }
-        if !past_separator {
-            if let Some(v) = a.strip_prefix("--tier=") {
-                tier = parse_tier(v)?;
-                i += 1;
-                continue;
-            }
-            if a == "--tier" {
-                let v = args
-                    .get(i + 1)
-                    .ok_or_else(|| "--tier needs a value (off or call)".to_owned())?;
-                tier = parse_tier(v)?;
-                i += 2;
-                continue;
-            }
-        }
-        cargo_args.push(a.clone());
-        i += 1;
-    }
-    match cargo_args.first().map(String::as_str) {
-        Some("test" | "run") => Ok(DriverArgs { tier, cargo_args }),
-        Some(other) => Err(format!(
-            "unknown subcommand `{other}`; this version implements `cargo sensorium test` and \
-             `cargo sensorium run`"
-        )),
-        None => Err(USAGE.to_owned()),
-    }
-}
-
-pub const USAGE: &str = "usage: cargo sensorium test|run [--tier off|call] [cargo args]";
-
-fn parse_tier(v: &str) -> Result<Tier, String> {
-    match v {
-        "off" => Ok(Tier::Off),
-        "call" => Ok(Tier::Call),
-        other => Err(format!("unknown tier `{other}`; expected off or call")),
-    }
 }
 
 /// The cargo profile this invocation builds, as the trace records it.
@@ -280,6 +207,25 @@ pub fn run(args: &[String]) -> i32 {
 fn go(args: &[String]) -> Result<i32, String> {
     let parsed = parse_args(args)?;
     let ws = workspace_root()?;
+    let focus = parsed_focus(&parsed.focus)?;
+    // BEFORE everything (design 2026-09-06 §2.2): before the runtime is
+    // compiled, before the shim is installed, before a spool directory exists
+    // and before cargo is invoked. A focus is a compile-time decision, so a
+    // value that names nothing would otherwise cost a full instrumented build
+    // and hand back a trace with no LINE row and no reason.
+    if !focus.is_empty() {
+        let resolved = resolve::resolve_focus(&ws, &focus)?;
+        if resolved.refuses() {
+            report_refusal(&resolved);
+            return Ok(2);
+        }
+        // One line per matched qualname, on stderr, so that a record of a run
+        // can quote what the focus actually selected rather than what was
+        // typed.
+        for qualname in &resolved.matched {
+            eprintln!("focus: {qualname}");
+        }
+    }
     let target = target_dir(&ws);
     // Cargo splits `CARGO_TARGET_<HOST>_RUNNER` and `RUSTDOCFLAGS` on
     // whitespace, and both carry a path under `<target>`. A target directory
@@ -302,7 +248,15 @@ fn go(args: &[String]) -> Result<i32, String> {
     // front beats N wrappers racing for it. `abort` is built by the wrapper
     // that first meets a `-C panic=abort` unit, and most workspaces never do.
     let rlib = rt_build::ensure(&rt, &rustc, Panic::Unwind, rt_src::FILES)?;
-    let shim = rt_build::install_shim(&target, &exe, &tool_hash)?;
+    // The focus joins the shim's path, not just the mirror's cache key: see
+    // `install_shim`. An unfocused build keeps the bare tool hash it has
+    // always had, so nothing about it moves.
+    let shim_key = if focus.is_empty() {
+        tool_hash.clone()
+    } else {
+        format!("{tool_hash}-{}", focus.focus_hash())
+    };
+    let shim = rt_build::install_shim(&target, &exe, &shim_key)?;
 
     let invocation = invocation_id()?;
     let spool = target.join("sensorium").join("spool").join(&invocation);
@@ -314,6 +268,10 @@ fn go(args: &[String]) -> Result<i32, String> {
         subcommand: parsed.subcommand().to_owned(),
         cargo_args: parsed.cargo_args.clone(),
         tier: parsed.tier.as_str().to_owned(),
+        // The canonical list, not `parsed.focus`: this is byte-for-byte what
+        // `SENSORIUM_FOCUS` carries and therefore what each manifest records
+        // as its `focus.values`, which is what R-F11 compares against.
+        focus: focus.values().to_vec(),
         toolchain,
         rustc_path: rustc.clone(),
         host: host.clone(),
@@ -346,6 +304,10 @@ fn go(args: &[String]) -> Result<i32, String> {
         )
         .env("SENSORIUM_SPOOL", &spool)
         .env("SENSORIUM_TIER", parsed.tier.as_str())
+        // Design §2.3: the values as given, comma-joined; qualnames cannot
+        // contain a comma. Always set, so an outer run's focus can never leak
+        // into this one -- empty is exactly "no focus" to the wrapper.
+        .env("SENSORIUM_FOCUS", focus.values().join(","))
         .env("SENSORIUM_TARGET", &target)
         .env("SENSORIUM_WS", &ws)
         .env("SENSORIUM_RT_DIR", &rt)
@@ -445,7 +407,7 @@ fn resolve_on_path(program: &str) -> Option<String> {
         .map(|found| found.to_string_lossy().into_owned())
 }
 
-fn cargo_path() -> String {
+pub(crate) fn cargo_path() -> String {
     // Cargo sets `CARGO` when it invokes a subcommand, so `cargo +nightly
     // sensorium test` uses the nightly cargo rather than whatever is on PATH.
     std::env::var("CARGO")
@@ -479,6 +441,56 @@ fn workspace_root() -> Result<PathBuf, String> {
         .ok_or_else(|| format!("cargo located a manifest with no parent: {manifest}"))
 }
 
+/// The `--focus` values as a [`Focus`], refusing a list that parses to nothing.
+///
+/// `Focus::parse` drops an empty entry -- an empty value would match every
+/// qualname's prefix and focus the whole workspace -- and `--focus ,` is
+/// non-empty after trimming, so it reaches here and then vanishes. Without
+/// this check the run went ahead UNFOCUSED at exit 0, with no `focus:` line
+/// and a trace whose missing LINE rows had no stated cause.
+///
+/// # Errors
+/// The same sentence `parse_args` gives an empty value, since it is the same
+/// mistake: a value that names no function.
+fn parsed_focus(values: &[String]) -> Result<Focus, String> {
+    let focus = Focus::parse(&values.join(","));
+    if !values.is_empty() && focus.is_empty() {
+        return Err("--focus needs a qualname".to_owned());
+    }
+    Ok(focus)
+}
+
+/// §2.2's refusal, one line per offending value, and nothing built.
+fn report_refusal(resolved: &resolve::Resolution) {
+    for (value, closest) in &resolved.unmatched {
+        // `Closest:` is dropped only when the workspace holds no eligible
+        // function at all; an empty list would read as a claim that nothing
+        // is near, which is a different and wrong statement.
+        let suggestion = if closest.is_empty() {
+            String::new()
+        } else {
+            format!(" Closest: {}", closest.join(", "))
+        };
+        eprintln!(
+            "REFUSED: --focus {value} matches no function in the workspace; nothing was \
+             built.{suggestion}"
+        );
+    }
+    for (value, hits) in &resolved.skipped_only {
+        // Every one of them, not just the first: a person told only about the
+        // first would fix it and meet the same refusal again.
+        let named = hits
+            .iter()
+            .map(|(qualname, reason)| format!("{qualname} ({reason})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        eprintln!(
+            "REFUSED: --focus {value} matches only functions the transform skips: {named}; \
+             nothing was built."
+        );
+    }
+}
+
 fn now() -> f64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -491,44 +503,6 @@ mod tests {
 
     fn v(items: &[&str]) -> Vec<String> {
         items.iter().map(|s| (*s).to_owned()).collect()
-    }
-
-    #[test]
-    fn the_default_tier_is_call() {
-        let p = parse_args(&v(&["test", "--lib"])).unwrap();
-        assert_eq!(p.tier, Tier::Call);
-        assert_eq!(p.cargo_args, v(&["test", "--lib"]));
-    }
-
-    #[test]
-    fn tier_off_is_taken_out_of_cargos_argv() {
-        for form in [v(&["--tier", "off", "test"]), v(&["test", "--tier=off"])] {
-            let p = parse_args(&form).unwrap();
-            assert_eq!(p.tier, Tier::Off);
-            assert_eq!(p.cargo_args, v(&["test"]));
-        }
-    }
-
-    #[test]
-    fn a_tier_after_the_separator_belongs_to_the_test_binary() {
-        let p = parse_args(&v(&["test", "--", "--tier", "off"])).unwrap();
-        assert_eq!(p.tier, Tier::Call);
-        assert_eq!(p.cargo_args, v(&["test", "--", "--tier", "off"]));
-    }
-
-    #[test]
-    fn a_bad_tier_is_refused_not_defaulted() {
-        assert!(parse_args(&v(&["--tier", "loud", "test"])).is_err());
-        assert!(parse_args(&v(&["--tier"])).is_err());
-    }
-
-    #[test]
-    fn test_and_run_are_the_two_subcommands() {
-        assert_eq!(parse_args(&v(&["test"])).unwrap().subcommand(), "test");
-        assert_eq!(parse_args(&v(&["run"])).unwrap().subcommand(), "run");
-        assert!(parse_args(&v(&["build"])).is_err());
-        assert!(parse_args(&v(&["bench"])).is_err());
-        assert!(parse_args(&[]).is_err());
     }
 
     #[test]
@@ -721,7 +695,7 @@ mod tests {
 
     #[test]
     fn the_driver_version_is_the_crates_own() {
-        assert_eq!(DRIVER_VERSION, "cargo-sensorium 0.3.1");
+        assert_eq!(DRIVER_VERSION, "cargo-sensorium 0.4.0");
     }
 
     #[test]
@@ -731,6 +705,7 @@ mod tests {
             subcommand: "test".to_owned(),
             cargo_args: vec!["test".to_owned(), "--lib".to_owned()],
             tier: "call".to_owned(),
+            focus: vec!["load".to_owned()],
             toolchain: "rustc 1.96.0".to_owned(),
             rustc_path: "/u/bin/rustc".to_owned(),
             host: "x86_64-unknown-linux-gnu".to_owned(),
@@ -749,16 +724,40 @@ mod tests {
         assert_eq!(value["subcommand"], "test");
         assert_eq!(value["cargo_args"], serde_json::json!(["test", "--lib"]));
         assert_eq!(value["tier"], "call");
+        // The converter's only source for a trace's `focus` (R-F11).
+        assert_eq!(value["focus"], serde_json::json!(["load"]));
         assert_eq!(value["host"], "x86_64-unknown-linux-gnu");
         assert_eq!(value["profile"], "dev");
         assert_eq!(value["workspace_root"], "/w");
         assert_eq!(value["target_dir"], "/t");
         assert_eq!(value["tool_hash"], "0123456789abcdef");
-        assert_eq!(value["driver_version"], "cargo-sensorium 0.3.1");
+        assert_eq!(value["driver_version"], "cargo-sensorium 0.4.0");
         assert_eq!(value["rustc_path"], "/u/bin/rustc");
         // Null, not absent: the converter tells "cargo has not finished" from
         // "cargo exited 0" by the value, and an absent key is neither.
         assert_eq!(value["end_ts"], serde_json::Value::Null);
         assert_eq!(value["cargo_exit"], serde_json::Value::Null);
+    }
+
+    /// The belt to `parse_focus`'s braces: any list of values that survives
+    /// argv parsing and still leaves an EMPTY focus is refused here rather
+    /// than run unfocused. `--focus ,` is the case that reached production --
+    /// exit 0, no `focus:` line, a trace with no LINE row and nothing
+    /// anywhere saying the flag had been discarded.
+    #[test]
+    fn a_focus_that_parses_to_nothing_is_refused_rather_than_silently_dropped() {
+        for form in [v(&[","]), v(&[",,"]), v(&[" "])] {
+            assert_eq!(
+                parsed_focus(&form).unwrap_err(),
+                "--focus needs a qualname",
+                "{form:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn no_focus_values_is_the_unfocused_build_and_not_an_error() {
+        assert!(parsed_focus(&[]).unwrap().is_empty());
+        assert_eq!(parsed_focus(&v(&["b", "a"])).unwrap().values(), ["b", "a"]);
     }
 }
