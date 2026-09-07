@@ -75,11 +75,59 @@ that stops the rung until it is explained. *Falsified by* E2′ in
      cannot tell it from a binding, and resolution is rustc's job. The cost is
      a missed delta for a binding written against Rust's own naming
      convention.
-   * **A `let` whose head type is wholly unresolved** (`let x =
+   * ~~**A `let` whose head type is wholly unresolved** (`let x =
      Default::default();`, resolved by a later use) is design §9's named
      compile risk: the probe constrains nothing and the unit may fail to
      compile. E9 H2 measured **0** focused build failures over two units,
-     which does not reach this shape — named, not measured.
+     which does not reach this shape — named, not measured.~~ **Struck and
+     corrected 2026-09-06** (the whole-branch review's item 2, after E9): the
+     mechanism named here is wrong, and wrong in the direction that matters. A
+     probe on such a `let` does not *constrain nothing* — it constrains the
+     variable to `Debug`, at the probe. The replacement is the next bullet;
+     E9 H2's **0** build failures over two units still stands and still does
+     not reach the shape.
+   * **A `let` whose head type is an INFERENCE VARIABLE that a later statement
+     resolves to a non-`Debug` type.** `let mut v = Vec::new();` followed by
+     `v.push(Opaque)`; `let mut x = None;` followed by `x = Some(Opaque)`;
+     `let x = Default::default();`; a `.collect()` whose collection type
+     arrives later. **Measured mechanism**: the autoref ladder is resolved
+     where the probe is spliced, and at that point the head type is an open
+     inference variable, so the ladder COMMITS the variable to its `Debug`
+     rung. The later resolution then has to satisfy `Debug` and does not:
+     `error[E0277]: `Opaque` doesn't implement `Debug``, and the unit does not
+     build. This is not "`Vec::new()` is unsupported" — `let mut v =
+     Vec::new();` resolving to `Vec<u8>` compiles (measured), and so does a
+     `Vec<T>` for a generic `T` with no `Debug` bound, because there the bound
+     is unprovable rather than open and the ladder takes its fallback rung and
+     records `unread` (measured). What breaks it is an OPEN variable that
+     closes on a type without `Debug`.
+     *Declared by* the whole unit falling back to the real tree and saying so
+     on stderr — `sensorium: unit <crate> (<metadata>) fell back to the real
+     tree: <rustc's first error>` (`fallback::announce`) — so the trace has no
+     LINE row for anything in that unit and the build named the reason.
+     *Falsified by* `rust/sensorium-transform/tests/focus_compile_fail/focus_infer_debug.rs`
+     (the failure, in its error class) against
+     `tests/golden_focus/focus_moved_value.in.rs` (the same `Vec::new()` shape
+     resolving to a type that does implement `Debug`, compiled clean).
+     The repair is a ruling, not an oversight: an opt-out spelling, or
+     declining the delta on an initializer with no type witness, costs
+     something either way, and both are `docs/CARRIED-DEBT.md`.
+   * **A brace-delimited MACRO in TAIL position** — `fn f() -> i32 { m! { 1 } }`,
+     which is the shape of a `quote!`/`html!`-terminated function and so of
+     proc-macro and markup crates. **Measured mechanism**: `syn` reads that
+     tail as a `Stmt::Macro` whose `semi_token` is `None`, and `lines.rs`'s
+     `statement_end` hands a brace-delimited macro the byte after its closing
+     brace without asking whether it is the block's tail — so a LINE is minted
+     after a macro that IS the return value. The tail takes the RETURN wrap as
+     well, and the two together give `…, m! { 1 })::sensorium_rt::line(…)`,
+     which rustc rejects as `expected one of `.`, `;`, `?`, `}`, or an
+     operator, found `::``. Being a PARSE error it takes the file, so the unit
+     fails to build under a focus.
+     *Declared by* the same loud whole-unit fallback as the bullet above.
+     *Falsified by* `rust/sensorium-transform/tests/focus_compile_fail/focus_macro_tail.rs`.
+     The guard is one line — `lines.rs`'s `Stmt::Macro` arm returning `None`
+     when `is_tail` — and it is NOT taken here: it is a `src` change after the
+     measurement (R-F14), so it is `docs/CARRIED-DEBT.md` for Brice or slice 2.
    * **A focused function that was BUILT but never RAN** leaves
      `capabilities.line: true` with zero LINE rows (`--focus tests::x` under
      `cargo run`). That is honest under design §2.4 — the capability is a

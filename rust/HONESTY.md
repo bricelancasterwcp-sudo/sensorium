@@ -530,7 +530,7 @@ before it, rather than one discovered at the ceiling.
 
 Added 2026-09-06 by rung 4, slice 1
 (`docs/superpowers/specs/2026-09-06-sensorium-rung4-focus-tier-design.md`, §3
-and amendments A1–A11). `sensorium watch` and `sensorium flow` answer on a
+and amendments A1–A12). `sensorium watch` and `sensorium flow` answer on a
 Rust trace instead of refusing, and this section is what that answer may mean.
 **None of it is true of a run without a `--focus`**: the tier is a
 compile-time decision, so an unfocused build carries no LINE probe at all
@@ -553,6 +553,20 @@ the converter and never read back out of an accumulated manifest (A9);
 `capabilities.line` and `capabilities.locals`, true only where some registered
 unit of the run carries at least one LINE site; and `info`'s `focus:` and
 `line=yes locals=yes` lines.
+
+**`focus_matched` is an upper bound, because a manifest outlives the
+invocation that wrote it** (added 2026-09-06, the whole-branch review's item
+4): the union is taken over every in-scope manifest built under the same
+CANONICAL focus (A9, A10), and manifests accumulate per focus (A8), so a
+qualname can appear that this invocation did not build — a later run with a
+different `-p`, or a function since deleted from a unit cargo saw no reason to
+rebuild. It is bounded: same workspace, same focus, and it is a claim about
+the BUILD only — `capabilities.line` / `locals` and `meta.sites` are the RUN's
+own registered units and are unaffected, so no LINE row is ever attributed to
+a function that did not produce it. The filter that would close it — keep a
+match only where the manifest's source hashes are still present in the tree,
+or its mtime is at or after the invocation's start — is `docs/CARRIED-DEBT.md`,
+not taken here, because it is a `src` change after the measurement (R-F14).
 *Falsified by* **E9 H3**
 (`docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md` §4: **N = 26**
 LINE rows over one activation of a real workspace function, against a count

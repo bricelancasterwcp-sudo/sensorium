@@ -155,7 +155,11 @@ sets how many of those near-misses to show (default 5); the pre-0.8.0
 ### `flow` — lineage, not dataflow analysis
 
 `flow --value V` follows a captured value by equality through calls and
-returns. `flow --object SPEC` follows one object's **identity by address plus
+returns. **On a Rust trace, spell the literal as the trace prints it**: `flow`
+compares a `dbg` capture's Debug TEXT while `watch --expr` compares resolved
+values, so `flow --value 5.0` finds no sighting of an integer capture printed
+`5` even though `watch --expr x == 5.0` is true of that same capture (design
+A12). `tree`, `frame` and `grep` all show the spelling to use. `flow --object SPEC` follows one object's **identity by address plus
 type** — and CPython recycles addresses, so this is corroborated rather than
 asserted: a lineage is split where a constructor ran on the address, gaps are
 reported as gaps, and the output states what it cannot establish. Both are

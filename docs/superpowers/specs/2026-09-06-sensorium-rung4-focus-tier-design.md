@@ -320,10 +320,9 @@ committed **alone** and byte-locked (`awk '/^## 1/,/^## 2/' | sha256sum`)
 before the runner exists in full; the runner follows the E6q/grain pattern
 (`rust/tests/acceptance_e9.py`: env-var locations only, phases as
 functions, `.DONE`/`.FAILED` markers carrying `exit=<n>`, kept stores as
-inputs). Subject: the bloomery clone at `e209ed9`
-(`/mnt/extra/sensorium-rung2/bloomery`, read-only; a fresh
-`CARGO_TARGET_DIR` under `/mnt/extra/sensorium-rung2/`, a fresh
-`SENSORIUM_DIR`). Two focus targets, chosen and written into §1 by reading
+inputs). Subject: the bloomery clone the plan names, at `e209ed9` (read-only; a fresh
+`CARGO_TARGET_DIR` beside it, a fresh `SENSORIUM_DIR` — the locations are the
+plan's and the runner's environment variables, never spelled here). Two focus targets, chosen and written into §1 by reading
 the source at `e209ed9`: `pager_obligation_test.rs`'s
 `missing_stats_is_a_contract_violation_not_a_reply` (≈15 `let` bindings
 across two scripted runs) and `pager_codec_gate_test.rs`'s
@@ -469,4 +468,20 @@ of them — its gate value 26 is the value these amendments make unambiguous.
   excepted, as in Rust), and the two commands cannot disagree about one
   capture. `len()` over any `dbg` value is refused with one reason,
   NOTHING WAS CHECKED, exit 3.
+- **A12 (2026-09-06, after the whole-branch review) — A11's inverse property
+  is PER LITERAL, and not a promise that the two commands agree across
+  numeric spellings.** `flow --value` compares Debug TEXT (`flow_values.py`
+  calls `debug_text` on the target and matches the capture's string), while
+  `watch --expr` compares RESOLVED VALUES (`expr.py` calls `read_debug` on
+  the capture and evaluates the comparison in Python). So on an integer
+  capture that the trace printed `5`: `flow --value 5.0` spells its target
+  `"5.0"`, does not equal `"5"`, and reports no sighting; `watch --expr x ==
+  5.0` reads `5` and is TRUE of the same capture (both measured 2026-09-06).
+  Neither is wrong under A11 — `resolve(dbg(debug_text(L))) == L` still holds
+  for each literal separately — but the two commands answer different
+  questions and a reader who spells a literal one way in one and another way
+  in the other gets two different answers about one capture. **The rule for a
+  reader: spell the literal as the trace prints it**, which `tree`, `frame`
+  and `grep` all show. Recorded, not repaired: making `flow` numeric would
+  change a reader after E9 was measured on it (R-F14).
 

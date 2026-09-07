@@ -62,6 +62,78 @@ above governs both files, and the next slice appends here.
 
 ### Deferred, awaiting rulings
 
+**Four items below come from the whole-branch review, which read them AFTER
+E9 was measured.** Ruling R-F14 keeps them out of `src/`: the records describe
+what that code recorded, so each is written here with its fix spelled out —
+for Brice now, or for slice 2 — rather than repaired under the measurement.
+Each is marked *ruling: Brice / slice 2*.
+
+- **A brace-delimited macro in TAIL position breaks the focused build.**
+  `fn f() -> i32 { m! { 1 } }` — the shape of every `quote!`- or `html!`-
+  terminated function, so of proc-macro and markup crates. `syn` reads the
+  tail as a `Stmt::Macro` with `semi_token: None`; `lines.rs`'s
+  `statement_end` gives a brace-delimited macro the byte after its closing
+  brace without asking `is_tail`, so a LINE is minted after the return value.
+  With the RETURN wrap around the same tail the output is
+  `…, m! { 1 })::sensorium_rt::line(…)`, a PARSE error, so the unit falls
+  back whole and loudly (`fallback::announce`) rather than losing a row.
+  **The fix is one line**: `lines.rs`'s `Stmt::Macro` arm returns `None` when
+  `is_tail`, exactly as `Stmt::Expr(expr, None)` above it already does.
+  Measured by `rust/sensorium-transform/tests/focus_compile_fail/focus_macro_tail.rs`,
+  which will fail loudly on the day the guard lands — that is the signal to
+  delete the case and the blind-spot bullet together. Not in E9's subject.
+  *Ruling: Brice / slice 2 — a `src` change after the measurement (R-F14).*
+- **The autoref ladder COMMITS an open inference variable to `Debug`.** A
+  `let` whose head type is still an inference variable at the probe —
+  `let mut v = Vec::new();` then `v.push(Opaque)`, `let mut x = None;` then
+  `x = Some(Opaque)`, `let x = Default::default();`, a `.collect()` typed
+  later — resolves the ladder to its `Debug` rung there, so a later
+  resolution to a type without `Debug` is `E0277` and the unit does not build.
+  A generic `T` with no `Debug` bound is NOT this shape (the bound is
+  unprovable rather than open, the ladder takes its fallback rung and records
+  `unread`), and `Vec<u8>` compiles; both measured. **Two candidate designs,
+  and the choice is the ruling.** (a) An OPT-OUT spelling — a per-`let` or
+  per-function marker that declines the delta — which keeps every capture that
+  works today and costs the author a word at the shapes that do not; the sub-
+  question is where it is spelled, since the transform sees only `syn` and an
+  attribute is the only thing it can read. (b) Decline the delta on any
+  initializer with NO TYPE WITNESS — no ascription, no turbofish, no literal,
+  no constructor path — which needs no author action and silently loses
+  deltas on `let x = f();`, the commonest `let` there is, so its cost has to
+  be measured before it is chosen and not after. Measured by
+  `.../focus_compile_fail/focus_infer_debug.rs` against `focus_moved_value`.
+  *Ruling: Brice / slice 2 — a `src` change after the measurement (R-F14).*
+- **`focus_matched` can carry a STALE unit's match.** The union is over every
+  in-scope manifest whose canonical focus equals the invocation's (A9/A10),
+  and per-focus manifests accumulate (A8), so a qualname can appear that this
+  invocation did not build: the same workspace and focus, a later run with a
+  different `-p`, or a function since deleted from a unit cargo saw no reason
+  to rebuild. Bounded, and it is a claim about the BUILD only —
+  `capabilities.line` / `locals` and `meta.sites` are the run's registered
+  units and are unaffected, so no LINE row is ever attributed to a function
+  that did not produce it. **The candidate filter**: keep a manifest's matches
+  only where its recorded source hashes are still present in the tree, or
+  where its mtime is at or after the invocation's start. The mtime half is
+  cheap and coarse (a rebuild-free re-run of the SAME focus would drop its own
+  matches, so the two conditions are an OR, not an AND); the hash half is
+  exact and costs a read per manifest. `rust/HONESTY.md` §12 states the bound
+  in the meantime. *Ruling: Brice / slice 2 — a `src` change after the
+  measurement (R-F14).*
+- **`fn_items` runs the whole splicing transform just to enumerate.**
+  `focus.rs:150` calls `crate::transform(source, file, "", 0, false,
+  &Focus::EMPTY)` and reads `sites` and `skipped` off the result, throwing the
+  assembled output string away — and the driver calls it for every file of
+  every cargo-metadata target before a focused build, to resolve `--focus` and
+  to print the `Closest:` suggestions. **The fix**: take the route
+  `splice::census` already takes — `Ctx::new(..)` then `visit_file(..)`, which
+  classifies every fn and splices nothing — and read the sites off the `Ctx`
+  instead of off a `Transformed`. It is the same walk without the string
+  assembly, and `census()` is the proof that the walk alone is enough. Nothing
+  is wrong with the current answers; this is cost, and it is unmeasured cost
+  (E9 H6 could not separate compile from run, so there is no number for it
+  here either). *Ruling: Brice / slice 2 — a `src` change after the
+  measurement (R-F14).*
+
 - **`--window` for Rust is slice 2's**, with `refocus` and E4. It needs a
   per-activation runtime check the Rust runtime does not have: the Python
   recorder gates LINE recording by ancestry at frame entry, and the Rust
@@ -119,18 +191,21 @@ above governs both files, and the next slice appends here.
   784, `rust/sensorium-transform/src/splice.rs` 775,
   `rust/sensorium-transform/src/visit.rs` 767,
   `rust/sensorium-transform/src/lines.rs` 749 and
-  `rust/cargo-sensorium/src/driver.rs` 763 — and **this file, at 799 of 800
-  after fix round 1: the next bullet added here MUST split it first**. For
+  `rust/cargo-sensorium/src/driver.rs` 763 — and ~~**this file, at 799 of 800
+  after fix round 1: the next bullet added here MUST split it first**~~. For
   the others the next paragraph splits them first too; for this one the natural
   split is by slice, the oldest sections moving to a
   `docs/CARRIED-DEBT-ARCHIVE.md` it links, and it is named here rather than
-  discovered at the ceiling.
+  discovered at the ceiling. — **Taken 2026-09-06**, first commit of the
+  post-review fix wave and alone: rung 3, the borrow repair and the rung-4
+  entry slice are `docs/CARRIED-DEBT-ARCHIVE.md`, a pure move under the name
+  this bullet gave it. The others stand.
 - **A stale `rust/target/release/cargo-sensorium` sits on the ROOT disk**, a
   2026-09-04 build. Anyone who runs the corpus gate with that binary on
   `PATH` instead of the `/mnt`-side one gets failures that are about the
   binary and not the tree. Delete it or document it; it is not `.gitignore`'d
   away, it is simply old.
-- **A box-local path sits in a committed test, and no check reaches it.**
+- ~~**A box-local path sits in a committed test, and no check reaches it.**
   `rust/sensorium-transform/tests/census.rs:6`'s doc comment names
   `/home/brice/workspace/bloomery`. It is **pre-existing on `main` at
   `9db30d0`**, and this slice touched that file at two other lines only (an
@@ -139,7 +214,15 @@ above governs both files, and the next slice appends here.
   (`tests/test_acceptance_e9.py::…_names_no_box_path` and its siblings) walks
   only `rust/tests/<INSTRUMENT>`, so **no test reaches
   `rust/sensorium-transform/tests/` or any other crate's tests at all**.
-  Widening the scan would have caught this one, and would catch the next.
+  Widening the scan would have caught this one, and would catch the next.~~ —
+  **taken 2026-09-06 in the post-review fix wave**, both halves. The scan now
+  walks `rust/*/tests/**/*.{rs,py}` (`golden*/` fixtures excluded, being
+  byte-compared transformer output), with a second test asserting the walk
+  contains `census.rs` and is larger than the instrument so an empty walk
+  cannot pass for a clean tree; measured discriminating (red on the one hit,
+  green after). The docstring now says "the bloomery checkout the plan names".
+  Both are test-file changes, so R-F14 does not reach them. The widened scan
+  found **one** hit in 40 files — this one — and `src/` is clean.
 - **The composite-loop residual.** A `loop` a `break` leaves, nested inside a
   composite statement (`unsafe { loop { break; } }`, a `match` whose every arm
   is such a loop), is called diverging by the shared exit walk and loses its
@@ -200,11 +283,12 @@ above governs both files, and the next slice appends here.
   manifests ACCUMULATE, so a union over "all in-scope manifests" let an
   earlier focused build label an unfocused run. Both were found by an
   end-to-end run by hand, neither by a test. Every driver task carries one.
-- **A design needed eleven dated amendments during implementation, and none
-  of them was silent.** A1–A11 are appended, never edited into the sections
-  above, and the sections read with the amendments applied. Eleven is a fact
-  about how much a design of this size cannot settle on paper, worth knowing
-  before the next one is written.
+- **A design needed twelve dated amendments during implementation and review,
+  and none of them was silent.** A1–A12 are appended, never edited into the
+  sections above, and the sections read with the amendments applied. (Eleven
+  during implementation; A12 came from the whole-branch review, after E9.)
+  Twelve is a fact about how much a design of this size cannot settle on
+  paper, worth knowing before the next one is written.
 - **Mutation-test only a COMMITTED tree.** An uncommitted fix was wiped by a
   `git checkout --` inside a mutation round. The tree under test has to be
   the tree in the index.
