@@ -186,11 +186,26 @@ fn write_sources(rt_dir: &Path, files: &[(&str, &str)]) -> Result<(), String> {
     Ok(())
 }
 
-/// Copy the running binary to `<target>/sensorium/shim/<key>/cargo-sensorium`.
+/// Install the running binary at `<target>/sensorium/shim/<key>/cargo-sensorium`
+/// -- a hard link where it can be, a copy where it cannot.
 ///
 /// Cargo keys `RUSTC_WORKSPACE_WRAPPER` by path and not by content, so the
 /// hash has to be IN the path: that is what makes a rebuilt driver rebuild the
 /// units it wrapped.
+///
+/// **The bytes are the same bytes, so they are stored once** (R3, design
+/// 2026-09-07 §0). One key per focus meant one ~40 MB copy per focus: slice 2
+/// measured 62 shim entries under one target directory totalling
+/// 2 506 729 440 bytes, all of them this binary. A hard link keeps the
+/// per-key PATH cargo needs without a per-key copy. Sharing the driver's
+/// inode is safe because `key` already hashes the driver's own bytes
+/// ([`tool_hash`]): a replaced driver takes a different key, so no live shim
+/// is ever written through, and the `set_permissions` below sets the mode an
+/// executable cargo just ran already has.
+///
+/// The copy is the answer on any error, and the one that matters is `EXDEV`:
+/// a `CARGO_TARGET_DIR` on another mount than the driver is an ordinary thing
+/// to have.
 ///
 /// `key` is the tool hash for an unfocused build and `<tool hash>-<focus
 /// hash>` for a focused one. **The focus has to be in this path**, and the
@@ -210,13 +225,20 @@ pub fn install_shim(target: &Path, exe: &Path, key: &str) -> Result<PathBuf, Str
     std::fs::create_dir_all(&dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
     let shim = dir.join("cargo-sensorium");
     if shim.is_file() {
-        // The path encodes a hash of the binary's own bytes, and the copy below
-        // is atomic, so anything at this path is this binary.
+        // The path encodes a hash of the binary's own bytes, and the install
+        // below is atomic, so anything at this path is this binary.
         return Ok(shim);
     }
     let tmp = dir.join(format!("cargo-sensorium.tmp-{}", std::process::id()));
-    std::fs::copy(exe, &tmp)
-        .map_err(|e| format!("cannot copy {} to {}: {e}", exe.display(), tmp.display()))?;
+    // Removed FIRST, and not merely for `hard_link`'s sake (it refuses an
+    // existing destination, which alone would only cost a needless copy). A
+    // leftover `tmp` from a run that died between install and rename may
+    // ITSELF be a link to the driver, and `fs::copy` onto it truncates what it
+    // opens -- which would be the driver. Unlink, then create.
+    let _ = std::fs::remove_file(&tmp);
+    std::fs::hard_link(exe, &tmp)
+        .or_else(|_| std::fs::copy(exe, &tmp).map(|_| ()))
+        .map_err(|e| format!("cannot install {} at {}: {e}", exe.display(), tmp.display()))?;
     std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755))
         .map_err(|e| format!("cannot chmod {}: {e}", tmp.display()))?;
     std::fs::rename(&tmp, &shim)
@@ -233,7 +255,15 @@ mod tests {
 
     impl Tmp {
         fn new(name: &str) -> Tmp {
-            let base = std::env::temp_dir().join(format!(
+            Tmp::under(&std::env::temp_dir(), name)
+        }
+
+        /// A directory on a NAMED filesystem rather than on whatever `TMPDIR`
+        /// happens to point at. The shim tests below choose their mount --
+        /// the driver's own for the link, a tmpfs for the copy -- because
+        /// "the same filesystem" is the thing they are pinning.
+        fn under(parent: &Path, name: &str) -> Tmp {
+            let base = parent.join(format!(
                 "sensorium-rt-build-test-{}-{}-{name}",
                 std::process::id(),
                 SystemTime::now()
@@ -468,8 +498,12 @@ mod tests {
         assert!(!rlib(&t.0.join("rt"), Panic::Unwind).exists());
     }
 
+    /// Named for what it pins -- the bytes and the path -- and no longer for
+    /// the mechanism: since R3 the shim is a LINK wherever it can be, and a
+    /// test called "is a copy" would be a false sentence about a passing
+    /// check. What it asserts is unchanged.
     #[test]
-    fn the_shim_is_a_copy_of_this_binary_at_a_hashed_path() {
+    fn the_shim_is_this_binarys_bytes_at_a_hashed_path() {
         let t = Tmp::new("shim");
         let exe = std::env::current_exe().unwrap();
         let shim = install_shim(&t.0, &exe, "0123456789abcdef").unwrap();
@@ -487,6 +521,86 @@ mod tests {
             .filter(|n| n != "cargo-sensorium")
             .collect();
         assert!(leftovers.is_empty(), "left behind: {leftovers:?}");
+    }
+
+    /// R3 (design 2026-09-07 §0, §4): the shim SHARES the driver's inode
+    /// wherever it can. Slice 2 measured 62 shim entries under one target
+    /// directory totalling 2 506 729 440 bytes -- one ~40 MB copy of the
+    /// driver per focus hash, because cargo keys `RUSTC_WORKSPACE_WRAPPER` by
+    /// PATH, so the path has to stay per-hash even though the bytes never
+    /// differ.
+    ///
+    /// The fixture is made BESIDE the driver rather than under `TMPDIR`, so
+    /// that "one filesystem" is true by construction: a check that quietly
+    /// skipped itself wherever `/tmp` is its own mount would pin nothing on
+    /// the box where the 2.5 GB was measured.
+    #[test]
+    fn the_shim_is_a_hard_link_to_the_driver_where_they_share_a_filesystem() {
+        use std::os::unix::fs::MetadataExt;
+        let exe = std::env::current_exe().unwrap();
+        let beside = exe.parent().expect("the driver has a directory").to_owned();
+        let t = Tmp::under(&beside, "shim-link");
+        let shim = install_shim(&t.0, &exe, "0123456789abcdef").unwrap();
+        let driver = std::fs::metadata(&exe).unwrap();
+        let installed = std::fs::metadata(&shim).unwrap();
+        assert_eq!(
+            installed.dev(),
+            driver.dev(),
+            "the fixture must put the shim on the driver's own filesystem"
+        );
+        assert_eq!(
+            installed.ino(),
+            driver.ino(),
+            "the shim must be a hard link to the driver, not another {} bytes",
+            driver.len()
+        );
+        // One inode, so `nlink` counts both names...
+        assert!(installed.nlink() >= 2, "nlink {}", installed.nlink());
+        // ...and the bytes read back through the shim's name are the driver's.
+        assert_eq!(std::fs::read(&shim).unwrap(), std::fs::read(&exe).unwrap());
+    }
+
+    /// ...and a COPY where it cannot be a link. `/dev/shm` is a tmpfs, so a
+    /// shim installed there and a driver under the target directory cannot
+    /// share an inode: `hard_link` fails `EXDEV` and the copy answers, which
+    /// is why the fallback exists at all (a `CARGO_TARGET_DIR` on another
+    /// mount is an ordinary thing to have).
+    ///
+    /// Skipped BY NAME where `/dev/shm` is not mounted, or is somehow the
+    /// driver's own filesystem: a check that did not run says so rather than
+    /// passing.
+    #[test]
+    fn the_shim_is_a_copy_where_it_cannot_be_a_link() {
+        use std::os::unix::fs::MetadataExt;
+        let exe = std::env::current_exe().unwrap();
+        let driver = std::fs::metadata(&exe).unwrap();
+        let shm = Path::new("/dev/shm");
+        let Ok(other) = std::fs::metadata(shm) else {
+            eprintln!(
+                "note: the_shim_is_a_copy_where_it_cannot_be_a_link did not run: /dev/shm is \
+                 not mounted, so this box offers no second filesystem to cross"
+            );
+            return;
+        };
+        if other.dev() == driver.dev() {
+            eprintln!(
+                "note: the_shim_is_a_copy_where_it_cannot_be_a_link did not run: /dev/shm is \
+                 the driver's own filesystem, so there is no boundary here to cross"
+            );
+            return;
+        }
+        let t = Tmp::under(shm, "shim-copy");
+        let shim = install_shim(&t.0, &exe, "0123456789abcdef").unwrap();
+        let installed = std::fs::metadata(&shim).unwrap();
+        assert_ne!(
+            installed.dev(),
+            driver.dev(),
+            "the fixture crosses no mount"
+        );
+        // A link across filesystems is impossible, so this is the copy path --
+        // and it still answers with the driver's bytes at the hashed path.
+        assert_ne!(installed.ino(), driver.ino());
+        assert_eq!(std::fs::read(&shim).unwrap(), std::fs::read(&exe).unwrap());
     }
 
     #[test]
