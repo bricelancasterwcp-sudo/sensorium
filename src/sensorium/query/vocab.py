@@ -92,6 +92,13 @@ class Terms:
     blind_spot_threads: str
     blind_spot_outside: str
     blind_spot_footprint: str
+    #: What the units of concurrent work are CALLED in the one shared
+    #: blind-spot line that names them -- "the order <these> interleaved
+    #: in". The rest of that line is the same statement about any recorder,
+    #: so only the noun travels. Not `task_noun_plural`: that one is written
+    #: for sentences that COUNT ("2 asyncio task(s)"), and its parentheses
+    #: read wrongly in prose.
+    blind_spot_tasks: str
     #: Why a frame has no local-variable timeline, and what to do about
     #: it. `{mod}` and `{qualname}` name the site. A language whose
     #: recorder produces no LINE events at all has no `--focus` to
@@ -147,6 +154,7 @@ PYTHON = Terms(
         "program's __repr__ inside hooks that suppress themselves, so an "
         "instrument that changes the program leaves no mark on the "
         "fingerprint"),
+    blind_spot_tasks="asyncio tasks",
     timeline_hint=("locals need line-level focus; refocus with --focus "
                    "{mod}:{qualname}"),
     interp_key="python",
@@ -197,6 +205,7 @@ RUST = Terms(
         "  - the recorder's own footprint: capturing values runs the "
         "program's own Debug impls inside the probe, so an instrument that "
         "changes the program leaves no mark on the fingerprint"),
+    blind_spot_tasks="libtest's per-test threads and spawned threads",
     timeline_hint=("this recorder produces no LINE events at all "
                    "(capabilities.line: false), so there is no per-line "
                    "record to focus"),
@@ -229,14 +238,19 @@ _SHARED_BLIND_SPOTS = (
     "  - any environment variable this run did not compare; the ones it "
     "skipped are named above",
     "  - the clock, the network, and everything else the machine did",
-    # The task clause is not decoration: this version deliberately compares
-    # task streams as a multiset, so an order flip comes back MATCH. The
-    # thing a verdict is built on NOT looking at has to be stated on every
-    # verdict, or the MATCH reads as "the tasks ran the same way".
-    "  - argument and return values, per-line state, timing, the order "
-    "threads ran in relative to one another, and the order asyncio tasks "
-    "interleaved in: recorded, never compared",
 )
+
+# The task clause is not decoration: this version deliberately compares task
+# streams as a multiset, so an order flip comes back MATCH. The thing a
+# verdict is built on NOT looking at has to be stated on every verdict, or
+# the MATCH reads as "the tasks ran the same way" -- and it has to be stated
+# in the words of the recorder that ran them. `{tasks}` is the ONE part of
+# this line that names a language; everything else is true of any recorder,
+# which is why the line lives here and the noun lives in `Terms`.
+_VALUES_BLIND_SPOT = (
+    "  - argument and return values, per-line state, timing, the order "
+    "threads ran in relative to one another, and the order {tasks} "
+    "interleaved in: recorded, never compared")
 
 
 def blind_spots(trace) -> tuple[str, ...]:
@@ -249,7 +263,8 @@ def blind_spots(trace) -> tuple[str, ...]:
     it always was, character for character.
     """
     t = terms(trace)
-    child, files, env, machine, values = _SHARED_BLIND_SPOTS
+    child, files, env, machine = _SHARED_BLIND_SPOTS
+    values = _VALUES_BLIND_SPOT.format(tasks=t.blind_spot_tasks)
     return ((t.blind_spot_scope, child, t.blind_spot_threads, files,
              t.blind_spot_outside, env, machine, values,
              t.blind_spot_footprint)

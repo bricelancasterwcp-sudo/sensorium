@@ -513,7 +513,8 @@ def test_a_real_environment_difference_still_fires_beside_the_recorders_own(
 PYTHON_BOUND = ("Python code that this run traced",
                 "Python's own threading/_thread",
                 "site-packages", "PYTHONPATH",
-                "__repr__ inside hooks")
+                "__repr__ inside hooks",
+                "asyncio")
 
 
 def _diverging_pair(tmp_path, monkeypatch, **kw):
@@ -533,6 +534,11 @@ def _assert_rust_block(out):
             "and every unit that fell back uninstrumented") in out
     assert ("  - the recorder's own footprint: capturing values runs the "
             "program's own Debug impls inside the probe") in out
+    # The one shared line that names the units of concurrent work says
+    # them in this recorder's words -- the same rule as the four above, on
+    # a line whose other clauses are true of any recorder.
+    assert ("the order libtest's per-test threads and spawned threads "
+            "interleaved in: recorded, never compared") in out
     for line in RUST.refocus_blind_spots:
         assert f"  - {line}" in out
     for phrase in PYTHON_BOUND:
@@ -596,6 +602,10 @@ def test_the_python_block_is_what_it_always_printed(tmp_path, monkeypatch):
         "  - any code outside the run's root: the stdlib, site-packages, "
         "installed dependencies, PYTHONPATH modules, and whatever this "
         "run's own --include/--exclude filtered out")
+    assert lines[7] == (
+        "  - argument and return values, per-line state, timing, the order "
+        "threads ran in relative to one another, and the order asyncio "
+        "tasks interleaved in: recorded, never compared")
     assert lines[8] == (
         "  - the recorder's own footprint: deeper capture runs the "
         "program's __repr__ inside hooks that suppress themselves, so an "
