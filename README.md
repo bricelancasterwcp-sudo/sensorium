@@ -495,7 +495,7 @@ start order flips between a recording and its rerun still MATCH, because
 tasks are compared by content and the interleaving is not; re-recorded with
 one task's content branching, the verdict is DIVERGED, naming that task.
 
-Thirty-one more cases live under `corpus/rust/`, recorded by the Rust
+Thirty-eight more cases live under `corpus/rust/`, recorded by the Rust
 recorder instead. Fourteen of them are rungs 0–2's: seven ports of the cases
 above (the same class of planted bug, asked differently, because that
 recorder captures return values and not arguments), five that only Rust has
@@ -505,9 +505,13 @@ open and its exit `unwitnessed`, libtest under `--test-threads=1` against
 spawn sits in, and a spawning function that moves to another file without
 the worker's name changing — and two whose pinned answer is a REFUSAL, where
 the question needs object identity or per-line events that recorder declares
-it does not produce. The other seventeen are rung 3's err-flow cases, each
+it does not produce. Seventeen are rung 3's err-flow cases, each
 registering both its `dispositions:` tally and its swallow set — ten of them
-to pin that nothing is accused. All thirty-one need a built
+to pin that nothing is accused. The last seven are rung 4's focus tier: six
+recorded under a `--focus`, each pinning a LINE count DERIVED from the
+design's rules before it was measured and at least one absence, and a seventh
+recorded without one, so that the unfocused reading has a case whose name says
+what it is. All thirty-eight need a built
 `cargo-sensorium` (`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on `PATH`);
 without it they are reported skipped BY NAME and counted apart from the
 passes, never as them. `corpus/rust/README.md` is the case-by-case list.
