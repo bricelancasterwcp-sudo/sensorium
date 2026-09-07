@@ -48,6 +48,16 @@ class Terms:
     task_noun: str
     #: ...and in the plural, as the sentences that count them spell it.
     task_noun_plural: str
+    #: The units a thread's fingerprint row leaves OUT under the per-task
+    #: basis, as prose after a POSSESSIVE -- "...sequence outside its ...".
+    #: Neither noun beside it fits that slot: `task_noun_plural` is written
+    #: for sentences that COUNT ("2 asyncio task(s)") and its parentheses
+    #: read wrongly in prose, and `blind_spot_tasks` is written for a slot
+    #: with no possessive ("the order libtest's per-test threads and
+    #: spawned threads interleaved in"), which after "its" would read "its
+    #: libtest's". The singular slot -- "outside any ..." -- is `task_noun`
+    #: and needs no field of its own.
+    stream_scope: str
     #: The article `a_task` needs. "an asyncio task", "a test or spawned
     #: thread": the noun cannot carry it and the sentence must not guess.
     task_article: str
@@ -128,6 +138,7 @@ PYTHON = Terms(
     lang="python",
     task_noun="asyncio task",
     task_noun_plural="asyncio task(s)",
+    stream_scope="asyncio tasks",
     task_article="an",
     thread_origin="through Python's own threading/_thread",
     # `sensorium run` starts the program on the thread it was invoked from:
@@ -174,6 +185,11 @@ RUST = Terms(
     lang="rust",
     task_noun="test or spawned thread",
     task_noun_plural="tests or spawned threads",
+    # A Rust thread row holds the MAIN thread's own events: every other
+    # thread's stream is a `task_fingerprints` row (`convert/frames.rs`).
+    # So what the row is "outside" is the test and spawned threads -- said
+    # in the shortest form that survives a possessive.
+    stream_scope="test and spawned threads",
     task_article="a",
     thread_origin=("as OS threads (libtest's per-test threads and threads "
                    "spawned by workspace code)"),

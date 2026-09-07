@@ -532,3 +532,39 @@ def test_an_asyncio_task_is_not_counted_as_a_thread(tmp_path, monkeypatch):
     assert refocus_world.compared_threads(t) == {1}
     # One thread started besides the main one, and nothing compared it.
     assert refocus_world.uncompared_threads(t) == 1
+
+
+# -- the scope phrase, in the recorder's own words -------------------------
+
+def test_a_rust_screen_never_describes_its_streams_as_asyncio_tasks(
+        tmp_path, monkeypatch, capsys):
+    """Rung 1's bug, one renderer further in. The scope phrase is gated on
+    the per-task basis AND on the run having task rows -- both true of every
+    `cargo test` trace -- so the moment the fixture carried the task rows the
+    converter really writes, three lines began saying `asyncio` about a run
+    no interpreter touched. `info` already said it in Rust's words (it reads
+    `Terms.task_noun`); these three did not, and `info_cmd` says in its own
+    comment that the two commands must not describe one trace differently."""
+    _libtest(tmp_path, monkeypatch)
+    out = capsys.readouterr().out
+    assert "asyncio" not in out
+    assert ("threads: 1 recorded fingerprint(s) compared (events outside any "
+            "test or spawned thread), all matching") in out
+    assert ("refocus verdict: MATCH -- every recorded thread produced the "
+            "identical CALL/RETURN/RAISE/HANDLED sequence outside its test "
+            "and spawned threads, and every task stream matched by content"
+            ) in out
+    assert ("  - identical call shape across 1 compared fingerprint(s), "
+            "holding 2 causal event(s) outside any test or spawned thread"
+            ) in out
+
+
+def test_refocus_and_info_scope_one_rust_trace_with_the_same_words(
+        tmp_path, monkeypatch, capsys):
+    """One trace, two commands, one answer -- the invariant `info_cmd`
+    states beside the gate both of them read."""
+    run, _root = libtest_original(tmp_path, monkeypatch)
+    assert cli.main(["info", run]) == 0
+    out = capsys.readouterr().out
+    assert "asyncio" not in out
+    assert "causal events outside any test or spawned thread)" in out

@@ -346,18 +346,28 @@ def _thread_scope(orig: Trace, new: Trace) -> str:
     """What the compared thread rows cover, when it is not everything.
 
     Under the per-task basis a thread's fingerprint covers only the events
-    that ran in NO asyncio task -- so a thread whose traced code all ran
-    inside one has a row of its own with zero events, and "2 recorded
-    fingerprint(s) compared" would otherwise invite the reader to think
-    those rows account for the whole run. The tasks are compared too, on
-    the line below; this says where the boundary between the two is.
+    that ran in NO task -- so a thread whose traced code all ran inside one
+    has a row of its own with zero events, and "2 recorded fingerprint(s)
+    compared" would otherwise invite the reader to think those rows account
+    for the whole run. The tasks are compared too, on the line below; this
+    says where the boundary between the two is.
+
+    WHAT a task is here is the recorder's word, not this function's. On a
+    Rust trace every non-main thread's stream is a `task_fingerprints` row
+    (`convert/frames.rs`), so the thread row holds the main thread's own
+    events and the boundary is the test and spawned threads -- and this
+    line said `asyncio` about it until the fixture carried the task rows
+    the converter really writes and the sentence became readable. `info`
+    reads the same table for the same gate (`info_cmd`'s
+    "the two commands must not describe one trace differently"), so both
+    take the noun from `Terms`.
 
     Empty when neither run recorded a task: nothing was excluded, and a
     parenthetical about a distinction that made no difference is noise.
     """
     if any(t.fingerprint_basis == "per-task" and t.tasks()
            for t in (orig, new)):
-        return " (events outside any asyncio task)"
+        return f" (events outside any {terms(new).task_noun})"
     return ""
 
 
@@ -659,7 +669,8 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
     if a["thread_scope"]:
         print("refocus verdict: MATCH -- every recorded thread produced the "
               "identical CALL/RETURN/RAISE/HANDLED sequence outside its "
-              "asyncio tasks, and every task stream matched by content")
+              f"{terms(new).stream_scope}, and every task stream matched "
+              "by content")
     else:
         print("refocus verdict: MATCH -- every recorded thread produced the "
               "identical CALL/RETURN/RAISE/HANDLED sequence")

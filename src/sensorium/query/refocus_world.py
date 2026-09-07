@@ -602,7 +602,12 @@ def _verified_facts(orig: Trace, new: Trace, scope: str) -> list[str]:
     # events of scaffolding reads as a statement about the run; the count
     # and the scope are what make it a bounded claim instead.
     events = sum(c for _h, c in fps.values())
-    outside = " outside any asyncio task" if scope else ""
+    # The noun is the recorder's, for the reason `vocab.py` exists: on a
+    # Rust trace the row is outside the test and spawned threads, and
+    # `asyncio` there names a runtime that never ran. `scope` decides
+    # WHETHER the clause appears (one derivation, read once); `terms`
+    # decides what it calls the units.
+    outside = f" outside any {terms(new).task_noun}" if scope else ""
     # The thread clause is a PROVENANCE claim -- "through Python's own
     # threading/_thread" says how the threads this run did not start would
     # have come to exist -- so it comes from the trace's own vocabulary
