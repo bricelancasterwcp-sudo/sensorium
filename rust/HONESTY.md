@@ -1,14 +1,18 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.3.0`, `sensorium-transform 0.3.1`, `cargo-sensorium 0.3.1` —
-v1, the call tier, with err flow. (~~`sensorium-rt 0.1.0`,
+`sensorium-rt 0.4.0`, `sensorium-transform 0.4.0`, `cargo-sensorium 0.4.0` —
+v1, the call tier, with err flow and the focus tier.
+(~~`sensorium-rt 0.3.0`, `sensorium-transform 0.3.1`,
+`cargo-sensorium 0.3.1`~~, and before them ~~`sensorium-rt 0.1.0`,
 `sensorium-transform 0.2.0`, `cargo-sensorium 0.2.0`~~: `sensorium-transform`
 and `cargo-sensorium` moved to `0.2.0` on 2026-09-03 for the `spawn_child`
 naming change in §3, all three moved to `0.3.0` on 2026-09-05 for wire v3
-and the err-flow records of §11, and those same two moved to `0.3.1` later
+and the err-flow records of §11, those same two moved to `0.3.1` later
 that day for the borrow repair — `sensorium-rt` did not move, because neither
-the wire nor the runtime changed; `HONESTY.md` was not versioned per-crate
-before 2026-09-03, so no edition older than that is struck.)
+the wire nor the runtime changed — and all three moved to `0.4.0` on
+2026-09-06 for the focus tier's new wire kind, LINE (§12). `HONESTY.md` was
+not versioned per-crate before 2026-09-03, so no edition older than that is
+struck.)
 
 Sensorium's founding rule is that **the instrument never answers from data it
 does not have**. The Python recorder keeps its half of that rule in the
@@ -43,9 +47,13 @@ naming — for workspace crates, on Linux, on stable rustc, with no hand
 annotation. **Added 2026-09-05 (rung 3):** RAISE and HANDLED at `?` sites, the
 four written sinks, `let _ =` and classified `Err` arms; frames for closures
 holding a `?`; chains minted at conversion; and the dispositions
-`sensorium exceptions` prints on a Rust trace — §11. Not locals or LINE
-(rung 4), not `refocus`, not program output. §8 is the list, with what
-declares each absence.
+`sensorium exceptions` prints on a Rust trace — §11. **Added 2026-09-06
+(rung 4, slice 1):** under `cargo sensorium --focus <qualname>`, one LINE
+event per completed statement of a focused function, carrying the bindings
+that statement wrote, which is what makes `watch` and `flow` answer here
+instead of refusing — §12. Not `refocus`, not `--window`, not program output,
+and nothing per-line in a function no `--focus` named. §8 is the list, with
+what declares each absence.
 
 ---
 
@@ -468,7 +476,11 @@ bullet name. Everything here is a tested claim, not a design intention.
   And a `Debug` impl invoked by the instrument **runs**: reentrancy keeps it
   from emitting and `catch_unwind` keeps its panic from escaping, but its side
   effects are real. A `Debug` that mutates or logs will do so once per captured
-  return.
+  return **and once per captured delta** (§12) — and no more often than that:
+  a LINE probe takes its deltas as a closure and formats them inside
+  `thread::enter_runtime()` (design 2026-09-06 A5), so nothing is formatted
+  for a delta under `SENSORIUM_TIER=off`, and nothing is formatted for a delta
+  while a `Debug` impl of this program is already running.
 
 ## 10. Cost is reported, never gated
 
@@ -513,6 +525,73 @@ tier, so this file stays under 800 lines; **the wording and order there are
 unchanged**, so `§11` still names what it always named, one file away). It is
 the split this rung chose deliberately, the way rung 3 chose §1 and §8's list
 before it, rather than one discovered at the ceiling.
+
+## 12. The focus tier: LINE, and the deltas a statement wrote
+
+Added 2026-09-06 by rung 4, slice 1
+(`docs/superpowers/specs/2026-09-06-sensorium-rung4-focus-tier-design.md`, §3
+and amendments A1–A11). `sensorium watch` and `sensorium flow` answer on a
+Rust trace instead of refusing, and this section is what that answer may mean.
+**None of it is true of a run without a `--focus`**: the tier is a
+compile-time decision, so an unfocused build carries no LINE probe at all
+rather than an inert one — §8 item 3 is what such a run still cannot see.
+
+**One LINE per completed statement of a focused function, its `deltas` the
+bindings that statement wrote and nothing else.** One probe after every
+`syn::Stmt` at every block depth (§3.1), a parameters LINE first — even for a
+function taking none (A2) — and a synthetic entry LINE for a `match`/`if let`
+arm or `for` pattern that BINDS, once per entry or iteration, and none for one
+that binds nothing (A3). A statement that `return`s, `break`s, `continue`s,
+propagates with `?` or panics leaves no LINE of its own: its exit is already
+the RETURN or RAISE row. A tail expression is not a statement, and a
+bare-expression arm body becomes the wrapping block's tail (A1), so neither
+takes a row. The tier re-probes a function on **every activation**, not once
+per function.
+*What says it in the trace*: `meta.focus`, the invocation's own list handed to
+the converter and never read back out of an accumulated manifest (A9);
+`meta.focus_matched`, the qualnames this build's own manifests matched;
+`capabilities.line` and `capabilities.locals`, true only where some registered
+unit of the run carries at least one LINE site; and `info`'s `focus:` and
+`line=yes locals=yes` lines.
+*Falsified by* **E9 H3**
+(`docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md` §4: **N = 26**
+LINE rows over one activation of a real workspace function, against a count
+hand-derived from these rules and locked before the transform could produce a
+competing number — with **0** line differences against its per-line table);
+`rust/sensorium-transform/tests/focus.rs` with the `golden_focus/` goldens,
+compiled by the real rustc under `-D warnings`;
+`rust/sensorium-rt/src/line/tests.rs`;
+`rust/cargo-sensorium/tests/convert_frames.rs`; and the seven
+`corpus/rust/focus_*` cases, each pinning a LINE count derived from these
+rules and at least one ABSENCE. A delta naming a binding its statement did not
+write would falsify it too, and of those the goldens are what would catch it.
+
+**A dropped delta is stated, never silently short.** A LINE payload is bounded
+by `LINE_PAYLOAD_MAX` — 2048 bytes, room for nine fully capped
+eight-character-named deltas (A5). When the next delta would not fit, it and
+every later one are dropped and `flags.bit0` is set, which reaches the row as
+`unread: ["locals"]`: the same marker every Rust CALL carries, meaning the
+same thing, that a reader was not shown something and is being told so. Each
+value is `Debug` text capped at 200 bytes exactly as a return value is (§2),
+so a binding whose type has no `Debug` reads `{"k": "unread"}` and a clipped
+one carries `trunc`. **The drop rule is untriggered in measurement**, said
+rather than left to be inferred from an absence: E9 reports `flags.bit0` never
+set on any of its four runs, beside 5 unread and 3 truncated deltas of F1's 17
+(record §3, *reported without a gate*).
+
+**A LINE needs an open frame.** The parameters LINE is spliced after the entry
+guard (A6), so a LINE always falls inside its own function's CALL; a LINE
+record whose thread has no open frame is a malformed stream, and the converter
+refuses it naming the record rather than attaching it to a guessed frame.
+*Falsified by* `rust/cargo-sensorium/tests/convert_errors.rs`.
+
+**What a reader may do with a `dbg` value is a rule, not a record**, and it is
+written where a reader meets it: `docs/TRACE-FORMAT.md`'s `LINE` row and its
+capability prose. `watch --expr` and `flow --value` read these captures as
+Debug TEXT, and the two are inverses on the literal domain (A11) — what one
+calls a sighting the other cannot deny at the same site. That is weaker than
+Python's typed captures, and is stated as such rather than presented as an
+equivalent.
 
 ---
 
