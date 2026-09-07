@@ -22,6 +22,7 @@ mod convert;
 mod driver;
 mod driver_args;
 mod fallback;
+mod invocation;
 mod mirror;
 mod modtree;
 mod refocus_of;
