@@ -101,6 +101,7 @@
 
 mod arms;
 mod attrs;
+mod census;
 mod closures;
 mod errflow;
 mod escape;
@@ -552,5 +553,5 @@ pub fn transform_file(
 /// Count fn items the way [`transform`] classifies them, without rewriting.
 #[must_use]
 pub fn census(source: &str) -> Census {
-    splice::census(source)
+    census::counts(source)
 }

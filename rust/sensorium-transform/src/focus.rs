@@ -137,21 +137,29 @@ pub struct FnItem {
 /// Every fn item of `source`, so that a caller can answer "would a focus
 /// select this?" without guessing at the transform's rules.
 ///
-/// It runs the ORDINARY unfocused walk and reads its result back rather than
+/// It runs the transform's OWN walk and reads its rows back rather than
 /// classifying a second time: a `Fn` site is exactly a fn this transform
 /// instruments -- and therefore exactly one a focus can select -- and
-/// [`Transformed::skipped`] is exactly the set it will not, with the reason it
-/// gives. A second classifier here could drift from the first, and the drift
-/// would show up as a `--focus` the driver accepts and the transform ignores.
+/// [`crate::Transformed::skipped`] is exactly the set it will not, with the
+/// reason it gives. A second classifier here could drift from the first, and
+/// the drift would show up as a `--focus` the driver accepts and the transform
+/// ignores.
+///
+/// The walk it runs is the CENSUS walk ([`crate::census::walk`], transform
+/// 0.4.2): the same visitor with its splicing half switched off. Until 0.4.2
+/// this ran the whole transform on every file of the workspace -- every offset
+/// computed, every fragment placed, every rewritten source assembled and its
+/// line count checked -- and discarded the source to read two lists off the side
+/// of it. `tests/fn_census.rs` is what says the answer did not move.
 ///
 /// A file that does not parse yields NO items: it is not instrumented either,
 /// so it holds nothing a focus could select.
 #[must_use]
 pub fn fn_items(source: &str, file: &str) -> Vec<FnItem> {
-    let Ok(transformed) = crate::transform(source, file, "", 0, false, &Focus::EMPTY) else {
+    let Some(walked) = crate::census::walk(source, file) else {
         return Vec::new();
     };
-    let mut items: Vec<FnItem> = transformed
+    let mut items: Vec<FnItem> = walked
         .sites
         .iter()
         .filter(|site| site.kind == crate::SiteKind::Fn)
@@ -160,7 +168,7 @@ pub fn fn_items(source: &str, file: &str) -> Vec<FnItem> {
             skipped: None,
         })
         .collect();
-    items.extend(transformed.skipped.iter().map(|s| FnItem {
+    items.extend(walked.skipped.iter().map(|s| FnItem {
         qualname: s.qualname.clone(),
         skipped: Some(s.reason),
     }));
@@ -288,5 +296,156 @@ mod tests {
     #[test]
     fn a_file_that_does_not_parse_holds_nothing_a_focus_could_select() {
         assert!(super::fn_items("fn (", "src/lib.rs").is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // The census walk behind `fn_items` (design 2026-09-07 §6)
+    // -----------------------------------------------------------------------
+
+    /// A file holding every shape the two walks have to agree about: each skip
+    /// reason, both marks, a nested `mod`, an `impl` method, and a `?` so that
+    /// the emitting walk mints err-flow sites the census walk does not.
+    const EVERY_SHAPE: &str = "\
+mod m {
+    pub fn f() -> Result<u8, u8> {
+        let v = g()?;
+        Ok(v)
+    }
+    pub async fn a() {}
+    pub const fn c() -> u8 { 1 }
+    extern \"C\" fn e() {}
+    fn g() -> Result<u8, u8> { Ok(1) }
+}
+macro_rules! mac {
+    () => {
+        fn inside() {}
+    };
+}
+#[test]
+fn a_test() {}
+#[tokio::test]
+async fn an_async_test() {}
+#[bench]
+fn a_bench(_: &mut u8) {}
+#[cfg(test)]
+fn a_helper() {}
+fn main() {}
+struct S;
+impl S {
+    fn k(&self) -> u8 { 1 }
+}
+";
+
+    /// Everything a `Fn` row carries EXCEPT its index: the index is minted from
+    /// a counter the err-flow, closure and LINE sites also draw on, and the
+    /// census walk mints none of those, so it is the one field the two walks
+    /// are not expected to agree on (see [`crate::visit::Ctx::record_sites`]).
+    fn rows(sites: &[crate::Site]) -> Vec<(&str, &str, u32, crate::RetKind, bool, bool)> {
+        sites
+            .iter()
+            .filter(|s| s.kind == crate::SiteKind::Fn)
+            .map(|s| {
+                (
+                    s.file.as_str(),
+                    s.qualname.as_str(),
+                    s.firstlineno,
+                    s.ret.expect("a fn row carries what its signature returns"),
+                    s.test,
+                    s.main,
+                )
+            })
+            .collect()
+    }
+
+    /// The whole promise of the census path: the rows are the transform's own.
+    ///
+    /// `fn_items` reads only `qualname` and the skip reason off these rows, so
+    /// the comparison here is deliberately WIDER than its caller -- the `test`
+    /// mark included, which `marks::is_test_fn` decides and which a converter
+    /// reads to say a chain was returned to the harness rather than lost. A
+    /// census that recorded rows without it would pass every `fn_items` test in
+    /// this crate.
+    #[test]
+    fn the_census_walk_records_the_rows_the_transform_records() {
+        let file = "src/lib.rs";
+        let walked = crate::census::walk(EVERY_SHAPE, file).expect("the fixture parses");
+        let spliced = crate::transform_file(
+            EVERY_SHAPE,
+            file,
+            "d41d8cd98f00b204",
+            0,
+            crate::FileRole::default(),
+            &Focus::EMPTY,
+        )
+        .expect("the fixture transforms");
+
+        assert_eq!(rows(&walked.sites), rows(&spliced.sites));
+        assert_eq!(walked.skipped, spliced.skipped);
+
+        // Positively, so that "equal" cannot mean "equally empty": the marks
+        // and the four reasons are all actually there.
+        let marked: Vec<&str> = walked
+            .sites
+            .iter()
+            .filter(|s| s.test)
+            .map(|s| s.qualname.as_str())
+            .collect();
+        assert_eq!(marked, ["a_test", "a_bench"], "the test marks survive");
+        let mut reasons: Vec<&str> = walked.skipped.iter().map(|s| s.reason).collect();
+        reasons.sort_unstable();
+        reasons.dedup();
+        assert_eq!(reasons, ["async", "const", "extern", "macro"]);
+        assert!(
+            walked.sites.iter().all(|s| s.file == file),
+            "a census row names the file it was asked about"
+        );
+    }
+
+    /// The census walk places NOTHING. Not a splice, and not one of the site
+    /// kinds that exist only because a fragment goes somewhere.
+    #[test]
+    fn the_census_walk_splices_nothing() {
+        let walked = crate::census::walk(EVERY_SHAPE, "src/lib.rs").expect("the fixture parses");
+        assert!(walked.splices.is_empty(), "a census walk splices nothing");
+        assert!(walked.spawns.is_empty(), "and renames no spawn");
+        assert!(walked.partial.is_empty(), "and declines no site");
+        assert!(walked.focused.is_empty(), "and focuses nothing");
+        assert!(
+            walked.sites.iter().all(|s| s.kind == crate::SiteKind::Fn),
+            "every row a census walk records is a fn row"
+        );
+        // The emitting walk on the same file DOES mint the other kinds, which
+        // is what makes the assertion above a measurement and not a tautology
+        // about a file with no `?` in it.
+        let spliced = crate::transform(EVERY_SHAPE, "src/lib.rs", "", 0, false, &Focus::EMPTY)
+            .expect("the fixture transforms");
+        assert!(spliced.sites.iter().any(|s| s.kind != crate::SiteKind::Fn));
+    }
+
+    /// `main` is the DRIVER's knowledge (which crate root is a binary's), and
+    /// the resolver never had it: `fn_items` asked for a transform with
+    /// `is_bin_root: false` before 0.4.2 and asks the census for the same
+    /// silence now. Pinned rather than left to be discovered, because the row
+    /// looks like the transform's and differs in this one field.
+    #[test]
+    fn a_census_row_never_carries_the_main_mark() {
+        let walked = crate::census::walk(EVERY_SHAPE, "src/lib.rs").expect("the fixture parses");
+        assert!(walked.sites.iter().all(|s| !s.main));
+        let bin = crate::transform_file(
+            EVERY_SHAPE,
+            "src/main.rs",
+            "d41d8cd98f00b204",
+            0,
+            crate::FileRole {
+                is_crate_root: true,
+                is_bin_root: true,
+            },
+            &Focus::EMPTY,
+        )
+        .expect("the fixture transforms");
+        assert!(
+            bin.sites.iter().any(|s| s.main),
+            "the emitting walk carries it when its caller knows"
+        );
     }
 }

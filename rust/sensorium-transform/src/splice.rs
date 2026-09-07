@@ -56,7 +56,7 @@ use syn::{AttrStyle, Attribute};
 use crate::errflow::How;
 use crate::focus::Focus;
 use crate::visit::Ctx;
-use crate::{Census, FileRole, SpawnSite, Transformed};
+use crate::{FileRole, SpawnSite, Transformed};
 
 /// The entry guard. Newline-free, and the ONLY place its text is written.
 pub(crate) fn guard_fragment(site: u32) -> String {
@@ -293,7 +293,7 @@ pub(crate) fn run(
     let parsed = syn::parse_file(source)?;
     let prefix = stripped_prefix_len(source, parsed.shebang.as_deref());
 
-    let mut ctx = Ctx::new(source, prefix, file, first_site, true, focus);
+    let mut ctx = Ctx::new(source, prefix, file, first_site, true, true, focus);
     ctx.is_bin_root = role.is_bin_root;
     ctx.visit_file(&parsed);
     let walked = ctx.finish()?;
@@ -440,22 +440,8 @@ fn check_line_count(source: &str, out: &str, appended_line: bool) -> Result<(), 
     ))
 }
 
-pub(crate) fn census(source: &str) -> Census {
-    let Ok(parsed) = syn::parse_file(source) else {
-        // Four zeros with `parsed: false` -- NOT a measured zero.
-        return Census::default();
-    };
-    let prefix = stripped_prefix_len(source, parsed.shebang.as_deref());
-    // A census classifies and never splices, so it never needs a focus: the
-    // counts are the same under every one.
-    let none = Focus::EMPTY;
-    let mut ctx = Ctx::new(source, prefix, "", 0, false, &none);
-    ctx.visit_file(&parsed);
-    ctx.census()
-}
-
 /// How many bytes `syn::parse_file` removed before `proc-macro2` saw the text.
-fn stripped_prefix_len(source: &str, shebang: Option<&str>) -> usize {
+pub(crate) fn stripped_prefix_len(source: &str, shebang: Option<&str>) -> usize {
     let bom = usize::from(source.starts_with('\u{feff}')) * '\u{feff}'.len_utf8();
     bom + shebang.map_or(0, str::len)
 }

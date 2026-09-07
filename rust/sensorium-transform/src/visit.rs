@@ -31,7 +31,7 @@ use crate::names::{line_of, path_span, self_type_name};
 use crate::spawn;
 use crate::splice::{guard_fragment, ret_open_fragment, Kind, Splice, RET_CLOSE};
 use crate::{arms, closures, errflow, lines, marks};
-use crate::{Census, Partial, RetKind, Site, SiteKind, Skipped, SpawnSite, MAX_SITE_INDEX};
+use crate::{Partial, RetKind, Site, SiteKind, Skipped, SpawnSite, MAX_SITE_INDEX};
 
 /// What one walk found: everything `splice.rs` needs and nothing it does not.
 pub(crate) struct Walked {
@@ -87,6 +87,19 @@ pub(crate) struct Ctx<'a> {
     pub(crate) next_site: u32,
     /// False in census mode: classification runs, splicing does not.
     pub(crate) emit: bool,
+    /// Record the fn ROWS and the skip rows, independently of `emit` (design
+    /// 2026-09-07 §6). True on the walk [`crate::census::walk`] runs for the
+    /// driver's `--focus` resolver, which needs the rows and not one byte of
+    /// the rewrite that would carry them; false on a counting census, which
+    /// needs neither.
+    ///
+    /// The emitting walk records them too, so the flag is read as `emit ||
+    /// record_sites` and never instead of `emit`: what it gates is the ROW, and
+    /// what `emit` gates is the SPLICE. With `emit` false the row's
+    /// `Site::site` numbers the fn rows alone -- no err-flow, closure or LINE
+    /// site is minted to take a number from the same counter -- so it is not
+    /// the index the transform would give that function, and nothing reads it.
+    pub(crate) record_sites: bool,
     pub(crate) sites: Vec<Site>,
     skipped: Vec<Skipped>,
     /// Err-flow sites the walk met and could not reach (design R6).
@@ -126,18 +139,22 @@ pub(crate) struct Ctx<'a> {
     /// Byte offset (for source order) and the site.
     pub(crate) spawns: Vec<(usize, SpawnSite)>,
     splices: Vec<Splice>,
-    fn_items: usize,
-    const_fns: usize,
-    extern_fns: usize,
-    async_fns: usize,
-    /// Census only (see [`Census::try_syn`]): counted on every walk, read only
-    /// through [`Ctx::census`], and never a splice. Rung 3's transformer adds the
-    /// instrumenting side of `?` separately, gated on `emit`.
-    try_syn: usize,
-    /// Census only (see [`Census::try_macro_tokens`]).
+    // The counters [`crate::census`] reads back through `Ctx::census`. They are
+    // `pub(crate)` for the same reason the err-flow fields above are: the half
+    // of the walk that reads them lives in another module, because this file is
+    // at its 800-line ceiling.
+    pub(crate) fn_items: usize,
+    pub(crate) const_fns: usize,
+    pub(crate) extern_fns: usize,
+    pub(crate) async_fns: usize,
+    /// Census only (see [`crate::Census::try_syn`]): counted on every walk, read
+    /// only through `Ctx::census`, and never a splice. Rung 3's transformer adds
+    /// the instrumenting side of `?` separately, gated on `emit`.
+    pub(crate) try_syn: usize,
+    /// Census only (see [`crate::Census::try_macro_tokens`]).
     pub(crate) try_macro_tokens: usize,
     /// Counted on every walk, by the same classification that places the arm
-    /// probes: `[propagate, panic, escaped, handled]` (see [`Census`]).
+    /// probes: `[propagate, panic, escaped, handled]` (see [`crate::Census`]).
     pub(crate) arms: [usize; 4],
     /// Counted on every walk: closures given a frame, and `?` inside an async
     /// block. Both are decisions, not splices, so a census sees them too.
@@ -153,6 +170,7 @@ impl<'a> Ctx<'a> {
         file: &'a str,
         first_site: u32,
         emit: bool,
+        record_sites: bool,
         focus: &'a Focus,
     ) -> Self {
         Ctx {
@@ -165,6 +183,7 @@ impl<'a> Ctx<'a> {
             spawn_ordinals: HashMap::new(),
             next_site: first_site,
             emit,
+            record_sites,
             sites: Vec::new(),
             skipped: Vec::new(),
             partial: Vec::new(),
@@ -205,25 +224,6 @@ impl<'a> Ctx<'a> {
             splices: self.splices,
             focused: self.focused,
         })
-    }
-
-    /// The counts E2 reads, from the same classification that instrumented.
-    pub(crate) fn census(&self) -> Census {
-        Census {
-            fn_items: self.fn_items,
-            const_fns: self.const_fns,
-            extern_fns: self.extern_fns,
-            async_fns: self.async_fns,
-            try_syn: self.try_syn,
-            try_macro_tokens: self.try_macro_tokens,
-            arms_propagate: self.arms[0],
-            arms_panic: self.arms[1],
-            arms_escaped: self.arms[2],
-            arms_handled: self.arms[3],
-            closures_framed: self.closures_framed,
-            async_partials: self.async_partials,
-            parsed: true,
-        }
     }
 
     pub(crate) fn fail(&mut self, span: Span, msg: &str) {
@@ -347,34 +347,6 @@ impl<'a> Ctx<'a> {
         }
     }
 
-    /// Which disjoint bucket this signature falls in, if any, counting it as it
-    /// goes.
-    ///
-    /// The order is what makes the buckets disjoint, so that a fn is classified
-    /// exactly once and `fn_items - const_fns - extern_fns` never subtracts one
-    /// fn twice. (`const async fn` and `async extern fn` are both rejected by
-    /// rustc, so the order is a formality, not a policy.)
-    fn classify(&mut self, sig: &Signature) -> Option<&'static str> {
-        if sig.constness.is_some() {
-            self.const_fns += 1;
-            return Some("const");
-        }
-        if sig.abi.is_some() {
-            self.extern_fns += 1;
-            return Some("extern");
-        }
-        if sig.asyncness.is_some() {
-            // A guard in an `async fn` body lives inside the future, so it is
-            // dropped when the future is dropped -- possibly on a different
-            // thread than the one that created it, and never at the `.await`
-            // boundaries the caller would read as returns. That contradicts
-            // spec §3.2's "the guard's Drop is the SOLE emitter of RETURN".
-            self.async_fns += 1;
-            return Some("async");
-        }
-        None
-    }
-
     /// Classify one fn item with a body, and instrument it if it is eligible.
     fn fn_item(&mut self, sig: &Signature, attrs: &[Attribute], block: &Block, name: &str) {
         self.fn_items += 1;
@@ -382,7 +354,7 @@ impl<'a> Ctx<'a> {
         let qualname = self.qualname(name);
 
         if let Some(reason) = self.classify(sig) {
-            if self.emit {
+            if self.emit || self.record_sites {
                 self.skipped.push(Skipped {
                     file: self.file.to_owned(),
                     qualname,
@@ -393,6 +365,15 @@ impl<'a> Ctx<'a> {
             return;
         }
         if !self.emit {
+            if self.record_sites {
+                // The census walk: the row the emitting walk below would mint,
+                // and not one byte of the rewrite that would carry it. The
+                // index is the fn rows' own here -- see `Ctx::record_sites`.
+                let site = self.next_site;
+                self.next_site += 1;
+                let row = self.fn_row(site, qualname, line, exits::ret_kind(sig), attrs, name);
+                self.sites.push(row);
+            }
             return;
         }
         if self.next_site > MAX_SITE_INDEX {
@@ -416,20 +397,8 @@ impl<'a> Ctx<'a> {
             }
         }
 
-        self.sites.push(Site {
-            site,
-            file: self.file.to_owned(),
-            qualname: qualname.clone(),
-            firstlineno: line,
-            ret: Some(ret),
-            kind: SiteKind::Fn,
-            how: None,
-            test: marks::is_test_fn(attrs),
-            // A `main` inside a `mod`, an `impl` or another fn is an ordinary
-            // fn: the scope stack being EMPTY is what says this one is the
-            // crate root's, and only the caller knows the root is a binary's.
-            main: self.is_bin_root && self.scope.is_empty() && name == "main",
-        });
+        let row = self.fn_row(site, qualname.clone(), line, ret, attrs, name);
+        self.sites.push(row);
 
         // The focus is read AFTER `classify`, so an `async`/`const`/`extern` fn
         // is never focused (design §2.2), and the LINE sites are minted after
@@ -439,6 +408,40 @@ impl<'a> Ctx<'a> {
         if self.focus.matches(&qualname) {
             lines::walk_body(self, sig, block, &qualname, offset);
             self.focused.push(qualname);
+        }
+    }
+
+    /// The `Fn` row for one eligible fn item.
+    ///
+    /// ONE construction, read by both walks (design 2026-09-07 §6): the
+    /// emitting walk mints it beside the guard it splices, and the census walk
+    /// [`crate::census::walk`] runs mints it with no splice at all. A second
+    /// construction for the census is exactly the drift [`crate::fn_items`]
+    /// exists to rule out -- a `--focus` the driver accepts and the transform
+    /// then ignores.
+    fn fn_row(
+        &self,
+        site: u32,
+        qualname: String,
+        line: u32,
+        ret: RetKind,
+        attrs: &[Attribute],
+        name: &str,
+    ) -> Site {
+        Site {
+            site,
+            file: self.file.to_owned(),
+            qualname,
+            firstlineno: line,
+            ret: Some(ret),
+            kind: SiteKind::Fn,
+            how: None,
+            test: marks::is_test_fn(attrs),
+            // A `main` inside a `mod`, an `impl` or another fn is an ordinary
+            // fn: the scope stack being EMPTY is what says this one is the
+            // crate root's, and only the caller knows the root is a binary's --
+            // so a census row, whose caller is the resolver, never carries it.
+            main: self.is_bin_root && self.scope.is_empty() && name == "main",
         }
     }
 
@@ -742,7 +745,7 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
             self.macro_question_tokens(&node.mac.tokens);
             return;
         }
-        if !self.emit {
+        if !self.emit && !self.record_sites {
             return;
         }
         // A fn inside a `macro_rules!` body is not an AST fn item -- `syn` sees
