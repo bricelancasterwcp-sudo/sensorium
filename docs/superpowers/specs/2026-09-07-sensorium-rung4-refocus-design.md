@@ -255,4 +255,16 @@ limitation; any change to the comparator or to Python's own refocus branch;
   amendment under ruling R-H1) names the discriminator: a DIVERGED on those
   three is the hazard only when the worker tasks' total event count is
   preserved and the MAIN stream MATCHes.
+- **B2 (2026-09-07, after Task 2's review) — two facts §2 did not state.**
+  (1) The driver refuses a `--refocus-of` value that is not a run id (a path
+  separator, `.`, `..`, an absolute path, an empty value) with
+  `REFUSED: --refocus-of <v> is not a run id; nothing was built.`, before
+  the store is consulted — without it `--refocus-of ../traces/<real run>`
+  would stamp a link the store can never resolve; a trailing `.db` is
+  stripped once so `<id>.db` names `<id>`. (2) `invocation_processes`
+  counts the RUNNER's processes — every test binary AND every doctest
+  process cargo hands the runner — so §2.3's refusal reads "run <id> is one
+  of <n> processes of its invocation (test binaries and doctests)"; a
+  single-target selector (`--lib`, `--test X`, `--bin X`) excludes doctests
+  and is what makes the count 1.
 
