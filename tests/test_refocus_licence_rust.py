@@ -29,7 +29,8 @@ from sensorium.query.refocus_world import (UNVERIFIABLE_CHILDREN,
                                            unverifiable_checks)
 from sensorium.query.vocab import PYTHON, RUST
 from sensorium.store.reader import Trace
-from tests.helpers import fn_site, rust_trace
+from tests.helpers import finalize_synthetic, fn_site, rust_trace
+from tests.programs import synthetic
 from tests.refocus_programs import LOOP, drop_meta, rec, refocus, set_meta
 from tests.refocus_rust_fixtures import (ORIG, PAIR, _drive, _drop_meta,
                                          _read_meta, libtest_original,
@@ -497,3 +498,37 @@ def test_an_inferred_main_thread_names_no_harness_thread(
     t = Trace.open(paths.traces_dir() / f"{run}.db")
     assert t.main_thread_basis() == "inferred"
     assert harness_threads(t) == set()
+
+
+def test_a_harness_thread_whose_stream_was_not_compared_is_still_excluded(
+        tmp_path, monkeypatch, capsys):
+    """The other half of the subtraction. A recording that ended before its
+    task rows were written has a harness thread nothing compared -- and it
+    is STILL the recorder's own, so it must not appear as a program thread
+    that ran no traced code. Found by a surviving mutant: with the
+    not-already-compared harness term dropped, every other assertion here
+    still passed."""
+    _libtest(tmp_path, monkeypatch, task_rows=False)
+    out = capsys.readouterr().out
+    assert "ran no traced code, left no fingerprint, and were NOT compared" \
+        not in out
+    assert f"; {HARNESS_PHRASE} is not among these counts" in out
+
+
+def test_an_asyncio_task_is_not_counted_as_a_thread(tmp_path, monkeypatch):
+    """`compared_threads` follows a task row back to its thread through the
+    `tasks` table rather than reading the task id as one. In Python many
+    tasks share a thread, so reading them as threads would mark a worker
+    that ran no traced code as compared and quietly drop the honesty
+    clause. Found by a surviving mutant (`{task.id: task.id}`), which no
+    Rust fixture can catch: there the two ARE equal by construction."""
+    w = synthetic(tmp_path, monkeypatch)
+    w.add_task(7, "fetch", 1)          # one asyncio task, on the main thread
+    w.write_task_fingerprints([(7, "aa" * 16, 3)])
+    w.write_fingerprint(1, "bb" * 16, 2)
+    finalize_synthetic(w, threads_started=1, live_threads=[])
+    w.close()
+    t = Trace.open(paths.traces_dir() / "20260101-000000-abcdef.db")
+    assert refocus_world.compared_threads(t) == {1}
+    # One thread started besides the main one, and nothing compared it.
+    assert refocus_world.uncompared_threads(t) == 1

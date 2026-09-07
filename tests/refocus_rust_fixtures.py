@@ -74,7 +74,8 @@ def original(tmp_path, monkeypatch, **meta):
 
 
 def libtest_original(tmp_path, monkeypatch, *, program_threads=0,
-                     silent_threads=0, harness_marked=True, **meta):
+                     silent_threads=0, harness_marked=True, task_rows=True,
+                     **meta):
     """`original()`'s workspace, recorded the way `cargo test` records it.
 
     The same wrapper `original` is -- a workspace that exists, so the
@@ -89,7 +90,8 @@ def libtest_original(tmp_path, monkeypatch, *, program_threads=0,
     return libtest_trace(tmp_path, monkeypatch,
                          program_threads=program_threads,
                          silent_threads=silent_threads,
-                         harness_marked=harness_marked, **meta), root
+                         harness_marked=harness_marked,
+                         task_rows=task_rows, **meta), root
 
 
 def refuse(capsys, run, *focus, window=None):

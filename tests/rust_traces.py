@@ -265,7 +265,8 @@ WORKER_FN = "demo::worker"
 
 
 def libtest_trace(tmp_path, monkeypatch, *, program_threads=0,
-                  silent_threads=0, harness_marked=True, workspace_root="/w",
+                  silent_threads=0, harness_marked=True, task_rows=True,
+                  workspace_root="/w",
                   invocation_processes=1, refocus_of=None,
                   cargo_args=("test",), env=None, source_hashes=None, **meta):
     """`rerunnable_trace`'s program as `cargo test` records it: the main
@@ -286,7 +287,10 @@ def libtest_trace(tmp_path, monkeypatch, *, program_threads=0,
 
     `harness_marked=False` keeps the same thread and takes the `#[test]`
     mark off its site: the control that separates "the rule fired" from
-    "one was subtracted whatever the site said".
+    "one was subtracted whatever the site said". `task_rows=False` drops
+    the `tasks` rows and with them every `task_fingerprints` row -- a
+    recording that ended before they were written, and the one shape where
+    a harness thread's own stream was NOT compared.
 
     `silent_threads` are threads the recorder counted starting and that
     left NO record of any kind -- no frame, no task row. They are what the
@@ -332,7 +336,7 @@ def libtest_trace(tmp_path, monkeypatch, *, program_threads=0,
         sites=[fn_site("compute", SITE_FILE, 10),
                fn_site(TEST_FN, SITE_FILE, 40, test=harness_marked),
                fn_site(WORKER_FN, SITE_FILE, 60)],
-        threads_with_rows=[MAIN_THREAD], tasks=tasks,
+        threads_with_rows=[MAIN_THREAD], tasks=(tasks if task_rows else []),
         workspace_root=workspace_root,
         invocation_processes=invocation_processes,
         cargo_args=list(cargo_args),
