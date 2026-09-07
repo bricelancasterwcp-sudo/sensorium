@@ -1,0 +1,63 @@
+program: cargo
+cargo_args: ["--focus", "pick", "run"]
+questions:
+  - id: does-a-bare-expression-arm-still-mint-its-entry-row
+    ask: >
+      `pick`'s taken arm has no block -- its body is the bare expression
+      `n * 2`. Did the arm still bind `n` somewhere a reader can see, and to
+      what?
+    truth: >
+      21, at `main.rs:16` -- the arm's own line, and at exactly one site.
+      Amendment A1 wraps a bare-expression arm body `{ <arm-entry probe>;
+      <expr> }`, two point splices the way an exit wrap already surrounds an
+      expression, so design §3.2's arm row mints its synthetic entry LINE
+      here exactly as it does for a block arm. `watch` reads SATISFIED
+      (amendment A4) at 1 of the 1 evaluable site and says so beside the 2 it
+      could not evaluate: the CALL, which in Rust carries no arguments, and
+      the parameters LINE at line 14, which precedes the arm. Both are
+      reported as "not in scope" rather than folded into the hit count.
+    why_logs_fail: >
+      There is no statement in this arm to put a print in front of: the body
+      IS the value, so a `dbg!(n)` would have to be written as `dbg!(n) * 2`
+      or the arm rewritten into a block, which changes the shape under test
+      before it can be observed. The row exists because the arm was entered,
+      which is the fact a reader debugging a wrong-arm bug actually wants,
+      and RUST_LOG has no logger to reach in this crate.
+    command: ["watch", "$RUN", "--at", "pick", "--expr", "n == 21"]
+    expect_contains:
+      - "verdict: SATISFIED at 1 of the 1 site(s) the predicate could be evaluated at"
+      - "but 2 of 3 recorded site(s) could NOT be evaluated"
+    expect_line:
+      - ["HIT", "e4", "LINE", "pick L16", "n=21"]
+    expect_exit: 0
+  - id: how-many-rows-does-a-bare-expression-arm-body-mint
+    ask: >
+      `pick` is one `match` in tail position with two arms, one of them
+      taken. How many LINE rows did its single activation record, and at
+      which lines?
+    truth: >
+      Two, and the count is derived from the rules before it is measured.
+      Amendment A2: the parameters LINE is minted for every focused
+      activation, so line 14 carries `o=Some(21)` -- the only place a Rust
+      argument exists, since CALL rows carry none. Amendment A3: `Some(n)`
+      binds, so the arm mints its entry LINE at line 16 with `n=21`. 1 + 1 =
+      2, and the rest of the function is absences. There is no row at line
+      15, because a `match` in tail position is not a statement (§3.1); no
+      SECOND row at line 16, because amendment A1 makes the bare expression
+      the wrapping block's TAIL and a tail is not a statement either; and no
+      row at line 17, because the `None` arm was not taken and binds nothing
+      anyway. E9 measured this shape on a real workspace and settled it in
+      favour of exactly this reading (record §5.1); this pins it.
+    why_logs_fail: >
+      Three of the four pinned facts here are absences -- no row at 15, no
+      second row at 16, no row at 17 -- and a `dbg!` can state a presence and
+      nothing else. The one it could reach, the argument `o`, is the one
+      thing a Rust CALL row does not record at all (`tree` prints
+      `pick() <unread: locals>`), so under a focus the parameters LINE is the
+      only place it exists. Nothing panics, so RUST_BACKTRACE never prints.
+    command: ["frame", "$RUN", "f2"]
+    expect_count: {"LINE": 2, "pick L16": 1}
+    expect_line:
+      - ["e3", "LINE", "pick L14", "o=Some(21)"]
+      - ["e4", "LINE", "pick L16", "n=21"]
+    expect_absent: ["pick L15", "pick L17"]

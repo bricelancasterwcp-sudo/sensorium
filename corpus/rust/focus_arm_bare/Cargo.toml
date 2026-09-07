@@ -1,0 +1,9 @@
+[package]
+name = "corpus_focus_arm_bare"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "focus_arm_bare"
+path = "src/main.rs"
