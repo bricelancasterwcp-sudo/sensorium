@@ -76,7 +76,9 @@ That puts `cargo-sensorium` on `PATH`, which is what makes `cargo sensorium` a
 cargo subcommand. Reading the traces needs the Python side too: `sensorium`
 0.6.0+ reads these traces, **0.8.0+ is what `exceptions` needs**, and
 **0.8.3+ is what `watch` and `flow` need on a focused trace** — the `::`
-qualname boundary and the rules for reading a `dbg` capture are 0.8.3's. An
+qualname boundary and the rules for reading a `dbg` capture are 0.8.3's — and
+**0.8.4+ is what `refocus` needs on a Rust trace**, its re-run path being
+0.8.4's, against a trace a 0.5.0 driver wrote. An
 0.6.0/0.7.0 reader opens a 0.3.0 trace and answers every other question, but
 its `exceptions` still refuses, because the Rust disposition rules are 0.8.0's.
 A reader older than 0.6.0 opens them too — they are format 4 and carry every
