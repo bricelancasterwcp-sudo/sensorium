@@ -815,7 +815,9 @@ def test_refocus_withholds_when_the_spawn_record_predates_the_check(tmp_path):
 
 def test_licence_names_an_undeclared_output_capability_as_a_blind_spot(
         tmp_path, monkeypatch):
-    from sensorium.query.refocus_world import _licence_caveats
+    # The sentence MOVED with rung 4 (design 2026-09-07 section 3.2) and is
+    # now the marker `refocus_rust` prints and stamps, named once for the pair.
+    from sensorium.query import refocus_world as rw
     from tests.helpers import finalize_synthetic
     from tests.programs import synthetic
     w = synthetic(tmp_path, monkeypatch)
@@ -827,6 +829,6 @@ def test_licence_names_an_undeclared_output_capability_as_a_blind_spot(
     from sensorium import paths
     from sensorium.store.reader import Trace
     t = Trace.open(paths.traces_dir() / "20260101-000000-abcdef.db")
-    caveats = _licence_caveats(t, t)
-    assert any("output was not recorded" in c and "cross-check did not run" in c
-               for c in caveats)
+    caveats = rw._licence_caveats(t, t)
+    assert caveats.count(rw.UNVERIFIABLE_OUTPUT) == 1  # the PAIR, not a side
+    assert not any("cross-check did not run" in c for c in caveats)

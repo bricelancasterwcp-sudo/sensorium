@@ -742,6 +742,15 @@ def run(args) -> int:
     if problem:
         return _refuse(orig_name, problem, orig)
 
+    # A Rust recording cannot be re-run in this process (design 2026-09-07
+    # section 2.3): the branch below re-invokes the driver instead, and
+    # calls back into this file for the comparator, the verdict, the
+    # assessment, the report and the stamps. Imported here rather than at
+    # the top because that module imports this one.
+    if orig.lang == "rust":
+        from sensorium.query import refocus_rust
+        return refocus_rust.run(args, orig, orig_name, meta)
+
     # Pin first, THEN snapshot: the environment compared must be the one the
     # target is executed with, not the one this process started with. The pin
     # rewrites SENSORIUM_DIR, which is why that key is in _UNCOMPARED_ENV and

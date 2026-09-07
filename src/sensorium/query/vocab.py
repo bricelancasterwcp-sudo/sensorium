@@ -70,6 +70,13 @@ class Terms:
     #: command that cannot read this trace is worse than naming none: it
     #: sends the reader to a second refusal.
     no_rerun_note: str
+    #: What a `refocus` verdict on THIS recorder's traces additionally says
+    #: nothing about, printed after the categorical blind-spot block. Empty
+    #: where the language adds nothing to it. Each line is a bounded fact
+    #: about the recorder or about the re-run mechanism, never an
+    #: enumeration that could read as complete -- the categorical block
+    #: above it is what bounds the claim.
+    refocus_blind_spots: tuple[str, ...]
     #: Why a frame has no local-variable timeline, and what to do about
     #: it. `{mod}` and `{qualname}` name the site. A language whose
     #: recorder produces no LINE events at all has no `--focus` to
@@ -105,6 +112,9 @@ PYTHON = Terms(
     no_rerun_note=("no rerun was attempted; `sensorium run --focus ...` "
                    "will record a fresh, UNVERIFIED trace if that is what "
                    "you want"),
+    # The Python column adds nothing: `refocus_cmd._BLIND_SPOTS` was written
+    # for this recorder and already states every one of its limits.
+    refocus_blind_spots=(),
     timeline_hint=("locals need line-level focus; refocus with --focus "
                    "{mod}:{qualname}"),
     interp_key="python",
@@ -122,8 +132,19 @@ RUST = Terms(
     numbered_task_note=("task(s) with no name at all (spawned by dependency "
                         "code), which no name can pick"),
     default_name_note=None,
-    no_rerun_note=("no rerun was attempted; refocus on a Rust trace "
-                   "arrives with rung 4"),
+    # Retired with rung 4 (design 2026-09-07 section 3.2): refocus on a Rust
+    # trace no longer "arrives" with anything, so the note says what a
+    # reader may do INSTEAD of the re-run that was refused -- and names the
+    # command that can read this trace, not `sensorium run`, which cannot.
+    no_rerun_note=("no rerun was attempted; `cargo sensorium --focus ... "
+                   "test|run` will record a fresh, UNVERIFIED trace if that "
+                   "is what you want"),
+    refocus_blind_spots=(
+        "output not recorded (capabilities.output: false)",
+        "threads from dependency code are unnamed",
+        "the re-run's rebuild is its own cost: --focus keys a fresh shim "
+        "and a rebuild of the matched units",
+    ),
     timeline_hint=("this recorder produces no LINE events at all "
                    "(capabilities.line: false), so there is no per-line "
                    "record to focus"),

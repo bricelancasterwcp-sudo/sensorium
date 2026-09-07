@@ -18,10 +18,48 @@ look, and only a third, positive answer when it actually verified something.
 `_UNCOMPARED_ENV` is the one deliberate hole, and it is named rather than
 counted for the same reason.
 """
+import hashlib
 from pathlib import Path
 
 from sensorium.query.caps import witness_gap
+from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
+
+# A check that CANNOT RUN on this pair, because the recorder declares it
+# does not produce what the check reads. Distinct from every other string in
+# this file, and deliberately so: the caveats below are findings -- a signal
+# that fired -- and these two are the absence of a signal to fire.
+#
+# The bug class they exist for is the one this whole file is arranged
+# around, one step further on. `_output_difference` over two recordings that
+# captured no output compares two EMPTY sets, finds them equal, and adds no
+# caveat -- so a licence granted over a Rust pair silently claimed the
+# observer-effect cross-check had passed, when it had never run. Naming the
+# gap is the only honest answer; withholding the licence for it would be the
+# opposite error, reporting a recorder's declared scope as evidence against
+# the run.
+UNVERIFIABLE_OUTPUT = "output: unverifiable (not recorded)"
+UNVERIFIABLE_CHILDREN = "children: unverifiable (not witnessed)"
+UNVERIFIABLE = (UNVERIFIABLE_OUTPUT, UNVERIFIABLE_CHILDREN)
+
+
+def unverifiable_checks(orig: Trace, new: Trace) -> list[str]:
+    """Which of the licence's checks this pair cannot run at all.
+
+    Keyed on the CAPABILITY, never on the language: what makes the check
+    impossible is the recorder's own declaration that it does not produce
+    the record, and that is the same fact whichever recorder said it. A
+    trace that declares the capability true, or that predates declarations
+    entirely, is not in this state -- for those the caveats below still
+    apply, because there the record's absence is a contradiction or an
+    unknown rather than a scope.
+    """
+    out = []
+    if any(t.declares("output") is False for t in (orig, new)):
+        out.append(UNVERIFIABLE_OUTPUT)
+    if any(t.declares("children") is False for t in (orig, new)):
+        out.append(UNVERIFIABLE_CHILDREN)
+    return out
 
 
 # Shell bookkeeping that differs between any two consecutive commands and
@@ -52,6 +90,30 @@ _UNCOMPARED_ENV = frozenset({
 
 
 # -- the world the rerun will run in ---------------------------------------
+def _still_hashes_to(path: str, digest: str) -> bool:
+    """Whether `path`'s bytes still hash to the digest recorded for them.
+
+    Compared at the WIDTH the recorder wrote, and that is the whole reason
+    this is a function. Both recorders digest the same bytes with sha256 and
+    write DIFFERENT amounts of it: `boot.hash_file` keeps the first 16 hex
+    characters, `cargo-sensorium`'s wrapper writes all 64. A straight
+    inequality against `hash_file`'s answer therefore read every Rust file
+    as changed -- a false accusation of the most expensive kind, since it
+    withholds the licence AND tells the reader their source moved under
+    them. A prefix comparison is exact for each recorder, because a prefix
+    of a digest is a digest of the same bytes.
+
+    Unreadable now is NOT a match: a file that cannot be hashed has not been
+    shown to be unchanged, and the caller reports it among the changed.
+    """
+    try:
+        with open(path, "rb") as fh:
+            now = hashlib.sha256(fh.read()).hexdigest()
+    except OSError:
+        return False
+    return isinstance(digest, str) and now[:len(digest)] == digest
+
+
 def _source_state(meta: dict) -> tuple[str, str | None, str | None]:
     """(status line, caveat or None, verified fact or None), by CONTENTS.
 
@@ -75,8 +137,6 @@ def _source_state(meta: dict) -> tuple[str, str | None, str | None]:
     stream untouched still earns an honest MATCH. What it costs is the right
     to assume the *values* were the same.
     """
-    from sensorium.record import boot
-
     was = meta.get("source_hashes")
     if not isinstance(was, dict) or not was:
         return ("source: unverifiable -- the original trace records no "
@@ -100,7 +160,7 @@ def _source_state(meta: dict) -> tuple[str, str | None, str | None]:
                 f"recorded, so nothing rules out an edit between the runs",
                 None)
     changed = [p for p, digest in sorted(was.items())
-               if boot.hash_file(p) != digest]
+               if not _still_hashes_to(p, digest)]
     if not changed:
         return (f"source: unchanged ({len(was)} file(s) compared by "
                 "content; data files, untraced code and installed "
@@ -201,6 +261,11 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
     cannot check belongs in `_BLIND_SPOTS`, which is printed regardless.
     """
     out = []
+    # Decided once, up front: two of the checks below cannot run on this
+    # pair at all, and both the branch that would have run them and the
+    # branch that would have reported their absence as a finding have to
+    # read the same answer.
+    unverifiable = unverifiable_checks(orig, new)
     for label, trace in (("the original", orig), ("the rerun", new)):
         if trace.main_thread_basis() == "inferred":
             out.append(f"{label}'s compared thread is INFERRED, not recorded "
@@ -252,15 +317,11 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
             "the recorder's audit hook malfunctioned during one of the runs, "
             "so its record of subprocesses and threads is incomplete -- a "
             "short list there cannot be read as 'nothing was spawned'")
-    output_undeclared = False
-    for label, trace in (("the original", orig), ("the rerun", new)):
-        if trace.declares("output") is False:
-            output_undeclared = True
-            out.append(
-                f"the program's output was not recorded on {label} (recorder "
-                f"{trace.recorder} declares output: false), so the "
-                "observer-effect cross-check did not run")
-    if not output_undeclared:
+    # NOT consulted when the pair declares no output capture. Two empty
+    # captures are equal, and this function returning None over them is the
+    # difference between "the cross-check passed" and "there was nothing to
+    # cross-check" -- reported instead as UNVERIFIABLE_OUTPUT below.
+    if UNVERIFIABLE_OUTPUT not in unverifiable:
         diff = _output_difference(orig, new)
         if diff:
             out.append(diff)
@@ -276,7 +337,11 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
         # avoid that, and either being non-empty answers the only question
         # asked here -- was a child witnessed. Neither being non-empty means
         # only that none was NOTICED, never that none ran.
-        if "spawn_syscalls" not in meta:
+        # The declared-false case is UNVERIFIABLE_CHILDREN, reported ONCE
+        # for the pair below rather than once per side: the marker names no
+        # side, and saying it twice would read as two findings.
+        if UNVERIFIABLE_CHILDREN not in unverifiable and (
+                "spawn_syscalls" not in meta):
             legacy = ("predates the spawn-syscall record, so a child "
                       "started through multiprocessing or a bare "
                       "posix_spawn would leave no trace here -- absence of "
@@ -292,6 +357,12 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
                 f"{label} started at least one child process ({named}, "
                 f"{spawns} low-level spawn syscall(s) seen); sensorium does "
                 "not witness what any child did")
+    # Last, and reported here so that every reader of the licence caveats
+    # sees them. `refocus_rust` takes them back out of the WITHHOLDING
+    # decision -- a check that could not run is not a finding against the
+    # pair -- and prints and stamps them separately; a caller that reads
+    # this list and nothing else is still told which checks did not run.
+    out.extend(unverifiable)
     return out
 
 
@@ -332,11 +403,18 @@ def _verified_facts(orig: Trace, new: Trace, scope: str) -> list[str]:
     # and the scope are what make it a bounded claim instead.
     events = sum(c for _h, c in fps.values())
     outside = " outside any asyncio task" if scope else ""
+    # The thread clause is a PROVENANCE claim -- "through Python's own
+    # threading/_thread" says how the threads this run did not start would
+    # have come to exist -- so it comes from the trace's own vocabulary
+    # table, for the reason `vocab.py` exists at all. The Python string is
+    # unchanged, character for character: `PYTHON.thread_origin` IS this
+    # clause, moved.
     facts = [
         f"identical call shape across {len(fps)} compared fingerprint(s), "
         f"holding {events} causal event(s){outside}",
-        "no thread started besides the main one through Python's own "
-        "threading/_thread, and none left running when recording stopped",
+        f"no thread started besides the main one "
+        f"{terms(new).thread_origin}, and none left running when recording "
+        "stopped",
     ]
     # Stated only when there were tasks: a run with none must not be given
     # a fact about zero of them, and the count is the rerun's rows because
@@ -354,7 +432,15 @@ def _verified_facts(orig: Trace, new: Trace, scope: str) -> list[str]:
     # ran, so the line is omitted rather than asserted -- the blind-spot block
     # printed on every verdict still states categorically that no child process
     # is covered, so the gap is stated, not hidden.
-    if _spawn_witnessed(orig.meta) and _spawn_witnessed(new.meta):
+    #
+    # The capability clause is the same rule stated where it cannot be
+    # missed: a recorder that DECLARES it does not witness children can
+    # never support this fact, whatever `spawn_witnessing` happens to say.
+    # Today no such trace carries the key, so the clause changes no output;
+    # it is here because "the pair cannot vouch for this" must not depend on
+    # a second key agreeing.
+    if (_spawn_witnessed(orig.meta) and _spawn_witnessed(new.meta)
+            and UNVERIFIABLE_CHILDREN not in unverifiable_checks(orig, new)):
         facts.append(
             "no child process witnessed, by any mechanism sensorium watches")
     return facts
