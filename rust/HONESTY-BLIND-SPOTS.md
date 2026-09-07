@@ -348,6 +348,16 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       deliberately **not applied**: it is a ruling's to make
       (`docs/CARRIED-DEBT.md`). A reader of a `cargo test` refocus should read
       the four printed counts, not the word.
+    * **A re-run whose test spawns a workspace CHILD is refused by count, and
+      the sentence names the selector rather than the cause.** Every trace of
+      the invocation carries `refocus_of`, a child process the test spawns
+      included, while `meta.invocation_processes` counts only what cargo hands
+      the runner — so the pre-rerun count is 1, the pair lookup finds 2, and
+      the refusal asks for a single-target selector the caller already used.
+      Two traces is not a pair, so the REFUSED verdict is right; what is wrong
+      is the diagnosis. Derived from the code and the trace format, not
+      measured — E4's subject spawns no child from a test. *Carried, with two
+      candidate fixes and a ruling owed*, in `docs/CARRIED-DEBT.md`.
     * **`--window` is not available on a Rust trace at all** (refused at exit
       2): it needs a per-activation runtime check the Rust runtime does not
       have. *Declared by* that refusal sentence.

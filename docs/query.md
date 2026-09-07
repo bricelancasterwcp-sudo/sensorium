@@ -219,15 +219,29 @@ MORE. The announced command is `corpus/rust/refocus_match`'s pin:
 
 cwd is the recorded `workspace_root`; `SENSORIUM_DIR` resolves to the store
 the original lives in; the child's stderr streams through, because a focused
-rebuild is visible work and takes seconds.
+rebuild is visible work and takes seconds. **Everything else in the
+environment is YOURS**, including `CARGO_TARGET_DIR`: the re-run inherits the
+environment you launch `refocus` from, never the one the original recorded.
+Two consequences, and both bite the same way. A refocus launched without the
+`CARGO_TARGET_DIR` the original had rebuilds **cold** into the workspace's own
+`target/` — a full instrumented build, minutes rather than seconds, with the
+artifacts landing where the original left none. And the difference is not
+silent: `CARGO_TARGET_DIR` is not one of the recorder's own variables (those
+are `SENSORIUM_*`, `RUSTC_WORKSPACE_WRAPPER` and `CARGO_TARGET_<TRIPLE>_RUNNER`,
+which a focused re-run must change), so the two recorded environments differ by
+it, the environment check fires, and the licence is WITHHELD naming it. **Set
+it as the original had it**; `sensorium info <run>` prints what the original
+recorded.
 
 **The pair is found in the store, never in what the driver printed.** After
 the child exits, `refocus` lists the traces whose `refocus_of` is this run and
 whose recording started after the launch. Exactly one is the pair; **zero** —
 the driver refused, cargo failed before recording, the invocation produced
 nothing — is `verdict: REFUSED` after the rerun at exit **3**, carrying the
-driver's exit and its last stderr line; **more than one** is REFUSED by count.
-Neither guesses. The link is what `runs` prints beside the verdict —
+driver's exit and pointing back at output you have already seen — the child's
+stderr streamed past rather than being captured, so the sentence reads `(driver
+exit <n>); see the driver's output above` and quotes no line of it; **more than
+one** is REFUSED by count. Neither guesses. The link is what `runs` prints beside the verdict —
 `refocus-of:<run>  verdict:MATCH(granted:4,see-info)`
 (`corpus/rust/refocus_match`) — and what `info` prints on the new trace.
 

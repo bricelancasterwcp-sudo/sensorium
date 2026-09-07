@@ -148,14 +148,17 @@ argument of that spelling is left alone. **Two refusals, both before anything
 is rewritten or built:**
 
     REFUSED: --refocus-of ../traces/20260101-000000-abcdef is not a run id; nothing was built.
-    REFUSED: --refocus-of 20260101-000000-abcdef names no trace in /home/you/.sensorium/traces; nothing was built.
+    REFUSED: --refocus-of 20260101-000000-abcdef names no trace in /home/you/.sensorium; nothing was built.
 
 The first is the shape check — a path separator, `.`, `..`, an absolute path or
 an empty value — and it runs before the store is consulted, because
 `--refocus-of ../traces/<a real run>` would otherwise stamp a link the store
 could never resolve (design 2026-09-07, amendment B2); a trailing `.db` is
 stripped once, so `<id>.db` names `<id>`. The second is the existence check
-against the current store.
+against the current store, and it names the store ROOT — what `SENSORIUM_DIR`
+was set to, which is what a person can act on — not the `traces` subdirectory
+the file was looked for in
+(`tests/refocus_of_gate.rs` pins both sentences through the binary).
 
 Two more invocation-scoped meta keys ride along with it and are written on
 every run, refocus or not: `workspace_root`, the workspace the invocation ran

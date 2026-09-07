@@ -268,3 +268,21 @@ limitation; any change to the comparator or to Python's own refocus branch;
   single-target selector (`--lib`, `--test X`, `--bin X`) excludes doctests
   and is what makes the count 1.
 
+- **B3 (2026-09-07, after the slice's final review) — two things §2.3
+  promised that the code does not do, both settled in the code's favour.**
+  (1) The zero-candidate refusal carries the driver's EXIT and nothing else:
+  §2.3 says "with the driver's exit code and its last stderr line as the
+  reason", but the same section requires the child's stderr to STREAM through
+  to the user, and a stream is not captured — the two clauses cannot both
+  hold. The stream wins, because a focused rebuild's progress is what the
+  person waiting is watching; the refusal therefore reads `the re-run produced
+  no trace linked to <run> (driver exit <n>); see the driver's output above`,
+  pointing at output already on the terminal rather than quoting a line it
+  never held. (2) The `REFUSED:` prefix in §2.3's table is NOT printed.
+  `refocus_cmd._refuse` announces every pre-rerun refusal as `error: cannot
+  refocus <run>: <sentence>`, and two announcements of one refusal read as
+  two refusals; everything after the design's prefix is verbatim, `; nothing
+  was re-run` included. The table's sentences are the sentences; the prefix
+  in them stood for "this is a refusal". The DRIVER's own two refusals (§2.1,
+  B2) are unaffected — they print `REFUSED:` because nothing else announces
+  them.

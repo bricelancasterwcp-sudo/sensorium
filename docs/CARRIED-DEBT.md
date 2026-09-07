@@ -389,6 +389,29 @@ Each is marked *ruling: Brice / slice 2*.
   `sensorium exceptions <invocation-id>` already answers — is unbuilt and
   unspecified. **Ruling owed** on whether the unit of a refocus can be an
   invocation.
+- **A single-target re-run whose test spawns a workspace CHILD is refused by
+  count, and the sentence names the wrong cause.** The driver stamps
+  `refocus_of` into every trace the invocation writes, and a child process the
+  test itself spawns is instrumented and gets one — while
+  `meta.invocation_processes` counts only the processes cargo hands the RUNNER
+  (test binaries and doctests), so the original's count is 1 and no pre-rerun
+  refusal fires. `find_pair` then finds TWO linked traces, and
+  `refocus_rust.py` refuses at exit 3 with the single-target sentence
+  (`refocus needs an invocation with a single-target selector (--lib, --test
+  X, --bin X) so one trace is the answer`) at a caller whose selector was
+  already single-target. **The verdict is right — two traces is not a pair —
+  and the diagnosis is wrong**, which is the part that costs a reader time.
+  Unmeasured: E4's subject spawns no child from a test (every pass-1
+  invocation produced exactly one process), so this is derived from the code
+  and the trace format, not observed. **Two candidate fixes, neither applied:**
+  (1) exclude a linked trace whose `ppid` is another linked trace's `pid` — the
+  converter already records `ppid` and already derives `child_runs` from it
+  (`docs/TRACE-FORMAT.md`), so the parent of a pair is identifiable without a
+  new key, and the refocus compares the parent; (2) keep the refusal but name
+  the child runs in the sentence, so the reader is told a child was recorded
+  rather than told to narrow a selector. (1) changes what a refocus ANSWERS
+  and (2) only what it says, which is the choice to make. It is a `src` change
+  after the measurement either way. **Ruling owed** (Brice / slice 3).
 - **The autoref ladder still COMMITS an open inference variable to `Debug`**,
   and the opt-out spelling is still unchosen. Slice 1's item stands verbatim
   above with its two candidate designs; slice 2 took the guard beside it and
@@ -499,3 +522,11 @@ Each is marked *ruling: Brice / slice 2*.
 - **`pgrep` before every cargo when a reviewer may be holding it.** A build
   and a reviewer's `cargo test` share one target lock, and the second one
   blocks silently rather than failing.
+- **A record's version token comes from installed distribution metadata, not
+  from the tree.** Both E9 and E4 printed the reader as `sensorium 0.6.0`
+  because that is what `importlib.metadata.version('sensorium')` reports in
+  this `.venv`; `pyproject.toml` said 0.8.3 and 0.8.4 at those HEADs. Nothing
+  in either record gates on the token, so no number moved — but a record that
+  names its own reader wrongly twice will eventually name it wrongly where it
+  matters. **`pip install -e .` before the next record**, and read the token
+  back in the preflight rather than in the finished document.

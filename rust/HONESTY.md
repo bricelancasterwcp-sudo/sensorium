@@ -646,8 +646,13 @@ printed** (ruling G3). The driver stamps `refocus_of` into every process of
 the new invocation; Python then lists the traces carrying that link whose
 recording started after the launch. Exactly one is the pair. Zero — the driver
 refused, cargo failed before recording, the invocation produced nothing — is
-`verdict: REFUSED` after the rerun at exit 3, carrying the driver's exit and
-its last stderr line. More than one is REFUSED by count. Neither case guesses.
+`verdict: REFUSED` after the rerun at exit 3, carrying the driver's exit ~~and
+its last stderr line~~. **Corrected 2026-09-07** (design amendment B3): the
+child's stderr is STREAMED and never captured — a focused rebuild's progress
+belongs to the person waiting for it — so there is no last line to carry. The
+refusal names the exit and points at what already printed: `the re-run
+produced no trace linked to <run> (driver exit <n>); see the driver's output
+above`. More than one is REFUSED by count. Neither case guesses.
 
 **The verdict is about call shape and nothing else.** `diff_cmd.compare` is
 slice-1's, unchanged: for a Rust pair the fingerprint is per task — a test, or
