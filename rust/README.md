@@ -8,9 +8,16 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false`, all three at **`0.4.0`** since the focus
-tier of 2026-09-06 (a new wire kind, LINE, and the `--focus` flag that mints
-it). Before that all three were `0.3.0` at the err-flow rung of 2026-09-05
+Three crates, all `publish = false`: **`sensorium-rt 0.4.0`**,
+**`sensorium-transform 0.4.1`** and **`cargo-sensorium 0.5.0`**. All three
+were `0.4.0` at the focus tier of 2026-09-06 (a new wire kind, LINE, and the
+`--focus` flag that mints it); on 2026-09-07 the refocus slice moved
+`sensorium-transform` alone to `0.4.1` for the brace-delimited-macro-tail
+guard (a `src` fix to what a focused build emits) and `cargo-sensorium` alone
+to `0.5.0` for `--refocus-of` and the three invocation-scoped meta keys it
+writes — neither the wire nor the runtime felt either change, which is why
+`sensorium-rt` stayed at `0.4.0`.
+Before that all three were `0.3.0` at the err-flow rung of 2026-09-05
 (wire v3: RAISE/HANDLED records, a typed `err` RETURN, and the `err_flow`
 capability); later that day the borrow repair moved `sensorium-transform` and
 `cargo-sensorium` to `0.3.1` and left `sensorium-rt` at `0.3.0`, because
@@ -38,7 +45,10 @@ classified `Err` arm, which is what makes `sensorium exceptions` answer here
 instead of refusing. Since 0.4.0, and only under a `--focus`, it also records
 **one LINE per completed statement** of the named functions, carrying the
 bindings that statement wrote — which is what makes `watch` and `flow` answer
-here. Workspace crates only, Linux, stable rustc, no
+here. Since `cargo-sensorium` 0.5.0 it also records `refocus_of`,
+`workspace_root` and `invocation_processes`, which is what makes
+`sensorium refocus` re-run a recorded invocation one flag deeper and compare
+the pair instead of refusing. Workspace crates only, Linux, stable rustc, no
 nightly, no root, no hand annotation. What it does *not* see, and what says so
 in the trace, is [`HONESTY.md`](HONESTY.md) with
 [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) and
@@ -75,8 +85,8 @@ provenance the trace does not carry.
 
 ## Record
 
-    cargo sensorium test [--tier off|call] [--focus <qualname>…] <cargo test args…>
-    cargo sensorium run  [--tier off|call] [--focus <qualname>…] <cargo run args…>
+    cargo sensorium test [--tier off|call] [--focus <qualname>…] [--refocus-of <run id>] <cargo test args…>
+    cargo sensorium run  [--tier off|call] [--focus <qualname>…] [--refocus-of <run id>] <cargo run args…>
 
 Everything after the flags is your cargo command line, unchanged: `-p`,
 `--lib`, `--test NAME`, `--exact`, `-- --test-threads=1`, all of it. Cargo
@@ -119,6 +129,38 @@ build of the same crate declares both false and carries no LINE row at all.
 `sensorium info` prints both — `line=yes locals=yes`, and the `focus:` line —
 so a later reader knows what was instrumented without having launched it.
 What a focus still does not reach is `HONESTY-BLIND-SPOTS.md` item 3.
+
+### `--refocus-of`: this run is a re-run of that one
+
+`--refocus-of <run id>` records the new trace as a re-run of an existing one:
+the id reaches every process of the invocation and the converter writes it as
+`meta.refocus_of`, which is the link `sensorium refocus` finds the pair by and
+the `refocus-of:<run>` `runs` prints. It is **not** a flag you normally type —
+`sensorium refocus <run> --focus <name>` is what builds this argv and runs it
+from the workspace the original recorded (see `../docs/query.md`) — but it is
+what the driver takes, and it is documented here because the trace carries it.
+
+At most once (`--refocus-of given twice`, exit **2**), and recognised only
+before the first bare `--`, like `--tier` and `--focus`, so a test binary's own
+argument of that spelling is left alone. **Two refusals, both before anything
+is rewritten or built:**
+
+    REFUSED: --refocus-of ../traces/20260101-000000-abcdef is not a run id; nothing was built.
+    REFUSED: --refocus-of 20260101-000000-abcdef names no trace in /home/you/.sensorium/traces; nothing was built.
+
+The first is the shape check — a path separator, `.`, `..`, an absolute path or
+an empty value — and it runs before the store is consulted, because
+`--refocus-of ../traces/<a real run>` would otherwise stamp a link the store
+could never resolve (design 2026-09-07, amendment B2); a trailing `.db` is
+stripped once, so `<id>.db` names `<id>`. The second is the existence check
+against the current store.
+
+Two more invocation-scoped meta keys ride along with it and are written on
+every run, refocus or not: `workspace_root`, the workspace the invocation ran
+in, and `invocation_processes`, the number of runner processes it produced —
+test binaries and doctests alike. They are what `sensorium refocus` reads to
+decide whether a re-run of this recording would be legitimate at all.
+`TRACE_FORMAT` stays **4**: all three keys are optional meta.
 
 Everything the tool writes inside your workspace lives under
 `<target>/sensorium/` — the mirror it builds in, the per-unit manifests, and
@@ -182,15 +224,15 @@ No command here answers from a capability the recorder declared it does not
 have, and each refusal names the capability and the recorder. `watch` and
 `flow` print why and exit **3** — change the recording, not the call — but
 only on a trace recorded WITHOUT a `--focus`; on a focused one they answer.
-`refocus` exits **2**: its capability check runs before anything is re-run,
-so nothing was re-run and the reader's next move is a different command.
 `exceptions` answers from 0.3.0, and refuses on exactly one thing: a trace an
-older runtime wrote, which carries no err-flow records to judge.
+older runtime wrote, which carries no err-flow records to judge. `refocus`
+answers from 0.5.0 and no longer refuses on the capability at all; its five
+pre-rerun refusals are about this particular RUN, and each exits **2** with
+`nothing was re-run` in it — see below.
 
 | Command | Exit | Why |
 |---|---|---|
 | `exceptions` | 3, **only on a pre-0.3.0 trace** | `capabilities.err_flow: false` — the recorder produced no RAISE/HANDLED records, so there is nothing to judge. On a 0.3.0 trace it answers. |
-| `refocus` | 2 | Slice 2 of rung 4 — `capabilities.refocus: false`, caught before any rerun. |
 | `watch`, `flow` | 3, **only on an unfocused trace** | `capabilities.line: false` — no `--focus` was given, so no LINE record exists. On a focused trace they answer. |
 
 The unfocused refusal, in full — the sentence
@@ -200,16 +242,21 @@ The unfocused refusal, in full — the sentence
 
 ## Not yet
 
-`refocus` by re-invocation and `--window` (a per-activation runtime check the
-Rust runtime lacks) — both slice 2 of rung 4; program output under libtest;
-probes in closure and `async` bodies; place writes (`*p = e`, `a.b = e`) and
-`&mut` mutation as deltas; arguments on a CALL row; `flow --object`, since
-object identity is not a thing Rust has an equivalent of. `?` sites, sinks and
-`Err`-arm classification **shipped in rung 3** (0.3.0) — what they still
-cannot see is `HONESTY-ERR-FLOW.md` §11 and `HONESTY-BLIND-SPOTS.md` items
-15–26. LINE and locals under a `--focus` **shipped in rung 4 slice 1**
-(0.4.0) — what they still cannot see is `HONESTY.md` §12 and
-`HONESTY-BLIND-SPOTS.md` item 3, narrowed to exactly that.
+`--window` (a per-activation runtime check the Rust runtime lacks, so a
+`refocus --window` is refused by name at exit 2); a refocus of a multi-process
+invocation, which is refused rather than compared; program output under
+libtest; probes in closure and `async` bodies; place writes (`*p = e`,
+`a.b = e`) and `&mut` mutation as deltas; arguments on a CALL row;
+`flow --object`, since object identity is not a thing Rust has an equivalent
+of. `?` sites, sinks and `Err`-arm classification **shipped in rung 3**
+(0.3.0) — what they still cannot see is `HONESTY-ERR-FLOW.md` §11 and
+`HONESTY-BLIND-SPOTS.md` items 15–26. LINE and locals under a `--focus`
+**shipped in rung 4 slice 1** (0.4.0) — what they still cannot see is
+`HONESTY.md` §12 and `HONESTY-BLIND-SPOTS.md` item 3, narrowed to exactly
+that. `refocus` by re-invocation **shipped in rung 4 slice 2**
+(`cargo-sensorium` 0.5.0), measured as **E4** over 61 tests of a real
+workspace — what it still does not compare is `HONESTY.md` §13 and
+`HONESTY-BLIND-SPOTS.md` item 12, narrowed the same way.
 
 The design and its rungs are in
 `../docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md`; what

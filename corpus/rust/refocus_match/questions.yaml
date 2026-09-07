@@ -92,7 +92,11 @@ questions:
       `rust/focus_let_chain` pins on this shape. `refocus-of: $RUN  verdict:
       MATCH  licence: granted` is the stamp design 2026-09-07 §3.1 writes
       into the NEW trace's meta through `db.set_meta`, which is what makes
-      the verdict outlive the terminal it was printed in.
+      the verdict outlive the terminal it was printed in. `last` names that
+      trace because it is the store's newest by MTIME and this case's store
+      holds exactly two traces, the second written by the refocus above --
+      unambiguous inside a case with exactly two traces, and not a general
+      way to name a re-run.
     why_logs_fail: >
       A `dbg!` states a value and never the depth at which the run was
       recorded, so it cannot tell a later reader whether an absent per-line
@@ -124,7 +128,8 @@ questions:
       bound yet. `verdict: SATISFIED` and exit 0 are `watch`'s own words
       (slice-1 amendment A4); the 3 unevaluable sites are reported rather
       than folded into the hit count, because "hits: 2" alone would claim the
-      predicate held throughout the frame.
+      predicate held throughout the frame. `last` is again the refocused
+      trace, unambiguous inside a case with exactly two traces.
     why_logs_fail: >
       A `dbg!(&b)` on line 12 would print this value -- of a THIRD execution,
       run later, by hand, after an edit and a rebuild, and with the line and

@@ -129,7 +129,11 @@ prints about itself.
 The re-run's trace is a NEW run whose id no `questions.yaml` can spell, so the
 questions after a refocus address it as `last` — the store's newest trace,
 which the refocus just wrote — and read the PAIR through `runs`, where
-`refocus-of:<original>` and the verdict ride together.
+`refocus-of:<original>` and the verdict ride together. **`last` is
+mtime-ordered, not clock-ordered**, so it is unambiguous here only because a
+case runs in a store of its own that holds exactly two traces, the second
+written by the refocus under test; a case that refocused twice would need
+`runs` to name which trace it means, and none of the three does.
 
 | Case | Planted truth | Commands |
 |---|---|---|
