@@ -442,15 +442,49 @@ def discriminate(orig_db: Path, new_db: Path, name: str) -> dict:
     rather than folded into it, so a reader can see that the sentence's
     subject held -- and a class computed over a premise that did not is
     published with that fact attached rather than silently.
+
+    ONE premise IS load-bearing and is enforced: **both traces must hold at
+    least one task stream.** With none on either side the two totals are
+    `0 == 0` and the arithmetic reads "the same work, split differently"
+    over no work at all -- which would excuse a DIVERGED on a pair that
+    recorded no worker at all as the scheduler hazard. That pair is a
+    `finding`, with the failed premise named.
+
+    A trace with no `task_fingerprints` table at all (a format older than
+    the per-task basis, or a half-written file) is reported as
+    `class: None` with the missing table named. Raised instead, it would
+    take `phase_h3` down and lose H4-H7 to one unreadable trace.
     """
-    a, b = fingerprint_tables(orig_db), fingerprint_tables(new_db)
+    try:
+        a, b = fingerprint_tables(orig_db), fingerprint_tables(new_db)
+    except sqlite3.OperationalError as e:
+        return {
+            "test": name,
+            "is_a_pre_registered_hazard_test": name in HAZARD_TESTS,
+            "class": None,
+            "reading": ("the discriminator needs both traces' fingerprint "
+                        "tables and one of them could not be read"),
+            "classification_caveats": [
+                f"a fingerprint table is missing or unreadable: {e}; "
+                f"original {Path(orig_db).name}, re-run {Path(new_db).name}"],
+        }
     total_preserved = a["task_events_total"] == b["task_events_total"]
     main_matches = (a["main_hash"] is not None
                     and a["main_hash"] == b["main_hash"])
     counts_equal = a["task_count"] == b["task_count"]
     four = a["task_count"] == b["task_count"] == WORKER_COUNT
-    hazard = bool(total_preserved and main_matches)
+    # The premise `0 == 0` cannot satisfy: "the same total, split
+    # differently" is a claim about work that happened.
+    has_tasks = a["task_count"] > 0 and b["task_count"] > 0
+    hazard = bool(total_preserved and main_matches and has_tasks)
     caveats = []
+    if not has_tasks:
+        caveats.append(
+            f"§1.4's discriminator is about how the WORKER TASKS split their "
+            f"work; this pair recorded {a['task_count']} task stream(s) in "
+            f"the original and {b['task_count']} in the re-run, so its two "
+            f"totals are equal only because both are empty -- the premise "
+            f"fails and the DIVERGED is H3's finding")
     if not four:
         caveats.append(
             f"§1.4's phrase names FOUR worker tasks; this pair recorded "
@@ -471,6 +505,7 @@ def discriminate(orig_db: Path, new_db: Path, name: str) -> dict:
         "task_count_new": b["task_count"],
         "task_count_equal": counts_equal,
         "four_worker_tasks": four,
+        "both_sides_recorded_a_task_stream": has_tasks,
         "partition_original": a["task_partition"],
         "partition_new": b["task_partition"],
         "task_shapes_equal": a["task_shapes"] == b["task_shapes"],
@@ -480,6 +515,9 @@ def discriminate(orig_db: Path, new_db: Path, name: str) -> dict:
             "the worker tasks, split differently, with the MAIN stream "
             "identical"
             if hazard else
+            "H3's finding: neither trace recorded a worker task stream, so "
+            "§1.4's `same total, different partition` reading has no subject"
+            if not has_tasks else
             "H3's finding: §1.4's discriminator does not hold, so this "
             "DIVERGED reads as any other would"),
         "classification_caveats": caveats,

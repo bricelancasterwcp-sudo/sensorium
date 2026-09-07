@@ -222,6 +222,9 @@ def _h2(r) -> list[str]:
     out += ["", f"Rule: {RULES['H2']}.  ",
             f"Failed: {e.get('failed_tests') or 'none'}.  ",
             f"Unequal: {e.get('unequal_tests') or 'none'}.", ""]
+    caveat = e.get("build_failure_caveat")
+    if caveat:
+        out += [f"**What the class does not tell apart.** {caveat}", ""]
     return out
 
 

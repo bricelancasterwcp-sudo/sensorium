@@ -60,6 +60,14 @@ PRE_RERUN_REFUSAL_EXIT = 2
 
 NOT_RUN_BOUND = "the 2-hour loop bound was reached before this invocation"
 
+#: What H2's build-failure class does NOT tell apart, stated where the class
+#: is published rather than left for a reader to assume.
+_BUILD_CAVEAT = (
+    "no libtest summary and a non-zero exit -- a focused COMPILE failure "
+    "(the pattern the transform could not build, which is §1's finding) OR "
+    "a driver/converter failure on the way to one, which is not; the "
+    "discriminator is the pass-2 log (driver_exit = {exit}, log = {log})")
+
 
 # ------------------------------------------------------------------ argv
 
@@ -472,6 +480,14 @@ def phase_h2(one: dict, two: dict) -> dict:
     `test result:` line -- the unit never ran. It is a STOP: no fallback to
     an unfocused build, no retry under a narrower focus, no skipped test.
 
+    The class is what §1 names; what the class cannot tell apart is stated
+    beside it rather than left for a reader to assume. "No libtest summary
+    and a non-zero exit" is a focused COMPILE failure -- the pattern the
+    transform could not build, which is the finding §1 means -- OR a driver
+    or converter failure on the way to one, which is not. The discriminator
+    between those two is the pass-2 log, and `build_failure_caveat` says so
+    with the child's own exit beside it.
+
     Second reading: each re-run's libtest summary counts against the
     original's. `None`, not `False`, when either side printed no summary at
     all -- "these two are not equal" is a claim about two outcomes, and an
@@ -500,9 +516,12 @@ def phase_h2(one: dict, two: dict) -> dict:
             "outcome_equal": equal,
             "original_summary_lines": orig.get("summary_lines"),
             "rerun_summary_lines": r.get("summary_lines"),
+            "log": r.get("log"),
         })
         if build_failure:
             failures.append(r["name"])
+            per_test[-1]["build_failure_caveat"] = _BUILD_CAVEAT.format(
+                exit=r.get("driver_exit"), log=r.get("log"))
         if equal is False:
             unequal.append(r["name"])
     out = {
@@ -510,6 +529,13 @@ def phase_h2(one: dict, two: dict) -> dict:
         "per_test": per_test,
         "completed": sum(1 for p in per_test if p["completed"]),
         "build_failures": failures,
+        "build_failure_caveat": (
+            _BUILD_CAVEAT.format(
+                exit={p["name"]: p.get("driver_exit") for p in per_test
+                      if p["build_failure"]},
+                log={p["name"]: p.get("log") for p in per_test
+                     if p["build_failure"]})
+            if failures else None),
         "outcomes_equal": sum(1 for p in per_test if p["outcome_equal"]),
         "outcomes_unequal": unequal,
         "outcomes_unreadable": [p["name"] for p in per_test

@@ -265,6 +265,10 @@ def _h2(raw) -> dict:
             "`None` rather than `False`: an unparsed outcome is not an "
             "outcome", []),
         "failed_tests": r.get("build_failures"),
+        # NOT a measurement: what the STOP class above cannot tell apart,
+        # published beside it so §3 states the ambiguity instead of a reader
+        # inferring "compile failure" from a class that covers two things.
+        "build_failure_caveat": r.get("build_failure_caveat"),
         "unequal_tests": r.get("outcomes_unequal"),
     }
     return _apply_drops(block, "H2", raw)

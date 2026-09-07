@@ -657,3 +657,53 @@ def test_a_shim_directory_that_is_not_there_is_None_and_not_zero(tmp_path):
     got = rd.shim_census(tmp_path)
     assert got["exists"] is False
     assert got["entries"] is None and got["bytes"] is None
+
+
+def test_two_traces_with_NO_task_stream_are_a_finding_not_a_hazard(tmp_path):
+    """`0 == 0` is not "the same work, split differently" -- it is no work
+    at all. Read as the preserved total it would excuse a DIVERGED on a pair
+    that recorded no worker as §1.2's scheduler hazard, which is a claim
+    about a mechanism neither trace contains."""
+    a = _trace(tmp_path / "a.db", ("mainhash", 100), [])
+    b = _trace(tmp_path / "b.db", ("mainhash", 100), [])
+    d = rd.discriminate(a, b, rd.HAZARD_TESTS[0])
+    assert d["total_causal_events_preserved"] is True
+    assert d["main_fingerprint_matches"] is True
+    assert d["both_sides_recorded_a_task_stream"] is False
+    assert d["class"] == "finding"
+    assert any("premise fails" in c for c in d["classification_caveats"])
+    assert "no subject" in d["reading"]
+
+
+def test_one_side_with_no_task_stream_is_also_a_finding(tmp_path):
+    """The asymmetric case: a re-run that recorded no worker at all against
+    an original that did. The totals differ here, but the premise is what
+    the record must name."""
+    a = _trace(tmp_path / "a.db", ("mainhash", 100), [("w", "h1", 10)])
+    b = _trace(tmp_path / "b.db", ("mainhash", 100), [])
+    d = rd.discriminate(a, b, rd.HAZARD_TESTS[0])
+    assert d["both_sides_recorded_a_task_stream"] is False
+    assert d["class"] == "finding"
+
+
+def test_a_trace_with_no_task_fingerprints_table_DROPS_the_cell(tmp_path):
+    """A format older than the per-task basis, or a half-written file. Raised
+    out of `discriminate` it would take `phase_h3` down and lose H4-H7 to one
+    unreadable trace; §1's rules make an unreadable input a not-measured with
+    its reason, so the classification comes back `None` and the row's cell
+    drops."""
+    import sqlite3 as _sq
+    good = _trace(tmp_path / "a.db", ("mainhash", 100), [("w", "h1", 10)])
+    bad = tmp_path / "b.db"
+    con = _sq.connect(bad)
+    con.execute("create table fingerprints (thread_id integer primary key, "
+                "hash text not null, n_events integer not null)")
+    con.commit()
+    con.close()
+    d = rd.discriminate(good, bad, rd.HAZARD_TESTS[0])
+    assert d["class"] is None
+    assert d["is_a_pre_registered_hazard_test"] is True
+    assert any("task_fingerprints" in c
+               for c in d["classification_caveats"]), d
+    assert "b.db" in d["classification_caveats"][0]
+

@@ -694,3 +694,22 @@ def test_the_discriminator_table_renders_when_it_was_applied():
     text = "\n".join(render_e4.ungated(assemble_e4(raw)))
     assert "worker-task events A / B" in text
     assert "| 10 / 10 |" in text and "| hazard |" in text
+
+
+def test_the_build_failure_caveat_is_rendered_beside_H2s_STOP():
+    """The class §1 names covers two things -- a focused compile failure and
+    a driver/converter failure on the way to one. §3 must state that where
+    the number is, or a reader takes the STOP for the first."""
+    raw = _raw()
+    raw["raw_h2"]["build_failures"] = ["a_test"]
+    raw["raw_h2"]["build_failure_caveat"] = (
+        "no libtest summary and a non-zero exit -- a focused COMPILE "
+        "failure … OR a driver/converter failure …; the discriminator is "
+        "the pass-2 log (driver_exit = {'a_test': 101}, log = …)")
+    text = "\n".join(render_e4._h2(assemble_e4(raw)))
+    assert "What the class does not tell apart" in text
+    assert "driver/converter failure" in text
+    # and a clean run says nothing of the sort
+    assert "What the class does not tell apart" not in "\n".join(
+        render_e4._h2(assemble_e4(_raw())))
+
