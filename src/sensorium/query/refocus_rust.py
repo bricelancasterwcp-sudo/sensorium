@@ -78,7 +78,7 @@ from sensorium.query.refocus_world import (UNVERIFIABLE, _UNCOMPARED_ENV,
                                            _env_state, _source_state,
                                            _verified_facts,
                                            unverifiable_checks)
-from sensorium.query.vocab import terms
+from sensorium.query.vocab import print_blind_spots
 from sensorium.store import db
 from sensorium.store.reader import Trace
 
@@ -289,10 +289,13 @@ def _refused_after_rerun(orig: Trace, reason: str) -> int:
     it. `report` itself cannot be reached here, because it prints a
     comparison and there is no second trace to compare.
     """
-    from sensorium.query.refocus_cmd import _print_blind_spots
-
     print(f"refocus verdict: REFUSED -- {reason}")
-    _print_blind_spots()
+    # The trace is the ORIGINAL's: it is the only one there is on this path,
+    # and REFUSED is a verdict, so the block that bounds what a verdict
+    # claims has to print here too -- with this recorder's own lines, of
+    # which "the re-run's rebuild is its own cost" is the most relevant one
+    # a reader whose re-run produced nothing can be told.
+    print_blind_spots(orig)
     return UNSETTLED
 
 
@@ -375,14 +378,12 @@ def _verify(args, orig: Trace, orig_name: str, meta: dict, new_id: str,
     print(env_line)
     print(f"exit: rerun {new.meta.get('exit_status', '?')}   original "
           f"{meta.get('exit_status', '?')}")
+    # `report` prints the blind-spot block, this recorder's own lines
+    # included (`vocab.blind_spots`); what follows it is the pair's two
+    # unrun checks, which are findings about THIS pair rather than about
+    # the recorder, and are stamped as well as printed.
     code = report(orig, new, res, orig_name, new_id, a)
     _print_unverifiable(checks)
-    spots = terms(new).refocus_blind_spots
-    if spots:
-        print("and, for this recorder specifically, no verdict here says "
-              "anything about:")
-        for line in spots:
-            print(f"  - {line}")
     return code
 
 

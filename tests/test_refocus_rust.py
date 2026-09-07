@@ -7,69 +7,26 @@ and the patch is asserted -- what argv, from what directory, with what
 environment -- because those three ARE the re-run, and a test that only
 checked the verdict would pass over a driver invoked from the wrong place.
 
-The fake driver writes the pair itself, exactly as the real one does: a
-second trace carrying `refocus_of` and a `start_ts` after the launch. That
-is what makes the pair lookup a real lookup here and not a stub.
+The traces, the fake driver and the store reads are
+`tests/refocus_rust_fixtures.py`; what the licence may CLAIM about a Rust
+pair is `tests/test_refocus_licence_rust.py`.
 """
-import hashlib
 import subprocess
 import time
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from sensorium import paths
 from sensorium.query import refocus_cmd, refocus_rust
-from sensorium.query.refocus_world import (UNVERIFIABLE_CHILDREN,
-                                           UNVERIFIABLE_OUTPUT,
-                                           _verified_facts,
-                                           unverifiable_checks)
 from sensorium.query.vocab import PYTHON, RUST
 from sensorium.store import db
 from sensorium.store.reader import Trace
 from tests.helpers import RUST_CAPABILITIES
-from tests.rust_traces import rerunnable_trace
-
-ORIG = "20260101-000000-rust01"
-PAIR = "20260101-000100-pair01"
-STALE = "20250101-000000-stale1"
-
-
-def args(run, *focus, window=None):
-    return SimpleNamespace(run=run, focus=list(focus), window=window)
-
-
-def workspace(tmp_path):
-    """A directory that exists, with one source file in it -- the shape a
-    real workspace root has, so `_source_state` has something to re-hash."""
-    root = tmp_path / "ws"
-    (root / "src").mkdir(parents=True, exist_ok=True)
-    (root / "src" / "lib.rs").write_text("fn compute() -> u8 { 5 }\n")
-    return root
-
-
-def rust_digest(root: Path, rel: str) -> dict:
-    """`source_hashes` as the RUST converter writes it: a workspace-relative
-    key and the FULL 64-character sha256, which is the width Python's own
-    recorder does not use."""
-    return {rel: hashlib.sha256((root / rel).read_bytes()).hexdigest()}
-
-
-def original(tmp_path, monkeypatch, **meta):
-    """The trace being refocused: rerunnable, in a workspace that exists."""
-    root = workspace(tmp_path)
-    meta.setdefault("workspace_root", str(root))
-    meta.setdefault("cwd", str(root))
-    meta.setdefault("source_hashes", rust_digest(root, "src/lib.rs"))
-    return rerunnable_trace(tmp_path, monkeypatch, **meta), root
-
-
-def refuse(capsys, run, *focus, window=None):
-    """Run the command and return (exit code, stderr)."""
-    code = refocus_cmd.run(args(run, *focus, window=window))
-    return code, capsys.readouterr().err
-
+from tests.refocus_rust_fixtures import (ORIG, PAIR, STALE, FakeDriver,
+                                         _drive, _drop_meta, _never,
+                                         _read_meta, args, original, refuse,
+                                         rust_digest, workspace)
 
 # -- the five pre-rerun refusals, in the design's order ---------------------
 def test_window_is_refused_first_and_nothing_is_re_run(tmp_path, monkeypatch,
@@ -254,13 +211,7 @@ def test_rerun_argv_passes_cargo_args_through_verbatim():
     assert argv[:3] == ["d", "--refocus-of", ORIG]
 
 
-# -- the pair lookup -------------------------------------------------------
-def _pair_store(tmp_path, monkeypatch, launched_at, **kw):
-    """A store holding the original plus whatever the test asks for."""
-    run, _ = original(tmp_path, monkeypatch)
-    return run, paths.traces_dir(), launched_at, kw
-
-
+# -- the pair lookup ---------------------------------------------------------
 def test_find_pair_returns_nothing_when_no_trace_is_linked(tmp_path,
                                                            monkeypatch):
     run, _ = original(tmp_path, monkeypatch)
@@ -331,58 +282,6 @@ def test_find_pair_excludes_a_start_time_that_is_not_a_time(tmp_path,
 
 
 # -- the launch ------------------------------------------------------------
-class FakeDriver:
-    """Stands in for `cargo-sensorium`: records how it was called, and
-    optionally writes the traces the real driver would have written."""
-
-    def __init__(self, tmp_path, monkeypatch, *, pairs=(), returncode=0,
-                 stdout="run: x  pid: 1  exit: 0\n"):
-        self.tmp_path, self.monkeypatch = tmp_path, monkeypatch
-        self.pairs, self.returncode, self.stdout = pairs, returncode, stdout
-        self.calls = []
-
-    def __call__(self, argv, **kw):
-        self.calls.append((list(argv), kw))
-        for rid, link in self.pairs:
-            original(self.tmp_path, self.monkeypatch, run_id=rid,
-                     refocus_of=link, start_ts=time.time())
-        return subprocess.CompletedProcess(argv, self.returncode,
-                                           stdout=self.stdout)
-
-
-def _never(*a, **kw):                       # pragma: no cover - a tripwire
-    raise AssertionError("the driver was launched by a refused call")
-
-
-def _drop_meta(tmp_path, run_id, key):
-    conn = db.open_trace(paths.traces_dir() / f"{run_id}.db")
-    try:
-        conn.execute("DELETE FROM meta WHERE key = ?", (key,))
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def _read_meta(run_id, key, default=None):
-    conn = db.open_trace(paths.traces_dir() / f"{run_id}.db")
-    try:
-        return db.get_meta(conn, key, default)
-    finally:
-        conn.close()
-
-
-def _drive(tmp_path, monkeypatch, *, pairs=(), returncode=0, focus=("compute",),
-           **meta):
-    """Run the whole command against a fake driver; return (code, out, fake)."""
-    run, root = original(tmp_path, monkeypatch, **meta)
-    fake = FakeDriver(tmp_path, monkeypatch, pairs=pairs,
-                      returncode=returncode)
-    monkeypatch.setenv("SENSORIUM_CARGO_SENSORIUM", "/d/cargo-sensorium")
-    monkeypatch.setattr(refocus_rust.subprocess, "run", fake)
-    code = refocus_cmd.run(args(run, *focus))
-    return run, root, code, fake
-
-
 def test_the_driver_is_launched_from_the_workspace_under_the_same_store(
         tmp_path, monkeypatch, capsys):
     """The three things that ARE the re-run: what was run, from where, and
@@ -461,93 +360,6 @@ def test_a_matching_pair_is_compared_and_stamped_into_the_new_trace(
     assert _read_meta(PAIR, "refocus_verdict") == "MATCH"
     assert _read_meta(PAIR, "refocus_of") == run
     assert real is refocus_rust.__dict__
-
-
-def test_the_two_unverifiable_checks_are_printed_and_stamped(
-        tmp_path, monkeypatch, capsys):
-    """Design section 3.2: on a Rust pair the output and children checks
-    cannot run, and the honest answer is to SAY so on both channels -- the
-    terminal a person reads and the trace `info` replays."""
-    _drive(tmp_path, monkeypatch, pairs=[(PAIR, ORIG)])
-    out = capsys.readouterr().out
-    assert "checks that could not run on this pair" in out
-    assert f"  - {UNVERIFIABLE_OUTPUT}" in out
-    assert f"  - {UNVERIFIABLE_CHILDREN}" in out
-    assert _read_meta(PAIR, "refocus_licence_unverifiable") == [
-        UNVERIFIABLE_OUTPUT, UNVERIFIABLE_CHILDREN]
-
-
-def test_the_unverifiable_checks_do_not_withhold_the_licence(
-        tmp_path, monkeypatch, capsys):
-    """A check that could not RUN is not a finding against the pair. The
-    licence is granted, the two unrun checks are named beside it, and the
-    stamped label and the printed line say the same thing."""
-    run, _root, _code, _fake = _drive(tmp_path, monkeypatch,
-                                      pairs=[(PAIR, ORIG)])
-    out = capsys.readouterr().out
-    assert "licence: WITHHELD" not in out
-    assert f"licence: verified against {run} on exactly these points" in out
-    assert _read_meta(PAIR, "refocus_licence") == "granted"
-    assert _read_meta(PAIR, "refocus_licence_reasons") == []
-    verified = _read_meta(PAIR, "refocus_licence_verified")
-    assert UNVERIFIABLE_OUTPUT not in verified
-    assert UNVERIFIABLE_CHILDREN not in verified
-    assert any("source file(s) unchanged by content" in f for f in verified)
-    assert any("environment variable(s) compared and unchanged" in f
-               for f in verified)
-
-
-def test_a_real_caveat_still_withholds_the_licence_on_a_rust_pair(
-        tmp_path, monkeypatch, capsys):
-    """The removal above is of TWO named strings, not of the mechanism: a
-    source file edited between the runs still withholds."""
-    run, root, _code, _fake = _drive(tmp_path, monkeypatch,
-                                     pairs=[(PAIR, ORIG)],
-                                     source_hashes={"src/lib.rs": "0" * 64})
-    out = capsys.readouterr().out
-    assert "licence: WITHHELD" in out
-    assert "source file(s) CHANGED between the two runs" in out
-    assert _read_meta(PAIR, "refocus_licence") == "withheld"
-    # ...and the unrun checks are still reported, on both channels.
-    assert UNVERIFIABLE_OUTPUT not in _read_meta(PAIR,
-                                                 "refocus_licence_reasons")
-    assert _read_meta(PAIR, "refocus_licence_unverifiable") == [
-        UNVERIFIABLE_OUTPUT, UNVERIFIABLE_CHILDREN]
-    assert f"  - {UNVERIFIABLE_OUTPUT}" in out
-
-
-def test_the_output_check_is_never_consulted_on_a_rust_pair(tmp_path,
-                                                            monkeypatch,
-                                                            capsys):
-    """Two recordings that captured nothing hold EQUAL output, and the
-    difference check duly finds none -- which reads as verified. It must
-    not run at all; the marker is the answer."""
-    import sensorium.query.refocus_world as world
-
-    def boom(a, b):                    # pragma: no cover - a tripwire
-        raise AssertionError("the output check ran on a Rust pair")
-    monkeypatch.setattr(world, "_output_difference", boom)
-    _drive(tmp_path, monkeypatch, pairs=[(PAIR, ORIG)])
-    out = capsys.readouterr().out
-    assert UNVERIFIABLE_OUTPUT in out
-    assert "the program's own captured" not in out
-
-
-def test_verified_facts_never_list_output_or_children_on_a_rust_pair(
-        tmp_path, monkeypatch):
-    """The positive list is what a granted licence RESTS on. Neither the
-    output cross-check nor the child witness may appear in it here."""
-    run, _root = original(tmp_path, monkeypatch)
-    t = Trace.open(paths.traces_dir() / f"{run}.db")
-    facts = _verified_facts(t, t, "")
-    assert unverifiable_checks(t, t) == [UNVERIFIABLE_OUTPUT,
-                                         UNVERIFIABLE_CHILDREN]
-    assert not any("output" in f for f in facts)
-    assert not any("child process" in f for f in facts)
-    # The thread clause is the Rust one: a Python provenance claim about a
-    # run no Python interpreter touched is the bug `vocab.py` exists for.
-    assert any(RUST.thread_origin in f for f in facts)
-    assert not any(PYTHON.thread_origin in f for f in facts)
 
 
 def test_the_rust_blind_spots_are_printed_after_the_verdict(tmp_path,
@@ -695,3 +507,165 @@ def test_a_real_environment_difference_still_fires_beside_the_recorders_own(
     assert "1 environment variable(s) differ between the two runs (TZ)" \
         in caveat
     assert fact is None
+
+
+# -- the categorical blind-spot block, per recorder ------------------------
+PYTHON_BOUND = ("Python code that this run traced",
+                "Python's own threading/_thread",
+                "site-packages", "PYTHONPATH",
+                "__repr__ inside hooks")
+
+
+def _diverging_pair(tmp_path, monkeypatch, **kw):
+    """A re-run that recorded a DIFFERENT program: another causal stream, so
+    the pair diverges on shape rather than on anything in the world."""
+    from tests.rust_traces import swallow_trace
+    return swallow_trace(tmp_path, monkeypatch, **kw)
+
+
+def _assert_rust_block(out):
+    assert ("what sensorium sees at all: Rust code in the workspace units "
+            "cargo rebuilt through this recorder's wrapper") in out
+    assert ("  - any thread whose body ran no instrumented code: it leaves "
+            "no fingerprint, so it is not among the compared") in out
+    assert ("  - any code outside the instrumented units: dependency "
+            "crates, the standard library, build scripts and proc macros, "
+            "and every unit that fell back uninstrumented") in out
+    assert ("  - the recorder's own footprint: capturing values runs the "
+            "program's own Debug impls inside the probe") in out
+    for line in RUST.refocus_blind_spots:
+        assert f"  - {line}" in out
+    for phrase in PYTHON_BOUND:
+        assert phrase not in out
+
+
+def test_a_rust_match_prints_the_rust_blind_spots_and_no_python_ones(
+        tmp_path, monkeypatch, capsys):
+    _run, _root, code, _fake = _drive(tmp_path, monkeypatch,
+                                      pairs=[(PAIR, ORIG)])
+    out = capsys.readouterr().out
+    assert code == 0 and "refocus verdict: MATCH" in out
+    _assert_rust_block(out)
+
+
+def test_a_rust_divergence_prints_the_rust_blind_spots_and_no_python_ones(
+        tmp_path, monkeypatch, capsys):
+    _run, _root, code, _fake = _drive(tmp_path, monkeypatch,
+                                      pairs=[(PAIR, ORIG)],
+                                      build=_diverging_pair)
+    out = capsys.readouterr().out
+    assert code == 1 and "refocus verdict: DIVERGED" in out
+    _assert_rust_block(out)
+
+
+def test_a_rust_refusal_after_the_rerun_prints_the_rust_blind_spots(
+        tmp_path, monkeypatch, capsys):
+    """REFUSED is a verdict, so the block that bounds what a verdict claims
+    prints here too -- and "the re-run's rebuild is its own cost" is the
+    most relevant line there is for a reader whose re-run produced nothing
+    (design section 3.2 said the lines print after a Rust verdict; this is
+    the third of the three)."""
+    _run, _root, code, _fake = _drive(tmp_path, monkeypatch, returncode=101)
+    out = capsys.readouterr().out
+    assert code == 3 and "refocus verdict: REFUSED" in out
+    _assert_rust_block(out)
+
+
+def test_the_python_block_is_what_it_always_printed(tmp_path, monkeypatch):
+    """The legacy fence. `PYTHON`'s four language-bound lines are the
+    strings `refocus_cmd` held before they moved, character for character,
+    and the Python column adds nothing after them."""
+    from types import SimpleNamespace
+
+    from sensorium.query.vocab import blind_spots
+    run, _ = original(tmp_path, monkeypatch)
+    rust = Trace.open(paths.traces_dir() / f"{run}.db")
+    assert len(blind_spots(rust)) == 9 + len(RUST.refocus_blind_spots)
+
+    # `blind_spots` reads `trace.lang` and nothing else, which is what makes
+    # the block a statement about the RECORDER rather than about this run.
+    lines = blind_spots(SimpleNamespace(lang="python"))
+    assert len(lines) == 9                      # Python adds nothing
+    assert lines[0] == (
+        "what sensorium sees at all: Python code that this run traced, in "
+        "files under the run's own root. Nothing else. No verdict here -- "
+        "MATCH, DIVERGED or REFUSED -- says anything about:")
+    assert lines[2] == (
+        "  - any thread not started through Python's own threading/_thread")
+    assert lines[4] == (
+        "  - any code outside the run's root: the stdlib, site-packages, "
+        "installed dependencies, PYTHONPATH modules, and whatever this "
+        "run's own --include/--exclude filtered out")
+    assert lines[8] == (
+        "  - the recorder's own footprint: deeper capture runs the "
+        "program's __repr__ inside hooks that suppress themselves, so an "
+        "instrument that changes the program leaves no mark on the "
+        "fingerprint")
+    assert PYTHON.refocus_blind_spots == ()
+
+
+# -- one driver resolution, three copies of it -----------------------------
+def _driver_copies():
+    """The three places this project resolves `cargo-sensorium`. They are
+    separate ON PURPOSE -- `corpus/` is not in the wheel, so the query
+    command cannot import it -- which makes drift between them silent."""
+    import importlib.util
+    from tests.test_focus_refusal import _driver as focus_refusal_driver
+    root = Path(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location(
+        "_run_corpus_for_drift", root / "corpus" / "run_corpus.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return (refocus_rust.driver, mod.cargo_driver, focus_refusal_driver)
+
+
+@pytest.mark.parametrize("env,which,expected", [
+    ("/from/env", "/from/path", "/from/env"),      # the variable wins
+    (None, "/from/path", "/from/path"),            # then PATH
+    (None, None, None),                            # then nothing, honestly
+    ("", "/from/path", "/from/path"),              # empty is not a driver
+])
+def test_all_three_driver_resolutions_agree(monkeypatch, env, which,
+                                            expected):
+    import shutil as _shutil
+    if env is None:
+        monkeypatch.delenv("SENSORIUM_CARGO_SENSORIUM", raising=False)
+    else:
+        monkeypatch.setenv("SENSORIUM_CARGO_SENSORIUM", env)
+    monkeypatch.setattr(_shutil, "which", lambda _n: which)
+    answers = [fn() for fn in _driver_copies()]
+    assert answers == [expected, expected, expected]
+
+
+# -- the digest floor ------------------------------------------------------
+@pytest.mark.parametrize("digest", ["", "abc", "0" * 15])
+def test_a_digest_too_short_to_identify_a_file_is_unverifiable(tmp_path,
+                                                               digest):
+    """A prefix comparison against a narrow digest matches almost anything,
+    and `""` matches EVERY file: without a floor, a trace recording an empty
+    digest would read `source: unchanged` over code nobody ever hashed --
+    the check-that-did-not-run reported as a check that passed."""
+    from sensorium.query.refocus_world import _source_state
+    (tmp_path / "lib.rs").write_text("fn main() {}\n")
+    line, caveat, fact = _source_state(
+        {"source_hashes": {str(tmp_path / "lib.rs"): digest}})
+    assert "source: unverifiable" in line
+    assert "digest too short to identify their contents" in line
+    assert "would match files this run never saw" in caveat
+    assert fact is None
+    assert "unchanged" not in line
+
+
+def test_a_digest_at_the_floor_is_compared_normally(tmp_path):
+    """16 hex characters is what `boot.hash_file` writes, so the floor must
+    not refuse a trace this project's own Python recorder produced."""
+    import hashlib as _h
+    from sensorium.query.refocus_world import _source_state
+    f = tmp_path / "lib.rs"
+    f.write_text("fn main() {}\n")
+    full = _h.sha256(f.read_bytes()).hexdigest()
+    for width in (16, 64):
+        line, caveat, fact = _source_state(
+            {"source_hashes": {str(f): full[:width]}})
+        assert "source: unchanged (1 file(s) compared by content" in line
+        assert caveat is None and fact is not None

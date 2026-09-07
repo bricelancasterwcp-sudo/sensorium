@@ -77,6 +77,21 @@ class Terms:
     #: enumeration that could read as complete -- the categorical block
     #: above it is what bounds the claim.
     refocus_blind_spots: tuple[str, ...]
+    #: The four lines of `refocus`'s categorical blind-spot block that name
+    #: a LANGUAGE. The other five are the same statement about any recorder
+    #: and stay in `refocus_cmd`; these four said "Python code", "Python's
+    #: own threading/_thread", "site-packages / PYTHONPATH modules" and
+    #: "__repr__" over a Rust verdict, which is the rung-1 bug this module
+    #: exists for, printed on the one block whose whole job is to bound what
+    #: a verdict claims. Each is the WHOLE line, prefix included, so the
+    #: Python column stays byte-for-byte what it printed before.
+    #:
+    #: `blind_spot_scope` opens the block and ends in the colon the other
+    #: lines hang off; the rest are bullets.
+    blind_spot_scope: str
+    blind_spot_threads: str
+    blind_spot_outside: str
+    blind_spot_footprint: str
     #: Why a frame has no local-variable timeline, and what to do about
     #: it. `{mod}` and `{qualname}` name the site. A language whose
     #: recorder produces no LINE events at all has no `--focus` to
@@ -112,9 +127,26 @@ PYTHON = Terms(
     no_rerun_note=("no rerun was attempted; `sensorium run --focus ...` "
                    "will record a fresh, UNVERIFIED trace if that is what "
                    "you want"),
-    # The Python column adds nothing: `refocus_cmd._BLIND_SPOTS` was written
-    # for this recorder and already states every one of its limits.
+    # The Python column adds nothing: the nine lines of `blind_spots` were
+    # written for this recorder and already state every one of its limits.
     refocus_blind_spots=(),
+    # Byte for byte the strings `refocus_cmd` held before this move. The
+    # legacy suite is the fence: a reworded Python sentence is a regression.
+    blind_spot_scope=(
+        "what sensorium sees at all: Python code that this run traced, in "
+        "files under the run's own root. Nothing else. No verdict here -- "
+        "MATCH, DIVERGED or REFUSED -- says anything about:"),
+    blind_spot_threads=(
+        "  - any thread not started through Python's own threading/_thread"),
+    blind_spot_outside=(
+        "  - any code outside the run's root: the stdlib, site-packages, "
+        "installed dependencies, PYTHONPATH modules, and whatever this "
+        "run's own --include/--exclude filtered out"),
+    blind_spot_footprint=(
+        "  - the recorder's own footprint: deeper capture runs the "
+        "program's __repr__ inside hooks that suppress themselves, so an "
+        "instrument that changes the program leaves no mark on the "
+        "fingerprint"),
     timeline_hint=("locals need line-level focus; refocus with --focus "
                    "{mod}:{qualname}"),
     interp_key="python",
@@ -145,6 +177,26 @@ RUST = Terms(
         "the re-run's rebuild is its own cost: --focus keys a fresh shim "
         "and a rebuild of the matched units",
     ),
+    # What this recorder actually sees, said in its own terms. The unit of
+    # coverage is the workspace unit cargo rebuilt through the wrapper --
+    # not "files under the run's root", which is Python's -- and the
+    # instrument's footprint is a `Debug` impl run inside the probe, not a
+    # `__repr__` run inside a suppressed hook.
+    blind_spot_scope=(
+        "what sensorium sees at all: Rust code in the workspace units cargo "
+        "rebuilt through this recorder's wrapper. Nothing else. No verdict "
+        "here -- MATCH, DIVERGED or REFUSED -- says anything about:"),
+    blind_spot_threads=(
+        "  - any thread whose body ran no instrumented code: it leaves no "
+        "fingerprint, so it is not among the compared"),
+    blind_spot_outside=(
+        "  - any code outside the instrumented units: dependency crates, "
+        "the standard library, build scripts and proc macros, and every "
+        "unit that fell back uninstrumented"),
+    blind_spot_footprint=(
+        "  - the recorder's own footprint: capturing values runs the "
+        "program's own Debug impls inside the probe, so an instrument that "
+        "changes the program leaves no mark on the fingerprint"),
     timeline_hint=("this recorder produces no LINE events at all "
                    "(capabilities.line: false), so there is no per-line "
                    "record to focus"),
@@ -158,6 +210,70 @@ _TABLES = {PYTHON.lang: PYTHON, RUST.lang: RUST}
 def terms(trace) -> Terms:
     """The table for `trace`, read from the trace and from nothing else."""
     return _TABLES.get(trace.lang, PYTHON)
+
+
+# Five of the nine are the same statement about any recorder and live here.
+# The other four NAME A LANGUAGE, and are the trace's own (`vocab.Terms`):
+# printed flat, this block told a reader of a Rust verdict that what
+# sensorium sees is "Python code that this run traced" and that no thread
+# started "through Python's own threading/_thread" -- the rung-1 provenance
+# bug, on the one block whose whole job is to bound what a verdict claims.
+_SHARED_BLIND_SPOTS = (
+    "  - any child process, by any mechanism. Some are noticed and listed "
+    "above; an empty list is NOT evidence that none ran",
+    "  - any file the program read or wrote. Only SOURCE files are hashed, "
+    "so config, fixtures, databases and inputs move unseen",
+    # NOT "and nothing outside the environment is compared at all": source
+    # contents, stdout/stderr and exit status are all compared, and the
+    # source line saying so prints twelve lines above this block.
+    "  - any environment variable this run did not compare; the ones it "
+    "skipped are named above",
+    "  - the clock, the network, and everything else the machine did",
+    # The task clause is not decoration: this version deliberately compares
+    # task streams as a multiset, so an order flip comes back MATCH. The
+    # thing a verdict is built on NOT looking at has to be stated on every
+    # verdict, or the MATCH reads as "the tasks ran the same way".
+    "  - argument and return values, per-line state, timing, the order "
+    "threads ran in relative to one another, and the order asyncio tasks "
+    "interleaved in: recorded, never compared",
+)
+
+
+def blind_spots(trace) -> tuple[str, ...]:
+    """The categorical block for `trace`, in the order it prints.
+
+    Order is the Python column's, unchanged: scope, children, threads,
+    files, outside, environment, machine, values, footprint -- then any
+    line the recorder adds for itself (`refocus_blind_spots`). A recorder
+    with nothing to add contributes nothing, so the Python output is what
+    it always was, character for character.
+    """
+    t = terms(trace)
+    child, files, env, machine, values = _SHARED_BLIND_SPOTS
+    return ((t.blind_spot_scope, child, t.blind_spot_threads, files,
+             t.blind_spot_outside, env, machine, values,
+             t.blind_spot_footprint)
+            + tuple(f"  - {line}" for line in t.refocus_blind_spots))
+
+
+def print_blind_spots(trace) -> None:
+    """Printed on EVERY verdict, and CATEGORICAL on purpose.
+
+    An earlier version listed the mechanisms sensorium cannot see. Two more
+    arrived within a day -- a `multiprocessing` child spawned through
+    `_posixsubprocess.fork_exec`, and a `COLUMNS` change hidden by the
+    volatile denylist -- and the list was worse than useless for them: it
+    read as EXHAUSTIVE, so a reader who checked it concluded their
+    multiprocessing child had been witnessed. An enumeration that looks
+    complete is more dangerous than no enumeration. Every line is bounded by
+    what the instrument IS rather than by what has been thought of so far,
+    so the block stays true when the next mechanism appears -- and `trace`
+    is required rather than defaulted for the same reason `_refuse` requires
+    it: no call site may reach this line without saying which recorder it is
+    speaking for.
+    """
+    for line in blind_spots(trace):
+        print(line)
 
 
 def exit_phrase(meta: dict) -> str:

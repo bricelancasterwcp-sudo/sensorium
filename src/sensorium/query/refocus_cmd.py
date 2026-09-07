@@ -151,7 +151,7 @@ from pathlib import Path
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.caps import require
-from sensorium.query.vocab import terms
+from sensorium.query.vocab import print_blind_spots, terms
 from sensorium.query.diff_cmd import (compare, print_comparison,
                                       task_drill_lines)
 # The evidence layer, split out at this file's 800-line ceiling. Re-exported
@@ -164,51 +164,9 @@ from sensorium.query.refocus_world import (  # noqa: F401
 from sensorium.store import db
 from sensorium.store.reader import Trace
 
-# Printed on every verdict, and CATEGORICAL on purpose.
-#
-# An earlier version listed the mechanisms sensorium cannot see. Two more
-# arrived within a day -- a `multiprocessing` child spawned through
-# `_posixsubprocess.fork_exec`, and a `COLUMNS` change hidden by the volatile
-# denylist -- and the list was worse than useless for them: it read as
-# EXHAUSTIVE, so a reader who checked it concluded their multiprocessing
-# child had been witnessed. An enumeration that looks complete is more
-# dangerous than no enumeration. The statement below is bounded by what the
-# instrument IS rather than by what has been thought of so far, so it stays
-# true when the next mechanism appears.
-_BLIND_SPOTS = (
-    "what sensorium sees at all: Python code that this run traced, in files "
-    "under the run's own root. Nothing else. No verdict here -- MATCH, "
-    "DIVERGED or REFUSED -- says anything about:",
-    "  - any child process, by any mechanism. Some are noticed and listed "
-    "above; an empty list is NOT evidence that none ran",
-    "  - any thread not started through Python's own threading/_thread",
-    "  - any file the program read or wrote. Only SOURCE files are hashed, "
-    "so config, fixtures, databases and inputs move unseen",
-    "  - any code outside the run's root: the stdlib, site-packages, "
-    "installed dependencies, PYTHONPATH modules, and whatever this run's "
-    "own --include/--exclude filtered out",
-    # NOT "and nothing outside the environment is compared at all": source
-    # contents, stdout/stderr and exit status are all compared, and the
-    # source line saying so prints twelve lines above this block.
-    "  - any environment variable this run did not compare; the ones it "
-    "skipped are named above",
-    "  - the clock, the network, and everything else the machine did",
-    # The task clause is not decoration: this version deliberately compares
-    # task streams as a multiset, so an order flip comes back MATCH. The
-    # thing a verdict is built on NOT looking at has to be stated on every
-    # verdict, or the MATCH reads as "the tasks ran the same way".
-    "  - argument and return values, per-line state, timing, the order "
-    "threads ran in relative to one another, and the order asyncio tasks "
-    "interleaved in: recorded, never compared",
-    "  - the recorder's own footprint: deeper capture runs the program's "
-    "__repr__ inside hooks that suppress themselves, so an instrument that "
-    "changes the program leaves no mark on the fingerprint",
-)
-
-
-def _print_blind_spots() -> None:
-    for line in _BLIND_SPOTS:
-        print(line)
+# The blind-spot block moved to `vocab.py` (fix round 1): four of its nine
+# lines name a language, so the block belongs where the languages' words
+# live. `print_blind_spots` carries the reasoning it was written with.
 
 
 def add_parser(sub) -> None:
@@ -228,26 +186,25 @@ def add_parser(sub) -> None:
 
 
 # -- may this program be re-run at all? ------------------------------------
-def _refusal(meta: dict, trace: Trace | None = None) -> str | None:
-    """Why re-running this recorded command would be illegitimate.
+def _refusal_shared(meta: dict, trace: Trace | None = None) -> str | None:
+    """The two gates that hold for EVERY recorder, before the branch.
 
-    Order is load-bearing: `incomplete` is checked before `stdin_consumed`
-    because an incomplete trace does not have a `stdin_consumed` key to
-    check -- see the module docstring. The fingerprint-basis check comes
-    before the argv/cwd gates for a different reason: those two ask whether
-    the world still allows a rerun, and this one asks whether any verdict
-    against this trace could mean anything. A trace whose directory is also
-    gone is better told the durable reason -- re-recording is the fix for
-    both, and restoring the directory is the fix for neither.
+    Split out so the Rust branch can be dispatched between these and the
+    ones below, which are Python's own (design 2026-09-07 section 2.3: the
+    Rust refusals come "after the existing capability/`incomplete`
+    checks"). Both questions here are about the RECORDING rather than about
+    the world the rerun would run in, and neither has a language in it:
 
-    `trace` is optional only so the metadata-shaped refusals stay callable
-    from a bare dict; every real call site passes the opened trace.
+    * a recorder that declares it cannot be refocused is refusing the whole
+      command, not failing one of its checks -- asked anything else, such a
+      trace would report whichever other question it happens to fail;
+    * an incomplete recording never reached its finalize pass, so what it
+      does not hold may simply be what it never got to write, and no verdict
+      against it would mean anything. It is checked before `stdin_consumed`
+      below because an incomplete trace has no `stdin_consumed` key to
+      check -- see the module docstring.
     """
     if trace is not None:
-        # First, and before anything is read about the run: a recorder that
-        # declares it cannot be refocused is refusing the whole command, not
-        # failing one of its checks. Asking the other questions of such a
-        # trace would report the first one it happens to fail as the reason.
         declared = require(trace, "refocus", "refocus")
         if declared:
             return declared
@@ -257,6 +214,30 @@ def _refusal(meta: dict, trace: Trace | None = None) -> str | None:
                 "consumed stdin, and its causal stream can stop anywhere "
                 "without saying so. Neither the rerun nor a verdict against "
                 "it would mean anything")
+    return None
+
+
+def _refusal(meta: dict, trace: Trace | None = None) -> str | None:
+    """Why re-running this recorded command would be illegitimate.
+
+    The shared gates first, unchanged, so this function's contract and its
+    callers are what they were. Everything after them is PYTHON's: a Rust
+    trace never reaches this function (`run` dispatches above it), and its
+    equivalents are `refocus_rust.refusal`'s five sentences.
+
+    Order is load-bearing below too. The fingerprint-basis check comes
+    before the argv/cwd gates because those two ask whether the world still
+    allows a rerun, and this one asks whether any verdict against this trace
+    could mean anything. A trace whose directory is also gone is better told
+    the durable reason -- re-recording is the fix for both, and restoring the
+    directory is the fix for neither.
+
+    `trace` is optional only so the metadata-shaped refusals stay callable
+    from a bare dict; every real call site passes the opened trace.
+    """
+    shared = _refusal_shared(meta, trace)
+    if shared:
+        return shared
     if meta.get("stdin_consumed"):
         return ("original run consumed stdin -- marked non-refocusable: a "
                 "rerun reads different stdin, or none, so it could not be "
@@ -618,7 +599,7 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
               f"{orig_name}: treat it as a separate, UNVERIFIED execution")
         # Stated here too: "on every verdict" has to include the verdict
         # that says nothing, or the sentence is not true.
-        _print_blind_spots()
+        print_blind_spots(new)
         # The second gate (X4). The program DID re-run -- the new trace
         # exists and is queryable -- and what failed is the verification
         # against the original. No edit to this command changes that; a
@@ -658,7 +639,7 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
               "itself -- capturing values runs the program's own __repr__ "
               "and slows the run down; the fingerprint cannot tell that "
               "apart from the program genuinely taking another path")
-        _print_blind_spots()
+        print_blind_spots(new)
         return NEGATIVE
 
     # The headline may claim only what was compared. Under the per-task
@@ -685,7 +666,7 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
               "points, and no others:")
         for fact in a["verified"]:
             print(f"  - {fact}")
-    _print_blind_spots()
+    print_blind_spots(new)
     return ANSWERED
 
 
@@ -738,18 +719,30 @@ def run(args) -> int:
     orig = Trace.open(orig_path)
     meta = orig.meta
 
-    problem = _refusal(meta, orig)
+    # The capability gate and `incomplete` come FIRST and are shared: a
+    # recorder that declares it cannot be refocused, or a recording that
+    # never finalized, is refused in the same words whatever wrote it.
+    problem = _refusal_shared(meta, orig)
     if problem:
         return _refuse(orig_name, problem, orig)
 
-    # A Rust recording cannot be re-run in this process (design 2026-09-07
-    # section 2.3): the branch below re-invokes the driver instead, and
-    # calls back into this file for the comparator, the verdict, the
-    # assessment, the report and the stamps. Imported here rather than at
-    # the top because that module imports this one.
+    # Then the branch, BEFORE Python's own gates. A Rust recording cannot be
+    # re-run in this process (design 2026-09-07 section 2.3): the branch
+    # below re-invokes the driver instead, and calls back into this file for
+    # the comparator, the verdict, the assessment, the report and the
+    # stamps. It is dispatched here rather than after `_refusal` so that the
+    # five sentences a Rust user meets arrive in the order the design fixes
+    # -- `--window` first -- instead of behind a Python gate (`argv`, `cwd`,
+    # the per-thread basis) whose sentence names a fact about the Python
+    # recorder. Imported here rather than at the top because that module
+    # imports this one.
     if orig.lang == "rust":
         from sensorium.query import refocus_rust
         return refocus_rust.run(args, orig, orig_name, meta)
+
+    problem = _refusal(meta, orig)
+    if problem:
+        return _refuse(orig_name, problem, orig)
 
     # Pin first, THEN snapshot: the environment compared must be the one the
     # target is executed with, not the one this process started with. The pin

@@ -38,6 +38,11 @@ from sensorium.store.reader import Trace
 # gap is the only honest answer; withholding the licence for it would be the
 # opposite error, reporting a recorder's declared scope as evidence against
 # the run.
+#: The narrowest recorded source digest a comparison may rest on: 64 bits of
+#: sha256, which is what `boot.hash_file` keeps. Anything shorter is reported
+#: as unverifiable rather than compared.
+_MIN_DIGEST = 16
+
 UNVERIFIABLE_OUTPUT = "output: unverifiable (not recorded)"
 UNVERIFIABLE_CHILDREN = "children: unverifiable (not witnessed)"
 UNVERIFIABLE = (UNVERIFIABLE_OUTPUT, UNVERIFIABLE_CHILDREN)
@@ -104,7 +109,10 @@ def _still_hashes_to(path: str, digest: str) -> bool:
     of a digest is a digest of the same bytes.
 
     Unreadable now is NOT a match: a file that cannot be hashed has not been
-    shown to be unchanged, and the caller reports it among the changed.
+    shown to be unchanged, and the caller reports it among the changed. The
+    recorded digest's own width is the caller's business (`_MIN_DIGEST`):
+    every digest reaching here has already been shown wide enough to
+    identify a file.
     """
     try:
         with open(path, "rb") as fh:
@@ -150,6 +158,26 @@ def _source_state(meta: dict) -> tuple[str, str | None, str | None]:
     # "unchanged" over a file nobody has ever hashed -- the same shape as
     # every other bug in this round: a check that did not run, reported as a
     # check that passed.
+    # A digest too narrow to identify a file matches almost anything under a
+    # prefix comparison -- `""` matches EVERY file -- so it is reported as a
+    # check that could not run, never as one that passed. The floor is the
+    # narrowest width this project's own recorders write (`boot.hash_file`
+    # keeps 16 hex characters; `cargo-sensorium` writes all 64), so no trace
+    # either of them produced is refused by it.
+    short = sorted(p for p, digest in was.items()
+                   if digest is not None
+                   and (not isinstance(digest, str)
+                        or len(digest) < _MIN_DIGEST))
+    if short:
+        names = ", ".join(Path(p).name for p in short[:6])
+        return (f"source: unverifiable -- {len(short)} of {len(was)} "
+                f"file(s) recorded a digest too short to identify their "
+                f"contents ({names})",
+                f"{len(short)} source file(s) could not be checked "
+                f"({names}) -- their recorded digest is under "
+                f"{_MIN_DIGEST} hex characters, which would match files "
+                "this run never saw, so nothing rules out an edit between "
+                "the runs", None)
     unread = sorted(p for p, digest in was.items() if digest is None)
     if unread:
         names = ", ".join(Path(p).name for p in unread[:6])
