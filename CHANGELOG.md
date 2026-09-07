@@ -1,5 +1,108 @@
 # Changelog
 
+## 0.8.3 — 2026-09-06
+
+Rung 4, slice 1: **the focus tier** — LINE and locals for Rust, under a
+compile-time `--focus`. Python **0.8.3**; the crates move together to
+**`sensorium-rt 0.4.0`**, **`sensorium-transform 0.4.0`** and
+**`cargo-sensorium 0.4.0`**. `TRACE_FORMAT` stays **4**: LINE rows and a
+`focus` meta key already exist there and `focus_matched` is optional meta.
+
+- **The driver takes `--focus <qualname>`, repeatable, and resolves it before
+  it builds anything.** A container value selects its children on the `::`
+  boundary, and resolution reads the workspace's sources through the
+  TRANSFORM's own eligibility rule, so the driver can never accept a value
+  the transform would then ignore. A value matching nothing is refused at exit
+  **2** with up to three `Closest:` suggestions and nothing built; a value
+  whose only matches are functions the transform skips is refused the same
+  way, naming every one of them with its reason. A resolved focus prints one
+  `focus: <qualname>` line per selection on stderr before cargo runs. The
+  focus reaches cargo's fingerprint through the wrapper shim's PATH, so every
+  distinct focus has its own `-C metadata`, its own mirror and its own unit
+  manifests — which accumulate in the target directory, at roughly one ~40 MB
+  shim copy and one artifact set per focus.
+- **The transform splices one LINE probe after every statement of a focused
+  function, at every block depth.** A parameters LINE comes first, even for a
+  function taking none; an arm or loop pattern that BINDS mints a synthetic
+  entry LINE once per entry or iteration, and one that binds nothing mints
+  none; a bare-expression arm body is wrapped `{ probe; expr }`, so the arm
+  entry exists there too while the expression stays a tail and takes no row.
+  A statement that returns, breaks, continues, propagates with `?` or panics
+  leaves no LINE — its exit is already the RETURN or RAISE row — and neither
+  does a tail expression.
+- **The runtime gains a wire kind, LINE (6), and a lazy entry point.**
+  `line(unit, site, || [("x", probe_cap!(&x))])` evaluates its deltas only
+  when the runtime is recording, so under `--tier off` no `Debug` impl runs
+  for a delta; `probe_cap!` formats inside the runtime scope, which is what
+  keeps the reentrancy promise true for LINE. A payload is capped at
+  `LINE_PAYLOAD_MAX` (2048 bytes, nine fully capped eight-character-named
+  deltas); beyond it the remaining deltas are dropped and `flags.bit0` says
+  so, never a silently short record.
+- **The converter writes LINE rows in the Python payload shape** —
+  `deltas: {name: capture}` with `unread: ["locals"]` when a delta was
+  dropped — decoding with a parser that mirrors the writer byte for byte: a
+  malformed payload is a conversion refusal naming the record, never a
+  guessed row, and so is a LINE whose thread has no open frame. `meta.focus`
+  is **the invocation's own list**, handed over by the driver and never read
+  back out of an accumulated manifest, and `meta.focus_matched` is the union
+  over the manifests built under THIS invocation's focus (compared as a SET,
+  so `--focus a --focus b` and `--focus b --focus a` are one build).
+  `capabilities.line` and `capabilities.locals` are true exactly when some
+  registered unit of the run carries a LINE site; `refocus` stays `false`.
+- **`watch` and `flow` answer on a focused Rust trace.** The qualname prefix
+  rule learns the `::` boundary beside Python's `.` — `--at Counter` selects
+  `Counter::new` and never `Counters::new` — in one helper with no `lang`
+  branch anywhere near it. And a `dbg` capture now has a defined meaning:
+  it is Debug **text**, compared against a literal's Debug rendering
+  (`5`, `2.5`, `true`, `None`, a string WITH its quotes), never matching when
+  truncated, and `len()` over one is `NOTHING WAS CHECKED` at exit 3 rather
+  than a comparison to nothing. `resolve` and `matches` are **inverses on the
+  literal domain** — exponent floats, `inf`, `-inf`, `NaN` and `None`
+  included — so `flow --value` cannot report a sighting that `watch --expr`
+  then denies at the same site. `flow --object` on a Rust trace still refuses.
+- **Seven new Rust corpus cases**, six recorded under a focus and one without,
+  each pinning a LINE count DERIVED from the rules before it was measured and
+  at least one absence: `focus_let_chain`, `focus_loop_counter`,
+  `focus_match_binding`, `focus_arm_bare`, `focus_moved_value`,
+  `focus_non_debug` and `focus_unfocused_refuses`. The driver's exit-2 refusal
+  is not a case — a case records once, with one argv — so it is pinned by
+  `tests/test_focus_refusal.py` and by the resolver's own unit tests.
+- **E9, measured once, on a real workspace: six PASS and one REPORTED — all
+  seven rows as pre-registered.** H1 the unfocused control (`line: false`,
+  `locals: false`, **0** LINE rows, the pinned refusal at exit 3); H2 both
+  focus values resolving to exactly one qualname with the focused runs' test
+  counts and exit status equal to the unfocused ones; **H3 N = 26 with no
+  line differing** — the LINE rows of one activation against a hand count
+  locked before the transform could produce a competing number, `missing []`,
+  `unexpected []`, `count_diffs []`; H4 all three `watch` triples as predicted
+  on both readings; H5 both `flow --value` sightings found and no unpredicted
+  one; **H6 reported without a gate and without a usable cost signal** —
+  libtest read 0.00 s on all four binaries and every invocation wall is
+  dominated by compilation, so neither reading isolates run-time overhead;
+  H7 every corpus case equal, the Python suite green, `cargo test --workspace`
+  green. The record is
+  `docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md`; read §4 and
+  §5 before quoting any of it, and §5.6 for what it does and does not license.
+- **The record's lens was amended once, before any measurement, and carries
+  both locks.** Both `flow --value` commands ran with `--limit 1000`, because
+  every H5 number is read off the printed rows and the tool's default page is
+  50 — a reader fix, not an endpoint change, committed alone at `ffaed19`
+  after the original lock `a4264b5`. Its guard did not have to fire: neither
+  page truncated, so H5 would have read the same under the unlimited
+  spelling.
+- **Versions: five pins move.** `sensorium-rt` 0.3.0 → **0.4.0** (the new wire
+  kind), `sensorium-transform` 0.3.1 → **0.4.0** (focus, LINE splices,
+  `SiteKind::Line`), `cargo-sensorium` 0.3.1 → **0.4.0** (`--focus`,
+  resolution, LINE conversion, meta, capabilities), Python `sensorium`
+  0.8.2 → **0.8.3**, and `TRACE_FORMAT` stays **4**. Traces recorded by an
+  older runtime still read; the refusal sentence they carry moves with the
+  recorder string, which is why `corpus/rust/stale_cache`'s pin changed in
+  its version token and nothing else.
+- **Two documents were split so neither passed 800 lines**, both deliberately
+  and both with wording and order unchanged: `rust/HONESTY.md` §11 is now
+  `rust/HONESTY-ERR-FLOW.md`, and the README's `exceptions`, `watch` and
+  `flow` sections are now `docs/query.md`. Each keeps a pointer where it was.
+
 ## 0.8.2 — 2026-09-05
 
 - **SWALLOWED has one definition, and it lives in `rust/HONESTY.md` §11.**
