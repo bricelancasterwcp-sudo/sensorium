@@ -603,6 +603,45 @@ mod tests {
         assert_eq!(std::fs::read(&shim).unwrap(), std::fs::read(&exe).unwrap());
     }
 
+    /// The hazard R3's link introduces, pinned rather than merely commented.
+    ///
+    /// A run that dies between the install and the rename leaves
+    /// `cargo-sensorium.tmp-<pid>` behind, and since R3 that leftover may
+    /// itself be a LINK to the driver. `fs::copy` truncates what it opens, so
+    /// an install that met the leftover, failed to link onto it (`EEXIST`) and
+    /// fell back to the copy would empty the driver through its second name.
+    /// `install_shim` unlinks the temporary first.
+    ///
+    /// The "driver" here is a file the fixture makes, not this test binary:
+    /// truncating the running executable to prove a point would be a worse
+    /// failure than the one under test.
+    #[test]
+    fn a_leftover_temporary_is_unlinked_rather_than_written_through() {
+        let exe = std::env::current_exe().unwrap();
+        let beside = exe.parent().expect("the driver has a directory").to_owned();
+        let t = Tmp::under(&beside, "shim-stale-tmp");
+        // A stand-in driver on the same filesystem, so the link path is the
+        // one taken -- as it is in the case this guards.
+        let stand_in = t.0.join("driver");
+        std::fs::write(&stand_in, b"the driver's bytes").unwrap();
+        let key = "fedcba9876543210";
+        let dir = t.0.join("sensorium").join("shim").join(key);
+        std::fs::create_dir_all(&dir).unwrap();
+        // What a run that died before its rename leaves behind.
+        let leftover = dir.join(format!("cargo-sensorium.tmp-{}", std::process::id()));
+        std::fs::hard_link(&stand_in, &leftover).unwrap();
+
+        let shim = install_shim(&t.0, &stand_in, key).unwrap();
+
+        assert_eq!(
+            std::fs::read(&stand_in).unwrap(),
+            b"the driver's bytes",
+            "the driver was written through its own second name"
+        );
+        assert_eq!(std::fs::read(&shim).unwrap(), b"the driver's bytes");
+        assert!(!leftover.exists(), "the temporary outlived the rename");
+    }
+
     #[test]
     fn the_shim_is_executable() {
         use std::os::unix::fs::PermissionsExt;
