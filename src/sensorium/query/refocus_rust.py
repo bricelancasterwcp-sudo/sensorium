@@ -55,6 +55,19 @@ wall clock `time.time()` reads, so the comparison is between like and like.
 A trace that records no `start_ts` is EXCLUDED rather than assumed recent:
 it cannot be shown to be this re-run's.
 
+Not every linked trace is a CANDIDATE, and that is the third filter (design
+2026-09-07 §3, ruling R2). A re-run whose test runs an instrumented program
+spawns a second recorded process, and the driver stamps `refocus_of` on
+every trace of the invocation, so the store holds two links where the
+reader made one re-run. Counted as candidates they are "more than one",
+which is a REFUSAL advising a single-target selector at a caller whose
+selector was already single. A linked trace whose `ppid` is ANOTHER linked
+trace's `pid` is therefore a child run: it is not the pair -- the pair is
+the process the reader recorded and asked about -- but it is named on the
+pair line, stamped into the pair's trace, and still listed by `runs`. A
+child that is itself the interesting process is not lost, only unpaired:
+`runs` names it and `refocus` can be asked about it directly.
+
 NO TIMEOUT
 ----------
 Deliberate, and design 2026-09-07 section 2.3 says so: Python's `refocus`
@@ -87,6 +100,12 @@ from sensorium.store.reader import Trace
 #: Stamped beside `refocus_licence_reasons` rather than inside it, so a
 #: reader of the trace and a reader of the terminal are told the same thing.
 UNVERIFIABLE_KEY = "refocus_licence_unverifiable"
+
+#: The run ids the pair lookup put aside as this re-run's own child
+#: processes. Beside the verdict rather than inside it: a child run is not
+#: a finding about the comparison, it is a statement about which of the
+#: invocation's traces the comparison is OF.
+CHILDREN_KEY = "refocus_children"
 
 
 def driver() -> str | None:
@@ -168,16 +187,45 @@ def rerun_argv(meta: dict, requested_focus, driver: str) -> list[str]:
     return argv + [str(a) for a in (meta.get("cargo_args") or [])]
 
 
-def find_pair(traces_dir, run_id: str, launched_at: float) -> list[str]:
-    """The run ids of every trace this re-run produced, in name order.
+def _process_id(value) -> int | None:
+    """A recorded `pid`/`ppid`, or None where there is nothing to match on.
 
-    A trace qualifies on two counts, and BOTH are necessary: it names
+    `bool` is rejected before `int` because `True == 1` in Python, and a
+    recorder that wrote a flag where a process id belongs must not be read
+    as process 1. Everything else that is not an integer -- a string, a
+    float, a null -- is a process identity this reader did not understand.
+
+    None is NOT zero, and the distinction is the whole point: a trace that
+    records no pid is a trace of unknown parentage, which makes it neither
+    a parent nor a child. Defaulted to 0 instead, two such traces would
+    each be read as the other's child and the lookup would return no
+    candidate at all.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value
+
+
+def find_pair(traces_dir, run_id: str,
+              launched_at: float) -> tuple[list[str], list[str]]:
+    """(the candidates, the child runs) this re-run produced, in name order.
+
+    A trace is LINKED on two counts, and BOTH are necessary: it names
     `run_id` in `refocus_of` (the driver stamped it, so the link is durable
     and the same one `info` prints), and its own recording started at or
     after `launched_at` (so an EARLIER refocus of the same original is not
     mistaken for this one -- see the module docstring).
+
+    A linked trace is then a CHILD RUN when its `ppid` is another linked
+    trace's `pid`, and a candidate otherwise. `another` is load-bearing
+    twice: a trace whose recorder wrote its own pid into `ppid` is a corrupt
+    record of one process rather than a process that spawned itself, and a
+    `ppid` naming something outside this list -- the shell, cargo, the
+    session leader -- is every re-run's ordinary parentage and links
+    nothing. Both would otherwise empty the candidate list and refuse a
+    pair that is sitting in the store.
     """
-    out = []
+    linked = []
     for path in sorted(Path(traces_dir).glob("*.db")):
         try:
             conn = db.open_trace(path)
@@ -188,16 +236,42 @@ def find_pair(traces_dir, run_id: str, launched_at: float) -> list[str]:
             # hold a half-written or newer-format file for its own reasons.
             continue
         try:
-            linked = db.get_meta(conn, "refocus_of")
+            of = db.get_meta(conn, "refocus_of")
             started = db.get_meta(conn, "start_ts")
+            pid = _process_id(db.get_meta(conn, "pid"))
+            ppid = _process_id(db.get_meta(conn, "ppid"))
         finally:
             conn.close()
-        if linked != run_id:
+        if of != run_id:
             continue
         if not isinstance(started, (int, float)) or started < launched_at:
             continue
-        out.append(path.stem)
-    return out
+        linked.append((path.stem, pid, ppid))
+
+    # `pid is not None` keeps the unidentified traces OUT of the set, which
+    # is what makes `ppid in pids` safe for a trace that records no ppid: an
+    # unknown parent must not match an unknown pid.
+    pids = {pid for _, pid, _ in linked if pid is not None}
+    candidates, children = [], []
+    for name, pid, ppid in linked:
+        if ppid in pids and ppid != pid:
+            children.append(name)
+        else:
+            candidates.append(name)
+    return candidates, children
+
+
+def children_note(children: list[str]) -> str:
+    """The clause that names what the pair lookup set aside, or "".
+
+    One sentence, used wherever the outcome of the lookup is announced --
+    beside the pair and beside the refusal -- because a reader told about
+    an excluded trace in two different wordings has to work out whether
+    they are the same fact.
+    """
+    if not children:
+        return ""
+    return "child runs excluded from the pair: " + ", ".join(children)
 
 
 def _run_lines(stdout: str) -> list[str]:
@@ -280,6 +354,23 @@ def _stamp_unverifiable(path: Path, checks: list[str]) -> None:
         conn.close()
 
 
+def _stamp_children(path: Path, children: list[str]) -> None:
+    """Write this re-run's own child runs into the pair's trace.
+
+    Stamped even when the list is empty, for `_stamp_unverifiable`'s reason
+    one key over: `[]` says the child rule ran over this invocation and
+    found nothing to exclude, while an ABSENT key says the trace was
+    written before the rule existed. A key that only appears sometimes
+    cannot tell a later reader which of the two it is looking at.
+    """
+    conn = db.open_trace(path)
+    try:
+        db.set_meta(conn, CHILDREN_KEY, children)
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # -- the verdict paths -----------------------------------------------------
 def _refused_after_rerun(orig: Trace, reason: str) -> int:
     """A re-run that happened and produced no comparable pair.
@@ -355,7 +446,7 @@ def _env_of(meta: dict, new: Trace):
 
 
 def _verify(args, orig: Trace, orig_name: str, meta: dict, new_id: str,
-            source_caveat, source_fact) -> int:
+            source_caveat, source_fact, children: list[str]) -> int:
     """Compare the pair, assess it, stamp it, report it."""
     from sensorium.query.refocus_cmd import (_stamp, assess, report)
     from sensorium.query.diff_cmd import compare
@@ -371,9 +462,14 @@ def _verify(args, orig: Trace, orig_name: str, meta: dict, new_id: str,
     a = _relicense(a, orig, new, world_verified)
     _stamp(new_path, res, a)
     _stamp_unverifiable(new_path, checks)
+    _stamp_children(new_path, children)
 
     print("--- verdict ---")
-    print(f"run: {new_id}")
+    # The pair line, and the only place a reader is told that a trace of
+    # this invocation was set aside: which trace the verdict is about and
+    # which trace it is NOT about are one fact, so they are one line.
+    note = children_note(children)
+    print(f"run: {new_id}" + (f"   {note}" if note else ""))
     print(f"trace: {new_path}")
     print(env_line)
     print(f"exit: rerun {new.meta.get('exit_status', '?')}   original "
@@ -432,16 +528,23 @@ def run(args, orig: Trace, orig_name: str, meta: dict) -> int:
     for line in _run_lines(proc.stdout or ""):
         print(f"driver reported: {line}")
 
-    ids = find_pair(traces, run_id, launched_at)
+    ids, children = find_pair(traces, run_id, launched_at)
     if not ids:
         return _refused_after_rerun(
             orig, f"the re-run produced no trace linked to {run_id} (driver "
                   f"exit {proc.returncode}); see the driver's output above")
     if len(ids) > 1:
+        # The count and the ids are the CANDIDATES': they are what the
+        # reader has to choose between, and naming a child run among them
+        # would send someone after a selector for a process cargo never
+        # started. The excluded ids follow in the same sentence all the
+        # same, because "2 traces linked" would otherwise describe two of
+        # the three traces this re-run really wrote.
+        note = children_note(children)
         return _refused_after_rerun(
             orig, f"the re-run produced {len(ids)} traces linked to "
                   f"{run_id} ({', '.join(ids)}); refocus needs an invocation "
                   "with a single-target selector (--lib, --test X, --bin X) "
-                  "so one trace is the answer")
+                  "so one trace is the answer" + (f"; {note}" if note else ""))
     return _verify(args, orig, orig_name, meta, ids[0], source_caveat,
-                   source_fact)
+                   source_fact, children)
