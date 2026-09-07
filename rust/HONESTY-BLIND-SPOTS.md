@@ -5,9 +5,11 @@ The numbered list of [`rust/HONESTY.md`](HONESTY.md) §8, **moved here
 framing paragraphs stay there; **the numbering is unchanged**, so item *n*
 here is `rust/HONESTY.md` §8 item *n* — the spelling every code comment and
 the ledger's index already use. Items 1–14 are rung 2's, verbatim except
-item 2, which rung 3 narrowed to the recordings it is still true of, and
+three: item 2, which rung 3 narrowed to the recordings it is still true of;
 item 3, which rung 4's focus tier narrowed 2026-09-06 to what a focus still
-does not reach. Items 15–26 are rung 3's own, from the design's R16 (`?`,
+does not reach; and item 12, which rung 4's refocus slice narrowed 2026-09-07
+to what a re-run does not compare and what its licence cannot check.
+Items 15–26 are rung 3's own, from the design's R16 (`?`,
 sinks and `Err` arms:
 `docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`).
 
@@ -281,10 +283,73 @@ that stops the rung until it is explained. *Falsified by* E2′ in
 11. **Object identity.** There is no Rust `id()`: two `Vec`s with the same
     contents are one value to this trace. *Declared by*
     `capabilities.object_identity: false`; `flow --object` refuses.
-12. **A deeper re-run.** `refocus` re-invokes the recorder and compares, and
-    the Rust side of it is rung 4. *Declared by* `capabilities.refocus: false`;
-    `refocus` refuses with the `caps.require` sentence, naming the capability
-    and the recorder.
+12. **What a deeper re-run does not compare, and what its licence cannot
+    check.** **Narrowed 2026-09-07** (rung 4 slice 2, design 2026-09-07), not
+    struck: `refocus` re-invokes the recorder on a Rust trace and issues the
+    comparator's verdict (`rust/HONESTY.md` §13), and what is left is exactly
+    this list.
+    * **The program's OUTPUT and its CHILDREN are never checked on a Rust
+      pair.** `capabilities.output` and `capabilities.children` are `false`,
+      so the two cross-checks the Python licence runs cannot run at all. They
+      are printed and stamped `output: unverifiable (not recorded)` and
+      `children: unverifiable (not witnessed)` and are **never counted as
+      verified** — the alternative was comparing two empty sets and reporting
+      agreement, which is the bug class the wording exists to refuse.
+      *Declared by* those two lines and the `refocus_licence*` stamps.
+      *Measured* at n = 61 by **E4 H4**
+      (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4.md` §3/§4):
+      both UNVERIFIABLE 61 of 61, and **0** licence lines claimed an
+      unverifiable check as verified.
+    * **A multi-process invocation is refused, not compared.** `cargo
+      sensorium test --workspace` produces one trace per runner process (test
+      binaries and doctests alike), and no single one of them is the answer to
+      a question about the invocation. `refocus` refuses at exit **2** naming
+      the count and the single-target selector, before anything is launched.
+      *Declared by* `meta.invocation_processes` and that sentence; *pinned by*
+      `corpus/rust/refocus_refused_many`. A refocus of such an invocation is
+      untested because it does not exist — it is CARRIED-DEBT, not a gap in a
+      shipped answer.
+    * **The re-run's rebuild is its own cost, and the verdict says so.** A
+      `--focus` keys a fresh wrapper shim and rebuilds the matched units, so a
+      refocus is not a cheap replay: E4 measured a flat ~7 s per pair on its
+      subject, of which about half is cargo's own reported build, and 61
+      focused re-runs left **62** shim entries totalling **2 506 729 440**
+      bytes (record §3, §5.4). *Declared by* the third blind-spot line the
+      verdict prints (`vocab.RUST.refocus_blind_spots`).
+    * **A per-thread fingerprint can partition differently under a scheduler
+      split, and only the comparator's multiset absorbs it.** Where a test
+      drives a worker pool over one queue, which worker serves which request
+      is the OS scheduler's choice, so the same execution can distribute the
+      same work across workers differently. `compare_tasks` matches tasks as
+      an order-independent multiset of `(name, hash)`, so only a different
+      PARTITION — not a different ORDER — could diverge. **Measured, and it
+      fired**: on 1 of E4's 61 pairs the per-`task_id` assignment moved (the
+      workers carried (216, 205, 151, 233, 151) events on one side and (216,
+      205, 233, 151, 151) on the other), the multiset was identical, the total
+      was 956 on both sides, and the verdict was MATCH (record §5.3). The
+      **discriminator** E4 pre-registered for telling this hazard from a
+      recorder finding is two conditions — the worker tasks' total event count
+      preserved, AND the MAIN stream MATCHing — and its second condition has
+      **no subject on `cargo test` material**: every one of E4's 122 traces
+      carries a **0-event** MAIN stream, because libtest runs each test on a
+      spawned thread the converter records as a *task*, so nothing runs
+      outside a task at all. The discriminator was never asked (nothing
+      diverged), so no verdict rests on it; it is recorded as a limit of the
+      amendment, not as a repair.
+    * **The licence is structurally WITHHELD on every `cargo test` pair.**
+      The untraced-thread clause fires on libtest's own per-test thread, so
+      `licences granted` was **0** on all 61 of E4's pairs while every count
+      the endpoint gates on was as pre-registered (thread counts 57×1, 1×2
+      and 3×5; record §5.2). **This is a finding about the licence's thread
+      clause, not about the recorder**, and the candidate fix — treat
+      libtest's per-test thread as the recorder's own, as the licence already
+      treats the recorder's own environment variables — is named there and
+      deliberately **not applied**: it is a ruling's to make
+      (`docs/CARRIED-DEBT.md`). A reader of a `cargo test` refocus should read
+      the four printed counts, not the word.
+    * **`--window` is not available on a Rust trace at all** (refused at exit
+      2): it needs a per-activation runtime check the Rust runtime does not
+      have. *Declared by* that refusal sentence.
 13. **Anything after the 256th instrumented unit in one process.** Unit ids
     run `0..=254`; the 256th distinct unit makes the runtime refuse to record
     rather than wrap the id and attribute events to the wrong unit, and every
