@@ -41,8 +41,8 @@ use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use common::{
-    expand, read, read_compile_fail, read_focus, CASES, COMPILE_FAIL_CASES, FOCUS_CASES,
-    META, RUN_CASES,
+    expand, read, read_compile_fail, read_focus, CASES, COMPILE_FAIL_CASES, FOCUS_CASES, META,
+    RUN_CASES,
 };
 use sensorium_transform::{transform, Focus};
 
