@@ -25,6 +25,7 @@ use syn::{
 };
 
 use crate::attrs::{inner_attr_end, scan_macro_fns};
+use crate::census::Mode;
 use crate::exits::{self, Operand};
 use crate::focus::Focus;
 use crate::names::{line_of, path_span, self_type_name};
@@ -169,8 +170,7 @@ impl<'a> Ctx<'a> {
         prefix: usize,
         file: &'a str,
         first_site: u32,
-        emit: bool,
-        record_sites: bool,
+        mode: Mode,
         focus: &'a Focus,
     ) -> Self {
         Ctx {
@@ -182,8 +182,11 @@ impl<'a> Ctx<'a> {
             scope: Vec::new(),
             spawn_ordinals: HashMap::new(),
             next_site: first_site,
-            emit,
-            record_sites,
+            // Derived once, here, and read as two fields everywhere else: what
+            // `emit` gates is the SPLICE and what `record_sites` gates is the
+            // ROW (design 2026-09-07 §6).
+            emit: mode.emits(),
+            record_sites: mode.records_rows(),
             sites: Vec::new(),
             skipped: Vec::new(),
             partial: Vec::new(),

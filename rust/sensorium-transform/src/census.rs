@@ -37,6 +37,41 @@ use crate::splice::stripped_prefix_len;
 use crate::visit::{Ctx, Walked};
 use crate::Census;
 
+/// What a walk is FOR, read once at [`Ctx::new`].
+///
+/// The constructor used to take `emit` and `record_sites` as two adjacent
+/// unnamed `bool`s. The three call sites wanted `true, true` / `false, false` /
+/// `false, true`, and TRANSPOSING the last to `true, false` compiles silently
+/// and turns the resolver's census into a full emitting walk that records no
+/// rows -- mutant M4's defect, reachable by a typo rather than by a deliberate
+/// edit, and `clippy::fn_params_excessive_bools` does not fire on two (review
+/// N3). Three named modes make the fourth combination unspellable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Mode {
+    /// The transform: place every fragment, and record every row beside it.
+    Emitting,
+    /// [`walk`]: record the fn rows and the skip rows, place nothing.
+    Census,
+    /// [`counts`]: count, and record nothing -- E2's denominator.
+    Counting,
+}
+
+impl Mode {
+    /// Does this walk place fragments? Everything that decides WHERE a fragment
+    /// goes -- an err-flow site, a framed closure, a spawn rename, a LINE probe
+    /// -- is gated on this and on nothing else.
+    pub(crate) fn emits(self) -> bool {
+        matches!(self, Mode::Emitting)
+    }
+
+    /// Does this walk record fn rows and skip rows? A row is a FACT about the
+    /// file, so the emitting walk records them too: this is never read instead
+    /// of [`Mode::emits`], only beside it.
+    pub(crate) fn records_rows(self) -> bool {
+        matches!(self, Mode::Emitting | Mode::Census)
+    }
+}
+
 impl Ctx<'_> {
     /// Which disjoint bucket this signature falls in, if any, counting it as it
     /// goes.
@@ -97,7 +132,7 @@ pub(crate) fn counts(source: &str) -> Census {
     };
     let prefix = stripped_prefix_len(source, parsed.shebang.as_deref());
     let none = Focus::EMPTY;
-    let mut ctx = Ctx::new(source, prefix, "", 0, false, false, &none);
+    let mut ctx = Ctx::new(source, prefix, "", 0, Mode::Counting, &none);
     ctx.visit_file(&parsed);
     ctx.census()
 }
@@ -120,12 +155,40 @@ pub(crate) fn counts(source: &str) -> Census {
 /// `None` when the file does not parse: it is not instrumented either, so it
 /// holds nothing a focus could select -- the same none-versus-zero discipline
 /// [`Census::parsed`] keeps, and never a measured empty.
+///
+/// # The one answer that MOVED (review N2)
+///
+/// A file whose WALK is clean but whose SPLICING half would fail answered
+/// `[]` under 0.4.1 and answers with its full row list here. The splicing half
+/// is everything this walk does not run: `splice::assemble` (two splices
+/// overlapping), `check_line_count`, `check_spawn_ordinals`, the
+/// [`crate::MAX_SITE_INDEX`] guard, and `wrap_operand`'s three refusals (an
+/// exit operand whose span is not a byte range, one that does not re-tokenise,
+/// one whose offset falls inside a UTF-8 character) -- the same three for a
+/// framed closure. Under 0.4.1 any of them made `crate::transform` return
+/// `Err`, and `fn_items` collapsed that to no items at all.
+///
+/// **The differential in `tests/fn_census.rs` structurally cannot cover this
+/// class**, and no widening of its corpora would: every condition above is a
+/// construction bug in this crate or a file with more than 16.7 million sites,
+/// so no real tree holds one. `tests/fn_census.rs`'s
+/// `a_file_whose_splicing_half_fails_still_answers_through_the_census` reaches
+/// the class through the one lever a caller can pull -- `first_site` past the
+/// wire's 24-bit field -- so the difference is pinned rather than only
+/// described.
+///
+/// It is also the better answer for focus resolution. A `--focus` naming a
+/// function that is plainly in the file used to be REFUSED before cargo ran,
+/// with `--focus X matches no function in this workspace`, because some other
+/// file in the workspace could not be spliced. Now the resolver accepts what
+/// is there and the splice failure surfaces where it belongs: as a loud
+/// transform error during the build, naming the file and the offset.
 pub(crate) fn walk(source: &str, file: &str) -> Option<Walked> {
     let parsed = syn::parse_file(source).ok()?;
     let prefix = stripped_prefix_len(source, parsed.shebang.as_deref());
     // No focus: a LINE probe is a splice, and this walk places none.
     let none = Focus::EMPTY;
-    let mut ctx = Ctx::new(source, prefix, file, 0, false, true, &none);
+    let mut ctx = Ctx::new(source, prefix, file, 0, Mode::Census, &none);
     ctx.visit_file(&parsed);
     // `finish` carries the walk's error discipline: an offset anomaly makes the
     // file answer NOTHING rather than answer partially, which is what the

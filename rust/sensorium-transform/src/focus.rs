@@ -303,13 +303,32 @@ mod tests {
     // -----------------------------------------------------------------------
 
     /// A file holding every shape the two walks have to agree about: each skip
-    /// reason, both marks, a nested `mod`, an `impl` method, and a `?` so that
-    /// the emitting walk mints err-flow sites the census walk does not.
+    /// reason, both marks, a nested `mod`, an `impl` method, and -- ALL THREE
+    /// of the emit gates the census path leans on -- a `?`, a `?`-bearing
+    /// closure and an `Err(..) =>` arm.
+    ///
+    /// The last two are here because of review finding N1. Without them the
+    /// gates at `closures.rs`'s `frame_closure` and `arms.rs`'s `err_arm` were
+    /// untested from BOTH sides: the internal assertions below never met the
+    /// shapes, and no differential test can ever meet them either, because
+    /// [`fn_items`] filters to [`crate::SiteKind::Fn`] and drops every other
+    /// kind on the floor. Both mutants survived the whole suite; both are
+    /// killed now.
     const EVERY_SHAPE: &str = "\
 mod m {
     pub fn f() -> Result<u8, u8> {
+        // A closure whose body holds a `?` at its own depth: a FRAMED closure
+        // with a guard and wrapped exits on the emitting walk, nothing at all
+        // on the census walk.
+        let c = || -> Result<u8, u8> { Ok(g()? + 1) };
+        // An `Err(..) =>` arm the grammar classifies as PROPAGATE: an arm site
+        // with a probe statement on the emitting walk, nothing on the census.
+        match g() {
+            Err(e) => return Err(e),
+            Ok(_) => {}
+        }
         let v = g()?;
-        Ok(v)
+        Ok(v + c()?)
     }
     pub async fn a() {}
     pub const fn c() -> u8 { 1 }
@@ -405,21 +424,40 @@ impl S {
     /// kinds that exist only because a fragment goes somewhere.
     #[test]
     fn the_census_walk_splices_nothing() {
+        use crate::SiteKind::{Arm, Closure, Fn, Try};
+
         let walked = crate::census::walk(EVERY_SHAPE, "src/lib.rs").expect("the fixture parses");
         assert!(walked.splices.is_empty(), "a census walk splices nothing");
         assert!(walked.spawns.is_empty(), "and renames no spawn");
         assert!(walked.partial.is_empty(), "and declines no site");
         assert!(walked.focused.is_empty(), "and focuses nothing");
         assert!(
-            walked.sites.iter().all(|s| s.kind == crate::SiteKind::Fn),
-            "every row a census walk records is a fn row"
+            walked.sites.iter().all(|s| s.kind == Fn),
+            "every row a census walk records is a fn row, and it recorded {:?}",
+            walked.sites.iter().map(|s| s.kind).collect::<Vec<_>>()
         );
-        // The emitting walk on the same file DOES mint the other kinds, which
-        // is what makes the assertion above a measurement and not a tautology
-        // about a file with no `?` in it.
+
+        // The three gates, named. Each of these kinds exists ONLY because a
+        // fragment goes somewhere, and each is suppressed by a different
+        // `!self.emit` return -- `visit.rs`'s `visit_expr_try` for TRY,
+        // `closures.rs`'s `frame_closure` for CLOSURE, `arms.rs`'s `err_arm`
+        // for ARM. Asserting the emitting walk mints all three on THIS fixture
+        // is what turns the assertion above from a property of a file with
+        // nothing in it into a measurement of all three gates (review N1: with
+        // the closure and the arm missing from the fixture, deleting either
+        // gate left the whole suite green).
         let spliced = crate::transform(EVERY_SHAPE, "src/lib.rs", "", 0, false, &Focus::EMPTY)
             .expect("the fixture transforms");
-        assert!(spliced.sites.iter().any(|s| s.kind != crate::SiteKind::Fn));
+        for kind in [Try, Closure, Arm] {
+            assert!(
+                spliced.sites.iter().any(|s| s.kind == kind),
+                "the fixture must reach the {kind:?} gate for this test to measure it"
+            );
+        }
+        assert_ne!(
+            spliced.source, EVERY_SHAPE,
+            "the emitting walk on this fixture does rewrite it"
+        );
     }
 
     /// `main` is the DRIVER's knowledge (which crate root is a binary's), and

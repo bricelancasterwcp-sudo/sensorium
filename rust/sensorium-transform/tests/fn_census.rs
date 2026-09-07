@@ -31,7 +31,7 @@ use std::path::{Path, PathBuf};
 
 use common::{read, read_compile_fail, read_focus, CASES, COMPILE_FAIL_CASES, FILE, FOCUS_CASES};
 
-use sensorium_transform::{fn_items, transform, FnItem, Focus, SiteKind};
+use sensorium_transform::{fn_items, transform, FnItem, Focus, SiteKind, MAX_SITE_INDEX};
 
 /// `fn_items` exactly as `sensorium-transform` 0.4.1 computed it: the whole
 /// splicing transform, run for its `sites` and `skipped` lists, with the
@@ -117,6 +117,46 @@ fn the_two_routes_agree_on_the_shapes_a_corpus_may_not_hold() {
          trait T {\n    fn d(&self) {}\n    fn bodiless(&self);\n}\n",
         FILE,
         "every reason at once",
+    );
+}
+
+/// The one answer that MOVED, pinned rather than only described (review N2).
+///
+/// A file whose WALK is clean but whose SPLICING half fails answered `[]` under
+/// 0.4.1 and answers with its rows now. Every real trigger for it -- an
+/// overlapping splice, a line count that moved, an exit operand that does not
+/// re-tokenise -- is a construction bug in the crate, so no corpus holds one
+/// and the differential above **structurally cannot reach this class**.
+///
+/// The lever used here is the one a CALLER can pull: `first_site` past the
+/// wire's 24-bit site field. `fn_items` never moved it (it has always asked for
+/// 0), so this is a stand-in for the class and not a path the resolver takes --
+/// which is exactly why it is written down. What it demonstrates is the shape:
+/// splicing half fails, walk is clean, and the two routes now differ.
+#[test]
+fn a_file_whose_splicing_half_fails_still_answers_through_the_census() {
+    const SRC: &str = "fn f() -> u8 { 1 }\n";
+
+    // The splicing half fails on a walk that is otherwise clean. 0.4.1's
+    // `fn_items` body -- `let Ok(t) = transform(..) else { return Vec::new() }`,
+    // reproduced verbatim in `transform_route` above -- collapsed exactly this
+    // `Err` to no items at all. The lever is applied here rather than inside
+    // `transform_route` because `transform_route` must keep asking for
+    // `first_site` 0, which is what 0.4.1's `fn_items` asked for.
+    let err = transform(SRC, FILE, "", MAX_SITE_INDEX + 1, false, &Focus::EMPTY)
+        .expect_err("a first site past 24 bits cannot be carried");
+    assert!(
+        err.to_string().contains("site index past 24 bits"),
+        "and for the reason this test means, not another: {err}"
+    );
+
+    // 0.4.2's route mints no wire index at all, so it answers with the row.
+    assert_eq!(
+        fn_items(SRC, FILE),
+        [FnItem {
+            qualname: "f".to_owned(),
+            skipped: None
+        }]
     );
 }
 

@@ -53,6 +53,7 @@ use proc_macro2::{Span, TokenStream};
 use syn::visit::Visit;
 use syn::{AttrStyle, Attribute};
 
+use crate::census::Mode;
 use crate::errflow::How;
 use crate::focus::Focus;
 use crate::visit::Ctx;
@@ -293,7 +294,7 @@ pub(crate) fn run(
     let parsed = syn::parse_file(source)?;
     let prefix = stripped_prefix_len(source, parsed.shebang.as_deref());
 
-    let mut ctx = Ctx::new(source, prefix, file, first_site, true, true, focus);
+    let mut ctx = Ctx::new(source, prefix, file, first_site, Mode::Emitting, focus);
     ctx.is_bin_root = role.is_bin_root;
     ctx.visit_file(&parsed);
     let walked = ctx.finish()?;
