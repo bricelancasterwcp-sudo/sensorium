@@ -143,7 +143,15 @@ that stops the rung until it is explained. *Falsified by* E2′ in
      collide with, the extra LINE compiled and simply recorded a completed
      statement for what is the function's value — a wrong row rather than a
      lost build, and the only thing that would have said so is the row count
-     the golden now pins.
+     the golden now pins. Two more functions there fix the guard's extent
+     rather than its subject: `declared` is the NEGATIVE — a brace macro that
+     is not a tail keeps its probe, so the arm cannot be widened to every brace
+     macro without the suite saying so — and `looped` is a brace-macro tail of
+     a NESTED block, a loop body's, which nothing claims as an operand (only a
+     fn body's tail is one) and which therefore never failed to build either.
+     It takes no probe for the plainer half of the reason, that a tail is not a
+     statement, and its count is what says so: three LINE sites before the
+     guard, two after.
    * **A focused function that was BUILT but never RAN** leaves
      `capabilities.line: true` with zero LINE rows (`--focus tests::x` under
      `cargo run`). That is honest under design §2.4 — the capability is a

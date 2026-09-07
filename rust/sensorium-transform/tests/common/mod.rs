@@ -532,7 +532,7 @@ pub const FOCUS_CASES: &[(&str, &str)] = &[
     ("focus_fill", "fill"),
     ("focus_loop", "sum_to_three"),
     ("focus_loop_break", "wait_then,spins,labelled"),
-    ("focus_macro_tail", "wrapped,spoken"),
+    ("focus_macro_tail", "wrapped,spoken,declared,looped"),
     ("focus_match", "classify"),
     ("focus_moved_value", "move_it"),
     ("focus_params", "Counter"),

@@ -261,13 +261,18 @@ impl Walk<'_, '_> {
                     (Some(semi), _) => Some(self.ctx.end_of(semi.span)),
                     // `foo! { .. }` in statement position needs no `;`. When it
                     // is the block's TAIL it is not a statement at all -- it is
-                    // the block's value, and `exits::tail_operand` has already
-                    // claimed these same bytes as the operand a RETURN wrap
-                    // closes around. Probing past the closing brace anyway put
-                    // the LINE after that wrap's `)`, which rustc rejects as
-                    // `found `::``; the guard is the same one `Stmt::Expr(_,
-                    // None)` above already applies, because a tail is not a
-                    // statement whichever syn node spells it (ruling G1, 0.4.1).
+                    // the block's value -- and that alone is why it takes no
+                    // probe, at every block depth. On a FN BODY's tail there is
+                    // a second and louder reason: `exits::tail_operand` has
+                    // already claimed those same bytes as the operand a RETURN
+                    // wrap closes around, so probing past the closing brace put
+                    // the LINE after that wrap's `)` and rustc rejected the file
+                    // (`found `::``). A NESTED block's tail -- a loop body's,
+                    // which nothing claims, because only a fn body's tail is an
+                    // operand -- merely lost a row instead. Both are the guard
+                    // `Stmt::Expr(_, None)` above already applies: a tail is not
+                    // a statement whichever syn node spells it (ruling G1,
+                    // 0.4.1; both shapes pinned by `focus_macro_tail`).
                     (None, MacroDelimiter::Brace(brace)) => {
                         (!is_tail).then(|| self.ctx.end_of(brace.span.close()))
                     }

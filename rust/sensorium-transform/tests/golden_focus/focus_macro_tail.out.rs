@@ -5,14 +5,27 @@
 //! `Stmt::Expr(_, None)` every other tail is -- and a tail is not a statement
 //! whichever node spells it (design §3.3, `sensorium-transform` 0.4.1).
 //!
-//! Both shapes are here because they failed differently before the guard. In
-//! the VALUE fn the exits walk had already claimed the same tail as its
-//! operand, so the LINE landed after the RETURN wrap's closing paren and rustc
-//! rejected the file -- `found `::``, a PARSE error, so the whole unit fell
-//! back and said so. In the UNIT fn there is no wrap to collide with, so the
-//! extra LINE compiled and quietly recorded a completed statement for what is
-//! the function's value. The first was loud, the second was not; the guard is
-//! the same one line for both.
+//! Four functions, because the guard has four distinguishable effects.
+//! `wrapped` and `spoken` are the two halves of the shape it repairs, and they
+//! failed differently: in the VALUE fn the exits walk had already claimed the
+//! same tail as its operand, so the LINE landed after the RETURN wrap's closing
+//! paren and rustc rejected the file -- `found `::``, a PARSE error, so the
+//! whole unit fell back and said so. In the UNIT fn there is no wrap to collide
+//! with, so the extra LINE compiled and quietly recorded a completed statement
+//! for what is the function's value. The first was loud, the second was not.
+//!
+//! `declared` is the NEGATIVE case, and it is what says the guard is narrow: a
+//! brace macro that is NOT a tail keeps its probe, spliced after the closing
+//! brace exactly as before, carrying no deltas because a macro's expansion is
+//! not inspected. Without this function, widening the arm to `None` for every
+//! brace macro would leave the suite green.
+//!
+//! `looped` is a brace-macro tail of a NESTED block -- a loop body's, which no
+//! exits walk claims, because only a FN body's tail is an operand. It takes no
+//! probe either, and for the plainer of the guard's two reasons: a tail is not
+//! a statement. That is the same answer `Stmt::Expr(_, None)` already gives a
+//! nested block's tail, so the guard makes the two node kinds agree rather than
+//! inventing a rule for one of them.
 @W
 macro_rules! pick {
     ($n:expr) => {
@@ -26,10 +39,27 @@ macro_rules! shout {
     };
 }
 
+macro_rules! decl {
+    ($n:ident) => {
+        let $n = 1;
+    };
+}
+
 pub fn wrapped() -> i32 {@G(7)@N(8)
     @R(7)pick! { 1 }@E
 }
 
 pub fn spoken(a: i32) {@G(9)@N(10,a)
     shout! { a }
+}
+
+pub fn declared() -> i32 {@G(11)@N(12)
+    decl! { a }@N(13)
+    @R(11)a + 1@E
+}
+
+pub fn looped() {@G(14)@N(15)
+    for x in 0..2 {@N(16,x)
+        shout! { x }
+    }
 }@U
