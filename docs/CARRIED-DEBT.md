@@ -255,7 +255,7 @@ Each is marked *ruling: Brice / slice 2*.
   reported rather than a measurement cell, which is why the "no null without
   a reason" rule does not reach it.
 - **The suite's skip count still depends on one variable** (record §5.5 item
-  4): 1426 passed / 12 skipped without `SENSORIUM_CARGO_SENSORIUM`,
+  4): 1428 passed / 12 skipped without `SENSORIUM_CARGO_SENSORIUM` (1426 at the record's reading; the fix wave added two scan tests),
   1437 / 1 with it. The entry slice carried the same residual at 1293/9
   against 1301/1; the delta is now 11 tests rather than 8.
 - **`src/sensorium/query/exceptions_rust.py` names `rust/HONESTY.md` at three

@@ -96,10 +96,10 @@ that stops the rung until it is explained. *Falsified by* E2′ in
      rung. The later resolution then has to satisfy `Debug` and does not:
      `error[E0277]: `Opaque` doesn't implement `Debug``, and the unit does not
      build. This is not "`Vec::new()` is unsupported" — `let mut v =
-     Vec::new();` resolving to `Vec<u8>` compiles (measured), and so does a
+     Vec::new();` resolving to `Vec<u8>` compiles (compiled by hand at the fix wave; no case in the tree pins it), and so does a
      `Vec<T>` for a generic `T` with no `Debug` bound, because there the bound
      is unprovable rather than open and the ladder takes its fallback rung and
-     records `unread` (measured). What breaks it is an OPEN variable that
+     records `unread` (compiled by hand at the fix wave; not pinned by a case). What breaks it is an OPEN variable that
      closes on a type without `Debug`.
      *Declared by* the whole unit falling back to the real tree and saying so
      on stderr — `sensorium: unit <crate> (<metadata>) fell back to the real

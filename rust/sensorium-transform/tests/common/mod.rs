@@ -552,7 +552,7 @@ pub const FOCUS_CASES: &[(&str, &str)] = &[
 /// repaired this test fails loudly instead of the prose quietly going stale.
 pub const COMPILE_FAIL_CASES: &[(&str, &str, &str)] = &[
     ("focus_infer_debug", "collect_them", "E0277"),
-    ("focus_macro_tail", "wrapped", "expected one of"),
+    ("focus_macro_tail", "wrapped", "found `::`"),
 ];
 
 /// The compile-fail inputs' directory, kept out of `golden_focus/` because
