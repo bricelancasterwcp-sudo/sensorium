@@ -204,3 +204,79 @@ def test_the_two_unverifiable_checks_are_kept_out_of_the_verified_list(
     assert counts["children_unverifiable"] is True
     assert counts["unverifiable_checks"] == 2
     assert "verified_total" not in counts
+
+
+# ---------------------------------------------------------- H4's census
+
+def _shim(tmp_path, keys, driver_bytes=1000):
+    """A driver and a shim tree, with each key either HARD-LINKED to the
+    driver or a copy of it -- the two outcomes R3 can produce."""
+    driver = tmp_path / "driver" / "cargo-sensorium"
+    driver.parent.mkdir(parents=True)
+    driver.write_bytes(b"x" * driver_bytes)
+    shim = tmp_path / "target" / "sensorium" / "shim"
+    for key, linked in keys:
+        d = shim / key
+        d.mkdir(parents=True)
+        binary = d / "cargo-sensorium"
+        if linked:
+            import os
+            os.link(driver, binary)
+        else:
+            binary.write_bytes(b"y" * driver_bytes)
+    return tmp_path / "target", driver
+
+
+def test_the_census_counts_bytes_ONCE_PER_INODE_and_never_per_entry(tmp_path):
+    """§1.4's H4 second reading, and the measurement error the endpoint is
+    about: 61 hard links to one 40 MB binary hold 40 MB, not 2.4 GB. The
+    three numbers are separate and the byte total is never the sum of the
+    per-entry sizes.
+
+    A monkeypatched census cannot check this -- the arithmetic IS the
+    endpoint -- so the tree here is real and the links are real.
+    """
+    target, driver = _shim(tmp_path, [(f"k{i}", True) for i in range(5)],
+                           driver_bytes=1000)
+    c = rd.shim_census(target, driver)
+    assert c["keys"] == 5 and c["entries"] == 5
+    assert c["distinct_inodes"] == 1
+    assert c["bytes_once_per_inode"] == 1000
+    assert c["bytes_once_per_inode"] != 5 * 1000
+    assert c["linked_to_the_driver"] == 5
+    assert c["not_linked"] == []
+
+
+def test_a_COPY_is_a_distinct_inode_and_its_bytes_are_counted(tmp_path):
+    """The other side: a key that was copied rather than linked holds bytes
+    of its own, and both the inode count and the total must say so."""
+    target, driver = _shim(tmp_path, [("k0", True), ("k1", False),
+                                      ("k2", True)], driver_bytes=1000)
+    c = rd.shim_census(target, driver)
+    assert c["entries"] == 3
+    assert c["distinct_inodes"] == 2
+    assert c["bytes_once_per_inode"] == 2000
+    assert c["linked_to_the_driver"] == 2
+    assert c["not_linked"] == ["k1"]
+
+
+def test_a_census_path_that_is_not_there_is_None_entries_and_never_zero(
+        tmp_path):
+    """A target that never keyed a shim and one that keyed an empty shim are
+    different facts."""
+    driver = tmp_path / "cargo-sensorium"
+    driver.write_bytes(b"x")
+    c = rd.shim_census(tmp_path / "nowhere", driver)
+    assert c["exists"] is False
+    assert c["entries"] is None and c["distinct_inodes"] is None
+    assert c["bytes_once_per_inode"] is None
+
+
+def test_the_device_is_recorded_beside_the_inode_comparison(tmp_path):
+    """§1.2: a link across a filesystem boundary is impossible rather than
+    wrong, so `st_dev` decides whether H4's finding branch applies at all."""
+    target, driver = _shim(tmp_path, [("k0", True)])
+    c = rd.shim_census(target, driver)
+    assert c["same_device"] is True
+    assert c["driver_dev"] in c["devices"]
+    assert c["driver_inode"] is not None
