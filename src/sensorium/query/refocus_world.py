@@ -26,6 +26,8 @@ from sensorium.query.caps import witness_gap
 # `code_objects` on a workspace-relative path against an absolute one, and
 # two implementations of that join are two ways for one trace to be read.
 from sensorium.query.exceptions_rust import _marks as _site_marks
+from sensorium.query.refocus_env import (differs_only_by_root,
+                                         relocated_clause, relocation)
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
@@ -233,11 +235,31 @@ def _source_state(meta: dict) -> tuple[str, str | None, str | None]:
             f"recording did", None)
 
 
-def _env_diff(was: dict, now: dict) -> list[str]:
-    """Names of non-volatile variables whose values differ. Names only --
-    values are never printed, because environments carry secrets."""
+def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str]]:
+    """(names that differ, names that differ ONLY by the target directory).
+
+    Names only -- values are never printed, because environments carry
+    secrets. The split is `refocus_env`'s rule and its whole reason: a
+    re-run under a fresh `CARGO_TARGET_DIR` differs on every variable cargo
+    derives from the root, and reporting the tool's own relocation as a
+    change the world made is noise. Everything else stays a difference.
+    """
     keys = (set(was) | set(now)) - _UNCOMPARED_ENV
-    return sorted(k for k in keys if was.get(k) != now.get(k))
+    move = relocation(was, now)
+    changed, relocated = [], []
+    for key in sorted(keys):
+        before, after = was.get(key), now.get(key)
+        if before == after:
+            continue
+        # A key present on ONE side only reaches `differs_only_by_root` as
+        # a None and would raise; it is also not a relocation by any
+        # reading -- a variable that appeared or vanished is a change.
+        if (move and isinstance(before, str) and isinstance(after, str)
+                and differs_only_by_root(before, after, *move)):
+            relocated.append(key)
+        else:
+            changed.append(key)
+    return changed, relocated
 
 
 def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
@@ -255,20 +277,29 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
                 "the environment could not be checked at all, so nothing "
                 "rules out the rerun getting different input through it",
                 None)
-    names = _env_diff(was, env)
+    names, relocated = _env_diff(was, env)
+    # Named on BOTH channels or on neither: the line a person reads and the
+    # fact the trace keeps have to agree about which keys the check
+    # explained away, or `info` replays a licence whose terminal said more.
+    # Empty when nothing moved, so every string below is byte for byte what
+    # it was -- which is every Python pair, since only `cargo sensorium`
+    # records a target root at all.
+    clause = relocated_clause(relocated)
+    on_line = f"  {clause}" if clause else ""
+    on_fact = f"; {clause}" if clause else ""
     if not names:
         compared = len((set(was) | set(env)) - _UNCOMPARED_ENV)
         ignored = ", ".join(sorted(_UNCOMPARED_ENV))
         return (f"env: unchanged ({compared} variables compared; not "
-                f"compared: {ignored})", None,
+                f"compared: {ignored}){on_line}", None,
                 f"{compared} environment variable(s) compared and unchanged "
                 f"in the environment the rerun executed under; not compared: "
-                f"{ignored}")
+                f"{ignored}{on_fact}")
     shown = ", ".join(names[:8])
     if len(names) > 8:
         shown += f", +{len(names) - 8} more"
     return (f"env: CHANGED since the original run -- {len(names)} "
-            f"variable(s) differ: {shown}   (names only)",
+            f"variable(s) differ: {shown}   (names only){on_line}",
             f"{len(names)} environment variable(s) differ between the two "
             f"runs ({shown}); a program that reads them got different input",
             None)
