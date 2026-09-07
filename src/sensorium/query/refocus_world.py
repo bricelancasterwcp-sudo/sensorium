@@ -22,6 +22,10 @@ import hashlib
 from pathlib import Path
 
 from sensorium.query.caps import witness_gap
+# The site-mark lookup, imported rather than rebuilt. `meta.sites` joins to
+# `code_objects` on a workspace-relative path against an absolute one, and
+# two implementations of that join are two ways for one trace to be read.
+from sensorium.query.exceptions_rust import _marks as _site_marks
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
@@ -46,6 +50,30 @@ _MIN_DIGEST = 16
 UNVERIFIABLE_OUTPUT = "output: unverifiable (not recorded)"
 UNVERIFIABLE_CHILDREN = "children: unverifiable (not witnessed)"
 UNVERIFIABLE = (UNVERIFIABLE_OUTPUT, UNVERIFIABLE_CHILDREN)
+
+#: The same two checks named for a line that has ALREADY said the word
+#: "unverifiable" once -- `info`'s replay of the stamp. Each keeps its own
+#: reason; only the repeated word goes. A name this table does not know is
+#: printed exactly as it was stamped: an older reader must not rewrite the
+#: words a later version wrote into a trace.
+_SHORT_UNVERIFIABLE = {
+    UNVERIFIABLE_OUTPUT: "output (not recorded)",
+    UNVERIFIABLE_CHILDREN: "children (not witnessed)",
+}
+
+
+def unverifiable_line(checks) -> str | None:
+    """`info`'s one line for the checks a pair could not run, or None.
+
+    None both for a trace that names no such check and for one that predates
+    the stamp: neither is "every check ran", and a line asserting that from
+    an absent key would be exactly the reading `unverifiable_checks` exists
+    to prevent, printed one command further on.
+    """
+    names = [_SHORT_UNVERIFIABLE.get(c, c) for c in checks or []]
+    if not names:
+        return None
+    return "licence unverifiable: " + ", ".join(names)
 
 
 def unverifiable_checks(orig: Trace, new: Trace) -> list[str]:
@@ -282,6 +310,65 @@ def _output_difference(orig: Trace, new: Trace) -> str | None:
     return None
 
 
+def harness_threads(trace: Trace) -> set[int]:
+    """The threads this trace's RECORDER started, not the program.
+
+    `cargo test` runs every `#[test]` function on a thread libtest spawns
+    for it, so a `cargo test` trace always carries one non-main thread the
+    program did not start -- and the untraced-thread caveat below fired on
+    all 61 pairs of E4 for that reason and no other (E4 section 5.2, design
+    2026-09-07 R1). A clause that cannot NOT fire is not a finding, and the
+    precedent for taking it out is one this licence already sets: the
+    recorder's own environment variables are excluded from the environment
+    comparison, by name.
+
+    A harness thread is a NON-MAIN thread whose ROOT frame's site the
+    manifest marks `#[test]`. The root is what makes the rule sound in both
+    directions. A thread the test itself spawns enters through a closure or
+    an ordinary fn -- `sensorium-transform` marks every closure site
+    `test: false` -- so its root is never a test fn and it is never
+    excluded; and a test fn called from somewhere deeper on another thread
+    says nothing about who started that thread, so a mark below the root
+    excludes nothing either.
+
+    Empty for a recorder whose traces carry no site marks at all -- every
+    Python trace -- and empty when the trace does not say which thread was
+    the main one. Neither is a harness thread that went unfound: both leave
+    every count exactly as it was, which is the direction that claims less.
+    """
+    main = trace.main_thread_id()
+    if main is None:
+        return set()
+    marks = _site_marks(trace.meta)
+    found = set()
+    for root in trace.roots():
+        if root.thread_id == main:
+            continue
+        code = trace.code(root.code_id)
+        if marks.get((code.qualname, code.file)) == "test":
+            found.add(root.thread_id)
+    return found
+
+
+def _harness_exclusion(trace: Trace) -> tuple[int, str]:
+    """How many threads this recorder started itself, and the clause that
+    NAMES them wherever one of its thread counts is printed.
+
+    The clause travels with the count on purpose. A subtraction that showed
+    only its result would put a smaller number where a larger one used to
+    be with nothing on the line to say why -- a number that looks measured
+    standing in for a fact that was removed, which is this project's own
+    bug class one level up.
+    """
+    phrase = terms(trace).harness_thread
+    if phrase is None:
+        return 0, ""
+    n = len(harness_threads(trace))
+    if not n:
+        return 0, ""
+    return n, f" and {n} harness thread{'' if n == 1 else 's'} ({phrase})"
+
+
 def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
     """Every reason this MATCH is not a statement about the whole run.
 
@@ -327,10 +414,19 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
             joiner = "'s" if trace.declares("threads") is not None else ""
             out.append(f"{label}{joiner} {gap}")
             continue
-        started = meta["threads_started"]
-        if started:
+        # The recorder's own harness threads come OUT of this count and are
+        # named in the same sentence (R1). `> 0` and not truthiness: a
+        # harness thread has a spool of its own, so the converter's count
+        # already includes it and the difference cannot go below zero on a
+        # trace this project wrote -- and a hand-built one that says
+        # otherwise gets no caveat rather than a negative count printed as
+        # though it had been measured.
+        harness, harness_clause = _harness_exclusion(trace)
+        started = meta["threads_started"] - harness
+        if started > 0:
             out.append(
-                f"{label} started {started} thread(s) besides the main one. "
+                f"{label} started {started} thread(s) besides the main "
+                f"one{harness_clause}. "
                 "A thread that ran no traced code has no fingerprint to "
                 "compare, and the order the threads ran in was never "
                 "compared for any of them")
@@ -437,12 +533,23 @@ def _verified_facts(orig: Trace, new: Trace, scope: str) -> list[str]:
     # table, for the reason `vocab.py` exists at all. The Python string is
     # unchanged, character for character: `PYTHON.thread_origin` IS this
     # clause, moved.
+    # ...and where the recorder started a thread of its own, the clause
+    # NAMES it instead of making the provenance claim: design 2026-09-07
+    # section 2's line, verbatim. What a granted licence rests on is a
+    # bounded list, so the harness thread appears on it as an exclusion
+    # rather than being dropped from a sentence that then reads as though
+    # only the main thread ever ran.
+    harness, harness_clause = _harness_exclusion(new)
+    thread_fact = (
+        f"no thread started besides the main one{harness_clause}"
+        if harness else
+        f"no thread started besides the main one "
+        f"{terms(new).thread_origin}, and none left running when recording "
+        "stopped")
     facts = [
         f"identical call shape across {len(fps)} compared fingerprint(s), "
         f"holding {events} causal event(s){outside}",
-        f"no thread started besides the main one "
-        f"{terms(new).thread_origin}, and none left running when recording "
-        "stopped",
+        thread_fact,
     ]
     # Stated only when there were tasks: a run with none must not be given
     # a fact about zero of them, and the count is the rerun's rows because

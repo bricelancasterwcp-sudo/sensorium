@@ -19,7 +19,7 @@ from types import SimpleNamespace
 from sensorium import paths
 from sensorium.query import refocus_cmd, refocus_rust
 from sensorium.store import db
-from tests.rust_traces import rerunnable_trace
+from tests.rust_traces import libtest_trace, rerunnable_trace
 
 ORIG = "20260101-000000-rust01"
 PAIR = "20260101-000100-pair01"
@@ -57,6 +57,24 @@ def original(tmp_path, monkeypatch, **meta):
     meta.setdefault("cwd", str(root))
     meta.setdefault("source_hashes", rust_digest(root, "src/lib.rs"))
     return rerunnable_trace(tmp_path, monkeypatch, **meta), root
+
+
+def libtest_original(tmp_path, monkeypatch, *, program_threads=0,
+                    harness_marked=True, **meta):
+    """`original()`'s workspace, recorded the way `cargo test` records it.
+
+    The same wrapper `original` is -- a workspace that exists, so the
+    source re-hash has something to read -- around the trace that carries
+    libtest's per-test thread. Pass it to `_drive(program=...)` through
+    `functools.partial` to fix the thread counts on BOTH sides.
+    """
+    root = workspace(tmp_path)
+    meta.setdefault("workspace_root", str(root))
+    meta.setdefault("cwd", str(root))
+    meta.setdefault("source_hashes", rust_digest(root, "src/lib.rs"))
+    return libtest_trace(tmp_path, monkeypatch,
+                         program_threads=program_threads,
+                         harness_marked=harness_marked, **meta), root
 
 
 def refuse(capsys, run, *focus, window=None):
@@ -110,10 +128,17 @@ def _read_meta(run_id, key, default=None):
 
 
 def _drive(tmp_path, monkeypatch, *, pairs=(), returncode=0, focus=("compute",),
-           build=None, **meta):
-    """Run the whole command against a fake driver; return (code, out, fake)."""
-    run, root = original(tmp_path, monkeypatch, **meta)
-    fake = FakeDriver(tmp_path, monkeypatch, pairs=pairs, build=build,
+           build=None, program=None, **meta):
+    """Run the whole command against a fake driver; return (code, out, fake).
+
+    `program` builds BOTH sides -- one program other than the default,
+    recorded twice, which is what a MATCH is; `build` overrides the RERUN's
+    builder alone, which is how a test asks for a divergence. Neither given
+    is `original` on both, exactly as before.
+    """
+    make = program or original
+    run, root = make(tmp_path, monkeypatch, **meta)
+    fake = FakeDriver(tmp_path, monkeypatch, pairs=pairs, build=build or make,
                       returncode=returncode)
     monkeypatch.setenv("SENSORIUM_CARGO_SENSORIUM", "/d/cargo-sensorium")
     monkeypatch.setattr(refocus_rust.subprocess, "run", fake)

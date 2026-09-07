@@ -14,6 +14,7 @@ from sensorium.exit import ANSWERED
 from sensorium.query.caps import witness_gap
 from sensorium.query.fmt import fmt_exc
 from sensorium.query.info_rust import rust_lines
+from sensorium.query.refocus_world import unverifiable_line
 from sensorium.query.vocab import exit_phrase, terms
 from sensorium.store.reader import Trace
 
@@ -307,6 +308,14 @@ def run(args) -> int:
             print("  licence granted, but this trace does not record WHAT it "
                   "was granted on -- it predates that record; re-run "
                   "`sensorium refocus` for the bounded list")
+        # The other half of what `refocus` stamped. A reader given the
+        # `licence verified:` lines alone is left to infer that every other
+        # check ran and failed -- and on a Rust pair two of them could not
+        # run at all (design 2026-09-07 R7). Absent key, absent line: the
+        # stamp's absence is not a claim that everything was checked.
+        unrun = unverifiable_line(m.get("refocus_licence_unverifiable"))
+        if unrun:
+            print(f"  {unrun}")
         for reason in m.get("refocus_refused_reasons") or []:
             print(f"  refused: {reason}")
     counts_by_code = t.call_counts()

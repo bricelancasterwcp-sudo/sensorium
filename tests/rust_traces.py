@@ -23,18 +23,18 @@ S2 = 4294967297
 S3 = 4294967298
 
 
-def call(ts, code, line, thread=1):
+def call(ts, code, line, thread=1, task=None):
     return {"ts": ts, "thread": thread, "kind": "CALL", "code": code,
             "line": line, "payload": {"args": {}, "unread": ["locals"]},
-            "task": None}
+            "task": task}
 
 
-def ret(ts, frame, code, outcome, value="()", thread=1):
+def ret(ts, frame, code, outcome, value="()", thread=1, task=None):
     return {"ts": ts, "thread": thread, "kind": "RETURN", "frame": frame,
             "code": code, "line": None,
             "payload": {"outcome": outcome,
                         "value": {"k": "dbg", "v": value, "trunc": False}},
-            "task": None}
+            "task": task}
 
 
 def flow(ts, kind, frame, code, line, payload, thread=1):
@@ -254,6 +254,79 @@ def rerunnable_trace(tmp_path, monkeypatch, *, workspace_root="/w",
         cargo_args=list(cargo_args),
         env=dict(env) if env is not None else {"PATH": "/usr/bin"},
         source_hashes=dict(source_hashes) if source_hashes else {},
+        **body)
+
+
+#: libtest's per-test thread, the first non-main serial a `cargo test`
+#: process mints. `#[test] fn` bodies run on it, never on the main thread.
+HARNESS_SERIAL = 2
+TEST_FN = "harness_tests::a_test"
+WORKER_FN = "demo::worker"
+
+
+def libtest_trace(tmp_path, monkeypatch, *, program_threads=0,
+                  harness_marked=True, workspace_root="/w",
+                  invocation_processes=1, refocus_of=None,
+                  cargo_args=("test",), env=None, source_hashes=None, **meta):
+    """`rerunnable_trace`'s program as `cargo test` records it: the main
+    thread, libtest's per-test thread, and `program_threads` threads the
+    test itself spawned.
+
+    Three shapes the harness-thread rule is written against are all here:
+
+    * the `#[test]` fn is the ROOT frame of the harness thread, and it has
+      a frame BELOW it (`compute`) -- so a lookup that reads any frame of
+      the thread rather than its root reads a site with no mark;
+    * each program thread's root is `worker`, an ordinary fn with no mark,
+      which is what a spawned thread really enters through (the transform
+      marks closure sites `test: false`);
+    * `threads_started` counts them all, harness included, exactly as
+      `convert/mod.rs` counts spools -- so the subtraction has something to
+      subtract from.
+
+    `harness_marked=False` keeps the same thread and takes the `#[test]`
+    mark off its site: the control that separates "the rule fired" from
+    "one was subtracted whatever the site said".
+
+    Only the main thread gets a `fingerprints` row and every non-main
+    thread's events carry `task = <serial>`, which is what the converter
+    writes -- and the reason the untraced-thread clause, not the
+    interleaving one, is the clause a `cargo test` pair meets.
+    """
+    codes = [[FILE, "compute", 10], [FILE, TEST_FN, 40], [FILE, WORKER_FN, 60]]
+    events = [call(1000, 1, 10), ret(2000, 1, 1, "ok", "5")]
+    frames = [frame(1, 1, 2)]
+    h = HARNESS_SERIAL
+    events += [call(3000, 2, 40, thread=h, task=h),
+               call(3200, 1, 10, thread=h, task=h),
+               ret(3400, 3, 1, "ok", "5", thread=h, task=h),
+               ret(3600, 2, 2, "ok", "()", thread=h, task=h)]
+    frames += [frame(2, 3, 6, thread=h),
+               frame(1, 4, 5, parent=2, depth=1, thread=h)]
+    for i in range(program_threads):
+        serial, ts = h + 1 + i, 4000 + i * 200
+        eid, fid = len(events) + 1, len(frames) + 1
+        events += [call(ts, 3, 60, thread=serial, task=serial),
+                   ret(ts + 100, fid, 3, "ok", "()", thread=serial,
+                       task=serial)]
+        frames.append(frame(3, eid, eid + 1, thread=serial))
+    body = dict(meta)
+    if refocus_of is not None:
+        body["refocus_of"] = refocus_of
+    return rust_trace(
+        tmp_path, monkeypatch,
+        codes=codes, frames=frames, events=events,
+        sites=[fn_site("compute", SITE_FILE, 10),
+               fn_site(TEST_FN, SITE_FILE, 40, test=harness_marked),
+               fn_site(WORKER_FN, SITE_FILE, 60)],
+        threads_with_rows=[MAIN_THREAD],
+        workspace_root=workspace_root,
+        invocation_processes=invocation_processes,
+        cargo_args=list(cargo_args),
+        env=dict(env) if env is not None else {"PATH": "/usr/bin"},
+        source_hashes=dict(source_hashes) if source_hashes else {},
+        threads_started=1 + program_threads,
+        live_threads=[],
         **body)
 
 
