@@ -1,8 +1,9 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.4.0`, `sensorium-transform 0.4.1`, `cargo-sensorium 0.4.0` —
+`sensorium-rt 0.4.0`, `sensorium-transform 0.4.1`, `cargo-sensorium 0.5.0` —
 v1, the call tier, with err flow and the focus tier.
-(~~`sensorium-rt 0.4.0`, `sensorium-transform 0.4.0`,
+(~~`cargo-sensorium 0.4.0`~~, before it ~~`sensorium-rt 0.4.0`,
+`sensorium-transform 0.4.0`,
 `cargo-sensorium 0.4.0`~~, before them ~~`sensorium-rt 0.3.0`,
 `sensorium-transform 0.3.1`, `cargo-sensorium 0.3.1`~~, and before those
 ~~`sensorium-rt 0.1.0`, `sensorium-transform 0.2.0`,
@@ -15,7 +16,11 @@ the wire nor the runtime changed — all three moved to `0.4.0` on
 2026-09-06 for the focus tier's new wire kind, LINE (§12), and
 `sensorium-transform` alone moved to `0.4.1` on 2026-09-07 for the
 brace-delimited-macro-tail guard (ruling G1): a `src` fix to what a focused
-build EMITS, so neither the wire nor the runtime nor the driver moved.
+build EMITS, so neither the wire nor the runtime nor the driver moved, and
+`cargo-sensorium` alone moved to `0.5.0` later that day for `--refocus-of`
+and the three invocation-scoped meta keys it writes (design 2026-09-07
+§2.1-§2.2) — a driver and converter change that neither the wire, the
+runtime nor the transformer felt.
 `HONESTY.md` was
 not versioned per-crate before 2026-09-03, so no edition older than that is
 struck.)

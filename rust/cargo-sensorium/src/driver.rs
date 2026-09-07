@@ -14,6 +14,7 @@ use serde::Serialize;
 
 use sensorium_transform::Focus;
 
+use crate::refocus_of;
 use crate::resolve;
 use crate::rt_build::{self, Panic};
 use crate::rt_src;
@@ -42,6 +43,12 @@ pub struct Invocation {
     /// knows what it was asked for, and the manifests -- one per focus the
     /// workspace was ever built under (A8) -- cannot say which is this run's.
     pub focus: Vec<String>,
+    /// The run id this invocation is a re-run OF (design 2026-09-07 §2.1),
+    /// validated against the store before anything was built. ABSENT rather
+    /// than null for an ordinary run: `refocus`'s pair lookup asks which
+    /// traces carry the key, and a null would be a link to nothing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refocus_of: Option<String>,
     /// `rustc -vV`'s first line, from the rustc this invocation actually used.
     pub toolchain: String,
     /// Which rustc that was: `RUSTC` when set, otherwise whatever `rustc` on
@@ -206,6 +213,12 @@ pub fn run(args: &[String]) -> i32 {
 
 fn go(args: &[String]) -> Result<i32, String> {
     let parsed = parse_args(args)?;
+    // Before the focus resolution below, and so before the runtime, the shim,
+    // the spool and cargo: a link to a trace the store does not hold is worth
+    // no build at all (design 2026-09-07 §2.1).
+    if !refocus_of::gate(parsed.refocus_of.as_deref())? {
+        return Ok(2);
+    }
     let ws = workspace_root()?;
     let focus = parsed_focus(&parsed.focus)?;
     // BEFORE everything (design 2026-09-06 §2.2): before the runtime is
@@ -272,6 +285,7 @@ fn go(args: &[String]) -> Result<i32, String> {
         // `SENSORIUM_FOCUS` carries and therefore what each manifest records
         // as its `focus.values`, which is what R-F11 compares against.
         focus: focus.values().to_vec(),
+        refocus_of: parsed.refocus_of.clone(),
         toolchain,
         rustc_path: rustc.clone(),
         host: host.clone(),
@@ -695,17 +709,18 @@ mod tests {
 
     #[test]
     fn the_driver_version_is_the_crates_own() {
-        assert_eq!(DRIVER_VERSION, "cargo-sensorium 0.4.0");
+        assert_eq!(DRIVER_VERSION, "cargo-sensorium 0.5.0");
     }
 
     #[test]
     fn an_invocation_record_serialises_to_the_shape_the_converter_reads() {
-        let record = Invocation {
+        let mut record = Invocation {
             invocation: "20260903-070000-abcdef".to_owned(),
             subcommand: "test".to_owned(),
             cargo_args: vec!["test".to_owned(), "--lib".to_owned()],
             tier: "call".to_owned(),
             focus: vec!["load".to_owned()],
+            refocus_of: None,
             toolchain: "rustc 1.96.0".to_owned(),
             rustc_path: "/u/bin/rustc".to_owned(),
             host: "x86_64-unknown-linux-gnu".to_owned(),
@@ -731,12 +746,25 @@ mod tests {
         assert_eq!(value["workspace_root"], "/w");
         assert_eq!(value["target_dir"], "/t");
         assert_eq!(value["tool_hash"], "0123456789abcdef");
-        assert_eq!(value["driver_version"], "cargo-sensorium 0.4.0");
+        assert_eq!(value["driver_version"], "cargo-sensorium 0.5.0");
         assert_eq!(value["rustc_path"], "/u/bin/rustc");
         // Null, not absent: the converter tells "cargo has not finished" from
         // "cargo exited 0" by the value, and an absent key is neither.
         assert_eq!(value["end_ts"], serde_json::Value::Null);
         assert_eq!(value["cargo_exit"], serde_json::Value::Null);
+        // ABSENT, not null (design 2026-09-07 §2.1): `refocus` finds a
+        // re-run's new trace by asking the store which traces carry
+        // `refocus_of`, and a null on every ordinary run would answer that
+        // question with every trace ever recorded.
+        assert!(
+            value.get("refocus_of").is_none(),
+            "an ordinary run must write no refocus_of key at all: {value}"
+        );
+        // ...and present, by name, when there was one.
+        record.refocus_of = Some("20260101-000000-aaaaaa".to_owned());
+        let value: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&record).unwrap()).unwrap();
+        assert_eq!(value["refocus_of"], "20260101-000000-aaaaaa");
     }
 
     /// The belt to `parse_focus`'s braces: any list of values that survives

@@ -581,6 +581,11 @@ pub struct InvocationRecord {
     /// which is what it was.
     #[serde(default)]
     pub focus: Vec<String>,
+    /// The run id this invocation is a re-run OF (design 2026-09-07 §2.1).
+    /// `#[serde(default)]` so an `invocation.json` written before the key
+    /// existed reads as no link, which is what it was.
+    #[serde(default)]
+    pub refocus_of: Option<String>,
 }
 
 impl InvocationRecord {

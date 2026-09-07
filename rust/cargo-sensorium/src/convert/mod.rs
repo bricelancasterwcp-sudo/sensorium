@@ -30,6 +30,12 @@ use serde_json::{json, Value};
 use manifest::{Manifest, SiteKind};
 use spool::{InvocationRecord, ProcHeader, RunnerRecord};
 
+/// The store this invocation reads and writes, resolved once
+/// (`runid::store_root`). Spelled through this module so the driver's
+/// `--refocus-of` lookup and the converter's own `traces_dir` can never
+/// disagree about where `SENSORIUM_DIR` defaults to.
+pub(crate) use runid::store_root;
+
 /// One pid's worth of the report `convert_dir` prints.
 pub struct TraceSummary {
     pub run_id: String,
@@ -113,6 +119,12 @@ pub fn convert_dir(spool_dir: &Path) -> Result<Report, String> {
 
     let child_runs_by_parent = child_runs(&proc_headers, &run_ids);
 
+    // Counted BEFORE the loop, not after it: every trace of this invocation
+    // records how many test binaries the invocation produced
+    // (`invocation_processes`, design 2026-09-07 §2.2), and it is the same
+    // count the WARN below prints -- one fact, one source.
+    let runner_processes = runner_records.len();
+
     let mut summaries = Vec::new();
     for (&pid, header) in &proc_headers {
         let summary = convert_one(ConvertOne {
@@ -130,6 +142,7 @@ pub fn convert_dir(spool_dir: &Path) -> Result<Report, String> {
                 .get(&pid)
                 .map_or(&[][..], Vec::as_slice),
             traces_dir: &traces_dir,
+            runner_processes,
         })?;
         println!(
             "run: {}  pid: {}  exe: {}  events: {}  threads: {}  exit: {}",
@@ -143,7 +156,6 @@ pub fn convert_dir(spool_dir: &Path) -> Result<Report, String> {
         summaries.push(summary);
     }
 
-    let runner_processes = runner_records.len();
     if runner_processes > 1 {
         eprintln!(
             "WARN: this invocation produced {runner_processes} test binaries; a single-target \
@@ -427,6 +439,9 @@ struct ConvertOne<'a> {
     runner: Option<&'a RunnerRecord>,
     child_runs: &'a [Value],
     traces_dir: &'a Path,
+    /// Distinct pids the runner witnessed for this invocation -- the WARN's
+    /// own count, and every trace's `invocation_processes`.
+    runner_processes: usize,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -551,6 +566,8 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         live_threads: &live_threads,
         env: &c.proc.env,
         invocation: &c.invocation.invocation,
+        invocation_processes: c.runner_processes,
+        refocus_of: c.invocation.refocus_of.as_deref(),
         pid: c.pid,
         ppid: c.proc.ppid,
         exe: &c.proc.exe,
@@ -558,6 +575,7 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         rustc_path: &c.invocation.rustc_path,
         cargo_args: &c.invocation.cargo_args,
         profile: &c.invocation.profile,
+        workspace_root: &c.invocation.workspace_root,
         tool_hash: &c.invocation.tool_hash,
         driver_version: &c.invocation.driver_version,
         instrumented_units: &registered,

@@ -217,6 +217,33 @@ def line(ts, fr, code, line_no, deltas, thread=1, dropped=False):
             "task": None if thread == MAIN_THREAD else thread}
 
 
+def rerunnable_trace(tmp_path, monkeypatch, *, workspace_root="/w",
+                     invocation_processes=1, refocus_of=None, **meta):
+    """A Rust trace carrying the three invocation-scoped meta keys
+    `cargo-sensorium 0.5.0` writes (design 2026-09-07 §2.2).
+
+    `workspace_root` is where `refocus` re-runs the driver FROM,
+    `invocation_processes` is how many test binaries the invocation
+    produced -- 1 is the only count a re-run can answer -- and
+    `refocus_of` is the run id a re-run's OWN trace is stamped with,
+    absent (never null) on an ordinary run.
+
+    One call, so the trace is about its meta and not about its events.
+    """
+    body = dict(meta)
+    if refocus_of is not None:
+        body["refocus_of"] = refocus_of
+    return rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "compute", 10]],
+        frames=[frame(1, 1, 2)],
+        events=[call(1000, 1, 10), ret(2000, 1, 1, "ok", "5")],
+        sites=[fn_site("compute", SITE_FILE, 10)],
+        workspace_root=workspace_root,
+        invocation_processes=invocation_processes,
+        **body)
+
+
 def focused_trace(tmp_path, monkeypatch, **meta):
     """`cargo sensorium --focus fill --focus Counter run`, as a trace.
 
