@@ -1,6 +1,6 @@
 # The Rust corpus
 
-Forty-one cases recorded by the **Rust** recorder (`cargo sensorium …`) and
+Forty-two cases recorded by the **Rust** recorder (`cargo sensorium …`) and
 questioned through the same Python CLI as the rest of the corpus. Each case
 directory is a self-contained, dependency-free crate plus its
 `questions.yaml`; `corpus/run_corpus.py` copies one whole directory into a
@@ -117,7 +117,7 @@ by name when no driver is on the box exactly as these cases do.
 
 ## The rung-4 cases: the refocus loop
 
-Three cases added with `sensorium refocus` on a Rust trace, which re-invokes
+Four cases added with `sensorium refocus` on a Rust trace, which re-invokes
 `cargo sensorium` under an added `--focus` and compares the pair. They are the
 only cases here whose QUESTIONS record: the harness records the case once, and
 a `refocus` question then launches the driver itself (the same
@@ -133,13 +133,19 @@ which the refocus just wrote — and read the PAIR through `runs`, where
 mtime-ordered, not clock-ordered**, so it is unambiguous here only because a
 case runs in a store of its own that holds exactly two traces, the second
 written by the refocus under test; a case that refocused twice would need
-`runs` to name which trace it means, and none of the three does.
+`runs` to name which trace it means, and none of the four does.
+`refocus_child_run` is the one whose store does NOT hold two traces — its
+program records two processes and is recorded twice, so four — and it
+therefore never says `last` at all: it names the original by `$RUN`, the
+child of the original by `$RUN2`, and reads the pair and the excluded child
+run through `runs`.
 
 | Case | Planted truth | Commands |
 |---|---|---|
 | `refocus_match` | the loop closed: a run with no LINE row at all is re-run one flag deeper, MATCHes, and answers `b == 2` at the statement that wrote it — with the licence granted over exactly four points and `output`/`children` reported as checks that could NOT run rather than as two empty sets agreeing | `refocus`, `runs`, `info`, `watch` |
 | `refocus_diverged` | a program that branches on a marker file its own first run wrote: the re-run cannot take the first run's path, so the verdict is DIVERGED at causal step 1 with `first_path` against `other`, exit 1, and the listing carries the divergence beside the link | `refocus`, `runs` |
 | `refocus_refused_many` | `cargo test` on a crate with two integration tests is two processes, and refocus refuses BEFORE building anything — exit 2, the single-target sentence, and a store with no third trace in it | `refocus`, `runs` |
+| `refocus_child_run` | a program that spawns itself: the re-run leaves TWO traces carrying `refocus_of`, and the one whose `ppid` is the other's `pid` is a child RUN rather than a second candidate — MATCH about the parent, the excluded child named on the pair line, and both re-run traces still listed, the unpaired one as `verdict:UNVERIFIED` | `info`, `refocus`, `runs` |
 
 ## Two things a case here must know
 
