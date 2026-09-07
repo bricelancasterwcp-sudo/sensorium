@@ -310,6 +310,35 @@ def test_a_marked_frame_below_the_root_is_not_a_harness_thread(
                in c for c in refocus_world._licence_caveats(t, t))
 
 
+def test_the_main_thread_is_never_a_harness_thread(tmp_path, monkeypatch):
+    """`cargo test -- --test-threads=1` runs the `#[test]` fn on the main
+    thread itself, so a marked ROOT frame there is not evidence of a thread
+    libtest spawned -- there is none. `threads_started` never counted the
+    main thread, so subtracting for it would take one off a count it was
+    never in and hide a thread the program really did start.
+
+    Found by a surviving mutant: with the main-thread test taken out of
+    `harness_threads`, every assertion above still passed."""
+    run = rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, TEST_FN, 40], [FILE, WORKER_FN, 60]],
+        frames=[frame(1, 1, 2),
+                frame(2, 3, 4, thread=HARNESS_SERIAL)],
+        events=[call(1000, 1, 40), ret(1100, 1, 1, "ok", "()"),
+                call(2000, 2, 60, thread=HARNESS_SERIAL, task=HARNESS_SERIAL),
+                ret(2100, 2, 2, "ok", "()", thread=HARNESS_SERIAL,
+                    task=HARNESS_SERIAL)],
+        sites=[fn_site(TEST_FN, SITE_FILE, 40, test=True),
+               fn_site(WORKER_FN, SITE_FILE, 60)],
+        threads_with_rows=[MAIN_THREAD], threads_started=1, live_threads=[])
+    t = Trace.open(paths.traces_dir() / f"{run}.db")
+    assert harness_threads(t) == set()
+    caveats = refocus_world._licence_caveats(t, t)
+    assert any("started 1 thread(s) besides the main one. A thread" in c
+               for c in caveats)
+    assert not any("harness thread" in c for c in caveats)
+
+
 def test_a_python_trace_has_no_harness_thread_and_the_same_caveats(tmp_path):
     """Python traces carry no site table, so the lookup finds nothing and
     every Python caveat is the string it was before R1 -- which is what the
