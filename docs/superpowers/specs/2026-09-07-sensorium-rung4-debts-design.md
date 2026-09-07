@@ -61,7 +61,7 @@ Record `docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`, §1 alon
 
 **Loop.** For each of the 61 (E4 §1.1's order): `sensorium refocus <orig> --focus <name>` under the new rule.
 
-**Expected, written first.** Licence **granted 57 of 61**; **WITHHELD on exactly four**: `a_pager_can_be_shared_across_threads` (1 program thread) and the three `pager_refusal_advice_test` server tests (4 worker threads each), each reason naming the program's own threads AND the excluded harness thread; MATCH 61 of 61 (the comparator is untouched); every pair found (pair 1 of 1); the shim census: 61 focused keys whose inode equals the driver's when on one filesystem (this box: both under `/mnt/extra`), bytes counted once.
+**Expected, written first.** Licence **granted 57 of 61**; **WITHHELD on exactly four**: `a_pager_can_be_shared_across_threads` (1 program thread) and the three `pager_refusal_advice_test` server tests (4 worker threads each), each reason naming the program's own threads AND the excluded harness thread; MATCH 61 of 61 (the comparator is untouched); every pair found (pair 1 of 1); the shim census: 61 focused keys whose inode equals the driver's when on one filesystem (this box: the driver and the target share one filesystem), bytes counted once.
 
 | id | question | endpoint (both readings pre-committed) |
 |---|---|---|
