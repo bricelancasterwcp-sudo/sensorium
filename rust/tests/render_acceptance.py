@@ -40,6 +40,31 @@ def _upper_first(text: str) -> str:
     return text[:1].upper() + text[1:]
 
 
+def schema_sentence(r) -> str:
+    """§2's one sentence about which schema wrote this record (design §5).
+
+    Two tokens, never one. `schema_version` is the schema the RAW record was
+    written under -- the measurement's own -- and `assembled.schema_version`
+    is the assembler that derived what is being rendered. When they agree
+    the record is stated once; when they differ the sentence SAYS the
+    derivation happened, because a record re-derived under a later schema
+    and one derived under its own are otherwise indistinguishable, which is
+    the debt R4 closes.
+
+    A raw that names no schema renders as `(none recorded)` rather than
+    borrowing the assembler's token: a record whose provenance is unknown
+    must not read as one whose provenance was checked.
+    """
+    raw = r.get("schema_version")
+    assembled = (r.get("assembled") or {}).get("schema_version")
+    shown = f"`{raw}`" if raw else "(none recorded)"
+    if raw and assembled and raw == assembled:
+        return (f"**Schema.** This record is {shown}: the raw record and "
+                f"this assembly were written under the same schema version.")
+    return (f"**Schema.** This record was re-derived under `{assembled}` "
+            f"from a raw written under {shown}.")
+
+
 def cell(m, fmt=str) -> str:
     """One measurement as a table cell. `null` is not-measured, with why."""
     if m is None:

@@ -26,7 +26,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from render_acceptance import cell, row              # noqa: E402
+from render_acceptance import (cell, row,                # noqa: E402
+                               schema_sentence)              # noqa: E402
 
 HEAD = ["| Measurement | Value | n | Lens (abridged; the full lens is in "
         "`results.json`) | Dropped |", "|---|---|---|---|---|"]
@@ -70,6 +71,7 @@ def environment(r) -> list[str]:
         f"every command's log beside it. §3 below is rendered from "
         f"`{name}.results.json`, which `acceptance_e9_schema.assemble_e9` "
         f"derived from that raw file.", "",
+        schema_sentence(r), "",
         f"**§1 byte-lock.** The runner refuses to start unless the locked "
         f"range is byte-identical to the commit that locked it — and refuses "
         f"outright while no lock sha is set. The range is {bl.get('range')} "

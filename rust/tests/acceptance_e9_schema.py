@@ -25,6 +25,12 @@ from acceptance_e9_cells import (MEASUREMENT_CELLS, NEEDS,         # noqa: F401
 
 DOC = "docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md"
 
+#: R4 (design 2026-09-07 §5): the schema THIS assembler writes.
+#: The raw record's own token is COPIED into `schema_version` and
+#: this one is stamped beside it, so a record re-derived under a
+#: later schema is distinguishable from one derived under its own.
+SCHEMA_VERSION = "e9/1"
+
 
 # ------------------------------------------------------------- predictions
 
@@ -166,6 +172,12 @@ def assemble_e9(raw: dict) -> dict:
         "schema": ("every measurement is {value, n, lens, dropped}; a null "
                    "value plus a dropped reason is the ONLY not-measured; 0 "
                    "is measured-and-zero"),
+        # COPIED from the raw record, never asserted: this is the schema the
+        # MEASUREMENT was written under. `None` for a raw that predates the
+        # field is the honest answer -- borrowing the assembler's token here
+        # would date every old record forward.
+        "schema_version": raw.get("schema_version"),
+        "assembled": {"schema_version": SCHEMA_VERSION},
         # DERIVED, not asserted: the document this run was byte-locked
         # against, taken from the raw record's own `byte_lock.doc`. The
         # module constant is only the last resort for a raw record with no
