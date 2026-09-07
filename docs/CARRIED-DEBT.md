@@ -694,8 +694,9 @@ stays the record for rungs 0–2.
   784, `rust/sensorium-transform/src/splice.rs` 775,
   `rust/sensorium-transform/src/visit.rs` 767,
   `rust/sensorium-transform/src/lines.rs` 749 and
-  `rust/cargo-sensorium/src/driver.rs` 763 — and **this file, at 778**. The
-  next paragraph any of them wants splits it first; for this one the natural
+  `rust/cargo-sensorium/src/driver.rs` 763 — and **this file, at 799 of 800
+  after fix round 1: the next bullet added here MUST split it first**. For
+  the others the next paragraph splits them first too; for this one the natural
   split is by slice, the oldest sections moving to a
   `docs/CARRIED-DEBT-ARCHIVE.md` it links, and it is named here rather than
   discovered at the ceiling.
@@ -704,6 +705,16 @@ stays the record for rungs 0–2.
   `PATH` instead of the `/mnt`-side one gets failures that are about the
   binary and not the tree. Delete it or document it; it is not `.gitignore`'d
   away, it is simply old.
+- **A box-local path sits in a committed test, and no check reaches it.**
+  `rust/sensorium-transform/tests/census.rs:6`'s doc comment names
+  `/home/brice/workspace/bloomery`. It is **pre-existing on `main` at
+  `9db30d0`**, and this slice touched that file at two other lines only (an
+  import, and a `transform(..)` call gaining `&Focus::EMPTY`). The coverage
+  half is the real debt: the box-path scan
+  (`tests/test_acceptance_e9.py::…_names_no_box_path` and its siblings) walks
+  only `rust/tests/<INSTRUMENT>`, so **no test reaches
+  `rust/sensorium-transform/tests/` or any other crate's tests at all**.
+  Widening the scan would have caught this one, and would catch the next.
 - **The composite-loop residual.** A `loop` a `break` leaves, nested inside a
   composite statement (`unsafe { loop { break; } }`, a `match` whose every arm
   is such a loop), is called diverging by the shared exit walk and loses its
@@ -739,11 +750,21 @@ stays the record for rungs 0–2.
   4): 1426 passed / 12 skipped without `SENSORIUM_CARGO_SENSORIUM`,
   1437 / 1 with it. The entry slice carried the same residual at 1293/9
   against 1301/1; the delta is now 11 tests rather than 8.
-- **`src/sensorium/query/exceptions_rust.py` cites `rust/HONESTY.md` §11** in
-  two comments, and §11 is now one file away. The citations still resolve —
-  `§11` names what it always named — but the PATH in them is stale, and this
-  slice's brief forbade touching `src/`. One-line fix at the next legitimate
-  touch of that file.
+- **`src/sensorium/query/exceptions_rust.py` names `rust/HONESTY.md` at three
+  sites, and after this slice's split one of them is PRINTED.** `:431` (a
+  comment above `ESCAPED_DETAIL`) and `:448` (a docstring) cite
+  `rust/HONESTY.md` §11 for the SWALLOWED definition; the section still names
+  what it always named, so those two are stale PATHS, correctable in the
+  post-review fix wave. **`:462` is different**: it sits inside a
+  `Disposition` detail the tool PRINTS — *"it left the grammar this recorder
+  watches (rust/HONESTY.md names the shapes that are not probed); no sink
+  recorded is not evidence that nothing absorbed it"* — and after the split
+  that file no longer names those shapes. Changing a printed line after E9
+  was measured is CARRIED-DEBT and not a fix, under the classification rule.
+  The correction, spelled out so the next slice need not re-derive it: the
+  unprobed shapes are named by `rust/HONESTY-ERR-FLOW.md` (§11's "everything
+  else is unprobed **on purpose**" paragraph) and `rust/HONESTY-BLIND-SPOTS.md`
+  items 15–26.
 
 ### Process lessons
 

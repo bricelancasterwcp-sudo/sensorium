@@ -1,6 +1,6 @@
 """The tool's own words about SWALLOWED are the ledger's words (design N1/N2).
 
-`rust/HONESTY.md` §11 is the one home of the definition; the sentence the
+`rust/HONESTY-ERR-FLOW.md` §11 is the one home of the definition; the sentence the
 tool prints under an escaped arm, and the four load-bearing phrases of the
 definition, must be found there verbatim -- so the promise a reader meets
 in the output cannot drift from the promise the ledger makes.

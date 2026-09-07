@@ -90,11 +90,12 @@ compile-time `--focus`. Python **0.8.3**; the crates move together to
   after the original lock `a4264b5`. Its guard did not have to fire: neither
   page truncated, so H5 would have read the same under the unlimited
   spelling.
-- **Versions: five pins move.** `sensorium-rt` 0.3.0 → **0.4.0** (the new wire
-  kind), `sensorium-transform` 0.3.1 → **0.4.0** (focus, LINE splices,
-  `SiteKind::Line`), `cargo-sensorium` 0.3.1 → **0.4.0** (`--focus`,
-  resolution, LINE conversion, meta, capabilities), Python `sensorium`
-  0.8.2 → **0.8.3**, and `TRACE_FORMAT` stays **4**. Traces recorded by an
+- **Versions: five pins accounted, four of them move; `TRACE_FORMAT` stays 4.**
+  `sensorium-rt` 0.3.0 → **0.4.0** (the new wire kind), `sensorium-transform`
+  0.3.1 → **0.4.0** (focus, LINE splices, `SiteKind::Line`), `cargo-sensorium`
+  0.3.1 → **0.4.0** (`--focus`, resolution, LINE conversion, meta,
+  capabilities) and Python `sensorium` 0.8.2 → **0.8.3** — four moves; the
+  fifth pin, `TRACE_FORMAT`, is accounted by staying **4**. Traces recorded by an
   older runtime still read; the refusal sentence they carry moves with the
   recorder string, which is why `corpus/rust/stale_cache`'s pin changed in
   its version token and nothing else.

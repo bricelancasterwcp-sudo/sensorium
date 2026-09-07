@@ -61,9 +61,9 @@ only where a written sink absorbed the chain and its frame then closed
 the panic was *caused by* the `Err`; and everything the grammar did not see
 is `ambiguous` by design, never "propagated by default". What each verdict
 may mean, and the twelve shapes err flow cannot see, are
-[`rust/HONESTY.md`](rust/HONESTY.md) §11 and
-[`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md) items 15–26; the
-two measurements behind them are in the Rust section below.
+[`rust/HONESTY-ERR-FLOW.md`](../rust/HONESTY-ERR-FLOW.md) §11 and
+[`rust/HONESTY-BLIND-SPOTS.md`](../rust/HONESTY-BLIND-SPOTS.md) items 15–26;
+the two measurements behind them are in `../README.md`'s Rust section.
 
 **One block per shape, not one per chain** (0.8.2, Rust traces only). Two
 chains are one *shape* when they share a disposition, the site the verdict is
@@ -109,7 +109,7 @@ finalized is NAMED before any answer about chains, and the tally is the sum:
 — the tool's own output, pinned by `tests/test_exceptions_invocation.py`. That
 header's `swallowing sites` counts printed BLOCKS, not distinct sites, and the
 two are not equal on a real sweep: a known misnomer, carried in
-[`docs/CARRIED-DEBT.md`](docs/CARRIED-DEBT.md). `--after` is **refused** in
+[`docs/CARRIED-DEBT.md`](CARRIED-DEBT.md). `--after` is **refused** in
 this mode and exits **2** — an event id belongs to one process and this answer
 spans many — and a member whose recorder declares `capabilities.err_flow:
 false` refuses the whole answer, naming it.
