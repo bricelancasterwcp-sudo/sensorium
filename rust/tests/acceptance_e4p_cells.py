@@ -272,12 +272,17 @@ def _h4(raw) -> dict:
         "not_linked": h.get("not_linked"),
         "same_device": h.get("same_device"),
         "driver_inode": h.get("driver_inode"),
+        # A term of the gate, not a note beside it: a key directory holding
+        # no `cargo-sensorium` has no `st_ino`, so "for EVERY key" is not
+        # met however many of the rest linked.
+        "entries_cover_every_key": h.get("entries_cover_every_key"),
+        "keys_without_a_binary": h.get("keys_without_a_binary"),
         "expected_keys": EXPECTED_SHIM_KEYS,
         "finding": h.get("finding"),
-        "gate": ("61 focused keys, every one sharing the driver's inode "
-                 "where the filesystem allows a link"),
-        "as_predicted": bool(h.get("keys_as_predicted")
-                             and h.get("all_linked")),
+        "gate": ("61 focused keys, EVERY one holding a `cargo-sensorium` "
+                 "that shares the driver's inode where the filesystem "
+                 "allows a link"),
+        "as_predicted": h.get("as_predicted"),
     }
     return _apply_drops(block, "H4", raw)
 

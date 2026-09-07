@@ -258,7 +258,8 @@ def _census(monkeypatch, **kw):
             "distinct_inodes": 1, "bytes_once_per_inode": 40_000_000,
             "driver_inode": 7, "driver_dev": 66, "linked_to_the_driver": 61,
             "not_linked": [], "same_device": True, "devices": [66],
-            "names": []}
+            "names": [], "keys_without_a_binary": [],
+            "entries_cover_every_key": True}
     base.update(kw)
     monkeypatch.setattr(phases2, "shim_census", lambda *_a, **_k: base)
     return {"sensorium_e4p_target": Path("/x"),
@@ -302,3 +303,91 @@ def test_the_byte_total_is_never_the_sum_of_the_per_entry_sizes(monkeypatch):
     assert h["bytes_once_per_inode"] == 40_000_000
     assert h["distinct_inodes"] == 1
     assert h["bytes_once_per_inode"] != h["entries"] * 40_000_000
+
+
+def test_a_key_that_holds_NO_binary_is_not_as_predicted_and_is_NAMED(
+        monkeypatch):
+    """The review's blocking finding. 61 key directories of which one holds
+    no `cargo-sensorium` reads keys=61, entries=60, linked=60 — and a gate
+    that compared `linked` to `entries` would call that "every key linked".
+    §1's H4 says "61 focused keys, and FOR EVERY KEY the st_ino ... equals
+    the driver's"; a key with no binary has no st_ino, so the gate is not
+    met and the instrument must say so, naming the key."""
+    paths = _census(monkeypatch, keys=61, entries=60,
+                    linked_to_the_driver=60,
+                    keys_without_a_binary=["k60"],
+                    entries_cover_every_key=False)
+    h = phases2.phase_h4(paths, _two())
+    assert h["all_linked"] is False
+    assert h["entries_cover_every_key"] is False
+    assert h["keys_without_a_binary"] == ["k60"]
+    assert h["as_predicted"] is False
+    assert "k60" in (h["finding"] or "")
+
+
+def test_the_denominator_is_the_KEYS_and_never_the_entries(monkeypatch):
+    """Stated as a unit, so the mutation that swaps them back is caught by
+    a test that names the rule rather than by a coincidence of numbers."""
+    paths = _census(monkeypatch, keys=61, entries=60,
+                    linked_to_the_driver=60,
+                    keys_without_a_binary=["k60"],
+                    entries_cover_every_key=False)
+    h = phases2.phase_h4(paths, _two())
+    assert h["linked_to_the_driver"] == h["entries"]      # the trap
+    assert h["linked_to_the_driver"] != h["keys"]         # the truth
+    assert h["all_linked"] is False
+
+
+# --------------------------- H2/H3 over a SUBSET are never `as_predicted`
+
+def _short(n=51):
+    """A loop that stopped short: `n` rows measured, the rest never run."""
+    two = _two()
+    two["refocuses"] = two["refocuses"][:n]
+    two["n"], two["measured"] = 61, n
+    two["budget_exhausted"] = [r[1] for r in rows.ROWS[n:]]
+    return two
+
+
+def test_H2_over_a_SHORT_loop_is_None_and_never_true():
+    """`match_n == len(measured)` compares a count to its own denominator,
+    so a loop that stopped at 51 could write `match_as_predicted: true`
+    beside `n: 51`. §1's gate is MATCH 61 of 61; over fewer rows there is
+    no answer, and `None` plus a named reason is the only honest one --
+    Task 6 reads this RAW file to write §4."""
+    h = phases.phase_h2(_short())
+    assert h["match_as_predicted"] is None
+    assert h["dropped"], "a null must carry its reason"
+    assert any("61" in d for d in h["dropped"])
+    assert h["match_n"] == 51          # the count itself is still measured
+
+
+def test_H3_over_a_SHORT_loop_is_None_and_never_true():
+    h = phases.phase_h3(_short())
+    assert h["pairs_as_predicted"] is None
+    assert h["dropped"]
+    assert h["pairs_of_one"] == 51
+
+
+def test_a_KILLED_invocation_also_takes_the_boolean_to_None():
+    two = _two()
+    two["killed"] = ["a_pager_can_be_shared_across_threads"]
+    assert phases.phase_h2(two)["match_as_predicted"] is None
+    assert phases.phase_h3(two)["pairs_as_predicted"] is None
+
+
+def test_a_WHOLE_loop_still_answers_true_with_an_empty_dropped():
+    h2, h3 = phases.phase_h2(_two()), phases.phase_h3(_two())
+    assert h2["match_as_predicted"] is True and h2["dropped"] == []
+    assert h3["pairs_as_predicted"] is True and h3["dropped"] == []
+
+
+def test_a_WHOLE_loop_that_really_DIVERGED_is_False_and_not_None():
+    """`None` is "not measured"; `False` is "measured, and not as
+    predicted". A rule that returned None for both would hide a divergence
+    behind a bound that was never reached."""
+    h = phases.phase_h2(_two({
+        "unload_credits_the_weights_back": {"verdict": "DIVERGED",
+                                            "rc": 1}}))
+    assert h["match_as_predicted"] is False
+    assert h["dropped"] == []

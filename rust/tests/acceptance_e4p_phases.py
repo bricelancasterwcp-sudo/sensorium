@@ -30,7 +30,7 @@ from acceptance_e4p_read import (VERDICT_EXIT, cargo_finished_seconds,  # noqa: 
                                  trace_meta_ro)
 from acceptance_e4p_rows import (EXPECTED_GRANTED,                 # noqa: E402
                                  EXPECTED_HARNESS_THREADS,
-                                 EXPECTED_WITHHELD)
+                                 EXPECTED_WITHHELD, GATE_N)
 from acceptance_e6ppp import LOADS, logs_at, mark_load             # noqa: E402,F401
 from acceptance_lib import REPO, plain_env, step                   # noqa: E402
 
@@ -280,8 +280,16 @@ def refocus_one(paths, cfg, row) -> dict:
     return out
 
 
-def pass_two(paths, cfg) -> dict:
-    """The 61 refocuses, in §1.1's order, under one loop bound."""
+def pass_two(paths, cfg, on_first_number=None) -> dict:
+    """The 61 refocuses, in §1.1's order, under one loop bound.
+
+    `on_first_number` is called the moment the FIRST refocus comes back
+    with a reading -- a verdict word or a licence word. That is the instant
+    §1.4's rules 4 and 5 part company, and the runner uses it to flip and
+    FLUSH `numbers_read`: everything after it is a measurement of one of
+    the 61, and kill 6 forbids relaunching from zero over a row already
+    read.
+    """
     mark_load("pass2")
     deadline = time.monotonic() + cfg["loop_budget_s"]
     rows, exhausted = [], []
@@ -293,7 +301,14 @@ def pass_two(paths, cfg) -> dict:
                 rows.append({"index": index, "name": name, "target": target,
                              "original": run_id, "not_run": NOT_RUN_BOUND})
                 continue
-            rows.append(refocus_one(paths, cfg, row))
+            answer = refocus_one(paths, cfg, row)
+            rows.append(answer)
+            if on_first_number is not None and (answer.get("verdict_word")
+                                                or answer.get("licence_word")):
+                on_first_number(
+                    f"row {index} ({name}) came back with verdict "
+                    f"{answer.get('verdict_word')!r} and licence "
+                    f"{answer.get('licence_word')!r}")
     measured = [r for r in rows if "not_run" not in r]
     out = {
         "refocuses": rows, "by_name": {r["name"]: r for r in rows},
@@ -313,6 +328,34 @@ def pass_two(paths, cfg) -> dict:
 
 def _measured(two: dict) -> list[dict]:
     return [r for r in two["refocuses"] if "not_run" not in r]
+
+
+def _subset_reasons(two: dict) -> list[str]:
+    """Why a boolean over "the 61" cannot be answered from this loop.
+
+    Empty when the loop was whole. Otherwise every reason is NAMED, and the
+    caller sets its `*_as_predicted` to `None` rather than to `False`:
+    `False` is "measured, and not as predicted", and a loop that stopped at
+    51 measured nothing about §1's "61 of 61". The RAW record carries this
+    because Task 6 reads the raw file to write §4 -- the assembled record's
+    drop rules are honest either way, but a `true` sitting beside `n: 51`
+    in the raw file is a sentence waiting to be misread.
+    """
+    out = []
+    n, measured = two.get("n"), two.get("measured")
+    if n != GATE_N:
+        out.append(f"the loop ran over {n} row(s), not §1.1's {GATE_N}")
+    if measured is not None and n is not None and measured != n:
+        out.append(f"{measured} of {n} invocation(s) ran")
+    missing = two.get("budget_exhausted") or []
+    if missing:
+        out.append(f"{len(missing)} invocation(s) were never run -- §1.4's "
+                   f"1 h 15 min loop bound was reached")
+    killed = two.get("killed") or []
+    if killed:
+        out.append(f"{len(killed)} invocation(s) were KILLED at the 1800 s "
+                   f"ceiling; their output is partial")
+    return out
 
 
 # ---------------------------------------------------------------------- H1
@@ -424,11 +467,15 @@ def phase_h2(two: dict) -> dict:
                              "exit": r.get("rc"),
                              "expected_exit": r.get("verdict_exit_expected")})
     match_n = sum(1 for w in words.values() if w == "MATCH")
+    dropped = _subset_reasons(two)
     out = {
         "n": len(rows), "verdicts": words, "match_n": match_n,
         "non_match": non_match, "unread": unread,
         "word_and_exit_disagree": disagree,
-        "match_as_predicted": match_n == len(rows) and not unread,
+        "dropped": dropped,
+        # `None` over a subset, never `True`: §1's gate is MATCH 61 of 61.
+        "match_as_predicted": (None if dropped else
+                               match_n == len(rows) and not unread),
     }
     step(f"H2: MATCH {match_n}/{len(rows)}; non-MATCH "
          f"{[x['name'] for x in non_match]}; word/exit disagreements "
@@ -470,10 +517,12 @@ def phase_h3(two: dict) -> dict:
                              "store_pair": r.get("new_run"),
                              "printed_pair": r.get("printed_pair_run")})
     ones = sum(1 for n in counts.values() if n == 1)
+    dropped = _subset_reasons(two)
     out = {
         "n": len(rows), "pair_counts": counts, "pairs_of_one": ones,
-        "not_one": wrong,
-        "pairs_as_predicted": ones == len(rows) and not wrong,
+        "not_one": wrong, "dropped": dropped,
+        "pairs_as_predicted": (None if dropped else
+                               ones == len(rows) and not wrong),
         "excluded_children": excluded,
         "excluded_children_n": len(excluded),
         "excluded_list_empty_on_all": not excluded,

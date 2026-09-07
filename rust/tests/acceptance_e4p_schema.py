@@ -95,6 +95,16 @@ def _pairs(raw) -> dict:
             "threads_line": r.get("threads_line"),
             "unverifiable": r.get("unverifiable"),
             "licence_counts": r.get("licence"),
+            # Task 5b's two readings of the env line, kept apart. §1.4 gives
+            # the re-run a FRESH target, so the keys cargo derives from the
+            # root differ on EVERY pair; the relocated list is what the rule
+            # explained, and `env_changed_for_other_keys` is whether the
+            # clause fired for anything it did not.
+            "env_status": r.get("env_status"),
+            "env_relocated_keys": r.get("env_relocated_keys"),
+            "env_changed_keys": r.get("env_changed_keys"),
+            "env_changed_for_other_keys": r.get("env_changed_for_other_keys"),
+            "env_line": r.get("env_line"),
             "driver_version_from_the_trace": r.get(
                 "driver_version_from_the_trace"),
             "wall_s": r.get("wall_s"),
@@ -104,6 +114,36 @@ def _pairs(raw) -> dict:
         })
         rows.append(row)
     return {"n": len(rows), "rows": rows}
+
+
+def _env_reading(two: dict) -> dict:
+    """Task 5b's clause over the whole run, reported and never gated.
+
+    Two numbers that must not be added: how many pairs had a key the
+    target-root rule EXPLAINED, and how many had a key it did not. The
+    second is the one that still withholds a licence, and the expectation
+    written into 5b is that it is zero here -- but it is published as
+    measured either way, with the pairs named.
+    """
+    rows = [r for r in (two.get("refocuses") or []) if "not_run" not in r]
+    relocated = {r["name"]: r.get("env_relocated_keys") for r in rows
+                 if r.get("env_relocated_keys")}
+    other = {r["name"]: r.get("env_changed_keys") for r in rows
+             if r.get("env_changed_for_other_keys")}
+    unread = [r["name"] for r in rows if r.get("env_line") is None]
+    keys = sorted({k for v in relocated.values() for k in (v or [])})
+    return {
+        "pairs_with_a_relocated_target": len(relocated),
+        "relocated_keys_seen": keys,
+        "relocated_by_pair": relocated,
+        "pairs_changed_for_another_key": len(other),
+        "changed_keys_by_pair": other,
+        "pairs_whose_env_line_was_not_read": unread,
+        "note": ("a re-run from another target directory is a normal use of "
+                 "the tool (design 2026-09-07, `refocus_env`); a key that "
+                 "moved for any OTHER reason is a change and still "
+                 "withholds"),
+    }
 
 
 def _reported(raw) -> dict:
@@ -141,6 +181,7 @@ def _reported(raw) -> dict:
         "cargo_build_s": {r.get("name"): r.get("cargo_finished_s")
                           for r in (two.get("refocuses") or [])
                           if r.get("cargo_finished_s")},
+        "env_relocation": _env_reading(two),
         "licence_verified_counts": raw.get("licence_verified_counts"),
         "store": {
             "copies": (raw.get("store") or {}).get("copied"),
@@ -193,6 +234,14 @@ def assemble_e4p(raw: dict) -> dict:
                        or raw.get("document") or DOC),
         "runner": raw.get("runner"),
         "dry_run": raw.get("dry_run", False),
+        # §1.4's rules 4 and 5 turn on this and on nothing else: a `.FAILED`
+        # BEFORE any number is infrastructure (relaunch from zero, the
+        # copies re-made), AFTER one is a STOP and the numbers already read
+        # stand. Carried as a FIELD so the distinction is mechanical rather
+        # than a judgement a reader makes from which `raw_*` blocks exist.
+        "numbers_read": bool(raw.get("numbers_read")),
+        "numbers_read_at": raw.get("numbers_read_at"),
+        "numbers_read_because": raw.get("numbers_read_because"),
         "byte_lock": raw.get("byte_lock"),
         "pins": pins,
         "environment": {

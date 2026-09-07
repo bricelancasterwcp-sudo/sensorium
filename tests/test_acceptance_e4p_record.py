@@ -64,6 +64,10 @@ def _full_raw() -> dict:
                 if r["licence_partition"]["licence"] == "WITHHELD"}
     return {
         "schema_version": SCHEMA_VERSION, "runner": "rust/tests/x.py",
+        # A run that reached its endpoints carries the flag the runner
+        # flipped and flushed the moment the first number was read.
+        "numbers_read": True,
+        "numbers_read_because": "pass 2 read a verdict for row 1",
         "byte_lock": {"doc": "docs/x.md"}, "pins": {}, "raw_pass2": two,
         "raw_h1": {"n": len(refocuses), "granted": granted,
                    "granted_n": len(granted), "withheld": withheld,
@@ -74,15 +78,19 @@ def _full_raw() -> dict:
                    "reasons_that_never_subtracted": [], "unread": []},
         "raw_h2": {"n": len(refocuses), "match_n": len(refocuses),
                    "non_match": [], "word_and_exit_disagree": [],
-                   "match_as_predicted": True, "verdicts": {}, "unread": []},
+                   "match_as_predicted": True, "verdicts": {}, "unread": [],
+                   "dropped": []},
         "raw_h3": {"n": len(refocuses), "pairs_of_one": len(refocuses),
                    "not_one": [], "pairs_as_predicted": True,
                    "excluded_children": {}, "excluded_children_n": 0,
-                   "readings_disagree": [], "pair_counts": {}},
+                   "readings_disagree": [], "pair_counts": {},
+                   "dropped": []},
         "raw_h4": {"keys": 61, "entries": 61, "distinct_inodes": 1,
                    "bytes_once_per_inode": 12345, "linked_to_the_driver": 61,
                    "not_linked": [], "same_device": True,
                    "keys_as_predicted": True, "all_linked": True,
+                   "entries_cover_every_key": True,
+                   "keys_without_a_binary": [], "as_predicted": True,
                    "finding": None},
         "raw_h5": {"raw_schema_version": "e4p/1",
                    "assembled_schema_version": "e4p/1",
@@ -274,3 +282,96 @@ def test_the_record_round_trips_through_json():
     """The runner writes it with `json.dumps`; a value that will not
     serialise is discovered here rather than at the end of a long run."""
     json.dumps(assemble_e4p(_full_raw()), default=str)
+
+
+# ------------------------------- the review's blocking finding, at the cells
+
+def test_H4_is_not_as_predicted_when_a_key_holds_no_binary():
+    """`entries_cover_every_key` is a term of the gate, not a note beside
+    it: keys=61, entries=60, linked=60 must NOT publish `as_predicted:
+    true`."""
+    raw = _full_raw()
+    raw["raw_h4"].update({"entries": 60, "linked_to_the_driver": 60,
+                          "entries_cover_every_key": False,
+                          "keys_without_a_binary": ["k60"],
+                          "all_linked": False, "as_predicted": False})
+    block = assemble_e4p(raw)["endpoints"]["H4"]
+    assert block["as_predicted"] is False
+    assert block["entries_cover_every_key"] is False
+    assert block["keys_without_a_binary"] == ["k60"]
+
+
+def test_H2_and_H3_carry_a_None_as_predicted_through_to_the_record():
+    """A short loop's raw booleans are `None`, and the assembled record must
+    not turn them back into a bool on the way through."""
+    raw = _full_raw()
+    raw["raw_h2"]["match_as_predicted"] = None
+    raw["raw_h2"]["dropped"] = ["51 of 61 invocation(s) ran"]
+    raw["raw_h3"]["pairs_as_predicted"] = None
+    raw["raw_h3"]["dropped"] = ["51 of 61 invocation(s) ran"]
+    endpoints = assemble_e4p(raw)["endpoints"]
+    assert endpoints["H2"]["as_predicted"] is None
+    assert endpoints["H3"]["as_predicted"] is None
+
+
+# ------------------------------------------------- numbers_read, mechanically
+
+def test_the_record_states_whether_any_number_had_been_read():
+    """§1.4's rules 4 and 5 turn on exactly this, so it is a FIELD rather
+    than a judgement a reader makes from which `raw_*` blocks exist."""
+    assert assemble_e4p(_full_raw())["numbers_read"] is True
+    assert assemble_e4p({})["numbers_read"] is False
+    assert assemble_e4p({"numbers_read": True})["numbers_read"] is True
+
+
+def test_a_run_that_read_no_number_says_so_rather_than_leaving_it_absent():
+    record = assemble_e4p({"refused": "SENSORIUM_DIR is not FRESH"})
+    assert record["numbers_read"] is False
+    assert record["refused"]
+
+
+# --------------------------------------- 5b's env reading, in the record
+
+def test_the_env_reading_reaches_the_pairs_table_and_the_ungated_block():
+    """Per pair: the relocated keys, and whether the clause fired for any
+    OTHER key. Over the run: the two counts, which are never added."""
+    raw = _full_raw()
+    for r in raw["raw_pass2"]["refocuses"]:
+        r["env_status"] = "unchanged"
+        r["env_relocated_keys"] = ["CARGO_BIN_EXE_x", "CARGO_TARGET_DIR"]
+        r["env_changed_keys"] = []
+        r["env_changed_for_other_keys"] = False
+        r["env_line"] = "env: unchanged (…)  2 variable(s) differ only …"
+    record = assemble_e4p(raw)
+    row = record["pairs"]["rows"][0]
+    assert row["env_relocated_keys"] == ["CARGO_BIN_EXE_x",
+                                         "CARGO_TARGET_DIR"]
+    assert row["env_changed_for_other_keys"] is False
+    env = record["reported"]["env_relocation"]
+    assert env["pairs_with_a_relocated_target"] == 3
+    assert env["pairs_changed_for_another_key"] == 0
+    assert env["relocated_keys_seen"] == ["CARGO_BIN_EXE_x",
+                                          "CARGO_TARGET_DIR"]
+    text = "\n".join(render_e4p.pairs(record) + render_e4p.ungated(record))
+    assert "CARGO_TARGET_DIR" in text
+    assert "relocated" in text
+
+
+def test_a_key_that_changed_for_ANOTHER_reason_is_counted_apart():
+    """The two numbers are never added: a pair whose loader path really
+    gained a directory is a change, and it must not be absorbed into the
+    relocation count."""
+    raw = _full_raw()
+    rows_ = raw["raw_pass2"]["refocuses"]
+    for r in rows_:
+        r["env_relocated_keys"] = ["CARGO_TARGET_DIR"]
+        r["env_changed_keys"] = []
+        r["env_changed_for_other_keys"] = False
+        r["env_line"] = "env: unchanged (…)"
+    rows_[0]["env_changed_for_other_keys"] = True
+    rows_[0]["env_changed_keys"] = ["LD_LIBRARY_PATH"]
+    env = assemble_e4p(raw)["reported"]["env_relocation"]
+    assert env["pairs_with_a_relocated_target"] == 3
+    assert env["pairs_changed_for_another_key"] == 1
+    assert env["changed_keys_by_pair"][rows_[0]["name"]] == [
+        "LD_LIBRARY_PATH"]

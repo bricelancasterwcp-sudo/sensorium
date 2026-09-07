@@ -208,9 +208,16 @@ def test_the_two_unverifiable_checks_are_kept_out_of_the_verified_list(
 
 # ---------------------------------------------------------- H4's census
 
-def _shim(tmp_path, keys, driver_bytes=1000):
-    """A driver and a shim tree, with each key either HARD-LINKED to the
-    driver or a copy of it -- the two outcomes R3 can produce."""
+def _shim(tmp_path, keys, driver_bytes=1000, empty_keys=()):
+    """A driver and a shim tree.
+
+    Each key is HARD-LINKED to the driver or a copy of it -- the two
+    outcomes R3 can produce -- and `empty_keys` are key directories that
+    exist and hold NO `cargo-sensorium`, which is the third outcome
+    `4edd5c7` ("the shim install reports what it could not do") makes
+    reachable: the directory was created and the binary could not be put
+    in it.
+    """
     driver = tmp_path / "driver" / "cargo-sensorium"
     driver.parent.mkdir(parents=True)
     driver.write_bytes(b"x" * driver_bytes)
@@ -224,7 +231,33 @@ def _shim(tmp_path, keys, driver_bytes=1000):
             os.link(driver, binary)
         else:
             binary.write_bytes(b"y" * driver_bytes)
+    for key in empty_keys:
+        (shim / key).mkdir(parents=True)
     return tmp_path / "target", driver
+
+
+def test_a_key_directory_with_NO_binary_is_counted_and_NAMED(tmp_path):
+    """The blocking finding of Task 5's review, at the census layer. A key
+    that holds no `cargo-sensorium` has no `st_ino` at all, so §1's H4 gate
+    -- "61 focused keys, and FOR EVERY KEY the st_ino ... equals the
+    driver's" -- is not met. The census must keep `keys` and `entries`
+    apart and NAME the keys that hold nothing, or the gate is computed
+    against a denominator the empty key silently left."""
+    target, driver = _shim(tmp_path, [("k0", True), ("k1", True)],
+                           empty_keys=["k2"])
+    c = rd.shim_census(target, driver)
+    assert c["keys"] == 3
+    assert c["entries"] == 2
+    assert c["keys_without_a_binary"] == ["k2"]
+    assert c["entries_cover_every_key"] is False
+    assert c["linked_to_the_driver"] == 2
+
+
+def test_every_key_holding_a_binary_is_stated_as_such(tmp_path):
+    target, driver = _shim(tmp_path, [("k0", True), ("k1", True)])
+    c = rd.shim_census(target, driver)
+    assert c["keys_without_a_binary"] == []
+    assert c["entries_cover_every_key"] is True
 
 
 def test_the_census_counts_bytes_ONCE_PER_INODE_and_never_per_entry(tmp_path):
@@ -280,3 +313,111 @@ def test_the_device_is_recorded_beside_the_inode_comparison(tmp_path):
     assert c["same_device"] is True
     assert c["driver_dev"] in c["devices"]
     assert c["driver_inode"] is not None
+
+
+# ------------------------------------------- 5b: the relocated-target line
+
+#: An original recorded under one target root, and the two re-runs the E4′
+#: loop can produce: one that differs ONLY by the root (every pair of the
+#: real run, since §1.4 gives the re-run a fresh target), and one that also
+#: differs somewhere else. The keys are the four cargo derives from the root
+#: (`refocus_env`'s docstring names them).
+ORIG_ENV = {
+    "PATH": "/usr/bin",
+    "CARGO_TARGET_DIR": "/build/target-a",
+    "CARGO_BIN_EXE_app": "/build/target-a/debug/app",
+    "LD_LIBRARY_PATH": "/build/target-a/debug:/usr/lib",
+}
+RELOCATED_ENV = {
+    "PATH": "/usr/bin",
+    "CARGO_TARGET_DIR": "/build/target-b",
+    "CARGO_BIN_EXE_app": "/build/target-b/debug/app",
+    "LD_LIBRARY_PATH": "/build/target-b/debug:/usr/lib",
+}
+#: The same relocation, plus one key that really did change: the loader path
+#: gained a directory. `refocus_env` compares entry by entry for exactly
+#: this case, so the added directory cannot ride in behind the relocation.
+ALSO_CHANGED_ENV = dict(RELOCATED_ENV,
+                        LD_LIBRARY_PATH="/build/target-b/debug:/usr/lib:/opt")
+
+
+def _refocus_env(tmp_path, monkeypatch, capsys, orig_env, rerun_env) -> str:
+    """The whole command over a pair whose two sides recorded different
+    environments. Same program on both sides, so the verdict is a MATCH and
+    the env line is the only thing under test."""
+    _drive(tmp_path, monkeypatch, pairs=[(PAIR, ORIG)],
+           program=partial(libtest_original, env=orig_env),
+           build=partial(libtest_original, env=rerun_env))
+    return capsys.readouterr().out
+
+
+def test_a_relocated_target_is_read_as_relocated_and_not_as_a_change(
+        tmp_path, monkeypatch, capsys):
+    """Task 5b's line, on the shape EVERY pair of the real run will take:
+    §1.4 gives the re-run a FRESH `CARGO_TARGET_DIR`, so the four variables
+    cargo derives from the root differ on all 61. The record must name them
+    as relocated and must NOT report an environment that changed."""
+    out = _refocus_env(tmp_path, monkeypatch, capsys, ORIG_ENV, RELOCATED_ENV)
+    p = rd.parse_refocus(out)
+    assert p["env_status"] == "unchanged", p["env_line"]
+    assert p["env_relocated_keys"] == ["CARGO_BIN_EXE_app",
+                                       "CARGO_TARGET_DIR",
+                                       "LD_LIBRARY_PATH"]
+    assert p["env_relocated_n"] == 3
+    assert p["env_changed_for_other_keys"] is False
+    assert p["env_changed_n"] == 0
+    assert p["env_changed_keys"] == []
+
+
+def test_a_key_that_changed_for_ANOTHER_reason_is_reported_beside_it(
+        tmp_path, monkeypatch, capsys):
+    """The discriminator, and the reason 5b is not a list of excluded
+    names: a loader path that gained a directory is a change, and it must
+    still be visible with the relocation named beside it."""
+    out = _refocus_env(tmp_path, monkeypatch, capsys, ORIG_ENV,
+                       ALSO_CHANGED_ENV)
+    p = rd.parse_refocus(out)
+    assert p["env_status"] == "CHANGED", p["env_line"]
+    assert p["env_changed_for_other_keys"] is True
+    assert p["env_changed_n"] == 1
+    assert p["env_changed_keys"] == ["LD_LIBRARY_PATH"]
+    assert p["env_relocated_keys"] == ["CARGO_BIN_EXE_app",
+                                       "CARGO_TARGET_DIR"]
+    assert p["env_relocated_n"] == 2
+
+
+def test_a_pair_whose_environment_never_moved_names_NO_relocated_key(
+        tmp_path, monkeypatch, capsys):
+    """The clause is "empty when it explained none", so a pair recorded and
+    re-run under one root reads exactly as it did before 5b: an empty list,
+    not a null -- the line was read and it named none."""
+    out = _refocus_env(tmp_path, monkeypatch, capsys, ORIG_ENV, ORIG_ENV)
+    p = rd.parse_refocus(out)
+    assert p["env_status"] == "unchanged"
+    assert p["env_relocated_keys"] == []
+    assert p["env_changed_for_other_keys"] is False
+
+
+def test_an_env_line_that_never_printed_is_None_and_never_an_empty_list():
+    """None-vs-zero at the env clause: a pair with no `env:` line at all has
+    no reading, and `[]` there would say "the line named no relocated key",
+    which is a different fact."""
+    p = rd.parse_refocus("--- verdict ---\nrun: r-1\n")
+    assert p["env_line"] is None
+    assert p["env_relocated_keys"] is None
+    assert p["env_relocated_n"] is None
+    assert p["env_changed_for_other_keys"] is None
+    assert p["env_changed_n"] is None
+
+
+def test_the_recorders_own_uncompared_names_are_read_apart_from_both(
+        tmp_path, monkeypatch, capsys):
+    """`_env_of` appends its own clause to the same line. Read into its own
+    field, because "the recorder does not compare this" and "the world
+    moved this" are different claims about one variable."""
+    out = _refocus_env(tmp_path, monkeypatch, capsys, ORIG_ENV, RELOCATED_ENV)
+    p = rd.parse_refocus(out)
+    assert isinstance(p["env_recorder_own_keys"], list)
+    assert all(k.startswith("SENSORIUM_") or k in
+               ("RUSTC_WORKSPACE_WRAPPER",) or "_RUNNER" in k
+               for k in p["env_recorder_own_keys"]), p["env_line"]

@@ -56,12 +56,30 @@ def phase_h4(paths, two: dict) -> dict:
         "not_linked": census.get("not_linked"),
         "same_device": census.get("same_device"),
         "keys_as_predicted": census.get("keys") == EXPECTED_SHIM_KEYS,
-        "all_linked": (None if entries in (None, 0)
-                       else linked == entries),
+        # The denominator is the KEYS, never the entries. §1's gate is "61
+        # focused keys, and FOR EVERY KEY the `st_ino` of its
+        # `cargo-sensorium` equals the driver's" -- and a key directory
+        # holding no binary has no `st_ino` at all. Comparing `linked` to
+        # `entries` drops that key out of the denominator and publishes
+        # "every key linked" over a census that did not cover every key.
+        "all_linked": (None if not census.get("exists") or entries is None
+                       else linked == census.get("keys")),
+        "entries_cover_every_key": census.get("entries_cover_every_key"),
+        "keys_without_a_binary": census.get("keys_without_a_binary"),
         "refocuses_measured": len(measured),
     }
     # The finding branch, and the one condition §1.2 says disables it.
-    if out["all_linked"] is False and census.get("same_device") is True:
+    if census.get("keys_without_a_binary"):
+        # Told apart from a copy: an install that made the key directory
+        # and could not put the binary in it (`4edd5c7`) is not R3 falling
+        # back to a copy, and the two must not read the same.
+        out["finding"] = (
+            f"{len(census['keys_without_a_binary'])} shim key(s) hold NO "
+            f"`cargo-sensorium` at all: {census['keys_without_a_binary']}. "
+            "A key with no binary has no `st_ino`, so H4's gate -- for "
+            "EVERY key -- is not met, and the key is counted in the "
+            "denominator rather than dropped out of it")
+    elif out["all_linked"] is False and census.get("same_device") is True:
         out["finding"] = (
             f"{len(census.get('not_linked') or [])} shim key(s) hold a "
             "DISTINCT inode from the driver on the same filesystem, where a "
@@ -74,6 +92,9 @@ def phase_h4(paths, two: dict) -> dict:
             "and §1.2's finding branch does not apply")
     else:
         out["finding"] = None
+    out["as_predicted"] = bool(out["keys_as_predicted"]
+                               and out["all_linked"]
+                               and out["entries_cover_every_key"])
     step(f"H4: {out['keys']} key(s), {out['entries']} entr(ies), "
          f"{out['distinct_inodes']} distinct inode(s), "
          f"{out['bytes_once_per_inode']} byte(s) once per inode; linked "
@@ -147,8 +168,13 @@ def _dry_assemble(which: str, expected: str) -> dict:
         text = "\n".join(renderer.environment(record))
         out["sentence"] = next((ln for ln in text.splitlines()
                                 if ln.startswith("**Schema.**")), None)
-        out["renderer_prints_it"] = bool(out["sentence"]
-                                         and expected in out["sentence"])
+        # `and assembler_stamps == expected`, not the token's presence
+        # alone: the stub is SEEDED with `expected`, so an assembler
+        # stamping `e9/2` would print "re-derived under `e9/2` from a raw
+        # written under `e9/1`" and the token would still be in the
+        # sentence. The reading has to be about the assembler.
+        out["renderer_prints_it"] = bool(
+            out["sentence"] and out["assembler_stamps"] == expected)
         committed = REPO / "docs" / "superpowers" / "acceptance" / (
             Path(record["acceptance"]).with_suffix("").name + ".results.json")
         out["committed"] = str(committed)

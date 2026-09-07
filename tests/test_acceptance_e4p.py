@@ -29,11 +29,20 @@ from acceptance_lib import Refused                                 # noqa: E402
 #: refuses on, and the one the brief carries.
 DOC_SHA = "82152208e2fa57f54c573dea8305be28097529fd2544e2be5caabd16e6bf3528"
 
-INSTRUMENT = ("acceptance_e4p.py", "acceptance_e4p_cells.py",
-              "acceptance_e4p_phases.py", "acceptance_e4p_phases2.py",
-              "acceptance_e4p_read.py", "acceptance_e4p_rows.py",
-              "acceptance_e4p_schema.py", "acceptance_e4p_store.py",
-              "render_e4p.py")
+#: DERIVED, like `TEST_FILES` below and for the same reason: a hand-written
+#: list is a guard that goes stale the next time a module is added, and this
+#: one did — `acceptance_e4p_preflight.py` arrived when the runner crossed
+#: the 800-line ceiling.
+INSTRUMENT = tuple(sorted(
+    p.name for p in (REPO / "rust" / "tests").glob("acceptance_e4p*.py"))
+) + ("render_e4p.py",)
+
+
+def test_the_scanned_module_list_covers_every_module_of_this_instrument():
+    assert len(INSTRUMENT) >= 10, INSTRUMENT
+    for name in ("acceptance_e4p.py", "acceptance_e4p_preflight.py",
+                 "acceptance_e4p_read.py", "render_e4p.py"):
+        assert name in INSTRUMENT
 
 
 # -- the byte-lock ---------------------------------------------------------
@@ -398,10 +407,19 @@ def test_no_module_of_this_instrument_names_a_box_path(name):
         assert needle not in text, f"{name} names {needle}"
 
 
-@pytest.mark.parametrize("name", ["test_acceptance_e4p.py",
-                                  "test_acceptance_e4p_read.py",
-                                  "test_acceptance_e4p_record.py",
-                                  "test_acceptance_e4p_store.py"])
+#: DERIVED, never listed: a hand-written list is a guard that goes stale
+#: the next time a test file is added, which is exactly what happened when
+#: `test_acceptance_e4p_phases.py` arrived.
+TEST_FILES = sorted(p.name for p in (REPO / "tests").glob(
+    "test_acceptance_e4p*.py"))
+
+
+def test_the_scanned_test_list_covers_every_file_of_this_instrument():
+    assert len(TEST_FILES) >= 5, TEST_FILES
+    assert "test_acceptance_e4p_phases.py" in TEST_FILES
+
+
+@pytest.mark.parametrize("name", TEST_FILES)
 def test_no_test_of_this_instrument_names_a_box_path(name):
     """The same rule on this side of the line: a test that hard-coded the
     box's store would pass here and nowhere else."""
@@ -425,3 +443,110 @@ def test_the_scan_would_actually_CATCH_a_box_path():
 def test_every_module_of_this_instrument_is_under_800_lines(name):
     n = len((RUST_TESTS / name).read_text().splitlines())
     assert n <= 800, f"{name} is {n} lines"
+
+
+# -- the review's honesty items -------------------------------------------
+
+def test_the_preflight_refuses_while_any_cargo_is_running(monkeypatch):
+    """This run builds the driver, rebuilds 61 units into a fresh target and
+    finally runs `cargo test --workspace`. A second cargo sharing the box
+    changes every wall the record reports and can hold a lock the build
+    needs. `pgrep -x` — the EXACT process name, never `-f`, whose pattern
+    would match this runner's own argv and refuse against itself."""
+    calls = []
+
+    def fake(cmd, **kw):
+        calls.append(cmd)
+        import subprocess as sp
+        return sp.CompletedProcess(cmd, 0, stdout="12345\n", stderr="")
+    monkeypatch.setattr(runner.subprocess, "run", fake)
+    with pytest.raises(Refused) as e:
+        runner.cargo_running()
+    assert calls[0] == ["pgrep", "-x", "cargo"]
+    assert "-f" not in calls[0]
+    assert "12345" in str(e.value)
+
+
+def test_the_cargo_check_RECORDS_its_result_when_nothing_is_running(
+        monkeypatch):
+    """Recorded either way: "no cargo was running" is a lens fact of the
+    run, and a check whose passing leaves no trace cannot be audited."""
+    def fake(cmd, **kw):
+        import subprocess as sp
+        return sp.CompletedProcess(cmd, 1, stdout="", stderr="")
+    monkeypatch.setattr(runner.subprocess, "run", fake)
+    rec = runner.cargo_running()
+    assert rec["command"] == "pgrep -x cargo"
+    assert rec["running"] is False
+    assert rec["pids"] == []
+
+
+def test_a_KILLED_invocation_is_named_by_the_KILLS_words_not_by_H1():
+    """The review's finding: a row killed at its ceiling leaves its licence
+    unread, `partition_as_predicted` goes False, and the first line Task 6
+    reads used to attribute a kill-4/5 event to kill 1 (the partition).
+    The kill is named FIRST, by the words of the rule that applies."""
+    stops = runner._stops({
+        "numbers_read": True,
+        "raw_pass2": {"killed": ["a_pager_can_be_shared_across_threads"],
+                      "budget_exhausted": [], "n": 61, "measured": 61},
+        "raw_h1": {"partition_as_predicted": False, "granted_n": 60,
+                   "n": 61},
+    })
+    first = stops[0]
+    assert "KILLED" in first
+    assert "a number had already been read" in first
+    assert "STOP" in first
+    assert "kill 1" not in first
+    assert any("kill 1" in s for s in stops[1:]), "H1 still says its piece"
+
+
+def test_a_kill_BEFORE_any_number_is_named_as_the_INFRASTRUCTURE_kill():
+    """§1.4's rule 4 by its WORDS: a `.FAILED` before any number has been
+    read is infrastructure — the run is archived, the fresh locations
+    emptied, the 61 copies re-made, and it is relaunched from zero."""
+    stops = runner._stops({
+        "numbers_read": False,
+        "raw_pass2": {"killed": ["x"], "budget_exhausted": [], "n": 61,
+                      "measured": 61},
+    })
+    assert stops
+    assert "infrastructure" in stops[0]
+    assert "relaunched from zero" in stops[0]
+    assert "STOP" not in stops[0]
+
+
+def test_the_H1_stop_sentence_names_a_real_denominator():
+    """It used to render "granted 0 of ?" — dividing a count by the length
+    of its own list. §1.2's denominator is the 61."""
+    stops = runner._stops({
+        "numbers_read": True,
+        "raw_h1": {"partition_as_predicted": False, "granted_n": 0,
+                   "n": 61, "expected_granted_n": 57}})
+    assert "0 of 61" in stops[0]
+    assert " of ?" not in stops[0]
+
+
+def test_numbers_read_is_flushed_the_moment_the_first_number_is_read(
+        tmp_path):
+    """Not computed at the end: a run that dies between the first reading
+    and the marker must still leave a raw record that SAYS a number was
+    read, or §1.4's rules 4 and 5 cannot be applied to it at all."""
+    res = {"started": "now"}
+    path = tmp_path / "raw.json"
+    runner.mark_numbers_read(res, path, "pass 2 read a verdict for row 1")
+    assert res["numbers_read"] is True
+    assert res["numbers_read_because"] == "pass 2 read a verdict for row 1"
+    assert res["numbers_read_at"]
+    import json
+    assert json.loads(path.read_text())["numbers_read"] is True
+
+
+def test_marking_it_twice_keeps_the_FIRST_reason(tmp_path):
+    """The field records when the first number was read, not the last."""
+    res, path = {}, tmp_path / "raw.json"
+    runner.mark_numbers_read(res, path, "the first")
+    first_at = res["numbers_read_at"]
+    runner.mark_numbers_read(res, path, "the second")
+    assert res["numbers_read_because"] == "the first"
+    assert res["numbers_read_at"] == first_at

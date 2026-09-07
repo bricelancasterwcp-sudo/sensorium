@@ -86,6 +86,30 @@ SOURCE_LINE = re.compile(r"^source: (?P<rest>.*)$", re.M)
 ENV_LINE = re.compile(r"^env: (?P<rest>.*)$", re.M)
 STATUSES = ("unchanged", "CHANGED", "unverifiable")
 
+#: Task 5b's clause, `refocus_env.relocated_clause` verbatim. §1.4 gives the
+#: re-run a FRESH `CARGO_TARGET_DIR`, so the four variables cargo derives
+#: from the target root differ on EVERY pair of this record; 5b asks whether
+#: each difference disappears when the original's root is rewritten to the
+#: re-run's, and names the keys it explained that way. They are recorded per
+#: pair -- named, never counted away -- because "the tool re-ran your
+#: program somewhere else" and "your environment changed" are the two
+#: readings this endpoint has to keep apart.
+ENV_RELOCATED = re.compile(
+    r"(?P<n>\d+) variable\(s\) differ only by the target directory: "
+    r"(?P<keys>.+?); treated as unchanged")
+#: `refocus_world._env_state`'s CHANGED branch. Its name list is CAPPED at
+#: eight and then carries `, +N more`, so the COUNT is authoritative and the
+#: names may be short -- recorded as two fields, with the truncation stated.
+ENV_CHANGED = re.compile(
+    r"^env: CHANGED since the original run -- (?P<n>\d+) variable\(s\) "
+    r"differ: (?P<keys>.+?)\s{3}\(names only\)", re.M)
+ENV_CHANGED_MORE = re.compile(r",\s*\+(?P<n>\d+) more$")
+#: `refocus_rust._env_of` appends this LAST, after the relocated clause.
+#: Its own field: "the recorder does not compare this" and "the world moved
+#: this" are different claims about one variable.
+ENV_RECORDER_OWN = re.compile(
+    r"the recorder's own, also not compared: (?P<keys>.+?)\s*$", re.M)
+
 #: `refocus_rust._print_unverifiable` and `refocus_world.UNVERIFIABLE`.
 UNVERIFIABLE_HEADER = re.compile(
     r"^checks that could not run on this pair\b.*$", re.M)
@@ -200,6 +224,11 @@ def parse_refocus(text: str) -> dict:
         "focus": None, "window": None,
         "source_line": None, "source_status": None,
         "env_line": None, "env_status": None,
+        "env_relocated_keys": None, "env_relocated_n": None,
+        "env_changed_keys": None, "env_changed_n": None,
+        "env_changed_keys_truncated": None,
+        "env_changed_for_other_keys": None,
+        "env_recorder_own_keys": None,
         "exit_line": None, "exit_rerun": None, "exit_original": None,
         "exit_status_equal": None,
         "pair_run": None, "pair_run_line": None,
@@ -240,6 +269,7 @@ def parse_refocus(text: str) -> dict:
     if m:
         out["env_line"] = m.group(0).strip()
         out["env_status"] = _status_of(m.group("rest"))
+        _read_env_clauses(out["env_line"], out)
     m = EXIT_LINE.search(text)
     if m:
         out["exit_line"] = m.group(0).strip()
@@ -322,6 +352,49 @@ def _read_pair_line(text: str, out: dict) -> None:
         out["excluded_children"] = [i.strip()
                                     for i in note.group("ids").split(",")
                                     if i.strip()]
+
+
+def _read_env_clauses(line: str, out: dict) -> None:
+    """Task 5b's two readings of ONE `env:` line, kept apart.
+
+    `env_relocated_keys` is what the target-root rule explained; it is `[]`
+    -- not `None` -- when the line printed no such clause, because the line
+    WAS read and it named none. `env_changed_for_other_keys` is whether the
+    clause fired for anything else, which is the reading that still
+    withholds a licence.
+
+    Both stay `None` when there is no `env:` line at all: a pair with no
+    reading has no lists, and `[]` there would claim the line said nothing
+    moved.
+    """
+    m = ENV_RELOCATED.search(line)
+    if m:
+        out["env_relocated_keys"] = [k.strip()
+                                     for k in m.group("keys").split(",")
+                                     if k.strip()]
+        out["env_relocated_n"] = int(m.group("n"))
+    else:
+        out["env_relocated_keys"], out["env_relocated_n"] = [], 0
+    m = ENV_CHANGED.search(line)
+    if m:
+        shown = m.group("keys").strip()
+        more = ENV_CHANGED_MORE.search(shown)
+        if more:
+            shown = shown[:more.start()]
+        out["env_changed_keys"] = [k.strip() for k in shown.split(",")
+                                   if k.strip()]
+        out["env_changed_n"] = int(m.group("n"))
+        out["env_changed_keys_truncated"] = bool(more)
+    else:
+        out["env_changed_keys"], out["env_changed_n"] = [], 0
+        out["env_changed_keys_truncated"] = False
+    # Derived from the COUNT, never from the name list, which the printer
+    # caps at eight.
+    out["env_changed_for_other_keys"] = bool(out["env_changed_n"])
+    m = ENV_RECORDER_OWN.search(line)
+    out["env_recorder_own_keys"] = ([k.strip()
+                                     for k in m.group("keys").split(",")
+                                     if k.strip()] if m else [])
 
 
 def licence_partition(parsed: dict) -> dict:
@@ -556,15 +629,24 @@ def shim_census(target: Path, driver: Path) -> dict:
         "keys": None, "entries": None, "distinct_inodes": None,
         "bytes_once_per_inode": None, "linked_to_the_driver": None,
         "not_linked": None, "same_device": None, "names": None,
+        "keys_without_a_binary": None, "entries_cover_every_key": None,
     }
     if not shim.is_dir():
         return out
     keys = sorted(p.name for p in shim.iterdir() if p.is_dir())
     seen, linked, unlinked, devices, total = {}, [], [], set(), 0
-    entries = 0
+    entries, empty = 0, []
     for key in keys:
         binary = shim / key / "cargo-sensorium"
         if not binary.is_file():
+            # NAMED, never skipped into silence. A key directory with no
+            # binary has no `st_ino`, so H4's gate -- "for every key" --
+            # is not met; dropping it here would take it out of the
+            # DENOMINATOR too and let `linked == entries` read as though
+            # every key had linked. That is the failure `4edd5c7` makes
+            # reachable: the install created the directory and could not
+            # place the binary.
+            empty.append(key)
             continue
         st = binary.stat()
         entries += 1
@@ -578,6 +660,8 @@ def shim_census(target: Path, driver: Path) -> dict:
             unlinked.append(key)
     out.update({
         "keys": len(keys), "entries": entries,
+        "keys_without_a_binary": empty,
+        "entries_cover_every_key": entries == len(keys),
         "distinct_inodes": len(seen), "bytes_once_per_inode": total,
         "linked_to_the_driver": len(linked), "not_linked": sorted(unlinked),
         "same_device": (None if driver_stat is None or not devices

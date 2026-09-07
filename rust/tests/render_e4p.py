@@ -248,7 +248,10 @@ def _h4(r) -> list[str]:
             f"total is never the sum of the per-entry sizes. Driver inode "
             f"`{e.get('driver_inode')}`; shim and driver on one filesystem: "
             f"{_yn(e.get('same_device'))}; keys not linked: "
-            f"{e.get('not_linked') or 'none'}.", ""]
+            f"{e.get('not_linked') or 'none'}. Every key holds a "
+            f"`cargo-sensorium`: {_yn(e.get('entries_cover_every_key'))}"
+            + (f" — keys holding none: {e.get('keys_without_a_binary')}"
+               if e.get("keys_without_a_binary") else "") + ".", ""]
     if e.get("finding"):
         out += [f"**Finding (not a STOP).** {e['finding']}", ""]
     return out
@@ -307,14 +310,15 @@ def pairs(r) -> list[str]:
         return []
     out = ["### The 61 pairs", "",
            "| # | test | original | pair | verdict | exit | licence | "
-           "program threads | harness | names the exclusion |",
-           "|---|---|---|---|---|---|---|---|---|---|"]
+           "program threads | harness | names the exclusion | env | "
+           "relocated keys |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for p in rows:
         killed = p.get("measured")
         if isinstance(killed, dict) and killed.get("killed"):
             out.append(f"| {p.get('index')} | `{p.get('name')}` | "
                        f"`{p.get('original') or '—'}` | KILLED | "
-                       f"{killed.get('reason')} | | | | | |")
+                       f"{killed.get('reason')} | | | | | | | |")
             continue
         out.append(
             f"| {p.get('index')} | `{p.get('name')}` | "
@@ -322,7 +326,9 @@ def pairs(r) -> list[str]:
             f"{p.get('verdict') or 'none printed'} | {p.get('exit')} | "
             f"{p.get('licence') or 'none printed'} | "
             f"{p.get('program_threads')} | {p.get('harness_threads')} | "
-            f"{_yn(p.get('names_the_exclusion'))} |")
+            f"{_yn(p.get('names_the_exclusion'))} | "
+            f"{p.get('env_status') or 'not read'} | "
+            f"{', '.join(p.get('env_relocated_keys') or []) or '—'} |")
     out.append("")
     return out
 
@@ -356,6 +362,18 @@ def ungated(r) -> list[str]:
            f"**The invocation log.** {rep.get('invocation_log_rows')} row(s) "
            f"— this record's own; the 61 copied originals carry none from "
            f"E4.", ""]
+    env = rep.get("env_relocation") or {}
+    out += [f"**The target directory, relocated.** §1.4 gives the re-run a "
+            f"FRESH `CARGO_TARGET_DIR`, so the variables cargo derives from "
+            f"the root differ on every pair. "
+            f"{env.get('pairs_with_a_relocated_target')} pair(s) had a key "
+            f"the target-root rule explained "
+            f"({', '.join(env.get('relocated_keys_seen') or []) or 'none'}); "
+            f"{env.get('pairs_changed_for_another_key')} pair(s) had a key "
+            f"it did NOT — those are changes and still withhold. Pairs whose "
+            f"`env:` line was not read: "
+            f"{env.get('pairs_whose_env_line_was_not_read') or 'none'}. "
+            f"{env.get('note')}.", ""]
     lic = rep.get("licence_wording") or {}
     out += [f"**H1's second reading, whole.** Harness phrase(s): "
             f"{lic.get('harness_phrases') or 'none'}. Granted lines hiding "
