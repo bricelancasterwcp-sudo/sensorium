@@ -13,8 +13,6 @@ import subprocess
 import sys
 import threading
 
-import pytest
-
 from sensorium.record import boot
 from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter

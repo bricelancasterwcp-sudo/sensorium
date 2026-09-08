@@ -1,9 +1,7 @@
 """Booting a target under recording, run metadata, and the `run` command."""
 import io
 import json
-import subprocess
 import sys
-import threading
 from pathlib import Path
 
 import pytest

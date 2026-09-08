@@ -11,7 +11,6 @@ import re
 
 from sensorium import cli, paths
 from sensorium.query.diff_cmd import compare, first_divergence
-from sensorium.store import db
 from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter
 from tests.helpers import finalize_synthetic, run_cli

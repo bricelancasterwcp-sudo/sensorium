@@ -1,14 +1,8 @@
 """`tree` and `frame`: what actually ran, and one activation in full."""
-import shutil
-import sys
-
-import pytest
-
 from sensorium.exit import BAD_CALL, NEGATIVE
 from sensorium import cli, paths
-from sensorium.query import tree_cmd
 from sensorium.store.writer import TraceWriter
-from tests.helpers import record_inproc, record_script
+from tests.helpers import record_script
 
 SRC = """
 def gold(total):

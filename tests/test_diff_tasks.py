@@ -11,11 +11,9 @@ two recording helpers are the first file's, imported and never copied.
 import re
 
 from sensorium import cli, paths
-from sensorium.query.diff_cmd import compare
 from sensorium.store import db
 from sensorium.store.writer import TraceWriter
 from tests.helpers import LEGACY_FORMAT, finalize_synthetic, run_cli
-from tests.programs import record
 from tests.test_diff import _rec, _synthetic
 
 
