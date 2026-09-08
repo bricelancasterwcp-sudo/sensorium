@@ -12,16 +12,16 @@ could report a wrong number while every command it ran succeeded:
   `--lib` tail; WS0 is WS under the BASE driver in its OWN target and trace
   store, and a control sharing either would be the repaired driver run
   against itself (design B5);
-* the two prep builds -- each is one half of the flip diff, and they must not
-  overwrite each other's log or each other's driver and target;
 * the flip diff's arithmetic -- a transition mislabelled, a row present in
   one build only, or a named row missing and assumed flipped, each turns
   E-flip's gate into one that cannot fail;
-* the provenance of every published number -- `source: "§1"` covers the five
-  numbers §1 freezes and no sixth;
-* none-versus-zero -- no arm's false-accusation count and no control verdict
-  may ever be invented (§1 asks for a reading of the clone's source), and
-  every null carries its reason.
+* the two prep builds -- each is one half of the flip diff, and they must not
+  overwrite each other's driver, target or log.
+
+What the run WRITES -- every field the results document publishes, the
+provenance of each number, none-versus-zero -- is the sibling
+`test_acceptance_e6q_record.py`'s, split off at the `# -- the schema` banner
+on 2026-09-08.
 
 Every test states the failure it would catch. The mutations run against them
 are in the task report.
@@ -29,7 +29,6 @@ are in the task report.
 
 from __future__ import annotations
 
-import importlib
 import json
 import sqlite3
 import sys
@@ -46,15 +45,15 @@ import acceptance_phases as ph                                     # noqa: E402
 import acceptance_e6q as runner                                    # noqa: E402
 import acceptance_rung3 as rung3                                   # noqa: E402
 from acceptance_lib import Refused, driver_cmd                     # noqa: E402
-from acceptance_schema_e6q import assemble_e6q                     # noqa: E402
 
 # Importing the runner re-points the SHARED log pointers at THIS document's
-# workspace (the runner's job; the reload test at the end pins it). But
-# `tests/test_acceptance_e6ppp.py` asserts the SAME invariant for ITS runner
-# and both modules are imported at COLLECTION time, so whichever pytest
-# collected last would own the pointer and the sibling assertion would fail on
-# collection order alone. Restoring E6‴'s pointers here makes both suites
-# order-independent and costs nothing: every phase runs inside a `logs_at`.
+# workspace (the runner's job; the reload test in the `_record` sibling pins
+# it). But `tests/test_acceptance_e6ppp.py` asserts the SAME invariant for ITS
+# runner and every such module is imported at COLLECTION time, so whichever
+# pytest collected last would own the pointer and the sibling assertion would
+# fail on collection order alone. Restoring E6‴'s pointers here makes the
+# suites order-independent and costs nothing: every phase runs inside a
+# `logs_at`.
 lib.LOGS, lib.LEDGER, ph.LOGS = e6ppp.LOGS, e6ppp.LEDGER, e6ppp.LOGS
 
 
@@ -509,292 +508,3 @@ def test_the_two_preps_run_under_their_own_driver_and_target(tmp_path,
     assert seen == [(p["sensorium_driver"], p["sensorium_acceptance_target"]),
                     (p["sensorium_base_driver"], p["sensorium_control_target"])]
 
-
-# -- the schema ------------------------------------------------------------
-
-
-RAW_ARMS = {
-    "raw_arm_a": {
-        "swallowed_count": 3, "chains_in_scope": 9, "processes": 1,
-        "union_swallowed_count": 3, "unparsed_swallowed": 0,
-        "tally": {"swallowed": 3}, "tally_line": "dispositions: swallowed 3",
-        "selector": ["-p", "bloomery-daemon"], "tail": ["--lib"],
-        "driver_role": "head",
-        "sweep": {"swallowed_count": 0, "processes_swept": 0, "swept": [],
-                  "swallowed_parsed": []}},
-    "raw_arm_ws": {
-        "swallowed_count": 2, "chains_in_scope": 5, "processes": 40,
-        "union_swallowed_count": 9, "unparsed_swallowed": 0,
-        "tally": {"swallowed": 2}, "tally_line": "dispositions: swallowed 2",
-        "selector": ["--workspace"], "tail": [], "driver_role": "head",
-        "sweep": {"swallowed_count": 7, "processes_swept": 39,
-                  "swallowed_parsed": [{"unparsed": False}] * 7,
-                  "swept": [{"tally_line": "dispositions: swallowed 3"},
-                            {"tally_line": "dispositions: swallowed 4, "
-                                           "ambiguous 2"}]}},
-    "raw_arm_ws0": {
-        "swallowed_count": 4, "chains_in_scope": 6, "processes": 40,
-        "union_swallowed_count": 11, "unparsed_swallowed": 0,
-        "tally": {"swallowed": 4}, "tally_line": "dispositions: swallowed 4",
-        "selector": ["--workspace"], "tail": [], "driver_role": "base",
-        "sweep": {"swallowed_count": 7, "processes_swept": 39,
-                  "swallowed_parsed": [{"unparsed": False}] * 7,
-                  "swept": []}},
-}
-
-
-def test_neither_ws_arms_false_accusation_count_is_ever_invented():
-    doc = assemble_e6q({"raw_arm_a": {"swallowed_count": 3, "union_swallowed_count": 3}, "raw_arm_ws": {"swallowed_count": 1, "union_swallowed_count": 9}, "raw_arm_ws0": {"swallowed_count": 2, "union_swallowed_count": 11}})
-    for k in ("E6qA", "E6qWS", "E6qWS0"):
-        assert doc["endpoints"][k]["headline"]["value"] is None
-        assert doc["endpoints"][k]["headline"]["dropped"]
-
-
-def test_the_control_verdict_is_not_measured_until_the_hand_adjudication_is_pasted():
-    doc = assemble_e6q({"raw_arm_ws0": {"swallowed_count": 0, "union_swallowed_count": 0}})
-    assert doc["endpoints"]["E6qWS0"]["discriminating"]["value"] is None
-
-
-def test_the_controls_computed_evidence_is_published_beside_its_null_verdict():
-    """A null verdict with nothing beside it leaves the hand adjudication no
-    numbers to work from: the COUNT is computed, the verdict is not."""
-    doc = assemble_e6q({"raw_arm_ws0": {"swallowed_count": 4,
-                                        "union_swallowed_count": 11},
-                        "raw_flip_lines": {"ws0": {"count": 2, "lines": [],
-                                                   "unresolved": 0,
-                                                   "flip_sites": 11}}})
-    m = doc["endpoints"]["E6qWS0"]["lines_at_flipped_sites"]
-    assert m["value"] == 2 and m["dropped"] == []
-    assert doc["endpoints"]["E6qWS0"]["discriminating"]["value"] is None
-
-
-def test_the_flip_gate_cells_carry_the_frozen_delta_and_the_measured_count():
-    doc = assemble_e6q({"raw_flip": {"changed_count": 7, "only_handled_to_ambiguous": True, "named_all_flipped": True}, "frozen_census": {"arms_handled_before": 65, "arms_handled_after": 58}})
-    assert doc["endpoints"]["Eflip"]["changed_equals_delta"]["value"] is True
-    assert doc["endpoints"]["Eflip"]["changed_equals_delta"]["n"] == 7
-
-
-def test_the_flip_headline_counts_the_transitions_the_gate_forbids():
-    doc = assemble_e6q({"raw_flip": {"changed_count": 3,
-                                     "transitions": {
-                                         "arm_handled->arm_ambiguous": 2,
-                                         "arm_handled->arm_propagate": 1},
-                                     "only_handled_to_ambiguous": False,
-                                     "named_all_flipped": True},
-                        "frozen_census": runner.FROZEN_CENSUS})
-    e = doc["endpoints"]["Eflip"]
-    assert e["headline"]["value"] == 1 and e["headline"]["n"] == 3
-    assert e["changed_equals_delta"]["value"] is False
-
-
-def test_a_flip_diff_without_a_transition_table_is_null_not_a_clean_zero():
-    doc = assemble_e6q({"raw_flip": {"changed_count": 7,
-                                     "only_handled_to_ambiguous": True}})
-    h = doc["endpoints"]["Eflip"]["headline"]
-    assert h["value"] is None and h["dropped"]
-
-
-def test_the_frozen_census_is_the_five_numbers_section_1_actually_carries():
-    """The delta the flip gate is taken against is FROZEN before the lock. A
-    runner that re-derived it at run time would have no frozen denominator at
-    all -- and a number stamped `source: "§1"` that §1 does not carry would
-    give a ledger line the standing of a pre-registered pin."""
-    assert runner.FROZEN_CENSUS == {
-        "arms_handled_before": 65, "arms_handled_after": 54,
-        "arms_escaped_before": 121, "arms_escaped_after": 132,
-        "arm_sites": 225, "source": "§1"}
-    assert (runner.FROZEN_CENSUS["arms_handled_before"]
-            - runner.FROZEN_CENSUS["arms_handled_after"]) == 11
-    # §1 freezes five numbers and no sixth.
-    assert "arms_propagate" not in runner.FROZEN_CENSUS
-    assert len(runner.FROZEN_CENSUS) == 6                # five + the source
-    doc = (runner.DOC.read_text() if runner.DOC.is_file() else "")
-    if doc:
-        s1 = doc[doc.index("## 1. Pre-registration"):doc.index("\n## 2. ")]
-        for k, v in runner.FROZEN_CENSUS.items():
-            if k != "source":
-                assert f"`{k} = {v}`" in s1, k
-        assert "arms_propagate" not in s1
-
-
-def test_the_census_number_section_1_does_not_freeze_carries_its_own_source():
-    """`arms_propagate` is a T0/T1 ledger line, published beside the frozen
-    five and never under their label."""
-    assert runner.LEDGER_CENSUS["arms_propagate"] == 39
-    assert "NOT frozen in §1" in runner.LEDGER_CENSUS["source"]
-    doc = assemble_e6q({"frozen_census": runner.FROZEN_CENSUS,
-                        "ledger_census": runner.LEDGER_CENSUS})
-    env = doc["environment"]
-    assert env["frozen_census"] == runner.FROZEN_CENSUS
-    assert env["ledger_census"] == runner.LEDGER_CENSUS
-    assert "arms_propagate" not in env["frozen_census"]
-
-
-def test_the_schemas_arm_descriptions_match_the_runners_arms():
-    """The schema names each arm's command in prose (it may not import the
-    runner: the runner imports it). A drift between the two would put one
-    command in the lens and another in the record."""
-    import acceptance_schema_e6q as schema
-    for key, arm in (("E6qA", runner.ARM_A), ("E6qWS", runner.ARM_WS),
-                     ("E6qWS0", runner.ARM_WS0)):
-        spec = schema.ARMS[key]
-        assert spec["key"] == f"raw_arm_{arm['label']}"
-        assert spec["selector"] == " ".join(arm["selector"])
-        assert spec["tail"] == " ".join(arm["tail"])
-        assert spec["driver"] == arm["driver"]
-
-
-def test_the_union_is_the_primary_plus_the_sweep():
-    doc = assemble_e6q(RAW_ARMS)
-    ws = doc["endpoints"]["E6qWS"]
-    assert ws["swallowed_lines"]["value"] == 2
-    assert ws["sweep_swallowed_lines"]["value"] == 7
-    assert ws["union_swallowed_lines"]["value"] == 9
-
-
-def test_an_arm_that_swept_nothing_reports_null_not_a_measured_zero():
-    doc = assemble_e6q(RAW_ARMS)
-    a = doc["endpoints"]["E6qA"]["sweep_swallowed_lines"]
-    assert a["value"] is None and a["n"] == 0
-    assert any("0 of 0" in d for d in a["dropped"]), a["dropped"]
-
-
-def test_the_guarded_arm_count_is_published_with_its_provenance():
-    """Design B4 wants the guarded-arm count beside both readings. It RESTATES
-    the hand adjudication §4.4 of this document carries (§5.3 repeats it), so
-    an arm that RAN names that provenance and drops nothing, while an arm that
-    never ran has nothing to restate and stays null with a reason."""
-    doc, none = assemble_e6q(RAW_ARMS), assemble_e6q({})
-    for key, want in (("E6qA", 2), ("E6qWS", 374), ("E6qWS0", 374)):
-        g = doc["endpoints"][key]["guarded_arms"]
-        assert g["value"] == want and g["dropped"] == []
-        assert "§4.4" in g["provenance"]
-        assert none["endpoints"][key]["guarded_arms"]["value"] is None
-
-
-def test_a_phase_that_did_not_run_is_null_with_a_reason_never_zero():
-    doc = assemble_e6q({})
-    for key in ("E6qA", "E6qWS", "E6qWS0"):
-        m = doc["endpoints"][key]["swallowed_lines"]
-        assert m["value"] is None and m["dropped"]
-    assert doc["endpoints"]["E6again"]["headline"]["value"] is None
-    assert doc["endpoints"]["Eflip"]["changed_count"]["value"] is None
-    assert doc["endpoints"]["E0ppp"]["headline"]["value"] is None
-
-
-def test_e6again_and_e7q_and_e0ppp_are_the_committed_rung3_schema_not_copies():
-    """§1 calls them "verbatim". A second schema would be a second protocol,
-    free to disagree with the one the rung-3 and E6‴ records used."""
-    from acceptance_schema_rung3 import _e0pp, _e6 as rung3_e6, _e7pp
-    raw = {"raw_e6": {"cases": [{"case": "rust/x", "questions": [{
-        "id": "q", "printed_swallowed_count": 1, "expected_swallowed": 1,
-        "swallow_set_equal": True, "printed_tally": "dispositions: swallowed 1",
-        "tally_pinned": "dispositions: swallowed 1", "tally_equal": True,
-        "extra_swallowed_lines": [], "missing_swallow_groups": [],
-        "swallow_set_nonempty_ok": True, "corpus_check_failures": [],
-        "rc": 0, "expect_exit": 0, "printed_swallowed": ["SWALLOWED -- x"],
-    }]}]},
-        "raw_e7pp": {"ok": ["e7_a"], "fail": [], "skip": [], "rc": 0},
-        "raw_e0ppp": {"kill_s": 60.0, "run": "r1", "arms": {
-            "info": {"wall": 1.0, "under_ceiling": True},
-            "diff": {"wall": 2.0, "under_ceiling": True}}}}
-    doc = assemble_e6q(raw)
-    assert doc["endpoints"]["E6again"] == rung3_e6(raw)
-    assert doc["endpoints"]["E7q"] == _e7pp(raw)
-    # E0‴ is the committed block with ONLY its lens rewritten (below).
-    from acceptance_schema_e6q import E0_LENS_IS, E0_LENS_WAS
-    got, want = doc["endpoints"]["E0ppp"], _e0pp({"raw_e0pp": raw["raw_e0ppp"]})
-    assert set(got) == set(want)
-    for k, v in want.items():
-        if isinstance(v, dict) and isinstance(v.get("lens"), str):
-            assert got[k] == dict(v, lens=v["lens"].replace(E0_LENS_WAS,
-                                                            E0_LENS_IS))
-        else:
-            assert got[k] == v
-
-
-def test_the_e0ppp_lens_names_the_trace_this_run_actually_read():
-    """The rung-3 string says "the E6' trace". This run passes the E6⁗-WS
-    arm's process with the most events, and a lens naming another document's
-    arm would misdescribe every wall in the row."""
-    doc = assemble_e6q({"raw_e0ppp": {"kill_s": 60.0, "run": "r1", "arms": {
-        "info": {"wall": 1.0, "under_ceiling": True}}}})
-    for k in ("headline", "info_wall_s", "diff_wall_s", "max_wall_s"):
-        lens = doc["endpoints"]["E0ppp"][k]["lens"]
-        assert "E6⁗-WS process with the most events" in lens, k
-        assert "E6' trace" not in lens, k
-
-
-def test_a_reported_cell_that_did_not_run_carries_its_reason_not_an_empty_list():
-    """A `null` with an empty `dropped` renders as `not measured (no reason
-    recorded)` — this module's own rule broken at the two cells that say how
-    much of the tree each build declared and which flipped arms each arm
-    reached."""
-    rep = assemble_e6q({})["reported"]
-    for key in ("prep_head", "prep_base"):
-        m = rep[key]["arm_sites_distinct"]
-        assert m["value"] is None and m["dropped"], key
-    for label, e in rep["executed_flipped_arms"].items():
-        assert e["executed"]["value"] is None and e["executed"]["dropped"], label
-    # ... and a cell that DID run keeps its measured value with no reason.
-    ran = assemble_e6q({"raw_prep_head": {"arms": {"distinct": 7}}})
-    m = ran["reported"]["prep_head"]["arm_sites_distinct"]
-    assert m["value"] == 7 and m["dropped"] == []
-
-
-def test_the_renderer_prints_not_measured_rather_than_a_dash():
-    """A dash in a results table is indistinguishable from a zero at a
-    glance. The renderer must say what was not measured and why."""
-    from render_e6q import results
-    doc = assemble_e6q(RAW_ARMS)
-    doc["acceptance"] = "x.md"
-    text = "\n".join(results(doc))
-    assert "not measured (adjudicated by hand" in text
-    assert "E6⁗-A" in text and "E6⁗-WS" in text and "E6⁗-WS0" in text
-    assert "not measured (decided by the hand adjudication" in text
-
-
-def test_results_json_if_present_matches_the_committed_schema():
-    """After the run, the published `results.json` must be reproducible from
-    the raw record by the committed assembler -- not by a one-off script."""
-    p = (REPO / "docs" / "superpowers" / "acceptance"
-         / "2026-09-05-sensorium-rung3-e6q.results.json")
-    if not p.is_file():
-        pytest.skip("not measured yet")
-    doc = json.loads(p.read_text())
-    assert doc["acceptance"].endswith("2026-09-05-sensorium-rung3-e6q.md")
-    assert set(doc["endpoints"]) == {"E6qA", "E6qWS", "E6qWS0", "Eflip",
-                                     "E6again", "E7q", "E0ppp"}
-    for key in ("E6qA", "E6qWS", "E6qWS0"):
-        assert doc["endpoints"][key]["headline"]["value"] is None
-
-
-# -- the shared log pointer ------------------------------------------------
-
-
-def test_logs_at_moves_the_shared_log_directory_and_restores_it(tmp_path):
-    before = lib.LOGS
-    with runner.logs_at(tmp_path / "arm-ws"):
-        assert lib.LOGS == tmp_path / "arm-ws"
-        assert lib.LOGS.is_dir()
-    assert lib.LOGS == before
-
-
-def test_importing_the_runner_leaves_the_shared_log_pointer_on_THIS_document():
-    """`acceptance_rung3` AND `acceptance_e6ppp` re-point
-    `acceptance_lib.LOGS`/`LEDGER` in their module bodies, and
-    `e6ppp.phase_prep_build` resolves `e6ppp.LOGS`/`BASE` in ITS namespace.
-    All five must land on THIS document or a log lands beside another record
-    (the E6‴ §2 lesson). Reloaded rather than read off the session, because
-    the sibling suite asserts the same invariant and both modules are imported
-    at collection time; the pointers are restored afterwards."""
-    saved = (lib.LOGS, lib.LEDGER, ph.LOGS, e6ppp.LOGS, e6ppp.BASE)
-    try:
-        importlib.reload(runner)
-        assert lib.LOGS == runner.LOGS
-        assert lib.LEDGER == runner.LEDGER
-        assert ph.LOGS == runner.LOGS
-        assert e6ppp.LOGS == runner.LOGS
-        assert e6ppp.BASE == runner.BASE
-    finally:
-        lib.LOGS, lib.LEDGER, ph.LOGS, e6ppp.LOGS, e6ppp.BASE = saved
