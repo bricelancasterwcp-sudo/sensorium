@@ -28,7 +28,7 @@ Every builder here fixes its own event ids: the assertions name them
 literally, so a builder whose event list moved fails loudly rather than
 being re-pasted from a run.
 """
-from sensorium import cli
+from sensorium import cli, paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from tests.helpers import RUST_CAPABILITIES, rust_exc, rust_trace
 from tests.rust_traces import (FILE, S1, S2, SITE_FILE, call, err_flow, flow,
@@ -518,6 +518,30 @@ def test_an_ambiguous_prefix_is_refused(tmp_path, monkeypatch, capsys):
     assert cli.main(["exceptions", "20260101-000000-aaaaa"]) == BAD_CALL
     err = capsys.readouterr().err
     assert f"is ambiguous: {a}, {b}" in err, err
+
+
+def test_the_fall_through_is_on_the_TYPE_and_not_on_the_message(
+        tmp_path, monkeypatch, capsys):
+    """The guard's own guard. The fall-through tested the first words of
+    the lookup failure's MESSAGE -- correct while nobody reworded it, and
+    silently wrong the day somebody did: the second namespace would stop
+    opening and the only symptom would be a command answering less.
+
+    Reword the message and keep the type. The invocation lookup must still
+    run, which it says by naming the invocation namespace in its refusal --
+    a message sniff would have re-raised instead and printed the reworded
+    sentence.
+    """
+    swallow_trace(tmp_path, monkeypatch, run_id=M1)
+
+    def reworded(_ref):
+        raise paths.NoSuchTrace("nothing recorded goes by that name")
+
+    monkeypatch.setattr(paths, "find_trace", reworded)
+    assert cli.main(["exceptions", "20260101-000000-zzzzzz"]) == BAD_CALL
+    err = capsys.readouterr().err
+    assert "invocation" in err, err
+    assert "nothing recorded goes by that name" not in err, err
 
 
 def test_an_ambiguous_TRACE_prefix_keeps_its_own_answer(

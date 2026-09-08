@@ -271,11 +271,15 @@ def test_diff_compares_across_bases_when_neither_side_ran_a_task(
     assert "REFUSED" not in capsys.readouterr().out
 
 
-def _task_only(run_id, task_hash, name="task-A"):
+def _task_only(run_id, task_hash, name="task-A", file="/tmp/prog.py"):
     """A synthetic trace whose ONLY causal event ran inside a task, so its
     thread stream is empty under the per-task basis. Not reachable through
     the CLI (the target module is always traced), and the honest wording
-    for it still has to be pinned by something."""
+    for it still has to be pinned by something.
+
+    `file` is a parameter so one qualname can be given two homes across a
+    pair, which is what `--ignore-moves` pairs.
+    """
     w = TraceWriter(paths.traces_dir() / f"{run_id}.db")
     w.set_meta("run_id", run_id)
     w.set_meta("argv", ["prog.py"])
@@ -284,7 +288,7 @@ def _task_only(run_id, task_hash, name="task-A"):
     finalize_synthetic(w)
     w.set_meta("threads_started", 0)
     w.add_task(1, name, 1)
-    c = w.intern_code("/tmp/prog.py", "worker", 1)
+    c = w.intern_code(file, "worker", 1)
     w.add_event(0, 1, "CALL", None, c, 1, {"args": {}}, task_id=1)
     w.write_task_fingerprint(1, task_hash, 1)
     w.close()
@@ -306,6 +310,40 @@ def test_diff_does_not_call_an_empty_thread_stream_identical(
     assert "identical causal streams" not in out
     assert "no causal event ran outside a task on either side" in out
     assert "tasks: 1 task stream(s) on each side" in out
+
+
+def test_the_all_in_tasks_match_says_modulo_location_when_it_was_lenient(
+        tmp_path, monkeypatch, capsys):
+    """One leniency, one word for it, on every branch that used it.
+
+    The task streams below are compared through the SAME projection the
+    thread streams use, so a verdict reached because a code object was
+    paired across a move is `MATCH modulo location` on every other branch
+    and read a flat `MATCH` here -- on the one branch where the tasks carry
+    the whole verdict, so the leniency was hidden exactly where it decided
+    the most.
+    """
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    a = _task_only("20260101-000000-mvonla", "a" * 32)
+    b = _task_only("20260101-000000-mvonlb", "a" * 32, file="/tmp/moved.py")
+    assert cli.main(["diff", "--ignore-moves", a, b]) == 0
+    out = capsys.readouterr().out
+    assert ("verdict: MATCH modulo location -- no causal event ran outside "
+            "a task on either side, so the thread streams held nothing to "
+            "compare; the tasks below carry the whole verdict\n") in out, out
+
+
+def test_the_all_in_tasks_match_stays_flat_when_nothing_was_paired(
+        tmp_path, monkeypatch, capsys):
+    """The fence on the line above: `--ignore-moves` with nothing to pair
+    is not a leniency, and hedging an exact agreement reads as one."""
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    ids = [_task_only(r, "a" * 32)
+           for r in ("20260101-000000-mvsama", "20260101-000000-mvsamb")]
+    assert cli.main(["diff", "--ignore-moves", *ids]) == 0
+    out = capsys.readouterr().out
+    assert "modulo location" not in out, out
+    assert "verdict: MATCH -- no causal event ran outside a task" in out, out
 
 
 def test_diff_does_not_claim_a_match_on_an_empty_thread_stream_either(

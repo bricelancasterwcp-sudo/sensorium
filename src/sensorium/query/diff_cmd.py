@@ -555,9 +555,18 @@ def _print_thread_match(trace_a, trace_b, res) -> None:
         # on either side are refused outright. "Identical causal streams (0
         # events)" would be the verdict about nothing this command refuses
         # everywhere else, dressed as agreement.
-        print("verdict: MATCH -- no causal event ran outside a task on "
-              "either side, so the thread streams held nothing to compare; "
-              "the tasks below carry the whole verdict")
+        #
+        # "modulo location" belongs here too, and was missing: the TASK
+        # streams below were compared through the same projection, so a
+        # verdict reached because code objects were paired across a move
+        # said `MATCH` flat on this branch and `MATCH modulo location` on
+        # every other -- one leniency, printed on one branch and silent on
+        # the one where the tasks carry the whole verdict.
+        lenient = " modulo location" if modulo_location(res.get("moves")) \
+            else ""
+        print(f"verdict: MATCH{lenient} -- no causal event ran outside a "
+              "task on either side, so the thread streams held nothing to "
+              "compare; the tasks below carry the whole verdict")
         return
     exact = (trace_a.main_thread_basis() == "recorded"
             and trace_b.main_thread_basis() == "recorded")
@@ -695,8 +704,10 @@ def add_parser(sub) -> None:
     p.add_argument("--context", type=int, default=3,
                    help="common causal steps to show before a divergence")
     p.add_argument("--task", default=None, metavar="NAME",
-                   help="compare one asyncio task's stream by name instead "
-                        "of the thread streams")
+                   help="compare one recorded task's stream by name instead "
+                        "of the thread streams; what a task IS is the "
+                        "recorder's own, and `info` names the ones a run "
+                        "has")
     p.add_argument("--ignore-moves", action="store_true",
                    help="pair a function that left one file with the same-"
                         "named function that appeared in another, then "

@@ -32,13 +32,18 @@ def test_records_a_zero_a_one_a_two_and_a_caught_exception(
     assert cli.main(["info", run_id]) == 0                    # 0: describes
     assert cli.main(["tree", run_id, "--root", "f999999"]) == 1  # 1: no such
     assert cli.main(["grep", run_id, "x", "--limit", "0"]) == 2  # 2: bad call
-    assert cli.main(["info", "no-such-run"]) == 2              # TraceLookupError
+    assert cli.main(["info", "no-such-run"]) == 2              # NoSuchTrace
 
     lines = _lines(invocations.path())
     assert len(lines) == 4
     assert [ln["exit"] for ln in lines] == [0, 1, 2, 2]
+    # `NoSuchTrace` and not its base: the log records the class that was
+    # raised, and "this ref names no trace" became a type of its own so
+    # `exceptions` could dispatch on it instead of on the message's words
+    # (2026-09-08). A log that kept printing the base after the split would
+    # be naming a class the run did not raise.
     assert [ln["error"] for ln in lines] == [
-        None, None, None, "TraceLookupError"]
+        None, None, None, "NoSuchTrace"]
     assert lines[0]["argv"] == ["info", run_id]
     assert lines[3]["argv"] == ["info", "no-such-run"]
 
