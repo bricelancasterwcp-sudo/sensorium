@@ -761,3 +761,30 @@ def test_info_on_a_rust_trace_with_no_refocus_of_prints_no_such_line(
     run_id = rerunnable_trace(tmp_path, monkeypatch)
     assert cli.main(["info", run_id]) == 0
     assert "refocus-of:" not in capsys.readouterr().out
+
+
+# -- contract: an ABSENT `focus` key and an EMPTY one are two records, and
+# -- `info` prints two words. Design section 6's "`info` shows no `focus`
+# -- key" was pinnable only as `focus: -` while both collapsed into the dash.
+def test_info_tells_an_absent_focus_key_from_a_recorded_empty_one(
+        tmp_path, monkeypatch, capsys):
+    """The dash keeps the ABSENT key -- it is what this line already prints
+    for an absent `window`, and what the Rust corpus pins -- so `focus: -`
+    now means "this trace carries no `focus` key" and nothing else. A run
+    that recorded the list it was given, and was given none, says `none`.
+
+    `boot` always writes the list it was handed, so every unfocused Python
+    trace is on the recorded-empty side of that fence and every unfocused
+    Rust one is on the absent side. The two words differ because the two
+    RECORDS differ, which is the whole of what this line is for.
+    """
+    for i, (kw, line) in enumerate((({}, "focus: -"),
+                                    ({"focus": []}, "focus: none"),
+                                    ({"focus": ["compute"]},
+                                     "focus: compute"))):
+        run_id = rerunnable_trace(tmp_path / f"r{i}", monkeypatch, **kw)
+        assert cli.main(["info", run_id]) == 0
+        assert f"{line}    window: -\n" in capsys.readouterr().out, kw
+
+    assert cli.main(["info", _record(tmp_path / "py", monkeypatch)]) == 0
+    assert "focus: none    window: -\n" in capsys.readouterr().out
