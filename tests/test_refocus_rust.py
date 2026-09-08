@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from sensorium import paths
+from sensorium import driver as driver_mod, paths
 from sensorium.query import refocus_cmd, refocus_rust
 from sensorium.query.vocab import PYTHON, RUST
 from sensorium.store import db
@@ -38,7 +38,10 @@ def test_window_is_refused_first_and_nothing_is_re_run(tmp_path, monkeypatch,
     pins the ORDER and not merely the sentence."""
     run, _ = original(tmp_path, monkeypatch)
     monkeypatch.delenv("SENSORIUM_CARGO_SENSORIUM", raising=False)
-    monkeypatch.setattr(refocus_rust.shutil, "which", lambda _n: None)
+    # `sensorium.driver` is where the resolution lives now (one rule,
+    # three callers), so that is the module whose `shutil` the "no
+    # driver on this box" fixture has to patch.
+    monkeypatch.setattr(driver_mod.shutil, "which", lambda _n: None)
     monkeypatch.setattr(refocus_rust.subprocess, "run", _never)
 
     code, err = refuse(capsys, run, "compute", window="x")
@@ -110,7 +113,10 @@ def test_no_driver_is_refused_and_names_both_ways_to_supply_one(
     reported ahead of it."""
     run, _ = original(tmp_path, monkeypatch)
     monkeypatch.delenv("SENSORIUM_CARGO_SENSORIUM", raising=False)
-    monkeypatch.setattr(refocus_rust.shutil, "which", lambda _n: None)
+    # `sensorium.driver` is where the resolution lives now (one rule,
+    # three callers), so that is the module whose `shutil` the "no
+    # driver on this box" fixture has to patch.
+    monkeypatch.setattr(driver_mod.shutil, "which", lambda _n: None)
     monkeypatch.setattr(refocus_rust.subprocess, "run", _never)
 
     code, err = refuse(capsys, run, "compute")
@@ -640,11 +646,24 @@ def test_the_python_block_is_what_it_always_printed(tmp_path, monkeypatch):
     assert PYTHON.refocus_blind_spots == ()
 
 
-# -- one driver resolution, three copies of it -----------------------------
+# -- one driver resolution, three CALLERS of it ----------------------------
 def _driver_copies():
-    """The three places this project resolves `cargo-sensorium`. They are
-    separate ON PURPOSE -- `corpus/` is not in the wheel, so the query
-    command cannot import it -- which makes drift between them silent."""
+    """The three places this project resolves `cargo-sensorium`.
+
+    They were three copies of a two-line rule, kept in step by the
+    parametrised test below -- agreement that had to be re-established after
+    every edit, when what the three need is the SAME answer: a case records
+    with one binary and its `refocus` question re-runs with another the
+    moment they part. The rule moved to `sensorium.driver` (2026-09-08); the
+    query command can import it because it is inside the package, and the
+    corpus and the suite can because they already require the package to be
+    importable.
+
+    The parametrised agreement test is kept rather than replaced by the
+    identity check: identity is the stronger fact TODAY, and the four rows
+    are what the rule actually promises -- variable first, then PATH, empty
+    is not a driver, and None is an honest answer.
+    """
     import importlib.util
     from tests.test_focus_refusal import _driver as focus_refusal_driver
     root = Path(__file__).resolve().parent.parent
@@ -653,6 +672,22 @@ def _driver_copies():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return (refocus_rust.driver, mod.cargo_driver, focus_refusal_driver)
+
+
+def test_the_three_resolutions_are_one_function_and_not_three_that_agree():
+    """`refocus_rust.driver` and `run_corpus.cargo_driver` are one-line
+    forwards and `test_focus_refusal._driver` IS the shared function, so
+    two of the three are checked by reading and the third by identity."""
+    from sensorium.driver import cargo_sensorium
+    _refocus, _corpus, focus_refusal = _driver_copies()
+    assert focus_refusal is cargo_sensorium
+    src = Path(__file__).resolve().parent.parent / "src" / "sensorium"
+    for path in ("query/refocus_rust.py",):
+        assert "return cargo_sensorium()" in (src / path).read_text(), path
+    corpus = (Path(__file__).resolve().parent.parent / "corpus"
+              / "run_corpus.py").read_text()
+    assert "return cargo_sensorium()" in corpus
+    assert "os.environ.get(\"SENSORIUM_CARGO_SENSORIUM\")" not in corpus
 
 
 @pytest.mark.parametrize("env,which,expected", [

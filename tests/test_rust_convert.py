@@ -21,7 +21,8 @@ from pathlib import Path
 
 import pytest
 
-from corpus.run_corpus import check_question
+from corpus.run_corpus import RUN_LINE, check_question
+from corpus.run_corpus import _run_ids as corpus_run_ids
 from sensorium.store import db
 from sensorium.store.db import TraceFormatError
 from sensorium.store.reader import Trace
@@ -123,6 +124,12 @@ def test_case_converts_and_answers_every_question(case_name, tmp_path):
         expected = (f"run: {run_id}  pid: 5001  exe: fixture-solo  "
                     "events: 2  threads: 1  exit: unwitnessed")
         assert expected in result.stdout.splitlines(), result.stdout
+
+    # The corpus reads this line to learn what it just recorded, so the
+    # SHAPE is a contract between two programs and not a rendering detail.
+    # `run_corpus._run_ids` must find exactly the ids `_RUN_LINE` above
+    # does, on the real converter's real output.
+    assert run_ids == corpus_run_ids(result.stdout), result.stdout
 
     for q in questions:
         subbed = _sub(q, run_id, run_id2)
@@ -351,3 +358,41 @@ def test_every_case_pins_a_named_invariant_and_asserts_something():
                       ("expect_contains", "expect_line", "expect_count")), (
                 f"{where}: asserts nothing -- needs a non-empty "
                 "expect_contains / expect_line / expect_count")
+
+
+# -- the `run:` line's shape, byte for byte, and what reads it -------------
+
+#: The converter's line for the one case whose every field is fixed by the
+#: fixture, with a run id of the shape `runid::mint` writes. The literal is
+#: here rather than only inside the driver-backed test above because the
+#: corpus's reader is checked against it, and that check must run on the
+#: Python matrix too -- where there is no Rust toolchain and the driver-
+#: backed test is skipped by name.
+RUN_LINE_LITERAL = ("run: 20260101-000000-abcdef  pid: 5001  "
+                    "exe: fixture-solo  events: 2  threads: 1  "
+                    "exit: unwitnessed")
+
+
+def test_the_corpus_reads_the_run_line_the_converter_actually_prints():
+    """One shape, two programs. `corpus/run_corpus.py` learns what it just
+    recorded from this line, so its reader and the converter's writer are a
+    contract; the driver-backed test above pins the same literal against the
+    REAL binary, and this pins the reader against the literal."""
+    assert RUN_LINE.findall(RUN_LINE_LITERAL) == ["20260101-000000-abcdef"]
+    assert RUN_LINE.findall("run: 20260101-000000-abcdef") == [
+        "20260101-000000-abcdef"]
+
+
+@pytest.mark.parametrize("line", [
+    "run: Err(..)",                                  # a program's own stdout
+    "run: 20260101-000000-abcdef extra",             # one space, then prose
+    "run: 20260101-000000-abcdef   note",            # refocus's note spacing
+    "run: 20260101-000000-ABCDEF",                   # not lowercase hex
+    "run: 2026010-000000-abcdef",                    # short date
+    " run: 20260101-000000-abcdef",                  # not at line start
+])
+def test_the_corpus_refuses_a_run_line_that_is_not_one(line):
+    """The failure this key exists for: a case whose own program printed
+    `run: Err(..)` had that read as a trace id, and the case worked around
+    it rather than the reader being fixed."""
+    assert RUN_LINE.findall(line) == [], line
