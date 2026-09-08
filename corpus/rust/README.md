@@ -139,8 +139,12 @@ program records two processes and is recorded twice, so four — and it
 therefore never says `last` at all: it names the original by `$RUN`, the
 child of the original by `$RUN2`, and reads the pair and the excluded child
 run through `runs`. `refocus_spawned_test_fn` says `last` no more than that
-one does, for a different reason: what it asks for is the LICENCE, which the
-refocus prints itself, so both its questions name the original by `$RUN`.
+one does, and its reason has two halves because its questions do. Its first
+two ask about the ORIGINAL -- which threads the recorder started, and which
+frame the spawned one begins with -- so they name it by `$RUN` and never
+refocus at all; the third asks for the LICENCE, which the refocus prints
+itself, so it has no second trace to address either. Between them the case
+refocuses once and reads the re-run's trace never.
 
 | Case | Planted truth | Commands |
 |---|---|---|

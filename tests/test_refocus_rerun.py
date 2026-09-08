@@ -263,3 +263,38 @@ def test_refocus_says_which_side_ran_the_task_when_the_other_ran_none(
         "tasks: DIVERGED -- 0 task stream(s) originally, 3 on the rerun; "
         "only in A: -; only in B: task-A "), lines[0]
     assert "task-B" in lines[0] and "(unnamed)" in lines[0]
+
+
+# -- what a MATCH does not say about the schedule (E4" section 5.3) ---------
+
+def test_a_multi_stream_match_says_it_is_not_about_the_schedule(tmp_path):
+    """The hazard E4" MEASURED, named where the verdict is read.
+
+    On 1 of its 61 pairs the per-task assignment moved between the two runs
+    -- the workers carried (216, 205, 151, 233, 151) events on one side and
+    (216, 205, 233, 151, 151) on the other, 956 both sides -- while the
+    multiset of (name, hash) was identical, so the comparator reported
+    MATCH. The comparator working as designed, and also a claim the verdict
+    does not make: "every recorded thread produced the identical sequence"
+    reads as a statement about the schedule, and nothing said otherwise.
+    """
+    run_id, sdir = rec(tmp_path, ASYNC_ORDER_FLIP)
+    r = refocus(sdir, run_id, "--focus", "prog:worker")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert ("note: a MATCH does not say the two runs scheduled the same way "
+            "-- the streams are compared as a multiset of (name, hash), so "
+            "the same shapes carried by differently numbered asyncio tasks "
+            "match, and which carried which is recorded and never compared"
+            ) in r.stdout, r.stdout
+
+
+def test_a_single_stream_match_does_not_carry_the_schedule_note(tmp_path):
+    """The fence. With one stream there is nothing for a schedule to have
+    assigned differently, and a caveat that cannot fire is noise on every
+    single-threaded pair -- the rule that took libtest's thread out of the
+    untraced-thread clause, one check along."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    r = refocus(sdir, run_id, "--focus", "prog:work")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout, r.stdout
+    assert "scheduled the same way" not in r.stdout, r.stdout

@@ -36,6 +36,38 @@ questions:
       - ["threads started: 1 besides the main one and 2 harness threads (libtest's per-test thread, excluded as the recorder's own)"]
       - ["tasks:", "spawn@tests::spawns_a_marked_fn#1"]
     expect_exit: 0
+  - id: whose-root-frame-is-the-marked-test-fn
+    ask: >
+      The thread `spawns_a_marked_fn` started runs a function the manifest
+      marks `#[test]`. Which frame does that thread begin with?
+    truth: >
+      `tests::helper_test`, the marked fn, entered directly -- the spawned
+      closure holds no `?`, so it opens no frame of its own and the marked
+      fn is the FIRST thing the thread enters. That is the whole reason the
+      mark cannot say who started a thread, and it is the fact the licence
+      rule turns on; before this question the case pinned the counts and
+      the spawn name and left the root itself to a synthetic fixture.
+      Frame ids are stable here and event ids are not: frames are numbered
+      per thread in thread-serial order and the spawned thread always has
+      the highest serial, so its root is `f4` after the two test threads'
+      three frames, while the event ids interleave with whatever the two
+      libtest threads were doing (measured over 12 recordings:
+      `f4` 12 times, `e4`/`e5`/`e6` between them).
+    why_logs_fail: >
+      A `dbg!` inside the closure says the work ran; it does not say which
+      frame the thread began with, and a thread that entered `helper_test`
+      through a wrapper the recorder could not see would print exactly the
+      same line. RUST_LOG has no logger to reach in this crate, and its
+      target is the module rather than the call stack; RUST_BACKTRACE
+      prints a stack only when something panics, and both tests pass. The
+      distinction is structural, and only the recording holds it.
+    command: ["tree", "$RUN"]
+    expect_contains:
+      - "spawn@tests::spawns_a_marked_fn#1\n  f4 "
+    expect_line:
+      - ["f4 ", "tests::helper_test()", "-> ()"]
+    expect_count: {"tests::helper_test()": 2}
+    expect_exit: 0
   - id: can-a-refocus-of-this-run-license-the-whole-run
     ask: >
       Re-run this recording one flag deeper and compare. Is the licence
@@ -65,5 +97,6 @@ questions:
     expect_contains:
       - "licence: WITHHELD"
       - "started 1 thread(s) besides the main one and 2 harness threads"
+      - "note: a MATCH does not say the two runs scheduled the same way -- the streams are compared as a multiset of (name, hash), so the same shapes carried by differently numbered test and spawned threads match, and which carried which is recorded and never compared"
     expect_absent: ["licence: verified against"]
     expect_exit: 0

@@ -668,6 +668,14 @@ def test_a_rust_screen_never_describes_its_streams_as_asyncio_tasks(
     assert ("  - identical call shape across 1 compared fingerprint(s), "
             "holding 2 causal event(s) outside any test or spawned thread"
             ) in out
+    # The schedule note is the fourth line that would have said `asyncio`
+    # here: it names the population whose numbering the comparison does not
+    # rest on, and on a `cargo test` trace that population is threads.
+    assert ("note: a MATCH does not say the two runs scheduled the same way "
+            "-- the streams are compared as a multiset of (name, hash), so "
+            "the same shapes carried by differently numbered test and "
+            "spawned threads match, and which carried which is recorded and "
+            "never compared") in out
 
 
 def test_refocus_and_info_scope_one_rust_trace_with_the_same_words(

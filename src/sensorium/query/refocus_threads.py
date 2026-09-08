@@ -86,6 +86,18 @@ def harness_threads(trace: Trace) -> set[int]:
         # (`Task.name` is nullable by schema), carries no spawn name to
         # read: it is decided on its root's mark alone, as every thread was
         # before this rule.
+        #
+        # `trace.task(<thread serial>)` and not a lookup through `tasks()`:
+        # on a Rust trace the task id IS the thread serial, guaranteed at
+        # the write (`rust/cargo-sensorium/src/convert/sqlite.rs:248`:
+        # "`id` is the thread serial, not an autoincrement rowid: the Rust
+        # model has no task identity independent of the thread that ran
+        # it"). The invariant is the converter's and this reader depends on
+        # it, so it is named here rather than left to be rediscovered; a
+        # recorder that ever minted task ids of its own would make this a
+        # lookup of the wrong row and every thread would read unnamed --
+        # which claims LESS (no thread would be spawn-named, so none would
+        # be skipped) and is the direction a wrong answer here should fall.
         task = trace.task(thread)
         name = "" if task is None or task.name is None else task.name
         if name.startswith("spawn@") or " :: spawn@" in name:
