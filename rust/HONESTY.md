@@ -727,11 +727,13 @@ why, is a number that looks measured standing in for a fact that was removed.
 The words are the recorder's own — a count it joins reads `and 1 harness thread
 (libtest's per-test thread, excluded as the recorder's own)`, and on a line
 counting what was NOT compared the same fact takes a slot of its own,
-`; 1 harness thread (…) is not among these counts`. The rule is ROOT-anchored
-in both directions: a thread the test spawns enters through a closure or an
-ordinary fn, and every closure site is marked `test: false`, so its root is
-never a test fn; and a `#[test]` fn called deeper on another thread says
-nothing about who started it. The set is empty where sites carry no marks at
+`; 1 harness thread (…) is not among these counts`. The rule is
+**ROOT-MARK-ANCHORED**, a BOUND and not soundness in both directions: a thread
+the PROGRAM spawns whose first instrumented frame is itself a `#[test]`/
+`#[bench]` fn is read as harness and subtracted, so the licence can be
+**GRANTED** over a program thread. Blind spot **28** states the bound in full,
+with the other end and the ruled fix. The set is empty where sites carry no
+marks at
 all — every Python trace — and empty unless the main thread is a RECORDED fact,
 because subtracting on a guess is the one way this rule could take a thread out
 of a count it was never in. Both empty cases leave every count as it was, the

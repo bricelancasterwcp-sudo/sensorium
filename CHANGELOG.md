@@ -19,10 +19,14 @@ Rung 4, slice 3: **the rung-4 debts** — the seven items slices 1 and 2 left in
   and **named wherever one of those counts is printed**: `and 1 harness thread
   (libtest's per-test thread, excluded as the recorder's own)` where the clause
   joins a count, `; 1 harness thread (…) is not among these counts` on the
-  `threads:` line, which counts what WAS compared. The root anchors it in both
-  directions — a thread the test spawns enters through a closure the transform
-  marks `test: false`, and a `#[test]` fn deeper on another thread says nothing
-  about who started it — and the set is empty on any trace with no site marks
+  `threads:` line, which counts what WAS compared. The root anchors it, which
+  is a **bound** and not soundness in both directions — a mark below the root
+  excludes nothing, but a thread the PROGRAM spawns whose first instrumented
+  frame is itself a `#[test]`/`#[bench]` fn is read as harness and the licence
+  can be **granted** over it, while an `async` test fn carries no mark so its
+  harness thread stays counted (found by review 2026-09-07, not measured;
+  `rust/HONESTY-BLIND-SPOTS.md` item 28) — and the set is empty on any trace
+  with no site marks
   (every **Python** trace, byte-identical output) and empty unless the main
   thread is a RECORDED fact.
 - **A child run is not the pair** (ruling R2). A re-run whose test spawns an
@@ -83,8 +87,10 @@ Rung 4, slice 3: **the rung-4 debts** — the seven items slices 1 and 2 left in
   function that is plainly in the file is no longer refused before cargo runs
   because some other file could not be spliced.
 - **`driver.rs` splits** (ruling R7): the invocation record to `invocation.rs`,
-  the cargo child's environment and launch to `launch.rs`. Pure moves; the
-  smoke tests pin the behaviour byte for byte.
+  the cargo child's environment and launch to `launch.rs`. Behaviour-preserving
+  moves; the cargo child's variables, values and order are unchanged (a 14-line
+  `Ground` construction was added in `driver.rs`) and `driver_smoke.rs` is
+  green.
 - **Every raw and assembled acceptance results file carries `schema_version`**
   (ruling R4): `"e9/1"`, `"e4/1"`, `"e4p/1"`, with the renderer stating once
   when the assembled schema is later than the raw's. The E9 and E4
@@ -95,7 +101,7 @@ Rung 4, slice 3: **the rung-4 debts** — the seven items slices 1 and 2 left in
   (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`): the
   licence was granted on **0** of 61 pairs where §1.2 predicted 57 — not
   because R1 failed, since the harness exclusion fired and was **named on 61
-  of 61** `threads:` lines and the four multi-thread pairs report the
+  of 61** `threads:` lines and the four pairs §1.2 named report the
   program's own counts 1, 4, 4, 4 — but because the env clause withheld on a
   single key, `RUSTDOCFLAGS`, whose driver-injected `--extern
   sensorium_rt=<target>/sensorium/rt/<hash>/…` fragment carries a hash that

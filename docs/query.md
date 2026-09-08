@@ -354,12 +354,21 @@ not a finding.
 **The rule, applied 0.8.5** (design 2026-09-07 §2). A **harness thread** is a
 non-main thread whose ROOT frame's site the manifest marks `#[test]` — the
 recorder's own thread rather than the program's — and it comes out of the
-licence's untraced-thread counts. The ROOT is what makes the rule sound in both
-directions: a thread the test itself spawns enters through a closure or an
-ordinary fn, and every closure site is marked `test: false`, so its root is
-never a test fn and it is never excluded; and a `#[test]` fn called from deeper
-on some other thread says nothing about who started that thread, so a mark
-below the root excludes nothing either. The set is empty on any trace whose
+licence's untraced-thread counts. The ROOT is what the rule is **anchored** on,
+and root-mark anchoring is a **bound**, not soundness in both directions.
+Downward it holds: a `#[test]` fn called from deeper on some other thread says
+nothing about who started that thread, so a mark below the root excludes
+nothing. Upward it does **not**: a spawn opens no frame of its own and a
+closure gets a frame only where it holds a `?`, so the root of a spawned thread
+is the first instrumented fn it calls — and a `#[test]`/`#[bench]` fn is an
+ordinary fn to rustc, callable from anywhere, so `thread::spawn(||
+a_test_fn())` puts a MARKED root on a thread the program started. That thread
+is subtracted and the licence can be **granted** over it. The other end claims
+less: an `async` test fn is skipped by the transform, so it carries no mark at
+all, its harness thread's root is an ordinary fn, and that thread stays counted
+as the program's — the licence withholds, as it did before this rule. Found by
+review 2026-09-07, **not measured**; `rust/HONESTY-BLIND-SPOTS.md` item 28
+carries it with the ruled fix. The set is empty on any trace whose
 sites carry no marks — every **Python** trace, whose every line is byte for
 byte what it was — and empty unless the main thread is a RECORDED fact rather
 than one inferred from whichever event got id 1, because subtracting on a guess

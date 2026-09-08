@@ -12,6 +12,8 @@ to what a re-run does not compare and what its licence cannot check.
 Items 15–26 are rung 3's own, from the design's R16 (`?`,
 sinks and `Err` arms:
 `docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`).
+Items 27–28 are rung 4's, from the refocus licence (design 2026-09-07): **27**
+from E4′'s H1 STOP, **28** from the whole-branch review of that same slice.
 
 Each entry names **what declares it** — the field or line a reader meets
 without knowing this document exists — and, where one exists, what could
@@ -602,3 +604,43 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     subject that includes an original recorded under a different driver
     build, the one condition under which this confound is visible. *Declared
     by* the env line, which names every key it did not explain.
+28. **A thread the PROGRAM spawns can be read as the harness's, and the
+    licence GRANTED over it.** R1's rule (§13, item 12) is
+    **root-mark-anchored**: a non-main thread is the recorder's own when a
+    root frame of it sits at a site the manifest marks `test`, and
+    `marks::is_test_fn` marks `#[test]` and `#[bench]`. That anchoring is a
+    **bound**, not soundness in both directions. **Downward it holds**: a
+    marked fn called from deeper on some other thread says nothing about who
+    started that thread, so a mark below the root excludes nothing.
+    **Upward it does not**: `sensorium_rt::spawn_child` opens no frame of its
+    own before calling `f`, and a closure gets a frame ONLY where it holds a
+    `?`, so the root of a spawned thread is the first instrumented fn it
+    calls. A `#[test]`/`#[bench]` fn is an ordinary fn to rustc and callable
+    from anywhere, so `thread::spawn(|| a_test_fn())` — or
+    `thread::spawn(helper)` where `helper` carries the attribute — puts a
+    MARKED root on a thread the program started. It is subtracted,
+    `threads_started − harness` can reach 0, `_licence_caveats` emits no
+    thread caveat, and the licence is **granted** over a program thread: a
+    false grant, the direction that claims MORE. The other end claims less
+    and is safe: an `async` test fn — `#[tokio::test]` and every other custom
+    harness — is classified `async` by the transform and skipped, so it
+    carries no site row and no mark at all; its harness thread's root is an
+    ordinary fn and stays counted as the program's, so the licence withholds,
+    as it did before R1. **Found by review 2026-09-07, not measured**, and
+    **untested by fixture**: `tests/test_refocus_licence_rust.py` covers a
+    marked frame BELOW the root and the main-thread case, never a marked root
+    on a spawned thread. **E4′'s 61 pairs are unaffected** — the same review
+    read the measured subject and found its tests spawn threads through
+    ordinary `worker` fns and `serve_fake`, never through a marked one, so no
+    number in that record moves. *Ruled and NOT built*
+    (`docs/CARRIED-DEBT.md`, rung 4 slice 3 — kill 6 forbids a `src` change
+    after the measurement): a task named `spawn@<site>` (or
+    `<parent> :: spawn@<site>`) is a workspace spawn the runtime itself
+    named, so such a thread is **never** harness whatever its root's mark;
+    and only the **FIRST** root frame's mark counts, where `harness_threads`
+    today excludes on ANY root (`for root in trace.roots()`) while the design,
+    the docstring and every doc say THE root. To be **measured before it
+    ships**. The `harness_threads` docstring carries the same "sound in both
+    directions" overclaim and is left standing until that `src` change.
+    *Declared by* this item and by §13; *falsified by* a fixture that spawns
+    a thread on a `#[test]`-marked fn and reads a granted licence.

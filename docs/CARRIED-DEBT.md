@@ -502,8 +502,10 @@ Each is marked *ruling: Brice / slice 2*.
   2026-09-07** at `03a68d3` and `095be7e` under **ruling R7**, along a
   different seam than the one guessed here: the invocation record to
   `invocation.rs` (377) and the cargo child's environment and launch to
-  `launch.rs` (202), leaving `driver.rs` at **328**. Pure moves, pinned by the
-  smoke tests.
+  `launch.rs` (202), leaving `driver.rs` at **328**. Behaviour-preserving moves
+  — the cargo child's variables, values and order unchanged, with a 14-line
+  `Ground` construction added in `driver.rs` to carry them across the seam —
+  pinned by the smoke tests (`driver_smoke.rs` green).
 - **`last` is mtime-ordered.** A refocus writes a trace whose id nothing could
   have spelled in advance, so `last` is how a corpus case and a reader address
   it — and `last` is the store's newest by FILE MTIME, not by any recorded
@@ -662,9 +664,10 @@ Each is marked *ruling: Brice / slice 2*.
   `_diverged_why`, the verdict block and the blind-spot print are one screen's
   worth of printing sitting beside the re-run's control flow.
 - **`visit.rs` 773, `splice.rs` 762 and `lines.rs` 762**, all under
-  `rust/sensorium-transform/src`, and `rust/HONESTY.md` at **792 of 800**
-  after this slice's §13 and its fix round — the NEXT sentence added to that
-  file splits it first, not the one after. The rule this file has kept twice applies: the next change to
+  `rust/sensorium-transform/src`, and `rust/HONESTY.md` at **794 of 800**
+  after this slice's §13, its fix round and the fix wave's correction to §13's
+  direction claim — the NEXT sentence added to that file splits it first, not
+  the one after. The rule this file has kept twice applies: the next change to
   any of them splits it first rather than discovering the ceiling. For
   `visit.rs` the seam is the `Ctx` bookkeeping against the `Visit` impl; for
   `rust/HONESTY.md` it is the one the index already took — a section moves to a
@@ -741,6 +744,22 @@ Each is marked *ruling: Brice / slice 2*.
   edited after the fact — the same reason kill 6 gives for `src`. *The fix,
   unchanged*: record `null` and the reason, and probe a token the package
   actually exposes.
+- **R1's harness rule is ROOT-MARK-ANCHORED, and the bound has a false-grant
+  end.** A thread the PROGRAM spawns whose first instrumented frame is itself
+  a `#[test]`/`#[bench]` fn is read as the harness's and subtracted, so the
+  licence can be GRANTED over a program thread; an `async` test fn carries no
+  mark, so its thread stays counted and the licence withholds — the safe end.
+  Found by review 2026-09-07, **not measured**; E4′'s 61 pairs cannot reach
+  it; stated in full as `rust/HONESTY-BLIND-SPOTS.md` item 28. *The ruling*: a
+  task named `spawn@<site>` is never harness whatever its root's mark, and
+  only the FIRST root's mark counts — **measured before it ships**. Not built
+  here (kill 6), which also leaves the docstring's own overclaim standing.
+- **No test pins that the release tokens agree.** Nothing asserts that
+  `pyproject.toml`'s version, `importlib.metadata.version('sensorium')` and
+  the newest `CHANGELOG.md` header are one token, or that the header carries a
+  date rather than `(unreleased)`; the token has gone stale silently three
+  times (E9, E4, E4′ each recorded `0.6.0`). *Ruled: a small
+  `tests/test_release_tokens.py` next slice*, not in a docs-only fix wave.
 
 ### Process lessons
 
@@ -775,4 +794,5 @@ Each is marked *ruling: Brice / slice 2*.
   recorded as a blank that reads as measured. Both stand — records are not
   rewritten, and no endpoint gates on either token. **The fix belongs to 7b**:
   refresh the install after the version bump, and a probe that fails records
-  `null` with its reason.
+  `null` with its reason — the install half is taken; see *Half of the
+  version-token fix is taken* above.

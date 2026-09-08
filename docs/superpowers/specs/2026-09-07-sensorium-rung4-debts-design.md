@@ -182,3 +182,19 @@ focused rebuilds this pass makes. The pre-registered copy statement
 identical SQL. On this box **no `sqlite3` CLI is installed**, so the Python
 module is what runs it, and §2 records that fact and the SQLite library version
 as lens facts. Neither executor changes the bytes the statement produces.
+
+**A-§6b — the `driver.rs` split is behaviour-preserving, not byte-identical
+(2026-09-07, after the whole-branch review).** §6 asked for "pure moves;
+behaviour byte-identical (the smoke tests pin it)", and the split as built is
+behaviour-preserving without being either of those literally. Besides the
+`mod`/`use`/`pub(crate)` lines and module docs that any split adds, `launch.rs`
+takes a `Ground<'a>` struct with its destructure and a **14-line construction
+at the call site in `driver.rs`**, plus reference-shape edits (`&ws` → `ws`,
+`parsed.tier.as_str()` → `tier`). What IS unchanged is what the section cared
+about: the cargo child's eleven environment variables, their values and their
+order — `launch.rs:60-82` against `driver.rs@24de001:306-331`, checked by a
+multiset line-diff of the pre-split file against the three post-split ones. And
+`driver_smoke.rs` pins `invocation.json`'s fields and the trace, not the env
+block byte for byte, so "byte for byte" overstated what the smoke tests check.
+Every claim about the split now reads **behaviour-preserving moves; the cargo
+child's variables, values and order unchanged; `driver_smoke.rs` green**.

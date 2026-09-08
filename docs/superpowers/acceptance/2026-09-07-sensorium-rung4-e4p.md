@@ -516,14 +516,14 @@ erratum is filed here.
 
 | what | value |
 |---|---|
-| repo HEAD at the run | `8954d3a6a84e9267100f9e4cf38f07c6bf54e593` (branch `feat/rung4-debts`, porcelain empty before) |
+| repo HEAD at the run | `8954d3a6a84e9267100f9e4cf38f07c6bf54e593` (branch `feat/rung4-debts`, porcelain empty before). `repo_porcelain_after` is **not** empty: `M CHANGELOG.md`, `M docs/query.md`, `M rust/HONESTY-BLIND-SPOTS.md`, `M rust/HONESTY.md`, `M rust/README.md` — the concurrent docs task, ruled to run DURING the measurement because it touches nothing the run reads (ledger, Task 7 split). H6's Python suite ran over that tree; no test reads any of the five (`tests/test_honesty_prose.py` reads `HONESTY-ERR-FLOW.md` alone), and the suite is green at HEAD too |
 | the clone under measurement (READ-ONLY) | `/mnt/extra/sensorium-rung2/bloomery` at `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` = §1.4's pin; porcelain empty before **and** after; HEAD unmoved |
 | the clone's `Cargo.lock` | `c089018581c9bd62a0…` before and after — **moved: no**, back on the pin: yes |
 | the KEPT E4 store (READ-ONLY input) | `/mnt/extra/sensorium-rung2/sensorium-dir/e4`, 122 `.db` |
 | the FRESH trace store | `SENSORIUM_DIR=/mnt/extra/sensorium-rung2/sensorium-dir/e4p` — 61 copies when the loop opened, 122 `.db` at the end (61 originals + 61 re-runs); invocation log **not** silenced, **61** rows, this record's own |
 | the FRESH cargo target | `SENSORIUM_E4P_TARGET=/mnt/extra/sensorium-rung2/bloomery-target-e4p`, 25 093 453 279 B after; H6's corpus target `…-e4p-corpus` (derived, not from an env var), 777 274 277 B |
 | the driver | `…/rust-target/debug/cargo-sensorium`, sha256 `f8b3a0f32bd0fe1efc7d417faa004e5b900fa55dcd2693912d6180eebfa5e85a`, built by this run from HEAD `8954d3a` (`rebuilt: false` — already current), **unchanged after the run**. Its version token `cargo-sensorium 0.5.1` is read from **`meta.driver_version` of the trace** on **61 of 61** re-runs, never from the instrument |
-| the other two versions | `sensorium-transform` `0.4.2`, **source `rust/Cargo.lock`** — not observed from the run, being carried neither in the trace nor by the driver binary. Python `sensorium`: tree token **not recorded** (empty — §5 gap 2); installed metadata `0.6.0`, the stale value E4 §5.5 already found |
+| the other two versions | `sensorium-transform` `0.4.2`, **source `rust/Cargo.lock`** — not observed from the run, being carried neither in the trace nor by the driver binary. Python `sensorium`: tree token **not recorded** (empty — §5 gap 2), though `pyproject.toml` at this run's HEAD `8954d3a` reads **0.8.4**, which is what applied; installed metadata `0.6.0`, the stale value E4 §5.5 already found. Task 7b moved both afterwards (0.8.5, install refreshed) — this record is not rewritten |
 | the copy | §1.3's statement `VACUUM INTO '<dst>'`, executed by the **Python `sqlite3` module** (no `sqlite3` CLI on `PATH`), SQLite **3.46.1** |
 | the two preflight guards | environment parity with the 61 originals: **61 of 61 checked, none differ**, over 77 compared keys, excluding `^(CARGO\|RUST\|SENSORIUM\|LD_)` and `_`, `OLDPWD`, `PWD`, `SHLVL`. No other `cargo` was running: `pgrep -x cargo` → rc **1**, pids `[]` |
 | `TMPDIR` | unset; `tempfile.gettempdir()` resolved to `/tmp`. No endpoint here is derived from a temporary path — there is no `watch` triple in this record — so it binds nothing |
@@ -748,10 +748,10 @@ set (5c).
    the 57 pairs with no program thread R1 left **no such sentence**
    (`_licence_caveats` emits one only above zero), so `program_threads` and
    `harness_threads` are `null`. Honest as far as it goes; the aggregates
-   built on it are not. `phase_h1`'s `harness_threads_all_one` came back
-   **false** over 61 pairs each of which reported one harness thread on its
-   `threads:` line — the parser reads that line (`threads_harness`, 1 on
-   61 of 61) but the aggregate never falls back to it. The same silent-`None`
+   built on it are not. `results.json`'s `endpoints.H1.harness_threads_all_one`
+   came back **false** over 61 pairs each reporting one harness thread on its
+   `threads:` line — the parser reads that line (`threads_harness`, 1 on 61 of
+   61) but the aggregate never falls back, so that cell read alone misleads. The same silent-`None`
    path empties `sides_disagree` and `reasons_that_never_subtracted`, which
    `phase_h1` appends to only on a `False`/truthy reading: both are
    observations over **4** pairs, printed 4-wide in §3 and §4. **Fix next
