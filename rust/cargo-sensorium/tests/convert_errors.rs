@@ -319,3 +319,98 @@ fn a_malformed_line_payload_is_a_refusal_naming_the_record() {
         "no trace is written for a refused record"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Malformed metadata: the read path's hard errors, one fixture each
+// ---------------------------------------------------------------------------
+
+/// A well-formed one-process spool, so the malformed file below is the only
+/// thing wrong with the directory.
+fn one_good_process(f: &Fixture, pid: u32) {
+    f.one_site_manifest("meta1");
+    wire::write_proc_header(
+        &f.spool_dir,
+        pid,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    wire::SpoolBuilder::new(pid, 1, "main")
+        .call(0, 1000, 0, 0)
+        .ret_none(1, 2000, 0, 0)
+        .write(&f.spool_dir);
+}
+
+#[test]
+fn a_proc_header_whose_name_is_not_a_pid_is_refused_by_name() {
+    // The shape a leftover atomic-write temp or a hand-copied file takes:
+    // the `.proc.json` suffix is there and the stem is not a number. Reading
+    // it as pid 0, or skipping it, would lose a whole process in silence.
+    let f = Fixture::new("proc-header-not-a-pid");
+    one_good_process(&f, 570);
+    std::fs::write(f.spool_dir.join("notapid.proc.json"), b"{}").unwrap();
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(2));
+    let err = stderr(&out);
+    assert!(err.contains("does not name a pid"), "{err}");
+    assert!(err.contains("notapid.proc.json"), "{err}");
+    assert!(!traces_exist(&f), "no trace is written for a refused read");
+}
+
+#[test]
+fn a_malformed_proc_header_is_refused_and_names_the_file() {
+    let f = Fixture::new("proc-header-malformed");
+    one_good_process(&f, 571);
+    std::fs::write(f.spool_dir.join("572.proc.json"), b"{\"exe\": ").unwrap();
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(2));
+    let err = stderr(&out);
+    assert!(err.contains("is not a valid proc header"), "{err}");
+    assert!(err.contains("572.proc.json"), "{err}");
+    assert!(!traces_exist(&f), "no trace is written for a refused read");
+}
+
+#[test]
+fn a_runner_record_whose_name_is_not_a_pid_is_refused_by_name() {
+    let f = Fixture::new("runner-record-not-a-pid");
+    one_good_process(&f, 573);
+    std::fs::write(f.spool_dir.join("notapid.runner.json"), b"{}").unwrap();
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(2));
+    let err = stderr(&out);
+    assert!(err.contains("does not name a pid"), "{err}");
+    assert!(err.contains("notapid.runner.json"), "{err}");
+    assert!(!traces_exist(&f), "no trace is written for a refused read");
+}
+
+#[test]
+fn a_malformed_runner_record_is_refused_and_names_the_file() {
+    // A runner record is where a witnessed exit status comes from. Reading a
+    // broken one as "no record" would silently downgrade the trace to
+    // `exit_status_basis: "unwitnessed"`, which is a claim about the world.
+    let f = Fixture::new("runner-record-malformed");
+    one_good_process(&f, 574);
+    std::fs::write(f.spool_dir.join("574.runner.json"), b"not json at all").unwrap();
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(2));
+    let err = stderr(&out);
+    assert!(err.contains("is not a valid runner record"), "{err}");
+    assert!(err.contains("574.runner.json"), "{err}");
+    assert!(!traces_exist(&f), "no trace is written for a refused read");
+}
+
+#[test]
+fn a_malformed_invocation_record_is_refused_and_names_the_file() {
+    // `invocation.json` is the converter's ONE source for the workspace root,
+    // the toolchain and the focus; there is nothing to fall back to.
+    let f = Fixture::new("invocation-malformed");
+    one_good_process(&f, 575);
+    std::fs::write(f.spool_dir.join("invocation.json"), b"{\"invocation\":").unwrap();
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(2));
+    let err = stderr(&out);
+    assert!(err.contains("cannot read invocation.json"), "{err}");
+    assert!(err.contains("is not a valid invocation record"), "{err}");
+    assert!(!traces_exist(&f), "no trace is written for a refused read");
+}
