@@ -648,12 +648,12 @@ both files. A deferred item below is still open unless it is struck.
 - ~~**Design §5's test line still spells the continuation note
   `... 1 more shape; continue with: …`**, which ruling R-G7 replaced with
   `fmt.more_note`'s wording (no "shape(s)" word). The tests and the tool are
-  right; the design's example is stale. Amend at the next legitimate touch of~~ — **Taken 2026-09-08** by the queue slice's ledger
+  right; the design's example is stale. Amend at the next legitimate touch of
+  that document.~~ — **Taken 2026-09-08** by the queue slice's ledger
   commit: `2026-09-05-sensorium-rung4-entry-grain-design.md` §5 carries a
   dated in-place amendment — `fmt.more_note` prints `... N more; continue
   with: <hint>`, with no "shape" word — beside the stale example rather than
   over it, which is how every other amendment in that document is made.
-  that document.
 - **Review minors, deferred rather than repaired**, one line each:
   `_at`/`_hops_line` became cross-module API without being named as such; the
   Python-path pin asserts substrings rather than a whole answer;

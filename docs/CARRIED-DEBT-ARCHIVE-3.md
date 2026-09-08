@@ -7,8 +7,9 @@ third numbered volume, on the rule
 cut: the archive is **numbered volumes, each kept under 800 lines**, never one
 growing file. The move was named before it was needed — the queue slice
 measured its own section against the live file and cut the oldest one rather
-than discovering the ceiling at 800, which is the rule this ledger has now
-kept four times. **The wording, the order and the strikes are unchanged**,
+than discovering the ceiling at 800. **Three** volumes have been cut that way
+— volume 1 on 2026-09-06, volume 2 and this one on 2026-09-08 — and each was
+named before it was needed rather than discovered at the ceiling. **The wording, the order and the strikes are unchanged**,
 including the strikes the queue slice itself made in the section below: a
 resolved item is struck through here exactly as it was there, never deleted,
 and the house rule stated in `docs/CARRIED-DEBT.md`'s header governs every

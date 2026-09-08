@@ -27,7 +27,12 @@ slice are [`docs/CARRIED-DEBT-ARCHIVE-2.md`](CARRIED-DEBT-ARCHIVE-2.md),
 wording, order and strikes unchanged, so a deferred item there is still open
 unless it is struck. Volume 1 was itself at 594 lines when this file next
 needed room, so the archive is **numbered volumes, each under 800 lines**, and
-the rule at the top now governs three files rather than the two named above.
+~~the rule at the top now governs three files rather than the two named
+above~~ — **corrected 2026-09-08**: **four** files, the paragraph below having
+superseded this sentence when volume 3 was cut, exactly as this paragraph
+superseded the one above it. A count of volumes stated in a paragraph goes
+stale every time a volume is cut; the rule at the top governs every volume,
+whatever their number.
 This file keeps the newest sections, and the next slice's section is appended
 here.
 
@@ -343,8 +348,11 @@ is to cut the oldest section rather than discover the ceiling.
   appended notes and never restructured. Both mutations were measured (the
   limit lowered: 37 files fail; a fourth exemption: the tuple check fails).
   That ruling closes two ledger rows without a line of code — the parent spec
-  at 1458 (#59) and the repair acceptance record at 795 (#60) — because
-  neither is owed a split.
+  at 1458 (**#59**, struck) and the repair acceptance record at 795 (**#60**,
+  which took a dated **continuation** rather than a strike: its README half
+  was taken 2026-09-06 and only its record half closes here) — because
+  neither is owed a split. `b498caa`'s message lists #60 among the struck
+  rows; that message stands as written, and this is the correction.
 - **The stale root-disk driver deleted** (#15, ruling R7): 6 916 896 bytes, a
   2026-09-04 build of ours, untracked, on the near-full root disk while the
   box builds on the second one. Nothing to commit — the deletion is recorded
@@ -355,6 +363,14 @@ is to cut the oldest section rather than discover the ceiling.
   and **item 31**, a spawn in an expression position the container visitors
   skip (the A half of #49; rewriting those positions stays C). Both were
   named in an earlier ledger and in no blind-spot entry.
+- **A design's stale example, corrected beside itself** (row **#34**, taken by
+  this slice's ledger commit). `2026-09-05-sensorium-rung4-entry-grain-design.md`
+  §5 still spelled the continuation note `... 1 more shape; continue with: …`,
+  which ruling R-G7 replaced: `fmt.more_note` prints `... N more; continue
+  with: <hint>` and carries no "shape" word. The stale text stays and the
+  dated amendment sits beside it, which is how every other amendment in that
+  document is made — a design two measurements were pre-registered against is
+  evidence, not a description.
 - **Five dated notes** (ruling R8), each struck where it was raised, because a
   note is the only thing that closes them: **#62** the golden comment naming
   `lines.rs`'s `statement_deltas` (moved to `lines/facts.rs` at `b949129`;
@@ -438,7 +454,8 @@ is to cut the oldest section rather than discover the ceiling.
   **C114** no unit tests on the acceptance instruments. **C115**
   `refocus --window QUALNAME` reads as a size/range. **C116** the Python
   `live_threads` line's pre-existing asymmetry.
-- **Function lengths are C, not A** (**ruling R4**): six converter functions
+- **Function lengths are C, not A** — **C48** by its inventory number, the
+  one A row this slice re-bucketed (**ruling R4**): six converter functions
   of 88–274 lines (`frames::process`, `convert_one`, `wrapper::instrument`,
   `driver::go`, `convert_dir`, `write_proc_header`). Splitting the converter's
   core is behaviour-risk work with no failing test behind it, and it goes to
@@ -469,17 +486,19 @@ is to cut the oldest section rather than discover the ceiling.
   "byte-identical to 0.8.1" literally asks for and which reddens on any
   Python-side wording change, or (b) leave it and record that N7 is pinned by
   shape, not by bytes; (a) belongs in the same commit as the next Python-side
-  wording change. **#44**: two of eleven taken; of the nine reported, two are
-  **not present at HEAD** (the `SITE_*` consts; the `Fixed`/`CapWriter`
-  duplication as stated), one is **obsolete** (the `"$RUN2" in str(spec)`
-  scan, which now reads `q["command"]` with the comment the nit asked for),
-  four are **out of the taking task's file scope** (the runner's pair-count
-  naming, the `_sub` docstring, `gen.py`'s unused encoders, `trace._c` access
-  from a Python helper), and two are **more than a line** (two rt tests with
-  no demonstrated mutation — and the review that filed it named neither test,
-  so its subject is not decidable from the source; `mechanics.sh`'s
-  dependency-proxy shape, which lands on top of a split that file still owes).
-  `cargo_driver()`'s caching is both.
+  wording change. **#44**: **one of eleven taken** — nit 2, the tid-mask
+  justification, at `91f737d` — and **ten reported**, which is what the inbox
+  marks item by item: two are **not present at HEAD** (the `SITE_*` consts;
+  the `Fixed`/`CapWriter` duplication as stated), one is **obsolete** (the
+  `"$RUN2" in str(spec)` scan, which now reads `q["command"]` with the comment
+  the nit asked for), four are **out of the taking task's file scope** (the
+  runner's pair-count naming, the `_sub` docstring, `gen.py`'s unused
+  encoders, `trace._c` access from a Python helper), two are **more than a
+  line** (two rt tests with no demonstrated mutation — and the review that
+  filed it named neither test, so its subject is not decidable from the
+  source; `mechanics.sh`'s dependency-proxy shape, which lands on top of a
+  split that file still owes), and one — `cargo_driver()`'s caching — is
+  **both** out of scope and more than a line. 1 + 10 = 11.
 - **Two fences this slice states rather than pins.** The `expr_attrs`
   catch-all's `&[]` is a **documented known-surviving mutant**: no `syn`
   variant reaches the arm today, so no test can distinguish its return value
@@ -489,7 +508,7 @@ is to cut the oldest section rather than discover the ceiling.
   shipped predicate, so the honest form left open is a unit test over a
   hand-built name, declared as an unreachable input.
 - **The minors this slice's own reviews raised**, none blocking, each one line:
-  `tests/test_acceptance_e9_read.py:215` hard-codes `sensorium-rt 0.4.1` and
+  `tests/test_acceptance_e9_read.py:221` hard-codes `sensorium-rt 0.4.1` and
   will need moving on every rt bump (a derivation from `spool.rs`'s
   `RT_VERSION` is the honest fix); `src/sensorium/capture.py:52` points at a
   `tracer.py` line number the split aged; `tracer.py`'s docstring states
@@ -501,6 +520,15 @@ is to cut the oldest section rather than discover the ceiling.
   than factored; `pub(super) text` is unused across the chains seam; and
   `render_e4pp`'s walls table renders arms A/B/C only, while the record now
   also carries `dry`, `driver_build` and `cargo_s`.
+- **The ceiling gate does not yet cover `CHANGELOG.md`** (**796** after this
+  slice's entry). The gate's patterns are `*.py`, `*.rs`, `*.sh`, `README.md`,
+  `docs/*.md` and `rust/*.md`, so a root-level changelog is outside them and
+  the next release entry crosses 800 with nothing red. *The fix*: **the final
+  fix wave widens it**, and the next `CHANGELOG.md` change moves the pre-0.8
+  entries to a dated archive volume first — the same rule this ledger keeps
+  for itself. Recorded rather than taken here because widening what the gate
+  covers is a ruling, and Task 5's own docstring says a file the gate names is
+  a split to take, never an exemption to add.
 - **Files near the ceiling, named rather than split** (rulings R2/R9 — none of
   them was edited past 780 by this slice): `rust/tests/mechanics.sh` **795**
   (row #57, and an E7 second-column check waits on the split);
@@ -513,9 +541,19 @@ is to cut the oldest section rather than discover the ceiling.
   **772** after this slice's two items — the next item added to it splits it
   first, and the seam is the one the index already uses, a rung's items moving
   to a file it links; `tests/test_flow_identity.py` **770**;
-  `src/sensorium/record/boot.py` **768**; `rust/sensorium-rt/src/spool.rs`
-  **752**. `tests/test_ceiling.py` now fails on any of them crossing 800,
-  which is the difference between this list and the six that came before it.
+  `src/sensorium/record/boot.py` **768**;
+  `rust/cargo-sensorium/tests/convert_meta.rs` **758** (**no seam named yet** —
+  the file carries no banner, and choosing one is the next toucher's call);
+  `tests/refocus_programs.py` **755** (seam: its `# -- asyncio` banner at
+  `:591`); `rust/cargo-sensorium/src/mirror.rs` **753** (seam: `mod tests` at
+  `:329` → `mirror/tests.rs`, the house pattern); `docs/TRACE-FORMAT.md`
+  **752** (seam: a numbered section moves to a file it links, as
+  `rust/HONESTY.md` §1, §8, §11 and §13 did — §5's enumerations at `:476` are
+  the largest); and `rust/sensorium-rt/src/spool.rs` **752**. The floor of
+  this list is 750 lines, and it is a measurement, not a recollection:
+  `git ls-files` under the gate's own patterns, sorted. `tests/test_ceiling.py`
+  now fails on any of them crossing 800, which is the difference between this
+  list and the six that came before it.
 
 ### Process lessons
 

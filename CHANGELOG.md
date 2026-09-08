@@ -117,8 +117,10 @@ new key into a trace.
   R16 (v), the ledger half of #28) and **31** (a spawn in an expression
   position the container visitors skip, #49's A half). The stale
   `rust/target/release/cargo-sensorium` deleted from the root disk (#15,
-  ruling R7). Slice 3's section moved to a third archive volume, measured
-  before the ceiling was met rather than after.
+  ruling R7). The rung-4-entry grain design's §5 example, which still spelled
+  a continuation note ruling R-G7 had replaced, corrected beside itself with a
+  dated amendment (#34). Slice 3's section moved to a third archive volume,
+  measured before the ceiling was met rather than after.
 - **What was declined, and why** (all in `docs/CARRIED-DEBT.md`'s new
   section): the six converter functions of 88–274 lines are **C, not A**
   (ruling R4 — behaviour-risk work with no failing test behind it); rows #11,
