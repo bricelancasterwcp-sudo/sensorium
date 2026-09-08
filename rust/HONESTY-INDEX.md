@@ -7,12 +7,14 @@ at the ceiling; this is that choice, and the rows are unchanged in wording and
 order except row §11's column clause, which this wave widened to the two places
 the 2026-09-04 acceptance record's §5.4 states.
 
-Three sections themselves live one file away, each moved for the same ceiling
+Four sections themselves live one file away, each moved for the same ceiling
 and each unchanged in wording and order: §1 is
 [`rust/HONESTY-OUTCOMES.md`](HONESTY-OUTCOMES.md), §8's list is
-[`rust/HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md), and §11 is
+[`rust/HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md), §11 is
 [`rust/HONESTY-ERR-FLOW.md`](HONESTY-ERR-FLOW.md) (moved 2026-09-06 by the
-focus tier). A `§n` below is still the section it always was.
+focus tier), and §13 is
+[`rust/HONESTY-REFOCUS.md`](HONESTY-REFOCUS.md) (moved 2026-09-08 by the
+recorder's footprint). A `§n` below is still the section it always was.
 
 A promise with no falsifier is not a promise, it is an assertion, and the
 ledger does not carry assertions: every row below names a corpus case, a test,
