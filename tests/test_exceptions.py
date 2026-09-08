@@ -7,10 +7,20 @@ swallow, a bare `raise` re-raise, and an exception merely crossing a
 is the smallest unit that can tell them apart. Every expectation here was
 read off a real recorded trace before the classifier existed.
 
-Every shape here is a REAL recorded program. The shapes CPython will not
-reproduce on demand -- a recycled address, a frame that never closed, an
-unwind with no captured exception -- are hand-built traces in
-`test_exceptions_synthetic.py`, split off at that banner on 2026-09-08.
+MOST shapes here are real recorded programs; two hand-built traces stay
+anyway, and `finalize_synthetic` is imported for them. The first,
+`..._link_lost_in_a_killed_frame_will_not_say_it_returned`, is the limiting
+case of the real cancel shape immediately above it, and telling those two
+apart is its whole point. The second,
+`..._frameless_handler_on_a_format3_trace_blames_the_start`, is not a program
+shape at all: it pins which of two explanations the command may give for a
+HANDLED with no frame, which turns on `trace_format`, not on what the program
+did.
+
+The synthetic shapes with no real neighbour -- a recycled address, a frame
+that never closed, an unwind with no captured exception -- are
+`test_exceptions_synthetic.py`'s, split off at that banner on 2026-09-08.
+The split moved the banner's block and nothing else.
 """
 import pytest
 
