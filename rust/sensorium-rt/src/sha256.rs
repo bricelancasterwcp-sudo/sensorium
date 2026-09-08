@@ -232,6 +232,49 @@ mod tests {
         assert_eq!(hex_prefix(&h.finish(), 64), hex(&msg));
     }
 
+    /// The two padding boundaries, which no NIST vector above lands on.
+    ///
+    /// 55 bytes is the largest message whose padding still fits in one block
+    /// and 56 is the smallest that needs a second. `nist_vector_two_block`
+    /// is 56 bytes and so drives `finish`'s `while self.filled != 56` loop
+    /// through a full second block; NOTHING here drove it through ZERO
+    /// iterations until this test, which is what a 55-byte message does. Kept
+    /// from `cargo-sensorium/src/sha256.rs`, deleted when this module became
+    /// the repository's only sha256 (2026-09-08); the two digests are
+    /// `sha256sum`'s, re-checked against Python's `hashlib` before re-pinning.
+    #[test]
+    fn a_message_that_lands_exactly_on_the_padding_boundary_is_padded_correctly() {
+        assert_eq!(
+            hex(&[b'x'; 55]),
+            "d5e285683cd4efc02d021a5c62014694958901005d6f71e89e0989fac77e4072"
+        );
+        assert_eq!(
+            hex(&[b'x'; 56]),
+            "04c26261370ee7541549d16dee320c723e3fd14671e66a099afe0a377c16888e"
+        );
+    }
+
+    /// EVERY split point of one message, not one chunking of it.
+    ///
+    /// `streaming_in_odd_pieces_matches_one_shot` above splits 1000 bytes into
+    /// 7-byte pieces -- one arrangement. This crosses the 64-byte block
+    /// boundary four times and tries all 301 places the caller could have cut
+    /// it, so a buffer bug that only shows at one particular partial block is
+    /// caught here rather than in the field. Kept from
+    /// `cargo-sensorium/src/sha256.rs`, deleted when this module became the
+    /// repository's only sha256 (2026-09-08).
+    #[test]
+    fn a_split_update_agrees_with_one_update_at_every_boundary() {
+        let data: Vec<u8> = (0u16..300).map(|i| (i % 251) as u8).collect();
+        let want = hex(&data);
+        for split in 0..=data.len() {
+            let mut h = Sha256::new();
+            h.update(&data[..split]);
+            h.update(&data[split..]);
+            assert_eq!(to_hex(&h.finish()), want, "split at {split}");
+        }
+    }
+
     /// `to_hex` is `hex_prefix(.., 64)`, and `hex` is `to_hex` of a one-shot
     /// digest. A reader of `cargo-sensorium`'s `tool_hash` -- which streams,
     /// then calls `to_hex` -- and of `sensorium-transform`'s `focus_hash` --
