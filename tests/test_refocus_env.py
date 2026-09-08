@@ -212,3 +212,153 @@ def test_a_withheld_pair_with_no_relocation_records_nothing_extra(
     capsys.readouterr()
     assert _read_meta(PAIR, "refocus_licence") == "withheld"
     assert _read_meta(PAIR, "refocus_licence_verified") == []
+
+
+# -- R1: the recorder's own fragment ---------------------------------------
+#: The two rt hashes E4' really recorded (that record's section 4): the driver
+#: embeds a digest of its own binary and the `sensorium-rt` sources in the
+#: path, so the hash moves with every driver build and the fragment differs
+#: between an original and a re-run built from a different commit. Fixtures
+#: use the measured pair rather than invented hex, because "16 hex characters"
+#: is the regex's claim and these are the strings it has to hold for.
+RT_WAS = "d9ce385a08c6646b"
+RT_NOW = "83d9294b8135c157"
+
+
+def fragment(root, rt_hash, profile="unwind"):
+    """`RUSTDOCFLAGS` as `cargo sensorium` writes it: two tokens naming ONE
+    directory under the target root."""
+    d = f"{root}/sensorium/rt/{rt_hash}/{profile}"
+    return f"--extern sensorium_rt={d}/libsensorium_rt.rlib -L dependency={d}"
+
+
+def test_the_recorders_own_fragment_is_stripped_before_the_compare(
+        tmp_path, monkeypatch, capsys):
+    """(a) The E4' shape exactly: the target root moved AND the rt hash moved,
+    because the re-run is built by a different driver. Stripped from both
+    sides, `RUSTDOCFLAGS` has nothing left to differ by -- so it is named by
+    the strip clause and by no other list, and the licence holds."""
+    from sensorium.query.refocus_world import _env_diff
+
+    was = {**cargo_env(OLD_ROOT), "RUSTDOCFLAGS": fragment(OLD_ROOT, RT_WAS)}
+    now = {**cargo_env(NEW_ROOT), "RUSTDOCFLAGS": fragment(NEW_ROOT, RT_NOW)}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert "env: CHANGED" not in out
+    assert ("env: unchanged (5 variables compared; not compared: OLDPWD, "
+            "PWD, SENSORIUM_DIR, SHLVL, _)  3 variable(s) differ only by the "
+            "target directory: CARGO_BIN_EXE_demo, CARGO_TARGET_DIR, "
+            "LD_LIBRARY_PATH; treated as unchanged; the recorder's own "
+            "fragment stripped before comparing: RUSTDOCFLAGS") in out
+    assert "licence: WITHHELD" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "granted"
+
+    # The partition itself, not only its rendering: RUSTDOCFLAGS is on
+    # neither the changed nor the relocated list.
+    changed, relocated, stripped = _env_diff(was, now)
+    assert changed == []
+    assert relocated == ["CARGO_BIN_EXE_demo", "CARGO_TARGET_DIR",
+                         "LD_LIBRARY_PATH"]
+    assert stripped == ["RUSTDOCFLAGS"]
+
+
+def test_a_world_flag_beside_the_fragment_still_withholds(
+        tmp_path, monkeypatch, capsys):
+    """(b) The discriminating control. `--cfg docsrs` is the WORLD's flag and
+    only the original carries it; strip ours and the remainder still differs,
+    so the licence is withheld naming `RUSTDOCFLAGS`. A strip that swallowed
+    the whole variable would grant a licence over a real difference."""
+    was = {**cargo_env(OLD_ROOT),
+           "RUSTDOCFLAGS": "--cfg docsrs " + fragment(OLD_ROOT, RT_WAS)}
+    now = {**cargo_env(NEW_ROOT), "RUSTDOCFLAGS": fragment(NEW_ROOT, RT_NOW)}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "RUSTDOCFLAGS   (names only)") in out
+    assert "licence: WITHHELD" in out
+    # Stripped AND changed: the clause says what was removed even where the
+    # remainder still accuses.
+    assert ("the recorder's own fragment stripped before comparing: "
+            "RUSTDOCFLAGS") in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_two_tokens_naming_different_directories_are_not_our_fragment(
+        tmp_path, monkeypatch, capsys):
+    """(c) The backreference IS the rule. `--extern` and `-L dependency=`
+    that name two different rt directories are not the shape this recorder
+    writes, so nothing is stripped and the world's compare sees the whole
+    value -- which differs by more than the root and withholds."""
+    def mixed(root, first, second):
+        a = f"{root}/sensorium/rt/{first}/unwind"
+        b = f"{root}/sensorium/rt/{second}/unwind"
+        return (f"--extern sensorium_rt={a}/libsensorium_rt.rlib "
+                f"-L dependency={b}")
+
+    was = {**cargo_env(OLD_ROOT),
+           "RUSTDOCFLAGS": mixed(OLD_ROOT, RT_WAS, RT_NOW)}
+    now = {**cargo_env(NEW_ROOT),
+           "RUSTDOCFLAGS": mixed(NEW_ROOT, RT_NOW, RT_WAS)}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "RUSTDOCFLAGS   (names only)") in out
+    assert "the recorder's own fragment stripped" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_a_pair_with_no_fragment_reads_exactly_as_it_did(
+        tmp_path, monkeypatch, capsys):
+    """(d) The legacy fence. A Python pair carries no fragment, so the strip
+    removes nothing, no clause is appended, and both channels are the strings
+    they were before this rule existed -- the line down to its newline and the
+    verified fact as a whole element, not a substring of one."""
+    env = {"PATH": "/usr/bin", "TZ": "UTC"}
+    _pair(tmp_path, monkeypatch, env, dict(env))
+    out = capsys.readouterr().out
+    assert ("env: unchanged (2 variables compared; not compared: OLDPWD, "
+            "PWD, SENSORIUM_DIR, SHLVL, _)\n") in out
+    assert ("2 environment variable(s) compared and unchanged in the "
+            "environment the rerun executed under; not compared: OLDPWD, "
+            "PWD, SENSORIUM_DIR, SHLVL, _"
+            ) in _read_meta(PAIR, "refocus_licence_verified")
+
+
+def test_a_withheld_pair_keeps_the_strip_note_on_its_own(
+        tmp_path, monkeypatch, capsys):
+    """The strip is a finding of its own, and it survives a withheld licence
+    with NOTHING relocated beside it: a re-run into the SAME target
+    directory under a rebuilt driver, with one real difference next to it.
+    Recognising only the relocation phrase would drop this note, and `info`
+    would replay a licence whose screen had said more than the record
+    does."""
+    from sensorium import cli
+
+    was = {"PATH": "/usr/bin", "TZ": "UTC", "CARGO_TARGET_DIR": OLD_ROOT,
+           "RUSTDOCFLAGS": fragment(OLD_ROOT, RT_WAS)}
+    now = {**was, "TZ": "CET", "RUSTDOCFLAGS": fragment(OLD_ROOT, RT_NOW)}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    note = ("the recorder's own fragment stripped before comparing: "
+            "RUSTDOCFLAGS")
+    assert "target directory" not in out          # nothing relocated
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+    assert note in _read_meta(PAIR, "refocus_licence_verified")
+    assert cli.main(["info", PAIR]) == 0
+    assert f"  licence verified: {note}" in capsys.readouterr().out
+
+
+def test_what_the_strip_removes_and_what_it_counts():
+    """(e) The unit. Every match removed, the space that surrounded it
+    collapsed with it, the ends trimmed, and the COUNT returned -- the count
+    is what puts the key on the strip list, so a removal that did not report
+    itself would be a silent exclusion."""
+    from sensorium.query.refocus_env import strip_recorder_fragment
+
+    frag = fragment(OLD_ROOT, RT_WAS)
+    assert strip_recorder_fragment("") == ("", 0)
+    assert strip_recorder_fragment(frag) == ("", 1)
+    assert strip_recorder_fragment("--cfg docsrs " + frag) == (
+        "--cfg docsrs", 1)
+    assert strip_recorder_fragment(f"{frag} {fragment(NEW_ROOT, RT_NOW)}") == (
+        "", 2)

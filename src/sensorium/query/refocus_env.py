@@ -1,4 +1,5 @@
-"""A target directory that MOVED, told apart from a world that changed.
+"""A target directory that MOVED, and a fragment the RECORDER wrote,
+told apart from a world that changed.
 
 Split out of `refocus_world` rather than added to it: the licence's
 environment clause now has a rule of its own, and `refocus_world` is the
@@ -139,6 +140,71 @@ def differs_only_by_root(was: str, now: str, old: str, new: str) -> bool:
     return explained
 
 
+# -- the recorder's OWN fragment, which is not the world's -----------------
+#: `RUSTDOCFLAGS` as `cargo sensorium` writes it, and the one thing in the
+#: compared environment that is the RECORDER's rather than the world's. The
+#: driver links the runtime in by hand -- `--extern` plus the `-L
+#: dependency=` that resolves it -- and the directory carries a digest of
+#: the driver binary and the `sensorium-rt` sources, so the hash MOVES with
+#: every driver build. E4' measured the cost of not knowing that: all 61
+#: pairs withheld on this one key, under a driver that had simply been
+#: rebuilt (that record's section 5, blind spot 27).
+#:
+#: The shape is the fence. `sensorium_rt` by name, `/sensorium/rt/` followed
+#: by exactly sixteen hex characters and one of the two panic strategies,
+#: `libsensorium_rt.rlib`, and -- the rule that makes it ours -- a
+#: BACKREFERENCE: the two tokens must name ONE directory. Two tokens that
+#: name two directories are not a thing this recorder has ever written, so
+#: they are left for the world's compare. `(?:^| )` and `(?= |$)` bound the
+#: match at token edges, and the leading space is consumed with it so the
+#: remainder needs no re-spacing.
+RECORDER_FRAGMENT = re.compile(
+    r"(?:^| )--extern sensorium_rt=(?P<dir>\S+/sensorium/rt/[0-9a-f]{16}/"
+    r"(?:unwind|abort))/libsensorium_rt\.rlib -L dependency=(?P=dir)(?= |$)")
+
+
+def strip_recorder_fragment(value: str) -> tuple[str, int]:
+    """`value` with every occurrence of our fragment removed, and how many
+    were removed.
+
+    The count is returned rather than inferred from the remainder, because
+    the count is what puts the key on the printed strip list: a removal
+    that did not report itself would be an exclusion by name, hidden --
+    the thing the relocation rule above exists to avoid.
+
+    Only the space the regex consumed goes with the match; the world's own
+    spacing inside what is left is untouched, so two values that differ by
+    whitespace still differ after the strip.
+    """
+    out, count = RECORDER_FRAGMENT.subn("", value)
+    return out.strip(), count
+
+
+#: The phrase that both WRITES the strip note and RECOGNISES it, on the
+#: `_RELOCATED` pattern and for the same reason: one constant, so the
+#: sentence and its reader cannot drift apart.
+#:
+#: It lives here rather than in `vocab.py` because it is not language-
+#: bearing. `vocab` holds the sentences that say what Python or Rust means;
+#: this one says what this TOOL does to its own footprint before comparing,
+#: and it reads the same whichever recorder wrote the trace.
+_STRIPPED = "the recorder's own fragment stripped before comparing: "
+
+
+def stripped_clause(names: list[str]) -> str:
+    """What the env line and the verified fact both say about the keys the
+    strip touched. Empty when it touched none -- so a Python pair, which
+    can never carry the fragment, reads exactly as it always did.
+
+    Named, never counted, and never silent: a variable this tool removed
+    part of before comparing is a variable it checked less of, and a reader
+    is owed the name.
+    """
+    if not names:
+        return ""
+    return f"{_STRIPPED}{', '.join(names)}"
+
+
 def relocated_clause(names: list[str]) -> str:
     """What the env line and the verified fact both say about the keys the
     rule explained. Empty when it explained none, so a pair that never
@@ -156,7 +222,9 @@ def relocated_clause(names: list[str]) -> str:
 
 
 def is_relocation_note(fact: str) -> bool:
-    """Whether a world-fact carries the names this rule explained.
+    """Whether a world-fact carries the names a rule of this module
+    explained -- by EITHER rule: the target directory that moved, or the
+    recorder's own fragment removed before the compare.
 
     A withheld licence records no verified facts -- it rests on nothing --
     but the keys this check EXPLAINED are a finding of its own, and the
@@ -164,8 +232,9 @@ def is_relocation_note(fact: str) -> bool:
     trace kept only the accusation, and `info` replayed a licence whose
     screen had said more than the record does.
 
-    Recognised by the one phrase `relocated_clause` builds, from the same
-    constant, so a rewording moves both halves together and cannot leave
-    this reading a sentence that no longer exists.
+    Recognised by the phrases `relocated_clause` and `stripped_clause`
+    build, from the same constants they build them from, so a rewording
+    moves both halves together and cannot leave this reading a sentence
+    that no longer exists.
     """
-    return _RELOCATED in fact
+    return _RELOCATED in fact or _STRIPPED in fact

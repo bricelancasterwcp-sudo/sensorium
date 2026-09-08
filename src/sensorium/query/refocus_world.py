@@ -29,7 +29,9 @@ from sensorium.query.caps import witness_gap
 # two implementations of that join are two ways for one trace to be read.
 from sensorium.query.exceptions_rust import _marks as _site_marks
 from sensorium.query.refocus_env import (differs_only_by_root,
-                                         relocated_clause, relocation)
+                                         relocated_clause, relocation,
+                                         strip_recorder_fragment,
+                                         stripped_clause)
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
@@ -237,20 +239,40 @@ def _source_state(meta: dict) -> tuple[str, str | None, str | None]:
             f"recording did", None)
 
 
-def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str]]:
-    """(names that differ, names that differ ONLY by the target directory).
+def _env_diff(was: dict,
+              now: dict) -> tuple[list[str], list[str], list[str]]:
+    """(names that differ, names that differ ONLY by the target directory,
+    names the recorder's own fragment was stripped from).
 
     Names only -- values are never printed, because environments carry
-    secrets. The split is `refocus_env`'s rule and its whole reason: a
-    re-run under a fresh `CARGO_TARGET_DIR` differs on every variable cargo
-    derives from the root, and reporting the tool's own relocation as a
-    change the world made is noise. Everything else stays a difference.
+    secrets. Every split here is `refocus_env`'s rule and its whole reason:
+    a re-run under a fresh `CARGO_TARGET_DIR` differs on every variable
+    cargo derives from the root, and one of them also carries the driver's
+    own `--extern sensorium_rt=...` whose hash moves with every driver
+    build. Reporting the tool's own relocation, or the tool's own fragment,
+    as a change the world made is noise. Everything else stays a
+    difference.
+
+    Order per key: the fragment goes first, because what is compared is
+    what the world put there; then equality; then the relocation rule over
+    the REMAINDERS. A key can be stripped and unchanged, stripped and
+    relocated, or stripped and changed -- the strip is a statement about
+    what was removed, never a verdict.
     """
     keys = (set(was) | set(now)) - _UNCOMPARED_ENV
     move = relocation(was, now)
-    changed, relocated = [], []
+    changed, relocated, stripped = [], [], []
     for key in sorted(keys):
         before, after = was.get(key), now.get(key)
+        removed = 0
+        if isinstance(before, str):
+            before, n = strip_recorder_fragment(before)
+            removed += n
+        if isinstance(after, str):
+            after, n = strip_recorder_fragment(after)
+            removed += n
+        if removed:
+            stripped.append(key)
         if before == after:
             continue
         # A key present on ONE side only reaches `differs_only_by_root` as
@@ -261,7 +283,7 @@ def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str]]:
             relocated.append(key)
         else:
             changed.append(key)
-    return changed, relocated
+    return changed, relocated, stripped
 
 
 def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
@@ -279,14 +301,16 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
                 "the environment could not be checked at all, so nothing "
                 "rules out the rerun getting different input through it",
                 None)
-    names, relocated = _env_diff(was, env)
+    names, relocated, stripped = _env_diff(was, env)
     # Named on BOTH channels or on neither: the line a person reads and the
     # fact the trace keeps have to agree about which keys the check
     # explained away, or `info` replays a licence whose terminal said more.
-    # Empty when nothing moved, so every string below is byte for byte what
+    # Empty when nothing fired, so every string below is byte for byte what
     # it was -- which is every Python pair, since only `cargo sensorium`
-    # records a target root at all.
-    clause = relocated_clause(relocated)
+    # records a target root or writes the fragment at all. Two clauses join
+    # with the separator each already ends its own names with.
+    clause = "; ".join(c for c in (relocated_clause(relocated),
+                                   stripped_clause(stripped)) if c)
     on_line = f"  {clause}" if clause else ""
     on_fact = f"; {clause}" if clause else ""
     if not names:
