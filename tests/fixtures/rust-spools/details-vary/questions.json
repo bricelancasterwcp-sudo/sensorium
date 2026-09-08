@@ -1,0 +1,32 @@
+[
+  {
+    "id": "one-sink-two-chains-merge-and-the-flags-name-what-differs",
+    "ask": "Two Err chains reach one `let _ =` sink in one function: one absorbed while its producing frame's chain was open, one with no chain open at all. Do they print as ONE block, with the four flags naming exactly what the key did not look at -- and does `details vary` say the block above it shows no detail?",
+    "command": ["exceptions", "$RUN"],
+    "expect_exit": 0,
+    "expect_line": [
+      ["e4 RAISE", "inner raise demo::Boom('Boom(1)') L20"],
+      ["SWALLOWED -- absorbed by sink_let_underscore at e6 (swallow L12) in f2, which returned ok", "[×2: e4, e9]"],
+      ["hops: e4 inner L20 exit -> e6 swallow L12 sink_let_underscore"],
+      ["origins: 2 distinct (first shown)"],
+      ["messages: 2 distinct (first shown)"],
+      ["details vary (2 distinct; this one has none)"],
+      ["routes: 2 distinct (first shown)"]
+    ],
+    "expect_contains": ["dispositions: swallowed 2"],
+    "expect_count": {"SWALLOWED": 1, "raised (2):": 1},
+    "expect_absent": ["ambiguous", "returned to the harness", "panicked"]
+  },
+  {
+    "id": "the-second-chains-own-detail-is-what-the-flag-counts",
+    "ask": "The member the block does NOT show is the one whose Err reached the sink with no chain of this thread open. Is that member's own detail reachable, so `details vary` is counting two real sentences rather than one and a hole?",
+    "command": ["exceptions", "$RUN", "--after", "e6"],
+    "expect_exit": 0,
+    "expect_line": [
+      ["e9 HANDLED", "swallow handled demo::Boom('Boom(2)') L12"],
+      ["no chain of this thread was open where it was absorbed -- born outside this thread's instrumented frames, or handed to this one by value from one of them; absorbed at sink_let_underscore"]
+    ],
+    "expect_contains": ["dispositions: swallowed 1"],
+    "expect_absent": ["details vary", "hops:", "Boom(1)"]
+  }
+]

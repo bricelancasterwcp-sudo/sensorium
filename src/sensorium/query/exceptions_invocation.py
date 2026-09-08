@@ -152,6 +152,21 @@ def _processes(n: int) -> str:
     return f"{n} process" if n == 1 else f"{n} processes"
 
 
+def _shapes(n: int) -> str:
+    """What the header counts, in the noun that says what it is.
+
+    It read `N swallowing sites`, and N is the number of printed BLOCKS --
+    merged shapes whose disposition is swallowed. The two are not equal on
+    a real sweep: the E6″′ record has 91 and 98 distinct sites where
+    this header printed 103 and 105, and R-G12 widened that gap by making
+    the addressing right. The phrase was frozen through both measurements
+    deliberately and is free to correct now. `shape` is this command's own
+    word for a merged block, printed already by the continuation note. It
+    also said `sites` at N=1.
+    """
+    return f"{n} swallowed shape" if n == 1 else f"{n} swallowed shapes"
+
+
 def _member_refusal(run_id: str, trace) -> str | None:
     """Why this member's record cannot be judged, or None.
 
@@ -309,7 +324,7 @@ def run(args, invocation_id: str, members: list) -> int:
     chains = sum(m.n for m in merged)
     sites = sum(1 for m in merged if m.shape.tag == "swallowed")
     print(f"raised ({chains} chains over {_processes(with_chains)}, "
-          f"{sites} swallowing sites):")
+          f"{_shapes(sites)}):")
     # Over the whole ANSWER, never per member: the collision this mode
     # exists to have caught is between processes -- `sandbox L42` in two
     # test files, one process each -- so a set computed inside a member

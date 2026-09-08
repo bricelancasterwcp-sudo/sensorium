@@ -450,8 +450,10 @@ def test_a_flag_says_so_when_the_printed_block_has_none_of_what_it_counts(
     assert text.count("SWALLOWED --") == 1, text
     assert "[×2: e2, e4]" in text, text
     # the printed member is the born-outside one: a detail, and no route
-    assert ("      born outside this thread's instrumented frames; "
-            "absorbed at sink_ok") in text, text
+    assert ("      no chain of this thread was open where it was absorbed "
+            "-- born outside this thread's instrumented frames, or handed "
+            "to this one by value from one of them; absorbed at sink_ok"
+            ) in text, text
     assert "hops:" not in text, text
     assert "      routes: 2 distinct (this one has none)" in text, text
     assert "      details vary (2 distinct; first shown)" in text, text

@@ -92,7 +92,10 @@ spools, `corpus/rust/interleaved_chains`, and the vector
   caller and the verdict stands; **a guarded arm's disposition is its body's**.
   The verdict says the failure did not reach the caller, not that the program
   was wrong to drop it. A chain first seen at the sink itself is still
-  SWALLOWED, detailed *born outside this thread's instrumented frames*. A
+  SWALLOWED, detailed *no chain of this thread was open where it was
+  absorbed -- born outside this thread's instrumented frames, or handed to
+  this one by value from one of them* (amended 2026-09-08 for blind spot
+  R16 (v): the sentence claimed the second reading was the first). A
   reader who finds a value derived from the `Err` reaching the caller has found
   a FALSE accusation, and every pre-registration's gate on this verdict is
   0 of them. Adopted 2026-09-05 (rung-4 entry, N1) from design R15's rulings of

@@ -95,7 +95,7 @@ questions:
       - ["SWALLOWED", "arm_handled", "attempt L17", "which returned ok"]
       - ["born outside this thread's instrumented frames",
          "absorbed at arm_handled"]
-      - ["panics: 1 recorded", "a panic is a frame's unwind"]
+      - ["panics: 1 event(s) recorded", "a panic is a frame's unwind"]
     expect_count: {"SWALLOWED": 1}
     expect_absent: ["ambiguous", "returned to the harness"]
   - id: which-error-did-the-arm-absorb

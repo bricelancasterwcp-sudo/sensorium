@@ -1,0 +1,58 @@
+{
+  "version": 3,
+  "manifests": {
+    "u0": {
+      "crate_name": "demo",
+      "files": {
+        "src/lib.rs": [
+          {"site": 0, "qualname": "run", "kind": "fn", "firstlineno": 3,
+           "ret": "unit"},
+          {"site": 1, "qualname": "swallow", "kind": "fn", "firstlineno": 10,
+           "ret": "unit"},
+          {"site": 2, "qualname": "inner", "kind": "fn", "firstlineno": 20,
+           "ret": "value"},
+          {"site": 3, "qualname": "swallow", "kind": "sink", "line": 12,
+           "how": "sink_let_underscore"}
+        ]
+      },
+      "source_hashes": {"src/lib.rs": "dddddddddddddddd"}
+    }
+  },
+  "processes": [
+    {
+      "pid": 4301,
+      "exe": "/w/target/debug/deps/demo-details-vary",
+      "rt_version": "sensorium-rt 0.4.0",
+      "capabilities": {"err_flow": true},
+      "units": {"0": "u0"},
+      "threads": [
+        {
+          "serial": 1,
+          "name": "main",
+          "records": [
+            {"op": "call", "unit": 0, "site": 0, "seq": 0, "ts": 1000},
+
+            {"op": "call", "unit": 0, "site": 1, "seq": 1, "ts": 1100},
+            {"op": "call", "unit": 0, "site": 2, "seq": 2, "ts": 1200},
+            {"op": "ret_err_typed", "unit": 0, "site": 2, "seq": 3,
+             "ts": 1300, "text": "Err(Boom(1))", "err_type": "demo::Boom"},
+            {"op": "handled", "unit": 0, "site": 3, "seq": 4, "ts": 1400,
+             "how": "sink_let_underscore", "type": "demo::Boom",
+             "msg": "Boom(1)"},
+            {"op": "ret_none", "unit": 0, "site": 1, "seq": 5, "ts": 1500},
+
+            {"op": "call", "unit": 0, "site": 1, "seq": 6, "ts": 1600},
+            {"op": "handled", "unit": 0, "site": 3, "seq": 7, "ts": 1700,
+             "how": "sink_let_underscore", "type": "demo::Boom",
+             "msg": "Boom(2)"},
+            {"op": "ret_none", "unit": 0, "site": 1, "seq": 8, "ts": 1800},
+
+            {"op": "ret_none", "unit": 0, "site": 0, "seq": 9, "ts": 1900},
+            {"op": "thread_end", "seq": 10, "ts": 2000}
+          ]
+        }
+      ],
+      "runner": {"exit_status": 0}
+    }
+  ]
+}

@@ -225,7 +225,7 @@ def test_an_invocation_id_answers_for_every_member(
     o = out(capsys)
     assert (f"invocation {INV}: cargo test --workspace -- 3 processes, "
             "2 with Err chains, 1 with none") in o, o
-    assert "raised (3 chains over 2 processes, 2 swallowing sites):" in o, o
+    assert "raised (3 chains over 2 processes, 2 swallowed shapes):" in o, o
     # sink A: one block, named for the FIRST member, counting both
     assert o.count("(load L31)") == 1, o
     assert f"  [×2 over 2 processes: first e3 in {M1}, +1]" in o, o
@@ -296,7 +296,7 @@ def test_a_group_confined_to_one_member_says_process_in_the_singular(
     o = out(capsys)
     assert (f"invocation {INV}: cargo test --workspace -- 2 processes, "
             "1 with Err chains, 1 with none") in o, o
-    assert "raised (2 chains over 1 process, 1 swallowing sites):" in o, o
+    assert "raised (2 chains over 1 process, 1 swallowed shape):" in o, o
     assert f"  [×2 over 1 process: first e3 in {M1}, +1]" in o, o
     assert "1 processes" not in o, o
     assert "dispositions: swallowed 2" in o, o
@@ -368,7 +368,7 @@ def test_two_origin_sites_stay_two_shapes_across_processes(
                   invocation=INV, cargo_args=CARGO)
     assert cli.main(["exceptions", INV]) == ANSWERED
     o = out(capsys)
-    assert "raised (2 chains over 2 processes, 0 swallowing sites):" in o, o
+    assert "raised (2 chains over 2 processes, 0 swallowed shapes):" in o, o
     assert o.count("ambiguous -- the frame holding it returned ok") == 2, o
     assert f"  [in {M1}]" in o and f"  [in {M2}]" in o, o
     assert "alpha raise" in o and "beta raise" in o, o
@@ -454,7 +454,8 @@ def test_the_partial_rows_and_panics_are_the_union_and_the_sum(
     assert "partial: 2 ?-sites the transformer could not reach" in o, o
     assert f"  load {SITE_FILE}:21 (macro-arg) in {M1}" in o, o
     assert f"  save {SITE_FILE}:44 (macro-arg) in {M2}" in o, o
-    assert "panics: 1 recorded -- this command judges Err flow" in o, o
+    assert ("panics: 1 event(s) recorded -- this command judges Err flow"
+            in o), o
 
 
 # -- what this mode refuses -------------------------------------------------
@@ -643,7 +644,7 @@ def test_two_members_whose_site_texts_collide_are_two_shapes_naming_their_files(
         tmp_path, monkeypatch, capsys):
     """The record's own miss, made small (ruling R-G12). Two processes sink
     an `Err` at a `sandbox L42` that is not the same place: two shapes, each
-    verdict naming its file, and two swallowing sites in the header. Under
+    verdict naming its file, and two swallowed shapes in the header. Under
     the key the first measurement shipped this printed ONE block of two
     chains, and the second file appeared nowhere in the answer."""
     sandbox42_trace(tmp_path, monkeypatch, file=READ_FIND, run_id=M1,
@@ -652,7 +653,7 @@ def test_two_members_whose_site_texts_collide_are_two_shapes_naming_their_files(
                     invocation=INV, cargo_args=CARGO)
     assert cli.main(["exceptions", INV]) == ANSWERED
     o = out(capsys)
-    assert "raised (2 chains over 2 processes, 2 swallowing sites):" in o, o
+    assert "raised (2 chains over 2 processes, 2 swallowed shapes):" in o, o
     assert ("    SWALLOWED -- absorbed by sink_let_underscore at e5 "
             "(sandbox L42 in task_exec_read_find_test.rs) in f1, which "
             f"returned ok  [in {M1}]") in o, o
@@ -680,7 +681,7 @@ def test_the_collision_is_a_property_of_the_answer_not_of_a_member(
                   cargo_args=CARGO)
     assert cli.main(["exceptions", INV]) == ANSWERED
     o = out(capsys)
-    assert "raised (4 chains over 4 processes, 3 swallowing sites):" in o, o
+    assert "raised (4 chains over 4 processes, 3 swallowed shapes):" in o, o
     assert ("    SWALLOWED -- absorbed by sink_let_underscore at e5 "
             "(sandbox L42 in task_exec_read_find_test.rs) in f1, which "
             f"returned ok  [×2 over 2 processes: first e3 in {M1}, +1]"
