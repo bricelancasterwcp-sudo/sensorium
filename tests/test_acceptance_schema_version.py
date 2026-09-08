@@ -167,3 +167,32 @@ def test_the_committed_results_predate_the_field_and_are_NOT_repaired(name):
     assert "schema_version" not in record, (
         f"{name} was re-derived; a closed record's derivation is STATED, "
         "never rewritten")
+
+
+# ------------------------------- every renderer is reachable from `--doc`
+
+def test_every_renderer_with_a_document_ENTRY_is_reachable_from_doc():
+    """A1's review minors: `render_e6q.py` was written with the same
+    `document(argv)` entry point as its siblings and never added to
+    `render_acceptance`'s chain, so the only way to render the E6⁗ document
+    was to run its module directly. `render_grain` had acquired the same
+    hole. The dispatch is a table now, and this is the check that a renderer
+    added beside them joins it."""
+    import importlib
+    entries = sorted(p.stem for p in RUST_TESTS.glob("render_*.py")
+                     if "def document(argv)" in p.read_text())
+    # every module that HAS the entry point is routed to by some `--doc`
+    assert set(entries) - set(ra.DOCS.values()) == set(), entries
+    # ...and every name in the table resolves to a module that has one
+    for doc, module in ra.DOCS.items():
+        assert importlib.import_module(module).document, doc
+
+
+def test_an_unknown_doc_names_every_document_this_renderer_can_render(
+        capsys):
+    """The refusal message was a hand-typed list of four and named neither
+    `e6q` nor `grain`. Derived from the table, so it cannot go stale."""
+    assert ra.main(["--doc", "nope"]) == 2
+    err = capsys.readouterr().err
+    for name in ["rung2", "e5prime", *ra.DOCS]:
+        assert f"`{name}`" in err, name

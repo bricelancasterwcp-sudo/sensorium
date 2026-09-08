@@ -519,6 +519,33 @@ def _prep(paths, cfg, label: str, arm=None) -> dict:
     return out
 
 
+def base_driver_cleanup(paths, base) -> dict:
+    """The CONTROL driver's sha256, re-read after the run.
+
+    `rung3.cleanup` re-checks the HEAD driver and nothing re-checked this
+    one, so a control binary rebuilt or replaced mid-run would have left the
+    record naming a pre-repair driver it no longer had (A1's review minors).
+    Read, compared against the preflight's, and REPORTED -- never a refusal,
+    because by here the numbers are in and a refusal would lose them.
+    `null` WITH its reason on either side, since "the binary is gone" and
+    "there was nothing recorded to compare it against" are different facts
+    and neither of them is "unchanged".
+    """
+    driver = Path(paths["sensorium_base_driver"])
+    before = (base or {}).get("driver_sha256")
+    after = sha256_file(driver) if driver.is_file() else None
+    return {
+        "base_driver_sha256_after": after,
+        "base_driver_unchanged": (after == before if after and before
+                                  else None),
+        "base_driver_unchanged_reason": (
+            None if after and before else
+            "the base driver is no longer a file at the end of the run"
+            if not after else
+            "the preflight recorded no base driver sha256 to compare"),
+    }
+
+
 def main(argv) -> int:
     BASE.mkdir(parents=True, exist_ok=True)
     LOGS.mkdir(parents=True, exist_ok=True)
@@ -597,6 +624,10 @@ def main(argv) -> int:
 
         res["arm_loads"] = list(LOADS)
         res["cleanup"] = rung3.cleanup(paths, cfg, pins)
+        # The shared cleanup re-checks the HEAD driver; this arm has a
+        # second binary and nothing re-checked it.
+        res["cleanup"].update(
+            base_driver_cleanup(paths, res.get("raw_base_driver")))
     except Refused as e:
         step(f"REFUSED: {e}")
         res["refused"] = str(e)

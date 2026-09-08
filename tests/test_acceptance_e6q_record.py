@@ -229,13 +229,15 @@ def test_e6again_and_e7q_and_e0ppp_are_the_committed_rung3_schema_not_copies():
     assert doc["endpoints"]["E6again"] == rung3_e6(raw)
     assert doc["endpoints"]["E7q"] == _e7pp(raw)
     # E0‴ is the committed block with ONLY its lens rewritten (below).
-    from acceptance_schema_e6q import E0_LENS_IS, E0_LENS_WAS
+    from acceptance_schema_e6q import E0_LENS_SUBS
     got, want = doc["endpoints"]["E0ppp"], _e0pp({"raw_e0pp": raw["raw_e0ppp"]})
     assert set(got) == set(want)
     for k, v in want.items():
         if isinstance(v, dict) and isinstance(v.get("lens"), str):
-            assert got[k] == dict(v, lens=v["lens"].replace(E0_LENS_WAS,
-                                                            E0_LENS_IS))
+            lens = v["lens"]
+            for was, now in E0_LENS_SUBS:
+                lens = lens.replace(was, now)
+            assert got[k] == dict(v, lens=lens)
         else:
             assert got[k] == v
 
@@ -250,6 +252,55 @@ def test_the_e0ppp_lens_names_the_trace_this_run_actually_read():
         lens = doc["endpoints"]["E0ppp"][k]["lens"]
         assert "E6⁗-WS process with the most events" in lens, k
         assert "E6' trace" not in lens, k
+
+
+def test_the_lens_substitution_is_GRAMMATICAL_in_every_slot_it_meets():
+    """A1's review minors. The rung-3 lens uses "the E6' trace" as a plain
+    noun, as a possessive ("the E6' trace's size in bytes") and in a
+    compound ("the E6' trace file's size"); the substitution was one blind
+    `str.replace`, which turns the second into "…with the most events's
+    size". No committed record carries that string -- the cells with the
+    genitive are in the rung-3 record's own block and were never passed
+    through this substitution -- so the defect is latent, and this is what
+    makes it stay that way."""
+    from acceptance_schema_e6q import E0_LENS_IS, E0_LENS_SUBS, E0_LENS_WAS
+
+    def sub(text):
+        for was, now in E0_LENS_SUBS:
+            text = text.replace(was, now)
+        return text
+
+    assert sub(f"RAISE events on the {E0_LENS_WAS}") == (
+        f"RAISE events on the {E0_LENS_IS}")
+    got = sub(f"the {E0_LENS_WAS}'s size in bytes divided by its event count")
+    assert "events's" not in got
+    assert got == (f"the {E0_LENS_IS}' size in bytes divided by its event "
+                   "count")
+    got = sub(f"the {E0_LENS_WAS} file's size")
+    assert "events file's" not in got
+    assert got == f"the {E0_LENS_IS}' own trace file's size"
+
+
+def test_a_prep_whose_arm_rows_carry_no_COUNT_is_null_WITH_a_reason():
+    """A1's review minors: `arm_sites_distinct`'s `dropped` came from
+    `_drop`, which can be `[]`, and the guard beside it tested the arms
+    BLOCK rather than the cell's own value -- so a prep whose arm rows
+    carried no `distinct` count published a null with no reason at all,
+    against this module's own rule. Unreachable today only because
+    `arm_rows` always writes one, which is not a property this module can
+    see."""
+    raw = {"raw_prep_head": {"label": "head", "build": {"rc": 0},
+                             "arms": {"raw": 7, "by_how": {"try": 7}}}}
+    cell = assemble_e6q(raw)["reported"]["prep_head"]["arm_sites_distinct"]
+    assert cell["value"] is None
+    assert cell["dropped"] == ["this prep build's arm rows carry no "
+                               "`distinct` count"]
+    # ...and the other shape keeps the reason it had.
+    empty = assemble_e6q({"raw_prep_head": {"label": "head",
+                                            "build": {"rc": 0}}})
+    other = empty["reported"]["prep_head"]["arm_sites_distinct"]
+    assert other["value"] is None and other["dropped"]
+    assert "no `kind: \"arm\"` manifest rows" in other["dropped"][0]
 
 
 def test_a_reported_cell_that_did_not_run_carries_its_reason_not_an_empty_list():

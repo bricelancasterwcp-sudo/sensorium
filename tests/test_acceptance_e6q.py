@@ -164,6 +164,46 @@ def test_the_two_head_arms_differ_only_in_the_selector_and_the_lib_tail(
     assert a[:-3] == ws[:-1]
 
 
+def test_arm_As_selector_IS_the_shared_configs_package(monkeypatch):
+    """A1's review minors: `ARM_A["selector"]` and `acceptance.real_config`'s
+    `pkg` are written out separately and nothing said they must agree, so a
+    package rename would move one and leave this arm measuring another
+    crate under E6⁗-A's name."""
+    import acceptance
+    monkeypatch.setattr(acceptance, "workspace_packages", lambda root: [])
+    cfg = acceptance.real_config({"sensorium_bloomery_clone": Path("/nowhere")})
+    assert runner.ARM_A["selector"] == cfg["pkg"]
+    assert runner.ARM_WS["selector"] == cfg["workspace_sel"]
+
+
+def test_the_base_drivers_sha256_is_RE_CHECKED_at_cleanup(tmp_path):
+    """A1's review minors: the shared cleanup re-checks the HEAD driver and
+    nothing re-checked the control's, so a base binary rebuilt or replaced
+    mid-run would have left the record naming a pre-repair driver it no
+    longer had. Reported, never a refusal -- by cleanup the numbers are in.
+    """
+    drv = tmp_path / "cargo-sensorium"
+    drv.write_bytes(b"base")
+    p = {"sensorium_base_driver": drv}
+    from acceptance_lib import sha256_file
+    same = runner.base_driver_cleanup(p, {"driver_sha256": sha256_file(drv)})
+    assert same["base_driver_unchanged"] is True
+    assert same["base_driver_unchanged_reason"] is None
+    moved = runner.base_driver_cleanup(p, {"driver_sha256": "0" * 64})
+    assert moved["base_driver_unchanged"] is False
+    assert moved["base_driver_sha256_after"] == sha256_file(drv)
+    # None-vs-False, both ways round.
+    drv.unlink()
+    gone = runner.base_driver_cleanup(p, {"driver_sha256": "0" * 64})
+    assert gone["base_driver_unchanged"] is None
+    assert "no longer a file" in gone["base_driver_unchanged_reason"]
+    drv.write_bytes(b"base")
+    unpinned = runner.base_driver_cleanup(p, {})
+    assert unpinned["base_driver_unchanged"] is None
+    assert "nothing recorded" in unpinned["base_driver_unchanged_reason"] or \
+           "no base driver sha256" in unpinned["base_driver_unchanged_reason"]
+
+
 def test_the_control_arm_is_the_ws_arm_under_the_base_driver_in_its_own_target_and_store(
         tmp_path):
     """Design B5: the SAME command under the PRE-repair driver. Sharing the

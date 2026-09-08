@@ -300,6 +300,17 @@ def _flip(raw) -> dict:
 E0_LENS_WAS = "E6' trace"
 E0_LENS_IS = "E6⁗-WS process with the most events"
 
+#: The rung-3 lens uses that noun in three grammatical slots -- plain (`RAISE
+#: events on the E6' trace`), possessive (`the E6' trace's size in bytes`)
+#: and compound (`the E6' trace file's size`). One blind replacement handled
+#: the first and published `…with the most events's size` and `…with the
+#: most events file's size` in the other two: the grammar A1's review named.
+#: Longest first, so the plain rule cannot pre-empt the other two, and the
+#: possessive takes the apostrophe the new noun's PLURAL takes.
+E0_LENS_SUBS = ((E0_LENS_WAS + " file's", E0_LENS_IS + "' own trace file's"),
+                (E0_LENS_WAS + "'s", E0_LENS_IS + "'"),
+                (E0_LENS_WAS, E0_LENS_IS))
+
 
 def _e0ppp(raw) -> dict:
     """E0‴: `acceptance_schema_rung3._e0pp` over this document's raw key,
@@ -307,7 +318,8 @@ def _e0ppp(raw) -> dict:
     block = _e0pp({"raw_e0pp": raw.get("raw_e0ppp")})
     for cell in block.values():
         if isinstance(cell, dict) and isinstance(cell.get("lens"), str):
-            cell["lens"] = cell["lens"].replace(E0_LENS_WAS, E0_LENS_IS)
+            for was, now in E0_LENS_SUBS:
+                cell["lens"] = cell["lens"].replace(was, now)
     return block
 
 
@@ -383,8 +395,15 @@ def _prep(raw, key: str) -> dict:
     # As above: a prep that did not run, or that dropped, must say so rather
     # than render as `not measured (no reason recorded)`.
     dropped = _drop(raw, key)
-    if not arms and not dropped:
-        dropped = ["this prep build recorded no `kind: \"arm\"` manifest rows"]
+    # ...and the guard is on the CELL's value, not on the block that feeds
+    # it: `_drop` can return `[]`, and a prep whose arm rows carried no
+    # `distinct` count would then publish a null with no reason at all --
+    # unreachable today only because `arm_rows` always writes one, which is
+    # not a property this module can see (A1's review minors).
+    if arms.get("distinct") is None and not dropped:
+        dropped = ["this prep build recorded no `kind: \"arm\"` manifest rows"
+                   if not arms else
+                   "this prep build's arm rows carry no `distinct` count"]
     return {
         "label": r.get("label"), "driver": r.get("driver"),
         "driver_sha256": r.get("driver_sha256"), "target": r.get("target"),
