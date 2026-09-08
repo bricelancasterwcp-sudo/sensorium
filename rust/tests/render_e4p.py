@@ -129,6 +129,19 @@ def environment(r) -> list[str]:
          f"{env.get('tmpdir_observed')!r}; `tempfile.gettempdir()` resolved "
          f"to `{env.get('tempfile_gettempdir')}`. "
          f"{env.get('tmpdir_reading')}"),
+        ("no other `cargo` was running",
+         f"`{(env.get('cargo_running_check') or {}).get('command')}` → rc "
+         f"{(env.get('cargo_running_check') or {}).get('rc')}, pids "
+         f"{(env.get('cargo_running_check') or {}).get('pids')}"),
+        ("environment parity with the 61 originals",
+         f"{(env.get('env_parity') or {}).get('checked')} original(s) "
+         f"checked over "
+         f"{len((env.get('env_parity') or {}).get('compared_keys') or [])} "
+         f"compared key(s); differing: "
+         f"{(env.get('env_parity') or {}).get('differing') or 'none'}. "
+         f"Excluded: `{(env.get('env_parity') or {}).get('excluded_pattern')}`"
+         f" and {(env.get('env_parity') or {}).get('uncompared')} — those "
+         f"differ by design and `refocus_env` judges them"),
         ("`SENSORIUM_TIER`", str(env.get("sensorium_tier"))),
         ("the invocation audit log", str(env.get("invocation_log"))),
         ("toolchain",

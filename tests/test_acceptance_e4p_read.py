@@ -421,3 +421,45 @@ def test_the_recorders_own_uncompared_names_are_read_apart_from_both(
     assert all(k.startswith("SENSORIUM_") or k in
                ("RUSTC_WORKSPACE_WRAPPER",) or "_RUNNER" in k
                for k in p["env_recorder_own_keys"]), p["env_line"]
+
+
+def test_a_WITHHELD_pair_still_reads_its_relocated_keys(tmp_path,
+                                                        monkeypatch, capsys):
+    """The shape all four of §1.2's WITHHELD pairs will take in the real
+    run: the target root moved (§1.4's fresh target) AND the program spawned
+    a thread. The licence is withheld for the THREAD, and the env line still
+    reads `unchanged` with the relocated keys named — so the two readings
+    stay apart and a withheld licence does not swallow the env fact.
+
+    `d43b7aa` is why the names also survive on the trace's own stamp; this
+    is the printed half, which is what the record parses.
+    """
+    _drive(tmp_path, monkeypatch, pairs=[(PAIR, ORIG)],
+           program=partial(libtest_original, env=ORIG_ENV,
+                           program_threads=1),
+           build=partial(libtest_original, env=RELOCATED_ENV,
+                         program_threads=1))
+    out = capsys.readouterr().out
+    p = rd.parse_refocus(out)
+    part = rd.licence_partition(p)
+    assert part["licence"] == "WITHHELD"
+    assert part["program_threads"] == 1        # the thread, not the env
+    assert p["env_status"] == "unchanged"
+    assert p["env_relocated_keys"] == ["CARGO_BIN_EXE_app",
+                                       "CARGO_TARGET_DIR",
+                                       "LD_LIBRARY_PATH"]
+    assert p["env_changed_for_other_keys"] is False
+
+
+def test_a_GRANTED_pair_carries_the_relocation_on_its_verified_list_too(
+        tmp_path, monkeypatch, capsys):
+    """The other half of `d43b7aa`'s "on BOTH channels or on neither": a
+    granted licence's verified fact names the same keys the env line does,
+    so a reader of the record and a reader of the screen see one fact."""
+    out = _refocus_env(tmp_path, monkeypatch, capsys, ORIG_ENV, RELOCATED_ENV)
+    p = rd.parse_refocus(out)
+    assert p["licence"] == "granted"
+    facts = " ".join(p["licence_facts"])
+    assert "differ only by the target directory" in facts
+    for key in p["env_relocated_keys"]:
+        assert key in facts

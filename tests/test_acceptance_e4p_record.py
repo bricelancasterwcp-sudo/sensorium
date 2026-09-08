@@ -375,3 +375,46 @@ def test_a_key_that_changed_for_ANOTHER_reason_is_counted_apart():
     assert env["pairs_changed_for_another_key"] == 1
     assert env["changed_keys_by_pair"][rows_[0]["name"]] == [
         "LD_LIBRARY_PATH"]
+
+
+# ------------------------------- the lens facts §2 renders must be carried
+
+def test_every_lens_fact_the_renderer_READS_is_carried_into_environment():
+    """The re-review's LOW, stated as a rule rather than as one field.
+    `render_e4p.environment` reads `env.get(<name>)`; a name it reads that
+    the schema never carries renders "not recorded" for a fact that WAS
+    recorded — which is the one thing a lens section must not do.
+
+    `corpus_target_from_env` was exactly that: recorded in `pins`, read by
+    the renderer, and absent from `environment`. E9 and E4 both carry it,
+    so it is carried here rather than dropped.
+    """
+    import re as _re
+    src = (REPO / "rust" / "tests" / "render_e4p.py").read_text()
+    body = src[src.index("def environment("):src.index("# ---")]
+    read = set(_re.findall(r"env\.get\('([a-z0-9_]+)'\)", body))
+    assert "corpus_target_from_env" in read, "the guard reads nothing"
+    carried = set(assemble_e4p(_full_raw())["environment"])
+    missing = sorted(read - carried)
+    assert missing == [], f"read by §2 but never carried: {missing}"
+
+
+def test_the_preflight_guards_are_carried_into_environment():
+    """The cargo check and the env-parity check are lens facts of the run:
+    both are recorded whether they refuse or pass, and §2 is where a reader
+    meets them."""
+    raw = _full_raw()
+    raw["pins"] = {
+        "corpus_target_from_env": False,
+        "cargo_running_check": {"command": "pgrep -x cargo", "rc": 1,
+                                "pids": [], "running": False},
+        "env_parity": {"checked": 61, "differing": [], "compared_keys": ["A"]},
+    }
+    env = assemble_e4p(raw)["environment"]
+    assert env["corpus_target_from_env"] is False
+    assert env["cargo_running_check"]["running"] is False
+    assert env["env_parity"]["checked"] == 61
+    assert env["env_parity"]["differing"] == []
+    text = "\n".join(render_e4p.environment(assemble_e4p(raw)))
+    assert "61 original(s)" in text
+    assert "pgrep -x cargo" in text

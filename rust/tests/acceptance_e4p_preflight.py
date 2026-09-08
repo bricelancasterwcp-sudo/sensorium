@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -21,6 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from acceptance_e4p_read import trace_meta_ro                      # noqa: E402
 from acceptance_e4p_store import census_diff, sqlite3_cli, store_census  # noqa: E402,E501
 from acceptance_e6ppp import logs_at                                # noqa: E402
 from acceptance_lib import (CLONE_PIN, LOAD_CEILING,                # noqa: E402
@@ -204,6 +206,103 @@ def transform_version() -> dict:
 
 # ------------------------------------------------------------- the preflight
 
+#: Keys the parity guard does NOT compare, and why each is out.
+#:
+#: `^(CARGO|RUST|SENSORIUM|LD_)` differ BY DESIGN and are judged one check
+#: along, not here: §1.4 gives the re-run a FRESH `CARGO_TARGET_DIR`, so
+#: every variable cargo derives from the root moves with it (`CARGO_*`,
+#: `RUSTDOCFLAGS`, `LD_LIBRARY_PATH`), the recorder mints `SENSORIUM_*` and
+#: `RUSTC_WORKSPACE_WRAPPER` per invocation, and `refocus_env` is what
+#: decides whether the movement is a relocation or a change. A guard that
+#: compared them would refuse every launch it exists to protect.
+EXCLUDED_ENV = re.compile(r"^(CARGO|RUST|SENSORIUM|LD_)")
+
+#: The shell's own bookkeeping, `refocus_world._UNCOMPARED_ENV`'s names and
+#: its reasons: `PWD` names the calling shell and `os.chdir` does not update
+#: it, `_` is bash's last argument, and neither says anything about the
+#: world the program ran in.
+UNCOMPARED_ENV = frozenset({"_", "OLDPWD", "PWD", "SHLVL"})
+
+
+def env_parity(kept: Path, rows, environ=None) -> dict:
+    """Refuse unless THIS process's environment is the one the 61 originals
+    were recorded under.
+
+    The licence compares the environment the original executed under with
+    the one the re-run did, and both are the recording process's own. Task
+    5b taught that check to read a relocated target root as the same world,
+    which covers the difference §1.4 introduces ON PURPOSE. It does not
+    cover a difference between the shell E4 was launched from and the shell
+    this run is launched from -- and a scan of the 61 found three:
+    `PYTHONDONTWRITEBYTECODE`, `SSL_CERT_DIR`, `SSL_CERT_FILE`.
+
+    The launcher pins all three. This is what makes the pinning MECHANICAL
+    rather than a line on a checklist, and it runs before a single copy is
+    made and long before a number is read -- so a refusal here is §1.4's
+    INFRASTRUCTURE kill by its words, and costs nothing but the launch.
+
+    A key is a difference whether its VALUE moved, it is missing from this
+    process, or this process added it: the licence compares a SET, and a
+    subset check would pass a shell carrying a variable E4's did not.
+
+    EVERY offending key and the originals that carry it are named in ONE
+    refusal. A refusal that named the first would cost one detached launch
+    per key to discover the rest.
+    """
+    environ = dict(os.environ if environ is None else environ)
+    mine = {k: v for k, v in environ.items()
+            if not EXCLUDED_ENV.match(k) and k not in UNCOMPARED_ENV}
+    differing, unreadable, compared = {}, [], set(mine)
+    for _index, _name, _target, run in rows:
+        db = Path(kept) / "traces" / f"{run}.db"
+        if not db.is_file():
+            unreadable.append(f"{run}: not in the kept store ({db})")
+            continue
+        recorded = trace_meta_ro(db).get("env")
+        if not isinstance(recorded, dict):
+            unreadable.append(f"{run}: no recorded environment to compare "
+                              "against")
+            continue
+        theirs = {k: v for k, v in recorded.items()
+                  if not EXCLUDED_ENV.match(k) and k not in UNCOMPARED_ENV}
+        compared |= set(theirs)
+        for key in sorted(set(mine) | set(theirs)):
+            if mine.get(key) == theirs.get(key):
+                continue
+            how = ("this process ADDED it" if key not in theirs else
+                   "this process is MISSING it" if key not in mine else
+                   "the value differs")
+            differing.setdefault(key, {"how": how, "originals": []})
+            differing[key]["originals"].append(run)
+    rec = {"checked": len(rows) - len(unreadable),
+           "originals": len(rows),
+           "differing": sorted(differing),
+           "detail": differing,
+           "unreadable": unreadable,
+           "compared_keys": sorted(compared),
+           "excluded_pattern": EXCLUDED_ENV.pattern,
+           "uncompared": sorted(UNCOMPARED_ENV)}
+    if unreadable or differing:
+        named = "; ".join(
+            f"{k} ({d['how']}; {len(d['originals'])} original(s), e.g. "
+            f"{', '.join(d['originals'][:3])})"
+            for k, d in sorted(differing.items()))
+        raise Refused(
+            "this process's environment is NOT the one the originals were "
+            f"recorded under. {len(differing)} key(s) differ: {named}"
+            + (f". Originals that could not be read: {unreadable}"
+               if unreadable else "")
+            + ". The licence compares the recording environments, so every "
+              "one of these would be reported as a change the world made "
+              "on all 61 pairs. Pin them in the launcher (it already "
+              "exports PYTHONDONTWRITEBYTECODE, SSL_CERT_DIR and "
+              "SSL_CERT_FILE) and relaunch -- nothing has been copied and "
+              "no number has been read, so this is the infrastructure kill")
+    step(f"env parity: {rec['checked']} original(s) checked over "
+         f"{len(rec['compared_keys'])} compared key(s); none differ")
+    return rec
+
+
 def _require_fresh(path: Path, what: str) -> None:
     if path.exists() and any(path.iterdir()):
         raise Refused(f"{what} {path} is not FRESH: it already holds "
@@ -251,6 +350,7 @@ def preflight(paths, cfg) -> dict:
     # The cheap refusals FIRST: a misconfigured launch must not spend a
     # driver build before finding out that its target is not fresh.
     cargo_check = cargo_running()
+    parity = env_parity(kept, cfg["rows"])
     _require_fresh(paths["sensorium_dir"], "SENSORIUM_DIR")
     _require_fresh(paths["sensorium_e4p_target"], "SENSORIUM_E4P_TARGET")
     _require_fresh(cfg["corpus_target"], "H6's corpus target")
@@ -326,6 +426,7 @@ def preflight(paths, cfg) -> dict:
             "record's own"),
         "sqlite3_cli": sqlite3_cli(),
         "cargo_running_check": cargo_check,
+        "env_parity": parity,
         # Filled from the first refocused trace: §1.4 reads every version
         # token from the TRACE's own meta, never from this file.
         "driver_version_from_the_trace": None,
@@ -402,6 +503,7 @@ def cleanup(paths, cfg, pins, kept_before) -> dict:
     return c
 
 
-__all__ = ["LOGS", "CARGO_TIMEOUT", "build_driver", "cargo_running",
+__all__ = ["EXCLUDED_ENV", "UNCOMPARED_ENV", "LOGS", "CARGO_TIMEOUT",
+           "build_driver", "cargo_running", "env_parity",
            "cleanup", "clone_git", "mark_numbers_read", "out", "preflight",
            "transform_version"]

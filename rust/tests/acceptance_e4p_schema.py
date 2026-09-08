@@ -288,6 +288,15 @@ def assemble_e4p(raw: dict) -> dict:
             "e4p_target": pins.get("e4p_target"),
             "rust_target": pins.get("rust_target"),
             "corpus_target": pins.get("corpus_target"),
+            # Recorded in `pins`, READ by §2, and until now absent from
+            # here — so the lens section printed "not recorded" for a fact
+            # the run had recorded. E9 and E4 both carry it; carried rather
+            # than dropped, because the renderer uses it.
+            "corpus_target_from_env": pins.get("corpus_target_from_env"),
+            # The two preflight guards, whose passing is itself a lens fact:
+            # a check that leaves no trace when it passes cannot be audited.
+            "cargo_running_check": pins.get("cargo_running_check"),
+            "env_parity": pins.get("env_parity"),
             "tmpdir_observed": pins.get("tmpdir_observed"),
             "tempfile_gettempdir": pins.get("tempfile_gettempdir"),
             "tmpdir_reading": pins.get("tmpdir_reading"),
