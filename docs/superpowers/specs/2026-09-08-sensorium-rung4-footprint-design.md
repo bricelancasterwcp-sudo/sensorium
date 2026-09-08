@@ -125,3 +125,72 @@ R7's four; any change to the comparator or the verdict; `TRACE_FORMAT`; PR #17's
 
 Appended, never edited in place. Each entry names the section it amends and
 the date it was made.
+
+**A-§3 — R4 is a session set, not a bearing set (2026-09-08, before any
+code and before §1 was locked).** §3 as first written kept a positive list of
+"bearing" variables and let every other differing key through, named. That
+design has a falsifier already in the suite:
+`tests/test_refocus_licence.py::test_refocus_withholds_the_licence_when_the_environment_differs`
+records under `REFOCUS_TEST_LIMIT=10` and refocuses without it — a variable the
+program READS, so the rerun printed a different value under an identical call
+shape — and pins `licence: WITHHELD`. `REFOCUS_TEST_LIMIT` is on no bearing
+list anyone would write, so §3 would have GRANTED over a program that
+demonstrably got different input: the direction that claims more, exactly
+what the licence exists to refuse. The tool cannot know which variables a
+program reads; a positive list of the ones that "bear" is a guess dressed as a
+rule. **Ruled instead:** today's rule stands — any differing key withholds —
+with ONE new positive, versioned exception, **session set 1**: variables that
+identify the shell, terminal, agent or login session a process was launched
+from and that a program has no reason to read. A session key that differs is
+**named and never withholds**; everything else is what it always was.
+Measured before this ruling, against one of the 61 kept originals from this
+session's own shell (names only): after the recorder's exclusions, 73 keys
+equal, 0 added, 3 missing (`PYTHONDONTWRITEBYTECODE`, `SSL_CERT_DIR`,
+`SSL_CERT_FILE` — the previous launcher's own pins), and exactly **one**
+changed: `CLAUDE_CODE_SESSION_ID`. That is what "another shell" means on this
+box, and it is the whole of the problem A1 carried.
+
+Session set 1, exact: `DBUS_SESSION_BUS_ADDRESS`, `XDG_SESSION_ID`,
+`TERM_SESSION_ID`, `WINDOWID`, `TMUX`, `TMUX_PANE`, `SSH_AGENT_PID`,
+`SSH_AUTH_SOCK`, `SSH_CLIENT`, `SSH_CONNECTION`, `SSH_TTY`, `INVOCATION_ID`,
+`JOURNAL_STREAM`, `SYSTEMD_EXEC_PID`; prefixes: `CLAUDE_CODE_`. Each is a
+handle to a bus, a window, a terminal, a connection, a service manager's
+invocation or an agent session — the identity of where the process was
+started, not input to what it computes. The set is versioned so a key found
+to bear can leave it with a date, and a key found to differ between shells
+can join it with one.
+
+`refocus_env.py`: `SESSION_SET = 1`, `SESSION_EXACT`, `SESSION_PREFIXES`,
+`is_session_key(name) -> bool`. `_env_diff` returns `(changed, relocated,
+stripped, session)`; only `changed` withholds. **Printed, exactly.** Nothing
+differs: today's lines, byte for byte. Only session keys differ:
+
+```
+env: unchanged outside session set 1 (<N> variables compared; not compared: <ignored>; <K> session variable(s) differ: <names ≤8, +M more>)<relocation><strip>
+```
+
+fact: `<N> environment variable(s) compared and unchanged outside session set
+1 in the environment the rerun executed under; not compared: <ignored>; <K>
+session variable(s) differ: <names>` + clauses; caveat `None`. A non-session
+key differs: today's `env: CHANGED …` line and today's caveat, unchanged,
+over the non-session names, then `; <K> session variable(s) differ: <names>`
+on the line when K > 0. `N` counts what was compared, as today; `K` is exact,
+the names capped at 8.
+
+**Tests** (replacing §3's): `CLAUDE_CODE_SESSION_ID` differing alone →
+granted, the new line, K = 1; `REFOCUS_TEST_LIMIT`'s test unchanged and
+green; `TZ` differing → withheld naming `TZ`; a session key and `TZ` → withheld,
+both clauses; each exact name and the prefix (parametrised) never withholds;
+`CLAUDE_CODEX` and `XDG_SESSION_IDX` withhold; a Python pair with one session
+key differing reads the new line. No existing test moves.
+
+**E4″, amended to match** (§7): the launch guard requires parity on every key
+outside session set 1, after the recorder's exclusions, the relocation rule
+and the strip, and records the session keys that differ BEFORE any refocus.
+**Arm B** injects `E4PP_INPUT=1` — a key on no list, standing in for program
+input — and expects WITHHELD 4/4 naming it: the default still bites. **Arm C**
+injects the FIRST key of session set 1 (list order) absent from both the
+original's recorded environment and the runner's own, chosen and recorded at
+preflight, and expects the licence word equal to arm A's on 4/4 with K exactly
+one more. H4 reads the session-set names, H5 arm B, H6 arm C, as the table
+says with "other" read as "session" and `E4PP_MARK` as the chosen key.
