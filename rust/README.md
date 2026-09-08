@@ -9,14 +9,20 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 reading logs is reading a diary, and this is watching the execution.
 
 Three crates, all `publish = false`: **`sensorium-rt 0.4.0`**,
-**`sensorium-transform 0.4.1`** and **`cargo-sensorium 0.5.0`**. All three
+**`sensorium-transform 0.4.3`** and **`cargo-sensorium 0.5.2`**. All three
 were `0.4.0` at the focus tier of 2026-09-06 (a new wire kind, LINE, and the
 `--focus` flag that mints it); on 2026-09-07 the refocus slice moved
 `sensorium-transform` alone to `0.4.1` for the brace-delimited-macro-tail
 guard (a `src` fix to what a focused build emits) and `cargo-sensorium` alone
 to `0.5.0` for `--refocus-of` and the three invocation-scoped meta keys it
-writes — neither the wire nor the runtime felt either change, which is why
-`sensorium-rt` stayed at `0.4.0`.
+writes; later that day the rung-4 debts slice moved them to `0.4.2` (a focus
+resolution that no longer splices) and `0.5.1` (the hard-linked shim and the
+`driver.rs` split); and on 2026-09-08 the recorder's-footprint slice moved them
+to `0.4.3` (three pure file splits, the goldens pinning the output byte for
+byte) and `0.5.2` (no behaviour change at all — the number exists so a rebuilt
+tree carries a `driver_version` token a trace can name). Neither the wire nor
+the runtime felt any of those, which is why `sensorium-rt` has stayed at
+`0.4.0`.
 Before that all three were `0.3.0` at the err-flow rung of 2026-09-05
 (wire v3: RAISE/HANDLED records, a typed `err` RETURN, and the `err_flow`
 capability); later that day the borrow repair moved `sensorium-transform` and

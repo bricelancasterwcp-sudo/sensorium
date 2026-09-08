@@ -352,10 +352,16 @@ here.
   (`refocus_env.py`): it recognises the relocation clause and the strip clause
   both. *Ruled: left alone this slice* — renaming it touches every caller, and
   the docstring states both rules; the next change to that function renames it.
-- **A session key present on one side only, whose whole value was our fragment,
-  still withholds.** The strip leaves an empty string on the side that had it
-  and the key is absent on the other, so `_env_diff` sees a difference and
-  partitions it as a change. Conservative, and the direction that claims less.
+- **A key present on one side only, whose whole value was our fragment, still
+  withholds.** The strip leaves an empty string on the side that had it and the
+  key is absent on the other, so `_env_diff` sees a difference and — for a key
+  outside session set 1 — partitions it as a change. Conservative, and the
+  direction that claims less. Measured, so the bullet says which key it is
+  about: `_env_diff({"FOO": <fragment>}, {})` gives changed `['FOO']`, while
+  `_env_diff({"CLAUDE_CODE_X": <fragment>}, {})` gives changed `[]` and session
+  `['CLAUDE_CODE_X']` — session membership is tested BEFORE the changed list, so
+  a session key on one side only never withholds, which is R4 working as ruled
+  and not a second conservatism.
 - **`refocus_world.py` is at 777 of 800.** The next change to that file splits
   it first. The seam is the thread bookkeeping — `harness_threads`,
   `harness_exclusion`, `harness_note`, `uncompared_threads` → `refocus_threads.py`.

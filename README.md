@@ -567,8 +567,9 @@ only condition that tests the second claim at all. The eighth row missed
 because the reader compared a bare case name against a listing that spells
 Rust cases `rust/<name>`; its three commands came back green, the STOP stands
 as measured, and the one-line fix is ruled for the next slice. Python
-**0.8.6** reads these traces; the crates above are the versions that recorded
-them.
+**0.8.6** reads these traces; the crates above are the versions that RE-RAN
+them, and the 61 originals were recorded by `cargo-sensorium` **0.5.0** — that
+difference is the condition, not an accident of bookkeeping.
 
 ### Install and record
 

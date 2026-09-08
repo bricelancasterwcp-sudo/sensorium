@@ -1,8 +1,10 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.4.0`, `sensorium-transform 0.4.1`, `cargo-sensorium 0.5.0` —
+`sensorium-rt 0.4.0`, `sensorium-transform 0.4.3`, `cargo-sensorium 0.5.2` —
 v1, the call tier, with err flow and the focus tier.
-(~~`cargo-sensorium 0.4.0`~~, before it ~~`sensorium-rt 0.4.0`,
+(~~`sensorium-transform 0.4.2`, `cargo-sensorium 0.5.1`~~, before them
+~~`sensorium-transform 0.4.1`, `cargo-sensorium 0.5.0`~~, before them
+~~`cargo-sensorium 0.4.0`~~, before it ~~`sensorium-rt 0.4.0`,
 `sensorium-transform 0.4.0`,
 `cargo-sensorium 0.4.0`~~, before them ~~`sensorium-rt 0.3.0`,
 `sensorium-transform 0.3.1`, `cargo-sensorium 0.3.1`~~, and before those
@@ -20,7 +22,15 @@ build EMITS, so neither the wire nor the runtime nor the driver moved, and
 `cargo-sensorium` alone moved to `0.5.0` later that day for `--refocus-of`
 and the three invocation-scoped meta keys it writes (design 2026-09-07
 §2.1-§2.2) — a driver and converter change that neither the wire, the
-runtime nor the transformer felt.
+runtime nor the transformer felt. Later on 2026-09-07 the rung-4 debts slice
+moved `sensorium-transform` to `0.4.2` for a focus resolution that no longer
+splices and `cargo-sensorium` to `0.5.1` for the hard-linked shim and the
+`driver.rs` split; on 2026-09-08 the recorder's-footprint slice moved them to
+`0.4.3` for three pure file splits, the goldens pinning the output byte for
+byte, and to `0.5.2` for no behaviour change at all — the number exists so a
+rebuilt tree carries a `driver_version` token a trace can name, which is the
+condition E4″ is measured under. `sensorium-rt` has not moved since `0.4.0`:
+neither the wire nor the runtime changed in any of them.
 `HONESTY.md` was
 not versioned per-crate before 2026-09-03, so no edition older than that is
 struck.)
@@ -382,10 +392,10 @@ fixture of `tests/test_rust_convert.py`.
   functions that share a file and a qualname and differ only in line are one
   key to `diff` and to `--ignore-moves`' pairing. The common instance is two
   trait impls on one type: `qualname` is `<self type>::<method>`
-  (`self_type_name` in `sensorium-transform/src/names.rs`, applied to each
-  `impl` block by `visit/walk.rs`'s `in_container` — anchored on the names
-  rather than on a line 2026-09-08, the pin this replaces having gone stale
-  where it stood), so `impl Display for Row` and
+  (`self_type_name` in `sensorium-transform/src/names.rs`, applied at
+  `visit/walk.rs`'s `visit_item_impl` — anchored on the names rather than on a
+  line 2026-09-08, the pin this replaces having gone stale where it stood), so
+  `impl Display for Row` and
   `impl Debug for Row` in one file both give `Row::fmt`, and the trait they
   implement is nowhere in the key. Any type with both impls has this shape.
   The cfg-gated twin is the same collision from the other direction: bloomery's
