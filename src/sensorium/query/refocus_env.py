@@ -189,6 +189,17 @@ SESSION_EXACT = frozenset(SESSION_ORDER)
 #: each one is a hole and each one has to earn its place.
 SESSION_PREFIXES = ("CLAUDE_CODE_",)
 
+#: The phrase that both WRITES the session clause and RECOGNISES it, the
+#: `_RELOCATED`/`_STRIPPED` pattern a third time: one constant, so the
+#: sentence and its reader cannot drift apart.
+#:
+#: There is no `session_clause()` builder beside `relocated_clause` and
+#: `stripped_clause` because this clause counts AND names, and the cap on
+#: how many names it prints (`refocus_world._capped`) lives with the other
+#: printed lists. The phrase is what has to be shared; the assembly is one
+#: f-string at the only site that builds it.
+SESSION_DIFFER = " session variable(s) differ: "
+
 
 def is_session_key(name: str) -> bool:
     """Whether `name` identifies the session a process was launched from.
@@ -292,20 +303,25 @@ def relocated_clause(names: list[str]) -> str:
             f"{', '.join(names)}; treated as unchanged")
 
 
-def is_relocation_note(fact: str) -> bool:
+def is_env_rule_note(fact: str) -> bool:
     """Whether a world-fact carries the names a rule of this module
-    explained -- by EITHER rule: the target directory that moved, or the
-    recorder's own fragment removed before the compare.
+    explained -- by ANY of its three: the target directory that moved, the
+    recorder's own fragment removed before the compare, or the session set
+    that never withholds.
 
     A withheld licence records no verified facts -- it rests on nothing --
-    but the keys this check EXPLAINED are a finding of its own, and the
+    but the keys these rules EXPLAINED are a finding of their own, and the
     terminal already prints them beside the accusation. Without this the
     trace kept only the accusation, and `info` replayed a licence whose
     screen had said more than the record does.
 
-    Recognised by the phrases `relocated_clause` and `stripped_clause`
-    build, from the same constants they build them from, so a rewording
-    moves both halves together and cannot leave this reading a sentence
-    that no longer exists.
+    Recognised by the phrases `relocated_clause`, `stripped_clause` and the
+    session clause build, from the same constants they build them from, so
+    a rewording moves both halves together and cannot leave this reading a
+    sentence that no longer exists.
+
+    Named for the rules and not for one of them: it was
+    `is_relocation_note` while it already tested two, and a one-rule name
+    over a three-rule predicate is a reader's mistake waiting to be made.
     """
-    return _RELOCATED in fact or _STRIPPED in fact
+    return _RELOCATED in fact or _STRIPPED in fact or SESSION_DIFFER in fact

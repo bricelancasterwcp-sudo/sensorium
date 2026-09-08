@@ -24,9 +24,10 @@ import hashlib
 from pathlib import Path
 
 from sensorium.query.caps import witness_gap
-from sensorium.query.refocus_env import (SESSION_SET, differs_only_by_root,
-                                         is_session_key, relocated_clause,
-                                         relocation, strip_recorder_fragment,
+from sensorium.query.refocus_env import (SESSION_DIFFER, SESSION_SET,
+                                         differs_only_by_root, is_session_key,
+                                         relocated_clause, relocation,
+                                         strip_recorder_fragment,
                                          stripped_clause)
 # The thread bookkeeping, split out at this file's 800-line ceiling.
 # Re-exported so `refocus_world.<name>` keeps resolving: these are one
@@ -339,8 +340,9 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
     # way the changed names are. An exemption whose size and members a
     # reader cannot see is a silent one, and the set is versioned in the
     # sentence so it can be dated and argued with.
-    told = (f"; {len(session)} session variable(s) differ: {_capped(session)}"
+    said = (f"{len(session)}{SESSION_DIFFER}{_capped(session)}"
             if session else "")
+    told = f"; {said}" if said else ""
     if not names:
         if not session:
             return (f"env: unchanged ({compared} variables compared; not "
@@ -356,15 +358,18 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
                 f"rerun executed under; not compared: {ignored}{told}"
                 f"{on_fact}")
     shown = _capped(names)
-    # The clause is the FACT here, alone: this branch has no unchanged
-    # environment to vouch for, but the keys the check explained are a
+    # The clauses are the FACT here, alone: this branch has no unchanged
+    # environment to vouch for, but the keys the rules explained are a
     # finding it made and `assess` keeps them even when the licence is
-    # withheld. `None` when nothing relocated, exactly as before.
+    # withheld. In the LINE's order -- session first, then the two that
+    # explained keys away -- because two channels carrying the same names in
+    # two orders are two sentences to keep in step. `None` when no rule
+    # fired, exactly as before.
     return (f"env: CHANGED since the original run -- {len(names)} "
             f"variable(s) differ: {shown}   (names only){told}{on_line}",
             f"{len(names)} environment variable(s) differ between the two "
             f"runs ({shown}); a program that reads them got different input",
-            clause or None)
+            "; ".join(c for c in (said, clause) if c) or None)
 
 
 # -- everything else that bears on the licence -----------------------------

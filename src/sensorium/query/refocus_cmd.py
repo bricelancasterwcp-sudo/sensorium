@@ -154,7 +154,7 @@ from pathlib import Path
 from sensorium import paths
 from sensorium.exit import BAD_CALL
 from sensorium.query.caps import require
-from sensorium.query.refocus_env import is_relocation_note
+from sensorium.query.refocus_env import is_env_rule_note
 from sensorium.query.vocab import terms
 from sensorium.query.diff_cmd import compare
 # The evidence layer, split out at this file's 800-line ceiling. Re-exported
@@ -501,7 +501,7 @@ def assess(orig: Trace, new: Trace, res: dict, world_caveats=(),
             # kept only the accusation replayed less than its own screen
             # had said. Empty for every pair that relocated nothing, which
             # is every pair before this rule existed.
-            verified = [f for f in world_verified if is_relocation_note(f)]
+            verified = [f for f in world_verified if is_env_rule_note(f)]
     # Everything the report and the stamp need, derived ONCE. `report` used
     # to reach back into `res` for `index` and `tasks` beside this dict,
     # which is two sources for one verdict -- the exact shape that let the

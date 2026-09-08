@@ -434,6 +434,50 @@ def test_a_session_key_beside_a_real_one_withholds_and_names_both(
             ) in _read_meta(PAIR, "refocus_licence_reasons")
 
 
+def test_the_withheld_pairs_own_record_carries_the_session_clause_too(
+        tmp_path, monkeypatch, capsys):
+    """(h2) `info` replays exactly what the screen said, on a WITHHELD pair.
+
+    The screen of (h) names both halves; the trace kept only the accusation,
+    so a reader who came back to it through `info` was told `TZ` differed
+    and never told the re-run had come from another agent session -- the
+    same asymmetry the relocation and strip clauses were given their own
+    fact to close, one rule along. The session clause now travels with them
+    (`is_env_rule_note` recognises all three), and the fact is the CLAUSES
+    alone: a withheld licence still vouches for nothing.
+    """
+    _pair(tmp_path, monkeypatch,
+          {"PATH": "/usr/bin", "TZ": "UTC", "CLAUDE_CODE_SESSION_ID": "a1"},
+          {"PATH": "/usr/bin", "TZ": "CET", "CLAUDE_CODE_SESSION_ID": "b2"})
+    from sensorium import cli
+
+    capsys.readouterr()
+    said = "1 session variable(s) differ: CLAUDE_CODE_SESSION_ID"
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+    assert _read_meta(PAIR, "refocus_licence_verified") == [said]
+    assert cli.main(["info", PAIR]) == 0
+    replayed = capsys.readouterr().out
+    assert f"  licence verified: {said}\n" in replayed
+    assert "licence withheld: 1 environment variable(s) differ" in replayed
+
+
+def test_a_withheld_pair_that_relocated_and_changed_sessions_names_both(
+        tmp_path, monkeypatch, capsys):
+    """(h3) Two clauses in one fact, joined the way the line joins them.
+
+    The order is the line's order -- session first, then the rules that
+    explained keys away -- because two channels that carry the same names in
+    two orders are two sentences to keep in step.
+    """
+    _pair(tmp_path, monkeypatch,
+          dict(cargo_env(OLD_ROOT), TZ="UTC", CLAUDE_CODE_SESSION_ID="a1"),
+          dict(cargo_env(NEW_ROOT), TZ="CET", CLAUDE_CODE_SESSION_ID="b2"))
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+    assert _read_meta(PAIR, "refocus_licence_verified") == [
+        "1 session variable(s) differ: CLAUDE_CODE_SESSION_ID; "
+        + RELOCATED_4]
+
+
 @pytest.mark.parametrize("session_name", [*SESSION_ORDER, "CLAUDE_CODE_X"])
 def test_every_member_of_session_set_1_is_named_and_never_withholds(
         tmp_path, monkeypatch, capsys, session_name):
