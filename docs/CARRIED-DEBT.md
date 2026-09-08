@@ -15,8 +15,12 @@ rung-4 entry slice are
 [`docs/CARRIED-DEBT-ARCHIVE.md`](CARRIED-DEBT-ARCHIVE.md), wording, order and
 strikes unchanged, so a deferred item there is still open unless it is struck.
 The split was named in this file before it was taken (the focus tier's own
-"files near the ceiling" bullet, below) rather than discovered at 800; the rule
-above governs both files, and the next slice appends here.
+"files near the ceiling" bullet, below) rather than discovered at 800; ~~the
+rule above governs both files, and the next slice appends here~~ — **corrected
+2026-09-08**: **three** files, not two. The paragraph below superseded this
+sentence when volume 2 was cut and left it standing, which is how a reader
+arriving at this line alone would have counted the archive wrong; the rule at
+the top governs every volume, and the next slice appends to *this* file.
 
 **Rung 4's slices 1 and 2 moved 2026-09-08** — the focus tier and the refocus
 slice are [`docs/CARRIED-DEBT-ARCHIVE-2.md`](CARRIED-DEBT-ARCHIVE-2.md),

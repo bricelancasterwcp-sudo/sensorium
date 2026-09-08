@@ -4,8 +4,7 @@
 v1, the call tier, with err flow and the focus tier.
 (~~`sensorium-transform 0.4.2`, `cargo-sensorium 0.5.1`~~, before them
 ~~`sensorium-transform 0.4.1`, `cargo-sensorium 0.5.0`~~, before them
-~~`cargo-sensorium 0.4.0`~~, before it ~~`sensorium-rt 0.4.0`,
-`sensorium-transform 0.4.0`,
+~~`sensorium-rt 0.4.0`, `sensorium-transform 0.4.0`,
 `cargo-sensorium 0.4.0`~~, before them ~~`sensorium-rt 0.3.0`,
 `sensorium-transform 0.3.1`, `cargo-sensorium 0.3.1`~~, and before those
 ~~`sensorium-rt 0.1.0`, `sensorium-transform 0.2.0`,
@@ -33,7 +32,12 @@ condition E4″ is measured under. `sensorium-rt` has not moved since `0.4.0`:
 neither the wire nor the runtime changed in any of them.
 `HONESTY.md` was
 not versioned per-crate before 2026-09-03, so no edition older than that is
-struck.)
+struck. **Deduped 2026-09-08**: `cargo-sensorium 0.4.0` stood struck **twice**
+in this chain — once alone, added at `ed5ee28` when the driver moved to
+`0.5.0`, and once inside the `sensorium-rt 0.4.0` triple that already followed
+it — so the standalone strike is removed as the duplicate it was. It named no
+edition the triple does not, and the moves either side of it are the sentences
+above; nothing else in the chain changed.)
 
 Sensorium's founding rule is that **the instrument never answers from data it
 does not have**. The Python recorder keeps its half of that rule in the

@@ -272,6 +272,18 @@ def test_no_test_of_this_instrument_names_a_box_path(name):
         assert needle not in text, f"{name} names {needle}"
 
 
+@pytest.mark.parametrize("name", TEST_FILES)
+def test_every_test_of_this_instrument_is_under_800_lines(name):
+    """The ceiling above reads the INSTRUMENT's modules; this one reads the
+    suite's own, which nothing did until 2026-09-08 --
+    `test_acceptance_e4pp_phases.py` crossed 800 at `8dab703`, reached 932 by
+    `e48e4e5`, and rode a release note that said every touched file was under
+    the ceiling. The scan is derived from the same glob as the box-path scan,
+    so a file added next slice is checked without anyone remembering to."""
+    n = len((REPO / "tests" / name).read_text().splitlines())
+    assert n <= 800, f"{name} is {n} lines"
+
+
 def test_the_scan_would_actually_CATCH_a_box_path():
     sample = "STORE = Path('" + BOX_PATHS[0] + "extra/sensorium-dir/e4pp')"
     assert any(n in sample for n in BOX_PATHS)

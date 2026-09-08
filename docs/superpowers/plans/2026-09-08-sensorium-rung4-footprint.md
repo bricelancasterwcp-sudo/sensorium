@@ -182,3 +182,32 @@ Final whole-branch review (fable): src correct against R1/R3/R4 + A-§3; every p
 - Spec coverage: R1 → Task 4; R2 → Tasks 3, 7, 8; R3 → Task 5; R4 (A-§3) → Task 4; R5 → Tasks 0–2; R6 → Tasks 5 (docstring) and 6; R7 → Task 9's Deferred; R8 → Task 8; §1 what ships items 1–6 → Tasks 4/5 (1), 6 (2), 2 (3), 5/6 (4), 7/8 (5), 9 (6).
 - Placeholders: none; every printed string is given verbatim where a task pins it.
 - Names used across tasks: `strip_recorder_fragment`, `stripped_clause`, `SESSION_ORDER`, `SESSION_EXACT`, `SESSION_PREFIXES`, `is_session_key`, `_env_diff` 4-tuple, `harness_threads`, `libtest_trace(spawned_on_marked_fn, two_roots)`, `acceptance_e4pp_lock.{DOC,ROWS_DOC,RESULTS,BYTE_LOCK,ROWS_SHA256}`, `refocus_one(..., extra_env)`, `session_parity`, `choose_session_key`, `arm_rows`, `ARM_B_KEY` — consistent between the task that defines and the tasks that consume.
+
+## Amendments
+
+Appended, never edited in place: the task text above is the record of what was
+planned, and each note below says how a line of it was read when it was
+executed.
+
+- **2026-09-08 — line 178's "instrument/tests/docs only" reads as kill 6.**
+  The "After Task 9" paragraph calls the post-review fix wave
+  "instrument/tests/docs only — never `src/`", which is looser than the rule it
+  serves: the Global Constraint at line 17 and §1.4's locked **kill 6** forbid
+  any `src/`, crate, **corpus or instrument** change after Task 8's
+  measurement. The narrower rule governs. The fix wave therefore never touches
+  `rust/tests/acceptance_e4pp*.py` or `rust/tests/render_e4pp.py` — the
+  instrument that produced the numbers — nor `corpus/`; it may touch
+  `tests/` and `docs/` only. Line 178 stands as written; this note is how it
+  was read.
+
+- **2026-09-08 — line 159's `rm -rf` was superseded by design amendment A-R8
+  and nothing was deleted.** Task 8's first bullet instructs the controller to
+  `rm -rf /mnt/extra/sensorium-rung2/bloomery-target-e4` before the launch,
+  citing R8. **A-R8** (design §, dated 2026-09-08, taken *before* the
+  measurement at `2b0eb5b`) superseded it: deleting is a destructive action and
+  those are Brice's, not the design authority's, and the run did not need the
+  space. Nothing was removed. E4″ built into a fresh `bloomery-target-e4pp`
+  beside the kept ones, and `bloomery-target-e4` and `-e4p` are named in the
+  close-out (`docs/CARRIED-DEBT.md`, Deferred) as Brice's to free. The `df -h`
+  before/after this bullet asks for therefore brackets a launch, not a
+  deletion.

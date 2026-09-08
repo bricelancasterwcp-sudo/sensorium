@@ -31,6 +31,25 @@ differently, which is the whole reason a pre-registration is worth having.
    as the reason. One comparison and one fallback; the numbers in this record
    need no re-deriving, because `case_listing.names` already holds the answer.
 
+   **Where that listing lives, and how to check it without it** (added
+   2026-09-08): `raw_h8.case_listing` is a cell of the **raw** record in the
+   gitignored run ledger, not of the committed
+   `2026-09-08-sensorium-rung4-e4pp.results.json`. What is committed is the
+   reading alone — `endpoints.H8.spawned_test_fn` `"refocus_spawned_test_fn"`,
+   `spawned_test_fn_present` **`false`**, `corpus_cases` **63**,
+   `corpus_skipped` `[]` — and it names neither `case_listing` nor the prefixed
+   `rust/refocus_spawned_test_fn`. The 63/43 counts and the prefix are
+   reproducible from this repository alone, in one line:
+   `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -c "import sys;
+   sys.path.insert(0, 'corpus'); from run_corpus import load_cases; n =
+   [c.name for c in load_cases()]; print(len(n), sum(x.startswith('rust/') for
+   x in n), 'rust/refocus_spawned_test_fn' in n, 'refocus_spawned_test_fn' in
+   n)"` → **`63 43 True False`**, because `load_cases()` names each case by its
+   directory relative to `corpus/` (`run_corpus.py`'s `Case(str(qfile.parent.
+   relative_to(Path(root))), …)`) and the 43 cargo cases are the directories
+   under `corpus/rust/`. So the bare-vs-prefixed mismatch this gap names is a
+   claim about the committed tree, not only about a file no reader has.
+
 2. **The STOP's label is fixed per endpoint, not derived from what failed.**
    `stop` and the `e4pp.FAILED` marker both end *"This is a STOP of the
    subject"*, and `H7.stop_is_of_the` carries the instrument's wording — the two
