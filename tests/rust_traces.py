@@ -266,6 +266,7 @@ WORKER_FN = "demo::worker"
 
 def libtest_trace(tmp_path, monkeypatch, *, program_threads=0,
                   silent_threads=0, harness_marked=True, task_rows=True,
+                  spawned_on_marked_fn=0, two_roots=False,
                   workspace_root="/w",
                   invocation_processes=1, refocus_of=None,
                   cargo_args=("test",), env=None, source_hashes=None, **meta):
@@ -298,6 +299,19 @@ def libtest_trace(tmp_path, monkeypatch, *, program_threads=0,
     actually about, and without them nothing here could tell that clause
     apart from the bug it used to have.
 
+    `spawned_on_marked_fn` are the shape blind spot 28 named: threads the
+    PROGRAM started whose root frame IS the `#[test]` fn, because
+    `thread::spawn(|| a_test_fn())` calls one and the closure holds no `?`
+    to open a frame of its own. Their task rows carry the name the runtime
+    mints at a workspace spawn site, `<parent> :: spawn@<qualname>#<k>`
+    (`sensorium-rt/src/tasks.rs`), which is what tells them apart from the
+    thread libtest started on the very same fn.
+
+    `two_roots` is one program thread with TWO root frames -- `worker`
+    first, the marked `#[test]` fn second, neither a child of the other, as
+    a thread that runs one instrumented fn to completion and then another
+    records them. Only the FIRST decides, so this thread is the program's.
+
     The converter's own shape, in three parts, because the arithmetic
     downstream reads all three: exactly ONE `fingerprints` row (the main
     thread's), every non-main thread's events carrying `task = <serial>`,
@@ -327,6 +341,25 @@ def libtest_trace(tmp_path, monkeypatch, *, program_threads=0,
                        task=serial)]
         frames.append(frame(3, eid, eid + 1, thread=serial))
         tasks.append((serial, f"worker-{i}", serial))
+    for i in range(spawned_on_marked_fn):
+        serial, ts = h + 1 + program_threads + i, 6000 + i * 200
+        eid, fid = len(events) + 1, len(frames) + 1
+        events += [call(ts, 2, 40, thread=serial, task=serial),
+                   ret(ts + 100, fid, 2, "ok", "()", thread=serial,
+                       task=serial)]
+        frames.append(frame(2, eid, eid + 1, thread=serial))
+        tasks.append((serial, f"{TEST_FN} :: spawn@{TEST_FN}#{i + 1}", serial))
+    if two_roots:
+        serial = h + 1 + program_threads + spawned_on_marked_fn
+        eid, fid = len(events) + 1, len(frames) + 1
+        events += [call(8000, 3, 60, thread=serial, task=serial),
+                   ret(8100, fid, 3, "ok", "()", thread=serial, task=serial),
+                   call(8200, 2, 40, thread=serial, task=serial),
+                   ret(8300, fid + 1, 2, "ok", "()", thread=serial,
+                       task=serial)]
+        frames += [frame(3, eid, eid + 1, thread=serial),
+                   frame(2, eid + 2, eid + 3, thread=serial)]
+        tasks.append((serial, "worker-two-roots", serial))
     body = dict(meta)
     if refocus_of is not None:
         body["refocus_of"] = refocus_of
@@ -342,7 +375,8 @@ def libtest_trace(tmp_path, monkeypatch, *, program_threads=0,
         cargo_args=list(cargo_args),
         env=dict(env) if env is not None else {"PATH": "/usr/bin"},
         source_hashes=dict(source_hashes) if source_hashes else {},
-        threads_started=1 + program_threads + silent_threads,
+        threads_started=(1 + program_threads + silent_threads
+                         + spawned_on_marked_fn + (1 if two_roots else 0)),
         live_threads=[],
         **body)
 

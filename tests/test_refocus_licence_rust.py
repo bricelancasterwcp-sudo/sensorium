@@ -312,6 +312,117 @@ def test_a_marked_frame_below_the_root_is_not_a_harness_thread(
                in c for c in refocus_world._licence_caveats(t, t))
 
 
+# -- ...and a MARKED root is not proof the recorder started the thread -----
+#
+# Blind spot 28 (review 2026-09-07, design 2026-09-08 R3). The root anchor
+# above is a BOUND, not soundness in both directions: `#[test] fn` is an
+# ordinary fn to rustc and callable from anywhere, so
+# `thread::spawn(|| a_test_fn())` puts a marked ROOT on a thread the PROGRAM
+# started -- and the old rule subtracted it, `threads_started - harness`
+# reached 0, and the licence was GRANTED over a program thread. The
+# direction that claims MORE. Two facts the recording already carries close
+# it: the runtime NAMES a workspace spawn at its site
+# (`<parent> :: spawn@<qualname>#<k>`, `sensorium-rt/src/tasks.rs`), and a
+# thread has exactly one FIRST root.
+
+
+def test_a_thread_the_program_spawned_onto_a_marked_fn_is_the_program_s(
+        tmp_path, monkeypatch, capsys):
+    """The false grant, as a fixture. The spawned thread's root IS the
+    `#[test]` fn -- the closure holds no `?`, so it opens no frame of its
+    own -- and its mark is identical to the libtest thread's. What tells
+    them apart is the task name the runtime minted at the spawn site, so
+    only the libtest thread is subtracted and the licence is WITHHELD over
+    the one thread the program really started."""
+    run, _root, code, _fake = _libtest(tmp_path, monkeypatch,
+                                       spawned_on_marked_fn=1)
+    out = capsys.readouterr().out
+    assert code == 0, out
+    t = Trace.open(paths.traces_dir() / f"{run}.db")
+    assert harness_threads(t) == {HARNESS_SERIAL}
+    assert "licence: WITHHELD" in out
+    for label in ("the original", "the rerun"):
+        assert (f"{label} started 1 thread(s) besides the main one and "
+                f"{HARNESS_PHRASE}. A thread that ran no traced code") in out
+    assert GRANTED_THREAD_LINE not in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_only_the_first_root_of_a_thread_decides(
+        tmp_path, monkeypatch, capsys):
+    """A thread that runs `worker` to completion and then a `#[test]` fn has
+    TWO root frames, and only the first one says how the thread began. The
+    old rule read ANY root -- `for root in trace.roots()` -- so the second
+    one excluded a thread the first had already accounted for."""
+    run, _root, _code, _fake = _libtest(tmp_path, monkeypatch, two_roots=True)
+    out = capsys.readouterr().out
+    t = Trace.open(paths.traces_dir() / f"{run}.db")
+    assert harness_threads(t) == {HARNESS_SERIAL}
+    assert "licence: WITHHELD" in out
+    assert (f"the original started 1 thread(s) besides the main one and "
+            f"{HARNESS_PHRASE}.") in out
+
+
+def test_the_libtest_thread_is_still_the_harness_s_beside_a_spawned_one(
+        tmp_path, monkeypatch):
+    """Today's case, kept -- and the discrimination stated in the names the
+    two threads actually carry. Both roots are the same marked fn; one task
+    is named for the test libtest ran, the other for the spawn site inside
+    it. A guard that skipped every task whose name MENTIONS a test fn would
+    take the harness thread out too and pass every assertion above."""
+    run, _root = libtest_original(tmp_path, monkeypatch,
+                                  spawned_on_marked_fn=1)
+    t = Trace.open(paths.traces_dir() / f"{run}.db")
+    spawned = HARNESS_SERIAL + 1
+    assert t.task(HARNESS_SERIAL).name == TEST_FN
+    assert t.task(spawned).name == f"{TEST_FN} :: spawn@{TEST_FN}#1"
+    assert harness_threads(t) == {HARNESS_SERIAL}
+
+
+def test_a_root_whose_site_the_manifest_never_wrote_is_counted(
+        tmp_path, monkeypatch):
+    """The `async` shape, pinned rather than coded for. An `async fn` test --
+    `#[tokio::test]` and every other custom harness -- is classified `async`
+    by the transform and skipped whole, so its site row is never written and
+    the lookup finds NO mark. The thread stays the program's, which is the
+    direction that claims less, and it is what the rule did before R1: this
+    test is here so a later mark-lookup that defaulted a missing row to
+    `test` could not slip through."""
+    async_fn = "harness_tests::an_async_test"
+    run = rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "compute", 10], [FILE, async_fn, 80]],
+        frames=[frame(1, 1, 2),
+                frame(2, 3, 4, thread=HARNESS_SERIAL)],
+        events=[call(1000, 1, 10), ret(1100, 1, 1, "ok", "5"),
+                call(2000, 2, 80, thread=HARNESS_SERIAL, task=HARNESS_SERIAL),
+                ret(2100, 2, 2, "ok", "()", thread=HARNESS_SERIAL,
+                    task=HARNESS_SERIAL)],
+        sites=[fn_site("compute", SITE_FILE, 10)],
+        tasks=[(HARNESS_SERIAL, async_fn, HARNESS_SERIAL)],
+        threads_with_rows=[MAIN_THREAD], threads_started=1, live_threads=[])
+    t = Trace.open(paths.traces_dir() / f"{run}.db")
+    assert harness_threads(t) == set()
+    assert any("started 1 thread(s) besides the main one. A thread"
+               in c for c in refocus_world._licence_caveats(t, t))
+
+
+def test_the_thread_note_and_info_partition_a_spawned_marked_thread_too(
+        tmp_path, monkeypatch, capsys):
+    """The three lines on the same screen agree about which thread is whose
+    under the new anchor as well -- `diff`'s note here, `info`'s count
+    below. One trace, one partition (fix round 1, above)."""
+    run, _root, _code, _fake = _libtest(tmp_path, monkeypatch,
+                                        spawned_on_marked_fn=1)
+    assert ("recorded more than one thread: 1 started as OS threads "
+            "(libtest's per-test threads and threads spawned by workspace "
+            f"code) and {HARNESS_PHRASE}, 1 left a fingerprint"
+            ) in capsys.readouterr().out
+    assert cli.main(["info", run]) == 0
+    assert f"threads started: 1 besides the main one and {HARNESS_PHRASE}" \
+        in capsys.readouterr().out
+
+
 def test_the_main_thread_is_never_a_harness_thread(tmp_path, monkeypatch):
     """`cargo test -- --test-threads=1` runs the `#[test]` fn on the main
     thread itself, so a marked ROOT frame there is not evidence of a thread

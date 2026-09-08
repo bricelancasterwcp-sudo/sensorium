@@ -1,0 +1,9 @@
+[package]
+name = "corpus_refocus_spawned_test_fn"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "refocus_spawned_test_fn"
+path = "src/lib.rs"

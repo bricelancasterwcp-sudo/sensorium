@@ -503,7 +503,7 @@ start order flips between a recording and its rerun still MATCH, because
 tasks are compared by content and the interleaving is not; re-recorded with
 one task's content branching, the verdict is DIVERGED, naming that task.
 
-Thirty-eight more cases live under `corpus/rust/`, recorded by the Rust
+Forty-three more cases live under `corpus/rust/`, recorded by the Rust
 recorder instead. Fourteen of them are rungs 0–2's: seven ports of the cases
 above (the same class of planted bug, asked differently, because that
 recorder captures return values and not arguments), five that only Rust has
@@ -515,11 +515,19 @@ the worker's name changing — and two whose pinned answer is a REFUSAL, where
 the question needs object identity or per-line events that recorder declares
 it does not produce. Seventeen are rung 3's err-flow cases, each
 registering both its `dispositions:` tally and its swallow set — ten of them
-to pin that nothing is accused. The last seven are rung 4's focus tier: six
+to pin that nothing is accused. Seven are rung 4's focus tier: six
 recorded under a `--focus`, each pinning a LINE count DERIVED from the
 design's rules before it was measured and at least one absence, and a seventh
 recorded without one, so that the unfocused reading has a case whose name says
-what it is. All thirty-eight need a built
+what it is. The last five are rung 4's refocus loop, where a recording is
+re-run one flag deeper and compared against itself: a MATCH that answers the
+per-line question the original could not, a DIVERGED where the program
+branches on a file its own first run wrote, a refusal issued before anything
+is rebuilt because the invocation was two test binaries, a re-run that spawns
+a child of its own, and a test that spawns a thread onto another `#[test]`
+fn — where the licence must count that thread as the program's and WITHHOLD,
+rather than read its marked root as the recorder's own and grant. All
+forty-three need a built
 `cargo-sensorium` (`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on `PATH`);
 without it they are reported skipped BY NAME and counted apart from the
 passes, never as them. `corpus/rust/README.md` is the case-by-case list.

@@ -1,0 +1,69 @@
+program: cargo
+cargo_args: ["test"]
+questions:
+  - id: which-of-these-threads-did-the-program-start
+    ask: >
+      `cargo test` ran two tests here and one of them spawned a thread. Of
+      the threads this recording holds, which are the recorder's own and
+      which did the program start?
+    truth: >
+      Three threads besides the main one, and exactly ONE of them is the
+      program's. libtest gives each `#[test]` fn a thread of its own, so two
+      of the three are the recorder's and are named as such where any count
+      of them is printed -- the same exclusion the licence already makes for
+      the recorder's own environment variables. The third is the worker
+      `spawns_a_marked_fn` started, and it is the program's even though its
+      ROOT frame is `tests::helper_test`, a fn the manifest marks `#[test]`:
+      `#[test] fn` is an ordinary fn to rustc and a spawned closure holds no
+      `?`, so it opens no frame of its own and the marked fn is the first
+      thing the thread enters. The mark alone therefore cannot say who
+      started a thread, and until 2026-09-08 this reading subtracted all
+      three (blind spot 28, design 2026-09-08 R3). What separates them is a
+      fact the recording already carries: the runtime names a workspace
+      spawn AT ITS SITE, so the worker's task is
+      `tests::spawns_a_marked_fn :: spawn@tests::spawns_a_marked_fn#1` while
+      libtest's two are named for the tests themselves.
+    why_logs_fail: >
+      A thread id printed by `dbg!` or a RUST_LOG target is a runtime number
+      that says nothing about who created the thread, and neither says
+      whether libtest or the code under test started it -- which is the
+      whole question. Adding a print inside the spawned closure would show
+      the work happening twice (once per thread that runs `helper_test`)
+      without saying which of the two runs belongs to the test harness.
+      RUST_BACKTRACE fires only on a panic and nothing panics.
+    command: ["info", "$RUN"]
+    expect_line:
+      - ["threads started: 1 besides the main one and 2 harness threads (libtest's per-test thread, excluded as the recorder's own)"]
+      - ["tasks:", "spawn@tests::spawns_a_marked_fn#1"]
+    expect_exit: 0
+  - id: can-a-refocus-of-this-run-license-the-whole-run
+    ask: >
+      Re-run this recording one flag deeper and compare. Is the licence
+      allowed to say that no thread besides the main one started?
+    truth: >
+      No: `licence: WITHHELD`, and the reason names the one thread the
+      program started (`started 1 thread(s) besides the main one and 2
+      harness threads (...)`) beside the two it excluded. The verdict is
+      still MATCH and exit is still 0 -- a withheld licence is not a failed
+      comparison, it is the comparison declining to claim more than it
+      checked. This case exists because the other answer was reachable: the
+      rule that read the `#[test]` mark on ANY root frame subtracted the
+      spawned thread too, printed `no thread started besides the main one
+      and 3 harness threads`, and GRANTED the licence over a thread whose
+      work nothing had compared -- the direction that claims MORE, which is
+      the one failure a licence must never make. Two clauses fix it and both
+      are pinned here: a spawn-named task is never the harness's, and only a
+      thread's FIRST root frame decides.
+    why_logs_fail: >
+      The claim under test is about what a comparison of two recordings may
+      assert, so no output of one execution can carry it. A `dbg!` inside
+      the closure prints from whichever thread reached it and can neither
+      state that a second run took the same path nor that a thread went
+      uncompared; RUST_LOG has no logger to reach in this crate, and
+      RUST_BACKTRACE prints only on a panic, while both tests pass.
+    command: ["refocus", "$RUN", "--focus", "tests::spawns_a_marked_fn"]
+    expect_contains:
+      - "licence: WITHHELD"
+      - "started 1 thread(s) besides the main one and 2 harness threads"
+    expect_absent: ["licence: verified against"]
+    expect_exit: 0

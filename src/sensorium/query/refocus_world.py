@@ -412,14 +412,26 @@ def harness_threads(trace: Trace) -> set[int]:
     recorder's own environment variables are excluded from the environment
     comparison, by name.
 
-    A harness thread is a NON-MAIN thread whose ROOT frame's site the
-    manifest marks `#[test]`. The root is what makes the rule sound in both
-    directions. A thread the test itself spawns enters through a closure or
-    an ordinary fn -- `sensorium-transform` marks every closure site
-    `test: false` -- so its root is never a test fn and it is never
-    excluded; and a test fn called from somewhere deeper on another thread
-    says nothing about who started that thread, so a mark below the root
-    excludes nothing either.
+    A harness thread is a NON-MAIN thread whose FIRST root frame's site the
+    manifest marks `#[test]` and whose task the runtime did NOT name at a
+    spawn site. Each clause is load-bearing:
+
+    * the ROOT: a marked fn called from deeper on another thread says
+      nothing about who started that thread;
+    * the FIRST root: a thread that runs one instrumented fn to completion
+      and then another has two, and only the first is how it began;
+    * NOT spawn-named: the mark is no proof the other way. `#[test] fn` is
+      an ordinary fn to rustc, so `thread::spawn(|| a_test_fn())` puts a
+      MARKED root on a thread the PROGRAM started -- the closure holds no
+      `?`, so it opens no frame of its own -- and subtracting it GRANTED
+      this licence over a program thread until 2026-09-08 (blind spot 28,
+      design R3). `sensorium-rt` names a workspace spawn at its site
+      (`spawn@<qualname>#<k>`, or `<parent> :: spawn@...`), the recorded
+      fact that tells two identical-looking roots apart.
+
+    An `async` test fn carries no site row -- the transform classifies it
+    `async` and skips it whole, `#[tokio::test]` with it -- so it has no
+    mark and its thread is COUNTED as the program's, which claims less.
 
     Empty for a recorder whose traces carry no site marks at all -- every
     Python trace -- and empty unless the main thread is a RECORDED fact.
@@ -436,13 +448,26 @@ def harness_threads(trace: Trace) -> set[int]:
         return set()
     main = trace.main_thread_id()
     marks = _site_marks(trace.meta)
-    found = set()
+    found, decided = set(), {main}
+    # `decided` holds the main thread from the start (never the harness's)
+    # and every other thread from its FIRST root: `roots()` is frame-id
+    # ordered, so a later root of a thread already decided never votes.
     for root in trace.roots():
-        if root.thread_id == main:
+        thread = root.thread_id
+        if thread in decided:
+            continue
+        decided.add(thread)
+        # A thread with no task row, or one whose name could not be read
+        # (`Task.name` is nullable by schema), carries no spawn name to
+        # read: it is decided on its root's mark alone, as every thread was
+        # before this rule.
+        task = trace.task(thread)
+        name = "" if task is None or task.name is None else task.name
+        if name.startswith("spawn@") or " :: spawn@" in name:
             continue
         code = trace.code(root.code_id)
         if marks.get((code.qualname, code.file)) == "test":
-            found.add(root.thread_id)
+            found.add(thread)
     return found
 
 
