@@ -361,9 +361,13 @@ def test_the_recorders_own_code_is_never_traced(tmp_path, monkeypatch):
     excluding, the recorder records itself and the trace fills with frames
     the program never had.
     """
-    from sensorium.record import tracer
+    from sensorium.record import tracer_frames
 
-    monkeypatch.setattr(tracer, "_SENSORIUM_DIR", str(tmp_path))
+    # `tracer_frames`, not `tracer`: `_classify` is the constant's only reader
+    # and moved with it at the 800-line split. Patching the name `tracer`
+    # re-exports would rebind only that module's name and leave the guard
+    # reading the real directory -- a full event list, not an import error.
+    monkeypatch.setattr(tracer_frames, "_SENSORIUM_DIR", str(tmp_path))
     t, err = record_inproc(tmp_path, ADD)
 
     assert err is None
