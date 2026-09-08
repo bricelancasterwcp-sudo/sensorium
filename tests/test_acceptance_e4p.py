@@ -125,7 +125,21 @@ def test_the_amendment_ADDED_section_1_5_and_moved_no_earlier_row():
            [ln for ln in after.splitlines() if ln.startswith("|")]
     assert "### 1.5 Amendment A1" in after
     assert "### 1.5" not in before
-    assert after.startswith(before.split("### 1.5")[0][:200])
+    # The WHOLE pre-amendment range, byte for byte -- not its table rows and
+    # not a 200-character prefix. Those two checked what a reader would
+    # notice; a prose sentence edited at character 900, or a row of §1.2's
+    # partition reworded between the two commits, passed both. `before` is
+    # everything up to the `## 2` heading the extraction stops at, and the
+    # amendment was inserted exactly there.
+    cut = after.index("### 1.5")
+    head, tail = before[:cut], before[cut:]
+    assert after[:cut] == head
+    assert tail.strip() == "## 2. Environment"
+    assert after.rstrip().endswith(tail.strip())
+    # ...and it is a DIFF, so it must be able to fail: one byte anywhere in
+    # the range moves it.
+    moved = head[:900] + ("X" if head[900] != "X" else "Y") + head[901:]
+    assert after[:cut] != moved
 
 
 def _section1_at(sha: str) -> str:
