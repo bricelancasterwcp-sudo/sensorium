@@ -13,6 +13,8 @@ Split from `test_exceptions_rust.py` at the 800-line ceiling; the
 accusations are there, the gate and paging in
 `test_exceptions_rust_gate.py`.
 """
+from pathlib import Path
+
 import pytest
 
 from sensorium import cli
@@ -44,8 +46,35 @@ def test_an_ok_close_with_no_sink_is_ambiguous_never_swallowed(
     assert "SWALLOWED" not in o, o
     assert ("ambiguous -- the frame holding it returned ok with no sink "
             "recorded") in o, o
-    assert "left the grammar this recorder watches" in o, o
+    # The POINTER, not the phrase alone. This detail sends a reader to the
+    # file that enumerates the unprobed shapes, and it named `HONESTY.md`
+    # for two days after §11 moved out of it (2026-09-06) -- a printed
+    # citation of a section that had left. Both halves are pinned so the
+    # next move of either file reddens here rather than in a reader's
+    # terminal.
+    assert ("it left the grammar this recorder watches "
+            "(rust/HONESTY-ERR-FLOW.md §11 and rust/HONESTY-BLIND-SPOTS.md "
+            "items 15-26 name the shapes that are not probed); no sink "
+            "recorded is not evidence that nothing absorbed it") in o, o
     assert "dispositions: ambiguous 1" in o, o
+
+
+def test_the_files_that_detail_cites_exist_and_name_the_unprobed_shapes():
+    """A citation nothing checks is a citation that can outlive its target.
+
+    `HONESTY.md` §11 moved to `HONESTY-ERR-FLOW.md` on 2026-09-06 and the
+    printed sentence went on naming the file it had left. Read both files
+    here, from the repository and not from a checkout path, and require the
+    paragraph and the item range the sentence promises.
+    """
+    rust = Path(__file__).resolve().parents[1] / "rust"
+    err_flow = (rust / "HONESTY-ERR-FLOW.md").read_text()
+    assert "## 11. Err flow" in err_flow
+    assert "Everything else is unprobed **on purpose**" in err_flow
+    blind = (rust / "HONESTY-BLIND-SPOTS.md").read_text()
+    for item in range(15, 27):
+        assert f"\n{item}. **" in blind, item
+
 
 # -- §2a: THREAD_END on a spawned thread's outermost frame ------------------
 def test_a_chain_that_left_a_spawned_threads_outermost_frame_is_ambiguous(
