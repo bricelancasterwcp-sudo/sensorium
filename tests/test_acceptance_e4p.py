@@ -25,9 +25,13 @@ import acceptance_e4p_rows as rows                                 # noqa: E402
 import acceptance_rung3 as rung3                                   # noqa: E402
 from acceptance_lib import Refused                                 # noqa: E402
 
-#: The locked range's sha256 at Task 0's commit -- the one the runner
-#: refuses on, and the one the brief carries.
-DOC_SHA = "82152208e2fa57f54c573dea8305be28097529fd2544e2be5caabd16e6bf3528"
+#: The locked range's sha256 at the AMENDED lock (`d5efaab`) -- what the
+#: runner refuses on, and what the live document must hash to.
+DOC_SHA = "04aa4b6b0cdf20ee67f21b7e5741819f3e324d150dc2bd1b3969b68b7a3e3967"
+#: And at the ORIGINAL lock (`2991c3b`), Task 0's commit, carried beside it
+#: so the amendment is a checkable fact rather than a claim in prose.
+ORIGINAL_DOC_SHA = ("82152208e2fa57f54c573dea8305be28097529fd2544e2be5caa"
+                    "bd16e6bf3528")
 
 #: DERIVED, like `TEST_FILES` below and for the same reason: a hand-written
 #: list is a guard that goes stale the next time a module is added, and this
@@ -47,36 +51,89 @@ def test_the_scanned_module_list_covers_every_module_of_this_instrument():
 
 # -- the byte-lock ---------------------------------------------------------
 
-def _require_lock_commit(sha):
+def _require_lock_commit(*shas):
     """A shallow checkout has no such commit. Skip BY NAME rather than pass
     on a missing one -- a skipped lock check must never look like a passed
     one."""
-    if not sha:
-        pytest.skip("§1 is not locked yet (BYTE_LOCK is None) — skipped BY "
-                    "NAME, not passed")
-    ok = subprocess.run(["git", "cat-file", "-e", f"{sha}^{{commit}}"],
-                        cwd=REPO, capture_output=True).returncode == 0
-    if not ok:
-        pytest.skip(f"lock commit {sha} is not in this checkout — skipped BY "
-                    "NAME, not passed")
+    for sha in shas:
+        if not sha:
+            pytest.skip("§1 is not locked yet (BYTE_LOCK is None) — skipped "
+                        "BY NAME, not passed")
+        ok = subprocess.run(["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+                            cwd=REPO, capture_output=True).returncode == 0
+        if not ok:
+            pytest.skip(f"lock commit {sha} is not in this checkout — "
+                        "skipped BY NAME, not passed")
 
 
-def test_the_runner_carries_the_lock_and_says_it_was_never_amended():
-    """§1 was committed ALONE by Task 0 and has never been amended, so the
-    original lock and the current one are ONE sha. Carried as two names all
-    the same: a later amendment would have to change one of them, and a
-    record that carried only one could not say which."""
-    assert runner.BYTE_LOCK == "2991c3b"
-    assert runner.ORIGINAL_LOCK == runner.BYTE_LOCK
+def test_the_runner_carries_BOTH_locks():
+    """Two shas, and they are no longer one.
+
+    `BYTE_LOCK` is what the runner refuses on -- the AMENDED §1, whose
+    §1.5 (amendment A1) records the env-clause finding and the launch
+    environment, dated before any E4′ number was read. `ORIGINAL_LOCK` is
+    Task 0's commit, before the instrument existed. Both are carried so the
+    amendment is visible in the record: a runner that dropped the original
+    would make a post-lock edit indistinguishable from no edit at all, and
+    one that refused on the original would refuse on the document as it now
+    stands."""
+    assert runner.BYTE_LOCK == "d5efaab"
+    assert runner.ORIGINAL_LOCK == "2991c3b"
+    assert runner.BYTE_LOCK != runner.ORIGINAL_LOCK
 
 
 def test_the_byte_lock_passes_on_the_real_document():
+    """The same comparison the runner refuses on, run in the suite so a
+    stray edit to §1 is caught before a run is launched rather than by a
+    refusal with a driver already built. The LIVE document must hash to the
+    AMENDED sha -- not to the original, which is what a lock left behind by
+    an amendment would accept."""
     _require_lock_commit(runner.BYTE_LOCK)
     rec = rung3.byte_lock_check(runner.DOC, runner.BYTE_LOCK,
                                 runner.ORIGINAL_LOCK)
     assert rec["identical"] is True
     assert rec["locked_sha256"] == DOC_SHA
-    assert rec["amended_after_the_original_lock"] is False
+    assert rec["locked_sha256"] != ORIGINAL_DOC_SHA
+
+
+def test_the_record_names_BOTH_shas_and_the_amendment_flag():
+    """§1 was amended after the original lock and before any number was
+    read. The record must say so with two shas and a flag: a record
+    reporting no amendment would be describing another document, and one
+    reporting only the amended sha would leave a reader unable to check
+    that the expectation, the H-table and the kills did not move."""
+    _require_lock_commit(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
+    rec = rung3.byte_lock_facts(runner.DOC, runner.BYTE_LOCK,
+                                runner.ORIGINAL_LOCK)
+    assert rec["locked_sha256"] == DOC_SHA
+    assert rec["original_lock_sha256"] == ORIGINAL_DOC_SHA
+    assert rec["amended_after_the_original_lock"] is True
+    assert rec["amendment_bytes"] > 0
+    assert rec["original_lock"] == "2991c3b"
+
+
+def test_the_amendment_ADDED_section_1_5_and_moved_no_earlier_row():
+    """A1 inserted §1.5 before `## 2` and changed nothing above it: every
+    `|` row of the locked range -- §1.1's 61 originals, §1.2's partition,
+    the H-table -- is byte-identical at the two commits. That is what makes
+    "expectation, H-table and kills unchanged" checkable rather than
+    claimed."""
+    _require_lock_commit(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
+    before = _section1_at(runner.ORIGINAL_LOCK)
+    after = _section1_at(runner.BYTE_LOCK)
+    assert [ln for ln in before.splitlines() if ln.startswith("|")] == \
+           [ln for ln in after.splitlines() if ln.startswith("|")]
+    assert "### 1.5 Amendment A1" in after
+    assert "### 1.5" not in before
+    assert after.startswith(before.split("### 1.5")[0][:200])
+
+
+def _section1_at(sha: str) -> str:
+    """§1 as committed at `sha`, by the lock's own extraction."""
+    text = subprocess.run(
+        ["git", "show", f"{sha}:{runner.DOC.relative_to(REPO).as_posix()}"],
+        cwd=REPO, capture_output=True, text=True).stdout
+    return rung3.section1(text)
 
 
 def test_the_byte_lock_REFUSES_a_document_that_differs_by_one_byte(tmp_path):

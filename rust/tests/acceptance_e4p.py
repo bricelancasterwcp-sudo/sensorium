@@ -151,15 +151,29 @@ e6ppp.BASE = BASE
 DOC = (REPO / "docs" / "superpowers" / "acceptance"
        / "2026-09-07-sensorium-rung4-e4p.md")
 
-#: The commit §1 is byte-locked against. A `None` lock REFUSES rather than
-#: measuring against a pre-registration that can still be edited. §1 was
-#: committed ALONE by Task 0 -- before `harness_threads` existed in
-#: `refocus_world.py`, before `find_pair` excluded a child, before
-#: `install_shim` hard-linked, before any results file carried
-#: `schema_version`, and before this file existed -- and has NEVER been
-#: amended, so the original lock and the current one are one sha.
-BYTE_LOCK = "2991c3b"
-ORIGINAL_LOCK = BYTE_LOCK
+#: The commit §1 is byte-locked against NOW: the AMENDED §1. A `None` lock
+#: REFUSES rather than measuring against a pre-registration that can still
+#: be edited, and this one refuses on anything but amendment A1's bytes.
+#:
+#: §1 was amended ONCE, on 2026-09-07, after the original lock and BEFORE
+#: any E4′ number was read: §1.5 (amendment A1) records what the preflight
+#: found -- that §1.3's FRESH `CARGO_TARGET_DIR` makes the licence's env
+#: clause fire on all 61 pairs for a reason unrelated to R1 -- the ruling
+#: that a re-run from another target directory is a normal use of the tool,
+#: and the three launch-environment variables the launcher pins. The
+#: expectation, the H-table and the kills did not move.
+BYTE_LOCK = "d5efaab"
+#: The ORIGINAL lock: §1 as Task 0 committed it ALONE, before
+#: `harness_threads` existed in `refocus_world.py`, before `find_pair`
+#: excluded a child, before `install_shim` hard-linked, before any results
+#: file carried `schema_version`, and before this file existed.
+#:
+#: Carried BESIDE the current lock, never replaced by it. The record
+#: publishes both shas and `amended_after_the_original_lock`, so the
+#: amendment is a checkable fact of the record rather than a claim in
+#: prose -- a runner that dropped the original would make a post-lock edit
+#: indistinguishable from no edit at all.
+ORIGINAL_LOCK = "2991c3b"
 
 RUNNER = "rust/tests/acceptance_e4p.py"
 RAW = LEDGER / "results-e4p-raw.json"
