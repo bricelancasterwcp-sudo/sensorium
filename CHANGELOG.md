@@ -65,9 +65,27 @@ the point: E4″'s record identifies the driver that recorded a run by
   places this package's version lands — `pyproject`, the installed
   distribution's metadata, and this file's newest header — in both of the
   states that header legally has.
-- **E4″** — pre-registered, §1 byte-locked, and measured once under this
-  slice's driver against the 61 kept originals of E4. Results in this entry
-  when they land.
+- **E4″ measured once, 2026-09-08 — H1–H7 PASS, H8 STOP on an instrument
+  cell.** Pre-registered and §1 byte-locked before the instrument existed, then
+  read once over the 61 kept originals of E4 under this slice's driver. The two
+  questions the slice asked are answered **PASS at n = 61**: the harness-thread
+  rule moved the licence word exactly as §1.2 predicted — **57 granted**,
+  WITHHELD on the four thread-spawning tests with their program-thread counts
+  **1 / 4 / 4 / 4** (E4′ read **0** granted, all 61 withheld by the confound R1
+  removes) — and the recorder's fragment is gone from the compare:
+  `RUSTDOCFLAGS` in **0 of 61** changed lists, the strip clause naming it on
+  **61 of 61**, with the rt hash **differing on 61 of 61** pairs, so the strip
+  was tested on every one under a driver build different from the originals'
+  (`0.5.0` → `0.5.2`). The verdict, the pair, session set 1 and both control
+  arms held (H3–H6), and the instrument's own honesty row passed over all 69
+  pairs (H7). **H8 STOPPED on this record's own reader**, not on the workspace:
+  its three commands were green (corpus rc 0 over 63 cases with
+  `--require-driver`, pytest rc 0, `cargo test --workspace` rc 0) and
+  `corpus/rust/refocus_spawned_test_fn` did run, but the cell asking whether the
+  case is present compared the bare name against a listing that spells Rust
+  cases `rust/<name>` and so read a measured-looking `False`. The STOP stands as
+  measured — kill 6 forbids an instrument change after the measurement — and the
+  one-line fix is ruled for the next slice.
 
 ## 0.8.5 — 2026-09-07
 

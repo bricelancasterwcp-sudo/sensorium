@@ -154,16 +154,23 @@ def test_the_locked_range_ENDS_at_the_stubbed_section_2_heading():
     would have grown by every byte Task 8 appended -- the lock refusing the
     very run it exists to authorise. The stubs close it: §2..§5 are headings
     now, the range ends on `## 2. Environment`, and filling the bodies in
-    BELOW those headings cannot move a byte inside it."""
+    BELOW those headings cannot move a byte inside it.
+
+    The proof grows the document at the §2 heading rather than at the stub
+    text: Task 8 replaced the four `*(written by Task 8)*` stubs with the
+    measured record, so a proof phrased against that literal would go silently
+    no-op the moment the run it authorises is written up. The heading itself is
+    the last line of the range and outlives the stub."""
     text = lock.DOC.read_text()
     s1 = rung3.section1(text)
     assert s1.splitlines()[-1] == "## 2. Environment"
     for h in ("## 2. Environment", "## 3. Results", "## 4. Verdicts",
               "## 5. Gaps"):
-        assert h in text, f"{h} stub is missing"
+        assert h in text, f"{h} heading is missing"
     # The proof, not the claim: appending a §2 body leaves the range alone.
-    grown = text.replace("## 2. Environment\n\n*(written by Task 8)*",
-                         "## 2. Environment\n\nMeasured 2026-09-09. " * 40)
+    grown = text.replace("## 2. Environment\n",
+                         "## 2. Environment\n\n"
+                         + "Measured 2026-09-09. " * 40 + "\n", 1)
     assert grown != text
     assert rung3.section1(grown) == s1
 
