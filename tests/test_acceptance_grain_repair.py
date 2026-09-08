@@ -277,7 +277,7 @@ def test_the_sibling_produces_the_first_record_s_schema(monkeypatch,
 #: One answer in which two blocks name their file (R-G12's collision) and one
 #: does not. The shared parser must read all three, and the ungated count
 #: must be 2 -- not 3, and not 0.
-DISAMBIGUATED = """raised (3 chains over 3 processes, 3 swallowing sites):
+DISAMBIGUATED = """raised (3 chains over 3 processes, 3 swallowed shapes):
   e1 HANDLED f handled io::Error('x') L156
     SWALLOWED -- absorbed by sink_let_underscore at e1 (f L156 in memory.rs) in f1, which returned ok  [in r1]
   e2 HANDLED f handled io::Error('y') L156

@@ -120,9 +120,18 @@ INCOMPLETE = re.compile(r"^INCOMPLETE: (?P<run>\S+) never finalized", re.M)
 #: recording reports where the RECORDING ended, not what the program did.
 INCOMPLETE_BANNER = re.compile(
     r"^INCOMPLETE: this recording never finalized", re.M)
+#: The INVOCATION answer's `raised (…)` header
+#: (`exceptions_invocation._shapes`). Its third count is the number of
+#: printed BLOCKS -- merged shapes whose disposition is swallowed -- and it
+#: said `N swallowing sites` until the noun was corrected to `N swallowed
+#: shape(s)`. The two are not equal on a real sweep (the E6‴ record has 91
+#: and 98 distinct SITES where this header printed 103 and 105), so a reader
+#: still matching the old noun matches nothing and reports `chains` `None`
+#: on an answer that named them. `shape` is what is counted and what this
+#: reader now calls it.
 RAISED_INV = re.compile(r"^raised \((?P<chains>\d+) chains over "
-                        r"(?P<procs>\d+) process(?:es)?, (?P<sites>\d+) "
-                        r"swallowing sites\):$", re.M)
+                        r"(?P<procs>\d+) process(?:es)?, (?P<shapes>\d+) "
+                        r"swallowed shapes?\):$", re.M)
 RAISED = re.compile(r"^raised \((?P<n>\d+)(?:[^)]*)\):$", re.M)
 EMPTY_INV = re.compile(r"^no exceptions recorded across (?P<n>\d+) "
                        r"process(?:es)?$", re.M)
@@ -289,7 +298,7 @@ def parse_header(stdout: str) -> dict:
         "chains": chains,
         "over_processes": (int(raised_inv.group("procs")) if raised_inv
                            else None),
-        "swallowing_sites": (int(raised_inv.group("sites")) if raised_inv
+        "swallowed_shapes": (int(raised_inv.group("shapes")) if raised_inv
                              else None),
         "tally_line": tally_line, "tally": tally_counts(tally_line),
         "empty": bool(empty_inv) or "no exceptions recorded" in stdout,

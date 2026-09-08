@@ -162,7 +162,7 @@ def test_parse_shapes_reads_no_shape_out_of_a_header_or_a_tally():
 INVOCATION = """\
 invocation 20260905-091115-9e8e5a: cargo test --workspace -- 3 processes, 2 with Err chains, 1 with none
 INCOMPLETE: r3 never finalized -- its Err chains after the cut are not below
-raised (10 chains over 2 processes, 2 swallowing sites):
+raised (10 chains over 2 processes, 2 swallowed shapes):
   e2 HANDLED usable_window handled io::Error('X') L192
     SWALLOWED -- absorbed by sink_unwrap_or at e2 (usable_window L192) in f1, which returned ok  [in r2]
 dispositions: swallowed 10, ambiguous 3
@@ -176,9 +176,29 @@ def test_parse_header_reads_the_invocation_counts():
     assert h["invocation"] == "20260905-091115-9e8e5a"
     assert h["cargo"] == "test --workspace"
     assert (h["processes"], h["with_chains"], h["without_chains"]) == (3, 2, 1)
-    assert h["chains"] == 10 and h["swallowing_sites"] == 2
+    assert h["chains"] == 10 and h["swallowed_shapes"] == 2
     assert h["tally_line"] == "dispositions: swallowed 10, ambiguous 3"
     assert h["tally"] == {"swallowed": 10, "ambiguous": 3}
+
+
+def test_the_raised_header_is_read_off_the_LINE_THE_TOOL_PRINTS():
+    """The reader matched `N swallowing sites`, the noun this header carried
+    until it was corrected to `N swallowed shape(s)` -- so it matched
+    nothing, and `chains` fell through to the single-run regex or to `None`
+    on the one answer that names both counts.
+
+    Built here from `exceptions_invocation`'s own two helpers rather than
+    retyped, so the reader and the printer cannot drift apart again; the
+    singular is pinned beside the plural because the old wording said
+    `sites` at N = 1 as well."""
+    from sensorium.query.exceptions_invocation import _processes, _shapes
+    for chains, procs, shapes in ((10, 2, 2), (1, 1, 1)):
+        line = (f"raised ({chains} chains over {_processes(procs)}, "
+                f"{_shapes(shapes)}):")
+        h = runner.parse_header(line + "\n")
+        assert h["chains"] == chains, line
+        assert h["over_processes"] == procs, line
+        assert h["swallowed_shapes"] == shapes, line
 
 
 def test_parse_header_names_every_incomplete_member():
@@ -419,7 +439,7 @@ def test_the_vary_count_sums_every_answer_this_run_read():
 
 UNBRACKETED_INVOCATION = """\
 invocation i1: cargo test --workspace -- 2 processes, 2 with Err chains, 0 with none
-raised (2 chains over 2 processes, 2 swallowing sites):
+raised (2 chains over 2 processes, 2 swallowed shapes):
   e1 HANDLED f handled io::Error('x') L156
     SWALLOWED -- absorbed by sink_ok at e1 (f L156) in f1, which returned ok
   e2 HANDLED g handled io::Error('y') L606
