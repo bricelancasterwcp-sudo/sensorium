@@ -17,6 +17,30 @@ sha256 is printed inside §1 (and therefore inside the range lock) and
 repeated here, and both must agree with the file on disk. A range lock alone
 would leave the subject editable; a digest alone would leave it unattested.
 
+**The lock moved ONCE, before any instrument existed, and this is the record
+of it.** `b9abcbd` was the first draft of §1. It could not survive its own
+record being written: `section1()` stops AT the `## 2` line, and the draft
+had none, so the range ran to EOF and would have gained bytes the moment §2
+was appended -- the lock would have refused the run it exists to authorise.
+The re-lock at `BYTE_LOCK` below carries, and carries only:
+
+  1. `## 2`--`## 5` heading stubs (`*(written by Task 8)*`), the shape E4′'s
+     own lock commit used, so the range terminates where the lock intends;
+  2. §1.2: the four verified/unverifiable counts attributed to **E4's** H4
+     rather than E4′'s (E4′'s H4 is the shim census, absent here);
+  3. H4: the verdict pre-committed for K > 8 -- `session_names` null with its
+     reason, the gate decided on K alone, the bounded reading published as
+     the lens;
+  4. kill 2 extended to name H8, and H8 gated on `pytest_rc` beside
+     `corpus_rc` and `cargo_rc` (`pytest_summary` stays reported);
+  5. arm C's candidates narrowed to session set 1's fourteen EXACT names --
+     the `CLAUDE_CODE_` prefix names no key and is never a candidate.
+
+Nothing was measured, no instrument existed and no `src/` had changed when
+those five were made; the expectation, the subject and the kills' direction
+did not move. `ROWS_SHA256` is unchanged, because the rows file is unchanged.
+**After this commit, no byte of §1 changes.**
+
 No location is written into this file. `REPO` is derived from `__file__` and
 every path below hangs off it, so this module says nothing about which box
 it is running on -- the record's own §2 is where that belongs.
@@ -47,16 +71,20 @@ ROWS_DOC = ACCEPTANCE / "2026-09-08-sensorium-rung4-e4pp-rows.md"
 #: renderer cannot disagree about it.
 RESULTS = ACCEPTANCE / "2026-09-08-sensorium-rung4-e4pp.results.json"
 
-#: The commit that added §1, ALONE, with the rows sibling and nothing else.
-#: The runner refuses to start unless the working tree's §1 is byte-identical
-#: to this commit's; a falsy value refuses outright, because a
-#: pre-registration that can still be edited is not one.
-BYTE_LOCK = "b9abcbd"
+#: The commit §1 is byte-locked against: the stubbed §1, re-locked once
+#: before any instrument existed (see the module docstring for the five
+#: things that moved and why). The runner refuses to start unless the working
+#: tree's §1 is byte-identical to this commit's; a falsy value refuses
+#: outright, because a pre-registration that can still be edited is not one.
+BYTE_LOCK = "2acdc21"
 
 #: `None`, and deliberately so. E4′ carried a second sha because its §1 grew
 #: an amendment (A1) after the original lock and before any number was read;
-#: E4″'s §1 has NOT been amended, and `None` is how this module says that
-#: rather than implying an amendment by repeating one sha twice. If §1 is
+#: E4″'s §1 has NOT been amended -- the `b9abcbd` -> `2acdc21` move was a
+#: DRAFT being finished, not a locked §1 being amended, and it happened with
+#: no instrument, no measurement and no `src/` change in existence. `None` is
+#: how this module says that rather than implying an amendment by repeating
+#: one sha twice. If §1 is
 #: ever amended before the measurement, this becomes the ORIGINAL commit and
 #: `BYTE_LOCK` the amended one -- both travel together from then on, as E4′'s
 #: do, and the record publishes `amended_after_the_original_lock`.

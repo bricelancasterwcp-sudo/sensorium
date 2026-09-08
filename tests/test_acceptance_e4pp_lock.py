@@ -26,6 +26,11 @@ import acceptance_e4pp_lock as lock                                # noqa: E402
 import acceptance_rung3 as rung3                                   # noqa: E402
 from acceptance_lib import Refused                                 # noqa: E402
 
+#: The locked range's sha256 at `BYTE_LOCK`. Pinned as a literal, E4′'s
+#: practice: without it `locked == working` passes just as happily after a
+#: silent re-lock, which is the one failure a byte lock exists to make loud.
+DOC_SHA = "5717507e8e0f4beb82a449df6312ac1427a276596fb1ee71e1cf106c7d547759"
+
 
 def _require_lock_commit(sha):
     """A shallow checkout has no such commit. Skip BY NAME rather than pass
@@ -54,6 +59,7 @@ def test_the_byte_lock_passes_on_the_real_document():
     rec = rung3.byte_lock_facts(lock.DOC, lock.BYTE_LOCK, None)
     assert rec["identical"] is True
     assert rec["locked_sha256"] == rec["working_tree_sha256"]
+    assert rec["locked_sha256"] == DOC_SHA
     assert rec["amended_after_the_original_lock"] is False
     assert rec["original_lock_sha256"] is None
     assert rec["footnotes_in_range"] == []
@@ -140,6 +146,28 @@ def test_the_byte_lock_REFUSES_a_document_that_differs_by_one_byte(tmp_path):
 
 # -- (4) what §1 must contain ----------------------------------------------
 
+def test_the_locked_range_ENDS_at_the_stubbed_section_2_heading():
+    """The range has to be closed, or writing the record breaks the lock.
+
+    `section1()` reproduces `awk '/^## 1/,/^## 2/'` and stops AT the `## 2`
+    line. §1's first draft had no such line, so the range ran to EOF and
+    would have grown by every byte Task 8 appended -- the lock refusing the
+    very run it exists to authorise. The stubs close it: §2..§5 are headings
+    now, the range ends on `## 2. Environment`, and filling the bodies in
+    BELOW those headings cannot move a byte inside it."""
+    text = lock.DOC.read_text()
+    s1 = rung3.section1(text)
+    assert s1.splitlines()[-1] == "## 2. Environment"
+    for h in ("## 2. Environment", "## 3. Results", "## 4. Verdicts",
+              "## 5. Gaps"):
+        assert h in text, f"{h} stub is missing"
+    # The proof, not the claim: appending a §2 body leaves the range alone.
+    grown = text.replace("## 2. Environment\n\n*(written by Task 8)*",
+                         "## 2. Environment\n\nMeasured 2026-09-09. " * 40)
+    assert grown != text
+    assert rung3.section1(grown) == s1
+
+
 def test_section_1_carries_all_eight_endpoints_and_the_reported_row():
     """H1..H8 plus the ungated `reported` row, inside the LOCKED range --
     an endpoint that lived outside §1 would not be pre-registered at all."""
@@ -161,6 +189,11 @@ def test_section_1_pre_commits_both_readings_and_the_kill_sentences():
     assert "**Kill criteria.**" in s1
     for n in range(1, 8):
         assert f"\n{n}. **" in s1, f"kill {n} is missing"
+    # Kills 1 and 2 together must name every gated endpoint: H1 in kill 1,
+    # H2..H6 and H8 in kill 2, H7 as the instrument STOP.
+    assert "A miss on H2, H3, H4, H5, H6 or H8 is a STOP" in s1
+    assert "A miss on H7 is a STOP" in s1
+    assert "these eight cover every gated endpoint" in s1
     # Kill 6's clause, matched on the one line it wraps onto: the document is
     # locked, so the test moves to the text and never the other way round.
     assert "`src/`, crate, corpus or instrument change is made after the" in s1
