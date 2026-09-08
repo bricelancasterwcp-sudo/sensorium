@@ -568,3 +568,37 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     reads AMBIGUOUS **with no record and no `partial` row** — the one shape in
     this list whose absence nothing in the trace declares. Measured at the
     Task-1 review of 2026-09-04; **untested by fixture**.
+27. **A refocus whose original was recorded by a DIFFERENT driver build is
+    withheld by the env clause, on `RUSTDOCFLAGS`, for the recorder's own
+    reason.** The driver injects its runtime into every re-run's
+    `RUSTDOCFLAGS` as `--extern
+    sensorium_rt=<target>/sensorium/rt/<rt-hash>/unwind/libsensorium_rt.rlib`
+    with a matching `-L dependency=<target>/sensorium/rt/<rt-hash>/unwind`.
+    Two things inside that fragment can move between the recording and the
+    re-run, and only one of them is the world's: the `<target>` **root**,
+    which the relocation rule of `rust/HONESTY.md` §13 correctly reads as a
+    relocation and treats as unchanged; and the `<rt-hash>`, which keys the
+    `sensorium-rt` build and therefore **changes whenever the driver build
+    changes**. A moved hash is not a relocation, so `differs_only_by_root` is
+    right to return false, the key falls into the changed list, and the
+    licence reports the recorder's **own footprint** as a change the world
+    made — the same class this licence already exempts twice, for the
+    recorder's `SENSORIUM_*` variables and (item 12) for R1's harness thread.
+    **Measured 2026-09-07 at n = 61 by E4′**
+    (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md` §4): the
+    61 originals were recorded by `cargo-sensorium` **0.5.0** and re-run by
+    **0.5.1**, and the identical caveat `1 environment variable(s) differ
+    between the two runs (RUSTDOCFLAGS)` withheld the licence on **61 of 61**
+    pairs — including all 61 on which R1's harness exclusion had fired and
+    been named. The env clause withholds before the thread clause is reached,
+    so E4′'s H1 STOPPED and its pre-registered question is **unanswered by
+    that run**, not answered smaller. A same-build refocus does not show it:
+    the dry run recorded and refocused under one driver, the fragment
+    relocated cleanly, and the licence came back granted. *Ruled and NOT
+    built* (`docs/CARRIED-DEBT.md`, rung 4 slice 3 — kill 6 forbids a `src`
+    change after the measurement): strip the driver-injected fragment before
+    the compare as the recorder's own — **anything else in `RUSTDOCFLAGS`
+    stays the world's** and still withholds — then **E4″** re-measures over a
+    subject that includes an original recorded under a different driver
+    build, the one condition under which this confound is visible. *Declared
+    by* the env line, which names every key it did not explain.

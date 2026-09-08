@@ -728,6 +728,19 @@ Each is marked *ruling: Brice / slice 2*.
   per-site volume cap — **not funded** until a use asks; declared blind spots
   stand.* Each of the four still has its own bullet above, unstruck, because
   nothing shipped and the refusal or the bound is still what a reader meets.
+- **Half of the version-token fix is taken; the probe half is not.** The
+  process lesson below assigns two fixes to Task 7b. The **install refresh is
+  taken**: `pyproject.toml` moved to 0.8.5 and the editable install was
+  refreshed in the same task, so the distribution metadata
+  `importlib.metadata.version('sensorium')` reads `0.8.5` and no longer the
+  stale `0.6.0` three records paid for. The **probe half is deferred**: E4′'s
+  preflight still runs `import sensorium; print(sensorium.__version__)` against
+  a package that has no `__version__` and still captures stdout only, so a
+  failed probe still records `""` rather than `null` with its reason. It was
+  not changed here because the measurement is closed and its instrument is not
+  edited after the fact — the same reason kill 6 gives for `src`. *The fix,
+  unchanged*: record `null` and the reason, and probe a token the package
+  actually exposes.
 
 ### Process lessons
 

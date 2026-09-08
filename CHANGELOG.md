@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.5 (unreleased)
+## 0.8.5 — 2026-09-07
 
 Rung 4, slice 3: **the rung-4 debts** — the seven items slices 1 and 2 left in
 `docs/CARRIED-DEBT.md` with their fixes spelled out, closed. Python **0.8.5**;
@@ -91,6 +91,23 @@ Rung 4, slice 3: **the rung-4 debts** — the seven items slices 1 and 2 left in
   `results.json` committed with their records are NOT re-derived — a derivation
   is stated, not rewritten — and `docs/CARRIED-DEBT.md` notes that those two
   files predate the field.
+- **E4′ was measured once and STOPPED on H1**
+  (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`): the
+  licence was granted on **0** of 61 pairs where §1.2 predicted 57 — not
+  because R1 failed, since the harness exclusion fired and was **named on 61
+  of 61** `threads:` lines and the four multi-thread pairs report the
+  program's own counts 1, 4, 4, 4 — but because the env clause withheld on a
+  single key, `RUSTDOCFLAGS`, whose driver-injected `--extern
+  sensorium_rt=<target>/sensorium/rt/<hash>/…` fragment carries a hash that
+  moved with the driver build (0.5.0 recorded the originals, 0.5.1 re-ran
+  them), so the clause read the recorder's own footprint as a change the
+  world made; H2–H6 passed as pre-registered (MATCH 61 of 61, one pair on
+  every pair, the shim at the driver's own single inode on all 61,
+  `schema_version` present, and corpus, Python suite and `cargo test
+  --workspace` green). The STOP stands: it is not re-rolled, no `src` change
+  was made after it, and the ruled fix — strip that fragment as the
+  recorder's own, then **E4″** over a subject with an original recorded under
+  a different driver build — is carried in `docs/CARRIED-DEBT.md`.
 - **Not funded** (ruling R6, until a use asks): `--window` on a Rust trace,
   refocus over a multi-process invocation, an inference-variable opt-out, and a
   per-site volume cap. The declared blind spots stand.
