@@ -1,16 +1,17 @@
 # Changelog
 
-## 0.8.6 (unreleased)
+## 0.8.6 — 2026-09-08
 
 Rung 4, slice 4: **the recorder's footprint** — the three places this recorder
 still showed up inside its own licence, removed, and the small debts slice 3
-named with their fixes, paid. Python **0.8.6**; **`cargo-sensorium 0.5.2`** for
-a rebuilt tree a trace can name by token — no behaviour change, and that is
-the point: E4″'s record identifies the driver that recorded a run by
-`driver_version`, which is the token a trace carries — **`sensorium-transform
-0.4.3`** for three pure splits (the goldens pin the output byte for byte),
-**`sensorium-rt 0.4.0`** unchanged (neither the wire nor the runtime moved).
-`TRACE_FORMAT` stays **4**: nothing here writes a new key into a trace.
+named with their fixes, paid. Python **0.8.6**; **`cargo-sensorium 0.5.2`**,
+**`sensorium-transform 0.4.3`** for three pure splits (the goldens pin the
+output byte for byte), **`sensorium-rt 0.4.0`** unchanged (neither the wire nor
+the runtime moved). The driver's number carries no behaviour change, and that
+is the point: E4″ identifies the driver that recorded a run by
+`driver_version`, the token a trace carries, so a rebuilt tree needs a number
+of its own. `TRACE_FORMAT` stays **4**: nothing here writes a new key into a
+trace.
 
 - **The recorder's own compiler flags are not a change the world made**
   (ruling R1). E4′ withheld the licence on all 61 pairs for one key:
@@ -77,7 +78,9 @@ the point: E4″'s record identifies the driver that recorded a run by
   **61 of 61**, with the rt hash **differing on 61 of 61** pairs, so the strip
   was tested on every one under a driver build different from the originals'
   (`0.5.2` here, read from each re-run trace's own `meta.driver_version`; the
-  kept store's `0.5.0` is E4′ §2's fact about those originals, not an E4″ cell).
+  kept store's `0.5.0` is **E4's** own §2 fact about those originals, carried
+  into this record's §1.1 pre-registration — no field of E4″ reads it, and
+  E4′ §2's `0.5.1` was the driver of E4′'s own re-runs).
   The verdict, the pair, session set 1 and both control
   arms held (H3–H6), and the instrument's own honesty row passed over all 69
   pairs (H7). **H8 STOPPED on this record's own reader**, not on the workspace:
