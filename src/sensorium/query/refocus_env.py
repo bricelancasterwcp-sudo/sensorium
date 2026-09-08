@@ -1,5 +1,6 @@
-"""A target directory that MOVED, and a fragment the RECORDER wrote,
-told apart from a world that changed.
+"""A target directory that MOVED, a fragment the RECORDER wrote, and the
+session a re-run was LAUNCHED from -- each told apart from a world that
+changed.
 
 Split out of `refocus_world` rather than added to it: the licence's
 environment clause now has a rule of its own, and `refocus_world` is the
@@ -138,6 +139,62 @@ def differs_only_by_root(was: str, now: str, old: str, new: str) -> bool:
             return False
         explained = True
     return explained
+
+
+# -- session set 1: where a process was STARTED, not what it computes ------
+#: The version of the set below. It is a NUMBER in the printed line on
+#: purpose: an exemption from the licence's default is a claim, and a claim
+#: a reader can date and argue with is a different thing from a silent one.
+#: A key found to bear on what a program computes leaves the set with a
+#: date; a key found to differ between shells joins it with one.
+SESSION_SET = 1
+
+#: Session set 1, exact names, in the order they are printed and read.
+#:
+#: Every one is a handle to a bus, a window, a terminal, a connection, a
+#: service manager's invocation or an agent session -- the identity of WHERE
+#: a process was started, never input to what it computes. A re-run launched
+#: from another shell differs on these and on very little else: measured
+#: 2026-09-08 (names only) against kept E4 original 20260907-111144-33d30c,
+#: 73 keys equal, 0 added, 3 missing (the previous launcher's own pins) and
+#: exactly ONE changed, `CLAUDE_CODE_SESSION_ID`. That is the whole of the
+#: problem E4' amendment A1 carried.
+#:
+#: A POSITIVE list, and short. The design first written here kept the
+#: opposite -- a list of variables that "bear" on a program, everything else
+#: let through -- and the suite already held its falsifier:
+#: `test_refocus_withholds_the_licence_when_the_environment_differs`
+#: records under `REFOCUS_TEST_LIMIT` and refocuses without it, a variable
+#: the program demonstrably READS, and `REFOCUS_TEST_LIMIT` is on no bearing
+#: list anyone would write. That design would have granted a licence over a
+#: program that got different input: the direction that claims MORE, which
+#: is the one thing the licence exists to refuse. The tool cannot know which
+#: variables a program reads, so the default stands -- any differing key
+#: withholds -- and this is the one enumerated exception.
+SESSION_ORDER: tuple[str, ...] = (
+    "DBUS_SESSION_BUS_ADDRESS", "XDG_SESSION_ID", "TERM_SESSION_ID",
+    "WINDOWID", "TMUX", "TMUX_PANE", "SSH_AGENT_PID", "SSH_AUTH_SOCK",
+    "SSH_CLIENT", "SSH_CONNECTION", "SSH_TTY", "INVOCATION_ID",
+    "JOURNAL_STREAM", "SYSTEMD_EXEC_PID")
+SESSION_EXACT = frozenset(SESSION_ORDER)
+
+#: The one prefix. An agent session mints its own variables per session and
+#: their names are not knowable in advance, which is what a prefix is for --
+#: and why there is exactly one: a prefix admits names nobody enumerated, so
+#: each one is a hole and each one has to earn its place.
+SESSION_PREFIXES = ("CLAUDE_CODE_",)
+
+
+def is_session_key(name: str) -> bool:
+    """Whether `name` identifies the session a process was launched from.
+
+    Exact membership or one of the prefixes, and nothing looser: a family
+    resemblance would exempt variables nobody put on the list.
+    `XDG_SESSION_IDX` is not `XDG_SESSION_ID`, and `CLAUDE_CODEX` does not
+    carry the `CLAUDE_CODE_` prefix.
+    """
+    return (name in SESSION_EXACT
+            or any(name.startswith(p) for p in SESSION_PREFIXES))
 
 
 # -- the recorder's OWN fragment, which is not the world's -----------------

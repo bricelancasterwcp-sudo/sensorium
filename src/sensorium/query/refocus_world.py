@@ -28,9 +28,9 @@ from sensorium.query.caps import witness_gap
 # `code_objects` on a workspace-relative path against an absolute one, and
 # two implementations of that join are two ways for one trace to be read.
 from sensorium.query.exceptions_rust import _marks as _site_marks
-from sensorium.query.refocus_env import (differs_only_by_root,
-                                         relocated_clause, relocation,
-                                         strip_recorder_fragment,
+from sensorium.query.refocus_env import (SESSION_SET, differs_only_by_root,
+                                         is_session_key, relocated_clause,
+                                         relocation, strip_recorder_fragment,
                                          stripped_clause)
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
@@ -239,10 +239,18 @@ def _source_state(meta: dict) -> tuple[str, str | None, str | None]:
             f"recording did", None)
 
 
-def _env_diff(was: dict,
-              now: dict) -> tuple[list[str], list[str], list[str]]:
+def _capped(names: list[str]) -> str:
+    """At most eight names, with the rest counted. A cap on what is
+    PRINTED; the count beside the list is always the whole of it."""
+    shown = ", ".join(names[:8])
+    return shown + (f", +{len(names) - 8} more" if len(names) > 8 else "")
+
+
+def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str],
+                                             list[str], list[str]]:
     """(names that differ, names that differ ONLY by the target directory,
-    names the recorder's own fragment was stripped from).
+    names the recorder's own fragment was stripped from, names that
+    identify the SESSION the re-run was launched from).
 
     Names only -- values are never printed, because environments carry
     secrets. Every split here is `refocus_env`'s rule and its whole reason:
@@ -253,15 +261,22 @@ def _env_diff(was: dict,
     as a change the world made is noise. Everything else stays a
     difference.
 
+    Only the FIRST list withholds. The other three are findings the line
+    and the fact both carry by name.
+
     Order per key: the fragment goes first, because what is compared is
     what the world put there; then equality; then the relocation rule over
-    the REMAINDERS. A key can be stripped and unchanged, stripped and
-    relocated, or stripped and changed -- the strip is a statement about
-    what was removed, never a verdict.
+    the REMAINDERS; then session membership. A key can be stripped and
+    unchanged, stripped and relocated, or stripped and changed -- the strip
+    is a statement about what was removed, never a verdict. A key present
+    on ONE side only is a difference, as it always was, and is then
+    partitioned like any other: a re-run launched outside tmux carries no
+    `TMUX` at all, which is the same fact about the launcher as a `TMUX`
+    that differs.
     """
     keys = (set(was) | set(now)) - _UNCOMPARED_ENV
     move = relocation(was, now)
-    changed, relocated, stripped = [], [], []
+    changed, relocated, stripped, session = [], [], [], []
     for key in sorted(keys):
         before, after = was.get(key), now.get(key)
         removed = 0
@@ -281,9 +296,11 @@ def _env_diff(was: dict,
         if (move and isinstance(before, str) and isinstance(after, str)
                 and differs_only_by_root(before, after, *move)):
             relocated.append(key)
+        elif is_session_key(key):
+            session.append(key)
         else:
             changed.append(key)
-    return changed, relocated, stripped
+    return changed, relocated, stripped, session
 
 
 def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
@@ -301,7 +318,7 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
                 "the environment could not be checked at all, so nothing "
                 "rules out the rerun getting different input through it",
                 None)
-    names, relocated, stripped = _env_diff(was, env)
+    names, relocated, stripped, session = _env_diff(was, env)
     # Named on BOTH channels or on neither: the line a person reads and the
     # fact the trace keeps have to agree about which keys the check
     # explained away, or `info` replays a licence whose terminal said more.
@@ -313,23 +330,35 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
                                    stripped_clause(stripped)) if c)
     on_line = f"  {clause}" if clause else ""
     on_fact = f"; {clause}" if clause else ""
+    compared = len((set(was) | set(env)) - _UNCOMPARED_ENV)
+    ignored = ", ".join(sorted(_UNCOMPARED_ENV))
+    # Session set 1 never withholds, so it is counted EXACTLY and named the
+    # way the changed names are. An exemption whose size and members a
+    # reader cannot see is a silent one, and the set is versioned in the
+    # sentence so it can be dated and argued with.
+    told = (f"; {len(session)} session variable(s) differ: {_capped(session)}"
+            if session else "")
     if not names:
-        compared = len((set(was) | set(env)) - _UNCOMPARED_ENV)
-        ignored = ", ".join(sorted(_UNCOMPARED_ENV))
-        return (f"env: unchanged ({compared} variables compared; not "
-                f"compared: {ignored}){on_line}", None,
+        if not session:
+            return (f"env: unchanged ({compared} variables compared; not "
+                    f"compared: {ignored}){on_line}", None,
+                    f"{compared} environment variable(s) compared and "
+                    f"unchanged in the environment the rerun executed under; "
+                    f"not compared: {ignored}{on_fact}")
+        return (f"env: unchanged outside session set {SESSION_SET} "
+                f"({compared} variables compared; not compared: {ignored}"
+                f"{told}){on_line}", None,
                 f"{compared} environment variable(s) compared and unchanged "
-                f"in the environment the rerun executed under; not compared: "
-                f"{ignored}{on_fact}")
-    shown = ", ".join(names[:8])
-    if len(names) > 8:
-        shown += f", +{len(names) - 8} more"
+                f"outside session set {SESSION_SET} in the environment the "
+                f"rerun executed under; not compared: {ignored}{told}"
+                f"{on_fact}")
+    shown = _capped(names)
     # The clause is the FACT here, alone: this branch has no unchanged
     # environment to vouch for, but the keys the check explained are a
     # finding it made and `assess` keeps them even when the licence is
     # withheld. `None` when nothing relocated, exactly as before.
     return (f"env: CHANGED since the original run -- {len(names)} "
-            f"variable(s) differ: {shown}   (names only){on_line}",
+            f"variable(s) differ: {shown}   (names only){told}{on_line}",
             f"{len(names)} environment variable(s) differ between the two "
             f"runs ({shown}); a program that reads them got different input",
             clause or None)

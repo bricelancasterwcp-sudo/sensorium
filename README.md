@@ -209,7 +209,14 @@ variables compared, threads started, children witnessed). It is a bounded
 enumeration of what was verified, not a summary judgment. **Any check that
 could not run withholds the licence too**, with the reason itemised, because
 "no git repository, so I could not tell" is a fact about the check and not
-evidence that nothing moved. The verdict and the licence are both stamped into
+evidence that nothing moved. Two things it will not call a change are the
+tool's own: a target directory that merely **moved**, and the recorder's own
+`--extern sensorium_rt=…` fragment inside `RUSTDOCFLAGS`, whose hash moves
+with every driver build — both stripped before the compare and both **named**
+on the line; a third, **session set 1** (the handles a shell, terminal or
+agent session hands a process, listed by name in `docs/query.md`), is counted
+and named without withholding, while every other differing variable withholds
+exactly as before. The verdict and the licence are both stamped into
 the new trace, so `info` and `runs` keep saying so long after the output has
 scrolled away.
 

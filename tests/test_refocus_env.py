@@ -18,6 +18,9 @@ distinction and nothing else.
 """
 from functools import partial
 
+import pytest
+
+from sensorium.query.refocus_env import SESSION_ORDER
 from tests.refocus_rust_fixtures import ORIG, PAIR, _drive, _read_meta, original
 
 OLD_ROOT = "/build/target-a"
@@ -255,11 +258,11 @@ def test_the_recorders_own_fragment_is_stripped_before_the_compare(
 
     # The partition itself, not only its rendering: RUSTDOCFLAGS is on
     # neither the changed nor the relocated list.
-    changed, relocated, stripped = _env_diff(was, now)
+    changed, relocated, stripped, session = _env_diff(was, now)
     assert changed == []
     assert relocated == ["CARGO_BIN_EXE_demo", "CARGO_TARGET_DIR",
                          "LD_LIBRARY_PATH"]
-    assert stripped == ["RUSTDOCFLAGS"]
+    assert stripped == ["RUSTDOCFLAGS"] and session == []
 
 
 def test_a_world_flag_beside_the_fragment_still_withholds(
@@ -362,3 +365,116 @@ def test_what_the_strip_removes_and_what_it_counts():
         "--cfg docsrs", 1)
     assert strip_recorder_fragment(f"{frag} {fragment(NEW_ROOT, RT_NOW)}") == (
         "", 2)
+
+
+# -- R4 / A-section-3: session set 1 ---------------------------------------
+def _session_pair(tmp_path, monkeypatch, name, was_value, now_value):
+    """One variable differing between the two runs, everything else equal."""
+    base = {"PATH": "/usr/bin", "TZ": "UTC"}
+    return _pair(tmp_path, monkeypatch, {**base, name: was_value},
+                 {**base, name: now_value})
+
+
+def test_a_session_variable_that_differs_is_named_and_never_withholds(
+        tmp_path, monkeypatch, capsys):
+    """(f) The whole of A-section-3's problem, on this box: a re-run launched
+    from another agent session differs on `CLAUDE_CODE_SESSION_ID` and on
+    nothing else. Named, counted, and the licence still granted -- the line
+    says which set it is unchanged OUTSIDE of, so a reader is never told
+    'unchanged' about an environment that was not."""
+    _session_pair(tmp_path, monkeypatch, "CLAUDE_CODE_SESSION_ID", "a1", "b2")
+    out = capsys.readouterr().out
+    assert "env: CHANGED" not in out
+    assert ("env: unchanged outside session set 1 (3 variables compared; not "
+            "compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; 1 session "
+            "variable(s) differ: CLAUDE_CODE_SESSION_ID)\n") in out
+    assert "licence: WITHHELD" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "granted"
+    assert ("3 environment variable(s) compared and unchanged outside session "
+            "set 1 in the environment the rerun executed under; not compared: "
+            "OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; 1 session variable(s) "
+            "differ: CLAUDE_CODE_SESSION_ID"
+            ) in _read_meta(PAIR, "refocus_licence_verified")
+
+
+def test_a_key_outside_the_session_set_withholds_exactly_as_before(
+        tmp_path, monkeypatch, capsys):
+    """(g) The default is what it always was. `TZ` is on no exemption list
+    anyone would write, a program reads it, and the line and the caveat are
+    the strings they were before session set 1 existed."""
+    _pair(tmp_path, monkeypatch, {"PATH": "/usr/bin", "TZ": "UTC"},
+          {"PATH": "/usr/bin", "TZ": "CET"})
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "TZ   (names only)\n") in out
+    assert "session set" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_a_session_key_beside_a_real_one_withholds_and_names_both(
+        tmp_path, monkeypatch, capsys):
+    """(h) The two halves do not hide each other. `TZ` withholds, and the
+    session key is still counted and named on the same line -- a reader who
+    saw only the accusation would not know the re-run also came from another
+    shell, and a reader who saw only the shell would not know why the
+    licence was refused."""
+    _pair(tmp_path, monkeypatch,
+          {"PATH": "/usr/bin", "TZ": "UTC", "CLAUDE_CODE_SESSION_ID": "a1"},
+          {"PATH": "/usr/bin", "TZ": "CET", "CLAUDE_CODE_SESSION_ID": "b2"})
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "TZ   (names only); 1 session variable(s) differ: "
+            "CLAUDE_CODE_SESSION_ID\n") in out
+    assert "licence: WITHHELD" in out
+    assert ("1 environment variable(s) differ between the two runs (TZ); a "
+            "program that reads them got different input"
+            ) in _read_meta(PAIR, "refocus_licence_reasons")
+
+
+@pytest.mark.parametrize("session_name", [*SESSION_ORDER, "CLAUDE_CODE_X"])
+def test_every_member_of_session_set_1_is_named_and_never_withholds(
+        tmp_path, monkeypatch, capsys, session_name):
+    """(i) Each of the fourteen exact names, and the prefix, driven through
+    the whole command. The set is a POSITIVE, versioned list precisely so
+    that every member of it can be enumerated by a test and argued with by a
+    reader; a negative list could be neither."""
+    _session_pair(tmp_path, monkeypatch, session_name, "one", "two")
+    out = capsys.readouterr().out
+    assert "env: CHANGED" not in out
+    assert f"1 session variable(s) differ: {session_name}" in out
+    assert "licence: WITHHELD" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "granted"
+
+
+@pytest.mark.parametrize("name", ["CLAUDE_CODEX", "XDG_SESSION_IDX"])
+def test_a_name_that_merely_resembles_a_session_key_still_withholds(
+        tmp_path, monkeypatch, capsys, name):
+    """(j) The set is exact names and one prefix, not a family resemblance.
+    `CLAUDE_CODEX` does not carry the `CLAUDE_CODE_` prefix and
+    `XDG_SESSION_IDX` is not `XDG_SESSION_ID`; a membership test loose enough
+    to admit either would exempt variables nobody put on the list."""
+    _session_pair(tmp_path, monkeypatch, name, "one", "two")
+    out = capsys.readouterr().out
+    assert (f"env: CHANGED since the original run -- 1 variable(s) differ: "
+            f"{name}   (names only)") in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_a_session_key_present_on_one_side_only_is_still_a_session_key(
+        tmp_path, monkeypatch, capsys):
+    """(k) A key that APPEARED is a difference -- as it always was -- and
+    then it is partitioned like any other. A re-run launched outside tmux
+    has no `TMUX` at all, which is the same fact about the launcher as a
+    `TMUX` that differs, and must not read as the world changing."""
+    from sensorium.query.refocus_world import _env_diff
+
+    was = {"PATH": "/usr/bin"}
+    now = {"PATH": "/usr/bin", "TMUX": "/tmp/tmux-1000/default,17,0"}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert "env: CHANGED" not in out
+    assert "1 session variable(s) differ: TMUX" in out
+    assert "licence: WITHHELD" not in out
+    changed, relocated, stripped, session = _env_diff(was, now)
+    assert changed == [] and relocated == [] and stripped == []
+    assert session == ["TMUX"]

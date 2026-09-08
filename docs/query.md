@@ -260,6 +260,60 @@ only — is a difference and withholds exactly as it did before. A Python pair
 records no target root, so every line it prints is the line it printed before
 this rule existed.
 
+**And one fragment in that environment is the RECORDER's, not the world's**
+(0.8.6, design 2026-09-08 R1). `cargo sensorium` links its runtime into the
+build by hand, so `RUSTDOCFLAGS` carries `--extern
+sensorium_rt=<root>/sensorium/rt/<16 hex>/<unwind|abort>/libsensorium_rt.rlib`
+together with the `-L dependency=<the same directory>` that resolves it — and
+that hash is a digest of the driver binary and the runtime's own sources, so
+it MOVES every time the driver is rebuilt. E4′ measured what not knowing that
+costs: 61 pairs out of 61 withheld the licence on this one key, under a driver
+that had only been recompiled. Every occurrence is now removed from **both**
+sides before the compare, and whatever the world put in that variable is
+compared exactly as before — equality first, then the relocation rule. **Both
+tokens must name one directory**: that backreference is the whole fence, and
+two tokens naming two directories are not a shape this recorder writes, so
+they are left for the world's compare. A key the strip touched is NAMED on the
+line and in the trace, beside the relocation clause and separated from it by
+`; `:
+
+    env: unchanged (<N> variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  3 variable(s) differ only by the target directory: CARGO_BIN_EXE_<bin>, CARGO_TARGET_DIR, LD_LIBRARY_PATH; treated as unchanged; the recorder's own fragment stripped before comparing: RUSTDOCFLAGS
+
+A variable this tool compared less of is never silent, and a `RUSTDOCFLAGS`
+the world also wrote to still withholds on what is left of it.
+
+**Session set 1 — where the re-run was launched from is not what it computes**
+(0.8.6, design 2026-09-08 R4 as amended). Refocus from another shell, another
+terminal, another agent session, and the two recorded environments differ on
+the handles that session hands a process. Measured on this box against a kept
+original: 73 keys equal, three missing (the previous launcher's own pins) and
+exactly **one** changed — `CLAUDE_CODE_SESSION_ID`. Session set 1 is the
+positive, versioned list of those handles: exact
+`DBUS_SESSION_BUS_ADDRESS`, `XDG_SESSION_ID`, `TERM_SESSION_ID`, `WINDOWID`,
+`TMUX`, `TMUX_PANE`, `SSH_AGENT_PID`, `SSH_AUTH_SOCK`, `SSH_CLIENT`,
+`SSH_CONNECTION`, `SSH_TTY`, `INVOCATION_ID`, `JOURNAL_STREAM`,
+`SYSTEMD_EXEC_PID`, plus the prefix `CLAUDE_CODE_`. Each names a bus, a
+window, a terminal, a connection, a service manager's invocation or an agent
+session — the identity of where a process was started, and a program has no
+reason to read one to decide what to compute. A member that differs is
+**counted, named, and never withholds**:
+
+    env: unchanged outside session set 1 (<N> variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; 1 session variable(s) differ: CLAUDE_CODE_SESSION_ID)
+
+**Everything else still withholds, and that is the point.** The set is *not* a
+list of variables that "bear" on a program, which was the first design and had
+its falsifier already in this repository's suite: a test that records under
+`REFOCUS_TEST_LIMIT=10` and refocuses without it — a variable the program
+demonstrably reads, on no bearing list anyone would write — would have earned a
+full licence under that rule. This tool cannot know which variables a program
+reads, so the default stands: any other differing key is a change and withholds
+exactly as it did before. The set carries a **version number in the printed
+line** so a key found to bear can leave it with a date and a key found to
+differ between shells can join it with one, and so a reader can tell which
+list a given trace was judged against. On a withheld pair the session names
+still print, after the accusation: `…   (names only); 1 session variable(s)
+differ: CLAUDE_CODE_SESSION_ID`.
+
 **The pair is found in the store, never in what the driver printed.** After
 the child exits, `refocus` lists the traces whose `refocus_of` is this run and
 whose recording started after the launch.
