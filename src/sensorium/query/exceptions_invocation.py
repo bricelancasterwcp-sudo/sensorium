@@ -322,9 +322,9 @@ def run(args, invocation_id: str, members: list) -> int:
 
     merged, tally = _merge(indexed)
     chains = sum(m.n for m in merged)
-    sites = sum(1 for m in merged if m.shape.tag == "swallowed")
+    shapes = sum(1 for m in merged if m.shape.tag == "swallowed")
     print(f"raised ({chains} chains over {_processes(with_chains)}, "
-          f"{_shapes(sites)}):")
+          f"{_shapes(shapes)}):")
     # Over the whole ANSWER, never per member: the collision this mode
     # exists to have caught is between processes -- `sandbox L42` in two
     # test files, one process each -- so a set computed inside a member

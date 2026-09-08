@@ -202,11 +202,21 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
     # thread produced the identical sequence" reads as a statement about
     # the run's schedule, and no printed line said otherwise.
     #
-    # Only where more than one stream was compared. With one there is
-    # nothing for a schedule to have assigned differently, and a caveat
-    # that cannot apply is noise on every single-threaded pair -- the same
-    # rule that took libtest's thread out of the untraced-thread clause.
-    if len(new.fingerprints()) + (tasks.get("n_b") or 0) > 1:
+    # Only where more than one stream was compared, and EACH POPULATION is
+    # asked separately. The hazard is a permutation WITHIN one of them --
+    # the same shapes arriving on differently numbered members of the same
+    # multiset -- so one thread stream beside one task stream is not it:
+    # there is a single member on each side and nothing to permute. Summing
+    # the two reached 2 on exactly that pair and printed the note where the
+    # sentence above says it must not, which is arithmetic across two
+    # populations reported as a measurement: this project's own bug class,
+    # on the line that exists to bound a claim.
+    #
+    # With one member there is nothing for a schedule to have assigned
+    # differently, and a caveat that cannot apply is noise on every
+    # single-threaded pair -- the same rule that took libtest's thread out
+    # of the untraced-thread clause.
+    if len(new.fingerprints()) > 1 or (tasks.get("n_b") or 0) > 1:
         print("note: a MATCH does not say the two runs scheduled the same "
               "way -- the streams are compared as a multiset of (name, "
               "hash), so the same shapes carried by differently numbered "

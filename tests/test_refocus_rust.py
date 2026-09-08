@@ -696,14 +696,19 @@ def test_the_three_resolutions_are_one_function_and_not_three_that_agree():
     (None, None, None),                            # then nothing, honestly
     ("", "/from/path", "/from/path"),              # empty is not a driver
 ])
-def test_all_three_driver_resolutions_agree(monkeypatch, env, which,
-                                            expected):
+def test_the_driver_rule_answers_these_four_ways(monkeypatch, env, which,
+                                                 expected):
     import shutil as _shutil
     if env is None:
         monkeypatch.delenv("SENSORIUM_CARGO_SENSORIUM", raising=False)
     else:
         monkeypatch.setenv("SENSORIUM_CARGO_SENSORIUM", env)
     monkeypatch.setattr(_shutil, "which", lambda _n: which)
+    """The rule itself, through all three of its callers. Named for what it
+    checks: they no longer AGREE, they are one function reached three ways
+    (the test above pins that), and these four rows are what the rule
+    promises -- the variable first, then PATH, an empty variable is not a
+    driver, and None is an honest answer."""
     answers = [fn() for fn in _driver_copies()]
     assert answers == [expected, expected, expected]
 

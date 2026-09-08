@@ -124,6 +124,12 @@ def test_case_converts_and_answers_every_question(case_name, tmp_path):
         expected = (f"run: {run_id}  pid: 5001  exe: fixture-solo  "
                     "events: 2  threads: 1  exit: unwitnessed")
         assert expected in result.stdout.splitlines(), result.stdout
+        # And the literal the non-skipped tests below hold the corpus's key
+        # to is THIS line with its one variable field substituted. Without
+        # this the Python matrix would be checking the reader against a
+        # string nobody had compared to the writer's output.
+        assert RUN_LINE_LITERAL == expected.replace(run_id,
+                                                    "20260101-000000-abcdef")
 
     # The corpus reads this line to learn what it just recorded, so the
     # SHAPE is a contract between two programs and not a rendering detail.

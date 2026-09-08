@@ -17,6 +17,7 @@ from sensorium import cli
 from tests.refocus_programs import (ASYNC_CONTENT_FLIP, ASYNC_ORDER_FLIP,
                                     EXIT_FROM_FILE, LIB_TASKS, LOOP,
                                     READS_STDIN, SLEEPER, TASKS_ON_RERUN_ONLY,
+                                    TWO_WORKERS,
                                     WORKER_ON_SECOND_RUN, dbs, new_run, rec,
                                     record_killed, refocus, set_meta,
                                     synthetic, trace)
@@ -281,6 +282,23 @@ def test_a_multi_stream_match_says_it_is_not_about_the_schedule(tmp_path):
     run_id, sdir = rec(tmp_path, ASYNC_ORDER_FLIP)
     r = refocus(sdir, run_id, "--focus", "prog:worker")
     assert r.returncode == 0, r.stdout + r.stderr
+    assert ("note: a MATCH does not say the two runs scheduled the same way "
+            "-- the streams are compared as a multiset of (name, hash), so "
+            "the same shapes carried by differently numbered asyncio tasks "
+            "match, and which carried which is recorded and never compared"
+            ) in r.stdout, r.stdout
+
+
+def test_the_schedule_note_fires_on_the_THREAD_population_too(tmp_path):
+    """The other half of the gate. `TWO_WORKERS` runs two threads and no
+    task at all, so the task population is EMPTY and the thread population
+    is the one with something to permute -- the shape a gate that asked only
+    about tasks would print nothing on, and a gate that added the two would
+    get right by accident. Each population is asked on its own."""
+    run_id, sdir = rec(tmp_path, TWO_WORKERS)
+    r = refocus(sdir, run_id, "--focus", "prog:tally")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "tasks:" not in r.stdout, r.stdout
     assert ("note: a MATCH does not say the two runs scheduled the same way "
             "-- the streams are compared as a multiset of (name, hash), so "
             "the same shapes carried by differently numbered asyncio tasks "

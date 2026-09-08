@@ -334,9 +334,27 @@ def cargo_driver() -> str | None:
 #: `runid::mint` writes the same shape. Not `\S+`: see `RUN_LINE`.
 RUN_ID = r"\d{8}-\d{6}-[0-9a-f]{6}"
 
-#: The two shapes a `run:` line comes in, and nothing else. `sensorium run`
-#: and `refocus` print `run: <id>` alone; `cargo-sensorium convert` prints
-#: `run: <id>  pid: ...` and one line PER PROCESS.
+#: The THREE shapes this tool prints a `run:` line in, and which two this
+#: key accepts:
+#:
+#:   1. `run: <id>` alone -- `sensorium run` (`cli.py`), and `refocus` when
+#:      the re-run set no trace aside (`refocus_cmd`);
+#:   2. `run: <id>  pid: ... exit: ...`, one line PER PROCESS --
+#:      `cargo-sensorium convert` (`convert/mod.rs`);
+#:   3. `run: <id>   <note>` -- `refocus_rust`'s pair line, three spaces and
+#:      then the child runs it excluded (pinned by
+#:      `corpus/rust/refocus_child_run`).
+#:
+#: Shape 3 is DELIBERATELY refused, and refusing it costs nothing: this
+#: harness keys a RECORDING's stdout and never a refocus's -- `_run_ids` is
+#: called from `_record` and `_record_cargo` only, and a case's `refocus`
+#: question reads the pair through `runs` or through `$RUN`/`last`. Letting
+#: the third shape in would mean accepting `run: <id>` followed by prose,
+#: which is the whole class this key was narrowed to exclude. If a caller
+#: ever needs a refocus's line, it wants its own pattern rather than a
+#: looser version of this one. `tests/test_rust_convert.py` pins shape 3's
+#: exact spacing among the near-misses this must refuse, so a widening
+#: reddens there.
 #:
 #: Keyed this narrowly because it was once keyed `^run: (\S+)`, and a case
 #: whose own program printed `run: Err(..)` had that read as a trace id --
@@ -345,7 +363,7 @@ RUN_ID = r"\d{8}-\d{6}-[0-9a-f]{6}"
 #: after `run: ` is reading the program's output as the tool's.
 #:
 #: The tail is anchored too (end of line, or the converter's `  pid: `), so
-#: `run: <id> and then some prose` is not a match either. That shape is
+#: `run: <id> and then some prose` is not a match either. Shape 2 is
 #: pinned byte for byte on the converter side by
 #: `tests/test_rust_convert.py`, and this pattern is checked against that
 #: same literal there, so the two cannot drift apart silently.

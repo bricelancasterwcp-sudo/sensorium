@@ -668,14 +668,44 @@ def test_a_rust_screen_never_describes_its_streams_as_asyncio_tasks(
     assert ("  - identical call shape across 1 compared fingerprint(s), "
             "holding 2 causal event(s) outside any test or spawned thread"
             ) in out
-    # The schedule note is the fourth line that would have said `asyncio`
-    # here: it names the population whose numbering the comparison does not
-    # rest on, and on a `cargo test` trace that population is threads.
-    assert ("note: a MATCH does not say the two runs scheduled the same way "
-            "-- the streams are compared as a multiset of (name, hash), so "
-            "the same shapes carried by differently numbered test and "
-            "spawned threads match, and which carried which is recorded and "
-            "never compared") in out
+    # This pair has ONE thread fingerprint and ONE task stream, so nothing
+    # is permutable and the schedule note must not fire here at all --
+    # `test_the_schedule_note_fires_within_one_population` below is where it
+    # is read in the recorder's words.
+    assert "scheduled the same way" not in out
+
+
+#: The schedule note as a Rust screen prints it. Here rather than inline
+#: because two tests read it -- the one that requires it and the one that
+#: requires its absence -- and two spellings of one sentence would let the
+#: absence check pass over a note that had been reworded.
+SCHEDULE_NOTE_RUST = (
+    "note: a MATCH does not say the two runs scheduled the same way -- the "
+    "streams are compared as a multiset of (name, hash), so the same shapes "
+    "carried by differently numbered test and spawned threads match, and "
+    "which carried which is recorded and never compared")
+
+
+def test_the_schedule_note_fires_within_one_population_and_not_across_two(
+        tmp_path, monkeypatch, capsys):
+    """E4" section 5.3's hazard is a permutation WITHIN one population --
+    the per-task assignment moved between the two runs while the multiset of
+    (name, hash) held. One thread stream beside one task stream is not that:
+    there is a single member on each side and nothing to permute, and a note
+    saying otherwise is a caveat printed where its own comment says it must
+    not be. The gate therefore asks each population separately rather than
+    adding them, which is arithmetic across two of them -- this project's
+    own bug class, on the line that exists to bound a claim.
+
+    The default `cargo test` pair is the ONE-of-each case. A second program
+    thread gives the task population two members, and the note is the same
+    sentence in the same words.
+    """
+    _libtest(tmp_path, monkeypatch)
+    assert SCHEDULE_NOTE_RUST not in capsys.readouterr().out
+
+    _libtest(tmp_path / "two", monkeypatch, program_threads=1)
+    assert SCHEDULE_NOTE_RUST in capsys.readouterr().out
 
 
 def test_refocus_and_info_scope_one_rust_trace_with_the_same_words(
