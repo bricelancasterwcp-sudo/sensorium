@@ -388,15 +388,23 @@ Each is marked *ruling: Brice / slice 2*.
   2026-09-07** at `11b7e8a` (with `d9115a5`) under **ruling R1**, and it is the
   named candidate fix: a non-main thread whose ROOT frame's site the manifest
   marks `#[test]` is the harness thread, excluded from the licence's
-  untraced-thread counts and NAMED wherever one of them is printed. Measured by
-  **E4′**, whose expected partition was byte-locked before the instrument
-  existed. `rust/HONESTY.md` §13 and `docs/query.md` carry the rule;
+  untraced-thread counts and NAMED wherever one of them is printed. Measured
+  by **E4′**, whose expected partition was byte-locked before the instrument
+  existed: the exclusion held on **61 of 61** pairs in one spelling and the
+  four named pairs reported the program's own counts 1, 4, 4, 4 — but **H1
+  STOPPED**, because the ENV clause withheld all 61 first on `RUSTDOCFLAGS`
+  (its own deferred item below), so the WORD's dependence on R1 is measured by
+  nothing yet.
+  `rust/HONESTY.md` §13 and `docs/query.md` carry the rule;
   `rust/HONESTY-BLIND-SPOTS.md` item 12's bullet is struck and corrected.
 - **`--window` for Rust is still not shipped**, and is now refused by name at
   exit 2 rather than silently absent. It needs a per-activation runtime check
   the Rust runtime does not have. **Ruling owed** on whether the window is a
   runtime check or a second compile-time selector — slice 1 carried this and
-  slice 2 did not take it. — **Ruled 2026-09-07 (R6): NOT FUNDED until a use asks**, and the declared blind spots stand. The item is not struck: nothing shipped, and the refusal or the bound is still what a reader meets.
+  slice 2 did not take it. — **Ruled 2026-09-07
+  (R6): NOT FUNDED until a use asks**, and the declared blind spots stand. The
+  item is not struck: nothing shipped, and the refusal or the bound is still
+  what a reader meets.
 - **A refocus of a multi-process invocation is refused, not compared.** One
   `cargo sensorium test --workspace` is many runner processes and no single
   trace answers a question about the invocation, so `refocus` refuses at exit
@@ -404,7 +412,10 @@ Each is marked *ruling: Brice / slice 2*.
   wants there — a verdict over the whole invocation, the way
   `sensorium exceptions <invocation-id>` already answers — is unbuilt and
   unspecified. **Ruling owed** on whether the unit of a refocus can be an
-  invocation. — **Ruled 2026-09-07 (R6): NOT FUNDED until a use asks**, and the declared blind spots stand. The item is not struck: nothing shipped, and the refusal or the bound is still what a reader meets.
+  invocation. — **Ruled 2026-09-07
+  (R6): NOT FUNDED until a use asks**, and the declared blind spots stand. The
+  item is not struck: nothing shipped, and the refusal or the bound is still
+  what a reader meets.
 - ~~**A single-target re-run whose test spawns a workspace CHILD is refused by
   count, and the sentence names the wrong cause.** The driver stamps
   `refocus_of` into every trace the invocation writes, and a child process the
@@ -438,7 +449,10 @@ Each is marked *ruling: Brice / slice 2*.
   and the opt-out spelling is still unchosen. Slice 1's item stands verbatim
   above with its two candidate designs; slice 2 took the guard beside it and
   not this. The compile-fail golden `focus_infer_debug.rs` still measures it.
-  **Ruling owed** (Brice). — **Ruled 2026-09-07 (R6): NOT FUNDED until a use asks**, and the declared blind spots stand. The item is not struck: nothing shipped, and the refusal or the bound is still what a reader meets.
+  **Ruling owed** (Brice). — **Ruled 2026-09-07
+  (R6): NOT FUNDED until a use asks**, and the declared blind spots stand. The
+  item is not struck: nothing shipped, and the refusal or the bound is still
+  what a reader meets.
 - ~~**The shim is a COPY, once per distinct focus — and the cost is now
   MEASURED.** Slice 1 estimated ~40 MB per focus; E4 counted **62** entries
   under `<CARGO_TARGET_DIR>/sensorium/shim` totalling **2 506 729 440** bytes
@@ -537,7 +551,10 @@ Each is marked *ruling: Brice / slice 2*.
   cap (slice 1's item, still with no cost to size against), and the cost
   instrument E4's H6 and E9's §5.5 both asked for — a subject whose test
   binary takes long enough to time, and an instrument that separates compile
-  from run. The volume cap is one of R6's four: **Ruled 2026-09-07 (R6): NOT FUNDED until a use asks**, and the declared blind spots stand. The item is not struck: nothing shipped, and the refusal or the bound is still what a reader meets.
+  from run. The volume cap is one of R6's four: **Ruled 2026-09-07 (R6): NOT
+  FUNDED until a use asks**, and the declared blind spots stand. The item is
+  not struck: nothing shipped, and the refusal or the bound is still what a
+  reader meets.
 
 ### Process lessons
 
@@ -645,8 +662,9 @@ Each is marked *ruling: Brice / slice 2*.
   `_diverged_why`, the verdict block and the blind-spot print are one screen's
   worth of printing sitting beside the re-run's control flow.
 - **`visit.rs` 773, `splice.rs` 762 and `lines.rs` 762**, all under
-  `rust/sensorium-transform/src`, and `rust/HONESTY.md` at **782** after this
-  slice's §13. The rule this file has kept twice applies: the next change to
+  `rust/sensorium-transform/src`, and `rust/HONESTY.md` at **792 of 800**
+  after this slice's §13 and its fix round — the NEXT sentence added to that
+  file splits it first, not the one after. The rule this file has kept twice applies: the next change to
   any of them splits it first rather than discovering the ceiling. For
   `visit.rs` the seam is the `Ctx` bookkeeping against the `Visit` impl; for
   `rust/HONESTY.md` it is the one the index already took — a section moves to a
@@ -688,6 +706,23 @@ Each is marked *ruling: Brice / slice 2*.
   same commit as the amendment, would pass. The rows are what the endpoints
   read, which is why the row check is the load-bearing one; a full diff of the
   pre-amendment range is the stronger check and was not written.
+- **`RUSTDOCFLAGS` carries the recorder's own footprint, and the env clause
+  reads it as the world's.** E4′'s H1 STOPPED on it: the driver injects
+  `--extern sensorium_rt=<target>/sensorium/rt/<hash>/…` with its
+  `-L dependency=…`, the 5b rule relocates the target root inside it correctly,
+  and the `<hash>` — which keys the `sensorium-rt` build — moved anyway,
+  because the originals were recorded by driver **0.5.0** and re-run by
+  **0.5.1**. `differs_only_by_root` is right to return false; the key falls
+  into the changed list and withholds. *The ruling, from the record's §5*: the
+  driver-injected fragment is **stripped before the compare as the recorder's
+  own**, on the precedent this licence already sets twice (the `SENSORIUM_*`
+  variables, and R1's harness thread); **anything else in `RUSTDOCFLAGS` stays
+  the world's** and still withholds — the rule is about that fragment, never
+  the variable. Then **E4″** re-measures §1.2's question over a subject that
+  includes an original recorded under a different driver build, the one
+  condition under which the confound is visible. Not applied in this slice:
+  kill 6 forbids a `src` change after the measurement to make it come out
+  differently.
 - **R6's four items are ruled NOT FUNDED**, in the design's own words: *`--window`;
   refocus over multi-process invocations; an inference-variable opt-out; a
   per-site volume cap — **not funded** until a use asks; declared blind spots
@@ -717,3 +752,14 @@ Each is marked *ruling: Brice / slice 2*.
   was read**. The lesson is the order: run the instrument's first pair, read
   what it printed, and amend the lens then — not after the loop closes, when an
   amendment is indistinguishable from a rationalisation.
+- **A record's version token comes from installed metadata, and this one was
+  stale twice over.** E4′'s §2 recorded the installed distribution token as
+  `0.6.0` while `pyproject.toml` said 0.8.4 — the same editable-install
+  staleness E9 and E4 already paid for, now on a third record. Worse, the
+  preflight's tree-side probe ran `import sensorium; print(sensorium.__version__)`
+  against a package that has no `__version__` and captured **stdout only**, so
+  the `AttributeError` on stderr became `""` in the lens: a failed probe
+  recorded as a blank that reads as measured. Both stand — records are not
+  rewritten, and no endpoint gates on either token. **The fix belongs to 7b**:
+  refresh the install after the version bump, and a probe that fails records
+  `null` with its reason.

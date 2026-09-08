@@ -242,8 +242,13 @@ earn a full licence. Each key that DIFFERS is asked one question instead: does
 the difference disappear when the original's target root is rewritten to the
 re-run's? Values are compared **entry by entry** down a `PATH`-like list,
 because a list that gained or lost an entry is a change however the rest of it
-reads, and the root must match at a **path boundary on both sides**, so
-`/ws/mytarget-a` is not `/ws/target-a` relocated. A key the rule explains is
+reads, and the root must match at a **path boundary on both sides**: followed
+by a separator or the end of the value, and preceded by the start of it or a
+character no path component may contain. `/build/target-abc` is not
+`/build/target-a` relocated on the right, and `/ws/mytarget-a` is not
+`target-a` relocated on the left — the left anchor matters most for a RELATIVE
+root (`CARGO_TARGET_DIR=target-a`), which carries no leading separator of its
+own to stand in for it. A key the rule explains is
 NAMED, never counted and never dropped:
 
     env: unchanged (<N> variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  4 variable(s) differ only by the target directory: CARGO_BIN_EXE_<bin>, CARGO_TARGET_DIR, LD_LIBRARY_PATH, RUSTDOCFLAGS; treated as unchanged

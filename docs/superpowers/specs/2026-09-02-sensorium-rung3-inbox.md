@@ -152,15 +152,28 @@ with, none of it ranked, each item with the thing that would settle it.
   DIVERGED and 0 REFUSED over every `#[test]` of a real workspace
   (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4.md`). The
   promise is `rust/HONESTY.md` §13; what a re-run still does not compare is
-  `rust/HONESTY-BLIND-SPOTS.md` item 12, narrowed rather than struck. One
+  `rust/HONESTY-BLIND-SPOTS.md` item 12, narrowed rather than struck. ~~One
   finding is carried rather than fixed: the licence is structurally WITHHELD
   on every `cargo test` pair, by its untraced-thread clause
-  (`docs/CARRIED-DEBT.md`, this slice's section).
+  (`docs/CARRIED-DEBT.md`, this slice's section).~~ — **taken 2026-09-07** by
+  rung 4 **slice 3** (ruling R1, `11b7e8a`): libtest's per-test thread is the
+  harness thread, out of the licence's untraced-thread counts and named on
+  every line one of them appears on. **E4′** then measured the exclusion
+  holding on 61 of 61 pairs while the word stayed WITHHELD on all 61 — by the
+  ENV clause on `RUSTDOCFLAGS`, whose driver-injected rt-hash fragment is the
+  recorder's own read as the world's (H1 **STOP**,
+  `docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md` §4). Carried
+  to the next slice: strip the fragment, re-measure as E4″.
 - **`--window` on a Rust trace remains open.** It needs a per-activation
   runtime check the Rust runtime does not have, so slice 2 refuses it by name
-  at exit 2 rather than approximating it. `docs/CARRIED-DEBT.md` carries the
+  at exit 2 rather than approximating it. ~~`docs/CARRIED-DEBT.md` carries the
   ruling owed on whether the window is a runtime check or a second
-  compile-time selector.
+  compile-time selector.~~ — **Ruled 2026-09-07** by slice 3 (design
+  `2026-09-07-sensorium-rung4-debts-design.md` §0, **R6**): **NOT FUNDED**
+  until a use asks, together with refocus over a multi-process invocation, an
+  inference-variable opt-out and a per-site volume cap; the declared blind
+  spots stand. No ruling is owed any more — the item stays open because
+  nothing shipped, and the refusal at exit 2 is still what a reader meets.
 - **`.is_err()` / `.is_ok()` as OBSERVATION tags, not sinks.** Rung 3 dropped
   them from the probe list because a HANDLED there would report a predicate as
   a swallow (R2's erratum). The shape a reader still wants is a third class —

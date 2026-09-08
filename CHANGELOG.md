@@ -38,8 +38,9 @@ Rung 4, slice 3: **the rung-4 debts** — the seven items slices 1 and 2 left in
 - **A target directory that MOVED is read as a relocation, not as a change the
   world made.** A refocus re-runs under whatever `CARGO_TARGET_DIR` the caller
   has, and cargo derives `CARGO_BIN_EXE_*`, `LD_LIBRARY_PATH` and
-  `RUSTDOCFLAGS` from the root, so a re-run from a fresh target withheld the
-  licence on all four. Nothing is excluded **by name** — that would let a
+  `RUSTDOCFLAGS` from the root, so a re-run from a fresh target differed on all
+  four and withheld the licence for it. Nothing is excluded **by name** — that
+  would let a
   program really handed one extra directory on the loader's path earn a full
   licence. Each DIFFERING key is asked whether its difference disappears when
   the original's root is substituted for the re-run's, entry by entry down a
