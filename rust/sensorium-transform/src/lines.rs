@@ -6,9 +6,8 @@
 //! and the spawn rewrites, and it descends into nested items. This one runs
 //! from [`crate::visit::Ctx::fn_item`] the moment a function is found to be in
 //! the focus, and it does exactly one thing -- put point splices where the
-//! design's §3.1/§3.2 tables say a LINE goes. It lives in its own module because
-//! `visit.rs` is at the 800-line ceiling, and because "where a LINE goes" is a
-//! separate rule from "where a frame goes".
+//! design's §3.1/§3.2 tables say a LINE goes. It lives in its own module
+//! because "where a LINE goes" is a separate rule from "where a frame goes".
 //!
 //! # What it emits (design amendment A7, verbatim)
 //!

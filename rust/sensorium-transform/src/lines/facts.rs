@@ -7,9 +7,9 @@
 //! whether `cfg` may delete it, which names it binds or reassigns. Nothing here
 //! reads or writes the walk's state, which is why it can be read on its own.
 //!
-//! Split out of `lines.rs` when that file reached its 800-line ceiling. Seven of
-//! these are `pub(super)` because the parent module calls them; the other seven
-//! are private, called only by their siblings here.
+//! Split out of `lines.rs` at 762 of its 800 lines. Seven of these are
+//! `pub(super)` because the parent module calls them; the other seven are
+//! private, called only by their siblings here.
 
 use proc_macro2::Span;
 use syn::spanned::Spanned;

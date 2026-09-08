@@ -1,10 +1,12 @@
-//! The splicer: `syn` says where the braces, the operands and the spawn callees
-//! are, the original bytes are copied through, and newline-free fragments go in
-//! at those offsets. The AST is a ruler, never a printer (spec §3.1).
+//! The splice vocabulary: every newline-free fragment this crate can emit,
+//! written once and only here; [`Kind`], whose declaration order IS the order
+//! two splices at one byte go in; [`Splice`] itself; and
+//! [`stripped_prefix_len`], the one correction every offset is relative to.
+//! The AST is a ruler, never a printer (spec §3.1).
 //!
-//! The VOCABULARY is here -- the fragments, [`Kind`] and [`Splice`] -- and the
-//! six modules that mint splices import it from this path. The assembly itself
-//! is [`crate::assemble`].
+//! The six modules that MINT splices import this vocabulary from this path; the
+//! assembly that consumes it -- sorting, copying the original bytes through and
+//! checking what comes out -- is [`crate::assemble`].
 //!
 //! # Where the offsets come from
 //!

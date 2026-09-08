@@ -424,6 +424,6 @@ impl<'ast> Visit<'ast> for ReturnWalk {
     fn visit_expr_const(&mut self, _node: &'ast syn::ExprConst) {}
 
     /// A nested `fn`, `impl` or `mod` is its own fn item with its own site; the
-    /// visitor in `splice.rs` reaches it separately.
+    /// main walk's visitor in `visit/walk.rs` reaches it separately.
     fn visit_item(&mut self, _node: &'ast Item) {}
 }

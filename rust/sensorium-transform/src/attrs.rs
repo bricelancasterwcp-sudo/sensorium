@@ -1,10 +1,9 @@
-//! Two token-level readings the walk needs and `splice.rs` shares: where one
-//! inner attribute ENDS, and which lines inside a `macro_rules!` body hold a
-//! `fn` token.
+//! Two token-level readings the walk needs: where one inner attribute ENDS --
+//! which [`crate::assemble`] needs too, to place the crate root's `allow` --
+//! and which lines inside a `macro_rules!` body hold a `fn` token.
 //!
-//! They live here rather than in [`crate::visit`] because that file carries the
-//! walk itself and is at the 800-line ceiling; neither is about the walk's
-//! state, and both are pure functions of the tokens they are handed.
+//! They live here rather than in [`crate::visit`] because neither is about the
+//! walk's state: both are pure functions of the tokens they are handed.
 
 use proc_macro2::{Span, TokenStream, TokenTree};
 use syn::Attribute;

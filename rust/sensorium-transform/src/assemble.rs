@@ -8,7 +8,7 @@
 //! it is built, places the crate root's `allow` and its `__SENSORIUM_UNIT`
 //! static, and refuses to hand back a file whose line count moved.
 //!
-//! Split out of `splice.rs` when that file reached its 800-line ceiling.
+//! Split out of `splice.rs` at 762 of its 800 lines.
 
 use std::cmp::Ordering;
 use std::collections::HashMap;

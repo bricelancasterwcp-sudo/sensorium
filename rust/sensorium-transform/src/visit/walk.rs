@@ -6,9 +6,8 @@
 //! grammar this transformer understands is readable in one file, and the state
 //! it threads is readable in the parent.
 //!
-//! Split out of `visit.rs` when that file reached its 800-line ceiling. A child
-//! module sees its parent's private items, so `Ctx` kept every visibility it
-//! had.
+//! Split out of `visit.rs` at 773 of its 800 lines. A child module sees its
+//! parent's private items, so `Ctx` kept every visibility it had.
 
 use syn::visit::Visit;
 use syn::{

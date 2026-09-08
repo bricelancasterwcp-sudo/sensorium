@@ -3,7 +3,7 @@
 //!
 //! The AST is a MEASURING instrument here and nowhere a printer (spec §3.1):
 //! every answer this module produces is a byte OFFSET into the original source,
-//! handed to `splice.rs` to put a newline-free fragment at. Nothing is
+//! handed to [`crate::assemble`] to put a newline-free fragment at. Nothing is
 //! re-rendered, so `line!()`, panic locations, backtraces and rustc's own
 //! diagnostics are the plain build's.
 //!
@@ -32,7 +32,9 @@ use crate::{Partial, RetKind, Site, SiteKind, Skipped, SpawnSite, MAX_SITE_INDEX
 /// because eight other modules import `Ctx` from this path.
 mod walk;
 
-/// What one walk found: everything `splice.rs` needs and nothing it does not.
+/// What one walk found, and nothing its two readers do not need:
+/// [`crate::assemble::run`] takes the splices, [`crate::census::walk`] takes
+/// the rows.
 pub(crate) struct Walked {
     pub sites: Vec<Site>,
     pub skipped: Vec<Skipped>,
