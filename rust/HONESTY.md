@@ -250,7 +250,7 @@ four tests that are the tasks), `rust/sensorium-rt/tests/spawn.rs` (parent,
 grandchild, main-spawned and dependency-shaped names) and
 `rust/sensorium-rt/tests/serials.rs`. The separate promise that a per-task trace
 whose task fingerprints are gone is REFUSED rather than MATCHed is falsified by
-`tests/test_diff.py::test_diff_refuses_a_per_task_trace_whose_task_fingerprints_are_missing`
+`tests/test_diff_tasks.py::test_diff_refuses_a_per_task_trace_whose_task_fingerprints_are_missing`
 (both the plain and the `--task` arm) and, on the positive side, by
 `docs/trace-format/vectors/v04-main-thread-silent-tasks-carry` — a zero-count
 row is kept and counted, so "no row" and "a row saying zero" stay different

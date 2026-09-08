@@ -11,8 +11,9 @@ and are NOT repeated here: `grep` matches >= 1 / `--limit < 1`
 (`tests/test_grep.py`), `tree` frames printed / `no such frame` / `--limit`
 / `--depth` (`tests/test_tree_frame.py`), `frame` printed / its three
 negative messages (`tests/test_tree_frame.py`,
-`tests/test_format{1,2}_fixture.py`), `exceptions` dispositions listed /
-`--limit < 1` (`tests/test_exceptions.py`), and `grep matches: 0`
+`tests/test_format{1,2}_fixture.py`), `exceptions` dispositions listed
+(`tests/test_exceptions.py`) / `--limit < 1`
+(`tests/test_exceptions_synthetic.py`), and `grep matches: 0`
 (`tests/test_grep.py`, moved 0 -> 1 by this commit).
 
 `watch` and `flow` are the exception to that, and deliberately: both now

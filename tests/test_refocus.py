@@ -1,8 +1,10 @@
 """`refocus`: re-run a recording with deeper capture, and decide -- across
 every recorded thread -- whether the rerun was the same execution.
 
-This file covers running, refusing, and the VERDICT. What the verdict is
-allowed to claim lives in `test_refocus_licence.py`.
+This file covers the VERDICT. Running and refusing to run are
+`test_refocus_rerun.py`'s, split off at the `# -- refusals` banner on
+2026-09-08; what the verdict is allowed to claim lives in
+`test_refocus_licence.py`.
 
 Every rerun test drives the real CLI in a subprocess against real recorded
 traces, because the behaviour under test IS the re-running: no synthetic

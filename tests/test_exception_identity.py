@@ -7,9 +7,9 @@ fix rounds of false accusations all reduced to that question, and every shape
 here is one the recorder's identity machinery gets right or is forced to
 admit it cannot answer.
 
-The recorder-side halves live in `test_tracer.py` (serials, the retention
-table and its bound); these assert what `sensorium exceptions` may say once
-identity is exact, lost, or bounded away.
+The recorder-side halves live in `test_tracer_serials.py` (serials, the
+retention table and its bound); these assert what `sensorium exceptions` may
+say once identity is exact, lost, or bounded away.
 """
 from sensorium import cli, paths
 from sensorium.store.reader import Trace

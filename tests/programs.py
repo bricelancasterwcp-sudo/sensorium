@@ -1,11 +1,14 @@
 """Recorded program shapes, plus the fixtures that record them.
 
-Shared by `test_exceptions.py`, `test_grep.py` and the two `flow` files.
-Each source string is one program *shape* -- the unit the exception
-classifier is tested in, because the head of a trace is byte-identical for
-behaviours that mean opposite things and only whole-program shapes separate
-them. The `flow` shapes at the bottom are here for the same reason: what
-`flow --object` may claim turns on whole-program allocation behaviour.
+Shared by `test_exceptions.py`, `test_grep.py` and a dozen others. Each
+source string is one program *shape* -- the unit the exception classifier is
+tested in, because the head of a trace is byte-identical for behaviours that
+mean opposite things and only whole-program shapes separate them.
+
+Two families were split out at the 800-line ceiling on 2026-09-08, by that
+same rule: the `flow` shapes and the helpers that read a flow screen are
+`flow_programs.py`'s, and the coroutine and generator shapes closed by
+something delivered into a suspended frame are `async_programs.py`'s.
 """
 from sensorium import paths
 from sensorium.record.tracer import _RETAIN_MAX

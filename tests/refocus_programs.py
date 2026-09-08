@@ -1,4 +1,4 @@
-"""Program shapes and recording fixtures shared by the two `refocus` files.
+"""Program shapes and recording fixtures shared by the `refocus` files.
 
 Split out for the same reason as `programs.py`: each source string is one
 program *shape*, and the shapes that matter to `refocus` are whole-program
@@ -7,8 +7,8 @@ whether a worker thread can take a branch the main thread cannot see,
 whether the recorder's own capture perturbs the program. None of them can be
 expressed in a fragment.
 
-`test_refocus.py` covers running, refusing, and the verdict;
-`test_refocus_licence.py` covers what the verdict is allowed to claim.
+`test_refocus.py` covers the verdict and `test_refocus_rerun.py` the rerun
+itself; `test_refocus_licence.py` covers what the verdict is allowed to claim.
 """
 import os
 import re
