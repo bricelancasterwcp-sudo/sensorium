@@ -209,9 +209,16 @@ variables compared, threads started, children witnessed). It is a bounded
 enumeration of what was verified, not a summary judgment. **Any check that
 could not run withholds the licence too**, with the reason itemised, because
 "no git repository, so I could not tell" is a fact about the check and not
-evidence that nothing moved. The verdict and the licence are both stamped into
-the new trace, so `info` and `runs` keep saying so long after the output has
-scrolled away.
+evidence that nothing moved. Two things it will not call a change are the
+tool's own: a target directory that merely **moved**, and the recorder's own
+`--extern sensorium_rt=…` fragment inside `RUSTDOCFLAGS`, whose hash moves
+with every driver build — the first **re-rooted** before the compare, the
+second **removed** from it, and both **named** on the line. A third,
+**session set 1** (the handles a shell, terminal or agent session hands a
+process, listed by name in `docs/query.md`), is counted and named without
+withholding, while every other differing variable withholds exactly as
+before. The verdict and the licence are both stamped into the new trace, so
+`info` and `runs` keep saying so long after the output has scrolled away.
 
 DIVERGED is not a failure of the tool. For a program whose control flow
 depends on state outside the process, DIVERGED is the correct answer; the new
@@ -471,9 +478,10 @@ before the reader fix — an unindexed `LEFT JOIN` scanning `frames` once per
 
 ## Corpus
 
-    python corpus/run_corpus.py            # verify against seeded bugs
-    python corpus/run_corpus.py --show     # print the questions and commands
-    python corpus/run_corpus.py --bench    # report recording overhead
+    python corpus/run_corpus.py                   # verify against seeded bugs
+    python corpus/run_corpus.py --show            # print the questions and commands
+    python corpus/run_corpus.py --bench           # report recording overhead
+    python corpus/run_corpus.py --require-driver  # a skipped Rust case is exit 1
 
 Twenty small programs with deliberately planted bugs, and thirty-nine
 questions registered **before** any output was looked at: the question in
@@ -496,7 +504,7 @@ start order flips between a recording and its rerun still MATCH, because
 tasks are compared by content and the interleaving is not; re-recorded with
 one task's content branching, the verdict is DIVERGED, naming that task.
 
-Thirty-eight more cases live under `corpus/rust/`, recorded by the Rust
+Forty-three more cases live under `corpus/rust/`, recorded by the Rust
 recorder instead. Fourteen of them are rungs 0–2's: seven ports of the cases
 above (the same class of planted bug, asked differently, because that
 recorder captures return values and not arguments), five that only Rust has
@@ -508,14 +516,25 @@ the worker's name changing — and two whose pinned answer is a REFUSAL, where
 the question needs object identity or per-line events that recorder declares
 it does not produce. Seventeen are rung 3's err-flow cases, each
 registering both its `dispositions:` tally and its swallow set — ten of them
-to pin that nothing is accused. The last seven are rung 4's focus tier: six
+to pin that nothing is accused. Seven are rung 4's focus tier: six
 recorded under a `--focus`, each pinning a LINE count DERIVED from the
 design's rules before it was measured and at least one absence, and a seventh
 recorded without one, so that the unfocused reading has a case whose name says
-what it is. All thirty-eight need a built
+what it is. The last five are rung 4's refocus loop, where a recording is
+re-run one flag deeper and compared against itself: a MATCH that answers the
+per-line question the original could not, a DIVERGED where the program
+branches on a file its own first run wrote, a refusal issued before anything
+is rebuilt because the invocation was two test binaries, a re-run that spawns
+a child of its own, and a test that spawns a thread onto another `#[test]`
+fn — where the licence must count that thread as the program's and WITHHOLD,
+rather than read its marked root as the recorder's own and grant. All
+forty-three need a built
 `cargo-sensorium` (`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on `PATH`);
 without it they are reported skipped BY NAME and counted apart from the
-passes, never as them. `corpus/rust/README.md` is the case-by-case list.
+passes, never as them — and **`--require-driver`** turns such a skip into
+exit 1, on the summary line and in `--json`, which is what CI's Rust corpus
+step passes: a green summary over cases nobody ran is the dishonesty this
+harness exists to refuse. `corpus/rust/README.md` is the case-by-case list.
 
 `--bench` reports; it never gates. Overhead is a tracked fact about a machine
 and a workload, not a pass/fail property of the tool.
@@ -526,14 +545,31 @@ and a workload, not a pass/fail property of the tool.
 crates the same way this document's recorder records a Python program: one
 sensorium trace per process, trace format 4, read by the same `sensorium`
 command line. `rust/` ships `sensorium-rt 0.4.0` (zero dependencies, the
-runtime linked into every instrumented unit), `sensorium-transform 0.4.1`
-(the `syn` rewriter), and `cargo-sensorium 0.5.0` (driver, workspace wrapper,
+runtime linked into every instrumented unit), `sensorium-transform 0.4.3`
+(the `syn` rewriter), and `cargo-sensorium 0.5.2` (driver, workspace wrapper,
 target runner, converter — one binary, four roles). What it does and does not
 see is [`rust/HONESTY.md`](rust/HONESTY.md) with
 [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
 [`rust/README.md`](rust/README.md)
 is the full build/install/record reference. This section is the summary
 beside Python's, above.
+
+**What the licence is worth on a real workspace, measured.** `refocus` over
+61 `#[test]` pairs of a workspace nobody wrote this recorder for was
+re-measured 2026-09-08 as **E4″**
+(`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md`,
+pre-registered and byte-locked before the instrument existed): **H1–H7 PASS,
+H8 a STOP on a cell of that record's own reader**. The licence is granted on
+**57** of the 61 and withheld on the four tests that really do start threads,
+and the recorder's own `RUSTDOCFLAGS` fragment is out of the compare on **61
+of 61** — under a driver build different from the originals', which is the
+only condition that tests the second claim at all. The eighth row missed
+because the reader compared a bare case name against a listing that spells
+Rust cases `rust/<name>`; its three commands came back green, the STOP stands
+as measured, and the one-line fix is ruled for the next slice. Python
+**0.8.6** reads these traces; the crates above are the versions that RE-RAN
+them, and the 61 originals were recorded by `cargo-sensorium` **0.5.0** — that
+difference is the condition, not an accident of bookkeeping.
 
 ### Install and record
 

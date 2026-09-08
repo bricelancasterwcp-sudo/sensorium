@@ -43,6 +43,62 @@ def out(*args) -> str:
                           text=True).stdout.strip()
 
 
+def out_err(*args) -> dict:
+    """A child's rc, its stdout AND its stderr.
+
+    `out()` above captures stdout alone, which is E4′ §5's gap 2: a probe
+    that raised put its traceback on stderr and an EMPTY STRING in the
+    lens, where a reader saw a measured token. Anything whose failure has
+    to be readable goes through this instead.
+    """
+    res = subprocess.run([str(a) for a in args], capture_output=True,
+                         text=True)
+    return {"command": " ".join(str(a) for a in args),
+            "rc": res.returncode,
+            "out": (res.stdout or "").strip(),
+            "err": (res.stderr or "").strip()}
+
+
+def _probe(python, code: str, source: str) -> dict:
+    """One version token, or `null` WITH the reason it is not there.
+
+    Never `""`. A blank is the one answer a reader cannot tell from a
+    measured one, and it is what E4′ published: `{"token": None, "reason":
+    "<the interpreter's own last line>"}` is the same fact said honestly.
+    A probe that exits 0 and prints nothing is not-measured too -- rc alone
+    does not make a token.
+    """
+    res = out_err(str(python), "-c", code)
+    token = res["out"].splitlines()[-1].strip() if res["out"] else ""
+    rec = {"source": source, "command": res["command"], "rc": res["rc"],
+           "stderr": res["err"] or None, "token": None, "reason": None}
+    if res["rc"] == 0 and token:
+        rec["token"] = token
+        return rec
+    rec["reason"] = (
+        res["err"].splitlines()[-1].strip() if res["err"]
+        else f"the probe exited {res['rc']} and printed nothing")
+    return rec
+
+
+def version_probe(python, dist: str = "sensorium") -> dict:
+    """The INSTALLED distribution's version, from `importlib.metadata`."""
+    return _probe(python,
+                  f"import importlib.metadata as m; print(m.version({dist!r}))",
+                  f"importlib.metadata.version({dist!r})")
+
+
+def attribute_probe(python, module: str = "sensorium") -> dict:
+    """The TREE's own token, from the module attribute.
+
+    `sensorium` carries no `__version__`, so this probe fails on this box
+    and records the `AttributeError` -- which is the gap-2 fix working, not
+    a fault: a probe that cannot answer says so.
+    """
+    return _probe(python, f"import {module}; print({module}.__version__)",
+                  f"{module}.__version__")
+
+
 def clone_git(paths, *args) -> str:
     return out("git", "-C", str(paths["sensorium_bloomery"]), *args)
 
@@ -274,7 +330,8 @@ def env_parity(kept: Path, rows, environ=None) -> dict:
                    "the value differs")
             differing.setdefault(key, {"how": how, "originals": []})
             differing[key]["originals"].append(run)
-    rec = {"checked": len(rows) - len(unreadable),
+    rec = {"guard": "env_parity",
+           "checked": len(rows) - len(unreadable),
            "originals": len(rows),
            "differing": sorted(differing),
            "detail": differing,
@@ -311,7 +368,7 @@ def _require_fresh(path: Path, what: str) -> None:
                       "H4's census and §1.3's listing count meaningless")
 
 
-def preflight(paths, cfg) -> dict:
+def preflight(paths, cfg, parity=None) -> dict:
     """What THIS run touches, and nothing else.
 
     Refuses on: the machine's load; either disk floor; a clone that is not
@@ -320,8 +377,17 @@ def preflight(paths, cfg) -> dict:
     build from HEAD; a `SENSORIUM_DIR`, an E4′ target or a corpus target
     that is not fresh. Every one of these is BEFORE any number is read, so
     each is the INFRASTRUCTURE kill (§1.4's rule 4) rather than a STOP.
+
+    `parity` is the launch guard, defaulting to E4′'s own `env_parity`.
+    E4″ passes `acceptance_e4pp_preflight.session_parity` instead -- the
+    same walk with session set 1 allowed and named -- because A-§3 exempts
+    those keys from withholding and a guard that refused on them would
+    refuse every launch it exists to protect. The record publishes which
+    guard ran, under `env_parity.guard`, so the two are never confusable.
+    The two labels below come from `cfg` for the same reason: a refusal a
+    human reads must name the variable that launch actually sets.
     """
-    step("rung-4 debts (E4′) preflight")
+    step(cfg.get("preflight_label", "rung-4 debts (E4′)") + " preflight")
     load = loadavg()
     if load > LOAD_CEILING:
         raise Refused(f"1-minute load {load} > {LOAD_CEILING}")
@@ -350,10 +416,12 @@ def preflight(paths, cfg) -> dict:
     # The cheap refusals FIRST: a misconfigured launch must not spend a
     # driver build before finding out that its target is not fresh.
     cargo_check = cargo_running()
-    parity = env_parity(kept, cfg["rows"])
+    parity_rec = (parity or env_parity)(kept, cfg["rows"])
     _require_fresh(paths["sensorium_dir"], "SENSORIUM_DIR")
-    _require_fresh(paths["sensorium_e4p_target"], "SENSORIUM_E4P_TARGET")
-    _require_fresh(cfg["corpus_target"], "H6's corpus target")
+    _require_fresh(paths["sensorium_e4p_target"],
+                   cfg.get("target_env_name", "SENSORIUM_E4P_TARGET"))
+    _require_fresh(cfg["corpus_target"],
+                   cfg.get("corpus_label", "H6") + "'s corpus target")
 
     built = build_driver(paths)
     driver = Path(paths["sensorium_driver"])
@@ -362,6 +430,8 @@ def preflight(paths, cfg) -> dict:
         raise Refused(f"{paths['sensorium_e4p_target']}: {target_free:.1f} "
                       f"GB free < {TARGET_DISK_FLOOR_GB} GB floor")
 
+    py = REPO / ".venv" / "bin" / "python"
+    attr_probe, meta_probe = attribute_probe(py), version_probe(py)
     pins = {
         "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "repo_commit": out("git", "-C", str(REPO), "rev-parse", "HEAD"),
@@ -386,12 +456,15 @@ def preflight(paths, cfg) -> dict:
         "transform_version": transform_version(),
         "rustc": out("rustc", "-V"), "cargo": out("cargo", "-V"),
         "python": out(str(REPO / ".venv" / "bin" / "python"), "-V"),
-        "sensorium_version": out(
-            str(REPO / ".venv" / "bin" / "python"), "-c",
-            "import sensorium; print(sensorium.__version__)"),
-        "sensorium_version_metadata": out(
-            str(REPO / ".venv" / "bin" / "python"), "-c",
-            "import importlib.metadata as m; print(m.version('sensorium'))"),
+        # E4′ §5's gap 2: both tokens go through a probe that captures
+        # stderr, so a probe that could not answer records `null` with its
+        # reason instead of the empty string a reader takes for a measured
+        # one. The bare fields keep their shape for the renderer; the two
+        # `*_probe` dicts carry the rc, the command and the reason.
+        "sensorium_version": attr_probe["token"],
+        "sensorium_version_probe": attr_probe,
+        "sensorium_version_metadata": meta_probe["token"],
+        "sensorium_version_metadata_probe": meta_probe,
         "nproc": os.cpu_count(),
         "governor": _governor(),
         "load_1min_at_start": load,
@@ -426,7 +499,7 @@ def preflight(paths, cfg) -> dict:
             "record's own"),
         "sqlite3_cli": sqlite3_cli(),
         "cargo_running_check": cargo_check,
-        "env_parity": parity,
+        "env_parity": parity_rec,
         # Filled from the first refocused trace: §1.4 reads every version
         # token from the TRACE's own meta, never from this file.
         "driver_version_from_the_trace": None,
@@ -504,6 +577,6 @@ def cleanup(paths, cfg, pins, kept_before) -> dict:
 
 
 __all__ = ["EXCLUDED_ENV", "UNCOMPARED_ENV", "LOGS", "CARGO_TIMEOUT",
-           "build_driver", "cargo_running", "env_parity",
-           "cleanup", "clone_git", "mark_numbers_read", "out", "preflight",
-           "transform_version"]
+           "attribute_probe", "build_driver", "cargo_running", "env_parity",
+           "cleanup", "clone_git", "mark_numbers_read", "out", "out_err",
+           "preflight", "transform_version", "version_probe"]

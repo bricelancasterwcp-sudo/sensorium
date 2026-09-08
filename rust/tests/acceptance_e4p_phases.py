@@ -203,25 +203,49 @@ def _group_members(pgid: int) -> list[int]:
 
 # ------------------------------------------------------------- the loop
 
-def refocus_one(paths, cfg, row) -> dict:
+def refocus_one(paths, cfg, row, extra_env=None, label=None) -> dict:
     """One of the 61, and everything that came back from it.
 
     The pair is found in the STORE -- by `refocus_of`, the launch timestamp
     and R2's child filter (§1.4's pair rule, §3's R2) -- and the id the CLI
     printed is recorded beside it as a CROSS-CHECK, never as the source.
+
+    **The pair is found HERE, immediately after this invocation, and never
+    in a closing sweep.** E4″ re-refocuses four of its own originals under
+    two control arms into the SAME store, so up to three traces end up
+    naming one original in `refocus_of`; the launch timestamp taken on the
+    line above is what tells them apart, and it exists only inside this
+    call.
+
+    `extra_env` is E4″'s control arms: one key added to the environment
+    every refocus runs under, recorded on the row so the record says which
+    arm's world each answer came from. `None` -- arm A and every E4′ row --
+    leaves `refocus_env(paths)` exactly as it was.
+
+    `label` renames this row's log and step tag, so the same row re-run
+    under a second arm writes a second log instead of overwriting the
+    first. `None` keeps E4′'s own names.
     """
     index, name, target, run_id = row
     cmd = refocus_argv(name, run_id)
+    env = refocus_env(paths)
+    if extra_env:
+        env = env | dict(extra_env)
     launched_at = time.time()
     res = guarded(cmd, paths["sensorium_bloomery"],
-                  f"p2-{index:02d}-{name}.log", refocus_env(paths),
-                  cfg["refocus_timeout"], f"E4′/{index}")
+                  f"{label or 'p2'}-{index:02d}-{name}.log", env,
+                  cfg["refocus_timeout"],
+                  f"E4′/{index}" if label is None else f"{label}/{index}")
     both = "\n".join((res["out"], res["err"]))
     parsed = parse_refocus(both)
     pair = pair_candidates(paths["sensorium_dir"] / "traces", run_id,
                            launched_at)
     out = {
         "index": index, "name": name, "target": target, "original": run_id,
+        # Which arm's world this answer came from. `None` on arm A and on
+        # every E4′ row: an arm is a fact about the invocation, and a row
+        # that does not carry it is not the same row as one that does.
+        "arm": label, "extra_env": dict(extra_env) if extra_env else None,
         "command": res["command"], "cwd": str(paths["sensorium_bloomery"]),
         "rc": res["rc"], "wall_s": round(res["wall"], 3),
         "timed_out": res["timed_out"], "kill_s": res["kill_s"],
@@ -298,8 +322,13 @@ def pass_two(paths, cfg, on_first_number=None) -> dict:
             index, name, target, run_id = row
             if time.monotonic() >= deadline:
                 exhausted.append(name)
+                # `cfg["not_run_bound"]` where the record gives one: the
+                # sentence names a BOUND, and E4″'s is not E4′'s. Absent, it
+                # is E4′'s own constant and this line reads as it always did.
                 rows.append({"index": index, "name": name, "target": target,
-                             "original": run_id, "not_run": NOT_RUN_BOUND})
+                             "original": run_id,
+                             "not_run": cfg.get("not_run_bound",
+                                                NOT_RUN_BOUND)})
                 continue
             answer = refocus_one(paths, cfg, row)
             rows.append(answer)
@@ -379,6 +408,7 @@ def phase_h1(two: dict) -> dict:
     granted, withheld, unread = [], {}, []
     hides, unsubtracted, wrong_count, sides_disagree = [], [], [], []
     harness_counts, phrases = {}, set()
+    sources, sourceless = {}, []
     for r in rows:
         part = r.get("licence_partition") or {}
         word = part.get("licence")
@@ -386,6 +416,14 @@ def phase_h1(two: dict) -> dict:
             unread.append(r["name"])
             continue
         harness_counts[r["name"]] = part.get("harness_threads")
+        # E4′ §5's gap 1's other half: a count is published WITH the line it
+        # was read from, so a reader can check it against that line rather
+        # than take the number on trust. `None` means neither line answered,
+        # and that pair is NAMED -- H7 gates on the list, not on a null a
+        # reader has to notice.
+        sources[r["name"]] = part.get("counts_source")
+        if part.get("counts_source") is None:
+            sourceless.append(r["name"])
         if part.get("harness_phrase"):
             phrases.add(part["harness_phrase"])
         if part.get("sides_agree") is False:
@@ -427,6 +465,9 @@ def phase_h1(two: dict) -> dict:
             bool(harness_counts)
             and set(harness_counts.values()) == {EXPECTED_HARNESS_THREADS}),
         "harness_phrases": sorted(phrases),
+        "counts_source_by_name": sources,
+        "counts_without_a_source_line": sorted(sourceless),
+        "counts_carry_their_source_line": bool(sources) and not sourceless,
     }
     out["partition_as_predicted"] = bool(
         out["granted_as_predicted"] and out["withheld_set_as_predicted"]

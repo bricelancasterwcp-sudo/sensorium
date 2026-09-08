@@ -3,10 +3,12 @@
 Split out of `refocus_cmd` along the seam the material has: everything here
 establishes FACTS -- about the source tree, the process environment, the
 program's own output, the threads and children each run started -- and
-nothing here decides a verdict or prints one. `refocus_cmd` owns the verdict,
-the assessment that ties the facts to it, and the report; it calls in here
-for the evidence. The two halves were one 1004-line file, over this
-project's 800-line ceiling.
+nothing here decides a verdict or prints one. `refocus_cmd` owns the verdict
+and the assessment that ties the facts to it; it calls in here for the
+evidence. The two halves were one 1004-line file, over this project's
+800-line ceiling -- and `refocus_cmd` met that ceiling in its turn, so the
+stamp and the report now live in `refocus_report`, which prints and stamps
+and decides nothing.
 
 A verdict is about CALL SHAPE. A licence is about the whole run, and it is
 withheld on every signal below that fired -- and just as firmly on every one
@@ -26,8 +28,10 @@ from sensorium.query.caps import witness_gap
 # `code_objects` on a workspace-relative path against an absolute one, and
 # two implementations of that join are two ways for one trace to be read.
 from sensorium.query.exceptions_rust import _marks as _site_marks
-from sensorium.query.refocus_env import (differs_only_by_root,
-                                         relocated_clause, relocation)
+from sensorium.query.refocus_env import (SESSION_SET, differs_only_by_root,
+                                         is_session_key, relocated_clause,
+                                         relocation, strip_recorder_fragment,
+                                         stripped_clause)
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
@@ -235,20 +239,55 @@ def _source_state(meta: dict) -> tuple[str, str | None, str | None]:
             f"recording did", None)
 
 
-def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str]]:
-    """(names that differ, names that differ ONLY by the target directory).
+def _capped(names: list[str]) -> str:
+    """At most eight names, with the rest counted. A cap on what is
+    PRINTED; the count beside the list is always the whole of it."""
+    shown = ", ".join(names[:8])
+    return shown + (f", +{len(names) - 8} more" if len(names) > 8 else "")
+
+
+def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str],
+                                             list[str], list[str]]:
+    """(names that differ, names that differ ONLY by the target directory,
+    names the recorder's own fragment was stripped from, names that
+    identify the SESSION the re-run was launched from).
 
     Names only -- values are never printed, because environments carry
-    secrets. The split is `refocus_env`'s rule and its whole reason: a
-    re-run under a fresh `CARGO_TARGET_DIR` differs on every variable cargo
-    derives from the root, and reporting the tool's own relocation as a
-    change the world made is noise. Everything else stays a difference.
+    secrets. Every split here is `refocus_env`'s rule and its whole reason:
+    a re-run under a fresh `CARGO_TARGET_DIR` differs on every variable
+    cargo derives from the root, and one of them also carries the driver's
+    own `--extern sensorium_rt=...` whose hash moves with every driver
+    build. Reporting the tool's own relocation, or the tool's own fragment,
+    as a change the world made is noise. Everything else stays a
+    difference.
+
+    Only the FIRST list withholds. The other three are findings the line
+    and the fact both carry by name.
+
+    Order per key: the fragment goes first, because what is compared is
+    what the world put there; then equality; then the relocation rule over
+    the REMAINDERS; then session membership. A key can be stripped and
+    unchanged, stripped and relocated, or stripped and changed -- the strip
+    is a statement about what was removed, never a verdict. A key present
+    on ONE side only is a difference, as it always was, and is then
+    partitioned like any other: a re-run launched outside tmux carries no
+    `TMUX` at all, which is the same fact about the launcher as a `TMUX`
+    that differs.
     """
     keys = (set(was) | set(now)) - _UNCOMPARED_ENV
     move = relocation(was, now)
-    changed, relocated = [], []
+    changed, relocated, stripped, session = [], [], [], []
     for key in sorted(keys):
         before, after = was.get(key), now.get(key)
+        removed = 0
+        if isinstance(before, str):
+            before, n = strip_recorder_fragment(before)
+            removed += n
+        if isinstance(after, str):
+            after, n = strip_recorder_fragment(after)
+            removed += n
+        if removed:
+            stripped.append(key)
         if before == after:
             continue
         # A key present on ONE side only reaches `differs_only_by_root` as
@@ -257,9 +296,11 @@ def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str]]:
         if (move and isinstance(before, str) and isinstance(after, str)
                 and differs_only_by_root(before, after, *move)):
             relocated.append(key)
+        elif is_session_key(key):
+            session.append(key)
         else:
             changed.append(key)
-    return changed, relocated
+    return changed, relocated, stripped, session
 
 
 def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
@@ -277,33 +318,47 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
                 "the environment could not be checked at all, so nothing "
                 "rules out the rerun getting different input through it",
                 None)
-    names, relocated = _env_diff(was, env)
+    names, relocated, stripped, session = _env_diff(was, env)
     # Named on BOTH channels or on neither: the line a person reads and the
     # fact the trace keeps have to agree about which keys the check
     # explained away, or `info` replays a licence whose terminal said more.
-    # Empty when nothing moved, so every string below is byte for byte what
+    # Empty when nothing fired, so every string below is byte for byte what
     # it was -- which is every Python pair, since only `cargo sensorium`
-    # records a target root at all.
-    clause = relocated_clause(relocated)
+    # records a target root or writes the fragment at all. Two clauses join
+    # with the separator each already ends its own names with.
+    clause = "; ".join(c for c in (relocated_clause(relocated),
+                                   stripped_clause(stripped)) if c)
     on_line = f"  {clause}" if clause else ""
     on_fact = f"; {clause}" if clause else ""
+    compared = len((set(was) | set(env)) - _UNCOMPARED_ENV)
+    ignored = ", ".join(sorted(_UNCOMPARED_ENV))
+    # Session set 1 never withholds, so it is counted EXACTLY and named the
+    # way the changed names are. An exemption whose size and members a
+    # reader cannot see is a silent one, and the set is versioned in the
+    # sentence so it can be dated and argued with.
+    told = (f"; {len(session)} session variable(s) differ: {_capped(session)}"
+            if session else "")
     if not names:
-        compared = len((set(was) | set(env)) - _UNCOMPARED_ENV)
-        ignored = ", ".join(sorted(_UNCOMPARED_ENV))
-        return (f"env: unchanged ({compared} variables compared; not "
-                f"compared: {ignored}){on_line}", None,
+        if not session:
+            return (f"env: unchanged ({compared} variables compared; not "
+                    f"compared: {ignored}){on_line}", None,
+                    f"{compared} environment variable(s) compared and "
+                    f"unchanged in the environment the rerun executed under; "
+                    f"not compared: {ignored}{on_fact}")
+        return (f"env: unchanged outside session set {SESSION_SET} "
+                f"({compared} variables compared; not compared: {ignored}"
+                f"{told}){on_line}", None,
                 f"{compared} environment variable(s) compared and unchanged "
-                f"in the environment the rerun executed under; not compared: "
-                f"{ignored}{on_fact}")
-    shown = ", ".join(names[:8])
-    if len(names) > 8:
-        shown += f", +{len(names) - 8} more"
+                f"outside session set {SESSION_SET} in the environment the "
+                f"rerun executed under; not compared: {ignored}{told}"
+                f"{on_fact}")
+    shown = _capped(names)
     # The clause is the FACT here, alone: this branch has no unchanged
     # environment to vouch for, but the keys the check explained are a
     # finding it made and `assess` keeps them even when the licence is
     # withheld. `None` when nothing relocated, exactly as before.
     return (f"env: CHANGED since the original run -- {len(names)} "
-            f"variable(s) differ: {shown}   (names only){on_line}",
+            f"variable(s) differ: {shown}   (names only){told}{on_line}",
             f"{len(names)} environment variable(s) differ between the two "
             f"runs ({shown}); a program that reads them got different input",
             clause or None)
@@ -357,14 +412,26 @@ def harness_threads(trace: Trace) -> set[int]:
     recorder's own environment variables are excluded from the environment
     comparison, by name.
 
-    A harness thread is a NON-MAIN thread whose ROOT frame's site the
-    manifest marks `#[test]`. The root is what makes the rule sound in both
-    directions. A thread the test itself spawns enters through a closure or
-    an ordinary fn -- `sensorium-transform` marks every closure site
-    `test: false` -- so its root is never a test fn and it is never
-    excluded; and a test fn called from somewhere deeper on another thread
-    says nothing about who started that thread, so a mark below the root
-    excludes nothing either.
+    A harness thread is a NON-MAIN thread whose FIRST root frame's site the
+    manifest marks `#[test]` and whose task the runtime did NOT name at a
+    spawn site. Each clause is load-bearing:
+
+    * the ROOT: a marked fn called from deeper on another thread says
+      nothing about who started that thread;
+    * the FIRST root: a thread that runs one instrumented fn to completion
+      and then another has two, and only the first is how it began;
+    * NOT spawn-named: the mark is no proof the other way. `#[test] fn` is
+      an ordinary fn to rustc, so `thread::spawn(|| a_test_fn())` puts a
+      MARKED root on a thread the PROGRAM started -- the closure holds no
+      `?`, so it opens no frame of its own -- and subtracting it GRANTED
+      this licence over a program thread until 2026-09-08 (blind spot 28,
+      design R3). `sensorium-rt` names a workspace spawn at its site
+      (`spawn@<qualname>#<k>`, or `<parent> :: spawn@...`), the recorded
+      fact that tells two identical-looking roots apart.
+
+    An `async` test fn carries no site row -- the transform classifies it
+    `async` and skips it whole, `#[tokio::test]` with it -- so it has no
+    mark and its thread is COUNTED as the program's, which claims less.
 
     Empty for a recorder whose traces carry no site marks at all -- every
     Python trace -- and empty unless the main thread is a RECORDED fact.
@@ -381,13 +448,26 @@ def harness_threads(trace: Trace) -> set[int]:
         return set()
     main = trace.main_thread_id()
     marks = _site_marks(trace.meta)
-    found = set()
+    found, decided = set(), {main}
+    # `decided` holds the main thread from the start (never the harness's)
+    # and every other thread from its FIRST root: `roots()` is frame-id
+    # ordered, so a later root of a thread already decided never votes.
     for root in trace.roots():
-        if root.thread_id == main:
+        thread = root.thread_id
+        if thread in decided:
+            continue
+        decided.add(thread)
+        # A thread with no task row, or one whose name could not be read
+        # (`Task.name` is nullable by schema), carries no spawn name to
+        # read: it is decided on its root's mark alone, as every thread was
+        # before this rule.
+        task = trace.task(thread)
+        name = "" if task is None or task.name is None else task.name
+        if name.startswith("spawn@") or " :: spawn@" in name:
             continue
         code = trace.code(root.code_id)
         if marks.get((code.qualname, code.file)) == "test":
-            found.add(root.thread_id)
+            found.add(thread)
     return found
 
 

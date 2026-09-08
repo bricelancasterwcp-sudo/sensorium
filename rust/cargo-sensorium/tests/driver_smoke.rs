@@ -78,6 +78,13 @@ fn cargo_sensorium_test_records_a_two_function_crate() {
         .args(["sensorium", "test"])
         .current_dir(s.p("ws"))
         .env("CARGO_TARGET_DIR", &target)
+        // The driver converts what it spooled before it returns, and a
+        // conversion writes into the STORE. Pinned to the scratch so a suite
+        // run never adds a trace to the store of whoever ran it
+        // (`convert::runid::store_root` would otherwise fall back to
+        // `$HOME/.sensorium`); `the_store_is_the_env_var_never_home` below
+        // pins the rule this relies on.
+        .env("SENSORIUM_DIR", s.p("sensorium-dir"))
         // Whatever ran THIS test must not leak into the build under test.
         .env_remove("RUSTC_WORKSPACE_WRAPPER")
         .env_remove("RUSTC_WRAPPER")
@@ -122,7 +129,7 @@ fn cargo_sensorium_test_records_a_two_function_crate() {
     assert_eq!(invocation["cargo_args"], serde_json::json!(["test"]));
     assert_eq!(invocation["tier"], "call");
     assert_eq!(invocation["profile"], "dev");
-    assert_eq!(invocation["driver_version"], "cargo-sensorium 0.5.1");
+    assert_eq!(invocation["driver_version"], "cargo-sensorium 0.5.2");
     assert_eq!(invocation["cargo_exit"], 0);
     assert_eq!(
         invocation["workspace_root"],
@@ -244,6 +251,7 @@ fn a_second_run_reuses_the_runtime_and_the_shim() {
             .args(["sensorium", "test"])
             .current_dir(s.p("ws"))
             .env("CARGO_TARGET_DIR", &target)
+            .env("SENSORIUM_DIR", s.p("sensorium-dir"))
             .env_remove("RUSTC_WORKSPACE_WRAPPER")
             .env_remove("RUSTC_WRAPPER")
             .env_remove("RUSTFLAGS")
@@ -352,6 +360,7 @@ fn a_symlinked_cargo_target_dir_is_followed_not_duplicated() {
         .args(["sensorium", "test"])
         .current_dir(s.p("ws"))
         .env("CARGO_TARGET_DIR", &link)
+        .env("SENSORIUM_DIR", s.p("sensorium-dir"))
         .env_remove("RUSTC_WORKSPACE_WRAPPER")
         .env_remove("RUSTC_WRAPPER")
         .env_remove("RUSTFLAGS")
@@ -419,10 +428,16 @@ fn a_symlinked_cargo_target_dir_is_followed_not_duplicated() {
     // workspace, the real target, and the link -- no accidental duplicate
     // directory at, or beside, the link's own path, and the link itself was
     // never replaced by a real directory.
-    let scratch_entries: std::collections::BTreeSet<String> = std::fs::read_dir(&s.0)
+    let mut scratch_entries: std::collections::BTreeSet<String> = std::fs::read_dir(&s.0)
         .unwrap()
         .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
         .collect();
+    // This test's own store, named above so the conversion at the end of the
+    // run cannot write into `$HOME`. It appears only when there was a trace
+    // to write -- this crate has no tests, so today there is none -- and it is
+    // ours either way; dropped here so the assertion below keeps saying what
+    // it is for: nothing ELSE is beside the link.
+    scratch_entries.remove("sensorium-dir");
     assert_eq!(
         scratch_entries,
         ["ws", "real-target", "target-link"]
@@ -448,4 +463,79 @@ fn a_symlinked_cargo_target_dir_is_followed_not_duplicated() {
             "the recorder wrote {entry} into the workspace: only {expected:?} may be there"
         );
     }
+}
+
+/// The store is `SENSORIUM_DIR`, and `HOME` is the fallback it must not need.
+///
+/// Every test above ends with a conversion, and a conversion writes a trace
+/// into the store `convert::runid::store_root` resolves: the variable when it
+/// is set, `$HOME/.sensorium` when it is not. Those tests name the variable,
+/// which is only safe if the variable really is what wins -- so this one runs
+/// the driver with a `HOME` of its own and pins BOTH halves: the trace lands
+/// under the named store, and the scratch `HOME` never grows a `.sensorium`
+/// at all. A regression then shows up here as a directory that should not
+/// exist, rather than as traces quietly accumulating in a real store.
+#[test]
+fn the_store_is_the_env_var_never_home() {
+    let s = Scratch::in_build_dir("store-not-home");
+    s.write(
+        "ws/Cargo.toml",
+        "[workspace]\n\n[package]\nname = \"stored\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+    );
+    s.write("ws/src/lib.rs", LIB);
+    let home = s.p("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let store = s.p("store");
+
+    // `HOME` is also where rustup and cargo keep their own homes, so it is
+    // named for the store question ONLY: the toolchain's homes are passed
+    // through explicitly, or a scratch `HOME` would fail this test by sending
+    // rustup to look for a toolchain that was never installed there.
+    let real_home = std::env::var("HOME").expect("HOME is set for the suite");
+    let cargo_home = std::env::var("CARGO_HOME").unwrap_or_else(|_| format!("{real_home}/.cargo"));
+    let rustup_home =
+        std::env::var("RUSTUP_HOME").unwrap_or_else(|_| format!("{real_home}/.rustup"));
+
+    let out = Command::new(env!("CARGO_BIN_EXE_cargo-sensorium"))
+        .args(["sensorium", "test"])
+        .current_dir(s.p("ws"))
+        .env("CARGO_TARGET_DIR", s.p("target"))
+        .env("HOME", &home)
+        .env("CARGO_HOME", &cargo_home)
+        .env("RUSTUP_HOME", &rustup_home)
+        .env("SENSORIUM_DIR", &store)
+        .env_remove("RUSTC_WORKSPACE_WRAPPER")
+        .env_remove("RUSTC_WRAPPER")
+        .env_remove("RUSTFLAGS")
+        .env_remove("RUSTDOCFLAGS")
+        .env_remove("CARGO_ENCODED_RUSTFLAGS")
+        .env_remove("SENSORIUM_SPOOL")
+        .env_remove("SENSORIUM_TIER")
+        .env_remove("SENSORIUM_INNER_RUNNER")
+        .output()
+        .expect("run the driver");
+
+    let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+    let context = format!("--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}");
+    assert_eq!(out.status.code(), Some(0), "{context}");
+
+    // The trace is under the store the variable named.
+    let traces = entries_ending_in(&store.join("traces"), ".db");
+    assert_eq!(traces.len(), 1, "{traces:?}\n{context}");
+
+    // ...and `HOME` was not consulted: no store beside it, by any name.
+    assert!(
+        !home.join(".sensorium").exists(),
+        "the driver wrote a store under HOME: {}\n{context}",
+        home.display()
+    );
+    let home_entries: Vec<String> = std::fs::read_dir(&home)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(
+        home_entries.is_empty(),
+        "the driver wrote {home_entries:?} into HOME\n{context}"
+    );
 }

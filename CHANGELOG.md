@@ -1,5 +1,97 @@
 # Changelog
 
+## 0.8.6 — 2026-09-08
+
+Rung 4, slice 4: **the recorder's footprint** — the three places this recorder
+still showed up inside its own licence, removed, and the small debts slice 3
+named with their fixes, paid. Python **0.8.6**; **`cargo-sensorium 0.5.2`**,
+**`sensorium-transform 0.4.3`** for three pure splits (the goldens pin the
+output byte for byte), **`sensorium-rt 0.4.0`** unchanged (neither the wire nor
+the runtime moved). The driver's number carries no behaviour change, and that
+is the point: E4″ identifies the driver that recorded a run by
+`driver_version`, the token a trace carries, so a rebuilt tree needs a number
+of its own. `TRACE_FORMAT` stays **4**: nothing here writes a new key into a
+trace.
+
+- **The recorder's own compiler flags are not a change the world made**
+  (ruling R1). E4′ withheld the licence on all 61 pairs for one key:
+  `RUSTDOCFLAGS` carries the driver's own `--extern sensorium_rt=…` and
+  `-L dependency=…`, two tokens naming one directory under
+  `<target>/sensorium/rt/<16 hex>/<unwind|abort>/`, whose hash moves with
+  every driver build. `strip_recorder_fragment` removes
+  every occurrence from BOTH sides before the compare; the remainder is
+  compared exactly as it always was, and the backreference is the rule — two
+  tokens that do not name one directory are not a shape this recorder writes
+  and are left for the world's compare. A variable this tool compared less of
+  is never silent: `; the recorder's own fragment stripped before comparing:
+  RUSTDOCFLAGS` rides on the line and in the fact. Python traces cannot carry
+  the fragment and their lines are byte for byte what they were.
+- **Session set 1** (ruling R4, amended by A-§3 before any code). A re-run
+  launched from another shell met a licence it could not earn: the handles a
+  shell, terminal or agent session hands a process differ, and none of them is
+  input to what a program computes. Fourteen exact names and one prefix,
+  **positive and versioned**, are now named and never withhold —
+  `env: unchanged outside session set 1 (<N> variables compared; …; <K>
+  session variable(s) differ: <names>)` — while every other differing key
+  withholds exactly as before. Not a *bearing* set: a list of the variables
+  that "bear" on a program is a guess dressed as a rule, and the suite already
+  held its falsifier in a test that records under `REFOCUS_TEST_LIMIT` and
+  re-runs without it.
+- **The harness rule anchors on the FIRST root, and never on a spawned
+  thread** (ruling R3, `rust/HONESTY-BLIND-SPOTS.md` item 28). `#[test] fn` is
+  an ordinary fn to rustc, so `thread::spawn(|| a_test_fn())` put a marked
+  root on a thread the PROGRAM started, that thread was subtracted as the
+  recorder's own, and the licence was granted over a thread nothing had
+  compared — the direction that claims more. A spawn-named task
+  (`spawn@<qualname>#<k>`) is now never the harness's whatever its root's
+  mark, only the first root counts, and an `async` test fn carries no mark so
+  its thread stays counted. `corpus/rust/refocus_spawned_test_fn` records the
+  shape through the real driver.
+- **Six files split before this slice edited any of them** (ruling R5).
+  `docs/CARRIED-DEBT.md` → a second archive volume (archives are numbered
+  volumes ≤ 800 lines); `rust/HONESTY.md` §13 → `rust/HONESTY-REFOCUS.md`;
+  `refocus_cmd.py` → `refocus_report.py`; `visit.rs` → `visit/walk.rs`;
+  `splice.rs` → `assemble.rs`; `lines.rs` → `lines/facts.rs`. Every one a pure
+  move, tests and goldens green either side.
+- **The recorder's tests leave no footprint either** (ruling R6). The three
+  `driver_smoke.rs` tests that ran the whole driver named no store, so each
+  run converted a trace into `~/.sensorium` — the store of whoever ran the
+  suite. They name a scratch store now, and a new test pins the rule they
+  rely on: with `SENSORIUM_DIR` set, `HOME` is not consulted at all.
+  `corpus/run_corpus.py` gains **`--require-driver`**, which turns a skipped
+  case into exit 1 and says so on the summary line and in `--json`; CI's rust
+  corpus step passes it, because that job builds a driver precisely so those
+  cases run and a green summary over cases nobody recorded is the dishonesty
+  this harness exists to refuse. `tests/test_release_tokens.py` pins the three
+  places this package's version lands — `pyproject`, the installed
+  distribution's metadata, and this file's newest header — in both of the
+  states that header legally has.
+- **E4″ measured once, 2026-09-08 — H1–H7 PASS, H8 STOP on an instrument
+  cell.** Pre-registered and §1 byte-locked before the instrument existed, then
+  read once over the 61 kept originals of E4 under this slice's driver. The two
+  questions the slice asked are answered **PASS at n = 61**: the harness-thread
+  rule moved the licence word exactly as §1.2 predicted — **57 granted**,
+  WITHHELD on the four thread-spawning tests with their program-thread counts
+  **1 / 4 / 4 / 4** (E4′ read **0** granted, all 61 withheld by the confound R1
+  removes) — and the recorder's fragment is gone from the compare:
+  `RUSTDOCFLAGS` in **0 of 61** changed lists, the strip clause naming it on
+  **61 of 61**, with the rt hash **differing on 61 of 61** pairs, so the strip
+  was tested on every one under a driver build different from the originals'
+  (`0.5.2` here, read from each re-run trace's own `meta.driver_version`; the
+  kept store's `0.5.0` is **E4's** own §2 fact about those originals, carried
+  into this record's §1.1 pre-registration — no field of E4″ reads it, and
+  E4′ §2's `0.5.1` was the driver of E4′'s own re-runs).
+  The verdict, the pair, session set 1 and both control
+  arms held (H3–H6), and the instrument's own honesty row passed over all 69
+  pairs (H7). **H8 STOPPED on this record's own reader**, not on the workspace:
+  its three commands were green (corpus rc 0 over 63 cases with
+  `--require-driver`, pytest rc 0, `cargo test --workspace` rc 0) and
+  `corpus/rust/refocus_spawned_test_fn` did run, but the cell asking whether the
+  case is present compared the bare name against a listing that spells Rust
+  cases `rust/<name>` and so read a measured-looking `False`. The STOP stands as
+  measured — kill 6 forbids an instrument change after the measurement — and the
+  one-line fix is ruled for the next slice.
+
 ## 0.8.5 — 2026-09-07
 
 Rung 4, slice 3: **the rung-4 debts** — the seven items slices 1 and 2 left in

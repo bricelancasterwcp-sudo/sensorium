@@ -36,7 +36,13 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from acceptance_e4pp_read import (read_e4pp_clauses,          # noqa: E402
+                                  rt_hash_of)
 
 # ------------------------------------------------------------ the verdict
 
@@ -184,6 +190,19 @@ HARNESS_NOTE = re.compile(
     r"; (?P<harness>\d+) harness thread(?:s)? \((?P<phrase>[^)]*)\) "
     r"(?:is|are) not among these counts")
 
+#: A caveat saying the thread bookkeeping could not be read AT ALL, in all
+#: three shapes `caps.witness_gap` gives it (`_licence_caveats`'s legacy
+#: sentence, the declared-false one, and the declared-true-but-missing one).
+#: Every one ends with the same clause, which is what this anchors on.
+#:
+#: It exists for the fallback below and for one reason: the ABSENCE of a
+#: thread sentence means zero only because `_licence_caveats` emits one
+#: above zero. Where the record itself could not be read, that inference
+#: does not hold, and a `0` printed there would be an invented number.
+THREAD_RECORD_UNAVAILABLE = re.compile(
+    r"^(?:the original|the rerun)\b.*\bthread\b.*absence of the record is "
+    r"not a record of absence")
+
 
 def _status_of(rest: str | None) -> str | None:
     """Which of the three statuses a line is -- `None` for a fourth
@@ -229,6 +248,13 @@ def parse_refocus(text: str) -> dict:
         "env_changed_keys_truncated": None,
         "env_changed_for_other_keys": None,
         "env_recorder_own_keys": None,
+        # E4″: R1's strip and R4's session set, read from the same line and
+        # kept apart from the changed list, which is the only one that
+        # withholds.
+        "env_stripped_keys": None,
+        "env_session_n": None, "env_session_keys": None,
+        "env_session_keys_truncated": None,
+        "env_unchanged_outside_session": None, "env_session_set": None,
         "exit_line": None, "exit_rerun": None, "exit_original": None,
         "exit_status_equal": None,
         "pair_run": None, "pair_run_line": None,
@@ -395,6 +421,7 @@ def _read_env_clauses(line: str, out: dict) -> None:
     out["env_recorder_own_keys"] = ([k.strip()
                                      for k in m.group("keys").split(",")
                                      if k.strip()] if m else [])
+    read_e4pp_clauses(line, out)
 
 
 def licence_partition(parsed: dict) -> dict:
@@ -412,6 +439,16 @@ def licence_partition(parsed: dict) -> dict:
     Everything is `None` for a licence line that never printed. A pair whose
     licence could not be read has NO partition, and `0 program threads,
     granted` would put a measured-looking cell where a missing one belongs.
+
+    **Where each count came from is recorded beside it** (E4′ §5's gap 1).
+    The licence's own thread sentence is the first reading; the `threads:`
+    line is the second, and `_fall_back_to_the_threads_line` takes it where
+    the first is silent. `counts_source` says which -- `"licence-clause"`
+    when both counts came from the licence, `"threads-line"` when either
+    came from the line beside it, `None` when neither was read -- and
+    `counts_source_by_count` says it per count, because the two can differ
+    on one pair (a granted line that hides the exclusion states its program
+    count and withholds its harness one).
     """
     out = {
         "licence": parsed.get("licence"),
@@ -419,6 +456,10 @@ def licence_partition(parsed: dict) -> dict:
         "raw_thread_count": None, "harness_phrase": None,
         "names_the_exclusion": None, "per_label": {}, "sides_agree": None,
         "unsubtracted_labels": [],
+        "counts_source": None,
+        "counts_source_by_count": {"program_threads": None,
+                                   "harness_threads": None},
+        "counts_unread_reason": None,
     }
     if out["licence"] == "granted":
         # A granted licence's thread FACT. Program threads are 0 by the
@@ -431,12 +472,16 @@ def licence_partition(parsed: dict) -> dict:
                   if f.startswith("no thread started besides the main one")]
         if stated:
             out["program_threads"] = 0
+            out["counts_source_by_count"]["program_threads"] = (
+                "licence-clause")
             m = GRANTED_THREADS.search(stated[0])
             out["names_the_exclusion"] = bool(m)
             if m:
                 out["harness_threads"] = int(m.group("harness"))
                 out["harness_phrase"] = m.group("phrase")
                 out["raw_thread_count"] = int(m.group("harness"))
+                out["counts_source_by_count"]["harness_threads"] = (
+                    "licence-clause")
             else:
                 out["raw_thread_count"] = 0
             out["sides_agree"] = True
@@ -460,15 +505,76 @@ def licence_partition(parsed: dict) -> dict:
             out["sides_agree"] = len(values) == 1
             out["program_threads"] = (next(iter(values)) if len(values) == 1
                                       else max(values))
+            out["counts_source_by_count"]["program_threads"] = (
+                "licence-clause")
             out["names_the_exclusion"] = not unsubtracted and bool(harness)
             out["unsubtracted_labels"] = unsubtracted
             if len(harness) == 1:
                 out["harness_threads"] = next(iter(harness))
                 out["raw_thread_count"] = (out["program_threads"]
                                            + out["harness_threads"])
+                out["counts_source_by_count"]["harness_threads"] = (
+                    "licence-clause")
             if len(phrases) == 1:
                 out["harness_phrase"] = next(iter(phrases))
+    if out["licence"] is not None and (out["program_threads"] is None
+                                       or out["harness_threads"] is None):
+        _fall_back_to_the_threads_line(parsed, out)
+    sources = set(out["counts_source_by_count"].values())
+    out["counts_source"] = (
+        None if sources == {None}
+        else "threads-line" if "threads-line" in sources
+        else "licence-clause")
     return out
+
+
+def _fall_back_to_the_threads_line(parsed: dict, out: dict) -> None:
+    """E4′ §5's gap 1: the counts the licence's own sentence left silent,
+    taken from the `threads:` line -- or NOT taken, with the reason.
+
+    `_licence_caveats` emits its thread sentence only where the program's
+    own count is ABOVE ZERO, so a pair withheld for something else and
+    running no thread of its own carries no thread sentence at all. E4′
+    published `null` for both counts on all 61 pairs for exactly that
+    reason, which took `harness_threads_all_one` to false over 61 pairs
+    each printing one harness thread on the line directly beside it.
+
+    Two things this does NOT do, and both are the point:
+
+    * it does not fire where a caveat says the thread record could not be
+      read at all -- there the absence of a sentence is not a zero;
+    * it does not repair `names_the_exclusion`. A granted line that hid the
+      exclusion still hid it; the fallback supplies the missing NUMBER, and
+      H1's second reading about the WORDING is left able to fire.
+    """
+    caveats = parsed.get("licence_caveats") or []
+    blocked = next((c for c in caveats
+                    if THREAD_RECORD_UNAVAILABLE.search(c)), None)
+    if blocked:
+        out["counts_unread_reason"] = (
+            "the licence printed no thread sentence AND a caveat says the "
+            "thread record could not be read at all, so the absence of a "
+            f"sentence is not a count of zero: {blocked[:160]}")
+        return
+    harness = parsed.get("threads_harness")
+    if harness is None:
+        out["counts_unread_reason"] = (
+            "the licence's thread sentence is silent and the `threads:` "
+            "line carries no harness note, so there is no second reading "
+            "to fall back to")
+        return
+    if out["program_threads"] is None:
+        # Zero BY THE PRINTER'S OWN RULE (`_licence_caveats`: `if started >
+        # 0`), not by assumption -- and only after the block above has
+        # ruled out a pair whose bookkeeping was unreadable.
+        out["program_threads"] = 0
+        out["counts_source_by_count"]["program_threads"] = "threads-line"
+    if out["harness_threads"] is None:
+        out["harness_threads"] = harness
+        out["harness_phrase"] = (out["harness_phrase"]
+                                 or parsed.get("threads_harness_phrase"))
+        out["counts_source_by_count"]["harness_threads"] = "threads-line"
+    out["raw_thread_count"] = out["program_threads"] + out["harness_threads"]
 
 
 def licence_counts(parsed: dict) -> dict:
@@ -672,8 +778,10 @@ def shim_census(target: Path, driver: Path) -> dict:
 
 
 __all__ = ["VERDICT_EXIT", "PRE_RERUN_REFUSAL_EXIT", "RERUN_BANNER",
+           "THREAD_RECORD_UNAVAILABLE",
            "UNVERIFIABLE_OUTPUT", "UNVERIFIABLE_CHILDREN",
            "bullets_after", "cargo_finished_seconds", "connect_ro",
            "licence_counts", "licence_partition", "meta_value",
+           "read_e4pp_clauses", "rt_hash_of",
            "pair_candidates", "parse_refocus", "shim_census",
            "trace_meta_ro"]

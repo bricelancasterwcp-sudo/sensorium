@@ -439,7 +439,7 @@ impl S {
 
         // The three gates, named. Each of these kinds exists ONLY because a
         // fragment goes somewhere, and each is suppressed by a different
-        // `!self.emit` return -- `visit.rs`'s `visit_expr_try` for TRY,
+        // `!self.emit` return -- `visit/walk.rs`'s `visit_expr_try` for TRY,
         // `closures.rs`'s `frame_closure` for CLOSURE, `arms.rs`'s `err_arm`
         // for ARM. Asserting the emitting walk mints all three on THIS fixture
         // is what turns the assertion above from a property of a file with

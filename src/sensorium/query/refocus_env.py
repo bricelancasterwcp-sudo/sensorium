@@ -1,4 +1,6 @@
-"""A target directory that MOVED, told apart from a world that changed.
+"""A target directory that MOVED, a fragment the RECORDER wrote, and the
+session a re-run was LAUNCHED from -- each told apart from a world that
+changed.
 
 Split out of `refocus_world` rather than added to it: the licence's
 environment clause now has a rule of its own, and `refocus_world` is the
@@ -139,6 +141,141 @@ def differs_only_by_root(was: str, now: str, old: str, new: str) -> bool:
     return explained
 
 
+# -- session set 1: where a process was STARTED, not what it computes ------
+#: The version of the set below. It is a NUMBER in the printed line on
+#: purpose: an exemption from the licence's default is a claim, and a claim
+#: a reader can date and argue with is a different thing from a silent one.
+#: A key found to bear on what a program computes leaves the set with a
+#: date; a key found to differ between shells joins it with one.
+SESSION_SET = 1
+
+#: Session set 1, the exact names. The tuple's order is the DOCUMENTATION
+#: order -- the design's (amendment A-section-3) and this repository's
+#: `docs/query.md` -- and the order E4'' arm C walks to pick the key it
+#: injects. It is not the order the names print in: a differing key is
+#: reported in the sorted key order `_env_diff` walks, like every other
+#: name on that line.
+#:
+#: Every one is a handle to a bus, a window, a terminal, a connection, a
+#: service manager's invocation or an agent session -- the identity of WHERE
+#: a process was started, never input to what it computes. A re-run launched
+#: from another shell differs on these and on very little else: measured
+#: 2026-09-08 (names only) against kept E4 original 20260907-111144-33d30c,
+#: 73 keys equal, 0 added, 3 missing (the previous launcher's own pins) and
+#: exactly ONE changed, `CLAUDE_CODE_SESSION_ID`. That is the whole of the
+#: problem E4' amendment A1 carried.
+#:
+#: A POSITIVE list, and short. The design first written here kept the
+#: opposite -- a list of variables that "bear" on a program, everything else
+#: let through -- and the suite already held its falsifier:
+#: `test_refocus_withholds_the_licence_when_the_environment_differs`
+#: records under `REFOCUS_TEST_LIMIT` and refocuses without it, a variable
+#: the program demonstrably READS, and `REFOCUS_TEST_LIMIT` is on no bearing
+#: list anyone would write. That design would have granted a licence over a
+#: program that got different input: the direction that claims MORE, which
+#: is the one thing the licence exists to refuse. The tool cannot know which
+#: variables a program reads, so the default stands -- any differing key
+#: withholds -- and this is the one enumerated exception.
+SESSION_ORDER: tuple[str, ...] = (
+    "DBUS_SESSION_BUS_ADDRESS", "XDG_SESSION_ID", "TERM_SESSION_ID",
+    "WINDOWID", "TMUX", "TMUX_PANE", "SSH_AGENT_PID", "SSH_AUTH_SOCK",
+    "SSH_CLIENT", "SSH_CONNECTION", "SSH_TTY", "INVOCATION_ID",
+    "JOURNAL_STREAM", "SYSTEMD_EXEC_PID")
+SESSION_EXACT = frozenset(SESSION_ORDER)
+
+#: The one prefix. An agent session mints its own variables per session and
+#: their names are not knowable in advance, which is what a prefix is for --
+#: and why there is exactly one: a prefix admits names nobody enumerated, so
+#: each one is a hole and each one has to earn its place.
+SESSION_PREFIXES = ("CLAUDE_CODE_",)
+
+
+def is_session_key(name: str) -> bool:
+    """Whether `name` identifies the session a process was launched from.
+
+    Exact membership or one of the prefixes, and nothing looser: a family
+    resemblance would exempt variables nobody put on the list.
+    `XDG_SESSION_IDX` is not `XDG_SESSION_ID`, and `CLAUDE_CODEX` does not
+    carry the `CLAUDE_CODE_` prefix.
+    """
+    return (name in SESSION_EXACT
+            or any(name.startswith(p) for p in SESSION_PREFIXES))
+
+
+# -- the recorder's OWN fragment, which is not the world's -----------------
+#: `RUSTDOCFLAGS` as `cargo sensorium` writes it, and the one thing in the
+#: compared environment that is the RECORDER's rather than the world's. The
+#: driver links the runtime in by hand -- `--extern` plus the `-L
+#: dependency=` that resolves it -- and the directory carries a digest of
+#: the driver binary and the `sensorium-rt` sources, so the hash MOVES with
+#: every driver build. E4' measured the cost of not knowing that: all 61
+#: pairs withheld on this one key, under a driver that had simply been
+#: rebuilt (that record's section 5, blind spot 27).
+#:
+#: The shape is the fence. `sensorium_rt` by name, `/sensorium/rt/` followed
+#: by exactly sixteen hex characters and one of the two panic strategies,
+#: `libsensorium_rt.rlib`, and -- the rule that makes it ours -- a
+#: BACKREFERENCE: the two tokens must name ONE directory. Two tokens that
+#: name two directories are not a thing this recorder has ever written, so
+#: they are left for the world's compare. `(?:^| )` and `(?= |$)` bound the
+#: match at token edges, and the leading space is consumed with it so the
+#: remainder needs no re-spacing.
+RECORDER_FRAGMENT = re.compile(
+    r"(?:^| )--extern sensorium_rt=(?P<dir>\S+/sensorium/rt/[0-9a-f]{16}/"
+    r"(?:unwind|abort))/libsensorium_rt\.rlib -L dependency=(?P=dir)(?= |$)")
+
+
+def strip_recorder_fragment(value: str) -> tuple[str, int]:
+    """`value` with every occurrence of our fragment removed, and how many
+    were removed.
+
+    The count is returned rather than inferred from the remainder, because
+    the count is what puts the key on the printed strip list: a removal
+    that did not report itself would be an exclusion by name, hidden --
+    the thing the relocation rule above exists to avoid.
+
+    NOTHING HAPPENS WHEN NOTHING MATCHED. The value is handed back as it
+    came, byte for byte, because this function is called on both sides of
+    EVERY key -- and a `strip()` applied unconditionally would make `"UTC "`
+    and `"UTC"` compare equal on a variable this recorder never touched.
+    That widening would be silent on both channels: the key is only put on
+    the printed strip list when the count is non-zero, so a difference the
+    licence stopped checking would go unnamed. The trim belongs to the
+    removal and to nothing else.
+
+    Only the space the regex consumed goes with the match; the world's own
+    spacing inside what is left is untouched, so two values that differ by
+    whitespace still differ after the strip.
+    """
+    out, count = RECORDER_FRAGMENT.subn("", value)
+    return (out.strip(), count) if count else (value, 0)
+
+
+#: The phrase that both WRITES the strip note and RECOGNISES it, on the
+#: `_RELOCATED` pattern and for the same reason: one constant, so the
+#: sentence and its reader cannot drift apart.
+#:
+#: It lives here rather than in `vocab.py` because it is not language-
+#: bearing. `vocab` holds the sentences that say what Python or Rust means;
+#: this one says what this TOOL does to its own footprint before comparing,
+#: and it reads the same whichever recorder wrote the trace.
+_STRIPPED = "the recorder's own fragment stripped before comparing: "
+
+
+def stripped_clause(names: list[str]) -> str:
+    """What the env line and the verified fact both say about the keys the
+    strip touched. Empty when it touched none -- so a Python pair, which
+    can never carry the fragment, reads exactly as it always did.
+
+    Named, never counted, and never silent: a variable this tool removed
+    part of before comparing is a variable it checked less of, and a reader
+    is owed the name.
+    """
+    if not names:
+        return ""
+    return f"{_STRIPPED}{', '.join(names)}"
+
+
 def relocated_clause(names: list[str]) -> str:
     """What the env line and the verified fact both say about the keys the
     rule explained. Empty when it explained none, so a pair that never
@@ -156,7 +293,9 @@ def relocated_clause(names: list[str]) -> str:
 
 
 def is_relocation_note(fact: str) -> bool:
-    """Whether a world-fact carries the names this rule explained.
+    """Whether a world-fact carries the names a rule of this module
+    explained -- by EITHER rule: the target directory that moved, or the
+    recorder's own fragment removed before the compare.
 
     A withheld licence records no verified facts -- it rests on nothing --
     but the keys this check EXPLAINED are a finding of its own, and the
@@ -164,8 +303,9 @@ def is_relocation_note(fact: str) -> bool:
     trace kept only the accusation, and `info` replayed a licence whose
     screen had said more than the record does.
 
-    Recognised by the one phrase `relocated_clause` builds, from the same
-    constant, so a rewording moves both halves together and cannot leave
-    this reading a sentence that no longer exists.
+    Recognised by the phrases `relocated_clause` and `stripped_clause`
+    build, from the same constants they build them from, so a rewording
+    moves both halves together and cannot leave this reading a sentence
+    that no longer exists.
     """
-    return _RELOCATED in fact
+    return _RELOCATED in fact or _STRIPPED in fact

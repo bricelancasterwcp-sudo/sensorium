@@ -12,8 +12,11 @@ to what a re-run does not compare and what its licence cannot check.
 Items 15–26 are rung 3's own, from the design's R16 (`?`,
 sinks and `Err` arms:
 `docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`).
-Items 27–28 are rung 4's, from the refocus licence (design 2026-09-07): **27**
-from E4′'s H1 STOP, **28** from the whole-branch review of that same slice.
+Items 27–29 are rung 4's, from the refocus licence: **27** from E4′'s H1 STOP
+and **28** from the whole-branch review of that same slice (design 2026-09-07),
+both **closed 2026-09-08** by the slice that built and measured their ruled
+fixes; **29** is what that slice's own exemption costs (design 2026-09-08 R4 as
+amended).
 
 Each entry names **what declares it** — the field or line a reader meets
 without knowing this document exists — and, where one exists, what could
@@ -604,6 +607,29 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     subject that includes an original recorded under a different driver
     build, the one condition under which this confound is visible. *Declared
     by* the env line, which names every key it did not explain.
+
+    **Closed 2026-09-08** (rung 4 slice 4, the recorder's footprint). Built at
+    `0810bee` (with `83d48ff`): `strip_recorder_fragment`
+    (`src/sensorium/query/refocus_env.py`) removes every occurrence of the
+    fragment from BOTH sides before the compare — `--extern sensorium_rt=…
+    /sensorium/rt/<16 hex>/<unwind|abort>/libsensorium_rt.rlib` with the
+    `-L dependency=` naming the SAME directory, the backreference being the
+    fence — and what is left of the variable is compared exactly as before, so
+    a `RUSTDOCFLAGS` the world also wrote to still withholds on the remainder.
+    The key is named on the env line and in the stamped fact as `; the
+    recorder's own fragment stripped before comparing: RUSTDOCFLAGS`.
+    **Measured 2026-09-08 at n = 61 by E4″**
+    (`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md` §3/§4,
+    **H2 PASS**), over the same 61 originals — recorded by driver **0.5.0** and
+    re-run by **0.5.2**, the different-build condition E4′ could not create:
+    `RUSTDOCFLAGS` in **0 of 61** changed lists, the strip clause naming it on
+    **61 of 61**, and the rt hash inside the fragment **differing on 61 of 61**
+    pairs (`d9ce385a08c6646b` against `45773c80095d5b87`), none unread — so no
+    pair had its strip go untested. What stays: the count of fragments removed
+    per key per side was read (**1** per side, `occurrences` **2**) and
+    published in no cell (findings gap 4), and a key present on ONE side only
+    whose whole value was our fragment still withholds, because after the strip
+    an empty string and an absent key are still a difference.
 28. **A thread the PROGRAM spawns can be read as the harness's, and the
     licence GRANTED over it.** R1's rule (§13, item 12) is
     **root-mark-anchored**: a non-main thread is the recorder's own when a
@@ -644,3 +670,60 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     directions" overclaim and is left standing until that `src` change.
     *Declared by* this item and by §13; *falsified by* a fixture that spawns
     a thread on a `#[test]`-marked fn and reads a granted licence.
+
+    **Closed 2026-09-08** (rung 4 slice 4, the recorder's footprint). Built at
+    `b2f07e3`: in `refocus_world.harness_threads` a thread whose task the
+    runtime named at a spawn site (`spawn@<qualname>#<k>`, or
+    `<parent> :: spawn@…`) is **never** the harness's whatever its root's mark,
+    and only the **FIRST** root frame's mark decides. The docstring was
+    rewritten with it and no longer claims soundness in both directions.
+    *Falsified by* `tests/test_refocus_licence_rust.py` — a program thread named
+    `spawn@…` and rooted on a marked fn is counted, a thread whose first root is
+    ordinary and whose second is marked is counted, a libtest thread with no
+    spawn name is still the harness's, and a root whose site the manifest never
+    wrote is counted — and **measured under the real driver** by
+    `corpus/rust/refocus_spawned_test_fn`, one of the 63 cases the E4″ run took
+    green under `--require-driver`: the spawning test reads `threads started: 1
+    besides the main one and 2 harness threads (…)` and `licence: WITHHELD`,
+    where the rule this closes printed `no thread started besides the main one
+    and 3 harness threads` and GRANTED. What stays: **E4″'s 61 pairs still do
+    not exercise it** — their spawns go through ordinary `worker` fns and
+    `serve_fake()`, never through a marked one — so the evidence is the corpus
+    case at n = 1 and never that record's n = 61, which is what its findings
+    sibling's *what this record does not license* says.
+29. **A variable of session set 1 that a program actually READS is not
+    compared, and the licence still says granted.** Session set 1 (0.8.6,
+    design 2026-09-08 R4 as amended by A-§3) is the licence's one positive
+    exemption: fourteen exact names — `DBUS_SESSION_BUS_ADDRESS`,
+    `XDG_SESSION_ID`, `TERM_SESSION_ID`, `WINDOWID`, `TMUX`, `TMUX_PANE`,
+    `SSH_AGENT_PID`, `SSH_AUTH_SOCK`, `SSH_CLIENT`, `SSH_CONNECTION`,
+    `SSH_TTY`, `INVOCATION_ID`, `JOURNAL_STREAM`, `SYSTEMD_EXEC_PID` — and the
+    prefix `CLAUDE_CODE_` (`SESSION_ORDER`, `SESSION_PREFIXES`,
+    `is_session_key` in `src/sensorium/query/refocus_env.py`). Each is a handle
+    to a bus, a window, a terminal, a connection, a service manager's
+    invocation or an agent session, and the exemption rests on a claim about
+    intent, not on anything the trace records: **a program has no reason to
+    read one to decide what to compute**. Nothing checks that claim. A program
+    that branches on `TMUX`, keys a cache on `XDG_SESSION_ID` or writes
+    `INVOCATION_ID` into its output got different input between the two runs,
+    and the licence will report the difference — counted, named on the env line
+    — while granting over it. This is the same direction blind spot 28 was
+    about: a claim of MORE than was checked. It is a **deliberate** bound, not
+    an oversight: the alternative measured on this box is a licence that can
+    never be earned from another shell (E4′ amendment A1), and the design's own
+    A-§3 rejected the mirror-image rule — a positive list of "bearing"
+    variables, everything else granted — because the suite already held its
+    falsifier in a program that reads `REFOCUS_TEST_LIMIT`. The tool cannot
+    know which variables a program reads; the exit path is that the set is
+    **versioned and printed**, `SESSION_SET = 1` appearing in the sentence
+    `unchanged outside session set 1`, so a key found to bear leaves the set
+    with a date and every trace says which list it was judged against. *Declared
+    by* the env line itself, which names every session key that differed, and by
+    `docs/query.md`'s session-set paragraph. *Falsified by* a pair whose program
+    reads a key of `SESSION_ORDER`, launched twice with different values for it,
+    that MATCHes with a granted licence — or, the direction that would retire
+    the item, by recording which environment variables the program READ and
+    comparing only those (`docs/CARRIED-DEBT.md`, the rung-5 lever). **Untested
+    by fixture**: no test drives a program whose output depends on a session
+    key, and E4″'s 61 pairs cannot reach it — one session key differed there
+    (`CLAUDE_CODE_SESSION_ID`) and nothing in that workspace reads it.

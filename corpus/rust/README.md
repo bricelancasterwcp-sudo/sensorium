@@ -1,6 +1,6 @@
 # The Rust corpus
 
-Forty-two cases recorded by the **Rust** recorder (`cargo sensorium …`) and
+Forty-three cases recorded by the **Rust** recorder (`cargo sensorium …`) and
 questioned through the same Python CLI as the rest of the corpus. Each case
 directory is a self-contained, dependency-free crate plus its
 `questions.yaml`; `corpus/run_corpus.py` copies one whole directory into a
@@ -117,7 +117,7 @@ by name when no driver is on the box exactly as these cases do.
 
 ## The rung-4 cases: the refocus loop
 
-Four cases added with `sensorium refocus` on a Rust trace, which re-invokes
+Five cases added with `sensorium refocus` on a Rust trace, which re-invokes
 `cargo sensorium` under an added `--focus` and compares the pair. They are the
 only cases here whose QUESTIONS record: the harness records the case once, and
 a `refocus` question then launches the driver itself (the same
@@ -133,12 +133,14 @@ which the refocus just wrote — and read the PAIR through `runs`, where
 mtime-ordered, not clock-ordered**, so it is unambiguous here only because a
 case runs in a store of its own that holds exactly two traces, the second
 written by the refocus under test; a case that refocused twice would need
-`runs` to name which trace it means, and none of the four does.
+`runs` to name which trace it means, and none of the five does.
 `refocus_child_run` is the one whose store does NOT hold two traces — its
 program records two processes and is recorded twice, so four — and it
 therefore never says `last` at all: it names the original by `$RUN`, the
 child of the original by `$RUN2`, and reads the pair and the excluded child
-run through `runs`.
+run through `runs`. `refocus_spawned_test_fn` says `last` no more than that
+one does, for a different reason: what it asks for is the LICENCE, which the
+refocus prints itself, so both its questions name the original by `$RUN`.
 
 | Case | Planted truth | Commands |
 |---|---|---|
@@ -146,6 +148,7 @@ run through `runs`.
 | `refocus_diverged` | a program that branches on a marker file its own first run wrote: the re-run cannot take the first run's path, so the verdict is DIVERGED at causal step 1 with `first_path` against `other`, exit 1, and the listing carries the divergence beside the link | `refocus`, `runs` |
 | `refocus_refused_many` | `cargo test` on a crate with two integration tests is two processes, and refocus refuses BEFORE building anything — exit 2, the single-target sentence, and a store with no third trace in it | `refocus`, `runs` |
 | `refocus_child_run` | a program that spawns itself: the re-run leaves TWO traces carrying `refocus_of`, and the one whose `ppid` is the other's `pid` is a child RUN rather than a second candidate — MATCH about the parent, the excluded child named on the pair line, and both re-run traces still listed, the unpaired one as `verdict:UNVERIFIED` | `info`, `refocus`, `runs` |
+| `refocus_spawned_test_fn` | a test that spawns a thread onto another `#[test]` fn: the marked ROOT frame is not proof the recorder started that thread, so it counts as the program's (`1 besides the main one and 2 harness threads`) and the licence is WITHHELD — the rule that read the mark on any root subtracted all three, said `no thread started besides the main one`, and GRANTED | `info`, `refocus` |
 
 ## Two things a case here must know
 

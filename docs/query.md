@@ -260,6 +260,60 @@ only — is a difference and withholds exactly as it did before. A Python pair
 records no target root, so every line it prints is the line it printed before
 this rule existed.
 
+**And one fragment in that environment is the RECORDER's, not the world's**
+(0.8.6, design 2026-09-08 R1). `cargo sensorium` links its runtime into the
+build by hand, so `RUSTDOCFLAGS` carries `--extern
+sensorium_rt=<root>/sensorium/rt/<16 hex>/<unwind|abort>/libsensorium_rt.rlib`
+together with the `-L dependency=<the same directory>` that resolves it — and
+that hash is a digest of the driver binary and the runtime's own sources, so
+it MOVES every time the driver is rebuilt. E4′ measured what not knowing that
+costs: 61 pairs out of 61 withheld the licence on this one key, under a driver
+that had only been recompiled. Every occurrence is now removed from **both**
+sides before the compare, and whatever the world put in that variable is
+compared exactly as before — equality first, then the relocation rule. **Both
+tokens must name one directory**: that backreference is the whole fence, and
+two tokens naming two directories are not a shape this recorder writes, so
+they are left for the world's compare. A key the strip touched is NAMED on the
+line and in the trace, beside the relocation clause and separated from it by
+`; `:
+
+    env: unchanged (<N> variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  3 variable(s) differ only by the target directory: CARGO_BIN_EXE_<bin>, CARGO_TARGET_DIR, LD_LIBRARY_PATH; treated as unchanged; the recorder's own fragment stripped before comparing: RUSTDOCFLAGS
+
+A variable this tool compared less of is never silent, and a `RUSTDOCFLAGS`
+the world also wrote to still withholds on what is left of it.
+
+**Session set 1 — where the re-run was launched from is not what it computes**
+(0.8.6, design 2026-09-08 R4 as amended). Refocus from another shell, another
+terminal, another agent session, and the two recorded environments differ on
+the handles that session hands a process. Measured on this box against a kept
+original: 73 keys equal, three missing (the previous launcher's own pins) and
+exactly **one** changed — `CLAUDE_CODE_SESSION_ID`. Session set 1 is the
+positive, versioned list of those handles: exact
+`DBUS_SESSION_BUS_ADDRESS`, `XDG_SESSION_ID`, `TERM_SESSION_ID`, `WINDOWID`,
+`TMUX`, `TMUX_PANE`, `SSH_AGENT_PID`, `SSH_AUTH_SOCK`, `SSH_CLIENT`,
+`SSH_CONNECTION`, `SSH_TTY`, `INVOCATION_ID`, `JOURNAL_STREAM`,
+`SYSTEMD_EXEC_PID`, plus the prefix `CLAUDE_CODE_`. Each names a bus, a
+window, a terminal, a connection, a service manager's invocation or an agent
+session — the identity of where a process was started, and a program has no
+reason to read one to decide what to compute. A member that differs is
+**counted, named, and never withholds**:
+
+    env: unchanged outside session set 1 (<N> variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; 1 session variable(s) differ: CLAUDE_CODE_SESSION_ID)
+
+**Everything else still withholds, and that is the point.** The set is *not* a
+list of variables that "bear" on a program, which was the first design and had
+its falsifier already in this repository's suite: a test that records under
+`REFOCUS_TEST_LIMIT=10` and refocuses without it — a variable the program
+demonstrably reads, on no bearing list anyone would write — would have earned a
+full licence under that rule. This tool cannot know which variables a program
+reads, so the default stands: any other differing key is a change and withholds
+exactly as it did before. The set carries a **version number in the printed
+line** so a key found to bear can leave it with a date and a key found to
+differ between shells can join it with one, and so a reader can tell which
+list a given trace was judged against. On a withheld pair the session names
+still print, after the accusation: `…   (names only); 1 session variable(s)
+differ: CLAUDE_CODE_SESSION_ID`.
+
 **The pair is found in the store, never in what the driver printed.** After
 the child exits, `refocus` lists the traces whose `refocus_of` is this run and
 whose recording started after the launch.
@@ -351,24 +405,45 @@ non-main thread the program did not start (the measured counts were 57 pairs
 with 1 such thread, 1 with 2, and 3 with 5). A clause that cannot not fire is
 not a finding.
 
-**The rule, applied 0.8.5** (design 2026-09-07 §2). A **harness thread** is a
-non-main thread whose ROOT frame's site the manifest marks `#[test]` — the
-recorder's own thread rather than the program's — and it comes out of the
-licence's untraced-thread counts. The ROOT is what the rule is **anchored** on,
-and root-mark anchoring is a **bound**, not soundness in both directions.
-Downward it holds: a `#[test]` fn called from deeper on some other thread says
-nothing about who started that thread, so a mark below the root excludes
-nothing. Upward it does **not**: a spawn opens no frame of its own and a
-closure gets a frame only where it holds a `?`, so the root of a spawned thread
-is the first instrumented fn it calls — and a `#[test]`/`#[bench]` fn is an
-ordinary fn to rustc, callable from anywhere, so `thread::spawn(||
-a_test_fn())` puts a MARKED root on a thread the program started. That thread
-is subtracted and the licence can be **granted** over it. The other end claims
-less: an `async` test fn is skipped by the transform, so it carries no mark at
-all, its harness thread's root is an ordinary fn, and that thread stays counted
-as the program's — the licence withholds, as it did before this rule. Found by
-review 2026-09-07, **not measured**; `rust/HONESTY-BLIND-SPOTS.md` item 28
-carries it with the ruled fix. The set is empty on any trace whose
+**The rule, applied 0.8.5 and narrowed in 0.8.6** (design 2026-09-07 §2, then
+design 2026-09-08 R3). A **harness thread** is a non-main thread whose **FIRST**
+root frame's site the manifest marks `#[test]` and whose task the runtime did
+**not** name at a spawn site — the recorder's own thread rather than the
+program's — and it comes out of the licence's untraced-thread counts. Each
+clause is load-bearing:
+
+* the **ROOT**: a `#[test]` fn called from deeper on some other thread says
+  nothing about who started that thread, so a mark below the root excludes
+  nothing;
+* the **FIRST** root: a thread that runs one instrumented fn to completion and
+  then enters another has two roots, and only the first is how it began;
+* **not spawn-named**: the mark is no proof the other way. A spawn opens no
+  frame of its own and a closure gets a frame only where it holds a `?`, so the
+  root of a spawned thread is the first instrumented fn it calls — and a
+  `#[test]`/`#[bench]` fn is an ordinary fn to rustc, callable from anywhere, so
+  `thread::spawn(|| a_test_fn())` puts a MARKED root on a thread the PROGRAM
+  started. `sensorium-rt` names a workspace spawn at its site
+  (`spawn@<qualname>#<k>`, or `<parent> :: spawn@…`), and that recorded name is
+  what tells two identical-looking roots apart.
+
+An `async` test fn is skipped by the transform, so it carries no mark at all,
+its harness thread's root is an ordinary fn, and that thread stays counted as
+the program's — the licence withholds, as it did before this rule. That end
+always claimed less and is unchanged.
+
+**The history, dated, because the narrowing has one.** As applied in 0.8.5 the
+rule read the mark on ANY root and knew nothing of spawn names, so a thread the
+program spawned onto a marked fn was subtracted, `threads_started − harness`
+could reach 0, and the licence could be **granted** over a thread nothing had
+compared — the direction that claims more. Found by review 2026-09-07 and **not
+measured then**; built and measured 2026-09-08
+(`rust/HONESTY-BLIND-SPOTS.md` item 28, closed there with its date and its
+evidence). `corpus/rust/refocus_spawned_test_fn` pins it through the real
+driver: the spawning test reads `started 1 thread(s) besides the main one and 2
+harness threads (…)` with `licence: WITHHELD`, where the old rule printed `no
+thread started besides the main one and 3 harness threads` and granted.
+
+The set is empty on any trace whose
 sites carry no marks — every **Python** trace, whose every line is byte for
 byte what it was — and empty unless the main thread is a RECORDED fact rather
 than one inferred from whichever event got id 1, because subtracting on a guess
@@ -406,10 +481,17 @@ than falling silent:
 always said: granted where every check that ran agrees, withheld where a thread
 the PROGRAM started ran no traced code and left nothing to compare. Reading the
 four counts is still the better habit. E4's own numbers stand as the record of
-the behaviour BEFORE the rule; the rule's own numbers are E4′
-(`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`), whose
-expected partition over those same 61 pairs was written and byte-locked before
-the instrument existed. On a `cargo run` pair there is no harness thread at all
+the behaviour BEFORE the rule. E4′
+(`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`) measured the
+exclusion firing and being named on 61 of 61 pairs, but its H1 **STOPPED**: the
+environment clause above withheld all 61 on the recorder's own `RUSTDOCFLAGS`
+fragment, so the word itself said nothing about this rule. The rule's own
+numbers are **E4″**'s
+(`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md` §4, 2026-09-08,
+**H1 PASS**): over those same 61 pairs, granted on **57** and withheld on the
+four whose tests really do start threads, program-thread counts **1 / 4 / 4 /
+4** — the partition byte-locked before that instrument existed. On a `cargo
+run` pair there is no harness thread at all
 and the licence IS granted, which `corpus/rust/refocus_match` pins over four
 points.
 

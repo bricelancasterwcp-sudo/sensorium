@@ -18,6 +18,9 @@ distinction and nothing else.
 """
 from functools import partial
 
+import pytest
+
+from sensorium.query.refocus_env import SESSION_ORDER
 from tests.refocus_rust_fixtures import ORIG, PAIR, _drive, _read_meta, original
 
 OLD_ROOT = "/build/target-a"
@@ -212,3 +215,350 @@ def test_a_withheld_pair_with_no_relocation_records_nothing_extra(
     capsys.readouterr()
     assert _read_meta(PAIR, "refocus_licence") == "withheld"
     assert _read_meta(PAIR, "refocus_licence_verified") == []
+
+
+# -- R1: the recorder's own fragment ---------------------------------------
+#: The two rt hashes E4' really recorded (that record's section 4): the driver
+#: embeds a digest of its own binary and the `sensorium-rt` sources in the
+#: path, so the hash moves with every driver build and the fragment differs
+#: between an original and a re-run built from a different commit. Fixtures
+#: use the measured pair rather than invented hex, because "16 hex characters"
+#: is the regex's claim and these are the strings it has to hold for.
+RT_WAS = "d9ce385a08c6646b"
+RT_NOW = "83d9294b8135c157"
+
+
+def fragment(root, rt_hash, profile="unwind"):
+    """`RUSTDOCFLAGS` as `cargo sensorium` writes it: two tokens naming ONE
+    directory under the target root."""
+    d = f"{root}/sensorium/rt/{rt_hash}/{profile}"
+    return f"--extern sensorium_rt={d}/libsensorium_rt.rlib -L dependency={d}"
+
+
+def test_the_recorders_own_fragment_is_stripped_before_the_compare(
+        tmp_path, monkeypatch, capsys):
+    """(a) The E4' shape exactly: the target root moved AND the rt hash moved,
+    because the re-run is built by a different driver. Stripped from both
+    sides, `RUSTDOCFLAGS` has nothing left to differ by -- so it is named by
+    the strip clause and by no other list, and the licence holds."""
+    from sensorium.query.refocus_world import _env_diff
+
+    was = {**cargo_env(OLD_ROOT), "RUSTDOCFLAGS": fragment(OLD_ROOT, RT_WAS)}
+    now = {**cargo_env(NEW_ROOT), "RUSTDOCFLAGS": fragment(NEW_ROOT, RT_NOW)}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert "env: CHANGED" not in out
+    assert ("env: unchanged (5 variables compared; not compared: OLDPWD, "
+            "PWD, SENSORIUM_DIR, SHLVL, _)  3 variable(s) differ only by the "
+            "target directory: CARGO_BIN_EXE_demo, CARGO_TARGET_DIR, "
+            "LD_LIBRARY_PATH; treated as unchanged; the recorder's own "
+            "fragment stripped before comparing: RUSTDOCFLAGS") in out
+    assert "licence: WITHHELD" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "granted"
+
+    # The partition itself, not only its rendering: RUSTDOCFLAGS is on
+    # neither the changed nor the relocated list.
+    changed, relocated, stripped, session = _env_diff(was, now)
+    assert changed == []
+    assert relocated == ["CARGO_BIN_EXE_demo", "CARGO_TARGET_DIR",
+                         "LD_LIBRARY_PATH"]
+    assert stripped == ["RUSTDOCFLAGS"] and session == []
+
+
+def test_a_world_flag_beside_the_fragment_still_withholds(
+        tmp_path, monkeypatch, capsys):
+    """(b) The discriminating control. `--cfg docsrs` is the WORLD's flag and
+    only the original carries it; strip ours and the remainder still differs,
+    so the licence is withheld naming `RUSTDOCFLAGS`. A strip that swallowed
+    the whole variable would grant a licence over a real difference."""
+    was = {**cargo_env(OLD_ROOT),
+           "RUSTDOCFLAGS": "--cfg docsrs " + fragment(OLD_ROOT, RT_WAS)}
+    now = {**cargo_env(NEW_ROOT), "RUSTDOCFLAGS": fragment(NEW_ROOT, RT_NOW)}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "RUSTDOCFLAGS   (names only)") in out
+    assert "licence: WITHHELD" in out
+    # Stripped AND changed: the clause says what was removed even where the
+    # remainder still accuses.
+    assert ("the recorder's own fragment stripped before comparing: "
+            "RUSTDOCFLAGS") in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_two_tokens_naming_different_directories_are_not_our_fragment(
+        tmp_path, monkeypatch, capsys):
+    """(c) The backreference IS the rule. `--extern` and `-L dependency=`
+    that name two different rt directories are not the shape this recorder
+    writes, so nothing is stripped and the world's compare sees the whole
+    value -- which differs by more than the root and withholds."""
+    def mixed(root, first, second):
+        a = f"{root}/sensorium/rt/{first}/unwind"
+        b = f"{root}/sensorium/rt/{second}/unwind"
+        return (f"--extern sensorium_rt={a}/libsensorium_rt.rlib "
+                f"-L dependency={b}")
+
+    was = {**cargo_env(OLD_ROOT),
+           "RUSTDOCFLAGS": mixed(OLD_ROOT, RT_WAS, RT_NOW)}
+    now = {**cargo_env(NEW_ROOT),
+           "RUSTDOCFLAGS": mixed(NEW_ROOT, RT_NOW, RT_WAS)}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "RUSTDOCFLAGS   (names only)") in out
+    assert "the recorder's own fragment stripped" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_a_pair_with_no_fragment_reads_exactly_as_it_did(
+        tmp_path, monkeypatch, capsys):
+    """(d) The legacy fence. A Python pair carries no fragment, so the strip
+    removes nothing, no clause is appended, and both channels are the strings
+    they were before this rule existed -- the line down to its newline and the
+    verified fact as a whole element, not a substring of one."""
+    env = {"PATH": "/usr/bin", "TZ": "UTC"}
+    _pair(tmp_path, monkeypatch, env, dict(env))
+    out = capsys.readouterr().out
+    assert ("env: unchanged (2 variables compared; not compared: OLDPWD, "
+            "PWD, SENSORIUM_DIR, SHLVL, _)\n") in out
+    assert ("2 environment variable(s) compared and unchanged in the "
+            "environment the rerun executed under; not compared: OLDPWD, "
+            "PWD, SENSORIUM_DIR, SHLVL, _"
+            ) in _read_meta(PAIR, "refocus_licence_verified")
+
+
+def test_a_withheld_pair_keeps_the_strip_note_on_its_own(
+        tmp_path, monkeypatch, capsys):
+    """The strip is a finding of its own, and it survives a withheld licence
+    with NOTHING relocated beside it: a re-run into the SAME target
+    directory under a rebuilt driver, with one real difference next to it.
+    Recognising only the relocation phrase would drop this note, and `info`
+    would replay a licence whose screen had said more than the record
+    does."""
+    from sensorium import cli
+
+    was = {"PATH": "/usr/bin", "TZ": "UTC", "CARGO_TARGET_DIR": OLD_ROOT,
+           "RUSTDOCFLAGS": fragment(OLD_ROOT, RT_WAS)}
+    now = {**was, "TZ": "CET", "RUSTDOCFLAGS": fragment(OLD_ROOT, RT_NOW)}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    note = ("the recorder's own fragment stripped before comparing: "
+            "RUSTDOCFLAGS")
+    assert "target directory" not in out          # nothing relocated
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+    assert note in _read_meta(PAIR, "refocus_licence_verified")
+    assert cli.main(["info", PAIR]) == 0
+    assert f"  licence verified: {note}" in capsys.readouterr().out
+
+
+def test_what_the_strip_removes_and_what_it_counts():
+    """(e) The unit. Every match removed, the space that surrounded it
+    collapsed with it, the ends trimmed, and the COUNT returned -- the count
+    is what puts the key on the strip list, so a removal that did not report
+    itself would be a silent exclusion."""
+    from sensorium.query.refocus_env import strip_recorder_fragment
+
+    frag = fragment(OLD_ROOT, RT_WAS)
+    assert strip_recorder_fragment("") == ("", 0)
+    assert strip_recorder_fragment(frag) == ("", 1)
+    assert strip_recorder_fragment("--cfg docsrs " + frag) == (
+        "--cfg docsrs", 1)
+    assert strip_recorder_fragment(f"{frag} {fragment(NEW_ROOT, RT_NOW)}") == (
+        "", 2)
+    # No match, no edit: the trim belongs to the removal and to nothing
+    # else, or the compare quietly widens on every key in the environment.
+    assert strip_recorder_fragment("  --cfg a  ") == ("  --cfg a  ", 0)
+
+
+# -- R4 / A-section-3: session set 1 ---------------------------------------
+def _session_pair(tmp_path, monkeypatch, name, was_value, now_value):
+    """One variable differing between the two runs, everything else equal."""
+    base = {"PATH": "/usr/bin", "TZ": "UTC"}
+    return _pair(tmp_path, monkeypatch, {**base, name: was_value},
+                 {**base, name: now_value})
+
+
+def test_a_session_variable_that_differs_is_named_and_never_withholds(
+        tmp_path, monkeypatch, capsys):
+    """(f) The whole of A-section-3's problem, on this box: a re-run launched
+    from another agent session differs on `CLAUDE_CODE_SESSION_ID` and on
+    nothing else. Named, counted, and the licence still granted -- the line
+    says which set it is unchanged OUTSIDE of, so a reader is never told
+    'unchanged' about an environment that was not."""
+    _session_pair(tmp_path, monkeypatch, "CLAUDE_CODE_SESSION_ID", "a1", "b2")
+    out = capsys.readouterr().out
+    assert "env: CHANGED" not in out
+    assert ("env: unchanged outside session set 1 (3 variables compared; not "
+            "compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; 1 session "
+            "variable(s) differ: CLAUDE_CODE_SESSION_ID)\n") in out
+    assert "licence: WITHHELD" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "granted"
+    assert ("3 environment variable(s) compared and unchanged outside session "
+            "set 1 in the environment the rerun executed under; not compared: "
+            "OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; 1 session variable(s) "
+            "differ: CLAUDE_CODE_SESSION_ID"
+            ) in _read_meta(PAIR, "refocus_licence_verified")
+
+
+def test_a_key_outside_the_session_set_withholds_exactly_as_before(
+        tmp_path, monkeypatch, capsys):
+    """(g) The default is what it always was. `TZ` is on no exemption list
+    anyone would write, a program reads it, and the line and the caveat are
+    the strings they were before session set 1 existed."""
+    _pair(tmp_path, monkeypatch, {"PATH": "/usr/bin", "TZ": "UTC"},
+          {"PATH": "/usr/bin", "TZ": "CET"})
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "TZ   (names only)\n") in out
+    assert "session set" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_a_session_key_beside_a_real_one_withholds_and_names_both(
+        tmp_path, monkeypatch, capsys):
+    """(h) The two halves do not hide each other. `TZ` withholds, and the
+    session key is still counted and named on the same line -- a reader who
+    saw only the accusation would not know the re-run also came from another
+    shell, and a reader who saw only the shell would not know why the
+    licence was refused."""
+    _pair(tmp_path, monkeypatch,
+          {"PATH": "/usr/bin", "TZ": "UTC", "CLAUDE_CODE_SESSION_ID": "a1"},
+          {"PATH": "/usr/bin", "TZ": "CET", "CLAUDE_CODE_SESSION_ID": "b2"})
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "TZ   (names only); 1 session variable(s) differ: "
+            "CLAUDE_CODE_SESSION_ID\n") in out
+    assert "licence: WITHHELD" in out
+    assert ("1 environment variable(s) differ between the two runs (TZ); a "
+            "program that reads them got different input"
+            ) in _read_meta(PAIR, "refocus_licence_reasons")
+
+
+@pytest.mark.parametrize("session_name", [*SESSION_ORDER, "CLAUDE_CODE_X"])
+def test_every_member_of_session_set_1_is_named_and_never_withholds(
+        tmp_path, monkeypatch, capsys, session_name):
+    """(i) Each of the fourteen exact names, and the prefix, driven through
+    the whole command. The set is a POSITIVE, versioned list precisely so
+    that every member of it can be enumerated by a test and argued with by a
+    reader; a negative list could be neither."""
+    _session_pair(tmp_path, monkeypatch, session_name, "one", "two")
+    out = capsys.readouterr().out
+    assert "env: CHANGED" not in out
+    assert f"1 session variable(s) differ: {session_name}" in out
+    assert "licence: WITHHELD" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "granted"
+
+
+@pytest.mark.parametrize("name", ["CLAUDE_CODEX", "XDG_SESSION_IDX"])
+def test_a_name_that_merely_resembles_a_session_key_still_withholds(
+        tmp_path, monkeypatch, capsys, name):
+    """(j) The set is exact names and one prefix, not a family resemblance.
+    `CLAUDE_CODEX` does not carry the `CLAUDE_CODE_` prefix and
+    `XDG_SESSION_IDX` is not `XDG_SESSION_ID`; a membership test loose enough
+    to admit either would exempt variables nobody put on the list."""
+    _session_pair(tmp_path, monkeypatch, name, "one", "two")
+    out = capsys.readouterr().out
+    assert (f"env: CHANGED since the original run -- 1 variable(s) differ: "
+            f"{name}   (names only)") in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_a_session_key_present_on_one_side_only_is_still_a_session_key(
+        tmp_path, monkeypatch, capsys):
+    """(k) A key that APPEARED is a difference -- as it always was -- and
+    then it is partitioned like any other. A re-run launched outside tmux
+    has no `TMUX` at all, which is the same fact about the launcher as a
+    `TMUX` that differs, and must not read as the world changing."""
+    from sensorium.query.refocus_world import _env_diff
+
+    was = {"PATH": "/usr/bin"}
+    now = {"PATH": "/usr/bin", "TMUX": "/tmp/tmux-1000/default,17,0"}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert "env: CHANGED" not in out
+    assert "1 session variable(s) differ: TMUX" in out
+    assert "licence: WITHHELD" not in out
+    changed, relocated, stripped, session = _env_diff(was, now)
+    assert changed == [] and relocated == [] and stripped == []
+    assert session == ["TMUX"]
+
+
+# -- fix round 1: what the review found ------------------------------------
+
+def test_a_whitespace_only_difference_is_still_a_difference(
+        tmp_path, monkeypatch, capsys):
+    """The strip must not widen the compare on a key it did not touch. A
+    trailing space on a value the world wrote is a difference between two
+    recorded environments, and a `strip()` applied whether or not a fragment
+    matched would have quietly called it unchanged -- on NEITHER channel,
+    because the key never reaches the strip list."""
+    _pair(tmp_path, monkeypatch, {"PATH": "/usr/bin", "TZ": "UTC "},
+          {"PATH": "/usr/bin", "TZ": "UTC"})
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "TZ   (names only)\n") in out
+    assert "the recorder's own fragment stripped" not in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_session_set_1_is_these_fourteen_names_in_this_order():
+    """The set, written out. The parametrised test above iterates the tuple
+    itself, so it would pass over any list at all; this is the one place a
+    name added, removed or reordered fails a test. The order is the design's
+    (amendment A-section-3) and E4''s arm C picks its injected key by it."""
+    from sensorium.query import refocus_env as env
+
+    assert env.SESSION_SET == 1
+    assert env.SESSION_ORDER == (
+        "DBUS_SESSION_BUS_ADDRESS", "XDG_SESSION_ID", "TERM_SESSION_ID",
+        "WINDOWID", "TMUX", "TMUX_PANE", "SSH_AGENT_PID", "SSH_AUTH_SOCK",
+        "SSH_CLIENT", "SSH_CONNECTION", "SSH_TTY", "INVOCATION_ID",
+        "JOURNAL_STREAM", "SYSTEMD_EXEC_PID")
+    assert env.SESSION_EXACT == frozenset(env.SESSION_ORDER)
+    assert env.SESSION_PREFIXES == ("CLAUDE_CODE_",)
+
+
+def test_all_four_lists_at_once_on_a_withheld_pair(
+        tmp_path, monkeypatch, capsys):
+    """Every rule firing on one pair, and the WHOLE line pinned. The
+    accusation comes first over the changed names alone, then the session
+    clause it must not be confused with, then the two explanations -- swap
+    any pair of them and this fails. `LD_LIBRARY_PATH` gained a directory,
+    so it is the one thing here the world really did."""
+    was = {**cargo_env(OLD_ROOT), "RUSTDOCFLAGS": fragment(OLD_ROOT, RT_WAS),
+           "CLAUDE_CODE_SESSION_ID": "a1"}
+    now = {**cargo_env(NEW_ROOT, ld_extra=":/opt/lib"),
+           "RUSTDOCFLAGS": fragment(NEW_ROOT, RT_NOW),
+           "CLAUDE_CODE_SESSION_ID": "b2"}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert ("env: CHANGED since the original run -- 1 variable(s) differ: "
+            "LD_LIBRARY_PATH   (names only); 1 session variable(s) differ: "
+            "CLAUDE_CODE_SESSION_ID  2 variable(s) differ only by the target "
+            "directory: CARGO_BIN_EXE_demo, CARGO_TARGET_DIR; treated as "
+            "unchanged; the recorder's own fragment stripped before "
+            "comparing: RUSTDOCFLAGS\n") in out
+    assert _read_meta(PAIR, "refocus_licence") == "withheld"
+
+
+def test_a_session_only_pair_still_carries_both_clauses(
+        tmp_path, monkeypatch, capsys):
+    """The same four rules with the world's difference taken away: the
+    session count sits INSIDE the compared-count parenthesis and the two
+    explanations follow it, and the licence holds. This is the shape E4''
+    expects on a granted pair, printed in full."""
+    was = {**cargo_env(OLD_ROOT), "RUSTDOCFLAGS": fragment(OLD_ROOT, RT_WAS),
+           "CLAUDE_CODE_SESSION_ID": "a1"}
+    now = {**cargo_env(NEW_ROOT), "RUSTDOCFLAGS": fragment(NEW_ROOT, RT_NOW),
+           "CLAUDE_CODE_SESSION_ID": "b2"}
+    _pair(tmp_path, monkeypatch, was, now)
+    out = capsys.readouterr().out
+    assert "env: CHANGED" not in out
+    assert ("env: unchanged outside session set 1 (6 variables compared; not "
+            "compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; 1 session "
+            "variable(s) differ: CLAUDE_CODE_SESSION_ID)  3 variable(s) "
+            "differ only by the target directory: CARGO_BIN_EXE_demo, "
+            "CARGO_TARGET_DIR, LD_LIBRARY_PATH; treated as unchanged; the "
+            "recorder's own fragment stripped before comparing: "
+            "RUSTDOCFLAGS\n") in out
+    assert _read_meta(PAIR, "refocus_licence") == "granted"
