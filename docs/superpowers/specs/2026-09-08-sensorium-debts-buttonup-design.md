@@ -230,3 +230,14 @@ same seam), and `rust/tests/acceptance_e4p_read.py` →
 `acceptance_e4p_trace.py` (its store banner). Every one a pure move with every
 name imported back — R9 working as written, on files R9 named.
 
+**A3 — A2's closing clause overstates R9's list, 2026-09-08 (final fix wave).**
+A2 stands as written; this is the correction beside it. R9 names
+`rust/tests/mechanics.sh` and three near-ceiling instrument files, spelling two
+of them out — `acceptance_e4p_read.py` (787) and `acceptance_e4pp_phases.py`
+(761). Those two of the four splits A2 lists are therefore *on files R9 named*.
+The other two — `rust/tests/acceptance_e4pp.py` and
+`tests/test_acceptance_e4pp.py` — R9 does not name anywhere: they were split
+under R9's RULE (a file this slice's own edits took past 780 is split at its
+`# ----` banner) rather than off R9's list. Two of four, not four of four. The
+splits themselves are unaffected — each is still a pure move with every name
+imported back — and nothing in §3's table or R9 is edited.

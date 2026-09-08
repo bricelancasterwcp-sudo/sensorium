@@ -28,7 +28,8 @@ new key into a trace.
   would have deleted the check. Nothing the runtime records changed: no wire
   kind, no record shape, no capability. The sha256 vectors the consolidation
   dropped came back at `bde3a66`.
-- **Seventeen files split, each before anything edited it** (rulings R2/R9).
+- **Seventeen files split — thirteen before anything edited them, four
+  after, which is what R9 asks for** (rulings R2/R9).
   Thirteen the design's seam map named — `tests/programs.py` (`b05046b`),
   `test_tree_frame.py` (`718a013`), `test_boot_cli.py` (`5ef40e5`),
   `test_exceptions.py` (`71d18b8`), `test_diff.py` (`d3823b4`),
@@ -41,15 +42,22 @@ new key into a trace.
   split at their banners under R9 (`bb6b2c4` and the fix commits). Every one a
   pure move, proved by `--color-moved=zebra` and equal collection counts, with
   seven falsified pointers repointed at `b6e2125`.
-- **A repo-wide ceiling gate** (ruling R1, `e531200`). `tests/test_ceiling.py`
-  holds every tracked `*.py`, `*.rs`, `*.sh`, the README, `docs/*.md` and
-  `rust/*.md` under 800 lines and exempts the three record directories under
+- **A repo-wide ceiling gate** (ruling R1, `e531200`, widened in the final
+  fix wave). `tests/test_ceiling.py` holds every tracked `*.py`, `*.rs`,
+  `*.sh` and `*.md` under 800 lines and exempts the three record directories
+  under
   `docs/superpowers/` **by name** — dated history, some byte-locked, amended
   by appended notes and never restructured. Both mutations were measured: the
   limit lowered to 700 names 37 files; a fourth exemption fails the test that
   pins the list. The ruling closes two ledger rows without code — the parent
   spec at 1458 (#59) and the repair acceptance record at 795 (#60) — because
-  neither is owed a split.
+  neither is owed a split. The wave widened the markdown half from three
+  named patterns to `*.md` whole, which closes the class rather than the
+  three files it happened to be missing: `CHANGELOG.md`, `ORIGIN.md` and
+  `corpus/rust/README.md` join the enumeration, and this file's own pre-0.8
+  entries move to `CHANGELOG-ARCHIVE.md` first — a pure move, off 798 lines
+  and two from a ceiling nothing was checking. `docs/CARRIED-DEBT.md`'s
+  near-ceiling list carries the measured number.
 - **The E4″ instrument's five gaps, with the measurement closed** (rows #1–#5,
   ruling R5, `962cacd`, findings lines `8c4dde1`, renderer `b0c3720`): H8's
   presence reader matches the listing's last path segment as well as the whole
@@ -83,8 +91,11 @@ new key into a trace.
   `36a6f5f`); the printed `HONESTY.md` citation (#18), the born-outside claim
   qualified (#28), the invocation header's noun — `N swallowed shape(s)`,
   which is what N counts (#30) — and the panics line's unit (#31), at
-  `edc2bce` with `6490a14`; a typed lookup failure, a language-free
-  `diff --task` help line, the `or "?"` fixture and "modulo location" on the
+  `edc2bce` with `6490a14`; a typed lookup failure — `cli.py:91` stamps
+  `type(e).__name__`, so the invocation log's `error` value for a prefix
+  miss now reads `NoSuchTrace` where it read `TraceLookupError`, the class
+  actually raised, and no reader keys on it — a language-free `diff --task`
+  help line, the `or "?"` fixture and "modulo location" on the
   all-in-tasks branch (#27/#36/#37/#51, `0d685ad`); and a MATCH that says it
   is not a statement about the schedule (#20, `13475a2` with `245dee4`).
 - **The corpus and the driver seam**: one driver resolution under
@@ -123,10 +134,16 @@ new key into a trace.
   measured before the ceiling was met rather than after.
 - **What was declined, and why** (all in `docs/CARRIED-DEBT.md`'s new
   section): the six converter functions of 88–274 lines are **C, not A**
-  (ruling R4 — behaviour-risk work with no failing test behind it); rows #11,
-  #23 and #29 want one task holding two file scopes at once; and of #26, #35
-  and #44 the parts that stand are named individually. The **C** list of 43 is
-  restated in one line each so it can be read without opening four volumes.
+  (ruling R4 — behaviour-risk work with no failing test behind it); and of
+  #26, #35 and #44 the parts that stand are named individually. Rows #11,
+  #23 and #29 were declined for wanting one task holding two file scopes at
+  once, and the final fix wave — one task, both scopes — took all three:
+  the re-export idiom's file counts dropped everywhere they were spelled,
+  three `chain.terminal` conformance vectors (`v20`–`v22`, for `panicked`,
+  `left_thread` and `handled_then_failed`), and the §11 sweep finished.
+  The **C** list — the inventory's 43, plus **C117**, which the final fix
+  wave's review added rather than ruled on — is restated in one line each so
+  it can be read without opening four volumes.
 
 ## 0.8.6 — 2026-09-08
 
@@ -757,42 +774,7 @@ compile-time `--focus`. Python **0.8.3**; the crates move together to
   is gone from the parser; `--misses` is the only spelling now, and passing
   `--near` is an unrecognized argument like any other unknown flag (exit 2).
 
-## 0.7.0 — 2026-09-04
-
-- **Exit-status convention**: every query command's exit status now names
-  the caller's next action — `0` the question was answered affirmatively,
-  `1` answered negatively (the trace says no, or none), `2` the call is
-  wrong (edit the command and ask again), `3` the trace cannot settle it
-  (change the recording and re-record). `run` is unchanged: it exits with
-  the target's own status. See the README's "Exit statuses" section and
-  every subcommand's `--help` epilog.
-- **Contract change**: `diff` and `refocus`'s `REFUSED` verdict moves from
-  exit 2 to exit **3** — a refusal after a comparison ran (or, for
-  `refocus`, after the rerun happened) is "the recording can't settle it,"
-  not "the call is wrong." `refocus`'s other gate — refusing before any
-  rerun is attempted (INCOMPLETE original, stdin consumed, the target no
-  longer resolves, the working directory gone, a per-thread-basis original
-  that ran tasks, the trace records no command to re-run or no working
-  directory to re-run from, `capabilities.refocus: false`) — stays exit 2,
-  unchanged.
-- **`watch --misses N`** replaces `--near N` as the flag that sets how many
-  near-misses to show when nothing hit; `--near` is kept as a hidden,
-  deprecated alias for this release only (prints a deprecation line on
-  stderr) and will be removed in 0.8.0.
-- **`--fn` is exact-first, then substring** in both `grep` and `frame`: a
-  qualname that matches `--fn` exactly wins outright; only when nothing
-  matches exactly does it fall back to substring, and a substring that
-  matches more than one distinct qualname is refused (exit 2) with every
-  candidate listed, rather than picked among.
-- **Invocation log**: `sensorium` now appends one JSON line per invocation
-  — `utc`, `argv`, `exit`, `error` — to `<trace root>/invocations.jsonl`,
-  a sibling of `traces/` so no trace lookup ever sees it. Default on;
-  disable for one process with `SENSORIUM_NO_INVOCATION_LOG=1`.
-- **Rust toolchain pinned** to `1.96.0` via `rust/rust-toolchain.toml`; CI
-  installs it with `rustup show` and the cache key carries the channel
-  string, so a clippy/rustfmt version bump is now a deliberate commit.
-
-## 0.6.0 — 2026-09-04
-
-- Rust recorder rung 2 (recorder v1) and the rung-3 entry slice (spawn
-  names across a file move) merged — PRs #10, #12.
+**Earlier entries** — `0.7.0` and `0.6.0` — are
+[`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md), moved there 2026-09-08 so this
+file stays under the repo-wide 800-line ceiling `tests/test_ceiling.py` now
+holds it to. A pure move: same wording, same order, same dates.

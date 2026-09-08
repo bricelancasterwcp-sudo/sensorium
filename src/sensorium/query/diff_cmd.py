@@ -92,7 +92,8 @@ from sensorium.query.vocab import PYTHON, terms
 from sensorium.store.reader import Trace
 # The honesty-note layer, split out at this file's 800-line ceiling.
 # Re-exported so `diff_cmd.<name>` keeps resolving: these are one command's
-# internals living in two files, not two modules with two surfaces.
+# internals across its files, not separate modules with surfaces of their
+# own.
 from sensorium.query.diff_notes import (  # noqa: F401  (re-exported)
     _argv_note, _thread_header, _thread_notes, safety_notes)
 

@@ -203,13 +203,20 @@ is to cut the oldest section rather than discover the ceiling.
   the golden's comment stays stale until that golden legitimately changes.
   Nothing further is owed — the bytes are the fixture, and a comment is not a
   reason to move them.
-- **Three small residues of this slice's splits.** Task 1's dead-import trim
+- ~~**Three small residues of this slice's splits.** Task 1's dead-import trim
   narrowed the `refocus_cmd` namespace by seven names (no consumers, and the
   re-export block covers the four the report owns); the "two files" re-export
   comments now describe a shape three modules share; and
   `rust/HONESTY-REFOCUS.md` carries a bare `---` from the move — in
   `rust/HONESTY.md` it separated §13 from §14, and here it divides the moved
-  body from this slice's amendments, a use it was not given on purpose.
+  body from this slice's amendments, a use it was not given on purpose.~~ —
+  **Taken 2026-09-08 by the final fix wave** (inventory row #11, with minor 4
+  of the whole-branch review). The count is gone from every one of the idiom's
+  eight sites rather than reconciled: the family spelled it "two", "three" and
+  "four" for the same shape, and the number was never the point. The bare `---`
+  is dropped; the `## Amendments` heading below it, whose first sentence is
+  *appended after the moved body and never edited into it*, already says what
+  the rule was silently marking. The dead-import trim stands as recorded.
 - **The rung-5 lever, and the principled end of session set 1**: record which
   environment variables the program actually READ, and compare only those. It
   retires blind spot 29 rather than bounding it — the exemption today rests on a
@@ -353,6 +360,16 @@ is to cut the oldest section rather than discover the ceiling.
   was taken 2026-09-06 and only its record half closes here) — because
   neither is owed a split. `b498caa`'s message lists #60 among the struck
   rows; that message stands as written, and this is the correction.
+  **A second message needs one.** `d261a52`'s body says "every file this
+  commit's slice touched is under it" — under the gate. It was not true
+  when it was written: the gate's patterns were `*.py`, `*.rs`, `*.sh`,
+  `README.md`, `docs/*.md` and `rust/*.md`, and that commit also touched
+  `CHANGELOG.md` and three files under `docs/superpowers/specs/`, none of
+  which any pattern reached — the specs by the exemption, the changelog by
+  omission. That message stands as written too, and this is its correction.
+  The final fix wave then made the sentence true for the changelog by
+  widening the gate to `*.md` whole; the three spec files stay exempt, which
+  is R1's own ruling and not an oversight.
 - **The stale root-disk driver deleted** (#15, ruling R7): 6 916 896 bytes, a
   2026-09-04 build of ours, untracked, on the near-full root disk while the
   box builds on the second one. Nothing to commit — the deletion is recorded
@@ -406,16 +423,21 @@ is to cut the oldest section rather than discover the ceiling.
   three splits under names the seam map spells rather than the design's table
   (`test_exceptions_synthetic.py`, `test_tracer_serials.py`,
   `acceptance_schema_e5prime.py`), each because the design's name would send a
-  reader to the wrong file; Task 6 split four files R9 named. Both are
-  appended to the design as A1 and A2. One deliberate non-re-export rides with
+  reader to the wrong file; Task 6 split four files this slice's own edits
+  took past 780 — two of them R9 names by path, two of them R9 reaches by
+  its rule and not by its list. Both are appended to the design as A1 and A2,
+  and the two-of-four correction as **A3** (the final fix wave).
+  One deliberate non-re-export rides with
   them: `tracer.py`'s `_SENSORIUM_DIR` is **not** re-exported, so a test that
   patches it on the wrong module meets a loud `AttributeError` rather than a
   silently ineffective patch.
 
 ### Deferred, with rulings
 
-- **The C list is untouched: 43 rows, not funded this slice, and every one of
-  them is the next conversation with Brice.** They are restated in one line
+- **The C list is untouched: 43 rows at the inventory, not funded this slice,
+  and every one of them is the next conversation with Brice** — 44 as it
+  stands, the final fix wave's review having added **C117** rather than
+  ruling on it. They are restated in one line
   each below so the list can be read without opening three volumes; the
   numbers are the design's own (§2), and each row is still live where it was
   raised. **C74** `--window` for Rust (refused at exit 2). **C75** refocus
@@ -453,7 +475,16 @@ is to cut the oldest section rather than discover the ceiling.
   rewriting spawns in expression positions (the declaration half is taken).
   **C114** no unit tests on the acceptance instruments. **C115**
   `refocus --window QUALNAME` reads as a size/range. **C116** the Python
-  `live_threads` line's pre-existing asymmetry.
+  `live_threads` line's pre-existing asymmetry. **C117** (added by the final
+  fix wave's review, so the list is 44) — `assess` (`refocus_cmd.py:495-504`)
+  comments that a withheld licence's one exception is "about NAMES rather
+  than about standing", but on the `not names` branch what is retained is
+  the whole `N compared and unchanged…` sentence, and ruling R6 extended it
+  to the session clause: the retained fact now carries standing as well as
+  names. Either the comment is narrowed to what the branch keeps or the
+  branch is narrowed to what the comment promises, and which of the two is a
+  design question about what a withheld licence may still assert — the C
+  conversation's, not a rewording.
 - **Function lengths are C, not A** — **C48** by its inventory number, the
   one A row this slice re-bucketed (**ruling R4**): six converter functions
   of 88–274 lines (`frames::process`, `convert_one`, `wrapper::instrument`,
@@ -461,7 +492,7 @@ is to cut the oldest section rather than discover the ceiling.
   core is behaviour-risk work with no failing test behind it, and it goes to
   the C conversation as a refactor needing its own review. It is the largest
   row this slice declined, and it is declined on purpose.
-- **Three A rows were not taken, and none of them is mechanical from here.**
+- ~~**Three A rows were not taken, and none of them is mechanical from here.**
   **#11**, the three residues of the splits, is now **four**: the two
   `refocus_cmd.py` "two files" re-export comments, a third the
   `refocus_world.py` split added at `f350b9c`, and `rust/HONESTY-REFOCUS.md`'s
@@ -473,7 +504,25 @@ is to cut the oldest section rather than discover the ceiling.
   vector and a test (`v18`'s prose assertion, `test_honesty_prose` pinning §11
   whole); taking only the `HONESTY-INDEX.md` row and the `JoinHandle` gloss
   would leave the row half-open with no gain. All three want one task with
-  both file scopes.
+  both file scopes.~~ — **Taken 2026-09-08 by the final fix wave**, which is
+  the one task with both file scopes this bullet said they wanted. **#11**:
+  the file count is gone from all eight sites of the re-export idiom
+  (`refocus_cmd.py` ×2, `refocus_world.py`, `refocus_threads.py`,
+  `diff_cmd.py`, `diff_notes.py`, `tracer.py`, `tracer_frames.py`) — the
+  ruling was to drop the number rather than reconcile five different ones —
+  and `rust/HONESTY-REFOCUS.md`'s bare `---` is dropped, the heading below it
+  already saying what it silently marked. **#23**:
+  `v20-exceptions-rust-panicked`, `v21-exceptions-rust-left-thread` and
+  `v22-exceptions-rust-handled-then-failed`, built by `tests/vectors.py` from
+  hand-written JSON like every vector before them and run by
+  `tests/test_vectors.py` against the real CLI; each was mutated (its
+  `terminal` set to a value the rules do not know) and each reddened.
+  **#29**: the `HONESTY-INDEX.md` §11 row states the post-N1 definition, §11's
+  `JoinHandle` bullet carries the per-thread gloss and points at blind spot
+  25, `v18`'s `asserts` says that the sentence its question pins IS the
+  ledger's own (`ESCAPED_DETAIL`, held to §11 by `tests/test_honesty_prose.py`)
+  rather than a paraphrase of it, and that test now reads the SWALLOWED bullet
+  instead of the whole section.
 - **Partly taken, with what stands named.** **#26**: six of ten closed at
   `ae58c54`; the four that stand are crate code and crate unit tests — the
   side-effecting `visit_stmt` guard, no receiver-position dropped-call row,
@@ -513,14 +562,24 @@ is to cut the oldest section rather than discover the ceiling.
   `RT_VERSION` is the honest fix); `src/sensorium/capture.py:52` points at a
   `tracer.py` line number the split aged; `tracer.py`'s docstring states
   `_ExcRefs`' contract two files away; the renamed driver-rule test's
-  docstring sits where the rename left it; `refocus_threads.py`'s "four files"
-  reads against the re-export idiom's "two files" (row #11's neighbourhood);
+  docstring sits where the rename left it; ~~`refocus_threads.py`'s "four
+  files" reads against the re-export idiom's "two files" (row #11's
+  neighbourhood)~~ — **taken by the final fix wave**, which dropped the count
+  from all eight sites of the idiom rather than reconciling them;
   the process-global `UNENUMERATED_EXPRS` counter is asserted by delta rather
   than by value; `#46`'s doctest exclusion is inline in `convert_dir` rather
   than factored; `pub(super) text` is unused across the chains seam; and
   `render_e4pp`'s walls table renders arms A/B/C only, while the record now
-  also carries `dry`, `driver_build` and `cargo_s`.
-- **The ceiling gate does not yet cover `CHANGELOG.md`** (**796** after this
+  also carries `dry`, `driver_build` and `cargo_s` — **and, added by the
+  final fix wave's review, `render_e4pp.py:399-402` still prints an ABSENT
+  wall as `None s`**: `(walls.get(a) or {}).get('first_focus')` is `None`
+  when the arm recorded no wall, and the f-string renders it beside the
+  unit, so a cell that was never measured reads like a measured zero-ish
+  number. That is the same class the H8 fix removed from the presence
+  reader this slice, one renderer along. Carried, not fixed: it is an
+  instrument, no published number turns on it, and the honest repair is
+  the same `null`-with-a-reason shape H8 now uses — next slice.
+- ~~**The ceiling gate does not yet cover `CHANGELOG.md`** (**796** after this
   slice's entry). The gate's patterns are `*.py`, `*.rs`, `*.sh`, `README.md`,
   `docs/*.md` and `rust/*.md`, so a root-level changelog is outside them and
   the next release entry crosses 800 with nothing red. *The fix*: **the final
@@ -528,32 +587,59 @@ is to cut the oldest section rather than discover the ceiling.
   entries to a dated archive volume first — the same rule this ledger keeps
   for itself. Recorded rather than taken here because widening what the gate
   covers is a ruling, and Task 5's own docstring says a file the gate names is
-  a split to take, never an exemption to add.
+  a split to take, never an exemption to add.~~ — **Taken 2026-09-08 by the
+  final fix wave, both halves and in that order.** The archive came first: the
+  `0.7.0` and `0.6.0` entries moved to `CHANGELOG-ARCHIVE.md` as a pure move
+  under a dated volume header in `CARRIED-DEBT-ARCHIVE-2`'s shape, with a
+  pointer line at the foot of `CHANGELOG.md`; `tests/test_release_tokens.py`
+  reads the NEWEST header only and is unaffected, which was checked and not
+  assumed. Then the gate widened to **`*.md` minus the three exemptions**
+  rather than to three more named patterns — the class, not the three files
+  that happened to be missing. The enumeration gains exactly
+  `CHANGELOG.md`, `CHANGELOG-ARCHIVE.md`, `ORIGIN.md` and
+  `corpus/rust/README.md`; **nothing it newly covers is over 800**, and
+  `tests/test_ceiling.py` names the four so a narrowed `PATTERNS` reddens.
 - **Files near the ceiling, named rather than split** (rulings R2/R9 — none of
-  them was edited past 780 by this slice): `rust/tests/mechanics.sh` **795**
-  (row #57, and an E7 second-column check waits on the split);
-  `tests/test_runs_info.py` **790** (seam: its `# -- Ruling 7` banner at
-  `:476` → `test_runs_info_rust.py`); `rust/tests/acceptance_e9_phases.py`
-  **788**; `rust/sensorium-transform/tests/golden.rs` **788**;
-  `rust/sensorium-transform/tests/edges.rs` **784**;
+  them was edited past 780 by this slice). **Re-measured 2026-09-08 by the
+  final fix wave**, after the changelog cut and under the WIDENED patterns, so
+  the list below is the gate's own scope and not the narrower one the earlier
+  reading used:
+
+  ```
+  git ls-files -- '*.py' '*.rs' '*.sh' '*.md' \
+    | grep -v -E '^docs/superpowers/(acceptance|plans|specs)/' \
+    | xargs wc -l | awk '$1>=750 && $2!="total"' | sort -rn
+  ```
+
+  `rust/tests/mechanics.sh` **795** (row #57, and an E7 second-column check
+  waits on the split); `tests/test_runs_info.py` **790** (seam: its
+  `# -- Ruling 7` banner at `:476` → `test_runs_info_rust.py`);
+  `rust/tests/acceptance_e9_phases.py` **788**;
+  `rust/sensorium-transform/tests/golden.rs` **788**;
+  `rust/sensorium-transform/tests/edges.rs` **784**; `CHANGELOG.md` **780** —
+  new to this list, because it is new to the gate, and 780 is what it reads
+  AFTER the pre-0.8 entries moved to `CHANGELOG-ARCHIVE.md` (it was 798, two
+  lines from the ceiling, with nothing red);
   `rust/cargo-sensorium/src/convert/mod.rs` **777**;
-  `tests/test_refocus_licence.py` **772**; `rust/HONESTY-BLIND-SPOTS.md`
-  **772** after this slice's two items — the next item added to it splits it
-  first, and the seam is the one the index already uses, a rung's items moving
-  to a file it links; `tests/test_flow_identity.py` **770**;
-  `src/sensorium/record/boot.py` **768**;
+  `tests/test_refocus_licence.py`
+  **772**; `rust/HONESTY-BLIND-SPOTS.md` **772** after this slice's two items —
+  the next item added to it splits it first, and the seam is the one the index
+  already uses, a rung's items moving to a file it links;
+  `tests/test_flow_identity.py` **770**; `src/sensorium/record/boot.py` **768**;
   `rust/cargo-sensorium/tests/convert_meta.rs` **758** (**no seam named yet** —
   the file carries no banner, and choosing one is the next toucher's call);
   `tests/refocus_programs.py` **755** (seam: its `# -- asyncio` banner at
   `:591`); `rust/cargo-sensorium/src/mirror.rs` **753** (seam: `mod tests` at
-  `:329` → `mirror/tests.rs`, the house pattern); `docs/TRACE-FORMAT.md`
-  **752** (seam: a numbered section moves to a file it links, as
-  `rust/HONESTY.md` §1, §8, §11 and §13 did — §5's enumerations at `:476` are
-  the largest); and `rust/sensorium-rt/src/spool.rs` **752**. The floor of
-  this list is 750 lines, and it is a measurement, not a recollection:
-  `git ls-files` under the gate's own patterns, sorted. `tests/test_ceiling.py`
-  now fails on any of them crossing 800, which is the difference between this
-  list and the six that came before it.
+  `:329` → `mirror/tests.rs`, the house pattern); `rust/sensorium-rt/src/spool.rs`
+  **752**; `docs/TRACE-FORMAT.md` **752** (seam: a numbered section moves to a
+  file it links, as `rust/HONESTY.md` §1, §8, §11 and §13 did — §5's
+  enumerations at `:476` are the largest); and `tests/test_capture.py` **750**,
+  which the previous reading of this list omitted at exactly the floor it
+  declares. Seventeen files, floor 750, and it is a measurement rather than a
+  recollection — the command is above, so the next reader re-runs it instead of
+  trusting this paragraph. `tests/test_ceiling.py` fails on any of them
+  crossing 800, which is the difference between this list and the six that came
+  before it.
 
 ### Process lessons
 

@@ -159,14 +159,14 @@ from sensorium.query.vocab import terms
 from sensorium.query.diff_cmd import compare
 # The evidence layer, split out at this file's 800-line ceiling. Re-exported
 # so `refocus_cmd.<name>` keeps resolving: these are one command's internals
-# living in two files, not two modules with two surfaces.
+# across its files, not separate modules with surfaces of their own.
 from sensorium.query.refocus_world import (  # noqa: F401
     _UNCOMPARED_ENV, _clip, _env_diff, _env_state, _licence_caveats,
     _output_difference, _output_text, _source_state, _spawn_witnessed,
     _verified_facts, harness_note, uncompared_threads)
 # The reporting layer, split out at this file's 800-line ceiling. Re-exported
 # so `refocus_cmd.<name>` keeps resolving: these are one command's internals
-# living in two files, not two modules with two surfaces.
+# across its files, not separate modules with surfaces of their own.
 from sensorium.query.refocus_report import (  # noqa: F401
     _diverged_why, _print_thread_line, _stamp, report)
 from sensorium.store.reader import Trace

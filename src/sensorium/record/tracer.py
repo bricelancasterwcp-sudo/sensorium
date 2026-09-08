@@ -95,7 +95,8 @@ from sensorium.record.capture import (capture_exc, capture_value, plain_str,
 from sensorium.record.fingerprint import Fingerprint
 # The exception-retention layer, split out at this file's 800-line ceiling.
 # Re-exported so `tracer.<name>` keeps resolving: these are one recorder's
-# internals living in three files, not three modules with three surfaces.
+# internals across its files, not separate modules with surfaces of their
+# own.
 from sensorium.record.tracer_exc import (  # noqa: F401
     _CONTROL_RETAIN_MAX, _RETAIN_MAX, _ExcRefs, _TLS, _is_control_flow)
 # The frame-classification layer, split out at the same ceiling, re-exported

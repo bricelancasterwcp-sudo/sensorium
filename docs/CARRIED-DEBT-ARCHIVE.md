@@ -180,13 +180,21 @@ both files. A deferred item below is still open unless it is struck.
   `chains/tests.rs::an_err_close_hops_the_held_chain_whose_text_it_carries_not_the_innermost`,
   `rust/cargo-sensorium/tests/convert_errflow_chains.rs`, and
   `corpus/rust/keep_first_error`.
-- **Three `chain.terminal` values have no conformance vector** —
+- ~~**Three `chain.terminal` values have no conformance vector** —
   `panicked`, pinned by `tests/test_exceptions_rust.py` alone
   (`test_a_panic_on_the_holder_quotes_the_panic_and_claims_no_cause`), and
   `left_thread` and `handled_then_failed`, pinned by
   `tests/test_exceptions_rust_ambiguous.py` alone
   (`test_a_chain_that_left_a_spawned_threads_outermost_frame_is_ambiguous`,
-  `test_a_sink_whose_frame_then_failed_is_ambiguous_not_swallowed`).
+  `test_a_sink_whose_frame_then_failed_is_ambiguous_not_swallowed`).~~ —
+  **Taken 2026-09-08 by the queue slice's final fix wave** (inventory row #23):
+  `v20-exceptions-rust-panicked`, `v21-exceptions-rust-left-thread` and
+  `v22-exceptions-rust-handled-then-failed`. Built the way every vector is —
+  hand-written JSON through `tests/vectors.py`'s real `TraceWriter` — and run
+  by `tests/test_vectors.py` against the shipped CLI in a subprocess. Each was
+  mutated by setting its `terminal` to a value the rules do not know, and each
+  reddened, so the three pin the field they exist for. The Python tests above
+  are unchanged and still stand.
 - ~~**`convert/chains/mod.rs`'s doc comment for `hop`** still carries the
   pre-correction wording ("each frame the chain crosses"), which
   `docs/TRACE-FORMAT.md` §5 corrected on 2026-09-05 to count in-frame hops
@@ -569,13 +577,24 @@ both files. A deferred item below is still open unless it is struck.
   claims a birthplace it cannot know — and the ledger half is
   `rust/HONESTY-BLIND-SPOTS.md` **item 30**, added by the queue slice, which
   is the ledger this row said the shape was missing from.
-- **The §11 sweep N1 did not finish.** `rust/HONESTY-INDEX.md`'s §11 row still
+- ~~**The §11 sweep N1 did not finish.** `rust/HONESTY-INDEX.md`'s §11 row still
   states the promise in its pre-N1 form; §11's `JoinHandle` line lost the
   "because the machine is per-thread" gloss and wants a pointer to blind spot
   25 beside it; `docs/trace-format/vectors/v18-exceptions-rust-ambiguous-merge.json`
   asserts the tool's SENTENCE as prose rather than any structure; and
   `tests/test_honesty_prose.py` pins its four phrases to §11 as a whole, not
-  to the SWALLOWED bullet.
+  to the SWALLOWED bullet.~~ — **Taken 2026-09-08 by the queue slice's final fix
+  wave** (inventory row #29), all four. The INDEX row states the post-N1
+  definition, clause for clause, and its falsifier column gained the three
+  vectors row #23 added. §11's `JoinHandle` bullet names `left_thread`, carries
+  the *because the chain machine is per thread* gloss, and points at blind spot
+  25 as the place that boundary is stated. `v18`'s `asserts` no longer
+  paraphrases the rule: it says the sentence its question pins IS
+  `exceptions_rust.ESCAPED_DETAIL`, a verbatim quotation of §11 held there in
+  both directions by `tests/test_honesty_prose.py`. And that test reads the
+  SWALLOWED bullet rather than the whole section — with a check that the slice
+  is a proper one, since a `_swallowed_bullet` that quietly returned all of §11
+  would restore the hole while passing everything.
 - ~~**The invocation header's noun is wrong at both ends.** It reads
   `N swallowing sites` where N counts printed BLOCKS — `ws` prints 103 and
   `ws0` 105 where the published record has 91 and 98 SITES, and R-G12 widened

@@ -207,7 +207,12 @@ with, none of it ranked, each item with the thing that would settle it.
 - **Three `chain.terminal` values with no conformance vector** —
   `panicked` (`tests/test_exceptions_rust.py`), `left_thread` and
   `handled_then_failed` (`tests/test_exceptions_rust_ambiguous.py`), pinned by
-  the Python suite alone (`docs/trace-format/VECTORS.md`).
+  the Python suite alone (`docs/trace-format/VECTORS.md`). *(Closed 2026-09-08
+  by the queue slice's final fix wave, inventory row #23: the three vectors are
+  `v20-exceptions-rust-panicked`, `v21-exceptions-rust-left-thread` and
+  `v22-exceptions-rust-handled-then-failed`, each mutated on its own `terminal`
+  and each reddening. The item above stands as written; this line is appended,
+  never edited into it.)*
 - **The in-source acknowledgment marker** — *added 2026-09-05 by the rung-4
   entry slice (design N8, deferred with its notation decided).*
   `// sensorium: acknowledged swallow — <reason>`, read by the transformer,

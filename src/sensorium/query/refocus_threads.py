@@ -14,8 +14,8 @@ second direction for one command's internals to travel in.
 
 The names stay reachable as `refocus_world.<name>` -- the re-export there is
 the same one `refocus_cmd` uses for `refocus_world` and `refocus_report`.
-These are one command's internals living in four files, not four modules
-with four surfaces.
+These are one command's internals across its files, not separate modules
+with surfaces of their own.
 """
 # The site-mark lookup, imported rather than rebuilt. `meta.sites` joins to
 # `code_objects` on a workspace-relative path against an absolute one, and

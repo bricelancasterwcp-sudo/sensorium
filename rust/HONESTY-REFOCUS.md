@@ -178,8 +178,6 @@ withholding on all 61 because a second thing inside it moved. A Python pair
 records no target root, so every string it prints is the one it printed before
 this rule existed.
 
----
-
 
 ## Amendments — rung 4 slice 4, the recorder's footprint (2026-09-08)
 

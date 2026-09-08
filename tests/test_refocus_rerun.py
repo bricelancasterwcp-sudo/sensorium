@@ -268,6 +268,50 @@ def test_refocus_says_which_side_ran_the_task_when_the_other_ran_none(
 
 # -- what a MATCH does not say about the schedule (E4" section 5.3) ---------
 
+#: The one recording fixture this file owns rather than importing. BOTH
+#: populations run and each is permutable on its own: two threads carry
+#: `fingerprints` rows (the main one and the worker) and three tasks carry
+#: `task_fingerprints` rows (`amain` plus the two workers it gathers), so this
+#: is the only shape whose note names both nouns. It lives here and not in
+#: `tests/refocus_programs.py` because that file is 755 lines against the
+#: repo's 800-line ceiling and has one reader for this program: the test
+#: directly below.
+BOTH_POPULATIONS = """
+import asyncio
+import threading
+
+def step(n):
+    return n
+
+async def worker(n):
+    step(n)
+    await asyncio.sleep(0)
+    return step(n)
+
+async def amain():
+    await asyncio.gather(*[asyncio.create_task(worker(n), name=f"task-{n}")
+                           for n in (1, 2)])
+
+def main():
+    t = threading.Thread(target=asyncio.run, args=(amain(),))
+    t.start()
+    t.join()
+    print("joined")
+
+if __name__ == "__main__":
+    main()
+"""
+
+#: The schedule note, with the noun the population that fired earns. One
+#: template, so a test cannot pass by pinning a sentence the tool does not
+#: build the same way -- and the substitution is the whole subject here.
+SCHEDULE_NOTE = (
+    "note: a MATCH does not say the two runs scheduled the same way -- the "
+    "streams are compared as a multiset of (name, hash), so the same shapes "
+    "carried by differently numbered {carried} match, and which carried "
+    "which is recorded and never compared")
+
+
 def test_a_multi_stream_match_says_it_is_not_about_the_schedule(tmp_path):
     """The hazard E4" MEASURED, named where the verdict is read.
 
@@ -282,11 +326,10 @@ def test_a_multi_stream_match_says_it_is_not_about_the_schedule(tmp_path):
     run_id, sdir = rec(tmp_path, ASYNC_ORDER_FLIP)
     r = refocus(sdir, run_id, "--focus", "prog:worker")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert ("note: a MATCH does not say the two runs scheduled the same way "
-            "-- the streams are compared as a multiset of (name, hash), so "
-            "the same shapes carried by differently numbered asyncio tasks "
-            "match, and which carried which is recorded and never compared"
-            ) in r.stdout, r.stdout
+    # Tasks alone: one thread carries every row, so the noun is the task
+    # word this language spells `stream_scope`.
+    assert SCHEDULE_NOTE.format(carried="asyncio tasks") in r.stdout, r.stdout
+    assert "differently numbered threads" not in r.stdout, r.stdout
 
 
 def test_the_schedule_note_fires_on_the_THREAD_population_too(tmp_path):
@@ -294,16 +337,39 @@ def test_the_schedule_note_fires_on_the_THREAD_population_too(tmp_path):
     task at all, so the task population is EMPTY and the thread population
     is the one with something to permute -- the shape a gate that asked only
     about tasks would print nothing on, and a gate that added the two would
-    get right by accident. Each population is asked on its own."""
+    get right by accident. Each population is asked on its own.
+
+    And the NOUN follows the population that fired. Until 2026-09-08 this
+    pair -- two threads, zero tasks -- was told its MATCH said nothing about
+    which `asyncio tasks` carried which shapes, naming a population the run
+    did not have: a caveat true of the mechanism, false of the run, and
+    unfalsifiable by anything the reader could look at.
+    """
     run_id, sdir = rec(tmp_path, TWO_WORKERS)
     r = refocus(sdir, run_id, "--focus", "prog:tally")
     assert r.returncode == 0, r.stdout + r.stderr
     assert "tasks:" not in r.stdout, r.stdout
-    assert ("note: a MATCH does not say the two runs scheduled the same way "
-            "-- the streams are compared as a multiset of (name, hash), so "
-            "the same shapes carried by differently numbered asyncio tasks "
-            "match, and which carried which is recorded and never compared"
-            ) in r.stdout, r.stdout
+    assert SCHEDULE_NOTE.format(carried="threads") in r.stdout, r.stdout
+    # The blind-spot block names asyncio further down and always has, so the
+    # fence is the note's own slot, not the word anywhere in the answer.
+    assert "differently numbered asyncio tasks" not in r.stdout, r.stdout
+
+
+def test_the_schedule_note_names_both_populations_when_both_fired(tmp_path):
+    """The third shape, and the one that separates a noun chosen per
+    population from a noun that merely switched to `threads`.
+
+    Two threads AND three tasks, each population permutable on its own, so
+    the sentence has to carry both nouns. A rule that reported whichever
+    population it happened to test first would print one of them here and
+    still pass the two tests above.
+    """
+    run_id, sdir = rec(tmp_path, BOTH_POPULATIONS)
+    r = refocus(sdir, run_id, "--focus", "prog:step")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout, r.stdout
+    assert (SCHEDULE_NOTE.format(carried="threads and asyncio tasks")
+            in r.stdout), r.stdout
 
 
 def test_a_single_stream_match_does_not_carry_the_schedule_note(tmp_path):

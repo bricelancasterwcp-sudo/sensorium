@@ -6,7 +6,7 @@ an event: the whole file answers one question -- given a code object, a task
 or a caller, is it traced, is it focused, and which fingerprint does it feed?
 `Tracer` inherits the decisions as `_FrameDecisions`, so `self` is the same
 object with the same locks and tables; these are one recorder's internals
-living in two files, not two modules with two surfaces.
+across its files, not separate modules with surfaces of their own.
 
 `_SENSORIUM_DIR` lives HERE because `_classify` is its only reader, and a
 monkeypatch of the guard must therefore name THIS module -- see

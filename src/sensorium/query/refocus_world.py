@@ -31,8 +31,8 @@ from sensorium.query.refocus_env import (SESSION_DIFFER, SESSION_SET,
                                          stripped_clause)
 # The thread bookkeeping, split out at this file's 800-line ceiling.
 # Re-exported so `refocus_world.<name>` keeps resolving: these are one
-# command's internals living in two files, not two modules with two
-# surfaces. `refocus_cmd` re-exports two of them onward, from here.
+# command's internals across its files, not separate modules with surfaces
+# of their own. `refocus_cmd` re-exports two of them onward, from here.
 from sensorium.query.refocus_threads import (  # noqa: F401
     compared_threads, harness_exclusion, harness_note, harness_threads,
     uncompared_threads)

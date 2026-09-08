@@ -117,13 +117,19 @@ spools, `corpus/rust/interleaved_chains`, and the vector
   binding, a merged window, a holder that closed `ok` with no sink seen, a
   chain absorbed in a frame that then failed for another reason
   (`handled_then_failed`), a chain that left a spawned thread into a
-  `JoinHandle`. It is what the instrument says instead of guessing, and E6's
-  whole job is that nothing leaks from here into SWALLOWED.
+  `JoinHandle` (`left_thread`) — **because the chain machine is per thread**:
+  it stops at the thread boundary, so whether the parent unwrapped the
+  handle, logged it or dropped it is not a thing this recording is missing
+  but a thing it cannot hold, and blind spot 25 in
+  [`rust/HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) is where that
+  boundary is stated. It is what the instrument says instead of guessing, and
+  E6's whole job is that nothing leaks from here into SWALLOWED.
 
 *Falsified by* `tests/test_exceptions_rust.py` and
 `tests/test_exceptions_rust_ambiguous.py` — one test per §2a row, split
 across the two at the 800-line ceiling — the vectors
-`v17-exceptions-rust-swallowed` and `v18-exceptions-rust-ambiguous-merge`,
+`v17-exceptions-rust-swallowed`, `v18-exceptions-rust-ambiguous-merge` and
+`v20`–`v22` (the three terminals added 2026-09-08),
 and sixteen `corpus/rust/*` cases: `silent_swallow`, `logged_arm`,
 `dependency_swallow`, `err_stored`, `err_rendered_into_value`,
 `cleanup_then_fail`, `interleaved_chains`, `err_arms`, `err_propagation`,
@@ -132,14 +138,17 @@ and sixteen `corpus/rust/*` cases: `silent_swallow`, `logged_arm`,
 `err_borrowed_into_value` (`dispositions: ambiguous 1`, SWALLOWED registered
 absent) and `keep_first_error` (`dispositions: swallowed 1, ambiguous 1`, the
 one SWALLOWED line pinned to the arm that absorbed the chain).
-**Three `chain.terminal` values are pinned by the Python suite only**, with
-no conformance vector behind them: `panicked` by
-`test_a_panic_on_the_holder_quotes_the_panic_and_claims_no_cause` in the
-first file; `left_thread` and `handled_then_failed` by
+**Three `chain.terminal` values were pinned by the Python suite only** —
+`panicked` by `test_a_panic_on_the_holder_quotes_the_panic_and_claims_no_cause`
+in the first file; `left_thread` and `handled_then_failed` by
 `test_a_chain_that_left_a_spawned_threads_outermost_frame_is_ambiguous` and
 `test_a_sink_whose_frame_then_failed_is_ambiguous_not_swallowed` in the
-second. `docs/trace-format/VECTORS.md` says so too; closing it is a vector,
-not a rule change.
+second. **Closed 2026-09-08** by the queue slice's final fix wave, which is
+what this row always said it wanted — a vector, not a rule change: the three
+are now `v20-exceptions-rust-panicked`, `v21-exceptions-rust-left-thread` and
+`v22-exceptions-rust-handled-then-failed`, so a second recorder's suite reads
+the same JSON and every terminal these rules decide on is under the
+conformance suite too. The Python tests above are unchanged and still stand.
 
 **The capability, and the refusal on an older trace.** The runtime declares
 `capabilities.err_flow: true` in the proc header and the converter passes it
