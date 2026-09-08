@@ -36,7 +36,13 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from acceptance_e4pp_read import (read_e4pp_clauses,          # noqa: E402
+                                  rt_hash_of)
 
 # ------------------------------------------------------------ the verdict
 
@@ -242,6 +248,13 @@ def parse_refocus(text: str) -> dict:
         "env_changed_keys_truncated": None,
         "env_changed_for_other_keys": None,
         "env_recorder_own_keys": None,
+        # E4″: R1's strip and R4's session set, read from the same line and
+        # kept apart from the changed list, which is the only one that
+        # withholds.
+        "env_stripped_keys": None,
+        "env_session_n": None, "env_session_keys": None,
+        "env_session_keys_truncated": None,
+        "env_unchanged_outside_session": None, "env_session_set": None,
         "exit_line": None, "exit_rerun": None, "exit_original": None,
         "exit_status_equal": None,
         "pair_run": None, "pair_run_line": None,
@@ -408,6 +421,7 @@ def _read_env_clauses(line: str, out: dict) -> None:
     out["env_recorder_own_keys"] = ([k.strip()
                                      for k in m.group("keys").split(",")
                                      if k.strip()] if m else [])
+    read_e4pp_clauses(line, out)
 
 
 def licence_partition(parsed: dict) -> dict:
@@ -768,5 +782,6 @@ __all__ = ["VERDICT_EXIT", "PRE_RERUN_REFUSAL_EXIT", "RERUN_BANNER",
            "UNVERIFIABLE_OUTPUT", "UNVERIFIABLE_CHILDREN",
            "bullets_after", "cargo_finished_seconds", "connect_ro",
            "licence_counts", "licence_partition", "meta_value",
+           "read_e4pp_clauses", "rt_hash_of",
            "pair_candidates", "parse_refocus", "shim_census",
            "trace_meta_ro"]

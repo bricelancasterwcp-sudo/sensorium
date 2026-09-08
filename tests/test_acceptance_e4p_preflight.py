@@ -208,7 +208,10 @@ def test_the_guard_runs_BEFORE_any_copy_and_before_the_driver_build():
     next one to trip over as a non-fresh store."""
     src = (REPO / "rust" / "tests" / "acceptance_e4p_preflight.py").read_text()
     body = src[src.index("def preflight("):]
-    assert body.index("env_parity(") < body.index("build_driver(")
+    # `(parity or env_parity)(...)` — E4″ passes its own session-aware guard
+    # through this parameter, and the ORDER is what this test is about.
+    assert body.index("parity_rec = ") < body.index("build_driver(")
+    assert body.index("cargo_running()") < body.index("build_driver(")
     runner = (REPO / "rust" / "tests" / "acceptance_e4p.py").read_text()
     main = runner[runner.index("def main(argv)"):]
     assert main.index("preflight(paths, cfg)") < main.index("copy_originals(")

@@ -330,7 +330,8 @@ def env_parity(kept: Path, rows, environ=None) -> dict:
                    "the value differs")
             differing.setdefault(key, {"how": how, "originals": []})
             differing[key]["originals"].append(run)
-    rec = {"checked": len(rows) - len(unreadable),
+    rec = {"guard": "env_parity",
+           "checked": len(rows) - len(unreadable),
            "originals": len(rows),
            "differing": sorted(differing),
            "detail": differing,
@@ -367,7 +368,7 @@ def _require_fresh(path: Path, what: str) -> None:
                       "H4's census and §1.3's listing count meaningless")
 
 
-def preflight(paths, cfg) -> dict:
+def preflight(paths, cfg, parity=None) -> dict:
     """What THIS run touches, and nothing else.
 
     Refuses on: the machine's load; either disk floor; a clone that is not
@@ -376,8 +377,17 @@ def preflight(paths, cfg) -> dict:
     build from HEAD; a `SENSORIUM_DIR`, an E4′ target or a corpus target
     that is not fresh. Every one of these is BEFORE any number is read, so
     each is the INFRASTRUCTURE kill (§1.4's rule 4) rather than a STOP.
+
+    `parity` is the launch guard, defaulting to E4′'s own `env_parity`.
+    E4″ passes `acceptance_e4pp_preflight.session_parity` instead -- the
+    same walk with session set 1 allowed and named -- because A-§3 exempts
+    those keys from withholding and a guard that refused on them would
+    refuse every launch it exists to protect. The record publishes which
+    guard ran, under `env_parity.guard`, so the two are never confusable.
+    The two labels below come from `cfg` for the same reason: a refusal a
+    human reads must name the variable that launch actually sets.
     """
-    step("rung-4 debts (E4′) preflight")
+    step(cfg.get("preflight_label", "rung-4 debts (E4′)") + " preflight")
     load = loadavg()
     if load > LOAD_CEILING:
         raise Refused(f"1-minute load {load} > {LOAD_CEILING}")
@@ -406,10 +416,12 @@ def preflight(paths, cfg) -> dict:
     # The cheap refusals FIRST: a misconfigured launch must not spend a
     # driver build before finding out that its target is not fresh.
     cargo_check = cargo_running()
-    parity = env_parity(kept, cfg["rows"])
+    parity_rec = (parity or env_parity)(kept, cfg["rows"])
     _require_fresh(paths["sensorium_dir"], "SENSORIUM_DIR")
-    _require_fresh(paths["sensorium_e4p_target"], "SENSORIUM_E4P_TARGET")
-    _require_fresh(cfg["corpus_target"], "H6's corpus target")
+    _require_fresh(paths["sensorium_e4p_target"],
+                   cfg.get("target_env_name", "SENSORIUM_E4P_TARGET"))
+    _require_fresh(cfg["corpus_target"],
+                   cfg.get("corpus_label", "H6") + "'s corpus target")
 
     built = build_driver(paths)
     driver = Path(paths["sensorium_driver"])
@@ -487,7 +499,7 @@ def preflight(paths, cfg) -> dict:
             "record's own"),
         "sqlite3_cli": sqlite3_cli(),
         "cargo_running_check": cargo_check,
-        "env_parity": parity,
+        "env_parity": parity_rec,
         # Filled from the first refocused trace: §1.4 reads every version
         # token from the TRACE's own meta, never from this file.
         "driver_version_from_the_trace": None,

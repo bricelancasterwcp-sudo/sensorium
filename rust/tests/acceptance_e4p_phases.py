@@ -203,25 +203,49 @@ def _group_members(pgid: int) -> list[int]:
 
 # ------------------------------------------------------------- the loop
 
-def refocus_one(paths, cfg, row) -> dict:
+def refocus_one(paths, cfg, row, extra_env=None, label=None) -> dict:
     """One of the 61, and everything that came back from it.
 
     The pair is found in the STORE -- by `refocus_of`, the launch timestamp
     and R2's child filter (§1.4's pair rule, §3's R2) -- and the id the CLI
     printed is recorded beside it as a CROSS-CHECK, never as the source.
+
+    **The pair is found HERE, immediately after this invocation, and never
+    in a closing sweep.** E4″ re-refocuses four of its own originals under
+    two control arms into the SAME store, so up to three traces end up
+    naming one original in `refocus_of`; the launch timestamp taken on the
+    line above is what tells them apart, and it exists only inside this
+    call.
+
+    `extra_env` is E4″'s control arms: one key added to the environment
+    every refocus runs under, recorded on the row so the record says which
+    arm's world each answer came from. `None` -- arm A and every E4′ row --
+    leaves `refocus_env(paths)` exactly as it was.
+
+    `label` renames this row's log and step tag, so the same row re-run
+    under a second arm writes a second log instead of overwriting the
+    first. `None` keeps E4′'s own names.
     """
     index, name, target, run_id = row
     cmd = refocus_argv(name, run_id)
+    env = refocus_env(paths)
+    if extra_env:
+        env = env | dict(extra_env)
     launched_at = time.time()
     res = guarded(cmd, paths["sensorium_bloomery"],
-                  f"p2-{index:02d}-{name}.log", refocus_env(paths),
-                  cfg["refocus_timeout"], f"E4′/{index}")
+                  f"{label or 'p2'}-{index:02d}-{name}.log", env,
+                  cfg["refocus_timeout"],
+                  f"E4′/{index}" if label is None else f"{label}/{index}")
     both = "\n".join((res["out"], res["err"]))
     parsed = parse_refocus(both)
     pair = pair_candidates(paths["sensorium_dir"] / "traces", run_id,
                            launched_at)
     out = {
         "index": index, "name": name, "target": target, "original": run_id,
+        # Which arm's world this answer came from. `None` on arm A and on
+        # every E4′ row: an arm is a fact about the invocation, and a row
+        # that does not carry it is not the same row as one that does.
+        "arm": label, "extra_env": dict(extra_env) if extra_env else None,
         "command": res["command"], "cwd": str(paths["sensorium_bloomery"]),
         "rc": res["rc"], "wall_s": round(res["wall"], 3),
         "timed_out": res["timed_out"], "kill_s": res["kill_s"],

@@ -194,6 +194,11 @@ def phase_h6(paths, cfg) -> dict:
     whole Python suite, and `cargo test --workspace`. H6 runs LAST because
     `cargo test --workspace` shares the driver's target and could relink the
     binary every other phase measured with.
+
+    `cfg["corpus_args"]` adds flags to the collector. E4′ passes none, so
+    its command is byte for byte what it was; E4″ passes `--require-driver`
+    (§1.4), which turns a case nobody could run into a verdict on the run
+    rather than a skip inside a green summary.
     """
     from acceptance_e4p_phases import guarded
     mark_load("H6")
@@ -202,7 +207,8 @@ def phase_h6(paths, cfg) -> dict:
     with logs_at(LOGS / "h6"):
         step("H6(corpus): the collector over every case")
         corpus = guarded(
-            [py, "corpus/run_corpus.py", "--json"], REPO, "h6-corpus.log",
+            [py, "corpus/run_corpus.py", "--json",
+             *(cfg.get("corpus_args") or [])], REPO, "h6-corpus.log",
             plain_env() | {"PYTHONDONTWRITEBYTECODE": "1",
                            "SENSORIUM_CARGO_SENSORIUM": driver,
                            "CARGO_TARGET_DIR": str(cfg["corpus_target"])},
