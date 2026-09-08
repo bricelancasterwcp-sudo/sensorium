@@ -12,7 +12,7 @@
 
 use std::path::Path;
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
@@ -138,9 +138,30 @@ pub fn invocation_id() -> Result<String, String> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| format!("the clock is before the epoch: {e}"))?;
+    stamped_id(now, 0)
+}
+
+/// A run id for an instant: `YYYYMMDD-HHMMSS-<6 hex>`, the stamp in local time
+/// and the hex a mix of the sub-second nanos, this pid and the whole seconds.
+///
+/// ONE mix for both minters. The driver mints one id per invocation
+/// ([`invocation_id`]) and the converter mints one per trace inside it
+/// (`convert::runid::mint`); the converter is the only one that can be asked
+/// for two ids at the same instant, so it passes a `salt` that ticks on every
+/// call and the driver passes `0`, which shifts to nothing and leaves the mix
+/// exactly what it was before the two were factored together (rung-3 inbox:
+/// "`runid`/driver id-mix helper -- a small duplication ... not yet factored
+/// out"). Everything else has to agree, or the two would print ids of
+/// different shapes into the same store.
+///
+/// # Errors
+/// If the instant is unreadable as seconds, or `localtime_r` refuses it.
+pub fn stamped_id(now: Duration, salt: u64) -> Result<String, String> {
     let secs = i64::try_from(now.as_secs()).map_err(|e| format!("the clock is unreadable: {e}"))?;
-    let nanos = u64::from(now.subsec_nanos());
-    let mix = nanos ^ (u64::from(std::process::id()) << 20) ^ (now.as_secs() << 7);
+    let mix = u64::from(now.subsec_nanos())
+        ^ (u64::from(std::process::id()) << 20)
+        ^ (now.as_secs() << 7)
+        ^ (salt << 3);
     Ok(format!("{}-{:06x}", local_stamp(secs)?, mix & 0x00ff_ffff))
 }
 
@@ -229,6 +250,38 @@ mod tests {
         let (toolchain, host) = toolchain_and_host(&rustc).unwrap();
         assert!(toolchain.starts_with("rustc "), "{toolchain}");
         assert!(host.contains('-'), "{host}");
+    }
+
+    /// The dedupe's own pin: `stamped_id(now, 0)` must be byte-for-byte the
+    /// expression `invocation_id` spelled before the two minters were factored
+    /// together, and the salt must be the only thing the converter adds.
+    #[test]
+    fn the_shared_mix_is_the_drivers_old_one_and_the_salt_is_the_only_addition() {
+        let now = Duration::new(1_756_771_200, 123_456_789);
+        // Re-derived here, not read out of the implementation under test.
+        let old_mix = u64::from(now.subsec_nanos())
+            ^ (u64::from(std::process::id()) << 20)
+            ^ (now.as_secs() << 7);
+        let stamp = local_stamp(i64::try_from(now.as_secs()).unwrap()).unwrap();
+        assert_eq!(
+            stamped_id(now, 0).unwrap(),
+            format!("{stamp}-{:06x}", old_mix & 0x00ff_ffff),
+            "salt 0 must leave the driver's mix exactly as it was"
+        );
+        // Deterministic in the instant: the same instant and salt mint the
+        // same id, which is why the converter has to tick a salt at all.
+        assert_eq!(stamped_id(now, 0).unwrap(), stamped_id(now, 0).unwrap());
+        assert_ne!(
+            stamped_id(now, 0).unwrap(),
+            stamped_id(now, 1).unwrap(),
+            "one salt tick must move the hex"
+        );
+        // And the shape both minters promise.
+        let id = stamped_id(now, 7).unwrap();
+        let (date, rest) = id.split_once('-').unwrap();
+        let (time, hex) = rest.split_once('-').unwrap();
+        assert_eq!((date.len(), time.len(), hex.len()), (8, 6, 6), "{id}");
+        assert!(hex.chars().all(|c| c.is_ascii_hexdigit()), "{id}");
     }
 
     /// The run-id stamp is LOCAL time. `date -d @<secs>` is the oracle, and it

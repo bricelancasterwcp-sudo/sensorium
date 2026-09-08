@@ -93,23 +93,56 @@ fn mint_loop(
     }
 }
 
+/// One candidate id, from the clock and a fresh salt tick.
+///
+/// The mix itself is `driver::stamped_id`, shared with the driver's own
+/// `invocation_id`: the two used to spell the same expression twice, and only
+/// the salt was ever meant to differ.
 fn one_candidate() -> Result<String, String> {
+    // A test may queue the candidates it wants instead, which is the only way
+    // to force `mint`'s OWN retry: the real generator's output is the clock,
+    // the pid and a salt tick, and no test can make it repeat on purpose.
+    // Compiled away entirely outside `cargo test`.
+    #[cfg(test)]
+    if let Some(fixed) = tests::next_fixed_candidate() {
+        return Ok(fixed);
+    }
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| format!("the clock is before the epoch: {e}"))?;
-    let secs = i64::try_from(now.as_secs()).map_err(|e| format!("the clock is unreadable: {e}"))?;
     let salt = u64::from(SALT.fetch_add(1, Ordering::Relaxed));
-    let mix = u64::from(now.subsec_nanos())
-        ^ (u64::from(std::process::id()) << 20)
-        ^ (now.as_secs() << 7)
-        ^ (salt << 3);
-    let stamp = crate::driver::local_stamp(secs)?;
-    Ok(format!("{stamp}-{:06x}", mix & 0x00ff_ffff))
+    crate::driver::stamped_id(now, salt)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+
+    thread_local! {
+        /// Candidates [`one_candidate`] hands back instead of computing one.
+        /// Thread-local, and the harness runs each test on its own thread, so
+        /// one test's queue can never be another's. Empty unless a test fills
+        /// it, and the whole hook is `#[cfg(test)]`.
+        static FIXED_CANDIDATES: RefCell<VecDeque<String>> = const { RefCell::new(VecDeque::new()) };
+    }
+
+    pub(super) fn next_fixed_candidate() -> Option<String> {
+        FIXED_CANDIDATES.with(|q| q.borrow_mut().pop_front())
+    }
+
+    fn queue_candidates(ids: &[&str]) {
+        FIXED_CANDIDATES.with(|q| {
+            let mut q = q.borrow_mut();
+            q.clear();
+            q.extend(ids.iter().map(|s| (*s).to_owned()));
+        });
+    }
+
+    fn queued_candidates() -> usize {
+        FIXED_CANDIDATES.with(|q| q.borrow().len())
+    }
 
     fn scratch(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("{name}-{}", std::process::id()));
@@ -213,6 +246,35 @@ mod tests {
             let id = mint(&dir, &minted).unwrap();
             assert!(minted.insert(id), "mint returned an id already in `minted`");
         }
+    }
+
+    /// `mint` itself, not `mint_loop`: the row this closes is that `mint`'s
+    /// one-line forward has to hand `mint_loop` its OWN `minted` parameter,
+    /// and the only test of that was 20 real-clock mints that would pass by
+    /// chance under the mutation (`mint_loop(dir, &HashSet::new(), ..)`) --
+    /// which is how that mutation survived Task 6's review and was caught by
+    /// inspection instead.
+    ///
+    /// With the candidates fixed, the retry is forced: the first is in
+    /// `minted` and on no disk, so a `mint` that dropped `minted` would
+    /// return it and never ask for the second.
+    #[test]
+    fn mint_consults_the_minted_set_and_not_only_the_directory() {
+        let dir = scratch("runid-mint-consults-minted");
+        let mut minted = HashSet::new();
+        minted.insert("20260903-000000-aaaaaa".to_owned());
+        queue_candidates(&["20260903-000000-aaaaaa", "20260903-000000-bbbbbb"]);
+        let id = mint(&dir, &minted).unwrap();
+        assert_eq!(
+            id, "20260903-000000-bbbbbb",
+            "`mint` returned a candidate already in `minted`: it forwarded an \
+             empty set, or checked the directory alone"
+        );
+        assert_eq!(
+            queued_candidates(),
+            0,
+            "both candidates must be consumed: the first was retried past"
+        );
     }
 
     #[test]
