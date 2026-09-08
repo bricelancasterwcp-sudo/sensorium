@@ -79,13 +79,25 @@ def bound_sentence(seconds: int = LOOP_BUDGET_S) -> str:
     reached" -- E4′'s bound, in E4″'s record -- because the constant was
     imported rather than the number.
     """
+    return f"the {bound_span(seconds)} loop bound was reached before this "\
+           f"invocation"
+
+
+def bound_span(seconds: int = LOOP_BUDGET_S) -> str:
+    """Just the SPAN -- `1 h 30 min` -- for a sentence that supplies its own
+    grammar.
+
+    `acceptance_e4pp_cells._drops` built "§1.4's the 1 h 30 min loop bound
+    was reached before this invocation ([...])": a double determiner, and a
+    singular sentence carrying a LIST. It needs the span, not the sentence,
+    and it must not retype the span either.
+    """
     hours, minutes = divmod(round(seconds / 60), 60)
     # One spelling above the hour, never two: a whole number of hours read
     # `1 h` where every other bound reads `1 h 15 min`, so a reader parsing
     # the sentence had two grammars and a bound of exactly one hour was the
     # one that would have surprised them.
-    span = f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
-    return f"the {span} loop bound was reached before this invocation"
+    return f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
 
 
 #: H8's corpus flag. `--require-driver` turns a skipped case into a verdict
@@ -94,7 +106,7 @@ def bound_sentence(seconds: int = LOOP_BUDGET_S) -> str:
 CORPUS_ARGS = ("--require-driver",)
 
 __all__ = ["ARM_N", "CORPUS_ARGS", "LOOP_BUDGET_S", "REFOCUS_TIMEOUT",
-           "bound_sentence", "EXPECTED_EXCLUDED_CHILDREN",
+           "bound_sentence", "bound_span", "EXPECTED_EXCLUDED_CHILDREN",
            "EXPECTED_GRANTED", "EXPECTED_HARNESS_THREADS", "EXPECTED_MATCH",
            "EXPECTED_PAIRS_OF_ONE", "EXPECTED_RELOCATED",
            "EXPECTED_RUSTDOCFLAGS_IN_CHANGED",

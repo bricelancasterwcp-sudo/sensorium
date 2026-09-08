@@ -86,7 +86,7 @@ def _raw(**over) -> dict:
 
 def test_the_assembled_record_carries_the_raws_schema_and_its_OWN():
     record = assemble_e4pp(_raw())
-    assert record["schema_version"] == SCHEMA_VERSION == "e4pp/1"
+    assert record["schema_version"] == SCHEMA_VERSION == "e4pp/2"
     assert record["assembled"]["schema_version"] == SCHEMA_VERSION
 
 
@@ -225,7 +225,7 @@ def test_the_renderer_prints_every_endpoint_and_the_schema_sentence():
                      + render_e4pp.results(assemble_e4pp(_raw())))
     for endpoint in ENDPOINTS:
         assert f"### {endpoint} " in text, endpoint
-    assert "e4pp/1" in text
+    assert "e4pp/2" in text
 
 
 def test_a_not_measured_cell_RENDERS_as_not_measured_and_never_as_a_dash():
@@ -316,7 +316,7 @@ def test_a_DRY_runs_walls_are_carried_in_from_the_record_it_wrote(tmp_path):
     raw = dict(_raw(), dry_raw=str(tmp_path / "dry.json"))
     walls = assemble_e4pp(raw)["reported"]["walls_s"]["dry"]
     assert walls["reason"] is None
-    assert walls["arms"]["A"]["first_focus"] == 7.0
+    assert walls["value"]["A"]["first_focus"] == 7.0
     assert walls["cargo_s"]["A"]["first_focus"] == 3.3
 
 
@@ -518,3 +518,100 @@ def test_H7s_own_DENOMINATOR_is_stated_on_the_cell_and_not_only_in_n():
         assert "censused" in block[name]["lens"], name
         assert "neither the 61" in block[name]["lens"], name
     assert block["headline"]["n"] == _raw()["raw_h7"]["censused"]
+
+
+# ================ fix round 1 (review of this task) ======================
+
+def test_the_H8_prose_never_reads_an_ABSENT_matched_cell_as_a_VALUE():
+    """Important 1. The clause was appended unconditionally, so rendering
+    the committed E4″ record -- derived before `spawned_test_fn_matched`
+    existed -- printed "The named case matched as `None`" with no reason: a
+    sentence that reads as a measurement over a key the record does not
+    carry, which is the bug class this whole task is about.
+
+    Absent and null-with-a-reason are different sentences, and a record that
+    predates the field gets neither."""
+    e = {"corpus_cases": 63, "corpus_args": ["--require-driver"],
+         "corpus_require_driver": True, "cargo_result_lines": ["ok"]}
+    old = " ".join(render_e4pp._notes("H8", e))
+    assert "named case" not in old, old          # no sentence at all
+    assert "matched" not in old and "None" not in old
+    # ...and the rest of the H8 prose is unchanged by the absence.
+    assert "Corpus: 63 case(s)" in old and "Rust result lines" in old
+    # ...a record that HAS the key and matched prints the spelling
+    hit = " ".join(render_e4pp._notes("H8", dict(
+        e, spawned_test_fn_matched="rust/refocus_spawned_test_fn",
+        spawned_test_fn_reason=None)))
+    assert "matched as `rust/refocus_spawned_test_fn`" in hit
+    # ...and a record that HAS the key and did not match prints the ABSENCE
+    # with the reason, never the value.
+    miss = " ".join(render_e4pp._notes("H8", dict(
+        e, spawned_test_fn_matched=None,
+        spawned_test_fn_reason="`x` is among the 63 name(s) … exited 0")))
+    assert "matched under NEITHER spelling" in miss
+    assert "exited 0" in miss
+    assert "matched as `None`" not in miss
+
+
+def test_a_DRY_wall_that_WAS_read_says_so_under_the_same_key(tmp_path):
+    """Minor (c): the failure paths carried `value: None` and the success
+    path carried no `value` at all, so a reader keying on `value` could not
+    tell "read" from "unread" -- `.get("value")` is `None` either way."""
+    dry = _raw()
+    dry["dry_run"] = True
+    (tmp_path / "dry.json").write_text(json.dumps(dry, default=str))
+    read = assemble_e4pp(dict(_raw(), dry_raw=str(tmp_path / "dry.json"))
+                         )["reported"]["walls_s"]["dry"]
+    unread = assemble_e4pp(dict(_raw(), dry_raw=str(tmp_path / "no.json"))
+                           )["reported"]["walls_s"]["dry"]
+    assert read["value"] is not None and read["reason"] is None
+    assert read["value"]["A"]["first_focus"] == 7.0
+    assert unread["value"] is None and unread["reason"]
+
+
+def test_a_DROP_over_never_run_rows_reads_as_ONE_english_clause():
+    """Minor (a): the reason embedded `bound_sentence` whole -- "§1.4's the
+    1 h 30 min loop bound was reached before this invocation (['a','b'])" --
+    a double determiner and a singular sentence carrying a list."""
+    raw = _raw()
+    raw["raw_pass2"] = dict(raw["raw_pass2"],
+                            budget_exhausted=["a", "b"], measured=59)
+    dropped = assemble_e4pp(raw)["endpoints"]["H3"]["headline"]["dropped"]
+    why = " ".join(dropped)
+    assert "§1.4's 1 h 30 min loop bound was reached before them" in why
+    assert "'s the " not in why
+    assert "before this invocation" not in why
+
+
+def test_the_ORIGINAL_version_summary_is_null_WITH_a_reason_when_empty():
+    """Minor (f) at its source. Distinct values, never a first -- originals
+    written by more than one driver are the finding -- and `None` with its
+    reason rather than `[]`, which reads as a measured "no driver named"."""
+    import acceptance_e4pp as e4pp_runner
+    versions = [f"cargo-sensorium 0.{n}.0" for n in range(9, 2, -1)]
+    rows = [{"original_driver_version": {"value": v}}
+            for v in versions + versions]        # each seen twice
+    got = e4pp_runner.original_version_summary(rows)
+    # SORTED and distinct, not set order: a record whose originals were
+    # written by more than one driver is a finding, and a reader comparing
+    # two runs' lists cannot do it against an order that moves with the
+    # process's string hashing.
+    assert got["driver_version_from_the_original"] == sorted(versions)
+    assert got["driver_version_from_the_original_reason"] is None
+    none = e4pp_runner.original_version_summary(
+        [{"original_driver_version": {"value": None, "reason": "no token"}}])
+    assert none["driver_version_from_the_original"] is None
+    assert "could read" in none["driver_version_from_the_original_reason"]
+
+
+def test_an_EMPTY_original_version_set_carries_its_reason():
+    """Minor (f): the re-run side publishes `None` when no row carried a
+    token; the original side published `[]`, which reads as "the originals
+    name no driver" -- a claim about the traces, not about this reader."""
+    rep = assemble_e4pp(dict(_raw(), pins=dict(
+        _raw()["pins"], driver_version_from_the_original=None,
+        driver_version_from_the_original_reason="no copied original carried "
+        "a `meta.driver_version` this reader could read")))["reported"]
+    assert rep["driver_version"]["from_the_original_trace"] is None
+    assert "could read" in \
+        rep["driver_version"]["from_the_original_trace_reason"]

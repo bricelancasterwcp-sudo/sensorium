@@ -392,14 +392,20 @@ def _manifests(tmp_path: Path, *manifests) -> dict:
     return {"sensorium_acceptance_target": tmp_path}
 
 
-def _unit(name, files, partial=(), fell_back=False):
-    return (name, {"unit": name, "crate_name": name.split("-")[0],
-                   "crate_type": "lib", "files": files, "skipped": [],
-                   "partial": list(partial), "spawns": [],
-                   "source_hashes": {}, "fell_back": fell_back,
-                   "fallback_reason": None, "unreached_files": [],
-                   "unreached_reasons": {}, "appended_line": {},
-                   "workspace_root": "/ws"})
+def _unit(name, files, partial=(), fell_back=False, rung2=False):
+    """One manifest. `rung2=True` omits the `partial` key entirely, which is
+    what a rung-2 manifest's format does -- the difference `partial` is
+    `None` for and `0` is not."""
+    m = {"unit": name, "crate_name": name.split("-")[0],
+         "crate_type": "lib", "files": files, "skipped": [],
+         "partial": list(partial), "spawns": [],
+         "source_hashes": {}, "fell_back": fell_back,
+         "fallback_reason": None, "unreached_files": [],
+         "unreached_reasons": {}, "appended_line": {},
+         "workspace_root": "/ws"}
+    if rung2:
+        del m["partial"]
+    return (name, m)
 
 
 FN_ROW = {"site": 0, "qualname": "f", "kind": "fn", "firstlineno": 10,
@@ -433,8 +439,13 @@ def test_the_rung3_reader_counts_every_site_kind(tmp_path):
     assert m["distinct"] == 3          # kind joins the key
     assert m["fell_back"] == []
     # The rung-3 unit field the merged reader kept, COUNTED and not a
-    # constant: a rung-2 manifest has no `partial` key and reads 0.
+    # constant; a rung-2 manifest has no `partial` key and reads `None`.
     assert m["units"][0]["partial"] == 1
+    assert m["units"][0]["partial_reason"] is None
+    # ...and a rung-3 manifest with the key and NO rows is a measured zero.
+    empty = _manifests(tmp_path / "b", _unit("u2", {"a.rs": [TRY_ROW]}))
+    u = r3.read_manifests(empty, None)["units"][0]
+    assert u["partial"] == 0 and u["partial_reason"] is None
 
 
 def test_a_fn_and_a_try_on_one_line_are_two_sites(tmp_path):
@@ -452,12 +463,17 @@ def test_a_rung2_manifest_still_counts_exactly_as_it_did(tmp_path):
     paths = _manifests(tmp_path,
                        _unit("u1", {"a.rs": [FN_ROW, dict(FN_ROW,
                                                           qualname="g",
-                                                          firstlineno=20)]}))
+                                                          firstlineno=20)]},
+                             rung2=True))
     m = r3.read_manifests(paths, None)
     assert (m["distinct"], m["raw_site_total"]) == (2, 2)
     assert m["sites_by_file"] == {"a.rs": 2}
-    # ...and the rung-3 unit field the merged reader kept.
-    assert m["units"][0]["partial"] == 0
+    # ...and the rung-3 unit field the merged reader kept is NOT MEASURED on
+    # a manifest whose format has no such key (fix round 1, minor (d)): a 0
+    # there reads as "this unit had no partial rows", which is a claim about
+    # a rung-2 build that nothing measured.
+    assert m["units"][0]["partial"] is None
+    assert "no `partial` key" in m["units"][0]["partial_reason"]
 
 
 def test_try_rows_are_deduplicated_across_the_units_that_declare_them(tmp_path):

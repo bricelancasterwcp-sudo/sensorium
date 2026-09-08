@@ -278,6 +278,26 @@ def _endpoint(r, name) -> list[str]:
     return out
 
 
+def _matched_clause(e) -> str:
+    """H8's spelling sentence, or NOTHING at all.
+
+    Three states, and the first is why this is a function. A record derived
+    before `spawned_test_fn_matched` existed does not carry the key, and an
+    unconditional `e.get(...)` printed "The named case matched as `None`"
+    over it -- a sentence that reads as a measurement on a record that made
+    none, which is this endpoint's own bug class one level up. Absent gets
+    no sentence; a match names the spelling; a miss names the ABSENCE and
+    its reason, never the value.
+    """
+    if "spawned_test_fn_matched" not in e:
+        return ""
+    matched = e.get("spawned_test_fn_matched")
+    if matched is not None:
+        return f" The named case matched as `{matched}`."
+    return (f" The named case matched under NEITHER spelling: "
+            f"{e.get('spawned_test_fn_reason') or 'no reason recorded'}.")
+
+
 def _notes(name, e) -> list[str]:
     """One sentence per endpoint carrying what its table cannot."""
     if name == "H1":
@@ -351,11 +371,9 @@ def _notes(name, e) -> list[str]:
             f"{_yn(e.get('corpus_require_driver'))}; failures "
             f"{e.get('corpus_failures') or 'none'}; errors "
             f"{e.get('corpus_errors') or 'none'}; skipped "
-            f"{e.get('corpus_skipped') or 'none'}. The named case matched as "
-            f"`{e.get('spawned_test_fn_matched')}`"
-            + (f" ({e.get('spawned_test_fn_reason')})"
-               if e.get("spawned_test_fn_reason") else "")
-            + f". Rust result lines: "
+            f"{e.get('corpus_skipped') or 'none'}."
+            + _matched_clause(e)
+            + f" Rust result lines: "
               f"{e.get('cargo_result_lines') or 'none'}.", ""]
 
 

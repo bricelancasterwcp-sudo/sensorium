@@ -318,6 +318,29 @@ def e4pp_config(paths, rows=None) -> dict:
 # imported above: `main` reads their answers and turns them into an exit
 # code, a marker and a record, and decides nothing itself.
 
+def original_version_summary(rows) -> dict:
+    """The copied ORIGINALS' own driver tokens, over an arm's rows.
+
+    The DISTINCT values, never a first: originals written by more than one
+    driver would be the finding, and a first would hide it. `None` WITH its
+    reason where nothing was read -- an empty LIST reads as "the originals
+    name no driver", a claim about the traces rather than about this reader
+    having found nothing in them, and the re-run side's cell is already
+    `None` in that case.
+    """
+    seen = sorted({v for r in rows
+                   if (v := (r.get("original_driver_version")
+                             or {}).get("value"))})
+    return {
+        "driver_version_from_the_original": seen or None,
+        "driver_version_from_the_original_reason": (
+            None if seen else
+            "no copied original carried a `meta.driver_version` this reader "
+            "could read; the per-pair reasons are on "
+            "`pairs.rows[*].driver_version_from_the_original_reason`"),
+    }
+
+
 def _partial_json(res: dict) -> str:
     """What CAN be serialised, when the whole record cannot."""
     safe = {}
@@ -388,9 +411,7 @@ def main(argv) -> int:
         # so §1.5's "on both sides" has two cells and not one. The DISTINCT
         # values, never a first: originals written by more than one driver
         # would be the finding, and a first would hide it.
-        pins["driver_version_from_the_original"] = sorted(
-            {v for r in two["refocuses"]
-             if (v := (r.get("original_driver_version") or {}).get("value"))})
+        pins.update(original_version_summary(two["refocuses"]))
         # Belt and braces over the loop hook -- but ONLY where a row
         # really came back with a reading. E4′ marked here
         # unconditionally, which makes §1.4's rule 4 unreachable: a loop

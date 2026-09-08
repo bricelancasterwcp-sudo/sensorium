@@ -151,9 +151,14 @@ def phase_h8_nothing_else(paths, cfg) -> dict:
         # not say which name it matched is a reading nobody can check.
         "spawned_test_fn_matched": pres["matched"],
         "spawned_test_fn_reason": pres["reason"],
+        # Both spellings, and `matched` only when there IS one: it is
+        # `None` exactly when nothing matched, so leaving it in the tuple
+        # attributed a skip entry carrying no `case` key to the case this
+        # endpoint gates on, on the very run where the reader missed it.
         "spawned_test_fn_skipped": [
             s for s in skipped
-            if s.get("case") in (e4pp.SPAWNED_CASE, pres["matched"])],
+            if s.get("case") is not None
+            and s.get("case") in {e4pp.SPAWNED_CASE, pres["matched"]}],
         "case_listing": listing,
         "cargo_result_lines": cargo.get("result_lines"),
         "logs": {"corpus": corpus.get("log"), "pytest": python.get("log"),

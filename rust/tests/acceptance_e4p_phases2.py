@@ -20,7 +20,7 @@ LOGS: Path | None = None
 #: own `schema_version`, and the token each is expected to carry. The
 #: expectation is a COMPARISON TARGET: the value published is what the
 #: renderer printed, never this constant.
-DRY_ASSEMBLE = (("e9", "e9/1"), ("e4", "e4/1"))
+DRY_ASSEMBLE = (("e9", "e9/2"), ("e4", "e4/1"))
 
 
 def phase_h4(paths, two: dict) -> dict:

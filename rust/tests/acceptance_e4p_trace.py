@@ -18,7 +18,6 @@ not there is `None` entries rather than an empty one.
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
 import sys
 from pathlib import Path

@@ -291,6 +291,26 @@ def test_the_case_under_its_PREFIXED_spelling_is_present(monkeypatch):
     assert h["verdict"] == "PASS"
 
 
+def test_a_skipped_entry_with_NO_case_is_not_the_spawned_cases_skip(
+        monkeypatch):
+    """Minor (e), fix round 1: `spawned_test_fn_skipped` filtered on
+    `s.get("case") in (SPAWNED_CASE, matched)`, and `matched` is `None`
+    exactly when nothing matched -- so a skip entry that carries no `case`
+    key at all was attributed to the case this endpoint gates on, on the
+    very run where the reader could not find it."""
+    rec = _h6_rec(skipped=[{"reason": "no driver"},
+                           {"case": "rust/other", "reason": "no driver"}])
+    h = _h8(monkeypatch, rec, names=["refocus_child_run"])
+    assert h["spawned_test_fn_present"] is None
+    assert h["spawned_test_fn_skipped"] == []
+    # ...and a real skip of the case, under either spelling, still lands.
+    rec = _h6_rec(skipped=[{"case": f"rust/{e4pp.SPAWNED_CASE}",
+                            "reason": "no driver"}])
+    h = _h8(monkeypatch, rec, names=[f"rust/{e4pp.SPAWNED_CASE}"])
+    assert [s["case"] for s in h["spawned_test_fn_skipped"]] == [
+        f"rust/{e4pp.SPAWNED_CASE}"]
+
+
 def test_the_LAST_SEGMENT_is_matched_and_never_a_substring(monkeypatch):
     """A last-path-segment match, not a `in`-the-string one: a case called
     `rust/refocus_spawned_test_fn_two` ends with the name as a substring and
@@ -609,3 +629,10 @@ def test_the_bound_sentence_is_DERIVED_from_the_budget_it_names():
     # above the hour, so a reader parsing the sentence has one rule.
     assert "1 h 00 min" in e4pp.bound_sentence(3600)
     assert "2 h 00 min" in e4pp.bound_sentence(7200)
+    # Fix round 1, minor (a): the SPAN is available on its own, so a
+    # sentence with its own grammar does not have to embed this one's --
+    # `_drops` was building "§1.4's the 1 h 30 min loop bound was reached
+    # before this invocation ([...])", a double determiner over a list.
+    assert e4pp.bound_span(5400) == "1 h 30 min"
+    assert e4pp.bound_span(2700) == "45 min"
+    assert e4pp.bound_span(5400) in e4pp.bound_sentence(5400)

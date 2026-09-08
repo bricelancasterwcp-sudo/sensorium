@@ -36,7 +36,7 @@ import render_e9                              # noqa: E402
 # ------------------------------------------------- the runners stamp the raw
 
 @pytest.mark.parametrize("module, token", [
-    ("acceptance_e9", "e9/1"),
+    ("acceptance_e9", "e9/2"),
     ("acceptance_e4", "e4/1"),
 ])
 def test_the_runner_declares_the_schema_it_writes(module, token):
@@ -62,7 +62,7 @@ def test_the_raw_record_is_stamped_before_anything_can_refuse(module):
 # ------------------------------------------------ the assembler copies it
 
 @pytest.mark.parametrize("assemble, token", [
-    (e9_schema.assemble_e9, "e9/1"),
+    (e9_schema.assemble_e9, "e9/2"),
     (e4_schema.assemble_e4, "e4/1"),
 ])
 def test_the_assembled_record_carries_the_RAWS_token(assemble, token):
@@ -74,7 +74,7 @@ def test_the_assembled_record_carries_the_RAWS_token(assemble, token):
 
 
 @pytest.mark.parametrize("assemble, token", [
-    (e9_schema.assemble_e9, "e9/1"),
+    (e9_schema.assemble_e9, "e9/2"),
     (e4_schema.assemble_e4, "e4/1"),
 ])
 def test_the_assembler_stamps_its_OWN_token_beside_it(assemble, token):
@@ -124,7 +124,7 @@ def test_a_raw_that_names_no_schema_is_SAID_to_name_none():
     assert "re-derived under `e4/1`" in sentence
 
 
-@pytest.mark.parametrize("renderer, token", [(render_e9, "e9/1"),
+@pytest.mark.parametrize("renderer, token", [(render_e9, "e9/2"),
                                              (render_e4, "e4/1")])
 def test_the_renderers_section_2_PRINTS_the_field(renderer, token):
     """H5's second reading of the E4′ record: on a dry assemble the E9 and
@@ -167,6 +167,42 @@ def test_the_committed_results_predate_the_field_and_are_NOT_repaired(name):
     assert "schema_version" not in record, (
         f"{name} was re-derived; a closed record's derivation is STATED, "
         "never rewritten")
+
+
+# ------------------------- the tokens MOVE when the shape they name moves
+
+@pytest.mark.parametrize("assemble, was, now", [
+    (e9_schema.assemble_e9, "e9/1", "e9/2"),
+])
+def test_a_raw_written_under_the_OLD_token_is_SAID_to_be_re_derived(
+        assemble, was, now):
+    """Fix round 1, Important 2. Both assemblers changed shape in the debts
+    slice and neither token had moved, so re-assembling a closed record
+    would have printed "the raw record and this assembly were written under
+    the same schema version" over an assembly that is not the one that
+    published it. With the token moved the sentence says the true thing,
+    and a fresh run's two tokens still agree."""
+    out = assemble({"schema_version": was})
+    assert out["schema_version"] == was
+    assert out["assembled"]["schema_version"] == now
+    sentence = ra.schema_sentence(out)
+    assert f"re-derived under `{now}` from a raw written under `{was}`" in \
+        sentence
+    fresh = assemble({"schema_version": now})
+    assert "re-derived" not in ra.schema_sentence(fresh)
+
+
+def test_the_e4pp_token_moved_with_the_shape_its_assembler_publishes():
+    """The E4″ runner and its assembler share ONE constant, so this is the
+    same check on one token: a raw written under `e4pp/1` -- which every
+    committed E4″ record is -- re-derives, and a fresh run does not."""
+    import acceptance_e4pp_schema as e4pp_schema
+    assert e4pp_schema.SCHEMA_VERSION == "e4pp/2"
+    import acceptance_e4pp as e4pp_runner
+    assert e4pp_runner.SCHEMA_VERSION is e4pp_schema.SCHEMA_VERSION
+    out = e4pp_schema.assemble_e4pp({"schema_version": "e4pp/1"})
+    assert "re-derived under `e4pp/2` from a raw written under `e4pp/1`" in \
+        ra.schema_sentence(out)
 
 
 # ------------------------------- every renderer is reachable from `--doc`

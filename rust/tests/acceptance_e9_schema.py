@@ -29,7 +29,13 @@ DOC = "docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md"
 #: The raw record's own token is COPIED into `schema_version` and
 #: this one is stamped beside it, so a record re-derived under a
 #: later schema is distinguishable from one derived under its own.
-SCHEMA_VERSION = "e9/1"
+#:
+#: **`e9/1` -> `e9/2` (2026-09-08, the debts slice):**
+#: `reported.line_rows_per_run` changed SHAPE, from one value per run to
+#: `{value, source, reason}` per run, and its source from `meta.counts`
+#: (a key no format-4 trace carries, so it published four nulls) to the
+#: census's `line_events`. `acceptance_e9.SCHEMA_VERSION` moves with it.
+SCHEMA_VERSION = "e9/2"
 
 
 # ------------------------------------------------------------- predictions

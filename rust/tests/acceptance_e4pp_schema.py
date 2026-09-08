@@ -31,8 +31,20 @@ DOC = "docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md"
 #: R4: the schema THIS assembler writes. The raw record's own token is
 #: COPIED into `schema_version`; this one is stamped beside it, so a record
 #: re-derived under a later schema is distinguishable from one derived
-#: under its own.
-SCHEMA_VERSION = "e4pp/1"
+#: under its own. `acceptance_e4pp` writes its RAW under the same constant,
+#: so a fresh run's two tokens agree and only a re-derivation differs.
+#:
+#: **`e4pp/1` -> `e4pp/2` (2026-09-08, the debts slice, gaps 1-5 and the
+#: seven minors):** the assembled record gains `H2.fragments_per_side`,
+#: `reported.rt_hashes.fragments_per_side*`,
+#: `reported.driver_version.from_the_original_trace`,
+#: `reported.walls_s.{driver_build,cargo_s,dry}`, `stop_sides`,
+#: `infrastructure_shape`, `kill_is_infrastructure`, H8's
+#: `spawned_test_fn_matched`/`_reason` and per-pair
+#: `driver_version_from_the_original*`; H7's cells carry their `censused`
+#: denominator in the lens and `reported.driver_version.note` names
+#: `meta.driver_version`. The RAW gains the fields those read.
+SCHEMA_VERSION = "e4pp/2"
 
 
 def _predictions(raw) -> dict:
@@ -207,8 +219,12 @@ def _dry_walls(raw) -> dict:
     except (OSError, ValueError) as e:
         return {"value": None, "path": path,
                 "reason": f"the dry run's raw record could not be read: {e}"}
-    return {"path": path, "started": dry.get("started"), "reason": None,
-            "arms": _arm_walls(dry), "cargo_s": _cargo_walls(dry)}
+    # `value` on the SUCCESS path too: the three failures above key their
+    # not-measured on it, and a success that carried no `value` at all left
+    # `.get("value")` `None` either way -- a reader could not tell read from
+    # unread on the one field that is supposed to say so.
+    return {"value": _arm_walls(dry), "path": path, "reason": None,
+            "started": dry.get("started"), "cargo_s": _cargo_walls(dry)}
 
 
 def _walls(raw) -> dict:
@@ -267,6 +283,8 @@ def _reported(raw) -> dict:
             "from_the_trace": pins.get("driver_version_from_the_trace"),
             "from_the_original_trace": pins.get(
                 "driver_version_from_the_original"),
+            "from_the_original_trace_reason": pins.get(
+                "driver_version_from_the_original_reason"),
             "built": (pins.get("built_from") or {}).get("driver"),
             "sha256": pins.get("driver_sha256"),
             "note": ("read from each trace's own `meta.driver_version` -- "

@@ -101,8 +101,9 @@ def _drops(raw, endpoint: str) -> list[str]:
         missing = block.get("budget_exhausted") or []
         if missing:
             out.append(f"{key}: {len(missing)} invocation(s) were never run "
-                       f"-- §1.4's {e4pp.bound_sentence(e4pp.LOOP_BUDGET_S)}"
-                       f" ({missing[:3]}{' …' if len(missing) > 3 else ''})")
+                       f"-- §1.4's {e4pp.bound_span(e4pp.LOOP_BUDGET_S)} "
+                       f"loop bound was reached before them "
+                       f"({missing[:3]}{' …' if len(missing) > 3 else ''})")
         n, measured = block.get("n"), block.get("measured")
         locked = LOCKED_N.get(key)
         if locked is not None and n is not None and n != locked:

@@ -243,7 +243,9 @@ def read_manifests(paths: dict, scope: list[str] | None) -> dict:
     launch of the rung-3 acceptance run, 2026-09-05. `kind` joins the site
     key because a `fn` site and a `try` site can share a file and a line and
     are two different sites; on rung-2 material every row is a `fn` row, so
-    the key gains a constant and no count of that record moves."""
+    the key gains a constant and no count of that record moves. Rung 3's
+    `partial` count comes along, `None` WITH its reason on a manifest whose
+    format has no such key."""
     d = manifests_dir(paths)
     sites, sites_by_file, raw = set(), {}, 0
     units, fell, unreached, skipped = [], [], set(), []
@@ -261,7 +263,17 @@ def read_manifests(paths: dict, scope: list[str] | None) -> dict:
                       "fallback_reason": m.get("fallback_reason"),
                       "files": len(m["files"]),
                       "sites": sum(len(v) for v in m["files"].values()),
-                      "partial": len(m.get("partial", [])),
+                      # A rung-2 manifest's format has no `partial` key at
+                      # all, and `0` there reads as "this unit had no
+                      # partial rows" -- a claim about a build nothing
+                      # measured. `None` WITH its reason; a rung-3 manifest
+                      # with the key and no rows is a measured zero.
+                      "partial": (len(m["partial"]) if "partial" in m
+                                  else None),
+                      "partial_reason": (
+                          None if "partial" in m else
+                          "this manifest carries no `partial` key: the "
+                          "format that wrote it has no such row"),
                       "unreached_files": m.get("unreached_files", []),
                       "workspace_root": m.get("workspace_root", ""),
                       "source_hashes": len(m.get("source_hashes", {})),
