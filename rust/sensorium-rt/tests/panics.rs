@@ -235,6 +235,16 @@ fn a_panic_on_a_thread_that_recorded_nothing_opens_no_spool() {
 /// processes for reasons that have nothing to do with this recorder. That token,
 /// and only that token, is masked. The count comes back with the text so a test
 /// can refuse to compare two strings the mask never fired on.
+///
+/// Why masking it cannot hide a real difference: Linux mints thread ids from a
+/// pool it RECYCLES as threads exit, so the number is a property of what else
+/// the box was doing, not of the program. Two runs of one program legitimately
+/// print different ids, and can just as legitimately print the SAME id for two
+/// different threads across runs -- so the raw number carries no information
+/// either way, and E7's promise ("not one byte of the program's own stderr")
+/// was never a promise about it. Everything the recorder could change -- the
+/// thread NAME, the location, the message, the order, the count -- is left in
+/// the compared text.
 fn mask_thread_ids(stderr: &str) -> (String, usize) {
     const MARK: &str = ") panicked at ";
     let mut out = String::with_capacity(stderr.len());
