@@ -7,7 +7,7 @@ unbind, interleaved frames -- and the comment explaining that shape belongs
 with the source, not in the middle of the test that reads it.
 """
 from tests.helpers import record_script
-from tests.programs import open_trace
+from tests.flow_programs import open_trace
 
 BUFFER = """
 def fill(buf, chunk):

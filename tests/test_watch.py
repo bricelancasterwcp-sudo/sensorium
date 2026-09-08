@@ -34,7 +34,8 @@ from sensorium.store import db
 from sensorium.store.reader import Trace
 from tests.helpers import (LEGACY_FORMAT, finalize_synthetic, record_script,
                            run_cli)
-from tests.programs import open_trace, synthetic
+from tests.flow_programs import open_trace
+from tests.programs import synthetic
 from tests.watch_programs import (CARRIER, CLIP, HANDLER, LOOPDEL, MIXED,
                                   RECURSE, line_events, rec)
 

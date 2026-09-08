@@ -18,9 +18,10 @@ import pytest
 from sensorium import cli
 from sensorium.exit import BAD_CALL, NEGATIVE
 from sensorium.query import flow_cmd
-from tests.programs import (ALIAS, GRAMS, flow_rows, flow_shown_ids,
-                            interleaved_address, obj_captures, open_trace,
-                            record, synthetic)
+from tests.flow_programs import (ALIAS, GRAMS, flow_rows, flow_shown_ids,
+                                interleaved_address, obj_captures,
+                                open_trace)
+from tests.programs import record, synthetic
 
 
 def _interleaved(trace, a, b):
