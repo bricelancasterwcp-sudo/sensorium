@@ -225,3 +225,49 @@ def test_the_launcher_exports_every_key_the_scan_of_the_61_found():
     text = launch.read_text()
     for key in ("PYTHONDONTWRITEBYTECODE", "SSL_CERT_DIR", "SSL_CERT_FILE"):
         assert f"export {key}=" in text, key
+
+
+# ------------------------------------------- gap 2: the version probe
+
+def test_the_version_probe_reads_the_INSTALLED_distribution_token():
+    """The token, from `importlib.metadata` — and a `reason` of `None`,
+    because there was nothing to explain."""
+    probe = pre.version_probe(REPO / ".venv" / "bin" / "python")
+    assert probe["token"], probe
+    assert probe["reason"] is None
+    assert probe["rc"] == 0
+    assert "importlib.metadata" in probe["command"]
+
+
+def test_a_FAILED_probe_records_null_WITH_its_reason_and_never_a_blank():
+    """E4′ §5's gap 2, closed. `out()` captured stdout only, so a probe
+    that raised put an empty string in the lens where a reader saw a
+    measured token. A failed probe is `null` and the reason is the
+    interpreter's own last line."""
+    probe = pre.version_probe(REPO / ".venv" / "bin" / "python",
+                              "no_such_distribution_e4p")
+    assert probe["token"] is None
+    assert probe["token"] != ""
+    assert probe["reason"]
+    assert "no_such_distribution_e4p" in probe["reason"] or probe["rc"] != 0
+    assert probe["rc"] != 0
+
+
+def test_the_attribute_probe_is_the_same_shape_and_never_a_blank():
+    """`sensorium` has no `__version__`, so this probe FAILS on this box —
+    which is the point: it records `null` with the `AttributeError`, not
+    the empty string E4′ published."""
+    probe = pre.attribute_probe(REPO / ".venv" / "bin" / "python")
+    assert set(probe) >= {"token", "reason", "rc", "command", "source"}
+    assert probe["token"] is None or probe["token"] != ""
+    if probe["token"] is None:
+        assert probe["reason"]
+
+
+def test_a_probe_that_prints_NOTHING_and_exits_zero_is_still_not_measured():
+    """A blank stdout with rc 0 is the shape that made `""` look measured.
+    It is `null` with a reason of its own."""
+    probe = pre._probe(REPO / ".venv" / "bin" / "python", "pass", "nothing")
+    assert probe["token"] is None
+    assert probe["reason"]
+    assert "printed nothing" in probe["reason"]

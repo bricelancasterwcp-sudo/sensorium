@@ -379,6 +379,7 @@ def phase_h1(two: dict) -> dict:
     granted, withheld, unread = [], {}, []
     hides, unsubtracted, wrong_count, sides_disagree = [], [], [], []
     harness_counts, phrases = {}, set()
+    sources, sourceless = {}, []
     for r in rows:
         part = r.get("licence_partition") or {}
         word = part.get("licence")
@@ -386,6 +387,14 @@ def phase_h1(two: dict) -> dict:
             unread.append(r["name"])
             continue
         harness_counts[r["name"]] = part.get("harness_threads")
+        # E4′ §5's gap 1's other half: a count is published WITH the line it
+        # was read from, so a reader can check it against that line rather
+        # than take the number on trust. `None` means neither line answered,
+        # and that pair is NAMED -- H7 gates on the list, not on a null a
+        # reader has to notice.
+        sources[r["name"]] = part.get("counts_source")
+        if part.get("counts_source") is None:
+            sourceless.append(r["name"])
         if part.get("harness_phrase"):
             phrases.add(part["harness_phrase"])
         if part.get("sides_agree") is False:
@@ -427,6 +436,9 @@ def phase_h1(two: dict) -> dict:
             bool(harness_counts)
             and set(harness_counts.values()) == {EXPECTED_HARNESS_THREADS}),
         "harness_phrases": sorted(phrases),
+        "counts_source_by_name": sources,
+        "counts_without_a_source_line": sorted(sourceless),
+        "counts_carry_their_source_line": bool(sources) and not sourceless,
     }
     out["partition_as_predicted"] = bool(
         out["granted_as_predicted"] and out["withheld_set_as_predicted"]

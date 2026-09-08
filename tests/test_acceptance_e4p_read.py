@@ -463,3 +463,140 @@ def test_a_GRANTED_pair_carries_the_relocation_on_its_verified_list_too(
     assert "differ only by the target directory" in facts
     for key in p["env_relocated_keys"]:
         assert key in facts
+
+
+# ------------------------------------- gap 1: where each count came from
+
+#: The exact caveat `refocus_world._licence_caveats` builds through
+#: `caps.witness_gap` when a trace carries no thread bookkeeping at all --
+#: copied from those two functions, and the one sentence the fallback below
+#: must refuse to read as a zero. All three of `witness_gap`'s shapes end
+#: with the same clause, which is what the pattern anchors on.
+NO_THREAD_RECORD = (
+    "  - the original predates the thread bookkeeping this check reads, so "
+    "how many threads it ran cannot be established -- absence of the record "
+    "is not a record of absence\n")
+
+#: One `threads:` line, as `refocus_report._print_thread_line` prints it
+#: with `harness_note`'s clause. Used only where the pair itself cannot be
+#: driven end to end (a trace with the bookkeeping deleted).
+THREADS_LINE = ("threads: 1 recorded fingerprint(s) compared (events "
+                "outside any test or spawned thread), all matching; 1 "
+                "harness thread (libtest's per-test thread, excluded as the "
+                "recorder's own) is not among these counts\n")
+
+
+def test_a_granted_licence_says_its_counts_came_from_the_LICENCE_CLAUSE(
+        tmp_path, monkeypatch, capsys):
+    """H7: every thread count carries the line it was read from. A granted
+    pair whose sentence names the exclusion read both counts from the
+    licence clause, and says so."""
+    part = rd.licence_partition(rd.parse_refocus(
+        _refocus(tmp_path, monkeypatch, capsys)))
+    assert part["counts_source"] == "licence-clause"
+    assert part["counts_source_by_count"] == {
+        "program_threads": "licence-clause",
+        "harness_threads": "licence-clause"}
+    assert part["counts_unread_reason"] is None
+
+
+def test_a_WITHHELD_licence_with_a_thread_caveat_also_says_licence_clause(
+        tmp_path, monkeypatch, capsys):
+    """The four. The caveat carries both counts, so neither is a fallback."""
+    part = rd.licence_partition(rd.parse_refocus(_refocus(
+        tmp_path, monkeypatch, capsys, program_threads=4)))
+    assert part["licence"] == "WITHHELD"
+    assert part["program_threads"] == 4
+    assert part["counts_source"] == "licence-clause"
+
+
+def test_a_licence_WITHHELD_by_the_ENV_clause_reads_the_THREADS_LINE(
+        tmp_path, monkeypatch, capsys):
+    """E4′ §5's gap 1, closed.
+
+    `_licence_caveats` emits a thread sentence only ABOVE zero, so a pair
+    withheld for its environment and running no thread of its own carries
+    no thread sentence at all -- and E4′ published `null` for both counts
+    on all 61 pairs, which took `harness_threads_all_one` to false over 61
+    pairs each reporting one harness thread on the line beside it.
+
+    The counts come from the `threads:` line instead, and the record says
+    which line each came from."""
+    out = _refocus_env(tmp_path, monkeypatch, capsys, ORIG_ENV,
+                       dict(ORIG_ENV, E4P_GAP_PROBE="1"))
+    p = rd.parse_refocus(out)
+    part = rd.licence_partition(p)
+    assert part["licence"] == "WITHHELD"
+    assert p["threads_harness"] == 1
+    assert part["program_threads"] == 0
+    assert part["harness_threads"] == 1
+    assert part["raw_thread_count"] == 1
+    assert part["counts_source"] == "threads-line"
+    assert part["counts_source_by_count"]["harness_threads"] == "threads-line"
+    assert part["harness_phrase"] == ("libtest's per-test thread, excluded "
+                                      "as the recorder's own")
+
+
+def test_a_granted_line_that_HIDES_the_exclusion_still_gets_its_harness_count():
+    """The fallback fills the count the sentence withheld -- and does NOT
+    repair the second reading: `names_the_exclusion` stays False, because
+    the licence's own line still did not name it."""
+    text = ("--- verdict ---\n" + THREADS_LINE
+            + "licence: verified against r-1 on exactly these points, and no "
+            "others:\n"
+            "  - no thread started besides the main one as OS threads "
+            "(libtest's per-test threads and threads spawned by workspace "
+            "code), and none left running when recording stopped\n")
+    part = rd.licence_partition(rd.parse_refocus(text))
+    assert part["names_the_exclusion"] is False
+    assert part["harness_threads"] == 1
+    assert part["program_threads"] == 0
+    assert part["counts_source"] == "threads-line"
+    assert part["counts_source_by_count"] == {
+        "program_threads": "licence-clause",
+        "harness_threads": "threads-line"}
+
+
+def test_a_pair_whose_THREAD_RECORD_could_not_be_read_is_NOT_read_as_zero():
+    """None-vs-zero, at the one place the fallback could invent a number.
+
+    The absence of a thread sentence means zero ONLY because
+    `_licence_caveats` emits one above zero. Where a caveat says the thread
+    bookkeeping could not be read at all, that inference does not hold, and
+    the counts stay `null` with the reason."""
+    text = ("--- verdict ---\n" + THREADS_LINE
+            + "licence: WITHHELD -- this MATCH is about call shape, and "
+            "these checks say it is not a statement about the run as a "
+            "whole:\n" + NO_THREAD_RECORD)
+    part = rd.licence_partition(rd.parse_refocus(text))
+    assert part["licence"] == "WITHHELD"
+    assert part["program_threads"] is None
+    assert part["harness_threads"] is None
+    assert part["counts_source"] is None
+    assert "not a count of zero" in (part["counts_unread_reason"] or "")
+
+
+def test_a_licence_that_never_printed_has_no_counts_source_and_no_reason():
+    """A pair with no licence line has no partition to source: the fallback
+    never fires, and `counts_unread_reason` stays `None` rather than
+    explaining the absence of something that was never there."""
+    part = rd.licence_partition(rd.parse_refocus("nothing was printed\n"))
+    assert part["counts_source"] is None
+    assert part["counts_unread_reason"] is None
+    assert part["program_threads"] is None
+
+
+def test_a_licence_with_NO_threads_line_at_all_says_why_it_could_not_read_it():
+    """The other not-measured: the licence was silent AND there is no
+    `threads:` line to fall back to. Named, never guessed at."""
+    text = ("--- verdict ---\n"
+            "licence: WITHHELD -- this MATCH is about call shape, and these "
+            "checks say it is not a statement about the run as a whole:\n"
+            "  - 1 environment variable(s) differ between the two runs "
+            "(E4P_GAP_PROBE); a program that reads them got different "
+            "input\n")
+    part = rd.licence_partition(rd.parse_refocus(text))
+    assert part["program_threads"] is None
+    assert part["harness_threads"] is None
+    assert part["counts_source"] is None
+    assert "no harness note" in (part["counts_unread_reason"] or "")

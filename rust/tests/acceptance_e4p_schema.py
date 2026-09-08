@@ -146,6 +146,45 @@ def _env_reading(two: dict) -> dict:
     }
 
 
+def licence_verified_counts(raw) -> dict | None:
+    """§1.2's four verified/unverifiable counts, COUNTED FROM THE ROWS.
+
+    E4′ §5's gap 7: this block used to read a TOP-LEVEL
+    `licence_verified_counts` the runner never writes, so the record named
+    a field every reader found `null` while the data sat one level down,
+    per row, under `raw_pass2.refocuses[*].licence` (`licence_counts`'s
+    output).
+
+    Counted, never SUMMED. `source` and `env` are checks that ran; `output`
+    and `children` are UNVERIFIABLE by construction on a Rust pair; §1.4
+    binds this record to reporting them in kind, so there is no
+    `verified_total` key here and there never will be.
+
+    `None` -- not five zeroes -- when no row carries a reading. A loop that
+    read nothing has no counts, and `0` there is a check that ran and found
+    nothing, which is a different claim.
+    """
+    two = raw.get("raw_pass2") or {}
+    rows = [r.get("licence") for r in (two.get("refocuses") or [])
+            if "not_run" not in r and isinstance(r.get("licence"), dict)]
+    if not rows:
+        return None
+    return {
+        "source_verified": sum(1 for c in rows if c.get("source_verified")),
+        "env_verified": sum(1 for c in rows if c.get("env_verified")),
+        "exit_verified": sum(1 for c in rows if c.get("exit_verified")),
+        "output_unverifiable": sum(1 for c in rows
+                                   if c.get("output_unverifiable")),
+        "children_unverifiable": sum(1 for c in rows
+                                     if c.get("children_unverifiable")),
+        "n": len(rows),
+        "note": ("counted over the rows that came back with a licence "
+                 "reading; source and environment are checks that RAN, "
+                 "output and children are UNVERIFIABLE by construction on a "
+                 "Rust pair, and the two kinds are never summed"),
+    }
+
+
 def _reported(raw) -> dict:
     """§1.4's "reported without a gate" list, whole."""
     two = raw.get("raw_pass2") or {}
@@ -182,7 +221,7 @@ def _reported(raw) -> dict:
                           for r in (two.get("refocuses") or [])
                           if r.get("cargo_finished_s")},
         "env_relocation": _env_reading(two),
-        "licence_verified_counts": raw.get("licence_verified_counts"),
+        "licence_verified_counts": licence_verified_counts(raw),
         "store": {
             "copies": (raw.get("store") or {}).get("copied"),
             "bytes_copied": (raw.get("store") or {}).get("bytes_copied"),
@@ -332,4 +371,5 @@ def assemble_e4p(raw: dict) -> dict:
     }
 
 
-__all__ = ["DOC", "SCHEMA_VERSION", "assemble_e4p"]
+__all__ = ["DOC", "SCHEMA_VERSION", "assemble_e4p",
+           "licence_verified_counts"]

@@ -37,7 +37,8 @@ _UNSET = object()
 
 def _row(index, name, target, run, *, licence=_UNSET, program=_UNSET,
          harness=1, names_exclusion=True, verdict="MATCH", rc=0,
-         pair_n=1, children=(), sides_agree=True, unsubtracted=()):
+         pair_n=1, children=(), sides_agree=True, unsubtracted=(),
+         counts_source="licence-clause"):
     """One refocus as `refocus_one` records it, with only the fields the
     phases read. `licence` defaults to §1.2's own answer for this name, so
     a fixture cannot quietly disagree with the prediction it is testing."""
@@ -67,7 +68,8 @@ def _row(index, name, target, run, *, licence=_UNSET, program=_UNSET,
             "sides_agree": sides_agree,
             "harness_phrase": "libtest's per-test thread, excluded as the "
                               "recorder's own",
-            "unsubtracted_labels": list(unsubtracted)},
+            "unsubtracted_labels": list(unsubtracted),
+            "counts_source": counts_source},
         "wall_s": 7.0, "timed_out": False,
     }
 
@@ -391,3 +393,29 @@ def test_a_WHOLE_loop_that_really_DIVERGED_is_False_and_not_None():
                                             "rc": 1}}))
     assert h["match_as_predicted"] is False
     assert h["dropped"] == []
+
+
+# --------------------------------- H1's second reading: the source line
+
+def test_H1_records_WHICH_LINE_each_pairs_counts_came_from():
+    """E4′ §5's gap 1, at the aggregate. The counts may come from the
+    licence clause or, where that clause is silent, from the `threads:`
+    line — and a count published without the line it came from is a number
+    a reader cannot check."""
+    h = phases.phase_h1(_two({
+        "a_pager_can_be_shared_across_threads": {
+            "counts_source": "threads-line"}}))
+    sources = h["counts_source_by_name"]
+    assert len(sources) == 61
+    assert sources["a_pager_can_be_shared_across_threads"] == "threads-line"
+    assert sources["unknown_model_mutating_verbs_is_false"] == "licence-clause"
+    assert h["counts_without_a_source_line"] == []
+
+
+def test_a_pair_whose_counts_have_NO_source_line_is_NAMED():
+    """A partition read from neither line is not a partition: it is named,
+    so H7 can gate on it instead of a reader inferring it from a null."""
+    h = phases.phase_h1(_two({
+        "unknown_model_mutating_verbs_is_false": {"counts_source": None}}))
+    assert h["counts_without_a_source_line"] == [
+        "unknown_model_mutating_verbs_is_false"]

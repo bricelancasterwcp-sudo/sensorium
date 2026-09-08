@@ -22,6 +22,7 @@ sys.path.insert(0, str(RUST_TESTS))
 import acceptance_e4p_cells as cells                               # noqa: E402
 import acceptance_e4p_rows as rows                                 # noqa: E402
 import render_e4p                                                  # noqa: E402
+import acceptance_e4p_schema as schema                            # noqa: E402
 from acceptance_e4p_schema import SCHEMA_VERSION, assemble_e4p     # noqa: E402
 
 ENDPOINTS = ("H1", "H2", "H3", "H4", "H5", "H6")
@@ -418,3 +419,67 @@ def test_the_preflight_guards_are_carried_into_environment():
     text = "\n".join(render_e4p.environment(assemble_e4p(raw)))
     assert "61 original(s)" in text
     assert "pgrep -x cargo" in text
+
+
+# ------------------------- gap 7: the verified counts, from the rows
+
+def _raw_with_counts(*per_row) -> dict:
+    """A raw record whose rows carry `licence_counts`' output and nothing
+    else that matters here."""
+    return {"raw_pass2": {
+        "refocuses": [dict({"index": i, "name": f"t{i}"}, licence=c)
+                      for i, c in enumerate(per_row, 1)],
+        "n": len(per_row), "measured": len(per_row),
+        "budget_exhausted": [], "killed": []}}
+
+
+def test_the_verified_counts_are_COUNTED_FROM_THE_ROWS():
+    """E4′ §5's gap 7, closed. The assembler built the field from a
+    TOP-LEVEL key the runner never writes, so the record named a field a
+    reader found `null`. The data is per row, under
+    `raw_pass2.refocuses[*].licence`."""
+    raw = _raw_with_counts(
+        {"source_verified": True, "env_verified": True, "exit_verified": True,
+         "output_unverifiable": True, "children_unverifiable": True},
+        {"source_verified": True, "env_verified": False,
+         "exit_verified": True, "output_unverifiable": True,
+         "children_unverifiable": True})
+    counts = schema.licence_verified_counts(raw)
+    assert counts["n"] == 2
+    assert counts["source_verified"] == 2
+    assert counts["env_verified"] == 1
+    assert counts["exit_verified"] == 2
+    assert counts["output_unverifiable"] == 2
+    assert counts["children_unverifiable"] == 2
+    assert "verified_total" not in counts
+
+
+def test_the_verified_counts_reach_the_RECORD_the_field_names():
+    """The field a reader opens is `reported.licence_verified_counts`, and
+    it is no longer permanently null."""
+    record = assemble_e4p(_raw_with_counts(
+        {"source_verified": True, "env_verified": True, "exit_verified": True,
+         "output_unverifiable": True, "children_unverifiable": True}))
+    assert record["reported"]["licence_verified_counts"]["n"] == 1
+    assert record["reported"]["licence_verified_counts"]["env_verified"] == 1
+
+
+def test_NO_row_read_is_null_and_never_five_zeroes():
+    """None-vs-zero. A run whose loop read nothing has no counts; five
+    zeroes there would read as five checks that ran and failed."""
+    assert schema.licence_verified_counts({}) is None
+    assert schema.licence_verified_counts(
+        {"raw_pass2": {"refocuses": []}}) is None
+
+
+def test_a_row_that_never_RAN_is_not_counted_as_a_measured_zero():
+    """A row the loop bound cut off carries `not_run` and no licence
+    reading at all; it must not enter the denominator."""
+    raw = _raw_with_counts({"source_verified": True, "env_verified": True,
+                            "exit_verified": True,
+                            "output_unverifiable": True,
+                            "children_unverifiable": True})
+    raw["raw_pass2"]["refocuses"].append(
+        {"index": 2, "name": "t2", "not_run": "the bound was reached"})
+    counts = schema.licence_verified_counts(raw)
+    assert counts["n"] == 1
