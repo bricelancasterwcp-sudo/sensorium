@@ -196,7 +196,11 @@ with, none of it ranked, each item with the thing that would settle it.
 - **A `--workspace` E6 slice with no `--lib`.** E6‴-W widened the selector and
   reached the same 2 of 29 located blast-radius arms, so the widening bought
   no coverage (E6‴ §5.1). Dropping `--lib` — integration tests, binaries,
-  doctests — is the next measurement that could.
+  doctests — is the next measurement that could. *(X, 2026-09-08: closed by the borrow repair's
+  **E6⁗-WS**, a `--workspace` arm with no `--lib` — 0 false rows of 782 over
+  144 processes (`docs/CARRIED-DEBT-ARCHIVE.md`, the borrow-repair section).
+  The measurement this item asked for was taken; nothing came back to mark
+  it)*
 - **A `chain.holder` field on the wire.** The holder is derived twice today
   (once in the converter's machine, once by the Python reader walking outward
   from a chain's last event); one field would delete both walks.
@@ -233,69 +237,114 @@ which is ranked:
 - The rung-2 plan's Task 8 line for `runs`'s invocation header specified a
   `[exit <cargo_exit>]` suffix that correctly did not ship (cargo's own exit
   status is not something any process witnessed) — tidied, dated, in
-  `docs/superpowers/plans/2026-09-02-sensorium-rung2-recorder-v1.md`.
-- `diff --task` help text is still Python-worded on a Rust trace.
-- `vocab.interp_line`'s `or "?"` fallback branch has no fixture reaching it.
+  `docs/superpowers/plans/2026-09-02-sensorium-rung2-recorder-v1.md`. *(X, 2026-09-08: this item records its own
+  closure — the plan line was tidied and dated. Marked here so a reader
+  counting open items does not count it)*
+- `diff --task` help text is still Python-worded on a Rust trace. *(Taken 2026-09-08 at `0d685ad`: the help line
+  reads in the recorder's own words through `vocab.py`, and the corpus gate
+  ran WITH the driver behind it)*
+- `vocab.interp_line`'s `or "?"` fallback branch has no fixture reaching it. *(Taken 2026-09-08 at `0d685ad`: one fixture
+  reaches the branch)*
 - The Python `live_threads` line's pre-existing asymmetry (present before
   rung 2, not touched by it).
 - Malformed-meta robustness in the Rust converter's read path (an orphan
   `.proc.json.tmp`, a mirror path leaking into a manifest) is hard-erred by
-  name today; no fixture exercises the error text itself.
+  name today; no fixture exercises the error text itself. *(Taken 2026-09-08 at `d836a77`: five fixtures
+  in `tests/convert_errors.rs`, one per malformed-metadata refusal in the
+  read path)*
 - `mint()` isolating test — `runid::mint`'s one-line forward (it must consult
   its own `minted` parameter, not just the directory) has no deterministic
   test that would catch that line reverting; the one mutation of Task 6's
   review that survived was caught by inspection, not by a test
-  (`task-6-report.md`, "Concerns carried forward").
+  (`task-6-report.md`, "Concerns carried forward"). *(Taken
+  2026-09-08 at `74d5fbb`:
+  `convert::runid::tests::mint_consults_the_minted_set_and_not_only_the_directory`
+  reddens when `minted` is ignored)*
 - `Report`/`TraceSummary` unused — the in-process return value of
   `convert_dir` is not read by either caller today (the driver seam and the
   `convert` role both check only `Result::is_err`); kept, with an
   `#[allow(dead_code)]` and a comment, as the extension point a future
-  in-process caller will want (`task-6-report.md` line 263).
+  in-process caller will want (`task-6-report.md` line 263). *(X,
+  2026-09-08: closed by decision, not by work — the `#[allow(dead_code)]`
+  and its comment ARE the disposition, and the item stood unstruck only
+  because nothing came back to mark it)*
 - Panic-RETURN tag validation — no test pins that a frame closed by a panic
   writes the RETURN wire tag/outcome the converter expects, independent of
-  the writer that produced it (deferred at Task 6's review).
+  the writer that produced it (deferred at Task 6's review). *(Taken 2026-09-08 at `852a0f5`: the panic path
+  is pinned by wire number, writer-independently, with its ok-outcome
+  control beside it)*
 - Panic serial numbering on outside-frame panics — a PANIC record with no
   open frame to attach to (`panics_outside_frames`) has no test pinning how
-  its serial is assigned or read back (deferred at Task 6's review).
+  its serial is assigned or read back (deferred at Task 6's review). *(Taken 2026-09-08 at `852a0f5`: a panic with no
+  open frame is shown to consume its thread's panic serial)*
 - `runid`/driver id-mix helper — a small duplication between the driver's and
-  the converter's run-id minting, not yet factored out.
+  the converter's run-id minting, not yet factored out. *(Taken
+  2026-09-08 at `74d5fbb`: one mix for both minters, with a test saying the
+  salt is the only addition)*
 - A byte-exact pin for the `run:` line's own format (Task 9's conformance
-  fixtures may be the right place).
-- The probe workspace's shared `SITE_*` consts.
+  fixtures may be the right place). *(Taken
+  2026-09-08 at `a9a5ed1` (with `245dee4`): `RUN_LINE` anchors the line's own
+  keyed shape and its comment names all three shapes the writer emits — the
+  same commit that closed the reader half of this pair)*
+- The probe workspace's shared `SITE_*` consts. *(Reported 2026-09-08, not taken: `SITE_`
+  matches nothing under `rust/probes/` or `rust/tests/` at this slice's HEAD.
+  Reads as obsolete, and "I cannot find it" is not "it was fixed")*
 - The tid-mask justification (why a recycled OS thread id is safe) is
-  reasoned about in review notes but not written into the suite itself.
+  reasoned about in review notes but not written into the suite itself. *(Taken 2026-09-08 at `91f737d`: the paragraph is
+  in `rust/sensorium-rt/tests/panics.rs` beside `mask_thread_ids`, saying
+  why recycling makes masking safe and why E7's promise was never about the
+  number)*
 - `Fixed`/`CapWriter` duplication between `sensorium-rt` and
-  `sensorium-transform`'s test helpers (pre-existing, widened by one).
+  `sensorium-transform`'s test helpers (pre-existing, widened by one). *(Reported 2026-09-08, not taken: neither name is in
+  `sensorium-transform` at HEAD. The duplication that does exist is two
+  capped `fmt::Write` types inside `sensorium-rt`'s own production code with
+  different cap semantics — a behaviour-risk merge, not a line)*
 - Two `sensorium-rt` tests with no single-line mutation demonstrated against
-  them yet.
+  them yet. *(Reported 2026-09-08, not taken: it needs a
+  mutation campaign rather than a line, and the review that filed it named
+  neither test, so its subject is not decidable from the source)*
 - `rust/tests/mechanics.sh`'s dependency-proxy shape for driving the built
-  binary.
-- Identifier naming for the acceptance runner's pair counts.
-- The `_sub` docstring in the acceptance runner.
-- Unused `gen.py` encoders in the cross-recorder fixture generator.
-- `trace._c` private-attribute access from a Python test helper.
-- `cargo_driver()` re-resolved once per test case rather than cached.
+  binary. *(Reported 2026-09-08, not taken: reshaping it is
+  design work that lands on top of a split `mechanics.sh` still owes (795 of
+  800))*
+- Identifier naming for the acceptance runner's pair counts. *(Reported 2026-09-08, not taken: out of the
+  taking task's file scope (`rust/tests/*.py`))*
+- The `_sub` docstring in the acceptance runner. *(Reported 2026-09-08, not taken: same scope)*
+- Unused `gen.py` encoders in the cross-recorder fixture generator. *(Reported 2026-09-08, not taken: same scope
+  (`tests/fixtures/rust-spools/gen.py`))*
+- `trace._c` private-attribute access from a Python test helper. *(Reported 2026-09-08, not taken: same scope)*
+- `cargo_driver()` re-resolved once per test case rather than cached. *(Reported 2026-09-08, not taken: a cache has to
+  live where all four callers can see it, which is the shared-helper move
+  taken at `a9a5ed1` — the caching half was not)*
 - The acceptance runner's `"$RUN2" in str(spec)` scan (works, reads as
-  incidental rather than designed).
+  incidental rather than designed). *(Obsolete 2026-09-08: the scan reads `q["command"]` and carries the
+  comment this nit asked for)*
 - Abort core files: `corpus/rust/abort`'s child runs under whatever ulimit
   the box has, and a permissive one leaves a core file the corpus does not
-  clean up.
+  clean up. *(Taken 2026-09-08 at `a9a5ed1`: the case cleans
+  its own core file)*
 - `rust/sensorium-rt/src/bin/scenario.rs` sits at exactly 800 lines (the
   house limit) — the next task that adds a test arm to it must split it into
   `src/bin/scenario/` first; none was planned before this document. *(Still
   true after the final fix wave: its one new arm reused an existing scenario.
-  Source: final review 2026-09-03.)*
+  Source: final review 2026-09-03.)* *(X, 2026-09-08: split to `src/bin/scenario/`;
+  `scenario.rs` is 245 lines)*
 - `convert/mod.rs:141-147`'s WARN counts runner records, and on cargo 1.96
   those include doctest processes — so "N test binaries" can overstate by the
-  doctest count. Source: final review 2026-09-03.
+  doctest count. Source: final review 2026-09-03. *(Taken 2026-09-08 at `9c82fde`: the WARN counts
+  test binaries apart from doctest processes, with three tests behind it)*
 - `convert_perf.rs:57`'s test name (`a_hundred_thousand_record_spool_converts_in_seconds_not_minutes`) promises "seconds not minutes"; its own
   doc says the mutation it was written for measured 2.5 s under a 5 s bound.
   Honest as a floor, but the name reads as a fence. Source: final review
-  2026-09-03.
+  2026-09-03. *(Taken 2026-09-08 at `6abcc27`: renamed for the
+  bound it asserts)*
 - Function lengths against the "under 50 where the language allows"
   constraint: `frames::process` 274, `convert_one` 164, `wrapper::instrument`
   112, `driver::go` 100, `convert_dir` 99, `write_proc_header` 88. Bodies are
-  linear and commented; style only. Source: final review 2026-09-03.
+  linear and commented; style only. Source: final review 2026-09-03. *(**Ruled 2026-09-08 (R4): NOT this slice.**
+  Splitting the converter's core is behaviour-risk work with no failing test
+  behind it; it goes to the C conversation as a refactor needing its own
+  review)*
 - A spool whose first `ftruncate`/`mmap` fails leaves a 0-byte
   `<pid>.<serial>.spool` (`spool.rs:126-134`) that the converter refuses by
   name (`convert/spool.rs:66-71`), so one thread's inert-at-open costs the
@@ -312,11 +361,14 @@ which is ranked:
   and a trait's const-generic default. The three fn visitors descend into the
   body only, and `visit_item_impl`/`visit_item_trait` visit `items` only.
   Source: rung-3 entry slice 2026-09-03; class widened by the final review
-  2026-09-04.
+  2026-09-04. *(Declared 2026-09-08 by the queue slice:
+  `rust/HONESTY-BLIND-SPOTS.md` **item 31**, which is the A half of this
+  item. Rewriting those positions stays a C item)*
 - `visit_trait_item_const` (an associated const's default value inside a
   `trait` item) is a real code path — `in_item` names it exactly like
   `visit_item_const`/`visit_impl_item_const` — but no golden or edge-case
-  fixture reaches it. Source: rung-3 entry slice 2026-09-03.
+  fixture reaches it. Source: rung-3 entry slice 2026-09-03. *(Taken 2026-09-08 at `d17eb20`: the golden
+  `fns_nested_in_const_static_and_trait_const_initialisers` reaches it)*
 - `diff`'s verdict vocabulary: `MATCH modulo location` prints only on the
   thread-stream branch that has at least one causal event outside a task; a
   trace whose events all live in tasks instead reads `verdict: MATCH -- no
@@ -324,9 +376,11 @@ which is ranked:
   nothing to compare; the tasks below carry the whole verdict`, even when
   code objects paired across a move (the `key:` line says so) — the wording
   should carry "modulo location" there too. Source: rung-3 entry slice
-  2026-09-03.
+  2026-09-03. *(Taken 2026-09-08 at `0d685ad`: it does, and the
+  corpus gate ran WITH the driver behind the changed sentence)*
 - Golden for a fn nested inside a const/static initialiser (`X::h` prefix) —
-  Source: rung-3 entry slice 2026-09-03.
+  Source: rung-3 entry slice 2026-09-03. *(Taken
+  2026-09-08 at `d17eb20`, the same golden)*
 - Fixture for a REFUSED crate-root file on the WRAPPER-BINARY path — the
   stderr line, `fell_back: false`, and the empty `files` as the driver writes
   them, for a root refused by a synthesised error. The plan level is already
@@ -336,7 +390,9 @@ which is ranked:
   `rewrites` cleared with `unreached_reasons` surviving; `wrapper_fallback.rs`'s
   `a_file_the_transformer_refused_names_its_reason_on_both_channels` covers a
   refused child file on the binary path. Source: rung-3 entry slice 2026-09-03
-  (fix round 1); narrowed by the final review 2026-09-04.
+  (fix round 1); narrowed by the final review 2026-09-04. *(Taken 2026-09-08 at `017a4a1`:
+  `a_refused_crate_root_leaves_the_unit_empty_without_calling_it_a_fallback`
+  pins the stderr line, `fell_back: false` and the empty `files`)*
 - No unit tests on the acceptance instruments (`rust/tests/acceptance*.py`,
   `render_acceptance.py`) — repo-wide; mitigated by byte-identical re-renders
   in review. Source: rung-3 entry slice 2026-09-03 (Task 5 review).
@@ -344,7 +400,8 @@ which is ranked:
   `std::env::temp_dir()` and never remove it
   (`rust/cargo-sensorium/src/convert/spool.rs:534`, `:549`, `:575`) — the
   module's pattern, not a regression of the newest of the three; a scope guard
-  would tidy all three. Source: final review 2026-09-04.
+  would tidy all three. Source: final review 2026-09-04. *(Taken 2026-09-08 at `1530f68`: a scratch
+  directory removes itself when it leaves scope, on an unwind too)*
 - `refocus --window QUALNAME` reads as a size/range to the prior; rename
   candidate `--lines-in` or fold into `--focus` — deferred until the
   invocation-log census says agents trip on it. Source: exit-status slice

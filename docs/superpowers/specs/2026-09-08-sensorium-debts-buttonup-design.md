@@ -200,3 +200,33 @@ Every C row of §2 (43), including R6/R7's four, N7, N8, the rung-5 env-reads le
 
 Appended, never edited in place; each names the section and the date.
 
+**A1 — §3, the seam map's three new-file NAMES, 2026-09-08 (Task 1).** Three of
+the nine Python/instrument splits landed under a different name from the one
+§3's table spells, each because the table's name would send a reader to the
+wrong file, and each matching the seam map's own spelling:
+
+* `test_exceptions_rust_shapes.py` → **`tests/test_exceptions_synthetic.py`** —
+  nothing in the moved 351 lines is Rust, and a genuinely Rust sibling
+  (`tests/test_exceptions_rust_grouping.py`) sits next door.
+* `test_tracer_classify.py` → **`tests/test_tracer_serials.py`** — "classify"
+  names `Tracer._decide`/`_classify`, whose tests are ABOVE the seam and stay,
+  and Task 3 lands `src/sensorium/record/tracer_frames.py` holding exactly that
+  classification block.
+* `acceptance_schema_cells.py` → **`rust/tests/acceptance_schema_e5prime.py`** —
+  `_cells` means cell builders in that directory (`acceptance_e4pp_cells.py`
+  and two siblings) and nothing moved is one; the file's two siblings are named
+  for the document they assemble.
+
+The design's other new-file names shipped unchanged. §3's table is the record
+of what was planned; this note is what was taken.
+
+**A2 — §3 and R9, four splits the map did not name, 2026-09-08 (Task 6).** R9
+says the near-ceiling instrument files are split at their `# ----` banners if
+this slice's own edits take them over 780. Four did, and were:
+`rust/tests/acceptance_e4pp_phases.py` → `_phases2.py` (the H7 banner),
+`rust/tests/acceptance_e4pp.py` → `acceptance_e4pp_kills.py` (the main banner),
+`tests/test_acceptance_e4pp.py` → `tests/test_acceptance_e4pp_kills.py` (the
+same seam), and `rust/tests/acceptance_e4p_read.py` →
+`acceptance_e4p_trace.py` (its store banner). Every one a pure move with every
+name imported back — R9 working as written, on files R9 named.
+

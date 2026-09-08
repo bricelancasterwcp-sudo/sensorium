@@ -169,7 +169,13 @@ versus the one invocation view; the number of groups whose `origins vary` /
   byte-identical to today; a sink group whose origins differ → the `origins:
   2 distinct` line; `ambiguous` no-sink chains at two origin sites → two
   groups (origin is the site); `--limit 1` with two groups → one block and
-  `... 1 more shape; continue with: … --limit 2`; `--after` still scopes by
+  `... 1 more shape; continue with: … --limit 2` *(amended 2026-09-08 by the
+  queue slice, ruling R8 — `docs/CARRIED-DEBT-ARCHIVE.md` carried this as an
+  open item: ruling R-G7 replaced that spelling with `fmt.more_note`'s, which
+  prints `... 1 more; continue with: … --limit 2` and carries no "shape"
+  word. The tests and the tool were always right; the example above is the
+  stale text, left in place and corrected beside itself the way every other
+  amendment in this document is made)*; `--after` still scopes by
   origin id; 9 ids → `… +1`.
 - `tests/test_exceptions_invocation.py` (new): three synthetic traces sharing
   `meta.invocation`, one INCOMPLETE → the header counts, the INCOMPLETE line

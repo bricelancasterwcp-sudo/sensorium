@@ -92,7 +92,7 @@ both files. A deferred item below is still open unless it is struck.
   `CHANGELOG.md` 0.8.1 and
   `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`. What the
   repair leaves is the new section below.
-- **The reviewer's static list and the census's 31 are different sets.** At
+- ~~**The reviewer's static list and the census's 31 are different sets.** At
   most 27 of the reviewer's 31 entries can be among the census's 31, and at
   least 4 of the census's 31 are arms the list does not name. A BEFORE/AFTER
   manifest diff across the repair commit would settle it; this run did not
@@ -110,10 +110,19 @@ both files. A deferred item below is still open unless it is struck.
   and the E6‴-era census, neither of which was ever enumerated side by
   side, and no diff taken here identifies them. Open until someone
   enumerates those two sets, or rules that the question no longer needs
-  answering.
-- **`corpus/run_corpus.py::_run_ids` reads any stdout line starting `run: `
+  answering.~~ — **Closed by a dated note 2026-09-08** (ruling
+  R8): **the question no longer needs answering.** E-flip settled the METHOD
+  (a BEFORE/AFTER manifest diff over two from-scratch builds, every changed
+  row named), and the repair it was asked about has shipped and been measured
+  twice since; the two E6‴-era 31-element sets are historical inputs to a
+  reading nothing now rests on, and enumerating them would produce no verdict
+  any record turns on. Nobody is owed the diff.
+- ~~**`corpus/run_corpus.py::_run_ids` reads any stdout line starting `run: `
   as a trace id.** A case that printed `run: Err(..)` was misread; the case
-  worked around it. Key the id line unambiguously in a later slice.
+  worked around it. Key the id line unambiguously in a later slice.~~ — **Taken 2026-09-08** at `a9a5ed1` (with
+  `245dee4`): the reader is anchored on `RUN_LINE`, the id line's own keyed
+  shape, so a case that prints `run: Err(..)` is no longer read as a trace
+  id; the comment beside it names all three shapes the writer emits.
 - **`rust/tests/mechanics.sh` is at 795 of 800 lines.** The next check added
   to it must split it first — and there is now a named check waiting for that
   split: **an E7 check for the second place a column can move.** The clause
@@ -134,16 +143,26 @@ both files. A deferred item below is still open unless it is struck.
   — and taken 2026-09-05 by the borrow repair: §1 is now
   `rust/HONESTY-OUTCOMES.md`, wording and order unchanged, leaving
   `rust/HONESTY.md` at 713 lines after §11's repaired `&e` clause.
-- **The parent spec is at 1 458 lines**, over the house ceiling and already
+- ~~**The parent spec is at 1 458 lines**, over the house ceiling and already
   over it (1 407) before this slice added §11's rung-3 verdict and §13's
-  deltas table. Splitting a design spec's history is not a docs pass's call.
+  deltas table. Splitting a design spec's history is not a docs pass's call.~~ — **Closed 2026-09-08** by **ruling R1** at
+  `e531200`: the 800-line ceiling covers code and living docs, and
+  `docs/superpowers/{acceptance,plans,specs}/` are records — dated history,
+  some byte-locked, amended only by appended notes — exempt by name in
+  `tests/test_ceiling.py`. The parent spec is not owed a split; a record is
+  read by section.
 - **E2″'s numerator is `(file, line)`-deduped**, so the 97.76 % is a floor
   and the 9-site residual is an instrument artifact, not unreached code (the
   per-file recount is 401/401). A numerator that counts sites rather than
   lines would remove the footnote.
-- **Rung-2's `acceptance_lib.read_manifests` breaks on rung-3 manifests** —
+- ~~**Rung-2's `acceptance_lib.read_manifests` breaks on rung-3 manifests** —
   it killed the first E6′ launch before any number was read, and was worked
-  around in a rung-3 module rather than fixed at the source.
+  around in a rung-3 module rather than fixed at the source.~~ — **Taken 2026-09-08** at `05148e8`: fixed at
+  source — `line` where `firstlineno` is absent, `kind` joining the site key —
+  and `acceptance_phases_rung3.read_manifests_rung3`, the workaround, is
+  deleted. A rung-2 manifest counts exactly as it did, so no published number
+  moves, and a manifest whose format has no `partial` key reads `null` WITH
+  its reason rather than a measured 0 (`b0c3720`).
 - ~~**A frame closing `err` while it holds TWO chains hops the INNERMOST one,
   whatever the text says.** `chains/mod.rs`'s exit hop is minted on the
   innermost held chain and does not run the text-matching search the RAISE and
@@ -277,7 +296,7 @@ both files. A deferred item below is still open unless it is struck.
   marker is still the settlement, its notation decided under N8 and its
   implementation deferred to a Rust-side slice of its own; a file:line
   allowlist stays rejected, because such keys rot when lines move.*
-- **Per-site adjudication is a reading of SOURCE, and R15's criterion is a
+- ~~**Per-site adjudication is a reading of SOURCE, and R15's criterion is a
   property of EXECUTION** (record §5.2). Of the 1 608 lines adjudicated,
   §4.2 and §4.3 collapse the two workspace arms' 782 and 812 to one row per
   distinct sink site (§4.1's 14 keep E6‴'s per-line shape); the collapse is
@@ -285,7 +304,13 @@ both files. A deferred item below is still open unless it is struck.
   from the error survives the arm. **`pager/paging.rs:673` is the one site in
   the record whose verdict could turn on which path ran** (three downstream
   endings),
-  and its row's stated reason had to be corrected in fix round 1.
+  and its row's stated reason had to be corrected in fix round 1.~~ — **Closed by a dated note 2026-09-08**
+  (ruling R8): `pager/paging.rs:673`'s collapse **stands as read**. The
+  record's own §5.2 is the evidence — it names the site, states that its
+  verdict could turn on which path ran, and carries the corrected reason —
+  and a reading a record states against itself is the honest form of a
+  contestable reading. Re-adjudicating it would be a new derivation of a
+  closed record, not a repair of one.
 - **Four of the eleven flipped arms were never executed** by any arm of the
   run (record §5.5): `api_native/agents.rs:93`, `:104`,
   `api_native/models.rs:25`, `codec_probe/boot.rs:110`. Three are the same
@@ -309,30 +334,47 @@ both files. A deferred item below is still open unless it is struck.
   **untested by fixture** on a real tree. The nested-literal gap (23 (a)) and
   the `tracing`-syntax non-detection (24) are unchanged by this slice and
   stay carried in the rung-3 section above.
-- **`RUSTDOCFLAGS="-D warnings" cargo doc -p sensorium-transform --no-deps`
+- ~~**`RUSTDOCFLAGS="-D warnings" cargo doc -p sensorium-transform --no-deps`
   fails** on two PRE-EXISTING private-module intra-doc links
   (`rust/sensorium-transform/src/lib.rs:435` and `:442`), verified identical
   before this branch. Rustdoc is not in the gate set (workspace tests,
   clippy `-D warnings`, `cargo fmt --check`, pytest), so nothing red was
   introduced and nothing was fixed here; the ruling is whether rustdoc joins
-  the gate.
-- **`tests/test_acceptance_e6q.py` is at 800 of 800 lines.** The next test
+  the gate.~~ — **Taken 2026-09-08** at `059ac7b`, the repair
+  half: **five** private-module intra-doc links (not the two this bullet
+  counted — the count had drifted with the file) are repaired and
+  `RUSTDOCFLAGS="-D warnings" cargo doc -p sensorium-transform --no-deps`
+  passes. Whether rustdoc JOINS the gate set is the ruling half and stays a C
+  item: it is a policy question about what a green tree must prove, not a
+  repair.
+- ~~**`tests/test_acceptance_e6q.py` is at 800 of 800 lines.** The next test
   added there must split the file first — the `rust/tests/mechanics.sh`
-  precedent, stated before it is discovered at the ceiling.
-- **A golden fixture carries the PRE-repair sentence in a comment.**
+  precedent, stated before it is discovered at the ceiling.~~ — **Taken 2026-09-08** at `1bd523d`, before a test
+  was added to it: split at the schema banner into
+  `tests/test_acceptance_e6q_record.py` (800 → 510 + 327), a pure move, which
+  is what unblocked the e6q runner's stale-docs sweep below.
+- ~~**A golden fixture carries the PRE-repair sentence in a comment.**
   `rust/sensorium-transform/tests/golden/err_arm_escaped.in.rs:59-60` says "a
   format argument and a shared borrow, the only two uses design R2 calls
   provable". Goldens were deliberately untouched this slice (E7⁗ rests on
   nothing moving), so the sweep waits for the next legitimate golden
-  re-derivation.
-- **The acceptance runner's own docs still carry the falsified expectation.**
+  re-derivation.~~ — **Closed by a dated note 2026-09-08** (ruling
+  R8): design **B1** (2026-09-05, the borrow repair) superseded R2's "only two
+  provable uses" — `err_arm_escaped.in.rs:59-60` records the pre-repair
+  reading and is not edited for it. Golden bytes move when the golden is
+  legitimately re-derived, and a comment is not that occasion.
+- ~~**The acceptance runner's own docs still carry the falsified expectation.**
   `rust/tests/acceptance_e6q.py`'s module doc (and the docstring of
   `test_each_arms_driver_version_is_read_from_the_trace_that_arm_wrote` in
   `tests/test_acceptance_e6q.py`) say the control's traces must read
   `cargo-sensorium 0.3.0` and the HEAD arms' the repaired version. Record
   §5.7 falsifies it — all three arms read 0.3.0 — and the measurement is
   complete, so the instrument was left as it stood rather than edited after
-  the lock. Sweep when that runner is next legitimately touched.
+  the lock. Sweep when that runner is next legitimately touched.~~ — **Taken 2026-09-08** at `a3b29b7`, the sweep
+  this row asked for: the module doc, `driver_identity`'s docstring and the
+  test's docstring now say what the run FOUND (all three arms read 0.3.0) and
+  name the reading that does discriminate — `tool_hash`, which the test pins
+  per run.
 - **Review minors, deferred rather than repaired after the lock**, one line
   each: the escape walker's `visit_stmt` match guard
   `Some(e) if self.walk_dropped_call(e)` is side-effecting (it walks before
@@ -351,7 +393,20 @@ both files. A deferred item below is still open unless it is struck.
   command did not; and `rust/tests/acceptance_schema_e6q.py::_prep`'s
   `arm_sites_distinct` cell can go null via `dropped = _drop(raw, key)`,
   which can be `[]` — a null with no reason, against the module's own rule,
-  unreachable today because `arm_rows` always writes `distinct`.
+  unreachable today because `arm_rows` always writes `distinct`. — **Six of the ten closed 2026-09-08** at
+  `ae58c54`: `--doc` is a table and every renderer with a `document(argv)`
+  entry point is reachable from it; the control driver's sha256 is re-read at
+  cleanup and reported (`null` WITH its reason on either side, never a
+  refusal); `ARM_A["selector"]` is pinned against `real_config`'s `pkg`; the
+  E0‴ lens substitution has a slot per grammar, so "events's size" is
+  unreachable — and it appears in **no committed record**, the defect having
+  been latent; and `arm_sites_distinct`'s guard tests the CELL's value, so a
+  null with no reason cannot be published. `phase_e6prime`'s step text needed
+  no repair — the bullet records a step line that had already changed. The
+  **four crate-side minors stand** (the side-effecting `visit_stmt` guard, no
+  receiver-position dropped-call row, `close_frame`'s always-computed
+  `preferred`, no CALLEE-walk row): they are `rust/` crate code and crate
+  unit tests, and the task that owned this row owned neither.
 - **`.await`/`?` wrapping a dropped call is not recognized as a dropped
   site.** `log(&e).await;` and `note(&e)?;` are, after `strip`, an
   `Expr::Await`/`Expr::Try` over the call, not the call itself, so
@@ -457,14 +512,22 @@ both files. A deferred item below is still open unless it is struck.
   105. **No number in either record turns on it**, and §1′ is not edited
   either way. If the strict reading binds, the slice ships with two STOP
   records.
-- **The first record's `results.json` no longer re-assembles byte-identical**
+- ~~**The first record's `results.json` no longer re-assembles byte-identical**
   apart from `assembled.at`: `34ab82e` added `disambiguated_shapes` keys the
   first raw record does not carry, so a re-assembly today emits five
   `disambiguated_shapes: null` — unmeasured, which is the none-vs-zero rule
   holding rather than breaking. The committed file was left as measured and
   derived at `62d8956`. **Ruling owed**: either pin a schema version in each
   `results.json`, or accept that a re-derivation under a later schema is a NEW
-  derivation and say so once, in the renderer.
+  derivation and say so once, in the renderer.~~ — **Closed by a dated note 2026-09-08**
+  (ruling R8): the first half shipped at `e0f469c` — every raw and assembled
+  results file carries `schema_version` — and the second half is the note:
+  **both grain `results.json` predate the field, and a later re-derivation of
+  either is a NEW derivation, not a repair of the published one.** The
+  committed records are not edited. What that costs is now measured rather
+  than asserted, and the three places the current renderer differs from the
+  published §2 are named in the 2026-09-08 queue section of
+  `docs/CARRIED-DEBT.md`.
 - **The in-source acknowledgment marker (N8) is decided but unbuilt.**
   `// sensorium: acknowledged swallow — <reason>`, read by the transformer,
   carried through the manifest and converter, printed as `acknowledged N`. It
@@ -484,18 +547,28 @@ both files. A deferred item below is still open unless it is struck.
   the mask has to spare the Rust float type names `f16`/`f32`/`f64`/`f128`
   because a panic message can carry them. Keying on the classifier's own
   components instead of on masked prose deletes the mask and its exceptions.
-- **`exceptions_cmd` dispatch sniffs an error MESSAGE.** The fall-through from
+- ~~**`exceptions_cmd` dispatch sniffs an error MESSAGE.** The fall-through from
   a run reference to an invocation lookup tests the text `"no trace matches"`.
   It is correct today and pinned, and it will break silently the day that
-  sentence is reworded.
-- **Rung-3 blind spot R16 (v) is in no ledger but this one.** A `Result` born
+  sentence is reworded.~~ — **Taken 2026-09-08** at `0d685ad`: the
+  fall-through tests a typed exception, `paths.NoSuchTrace`, not the text.
+  One recorded value moved with it — the invocation log's `error` field reads
+  `NoSuchTrace` where it read `TraceLookupError`, which is the class that was
+  actually raised.
+- ~~**Rung-3 blind spot R16 (v) is in no ledger but this one.** A `Result` born
   in an instrumented callee and handed BY VALUE to a helper that sinks it
   produces a HANDLED matching no chain the helper's frame holds: a chainless
   swallow whose detail prints a false *born outside this thread's instrumented
   frames* — it was born inside, one frame away — beside a second AMBIGUOUS
   line for the chain the callee's `err` close opened. The verdict class is
   right and the DETAIL is wrong, which sends a reader looking outside the
-  workspace for an error the workspace raised.
+  workspace for an error the workspace raised.~~ — **Taken 2026-09-08**, both halves: the printed
+  detail was qualified at `edc2bce` (pinned at `6490a14`) — it now leads with
+  the record's own fact, *no chain of this thread was open where it was
+  absorbed*, and names both readings that admit it, so the sentence no longer
+  claims a birthplace it cannot know — and the ledger half is
+  `rust/HONESTY-BLIND-SPOTS.md` **item 30**, added by the queue slice, which
+  is the ledger this row said the shape was missing from.
 - **The §11 sweep N1 did not finish.** `rust/HONESTY-INDEX.md`'s §11 row still
   states the promise in its pre-N1 form; §11's `JoinHandle` line lost the
   "because the machine is per-thread" gloss and wants a pointer to blind spot
@@ -503,32 +576,48 @@ both files. A deferred item below is still open unless it is struck.
   asserts the tool's SENTENCE as prose rather than any structure; and
   `tests/test_honesty_prose.py` pins its four phrases to §11 as a whole, not
   to the SWALLOWED bullet.
-- **The invocation header's noun is wrong at both ends.** It reads
+- ~~**The invocation header's noun is wrong at both ends.** It reads
   `N swallowing sites` where N counts printed BLOCKS — `ws` prints 103 and
   `ws0` 105 where the published record has 91 and 98 SITES, and R-G12 widened
   that gap precisely by making the addressing right — and it says `sites`
   when N is 1. The phrase was frozen through both measurements deliberately;
-  it is free to fix now.
-- **Two residuals the repair recorded and did not touch**: `details vary`
+  it is free to fix now.~~ — **Taken 2026-09-08** at `edc2bce`: the header
+  reads `N swallowed shape(s)` — this command's own word for a merged block,
+  which is what N counts — with the singular. One reader downstream moved
+  with it: the grain runner's `RAISED_INV` regex, repointed at `aefb7ca` and
+  now BUILT from the line the tool prints rather than retyped.
+- ~~**Two residuals the repair recorded and did not touch**: `details vary`
   printed **0** times in every answer either run read (measured-and-zero,
   never absent — so the flag is unexercised on real data), and the header's
   `panics: 8 recorded` counts panic EVENTS beside a tally reading
-  `panicked 2`, two different questions under one word.
-- **`rust/tests/render_grain.py` still carries the first document's
+  `panicked 2`, two different questions under one word.~~ — **Taken 2026-09-08** at `edc2bce`: the panics
+  line says which question it answers rather than putting two under one word,
+  and `details vary` has a fixture, so the flag is exercised where real data
+  never exercised it.
+- ~~**`rust/tests/render_grain.py` still carries the first document's
   literals**: the raw record's name (`:60`), the ids printed unprimed
   (`:327`), and a byte-lock sentence that says *"§1 was committed ALONE and
   never amended: there is no second sha"* and then interpolates the second sha
   (`:75`). All three are struck and corrected in the repair record's PROSE
   (§5.7); the code was not repaired, because `OVERRIDES` covers the runner's
-  own literals and not a collaborator's. That boundary is the debt.
-- **The design's §3 and N6 examples show the pre-ship spelling; amended in
+  own literals and not a collaborator's. That boundary is the debt.~~ — **Taken 2026-09-08** at `a3b29b7`: all three are
+  derived — the raw record's name from `assembled.from`, the ids from the
+  record's `endpoint_ids` (falling back to its own keys), and the byte-lock
+  sentence chosen by whether an original lock exists instead of asserting
+  there is none and then interpolating it. The published records are not
+  re-rendered; the three lines where the new renderer differs from their §2
+  are named in the 2026-09-08 queue section of `docs/CARRIED-DEBT.md`.
+- ~~**The design's §3 and N6 examples show the pre-ship spelling; amended in
   place with dated notes.** §3's invocation sketch reads `91 swallowing sites`
   where the shipped header counts BLOCKS (103 on the measured `ws` arm), and
   N6's `--after` refusal quotes `spans 144 — page with --limit` where the tool
   prints `spans 144 processes -- page with --limit`. Corrected the way every
   other amendment in that document is — beside the text, dated — rather than
   rewritten, because a design two measurements were pre-registered against is
-  evidence and not a description.
+  evidence and not a description.~~ — **Struck 2026-09-08**: this bullet records its
+  own item as taken — the dated in-place amendments ARE the fix that row
+  asked for — and it stood unstruck only because nothing came back to close
+  it.
 - **Files at or near the 800-line ceiling**: the repair acceptance record is
   **795** after the post-review fix wave struck two sentences in place (it was
   800 exactly); `README.md` is **783** after this slice's `exceptions` section;
@@ -543,14 +632,27 @@ both files. A deferred item below is still open unless it is struck.
   named here: the README's `exceptions`, `watch` and `flow` sections are
   `docs/query.md`, wording and order unchanged, and the README keeps a
   paragraph carrying each command's load-bearing claim and a link. It went
-  from 783 lines to 688 with the focus tier's own section already added.
-- **`tests/test_acceptance_grain.py`'s box-path scan does not list
+  from 783 lines to 688 with the focus tier's own section already added. — **And closed 2026-09-08** by **ruling R1** at
+  `e531200`: the repair acceptance record at 795 is a RECORD, and records
+  (`docs/superpowers/{acceptance,plans,specs}/`) are exempt from the ceiling
+  by name in `tests/test_ceiling.py` — dated history, amended by appended
+  notes and never restructured — so no split is owed there. The four test
+  files named here are all under the gate and green.
+- ~~**`tests/test_acceptance_grain.py`'s box-path scan does not list
   `rust/tests/acceptance_grain_repair.py`.** The sibling runner names no box
-  path today, and nothing asserts that it goes on naming none.
-- **Design §5's test line still spells the continuation note
+  path today, and nothing asserts that it goes on naming none.~~ — **Taken 2026-09-08** at `a3b29b7`: the
+  five-name list is a glob over `acceptance_grain*.py` + `render_grain.py`,
+  parametrised, with a companion test that the glob covers the named five and
+  includes the repair runner. Measured DISCRIMINATING — a box path planted in
+  the repair runner passes the old hand list and fails the new scan.
+- ~~**Design §5's test line still spells the continuation note
   `... 1 more shape; continue with: …`**, which ruling R-G7 replaced with
   `fmt.more_note`'s wording (no "shape(s)" word). The tests and the tool are
-  right; the design's example is stale. Amend at the next legitimate touch of
+  right; the design's example is stale. Amend at the next legitimate touch of~~ — **Taken 2026-09-08** by the queue slice's ledger
+  commit: `2026-09-05-sensorium-rung4-entry-grain-design.md` §5 carries a
+  dated in-place amendment — `fmt.more_note` prints `... N more; continue
+  with: <hint>`, with no "shape" word — beside the stale example rather than
+  over it, which is how every other amendment in that document is made.
   that document.
 - **Review minors, deferred rather than repaired**, one line each:
   `_at`/`_hops_line` became cross-module API without being named as such; the
@@ -559,7 +661,17 @@ both files. A deferred item below is still open unless it is struck.
   (watched at H5 and cheap there, unbounded in principle);
   `resolve_invocation` does not close the `Trace` handles it opens;
   `grain_config` is a fifth override on the acceptance runner; and the repair
-  runner restates its sibling's `main`.
+  runner restates its sibling's `main`. — **Two of the six closed 2026-09-08**:
+  `grain_config` is named as the FIFTH override with its reason at `eba4db1`,
+  and the module doc now asserts it names every function in `OVERRIDES`; and
+  the repair runner's restatement of its sibling's `main` is an accepted
+  design, stated in its own module doc (rebinding a live module's globals
+  would repoint them for every importer), now with an accurate count. The
+  other four stand — `_at`/`_hops_line` as unnamed cross-module API,
+  `group_chains` rendering before clipping, `resolve_invocation`'s unclosed
+  `Trace` handles (all three `src/sensorium/query/`), and the Python-path pin
+  asserting substrings rather than a whole answer, whose two options are
+  written out in the queue slice's section.
 
 ### Process lessons
 

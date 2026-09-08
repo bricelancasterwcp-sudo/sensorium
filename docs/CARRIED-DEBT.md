@@ -31,250 +31,13 @@ the rule at the top now governs three files rather than the two named above.
 This file keeps the newest sections, and the next slice's section is appended
 here.
 
-## 2026-09-07 — rung 4 slice 3, the rung-4 debts (Python 0.8.5 / driver 0.5.1 / transform 0.4.2)
-
-### Settled
-
-- **The harness thread** — slice 2's first deferred item, struck above as taken
-  at `11b7e8a` (with `d9115a5`, `2d38ff4`, `85d1860` and `b1a7771`) under
-  **ruling R1**. A non-main thread whose ROOT frame's site the manifest marks
-  `#[test]` is the recorder's own, subtracted from the licence's
-  untraced-thread counts and NAMED wherever one of those counts is printed —
-  joined to the count where the sentence counts what WAS compared, and set
-  apart in a clause of its own on the line that counts what was not. Python
-  traces carry no site marks, so their output is byte-identical by
-  construction.
-- **A child run is not the pair** — struck above as taken at `d4cccd9` (with
-  the corpus case at `79cda14`) under **ruling R2**. The pair lookup excludes a
-  linked trace whose `ppid` is another linked trace's `pid`, names the excluded
-  ids on the pair line and in the >1-candidate refusal, and stamps them as
-  `refocus_children`; `runs` still lists them.
-- **A target directory that MOVED is not a world that changed** (Task 5b, at
-  `1a76757` with `d43b7aa`). Not one of §0's seven: it was found in Task 5's
-  dry run, ruled before any E4′ number was read, and recorded as the record's
-  own amendment A1. Keys whose values differ ONLY by substituting the recorded
-  `CARGO_TARGET_DIR` root for the current one — entry by entry down a
-  `PATH`-like list, anchored at path boundaries on both sides — are named and
-  treated as unchanged; nothing is excluded by name, and every other difference
-  still withholds.
-- **The shim is a hard link** — struck above as taken at `36d2fe9` (with
-  `2b8b5fb` and `4edd5c7`) under **ruling R3**, `cargo-sensorium` **0.5.1**,
-  with the unlink-first guard and `set_permissions` on the copy path alone, so
-  the driver's own inode is never written.
-- **`schema_version` in every results file** — struck above as taken at
-  `e0f469c` under **ruling R4**, with the E9 and E4 files stated as predating
-  the field rather than re-derived.
-- **Housekeeping** — struck above as taken under **ruling R7**: `info`'s
-  `licence unverifiable:` line at `11b7e8a`; `driver.rs` split to
-  `invocation.rs` and `launch.rs` at `03a68d3` and `095be7e`; `fn_items`
-  through the census path at `22fbe02` (with `ba3edb5`), `sensorium-transform`
-  **0.4.2**.
-- **A Rust screen says what its streams are in Rust's words** (`4ed802d`). The
-  `threads:` line's scope parenthetical reads `(events outside any test or
-  spawned thread)`; this converter writes one thread row and routes every other
-  thread's events into `task_fingerprints`, so `asyncio` there named a runtime
-  that never ran.
-- **E4′, pre-registered §1-alone and byte-locked before the instrument
-  existed** (`2991c3b`), amended once before any number was read (`d5efaab`,
-  amendment A1 — the env clause and the launch environment) with the lock test
-  following the amendment and carrying the original sha (`8954d3a`), and a
-  preflight that refuses to launch unless this process's environment matches
-  every original's recorded one under the licence's own exclusions
-  (`10e2712`, `pins.env_parity`). The record carries its own numbers.
-
-### Deferred, with rulings
-
-- ~~**The env clause's tiered set is RULED and NOT BUILT.** The relocation rule
-  above closes the target-directory case; a re-run launched **from another
-  shell** still meets an unearnable licence, because session-identity variables
-  differ there and every differing key that is not the recorder's own or shell
-  bookkeeping withholds. *The ruling, so the next slice need not re-derive it*
-  (E4′ §1.5, *carried, not built*): a named, versioned **positive set** of
-  build-and-run-bearing variables — `PATH`, `HOME`, `USER`, `LOGNAME`, `LANG`,
-  `LC_*`, `TZ`, `TMPDIR`, `CARGO*`, `RUST*`, `LD_*`, `DYLD_*`, `SSL_CERT_*`,
-  `PYTHON*`, `DEBUGINFOD_URLS` — withholds; every other differing key is
-  counted and NAMED but does not withhold. Not built before this measurement
-  because fewer source changes before a measurement is the rule and E4′ does
-  not need it: its runner pins the two certificate variables and refuses on any
-  other difference instead.~~ — **Ruled DIFFERENTLY 2026-09-08** and built at `09aad49`,
-  design amendment **A-§3**. A positive list of the variables that "bear" on a
-  program is a guess dressed as a rule, and this repository's own suite held
-  its falsifier: a test that records under `REFOCUS_TEST_LIMIT` and re-runs
-  without it — a variable the program demonstrably READS, on no bearing list
-  anyone would write — would have earned a full licence. What shipped is the
-  mirror image: today's default stands, any differing key withholds, with ONE
-  positive versioned exception, **session set 1**, the handles a shell,
-  terminal, agent or login session hands a process. Measured by E4″ H4/H5/H6.
-- ~~**`src/sensorium/query/refocus_cmd.py` is at 789 of 800.** The next change to
-  that file splits it first. The natural seam is the report: `_print_thread_line`,
-  `_diverged_why`, the verdict block and the blind-spot print are one screen's
-  worth of printing sitting beside the re-run's control flow.~~ — **Taken 2026-09-08** at `b7c9a20`, before this
-  slice changed a line of that file: `report`, `_print_thread_line`,
-  `_diverged_why` and `_stamp` moved to `refocus_report.py`, leaving
-  `refocus_cmd.py` at 605 lines and the new file at 207, with the re-export
-  block so `refocus_cmd.<name>` still resolves for all four.
-- ~~**`visit.rs` 773, `splice.rs` 762 and `lines.rs` 762**, all under
-  `rust/sensorium-transform/src`, and `rust/HONESTY.md` at **794 of 800**
-  after this slice's §13, its fix round and the fix wave's correction to §13's
-  direction claim — the NEXT sentence added to that file splits it first, not
-  the one after. The rule this file has kept twice applies: the next change to
-  any of them splits it first rather than discovering the ceiling. For
-  `visit.rs` the seam is the `Ctx` bookkeeping against the `Visit` impl; for
-  `rust/HONESTY.md` it is the one the index already took — a section moves to a
-  file it links.~~ — **Taken 2026-09-08**, each split before
-  this slice edited any of them (ruling R5): `visit.rs` → `visit/walk.rs` at
-  `853271a`, `splice.rs` → `assemble.rs` at `91df4a3`, `lines.rs` →
-  `lines/facts.rs` at `b949129` (`sensorium-transform` **0.4.3**, goldens byte
-  for byte), and `rust/HONESTY.md` §13 → `rust/HONESTY-REFOCUS.md` at
-  `114c231` — the same commit that moved rung 4's slices 1 and 2 out of this
-  file into archive volume 2. The split named before it was discovered, twice
-  over.
-- ~~**`cargo test --workspace` writes traces into the developer's real store.**
-  Several driver tests record through the real pipeline without setting
-  `SENSORIUM_DIR`, so a workspace test run leaves runs in `~/.sensorium/traces`
-  and a later `sensorium last` can name one of them. *The fix*: every test that
-  records sets `SENSORIUM_DIR` to its own temporary directory, the way
-  `convert*.rs` already do. It is a test-only change and it was not made after
-  the measurement.~~ — **Taken 2026-09-08** at `fe8da06` (ruling R6): the three
-  `driver_smoke.rs` tests that ran the whole driver name a scratch
-  `SENSORIUM_DIR`, and a new test pins the rule they rely on — with
-  `SENSORIUM_DIR` set, `HOME` is not consulted at all.
-- ~~**The corpus gate is the only gate that catches a changed CLI sentence, and a
-  run without the driver reports the Rust cases as SKIPPED rather than
-  failing.** That is correct for the Python CI matrix, which has no Rust
-  toolchain — but it means a green local run proves nothing about a printed
-  Rust line unless `SENSORIUM_CARGO_SENSORIUM` is set. Two fix rounds of this
-  slice shipped with those cases skipped before the gate was run with the
-  driver. *The fix, unbuilt*: make a skipped Rust case a non-zero exit under an
-  explicit `--require-driver`, and use it wherever printed wording changed.~~ — **Taken 2026-09-08** at
-  `fe8da06`: `corpus/run_corpus.py --require-driver` makes a skipped case exit
-  1 and says so on the summary line and in `--json`; CI's Rust corpus step
-  passes it. E4″ H8 ran the gate that way — 63 cases, rc 0, none skipped.
-- **`tasks:` and "task stream" are the last asyncio nouns on a Rust screen.**
-  `vocab.py` moved every language-bearing sentence to the recorder's own words;
-  these two stayed, and they are the trace format's own word for the row —
-  `tasks` is a table, and a Rust thread's stream really is a `task_fingerprints`
-  row. *Ruled: left alone.* Renaming the printed noun without renaming the
-  table would put two words on one fact, which is the failure `vocab.py` exists
-  to prevent. If it moves, it moves in both places at once.
-- **The zero-candidate refusal wording under a pid cycle.** `find_pair` reads a
-  trace as a child when its `ppid` is ANOTHER linked trace's `pid`. Two traces
-  each naming the other would leave no candidate at all, and the refusal would
-  say the re-run produced no linked trace when it produced two. *Ruled: left as
-  is.* The topology is impossible — a pid cycle is not a process tree — and a
-  branch written for it could never be exercised, so it would be untested code
-  standing where an honest refusal already stands.
-- **The fourth E4′ lock test checks table rows and a 200-character prefix, not
-  a full line diff.** `test_the_amendment_ADDED_section_1_5_and_moved_no_earlier_row`
-  compares every `|` row of §1 byte for byte at the two commits and then asserts
-  the amended §1 starts with the first 200 characters of the original's
-  pre-§1.5 text. A prose edit in §1.3 or §1.4 beyond that prefix, made in the
-  same commit as the amendment, would pass. The rows are what the endpoints
-  read, which is why the row check is the load-bearing one; a full diff of the
-  pre-amendment range is the stronger check and was not written.
-- ~~**`RUSTDOCFLAGS` carries the recorder's own footprint, and the env clause
-  reads it as the world's.** E4′'s H1 STOPPED on it: the driver injects
-  `--extern sensorium_rt=<target>/sensorium/rt/<hash>/…` with its
-  `-L dependency=…`, the 5b rule relocates the target root inside it correctly,
-  and the `<hash>` — which keys the `sensorium-rt` build — moved anyway,
-  because the originals were recorded by driver **0.5.0** and re-run by
-  **0.5.1**. `differs_only_by_root` is right to return false; the key falls
-  into the changed list and withholds. *The ruling, from the record's §5*: the
-  driver-injected fragment is **stripped before the compare as the recorder's
-  own**, on the precedent this licence already sets twice (the `SENSORIUM_*`
-  variables, and R1's harness thread); **anything else in `RUSTDOCFLAGS` stays
-  the world's** and still withholds — the rule is about that fragment, never
-  the variable. Then **E4″** re-measures §1.2's question over a subject that
-  includes an original recorded under a different driver build, the one
-  condition under which the confound is visible. Not applied in this slice:
-  kill 6 forbids a `src` change after the measurement to make it come out
-  differently.~~ — **Taken 2026-09-08** at `0810bee` (with `83d48ff`)
-  under **ruling R1**, and **measured by E4″ H2**: `RUSTDOCFLAGS` in **0 of
-  61** changed lists, the strip clause naming it on **61 of 61**, and the rt
-  hash differing on **61 of 61** pairs, so no pair's strip went untested.
-- **R6's four items are ruled NOT FUNDED**, in the design's own words: *`--window`;
-  refocus over multi-process invocations; an inference-variable opt-out; a
-  per-site volume cap — **not funded** until a use asks; declared blind spots
-  stand.* Each of the four still has its own bullet above, unstruck, because
-  nothing shipped and the refusal or the bound is still what a reader meets.
-- ~~**Half of the version-token fix is taken; the probe half is not.** The
-  process lesson below assigns two fixes to Task 7b. The **install refresh is
-  taken**: `pyproject.toml` moved to 0.8.5 and the editable install was
-  refreshed in the same task, so the distribution metadata
-  `importlib.metadata.version('sensorium')` reads `0.8.5` and no longer the
-  stale `0.6.0` three records paid for. The **probe half is deferred**: E4′'s
-  preflight still runs `import sensorium; print(sensorium.__version__)` against
-  a package that has no `__version__` and still captures stdout only, so a
-  failed probe still records `""` rather than `null` with its reason. It was
-  not changed here because the measurement is closed and its instrument is not
-  edited after the fact — the same reason kill 6 gives for `src`. *The fix,
-  unchanged*: record `null` and the reason, and probe a token the package
-  actually exposes.~~ — **Taken
-  2026-09-08** at `1fb001b`: the E4-family preflight probes
-  `importlib.metadata.version('sensorium')`, captures both streams, and records
-  `null` **with its reason** where the probe fails. E4″ H7 read the token
-  `0.8.5` with `version_probe_ok` true and the reason `null`, and its own gate
-  forbids the empty string.
-- ~~**R1's harness rule is ROOT-MARK-ANCHORED, and the bound has a false-grant
-  end.** A thread the PROGRAM spawns whose first instrumented frame is itself
-  a `#[test]`/`#[bench]` fn is read as the harness's and subtracted, so the
-  licence can be GRANTED over a program thread; an `async` test fn carries no
-  mark, so its thread stays counted and the licence withholds — the safe end.
-  Found by review 2026-09-07, **not measured**; E4′'s 61 pairs cannot reach
-  it; stated in full as `rust/HONESTY-BLIND-SPOTS.md` item 28. *The ruling*: a
-  task named `spawn@<site>` is never harness whatever its root's mark, and
-  only the FIRST root's mark counts — **measured before it ships**. Not built
-  here (kill 6), which also leaves the docstring's own overclaim standing.~~ — **Taken 2026-09-08** at `b2f07e3` under **ruling R3**: a
-  spawn-named task is never the harness's whatever its root's mark, only the
-  FIRST root decides, and the docstring was rewritten with it. **Measured
-  before it shipped** by `corpus/rust/refocus_spawned_test_fn` through the real
-  driver, where the old rule granted; blind spot 28 carries the dated closure.
-- ~~**No test pins that the release tokens agree.** Nothing asserts that
-  `pyproject.toml`'s version, `importlib.metadata.version('sensorium')` and
-  the newest `CHANGELOG.md` header are one token, or that the header carries a
-  date rather than `(unreleased)`; the token has gone stale silently three
-  times (E9, E4, E4′ each recorded `0.6.0`). *Ruled: a small
-  `tests/test_release_tokens.py` next slice*, not in a docs-only fix wave.~~ — **Taken 2026-09-08** at
-  `fe8da06`: `tests/test_release_tokens.py` pins `pyproject.toml`, the installed
-  distribution's metadata and the newest `CHANGELOG.md` header as one token, in
-  both of the states that header legally has, and each shape rule is shown
-  refusing what it is for.
-
-### Process lessons
-
-- **Mutation-test on a COMMITTED tree.** A mutation run over an uncommitted
-  working tree cannot be undone by `git checkout`, and a same-length mutation
-  restored within the same second leaves CPython running the mutant's stale
-  bytecode. Both are avoidable by mutating from a commit and purging
-  `__pycache__`; this slice's two surviving mutants (`85d1860`) were found that
-  way.
-- **Every Python change to a printed sentence runs the corpus gate WITH the
-  driver.** The Python suite pins the words a fixture reaches; the corpus is
-  the only gate that puts the real driver behind them, and it skips silently
-  enough that two fix rounds went by with the Rust cases unrun. A printed line
-  changed without that gate is a line nobody checked.
-- **A preflight DRY RUN before a measurement found two instrument confounds
-  that no amount of re-reading the pre-registration would have.** §1.2's
-  expected licence partition had been derived from the prior run's thread
-  counts alone; a fresh `CARGO_TARGET_DIR` (mandated by the same document for
-  H4's inode census) would have withheld the licence on all 61 pairs for a
-  reason unrelated to R1, and the launch shell's own variables would have done
-  it again. Both were ruled and recorded as amendment A1 **before any number
-  was read**. The lesson is the order: run the instrument's first pair, read
-  what it printed, and amend the lens then — not after the loop closes, when an
-  amendment is indistinguishable from a rationalisation.
-- **A record's version token comes from installed metadata, and this one was
-  stale twice over.** E4′'s §2 recorded the installed distribution token as
-  `0.6.0` while `pyproject.toml` said 0.8.4 — the same editable-install
-  staleness E9 and E4 already paid for, now on a third record. Worse, the
-  preflight's tree-side probe ran `import sensorium; print(sensorium.__version__)`
-  against a package that has no `__version__` and captured **stdout only**, so
-  the `AttributeError` on stderr became `""` in the lens: a failed probe
-  recorded as a blank that reads as measured. Both stand — records are not
-  rewritten, and no endpoint gates on either token. **The fix belongs to 7b**:
-  refresh the install after the version bump, and a probe that fails records
-  `null` with its reason — the install half is taken; see *Half of the
-  version-token fix is taken* above.
+**Rung 4's slice 3 moved 2026-09-08** — the rung-4 debts slice is
+[`docs/CARRIED-DEBT-ARCHIVE-3.md`](CARRIED-DEBT-ARCHIVE-3.md), wording, order
+and strikes unchanged (the queue slice's own strikes inside it included), so a
+deferred item there is still open unless it is struck. The rule at the top now
+governs **four** files. The move was measured before it was made: this slice's
+section would have taken the live file to 790 lines, and the ledger's own rule
+is to cut the oldest section rather than discover the ceiling.
 
 ## 2026-09-08 — rung 4 slice 4, the recorder's footprint (Python 0.8.6 / driver 0.5.2 / transform 0.4.3)
 
@@ -333,7 +96,7 @@ here.
 
 ### Deferred, with rulings
 
-- **H8's presence reader compares a bare case name against a prefixed
+- ~~**H8's presence reader compares a bare case name against a prefixed
   listing.** The corpus collector spells Rust cases `rust/<name>` and the reader
   asked for the bare `refocus_spawned_test_fn`, so it printed a measured-looking
   `False` where `null` **with its reason** was owed — the case was collected,
@@ -343,19 +106,28 @@ here.
   measured (kill 6 forbids an instrument change after the measurement), and the
   fix belongs to the next slice — match on the listing's last path segment as
   well as the whole name, and record `null` carrying the listing command and its
-  rc when neither spelling is found. E4″ §5 and its findings sibling, gap 1.
+  rc when neither spelling is found. E4″ §5 and its findings sibling, gap 1.~~ — **Taken 2026-09-08** at `962cacd` (findings lines
+  `8c4dde1`, renderer `b0c3720`): `spawned_presence` matches the whole name
+  and the listing's last path SEGMENT, records which spelling answered, and
+  returns `null` carrying `case_listing.command` and its `rc` when neither is
+  found. The gate is unmoved (`None` is not `True`), and the renderer prints
+  no sentence at all for a record derived before the key existed.
 - **R7's four are ruled NOT FUNDED**, in the design's own words: `--window`;
   refocus over multi-process invocations; an inference-variable opt-out; a
   per-site volume cap — not funded until a use asks, declared blind spots stand.
-- **`{told}`, the session clause, is on the env LINE but not in the stamped FACT
+- ~~**`{told}`, the session clause, is on the env LINE but not in the stamped FACT
   on a withheld pair** (`refocus_world._env_state`). That is what the plan
   mandated, and the cost is that `info` replays less than the screen said. *The
   fix, unbuilt*: carry the clause into the withheld pair's fact the way the
-  relocation and strip clauses already are.
-- **`is_relocation_note` is a two-rule predicate under a one-rule name**
+  relocation and strip clauses already are.~~ — **Taken 2026-09-08** at `fc72550`: the withheld
+  pair's stamped fact carries the session clause the way the relocation and
+  strip clauses already do, so `info` replays what the screen said.
+- ~~**`is_relocation_note` is a two-rule predicate under a one-rule name**
   (`refocus_env.py`): it recognises the relocation clause and the strip clause
   both. *Ruled: left alone this slice* — renaming it touches every caller, and
-  the docstring states both rules; the next change to that function renames it.
+  the docstring states both rules; the next change to that function renames it.~~ — **Taken 2026-09-08** at `fc72550`, in the same
+  commit that changed the function: `is_env_rule_note`, with both callers
+  moved and the docstring naming both rules it recognises.
 - **A key present on one side only, whose whole value was our fragment, still
   withholds.** The strip leaves an empty string on the side that had it and the
   key is absent on the other, so `_env_diff` sees a difference and — for a key
@@ -366,34 +138,66 @@ here.
   `['CLAUDE_CODE_X']` — session membership is tested BEFORE the changed list, so
   a session key on one side only never withholds, which is R4 working as ruled
   and not a second conservatism.
-- **`refocus_world.py` is at 777 of 800.** The next change to that file splits
+- ~~**`refocus_world.py` is at 777 of 800.** The next change to that file splits
   it first. The seam is the thread bookkeeping — `harness_threads`,
-  `harness_exclusion`, `harness_note`, `uncompared_threads` → `refocus_threads.py`.
-- **`ENV_RECORDER_OWN` (the instrument's env-line reader) is right only while
+  `harness_exclusion`, `harness_note`, `uncompared_threads` → `refocus_threads.py`.~~ — **Taken 2026-09-08** at `f350b9c`, before this
+  slice edited a line of that file: the four named functions moved to
+  `refocus_threads.py` (185 lines) with `compared_threads`, which is
+  `uncompared_threads`' only helper and would otherwise have imported
+  `refocus_world` back; `refocus_world.py` is 620 lines, and a split test
+  pins the re-exported names as the same objects.
+- ~~**`ENV_RECORDER_OWN` (the instrument's env-line reader) is right only while
   the recorder's own clause is last on the line.** True by construction today —
   `refocus_rust._env_of` assembles it last — and nothing pins the invariant. *The
   fix, unbuilt*: assert the ordering where the line is built, or anchor the
-  reader on the clause's own start instead of the line's end.
-- **Instrument minors, all in the E4″ runner and none load-bearing on a
+  reader on the clause's own start instead of the line's end.~~ — **Taken 2026-09-08** at `04d0243`, the reader
+  half: the clause body stops at the two-space join, a `;` or the line end
+  rather than running to `$`. Anchoring the READER was chosen over asserting
+  the order in `refocus_rust._env_of` because the instrument is what depends
+  on the subject's field order — and `ENV_STRIPPED` had exactly this defect
+  one clause earlier.
+- ~~**Instrument minors, all in the E4″ runner and none load-bearing on a
   verdict**: `bound_sentence` at a whole number of hours drops the "0 min";
   `_k_reason` renders a Python list repr into prose; no test drives a multi-key
   strip list; `_drops` has no `n != GATE_N` clause (the phase checks catch it);
   H7 gates over its own `censused` denominator; a dry run that kills a row after
-  a number has been read exits 7; exit 9 has two documented shapes.
-- **What the corpus case does not pin.** `corpus/rust/refocus_spawned_test_fn`
+  a number has been read exits 7; exit 9 has two documented shapes.~~ — **Taken 2026-09-08** at `862ffa0` (with `b0c3720`),
+  all seven, each with its own mutant killed: the whole-hour grammar, `_k_reason`
+  as prose, a multi-key strip test, `_drops`' `n != LOCKED_N` clause with a
+  derived bound span, H7's `censused` denominator on the cells, a dry run
+  that kills a row after a reading judged INFRASTRUCTURE, and exit 9's three
+  shapes told apart in the record rather than only in the marker's prose. All
+  seven were still open at this slice's base.
+- ~~**What the corpus case does not pin.** `corpus/rust/refocus_spawned_test_fn`
   pins the counts and the spawn name but not that the spawned thread's root is
   the MARKED fn — fixture (a) of `tests/test_refocus_licence_rust.py` does;
   `corpus/rust/README.md`'s `last` reason for that case covers its second
   question only; the `task(thread)` lookup's thread-serial == task-id invariant
   is unstated at `refocus_world.py` though `convert/sqlite.rs`'s `insert_task`
   guarantees it (`id` is the thread serial, never a rowid); and `"spawn@" in name` is an equivalent mutant of the spawn-name test that
-  no case distinguishes.
+  no case distinguishes.~~ — **Taken 2026-09-08** at `13475a2` and `7d9dc9c`
+  (with `245dee4`): a third question on the corpus case pins the marked ROOT
+  through the printed tree — the case records with `-- --test-threads=1`, so
+  the frame numbering is stable while its counts, task names and licence
+  verdict are unchanged (measured over 10 gate runs) — `corpus/rust/README.md`'s
+  `last` reason now covers both halves, and the thread-serial == task-id
+  invariant is named at the `trace.task(thread)` lookup with
+  `convert/sqlite.rs`'s guarantee cited. The fourth item is **measured to be a
+  genuine equivalent mutant**: telling `"spawn@" in name` from
+  `name.startswith("spawn@") or " :: spawn@" in name` needs a task name
+  neither recorder can mint (a libtest name is a Rust identifier and cannot
+  carry `@`), so no corpus case distinguishes them; the honest form left open
+  is a unit test over a hand-built name, declared as an unreachable input.
 - **`--bench --require-driver` is inert.** The flag catches cases that were
   skipped, not cases that vanished from the listing, and `--bench` reports
   rather than gating. *Ruled: left as is* — the flag's promise is about skips.
-- **The golden pair `focus_deferred_init.{in,out}.rs:5` names `lines.rs`'s
+- ~~**The golden pair `focus_deferred_init.{in,out}.rs:5` names `lines.rs`'s
   `statement_deltas`**, which now lives in `lines/facts.rs`. Golden bytes are
-  not edited for a comment: they stay until that golden legitimately changes.
+  not edited for a comment: they stay until that golden legitimately changes.~~ — **Closed by a dated note 2026-09-08**
+  (ruling R8): `statement_deltas` moved to `lines/facts.rs` at `b949129`, and
+  the golden's comment stays stale until that golden legitimately changes.
+  Nothing further is owed — the bytes are the fixture, and a comment is not a
+  reason to move them.
 - **Three small residues of this slice's splits.** Task 1's dead-import trim
   narrowed the `refocus_cmd` namespace by seven names (no consumers, and the
   re-export block covers the four the report owns); the "two files" re-export
@@ -446,3 +250,303 @@ here.
   written by a single implementer in the one worktree, and no commit swept
   another's staged files — the failure mode two slices ago. It costs
   serialisation and it is worth it.
+## 2026-09-08 — the queue buttoned up (Python 0.8.7 / rt 0.4.1 / transform 0.4.4 / driver 0.5.3)
+
+### Settled
+
+- **The queue itself.** Four ledgers carried **116** open bullets at `f14d2f6`.
+  Brice funded three buckets and left the fourth: **A** (54 mechanical rows
+  whose fix was already written), **B** (7 rows about the 800-line ceiling),
+  **D** (5 rows closable only by a dated note); **C** (43) is untouched and is
+  the next conversation. Of A, **47 were taken whole**, 3 partly and 4 not at
+  all, each named below. Every strike is in the section where the debt was
+  raised — this file and all three archive volumes — and the rung-3 inbox,
+  which is a spec, carries an appended dated line per item instead of a
+  strike. **This file's own ceiling was measured before it was met**: the
+  section you are reading would have taken it to 790 lines, so slice 3's
+  section moved to [`docs/CARRIED-DEBT-ARCHIVE-3.md`](CARRIED-DEBT-ARCHIVE-3.md)
+  first, wording, order and strikes unchanged, on the rule volume 2 set.
+- **Thirteen files split before anything edited them, and four more the
+  ceiling caught mid-slice** (rulings R2 and R9). `tests/programs.py` →
+  `flow_programs.py` + `async_programs.py` (`b05046b`); `test_tree_frame.py` (`718a013`),
+  `test_boot_cli.py` (`5ef40e5`), `test_exceptions.py` (`71d18b8`),
+  `test_diff.py` (`d3823b4`), `test_tracer.py` (`4267251`),
+  `test_refocus.py` (`f24745c`), `test_acceptance_e6q.py` (`1bd523d`, row
+  #58), `rust/tests/acceptance_schema.py` (`91242c2`);
+  `rust/cargo-sensorium/tests/convert.rs` (`4b98c3f`, row #56),
+  `convert/chains/tests.rs` → `tests_terminals.rs` (`9bd2647`);
+  `src/sensorium/record/tracer.py` 1193 → 672 + `tracer_frames.py` +
+  `tracer_exc.py` (`e87996e`); `src/sensorium/query/refocus_world.py`
+  (`f350b9c`, row #55). Four more went over 780 under this slice's own edits
+  and were split at their banners under **R9** (`bb6b2c4` and the commits
+  above; design amendment A2). Seventeen in all, every one a pure move,
+  proved by `--color-moved=zebra` and equal collection counts, with the
+  pointers seven documents carried repointed at `b6e2125`.
+- **One sha256** (row #13, ruling R3) at `a0580d3`. `sensorium-rt` — the leaf
+  with zero dependencies — owns it as `pub mod sha256` and the two copies are
+  gone. **rt 0.4.1 / transform 0.4.4 / driver 0.5.3**, and the one observable
+  consequence is a token: `RT_VERSION` is a literal held to the manifest by a
+  unit test, so every Rust trace this runtime writes now says
+  `recorder: sensorium-rt 0.4.1`. Three corpus expectations, one E9
+  cross-check and the living docs moved with it, each re-pinned **by value**.
+  The vectors the consolidation dropped came back at `bde3a66`.
+- **The E4″ instrument's five gaps** (rows #1–#5, ruling R5) at `962cacd`,
+  with a dated *Closed at* paragraph per gap in the record's findings sibling
+  (`8c4dde1`) and the renderer's own absent-cell fix at `b0c3720`. No
+  published number is re-derived and no `results.json` is re-assembled: every
+  fix changes what the NEXT run publishes and is pinned by a unit test on
+  synthetic records. Both schema tokens moved with the shapes their
+  assemblers publish — **`e4pp/2`** and **`e9/2`**, raw and assembly together
+  so a fresh run's two tokens agree; `e4/1` is untouched.
+- **The instruments' own honesty** — `ENV_RECORDER_OWN` anchored on its clause
+  rather than the line (#8, `04d0243`); the E4″ runner's seven minors (#9,
+  `862ffa0`); the E4′ lock test diffing the whole pre-amendment range (#12,
+  `32aab32`, measured discriminating on one moved byte); `line_rows_per_run`
+  reading the census that counted it (#17, `3e1dac9`); one manifest reader for
+  rung 2 and rung 3, the workaround deleted (#22, `05148e8`); the e6q runner's
+  falsified expectation swept (#25, `a3b29b7`); `render_grain`'s three
+  literals derived (#32) and the grain box-path scan walking the directory
+  (#33, both `a3b29b7`, both measured discriminating); the grain reader's
+  `RAISED_INV` regex BUILT from the line the tool prints (`aefb7ca`).
+- **Eight printed sentences, each through the corpus gate WITH the driver**
+  (ruling R6): the session clause in the withheld pair's fact (#6) and
+  `is_relocation_note` → `is_env_rule_note` (#7) at `fc72550`; `focus: -` for
+  an absent key and `focus: none` for a recorded empty one (#14, `36a6f5f`);
+  the `HONESTY.md` citation the tool prints (#18), the born-outside claim
+  qualified (#28), the invocation header's noun (#30) and the panics line's
+  unit (#31) at `edc2bce` with `6490a14`; a typed lookup failure, a
+  language-free `diff --task` help line, the `or "?"` fixture and "modulo
+  location" on the all-in-tasks branch (#27, #36, #37, #51) at `0d685ad`; the
+  MATCH that says it is not a statement about the schedule (#20) at `13475a2`
+  with `245dee4`.
+- **The corpus and the driver seam** — one driver resolution under
+  `src/sensorium/` (#19), the `run:` line keyed and pinned (#21/#43), and
+  `corpus/rust/abort` cleaning its core file (#45) at `a9a5ed1`; the spawned
+  case recording deterministically and pinning its marked ROOT (#10) at
+  `7d9dc9c`. 63 cases, 141 questions.
+- **The crate-side rows** — `expr_attrs`' loud fallthrough (#16, `bb0bb29`);
+  five private intra-doc links, so `RUSTDOCFLAGS="-D warnings" cargo doc`
+  passes (#24, `059ac7b`); malformed-metadata fixtures (#38, `d836a77`); the
+  `mint()` test that reddens and one run-id mix for both minters (#39/#42,
+  `74d5fbb`); the panic path pinned by wire number and the orphan panic's
+  serial (#40/#41, `852a0f5`); the WARN that counts test binaries apart from
+  doctest processes (#46, `9c82fde`); `convert_perf` named for its bound (#47,
+  `6abcc27`); goldens for fns nested in const, static and trait-const
+  initialisers (#50/#52, `d17eb20`); the refused crate root on the wrapper
+  path (#53, `017a4a1`); self-removing scratch directories (#54, `1530f68`);
+  and the tid-mask justification written into the suite (#44 nit 2,
+  `91f737d`).
+- **A repo-wide ceiling gate** (ruling R1) at `e531200`: `tests/test_ceiling.py`
+  holds every tracked `.py`/`.rs`/`.sh`, the README, `docs/*.md` and
+  `rust/*.md` under 800 lines, and exempts the three record directories
+  under `docs/superpowers/` **by name** — dated history, some byte-locked, amended by
+  appended notes and never restructured. Both mutations were measured (the
+  limit lowered: 37 files fail; a fourth exemption: the tuple check fails).
+  That ruling closes two ledger rows without a line of code — the parent spec
+  at 1458 (#59) and the repair acceptance record at 795 (#60) — because
+  neither is owed a split.
+- **The stale root-disk driver deleted** (#15, ruling R7): 6 916 896 bytes, a
+  2026-09-04 build of ours, untracked, on the near-full root disk while the
+  box builds on the second one. Nothing to commit — the deletion is recorded
+  here and struck where it was raised.
+- **Two blind spots declared** in the ledger that is supposed to carry them:
+  `rust/HONESTY-BLIND-SPOTS.md` **item 30**, the by-value hand-off that
+  reaches a sink with no open chain (design R16 (v), the ledger half of #28),
+  and **item 31**, a spawn in an expression position the container visitors
+  skip (the A half of #49; rewriting those positions stays C). Both were
+  named in an earlier ledger and in no blind-spot entry.
+- **Five dated notes** (ruling R8), each struck where it was raised, because a
+  note is the only thing that closes them: **#62** the golden comment naming
+  `lines.rs`'s `statement_deltas` (moved to `lines/facts.rs` at `b949129`;
+  golden bytes are not edited for a comment); **#63** the golden carrying the
+  pre-repair sentence (design B1, 2026-09-05, superseded R2's "only two
+  provable uses"); **#64** the two E6‴-era 31-element sets (the question no
+  longer needs answering — E-flip settled the method and the repair has since
+  been measured twice); **#65** `paging.rs:673`'s collapse (stands as read;
+  the record's own §5.2 is the evidence); **#66** the grain records
+  (both predate `schema_version`, and a later re-derivation is a NEW
+  derivation).
+- **What #66's note costs, measured rather than asserted.** Re-rendering both
+  committed grain `results.json` with the base renderer and with this slice's
+  gives **three** differing lines, all in §2, none in §3: in
+  `…rung4-entry-grain.md`'s byte-lock paragraph the trailing
+  `` (`original_lock` = None) `` clause is gone; in
+  `…rung4-entry-grain-repair.md`'s first paragraph the raw file's name reads
+  `results-grain-repair-raw.json` where the published text says
+  `results-grain-raw.json`; and in that record's byte-lock paragraph the
+  sentence "§1 was committed ALONE and never amended: there is no second sha
+  (`original_lock` = 9bf64df)" is replaced by the amended-lock sentence
+  carrying both shas and the amendment's byte count. **Two of the three are
+  #32 removing a published falsehood** — the repair record's own §5.7 struck
+  both by hand in its prose. The records are locked and are NOT edited.
+- **Seven strikes for work that shipped in earlier slices** (X): the CI
+  refusal gate (#67); `scenario.rs` split to `src/bin/scenario/` (#68); Task
+  8's `[exit <cargo_exit>]` suffix (#69); `Report`/`TraceSummary` kept by
+  decision (#70); the `--workspace` E6 arm with no `--lib`, closed by E6⁗-WS
+  (#71); the design's §3/N6 examples (#72); and the four transform/driver
+  files split at `91df4a3`, `853271a`, `b949129` and `03a68d3` (#73). None
+  was open; each stood unstruck only because nothing came back to close it.
+- **Three deviations and two amendments, dated in the design.** Task 1 landed
+  three splits under names the seam map spells rather than the design's table
+  (`test_exceptions_synthetic.py`, `test_tracer_serials.py`,
+  `acceptance_schema_e5prime.py`), each because the design's name would send a
+  reader to the wrong file; Task 6 split four files R9 named. Both are
+  appended to the design as A1 and A2. One deliberate non-re-export rides with
+  them: `tracer.py`'s `_SENSORIUM_DIR` is **not** re-exported, so a test that
+  patches it on the wrong module meets a loud `AttributeError` rather than a
+  silently ineffective patch.
+
+### Deferred, with rulings
+
+- **The C list is untouched: 43 rows, not funded this slice, and every one of
+  them is the next conversation with Brice.** They are restated in one line
+  each below so the list can be read without opening three volumes; the
+  numbers are the design's own (§2), and each row is still live where it was
+  raised. **C74** `--window` for Rust (refused at exit 2). **C75** refocus
+  over a multi-process invocation. **C76** the autoref ladder commits an open
+  inference variable to `Debug`. **C77** no per-site volume cap — no measured
+  cost to size one against. **C78** closure and `async fn` bodies get no
+  probes. **C79** place writes and `&mut` mutation are not deltas. **C80**
+  CALL rows carry no arguments on a Rust trace. **C81** `flow --object` on a
+  Rust trace stays REFUSED. **C82** the cost residual needs a different
+  instrument. **C83** Python traces print one block per raise (N7) — it needs
+  the per-disposition site defined. **C84** the in-source acknowledgment
+  marker (N8), decided and unbuilt. **C85** the rung-5 lever: record which env
+  vars were READ; both recorders change. **C86** H4′'s verdict, gate reading
+  against strict. **C87** `focus_matched` can carry a STALE unit's match.
+  **C88** `tasks:`/"task stream", ruled left alone. **C89** the zero-candidate
+  refusal under a pid cycle, ruled left as is. **C90** a key on one side only
+  whose whole value was our fragment still withholds. **C91**
+  `--bench --require-driver` is inert, ruled left as is. **C92** the two build
+  caches on the second disk are Brice's to free. **C93** the composite-loop
+  residual. **C94** the uppercase-initial heuristic. **C95** the suite's skip
+  count depends on one variable. **C96** `last` is mtime-ordered. **C97** the
+  digest floor is 16 hex characters. **C98** the discriminator's second
+  condition has no subject on `cargo test` material. **C99** a `chain.holder`
+  field on the wire. **C100** the nested-literal gap (blind spot 23 (a)).
+  **C101** E2″'s numerator is `(file, line)`-deduped. **C102** three classes a
+  reader may reasonably contest. **C103** four of the eleven flipped arms were
+  never executed. **C104** two rows §1 asks for are ABSENT, not zero. **C105**
+  the side-channel residual (blind spot 23 (d)). **C106** `.await`/`?`
+  wrapping a dropped call is not recognised. **C107** an origin-keyed
+  collision prints no file. **C108** the shape key reads masked prose.
+  **C109** `.is_err()`/`.is_ok()` as OBSERVATION tags. **C110** an
+  `.unwrap()`/`.expect()` probe, re-opened on the first target with panics.
+  **C111** whether rustdoc joins the gate set (the repair half is taken).
+  **C112** a 0-byte spool costs the whole invocation's conversion. **C113**
+  rewriting spawns in expression positions (the declaration half is taken).
+  **C114** no unit tests on the acceptance instruments. **C115**
+  `refocus --window QUALNAME` reads as a size/range. **C116** the Python
+  `live_threads` line's pre-existing asymmetry.
+- **Function lengths are C, not A** (**ruling R4**): six converter functions
+  of 88–274 lines (`frames::process`, `convert_one`, `wrapper::instrument`,
+  `driver::go`, `convert_dir`, `write_proc_header`). Splitting the converter's
+  core is behaviour-risk work with no failing test behind it, and it goes to
+  the C conversation as a refactor needing its own review. It is the largest
+  row this slice declined, and it is declined on purpose.
+- **Three A rows were not taken, and none of them is mechanical from here.**
+  **#11**, the three residues of the splits, is now **four**: the two
+  `refocus_cmd.py` "two files" re-export comments, a third the
+  `refocus_world.py` split added at `f350b9c`, and `rust/HONESTY-REFOCUS.md`'s
+  bare `---`. The comments are `src/`, which the ledger task may not touch.
+  **#23**, three `chain.terminal` conformance vectors (`panicked`,
+  `left_thread`, `handled_then_failed`), needs the vectors AND the reader's
+  vector test in one commit — `docs/trace-format/vectors/` plus `tests/`.
+  **#29**, the §11 sweep N1 left unfinished, is four items of which two are a
+  vector and a test (`v18`'s prose assertion, `test_honesty_prose` pinning §11
+  whole); taking only the `HONESTY-INDEX.md` row and the `JoinHandle` gloss
+  would leave the row half-open with no gain. All three want one task with
+  both file scopes.
+- **Partly taken, with what stands named.** **#26**: six of ten closed at
+  `ae58c54`; the four that stand are crate code and crate unit tests — the
+  side-effecting `visit_stmt` guard, no receiver-position dropped-call row,
+  `close_frame` computing `preferred` on every outcome, no CALLEE-walk row.
+  **#35**: two of six closed at `eba4db1`; the four that stand are
+  `_at`/`_hops_line` as unnamed cross-module API, `group_chains` rendering
+  before clipping, `resolve_invocation`'s unclosed `Trace` handles, and the
+  Python-path pin asserting substrings rather than a whole answer — for the
+  last, the two options are (a) a whole-answer golden, which is what N7's
+  "byte-identical to 0.8.1" literally asks for and which reddens on any
+  Python-side wording change, or (b) leave it and record that N7 is pinned by
+  shape, not by bytes; (a) belongs in the same commit as the next Python-side
+  wording change. **#44**: two of eleven taken; of the nine reported, two are
+  **not present at HEAD** (the `SITE_*` consts; the `Fixed`/`CapWriter`
+  duplication as stated), one is **obsolete** (the `"$RUN2" in str(spec)`
+  scan, which now reads `q["command"]` with the comment the nit asked for),
+  four are **out of the taking task's file scope** (the runner's pair-count
+  naming, the `_sub` docstring, `gen.py`'s unused encoders, `trace._c` access
+  from a Python helper), and two are **more than a line** (two rt tests with
+  no demonstrated mutation — and the review that filed it named neither test,
+  so its subject is not decidable from the source; `mechanics.sh`'s
+  dependency-proxy shape, which lands on top of a split that file still owes).
+  `cargo_driver()`'s caching is both.
+- **Two fences this slice states rather than pins.** The `expr_attrs`
+  catch-all's `&[]` is a **documented known-surviving mutant**: no `syn`
+  variant reaches the arm today, so no test can distinguish its return value
+  from any other — the counter and the printed line are what make it
+  observable at all. And `"spawn@" in name` is a **measured equivalent
+  mutant**: no task name either recorder can mint distinguishes it from the
+  shipped predicate, so the honest form left open is a unit test over a
+  hand-built name, declared as an unreachable input.
+- **The minors this slice's own reviews raised**, none blocking, each one line:
+  `tests/test_acceptance_e9_read.py:215` hard-codes `sensorium-rt 0.4.1` and
+  will need moving on every rt bump (a derivation from `spool.rs`'s
+  `RT_VERSION` is the honest fix); `src/sensorium/capture.py:52` points at a
+  `tracer.py` line number the split aged; `tracer.py`'s docstring states
+  `_ExcRefs`' contract two files away; the renamed driver-rule test's
+  docstring sits where the rename left it; `refocus_threads.py`'s "four files"
+  reads against the re-export idiom's "two files" (row #11's neighbourhood);
+  the process-global `UNENUMERATED_EXPRS` counter is asserted by delta rather
+  than by value; `#46`'s doctest exclusion is inline in `convert_dir` rather
+  than factored; `pub(super) text` is unused across the chains seam; and
+  `render_e4pp`'s walls table renders arms A/B/C only, while the record now
+  also carries `dry`, `driver_build` and `cargo_s`.
+- **Files near the ceiling, named rather than split** (rulings R2/R9 — none of
+  them was edited past 780 by this slice): `rust/tests/mechanics.sh` **795**
+  (row #57, and an E7 second-column check waits on the split);
+  `tests/test_runs_info.py` **790** (seam: its `# -- Ruling 7` banner at
+  `:476` → `test_runs_info_rust.py`); `rust/tests/acceptance_e9_phases.py`
+  **788**; `rust/sensorium-transform/tests/golden.rs` **788**;
+  `rust/sensorium-transform/tests/edges.rs` **784**;
+  `rust/cargo-sensorium/src/convert/mod.rs` **777**;
+  `tests/test_refocus_licence.py` **772**; `rust/HONESTY-BLIND-SPOTS.md`
+  **772** after this slice's two items — the next item added to it splits it
+  first, and the seam is the one the index already uses, a rung's items moving
+  to a file it links; `tests/test_flow_identity.py` **770**;
+  `src/sensorium/record/boot.py` **768**; `rust/sensorium-rt/src/spool.rs`
+  **752**. `tests/test_ceiling.py` now fails on any of them crossing 800,
+  which is the difference between this list and the six that came before it.
+
+### Process lessons
+
+- **A ledger row's fix is not always inside its taker's file scope, and the
+  ledger did not say so.** Four of `#44`'s eleven nits, four of `#26`'s ten,
+  four of `#35`'s six and all of `#11`, `#23` and `#29` were declined for
+  exactly one reason: the fix spans files the task owning the row may not
+  touch. The rows were bucketed as "mechanical, fundable now" by reading the
+  FIX, never the file list. A row's bucket should be a function of both.
+- **A nit filed without naming its subject cannot be taken.** `#44`'s "two
+  `sensorium-rt` tests with no single-line mutation demonstrated" names no
+  test, and no reading of the source recovers which two the reviewer meant.
+  It survived three slices as an open row that no one could have closed. A
+  deferred minor names its subject or it is not a minor, it is a mood.
+- **A pure refactor moved a token every trace carries.** Consolidating
+  `sha256.rs` into the leaf crate is behaviour-free by construction — and
+  `sensorium-rt`'s version literal is held to its manifest by a unit test, so
+  the refactor bumped `RT_VERSION` and changed `recorder: sensorium-rt 0.4.1`
+  in every Rust trace, three corpus expectations and an E9 cross-check with
+  it. "No behaviour change" is a claim about the program; a version token is
+  an observation about the recorder, and they are not the same claim.
+- **The change one task makes to a printed sentence breaks a reader another
+  task owns, and the suite stays green.** `#30` renamed the invocation
+  header's noun; the grain runner's `RAISED_INV` regex reads that line, and
+  its tests feed it SYNTHETIC text still carrying the old noun — so the break
+  was latent and only a future grain RUN would have met it. The repair is the
+  general rule: a reader that names another component's output BUILDS the
+  expected line from that component, and never retypes it.
+- **An instrument printed an absent cell as a value, in the fix round for a
+  row about exactly that.** The renderer appended "The named case matched as
+  `None`" over a record derived before the key existed — a measured-looking
+  sentence about a measurement nobody made, which is `#1`'s own bug class one
+  level up. Absent, matched and missed are three states, and a renderer that
+  collapses the first two is the failure this slice spent a task removing.
