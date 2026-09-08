@@ -39,7 +39,8 @@ DOC = ("docs/superpowers/acceptance/"
 
 #: The three arms of §1, named in the words the lens uses. The runner holds
 #: the same three as argument lists and cannot be imported here (it imports
-#: this module), so `tests/test_acceptance_e6q.py` asserts the two agree.
+#: this module), so `tests/test_acceptance_e6q_record.py` asserts the two
+#: agree (`test_the_schemas_arm_descriptions_match_the_runners_arms`).
 ARMS = {
     "E6qA": {"key": "raw_arm_a", "label": "E6⁗-A",
              "selector": "-p bloomery-daemon", "tail": "--lib",

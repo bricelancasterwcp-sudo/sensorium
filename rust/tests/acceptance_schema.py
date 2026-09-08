@@ -576,3 +576,10 @@ def __getattr__(name):
         from acceptance_schema_e5prime import assemble_e5prime
         return assemble_e5prime
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    """`dir()` agrees with `getattr()`: without this the re-exported name is
+    reachable but invisible, and a reader listing this module's surface would
+    conclude `assemble_e5prime` had simply gone."""
+    return sorted(set(globals()) | {"assemble_e5prime"})

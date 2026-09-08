@@ -1,4 +1,11 @@
-"""Booting a target under recording, run metadata, and the `run` command."""
+"""Booting a target under recording, run metadata, and the `run` command.
+
+What happens at the EDGES of a run -- threads that outlive the target, two
+runs in one process, target resolution, and the contract that nothing stored
+may be a live object -- is `test_boot_cli_run.py`'s, split off at the
+`# -- a thread that outlives the target` banner on 2026-09-08. The program
+sources, the `sandbox` fixture and `_trace_of` below are read from both sides.
+"""
 import io
 import json
 import sys

@@ -242,9 +242,10 @@ MATRIX = [
     # pinned end-to-end in `tests/test_refocus.py` instead
     # (`test_refocus_refuses_a_verdict_over_two_empty_causal_streams` and
     # `test_refocus_states_its_blind_spots_on_a_refused_verdict`, both moved
-    # to 3 by this commit); the pre-rerun refusals stay at 2 there too, and
-    # a matrix that showed only one of the two gates would misreport the
-    # split as a single code.
+    # to 3 by this commit); the pre-rerun refusals stay at 2, in
+    # `tests/test_refocus_rerun.py` since the 2026-09-08 split, and a matrix
+    # that showed only one of the two gates would misreport the split as a
+    # single code.
     # -- an EMPTY answer on an INCOMPLETE trace is not "none" -------------
     # The general row added to the table on 2026-09-04. One predicate
     # (`caps.none_status`) decides all three, so they cannot drift; each is

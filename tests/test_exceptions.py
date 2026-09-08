@@ -6,6 +6,11 @@ swallow, a bare `raise` re-raise, and an exception merely crossing a
 `finally` all produce RAISE + HANDLED with no later RAISE -- so a shape
 is the smallest unit that can tell them apart. Every expectation here was
 read off a real recorded trace before the classifier existed.
+
+Every shape here is a REAL recorded program. The shapes CPython will not
+reproduce on demand -- a recycled address, a frame that never closed, an
+unwind with no captured exception -- are hand-built traces in
+`test_exceptions_synthetic.py`, split off at that banner on 2026-09-08.
 """
 import pytest
 

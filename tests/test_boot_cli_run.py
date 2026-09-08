@@ -17,9 +17,13 @@ from sensorium.record import boot
 from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter
 from tests.helpers import FINAL_META, record_script, run_cli
-from tests.test_boot_cli import (DAEMON, HELLO, HOSTILE_EXIT_CODE,  # noqa: F401
+from tests.test_boot_cli import (DAEMON, HELLO, HOSTILE_EXIT_CODE,
                                  HOSTILE_THREAD_NAME, SPAWNS, SPAWNS_TWICE,
-                                 _trace_of, sandbox)
+                                 _trace_of)
+# `sandbox` is a `@pytest.fixture` (`test_boot_cli.py:156`): importing it is
+# what registers it in THIS module, and it is then named only as a test
+# parameter -- so this one line, and only this one, is an unused import.
+from tests.test_boot_cli import sandbox  # noqa: F401
 
 
 # -- a thread that outlives the target ------------------------------------

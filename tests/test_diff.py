@@ -6,6 +6,10 @@ no real recording can be coaxed into on demand: an incomplete recording and
 one with dropped late writes. Both are the single most important behaviour
 of this command -- refusing a verdict rather than reporting a false
 DIVERGED against a truncated stream.
+
+Sequential runs only. Comparisons that must survive a different interleaving
+are `test_diff_tasks.py`'s, split off at the `# -- asyncio tasks` banner on
+2026-09-08; `_rec` and `_synthetic` below are read from both sides.
 """
 import re
 

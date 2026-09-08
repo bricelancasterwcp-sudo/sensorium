@@ -615,3 +615,25 @@ def test_results_json_if_present_matches_the_committed_schema():
         assert set(h) == {"value", "n", "lens", "dropped"}, key
         if h["value"] is None:
             assert h["dropped"], key
+
+
+def test_the_e5prime_schema_is_reachable_and_is_a_module_of_its_own():
+    """`acceptance_schema.py` was split at the 800-line ceiling on 2026-09-08
+    and the E5' half left with `assemble_e5prime`. The only edge back is a
+    PEP 562 `__getattr__`, and its one consumer is a function-local import
+    inside `acceptance_e5prime.assemble_only()` -- so without this line the
+    313-line sibling is in NO suite's import graph, and a module-level break
+    in it would surface only when someone runs `acceptance_e5prime.py
+    --assemble`. Touching the attribute here compiles the sibling and pins
+    the `__getattr__` (and its `__dir__` companion) in the same breath.
+
+    Mutation: rename `assemble_e5prime` in `acceptance_schema_e5prime.py` and
+    the `__getattr__`'s inner import raises, reddening this test.
+    """
+    import acceptance_schema
+
+    assert callable(acceptance_schema.assemble_e5prime)
+    assert acceptance_schema.assemble_e5prime.__module__ == (
+        "acceptance_schema_e5prime")
+    assert "acceptance_schema_e5prime" in sys.modules
+    assert "assemble_e5prime" in dir(acceptance_schema)

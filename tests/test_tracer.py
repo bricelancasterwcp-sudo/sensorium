@@ -1,3 +1,12 @@
+"""The tracer's DECISIONS: which frames it watches, what kind each is, and
+the fingerprints and thread ids it mints for them.
+
+The LABELS it then puts on exceptions -- serials, the identity table and its
+bound, control-flow serials, and what `uninstall` does to all of it -- are
+`test_tracer_serials.py`'s, split off at the `# -- exception serials` banner
+on 2026-09-08; `ADD`, `SEQ_THREADS` and `UNCAUGHT_THROUGH_FINALLY` below are
+read from both sides.
+"""
 from tests.helpers import record_inproc, record_inproc_full
 
 ADD = """

@@ -1,4 +1,10 @@
-"""`tree` and `frame`: what actually ran, and one activation in full."""
+"""`tree` and `frame`: what actually ran, and one activation in full.
+
+The sync surface. Frames that SUSPEND -- generators parked at a yield,
+coroutines awaiting, tasks the loop owns -- are `test_tree_frame_gen.py`'s,
+split off at the `ASYNC_SRC` seam on 2026-09-08; `GEN_SRC` and `_rec` below
+are read from both sides.
+"""
 from sensorium.exit import BAD_CALL, NEGATIVE
 from sensorium import cli, paths
 from sensorium.store.writer import TraceWriter
