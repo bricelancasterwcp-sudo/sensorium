@@ -76,7 +76,9 @@ the point: E4″'s record identifies the driver that recorded a run by
   `RUSTDOCFLAGS` in **0 of 61** changed lists, the strip clause naming it on
   **61 of 61**, with the rt hash **differing on 61 of 61** pairs, so the strip
   was tested on every one under a driver build different from the originals'
-  (`0.5.0` → `0.5.2`). The verdict, the pair, session set 1 and both control
+  (`0.5.2` here, read from each re-run trace's own `meta.driver_version`; the
+  kept store's `0.5.0` is E4′ §2's fact about those originals, not an E4″ cell).
+  The verdict, the pair, session set 1 and both control
   arms held (H3–H6), and the instrument's own honesty row passed over all 69
   pairs (H7). **H8 STOPPED on this record's own reader**, not on the workspace:
   its three commands were green (corpus rc 0 over 63 cases with

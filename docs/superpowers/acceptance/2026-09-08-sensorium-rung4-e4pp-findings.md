@@ -48,7 +48,14 @@ differently, which is the whole reason a pre-registration is worth having.
    (`pairs.rows[*].driver_version_from_the_trace`) — and the built driver's own
    token and sha256 (`reported.driver_version`). It never opens the **copied
    original** for its `meta`, so the originals' `0.5.0` appears nowhere in the
-   raw or assembled record: it is §1.1's pre-registered fact, carried from E4.
+   raw or assembled record: it is §1.1's pre-registered fact, carried from E4
+   (E4′ §2 read `0.5.1` on its own re-runs, by the same route).
+   **The key names diverge too:** §1.5 and `reported.driver_version.note` say the
+   token is read from `meta.recorder`, while the reader takes
+   `meta.driver_version` (`rust/tests/acceptance_e4p_phases.py:294`) — and
+   `meta.recorder` on these traces reads `sensorium-rt 0.4.0`, the runtime, not
+   the driver; §2 and §4 quote the accurate key, and the pre-registration's
+   sentence is recorded here rather than edited.
    §1.5's sentence — *"`driver_version` on both sides"* — is satisfiable by
    reading "trace and built driver" as the two sides, and that is what the
    instrument did; a reader who takes "sides" to mean the pair's two runs finds
@@ -58,6 +65,36 @@ differently, which is the whole reason a pre-registration is worth having.
    next slice:** read `meta.driver_version` from the copied original too and
    publish the pair beside the rt-hash pair, so the sentence and the cells say
    the same thing.
+
+4. **H2's fragment count was read on both sides and published on neither.**
+   §1.4's H2 row pre-commits two second readings: the rt hash each side carries,
+   and *"the count of fragments removed per key per side"*. The first is a cell
+   (`H2.hashes_differ`, `H2.hashes_unread`, `reported.rt_hashes`). The second
+   exists only in the raw: `raw_pass2.refocuses[*].original_rt_hash.fragments`
+   and `.rerun_rt_hash.fragments` are **1** on 61 of 61, with `occurrences` **2**
+   on both sides — one fragment spanning the `--extern` and the `-L dependency=`
+   tokens, exactly the shape R1 strips. `endpoints.H2` carries no fragment cell
+   and `reported.rt_hashes.by_pair[*]` carries `original` and `rerun` values
+   only, so a reader who opens the record for a pre-committed reading finds it
+   absent and must go to a gitignored ledger. Same class as gap 3: measured, not
+   published. **Fix, next slice:** lift both counts into `H2` as a `{value, n,
+   lens, dropped}` cell and into `reported.rt_hashes.by_pair[*]` — the numbers
+   are already read, so nothing is re-measured.
+
+5. **`reported.walls_s` holds three of the four walls §1.5 names.** The bullet
+   pre-commits *"wall per arm (A, B, C and the dry run), the first focus
+   distinguished from the later ones with cargo's own build time inside each,
+   and the driver build's wall separately"*; `reported.walls_s` has `A`, `B`,
+   `C` and a `note`. The missing pieces were all recorded, just not gathered
+   where the pre-registration points: the driver build's wall is
+   `pins.built_from.cargo_wall_s` (**0.025 s**, `rebuilt: no`), cargo's own time
+   inside each refocus is `raw_pass2.refocuses[*].cargo_finished_s` (a per-row
+   list, ~3.3 s typical), and the dry runs' walls stayed in their own archived
+   results rather than being carried into the real run's `reported`. Nothing is
+   gated on a wall, so no verdict moves — but a bullet naming four readings
+   beside a field holding three is the gap. **Fix, next slice:** add
+   `walls_s.driver_build`, `walls_s.dry` and a per-arm cargo-time summary, all
+   from fields this run already writes.
 
 ## What this record does NOT license
 
@@ -94,6 +131,10 @@ differently, which is the whole reason a pre-registration is worth having.
   reach.
 - **Nothing about a wall.** No endpoint is derived from one, and
   `reported.walls_s` is published for the reader, not for a gate.
+- **No cell went unmeasured.** E4′ had to publish 57 unparsed program-thread
+  readings inside `H1.withheld.value`; none of them is here
+  (`H1.counts_source_by_name` reads `licence-clause` on 61 of 61), and no
+  measurement cell this run wrote carries a `dropped` reason.
 - **E4 and E4′ are not re-opened.** E4′'s `granted` = 0 stands as E4′'s reading
   of E4′'s run; this record measures the same partition after the confound E4′
   named was removed, and does not correct a number in either.
@@ -102,7 +143,7 @@ differently, which is the whole reason a pre-registration is worth having.
 
 | E4′ gap | what it was | closed by, in this record |
 |---|---|---|
-| **1** | the licence partition read `None` on any pair with no program thread, so `harness_threads_all_one` came back **false** over 61 pairs each reporting one, and two second readings were 4-wide rather than 61-wide | `H7.headline` = **0** null partition cells over n **69**; `H7.counts_carry_their_source_line` **true** over 69 with `counts_without_a_source_line` empty; `H1.counts_source_by_name` = `licence-clause` on **61 of 61**; `H1.harness_threads_all_one` **true** over 61; `H1.hides_the_exclusion` and `H1.reasons_that_never_subtracted` both empty **over 61** |
+| **1** | the licence partition read `None` on any pair with no program thread, so `harness_threads_all_one` came back **false** over 61 pairs each reporting one, and two second readings (`sides_disagree`, `reasons_that_never_subtracted`) were 4-wide rather than 61-wide | `H7.headline` = **0** null partition cells over n **69**; `H7.counts_carry_their_source_line` **true** over 69 with `counts_without_a_source_line` empty; `H1.counts_source_by_name` = `licence-clause` on **61 of 61**; `H1.harness_threads_all_one` **true** over 61; `H1.hides_the_exclusion` and `H1.reasons_that_never_subtracted` both empty **over 61** |
 | **2** | `sensorium_version` recorded as an empty string — a failed probe that read as measured | `H7.version_probe` = **`0.8.5`** with `version_probe_ok` **true** and `version_probe_reason` `null`; §1.4's own gate forbids the empty string, so a blank would have been a STOP of the instrument rather than a lens note |
 | **7** | `reported.licence_verified_counts` permanently `null` — built from a top-level key the runner never wrote | `H7.licence_verified_counts` **non-null** (source 61, environment 61, exit 61 verified; output 61, children 61 unverifiable; n 61) and `reported.licence_verified_counts` carrying the same object, so the field the record names is the field a reader finds |
 

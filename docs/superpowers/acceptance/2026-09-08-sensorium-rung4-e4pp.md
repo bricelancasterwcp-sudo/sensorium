@@ -626,7 +626,10 @@ fragment carries moved from `d9ce385a08c6646b` on every original to
 condition E4′ could not create, on all 61 pairs. The eighth row is `H8`: it
 missed on a cell of this record's own reader while its three commands came back
 green — under §1.4's kill 2 a **STOP with its number**, and under kill 6 not
-something this record may repair into a PASS.
+something this record may repair into a PASS. The marker is `e4pp.FAILED`,
+**`exit=7`**, `numbers_read` **true** since 05:52:44: under §1.4's rule 5 a
+`.FAILED` after a number has been read is a STOP and **the numbers already read
+stand**.
 
 **H1 — PASS.** `endpoints.H1.headline` = **57** granted of 61 against
 `H1.expected_granted_n` **57**, and `H1.withheld` is exactly §1.2's four by name
@@ -636,23 +639,23 @@ with their program-thread counts — `a_pager_can_be_shared_across_threads` **1*
 `the_journal_records_the_advice_alongside_the_refusal_arithmetic` **4**.
 `withheld_only_here`, `withheld_missing` and `withheld_count_mismatches` are all
 empty and `withheld_set_as_predicted` is true, so the partition is not merely
-the right size: it is the right four. **This is the number E4′ could not read**
-— it measured `granted` = **0**, all 61 withheld by the env clause; that reading
-stands as E4′'s, and what moved between the two records is the strip R1 ships,
-not the subject and not the rule.
+the right size: it is the right four. **This is the number E4′ measured as 0** —
+all 61 withheld by the env clause; that reading stands as E4′'s, and what moved
+between the two records is the strip R1 ships, not the subject and not the rule.
 
 **Second reading, REPORTED, and 61-wide.** `H1.hides_the_exclusion` is **empty**
 over 61 (no granted line omits the excluded harness thread);
 `H1.reasons_that_never_subtracted` is **empty** over 61 (no WITHHELD reason
 names the raw 2/5/5/5); `H1.harness_threads_all_one` is **true** over 61;
 `H1.sides_disagree` and `H1.unread` are empty; `H1.harness_phrases` holds one
-spelling only, `libtest's per-test thread, excluded as the recorder's own`. E4′
-could publish the middle three over **4** pairs and had
-`harness_threads_all_one` come back **false**; here `H1.counts_source_by_name`
-reads `licence-clause` on **61 of 61**, because R1's licence clause now speaks
-on a granted pair too — *no thread started besides the main one and 1 harness
-thread (…)* — so every count has a clause to come from and the aggregates cover
-the whole subject. E4′ gap 1, closed and shown closed.
+spelling only, `libtest's per-test thread, excluded as the recorder's own`. Two
+of those — `reasons_that_never_subtracted` and `sides_disagree` — E4′ could
+publish over **4** pairs only, and its `harness_threads_all_one` came back
+**false** over 61; here `H1.counts_source_by_name` reads `licence-clause` on
+**61 of 61**, because R1's licence clause now speaks on a granted pair too — *no
+thread started besides the main one and 1 harness thread (…)* — so every count
+has a clause to come from and the aggregates cover the whole subject. E4′ gap 1,
+closed and shown closed.
 
 **H2 — PASS, and the strip was TESTED on every pair.**
 `H2.rustdocflags_in_changed` = **0** of 61 with `rustdocflags_in_changed_pairs`
@@ -663,25 +666,29 @@ empty; `H2.strip_clause_named` = **61** of 61 with `strip_clause_missing` empty;
 **Second reading:** `H2.hashes_differ` = **61** of 61,
 `hashes_equal_so_the_strip_was_untested` **empty**, `H2.hashes_unread`
 **empty**, `hashes_readable` **61**. A strip that fired on a pair whose two
-hashes were equal is a strip nothing could have tested; there is no such pair,
-and none unread either.
+hashes were equal is a strip nothing could have tested; there is no such pair.
+**The reading's other half — the count of fragments removed per key per side —
+was read and never published**: `raw_pass2.refocuses[*].original_rt_hash.fragments`
+and `.rerun_rt_hash.fragments` are **1** on 61 of 61, `occurrences` **2** on both
+sides, and the assembly lifts neither into `endpoints.H2` nor
+`reported.rt_hashes` — findings gap 4.
 
 **H3 — PASS.** `H3.headline` = **MATCH 61 of 61** with `non_match` empty, and
 `H3.pairs_of_one` = **61** with `not_one` empty — the pair read from the store,
-the printed id agreeing beside it. **Second reading:**
-`H3.word_and_exit_disagree` **empty** (every `pairs.rows[*].exit` is 0) and
-`H3.excluded_children` = **0** over 61. The comparator and the pairing are
-untouched by this slice and reproduced E4′'s verdict on every pair.
+the printed id agreeing beside it. **Second reading:** `H3.word_and_exit_disagree`
+**empty** (every `pairs.rows[*].exit` is 0) and `H3.excluded_children` = **0**
+over 61. The comparator and the pairing are untouched and reproduced E4′'s
+verdict on every pair.
 
 **H4 — PASS.** `H4.session_names` = `['CLAUDE_CODE_SESSION_ID']` on **61 of
 61**, equal to `pins.session_keys_differing` by name, and `H4.session_k` = **1**
 = the pin's size on 61 of 61 (`session_names_match` 61, `session_k_match` 61).
 `H4.withholding_cites_a_session_key` is **empty**: not one withholding cites a
 key of session set 1, which is the whole of R4. **Second reading:**
-`H4.pairs_with_an_empty_session_set` = **0**, so the launch shell did differ
-from the originals' as §1.3's rule 3 expects; `H4.names_bounded` is empty and
-`H4.decided_on_k_alone` is **false** — K is 1, nowhere near the 8-name cap, so
-kill 7's reduced reading never applied and the by-name half was read in full.
+`H4.pairs_with_an_empty_session_set` = **0**, so the launch shell did differ from
+the originals' as §1.3's rule 3 expects; `H4.names_bounded` is empty and
+`H4.decided_on_k_alone` **false** — K is 1, far under the 8-name cap, so kill 7's
+reduced reading never applied and the by-name half was read in full.
 
 **H5 — PASS, and the exemption did not eat the rule.** `H5.headline` = **4**
 WITHHELD of 4 with `H5.granted` **empty**, and `H5.env_caveat_names_the_key` =
@@ -700,8 +707,7 @@ granted and the pager row WITHHELD, matching arm A row for row.
 4 of 4. **Second reading:** `H6.injected_key` is `TERM_SESSION_ID`, and
 `H6.injected_key_choice` shows it *derived* rather than picked — the first of
 session set 1's fourteen exact names absent from both sides, skipping
-`DBUS_SESSION_BUS_ADDRESS` and `XDG_SESSION_ID`, each present on the original
-and on the runner.
+`DBUS_SESSION_BUS_ADDRESS` and `XDG_SESSION_ID`, present on both.
 
 **H7 — PASS, and it is the instrument's own row.** `H7.headline` = **0** null
 partition cells on a pair whose licence printed, over n **69** — every pair of
@@ -736,28 +742,26 @@ name-shape miss in this record's reader, not a case missing from the corpus —
 but it is a **measured `False`**, and a record does not reinterpret one of its
 own cells into a PASS after the fact.
 
-**The label, and the disagreement inside it.** `stop` and the `e4pp.FAILED`
-marker both read *"This is a STOP of the subject"*; that sentence is fixed per
-endpoint rather than derived from what the failing cell measures. On the
-evidence above the miss is the **instrument's** — nothing in this workspace
-moved, and three return codes say so. Both readings stand side by side, and
-neither is resolved silently in favour of the friendlier one.
+**The label disagrees with the evidence**, and both stand: `stop` and the marker
+read *"This is a STOP of the subject"* while the miss is the instrument's —
+findings gap 2 carries it, and neither reading is resolved silently in favour of
+the friendlier one.
 
-### Reported without a gate
+### The ungated readings, §1.5's list
 
 | what | measured | field |
 |---|---|---|
 | the two rt hashes | original `d9ce385a08c6646b`, re-run `45773c80095d5b87`, **differing on 61 of 61** | `reported.rt_hashes` |
 | `driver_version` | **`cargo-sensorium 0.5.2`** on **69 of 69** rows, from the re-run trace's own `meta.driver_version`, and from the built driver, sha256 `4b18cad4844cb288b0db47a2fab648f6b041f5df566806c828b9d203adfabcb1`. The originals' **`0.5.0`** is §1.1's pre-registered fact carried from E4 — **no field of this record reads it** (§5) | `reported.driver_version`, `pairs.rows[*].driver_version_from_the_trace` |
 | K and its names | pin `['CLAUDE_CODE_SESSION_ID']`, n **1**, `as_expected` true; injected `TERM_SESSION_ID`. A differing set is reported, never a STOP — the launch shell is the instrument's | `reported.session_set` |
-| wall per arm | A first **8.375 s**, later mean **6.667 s**, max **7.514 s** over 61; B **3.35 / 3.38 / 3.4 s** over 4; C **3.363 / 3.448 / 3.641 s** over 4. The runner writes no total and this record quotes none | `reported.walls_s` |
+| wall per arm | A first **8.375 s**, later mean **6.667 s**, max **7.514 s** over 61; B **3.35 / 3.38 / 3.4 s** over 4; C **3.363 / 3.448 / 3.641 s** over 4. The runner writes no total and this record quotes none. §1.5 also names the dry run's wall and the driver build's *separately*, and `walls_s` holds A/B/C alone: the build's is `pins.built_from.cargo_wall_s` **0.025 s** (`rebuilt: no`), cargo's own time inside each refocus is `raw_pass2.refocuses[*].cargo_finished_s`, and the dry run's stayed in its own archived results — read, not gathered where §1.5 points (findings gap 5) | `reported.walls_s`, `pins.built_from` |
 | arm B's verdicts | **all four MATCH**. `E4PP_INPUT` is a name no code in the clone reads, so a moved verdict would have been a finding; none moved, reported as the reading it is | `reported.arm_b_verdicts` |
 | the loop was whole, wrote nothing and dropped nothing | **69** invocations — A **61**, `armB` **4**, `armC` **4** — none killed, none skipped by the bound; **no** measurement cell carries a dropped reason; the kept store 122 files before and after, `differences` empty, `identical` **true** | `pairs.n`, `pairs.by_arm`, `reported.dropped_lists`, `H7.dropped_lists`, `reported.kept_store_unchanged` |
 
 **The record's own reading of itself.** Seven endpoints of eight answered
 exactly as pre-registered, including both the slice exists to answer; the eighth
-is a miss in the reader, on a cell whose subject was green. The STOP is real,
-the finding is the instrument's, and neither cancels the other.
+is a miss in the reader, on a cell whose subject was green — the STOP real, the
+finding the instrument's, and neither cancelling the other.
 
 ## 5. Gaps
 
@@ -769,31 +773,27 @@ made after the measurement to make the cell come out differently — §1.4's kil
 the record says so; a record does not become right by editing the reader that
 wrote it. **The finding is the slice's result**, and the fix is ruled for the
 NEXT slice, never applied here. H1 and H2 — the two endpoints this slice exists
-for — PASS at n = 61 with every second reading clean; what missed is a cell of
-the row that watches the rest of the workspace.
+for — PASS at n = 61; what missed is a cell of the row that watches the rest of
+the workspace.
 
 ### Gaps, in a sibling so this record stays under its ceiling
 
-The instrument's own gaps with their one-line fixes, what this record does
+The five instrument gaps with their one-line fixes, what this record does
 **not** license (blind spot 28's mechanism included), and the three E4′ gaps
-this instrument closed with the cells that carry them —
+closed with their cells —
 [`…-e4pp-findings.md`](2026-09-08-sensorium-rung4-e4pp-findings.md); the ungated
-per-row readings —
-[`…-e4pp-rows-measured.md`](2026-09-08-sensorium-rung4-e4pp-rows-measured.md).
+per-row readings — [`…-e4pp-rows-measured.md`](2026-09-08-sensorium-rung4-e4pp-rows-measured.md).
 
 ### What no `dropped` list says
 
-`reported.dropped_lists` and `H7.dropped_lists` are both empty and no cell
-carries a `dropped` reason: the loop ran whole — 69 of 69 invocations, none
-killed, none skipped, no ceiling reached — and `H7.headline` counts **0** null
-partition cells over all 69. The 57 unparsed program-thread readings E4′ had to
-publish are not here at all (`H1.counts_source_by_name` reads `licence-clause`
-on 61 of 61). `H8.spawned_test_fn_present` is a **measured `False`**, not a
-missing one — which is what makes it a gap rather than a null.
+`reported.dropped_lists` and `H7.dropped_lists` are empty and no cell carries a
+`dropped` reason: the loop ran whole (69 of 69, none killed, none skipped, no
+ceiling reached) and `H7.headline` counts **0** null partition cells over 69.
+`H8.spawned_test_fn_present` is a **measured `False`**, not a missing one.
 
 ### Not in this record
 
 E4 and E4′ are not re-opened and no number in either is re-measured; pass 1 was
-not re-run, so nothing here is a claim about a fresh recording; the four
-verified/unverifiable counts stay reported, in kind and unsummed; nothing is
-gated on a wall; §1 is never edited here.
+not re-run, so nothing here claims anything about a fresh recording; the four
+verified/unverifiable counts stay in kind and unsummed; nothing is gated on a
+wall; §1 is never edited here.
