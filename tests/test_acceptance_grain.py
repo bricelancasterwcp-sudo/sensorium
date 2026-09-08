@@ -284,6 +284,56 @@ def test_the_renderer_prints_a_measured_zero_as_zero():
     assert line and "| 0 (rule:" in line[0], line
 
 
+def test_the_renderer_names_the_RAW_RECORD_the_run_actually_wrote():
+    """A1 row 32. `render_grain` hardcoded `results-grain-raw.json` -- the
+    FIRST record's raw file -- so the repair record's §2 named a file that
+    run never wrote. Derived from `assembled.from`, which each runner stamps
+    with its own."""
+    doc = assemble_grain(_raw())
+    doc["assembled"] = {"from": "results-grain-repair-raw.json"}
+    text = "\n".join(render_grain.environment(doc))
+    assert "`results-grain-repair-raw.json`" in text
+    assert "results-grain-raw.json" not in text
+
+
+def test_the_renderer_prints_the_ids_THIS_RECORDS_document_uses():
+    """A1 row 32 again: the ids went out unprimed into a document whose §1
+    and §4 call them H1′-H6′. The printed spelling is the RECORD's fact, so
+    it is read from it -- and a record that names none prints its own keys,
+    which is what every record derived before this fix does."""
+    doc = assemble_grain(_raw())
+    plain = [ln for ln in render_grain.results(doc) if ln.startswith("| H")]
+    assert plain and plain[0].startswith("| H1 |")
+    doc["endpoint_ids"] = {f"H{i}": f"H{i}\u2032" for i in range(1, 7)}
+    primed = [ln for ln in render_grain.results(doc) if ln.startswith("| H")]
+    assert primed and primed[0].startswith("| H1\u2032 |")
+    assert len(primed) == len(plain)
+    # ...and the rule beside it is still the endpoint's own.
+    assert "rule:" in primed[0]
+
+
+def test_the_byte_lock_sentence_does_not_DENY_the_sha_it_prints():
+    """A1 row 32's third literal: the sentence said "§1 was committed ALONE
+    and never amended: there is no second sha" and then interpolated the
+    second sha. Written for the unamended case; the repair record was the
+    first to fall outside it."""
+    doc = assemble_grain(_raw())
+    doc["byte_lock"] = {"range": "…", "extraction": "…", "commit": "ae9a15b",
+                        "locked_bytes": 7437, "locked_sha256": "e894f4",
+                        "footnotes_in_range": [], "identical": True,
+                        "original_lock": None}
+    text = "\n".join(render_grain.environment(doc))
+    assert "never amended" in text and "no second sha" in text
+    doc["byte_lock"] = dict(doc["byte_lock"], original_lock="9bf64df",
+                            original_lock_sha256="62ddc5",
+                            original_lock_bytes=7087,
+                            amended_after_the_original_lock=True,
+                            amendment_bytes=350)
+    text = "\n".join(render_grain.environment(doc))
+    assert "never amended" not in text and "no second sha" not in text
+    assert "9bf64df" in text and "62ddc5" in text and "350" in text
+
+
 # -- the locations this run touches ----------------------------------------
 
 
@@ -347,16 +397,31 @@ def test_a_killed_answer_is_recorded_as_a_kill_and_not_raised(
     assert "KILLED at 60 s" in Path(res["log"]).read_text()
 
 
-def test_no_module_of_this_instrument_names_a_box_path():
-    """Every location is an environment variable. A path compiled into the
-    runner would make the record unreproducible and the file wrong on any
-    other machine."""
+#: DERIVED, never listed. The hand-written list this replaced named five
+#: modules and `acceptance_grain_repair.py` -- added later, and the one
+#: module of this instrument that a box path would most plausibly reach,
+#: since it repoints every location -- was scanned by nothing. A glob cannot
+#: go stale the next time a module is added.
+GRAIN_MODULES = sorted(p.name for p in (REPO / "rust" / "tests").glob(
+    "acceptance_grain*.py")) + ["render_grain.py"]
+
+
+def test_the_scanned_module_list_covers_every_module_of_this_instrument():
+    assert "acceptance_grain_repair.py" in GRAIN_MODULES
     for name in ("acceptance_grain.py", "acceptance_grain_read.py",
                  "acceptance_grain_phases.py", "acceptance_grain_schema.py",
                  "render_grain.py"):
-        text = (REPO / "rust" / "tests" / name).read_text()
-        assert "/mnt/" not in text, name
-        assert "/home/" not in text, name
+        assert name in GRAIN_MODULES, name
+
+
+@pytest.mark.parametrize("name", GRAIN_MODULES)
+def test_no_module_of_this_instrument_names_a_box_path(name):
+    """Every location is an environment variable. A path compiled into the
+    runner would make the record unreproducible and the file wrong on any
+    other machine."""
+    text = (REPO / "rust" / "tests" / name).read_text()
+    assert "/" + "mnt/" not in text, name
+    assert "/" + "home/" not in text, name
 
 # -- fix round 1: the record must survive being written --------------------
 

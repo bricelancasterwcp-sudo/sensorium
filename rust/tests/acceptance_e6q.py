@@ -35,8 +35,16 @@ What is NEW:
   (measured at Task 0), so the control driver is identified by its worktree's
   HEAD plus the binary's sha256 -- the binary is never invoked to ask what it
   is. What the driver says about ITSELF is read AFTER the run out of the
-  trace each arm wrote (`meta.driver_version`), so the record can show
-  `cargo-sensorium 0.3.0` for WS0 beside the repaired version for A and WS.
+  trace each arm wrote (`meta.driver_version`), and the record shows it.
+  **It does not tell the two binaries apart**: the run measured
+  `cargo-sensorium 0.3.0` on ALL THREE arms (record §5.7), because the crate
+  moves to 0.3.1 in the release task, which runs after this measurement, so
+  the repaired binary still carries the old string. This runner said the
+  control's traces "must" read 0.3.0 and the HEAD arms' the repaired
+  version; the run falsified it and nothing rests on it. Which driver ran
+  which arm is established three other recorded ways -- the binary's sha256,
+  each arm's own trace `tool_hash`, and the manifests the two prep builds
+  wrote.
 
 Every location is an environment variable; no box path appears in this file.
 The three the control adds (`SENSORIUM_BASE_DRIVER`,
@@ -271,9 +279,11 @@ def driver_identity(paths, run_ids) -> dict:
     """What the driver reported about ITSELF into each trace of one arm.
 
     `meta.driver_version` is written by the converter from the driver's own
-    `DRIVER_VERSION` constant, so it is the run's evidence of which binary
-    instrumented it -- the control arm's traces must say `cargo-sensorium
-    0.3.0` and the HEAD arms' the repaired version. A missing trace is a hole
+    `DRIVER_VERSION` constant, so it is what each binary says about itself --
+    but it is NOT how this record tells the two apart. All three arms read
+    `cargo-sensorium 0.3.0` (record §5.7): the crate moves to 0.3.1 in the
+    release task, which runs after this measurement. `tool_hash`, read here
+    beside it, is the reading that discriminates. A missing trace is a hole
     in the evidence and is reported, never defaulted."""
     per_run, hashes, missing = {}, {}, []
     for run_id in run_ids:

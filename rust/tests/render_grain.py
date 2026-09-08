@@ -50,6 +50,52 @@ def _yn(v) -> str:
     return "not recorded" if v is None else ("yes" if v else "no")
 
 
+def raw_record_name(r) -> str:
+    """The raw file THIS run wrote, from the record it wrote it into.
+
+    It was the literal `results-grain-raw.json` -- the FIRST record's -- so
+    the repair record's §2 named a file that run never wrote (repair record
+    §5.7, residual 2). Each runner stamps its own into `assembled.from`, and
+    a record with no `assembled` block says so rather than naming someone
+    else's file.
+    """
+    return (r.get("assembled") or {}).get("from") or "(not recorded)"
+
+
+def endpoint_ids(r) -> list:
+    """`(key in the record, id to PRINT)`, in the record's own order.
+
+    The ids went out `H1`-`H6` -- the first record's -- into a document
+    whose §1 and §4 call them H1′-H6′. Which spelling a document uses is a
+    fact about the RECORD, so it is read from the record: `endpoint_ids`
+    maps each key to what that run's own document calls it. A record that
+    carries none prints its keys, which is what every record derived before
+    this fix does, so nothing already published changes.
+    """
+    printed = r.get("endpoint_ids") or {}
+    return [(key, printed.get(key, key)) for key in r["endpoints"]]
+
+
+def lock_sentence(bl: dict) -> str:
+    """The second-sha clause, for the record in hand.
+
+    It read "§1 was committed ALONE and never amended: there is no second
+    sha" and then interpolated the second sha. True of the first record and
+    false of the repair, which is the first to have been amended -- so the
+    sentence is chosen by whether there IS an original lock rather than
+    written for one case and printed for both.
+    """
+    if not bl.get("original_lock"):
+        return ("§1 was committed ALONE and never amended: there is no "
+                "second sha")
+    return (f"§1 was AMENDED after its first lock, before any number was "
+            f"read: the original is `{bl.get('original_lock')}` "
+            f"({bl.get('original_lock_bytes')} bytes, sha256 "
+            f"`{bl.get('original_lock_sha256')}`), the amendment added "
+            f"{bl.get('amendment_bytes')} bytes, and both shas travel "
+            f"together")
+
+
 def environment(r) -> list[str]:
     env, bl = r["environment"], r.get("byte_lock") or {}
     orc = r.get("oracle") or {}
@@ -57,7 +103,7 @@ def environment(r) -> list[str]:
     out = ["## 2. Environment", "",
            f"Measured {r.get('started')} → {r.get('finished')} by "
            f"`{r.get('runner')}`, launched detached; the raw facts it "
-           f"recorded are `results-grain-raw.json` in the gitignored plan "
+           f"recorded are `{raw_record_name(r)}` in the gitignored plan "
            f"ledger, with every command's log beside it. §3 below is "
            f"rendered from `{name}.results.json`, which "
            f"`acceptance_grain_schema.assemble_grain` derived from that raw "
@@ -71,9 +117,7 @@ def environment(r) -> list[str]:
            f"range and `{bl.get('extraction')}` are the same bytes. Checked "
            f"at `{bl.get('commit')}`: {bl.get('locked_bytes')} bytes, sha256 "
            f"`{bl.get('locked_sha256')}` on both sides — identical: "
-           f"{_yn(bl.get('identical'))}. §1 was committed ALONE and never "
-           f"amended: there is no second sha "
-           f"(`original_lock` = {bl.get('original_lock')}).", "",
+           f"{_yn(bl.get('identical'))}. {lock_sentence(bl)}.", "",
            f"**The oracle.** `{orc.get('record')}` at `{orc.get('commit')}` "
            f"(sha256 `{orc.get('sha256')}`) — sites {orc.get('sites')}, "
            f"lines {orc.get('lines')}, processes with a tally line "
@@ -324,9 +368,9 @@ def results(r) -> list[str]:
            f"`{name}.results.json`. No verdict is decided here — §4 is.", "",
            "| Id | Headline | n | Lens (abridged) | Dropped |",
            "|---|---|---|---|---|"]
-    for label in ("H1", "H2", "H3", "H4", "H5", "H6"):
-        m = e[label]["headline"]
-        out.append(f"| {label} | {cell(m)} (rule: {RULES[label]}) | "
+    for key, printed in endpoint_ids(r):
+        m = e[key]["headline"]
+        out.append(f"| {printed} | {cell(m)} (rule: {RULES[key]}) | "
                    f"{n_of(m)} | {lens_of(m)} | {dropped_of(m)} |")
     out += [""] + _h2(r)
     out += [""] + _h3(r)

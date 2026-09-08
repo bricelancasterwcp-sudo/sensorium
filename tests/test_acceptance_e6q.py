@@ -304,15 +304,23 @@ def _trace_meta(paths, run_id, meta: dict):
 
 def test_each_arms_driver_version_is_read_from_the_trace_that_arm_wrote(
         tmp_path):
-    """The record must show `cargo-sensorium 0.3.0` for the control and the
-    repaired version for the HEAD arms. The only place the driver says what it
-    is, is the trace it wrote."""
+    """The only place a driver says what it IS, is the trace it wrote, and
+    the record shows that string per run.
+
+    It does not discriminate: the run read `cargo-sensorium 0.3.0` on all
+    three arms (record §5.7), because the crate moves to 0.3.1 in the
+    release task, which runs after this measurement. What this reader must
+    get right is therefore that the string is read from the arm's own trace
+    and that `tool_hash` -- the reading that DOES tell the binaries apart --
+    is read beside it, per run."""
     p = _paths(tmp_path)
     _trace_meta(p, "r1", {"driver_version": "cargo-sensorium 0.3.0",
                           "tool_hash": "abc"})
     got = runner.driver_identity(p, ["r1"])
     assert got["driver_versions"] == ["cargo-sensorium 0.3.0"]
     assert got["driver_version_per_run"] == {"r1": "cargo-sensorium 0.3.0"}
+    assert got["tool_hash_per_run"] == {"r1": "abc"}
+    assert got["tool_hashes"] == ["abc"]
     assert got["traces_missing"] == []
 
 
