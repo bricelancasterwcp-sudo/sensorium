@@ -295,6 +295,78 @@ fn a_file_the_transformer_refused_names_its_reason_on_both_channels() {
     assert_eq!(m["files"]["src/lib.rs"][0]["qualname"], "f", "{m}");
 }
 
+#[test]
+fn a_refused_crate_root_leaves_the_unit_empty_without_calling_it_a_fallback() {
+    // The sibling above refuses a CHILD file, which leaves the rest of the
+    // unit instrumented. This refuses the crate ROOT, and the root is where
+    // `__SENSORIUM_UNIT` goes: with no static, every other file's guards
+    // would reference a symbol that is not there, so the whole unit is left
+    // alone (`wrapper.rs`'s
+    // `a_unit_whose_crate_root_cannot_be_rewritten_is_left_wholly_alone`
+    // pins that at plan level). What had no fixture is the same shape driven
+    // end to end through the binary: the stderr line, `fell_back: false` --
+    // this is not a fallback, nothing was retried -- and an EMPTY `files`.
+    let s = Scratch::new("refused-root");
+    let rt = s.p("rt");
+    bogus_runtime(&s, &rt);
+    let rustc = fake_rustc(&s);
+    // Valid Rust the transformer refuses for the reason the sibling uses: a
+    // spawn in an enum discriminant, which has no named item to name the
+    // child by. Here it is in the crate root itself.
+    s.write(
+        "ws/src/lib.rs",
+        "pub mod m;\n\
+         pub enum E {\n\
+         A = { let f: fn() = || { std::thread::spawn(|| ()).join().unwrap(); }; let _ = f; 1 },\n\
+         }\n",
+    );
+    s.write("ws/src/m.rs", "pub fn child() -> u8 { 7 }\n");
+    std::fs::create_dir_all(s.p("out")).unwrap();
+    let mut args: Vec<String> = [
+        "--crate-name",
+        "probe_fallback",
+        "--edition=2021",
+        "src/lib.rs",
+        "--crate-type",
+        "lib",
+        "-C",
+        "debuginfo=0",
+        "-C",
+    ]
+    .iter()
+    .map(|a| (*a).to_owned())
+    .collect();
+    args.push(format!("metadata={METADATA}"));
+    args.push("--out-dir".to_owned());
+    args.push(s.p("out").to_string_lossy().into_owned());
+
+    let out = wrap(&s, &rustc, &args, Some(&rt));
+
+    assert!(out.status.success(), "{}", stderr(&out));
+    assert_eq!(fake_rustc_runs(&s), 1, "one compile, not a fallback retry");
+    let log = stderr(&out);
+    assert!(
+        log.contains(&format!(
+            "sensorium: unit probe_fallback ({METADATA}): src/lib.rs: \
+             spawn site outside any named item"
+        )),
+        "the build log does not name the refused root: {log}"
+    );
+    let m = manifest(&s.p("target"), METADATA);
+    assert_eq!(
+        m["unreached_reasons"]["src/lib.rs"], "spawn site outside any named item",
+        "{m}"
+    );
+    // Nothing is instrumented, and nothing pretends to be: no sites, no
+    // source hashes, and the child file is not claimed either.
+    assert_eq!(m["files"], serde_json::json!({}), "{m}");
+    assert_eq!(m["source_hashes"], serde_json::json!({}), "{m}");
+    // And it is NOT a fallback: the unit was never compiled twice, so calling
+    // it one would put a retry in the record that never happened.
+    assert_eq!(m["fell_back"], false, "{m}");
+    assert_eq!(m["fallback_reason"], serde_json::Value::Null, "{m}");
+}
+
 /// Passing through is not falling back. These argvs are not units this recorder
 /// has anything to say about, and several carry no `-C metadata` to key a
 /// manifest by, so writing one would invent a unit that does not exist.
