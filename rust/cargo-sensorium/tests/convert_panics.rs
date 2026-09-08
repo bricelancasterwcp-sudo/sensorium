@@ -3,126 +3,27 @@
 //! Every other panic fixture in this suite reaches the wire through
 //! `common::wire`'s typed builders (`panic_record`, `ret_panic`). That makes
 //! the converter and the test fixture agree by construction: if the builder
-//! and the reader drifted the same way, no test here would notice. These two
+//! and the reader drifted the same way, no test here would notice. These
 //! write the same records with the field values `sensorium-rt/src/spool.rs`'s
 //! format block states -- kind 2 RETURN with outcome 3 `panic`, kind 3 PANIC
 //! with outcome 0 and site 0 -- so what is pinned is the WIRE FORMAT the
-//! converter reads, not the builder that happens to produce it.
+//! converter reads, not the builder that happens to produce it. The byte
+//! values live in [`common::spooldir`]'s constants block, beside the err-flow
+//! kinds that are there for the same reason.
 //!
-//! The second fixture pins the other half the ledger left open: the serial a
+//! The last fixture pins the other half the ledger left open: the serial a
 //! PANIC record consumes when there is no open frame to attach it to.
+//!
+//! The scratch tree, the conversion and the SQLite reads are
+//! [`common::spooldir`]'s, like every other `convert_*` suite -- only the
+//! record bytes are this file's own.
 
 mod common;
 
-use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
-
+use common::spooldir::{meta, Fixture, FILE, KIND_PANIC, KIND_RETURN, OUTCOME_OK, OUTCOME_PANIC};
 use common::wire::{self, site};
-use common::Scratch;
-use rusqlite::Connection;
 
-const FILE: &str = "crates/demo/src/lib.rs";
 const QUALNAME: &str = "main";
-
-/// The wire values `sensorium-rt/src/spool.rs`'s format block names, spelled
-/// here rather than imported: this file's whole purpose is to be a second,
-/// independent statement of them.
-const KIND_RETURN: u8 = 2;
-const KIND_PANIC: u8 = 3;
-const OUTCOME_OK: u8 = 1;
-const OUTCOME_PANIC: u8 = 3;
-
-/// A scratch tree with a real `target` (so a manifests directory can live on
-/// disk), one invocation's spool directory under it, and an isolated
-/// `SENSORIUM_DIR` this test's traces land in.
-#[allow(dead_code)] // `scratch` is held only for its Drop cleanup; `target` documents the layout.
-struct Fixture {
-    scratch: Scratch,
-    target: PathBuf,
-    spool_dir: PathBuf,
-    manifests_dir: PathBuf,
-    sensorium_dir: PathBuf,
-}
-
-impl Fixture {
-    fn new(name: &str) -> Fixture {
-        let scratch = Scratch::in_build_dir(name);
-        let target = scratch.p("target");
-        let spool_dir = target.join("sensorium/spool/20260903-000000-000000");
-        let manifests_dir = target.join("sensorium/manifests");
-        let sensorium_dir = scratch.p("sensorium-dir");
-        std::fs::create_dir_all(&spool_dir).unwrap();
-        std::fs::create_dir_all(&manifests_dir).unwrap();
-        wire::write_invocation(
-            &spool_dir,
-            "20260903-000000-000000",
-            "/w",
-            &target.to_string_lossy(),
-        );
-        Fixture {
-            scratch,
-            target,
-            spool_dir,
-            manifests_dir,
-            sensorium_dir,
-        }
-    }
-
-    /// The single-site manifest every non-error fixture below builds on:
-    /// `crates/demo/src/lib.rs :: main`, the exact strings the blake2b pins
-    /// are computed over.
-    fn one_site_manifest(&self, metadata: &str, ret: &'static str) {
-        wire::write_manifest(
-            &self.manifests_dir,
-            metadata,
-            "demo",
-            &[(FILE, &[site(0, QUALNAME, 3, ret)])],
-            &[(FILE, "deadbeef")],
-            false,
-            None,
-            &[],
-        );
-    }
-
-    fn convert(&self) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_cargo-sensorium"))
-            .args(["convert", &self.spool_dir.to_string_lossy()])
-            .env("SENSORIUM_DIR", &self.sensorium_dir)
-            .output()
-            .expect("run cargo-sensorium convert")
-    }
-
-    fn traces(&self) -> Vec<PathBuf> {
-        let dir = self.sensorium_dir.join("traces");
-        let mut found: Vec<PathBuf> = std::fs::read_dir(&dir)
-            .unwrap_or_else(|e| panic!("no traces dir at {}: {e}", dir.display()))
-            .map(|e| e.unwrap().path())
-            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("db"))
-            .collect();
-        found.sort();
-        found
-    }
-}
-
-fn open(db: &Path) -> Connection {
-    Connection::open(db).unwrap_or_else(|e| panic!("cannot open {}: {e}", db.display()))
-}
-
-fn meta(conn: &Connection, key: &str) -> serde_json::Value {
-    let raw: String = conn
-        .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
-        .unwrap_or_else(|e| panic!("no meta key {key}: {e}"));
-    serde_json::from_str(&raw).unwrap()
-}
-
-fn context(out: &Output) -> String {
-    format!(
-        "status: {:?}\n--- stdout ---\n{}\n--- stderr ---\n{}",
-        out.status.code(),
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr)
-    )
-}
 
 /// A PANIC record's payload, by the format block: `u16 loc_len`, the location
 /// bytes, then the message bytes. Written here rather than taken from
@@ -147,7 +48,7 @@ const RET_NO_VALUE: [u8; 2] = [0, 0];
 #[test]
 fn a_return_written_with_the_wire_formats_own_panic_outcome_closes_the_frame_as_an_unwind() {
     let f = Fixture::new("panic-wire-outcome");
-    f.one_site_manifest("meta1", "value");
+    f.manifest(&[site(0, QUALNAME, 3, "value")]);
     wire::write_proc_header(
         &f.spool_dir,
         901,
@@ -169,9 +70,7 @@ fn a_return_written_with_the_wire_formats_own_panic_outcome_closes_the_frame_as_
         )
         .raw(2, 2000, 0, KIND_RETURN, OUTCOME_PANIC, &RET_NO_VALUE)
         .write(&f.spool_dir);
-    let out = f.convert();
-    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
-    let conn = open(&f.traces()[0]);
+    let conn = f.converted();
     let (closed_by, unwind_exc): (String, String) = conn
         .query_row(
             "SELECT closed_by, unwind_exc FROM frames LIMIT 1",
@@ -194,7 +93,7 @@ fn the_same_return_with_the_ok_outcome_is_a_return_and_not_an_unwind() {
     // of the record around it. A converter that read any RETURN after a PANIC
     // record as an unwind would pass the first test and fail this one.
     let f = Fixture::new("panic-wire-outcome-ok");
-    f.one_site_manifest("meta1", "value");
+    f.manifest(&[site(0, QUALNAME, 3, "value")]);
     wire::write_proc_header(
         &f.spool_dir,
         902,
@@ -215,9 +114,7 @@ fn the_same_return_with_the_ok_outcome_is_a_return_and_not_an_unwind() {
         )
         .raw(2, 2000, 0, KIND_RETURN, OUTCOME_OK, &RET_NO_VALUE)
         .write(&f.spool_dir);
-    let out = f.convert();
-    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
-    let conn = open(&f.traces()[0]);
+    let conn = f.converted();
     let (closed_by, unwind_exc): (String, Option<String>) = conn
         .query_row(
             "SELECT closed_by, unwind_exc FROM frames LIMIT 1",
@@ -243,19 +140,7 @@ fn a_panic_with_no_open_frame_still_consumes_its_threads_panic_serial() {
     // the second must read serial 2. Bumping the counter only on the
     // attached branch would give it 1, and no other fixture would notice.
     let f = Fixture::new("panic-outside-serial");
-    wire::write_manifest(
-        &f.manifests_dir,
-        "meta1",
-        "demo",
-        &[(
-            FILE,
-            &[site(0, QUALNAME, 3, "unit"), site(1, "second", 9, "value")],
-        )],
-        &[(FILE, "deadbeef")],
-        false,
-        None,
-        &[],
-    );
+    f.manifest(&[site(0, QUALNAME, 3, "unit"), site(1, "second", 9, "value")]);
     wire::write_proc_header(
         &f.spool_dir,
         903,
@@ -288,9 +173,7 @@ fn a_panic_with_no_open_frame_still_consumes_its_threads_panic_serial() {
         )
         .raw(5, 1500, 1, KIND_RETURN, OUTCOME_PANIC, &RET_NO_VALUE)
         .write(&f.spool_dir);
-    let out = f.convert();
-    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
-    let conn = open(&f.traces()[0]);
+    let conn = f.converted();
     assert_eq!(meta(&conn, "panics_outside_frames"), 1);
     assert_eq!(meta(&conn, "panics_unrecorded"), 0);
 

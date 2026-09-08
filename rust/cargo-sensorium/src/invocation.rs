@@ -167,9 +167,13 @@ pub fn stamped_id(now: Duration, salt: u64) -> Result<String, String> {
 
 /// `YYYYMMDD-HHMMSS` for a Unix timestamp, in the local zone.
 ///
+/// Private to this module: [`stamped_id`] is the whole run-id shape and is
+/// what every caller outside `invocation.rs` wants. It was `pub` while
+/// `convert::runid` spelled the stamp and the mix separately.
+///
 /// # Errors
 /// If `localtime_r` refuses the timestamp.
-pub fn local_stamp(secs: i64) -> Result<String, String> {
+fn local_stamp(secs: i64) -> Result<String, String> {
     let time: libc::time_t = secs;
     // SAFETY: `libc::tm` is a `repr(C)` struct of plain integers, and the
     // all-zero bit pattern is a valid value for every field in it (unlike a

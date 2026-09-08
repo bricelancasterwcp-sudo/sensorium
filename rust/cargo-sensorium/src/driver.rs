@@ -33,7 +33,8 @@ pub use crate::driver_args::{parse_args, USAGE};
 // `stamped_id` is re-exported for the same reason `parse_args` is: it is
 // spelled through this module by `convert::runid`, and a pure move must not
 // move a caller's path. (`local_stamp` was re-exported here for the same
-// caller until it started spelling the whole mix through `stamped_id`.)
+// caller until it started spelling the whole mix through `stamped_id`; it is
+// now private to `invocation.rs`.)
 pub use crate::invocation::stamped_id;
 
 // The cargo child's environment and launch moved to `launch.rs` in the same
