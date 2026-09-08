@@ -113,8 +113,17 @@ ENV_CHANGED_MORE = re.compile(r",\s*\+(?P<n>\d+) more$")
 #: `refocus_rust._env_of` appends this LAST, after the relocated clause.
 #: Its own field: "the recorder does not compare this" and "the world moved
 #: this" are different claims about one variable.
+#:
+#: ANCHORED ON ITS OWN CLAUSE, at both ends. The body read `.+?` to `$`,
+#: which is right only while this clause is the last one on the line -- true
+#: by construction today (`refocus_rust._env_of` appends it) and pinned by
+#: nothing, so a clause added after it would have been read as eleven more
+#: of the recorder's variables. `ENV_STRIPPED` was bitten by exactly this
+#: shape in the 2026-09-08 dry run, one clause earlier. The body now stops
+#: where a clause stops: the TWO-SPACE join, a `;`, or the end of the line.
 ENV_RECORDER_OWN = re.compile(
-    r"the recorder's own, also not compared: (?P<keys>.+?)\s*$", re.M)
+    r"the recorder's own, also not compared: "
+    r"(?P<keys>[^;]*?)(?=\s\s|;|$)", re.M)
 
 #: `refocus_rust._print_unverifiable` and `refocus_world.UNVERIFIABLE`.
 UNVERIFIABLE_HEADER = re.compile(

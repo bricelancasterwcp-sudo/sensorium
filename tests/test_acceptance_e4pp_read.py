@@ -310,6 +310,31 @@ def test_the_recorders_OWN_clause_is_read_apart_and_whole(line):
     assert "RUSTDOCFLAGS" not in own
 
 
+@pytest.mark.parametrize("tail, why", [
+    ("  a later clause: FOO, BAR", "a TWO-SPACE join, the way this clause "
+                                   "is itself joined on"),
+    ("; a later clause: FOO", "a `; ` join, the way the strip clause is "
+                              "joined to the relocated one"),
+])
+def test_the_recorders_own_clause_STOPS_where_a_CLAUSE_stops(tail, why):
+    """CARRIED-DEBT: `ENV_RECORDER_OWN` was right only while the recorder's
+    own clause was LAST on the line -- its body ran to `$`. That is true by
+    construction (`refocus_rust._env_of` appends it) and was pinned by
+    nothing, so a clause appended after it would have been read as more of
+    the recorder's variables -- the defect `ENV_STRIPPED` actually had one
+    clause earlier, found by the 2026-09-08 dry run.
+
+    Fixed by ANCHORING THE READER on its own clause rather than asserting
+    the order in `src/`: the reader is this record's instrument and the
+    printer is the subject, and an instrument that depends on the subject's
+    field order is the thing to repair. Pinned with the REAL line."""
+    p = rd.parse_refocus(DRY_ARM_A + tail + "\n")
+    own = p["env_recorder_own_keys"]
+    assert len(own) == 11, why
+    assert own[-1] == "SENSORIUM_WS"
+    assert not [k for k in own if "clause" in k or k in ("FOO", "BAR")]
+
+
 @pytest.mark.parametrize("line", [DRY_ARM_A, DRY_ARM_B, DRY_ARM_C])
 def test_the_relocated_four_survive_the_same_line(line):
     """`ENV_RELOCATED` is terminated by a literal of its own (`; treated as
