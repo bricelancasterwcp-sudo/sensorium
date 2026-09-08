@@ -1,5 +1,74 @@
 # Changelog
 
+## 0.8.6 (unreleased)
+
+Rung 4, slice 4: **the recorder's footprint** — the three places this recorder
+still showed up inside its own licence, removed, and the small debts slice 3
+named with their fixes, paid. Python **0.8.6**; **`cargo-sensorium 0.5.2`** for
+a rebuilt tree a trace can name by token — no behaviour change, and that is
+the point: E4″'s record identifies the driver that recorded a run by
+`driver_version`, which is the token a trace carries — **`sensorium-transform
+0.4.3`** for three pure splits (the goldens pin the output byte for byte),
+**`sensorium-rt 0.4.0`** unchanged (neither the wire nor the runtime moved).
+`TRACE_FORMAT` stays **4**: nothing here writes a new key into a trace.
+
+- **The recorder's own compiler flags are not a change the world made**
+  (ruling R1). E4′ withheld the licence on all 61 pairs for one key:
+  `RUSTDOCFLAGS` carries the driver's own `--extern sensorium_rt=…` and
+  `-L dependency=…`, two tokens naming one directory under
+  `<target>/sensorium/rt/<16 hex>/<unwind|abort>/`, whose hash moves with
+  every driver build. `strip_recorder_fragment` removes
+  every occurrence from BOTH sides before the compare; the remainder is
+  compared exactly as it always was, and the backreference is the rule — two
+  tokens that do not name one directory are not a shape this recorder writes
+  and are left for the world's compare. A variable this tool compared less of
+  is never silent: `; the recorder's own fragment stripped before comparing:
+  RUSTDOCFLAGS` rides on the line and in the fact. Python traces cannot carry
+  the fragment and their lines are byte for byte what they were.
+- **Session set 1** (ruling R4, amended by A-§3 before any code). A re-run
+  launched from another shell met a licence it could not earn: the handles a
+  shell, terminal or agent session hands a process differ, and none of them is
+  input to what a program computes. Fourteen exact names and one prefix,
+  **positive and versioned**, are now named and never withhold —
+  `env: unchanged outside session set 1 (<N> variables compared; …; <K>
+  session variable(s) differ: <names>)` — while every other differing key
+  withholds exactly as before. Not a *bearing* set: a list of the variables
+  that "bear" on a program is a guess dressed as a rule, and the suite already
+  held its falsifier in a test that records under `REFOCUS_TEST_LIMIT` and
+  re-runs without it.
+- **The harness rule anchors on the FIRST root, and never on a spawned
+  thread** (ruling R3, `rust/HONESTY-BLIND-SPOTS.md` item 28). `#[test] fn` is
+  an ordinary fn to rustc, so `thread::spawn(|| a_test_fn())` put a marked
+  root on a thread the PROGRAM started, that thread was subtracted as the
+  recorder's own, and the licence was granted over a thread nothing had
+  compared — the direction that claims more. A spawn-named task
+  (`spawn@<qualname>#<k>`) is now never the harness's whatever its root's
+  mark, only the first root counts, and an `async` test fn carries no mark so
+  its thread stays counted. `corpus/rust/refocus_spawned_test_fn` records the
+  shape through the real driver.
+- **Six files split before this slice edited any of them** (ruling R5).
+  `docs/CARRIED-DEBT.md` → a second archive volume (archives are numbered
+  volumes ≤ 800 lines); `rust/HONESTY.md` §13 → `rust/HONESTY-REFOCUS.md`;
+  `refocus_cmd.py` → `refocus_report.py`; `visit.rs` → `visit/walk.rs`;
+  `splice.rs` → `assemble.rs`; `lines.rs` → `lines/facts.rs`. Every one a pure
+  move, tests and goldens green either side.
+- **The recorder's tests leave no footprint either** (ruling R6). The three
+  `driver_smoke.rs` tests that ran the whole driver named no store, so each
+  run converted a trace into `~/.sensorium` — the store of whoever ran the
+  suite. They name a scratch store now, and a new test pins the rule they
+  rely on: with `SENSORIUM_DIR` set, `HOME` is not consulted at all.
+  `corpus/run_corpus.py` gains **`--require-driver`**, which turns a skipped
+  case into exit 1 and says so on the summary line and in `--json`; CI's rust
+  corpus step passes it, because that job builds a driver precisely so those
+  cases run and a green summary over cases nobody recorded is the dishonesty
+  this harness exists to refuse. `tests/test_release_tokens.py` pins the three
+  places this package's version lands — `pyproject`, the installed
+  distribution's metadata, and this file's newest header — in both of the
+  states that header legally has.
+- **E4″** — pre-registered, §1 byte-locked, and measured once under this
+  slice's driver against the 61 kept originals of E4. Results in this entry
+  when they land.
+
 ## 0.8.5 — 2026-09-07
 
 Rung 4, slice 3: **the rung-4 debts** — the seven items slices 1 and 2 left in

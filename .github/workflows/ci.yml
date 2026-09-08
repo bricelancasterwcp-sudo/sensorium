@@ -36,10 +36,11 @@ jobs:
         run: python -m pytest -q
       - name: Corpus (seeded-bug regression suite)
         # corpus/rust is in here too: with no SENSORIUM_CARGO_SENSORIUM set
-        # on this matrix and no cargo-sensorium on PATH, those 29 cases are
+        # on this matrix and no cargo-sensorium on PATH, the Rust cases are
         # reported skipped BY NAME in the summary rather than passed, and
-        # the Python cases still run. The `rust` job below is where they are
-        # recorded.
+        # the Python cases still run. So no --require-driver here: the skip
+        # is this matrix's correct outcome. The `rust` job below is where
+        # they are recorded, and where the flag turns a skip into a failure.
         run: python corpus/run_corpus.py
 
   rust:
@@ -130,9 +131,11 @@ jobs:
       # The whole corpus, Python cases included: one runner, one summary, and
       # the Rust cases recorded rather than skipped because this job has a
       # driver to name. CARGO_TARGET_DIR is the job's `rust/target` (above),
-      # so the 13 crates share one warm target directory and the runtime
-      # rlib is built once.
+      # so the corpus crates share one warm target directory and the runtime
+      # rlib is built once. `--require-driver` is what makes this a gate: the
+      # driver is built two steps up, so a skip here means it went missing,
+      # and without the flag that would be a green job over cases nobody ran.
       - name: Rust corpus (records corpus/rust with the built driver)
         env:
           SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
-        run: python corpus/run_corpus.py
+        run: python corpus/run_corpus.py --require-driver

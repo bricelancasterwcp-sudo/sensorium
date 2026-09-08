@@ -541,6 +541,8 @@ def main(argv=None) -> int:
                     help="print each question's ask, command and ground truth")
     ap.add_argument("--bench", action="store_true",
                     help="report recording overhead and exit 0")
+    ap.add_argument("--require-driver", action="store_true",
+                    help="exit 1 if any case could not be run")
     args = ap.parse_args(argv)
     if args.bench:
         # Reports, never gates: overhead is a tracked fact about a machine
@@ -575,14 +577,29 @@ def main(argv=None) -> int:
     # Every distinct reason, named. "13 skipped" alone would leave a reader
     # to guess whether the cases are broken or the toolchain is absent.
     why = ", ".join(sorted({r.skipped for r in skipped}))
+    # `--require-driver` turns a skip into a verdict on the RUN. Reporting a
+    # case by name and exiting 0 is right where nobody could have run it (the
+    # Python CI matrix has no Rust toolchain); it is wrong where a caller
+    # built a driver so that those cases would run, because a driver that
+    # went missing would leave a green summary over cases nobody recorded.
+    # Any skip counts, not only a missing driver: the flag says every case
+    # ran, so a reason invented later needs no second flag to be caught.
+    unrun = (f"--require-driver was given and {len(skipped)} case(s) "
+             "could not run") if args.require_driver and skipped else None
     if args.json:
-        print(json.dumps({"cases": len(results),
-                          "questions": sum(r.asked for r in results),
-                          "skipped": [{"case": r.name, "reason": r.skipped}
-                                      for r in skipped],
-                          "failures": failures,
-                          "errors": [{"case": r.name, "error": r.error}
-                                     for r in errors]}, indent=2))
+        doc = {"cases": len(results),
+               "questions": sum(r.asked for r in results),
+               "skipped": [{"case": r.name, "reason": r.skipped}
+                           for r in skipped],
+               "failures": failures,
+               "errors": [{"case": r.name, "error": r.error}
+                          for r in errors],
+               "require_driver": args.require_driver}
+        # Present only when the flag actually decided the exit code: a key
+        # that is always there says nothing about whether it mattered.
+        if unrun:
+            doc["exit_reason"] = unrun
+        print(json.dumps(doc, indent=2))
     else:
         for r in results:
             mark = ("ERR" if r.error else "skip" if r.skipped
@@ -596,8 +613,9 @@ def main(argv=None) -> int:
         print(f"\n{len(results)} cases"
               + (f" ({len(skipped)} skipped: {why})" if skipped else "")
               + f", {sum(r.asked for r in results)} questions, "
-              f"{len(failures)} failures, {len(errors)} error(s)")
-    return 1 if (failures or errors) else 0
+              f"{len(failures)} failures, {len(errors)} error(s)"
+              + (f"; {unrun}" if unrun else ""))
+    return 1 if (failures or errors or unrun) else 0
 
 
 if __name__ == "__main__":

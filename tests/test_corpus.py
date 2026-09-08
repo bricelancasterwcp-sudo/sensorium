@@ -702,8 +702,12 @@ def test_main_json_reports_the_same_totals(capsys):
     import json
     assert run_corpus.main(["--only", "silent_swallow", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
+    # `require_driver` is always present and `exit_reason` never is unless
+    # the flag decided the exit -- `tests/test_run_corpus_require_driver.py`
+    # is where that pair is pinned; here it only has to stay in the payload.
     assert payload == {"cases": 1, "questions": 2, "skipped": [],
-                       "failures": [], "errors": []}
+                       "failures": [], "errors": [],
+                       "require_driver": False}
 
 
 def test_corpus_passes():
