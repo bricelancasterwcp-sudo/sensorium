@@ -478,9 +478,10 @@ before the reader fix — an unindexed `LEFT JOIN` scanning `frames` once per
 
 ## Corpus
 
-    python corpus/run_corpus.py            # verify against seeded bugs
-    python corpus/run_corpus.py --show     # print the questions and commands
-    python corpus/run_corpus.py --bench    # report recording overhead
+    python corpus/run_corpus.py                   # verify against seeded bugs
+    python corpus/run_corpus.py --show            # print the questions and commands
+    python corpus/run_corpus.py --bench           # report recording overhead
+    python corpus/run_corpus.py --require-driver  # a skipped Rust case is exit 1
 
 Twenty small programs with deliberately planted bugs, and thirty-nine
 questions registered **before** any output was looked at: the question in
@@ -530,7 +531,10 @@ rather than read its marked root as the recorder's own and grant. All
 forty-three need a built
 `cargo-sensorium` (`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on `PATH`);
 without it they are reported skipped BY NAME and counted apart from the
-passes, never as them. `corpus/rust/README.md` is the case-by-case list.
+passes, never as them — and **`--require-driver`** turns such a skip into
+exit 1, on the summary line and in `--json`, which is what CI's Rust corpus
+step passes: a green summary over cases nobody ran is the dishonesty this
+harness exists to refuse. `corpus/rust/README.md` is the case-by-case list.
 
 `--bench` reports; it never gates. Overhead is a tracked fact about a machine
 and a workload, not a pass/fail property of the tool.
@@ -541,14 +545,30 @@ and a workload, not a pass/fail property of the tool.
 crates the same way this document's recorder records a Python program: one
 sensorium trace per process, trace format 4, read by the same `sensorium`
 command line. `rust/` ships `sensorium-rt 0.4.0` (zero dependencies, the
-runtime linked into every instrumented unit), `sensorium-transform 0.4.1`
-(the `syn` rewriter), and `cargo-sensorium 0.5.0` (driver, workspace wrapper,
+runtime linked into every instrumented unit), `sensorium-transform 0.4.3`
+(the `syn` rewriter), and `cargo-sensorium 0.5.2` (driver, workspace wrapper,
 target runner, converter — one binary, four roles). What it does and does not
 see is [`rust/HONESTY.md`](rust/HONESTY.md) with
 [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
 [`rust/README.md`](rust/README.md)
 is the full build/install/record reference. This section is the summary
 beside Python's, above.
+
+**What the licence is worth on a real workspace, measured.** `refocus` over
+61 `#[test]` pairs of a workspace nobody wrote this recorder for was
+re-measured 2026-09-08 as **E4″**
+(`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md`,
+pre-registered and byte-locked before the instrument existed): **H1–H7 PASS,
+H8 a STOP on a cell of that record's own reader**. The licence is granted on
+**57** of the 61 and withheld on the four tests that really do start threads,
+and the recorder's own `RUSTDOCFLAGS` fragment is out of the compare on **61
+of 61** — under a driver build different from the originals', which is the
+only condition that tests the second claim at all. The eighth row missed
+because the reader compared a bare case name against a listing that spells
+Rust cases `rust/<name>`; its three commands came back green, the STOP stands
+as measured, and the one-line fix is ruled for the next slice. Python
+**0.8.6** reads these traces; the crates above are the versions that recorded
+them.
 
 ### Install and record
 

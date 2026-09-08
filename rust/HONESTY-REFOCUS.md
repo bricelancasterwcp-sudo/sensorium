@@ -180,3 +180,126 @@ this rule existed.
 
 ---
 
+
+## Amendments — rung 4 slice 4, the recorder's footprint (2026-09-08)
+
+Appended after the moved body and never edited into it: the two **Corrected
+2026-09-07** notes and the **Ruled and applied 2026-09-07** paragraph above set
+the register, and a paragraph that was true when it was written stays as it was
+written. Each amendment names the commit that applied it and what could
+falsify it.
+
+**Ruled and applied 2026-09-08 — the recorder's own compiler flags are not a
+change the world made** (design 2026-09-08 R1, at `0810bee` with `83d48ff`).
+The paragraph above ends on E4′'s finding: the licence withheld on all 61 pairs
+for one key, `RUSTDOCFLAGS`, whose driver-injected rt hash is the recorder's
+own footprint read as the world's. That fragment — and only that fragment — is
+now removed from **both** sides before the compare: `--extern
+sensorium_rt=<root>/sensorium/rt/<16 hex>/<unwind|abort>/libsensorium_rt.rlib`
+together with the `-L dependency=<the same directory>` that resolves it, the
+two tokens naming ONE directory. The backreference is the whole fence — two
+tokens naming two directories are not a shape this recorder writes and are left
+for the world's compare — and a value in which nothing matched comes back byte
+for byte as it came (`strip_recorder_fragment`,
+`src/sensorium/query/refocus_env.py`). What is left of the variable is compared
+exactly as before, equality first and then the relocation rule above, so a
+`RUSTDOCFLAGS` the world also wrote to still withholds on the remainder. A
+variable this tool compared less of is never silent: `; the recorder's own
+fragment stripped before comparing: RUSTDOCFLAGS` rides on the env line and in
+the stamped fact.
+
+*Measured by* **E4″ H2**
+(`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md`, §3 and §4)
+at n = 61 over the same 61 kept originals — recorded by driver **0.5.0** and
+re-run here by **0.5.2**, a different build by construction and the one
+condition E4′ could not create. `RUSTDOCFLAGS` is in **0 of 61** changed lists;
+the strip clause names it on **61 of 61**; E4′'s four relocated keys are
+unmoved on 61 of 61; and the rt hash the fragment carries **differs on 61 of
+61** pairs (`d9ce385a08c6646b` on every original against `45773c80095d5b87` on
+every re-run), with none unread — so there is no pair on which the strip fired
+untested. The reading's other half, the count of fragments removed per key per
+side, was read (**1** per side on 61 of 61, `occurrences` **2**) and lifted
+into no published cell: gap 4 of
+`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp-findings.md`.
+*Also falsified by* `tests/test_refocus_env.py` — a world flag beside the
+fragment still withholds, two tokens naming different directories are not our
+fragment, a pair with no fragment reads exactly as it did, and the removal and
+its count are pinned directly. A Python trace cannot carry the fragment at all,
+so every line a Python pair prints is the line it printed before this rule
+existed.
+
+**Ruled and applied 2026-09-08 — where a re-run was launched from is not what
+the program computes** (design 2026-09-08 R4 as amended by A-§3, at `09aad49`).
+A refocus launched from another shell met a licence it could not earn: the
+handles a shell, terminal, agent or login session hands a process differ there,
+and every differing key withheld. **Session set 1** is the one enumerated
+exception — positive, versioned and named in the printed line: exact
+`DBUS_SESSION_BUS_ADDRESS`, `XDG_SESSION_ID`, `TERM_SESSION_ID`, `WINDOWID`,
+`TMUX`, `TMUX_PANE`, `SSH_AGENT_PID`, `SSH_AUTH_SOCK`, `SSH_CLIENT`,
+`SSH_CONNECTION`, `SSH_TTY`, `INVOCATION_ID`, `JOURNAL_STREAM`,
+`SYSTEMD_EXEC_PID`, plus the prefix `CLAUDE_CODE_` (`SESSION_SET`,
+`SESSION_ORDER`, `is_session_key` in `refocus_env.py`). A member that differs
+is **counted, named, and never withholds**:
+
+    env: unchanged outside session set 1 (<N> variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; 1 session variable(s) differ: CLAUDE_CODE_SESSION_ID)
+
+Everything else withholds exactly as it did. It is **not** a list of the
+variables that "bear" on a program: that design — the one this slice started
+with — had its falsifier already in the suite, a test that records under
+`REFOCUS_TEST_LIMIT` and re-runs without it, a variable the program
+demonstrably reads and one no bearing list anyone would write carries, and it
+would have granted a full licence over a program that got different input. The
+version number is in the printed line so that a key found to bear can leave the
+set with a date, and so a reader can tell which list a given trace was judged
+against.
+
+*Measured by* **E4″ H4, H5 and H6** (same record, §3 and §4). H4: the printed
+session set equalled the preflight's pin by name and by size on **61 of 61** —
+`CLAUDE_CODE_SESSION_ID`, K **1** — and **not one** withholding cited a key of
+the set, which is the whole of the rule. H5, the control that the exemption did
+not eat the licence: arm B added `E4PP_INPUT`, a key on no list, to four pairs'
+launch environment, and all **4 of 4** came back WITHHELD with the env caveat
+naming it — one granted line there would have been a STOP. H6, the control that
+the count is exact: arm C added the first name of session set 1 absent from
+both sides (`TERM_SESSION_ID`, derived at preflight rather than picked), and
+the licence word equalled arm A's on **4 of 4** with K exactly one greater,
+**2**. *Also falsified by* `tests/test_refocus_env.py` — every member
+parametrised, a name that merely resembles one still withholding, a session key
+beside a real change withholding and naming both — and by
+`tests/test_refocus_licence.py::test_refocus_withholds_the_licence_when_the_environment_differs`,
+the bearing design's own falsifier, green and unchanged.
+
+**Ruled and applied 2026-09-08 — the anchor is the FIRST root, and a
+spawn-named thread is never the harness's** (design 2026-09-08 R3, at
+`b2f07e3`). The paragraph above states R1's rule as ROOT-MARK-ANCHORED and a
+BOUND: upward, `thread::spawn(|| a_test_fn())` put a MARKED root on a thread the
+PROGRAM started, that thread was subtracted, and the licence could be GRANTED
+over it — the direction that claims more, blind spot 28. Two clauses close that
+end, both in `refocus_world.harness_threads`: a thread whose task the runtime
+named at a spawn site (`spawn@<qualname>#<k>`, or `<parent> :: spawn@…`) is
+**never** the harness's whatever its root's mark, because that name is a
+recorded fact about who started it; and only the **FIRST** root frame's mark
+decides, where the rule as shipped excluded on any root. An `async` test fn
+still carries no site row at all, so its thread stays counted as the program's
+— the end that claims less, unchanged. The docstring says that now, and no
+longer claims soundness in both directions.
+
+*Measured by* `corpus/rust/refocus_spawned_test_fn`, through the real driver
+under `--require-driver`: a test that spawns a thread onto another `#[test]` fn
+reads `threads started: 1 besides the main one and 2 harness threads (…)` and
+`licence: WITHHELD`, whose reason is `started 1 thread(s) besides the main one
+and 2 harness threads (…)` — where the rule this amendment replaces printed `no
+thread started besides the main one and 3 harness threads` and **granted**.
+*Also falsified by* `tests/test_refocus_licence_rust.py`: a program thread named
+`spawn@…` and rooted on a marked fn is counted; a thread whose first root is
+ordinary and whose second is marked is counted; a libtest thread with no spawn
+name is still the harness's; a root whose site the manifest never wrote is
+counted.
+
+**E4″'s 61 pairs do not exercise it, and the record says so.** H1's partition —
+**57** granted, WITHHELD on §1.2's four thread-spawning tests with program-thread
+counts **1 / 4 / 4 / 4** — is unmoved by this amendment: those tests spawn
+through ordinary `worker` fns and through `serve_fake()`, never through a
+marked one, so the mechanism cannot arise on any of them. R3's evidence is the
+corpus case at n = 1, not this record's n = 61 (the findings sibling's *what
+this record does not license*).

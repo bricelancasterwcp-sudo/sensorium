@@ -405,24 +405,45 @@ non-main thread the program did not start (the measured counts were 57 pairs
 with 1 such thread, 1 with 2, and 3 with 5). A clause that cannot not fire is
 not a finding.
 
-**The rule, applied 0.8.5** (design 2026-09-07 §2). A **harness thread** is a
-non-main thread whose ROOT frame's site the manifest marks `#[test]` — the
-recorder's own thread rather than the program's — and it comes out of the
-licence's untraced-thread counts. The ROOT is what the rule is **anchored** on,
-and root-mark anchoring is a **bound**, not soundness in both directions.
-Downward it holds: a `#[test]` fn called from deeper on some other thread says
-nothing about who started that thread, so a mark below the root excludes
-nothing. Upward it does **not**: a spawn opens no frame of its own and a
-closure gets a frame only where it holds a `?`, so the root of a spawned thread
-is the first instrumented fn it calls — and a `#[test]`/`#[bench]` fn is an
-ordinary fn to rustc, callable from anywhere, so `thread::spawn(||
-a_test_fn())` puts a MARKED root on a thread the program started. That thread
-is subtracted and the licence can be **granted** over it. The other end claims
-less: an `async` test fn is skipped by the transform, so it carries no mark at
-all, its harness thread's root is an ordinary fn, and that thread stays counted
-as the program's — the licence withholds, as it did before this rule. Found by
-review 2026-09-07, **not measured**; `rust/HONESTY-BLIND-SPOTS.md` item 28
-carries it with the ruled fix. The set is empty on any trace whose
+**The rule, applied 0.8.5 and narrowed in 0.8.6** (design 2026-09-07 §2, then
+design 2026-09-08 R3). A **harness thread** is a non-main thread whose **FIRST**
+root frame's site the manifest marks `#[test]` and whose task the runtime did
+**not** name at a spawn site — the recorder's own thread rather than the
+program's — and it comes out of the licence's untraced-thread counts. Each
+clause is load-bearing:
+
+* the **ROOT**: a `#[test]` fn called from deeper on some other thread says
+  nothing about who started that thread, so a mark below the root excludes
+  nothing;
+* the **FIRST** root: a thread that runs one instrumented fn to completion and
+  then enters another has two roots, and only the first is how it began;
+* **not spawn-named**: the mark is no proof the other way. A spawn opens no
+  frame of its own and a closure gets a frame only where it holds a `?`, so the
+  root of a spawned thread is the first instrumented fn it calls — and a
+  `#[test]`/`#[bench]` fn is an ordinary fn to rustc, callable from anywhere, so
+  `thread::spawn(|| a_test_fn())` puts a MARKED root on a thread the PROGRAM
+  started. `sensorium-rt` names a workspace spawn at its site
+  (`spawn@<qualname>#<k>`, or `<parent> :: spawn@…`), and that recorded name is
+  what tells two identical-looking roots apart.
+
+An `async` test fn is skipped by the transform, so it carries no mark at all,
+its harness thread's root is an ordinary fn, and that thread stays counted as
+the program's — the licence withholds, as it did before this rule. That end
+always claimed less and is unchanged.
+
+**The history, dated, because the narrowing has one.** As applied in 0.8.5 the
+rule read the mark on ANY root and knew nothing of spawn names, so a thread the
+program spawned onto a marked fn was subtracted, `threads_started − harness`
+could reach 0, and the licence could be **granted** over a thread nothing had
+compared — the direction that claims more. Found by review 2026-09-07 and **not
+measured then**; built and measured 2026-09-08
+(`rust/HONESTY-BLIND-SPOTS.md` item 28, closed there with its date and its
+evidence). `corpus/rust/refocus_spawned_test_fn` pins it through the real
+driver: the spawning test reads `started 1 thread(s) besides the main one and 2
+harness threads (…)` with `licence: WITHHELD`, where the old rule printed `no
+thread started besides the main one and 3 harness threads` and granted.
+
+The set is empty on any trace whose
 sites carry no marks — every **Python** trace, whose every line is byte for
 byte what it was — and empty unless the main thread is a RECORDED fact rather
 than one inferred from whichever event got id 1, because subtracting on a guess
@@ -460,10 +481,17 @@ than falling silent:
 always said: granted where every check that ran agrees, withheld where a thread
 the PROGRAM started ran no traced code and left nothing to compare. Reading the
 four counts is still the better habit. E4's own numbers stand as the record of
-the behaviour BEFORE the rule; the rule's own numbers are E4′
-(`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`), whose
-expected partition over those same 61 pairs was written and byte-locked before
-the instrument existed. On a `cargo run` pair there is no harness thread at all
+the behaviour BEFORE the rule. E4′
+(`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`) measured the
+exclusion firing and being named on 61 of 61 pairs, but its H1 **STOPPED**: the
+environment clause above withheld all 61 on the recorder's own `RUSTDOCFLAGS`
+fragment, so the word itself said nothing about this rule. The rule's own
+numbers are **E4″**'s
+(`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md` §4, 2026-09-08,
+**H1 PASS**): over those same 61 pairs, granted on **57** and withheld on the
+four whose tests really do start threads, program-thread counts **1 / 4 / 4 /
+4** — the partition byte-locked before that instrument existed. On a `cargo
+run` pair there is no harness thread at all
 and the licence IS granted, which `corpus/rust/refocus_match` pins over four
 points.
 

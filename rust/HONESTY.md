@@ -382,7 +382,10 @@ fixture of `tests/test_rust_convert.py`.
   functions that share a file and a qualname and differ only in line are one
   key to `diff` and to `--ignore-moves`' pairing. The common instance is two
   trait impls on one type: `qualname` is `<self type>::<method>`
-  (`self_type_name`, `visit.rs:417-425`), so `impl Display for Row` and
+  (`self_type_name` in `sensorium-transform/src/names.rs`, applied to each
+  `impl` block by `visit/walk.rs`'s `in_container` — anchored on the names
+  rather than on a line 2026-09-08, the pin this replaces having gone stale
+  where it stood), so `impl Display for Row` and
   `impl Debug for Row` in one file both give `Row::fmt`, and the trait they
   implement is nowhere in the key. Any type with both impls has this shape.
   The cfg-gated twin is the same collision from the other direction: bloomery's
