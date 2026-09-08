@@ -129,7 +129,7 @@ fn sigkill_leaves_the_blocked_threads_records_whole() {
     // the entire run rather than the one record §4 bounds it to.
     let header = dir.proc_header(pid);
     assert_eq!(header.get("pid").u64(), u64::from(pid));
-    assert_eq!(header.get("rt_version").str(), "sensorium-rt 0.4.0");
+    assert_eq!(header.get("rt_version").str(), "sensorium-rt 0.4.1");
     assert!(header.get("refused").is_null());
     let units = header.get("units");
     assert_eq!(

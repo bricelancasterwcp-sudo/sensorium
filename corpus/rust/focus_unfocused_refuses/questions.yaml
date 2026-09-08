@@ -26,8 +26,12 @@ questions:
       answering, on a run that asked for it.
     command: ["watch", "$RUN", "--at", "price_of", "--expr", "key == \"A1\""]
     expect_exit: 3
+    # Re-pinned 2026-09-08 (queue buttoned up): 0.4.0 -> 0.4.1, because
+    # `sensorium-rt` now owns the repository's only sha256 as a `pub mod`
+    # and its declared identity moved with the crate. Neither the wire nor
+    # what is recorded changed -- only the recorder's name in the sentence.
     expect_contains:
-      - "REFUSED: watch needs line, which recorder sensorium-rt 0.4.0 declares it does not produce (capabilities.line: false); nothing was checked"
+      - "REFUSED: watch needs line, which recorder sensorium-rt 0.4.1 declares it does not produce (capabilities.line: false); nothing was checked"
     expect_absent: ["hits:", "near-miss", "verdict:"]
   - id: does-an-unfocused-run-claim-a-focus
     ask: >

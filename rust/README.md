@@ -8,8 +8,8 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false`: **`sensorium-rt 0.4.0`**,
-**`sensorium-transform 0.4.3`** and **`cargo-sensorium 0.5.2`**. All three
+Three crates, all `publish = false`: **`sensorium-rt 0.4.1`**,
+**`sensorium-transform 0.4.4`** and **`cargo-sensorium 0.5.3`**. All three
 were `0.4.0` at the focus tier of 2026-09-06 (a new wire kind, LINE, and the
 `--focus` flag that mints it); on 2026-09-07 the refocus slice moved
 `sensorium-transform` alone to `0.4.1` for the brace-delimited-macro-tail
@@ -17,12 +17,17 @@ guard (a `src` fix to what a focused build emits) and `cargo-sensorium` alone
 to `0.5.0` for `--refocus-of` and the three invocation-scoped meta keys it
 writes; later that day the rung-4 debts slice moved them to `0.4.2` (a focus
 resolution that no longer splices) and `0.5.1` (the hard-linked shim and the
-`driver.rs` split); and on 2026-09-08 the recorder's-footprint slice moved them
+`driver.rs` split); on 2026-09-08 the recorder's-footprint slice moved them
 to `0.4.3` (three pure file splits, the goldens pinning the output byte for
 byte) and `0.5.2` (no behaviour change at all — the number exists so a rebuilt
-tree carries a `driver_version` token a trace can name). Neither the wire nor
-the runtime felt any of those, which is why `sensorium-rt` has stayed at
-`0.4.0`.
+tree carries a `driver_version` token a trace can name); and later that day the
+queue-buttoned-up slice moved all three, `sensorium-rt` for the first time
+since `0.4.0`: the same sha256 stood in all three crates, so the leaf — the one
+with zero dependencies, and therefore the only one the other two can both
+depend on — now owns it as a `pub mod` and the copies are gone
+(`0.4.1`/`0.4.4`/`0.5.3`). Nothing the runtime records changed and the wire did
+not move; what moved is the identity `sensorium-rt` declares, so a trace this
+runtime writes says `recorder: sensorium-rt 0.4.1`.
 Before that all three were `0.3.0` at the err-flow rung of 2026-09-05
 (wire v3: RAISE/HANDLED records, a typed `err` RETURN, and the `err_flow`
 capability); later that day the borrow repair moved `sensorium-transform` and
@@ -252,7 +257,7 @@ refusals are about this particular RUN instead, and each exits **2** with
 The unfocused refusal, in full — the sentence
 `corpus/rust/focus_unfocused_refuses` pins byte for byte:
 
-    REFUSED: watch needs line, which recorder sensorium-rt 0.4.0 declares it does not produce (capabilities.line: false); nothing was checked
+    REFUSED: watch needs line, which recorder sensorium-rt 0.4.1 declares it does not produce (capabilities.line: false); nothing was checked
 
 ## Not yet
 

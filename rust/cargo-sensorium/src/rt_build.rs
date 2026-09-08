@@ -35,7 +35,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::mirror::Lock;
-use crate::sha256;
+use sensorium_rt::sha256;
 
 /// The panic strategy an rlib was built for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

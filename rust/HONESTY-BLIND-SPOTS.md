@@ -179,7 +179,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    that matches only functions the transform skips, each named with its
    reason, and build nothing; and, on an unfocused trace, by the unchanged
    refusal `watch` and `flow` print:
-   `REFUSED: watch needs line, which recorder sensorium-rt 0.4.0 declares it
+   `REFUSED: watch needs line, which recorder sensorium-rt 0.4.1 declares it
    does not produce (capabilities.line: false); nothing was checked`.
 4. **What the program printed.** libtest owns the capture and the hook that
    would take it is unstable. *Declared by* `capabilities.output: false`: the

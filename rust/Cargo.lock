@@ -40,12 +40,13 @@ dependencies = [
 
 [[package]]
 name = "cargo-sensorium"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "blake2",
  "libc",
  "proc-macro2",
  "rusqlite",
+ "sensorium-rt",
  "sensorium-transform",
  "serde",
  "serde_json",
@@ -210,13 +211,14 @@ dependencies = [
 
 [[package]]
 name = "sensorium-rt"
-version = "0.4.0"
+version = "0.4.1"
 
 [[package]]
 name = "sensorium-transform"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "proc-macro2",
+ "sensorium-rt",
  "serde",
  "serde_json",
  "syn 2.0.119",

@@ -1,8 +1,10 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.4.0`, `sensorium-transform 0.4.3`, `cargo-sensorium 0.5.2` —
+`sensorium-rt 0.4.1`, `sensorium-transform 0.4.4`, `cargo-sensorium 0.5.3` —
 v1, the call tier, with err flow and the focus tier.
-(~~`sensorium-transform 0.4.2`, `cargo-sensorium 0.5.1`~~, before them
+(~~`sensorium-rt 0.4.0`, `sensorium-transform 0.4.3`,
+`cargo-sensorium 0.5.2`~~, before them
+~~`sensorium-transform 0.4.2`, `cargo-sensorium 0.5.1`~~, before them
 ~~`sensorium-transform 0.4.1`, `cargo-sensorium 0.5.0`~~, before them
 ~~`sensorium-rt 0.4.0`, `sensorium-transform 0.4.0`,
 `cargo-sensorium 0.4.0`~~, before them ~~`sensorium-rt 0.3.0`,
@@ -28,8 +30,17 @@ splices and `cargo-sensorium` to `0.5.1` for the hard-linked shim and the
 `0.4.3` for three pure file splits, the goldens pinning the output byte for
 byte, and to `0.5.2` for no behaviour change at all — the number exists so a
 rebuilt tree carries a `driver_version` token a trace can name, which is the
-condition E4″ is measured under. `sensorium-rt` has not moved since `0.4.0`:
-neither the wire nor the runtime changed in any of them.
+condition E4″ is measured under. Later on 2026-09-08 the queue-buttoned-up
+slice moved all three: the same sha256 stood in all three crates, so the leaf —
+`sensorium-rt`, which has zero dependencies and is therefore the only one the
+other two can both depend on — now owns it as a `pub mod` and the two copies
+are deleted, taking `sensorium-rt` to `0.4.1`, `sensorium-transform` to
+`0.4.4` and `cargo-sensorium` to `0.5.3`. That is the FIRST move
+`sensorium-rt` has made since `0.4.0`, and it is not a change to what the
+runtime records: no wire kind, no record shape, no capability. What it does
+change is the identity the runtime declares — a trace this runtime writes says
+`recorder: sensorium-rt 0.4.1`, and the three corpus cases that pin that
+sentence byte for byte were re-pinned with it.
 `HONESTY.md` was
 not versioned per-crate before 2026-09-03, so no edition older than that is
 struck. **Deduped 2026-09-08**: `cargo-sensorium 0.4.0` stood struck **twice**

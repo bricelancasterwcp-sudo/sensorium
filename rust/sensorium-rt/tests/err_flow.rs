@@ -267,7 +267,7 @@ fn the_spool_says_version_three_and_the_header_declares_err_flow() {
     let subject = Spec::new("try-err").spool(dir.path()).run();
     assert_eq!(dir.spool(1).version, 3, "wire version");
     let h = dir.proc_header(subject.pid);
-    assert_eq!(h.get("rt_version").str(), "sensorium-rt 0.4.0");
+    assert_eq!(h.get("rt_version").str(), "sensorium-rt 0.4.1");
     assert!(
         h.get("capabilities").get("err_flow").bool(),
         "a rung-3 runtime declares the capability whose records it writes"

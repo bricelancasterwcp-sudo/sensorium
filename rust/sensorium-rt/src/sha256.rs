@@ -1,5 +1,18 @@
-//! SHA-256, because the proc header's `env_hash` is specified as one and this
-//! crate takes no dependencies (plan decision D1).
+//! SHA-256 -- the repository's only implementation of it.
+//!
+//! It lives here because the proc header's `env_hash` is specified as one and
+//! this crate takes no dependencies (plan decision D1), and because that same
+//! constraint makes this crate the only one of the three the other two can
+//! both depend on: `sensorium-transform` hashes a focus (`Focus::focus_hash`)
+//! and `cargo-sensorium` hashes the tool, the mirror's cache key and each
+//! mirrored source. Until 2026-09-08 each of the three carried its own copy,
+//! for the reason each copy's header gave: no hash crate is admissible and no
+//! two of them could depend on each other. The second half of that was never
+//! true of THIS crate -- a leaf with zero dependencies is exactly what the
+//! other two can share -- so the two copies are gone and this is what they
+//! call. Depending on the runtime crate at BUILD time costs the driver
+//! nothing: it already embeds these bytes (`cargo-sensorium/src/rt_src.rs`)
+//! and compiles them with its own bare `rustc` line.
 //!
 //! FIPS 180-4 §6.2. The tests at the bottom are the NIST vectors: an
 //! implementation that is merely self-consistent passes none of them.
@@ -25,15 +38,22 @@ const H0: [u32; 8] = [
 ];
 
 /// Streaming SHA-256. `update` may be called any number of times.
-pub(crate) struct Sha256 {
+pub struct Sha256 {
     state: [u32; 8],
     block: [u8; 64],
     filled: usize,
     total_bytes: u64,
 }
 
+impl Default for Sha256 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Sha256 {
-    pub(crate) fn new() -> Sha256 {
+    #[must_use]
+    pub fn new() -> Sha256 {
         Sha256 {
             state: H0,
             block: [0u8; 64],
@@ -42,7 +62,7 @@ impl Sha256 {
         }
     }
 
-    pub(crate) fn update(&mut self, mut data: &[u8]) {
+    pub fn update(&mut self, mut data: &[u8]) {
         self.total_bytes = self.total_bytes.wrapping_add(data.len() as u64);
         if self.filled > 0 {
             let room = 64 - self.filled;
@@ -67,7 +87,8 @@ impl Sha256 {
         self.filled = data.len();
     }
 
-    pub(crate) fn finish(mut self) -> [u8; 32] {
+    #[must_use]
+    pub fn finish(mut self) -> [u8; 32] {
         let bits = self.total_bytes.wrapping_mul(8);
         self.update_raw(&[0x80]);
         while self.filled != 56 {
@@ -134,8 +155,23 @@ fn compress(state: &mut [u32; 8], block: &[u8; 64]) {
     }
 }
 
+/// Lowercase hex of the digest of `data`. The one-call form.
+#[must_use]
+pub fn hex(data: &[u8]) -> String {
+    let mut h = Sha256::new();
+    h.update(data);
+    to_hex(&h.finish())
+}
+
+/// Lowercase hex of a whole digest: all 64 characters.
+#[must_use]
+pub fn to_hex(digest: &[u8; 32]) -> String {
+    hex_prefix(digest, 64)
+}
+
 /// Lowercase hex of the digest's first `n` bytes' worth of characters.
-pub(crate) fn hex_prefix(digest: &[u8; 32], chars: usize) -> String {
+#[must_use]
+pub fn hex_prefix(digest: &[u8; 32], chars: usize) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(chars);
     for byte in digest.iter().take(chars.div_ceil(2)) {
@@ -149,12 +185,6 @@ pub(crate) fn hex_prefix(digest: &[u8; 32], chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn hex(data: &[u8]) -> String {
-        let mut h = Sha256::new();
-        h.update(data);
-        hex_prefix(&h.finish(), 64)
-    }
 
     #[test]
     fn nist_vector_empty() {
@@ -200,6 +230,24 @@ mod tests {
             h.update(chunk);
         }
         assert_eq!(hex_prefix(&h.finish(), 64), hex(&msg));
+    }
+
+    /// `to_hex` is `hex_prefix(.., 64)`, and `hex` is `to_hex` of a one-shot
+    /// digest. A reader of `cargo-sensorium`'s `tool_hash` -- which streams,
+    /// then calls `to_hex` -- and of `sensorium-transform`'s `focus_hash` --
+    /// which calls `hex` -- has to be able to assume the two agree.
+    #[test]
+    fn hex_and_to_hex_and_hex_prefix_are_one_rendering() {
+        let mut h = Sha256::new();
+        h.update(b"abc");
+        let digest = h.finish();
+        assert_eq!(
+            to_hex(&digest),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(hex(b"abc"), to_hex(&digest));
+        assert_eq!(hex_prefix(&digest, 64), to_hex(&digest));
+        assert_eq!(&hex(b"abc")[..16], &hex_prefix(&digest, 16));
     }
 
     #[test]

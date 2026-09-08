@@ -31,7 +31,6 @@ mod resolve;
 mod rt_build;
 mod rt_src;
 mod runner;
-mod sha256;
 mod wrapper;
 
 fn main() {

@@ -34,7 +34,8 @@
 //!                  u8 tag, u8 truncated, [u16 text_len, text UTF-8] iff tag = 1} -- see [`line`]
 //! ```
 //!
-//! LINE (kind 6) arrives only on a spool written by a 0.4.0 runtime, and only
+//! LINE (kind 6) arrives only on a spool written by a 0.4.0-or-later runtime,
+//! and only
 //! under a focus; its version byte is v3 like everything else, because the
 //! record header did not move (design 2026-09-06 §3.4).
 

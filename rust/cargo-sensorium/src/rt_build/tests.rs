@@ -111,6 +111,26 @@ fn a_changed_embedded_source_changes_the_hash_and_therefore_the_directory() {
     );
 }
 
+/// The one check that the sha256 this crate hashes WITH is still sha256.
+///
+/// It has no copy of the algorithm any more: `sensorium_rt::sha256` is the
+/// repository's only one (2026-09-08), reached through a build-time dependency
+/// on the runtime crate. The NIST vectors live with it, in
+/// `sensorium-rt/src/sha256.rs`; this is the smoke test that says the module
+/// the driver's `tool_hash`, mirror cache key and `source_hash` reach is that
+/// module and not something that merely compiles.
+#[test]
+fn the_sha256_the_driver_hashes_with_is_the_runtimes_and_passes_a_nist_vector() {
+    assert_eq!(
+        sha256::hex(b"abc"),
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
+    let mut h = sha256::Sha256::new();
+    h.update(b"ab");
+    h.update(b"c");
+    assert_eq!(sha256::to_hex(&h.finish()), sha256::hex(b"abc"));
+}
+
 #[test]
 fn moving_a_line_between_files_changes_the_hash() {
     // A digest over concatenated CONTENTS alone would not see this.

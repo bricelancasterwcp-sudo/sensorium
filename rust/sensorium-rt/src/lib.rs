@@ -80,7 +80,12 @@ mod ffi;
 mod line;
 mod panic;
 pub mod probe;
-mod sha256;
+// Public because it is the repository's ONE sha256: `sensorium-transform`
+// (the focus hash) and `cargo-sensorium` (the tool hash, the mirror's cache
+// key, `source_hashes`) take it from here rather than keeping copies. This
+// crate is the leaf -- it has no dependencies at all -- so it is the only
+// one of the three the other two can both depend on.
+pub mod sha256;
 mod spool;
 mod tasks;
 mod thread;

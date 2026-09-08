@@ -121,7 +121,7 @@ pub(crate) const UNIT_ID_SHIFT: u32 = 24;
 /// crate with a bare `rustc` invocation (D1), where cargo's environment does
 /// not exist and `env!` would not compile. A unit test below holds it to the
 /// manifest.
-pub(crate) const RT_VERSION: &str = "sensorium-rt 0.4.0";
+pub(crate) const RT_VERSION: &str = "sensorium-rt 0.4.1";
 
 fn round_up_to_chunk(n: usize) -> usize {
     n.div_ceil(CHUNK) * CHUNK

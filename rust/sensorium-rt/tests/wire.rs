@@ -156,7 +156,7 @@ fn the_proc_header_carries_the_process_and_its_units() {
     );
     assert_eq!(h.get("units").get("0").str(), "scenario-unit-a");
     assert!(h.get("refused").is_null(), "nothing was refused");
-    assert_eq!(h.get("rt_version").str(), "sensorium-rt 0.4.0");
+    assert_eq!(h.get("rt_version").str(), "sensorium-rt 0.4.1");
     assert!(
         h.get("capabilities").get("err_flow").bool(),
         "the runtime declares its own Rust-only capability keys (design R9)"

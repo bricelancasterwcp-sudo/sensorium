@@ -112,7 +112,6 @@ mod lines;
 mod manifest;
 mod marks;
 mod names;
-mod sha256;
 mod spawn;
 mod splice;
 mod visit;
