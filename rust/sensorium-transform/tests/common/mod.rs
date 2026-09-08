@@ -470,6 +470,7 @@ pub const CASES: &[&str] = &[
     "closure_try",
     "composite_diverging",
     "const_fn",
+    "const_init_fns",
     "crate_root",
     "crate_root_docs",
     "crate_root_docs2",
