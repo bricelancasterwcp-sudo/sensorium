@@ -224,18 +224,37 @@ def fn_site(qualname, file="demo/src/lib.rs", line=1, test=False, main=False,
 
 
 def rust_trace(tmp_path, monkeypatch, *, codes, events, frames=(), sites=(),
-               run_id="20260101-000000-rust01", **meta):
+               run_id="20260101-000000-rust01", threads_with_rows=None,
+               tasks=None, **meta):
     """Build a Rust-shaped trace from a vector body and point the CLI at it.
 
     `codes`/`frames`/`events` are the vector vocabulary (ids are 1-based
     positions; see docs/trace-format/VECTORS.md). Anything in `meta`
     overrides `RUST_META`, so a test can drop `err_flow`, mark the trace
     incomplete, or name a different recorder in one keyword.
+
+    `threads_with_rows` names the threads that get a `fingerprints` row, for
+    the one shape the default cannot express: the Rust converter writes ONE
+    thread row -- the main thread's -- and puts every other thread's events
+    in `task_fingerprints` (`convert/frames.rs`), so a multi-threaded Rust
+    trace built with a row per thread is not the trace that recorder writes.
+
+    `tasks` declares the `(id, name, thread_id)` rows the converter inserts
+    per non-main thread. It is not optional decoration: `write_task_fingerprints`
+    fills each row's name by `INSERT ... SELECT` from `tasks`, so a vector
+    that names no task writes NO task fingerprints at all, silently
+    (`store/writer.py` says so at length), and a trace meant to model this
+    converter would carry none of the rows the converter's own output is
+    mostly made of.
     """
     from tests.vectors import build
     body = {"id": "adhoc-rust", "codes": codes, "frames": list(frames),
             "events": events, "fingerprints": "compute",
             "meta": {**RUST_META, **meta}}
+    if threads_with_rows is not None:
+        body["threads_with_rows"] = list(threads_with_rows)
+    if tasks is not None:
+        body["tasks"] = [tuple(t) for t in tasks]
     if sites:
         body["meta"] = {**body["meta"], "sites": list(sites)}
     sdir = Path(tmp_path) / "sdir"

@@ -134,6 +134,13 @@ BYTE_LOCK = "ffaed19"
 ORIGINAL_LOCK = "a4264b5"
 
 RUNNER = "rust/tests/acceptance_e9.py"
+#: R4 (design 2026-09-07 §5): the schema THIS runner writes its raw
+#: record under. `assemble_e9` copies this token into the assembled
+#: record and stamps its own beside it, and the renderer's §2 states
+#: a re-derivation when the two differ. One constant, so the stamp
+#: and the copy cannot drift into two spellings of one fact.
+SCHEMA_VERSION = "e9/1"
+
 RAW = LEDGER / "results-e9-raw.json"
 RESULTS = (REPO / "docs" / "superpowers" / "acceptance"
            / "2026-09-06-sensorium-rung4-e9.results.json")
@@ -520,6 +527,7 @@ def main(argv) -> int:
     for marker in ("e9.DONE", "e9.FAILED"):
         (BASE / marker).unlink(missing_ok=True)
     res: dict = {"started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                 "schema_version": SCHEMA_VERSION,
                  "runner": RUNNER,
                  "document": str(DOC.relative_to(REPO)),
                  "ledger": str(LEDGER), "logs": str(LOGS)}

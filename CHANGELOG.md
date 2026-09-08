@@ -1,5 +1,123 @@
 # Changelog
 
+## 0.8.5 — 2026-09-07
+
+Rung 4, slice 3: **the rung-4 debts** — the seven items slices 1 and 2 left in
+`docs/CARRIED-DEBT.md` with their fixes spelled out, closed. Python **0.8.5**;
+**`cargo-sensorium 0.5.1`** for the hard-linked shim and the `driver.rs` split,
+**`sensorium-transform 0.4.2`** for a focus resolution that no longer splices,
+**`sensorium-rt 0.4.0`** unchanged (neither the wire nor the runtime moved).
+`TRACE_FORMAT` stays **4**: nothing here writes a new key into a trace but
+`refocus_children`, which is optional meta.
+
+- **The licence knows the recorder's own thread from the program's** (ruling
+  R1). `cargo test` runs every `#[test]` function on a thread libtest spawns
+  for it, so the untraced-thread caveat fired on all 61 pairs of E4 for that
+  reason and no other — a clause that cannot not fire is not a finding. A
+  non-main thread whose ROOT frame's site the manifest marks `#[test]` is now
+  a **harness thread**, subtracted from the licence's untraced-thread counts
+  and **named wherever one of those counts is printed**: `and 1 harness thread
+  (libtest's per-test thread, excluded as the recorder's own)` where the clause
+  joins a count, `; 1 harness thread (…) is not among these counts` on the
+  `threads:` line, which counts what WAS compared. The root anchors it, which
+  is a **bound** and not soundness in both directions — a mark below the root
+  excludes nothing, but a thread the PROGRAM spawns whose first instrumented
+  frame is itself a `#[test]`/`#[bench]` fn is read as harness and the licence
+  can be **granted** over it, while an `async` test fn carries no mark so its
+  harness thread stays counted (found by review 2026-09-07, not measured;
+  `rust/HONESTY-BLIND-SPOTS.md` item 28) — and the set is empty on any trace
+  with no site marks
+  (every **Python** trace, byte-identical output) and empty unless the main
+  thread is a RECORDED fact.
+- **A child run is not the pair** (ruling R2). A re-run whose test spawns an
+  instrumented program writes a second trace carrying `refocus_of`, and the
+  pair lookup counted it: `refocus` refused "more than one" and advised a
+  single-target selector at a caller whose selector was already single. A
+  linked trace whose `ppid` is **another** linked trace's `pid` is now excluded
+  from the pair, named on the pair line as `child runs excluded from the pair:
+  <ids>`, stamped into the pair's trace as `refocus_children`, and still listed
+  by `runs`. The >1-candidate refusal carries the same clause in the same
+  words. `corpus/rust/refocus_child_run` records the shape through the real
+  driver.
+- **A target directory that MOVED is read as a relocation, not as a change the
+  world made.** A refocus re-runs under whatever `CARGO_TARGET_DIR` the caller
+  has, and cargo derives `CARGO_BIN_EXE_*`, `LD_LIBRARY_PATH` and
+  `RUSTDOCFLAGS` from the root, so a re-run from a fresh target differed on all
+  four and withheld the licence for it. Nothing is excluded **by name** — that
+  would let a
+  program really handed one extra directory on the loader's path earn a full
+  licence. Each DIFFERING key is asked whether its difference disappears when
+  the original's root is substituted for the re-run's, entry by entry down a
+  `PATH`-like list and anchored at path boundaries on both sides; a key the
+  rule explains is named (`N variable(s) differ only by the target directory:
+  …; treated as unchanged`) on the env line and kept in the trace even where
+  the licence is withheld for another reason. Anything else still withholds.
+- **`info` says which checks could not run at all**, instead of printing the
+  `licence verified:` lines alone and leaving a reader to infer that every
+  other check ran and failed: `licence unverifiable: output (not recorded),
+  children (not witnessed)`, and nothing where the stamp is absent. Its
+  `threads started:` line takes the same harness partition as the licence, on
+  the same screen.
+- **A Rust screen says what its streams are in Rust's words.** The
+  `threads:` line's scope parenthetical reads `(events outside any test or
+  spawned thread)`: this converter writes one thread row — the main thread's —
+  and routes every other thread's events into `task_fingerprints`, so `asyncio`
+  there named a runtime that never ran.
+- **The wrapper shim is a hard link, not a ~40 MB copy per focus** (ruling R3,
+  `cargo-sensorium` **0.5.1**). E4 counted 62 shim entries under one target
+  directory totalling 2 506 729 440 bytes, all of them the same binary.
+  `install_shim` now links, falling back to a copy on any error — a
+  `CARGO_TARGET_DIR` on another mount included — and names both failures when
+  both fail. Sharing the driver's inode is safe because the key already hashes
+  the driver's own bytes. Two guards ride with it: the leftover temporary is
+  **unlinked first**, because a `tmp` left by a run that died between install
+  and rename may itself be a link to the driver and `fs::copy` onto it would
+  truncate the driver; and `set_permissions` runs on the **copy path only**, so
+  nothing here ever writes the driver's inode. `du` over the shim tree now
+  counts those bytes once, however many keys are present.
+- **`fn_items` enumerates through the census path** (ruling R7,
+  `sensorium-transform` **0.4.2**). Resolving `--focus` ran the whole splicing
+  transform on every `.rs` file of the workspace — every offset computed, every
+  fragment placed, every rewritten source assembled — and threw the string away
+  to read two lists off it. It now runs the walk alone, under a named
+  `census::Mode` (`Emitting` / `Census` / `Counting`) so the fourth combination
+  of the two `bool`s it replaced is unspellable. One answer MOVED, deliberately:
+  a file whose walk is clean but whose splicing half would fail answered `[]`
+  under 0.4.1 and answers with its full row list now, so a `--focus` naming a
+  function that is plainly in the file is no longer refused before cargo runs
+  because some other file could not be spliced.
+- **`driver.rs` splits** (ruling R7): the invocation record to `invocation.rs`,
+  the cargo child's environment and launch to `launch.rs`. Behaviour-preserving
+  moves; the cargo child's variables, values and order are unchanged (a 14-line
+  `Ground` construction was added in `driver.rs`) and `driver_smoke.rs` is
+  green.
+- **Every raw and assembled acceptance results file carries `schema_version`**
+  (ruling R4): `"e9/1"`, `"e4/1"`, `"e4p/1"`, with the renderer stating once
+  when the assembled schema is later than the raw's. The E9 and E4
+  `results.json` committed with their records are NOT re-derived — a derivation
+  is stated, not rewritten — and `docs/CARRIED-DEBT.md` notes that those two
+  files predate the field.
+- **E4′ was measured once and STOPPED on H1**
+  (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`): the
+  licence was granted on **0** of 61 pairs where §1.2 predicted 57 — not
+  because R1 failed, since the harness exclusion fired and was **named on 61
+  of 61** `threads:` lines and the four pairs §1.2 named report the
+  program's own counts 1, 4, 4, 4 — but because the env clause withheld on a
+  single key, `RUSTDOCFLAGS`, whose driver-injected `--extern
+  sensorium_rt=<target>/sensorium/rt/<hash>/…` fragment carries a hash that
+  moved with the driver build (0.5.0 recorded the originals, 0.5.1 re-ran
+  them), so the clause read the recorder's own footprint as a change the
+  world made; H2–H6 passed as pre-registered (MATCH 61 of 61, one pair on
+  every pair, the shim at the driver's own single inode on all 61,
+  `schema_version` present, and corpus, Python suite and `cargo test
+  --workspace` green). The STOP stands: it is not re-rolled, no `src` change
+  was made after it, and the ruled fix — strip that fragment as the
+  recorder's own, then **E4″** over a subject with an original recorded under
+  a different driver build — is carried in `docs/CARRIED-DEBT.md`.
+- **Not funded** (ruling R6, until a use asks): `--window` on a Rust trace,
+  refocus over a multi-process invocation, an inference-variable opt-out, and a
+  per-site volume cap. The declared blind spots stand.
+
 ## 0.8.4 — 2026-09-07
 
 Rung 4, slice 2: **`refocus` for Rust traces** — `sensorium refocus <run>

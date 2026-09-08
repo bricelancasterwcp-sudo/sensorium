@@ -151,6 +151,7 @@ from pathlib import Path
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.caps import require
+from sensorium.query.refocus_env import is_relocation_note
 from sensorium.query.vocab import print_blind_spots, terms
 from sensorium.query.diff_cmd import (compare, print_comparison,
                                       task_drill_lines)
@@ -160,7 +161,7 @@ from sensorium.query.diff_cmd import (compare, print_comparison,
 from sensorium.query.refocus_world import (  # noqa: F401
     _UNCOMPARED_ENV, _clip, _env_diff, _env_state, _licence_caveats,
     _output_difference, _output_text, _source_state, _spawn_witnessed,
-    _verified_facts)
+    _verified_facts, harness_note, uncompared_threads)
 from sensorium.store import db
 from sensorium.store.reader import Trace
 
@@ -346,18 +347,28 @@ def _thread_scope(orig: Trace, new: Trace) -> str:
     """What the compared thread rows cover, when it is not everything.
 
     Under the per-task basis a thread's fingerprint covers only the events
-    that ran in NO asyncio task -- so a thread whose traced code all ran
-    inside one has a row of its own with zero events, and "2 recorded
-    fingerprint(s) compared" would otherwise invite the reader to think
-    those rows account for the whole run. The tasks are compared too, on
-    the line below; this says where the boundary between the two is.
+    that ran in NO task -- so a thread whose traced code all ran inside one
+    has a row of its own with zero events, and "2 recorded fingerprint(s)
+    compared" would otherwise invite the reader to think those rows account
+    for the whole run. The tasks are compared too, on the line below; this
+    says where the boundary between the two is.
+
+    WHAT a task is here is the recorder's word, not this function's. On a
+    Rust trace every non-main thread's stream is a `task_fingerprints` row
+    (`convert/frames.rs`), so the thread row holds the main thread's own
+    events and the boundary is the test and spawned threads -- and this
+    line said `asyncio` about it until the fixture carried the task rows
+    the converter really writes and the sentence became readable. `info`
+    reads the same table for the same gate (`info_cmd`'s
+    "the two commands must not describe one trace differently"), so both
+    take the noun from `Terms`.
 
     Empty when neither run recorded a task: nothing was excluded, and a
     parenthetical about a distinction that made no difference is noise.
     """
     if any(t.fingerprint_basis == "per-task" and t.tasks()
            for t in (orig, new)):
-        return " (events outside any asyncio task)"
+        return f" (events outside any {terms(new).task_noun})"
     return ""
 
 
@@ -475,6 +486,16 @@ def assess(orig: Trace, new: Trace, res: dict, world_caveats=(),
         if not caveats:
             facts = _verified_facts(orig, new, scope)
             verified = facts[:1] + list(world_verified) + facts[1:]
+        else:
+            # A withheld licence rests on nothing, so it lists nothing --
+            # with one exception, and it is an exception about NAMES rather
+            # than about standing. A world-fact that says which variables
+            # differed only because the tool re-ran the program somewhere
+            # else is printed on the env line either way, and a trace that
+            # kept only the accusation replayed less than its own screen
+            # had said. Empty for every pair that relocated nothing, which
+            # is every pair before this rule existed.
+            verified = [f for f in world_verified if is_relocation_note(f)]
     # Everything the report and the stamp need, derived ONCE. `report` used
     # to reach back into `res` for `index` and `tasks` beside this dict,
     # which is two sources for one verdict -- the exact shape that let the
@@ -543,12 +564,20 @@ def _print_thread_line(orig: Trace, new: Trace, a: dict) -> None:
         # compared. Say how many were compared, and say plainly when more
         # existed than that.
         n = len(new.fingerprints())
-        unseen = max(orig.meta.get("threads_started", 0),
-                     new.meta.get("threads_started", 0)) + 1 - n
+        # `uncompared_threads` and not `threads_started + 1 - n`: that was
+        # arithmetic across two populations. This converter writes one
+        # thread row and puts every other thread in `task_fingerprints`, so
+        # the old sum reported EVERY non-main Rust thread as one that "ran
+        # no traced code" -- including the thread the code under test runs
+        # on, whose call shape had just been compared. None from either
+        # side means the count cannot be established, and then the clause
+        # is absent rather than derived from a key that was never written.
+        counts = [uncompared_threads(t) for t in (orig, new)]
+        unseen = None if None in counts else max(counts)
         tail = (f"; {unseen} further thread(s) ran no traced code, left no "
-                "fingerprint, and were NOT compared" if unseen > 0 else "")
+                "fingerprint, and were NOT compared" if unseen else "")
         print(f"threads: {n} recorded fingerprint(s) compared"
-              f"{a['thread_scope']}, all matching{tail}")
+              f"{a['thread_scope']}, all matching{tail}{harness_note(new)}")
     else:
         print("threads: no per-thread fingerprints were recorded on either "
               "side -- there was nothing to compare beyond the stream above")
@@ -651,7 +680,8 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
     if a["thread_scope"]:
         print("refocus verdict: MATCH -- every recorded thread produced the "
               "identical CALL/RETURN/RAISE/HANDLED sequence outside its "
-              "asyncio tasks, and every task stream matched by content")
+              f"{terms(new).stream_scope}, and every task stream matched "
+              "by content")
     else:
         print("refocus verdict: MATCH -- every recorded thread produced the "
               "identical CALL/RETURN/RAISE/HANDLED sequence")

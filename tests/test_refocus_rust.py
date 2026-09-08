@@ -9,7 +9,9 @@ checked the verdict would pass over a driver invoked from the wrong place.
 
 The traces, the fake driver and the store reads are
 `tests/refocus_rust_fixtures.py`; what the licence may CLAIM about a Rust
-pair is `tests/test_refocus_licence_rust.py`.
+pair is `tests/test_refocus_licence_rust.py`, and the rule that keeps a
+re-run's own child process out of the pair is
+`tests/test_refocus_rust_children.py`.
 """
 import subprocess
 import time
@@ -216,7 +218,7 @@ def test_rerun_argv_passes_cargo_args_through_verbatim():
 def test_find_pair_returns_nothing_when_no_trace_is_linked(tmp_path,
                                                            monkeypatch):
     run, _ = original(tmp_path, monkeypatch)
-    assert refocus_rust.find_pair(paths.traces_dir(), run, 0.0) == []
+    assert refocus_rust.find_pair(paths.traces_dir(), run, 0.0) == ([], [])
 
 
 def test_find_pair_finds_the_one_trace_the_re_run_wrote(tmp_path,
@@ -225,7 +227,8 @@ def test_find_pair_finds_the_one_trace_the_re_run_wrote(tmp_path,
     launched = time.time()
     original(tmp_path, monkeypatch, run_id=PAIR, refocus_of=run,
              start_ts=launched + 1)
-    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == [PAIR]
+    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == (
+        [PAIR], [])
 
 
 def test_find_pair_excludes_a_link_recorded_before_this_launch(tmp_path,
@@ -240,7 +243,8 @@ def test_find_pair_excludes_a_link_recorded_before_this_launch(tmp_path,
              start_ts=launched - 100)
     original(tmp_path, monkeypatch, run_id=PAIR, refocus_of=run,
              start_ts=launched + 1)
-    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == [PAIR]
+    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == (
+        [PAIR], [])
 
 
 def test_find_pair_excludes_a_link_to_a_DIFFERENT_original(tmp_path,
@@ -258,7 +262,8 @@ def test_find_pair_excludes_a_link_to_a_DIFFERENT_original(tmp_path,
              start_ts=launched + 1)
     original(tmp_path, monkeypatch, run_id=PAIR, refocus_of=run,
              start_ts=launched + 1)
-    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == [PAIR]
+    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == (
+        [PAIR], [])
 
 
 def test_find_pair_returns_both_when_the_invocation_wrote_two(tmp_path,
@@ -268,8 +273,8 @@ def test_find_pair_returns_both_when_the_invocation_wrote_two(tmp_path,
     for rid in ("20260101-000100-pairaa", "20260101-000100-pairbb"):
         original(tmp_path, monkeypatch, run_id=rid, refocus_of=run,
                  start_ts=launched + 1)
-    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == [
-        "20260101-000100-pairaa", "20260101-000100-pairbb"]
+    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == (
+        ["20260101-000100-pairaa", "20260101-000100-pairbb"], [])
 
 
 def test_find_pair_excludes_a_trace_it_cannot_open(tmp_path, monkeypatch):
@@ -284,7 +289,8 @@ def test_find_pair_excludes_a_trace_it_cannot_open(tmp_path, monkeypatch):
     _drop_meta(tmp_path, PAIR, "start_ts")
     with pytest.raises(db.TraceFormatError):
         db.open_trace(paths.traces_dir() / f"{PAIR}.db")
-    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == []
+    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == (
+        [], [])
 
 
 def test_find_pair_excludes_a_start_time_that_is_not_a_time(tmp_path,
@@ -297,7 +303,8 @@ def test_find_pair_excludes_a_start_time_that_is_not_a_time(tmp_path,
     launched = time.time()
     original(tmp_path, monkeypatch, run_id=PAIR, refocus_of=run,
              start_ts="soon")
-    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == []
+    assert refocus_rust.find_pair(paths.traces_dir(), run, launched) == (
+        [], [])
 
 
 # -- the launch ------------------------------------------------------------

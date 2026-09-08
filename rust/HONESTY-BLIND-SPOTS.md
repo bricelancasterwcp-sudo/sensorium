@@ -12,6 +12,8 @@ to what a re-run does not compare and what its licence cannot check.
 Items 15–26 are rung 3's own, from the design's R16 (`?`,
 sinks and `Err` arms:
 `docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`).
+Items 27–28 are rung 4's, from the refocus licence (design 2026-09-07): **27**
+from E4′'s H1 STOP, **28** from the whole-branch review of that same slice.
 
 Each entry names **what declares it** — the field or line a reader meets
 without knowing this document exists — and, where one exists, what could
@@ -315,8 +317,14 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       subject, of which about half is cargo's own reported build, and 61
       focused re-runs plus pass 1's own unfocused base key left **62** shim
       entries totalling **2 506 729 440** bytes — one base key and exactly 61
-      focused keys, none reused (record §3, §5.4). *Declared by* the third blind-spot line the
-      verdict prints (`vocab.RUST.refocus_blind_spots`).
+      focused keys, none reused (record §3, §5.4). Those bytes were **copies**,
+      one per key, which is what `cargo-sensorium` 0.5.0 installed; from 0.5.1
+      the shim is a hard link to the driver wherever the target directory
+      shares its filesystem, so the per-key PATH cargo needs no longer costs a
+      per-key binary (design 2026-09-07 ruling R3, at `36d2fe9`). The REBUILD
+      is unchanged and is still the cost this bullet is about. *Declared by*
+      the third blind-spot line the verdict prints
+      (`vocab.RUST.refocus_blind_spots`).
     * **A per-thread fingerprint can partition differently under a scheduler
       split, and only the comparator's multiset absorbs it.** Where a test
       drives a worker pool over one queue, which worker serves which request
@@ -337,7 +345,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       outside a task at all. The discriminator was never asked (nothing
       diverged), so no verdict rests on it; it is recorded as a limit of the
       amendment, not as a repair.
-    * **The licence is structurally WITHHELD on every `cargo test` pair.**
+    * ~~**The licence is structurally WITHHELD on every `cargo test` pair.**
       The untraced-thread clause fires on libtest's own per-test thread, so
       `licences granted` was **0** on all 61 of E4's pairs while every count
       the endpoint gates on was as pre-registered (thread counts 57×1, 1×2
@@ -347,17 +355,50 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       treats the recorder's own environment variables — is named there and
       deliberately **not applied**: it is a ruling's to make
       (`docs/CARRIED-DEBT.md`). A reader of a `cargo test` refocus should read
-      the four printed counts, not the word.
-    * **A re-run whose test spawns a workspace CHILD is refused by count, and
-      the sentence names the selector rather than the cause.** Every trace of
-      the invocation carries `refocus_of`, a child process the test spawns
+      the four printed counts, not the word.~~ — **taken 2026-09-07** at
+      `11b7e8a` (with `d9115a5`), design 2026-09-07 ruling R1. The MEASURED
+      reason the word never moved was libtest's per-test thread and nothing
+      else, so that thread is now the **harness thread**: a non-main thread
+      whose ROOT frame's site the manifest marks `#[test]`, subtracted from
+      the licence's untraced-thread counts and NAMED on every line one of
+      those counts appears on (`rust/HONESTY.md` §13). What remains a blind
+      spot is what it always was and is one bullet down: the licence's thread
+      clause reports what was not COMPARED, and a program thread of the test's
+      own still withholds — which is the answer, not a gap.
+    * ~~**A re-run whose test spawns a workspace CHILD is refused by count,
+      and the sentence names the selector rather than the cause.** Every trace
+      of the invocation carries `refocus_of`, a child process the test spawns
       included, while `meta.invocation_processes` counts only what cargo hands
       the runner — so the pre-rerun count is 1, the pair lookup finds 2, and
       the refusal asks for a single-target selector the caller already used.
       Two traces is not a pair, so the REFUSED verdict is right; what is wrong
       is the diagnosis. Derived from the code and the trace format, not
       measured — E4's subject spawns no child from a test. *Carried, with two
-      candidate fixes and a ruling owed*, in `docs/CARRIED-DEBT.md`.
+      candidate fixes and a ruling owed*, in `docs/CARRIED-DEBT.md`.~~ —
+      **taken 2026-09-07** at `d4cccd9`, design 2026-09-07 ruling R2, which
+      chose the first candidate: a linked trace whose `ppid` is another linked
+      trace's `pid` is a child run, excluded from the pair and named on the
+      pair line, so such a re-run is now ANSWERED about its parent rather than
+      refused. `corpus/rust/refocus_child_run` records the shape through the
+      real driver. What is still refused by count is more than one linked
+      trace that is nobody's child, and that sentence now names the excluded
+      children too.
+    * **The licence still WITHHOLDS on a re-run launched from another shell.**
+      The env clause compares every key that is neither the recorder's own nor
+      shell bookkeeping, and a second shell differs in variables that bear on
+      nothing the build or the run reads. A target directory that MOVED is now
+      read as a relocation (`rust/HONESTY.md` §13), so cargo's four
+      root-bearing variables no longer fire on their own — but a
+      `SSL_CERT_DIR` present at one launch and absent at the next does.
+      **Ruled and deliberately not built**: a named, versioned positive set of
+      build-and-run-bearing variables withholds, and every other differing key
+      is counted and NAMED without withholding (E4′ §1.5, *carried, not
+      built*; the set is enumerated in `docs/CARRIED-DEBT.md`). Fewer source
+      changes before a measurement is the rule, and E4′ does not need it: its
+      runner refuses to launch unless its own process environment matches
+      every original's recorded one under the same exclusions
+      (`pins.env_parity`, instrument commit `10e2712`). *Declared by* the env
+      line, which names every key it did not explain.
     * **`--window` is not available on a Rust trace at all** (refused at exit
       2): it needs a per-activation runtime check the Rust runtime does not
       have. *Declared by* that refusal sentence.
@@ -529,3 +570,77 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     reads AMBIGUOUS **with no record and no `partial` row** — the one shape in
     this list whose absence nothing in the trace declares. Measured at the
     Task-1 review of 2026-09-04; **untested by fixture**.
+27. **A refocus whose original was recorded by a DIFFERENT driver build is
+    withheld by the env clause, on `RUSTDOCFLAGS`, for the recorder's own
+    reason.** The driver injects its runtime into every re-run's
+    `RUSTDOCFLAGS` as `--extern
+    sensorium_rt=<target>/sensorium/rt/<rt-hash>/unwind/libsensorium_rt.rlib`
+    with a matching `-L dependency=<target>/sensorium/rt/<rt-hash>/unwind`.
+    Two things inside that fragment can move between the recording and the
+    re-run, and only one of them is the world's: the `<target>` **root**,
+    which the relocation rule of `rust/HONESTY.md` §13 correctly reads as a
+    relocation and treats as unchanged; and the `<rt-hash>`, which keys the
+    `sensorium-rt` build and therefore **changes whenever the driver build
+    changes**. A moved hash is not a relocation, so `differs_only_by_root` is
+    right to return false, the key falls into the changed list, and the
+    licence reports the recorder's **own footprint** as a change the world
+    made — the same class this licence already exempts twice, for the
+    recorder's `SENSORIUM_*` variables and (item 12) for R1's harness thread.
+    **Measured 2026-09-07 at n = 61 by E4′**
+    (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md` §4): the
+    61 originals were recorded by `cargo-sensorium` **0.5.0** and re-run by
+    **0.5.1**, and the identical caveat `1 environment variable(s) differ
+    between the two runs (RUSTDOCFLAGS)` withheld the licence on **61 of 61**
+    pairs — including all 61 on which R1's harness exclusion had fired and
+    been named. The env clause withholds before the thread clause is reached,
+    so E4′'s H1 STOPPED and its pre-registered question is **unanswered by
+    that run**, not answered smaller. A same-build refocus does not show it:
+    the dry run recorded and refocused under one driver, the fragment
+    relocated cleanly, and the licence came back granted. *Ruled and NOT
+    built* (`docs/CARRIED-DEBT.md`, rung 4 slice 3 — kill 6 forbids a `src`
+    change after the measurement): strip the driver-injected fragment before
+    the compare as the recorder's own — **anything else in `RUSTDOCFLAGS`
+    stays the world's** and still withholds — then **E4″** re-measures over a
+    subject that includes an original recorded under a different driver
+    build, the one condition under which this confound is visible. *Declared
+    by* the env line, which names every key it did not explain.
+28. **A thread the PROGRAM spawns can be read as the harness's, and the
+    licence GRANTED over it.** R1's rule (§13, item 12) is
+    **root-mark-anchored**: a non-main thread is the recorder's own when a
+    root frame of it sits at a site the manifest marks `test`, and
+    `marks::is_test_fn` marks `#[test]` and `#[bench]`. That anchoring is a
+    **bound**, not soundness in both directions. **Downward it holds**: a
+    marked fn called from deeper on some other thread says nothing about who
+    started that thread, so a mark below the root excludes nothing.
+    **Upward it does not**: `sensorium_rt::spawn_child` opens no frame of its
+    own before calling `f`, and a closure gets a frame ONLY where it holds a
+    `?`, so the root of a spawned thread is the first instrumented fn it
+    calls. A `#[test]`/`#[bench]` fn is an ordinary fn to rustc and callable
+    from anywhere, so `thread::spawn(|| a_test_fn())` — or
+    `thread::spawn(helper)` where `helper` carries the attribute — puts a
+    MARKED root on a thread the program started. It is subtracted,
+    `threads_started − harness` can reach 0, `_licence_caveats` emits no
+    thread caveat, and the licence is **granted** over a program thread: a
+    false grant, the direction that claims MORE. The other end claims less
+    and is safe: an `async` test fn — `#[tokio::test]` and every other custom
+    harness — is classified `async` by the transform and skipped, so it
+    carries no site row and no mark at all; its harness thread's root is an
+    ordinary fn and stays counted as the program's, so the licence withholds,
+    as it did before R1. **Found by review 2026-09-07, not measured**, and
+    **untested by fixture**: `tests/test_refocus_licence_rust.py` covers a
+    marked frame BELOW the root and the main-thread case, never a marked root
+    on a spawned thread. **E4′'s 61 pairs are unaffected** — the same review
+    read the measured subject and found its tests spawn threads through
+    ordinary `worker` fns and `serve_fake`, never through a marked one, so no
+    number in that record moves. *Ruled and NOT built*
+    (`docs/CARRIED-DEBT.md`, rung 4 slice 3 — kill 6 forbids a `src` change
+    after the measurement): a task named `spawn@<site>` (or
+    `<parent> :: spawn@<site>`) is a workspace spawn the runtime itself
+    named, so such a thread is **never** harness whatever its root's mark;
+    and only the **FIRST** root frame's mark counts, where `harness_threads`
+    today excludes on ANY root (`for root in trace.roots()`) while the design,
+    the docstring and every doc say THE root. To be **measured before it
+    ships**. The `harness_threads` docstring carries the same "sound in both
+    directions" overclaim and is left standing until that `src` change.
+    *Declared by* this item and by §13; *falsified by* a fixture that spawns
+    a thread on a `#[test]`-marked fn and reads a granted licence.

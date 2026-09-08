@@ -51,7 +51,7 @@ questions:
     command: ["info", "$RUN"]
     expect_line:
       - ["units:", "1 instrumented", "1 spawn sites (1 wrapped)"]
-      - ["threads started: 2 besides the main one"]
+      - ["threads started: 1 besides the main one and 1 harness thread (libtest's per-test thread, excluded as the recorder's own)"]
       - ["tasks: 2", "spawn@tests::a_worker_holds_the_ledger#1"]
   - id: can-that-worker-be-compared-by-name
     ask: >

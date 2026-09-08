@@ -1,0 +1,99 @@
+program: cargo
+cargo_args: ["run"]
+questions:
+  - id: does-one-invocation-of-this-program-record-two-processes
+    ask: >
+      The program starts a copy of itself and waits for it. Is the worker a
+      recording of its own, and does the parent's trace say so?
+    truth: >
+      Yes: one invocation, two processes, linked parent-to-child by `ppid` --
+      the same shape `rust/abort` pins, without the crash. The parent's trace
+      names one child run and its own capabilities say `children=no`: the
+      link is derived from the two recordings' process ids, never from a
+      spawn the recorder witnessed. This is the shape the refocus question
+      below is about, stated first, because "which of the two traces is the
+      answer" is only a question once there are two.
+    why_logs_fail: >
+      A `dbg!` in the parent prints what the parent knew, and the parent
+      never learns its child's identity as a recording; a `dbg!` in the
+      child prints into the same terminal with nothing to say which process
+      wrote it. RUST_LOG has no logger to reach in this crate, and nothing
+      panics, so RUST_BACKTRACE prints nothing either -- and neither could
+      state a relationship between two processes' records.
+    command: ["info", "$RUN"]
+    expect_contains: ["child runs: 1 -- $RUN2"]
+    expect_line:
+      - ["capabilities:", "children=no"]
+    expect_exit: 0
+  - id: which-of-the-re-runs-two-traces-is-the-verdict-about
+    ask: >
+      `refocus` re-runs the whole program one flag deeper, so the re-run
+      spawns a worker too and the store gains TWO traces linked to this run.
+      Is there a verdict at all, and which of the two is it about?
+    truth: >
+      MATCH, exit 0, and the verdict is about the PARENT -- the process this
+      recording is of. Derived before it was measured, from design
+      2026-09-07 §3 (ruling R2): the driver stamps `refocus_of` on every
+      trace of the invocation, so the pair lookup sees two linked traces,
+      and the one whose `ppid` is the other's `pid` is a child RUN, not a
+      second candidate. Excluded from the pair, it is named on the pair line
+      -- `child runs excluded from the pair: <id>` beside `run:` -- and
+      stamped into the pair's trace as `refocus_children`, so a later reader
+      is told what the comparison was not about. Without that rule this is
+      the refusal "the re-run produced 2 traces linked to …; refocus needs
+      an invocation with a single-target selector", which is advice about
+      cargo targets given to a caller whose invocation ran one target and
+      whose program spawned the second process itself. The licence is
+      granted, as on any deterministic single-threaded re-run of unchanged
+      source: `children` is UNVERIFIABLE here (`capabilities.children:
+      false`), and a check that could not run is not a finding against the
+      pair.
+    why_logs_fail: >
+      The question is which of two recordings a comparison was performed
+      over, and no `dbg!` in either process can answer it: a print statement
+      is written by one execution and knows nothing of the other, let alone
+      of a verdict reached afterwards by a third program. RUST_LOG reaches no
+      logger in this crate and RUST_BACKTRACE fires only on a panic, so
+      neither prints at all -- and re-running the binary by hand with a
+      `dbg!` in it produces yet another pair of processes nobody has checked
+      against these.
+    command: ["refocus", "$RUN", "--focus", "main"]
+    depends_on: does-one-invocation-of-this-program-record-two-processes
+    expect_contains:
+      - "refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence"
+      - "checks that could not run on this pair"
+      - "children: unverifiable (not witnessed)"
+      - "the re-run's rebuild is its own cost: --focus keys a fresh shim and a rebuild of the matched units"
+    expect_line:
+      - ["refocus-of: $RUN", "--refocus-of $RUN", "--focus main"]
+      - ["run: ", "child runs excluded from the pair: "]
+      - ["licence: verified against $RUN on exactly these points, and no others:"]
+    expect_count: {"child runs excluded from the pair: ": 1}
+    expect_absent: ["licence: WITHHELD", "refocus verdict: REFUSED"]
+    expect_exit: 0
+  - id: is-the-excluded-child-still-in-the-store-and-still-honest-about-itself
+    ask: >
+      The child run was excluded from the pair. Is it hidden, and does the
+      listing claim anything about it that was never checked?
+    truth: >
+      Neither: it is listed, and it is listed as UNVERIFIED. Both traces of
+      the re-run carry `refocus-of:<original>` -- the link is invocation-wide
+      -- so two rows name it, but only the pair carries a verdict and a
+      counted licence (`verdict:MATCH(granted:…,see-info)`). The child's row
+      reads `verdict:UNVERIFIED`, which is the honest word for a trace no
+      comparison was performed over: excluded from the pair means unpaired,
+      not deleted and not vouched for. A reader who wants that process
+      compared can refocus it directly.
+    why_logs_fail: >
+      "Which recordings exist, how are they related, and which of them has
+      been verified against which" is a question about a store of past runs;
+      a `dbg!` line is a fact about the one execution that printed it and
+      cannot enumerate anything, RUST_LOG has no logger to reach here, and
+      RUST_BACKTRACE prints only on a panic that never happens.
+    command: ["runs"]
+    depends_on: which-of-the-re-runs-two-traces-is-the-verdict-about
+    expect_count: {"refocus-of:$RUN": 2}
+    expect_line:
+      - ["refocus-of:$RUN", "verdict:MATCH(granted:"]
+      - ["refocus-of:$RUN", "verdict:UNVERIFIED"]
+    expect_exit: 0

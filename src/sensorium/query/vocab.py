@@ -48,12 +48,28 @@ class Terms:
     task_noun: str
     #: ...and in the plural, as the sentences that count them spell it.
     task_noun_plural: str
+    #: The units a thread's fingerprint row leaves OUT under the per-task
+    #: basis, as prose after a POSSESSIVE -- "...sequence outside its ...".
+    #: Neither noun beside it fits that slot: `task_noun_plural` is written
+    #: for sentences that COUNT ("2 asyncio task(s)") and its parentheses
+    #: read wrongly in prose, and `blind_spot_tasks` is written for a slot
+    #: with no possessive ("the order libtest's per-test threads and
+    #: spawned threads interleaved in"), which after "its" would read "its
+    #: libtest's". The singular slot -- "outside any ..." -- is `task_noun`
+    #: and needs no field of its own.
+    stream_scope: str
     #: The article `a_task` needs. "an asyncio task", "a test or spawned
     #: thread": the noun cannot carry it and the sentence must not guess.
     task_article: str
     #: How the threads this run started came to exist. Never a guess: it is
     #: the one clause that makes a provenance claim.
     thread_origin: str
+    #: What a thread the RECORDER'S OWN harness started is called, and why
+    #: it is left out of the counts of the program's threads -- printed
+    #: wherever such a count is, so the exclusion is named and never
+    #: silent. `None` for a recorder that starts no thread of its own, and
+    #: then nothing is ever excluded from any count.
+    harness_thread: str | None
     #: The label for a unit of work with no readable name -- and the two
     #: languages mean DIFFERENT things by it. In Python the name existed and
     #: `get_name()` raised; in Rust the thread was spawned by dependency
@@ -122,8 +138,12 @@ PYTHON = Terms(
     lang="python",
     task_noun="asyncio task",
     task_noun_plural="asyncio task(s)",
+    stream_scope="asyncio tasks",
     task_article="an",
     thread_origin="through Python's own threading/_thread",
+    # `sensorium run` starts the program on the thread it was invoked from:
+    # every other thread in a Python trace is the program's own.
+    harness_thread=None,
     unnamed_task="(name unreadable)",
     numbered_task_note=("task(s) asyncio numbered by creation order, which "
                         "no name can pick"),
@@ -165,9 +185,21 @@ RUST = Terms(
     lang="rust",
     task_noun="test or spawned thread",
     task_noun_plural="tests or spawned threads",
+    # A Rust thread row holds the MAIN thread's own events: every other
+    # thread's stream is a `task_fingerprints` row (`convert/frames.rs`).
+    # So what the row is "outside" is the test and spawned threads -- said
+    # in the shortest form that survives a possessive.
+    stream_scope="test and spawned threads",
     task_article="a",
     thread_origin=("as OS threads (libtest's per-test threads and threads "
                    "spawned by workspace code)"),
+    # libtest runs every `#[test]` fn on a thread of its own, so a `cargo
+    # test` trace carries one thread the program did not start -- and the
+    # untraced-thread caveat fired on all 61 pairs of E4 for that reason
+    # alone (design 2026-09-07 R1). Named, never quietly dropped: the
+    # precedent is the recorder's own environment variables, which the same
+    # licence already excludes by name.
+    harness_thread="libtest's per-test thread, excluded as the recorder's own",
     unnamed_task="(unnamed: spawned by dependency code)",
     numbered_task_note=("task(s) with no name at all (spawned by dependency "
                         "code), which no name can pick"),

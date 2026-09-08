@@ -1,0 +1,9 @@
+[package]
+name = "corpus_refocus_child_run"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "refocus_child_run"
+path = "src/main.rs"

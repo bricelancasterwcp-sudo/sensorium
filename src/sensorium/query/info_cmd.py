@@ -14,6 +14,8 @@ from sensorium.exit import ANSWERED
 from sensorium.query.caps import witness_gap
 from sensorium.query.fmt import fmt_exc
 from sensorium.query.info_rust import rust_lines
+from sensorium.query.refocus_world import (harness_exclusion,
+                                           unverifiable_line)
 from sensorium.query.vocab import exit_phrase, terms
 from sensorium.store.reader import Trace
 
@@ -60,8 +62,16 @@ def witnessed_counts(trace, m: dict) -> list[str]:
     out = []
     started = m.get("threads_started")
     if started:
+        # Partitioned the way the licence partitions it, and on the same
+        # screen as the licence lines `info` replays below (design R1): the
+        # recorder's own harness threads come out of the count and are
+        # named. The emit test reads the raw count, so a run whose only
+        # extra thread is the harness's still says so. Python starts none,
+        # and both the number and the string are unchanged there.
+        harness, harness_clause = harness_exclusion(trace)
         out.append(
-            f"threads started: {started} besides the main one, "
+            f"threads started: {started - harness} besides the main one"
+            f"{harness_clause}, "
             f"{terms(trace).thread_origin} -- one that ran no traced code "
             "has no fingerprint above and was not otherwise seen")
     spawns = m.get("spawn_syscalls")
@@ -307,6 +317,14 @@ def run(args) -> int:
             print("  licence granted, but this trace does not record WHAT it "
                   "was granted on -- it predates that record; re-run "
                   "`sensorium refocus` for the bounded list")
+        # The other half of what `refocus` stamped. A reader given the
+        # `licence verified:` lines alone is left to infer that every other
+        # check ran and failed -- and on a Rust pair two of them could not
+        # run at all (design 2026-09-07 R7). Absent key, absent line: the
+        # stamp's absence is not a claim that everything was checked.
+        unrun = unverifiable_line(m.get("refocus_licence_unverifiable"))
+        if unrun:
+            print(f"  {unrun}")
         for reason in m.get("refocus_refused_reasons") or []:
             print(f"  refused: {reason}")
     counts_by_code = t.call_counts()
