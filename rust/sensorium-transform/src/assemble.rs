@@ -1,0 +1,549 @@
+//! The assembler: run one file's walk, sort what it minted, and copy the
+//! original bytes through with the fragments dropped in at their offsets.
+//!
+//! The vocabulary this works over -- the fragments, [`Kind`] and [`Splice`] --
+//! lives in [`crate::splice`], where the six modules that MINT splices import it
+//! from. This module is the only consumer: it decides the order two splices at
+//! one byte go in ([`splice_order`]), checks the assembled output for overlap as
+//! it is built, places the crate root's `allow` and its `__SENSORIUM_UNIT`
+//! static, and refuses to hand back a file whose line count moved.
+//!
+//! Split out of `splice.rs` when that file reached its 800-line ceiling.
+
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::str::FromStr;
+
+use proc_macro2::{Span, TokenStream};
+use syn::visit::Visit;
+use syn::{AttrStyle, Attribute};
+
+use crate::census::Mode;
+use crate::focus::Focus;
+use crate::splice::{escape_string_literal, stripped_prefix_len, Kind, Splice};
+use crate::visit::Ctx;
+use crate::{FileRole, SpawnSite, Transformed};
+
+/// The two lints the wraps themselves provoke, both measured on the emitted
+/// bytes (2026-09-04) and both silenced by this one attribute:
+///
+/// * `clippy::match_single_binding` -- every wrap is a `match` with one
+///   binding, which is what that lint is about;
+/// * `clippy::needless_borrow` -- on an operand that is not a `Result` (an
+///   `Option` `?`, a non-`Result` sink receiver, `let _ = 1`) the runtime's
+///   autoref ladder resolves to its by-value fallback, and clippy then asks for
+///   `Probe(&__t)` where the fragment must write `(&&&Probe(&__t))` or the
+///   specialised impls can never win.
+///
+/// It goes on the crate ROOT, because a wrap in any file of the unit is what
+/// needs it. `tests/oracle.rs` runs the real `clippy-driver` with both lints
+/// denied, and with the attribute removed as the falsifier.
+///
+/// The leading space is what keeps it off the previous attribute's `]`; there
+/// is no trailing one, because a golden's checked-in bytes should not end a
+/// line with whitespace.
+pub(crate) const CRATE_ALLOW: &str =
+    " #![allow(clippy::match_single_binding, clippy::needless_borrow)]";
+
+/// The same attribute where it has to share the static's fragment (see
+/// [`AllowPlacement::WithStatic`]): no leading space, one trailing.
+const CRATE_ALLOW_LEADING: &str =
+    "#![allow(clippy::match_single_binding, clippy::needless_borrow)] ";
+
+/// The crate root's unit declaration. Newline-free -- which is why a newline in
+/// the metadata is escaped rather than passed through: a Rust string literal
+/// happily spans lines, and one that did would move every line below it.
+fn unit_static(metadata: &str) -> String {
+    format!(
+        "#[doc(hidden)] pub static __SENSORIUM_UNIT: ::sensorium_rt::Unit = \
+         ::sensorium_rt::Unit::new(\"{}\");",
+        escape_string_literal(metadata)
+    )
+}
+
+fn splice_order(a: &Splice, b: &Splice) -> Ordering {
+    a.start
+        .cmp(&b.start)
+        .then(a.kind.cmp(&b.kind))
+        .then_with(|| {
+            if matches!(a.kind, Kind::Close | Kind::ErrClose | Kind::ScopeClose) {
+                // The wrap opened LAST closes first.
+                b.seq.cmp(&a.seq)
+            } else {
+                a.seq.cmp(&b.seq)
+            }
+        })
+}
+
+pub(crate) fn run(
+    source: &str,
+    file: &str,
+    unit_metadata: &str,
+    first_site: u32,
+    role: FileRole,
+    focus: &Focus,
+) -> Result<Transformed, syn::Error> {
+    let is_crate_root = role.is_crate_root;
+    let parsed = syn::parse_file(source)?;
+    let prefix = stripped_prefix_len(source, parsed.shebang.as_deref());
+
+    let mut ctx = Ctx::new(source, prefix, file, first_site, Mode::Emitting, focus);
+    ctx.is_bin_root = role.is_bin_root;
+    ctx.visit_file(&parsed);
+    let walked = ctx.finish()?;
+
+    let mut splices = walked.splices;
+    let mut appended_line = false;
+    if is_crate_root {
+        let placement = static_splice(source, prefix, parsed.shebang.is_some());
+        appended_line = placement.appended_line;
+        let allow = allow_placement(source, prefix, &parsed.attrs);
+        if let AllowPlacement::At(offset) = allow {
+            splices.push(Splice {
+                start: offset,
+                end: offset,
+                kind: Kind::Allow,
+                seq: usize::MAX,
+                text: CRATE_ALLOW.to_owned(),
+            });
+        }
+        splices.push(placement.splice(
+            checked_static_offset(source, placement.offset)?,
+            unit_metadata,
+            allow == AllowPlacement::WithStatic,
+        ));
+    }
+    splices.sort_by(splice_order);
+
+    let out = assemble(source, &splices)?;
+    check_line_count(source, &out, appended_line)?;
+
+    let mut spawns = walked.spawns;
+    spawns.sort_by_key(|(offset, _)| *offset);
+    check_spawn_ordinals(&spawns)?;
+
+    Ok(Transformed {
+        source: out,
+        sites: walked.sites,
+        skipped: walked.skipped,
+        partial: walked.partial,
+        spawns: spawns.into_iter().map(|(_, s)| s).collect(),
+        focused: walked.focused,
+        appended_line,
+    })
+}
+
+/// Copy the original bytes through, putting each fragment in at its offset and
+/// skipping the bytes a replacement covers.
+///
+/// # Errors
+/// Two splices that overlap. They cannot, by construction -- inserts have no
+/// width and no two replacements share a byte -- so this is the check that says
+/// so rather than corrupting a file if construction is ever wrong.
+fn assemble(source: &str, splices: &[Splice]) -> Result<String, syn::Error> {
+    let mut out = String::with_capacity(source.len() + splices.len() * 96);
+    let mut cut = 0usize;
+    for s in splices {
+        if s.start < cut {
+            return Err(syn::Error::new(
+                Span::call_site(),
+                format!(
+                    "splices overlap at byte {} (a {:?} after a splice ending at {cut}) -- \
+                     the transformer would corrupt this file rather than rewrite it",
+                    s.start, s.kind
+                ),
+            ));
+        }
+        out.push_str(&source[cut..s.start]);
+        out.push_str(&s.text);
+        cut = s.end;
+    }
+    out.push_str(&source[cut..]);
+    Ok(out)
+}
+
+/// Plan decision N4: the ordinals the walk assigned, re-derived from SOURCE
+/// ORDER and compared.
+///
+/// The walk counts in DFS order and N1 promises source order. They agree for
+/// every construct the goldens exercise, but "agree" is an argument and this is
+/// the measurement: `spawns` arrives sorted by byte offset, so ranking the
+/// wrapped sites of one qualname as they are met here IS source order.
+///
+/// A disagreement costs instrumentation rather than shipping a task under a name
+/// that is not the one the manifest promises. What it costs, measured rather
+/// than assumed: the driver's `wrapper.rs` lists the file in `unreached_files`
+/// and instruments the rest of the unit -- `fell_back` stays false, because one
+/// refused file is not a unit that fell back -- while a failure on the CRATE
+/// ROOT leaves the whole unit uninstrumented. Either way this message survives:
+/// since 2026-09-03 the wrapper prints it (`sensorium: unit <crate> (<meta>):
+/// <file>: <message>`) and records it under the manifest's
+/// `unreached_reasons`, so the loss is declared on both channels rather than
+/// looking like a module the walk never opened.
+///
+/// # Errors
+/// A wrapped site's ordinal is not its rank among the wrapped sites of its
+/// qualname.
+fn check_spawn_ordinals(spawns: &[(usize, SpawnSite)]) -> Result<(), syn::Error> {
+    let mut ranks: HashMap<&str, u32> = HashMap::new();
+    for (_, site) in spawns {
+        if !site.wrapped {
+            continue;
+        }
+        let rank = ranks.entry(site.qualname.as_str()).or_insert(0);
+        *rank += 1;
+        if site.ordinal == Some(*rank) {
+            continue;
+        }
+        let walked = site
+            .ordinal
+            .map_or_else(|| "none".to_owned(), |k| k.to_string());
+        return Err(syn::Error::new(
+            Span::call_site(),
+            format!(
+                "spawn ordinal for {} at line {}: walk said #{walked}, source order says #{rank}",
+                site.qualname, site.line,
+            ),
+        ));
+    }
+    Ok(())
+}
+
+/// The promise of `rust/HONESTY.md` §9, enforced where it is made rather than
+/// only downstream: a fragment that carried a newline -- an unescaped metadata
+/// string, a future fragment written across two lines -- would move every line
+/// below it, and every `line!()`, panic location and backtrace frame with them.
+///
+/// # Errors
+/// The output has a different number of lines than `appended_line` accounts
+/// for. Refusing here costs one unit a fallback; not refusing costs every
+/// measurement that unit contributes to.
+fn check_line_count(source: &str, out: &str, appended_line: bool) -> Result<(), syn::Error> {
+    let expected = source.lines().count() + usize::from(appended_line);
+    if out.lines().count() == expected {
+        return Ok(());
+    }
+    Err(syn::Error::new(
+        Span::call_site(),
+        format!(
+            "the rewrite moved lines: {} in, {} out, appended_line = {appended_line} -- \
+             an injected fragment is not newline-free",
+            source.lines().count(),
+            out.lines().count(),
+        ),
+    ))
+}
+
+/// Where the `__SENSORIUM_UNIT` static goes: immediately after the file's LAST
+/// TOKEN -- with two corrections that are not optional.
+///
+/// Not "on the last line": a file whose last line is `// a comment` would
+/// swallow the static. Not "after the final newline" either: that adds a line,
+/// which is the one thing this crate exists to avoid.
+///
+/// The first correction, and it is a silent one: `proc-macro2` hands a `//!` or
+/// `///` doc comment back as tokens whose span covers the COMMENT TEXT, not the
+/// `#[doc = ".."]` it desugars to. When the last token is one of those, "after
+/// the last token" is INSIDE a line comment, and the static is commented out --
+/// the file still parses, still has the same line count, and simply has no
+/// unit. (A `/*! .. */` doc comment is safe: its span ends after the `*/`.) So
+/// when the last token's own text starts with `//`, the static moves past that
+/// line's newline instead.
+///
+/// The second: when that comment runs to EOF with NO newline after it, there is
+/// no line to move past, so the fragment carries one. A SHEBANG that runs to
+/// EOF is the same shape and takes the same correction -- "after the last
+/// token" is the end of the shebang line, and a static appended there is part
+/// of the shebang. This is the only fragment this crate ever emits that
+/// contains a newline, and it can only ever add a FINAL line -- which is what
+/// `appended_line` says.
+///
+/// `appended_line` is true exactly when the insertion adds a line, which a
+/// newline-free fragment does only at EOF in an empty file or after a trailing
+/// newline. Every such file has no items, hence no `mod` declarations, hence no
+/// other file in its unit, hence no guard anywhere that could reference the
+/// static. No existing line moves in any of them.
+struct StaticPlacement {
+    offset: usize,
+    /// The fragment must bring its own newline (see above).
+    lead_newline: bool,
+    appended_line: bool,
+}
+
+fn static_splice(source: &str, prefix: usize, has_shebang: bool) -> StaticPlacement {
+    let plain = |offset: usize| StaticPlacement {
+        offset,
+        lead_newline: false,
+        appended_line: adds_a_final_line(source, offset),
+    };
+    match last_token(&source[prefix..]) {
+        Some((end, false)) => plain(prefix + end),
+        Some((end, true)) => match source[prefix + end..].find('\n') {
+            Some(nl) => plain(prefix + end + nl + 1),
+            // The comment runs to EOF with no newline at all, so the static
+            // needs one of its own or it is commented out.
+            None => StaticPlacement {
+                offset: source.len(),
+                lead_newline: true,
+                appended_line: true,
+            },
+        },
+        // Past the shebang's own newline, so the static cannot land inside it.
+        None if source.as_bytes().get(prefix) == Some(&b'\n') => plain(prefix + 1),
+        // A shebang with nothing after it at all: no newline to move past, so
+        // the fragment brings one rather than becoming part of the shebang.
+        None if has_shebang && prefix == source.len() => StaticPlacement {
+            offset: source.len(),
+            lead_newline: true,
+            appended_line: true,
+        },
+        None => plain(prefix),
+    }
+}
+
+/// The crate-root static's offset, checked for the one thing every other splice
+/// producer checks and this one did not: that it lands on a character boundary.
+/// The failure mode without it is a slice panic inside [`assemble`], not the
+/// synthesised error the guards in `visit.rs` return.
+///
+/// # Errors
+/// The offset falls inside a UTF-8 character.
+fn checked_static_offset(source: &str, offset: usize) -> Result<usize, syn::Error> {
+    if source.is_char_boundary(offset) {
+        return Ok(offset);
+    }
+    Err(syn::Error::new(
+        Span::call_site(),
+        "the crate-root static's offset falls inside a UTF-8 character -- \
+         Span::byte_range() is not relative to what this crate assumes",
+    ))
+}
+
+/// Does inserting a newline-free fragment at `offset` give the file one more
+/// line than it had? Only at the very end, and only when the text before it
+/// already ended a line -- which includes the empty file, whose zero lines
+/// become one.
+impl StaticPlacement {
+    fn splice(&self, offset: usize, unit_metadata: &str, with_allow: bool) -> Splice {
+        let mut text = unit_static(unit_metadata);
+        if with_allow {
+            text.insert_str(0, CRATE_ALLOW_LEADING);
+        }
+        if self.lead_newline {
+            text.insert(0, '\n');
+        }
+        Splice {
+            start: offset,
+            end: offset,
+            kind: Kind::Static,
+            seq: usize::MAX,
+            text,
+        }
+    }
+}
+
+fn adds_a_final_line(source: &str, offset: usize) -> bool {
+    offset == source.len() && (source.is_empty() || source.ends_with('\n'))
+}
+
+/// Where the crate root's `allow` attribute goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AllowPlacement {
+    /// A byte offset on a line that already exists: just past the last inner
+    /// attribute, or at the file's first token when there is none. Either way
+    /// the attribute lands before every item, which is where an inner attribute
+    /// has to be, and adds no line.
+    At(usize),
+    /// There is nowhere on an existing line to put it: the file has no tokens
+    /// at all, or its last inner attribute is a line doc comment that runs to
+    /// EOF with no newline after it. Such a file has no items (an item after a
+    /// `//!` at EOF is not a file this parses), so the attribute rides on the
+    /// crate-root static's own fragment, which already carries the only newline
+    /// this crate ever emits.
+    WithStatic,
+}
+
+/// Compute [`AllowPlacement`] for a crate root.
+///
+/// The MAXIMUM inner-attribute end is taken rather than the last one in the
+/// list, for the same reason [`Ctx::body_offset`] does: `#![a]` and `//! doc`
+/// are both inner attributes and nothing promises which order `syn` reports
+/// them in.
+fn allow_placement(source: &str, prefix: usize, attrs: &[Attribute]) -> AllowPlacement {
+    let mut offset: Option<usize> = None;
+    for attr in attrs {
+        if !matches!(attr.style, AttrStyle::Inner(_)) {
+            continue;
+        }
+        match crate::attrs::inner_attr_end(source, prefix, attr) {
+            Ok(end) => {
+                if offset.is_none_or(|had| end > had) {
+                    offset = Some(end);
+                }
+            }
+            Err(_) => return AllowPlacement::WithStatic,
+        }
+    }
+    match offset.or_else(|| first_token_start(&source[prefix..]).map(|start| prefix + start)) {
+        Some(o) if source.is_char_boundary(o) => AllowPlacement::At(o),
+        _ => AllowPlacement::WithStatic,
+    }
+}
+
+/// The start of the file's FIRST token, past whatever `syn::parse_file`
+/// stripped. `None` for a file with no tokens at all.
+fn first_token_start(content: &str) -> Option<usize> {
+    let stream = TokenStream::from_str(content).ok()?;
+    let first = stream.into_iter().next()?;
+    Some(first.span().byte_range().start)
+}
+
+/// The end of the file's last token, and whether that token's own text is a
+/// `//`-form comment (see [`static_splice`]).
+fn last_token(content: &str) -> Option<(usize, bool)> {
+    let stream = TokenStream::from_str(content).ok()?;
+    // A `Group`'s span covers its delimiters, so this is the closing brace of
+    // the final item, not the token before it.
+    let last = stream.into_iter().last()?;
+    let range = last.span().byte_range();
+    let is_line_comment = content
+        .get(range.start..range.end)
+        .is_some_and(|text| text.starts_with("//"));
+    Some((range.end, is_line_comment))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn splice(start: usize, end: usize, kind: Kind, text: &str) -> Splice {
+        Splice {
+            start,
+            end,
+            kind,
+            seq: 0,
+            text: text.to_owned(),
+        }
+    }
+
+    /// `assemble`'s overlap guard cannot be reached from `transform`: inserts
+    /// have no width and no two replacements share a byte. It is still the
+    /// difference between a corrupted file and a declared fallback if that ever
+    /// stops being true, so it is driven directly rather than asserted.
+    #[test]
+    fn overlapping_splices_are_refused_rather_than_corrupting_the_file() {
+        let source = "std::thread::spawn(f)";
+        let good = [
+            splice(0, 18, Kind::Replace, "X"),
+            splice(19, 19, Kind::SpawnArg, "\"s\", "),
+        ];
+        assert_eq!(assemble(source, &good).expect("disjoint"), "X(\"s\", f)");
+
+        let bad = [
+            splice(0, 18, Kind::Replace, "X"),
+            splice(5, 5, Kind::Open, "Y"),
+        ];
+        let err = assemble(source, &bad).expect_err("a splice inside a replaced range");
+        assert!(err.to_string().contains("overlap"), "unhelpful: {err}");
+    }
+
+    /// The same guard for two replacements that share a byte.
+    #[test]
+    fn two_replacements_that_share_a_byte_are_refused() {
+        let source = "abcdef";
+        let bad = [
+            splice(0, 4, Kind::Replace, "X"),
+            splice(2, 6, Kind::Replace, "Y"),
+        ];
+        assert!(assemble(source, &bad).is_err());
+    }
+
+    /// The crate-root static is the one splice producer whose offset is not
+    /// computed by `visit.rs`'s guarded paths, so its boundary check is driven
+    /// directly -- a bad offset there panics in `assemble`'s slicing rather
+    /// than returning an error a unit can fall back on.
+    #[test]
+    fn a_static_offset_inside_a_character_is_refused() {
+        let source = "// π\n";
+        // `π` is two bytes at 3..5; 4 is inside it.
+        assert_eq!(checked_static_offset(source, 3).expect("a boundary"), 3);
+        assert_eq!(checked_static_offset(source, 5).expect("a boundary"), 5);
+        let err = checked_static_offset(source, 4).expect_err("inside the character");
+        assert!(
+            err.to_string().contains("UTF-8 character"),
+            "unhelpful: {err}"
+        );
+    }
+
+    fn spawn(offset: usize, qualname: &str, line: u32, ordinal: Option<u32>) -> (usize, SpawnSite) {
+        (
+            offset,
+            SpawnSite {
+                file: "src/lib.rs".to_owned(),
+                line,
+                wrapped: ordinal.is_some(),
+                reason: None,
+                qualname: qualname.to_owned(),
+                ordinal,
+            },
+        )
+    }
+
+    fn declared(offset: usize, qualname: &str, line: u32) -> (usize, SpawnSite) {
+        let mut s = spawn(offset, qualname, line, None);
+        s.1.wrapped = false;
+        s.1.reason = Some("builder");
+        s
+    }
+
+    /// N4's re-derivation. The walk and the source order agree for every
+    /// construct the goldens exercise, so the DISAGREEMENT is built here by
+    /// hand -- the check cannot be weakened to make it reachable, and a
+    /// disagreement that only ever showed up in the field would ship a task
+    /// under the wrong name.
+    #[test]
+    fn a_walk_assigned_ordinal_that_is_not_the_source_order_rank_is_refused() {
+        let good = [
+            spawn(10, "a", 3, Some(1)),
+            declared(20, "a", 4),
+            spawn(30, "a", 5, Some(2)),
+            spawn(40, "T::m", 9, Some(1)),
+        ];
+        check_spawn_ordinals(&good).expect("the ranks the walk assigned");
+
+        // The second site of `a` says #3 where source order says #2.
+        let bad = [
+            spawn(10, "a", 3, Some(1)),
+            declared(20, "a", 4),
+            spawn(30, "a", 5, Some(3)),
+        ];
+        let err = check_spawn_ordinals(&bad).expect_err("a rank that is not the walk's");
+        assert_eq!(
+            err.to_string(),
+            "spawn ordinal for a at line 5: walk said #3, source order says #2"
+        );
+
+        // A declared shape that consumed an ordinal would renumber the wrapped
+        // sites after it, which is exactly what N1 promises it does not.
+        let counted = [spawn(10, "a", 3, Some(1)), spawn(30, "a", 5, Some(3))];
+        let err = check_spawn_ordinals(&counted).expect_err("a declared shape was counted");
+        assert!(
+            err.to_string().contains("spawn ordinal"),
+            "unhelpful: {err}"
+        );
+
+        // Two files' worth of one qualname never mix here: `Ctx` is per file.
+        let per_qualname = [spawn(10, "a", 3, Some(1)), spawn(20, "b", 4, Some(1))];
+        check_spawn_ordinals(&per_qualname).expect("each qualname counts from 1");
+    }
+
+    /// `check_line_count` is the enforcement of `rust/HONESTY.md` §9 at the
+    /// point the promise is made, so it is driven directly too.
+    #[test]
+    fn a_fragment_that_moved_a_line_is_refused() {
+        check_line_count("a\nb\n", "a\nb\n", false).expect("unchanged");
+        check_line_count("a\nb\n", "a\nb\nc", true).expect("one appended line");
+        let err = check_line_count("a\nb\n", "a\nX\nb\n", false).expect_err("a line was added");
+        assert!(err.to_string().contains("moved lines"), "unhelpful: {err}");
+    }
+}

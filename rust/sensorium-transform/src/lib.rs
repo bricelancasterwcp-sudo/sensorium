@@ -100,6 +100,7 @@
 //! workspace.
 
 mod arms;
+mod assemble;
 mod attrs;
 mod census;
 mod closures;
@@ -547,7 +548,7 @@ pub fn transform_file(
     role: FileRole,
     focus: &Focus,
 ) -> Result<Transformed, syn::Error> {
-    splice::run(source, file, unit_metadata, first_site, role, focus)
+    assemble::run(source, file, unit_metadata, first_site, role, focus)
 }
 
 /// Count fn items the way [`transform`] classifies them, without rewriting.

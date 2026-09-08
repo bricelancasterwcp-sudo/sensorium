@@ -160,7 +160,7 @@ pub(crate) fn counts(source: &str) -> Census {
 ///
 /// A file whose WALK is clean but whose SPLICING half would fail answered
 /// `[]` under 0.4.1 and answers with its full row list here. The splicing half
-/// is everything this walk does not run: `splice::assemble` (two splices
+/// is everything this walk does not run: `assemble::assemble` (two splices
 /// overlapping), `check_line_count`, `check_spawn_ordinals`, the
 /// [`crate::MAX_SITE_INDEX`] guard, and `wrap_operand`'s three refusals (an
 /// exit operand whose span is not a byte range, one that does not re-tokenise,

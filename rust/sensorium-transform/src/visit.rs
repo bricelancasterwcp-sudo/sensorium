@@ -80,7 +80,7 @@ pub(crate) struct Ctx<'a> {
     scope: Vec<Frame>,
     /// How many WRAPPED spawn sites each enclosing qualname has had so far.
     /// `Ctx` is per file, so this is the per-`(file, qualname)` counter plan
-    /// decision N1 names, and `splice::run` re-derives it from source order
+    /// decision N1 names, and `assemble::run` re-derives it from source order
     /// afterwards rather than trusting it (N4).
     pub(crate) spawn_ordinals: HashMap<String, u32>,
     pub(crate) next_site: u32,
@@ -122,7 +122,7 @@ pub(crate) struct Ctx<'a> {
     /// (`errflow::ASYNC_BLOCK`), and no closure is framed while it is set.
     pub(crate) in_async: bool,
     /// The unit's crate root is a BINARY's, so a file-scope `fn main` here is
-    /// the program's entry (design R1b). Set by [`crate::splice::run`] from the
+    /// the program's entry (design R1b). Set by [`crate::assemble::run`] from the
     /// caller's [`crate::FileRole`]; false for every file whose caller does not
     /// know.
     pub(crate) is_bin_root: bool,
