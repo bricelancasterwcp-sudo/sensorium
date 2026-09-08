@@ -169,8 +169,10 @@ not what it can see.
 
 **The two translations.** The paragraph above names E4′'s endpoint ids:
 E4′'s H2 (the verdict) and H3 (the pair) are **this record's H3**, which
-gates both; E4′'s H4 (the shim census) has no counterpart here, and its four
-verified/unverifiable counts stay **reported and unsummed** under §1.5.
+gates both; E4′'s H4 — the shim census — has no counterpart here. The four
+verified/unverifiable counts named two paragraphs up are **E4's** H4, not
+E4′'s: E4′ carried them over in kind, and so does this record, **reported and
+unsummed** under §1.5.
 Nothing about the partition itself is translated — 57, the four names,
 1/4/4/4, and 1 harness thread on every pair are this record's numbers as they
 were E4′'s. E4′ *measured* that partition and got `granted` = 0, all 61
@@ -243,6 +245,15 @@ A-§3's, in A-§3's order, and this order is what arm C's choice reads:
 > `SSH_CLIENT`, `SSH_CONNECTION`, `SSH_TTY`, `INVOCATION_ID`,
 > `JOURNAL_STREAM`, `SYSTEMD_EXEC_PID`; prefix `CLAUDE_CODE_`.
 
+**Arm C's candidate list is the fourteen EXACT names above, in that order,
+and nothing else.** The `CLAUDE_CODE_` prefix is never a candidate: a prefix
+names no key, so "the first key absent from both sides" would not be
+decidable over it, and a `CLAUDE_CODE_*` name invented by the runner would be
+a key this box's agent session may create or destroy underneath the
+measurement. The prefix stays in the set for the purpose it has — exempting
+whatever `CLAUDE_CODE_*` keys the shells really carry, which on this box is
+`CLAUDE_CODE_SESSION_ID` — and takes no part in arm C's choice.
+
 **The launch guard, and what it may and may not refuse on.** Before any
 refocus runs, the preflight compares the runner's own process environment
 with **every** original's recorded one, after the recorder's exclusions, the
@@ -280,9 +291,10 @@ relocation rule and the fragment strip, and:
   licence stopped meaning anything and the slice's own exemption is what did
   it.
 - **C — the control that must not bite.** The same four rows, re-run with the
-  **FIRST key of session set 1 in the order printed above that is absent from
-  BOTH the original's recorded environment and the runner's own**, set to the
-  launch stamp. The key is **chosen and recorded at preflight**
+  **FIRST of the fourteen exact names of session set 1, in the order printed
+  above, that is absent from BOTH the original's recorded environment and the
+  runner's own**, set to the launch stamp. The `CLAUDE_CODE_` prefix is not a
+  candidate (above). The key is **chosen and recorded at preflight**
   (`pins.injected_session_key`), never chosen here, because which keys this
   box's shell exports is not knowable before the day. If no key of the list
   is absent from both sides, the preflight **REFUSES to launch** and says so:
@@ -328,11 +340,11 @@ in favour of the friendlier number.
 | H1 | does the harness rule change the licence word as predicted? | **Gate:** `H1.headline` = **57** granted and `H1.withheld` = **exactly §1.2's four**, by name, each mapping to its program-thread count **1 / 4 / 4 / 4** → **PASS**. Any other partition — a different count, a different set, or a granted line among the four — is a **STOP**, and the partition observed is the finding. **Second reading, REPORTED:** `H1.reasons_that_never_subtracted` is empty (no WITHHELD reason names the raw 2/5/5/5), `H1.hides_the_exclusion` is empty (no granted line omits the excluded harness thread), and `H1.harness_threads_all_one` is true over 61 — read from the licence clause where it speaks and from the `threads:` line where it is silent, each count carrying the line it came from (H7). |
 | H2 | is the recorder's fragment gone from the compare? | **Gate:** `H2.rustdocflags_in_changed` = **0 of 61** (`RUSTDOCFLAGS` appears in no pair's changed list), `H2.strip_clause_named` = **61 of 61** (the strip clause names `RUSTDOCFLAGS` on every pair), and `H2.relocated_set` on 61/61 is exactly E4′'s measured four — `CARGO_BIN_EXE_bloomery-daemon`, `CARGO_BIN_EXE_flywheel-tool`, `CARGO_TARGET_DIR`, `LD_LIBRARY_PATH` → **PASS**; any other value on any of the three is a **STOP**. **Second reading, REPORTED:** the rt hash the fragment carries on each side (§1.5), and the count of fragments removed per key per side — a strip that fired on a pair whose two hashes were EQUAL would be a strip that could not have been tested, and is reported as one. |
 | H3 | is the verdict untouched and the pair still found? | **Gate:** `H3.headline` = **MATCH 61 of 61** and `H3.pairs_of_one` = **61** → **PASS**. The comparator and the pairing are not changed by this slice, so a DIVERGED, a REFUSED, or a pair count ≠ 1 on any pair is a **STOP**, recorded with the pair's run ids. **Second reading, REPORTED:** `H3.word_and_exit_disagree` is empty (the printed verdict word and `refocus`'s exit — MATCH 0 / DIVERGED 1 / REFUSED 3 — agree on all 61), and `H3.excluded_children` = **0** on all 61; a disagreement between word and exit is itself a finding and is never resolved in favour of either. |
-| H4 | do session differences stay outside the vote? | **Gate:** on **61 of 61**, `H4.session_names` equals `pins.session_keys_differing` by name and `H4.session_k` equals its size, and `H4.withholding_cites_a_session_key` is **empty** — no withholding reason cites a key of session set 1 → **PASS**; else **STOP**. **Second reading, REPORTED:** the exact line and fact wording on a granted pair, so a reader can see that A-§3's `env: unchanged outside session set 1 (…)` is what printed and that the caveat is `None`; and the count of pairs on which the session set was empty (which on this box it should not be, per §1.3's rule 3). **Lens:** the names are read from the printed line, whose list is capped at 8 with a `+M more` tail — if K > 8 the by-name comparison cannot be made from the line and kill 7 applies (the cell goes `null` with its reason; K itself, which is never capped, still decides its half of the gate). |
+| H4 | do session differences stay outside the vote? | **Gate:** on **61 of 61**, `H4.session_names` equals `pins.session_keys_differing` by name and `H4.session_k` equals its size, and `H4.withholding_cites_a_session_key` is **empty** — no withholding reason cites a key of session set 1 → **PASS**; else **STOP**. **Second reading, REPORTED:** the exact line and fact wording on a granted pair, so a reader can see that A-§3's `env: unchanged outside session set 1 (…)` is what printed and that the caveat is `None`; and the count of pairs on which the session set was empty (which on this box it should not be, per §1.3's rule 3). **Lens, and the reading when it is bounded:** the names are read from the printed line, whose list is capped at 8 with a `+M more` tail. **If K > 8 on any pair**, `H4.session_names` goes **`null` with its reason** on that pair (kill 7) and H4 is decided **on K alone**: **PASS** only if `H4.session_k` equals `pins.session_keys_differing`'s size on 61 of 61 **and** `H4.withholding_cites_a_session_key` is empty; a K mismatch is a **STOP** exactly as a name mismatch would be. The reduced reading is published as the endpoint's lens and the record states plainly that the by-name half went unread — a bounded reading is never reported as the full one. On this box K is expected to be **1**, so this is a contingency, not the plan. |
 | H5 | does the licence still bite outside the set? | **Gate:** arm B is **WITHHELD 4 of 4** (`H5.headline` = 4) and `H5.env_caveat_names_the_key` = **4 of 4**, each caveat naming `E4PP_INPUT` → **PASS**; **any granted line in arm B is a STOP** — the exemption ate the rule. **Second reading, REPORTED:** `H5.thread_reason_kept` — `a_pager_can_be_shared_across_threads` still carries its one-program-thread reason alongside the env caveat; a control that silenced the thread reason is a finding. |
 | H6 | is the session count exact, and the word unmoved? | **Gate:** `H6.headline` = **4 of 4** pairs whose licence word equals arm A's for the same row; `H6.session_names` = `pins.session_keys_differing` ∪ {`pins.injected_session_key`} and `H6.session_k` = that set's size, on 4 of 4 → **PASS**; else **STOP**. **Second reading, REPORTED:** `H6.injected_key` — which key was chosen and why (the first of the printed order absent from both sides), and the two names the choice skipped over, so the rule is checkable rather than asserted. |
 | H7 | is the instrument honest? | **Gate:** `H7.headline` = **0** — no partition cell is `None` on a pair whose licence printed; `H7.counts_carry_their_source_line` is true for every thread count (each says whether it came from the licence clause or the `threads:` line); `H7.licence_verified_counts` is **non-null**; and `H7.version_probe` is a version token **or** `null` with its reason, never an empty string → **PASS**; else **STOP of the instrument**, not of the subject. **Second reading, REPORTED:** the four verified/unverifiable counts in kind (source and environment verified for real; output and children UNVERIFIABLE by construction, reported and never summed), and every `dropped` list this run wrote. |
-| H8 | did nothing else move? | **Gate:** `H8.corpus_rc` = 0 with every corpus case equal, run **WITH the driver** (`--require-driver`) and `H8.spawned_test_fn_present` true for `refocus_spawned_test_fn`; the whole Python suite green (`H8.pytest_summary`); `cargo test --workspace` green (`H8.cargo_rc` = 0) → **PASS**; any red is a **STOP**. **Second reading, REPORTED:** per-case equality of printed answers, and each suite's exit status with its pass/skip counts. This runs against **this repository**, never the clone. |
+| H8 | did nothing else move? | **Gate:** `H8.corpus_rc` = 0 with every corpus case equal, run **WITH the driver** (`--require-driver`) and `H8.spawned_test_fn_present` true for `refocus_spawned_test_fn`; the whole Python suite green (`H8.pytest_rc` = 0); `cargo test --workspace` green (`H8.cargo_rc` = 0) → **PASS**; any red is a **STOP** (kill 2). Three commands, three return codes, each its own field — a summary line is prose and does not decide a gate. **Second reading, REPORTED:** `H8.pytest_summary` (the pass/skip counts), per-case equality of printed answers, and each suite's exit status beside its rc. This runs against **this repository**, never the clone. |
 | reported | *(no gate)* | §1.5's list: wall per arm; arm B's verdicts; the two rt hashes; `driver_version` on both sides; K and its names. |
 
 **Kill criteria.**
@@ -341,11 +353,16 @@ in favour of the friendlier number.
    WITHHELD set other than the four named there, or a reason that never
    subtracted. Not a retry under a narrower rule, not a re-run with the
    lookup adjusted. The partition observed is the finding.
-2. **A miss on H2, H3, H4, H5 or H6 is a STOP with its number.** The strip,
-   the anchor and the session set are what this slice ships; a control that
-   does not discriminate is a result about the slice, not a reason to move
-   the control. **A miss on H7 is a STOP of the instrument**, distinguished
-   in the record from a STOP of the subject.
+2. **A miss on H2, H3, H4, H5, H6 or H8 is a STOP with its number.** The
+   strip, the anchor and the session set are what this slice ships; a control
+   that does not discriminate is a result about the slice, not a reason to
+   move the control. **H8's three commands are gates like any other**: a red
+   corpus (`H8.corpus_rc` non-zero, a case unequal, or
+   `refocus_spawned_test_fn` absent), a red Python suite (`H8.pytest_rc`
+   non-zero) or a red `cargo test --workspace` (`H8.cargo_rc` non-zero) is a
+   STOP, never a note appended to a passing record. **A miss on H7 is a STOP
+   of the instrument**, distinguished in the record from a STOP of the
+   subject. With kill 1 (H1), these eight cover every gated endpoint.
 3. **A refusal to launch is not a measurement.** A guard failure outside
    session set 1, a missing or duplicated original, a `meta.run_id`
    mismatch, no eligible key for arm C, or a dry run that does not show the
@@ -406,3 +423,19 @@ rather than only the verdicts:
   (this record's own — the 61 copies carry none from E4).
 - **The lens for every one of the above**, named with it. A number quoted
   without its instrument is not a property of the subject.
+
+## 2. Environment
+
+*(written by Task 8)*
+
+## 3. Results
+
+*(written by Task 8)*
+
+## 4. Verdicts
+
+*(written by Task 8)*
+
+## 5. Gaps
+
+*(written by Task 8)*
