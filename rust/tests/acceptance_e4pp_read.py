@@ -25,12 +25,24 @@ import re
 #: value had the RECORDER's own `RUSTDOCFLAGS` fragment removed before the
 #: compare. E4′ withheld all 61 pairs on that fragment alone; H2 asks
 #: whether it is gone from the compare, so the clause has to be readable as
-#: itself. `[^;)\n]` bounds it at the clause join (`; `) the relocated
-#: clause is on the other side of, and at the closing bracket of the
-#: `unchanged (...)` branch.
+#: itself.
+#:
+#: **The E4″ DRY RUN of 2026-09-08 found this pattern's first spelling.**
+#: The body was `[^;)\n]+` -- a character class and nothing else -- and the
+#: strip clause is the LAST of `_env_state`'s two, so on a Rust pair
+#: nothing stopped it: it ran on past the TWO-SPACE join into
+#: `refocus_rust._env_of`'s "the recorder's own, also not compared: …" and
+#: read eleven of the recorder's uncompared variables as keys the strip had
+#: touched. `H2.strip_clause_named` came back 0 of 2 and the dry exited 9.
+#:
+#: The body is lazy now and the bound is a LOOKAHEAD, exactly as
+#: `ENV_SESSION`'s already was and for the same reason: a clause of this
+#: line ends at a closing bracket, at the two spaces that begin the next
+#: clause, or at the end of the line. One idiom for both, so a third clause
+#: added later has a shape to copy.
 ENV_STRIPPED = re.compile(
     r"the recorder's own fragment stripped before comparing: "
-    r"(?P<names>[^;)\n]+)")
+    r"(?P<names>[^;)\n]+?)(?=\)|\s{2}|$)", re.M)
 
 #: R4/A-§3's session clause, `refocus_world._env_state`'s `told`. It appears
 #: in TWO grammatical slots -- inside the brackets of the `unchanged outside

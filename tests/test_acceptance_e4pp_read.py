@@ -16,6 +16,8 @@ import sys
 from functools import partial
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "rust" / "tests"))
 
@@ -231,3 +233,138 @@ def test_an_environment_with_no_fragment_reads_null_WITH_its_reason():
     assert "RUSTDOCFLAGS" in got["reason"]
     assert rd.rt_hash_of(None)["value"] is None
     assert rd.rt_hash_of(None)["reason"]
+
+
+# =============== fix round 3: the dry run's own three lines ==============
+#
+# These are the lines `sensorium refocus` ACTUALLY printed in the E4″ dry
+# run of 2026-09-08, copied out of `p2-01-….log` and the two arm logs. They
+# carry no path of any kind -- the clauses name KEYS, never values -- which
+# is why they can live in a committed test.
+#
+# The dry existed to catch what they caught: `ENV_STRIPPED`'s body was a
+# character class with no terminator of its own, so it ran on past the
+# TWO-SPACE clause join into the Rust branch's "the recorder's own, also
+# not compared: …" and read eleven of the recorder's uncompared variables
+# as keys the strip had touched. `H2.strip_clause_named` came back 0 of 2.
+
+#: The Rust branch's LAST clause (`refocus_rust._env_of`), which is what the
+#: strip clause's names were running into.
+RECORDER_OWN = (
+    "the recorder's own, also not compared: "
+    "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER, RUSTC_WORKSPACE_WRAPPER, "
+    "SENSORIUM_CARGO_SENSORIUM, SENSORIUM_FOCUS, SENSORIUM_INVOCATION, "
+    "SENSORIUM_RT_DIR, SENSORIUM_SPOOL, SENSORIUM_TARGET, SENSORIUM_TIER, "
+    "SENSORIUM_TOOL_HASH, SENSORIUM_WS")
+#: `refocus_world._env_state`'s two clauses, joined by `; `, then the
+#: recorder's-own clause two spaces later.
+CLAUSES = ("  4 variable(s) differ only by the target directory: "
+           "CARGO_BIN_EXE_bloomery-daemon, CARGO_BIN_EXE_flywheel-tool, "
+           "CARGO_TARGET_DIR, LD_LIBRARY_PATH; treated as unchanged; the "
+           "recorder's own fragment stripped before comparing: RUSTDOCFLAGS"
+           "  " + RECORDER_OWN)
+#: What the run's own `_UNCOMPARED_ENV` came to on the day.
+NOT_COMPARED = "OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _"
+
+#: Arm A, verbatim.
+DRY_ARM_A = (
+    f"env: unchanged outside session set 1 (104 variables compared; not "
+    f"compared: {NOT_COMPARED}; 1 session variable(s) differ: "
+    f"CLAUDE_CODE_SESSION_ID){CLAUSES}")
+#: Arm B, verbatim: the injected key on no list is CHANGED, and the session
+#: clause sits after `(names only)` rather than inside the brackets.
+DRY_ARM_B = (
+    "env: CHANGED since the original run -- 1 variable(s) differ: "
+    "E4PP_INPUT   (names only); 1 session variable(s) differ: "
+    f"CLAUDE_CODE_SESSION_ID{CLAUSES}")
+#: Arm C, verbatim: the chosen session key joins the set, K goes to 2.
+DRY_ARM_C = (
+    f"env: unchanged outside session set 1 (104 variables compared; not "
+    f"compared: {NOT_COMPARED}; 2 session variable(s) differ: "
+    f"CLAUDE_CODE_SESSION_ID, TERM_SESSION_ID){CLAUSES}")
+
+RELOCATED_FOUR = ["CARGO_BIN_EXE_bloomery-daemon",
+                  "CARGO_BIN_EXE_flywheel-tool", "CARGO_TARGET_DIR",
+                  "LD_LIBRARY_PATH"]
+
+
+@pytest.mark.parametrize("line", [DRY_ARM_A, DRY_ARM_B, DRY_ARM_C])
+def test_the_strip_clause_STOPS_at_the_two_space_join(line):
+    """The defect the dry run found. `RUSTDOCFLAGS` and nothing else: the
+    eleven names after it belong to a DIFFERENT clause about a DIFFERENT
+    claim -- "the recorder does not compare this" is not "the recorder
+    removed part of this before comparing"."""
+    p = rd.parse_refocus(line + "\n")
+    assert p["env_stripped_keys"] == ["RUSTDOCFLAGS"]
+
+
+@pytest.mark.parametrize("line", [DRY_ARM_A, DRY_ARM_B, DRY_ARM_C])
+def test_the_recorders_OWN_clause_is_read_apart_and_whole(line):
+    """The other half of the same join: the eleven names are read, in
+    full, under the field that means what they mean."""
+    p = rd.parse_refocus(line + "\n")
+    own = p["env_recorder_own_keys"]
+    assert own[0] == "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER"
+    assert own[-1] == "SENSORIUM_WS"
+    assert len(own) == 11
+    assert "RUSTDOCFLAGS" not in own
+
+
+@pytest.mark.parametrize("line", [DRY_ARM_A, DRY_ARM_B, DRY_ARM_C])
+def test_the_relocated_four_survive_the_same_line(line):
+    """`ENV_RELOCATED` is terminated by a literal of its own (`; treated as
+    unchanged`), so it never had this defect -- pinned here so it cannot
+    acquire one."""
+    p = rd.parse_refocus(line + "\n")
+    assert p["env_relocated_keys"] == RELOCATED_FOUR
+    assert p["env_relocated_n"] == 4
+
+
+def test_arm_As_real_line_reads_its_session_set_and_stays_unchanged():
+    p = rd.parse_refocus(DRY_ARM_A + "\n")
+    assert p["env_status"] == "unchanged"
+    assert p["env_unchanged_outside_session"] is True
+    assert p["env_session_n"] == 1
+    assert p["env_session_keys"] == ["CLAUDE_CODE_SESSION_ID"]
+    assert p["env_session_keys_truncated"] is False
+    assert p["env_changed_keys"] == []
+    assert p["env_changed_n"] == 0
+
+
+def test_arm_Bs_real_line_reads_the_injected_key_as_CHANGED():
+    p = rd.parse_refocus(DRY_ARM_B + "\n")
+    assert p["env_status"] == "CHANGED"
+    assert p["env_unchanged_outside_session"] is False
+    assert p["env_changed_keys"] == ["E4PP_INPUT"]
+    assert p["env_changed_n"] == 1
+    # ...and the session clause, which on this branch sits between
+    # `(names only)` and the two-space clause join.
+    assert p["env_session_n"] == 1
+    assert p["env_session_keys"] == ["CLAUDE_CODE_SESSION_ID"]
+
+
+def test_arm_Cs_real_line_reads_K_of_two_with_both_names():
+    p = rd.parse_refocus(DRY_ARM_C + "\n")
+    assert p["env_status"] == "unchanged"
+    assert p["env_session_n"] == 2
+    assert p["env_session_keys"] == ["CLAUDE_CODE_SESSION_ID",
+                                     "TERM_SESSION_ID"]
+    assert p["env_changed_keys"] == []
+
+
+@pytest.mark.parametrize("line", [DRY_ARM_A, DRY_ARM_B, DRY_ARM_C])
+def test_NO_clause_of_the_real_lines_swallows_another(line):
+    """Item 3 of the round, mechanical: every clause the four regexes read
+    is disjoint, and together they account for the names on the line. A
+    regex that ran past its own clause would show up here as a name in two
+    fields at once."""
+    p = rd.parse_refocus(line + "\n")
+    fields = [p["env_stripped_keys"], p["env_relocated_keys"],
+              p["env_recorder_own_keys"], p["env_changed_keys"],
+              p["env_session_keys"]]
+    seen = [n for f in fields for n in (f or [])]
+    assert len(seen) == len(set(seen)), sorted(seen)
+    # ...and no field carries a fragment of a neighbouring clause's PROSE.
+    for name in seen:
+        assert " " not in name, name
+        assert ":" not in name, name
