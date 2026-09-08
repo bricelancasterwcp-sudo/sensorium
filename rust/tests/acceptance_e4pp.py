@@ -317,6 +317,51 @@ GATED = (("H2", "raw_h2", "subject"), ("H3", "raw_h3", "subject"),
          ("H8", "raw_h8", "subject"))
 
 
+def stop_side(number: str, block: dict, declared: str) -> dict:
+    """Which side a STOP is of, DERIVED from what missed.
+
+    E4″ gap 2: `stop` and the `.FAILED` marker both ended "This is a STOP of
+    the subject" because the label hung off the endpoint id rather than off
+    the cell that missed -- and on the real run H8's own miss was a READER's
+    (three green return codes, a case that ran and came back equal), so the
+    marker's words pointed at the wrong side.
+
+    The rule, in one line: a phase that recorded a reason it could not READ
+    something (its `dropped` list, which is where every such reason goes,
+    and which is what takes `as_predicted` to `None`) missed because this
+    INSTRUMENT could not read it; a phase whose reading was whole and simply
+    did not match its gate missed on the side that endpoint measures. §1.4's
+    kill 2 asks the record to keep the two apart, and where they disagree
+    BOTH are printed -- neither is dropped for the other.
+    """
+    unread = [r for r in (block.get("dropped") or []) if r]
+    derived = "instrument" if unread else declared
+    return {"endpoint": number, "declared": declared, "derived": derived,
+            "agree": derived == declared, "unread": unread,
+            "blocked": block.get("as_predicted") is None}
+
+
+def stop_sides(res: dict) -> list[dict]:
+    """`stop_side` for every gated endpoint that STOPped, in GATED's order.
+    Published beside `stop` so a reader gets the derivation and not only the
+    sentence built from it."""
+    return [stop_side(number, res.get(key) or {}, whose)
+            for number, key, whose in GATED
+            if (res.get(key) or {}).get("verdict") == "STOP"]
+
+
+def _stop_sentence(side: dict) -> str:
+    """The words `stop_side`'s answer earns."""
+    if side["agree"]:
+        return ("This is a STOP of the INSTRUMENT, not of the subject"
+                if side["derived"] == "instrument"
+                else "This is a STOP of the subject")
+    return (f"The endpoint is gated on the {side['declared']}, and what "
+            f"missed is the {side['derived'].upper()}'s reading: "
+            f"{'; '.join(side['unread'])}. Both are named because they "
+            f"disagree, and neither stands in for the other")
+
+
 def dry_check(res: dict) -> dict:
     """What §1.3 requires a DRY run to SHOW, and nothing else.
 
@@ -449,9 +494,7 @@ def _stops(res: dict) -> list[str]:
         stops.append(
             f"{number} (kill 2): a miss with its number. Gate: "
             f"{block.get('gate')}. "
-            + ("This is a STOP of the INSTRUMENT, not of the subject"
-               if whose == "instrument" else
-               "This is a STOP of the subject"))
+            + _stop_sentence(stop_side(number, block, whose)))
     cl = res.get("cleanup") or res.get("cleanup_after_failure") or {}
     if cl.get("kept_store_unchanged") is False:
         stops.append(
@@ -503,6 +546,12 @@ def main(argv) -> int:
                  "schema_version": SCHEMA_VERSION,
                  "runner": RUNNER, "dry_run": dry, "dry_arms": dry_arms,
                  "document": str(DOC.relative_to(REPO)),
+                 # Where the DRY run's own raw record is, so §1.5's fourth
+                 # wall can be gathered from it instead of staying in an
+                 # archive nobody opens (E4″ gap 5). Named whether or not
+                 # the file exists: the assembler says which it found.
+                 "dry_raw": str(RAW.with_name(RAW.stem + "-dry"
+                                              + RAW.suffix)),
                  "ledger": str(LEDGER), "logs": str(LOGS)}
     rc = 0
     paths = cfg = pins = kept_before = None
@@ -534,6 +583,13 @@ def main(argv) -> int:
                       for r in two["refocuses"]
                       if r.get("driver_version_from_the_trace")), None)
         pins["driver_version_from_the_trace"] = first
+        # E4″ gap 3: the copied ORIGINAL's own token, beside the re-run's,
+        # so §1.5's "on both sides" has two cells and not one. The DISTINCT
+        # values, never a first: originals written by more than one driver
+        # would be the finding, and a first would hide it.
+        pins["driver_version_from_the_original"] = sorted(
+            {v for r in two["refocuses"]
+             if (v := (r.get("original_driver_version") or {}).get("value"))})
         # Belt and braces over the loop hook -- but ONLY where a row
         # really came back with a reading. E4′ marked here
         # unconditionally, which makes §1.4's rule 4 unreachable: a loop
@@ -608,6 +664,9 @@ def main(argv) -> int:
             # One code for both made a relaunch and a finding read the same
             # to whatever is watching the marker.
             res["stop"] = "; ".join(stops)
+            # The derivation beside the sentence built from it, so a reader
+            # gets which side each gated miss was on without parsing prose.
+            res["stop_sides"] = stop_sides(res)
             res["kill_is_infrastructure"] = _infrastructure(res)
             rc = rc or (9 if res["kill_is_infrastructure"] else 7)
         exhausted = [n for key in ("raw_pass2", "raw_arm_b", "raw_arm_c")

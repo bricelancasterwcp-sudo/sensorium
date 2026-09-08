@@ -35,7 +35,8 @@ MEASUREMENT_CELLS = {
     "H1": ("headline", "withheld", "hides_the_exclusion",
            "reasons_that_never_subtracted", "harness_threads_all_one"),
     "H2": ("rustdocflags_in_changed", "strip_clause_named",
-           "relocated_set", "hashes_differ", "hashes_unread"),
+           "relocated_set", "hashes_differ", "hashes_unread",
+           "fragments_per_side"),
     "H3": ("headline", "pairs_of_one", "word_and_exit_disagree",
            "excluded_children"),
     "H4": ("session_names", "session_k",
@@ -205,6 +206,17 @@ def _h2(raw) -> dict:
               f"be read on one side or both "
               f"({(h.get('hashes_unread') or [])[:3]})"]
              if h.get("hashes_unread") else [])),
+        "fragments_per_side": meas(
+            h.get("fragments_per_side"), h.get("fragments_readable"),
+            "§1.4's OTHER second reading for H2: the number of fragments "
+            "this recorder's strip removed from `RUSTDOCFLAGS`, per side, "
+            "counted on every pair and published only where every readable "
+            "pair carried the same one. Read on both sides and published "
+            "on neither until E4″ gap 4; the per-pair numbers are on "
+            "`rt_hashes_by_pair`",
+            ([] if h.get("fragments_per_side") is not None
+             else [r for r in [h.get("fragments_reason")] if r]
+             or _dropped(h))),
         "hashes_unread": meas(
             h.get("hashes_unread"), n,
             "§1.5: pairs whose rt hash could not be read on one side or "
@@ -221,6 +233,8 @@ def _h2(raw) -> dict:
         "hashes_equal_so_the_strip_was_untested": h.get(
             "hashes_equal_so_the_strip_was_untested"),
         "hashes_readable": h.get("hashes_readable"),
+        "fragments_readable": h.get("fragments_readable"),
+        "fragments_seen": h.get("fragments_seen"),
         "rt_hashes_by_pair": h.get("rt_hashes_by_pair"),
         "gate": h.get("gate"),
         "as_predicted": h.get("as_predicted"),
@@ -494,7 +508,10 @@ def _h8(raw) -> dict:
         "spawned_test_fn_present": meas(
             h.get("spawned_test_fn_present"), 1,
             f"the corpus collector's own `load_cases()` listing, asked "
-            f"whether it names `{e4pp.SPAWNED_CASE}`",
+            f"whether it names `{e4pp.SPAWNED_CASE}` -- as a WHOLE name or "
+            f"as a last path segment, the collector spelling its Rust cases "
+            f"`rust/<name>`; `null` WITH the listing's command and rc under "
+            f"neither spelling, never a clean negative",
             _dropped(h)),
         "pytest_rc": meas(h.get("pytest_rc"), 1, H8_LENS, []),
         "cargo_rc": meas(h.get("cargo_rc"), 1, H8_LENS, []),
@@ -508,6 +525,8 @@ def _h8(raw) -> dict:
         "corpus_require_driver": h.get("corpus_require_driver"),
         "corpus_args": h.get("corpus_args"),
         "spawned_test_fn": h.get("spawned_test_fn"),
+        "spawned_test_fn_matched": h.get("spawned_test_fn_matched"),
+        "spawned_test_fn_reason": h.get("spawned_test_fn_reason"),
         "spawned_test_fn_skipped": h.get("spawned_test_fn_skipped"),
         "cargo_result_lines": h.get("cargo_result_lines"),
         "logs": h.get("logs"),

@@ -105,7 +105,7 @@ def test_the_arms_rows_are_counted_too_and_never_only_arm_A():
 
 # ------------------------------------------------- §1.5's two tool hashes
 
-def _trace(dirpath, run, flags):
+def _trace(dirpath, run, flags, driver=None):
     import json as _j
     import sqlite3
     dirpath.mkdir(parents=True, exist_ok=True)
@@ -116,6 +116,9 @@ def _trace(dirpath, run, flags):
                     (_j.dumps(run),))
         con.execute("insert into meta values ('env', ?)",
                     (_j.dumps({"RUSTDOCFLAGS": flags} if flags else {}),))
+        if driver is not None:
+            con.execute("insert into meta values ('driver_version', ?)",
+                        (_j.dumps(driver),))
         con.commit()
     finally:
         con.close()
@@ -165,6 +168,43 @@ def test_a_pair_with_NO_re_run_trace_reads_null_WITH_its_reason(tmp_path):
     assert r["rt_hashes_differ"] is None
 
 
+def test_the_ORIGINALS_driver_version_is_read_TOO(tmp_path):
+    """E4″ gap 3. The instrument opened the copied original for its `env`
+    and never for its `meta.driver_version`, so §1.5's "`driver_version` on
+    both sides" had one cell -- and the originals' own token appeared
+    nowhere in the record. Read beside the rt-hash pair, from the same
+    `meta` the hash comes out of."""
+    traces = tmp_path / "traces"
+    _trace(traces, "orig-1", _flags("/t/a", "d9ce385a08c66466"),
+           driver="cargo-sensorium 0.5.0")
+    _trace(traces, "pair-1", _flags("/t/b", "83d9294b8135c157"),
+           driver="cargo-sensorium 0.5.2")
+    block = {"refocuses": [{"name": "n", "original": "orig-1",
+                            "new_run": "pair-1"}]}
+    ph.read_rt_hashes({"sensorium_dir": tmp_path}, block)
+    got = block["refocuses"][0]["original_driver_version"]
+    assert got["value"] == "cargo-sensorium 0.5.0"
+    assert got["reason"] is None
+
+
+def test_an_ORIGINAL_with_no_token_is_null_WITH_its_reason(tmp_path):
+    """None-vs-blank, and the two ways it goes missing told apart: a trace
+    this reader could not open is not a trace that records no token, and
+    neither of them is "the two sides agree"."""
+    traces = tmp_path / "traces"
+    _trace(traces, "orig-1", _flags("/t/a", "d9ce385a08c66466"))
+    block = {"refocuses": [{"name": "n", "original": "orig-1",
+                            "new_run": None},
+                           {"name": "m", "original": "gone", "new_run": None}]}
+    ph.read_rt_hashes({"sensorium_dir": tmp_path}, block)
+    recorded, missing = (r["original_driver_version"]
+                         for r in block["refocuses"])
+    assert recorded["value"] is None
+    assert "records no `meta.driver_version`" in recorded["reason"]
+    assert missing["value"] is None
+    assert "could not be read" in missing["reason"]
+
+
 def test_a_row_that_never_RAN_is_left_alone(tmp_path):
     block = {"refocuses": [{"name": "n", "not_run": "the bound was reached"}]}
     ph.read_rt_hashes({"sensorium_dir": tmp_path}, block)
@@ -192,7 +232,8 @@ def _h8(monkeypatch, rec=None, names=_UNSET, reason=None):
     import acceptance_e4pp_phases2 as ph2
     monkeypatch.setattr(ph2.eph2, "phase_h6",
                         lambda paths, cfg: rec or _h6_rec())
-    listing = {"command": "…", "rc": 0,
+    listing = {"command": "python -c 'from corpus.run_corpus import "
+                          "load_cases; ...'", "rc": 0,
                "names": (["refocus_child_run", e4pp.SPAWNED_CASE]
                          if names is _UNSET else names),
                "reason": reason}
@@ -220,20 +261,56 @@ def test_ANY_red_command_is_a_STOP_with_its_OWN_return_code(monkeypatch,
 
 def test_the_named_case_MISSING_from_the_collector_is_a_STOP(monkeypatch):
     """E4′ §5's gap 3, as a gate: the collector's `--json` publishes counts
-    and no names, so the presence is read from its own `load_cases()`."""
+    and no names, so the presence is read from its own `load_cases()`.
+
+    E4″ gap 1: the miss is `null` WITH the listing's command and rc, never a
+    clean `False` -- a reader cannot tell "this reader looked the wrong way"
+    from "the case is gone", and only the second is about the repository.
+    The gate is unmoved: `None` is not `True`."""
     h = _h8(monkeypatch, names=["refocus_child_run"])
-    assert h["spawned_test_fn_present"] is False
+    assert h["spawned_test_fn_present"] is None
+    assert h["spawned_test_fn_matched"] is None
+    why = h["spawned_test_fn_reason"]
+    assert "under neither" in why and "load_cases" in why
+    assert "exited 0" in why
+    assert any(why in d and "UNREAD" in d for d in h["dropped"])
     assert h["verdict"] == "STOP"
+
+
+def test_the_case_under_its_PREFIXED_spelling_is_present(monkeypatch):
+    """E4″ gap 1, the half that made the false negative: `load_cases()`
+    names each case by its directory relative to `corpus/`, so the 43 cargo
+    cases are spelled `rust/<name>` and the bare name is in the list of 63
+    exactly never. The real run read `False` on a case that was collected,
+    ran under `--require-driver` and came back equal."""
+    h = _h8(monkeypatch, names=["rust/abort", f"rust/{e4pp.SPAWNED_CASE}"])
+    assert h["spawned_test_fn_present"] is True
+    assert h["spawned_test_fn_matched"] == f"rust/{e4pp.SPAWNED_CASE}"
+    assert h["spawned_test_fn_reason"] is None
+    assert h["dropped"] == []
+    assert h["verdict"] == "PASS"
+
+
+def test_the_LAST_SEGMENT_is_matched_and_never_a_substring(monkeypatch):
+    """A last-path-segment match, not a `in`-the-string one: a case called
+    `rust/refocus_spawned_test_fn_two` ends with the name as a substring and
+    is a different case."""
+    h = _h8(monkeypatch, names=[f"rust/{e4pp.SPAWNED_CASE}_two",
+                                f"deep/nest/{e4pp.SPAWNED_CASE}x"])
+    assert h["spawned_test_fn_present"] is None
 
 
 def test_a_listing_that_could_NOT_be_read_is_null_WITH_its_reason(
         monkeypatch):
     """None-vs-false: "the collector printed nothing" and "the case is
     missing" are different facts, and only the second is about the
-    repository."""
+    repository. Both now carry the listing's own command and rc, which is
+    what lets a reader re-run the question."""
     h = _h8(monkeypatch, names=None, reason="ImportError: no corpus")
     assert h["spawned_test_fn_present"] is None
     assert h["dropped"] and "UNREAD" in h["dropped"][0]
+    assert "ImportError: no corpus" in h["spawned_test_fn_reason"]
+    assert "exited 0" in h["spawned_test_fn_reason"]
     assert h["verdict"] == "STOP"
 
 

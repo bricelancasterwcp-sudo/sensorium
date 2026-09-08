@@ -15,6 +15,7 @@ rewritten.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -102,6 +103,13 @@ def _pair_row(r: dict) -> dict:
         "rerun_rt_hash": (r.get("rerun_rt_hash") or {}).get("value"),
         "driver_version_from_the_trace": r.get(
             "driver_version_from_the_trace"),
+        # The copied ORIGINAL's own token, beside the re-run's and beside
+        # the rt-hash pair (E4″ gap 3): `null` WITH its reason, never a
+        # blank that reads as "the two agree".
+        "driver_version_from_the_original": (
+            r.get("original_driver_version") or {}).get("value"),
+        "driver_version_from_the_original_reason": (
+            r.get("original_driver_version") or {}).get("reason"),
         "wall_s": r.get("wall_s"), "trace_bytes": r.get("new_trace_bytes"),
         "log": r.get("log"),
     })
@@ -119,21 +127,107 @@ def _pairs(raw) -> dict:
                        for a in sorted({r["arm"] for r in rows})}}
 
 
-def _walls(raw) -> dict:
-    """§1.5's wall per arm, the first focus distinguished from the later
-    ones. Reported; nothing here is gated on a wall."""
-    out = {}
-    for key, label in (("raw_pass2", "A"), ("raw_arm_b", "B"),
-                       ("raw_arm_c", "C")):
-        walls = [r.get("wall_s") for r in (raw.get(key) or {}).get(
-            "refocuses") or [] if r.get("wall_s") is not None]
-        out[label] = {
-            "first_focus": walls[0] if walls else None,
+#: The three arms, in §1.5's order, and the raw block each one wrote.
+ARMS = (("raw_pass2", "A"), ("raw_arm_b", "B"), ("raw_arm_c", "C"))
+
+
+def _summary(walls: list) -> dict:
+    """One arm's walls, the FIRST focus apart from the later ones -- the
+    first pays for a cold build and averaging it in hides both numbers."""
+    return {"first_focus": walls[0] if walls else None,
             "later_focus_mean": (round(sum(walls[1:]) / len(walls[1:]), 3)
                                  if len(walls) > 1 else None),
             "later_focus_max": max(walls[1:]) if len(walls) > 1 else None,
             "n": len(walls)}
-    out["note"] = "nothing is gated on a wall"
+
+
+def _arm_walls(raw) -> dict:
+    """§1.5's wall per arm, the first focus distinguished from the later
+    ones. Reported; nothing here is gated on a wall."""
+    return {label: _summary([r.get("wall_s")
+                             for r in (raw.get(key) or {}).get("refocuses")
+                             or [] if r.get("wall_s") is not None])
+            for key, label in ARMS}
+
+
+def _cargo_walls(raw) -> dict:
+    """Cargo's OWN time inside each focus, per arm.
+
+    §1.5 asks for the arm walls "with cargo's own build time inside each",
+    and this run recorded it per row -- `cargo_finished_s`, a LIST, because
+    one `sensorium refocus` can drive more than one cargo invocation -- and
+    never gathered it anywhere (E4″ gap 5). Summed per row, then summarised
+    like the arm walls. Rows that printed no `Finished in` line are counted
+    apart rather than entering the mean as zeros.
+    """
+    out = {}
+    for key, label in ARMS:
+        rows = [r for r in (raw.get(key) or {}).get("refocuses") or []
+                if "not_run" not in r]
+        per_row = [round(sum(v), 3) for r in rows
+                   if (v := r.get("cargo_finished_s"))]
+        out[label] = dict(_summary(per_row),
+                          rows_without_a_cargo_time=len(rows) - len(per_row))
+    return out
+
+
+def _driver_build_wall(raw) -> dict:
+    """The driver build's own wall, apart from every focus (§1.5).
+
+    Recorded by the preflight as `pins.built_from.cargo_wall_s` and never
+    carried into `reported` (E4″ gap 5). `rebuilt` beside it, because 0.025
+    s means something different when nothing was rebuilt.
+    """
+    built = (raw.get("pins") or {}).get("built_from") or {}
+    return {"value": built.get("cargo_wall_s"),
+            "rebuilt": built.get("rebuilt"),
+            "reason": (None if built.get("cargo_wall_s") is not None
+                       else "the preflight recorded no driver build wall")}
+
+
+def _dry_walls(raw) -> dict:
+    """The DRY run's walls, from the record the dry launch wrote.
+
+    §1.5's fourth wall. A dry run measures nothing about the subject, so
+    its walls are not among this run's rows: they stayed in their own
+    archived results and never reached the real run's `reported` (E4″ gap
+    5). `null` WITH the path this reader looked at where there is no dry
+    record beside this one -- a wall nobody read is not a wall of zero.
+    """
+    if raw.get("dry_run"):
+        return {"value": None, "path": None,
+                "reason": ("this record IS the dry run, and its own walls "
+                           "are `walls_s.A`/`B`/`C` beside this field")}
+    path = raw.get("dry_raw")
+    if not path:
+        return {"value": None, "path": None,
+                "reason": "this record names no dry run's raw file"}
+    try:
+        dry = json.loads(Path(path).read_text())
+    except (OSError, ValueError) as e:
+        return {"value": None, "path": path,
+                "reason": f"the dry run's raw record could not be read: {e}"}
+    return {"path": path, "started": dry.get("started"), "reason": None,
+            "arms": _arm_walls(dry), "cargo_s": _cargo_walls(dry)}
+
+
+def _walls(raw) -> dict:
+    """The four walls §1.5 names, in one field.
+
+    The bullet pre-commits "wall per arm (A, B, C and the dry run), the
+    first focus distinguished from the later ones with cargo's own build
+    time inside each, and the driver build's wall separately". Three of the
+    four were here and the rest were recorded elsewhere in the raw or in
+    another record's -- E4″ gap 5, closed by gathering, never by measuring
+    anything new.
+    """
+    out = _arm_walls(raw)
+    out["cargo_s"] = _cargo_walls(raw)
+    out["driver_build"] = _driver_build_wall(raw)
+    out["dry"] = _dry_walls(raw)
+    out["note"] = ("nothing is gated on a wall. §1.5 names four -- the "
+                   "three arms and the dry run -- with cargo's own time "
+                   "inside each focus and the driver build's wall apart")
     return out
 
 
@@ -153,6 +247,14 @@ def _reported(raw) -> dict:
                 "hashes_equal_so_the_strip_was_untested"),
             "pairs_whose_hashes_were_unread": h2.get("hashes_unread"),
             "pairs_whose_hashes_were_readable": h2.get("hashes_readable"),
+            # §1.4's OTHER pre-committed second reading for H2 (E4″ gap 4).
+            # `by_pair[*]` carries the per-side counts themselves; these are
+            # the summary, `null` WITH its reason where the pairs disagree.
+            "fragments_per_side": h2.get("fragments_per_side"),
+            "fragments_per_side_reason": h2.get("fragments_reason"),
+            "fragments_per_side_seen": h2.get("fragments_seen"),
+            "pairs_whose_fragments_were_readable": h2.get(
+                "fragments_readable"),
             "note": ("their DIFFERENCE is the proof the two builds are not "
                      "the same build -- the one condition E4′ could not "
                      "create; a pair whose two hashes were EQUAL is a pair "
@@ -163,11 +265,17 @@ def _reported(raw) -> dict:
         },
         "driver_version": {
             "from_the_trace": pins.get("driver_version_from_the_trace"),
+            "from_the_original_trace": pins.get(
+                "driver_version_from_the_original"),
             "built": (pins.get("built_from") or {}).get("driver"),
             "sha256": pins.get("driver_sha256"),
-            "note": ("read from each trace's own `meta.recorder` and from "
-                     "the built driver's recorded version, never from the "
-                     "tokens §1.3 expects"),
+            "note": ("read from each trace's own `meta.driver_version` -- "
+                     "the RE-RUN's and, since E4″ gap 3, the copied "
+                     "ORIGINAL's, so the pair is two readings and not one "
+                     "-- and from the built driver's recorded version, "
+                     "never from the tokens §1.3 expects. `meta.recorder` "
+                     "is the RUNTIME's version and is a different key; §1.5 "
+                     "names it, and this is the key the reader takes"),
         },
         "session_set": {
             "pin": pins.get("session_keys_differing"),
@@ -327,6 +435,9 @@ def assemble_e4pp(raw: dict) -> dict:
         "cleanup": cl or None,
         "steps": raw.get("steps"),
         "stop": raw.get("stop"),
+        # Which side each gated miss was on, DERIVED from what
+        # missed rather than from the endpoint id (E4″ gap 2).
+        "stop_sides": raw.get("stop_sides"),
         "bound_reached": raw.get("bound_reached"),
         "refused": raw.get("refused"), "error": raw.get("error"),
         "started": raw.get("started"), "finished": raw.get("finished"),

@@ -274,6 +274,67 @@ def test_the_wall_per_arm_is_reported_for_ALL_THREE_arms():
         assert walls[arm]["first_focus"] is not None
 
 
+def test_ALL_FOUR_walls_section_1_5_names_are_in_the_reported_block():
+    """E4″ gap 5. The bullet pre-commits four -- A, B, C and the DRY run --
+    "with cargo's own build time inside each" and "the driver build's wall
+    separately"; `reported.walls_s` held three and a note. Every missing
+    piece was recorded somewhere in the raw (or in the dry run's own
+    record), so this gathers and never re-measures."""
+    raw = _raw()
+    raw["pins"]["built_from"] = {"cargo_wall_s": 0.025, "rebuilt": False}
+    walls = assemble_e4pp(raw)["reported"]["walls_s"]
+    assert walls["driver_build"]["value"] == 0.025
+    assert walls["driver_build"]["rebuilt"] is False
+    assert walls["cargo_s"]["A"]["first_focus"] == 3.3
+    assert walls["cargo_s"]["A"]["n"] == 61
+    assert walls["cargo_s"]["A"]["rows_without_a_cargo_time"] == 0
+    for arm in ("A", "B", "C"):
+        assert walls[arm]["n"], arm
+
+
+def test_cargos_own_time_is_SUMMED_per_row_and_rows_without_one_counted():
+    """One `sensorium refocus` can drive more than one cargo invocation, so
+    the row's time is the SUM of its `Finished in` lines -- and a row that
+    printed none is counted apart rather than entering the mean as a zero,
+    which would report a build that took no time."""
+    import acceptance_e4p_rows as rows
+    two = _two({rows.NAMES[0]: {"cargo": (1.5, 2.0)},
+                rows.NAMES[1]: {"cargo": ()}})
+    walls = assemble_e4pp(_raw(raw_pass2=two))["reported"]["walls_s"]
+    assert walls["cargo_s"]["A"]["first_focus"] == 3.5
+    assert walls["cargo_s"]["A"]["n"] == 60
+    assert walls["cargo_s"]["A"]["rows_without_a_cargo_time"] == 1
+
+
+def test_a_DRY_runs_walls_are_carried_in_from_the_record_it_wrote(tmp_path):
+    """The fourth wall. A dry run measures nothing about the subject, so
+    its walls are not among this run's rows -- they are in the record the
+    dry launch wrote, which this one names."""
+    dry = _raw()
+    dry["dry_run"] = True
+    (tmp_path / "dry.json").write_text(json.dumps(dry, default=str))
+    raw = dict(_raw(), dry_raw=str(tmp_path / "dry.json"))
+    walls = assemble_e4pp(raw)["reported"]["walls_s"]["dry"]
+    assert walls["reason"] is None
+    assert walls["arms"]["A"]["first_focus"] == 7.0
+    assert walls["cargo_s"]["A"]["first_focus"] == 3.3
+
+
+def test_a_MISSING_dry_record_is_null_WITH_the_path_it_looked_at(tmp_path):
+    """None-vs-zero on a wall: a run whose dry record is not there reports
+    that, and a reader is told where to look rather than reading a 0."""
+    raw = dict(_raw(), dry_raw=str(tmp_path / "absent.json"))
+    walls = assemble_e4pp(raw)["reported"]["walls_s"]["dry"]
+    assert walls["value"] is None
+    assert "could not be read" in walls["reason"]
+    assert walls["path"] == str(tmp_path / "absent.json")
+    # ...and a DRY run's own record says so instead of pointing at itself.
+    own = assemble_e4pp(dict(_raw(), dry_run=True,
+                             dry_raw=str(tmp_path / "absent.json"))
+                        )["reported"]["walls_s"]["dry"]
+    assert own["value"] is None and "IS the dry run" in own["reason"]
+
+
 def test_the_pairs_table_carries_every_arms_rows_each_naming_its_arm():
     pairs = assemble_e4pp(_raw())["pairs"]
     assert pairs["by_arm"] == {"A": 61, "armB": 4, "armC": 4}
@@ -308,6 +369,42 @@ def test_the_UNREAD_hash_count_is_a_cell_of_its_own_beside_the_two():
     assert e["hashes_unread"]["value"] == [
         "unknown_model_mutating_verbs_is_false"]
     assert e["hashes_unread"]["n"] == 61
+
+
+def test_the_FRAGMENT_cell_reaches_the_endpoint_AND_the_reported_block():
+    """E4″ gap 4, at the two addresses §1.4 and §1.5 point at: an `H2` cell
+    of the record's own `{value, n, lens, dropped}` shape, and
+    `reported.rt_hashes`, whose `by_pair[*]` carries the per-side counts
+    themselves."""
+    import acceptance_e4pp_phases as ph
+    sys.path.insert(0, str(REPO / "tests"))
+    from test_acceptance_e4pp_phases import _two
+    raw = _raw()
+    raw["raw_h2"] = ph.phase_h2_fragment(_two())
+    out = assemble_e4pp(raw)
+    cell = out["endpoints"]["H2"]["fragments_per_side"]
+    assert cell["value"] == {"original": 1, "rerun": 1}
+    assert cell["n"] == 61 and cell["dropped"] == []
+    assert "fragments" in cell["lens"]
+    rt = out["reported"]["rt_hashes"]
+    assert rt["fragments_per_side"] == {"original": 1, "rerun": 1}
+    assert rt["pairs_whose_fragments_were_readable"] == 61
+    row = rt["by_pair"]["unknown_model_mutating_verbs_is_false"]
+    assert row["original_fragments"] == 1 and row["rerun_fragments"] == 1
+
+
+def test_a_DISAGREEING_fragment_count_is_null_WITH_its_reason_in_the_cell():
+    """The honesty half: no single number where the pairs did not agree,
+    and the cell says so rather than publishing one of the two."""
+    import acceptance_e4pp_phases as ph
+    sys.path.insert(0, str(REPO / "tests"))
+    from test_acceptance_e4pp_phases import _two
+    raw = _raw()
+    raw["raw_h2"] = ph.phase_h2_fragment(_two({
+        "unknown_model_mutating_verbs_is_false": {"rerun_frags": 0}}))
+    cell = assemble_e4pp(raw)["endpoints"]["H2"]["fragments_per_side"]
+    assert cell["value"] is None
+    assert cell["dropped"] and "did not agree" in cell["dropped"][0]
 
 
 def test_the_renderer_prints_ALL_THREE_hash_readings():

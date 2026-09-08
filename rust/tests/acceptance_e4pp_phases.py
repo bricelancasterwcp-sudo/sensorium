@@ -28,9 +28,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import acceptance_e4p_phases as eph                                # noqa: E402
 import acceptance_e4pp_rows as e4pp                                # noqa: E402
 from acceptance_e4p_read import rt_hash_of, trace_meta_ro          # noqa: E402
-from acceptance_e4p_schema import licence_verified_counts          # noqa: E402
 from acceptance_e6ppp import logs_at, mark_load                    # noqa: E402
-from acceptance_e4pp_phases2 import (corpus_case_names,           # noqa: E402,F401
+from acceptance_e4pp_phases2 import (_measured,                    # noqa: E402,F401
+                                     corpus_case_names,
+                                     phase_h7_instrument,
                                      phase_h8_nothing_else)
 from acceptance_lib import step                                   # noqa: E402
 from sensorium.query.refocus_env import is_session_key             # noqa: E402
@@ -42,13 +43,6 @@ CAPPED = (f"the printed name list is capped at {e4pp.NAME_CAP} names with a "
           "`+M more` tail, so the COUNT is authoritative and the names are "
           "short: the by-name half of this reading went UNREAD and the "
           "bounded reading is never reported as the full one")
-
-
-def _measured(block: dict) -> list[dict]:
-    """Every row of an arm that actually ran. A row the loop bound cut off
-    carries `not_run` and has no reading of any kind."""
-    return [r for r in (block or {}).get("refocuses") or []
-            if "not_run" not in r]
 
 
 def _verdict(ok) -> str:
@@ -112,6 +106,30 @@ def phase_h1(two: dict) -> dict:
     return out
 
 
+def fragments_per_side(frags: dict) -> tuple:
+    """§1.4's second H2 reading as ONE cell: the fragment count each side
+    carried, and `null` WITH its reason where the pairs disagree.
+
+    `session_k`'s rule, for `session_k`'s reason: a single number per side
+    is published only where every readable pair printed the same one. Two
+    different counts folded into one would report a subject that never
+    existed, and the per-pair numbers are on `rt_hashes_by_pair` either way.
+    """
+    if not any(frags.values()):
+        return None, ("no pair carried a fragment count this reader could "
+                      "read, so there is none to publish")
+    spread = {s: sorted(v) for s, v in frags.items() if len(v) != 1}
+    if spread:
+        told = "; ".join(
+            f"{s}: " + (", ".join(str(x) for x in v) if v else "nothing read")
+            for s, v in sorted(spread.items()))
+        return None, (f"the pairs did not agree on the fragment count per "
+                      f"side ({told}); a single value is published only "
+                      f"where every readable pair carried the same one, and "
+                      f"the per-pair counts are under `rt_hashes_by_pair`")
+    return {s: next(iter(v)) for s, v in sorted(frags.items())}, None
+
+
 def read_rt_hashes(paths, block: dict) -> dict:
     """§1.5's two tool hashes, per pair, read from the TRACES.
 
@@ -130,8 +148,23 @@ def read_rt_hashes(paths, block: dict) -> dict:
     for r in (block or {}).get("refocuses") or []:
         if "not_run" in r:
             continue
-        r["original_rt_hash"] = rt_hash_of(
-            trace_meta_ro(traces / f"{r.get('original')}.db").get("env"))
+        original = trace_meta_ro(traces / f"{r.get('original')}.db")
+        r["original_rt_hash"] = rt_hash_of(original.get("env"))
+        # §1.5's version, on the side it was never read from (E4″ gap 3).
+        # The RE-RUN's token comes off its own trace in
+        # `acceptance_e4p_phases`; the copied ORIGINAL was opened for its
+        # `env` and never for its `meta.driver_version`, so a sentence that
+        # names two sides had one cell. `null` WITH its reason, because a
+        # trace this reader could not open and a trace that records no
+        # token are different facts and neither is "the versions agree".
+        r["original_driver_version"] = {
+            "value": original.get("driver_version"),
+            "reason": (None if original.get("driver_version") is not None
+                       else ("the copied original's trace could not be read"
+                             if not original else
+                             "the copied original records no "
+                             "`meta.driver_version`")),
+        }
         r["rerun_rt_hash"] = (
             rt_hash_of(trace_meta_ro(
                 traces / f"{r['new_run']}.db").get("env"))
@@ -173,6 +206,8 @@ def phase_h2_fragment(two: dict) -> dict:
     in_changed, missing, bounded, changed_by_pair = [], [], [], {}
     sets, hashes, equal, unread, differ = {}, {}, [], [], 0
     no_line = []
+    frags: dict = {"original": set(), "rerun": set()}
+    frag_rows: set = set()
     for r in rows:
         name = r["name"]
         changed = r.get("env_changed_keys")
@@ -192,9 +227,24 @@ def phase_h2_fragment(two: dict) -> dict:
         if e4pp.STRIP_KEY not in (r.get("env_stripped_keys") or []):
             missing.append(name)
         sets[name] = sorted(r.get("env_relocated_keys") or [])
-        a = (r.get("original_rt_hash") or {}).get("value")
-        b = (r.get("rerun_rt_hash") or {}).get("value")
-        hashes[name] = {"original": a, "rerun": b}
+        oh = r.get("original_rt_hash") or {}
+        rh = r.get("rerun_rt_hash") or {}
+        a, b = oh.get("value"), rh.get("value")
+        # §1.4's H2 row pre-commits TWO second readings: the rt hash each
+        # side carries, and "the count of fragments removed per key per
+        # side". The second was read on both sides and published on neither
+        # (E4″ gap 4) -- it goes onto the pair here and into a cell below,
+        # so a reader after a pre-committed reading finds it in the record
+        # instead of in a gitignored ledger.
+        hashes[name] = {"original": a, "rerun": b,
+                        "original_fragments": oh.get("fragments"),
+                        "rerun_fragments": rh.get("fragments"),
+                        "original_occurrences": oh.get("occurrences"),
+                        "rerun_occurrences": rh.get("occurrences")}
+        for side, cell in (("original", oh), ("rerun", rh)):
+            if cell.get("fragments") is not None:
+                frags[side].add(cell["fragments"])
+                frag_rows.add(name)
         # Three outcomes, never two. A pair whose either side could not be
         # read is on NEITHER list: counted as "not differing" it would make
         # an unreadable run and a single-build run print the same number,
@@ -205,6 +255,7 @@ def phase_h2_fragment(two: dict) -> dict:
             differ += 1
         else:
             equal.append(name)
+    per_side, frag_reason = fragments_per_side(frags)
     distinct = sorted({tuple(v) for v in sets.values()})
     expected = list(e4pp.EXPECTED_RELOCATED)
     matches = sum(1 for v in sets.values() if v == expected)
@@ -247,6 +298,11 @@ def phase_h2_fragment(two: dict) -> dict:
         "expected_relocated_set": expected,
         # §1.5, reported and never gated.
         "rt_hashes_by_pair": hashes,
+        # §1.4's H2 second reading, per side (E4″ gap 4).
+        "fragments_per_side": per_side,
+        "fragments_reason": frag_reason,
+        "fragments_readable": len(frag_rows),
+        "fragments_seen": {s: sorted(v) for s, v in sorted(frags.items())},
         "hashes_differ": differ,
         "hashes_equal_so_the_strip_was_untested": sorted(equal),
         "hashes_unread": sorted(unread),
@@ -646,111 +702,6 @@ def phase_h6_session_key(two: dict, arm_c: dict, session_differs,
     step(f"H6: word matches arm A on {out['headline']}/{len(rows)}; session "
          f"names {out['session_names']} (expected {expected}); K "
          f"{out['session_k']}; injected {key}; {out['verdict']}")
-    return out
-
-
-# ---------------------------------------------------------------------- H7
-
-def _null_partition_cells(block: dict, arm: str) -> list[dict]:
-    """Every pair whose licence PRINTED but whose thread arithmetic did
-    not. The three cells H1 reads, and no others: whether the licence's own
-    sentence named the exclusion is a fact about the WORDING and is H1's
-    second reading, not an instrument failure."""
-    out = []
-    for r in _measured(block):
-        part = r.get("licence_partition") or {}
-        if part.get("licence") is None:
-            continue
-        missing = [c for c in ("program_threads", "harness_threads",
-                               "counts_source") if part.get(c) is None]
-        if missing:
-            out.append({"name": r["name"], "arm": arm, "cells": missing,
-                        "reason": part.get("counts_unread_reason")})
-    return out
-
-
-def phase_h7_instrument(raw: dict) -> dict:
-    """H7: is the instrument honest? A STOP here is a STOP OF THE
-    INSTRUMENT, and the record says so rather than reporting it as a
-    finding about the subject.
-
-    Four gates, and each closes one of E4′ §5's own gaps:
-
-    * no partition cell is `None` on a pair whose licence printed (gap 1);
-    * every thread count carries the line it came from (gap 1's other
-      half);
-    * `licence_verified_counts` is non-null (gap 7 -- E4′ named a field
-      every reader found null);
-    * the version probe is a token, or `null` WITH its reason, and never an
-      empty string (gap 2).
-    """
-    mark_load("H7")
-    arms_blocks = (("armA", raw.get("raw_pass2")),
-                   ("armB", raw.get("raw_arm_b")),
-                   ("armC", raw.get("raw_arm_c")))
-    nulls, sources, sourceless = [], {}, []
-    for arm, block in arms_blocks:
-        if not block:
-            continue
-        nulls += _null_partition_cells(block, arm)
-        for r in _measured(block):
-            part = r.get("licence_partition") or {}
-            if part.get("licence") is None:
-                continue
-            sources[f"{arm}/{r['name']}"] = part.get("counts_source")
-            if part.get("counts_source") is None:
-                sourceless.append(f"{arm}/{r['name']}")
-    counts = licence_verified_counts(raw)
-    probe = ((raw.get("pins") or {}).get("sensorium_version_metadata_probe")
-             or {})
-    token, reason = probe.get("token"), probe.get("reason")
-    probe_ok = bool(token) or (token is None and bool(reason))
-    out = {
-        "headline": len(nulls), "null_cells": nulls,
-        # The denominator this endpoint's numbers are over: every row of
-        # every arm that came back with a licence WORD. Not the 61, and not
-        # 69 either -- a row whose licence never printed has no partition to
-        # be honest or dishonest about.
-        "censused": len(sources),
-        "counts_source_by_row": sources,
-        "counts_without_a_source_line": sorted(sourceless),
-        "counts_carry_their_source_line": bool(sources) and not sourceless,
-        "licence_verified_counts": counts,
-        "version_probe": {"token": token, "reason": reason,
-                          "rc": probe.get("rc"),
-                          "command": probe.get("command")},
-        "version_probe_ok": probe_ok,
-        "dropped_lists": _every_dropped(raw),
-        "stop_is_of_the": ("instrument, not of the subject: §1.4's kill 2 "
-                           "distinguishes the two in the record"),
-        "dropped": [],
-        "gate": ("0 null partition cells on a printed licence, every count "
-                 "carrying its source line, non-null verified counts, and a "
-                 "version probe that is a token or null WITH its reason"),
-    }
-    out["as_predicted"] = bool(
-        not nulls and out["counts_carry_their_source_line"]
-        and counts is not None and probe_ok)
-    out["verdict"] = _verdict(out["as_predicted"])
-    step(f"H7: {len(nulls)} null partition cell(s); source lines carried "
-         f"{out['counts_carry_their_source_line']}; verified counts "
-         f"{'present' if counts else 'MISSING'}; probe token {token!r} "
-         f"reason {reason!r}; {out['verdict']}")
-    return out
-
-
-def _every_dropped(raw: dict) -> dict:
-    """Every `dropped` list this run wrote, by phase -- H7's second reading.
-
-    A record whose drops are scattered through eight blocks is one nobody
-    reads; collected here, "what this run could not measure" is one list.
-    """
-    out = {}
-    for key, block in sorted((raw or {}).items()):
-        if key.startswith("raw_") and isinstance(block, dict):
-            reasons = block.get("dropped")
-            if reasons:
-                out[key] = list(reasons)
     return out
 
 

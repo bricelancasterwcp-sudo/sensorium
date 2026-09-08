@@ -351,8 +351,12 @@ def _notes(name, e) -> list[str]:
             f"{_yn(e.get('corpus_require_driver'))}; failures "
             f"{e.get('corpus_failures') or 'none'}; errors "
             f"{e.get('corpus_errors') or 'none'}; skipped "
-            f"{e.get('corpus_skipped') or 'none'}. Rust result lines: "
-            f"{e.get('cargo_result_lines') or 'none'}.", ""]
+            f"{e.get('corpus_skipped') or 'none'}. The named case matched as "
+            f"`{e.get('spawned_test_fn_matched')}`"
+            + (f" ({e.get('spawned_test_fn_reason')})"
+               if e.get("spawned_test_fn_reason") else "")
+            + f". Rust result lines: "
+              f"{e.get('cargo_result_lines') or 'none'}.", ""]
 
 
 def ungated(r) -> list[str]:

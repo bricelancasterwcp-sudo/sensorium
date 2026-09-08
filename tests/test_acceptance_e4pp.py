@@ -219,6 +219,54 @@ def test_a_miss_on_any_gated_phase_is_a_STOP_with_ITS_NUMBER(phase, number):
     assert any(s.startswith(number) for s in stops), stops
 
 
+def test_a_gated_miss_with_a_WHOLE_reading_is_a_STOP_of_the_subject():
+    """The control for the two below: a phase that read everything it asked
+    for and simply did not match the gate missed on the side the endpoint
+    measures, and the sentence is the one it always was."""
+    res = {"numbers_read": True,
+           "raw_h3": {"verdict": "STOP", "as_predicted": False,
+                      "gate": "the gate", "dropped": []}}
+    assert any("This is a STOP of the subject" in s
+               for s in runner._stops(res))
+    side = runner.stop_sides(res)[0]
+    assert (side["declared"], side["derived"]) == ("subject", "subject")
+    assert side["agree"] is True
+
+
+def test_a_gated_miss_the_READER_could_not_make_names_BOTH_sides():
+    """E4″ gap 2. The `stop` sentence and the `.FAILED` marker both ended
+    "This is a STOP of the subject" because the label hung off the endpoint
+    id; on the real run H8's miss was this instrument's -- three green
+    return codes and a case that had run. A phase that recorded a reason it
+    could not READ something missed on the instrument's side, whatever the
+    endpoint is gated on, and §1.4's kill 2 asks for both."""
+    res = {"numbers_read": True,
+           "raw_h8": {"verdict": "STOP", "as_predicted": False,
+                      "gate": "the gate",
+                      "dropped": ["`x` is among the 63 name(s) the listing "
+                                  "printed under neither spelling"]}}
+    stops = runner._stops(res)
+    assert any("INSTRUMENT" in s and "under neither spelling" in s
+               for s in stops), stops
+    # BOTH, never one instead of the other.
+    assert any("subject" in s for s in stops), stops
+    side = runner.stop_sides(res)[0]
+    assert (side["declared"], side["derived"]) == ("subject", "instrument")
+    assert side["agree"] is False
+
+
+def test_a_BLOCKED_reading_is_the_instruments_miss_too():
+    """`as_predicted` null -- a short loop, a killed row -- is a reading
+    nobody made, and naming it a STOP of the subject reports a finding
+    about the tool from a number the run never got."""
+    res = {"numbers_read": True,
+           "raw_h2": {"verdict": "STOP", "as_predicted": None,
+                      "gate": "the gate",
+                      "dropped": ["59 of 61 invocation(s) ran"]}}
+    side = runner.stop_sides(res)[0]
+    assert side["derived"] == "instrument" and side["blocked"] is True
+
+
 def test_a_miss_on_H7_is_a_STOP_OF_THE_INSTRUMENT_and_says_so():
     """§1.4's kill 2 again: a miss on H7 is distinguished IN THE RECORD from
     a STOP of the subject."""
