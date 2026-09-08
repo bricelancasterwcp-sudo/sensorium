@@ -212,13 +212,13 @@ could not run withholds the licence too**, with the reason itemised, because
 evidence that nothing moved. Two things it will not call a change are the
 tool's own: a target directory that merely **moved**, and the recorder's own
 `--extern sensorium_rt=…` fragment inside `RUSTDOCFLAGS`, whose hash moves
-with every driver build — both stripped before the compare and both **named**
-on the line; a third, **session set 1** (the handles a shell, terminal or
-agent session hands a process, listed by name in `docs/query.md`), is counted
-and named without withholding, while every other differing variable withholds
-exactly as before. The verdict and the licence are both stamped into
-the new trace, so `info` and `runs` keep saying so long after the output has
-scrolled away.
+with every driver build — the first **re-rooted** before the compare, the
+second **removed** from it, and both **named** on the line. A third,
+**session set 1** (the handles a shell, terminal or agent session hands a
+process, listed by name in `docs/query.md`), is counted and named without
+withholding, while every other differing variable withholds exactly as
+before. The verdict and the licence are both stamped into the new trace, so
+`info` and `runs` keep saying so long after the output has scrolled away.
 
 DIVERGED is not a failure of the tool. For a program whose control flow
 depends on state outside the process, DIVERGED is the correct answer; the new

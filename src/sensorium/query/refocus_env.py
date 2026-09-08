@@ -149,7 +149,12 @@ def differs_only_by_root(was: str, now: str, old: str, new: str) -> bool:
 #: date; a key found to differ between shells joins it with one.
 SESSION_SET = 1
 
-#: Session set 1, exact names, in the order they are printed and read.
+#: Session set 1, the exact names. The tuple's order is the DOCUMENTATION
+#: order -- the design's (amendment A-section-3) and this repository's
+#: `docs/query.md` -- and the order E4'' arm C walks to pick the key it
+#: injects. It is not the order the names print in: a differing key is
+#: reported in the sorted key order `_env_diff` walks, like every other
+#: name on that line.
 #:
 #: Every one is a handle to a bus, a window, a terminal, a connection, a
 #: service manager's invocation or an agent session -- the identity of WHERE
@@ -229,12 +234,21 @@ def strip_recorder_fragment(value: str) -> tuple[str, int]:
     that did not report itself would be an exclusion by name, hidden --
     the thing the relocation rule above exists to avoid.
 
+    NOTHING HAPPENS WHEN NOTHING MATCHED. The value is handed back as it
+    came, byte for byte, because this function is called on both sides of
+    EVERY key -- and a `strip()` applied unconditionally would make `"UTC "`
+    and `"UTC"` compare equal on a variable this recorder never touched.
+    That widening would be silent on both channels: the key is only put on
+    the printed strip list when the count is non-zero, so a difference the
+    licence stopped checking would go unnamed. The trim belongs to the
+    removal and to nothing else.
+
     Only the space the regex consumed goes with the match; the world's own
     spacing inside what is left is untouched, so two values that differ by
     whitespace still differ after the strip.
     """
     out, count = RECORDER_FRAGMENT.subn("", value)
-    return out.strip(), count
+    return (out.strip(), count) if count else (value, 0)
 
 
 #: The phrase that both WRITES the strip note and RECOGNISES it, on the
