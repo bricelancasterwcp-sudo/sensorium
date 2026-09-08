@@ -84,3 +84,24 @@ line, which every pair printed. See §4 of the record.
 | 60 | `unmeasured_budget_refusal_detail_says_unmeasured_not_zero` | `20260907-111250-092953` | `20260907-192549-5d5888` | MATCH | 0 | WITHHELD | — | — | 1 | CHANGED | `CARGO_BIN_EXE_bloomery-daemon`, `CARGO_BIN_EXE_flywheel-tool`, `CARGO_TARGET_DIR`, `LD_LIBRARY_PATH` | `RUSTDOCFLAGS` |
 | 61 | `a_budget_smaller_than_already_loaded_weights_saturates_to_zero_free_and_never_panics` | `20260907-111251-80be5a` | `20260907-192556-61f70c` | MATCH | 0 | WITHHELD | — | — | 1 | CHANGED | `CARGO_BIN_EXE_bloomery-daemon`, `CARGO_BIN_EXE_flywheel-tool`, `CARGO_TARGET_DIR`, `LD_LIBRARY_PATH` | `RUSTDOCFLAGS` |
 
+
+## Reported without a gate (§1.4)
+
+Moved here from §3 of the record for the same reason the table is here: the
+record is at its 800-line ceiling. Every number is the raw record's.
+
+**Walls.** First focus **8.705 s**; the later 60 mean **6.775 s**, max
+**7.557 s**, min 6.523 s; 415.2 s over the loop against a 4500 s bound.
+Nothing is gated on a wall.
+
+**The copy.** 61 originals, **21 770 240 B**, by the Python `sqlite3` module
+(SQLite 3.46.1); the fresh store held exactly 61 files when the loop opened,
+only the copies.
+
+**The four verified/unverifiable licence counts**, carried from E4's H4 in
+kind and never summed — read **per row** from
+`raw_pass2.refocuses[*].licence`, because the assembled record's
+`reported.licence_verified_counts` is `null` (record §5 gap 7): `source`
+**unchanged on 61**; `env` **CHANGED on 61**; `output` and `children`
+**unverifiable by construction on 61**, reported and never counted as
+verified.
