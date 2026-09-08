@@ -395,6 +395,68 @@ refocused trace sizes; the store's size and the disk free before and after;
 the invocation-log row count; and the four verified/unverifiable licence
 counts carried over from E4's H4 in kind.
 
+### 1.5 Amendment A1 — dated 2026-09-07, before any E4′ number was read
+
+**Found in preflight (Task 5's dry run and the controller's scan of the
+61 originals' recorded environments), not in the measurement.** The
+licence's ENV clause compares the original's recorded environment with the
+re-run's, excluding only the recorder's own keys and shell bookkeeping.
+§1.3 mandates a FRESH `CARGO_TARGET_DIR` for the re-run (H4's inode census
+needs it), and four variables embed the target root — `CARGO_TARGET_DIR`,
+`CARGO_BIN_EXE_*`, `LD_LIBRARY_PATH`, `RUSTDOCFLAGS` — so under the
+instrument as pre-registered the env caveat fires on all 61 pairs and the
+licence is WITHHELD on all 61 for a reason unrelated to R1: kill 5 (STOP)
+on H1 with nothing learned. E4 read `env: unchanged` on every pair only
+because both of its passes shared one target directory and one launcher
+process; §1.2's prediction was derived from E4's thread counts alone.
+
+**Ruling (design authority).** A re-run from another target directory is a
+normal use of the tool; the env clause must not read the target root's
+relocation as a change the world made — and must not blanket-exclude those
+keys either. Source change at `1a76757` (+ `d43b7aa`): values that
+differ ONLY by substituting the recorded `CARGO_TARGET_DIR` root for the
+current one, entry by entry and anchored at path boundaries, are
+normalised and NAMED on the env line (`N variable(s) differ only by the
+target directory: …; treated as unchanged`); any other difference,
+addition or removal still fires. Rejected: running as pre-registered
+(burns the hour to demonstrate a known instrument confound); re-running
+under the kept E4 target (mutates a kept artifact; muddles H4).
+
+**Launch environment.** Outside the cargo/rust/loader/recorder keys, the
+61 originals' recorded environments differ from this session's process
+environment in exactly three variables: `PYTHONDONTWRITEBYTECODE` (the
+launcher already sets it, as E4's did), `SSL_CERT_DIR` and `SSL_CERT_FILE`
+(present at E4's launch, absent in this session's shell). The E4′ launcher
+pins the latter two to the originals' recorded values (the system
+certificate paths — not session identity, which is identical because E4
+ran from this same session). The runner's preflight compares its own
+process environment with every original's recorded one under the same
+exclusions and REFUSES to launch on any difference; the check is recorded
+(instrument commit `10e2712`, `pins.env_parity`).
+
+**Carried, not built (ruled).** The clause still withholds on any re-run
+launched from another shell, because session-identity variables differ
+there. The design decided: a named, versioned positive set of
+build-and-run-bearing variables (`PATH`, `HOME`, `USER`, `LOGNAME`,
+`LANG`, `LC_*`, `TZ`, `TMPDIR`, `CARGO*`, `RUST*`, `LD_*`, `DYLD_*`,
+`SSL_CERT_*`, `PYTHON*`, `DEBUGINFOD_URLS`) withholds; every other
+differing key is counted and named but does not. Not built before this
+measurement (fewer source changes before a measurement is the rule; it is
+not needed for E4′). CARRIED-DEBT.
+
+**What changes in §1.** Nothing in §1.1, in §1.2's expected partition
+(57 granted / the four withheld by name / harness 1 on every pair), in the
+H-table, or in the kill sentences. The lens gains two rows: the env line's
+reading rule (the relocated keys are read from the printed list and
+recorded per pair; a pair whose env line names ANY other differing key is a
+caveat as before) and the launcher's two pinned certificate variables.
+
+**Locks.** §1 sha before this amendment:
+`82152208e2fa57f54c573dea8305be28097529fd2544e2be5caabd16e6bf3528`
+(commit 2991c3b). §1 sha after this amendment: the amendment cannot carry its own
+hash; it is recorded in §2 (by Task 6), in the ledger, and in this
+commit's message. Both shas travel together from here.
+
 ## 2. Environment
 
 *(written by Task 6)*
