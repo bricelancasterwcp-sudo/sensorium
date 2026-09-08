@@ -88,10 +88,25 @@ granted, and `a_pager_can_be_shared_across_threads` -- and moves EVERY
 fresh location to its own `-dry` sibling: the store, the cargo target, the
 raw record, the markers and the assembled record all carry the suffix,
 `dry_run: true` is stamped through, and the document's tracked
-`results.json` is never written. The arms and H8 do not run in a dry:
-§1.3's dry is two pairs, and its job is to show the strip clause fire on an
-original whose rt hash differs from the re-run's. The launcher passes no
-argv by default, so the measurement cannot take this path by accident.
+`results.json` is never written. H8 does not run in a dry: it asks whether
+THIS repository still answers as it did, which a two-row table says nothing
+about.
+
+`--dry-arms` (which implies `--dry`) additionally rehearses arms B and C
+over the same two rows, into the same `-dry` siblings. §1.3's dry is a
+MINIMUM, not a ceiling: the four control invocations are otherwise
+unrehearsed until an hour into the real run, and a dry that rehearses them
+must also show that each arm produced a PAIR for each of its rows. Both
+readings feed `dry_check`, and a dry that fails either exits 9 --
+INFRASTRUCTURE, never a STOP, because a dry run measures nothing.
+
+A DRY RUN IS NEVER JUDGED BY THE SUBJECT'S GATES. A two-row table cannot
+meet §1.2's "granted 57", and an rc that said so would report a STOP where
+no measurement was made at all -- and the marker is exactly what the
+controller reads before deciding whether the launch happens.
+
+The launcher passes no argv by default, so the measurement cannot take
+either path by accident.
 """
 
 from __future__ import annotations
@@ -302,15 +317,51 @@ def dry_check(res: dict) -> dict:
                "rerun_rt": (r.get("rerun_rt_hash") or {}).get("value")}
               for r in rows if r["name"] not in showed]
     rec = {"rows": len(rows), "showed_the_strip_on_differing_hashes": showed,
-           "did_not_show_it": silent, "ok": bool(showed)}
-    rec["reading"] = (
+           "did_not_show_it": silent, "strip_ok": bool(showed),
+           "arms_rehearsed": bool(res.get("dry_arms"))}
+    # §1.3's dry is a MINIMUM, not a ceiling (controller, fix round 1). With
+    # `--dry-arms` the two dry rows are re-run under both controls, and the
+    # dry then also has to show that each arm produced a PAIR for each of
+    # its rows -- the one thing four unrehearsed invocations could get wrong
+    # an hour into the real run.
+    arms_rec = {}
+    if rec["arms_rehearsed"]:
+        for key, label in (("raw_arm_b", "B"), ("raw_arm_c", "C")):
+            block = res.get(key) or {}
+            answers = [r for r in (block.get("refocuses") or [])
+                       if "not_run" not in r]
+            without = [r["name"] for r in answers
+                       if not r.get("new_run") or r.get("timed_out")]
+            arms_rec[label] = {
+                "rows": block.get("n"), "measured": len(answers),
+                "never_run": block.get("budget_exhausted") or [],
+                "rows_without_a_pair": without,
+                "ok": bool(answers) and not without
+                and not (block.get("budget_exhausted") or [])
+                and len(answers) == block.get("n")}
+        rec["arms"] = arms_rec
+        rec["arms_ok"] = all(a["ok"] for a in arms_rec.values())
+    else:
+        rec["arms"] = None
+        rec["arms_ok"] = None
+    rec["ok"] = bool(rec["strip_ok"]) and rec["arms_ok"] is not False
+    strip = (
         f"{len(showed)} of {len(rows)} dry pair(s) showed the strip clause "
         "fire on an original whose rt hash differs from the re-run's"
         if showed else
         "NO dry pair showed the strip clause fire on an original whose rt "
-        "hash differs from the re-run's. §1.3: a dry run that does not show "
-        "it has not checked the instrument -- the launch does not happen, "
-        "and that is INFRASTRUCTURE, not a STOP")
+        "hash differs from the re-run's")
+    arms_said = (
+        "" if not rec["arms_rehearsed"] else
+        "; both control arms produced a pair for every row"
+        if rec["arms_ok"] else
+        "; a control arm did NOT produce a pair for every row "
+        + str({k: v["rows_without_a_pair"] or v["never_run"]
+               for k, v in arms_rec.items() if not v["ok"]}))
+    rec["reading"] = strip + arms_said + ("" if rec["ok"] else (
+        ". §1.3: a dry run that does not show it has not checked the "
+        "instrument -- the launch does not happen, and that is "
+        "INFRASTRUCTURE, not a STOP"))
     return rec
 
 
@@ -385,6 +436,19 @@ def _stops(res: dict) -> list[str]:
     return stops
 
 
+def _infrastructure(res: dict) -> bool:
+    """§1.4's rule 4 rather than its rule 5: a `.FAILED` BEFORE any number
+    had been read. The run is archived and relaunched from zero, which is
+    not the same event as a STOP and must not carry a STOP's exit code."""
+    if res.get("numbers_read"):
+        return False
+    for key in ("raw_pass2", "raw_arm_b", "raw_arm_c"):
+        block = res.get(key) or {}
+        if (block.get("killed") or block.get("budget_exhausted")):
+            return True
+    return False
+
+
 def _partial_json(res: dict) -> str:
     """What CAN be serialised, when the whole record cannot."""
     safe = {}
@@ -398,7 +462,11 @@ def _partial_json(res: dict) -> str:
 
 
 def main(argv) -> int:
-    dry = "--dry" in argv
+    # `--dry-arms` IMPLIES `--dry`: there is no arms-only mode, and a flag
+    # that silently did nothing without its partner is a flag that will be
+    # passed alone one day.
+    dry = "--dry" in argv or "--dry-arms" in argv
+    dry_arms = dry and "--dry-arms" in argv
     suffix = "-dry" if dry else ""
     raw_path = (RAW.with_name(RAW.stem + suffix + RAW.suffix) if dry
                 else RAW)
@@ -408,7 +476,7 @@ def main(argv) -> int:
         (BASE / marker).unlink(missing_ok=True)
     res: dict = {"started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                  "schema_version": SCHEMA_VERSION,
-                 "runner": RUNNER, "dry_run": dry,
+                 "runner": RUNNER, "dry_run": dry, "dry_arms": dry_arms,
                  "document": str(DOC.relative_to(REPO)),
                  "ledger": str(LEDGER), "logs": str(LOGS)}
     rc = 0
@@ -441,20 +509,37 @@ def main(argv) -> int:
                       for r in two["refocuses"]
                       if r.get("driver_version_from_the_trace")), None)
         pins["driver_version_from_the_trace"] = first
-        mark_numbers_read(res, raw_path, "the first H endpoint was computed")
+        # Belt and braces over the loop hook -- but ONLY where a row
+        # really came back with a reading. E4′ marked here
+        # unconditionally, which makes §1.4's rule 4 unreachable: a loop
+        # that produced no readable answer at all would still be recorded
+        # as having read a number, and the relaunch-from-zero the rule
+        # authorises would never be offered.
+        if any(r.get("verdict_word") or r.get("licence_word")
+               for r in two["refocuses"] if "not_run" not in r):
+            mark_numbers_read(res, raw_path,
+                              "a row of arm A came back with a reading")
 
-        if not dry:
+        if not dry or dry_arms:
             rows = arms.arm_rows(cfg["rows"])
+            # ONE deadline across all three arms: §1.4 bounds "the whole
+            # loop", and `pass_two` already opened it.
+            deadline = two.get("loop_deadline_monotonic")
             res["raw_arm_b"] = arm_b = arms.run_arm(
-                paths, cfg, rows, arms.ARM_B_KEY, "1", "armB")
+                paths, cfg, rows, arms.ARM_B_KEY, "1", "armB",
+                deadline=deadline)
             ph.read_rt_hashes(paths, arm_b)
             res["raw_arm_c"] = arm_c = arms.run_arm(
                 paths, cfg, rows, pins["injected_session_key"],
-                cfg["injected_value"], "armC")
+                cfg["injected_value"], "armC", deadline=deadline)
             ph.read_rt_hashes(paths, arm_c)
+            if dry_arms:
+                step(f"DRY RUN: both arms REHEARSED over "
+                     f"{len(rows)} row(s) into the `-dry` siblings")
         else:
             step("DRY RUN: arms B and C are NOT run -- §1.3's dry run is two "
-                 "pairs, and its job is to show the strip clause fire")
+                 "pairs, and its job is to show the strip clause fire. Pass "
+                 "`--dry-arms` to rehearse them over the same two rows")
             arm_b = arm_c = None
 
         session = pins["session_keys_differing"]
@@ -491,8 +576,15 @@ def main(argv) -> int:
                 rc = rc or 9
         stops = _stops(res)
         if stops:
+            # §1.4's rules 4 and 5 part company on `numbers_read`, and so
+            # do the exit codes: 9 is the INFRASTRUCTURE kill (archive,
+            # empty the fresh locations, re-make the 61 copies, relaunch
+            # from zero) and 7 is a STOP (the numbers already read stand).
+            # One code for both made a relaunch and a finding read the same
+            # to whatever is watching the marker.
             res["stop"] = "; ".join(stops)
-            rc = rc or 7
+            res["kill_is_infrastructure"] = _infrastructure(res)
+            rc = rc or (9 if res["kill_is_infrastructure"] else 7)
         exhausted = [n for key in ("raw_pass2", "raw_arm_b", "raw_arm_c")
                      for n in ((res.get(key) or {}).get("budget_exhausted")
                                or [])]

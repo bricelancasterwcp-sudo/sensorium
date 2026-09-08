@@ -287,3 +287,57 @@ def test_no_measurement_cell_is_published_without_its_DENOMINATOR(endpoint):
     block = assemble_e4pp(_raw())["endpoints"][endpoint]
     for name in cells.MEASUREMENT_CELLS[endpoint]:
         assert block[name]["n"] is not None, f"{endpoint}.{name}"
+
+
+# ================ fix round 1 =========================================
+
+def test_the_UNREAD_hash_count_is_a_cell_of_its_own_beside_the_two(): 
+    """Important 2: `hashes_differ` read 0 whether no pair differed or no
+    pair was readable. Three numbers, and the differ cell's denominator is
+    the READABLE pairs."""
+    import acceptance_e4pp_phases as ph
+    sys.path.insert(0, str(REPO / "tests"))
+    from test_acceptance_e4pp_phases import _two
+    raw = _raw()
+    raw["raw_h2"] = ph.phase_h2_fragment(_two({
+        "unknown_model_mutating_verbs_is_false": {"rerun_rt": None}}))
+    e = assemble_e4pp(raw)["endpoints"]["H2"]
+    assert e["hashes_differ"]["value"] == 60
+    assert e["hashes_differ"]["n"] == 60
+    assert e["hashes_differ"]["dropped"]
+    assert e["hashes_unread"]["value"] == [
+        "unknown_model_mutating_verbs_is_false"]
+    assert e["hashes_unread"]["n"] == 61
+
+
+def test_the_renderer_prints_ALL_THREE_hash_readings():
+    import acceptance_e4pp_phases as ph
+    sys.path.insert(0, str(REPO / "tests"))
+    from test_acceptance_e4pp_phases import _two
+    raw = _raw()
+    raw["raw_h2"] = ph.phase_h2_fragment(_two({
+        "unknown_model_mutating_verbs_is_false": {"rerun_rt": None}}))
+    text = "\n".join(render_e4pp.results(assemble_e4pp(raw)))
+    assert "could not be read" in text or "unread" in text.lower()
+    assert "EQUAL" in text
+    for label in ("differ", "unread"):
+        assert label in text.lower()
+
+
+def test_the_verified_counts_render_WITHOUT_their_note():
+    """minor (h): the whole dict, note and all, went into one table cell."""
+    record = assemble_e4pp(_raw())
+    text = "\n".join(render_e4pp.results(record))
+    note = record["endpoints"]["H7"]["licence_verified_counts"]["value"][
+        "note"]
+    assert note not in text
+    assert "source 61" in text or "source_verified" in text
+
+
+def test_a_dry_run_records_whether_the_ARMS_were_rehearsed():
+    record = assemble_e4pp(dict(_raw(), dry_run=True, dry_arms=True,
+                                dry_check={"ok": True, "arms_ok": True,
+                                           "reading": "…"}))
+    assert record["dry_run"] is True
+    assert record["dry_arms"] is True
+    assert record["dry_check"]["arms_ok"] is True

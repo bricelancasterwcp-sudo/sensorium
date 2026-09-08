@@ -20,20 +20,19 @@ TWO RULES EVERY PHASE HERE KEEPS
 
 from __future__ import annotations
 
-import json as _json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import acceptance_e4p_phases as eph                                # noqa: E402
-import acceptance_e4p_phases2 as eph2                              # noqa: E402
 import acceptance_e4pp_rows as e4pp                                # noqa: E402
-from acceptance_e4p_phases import phase_h1                         # noqa: E402,F401
 from acceptance_e4p_read import rt_hash_of, trace_meta_ro          # noqa: E402
 from acceptance_e4p_schema import licence_verified_counts          # noqa: E402
 from acceptance_e6ppp import logs_at, mark_load                    # noqa: E402
-from acceptance_lib import REPO, plain_env, step                   # noqa: E402
+from acceptance_e4pp_phases2 import (corpus_case_names,           # noqa: E402,F401
+                                     phase_h8_nothing_else)
+from acceptance_lib import step                                   # noqa: E402
 from sensorium.query.refocus_env import is_session_key             # noqa: E402
 
 LOGS: Path | None = None
@@ -56,6 +55,61 @@ def _verdict(ok) -> str:
     """`None` is not a pass. A gate whose cells could not be read is a STOP
     of whatever it gates, never a silent PASS."""
     return "PASS" if ok is True else "STOP"
+
+
+def subset_reasons(block: dict, expected_n: int, label: str) -> list[str]:
+    """Why a count over an arm's rows may not be trusted, NAMED.
+
+    E4′ guarded exactly this (`acceptance_e4p_phases._subset_reasons`) and
+    said why: "a `true` sitting beside `n: 51` in the raw file is a
+    sentence waiting to be misread". Every gate of this record is over a
+    LOCKED denominator -- §1.1's 61 for arm A, §1.3's 4 for each control --
+    so a loop that stopped at 59 measured nothing about "61 of 61", and its
+    `as_predicted` is `None` rather than a `False` that reads as a subject
+    finding or a `True` that reads as a whole one.
+
+    Four shapes, four sentences: a table that was not the locked one, an
+    arm whose rows did not all run, a bound reached, and a killed
+    invocation whose output is partial.
+    """
+    block = block or {}
+    out = []
+    n, measured = block.get("n"), block.get("measured")
+    if n != expected_n:
+        out.append(f"the {label} ran over {n} row(s), not §1's "
+                   f"{expected_n}")
+    missing = block.get("budget_exhausted") or []
+    if missing:
+        out.append(f"the {label}: {len(missing)} invocation(s) were never "
+                   f"run -- §1.4's 1 h 30 min loop bound was reached "
+                   f"({missing[:3]})")
+    if (measured is not None and n is not None and measured != n
+            and not missing):
+        out.append(f"the {label}: {measured} of {n} invocation(s) ran")
+    killed = block.get("killed") or []
+    if killed:
+        out.append(f"the {label}: {len(killed)} invocation(s) were KILLED "
+                   f"at the 1800 s ceiling ({killed[:3]}); their output is "
+                   "partial")
+    return out
+
+
+def phase_h1(two: dict) -> dict:
+    """H1: E4′'s partition, under E4″'s subset guard.
+
+    The arithmetic is E4′'s `phase_h1` unchanged -- this record measures
+    the same partition over the same 61 originals. What is added is the
+    guard the other seven phases keep: a loop that killed two WITHHELD
+    rows could still count 57 granted and read as §1.2's partition, so
+    `partition_as_predicted` goes `None` with its reason rather than
+    `True` over fewer rows than the gate names.
+    """
+    out = eph.phase_h1(two)
+    out["dropped"] = subset_reasons(two, e4pp.GATE_N, "arm-A loop")
+    if out["dropped"]:
+        out["partition_as_predicted"] = None
+    out["verdict"] = _verdict(out["partition_as_predicted"])
+    return out
 
 
 def read_rt_hashes(paths, block: dict) -> dict:
@@ -117,7 +171,7 @@ def phase_h2_fragment(two: dict) -> dict:
     mark_load("H2")
     rows = _measured(two)
     in_changed, missing, bounded, changed_by_pair = [], [], [], {}
-    sets, hashes, equal, differ = {}, {}, [], 0
+    sets, hashes, equal, unread, differ = {}, {}, [], [], 0
     for r in rows:
         name = r["name"]
         changed = r.get("env_changed_keys") or []
@@ -133,14 +187,26 @@ def phase_h2_fragment(two: dict) -> dict:
         a = (r.get("original_rt_hash") or {}).get("value")
         b = (r.get("rerun_rt_hash") or {}).get("value")
         hashes[name] = {"original": a, "rerun": b}
-        if a is not None and b is not None:
-            differ += 1 if a != b else 0
-            if a == b:
-                equal.append(name)
+        # Three outcomes, never two. A pair whose either side could not be
+        # read is on NEITHER list: counted as "not differing" it would make
+        # an unreadable run and a single-build run print the same number,
+        # which is the one thing §1.5 exists to tell apart.
+        if a is None or b is None:
+            unread.append(name)
+        elif a != b:
+            differ += 1
+        else:
+            equal.append(name)
     distinct = sorted({tuple(v) for v in sets.values()})
     expected = list(e4pp.EXPECTED_RELOCATED)
     matches = sum(1 for v in sets.values() if v == expected)
-    dropped = []
+    dropped = subset_reasons(two, e4pp.GATE_N, "arm-A loop")
+    if unread:
+        dropped.append(
+            f"{len(unread)} pair(s) rt hash could not be read on one side "
+            f"or both ({unread[:3]}), so they are counted as neither "
+            "differing nor equal; `hashes_differ` is over the readable "
+            f"{len(rows) - len(unread)}")
     if bounded:
         dropped.append(f"{len(bounded)} pair(s) printed a changed list at "
                        f"its cap ({bounded[:3]}); " + CAPPED)
@@ -167,16 +233,25 @@ def phase_h2_fragment(two: dict) -> dict:
         "rt_hashes_by_pair": hashes,
         "hashes_differ": differ,
         "hashes_equal_so_the_strip_was_untested": sorted(equal),
+        "hashes_unread": sorted(unread),
+        "hashes_readable": len(rows) - len(unread),
         "dropped": dropped,
         "gate": ("RUSTDOCFLAGS in 0 changed lists, the strip clause naming "
                  "it on 61 of 61, and E4′'s four relocated keys on 61 of "
                  "61"),
     }
-    out["as_predicted"] = bool(
-        not bounded
-        and out["rustdocflags_in_changed"] == e4pp.EXPECTED_RUSTDOCFLAGS_IN_CHANGED
-        and out["strip_clause_named"] == len(rows) and rows
-        and out["relocated_set"] == expected and matches == len(rows))
+    # What BLOCKS a reading, told apart from what merely qualifies it. A
+    # short loop and a capped changed list are both not-measured (§1.4 gives
+    # H2 no reduced reading to fall back on, unlike H4's K-alone branch);
+    # the unread rt hashes qualify a REPORTED cell and never the gate.
+    blocking = subset_reasons(two, e4pp.GATE_N, "arm-A loop") + [
+        f"the membership question could not be answered on {len(bounded)} "
+        f"pair(s) whose changed list printed at its cap"] * bool(bounded)
+    out["as_predicted"] = None if blocking else bool(
+        out["rustdocflags_in_changed"] == e4pp.EXPECTED_RUSTDOCFLAGS_IN_CHANGED
+        and out["strip_clause_named"] == e4pp.EXPECTED_STRIP_CLAUSE_NAMED
+        and out["relocated_set"] == expected
+        and matches == e4pp.GATE_N)
     out["verdict"] = _verdict(out["as_predicted"])
     step(f"H2: RUSTDOCFLAGS in {out['rustdocflags_in_changed']} changed "
          f"list(s); strip clause named on {out['strip_clause_named']}/"
@@ -233,15 +308,15 @@ def phase_h3_verdict_pair(two: dict) -> dict:
         "pairs_of_one": ones, "pair_counts": counts, "not_one": wrong,
         "excluded_children": len(excluded),
         "excluded_children_by_pair": excluded,
-        "dropped": [],
+        "dropped": subset_reasons(two, e4pp.GATE_N, "arm-A loop"),
         "gate": "MATCH 61 of 61 and 61 pairs of exactly one",
     }
     # `not wrong` beside `ones == len(rows)`: two readings of the same
     # fact, and a gate that kept only one of them survived the mutation
     # that flipped the other's comparison.
-    out["as_predicted"] = bool(rows and match_n == len(rows)
-                               and ones == len(rows) and not wrong
-                               and not unread)
+    out["as_predicted"] = None if out["dropped"] else bool(
+        match_n == e4pp.EXPECTED_MATCH and ones == e4pp.EXPECTED_PAIRS_OF_ONE
+        and not wrong and not unread)
     out["verdict"] = _verdict(out["as_predicted"])
     step(f"H3: MATCH {match_n}/{len(rows)}; pairs of one {ones}/{len(rows)}; "
          f"word/exit disagreements {len(disagree)}; excluded-children rows "
@@ -281,11 +356,19 @@ def phase_h4_session(two: dict, session_differs) -> dict:
     rows = _measured(two)
     pin = sorted(session_differs or [])
     names_by, k_by, bounded, cites, empty = {}, {}, [], [], []
+    unread = []
     line, fact = None, None
     for r in rows:
         name = r["name"]
-        names_by[name] = sorted(r.get("env_session_keys") or [])
+        # `None` is UNREAD, and `[]` is "the line printed none". Turning the
+        # first into the second made an unread line MATCH an empty pin --
+        # the one place this endpoint could count a reading nobody made.
+        printed = r.get("env_session_keys")
+        names_by[name] = None if printed is None else sorted(printed)
         k_by[name] = r.get("env_session_n")
+        if printed is None or k_by[name] is None:
+            unread.append(name)
+            continue
         if r.get("env_session_keys_truncated"):
             bounded.append(name)
         if not names_by[name] and not k_by[name]:
@@ -299,8 +382,13 @@ def phase_h4_session(two: dict, session_differs) -> dict:
             fact = next((f for f in (r.get("licence_facts") or [])
                          if "environment variable" in f
                          or "session set" in f), None)
-    distinct = sorted({tuple(v) for v in names_by.values()})
-    dropped = []
+    distinct = sorted({tuple(v) for v in names_by.values() if v is not None})
+    dropped = subset_reasons(two, e4pp.GATE_N, "arm-A loop")
+    if unread:
+        dropped.append(
+            f"{len(unread)} pair(s) printed no session clause this reader "
+            f"could read ({unread[:3]}); an unread line matches no pin, so "
+            "they count towards neither the names nor K")
     if bounded:
         dropped.append(f"{len(bounded)} pair(s) printed a session list at "
                        f"its cap ({bounded[:3]}); " + CAPPED
@@ -312,15 +400,19 @@ def phase_h4_session(two: dict, session_differs) -> dict:
             "`session_names_by_name`")
     out = {
         "n": len(rows),
-        "session_names": (None if bounded or len(distinct) != 1
+        "session_names": (None if bounded or unread or len(distinct) != 1
                           else list(distinct[0])),
         "session_names_seen": [list(d) for d in distinct],
         "session_names_by_name": names_by,
-        "session_names_match": sum(1 for v in names_by.values() if v == pin),
-        "session_k": (None if len({k for k in k_by.values()}) != 1
-                      else next(iter(k_by.values()))),
+        "session_names_unread": sorted(unread),
+        "session_names_match": sum(1 for v in names_by.values()
+                                   if v is not None and v == pin),
+        "session_k": (None if len({k for k in k_by.values()
+                                   if k is not None}) != 1
+                      else next(k for k in k_by.values() if k is not None)),
         "session_k_by_name": k_by,
-        "session_k_match": sum(1 for v in k_by.values() if v == len(pin)),
+        "session_k_match": sum(1 for v in k_by.values()
+                               if v is not None and v == len(pin)),
         "withholding_cites_a_session_key": cites,
         "pin": pin, "pin_n": len(pin),
         "decided_on_k_alone": bool(bounded),
@@ -337,11 +429,16 @@ def phase_h4_session(two: dict, session_differs) -> dict:
                  "differing` by name and by size on 61 of 61, and no "
                  "withholding reason cites a key of session set 1"),
     }
-    by_name_ok = (out["session_names_match"] == len(rows)
+    by_name_ok = (out["session_names_match"] == e4pp.GATE_N
                   if not bounded else True)
-    out["as_predicted"] = bool(
-        rows and by_name_ok and out["session_k_match"] == len(rows)
-        and not cites)
+    # The CAP does not block: §1.4 pre-commits the reduced reading -- names
+    # null with their reason, the gate decided on K alone. A short loop and
+    # an unread line do block, because neither leaves a reading to reduce.
+    blocking = subset_reasons(two, e4pp.GATE_N, "arm-A loop") + (
+        [f"{len(unread)} pair(s) printed no session clause this reader could "
+         "read"] if unread else [])
+    out["as_predicted"] = None if blocking else bool(
+        by_name_ok and out["session_k_match"] == e4pp.GATE_N and not cites)
     out["verdict"] = _verdict(out["as_predicted"])
     step(f"H4: names {out['session_names']} (match "
          f"{out['session_names_match']}/{len(rows)}), K {out['session_k']} "
@@ -368,7 +465,7 @@ def phase_h5_input(arm_b: dict) -> dict:
     mark_load("H5")
     rows = _measured(arm_b)
     key = (arm_b or {}).get("key")
-    withheld, granted, names_key, unread = [], [], [], []
+    withheld, granted, names_key, unread, bounded = [], [], [], [], []
     for r in rows:
         word = (r.get("licence_partition") or {}).get("licence")
         if word is None:
@@ -378,28 +475,54 @@ def phase_h5_input(arm_b: dict) -> dict:
             granted.append(r["name"])
             continue
         withheld.append(r["name"])
-        if key in (r.get("env_changed_keys") or []):
+        # The printed changed list is capped at eight names, exactly as H2's
+        # is: on a longer one the key's absence from the NAMES is not its
+        # absence from the list, and the by-name half of this reading cannot
+        # be made at all.
+        if r.get("env_changed_keys_truncated"):
+            bounded.append(r["name"])
+        elif key in (r.get("env_changed_keys") or []):
             names_key.append(r["name"])
     pager = (arm_b or {}).get("by_name", {}).get(
         "a_pager_can_be_shared_across_threads") or {}
-    thread_kept = (None if not pager else
-                   (pager.get("licence_partition") or {}).get(
-                       "program_threads") == 1)
+    pager_threads = (pager.get("licence_partition") or {}).get(
+        "program_threads")
+    # `False` said "the control silenced the thread reason", which is a
+    # FINDING about the control. A row whose licence never printed says
+    # nothing of the kind, so it is `None` with the reason instead.
+    thread_kept = None if not pager or pager_threads is None else (
+        pager_threads == 1)
+    thread_reason = (
+        None if thread_kept is not None else
+        ("arm B ran no `a_pager_can_be_shared_across_threads` row"
+         if not pager else
+         "the pager row's licence printed no thread count, so whether its "
+         "thread reason survived the env caveat could not be read"))
+    dropped = subset_reasons(arm_b, e4pp.ARM_N, "arm B")
+    if bounded:
+        dropped.append(f"{len(bounded)} pair(s) printed a changed list at "
+                       f"its cap ({bounded[:3]}); " + CAPPED)
     out = {
         "n": len(rows), "key": key,
         "headline": len(withheld), "withheld": sorted(withheld),
         "granted": sorted(granted), "unread": unread,
-        "env_caveat_names_the_key": len(names_key),
-        "env_caveat_missing_the_key": sorted(set(withheld) - set(names_key)),
+        "env_caveat_names_the_key": (None if bounded else len(names_key)),
+        "env_caveat_missing_the_key": sorted(
+            set(withheld) - set(names_key) - set(bounded)),
+        "changed_lists_bounded": sorted(bounded),
         "verdicts": {r["name"]: r.get("verdict_word") for r in rows},
         "thread_reason_kept": thread_kept,
-        "dropped": [],
+        "thread_reason_reason": thread_reason,
+        "dropped": dropped,
         "gate": (f"WITHHELD 4 of 4, each env caveat naming `{key}`; any "
                  "granted line is a STOP"),
     }
-    out["as_predicted"] = bool(
-        rows and len(withheld) == len(rows) and not granted
-        and len(names_key) == len(rows))
+    blocking = subset_reasons(arm_b, e4pp.ARM_N, "arm B") + [
+        f"the by-name half could not be read on {len(bounded)} pair(s) whose "
+        f"changed list printed at its cap"] * bool(bounded)
+    out["as_predicted"] = None if blocking else bool(
+        len(withheld) == e4pp.ARM_N and not granted
+        and out["env_caveat_names_the_key"] == e4pp.ARM_N)
     out["verdict"] = _verdict(out["as_predicted"])
     step(f"H5: WITHHELD {out['headline']}/{len(rows)}; caveat names {key} on "
          f"{out['env_caveat_names_the_key']}; thread reason kept "
@@ -428,6 +551,7 @@ def phase_h6_session_key(two: dict, arm_c: dict, session_differs,
     pin = sorted(session_differs or [])
     expected = sorted(set(pin) | ({key} if key else set()))
     same, moved, names_by, k_by, bounded = [], [], {}, {}, []
+    unread = []
     for r in rows:
         name = r["name"]
         word = (r.get("licence_partition") or {}).get("licence")
@@ -435,31 +559,54 @@ def phase_h6_session_key(two: dict, arm_c: dict, session_differs,
                       or {}).get("licence")
         (same if word is not None and word == arm_a_word else moved).append(
             {"name": name, "arm_c": word, "arm_a": arm_a_word})
-        names_by[name] = sorted(r.get("env_session_keys") or [])
+        # `None` is UNREAD here for the same reason it is in H4: a line
+        # nobody read matches no expected set.
+        printed = r.get("env_session_keys")
+        names_by[name] = None if printed is None else sorted(printed)
         k_by[name] = r.get("env_session_n")
+        if printed is None or k_by[name] is None:
+            unread.append(name)
+            continue
         if r.get("env_session_keys_truncated"):
             bounded.append(name)
-    distinct = sorted({tuple(v) for v in names_by.values()})
-    dropped = []
+    distinct = sorted({tuple(v) for v in names_by.values() if v is not None})
+    dropped = (subset_reasons(arm_c, e4pp.ARM_N, "arm C")
+               + subset_reasons(two, e4pp.GATE_N, "arm-A loop this arm is "
+                                                  "compared against"))
+    if unread:
+        dropped.append(
+            f"{len(unread)} pair(s) printed no session clause this reader "
+            f"could read ({unread[:3]}); an unread line matches no expected "
+            "set")
     if bounded:
         dropped.append(f"{len(bounded)} pair(s) printed a session list at "
                        f"its cap ({bounded[:3]}); " + CAPPED)
+    if len(distinct) > 1:
+        dropped.append(
+            "the pairs did not agree on the printed session set: "
+            f"{[list(d) for d in distinct]}; the per-pair sets are under "
+            "`session_names_by_name`")
     out = {
         "n": len(rows), "headline": len(same),
         "word_matches_arm_a": same, "word_moved": moved,
         "injected_key": key,
-        "session_names": (None if bounded or len(distinct) != 1
-                          or list(distinct[0]) != expected
+        # MEASURED, even when it is not the expected one. §1.3: a `null`
+        # with a reason is the only not-measured, and a set every pair
+        # printed WAS measured -- that it disagrees with the pin ∪ the key
+        # is what `session_names_match` and the verdict are for.
+        "session_names": (None if bounded or unread or len(distinct) != 1
                           else list(distinct[0])),
         "session_names_seen": [list(d) for d in distinct],
         "session_names_by_name": names_by,
+        "session_names_unread": sorted(unread),
         "session_names_match": sum(1 for v in names_by.values()
-                                   if v == expected),
-        "session_k": (None if len({k for k in k_by.values()}) != 1
-                      else next(iter(k_by.values()))),
+                                   if v is not None and v == expected),
+        "session_k": (None if len({k for k in k_by.values()
+                                   if k is not None}) != 1
+                      else next(k for k in k_by.values() if k is not None)),
         "session_k_by_name": k_by,
         "session_k_match": sum(1 for v in k_by.values()
-                               if v == len(expected)),
+                               if v is not None and v == len(expected)),
         "expected_session_names": expected, "pin": pin,
         "expected_k": len(expected),
         "dropped": dropped,
@@ -467,9 +614,14 @@ def phase_h6_session_key(two: dict, arm_c: dict, session_differs,
                  "printed session set is `pins.session_keys_differing` ∪ "
                  "{`pins.injected_session_key`} with K exactly one greater"),
     }
-    out["as_predicted"] = bool(
-        rows and not moved and out["session_names_match"] == len(rows)
-        and out["session_k_match"] == len(rows) and key)
+    blocking = (subset_reasons(arm_c, e4pp.ARM_N, "arm C")
+                + subset_reasons(two, e4pp.GATE_N,
+                                 "arm-A loop this arm is compared against")
+                + [f"{len(unread)} unread session clause(s)"] * bool(unread)
+                + [f"{len(bounded)} capped session list(s)"] * bool(bounded))
+    out["as_predicted"] = None if blocking else bool(
+        not moved and out["session_names_match"] == e4pp.ARM_N
+        and out["session_k_match"] == e4pp.ARM_N and key)
     out["verdict"] = _verdict(out["as_predicted"])
     step(f"H6: word matches arm A on {out['headline']}/{len(rows)}; session "
          f"names {out['session_names']} (expected {expected}); K "
@@ -582,97 +734,8 @@ def _every_dropped(raw: dict) -> dict:
     return out
 
 
-# ---------------------------------------------------------------------- H8
-
-def corpus_case_names(paths) -> dict:
-    """The corpus collector's OWN case list, by name.
-
-    `run_corpus.py --json` publishes counts, not names -- E4′ §5's gap 3,
-    which left `refocus_child_run_present` null and H6's "the new case
-    included" unchecked. §1.4 makes the same reading a GATE here, so the
-    names come from `load_cases()`, the very function the run iterates,
-    asked in a child of its own. Cheap, and it builds nothing.
-    """
-    from acceptance_e4p_preflight import out_err
-    py = str(REPO / ".venv" / "bin" / "python")
-    res = out_err(py, "-c",
-                  "import json, sys; sys.path.insert(0, '.'); "
-                  "from corpus.run_corpus import load_cases; "
-                  "print(json.dumps(sorted(c.name for c in load_cases())))")
-    rec = {"command": res["command"], "rc": res["rc"], "names": None,
-           "reason": None, "stderr": res["err"] or None}
-    if res["rc"] != 0 or not res["out"]:
-        rec["reason"] = (res["err"].splitlines()[-1].strip() if res["err"]
-                         else f"the listing exited {res['rc']} and printed "
-                              "nothing")
-        return rec
-    try:
-        rec["names"] = _json.loads(res["out"].splitlines()[-1])
-    except (ValueError, TypeError) as e:
-        rec["reason"] = f"the listing did not parse as JSON: {e}"
-    return rec
-
-
-def phase_h8_nothing_else(paths, cfg) -> dict:
-    """H8: did nothing else move? THIS repository, never the clone.
-
-    E4′'s H6 with two differences §1.4 requires. The corpus runs WITH the
-    driver (`--require-driver`, so a case nobody could run is a verdict on
-    the run rather than a skip inside a green summary), and
-    `spawned_test_fn_present` is read from the collector's own case list
-    instead of from a JSON that publishes no names.
-
-    Three commands, three return codes, each its own field: a summary line
-    is prose and does not decide a gate.
-    """
-    rec = eph2.phase_h6(paths, cfg)
-    listing = corpus_case_names(paths)
-    corpus, python, cargo = (rec.get("corpus") or {}, rec.get("python") or {},
-                             rec.get("cargo") or {})
-    names = listing.get("names")
-    present = (None if names is None else e4pp.SPAWNED_CASE in names)
-    skipped = [s for s in ((corpus.get("json") or {}).get("skipped") or [])
-               if isinstance(s, dict)]
-    out = {
-        "corpus_rc": corpus.get("rc"),
-        "pytest_rc": python.get("rc"),
-        "cargo_rc": cargo.get("rc"),
-        "pytest_summary": python.get("summary"),
-        "corpus_cases": corpus.get("cases"),
-        "corpus_failures": corpus.get("failures"),
-        "corpus_errors": corpus.get("errors"),
-        "corpus_skipped": skipped,
-        "corpus_require_driver": (corpus.get("json") or {}).get(
-            "require_driver"),
-        "corpus_args": list(cfg.get("corpus_args") or []),
-        "spawned_test_fn": e4pp.SPAWNED_CASE,
-        "spawned_test_fn_present": present,
-        "spawned_test_fn_skipped": [s for s in skipped
-                                    if s.get("case") == e4pp.SPAWNED_CASE],
-        "case_listing": listing,
-        "cargo_result_lines": cargo.get("result_lines"),
-        "logs": {"corpus": corpus.get("log"), "pytest": python.get("log"),
-                 "cargo": cargo.get("log")},
-        "raw": rec,
-        "dropped": ([] if names is not None else
-                    [f"the corpus case listing could not be read "
-                     f"({listing.get('reason')}), so whether "
-                     f"`{e4pp.SPAWNED_CASE}` is present went UNREAD"]),
-        "gate": ("corpus rc 0 with `--require-driver` and the spawned-test "
-                 "case present, pytest rc 0, `cargo test --workspace` rc 0"),
-    }
-    out["as_predicted"] = bool(
-        out["corpus_rc"] == 0 and out["pytest_rc"] == 0
-        and out["cargo_rc"] == 0 and present is True)
-    out["verdict"] = _verdict(out["as_predicted"])
-    step(f"H8: corpus rc {out['corpus_rc']} (args {out['corpus_args']}, "
-         f"{e4pp.SPAWNED_CASE} present={present}); pytest rc "
-         f"{out['pytest_rc']}; cargo rc {out['cargo_rc']}; {out['verdict']}")
-    return out
-
-
 __all__ = ["CAPPED", "LOGS", "corpus_case_names", "phase_h1",
-           "read_rt_hashes",
+           "read_rt_hashes", "subset_reasons",
            "phase_h2_fragment", "phase_h3_verdict_pair", "phase_h4_session",
            "phase_h5_input", "phase_h6_session_key", "phase_h7_instrument",
            "phase_h8_nothing_else"]

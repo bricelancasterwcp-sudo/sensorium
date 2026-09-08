@@ -151,10 +151,15 @@ def _reported(raw) -> dict:
             "pairs_whose_hashes_differ": h2.get("hashes_differ"),
             "pairs_whose_hashes_were_equal": h2.get(
                 "hashes_equal_so_the_strip_was_untested"),
+            "pairs_whose_hashes_were_unread": h2.get("hashes_unread"),
+            "pairs_whose_hashes_were_readable": h2.get("hashes_readable"),
             "note": ("their DIFFERENCE is the proof the two builds are not "
                      "the same build -- the one condition E4′ could not "
                      "create; a pair whose two hashes were EQUAL is a pair "
-                     "whose strip was never tested"),
+                     "whose strip was never tested, and a pair whose hash "
+                     "could not be READ is on neither list -- counted as "
+                     "'not differing' an unreadable run and a single-build "
+                     "run would print the same number"),
         },
         "driver_version": {
             "from_the_trace": pins.get("driver_version_from_the_trace"),
@@ -302,6 +307,11 @@ def assemble_e4pp(raw: dict) -> dict:
                        or raw.get("document") or DOC),
         "runner": raw.get("runner"),
         "dry_run": raw.get("dry_run", False),
+        # What a DRY run rehearsed, and what it showed. Carried so a reader
+        # of a `-dry` record can see that it is one, and which of §1.3's
+        # two readings it actually made.
+        "dry_arms": raw.get("dry_arms", False),
+        "dry_check": raw.get("dry_check"),
         "numbers_read": bool(raw.get("numbers_read")),
         "numbers_read_at": raw.get("numbers_read_at"),
         "numbers_read_because": raw.get("numbers_read_because"),

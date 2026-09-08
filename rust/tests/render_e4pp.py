@@ -85,7 +85,9 @@ CELLS = {
             "strip_clause_named"),
            ("the relocated key set (the gate: E4′'s four)", "relocated_set"),
            ("pairs whose two rt hashes DIFFER (2nd reading)",
-            "hashes_differ")),
+            "hashes_differ"),
+           ("pairs whose rt hash could not be READ (2nd reading)",
+            "hashes_unread")),
     "H3": (("MATCH verdicts (the gate: 61)", "headline"),
            ("pairs of exactly one (the gate: 61)", "pairs_of_one"),
            ("word/exit disagreements (2nd reading)",
@@ -247,11 +249,29 @@ def environment(r) -> list[str]:
 
 # ------------------------------------------------------------------ §3
 
+#: Cells whose VALUE is not a number or a name list, and the formatter that
+#: keeps the table readable. `licence_verified_counts` carries a `note`
+#: explaining that the counts are never summed -- true, and three lines long,
+#: which is prose and does not belong inside a table cell.
+FORMATTERS = {("H7", "licence_verified_counts"): lambda v: _counts(v)}
+
+
+def _counts(v) -> str:
+    """The four verified/unverifiable counts, without the note beside
+    them. Never summed here either: five numbers, printed as five."""
+    if not isinstance(v, dict):
+        return str(v)
+    return ", ".join(f"{k.replace('_', ' ')} {v[k]}" for k in
+                     ("source_verified", "env_verified", "exit_verified",
+                      "output_unverifiable", "children_unverifiable", "n")
+                     if k in v)
+
+
 def _endpoint(r, name) -> list[str]:
     e = (r.get("endpoints") or {}).get(name) or {}
     out = [f"### {name} — {QUESTION[name]}", ""] + list(HEAD)
     for label, key in CELLS[name]:
-        out.append(row(label, e.get(key)))
+        out.append(row(label, e.get(key), FORMATTERS.get((name, key), str)))
     out += ["", f"Rule: {RULES[name]}. Verdict: **{e.get('verdict')}**"
             f" (as predicted: {_yn(e.get('as_predicted'))}).", ""]
     out += _notes(name, e)
@@ -280,7 +300,12 @@ def _notes(name, e) -> list[str]:
                 f"two rt hashes were EQUAL — a strip that pair could not "
                 f"have tested:** "
                 + str(e.get("hashes_equal_so_the_strip_was_untested")
-                      or "none") + ".", ""]
+                      or "none")
+                + ". Pairs whose rt hash could not be read on one side or "
+                "both — counted as neither, because an unreadable run and a "
+                "single-build run must not print the same number: "
+                + str(e.get("hashes_unread") or "none")
+                + f" (readable: {e.get('hashes_readable')}).", ""]
     if name == "H3":
         return [f"Non-MATCH: {e.get('non_match') or 'none'}. Pair counts "
                 f"other than 1: {e.get('not_one') or 'none'}. The pair is "
@@ -341,7 +366,9 @@ def ungated(r) -> list[str]:
            f"**The two tool hashes.** {rt.get('pairs_whose_hashes_differ')} "
            f"pair(s) carried DIFFERENT rt hashes on their two sides; "
            f"{len(rt.get('pairs_whose_hashes_were_equal') or [])} carried "
-           f"equal ones. {rt.get('note')}.", "",
+           f"equal ones; "
+           f"{len(rt.get('pairs_whose_hashes_were_unread') or [])} could "
+           f"not be read at all. {rt.get('note')}.", "",
            f"**K and its names.** Pin {sess.get('pin')} (n "
            f"{sess.get('pin_n')}), expected {sess.get('expected')}, as "
            f"expected: {_yn(sess.get('as_expected'))}; injected "

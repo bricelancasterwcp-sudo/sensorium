@@ -126,12 +126,20 @@ def session_parity(kept: Path, rows, environ=None) -> dict:
             f"{k} ({d['how']}; {len(d['originals'])} original(s), e.g. "
             f"{', '.join(d['originals'][:3])})"
             for k, d in sorted(differing.items()))
+        # Two refusals, not one sentence with a hole in it: a guard that
+        # printed "0 key(s) differ:" when the only fault was an unreadable
+        # original would send a reader hunting a key that does not exist.
         raise Refused(
-            "this process's environment is NOT the one the originals were "
-            f"recorded under, OUTSIDE session set 1. {len(differing)} "
-            f"key(s) differ: {named}"
-            + (f". Originals that could not be read: {unreadable}"
-               if unreadable else "")
+            ("this process's environment is NOT the one the originals were "
+             f"recorded under, OUTSIDE session set 1. {len(differing)} "
+             f"key(s) differ: {named}"
+             + (f". Originals that could not be read: {unreadable}"
+                if unreadable else "")
+             if differing else
+             f"{len(unreadable)} of this record's {len(rows)} originals "
+             f"could not be read out of the kept store, so the guard could "
+             f"not compare them at all: {unreadable}. No key differs among "
+             "the ones it COULD read")
             + ". §1.3's rule 1: a difference outside the set is an "
               "uncontrolled instrument variable, not a subject property, so "
               "this is a refusal to launch before any number. Pin them in "

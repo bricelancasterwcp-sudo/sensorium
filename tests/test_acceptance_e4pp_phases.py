@@ -63,7 +63,8 @@ def _row(index, name, target, run, *, licence=_UNSET, program=_UNSET,
         "env_relocated_keys": list(e4pp.EXPECTED_RELOCATED),
         "env_changed_keys": list(changed), "env_changed_n": len(changed),
         "env_changed_keys_truncated": changed_truncated,
-        "env_session_keys": list(session), "env_session_n": len(session),
+        "env_session_keys": (None if session is None else list(session)),
+        "env_session_n": (None if session is None else len(session)),
         "env_session_keys_truncated": session_truncated,
         "env_line": "env: unchanged outside session set 1 (...)",
         "licence_facts": ["... unchanged outside session set 1 ..."],
@@ -298,18 +299,23 @@ def test_K_ABOVE_EIGHT_nulls_the_names_and_decides_on_K_alone():
     assert h["verdict"] == "STOP"
 
 
-def test_a_bounded_reading_whose_K_agrees_still_PASSES_on_K_alone():
-    pin = [f"K{i}" for i in range(11)]
+def test_a_bounded_reading_whose_K_agrees_PASSES_on_K_alone():
+    """§1.4's kill 7, the other half: with the names unread, the gate is
+    decided on K ALONE -- so a K that DOES equal the pin's size passes,
+    with the by-name half published as unread rather than as agreeing."""
+    pin = [f"K{i}" for i in range(9)]
     h = ph.phase_h4_session(_two({
-        n: {"session": [f"K{i}" for i in range(8)] + [f"+{3} more"],
-            "session_truncated": True}
+        n: {"session": [f"K{i}" for i in range(9)], "session_truncated": True}
         for _i, n, _t, _r in rows.ROWS}), pin)
     # The COUNT is authoritative: the fixture's `env_session_n` is the
     # length of the printed list, so this asks the phase to read K from the
     # count field and not from the names.
-    for r in h["session_k_by_name"]:
-        assert h["session_k_by_name"][r] == 9
+    assert set(h["session_k_by_name"].values()) == {9}
+    assert h["session_k_match"] == 61
     assert h["session_names"] is None
+    assert h["decided_on_k_alone"] is True
+    assert h["as_predicted"] is True
+    assert h["verdict"] == "PASS"
 
 
 def test_the_second_reading_carries_a_GRANTED_pairs_line_and_fact():
@@ -416,7 +422,11 @@ def test_the_injected_key_is_DERIVED_from_the_pin_and_never_re_chosen():
     reports the cell, so they cannot differ."""
     h = ph.phase_h6_session_key(_two(), _arm_c(), SESSION_PIN, "SSH_TTY")
     assert h["injected_key"] == "SSH_TTY"
-    assert h["session_names"] is None      # the lines say TMUX, the pin says SSH_TTY
+    # The lines say TMUX and the pin says SSH_TTY. The set the pairs
+    # printed was MEASURED and is published; the disagreement is carried by
+    # the match count and by the verdict, never by a null.
+    assert h["session_names"] == sorted(SESSION_PIN + [INJECTED])
+    assert h["session_names_match"] == 0
     assert h["verdict"] == "STOP"
 
 
@@ -580,13 +590,16 @@ def _h6_rec(corpus_rc=0, pytest_rc=0, cargo_rc=0, skipped=()):
 
 
 def _h8(monkeypatch, rec=None, names=_UNSET, reason=None):
-    monkeypatch.setattr(ph.eph2, "phase_h6",
+    """H8 lives in `acceptance_e4pp_phases2` (the 800-line split), so the
+    stubs go on the module it resolves its own names in."""
+    import acceptance_e4pp_phases2 as ph2
+    monkeypatch.setattr(ph2.eph2, "phase_h6",
                         lambda paths, cfg: rec or _h6_rec())
     listing = {"command": "…", "rc": 0,
                "names": (["refocus_child_run", e4pp.SPAWNED_CASE]
                          if names is _UNSET else names),
                "reason": reason}
-    monkeypatch.setattr(ph, "corpus_case_names", lambda paths: listing)
+    monkeypatch.setattr(ph2, "corpus_case_names", lambda paths: listing)
     return ph.phase_h8_nothing_else({}, {"corpus_args": ["--require-driver"]})
 
 
@@ -624,4 +637,241 @@ def test_a_listing_that_could_NOT_be_read_is_null_WITH_its_reason(
     h = _h8(monkeypatch, names=None, reason="ImportError: no corpus")
     assert h["spawned_test_fn_present"] is None
     assert h["dropped"] and "UNREAD" in h["dropped"][0]
+    assert h["verdict"] == "STOP"
+
+
+# ================== fix round 1 ==================================
+
+# ------- Important 1: the gates count against the LOCKED 61 and 4 --------
+
+def _short(block, *, n=59, measured=None, killed=(), exhausted=()):
+    """An arm whose loop did not reach every row, in the four shapes it
+    comes in. E4′ guarded exactly this and none of E4″'s new phases did:
+    "a `true` sitting beside `n: 51` in the raw file is a sentence waiting
+    to be misread"."""
+    block = dict(block)
+    block["n"] = n
+    block["measured"] = n if measured is None else measured
+    block["killed"] = list(killed)
+    block["budget_exhausted"] = list(exhausted)
+    return block
+
+
+@pytest.mark.parametrize("phase, args", [
+    ("phase_h2_fragment", ()),
+    ("phase_h3_verdict_pair", ()),
+    ("phase_h4_session", (SESSION_PIN,)),
+])
+def test_a_SHORT_arm_A_loop_is_None_and_never_a_PASS(phase, args):
+    """§1.4's gates are over §1.1's 61, not over however many rows came
+    back. A loop that stopped at 59 measured nothing about "61 of 61"."""
+    two = _short(_two())
+    h = getattr(ph, phase)(two, *args)
+    assert h["as_predicted"] is None, h["as_predicted"]
+    assert h["verdict"] == "STOP"
+    assert any("61" in d for d in h["dropped"]), h["dropped"]
+
+
+@pytest.mark.parametrize("phase, args", [
+    ("phase_h2_fragment", ()),
+    ("phase_h3_verdict_pair", ()),
+    ("phase_h4_session", (SESSION_PIN,)),
+])
+def test_a_KILLED_row_takes_arm_A_to_None_too(phase, args):
+    two = _short(_two(), n=61, killed=["a_pager_can_be_shared_across_threads"])
+    h = getattr(ph, phase)(two, *args)
+    assert h["as_predicted"] is None
+    assert h["verdict"] == "STOP"
+    assert any("KILLED" in d for d in h["dropped"])
+
+
+@pytest.mark.parametrize("phase, args", [
+    ("phase_h2_fragment", ()),
+    ("phase_h3_verdict_pair", ()),
+    ("phase_h4_session", (SESSION_PIN,)),
+])
+def test_a_bound_REACHED_takes_arm_A_to_None_too(phase, args):
+    two = _short(_two(), n=61, measured=60, exhausted=["a_row"])
+    h = getattr(ph, phase)(two, *args)
+    assert h["as_predicted"] is None
+    assert h["verdict"] == "STOP"
+    assert any("never run" in d for d in h["dropped"])
+
+
+def test_a_WHOLE_arm_A_loop_still_answers_True_with_an_empty_dropped():
+    for phase, args in (("phase_h2_fragment", ()),
+                        ("phase_h3_verdict_pair", ()),
+                        ("phase_h4_session", (SESSION_PIN,))):
+        h = getattr(ph, phase)(_two(), *args)
+        assert h["as_predicted"] is True, phase
+        assert h["dropped"] == [], phase
+
+
+def _arm_full(key, value, over=None, arm="armB"):
+    a = _arm(key, value, over, arm=arm)
+    a["measured"] = a["n"]
+    a["budget_exhausted"] = []
+    return a
+
+
+def test_a_SHORT_arm_B_is_None_and_never_a_PASS():
+    """The arms' denominator is §1.3's FOUR, not however many ran."""
+    names = [r["name"] for r in arms.arm_rows(rows.ROWS)]
+    over = {n: {"licence": "WITHHELD", "changed": [arms.ARM_B_KEY]}
+            for n in names}
+    arm = _arm_full(arms.ARM_B_KEY, "1", over)
+    arm["refocuses"] = arm["refocuses"][:3]
+    arm["n"] = arm["measured"] = 3
+    h = ph.phase_h5_input(arm)
+    assert h["as_predicted"] is None
+    assert h["verdict"] == "STOP"
+    assert any("4" in d for d in h["dropped"])
+
+
+def test_a_KILLED_arm_B_row_is_None_and_never_a_PASS():
+    names = [r["name"] for r in arms.arm_rows(rows.ROWS)]
+    over = {n: {"licence": "WITHHELD", "changed": [arms.ARM_B_KEY]}
+            for n in names}
+    arm = _arm_full(arms.ARM_B_KEY, "1", over)
+    arm["killed"] = [names[0]]
+    h = ph.phase_h5_input(arm)
+    assert h["as_predicted"] is None
+    assert h["verdict"] == "STOP"
+
+
+def test_a_SHORT_arm_C_is_None_and_never_a_PASS():
+    arm = _arm_c()
+    arm["refocuses"] = arm["refocuses"][:3]
+    arm["n"] = arm["measured"] = 3
+    arm["killed"], arm["budget_exhausted"] = [], []
+    h = ph.phase_h6_session_key(_two(), arm, SESSION_PIN, INJECTED)
+    assert h["as_predicted"] is None
+    assert h["verdict"] == "STOP"
+
+
+def test_a_SHORT_arm_A_also_takes_H6_to_None():
+    """H6 compares arm C's word against ARM A's for the same row, so a
+    short arm A is a short comparison."""
+    arm = _arm_c()
+    arm["measured"], arm["killed"], arm["budget_exhausted"] = arm["n"], [], []
+    h = ph.phase_h6_session_key(_short(_two()), arm, SESSION_PIN, INJECTED)
+    assert h["as_predicted"] is None
+    assert h["verdict"] == "STOP"
+
+
+def test_H1_over_a_SHORT_loop_is_None_and_never_a_PASS():
+    """The same guard on the partition: a loop that killed two WITHHELD
+    rows could still count 57 granted and read as §1.2's partition."""
+    h = ph.phase_h1(_short(_two()))
+    assert h["partition_as_predicted"] is None
+    assert h["dropped"]
+
+
+def test_H1_over_a_WHOLE_loop_is_unchanged():
+    h = ph.phase_h1(_two())
+    assert h["partition_as_predicted"] is True
+    assert h["dropped"] == []
+    assert h["granted_n"] == 57
+
+
+# ------- Important 2: an UNREADABLE hash is neither differ nor equal -----
+
+def test_a_pair_whose_hash_could_not_be_READ_is_counted_as_neither():
+    """`hashes_differ` read 0 whether no pair differed or no pair was
+    readable. Three numbers now, and the denominator is the readable
+    ones."""
+    h = ph.phase_h2_fragment(_two({
+        "unknown_model_mutating_verbs_is_false": {"rerun_rt": None}}))
+    assert h["hashes_differ"] == 60
+    assert h["hashes_equal_so_the_strip_was_untested"] == []
+    assert h["hashes_unread"] == ["unknown_model_mutating_verbs_is_false"]
+    assert h["hashes_readable"] == 60
+    assert any("could not be read" in d for d in h["dropped"])
+
+
+def test_ALL_hashes_unread_is_not_the_same_answer_as_none_differing():
+    h = ph.phase_h2_fragment(_two({
+        n: {"orig_rt": None, "rerun_rt": None}
+        for _i, n, _t, _r in rows.ROWS}))
+    assert h["hashes_differ"] == 0
+    assert h["hashes_readable"] == 0
+    assert len(h["hashes_unread"]) == 61
+
+
+def test_every_hash_readable_leaves_the_unread_list_EMPTY():
+    h = ph.phase_h2_fragment(_two())
+    assert h["hashes_unread"] == []
+    assert h["hashes_readable"] == 61
+    assert h["dropped"] == []
+
+
+# ------- Important 4: H6 publishes a set it MEASURED ---------------------
+
+def test_H6_publishes_a_measured_set_that_merely_DISAGREES_with_the_pin():
+    """§1.3: a `null` with a reason is the only not-measured. A set every
+    pair printed WAS measured; that it is not the expected one is what
+    `session_names_match` and the verdict are for."""
+    h = ph.phase_h6_session_key(_two(), _arm_c(), SESSION_PIN, "SSH_TTY")
+    assert h["session_names"] == sorted(SESSION_PIN + [INJECTED])
+    assert h["session_names_match"] == 0
+    assert h["expected_session_names"] == sorted(SESSION_PIN + ["SSH_TTY"])
+    assert h["verdict"] == "STOP"
+
+
+def test_H6_nulls_the_set_only_when_the_pairs_DISAGREE_among_themselves():
+    names = [r["name"] for r in arms.arm_rows(rows.ROWS)]
+    h = ph.phase_h6_session_key(
+        _two(), _arm_c({names[0]: {"session": SESSION_PIN}}),
+        SESSION_PIN, INJECTED)
+    assert h["session_names"] is None
+    assert any("did not agree" in d for d in h["dropped"])
+    assert h["verdict"] == "STOP"
+
+
+# ------- minor (a): H5's by-name half is bounded too ---------------------
+
+def test_a_TRUNCATED_arm_B_changed_list_cannot_answer_the_key_question():
+    names = [r["name"] for r in arms.arm_rows(rows.ROWS)]
+    over = {n: {"licence": "WITHHELD", "changed": [arms.ARM_B_KEY]}
+            for n in names}
+    over[names[1]] = {"licence": "WITHHELD",
+                      "changed": [f"K{i}" for i in range(9)],
+                      "changed_truncated": True}
+    h = ph.phase_h5_input(_arm_full(arms.ARM_B_KEY, "1", over))
+    assert h["env_caveat_names_the_key"] is None
+    assert h["changed_lists_bounded"] == [names[1]]
+    assert h["verdict"] == "STOP"
+
+
+# ------- minor (b): an unread pager row is None, not False --------------
+
+def test_thread_reason_kept_is_None_when_the_pager_rows_licence_was_UNREAD():
+    names = [r["name"] for r in arms.arm_rows(rows.ROWS)]
+    over = {n: {"licence": "WITHHELD", "changed": [arms.ARM_B_KEY]}
+            for n in names}
+    over[arms.PAGER_ROW] = {"licence": None, "program": None}
+    h = ph.phase_h5_input(_arm_full(arms.ARM_B_KEY, "1", over))
+    assert h["thread_reason_kept"] is None
+    assert h["thread_reason_reason"]
+
+
+# ------- minor (c): an UNREAD session list is not an empty one ----------
+
+def test_an_UNREAD_session_list_is_not_read_as_an_empty_set():
+    """`None` turned into `[]` matched an empty pin and counted as a
+    match. A line nobody read matches nothing."""
+    h = ph.phase_h4_session(_two({
+        "unknown_model_mutating_verbs_is_false": {"session": None}}), [])
+    assert h["session_names_unread"] == [
+        "unknown_model_mutating_verbs_is_false"]
+    assert h["session_names_match"] == 0
+    assert h["as_predicted"] is None
+    assert h["verdict"] == "STOP"
+
+
+def test_an_UNREAD_session_list_in_arm_C_is_caught_the_same_way():
+    names = [r["name"] for r in arms.arm_rows(rows.ROWS)]
+    h = ph.phase_h6_session_key(
+        _two(), _arm_c({names[0]: {"session": None}}), SESSION_PIN, INJECTED)
+    assert h["session_names_unread"] == [names[0]]
     assert h["verdict"] == "STOP"

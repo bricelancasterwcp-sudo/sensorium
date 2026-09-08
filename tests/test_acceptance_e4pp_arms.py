@@ -206,3 +206,38 @@ def test_run_arm_records_a_KILLED_row_rather_than_dropping_it(monkeypatch):
     rec = arms.run_arm({}, {}, arms.arm_rows(rows.ROWS), "K", "v", "armB")
     assert rec["killed"] == [r["name"] for r in arms.arm_rows(rows.ROWS)]
     assert rec["n"] == 4
+
+
+# ============ fix round 1: minor (d) — the arms share the loop's bound ====
+
+def test_an_arm_row_past_the_DEADLINE_is_NOT_RUN_and_named(monkeypatch):
+    """§1.4 bounds the whole LOOP at 1 h 30 min, and arms B and C are part
+    of it: a run that spent the budget on arm A must not then run four more
+    invocations outside every bound this record pre-registered."""
+    import time as _t
+    seen = []
+
+    def fake(paths, cfg, row, extra_env=None, label=None):
+        seen.append(row[1])
+        return {"index": row[0], "name": row[1], "verdict_word": "MATCH",
+                "wall_s": 1.0, "timed_out": False, "pair": {"n": 1},
+                "licence_partition": {"licence": "granted"}}
+
+    monkeypatch.setattr(arms.eph, "refocus_one", fake)
+    rec = arms.run_arm({}, {}, arms.arm_rows(rows.ROWS), "K", "v", "armB",
+                       deadline=_t.monotonic() - 1)
+    assert seen == []
+    assert len(rec["budget_exhausted"]) == 4
+    assert rec["measured"] == 0
+    assert rec["n"] == 4                       # the ROWS, not the runs
+    assert all("not_run" in r for r in rec["refocuses"])
+
+
+def test_NO_deadline_runs_every_row_exactly_as_before(monkeypatch):
+    monkeypatch.setattr(arms.eph, "refocus_one",
+                        lambda paths, cfg, row, extra_env=None, label=None: {
+                            "index": row[0], "name": row[1],
+                            "timed_out": False, "wall_s": 1.0})
+    rec = arms.run_arm({}, {}, arms.arm_rows(rows.ROWS), "K", "v", "armB")
+    assert rec["budget_exhausted"] == []
+    assert rec["measured"] == rec["n"] == 4

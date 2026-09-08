@@ -202,3 +202,35 @@ def test_NO_original_could_be_read_is_a_refusal_not_an_empty_environment(
     with pytest.raises(Refused) as e:
         pre.arm_original_env(tmp_path, _rows("r-1"))
     assert "r-1" in str(e.value)
+
+
+# ============ fix round 1: minor (f) — the refusal's two sentences ========
+
+def test_an_UNREADABLE_original_alone_does_not_print_zero_keys_differ(
+        tmp_path):
+    """A guard that said "0 key(s) differ:" when the only fault was an
+    original it could not read would send a reader hunting a key that does
+    not exist."""
+    traces = tmp_path / "traces"
+    traces.mkdir(parents=True)
+    con = sqlite3.connect(traces / "r-1.db")
+    con.execute("create table meta (key text primary key, value text)")
+    con.execute("insert into meta values ('run_id', ?)", (json.dumps("r-1"),))
+    con.commit()
+    con.close()
+    with pytest.raises(Refused) as e:
+        pre.session_parity(tmp_path, _rows("r-1"), environ=dict(BASE))
+    text = str(e.value)
+    assert "0 key(s) differ" not in text
+    assert "could not be read out of the kept store" in text
+    assert "r-1" in text
+
+
+def test_a_REAL_key_difference_still_names_every_key(tmp_path):
+    """The other branch, unchanged."""
+    kept = _store(tmp_path, {"r-1": BASE})
+    with pytest.raises(Refused) as e:
+        pre.session_parity(kept, _rows("r-1"),
+                           environ=dict(BASE, HOME="/elsewhere"))
+    assert "1 key(s) differ" in str(e.value)
+    assert "HOME" in str(e.value)

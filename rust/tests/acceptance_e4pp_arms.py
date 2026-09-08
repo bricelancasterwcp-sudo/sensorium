@@ -173,7 +173,7 @@ def arm_env(base: dict, key: str, value: str) -> dict:
     return dict(base) | {key: value}
 
 
-def run_arm(paths, cfg, rows, key, value, tag) -> dict:
+def run_arm(paths, cfg, rows, key, value, tag, deadline=None) -> dict:
     """One control arm: the same four rows, one key added, one row at a
     time -- each paired by ITS OWN invocation's launch timestamp.
 
@@ -181,27 +181,46 @@ def run_arm(paths, cfg, rows, key, value, tag) -> dict:
     invocation that produced it, which is the only thing that keeps H3's
     "pair 1 of 1" true once three arms have refocused one original into one
     store.
+
+    `deadline` is `pass_two`'s OWN monotonic deadline, passed through by the
+    runner. §1.4 bounds "the whole loop" at 1 h 30 min and these eight
+    invocations are part of it: an arm that ran past the bound would be
+    measuring outside every ceiling this record pre-registered. A row past
+    the deadline is `not_run` with the same sentence `pass_two` writes, and
+    it lands on `budget_exhausted`, which is what the phases' subset guard
+    and §1.4's rules 4 and 5 both read.
     """
     mark_load(tag)
-    answers = []
+    answers, exhausted = [], []
     with logs_at((LOGS or Path(".")) / tag):
         for row in rows:
+            if deadline is not None and time.monotonic() >= deadline:
+                exhausted.append(row["name"])
+                answers.append({"index": row["index"], "name": row["name"],
+                                "target": row["target"], "arm": tag,
+                                "original": row["original"],
+                                "not_run": eph.NOT_RUN_BOUND})
+                continue
             answers.append(eph.refocus_one(paths, cfg, row["row"],
                                            extra_env={key: value},
                                            label=tag))
+    measured = [a for a in answers if "not_run" not in a]
     out = {
         "arm": tag, "key": key, "value": value,
-        "n": len(answers), "refocuses": answers,
+        "n": len(answers), "measured": len(measured), "refocuses": answers,
+        "budget_exhausted": exhausted,
         "by_name": {a["name"]: a for a in answers},
         "rows": [r["name"] for r in rows],
         "expected_licence": {r["name"]: r["expected_licence"] for r in rows},
-        "killed": [a["name"] for a in answers if a.get("timed_out")],
+        "killed": [a["name"] for a in measured if a.get("timed_out")],
         "walls_s": {a["name"]: a.get("wall_s") for a in answers},
+        "loop_deadline_monotonic": deadline,
         "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
     }
-    step(f"arm {tag}: {out['n']} row(s) with {key}={value!r}; killed "
-         f"{out['killed']}; licences "
-         f"{[(a.get('licence_partition') or {}).get('licence') for a in answers]}")
+    step(f"arm {tag}: {out['measured']}/{out['n']} row(s) with "
+         f"{key}={value!r}; killed {out['killed']}; never run "
+         f"{exhausted}; licences "
+         f"{[(a.get('licence_partition') or {}).get('licence') for a in measured]}")
     return out
 
 

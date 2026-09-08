@@ -35,7 +35,7 @@ MEASUREMENT_CELLS = {
     "H1": ("headline", "withheld", "hides_the_exclusion",
            "reasons_that_never_subtracted", "harness_threads_all_one"),
     "H2": ("rustdocflags_in_changed", "strip_clause_named",
-           "relocated_set", "hashes_differ"),
+           "relocated_set", "hashes_differ", "hashes_unread"),
     "H3": ("headline", "pairs_of_one", "word_and_exit_disagree",
            "excluded_children"),
     "H4": ("session_names", "session_k",
@@ -162,7 +162,8 @@ def _h1(raw) -> dict:
         "gate": ("granted = 57 AND the WITHHELD set is exactly §1.2's four, "
                  "by name, with their program-thread counts (1, 4, 4, 4)"),
         "as_predicted": h.get("partition_as_predicted"),
-        "verdict": ("PASS" if h.get("partition_as_predicted") else "STOP"),
+        "verdict": h.get("verdict") or (
+            "PASS" if h.get("partition_as_predicted") else "STOP"),
     }
     return _apply(block, "H1", raw)
 
@@ -194,11 +195,22 @@ def _h2(raw) -> dict:
             "pair printed the same one",
             [] if h.get("relocated_set") is not None else _dropped(h)),
         "hashes_differ": meas(
-            h.get("hashes_differ"), n,
+            h.get("hashes_differ"), h.get("hashes_readable"),
             "§1.5: the rt hash the recorder's fragment carries on each "
             "side, read from each trace's own recorded `RUSTDOCFLAGS`; "
-            "pairs whose two hashes DIFFER, which is what makes that pair's "
-            "strip testable at all", []),
+            "pairs whose two hashes DIFFER, over the pairs whose two "
+            "hashes could be READ -- a pair unread is on neither this list "
+            "nor the equal one",
+            ([f"{len(h.get('hashes_unread') or [])} pair(s) hash could not "
+              f"be read on one side or both "
+              f"({(h.get('hashes_unread') or [])[:3]})"]
+             if h.get("hashes_unread") else [])),
+        "hashes_unread": meas(
+            h.get("hashes_unread"), n,
+            "§1.5: pairs whose rt hash could not be read on one side or "
+            "both. Published BESIDE `hashes_differ` and the equal list, "
+            "because counted as 'not differing' an unreadable run and a "
+            "single-build run would print the same number", []),
         "rustdocflags_in_changed_pairs": h.get(
             "rustdocflags_in_changed_pairs"),
         "strip_clause_missing": h.get("strip_clause_missing"),
@@ -208,6 +220,7 @@ def _h2(raw) -> dict:
         "changed_lists_bounded": h.get("changed_lists_bounded"),
         "hashes_equal_so_the_strip_was_untested": h.get(
             "hashes_equal_so_the_strip_was_untested"),
+        "hashes_readable": h.get("hashes_readable"),
         "rt_hashes_by_pair": h.get("rt_hashes_by_pair"),
         "gate": h.get("gate"),
         "as_predicted": h.get("as_predicted"),
@@ -281,6 +294,7 @@ def _h4(raw) -> dict:
             "-- the whole of R4 is that such a key never withholds", []),
         "session_names_match": h.get("session_names_match"),
         "session_k_match": h.get("session_k_match"),
+        "session_names_unread": h.get("session_names_unread"),
         "session_names_seen": h.get("session_names_seen"),
         "session_names_by_name": h.get("session_names_by_name"),
         "session_k_by_name": h.get("session_k_by_name"),
@@ -322,13 +336,18 @@ def _h5(raw) -> dict:
         "env_caveat_names_the_key": meas(
             h.get("env_caveat_names_the_key"), n,
             H5_LENS + f"; WITHHELD pairs whose env caveat names "
-            f"`{h.get('key')}`", []),
+            f"`{h.get('key')}`",
+            [] if h.get("env_caveat_names_the_key") is not None
+            else _dropped(h)),
         "thread_reason_kept": meas(
             h.get("thread_reason_kept"), 1,
             "the pager row's one-program-thread reason, read beside the env "
             "caveat: a control that SILENCED the thread reason is a finding",
-            []),
+            [h["thread_reason_reason"]] if h.get("thread_reason_reason")
+            else []),
         "key": h.get("key"),
+        "thread_reason_reason": h.get("thread_reason_reason"),
+        "changed_lists_bounded": h.get("changed_lists_bounded"),
         "withheld": h.get("withheld"), "granted": h.get("granted"),
         "env_caveat_missing_the_key": h.get("env_caveat_missing_the_key"),
         "verdicts": h.get("verdicts"), "unread": h.get("unread"),
@@ -356,13 +375,13 @@ def _h6(raw) -> dict:
         "headline": meas(h.get("headline"), n,
                          H6_LENS + "; pairs whose licence word equals arm "
                          "A's for the same row", []),
+        # MEASURED even when it disagrees with the pin ∪ the key: a set
+        # every pair printed WAS measured, and `session_names_match` is
+        # what carries the miss (§1.3 -- a null with a reason is the only
+        # not-measured).
         "session_names": meas(
             h.get("session_names"), n, H6_LENS,
-            [] if h.get("session_names") is not None else _dropped(h)
-            or ["the printed session set is not "
-                "`pins.session_keys_differing` ∪ "
-                "{`pins.injected_session_key`} on every pair; the per-pair "
-                "sets are under `session_names_by_name`"]),
+            [] if h.get("session_names") is not None else _dropped(h)),
         "session_k": meas(h.get("session_k"), n, H6_LENS, []),
         "injected_key": meas(
             h.get("injected_key"), 1,
@@ -371,6 +390,7 @@ def _h6(raw) -> dict:
         "word_moved": h.get("word_moved"),
         "session_names_match": h.get("session_names_match"),
         "session_k_match": h.get("session_k_match"),
+        "session_names_unread": h.get("session_names_unread"),
         "session_names_by_name": h.get("session_names_by_name"),
         "expected_session_names": h.get("expected_session_names"),
         "expected_k": h.get("expected_k"), "pin": h.get("pin"),

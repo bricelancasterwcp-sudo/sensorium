@@ -325,6 +325,7 @@ def _harness(monkeypatch, tmp_path, **over):
     """`main()` with every expensive step stubbed: the control flow is what
     is under test, and it is the thing most likely to break 1 h 20 into a
     detached run rather than here."""
+    import time
     import acceptance_e4p_phases as eph
     import acceptance_e4pp_phases as ph
     import acceptance_e4pp_preflight as e4pre
@@ -354,12 +355,14 @@ def _harness(monkeypatch, tmp_path, **over):
     monkeypatch.setattr(runner, "store_census", lambda store: {"n": 122})
     monkeypatch.setattr(runner, "copy_originals",
                         lambda kept, fresh, rows_: {"copied": len(rows_)})
-    calls = {"arms": [], "h8": 0, "render": 0}
+    calls = {"arms": [], "h8": 0, "render": 0, "deadlines": []}
 
     def fake_pass_two(paths, cfg, on_first_number=None):
         if on_first_number:
             on_first_number("row 1 came back")
         two = _two()
+        two["loop_deadline_monotonic"] = time.monotonic() + cfg[
+            "loop_budget_s"]
         if len(cfg["rows"]) < 61:
             two["refocuses"] = two["refocuses"][:len(cfg["rows"])]
             two["n"] = two["measured"] = len(cfg["rows"])
@@ -373,16 +376,23 @@ def _harness(monkeypatch, tmp_path, **over):
 
     monkeypatch.setattr(ph, "read_rt_hashes", fake_hashes)
 
-    def fake_run_arm(paths, cfg, arm_rows_, key, value, tag):
+    def fake_run_arm(paths, cfg, arm_rows_, key, value, tag, deadline=None):
         calls["arms"].append((key, value, tag))
+        calls["deadlines"].append(deadline)
         names = [r["name"] for r in arm_rows_]
         if tag == "armB":
-            return _arm(key, value,
-                        {n: {"licence": "WITHHELD", "changed": [key]}
-                         for n in names})
-        return _arm(key, value,
-                    {n: {"session": SESSION_PIN + [INJECTED], "arm": "armC"}
-                     for n in names}, arm="armC")
+            rec = _arm(key, value,
+                       {n: {"licence": "WITHHELD", "changed": [key]}
+                        for n in names})
+        else:
+            rec = _arm(key, value,
+                       {n: {"session": SESSION_PIN + [INJECTED],
+                            "arm": "armC"} for n in names}, arm="armC")
+        rec["measured"], rec["budget_exhausted"] = rec["n"], []
+        if not over.get("arm_pairs", True):
+            for a in rec["refocuses"]:
+                a["new_run"] = None
+        return rec
 
     monkeypatch.setattr(runner.arms, "run_arm", fake_run_arm)
 
@@ -423,14 +433,56 @@ def test_a_whole_run_writes_the_marker_the_raw_record_and_the_results(
     assert record["endpoints"]["H6"]["injected_key"]["value"] == "TMUX"
 
 
-def test_a_DRY_run_runs_NEITHER_arm_nor_H8_and_never_writes_the_tracked_file(
-        monkeypatch, tmp_path):
+def test_a_PLAIN_DRY_run_runs_neither_arm_nor_H8(monkeypatch, tmp_path):
+    """§1.3's dry, as pre-registered: two pairs, arm A only."""
     base, calls = _harness(monkeypatch, tmp_path)
     rc = runner.main(["--dry"])
     assert rc == 0
     assert (base / "e4pp-dry.DONE").exists()
     assert not (base / "e4pp.DONE").exists()
     assert calls["arms"] == [] and calls["h8"] == 0
+    raw = json.loads((tmp_path / "results-e4pp-raw-dry.json").read_text())
+    assert raw["dry_arms"] is False
+    assert raw["dry_check"]["arms_rehearsed"] is False
+    assert raw["dry_check"]["arms_ok"] is None
+
+
+def test_DRY_ARMS_rehearses_BOTH_arms_over_the_same_two_rows(monkeypatch,
+                                                             tmp_path):
+    """§1.3's dry is a MINIMUM, not a ceiling (controller, fix round 1).
+    Four control invocations otherwise go unrehearsed until an hour into
+    the real run."""
+    base, calls = _harness(monkeypatch, tmp_path)
+    rc = runner.main(["--dry-arms"])
+    assert rc == 0
+    assert (base / "e4pp-dry.DONE").exists()
+    assert [t for _k, _v, t in calls["arms"]] == ["armB", "armC"]
+    assert calls["h8"] == 0                    # H8 still does not run
+    assert not (tmp_path / "tracked.results.json").exists()
+    raw = json.loads((tmp_path / "results-e4pp-raw-dry.json").read_text())
+    assert raw["dry_run"] is True and raw["dry_arms"] is True
+    assert raw["dry_check"]["arms_rehearsed"] is True
+    assert raw["dry_check"]["arms_ok"] is True
+    assert "both control arms produced a pair" in raw["dry_check"]["reading"]
+
+
+def test_a_DRY_ARM_that_produced_NO_PAIR_is_INFRASTRUCTURE(monkeypatch,
+                                                           tmp_path):
+    """"Each arm produced a pair for each row without exception" -- and an
+    arm failure in a dry is infrastructure, not a STOP."""
+    base, calls = _harness(monkeypatch, tmp_path, arm_pairs=False)
+    rc = runner.main(["--dry-arms"])
+    assert rc == 9
+    assert (base / "e4pp-dry.FAILED").read_text().count("INFRASTRUCTURE")
+    raw = json.loads((tmp_path / "results-e4pp-raw-dry.json").read_text())
+    assert raw["dry_check"]["arms_ok"] is False
+    assert raw["dry_check"]["arms"]["B"]["rows_without_a_pair"]
+
+
+def test_a_DRY_run_never_writes_the_tracked_file(monkeypatch, tmp_path):
+    base, calls = _harness(monkeypatch, tmp_path)
+    rc = runner.main(["--dry"])
+    assert rc == 0
     assert calls["render"] == 0
     assert not (tmp_path / "tracked.results.json").exists()
     assert (tmp_path / "results-e4pp-dry.results.json").is_file()
@@ -509,3 +561,72 @@ def test_a_DRY_run_is_never_judged_by_the_SUBJECTS_gates():
            "raw_h2": {"verdict": "STOP", "gate": "g"}}
     assert runner._stops(res) == []
     assert runner._stops(dict(res, dry_run=False)) != []
+
+
+def test_both_arms_run_under_the_LOOPs_OWN_deadline(monkeypatch, tmp_path):
+    """§1.4 bounds "the whole loop", and arms B and C are part of it: they
+    are handed `pass_two`'s own monotonic deadline, not a fresh one."""
+    base, calls = _harness(monkeypatch, tmp_path)
+    assert runner.main([]) == 0
+    raw = json.loads((tmp_path / "results-e4pp-raw.json").read_text())
+    assert calls["deadlines"] == [raw["raw_pass2"]["loop_deadline_monotonic"]] * 2
+    assert all(d is not None for d in calls["deadlines"])
+
+
+def test_an_INFRASTRUCTURE_kill_exits_9_and_a_STOP_exits_7():
+    """§1.4's rules 4 and 5 part company on `numbers_read`, and so must the
+    exit codes: one code for both made a relaunch-from-zero and a finding
+    read the same to whatever is watching the marker."""
+    before = {"numbers_read": False,
+              "raw_pass2": {"killed": ["x"], "budget_exhausted": []}}
+    after = {"numbers_read": True,
+             "raw_pass2": {"killed": ["x"], "budget_exhausted": []}}
+    assert runner._infrastructure(before) is True
+    assert runner._infrastructure(after) is False
+    assert runner._infrastructure({"numbers_read": False}) is False
+
+
+def test_a_kill_BEFORE_any_number_exits_9_not_7(monkeypatch, tmp_path):
+    import acceptance_e4pp_phases as ph
+    base, calls = _harness(monkeypatch, tmp_path)
+
+    def fake_pass_two(paths, cfg, on_first_number=None):
+        """A loop that read NOTHING: every row killed before it printed a
+        verdict or a licence, which is the only shape §1.4's rule 4
+        describes."""
+        rows_ = [{"index": i, "name": f"n{i}", "timed_out": True,
+                  "kill_s": 1800, "verdict_word": None, "licence_word": None,
+                  "licence_partition": {"licence": None}, "wall_s": 1800.0,
+                  "pair": {"n": 0}}
+                 for i in range(1, 62)]
+        return {"refocuses": rows_, "n": 61, "measured": 61,
+                "budget_exhausted": [], "loop_deadline_monotonic": 1.0,
+                "killed": [r["name"] for r in rows_]}
+
+    monkeypatch.setattr(runner, "pass_two", fake_pass_two)
+    rc = runner.main([])
+    assert rc == 9
+    marker = (base / "e4pp.FAILED").read_text()
+    assert "infrastructure" in marker
+    assert "relaunched from zero" in marker
+    raw = json.loads((tmp_path / "results-e4pp-raw.json").read_text())
+    assert raw["kill_is_infrastructure"] is True
+
+
+def test_a_kill_AFTER_a_number_still_exits_7(monkeypatch, tmp_path):
+    base, calls = _harness(monkeypatch, tmp_path)
+
+    def fake_pass_two(paths, cfg, on_first_number=None):
+        sys.path.insert(0, str(REPO / "tests"))
+        from test_acceptance_e4pp_phases import _two
+        if on_first_number:
+            on_first_number("row 1 came back")
+        two = _two()
+        two["killed"] = ["a_pager_can_be_shared_across_threads"]
+        two["loop_deadline_monotonic"] = 1.0
+        return two
+
+    monkeypatch.setattr(runner, "pass_two", fake_pass_two)
+    assert runner.main([]) == 7
+    raw = json.loads((tmp_path / "results-e4pp-raw.json").read_text())
+    assert raw["kill_is_infrastructure"] is False
