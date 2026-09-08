@@ -315,8 +315,14 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       subject, of which about half is cargo's own reported build, and 61
       focused re-runs plus pass 1's own unfocused base key left **62** shim
       entries totalling **2 506 729 440** bytes — one base key and exactly 61
-      focused keys, none reused (record §3, §5.4). *Declared by* the third blind-spot line the
-      verdict prints (`vocab.RUST.refocus_blind_spots`).
+      focused keys, none reused (record §3, §5.4). Those bytes were **copies**,
+      one per key, which is what `cargo-sensorium` 0.5.0 installed; from 0.5.1
+      the shim is a hard link to the driver wherever the target directory
+      shares its filesystem, so the per-key PATH cargo needs no longer costs a
+      per-key binary (design 2026-09-07 ruling R3, at `36d2fe9`). The REBUILD
+      is unchanged and is still the cost this bullet is about. *Declared by*
+      the third blind-spot line the verdict prints
+      (`vocab.RUST.refocus_blind_spots`).
     * **A per-thread fingerprint can partition differently under a scheduler
       split, and only the comparator's multiset absorbs it.** Where a test
       drives a worker pool over one queue, which worker serves which request
@@ -337,7 +343,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       outside a task at all. The discriminator was never asked (nothing
       diverged), so no verdict rests on it; it is recorded as a limit of the
       amendment, not as a repair.
-    * **The licence is structurally WITHHELD on every `cargo test` pair.**
+    * ~~**The licence is structurally WITHHELD on every `cargo test` pair.**
       The untraced-thread clause fires on libtest's own per-test thread, so
       `licences granted` was **0** on all 61 of E4's pairs while every count
       the endpoint gates on was as pre-registered (thread counts 57×1, 1×2
@@ -347,17 +353,50 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       treats the recorder's own environment variables — is named there and
       deliberately **not applied**: it is a ruling's to make
       (`docs/CARRIED-DEBT.md`). A reader of a `cargo test` refocus should read
-      the four printed counts, not the word.
-    * **A re-run whose test spawns a workspace CHILD is refused by count, and
-      the sentence names the selector rather than the cause.** Every trace of
-      the invocation carries `refocus_of`, a child process the test spawns
+      the four printed counts, not the word.~~ — **taken 2026-09-07** at
+      `11b7e8a` (with `d9115a5`), design 2026-09-07 ruling R1. The MEASURED
+      reason the word never moved was libtest's per-test thread and nothing
+      else, so that thread is now the **harness thread**: a non-main thread
+      whose ROOT frame's site the manifest marks `#[test]`, subtracted from
+      the licence's untraced-thread counts and NAMED on every line one of
+      those counts appears on (`rust/HONESTY.md` §13). What remains a blind
+      spot is what it always was and is one bullet down: the licence's thread
+      clause reports what was not COMPARED, and a program thread of the test's
+      own still withholds — which is the answer, not a gap.
+    * ~~**A re-run whose test spawns a workspace CHILD is refused by count,
+      and the sentence names the selector rather than the cause.** Every trace
+      of the invocation carries `refocus_of`, a child process the test spawns
       included, while `meta.invocation_processes` counts only what cargo hands
       the runner — so the pre-rerun count is 1, the pair lookup finds 2, and
       the refusal asks for a single-target selector the caller already used.
       Two traces is not a pair, so the REFUSED verdict is right; what is wrong
       is the diagnosis. Derived from the code and the trace format, not
       measured — E4's subject spawns no child from a test. *Carried, with two
-      candidate fixes and a ruling owed*, in `docs/CARRIED-DEBT.md`.
+      candidate fixes and a ruling owed*, in `docs/CARRIED-DEBT.md`.~~ —
+      **taken 2026-09-07** at `d4cccd9`, design 2026-09-07 ruling R2, which
+      chose the first candidate: a linked trace whose `ppid` is another linked
+      trace's `pid` is a child run, excluded from the pair and named on the
+      pair line, so such a re-run is now ANSWERED about its parent rather than
+      refused. `corpus/rust/refocus_child_run` records the shape through the
+      real driver. What is still refused by count is more than one linked
+      trace that is nobody's child, and that sentence now names the excluded
+      children too.
+    * **The licence still WITHHOLDS on a re-run launched from another shell.**
+      The env clause compares every key that is neither the recorder's own nor
+      shell bookkeeping, and a second shell differs in variables that bear on
+      nothing the build or the run reads. A target directory that MOVED is now
+      read as a relocation (`rust/HONESTY.md` §13), so cargo's four
+      root-bearing variables no longer fire on their own — but a
+      `SSL_CERT_DIR` present at one launch and absent at the next does.
+      **Ruled and deliberately not built**: a named, versioned positive set of
+      build-and-run-bearing variables withholds, and every other differing key
+      is counted and NAMED without withholding (E4′ §1.5, *carried, not
+      built*; the set is enumerated in `docs/CARRIED-DEBT.md`). Fewer source
+      changes before a measurement is the rule, and E4′ does not need it: its
+      runner refuses to launch unless its own process environment matches
+      every original's recorded one under the same exclusions
+      (`pins.env_parity`, instrument commit `10e2712`). *Declared by* the env
+      line, which names every key it did not explain.
     * **`--window` is not available on a Rust trace at all** (refused at exit
       2): it needs a per-activation runtime check the Rust runtime does not
       have. *Declared by* that refusal sentence.

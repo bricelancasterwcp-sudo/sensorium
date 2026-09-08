@@ -644,7 +644,16 @@ nothing about it is attempted speculatively.
 **The pair is found in the store, never parsed out of what the driver
 printed** (ruling G3). The driver stamps `refocus_of` into every process of
 the new invocation; Python then lists the traces carrying that link whose
-recording started after the launch. Exactly one is the pair. Zero — the driver
+recording started after the launch. ~~Exactly one is the pair.~~
+**Corrected 2026-09-07** (design 2026-09-07 §3, ruling R2, at `d4cccd9`): not
+every linked trace is a CANDIDATE. A test that spawns an instrumented program
+writes a second linked trace, and counting it made the lookup say "more than
+one" about a re-run that produced one answer. A linked trace whose `ppid` is
+ANOTHER linked trace's `pid` is a **child run** — excluded from the pair, named
+on the pair line as `child runs excluded from the pair: <ids>`, stamped into
+the pair's trace as `refocus_children`, and still listed by `runs`, so a child
+that is itself the interesting process is unpaired rather than lost. Exactly
+one CANDIDATE is the pair. Zero — the driver
 refused, cargo failed before recording, the invocation produced nothing — is
 `verdict: REFUSED` after the rerun at exit 3, carrying the driver's exit ~~and
 its last stderr line~~. **Corrected 2026-09-07** (design amendment B3): the
@@ -652,7 +661,10 @@ child's stderr is STREAMED and never captured — a focused rebuild's progress
 belongs to the person waiting for it — so there is no last line to carry. The
 refusal names the exit and points at what already printed: `the re-run
 produced no trace linked to <run> (driver exit <n>); see the driver's output
-above`. More than one is REFUSED by count. Neither case guesses.
+above`. More than one is REFUSED by count, and that refusal carries the same
+`child runs excluded from the pair:` clause, because a count of the candidates
+alone would otherwise describe two of the three traces the re-run really wrote.
+Neither case guesses.
 
 **The verdict is about call shape and nothing else.** `diff_cmd.compare` is
 slice-1's, unchanged: for a Rust pair the fingerprint is per task — a test, or
@@ -683,9 +695,11 @@ per-task fingerprints differ** would falsify it, and so would **a pair not
 linked by `refocus_of`** — a verdict issued against a trace the store cannot
 show came from this re-run is the failure this design's G3 exists to prevent.
 
-**The licence beside the verdict is an enumeration, and on a `cargo test` pair
-it is never granted.** Source and environment are checked for real
-(`source_hashes` re-hashed now; the two traces' recorded `env` compared), and
+**The licence beside the verdict is an enumeration**, and ~~on a `cargo test`
+pair it is never granted~~ — **corrected 2026-09-07**, two paragraphs down.
+Source and environment are checked for real (`source_hashes` re-hashed now; the
+two traces' recorded `env` compared key by key, with a target directory that
+MOVED read as a relocation rather than as a change — the rule below), and
 so is the recorded process exit; `output` and `children` are printed and
 stamped **`unverifiable`** rather than compared, because `capabilities.output`
 and `capabilities.children` are `false` on a Rust trace and comparing two
@@ -694,15 +708,69 @@ unverifiable check is **never counted as a verified one**; the two counts are
 printed as two numbers and never summed. E4 measured that at n = 61: source
 61 of 61, environment 61 of 61, exit 61 of 61, output and children
 UNVERIFIABLE 61 of 61, and **0 licence lines claiming an unverifiable check as
-verified** (record §3, §4 H4). What the same run also measured is that the
+verified** (record §3, §4 H4). ~~What the same run also measured is that the
 printed WORD was **WITHHELD on all 61** — the licence's untraced-thread clause
 fires on every `cargo test` trace, because libtest runs each test on a thread
 it spawns (thread counts 57×1, 1×2 and 3×5 across the 61 pairs). That is a
 design question about what "the program's threads" means on a test harness,
 recorded as a finding in that record's §5.2 and carried to
 `docs/CARRIED-DEBT.md`; it is not applied here and no promise above depends on
-it. On a `cargo run` pair with no harness thread the licence IS granted, which
-`corpus/rust/refocus_match` pins over exactly four points.
+it.~~
+
+**Ruled and applied 2026-09-07** (design 2026-09-07 §2, ruling R1, at
+`11b7e8a` with `d9115a5`): a NON-MAIN thread whose ROOT frame's site the
+manifest marks `#[test]` is the **harness thread** — libtest's own, not the
+program's — and it comes out of the licence's untraced-thread counts and is
+**named wherever one of those counts is printed**, never quietly dropped. A
+subtraction that showed only its result would put a smaller number where a
+larger one used to be with nothing on the line to say why. The words are the
+recorder's own: a count it joins reads `and 1 harness thread (libtest's
+per-test thread, excluded as the recorder's own)`, and on a line that counts
+what was NOT compared the same fact takes a grammatical slot of its own —
+`; 1 harness thread (…) is not among these counts` — rather than a clause that
+would read as saying the harness thread is one of them. The rule is
+ROOT-anchored in both directions: a thread the test itself spawns enters
+through a closure or an ordinary fn, every closure site being marked
+`test: false`, so its root is never a test fn and it is never excluded; and a
+`#[test]` fn called from deeper on some other thread says nothing about who
+started that thread, so a mark below the root excludes nothing either. The set
+is empty for a recorder whose sites carry no marks at all — every Python
+trace — and empty unless the main thread is a RECORDED fact rather than an
+inferred one, because subtracting on a guess is the one way this rule could
+take a thread out of a count it was never in. Both empty cases leave every
+count exactly as it was, which is the direction that claims less. *Falsified
+by* **E4′ H1**
+(`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`), whose
+expected partition — which of the 61 pairs read granted and which stay
+withheld, by name — was written and byte-locked before the instrument existed;
+by `corpus/rust/refocus_match` and the two thread cases; and by
+`tests/test_refocus_rust.py`. A harness thread found on a Python trace, or a
+program thread taken out of a count as though it were the harness's, would
+falsify it. On a `cargo run` pair there is no harness thread at all and the
+licence IS granted, which `corpus/rust/refocus_match` pins over exactly four
+points.
+
+**A target directory that MOVED is the same world, and is named as one.** A
+refocus re-runs the program under whatever `CARGO_TARGET_DIR` the caller has,
+and cargo hands the test binary four variables that embed the root
+(`CARGO_TARGET_DIR`, `CARGO_BIN_EXE_*`, `LD_LIBRARY_PATH`, `RUSTDOCFLAGS`), so
+a re-run from a fresh target withheld the licence on all four. **Nothing is
+excluded by name** (design 2026-09-07 §2, Task 5b, at `1a76757` with
+`d43b7aa`) — excluding those four would let a program really handed one extra
+directory on the loader's path earn a full licence. Each DIFFERING key is asked
+one question instead: does the difference disappear when the original's target
+root is rewritten to the re-run's? Compared entry by entry down a `PATH`-like
+list, because a list that gained or lost an entry is a change however the rest
+of it reads, and anchored at path boundaries on both sides, so a sibling
+directory is not read as the root relocated. If it does, the key is NAMED and
+the licence still holds: `N variable(s) differ only by the target directory:
+<names>; treated as unchanged` — printed on the env line and kept in the trace
+as a finding of its own even where the licence is withheld for another reason,
+so `info` never replays a licence whose terminal said more than the record
+does. Anything else — a value that moved for a second reason, a key present on
+one side only — is a change and withholds exactly as before. A Python pair
+records no target root, so every string it prints is the one it printed before
+this rule existed.
 
 ---
 

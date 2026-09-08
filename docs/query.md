@@ -222,26 +222,72 @@ the original lives in; the child's stderr streams through, because a focused
 rebuild is visible work and takes seconds. **Everything else in the
 environment is YOURS**, including `CARGO_TARGET_DIR`: the re-run inherits the
 environment you launch `refocus` from, never the one the original recorded.
-Two consequences, and both bite the same way. A refocus launched without the
-`CARGO_TARGET_DIR` the original had rebuilds **cold** into the workspace's own
-`target/` — a full instrumented build, minutes rather than seconds, with the
-artifacts landing where the original left none. And the difference is not
-silent: `CARGO_TARGET_DIR` is not one of the recorder's own variables (those
-are `SENSORIUM_*`, `RUSTC_WORKSPACE_WRAPPER` and `CARGO_TARGET_<TRIPLE>_RUNNER`,
-which a focused re-run must change), so the two recorded environments differ by
-it, the environment check fires, and the licence is WITHHELD naming it. **Set
-it as the original had it**; `sensorium info <run>` prints what the original
-recorded.
+Two consequences, and they no longer bite the same way. A refocus launched
+without the `CARGO_TARGET_DIR` the original had rebuilds **cold** into the
+workspace's own `target/` — a full instrumented build, minutes rather than
+seconds, with the artifacts landing where the original left none. **Set it as
+the original had it** to keep the warm rebuild; `sensorium info <run>` prints
+what the original recorded.
+
+**But a target directory that MOVED is not a world that changed** (0.8.5,
+design 2026-09-07 §2). `CARGO_TARGET_DIR` is not one of the recorder's own
+variables — those are `SENSORIUM_*`, `RUSTC_WORKSPACE_WRAPPER` and
+`CARGO_TARGET_<TRIPLE>_RUNNER`, which a focused re-run must change — and cargo
+hands the test binary three more that embed the root: `CARGO_BIN_EXE_*`,
+`LD_LIBRARY_PATH` and `RUSTDOCFLAGS`. So a re-run from a fresh target used to
+differ on all four and withhold the licence for it, which is a clause that
+cannot not fire rather than a finding. **Nothing is excluded by name** — that
+would let a program really handed one extra directory on the loader's path
+earn a full licence. Each key that DIFFERS is asked one question instead: does
+the difference disappear when the original's target root is rewritten to the
+re-run's? Values are compared **entry by entry** down a `PATH`-like list,
+because a list that gained or lost an entry is a change however the rest of it
+reads, and the root must match at a **path boundary on both sides**, so
+`/ws/mytarget-a` is not `/ws/target-a` relocated. A key the rule explains is
+NAMED, never counted and never dropped:
+
+    env: unchanged (<N> variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  4 variable(s) differ only by the target directory: CARGO_BIN_EXE_<bin>, CARGO_TARGET_DIR, LD_LIBRARY_PATH, RUSTDOCFLAGS; treated as unchanged
+
+The clause is kept in the new trace as well as printed, so `info` replays a
+licence that says exactly what the terminal said. Anything the rule does not
+explain — a value that moved for a second reason, a key present on one side
+only — is a difference and withholds exactly as it did before. A Python pair
+records no target root, so every line it prints is the line it printed before
+this rule existed.
 
 **The pair is found in the store, never in what the driver printed.** After
 the child exits, `refocus` lists the traces whose `refocus_of` is this run and
-whose recording started after the launch. Exactly one is the pair; **zero** —
+whose recording started after the launch.
+
+**Not every linked trace is a candidate** (0.8.5, design 2026-09-07 §3). A test
+that spawns an instrumented program writes a second recorded process, and the
+driver stamps `refocus_of` on every trace of the invocation — so the store
+holds two links where the reader made one re-run, and counting them made the
+lookup refuse "more than one" and advise a single-target selector at a caller
+whose selector was already single. A linked trace whose `ppid` is **another**
+linked trace's `pid` is a **child run**: it is not the pair — the pair is the
+process the reader recorded and asked about — but it is named on the pair line,
+stamped into the pair's trace as `refocus_children`, and still listed by `runs`,
+so a child that is itself the interesting process is unpaired rather than lost
+and `refocus` can be asked about it directly. `another` is load-bearing twice:
+a trace whose recorder wrote its own pid into `ppid` is a corrupt record of one
+process rather than a process that spawned itself, and a `ppid` naming the
+shell, cargo or the session leader is every re-run's ordinary parentage and
+links nothing. The pair line carries the clause
+(`corpus/rust/refocus_child_run` pins it):
+
+    run: <new run>   child runs excluded from the pair: <run id>
+
+Exactly one CANDIDATE is the pair; **zero** —
 the driver refused, cargo failed before recording, the invocation produced
 nothing — is `verdict: REFUSED` after the rerun at exit **3**, carrying the
 driver's exit and pointing back at output you have already seen — the child's
 stderr streamed past rather than being captured, so the sentence reads `(driver
 exit <n>); see the driver's output above` and quotes no line of it; **more than
-one** is REFUSED by count. Neither guesses. The link is what `runs` prints beside the verdict —
+one** is REFUSED by count — and that refusal carries the same `child runs
+excluded from the pair:` clause, in the same words, because a reader told about
+an excluded trace in two wordings has to work out whether they are one fact.
+Neither guesses. The link is what `runs` prints beside the verdict —
 `refocus-of:<run>  verdict:MATCH(granted:4,see-info)`
 (`corpus/rust/refocus_match`) — and what `info` prints on the new trace.
 
@@ -271,6 +317,15 @@ are stamped, never counted (`corpus/rust/refocus_match`):
 An unverifiable check is **never** counted as a verified one; the two counts
 are two numbers and are never summed.
 
+**And `info` replays both halves** (0.8.5). The names were always stamped into
+the new trace's meta; until 0.8.5 `info` printed the `licence verified:` lines
+and not the checks that could not run at all, which leaves a later reader to
+infer that every other check ran and failed. It now prints them — and prints
+nothing where the key is absent, because the stamp's absence is not a claim
+that everything was checked:
+
+      licence unverifiable: output (not recorded), children (not witnessed)
+
 **The blind-spot block after a Rust verdict is the Rust vocabulary's**, and
 its third line is the one only a re-run can owe (`corpus/rust/refocus_match`
 pins all three):
@@ -279,21 +334,70 @@ pins all three):
     threads from dependency code are unnamed
     the re-run's rebuild is its own cost: --focus keys a fresh shim and a rebuild of the matched units
 
-**Measured, and it changes how a `cargo test` refocus should be read.** E4
-re-ran all 61 `#[test]` functions of a real workspace one at a time
+**Measured, and it is why the thread counts have a house rule.** E4 re-ran
+all 61 `#[test]` functions of a real workspace one at a time
 (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4.md`): **61 of 61
 MATCH**, 0 DIVERGED, 0 REFUSED, with source, environment and exit each
-verified 61 of 61 and output and children UNVERIFIABLE 61 of 61. **And the
-licence was WITHHELD on every one of the 61** — `licences granted` is 0. The
-cause is the untraced-thread clause, and it cannot not fire on a `cargo test`
-trace: libtest runs each test on a thread it spawns, so there is always at
-least one thread with no fingerprint to compare (the measured counts are 57
-pairs with 1 such thread, 1 with 2, and 3 with 5). That is a design question
-about what "the program's threads" means on a test harness — carried in
-[`docs/CARRIED-DEBT.md`](CARRIED-DEBT.md) with its candidate fix, and
-deliberately not applied. **So on a `cargo test` pair, read the four counts,
-not the word.** On a `cargo run` pair there is no harness thread and the
-licence IS granted, which `corpus/rust/refocus_match` pins over four points.
+verified 61 of 61 and output and children UNVERIFIABLE 61 of 61 — **and the
+licence WITHHELD on every one of the 61**, `licences granted` 0. The cause was
+the untraced-thread clause, and it could not not fire on a `cargo test` trace:
+libtest runs each test on a thread it spawns, so there is always at least one
+non-main thread the program did not start (the measured counts were 57 pairs
+with 1 such thread, 1 with 2, and 3 with 5). A clause that cannot not fire is
+not a finding.
+
+**The rule, applied 0.8.5** (design 2026-09-07 §2). A **harness thread** is a
+non-main thread whose ROOT frame's site the manifest marks `#[test]` — the
+recorder's own thread rather than the program's — and it comes out of the
+licence's untraced-thread counts. The ROOT is what makes the rule sound in both
+directions: a thread the test itself spawns enters through a closure or an
+ordinary fn, and every closure site is marked `test: false`, so its root is
+never a test fn and it is never excluded; and a `#[test]` fn called from deeper
+on some other thread says nothing about who started that thread, so a mark
+below the root excludes nothing either. The set is empty on any trace whose
+sites carry no marks — every **Python** trace, whose every line is byte for
+byte what it was — and empty unless the main thread is a RECORDED fact rather
+than one inferred from whichever event got id 1, because subtracting on a guess
+is the one way this rule could take a thread out of a count it was never in.
+
+**It is subtracted and NAMED wherever a count it left appears**, never quietly
+dropped: a smaller number where a larger one used to be, with nothing on the
+line to say why, is a number that looks measured standing in for a fact that
+was removed. Three lines carry it, each in the grammar its slot needs. The
+`threads:` line counts what WAS compared, so the harness clause stands apart:
+
+    threads: 1 recorded fingerprint(s) compared (events outside any test or spawned thread), all matching; 1 harness thread (libtest's per-test thread, excluded as the recorder's own) is not among these counts
+
+That parenthetical is the Rust vocabulary's, and it is a house meaning: this
+converter writes exactly ONE thread row — the main thread's — and routes every
+other thread's events into `task_fingerprints`, so the row covers what ran
+outside every test and spawned thread. `asyncio` there named a runtime that
+never ran. A granted licence's own fact JOINS the count instead:
+
+      - no thread started besides the main one and 1 harness thread (libtest's per-test thread, excluded as the recorder's own)
+
+And where the program really did start threads of its own, the caveat still
+fires, with the harness out of its count and named beside it:
+
+      - the original started 4 thread(s) besides the main one and 1 harness thread (libtest's per-test thread, excluded as the recorder's own). A thread that ran no traced code has no fingerprint to compare, and the order the threads ran in was never compared for any of them
+
+`info` takes the same partition on the same screen, so the two commands cannot
+describe one trace differently — and it decides WHETHER to print from the raw
+count, so a run whose only extra thread is the harness's still says so rather
+than falling silent:
+
+    threads started: 0 besides the main one and 1 harness thread (libtest's per-test thread, excluded as the recorder's own), as OS threads (libtest's per-test threads and threads spawned by workspace code) -- one that ran no traced code has no fingerprint above and was not otherwise seen
+
+**So on a `cargo test` pair the word is readable now**, and it says what it
+always said: granted where every check that ran agrees, withheld where a thread
+the PROGRAM started ran no traced code and left nothing to compare. Reading the
+four counts is still the better habit. E4's own numbers stand as the record of
+the behaviour BEFORE the rule; the rule's own numbers are E4′
+(`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`), whose
+expected partition over those same 61 pairs was written and byte-locked before
+the instrument existed. On a `cargo run` pair there is no harness thread at all
+and the licence IS granted, which `corpus/rust/refocus_match` pins over four
+points.
 
 **One caveat about `last`.** A refocus writes a NEW trace whose id no script
 could have spelled in advance, so the way to ask it a question is `last` —

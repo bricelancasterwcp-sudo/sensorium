@@ -297,9 +297,18 @@ number as its check.
 A focus is part of the build's cache key: the wrapper shim's path carries the
 focus hash, so every distinct focus gets its own `-C metadata`, its own mirror
 and its own unit manifests, and those **accumulate in the target directory**
-across invocations. Budget roughly one shim copy (~40 MB) and one artifact set
-per distinct focus, and expect a focused build after an unfocused one to
-compile rather than to be `Fresh`. The runtime cost of the probes themselves
+across invocations. The shim itself stopped being a per-focus COPY in
+`cargo-sensorium` **0.5.1**: it is a **hard link** to the driver wherever the
+target directory shares the driver's filesystem, and a copy only where it
+cannot be — another mount, or any other error, both named in one message if the
+copy fails too. Sharing the driver's inode is safe because the key already
+hashes the driver's own bytes, so a replaced driver takes a different key and
+no live shim is ever written through. One consequence for anyone sizing the
+directory: `du` over `<target>/sensorium/shim` counts those bytes **once**
+however many focused keys are present, and a per-entry sum would report a
+number the disk never held. Budget one artifact set per distinct focus — that
+is the part that still accumulates — and expect a focused build after an
+unfocused one to compile rather than to be `Fresh`. The runtime cost of the probes themselves
 is **not measured**: on the rung-4 acceptance run
 (`../docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md`, endpoint
 **H6**, whose verdict is **REPORTED** with no gate) libtest reported
