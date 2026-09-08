@@ -207,6 +207,50 @@ fn a_signalled_runner_record_yields_null_exit_status_and_the_signal_number() {
 }
 
 // ---------------------------------------------------------------------------
+// The multi-process WARN: what it calls a test binary
+// ---------------------------------------------------------------------------
+
+#[test]
+fn the_multi_process_warn_does_not_call_a_doctest_process_a_test_binary() {
+    // Two processes, both started by the runner, one of them a doctest:
+    // rustdoc compiles each doctest to a `/tmp/rustdoctest*/rust_out` and
+    // deletes it, and on cargo 1.96 the runner is handed it like any test
+    // binary (rung-2 spike findings §5.11). Counting both as test binaries is
+    // what the ledger filed; the sentence must name the two kinds apart.
+    let f = Fixture::new("warn-doctest");
+    f.one_site_manifest("meta1", "unit");
+    for (pid, exe) in [
+        (801u32, "/w/target/debug/deps/demo-1a2b3c"),
+        (802, "/tmp/rustdoctestXH1cVv/rust_out"),
+    ] {
+        wire::write_proc_header(&f.spool_dir, pid, 1, exe, &[(0, "meta1")], None);
+        wire::SpoolBuilder::new(pid, 1, "main")
+            .call(0, 1000, 0, 0)
+            .ret_none(1, 2000, 0, 0)
+            .write(&f.spool_dir);
+        wire::write_runner_record(&f.spool_dir, pid, Some(0), None);
+    }
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let err = out.stderr_str();
+    assert!(
+        err.contains(
+            "WARN: this invocation produced 1 test binary and 1 doctest process; a \
+             single-target selector (--lib, --test X, --bin X) makes one trace the answer"
+        ),
+        "{err}"
+    );
+    assert!(
+        !err.contains("2 test binaries"),
+        "the doctest was counted as a test binary: {err}"
+    );
+    // `invocation_processes` is unchanged: it means every process the runner
+    // started, doctests included, and `refocus` reads it that way.
+    let conn = open(&f.traces()[0]);
+    assert_eq!(meta(&conn, "invocation_processes"), 2);
+}
+
+// ---------------------------------------------------------------------------
 // Parent + child by ppid: child_runs
 // ---------------------------------------------------------------------------
 
@@ -257,10 +301,15 @@ fn a_child_of_the_same_invocation_is_named_in_the_parents_child_runs() {
 
 trait OutputExt {
     fn stdout_str(&self) -> String;
+    fn stderr_str(&self) -> String;
 }
 
 impl OutputExt for Output {
     fn stdout_str(&self) -> String {
         String::from_utf8_lossy(&self.stdout).into_owned()
+    }
+
+    fn stderr_str(&self) -> String {
+        String::from_utf8_lossy(&self.stderr).into_owned()
     }
 }
