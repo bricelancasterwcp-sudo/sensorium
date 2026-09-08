@@ -94,8 +94,9 @@ def arm_rows(rows, withheld=None) -> list[dict]:
     order, and then the pager row by name.
 
     A table that does not hold four -- the dry run's does not -- yields
-    what it holds. The arms do not run in a dry, and inventing a row to
-    reach four would be worse than an arm that says `n: 2`.
+    what it holds. `--dry-arms` rehearses both arms over exactly those
+    rows, so this is a real path and not a corner: inventing a row to reach
+    four would be worse than an arm that honestly says `n: 2`.
     """
     withheld = EXPECTED_WITHHELD if withheld is None else withheld
     out, granted = [], 0
@@ -199,7 +200,8 @@ def run_arm(paths, cfg, rows, key, value, tag, deadline=None) -> dict:
                 answers.append({"index": row["index"], "name": row["name"],
                                 "target": row["target"], "arm": tag,
                                 "original": row["original"],
-                                "not_run": eph.NOT_RUN_BOUND})
+                                "not_run": cfg.get("not_run_bound",
+                                                   eph.NOT_RUN_BOUND)})
                 continue
             answers.append(eph.refocus_one(paths, cfg, row["row"],
                                            extra_env={key: value},

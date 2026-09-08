@@ -322,8 +322,13 @@ def pass_two(paths, cfg, on_first_number=None) -> dict:
             index, name, target, run_id = row
             if time.monotonic() >= deadline:
                 exhausted.append(name)
+                # `cfg["not_run_bound"]` where the record gives one: the
+                # sentence names a BOUND, and E4″'s is not E4′'s. Absent, it
+                # is E4′'s own constant and this line reads as it always did.
                 rows.append({"index": index, "name": name, "target": target,
-                             "original": run_id, "not_run": NOT_RUN_BOUND})
+                             "original": run_id,
+                             "not_run": cfg.get("not_run_bound",
+                                                NOT_RUN_BOUND)})
                 continue
             answer = refocus_one(paths, cfg, row)
             rows.append(answer)

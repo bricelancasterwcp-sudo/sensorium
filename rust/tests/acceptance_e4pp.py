@@ -107,6 +107,22 @@ controller reads before deciding whether the launch happens.
 
 The launcher passes no argv by default, so the measurement cannot take
 either path by accident.
+
+THE EXIT CODES, AND THE TWO THINGS 9 MEANS
+------------------------------------------
+    0  clean
+    3  REFUSED before any measurement (nothing assembled, nothing rendered)
+    4  an unhandled error
+    5  assemble/render failed; the raw record is intact
+    6  the raw record would not serialise; a partial one was written
+    7  a STOP -- §1.4's rule 5: the numbers already read STAND
+    8  the loop bound was reached
+    9  INFRASTRUCTURE -- **relaunch from zero**, in both its shapes:
+       a `.FAILED` before any number had been read (§1.4's rule 4: archive
+       the run, empty the fresh locations, re-make the 61 copies), or a DRY
+       run that did not check the instrument (§1.3: the launch does not
+       happen). Neither is a finding about the subject and neither is a
+       STOP; the marker says which of the two it was.
 """
 
 from __future__ import annotations
@@ -137,6 +153,7 @@ import acceptance_e4p_phases2 as eph2                              # noqa: E402
 import acceptance_e4p_preflight as pre                             # noqa: E402
 import acceptance_e4pp_arms as arms                                # noqa: E402
 import acceptance_e4pp_phases as ph                                # noqa: E402
+import acceptance_e4pp_phases2 as ph2                              # noqa: E402
 import acceptance_e4pp_preflight as e4pre                          # noqa: E402
 import acceptance_e6ppp as e6ppp                                   # noqa: E402
 from acceptance_e4p_phases import pass_two                         # noqa: E402
@@ -145,7 +162,9 @@ from acceptance_e4p_store import (copy_originals, store_census)    # noqa: E402
 from acceptance_e4pp_lock import (BYTE_LOCK, DOC, RESULTS,         # noqa: E402,F401
                                   ROWS_DOC, ROWS_SHA256,
                                   check_byte_lock, check_rows_digest)
-from acceptance_e4pp_rows import CORPUS_ARGS, GATE_N, ROWS, TARGETS  # noqa: E402
+from acceptance_e4pp_rows import (CORPUS_ARGS, GATE_N,            # noqa: E402
+                                  LOOP_BUDGET_S, REFOCUS_TIMEOUT, ROWS,
+                                  TARGETS, bound_sentence)
 from acceptance_e4pp_schema import SCHEMA_VERSION, assemble_e4pp   # noqa: E402
 from acceptance_e6ppp import LOADS                                 # noqa: E402
 from acceptance_lib import Refused, step                           # noqa: E402
@@ -162,6 +181,7 @@ eph.LOGS = LOGS
 eph2.LOGS = LOGS
 pre.LOGS = LOGS
 ph.LOGS = LOGS
+ph2.LOGS = LOGS
 arms.LOGS = LOGS
 e4pre.LOGS = LOGS
 e6ppp.LOGS = LOGS
@@ -190,11 +210,11 @@ E4PP_ENV = {
 #: the clone and the driver are INPUTS and are the same on both paths.
 DRY_SIBLINGS = ("sensorium_dir", "sensorium_e4p_target")
 
-#: §1.4's ceilings, verbatim: 1800 s per `sensorium refocus`, and the whole
-#: LOOP bounded at 1 h 30 min. H8's three commands are not the loop and keep
-#: their own; the driver build happens before the loop starts.
-REFOCUS_TIMEOUT = 1800
-LOOP_BUDGET_S = 5400
+#: §1.4's ceilings. `REFOCUS_TIMEOUT` and `LOOP_BUDGET_S` are imported from
+#: `acceptance_e4pp_rows` with §1.4's other pre-registered numbers, because
+#: `bound_sentence` derives the words a cut-off row carries from the ceiling
+#: itself. H8's three commands are not the loop and keep their own; the
+#: driver build happens before the loop starts.
 CORPUS_TIMEOUT = 7200
 PYTEST_TIMEOUT = 3600
 CARGO_TEST_TIMEOUT = 7200
@@ -275,6 +295,11 @@ def e4pp_config(paths, rows=None) -> dict:
         # something no shell would have set and the record can say what it
         # was.
         "injected_value": time.strftime("e4pp-%Y%m%dT%H%M%S%z"),
+        # The sentence a row cut off by the loop bound carries, DERIVED
+        # from this record's own ceiling. Without it `pass_two` and
+        # `run_arm` write E4′'s constant -- "the 1 h 15 min loop bound" --
+        # into a record whose bound is 1 h 30 min.
+        "not_run_bound": bound_sentence(LOOP_BUDGET_S),
         "tmpdir_observed": os.environ.get("TMPDIR"),
         "tempfile_gettempdir": tempfile.gettempdir(),
     }
@@ -650,8 +675,26 @@ def main(argv) -> int:
            or res.get("dry_run_did_not_check_the_instrument")
            or res.get("error") or "")
     marker = f"e4pp{suffix}." + ("DONE" if rc == 0 else "FAILED")
+    # What the code MEANS, beside the code. 9 has two shapes and both are
+    # "relaunch from zero"; 7 is the one where the numbers stand. A marker
+    # that carried only the number left that to a reader's memory.
+    meaning = {
+        0: "clean", 3: "REFUSED before any measurement",
+        4: "an unhandled error", 5: "assemble/render failed",
+        6: "the raw record would not serialise",
+        7: "a STOP -- §1.4's rule 5: the numbers already read STAND",
+        8: "§1.4's loop bound was reached",
+        9: ("INFRASTRUCTURE -- RELAUNCH FROM ZERO: "
+            + ("a DRY run that did not check the instrument (§1.3: the "
+               "launch does not happen)" if res.get(
+                   "dry_run_did_not_check_the_instrument")
+               else "a `.FAILED` before any number had been read (§1.4's "
+                    "rule 4: archive, empty the fresh locations, re-make "
+                    "the 61 copies)")),
+    }.get(rc, "unnamed")
     (BASE / marker).write_text(
-        f"exit={rc}\n{time.strftime('%Y-%m-%dT%H:%M:%S%z')}\n{why}\n")
+        f"exit={rc}\n{meaning}\n{time.strftime('%Y-%m-%dT%H:%M:%S%z')}\n"
+        f"{why}\n")
     step(f"done rc={rc}; raw facts at {raw_path}")
     return rc
 

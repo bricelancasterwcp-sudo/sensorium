@@ -287,7 +287,9 @@ def _h4(raw) -> dict:
         "session_names": meas(
             h.get("session_names"), n, lens,
             [] if h.get("session_names") is not None else _dropped(h)),
-        "session_k": meas(h.get("session_k"), n, lens, []),
+        "session_k": meas(
+            h.get("session_k"), n, lens,
+            [] if h.get("session_k") is not None else _k_reason(h)),
         "withholding_cites_a_session_key": meas(
             h.get("withholding_cites_a_session_key"), n,
             "WITHHELD pairs whose CHANGED list names a key of session set 1 "
@@ -309,6 +311,29 @@ def _h4(raw) -> dict:
         "verdict": h.get("verdict"),
     }
     return _apply(block, "H4", raw)
+
+
+def _k_reason(h) -> list:
+    """Why a single K could not be published -- never an empty `dropped`.
+
+    A `null` with no reason is the one shape §1.3 forbids: it reads as a
+    cell nobody thought about. K is a single number only where the pairs
+    that could be READ all printed the same one, so the two ways it goes
+    missing are named apart.
+    """
+    reasons = _dropped(h)
+    ks = sorted({k for k in (h.get("session_k_by_name") or {}).values()
+                 if k is not None})
+    if not ks:
+        reasons.append("no pair printed a session count this reader could "
+                       "read, so there is no K to publish")
+    elif len(ks) > 1:
+        reasons.append(f"the pairs did not agree on K ({ks}); a single "
+                       "value is published only where every readable pair "
+                       "printed the same one, and the per-pair counts are "
+                       "under `session_k_by_name`")
+    return reasons or ["K was not measured and the phase gave no reason -- "
+                       "reported as the instrument's own gap"]
 
 
 def _capped_note(h) -> str:
@@ -382,7 +407,9 @@ def _h6(raw) -> dict:
         "session_names": meas(
             h.get("session_names"), n, H6_LENS,
             [] if h.get("session_names") is not None else _dropped(h)),
-        "session_k": meas(h.get("session_k"), n, H6_LENS, []),
+        "session_k": meas(
+            h.get("session_k"), n, H6_LENS,
+            [] if h.get("session_k") is not None else _k_reason(h)),
         "injected_key": meas(
             h.get("injected_key"), 1,
             "`pins.injected_session_key` -- chosen and recorded at PREFLIGHT "

@@ -875,3 +875,58 @@ def test_an_UNREAD_session_list_in_arm_C_is_caught_the_same_way():
         _two(), _arm_c({names[0]: {"session": None}}), SESSION_PIN, INJECTED)
     assert h["session_names_unread"] == [names[0]]
     assert h["verdict"] == "STOP"
+
+
+# ================== fix round 2 ==================================
+
+def test_an_UNREAD_env_line_is_not_read_as_a_CLEAN_changed_list():
+    """Item 2. `r.get("env_changed_keys") or []` read a pair with no `env:`
+    line at all as "RUSTDOCFLAGS is not in the changed list" -- the PASS
+    direction, from a line nobody read. Same treatment H4 and H6 got: the
+    pair contributes to neither count and blocks the gate."""
+    two = _two()
+    two["refocuses"][1]["env_changed_keys"] = None
+    two["refocuses"][1]["env_stripped_keys"] = None
+    two["refocuses"][1]["env_relocated_keys"] = None
+    two["refocuses"][1]["env_line"] = None
+    h = ph.phase_h2_fragment(two)
+    assert h["env_line_unread"] == ["unknown_model_mutating_verbs_is_false"]
+    assert h["rustdocflags_in_changed"] == 0        # over the 60 that read
+    assert h["strip_clause_named"] == 60
+    assert h["strip_clause_missing"] == []          # unread is not missing
+    assert h["env_lines_readable"] == 60
+    assert h["as_predicted"] is None
+    assert h["verdict"] == "STOP"
+    assert any("no `env:` line" in d for d in h["dropped"])
+
+
+def test_an_unread_env_line_does_not_poison_the_RELOCATED_set():
+    """It contributes no set either: `[]` in the distinct sets would null a
+    cell every readable pair agreed on."""
+    two = _two()
+    for key in ("env_changed_keys", "env_stripped_keys",
+                "env_relocated_keys", "env_line"):
+        two["refocuses"][1][key] = None
+    h = ph.phase_h2_fragment(two)
+    assert h["relocated_set"] == list(e4pp.EXPECTED_RELOCATED)
+    assert h["relocated_set_matches"] == 60
+
+
+def test_every_env_line_read_leaves_the_unread_list_EMPTY():
+    h = ph.phase_h2_fragment(_two())
+    assert h["env_line_unread"] == []
+    assert h["env_lines_readable"] == 61
+    assert h["as_predicted"] is True
+
+
+# ------- item 1: the arms' bound sentence is E4″'s own -------------------
+
+def test_the_bound_sentence_is_DERIVED_from_the_budget_it_names():
+    """The arms' `not_run` rows carried E4′'s "1 h 15 min", which is not
+    this record's bound. Derived from `LOOP_BUDGET_S` so the sentence and
+    the ceiling cannot drift apart."""
+    assert "1 h 30 min" in e4pp.bound_sentence(e4pp.LOOP_BUDGET_S)
+    # ...and the derivation reproduces E4′'s own sentence for E4′'s own
+    # budget, which is the check that it is a derivation and not a retype.
+    assert e4pp.bound_sentence(4500) == ph.eph.NOT_RUN_BOUND
+    assert "45 min" in e4pp.bound_sentence(2700)

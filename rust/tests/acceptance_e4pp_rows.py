@@ -61,12 +61,37 @@ ARM_N = 4
 #: proof the recorder started that thread. §1.4 gates on its presence.
 SPAWNED_CASE = "refocus_spawned_test_fn"
 
+#: §1.4's bounds, verbatim: 1800 s per `sensorium refocus`, and the whole
+#: LOOP -- arm A and both controls -- bounded at 1 h 30 min. They live here
+#: with §1.4's other pre-registered numbers rather than in the runner,
+#: because `bound_sentence` below derives the words a `not_run` row carries
+#: from the ceiling itself, and the two must not be able to drift.
+REFOCUS_TIMEOUT = 1800
+LOOP_BUDGET_S = 5400
+
+
+def bound_sentence(seconds: int = LOOP_BUDGET_S) -> str:
+    """The sentence a row cut off by the loop bound carries.
+
+    DERIVED from the ceiling, never retyped beside it. E4′'s constant is
+    the same sentence for E4′'s own 4500 s, which is the check that this is
+    a derivation: the arms were carrying "the 1 h 15 min loop bound was
+    reached" -- E4′'s bound, in E4″'s record -- because the constant was
+    imported rather than the number.
+    """
+    hours, minutes = divmod(round(seconds / 60), 60)
+    span = (f"{hours} h {minutes:02d} min" if hours and minutes
+            else f"{hours} h" if hours else f"{minutes} min")
+    return f"the {span} loop bound was reached before this invocation"
+
+
 #: H8's corpus flag. `--require-driver` turns a skipped case into a verdict
 #: on the RUN: this record BUILDS a driver so those cases run, and a green
 #: summary over cases nobody recorded would say nothing.
 CORPUS_ARGS = ("--require-driver",)
 
-__all__ = ["ARM_N", "CORPUS_ARGS", "EXPECTED_EXCLUDED_CHILDREN",
+__all__ = ["ARM_N", "CORPUS_ARGS", "LOOP_BUDGET_S", "REFOCUS_TIMEOUT",
+           "bound_sentence", "EXPECTED_EXCLUDED_CHILDREN",
            "EXPECTED_GRANTED", "EXPECTED_HARNESS_THREADS", "EXPECTED_MATCH",
            "EXPECTED_PAIRS_OF_ONE", "EXPECTED_RELOCATED",
            "EXPECTED_RUSTDOCFLAGS_IN_CHANGED",

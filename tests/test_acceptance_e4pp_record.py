@@ -341,3 +341,35 @@ def test_a_dry_run_records_whether_the_ARMS_were_rehearsed():
     assert record["dry_run"] is True
     assert record["dry_arms"] is True
     assert record["dry_check"]["arms_ok"] is True
+
+
+def test_a_null_session_k_carries_ITS_REASON_and_never_an_empty_dropped():
+    """Item 3. `session_k` went `value: null, dropped: []` when the
+    readable pairs disagreed on K -- a not-measured with no reason, which
+    is the one shape §1.3 forbids."""
+    import acceptance_e4pp_phases as ph
+    sys.path.insert(0, str(REPO / "tests"))
+    from test_acceptance_e4pp_phases import _arm_c, _two
+    raw = _raw()
+    raw["raw_h4"] = ph.phase_h4_session(_two({
+        "unknown_model_mutating_verbs_is_false": {
+            "session": SESSION_PIN + ["TMUX"]}}), SESSION_PIN)
+    cell = assemble_e4pp(raw)["endpoints"]["H4"]["session_k"]
+    assert cell["value"] is None
+    assert cell["dropped"], "a null with no reason is not a not-measured"
+
+    names = [r["name"] for r in
+             __import__("acceptance_e4pp_arms").arm_rows(
+                 __import__("acceptance_e4p_rows").ROWS)]
+    raw["raw_h6"] = ph.phase_h6_session_key(
+        _two(), _arm_c({names[0]: {"session": SESSION_PIN}}),
+        SESSION_PIN, INJECTED)
+    cell = assemble_e4pp(raw)["endpoints"]["H6"]["session_k"]
+    assert cell["value"] is None
+    assert cell["dropped"]
+
+
+def test_a_MEASURED_session_k_still_carries_no_dropped_reason():
+    cell = assemble_e4pp(_raw())["endpoints"]["H4"]["session_k"]
+    assert cell["value"] == 1
+    assert cell["dropped"] == []

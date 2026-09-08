@@ -630,3 +630,107 @@ def test_a_kill_AFTER_a_number_still_exits_7(monkeypatch, tmp_path):
     assert runner.main([]) == 7
     raw = json.loads((tmp_path / "results-e4pp-raw.json").read_text())
     assert raw["kill_is_infrastructure"] is False
+
+
+# ================== fix round 2 ==================================
+
+def test_a_cut_off_row_carries_THIS_records_bound_and_not_E4primes(
+        monkeypatch, tmp_path):
+    """Item 1. `run_arm` and `pass_two` both wrote E4′'s constant -- "the
+    1 h 15 min loop bound was reached" -- into a record whose bound is
+    1 h 30 min. The sentence comes from `cfg` now, derived from
+    `LOOP_BUDGET_S`."""
+    import acceptance_e4p_phases as eph
+    monkeypatch.delenv("SENSORIUM_CORPUS_TARGET", raising=False)
+    cfg = runner.e4pp_config({"sensorium_e4p_target": Path("/t/x")})
+    assert cfg["not_run_bound"] == e4pp.bound_sentence(runner.LOOP_BUDGET_S)
+    assert "1 h 30 min" in cfg["not_run_bound"]
+    assert cfg["not_run_bound"] != eph.NOT_RUN_BOUND
+
+
+def test_the_arms_write_that_sentence_and_not_the_imported_constant(
+        monkeypatch):
+    import time as _t
+    import acceptance_e4p_phases as eph
+    import acceptance_e4pp_arms as a
+    import acceptance_e4p_rows as r
+    monkeypatch.setattr(a.eph, "refocus_one",
+                        lambda *args, **kw: pytest.fail("past the deadline"))
+    rec = a.run_arm({}, {"not_run_bound": "the 1 h 30 min loop bound was "
+                                          "reached before this invocation"},
+                    a.arm_rows(r.ROWS), "K", "v", "armB",
+                    deadline=_t.monotonic() - 1)
+    said = {x["not_run"] for x in rec["refocuses"]}
+    assert said == {"the 1 h 30 min loop bound was reached before this "
+                    "invocation"}
+    assert eph.NOT_RUN_BOUND not in said
+
+
+def test_pass_two_takes_the_sentence_from_cfg_when_one_is_given():
+    """The same fix on arm A's side, in the shared loop -- E4′ passes no
+    such key and its sentence is byte for byte what it was."""
+    src = (RUST_TESTS / "acceptance_e4p_phases.py").read_text()
+    assert 'cfg.get("not_run_bound",' in src
+    assert 'NOT_RUN_BOUND = ("the 1 h 15 min loop bound' in src
+
+
+def test_EVERY_module_with_a_LOGS_name_is_assigned_by_the_runner():
+    """Item 5. E4′'s first launch died fourteen seconds in on exactly this:
+    a phase opening `logs_at(LOGS / …)` in a namespace nobody had set."""
+    src = (RUST_TESTS / "acceptance_e4pp.py").read_text()
+    main = src[:src.index("RUNNER = ")]
+    for module in ("acceptance_e4pp_phases", "acceptance_e4pp_phases2",
+                   "acceptance_e4pp_arms", "acceptance_e4pp_preflight"):
+        text = (RUST_TESTS / f"{module}.py").read_text()
+        if "LOGS: Path | None = None" not in text:
+            continue
+        alias = next(ln.split(" as ")[1].split()[0] for ln in main.splitlines()
+                     if ln.startswith(f"import {module} as "))
+        assert f"{alias}.LOGS = LOGS" in main, module
+
+
+def test_the_marker_says_what_its_EXIT_CODE_MEANS(monkeypatch, tmp_path):
+    """Item 6. 9 has two shapes and both are "relaunch from zero"; 7 is the
+    one where the numbers stand. A marker carrying only the number left
+    that to a reader's memory."""
+    base, calls = _harness(monkeypatch, tmp_path, hashes_differ=False)
+    assert runner.main(["--dry"]) == 9
+    marker = (base / "e4pp-dry.FAILED").read_text()
+    assert marker.startswith("exit=9\n")
+    assert "RELAUNCH FROM ZERO" in marker
+    assert "the launch does not happen" in marker
+
+
+def test_the_marker_tells_the_two_shapes_of_9_APART(monkeypatch, tmp_path):
+    base, calls = _harness(monkeypatch, tmp_path)
+
+    def no_readings(paths, cfg, on_first_number=None):
+        rows_ = [{"index": i, "name": f"n{i}", "timed_out": True,
+                  "kill_s": 1800, "verdict_word": None, "licence_word": None,
+                  "licence_partition": {"licence": None}, "wall_s": 1800.0,
+                  "pair": {"n": 0}} for i in range(1, 62)]
+        return {"refocuses": rows_, "n": 61, "measured": 61,
+                "budget_exhausted": [], "loop_deadline_monotonic": 1.0,
+                "killed": [r["name"] for r in rows_]}
+
+    monkeypatch.setattr(runner, "pass_two", no_readings)
+    assert runner.main([]) == 9
+    marker = (base / "e4pp.FAILED").read_text()
+    assert "RELAUNCH FROM ZERO" in marker
+    assert "rule 4" in marker
+    assert "the launch does not happen" not in marker
+
+
+def test_a_STOP_marker_says_the_numbers_STAND(monkeypatch, tmp_path):
+    import acceptance_e4pp_phases2 as ph2
+    base, calls = _harness(monkeypatch, tmp_path)
+    monkeypatch.setattr(ph2, "phase_h8_nothing_else", lambda paths, cfg: {
+        "corpus_rc": 1, "pytest_rc": 0, "cargo_rc": 0,
+        "spawned_test_fn_present": True, "verdict": "STOP",
+        "as_predicted": False, "dropped": [], "gate": "three green"})
+    monkeypatch.setattr(runner.ph, "phase_h8_nothing_else",
+                        ph2.phase_h8_nothing_else)
+    assert runner.main([]) == 7
+    marker = (base / "e4pp.FAILED").read_text()
+    assert "the numbers already read STAND" in marker
+    assert "RELAUNCH FROM ZERO" not in marker

@@ -81,16 +81,16 @@ def subset_reasons(block: dict, expected_n: int, label: str) -> list[str]:
     missing = block.get("budget_exhausted") or []
     if missing:
         out.append(f"the {label}: {len(missing)} invocation(s) were never "
-                   f"run -- §1.4's 1 h 30 min loop bound was reached "
-                   f"({missing[:3]})")
+                   f"run -- §1.4's bound was reached "
+                   f"({e4pp.bound_sentence()}; {missing[:3]})")
     if (measured is not None and n is not None and measured != n
             and not missing):
         out.append(f"the {label}: {measured} of {n} invocation(s) ran")
     killed = block.get("killed") or []
     if killed:
         out.append(f"the {label}: {len(killed)} invocation(s) were KILLED "
-                   f"at the 1800 s ceiling ({killed[:3]}); their output is "
-                   "partial")
+                   f"at the {e4pp.REFOCUS_TIMEOUT} s ceiling ({killed[:3]}); "
+                   "their output is partial")
     return out
 
 
@@ -172,9 +172,17 @@ def phase_h2_fragment(two: dict) -> dict:
     rows = _measured(two)
     in_changed, missing, bounded, changed_by_pair = [], [], [], {}
     sets, hashes, equal, unread, differ = {}, {}, [], [], 0
+    no_line = []
     for r in rows:
         name = r["name"]
-        changed = r.get("env_changed_keys") or []
+        changed = r.get("env_changed_keys")
+        # `None` is "no `env:` line was read", and reading it as `[]` said
+        # "`RUSTDOCFLAGS` is not in the changed list" -- the PASS direction,
+        # from a line nobody read. Same treatment H4 and H6 give an unread
+        # session clause: neither count, and the gate blocked.
+        if changed is None or r.get("env_stripped_keys") is None:
+            no_line.append(name)
+            continue
         if changed:
             changed_by_pair[name] = changed
         if r.get("env_changed_keys_truncated"):
@@ -201,6 +209,12 @@ def phase_h2_fragment(two: dict) -> dict:
     expected = list(e4pp.EXPECTED_RELOCATED)
     matches = sum(1 for v in sets.values() if v == expected)
     dropped = subset_reasons(two, e4pp.GATE_N, "arm-A loop")
+    if no_line:
+        dropped.append(
+            f"{len(no_line)} pair(s) printed no `env:` line this reader "
+            f"could read ({no_line[:3]}); they are on neither the changed "
+            "count nor the strip count, because an unread line is not a "
+            "clean one")
     if unread:
         dropped.append(
             f"{len(unread)} pair(s) rt hash could not be read on one side "
@@ -222,8 +236,10 @@ def phase_h2_fragment(two: dict) -> dict:
         "rustdocflags_in_changed_pairs": sorted(in_changed),
         "changed_lists_bounded": sorted(bounded),
         "changed_by_pair": changed_by_pair,
-        "strip_clause_named": len(rows) - len(missing),
+        "strip_clause_named": len(rows) - len(missing) - len(no_line),
         "strip_clause_missing": sorted(missing),
+        "env_line_unread": sorted(no_line),
+        "env_lines_readable": len(rows) - len(no_line),
         "relocated_set": (list(distinct[0]) if len(distinct) == 1 else None),
         "relocated_sets_seen": [list(d) for d in distinct],
         "relocated_by_pair": sets,
@@ -244,9 +260,12 @@ def phase_h2_fragment(two: dict) -> dict:
     # short loop and a capped changed list are both not-measured (§1.4 gives
     # H2 no reduced reading to fall back on, unlike H4's K-alone branch);
     # the unread rt hashes qualify a REPORTED cell and never the gate.
-    blocking = subset_reasons(two, e4pp.GATE_N, "arm-A loop") + [
-        f"the membership question could not be answered on {len(bounded)} "
-        f"pair(s) whose changed list printed at its cap"] * bool(bounded)
+    blocking = (subset_reasons(two, e4pp.GATE_N, "arm-A loop")
+                + [f"the membership question could not be answered on "
+                   f"{len(bounded)} pair(s) whose changed list printed at "
+                   f"its cap"] * bool(bounded)
+                + [f"{len(no_line)} pair(s) printed no `env:` line"]
+                * bool(no_line))
     out["as_predicted"] = None if blocking else bool(
         out["rustdocflags_in_changed"] == e4pp.EXPECTED_RUSTDOCFLAGS_IN_CHANGED
         and out["strip_clause_named"] == e4pp.EXPECTED_STRIP_CLAUSE_NAMED
@@ -255,8 +274,9 @@ def phase_h2_fragment(two: dict) -> dict:
     out["verdict"] = _verdict(out["as_predicted"])
     step(f"H2: RUSTDOCFLAGS in {out['rustdocflags_in_changed']} changed "
          f"list(s); strip clause named on {out['strip_clause_named']}/"
-         f"{len(rows)}; relocated set {out['relocated_set']}; hashes differ "
-         f"on {differ}/{len(rows)}; {out['verdict']}")
+         f"{out['env_lines_readable']} readable env line(s); relocated set "
+         f"{out['relocated_set']}; hashes differ on {differ}/"
+         f"{out['hashes_readable']}; {out['verdict']}")
     return out
 
 
