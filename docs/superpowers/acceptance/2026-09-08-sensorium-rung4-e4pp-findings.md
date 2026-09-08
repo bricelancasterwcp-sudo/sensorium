@@ -50,6 +50,13 @@ differently, which is the whole reason a pre-registration is worth having.
    under `corpus/rust/`. So the bare-vs-prefixed mismatch this gap names is a
    claim about the committed tree, not only about a file no reader has.
 
+   **Closed at `962cacd`** (2026-09-08, the debts slice) —
+   `acceptance_e4pp_phases2.spawned_presence` matches the whole name and the
+   last path SEGMENT (a segment, never a substring), records which spelling
+   answered on `spawned_test_fn_matched`, and returns `null` carrying
+   `case_listing.command` and its `rc` under neither spelling. No number of
+   this record is re-derived: the fix changes what the next run publishes.
+
 2. **The STOP's label is fixed per endpoint, not derived from what failed.**
    `stop` and the `e4pp.FAILED` marker both end *"This is a STOP of the
    subject"*, and `H7.stop_is_of_the` carries the instrument's wording — the two
@@ -60,6 +67,13 @@ differently, which is the whole reason a pre-registration is worth having.
    wrong side. **Fix, next slice:** name the STOP by what the failing cell
    measures — the subject when a subject cell missed, the instrument when a
    reader did — and print both when they disagree, as §4 does here by hand.
+
+   **Closed at `962cacd`** (2026-09-08, the debts slice) —
+   `acceptance_e4pp.stop_side` derives the label from what missed: a phase
+   that recorded a reason it could not READ something missed on the
+   INSTRUMENT's side whatever its endpoint is gated on, and `_stop_sentence`
+   prints both where they disagree. The derivation itself is published as
+   `stop_sides` beside `stop`.
 
 3. **`driver_version` is read on one side, and §1.5 reads as though it were
    two.** The instrument reads the re-run trace's `meta.driver_version` —
@@ -85,6 +99,15 @@ differently, which is the whole reason a pre-registration is worth having.
    publish the pair beside the rt-hash pair, so the sentence and the cells say
    the same thing.
 
+   **Closed at `962cacd`** (2026-09-08, the debts slice) — `read_rt_hashes` opens
+   the copied original's `meta` for its `driver_version` beside the rt hash,
+   `null` WITH its reason and the two ways it goes missing (an unreadable
+   trace, a trace with no token) told apart; the pair reaches
+   `pairs.rows[*].driver_version_from_the_original` and
+   `reported.driver_version.from_the_original_trace`. The note there now
+   names `meta.driver_version` — the key the reader takes — and says
+   `meta.recorder` is the RUNTIME's version.
+
 4. **H2's fragment count was read on both sides and published on neither.**
    §1.4's H2 row pre-commits two second readings: the rt hash each side carries,
    and *"the count of fragments removed per key per side"*. The first is a cell
@@ -100,6 +123,13 @@ differently, which is the whole reason a pre-registration is worth having.
    lens, dropped}` cell and into `reported.rt_hashes.by_pair[*]` — the numbers
    are already read, so nothing is re-measured.
 
+   **Closed at `962cacd`** (2026-09-08, the debts slice) — `H2.fragments_per_side`
+   is a cell of the record's own shape, published only where every readable
+   pair carried the same count per side and `null` WITH the counts seen
+   otherwise; `reported.rt_hashes.by_pair[*]` carries `original_fragments`,
+   `rerun_fragments` and both occurrence counts per pair. Nothing is
+   re-measured: this run's numbers stay where they were written.
+
 5. **`reported.walls_s` holds three of the four walls §1.5 names.** The bullet
    pre-commits *"wall per arm (A, B, C and the dry run), the first focus
    distinguished from the later ones with cargo's own build time inside each,
@@ -114,6 +144,14 @@ differently, which is the whole reason a pre-registration is worth having.
    beside a field holding three is the gap. **Fix, next slice:** add
    `walls_s.driver_build`, `walls_s.dry` and a per-arm cargo-time summary, all
    from fields this run already writes.
+
+   **Closed at `962cacd`** (2026-09-08, the debts slice) — `reported.walls_s`
+   gains `driver_build` (from `pins.built_from.cargo_wall_s`, with `rebuilt`
+   beside it), `cargo_s` (per arm, summed per row from `cargo_finished_s`,
+   the rows that printed no `Finished in` line counted apart rather than
+   averaged in as zeros), and `dry`, read from the raw record the dry launch
+   wrote and `null` WITH the path where there is none. Gathering only: no
+   wall is measured again, and nothing here was ever gated.
 
 ## What this record does NOT license
 
