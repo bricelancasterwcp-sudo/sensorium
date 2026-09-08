@@ -118,8 +118,21 @@ def _reported(raw) -> dict:
         "pairs": h6.get("pairs"),
         "line_histogram": h3.get("by_line"),
         "line_histogram_via_code_id": h3.get("by_line_via_code_id"),
-        "line_rows_per_run": {n: (r.get("meta") or {}).get("counts")
-                              for n, r in runs.items()},
+        # §1.4's "the LINE-row totals of F1 and F2", at the name §1.4 uses.
+        # It read `meta.counts` -- a key no format-4 trace carries (there is
+        # `truncated_count`, and the `recorded: CALL … LINE …` line `info`
+        # prints is computed by the reader) -- so it published four nulls a
+        # reader could not tell from four runs with no LINE rows. The number
+        # was in the record all along under another name: the census walks
+        # each run's events and counts them. Read from there, with the
+        # source named on the cell and `null` WITH its reason for a run that
+        # was never censused.
+        "line_rows_per_run": {
+            n: {"value": (c or {}).get("line_events"),
+                "source": "census.line_events",
+                "reason": (None if c else "this run was not censused, so "
+                                          "its LINE rows were never counted")}
+            for n, c in census.items()},
         "trace_bytes": h6.get("trace_bytes"),
         "whole_trace_sightings": {s.get("id"): s.get("whole_trace_rows")
                                   for s in (h5.get("sightings") or [])},

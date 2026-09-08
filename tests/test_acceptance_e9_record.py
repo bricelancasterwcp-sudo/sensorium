@@ -75,11 +75,13 @@ def _raw(**over) -> dict:
                           "all_captures_truncated": 0},
                "meta": {"counts": {"LINE": 0}}},
     }
-    for name, wall, focus in (("F1", 44.0, [phases.FOCUS_A]),
-                              ("U2", 12.0, []),
-                              ("F2", 30.0, [phases.FOCUS_B])):
+    for name, wall, focus, lines in (("F1", 44.0, [phases.FOCUS_A], 26),
+                                     ("U2", 12.0, [], 0),
+                                     ("F2", 30.0, [phases.FOCUS_B], 160)):
         runs[name] = dict(runs["U1"], name=name, wall_s=wall,
                           focus_lines=focus,
+                          census=dict(runs["U1"]["census"],
+                                      line_events=lines),
                           run=f"20260906-1010-{name.lower()}")
     raw = {
         "runner": runner.RUNNER,
@@ -673,3 +675,28 @@ def test_an_unparsed_outcome_is_None_and_never_a_failed_comparison():
     raw["raw_h2"]["pairs"]["F1/U1"]["outcome_equal"] = None
     m = assemble_e9(raw)["endpoints"]["H2"]["outcomes_equal"]
     assert m["value"] == 1 and m["n"] == 2      # the OTHER pair still counts
+
+
+def test_the_LINE_row_totals_are_read_from_the_CENSUS(monkeypatch):
+    """A2 row 17. `reported.line_rows_per_run` read `meta.counts`, a key no
+    format-4 trace carries, and published four nulls a reader could not tell
+    from four runs with no LINE rows. §1.4 asks for "the LINE-row totals of
+    F1 and F2" and the census counted them all along -- so the field reads
+    the census, names its source on the cell, and is `null` WITH its reason
+    only for a run that was never censused."""
+    raw = _raw()
+    rep = assemble_e9(raw)["reported"]["line_rows_per_run"]
+    assert {n: c["value"] for n, c in rep.items()} == {
+        "U1": 0, "F1": 26, "U2": 0, "F2": 160}
+    assert all(c["source"] == "census.line_events" for c in rep.values())
+    assert all(c["reason"] is None for c in rep.values())
+
+
+def test_a_run_that_was_never_CENSUSED_is_null_WITH_its_reason():
+    """None-vs-zero, which is the whole of this row: 0 LINE rows is a
+    measurement and an uncensused run is not."""
+    raw = _raw()
+    raw["raw_records"]["runs"]["F2"].pop("census")
+    cell = assemble_e9(raw)["reported"]["line_rows_per_run"]["F2"]
+    assert cell["value"] is None
+    assert "never counted" in cell["reason"]
