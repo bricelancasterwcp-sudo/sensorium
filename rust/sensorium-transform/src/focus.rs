@@ -10,7 +10,7 @@
 //! # The boundary rule (design §2.1)
 //!
 //! A value is the qualname the trace already prints for Rust -- the file-local
-//! `::` path [`crate::visit`] computes (`Counter::new`, `tests::a::b`). A value
+//! `::` path the `visit` module computes (`Counter::new`, `tests::a::b`). A value
 //! naming a CONTAINER selects every eligible function under it, and "under"
 //! means equal, or a prefix ending at a `::` boundary. `Counter` therefore
 //! selects `Counter::new` and not `Counters::new`, which is the one rule this
@@ -145,7 +145,7 @@ pub struct FnItem {
 /// the drift would show up as a `--focus` the driver accepts and the transform
 /// ignores.
 ///
-/// The walk it runs is the CENSUS walk ([`crate::census::walk`], transform
+/// The walk it runs is the CENSUS walk (`census::walk`, transform
 /// 0.4.2): the same visitor with its splicing half switched off. Until 0.4.2
 /// this ran the whole transform on every file of the workspace -- every offset
 /// computed, every fragment placed, every rewritten source assembled and its
