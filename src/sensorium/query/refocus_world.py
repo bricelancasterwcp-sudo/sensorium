@@ -3,10 +3,12 @@
 Split out of `refocus_cmd` along the seam the material has: everything here
 establishes FACTS -- about the source tree, the process environment, the
 program's own output, the threads and children each run started -- and
-nothing here decides a verdict or prints one. `refocus_cmd` owns the verdict,
-the assessment that ties the facts to it, and the report; it calls in here
-for the evidence. The two halves were one 1004-line file, over this
-project's 800-line ceiling.
+nothing here decides a verdict or prints one. `refocus_cmd` owns the verdict
+and the assessment that ties the facts to it; it calls in here for the
+evidence. The two halves were one 1004-line file, over this project's
+800-line ceiling -- and `refocus_cmd` met that ceiling in its turn, so the
+stamp and the report now live in `refocus_report`, which prints and stamps
+and decides nothing.
 
 A verdict is about CALL SHAPE. A licence is about the whole run, and it is
 withheld on every signal below that fired -- and just as firmly on every one
