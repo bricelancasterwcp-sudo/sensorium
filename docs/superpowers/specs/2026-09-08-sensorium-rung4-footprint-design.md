@@ -194,3 +194,15 @@ original's recorded environment and the runner's own, chosen and recorded at
 preflight, and expects the licence word equal to arm A's on 4/4 with K exactly
 one more. H4 reads the session-set names, H5 arm B, H6 arm C, as the table
 says with "other" read as "session" and `E4PP_MARK` as the chosen key.
+
+**A-R8 — no build cache is deleted by this slice (2026-09-08, before the
+measurement).** R8 ruled `bloomery-target-e4` (24 GB) removed before the
+launch. Deleting is a destructive action and those are Brice's, not the
+design authority's; and the run does not need it — the second disk holds
+30 GB free against a target of ~21 GB, a corpus target under 1 GB and store
+copies under 100 MB. So nothing is removed: E4″ builds into a fresh
+`bloomery-target-e4pp` beside the kept ones, and the two older targets
+(`bloomery-target-e4`, `bloomery-target-e4p`, 45 GB together) are named in the
+close-out as Brice's to free. If the preflight's disk floor refuses the
+launch, that refusal is the infrastructure kill §1.4 names and is reported,
+not worked around by deleting.
