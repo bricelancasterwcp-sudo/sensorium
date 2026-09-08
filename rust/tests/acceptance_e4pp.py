@@ -117,12 +117,14 @@ THE EXIT CODES, AND THE TWO THINGS 9 MEANS
     6  the raw record would not serialise; a partial one was written
     7  a STOP -- §1.4's rule 5: the numbers already read STAND
     8  the loop bound was reached
-    9  INFRASTRUCTURE -- **relaunch from zero**, in both its shapes:
+    9  INFRASTRUCTURE -- **relaunch from zero**, in each of its shapes:
        a `.FAILED` before any number had been read (§1.4's rule 4: archive
-       the run, empty the fresh locations, re-make the 61 copies), or a DRY
-       run that did not check the instrument (§1.3: the launch does not
-       happen). Neither is a finding about the subject and neither is a
-       STOP; the marker says which of the two it was.
+       the run, empty the fresh locations, re-make the 61 copies); a DRY run
+       that did not check the instrument (§1.3: the launch does not happen);
+       or an invocation KILLED inside a dry run, which measures nothing, so
+       rule 5 has no numbers for "the numbers already read stand" to be
+       about. None is a finding about the subject and none is a STOP; the
+       marker names which, and so does `infrastructure_shape` in the record.
 """
 
 from __future__ import annotations
@@ -162,6 +164,11 @@ from acceptance_e4p_store import (copy_originals, store_census)    # noqa: E402
 from acceptance_e4pp_lock import (BYTE_LOCK, DOC, RESULTS,         # noqa: E402,F401
                                   ROWS_DOC, ROWS_SHA256,
                                   check_byte_lock, check_rows_digest)
+from acceptance_e4pp_kills import (GATED,                         # noqa: E402,F401
+                                   INFRASTRUCTURE_SHAPES, _infrastructure,
+                                   _stops, dry_check,
+                                   infrastructure_shape, stop_side,
+                                   stop_sides)
 from acceptance_e4pp_rows import (CORPUS_ARGS, GATE_N,            # noqa: E402
                                   LOOP_BUDGET_S, REFOCUS_TIMEOUT, ROWS,
                                   TARGETS, bound_sentence)
@@ -306,216 +313,10 @@ def e4pp_config(paths, rows=None) -> dict:
 
 
 # --------------------------------------------------------------------- main
-
-#: Which raw block each gated endpoint lives in, and how a miss is named.
-#: §1.4's kill 2 by its words: H2-H6 and H8 are STOPs of the SUBJECT; H7 is
-#: a STOP of the INSTRUMENT and the record says so rather than reporting it
-#: as a finding about the subject.
-GATED = (("H2", "raw_h2", "subject"), ("H3", "raw_h3", "subject"),
-         ("H4", "raw_h4", "subject"), ("H5", "raw_h5", "subject"),
-         ("H6", "raw_h6", "subject"), ("H7", "raw_h7", "instrument"),
-         ("H8", "raw_h8", "subject"))
-
-
-def stop_side(number: str, block: dict, declared: str) -> dict:
-    """Which side a STOP is of, DERIVED from what missed.
-
-    E4″ gap 2: `stop` and the `.FAILED` marker both ended "This is a STOP of
-    the subject" because the label hung off the endpoint id rather than off
-    the cell that missed -- and on the real run H8's own miss was a READER's
-    (three green return codes, a case that ran and came back equal), so the
-    marker's words pointed at the wrong side.
-
-    The rule, in one line: a phase that recorded a reason it could not READ
-    something (its `dropped` list, which is where every such reason goes,
-    and which is what takes `as_predicted` to `None`) missed because this
-    INSTRUMENT could not read it; a phase whose reading was whole and simply
-    did not match its gate missed on the side that endpoint measures. §1.4's
-    kill 2 asks the record to keep the two apart, and where they disagree
-    BOTH are printed -- neither is dropped for the other.
-    """
-    unread = [r for r in (block.get("dropped") or []) if r]
-    derived = "instrument" if unread else declared
-    return {"endpoint": number, "declared": declared, "derived": derived,
-            "agree": derived == declared, "unread": unread,
-            "blocked": block.get("as_predicted") is None}
-
-
-def stop_sides(res: dict) -> list[dict]:
-    """`stop_side` for every gated endpoint that STOPped, in GATED's order.
-    Published beside `stop` so a reader gets the derivation and not only the
-    sentence built from it."""
-    return [stop_side(number, res.get(key) or {}, whose)
-            for number, key, whose in GATED
-            if (res.get(key) or {}).get("verdict") == "STOP"]
-
-
-def _stop_sentence(side: dict) -> str:
-    """The words `stop_side`'s answer earns."""
-    if side["agree"]:
-        return ("This is a STOP of the INSTRUMENT, not of the subject"
-                if side["derived"] == "instrument"
-                else "This is a STOP of the subject")
-    return (f"The endpoint is gated on the {side['declared']}, and what "
-            f"missed is the {side['derived'].upper()}'s reading: "
-            f"{'; '.join(side['unread'])}. Both are named because they "
-            f"disagree, and neither stands in for the other")
-
-
-def dry_check(res: dict) -> dict:
-    """What §1.3 requires a DRY run to SHOW, and nothing else.
-
-    "It must show the strip clause firing on an original whose rt hash
-    differs from the re-run's -- a dry run under one build is not a dry run
-    of this instrument, which is precisely E4′'s lesson. A dry run that does
-    not show it has not checked the instrument: the launch does not happen,
-    and that is infrastructure, not a STOP."
-
-    So a dry run is NOT judged by the subject's gates. A two-row table
-    cannot meet §1.2's "granted 57" and an rc that said so would report a
-    STOP where there is no measurement at all -- and the marker is what the
-    controller reads before deciding whether the launch happens.
-    """
-    rows = [r for r in (res.get("raw_pass2") or {}).get("refocuses") or []
-            if "not_run" not in r]
-    showed = [r["name"] for r in rows
-              if "RUSTDOCFLAGS" in (r.get("env_stripped_keys") or [])
-              and r.get("rt_hashes_differ") is True]
-    silent = [{"name": r["name"],
-               "stripped": r.get("env_stripped_keys"),
-               "original_rt": (r.get("original_rt_hash") or {}).get("value"),
-               "rerun_rt": (r.get("rerun_rt_hash") or {}).get("value")}
-              for r in rows if r["name"] not in showed]
-    rec = {"rows": len(rows), "showed_the_strip_on_differing_hashes": showed,
-           "did_not_show_it": silent, "strip_ok": bool(showed),
-           "arms_rehearsed": bool(res.get("dry_arms"))}
-    # §1.3's dry is a MINIMUM, not a ceiling (controller, fix round 1). With
-    # `--dry-arms` the two dry rows are re-run under both controls, and the
-    # dry then also has to show that each arm produced a PAIR for each of
-    # its rows -- the one thing four unrehearsed invocations could get wrong
-    # an hour into the real run.
-    arms_rec = {}
-    if rec["arms_rehearsed"]:
-        for key, label in (("raw_arm_b", "B"), ("raw_arm_c", "C")):
-            block = res.get(key) or {}
-            answers = [r for r in (block.get("refocuses") or [])
-                       if "not_run" not in r]
-            without = [r["name"] for r in answers
-                       if not r.get("new_run") or r.get("timed_out")]
-            arms_rec[label] = {
-                "rows": block.get("n"), "measured": len(answers),
-                "never_run": block.get("budget_exhausted") or [],
-                "rows_without_a_pair": without,
-                "ok": bool(answers) and not without
-                and not (block.get("budget_exhausted") or [])
-                and len(answers) == block.get("n")}
-        rec["arms"] = arms_rec
-        rec["arms_ok"] = all(a["ok"] for a in arms_rec.values())
-    else:
-        rec["arms"] = None
-        rec["arms_ok"] = None
-    rec["ok"] = bool(rec["strip_ok"]) and rec["arms_ok"] is not False
-    strip = (
-        f"{len(showed)} of {len(rows)} dry pair(s) showed the strip clause "
-        "fire on an original whose rt hash differs from the re-run's"
-        if showed else
-        "NO dry pair showed the strip clause fire on an original whose rt "
-        "hash differs from the re-run's")
-    arms_said = (
-        "" if not rec["arms_rehearsed"] else
-        "; both control arms produced a pair for every row"
-        if rec["arms_ok"] else
-        "; a control arm did NOT produce a pair for every row "
-        + str({k: v["rows_without_a_pair"] or v["never_run"]
-               for k, v in arms_rec.items() if not v["ok"]}))
-    rec["reading"] = strip + arms_said + ("" if rec["ok"] else (
-        ". §1.3: a dry run that does not show it has not checked the "
-        "instrument -- the launch does not happen, and that is "
-        "INFRASTRUCTURE, not a STOP"))
-    return rec
-
-
-def _stops(res: dict) -> list[str]:
-    """§1.4's kill rules, by their WORDS.
-
-    A DRY run is judged by `dry_check` alone: it measures nothing, so no
-    subject gate applies to it and none is evaluated here.
-    """
-    stops = []
-    # The KILL first, in the words of the rule that applies: a row killed
-    # at its ceiling leaves its licence unread, which takes H1's partition
-    # to False, and the first line Task 8 reads must not attribute a kill
-    # 4/5 event to kill 1. Rules 4 and 5 are told apart by `numbers_read`
-    # and by nothing else.
-    killed, missing = [], []
-    for key in ("raw_pass2", "raw_arm_b", "raw_arm_c"):
-        block = res.get(key) or {}
-        killed += [f"{key}:{n}" for n in (block.get("killed") or [])]
-        missing += [f"{key}:{n}" for n in (block.get("budget_exhausted")
-                                           or [])]
-    if killed or missing:
-        what = []
-        if killed:
-            what.append(f"{len(killed)} invocation(s) were KILLED at the "
-                        f"{REFOCUS_TIMEOUT} s ceiling ({killed[:3]})")
-        if missing:
-            what.append(f"{len(missing)} invocation(s) were never run -- the "
-                        f"1 h 30 min loop bound was reached ({missing[:3]})")
-        if res.get("numbers_read"):
-            stops.append(
-                "; ".join(what) + ". A `.FAILED` marker AFTER a number had "
-                "already been read is a STOP and the numbers already read "
-                "stand (§1.4's rule 5, by its words). Every endpoint "
-                "boolean below is over fewer than its arm's rows, and the "
-                "assembled record nulls each of them with this reason")
-        else:
-            stops.append(
-                "; ".join(what) + ". A `.FAILED` marker BEFORE any number "
-                "had been read is infrastructure (§1.4's rule 4, by its "
-                "words): the run is archived, the fresh locations are "
-                "emptied, the 61 copies are re-made from the kept store by "
-                "§1.3's statement, and it is relaunched from zero")
-    if res.get("dry_run"):
-        return stops
-    h1 = res.get("raw_h1") or {}
-    if h1 and h1.get("partition_as_predicted") is False:
-        stops.append(
-            f"H1 (kill 1): the partition is not §1.2's -- granted "
-            f"{h1.get('granted_n')} of {h1.get('n')} expected "
-            f"{h1.get('expected_granted_n')}; withheld only here "
-            f"{h1.get('withheld_only_here')}; withheld missing "
-            f"{h1.get('withheld_missing')}; count mismatches "
-            f"{h1.get('withheld_count_mismatches')}. The partition observed "
-            "is the finding")
-    for number, key, whose in GATED:
-        block = res.get(key) or {}
-        if not block or block.get("verdict") != "STOP":
-            continue
-        stops.append(
-            f"{number} (kill 2): a miss with its number. Gate: "
-            f"{block.get('gate')}. "
-            + _stop_sentence(stop_side(number, block, whose)))
-    cl = res.get("cleanup") or res.get("cleanup_after_failure") or {}
-    if cl.get("kept_store_unchanged") is False:
-        stops.append(
-            "§1.3: the KEPT store changed during the run -- "
-            f"{cl.get('kept_census_differences')}. A single changed mtime "
-            "is a STOP")
-    return stops
-
-
-def _infrastructure(res: dict) -> bool:
-    """§1.4's rule 4 rather than its rule 5: a `.FAILED` BEFORE any number
-    had been read. The run is archived and relaunched from zero, which is
-    not the same event as a STOP and must not carry a STOP's exit code."""
-    if res.get("numbers_read"):
-        return False
-    for key in ("raw_pass2", "raw_arm_b", "raw_arm_c"):
-        block = res.get(key) or {}
-        if (block.get("killed") or block.get("budget_exhausted")):
-            return True
-    return False
-
+#
+# §1.4's kill rules and §1.3's dry check are in `acceptance_e4pp_kills`,
+# imported above: `main` reads their answers and turns them into an exit
+# code, a marker and a record, and decides nothing itself.
 
 def _partial_json(res: dict) -> str:
     """What CAN be serialised, when the whole record cannot."""
@@ -734,9 +535,13 @@ def main(argv) -> int:
            or res.get("dry_run_did_not_check_the_instrument")
            or res.get("error") or "")
     marker = f"e4pp{suffix}." + ("DONE" if rc == 0 else "FAILED")
-    # What the code MEANS, beside the code. 9 has two shapes and both are
-    # "relaunch from zero"; 7 is the one where the numbers stand. A marker
-    # that carried only the number left that to a reader's memory.
+    # Which shape of 9 this was, in the RECORD and not only in the marker's
+    # prose -- named even when the exit is not 9, because "this was not an
+    # infrastructure kill" is itself the fact a reader of a 7 wants.
+    res["infrastructure_shape"] = shape = infrastructure_shape(res)
+    # What the code MEANS, beside the code. 9's shapes are all "relaunch
+    # from zero"; 7 is the one where the numbers stand. A marker that
+    # carried only the number left that to a reader's memory.
     meaning = {
         0: "clean", 3: "REFUSED before any measurement",
         4: "an unhandled error", 5: "assemble/render failed",
@@ -744,12 +549,8 @@ def main(argv) -> int:
         7: "a STOP -- §1.4's rule 5: the numbers already read STAND",
         8: "§1.4's loop bound was reached",
         9: ("INFRASTRUCTURE -- RELAUNCH FROM ZERO: "
-            + ("a DRY run that did not check the instrument (§1.3: the "
-               "launch does not happen)" if res.get(
-                   "dry_run_did_not_check_the_instrument")
-               else "a `.FAILED` before any number had been read (§1.4's "
-                    "rule 4: archive, empty the fresh locations, re-make "
-                    "the 61 copies)")),
+            + INFRASTRUCTURE_SHAPES.get(
+                shape, "an infrastructure kill this runner did not name")),
     }.get(rc, "unnamed")
     (BASE / marker).write_text(
         f"exit={rc}\n{meaning}\n{time.strftime('%Y-%m-%dT%H:%M:%S%z')}\n"

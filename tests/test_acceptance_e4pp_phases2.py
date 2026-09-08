@@ -604,3 +604,8 @@ def test_the_bound_sentence_is_DERIVED_from_the_budget_it_names():
     # budget, which is the check that it is a derivation and not a retype.
     assert e4pp.bound_sentence(4500) == ph.eph.NOT_RUN_BOUND
     assert "45 min" in e4pp.bound_sentence(2700)
+    # CARRIED-DEBT minor 1: a WHOLE number of hours dropped the "0 min" and
+    # read `1 h` where every other bound reads `1 h 15 min` -- one grammar
+    # above the hour, so a reader parsing the sentence has one rule.
+    assert "1 h 00 min" in e4pp.bound_sentence(3600)
+    assert "2 h 00 min" in e4pp.bound_sentence(7200)

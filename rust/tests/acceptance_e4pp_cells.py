@@ -54,6 +54,15 @@ NEEDS = {"H1": ("raw_pass2",), "H2": ("raw_pass2",), "H3": ("raw_pass2",),
          "H4": ("raw_pass2",), "H5": ("raw_arm_b",),
          "H6": ("raw_pass2", "raw_arm_c"), "H7": (), "H8": ()}
 
+#: How many rows each raw block is LOCKED to -- §1.1's 61 for arm A and
+#: §1.3's 4 for each control. `_drops` reads it for the same reason
+#: `acceptance_e4pp_phases.subset_reasons` does: a table that was not the
+#: locked one measured nothing about "61 of 61", and the phases catching it
+#: first is not a reason for the assembler to publish the count if they
+#: ever do not.
+LOCKED_N = {"raw_pass2": e4pp.GATE_N, "raw_arm_b": e4pp.ARM_N,
+            "raw_arm_c": e4pp.ARM_N}
+
 NOT_RUN = "the phase did not run, so there is nothing to compare"
 
 
@@ -92,9 +101,13 @@ def _drops(raw, endpoint: str) -> list[str]:
         missing = block.get("budget_exhausted") or []
         if missing:
             out.append(f"{key}: {len(missing)} invocation(s) were never run "
-                       f"-- §1.4's 1 h 30 min loop bound was reached "
-                       f"({missing[:3]}{' …' if len(missing) > 3 else ''})")
+                       f"-- §1.4's {e4pp.bound_sentence(e4pp.LOOP_BUDGET_S)}"
+                       f" ({missing[:3]}{' …' if len(missing) > 3 else ''})")
         n, measured = block.get("n"), block.get("measured")
+        locked = LOCKED_N.get(key)
+        if locked is not None and n is not None and n != locked:
+            out.append(f"{key}: the arm ran over {n} row(s), not §1's "
+                       f"{locked}")
         if (n is not None and measured is not None and measured != n
                 and not missing):
             out.append(f"{key}: {measured} of {n} invocation(s) ran")
@@ -342,7 +355,8 @@ def _k_reason(h) -> list:
         reasons.append("no pair printed a session count this reader could "
                        "read, so there is no K to publish")
     elif len(ks) > 1:
-        reasons.append(f"the pairs did not agree on K ({ks}); a single "
+        told = ", ".join(str(k) for k in ks)
+        reasons.append(f"the pairs did not agree on K ({told}); a single "
                        "value is published only where every readable pair "
                        "printed the same one, and the per-pair counts are "
                        "under `session_k_by_name`")
@@ -450,6 +464,16 @@ H7_LENS = ("this record's OWN instrument, over every pair of every arm: "
            "source line each thread count came from, the verified counts "
            "built from the rows, and the version probe's own output")
 
+#: H7's denominator, SAID rather than left in the `n`. This endpoint gates
+#: over a census it computes itself -- the rows of every arm that came back
+#: with a licence WORD -- and that is neither the 61 nor the 69: a row whose
+#: licence never printed has no partition to be honest or dishonest about,
+#: and a reader comparing "0 of 69" against "0 of 66" is comparing two
+#: different claims.
+CENSUS_LENS = ("; over `censused`, which this endpoint COUNTS for itself: "
+               "the rows of every arm that came back with a licence word, "
+               "neither the 61 of §1.1 nor the 69 of all three arms")
+
 
 def _h7(raw) -> dict:
     h = raw.get("raw_h7")
@@ -464,11 +488,11 @@ def _h7(raw) -> dict:
     block = {
         "headline": meas(h.get("headline"), n, H7_LENS + "; pairs whose "
                          "licence PRINTED and whose thread arithmetic did "
-                         "not", []),
+                         "not" + CENSUS_LENS, []),
         "counts_carry_their_source_line": meas(
             h.get("counts_carry_their_source_line"), n,
             H7_LENS + "; every thread count says whether it came from the "
-            "licence clause or the `threads:` line", []),
+            "licence clause or the `threads:` line" + CENSUS_LENS, []),
         "licence_verified_counts": meas(
             h.get("licence_verified_counts"), counts.get("n"),
             "the four verified/unverifiable counts, COUNTED over "

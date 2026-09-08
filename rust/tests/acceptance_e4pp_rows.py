@@ -80,8 +80,11 @@ def bound_sentence(seconds: int = LOOP_BUDGET_S) -> str:
     imported rather than the number.
     """
     hours, minutes = divmod(round(seconds / 60), 60)
-    span = (f"{hours} h {minutes:02d} min" if hours and minutes
-            else f"{hours} h" if hours else f"{minutes} min")
+    # One spelling above the hour, never two: a whole number of hours read
+    # `1 h` where every other bound reads `1 h 15 min`, so a reader parsing
+    # the sentence had two grammars and a bound of exactly one hour was the
+    # one that would have surprised them.
+    span = f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
     return f"the {span} loop bound was reached before this invocation"
 
 

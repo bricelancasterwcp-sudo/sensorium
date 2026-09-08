@@ -470,3 +470,51 @@ def test_a_MEASURED_session_k_still_carries_no_dropped_reason():
     cell = assemble_e4pp(_raw())["endpoints"]["H4"]["session_k"]
     assert cell["value"] == 1
     assert cell["dropped"] == []
+
+
+# ================ the seven instrument minors (CARRIED-DEBT) ==============
+
+def test_a_K_the_pairs_DISAGREE_on_says_so_in_PROSE_not_a_list_repr():
+    """Minor 2: `_k_reason` interpolated the Python list `[1, 2]` into a
+    sentence a person reads. The numbers are the same; the record is prose
+    and a `repr` in it is a leak from the instrument that wrote it."""
+    import acceptance_e4p_rows as rows
+    raw = _raw()
+    h4 = raw["raw_h4"]
+    h4["session_k"] = None
+    h4["session_k_by_name"] = {rows.NAMES[0]: 1, rows.NAMES[1]: 2}
+    cell = assemble_e4pp(raw)["endpoints"]["H4"]["session_k"]
+    assert cell["value"] is None
+    reason = " ".join(cell["dropped"])
+    assert "did not agree on K (1, 2)" in reason
+    assert "[1, 2]" not in reason
+
+
+def test_an_arm_that_ran_over_the_WRONG_NUMBER_of_rows_nulls_its_cells():
+    """Minor 4: `_drops` had no `n != <locked>` clause -- the phases catch a
+    short table first, and an assembler that publishes a count over a table
+    that was not the locked one is one phase-check away from a wrong number.
+    §1.1 locks 61 for arm A and §1.3 locks 4 for each control."""
+    raw = _raw()
+    raw["raw_pass2"] = dict(raw["raw_pass2"], n=59, measured=59)
+    block = assemble_e4pp(raw)["endpoints"]["H3"]
+    for name in cells.MEASUREMENT_CELLS["H3"]:
+        assert block[name]["value"] is None, name
+        assert any("not §1's 61" in d for d in block[name]["dropped"]), name
+    raw = _raw()
+    raw["raw_arm_b"] = dict(raw["raw_arm_b"], n=3, measured=3)
+    h5 = assemble_e4pp(raw)["endpoints"]["H5"]["headline"]
+    assert h5["value"] is None and any("not §1's 4" in d
+                                       for d in h5["dropped"])
+
+
+def test_H7s_own_DENOMINATOR_is_stated_on_the_cell_and_not_only_in_n():
+    """Minor 5: H7 gates over a census it computes itself -- the rows of
+    every arm that came back with a licence WORD -- which is neither the 61
+    nor the 69. A reader comparing "0 of 69" with "0 of 66" is comparing
+    two different claims, so the cell's lens says what the number is over."""
+    block = assemble_e4pp(_raw())["endpoints"]["H7"]
+    for name in ("headline", "counts_carry_their_source_line"):
+        assert "censused" in block[name]["lens"], name
+        assert "neither the 61" in block[name]["lens"], name
+    assert block["headline"]["n"] == _raw()["raw_h7"]["censused"]

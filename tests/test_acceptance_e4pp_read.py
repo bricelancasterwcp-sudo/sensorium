@@ -310,6 +310,26 @@ def test_the_recorders_OWN_clause_is_read_apart_and_whole(line):
     assert "RUSTDOCFLAGS" not in own
 
 
+def test_a_strip_clause_naming_MORE_THAN_ONE_key_reads_all_of_them():
+    """CARRIED-DEBT minor 3: every test drove a strip list of exactly one
+    name, so the comma split in `read_e4pp_clauses` was never exercised and
+    a reader that returned the whole tail as ONE key would have passed
+    every one of them. H2 counts pairs whose clause NAMES `RUSTDOCFLAGS`,
+    which a one-element list containing "RUSTDOCFLAGS, RUSTFLAGS" fails."""
+    line = ("env: unchanged (73 variables compared; not compared: OLDPWD, "
+            "PWD, SHLVL, _)  the recorder's own fragment stripped before "
+            "comparing: RUSTDOCFLAGS, RUSTFLAGS, CARGO_ENCODED_RUSTFLAGS")
+    p = rd.parse_refocus(line + "\n")
+    assert p["env_stripped_keys"] == ["RUSTDOCFLAGS", "RUSTFLAGS",
+                                      "CARGO_ENCODED_RUSTFLAGS"]
+    # ...and the same list with the recorder's-own clause after it, which
+    # is the join the one-key tests could not distinguish either.
+    p = rd.parse_refocus(line + "  " + RECORDER_OWN + "\n")
+    assert p["env_stripped_keys"] == ["RUSTDOCFLAGS", "RUSTFLAGS",
+                                      "CARGO_ENCODED_RUSTFLAGS"]
+    assert len(p["env_recorder_own_keys"]) == 11
+
+
 @pytest.mark.parametrize("tail, why", [
     ("  a later clause: FOO, BAR", "a TWO-SPACE join, the way this clause "
                                    "is itself joined on"),

@@ -438,6 +438,9 @@ def assemble_e4pp(raw: dict) -> dict:
         # Which side each gated miss was on, DERIVED from what
         # missed rather than from the endpoint id (E4″ gap 2).
         "stop_sides": raw.get("stop_sides"),
+        # WHICH of exit 9's shapes this run was, or null where it was none.
+        "infrastructure_shape": raw.get("infrastructure_shape"),
+        "kill_is_infrastructure": raw.get("kill_is_infrastructure"),
         "bound_reached": raw.get("bound_reached"),
         "refused": raw.get("refused"), "error": raw.get("error"),
         "started": raw.get("started"), "finished": raw.get("finished"),
