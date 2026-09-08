@@ -28,9 +28,9 @@ import time
 from pathlib import Path
 
 from acceptance_lib import (REPO, Refused, driver_cmd, manifests_dir,  # noqa: F401
-                            plain_env, rmtree, run, run_lines,
-                            sensorium_cli, spool_of, step, target_env,
-                            trace_bytes, trace_meta)
+                            plain_env, read_manifests, rmtree, run,
+                            run_lines, sensorium_cli, spool_of, step,
+                            target_env, trace_bytes, trace_meta)
 from acceptance_phases import _build, _verdict, verdict_line           # noqa: F401
 
 # ------------------------------------------------------------------ E6
@@ -500,7 +500,7 @@ def phase_e2pp(paths, cfg) -> dict:
         return {"dropped": f"the from-scratch workspace build exited {res['rc']}",
                 "build": b, "target_emptied_bytes": removed,
                 "target_emptied_at": emptied_at}
-    m = read_manifests_rung3(paths, b["metadata_units"])
+    m = read_manifests(paths, b["metadata_units"])
     rows = _try_rows(paths, b["metadata_units"])
     step(f"E2'': try rows {rows['try_rows_distinct']} distinct "
          f"({rows['try_rows_raw']} raw) over {len(m['units'])} units; "
@@ -510,73 +510,6 @@ def phase_e2pp(paths, cfg) -> dict:
             "fell_back_stderr_lines": [
                 ln for ln in Path(b["log"]).read_text().splitlines()
                 if "fell back to the real tree" in ln]}
-
-
-def read_manifests_rung3(paths, scope: list[str] | None) -> dict:
-    """`acceptance_lib.read_manifests`, made able to read a RUNG-3 manifest.
-
-    The rung-2 reader keys a site on `(file, qualname, firstlineno)` and
-    indexes `e["firstlineno"]` directly. Rung 3's `ManifestSite` serialises
-    `firstlineno` only for a `kind: "fn"` row and carries `line` for the
-    others (`manifest.rs`: `firstlineno: is_fn.then_some(..)`,
-    `line: (!is_fn).then_some(..)`), so the rung-2 reader raises `KeyError`
-    on the first `try`/`sink`/`arm` row it meets -- measured on the first
-    launch of this run, 2026-09-05, on a workspace build whose manifests
-    carried 2364 such rows.
-
-    `acceptance_lib.py` is the rung-2 record's instrument and is left
-    byte-unchanged; this is the rung-3 reader. `kind` joins the key, because
-    a `fn` site and a `try` site can share a file and a line and are two
-    different sites."""
-    d = manifests_dir(paths)
-    sites, sites_by_file, raw = set(), {}, 0
-    units, fell, unreached, skipped = [], [], set(), []
-    spawns_wrapped, spawns_declared = 0, []
-    out_of_scope, declaring = [], set()
-    for p in sorted(d.glob("*.json")) if d.is_dir() else []:
-        if scope is not None and p.stem not in scope:
-            out_of_scope.append(p.stem)
-            continue
-        m = json.loads(p.read_text())
-        units.append({"unit": m["unit"], "crate_name": m["crate_name"],
-                      "crate_type": m["crate_type"],
-                      "fell_back": m["fell_back"],
-                      "fallback_reason": m.get("fallback_reason"),
-                      "files": len(m["files"]),
-                      "sites": sum(len(v) for v in m["files"].values()),
-                      "partial": len(m.get("partial", [])),
-                      "unreached_files": m.get("unreached_files", []),
-                      "workspace_root": m.get("workspace_root", ""),
-                      "source_hashes": len(m.get("source_hashes", {})),
-                      "skipped": len(m.get("skipped", []))})
-        declaring.add((m["crate_name"], m["crate_type"]))
-        unreached |= set(m.get("unreached_files", []))
-        skipped += m.get("skipped", [])
-        for s in m.get("spawns", []):
-            if s.get("wrapped"):
-                spawns_wrapped += 1
-            else:
-                spawns_declared.append(s)
-        if m["fell_back"]:
-            fell.append({"unit": m["unit"], "reason": m.get("fallback_reason")})
-            continue
-        for rel, entries in m["files"].items():
-            raw += len(entries)
-            for e in entries:
-                # `firstlineno` for a fn row, `line` for every other kind:
-                # exactly one of the two is serialised.
-                where = e.get("firstlineno", e.get("line"))
-                sites.add((rel, e["qualname"], where, e.get("kind", "fn")))
-                sites_by_file.setdefault(rel, set()).add(
-                    (e["qualname"], where, e.get("kind", "fn")))
-    return {"distinct": len(sites),
-            "sites_by_file": {k: len(v) for k, v in sites_by_file.items()},
-            "raw_site_total": raw, "units": units, "fell_back": fell,
-            "unreached_files": sorted(unreached), "skipped": skipped,
-            "spawns_wrapped": spawns_wrapped,
-            "spawns_declared": spawns_declared,
-            "out_of_scope_manifests": sorted(out_of_scope),
-            "declaring_pairs": sorted(declaring)}
 
 
 def _try_rows(paths, scope: list[str]) -> dict:

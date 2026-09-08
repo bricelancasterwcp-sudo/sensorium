@@ -410,24 +410,31 @@ SINK_ROW = {"site": 2, "qualname": "f", "kind": "sink", "line": 14,
             "how": "sink_ok"}
 
 
-def test_the_rung2_reader_cannot_read_a_rung3_manifest(tmp_path):
-    """The defect the rung-3 reader exists for, pinned so nobody quietly
-    switches back. Rung 3's `ManifestSite` serialises `firstlineno` ONLY for a
-    `fn` row, and `acceptance_lib.read_manifests` indexes it directly. This
-    killed the first launch of the acceptance run ten seconds in."""
+def test_the_ONE_reader_reads_a_rung3_manifest(tmp_path):
+    """The defect that killed the first launch of the acceptance run ten
+    seconds in, fixed at source (#22). Rung 3's `ManifestSite` serialises
+    `firstlineno` ONLY for a `fn` row and `line` for every other kind;
+    `acceptance_lib.read_manifests` used to index `firstlineno` directly and
+    raise `KeyError` on the first `try` row it met. There is now one reader
+    and `acceptance_phases_rung3` has no copy of it."""
     from acceptance_lib import read_manifests
     paths = _manifests(tmp_path, _unit("u1", {"a.rs": [FN_ROW, TRY_ROW]}))
-    with pytest.raises(KeyError):
-        read_manifests(paths, None)
+    m = read_manifests(paths, None)
+    assert m["raw_site_total"] == 2 and m["distinct"] == 2
+    assert not hasattr(r3, "read_manifests_rung3")
 
 
 def test_the_rung3_reader_counts_every_site_kind(tmp_path):
     paths = _manifests(tmp_path,
-                       _unit("u1", {"a.rs": [FN_ROW, TRY_ROW, SINK_ROW]}))
-    m = r3.read_manifests_rung3(paths, None)
+                       _unit("u1", {"a.rs": [FN_ROW, TRY_ROW, SINK_ROW]},
+                             partial=[{"file": "a.rs", "line": 9}]))
+    m = r3.read_manifests(paths, None)
     assert m["raw_site_total"] == 3
     assert m["distinct"] == 3          # kind joins the key
     assert m["fell_back"] == []
+    # The rung-3 unit field the merged reader kept, COUNTED and not a
+    # constant: a rung-2 manifest has no `partial` key and reads 0.
+    assert m["units"][0]["partial"] == 1
 
 
 def test_a_fn_and_a_try_on_one_line_are_two_sites(tmp_path):
@@ -435,7 +442,22 @@ def test_a_fn_and_a_try_on_one_line_are_two_sites(tmp_path):
     count would silently shrink."""
     same_line = dict(TRY_ROW, line=10)
     paths = _manifests(tmp_path, _unit("u1", {"a.rs": [FN_ROW, same_line]}))
-    assert r3.read_manifests_rung3(paths, None)["distinct"] == 2
+    assert r3.read_manifests(paths, None)["distinct"] == 2
+
+
+def test_a_rung2_manifest_still_counts_exactly_as_it_did(tmp_path):
+    """The other half of one reader: a rung-2 manifest carries only `fn`
+    rows with `firstlineno`, and joining `kind` to the key must not change
+    a single count of the record that reader already published."""
+    paths = _manifests(tmp_path,
+                       _unit("u1", {"a.rs": [FN_ROW, dict(FN_ROW,
+                                                          qualname="g",
+                                                          firstlineno=20)]}))
+    m = r3.read_manifests(paths, None)
+    assert (m["distinct"], m["raw_site_total"]) == (2, 2)
+    assert m["sites_by_file"] == {"a.rs": 2}
+    # ...and the rung-3 unit field the merged reader kept.
+    assert m["units"][0]["partial"] == 0
 
 
 def test_try_rows_are_deduplicated_across_the_units_that_declare_them(tmp_path):
@@ -456,7 +478,7 @@ def test_a_unit_that_fell_back_contributes_no_try_rows(tmp_path):
     paths = _manifests(tmp_path,
                        _unit("u1", {"a.rs": [TRY_ROW]}, fell_back=True))
     assert r3._try_rows(paths, None)["try_rows_distinct"] == 0
-    assert len(r3.read_manifests_rung3(paths, None)["fell_back"]) == 1
+    assert len(r3.read_manifests(paths, None)["fell_back"]) == 1
 
 
 def test_partial_rows_are_deduplicated_and_grouped_by_file(tmp_path):
