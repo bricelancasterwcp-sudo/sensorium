@@ -129,7 +129,7 @@ Each is marked *ruling: Brice / slice 2*.
   exact and costs a read per manifest. `rust/HONESTY.md` §12 states the bound
   in the meantime. *Ruling: Brice / slice 2 — a `src` change after the
   measurement (R-F14).*
-- **`fn_items` runs the whole splicing transform just to enumerate.**
+- ~~**`fn_items` runs the whole splicing transform just to enumerate.**
   `focus.rs:150` calls `crate::transform(source, file, "", 0, false,
   &Focus::EMPTY)` and reads `sites` and `skipped` off the result, throwing the
   assembled output string away — and the driver calls it for every file of
@@ -142,7 +142,8 @@ Each is marked *ruling: Brice / slice 2*.
   is wrong with the current answers; this is cost, and it is unmeasured cost
   (E9 H6 could not separate compile from run, so there is no number for it
   here either). *Ruling: Brice / slice 2 — a `src` change after the
-  measurement (R-F14).*
+  measurement (R-F14).*~~ — **Taken 2026-09-07** at `22fbe02`, slice 3's ruling
+  R7, by the route this bullet named.
 
 - **`--window` for Rust is slice 2's**, with `refocus` and E4. It needs a
   per-activation runtime check the Rust runtime does not have: the Python
@@ -176,12 +177,14 @@ Each is marked *ruling: Brice / slice 2*.
   to time AND an instrument that separates compile from run — a warm target,
   or timing the built test binary directly rather than the `cargo sensorium`
   invocation around it.
-- **The shim is a COPY, once per distinct focus.** The focus hash rides in
+- ~~**The shim is a COPY, once per distinct focus.** The focus hash rides in
   the wrapper shim's PATH, because cargo consults no `SENSORIUM_*` variable
   (amendment A8), so each focus costs ~40 MB of shim plus its own artifact
   set and its own manifests, all accumulating in the target directory across
   invocations. A hard link would delete the copy but needs a cross-filesystem
-  fallback and a rule for when the source binary is replaced. **Ruling owed.**
+  fallback and a rule for when the source binary is replaced. **Ruling owed.**~~
+  — **Taken 2026-09-07** at `36d2fe9`, slice 3's ruling R3: the hard link with
+  a copy fallback, and the replaced-binary rule was already the key's own hash.
 - **`sha256.rs` now exists in THREE crates** — runtime, transform and driver
   — kept in sync by the same NIST vectors. D1 forces the first two; the
   transform's copy is this slice's, for `focus_hash`. Three copies of ~300
@@ -251,13 +254,19 @@ Each is marked *ruling: Brice / slice 2*.
 - **The refusal gate is unverified on a real CI runner.** `.github/workflows/ci.yml`
   gained the exit-2 focus refusal check in the rust job (R-F12), and no
   runner has executed it until this PR does.
-- **`results.json` re-derivation is still an OPEN ruling** — the entry
+- ~~**`results.json` re-derivation is still an OPEN ruling** — the entry
   slice's item above stands. E9 states its own practice rather than a policy:
   the file committed with the record IS a re-assembly, checked against the
   run's own, and the two differ at exactly one leaf path, `assembled.at`
   (record §4, corrected in §5.7 after the first wording named the wrong
   side). That is one record's practice, not the schema-version rule the
-  entry slice asked for.
+  entry slice asked for.~~ — **Taken 2026-09-07** at `e0f469c` under **ruling
+  R4**: every raw and assembled results file carries `schema_version`
+  (`"e9/1"`, `"e4/1"`, `"e4p/1"`), and the renderer states once when the
+  assembled schema is later than the raw's. The E9 and E4 `results.json`
+  committed with their records are NOT re-derived — a derivation is stated, not
+  rewritten (R-F15/R-G15 precedent) — so **those two files predate the field**,
+  which is the fact a later reader needs.
 - **`reported.line_rows_per_run` published four nulls** (record §5.5 item 1):
   it reads `meta.counts`, a key the Rust trace's `meta` does not carry. The
   number is in the record — the census's `line_events`, 0 / 26 / 0 / 160 —
@@ -362,7 +371,7 @@ Each is marked *ruling: Brice / slice 2*.
 
 ### Deferred, awaiting rulings
 
-- **The licence's untraced-thread clause fires on every `cargo test` pair, so
+- ~~**The licence's untraced-thread clause fires on every `cargo test` pair, so
   the licence is structurally never granted there.** E4 measured
   `licences granted` **0** on all 61 pairs while every count H4 gates on was
   exactly as pre-registered: libtest runs each test on a thread it spawns, and
@@ -375,12 +384,19 @@ Each is marked *ruling: Brice / slice 2*.
   program's threads" means on a test harness, and it is not a `src` change to
   make after the measurement. **Ruling owed** (Brice / slice 3). Until it is
   made, a reader of a `cargo test` refocus should read the four printed
-  counts, not the word — which `docs/query.md` now says.
+  counts, not the word — which `docs/query.md` now says.~~ — **Taken
+  2026-09-07** at `11b7e8a` (with `d9115a5`) under **ruling R1**, and it is the
+  named candidate fix: a non-main thread whose ROOT frame's site the manifest
+  marks `#[test]` is the harness thread, excluded from the licence's
+  untraced-thread counts and NAMED wherever one of them is printed. Measured by
+  **E4′**, whose expected partition was byte-locked before the instrument
+  existed. `rust/HONESTY.md` §13 and `docs/query.md` carry the rule;
+  `rust/HONESTY-BLIND-SPOTS.md` item 12's bullet is struck and corrected.
 - **`--window` for Rust is still not shipped**, and is now refused by name at
   exit 2 rather than silently absent. It needs a per-activation runtime check
   the Rust runtime does not have. **Ruling owed** on whether the window is a
   runtime check or a second compile-time selector — slice 1 carried this and
-  slice 2 did not take it.
+  slice 2 did not take it. — **Ruled 2026-09-07 (R6): NOT FUNDED until a use asks**, and the declared blind spots stand. The item is not struck: nothing shipped, and the refusal or the bound is still what a reader meets.
 - **A refocus of a multi-process invocation is refused, not compared.** One
   `cargo sensorium test --workspace` is many runner processes and no single
   trace answers a question about the invocation, so `refocus` refuses at exit
@@ -388,8 +404,8 @@ Each is marked *ruling: Brice / slice 2*.
   wants there — a verdict over the whole invocation, the way
   `sensorium exceptions <invocation-id>` already answers — is unbuilt and
   unspecified. **Ruling owed** on whether the unit of a refocus can be an
-  invocation.
-- **A single-target re-run whose test spawns a workspace CHILD is refused by
+  invocation. — **Ruled 2026-09-07 (R6): NOT FUNDED until a use asks**, and the declared blind spots stand. The item is not struck: nothing shipped, and the refusal or the bound is still what a reader meets.
+- ~~**A single-target re-run whose test spawns a workspace CHILD is refused by
   count, and the sentence names the wrong cause.** The driver stamps
   `refocus_of` into every trace the invocation writes, and a child process the
   test itself spawns is instrumented and gets one — while
@@ -411,30 +427,49 @@ Each is marked *ruling: Brice / slice 2*.
   the child runs in the sentence, so the reader is told a child was recorded
   rather than told to narrow a selector. (1) changes what a refocus ANSWERS
   and (2) only what it says, which is the choice to make. It is a `src` change
-  after the measurement either way. **Ruling owed** (Brice / slice 3).
+  after the measurement either way. **Ruling owed** (Brice / slice 3).~~ —
+  **Taken 2026-09-07** at `d4cccd9` under **ruling R2**, which chose candidate
+  (1): a linked trace whose `ppid` is another linked trace's `pid` is a child
+  run, excluded from the pair, and candidate (2) rides along — the excluded ids
+  are named on the pair line AND in the >1-candidate refusal, in one sentence
+  used in both places. `corpus/rust/refocus_child_run` records the shape
+  through the real driver, so the class is no longer derived-only.
 - **The autoref ladder still COMMITS an open inference variable to `Debug`**,
   and the opt-out spelling is still unchosen. Slice 1's item stands verbatim
   above with its two candidate designs; slice 2 took the guard beside it and
   not this. The compile-fail golden `focus_infer_debug.rs` still measures it.
-  **Ruling owed** (Brice).
-- **The shim is a COPY, once per distinct focus — and the cost is now
+  **Ruling owed** (Brice). — **Ruled 2026-09-07 (R6): NOT FUNDED until a use asks**, and the declared blind spots stand. The item is not struck: nothing shipped, and the refusal or the bound is still what a reader meets.
+- ~~**The shim is a COPY, once per distinct focus — and the cost is now
   MEASURED.** Slice 1 estimated ~40 MB per focus; E4 counted **62** entries
   under `<CARGO_TARGET_DIR>/sensorium/shim` totalling **2 506 729 440** bytes
   (~40.4 MB each) after one unfocused pass and 61 focused re-runs, none
   reused, inside a fresh target that reached **25.8 GB** (record §3, §5.4). A
   hard link would delete the copy but needs a cross-filesystem fallback and a
   rule for when the source binary is replaced. **Ruling owed**, and it now has
-  a number to be sized against.
-- **`fn_items` still runs the whole splicing transform just to enumerate.**
+  a number to be sized against.~~ — **Taken 2026-09-07** at `36d2fe9` (with
+  `2b8b5fb` and `4edd5c7`) under **ruling R3**, `cargo-sensorium` **0.5.1**:
+  `install_shim` hard-links the driver and falls back to a copy on any error,
+  the cross-filesystem case included, naming both failures when both fail. The
+  replaced-driver rule was already there — the key hashes the driver's own
+  bytes — and two guards were added in review: the leftover temporary is
+  unlinked FIRST (it may itself be a link to the driver, and `fs::copy` onto it
+  truncates what it opens), and `set_permissions` runs on the copy path alone,
+  so R3's conceded cost of writing the driver's inode is not paid at all.
+- ~~**`fn_items` still runs the whole splicing transform just to enumerate.**
   Slice 1's item stands verbatim above, fix included (take `splice::census`'s
   route). Unmeasured cost then and unmeasured now: E4's H6 separates the
   refocus wall from cargo's build but not the resolution from the build.
-  **Ruling owed** (Brice).
+  **Ruling owed** (Brice).~~ — **Taken 2026-09-07** at `22fbe02` (with
+  `ba3edb5`) under **ruling R7**, `sensorium-transform` **0.4.2**, by the named
+  route: `census::walk` runs `Ctx::new(.., Mode::Census, ..)` then `visit_file`
+  and reads the rows off the `Ctx`. The cost is still unmeasured — nothing in
+  this slice separates resolution from build either — so what was taken is the
+  fix, not a number. One answer moved and is declared below.
 - **`focus_matched` can still carry a STALE unit's match.** Slice 1's item
   stands verbatim above with its candidate filter. `rust/HONESTY.md` §12
   states the bound in the meantime, and nothing in slice 2 touched it.
   **Ruling owed** (Brice).
-- **`info` does not print `refocus_licence_unverifiable`.** The stamp is
+- ~~**`info` does not print `refocus_licence_unverifiable`.** The stamp is
   written into the new trace's meta and `info` prints `licence: granted` or
   `WITHHELD` without saying which checks could not run at all — so the two
   UNVERIFIABLE checks survive in the trace and not in the line a later reader
@@ -442,11 +477,19 @@ Each is marked *ruling: Brice / slice 2*.
   change only BEFORE the measurement; Task 6 has measured, so it is carried
   here instead. **The fix, spelled out so the next slice need not re-derive
   it:** `info`'s refocus line reads the `refocus_licence*` stamps already;
-  append the unverifiable check names where the stamp holds them.
-- **`rust/cargo-sensorium/src/driver.rs` is at 791 of 800**, up from 763 by
+  append the unverifiable check names where the stamp holds them.~~ — **Taken
+  2026-09-07** at `11b7e8a` under **ruling R7**, by exactly that fix:
+  `licence unverifiable: output (not recorded), children (not witnessed)`, and
+  no line at all where the stamp is absent.
+- ~~**`rust/cargo-sensorium/src/driver.rs` is at 791 of 800**, up from 763 by
   this slice's `--refocus-of` parsing and its two refusals. The next change to
   that file splits it first — the natural seam is the argv parsing, which
-  `driver_args.rs` and `refocus_of.rs` already carry most of.
+  `driver_args.rs` and `refocus_of.rs` already carry most of.~~ — **Taken
+  2026-09-07** at `03a68d3` and `095be7e` under **ruling R7**, along a
+  different seam than the one guessed here: the invocation record to
+  `invocation.rs` (377) and the cargo child's environment and launch to
+  `launch.rs` (202), leaving `driver.rs` at **328**. Pure moves, pinned by the
+  smoke tests.
 - **`last` is mtime-ordered.** A refocus writes a trace whose id nothing could
   have spelled in advance, so `last` is how a corpus case and a reader address
   it — and `last` is the store's newest by FILE MTIME, not by any recorded
@@ -494,7 +537,7 @@ Each is marked *ruling: Brice / slice 2*.
   cap (slice 1's item, still with no cost to size against), and the cost
   instrument E4's H6 and E9's §5.5 both asked for — a subject whose test
   binary takes long enough to time, and an instrument that separates compile
-  from run.
+  from run. The volume cap is one of R6's four: **Ruled 2026-09-07 (R6): NOT FUNDED until a use asks**, and the declared blind spots stand. The item is not struck: nothing shipped, and the refusal or the bound is still what a reader meets.
 
 ### Process lessons
 
@@ -530,3 +573,147 @@ Each is marked *ruling: Brice / slice 2*.
   names its own reader wrongly twice will eventually name it wrongly where it
   matters. **`pip install -e .` before the next record**, and read the token
   back in the preflight rather than in the finished document.
+
+## 2026-09-07 — rung 4 slice 3, the rung-4 debts (Python 0.8.5 / driver 0.5.1 / transform 0.4.2)
+
+### Settled
+
+- **The harness thread** — slice 2's first deferred item, struck above as taken
+  at `11b7e8a` (with `d9115a5`, `2d38ff4`, `85d1860` and `b1a7771`) under
+  **ruling R1**. A non-main thread whose ROOT frame's site the manifest marks
+  `#[test]` is the recorder's own, subtracted from the licence's
+  untraced-thread counts and NAMED wherever one of those counts is printed —
+  joined to the count where the sentence counts what WAS compared, and set
+  apart in a clause of its own on the line that counts what was not. Python
+  traces carry no site marks, so their output is byte-identical by
+  construction.
+- **A child run is not the pair** — struck above as taken at `d4cccd9` (with
+  the corpus case at `79cda14`) under **ruling R2**. The pair lookup excludes a
+  linked trace whose `ppid` is another linked trace's `pid`, names the excluded
+  ids on the pair line and in the >1-candidate refusal, and stamps them as
+  `refocus_children`; `runs` still lists them.
+- **A target directory that MOVED is not a world that changed** (Task 5b, at
+  `1a76757` with `d43b7aa`). Not one of §0's seven: it was found in Task 5's
+  dry run, ruled before any E4′ number was read, and recorded as the record's
+  own amendment A1. Keys whose values differ ONLY by substituting the recorded
+  `CARGO_TARGET_DIR` root for the current one — entry by entry down a
+  `PATH`-like list, anchored at path boundaries on both sides — are named and
+  treated as unchanged; nothing is excluded by name, and every other difference
+  still withholds.
+- **The shim is a hard link** — struck above as taken at `36d2fe9` (with
+  `2b8b5fb` and `4edd5c7`) under **ruling R3**, `cargo-sensorium` **0.5.1**,
+  with the unlink-first guard and `set_permissions` on the copy path alone, so
+  the driver's own inode is never written.
+- **`schema_version` in every results file** — struck above as taken at
+  `e0f469c` under **ruling R4**, with the E9 and E4 files stated as predating
+  the field rather than re-derived.
+- **Housekeeping** — struck above as taken under **ruling R7**: `info`'s
+  `licence unverifiable:` line at `11b7e8a`; `driver.rs` split to
+  `invocation.rs` and `launch.rs` at `03a68d3` and `095be7e`; `fn_items`
+  through the census path at `22fbe02` (with `ba3edb5`), `sensorium-transform`
+  **0.4.2**.
+- **A Rust screen says what its streams are in Rust's words** (`4ed802d`). The
+  `threads:` line's scope parenthetical reads `(events outside any test or
+  spawned thread)`; this converter writes one thread row and routes every other
+  thread's events into `task_fingerprints`, so `asyncio` there named a runtime
+  that never ran.
+- **E4′, pre-registered §1-alone and byte-locked before the instrument
+  existed** (`2991c3b`), amended once before any number was read (`d5efaab`,
+  amendment A1 — the env clause and the launch environment) with the lock test
+  following the amendment and carrying the original sha (`8954d3a`), and a
+  preflight that refuses to launch unless this process's environment matches
+  every original's recorded one under the licence's own exclusions
+  (`10e2712`, `pins.env_parity`). The record carries its own numbers.
+
+### Deferred, with rulings
+
+- **The env clause's tiered set is RULED and NOT BUILT.** The relocation rule
+  above closes the target-directory case; a re-run launched **from another
+  shell** still meets an unearnable licence, because session-identity variables
+  differ there and every differing key that is not the recorder's own or shell
+  bookkeeping withholds. *The ruling, so the next slice need not re-derive it*
+  (E4′ §1.5, *carried, not built*): a named, versioned **positive set** of
+  build-and-run-bearing variables — `PATH`, `HOME`, `USER`, `LOGNAME`, `LANG`,
+  `LC_*`, `TZ`, `TMPDIR`, `CARGO*`, `RUST*`, `LD_*`, `DYLD_*`, `SSL_CERT_*`,
+  `PYTHON*`, `DEBUGINFOD_URLS` — withholds; every other differing key is
+  counted and NAMED but does not withhold. Not built before this measurement
+  because fewer source changes before a measurement is the rule and E4′ does
+  not need it: its runner pins the two certificate variables and refuses on any
+  other difference instead.
+- **`src/sensorium/query/refocus_cmd.py` is at 789 of 800.** The next change to
+  that file splits it first. The natural seam is the report: `_print_thread_line`,
+  `_diverged_why`, the verdict block and the blind-spot print are one screen's
+  worth of printing sitting beside the re-run's control flow.
+- **`visit.rs` 773, `splice.rs` 762 and `lines.rs` 762**, all under
+  `rust/sensorium-transform/src`, and `rust/HONESTY.md` at **782** after this
+  slice's §13. The rule this file has kept twice applies: the next change to
+  any of them splits it first rather than discovering the ceiling. For
+  `visit.rs` the seam is the `Ctx` bookkeeping against the `Visit` impl; for
+  `rust/HONESTY.md` it is the one the index already took — a section moves to a
+  file it links.
+- **`cargo test --workspace` writes traces into the developer's real store.**
+  Several driver tests record through the real pipeline without setting
+  `SENSORIUM_DIR`, so a workspace test run leaves runs in `~/.sensorium/traces`
+  and a later `sensorium last` can name one of them. *The fix*: every test that
+  records sets `SENSORIUM_DIR` to its own temporary directory, the way
+  `convert*.rs` already do. It is a test-only change and it was not made after
+  the measurement.
+- **The corpus gate is the only gate that catches a changed CLI sentence, and a
+  run without the driver reports the Rust cases as SKIPPED rather than
+  failing.** That is correct for the Python CI matrix, which has no Rust
+  toolchain — but it means a green local run proves nothing about a printed
+  Rust line unless `SENSORIUM_CARGO_SENSORIUM` is set. Two fix rounds of this
+  slice shipped with those cases skipped before the gate was run with the
+  driver. *The fix, unbuilt*: make a skipped Rust case a non-zero exit under an
+  explicit `--require-driver`, and use it wherever printed wording changed.
+- **`tasks:` and "task stream" are the last asyncio nouns on a Rust screen.**
+  `vocab.py` moved every language-bearing sentence to the recorder's own words;
+  these two stayed, and they are the trace format's own word for the row —
+  `tasks` is a table, and a Rust thread's stream really is a `task_fingerprints`
+  row. *Ruled: left alone.* Renaming the printed noun without renaming the
+  table would put two words on one fact, which is the failure `vocab.py` exists
+  to prevent. If it moves, it moves in both places at once.
+- **The zero-candidate refusal wording under a pid cycle.** `find_pair` reads a
+  trace as a child when its `ppid` is ANOTHER linked trace's `pid`. Two traces
+  each naming the other would leave no candidate at all, and the refusal would
+  say the re-run produced no linked trace when it produced two. *Ruled: left as
+  is.* The topology is impossible — a pid cycle is not a process tree — and a
+  branch written for it could never be exercised, so it would be untested code
+  standing where an honest refusal already stands.
+- **The fourth E4′ lock test checks table rows and a 200-character prefix, not
+  a full line diff.** `test_the_amendment_ADDED_section_1_5_and_moved_no_earlier_row`
+  compares every `|` row of §1 byte for byte at the two commits and then asserts
+  the amended §1 starts with the first 200 characters of the original's
+  pre-§1.5 text. A prose edit in §1.3 or §1.4 beyond that prefix, made in the
+  same commit as the amendment, would pass. The rows are what the endpoints
+  read, which is why the row check is the load-bearing one; a full diff of the
+  pre-amendment range is the stronger check and was not written.
+- **R6's four items are ruled NOT FUNDED**, in the design's own words: *`--window`;
+  refocus over multi-process invocations; an inference-variable opt-out; a
+  per-site volume cap — **not funded** until a use asks; declared blind spots
+  stand.* Each of the four still has its own bullet above, unstruck, because
+  nothing shipped and the refusal or the bound is still what a reader meets.
+
+### Process lessons
+
+- **Mutation-test on a COMMITTED tree.** A mutation run over an uncommitted
+  working tree cannot be undone by `git checkout`, and a same-length mutation
+  restored within the same second leaves CPython running the mutant's stale
+  bytecode. Both are avoidable by mutating from a commit and purging
+  `__pycache__`; this slice's two surviving mutants (`85d1860`) were found that
+  way.
+- **Every Python change to a printed sentence runs the corpus gate WITH the
+  driver.** The Python suite pins the words a fixture reaches; the corpus is
+  the only gate that puts the real driver behind them, and it skips silently
+  enough that two fix rounds went by with the Rust cases unrun. A printed line
+  changed without that gate is a line nobody checked.
+- **A preflight DRY RUN before a measurement found two instrument confounds
+  that no amount of re-reading the pre-registration would have.** §1.2's
+  expected licence partition had been derived from the prior run's thread
+  counts alone; a fresh `CARGO_TARGET_DIR` (mandated by the same document for
+  H4's inode census) would have withheld the licence on all 61 pairs for a
+  reason unrelated to R1, and the launch shell's own variables would have done
+  it again. Both were ruled and recorded as amendment A1 **before any number
+  was read**. The lesson is the order: run the instrument's first pair, read
+  what it printed, and amend the lens then — not after the loop closes, when an
+  amendment is indistinguishable from a rationalisation.

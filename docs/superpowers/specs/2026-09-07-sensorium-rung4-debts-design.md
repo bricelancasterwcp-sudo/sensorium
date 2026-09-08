@@ -77,3 +77,108 @@ Kill rules as E4's (a `.FAILED` before any number is infrastructure; after, a ST
 ## 9. Not in this slice
 
 R6's four items; any change to the comparator; `TRACE_FORMAT`; PR #17's files (TRACE-FORMAT touched in exactly one place only if a sentence about the licence exists there — check; else not at all).
+
+## Amendments
+
+Appended, never edited in place: a design that reads as though it had always
+said what the implementation found is a design nobody can be held to. Each
+entry names the section it amends and the date it was made.
+
+**A-§2 — the environment clause has a relocation rule, and a carried tier
+(2026-09-07, before any E4′ number was read).** §2 ruled on the harness thread
+and left the licence's env clause alone. Task 5's dry run showed a second
+clause that cannot not fire: §8 mandates a FRESH `CARGO_TARGET_DIR` for the
+re-run (H4's inode census needs one), and cargo hands the test binary four
+variables that embed the root — `CARGO_TARGET_DIR`, `CARGO_BIN_EXE_*`,
+`LD_LIBRARY_PATH`, `RUSTDOCFLAGS` — so under the instrument as pre-registered
+the licence would have been WITHHELD on all 61 pairs for a reason unrelated to
+R1, and H1 would have STOPPED with nothing learned. **Ruled**: a re-run from
+another target directory is a normal use of the tool, and the clause must not
+read the root's RELOCATION as a change the world made — and must not
+blanket-exclude those four keys either, because a program really handed one
+extra directory on the loader's path would then earn a full licence. Each
+DIFFERING key is asked whether its difference disappears when the original's
+root is substituted for the re-run's, compared entry by entry down a
+`PATH`-like list and anchored at path boundaries on both sides; a key the rule
+explains is NAMED on the env line and kept as a fact in the trace, and every
+other difference withholds as before. Shipped in `refocus_env.py` (a module of
+its own: `refocus_world.py` was the file nearest the ceiling) at `1a76757` with
+`d43b7aa`. **Carried, not built**: a re-run launched from another SHELL still
+meets an unearnable licence, because session-identity variables differ there.
+The ruled design is a named, versioned positive set of build-and-run-bearing
+variables that withholds, with every other differing key counted and named but
+not withholding; it is not built before the measurement (fewer source changes
+before a measurement is the rule, and E4′ does not need it), and it is in
+`docs/CARRIED-DEBT.md` with its enumeration. What E4′ does instead is a launch
+guard: the runner compares its own process environment with every original's
+recorded one under the licence's exclusions and REFUSES to launch on any
+difference (`10e2712`, `pins.env_parity`).
+
+**A-§3 — the >1-candidate refusal names the child runs (2026-09-07).** §3 said
+the excluded child ids are printed on the pair line and that "still 0 or > 1
+parents → REFUSED as today". As implemented, the refusal is not as today: the
+same `children_note` sentence is appended to it. The count and the ids in that
+sentence stay the CANDIDATES' — they are what the reader has to choose between,
+and naming a child among them would send someone after a selector for a process
+cargo never started — but a bare count would otherwise describe two of the
+three traces the re-run really wrote. One sentence, used in both places, so a
+reader told about an excluded trace twice is not left working out whether they
+are one fact.
+
+**A-§4 — the shim install unlinks first, and chmods only the copy
+(2026-09-07).** §4 gave the install as
+`fs::hard_link(exe, tmp).or_else(|_| fs::copy(exe, tmp).map(|_| ()))` then the
+existing rename. Two corrections, both found in review:
+
+1. **The leftover temporary must be unlinked BEFORE either call.** `hard_link`
+   refuses an existing destination, which alone would cost only a needless
+   copy — but a `tmp` left behind by a run that died between install and rename
+   may ITSELF be a link to the driver, and `fs::copy` truncates what it opens.
+   The install would then destroy the driver it was installing. Unlink first,
+   and a clear that fails for anything but `NotFound` STOPS the install, because
+   the name is still there and the copy would open exactly the survivor the
+   unlink was meant to destroy.
+2. **`set_permissions` belongs to the copy path alone**, so **R3's conceded
+   cost is void.** The ruling's "cost if wrong" column accepted that a hard link
+   shares the driver's inode and a chmod would therefore touch the driver too,
+   on the grounds that it is already executable. It buys nothing: on the link
+   path the shim IS the driver and already carries the driver's mode, and only
+   `fs::copy` creates a destination whose mode has to be stated. Nothing in this
+   recorder writes the driver's inode, which is a stronger promise than the one
+   §0 was willing to pay for.
+
+**A-§6 — `fn_items` through the census path has a THIRD declared difference,
+and the walk's purpose is a named enum (2026-09-07).** §6 asked for a test that
+`fn_items` output equals the previous route's on every golden input, and
+`tests/fn_census.rs` is that differential. One class of input it structurally
+cannot cover, and no widening of its corpora would: **a file whose walk is
+clean but whose SPLICING half would fail** answered `[]` under 0.4.1 and
+answers with its full row list now. The splicing half is everything the walk
+does not run — `splice::assemble`, `check_line_count`, `check_spawn_ordinals`,
+the `MAX_SITE_INDEX` guard, and `wrap_operand`'s three refusals — and every
+condition there is a construction bug in the crate or a file with more than
+16.7 million sites, so no real tree holds one. The class is reached through the
+one lever a caller can pull (`first_site` past the wire's 24-bit field) and
+pinned by name, rather than only described. It is also the BETTER answer for
+focus resolution: a `--focus` naming a function plainly in the file used to be
+refused before cargo ran because some other file in the workspace could not be
+spliced, and the splice failure now surfaces where it belongs, as a loud
+transform error during the build naming the file and the offset. Second, §6's
+`Ctx` gains a named `census::Mode` (`Emitting` / `Census` / `Counting`) rather
+than the `record_sites: bool` beside `emit`: the three call sites wanted
+`true, true` / `false, false` / `false, true`, and transposing the last to
+`true, false` compiles silently and turns the resolver's census into a full
+emitting walk that records no rows — a defect reachable by a typo, which
+`clippy::fn_params_excessive_bools` does not fire on at two. Three named modes
+make the fourth combination unspellable.
+
+**A-§8 — the bound and the copy's executor (2026-09-07).** §8 gave the kill
+rules "as E4's ... bound 1 h". The record's §1.4 sets the whole loop at
+**1 h 15 min** with each `sensorium refocus` at 1800 s; E4 closed its pass-2
+half well inside its own bound, and the extra quarter hour is for the 61 fresh
+focused rebuilds this pass makes. The pre-registered copy statement
+`VACUUM INTO` is unchanged, and §1.3 already allows either executor — the
+`sqlite3` CLI when one is on `PATH`, or Python's `sqlite3` module running the
+identical SQL. On this box **no `sqlite3` CLI is installed**, so the Python
+module is what runs it, and §2 records that fact and the SQLite library version
+as lens facts. Neither executor changes the bytes the statement produces.
