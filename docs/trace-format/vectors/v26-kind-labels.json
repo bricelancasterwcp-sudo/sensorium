@@ -1,6 +1,6 @@
 {
   "id": "v26-kind-labels",
-  "asserts": "`frames.kind` is the CONTRACT's enumeration -- `function`, `coroutine`, `generator`, `async_generator` (§3) -- and what a reader PRINTS for it is the recorded language's word. On a TypeScript trace `coroutine` prints `[async]` and `async_generator` prints `[async generator]`, in `tree` and in `frame` alike, because JavaScript has no coroutines and `[coroutine]` would name a construct the program does not contain. `generator` is JavaScript's own word and is printed unchanged. The Python column maps nothing, so a Python trace still prints `[coroutine]` character for character -- pinned by the legacy suite (`tests/test_tree.py`, `tests/test_frame.py`), which is the fence around every Python string, so no second copy of this vector is needed to hold it. The fifth frame carries the same rule applied to a SITE rather than a word (R28): a `sensorium-ts` YIELD records no line, so a frame parked on one has a NULL `line`, and both `tree` and `frame` print the suspension WITHOUT a site -- `~ suspended at end of recording`, `state: suspended` -- never the literal `LNone`, which is a reader inventing a site out of an absent record. A Python or Rust suspension always carries a line and renders unchanged.",
+  "asserts": "`frames.kind` is the CONTRACT's enumeration -- `function`, `coroutine`, `generator`, `async_generator` (§3) -- and what a reader PRINTS for it is the recorded language's word. On a TypeScript trace `coroutine` prints `[async]` and `async_generator` prints `[async generator]`, in `tree` and in `frame` alike, because JavaScript has no coroutines and `[coroutine]` would name a construct the program does not contain. `generator` is JavaScript's own word and is printed unchanged. The Python column maps nothing, so a Python trace still prints `[coroutine]` character for character -- pinned by the legacy suite (`tests/test_tree.py`, `tests/test_frame.py`), which is the fence around every Python string, so no second copy of this vector is needed to hold it. The fifth frame carries the same rule applied to a SITE rather than a word (R28): a `sensorium-ts` YIELD records no line, so a frame parked on one has a NULL `line`, and both `tree` and `frame` print the suspension WITHOUT a site -- `~ suspended at end of recording`, `state: suspended` -- never the literal `LNone`, which is a reader inventing a site out of an absent record. A Python or Rust suspension always carries a line and renders unchanged. The same rule binds one layer down (R28a): the shared EVENT renderer prints a row's ` L<n>` only when the row carries a line, so the YIELD itself reads `parkTile awaiting Promise` wherever an event is rendered -- `grep`, and `frame`'s suspension timeline -- and never `parkTile LNone awaiting Promise`. A RETURN row prints no site in either case, which is what it always did.",
   "meta": {
     "trace_format": 4,
     "run_id": "$RUN",
@@ -132,6 +132,24 @@
       "expect_exit": 0,
       "expect_line": [["f5", "parkTile", "[async]", "~ suspended at end of recording"]],
       "expect_absent": ["LNone", "suspended at L"]
+    },
+    {
+      "id": "grep-renders-the-yield-row-with-no-site-it-does-not-have",
+      "ask": "Rendered as an EVENT rather than as a frame state, what does that YIELD row say -- and does it name a line? (`--kind` takes no YIELD, so this is the unfiltered listing.)",
+      "command": ["grep", "$RUN", ""],
+      "expect_exit": 0,
+      "expect_contains": ["matches: 10"],
+      "expect_line": [["e9", "YIELD", "parkTile awaiting Promise"]],
+      "expect_absent": ["LNone", "parkTile L"]
+    },
+    {
+      "id": "frame-s-suspension-timeline-names-no-site-either",
+      "ask": "And in `frame`'s suspension timeline, where the same YIELD is rendered as a row -- is a line named there?",
+      "command": ["frame", "$RUN", "--fn", "parkTile"],
+      "expect_exit": 0,
+      "expect_contains": ["timeline (suspensions only):"],
+      "expect_line": [["~ e9", "YIELD", "parkTile awaiting Promise"]],
+      "expect_absent": ["LNone", "parkTile L"]
     },
     {
       "id": "frame-names-no-site-for-that-suspension-either",

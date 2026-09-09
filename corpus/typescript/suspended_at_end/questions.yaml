@@ -64,10 +64,12 @@ questions:
       RESUME beside it -- `awaiting Promise` -- and the frame reads
       `closed: open  state: suspended`: open because nothing closed it,
       suspended because the trace knows why, and with no ` at L...` after it
-      because no site was recorded (R28, the same rule the tree keeps). Its
-      one child, `awaitToken`, had already returned the pending promise, so
-      the recording distinguishes the call that produced the promise from
-      the wait on it.
+      because no site was recorded (R28, the same rule the tree keeps). The
+      YIELD ROW under it says the same thing one layer down (R28a): it names
+      what is awaited and no line, because the row carries none. Its one
+      child, `awaitToken`, had already returned the pending promise, so the
+      recording distinguishes the call that produced the promise from the
+      wait on it.
     why_logs_fail: >
       What an async function is awaiting is not in its own output and not on
       any stack: by the time it is waiting, its frame is off the stack
@@ -77,4 +79,8 @@ questions:
     expect_contains: ["children (1):", "closed: open", "state: suspended"]
     expect_line:
       - ["YIELD", "<anonymous>", "awaiting Promise"]
-    expect_absent: ["RESUME", "state: suspended at L"]
+    # `LNone` over the WHOLE output now, not just the header: R28a took the
+    # invented site out of the event renderer too, so the timeline row reads
+    # `~ e6 YIELD   <anonymous> awaiting Promise` and there is nowhere left
+    # in this output for a null to be spelled out.
+    expect_absent: ["RESUME", "state: suspended at L", "LNone"]
