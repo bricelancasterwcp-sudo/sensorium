@@ -518,6 +518,20 @@ which is where a reader goes for what the design said before it moved.
   held to `src/index.mjs`'s `VERSION` by a unit test (R15), so a trace says
   `recorder: sensorium-ts 0.1.0`. `sensorium --help`'s top-level description
   stops saying "a Python program".
+- **Nine deferred minors that were parked FOR this doc pass, taken here.** The
+  record's endpoint count and its worktree-named frames (*Task 10*); the
+  `#k`-scope sentence in `HONESTY.md` §2, which said "of one registration"
+  where R17 rules per NAME (*Task 4, ruling R17*); the unsatisfiable "a 10 kB
+  string is 200 bytes with `trunc`" cap example (*Task 3*); the four
+  options-second shapes `canMoveOptions` used to refuse, now stated as refused
+  by nothing (*Task 2, ruling R8c*); §7's `.d.ts`/`node_modules` exclusion
+  wording (*ruling R7*); §7's `excluded:` example, now per reason with counts
+  (*ruling R27*); the untraced-caller wording in the spec's §4 and the ledger
+  (*ruling R29*); `stdin: false`, missing from the declared-absent list
+  (*Task 1*); and the driver's empty-`node_modules` behaviour, documented in
+  `typescript/README.md` (*Task 6*). *(A tenth self-healed: `typescript/
+  README.md` described modules that did not exist when it was written, and
+  they exist now — Task 1's note said it would.)*
 
 ### Deferred, with rulings
 
@@ -625,6 +639,21 @@ falsifier, none of them silent.**
   (blind spot 16): `tree`'s unframed-kind line falls back to the contract's
   `generator`/`coroutine` spelling. Every TypeScript call is framed, so
   nothing reaches it.
+
+**Files near the ceiling** — named here rather than discovered at 800, which
+is the rule that produced volume 4, the CHANGELOG's third cut and
+`docs/corpus.md` in this same slice.
+
+- **`docs/TRACE-FORMAT.md` is at 799 of 800** and was not edited by this
+  slice at all (*ruling R25*): the TypeScript meta keys went to
+  `docs/trace-format/TYPESCRIPT-KEYS.md` instead. The next thing that document
+  needs splits it first, at a section seam. Everything else this slice touched
+  has room: `CHANGELOG.md` 745, `README.md` 749, `docs/CARRIED-DEBT.md` 740,
+  `typescript/HONESTY.md` 625. The two files over 800 —
+  `docs/superpowers/specs/2026-09-09-…-design.md` at 901 and the acceptance
+  record at 854 — are in the two directories `tests/test_ceiling.py` exempts
+  BY NAME as dated history, and are amended by appended notes, never
+  restructured.
 
 **Deferred minors, by the task that raised them.** Each is a one-line fix or a
 fixture; none changes a claim a trace makes, and each names its subject so a
