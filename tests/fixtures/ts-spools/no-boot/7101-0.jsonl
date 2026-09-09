@@ -1,0 +1,3 @@
+{"e":"FILE","id":1,"rel":"src/ok.test.ts","abs":"/w/probes/src/ok.test.ts","codes":[["ok",3,"function"]],"sha":"da11f79362aaf334124dc10102094e87f4db165971d7ff2b0e7a5acb81ffbb13"}
+{"e":"CALL","f":1,"p":null,"file":1,"c":0,"t":null,"ts":1100}
+{"e":"RETURN","f":1,"t":null,"v":{"k":"dbg","v":"1","trunc":false},"ts":1200}

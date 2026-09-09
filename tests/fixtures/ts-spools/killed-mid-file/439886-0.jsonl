@@ -1,0 +1,121 @@
+{"e":"BOOT","wire":1,"pid":439886,"ppid":439853,"threadId":0,"isMainThread":true,"argv":["/usr/bin/node","/w/probes/node_modules/vitest/dist/workers/forks.js"],"cwd":"/w/probes","env":{"PATH":"/usr/bin"},"envHash":"e39883654dcc0d01","node":"v24.16.0","version":"0.1.0","tier":"call","invocation":null,"startTs":1788965238.53,"ts":3808669747992473}
+{"e":"FILE","id":1,"rel":"setup.mjs","abs":"/w/probes/setup.mjs","codes":[["<anonymous>",9,"function"],["<anonymous>",11,"function"]],"sha":"e638350c8eca352dcb900f94944129de0aa80505bf1d8a5e907d58b4f404f901"}
+{"e":"FILE_START","path":"/w/probes/src/async.probe.test.ts","environment":"node"}
+{"e":"FILE","id":2,"rel":"src/async.probe.test.ts","abs":"/w/probes/src/async.probe.test.ts","codes":[["c",13,"coroutine"],["b",18,"coroutine"],["a",23,"coroutine"],["sleep",30,"function"],["sleep.<anonymous>",31,"function"],["p",34,"coroutine"],["fanout",39,"coroutine"],["work",45,"function"],["viaTimer",49,"coroutine"],["viaTimer.<anonymous>",50,"function"],["viaTimer.<anonymous>.<anonymous>",51,"function"],["viaEmitter",56,"coroutine"],["viaEmitter.handler",59,"function"],["viaEmitter.<anonymous>",64,"function"],["viaEmitter.<anonymous>.<anonymous>",65,"function"],["<anonymous>",73,"coroutine"],["<anonymous>",77,"coroutine"],["<anonymous>",81,"coroutine"],["<anonymous>",85,"coroutine"],["<anonymous>",91,"coroutine"],["<anonymous>",95,"coroutine"]],"sha":"01bfff104c46f179991d30b0cc5fd096522cae56265fe096bd2fc2c36756ba7a"}
+{"e":"CALL","f":1,"p":null,"file":1,"c":1,"t":null,"ts":3808669785714950}
+{"e":"SEEN","name":"S1 chain"}
+{"e":"RETURN","f":1,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669785808419}
+{"e":"CALL","f":2,"p":null,"file":1,"c":0,"t":null,"ts":3808669786068636}
+{"e":"RETURN","f":2,"t":null,"v":{"k":"dbg","v":"'S1 chain'","trunc":false},"ts":3808669786123795}
+{"e":"TASK","id":1,"name":"S1 chain","basis":"vitest","conflict":false}
+{"e":"CALL","f":3,"p":null,"file":2,"c":15,"t":1,"ts":3808669786204474}
+{"e":"CALL","f":4,"p":3,"file":2,"c":2,"t":1,"ts":3808669786225714}
+{"e":"CALL","f":5,"p":4,"file":2,"c":1,"t":1,"ts":3808669786239804}
+{"e":"CALL","f":6,"p":5,"file":2,"c":0,"t":1,"ts":3808669786258253}
+{"e":"YIELD","f":6,"t":1,"k":"await","ts":3808669786276253}
+{"e":"YIELD","f":5,"t":1,"k":"await","ts":3808669786282273}
+{"e":"YIELD","f":4,"t":1,"k":"await","ts":3808669786285623}
+{"e":"YIELD","f":3,"t":1,"k":"await","ts":3808669786287693}
+{"e":"RESUME","f":6,"t":1,"ts":3808669786312663}
+{"e":"RETURN","f":6,"t":1,"v":{"k":"dbg","v":"2","trunc":false},"ts":3808669786329083}
+{"e":"RESUME","f":5,"t":1,"ts":3808669786336703}
+{"e":"RETURN","f":5,"t":1,"v":{"k":"dbg","v":"3","trunc":false},"ts":3808669786347682}
+{"e":"RESUME","f":4,"t":1,"ts":3808669786350052}
+{"e":"RETURN","f":4,"t":1,"v":{"k":"dbg","v":"4","trunc":false},"ts":3808669786358882}
+{"e":"RESUME","f":3,"t":1,"ts":3808669786361022}
+{"e":"RETURN","f":3,"t":1,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669786600989}
+{"e":"CALL","f":7,"p":null,"file":1,"c":1,"t":null,"ts":3808669786870526}
+{"e":"SEEN","name":"S2 fanout"}
+{"e":"RETURN","f":7,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669786880106}
+{"e":"CALL","f":8,"p":null,"file":1,"c":0,"t":null,"ts":3808669786905406}
+{"e":"RETURN","f":8,"t":null,"v":{"k":"dbg","v":"'S2 fanout'","trunc":false},"ts":3808669786946735}
+{"e":"TASK","id":2,"name":"S2 fanout","basis":"vitest","conflict":false}
+{"e":"CALL","f":9,"p":null,"file":2,"c":16,"t":2,"ts":3808669786980635}
+{"e":"CALL","f":10,"p":9,"file":2,"c":6,"t":2,"ts":3808669787012585}
+{"e":"CALL","f":11,"p":10,"file":2,"c":5,"t":2,"ts":3808669787026075}
+{"e":"CALL","f":12,"p":11,"file":2,"c":3,"t":2,"ts":3808669787039094}
+{"e":"CALL","f":13,"p":12,"file":2,"c":4,"t":2,"ts":3808669787047604}
+{"e":"RETURN","f":13,"t":2,"v":{"k":"dbg","v":"Timeout { _idleTimeout: 1, _idlePrev: [TimersList], _idleNext: [TimersList], _idleStart: 115, _onTimeout: [Function (anonymous)], _timerArgs: undefined, _repeat: null, _destroyed: false, Symbol(refed)","trunc":true},"ts":3808669787224592}
+{"e":"RETURN","f":12,"t":2,"v":{"k":"dbg","v":"Promise { <pending> }","trunc":false},"ts":3808669787242812}
+{"e":"YIELD","f":11,"t":2,"k":"await","ts":3808669787244772}
+{"e":"CALL","f":14,"p":10,"file":2,"c":5,"t":2,"ts":3808669787246852}
+{"e":"CALL","f":15,"p":14,"file":2,"c":3,"t":2,"ts":3808669787247952}
+{"e":"CALL","f":16,"p":15,"file":2,"c":4,"t":2,"ts":3808669787249322}
+{"e":"RETURN","f":16,"t":2,"v":{"k":"dbg","v":"Timeout { _idleTimeout: 1, _idlePrev: [TimersList], _idleNext: [Timeout], _idleStart: 115, _onTimeout: [Function (anonymous)], _timerArgs: undefined, _repeat: null, _destroyed: false, Symbol(refed): t","trunc":true},"ts":3808669787331371}
+{"e":"RETURN","f":15,"t":2,"v":{"k":"dbg","v":"Promise { <pending> }","trunc":false},"ts":3808669787347711}
+{"e":"YIELD","f":14,"t":2,"k":"await","ts":3808669787349201}
+{"e":"YIELD","f":10,"t":2,"k":"await","ts":3808669787351551}
+{"e":"YIELD","f":9,"t":2,"k":"await","ts":3808669787352711}
+{"e":"RESUME","f":11,"t":2,"ts":3808669788492498}
+{"e":"RETURN","f":11,"t":2,"v":{"k":"dbg","v":"10","trunc":false},"ts":3808669788505627}
+{"e":"RESUME","f":14,"t":2,"ts":3808669788519847}
+{"e":"RETURN","f":14,"t":2,"v":{"k":"dbg","v":"20","trunc":false},"ts":3808669788523737}
+{"e":"RESUME","f":10,"t":2,"ts":3808669788526177}
+{"e":"RETURN","f":10,"t":2,"v":{"k":"dbg","v":"[ 10, 20 ]","trunc":false},"ts":3808669788549317}
+{"e":"RESUME","f":9,"t":2,"ts":3808669788551857}
+{"e":"RETURN","f":9,"t":2,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669788993952}
+{"e":"CALL","f":17,"p":null,"file":1,"c":1,"t":null,"ts":3808669789133840}
+{"e":"SEEN","name":"S3 timer"}
+{"e":"RETURN","f":17,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669789140630}
+{"e":"CALL","f":18,"p":null,"file":1,"c":0,"t":null,"ts":3808669789163000}
+{"e":"RETURN","f":18,"t":null,"v":{"k":"dbg","v":"'S3 timer'","trunc":false},"ts":3808669789170220}
+{"e":"TASK","id":3,"name":"S3 timer","basis":"vitest","conflict":false}
+{"e":"CALL","f":19,"p":null,"file":2,"c":17,"t":3,"ts":3808669789211249}
+{"e":"CALL","f":20,"p":19,"file":2,"c":8,"t":3,"ts":3808669789237889}
+{"e":"CALL","f":21,"p":20,"file":2,"c":9,"t":3,"ts":3808669789254649}
+{"e":"RETURN","f":21,"t":3,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669789268439}
+{"e":"YIELD","f":20,"t":3,"k":"await","ts":3808669789271169}
+{"e":"YIELD","f":19,"t":3,"k":"await","ts":3808669789274849}
+{"e":"CALL","f":22,"p":null,"file":2,"c":10,"t":3,"ts":3808669790363926}
+{"e":"CALL","f":23,"p":22,"file":2,"c":7,"t":3,"ts":3808669790373526}
+{"e":"RETURN","f":23,"t":3,"v":{"k":"dbg","v":"7","trunc":false},"ts":3808669790378276}
+{"e":"RETURN","f":22,"t":3,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669790379446}
+{"e":"RESUME","f":20,"t":3,"ts":3808669790390616}
+{"e":"RETURN","f":20,"t":3,"v":{"k":"dbg","v":"7","trunc":false},"ts":3808669790396196}
+{"e":"RESUME","f":19,"t":3,"ts":3808669790399516}
+{"e":"RETURN","f":19,"t":3,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669790430815}
+{"e":"CALL","f":24,"p":null,"file":1,"c":1,"t":null,"ts":3808669790514904}
+{"e":"SEEN","name":"S4 emitter"}
+{"e":"RETURN","f":24,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669790518934}
+{"e":"CALL","f":25,"p":null,"file":1,"c":0,"t":null,"ts":3808669790537974}
+{"e":"RETURN","f":25,"t":null,"v":{"k":"dbg","v":"'S4 emitter'","trunc":false},"ts":3808669790542494}
+{"e":"TASK","id":4,"name":"S4 emitter","basis":"vitest","conflict":false}
+{"e":"CALL","f":26,"p":null,"file":2,"c":18,"t":4,"ts":3808669790573354}
+{"e":"CALL","f":27,"p":26,"file":2,"c":11,"t":4,"ts":3808669790608193}
+{"e":"CALL","f":28,"p":27,"file":2,"c":12,"t":4,"ts":3808669790637623}
+{"e":"RETURN","f":28,"t":4,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669790639723}
+{"e":"CALL","f":29,"p":27,"file":2,"c":13,"t":4,"ts":3808669790658853}
+{"e":"RETURN","f":29,"t":4,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669790671443}
+{"e":"YIELD","f":27,"t":4,"k":"await","ts":3808669790674303}
+{"e":"YIELD","f":26,"t":4,"k":"await","ts":3808669790675693}
+{"e":"CALL","f":30,"p":null,"file":2,"c":14,"t":4,"ts":3808669791791580}
+{"e":"CALL","f":31,"p":30,"file":2,"c":12,"t":4,"ts":3808669791799290}
+{"e":"RETURN","f":31,"t":4,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669791802080}
+{"e":"RETURN","f":30,"t":4,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669791804390}
+{"e":"RESUME","f":27,"t":4,"ts":3808669791818349}
+{"e":"RETURN","f":27,"t":4,"v":{"k":"dbg","v":"2","trunc":false},"ts":3808669791823959}
+{"e":"RESUME","f":26,"t":4,"ts":3808669791825259}
+{"e":"RETURN","f":26,"t":4,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669791865519}
+{"e":"CALL","f":32,"p":null,"file":1,"c":1,"t":null,"ts":3808669791996187}
+{"e":"SEEN","name":"T1 control"}
+{"e":"RETURN","f":32,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669792007767}
+{"e":"CALL","f":33,"p":null,"file":1,"c":0,"t":null,"ts":3808669792045357}
+{"e":"RETURN","f":33,"t":null,"v":{"k":"dbg","v":"'T1 control'","trunc":false},"ts":3808669792052727}
+{"e":"TASK","id":5,"name":"T1 control","basis":"vitest","conflict":false}
+{"e":"CALL","f":34,"p":null,"file":2,"c":19,"t":5,"ts":3808669792099036}
+{"e":"CALL","f":35,"p":34,"file":2,"c":2,"t":5,"ts":3808669792101496}
+{"e":"CALL","f":36,"p":35,"file":2,"c":1,"t":5,"ts":3808669792102816}
+{"e":"CALL","f":37,"p":36,"file":2,"c":0,"t":5,"ts":3808669792104096}
+{"e":"YIELD","f":37,"t":5,"k":"await","ts":3808669792105876}
+{"e":"YIELD","f":36,"t":5,"k":"await","ts":3808669792107276}
+{"e":"YIELD","f":35,"t":5,"k":"await","ts":3808669792108126}
+{"e":"YIELD","f":34,"t":5,"k":"await","ts":3808669792108896}
+{"e":"RESUME","f":37,"t":5,"ts":3808669792117516}
+{"e":"RETURN","f":37,"t":5,"v":{"k":"dbg","v":"2","trunc":false},"ts":3808669792121296}
+{"e":"RESUME","f":36,"t":5,"ts":3808669792122626}
+{"e":"RETURN","f":36,"t":5,"v":{"k":"dbg","v":"3","trunc":false},"ts":3808669792125726}
+{"e":"RESUME","f":35,"t":5,"ts":3808669792127046}
+{"e":"RETURN","f":35,"t":5,"v":{"k":"dbg","v":"4","trunc":false},"ts":3808669792128946}
+{"e":"RESUME","f":34,"t":5,"ts":3808669792129946}
+{"e":"RETURN","f":34,"t":5,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669792160595}
+{"e":"CALL","f":38,"p":null,"f

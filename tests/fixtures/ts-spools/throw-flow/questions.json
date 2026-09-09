@@ -1,0 +1,29 @@
+[
+  {
+    "id": "the-throws-are-events",
+    "ask": "are the throws and the catches events a reader can grep for?",
+    "command": [
+      "grep",
+      "$RUN",
+      "e1",
+      "--kind",
+      "RAISE"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "RAISE"
+    ]
+  },
+  {
+    "id": "a-swallowed-throw-is-handled",
+    "ask": "is the catch that swallowed it recorded beside it?",
+    "command": [
+      "grep",
+      "$RUN",
+      "e1",
+      "--kind",
+      "HANDLED"
+    ],
+    "expect_exit": 0
+  }
+]

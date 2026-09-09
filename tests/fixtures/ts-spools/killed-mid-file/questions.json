@@ -1,0 +1,27 @@
+[
+  {
+    "id": "info-banners-the-loss",
+    "ask": "does info say, above everything else, that the recording did not finish?",
+    "command": [
+      "info",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "INCOMPLETE"
+    ]
+  },
+  {
+    "id": "diff-refuses-a-verdict",
+    "ask": "does diff refuse to judge a recording that was cut short?",
+    "command": [
+      "diff",
+      "$RUN",
+      "$RUN"
+    ],
+    "expect_exit": 3,
+    "expect_contains": [
+      "REFUSED"
+    ]
+  }
+]

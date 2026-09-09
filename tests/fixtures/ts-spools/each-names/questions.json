@@ -1,0 +1,33 @@
+[
+  {
+    "id": "info-names-every-row",
+    "ask": "does info name the three tests the provider named, not the template?",
+    "command": [
+      "info",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "adds 1 + 2 = 3",
+      "adds 2 + 3 = 5",
+      "adds 4 + 5 = 9"
+    ],
+    "expect_absent": [
+      "adds $a + $b = $expected"
+    ]
+  },
+  {
+    "id": "tree-shows-the-function-under-test",
+    "ask": "is the function each row called in the tree?",
+    "command": [
+      "tree",
+      "$RUN",
+      "--depth",
+      "8"
+    ],
+    "expect_exit": 0,
+    "expect_count": {
+      "add()": 3
+    }
+  }
+]

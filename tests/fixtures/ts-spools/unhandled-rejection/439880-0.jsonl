@@ -1,0 +1,20 @@
+{"e":"BOOT","wire":1,"pid":439880,"ppid":439853,"threadId":0,"isMainThread":true,"argv":["/usr/bin/node","/w/probes/node_modules/vitest/dist/workers/forks.js"],"cwd":"/w/probes","env":{"PATH":"/usr/bin"},"envHash":"0137f73a3c9bf81a","node":"v24.16.0","version":"0.1.0","tier":"call","invocation":null,"startTs":1788965238.53,"ts":3808669747992223}
+{"e":"FILE","id":1,"rel":"setup.mjs","abs":"/w/probes/setup.mjs","codes":[["<anonymous>",9,"function"],["<anonymous>",11,"function"]],"sha":"e638350c8eca352dcb900f94944129de0aa80505bf1d8a5e907d58b4f404f901"}
+{"e":"FILE_START","path":"/w/probes/src/swallow3.probe.test.ts","environment":"node"}
+{"e":"FILE","id":2,"rel":"src/swallow3.probe.test.ts","abs":"/w/probes/src/swallow3.probe.test.ts","codes":[["shape3",10,"function"],["<anonymous>",14,"coroutine"],["<anonymous>.<anonymous>",16,"function"]],"sha":"2f21140cf2e6bbd7b6cafeaa32596bae030297d01ba461fd5e9b3f6a9f4fd6f1"}
+{"e":"CALL","f":1,"p":null,"file":1,"c":1,"t":null,"ts":3808669785390193}
+{"e":"SEEN","name":"shape3 a rejection nobody handles"}
+{"e":"RETURN","f":1,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669785491402}
+{"e":"CALL","f":2,"p":null,"file":1,"c":0,"t":null,"ts":3808669785738079}
+{"e":"RETURN","f":2,"t":null,"v":{"k":"dbg","v":"'shape3 a rejection nobody handles'","trunc":false},"ts":3808669785798449}
+{"e":"TASK","id":1,"name":"shape3 a rejection nobody handles","basis":"vitest","conflict":false}
+{"e":"CALL","f":3,"p":null,"file":2,"c":1,"t":1,"ts":3808669785871888}
+{"e":"CALL","f":4,"p":3,"file":2,"c":0,"t":1,"ts":3808669785890798}
+{"e":"RETURN","f":4,"t":1,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669785921297}
+{"e":"CALL","f":5,"p":3,"file":2,"c":2,"t":1,"ts":3808669785939777}
+{"e":"RETURN","f":5,"t":1,"v":{"k":"dbg","v":"Timeout { _idleTimeout: 5, _idlePrev: [TimersList], _idleNext: [TimersList], _idleStart: 115, _onTimeout: [Function (anonymous)], _timerArgs: undefined, _repeat: null, _destroyed: false, Symbol(refed)","trunc":true},"ts":3808669786211934}
+{"e":"YIELD","f":3,"t":1,"k":"await","ts":3808669786237364}
+{"e":"UNHANDLED","x":{"kind":"rejection","type":"Error","msg":"e3","serial":1},"ts":3808669786383342}
+{"e":"RESUME","f":3,"t":1,"ts":3808669790661253}
+{"e":"RETURN","f":3,"t":1,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669790669843}
+{"e":"EXIT","code":null,"signal":"SIGTERM","endTs":1788965238.573,"ts":3808669791862449}

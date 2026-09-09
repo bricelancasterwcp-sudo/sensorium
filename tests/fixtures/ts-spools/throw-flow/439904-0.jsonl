@@ -1,0 +1,60 @@
+{"e":"BOOT","wire":1,"pid":439904,"ppid":439853,"threadId":0,"isMainThread":true,"argv":["/usr/bin/node","/w/probes/node_modules/vitest/dist/workers/forks.js"],"cwd":"/w/probes","env":{"PATH":"/usr/bin"},"envHash":"ffc8464669e59986","node":"v24.16.0","version":"0.1.0","tier":"call","invocation":null,"startTs":1788965238.529,"ts":3808669747062674}
+{"e":"FILE","id":1,"rel":"setup.mjs","abs":"/w/probes/setup.mjs","codes":[["<anonymous>",9,"function"],["<anonymous>",11,"function"]],"sha":"e638350c8eca352dcb900f94944129de0aa80505bf1d8a5e907d58b4f404f901"}
+{"e":"FILE_START","path":"/w/probes/src/swallow.probe.test.ts","environment":"node"}
+{"e":"FILE","id":2,"rel":"src/swallow.probe.test.ts","abs":"/w/probes/src/swallow.probe.test.ts","codes":[["shape1",13,"function"],["shape2",22,"coroutine"],["shape2.<anonymous>",24,"function"],["shape4",28,"function"],["shape5",38,"function"],["<anonymous>",54,"function"],["<anonymous>",58,"coroutine"],["<anonymous>",62,"function"],["<anonymous>",66,"function"]],"sha":"0cd5e5e64d2a45456633443a343e747e433190bb037bdca74c9fb63342b8f94f"}
+{"e":"CALL","f":1,"p":null,"file":1,"c":1,"t":null,"ts":3808669785749289}
+{"e":"SEEN","name":"shape1 an empty catch clause"}
+{"e":"RETURN","f":1,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669785825268}
+{"e":"CALL","f":2,"p":null,"file":1,"c":0,"t":null,"ts":3808669786020396}
+{"e":"RETURN","f":2,"t":null,"v":{"k":"dbg","v":"'shape1 an empty catch clause'","trunc":false},"ts":3808669786068396}
+{"e":"TASK","id":1,"name":"shape1 an empty catch clause","basis":"vitest","conflict":false}
+{"e":"CALL","f":3,"p":null,"file":2,"c":5,"t":1,"ts":3808669786117675}
+{"e":"CALL","f":4,"p":3,"file":2,"c":0,"t":1,"ts":3808669786134235}
+{"e":"RAISE","f":4,"t":1,"x":{"kind":"throw","type":"Error","msg":"e1","serial":1},"l":16,"how":"throw","ts":3808669786193534}
+{"e":"HANDLED","f":4,"t":1,"x":{"kind":"throw","type":"Error","msg":"e1","serial":1},"l":18,"how":"sink_empty_catch","ts":3808669786212904}
+{"e":"RETURN","f":4,"t":1,"v":{"k":"dbg","v":"'ok'","trunc":false},"ts":3808669786244414}
+{"e":"RETURN","f":3,"t":1,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669786430871}
+{"e":"CALL","f":5,"p":null,"file":1,"c":1,"t":null,"ts":3808669786751208}
+{"e":"SEEN","name":"shape2 an empty catch callback"}
+{"e":"RETURN","f":5,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669786762098}
+{"e":"CALL","f":6,"p":null,"file":1,"c":0,"t":null,"ts":3808669786789057}
+{"e":"RETURN","f":6,"t":null,"v":{"k":"dbg","v":"'shape2 an empty catch callback'","trunc":false},"ts":3808669786804877}
+{"e":"TASK","id":2,"name":"shape2 an empty catch callback","basis":"vitest","conflict":false}
+{"e":"CALL","f":7,"p":null,"file":2,"c":6,"t":2,"ts":3808669786846137}
+{"e":"CALL","f":8,"p":7,"file":2,"c":1,"t":2,"ts":3808669786876336}
+{"e":"YIELD","f":8,"t":2,"k":"await","ts":3808669786931986}
+{"e":"YIELD","f":7,"t":2,"k":"await","ts":3808669786938136}
+{"e":"HANDLED","f":8,"t":2,"x":{"kind":"rejection","type":"Error","msg":"e2","serial":2},"l":24,"how":"sink_empty_catch_callback","ts":3808669786967575}
+{"e":"CALL","f":9,"p":null,"file":2,"c":2,"t":2,"ts":3808669786985275}
+{"e":"RETURN","f":9,"t":2,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669786990425}
+{"e":"RESUME","f":8,"t":2,"ts":3808669787012365}
+{"e":"RETURN","f":8,"t":2,"v":{"k":"dbg","v":"'ok'","trunc":false},"ts":3808669787030334}
+{"e":"RESUME","f":7,"t":2,"ts":3808669787033104}
+{"e":"RETURN","f":7,"t":2,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669787064634}
+{"e":"CALL","f":10,"p":null,"file":1,"c":1,"t":null,"ts":3808669787162923}
+{"e":"SEEN","name":"shape4 a thrown string"}
+{"e":"RETURN","f":10,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669787169493}
+{"e":"CALL","f":11,"p":null,"file":1,"c":0,"t":null,"ts":3808669787197673}
+{"e":"RETURN","f":11,"t":null,"v":{"k":"dbg","v":"'shape4 a thrown string'","trunc":false},"ts":3808669787217272}
+{"e":"TASK","id":3,"name":"shape4 a thrown string","basis":"vitest","conflict":false}
+{"e":"CALL","f":12,"p":null,"file":2,"c":7,"t":3,"ts":3808669787250012}
+{"e":"CALL","f":13,"p":12,"file":2,"c":3,"t":3,"ts":3808669787267772}
+{"e":"RAISE","f":13,"t":3,"x":{"kind":"throw","type":"string","msg":"not-an-error","serial":3},"l":31,"how":"throw","ts":3808669787274592}
+{"e":"HANDLED","f":13,"t":3,"x":{"kind":"throw","type":"string","msg":"not-an-error","serial":4},"l":33,"how":"catch","ts":3808669787283062}
+{"e":"RETURN","f":13,"t":3,"v":{"k":"dbg","v":"'not-an-error'","trunc":false},"ts":3808669787299761}
+{"e":"RETURN","f":12,"t":3,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669787333271}
+{"e":"CALL","f":14,"p":null,"file":1,"c":1,"t":null,"ts":3808669787448570}
+{"e":"SEEN","name":"shape5 a rethrow keeps the serial"}
+{"e":"RETURN","f":14,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669787457050}
+{"e":"CALL","f":15,"p":null,"file":1,"c":0,"t":null,"ts":3808669787483259}
+{"e":"RETURN","f":15,"t":null,"v":{"k":"dbg","v":"'shape5 a rethrow keeps the serial'","trunc":false},"ts":3808669787490409}
+{"e":"TASK","id":4,"name":"shape5 a rethrow keeps the serial","basis":"vitest","conflict":false}
+{"e":"CALL","f":16,"p":null,"file":2,"c":8,"t":4,"ts":3808669787517859}
+{"e":"CALL","f":17,"p":16,"file":2,"c":4,"t":4,"ts":3808669787538089}
+{"e":"RAISE","f":17,"t":4,"x":{"kind":"throw","type":"Error","msg":"e5","serial":5},"l":42,"how":"throw","ts":3808669787551218}
+{"e":"HANDLED","f":17,"t":4,"x":{"kind":"throw","type":"Error","msg":"e5","serial":5},"l":44,"how":"catch","ts":3808669787558768}
+{"e":"RAISE","f":17,"t":4,"x":{"kind":"throw","type":"Error","msg":"e5","serial":5},"l":46,"how":"throw","ts":3808669787563828}
+{"e":"HANDLED","f":17,"t":4,"x":{"kind":"throw","type":"Error","msg":"e5","serial":5},"l":49,"how":"catch","ts":3808669787569838}
+{"e":"RETURN","f":17,"t":4,"v":{"k":"dbg","v":"'e5'","trunc":false},"ts":3808669787576848}
+{"e":"RETURN","f":16,"t":4,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669787607978}
+{"e":"EXIT","code":null,"signal":"SIGTERM","endTs":1788965238.57,"ts":3808669788510777}

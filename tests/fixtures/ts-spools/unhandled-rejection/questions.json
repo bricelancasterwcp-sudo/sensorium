@@ -1,0 +1,26 @@
+[
+  {
+    "id": "the-rejection-is-not-an-event",
+    "ask": "is the unhandled rejection absent from the events, as D7 requires?",
+    "command": [
+      "grep",
+      "$RUN",
+      "Error",
+      "--kind",
+      "RAISE"
+    ],
+    "expect_exit": 1
+  },
+  {
+    "id": "the-trace-finalized",
+    "ask": "did the container that saw the rejection still finish cleanly?",
+    "command": [
+      "info",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_absent": [
+      "INCOMPLETE"
+    ]
+  }
+]

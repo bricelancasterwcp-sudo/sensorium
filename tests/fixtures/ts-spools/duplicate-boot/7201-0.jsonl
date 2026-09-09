@@ -1,0 +1,9 @@
+{"e":"BOOT","wire":1,"pid":7201,"ppid":7100,"threadId":0,"isMainThread":true,"argv":["/usr/bin/node","/w/probes/node_modules/vitest/dist/workers/forks.js"],"cwd":"/w/probes","env":{"PATH":"/usr/bin"},"envHash":"aaaabbbbccccdddd","node":"v24.16.0","version":"0.1.0","tier":"call","invocation":null,"startTs":1788965242.0,"ts":1000}
+{"e":"FILE","id":1,"rel":"src/ok.test.ts","abs":"/w/probes/src/ok.test.ts","codes":[["ok",3,"function"]],"sha":"da11f79362aaf334124dc10102094e87f4db165971d7ff2b0e7a5acb81ffbb13"}
+{"e":"FILE_START","path":"/w/probes/src/ok.test.ts","environment":"node"}
+{"e":"SEEN","name":"ok runs"}
+{"e":"BOOT","wire":1,"pid":7201,"ppid":7100,"threadId":0,"isMainThread":true,"argv":["/usr/bin/node","/w/probes/node_modules/vitest/dist/workers/forks.js"],"cwd":"/w/probes","env":{"PATH":"/usr/bin"},"envHash":"aaaabbbbccccdddd","node":"v24.16.0","version":"0.1.0","tier":"call","invocation":null,"startTs":1788965242.0,"ts":1050}
+{"e":"TASK","id":1,"name":"ok runs","basis":"vitest","conflict":false}
+{"e":"CALL","f":1,"p":null,"file":1,"c":0,"t":1,"ts":1100}
+{"e":"RETURN","f":1,"t":1,"v":{"k":"dbg","v":"1","trunc":false},"ts":1200}
+{"e":"EXIT","code":0,"endTs":1788965242.5,"ts":1300}
