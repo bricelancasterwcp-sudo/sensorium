@@ -171,6 +171,65 @@ a rule was broken:**
    its number; leaving it is a contamination hazard for a "the wrapper
    directory is gone" check that greps by name.
 
+### 2b. Re-pins and pre-run choices (the acceptance run, 2026-09-09 15:27–15:30 −05:00)
+
+Task 0's table above is untouched. This block is appended by the acceptance
+run (Task 10), which re-takes the pins that can move between preflight and the
+run, records the one act it performs on the lens before any endpoint reads a
+number, and pins the two §10 controls' targets **before** they are recorded.
+
+**Ruling R3 — the spike leftover removed before anything was measured.** §2's
+ambient fact 2 named `frontend/vitest.sensorium.config.mts` as a contamination
+hazard for E6′'s marker grep and left the decision to E6′. It was removed
+first, so that no endpoint of this run saw it:
+
+| Item | Command | Value |
+|---|---|---|
+| the leftover, before | `ls -la <lens> \| grep -i sensorium` | `-rw-rw-r-- 1 brice brice 871 Sep 8 22:59 vitest.sensorium.config.mts` |
+| its content, pinned before removal | `sha256sum <lens>/vitest.sensorium.config.mts` | `e8c5adbfbe516f7812802a6431d1cacbb6d6a8a6819ab6d46bdcb6947774223d` |
+| the removal | `rm <lens>/vitest.sensorium.config.mts` | done 2026-09-09T15:27:56−05:00 |
+| the leftover, after | `ls -la <lens> \| grep -i sensorium` | no match — nothing named `sensorium` at the lens root |
+| anything else named for the recorder | `find <lens> -maxdepth 2 -name 'sensorium-probes' -o -maxdepth 2 -name '*.sensorium*'` | no output |
+
+The file was outside the manifest set, so its removal cannot move the manifest —
+and the re-check below confirms it did not.
+
+**The pins re-taken, in the order they were read:**
+
+| Item | Command | Value |
+|---|---|---|
+| date, 1-minute load | `date -Iseconds; cat /proc/loadavg` | `2026-09-09T15:28:10-05:00`, then `0.47 0.40 0.55 1/2566 1434684` — 0.47, under the 4.0 refusal threshold |
+| free disk `/` | `df -h /` | `5.0G` available (100% used, 915G total) — floor 3 GB, passes with 2.0 GB to spare; 0.5 GB below Task 0's reading |
+| free disk `/mnt/extra` | `df -h /mnt/extra` | `70G` available (85% used, 469G total) — floor 8 GB, passes with 62 GB to spare |
+| lens top level, after R3 | `ls -A <lens>` | `.claude .pytest_cache Dockerfile dist e2e e2e-shots index.html nginx.conf node_modules package-lock.json package.json public src start-vite.sh tsconfig.json vite.config.ts` — 15 entries, one fewer than Task 0's listing and the missing one is the leftover |
+| lens manifest, re-read | `cd <lens> && (find src -type f \| sort; echo vite.config.ts; echo package.json) \| xargs sha256sum \| diff - <manifest>` | **identical**, `748` lines — the lens is byte-for-byte Task 0's |
+| lens manifest, verified | `sha256sum -c <manifest>` | exit `0`, `748` OK, `0` FAILED |
+| node | `node --version` | `v24.16.0` — unchanged |
+| npm | `npm --version` | `11.13.0` — unchanged |
+| nproc, governor | `nproc; cat …/scaling_governor` | `16`, `powersave` — unchanged |
+| repo HEAD | `git rev-parse HEAD` | `29c505957ce6361bee0c249efab695cb11b35753` (branch `feat/s5-rung1-recorder-v1`); Task 0 pinned `216bfd8…`, the commit this record was written on |
+| sensorium version | `.venv/bin/python -c "…version('sensorium')"` | `0.8.7` — unchanged |
+| store for this run | `mkdir -p /mnt/extra/sensorium-s5/store-rung1/acceptance` | created; `SENSORIUM_DIR` for every trace Task 10 records |
+
+**Re-pin verdict:** all three refusal rules still pass — `/mnt/extra` free 70 G ≥ 8 G;
+`/` free 5.0 G ≥ 3 G; 1-minute load 0.47 ≤ 4.0. Proceeded; did not BLOCK.
+
+**The §10 controls' targets, chosen and written down before either was recorded.**
+Both run on their own throwaway `rsync` copy of the lens; the lens itself is
+never edited.
+
+| | |
+|---|---|
+| **E5-TS, the split — module** | `src/lib/distance/hexGeometry.ts` |
+| **E5-TS — the two functions moved** | `isHexShape` (line 68) and `hexDistance` (line 188) |
+| **E5-TS — the destination** | a new file `src/lib/distance/hexGeometryMoved.ts`; `hexGeometry.ts` imports both names back and re-exports them, so every import in the tree still resolves and no call site changes |
+| **E5-TS — the test file recorded** | `src/lib/distance/hexGeometry.test.ts` (322 lines; it calls `hexDistance` 16 times and `isHexShape` 4 times directly, and reaches both again through `neighbors`, `stepsBetween`, `pathCost` and the shape-dispatch wrappers) |
+| **E5-TS — why these two** | both are pure and **self-contained**: neither touches a module-private binding, so the move needs no other edit. The transform instruments both — `node -e` over `transform.mjs` lists `isHexShape` and `hexDistance` among `hexGeometry.ts`'s 14 instrumented sites — so both appear in the trace as code objects and can be paired |
+| **The planted change — function** | `pathCost` in `src/lib/distance/distance.ts` (line 207), exercised by the same test file (lines 262–314) |
+| **The planted change — the swap** | the `const law = terrainLaw(terrainSystem, kind);` call site is moved from **before** the diagonal branch to **after** it, so that `terrainLaw` and `isDiagonal`/`diagonalStepFt` execute in the opposite order. Nothing else changes |
+| **The planted change — why this one** | it is **value-preserving**: every number `pathCost` returns is identical and the suite stays green, so the swap is invisible to the consumer's own tests and only the recorder's causal fingerprint can see it. All four functions are instrumented (`terrainLaw`, `applyLaw`, `isDiagonal`, `diagonalStepFt` are in `distance.ts`'s 21 instrumented sites), and the fingerprint is a rolling hash over `(file, qualname, kind)` — so two calls that swap order under **different** qualnames must move the digest, while a swap of two calls to the *same* function could not. That is why the swap is across two names and not within one |
+
+
 ---
 
 ## 3. Results
