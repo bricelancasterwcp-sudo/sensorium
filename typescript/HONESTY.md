@@ -83,7 +83,8 @@ vectors `v23-lang-typescript-prose`, `v24-unknown-lang-refused`,
 ## 2. Tasks
 
 **The promise.** Every test callback the transform wrapped is a task, and it
-carries the name vitest itself prints for that test.
+carries the name vitest itself prints for that test where a provider ran, and
+its lexical `describe > title` where none did.
 
 **What in the trace says it.** A call whose callee is `test` or `it`, or a
 member chain rooted at one (`test.each(table)(title, fn)`, `it.skip`,
@@ -310,7 +311,7 @@ ours. The directory is removed in a `finally`, so it exists only for the run.
 A read-only `node_modules` is a refusal at exit 2 naming the directory, never
 a write somewhere else in the source tree.
 
-**Falsifiers.** `E2′`, `E3-TS`, `E6′`, `E7′`,
+**Falsifiers.** `E2′`, `E3-TS`, `E5′`, `E6′`, `E7′`,
 `typescript/test/transform.test.mjs`, `tests/test_ts_ingest.py`,
 `corpus/typescript/nondeterministic`, `corpus/typescript/watch_refused`,
 `corpus/typescript/object_refused`, and the E5-TS split control of the
@@ -447,7 +448,7 @@ a corpus case, a vector or an acceptance endpoint.
 | 7 | Eligible files under the root are instrumented and every exclusion is named and counted in `transform_excluded`, with `files_transformed` beside it | `E2′`, `typescript/test/transform.test.mjs`, `tests/test_ts_ingest.py` |
 | 7 | Sites keep JavaScript's own spelling, `file` absolute and the fingerprint root-relative, so `diff` pairs across a file split and a re-record of one file never reads DIVERGED | `E3-TS`, the E5-TS split control (acceptance §3.2), `corpus/typescript/nondeterministic` |
 | 7 | What the recorder does not produce is declared, and every command refuses on the declaration instead of answering: `locals`, `line`, `object_identity`, `output`, `threads`, `children`, `refocus` | `corpus/typescript/watch_refused`, `corpus/typescript/object_refused`, `E7′`, `tests/test_ts_ingest.py` |
-| 7 | The consumer's tree is touched at exactly one path, `<root>/node_modules/.sensorium/`, and only for the run's duration; `setupFiles` are appended, never replaced | `E6′` |
+| 7 | The consumer's tree is touched at exactly one path, `<root>/node_modules/.sensorium/`, and only for the run's duration; `setupFiles` are appended, never replaced | `E6′`, `E5′` (the suite green under the driver is what a REPLACED `setupFiles` would break; E6′ alone cannot see it) |
 | 8 | No edit contains a newline, so every output line is the input's and 20 shapes land on 20 exact lines | `E4′`, `typescript/test/transform.test.mjs` |
 | 8 | The source map is `hires`, so a planted failing assertion's report is byte-identical instrumented against plain | `E4′`, `typescript/probes/sites.probe.test.ts` |
 | 8 | A plain run afterwards is uncontaminated: sources identical by manifest, no marker in any cache, the wrapper directory gone | `E6′` |
