@@ -197,8 +197,130 @@ arm is the green copy.
 
 ## 3. Results
 
-*(unrun — filled by the measurement, one subsection per endpoint, numbers
-from `2026-09-08-typescript-mechanics-spike.results.json`)*
+Run 2026-09-08 evening, this box, from `spike/typescript/` on branch
+`spike/typescript-mechanics`. Numbers are in
+`2026-09-08-typescript-mechanics-spike.results.json` (assembled by
+`spike/typescript/assemble.py` from the artifacts under
+`/mnt/extra/sensorium-s5/`); the reader transcript for E7 is
+`2026-09-08-typescript-mechanics-spike.e7-reader.txt`. The instrument is a
+TypeScript-AST-positioned, magic-string-edited source transform (no edit
+inserts a newline), a runtime keyed on `AsyncLocalStorage`, one JSONL spool
+per `(pid, threadId)`, and a converter writing format-4 SQLite through
+`sensorium.store.db`. Two transform defects were found and fixed BEFORE any
+E1 number was read and AFTER E3/E4/E8 had been read once on the probes
+(their probe numbers were re-read on a fresh recording, `probes-3`, and did
+not change): (1) two closing insertions at one offset nested in the wrong
+order (`return () => x` → esbuild "Expected ;"), fixed by `prependRight`;
+(2) functions inside `vi.mock`/`vi.hoisted` factories were instrumented,
+which vitest's hoisting forbids — now an excluded kind. The first full-suite
+instrumented run (`full-call-1`, 88 real files failed on those two defects)
+is history, not a number; the E0 numbers are from `full-call-2` (372/4278
+green).
+
+### E2 — coverage of the frontend: **1.000, PASS**
+
+Census set 368 files (`frontend/src` minus tests, `.d.ts`, `test-setup.ts`);
+the transform threw on **0** files; **5,403 of 5,403** function-like nodes
+instrumented (FunctionDeclaration 1,069 · ArrowFunction 4,268 ·
+MethodDeclaration 59 · Constructor 4 · GetAccessor 2 · FunctionExpression 1);
+excluded kinds in the census set: **none** (no overloads, abstract or
+ambient bodies exist there — the `vi.mock` exclusion applies only inside test
+files, outside the census). Output/input size 1.242. Not counted, by
+construction: `new Function`/`eval` bodies. The ratio is the transform's own
+count over its own eligibility rule, so what it proves is that the transform
+PARSES and EDITS every source file in the consumer; whether the instrumented
+code RUNS is E0/E1's 372/4278.
+
+### E3 — async attribution: **100%, PASS in node, jsdom, and node:test**
+
+Every expected row of S1–S4 present, in order, with the expected task,
+under the vitest `node` environment, the vitest `jsdom` environment, and the
+`node --test` harness through the loader hook (three independent recordings,
+`probes-3` ×2 and `nodetest-2`). Negative control: **0** rows of T1 after
+T1's `RETURN a`; T2's 12 rows all carry T2. The rows that decide it: S3's
+`CALL work` from a `setTimeout` callback and S4's second `CALL handler` from
+a timer-driven `emit` both carry their scenario's task — `AsyncLocalStorage`
+propagates through Node timers and through jsdom's timers alike.
+
+Two clarifications the checker applies, written here because §1.1 did not
+spell them out (recorded honestly: both were implemented in `check.py`
+before its first run, and one checker defect — comparing a RETURN's value
+where §1.1 named none — was found on the first read of S4 and fixed WITHOUT
+re-recording; the spool it re-read is the same file): rows of functions not
+named in §1.1's tables are ignored (`sleep`, promise executors, timer
+callbacks); a qualname matches on its last `.` segment (`viaEmitter.handler`
+is `handler`); RETURN values compare with whitespace removed (`[ 10, 20 ]`
+is `[10,20]`).
+
+One shape the tables did not ask about, visible in `tree`: a timer callback
+runs with NO open frame on its task's stack (its scheduler had yielded), so
+its frame is parentless at depth 0 inside the task. Task attribution is
+right; causal parentage across a timer is a rung-1 design question, not a
+rung-0 failure.
+
+### E4 — sites: **20 of 20, PASS**
+
+All twenty shapes' `firstlineno` equal the TypeScript source line
+(declaration, expression, one-line and multi-line arrow, constructor,
+method, static, getter, setter, class-field arrow, async declaration and
+arrow, generator, async generator, IIFE, nested inner, `map` callback,
+default export, `namespace` member, and the TSX component in the sibling
+file). Paths are `frontend/sensorium-probes/…`, identical across the two
+probe recordings. The failing-assertion line check was not run separately:
+E1's `call` arm reports every failing line vitest prints (none — the suite
+is green), so the map-chain claim rests on the 20 sites and on vitest's own
+`FAIL` reports in the defect runs, which pointed at the TS line and column
+of the ORIGINAL file (e.g. `ArtPicker.tsx:62:141`) — the source map the
+plugin returns is honoured.
+
+### E5 — harnesses: **vitest PASS (gate), node --test PASS**
+
+vitest: five probe files pass under the Vite plugin (`enforce: 'pre'`), and
+the full suite is green under it. `node --test`: a `module.register` loader
+hook transforms then type-strips with the frontend's own TypeScript; the
+E3 probe's node:test variant passes and its E3 rows check. jest: not
+measured (VTT does not use it). Note for rung 1: the repo's
+`setupFiles` assumes jsdom, so a probe declaring `@vitest-environment node`
+needs the setup file dropped — that is the consumer's config, not the
+recorder's.
+
+### E7 — today's reader on `lang: "typescript"`: reported
+
+`tree`, `frame`, `grep`, `runs` and the structural half of `info` answer
+correctly from the trace (tasks named by test title, returns as `dbg` text,
+`<unread: locals>` on every call, YIELD/RESUME shown as suspensions).
+The vocabulary leaks, verbatim in the transcript: `info` prints
+**`python ?`** for the interpreter line and **"asyncio task"** in both
+fingerprint sentences; `frame` advises **`refocus with --focus
+async.probe.test.ts:viaEmitter`** (Python's spelling); `runs` labels the
+invocation **`invocation probes-2: cargo`** — a non-Python invocation is
+assumed to be Rust; `refocus` refuses on `capabilities.refocus: false`
+(right) and then suggests **`sensorium run --focus`** (Python's recorder).
+`exceptions` refuses at exit 3 with **"needs the Rust disposition rules
+(rung 3)"** — the refusal is correct (no TypeScript rules exist), the
+sentence names the wrong language. `watch`/`flow` refuse on
+`capabilities.line: false` correctly. Rung 1 therefore needs: a
+`TYPESCRIPT` vocabulary table, an explicit refusal (not a fallback to
+Python's words) for a `lang` the reader does not know, a language-keyed
+`runs` header, and TypeScript disposition rules before `exceptions` can
+answer.
+
+### E8 — swallow shapes: **5 of 5 seen**
+
+| # | Shape | Seen as |
+|---|---|---|
+| 1 | empty `catch {}` | `RAISE Error("e1")` at the throw line; `HANDLED` at the catch with `sink: "empty_catch"` |
+| 2 | `.catch(() => {})` | `HANDLED` with `sink: "empty_catch_callback"`, no RAISE (no `throw` statement ran) |
+| 3 | unhandled rejection | `RAISE` with `basis: "unhandledRejection"` from the process listener — and vitest 4 did NOT mark the file failed |
+| 4 | `throw "not-an-error"` | `RAISE` `type: "string"`; `HANDLED` at the catch |
+| 5 | `catch (e) { throw e }` | two `RAISE` rows with ONE serial (WeakMap identity), two `HANDLED` |
+
+What rung 2 still has to decide is which of these are sinks in the
+`exceptions` sense (2 and the empty clause of 1 clearly; a rethrow is a hop,
+not a sink) and what an unhandled rejection's "frame" is (none: it was
+recorded outside every task and frame).
+
+### E0, E1, E6 — see below, filled when the arms finished.
 
 ## 4. Decisions
 
