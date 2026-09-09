@@ -126,7 +126,7 @@ lens is the VTT frontend **copy** at `/mnt/extra/sensorium-s5/vtt/frontend`
 | mount `/mnt/extra` | `findmnt -no SOURCE,FSTYPE /mnt/extra` | `/dev/nvme1n1p1 ext4` — a different block device and filesystem; every artifact set (`SENSORIUM_DIR`, the lens, the throwaway venvs' host worktree) lives here, off the chronically near-full root filesystem |
 | 1-minute load, preflight | `cat /proc/loadavg` (checked before anything was created) | `1.32 0.70 0.54 1/2580 42257` — 1-minute load 1.32, under the 4.0 refusal threshold |
 | 1-minute load, immediately before the timed baseline | `cat /proc/loadavg` | `0.77 0.70 0.55 1/2583 44216` — 0.77, under 4.0 |
-| 1-minute load, at pin time | `cat /proc/loadavg` | `0.75 1.39 1.12 3/2586 85297` |
+| 1-minute load, at pin time | `date -Iseconds; cat /proc/loadavg` | `2026-09-09T05:42:51-05:00`, then `0.75 1.39 1.12 3/2586 85297` — the close of this table's reading window |
 | store root | `mkdir -p /mnt/extra/sensorium-s5/store-rung1` | created; `SENSORIUM_DIR` for every trace this rung records |
 | lens manifest | `cd <lens> && (find src -type f \| sort; echo vite.config.ts; echo package.json) \| xargs sha256sum > /mnt/extra/sensorium-s5/manifest-rung1-before.txt` | **748 entries** — the expected count, exactly. Manifest file sha256 `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8`; first entry `src/App.tsx`, last three `src/vite-env.d.ts`, `vite.config.ts`, `package.json` |
 | lens manifest re-read after the plain baseline | the same pipeline, `diff`ed against the file | identical — the plain run wrote nothing into the manifest set |
