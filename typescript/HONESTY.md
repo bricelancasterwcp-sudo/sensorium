@@ -23,6 +23,17 @@ with no falsifier is not a promise, it is an assertion, and this document does
 not carry assertions. The whole list in two columns is the
 [index](#the-index-promise--falsifier) at the end.
 
+**Amended 2026-09-09, at rung 1's close** — the first edition to be struck
+against a measurement. Nothing below is deleted; each amendment is dated where
+it stands and says what it replaced. What moved: §1's cap example (the two
+limits compose), §2's `#k` rule (per NAME, ruling R17) and the options-second
+shapes (none is refused any more, ruling R8c), §7's exclusions (`.d.ts` and
+`node_modules` carry **no** count, ruling R7; `.mts`/`.cts`, ruling R9; a
+parse error, ruling R10; the printed `xK` form, ruling R27), §9's cost (E1′,
+E10 and **E6′'s STOP**, each with its `n` and lens), and **eight new blind
+spots**, 10 through 17. The endpoint ids below now name measured cells: the
+record's §3 and §4, and its §5 for what each verdict does not cover.
+
 **Provenance.** This file is written **before the runtime exists**, which is
 the point: the code is written to the ledger, not the ledger to the code. Its
 facts come from the design
@@ -47,7 +58,12 @@ never a guessed outcome.
 **What in the trace says it.** The RETURN record's value is
 `{"k": "dbg", "v": …, "trunc": …}`, `v` produced by `util.inspect` at
 `depth: 2`, `maxArrayLength: 8`, `maxStringLength: 100` and capped at 200
-bytes with `trunc` set when the cap bit. `undefined` is the text `undefined`,
+bytes with `trunc` set when the cap bit. *(Amended 2026-09-09: the two limits
+COMPOSE, and the earlier reading of this sentence — "a 10 kB string comes back
+as 200 bytes with `trunc: true`" — is unsatisfiable. `maxStringLength` cuts a
+long string inside `inspect`, so the 200-byte cap never sees it; what sets
+`trunc` is **a value whose inspection exceeds the cap** — a wide object, a
+long array of short strings — not a long string.)* `undefined` is the text `undefined`,
 never an absent field: a function that returned nothing is a fact, not a hole.
 An inspector that throws — the program's own `inspect` customisation — reads
 `{"k": "unread"}`, which says the capture failed rather than showing an empty
@@ -99,10 +115,18 @@ provider name that does not end with that literal is **not used**; the task
 falls back to the lexical `describe > title` and the disagreement is counted in
 `task_name_conflicts`. `task_name_basis` in meta says which rule named this
 trace's tasks; under `node --test`, where no provider runs, that basis is the
-lexical one. The k-th activation of one registration to produce a given NAME in a
-container — a `retry`, a `repeats` — is `<name>#k` for k ≥ 2; activations the
-harness has already renamed for itself, as `.each` renames its rows, are
-distinct names and are not numbered on top of. A title expression that is not
+lexical one. The k-th activation **in a container to produce a given NAME** —
+a `retry`, a `repeats` — is `<name>#k` for k ≥ 2; activations the harness has
+already renamed for itself, as `.each` renames its rows, are distinct names and
+are not numbered on top of. *(Amended 2026-09-09, ruling R17: this sentence
+read "the k-th activation of one registration to produce a given NAME in a
+container", which counts **per registration**. Measured under that rule a
+five-row `.each` produced `… = 5#2` — the provider had already made the rows
+distinct and the counter numbered them again. The counter is per NAME, which is
+what a reader of `#2` takes it to mean. The cost is stated where it lands: two
+different tests with one identical full name would share a `#k` sequence —
+impossible under vitest's unique full names, possible for lexical names under
+`node --test`.)* A title expression that is not
 a string at runtime leaves the task unnamed, and the reader prints
 `(unnamed: title not a string)` for it — a label that says why, not a blank.
 
@@ -120,6 +144,19 @@ across concurrent tests, so a `.concurrent.each` name that is wrong cannot be
 caught by the cross-check that catches every other kind (blind spot 5) — the
 count that would have caught it is `task_name_conflicts`, and this ledger says
 where it cannot reach.
+
+**The options-second form is wrapped, not refused** *(added 2026-09-09,
+ruling R8c)*. vitest's documented `test(name, options, fn)` and
+`describe(name, options, fn)` are spliced **positionally**, with the callback
+wrapped at its own argument position and the flags appended last — so an
+options object holding a function, a multi-line options object, an `await`ed or
+`yield`ed title expression, and an expression-bodied callback all come out
+CORRECT and all are tasks. An earlier rule relocated the callback chunk and
+refused those four shapes rather than move text it could not move safely;
+relocation carries a chunk's intro and outro text with it, so the relocation
+was withdrawn and **no shape of a test call is refused by the transform
+today**. What is still not covered is stated below as a blind spot, never as a
+refusal.
 
 **Falsifiers.** `E9`, `typescript/probes/src/each.probe.test.ts`,
 `typescript/probes/src/concurrent.probe.test.ts`,
@@ -268,19 +305,35 @@ absence of `test_file` is therefore a statement, not a gap.
 **The promise.** What is inside this recorder's scope is stated; what is
 outside it is counted or declared, and never silently absent.
 
-**Eligibility, and every exclusion by name.** Eligible files are `.ts`, `.tsx`,
-`.js`, `.jsx` and `.mjs` ES modules under the invocation's root, with
-`node_modules` excluded and `.d.ts` declaration files outside it by their
-nature — they carry no body to wrap. A CommonJS file — `.cjs`, or a `.js` that Node loads
+**Eligibility, and every exclusion by name.** Eligible files are `.ts`,
+`.mts`, `.tsx`, `.js`, `.jsx` and `.mjs` ES modules under the invocation's
+root. A CommonJS file — `.cjs`, `.cts`, or a `.js` that Node loads
 as CommonJS under `node --test` — is excluded and counted, because the
-runtime's header is an `import`. Nothing inside a `vi.mock`, `vi.doMock`,
+runtime's header is an `import`. A file whose own TypeScript parse produces
+diagnostics is left **untouched** and counted as `parse-error` with its first
+three messages, rather than spliced blind against a best-effort AST; the
+consumer's own bundler then reports the consumer's own syntax error on the
+file as written.
+
+***Out of scope is not the same as excluded, and only one of the two is
+counted*** *(amended 2026-09-09, ruling R7; this paragraph previously listed
+`node_modules` and `.d.ts` among the exclusions).* Anything under
+`node_modules` and every `.d.ts` declaration file are **outside the transform's
+scope**: the transform returns null for them and writes no manifest, so they
+appear in **no** count. Counting files the plugin never looks at would be a
+claim about the tree, not about the run. The counted exclusions are the
+in-scope ones below — a file the transform saw and declined. Nothing inside a `vi.mock`, `vi.doMock`,
 `vi.hoisted` or `vi.unmock` factory is instrumented (vitest hoists those above
 every import, our header included) and that count is named. Overload
 signatures and `declare`d or `abstract` members have no body to wrap. `eval`
 and `new Function` bodies are never touched at all. `meta.files_transformed`
 and `meta.transform_excluded {reason: count}` carry these totals and `info`
-prints them — `files: 41 transformed; excluded: 3 (vitest-hoisted factory)` —
-so coverage is a number in the trace, not a hope.
+prints them **by reason with each reason's own count** — `files: 725
+transformed; excluded: 344 (vitest-hoisted-factory x344)` — so coverage is a
+number in the trace, not a hope. *(The printed form was amended 2026-09-09,
+ruling R27: it read `excluded: 3 (vitest-hoisted factory)`, a total beside one
+bare reason, which loses the split as soon as there are two. The example above
+is a measured line from a call-arm trace of the acceptance lens.)*
 
 **How a site inside the scope is named.** `code_objects.file` is absolute (the
 contract's rule) while the fingerprint hashes the **root-relative** path, which
@@ -300,9 +353,11 @@ the same way. Arguments are unread: `locals: false`, and every CALL carries
 absence, not an empty argument list. `line: false`, so `watch` and `flow`
 refuse at exit 3 naming the capability and the recorder. `object_identity:
 false`, so `flow --object` refuses. `output: false` — vitest owns the capture,
-and this recorder does not claim the program's stdout. `threads: false` and
-`children: false` (blind spot 4). `refocus: false`, refused at exit 2.
-`err_flow: false` (§4).
+and this recorder does not claim the program's stdout — and `stdin: false`
+beside it, which is the same statement about the other end of the pipe
+*(added 2026-09-09: the list omitted it, which made the list look complete and
+was not false about any key)*. `threads: false` and `children: false` (blind
+spot 4). `refocus: false`, refused at exit 2. `err_flow: false` (§4).
 
 **The footprint on the consumer's tree.** One directory is written:
 `<root>/node_modules/.sensorium/`, holding the wrapper vitest config and the
@@ -365,7 +420,44 @@ and a conversion wall above the plain suite's own wall is a design input
 naming a Node converter or a binary wire. Neither outcome is a NO-GO, and
 neither number is allowed to decide whether the recorder is honest.
 
-**Falsifiers.** `E1′`, `E10`.
+**Measured, rung 1** *(added 2026-09-09; every number from
+`../docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` §3, on one
+lens: the VTT frontend at `0091e97` — 372 test files, 4,278 tests — under
+vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores)*:
+
+- **Recording**: `off/plain` **1.0587** and `call/plain` **1.1324**, n=5 per
+  arm, interleaved, 0 runs dropped, conversion excluded — inside E1′'s 1.10
+  bound, so the transform stays uncached and the source-sha cache stays a later
+  slice. Beside them, ungated: **99.61 B/line** and **162,629.8 lines/s** under
+  the product runtime (medians over the 5 call runs), and vitest's own
+  `transform` seconds **10.24 / 21.64 / 21.43** for plain / off / call.
+- **Conversion**: full-suite `ingest` over 372 spools and 414,450,522 bytes,
+  **45.5293 s** median (n=3) against the same run's plain wall of **22.5925 s**
+  — ×2.02, **above** E10's bound. E10's own rule made that a **design input and
+  not a STOP**, and the input is taken: a Node converter on `node:sqlite`, or a
+  binary wire, is the next slice's question. One file's spool converts in
+  **0.3638 s** (n=3), which is what a debugging loop actually pays, and it is
+  reported here beside the suite number so the design question is asked about
+  the right workload.
+- **Reading**: `info` **0.5401 s** and `diff` **0.6867 s** (n=3 each) on the
+  lens's largest trace, 333,832,192 bytes.
+- **And one cost that is a STOP.** E6′ asks whether a plain run afterwards is
+  contaminated, in four clauses. Three ask about contamination directly and all
+  three hold — the sources are identical by sha256 manifest (**748 OK, 0
+  FAILED**), **0** `__srt` markers appear in any cache directory, and
+  `node_modules/.sensorium` is **absent**. The fourth is a timing clause, and
+  it **STOPped**: the plain-after wall **22.8678 s** against the plain arm's
+  own min–max band **[22.3136, 22.7221]**, 0.1457 s (0.65%) above it. The
+  number stands as measured — nothing was re-rolled and no band was moved —
+  and what the STOP is understood to rest on is written down rather than
+  argued away: the instrument that took it ran with no load guard though its
+  clause is a timing clause, and a five-run min–max is a range and not a
+  tolerance (record §5, gaps 5 and 6). It is re-measured next slice under a
+  NEW pre-registration, **E6″**. This ledger states it as a STOP because that
+  is what the pre-registration's own words make it, and a rung that ships with
+  one is a rung that ships with one.
+
+**Falsifiers.** `E1′`, `E10`, `E6′`.
 
 ## 10. Blind spots
 
@@ -420,6 +512,79 @@ that this is the whole of it.
    `typescript/probes/src/describe_chain.probe.test.ts`,
    `corpus/typescript/each_naming`, `E9`.
 
+10. **`for await (…)` and top-level `await` mint no YIELD/RESUME.** The
+    suspension rewrite is applied to `await` expressions inside an
+    instrumented function body; a `for await` loop's implicit await and a
+    module's top-level `await` are neither, so a frame parked there is not
+    recorded as parked. Measured absence, not inference: **0** occurrences of
+    either shape in the acceptance lens, so the endpoint that would have
+    caught it had nothing to catch. *(Added 2026-09-09.)*
+    *Falsifier:* `typescript/test/transform.test.mjs`, `E2′`.
+11. **A `.catch(function () {})` is not a sink; only the arrow spelling is.**
+    §4's empty-callback sink matches an arrow function with an empty block
+    body. The same empty body written as a `function` expression records
+    nothing at all — not a HANDLED, not a count. Which shapes are sinks is
+    rung 2's question, and this is one of the shapes it inherits.
+    *(Added 2026-09-09.)* *Falsifier:*
+    `typescript/probes/src/swallow.probe.test.ts`, `E8′`.
+12. **A class static block is neither instrumented nor counted.** `static { … }`
+    is not a function, so nothing wraps it — and unlike every other in-scope
+    thing the transform declines, it produces no `excluded` entry either, so it
+    is invisible in the coverage number rather than named in it. It should be
+    counted as `static-block`; that it is not is this ledger's, not the
+    trace's. *(Added 2026-09-09.)* *Falsifier:*
+    `typescript/test/transform.test.mjs`.
+13. **A destructuring `catch ({ code })` records the exception type as
+    `undefined`.** The HANDLED splice hands the runtime the clause's own
+    binding; a destructuring pattern binds no name to the caught value itself,
+    so the transform passes the literal `undefined` rather than reconstruct an
+    object it does not have, and the record reads `type: "undefined"`. That is
+    what the recorder knows about the value, and it is not the claim that the
+    program caught `undefined`. The clause still records a HANDLED with its
+    line and its `how`. *(Added 2026-09-09.)* *Falsifier:*
+    `typescript/test/rt.test.mjs`, `typescript/test/transform.test.mjs`.
+14. **The untraced caller is on the wire and no reader prints it.** §3's
+    `caller: "untraced"` is in the CALL payload, and the reader renders
+    nothing for it — the Python core's own caller renderer has only ever
+    printed a caller it has a code object for, and `caller: "untraced"` is on
+    the Python wire too. So a parentless continuation reads as depth 0 inside
+    the right task, with no tag saying why. Rendering one is a reader feature
+    for **all three** languages, carried in `docs/CARRIED-DEBT.md` (ruling
+    R29). *(Added 2026-09-09.)* *Falsifier:*
+    `corpus/typescript/timer_callback_parentless`,
+    `typescript/probes/src/timer_parentless.probe.test.ts`.
+15. **Two declarations in this recorder are stated and unfalsifiable as
+    shipped.** (a) `rt.mjs` is declared external to vite's module runner in
+    every config the recorder writes, so the setup file and the instrumented
+    modules resolve one Node module instance; at vitest **4.1.9** the probe
+    that would catch a second instance — exactly one BOOT line per spool —
+    reads the same with the declaration and without it, so the declaration is
+    **insurance whose effect was not observed on this version**, and it is
+    named here rather than presented as a measured guarantee. (b)
+    `meta.test_files` — the key a container that ran more than one file
+    carries — is written by the converter and was exercised by **no run**: the
+    acceptance measured **0** traces carrying it, and a `--pool=threads` probe
+    produced none either. The reader's `files: N` line is therefore code no
+    recording has printed. *(Added 2026-09-09.)* *Falsifier:*
+    `typescript/probes/check.mjs` (the one-BOOT assertion),
+    `tests/test_ts_ingest.py`, `E0′`.
+16. **One reader fallback is unreachable today and would print a raw wire
+    word if it were reached.** `tree`'s unframed-kind line falls back to the
+    contract's own `generator`/`coroutine` spelling where it has no label for a
+    kind — Python's words, in this recorder's output. Every call in a
+    TypeScript trace is framed, so nothing has ever reached it; it is named
+    because an unreachable branch that would print the wrong vocabulary is
+    still a place this ledger's central promise could break. *(Added
+    2026-09-09.)* *Falsifier:* `E7′`, `tests/test_vocab.py`.
+17. **A `.concurrent` name that is wrong is counted where it can be, and E9
+    measured zero.** Blind spot 5 says the cross-check cannot reach a
+    `.concurrent.each`. What rung 1 adds is the measurement: over the full
+    suite, `task_name_conflicts` is **0** and tasks equal `tests_seen` at
+    **4,278**, so nothing the check CAN see disagreed — which is evidence
+    about the shapes it covers and none at all about the one it does not.
+    *(Added 2026-09-09.)* *Falsifier:* `E9`,
+    `typescript/probes/src/concurrent.probe.test.ts`.
+
 ## The index: promise → falsifier
 
 A promise with no falsifier is not a promise. Every row names a test, a probe,
@@ -456,4 +621,5 @@ a corpus case, a vector or an acceptance endpoint.
 | 8 | A plain run afterwards is uncontaminated: sources identical by manifest, no marker in any cache, the wrapper directory gone | `E6′` |
 | 8 | Both harnesses run their own way; a package script and jest are refused at exit 2 rather than guessed at | `E5′` |
 | 9 | Cost is reported with its `n` and lens and gates nothing; a bound crossed buys work, never a verdict | `E1′`, `E10` |
-| 10 | The blind-spot list above is the whole of what this recorder cannot see, each item carried by a meta key, an `info` line or a stated absence | each item's own falsifier, 1 through 9 |
+| 9 | Cost is a STOP where a pre-registered clause did not hold: E6′'s plain-band clause, stated as a STOP and not re-rolled | `E6′`, the acceptance record §4 and §5 gaps 5–6 |
+| 10 | The blind-spot list above is the whole of what this recorder cannot see, each item carried by a meta key, an `info` line or a stated absence | each item's own falsifier, 1 through 17 *(10–17 added 2026-09-09)* |
