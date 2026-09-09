@@ -39,11 +39,14 @@ questions:
       the run that marks it.
     why_logs_fail: >
       The failure is inside an async function whose result nobody reads, so
-      the only place a log could go is inside `refresh` itself -- a
-      `console.log` before the `throw`, which is the edit you make after you
-      already know this function is the problem. Every other frame's output
-      would be identical if the refresh had succeeded. Nothing prints a
-      stack trace, because the rejection is never delivered to a handler.
+      the only place a `console.log` could go is inside `refresh` itself --
+      before the `throw`, which is the edit you make after you already know
+      this function is the problem; every other frame's output would be
+      identical if the refresh had succeeded. `DEBUG=*` enables namespaced
+      loggers and this code calls none, so it prints nothing at all. And no
+      stack trace is printed, because the rejection is never delivered to a
+      handler -- the one channel that would have named the throw site is
+      exactly the one an unawaited promise suppresses.
     command: ["tree", "$RUN"]
     expect_line:
       - ["refresh() <unread: locals>", "[async]", "!! Error('stale token')"]

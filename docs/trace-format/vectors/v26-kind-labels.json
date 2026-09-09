@@ -1,6 +1,6 @@
 {
   "id": "v26-kind-labels",
-  "asserts": "`frames.kind` is the CONTRACT's enumeration -- `function`, `coroutine`, `generator`, `async_generator` (§3) -- and what a reader PRINTS for it is the recorded language's word. On a TypeScript trace `coroutine` prints `[async]` and `async_generator` prints `[async generator]`, in `tree` and in `frame` alike, because JavaScript has no coroutines and `[coroutine]` would name a construct the program does not contain. `generator` is JavaScript's own word and is printed unchanged. The Python column maps nothing, so a Python trace still prints `[coroutine]` character for character -- pinned by the legacy suite (`tests/test_tree.py`, `tests/test_frame.py`), which is the fence around every Python string, so no second copy of this vector is needed to hold it.",
+  "asserts": "`frames.kind` is the CONTRACT's enumeration -- `function`, `coroutine`, `generator`, `async_generator` (§3) -- and what a reader PRINTS for it is the recorded language's word. On a TypeScript trace `coroutine` prints `[async]` and `async_generator` prints `[async generator]`, in `tree` and in `frame` alike, because JavaScript has no coroutines and `[coroutine]` would name a construct the program does not contain. `generator` is JavaScript's own word and is printed unchanged. The Python column maps nothing, so a Python trace still prints `[coroutine]` character for character -- pinned by the legacy suite (`tests/test_tree.py`, `tests/test_frame.py`), which is the fence around every Python string, so no second copy of this vector is needed to hold it. The fifth frame carries the same rule applied to a SITE rather than a word (R28): a `sensorium-ts` YIELD records no line, so a frame parked on one has a NULL `line`, and both `tree` and `frame` print the suspension WITHOUT a site -- `~ suspended at end of recording`, `state: suspended` -- never the literal `LNone`, which is a reader inventing a site out of an absent record. A Python or Rust suspension always carries a line and renders unchanged.",
   "meta": {
     "trace_format": 4,
     "run_id": "$RUN",
@@ -50,16 +50,19 @@
   "codes": [["/w/app/src/kinds.test.ts", "main", 1],
             ["/w/app/src/kinds.test.ts", "loadTile", 10],
             ["/w/app/src/kinds.test.ts", "walkTiles", 20],
-            ["/w/app/src/kinds.test.ts", "streamTiles", 30]],
+            ["/w/app/src/kinds.test.ts", "streamTiles", 30],
+            ["/w/app/src/kinds.test.ts", "parkTile", 40]],
   "frames": [
-    {"parent": null, "code": 1, "call": 1, "return": 8, "depth": 0,
+    {"parent": null, "code": 1, "call": 1, "return": 10, "depth": 0,
      "thread": 1, "closed_by": "return", "kind": "function"},
     {"parent": null, "code": 2, "call": 2, "return": 3, "depth": 0,
      "thread": 1, "closed_by": "return", "kind": "coroutine"},
     {"parent": null, "code": 3, "call": 4, "return": 5, "depth": 0,
      "thread": 1, "closed_by": "return", "kind": "generator"},
     {"parent": null, "code": 4, "call": 6, "return": 7, "depth": 0,
-     "thread": 1, "closed_by": "return", "kind": "async_generator"}
+     "thread": 1, "closed_by": "return", "kind": "async_generator"},
+    {"parent": null, "code": 5, "call": 8, "return": null, "depth": 0,
+     "thread": 1, "kind": "coroutine"}
   ],
   "events": [
     {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
@@ -82,7 +85,11 @@
      "line": null,
      "payload": {"outcome": "ok", "value": {"k": "dbg", "v": "undefined"}},
      "task": 1},
-    {"ts": 8000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+    {"ts": 8000, "thread": 1, "kind": "CALL", "code": 5, "line": 40,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": 1},
+    {"ts": 9000, "thread": 1, "kind": "YIELD", "frame": 5, "code": 5,
+     "line": null, "payload": {"awaiting": "Promise"}, "task": 1},
+    {"ts": 10000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
      "line": null,
      "payload": {"outcome": "ok", "value": {"k": "dbg", "v": "undefined"}},
      "task": null}
@@ -117,6 +124,22 @@
       "expect_exit": 0,
       "expect_line": [["f4", "streamTiles", "[async generator]"]],
       "expect_absent": ["[async_generator]", "[coroutine]", "asyncio"]
+    },
+    {
+      "id": "tree-names-no-site-for-a-suspension-that-recorded-none",
+      "ask": "A frame parked at an `await` whose YIELD carries no line -- what does `tree` say about where it stopped?",
+      "command": ["tree", "$RUN"],
+      "expect_exit": 0,
+      "expect_line": [["f5", "parkTile", "[async]", "~ suspended at end of recording"]],
+      "expect_absent": ["LNone", "suspended at L"]
+    },
+    {
+      "id": "frame-names-no-site-for-that-suspension-either",
+      "ask": "And `frame` on the same parked frame -- does its `state:` segment name a line the recording does not hold?",
+      "command": ["frame", "$RUN", "--fn", "parkTile"],
+      "expect_exit": 0,
+      "expect_line": [["f5", "parkTile", "[async]", "closed: open", "state: suspended"]],
+      "expect_absent": ["state: suspended at L"]
     }
   ]
 }

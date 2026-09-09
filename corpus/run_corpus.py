@@ -449,10 +449,17 @@ def _copy_ts_project(case: Case, wd: Path) -> None:
     link means that one directory appears in the real tree for the length of
     one recording; the cases run one at a time, and `.sensorium` is ignored
     by the copy so a leftover one is never carried in.
+
+    `run_count.txt` is ignored for the same reason and a sharper one (R30a):
+    it is what `typescript/nondeterministic` writes, and a hand-run of vitest
+    in the checkout leaves one behind. Carried into the copy, the case's
+    FIRST invocation would read it and take the second branch -- the A and B
+    groups would swap, the verdict would still be DIVERGED, and the case
+    would pass while asserting the opposite of what it says.
     """
     project = case.dir.parent
     shutil.copytree(project, wd, ignore=shutil.ignore_patterns(
-        "__pycache__", "node_modules", ".sensorium"))
+        "__pycache__", "node_modules", ".sensorium", "run_count.txt"))
     (wd / "node_modules").symlink_to(project / "node_modules",
                                      target_is_directory=True)
 

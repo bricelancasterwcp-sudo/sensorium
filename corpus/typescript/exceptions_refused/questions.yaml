@@ -40,10 +40,14 @@ questions:
       adjacent lines of one command's output, which is the only way a reader
       can tell "no record" from "no rule".
     why_logs_fail: >
-      This is a question about the instrument, not the program: no amount of
-      program output says whether the tool that read it has the rules to
-      judge what it saw. Answering it from logs would mean trusting the
-      absence of a log line as evidence about the recorder.
+      This is a question about the instrument, not the program, and all
+      three channels answer about the program. A `console.log` says what the
+      code did, never whether the tool that read it holds the rules to judge
+      it -- and here the honest reading of NO log line is ambiguous between
+      "the catch is empty" and "nobody recorded it". `DEBUG=*` enables
+      loggers, and an empty `catch` calls none. A stack trace is printed
+      when an error escapes, and this one did not escape, so its absence
+      likewise says nothing about what was recorded.
     command: ["info", "$RUN"]
     expect_line:
       - ["recorded: CALL 3", "RETURN 2", "RAISE 1", "HANDLED 1"]
@@ -60,11 +64,12 @@ questions:
       recording carries it and the verdict is what is owed. The test passes,
       so nothing else in the run marks the failure at all.
     why_logs_fail: >
-      The program's own output is a passing test and a config object; the
-      shape that matters -- one frame unwinding inside another that
-      returned -- is a relationship between two frames, and a log line lives
-      inside one. `DEBUG=*` has no logger to enable; no stack trace is
-      produced because the error never escaped the `catch`.
+      The program's own output is a passing test and a config object;
+      the shape that matters -- one frame unwinding inside another that
+      returned -- is a relationship between two frames, and a
+      `console.log` line lives inside one. `DEBUG=*` has no logger to
+      enable, because an empty `catch` calls none. No stack trace is
+      produced, because the error never escaped the `catch`.
     command: ["tree", "$RUN"]
     expect_line:
       - ["parse() <unread: locals> !! Error('not a number: nine')"]

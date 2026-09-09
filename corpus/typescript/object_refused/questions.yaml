@@ -40,10 +40,12 @@ questions:
       returned 9 for the OTHER caller's settings), so the trace shows the
       consequence of the aliasing and still cannot name it as aliasing.
     why_logs_fail: >
-      This is the log-based reading's own failure written down: printing the
-      values is what a `console.log` does, and it is shown here to be
-      compatible with both explanations. `DEBUG=*` changes the channel, not
-      the content, and no throw occurs.
+      This is the log-based reading's own failure written down: printing
+      the values is what a `console.log` does, and it is shown here to
+      be compatible with both explanations. `DEBUG=*` changes the
+      channel, not the content. No throw occurs, so there is no stack
+      trace to read -- and a stack trace names frames, never the objects
+      they hold.
     command: ["tree", "$RUN"]
     expect_count: {"loadSettings() <unread: locals> -> { retries: 3 }": 2}
     expect_line:
@@ -60,10 +62,12 @@ questions:
       its own capability -- which is the point of declaring them separately
       rather than answering "no results" to both.
     why_logs_fail: >
-      A print of `9` inside `tune` tells you it was written; it does not
-      tell you which of the two settings objects downstream reads it, which
-      is the whole question. `DEBUG=*` and a stack trace are no different
-      here -- both report from inside one frame about one moment.
+      A `console.log` of `9` inside `tune` tells you it was written; it
+      does not tell you which of the two settings objects downstream
+      reads it, which is the whole question. `DEBUG=*` prints the same
+      value through a namespaced channel. A stack trace reports from
+      inside one frame about one moment, and nothing throws here in any
+      case.
     command: ["flow", "$RUN", "--value", "9"]
     expect_exit: 3
     expect_contains:

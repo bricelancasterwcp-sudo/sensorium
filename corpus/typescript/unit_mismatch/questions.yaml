@@ -35,12 +35,12 @@ questions:
       `itemWeight -> 1800`.
     why_logs_fail: >
       The only thing the program computes at the end is the order total,
-      5569, and a print of it is a plausible-looking number: nothing about
-      it says which of goods and shipping is wrong, or by how much. Getting
-      the per-item shipping means adding a print inside the summation --
-      the instrumentation you write only once you already suspect shipping.
-      There is no logger for `DEBUG=*` to switch on and no throw to produce
-      a stack trace.
+      5569, and a `console.log` of it is a plausible-looking number:
+      nothing about it says which of goods and shipping is wrong, or by
+      how much. Getting the per-item shipping means adding a print
+      inside the summation -- the instrumentation you write only once
+      you already suspect shipping. There is no logger for `DEBUG=*` to
+      switch on, and no throw to produce a stack trace.
     command: ["frame", "$RUN", "--fn", "shippingCost", "--nth", "2"]
     expect_contains: ["children: (none)", "return: 4504"]
     expect_line:

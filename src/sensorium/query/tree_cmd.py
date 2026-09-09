@@ -127,7 +127,15 @@ def _state_tail(trace, frame) -> str:
     if s.state == "thrown":
         return f"  ~ unwound by {s.exc['type']} thrown in at L{s.line}"
     if s.state == "suspended":
-        return f"  ~ suspended at L{s.line} at end of recording"
+        # The site is CONDITIONAL, because not every recorder records one: a
+        # `sensorium-ts` YIELD carries no line, so `s.line` is NULL and
+        # `at L{None}` rendered the literal `LNone` -- a reader inventing a
+        # site out of an absent record, which is the one thing this module
+        # exists not to do. Guarded on `is not None` and not on truthiness,
+        # so a Python or Rust suspension (whose YIELD always carries a line,
+        # never 0) renders byte for byte what it always did.
+        where = f" at L{s.line}" if s.line is not None else ""
+        return f"  ~ suspended{where} at end of recording"
     return " (open)"
 
 

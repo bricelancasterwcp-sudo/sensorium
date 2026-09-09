@@ -38,12 +38,12 @@ questions:
       list. `gold` appears nowhere in this frame, which is the
       counterfactual: the discount the spec promised was never applied.
     why_logs_fail: >
-      A print of the returned price gives 95, which is what a correct
-      silver-tier order also returns; the bug is not in the number but in
-      which function produced it. To log that you have to instrument the
-      branch, which means already knowing it is the one that matters --
-      and `DEBUG=*` and a stack trace answer neither question, since
-      nothing is logged and nothing throws.
+      A `console.log` of the returned price gives 95, which is what a
+      correct silver-tier order also returns; the bug is not in the
+      number but in which function produced it. To log that you have to
+      instrument the branch, which means already knowing it is the one
+      that matters -- and `DEBUG=*` and a stack trace answer neither
+      question, since nothing is logged and nothing throws.
     command: ["frame", "$RUN", "--fn", "price", "--nth", "2"]
     expect_contains: ["children (1):", "args: <unread: locals>", "return: 95"]
     expect_line:

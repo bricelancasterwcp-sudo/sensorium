@@ -140,8 +140,13 @@ def run(args) -> int:
     marker = kind_marker(trace, f.kind)
     show_state = (f.kind != "function"
                   or state.state not in ("returned", "raised", "open"))
+    # `is not None`, the same rule `tree_cmd._state_tail` keeps: a recorder
+    # that records no line on a suspension (`sensorium-ts`) leaves this NULL,
+    # and ` at L{None}` would render the literal `LNone` -- a site invented
+    # out of an absent record. A line of 0 is not a line any recorder writes,
+    # so this changes no existing output.
     state_tail = ((f"  state: {state.state}"
-                   + (f" at L{state.line}" if state.line else ""))
+                   + (f" at L{state.line}" if state.line is not None else ""))
                   if show_state else "")
     print(f"f{f.id} {code.file.rsplit('/', 1)[-1]}:{code.qualname}{marker}  "
           f"[e{f.call_event_id}..{end}]  thread {f.thread_id}{task}  "

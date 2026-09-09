@@ -37,11 +37,13 @@ questions:
       bug -- `refresh` returns the cache entry instead of storing the fresh
       value -- localised to one frame, without any per-line record.
     why_logs_fail: >
-      Printing the returned rate gives 100, which is what a correct cache
-      hit also returns; the tell is that the value the SAME frame computed
-      one call earlier was different, and that comparison spans two
-      functions, so no single log line holds both. `DEBUG=*` has no logger
-      to enable here, and nothing throws.
+      A `console.log` of the returned rate gives 100, which is what a
+      correct cache hit also returns; the tell is that the value the
+      SAME frame computed one call earlier was different, and that
+      comparison spans two functions, so no single printed line holds
+      both. `DEBUG=*` has no logger to enable here. Nothing throws, so
+      no stack trace is produced -- and one would name the frames, never
+      what they computed.
     command: ["tree", "$RUN"]
     expect_line:
       - ["refresh() <unread: locals> -> 100"]

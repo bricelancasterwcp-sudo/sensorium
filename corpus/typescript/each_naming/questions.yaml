@@ -16,11 +16,12 @@ questions:
       have.
     why_logs_fail: >
       The three rows run the same function on different data, so a
-      `console.log` inside `square` prints three lines that differ only by a
-      number and carry no test title at all. Getting the title means calling
-      into vitest's state from the code under test -- an edit to production
-      code to serve a test runner. `DEBUG=*` namespaces by module, and all
-      three rows are one module; nothing throws.
+      `console.log` inside `square` prints three lines that differ only
+      by a number and carry no test title at all. Getting the title
+      means calling into vitest's state from the code under test -- an
+      edit to production code to serve a test runner. `DEBUG=*`
+      namespaces by module, and all three rows are one module. Nothing
+      throws, so there is no stack trace.
     command: ["info", "$RUN"]
     expect_line:
       - ["tests: 3 as tasks, 3 seen by the harness", "task names: vitest"]
@@ -39,12 +40,14 @@ questions:
       distinction that would otherwise silently attribute setup work to a
       test.
     why_logs_fail: >
-      A print inside `reset` produces three identical lines. Which test each
-      belongs to is not a fact about the code -- and here the honest answer
-      is that it belongs to no test, which is exactly the answer a log
-      cannot express: an unlabelled line between two labelled ones reads as
-      belonging to one of them. `DEBUG=*` and stack traces have the same
-      blind spot, and nothing throws.
+      A `console.log` inside `reset` produces three identical lines.
+      Which test each belongs to is not a fact about the code -- and
+      here the honest answer is that it belongs to no test, which is
+      exactly the answer a log cannot express: an unlabelled line
+      between two labelled ones reads as belonging to one of them.
+      `DEBUG=*` has the same blind spot, since the hook and the test
+      share a module. Nothing throws, and a stack trace would name the
+      frames above `reset`, which are the harness's and not a test's.
     command: ["tree", "$RUN"]
     expect_contains: ["no test"]
     expect_count:
@@ -67,11 +70,13 @@ questions:
       what makes "hooks are not tasks" checkable rather than a shape
       somebody read off an indented listing.
     why_logs_fail: >
-      "How many of the things that happened were not part of any test" is
-      not a question a program prints about itself at all -- the hook and
-      the test call the same functions, and stdout carries no boundary
-      between them. `DEBUG=*` and stack traces report from inside one frame
-      and know nothing of the harness's phases.
+      "How many of the things that happened were not part of any test"
+      is not a question a `console.log` can answer at all -- the hook
+      and the test call the same functions, and stdout carries no
+      boundary between them. `DEBUG=*` prefixes those same lines with a
+      module namespace, which is identical for both. A stack trace
+      reports from inside one frame and knows nothing of the harness's
+      phases, and nothing throws here anyway.
     command: ["info", "$RUN"]
     expect_line:
       - ["fingerprint thread 1 (main)", "12 causal events outside any test"]

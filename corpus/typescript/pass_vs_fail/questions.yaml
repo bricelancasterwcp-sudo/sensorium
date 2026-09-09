@@ -17,13 +17,13 @@ questions:
       spool-name order, so this question asserts only what holds either way
       -- one `<anonymous>` CALL on each side at step 0.
     why_logs_fail: >
-      Diffing two log files finds the first difference in what was PRINTED,
-      which here is nothing at all until vitest's own failure report -- and
-      that report names the assertion, which is the SYMPTOM. `DEBUG=*`
-      switches a namespaced logger this program does not use. A stack trace
-      does appear for the failing test, and it points at the `expect` line:
-      the place the wrong value was noticed, never the branch that produced
-      it.
+      Diffing two `console.log` transcripts finds the first difference
+      in what was PRINTED, which here is nothing at all until vitest's
+      own failure report -- and that report names the assertion, which
+      is the SYMPTOM. `DEBUG=*` switches a namespaced logger this
+      program does not use. A stack trace does appear for the failing
+      test, and it points at the `expect` line: the place the wrong
+      value was noticed, never the branch that produced it.
     command: ["diff", "$RUN", "$RUN2"]
     expect_exit: 1
     expect_contains:
@@ -47,12 +47,13 @@ questions:
       in either direction: one `gold` call, one `silver` call, one paired
       move.
     why_logs_fail: >
-      This is a question about two executions, and no log line belongs to
-      more than one of them: comparing runs by log means comparing two
-      streams of output that here are both silent until the end. To see the
-      branch you would have to instrument the branch, which requires already
-      knowing it is the one that matters. `DEBUG=*` has no logger to enable
-      and the failing run's stack trace names the assertion, not the tier.
+      This is a question about two executions, and no `console.log` line
+      belongs to more than one of them: comparing runs by log means
+      comparing two streams of output that here are both silent until
+      the end. To see the branch you would have to instrument the
+      branch, which requires already knowing it is the one that matters.
+      `DEBUG=*` has no logger to enable, and the failing run's stack
+      trace names the assertion, not the tier.
     command: ["diff", "$RUN", "$RUN2", "--ignore-moves"]
     expect_exit: 1
     expect_contains:
@@ -76,12 +77,13 @@ questions:
       turns out to be, which is why the file is asserted only by its
       directory.
     why_logs_fail: >
-      An exit status is not something a program prints; and the one number a
-      reader does see -- vitest's own `Test Files 1 failed` line -- is about
+      An exit status is not something a `console.log` can print -- the
+      process is gone by the time there is one -- and the one number a
+      reader does see, vitest's own `Test Files 1 failed` line, is about
       the harness, so reading it as this worker's status is exactly the
-      confusion the two lines exist to prevent. `DEBUG=*` and a stack trace
-      are both inside-the-process facts and say nothing about who reaped
-      whom.
+      confusion the two lines exist to prevent. `DEBUG=*` and a stack
+      trace are both inside-the-process facts and say nothing about who
+      reaped whom.
     command: ["info", "$RUN"]
     expect_contains: ["exit: unwitnessed"]
     expect_line:
@@ -99,11 +101,14 @@ questions:
       them apart. The invocation header carries the harness's exit once, and
       each member carries its own `exit:unwitnessed`.
     why_logs_fail: >
-      This is a question about recorded evidence, not about the program:
-      nothing a test prints says how many containers the harness used or
-      which file each of them ran. Interleaved stdout from two workers is
-      precisely what cannot be split back apart afterwards, which is the
-      reason the association is recorded rather than inferred.
+      This is a question about recorded evidence, not about the program.
+      A `console.log` writes into one worker's stdout with no marker saying
+      which worker, and the two workers' output is interleaved on one
+      terminal -- precisely what cannot be split back apart afterwards.
+      `DEBUG=*` prefixes those lines with a module namespace, which is the
+      same in both workers because both ran the same module. A stack trace
+      is a within-process fact and cannot count processes at all; nothing
+      throws in the passing file anyway.
     command: ["runs"]
     expect_line:
       - ["invocation ", "npx vitest run pass_vs_fail", "exit:1 (waited)"]
