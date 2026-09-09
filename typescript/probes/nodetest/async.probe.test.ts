@@ -5,11 +5,9 @@
 // saw: `basis: "title"`.
 //
 // This directory is outside vitest's `include` on purpose. Run it from
-// `typescript/probes/`:
-//
-//   SENSORIUM_TIER=call SENSORIUM_SPOOL=<dir> SENSORIUM_TS_ROOT=$PWD \
-//   SENSORIUM_TS_PKG=$PWD/.. node --import ../src/register.mjs --test \
-//   nodetest/async.probe.test.ts
+// `typescript/probes/` with `npm run probe:nodetest`, which needs
+// `SENSORIUM_TIER`, `SENSORIUM_SPOOL`, `SENSORIUM_TS_ROOT` and
+// `SENSORIUM_TS_PKG` in the environment — see `README.md` for the recipe.
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { test } from 'node:test';

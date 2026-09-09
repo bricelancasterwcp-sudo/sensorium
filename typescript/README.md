@@ -28,7 +28,9 @@ ITSELF with: ten probe files whose expected rows were pinned by the S5 spike
 before this code existed, an eleventh run under `node --test`, and `probes/check.mjs`,
 which reads the spools back and asserts every one of them. Two probes make
 `vitest run` red on purpose — an unhandled rejection and a test that never
-settles — so the checker's exit status is the gate, not vitest's.
+settles — so the checker's exit status is the gate, not vitest's. The recipe is
+`npm run probe` / `npm run probe:nodetest` from `probes/`, three environment
+variables and a spool directory outside the repository: `probes/README.md`.
 
 **What v1 records** — tier `call`: calls and returns with a captured return
 value, YIELD/RESUME at every `await`, `yield` and `yield*`, RAISE at every

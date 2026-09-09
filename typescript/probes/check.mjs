@@ -1,13 +1,18 @@
-// The probes' gate. It reads every spool the recorder wrote and holds it to the
-// rows the spike's findings §1.1-§1.3 pinned before this code existed, plus the
-// rung-1 rulings the probe files were written for. Nothing here is eyeballed:
-// a probe passes when its rows are asserted, and the JSON on stdout is the
-// evidence.
+// THIS is the probes' gate, not the harness's exit status: the `probe` scripts
+// run the harness and this checker with `;` and not `&&` on purpose, because two
+// probes make `vitest run` red by design (an unhandled rejection, and a test
+// that never settles) and a run that stopped there would never be checked.
 //
-//   node check.mjs <spool dir> [manifest dir] [--mode vitest|nodetest]
+// It reads every spool the recorder wrote and holds it to the rows the spike's
+// findings §1.1-§1.3 pinned before this code existed, plus the rung-1 rulings the
+// probe files were written for. Nothing here is eyeballed: a probe passes when
+// its rows are asserted, and the JSON on stdout is the evidence.
 //
-// vitest's own exit status is NOT the gate — two probes make it red on purpose
-// (an unhandled rejection and a test that never settles). This is.
+//   node check.mjs <vitest|nodetest> <spool dir> [manifest dir]
+//
+// The manifest directory is REQUIRED in `vitest` mode: it carries the plugin's
+// tally, and a checker that let it be omitted would let the tally checks be
+// skipped by leaving an argument off.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -453,16 +458,33 @@ function checkTally(k, dir) {
   }, { files_transformed: manifests.length, parse_errors: 0 });
 }
 
+/** One line, and never a guess about what the caller meant. */
+const USAGE = 'usage: node check.mjs <vitest|nodetest> <spool dir> [manifest dir]';
+
+/**
+ * @param {string} reason
+ * @returns {never}
+ */
+function refuse(reason) {
+  process.stderr.write(`check.mjs: ${reason}. ${USAGE}\n`);
+  process.exit(2);
+}
+
 function main() {
-  const args = process.argv.slice(2).filter((a) => a !== '--mode');
-  const modeAt = process.argv.indexOf('--mode');
-  const mode = modeAt === -1 ? 'vitest' : process.argv[modeAt + 1];
-  const [spoolDir, manifestDir] = args.filter((a) => a !== mode);
+  const [mode, spoolDir, manifestDir] = process.argv.slice(2);
+  // An unset `SENSORIUM_SPOOL` reaches a shell script as an empty argument, so
+  // empty and absent are the same refusal: nothing was recorded to check.
+  if (mode !== 'vitest' && mode !== 'nodetest') refuse(`unknown mode ${JSON.stringify(mode ?? null)}`);
+  if (!spoolDir) refuse('no spool directory — is SENSORIUM_SPOOL set?');
+  if (mode === 'vitest' && !manifestDir) {
+    refuse('no manifest directory — is SENSORIUM_MANIFEST_DIR set?');
+  }
+  if (!fs.existsSync(spoolDir)) refuse(`${spoolDir} does not exist — did the run record anything?`);
   const k = new Checker();
   const spools = readSpools(spoolDir).map(index);
   k.check('spools:any', spools.length > 0, spools.length);
   if (spools.length > 0) (mode === 'nodetest' ? runNodeTest : runVitest)(k, spools);
-  if (manifestDir) checkTally(k, manifestDir);
+  if (mode === 'vitest') checkTally(k, manifestDir);
   const ok = k.failures.length === 0;
   process.stdout.write(`${JSON.stringify({
     mode, spool_dir: spoolDir, spools: spools.length,
