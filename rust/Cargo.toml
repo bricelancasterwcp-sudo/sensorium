@@ -1,7 +1,6 @@
 # The sensorium Rust recorder's workspace.
 #
-# Members are added by the task that creates each crate, so this list names
-# only what exists at this commit. The three that land in v1 are:
+# Three crates, all `publish = false`:
 #
 #   sensorium-rt         the runtime linked into every instrumented unit
 #   sensorium-transform  the syn rewriter

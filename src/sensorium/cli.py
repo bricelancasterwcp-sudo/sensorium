@@ -72,8 +72,10 @@ def main(argv=None) -> int:
         return 2
     parser = argparse.ArgumentParser(
         prog="sensorium",
-        description="Record a Python program's execution; "
-                    "query what actually happened.")
+        description="Record a program's execution; query what actually "
+                    "happened. `sensorium run` records Python and `cargo "
+                    "sensorium` records Rust; every query below reads "
+                    "either trace.")
     sub = parser.add_subparsers(dest="cmd", required=True)
     _add_run_parser(sub)
     for mod in _QUERY_MODULES:

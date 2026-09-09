@@ -1,12 +1,26 @@
 # sensorium
 
-Record what a Python program actually did; ask it questions afterward.
+Record what a program actually did; ask it questions afterward.
 
-Sensorium wraps one run of a program with PEP 669 (`sys.monitoring`)
-instrumentation, streams every call, return, and exception — with captured
-argument and return values — into a SQLite trace, and answers debugging
-questions from that trace in dense plain text. It exists because reading logs
-is reading a diary; this is watching the execution.
+Sensorium records one run of a program — every call, return and exception,
+with captured values — into a SQLite trace, and answers debugging questions
+from that trace in dense plain text shaped for a language model to read. It
+exists because reading logs is reading a diary; this is watching the
+execution.
+
+Two recorders write that trace, and one command line reads it:
+
+- **Python** — `sensorium run -- <command>` wraps one run with PEP 669
+  (`sys.monitoring`) instrumentation. Python 3.12+, no runtime dependencies.
+- **Rust** — `cargo sensorium test|run` instruments a workspace's own crates
+  at build time and writes one trace per process. Stable rustc, Linux.
+
+Both write [trace format 4](docs/TRACE-FORMAT.md), so every query below
+answers on either kind of trace — and where a recorder declares a capability
+it does not have, the query refuses by name instead of answering from data
+that was never recorded. Python is documented first; [Rust](#rust) has its
+own section here and [`rust/README.md`](rust/README.md) is its full
+reference.
 
 Two commitments run through all of it:
 
@@ -33,7 +47,9 @@ spawn needs the `_posixsubprocess.fork_exec` audit event, which arrived in
 **3.14** — below it such a spawn is unwitnessed, and `refocus` says so by
 withholding the "no child process witnessed" line rather than claiming it (see
 ["What the answers claim"](#what-the-answers-claim)). Everything else works
-identically on 3.12 through 3.14, all three of which CI exercises.
+identically on 3.12 through 3.14, all three of which CI exercises. The Rust
+recorder is a separate build and install: [Install and
+record](#install-and-record), under Rust.
 
 ## Use
 
@@ -93,8 +109,9 @@ the working directory the run started in — so `sensorium run -- pytest ...`
 traces your tests and your code, and not pytest's. `--focus module:qualname`
 adds line-level capture with local-variable deltas for the named code;
 `--window QUALNAME` limits that capture to what runs inside one function's
-activations. Traces land in `~/.sensorium` (or `$SENSORIUM_DIR`), one SQLite
-file per run.
+activations. Traces land in `~/.sensorium/traces` (or
+`$SENSORIUM_DIR/traces`), one SQLite file per run — the Rust recorder writes
+to the same directory, so one `runs` lists both.
 
 A run reference is a full run id, a unique prefix, or `last` (the most
 recently written trace). Every query takes one — `runs` takes none and `diff`
@@ -318,7 +335,7 @@ CPython recycles addresses.
 
 ## What a trace file holds
 
-A trace is one SQLite file under `$SENSORIUM_DIR` (default
+A trace is one SQLite file under `$SENSORIUM_DIR/traces` (default
 `~/.sensorium/traces`), created with your umask — `0644` on a default Linux
 setup, so readable by every account on the machine. In plaintext it holds:
 
@@ -337,7 +354,13 @@ setup, so readable by every account on the machine. In plaintext it holds:
   asyncio task.
 
 The file layout is trace format 4; `docs/TRACE-FORMAT.md` is the contract,
-with conformance vectors under `docs/trace-format/vectors/`.
+with conformance vectors under `docs/trace-format/vectors/`. A Rust trace
+holds the environment, command line, source digests and captured `Debug`
+values the same way; its tasks are libtest tests and spawned threads rather
+than asyncio tasks, program output under libtest is declared absent rather
+than stored, and the spool directory a recording leaves under `target/`
+holds the same plaintext before conversion (`rust/README.md`, "Where traces
+go").
 
 `info` refuses to print the environment and `refocus` refuses to print the
 variables it compared — both carry secrets, and both say so in their own
@@ -348,8 +371,9 @@ lands.
 
 ## What sensorium sees at all
 
-Python code that this run traced, in files under the run's own root. **Nothing
-else.** No command here says anything about:
+Code that this run traced — for the Python recorder, Python code in files
+under the run's own root; for the Rust recorder, the workspace's own crates.
+**Nothing else.** On a Python trace, no command here says anything about:
 
 - any child process, by any mechanism;
 - any thread not started through Python's own `threading` / `_thread`;
@@ -364,7 +388,10 @@ else.** No command here says anything about:
 This is stated as a category rather than as a list of mechanisms on purpose.
 Five review rounds of `refocus` each found a mechanism the tool could not see;
 an enumeration that looks complete is more dangerous than no enumeration,
-because a reader who checks the list concludes their case was covered.
+because a reader who checks the list concludes their case was covered. The
+Rust recorder draws its boundary the same way, in
+[`rust/HONESTY.md`](rust/HONESTY.md) and
+[`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md).
 
 ## Overhead
 
@@ -505,7 +532,7 @@ tasks are compared by content and the interleaving is not; re-recorded with
 one task's content branching, the verdict is DIVERGED, naming that task.
 
 Forty-three more cases live under `corpus/rust/`, recorded by the Rust
-recorder instead. Fourteen of them are rungs 0–2's: seven ports of the cases
+recorder instead (63 cases and 141 questions in all). Fourteen of them are rungs 0–2's: seven ports of the cases
 above (the same class of planted bug, asked differently, because that
 recorder captures return values and not arguments), five that only Rust has
 — a caught panic turned into an `Ok`, an `abort()` that leaves its frames
@@ -542,7 +569,7 @@ and a workload, not a pass/fail property of the tool.
 ## Rust
 
 `cargo sensorium test`/`cargo sensorium run` record a Rust workspace's own
-crates the same way this document's recorder records a Python program: one
+crates the same way `sensorium run` records a Python program: one
 sensorium trace per process, trace format 4, read by the same `sensorium`
 command line. `rust/` ships `sensorium-rt 0.4.1` (zero dependencies, the
 runtime linked into every instrumented unit, and the owner of the one sha256
@@ -739,6 +766,7 @@ substrates, MCP wrapper. See
 
 MIT — see [LICENSE](LICENSE). Copyright © 2026 Brice Lancaster.
 
-Sensorium is a zero-dependency library other programs import, so it is
-deliberately permissive: nothing you trace, and nothing you build around it,
-inherits an obligation from it.
+The Python recorder has no runtime dependencies and the Rust runtime is
+linked into every instrumented build, so the licence is deliberately
+permissive: nothing you trace, and nothing you build around it, inherits an
+obligation from it.

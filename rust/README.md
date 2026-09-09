@@ -42,11 +42,15 @@ change of 2026-09-03 and `sensorium-rt` was `0.1.0`:
 | `sensorium-transform` | The `syn` rewriter. Pure: source + tier config in, spliced source + a site manifest out. No I/O. |
 | `cargo-sensorium` | One binary with four roles: the `cargo sensorium` driver, the workspace wrapper cargo calls per unit, the target runner, and the converter that turns spools and manifests into traces. |
 
-`sensorium-rt`'s zero-dependency policy and `cargo-sensorium`'s own policy
-against a `sha2` dependency each carry their own from-scratch, NIST-vector-pinned
-SHA-256 (`env_hash` in the runtime, `tool_hash`/`source_hashes` in the driver) —
-two ~200-line files kept in sync by the same test vectors, a duplication
-D1 forces rather than an oversight (design spec §2.3, D1 in the rung-2 plan).
+One from-scratch, NIST-vector-pinned SHA-256 serves all three: `sensorium-rt`
+owns it as `pub mod sha256` (its zero-dependency policy rules out `sha2`), and
+`sensorium-transform` (`Focus::focus_hash`) and `cargo-sensorium` (the tool
+hash, the mirror's cache key, each mirrored source's `source_hash`) depend on
+the leaf crate to hash with. That is a build-time dependency only — the driver
+embeds the runtime's sources and compiles them with its own bare `rustc` line,
+so nothing of the runtime reaches a transformed unit by this route and D1
+(design spec §2.3) holds. Until 0.8.7 the same implementation stood in all
+three crates, kept in sync by the same vectors; the copies are gone.
 
 **What v1 records** — tier `call`: calls and returns with an outcome and a
 captured return value, panics, threads as tasks (libtest's per-test threads and
