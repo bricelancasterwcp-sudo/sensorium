@@ -28,6 +28,14 @@ from sensorium.store.reader import Trace
 #: How many names the pre-registration compares.
 SAMPLE = 20
 
+#: How this recorder joins a describe chain to a test name. Reported, not
+#: assumed: `separator_normalised_identical` says whether the two name lists
+#: agree once this string is replaced by a space, which is the difference
+#: between "the recorder named a different test" and "the recorder spelled
+#: the same chain another way". The first would be a defect; the second is a
+#: fact about two spellings, and the record says which one was measured.
+JOIN = " > "
+
 
 def full_names(report: dict) -> list[str]:
     """Every `fullName` in a vitest JSON report, in the reporter's order.
@@ -86,6 +94,9 @@ def measure(store: Path, invocation: str, report_path: Path,
             want = []
         sample.update(run=run_id, n=SAMPLE, trace_names=got,
                       vitest_full_names=want, identical=got == want,
+                      separator_normalised_identical=(
+                          [g.replace(JOIN, " ") for g in got] == want),
+                      join=JOIN,
                       first_difference=next(
                           (i for i, (a, b) in enumerate(zip(got, want))
                            if a != b), None if got == want else min(len(got), len(want))))

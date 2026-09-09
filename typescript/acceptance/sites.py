@@ -48,8 +48,15 @@ def fail_block(text: str, planted: str) -> dict:
     clean = [ANSI.sub("", line).rstrip() for line in text.splitlines()]
     fail_lines = [line.strip() for line in clean
                   if line.lstrip().startswith("FAIL") and planted in line]
-    refs = [m for line in clean for m in REF.findall(line) if planted in m]
-    return {"fail_lines": fail_lines, "refs": refs}
+    every = [m for line in clean for m in REF.findall(line)]
+    refs = [m for m in every if planted in m]
+    return {"fail_lines": fail_lines, "refs": refs,
+            # Every OTHER file the report pointed at, reported and not
+            # compared: the gate is the planted site's line and column, and
+            # a driven run's stack additionally walks through the recorder's
+            # own runtime, which is a fact about the report worth seeing and
+            # not a move of the site.
+            "other_refs": [m for m in every if planted not in m]}
 
 
 def sites_half(report: dict) -> dict:
@@ -89,7 +96,8 @@ def measure(check_json: Path, plain_log: Path, driven_log: Path,
 
     identical = None
     if plain is not None:
-        identical = plain == driven
+        gated = lambda b: {"fail_lines": b["fail_lines"], "refs": b["refs"]}
+        identical = gated(plain) == gated(driven)
         planted_half.update(plain=plain, driven=driven, identical=identical)
         if not plain["fail_lines"] and not plain["refs"]:
             planted_half["dropped"] = ("the plain run printed no FAIL and no "

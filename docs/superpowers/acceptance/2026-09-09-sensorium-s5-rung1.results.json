@@ -1,0 +1,1050 @@
+{
+  "record": "docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md",
+  "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+  "schema": "every measurement is {value, n, lens, dropped}; a null value with a non-empty dropped list is the only representation of 'not measured'; 0 is measured-and-zero",
+  "gated": {
+    "E0'": {
+      "value": 372,
+      "n": 372,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "invocation": "20260909-160038-f08e89",
+      "containers": 372,
+      "one_file": 372,
+      "many_files": [],
+      "no_file": [],
+      "distinct_files": 372,
+      "repeated_files": {}
+    },
+    "E1'": {
+      "value": 1.0587,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "rule_arm": "off/plain, harness wall, conversion excluded",
+      "arms": {
+        "plain": {
+          "runs": 5,
+          "walls": [
+            22.3136,
+            22.3252,
+            22.5925,
+            22.6142,
+            22.7221
+          ],
+          "dropped": [],
+          "median": 22.5925,
+          "min": 22.3136,
+          "max": 22.7221,
+          "mean": 22.5135,
+          "stdev": 0.1839
+        },
+        "off": {
+          "runs": 5,
+          "walls": [
+            23.6649,
+            23.7126,
+            23.9531,
+            23.9871,
+            23.9185
+          ],
+          "dropped": [],
+          "median": 23.9185,
+          "min": 23.6649,
+          "max": 23.9871,
+          "mean": 23.8472,
+          "stdev": 0.1477
+        },
+        "call": {
+          "runs": 5,
+          "walls": [
+            25.5832,
+            25.1789,
+            25.613,
+            25.9376,
+            25.489
+          ],
+          "dropped": [],
+          "median": 25.5832,
+          "min": 25.1789,
+          "max": 25.9376,
+          "mean": 25.5603,
+          "stdev": 0.2721
+        }
+      },
+      "driver_total_wall": {
+        "off": {
+          "runs": 5,
+          "walls": [
+            23.731,
+            23.7849,
+            24.02,
+            24.054,
+            23.9928
+          ],
+          "dropped": [],
+          "median": 23.9928,
+          "min": 23.731,
+          "max": 24.054,
+          "mean": 23.9165,
+          "stdev": 0.1476
+        },
+        "call": {
+          "runs": 5,
+          "walls": [
+            45.043,
+            63.5882,
+            71.1134,
+            71.1949,
+            70.2505
+          ],
+          "dropped": [],
+          "median": 70.2505,
+          "min": 45.043,
+          "max": 71.1949,
+          "mean": 64.238,
+          "stdev": 11.1881
+        }
+      },
+      "off_over_plain": 1.0587,
+      "call_over_plain": 1.1324,
+      "off_total_over_plain": 1.062,
+      "call_total_over_plain": 3.1095
+    },
+    "E2'": {
+      "value": 1,
+      "n": 5378,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "files": 367,
+      "instrumented": 5378,
+      "eligible": 5378,
+      "failed": [],
+      "parse_error": [],
+      "excluded": {},
+      "by_kind": {
+        "function": 5094,
+        "coroutine": 284
+      },
+      "bloat": 1.2543
+    },
+    "E3-TS": {
+      "value": 0,
+      "n": 19,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "test_file": "src/__tests__/useMeshVoice.test.tsx",
+      "recordings": 20,
+      "recordings_with_a_trace": 20,
+      "first": "20260909-155657-e15061",
+      "pairs": 19,
+      "diverged": 0,
+      "refused": 0,
+      "match": 19,
+      "bad_call": 0,
+      "verdicts": [
+        "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+      ],
+      "detail": {
+        "match": [
+          {
+            "k": 2,
+            "run": "20260909-155659-5d74fc",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 3,
+            "run": "20260909-155700-1bafcf",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 4,
+            "run": "20260909-155701-87c9ae",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 5,
+            "run": "20260909-155702-465f67",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 6,
+            "run": "20260909-155703-f5e925",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 7,
+            "run": "20260909-155704-e9b5fc",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 8,
+            "run": "20260909-155706-5b5460",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 9,
+            "run": "20260909-155707-451f46",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 10,
+            "run": "20260909-155708-518af0",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 11,
+            "run": "20260909-155709-4c5ab6",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 12,
+            "run": "20260909-155710-f93a2d",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 13,
+            "run": "20260909-155712-b14833",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 14,
+            "run": "20260909-155713-5af46b",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 15,
+            "run": "20260909-155714-ff3a47",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 16,
+            "run": "20260909-155715-295edc",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 17,
+            "run": "20260909-155716-0463c9",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 18,
+            "run": "20260909-155717-f91054",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 19,
+            "run": "20260909-155719-9d485b",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 20,
+            "run": "20260909-155720-e70d26",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          }
+        ],
+        "diverged": [],
+        "refused": [],
+        "bad_call": [],
+        "no_trace": []
+      }
+    },
+    "E4'": {
+      "value": 20,
+      "n": 20,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "shapes": {
+        "markers": 20,
+        "on_line": 20,
+        "wrong": [],
+        "count_ok": true,
+        "lines_ok": true
+      },
+      "planted": {
+        "file": "src/lib/safeUrl.test.ts",
+        "plain": {
+          "fail_lines": [
+            "FAIL  src/lib/safeUrl.test.ts > planted acceptance failure"
+          ],
+          "refs": [
+            "src/lib/safeUrl.test.ts:44:13"
+          ],
+          "other_refs": []
+        },
+        "driven": {
+          "fail_lines": [
+            "FAIL  src/lib/safeUrl.test.ts > planted acceptance failure"
+          ],
+          "refs": [
+            "src/lib/safeUrl.test.ts:44:13"
+          ],
+          "other_refs": [
+            "../../../../sensorium-rung2/s5-rung1/typescript/src/rt.mjs:296:39",
+            "../../../../sensorium-rung2/s5-rung1/typescript/src/rt.mjs:296:23"
+          ]
+        },
+        "identical": true
+      },
+      "report_identical": true
+    },
+    "E5'": {
+      "value": 2,
+      "n": 2,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "claims": {
+        "vitest_full_suite_green": true,
+        "node_test_probe_green": true
+      },
+      "vitest": {
+        "call_runs": 5,
+        "green": 5,
+        "runs": [
+          {
+            "run": 1,
+            "ok": true,
+            "exit": 0,
+            "files": true,
+            "tests": true
+          },
+          {
+            "run": 2,
+            "ok": true,
+            "exit": 0,
+            "files": true,
+            "tests": true
+          },
+          {
+            "run": 3,
+            "ok": true,
+            "exit": 0,
+            "files": true,
+            "tests": true
+          },
+          {
+            "run": 4,
+            "ok": true,
+            "exit": 0,
+            "files": true,
+            "tests": true
+          },
+          {
+            "run": 5,
+            "ok": true,
+            "exit": 0,
+            "files": true,
+            "tests": true
+          }
+        ]
+      },
+      "node_test": {
+        "ok": true,
+        "spools": 1,
+        "checks": 15,
+        "failures": []
+      }
+    },
+    "E6'": {
+      "value": 0,
+      "n": 2,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "manifest": {
+        "exit": 0,
+        "ok": 748,
+        "failed": [],
+        "identical": true
+      },
+      "plain_after": {
+        "exit": 0,
+        "files": true,
+        "tests": true,
+        "wall": 22.8678,
+        "band": [
+          22.3136,
+          22.7221
+        ],
+        "in_band": false,
+        "duration_line": "Duration  22.57s (transform 10.37s, setup 12.10s, import 32.84s, tests 79.29s, environment 165.10s)"
+      },
+      "markers": {
+        "searched": [
+          "node_modules/.vite",
+          "node_modules/.vite-temp"
+        ],
+        "hits": []
+      },
+      "wrapper_dir": "absent"
+    },
+    "E7'": {
+      "value": 0,
+      "n": 8,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "occurrences": {
+        "asyncio": 0,
+        "python ?": 0,
+        "cargo": 0,
+        "coroutine": 0,
+        "Python's own": 0,
+        "threading/_thread": 0,
+        "Rust disposition": 0,
+        "sensorium run --focus": 0
+      },
+      "context_mentions_not_gated": {
+        "python": 1,
+        "rust": 0,
+        "asyncio task": 0
+      },
+      "commands": [
+        {
+          "command": "runs",
+          "exit": 0
+        },
+        {
+          "command": "info",
+          "exit": 0
+        },
+        {
+          "command": "tree",
+          "exit": 0
+        },
+        {
+          "command": "frame",
+          "exit": 0
+        },
+        {
+          "command": "grep",
+          "exit": 0
+        },
+        {
+          "command": "excs",
+          "exit": 3
+        },
+        {
+          "command": "watch",
+          "exit": 3
+        },
+        {
+          "command": "flow",
+          "exit": 3
+        },
+        {
+          "command": "diff",
+          "exit": 0
+        },
+        {
+          "command": "refocus",
+          "exit": 2
+        }
+      ],
+      "transcript_lines": 2241,
+      "vectors": {
+        "exit": 0,
+        "summary": "3 passed, 1 skipped, 57 deselected in 0.38s",
+        "green": true
+      }
+    },
+    "E8'": {
+      "value": 5,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "per_shape": {
+        "shape1": {
+          "checks": [
+            {
+              "id": "swallow:shape1:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape1:exc",
+              "ok": true
+            }
+          ],
+          "ok": true
+        },
+        "shape2": {
+          "checks": [
+            {
+              "id": "swallow:shape2:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape2:exc",
+              "ok": true
+            }
+          ],
+          "ok": true
+        },
+        "shape3": {
+          "checks": [
+            {
+              "id": "swallow:shape3:count",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape3:keys",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape3:exc",
+              "ok": true
+            }
+          ],
+          "ok": true
+        },
+        "shape4": {
+          "checks": [
+            {
+              "id": "swallow:shape4:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape4:exc",
+              "ok": true
+            }
+          ],
+          "ok": true
+        },
+        "shape5": {
+          "checks": [
+            {
+              "id": "swallow:shape5:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape5:exc",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape5:serial",
+              "ok": true
+            }
+          ],
+          "ok": true
+        }
+      }
+    },
+    "E9": {
+      "value": 0,
+      "n": 372,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "invocation": "20260909-160038-f08e89",
+      "tasks": 4278,
+      "tests_seen": 4278,
+      "task_name_conflicts": 0,
+      "shortfall": 0,
+      "shortfall_pct": 0.0,
+      "files_disagreeing": [],
+      "sample": {
+        "file": "src/components/inventory/InventoryTab.test.tsx",
+        "run": "20260909-160043-2425ca",
+        "n": 20,
+        "trace_names": [
+          "InventoryTab > renders a resolved item and toggles equip",
+          "InventoryTab > calls removeInventoryInstance when the remove button is clicked",
+          "InventoryTab > decrements uses on click, floored at 0",
+          "InventoryTab > disables the Use button once remaining uses reach 0",
+          "InventoryTab > calls updateInventoryInstance with attuned:true when the attune checkbox is clicked",
+          "InventoryTab > renders an unlinked hint and does not crash when the ref has no matching template",
+          "InventoryTab > renders sane defaults (not literal \"undefined\") for a fresh template with empty data",
+          "InventoryTab > adds an item via the picker search and calls addInventoryItem",
+          "InventoryTab > adds an item when a compendium entry is dropped onto the inventory panel",
+          "InventoryTab > ignores a dropped compendium entry that is not an item",
+          "InventoryTab > does not throw when dropped payload is malformed JSON",
+          "InventoryTab > does not throw when dropped payload is valid JSON but the wrong shape",
+          "InventoryTab > calls setCurrency with an incremented denomination when a stepper is clicked",
+          "InventoryTab > calls setCurrency with the rolled-up wallet when Convert up is clicked",
+          "InventoryTab > encumbrance (optional, GM-gated) > does not show the encumbrance line by default",
+          "InventoryTab > encumbrance (optional, GM-gated) > shows the encumbrance line once the flag is enabled in the store",
+          "InventoryTab > encumbrance (optional, GM-gated) > enables the encumbrance line via the GM-only \"Track encumbrance\" toggle",
+          "InventoryTab > encumbrance (optional, GM-gated) > hides the \"Track encumbrance\" toggle for non-GM players",
+          "InventoryTab > auto-derived weapon attacks (opt-in, Task 13) > writes the derived weapon attack into attacks[] and records it in custom.__derivedAttackNames when the flag is on (default)",
+          "InventoryTab > auto-derived weapon attacks (opt-in, Task 13) > does not persist derived attacks when the auto-derive flag is off"
+        ],
+        "vitest_full_names": [
+          "InventoryTab renders a resolved item and toggles equip",
+          "InventoryTab calls removeInventoryInstance when the remove button is clicked",
+          "InventoryTab decrements uses on click, floored at 0",
+          "InventoryTab disables the Use button once remaining uses reach 0",
+          "InventoryTab calls updateInventoryInstance with attuned:true when the attune checkbox is clicked",
+          "InventoryTab renders an unlinked hint and does not crash when the ref has no matching template",
+          "InventoryTab renders sane defaults (not literal \"undefined\") for a fresh template with empty data",
+          "InventoryTab adds an item via the picker search and calls addInventoryItem",
+          "InventoryTab adds an item when a compendium entry is dropped onto the inventory panel",
+          "InventoryTab ignores a dropped compendium entry that is not an item",
+          "InventoryTab does not throw when dropped payload is malformed JSON",
+          "InventoryTab does not throw when dropped payload is valid JSON but the wrong shape",
+          "InventoryTab calls setCurrency with an incremented denomination when a stepper is clicked",
+          "InventoryTab calls setCurrency with the rolled-up wallet when Convert up is clicked",
+          "InventoryTab encumbrance (optional, GM-gated) does not show the encumbrance line by default",
+          "InventoryTab encumbrance (optional, GM-gated) shows the encumbrance line once the flag is enabled in the store",
+          "InventoryTab encumbrance (optional, GM-gated) enables the encumbrance line via the GM-only \"Track encumbrance\" toggle",
+          "InventoryTab encumbrance (optional, GM-gated) hides the \"Track encumbrance\" toggle for non-GM players",
+          "InventoryTab auto-derived weapon attacks (opt-in, Task 13) writes the derived weapon attack into attacks[] and records it in custom.__derivedAttackNames when the flag is on (default)",
+          "InventoryTab auto-derived weapon attacks (opt-in, Task 13) does not persist derived attacks when the auto-derive flag is off"
+        ],
+        "identical": false,
+        "separator_normalised_identical": true,
+        "join": " > ",
+        "first_difference": 0
+      }
+    },
+    "E10": {
+      "value": 45.5293,
+      "n": 3,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "full_suite": {
+        "value": 45.5293,
+        "n": 3,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "label": "suite",
+        "spools": 372,
+        "spool_bytes": 414450522,
+        "walls": [
+          45.5293,
+          45.3636,
+          45.5584
+        ],
+        "reps": [
+          {
+            "rep": 1,
+            "wall": 45.5293,
+            "exit": 0,
+            "traces": 372
+          },
+          {
+            "rep": 2,
+            "wall": 45.3636,
+            "exit": 0,
+            "traces": 372
+          },
+          {
+            "rep": 3,
+            "wall": 45.5584,
+            "exit": 0,
+            "traces": 372
+          }
+        ],
+        "min": 45.3636,
+        "max": 45.5584
+      },
+      "one_file": {
+        "value": 0.3638,
+        "n": 3,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "label": "onefile",
+        "spools": 1,
+        "spool_bytes": 611016,
+        "walls": [
+          0.3748,
+          0.3638,
+          0.3586
+        ],
+        "reps": [
+          {
+            "rep": 1,
+            "wall": 0.3748,
+            "exit": 0,
+            "traces": 1
+          },
+          {
+            "rep": 2,
+            "wall": 0.3638,
+            "exit": 0,
+            "traces": 1
+          },
+          {
+            "rep": 3,
+            "wall": 0.3586,
+            "exit": 0,
+            "traces": 1
+          }
+        ],
+        "min": 0.3586,
+        "max": 0.3748
+      }
+    },
+    "E11": {
+      "value": 5,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "half_a": {
+        "value": 2,
+        "n": 2,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "half": "a: a promise that never settles",
+        "run": "20260909-155620-47db24",
+        "claims": {
+          "tree_says_suspended": true,
+          "info_has_no_incomplete_banner": true
+        },
+        "tree_exit": 0,
+        "info_exit": 0,
+        "banner_lines": [],
+        "suspended_lines": [
+          "f1 e1 <anonymous>() <unread: locals>  [async]  ~ suspended at end of recording",
+          "f2 e2 parks() <unread: locals>  [async]  ~ suspended at end of recording"
+        ]
+      },
+      "half_b": {
+        "value": 3,
+        "n": 3,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "half": "b: a container SIGKILLed mid-file",
+        "invocation": "20260909-162756-a4c376",
+        "file": "src/components/inventory/InventoryTab.test.tsx",
+        "killed_run": "20260909-162806-0bb042",
+        "complete_run": "20260909-160043-2425ca",
+        "claims": {
+          "trace_incomplete_true": true,
+          "info_prints_incomplete_banner": true,
+          "diff_refuses_at_exit_3": true
+        },
+        "diff_exit": 3,
+        "info_exit": 0,
+        "banner_lines": [
+          "INCOMPLETE: recording ended without a finalize pass (process died mid-record); exit/uncaught/children/truncated-count fields below are UNKNOWN, not zero"
+        ],
+        "diff_verdict": "verdict: REFUSED -- cannot issue a MATCH/DIVERGED verdict",
+        "kill_log": [
+          "driver pid: 1567570",
+          "invocation: 20260909-162756-a4c376",
+          "spool: 1568484-0.jsonl",
+          "victim pid: 1568484",
+          "cmdline: <home>/.nvm/versions/node/v24.16.0/bin/node --experimental-import-meta-resolve --require <lens>/node_modules/vitest/suppress-warnings.cjs --conditions node --conditions development <lens>/node_modules/vitest/dist/workers/forks.js ",
+          "kill -9 1568484: sent",
+          "driver exit: 1"
+        ],
+        "driver_exit": 1
+      }
+    }
+  },
+  "controls": {
+    "E5-TS, the split": {
+      "value": 4,
+      "n": 4,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "control": "E5-TS, the split",
+      "test_file": "src/lib/distance/hexGeometry.test.ts",
+      "edit": {
+        "module": "src/lib/distance/hexGeometry.ts",
+        "dest": "src/lib/distance/hexGeometryMoved.ts",
+        "moved": [
+          {
+            "name": "hexDistance",
+            "lines": 11,
+            "first_line_1based": 182
+          },
+          {
+            "name": "isHexShape",
+            "lines": 4,
+            "first_line_1based": 67
+          }
+        ],
+        "import_after_line": 19
+      },
+      "runs": [
+        {
+          "stage": "before",
+          "driver_exit": 0,
+          "run": "20260909-163029-5234cc"
+        },
+        {
+          "stage": "after",
+          "driver_exit": 0,
+          "run": "20260909-163031-0cc3e6"
+        }
+      ],
+      "claims": {
+        "plain_diff_diverged": true,
+        "ignore_moves_match_modulo_location": true,
+        "moved_is_exactly_the_two": true,
+        "every_task_paired": true
+      },
+      "plain": {
+        "exit": 1,
+        "verdict": "verdict: MATCH on the thread stream (14 events); DIVERGED on the tasks (below)"
+      },
+      "ignore_moves": {
+        "exit": 0,
+        "verdict": "verdict: MATCH modulo location -- identical causal streams (14 events) once 2 moved code object(s) are paired by qualname on the main thread; values, timing, and LINE events were not compared",
+        "moved": [
+          {
+            "qualname": "hexDistance",
+            "from": "hexGeometry.ts",
+            "to": "hexGeometryMoved.ts"
+          },
+          {
+            "qualname": "isHexShape",
+            "from": "hexGeometry.ts",
+            "to": "hexGeometryMoved.ts"
+          }
+        ],
+        "other_move_lines": [],
+        "tasks": "tasks: 56 task stream(s) on each side, compared by content as (name, hash): all matched; the ordering between tasks is not compared"
+      }
+    },
+    "The planted change": {
+      "value": 2,
+      "n": 2,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "control": "the planted change",
+      "test_file": "src/lib/distance/hexGeometry.test.ts",
+      "edit": {
+        "file": "src/lib/distance/distance.ts",
+        "moved_line": "const law = terrainLaw(terrainSystem, kind);",
+        "from_line_1based": 225,
+        "to_line_1based": 232,
+        "now_above": "cost += applyLaw(law, base);"
+      },
+      "runs": [
+        {
+          "stage": "before",
+          "driver_exit": 0,
+          "run": "20260909-163047-ae0e00"
+        },
+        {
+          "stage": "after",
+          "driver_exit": 0,
+          "run": "20260909-163050-89c12d"
+        }
+      ],
+      "claims": {
+        "plain_diff_diverged": true,
+        "report_names_the_step": true
+      },
+      "plain": {
+        "exit": 1,
+        "verdict": "verdict: MATCH on the thread stream (14 events); DIVERGED on the tasks (below)",
+        "step_line": "first difference inside hex step law > square is byte-identical to the unshaped call (the back-compat contract) (A task t56, B task t56) at causal step 16:",
+        "causal_step": "16",
+        "first_difference": [
+          "A:      e87517 CALL    terrainLaw  (<scratch>/copies/lens-swap/src/lib/distance/distance.ts)",
+          "B:      e87517 CALL    isDiagonal  (<scratch>/copies/lens-swap/src/lib/distance/distance.ts)"
+        ]
+      }
+    }
+  },
+  "first_use": {
+    "value": 4,
+    "n": 4,
+    "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+    "dropped": [],
+    "invocation_a": "20260909-160038-f08e89",
+    "invocation_b": "20260909-160541-9c665a",
+    "test_file": "src/components/inventory/InventoryTab.test.tsx",
+    "fn": "deriveWeaponAttacks",
+    "run_a": "20260909-160043-2425ca",
+    "run_b": "20260909-160546-48e89b",
+    "invocations": {
+      "runs": {
+        "exit": 0,
+        "lines_for_the_two_invocations": [
+          "invocation 20260909-160038-f08e89: npx vitest run  exit:0 (waited)",
+          "invocation 20260909-160541-9c665a: npx vitest run  exit:0 (waited)"
+        ],
+        "traces_per_invocation": {
+          "20260909-160038-f08e89": 372,
+          "20260909-160541-9c665a": 372
+        },
+        "ok": true
+      },
+      "diff": {
+        "exit": 0,
+        "verdict": "verdict: MATCH -- identical causal streams (180 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared",
+        "first_lines": [
+          "A 20260909-160043-2425ca: threads 1  compared: t1 [recorded main thread]  fp 4b670acfe39392d84f9ef395dfc8442b",
+          "B 20260909-160546-48e89b: threads 1  compared: t1 [recorded main thread]  fp 4b670acfe39392d84f9ef395dfc8442b",
+          "note: A's recorder sensorium-ts 0.1.0 declares threads not witnessed (capabilities.threads: false), so there is no thread record to read; absence of the record is not a record of absence",
+          "note: B's recorder sensorium-ts 0.1.0 declares threads not witnessed (capabilities.threads: false), so there is no thread record to read; absence of the record is not a record of absence",
+          "verdict: MATCH -- identical causal streams (180 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared",
+          "tasks: 24 task stream(s) on each side, compared by content as (name, hash): all matched; the ordering between tasks is not compared"
+        ],
+        "ok": true
+      },
+      "tree": {
+        "exit": 0,
+        "verdict": null,
+        "first_lines": [
+          "no test",
+          "  f1 e1 <anonymous>() <unread: locals> -> { tokens: [], addToken: [Function: addToken], updateToken: [Function: updateToken], removeToken: [Function: removeToken], createToken: [AsyncFunction: createToken], deleteToken: [AsyncFunction: delete\u2026",
+          "    f2 e2 createTokenSlice() <unread: locals> -> { tokens: [], addToken: [Function: addToken], updateToken: [Function: updateToken], removeToken: [Function: removeToken], createToken: [AsyncFunction: createToken], deleteToken: [AsyncFunction: delete\u2026",
+          "    f3 e4 createFogSlice() <unread: locals> -> { fog: { revealed: [], privateRevealed: [] }, fogEnabled: true, fogBrushSize: 80, fogDarkness: 0.35, fogPendingReveals: [], setFogDarkness: [Function: setFogDarkness], addReveal: [Function: addReveal]\u2026",
+          "    f4 e6 createTerrainSlice() <unread: locals> -> { terrainRegions: [], activeTerrainRegionId: null, terrainBrushKind: 'difficult', terrainBrushErase: false, setTerrainRegions: [Function: setTerrainRegions], upsertTerrainRegion: [Function: upsertTerr\u2026",
+          "    f5 e8 createLightingSlice() <unread: locals> -> { lights: [], selectedLightId: undefined, addLight: [Function: addLight], updateLight: [Function: updateLight], removeLight: [Function: removeLight], setSelectedLightId: [Function: setSelectedLightId]\u2026"
+        ],
+        "ok": true
+      },
+      "frame": {
+        "exit": 0,
+        "verdict": null,
+        "first_lines": [
+          "f102 deriveAttacks.ts:deriveWeaponAttacks  [e200..e215]  thread 1  task t1 (InventoryTab > renders a resolved item and toggles equip)  depth 3  closed: return",
+          "args: <unread: locals>",
+          "timeline: not captured (this recorder produces no LINE events (capabilities.line: false); per-line capture is S5 rung 3)",
+          "return: []",
+          "children (3):",
+          "  f103 e201 proficiencyBonus() <unread: locals> -> 2"
+        ],
+        "ok": true
+      }
+    }
+  },
+  "reported": {
+    "bytes_per_line": {
+      "value": 99.61,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "per_run": [
+        99.61,
+        99.61,
+        99.61,
+        99.61,
+        99.61
+      ],
+      "total_bytes": 2072244794,
+      "total_lines": 20802850
+    },
+    "lines_per_second": {
+      "value": 162629.8,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "per_run": [
+        162629.8,
+        165241.0,
+        162440.1,
+        160404.6,
+        163230.6
+      ]
+    },
+    "vitest_transform_seconds_per_arm": {
+      "plain": {
+        "value": 10.24,
+        "n": 5,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "per_run": [
+          10.54,
+          10.24,
+          9.96,
+          10.11,
+          10.32
+        ]
+      },
+      "off": {
+        "value": 21.64,
+        "n": 5,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "per_run": [
+          21.12,
+          21.55,
+          22.41,
+          22.08,
+          21.64
+        ]
+      },
+      "call": {
+        "value": 21.43,
+        "n": 5,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "per_run": [
+          22.53,
+          20.64,
+          21.43,
+          21.95,
+          20.44
+        ]
+      }
+    },
+    "census_bloat": {
+      "value": 1.2543,
+      "n": 367,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": []
+    },
+    "info_and_diff_latency": {
+      "value": 0.5401,
+      "n": 3,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "largest": {
+        "file": "src/lib/map/gridDetect.test.ts",
+        "run": "20260909-160054-97584f",
+        "trace_bytes": 333832192,
+        "info_median_s": 0.5401,
+        "info_walls": [
+          0.8699,
+          0.5401,
+          0.5324
+        ],
+        "diff_median_s": 0.6867,
+        "diff_walls": [
+          0.8905,
+          0.6867,
+          0.6835
+        ],
+        "n": 3
+      }
+    },
+    "diverged_pairs_two_full_suite_runs": {
+      "value": 8,
+      "n": 372,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "invocation_a": "20260909-160038-f08e89",
+      "invocation_b": "20260909-160541-9c665a",
+      "files_a": 372,
+      "files_b": 372,
+      "compared": 372,
+      "only_in_a": [],
+      "only_in_b": [],
+      "diverged_files": [
+        "src/__tests__/AiSetupWizard.test.tsx",
+        "src/__tests__/builderDispatch.test.tsx",
+        "src/__tests__/describeCharacter.test.tsx",
+        "src/__tests__/dnd5eBuilderDefinition.test.tsx",
+        "src/__tests__/pickEntryCopy.test.tsx",
+        "src/components/compendium/ItemEditor.ai.test.tsx",
+        "src/components/sheet/SheetRenderer.rankControl.test.tsx",
+        "src/components/sheet/SheetRenderer.writeThrough.test.tsx"
+      ],
+      "refused_files": [],
+      "bad_call_files": [],
+      "matched": 364,
+      "largest": {
+        "file": "src/lib/map/gridDetect.test.ts",
+        "run": "20260909-160054-97584f",
+        "trace_bytes": 333832192,
+        "info_median_s": 0.5401,
+        "info_walls": [
+          0.8699,
+          0.5401,
+          0.5324
+        ],
+        "diff_median_s": 0.6867,
+        "diff_walls": [
+          0.8905,
+          0.6867,
+          0.6835
+        ],
+        "n": 3
+      }
+    }
+  }
+}

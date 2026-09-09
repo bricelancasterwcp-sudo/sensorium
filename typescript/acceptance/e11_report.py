@@ -15,6 +15,7 @@
 `value` is the number of the half's claims that held, out of its own total.
 """
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -24,8 +25,17 @@ from sensorium.store.reader import Trace
 
 #: `tree_cmd` prints `  ~ suspended<where> at end of recording`.
 SUSPENDED = ("~ suspended", "at end of recording")
-#: `caps` prints one wording for every command.
-INCOMPLETE = "INCOMPLETE: this recording never finalized"
+#: THE INCOMPLETE BANNER, AND WHY THIS IS A PATTERN AND NOT A STRING.
+#: Four commands print an incomplete banner and they print four different
+#: sentences -- `info_cmd` says "recording ended without a finalize pass",
+#: `caps` and `exceptions_cmd` say "this recording never finalized",
+#: `exceptions_invocation` names the run. What every one of them shares, and
+#: what "the INCOMPLETE banner" means, is a line that STARTS with the word.
+#: This instrument first held one of the four sentences as a literal and so
+#: read `info`'s banner as absent when it was plainly there -- the defect is
+#: recorded in the acceptance record's §5, because it was found after E11(b)
+#: had already printed a number.
+BANNER = re.compile(r"^INCOMPLETE:", re.MULTILINE)
 #: `diff`'s "cannot settle it" status.
 UNSETTLED = 3
 
@@ -39,13 +49,15 @@ def half_a() -> dict:
     tree = read(env["E11A_TREE"])
     info = read(env["E11A_INFO"])
     suspended = all(needle in tree for needle in SUSPENDED)
-    complete = INCOMPLETE not in info
+    complete = BANNER.search(info) is None
     claims = {"tree_says_suspended": suspended, "info_has_no_incomplete_banner": complete}
     return cell(sum(1 for v in claims.values() if v), len(claims),
                 half="a: a promise that never settles",
                 run=env["E11_RUN"], claims=claims,
                 tree_exit=int(env["E11A_TREE_STATUS"]),
                 info_exit=int(env["E11A_INFO_STATUS"]),
+                banner_lines=[ln.strip() for ln in info.splitlines()
+                              if ln.startswith("INCOMPLETE:")],
                 suspended_lines=[ln.strip() for ln in tree.splitlines()
                                  if SUSPENDED[0] in ln])
 
@@ -87,7 +99,7 @@ def half_b() -> dict:
     Path(env["E11B_OUT"], "logs", "e11b-diff.txt").write_text(diff_text, encoding="utf-8")
     claims = {
         "trace_incomplete_true": bool(killed[1].get("incomplete")),
-        "info_prints_incomplete_banner": INCOMPLETE in info_text,
+        "info_prints_incomplete_banner": BANNER.search(info_text) is not None,
         "diff_refuses_at_exit_3": diff_code == UNSETTLED,
     }
     return cell(sum(1 for v in claims.values() if v), len(claims),
@@ -95,6 +107,8 @@ def half_b() -> dict:
                 invocation=inv, file=want, killed_run=killed[0],
                 complete_run=complete[0], claims=claims,
                 diff_exit=diff_code, info_exit=info_code,
+                banner_lines=[ln.strip() for ln in info_text.splitlines()
+                              if ln.startswith("INCOMPLETE:")],
                 diff_verdict=next((ln.strip() for ln in diff_text.splitlines()
                                    if ln.startswith("verdict:")
                                    or "REFUSED" in ln), None),

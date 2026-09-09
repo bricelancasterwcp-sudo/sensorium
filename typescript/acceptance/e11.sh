@@ -55,16 +55,25 @@ LOG="$OUT/logs/e11b-run.log"
 KILLED="$OUT/logs/e11b-kill.txt"
 ls -1 "$STORE/spool" 2>/dev/null | sort >"$BEFORE" || : >"$BEFORE"
 
-# The driver in its own session, so it and everything it spawns share one
-# process group that can be reaped by group if this script has to give up.
-setsid env SENSORIUM_DIR="$STORE" bash -c \
+# The driver in the background, and NOT in a new session: the only process
+# this script ever kills is the one container it identified by pid, so there
+# is no process group to reap, and a `setsid` whose parent stays in this
+# shell's group would put this shell inside any group kill. If the script has
+# to give up it TERMs the driver it started, by its own pid.
+env SENSORIUM_DIR="$STORE" bash -c \
   'cd "$1" && exec sensorium ts run -- npx vitest run' _ "$LENS_DIR" \
   >"$LOG" 2>&1 &
 DRIVER_PID=$!
-DRIVER_PGID="$(ps -o pgid= -p "$DRIVER_PID" 2>/dev/null | tr -d ' ')"
 
 : >"$KILLED"
-printf 'driver pid: %s  pgid: %s\n' "$DRIVER_PID" "${DRIVER_PGID:-?}" >>"$KILLED"
+printf 'driver pid: %s\n' "$DRIVER_PID" >>"$KILLED"
+
+# give_up <message> -- stop the driver we started, then refuse.
+give_up() {
+  kill -TERM "$DRIVER_PID" 2>/dev/null
+  wait "$DRIVER_PID" 2>/dev/null
+  refuse "$1"
+}
 
 # Wait for this invocation's spool directory to appear.
 INV=''
@@ -73,7 +82,7 @@ for _ in $(seq 1 600); do
   [ -n "$INV" ] && break
   python3 -c 'import time; time.sleep(0.2)'
 done
-[ -n "$INV" ] || { kill -9 -"${DRIVER_PGID:-$DRIVER_PID}" 2>/dev/null; refuse "no new spool directory appeared"; }
+[ -n "$INV" ] || give_up "no new spool directory appeared"
 printf 'invocation: %s\n' "$INV" >>"$KILLED"
 
 # Wait for the container that declared the target file, and kill it.
