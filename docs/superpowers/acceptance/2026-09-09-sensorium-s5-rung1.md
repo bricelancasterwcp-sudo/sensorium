@@ -562,11 +562,16 @@ hand from §3; §3 was written from `results.json`.
 | E5-TS, the split | *"Plain `diff` reads DIVERGED at the first moved function … `diff --ignore-moves` reads `MATCH modulo location` with exactly those two code objects in `moved:` and every task paired by name. Anything else → STOP"* | exit 1 DIVERGED; exit 0 `MATCH modulo location`; `moved:` exactly `hexDistance` and `isHexShape`, nothing added/removed/unpaired; 56 tasks each side, all matched | **PASS** — the verifier sees through a move |
 | The planted change | *"Two call sites swapped in one VTT function → `diff` DIVERGED naming the step. A MATCH voids the verifier and STOPs."* | exit 1 DIVERGED at causal step 16, `A: CALL terrainLaw` against `B: CALL isDiagonal`, with both suites at 56/56 | **PASS** — and the strongest form of it: the swap is value-preserving, so the consumer's own tests could not see it and only the recording did |
 
-**The rung's answer.** Eleven of the twelve gated endpoints and both §10
-controls PASS on their own rules. **E6′ fired a STOP on its plain-band
-clause** — the one clause of its four that is a timing clause; its manifest,
-marker and wrapper clauses hold exactly. E10 lands on the second branch of
-its own rule — reported, design input, not a STOP.
+**The rung's answer.** *(Amended 2026-09-09, in the doc pass, on this
+paragraph only: the sentence below read "Eleven of the twelve gated endpoints
+and both §10 controls PASS on their own rules", which counted E10's REPORTED
+as a PASS. The table above always read REPORTED for it; the count is corrected
+here rather than in the table, and no verdict moved.)* **Ten of the twelve
+gated endpoints PASS**, and both §10 controls PASS, on their own rules. **One
+is a STOP — E6′, on its plain-band clause** — the one clause of its four that
+is a timing clause; its manifest, marker and wrapper clauses hold exactly.
+**One is REPORTED and gates nothing — E10**, which lands on the second branch
+of its own rule: reported, design input, not a STOP.
 
 **The rung therefore ships DONE-WITH-STOP on E6′.** A STOP stands where it
 fires: nothing here re-rolls the 22.8678 s wall, moves the band, or renames
@@ -723,9 +728,16 @@ comparison. It excludes it because the two reports differ there: the driven
 run's stack carries two frames the plain run does not,
 
 ```
-❯ ../../../../sensorium-rung2/s5-rung1/typescript/src/rt.mjs:296:39
-❯ sensoriumTask ../../../../sensorium-rung2/s5-rung1/typescript/src/rt.mjs:296:23
+❯ <worktree>/typescript/src/rt.mjs:296:39
+❯ sensoriumTask <worktree>/typescript/src/rt.mjs:296:23
 ```
+
+*(Amended 2026-09-09, in the doc pass: the two lines above were quoted
+verbatim from vitest, which printed the recorder's runtime by a relative path
+out of the lens — four `../` segments and the name of the worktree this rung
+was built in. That prefix names this box and nothing about the product, so it
+is written `<worktree>`; the file, the line and the column are the run's own
+and are unchanged.)*
 
 so the two reports are **not** byte-identical as whole texts, and E4′'s PASS
 rests on the narrower reading *"the failing assertion's line and column, and
