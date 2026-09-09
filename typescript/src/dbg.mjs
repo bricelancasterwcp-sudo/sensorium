@@ -66,13 +66,23 @@ export function cap(text) {
 }
 
 /**
- * Describe a thrown or rejected value.
+ * Describe a thrown or rejected value. Both strings it reads came from the
+ * consumer, so both are capped (R14a) and a cut is DECLARED in the contract's
+ * own spelling (TRACE-FORMAT §5): `trunc` for a cut message, `type_trunc` for a
+ * cut type name, each absent when nothing was cut — which is what tells a
+ * reader that a text is a whole identity and may be compared as one.
  * @param {*} e the value the program threw
  * @param {'throw'|'rejection'} kind how it arrived
- * @returns {{kind: string, type: string, msg: string, serial: number}}
+ * @returns {Record<string, unknown>} `{kind, type, msg, serial}` and the flags
  */
 export function exc(e, kind) {
-  return { kind, type: typeOf(e), msg: msgOf(e), serial: serialOf(e) };
+  const type = cap(typeOf(e));
+  const msg = cap(msgOf(e));
+  /** @type {Record<string, unknown>} */
+  const out = { kind, type: type.v, msg: msg.v, serial: serialOf(e) };
+  if (msg.trunc) out.trunc = true;
+  if (type.trunc) out.type_trunc = true;
+  return out;
 }
 
 /**

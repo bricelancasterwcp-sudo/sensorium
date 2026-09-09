@@ -582,5 +582,11 @@ export function fileStart(file_, environment) {
  */
 export function seen(name) {
   if (!on) return;
-  emit({ e: 'SEEN', name });
+  // Cut exactly as a TASK name is (R14a): the converter compares the two, and
+  // two names cut by different rules would not compare.
+  const capped = cap(String(name));
+  /** @type {Record_} */
+  const rec = { e: 'SEEN', name: capped.v };
+  if (capped.trunc) rec.name_trunc = true;
+  emit(rec);
 }

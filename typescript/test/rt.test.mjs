@@ -45,7 +45,13 @@ const KEYS = {
  * (R14). Each test that can produce one asserts it appears exactly then.
  * @type {Record<string, string[]>}
  */
-const OPTIONAL = { EXIT: ['signal'], TASK: ['name_trunc'] };
+const OPTIONAL = { EXIT: ['signal'], TASK: ['name_trunc'], SEEN: ['name_trunc'] };
+
+/**
+ * The `x` an exception record carries, and the two flags that appear only when
+ * the cap cut something (R14a, TRACE-FORMAT §5).
+ */
+const EXC = { required: ['kind', 'type', 'msg', 'serial'], optional: ['trunc', 'type_trunc'] };
 
 /**
  * Run a script against the runtime in a child process and read its spool.
@@ -160,6 +166,13 @@ test('every record carries exactly its wire keys', () => {
     const allowed = [...required, ...(OPTIONAL[rec.e] ?? [])];
     assert.deepEqual(keys.filter((k) => !allowed.includes(k)), [], `extra keys on ${rec.e}`);
     assert.deepEqual(required.filter((k) => !keys.includes(k)), [], `missing keys on ${rec.e}`);
+    if (rec.x !== undefined) {
+      const inner = Object.keys(rec.x);
+      const ok_ = [...EXC.required, ...EXC.optional];
+      assert.deepEqual(inner.filter((k) => !ok_.includes(k)), [], `extra keys on ${rec.e}.x`);
+      assert.deepEqual(EXC.required.filter((k) => !inner.includes(k)), [],
+        `missing keys on ${rec.e}.x`);
+    }
     seen.add(rec.e);
   }
   // The optional keys appear exactly where they are earned: one cut name, and
@@ -168,6 +181,9 @@ test('every record carries exactly its wire keys', () => {
   assert.equal(cut.length, 1, 'exactly the task whose name was cut says so');
   assert.deepEqual([cut[0].e, cut[0].name_trunc], ['TASK', true]);
   assert.deepEqual(out.recs.filter((r) => r.signal !== undefined), []);
+  // Nothing in this child was long enough to cut, so no record claims one.
+  assert.deepEqual(out.recs.filter((r) => r.e === 'SEEN' && r.name_trunc !== undefined), []);
+  assert.deepEqual(out.recs.filter((r) => r.x && (r.x.trunc || r.x.type_trunc)), []);
   assert.deepEqual([...seen].sort(), Object.keys(KEYS).sort(), 'every record kind exercised');
   assert.equal(out.recs[0].e, 'BOOT');
   assert.equal(out.recs[out.recs.length - 1].e, 'EXIT');
@@ -580,6 +596,8 @@ test('a consumer name is capped on the wire', () => {
     __srt.nameProvider(null);
     const [, brief] = __srt.task('brief', () => {}, 1);
     brief();
+    __srt.seen('s'.repeat(500));
+    __srt.seen('seen briefly');
   `);
   ok(out);
   const [first, second, snow, brief] = of(out.recs, 'TASK');
@@ -595,6 +613,57 @@ test('a consumer name is capped on the wire', () => {
   // A name that fits says nothing about a cut that did not happen.
   assert.equal(brief.name, 'brief');
   assert.equal(Object.hasOwn(brief, 'name_trunc'), false);
+  // A name the harness counted is cut by the same rule and says so the same
+  // way: the converter compares the two, so they must be cut identically.
+  const [cutSeen, wholeSeen] = of(out.recs, 'SEEN');
+  assert.equal(Buffer.byteLength(cutSeen.name), 200);
+  assert.equal(cutSeen.name_trunc, true);
+  assert.equal(wholeSeen.name, 'seen briefly');
+  assert.equal(Object.hasOwn(wholeSeen, 'name_trunc'), false);
+});
+
+test('a cut exception says what was cut', () => {
+  // Every `exc` the runtime writes goes through one formatter, so the flags
+  // are asserted on all four record kinds that carry one.
+  const out = run(`
+    const fid = __srt.file('t.ts', '/w/t.ts', [], 'sha');
+    const wordy = new Error('m'.repeat(500));
+    __srt.raise(null, wordy, 1);
+    __srt.handled(null, wordy, 2, 'catch');
+    const f = __srt.call(fid, 0);
+    __srt.thr(f, wordy);
+    class C {}
+    Object.defineProperty(C, 'name', { value: 'T'.repeat(400) });
+    __srt.raise(null, new C(), 3);
+    __srt.raise(null, new Error('\u2603'.repeat(200)), 4);
+    __srt.raise(null, new Error('short'), 5);
+    Promise.reject(new Error('u'.repeat(500)));
+    await new Promise((res) => setTimeout(res, 20));
+  `);
+  ok(out);
+  const [wordy, named, snow, short] = of(out.recs, 'RAISE').map((r) => r.x);
+  // A message longer than the budget is cut to it, and says so.
+  assert.equal(Buffer.byteLength(wordy.msg), 200);
+  assert.equal(wordy.trunc, true);
+  assert.equal(wordy.type, 'Error');
+  assert.equal(Object.hasOwn(wordy, 'type_trunc'), false, 'the type was whole');
+  // The same value through the other three kinds.
+  for (const rec of [one(out.recs, 'HANDLED'), one(out.recs, 'UNWIND'), one(out.recs, 'UNHANDLED')]) {
+    assert.equal(Buffer.byteLength(rec.x.msg), 200, `${rec.e} msg`);
+    assert.equal(rec.x.trunc, true, `${rec.e} trunc`);
+  }
+  // A type name longer than the budget is cut on its own flag, and a value
+  // with no message of its own has a short one.
+  assert.equal(Buffer.byteLength(named.type), 200);
+  assert.equal(named.type_trunc, true);
+  assert.equal(named.msg, '[object Object]');
+  assert.equal(Object.hasOwn(named, 'trunc'), false, 'the message was whole');
+  // The cut falls between characters.
+  assert.equal(snow.trunc, true);
+  assert.ok(Buffer.byteLength(snow.msg) <= 200 && Buffer.byteLength(snow.msg) > 190);
+  assert.ok(!snow.msg.includes('\ufffd'));
+  // Nothing cut, nothing claimed — which is what makes the text an identity.
+  assert.deepEqual(Object.keys(short).sort(), ['kind', 'msg', 'serial', 'type']);
 });
 
 test('a closed frame neither parks nor resumes', () => {
