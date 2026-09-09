@@ -1,7 +1,7 @@
 # TypeScript mechanics spike — findings (throwaway code, pre-registered)
 
-**Status: PRE-REGISTERED, not yet run.** Sections 1 and 2 are locked by
-the commit that adds this file; sections 3 and 4 are filled by the run and
+**Status: RUN 2026-09-08 evening; all nine endpoints answered, every gate PASS.** Sections 1 and 2 were locked by
+commit 82f531b before any code existed; sections 3 and 4 were filled by the run and
 never edit the two above them (errata are appended, dated, below the
 table they correct — the Rust spike's rule, kept).
 
@@ -320,8 +320,131 @@ What rung 2 still has to decide is which of these are sinks in the
 not a sink) and what an unhandled rejection's "frame" is (none: it was
 recorded outside every task and frame).
 
-### E0, E1, E6 — see below, filled when the arms finished.
+### E0 — the trace unit: **(a) one forked child process per test file**
+
+Full suite at tier `call` (`full-call-2`, green 372/4278): **372
+containers, 372 distinct pids, every container `isMainThread` with
+`threadId 0`**, and **exactly one test file per container** (min 1, max 1,
+sum 372). vitest 4.1.9's default pool forks a fresh child per file and does
+not reuse it. Each container's spool is its own file, so per-file identity
+holds by construction; test boundaries gave **4,158 tasks** for 4,278 tests
+— the 120 not wrapped are `test.each`/`it.each` and other non-literal callee
+shapes the spike's name-based rewrite does not touch, a rung-1 rule, not a
+mechanics limit. The invocation as a whole: 4,155,893 spool lines
+(4,130,710 causal CALL/RETURN/RAISE/HANDLED), 407 MB on disk, **98 bytes per
+line**, **≈174k lines per second** over the invocation's wall (first BOOT
+to last EXIT), before any conversion.
+
+### E1 — cost: **off/plain 1.058, PASS; call/plain 1.131**
+
+n=5 per arm, interleaved plain→off→call ×5, every run green at 372/4278
+and rc 0, 1-minute load 2.9–4.0 before each run (the guard held the script
+53 times; each wait cost about a minute):
+
+| arm | walls (s) | median | spread |
+|---|---|---|---|
+| plain | 22.08 22.18 22.04 22.04 22.10 | **22.08** | 0.14 |
+| off | 23.30 23.37 23.27 23.51 23.59 | **23.37** | 0.32 |
+| call | 24.79 25.07 25.04 24.71 24.98 | **24.98** | 0.36 |
+
+**off ÷ plain = 1.0584 ≤ 1.10 → the transform can run on every invocation
+and the tier stays a runtime gate**, as in Rust. The whole cost of `off`
+is the transform itself: vitest's own breakdown reads `transform ≈10 s`
+plain against `≈21–25 s` under the plugin (worker-CPU seconds, spread over
+16 workers), while `tests` and `environment` are unchanged. **call ÷ plain =
+1.1313** — the full suite recorded at ×1.13, beside Python's 2.7× and
+Rust's ×2.16 (a `--lib` run, conversion inside the timing); this number
+excludes conversion (spools only) and includes 407 MB of writes. Not a
+comparable to either sibling, reported as its own lens.
+
+### E6 — contamination: **PASS**
+
+After every instrumented run (probes ×3, full-call ×2, the call arm ×5):
+the 748-entry sha256 manifest of `frontend/src`, `vite.config.ts` and
+`package.json` is byte-identical to the one taken before any code existed;
+a plain `vitest run` afterwards is **372/4278, 22.08 s** (inside the plain
+band); the marker `__srt` appears in **0** files under `node_modules/.vite`,
+`node_modules/.vite-temp` and the root `.vite`. The wrapper config
+`vitest.sensorium.config.mts` and the (now moved) `sensorium-probes/`
+directory are the only things the spike added to the copy, both outside
+the manifest set by design.
+
+**Erratum, first arms launch (recorded, no number kept).** The first
+`arms.sh` launch ran its first plain arm with `sensorium-probes/` still
+inside `frontend/`, so vitest's default include collected 378 files (four
+probe files failing on the repo's jsdom-only setup): an invalid lens by the
+pre-registered rule, killed after that one run with no E1 value read from
+it (`arms-polluted-1.jsonl` kept beside the artifacts). The probes were
+moved to `/mnt/extra/sensorium-s5/probes-moved` and the arms restarted from
+zero. The E6 plain-after was likewise re-taken on the clean lens; its first
+reading (378 files) is discarded for the same reason.
 
 ## 4. Decisions
 
-*(unrun)*
+Written into the S5 design spec that follows this spike; each one names
+the endpoint it rests on.
+
+1. **The trace unit under vitest is the test-file process (E0).** vitest
+   4.1.9 with the default pool forks one child process per test file and
+   does not reuse it: 372 files, 372 containers, 372 distinct pids, every
+   container the main thread (`threadId 0`) of its process. So one trace
+   per test file, the file's `test()` boundaries as tasks, and per-file
+   identity holds by construction — outcome (a) of the rule. The
+   invocation is a group, exactly as a `cargo test` invocation groups its
+   test binaries, and `sensorium runs` already prints it that way.
+
+2. **The async model is `AsyncLocalStorage` per task with `YIELD`/`RESUME`
+   at every `await` (E3).** A task is opened at the test boundary and every
+   continuation — microtask, timer, emitter callback fired from a timer —
+   lands in it, under node, jsdom and node:test, with a negative control
+   showing no leakage between consecutive tasks. The frame stack is per
+   task; a frame is popped at `YIELD` and re-pushed at `RESUME`, which is
+   what keeps a fan-out's siblings from nesting under each other. Open for
+   the design, not for rung 1's go: a continuation that runs when its
+   scheduler has yielded is parentless (depth 0 in its task); whether the
+   scheduling frame should be recorded as a causal parent is a design
+   question with the evidence already in `tree`.
+
+3. **GO on mechanics (E2, E4, E5-vitest, E6).** The transform parses and
+   edits every source file in the consumer (5,403/5,403), sites keep their
+   TypeScript lines because no edit inserts a newline (20/20), the
+   consumer's harness runs the instrumented suite green through a Vite
+   plugin, and a plain run afterwards is byte-identical in its sources,
+   identical in counts, and finds no marker in any cache. Two defects
+   found on the way are already rung-1 rules: closing insertions at a
+   shared offset go innermost-first; nothing inside a `vi.mock`/`vi.hoisted`
+   factory is instrumented, and the excluded count is declared.
+
+4. **The tier is a runtime gate; the transform runs every time (E1).**
+   off/plain 1.058 clears the 1.10 bound with the same margin logic Rust
+   used, so rung 1 does not need a transform cache to ship — though vitest's
+   own `transform` seconds doubling says a cache keyed on source sha is the
+   obvious later win. The call tier's ×1.13 on a 4-million-event suite says
+   the spool writer is cheap enough; what it does not say is anything about
+   conversion, which was outside the timing here and inside it for Rust.
+
+5. **The reader needs four things before it may speak about a TypeScript
+   trace (E7):** a `TYPESCRIPT` vocabulary table; a refusal, not a fallback
+   to Python's words, for any `lang` it has no table for (today `vocab.terms()`
+   falls back to `PYTHON`, which is how `python ?`, "asyncio task" and a
+   `cargo` header got printed about a vitest run); a language-keyed `runs`
+   header; and TypeScript disposition rules for `exceptions`, whose current
+   refusal is correct in effect and wrong in wording ("needs the Rust
+   disposition rules"). The structural commands (`tree`, `frame`, `grep`,
+   `info`'s counts and capabilities) already answer correctly, so rung 1 can
+   ship the recorder and the vocabulary together and leave `exceptions` to
+   rung 2.
+
+6. **Rung 2's err-flow scope is set by E8:** five shapes are visible with
+   transform-level `throw`/`catch` interposition plus a process-level
+   `unhandledRejection` listener and a name-based `.catch(() => {})` rewrite.
+   The design must say which are sinks (the empty clause, the empty callback)
+   and which are hops (a rethrow carries its serial), and it must record
+   that an unhandled rejection has no frame and no task — it is the
+   TypeScript shape Python and Rust do not have.
+
+7. **What this spike did not measure, stated so it is not read as
+   measured:** jest; the browser substrate; `--focus`/LINE capture (none
+   was built); `refocus` (declared `false`); overhead inside a single hot
+   closure (E1 is whole-suite wall); `new Function`/`eval` bodies; and
+   generators' `yield` as YIELD/RESUME (only `await` was rewritten).

@@ -1,0 +1,436 @@
+{
+ "E0": {
+  "containers": {
+   "value": 372,
+   "n": 1,
+   "lens": "full suite, tier call, run full-call-2",
+   "dropped": []
+  },
+  "distinct_pids": {
+   "value": 372,
+   "n": 1,
+   "lens": "BOOT records",
+   "dropped": []
+  },
+  "test_files_per_container": {
+   "value": {
+    "min": 1,
+    "max": 1,
+    "sum": 372
+   },
+   "n": 1,
+   "lens": "FILE records naming a .test. path",
+   "dropped": []
+  },
+  "container_kind": {
+   "child process per test file": 372
+  },
+  "tasks": {
+   "value": 4158,
+   "n": 1,
+   "lens": "TASK records = vitest test() boundaries",
+   "dropped": []
+  },
+  "spool_lines": {
+   "value": 4155893,
+   "n": 1,
+   "lens": "all record kinds",
+   "dropped": []
+  },
+  "causal_events": {
+   "value": 4130710,
+   "n": 1,
+   "lens": "CALL/RETURN/RAISE/HANDLED",
+   "dropped": []
+  },
+  "spool_bytes": {
+   "value": 407137720,
+   "n": 1,
+   "lens": "sum of spool file sizes",
+   "dropped": []
+  },
+  "bytes_per_line": {
+   "value": 98.0,
+   "n": 1,
+   "lens": "spool bytes / lines",
+   "dropped": []
+  },
+  "lines_per_second": {
+   "value": 173509.0,
+   "n": 1,
+   "lens": "lines / (last EXIT - first BOOT)",
+   "dropped": []
+  },
+  "verdict": "(a) container = child process, one per test file; test files as tasks; per-file identity holds"
+ },
+ "E1": {
+  "plain": {
+   "wall_median": {
+    "value": 22.08,
+    "n": 5,
+    "lens": "plain arm, full suite, n planned 5",
+    "dropped": []
+   },
+   "walls": [
+    22.08,
+    22.18,
+    22.04,
+    22.04,
+    22.1
+   ],
+   "spread": 0.14,
+   "durations": [
+    " Duration 21.77s (transform 9.92s, setup 11.88s, import 31.86s, tests 77.60s, environment 162.03s)",
+    " Duration 21.86s (transform 10.04s, setup 11.97s, import 31.75s, tests 78.04s, environment 162.33s)",
+    " Duration 21.73s (transform 10.16s, setup 12.05s, import 31.98s, tests 77.48s, environment 160.95s)",
+    " Duration 21.73s (transform 10.23s, setup 12.04s, import 32.15s, tests 77.64s, environment 161.50s)",
+    " Duration 21.79s (transform 10.00s, setup 11.97s, import 32.01s, tests 77.82s, environment 161.33s)"
+   ]
+  },
+  "off": {
+   "wall_median": {
+    "value": 23.37,
+    "n": 5,
+    "lens": "off arm, full suite, n planned 5",
+    "dropped": []
+   },
+   "walls": [
+    23.3,
+    23.37,
+    23.27,
+    23.51,
+    23.59
+   ],
+   "spread": 0.32,
+   "durations": [
+    " Duration 22.91s (transform 20.56s, setup 14.07s, import 48.97s, tests 77.08s, environment 159.31s)",
+    " Duration 22.97s (transform 21.33s, setup 14.02s, import 48.86s, tests 77.39s, environment 159.66s)",
+    " Duration 22.87s (transform 20.86s, setup 13.86s, import 47.29s, tests 77.48s, environment 160.23s)",
+    " Duration 23.11s (transform 24.66s, setup 13.96s, import 51.97s, tests 77.40s, environment 159.22s)",
+    " Duration 23.19s (transform 23.56s, setup 14.37s, import 51.44s, tests 76.90s, environment 159.72s)"
+   ]
+  },
+  "call": {
+   "wall_median": {
+    "value": 24.98,
+    "n": 5,
+    "lens": "call arm, full suite, n planned 5",
+    "dropped": []
+   },
+   "walls": [
+    24.79,
+    25.07,
+    25.04,
+    24.71,
+    24.98
+   ],
+   "spread": 0.36,
+   "durations": [
+    " Duration 24.39s (transform 20.99s, setup 14.20s, import 49.45s, tests 96.84s, environment 160.37s)",
+    " Duration 24.68s (transform 23.66s, setup 14.21s, import 52.93s, tests 97.27s, environment 160.65s)",
+    " Duration 24.65s (transform 23.03s, setup 14.45s, import 52.94s, tests 97.46s, environment 160.07s)",
+    " Duration 24.35s (transform 21.43s, setup 14.65s, import 49.67s, tests 96.78s, environment 159.93s)",
+    " Duration 24.57s (transform 22.46s, setup 14.28s, import 51.43s, tests 97.32s, environment 160.64s)"
+   ]
+  },
+  "off_over_plain": {
+   "value": 1.0584,
+   "n": 5,
+   "lens": "medians",
+   "dropped": []
+  },
+  "off_gate": "PASS (<= 1.10)",
+  "call_over_plain": {
+   "value": 1.1313,
+   "n": 5,
+   "lens": "medians; reported beside Python 2.7x and Rust 2.16x, ungated",
+   "dropped": []
+  }
+ },
+ "E2": {
+  "files": 368,
+  "failed_files": 0,
+  "instrumented": 5403,
+  "eligible": 5403,
+  "excluded": {},
+  "by_kind": {
+   "FunctionDeclaration": 1069,
+   "ArrowFunction": 4268,
+   "MethodDeclaration": 59,
+   "FunctionExpression": 1,
+   "Constructor": 4,
+   "GetAccessor": 2
+  },
+  "ratio": {
+   "value": 1,
+   "n": 1,
+   "lens": "transform over the census set (frontend/src minus tests, .d.ts, test-setup)",
+   "dropped": []
+  },
+  "excluded_over_1pct_unreasoned": {},
+  "bloat": {
+   "value": 1.2421,
+   "n": 1,
+   "lens": "output chars / input chars",
+   "dropped": []
+  },
+  "not_counted": [
+   "new Function / eval bodies",
+   "functions inside vi.mock factories (test files only, excluded by rule)"
+  ],
+  "gate": "PASS"
+ },
+ "E3": {
+  "node": {
+   "S1 chain": true,
+   "S2 fanout": true,
+   "S3 timer": true,
+   "S4 emitter": true,
+   "negative control": true
+  },
+  "jsdom": {
+   "S1 chain": true,
+   "S2 fanout": true,
+   "S3 timer": true,
+   "S4 emitter": true,
+   "negative control": true
+  },
+  "node:test harness": {
+   "S1 chain": true,
+   "S2 fanout": true,
+   "S3 timer": true,
+   "S4 emitter": true,
+   "negative control": true
+  },
+  "gate": "PASS",
+  "negative_control": {
+   "node": {
+    "pass": true,
+    "t1_rows_after_return_a": 0,
+    "t2_rows": 12,
+    "t2_all_own_task": true
+   },
+   "jsdom": {
+    "pass": true,
+    "t1_rows_after_return_a": 0,
+    "t2_rows": 12,
+    "t2_all_own_task": true
+   }
+  }
+ },
+ "E4": {
+  "hits": 20,
+  "sites": 20,
+  "gate": "PASS",
+  "rows": [
+   {
+    "site": "s01_decl",
+    "expected": 8,
+    "got": [
+     8
+    ],
+    "pass": true
+   },
+   {
+    "site": "s02_expr",
+    "expected": 13,
+    "got": [
+     13
+    ],
+    "pass": true
+   },
+   {
+    "site": "s03_arrow_one_line",
+    "expected": 18,
+    "got": [
+     18
+    ],
+    "pass": true
+   },
+   {
+    "site": "s04_arrow_multiline",
+    "expected": 21,
+    "got": [
+     21
+    ],
+    "pass": true
+   },
+   {
+    "site": "constructor",
+    "expected": 31,
+    "got": [
+     31
+    ],
+    "pass": true
+   },
+   {
+    "site": "s05_method",
+    "expected": 35,
+    "got": [
+     35
+    ],
+    "pass": true
+   },
+   {
+    "site": "s06_static",
+    "expected": 39,
+    "got": [
+     39
+    ],
+    "pass": true
+   },
+   {
+    "site": "s07_getter",
+    "expected": 43,
+    "got": [
+     43
+    ],
+    "pass": true
+   },
+   {
+    "site": "s08_setter",
+    "expected": 47,
+    "got": [
+     47
+    ],
+    "pass": true
+   },
+   {
+    "site": "s15_field_arrow",
+    "expected": 51,
+    "got": [
+     51
+    ],
+    "pass": true
+   },
+   {
+    "site": "s09_async_decl",
+    "expected": 55,
+    "got": [
+     55
+    ],
+    "pass": true
+   },
+   {
+    "site": "s10_async_arrow",
+    "expected": 60,
+    "got": [
+     60
+    ],
+    "pass": true
+   },
+   {
+    "site": "s11_generator",
+    "expected": 63,
+    "got": [
+     63
+    ],
+    "pass": true
+   },
+   {
+    "site": "s12_async_generator",
+    "expected": 68,
+    "got": [
+     68
+    ],
+    "pass": true
+   },
+   {
+    "site": "s16_iife",
+    "expected": 73,
+    "got": [
+     73
+    ],
+    "pass": true
+   },
+   {
+    "site": "s17_inner",
+    "expected": 79,
+    "got": [
+     79
+    ],
+    "pass": true
+   },
+   {
+    "site": "s18_callback",
+    "expected": 87,
+    "got": [
+     87
+    ],
+    "pass": true
+   },
+   {
+    "site": "s20_in_namespace",
+    "expected": 94,
+    "got": [
+     94
+    ],
+    "pass": true
+   },
+   {
+    "site": "s14_default",
+    "expected": 100,
+    "got": [
+     100
+    ],
+    "pass": true
+   },
+   {
+    "site": "S19Component",
+    "expected": 5,
+    "got": [
+     5
+    ],
+    "pass": true
+   }
+  ]
+ },
+ "E5": {
+  "vitest via Vite plugin": "PASS (probes-3: 5 probe files pass, expected rows produced)",
+  "node --test via loader hook": "PASS (nodetest-2: 7 tests, E3 all pass on its spool)",
+  "jest": null,
+  "dropped": [
+   "jest: not measured, VTT does not use it"
+  ]
+ },
+ "E6": {
+  "manifest_identical": true,
+  "plain_after": "Test Files  372 passed (372)\n      Tests  4278 passed (4278)\n   Duration  21.82s (transform 10.59s, setup 11.99s, import 32.56s, tests 77.85s, environment 161.56s)\nwall 22.08 s",
+  "marker_hits_in_caches": "0",
+  "gate": "PASS"
+ },
+ "E7": {
+  "verbatim": "/mnt/extra/sensorium-s5/e7-reader.txt"
+ },
+ "E8": {
+  "seen": 5,
+  "of": 5,
+  "shapes": {
+   "1 empty catch clause": {
+    "pass": true,
+    "raise": 1,
+    "handled_empty_catch": 1
+   },
+   "2 empty catch callback": {
+    "pass": true,
+    "handled": 1,
+    "raise": 0
+   },
+   "3 unhandled rejection": {
+    "pass": true,
+    "raise_unhandled": 1
+   },
+   "4 throw a string": {
+    "pass": true,
+    "raise": 1,
+    "handled": 1
+   },
+   "5 rethrow same serial": {
+    "pass": true,
+    "raise": 2,
+    "handled": 2,
+    "same_serial": true
+   }
+  }
+ }
+}
