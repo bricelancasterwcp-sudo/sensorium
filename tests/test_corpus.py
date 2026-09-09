@@ -192,15 +192,17 @@ def test_every_question_registers_a_real_why_logs_fail():
 def test_second_run_is_declared_wherever_run2_is_used():
     """One Python recording is one process, so `$RUN2` needs a `second_run`.
 
-    A cargo recording is one trace per PROCESS, so a cargo case may legally
-    take `$RUN2` from the second process of a single invocation (`rust/abort`
-    records a parent and the child it spawned) and is checked at run time
-    against the ids the recording really produced. The rule is scoped here
-    rather than dropped: a Python case that used `$RUN2` without declaring a
-    second run would still be a mistake, and this is what says so.
+    A cargo recording is one trace per PROCESS, and a vitest recording is one
+    trace per TEST FILE, so either may legally take `$RUN2` from the second
+    trace of a single invocation (`rust/abort` records a parent and the child
+    it spawned; `typescript/pass_vs_fail` records two test files) and is
+    checked at run time against the ids the recording really produced. The
+    rule is scoped here rather than dropped: a Python case that used `$RUN2`
+    without declaring a second run would still be a mistake, and this is what
+    says so.
     """
     for case in run_corpus.load_cases():
-        if case.is_cargo:
+        if case.is_cargo or case.is_vitest:
             continue
         uses = any("$RUN2" in q["command"] for q in case.questions)
         assert uses == (case.second_run is not None), case.name

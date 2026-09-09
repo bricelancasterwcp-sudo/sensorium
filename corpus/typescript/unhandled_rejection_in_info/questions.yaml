@@ -1,0 +1,52 @@
+program: vitest
+harness_args: ["run", "unhandled_rejection_in_info"]
+questions:
+  - id: did-anything-notice-the-rejection
+    ask: >
+      The test passed and the run is green. Did anything at all notice that
+      the background refresh failed?
+    truth: >
+      One thing did: the container's own `unhandledRejection` listener, and
+      `info` prints `unhandled rejections: 1`. Nothing else did -- the
+      harness waited for vitest and got 0, vitest reported the file as
+      passing, and the test's own assertion is about the cache and holds.
+      The count is meta and not an event, because a rejection has no site to
+      hang a causal event on and inventing one would put a place in the
+      program that does not exist. On a complete trace this line prints even
+      at zero, so a 1 here is a measured 1 and a 0 elsewhere is a measured 0.
+    why_logs_fail: >
+      There is nothing to log: no `catch` runs, no handler runs, and the
+      failing function's caller discarded the promise with `void`. A
+      `console.log` after `startRefresh()` prints happily, because the
+      rejection has not happened yet -- it lands a microtask later. `DEBUG=*`
+      switches loggers this program does not use. There is no stack trace,
+      because nothing throws on any stack the program owns.
+    command: ["info", "$RUN"]
+    expect_contains: ["unhandled rejections: 1"]
+    expect_line:
+      - ["harness: npx vitest run unhandled_rejection_in_info",
+         "exit: 0 (waited)"]
+      - ["recorded: CALL 6", "RETURN 5", "RAISE 1", "HANDLED 0"]
+  - id: where-did-the-failure-actually-happen
+    ask: Where did the refresh fail, and what did its caller do about it?
+    truth: >
+      `refresh` left by throwing -- the frame closes `!! Error('stale
+      token')` -- and `startRefresh`, the frame that called it, returned
+      `undefined` a moment later as if nothing had happened, because it
+      discarded the promise instead of awaiting it. The test callback then
+      returned normally too. Every frame around the failure looks healthy,
+      which is why the count in the previous question is the only thing in
+      the run that marks it.
+    why_logs_fail: >
+      The failure is inside an async function whose result nobody reads, so
+      the only place a log could go is inside `refresh` itself -- a
+      `console.log` before the `throw`, which is the edit you make after you
+      already know this function is the problem. Every other frame's output
+      would be identical if the refresh had succeeded. Nothing prints a
+      stack trace, because the rejection is never delivered to a handler.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["refresh() <unread: locals>", "[async]", "!! Error('stale token')"]
+      - ["startRefresh() <unread: locals> -> undefined"]
+      - ["cacheAge() <unread: locals> -> 0"]
+    expect_contains: ["task t1: a background refresh is started"]

@@ -1,0 +1,102 @@
+program: vitest
+harness_args: ["run", "async_interleaved"]
+questions:
+  - id: who-made-the-four-writes
+    ask: >
+      Two concurrent tests wrote 1 and then 2 to the same key. Which of the
+      four writes belongs to which test?
+    truth: >
+      Two each, and the trace attributes them by TASK rather than by value.
+      `update` ran four times; the two calls under `writerA` are in the task
+      named `writer A writes twice` and the two under `writerB` are in
+      `writer B writes twice`, and each `update` frame is a CHILD of the
+      writer frame that called it -- including the write that happens AFTER
+      the `await`, which resumed into the task it started in and not into
+      whichever test happened to be running when the microtask queue got
+      there. The surviving value is 2 and says nothing about who wrote it,
+      because both writers write 1 and then 2.
+    why_logs_fail: >
+      A `console.log` inside `update` shows four writes whose values are 1,
+      1, 2 and 2: nothing in them distinguishes the writers, and nothing in
+      `update`'s scope knows which test it is running in. Getting that means
+      threading a test name through every call -- the instrumentation nobody
+      writes until they already suspect the interleaving, which is the thing
+      being asked. `DEBUG=*` would tag lines by module, not by test, and
+      both writers live in one module; nothing throws, so there is no stack
+      trace, and a stack trace would show the call stack anyway, which after
+      an `await` no longer names the test.
+    command: ["tree", "$RUN"]
+    expect_contains:
+      - "order between tasks is wall-clock"
+    expect_count: {"update() <unread: locals>": 4}
+    expect_line:
+      - ["task", ": writer A writes twice"]
+      - ["task", ": writer B writes twice"]
+      - ["writerA()", "[async]", "-> 2"]
+      - ["writerB()", "[async]", "-> 2"]
+  - id: does-a-writers-frame-belong-to-one-test
+    ask: >
+      Take writer A's activation. Does anything in its frame belong to the
+      other test?
+    truth: >
+      No. `writerA` ran in the task named `writer A writes twice`, it has
+      exactly two children -- its two `update` calls -- and it suspended
+      once awaiting a Promise and resumed once. Nothing in the frame carries
+      the other test's name, which is the claim that matters: the two
+      concurrent tests interleaved in wall-clock time and their records did
+      not.
+    why_logs_fail: >
+      Two concurrent tests write interleaved output, and the interleaving
+      differs run to run for reasons that are not behavioural, so a log
+      cannot be split back into "just the lines this test produced" unless
+      every line was tagged by hand in advance. `DEBUG=*` tags by module and
+      both writers are in one module. Nothing throws.
+    command: ["frame", "$RUN", "--fn", "writerA"]
+    expect_contains: ["children (2):", "awaiting Promise", "return: 2"]
+    expect_line:
+      - ["async_interleaved.test.ts:writerA", "(writer A writes twice)",
+         "closed: return"]
+    expect_absent: ["writer B writes twice", "writerB"]
+  - id: and-the-other-writers-frame
+    ask: And writer B's -- does anything in it belong to test A?
+    truth: >
+      No, symmetrically: `writerB` ran in `writer B writes twice` with its
+      own two `update` children and its own suspension. The two claims are
+      asked separately because one of them holding is not evidence for the
+      other: an attribution rule that put every continuation in the first
+      task would satisfy the A question and fail this one.
+    why_logs_fail: >
+      Same as the previous question, from the other side -- and that is the
+      point: a log that happened to interleave neatly on one run would look
+      like an answer to both, and on the next run would not.
+    command: ["frame", "$RUN", "--fn", "writerB"]
+    expect_contains: ["children (2):", "awaiting Promise", "return: 2"]
+    expect_line:
+      - ["async_interleaved.test.ts:writerB", "(writer B writes twice)",
+         "closed: return"]
+    expect_absent: ["writer A writes twice", "writerA"]
+  - id: how-sure-is-the-tool-of-those-names
+    ask: >
+      Those task names came from vitest. How confident is the recording that
+      each one is on the right task?
+    truth: >
+      Less confident than it looks, and it says so. Names are taken from
+      vitest's own reporter state and cross-checked against the title
+      literal the transform passed; on a `.concurrent` test that state is
+      global and shared, so it can be the OTHER test's. Here exactly one of
+      the two disagreed, the task fell back to its lexical title, and the
+      disagreement is counted: `task names: mixed, 1 conflict(s)`. Both
+      names came out right -- the conflict is what makes that checkable
+      rather than lucky. Two tests were registered and two were reached, so
+      no test ran unrecorded.
+    why_logs_fail: >
+      "Is this attribution real or inferred?" is a question about the
+      instrument, not about the program, so no `console.log`, `DEBUG`
+      namespace or stack trace can answer it -- each would answer about the
+      run instead. Getting it wrong is how one test's work is silently
+      credited to another.
+    command: ["info", "$RUN"]
+    expect_line:
+      - ["tests: 2 as tasks, 2 seen by the harness", "task names: mixed",
+         "1 conflict(s)"]
+      - ["tasks: 2 ", "writer A writes twice", "writer B writes twice"]

@@ -1,0 +1,6 @@
+node_modules/
+
+# What a hand-run of the nondeterministic case leaves behind. The suite runs
+# every case in a disposable copy of this project, so this only appears when
+# somebody runs vitest here directly.
+run_count.txt

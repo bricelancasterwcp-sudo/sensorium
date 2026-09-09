@@ -1,0 +1,50 @@
+program: vitest
+harness_args: ["run", "double_call"]
+questions:
+  - id: how-many-charges
+    ask: One order was submitted. How many times was it actually charged?
+    truth: >
+      Twice. `charge` was entered exactly two times inside the one test, and
+      the two activations are two frames with two different return values --
+      1 and 2, the ledger's length after each push. The ledger total of 80
+      is one order of 40 billed twice, not two orders. Arguments are NOT
+      recorded by this recorder, so every CALL row says `<unread: locals>`
+      and the order's id is nowhere in the trace: the count and the returns
+      are what carry the fact here.
+    why_logs_fail: >
+      A `console.log` inside `charge` would answer it, and there is no such
+      line: `charge` is a one-liner that pushes and returns. Everything the
+      test asserts on is an aggregate, and an aggregate of 80 is equally
+      consistent with two orders of 40 -- which is the reading that keeps
+      this bug alive. `DEBUG=*` is a namespaced logger's switch and this
+      program uses no logger, so it prints nothing at all; a stack trace
+      needs a throw, and nothing throws.
+    command: ["grep", "$RUN", "charge", "--kind", "CALL"]
+    expect_contains: ["matches: 2"]
+    expect_count: {"CALL    charge() <unread: locals>": 2}
+  - id: which-call-site-repeated
+    ask: >
+      Both charges came from inside one `submit`. What did that single
+      activation do, in order?
+    truth: >
+      One activation of `submit` made four calls: `charge` (-> 1), then
+      `confirm` (-> false, because the order is slow), then `charge` again
+      (-> 2), then `total` (-> 80). The retry branch re-entered the PAYMENT
+      call rather than the confirmation call, and `submit` still returned a
+      receipt that looks like a normal total. The frame's own arguments are
+      a stated absence -- `args: <unread: locals>` -- not an empty list.
+    why_logs_fail: >
+      Counting alone does not localise anything: two charges could equally
+      have come from two call sites, or from a retry loop in the test. What
+      is needed is ONE activation's children in order, and no `console.log`
+      line carries "which activation of submit am I inside" -- the four
+      calls print as four unrelated lines. `DEBUG=*` adds no scoping this
+      program's code does not already lack, and a stack trace would show the
+      call stack at one instant, never the sequence of siblings.
+    command: ["frame", "$RUN", "--fn", "submit"]
+    expect_contains: ["children (4):", "args: <unread: locals>"]
+    expect_count: {"charge() <unread: locals>": 2}
+    expect_line:
+      - ["orders.ts:submit", "closed: return"]
+      - ["confirm() <unread: locals> -> false"]
+      - ["return: 80"]

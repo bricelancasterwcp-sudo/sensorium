@@ -1,0 +1,74 @@
+program: vitest
+harness_args: ["run", "suspended_at_end"]
+questions:
+  - id: where-was-the-test-when-it-was-killed
+    ask: >
+      The test timed out after 200ms. Where in its own execution was it when
+      the recording ended?
+    truth: >
+      Parked at an `await`, and the trace says so in those words: the test
+      callback's frame reads `~ suspended at LNone at end of recording`
+      rather than `(open)`. It is not merely unfinished -- the recorder knows
+      it yielded and never resumed. `LNone` is what a null line renders as:
+      this recorder records no line on a YIELD, so the state is derived and
+      the site is honestly missing rather than invented. `awaitToken`
+      returned a `Promise { <pending> }`, which is the promise nothing ever
+      settles.
+    why_logs_fail: >
+      A timed-out test prints a timeout message naming the `test(` line --
+      the registration, not the await it is stuck on. A `console.log` before
+      the `await` would print and one after it would not, so the log's shape
+      is an absence, and an absence looks identical to a process that died
+      before reaching the line at all. `DEBUG=*` enables no logger here, and
+      a stack trace of a parked async function shows the harness's stack,
+      not the awaiting frame's.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["<anonymous>()", "[async]",
+         "~ suspended at LNone at end of recording"]
+      - ["awaitToken() <unread: locals> -> Promise { <pending> }"]
+    expect_contains: ["task t1: a token is fetched"]
+    expect_absent: ["INCOMPLETE", "(open)"]
+  - id: is-the-recording-itself-whole
+    ask: >
+      Is that a parked frame in a complete recording, or a recording that
+      was cut off?
+    truth: >
+      A parked frame in a complete recording, and the counts say which:
+      three CALLs and two RETURNs, one YIELD and no RESUME. The missing
+      RETURN is the suspended frame and nothing else; the container flushed
+      and finalized normally, so no INCOMPLETE banner is printed. The
+      harness exited 1 -- vitest failed the timed-out test -- and the driver
+      waited for that, which is a separate fact from this container's own
+      ending and is printed as one.
+    why_logs_fail: >
+      "Did the recording stop, or did the program stop?" is a question about
+      the instrument, and every log-based answer to it is the same absence:
+      output that ends. `DEBUG=*` and stack traces both report from inside a
+      process that in this case was killed by its harness, so their silence
+      is uninformative in exactly the way this distinction matters.
+    command: ["info", "$RUN"]
+    expect_line:
+      - ["recorded: CALL 3", "RETURN 2", "YIELD 1", "RESUME 0"]
+      - ["harness: npx vitest run suspended_at_end", "exit: 1 (waited)"]
+      - ["tests: 1 as tasks, 1 seen by the harness"]
+    expect_absent: ["INCOMPLETE"]
+  - id: what-was-it-waiting-on
+    ask: What was that frame waiting on when it parked?
+    truth: >
+      A Promise. The frame's suspension timeline holds one YIELD row and no
+      RESUME beside it -- `awaiting Promise` -- and the frame reads
+      `closed: open  state: suspended`: open because nothing closed it,
+      suspended because the trace knows why. Its one child, `awaitToken`,
+      had already returned the pending promise, so the recording distinguishes
+      the call that produced the promise from the wait on it.
+    why_logs_fail: >
+      What an async function is awaiting is not in its own output and not on
+      any stack: by the time it is waiting, its frame is off the stack
+      entirely. That is the property that makes `console.log` and stack
+      traces both blind here, and `DEBUG=*` has nothing to enable.
+    command: ["frame", "$RUN", "--fn", "<anonymous>"]
+    expect_contains: ["children (1):", "closed: open", "state: suspended"]
+    expect_line:
+      - ["YIELD", "<anonymous>", "awaiting Promise"]
+    expect_absent: ["RESUME"]

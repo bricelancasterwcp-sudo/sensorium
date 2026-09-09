@@ -218,6 +218,11 @@ def test_the_documented_command_reaches_the_bench(tmp_path):
     ModuleNotFoundError while every in-process test passed, because pytest
     puts the root there itself. The bench is stubbed so this test pays for
     the import path and not for a real benchmark.
+
+    `cases.py` is copied beside it because `run_corpus` imports it at module
+    level (`from corpus.cases import ...`) and that import fails under the
+    same script-mode path as `corpus._bench` -- which is why this test
+    covers both, and why the fixture is a package rather than one file.
     """
     pkg = tmp_path / "corpus"
     (pkg / "_bench").mkdir(parents=True)
@@ -226,6 +231,8 @@ def test_the_documented_command_reaches_the_bench(tmp_path):
     (pkg / "_bench" / "bench.py").write_text(
         "def report(*a, **kw):\n    print('stub table')\n")
     shutil.copy(Path(run_corpus.__file__), pkg / "run_corpus.py")
+    shutil.copy(Path(run_corpus.__file__).parent / "cases.py",
+                pkg / "cases.py")
     env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
 
     r = subprocess.run([sys.executable, str(pkg / "run_corpus.py"), "--bench"],

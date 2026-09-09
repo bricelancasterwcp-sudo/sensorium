@@ -1,0 +1,72 @@
+program: vitest
+harness_args: ["run", "object_refused"]
+questions:
+  - id: are-the-two-settings-the-same-object
+    ask: >
+      Two callers each loaded their own settings, and tuning one changed the
+      other. Are they the same object?
+    truth: >
+      They are -- `loadSettings` returns the shared `DEFAULTS` -- and this
+      recorder REFUSES to say so, at exit 3, because it declares it does not
+      produce object identity. That refusal is the right answer, not a
+      shortfall dressed up: nothing in the trace assigns an identity to a
+      value, so any answer this command gave would be about the printed text
+      instead. The sentence names the capability, the recorder that declared
+      it false, and that nothing was checked -- so the reader knows no
+      search ran and got no hits, rather than the reverse.
+    why_logs_fail: >
+      A `console.log` of either object prints `{ retries: 3 }` twice, which
+      is exactly what two separate copies would print; identity is invisible
+      in the text. Answering it by log means adding an id field or a
+      `WeakMap` to the program -- an edit you make after you already suspect
+      aliasing. `DEBUG=*` prints the same text through a logger, and a stack
+      trace shows where you are, never which object you hold.
+    command: ["flow", "$RUN", "--object", "loadSettings:return"]
+    expect_exit: 3
+    expect_contains:
+      - "REFUSED: flow --object needs object_identity, which recorder
+         sensorium-ts 0.1.0 declares it does not produce
+         (capabilities.object_identity: false); nothing was checked"
+  - id: do-the-recorded-values-settle-it
+    ask: >
+      Never mind identity -- do the values this recorder DID capture settle
+      the question?
+    truth: >
+      No, and that is why the refusal above is not a formality. The two
+      `loadSettings` activations returned values that render identically --
+      `{ retries: 3 }` both times -- which is precisely what two independent
+      copies of the defaults would also render. The mutation is visible
+      afterwards (`tune` returned `{ retries: 9 }` and `retriesOf` then
+      returned 9 for the OTHER caller's settings), so the trace shows the
+      consequence of the aliasing and still cannot name it as aliasing.
+    why_logs_fail: >
+      This is the log-based reading's own failure written down: printing the
+      values is what a `console.log` does, and it is shown here to be
+      compatible with both explanations. `DEBUG=*` changes the channel, not
+      the content, and no throw occurs.
+    command: ["tree", "$RUN"]
+    expect_count: {"loadSettings() <unread: locals> -> { retries: 3 }": 2}
+    expect_line:
+      - ["tune() <unread: locals> -> { retries: 9 }"]
+      - ["retriesOf() <unread: locals> -> 9"]
+  - id: can-the-value-be-followed-instead
+    ask: >
+      Then can I at least follow the value 9 through the run and see where
+      it came from?
+    truth: >
+      No, and the refusal is a different one: `flow` without `--object`
+      searches per-line state, and this recorder declares `line: false`. So
+      the same command refuses twice for two different reasons, each naming
+      its own capability -- which is the point of declaring them separately
+      rather than answering "no results" to both.
+    why_logs_fail: >
+      A print of `9` inside `tune` tells you it was written; it does not
+      tell you which of the two settings objects downstream reads it, which
+      is the whole question. `DEBUG=*` and a stack trace are no different
+      here -- both report from inside one frame about one moment.
+    command: ["flow", "$RUN", "--value", "9"]
+    expect_exit: 3
+    expect_contains:
+      - "REFUSED: flow needs line, which recorder sensorium-ts 0.1.0
+         declares it does not produce (capabilities.line: false); nothing
+         was checked"

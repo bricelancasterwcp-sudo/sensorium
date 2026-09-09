@@ -1,0 +1,50 @@
+program: vitest
+harness_args: ["run", "watch_refused"]
+questions:
+  - id: what-was-fresh-at-that-line
+    ask: >
+      `refresh` recomputes the rate and the cache never changes. What was
+      the local `fresh` holding at the line after it was computed?
+    truth: >
+      Unanswerable from this recording, and refused rather than guessed at.
+      This recorder produces no LINE events -- `capabilities.line: false` --
+      so there is no per-line state for a `watch` expression to be evaluated
+      against, and the command exits 3 saying nothing was checked. "Not
+      satisfied" would be a claim about the program; "nothing was checked"
+      is a claim about the recording, and only the second one is true.
+    why_logs_fail: >
+      A `console.log(fresh)` at that line is exactly the edit this question
+      describes, and it is not available after the fact: the run has already
+      happened. Adding it means re-running, which is a different execution
+      of a program whose cache state has moved on. `DEBUG=*` cannot reach a
+      local variable at all, and nothing throws, so no stack trace exists to
+      read a local out of.
+    command: ["watch", "$RUN", "--at", "refresh", "--expr", "fresh == 200"]
+    expect_exit: 3
+    expect_contains:
+      - "REFUSED: watch needs line, which recorder sensorium-ts 0.1.0
+         declares it does not produce (capabilities.line: false); nothing
+         was checked"
+  - id: is-the-fault-reachable-another-way
+    ask: >
+      Is the fault reachable at all in this recording, or does the refusal
+      end it?
+    truth: >
+      It is reachable through the return values, which this recorder does
+      capture. `compute` returned 200 inside a `refresh` that itself
+      returned 100, and `lookup` afterwards also returned 100: the
+      recomputed value never left the frame that computed it. That is the
+      bug -- `refresh` returns the cache entry instead of storing the fresh
+      value -- localised to one frame, without any per-line record.
+    why_logs_fail: >
+      Printing the returned rate gives 100, which is what a correct cache
+      hit also returns; the tell is that the value the SAME frame computed
+      one call earlier was different, and that comparison spans two
+      functions, so no single log line holds both. `DEBUG=*` has no logger
+      to enable here, and nothing throws.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["refresh() <unread: locals> -> 100"]
+      - ["compute() <unread: locals> -> 200"]
+      - ["lookup() <unread: locals> -> 100"]
+    expect_count: {"-> 100": 2}
