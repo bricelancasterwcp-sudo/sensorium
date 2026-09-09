@@ -664,3 +664,19 @@ test('a generator that runs to its own end still closes with its own value', () 
   assert.equal(closes.length, 1, 'a frame closes once');
   assert.deepEqual(closes[0].v, { k: 'dbg', v: '7', trunc: false });
 });
+
+test('a name the harness could not supply is not a test called "null"', () => {
+  // The setup file passes `expect.getState().currentTestName ?? null`, so a
+  // `beforeEach` that runs outside any test hands `seen` a null. `String(null)`
+  // made that a SEEN named `null`, which the converter counts in `tests_seen`:
+  // a test the harness never registered, inflating the one number whose whole
+  // job is to name the shortfall against tasks.
+  const out = run(`
+    __srt.seen(null);
+    __srt.seen(undefined);
+    __srt.seen(7);
+    __srt.seen('a real one');
+  `);
+  ok(out);
+  assert.deepEqual(of(out.recs, 'SEEN').map((r) => r.name), ['a real one']);
+});

@@ -46,10 +46,21 @@ class WrapperError(Exception):
     caller's next move is to look at its permissions."""
 
 
+#: The four characters JavaScript counts as line terminators, none of
+#: which may appear raw inside a single-quoted string. LF and CR are the
+#: obvious two; U+2028 and U+2029 are invisible in every editor and legal
+#: in a POSIX filename, which is exactly what makes them worth escaping.
+LINE_TERMINATORS = (("\n", "\\n"), ("\r", "\\r"),
+                    ("\u2028", "\\u2028"), ("\u2029", "\\u2029"))
+
+
 def js_string(text: str) -> str:
     """`text` inside a single-quoted JavaScript string. The backslash goes
     first, or the escape this adds would itself be escaped."""
-    return text.replace("\\", "\\\\").replace("'", "\\'")
+    out = text.replace("\\", "\\\\").replace("'", "\\'")
+    for raw, escape in LINE_TERMINATORS:
+        out = out.replace(raw, escape)
+    return out
 
 
 def js_regexp(text: str) -> str:

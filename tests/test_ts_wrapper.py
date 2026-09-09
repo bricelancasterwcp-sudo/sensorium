@@ -158,6 +158,26 @@ def test_a_quote_in_a_path_cannot_end_the_string_it_sits_in(tmp_path):
     assert wrapper.js_string("a'b\\c") == "a\\'b\\\\c"
 
 
+def test_a_line_terminator_in_a_path_cannot_break_the_line_it_sits_in():
+    """A JavaScript single-quoted string may not contain a raw line
+    terminator, and JavaScript counts four: LF, CR, U+2028 and U+2029. A
+    path holding one -- a directory somebody named by pasting -- would have
+    ended the string mid-token and turned the rest of the config into a
+    syntax error at best. The two Unicode ones are the subtle half: they are
+    invisible in every editor and legal in a POSIX filename.
+
+    The backslash pass still runs first, so an escape this adds is never
+    itself escaped.
+    """
+    assert wrapper.js_string("a\nb") == r"a\nb"
+    assert wrapper.js_string("a\rb") == r"a\rb"
+    assert wrapper.js_string("a\u2028b") == r"a\u2028b"
+    assert wrapper.js_string("a\u2029b") == r"a\u2029b"
+    assert wrapper.js_string("a\\\nb") == "a" + r"\\" + r"\n" + "b"
+    # Nothing else moved: the two escapes that shipped are unchanged.
+    assert wrapper.js_string("a'b\\c") == "a\\'b\\\\c"
+
+
 def test_the_regexp_escape_covers_every_metacharacter():
     for ch in ".*+?^${}()|[]\\/":
         assert wrapper.js_regexp(f"a{ch}b") == f"a\\{ch}b"

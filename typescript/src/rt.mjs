@@ -616,14 +616,20 @@ export function fileStart(file_, environment) {
 /**
  * One test the harness itself saw, whatever the transform made of it: the
  * count that catches tests registered through a shape we did not wrap.
- * @param {string} name
+ *
+ * A non-string is not a test. The setup file passes
+ * `expect.getState().currentTestName ?? null`, so a `beforeEach` that runs
+ * where the harness has no current test hands this a null; `String(null)` made
+ * that a test called `null` and inflated `tests_seen`, which is the one number
+ * whose whole job is to name the shortfall against tasks.
+ * @param {unknown} name
  * @returns {void}
  */
 export function seen(name) {
-  if (!on) return;
+  if (!on || typeof name !== 'string') return;
   // Cut exactly as a TASK name is (R14a): the converter compares the two, and
   // two names cut by different rules would not compare.
-  const capped = cap(String(name));
+  const capped = cap(name);
   /** @type {Record_} */
   const rec = { e: 'SEEN', name: capped.v };
   if (capped.trunc) rec.name_trunc = true;
