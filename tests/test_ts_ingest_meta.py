@@ -50,6 +50,7 @@ def test_the_declaration_is_this_recorders_own(ingested):
     assert meta["transform_excluded"] == {}
     assert meta["throw_flow_outside_frames"] == 0
     assert meta["unhandled_rejections"] == []
+    assert meta["exit_self_reported"] == {"code": None, "signal": "SIGTERM"}
 
 
 def test_harness_exit_rides_every_trace_that_was_witnessed(ingested):
@@ -343,3 +344,183 @@ def test_the_pool_is_spawned_not_forked():
     from sensorium.ts import ingest
     assert ingest.CONTEXT == "spawn"
     assert multiprocessing.get_context(ingest.CONTEXT) is not None
+
+
+# --------------------------------------------------------------------------
+# fix round 1
+
+
+def test_a_container_that_saw_its_own_ending_says_so(ingested):
+    """R21. `process.on('exit')` reports a code the container chose, not the
+    status it was reaped with, so it is not `exit_status` -- but it IS a
+    thing the container witnessed about itself, and a witnessed fact this
+    converter read and dropped would be the founding failure wearing the
+    opposite hat. It is kept under a name that says whose observation it is,
+    beside an `exit_status` that stays null."""
+    _spool, sdir, _result = ingested["outside-frame-throw"]
+    meta = only_trace(sdir).meta
+    assert meta["exit_self_reported"] == {"code": 1, "signal": None}
+    assert meta["exit_status"] is None
+    assert meta["exit_status_basis"] == "unwitnessed"
+
+
+def test_a_container_torn_down_by_a_signal_still_says_how(ingested):
+    """R13 and R21 together: vitest's teardown signals its workers, and a
+    container that caught the signal wrote an EXIT with no code and the
+    signal's name. That EXIT finalizes the trace -- the container lived long
+    enough to say what happened to it."""
+    _spool, sdir, _result = ingested["capped-names"]
+    meta = only_trace(sdir).meta
+    assert meta["exit_self_reported"] == {"code": None, "signal": "SIGTERM"}
+    assert meta["incomplete"] is False
+
+
+def test_a_container_that_never_got_to_say_carries_no_claim(ingested):
+    """...and the key is ABSENT where there was no EXIT at all. A `code`
+    of null there would read as a container that ended without choosing
+    one, which is a different fact from a container that was killed before
+    it could speak."""
+    _spool, sdir, _result = ingested["killed-mid-file"]
+    meta = only_trace(sdir).meta
+    assert "exit_self_reported" not in meta
+    assert meta["incomplete"] is True
+
+
+def test_the_incomplete_claim_is_written_before_anything_is_read(tmp_path):
+    """R22a, the contract's literal rule: `incomplete` is written TRUE at
+    the start and false only after the finalize pass. A build that dies half
+    way must leave a trace that CLAIMS to be unfinished -- an absent key
+    reads as the finalized value, and the refusal rule would then wave
+    through a file with every required key missing."""
+    from sensorium.store import db
+    from sensorium.ts import build, invocation, spool
+
+    sp = spool.read(FIXTURES / "each-names" / "439934-0.jsonl")
+    inv = invocation.Invocation.from_json(
+        json.loads((FIXTURES / "each-names" / "invocation.json").read_text()))
+    path = tmp_path / "half.db"
+    builder = build.Builder(sp, inv, None, None, path, "20260101-000000-aaaaaa")
+    # Nothing converted yet: exactly the state an interrupted build leaves.
+    assert db.get_meta(builder.w._conn, "incomplete") is True
+    builder.abort()
+
+
+def test_the_cap_is_counted_wherever_it_bit(ingested):
+    """R14a. Three flags say a consumer string was cut and they are three
+    different facts: `name_trunc` on a test's name, `trunc` on a message,
+    `type_trunc` on a type name. `truncated_count` is how many captures the
+    caps clipped, so every one of them counts once."""
+    _spool, sdir, _result = ingested["capped-names"]
+    trace = only_trace(sdir)
+    # one SEEN + one TASK name_trunc, one trunc and one type_trunc on the
+    # RAISE's exc; the UNWIND's copy of that exc counts too, since it is a
+    # second capture the cap bit.
+    assert trace.meta["truncated_count"] == 6
+
+    raise_events = list(trace.events(kind=("RAISE",)))
+    assert len(raise_events) == 1
+    exc = raise_events[0].payload["exc"]
+    assert exc["trunc"] is True and exc["type_trunc"] is True
+    assert len(exc["msg"].encode()) == 200
+    assert len(exc["type"].encode()) == 200
+
+    (frame,) = [f for f in trace.frames() if f.closed_by == "unwind"]
+    assert frame.unwind_exc["type_trunc"] is True
+
+
+def test_a_repeated_activation_keeps_the_number_the_recorder_gave_it(
+        ingested):
+    """R17. `#k` tells two runs of ONE test apart, it is the recorder's own
+    suffix rather than the harness's, and it is added after the cut -- so it
+    travels into the `tasks` row exactly as the wire spelled it."""
+    _spool, sdir, _result = ingested["capped-names"]
+    trace = only_trace(sdir)
+    names = [t.name for t in trace.tasks()]
+    assert names[1] == "retries the flaky one#2"
+    assert len(names[0].encode()) == 200
+    assert {name for name, _h, _n in trace.task_fingerprints().values()} == \
+        set(names)
+
+
+def test_a_run_id_is_claimed_by_creating_the_file(tmp_path):
+    """R22c. Two spawn workers convert two containers of one invocation, so
+    they mint from the same second and collide on the stamp by design. The
+    `O_EXCL` create is one atomic step: the loser draws again, where a pair
+    that merely LOOKED could both have looked before either wrote."""
+    from sensorium.ts import ingest as ingest_mod
+
+    traces = tmp_path / "traces"
+    traces.mkdir()
+    run_id, tmp = ingest_mod._reserve(traces, 1788965244.0)
+    assert tmp.exists() and tmp.stat().st_size == 0
+    assert tmp.name == f".{run_id}.db.tmp"
+    # A second reservation cannot take the name the first one holds.
+    second, tmp2 = ingest_mod._reserve(traces, 1788965244.0)
+    assert second != run_id and tmp2 != tmp
+
+
+def test_a_worker_that_dies_still_leaves_the_marker(tmp_path, monkeypatch):
+    """P6 does not care WHY a run stopped. Traces that converted before the
+    failure are in the store, and the marker is the only record of which
+    ones -- without it a re-ingest would mint a second run id for a
+    container that already converted."""
+    from sensorium.ts import ingest as ingest_mod
+
+    spool = _two_good_spools(tmp_path)
+    real = ingest_mod._worker
+    calls = []
+
+    def flaky(job):
+        calls.append(job)
+        if len(calls) == 2:
+            raise RuntimeError("the disk went away")
+        return real(job)
+
+    monkeypatch.setattr(ingest_mod, "_worker", flaky)
+    sdir = tmp_path / "sdir"
+    with pytest.raises(ingest_mod.IngestError) as e:
+        ingest_mod.ingest_dir(spool, sdir, jobs=1)
+    assert "RuntimeError: the disk went away" in str(e.value)
+
+    # The first container's trace is in the store...
+    dbs = sorted((sdir / "traces").glob("*.db"))
+    assert len(dbs) == 1, [p.name for p in dbs]
+    # ...and the marker names it and says what stopped the run.
+    marker = json.loads((spool / "ingested.json").read_text())
+    assert marker["run_ids"] == [dbs[0].stem]
+    assert marker["refused"] == []
+    assert marker["error"] == "RuntimeError: the disk went away"
+
+
+def test_a_run_that_died_is_still_a_run_that_happened(tmp_path, monkeypatch):
+    """...and a re-ingest of that directory is refused by name, exactly as a
+    re-ingest of a run that finished. The marker is the claim, and a partial
+    ingest is the case where converting again would do the most damage."""
+    from sensorium.ts import ingest as ingest_mod
+
+    spool = _two_good_spools(tmp_path)
+    monkeypatch.setattr(ingest_mod, "_worker",
+                        lambda job: (_ for _ in ()).throw(RuntimeError("nope")))
+    with pytest.raises(ingest_mod.IngestError):
+        ingest_mod.ingest_dir(spool, tmp_path / "sdir", jobs=1)
+
+    r = run_cli(["ts", "ingest", str(spool)], cwd=tmp_path,
+                sensorium_dir=tmp_path / "sdir")
+    assert r.returncode == 2
+    assert "ingested.json" in (r.stdout + r.stderr)
+
+
+def _two_good_spools(tmp_path):
+    """A spool directory with two containers that both convert: `no-boot`'s
+    whole spool, and a copy of it re-stamped with a second pid."""
+    spool = tmp_path / "spool"
+    spool.mkdir(parents=True)
+    (spool / "invocation.json").write_bytes(
+        (FIXTURES / "no-boot" / "invocation.json").read_bytes())
+    lines = (FIXTURES / "no-boot" / "7102-0.jsonl").read_text().splitlines()
+    (spool / "7102-0.jsonl").write_text("\n".join(lines) + "\n")
+    boot = json.loads(lines[0])
+    boot["pid"] = 7103
+    (spool / "7103-0.jsonl").write_text(
+        "\n".join([json.dumps(boot)] + lines[1:]) + "\n")
+    return spool

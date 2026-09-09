@@ -1,0 +1,26 @@
+[
+  {
+    "id": "the-cut-name-is-still-the-tests-name",
+    "ask": "does a test whose title the cap bit still appear under the text that survived?",
+    "command": [
+      "info",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "renders the whole settings panel when the feature flag is on"
+    ]
+  },
+  {
+    "id": "the-repeat-keeps-its-number",
+    "ask": "is the second activation of one registration told apart from the first?",
+    "command": [
+      "info",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "retries the flaky one#2"
+    ]
+  }
+]

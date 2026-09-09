@@ -27,11 +27,14 @@ the node binary's directory -> `/usr/bin`, `BOOT.env` ->
 its first 120 whole lines plus the first 30 bytes of line 121, so both the
 torn tail and the missing EXIT are exercised by one file.
 
-`outside-frame-throw`, `no-boot`, `duplicate-boot` and `unknown-frame` are
-hand-written, small enough to read. `unknown-frame` carries the one wire
-record no probe produces: NOTHING under `probes/` lets an exception leave a
-frame -- every shape there swallows what it throws -- so an `UNWIND` has no
-recorded example and is written by hand.
+`outside-frame-throw`, `capped-names`, `no-boot`, `duplicate-boot` and
+`unknown-frame` are hand-written, small enough to read. `unknown-frame`
+carries the one wire record no probe produces: NOTHING under `probes/` lets
+an exception leave a frame -- every shape there swallows what it throws --
+so an `UNWIND` has no recorded example and is written by hand.
+`capped-names` is the other limbs no probe reaches: a title and a type name
+the 200-byte cap bit, a second activation carrying the recorder's `#2`, and
+a container vitest tore down with a signal.
 
 `invocation.json` is hand-written for every case: no driver exists yet
 (Task 6), and the contract these fixtures hold is

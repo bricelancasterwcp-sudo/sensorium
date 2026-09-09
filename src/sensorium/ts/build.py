@@ -108,6 +108,14 @@ class Builder:
         self.conflicts = 0
         self.events = 0
         self.last_ts: int | None = None
+        # The contract's literal rule (TRACE-FORMAT section 4): `incomplete`
+        # is written TRUE at the start of a run and false only after the
+        # finalize pass. Written here, before a single record is read, so a
+        # build that dies half way leaves a trace that CLAIMS to be
+        # unfinished rather than one with no claim at all -- an absent key
+        # reads as "not incomplete", which is the finalized reading, and the
+        # refusal rule would then let it through with every meta key missing.
+        self.w.set_meta("incomplete", True)
 
     # -- the pass -----------------------------------------------------------
 
@@ -181,11 +189,17 @@ class Builder:
         self.truncated += bool(rec.get("name_trunc"))
 
     def _on_exit(self, rec: dict) -> None:
-        """Nothing to write. The EXIT record's own `code` is deliberately
-        not carried into `exit_status`: a process cannot witness its own
-        ending, and what `process.on('exit')` reports is the code chosen so
-        far, not the status the process was reaped with. The status that WAS
-        witnessed rides `harness_exit`, where the driver put it."""
+        """No row. The record is read in `_meta` instead, under a name that
+        says whose observation it is (R21).
+
+        It does NOT become `exit_status`: what `process.on('exit')` reports
+        is the code chosen so far, not the status the process was reaped
+        with, and a container that borrowed a number it did not witness is
+        the Rust D4 failure wearing a different hat. But it is a fact the
+        container observed about ITSELF, and dropping a witnessed fact is
+        the other failure -- so it is kept, named `exit_self_reported`, and
+        `exit_status` stays null with basis `unwitnessed`.
+        """
 
     # -- frames -------------------------------------------------------------
 
@@ -365,6 +379,14 @@ class Builder:
             "caps": dict(CAPS),
             "incomplete": self.spool.exit is None,
         }
+        if self.spool.exit is not None:
+            # Present only where the container lived long enough to say it.
+            # An absent key is a container that never got to observe its own
+            # ending, which is not the same fact as one that ended at 0.
+            meta["exit_self_reported"] = {
+                "code": self.spool.exit.get("code"),
+                "signal": self.spool.exit.get("signal"),
+            }
         meta.update(self._container_meta())
         meta.update(self._invocation_meta())
         return meta

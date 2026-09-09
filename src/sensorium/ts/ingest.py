@@ -78,7 +78,6 @@ class Ingested:
     """What one ingest did, as the marker records it."""
 
     summaries: list[Summary] = field(default_factory=list)
-    invocation: str = ""
 
     @property
     def refused(self) -> list[str]:
@@ -131,12 +130,27 @@ def convert(spool_path, invocation_data: dict, harness_data: dict | None,
 
 
 def _reserve(traces: Path, start_ts: float) -> tuple[str, Path]:
-    """A run id no trace in this store already holds, and the temporary path
-    its conversion writes to."""
+    """A run id no trace in this store holds, CLAIMED before it is returned.
+
+    The temporary file is created here, `O_EXCL`, and that creation IS the
+    reservation: two spawn workers converting two containers of one
+    invocation mint from the same second, so they collide on the stamp by
+    design and only the token separates them -- and a pair that looked with
+    `exists()` and then wrote could both have looked before either wrote.
+    `O_EXCL` is one atomic step and the loser simply draws again.
+
+    The empty file is handed straight to `TraceWriter`; sqlite opens a
+    zero-length file as a new database and lays the schema into it, which is
+    exactly what it would have done had it created the file itself.
+    """
     for _ in range(MINT_TRIES):
         run_id = build.mint_run_id(start_ts, secrets.token_hex(3))
         tmp = traces / f".{run_id}.db.tmp"
-        if (traces / f"{run_id}.db").exists() or tmp.exists():
+        if (traces / f"{run_id}.db").exists():
+            continue
+        try:
+            os.close(os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))
+        except FileExistsError:
             continue
         return run_id, tmp
     raise IngestError(f"could not mint a free run id in {traces} after "
@@ -188,26 +202,59 @@ def ingest_dir(spool_dir, store_dir, jobs: int | None = None) -> list[Summary]:
     payload = (inv.to_json(),
                None if harness is None else harness.to_json(),
                str(store_dir), tally)
-    summaries = _map(jobs, [(str(p), *payload) for p in spools])
-
-    result = Ingested(summaries=summaries, invocation=inv.invocation)
-    marker.write_text(json.dumps({"run_ids": result.run_ids,
-                                  "refused": result.refused}, indent=2) + "\n")
+    summaries: list[Summary] = []
+    try:
+        _map(jobs, [(str(p), *payload) for p in spools], summaries)
+    except Exception as e:
+        # Whatever this was, traces are already in the store and P6's marker
+        # is the only record of which ones. Writing it here is what keeps a
+        # re-ingest from minting a SECOND run id for a container that already
+        # converted -- the failure mode the marker exists to stop does not
+        # care why the run stopped.
+        _write_marker(marker, summaries, f"{type(e).__name__}: {e}")
+        raise IngestError(
+            f"{type(e).__name__}: {e} -- {len(summaries)} spool(s) converted "
+            f"before it; {marker} records them") from e
+    _write_marker(marker, summaries, None)
     return summaries
 
 
-def _map(jobs: int, work: list[tuple]) -> list[Summary]:
-    """The pool, or no pool at all for a single job.
+def _write_marker(marker: Path, summaries: list[Summary],
+                  error: str | None) -> None:
+    """P6's record of what this directory converted to.
+
+    `error` is present only on a run that did not finish, and names what
+    stopped it: a marker that said nothing about it would read as a complete
+    ingest of a directory only part of which was converted.
+    """
+    result = Ingested(summaries=summaries)
+    body: dict = {"run_ids": result.run_ids, "refused": result.refused}
+    if error is not None:
+        body["error"] = error
+    marker.write_text(json.dumps(body, indent=2) + "\n")
+
+
+def _map(jobs: int, work: list[tuple], out: list[Summary]) -> None:
+    """The pool, or no pool at all for a single job, appending to `out`.
+
+    The accumulator is the CALLER's, and results are taken one at a time
+    (`imap`, in order), so a worker that dies of something this converter
+    did not anticipate does not also take the record of what had already
+    converted: `pool.map` returns a list or nothing at all, and nothing at
+    all is what would leave the marker unwritable.
 
     One spool through a process pool costs a whole interpreter start to
     save nothing, and a caller who asked for one job usually wants one
     process -- a debugger's stack, a profiler's numbers.
     """
     if jobs == 1:
-        return [_worker(job) for job in work]
+        for job in work:
+            out.append(_worker(job))
+        return
     ctx = multiprocessing.get_context(CONTEXT)
     with ctx.Pool(jobs) as pool:
-        return list(pool.map(_worker, work))
+        for summary in pool.imap(_worker, work):
+            out.append(summary)
 
 
 def _tally(spool_dir: Path) -> dict:
