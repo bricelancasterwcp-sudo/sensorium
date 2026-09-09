@@ -35,12 +35,16 @@ jobs:
         # job to know to exclude it.
         run: python -m pytest -q
       - name: Corpus (seeded-bug regression suite)
-        # corpus/rust is in here too: with no SENSORIUM_CARGO_SENSORIUM set
-        # on this matrix and no cargo-sensorium on PATH, the Rust cases are
-        # reported skipped BY NAME in the summary rather than passed, and
-        # the Python cases still run. So no --require-driver here: the skip
-        # is this matrix's correct outcome. The `rust` job below is where
-        # they are recorded, and where the flag turns a skip into a failure.
+        # corpus/rust and corpus/typescript are in here too: with no
+        # SENSORIUM_CARGO_SENSORIUM set on this matrix and no
+        # cargo-sensorium on PATH, the Rust cases are reported skipped BY
+        # NAME in the summary rather than passed; with no `npm ci` run in
+        # corpus/typescript (this matrix installs no Node dependencies at
+        # all), the TypeScript cases are skipped BY NAME the same way. The
+        # Python cases still run. So no --require-driver here: the skip is
+        # this matrix's correct outcome. The `rust` and `typescript` jobs
+        # below are where those cases are recorded, and where the flag
+        # turns a skip into a failure.
         run: python corpus/run_corpus.py
 
   rust:
@@ -128,14 +132,124 @@ jobs:
         env:
           SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
         run: python -m pytest -q tests/test_rust_convert.py tests/test_focus_refusal.py
-      # The whole corpus, Python cases included: one runner, one summary, and
-      # the Rust cases recorded rather than skipped because this job has a
-      # driver to name. CARGO_TARGET_DIR is the job's `rust/target` (above),
-      # so the corpus crates share one warm target directory and the runtime
-      # rlib is built once. `--require-driver` is what makes this a gate: the
-      # driver is built two steps up, so a skip here means it went missing,
-      # and without the flag that would be a green job over cases nobody ran.
+      # --only-dir rust: this job records corpus/rust alone, not the whole
+      # corpus. The Python cases already ran in the `test` matrix above and
+      # gain nothing from a second recording here, and the TypeScript cases
+      # are the `typescript` job's -- this job installs no Node dependency
+      # at all, so without --only-dir they would be reported skipped BY
+      # NAME rather than excluded, and --require-driver would then fail a
+      # job that never had a TypeScript driver to be missing. CARGO_TARGET_DIR
+      # is the job's `rust/target` (above), so the corpus crates share one
+      # warm target directory and the runtime rlib is built once.
+      # `--require-driver` is what makes this a gate: the driver is built
+      # two steps up, so a skip here means it went missing, and without the
+      # flag that would be a green job over cases nobody ran.
       - name: Rust corpus (records corpus/rust with the built driver)
         env:
           SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
-        run: python corpus/run_corpus.py --require-driver
+        run: python corpus/run_corpus.py --only-dir rust --require-driver
+
+  typescript:
+    runs-on: ubuntu-latest
+    name: typescript
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the acceptance byte-lock tests read §1 at its lock
+          # commit (`git show <sha>:<doc>`); a depth-1 checkout cannot, and
+          # the tests then skip BY NAME instead of passing vacuously.
+          fetch-depth: 0
+      # typescript/package.json pins `"engines": {"node": ">=24"}` -- the
+      # recorder relies on node:async_hooks and node:test surfaces measured
+      # at that floor -- so this is the version everything below is built
+      # and tested against, not whatever ubuntu-latest ships by default.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Three lock files, because there are three separate npm projects in
+      # play (typescript/ the library, typescript/probes/ the recorder
+      # recording itself, corpus/typescript/ the vitest project the corpus
+      # copies into): each pins its own dependency tree, and `hashFiles` on
+      # all three means a change to any one of them invalidates the cache
+      # rather than serving a stale install of a project nobody touched.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('typescript/package-lock.json', 'typescript/probes/package-lock.json', 'corpus/typescript/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+      # `npm ci`, not `npm install`: it reproduces the lock file exactly
+      # rather than resolving fresh, which matters most for probes/ and
+      # corpus/typescript/ -- both pin vitest and vite WITHOUT a caret
+      # (probes/README.md) because the acceptance lens is a version, and a
+      # floating range would silently re-lens every number these projects
+      # produce.
+      - name: Install typescript/
+        run: npm ci --prefix typescript
+      - name: Install typescript/probes/
+        run: npm ci --prefix typescript/probes
+      # corpus/typescript/ is the vitest project the thirteen corpus cases
+      # live inside. `run_corpus.py`'s `_copy_ts_project` SYMLINKS this
+      # node_modules into each case's disposable copy rather than copying
+      # it -- an installed vitest is hundreds of megabytes and thirteen
+      # copies would dominate the run -- so it has to exist, installed once,
+      # before the corpus step below ever runs.
+      - name: Install corpus/typescript/
+        run: npm ci --prefix corpus/typescript
+      # R4: `npm --prefix typescript run check`, never
+      # `npx tsc -p typescript/tsconfig.json` run from the repo root. The
+      # repo root has no node_modules of its own, so a bare `npx tsc` there
+      # does not resolve the pinned 5.9.3 sitting in typescript/node_modules
+      # -- it resolves (or fetches) some OTHER `typescript` package instead,
+      # a decoy that would type-check this project with a compiler nobody
+      # develops against. `npm --prefix typescript run check` runs the
+      # `check` script FROM INSIDE typescript/, where `tsc` resolves the
+      # pinned local install the way `npm test` and every contributor's own
+      # `npm run check` already do.
+      - name: Type-check (npm --prefix typescript run check)
+        run: npm --prefix typescript run check
+      # `node --test "test/**/*.test.mjs"`, the recorder's own unit tests --
+      # rt.mjs, transform.mjs, register.mjs and friends -- with nothing
+      # driven and no vitest involved. A failure here means the library
+      # itself is broken before either probe project ever runs it.
+      - name: Unit tests (npm --prefix typescript test)
+        run: npm --prefix typescript test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install (dev extras for the test tools)
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      # SENSORIUM_TS_LIVE=1 is what stops tests/test_ts_live.py skipping BY
+      # NAME: it is the only test that puts the whole recorder together --
+      # the wrapper config in front of a consumer's own config, a real
+      # vitest, forked containers, conversion and the reader -- against
+      # typescript/probes, which was just `npm ci`'d above. Without a Node
+      # this old, or without that install, it is the ordinary state of every
+      # OTHER job in this workflow and skips by name there; here it is the
+      # gate that the whole chain works on a fresh machine, so a skip would
+      # hide exactly the failure this job exists to catch.
+      # test_ts_driver.py rides along for the same reason on the `node
+      # --test` half of the recorder (it needs Node >= 24 and
+      # typescript/node_modules/magic-string, both true here) and skips BY
+      # NAME rather than under this flag when they are not -- it is not
+      # gated on SENSORIUM_TS_LIVE, but it would silently skip on any job
+      # that had not run `npm ci --prefix typescript` above.
+      # test_ts_ingest*.py, test_ts_refusal.py, test_ts_harness.py,
+      # test_ts_wrapper.py, test_vectors.py and test_vocab.py are the rest
+      # of the TypeScript-recorder suite that needs this same Node and this
+      # same install; none of them has anywhere else in this workflow to run.
+      - name: TypeScript recorder tests (through a real Node and a real vitest)
+        env:
+          SENSORIUM_TS_LIVE: "1"
+        run: python -m pytest -q tests/test_ts_live.py tests/test_ts_driver.py tests/test_ts_ingest.py tests/test_ts_ingest_meta.py tests/test_ts_refusal.py tests/test_ts_harness.py tests/test_ts_wrapper.py tests/test_vectors.py tests/test_vocab.py
+      # --only-dir typescript, mirroring the `rust` job above: this records
+      # corpus/typescript alone, and --require-driver is what makes that a
+      # gate rather than a green job over cases nobody ran. `ts_ready()`
+      # needs corpus/typescript/node_modules/vitest (installed above) and a
+      # Node at or above the recorder's floor (node 24, installed above);
+      # if either went missing between here and the steps above, the
+      # thirteen vitest cases would otherwise be reported skipped BY NAME
+      # and this job would still exit 0 -- which is precisely the outcome
+      # this flag exists to turn into a failure.
+      - name: TypeScript corpus (records corpus/typescript with the real driver)
+        run: python corpus/run_corpus.py --only-dir typescript --require-driver

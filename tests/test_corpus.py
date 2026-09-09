@@ -155,6 +155,15 @@ def test_every_cli_command_is_exercised_by_some_question():
 
 LOGGING_TOOLS = ("dbg!", "RUST_LOG", "RUST_BACKTRACE")
 
+#: The vitest corpus's three channels. Unlike `LOGGING_TOOLS` above -- where a
+#: Rust question need only rule out ONE tool, because different chains fail
+#: differently -- every vitest question is checked against ALL THREE: this
+#: corpus's questions were written to show that `console.log`, `DEBUG` and a
+#: stack trace all fail the same way, and a question naming only one or two
+#: has not shown that. `DEBUG` is a word, not the literal `DEBUG=*`
+#: invocation, because a `why_logs_fail` may spell the channel either way.
+TS_LOGGING_CHANNELS = ("console.log", "DEBUG", "stack trace")
+
 
 def test_every_cargo_question_names_the_logging_tool_that_fails():
     """The Rust corpus's own version of `why_logs_fail`, per the spec: each
@@ -174,6 +183,28 @@ def test_every_cargo_question_names_the_logging_tool_that_fails():
             assert any(tool in why for tool in LOGGING_TOOLS), (
                 f"{case.name}/{q['id']}: why_logs_fail names none of "
                 + ", ".join(LOGGING_TOOLS))
+
+
+def test_every_vitest_question_names_all_three_logging_channels():
+    """The TypeScript corpus's own version of the guard above.
+
+    Every `program: vitest` question's `why_logs_fail` must name ALL THREE
+    of `console.log`, `DEBUG` and `stack trace` -- not merely one of them,
+    the way a cargo question may. Checked rather than trusted, for the same
+    reason the Rust guard is: a justification that reads as real prose while
+    naming only one of the three channels would still pass a check that only
+    looked for "some tool", and the point of these thirteen cases is that
+    all three ordinary channels fail them the same way.
+    """
+    for case in run_corpus.load_cases():
+        if not case.is_vitest:
+            continue
+        for q in case.questions:
+            why = q["why_logs_fail"]
+            missing = [c for c in TS_LOGGING_CHANNELS if c not in why]
+            assert not missing, (
+                f"{case.name}/{q['id']}: why_logs_fail does not name "
+                + ", ".join(missing))
 
 
 def test_every_question_registers_a_real_why_logs_fail():
