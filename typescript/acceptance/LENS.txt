@@ -1,0 +1,1 @@
+VTT frontend at 0091e97 — vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059
