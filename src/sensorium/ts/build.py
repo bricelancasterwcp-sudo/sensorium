@@ -423,6 +423,13 @@ class Builder:
             "harness_args": self.inv.harness_args,
             "driver_version": self.inv.driver_version,
         }
+        if self.inv.command:
+            # The command as typed, which is the only one the reader may
+            # print (R26). Omitted when the spool's record predates the
+            # field, and the readers then fall back to what they said
+            # before -- an absent key is a record that was never written,
+            # not a run that was started by nothing.
+            meta["harness_command"] = list(self.inv.command)
         if self.inv.vitest is not None:
             meta["vitest"] = self.inv.vitest
         if self.harness is not None:

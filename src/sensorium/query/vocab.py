@@ -44,7 +44,9 @@ through the CLI and means a caller built a `Trace` around the store's
 back. A trace with NO `lang` key still reads as Python: nothing else
 existed before the key.
 """
+from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 
 
 @dataclass(frozen=True)
@@ -141,7 +143,14 @@ class Terms:
     #: the language's own word, and JavaScript has no coroutines. Empty
     #: where the contract's spelling is already the language's, so a
     #: `.get(kind, kind)` leaves Python's and Rust's markers untouched.
-    kind_labels: dict[str, str]
+    #:
+    #: A `MappingProxyType` on every column: `frozen=True` freezes the
+    #: ATTRIBUTE, not what it points at, and these three tables are module
+    #: singletons every renderer shares. A renderer that wrote through
+    #: `terms(trace).kind_labels[...]` would silently retune every later
+    #: command in the process -- the one way a table whose whole purpose is
+    #: that two commands cannot differ could make them differ.
+    kind_labels: Mapping[str, str]
     #: Why `exceptions` cannot judge a trace in this language, or `None`
     #: where it can. Not a vocabulary problem and not a capability one:
     #: what is missing is a set of DISPOSITION RULES, and the sentence
@@ -209,7 +218,7 @@ PYTHON = Terms(
     # The contract's kind words ARE Python's: `[coroutine]`,
     # `[async_generator]` are what every Python trace has printed, and the
     # legacy suite is the fence around them.
-    kind_labels={},
+    kind_labels=MappingProxyType({}),
     exceptions_refusal=None,
 )
 
@@ -278,7 +287,7 @@ RUST = Terms(
     # A Rust trace carries `function` frames and nothing else today, and a
     # future `coroutine` there would be an `async fn` -- which is what the
     # contract's word already says. Nothing to rename.
-    kind_labels={},
+    kind_labels=MappingProxyType({}),
     # Dispatched to `exceptions_rust` before `_language_refusal` is ever
     # read, so this column has no refusal to offer: what an older Rust
     # recording lacks is a RECORD, and `capabilities.err_flow` says so in
@@ -348,7 +357,8 @@ TYPESCRIPT = Terms(
     # section 1). `generator` is already JavaScript's own and is not
     # renamed -- which is why `tests/test_vocab.py` may not forbid that
     # word on a TypeScript trace the way it forbids `coroutine`.
-    kind_labels={"coroutine": "async", "async_generator": "async generator"},
+    kind_labels=MappingProxyType({"coroutine": "async",
+                                 "async_generator": "async generator"}),
     exceptions_refusal=(
         "REFUSED: exceptions on a typescript trace needs the TypeScript "
         "disposition rules (S5 rung 2); the Python rules index exception "

@@ -1,6 +1,6 @@
 {
   "id": "v23-lang-typescript-prose",
-  "asserts": "Every sentence a reader prints about a `lang: typescript` trace is that recorder's own. The interpreter line is `node <meta.node>` with the harness and environment beside it, a unit of work is a `test`, a `coroutine` frame is marked `[async]` (JavaScript's word for it, `typescript/HONESTY.md` §1), `runs` heads the invocation with the harness command and its waited exit and lists a member by the test file it ran, and `exceptions` REFUSES at exit 3 because no TypeScript disposition rules exist yet. The `unhandled rejections: 0` on a COMPLETE trace is a measured zero and not a silence -- the `unhandledRejection` listener always ran -- which is why it prints where the transform's empty exclusion map prints no clause at all. None of `asyncio`, `Python's own`, `threading/_thread`, `coroutine`, `python ?`, `cargo` or `Rust disposition` may appear anywhere: each is a claim about machinery this trace does not carry, and `python ?` names an interpreter that never ran.",
+  "asserts": "Every sentence a reader prints about a `lang: typescript` trace is that recorder's own. The interpreter line is `node <meta.node>` with the harness and environment beside it, a unit of work is a `test`, a `coroutine` frame is marked `[async]` (JavaScript's word for it, `typescript/HONESTY.md` §1), `runs` heads the invocation with the harness command and its waited exit and lists a member by the test file it ran, and `exceptions` REFUSES at exit 3 because no TypeScript disposition rules exist yet. The command both of them print is `meta.harness_command`, the tokens the user typed after `--` -- `npx vitest run src/fog` -- and never `harness` + `harness_args` rebuilt into one, which would drop the `npx` here and the user's own `--root` elsewhere. The `unhandled rejections: 0` on a COMPLETE trace is a measured zero and not a silence -- the `unhandledRejection` listener always ran -- which is why it prints where the transform's empty exclusion map prints no clause at all. None of `asyncio`, `Python's own`, `threading/_thread`, `coroutine`, `python ?`, `cargo` or `Rust disposition` may appear anywhere: each is a claim about machinery this trace does not carry, and `python ?` names an interpreter that never ran.",
   "copies": 2,
   "meta": {
     "trace_format": 4,
@@ -26,6 +26,7 @@
     "caps": {"dbg": 200, "depth": 2, "sample": 8, "str": 100},
     "invocation": "20260101-000000-111111",
     "harness": "vitest",
+    "harness_command": ["npx", "vitest", "run", "src/fog"],
     "harness_args": ["run", "src/fog"],
     "harness_exit": {"status": 1, "signal": null, "basis": "waited"},
     "driver_version": "0.1.0",
@@ -92,7 +93,7 @@
         "node v24.16.0 (vitest 4.1.9, jsdom)",
         "outside any test",
         "each thread row covers the events that ran in no test",
-        "harness: vitest run src/fog  exit: 1 (waited)",
+        "harness: npx vitest run src/fog  exit: 1 (waited)",
         "container: pid 4242  thread 0 (main)  file: src/fog/compute.test.ts",
         "tests: 2 as tasks, 2 seen by the harness; task names: vitest",
         "files: 12 transformed",
@@ -100,7 +101,7 @@
       ],
       "expect_absent": ["asyncio", "Python's own", "threading/_thread",
                         "coroutine", "python ?", "cargo", "Rust disposition",
-                        "excluded:", "conflict"]
+                        "excluded:", "conflict", "harness: vitest run"]
     },
     {
       "id": "tree-speaks-typescript",
@@ -132,12 +133,12 @@
       "command": ["runs"],
       "expect_exit": 0,
       "expect_contains": [
-        "invocation 20260101-000000-111111: vitest run src/fog  exit:1 (waited)",
+        "invocation 20260101-000000-111111: npx vitest run src/fog  exit:1 (waited)",
         "exit:unwitnessed",
         "file: src/fog/compute.test.ts"],
       "expect_absent": ["asyncio", "Python's own", "threading/_thread",
                         "coroutine", "python ?", "cargo", "Rust disposition",
-                        "cmd: "]
+                        "cmd: ", ": vitest run"]
     },
     {
       "id": "diff-speaks-typescript",

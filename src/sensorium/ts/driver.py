@@ -107,6 +107,11 @@ def _write_record(spool: Path, plan, inv_id: str, node: str, package: Path,
     record = invocation.Invocation(
         invocation=inv_id, harness=plan.kind,
         harness_args=list(plan.harness_args), root=str(plan.root),
+        # `plan.argv` is the tokens as typed, kept whole by `recognise`
+        # before `_consume` takes `--root`/`--config` out and before either
+        # `vitest_command`/`node_command` re-issues anything. That is the
+        # one list a reader can be shown and recognise as their own (R26).
+        command=list(plan.argv),
         cwd=str(Path.cwd()), argv=list(plan.argv), env_hash=_env_hash(),
         start_ts=time.time(), wrapper="" if config is None else str(config),
         vitest=_vitest_version(plan), node=node,

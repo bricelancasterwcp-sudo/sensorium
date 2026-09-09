@@ -73,14 +73,28 @@ def typescript_lines(trace, m: dict) -> list[str]:
 
 
 def _harness_line(m: dict) -> list[str]:
-    """The command the driver spawned and waited for.
+    """The command the driver spawned and waited for, AS TYPED (R26).
 
-    `harness_args` holds what came AFTER the harness word, so the word is
-    put back: a line reading `harness: run src/fog` names no program.
+    `harness_command` is the tokens the user gave after `--`, before the
+    driver consumed `--root`/`--config` out of them and before it re-issued
+    its own. Nothing else here is a command: `harness` is the KIND the
+    driver recognised and `harness_args` is what survived the consumption,
+    so joining the two builds a string nobody typed -- `node-test --test
+    test/` names no program, and the user's `--root` is simply gone from
+    it. That join is kept only as the fallback for a trace whose converter
+    predates the key, where the alternative is printing nothing.
+
+    Shared with `runs`' invocation header by rule and not by call: the two
+    print the same fact in two different layouts, and this is the sentence
+    both are checked against (`v23`, `v28`).
     """
-    if not m.get("harness"):
+    typed = m.get("harness_command")
+    if typed:
+        cmd = " ".join(typed)
+    elif m.get("harness"):
+        cmd = " ".join([m["harness"], *(m.get("harness_args") or [])]).rstrip()
+    else:
         return []
-    cmd = " ".join([m["harness"], *(m.get("harness_args") or [])]).rstrip()
     return [f"harness: {cmd}{_harness_ending(m)}"]
 
 

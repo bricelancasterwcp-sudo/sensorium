@@ -451,10 +451,9 @@ carries the key, so a Rust trace from an older converter simply says less:
 | `child_runs` | `[{run_id, pid, exe}]` — same-invocation processes whose `ppid` is this one. `capabilities.children` is **false** (this recorder hooks no spawn), so `info` prints the declaration AND `child runs: N -- <run ids>`: the declaration alone hides traces the reader could open, and the list alone reads as a complete inventory of the children. Vector: `v11-child-runs-linked`. |
 
 **TypeScript-only, written today** by `sensorium ts ingest`'s builder
-(`src/sensorium/ts/build.py`) and read by `info` and `runs` — each printed
-only when the trace carries the key, so an older converter's trace simply
-says less. The key-by-key table is
-[`docs/trace-format/TYPESCRIPT-KEYS.md`](trace-format/TYPESCRIPT-KEYS.md)
+(`src/sensorium/ts/build.py`) and read by `info` and `runs` — each printed only
+when the trace carries the key, so an older converter's trace says less.
+Key-by-key: [`docs/trace-format/TYPESCRIPT-KEYS.md`](trace-format/TYPESCRIPT-KEYS.md)
 (its own file so this one stays under 800 lines, as §8 already is).
 
 **A note on wording, for the converter author — RESOLVED in 0.6.0 by the
@@ -482,7 +481,7 @@ Python sentence is a regression, and the legacy suite is the fence.
 | `frames.kind` markers | the contract's own words: `[coroutine]`, `[generator]`, `[async_generator]` | the contract's own words | `[async]`, `[generator]`, `[async generator]` — JavaScript has no coroutines |
 | `exceptions` | these rules ARE Python's | its own rules (rung 3), gated on `capabilities.err_flow` | REFUSED at exit 3: no disposition rules yet (S5 rung 2) |
 
-TypeScript column added 2026-09-09 (S5 rung 1); the `terms()` fallback retired with it — an unknown `lang` is refused at open (the `lang` row).
+TypeScript column added 2026-09-09 (S5 rung 1); the `terms()` fallback retired with it — an unknown `lang` is refused at open (the `lang` row). Amended the same day (R26/R27a): the `runs` header prints `harness_command` and is chosen by `lang`.
 
 ## 5. Enumerations
 
@@ -613,27 +612,25 @@ Vector: `v16-raise-handled-chain-serial-kind`.
 
 ### TypeScript throw flow: `exc.kind` and `how`
 
-A TypeScript `exc` is `{kind, type, msg, serial}` and **`kind` is written on
-every one** — `"throw"` or `"rejection"` — because a kindless `exc` is read
-as Python's (above). `serial` is minted per thrown **object** through a
-`WeakMap`, so `catch (e) { throw e }` is one exception with two RAISE rows;
-a thrown **primitive** has none to hang that on and gets a fresh serial
-each time, stated rather than papered over by merging on text.
+A TypeScript `exc` is `{kind, type, msg, serial}` and **`kind` is written on every
+one** — `"throw"` or `"rejection"` — because a kindless `exc` is read as Python's
+(above). `serial` is minted per thrown **object** through a `WeakMap`, so `catch (e)
+{ throw e }` is one exception with two RAISE rows; a thrown **primitive** has none
+to hang it on and gets a fresh serial each time, stated rather than papered over by
+merging on text. Vectors: `v25-exc-kind-throw-rejection`,
+`v27-unhandled-rejection-in-meta`.
 
-**`how`** names the shape that recorded the event, and the enumeration is
-the declaration: `throw`, `catch`, `sink_empty_catch`,
-`sink_empty_catch_callback` (a `catch {}` and a `.catch(() => {})` whose
-body is empty). A shape outside it produced no record — a `.catch(fn)` with
-a non-empty body and `finally` are recorded by nothing. The rows are
-recorded and **not judged**: `capabilities.err_flow` is false in
+**`how`** names the shape that recorded the event, and the enumeration is the
+declaration: `throw`, `catch`, `sink_empty_catch`, `sink_empty_catch_callback` (a
+`catch {}` and a `.catch(() => {})` whose body is empty). A shape outside it
+produced no record — a `.catch(fn)` with a non-empty body and `finally` are recorded
+by nothing. The rows are not judged: `capabilities.err_flow` is false in
 `sensorium-ts 0.1.0` although they exist, so `exceptions` refuses at exit 3.
 
-Two things go to `meta` and never to `events`, because §3 refuses a causal
-event with no `code_id` and inventing a code object would put a site in the
-program that has none: an unhandled rejection (`unhandled_rejections`,
-`[{type, msg, serial}]`) and a RAISE/HANDLED with no open frame
-(`throw_flow_outside_frames`). Vectors: `v25-exc-kind-throw-rejection`,
-`v27-unhandled-rejection-in-meta`.
+Two things go to `meta` and never to `events`, because §3 refuses a causal event
+with no `code_id` and inventing a code object would put a site in the program that
+has none: an unhandled rejection (`unhandled_rejections`, `[{type, msg, serial}]`)
+and a RAISE/HANDLED with no open frame (`throw_flow_outside_frames`).
 
 ### closed_by, unwind_exc, and the panic mapping
 
@@ -725,17 +722,20 @@ refuses. A member's `cmd:` is the basename of `exe` plus `argv[1:]` — the
 full path is thirty characters of build directory and is `info`'s to print.
 Vector: `v11-child-runs-linked`.
 
-**A TypeScript invocation is headed by its harness, its members by their
-test files.** The driver waits for the harness, so unlike cargo there IS a
-status: `invocation <id>: vitest run src/fog  exit:1 (waited)`, the basis
-attached because it is what distinguishes this from the `exit:unwitnessed`
-on every member row (§4; the driver did not reap the workers). A member
-carrying `test_file` is listed as `file: <path>`, one carrying `test_files`
-as `files: N`, in place of a `cmd:` — every worker of one vitest run has
-the same `node …/workers/forks.js` command line, and `info` keeps the whole
-of it. A member with neither ran no test file: it keeps its argv, and that
-absence is a statement. Vectors: `v28-harness-exit-waited`,
-`v29-runs-file-header`.
+**A TypeScript invocation is headed by its harness, its members by their test
+files.** The driver waits for the harness, so unlike cargo there IS a status:
+`invocation <id>: npx vitest run src/fog  exit:1 (waited)`, the basis attached
+because it is what distinguishes this from the `exit:unwitnessed` on every
+member row (§4; the driver did not reap the workers). The command is
+`harness_command`, the tokens **as typed** — never `harness` + `harness_args`
+rejoined, which drops the user's `--root` and spells `node --test` as
+`node-test`. A member carrying `test_file` is listed as `file: <path>`, one
+carrying `test_files` as `files: N`, in place of a `cmd:` — every worker of one
+vitest run has the same `node …/workers/forks.js` command line, and `info`
+keeps the whole of it. A member with neither ran no test file: it keeps its
+argv, and that absence is a statement. **Which header a trace gets is decided
+by `meta.lang`**, never by sniffing for a key: a key name is not a recorder's
+signature. Vectors: `v28-harness-exit-waited`, `v29-runs-file-header`.
 
 **How `diff` compares** (`query/diff_cmd`), because a converter's choices
 here decide whether its traces can be compared at all:

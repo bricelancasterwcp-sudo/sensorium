@@ -66,10 +66,10 @@ def _row(stem: str, trace: Trace) -> str:
     suffix = f"  [{','.join(flags)}]" if flags else ""
     return (f"{stem}  exit:{exit_brief(m)}  "
             f"events:{sum(trace.counts().values())}  "
-            f"{_what(m)}{suffix}")
+            f"{_what(m, trace.lang)}{suffix}")
 
 
-def _what(m: dict) -> str:
+def _what(m: dict, lang: str) -> str:
     """Which process this row is, in the fewest words that still tell it
     apart from the others in its invocation.
 
@@ -87,7 +87,17 @@ def _what(m: dict) -> str:
     `globalSetup` in the main process, any `node --test` process -- carries
     neither key and keeps its argv, and that ABSENCE is the recorder's
     statement rather than a gap.
+
+    GATED ON `lang`, NOT ON THE KEY BEING THERE (R27a). `info` has always
+    decided its language-specific blocks by `trace.lang` and never by
+    sniffing a key, for the reason `vocab` exists: a key name is not a
+    recorder's signature, and one recorder reading another's key off a
+    trace is the same class of error as reading another's WORD off it. Two
+    commands over one trace must not disagree about which recorder wrote
+    it, so `runs` reads the language the same way.
     """
+    if lang != "typescript":
+        return f"cmd: {_cmd(m)}"
     one = m.get("test_file")
     if one:
         return f"file: {one}"
@@ -97,7 +107,7 @@ def _what(m: dict) -> str:
     return f"cmd: {_cmd(m)}"
 
 
-def _header(m: dict) -> str:
+def _header(m: dict, lang: str) -> str:
     """The command one invocation's traces all came out of, in the words of
     whatever ran it.
 
@@ -115,8 +125,11 @@ def _header(m: dict) -> str:
     its own basis, and printed with it (`(waited)`), because that is the
     whole of what makes it different from the `unwitnessed` on every member
     row below it.
+
+    Which of the two is decided by `lang` and never by the presence of a
+    `harness` key, for the reason `_what` gives at length (R27a).
     """
-    if m.get("harness"):
+    if lang == "typescript":
         return (f"invocation {m['invocation']}: {_harness_cmd(m)}"
                 + _harness_exit(m))
     args = " ".join(m.get("cargo_args") or [])
@@ -125,10 +138,20 @@ def _header(m: dict) -> str:
 
 
 def _harness_cmd(m: dict) -> str:
-    """`vitest run src/fog`: the harness the driver recognised and the
-    arguments it re-issued. `harness_args` is what came AFTER the harness
-    word (`ts/harness.Plan`), so the word has to be put back or the header
-    names no program at all."""
+    """The command the user typed, verbatim (R26).
+
+    `harness_command` is those tokens before the driver consumed or
+    re-issued anything, and it is the only list here that is a command.
+    The fallback is for a trace whose converter predates the key, and it
+    is what this line printed before: `harness` + `harness_args`, which
+    reconstructs a plausible-looking command rather than the real one --
+    `node-test --test test/` names no program, and a `--root` the user
+    passed is missing from it. Kept because the alternative for such a
+    trace is printing nothing at all; corrected by re-recording.
+    """
+    typed = m.get("harness_command")
+    if typed:
+        return " ".join(typed)
     return " ".join([m["harness"], *(m.get("harness_args") or [])]).rstrip()
 
 
@@ -171,7 +194,7 @@ def run(args) -> int:
         if inv in seen:
             continue                      # printed under its own header
         seen.add(inv)
-        print(_header(trace.meta))
+        print(_header(trace.meta, trace.lang))
         for stem2, t2 in rows:
             if t2.meta.get("invocation") == inv:
                 print("  " + _row(stem2, t2))

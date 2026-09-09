@@ -5,6 +5,12 @@
     "run",
     "src/async.probe.test.ts"
   ],
+  "command": [
+    "npx",
+    "vitest",
+    "run",
+    "src/async.probe.test.ts"
+  ],
   "root": "/w/probes",
   "cwd": "/w/probes",
   "argv": [

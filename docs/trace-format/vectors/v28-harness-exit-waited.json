@@ -1,6 +1,6 @@
 {
   "id": "v28-harness-exit-waited",
-  "asserts": "Three exit facts live on one TypeScript trace and none of them ever wears another's name (`typescript/HONESTY.md` §6). The CONTAINER's own status is `exit_status: null` / `exit_status_basis: \"unwitnessed\"`: the driver spawned the harness, not the worker, so nobody reaped this process. What the container SAID about its own ending before it went is `exit_self_reported`, which nobody waited for either and which is printed saying so. What the driver actually waited for is `harness_exit {status, signal, basis: \"waited\"}`, printed on `info`'s harness line and in `runs`' invocation header. `runs` prints `exit:unwitnessed` on the member and `exit:1 (waited)` on the header of the same invocation, in one listing, because they are two different facts about two different processes.",
+  "asserts": "Three exit facts live on one TypeScript trace and none of them ever wears another's name (`typescript/HONESTY.md` §6). The CONTAINER's own status is `exit_status: null` / `exit_status_basis: \"unwitnessed\"`: the driver spawned the harness, not the worker, so nobody reaped this process. What the container SAID about its own ending before it went is `exit_self_reported`, which nobody waited for either and which is printed saying so. What the driver actually waited for is `harness_exit {status, signal, basis: \"waited\"}`, printed on `info`'s harness line and in `runs`' invocation header. `runs` prints `exit:unwitnessed` on the member and `exit:1 (waited)` on the header of the same invocation, in one listing, because they are two different facts about two different processes. The command beside each is `meta.harness_command`, the tokens as typed -- `npx vitest run src/fail.test.ts` -- not `harness` + `harness_args` rejoined, which is a command nobody ran.",
   "meta": {
     "trace_format": 4,
     "run_id": "$RUN",
@@ -25,6 +25,7 @@
     "caps": {"dbg": 200, "depth": 2, "sample": 8, "str": 100},
     "invocation": "20260101-000000-111111",
     "harness": "vitest",
+    "harness_command": ["npx", "vitest", "run", "src/fail.test.ts"],
     "harness_args": ["run", "src/fail.test.ts"],
     "harness_exit": {"status": 1, "signal": null, "basis": "waited"},
     "driver_version": "0.1.0",
@@ -71,10 +72,11 @@
       "expect_exit": 0,
       "expect_contains": [
         "exit: unwitnessed",
-        "harness: vitest run src/fail.test.ts  exit: 1 (waited)",
+        "harness: npx vitest run src/fail.test.ts  exit: 1 (waited)",
         "container exit: self-reported code 1 (nobody waited)",
         "container: pid 4246  thread 3 (worker)  file: src/fail.test.ts"],
-      "expect_absent": ["exit: None", "asyncio", "cargo"]
+      "expect_absent": ["exit: None", "asyncio", "cargo",
+                        "harness: vitest run"]
     },
     {
       "id": "runs-prints-the-member-s-fact-and-the-header-s-fact",
@@ -82,10 +84,11 @@
       "command": ["runs"],
       "expect_exit": 0,
       "expect_line": [
-        ["invocation 20260101-000000-111111:", "vitest run src/fail.test.ts",
-         "exit:1 (waited)"],
+        ["invocation 20260101-000000-111111:",
+         "npx vitest run src/fail.test.ts", "exit:1 (waited)"],
         ["exit:unwitnessed", "events:2", "file: src/fail.test.ts"]],
-      "expect_absent": ["exit:None", "cargo", "asyncio", "cmd: "]
+      "expect_absent": ["exit:None", "cargo", "asyncio", "cmd: ",
+                        ": vitest run"]
     }
   ]
 }

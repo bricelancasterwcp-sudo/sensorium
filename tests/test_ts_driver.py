@@ -25,6 +25,8 @@ from pathlib import Path
 import pytest
 
 from sensorium.store.reader import Trace
+from sensorium.ts import driver as driver_mod
+from sensorium.ts import harness as harness_mod
 from sensorium.ts import pkg as pkg_mod
 from tests.helpers import run_cli
 
@@ -111,9 +113,19 @@ def test_a_node_test_run_records_one_trace_and_says_so(project, tmp_path):
     assert trace.meta["invocation"] == invocation
     assert trace.meta["harness"] == "node-test"
     assert trace.meta["harness_args"] == ["--test", "a.test.ts"]
+    # R26: the tokens as TYPED, which for this harness is the whole point.
+    # `harness` is a kind and not a program -- `node-test --test a.test.ts`,
+    # what the header used to build out of `harness` + `harness_args`, is a
+    # command that does not exist.
+    assert trace.meta["harness_command"] == ["node", "--test", "a.test.ts"]
     assert trace.meta["harness_exit"] == {"status": 0, "signal": None,
                                           "basis": "waited"}
     assert trace.meta["lang"] == "typescript"
+
+    listing = run_cli(["runs"], cwd=project, sensorium_dir=sdir)
+    assert (f"invocation {invocation}: node --test a.test.ts  exit:0 (waited)"
+            in listing.stdout), listing.stdout
+    assert "node-test" not in listing.stdout, listing.stdout
 
 
 def test_a_node_test_container_has_no_test_file_to_name(project, tmp_path):
@@ -176,6 +188,7 @@ def test_the_spool_directory_keeps_the_invocations_own_record(
     record = json.loads((spool / "invocation.json").read_text())
     assert record["harness"] == "node-test"
     assert record["argv"] == ["node", "--test", "a.test.ts"]
+    assert record["command"] == ["node", "--test", "a.test.ts"]
     assert record["root"] == str(project)
     assert record["cwd"] == str(project)
     assert record["vitest"] is None
@@ -187,6 +200,41 @@ def test_the_spool_directory_keeps_the_invocations_own_record(
     assert ending["status"] == 0 and ending["signal"] is None
     assert ending["basis"] == "waited"
     assert ending["wall_end_ts"] >= ending["wall_start_ts"]
+
+
+def test_the_typed_command_keeps_the_flags_the_driver_consumes(tmp_path):
+    """R26, the case a `node --test` run cannot show.
+
+    For vitest the driver CONSUMES `--root` and `--config` out of the
+    command so it can re-issue its own at the end, and `harness_args` and
+    `stripped` are what is left over. A reader shown either has been shown
+    a command with the user's own flags deleted from it -- silently, and
+    with no way to tell from the output that anything was removed.
+    `command` is the tokens before any of that happened, which is the only
+    list here anyone typed.
+
+    No harness is spawned: this drives the record-writing step alone, which
+    is where the field is filled in.
+    """
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "mine.ts").write_text("export default {}\n")
+    typed = ["npx", "vitest", "run", "src/fog", "--root", "sub",
+             "-c", "mine.ts"]
+    plan = harness_mod.recognise(list(typed), tmp_path)
+    assert isinstance(plan, harness_mod.Plan), plan
+    spool = tmp_path / "spool"
+    spool.mkdir()
+    driver_mod._write_record(spool, plan, "20260101-000000-abcdef",
+                             "v24.0.0", pkg_mod.locate(), None)
+    record = json.loads((spool / "invocation.json").read_text())
+    assert record["command"] == typed
+    # What the driver kept for its own machinery is a different list, and
+    # neither half of it is a command.
+    assert record["harness_args"] == ["run", "src/fog"]
+    assert record["harness"] == "vitest"
+    assert "--root" not in record["harness_args"]
+    assert "--root" not in " ".join([record["harness"],
+                                     *record["harness_args"]])
 
 
 def test_the_conversion_marks_the_directory_it_converted(project, tmp_path):

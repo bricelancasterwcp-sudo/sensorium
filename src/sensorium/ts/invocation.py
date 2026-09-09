@@ -18,7 +18,7 @@ imports `Invocation` to read, `run` imports it to write, and a field
 either adds is a field the other sees.
 """
 import json
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 #: The two harnesses this recorder wires. `vitest` runs the Vite plugin;
@@ -44,6 +44,25 @@ class Invocation:
     the same place. `recorder` is the fallback for a spool whose BOOT
     record carries no `version` -- the driver read it out of the recorder's
     own package, and a BOOT that names its writer wins over it (R5).
+
+    THREE COMMANDS, AND ONLY ONE OF THEM WAS TYPED (R26, 2026-09-09)
+    ---------------------------------------------------------------
+    `command` is the tokens the user typed after `--`, before the driver
+    consumed anything from them and before it re-issued anything: `npx
+    vitest run src/fog --root packages/app`. `harness` is the KIND the
+    driver recognised (`vitest`, `node-test`) and `harness_args` is what
+    followed the harness token with `--root`/`--config` taken OUT, because
+    the driver re-issues those itself. The two are what the driver needs;
+    they are not a command, and joining them reconstructs one nobody typed
+    -- `node-test --test test/` names no program, and a `--root` the user
+    passed disappears from it. So the readers print `command`, and the
+    other two stay what they are for the machinery that uses them.
+
+    It holds the same tokens `argv` does. `argv` was written for the record
+    and is read by nothing; `command` is the field with a reader, and it is
+    LAST and defaulted because a spool directory written before it existed
+    is still a spool directory this converter must finish (`from_json`
+    reads its absence as `[]`, and `build` then writes no meta key at all).
     """
 
     invocation: str
@@ -59,17 +78,20 @@ class Invocation:
     node: str
     driver_version: str
     recorder: str
+    command: list[str] = field(default_factory=list)
 
     def to_json(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_json(cls, data: dict) -> "Invocation":
-        missing = [f.name for f in fields(cls) if f.name not in data]
+        missing = [f.name for f in fields(cls)
+                   if f.name not in data and f.name != "command"]
         if missing:
             raise InvocationError(
                 f"{INVOCATION_FILE} lacks {', '.join(missing)}")
-        return cls(**{f.name: data[f.name] for f in fields(cls)})
+        return cls(**{f.name: data[f.name] for f in fields(cls)
+                      if f.name in data})
 
 
 @dataclass(frozen=True)

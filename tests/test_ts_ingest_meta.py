@@ -644,3 +644,51 @@ def test_info_withholds_the_rejection_count_on_an_incomplete_trace(ingested):
     # DRIVER witnessed that and it is not this container's to lose.
     assert "harness: vitest run src/async.probe.test.ts  exit: signal " \
            "SIGKILL (waited)" in out, out
+
+
+# -- the command as typed (R26) ---------------------------------------------
+
+def test_the_command_the_reader_is_shown_is_the_one_that_was_typed(ingested):
+    """R26. `harness` is a KIND and `harness_args` is what survived the
+    driver's own consumption; joining them builds a command nobody ran --
+    it drops the `npx` this run was started with, and elsewhere the user's
+    `--root`. `invocation.json` carries the typed tokens and the converter
+    spends them on `meta.harness_command`, which is what both readers
+    print."""
+    _spool, sdir, _result = ingested["async-chain"]
+    trace = only_trace(sdir)
+    assert trace.meta["harness_command"] == [
+        "npx", "vitest", "run", "src/async.probe.test.ts"]
+    assert trace.meta["harness"] == "vitest"          # the kind, unchanged
+    assert trace.meta["harness_args"] == ["run", "src/async.probe.test.ts"]
+    out = _info_of(sdir)
+    assert ("harness: npx vitest run src/async.probe.test.ts  "
+            "exit: 0 (waited)") in out, out
+    assert "harness: vitest run" not in out, out
+    r = run_cli(["runs"], cwd=sdir.parent, sensorium_dir=sdir)
+    assert ("npx vitest run src/async.probe.test.ts  exit:0 (waited)"
+            in r.stdout), r.stdout
+    assert ": vitest run" not in r.stdout, r.stdout
+
+
+def test_a_spool_record_that_predates_the_key_still_names_a_command(
+        ingested):
+    """The fallback, and the ten fixtures that exercise it. Only
+    `async-chain`'s `invocation.json` carries `command`; the rest are the
+    OLDER record shape, and `Invocation.from_json` reads its absence as
+    `[]` rather than refusing a spool directory it can otherwise finish.
+    The converter then writes no `harness_command` key at all -- an absent
+    key is a record that was never written -- and the readers fall back to
+    what they printed before, which is the best a trace that never stored
+    the tokens allows."""
+    _spool, sdir, _result = ingested["each-names"]
+    trace = only_trace(sdir)
+    assert "harness_command" not in trace.meta
+    out = _info_of(sdir)
+    assert "harness: vitest run src/each.probe.test.ts" in out, out
+    # ...and `runs`' header falls back to the same words, not to nothing:
+    # a header naming no program at all is worse than one naming a
+    # reconstruction, because the reader cannot see that a fallback happened.
+    r = run_cli(["runs"], cwd=sdir.parent, sensorium_dir=sdir)
+    assert (": vitest run src/each.probe.test.ts\n"
+            in r.stdout), r.stdout

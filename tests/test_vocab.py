@@ -362,6 +362,56 @@ def test_a_harness_key_on_another_language_s_trace_is_not_read(tmp_path):
     assert "vitest" not in r.stdout and "jsdom" not in r.stdout, r.stdout
 
 
+def test_runs_reads_the_language_and_never_sniffs_for_a_key(tmp_path):
+    """R27a. `info` has always chosen its language blocks by `trace.lang`;
+    `runs` shipped choosing its header by the presence of `harness` and its
+    member line by the presence of `test_file`.
+
+    A key name is not a recorder's signature. A Rust trace that carried
+    either -- a converter reusing a name, a hand-edited fixture, a future
+    recorder with a `harness` of its own -- would have been headed by a
+    TypeScript header and listed by a file it never ran, which is the same
+    class of error as reading another recorder's WORD off it. Two commands
+    over one trace must not disagree about who wrote it.
+    """
+    # A Rust vector that carries an `invocation`, so `runs` really does
+    # reach the header branch: without one every row is listed in place.
+    base = next(v for v in RUST_VECTORS if v["id"] == "v13-lang-keyed-prose")
+    dressed = {**base, "meta": {**base["meta"],
+                                "harness": "vitest",
+                                "harness_args": ["run"],
+                                "harness_command": ["npx", "vitest", "run"],
+                                "harness_exit": {"status": 1, "signal": None,
+                                                 "basis": "waited"},
+                                "test_file": "src/fog/compute.test.ts"}}
+    sdir = _build_two(dressed, tmp_path)
+    r = run_cli(["runs"], cwd=tmp_path, sensorium_dir=sdir)
+    assert ": cargo" in r.stdout, r.stdout
+    assert "cmd: " in r.stdout, r.stdout
+    for borrowed in ("vitest", "file: src/fog", "(waited)", "npx"):
+        assert borrowed not in r.stdout, (
+            f"{borrowed!r} read off a Rust trace\n{r.stdout}")
+
+
+def test_the_kind_label_table_cannot_be_written_through(tmp_path):
+    """R27b. `frozen=True` freezes the ATTRIBUTE, not the mapping it points
+    at, and all three columns are module singletons every renderer in the
+    process shares. A renderer that wrote through
+    `terms(trace).kind_labels[...]` would retune every later command --
+    the one way a table whose whole purpose is that two commands cannot
+    differ could make them differ. `MappingProxyType` refuses."""
+    for table in (PYTHON, RUST, TYPESCRIPT):
+        with pytest.raises(TypeError):
+            table.kind_labels["coroutine"] = "borrowed"
+        with pytest.raises(TypeError):
+            del table.kind_labels["coroutine"]
+    trace = Trace.open(build(_rust_vector(), tmp_path / "r", RUN_IDS))
+    with pytest.raises(TypeError):
+        terms(trace).kind_labels["function"] = "fn"
+    assert dict(TYPESCRIPT.kind_labels) == {
+        "coroutine": "async", "async_generator": "async generator"}
+
+
 def test_the_typescript_vectors_actually_exercise_these_commands():
     """A guard on the guard, as for the Rust scan: if `load_all` stopped
     returning TypeScript vectors, or the ids changed, the scan above would
@@ -433,7 +483,8 @@ def test_a_harness_killed_by_a_signal_is_headed_by_the_signal(tmp_path):
                            if k != "harness_exit"}}
     sdir2 = _build_two(unrecorded, tmp_path / "unrecorded")
     r2 = run_cli(["runs"], cwd=tmp_path, sensorium_dir=sdir2)
-    assert "vitest run src/fail.test.ts\n" in r2.stdout, r2.stdout
+    assert "npx vitest run src/fail.test.ts\n" in r2.stdout, r2.stdout
     assert "exit:0" not in r2.stdout, r2.stdout
     i2 = run_cli(["info", RUN_IDS[0]], cwd=tmp_path, sensorium_dir=sdir2)
-    assert "harness: vitest run src/fail.test.ts\n" in i2.stdout, i2.stdout
+    assert ("harness: npx vitest run src/fail.test.ts\n"
+            in i2.stdout), i2.stdout

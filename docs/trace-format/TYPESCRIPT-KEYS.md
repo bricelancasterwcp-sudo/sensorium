@@ -19,8 +19,9 @@ the conversion counted.
 | Key | Meaning, and what reads it |
 |---|---|
 | `invocation` | The id of the `sensorium ts run` invocation this container belongs to. `runs` groups every trace of one invocation under a header naming the harness command (§6). |
-| `harness` | `"vitest"` or `"node-test"` — the harness the driver recognised and wired. Its presence is what makes `runs` print a harness header rather than a cargo one. |
-| `harness_args` | The arguments **after** the harness word (`ts/harness.Plan`), as re-issued. `runs` and `info` print `harness` + these, joined: `harness_args` alone names no program. |
+| `harness` | `"vitest"` or `"node-test"` — the KIND of harness the driver recognised and wired. Not a program name: `node-test` is not a command. Which header `runs` prints is decided by `meta.lang`, never by this key being present (R27a). |
+| `harness_command` | **The tokens the user typed after `--`**, before the driver consumed `--root`/`--config` out of them and before it re-issued its own: `["npx", "vitest", "run", "src/fog"]`. This is the one list here that is a COMMAND, and it is what `runs`' header and `info`'s `harness:` line print, joined by spaces (R26). Absent from a trace whose converter predates the key; the readers then fall back to `harness` + `harness_args`, which reconstructs a command nobody typed. |
+| `harness_args` | The arguments **after** the harness word with `--root`/`--config` taken out, because the driver re-issues those itself (`ts/harness.Plan`). Machinery, not a command: nothing prints it where `harness_command` is present. |
 | `harness_exit` | `{status, signal, basis}` — what the driver **waited for**, `basis` always `"waited"`. `status` and `signal` are exclusive. `runs`' header: `exit:1 (waited)`; `info`: `harness: vitest run src/fog  exit: 1 (waited)`. Absent when the driver was killed before the harness returned, which is not a harness that ended at 0. |
 | `vitest` | The harness version, when one was read. `info` prints it in the parenthesis beside the interpreter: `node v24.16.0 (vitest 4.1.9, jsdom)`. |
 | `driver_version` | The `sensorium ts` driver's own version. |
