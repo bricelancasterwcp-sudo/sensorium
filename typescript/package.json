@@ -1,0 +1,26 @@
+{
+  "name": "sensorium-ts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "exports": {
+    "./rt": "./src/rt.mjs",
+    "./transform": "./src/transform.mjs",
+    "./vite": "./src/vite.mjs",
+    "./register": "./src/register.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/",
+    "check": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "magic-string": "^0.30.21"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "^5.9.3"
+  }
+}
