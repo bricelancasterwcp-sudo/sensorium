@@ -42,6 +42,16 @@ const AWAIT = 0;
 const YIELD = 1;
 
 const CLOSE_BLOCK = ';__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}';
+/**
+ * A generator's close (R40). A consumer that abandons a generator — `break` out
+ * of a `for…of`, an explicit `.return()` — resumes the body at its `yield` with
+ * a RETURN completion: the `ret` above never runs and the `catch` never fires,
+ * so only a `finally` can see it. `gclose` is a no-op on a frame either of the
+ * other two already closed.
+ */
+const CLOSE_BLOCK_GEN = `${CLOSE_BLOCK}finally{__srt.gclose(__sf)}`;
+/** The two frame kinds whose bodies a consumer can close from outside. */
+const GENERATORS = new Set(['generator', 'async_generator']);
 const CLOSE_EXPRESSION = '))}catch(__se){__srt.thr(__sf,__se);throw __se}}';
 
 /**
@@ -341,7 +351,11 @@ function spliceFunction(ctx, node) {
   );
   if (ts.isBlock(body)) {
     s.appendLeft(body.getStart(sf) + 1, `const __sf=__srt.call(__sfile,${index});try{`);
-    s.prependRight(body.end - 1, CLOSE_BLOCK);
+    // Only a generator gets the `finally`: nothing else can be resumed with a
+    // completion its own body did not choose, and an extra clause on every
+    // function would be an edit with no fact behind it.
+    s.prependRight(body.end - 1,
+      GENERATORS.has(frameKind(ts, node)) ? CLOSE_BLOCK_GEN : CLOSE_BLOCK);
     return;
   }
   s.appendLeft(

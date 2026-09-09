@@ -452,6 +452,30 @@ export function ret(f, v) {
 }
 
 /**
+ * Close a generator frame its consumer abandoned (R40).
+ *
+ * `break` out of a `for…of`, a `return` from inside one, an explicit
+ * `.return()`: every one of them resumes the generator body at its `yield`
+ * with a RETURN completion, so the body's own `ret` never runs and its `catch`
+ * never sees a throw. Without this the frame stayed open to the end of the
+ * recording and read `suspended at end of recording` — a loss claim about a
+ * generator somebody deliberately closed.
+ *
+ * The value is `unread`, not `undefined`: `.return(v)`'s value belongs to the
+ * consumer and never reaches the body, so the body produced none, and
+ * `undefined` would be a value this recorder invented. A frame `ret` or `thr`
+ * has already closed is left exactly as they left it.
+ * @param {Frame|null} f
+ * @returns {void}
+ */
+export function gclose(f) {
+  if (!on || !f || !f.open) return;
+  f.open = false;
+  drop(f);
+  emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: { k: 'unread' } });
+}
+
+/**
  * Leave by throwing.
  * @param {Frame|null} f
  * @param {unknown} e

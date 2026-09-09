@@ -53,7 +53,15 @@ which. `return` carries a `dbg` capture of the value the function returned.
 `unwind` carries the value that was thrown out of it. A frame still parked when
 the recording ends — an `await` on a promise that never settled — closes
 neither way and reads **`suspended at end of recording`**, never `(open)` and
-never a guessed outcome.
+never a guessed outcome. A generator its CONSUMER closed early — a `break` out
+of a `for…of`, a `return` from inside one, an explicit `.return()` — closes as a
+**`return` whose value is `<unread>`**: the body was resumed with a completion
+it did not choose and produced no value, and `.return(v)`'s value belongs to the
+consumer and never reaches the body. *(Amended 2026-09-09, ruling R40: the
+generator wrapper had no `finally`, so neither its `ret` nor its `catch` ran on
+that path and the frame stayed open — a generator somebody deliberately closed
+read `suspended at end of recording`, which is a loss claim about a
+non-loss.)*
 
 **What in the trace says it.** The RETURN record's value is
 `{"k": "dbg", "v": …, "trunc": …}`, `v` produced by `util.inspect` at
@@ -87,7 +95,9 @@ command's output. A trace written by a recorder this reader has no vocabulary
 for is **refused at exit 2 naming the language**, not narrated in Python's
 words as a fallback.
 
-**Falsifiers.** `typescript/test/rt.test.mjs` (`dbg caps`),
+**Falsifiers.** `typescript/test/rt.test.mjs` (`dbg caps`, `a generator its
+consumer closed early closes as a return it never read`, `a generator that runs
+to its own end still closes with its own value`),
 `typescript/test/transform.test.mjs`, `tests/test_ts_ingest.py`,
 `corpus/typescript/pass_vs_fail`, `corpus/typescript/wrong_branch`,
 `corpus/typescript/unit_mismatch`, `corpus/typescript/double_call`,

@@ -608,3 +608,59 @@ test("the transform's own output runs against this runtime", () => {
   assert.deepEqual([callback.how, callback.x.kind], ['sink_empty_catch_callback', 'rejection']);
 });
 
+
+test('a generator its consumer closed early closes as a return it never read', () => {
+  // R40. `break` out of a `for…of` issues `.return()` on the iterator, which
+  // resumes the generator body at the `yield` with a RETURN completion: neither
+  // the `ret` at the end of the body nor the `thr` in the catch runs, and the
+  // frame stayed open to the end of the recording. It was reported as
+  // `suspended at end of recording` — a loss claim about a generator that was
+  // deliberately closed. The transform's `finally` calls `gclose`, which closes
+  // it as a `return` whose value is unread: `.return()`'s value is the
+  // consumer's, not the body's, and the body never produced one.
+  const require = createRequire(import.meta.url);
+  const source = [
+    'function* counter() { yield 1; yield 2; yield 3; }',
+    'function drain() { for (const x of counter()) { if (x === 2) break; } }',
+    'drain();',
+  ].join('\n');
+  const out = transformSource(source, '/w/gen.mjs',
+    { ts: require('typescript'), root: '/w', rtPath: RT });
+  assert.ok(out && out.code, 'the transform produced instrumented source');
+  const ran = run(out.code, { raw: true });
+  ok(ran);
+  const site = (/** @type {any} */ c) => out.manifest.instrumented[c.c].qualname;
+  const generator = of(ran.recs, 'CALL').find((c) => site(c) === 'counter');
+  const closed = of(ran.recs, 'RETURN').find((r) => r.f === generator.f);
+  assert.ok(closed, 'the generator frame closed');
+  assert.deepEqual(closed.v, { k: 'unread' });
+  // It closed as a RETURN and not as an UNWIND: nothing was thrown at it.
+  assert.deepEqual(of(ran.recs, 'UNWIND').filter((r) => r.f === generator.f), []);
+  // And the two `yield`s it did reach are still on the record, in order.
+  assert.deepEqual(of(ran.recs, 'YIELD').filter((r) => r.f === generator.f)
+    .map((r) => r.k), ['yield', 'yield']);
+  assert.ok(ran.recs.indexOf(closed) > ran.recs.lastIndexOf(
+    of(ran.recs, 'YIELD').filter((r) => r.f === generator.f).at(-1)));
+});
+
+test('a generator that runs to its own end still closes with its own value', () => {
+  // The `finally` must not overwrite an outcome the body reached: `gclose` is a
+  // no-op on a frame `ret` (or `thr`) has already closed. Break this and every
+  // generator in every recording reads `<unread>`.
+  const require = createRequire(import.meta.url);
+  const source = [
+    'function* two() { yield 1; return 7; }',
+    'function drain() { for (const x of two()) { void x; } }',
+    'drain();',
+  ].join('\n');
+  const out = transformSource(source, '/w/gen2.mjs',
+    { ts: require('typescript'), root: '/w', rtPath: RT });
+  assert.ok(out && out.code, 'the transform produced instrumented source');
+  const ran = run(out.code, { raw: true });
+  ok(ran);
+  const site = (/** @type {any} */ c) => out.manifest.instrumented[c.c].qualname;
+  const generator = of(ran.recs, 'CALL').find((c) => site(c) === 'two');
+  const closes = of(ran.recs, 'RETURN').filter((r) => r.f === generator.f);
+  assert.equal(closes.length, 1, 'a frame closes once');
+  assert.deepEqual(closes[0].v, { k: 'dbg', v: '7', trunc: false });
+});
