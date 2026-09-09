@@ -1,0 +1,112 @@
+$ sensorium info 20260908-225409-eaa2ae
+run 20260908-225409-eaa2ae  trace: /mnt/extra/sensorium-s5/store/traces/20260908-225409-eaa2ae.db
+cmd: /home/brice/.nvm/versions/node/v24.16.0/bin/node /mnt/extra/sensorium-s5/vtt/frontend/node_modules/vitest/dist/workers/forks.js    cwd: /mnt/extra/sensorium-s5/vtt/frontend
+python ?  env:6fc1f0a955a4ac5b  exit: unwitnessed  events: 104  duration: 0.01s
+recorder: sensorium-ts 0.0.0-spike  lang: typescript  capabilities: children=no err_flow=yes line=no locals=no object_identity=no output=no refocus=no return_value=yes stdin=no tasks=yes threads=no
+recorded: CALL 32  RETURN 32  RAISE 0  HANDLED 0  YIELD 20  RESUME 20  LINE 0
+focus: -    window: -
+caps:    truncated values: 2
+fingerprint thread 1 (main): cae66941d9efbd404e4d88758ea67670 (0 causal events outside any asyncio task)
+fingerprints: per-task basis -- each thread row covers the events that ran in no asyncio task; 7 task fingerprint(s) beside it
+not recorded in this trace: threads_started -- recorder sensorium-ts 0.0.0-spike declares threads not witnessed (capabilities.threads: false), so there is no thread record to read; absence of the record is not a record of absence
+not recorded in this trace: children, spawn_syscalls, audit_errors -- recorder sensorium-ts 0.0.0-spike declares children not witnessed (capabilities.children: false), so there is no child-process record to read; absence of the record is not a record of absence
+unframed calls: 0 (all calls framed in format 3)
+tasks: 7 (t1 S1 chain, t2 S2 fanout, t3 S3 timer, t4 S4 emitter, t5 T1 control, t6 T2 control, t7 env check)
+hot functions:
+  3x async.probe.test.ts:a
+  3x async.probe.test.ts:b
+  3x async.probe.test.ts:c
+  2x async.probe.test.ts:p
+  2x async.probe.test.ts:sleep
+  2x async.probe.test.ts:sleep.<anonymous>#1
+  2x async.probe.test.ts:viaEmitter.handler
+  1x async.probe.test.ts:<anonymous>#6
+[exit 0]
+
+$ sensorium tree 20260908-225409-eaa2ae --depth 3
+task t1: S1 chain
+  f1 e1 <anonymous>#6() <unread: locals> -> undefined
+    f2 e2 a() <unread: locals> -> 4
+      f3 e3 b() <unread: locals> -> 3
+        f4 e4 c() <unread: locals> -> 2
+task t2: S2 fanout
+  f5 e17 <anonymous>#7() <unread: locals> -> undefined
+    f6 e18 fanout() <unread: locals> -> [ 10, 20 ]
+      f7 e19 p() <unread: locals> -> 10
+        f8 e20 sleep() <unread: locals> -> Promise { <pending> }
+      f10 e25 p() <unread: locals> -> 20
+        f11 e26 sleep() <unread: locals> -> Promise { <pending> }
+task t3: S3 timer
+  f13 e41 <anonymous>#8() <unread: locals> -> undefined
+    f14 e42 viaTimer() <unread: locals> -> 7
+      f15 e43 viaTimer.<anonymous>#2() <unread: locals> -> undefined
+  f16 e47 viaTimer.<anonymous>#2.<anonymous>#3() <unread: locals> -> undefined
+    f17 e48 work() <unread: locals> -> 7
+task t4: S4 emitter
+  f18 e55 <anonymous>#9() <unread: locals> -> undefined
+    f19 e56 viaEmitter() <unread: locals> -> 2
+      f20 e57 viaEmitter.handler() <unread: locals> -> undefined
+      f21 e59 viaEmitter.<anonymous>#4() <unread: locals> -> undefined
+  f22 e63 viaEmitter.<anonymous>#4.<anonymous>#5() <unread: locals> -> undefined
+    f23 e64 viaEmitter.handler() <unread: locals> -> undefined
+task t5: T1 control
+  f24 e71 <anonymous>#10() <unread: locals> -> undefined
+    f25 e72 a() <unread: locals> -> 4
+      f26 e73 b() <unread: locals> -> 3
+        f27 e74 c() <unread: locals> -> 2
+task t6: T2 control
+  f28 e87 <anonymous>#11() <unread: locals> -> undefined
+    f29 e88 a() <unread: locals> -> 4
+      f30 e89 b() <unread: locals> -> 3
+        f31 e90 c() <unread: locals> -> 2
+task t7: env check
+  f32 e103 <anonymous>#12() <unread: locals> -> undefined
+... 2 subtree(s) beyond --depth 3 or --limit 200; continue with: sensorium tree 20260908-225409-eaa2ae --root f9
+order between tasks is wall-clock (event ids), not causal; within one task it is causal
+[exit 0]
+
+$ sensorium frame 20260908-225409-eaa2ae --fn viaEmitter
+f19 async.probe.test.ts:viaEmitter  [e56..e68]  thread 1  task t4 (S4 emitter)  depth 1  closed: return
+args: <unread: locals>
+timeline: not captured (locals need line-level focus; refocus with --focus async.probe.test.ts:viaEmitter)
+timeline (suspensions only):
+  ~ e61 YIELD   viaEmitter LNone awaiting Promise
+  ~ e67 RESUME  viaEmitter LNone
+return: 2
+children (2):
+  f20 e57 viaEmitter.handler() <unread: locals> -> undefined
+  f21 e59 viaEmitter.<anonymous>#4() <unread: locals> -> undefined
+[exit 0]
+
+$ sensorium grep 20260908-225409-eaa2ae handler --kind RETURN
+e58 RETURN  viaEmitter.handler -> undefined
+e65 RETURN  viaEmitter.handler -> undefined
+matches: 2
+[exit 0]
+
+$ sensorium exceptions 20260908-225409-eaa2ae
+REFUSED: exceptions on a typescript trace needs the Rust disposition rules (rung 3); the Python rules would misread Err values as exceptions; nothing was judged
+[exit 3]
+
+$ sensorium watch 20260908-225409-eaa2ae --at async.probe.test:a --expr 'v > 0'
+REFUSED: watch needs line, which recorder sensorium-ts 0.0.0-spike declares it does not produce (capabilities.line: false); nothing was checked
+[exit 3]
+
+$ sensorium flow 20260908-225409-eaa2ae --value 7
+REFUSED: flow needs line, which recorder sensorium-ts 0.0.0-spike declares it does not produce (capabilities.line: false); nothing was checked
+[exit 3]
+
+$ sensorium refocus 20260908-225409-eaa2ae --focus a
+error: cannot refocus 20260908-225409-eaa2ae: refocus needs refocus, which recorder sensorium-ts 0.0.0-spike declares it does not produce (capabilities.refocus: false); nothing was checked
+no rerun was attempted; `sensorium run --focus ...` will record a fresh, UNVERIFIED trace if that is what you want
+[exit 2]
+
+$ sensorium runs
+invocation probes-2: cargo
+  20260908-225409-030bea  exit:unwitnessed  events:54  cmd: /home/brice/.nvm/versions/node/v24.16.0/bin/node /mnt/extra/sensorium-s5/vtt/frontend/node_modules/vitest/dist/workers/forks.js
+  20260908-225409-34f495  exit:unwitnessed  events:31  cmd: /home/brice/.nvm/versions/node/v24.16.0/bin/node /mnt/extra/sensorium-s5/vtt/frontend/node_modules/vitest/dist/workers/forks.js
+  20260908-225409-4c9318  exit:unwitnessed  events:9  cmd: /home/brice/.nvm/versions/node/v24.16.0/bin/node /mnt/extra/sensorium-s5/vtt/frontend/node_modules/vitest/dist/workers/forks.js
+  20260908-225409-eaa2ae  exit:unwitnessed  events:104  cmd: /home/brice/.nvm/versions/node/v24.16.0/bin/node /mnt/extra/sensorium-s5/vtt/frontend/node_modules/vitest/dist/workers/forks.js
+  20260908-225409-ed1ad0  exit:unwitnessed  events:104  cmd: /home/brice/.nvm/versions/node/v24.16.0/bin/node /mnt/extra/sensorium-s5/vtt/frontend/node_modules/vitest/dist/workers/forks.js
+[exit 0]
+
