@@ -3,8 +3,8 @@ from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
 from sensorium.query.fmt import (fmt_args, fmt_event, fmt_exc, fmt_value,
                                  parse_fref, unread_marker)
-from sensorium.query.tree_cmd import (frame_line, unframed_kind,
-                                      unframed_line)
+from sensorium.query.tree_cmd import (frame_line, kind_marker,
+                                      unframed_kind, unframed_line)
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
@@ -124,9 +124,12 @@ def run(args) -> int:
         label = (f"({name})" if name is not None
                  else terms(trace).unnamed_task)
         task = f"  task t{call.task_id} {label}"
-    # A non-function kind is marked exactly as `tree` marks it (frame_line):
-    # nothing for an ordinary call, `[coroutine]`/`[generator]`/etc. for the
-    # rest. The state tail is derived by `frame_state` (spec D2) and shown
+    # A non-function kind is marked exactly as `tree` marks it -- the SAME
+    # function, `tree_cmd.kind_marker`, so the two views cannot drift and
+    # the language-keyed label (`[coroutine]` in Python, `[async]` in
+    # TypeScript) is decided in one place.
+    #
+    # The state tail is derived by `frame_state` (spec D2) and shown
     # whenever it says something arc 1's `closed: {closed_by}` did not
     # already say -- a plain function that simply returned, raised, or is
     # still open keeps the byte-identical arc-1 header; every suspension
@@ -134,13 +137,13 @@ def run(args) -> int:
     # gets its own `state:` segment because "closed: return" alone would
     # hide THAT it suspended along the way.
     state = trace.frame_state(f)
-    kind_marker = f"  [{f.kind}]" if f.kind != "function" else ""
+    marker = kind_marker(trace, f.kind)
     show_state = (f.kind != "function"
                   or state.state not in ("returned", "raised", "open"))
     state_tail = ((f"  state: {state.state}"
                    + (f" at L{state.line}" if state.line else ""))
                   if show_state else "")
-    print(f"f{f.id} {code.file.rsplit('/', 1)[-1]}:{code.qualname}{kind_marker}  "
+    print(f"f{f.id} {code.file.rsplit('/', 1)[-1]}:{code.qualname}{marker}  "
           f"[e{f.call_event_id}..{end}]  thread {f.thread_id}{task}  "
           f"depth {f.depth}  closed: {f.closed_by or 'open'}{state_tail}")
     if trace.parentage_basis() == "assumed":

@@ -264,7 +264,7 @@ recorder, lang, capabilities
 | `truncated_count` | How many captured values were clipped by the capture caps. |
 | `source_hashes` | `{file: content-digest}` for every file the run traced code from. |
 | `recorder` | Who wrote the trace: `"sensorium 0.8.0"`, `"sensorium-rt 0.3.0"`. Printed in every sentence about what this trace can and cannot say. Both are examples of the SHAPE, not pins — the value is whatever wrote the file, and a reader that compares against a literal is reading it wrong. |
-| `lang` | `"python"`, `"rust"`. The reader defaults an absent `lang` to `"python"`, because nothing else existed before the key. |
+| `lang` | `"python"`, `"rust"`, `"typescript"` — `db.KNOWN_LANGS`, the languages this sensorium has a vocabulary column for. Any other value is **refused at open** (exit 2), naming the recorder, the language and the columns that exist: until 2026-09-09 an unknown `lang` silently borrowed Python's words, which told a reader of such a trace about `asyncio tasks` and `python ?`. An **absent** `lang` is not an unknown one — the reader defaults it to `"python"`, because nothing else existed before the key. Vector: `v24-unknown-lang-refused`. |
 | `capabilities` | The declaration; see below. |
 
 ### `exit_status` may be null, and `exit_status_basis` says why
@@ -450,6 +450,13 @@ carries the key, so a Rust trace from an older converter simply says less:
 | `closure_frames` | CALL records that opened a frame at a **closure** site rather than a fn item (design R5: a closure containing `?` gets its own frame, qualname `<enclosing>::{{closure}}#k`). The cost of that decision, stated as a number. |
 | `child_runs` | `[{run_id, pid, exe}]` — same-invocation processes whose `ppid` is this one. `capabilities.children` is **false** (this recorder hooks no spawn), so `info` prints the declaration AND `child runs: N -- <run ids>`: the declaration alone hides traces the reader could open, and the list alone reads as a complete inventory of the children. Vector: `v11-child-runs-linked`. |
 
+**TypeScript-only, written today** by `sensorium ts ingest`'s builder
+(`src/sensorium/ts/build.py`) and read by `info` and `runs` — each printed
+only when the trace carries the key, so an older converter's trace simply
+says less. The key-by-key table is
+[`docs/trace-format/TYPESCRIPT-KEYS.md`](trace-format/TYPESCRIPT-KEYS.md)
+(its own file so this one stays under 800 lines, as §8 already is).
+
 **A note on wording, for the converter author — RESOLVED in 0.6.0 by the
 vocabulary table.** Several sentences in `info`, `diff` and `tree` were
 Python-worded on a fact that is not Python-specific: threads "started through
@@ -464,14 +471,18 @@ and `v13-lang-keyed-prose` plus `tests/test_vocab.py` pin the ABSENCE of
 the exact string each renderer printed before the table existed — a reworded
 Python sentence is a regression, and the legacy suite is the fence.
 
-| Term | Python | Rust |
-|---|---|---|
-| unit of work | `asyncio task` | `test or spawned thread` |
-| ...plural | `asyncio task(s)` | `tests or spawned threads` |
-| a nameless one | `(name unreadable)` — the name existed and `get_name()` raised | `(unnamed: spawned by dependency code)` — it never had one |
-| where threads came from | `through Python's own threading/_thread` | `as OS threads (libtest's per-test threads and threads spawned by workspace code)` |
-| what ran the program | `python <meta.python>` | `toolchain: <meta.toolchain>` |
-| a runtime-minted name | `Task-N` is read as no name at all | none exist; every name is the program's |
+| Term | Python | Rust | TypeScript |
+|---|---|---|---|
+| unit of work | `asyncio task` | `test or spawned thread` | `test` |
+| ...plural | `asyncio task(s)` | `tests or spawned threads` | `test(s)` |
+| a nameless one | `(name unreadable)` — the name existed and `get_name()` raised | `(unnamed: spawned by dependency code)` — it never had one | `(unnamed: title not a string)` — the title expression was not a string, so the harness has no name for it either |
+| where threads came from | `through Python's own threading/_thread` | `as OS threads (libtest's per-test threads and threads spawned by workspace code)` | `as worker threads or forked children of the harness (not witnessed: each is its own trace)` |
+| what ran the program | `python <meta.python>` | `toolchain: <meta.toolchain>` | `node <meta.node>`, with `(vitest <meta.vitest>, <meta.environment>)` beside it |
+| a runtime-minted name | `Task-N` is read as no name at all | none exist; every name is the program's | none exist; `.each` rows are renamed by the harness into names that are the program's |
+| `frames.kind` markers | the contract's own words: `[coroutine]`, `[generator]`, `[async_generator]` | the contract's own words | `[async]`, `[generator]`, `[async generator]` — JavaScript has no coroutines |
+| `exceptions` | these rules ARE Python's | its own rules (rung 3), gated on `capabilities.err_flow` | REFUSED at exit 3: no disposition rules yet (S5 rung 2) |
+
+TypeScript column added 2026-09-09 (S5 rung 1); the `terms()` fallback retired with it — an unknown `lang` is refused at open (the `lang` row).
 
 ## 5. Enumerations
 
@@ -600,6 +611,30 @@ or the bare `"Err"` with `unread: ["type", "msg"]`. It never invents one.
 
 Vector: `v16-raise-handled-chain-serial-kind`.
 
+### TypeScript throw flow: `exc.kind` and `how`
+
+A TypeScript `exc` is `{kind, type, msg, serial}` and **`kind` is written on
+every one** — `"throw"` or `"rejection"` — because a kindless `exc` is read
+as Python's (above). `serial` is minted per thrown **object** through a
+`WeakMap`, so `catch (e) { throw e }` is one exception with two RAISE rows;
+a thrown **primitive** has none to hang that on and gets a fresh serial
+each time, stated rather than papered over by merging on text.
+
+**`how`** names the shape that recorded the event, and the enumeration is
+the declaration: `throw`, `catch`, `sink_empty_catch`,
+`sink_empty_catch_callback` (a `catch {}` and a `.catch(() => {})` whose
+body is empty). A shape outside it produced no record — a `.catch(fn)` with
+a non-empty body and `finally` are recorded by nothing. The rows are
+recorded and **not judged**: `capabilities.err_flow` is false in
+`sensorium-ts 0.1.0` although they exist, so `exceptions` refuses at exit 3.
+
+Two things go to `meta` and never to `events`, because §3 refuses a causal
+event with no `code_id` and inventing a code object would put a site in the
+program that has none: an unhandled rejection (`unhandled_rejections`,
+`[{type, msg, serial}]`) and a RAISE/HANDLED with no open frame
+(`throw_flow_outside_frames`). Vectors: `v25-exc-kind-throw-rejection`,
+`v27-unhandled-rejection-in-meta`.
+
 ### closed_by, unwind_exc, and the panic mapping
 
 `closed_by ∈ {"return", "unwind"}` or NULL (§3). A panic — or any Rust
@@ -689,6 +724,18 @@ record one, and a number nothing witnessed is exactly what §4's exit rule
 refuses. A member's `cmd:` is the basename of `exe` plus `argv[1:]` — the
 full path is thirty characters of build directory and is `info`'s to print.
 Vector: `v11-child-runs-linked`.
+
+**A TypeScript invocation is headed by its harness, its members by their
+test files.** The driver waits for the harness, so unlike cargo there IS a
+status: `invocation <id>: vitest run src/fog  exit:1 (waited)`, the basis
+attached because it is what distinguishes this from the `exit:unwitnessed`
+on every member row (§4; the driver did not reap the workers). A member
+carrying `test_file` is listed as `file: <path>`, one carrying `test_files`
+as `files: N`, in place of a `cmd:` — every worker of one vitest run has
+the same `node …/workers/forks.js` command line, and `info` keeps the whole
+of it. A member with neither ran no test file: it keeps its argv, and that
+absence is a statement. Vectors: `v28-harness-exit-waited`,
+`v29-runs-file-header`.
 
 **How `diff` compares** (`query/diff_cmd`), because a converter's choices
 here decide whether its traces can be compared at all:

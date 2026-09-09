@@ -524,3 +524,123 @@ def _two_good_spools(tmp_path):
     (spool / "7103-0.jsonl").write_text(
         "\n".join([json.dumps(boot)] + lines[1:]) + "\n")
     return spool
+
+
+# -- what `info` prints about those endings ---------------------------------
+# The three keys above are two different processes' endings plus what this
+# one said about its own, and the tests above check that the CONVERTER keeps
+# them apart. These check that the READER does too: a fact kept apart in
+# meta and merged on the screen is merged.
+
+
+def _info_of(sdir):
+    trace = only_trace(sdir)
+    r = run_cli(["info", trace.meta["run_id"]], cwd=sdir.parent,
+                sensorium_dir=sdir)
+    assert r.returncode == 0, r.stdout + r.stderr
+    return r.stdout
+
+
+def test_info_prints_a_self_reported_code_saying_nobody_waited(ingested):
+    """The code the container chose, with the words that stop it being read
+    as a status somebody observed -- beside a harness exit that WAS."""
+    _spool, sdir, _result = ingested["outside-frame-throw"]
+    out = _info_of(sdir)
+    assert "container exit: self-reported code 1 (nobody waited)" in out, out
+    assert "exit: unwitnessed" in out, out
+
+
+def test_info_prints_a_self_reported_signal_by_name(ingested):
+    """A container torn down by a signal chose no code, and the line says
+    the signal instead. Printing `code None` here is the failure the whole
+    exit rule exists to stop."""
+    _spool, sdir, _result = ingested["capped-names"]
+    out = _info_of(sdir)
+    assert ("container exit: self-reported signal SIGTERM (nobody waited)"
+            in out), out
+    assert "code None" not in out and "code null" not in out, out
+
+
+def test_info_prints_no_container_exit_line_where_there_was_no_record(
+        ingested):
+    """Absent key, absent line: a container killed before it could speak is
+    not one that ended at 0, and the reader says nothing rather than a
+    zero."""
+    _spool, sdir, _result = ingested["killed-mid-file"]
+    out = _info_of(sdir)
+    assert "container exit:" not in out, out
+    assert "INCOMPLETE" in out, out
+
+
+def _ts_trace(tmp_path, **meta):
+    """A minimal TypeScript trace, built through the vector builder so a
+    test and a vector cannot describe two different trace shapes."""
+    from tests.vectors import build
+    base = json.loads((VECTOR_DIR / "v29-runs-file-header.json").read_text())
+    body = {**base, "meta": {**base["meta"], **meta}}
+    sdir = tmp_path / "sdir"
+    build(body, sdir, [VECTOR_RUN])
+    return sdir
+
+
+VECTOR_DIR = (FIXTURES.parent.parent.parent / "docs" / "trace-format"
+              / "vectors")
+VECTOR_RUN = "20260101-000000-aaaaaa"
+
+
+def test_info_says_an_exit_record_carried_neither_rather_than_dropping_it(
+        tmp_path):
+    """The third state of `exit_self_reported`. An EXIT record that named
+    neither a code nor a signal is a record, and a missing line means "no
+    EXIT record" -- so this one is said rather than silently dropped, the
+    same way `focus` distinguishes an absent key from a recorded empty one.
+    """
+    sdir = _ts_trace(tmp_path,
+                     exit_self_reported={"code": None, "signal": None})
+    out = _info_of(sdir)
+    assert ("container exit: self-reported, but the record carries neither "
+            "a code nor a signal") in out, out
+    assert "code None" not in out, out
+
+
+def test_an_older_converter_s_trace_prints_none_of_these_lines(tmp_path):
+    """Every line of the TypeScript block is gated on the meta key it
+    reports, never on the language -- the rule the rest of `info` follows.
+    A trace whose converter wrote none of them says less, and says nothing
+    it cannot support."""
+    dropped = {k: None for k in
+               ("harness", "harness_args", "harness_exit", "pid", "ppid",
+                "thread_id_os", "is_main_thread", "test_file", "vitest",
+                "environment", "exit_self_reported", "tests_seen",
+                "task_name_basis", "task_name_conflicts",
+                "files_transformed", "transform_excluded",
+                "unhandled_rejections", "throw_flow_outside_frames")}
+    base = json.loads((VECTOR_DIR / "v29-runs-file-header.json").read_text())
+    meta = {k: v for k, v in base["meta"].items() if k not in dropped}
+    from tests.vectors import build
+    sdir = tmp_path / "sdir"
+    build({**base, "meta": meta}, sdir, [VECTOR_RUN])
+    out = _info_of(sdir)
+    for absent in ("harness:", "container:", "container exit:", "tests:",
+                   "files:", "unhandled rejections:",
+                   "throw flow outside frames:"):
+        assert absent not in out, f"{absent!r} on a trace with no key\n{out}"
+    # ...and the interpreter line still names what it does know, with no
+    # empty parenthesis where the harness and environment would have been.
+    assert "node v24.16.0  env:" in out, out
+
+
+def test_info_withholds_the_rejection_count_on_an_incomplete_trace(ingested):
+    """The zero is measured only where the counting finished. A container
+    killed mid-file counted as far as it got, and a printed `unhandled
+    rejections: 0` there would read as proof none happened -- the
+    `late_writes` precedent, on a count whose complete form IS printed at
+    zero two lines up in this file."""
+    _spool, sdir, _result = ingested["killed-mid-file"]
+    out = _info_of(sdir)
+    assert "INCOMPLETE" in out, out
+    assert "unhandled rejections:" not in out, out
+    # ...and the harness's own signalled ending still prints, because the
+    # DRIVER witnessed that and it is not this container's to lose.
+    assert "harness: vitest run src/async.probe.test.ts  exit: signal " \
+           "SIGKILL (waited)" in out, out

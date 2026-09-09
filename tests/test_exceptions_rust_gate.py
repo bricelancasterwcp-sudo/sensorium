@@ -249,15 +249,25 @@ def test_a_trace_with_no_partial_key_says_nothing_about_partial_sites(
 # -- a third language keeps the lang-keyed refusal --------------------------
 def test_a_language_with_no_rules_at_all_still_gets_the_lang_refusal(
         tmp_path, monkeypatch, capsys):
-    """R9: only the `rust` branch of `_language_refusal` retires."""
+    """R9: only the `rust` branch of `_language_refusal` retires.
+
+    Amended 2026-09-09 (S5). This test used a made-up `lang: "go"` trace,
+    which `db.open_trace` now refuses at open -- a language with no
+    VOCABULARY is a different failure from a language with no RULES, and
+    conflating them was only possible while no real third language
+    existed. TypeScript is that language: sensorium has its words and not
+    its disposition rules, so it is the shape this test is about, and the
+    sentence it meets is its OWN -- naming exception identity and S5 rung
+    2, not `Err` values and rung 3.
+    """
     run_id = rust_trace(
         tmp_path, monkeypatch,
         codes=[[FILE, "run", 3]],
         frames=[frame(1, 1, 2)],
         events=[call(1000, 1, 3), ret(2000, 1, 1, "ok", "()")],
-        lang="go", recorder="sensorium-go 0.1.0")
+        lang="typescript", recorder="sensorium-ts 0.1.0")
     assert cli.main(["exceptions", run_id]) == UNSETTLED
     o = out(capsys)
-    assert ("REFUSED: exceptions on a go trace needs the Rust disposition "
-            "rules (rung 3); the Python rules would misread Err values as "
-            "exceptions; nothing was judged") in o, o
+    assert ("REFUSED: exceptions on a typescript trace needs the TypeScript "
+            "disposition rules (S5 rung 2); the Python rules index exception "
+            "identity this trace does not carry; nothing was judged") in o, o

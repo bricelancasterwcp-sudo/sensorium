@@ -1,0 +1,59 @@
+{
+  "id": "v24-unknown-lang-refused",
+  "asserts": "A trace whose `meta.lang` is a language this sensorium has no vocabulary column for is REFUSED at open -- exit 2, naming the file, the recorder that wrote it, the language, this sensorium's version and the languages it does know -- and is never narrated in Python's words as a fallback. Falling back was the old behaviour (`terms()` returned the Python column for any unknown key), which would tell a reader of a COBOL trace about `asyncio tasks` and `python ?`. The refusal lives in `db.open_trace`, so it is one choke point every command reaches rather than a check each renderer has to remember.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["/w/PAYROLL"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "cobol-rec 1.0",
+    "lang": "cobol",
+    "capabilities": {"line": false, "locals": false, "return_value": false,
+                     "tasks": false, "threads": false, "children": false,
+                     "stdin": false, "output": false,
+                     "object_identity": false, "refocus": false},
+    "incomplete": false
+  },
+  "codes": [["/w/PAYROLL.CBL", "MAIN-PARA", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null, "payload": {"value": {"k": "none"}}, "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "info-refuses-a-language-it-has-no-words-for",
+      "ask": "Asked about a trace in a language it cannot speak, does the reader refuse and name what is missing -- or answer in Python's words?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 2,
+      "expect_contains": [
+        "was written by cobol-rec 1.0 for lang 'cobol', which this sensorium",
+        "has no vocabulary for (python, rust, typescript); upgrade sensorium to read it"],
+      "expect_absent": ["asyncio", "python ?", "recorded:", "fingerprint",
+                        "capabilities:"]
+    },
+    {
+      "id": "the-refusal-is-one-choke-point-not-one-command",
+      "ask": "Does `tree` refuse the same trace with the same sentence, or does each command decide for itself?",
+      "command": ["tree", "$RUN"],
+      "expect_exit": 2,
+      "expect_contains": [
+        "has no vocabulary for (python, rust, typescript); upgrade sensorium to read it"],
+      "expect_absent": ["asyncio", "python ?", "MAIN-PARA"]
+    }
+  ]
+}

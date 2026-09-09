@@ -120,6 +120,7 @@ from dataclasses import dataclass
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.fmt import fmt_event, fmt_exc, more_note, parse_eref
+from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
 TAG_ORDER = ("swallowed", "uncaught", "re-raised", "propagated", "ambiguous")
@@ -640,12 +641,19 @@ def _language_refusal(trace) -> str | None:
     missing is still a rule, and this is still the sentence for it -- it
     names the rung the first non-Python rules shipped in, which is where the
     reader looks to see what writing another set would take.
+
+    Amended 2026-09-09 (S5): that one sentence was written for one absent
+    rule module and interpolated `trace.lang` into it, so a THIRD language
+    was told it needed "the Rust disposition rules" and that the Python
+    rules "would misread Err values" -- neither of which is true of a
+    TypeScript recording, whose gap is exception IDENTITY (`exc["oid"]`)
+    and whose rules are owed by S5 rung 2. What a language is missing is a
+    fact about that language, so the sentence moved to its `vocab` column
+    (`Terms.exceptions_refusal`) and each one says what is actually absent
+    and which rung owes it. The Rust column's is `None`: `run` dispatches
+    it above, so nothing here ever speaks for it.
     """
-    if trace.lang == "python":
-        return None
-    return (f"REFUSED: exceptions on a {trace.lang} trace needs the Rust "
-            "disposition rules (rung 3); the Python rules would misread Err "
-            "values as exceptions; nothing was judged")
+    return terms(trace).exceptions_refusal
 
 
 def run(args) -> int:
@@ -693,8 +701,9 @@ def run(args) -> int:
     refusal = _language_refusal(trace)
     if refusal:
         # Nothing was judged, and no edit to this command would change
-        # that: what is missing is a recording the Rust disposition rules
-        # can read.
+        # that: what is missing is a set of disposition rules for the
+        # language this trace was recorded in, and the sentence the trace's
+        # own column carries names the rung that owes them.
         print(refusal)
         return UNSETTLED
     idx = Index.build(trace, trace.meta)

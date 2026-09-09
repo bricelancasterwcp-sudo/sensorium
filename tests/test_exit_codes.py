@@ -98,13 +98,25 @@ def _rust(tmp_path, monkeypatch):
 
 
 def _other_lang(tmp_path, monkeypatch):
-    """A finalized trace in a language no rule module exists for. Rung 3
-    retired only the `rust` arm of the lang-keyed refusal (design R9); a
-    third language still meets the sentence unchanged."""
+    """A finalized trace in a language no rule module exists for.
+
+    Was `lang: "go"` until S5, when `db.open_trace` began REFUSING a lang
+    outside `db.KNOWN_LANGS` (exit 2, at open, before any command runs), so
+    a made-up language no longer reaches `exceptions` at all. TypeScript is
+    the real instance of the shape this row is about: a language sensorium
+    has words for and no disposition rules for, whose refusal is its own
+    (`vocab.TYPESCRIPT.exceptions_refusal`) and not Rust's.
+    """
     w = synthetic(tmp_path, monkeypatch)
-    c = w.intern_code("/tmp/prog.go", "main", 1)
+    c = w.intern_code("/tmp/prog.ts", "main", 1)
     w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})
-    finalize_synthetic(w, lang="go", recorder="sensorium-go 0.0")
+    finalize_synthetic(w, lang="typescript", recorder="sensorium-ts 0.1.0",
+                       capabilities={"line": False, "locals": False,
+                                     "return_value": True, "tasks": True,
+                                     "threads": False, "children": False,
+                                     "stdin": False, "output": False,
+                                     "object_identity": False,
+                                     "refocus": False, "err_flow": False})
     w.close()
     return SYNTH_RUN
 
@@ -170,7 +182,7 @@ MATRIX = [
      UNSETTLED, "REFUSED: exceptions needs err_flow"),
     ("exceptions: REFUSED on a trace another recorder wrote",
      _other_lang, ["exceptions", "$RUN"],
-     UNSETTLED, "REFUSED: exceptions on a go trace"),
+     UNSETTLED, "REFUSED: exceptions on a typescript trace"),
     # -- watch: the three verdict classes are three different answers ------
     # `add(1, 2)` is recorded with its arguments and no LINE event, so one
     # CALL site carries `a`, and `ghost` is bound nowhere: the same command

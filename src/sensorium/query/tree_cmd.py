@@ -131,6 +131,27 @@ def _state_tail(trace, frame) -> str:
     return " (open)"
 
 
+def kind_marker(trace, kind: str) -> str:
+    """The `  [...]` a non-function frame carries, in the recorded
+    language's word for that construct.
+
+    `frames.kind` is the CONTRACT's enumeration and every converter writes
+    those five values, whatever the language its recorder read
+    (TRACE-FORMAT §3). What a READER prints for one is the language's own
+    word: JavaScript has no coroutines, so `[coroutine]` over a TypeScript
+    trace names a construct the program does not contain. The mapping is a
+    `vocab` column, and it is EMPTY for Python and Rust, so `.get(kind,
+    kind)` leaves every marker those two ever printed exactly as it was.
+
+    Nothing is marked for an ordinary call: "[function]" on every line
+    would be noise, and printing it would change every line of every
+    synchronous trace this tool has rendered.
+    """
+    if kind == "function":
+        return ""
+    return f"  [{terms(trace).kind_labels.get(kind, kind)}]"
+
+
 def frame_line(trace, frame) -> str:
     code = trace.code(frame.code_id)
     call = trace.event(frame.call_event_id)
@@ -143,10 +164,7 @@ def frame_line(trace, frame) -> str:
     # event; a tree that dropped it contradicted `grep` about one row.
     return (f"f{frame.id} e{frame.call_event_id} {code.qualname}({args})"
             f"{unread_marker(payload)}"
-            # Only a non-function kind is marked. "[function]" on every
-            # ordinary call would be noise, and printing it would change
-            # every line of every synchronous trace this tool has rendered.
-            + (f"  [{frame.kind}]" if frame.kind != "function" else "")
+            + kind_marker(trace, frame.kind)
             + _state_tail(trace, frame)
             + _caller_tag(trace, frame))
 

@@ -1,9 +1,19 @@
 """Trace file creation, opening, and run-metadata access."""
+import importlib.metadata
 import json
 import sqlite3
 from pathlib import Path
 
 TRACE_FORMAT = 4
+
+# The languages this sensorium has a vocabulary column for
+# (`query/vocab._TABLES`). A trace naming any other is refused at open,
+# ONCE, rather than narrated in another language's words by every renderer
+# in turn: until S5 an unknown `lang` fell back to the Python column, which
+# told a reader of such a trace about `asyncio tasks` and `python ?`. The
+# order is the order the columns were written, and it is the order the
+# refusal lists them in.
+KNOWN_LANGS = ("python", "rust", "typescript")
 
 # Keys a finalized format-4 trace MUST carry (spec §5.1). Every reader
 # defaults these when absent; on a trace that claims `incomplete = False`
@@ -157,15 +167,47 @@ def open_trace(path: Path) -> sqlite3.Connection:
     if fmt is not None and fmt >= 4:
         missing = missing_required(conn)
         if missing:
-            who = get_meta(conn, "recorder")
-            if not isinstance(who, str) or not who:
-                who = "an unnamed recorder"     # absent, null, or not a name
+            who = _recorder_name(conn)
             conn.close()
             raise TraceFormatError(
                 f"{path} claims to be finalized (incomplete = false) but "
                 f"lacks required meta {', '.join(missing)} -- written by "
                 f"{who}; format 4 refuses rather than read those as zero")
+    # A `lang` no reader has words for, refused HERE and nowhere else: one
+    # choke point every command goes through, so `info`, `tree`, `grep` and
+    # `diff` cannot answer it differently -- and so no renderer has to
+    # remember the check. An ABSENT `lang` is not unknown: it predates the
+    # key and is the Python recorder's, which is what `Trace.lang` reads it
+    # as. `cli.main` turns this into `error: ...` at exit 2.
+    lang = get_meta(conn, "lang")
+    if lang is not None and lang not in KNOWN_LANGS:
+        who = _recorder_name(conn)
+        conn.close()
+        raise TraceFormatError(
+            f"{path} was written by {who} for lang {lang!r}, which this "
+            f"sensorium ({_version()}) has no vocabulary for "
+            f"({', '.join(KNOWN_LANGS)}); upgrade sensorium to read it")
     return conn
+
+
+def _recorder_name(conn: sqlite3.Connection) -> str:
+    """Who wrote this trace, for a refusal to name. `meta["recorder"]` when
+    it is a name, and the words for its absence otherwise -- absent, null
+    or not a string are one case to a reader: nobody said."""
+    who = get_meta(conn, "recorder")
+    if not isinstance(who, str) or not who:
+        return "an unnamed recorder"
+    return who
+
+
+def _version() -> str:
+    """This sensorium's own version, for the sentence that says an upgrade
+    is what would read the file. `?` from a source tree that was never
+    installed: a refusal must not fail while explaining itself."""
+    try:
+        return importlib.metadata.version("sensorium")
+    except importlib.metadata.PackageNotFoundError:
+        return "?"
 
 
 def set_meta(conn: sqlite3.Connection, key: str, value) -> None:
