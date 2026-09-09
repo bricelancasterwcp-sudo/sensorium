@@ -234,27 +234,6 @@ function calleeChain(ts, callee) {
 /**
  * @param {TS} ts
  * @param {Node} node
- * @param {(n: Node) => boolean} predicate
- * @returns {boolean} whether any node in the subtree satisfies the predicate
- */
-function subtreeHas(ts, node, predicate) {
-  let found = false;
-  /** @param {Node} n */
-  const visit = (n) => {
-    if (found) return;
-    if (predicate(n)) {
-      found = true;
-      return;
-    }
-    ts.forEachChild(n, visit);
-  };
-  visit(node);
-  return found;
-}
-
-/**
- * @param {TS} ts
- * @param {Node} node
  * @returns {boolean} whether a test title is a literal string in the source
  */
 function isLiteralTitle(ts, node) {
@@ -482,37 +461,10 @@ function spliceEmptyCatchCallback(ctx, node) {
 }
 
 /**
- * Whether the options argument may be moved past the callback.
- *
- * The move relocates text, and four things make that unsafe. Each leaves the
- * call untouched: a missed task boundary costs a name in the trace, while any of
- * these costs correctness, and this recorder does not trade the second for the
- * first.
- * @param {Splicer} ctx
- * @param {import('typescript').Expression} title
- * @param {import('typescript').Expression} between the last argument before the callback
- * @param {import('typescript').Expression} fn
- * @returns {boolean}
- */
-function canMoveOptions(ctx, title, between, fn) {
-  const { ts, sf } = ctx;
-  // (a) The moved text would carry its newlines to another place in the file,
-  //     and every line of the output must stay the line it was.
-  if (sf.text.slice(title.end, between.end).includes('\n')) return false;
-  // (b) A function inside the options records a line, and the move changes it.
-  if (subtreeHas(ts, between, (n) => isFunctionLike(ts, n))) return false;
-  // (c) A suspension in the title closes at the offset the move starts from, so
-  //     its closing text would travel with the options.
-  if (subtreeHas(ts, title, (n) => ts.isAwaitExpression(n) || ts.isYieldExpression(n))) return false;
-  // (d) An expression-bodied callback closes at the offset the move lands on,
-  //     and the options would be spliced inside its closing text.
-  if (ts.isArrowFunction(fn) && !ts.isBlock(fn.body)) return false;
-  return true;
-}
-
-/**
- * A test or a suite: the title and the function are handed to the runtime as
- * the call's own argument list, so arguments after them survive in place.
+ * A test or a suite: the title and the callback are handed to the runtime as the
+ * call's own argument list, and every other argument stays exactly where the
+ * source put it — nothing is moved, so nothing carries a line, or a closing
+ * splice, to a place it does not belong (R8c).
  *
  * The rule is file-scoped (R8, `isTestFile`). Inside a test file the callback
  * argument is wrapped whatever its shape — a bare identifier included, which the
@@ -520,18 +472,27 @@ function canMoveOptions(ctx, title, between, fn) {
  * one, nothing is wrapped, so a consumer's own `describe` is never rewritten.
  *
  * vitest also documents an options signature, `test(name, options, fn)`, where
- * the second argument is not the callback at all (R8a). There the callback is
- * the third argument and the options MOVE into our call, so vitest still reads
- * its own arguments in its own order:
+ * the second argument is not the callback (R8a). The callback is then the third,
+ * and the options simply stay between them:
  *
  *   test("x", {timeout: 100}, fn, 5000)
- *     -> test(...__srt.task(("x"), fn,1, {timeout: 100}), 5000)
- *   describe("y", {concurrent: true}, fn)
- *     -> describe(...__srt.suite(("y"), fn, {concurrent: true}))
+ *     -> test(...__srt.task(("x"), {timeout: 100}, fn,1), 5000)
+ *   describe("y", {concurrent: true}, fn, 1000)
+ *     -> describe(...__srt.suite(("y"), {concurrent: true}, fn), 1000)
+ *   test("x", fn)     -> test(...__srt.task(("x"),fn,1))
+ *   describe("x", fn) -> describe(...__srt.suite(("x"),fn))
  *
- * The runtime contract that pairs with it (Task 3) is
- * `task(title, fn, flags, ...between) -> [title, ...between, wrapped]` and
- * `suite(title, fn, ...between) -> [title, ...between, wrapped]`.
+ * The runtime contract that pairs with it (Task 3) reads the argument list from
+ * the end: `task(title, ...rest)` with `rest = [...between, fn, flags]` — flags
+ * is always the last element and the callback the one before it — and
+ * `suite(title, ...rest)` with `rest = [...between, fn]`. Both return
+ * `[title, ...between, wrapped]`.
+ *
+ * Both closing insertions are `prependRight`, and both are registered here,
+ * before the call's own children are visited. `prependRight` renders in reverse
+ * registration order, so ours end up outermost and a closer a descendant puts on
+ * the same offset — an arrow title's, a conditional callback's, an `await`'s —
+ * is spliced inside ours rather than around it.
  * @param {Splicer} ctx
  * @param {import('typescript').CallExpression} node
  */
@@ -547,26 +508,14 @@ function spliceTaskBoundary(ctx, node) {
   const hasOptions = ts.isObjectLiteralExpression(node.arguments[1]);
   // `test(name, options)` names no callback at all: it is not a task.
   if (hasOptions && node.arguments.length < 3) return;
-  const between = hasOptions ? node.arguments[1] : null;
   const fn = node.arguments[hasOptions ? 2 : 1];
-  if (between && !canMoveOptions(ctx, title, between, fn)) return;
 
   const flags = isTask
     ? `,${(isLiteralTitle(ts, title) ? 1 : 0) | (chain.includes('each') ? 2 : 0)}`
     : '';
   s.appendLeft(title.getStart(sf), `...__srt.${isTask ? 'task' : 'suite'}((`);
-  if (!between) {
-    s.prependRight(title.end, ')');
-    s.prependRight(fn.end, `${flags})`);
-    return;
-  }
-  // `appendLeft` at the move's start stays with the title; `prependRight` there
-  // travels with the options, which is where the flags belong; `appendLeft` at
-  // its end travels too, and closes our call after the moved text.
-  s.appendLeft(title.end, ')');
-  if (flags) s.prependRight(title.end, flags);
-  s.appendLeft(between.end, ')');
-  s.move(title.end, between.end, fn.end);
+  s.prependRight(title.end, ')');
+  s.prependRight(fn.end, `${flags})`);
 }
 
 /**
@@ -636,11 +585,11 @@ function scriptKindFor(ts, filePath) {
 /**
  * Where the header goes. Two things must stay ahead of it, and neither may be
  * pushed onto a line of its own: a shebang, which has to be the first line, and
- * a directive prologue — `\'use client\'` stops being a directive the moment an
+ * a directive prologue — `'use client'` stops being a directive the moment an
  * import precedes it, and demoting it would change what the program does.
  *
  * A directive written without its semicolon (prettier `--semi false`) needs one
- * supplied, or the header is glued to it: `\'use client\'import * as __srt` is a
+ * supplied, or the header is glued to it: `'use client'import * as __srt` is a
  * syntax error. A shebang needs no terminator — it ends at its newline, and a
  * semicolon there would be an empty statement of pure noise.
  * @param {TS} ts
@@ -689,9 +638,11 @@ function prependHeader(s, placement, header) {
  * @returns {{code: string|null, map: import('magic-string').SourceMap|null, manifest: Manifest}|null}
  *   null for a path this recorder does not transform — outside the root, under
  *   any `node_modules`, a declaration file, CommonJS, or an ineligible
- *   extension. A bare null carries no manifest and means \'not ours\'; `classify`
- *   says which it was. A manifest with `code: null` means \'ours, untouched,
- *   counted\': the file did not parse, and `excluded['parse-error']` says so.
+ *   extension. A bare null carries no manifest and means 'not ours'; `classify`
+ *   says which it was. A manifest with `code: null` means 'ours, untouched,
+ *   counted': the file did not parse, and `excluded['parse-error']` says so.
+ * @throws when the TypeScript build exposes no `parseDiagnostics` (R10a): an
+ *   absent field is not an absence of errors, and this refuses to splice blind.
  */
 export function transformSource(code, filePath, opts) {
   if (classify(filePath, opts.root) !== 'transform') return null;

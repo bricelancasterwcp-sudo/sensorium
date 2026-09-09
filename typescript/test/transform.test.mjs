@@ -204,25 +204,41 @@ test('R8: inside a test file every second argument is wrapped, identifiers too',
   assert.ok(code.includes('describe(...__srt.suite(("shared"),'));
 });
 
-test('R8a: an options object is not the callback — it moves, later arguments stay', () => {
+test('R8a: an options object stays put and the callback is the third argument', () => {
   const { code } = runGolden('options-object.test.ts');
   const lines = code.split('\n');
-  assert.ok(lines[2].startsWith('describe(...__srt.suite(("options"), () => {'));
-  assert.ok(lines[3].startsWith('  test(...__srt.task(("times out"), () => {'));
-  // flags, then the moved options, then our closing paren, then the call's own
-  // later arguments exactly where the source put them.
-  assert.ok(lines[5].endsWith('},1, { timeout: 100 }), 5000);'), lines[5]);
-  assert.ok(lines[6].endsWith('}, { concurrent: true }), 1000);'), lines[6]);
-  assert.equal(code.includes('task(("times out"), { timeout: 100 }'), false);
+  assert.ok(lines[2].startsWith('describe(...__srt.suite(("options"), { concurrent: true }, () => {'));
+  assert.ok(lines[3].startsWith('  test(...__srt.task(("times out"), { timeout: 100 }, () => {'));
+  // flags close the wrap, and the call's own later arguments stay outside it.
+  assert.ok(lines[5].endsWith('},1), 5000);'), lines[5]);
+  assert.ok(lines[6].endsWith('}), 1000);'), lines[6]);
+  // an options object spanning lines is spliced like any other: it never moves
+  assert.equal(lines[8], 'test(...__srt.task(("options across lines"), {');
+  assert.equal(lines[9], '  timeout: 100,');
+  assert.ok(lines[10].startsWith('}, () => {const __sf='));
 });
 
-test('R8a: an options object the move cannot carry leaves the call alone', () => {
-  // Moving text across lines would relocate it, and an expression-bodied
-  // callback closes at the offset the move lands on: both are left untouched.
-  const { code } = runGolden('options-object.test.ts');
-  assert.ok(code.includes('test("multi-line options are left alone", {'));
+test('R8c: a closer on our offset is spliced inside ours, not around it', () => {
+  // The boundary's two closers are registered before the call's children are
+  // visited, and `prependRight` renders in reverse registration order, so an
+  // arrow title, a conditional callback and an `await` all close first.
+  const { code } = runGolden('task-boundaries.test.ts');
+  const lines = code.split('\n');
   assert.ok(
-    code.includes('test("a concise body with options is left alone", { timeout: 1 }, () => {const __sf='),
+    lines[2].endsWith('throw __se}}), { timeout: 1 }, fn2,0));'),
+    lines[2],
+  );
+  assert.ok(lines[4].endsWith('throw __se}},1));'), lines[4]);
+  assert.equal(
+    lines[7],
+    '  test(...__srt.task(("e"), { timeout: 1 }, __srt.r(__sf,await __srt.y(__sf,(mk()),0)),1));',
+  );
+  // the same three shapes in the two-argument form
+  assert.ok(lines[10].endsWith('throw __se}}), fn2,0));'), lines[10]);
+  assert.ok(lines[12].endsWith('throw __se}},1));'), lines[12]);
+  assert.equal(
+    lines[15],
+    '  test(...__srt.task(("f3"), __srt.r(__sf,await __srt.y(__sf,(mk()),0)),1));',
   );
 });
 
