@@ -43,6 +43,14 @@ from sensorium.ts import ingest, invocation, pkg as pkg_mod, wrapper
 SPOOL_DIR = "spool"
 
 
+class SpawnError(Exception):
+    """The harness binary could not be started at all. `recognise` reads a
+    command and does not check that the program exists -- which `vitest`
+    runs is the user's choice, and resolving it there would resolve a
+    different one -- so this is where a name that is not a program is
+    found, and it is a refusal like every other bad call."""
+
+
 def run(args) -> int:
     """The `ts run` verb. See the module docstring for the order."""
     command = list(getattr(args, "command", []))
@@ -66,7 +74,7 @@ def run(args) -> int:
         return _refuse(str(e))
     try:
         return _record(plan, package, node, cwd, args)
-    except wrapper.WrapperError as e:
+    except (wrapper.WrapperError, SpawnError) as e:
         return _refuse(str(e))
 
 
@@ -96,14 +104,37 @@ def _record(plan, package: Path, node: str, cwd: Path, args) -> int:
             argv = plan.vitest_command(files[0])
         else:
             argv = plan.node_command(package / "src" / "register.mjs")
-        ending = _spawn(argv, _env(spool, inv_id, plan, package, args.tier),
-                        cwd)
+        try:
+            ending = _spawn(argv,
+                            _env(spool, inv_id, plan, package, args.tier),
+                            cwd)
+        except OSError as e:
+            # Nothing ran, so there is nothing to convert and nothing to
+            # keep: the record of an invocation that never happened would
+            # be listed by `runs` forever.
+            _discard(spool)
+            raise SpawnError(
+                f"{argv[0]} could not be started: {e.strerror}") from None
         (spool / invocation.HARNESS_FILE).write_text(
             json.dumps(ending.to_json(), indent=2) + "\n", encoding="utf-8")
     finally:
         wrapper.remove(files)
     return _convert(spool, inv_id, ending, getattr(args, "jobs", None),
                     args.tier)
+
+
+def _discard(spool: Path) -> None:
+    """Take back a spool directory nothing was recorded into, and the
+    `spool/` above it when this invocation is what made it. Stops at a
+    directory another invocation is still using, exactly as
+    `wrapper.remove` does."""
+    for path in sorted(spool.iterdir()):
+        path.unlink(missing_ok=True)
+    for directory in (spool, spool.parent):
+        try:
+            directory.rmdir()
+        except OSError:
+            return
 
 
 # -- the record --------------------------------------------------------------

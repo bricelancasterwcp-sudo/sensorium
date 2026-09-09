@@ -419,6 +419,31 @@ def test_a_node_below_the_floor_is_refused_before_anything_is_spawned(
     assert not (tmp_path / "sdir" / "spool").exists()
 
 
+def test_a_harness_binary_that_cannot_be_started_is_refused_by_name(
+        project, tmp_path):
+    """R44, finding 10. `recognise` reads a command; it does not check that
+    the program exists, and it must not -- which `vitest` runs is the user's
+    choice and resolving it here would resolve a different one. So a
+    recognised command naming a binary that is not there reached
+    `subprocess.run` and raised `FileNotFoundError` out of the driver: a
+    traceback where every other bad call is one sentence, and an
+    `invocation.json` left behind for a harness that never started.
+
+    A real missing binary, not a monkeypatch: this project has no vitest.
+    """
+    sdir = tmp_path / "sdir"
+    r = run_cli(["ts", "run", "--", "./node_modules/.bin/vitest", "run"],
+                cwd=project, sensorium_dir=sdir)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "Traceback" not in r.stderr
+    assert len(r.stderr.strip().splitlines()) == 1
+    assert "./node_modules/.bin/vitest could not be started" in r.stderr
+    assert "No such file or directory" in r.stderr
+    # Nothing minted, and the wrapper still went.
+    assert not (sdir / "spool").exists()
+    assert not (project / "node_modules" / ".sensorium").exists()
+
+
 def test_a_project_with_no_typescript_of_its_own_is_refused_by_name(
         project, tmp_path):
     """R44, finding 12. The transform parses with the CONSUMER's compiler --
