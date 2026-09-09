@@ -13,85 +13,15 @@
 //     transform into a named refusal at config time.
 //
 // The tally is per PROCESS, not per file: vitest transforms in its main process
-// and ships the result to the workers, so one tally covers the invocation. It is
+// and ships the result to the workers, so one tally covers the invocation. It
+// lives in `tally.mjs`, shared with the `node --test` loader hook, and is
 // written on exit, never during, because a count that is still moving is not a
 // count.
-import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
+import * as tally from './tally.mjs';
 import { classify, transformSource } from './transform.mjs';
-
-/** @typedef {{files_transformed: number, excluded: Record<string, number>}} Tally */
-
-/** @type {Tally} */
-const tally = { files_transformed: 0, excluded: {} };
-
-/**
- * The files already counted. Vite keeps one module graph per transform mode, so
- * a module a `node` file and a `jsdom` file both import is transformed TWICE
- * (measured: `setup.mjs` under a mixed suite). A count of files that counted
- * calls would over-report itself, and the converter would publish the inflation.
- * @type {Set<string>}
- */
-const counted = new Set();
-
-let tallyInstalled = false;
-
-/**
- * Fold one file's exclusion counts into the invocation's.
- * @param {Record<string, number>|undefined} excluded
- * @returns {void}
- */
-function countExcluded(excluded) {
-  for (const [reason, n] of Object.entries(excluded ?? {})) {
-    tally.excluded[reason] = (tally.excluded[reason] ?? 0) + n;
-  }
-}
-
-/**
- * @param {string} reason
- * @returns {void}
- */
-function countOne(reason) {
-  tally.excluded[reason] = (tally.excluded[reason] ?? 0) + 1;
-}
-
-/**
- * Write `_tally.json` once, when the process that did the transforming ends.
- * A tally that cannot be written says so on stderr: the run is not the tally's
- * to fail, but a silently missing count would let the converter under-report
- * without anyone knowing (design §7).
- * @param {string} dir
- * @returns {void}
- */
-function installTally(dir) {
-  if (tallyInstalled) return;
-  tallyInstalled = true;
-  process.on('exit', () => {
-    try {
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, '_tally.json'), JSON.stringify(tally));
-    } catch (err) {
-      process.emitWarning(`sensorium: could not write the transform tally to ${dir}: ${err}`);
-    }
-  });
-}
-
-/**
- * The per-file manifest, named by its root-relative path with the separators
- * flattened so one directory holds them all.
- * @param {string} dir
- * @param {import('./transform.mjs').Manifest} manifest
- * @returns {void}
- */
-function writeManifest(dir, manifest) {
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(
-    path.join(dir, `${manifest.rel.split('/').join('__')}.json`),
-    JSON.stringify(manifest),
-  );
-}
 
 /**
  * @param {string} root the invocation root: the consumer's project directory
@@ -118,8 +48,8 @@ export function sensorium(opts) {
   const pkgDir = path.resolve(opts.pkgDir);
   const rtPath = opts.rtPath;
   const ts = resolveTools(root, pkgDir);
-  const manifestDir = process.env.SENSORIUM_MANIFEST_DIR ?? '';
-  if (manifestDir) installTally(manifestDir);
+  const manifestDir = tally.dir();
+  if (manifestDir) tally.installExitWriter(manifestDir);
 
   return {
     name: 'sensorium',
@@ -139,10 +69,8 @@ export function sensorium(opts) {
       if (kind === 'skip') return null;
       // CommonJS is ours and countable, but this transform emits ESM and would
       // change what the module IS; it is excluded by name, never by silence.
-      const first = !counted.has(file);
-      counted.add(file);
       if (kind === 'commonjs') {
-        if (first) countOne('commonjs');
+        tally.exclude(file, 'commonjs');
         return null;
       }
       // A throw here is `transform.mjs` refusing to splice blind (R10a). It
@@ -150,12 +78,10 @@ export function sensorium(opts) {
       // the run by name rather than record a file it did not understand.
       const out = transformSource(code, file, { root, ts, rtPath });
       if (!out) return null;
-      if (first) countExcluded(out.manifest.excluded);
-      if (manifestDir) writeManifest(manifestDir, out.manifest);
+      tally.record(file, out, manifestDir);
       // Ours, untouched, counted (R10): the file did not parse, its manifest
       // says so, and Vite gets the source back exactly as it arrived.
       if (out.code === null) return null;
-      if (first) tally.files_transformed += 1;
       return { code: out.code, map: out.map };
     },
   };

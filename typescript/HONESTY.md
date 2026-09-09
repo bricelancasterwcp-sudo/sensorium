@@ -330,7 +330,16 @@ counted*** *(amended 2026-09-09, ruling R7; this paragraph previously listed
 `node_modules` and `.d.ts` among the exclusions).* Anything under
 `node_modules` and every `.d.ts` declaration file are **outside the transform's
 scope**: the transform returns null for them and writes no manifest, so they
-appear in **no** count. Counting files the plugin never looks at would be a
+appear in **no** count. *(Amended 2026-09-09, ruling R37: the CommonJS clause
+above was true of vitest runs alone. The `node --test` loader hook classified
+by EXTENSION and then forced Node's default load to `format: 'module'`, so a
+`.js` in a package with no `"type"` field was spliced as ESM rather than
+excluded, and no `node --test` trace carried a count at all. Node decides the
+format now — the hook asks it and takes the answer — and the counts are shared
+with the plugin. Their GRAIN differs and each is the honest one: vitest
+transforms once for the whole invocation, so its count is every container's;
+`node --test` runs one child process per test file, so the count on such a
+trace is that container's own transform, which is the only one it had.)* Counting files the plugin never looks at would be a
 claim about the tree, not about the run. The counted exclusions are the
 in-scope ones below — a file the transform saw and declined. Nothing inside a `vi.mock`, `vi.doMock`,
 `vi.hoisted` or `vi.unmock` factory is instrumented (vitest hoists those above
@@ -379,7 +388,9 @@ A read-only `node_modules` is a refusal at exit 2 naming the directory, never
 a write somewhere else in the source tree.
 
 **Falsifiers.** `E2′`, `E3-TS`, `E5′`, `E6′`, `E7′`,
-`typescript/test/transform.test.mjs`, `tests/test_ts_ingest.py`,
+`typescript/test/transform.test.mjs`, `typescript/test/hook.test.mjs`
+(`R37: a CommonJS file under the root is loaded as Node loads it, and
+counted`), `tests/test_ts_driver.py`, `tests/test_ts_ingest.py`,
 `corpus/typescript/nondeterministic`, `corpus/typescript/watch_refused`,
 `corpus/typescript/object_refused`, and the E5-TS split control of the
 acceptance record's §3.2.

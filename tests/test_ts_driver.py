@@ -53,6 +53,40 @@ describe('arithmetic', () => {
 """
 
 
+#: The CommonJS half of R37's repro: a package with no `"type"` field, a
+#: `require()` library and a `require()` test file. Plain `node --test`
+#: passes on it; the recorder used to force every file it saw to ESM and
+#: break it with `require is not defined in ES module scope`.
+CJS_LIB = """\
+function add(a, b) {
+  return a + b;
+}
+module.exports = { add };
+"""
+
+CJS_TEST = """\
+const assert = require('node:assert/strict');
+const { test } = require('node:test');
+
+const { add } = require('./add.js');
+
+test('adds, in CommonJS', () => {
+  assert.equal(add(1, 2), 3);
+});
+"""
+
+ESM_TEST_OVER_CJS = """\
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+const { add } = (await import('./add.js')).default;
+
+test('adds, from an ES module', () => {
+  assert.equal(add(1, 2), 3);
+});
+"""
+
+
 def _why_skip() -> str | None:
     node = shutil.which("node")
     if node is None:
@@ -79,6 +113,21 @@ def project(tmp_path):
     (root / "package.json").write_text('{"name": "app", "type": "module"}\n')
     (root / "lib.ts").write_text(LIB)
     (root / "a.test.ts").write_text(TEST % 3)
+    (root / "node_modules" / "typescript").symlink_to(
+        pkg_mod.locate() / "node_modules" / "typescript")
+    return root
+
+
+@pytest.fixture
+def cjs_project(tmp_path):
+    """A typeless package whose library and one of whose test files are
+    CommonJS, plus one ES module test file that imports the library."""
+    root = tmp_path / "cjsapp"
+    (root / "node_modules").mkdir(parents=True)
+    (root / "package.json").write_text('{"name": "cjsapp"}\n')
+    (root / "add.js").write_text(CJS_LIB)
+    (root / "b.test.js").write_text(CJS_TEST)
+    (root / "a.test.mjs").write_text(ESM_TEST_OVER_CJS)
     (root / "node_modules" / "typescript").symlink_to(
         pkg_mod.locate() / "node_modules" / "typescript")
     return root
@@ -175,6 +224,37 @@ def test_a_failing_harness_still_leaves_a_converted_recording(
     sdir = tmp_path / "sdir"
     drive(project, sdir)
     assert only_trace(sdir).meta["harness"] == "node-test"
+
+
+def test_a_commonjs_file_is_loaded_as_node_loads_it_and_counted(
+        cjs_project, tmp_path):
+    """R37, end to end. The hook classified by EXTENSION and then forced
+    `format: 'module'` on the default load, so a `.js` in a package with no
+    `"type"` field -- CommonJS, as Node reads it -- had an `import` header
+    spliced into a file full of `require` calls. A suite that passes under
+    plain `node --test` failed under the recorder, while HONESTY section 7
+    promised such a file was "excluded and counted".
+
+    The control is in the test: plain `node --test` first, then the same
+    command through the driver, and both must be green.
+    """
+    plain = subprocess.run(["node", "--test"], cwd=cjs_project,
+                           capture_output=True, text=True)
+    assert plain.returncode == 0, plain.stdout + plain.stderr
+
+    sdir = tmp_path / "sdir"
+    r = run_cli(["ts", "run", "--", "node", "--test"], cwd=cjs_project,
+                sensorium_dir=sdir)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+    # One trace: the ES module container. The CommonJS one imported no
+    # runtime and recorded nothing, which is what "excluded" means.
+    trace = only_trace(sdir)
+    assert trace.meta["harness_exit"] == {"status": 0, "signal": None,
+                                          "basis": "waited"}
+    assert trace.meta["files_transformed"] == 1
+    assert trace.meta["transform_excluded"] == {"commonjs": 1}
+    assert [t.name for t in trace.tasks()] == ["adds, from an ES module"]
 
 
 # -- what is left on disk ---------------------------------------------------

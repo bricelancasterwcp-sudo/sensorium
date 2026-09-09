@@ -25,7 +25,7 @@ the conversion counted.
 | `harness_exit` | `{status, signal, basis}` — what the driver **waited for**, `basis` always `"waited"`. `status` and `signal` are exclusive. `runs`' header: `exit:1 (waited)`; `info`: `harness: vitest run src/fog  exit: 1 (waited)`. Absent when the driver was killed before the harness returned, which is not a harness that ended at 0. |
 | `vitest` | The harness version, when one was read. `info` prints it in the parenthesis beside the interpreter: `node v24.16.0 (vitest 4.1.9, jsdom)`. |
 | `driver_version` | The `sensorium ts` driver's own version. |
-| `files_transformed`, `transform_excluded` | How many files the transform edited, and `{reason: count}` for the ones it refused. `info`: `files: 41 transformed; excluded: 3 (vitest-hoisted-factory x3)`. **By reason, never a bare count**: the reasons are the difference between "nothing happened in that file" and "nothing was watching it". |
+| `files_transformed`, `transform_excluded` | How many files the transform edited, and `{reason: count}` for the ones it refused. `info`: `files: 41 transformed; excluded: 3 (vitest-hoisted-factory x3)`. **By reason, never a bare count**: the reasons are the difference between "nothing happened in that file" and "nothing was watching it". The GRAIN follows the harness: vitest transforms once for the whole invocation, so every container of it carries the same numbers; `node --test` runs one child process per test file, so a trace carries what its own container transformed. Absent when nobody counted, never written as a zero. |
 
 ## Container — this one process's own
 

@@ -28,6 +28,7 @@ const REGISTER = path.join(PKG, 'src', 'register.mjs');
 function run(files, entry, env = {}) {
   const root = fs.mkdtempSync(path.join(PROBES, 'hooktmp-'));
   const spool = path.join(root, 'spool');
+  const manifests = path.join(root, 'manifests');
   try {
     for (const [rel, source] of Object.entries(files)) {
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
@@ -42,16 +43,31 @@ function run(files, entry, env = {}) {
         SENSORIUM_SPOOL: spool,
         SENSORIUM_TS_ROOT: root,
         SENSORIUM_TS_PKG: PKG,
+        SENSORIUM_MANIFEST_DIR: manifests,
         ...env,
       },
     });
     const spooled = fs.existsSync(spool) ? fs.readdirSync(spool) : [];
     const recs = spooled.flatMap((name) => fs.readFileSync(path.join(spool, name), 'utf8')
       .split('\n').filter((line) => line !== '').map((line) => JSON.parse(line)));
-    return { res, recs };
+    return { res, recs, tally: readTally(manifests) };
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+}
+
+/**
+ * The one tally this child wrote, or null. Named `_tally-<pid>.json` by the
+ * hook, because `node --test` runs one child process per test file and a
+ * shared name would be several writers over one number.
+ * @param {string} manifests
+ * @returns {{files_transformed: number, excluded: Record<string, number>}|null}
+ */
+function readTally(manifests) {
+  if (!fs.existsSync(manifests)) return null;
+  const names = fs.readdirSync(manifests).filter((n) => n.startsWith('_tally'));
+  if (names.length !== 1) return null;
+  return JSON.parse(fs.readFileSync(path.join(manifests, names[0]), 'utf8'));
 }
 
 /** @param {any[]} recs @returns {string[]} the root-relative files it recorded */
@@ -108,4 +124,55 @@ test('register.mjs refuses to install a hook with no scope', () => {
     assert.match(out.res.stderr, new RegExp(`${missing} is not set`));
     assert.equal(out.res.stdout.includes('ran'), false);
   }
+});
+
+test('R37: a CommonJS file under the root is loaded as Node loads it, and counted', () => {
+  // The package has no `"type"` field, so `add.js` is whatever it parses as --
+  // and it parses as CommonJS. Forcing the default load to `format: 'module'`
+  // spliced an `import` header into a file full of `require` calls: a suite
+  // that passes under plain `node --test` failed under the recorder with
+  // `require is not defined in ES module scope`, while HONESTY section 7 said
+  // such a file was "excluded and counted". Node decides the format now.
+  const out = run({
+    'package.json': '{"name": "untyped"}\n',
+    'add.js': "const os = require('node:os');\n"
+      + 'function add(a, b) { return a + b; }\n'
+      + 'module.exports = { add, arch: typeof os.arch };\n',
+    'main.mjs': "const cjs = await import('./add.js');\n"
+      + 'console.log(cjs.default.add(1, 2), cjs.default.arch);\n',
+  }, 'main.mjs');
+  assert.equal(out.res.status, 0, out.res.stderr);
+  assert.equal(out.res.stdout.trim(), '3 function');
+  // Untouched: it declared no FILE record, because it was never instrumented.
+  assert.deepEqual(filesOf(out.recs), ['main.mjs']);
+  // And not silently absent either: excluded BY NAME, beside the one file that
+  // was transformed.
+  assert.deepEqual(out.tally, { files_transformed: 1, excluded: { commonjs: 1 } });
+});
+
+test('R37: a `.cjs` under the root is counted without being parsed at all', () => {
+  // The other half of the CommonJS verdict: this one `classify` reaches from
+  // the extension, before Node is asked anything. It was passed through
+  // uncounted, so the run's coverage number said nothing about it.
+  const out = run({
+    'package.json': '{"name": "untyped"}\n',
+    'helper.cjs': 'module.exports = { two: () => 2 };\n',
+    'main.mjs': "const h = await import('./helper.cjs');\n"
+      + 'console.log(h.default.two());\n',
+  }, 'main.mjs');
+  assert.equal(out.res.status, 0, out.res.stderr);
+  assert.equal(out.res.stdout.trim(), '2');
+  assert.deepEqual(filesOf(out.recs), ['main.mjs']);
+  assert.deepEqual(out.tally, { files_transformed: 1, excluded: { commonjs: 1 } });
+});
+
+test('an ES module under the root still carries its own count', () => {
+  // The count the plugin has always written, now written by this hook too:
+  // before R37 a `node --test` trace carried no coverage number at all.
+  const out = run({
+    'main.mjs': "import { helper } from './lib.mjs';\nconsole.log(helper(1));\n",
+    'lib.mjs': 'export function helper(x) {\n  return x + 1;\n}\n',
+  }, 'main.mjs');
+  assert.equal(out.res.status, 0, out.res.stderr);
+  assert.deepEqual(out.tally, { files_transformed: 2, excluded: {} });
 });

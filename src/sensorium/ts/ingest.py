@@ -36,7 +36,16 @@ CONTEXT = "spawn"
 
 MARKER = "ingested.json"
 MANIFEST_DIR = "manifests"
+
+#: The invocation-wide tally, written by the Vite plugin. vitest transforms
+#: in ONE process for the whole run, so its count is every container's.
 TALLY = "_tally.json"
+
+#: One container's own, `_tally-<pid>.json`, written by the `node --test`
+#: loader hook. That harness runs one child process per test file, each with
+#: its own hook thread and its own transform, so the count on such a trace is
+#: that container's -- and one shared name would be N writers over one number.
+TALLY_PREFIX = "_tally-"
 
 #: How many times a run id is re-minted before the converter gives up. Two
 #: containers of one invocation start in the same second, so the stamp
@@ -199,7 +208,7 @@ def ingest_dir(spool_dir, store_dir, jobs: int | None = None) -> list[Summary]:
 
     inv = invocation.read_invocation(spool_dir)
     harness = invocation.read_harness(spool_dir)
-    tally = _tally(spool_dir)
+    shared = _tally(spool_dir)
     spools = sorted(spool_dir.glob("*.jsonl"))
     if not spools:
         raise IngestError(f"no spools in {spool_dir}: nothing was recorded, "
@@ -208,10 +217,12 @@ def ingest_dir(spool_dir, store_dir, jobs: int | None = None) -> list[Summary]:
     jobs = max(1, min(jobs or os.cpu_count() or 1, len(spools)))
     payload = (inv.to_json(),
                None if harness is None else harness.to_json(),
-               str(store_dir), tally)
+               str(store_dir))
+    work = [(str(p), *payload, _tally_for(spool_dir, p, shared))
+            for p in spools]
     summaries: list[Summary] = []
     try:
-        _map(jobs, [(str(p), *payload) for p in spools], summaries)
+        _map(jobs, work, summaries)
     except Exception as e:
         # Whatever this was, traces are already in the store and P6's marker
         # is the only record of which ones. Writing it here is what keeps a
@@ -274,7 +285,7 @@ def _map(jobs: int, work: list[tuple], out: list[Summary]) -> None:
 
 
 def _tally(spool_dir: Path) -> dict:
-    """The transform's own count of what it covered, or `{}`.
+    """The invocation's own count of what the transform covered, or `{}`.
 
     Written by the Vite plugin on exit into `SENSORIUM_MANIFEST_DIR`, which
     the driver points at `<spool>/manifests`. Absent when the harness never
@@ -282,7 +293,31 @@ def _tally(spool_dir: Path) -> dict:
     absent tally is written as no meta key at all, never as a zero, because
     "nothing was transformed" and "nobody counted" are different facts.
     """
-    path = spool_dir / MANIFEST_DIR / TALLY
+    return _read_tally(spool_dir / MANIFEST_DIR / TALLY)
+
+
+def _tally_for(spool_dir: Path, spool: Path, shared: dict) -> dict:
+    """This container's own count, falling back to the invocation's.
+
+    A spool is named `<pid>-<threadId>.jsonl`, and under `node --test` that
+    pid is also the pid of the process that did the transforming: the
+    harness runs one child per test file, so what a container was told
+    about is what that child transformed. vitest transforms once for the
+    whole run and writes the invocation-wide file instead, which every
+    container of it shares.
+    """
+    pid = spool.name.split("-")[0]
+    if pid.isdigit():
+        own = _read_tally(spool_dir / MANIFEST_DIR
+                          / f"{TALLY_PREFIX}{pid}.json")
+        if own:
+            return own
+    return shared
+
+
+def _read_tally(path: Path) -> dict:
+    """One tally file, or `{}`. Unreadable JSON is a refusal and not a
+    zero: a count nobody can read is not a count of nothing."""
     if not path.is_file():
         return {}
     try:
