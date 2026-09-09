@@ -204,6 +204,75 @@ test('R8: inside a test file every second argument is wrapped, identifiers too',
   assert.ok(code.includes('describe(...__srt.suite(("shared"),'));
 });
 
+test('R8a: an options object is not the callback — it moves, later arguments stay', () => {
+  const { code } = runGolden('options-object.test.ts');
+  const lines = code.split('\n');
+  assert.ok(lines[2].startsWith('describe(...__srt.suite(("options"), () => {'));
+  assert.ok(lines[3].startsWith('  test(...__srt.task(("times out"), () => {'));
+  // flags, then the moved options, then our closing paren, then the call's own
+  // later arguments exactly where the source put them.
+  assert.ok(lines[5].endsWith('},1, { timeout: 100 }), 5000);'), lines[5]);
+  assert.ok(lines[6].endsWith('}, { concurrent: true }), 1000);'), lines[6]);
+  assert.equal(code.includes('task(("times out"), { timeout: 100 }'), false);
+});
+
+test('R8a: an options object the move cannot carry leaves the call alone', () => {
+  // Moving text across lines would relocate it, and an expression-bodied
+  // callback closes at the offset the move lands on: both are left untouched.
+  const { code } = runGolden('options-object.test.ts');
+  assert.ok(code.includes('test("multi-line options are left alone", {'));
+  assert.ok(
+    code.includes('test("a concise body with options is left alone", { timeout: 1 }, () => {const __sf='),
+  );
+});
+
+test('R8a: `test(name, options)` with no callback is not a task', () => {
+  const source = 'import { test } from "vitest";\ntest("x", { timeout: 1 });\n';
+  const out = transformSource(source, `${ROOT}/src/a.ts`, { root: ROOT, ts, rtPath: RT });
+  assert.ok(out && out.code !== null);
+  assert.equal(out.code.includes('__srt.task('), false);
+});
+
+test('R8b: a type-only harness import does not make a test file', () => {
+  const source = [
+    'import type { Mock } from "vitest";',
+    '',
+    'export function label(): string {',
+    '  return describe("shape", make, 2);',
+    '}',
+    '',
+  ].join('\n');
+  const out = transformSource(source, `${ROOT}/src/helpers.ts`, { root: ROOT, ts, rtPath: RT });
+  assert.ok(out && out.code !== null);
+  assert.equal(out.code.includes('__srt.suite('), false);
+  assert.ok(out.code.includes('return __srt.ret(__sf,(describe("shape", make, 2)));'));
+});
+
+test('R10a: a TypeScript build with no parseDiagnostics is refused, not trusted', () => {
+  const blind = /** @type {any} */ ({
+    ...ts,
+    /** @param {any[]} args */
+    createSourceFile: (...args) => {
+      const sf = /** @type {any} */ (/** @type {any} */ (ts.createSourceFile)(...args));
+      delete sf.parseDiagnostics;
+      return sf;
+    },
+  });
+  assert.throws(
+    () =>
+      transformSource('export function f(): void {}\n', `${ROOT}/src/a.ts`, {
+        root: ROOT,
+        ts: blind,
+        rtPath: RT,
+      }),
+    /** @param {unknown} err */
+    (err) =>
+      err instanceof Error &&
+      err.message ===
+        'sensorium-ts: this TypeScript build exposes no parseDiagnostics; refusing to transform blind',
+  );
+});
+
 test('R8: a test file is one named like one, or one that imports a harness', () => {
   const opts = { root: ROOT, ts, rtPath: RT };
   /** @param {string} body @param {string} name */
@@ -221,6 +290,12 @@ test('R8: a test file is one named like one, or one that imports a harness', () 
   assert.equal(wrapped(`const { test } = require("@jest/globals");\n${call}`, 'helpers.ts'), true);
   assert.equal(wrapped(`await import("vitest");\n${call}`, 'helpers.ts'), true);
   assert.equal(wrapped(`import { test } from "./local";\n${call}`, 'helpers.ts'), false);
+  // R8b: a type-only import brings no `test` to call.
+  assert.equal(wrapped(`import type { Mock } from "vitest";\n${call}`, 'helpers.ts'), false);
+  assert.equal(wrapped(`import { type Mock } from "vitest";\n${call}`, 'helpers.ts'), false);
+  assert.equal(wrapped(`import { type Mock, test } from "vitest";\n${call}`, 'helpers.ts'), true);
+  assert.equal(wrapped(`import Runner, { type Mock } from "vitest";\n${call}`, 'helpers.ts'), true);
+  assert.equal(wrapped(`import "vitest";\n${call}`, 'helpers.ts'), true);
 });
 
 test('R12: a statement-level bare `yield` and `return` keep ASI\'s semicolon', () => {

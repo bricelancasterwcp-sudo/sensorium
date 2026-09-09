@@ -151,6 +151,25 @@ function isHoistedCall(ts, node) {
 }
 
 /**
+ * A type-only import brings no `test` to call: `import type { Mock } from
+ * 'vitest'`, or a clause whose every specifier is `type`-qualified, does not
+ * make a test file (R8b). A bare `import 'vitest'` does — it runs the harness.
+ * @param {TS} ts
+ * @param {import('typescript').ImportDeclaration} node
+ * @returns {boolean}
+ */
+function isTypeOnlyImport(ts, node) {
+  const clause = node.importClause;
+  if (!clause) return false;
+  if (clause.isTypeOnly) return true;
+  const bindings = clause.namedBindings;
+  if (!clause.name && bindings && ts.isNamedImports(bindings) && bindings.elements.length > 0) {
+    return bindings.elements.every((element) => element.isTypeOnly);
+  }
+  return false;
+}
+
+/**
  * Whether this file holds tests. The test/suite wrap applies here and nowhere
  * else: `test`, `it`, `describe` and `suite` are ordinary identifiers, and a
  * consumer may own them — the lens does, a local `describe(label, formula,
@@ -170,7 +189,7 @@ function isTestFile(ts, sf, filePath) {
   const visit = (node) => {
     if (found) return;
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) &&
-        HARNESS_MODULES.has(node.moduleSpecifier.text)) {
+        HARNESS_MODULES.has(node.moduleSpecifier.text) && !isTypeOnlyImport(ts, node)) {
       found = true;
       return;
     }
@@ -210,6 +229,27 @@ function calleeChain(ts, callee) {
     if (ts.isIdentifier(cur)) { chain.unshift(cur.text); return chain; }
     return null;
   }
+}
+
+/**
+ * @param {TS} ts
+ * @param {Node} node
+ * @param {(n: Node) => boolean} predicate
+ * @returns {boolean} whether any node in the subtree satisfies the predicate
+ */
+function subtreeHas(ts, node, predicate) {
+  let found = false;
+  /** @param {Node} n */
+  const visit = (n) => {
+    if (found) return;
+    if (predicate(n)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(node);
+  return found;
 }
 
 /**
@@ -442,13 +482,56 @@ function spliceEmptyCatchCallback(ctx, node) {
 }
 
 /**
- * A test or a suite: the title and the function are handed to the runtime as
- * the call's own argument list, so options arguments after them survive.
+ * Whether the options argument may be moved past the callback.
  *
- * The rule is file-scoped (R8, `isTestFile`). Inside a test file the second
+ * The move relocates text, and four things make that unsafe. Each leaves the
+ * call untouched: a missed task boundary costs a name in the trace, while any of
+ * these costs correctness, and this recorder does not trade the second for the
+ * first.
+ * @param {Splicer} ctx
+ * @param {import('typescript').Expression} title
+ * @param {import('typescript').Expression} between the last argument before the callback
+ * @param {import('typescript').Expression} fn
+ * @returns {boolean}
+ */
+function canMoveOptions(ctx, title, between, fn) {
+  const { ts, sf } = ctx;
+  // (a) The moved text would carry its newlines to another place in the file,
+  //     and every line of the output must stay the line it was.
+  if (sf.text.slice(title.end, between.end).includes('\n')) return false;
+  // (b) A function inside the options records a line, and the move changes it.
+  if (subtreeHas(ts, between, (n) => isFunctionLike(ts, n))) return false;
+  // (c) A suspension in the title closes at the offset the move starts from, so
+  //     its closing text would travel with the options.
+  if (subtreeHas(ts, title, (n) => ts.isAwaitExpression(n) || ts.isYieldExpression(n))) return false;
+  // (d) An expression-bodied callback closes at the offset the move lands on,
+  //     and the options would be spliced inside its closing text.
+  if (ts.isArrowFunction(fn) && !ts.isBlock(fn.body)) return false;
+  return true;
+}
+
+/**
+ * A test or a suite: the title and the function are handed to the runtime as
+ * the call's own argument list, so arguments after them survive in place.
+ *
+ * The rule is file-scoped (R8, `isTestFile`). Inside a test file the callback
  * argument is wrapped whatever its shape — a bare identifier included, which the
  * runtime passes through unchanged — so no task boundary goes missing; outside
  * one, nothing is wrapped, so a consumer's own `describe` is never rewritten.
+ *
+ * vitest also documents an options signature, `test(name, options, fn)`, where
+ * the second argument is not the callback at all (R8a). There the callback is
+ * the third argument and the options MOVE into our call, so vitest still reads
+ * its own arguments in its own order:
+ *
+ *   test("x", {timeout: 100}, fn, 5000)
+ *     -> test(...__srt.task(("x"), fn,1, {timeout: 100}), 5000)
+ *   describe("y", {concurrent: true}, fn)
+ *     -> describe(...__srt.suite(("y"), fn, {concurrent: true}))
+ *
+ * The runtime contract that pairs with it (Task 3) is
+ * `task(title, fn, flags, ...between) -> [title, ...between, wrapped]` and
+ * `suite(title, fn, ...between) -> [title, ...between, wrapped]`.
  * @param {Splicer} ctx
  * @param {import('typescript').CallExpression} node
  */
@@ -459,15 +542,31 @@ function spliceTaskBoundary(ctx, node) {
   if (!chain) return;
   const isTask = TASK_CALLEES.has(chain[0]);
   if (!isTask && !SUITE_CALLEES.has(chain[0])) return;
-  const [title, fn] = node.arguments;
+
+  const title = node.arguments[0];
+  const hasOptions = ts.isObjectLiteralExpression(node.arguments[1]);
+  // `test(name, options)` names no callback at all: it is not a task.
+  if (hasOptions && node.arguments.length < 3) return;
+  const between = hasOptions ? node.arguments[1] : null;
+  const fn = node.arguments[hasOptions ? 2 : 1];
+  if (between && !canMoveOptions(ctx, title, between, fn)) return;
+
+  const flags = isTask
+    ? `,${(isLiteralTitle(ts, title) ? 1 : 0) | (chain.includes('each') ? 2 : 0)}`
+    : '';
   s.appendLeft(title.getStart(sf), `...__srt.${isTask ? 'task' : 'suite'}((`);
-  s.prependRight(title.end, ')');
-  if (!isTask) {
-    s.prependRight(fn.end, ')');
+  if (!between) {
+    s.prependRight(title.end, ')');
+    s.prependRight(fn.end, `${flags})`);
     return;
   }
-  const flags = (isLiteralTitle(ts, title) ? 1 : 0) | (chain.includes('each') ? 2 : 0);
-  s.prependRight(fn.end, `,${flags})`);
+  // `appendLeft` at the move's start stays with the title; `prependRight` there
+  // travels with the options, which is where the flags belong; `appendLeft` at
+  // its end travels too, and closes our call after the moved text.
+  s.appendLeft(title.end, ')');
+  if (flags) s.prependRight(title.end, flags);
+  s.appendLeft(between.end, ')');
+  s.move(title.end, between.end, fn.end);
 }
 
 /**
@@ -507,7 +606,14 @@ function parseErrors(sf) {
   const diagnostics = /** @type {import('typescript').Diagnostic[]|undefined} */ (
     /** @type {any} */ (sf).parseDiagnostics
   );
-  if (!diagnostics || diagnostics.length === 0) return [];
+  // An absent field is not an absence of errors. A TypeScript build that dropped
+  // or renamed it would have us splice into a tree we cannot vouch for (R10a).
+  if (!Array.isArray(diagnostics)) {
+    throw new Error(
+      'sensorium-ts: this TypeScript build exposes no parseDiagnostics; refusing to transform blind',
+    );
+  }
+  if (diagnostics.length === 0) return [];
   return diagnostics.slice(0, 3).map((d) =>
     typeof d.messageText === 'string' ? d.messageText : d.messageText.messageText,
   );
