@@ -76,7 +76,7 @@ words as a fallback.
 `corpus/typescript/pass_vs_fail`, `corpus/typescript/wrong_branch`,
 `corpus/typescript/unit_mismatch`, `corpus/typescript/double_call`,
 `corpus/typescript/suspended_at_end`,
-`typescript/probes/never_settles.probe.test.ts`, `E11`(a), `E7′`, and the
+`typescript/probes/src/never_settles.probe.test.ts`, `E11`(a), `E7′`, and the
 vectors `v23-lang-typescript-prose`, `v24-unknown-lang-refused`,
 `v26-kind-labels`.
 
@@ -99,8 +99,10 @@ provider name that does not end with that literal is **not used**; the task
 falls back to the lexical `describe > title` and the disagreement is counted in
 `task_name_conflicts`. `task_name_basis` in meta says which rule named this
 trace's tasks; under `node --test`, where no provider runs, that basis is the
-lexical one. The k-th activation of one registration in a container — a
-`retry`, a `repeats` — is `<name>#k` for k ≥ 2. A title expression that is not
+lexical one. The k-th activation of one registration to produce a given NAME in a
+container — a `retry`, a `repeats` — is `<name>#k` for k ≥ 2; activations the
+harness has already renamed for itself, as `.each` renames its rows, are
+distinct names and are not numbered on top of. A title expression that is not
 a string at runtime leaves the task unnamed, and the reader prints
 `(unnamed: title not a string)` for it — a label that says why, not a blank.
 
@@ -119,9 +121,9 @@ caught by the cross-check that catches every other kind (blind spot 5) — the
 count that would have caught it is `task_name_conflicts`, and this ledger says
 where it cannot reach.
 
-**Falsifiers.** `E9`, `typescript/probes/each.probe.test.ts`,
-`typescript/probes/concurrent.probe.test.ts`,
-`typescript/probes/describe_chain.probe.test.ts`,
+**Falsifiers.** `E9`, `typescript/probes/src/each.probe.test.ts`,
+`typescript/probes/src/concurrent.probe.test.ts`,
+`typescript/probes/src/describe_chain.probe.test.ts`,
 `corpus/typescript/each_naming`, `typescript/test/rt.test.mjs`
 (`task isolation`), `tests/test_ts_ingest.py`.
 
@@ -152,8 +154,8 @@ called it, and Node's timer machinery is not instrumented. Which frame
 it; there is no `scheduled_by` key to read, and depth 0 inside the right task
 is the whole of what is claimed.
 
-**Falsifiers.** `E3-TS`, `typescript/probes/async.probe.test.ts`,
-`typescript/probes/timer_parentless.probe.test.ts`,
+**Falsifiers.** `E3-TS`, `typescript/probes/src/async.probe.test.ts`,
+`typescript/probes/src/timer_parentless.probe.test.ts`,
 `corpus/typescript/async_interleaved`,
 `corpus/typescript/timer_callback_parentless`, `typescript/test/rt.test.mjs`
 (`task isolation`, `stack pops at yield`).
@@ -205,7 +207,7 @@ is what changes it. Two further shapes record nothing at all: a `.catch(fn)`
 with a non-empty body (blind spot 2), and `finally` (blind spot 3). A
 `Promise.reject(v)` is not a `throw` statement and raises nothing here.
 
-**Falsifiers.** `E8′`, `typescript/probes/swallow.probe.test.ts`,
+**Falsifiers.** `E8′`, `typescript/probes/src/swallow.probe.test.ts`,
 `typescript/test/rt.test.mjs` (`serial survives rethrow`),
 `typescript/test/transform.test.mjs`, `tests/test_ts_ingest.py`,
 `corpus/typescript/unhandled_rejection_in_info`,
@@ -346,7 +348,7 @@ two flags the wrapper appends, and guessing what the script runs is a guess.
 jest is refused by name.
 
 **Falsifiers.** `E4′`, `E5′`, `E6′`,
-`typescript/probes/sites.probe.test.ts`, `typescript/test/transform.test.mjs`.
+`typescript/probes/src/sites.probe.test.ts`, `typescript/test/transform.test.mjs`.
 
 ## 9. Cost
 
@@ -379,7 +381,7 @@ that this is the whole of it.
 2. **A `.catch(fn)` with a non-empty body is not seen.** Only the empty-callback
    sink records a HANDLED; the `how` enumeration of §4 is the list of shapes
    that produce a record, and this is not on it. *Falsifier:*
-   `typescript/probes/swallow.probe.test.ts`, `E8′`.
+   `typescript/probes/src/swallow.probe.test.ts`, `E8′`.
 3. **`finally` records nothing.** Not a RAISE, not a HANDLED, not a hop. Rung 2
    decides whether it should; until then `capabilities.err_flow: false` says no
    disposition may be read from these rows at all. *Falsifier:*
@@ -395,12 +397,12 @@ that this is the whole of it.
    concurrent test can belong to another; the literal cross-check catches this
    everywhere except a `.concurrent.each`, whose title is a template. The
    carriers are `task_name_basis` and `task_name_conflicts`. *Falsifier:*
-   `typescript/probes/concurrent.probe.test.ts`,
+   `typescript/probes/src/concurrent.probe.test.ts`,
    `corpus/typescript/async_interleaved`, `E9`.
 6. **A default-parameter expression that throws throws before its frame
    opens.** There is no frame to attach the RAISE to, so no event is written
    and the record is counted in `throw_flow_outside_frames`. *Falsifier:*
-   `typescript/probes/swallow.probe.test.ts`,
+   `typescript/probes/src/swallow.probe.test.ts`,
    `typescript/test/transform.test.mjs`.
 7. **Top-level module code runs unframed.** Module scope is not a function, so
    nothing wraps it; `files_transformed` counts the file, and a throw from
@@ -409,13 +411,13 @@ that this is the whole of it.
 8. **A generator driven by `yield*` runs its inner frames parentless.** The
    delegating frame has parked, so the inner frames open at depth 0 with
    `caller: "untraced"` — the same marker §3 gives a timer callback, and the
-   same limit. *Falsifier:* `typescript/probes/async.probe.test.ts`,
+   same limit. *Falsifier:* `typescript/probes/src/async.probe.test.ts`,
    `typescript/test/rt.test.mjs` (`stack pops at yield`).
 9. **An `async` `describe` callback registers its tests after the lexical chain
    has popped.** Where a provider ran, the names are vitest's and are
    unaffected; where none ran (`node --test`), those tasks lose their chain and
    `task_name_basis` says the names are lexical. *Falsifier:*
-   `typescript/probes/describe_chain.probe.test.ts`,
+   `typescript/probes/src/describe_chain.probe.test.ts`,
    `corpus/typescript/each_naming`, `E9`.
 
 ## The index: promise → falsifier
@@ -427,18 +429,18 @@ a corpus case, a vector or an acceptance endpoint.
 |---|---|---|
 | 1 | A frame closes `return` with a `dbg` capture or `unwind` with the thrown value; `undefined` is the text `undefined` and an inspector that throws reads `{"k": "unread"}` | `typescript/test/rt.test.mjs` (`dbg caps`), `tests/test_ts_ingest.py`, `corpus/typescript/pass_vs_fail`, `corpus/typescript/wrong_branch`, `corpus/typescript/unit_mismatch` |
 | 1 | Every activation is its own frame row, so two calls of one function are two frames and not one | `corpus/typescript/double_call`, `typescript/test/transform.test.mjs` |
-| 1 | A frame parked at end of recording reads `suspended at end of recording`, on a trace that is otherwise complete | `corpus/typescript/suspended_at_end`, `typescript/probes/never_settles.probe.test.ts`, `E11`(a) |
+| 1 | A frame parked at end of recording reads `suspended at end of recording`, on a trace that is otherwise complete | `corpus/typescript/suspended_at_end`, `typescript/probes/src/never_settles.probe.test.ts`, `E11`(a) |
 | 1 | Answers are told in this recorder's words: `[async]`/`[generator]`/`[async generator]` for the frame kinds, no Python or Rust term anywhere, and an unknown `lang` refused at exit 2 rather than read as Python | `docs/trace-format/vectors/v26-kind-labels.json`, `docs/trace-format/vectors/v23-lang-typescript-prose.json`, `docs/trace-format/vectors/v24-unknown-lang-refused.json`, `E7′` |
-| 2 | Every wrapped test callback is a task named by vitest's own full title where a provider ran and lexically otherwise, `#k` on the k-th activation, with `task_name_basis` naming the rule | `E9`, `typescript/probes/each.probe.test.ts`, `corpus/typescript/each_naming`, `typescript/test/rt.test.mjs` (`task isolation`) |
-| 2 | A provider name that contradicts a literal title is not used and is counted in `task_name_conflicts` | `typescript/probes/concurrent.probe.test.ts`, `E9`, `tests/test_ts_ingest.py` |
-| 2 | Tests the transform did not wrap are counted (`tests_seen` against tasks) and named by shape, never silently missing | `E9`, `typescript/probes/each.probe.test.ts`, `tests/test_ts_ingest.py` |
-| 2 | Hooks are not tasks; their frames run on the container's root stack | `typescript/probes/describe_chain.probe.test.ts`, `corpus/typescript/each_naming` |
-| 3 | Every continuation lands in the task that started it, across microtasks, timers, jsdom timers and emitter callbacks | `E3-TS`, `typescript/probes/async.probe.test.ts`, `corpus/typescript/async_interleaved`, `typescript/test/rt.test.mjs` (`task isolation`) |
-| 3 | The frame pops at YIELD and pushes at RESUME, so a fan-out's siblings do not nest; YIELD says `awaiting: "Promise"` for `await` and `awaiting: "consumer"` for `yield` | `typescript/test/rt.test.mjs` (`stack pops at yield`), `typescript/test/transform.test.mjs`, `typescript/probes/async.probe.test.ts` |
-| 3 | A continuation entered with an empty stack is parentless at depth 0 with `caller: "untraced"`, and the scheduling frame is not recorded | `typescript/probes/timer_parentless.probe.test.ts`, `corpus/typescript/timer_callback_parentless`, `tests/test_ts_ingest.py` |
-| 4 | RAISE marks `throw` statements only; HANDLED marks `catch` clauses and the empty-callback sink; `how` is the enumeration of shapes that record at all | `E8′`, `typescript/probes/swallow.probe.test.ts`, `typescript/test/transform.test.mjs`, `docs/trace-format/vectors/v25-exc-kind-throw-rejection.json` |
+| 2 | Every wrapped test callback is a task named by vitest's own full title where a provider ran and lexically otherwise, `#k` on the k-th activation to repeat a name, with `task_name_basis` naming the rule | `E9`, `typescript/probes/src/each.probe.test.ts`, `corpus/typescript/each_naming`, `typescript/test/rt.test.mjs` (`task isolation`) |
+| 2 | A provider name that contradicts a literal title is not used and is counted in `task_name_conflicts` | `typescript/probes/src/concurrent.probe.test.ts`, `E9`, `tests/test_ts_ingest.py` |
+| 2 | Tests the transform did not wrap are counted (`tests_seen` against tasks) and named by shape, never silently missing | `E9`, `typescript/probes/src/each.probe.test.ts`, `tests/test_ts_ingest.py` |
+| 2 | Hooks are not tasks; their frames run on the container's root stack | `typescript/probes/src/describe_chain.probe.test.ts`, `corpus/typescript/each_naming` |
+| 3 | Every continuation lands in the task that started it, across microtasks, timers, jsdom timers and emitter callbacks | `E3-TS`, `typescript/probes/src/async.probe.test.ts`, `corpus/typescript/async_interleaved`, `typescript/test/rt.test.mjs` (`task isolation`) |
+| 3 | The frame pops at YIELD and pushes at RESUME, so a fan-out's siblings do not nest; YIELD says `awaiting: "Promise"` for `await` and `awaiting: "consumer"` for `yield` | `typescript/test/rt.test.mjs` (`stack pops at yield`), `typescript/test/transform.test.mjs`, `typescript/probes/src/async.probe.test.ts` |
+| 3 | A continuation entered with an empty stack is parentless at depth 0 with `caller: "untraced"`, and the scheduling frame is not recorded | `typescript/probes/src/timer_parentless.probe.test.ts`, `corpus/typescript/timer_callback_parentless`, `tests/test_ts_ingest.py` |
+| 4 | RAISE marks `throw` statements only; HANDLED marks `catch` clauses and the empty-callback sink; `how` is the enumeration of shapes that record at all | `E8′`, `typescript/probes/src/swallow.probe.test.ts`, `typescript/test/transform.test.mjs`, `docs/trace-format/vectors/v25-exc-kind-throw-rejection.json` |
 | 4 | A rethrown OBJECT keeps its serial (one exception, two RAISE rows, a hop); a rethrown primitive gets a fresh one and cannot be followed | `typescript/test/rt.test.mjs` (`serial survives rethrow`), `docs/trace-format/vectors/v25-exc-kind-throw-rejection.json` |
-| 4 | A RAISE or HANDLED with no open frame is written as no event and counted in `throw_flow_outside_frames` | `typescript/probes/swallow.probe.test.ts`, `tests/test_ts_ingest.py` |
+| 4 | A RAISE or HANDLED with no open frame is written as no event and counted in `throw_flow_outside_frames` | `typescript/probes/src/swallow.probe.test.ts`, `tests/test_ts_ingest.py` |
 | 4 | Unhandled rejections are meta, never events, and `info` prints a zero on a complete trace because the listener always ran | `docs/trace-format/vectors/v27-unhandled-rejection-in-meta.json`, `corpus/typescript/unhandled_rejection_in_info`, `tests/test_ts_ingest.py` |
 | 4 | These rows are recorded and not judged: `err_flow: false`, and `exceptions` refuses at exit 3 naming the language and saying nothing was judged | `corpus/typescript/exceptions_refused`, `E7′` |
 | 5 | Records are flushed after every task, every 100 ms and on every terminal signal, and EXIT is the spool's last line | `typescript/test/rt.test.mjs` (`flush on exit`), `E11`(b) |
@@ -450,7 +452,7 @@ a corpus case, a vector or an acceptance endpoint.
 | 7 | What the recorder does not produce is declared, and every command refuses on the declaration instead of answering: `locals`, `line`, `object_identity`, `output`, `threads`, `children`, `refocus` | `corpus/typescript/watch_refused`, `corpus/typescript/object_refused`, `E7′`, `tests/test_ts_ingest.py` |
 | 7 | The consumer's tree is touched at exactly one path, `<root>/node_modules/.sensorium/`, and only for the run's duration; `setupFiles` are appended, never replaced | `E6′`, `E5′` (the suite green under the driver is what a REPLACED `setupFiles` would break; E6′ alone cannot see it) |
 | 8 | No edit contains a newline, so every output line is the input's and 20 shapes land on 20 exact lines | `E4′`, `typescript/test/transform.test.mjs` |
-| 8 | The source map is `hires`, so a planted failing assertion's report is byte-identical instrumented against plain | `E4′`, `typescript/probes/sites.probe.test.ts` |
+| 8 | The source map is `hires`, so a planted failing assertion's report is byte-identical instrumented against plain | `E4′`, `typescript/probes/src/sites.probe.test.ts` |
 | 8 | A plain run afterwards is uncontaminated: sources identical by manifest, no marker in any cache, the wrapper directory gone | `E6′` |
 | 8 | Both harnesses run their own way; a package script and jest are refused at exit 2 rather than guessed at | `E5′` |
 | 9 | Cost is reported with its `n` and lens and gates nothing; a bound crossed buys work, never a verdict | `E1′`, `E10` |

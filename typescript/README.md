@@ -11,7 +11,7 @@ reading logs is reading a diary, and this is watching the execution.
 One private npm package, **`sensorium-ts 0.1.0`** — ESM `.mjs` with JSDoc
 types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24 (the version
 this was measured on; the driver refuses below it before spawning anything).
-Five modules and a version:
+Six modules and a version:
 
 | Module | What it is |
 |---|---|
@@ -19,8 +19,16 @@ Five modules and a version:
 | `src/rt.mjs` | The runtime every instrumented module boots. Imports only `node:` builtins. Tasks on `AsyncLocalStorage`, a frame stack per task, the exception `WeakMap`, the JSONL spool. |
 | `src/vite.mjs` | The Vite plugin (`enforce: 'pre'`) that puts the transform in vitest's path. |
 | `src/setup.mjs` | The vitest setup file: the task-name provider and the per-file/per-test records. Written from a template into `node_modules/.sensorium/` beside the wrapper config, never into your source tree. |
-| `src/register.mjs` | The `node --test` loader hook, which type-strips with the consumer's own TypeScript. |
+| `src/register.mjs` | What `node --import` runs for `node --test`: it checks the two variables the hook cannot invent and registers `src/hook.mjs`. |
+| `src/hook.mjs` | The loader hook itself, on Node's loader thread: it instruments a file under the root and type-strips `.ts`/`.tsx` with the consumer's own TypeScript. |
 | `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.1.0`. |
+
+Beside them, `probes/` is a self-contained vitest project the recorder records
+ITSELF with: ten probe files whose expected rows were pinned by the S5 spike
+before this code existed, an eleventh run under `node --test`, and `probes/check.mjs`,
+which reads the spools back and asserts every one of them. Two probes make
+`vitest run` red on purpose — an unhandled rejection and a test that never
+settles — so the checker's exit status is the gate, not vitest's.
 
 **What v1 records** — tier `call`: calls and returns with a captured return
 value, YIELD/RESUME at every `await`, `yield` and `yield*`, RAISE at every

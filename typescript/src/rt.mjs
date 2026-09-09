@@ -265,16 +265,22 @@ const titleOf = (title) => (typeof title === 'string' ? title : UNNAMED);
  */
 function wrapTask(title, fn, flags) {
   const lexical = [...suiteStack.map((s) => s.title), title].join(' > ');
-  let activations = 0;
+  // Activations are counted PER NAME, not per registration. `#k` exists to tell
+  // two runs of ONE test apart; a harness that gave this activation a name of
+  // its own — `test.each` expanding a template into a row's values — has already
+  // told them apart, and numbering those would rename tests that never repeated.
+  /** @type {Map<string, number>} */
+  const activations = new Map();
   return /** @this {unknown} */ function sensoriumTask(/** @type {unknown[]} */ ...args) {
-    activations += 1;
     const named = nameFor(title, lexical, flags);
     // The name came from the consumer — a title, or whatever the harness calls
     // this test — so it is capped like every other consumer string (R14). The
-    // `#k` suffix is the recorder's own and is added after the cut, because it
-    // is what tells two activations apart.
+    // `#k` suffix is the recorder's own and is added after the cut, because two
+    // names that were cut to the same text are the same name to a reader.
     const capped = cap(named.name);
-    const name = activations >= 2 ? `${capped.v}#${activations}` : capped.v;
+    const k = (activations.get(capped.v) ?? 0) + 1;
+    activations.set(capped.v, k);
+    const name = k >= 2 ? `${capped.v}#${k}` : capped.v;
     /** @type {Task} */
     const t = { id: nextTask++, name, stack: [] };
     /** @type {Record_} */

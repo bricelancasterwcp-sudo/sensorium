@@ -1,0 +1,474 @@
+// The probes' gate. It reads every spool the recorder wrote and holds it to the
+// rows the spike's findings §1.1-§1.3 pinned before this code existed, plus the
+// rung-1 rulings the probe files were written for. Nothing here is eyeballed:
+// a probe passes when its rows are asserted, and the JSON on stdout is the
+// evidence.
+//
+//   node check.mjs <spool dir> [manifest dir] [--mode vitest|nodetest]
+//
+// vitest's own exit status is NOT the gate — two probes make it red on purpose
+// (an unhandled rejection and a test that never settles). This is.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+
+/** The last `.` segment of a qualname: `viaEmitter.handler` is `handler`. */
+const last = (/** @type {string} */ q) => q.split('.').pop() ?? q;
+
+/** Values compare with whitespace removed: `[ 10, 20 ]` is `[10,20]` (§3, E3). */
+const squash = (/** @type {string} */ s) => s.replace(/\s+/g, '');
+
+/** The four scenarios and the negative control, verbatim from findings §1.1. */
+const S1_ROWS = [
+  ['CALL', 'a'], ['CALL', 'b'], ['CALL', 'c'],
+  ['YIELD', 'c'], ['YIELD', 'b'], ['YIELD', 'a'],
+  ['RESUME', 'c'], ['RETURN', 'c', '2'],
+  ['RESUME', 'b'], ['RETURN', 'b', '3'],
+  ['RESUME', 'a'], ['RETURN', 'a', '4'],
+];
+const S2_HEAD = [
+  ['CALL', 'fanout'], ['CALL', 'p'], ['YIELD', 'p'],
+  ['CALL', 'p'], ['YIELD', 'p'], ['YIELD', 'fanout'],
+];
+const S2_TAIL = [['RESUME', 'fanout'], ['RETURN', 'fanout', '[10,20]']];
+const pair = (/** @type {string} */ x, /** @type {string} */ y) =>
+  [['RESUME', 'p'], ['RETURN', 'p', x], ['RESUME', 'p'], ['RETURN', 'p', y]];
+
+const SCENARIOS = [
+  { id: 'S1', names: ['a', 'b', 'c'], alts: [S1_ROWS] },
+  {
+    id: 'S2',
+    names: ['fanout', 'p'],
+    // The two timers have equal delay, so the spec orders neither pair.
+    alts: [
+      [...S2_HEAD, ...pair('10', '20'), ...S2_TAIL],
+      [...S2_HEAD, ...pair('20', '10'), ...S2_TAIL],
+    ],
+  },
+  {
+    id: 'S3',
+    names: ['viaTimer', 'work'],
+    alts: [[
+      ['CALL', 'viaTimer'], ['YIELD', 'viaTimer'],
+      ['CALL', 'work'], ['RETURN', 'work', '7'],
+      ['RESUME', 'viaTimer'], ['RETURN', 'viaTimer', '7'],
+    ]],
+  },
+  {
+    id: 'S4',
+    names: ['viaEmitter', 'handler'],
+    alts: [[
+      ['CALL', 'viaEmitter'], ['CALL', 'handler'], ['RETURN', 'handler'],
+      ['YIELD', 'viaEmitter'], ['CALL', 'handler'], ['RETURN', 'handler'],
+      ['RESUME', 'viaEmitter'], ['RETURN', 'viaEmitter', '2'],
+    ]],
+  },
+];
+
+/**
+ * What §1.2 says each swallow shape's exception looks like.
+ * @type {Record<string, {raises: {type: string, msg: string}[], oneSerial?: boolean}>}
+ */
+const SWALLOW_EXC = {
+  shape1: { raises: [{ type: 'Error', msg: 'e1' }] },
+  shape2: { raises: [] },
+  shape4: { raises: [{ type: 'string', msg: 'not-an-error' }] },
+  shape5: { raises: [{ type: 'Error', msg: 'e5' }, { type: 'Error', msg: 'e5' }], oneSerial: true },
+};
+
+const EACH_NAMES = ['adds 1 + 2 = 3', 'adds 2 + 3 = 5', 'adds 4 + 5 = 9'];
+
+/** The probe files a full vitest run must have recorded, by root-relative path. */
+const VITEST_PROBES = [
+  'src/async.probe.test.ts', 'src/async.jsdom.probe.test.ts', 'src/sites.probe.test.ts',
+  'src/swallow.probe.test.ts', 'src/swallow3.probe.test.ts', 'src/each.probe.test.ts',
+  'src/concurrent.probe.test.ts', 'src/never_settles.probe.test.ts',
+  'src/describe_chain.probe.test.ts', 'src/timer_parentless.probe.test.ts',
+];
+
+// --- reading ---------------------------------------------------------------
+
+/**
+ * @param {string} dir
+ * @returns {{name: string, records: any[]}[]}
+ */
+function readSpools(dir) {
+  const out = [];
+  for (const name of fs.readdirSync(dir).sort()) {
+    if (!name.endsWith('.jsonl')) continue;
+    const text = fs.readFileSync(path.join(dir, name), 'utf8');
+    const records = text.split('\n').filter((line) => line !== '').map((line, i) => {
+      try {
+        return JSON.parse(line);
+      } catch (err) {
+        throw new Error(`${name}: line ${i + 1} is not JSON: ${err}`);
+      }
+    });
+    out.push({ name, records });
+  }
+  return out;
+}
+
+/**
+ * One spool, indexed: the files it declared, the tasks it opened, the name every
+ * frame carries, and the causal rows in the order they were written.
+ * @param {{name: string, records: any[]}} spool
+ */
+function index(spool) {
+  const files = new Map();
+  const tasks = new Map();
+  const frames = new Map();
+  const rows = [];
+  for (const r of spool.records) {
+    if (r.e === 'FILE') files.set(r.id, r);
+    else if (r.e === 'TASK') tasks.set(r.id, r);
+    else if (r.e === 'CALL') {
+      const code = files.get(r.file)?.codes?.[r.c];
+      const name = code ? last(code[0]) : '<unknown>';
+      frames.set(r.f, { name, line: code ? code[1] : null });
+      rows.push({ kind: 'CALL', name, task: r.t, rec: r });
+    } else if (['RETURN', 'UNWIND', 'YIELD', 'RESUME'].includes(r.e)) {
+      rows.push({ kind: r.e, name: frames.get(r.f)?.name ?? '<unknown>', task: r.t, rec: r });
+    }
+  }
+  const probe = [...files.values()].find((f) => /\.probe\.test\.[jt]sx?$/.test(f.rel));
+  return { ...spool, files, tasks, frames, rows, probe: probe ? probe.rel : null };
+}
+
+// --- assertions ------------------------------------------------------------
+
+class Checker {
+  constructor() {
+    /** @type {{id: string, ok: boolean, detail?: unknown}[]} */
+    this.checks = [];
+    /** @type {Record<string, unknown>} */
+    this.report = {};
+  }
+
+  /**
+   * @param {string} id
+   * @param {boolean} ok
+   * @param {unknown} [detail] shown always, so a pass is as legible as a failure
+   */
+  check(id, ok, detail) {
+    this.checks.push(detail === undefined ? { id, ok } : { id, ok, detail });
+  }
+
+  /** @param {string} id @param {unknown} got @param {unknown} want */
+  equal(id, got, want) {
+    const ok = JSON.stringify(got) === JSON.stringify(want);
+    this.check(id, ok, ok ? got : { got, want });
+  }
+
+  get failures() {
+    return this.checks.filter((c) => !c.ok);
+  }
+}
+
+/**
+ * Read `// <TAG> …` markers out of a probe's source. A marker's expectation is
+ * always the NEXT line, so moving the code moves the expectation with it.
+ * @param {string} file
+ * @param {string} tag
+ * @returns {{args: string[], line: number}[]}
+ */
+function markers(file, tag) {
+  const out = [];
+  const lines = fs.readFileSync(file, 'utf8').split('\n');
+  for (let i = 0; i < lines.length; i += 1) {
+    const m = lines[i].match(new RegExp(`^\\s*//\\s+${tag}\\s+(.+?)\\s*$`));
+    if (m) out.push({ args: m[1].split(/\s+/), line: i + 2 });
+  }
+  return out;
+}
+
+/**
+ * @param {{kind: string, name: string, rec: any}[]} rows
+ * @returns {(string|null)[][]} rows as `[kind, name]` or `[kind, name, value]`
+ */
+function shape(rows) {
+  return rows.map((r) => {
+    if (r.kind !== 'RETURN') return [r.kind, r.name];
+    const v = r.rec.v;
+    return [r.kind, r.name, v && v.k === 'dbg' ? squash(v.v) : null];
+  });
+}
+
+/**
+ * Compare a scenario's rows against its alternatives, ignoring the value of a
+ * RETURN the table gave no value for (§3, E3: the checker defect that read one).
+ * @param {(string|null)[][]} got
+ * @param {string[][]} want
+ * @returns {boolean}
+ */
+function matches(got, want) {
+  if (got.length !== want.length) return false;
+  return want.every((row, i) =>
+    row[0] === got[i][0] && row[1] === got[i][1] && (row.length < 3 || row[2] === got[i][2]));
+}
+
+// --- the probes ------------------------------------------------------------
+
+/**
+ * E3 in one spool: the four scenarios, then the negative control.
+ * @param {Checker} k
+ * @param {ReturnType<typeof index>} s
+ * @param {string} label
+ * @param {string} basis the naming basis this harness produces
+ */
+function checkAsync(k, s, label, basis) {
+  const taskOf = (/** @type {string} */ id) =>
+    [...s.tasks.values()].find((t) => t.name.startsWith(`${id} `)) ?? null;
+  for (const sc of SCENARIOS) {
+    const task = taskOf(sc.id);
+    if (!task) {
+      k.check(`${label}:${sc.id}`, false, `no task named ${sc.id}`);
+      continue;
+    }
+    const got = shape(s.rows.filter((r) => r.task === task.id && sc.names.includes(r.name)));
+    k.check(`${label}:${sc.id}`, sc.alts.some((alt) => matches(got, alt)),
+      { task: task.name, basis: task.basis, rows: got });
+    k.check(`${label}:${sc.id}:basis`, task.basis === basis, task.basis);
+  }
+  checkControl(k, s, label, taskOf('T1'), taskOf('T2'));
+}
+
+/**
+ * The negative control: T2's rows are T2's, and not one of S1's names carries
+ * T1 after T1 has returned.
+ * @param {Checker} k
+ * @param {ReturnType<typeof index>} s
+ * @param {string} label
+ * @param {any} t1
+ * @param {any} t2
+ */
+function checkControl(k, s, label, t1, t2) {
+  if (!t1 || !t2 || t1.id === t2.id) {
+    k.check(`${label}:control`, false, { t1: t1?.id ?? null, t2: t2?.id ?? null });
+    return;
+  }
+  const chain = s.rows.filter((r) => ['a', 'b', 'c'].includes(r.name));
+  const end = chain.findIndex((r) => r.kind === 'RETURN' && r.name === 'a' && r.task === t1.id);
+  const after = end === -1 ? [] : chain.slice(end + 1);
+  k.check(`${label}:control:leak`, end !== -1 && after.every((r) => r.task === t2.id),
+    { rows_after_T1: after.length, carrying_T1: after.filter((r) => r.task === t1.id).length });
+  k.check(`${label}:control:T2`, matches(shape(after.filter((r) => r.task === t2.id)), S1_ROWS));
+}
+
+/**
+ * E4: every `// SITE` marker's function starts on the line under it.
+ * @param {Checker} k
+ * @param {ReturnType<typeof index>} s
+ */
+function checkSites(k, s) {
+  const sources = ['src/sites.probe.test.ts', 'src/sites.component.tsx'];
+  const want = sources.flatMap((rel) =>
+    markers(path.join(HERE, rel), 'SITE').map((m) => ({ name: m.args[0], line: m.line })));
+  const codes = [...s.files.values()].flatMap((f) =>
+    /** @type {[string, number, string][]} */ (f.codes).map((c) => [last(c[0]), c[1]]));
+  const wrong = [];
+  for (const site of want) {
+    const hits = codes.filter(([name]) => name === site.name).map(([, line]) => line);
+    if (hits.length !== 1 || hits[0] !== site.line) wrong.push({ ...site, got: hits });
+  }
+  k.check('sites:count', want.length === 20, want.length);
+  k.check('sites:lines', wrong.length === 0, { on_line: want.length - wrong.length, wrong });
+}
+
+/**
+ * E8 shapes 1, 2, 4 and 5: the marked lines, the `how` each was recorded with,
+ * and what §1.2 says the exception itself looks like.
+ * @param {Checker} k
+ * @param {ReturnType<typeof index>} s
+ */
+function checkSwallow(k, s) {
+  const marks = markers(path.join(HERE, 'src/swallow.probe.test.ts'), 'SWALLOW');
+  for (const [id, exc] of Object.entries(SWALLOW_EXC)) {
+    const task = [...s.tasks.values()].find((t) => t.name.startsWith(`${id} `));
+    const want = marks.filter((m) => m.args[0] === id)
+      .map((m) => [m.args[1] === 'raise' ? 'RAISE' : 'HANDLED', m.args[2], m.line]);
+    const got = s.records
+      .filter((r) => (r.e === 'RAISE' || r.e === 'HANDLED') && task && r.t === task.id)
+      .map((r) => [r.e, r.how, r.l]);
+    k.equal(`swallow:${id}:rows`, sorted(got), sorted(want));
+    const raises = s.records.filter((r) => r.e === 'RAISE' && task && r.t === task.id);
+    k.equal(`swallow:${id}:exc`, raises.map((r) => ({ type: r.x.type, msg: r.x.msg })), exc.raises);
+    if (exc.oneSerial) {
+      k.check(`swallow:${id}:serial`, new Set(raises.map((r) => r.x.serial)).size === 1,
+        raises.map((r) => r.x.serial));
+    }
+  }
+}
+
+/** @param {unknown[][]} rows @returns {unknown[][]} */
+const sorted = (rows) => [...rows].sort((x, y) => JSON.stringify(x).localeCompare(JSON.stringify(y)));
+
+/**
+ * Shape 3: an UNHANDLED written by the process listener, outside every frame and
+ * every task — the record carries no `f` and no `t`, and it must not invent one.
+ * @param {Checker} k
+ * @param {ReturnType<typeof index>} s
+ */
+function checkUnhandled(k, s) {
+  const got = s.records.filter((r) => r.e === 'UNHANDLED');
+  k.check('swallow:shape3:count', got.length === 1, got.length);
+  if (got.length !== 1) return;
+  k.equal('swallow:shape3:keys', Object.keys(got[0]).sort(), ['e', 'ts', 'x']);
+  k.equal('swallow:shape3:exc',
+    { kind: got[0].x.kind, type: got[0].x.type, msg: got[0].x.msg },
+    { kind: 'rejection', type: 'Error', msg: 'e3' });
+}
+
+/** @param {Checker} k @param {ReturnType<typeof index>} s */
+function checkEach(k, s) {
+  const tasks = [...s.tasks.values()];
+  k.equal('each:names', tasks.map((t) => t.name), EACH_NAMES);
+  k.equal('each:basis', tasks.map((t) => [t.basis, t.conflict]), EACH_NAMES.map(() => ['vitest', false]));
+}
+
+/** @param {Checker} k @param {ReturnType<typeof index>} s */
+function checkDescribeChain(k, s) {
+  k.equal('describe_chain:name', [...s.tasks.values()].map((t) => t.name), ['outer > inner > leaf']);
+}
+
+/**
+ * A frame that parks and never comes back: a YIELD, no RETURN, no UNWIND — and
+ * the container still ends with an EXIT.
+ * @param {Checker} k @param {ReturnType<typeof index>} s
+ */
+function checkNeverSettles(k, s) {
+  const rows = s.rows.filter((r) => r.name === 'parks');
+  k.equal('never_settles:rows', rows.map((r) => r.kind), ['CALL', 'YIELD']);
+  k.check('never_settles:exit', s.records[s.records.length - 1]?.e === 'EXIT',
+    s.records[s.records.length - 1]?.e);
+}
+
+/** @param {Checker} k @param {ReturnType<typeof index>} s */
+function checkTimerParentless(k, s) {
+  const calls = s.records.filter((r) => r.e === 'CALL')
+    .filter((r) => last(s.files.get(r.file).codes[r.c][0]) === 'onTimer');
+  const task = [...s.tasks.values()][0];
+  k.check('timer_parentless:count', calls.length === 1, calls.length);
+  if (calls.length !== 1) return;
+  k.equal('timer_parentless:frame', { p: calls[0].p, t: calls[0].t }, { p: null, t: task.id });
+}
+
+/**
+ * Reported, never gated: the concurrent naming hazard, counted.
+ * @param {Checker} k @param {ReturnType<typeof index>} s
+ */
+function checkConcurrent(k, s) {
+  const tasks = [...s.tasks.values()];
+  k.report.concurrent = {
+    tasks: tasks.map((t) => ({ name: t.name, basis: t.basis, conflict: t.conflict })),
+    conflicts: tasks.filter((t) => t.conflict).length,
+  };
+  k.check('concurrent:tasks', tasks.length === 2, tasks.length);
+}
+
+/**
+ * What every spool owes, whatever it recorded: one BOOT, first; an EXIT, last;
+ * and under vitest exactly one FILE_START naming the environment it ran in.
+ * @param {Checker} k @param {ReturnType<typeof index>} s @param {boolean} wantFileStart
+ */
+function checkContainer(k, s, wantFileStart) {
+  const boots = s.records.filter((r) => r.e === 'BOOT');
+  const label = s.probe ?? s.name;
+  k.check(`container:${label}:one_boot`, boots.length === 1 && s.records[0]?.e === 'BOOT', boots.length);
+  k.check(`container:${label}:exit`, s.records[s.records.length - 1]?.e === 'EXIT');
+  const starts = s.records.filter((r) => r.e === 'FILE_START');
+  if (!wantFileStart) {
+    k.check(`container:${label}:no_setup`, starts.length === 0, starts.length);
+    return;
+  }
+  k.check(`container:${label}:file_start`,
+    starts.length === 1 && ['node', 'jsdom'].includes(starts[0].environment),
+    starts.map((r) => ({ path: path.basename(String(r.path)), environment: r.environment })));
+}
+
+// --- the runs --------------------------------------------------------------
+
+/** @param {Checker} k @param {ReturnType<typeof index>[]} spools */
+function runVitest(k, spools) {
+  const by = new Map(spools.map((s) => [s.probe, s]));
+  k.equal('probes:present', VITEST_PROBES.filter((p) => !by.has(p)), []);
+  for (const s of spools) checkContainer(k, s, true);
+  const use = (/** @type {string} */ rel, /** @type {(s: any) => void} */ fn) => {
+    const s = by.get(rel);
+    if (s) fn(s);
+  };
+  use('src/async.probe.test.ts', (s) => checkAsync(k, s, 'node', 'vitest'));
+  use('src/async.jsdom.probe.test.ts', (s) => checkAsync(k, s, 'jsdom', 'vitest'));
+  use('src/sites.probe.test.ts', (s) => checkSites(k, s));
+  use('src/swallow.probe.test.ts', (s) => checkSwallow(k, s));
+  use('src/swallow3.probe.test.ts', (s) => checkUnhandled(k, s));
+  use('src/each.probe.test.ts', (s) => checkEach(k, s));
+  use('src/describe_chain.probe.test.ts', (s) => checkDescribeChain(k, s));
+  use('src/never_settles.probe.test.ts', (s) => checkNeverSettles(k, s));
+  use('src/timer_parentless.probe.test.ts', (s) => checkTimerParentless(k, s));
+  use('src/concurrent.probe.test.ts', (s) => checkConcurrent(k, s));
+  const jsdom = by.get('src/async.jsdom.probe.test.ts');
+  k.report.environments = spools.map((s) => ({
+    probe: s.probe,
+    environment: s.records.find((r) => r.e === 'FILE_START')?.environment ?? null,
+  }));
+  k.check('pragma:jsdom_honoured',
+    jsdom?.records.find((r) => r.e === 'FILE_START')?.environment === 'jsdom');
+}
+
+/** @param {Checker} k @param {ReturnType<typeof index>[]} spools */
+function runNodeTest(k, spools) {
+  const found = spools.filter((s) => s.probe === 'nodetest/async.probe.test.ts');
+  k.check('probes:present', found.length === 1, spools.map((s) => s.probe));
+  for (const s of found) {
+    checkContainer(k, s, false);
+    // No setup file, so no provider: a task is named by its lexical title.
+    checkAsync(k, s, 'nodetest', 'title');
+  }
+}
+
+/**
+ * The plugin's own count of what it did, when the manifest directory was set.
+ * @param {Checker} k @param {string} dir
+ */
+function checkTally(k, dir) {
+  const file = path.join(dir, '_tally.json');
+  if (!fs.existsSync(file)) {
+    k.check('tally:written', false, `${file} is absent`);
+    return;
+  }
+  const tally = JSON.parse(fs.readFileSync(file, 'utf8'));
+  k.report.tally = tally;
+  k.check('tally:written', typeof tally.files_transformed === 'number' &&
+    tally.files_transformed > 0 && typeof tally.excluded === 'object', tally);
+  // One manifest per file the plugin looked at, `files_transformed` for the ones
+  // it edited. The two agree exactly when nothing failed to parse — and a file
+  // Vite asked for twice (one module graph per transform mode) is one file.
+  const manifests = fs.readdirSync(dir).filter((n) => n.endsWith('.json') && n !== '_tally.json');
+  k.equal('tally:files', {
+    files_transformed: tally.files_transformed,
+    parse_errors: tally.excluded['parse-error'] ?? 0,
+  }, { files_transformed: manifests.length, parse_errors: 0 });
+}
+
+function main() {
+  const args = process.argv.slice(2).filter((a) => a !== '--mode');
+  const modeAt = process.argv.indexOf('--mode');
+  const mode = modeAt === -1 ? 'vitest' : process.argv[modeAt + 1];
+  const [spoolDir, manifestDir] = args.filter((a) => a !== mode);
+  const k = new Checker();
+  const spools = readSpools(spoolDir).map(index);
+  k.check('spools:any', spools.length > 0, spools.length);
+  if (spools.length > 0) (mode === 'nodetest' ? runNodeTest : runVitest)(k, spools);
+  if (manifestDir) checkTally(k, manifestDir);
+  const ok = k.failures.length === 0;
+  process.stdout.write(`${JSON.stringify({
+    mode, spool_dir: spoolDir, spools: spools.length,
+    ok, failures: k.failures, report: k.report, checks: k.checks,
+  }, null, 2)}\n`);
+  process.exitCode = ok ? 0 : 1;
+}
+
+main();

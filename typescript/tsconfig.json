@@ -14,6 +14,11 @@
   "include": [
     "src/**/*.mjs",
     "test/**/*.mjs",
-    "acceptance/**/*.mjs"
+    "acceptance/**/*.mjs",
+    "probes/check.mjs"
+  ],
+  "exclude": [
+    "src/setup.mjs",
+    "probes/node_modules"
   ]
 }
