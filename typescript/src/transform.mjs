@@ -452,22 +452,42 @@ function scriptKindFor(ts, filePath) {
 }
 
 /**
+ * Where the header goes. Two things must stay ahead of it, and neither may be
+ * pushed onto a line of its own: a shebang, which has to be the first line, and
+ * a directive prologue — `\'use client\'` stops being a directive the moment an
+ * import precedes it, and demoting it would change what the program does.
+ * @param {TS} ts
+ * @param {SourceFile} sf
+ * @param {string} code
+ * @returns {number} the offset to splice at, or -1 for a file with no code
+ */
+function headerOffset(ts, sf, code) {
+  let offset = 0;
+  if (code.startsWith('#!')) {
+    const newline = code.indexOf('\n');
+    // A file that is nothing but a shebang line has no code to record.
+    if (newline === -1) return -1;
+    offset = newline + 1;
+  }
+  for (const statement of sf.statements) {
+    if (!ts.isExpressionStatement(statement) || !ts.isStringLiteral(statement.expression)) break;
+    offset = statement.end;
+  }
+  return offset;
+}
+
+/**
  * The header carries the file's identity: the root-relative path the fingerprint
  * hashes, the absolute path the contract stores, the site table, and the digest
- * of the source as it was read. It goes on line 1 — or after a shebang, which
- * must stay the first line — and never adds one.
+ * of the source as it was read. It never adds a line.
  * @param {MagicString} s
- * @param {string} code
+ * @param {number} offset
  * @param {string} header
  */
-function prependHeader(s, code, header) {
-  if (!code.startsWith('#!')) {
-    s.prepend(header);
-    return;
-  }
-  const newline = code.indexOf('\n');
-  // A file that is nothing but a shebang line has no code to record.
-  if (newline !== -1) s.appendLeft(newline + 1, header);
+function prependHeader(s, offset, header) {
+  if (offset < 0) return;
+  if (offset === 0) s.prepend(header);
+  else s.appendLeft(offset, header);
 }
 
 /**
@@ -501,7 +521,7 @@ export function transformSource(code, filePath, opts) {
   const codes = sites.map((site) => [site.qualname, site.line, site.kind]);
   prependHeader(
     s,
-    code,
+    headerOffset(ts, sf, code),
     `import * as __srt from ${JSON.stringify(opts.rtPath)};` +
       `const __sfile=__srt.file(${JSON.stringify(rel)},${JSON.stringify(filePath)},` +
       `${JSON.stringify(codes)},${JSON.stringify(sha256)});`,

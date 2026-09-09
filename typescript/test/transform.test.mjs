@@ -200,6 +200,12 @@ test('the runtime import path is spliced verbatim', () => {
   assert.ok(out.code.startsWith('import * as __srt from "/tmp/sensorium/rt.mjs";'));
 });
 
+test('a shebang and a directive prologue stay ahead of the header', () => {
+  // `'use client'` stops being a directive the moment an import precedes it.
+  assert.ok(runGolden('directive.ts').out.code.startsWith("'use client';import * as __srt"));
+  assert.ok(runGolden('shebang.js').out.code.startsWith('#!/usr/bin/env node\nimport * as __srt'));
+});
+
 test('a hires source map is returned for the original file', () => {
   const { out, file } = runGolden('block-body.ts');
   assert.deepEqual(out.map.sources, [file]);
