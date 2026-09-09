@@ -279,8 +279,11 @@ test('task names come from the provider, cross-checked against the literal title
     ['adds', 'title', true],
     // A `.each` row's title is a template the provider expands; uncheckable.
     ['a different test entirely', 'vitest', false],
-    // A title the transform could not read as a literal is uncheckable too.
-    ['a different test entirely', 'vitest', false],
+    // A title the transform could not read as a literal is uncheckable too --
+    // and this stub provider handed the same full name to two registrations,
+    // so the container's second run of that NAME is `#2` (R39). Real vitest
+    // full titles are unique, which is why this is only reachable here.
+    ['a different test entirely#2', 'vitest', false],
   ]);
   assert.deepEqual(tasks.map((t) => t.id), [1, 2, 3, 4]);
 });

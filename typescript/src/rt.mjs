@@ -47,6 +47,17 @@ const rootStack = [];
 /** The `describe` chain, per container, as it stands during collection. */
 /** @type {{title: string}[]} */
 const suiteStack = [];
+
+/**
+ * How many activations this CONTAINER has already given each capped task name.
+ * Module-level and not per registration (R39): `#k` exists to tell two runs of
+ * one test apart, and a reader who sees `#2` reads "the second time this name
+ * ran here" -- which is a fact about the container, not about which `test(...)`
+ * call produced it. Held in `wrapTask`'s closure, two registrations that shared
+ * a name both printed the bare name and the ledger's promise was false.
+ * @type {Map<string, number>}
+ */
+const activations = new Map();
 /** @type {(() => unknown)|null} */
 let provider = null;
 
@@ -265,12 +276,10 @@ const titleOf = (title) => (typeof title === 'string' ? title : UNNAMED);
  */
 function wrapTask(title, fn, flags) {
   const lexical = [...suiteStack.map((s) => s.title), title].join(' > ');
-  // Activations are counted PER NAME, not per registration. `#k` exists to tell
-  // two runs of ONE test apart; a harness that gave this activation a name of
-  // its own — `test.each` expanding a template into a row's values — has already
-  // told them apart, and numbering those would rename tests that never repeated.
-  /** @type {Map<string, number>} */
-  const activations = new Map();
+  // Activations are counted PER NAME, per CONTAINER — see `activations` above.
+  // A harness that gave this activation a name of its own — `test.each`
+  // expanding a template into a row's values — has already told them apart, and
+  // numbering those would rename tests that never repeated.
   return /** @this {unknown} */ function sensoriumTask(/** @type {unknown[]} */ ...args) {
     const named = nameFor(title, lexical, flags);
     // The name came from the consumer — a title, or whatever the harness calls

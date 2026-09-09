@@ -58,3 +58,29 @@ test('a harness that renames each activation is not numbered on top of', () => {
   assert.deepEqual([...new Set(tasks.map((t) => t.basis))], ['vitest']);
   assert.deepEqual([...new Set(tasks.map((t) => t.conflict))], [false]);
 });
+
+test('two registrations that share a name are numbered as one sequence', () => {
+  // R39: `#k` is per CONTAINER per capped name, which is what HONESTY section 2
+  // and the spec's R17 row already claim. Held in the closure it shipped in,
+  // the counter was per REGISTRATION and these two both printed `same`.
+  const recs = record(`
+    const [, first] = __srt.task('same', () => {}, 1);
+    const [, second] = __srt.task('same', () => {}, 1);
+    first();
+    second();
+  `);
+  assert.deepEqual(recs.filter((r) => r.e === 'TASK').map((t) => t.name),
+    ['same', 'same#2']);
+});
+
+test('one registration activated twice is numbered the same way', () => {
+  // The case `#k` was built for -- a retry, a `repeats` -- and the one the
+  // per-registration counter did get right. It must survive the move.
+  const recs = record(`
+    const [, activate] = __srt.task('twice', () => {}, 1);
+    activate();
+    activate();
+  `);
+  assert.deepEqual(recs.filter((r) => r.e === 'TASK').map((t) => t.name),
+    ['twice', 'twice#2']);
+});
