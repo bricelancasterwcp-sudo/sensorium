@@ -40,7 +40,9 @@ a container vitest tore down with a signal.
 (Task 6), and the contract these fixtures hold is
 `sensorium.ts.invocation`'s, not a recording's.
 """
+import os
 import re
+import signal
 from pathlib import Path
 
 import pytest
@@ -131,3 +133,15 @@ def sub(value, ids: list[str]):
     if isinstance(value, dict):
         return {k: sub(v, ids) for k, v in value.items()}
     return value
+
+
+def kill_this_worker(job) -> None:
+    """A converter worker that dies of SIGKILL, for R42's falsifier.
+
+    Module level, and here rather than in the test module, because the
+    pool's start method is `spawn`: a function is pickled BY REFERENCE, so
+    the child imports this module and gets this function. A closure or a
+    lambda monkeypatched in from a test body would not survive the pickle
+    at all, and would fail for the wrong reason.
+    """
+    os.kill(os.getpid(), signal.SIGKILL)

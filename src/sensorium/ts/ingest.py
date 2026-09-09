@@ -13,7 +13,14 @@ Spools convert in parallel, one worker per spool, over a `spawn` context.
 handles and its signal dispositions; nothing here needs any of that, and a
 converter that inherits a database handle it did not open is a converter
 one bug away from writing into somebody else's file.
+
+The pool is a `ProcessPoolExecutor` and not a `multiprocessing.Pool`,
+because a worker can die of a signal it never gets to handle -- the OOM
+killer is the ordinary way -- and `Pool.imap` waits for a result that is
+never coming. The executor raises `BrokenProcessPool` instead, and a
+refusal is a thing a caller can read.
 """
+import concurrent.futures
 import json
 import multiprocessing
 import os
@@ -238,10 +245,19 @@ def _map(jobs: int, work: list[tuple], out: list[Summary]) -> None:
     """The pool, or no pool at all for a single job, appending to `out`.
 
     The accumulator is the CALLER's, and results are taken one at a time
-    (`imap`, in order), so a worker that dies of something this converter
+    (`map`, in order), so a worker that dies of something this converter
     did not anticipate does not also take the record of what had already
-    converted: `pool.map` returns a list or nothing at all, and nothing at
-    all is what would leave the marker unwritable.
+    converted: a call that returned a list or nothing at all is what would
+    leave the marker unwritable.
+
+    `ProcessPoolExecutor` and not `multiprocessing.Pool` (R42). A worker
+    SIGKILLed -- by the OOM killer, by a `kill -9`, by any signal it
+    cannot catch -- never puts a result on the queue, and `Pool.imap`
+    waits for one FOREVER: the driver hung with no output and nothing to
+    interrupt but itself. The executor notices its child is gone and
+    raises `BrokenProcessPool`, which the caller's `except Exception`
+    turns into the marker plus a named refusal at exit 2. Measured: 60 s
+    of nothing under `imap`, immediate under the executor.
 
     One spool through a process pool costs a whole interpreter start to
     save nothing, and a caller who asked for one job usually wants one
@@ -252,8 +268,8 @@ def _map(jobs: int, work: list[tuple], out: list[Summary]) -> None:
             out.append(_worker(job))
         return
     ctx = multiprocessing.get_context(CONTEXT)
-    with ctx.Pool(jobs) as pool:
-        for summary in pool.imap(_worker, work):
+    with concurrent.futures.ProcessPoolExecutor(jobs, mp_context=ctx) as ex:
+        for summary in ex.map(_worker, work):
             out.append(summary)
 
 

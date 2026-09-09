@@ -337,6 +337,54 @@ def test_invocation_round_trips_through_json():
     assert inv.to_json() == data
 
 
+def test_a_worker_killed_by_a_signal_refuses_and_does_not_hang(tmp_path):
+    """R42. A worker that dies of a signal never puts a result on the
+    queue, and `Pool.imap` waits for one: the driver hung forever on a
+    converter the OOM killer took, with no output and nothing to interrupt
+    but the process itself. `ProcessPoolExecutor` raises
+    `BrokenProcessPool` instead, which the existing `except Exception`
+    turns into the marker plus a named refusal.
+
+    Bounded by `SIGALRM` and not by patience: a regression here HANGS, and
+    a hanging test is a suite that never reports rather than one that
+    fails.
+    """
+    import signal as signal_mod
+    from tests.ts_spools import kill_this_worker
+
+    spool = tmp_path / "spool"
+    copy_tree(FIXTURES / "each-names", spool)
+    # Two containers, so `_map` uses the pool: one spool means one job, and
+    # one job runs in this process -- which would kill the test runner.
+    only = next(spool.glob("*.jsonl"))
+    (spool / "439935-0.jsonl").write_bytes(only.read_bytes())
+    assert len(list(spool.glob("*.jsonl"))) == 2
+
+    from sensorium.ts import ingest
+    monkeypatched = ingest._worker
+    ingest._worker = kill_this_worker
+
+    def _too_slow(_sig, _frame):
+        raise AssertionError("ingest_dir did not return within 60s: a dead "
+                             "worker is hanging the converter again")
+
+    previous = signal_mod.signal(signal_mod.SIGALRM, _too_slow)
+    signal_mod.alarm(60)
+    try:
+        with pytest.raises(ingest.IngestError) as e:
+            ingest.ingest_dir(spool, tmp_path / "sdir", jobs=2)
+    finally:
+        signal_mod.alarm(0)
+        signal_mod.signal(signal_mod.SIGALRM, previous)
+        ingest._worker = monkeypatched
+
+    assert "BrokenProcessPool" in str(e.value)
+    # P6's marker is written anyway, and says what stopped the run: a
+    # re-ingest must not mint a second run id for anything that converted.
+    marker = json.loads((spool / "ingested.json").read_text())
+    assert "BrokenProcessPool" in marker["error"]
+
+
 def test_the_pool_is_spawned_not_forked():
     """A forked worker inherits the parent's threads, its sqlite handles and
     its signal dispositions; `spawn` is the only context this converter is
