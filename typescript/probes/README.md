@@ -3,11 +3,33 @@
 A self-contained vitest project whose only job is to be recorded. Its expected
 rows were pinned by the S5 mechanics spike (`docs/superpowers/spikes/2026-09-08-typescript-mechanics-spike.md`,
 §1.1–§1.3) **before** this recorder existed, and `check.mjs` holds the spools to
-them. It wires the recorder exactly as the driver will, minus the driver: the
-Vite plugin from `../src/vite.mjs`, `setup.mjs` (the driver's template with the
-in-tree import), and the R16 external declaration.
+them.
 
-## The recipe
+The same project is recorded two ways, and `check.mjs` asserts the same rows
+either way.
+
+**Directly**, with no driver at all: `vitest.config.ts` wires the recorder
+itself — the Vite plugin from `../src/vite.mjs`, `setup.mjs` (the driver's
+template with the in-tree import), and the R16 external declaration — but
+**only** when `SENSORIUM_PROBE_DIRECT=1`, which the `probe` script sets. That
+gate is not decoration: `sensorium ts run` writes a wrapper config that
+`mergeConfig`s this one and then adds the same three things, and `mergeConfig`
+concatenates arrays, so a config that wired them unconditionally would give a
+driven run two plugins, two setup files and two runtimes.
+
+**Through the driver**, which is how a consumer records anything:
+
+```sh
+cd typescript/probes
+SENSORIUM_DIR=/path/to/a/store sensorium ts run -- npx vitest run
+node check.mjs vitest /path/to/a/store/spool/<invocation> \
+                      /path/to/a/store/spool/<invocation>/manifests
+```
+
+The driver mints the invocation, so the spool directory's name is printed by
+the run (`invocation: <id>`) rather than chosen in advance.
+
+## The recipe (direct)
 
 Three environment variables and one script. Choose a spool directory OUTSIDE
 this repository — the spools are large and are never committed.
@@ -63,6 +85,7 @@ node check.mjs <vitest|nodetest> <spool dir> [manifest dir]
 | `src/timer_parentless.probe.test.ts` | a timer callback entered with an empty stack |
 | `nodetest/async.probe.test.ts` | E3 again through `register.mjs`, outside vitest's `include` |
 | `check.mjs` | reads every spool and asserts; JSON on stdout |
+| `vitest.config.ts` | the probe files, plus the recorder's own wiring under `SENSORIUM_PROBE_DIRECT=1` |
 
 The `// SITE` and `// SWALLOW` markers are read by `check.mjs` out of the source,
 so no line number is written down twice: move a function and its expectation
