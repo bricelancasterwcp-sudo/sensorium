@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isMainThread, threadId } from 'node:worker_threads';
 
-import { dbg, exc } from './dbg.mjs';
+import { cap, dbg, exc } from './dbg.mjs';
 import { VERSION } from './index.mjs';
 
 /** @typedef {{id: number, name: string, stack: Frame[]}} Task */
@@ -95,26 +95,34 @@ export function flush() {
 }
 
 /**
+ * Boot on the first record, and say whether there is anywhere to write.
+ * @returns {boolean}
+ */
+function ready() {
+  if (!on) return false;
+  if (!booted) boot();
+  return on;
+}
+
+/**
  * @param {Record_} rec
  * @returns {void}
  */
 function emit(rec) {
-  if (!on) return;
-  if (!booted) {
-    boot();
-    if (!on) return;
-  }
+  if (!ready()) return;
   buf.push(JSON.stringify(rec));
   if (buf.length >= BUFFERED) flush();
 }
 
 /**
  * The same, for the record kinds that carry a timestamp (`ts` last, always).
+ * The clock is read AFTER the boot it may trigger, so BOOT's `ts` is the
+ * smallest on the wire and no record appears to predate the run.
  * @param {Record_} rec
  * @returns {void}
  */
 function emitTs(rec) {
-  if (!on) return;
+  if (!ready()) return;
   rec.ts = now();
   emit(rec);
 }
@@ -168,8 +176,13 @@ function install() {
     /** @type {NodeJS.SignalsListener} */
     const handler = () => {
       flush();
-      // Put the default disposition back and die of the signal we were sent:
-      // the recorder does not decide whether the process survives one.
+      // A signalled container still says how it ended (R13): EXIT is the last
+      // line, `code` null because none was chosen and `signal` naming what
+      // ended it. Only an uncatchable SIGKILL leaves a spool without one.
+      emitTs({ e: 'EXIT', code: null, signal: sig, endTs: Date.now() / 1000 });
+      flush();
+      // Then put the default disposition back and die of the signal we were
+      // sent: the recorder does not decide whether the process survives one.
       process.removeListener(sig, handler);
       process.kill(process.pid, sig);
     };
@@ -256,10 +269,18 @@ function wrapTask(title, fn, flags) {
   return /** @this {unknown} */ function sensoriumTask(/** @type {unknown[]} */ ...args) {
     activations += 1;
     const named = nameFor(title, lexical, flags);
-    const name = activations >= 2 ? `${named.name}#${activations}` : named.name;
+    // The name came from the consumer — a title, or whatever the harness calls
+    // this test — so it is capped like every other consumer string (R14). The
+    // `#k` suffix is the recorder's own and is added after the cut, because it
+    // is what tells two activations apart.
+    const capped = cap(named.name);
+    const name = activations >= 2 ? `${capped.v}#${activations}` : capped.v;
     /** @type {Task} */
     const t = { id: nextTask++, name, stack: [] };
-    emit({ e: 'TASK', id: t.id, name, basis: named.basis, conflict: named.conflict });
+    /** @type {Record_} */
+    const rec = { e: 'TASK', id: t.id, name, basis: named.basis, conflict: named.conflict };
+    if (capped.trunc) rec.name_trunc = true;
+    emit(rec);
     // A task's records reach the disk when the task settles — however it
     // settles — whatever the harness does to this worker afterwards.
     try {
@@ -430,7 +451,8 @@ export function thr(f, e) {
 
 /**
  * Park: the frame comes OFF its stack while it waits, which is what keeps a
- * fan-out's siblings from nesting under one another.
+ * fan-out's siblings from nesting under one another. A frame that has already
+ * closed neither parks nor is recorded — it is not on a stack to leave.
  * @template T
  * @param {Frame|null} f
  * @param {T} x the awaited or yielded value
@@ -438,21 +460,23 @@ export function thr(f, e) {
  * @returns {T}
  */
 export function y(f, x, kind) {
-  if (!on || !f) return x;
+  if (!on || !f || !f.open) return x;
   emitTs({ e: 'YIELD', f: f.id, t: taskId(f), k: kind === 1 ? 'yield' : 'await' });
   drop(f);
   return x;
 }
 
 /**
- * Resume: the frame goes back on its stack.
+ * Resume: the frame goes back on its stack — unless it has closed, which would
+ * put a finished frame back on a live stack and make it the parent of whatever
+ * ran next.
  * @template T
  * @param {Frame|null} f
  * @param {T} v the value the suspension produced
  * @returns {T}
  */
 export function r(f, v) {
-  if (!on || !f) return v;
+  if (!on || !f || !f.open) return v;
   stackOf(f).push(f);
   emitTs({ e: 'RESUME', f: f.id, t: taskId(f) });
   return v;
@@ -473,7 +497,7 @@ export function raise(f, e, line) {
   emitTs({
     e: 'RAISE',
     f: f ? f.id : null,
-    t: current(),
+    t: taskOf(f),
     x: exc(e, 'throw'),
     l: line,
     how: 'throw',
@@ -519,11 +543,20 @@ export function emptyCatch(f, line, fn) {
  * @param {'throw'|'rejection'} kind
  */
 function record(f, e, line, how, kind) {
-  emitTs({ e: 'HANDLED', f: f ? f.id : null, t: current(), x: exc(e, kind), l: line, how });
+  emitTs({ e: 'HANDLED', f: f ? f.id : null, t: taskOf(f), x: exc(e, kind), l: line, how });
 }
 
-/** @returns {number|null} the task this record belongs to, frame or no frame */
-function current() {
+/**
+ * The task a throw-flow record belongs to. A record that names a FRAME belongs
+ * to that frame's task, whichever async context the throw was reported from —
+ * the same source `ret`, `thr`, `y` and `r` read, so one frame's rows cannot
+ * disagree about their task. Only a frameless record falls back to the async
+ * context, which is all there is to ask.
+ * @param {Frame|null} f
+ * @returns {number|null}
+ */
+function taskOf(f) {
+  if (f) return taskId(f);
   const t = als.getStore();
   return t ? t.id : null;
 }

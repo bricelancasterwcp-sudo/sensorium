@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { VERSION } from '../src/index.mjs';
 import { transformSource } from '../src/transform.mjs';
 
 const RT = new URL('../src/rt.mjs', import.meta.url).href;
@@ -37,6 +38,14 @@ const KEYS = {
   SEEN: ['e', 'name'],
   EXIT: ['e', 'code', 'endTs', 'ts'],
 };
+
+/**
+ * Keys a record carries only when it has something to say: `signal` on the EXIT
+ * of a signalled container (R13), `name_trunc` on a TASK whose name was cut
+ * (R14). Each test that can produce one asserts it appears exactly then.
+ * @type {Record<string, string[]>}
+ */
+const OPTIONAL = { EXIT: ['signal'], TASK: ['name_trunc'] };
 
 /**
  * Run a script against the runtime in a child process and read its spool.
@@ -127,6 +136,8 @@ test('every record carries exactly its wire keys', () => {
     const fid = __srt.file('src/a.test.ts', '/w/src/a.test.ts', [['a', 1, 'function']], 'sha');
     __srt.fileStart('src/a.test.ts', 'jsdom');
     __srt.seen('a > b');
+    const [, long] = __srt.task('L'.repeat(300), () => {}, 1);
+    long();
     const [, activate] = __srt.task('b', async () => {
       const f = __srt.call(fid, 0);
       __srt.r(f, await __srt.y(f, Promise.resolve(1), 0));
@@ -143,11 +154,20 @@ test('every record carries exactly its wire keys', () => {
   ok(out);
   const seen = new Set();
   for (const rec of out.recs) {
-    const expected = KEYS[rec.e];
-    assert.ok(expected, `unknown record kind ${rec.e}`);
-    assert.deepEqual(Object.keys(rec).sort(), [...expected].sort(), `keys of ${rec.e}`);
+    const required = KEYS[rec.e];
+    assert.ok(required, `unknown record kind ${rec.e}`);
+    const keys = Object.keys(rec);
+    const allowed = [...required, ...(OPTIONAL[rec.e] ?? [])];
+    assert.deepEqual(keys.filter((k) => !allowed.includes(k)), [], `extra keys on ${rec.e}`);
+    assert.deepEqual(required.filter((k) => !keys.includes(k)), [], `missing keys on ${rec.e}`);
     seen.add(rec.e);
   }
+  // The optional keys appear exactly where they are earned: one cut name, and
+  // no `signal` at all on a container that chose its own exit.
+  const cut = out.recs.filter((r) => r.name_trunc !== undefined);
+  assert.equal(cut.length, 1, 'exactly the task whose name was cut says so');
+  assert.deepEqual([cut[0].e, cut[0].name_trunc], ['TASK', true]);
+  assert.deepEqual(out.recs.filter((r) => r.signal !== undefined), []);
   assert.deepEqual([...seen].sort(), Object.keys(KEYS).sort(), 'every record kind exercised');
   assert.equal(out.recs[0].e, 'BOOT');
   assert.equal(out.recs[out.recs.length - 1].e, 'EXIT');
@@ -327,8 +347,13 @@ test('flush on a terminal signal', () => {
   `);
   assert.equal(out.res.signal, 'SIGTERM', 'the default disposition is restored and re-raised');
   assert.equal(out.res.status, null);
-  assert.deepEqual(out.recs.map((r) => r.e), ['BOOT', 'FILE', 'SEEN'],
+  assert.deepEqual(out.recs.map((r) => r.e), ['BOOT', 'FILE', 'SEEN', 'EXIT'],
     'the buffer reached the disk before the process died');
+  // R13: a signalled container still says how it ended.
+  const exit = out.recs[out.recs.length - 1];
+  assert.equal(exit.code, null, 'no exit code was chosen');
+  assert.equal(exit.signal, 'SIGTERM', 'what ended it is named');
+  assert.ok(exit.endTs > 1_700_000_000);
 });
 
 test('task names come from the provider, cross-checked against the literal title', () => {
@@ -501,6 +526,102 @@ test('a hostile value never crashes the recorder', () => {
     ['undefined', 'undefined'],
   ]);
   assert.notEqual(raised[3].x.serial, raised[4].x.serial, 'a symbol is a primitive');
+});
+
+test("a frame's records agree about the frame's task", () => {
+  // The `raise`/`handled` are reported from a turn that is outside the task's
+  // async context entirely: a record that names a frame belongs to that
+  // frame's task, not to whatever the store happens to hold.
+  const out = run(`
+    const fid = __srt.file('t.ts', '/w/t.ts', [], 'sha');
+    let frame = null;
+    const [, activate] = __srt.task('t', () => { frame = __srt.call(fid, 0); }, 1);
+    activate();
+    setImmediate(() => {
+      const err = new Error('later');
+      __srt.raise(frame, err, 3);
+      __srt.handled(frame, err, 4, 'catch');
+      __srt.ret(frame, 'done');
+    });
+  `);
+  ok(out);
+  const task = one(out.recs, 'TASK');
+  const framed = out.recs.filter((r) => r.f !== undefined && r.f !== null);
+  assert.deepEqual(framed.map((r) => r.e), ['CALL', 'RAISE', 'HANDLED', 'RETURN']);
+  assert.deepEqual([...new Set(framed.map((r) => r.t))], [task.id],
+    'every row of one frame carries one task');
+});
+
+test('boot is the earliest record on the wire', () => {
+  // The first record is a ts-bearing one, so it is the record whose emission
+  // boots the spool: its clock reading must not predate BOOT's.
+  const out = run(`
+    const f = __srt.call(1, 0);
+    __srt.ret(f, 'v');
+  `);
+  ok(out);
+  const boot = out.recs[0];
+  assert.equal(boot.e, 'BOOT');
+  const stamped = out.recs.slice(1).filter((r) => typeof r.ts === 'number');
+  assert.ok(stamped.length >= 3, 'there are later stamped records to compare');
+  for (const rec of stamped) {
+    assert.ok(rec.ts >= boot.ts, `${rec.e} ts ${rec.ts} predates BOOT ts ${boot.ts}`);
+  }
+});
+
+test('a consumer name is capped on the wire', () => {
+  const out = run(`
+    __srt.nameProvider(() => 'p'.repeat(500));
+    const [, activate] = __srt.task('short', () => {}, 0);
+    activate();
+    activate();
+    const [, snow] = __srt.task('\u2603'.repeat(120), () => {}, 1);
+    snow();
+    __srt.nameProvider(null);
+    const [, brief] = __srt.task('brief', () => {}, 1);
+    brief();
+  `);
+  ok(out);
+  const [first, second, snow, brief] = of(out.recs, 'TASK');
+  assert.equal(Buffer.byteLength(first.name), 200);
+  assert.equal(first.name_trunc, true);
+  // The `#k` of an activation is the recorder's own word and survives the cut.
+  assert.equal(second.name, `${first.name}#2`);
+  assert.equal(second.name_trunc, true);
+  // A cut between characters, never through one.
+  assert.ok(Buffer.byteLength(snow.name) <= 200 && Buffer.byteLength(snow.name) > 190);
+  assert.ok(!snow.name.includes('\ufffd'));
+  assert.equal(snow.name_trunc, true);
+  // A name that fits says nothing about a cut that did not happen.
+  assert.equal(brief.name, 'brief');
+  assert.equal(Object.hasOwn(brief, 'name_trunc'), false);
+});
+
+test('a closed frame neither parks nor resumes', () => {
+  const out = run(`
+    const fid = __srt.file('t.ts', '/w/t.ts', [], 'sha');
+    const f = __srt.call(fid, 0);
+    __srt.ret(f, 'v');
+    const parked = __srt.y(f, 'yielded', 0);
+    const resumed = __srt.r(f, 'resumed');
+    const sibling = __srt.call(fid, 1);
+    __srt.ret(sibling, null);
+    console.log(JSON.stringify({ parked, resumed }));
+  `);
+  ok(out);
+  assert.deepEqual(of(out.recs, 'YIELD'), [], 'a closed frame does not park');
+  assert.deepEqual(of(out.recs, 'RESUME'), [], 'a closed frame does not resume');
+  assert.deepEqual(JSON.parse(out.res.stdout), { parked: 'yielded', resumed: 'resumed' },
+    'both still return their value');
+  const [, sibling] = of(out.recs, 'CALL');
+  assert.equal(sibling.p, null, 'a closed frame was not put back on the stack');
+});
+
+test('the version on the wire is the package version', () => {
+  // BOOT's `version` becomes every trace's `recorder` string, so these two must
+  // not drift (R15). `boot names the writer` pins the other end of the chain.
+  const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(VERSION, pkg.version);
 });
 
 test("the transform's own output runs against this runtime", () => {

@@ -40,17 +40,20 @@ export function dbg(v) {
   } catch {
     return { k: 'unread' };
   }
-  if (Buffer.byteLength(text) <= CAP) return { k: 'dbg', v: text, trunc: false };
-  return { k: 'dbg', v: cut(text), trunc: true };
+  const { v: text_, trunc } = cap(text);
+  return { k: 'dbg', v: text_, trunc };
 }
 
 /**
- * The longest prefix of `text` that fits the byte budget, cut between
- * characters and never through one.
+ * The byte budget, applied to any string this recorder puts on the wire that
+ * the CONSUMER supplied — an inspected value, a test name the harness handed
+ * us (R14). The cut falls between characters and never through one, so a
+ * truncated capture is still text; what was cut is always declared.
  * @param {string} text
- * @returns {string}
+ * @returns {{v: string, trunc: boolean}}
  */
-function cut(text) {
+export function cap(text) {
+  if (Buffer.byteLength(text) <= CAP) return { v: text, trunc: false };
   let bytes = 0;
   let end = 0;
   for (const ch of text) {
@@ -59,7 +62,7 @@ function cut(text) {
     bytes += width;
     end += ch.length;
   }
-  return text.slice(0, end);
+  return { v: text.slice(0, end), trunc: true };
 }
 
 /**
