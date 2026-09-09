@@ -91,6 +91,12 @@ def arm_stats(rows: list[dict], arm: str, key: str) -> dict:
             continue
         walls.append(w)
     return {"runs": len(mine), "walls": walls, "dropped": dropped,
+            # The load reading taken immediately before each run of this arm,
+            # in run order. Carried rather than dropped: E1' is a timing
+            # endpoint whose pre-registration refuses a run above 4.0, and a
+            # guard whose readings never reach the record is a guard nobody
+            # can audit.
+            "loads": [r["load_1min"] for r in mine],
             "median": round(statistics.median(walls), 4) if walls else None,
             "min": min(walls) if walls else None,
             "max": max(walls) if walls else None,
@@ -116,11 +122,24 @@ def e1(rows: list[dict], want_n: int = 5) -> dict:
             arm["median"] = None
 
     ratio = lambda x, y: (None if x is None or not y else round(x / y, 4))
+    # Every load reading of the whole series, flat and in the order taken,
+    # with the highest of them beside it -- so "all under the 4.0 refusal" is
+    # a claim a reader can check against the numbers rather than take.
+    readings = [{"arm": r["arm"], "batch": r["batch"], "run": r["run"],
+                 "load_1min": r["load_1min"]} for r in rows]
     return cell(
         ratio(off["median"], plain["median"]),
         min(len(plain["walls"]), len(off["walls"]), len(call["walls"])),
         dropped,
         rule_arm="off/plain, harness wall, conversion excluded",
+        load_guard={"threshold": 4.0, "n": len(readings),
+                    "max": max((r["load_1min"] for r in readings),
+                               default=None),
+                    "min": min((r["load_1min"] for r in readings),
+                               default=None),
+                    "all_under_threshold": all(r["load_1min"] < 4.0
+                                               for r in readings),
+                    "readings": readings},
         arms={"plain": plain, "off": off, "call": call},
         driver_total_wall={"off": off_total, "call": call_total},
         off_over_plain=ratio(off["median"], plain["median"]),

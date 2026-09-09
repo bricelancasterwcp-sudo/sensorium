@@ -240,7 +240,8 @@ Every cell below is read out of
 `docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.results.json`,
 which each instrument wrote directly; nothing here was computed by hand. No
 gated arm was re-run after its number was read; the three re-derivations that
-did happen are named in §5 and each re-read a file that was already on disk.
+did happen are **§5 gaps 3, 4 and 7**, and each re-read a file that was
+already on disk.
 
 **This section supersedes the header.** The file still opens *"Status:
 pre-registration only"* and *"§3's cells are all `not measured (rung 1
@@ -274,7 +275,7 @@ a `null` value with a non-empty `dropped` list is the only representation of
 | E3-TS | **DIVERGED 0**, REFUSED 0, MATCH 19 | 19 pairs | VTT | none |
 | E4′ | **20** shapes on their exact line; the planted report identical | 20 shapes | VTT | none |
 | E5′ | **2** of 2 harnesses green | 2 harnesses | VTT | none |
-| E6′ | **0** `__srt` markers; 3 of the rule's 4 clauses hold | 2 cache dirs searched | VTT | none |
+| E6′ | manifest identical **PASS** (748 OK / 0 FAILED) · 372/4278 **PASS** · inside the plain band **STOP** (22.8678 s against [22.3136, 22.7221]) · 0 markers **PASS** · wrapper gone **PASS** | 4 clauses | VTT | none |
 | E7′ | **0** occurrences of the eight leak needles | 8 needles | VTT | none |
 | E8′ | **5** of 5 swallow shapes seen | 5 shapes | VTT | none |
 | E9 | **0** — tasks (4,278) minus `tests_seen` (4,278) | 372 traces | VTT | none |
@@ -284,18 +285,30 @@ a `null` value with a non-empty `dropped` list is the only representation of
 **Every cell above, with its pre-registered rule quoted beside it.**
 
 **E0′** — rule: *"372 containers, one file each; any container with two files
-or any container with none → STOP"*. The call arm's first full-suite
-invocation (`20260909-160038-f08e89`) produced **372 traces**; **372** carry
-`test_file`, **0** carry `test_files`, **0** carry neither, and the 372 files
-are **372 distinct** names with no repeats.
+or any file with none → STOP"*. The call arm's first full-suite invocation
+(`20260909-160038-f08e89`) produced **372 traces**. The rule names two
+failures and both were measured. *A container with two files:* **0** traces
+carry `test_files` (the key the builder writes when a container starts more
+than one file). *A file with none:* the 372 traces carry **372 distinct**
+`test_file` values with no repeats, and the suite ran 372 files, so every
+file the run executed has exactly one container and none is unrecorded.
+Beside them, **0** traces carry neither key.
 
 **E1′** — rule: *"off/plain ≤ 1.10 → the transform stays uncached; above → a
 cache keyed on source sha becomes rung-1 work, not a NO-GO; call/plain
 reported beside the spike's 1.131"*. Five interleaved plain→off→call triples,
-each run preceded by a 1-minute load reading under 4.0 (the readings ran
-0.68–3.92, all under the refusal), each run at `372 passed (372)` /
-`4278 passed (4278)` with harness exit 0, so no run was dropped and every arm
-has its full n=5.
+each run at `372 passed (372)` / `4278 passed (4278)` with harness exit 0, so
+no run was dropped and every arm has its full n=5.
+
+**The load guard's own evidence is in the artifact, not just in this
+sentence.** `arms.sh` reads `/proc/loadavg` immediately before every run and
+`arm_line.py` writes the reading into that run's row, so all **fifteen**
+readings are carried into `results.json` under the E1′ cell's `load_guard`
+key — per arm and per run, not summarised: plain `0.68, 2.92, 3.43, 3.59,
+3.63`; off `3.21, 3.92, 2.93, 3.79, 3.47`; call `3.24, 2.94, 3.88, 3.58,
+3.48`. The key also carries `threshold: 4.0`, `min: 0.68`, `max: 3.92` and
+`all_under_threshold: true`, so "every run was under the pre-registered
+refusal" is a claim a reader checks against the numbers rather than takes.
 
 | arm | timed as | walls (s) | median | min–max |
 |---|---|---|---|---|
@@ -339,7 +352,11 @@ single site reference for that file, **`src/lib/safeUrl.test.ts:44:13`** —
 identical. Reported and not gated: the DRIVEN run's stack additionally walks
 two frames inside the recorder's own runtime
 (`typescript/src/rt.mjs:296:39` and `:296:23`); those are references to the
-recorder, not to the planted file, and the planted site did not move.
+recorder, not to the planted file, and the planted site did not move. Because
+of them the two reports are **not** byte-identical as whole texts, and this
+endpoint's "byte-identical" was applied to the planted file's `FAIL` header
+and site references only — **§5 gap 8** states that reading and quotes the two
+extra frames.
 
 **E5′** — rule: *"372/4278 green and `node --test` green with its rows; a red
 vitest is NO-GO"*. Vitest: **all 5 call-arm runs** read `372 passed (372)` /
@@ -357,6 +374,17 @@ of this acceptance. Four clauses, measured one at a time:
 | … inside the plain band | wall **22.8678 s** against the plain arm's own min–max band **22.3136–22.7221 s** | **no** — 0.1457 s (0.65%) above the band's top |
 | 0 markers | `grep -rl __srt` over `node_modules/.vite` and `node_modules/.vite-temp` (the two cache directories that existed): **0 files** | **yes** |
 | the wrapper directory gone | `node_modules/.sensorium`: **absent** | **yes** |
+
+**The manifest clause is verified twice, because `e6.sh` verifies it in the
+wrong order to cover its own run.** The script checks the manifest FIRST and
+then does its plain run, so its own `748 OK` says nothing about the run it is
+about to make — the last thing to touch the lens is unaudited by the
+instrument that audits the lens. The clause was therefore re-taken by hand
+AFTER E6′ finished, twice with the same result: at **16:35** on the run day,
+and again at **2026-09-09T16:57:12−05:00** while this record was being
+corrected, both as `cd <lens> && sha256sum -c <the §2 manifest>` → **exit 0,
+748 OK, 0 FAILED**. Nothing has been run against the lens between E6′ and
+that second reading. The ordering is §5 gap 6.
 
 **E7′** — rule: *"0 occurrences; plus `v23`/`v24` green"*. Ten reader commands
 on one call-arm trace of `src/components/inventory/InventoryTab.test.tsx`; the
@@ -519,13 +547,13 @@ hand from §3; §3 was written from `results.json`.
 
 | Id | The rule, verbatim from §1 | Measured | Verdict |
 |---|---|---|---|
-| E0′ | *"372 containers, one file each; any container with two files or any container with none → STOP"* | 372 containers, 372 with one `test_file`, 0 with `test_files`, 0 with none, 372 distinct | **PASS** — the trace unit is still the test file |
+| E0′ | *"372 containers, one file each; any container with two files or any file with none → STOP"* | 372 containers, 372 with one `test_file`, **0** with `test_files` (no container took two files), **372 distinct** file names over 372 files run (no file went unrecorded), 0 with neither key | **PASS** — the trace unit is still the test file |
 | E1′ | *"off/plain ≤ 1.10 → the transform stays uncached; above → a cache keyed on source sha becomes rung-1 work, not a NO-GO; call/plain reported beside the spike's 1.131"* | off/plain **1.0587**; call/plain **1.1324** | **PASS — the transform stays uncached.** No source-sha cache becomes rung-1 work |
 | E2′ | *"after removing NAMED kinds the ratio is 1.000 (5,403 of 5,403 was measured); one unnamed miss → STOP"* | ratio **1.0000**, 5,378 of 5,378, `excluded` empty, `failed` empty, `parse_error` empty | **PASS** — the measured 100% did not regress |
 | E3-TS | *"DIVERGED 0/19 and REFUSED 0/19; any → the comparator or the recorder is wrong, STOP"* | DIVERGED **0/19**, REFUSED **0/19** | **PASS** — no false DIVERGED |
-| E4′ | *"20/20 on the exact line; the report byte-identical; a miss is a regression of a measured 20/20 → STOP"* | **20/20** on the exact line; the planted `FAIL` header and `…:44:13` identical plain against driven | **PASS** — sites keep their lines and columns |
+| E4′ | *"20/20 on the exact line; the report byte-identical; a miss is a regression of a measured 20/20 → STOP"* | **20/20** on the exact line; the planted `FAIL` header and `…:44:13` identical plain against driven | **PASS** — sites keep their lines and columns. The verdict rests on the reading §5 gap 8 names: the planted assertion's line and column, and the test-file frames, byte-identical. The driven report also carries two `rt.mjs` frames the plain one does not, so the reports are not byte-identical as whole texts |
 | E5′ | *"372/4278 green and `node --test` green with its rows; a red vitest is NO-GO"* | 5 of 5 call-arm runs at 372/4278, exit 0; `node --test` 6 pass 0 fail, checker 15/15 | **PASS** — both harnesses run |
-| E6′ | *"manifest identical, 372/4278 inside the plain band, 0 markers, the wrapper directory gone"* | manifest identical (748/0); 372/4278 green; wall **22.8678 s** against a band of **22.3136–22.7221 s**; **0** markers; wrapper **absent** | **PARTIAL — three of the four clauses hold exactly; the band clause does not.** The three clauses that ask directly about contamination (the manifest, the marker grep, the wrapper) all read clean; the fourth is a timing clause and the plain run landed 0.1457 s — 0.65% — above the band's top. §1 attaches no STOP to E6′, and this record does not invent one; neither does it call the endpoint PASS. The band's own shape is a §5 gap |
+| E6′ | *"manifest identical, 372/4278 inside the plain band, 0 markers, the wrapper directory gone"* | manifest identical (748/0); 372/4278 green; wall **22.8678 s** against a band of **22.3136–22.7221 s**; **0** markers; wrapper **absent** | **STOP — on the plain-band clause: the plain-after wall 22.8678 s sits above the plain arm's band [22.3136, 22.7221]; the manifest, marker and wrapper clauses hold exactly.** §1's rule is a flat conjunction and §1's own stop rules govern a rule that does not hold, so this is a STOP and not a lesser word. It fired on the one clause of the four that is a timing clause; the three that ask directly about contamination read clean, which is a fact about WHERE the STOP landed and not a reason to soften it. The wall stands as measured — no re-roll. Two instrument gaps bear on it (§5 gaps 5 and 6): `e6.sh` has no load guard though the clause is a timing clause, and a five-run min–max is a range and not a tolerance. Re-measuring belongs in the next slice as a NEW pre-registration, E6″, not in this one |
 | E7′ | *"0 occurrences; plus `v23`/`v24` green"* | **0** occurrences across all eight needles; vectors exit 0 | **PASS** — the reader speaks this recorder's words |
 | E8′ | *"5/5, reported per shape; rung 2 gates the rules"* | **5/5** | **PASS** — the five swallow shapes are still seen |
 | E9 | *"tasks = tests_seen (4,278) and conflicts = 0 → PASS; a shortfall is named by shape and STOPs above 1%"* | tasks **4,278** = `tests_seen` **4,278**; conflicts **0**; shortfall **0** (0.0000%) | **PASS** — tests are tasks, with no shortfall to name. The rule attaches no threshold to the 20-name sample, so the sample does not gate; what it measured (the ` > ` join) is §5's |
@@ -535,20 +563,42 @@ hand from §3; §3 was written from `results.json`.
 | The planted change | *"Two call sites swapped in one VTT function → `diff` DIVERGED naming the step. A MATCH voids the verifier and STOPs."* | exit 1 DIVERGED at causal step 16, `A: CALL terrainLaw` against `B: CALL isDiagonal`, with both suites at 56/56 | **PASS** — and the strongest form of it: the swap is value-preserving, so the consumer's own tests could not see it and only the recording did |
 
 **The rung's answer.** Eleven of the twelve gated endpoints and both §10
-controls pass on their own rules. E6′ is partial on one timing clause with
-its three contamination clauses clean, and E10 lands on the second branch of
-its own rule — reported, design input, not a STOP. No endpoint fired a STOP.
+controls PASS on their own rules. **E6′ fired a STOP on its plain-band
+clause** — the one clause of its four that is a timing clause; its manifest,
+marker and wrapper clauses hold exactly. E10 lands on the second branch of
+its own rule — reported, design input, not a STOP.
+
+**The rung therefore ships DONE-WITH-STOP on E6′.** A STOP stands where it
+fires: nothing here re-rolls the 22.8678 s wall, moves the band, or renames
+the verdict. What the STOP is understood to rest on is written down rather
+than argued away — two instrument gaps, §5 gaps 5 and 6 (`e6.sh` runs its one
+timed measurement with no load guard, and the band is a five-run min–max with
+no slack by construction) — and the disposition is that E6′ is **re-measured
+in the next slice under a NEW pre-registration, E6″**, whose band clause is
+stated with a derived width. §1 is locked, so nothing about E6′ is restated
+here; E6″ is a new commitment, made before its instrument exists, and this
+record does not write it.
 
 ---
 
 ## 5. Gaps found
 
-Fourteen entries, each saying what was MEASURED. Four are defects in the
-instruments — two found by the dry runs and fixed before their endpoints read
-anything (1, 2), and two found only AFTER a number had been printed (3, 4).
-Two more are limits of an instrument rather than defects in it (5, 14). The
-rest are facts about the product, the lens or the consumer that this run
-turned up and that no rule asked about.
+Seventeen entries, each saying what was MEASURED.
+
+**Four are defects in the instruments** — two found by the dry runs and fixed
+before their endpoints read anything (1, 2), and two found only AFTER a number
+had been printed (3, 4). **Three are holes in an instrument's procedure**: the
+missing load guards and the unrecorded loads (5), the band's shape and the
+manifest's ordering (6), and E2′'s ratio being blind to a function the walker
+never visits (17). **Three record something this run DID that a reader would
+not infer from a verdict**: an instrument re-read after its endpoint had
+reported (7), a pre-registered phrase applied in a narrower reading than its
+widest (8), and a pinned procedure replaced by a different one (9). **The
+remaining seven** (10–16) are facts about the product, the lens or the
+consumer that this run turned up and that no rule asked about.
+
+Gaps 5 and 6 are the two the E6′ STOP rests on, and neither is offered as a
+reason to discount it.
 
 **1. E7′'s `python ?` needle was a regex, and matched an honest sentence.**
 *(Instrument defect, found in a dry run on `typescript/probes`, fixed before
@@ -598,15 +648,36 @@ transcript, with no command re-run at all, it reads **2 of 2**. Entries 3 and
 is the "value that looks like a measurement but is not" bug the discipline
 warns about, and both were caught only because the raw transcripts were kept.
 
-**5. `e6.sh` has no load guard, and E6′'s one plain run is a timing clause.**
-`arms.sh` waits for the 1-minute load to drop below 4.0 before every run,
-because E1′ is a timing endpoint. E6′ is a timing endpoint too — its third
-clause compares a wall against the plain arm's band — and its instrument
-waits for nothing. It ran at a 1-minute load of 0.86 but a 5-minute load of
-3.39 and a 15-minute load of 4.68, immediately after 372 `sensorium diff`
-subprocesses, and its wall came in 0.65% above the plain arm's top. This is a
-gap in the instrument, found after the number was read; **the number stands
-at 22.8678 s.**
+**5. Two instruments that time something have no load guard: `e6.sh` and
+`e10.sh`.** `arms.sh` waits for the 1-minute load to drop below 4.0 before
+every run, because E1′ is a timing endpoint, and it writes each reading into
+the artifact (§3's E1′ block). **`e6.sh` does neither** — it never opens
+`/proc/loadavg` — and yet its third clause is a timing clause: a wall against
+the plain arm's band. **That is the instrument gap under the STOP E6′ fired.**
+
+*What the load actually was, and how that is known.* `/proc/loadavg` was read
+BY HAND at roughly 16:32, immediately before `e6.sh` was started, and it read
+`0.86 3.39 4.68` — 1-minute 0.86, 5-minute 3.39, 15-minute 4.68, the tail of
+372 `sensorium diff` subprocesses that had just finished. **Those three
+numbers are in no artifact**: no instrument recorded them, they cannot be
+re-derived from anything on disk, and they are quoted here only as the
+operator's own observation. They are not evidence that the load caused the
+0.1457 s, and this record does not claim it did.
+
+**The plain-after wall stands as measured at 22.8678 s.** It is not re-rolled,
+not re-run under a guard, and not averaged with anything: the STOP fired on
+the number that was read, and adding a guard to `e6.sh` is work for the E6″
+pre-registration in the next slice, not a licence to take the measurement
+again in this one.
+
+**`e10.sh` has the same hole and it does not matter here.** E10 times three
+ingest repetitions with no load guard either. Its verdict is a comparison of
+45.5293 s against a 22.5925 s plain median — a margin of **×2.02**, with the
+three repetitions spanning 45.3636–45.5584 s (0.4% apart). No plausible load
+effect closes a factor of two, so the missing guard is immaterial to E10's
+verdict; it is recorded because the next slice should fix both instruments
+together and because "immaterial" is a judgement that should be written down
+with its margin rather than left implicit.
 
 **6. E6′'s band is a 5-run min–max, which is a range and not a tolerance.**
 Beyond the instrument gap above, the clause itself has no slack by
@@ -614,10 +685,81 @@ construction: five runs' min–max on this lens spans 0.41 s (1.8%), and a
 sixth run has no reason to land inside it. The three clauses of E6′ that ask
 about contamination directly all read clean. Whether "inside the plain band"
 should be a band with a stated width — 2 SE of the plain arm, say — is a
-ruling for the next slice, and this record does not make it: §1 is locked and
-the number is what it is.
+ruling for the next slice, and this record does not make it: §1 is locked, the
+number is what it is, and the STOP it produced stands.
 
-**7. The recorder joins a describe chain with ` > `; vitest's JSON reporter
+**And `e6.sh` checks the manifest in the wrong order to cover its own run.**
+The script's sequence is: verify the manifest, then do the plain run, then
+grep for markers, then list the wrapper directory. So its own `748 OK` is a
+statement about the lens BEFORE the last thing that touched it, and the one
+run E6′ itself makes is the one run its manifest clause does not audit. The
+hole was closed by hand rather than by the instrument — `cd <lens> &&
+sha256sum -c <the §2 manifest>` re-taken after E6′ finished, at 16:35 on the
+run day and again at 2026-09-09T16:57:12−05:00, **exit 0, 748 OK, 0 FAILED**
+both times, with nothing run against the lens in between (§3's E6′ block
+carries the same two readings). E6″ should verify the manifest after its own
+run, not before it.
+
+**7. E9 was re-read to add a descriptive field, after its number had been
+read.** The third of the three re-derivations §3 names, and the only one this
+section did not previously carry. After E9's cell was written, `e9.py` was
+given a `separator_normalised_identical` field — a derived comparison that
+says whether the two name lists agree once the recorder's ` > ` join is
+replaced by a space — and re-run over the SAME store, the SAME invocation and
+the SAME `e9.json` vitest report, none of which had changed. **E9's `value`
+was 0 before and 0 after**, `tasks` 4,278 and `tests_seen` 4,278 both times,
+and no threshold moved; what the re-read added was gap 10's characterisation,
+which without it would have been a claim in prose with no field behind it.
+Recording it because a re-run of an instrument after its endpoint has reported
+is exactly the move that needs a paper trail, whether or not it changed a
+number — and here it did not.
+
+**8. E4′'s "byte-identical" was applied to part of the report, and that
+narrowing is the instrument's, not §1's.** §1 says *"the report
+byte-identical"*. `sites.py` compares `{fail_lines, refs}` — the `FAIL`
+headers naming the planted file, and every `path:line:col` it printed FOR
+that file — and deliberately excludes a third field, `other_refs`, from the
+comparison. It excludes it because the two reports differ there: the driven
+run's stack carries two frames the plain run does not,
+
+```
+❯ ../../../../sensorium-rung2/s5-rung1/typescript/src/rt.mjs:296:39
+❯ sensoriumTask ../../../../sensorium-rung2/s5-rung1/typescript/src/rt.mjs:296:23
+```
+
+so the two reports are **not** byte-identical as whole texts, and E4′'s PASS
+rests on the narrower reading *"the failing assertion's line and column, and
+the test-file frames, byte-identical"* — which is what the endpoint's question
+asks (*"Do sites keep their lines and columns?"*) and what its Measurement
+column pins (*"one planted failing assertion's line and column as vitest
+reports it"*). Both readings are measured and both are in §3: the planted
+site's `src/lib/safeUrl.test.ts:44:13` and its `FAIL` header are identical,
+and the driven report has two extra frames pointing into the recorder's own
+runtime. Naming it because a reader who takes "byte-identical" at its widest
+would be entitled to a different verdict, and should not have to diff the logs
+to discover which reading was used.
+
+**9. E11(b) did not use §1's pinned `pgrep`; it used the recorder's own
+spool.** §1 pins the victim as *"found by `pgrep -f '^[^ ]*node .*forks'`
+anchored (never `pkill -f` unanchored: it self-matches)"*. `e11.sh` finds it a
+different way: it polls the invocation's spool directory for the `.jsonl`
+whose records declare `src/components/inventory/InventoryTab.test.tsx` and
+takes the pid out of that spool's own filename (`1568484-0.jsonl` → pid
+1568484). The substitution is deliberate and strictly more exact — an anchored
+`pgrep` over `forks.js` matches EVERY fork of the pool, of which a 16-core run
+has many, and none of their command lines names the test file, so a `pgrep`
+would still have needed a second step to pick the right one; the spool IS the
+recorder saying which container took which file. The pin's safety intent —
+never an unanchored pattern that can match the killing process itself — holds
+completely: nothing in this run called `pkill` at all, and the only kill issued
+was `kill -9 <one pid>` at a pid read from a filename. The victim's
+`/proc/<pid>/cmdline` was logged before the kill and is in the record's
+evidence, and it is the vitest fork the pinned pattern describes:
+`node … --conditions development …/vitest/dist/workers/forks.js`. Naming it
+because a pinned procedure was replaced, which a reader may not infer from a
+verdict.
+
+**10. The recorder joins a describe chain with ` > `; vitest's JSON reporter
 joins it with a space.** E9's 20-name sample is **not** identical as printed
 and **is** identical once ` > ` is replaced by a space — same segments, same
 order, 20 of 20. `InventoryTab > renders a resolved item and toggles equip`
@@ -628,7 +770,7 @@ is: the same name, spelled with a visible separator. Whether the recorder
 should emit vitest's own `fullName` spelling is a design question this record
 raises and does not settle.
 
-**8. E2′'s census set does not include test files, and the run-time transform
+**11. E2′'s census set does not include test files, and the run-time transform
 excludes something the census never sees.** The census walks `src` with
 `.test.`/`.spec.`/`.d.ts`/setup files skipped, and over that set reports
 `excluded: {}` — no exclusions at all. `info` on a call-arm trace reports the
@@ -639,7 +781,7 @@ the only exclusion this lens actually produces lives entirely outside the set
 E2′ measures. The exclusion IS named where it occurs; the gap is that the
 census cannot see it.
 
-**9. Eight of the lens's 372 test files record differently on two runs of the
+**12. Eight of the lens's 372 test files record differently on two runs of the
 same suite.** Spec §8 asks for this count without a gate and reads a non-zero
 as *"a finding about the consumer"*. It is 8 of 372 (2.2%), the eight are
 named in §3.4, and none of them is `useMeshVoice.test.tsx`, whose twenty
@@ -647,7 +789,7 @@ recordings were all identical (E3-TS). Nothing here is a recorder defect: the
 comparator refused nothing and mis-called nothing; eight VTT test files take
 different code paths on different runs.
 
-**10. The driver's conversion, not its recording, is what costs.** E1′'s call
+**13. The driver's conversion, not its recording, is what costs.** E1′'s call
 arm moved the harness wall by 13.2% (25.5832 s against 22.5925 s) while the
 DRIVER's total wall was 3.1× plain, and E10 measures the difference directly:
 45.53 s to convert 372 spools and 414 MB. The call arm's total wall also
@@ -655,7 +797,7 @@ climbed run to run — 45.0, 63.6, 71.1, 71.2, 70.3 s — with the harness wall
 flat, so the conversion slowed as the store filled. That is E10's design
 input with a second, independent reading of the same effect beside it.
 
-**11. E11(a)'s trace came from a driven probe run, not from E4′'s.** E4′ runs
+**14. E11(a)'s trace came from a driven probe run, not from E4′'s.** E4′ runs
 the probes DIRECTLY (`SENSORIUM_PROBE_DIRECT=1`), which writes spools and no
 `invocation.json`, and `sensorium ts ingest` refuses a directory that no
 driver wrote — correctly, since a spool set with no driver record cannot say
@@ -665,7 +807,7 @@ checker over the driven run's spool read the same **77 checks, 0 failures** as
 the direct one. Naming it because the brief expected one probe run and there
 were two.
 
-**12. The control copies are not byte-for-byte the lens.** `copy_lens`
+**15. The control copies are not byte-for-byte the lens.** `copy_lens`
 excludes `node_modules` (symlinked to the lens's, as the brief specifies) and
 three more directories — `dist`, `.pytest_cache` and `e2e-shots`: build
 output, a pytest cache and screenshots, none of which a recorded test reads.
@@ -674,7 +816,7 @@ controls' `before` recordings read `1 passed (1)` / `56 passed (56)`, the same
 as the lens's own, so nothing the recorded test file needs was left behind;
 recorded because it is a difference between the copies and the lens.
 
-**13. E2′'s ratio held at 1.000 while its DENOMINATOR moved.** The spike
+**16. E2′'s ratio held at 1.000 while its DENOMINATOR moved.** The spike
 measured 5,403 of 5,403 over 368 files with `excluded: {}` and a bloat of
 1.2421; this run measures **5,378 of 5,378 over 367 files**, `excluded: {}`,
 bloat 1.2543 — one file and 25 sites fewer on the same lens at the same
@@ -687,7 +829,7 @@ instruments and this record does not treat them as a regression. Naming it
 because "5,403 of 5,403 was measured" is written into the rule, and a reader
 who takes 5,378 for a shortfall would be reading two lenses as one.
 
-**14. E2′'s ratio cannot see a function the transform's walker never
+**17. E2′'s ratio cannot see a function the transform's walker never
 visits.** `eligible` is `instrumented` plus the transform's own NAMED
 function-level exclusions, so a function-like node the walker does not reach
 appears in neither term and the ratio stays 1.000 by construction. That is a
