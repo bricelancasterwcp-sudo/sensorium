@@ -6,6 +6,8 @@ before it can fail in a way that would otherwise leave something behind:
     node --version        refused below 24 (D2) before anything is minted
     the package           refused uninstalled before anything is minted
     recognise             refused before a spool directory exists
+    the root's typescript refused once the plan names the root, and still
+                          before anything is minted
     mint, invocation.json the record of what is about to be spawned
     the wrapper           two files, in a `finally` from here on
     spawn, wait           the harness's stdio is the user's; the driver
@@ -51,18 +53,29 @@ def run(args) -> int:
         package = pkg_mod.locate()
         pkg_mod.check(package)
     except pkg_mod.PackageError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return ex.BAD_CALL
+        return _refuse(str(e))
     cwd = Path.cwd()
     plan = harness_mod.recognise(command, cwd)
     if isinstance(plan, harness_mod.Refusal):
-        print(f"error: {plan.message}", file=sys.stderr)
-        return ex.BAD_CALL
+        return _refuse(plan.message)
+    # After `recognise`, because only the plan knows the root -- and still
+    # before anything is minted.
+    try:
+        pkg_mod.check_root(plan.root)
+    except pkg_mod.PackageError as e:
+        return _refuse(str(e))
     try:
         return _record(plan, package, node, cwd, args)
     except wrapper.WrapperError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return ex.BAD_CALL
+        return _refuse(str(e))
+
+
+def _refuse(message: str) -> int:
+    """One line on stderr, exit 2, nothing left behind. Every refusal this
+    driver makes before the harness is spawned goes through here, so they
+    are one shape and not six."""
+    print(f"error: {message}", file=sys.stderr)
+    return ex.BAD_CALL
 
 
 def _record(plan, package: Path, node: str, cwd: Path, args) -> int:

@@ -104,6 +104,29 @@ def test_jest_is_refused_by_name(cmd, tmp_path):
         "run it")
 
 
+#: A directory somebody called `jest` -- a suite of jest-compatibility
+#: tests, a fixture directory -- sitting where the harness's own arguments
+#: go. None of these is a jest run (R44, finding 11).
+NOT_JEST = [
+    ["vitest", "run", "src/jest"],
+    ["npx", "vitest", "run", "test/jest"],
+    ["vitest", "run", "--", "src/jest"],
+    ["node", "--test", "src/jest"],
+]
+
+
+@pytest.mark.parametrize("cmd", NOT_JEST, ids=[" ".join(c) for c in NOT_JEST])
+def test_a_path_argument_called_jest_does_not_make_a_run_jest(cmd, tmp_path):
+    """The refusal scanned EVERY token for a name ending in `/jest`, so a
+    perfectly ordinary vitest run over a directory called `jest` was refused
+    as a harness the consumer was not running -- and the sentence they got
+    named jest, which appears nowhere in what they typed. The check keys on
+    the harness token: the first token past any runner prefix."""
+    got = harness.recognise(list(cmd), Path(tmp_path))
+    assert isinstance(got, harness.Plan), got.message
+    assert got.kind == ("node-test" if "--test" in cmd else "vitest")
+
+
 def test_jest_wins_over_the_package_script_refusal(tmp_path):
     """`npm run jest` is both a script and jest. Telling the caller to run
     the harness directly would be telling them to run a harness this

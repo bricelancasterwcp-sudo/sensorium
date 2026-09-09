@@ -35,6 +35,11 @@ NODE_FLOOR = 24
 #: transform, minutes later, about a module the consumer never mentioned.
 INSTALLED = Path("node_modules") / "magic-string"
 
+#: The one module resolved from the CONSUMER's tree rather than this
+#: package's. The transform positions itself against the AST the consumer's
+#: own build produces, so it parses with the compiler that build trusts.
+CONSUMER_DEP = "typescript"
+
 
 class PackageError(Exception):
     """The Node side cannot be used, and the sentence says what to do."""
@@ -57,6 +62,35 @@ def check(pkg: Path) -> None:
         raise PackageError(
             f"the recorder's Node package at {pkg} has no {INSTALLED}: "
             f"install it with `npm ci --prefix {pkg}`")
+
+
+def check_root(root: Path) -> None:
+    """Refuse a project whose own TypeScript the transform cannot resolve.
+
+    The transform parses with the CONSUMER's compiler and never with this
+    package's: the loader hook and the Vite plugin both `require` it from
+    the ROOT, because the AST a recorder positions itself against has to be
+    the one the consumer's own build produces. Absent, that surfaced as an
+    `ERR_MODULE_NOT_FOUND` thrown inside a transform, minutes into a run,
+    about a module the consumer never mentioned -- the same failure shape
+    `check` above exists to stop for `magic-string`.
+
+    Resolved the way NODE resolves it from `<root>/package.json`:
+    `<root>/node_modules`, then each parent's. A workspace package whose
+    dependency is hoisted to the repository root has no `node_modules` of
+    its own and runs fine, and refusing it for a directory Node was never
+    going to look in would be a refusal about this check, not about the run.
+    """
+    root = Path(root)
+    for directory in (root, *root.parents):
+        if (directory / "node_modules" / CONSUMER_DEP
+                / "package.json").is_file():
+            return
+    raise PackageError(
+        f"{root} has no {CONSUMER_DEP} in node_modules: the transform "
+        f"parses with the consumer's own compiler, and there is none here "
+        f"to parse with -- install it with `npm install --save-dev "
+        f"{CONSUMER_DEP}`")
 
 
 def version(pkg: Path) -> str:

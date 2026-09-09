@@ -296,6 +296,8 @@ def test_the_wrapper_is_removed_even_when_the_run_raises(
     root = tmp_path / "app"
     (root / "node_modules").mkdir(parents=True)
     (root / "node_modules" / ".package-lock.json").write_text("{}\n")
+    (root / "node_modules" / "typescript").symlink_to(
+        pkg_mod.locate() / "node_modules" / "typescript")
     monkeypatch.chdir(root)
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
 
@@ -330,6 +332,8 @@ def test_the_wrapper_goes_when_the_run_merely_finishes(tmp_path, monkeypatch):
     root = tmp_path / "app"
     (root / "node_modules").mkdir(parents=True)
     (root / "node_modules" / ".package-lock.json").write_text("{}\n")
+    (root / "node_modules" / "typescript").symlink_to(
+        pkg_mod.locate() / "node_modules" / "typescript")
     monkeypatch.chdir(root)
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     monkeypatch.setattr(driver, "_spawn",
@@ -413,6 +417,43 @@ def test_a_node_below_the_floor_is_refused_before_anything_is_spawned(
     assert r.returncode == 2
     assert "24" in r.stderr and "v22.14.0" in r.stderr
     assert not (tmp_path / "sdir" / "spool").exists()
+
+
+def test_a_project_with_no_typescript_of_its_own_is_refused_by_name(
+        project, tmp_path):
+    """R44, finding 12. The transform parses with the CONSUMER's compiler --
+    the loader hook and the Vite plugin both resolve `typescript` from the
+    ROOT, never from this package -- and a project without one produced an
+    `ERR_MODULE_NOT_FOUND` from inside a transform, about a module the
+    consumer never mentioned, minutes into a run. The preflight already
+    refuses the recorder's own missing dependency by name; this is the
+    consumer's, and it is refused the same way.
+    """
+    (project / "node_modules" / "typescript").unlink()
+    r = run_cli(["ts", "run", "--", "node", "--test", "a.test.ts"],
+                cwd=project, sensorium_dir=tmp_path / "sdir")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "Traceback" not in r.stderr
+    assert len(r.stderr.strip().splitlines()) == 1
+    assert f"{project} has no typescript in node_modules" in r.stderr
+    assert "the consumer's own compiler" in r.stderr
+    # Refused before anything was minted.
+    assert not (tmp_path / "sdir" / "spool").exists()
+
+
+def test_a_hoisted_typescript_is_resolved_the_way_node_resolves_it(tmp_path):
+    """A workspace package has no `node_modules` of its own and runs against
+    the workspace root's. Node's own resolution from `<root>/package.json`
+    walks the parents, so this check does too -- a strict look in
+    `<root>/node_modules` alone would refuse a project that works.
+    """
+    workspace = tmp_path / "ws"
+    (workspace / "node_modules" / "typescript").mkdir(parents=True)
+    (workspace / "node_modules" / "typescript" / "package.json").write_text(
+        '{"name": "typescript"}\n')
+    inner = workspace / "packages" / "app"
+    inner.mkdir(parents=True)
+    pkg_mod.check_root(inner)               # does not raise
 
 
 def test_an_uninstalled_package_is_refused_naming_the_install(

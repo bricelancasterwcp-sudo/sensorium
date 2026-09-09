@@ -100,21 +100,38 @@ def recognise(cmd: list[str], cwd: Path) -> Plan | Refusal:
     cwd = Path(cwd)
     if not cmd:
         return Refusal(f"no harness command given: {_BOTH}")
-    # Before the prefix walk: `npm run jest` is both a script and jest, and
-    # telling the caller to run jest directly would send them at a harness
-    # this recorder does not wire.
-    if any(_names(tok, "jest") for tok in cmd):
-        return Refusal(JEST)
     start = _skip_runners(cmd)
     if isinstance(start, Refusal):
-        return start
+        # `npm run jest` is both a script and jest, and the script sentence's
+        # advice -- run the harness directly -- would send them at a harness
+        # this recorder does not wire. The jest sentence is the one they get.
+        return Refusal(JEST) if _script_names_jest(cmd) else start
     head = cmd[start]
+    # The HARNESS token, and no other (R44, finding 11). Scanning every token
+    # refused `vitest run src/jest` -- an ordinary vitest run over a directory
+    # somebody called `jest` -- with a sentence naming a harness that appears
+    # nowhere in what they typed.
+    if _names(head, "jest"):
+        return Refusal(JEST)
     if _names(head, "vitest"):
         return _vitest(cmd, start, cwd)
     if _names(head, "node") and "--test" in cmd[start + 1:]:
         return _node_test(cmd, start, cwd)
     return Refusal(f"{' '.join(cmd)} names no harness this recorder wires: "
                    f"{_BOTH}")
+
+
+def _script_names_jest(cmd: list[str]) -> bool:
+    """Whether a refused package-script command runs a script called jest.
+
+    The token straight after the manager's verb is the SCRIPT's name, which
+    is the closest thing such a command has to a harness token -- unlike
+    the file arguments further along, which name nothing.
+    """
+    for i, token in enumerate(cmd[:-2]):
+        if token in MANAGERS and cmd[i + 1] in SCRIPT_VERBS:
+            return _names(cmd[i + 2], "jest")
+    return False
 
 
 def _names(token: str, program: str) -> bool:
