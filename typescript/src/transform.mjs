@@ -20,11 +20,17 @@ import { qualnameFor } from './qualname.mjs';
 /** @typedef {import('typescript').FunctionLikeDeclaration} FunctionLike */
 /** @typedef {'function'|'coroutine'|'generator'|'async_generator'} FrameKind */
 /** @typedef {{qualname: string, line: number, kind: FrameKind}} Site */
-/** @typedef {{file: string, rel: string, sha256: string, instrumented: Site[], excluded: Record<string, number>}} Manifest */
+/** @typedef {{file: string, rel: string, sha256: string, instrumented: Site[], excluded: Record<string, number>, diagnostics?: string[]}} Manifest */
 
-/** Extensions the recorder can instrument; `.cjs` is counted, never transformed. */
-const ELIGIBLE = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs']);
+/** Extensions the recorder can instrument; CommonJS is counted, never transformed. */
+const ELIGIBLE = new Set(['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs']);
+const COMMONJS = new Set(['.cjs', '.cts']);
 const DECLARATION = /\.d\.[cm]?ts$/;
+
+/** A file whose name says it holds tests, whatever it imports. */
+const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
+/** A file that imports one of these holds tests, whatever it is named. */
+const HARNESS_MODULES = new Set(['vitest', 'node:test', '@jest/globals']);
 
 /** `vi.*` calls vitest hoists above every import, our header included. */
 const HOISTED_VI = new Set(['mock', 'doMock', 'hoisted', 'unmock']);
@@ -54,7 +60,7 @@ export function classify(filePath, root) {
   if (rel.split(path.sep).includes('node_modules')) return 'skip';
   if (DECLARATION.test(filePath)) return 'skip';
   const ext = path.extname(filePath);
-  if (ext === '.cjs') return 'commonjs';
+  if (COMMONJS.has(ext)) return 'commonjs';
   return ELIGIBLE.has(ext) ? 'transform' : 'skip';
 }
 
@@ -142,6 +148,44 @@ function isHoistedCall(ts, node) {
     node.expression.expression.text === 'vi' &&
     HOISTED_VI.has(node.expression.name.text)
   );
+}
+
+/**
+ * Whether this file holds tests. The test/suite wrap applies here and nowhere
+ * else: `test`, `it`, `describe` and `suite` are ordinary identifiers, and a
+ * consumer may own them — the lens does, a local `describe(label, formula,
+ * value)` in `src/lib/combat/attackRoll.ts`. Rewriting that call would change
+ * what the program does, which is the one thing this recorder may never do.
+ * Inside a test file the rule is the opposite: every second argument is wrapped,
+ * an identifier included, so no task boundary goes missing (controller R8).
+ * @param {TS} ts
+ * @param {SourceFile} sf
+ * @param {string} filePath
+ * @returns {boolean}
+ */
+function isTestFile(ts, sf, filePath) {
+  if (TEST_FILE.test(path.basename(filePath))) return true;
+  let found = false;
+  /** @param {Node} node */
+  const visit = (node) => {
+    if (found) return;
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) &&
+        HARNESS_MODULES.has(node.moduleSpecifier.text)) {
+      found = true;
+      return;
+    }
+    if (ts.isCallExpression(node) && node.arguments.length > 0 &&
+        ts.isStringLiteral(node.arguments[0]) &&
+        HARNESS_MODULES.has(node.arguments[0].text) &&
+        (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+          (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return found;
 }
 
 /**
@@ -240,7 +284,7 @@ function planSites(ts, sf) {
 /**
  * The state pass two threads through every splice: the consumer's TypeScript,
  * the parsed file, the edit buffer, and which function-likes are recorded.
- * @typedef {{ts: TS, sf: SourceFile, s: MagicString, indexOf: Map<Node, number>}} Splicer
+ * @typedef {{ts: TS, sf: SourceFile, s: MagicString, indexOf: Map<Node, number>, isTestFile: boolean}} Splicer
  */
 
 /**
@@ -289,6 +333,19 @@ function spliceFunction(ctx, node) {
 }
 
 /**
+ * A bare `return` or `yield` that ASI terminated is now an expression, and the
+ * next line would join it: `return\n(g)()` would call our `ret(...)` result
+ * instead of returning. A statement-level one is given the semicolon the source
+ * left to ASI — always legal there, and never inserted twice (R12).
+ * @param {Splicer} ctx
+ * @param {Node} statement the whole statement the splice terminates
+ * @returns {string} `';'` when the statement has none of its own
+ */
+function terminatorFor(ctx, statement) {
+  return ctx.sf.text[statement.end - 1] === ';' ? '' : ';';
+}
+
+/**
  * @param {Splicer} ctx
  * @param {import('typescript').ReturnStatement} node
  */
@@ -296,7 +353,8 @@ function spliceReturn(ctx, node) {
   const { sf, s } = ctx;
   if (!isRecorded(ctx, node)) return;
   if (!node.expression) {
-    s.appendLeft(node.getStart(sf) + 'return'.length, ' __srt.ret(__sf,undefined)');
+    const end = terminatorFor(ctx, node);
+    s.appendLeft(node.getStart(sf) + 'return'.length, ` __srt.ret(__sf,undefined)${end}`);
     return;
   }
   s.appendLeft(node.expression.getStart(sf), '__srt.ret(__sf,(');
@@ -312,11 +370,16 @@ function spliceReturn(ctx, node) {
  * @param {string} keyword
  */
 function spliceSuspension(ctx, node, kind, keyword) {
-  const { sf, s } = ctx;
+  const { ts, sf, s } = ctx;
   if (!isRecorded(ctx, node)) return;
   s.appendLeft(node.getStart(sf), '__srt.r(__sf,');
   if (!node.expression) {
-    s.appendLeft(node.getStart(sf) + keyword.length, ` __srt.y(__sf,(undefined),${kind}))`);
+    // Only a whole statement may take a terminator; a nested `yield` may not.
+    const parent = node.parent;
+    const end = ts.isExpressionStatement(parent) && parent.expression === node
+      ? terminatorFor(ctx, parent)
+      : '';
+    s.appendLeft(node.getStart(sf) + keyword.length, ` __srt.y(__sf,(undefined),${kind}))${end}`);
     return;
   }
   s.appendLeft(node.expression.getStart(sf), '__srt.y(__sf,(');
@@ -382,26 +445,21 @@ function spliceEmptyCatchCallback(ctx, node) {
  * A test or a suite: the title and the function are handed to the runtime as
  * the call's own argument list, so options arguments after them survive.
  *
- * The callback must be written inline. `test` and `describe` are ordinary
- * identifiers, and a consumer may have its own — the lens does: a local
- * `describe(label, formula, value)` helper in `src/lib/combat/attackRoll.ts`.
- * Wrapping on the callee's name alone would rewrite that call and change what
- * the program does, which is the one thing this recorder may never do. On the
- * lens all 4,858 real test call sites pass an inline arrow or function
- * expression, so the narrower rule costs nothing measured; a test whose
- * callback is a bare identifier is a task boundary this recorder does not see.
+ * The rule is file-scoped (R8, `isTestFile`). Inside a test file the second
+ * argument is wrapped whatever its shape — a bare identifier included, which the
+ * runtime passes through unchanged — so no task boundary goes missing; outside
+ * one, nothing is wrapped, so a consumer's own `describe` is never rewritten.
  * @param {Splicer} ctx
  * @param {import('typescript').CallExpression} node
  */
 function spliceTaskBoundary(ctx, node) {
   const { ts, sf, s } = ctx;
-  if (node.arguments.length < 2) return;
+  if (!ctx.isTestFile || node.arguments.length < 2) return;
   const chain = calleeChain(ts, node.expression);
   if (!chain) return;
   const isTask = TASK_CALLEES.has(chain[0]);
   if (!isTask && !SUITE_CALLEES.has(chain[0])) return;
   const [title, fn] = node.arguments;
-  if (!ts.isArrowFunction(fn) && !ts.isFunctionExpression(fn)) return;
   s.appendLeft(title.getStart(sf), `...__srt.${isTask ? 'task' : 'suite'}((`);
   s.prependRight(title.end, ')');
   if (!isTask) {
@@ -438,6 +496,24 @@ function splice(ctx) {
 }
 
 /**
+ * The parser's own complaints about a file. TypeScript's parser recovers from
+ * anything, so a broken file still yields a tree — with positions that mean
+ * nothing. Splicing into it would corrupt the source, so a file that does not
+ * parse is reported and left alone (R10).
+ * @param {SourceFile} sf
+ * @returns {string[]} the first three message texts, flattened
+ */
+function parseErrors(sf) {
+  const diagnostics = /** @type {import('typescript').Diagnostic[]|undefined} */ (
+    /** @type {any} */ (sf).parseDiagnostics
+  );
+  if (!diagnostics || diagnostics.length === 0) return [];
+  return diagnostics.slice(0, 3).map((d) =>
+    typeof d.messageText === 'string' ? d.messageText : d.messageText.messageText,
+  );
+}
+
+/**
  * @param {TS} ts
  * @param {string} filePath
  * @returns {import('typescript').ScriptKind}
@@ -445,7 +521,7 @@ function splice(ctx) {
 function scriptKindFor(ts, filePath) {
   const ext = path.extname(filePath);
   if (ext === '.tsx') return ts.ScriptKind.TSX;
-  if (ext === '.ts') return ts.ScriptKind.TS;
+  if (ext === '.ts' || ext === '.mts') return ts.ScriptKind.TS;
   // JSX in a `.js` file is common and parsing it as plain JS would mangle
   // positions; `.ts` is the only extension where JSX mode changes meaning.
   return ts.ScriptKind.JSX;
@@ -456,24 +532,31 @@ function scriptKindFor(ts, filePath) {
  * pushed onto a line of its own: a shebang, which has to be the first line, and
  * a directive prologue — `\'use client\'` stops being a directive the moment an
  * import precedes it, and demoting it would change what the program does.
+ *
+ * A directive written without its semicolon (prettier `--semi false`) needs one
+ * supplied, or the header is glued to it: `\'use client\'import * as __srt` is a
+ * syntax error. A shebang needs no terminator — it ends at its newline, and a
+ * semicolon there would be an empty statement of pure noise.
  * @param {TS} ts
  * @param {SourceFile} sf
  * @param {string} code
- * @returns {number} the offset to splice at, or -1 for a file with no code
+ * @returns {{offset: number, terminator: string}|null} null for a file with no code
  */
-function headerOffset(ts, sf, code) {
+function headerPlacement(ts, sf, code) {
   let offset = 0;
+  let terminator = '';
   if (code.startsWith('#!')) {
     const newline = code.indexOf('\n');
     // A file that is nothing but a shebang line has no code to record.
-    if (newline === -1) return -1;
+    if (newline === -1) return null;
     offset = newline + 1;
   }
   for (const statement of sf.statements) {
     if (!ts.isExpressionStatement(statement) || !ts.isStringLiteral(statement.expression)) break;
     offset = statement.end;
+    terminator = code[offset - 1] === ';' ? '' : ';';
   }
-  return offset;
+  return { offset, terminator };
 }
 
 /**
@@ -481,13 +564,14 @@ function headerOffset(ts, sf, code) {
  * hashes, the absolute path the contract stores, the site table, and the digest
  * of the source as it was read. It never adds a line.
  * @param {MagicString} s
- * @param {number} offset
+ * @param {{offset: number, terminator: string}|null} placement
  * @param {string} header
  */
-function prependHeader(s, offset, header) {
-  if (offset < 0) return;
-  if (offset === 0) s.prepend(header);
-  else s.appendLeft(offset, header);
+function prependHeader(s, placement, header) {
+  if (!placement) return;
+  const text = placement.terminator + header;
+  if (placement.offset === 0) s.prepend(text);
+  else s.appendLeft(placement.offset, text);
 }
 
 /**
@@ -496,10 +580,12 @@ function prependHeader(s, offset, header) {
  * @param {string} filePath absolute path to the file
  * @param {{root: string, ts: TS, rtPath: string}} opts the invocation root, the
  *   consumer's own TypeScript, and the import specifier of the runtime module
- * @returns {{code: string, map: import('magic-string').SourceMap, manifest: Manifest}|null}
+ * @returns {{code: string|null, map: import('magic-string').SourceMap|null, manifest: Manifest}|null}
  *   null for a path this recorder does not transform — outside the root, under
  *   any `node_modules`, a declaration file, CommonJS, or an ineligible
- *   extension. A null carries no manifest; `classify` says which it was.
+ *   extension. A bare null carries no manifest and means \'not ours\'; `classify`
+ *   says which it was. A manifest with `code: null` means \'ours, untouched,
+ *   counted\': the file did not parse, and `excluded['parse-error']` says so.
  */
 export function transformSource(code, filePath, opts) {
   if (classify(filePath, opts.root) !== 'transform') return null;
@@ -513,15 +599,31 @@ export function transformSource(code, filePath, opts) {
     scriptKindFor(ts, filePath),
   );
 
+  const sha256 = crypto.createHash('sha256').update(code).digest('hex');
+  const diagnostics = parseErrors(sf);
+  if (diagnostics.length > 0) {
+    return {
+      code: null,
+      map: null,
+      manifest: {
+        file: filePath,
+        rel,
+        sha256,
+        instrumented: [],
+        excluded: { 'parse-error': 1 },
+        diagnostics,
+      },
+    };
+  }
+
   const { sites, indexOf, excluded } = planSites(ts, sf);
   const s = new MagicString(code);
-  splice({ ts, sf, s, indexOf });
+  splice({ ts, sf, s, indexOf, isTestFile: isTestFile(ts, sf, filePath) });
 
-  const sha256 = crypto.createHash('sha256').update(code).digest('hex');
   const codes = sites.map((site) => [site.qualname, site.line, site.kind]);
   prependHeader(
     s,
-    headerOffset(ts, sf, code),
+    headerPlacement(ts, sf, code),
     `import * as __srt from ${JSON.stringify(opts.rtPath)};` +
       `const __sfile=__srt.file(${JSON.stringify(rel)},${JSON.stringify(filePath)},` +
       `${JSON.stringify(codes)},${JSON.stringify(sha256)});`,

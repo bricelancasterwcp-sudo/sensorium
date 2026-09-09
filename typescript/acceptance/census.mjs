@@ -7,6 +7,8 @@
 // The keys:
 //   files         files transformed
 //   failed        [{file, error}] — files the transform threw on; must be empty
+//   parse_error   files the consumer's own parser rejected, so they were left
+//                 untouched and counted rather than spliced blind (R10)
 //   instrumented  function sites instrumented across the tree
 //   excluded      every exclusion, by its own name, summed over the tree
 //   by_kind       instrumented sites by the contract's frame kind
@@ -18,6 +20,9 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 
 import { classify, transformSource } from '../src/transform.mjs';
+
+/** Exclusions that count a whole file, not a function inside one. */
+const FILE_LEVEL_REASONS = new Set(['commonjs', 'parse-error']);
 
 /** Files a run instruments but a source census does not measure. */
 const SKIP_NAME = /(\.test\.|\.spec\.|\.d\.ts$|^test-setup\.ts$|^setupTests\.)/;
@@ -52,6 +57,8 @@ function census(root) {
   const ts = require('typescript');
   /** @type {{file: string, error: string}[]} */
   const failed = [];
+  /** @type {string[]} */
+  const parseError = [];
   /** @type {Record<string, number>} */
   const excluded = {};
   /** @type {Record<string, number>} */
@@ -74,12 +81,16 @@ function census(root) {
     try {
       const out = transformSource(code, file, { root, ts, rtPath: 'sensorium-ts/rt' });
       if (!out) continue;
+      for (const [reason, n] of Object.entries(out.manifest.excluded)) add(excluded, reason, n);
+      if (out.code === null) {
+        parseError.push(file);
+        continue;
+      }
       files += 1;
       inBytes += Buffer.byteLength(code);
       outBytes += Buffer.byteLength(out.code);
       instrumented += out.manifest.instrumented.length;
       for (const site of out.manifest.instrumented) add(byKind, site.kind, 1);
-      for (const [reason, n] of Object.entries(out.manifest.excluded)) add(excluded, reason, n);
       if (out.code.split('\n').length !== code.split('\n').length) {
         failed.push({ file, error: 'line count changed' });
       }
@@ -89,12 +100,13 @@ function census(root) {
   }
 
   const functionExclusions = Object.entries(excluded)
-    .filter(([reason]) => reason !== 'commonjs')
+    .filter(([reason]) => !FILE_LEVEL_REASONS.has(reason))
     .reduce((sum, [, n]) => sum + n, 0);
   const eligible = instrumented + functionExclusions;
   return {
     files,
     failed,
+    parse_error: parseError,
     instrumented,
     excluded,
     by_kind: byKind,

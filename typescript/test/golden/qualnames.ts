@@ -14,6 +14,7 @@ const handlers = {
 
 Store.reset = function () {};
 module.exports.legacy = function () {};
+module.exports = function () {};
 
 const doubled = [1, 2].map((n) => n * 2);
 

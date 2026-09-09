@@ -81,7 +81,10 @@ function bindingName(ts, node) {
   if (ts.isBinaryExpression(parent) &&
       parent.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
       parent.right === node) {
-    return dottedName(ts, parent.left);
+    const assigned = dottedName(ts, parent.left);
+    // `module.exports = fn` is the whole module's default export, named as
+    // `export default` is; `module.exports.x = fn` keeps the property's name.
+    return assigned === 'module.exports' ? 'default' : assigned;
   }
   if (ts.isExportAssignment(parent)) return 'default';
   return null;
