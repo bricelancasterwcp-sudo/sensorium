@@ -506,12 +506,16 @@ which is where a reader goes for what the design said before it moved.
   in place (§4's endpoint count, which had read E10's REPORTED as a PASS; §5
   gap 8's quoted frames, which carried this box's worktree name), and touched
   neither §1, §2 nor §3.
-- **The 800-line ceiling, paid three times before it was hit** (R35, R20,
-  R25). `typescript/test/rt.test.mjs` split at 802 during Task 4;
-  `docs/TRACE-FORMAT.md` at 799 not edited at all, its TypeScript keys going
-  to `docs/trace-format/TYPESCRIPT-KEYS.md`; and in this doc pass
-  `CHANGELOG.md`'s three oldest entries cut to `CHANGELOG-ARCHIVE.md` and the
-  README's `## Corpus` roll-call moved to `docs/corpus.md`, both pure moves.
+- **The 800-line ceiling, paid four times before it was hit** (R20, R25,
+  R35). `typescript/test/rt.test.mjs` split at 802 during Task 4 (**R20**);
+  `docs/TRACE-FORMAT.md` given only what **R25** allowed — five additions that
+  took it 752 → **799** in Task 7 — with the TypeScript meta-key table going
+  to `docs/trace-format/TYPESCRIPT-KEYS.md` instead, and no further edit in
+  the doc pass (**R35**); and in the doc pass itself two pure moves,
+  `CHANGELOG.md`'s three oldest entries (`0.8.2`, `0.8.1`, `0.8.0`) to
+  `CHANGELOG-ARCHIVE.md` and the README's `## Corpus` roll-call to
+  `docs/corpus.md`. Four payments, four items — and a fifth, this file's own
+  volume 4, narrated in the header above rather than here.
 - **The versions.** Python `0.9.0` (declared, and the editable installs in all
   three venvs reinstalled with it, because `test_release_tokens.py` reads
   `importlib.metadata` and not only the file); `sensorium-ts` stays `0.1.0`,
@@ -644,12 +648,17 @@ falsifier, none of them silent.**
 is the rule that produced volume 4, the CHANGELOG's third cut and
 `docs/corpus.md` in this same slice.
 
-- **`docs/TRACE-FORMAT.md` is at 799 of 800** and was not edited by this
-  slice at all (*ruling R25*): the TypeScript meta keys went to
-  `docs/trace-format/TYPESCRIPT-KEYS.md` instead. The next thing that document
-  needs splits it first, at a section seam. Everything else this slice touched
-  has room: `CHANGELOG.md` 745, `README.md` 749, `docs/CARRIED-DEBT.md` 740,
-  `typescript/HONESTY.md` 625. The two files over 800 —
+- **`docs/TRACE-FORMAT.md` is at 799 of 800**, having reached it on this
+  branch: Task 7 (`63a6af4`, `1abf67c`) took it 752 → 799 with exactly the
+  five additions *ruling R25* allowed — the `lang` value, the `exc.kind`/`how`
+  enumerations, the `runs` header sentence, the vocabulary column and a
+  pointer — while the TypeScript meta-key table went to
+  `docs/trace-format/TYPESCRIPT-KEYS.md` instead of into it. The **doc pass**
+  then edited it no further (*ruling R35*), which is the clause that says
+  "not edited" and the only one that does. The next thing that document needs
+  splits it first, at a section seam. Everything else this slice touched
+  has room: `CHANGELOG.md` 756, `README.md` 749, `docs/CARRIED-DEBT.md` 782,
+  `typescript/HONESTY.md` 627. The two files over 800 —
   `docs/superpowers/specs/2026-09-09-…-design.md` at 901 and the acceptance
   record at 854 — are in the two directories `tests/test_ceiling.py` exempts
   BY NAME as dated history, and are amended by appended notes, never
@@ -705,7 +714,11 @@ subject is a mood).
 - *Task 10*: the split control gates on the exit code alone (the mechanism is
   stated verbatim in §3); `e0.py`'s docstring overstates its value;
   `assemble.py`'s `loads` list is not filtered the way `walls` is — a latent
-  instrument misalignment, worth fixing before E6″ uses that assembler.
+  instrument misalignment, worth fixing before E6″ uses that assembler. The
+  same task's third clause — the record's header still reading
+  "pre-registration only" — is **closed by a dated note**, not carried: §3's
+  opening paragraph supersedes the header in place and says why lines 1–97 are
+  left byte-identical to `29c5059` instead of tidied.
 - *`sensorium --version`*: still not a verb. The version came from installed
   metadata; the README does not claim one, so nothing is false — but a tool
   whose CHANGELOG names versions should probably answer for its own.

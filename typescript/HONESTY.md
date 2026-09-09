@@ -453,9 +453,11 @@ vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores)*:
   argued away: the instrument that took it ran with no load guard though its
   clause is a timing clause, and a five-run min–max is a range and not a
   tolerance (record §5, gaps 5 and 6). It is re-measured next slice under a
-  NEW pre-registration, **E6″**. This ledger states it as a STOP because that
-  is what the pre-registration's own words make it, and a rung that ships with
-  one is a rung that ships with one.
+  NEW pre-registration, **E6″**. **The rung therefore ships DONE-WITH-STOP**,
+  which is the phrase the record, the spec, the CHANGELOG and both READMEs use
+  for it, so a reader meets one name for one fact. This ledger states it as a
+  STOP because that is what the pre-registration's own words make it, and a
+  rung that ships with one is a rung that ships with one.
 
 **Falsifiers.** `E1′`, `E10`, `E6′`.
 

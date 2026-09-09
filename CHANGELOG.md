@@ -143,10 +143,14 @@ jsdom 29.1.1, node v24.16.0, 16 cores.
   full reference; this repository's README gains a compact `## TypeScript`
   section beside `## Rust`. The TypeScript-only meta keys live in
   `docs/trace-format/TYPESCRIPT-KEYS.md` (**R25**: `docs/TRACE-FORMAT.md` was
-  at 799 lines and is not edited). The design's own deltas — one row per plan
-  decision and per ruling that moved a sentence — are §14 of
+  at 752 lines when the ruling was made, and gained only what R25 allowed —
+  the `lang` value, the `exc.kind`/`how` enumerations, the `runs` header
+  sentence, the vocabulary column and a pointer — which took it to **799** in
+  Task 7; the doc pass then edited it no further, under **R35**). The design's
+  own deltas — one row per plan decision and per ruling that moved a
+  sentence — are §14 of
   `docs/superpowers/specs/2026-09-09-sensorium-typescript-recorder-design.md`.
-  This file's `0.8.1` and `0.8.0` entries moved to
+  This file's `0.8.2`, `0.8.1` and `0.8.0` entries — three of them — moved to
   [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md) **before** this entry was
   written (**R35**), a pure move, wording and dates unchanged.
 
@@ -743,3 +747,10 @@ compile-time `--focus`. Python **0.8.3**; the crates move together to
   and both with wording and order unchanged: `rust/HONESTY.md` §11 is now
   `rust/HONESTY-ERR-FLOW.md`, and the README's `exceptions`, `watch` and
   `flow` sections are now `docs/query.md`. Each keeps a pointer where it was.
+
+**Earlier entries** — `0.8.2`, `0.8.1` and `0.8.0`, and `0.7.0` and `0.6.0`
+before them — are in
+[`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md): the first two moved there
+2026-09-08 and the three 0.8.x ones 2026-09-09, both times so this file stays
+under the repo-wide 800-line ceiling `tests/test_ceiling.py` holds it to. Pure
+moves: same wording, same order, same dates.

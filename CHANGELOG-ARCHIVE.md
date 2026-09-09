@@ -1,20 +1,27 @@
 # Changelog — the earlier entries
 
-*(The heading read "the pre-0.8 entries" until 2026-09-09, when `0.8.1` and
-`0.8.0` were cut here too and made it false. A heading that names the cut it
-happened to be describing goes stale at the next cut; this one names what the
-file is instead.)*
+*(The heading read "the pre-0.8 entries" until 2026-09-09, when `0.8.2`,
+`0.8.1` and `0.8.0` were cut here too and made it false. A heading that names
+the cut it happened to be describing goes stale at the next cut; this one names
+what the file is instead.)*
 
 `0.8.2`, `0.8.1` and `0.8.0`, **moved here 2026-09-09 (S5 rung 1, the
 TypeScript recorder) so [`CHANGELOG.md`](CHANGELOG.md) stays under 800
 lines** — the second cut, by the same rule as the first. `CHANGELOG.md` stood
-at **780** lines. **Two of the three moved before the 0.9.0 entry was written
-and the third moved after it, which is worth admitting**: the cut was sized by
-guessing at the entry's length instead of measuring it, the file landed at 833
-and `0.8.2` followed. Cutting first was right; sizing the cut by eye was not,
-and the next slice should draft its entry, measure, then cut. Nothing was
-rewritten either time: the three entries below are byte for byte the three
-that were removed, and `tests/test_ceiling.py` gates both files.
+at **780** lines, and **all three moved in one commit, before the release
+entry was committed**: that is the shipped history, and `git log` is what any
+sentence here has to match.
+
+**A confession about the process, which the shipped history does not show.**
+As the work actually went, two of the three were cut first, the 0.9.0 entry
+was drafted, the file landed at **833**, and `0.8.2` followed — the cut had
+been sized by guessing at the entry's length instead of measuring the draft.
+The last four commits were then rebuilt so that the release commit is last and
+every commit's version tokens agree, and the rebuild is what collapsed the two
+cuts into one. Cutting first was right; sizing the cut by eye was not, and the
+next slice should draft its entry, measure, then cut. Nothing was rewritten in
+either the first cut or the second: the three entries below are byte for byte
+the three that were removed, and `tests/test_ceiling.py` gates both files.
 
 Below them, `0.7.0` and `0.6.0`, **moved here 2026-09-08 (the queue buttoned
 up, rung 4) so [`CHANGELOG.md`](CHANGELOG.md) stays under 800 lines** — the
@@ -219,10 +226,15 @@ thing
   is gone from the parser; `--misses` is the only spelling now, and passing
   `--near` is an unrecognized argument like any other unknown flag (exit 2).
 
-**Earlier entries** — `0.7.0` and `0.6.0` — are
-[`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md), moved there 2026-09-08 so this
-file stays under the repo-wide 800-line ceiling `tests/test_ceiling.py` now
-holds it to. A pure move: same wording, same order, same dates.
+**Earlier entries** — `0.7.0` and `0.6.0` — are **below**, moved out of
+`CHANGELOG.md` 2026-09-08 so that file stays under the repo-wide 800-line
+ceiling `tests/test_ceiling.py` now holds it to. A pure move: same wording,
+same order, same dates. *(Amended 2026-09-09: this paragraph ended the 0.8.2
+entry in `CHANGELOG.md` and pointed at this file from there; it travelled here
+with the entry in the second cut and so pointed at itself. It now says where
+those entries are relative to where it now stands, and `CHANGELOG.md` has its
+own trailing pointer again — the 0.8.3 entry's rule that a split "keeps a
+pointer where it was".)*
 
 ## 0.7.0 — 2026-09-04
 

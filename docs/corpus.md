@@ -7,13 +7,15 @@ deliberately, before the gate names the file, rather than discovered at the
 ceiling. The README stood at 798 with the TypeScript section and the thirteen
 new cases in it, two lines from a ceiling `tests/test_ceiling.py` enforces.
 
-**The wording and the order are unchanged.** Every paragraph below is byte for
-byte what the README carried — including the last one, the thirteen TypeScript
-cases, which this same slice added to that section before the section moved.
-The README keeps the four commands, the one-sentence claim the corpus makes,
-and a link here. The `--require-driver` comment in the block below is the
-README's own wording of the day it was written, when the only driver-backed
-cases were Rust's; the README's copy now says "Rust or TypeScript".
+**The wording and the order are unchanged**, with one addition named as one:
+every paragraph below is byte for byte what the README carried, except the
+last — the thirteen TypeScript cases — which is new text this slice wrote, and
+which the shipped history (`603f879`) shows being written straight into this
+file rather than into the README first. The README keeps the four commands, the
+one-sentence claim the corpus makes, and a link here. The `--require-driver`
+comment in the block below is the README's own wording of the day it was
+written, when the only driver-backed cases were Rust's; the README's copy now
+says "Rust or TypeScript".
 
     python corpus/run_corpus.py                   # verify against seeded bugs
     python corpus/run_corpus.py --show            # print the questions and commands
