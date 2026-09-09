@@ -30,14 +30,16 @@ pub use crate::driver_args::{parse_args, USAGE};
 
 // The invocation record and the facts that fill it moved to `invocation.rs`
 // when this file reached the 800-line ceiling (design 2026-09-07 §6, R7).
-// `local_stamp` is re-exported for the same reason `parse_args` is: it is
+// `stamped_id` is re-exported for the same reason `parse_args` is: it is
 // spelled through this module by `convert::runid`, and a pure move must not
-// move a caller's path.
-pub use crate::invocation::local_stamp;
+// move a caller's path. (`local_stamp` was re-exported here for the same
+// caller until it started spelling the whole mix through `stamped_id`; it is
+// now private to `invocation.rs`.)
+pub use crate::invocation::stamped_id;
 
 // The cargo child's environment and launch moved to `launch.rs` in the same
 // split. `cargo_path` went with it and is re-exported for the same reason
-// `local_stamp` is: `resolve` spells it through this module.
+// `stamped_id` is: `resolve` spells it through this module.
 pub(crate) use crate::launch::cargo_path;
 
 /// Run the driver. Returns the exit code to leave with.

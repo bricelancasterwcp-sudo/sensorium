@@ -86,7 +86,7 @@ def _raw(**over) -> dict:
 
 def test_the_assembled_record_carries_the_raws_schema_and_its_OWN():
     record = assemble_e4pp(_raw())
-    assert record["schema_version"] == SCHEMA_VERSION == "e4pp/1"
+    assert record["schema_version"] == SCHEMA_VERSION == "e4pp/2"
     assert record["assembled"]["schema_version"] == SCHEMA_VERSION
 
 
@@ -225,7 +225,7 @@ def test_the_renderer_prints_every_endpoint_and_the_schema_sentence():
                      + render_e4pp.results(assemble_e4pp(_raw())))
     for endpoint in ENDPOINTS:
         assert f"### {endpoint} " in text, endpoint
-    assert "e4pp/1" in text
+    assert "e4pp/2" in text
 
 
 def test_a_not_measured_cell_RENDERS_as_not_measured_and_never_as_a_dash():
@@ -274,6 +274,67 @@ def test_the_wall_per_arm_is_reported_for_ALL_THREE_arms():
         assert walls[arm]["first_focus"] is not None
 
 
+def test_ALL_FOUR_walls_section_1_5_names_are_in_the_reported_block():
+    """E4″ gap 5. The bullet pre-commits four -- A, B, C and the DRY run --
+    "with cargo's own build time inside each" and "the driver build's wall
+    separately"; `reported.walls_s` held three and a note. Every missing
+    piece was recorded somewhere in the raw (or in the dry run's own
+    record), so this gathers and never re-measures."""
+    raw = _raw()
+    raw["pins"]["built_from"] = {"cargo_wall_s": 0.025, "rebuilt": False}
+    walls = assemble_e4pp(raw)["reported"]["walls_s"]
+    assert walls["driver_build"]["value"] == 0.025
+    assert walls["driver_build"]["rebuilt"] is False
+    assert walls["cargo_s"]["A"]["first_focus"] == 3.3
+    assert walls["cargo_s"]["A"]["n"] == 61
+    assert walls["cargo_s"]["A"]["rows_without_a_cargo_time"] == 0
+    for arm in ("A", "B", "C"):
+        assert walls[arm]["n"], arm
+
+
+def test_cargos_own_time_is_SUMMED_per_row_and_rows_without_one_counted():
+    """One `sensorium refocus` can drive more than one cargo invocation, so
+    the row's time is the SUM of its `Finished in` lines -- and a row that
+    printed none is counted apart rather than entering the mean as a zero,
+    which would report a build that took no time."""
+    import acceptance_e4p_rows as rows
+    two = _two({rows.NAMES[0]: {"cargo": (1.5, 2.0)},
+                rows.NAMES[1]: {"cargo": ()}})
+    walls = assemble_e4pp(_raw(raw_pass2=two))["reported"]["walls_s"]
+    assert walls["cargo_s"]["A"]["first_focus"] == 3.5
+    assert walls["cargo_s"]["A"]["n"] == 60
+    assert walls["cargo_s"]["A"]["rows_without_a_cargo_time"] == 1
+
+
+def test_a_DRY_runs_walls_are_carried_in_from_the_record_it_wrote(tmp_path):
+    """The fourth wall. A dry run measures nothing about the subject, so
+    its walls are not among this run's rows -- they are in the record the
+    dry launch wrote, which this one names."""
+    dry = _raw()
+    dry["dry_run"] = True
+    (tmp_path / "dry.json").write_text(json.dumps(dry, default=str))
+    raw = dict(_raw(), dry_raw=str(tmp_path / "dry.json"))
+    walls = assemble_e4pp(raw)["reported"]["walls_s"]["dry"]
+    assert walls["reason"] is None
+    assert walls["value"]["A"]["first_focus"] == 7.0
+    assert walls["cargo_s"]["A"]["first_focus"] == 3.3
+
+
+def test_a_MISSING_dry_record_is_null_WITH_the_path_it_looked_at(tmp_path):
+    """None-vs-zero on a wall: a run whose dry record is not there reports
+    that, and a reader is told where to look rather than reading a 0."""
+    raw = dict(_raw(), dry_raw=str(tmp_path / "absent.json"))
+    walls = assemble_e4pp(raw)["reported"]["walls_s"]["dry"]
+    assert walls["value"] is None
+    assert "could not be read" in walls["reason"]
+    assert walls["path"] == str(tmp_path / "absent.json")
+    # ...and a DRY run's own record says so instead of pointing at itself.
+    own = assemble_e4pp(dict(_raw(), dry_run=True,
+                             dry_raw=str(tmp_path / "absent.json"))
+                        )["reported"]["walls_s"]["dry"]
+    assert own["value"] is None and "IS the dry run" in own["reason"]
+
+
 def test_the_pairs_table_carries_every_arms_rows_each_naming_its_arm():
     pairs = assemble_e4pp(_raw())["pairs"]
     assert pairs["by_arm"] == {"A": 61, "armB": 4, "armC": 4}
@@ -308,6 +369,42 @@ def test_the_UNREAD_hash_count_is_a_cell_of_its_own_beside_the_two():
     assert e["hashes_unread"]["value"] == [
         "unknown_model_mutating_verbs_is_false"]
     assert e["hashes_unread"]["n"] == 61
+
+
+def test_the_FRAGMENT_cell_reaches_the_endpoint_AND_the_reported_block():
+    """E4″ gap 4, at the two addresses §1.4 and §1.5 point at: an `H2` cell
+    of the record's own `{value, n, lens, dropped}` shape, and
+    `reported.rt_hashes`, whose `by_pair[*]` carries the per-side counts
+    themselves."""
+    import acceptance_e4pp_phases as ph
+    sys.path.insert(0, str(REPO / "tests"))
+    from test_acceptance_e4pp_phases import _two
+    raw = _raw()
+    raw["raw_h2"] = ph.phase_h2_fragment(_two())
+    out = assemble_e4pp(raw)
+    cell = out["endpoints"]["H2"]["fragments_per_side"]
+    assert cell["value"] == {"original": 1, "rerun": 1}
+    assert cell["n"] == 61 and cell["dropped"] == []
+    assert "fragments" in cell["lens"]
+    rt = out["reported"]["rt_hashes"]
+    assert rt["fragments_per_side"] == {"original": 1, "rerun": 1}
+    assert rt["pairs_whose_fragments_were_readable"] == 61
+    row = rt["by_pair"]["unknown_model_mutating_verbs_is_false"]
+    assert row["original_fragments"] == 1 and row["rerun_fragments"] == 1
+
+
+def test_a_DISAGREEING_fragment_count_is_null_WITH_its_reason_in_the_cell():
+    """The honesty half: no single number where the pairs did not agree,
+    and the cell says so rather than publishing one of the two."""
+    import acceptance_e4pp_phases as ph
+    sys.path.insert(0, str(REPO / "tests"))
+    from test_acceptance_e4pp_phases import _two
+    raw = _raw()
+    raw["raw_h2"] = ph.phase_h2_fragment(_two({
+        "unknown_model_mutating_verbs_is_false": {"rerun_frags": 0}}))
+    cell = assemble_e4pp(raw)["endpoints"]["H2"]["fragments_per_side"]
+    assert cell["value"] is None
+    assert cell["dropped"] and "did not agree" in cell["dropped"][0]
 
 
 def test_the_renderer_prints_ALL_THREE_hash_readings():
@@ -373,3 +470,148 @@ def test_a_MEASURED_session_k_still_carries_no_dropped_reason():
     cell = assemble_e4pp(_raw())["endpoints"]["H4"]["session_k"]
     assert cell["value"] == 1
     assert cell["dropped"] == []
+
+
+# ================ the seven instrument minors (CARRIED-DEBT) ==============
+
+def test_a_K_the_pairs_DISAGREE_on_says_so_in_PROSE_not_a_list_repr():
+    """Minor 2: `_k_reason` interpolated the Python list `[1, 2]` into a
+    sentence a person reads. The numbers are the same; the record is prose
+    and a `repr` in it is a leak from the instrument that wrote it."""
+    import acceptance_e4p_rows as rows
+    raw = _raw()
+    h4 = raw["raw_h4"]
+    h4["session_k"] = None
+    h4["session_k_by_name"] = {rows.NAMES[0]: 1, rows.NAMES[1]: 2}
+    cell = assemble_e4pp(raw)["endpoints"]["H4"]["session_k"]
+    assert cell["value"] is None
+    reason = " ".join(cell["dropped"])
+    assert "did not agree on K (1, 2)" in reason
+    assert "[1, 2]" not in reason
+
+
+def test_an_arm_that_ran_over_the_WRONG_NUMBER_of_rows_nulls_its_cells():
+    """Minor 4: `_drops` had no `n != <locked>` clause -- the phases catch a
+    short table first, and an assembler that publishes a count over a table
+    that was not the locked one is one phase-check away from a wrong number.
+    §1.1 locks 61 for arm A and §1.3 locks 4 for each control."""
+    raw = _raw()
+    raw["raw_pass2"] = dict(raw["raw_pass2"], n=59, measured=59)
+    block = assemble_e4pp(raw)["endpoints"]["H3"]
+    for name in cells.MEASUREMENT_CELLS["H3"]:
+        assert block[name]["value"] is None, name
+        assert any("not §1's 61" in d for d in block[name]["dropped"]), name
+    raw = _raw()
+    raw["raw_arm_b"] = dict(raw["raw_arm_b"], n=3, measured=3)
+    h5 = assemble_e4pp(raw)["endpoints"]["H5"]["headline"]
+    assert h5["value"] is None and any("not §1's 4" in d
+                                       for d in h5["dropped"])
+
+
+def test_H7s_own_DENOMINATOR_is_stated_on_the_cell_and_not_only_in_n():
+    """Minor 5: H7 gates over a census it computes itself -- the rows of
+    every arm that came back with a licence WORD -- which is neither the 61
+    nor the 69. A reader comparing "0 of 69" with "0 of 66" is comparing
+    two different claims, so the cell's lens says what the number is over."""
+    block = assemble_e4pp(_raw())["endpoints"]["H7"]
+    for name in ("headline", "counts_carry_their_source_line"):
+        assert "censused" in block[name]["lens"], name
+        assert "neither the 61" in block[name]["lens"], name
+    assert block["headline"]["n"] == _raw()["raw_h7"]["censused"]
+
+
+# ================ fix round 1 (review of this task) ======================
+
+def test_the_H8_prose_never_reads_an_ABSENT_matched_cell_as_a_VALUE():
+    """Important 1. The clause was appended unconditionally, so rendering
+    the committed E4″ record -- derived before `spawned_test_fn_matched`
+    existed -- printed "The named case matched as `None`" with no reason: a
+    sentence that reads as a measurement over a key the record does not
+    carry, which is the bug class this whole task is about.
+
+    Absent and null-with-a-reason are different sentences, and a record that
+    predates the field gets neither."""
+    e = {"corpus_cases": 63, "corpus_args": ["--require-driver"],
+         "corpus_require_driver": True, "cargo_result_lines": ["ok"]}
+    old = " ".join(render_e4pp._notes("H8", e))
+    assert "named case" not in old, old          # no sentence at all
+    assert "matched" not in old and "None" not in old
+    # ...and the rest of the H8 prose is unchanged by the absence.
+    assert "Corpus: 63 case(s)" in old and "Rust result lines" in old
+    # ...a record that HAS the key and matched prints the spelling
+    hit = " ".join(render_e4pp._notes("H8", dict(
+        e, spawned_test_fn_matched="rust/refocus_spawned_test_fn",
+        spawned_test_fn_reason=None)))
+    assert "matched as `rust/refocus_spawned_test_fn`" in hit
+    # ...and a record that HAS the key and did not match prints the ABSENCE
+    # with the reason, never the value.
+    miss = " ".join(render_e4pp._notes("H8", dict(
+        e, spawned_test_fn_matched=None,
+        spawned_test_fn_reason="`x` is among the 63 name(s) … exited 0")))
+    assert "matched under NEITHER spelling" in miss
+    assert "exited 0" in miss
+    assert "matched as `None`" not in miss
+
+
+def test_a_DRY_wall_that_WAS_read_says_so_under_the_same_key(tmp_path):
+    """Minor (c): the failure paths carried `value: None` and the success
+    path carried no `value` at all, so a reader keying on `value` could not
+    tell "read" from "unread" -- `.get("value")` is `None` either way."""
+    dry = _raw()
+    dry["dry_run"] = True
+    (tmp_path / "dry.json").write_text(json.dumps(dry, default=str))
+    read = assemble_e4pp(dict(_raw(), dry_raw=str(tmp_path / "dry.json"))
+                         )["reported"]["walls_s"]["dry"]
+    unread = assemble_e4pp(dict(_raw(), dry_raw=str(tmp_path / "no.json"))
+                           )["reported"]["walls_s"]["dry"]
+    assert read["value"] is not None and read["reason"] is None
+    assert read["value"]["A"]["first_focus"] == 7.0
+    assert unread["value"] is None and unread["reason"]
+
+
+def test_a_DROP_over_never_run_rows_reads_as_ONE_english_clause():
+    """Minor (a): the reason embedded `bound_sentence` whole -- "§1.4's the
+    1 h 30 min loop bound was reached before this invocation (['a','b'])" --
+    a double determiner and a singular sentence carrying a list."""
+    raw = _raw()
+    raw["raw_pass2"] = dict(raw["raw_pass2"],
+                            budget_exhausted=["a", "b"], measured=59)
+    dropped = assemble_e4pp(raw)["endpoints"]["H3"]["headline"]["dropped"]
+    why = " ".join(dropped)
+    assert "§1.4's 1 h 30 min loop bound was reached before them" in why
+    assert "'s the " not in why
+    assert "before this invocation" not in why
+
+
+def test_the_ORIGINAL_version_summary_is_null_WITH_a_reason_when_empty():
+    """Minor (f) at its source. Distinct values, never a first -- originals
+    written by more than one driver are the finding -- and `None` with its
+    reason rather than `[]`, which reads as a measured "no driver named"."""
+    import acceptance_e4pp as e4pp_runner
+    versions = [f"cargo-sensorium 0.{n}.0" for n in range(9, 2, -1)]
+    rows = [{"original_driver_version": {"value": v}}
+            for v in versions + versions]        # each seen twice
+    got = e4pp_runner.original_version_summary(rows)
+    # SORTED and distinct, not set order: a record whose originals were
+    # written by more than one driver is a finding, and a reader comparing
+    # two runs' lists cannot do it against an order that moves with the
+    # process's string hashing.
+    assert got["driver_version_from_the_original"] == sorted(versions)
+    assert got["driver_version_from_the_original_reason"] is None
+    none = e4pp_runner.original_version_summary(
+        [{"original_driver_version": {"value": None, "reason": "no token"}}])
+    assert none["driver_version_from_the_original"] is None
+    assert "could read" in none["driver_version_from_the_original_reason"]
+
+
+def test_an_EMPTY_original_version_set_carries_its_reason():
+    """Minor (f): the re-run side publishes `None` when no row carried a
+    token; the original side published `[]`, which reads as "the originals
+    name no driver" -- a claim about the traces, not about this reader."""
+    rep = assemble_e4pp(dict(_raw(), pins=dict(
+        _raw()["pins"], driver_version_from_the_original=None,
+        driver_version_from_the_original_reason="no copied original carried "
+        "a `meta.driver_version` this reader could read")))["reported"]
+    assert rep["driver_version"]["from_the_original_trace"] is None
+    assert "could read" in \
+        rep["driver_version"]["from_the_original_trace_reason"]

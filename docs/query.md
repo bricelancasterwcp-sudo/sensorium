@@ -105,7 +105,7 @@ finalized is NAMED before any answer about chains, and the tally is the sum:
 
     invocation 20260101-000000-abcdef: cargo test --workspace -- 3 processes, 2 with Err chains, 1 with none
     INCOMPLETE: 20260101-000000-aaa003 never finalized -- its Err chains after the cut are not below
-    raised (3 chains over 2 processes, 2 swallowing sites):
+    raised (3 chains over 2 processes, 2 swallowed shapes):
       e3 RAISE   read_config raise demo::ConfigError('Missing("port")') L14
         SWALLOWED -- absorbed by sink_ok at e5 (load L31) in f1, which returned ok  [×2 over 2 processes: first e3 in 20260101-000000-aaa001, +1]
       e7 RAISE   read_config raise demo::ConfigError('Missing("port")') L14
@@ -113,9 +113,11 @@ finalized is NAMED before any answer about chains, and the tally is the sum:
     dispositions: swallowed 3
 
 — the tool's own output, pinned by `tests/test_exceptions_invocation.py`. That
-header's `swallowing sites` counts printed BLOCKS, not distinct sites, and the
-two are not equal on a real sweep: a known misnomer, carried in
-[`docs/CARRIED-DEBT.md`](CARRIED-DEBT.md). `--after` is **refused** in
+header counts printed BLOCKS — merged shapes whose disposition is swallowed —
+and says so: it read `N swallowing sites` through both E6⁗ measurements, and
+the two are not equal on a real sweep (91 and 98 distinct sites where the
+header printed 103 and 105), so the noun was corrected to `swallowed
+shape(s)` on 2026-09-08. `--after` is **refused** in
 this mode and exits **2** — an event id belongs to one process and this answer
 spans many — and a member whose recorder declares `capabilities.err_flow:
 false` refuses the whole answer, naming it.

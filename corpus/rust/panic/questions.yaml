@@ -76,9 +76,16 @@ questions:
       catching frame AS an `Err` -- the `Err(_) =>` arm absorbed it and
       `attempt` then returned normally, which is a swallow. The verdict
       names the arm and the frame, and it adds the fact that makes it
-      honest: the error was born outside this thread's instrumented frames,
-      since `catch_unwind` is the standard library's and no frame here
-      produced it. The command also declares, separately, that one panic was
+      honest: no chain of this thread was open where the error was
+      absorbed. That is what the record holds; the two readings it admits
+      -- born outside this thread's instrumented frames, or handed to this
+      one by value from one of them -- follow it, and here the first is the
+      true one, since `catch_unwind` is the standard library's and no frame
+      here produced it. The sentence led with that reading until blind spot
+      R16 (v) showed a shape where it is false (an `Err` an instrumented
+      callee returns by value opens no chain in the frame that sinks it),
+      and it now leads with what the recording actually says.
+      The command also declares, separately, that one panic event was
       recorded
       -- an Err-flow answer that stayed silent about a panicking run would
       read as "nothing went wrong" on a run where something did.
@@ -95,7 +102,7 @@ questions:
       - ["SWALLOWED", "arm_handled", "attempt L17", "which returned ok"]
       - ["born outside this thread's instrumented frames",
          "absorbed at arm_handled"]
-      - ["panics: 1 recorded", "a panic is a frame's unwind"]
+      - ["panics: 1 event(s) recorded", "a panic is a frame's unwind"]
     expect_count: {"SWALLOWED": 1}
     expect_absent: ["ambiguous", "returned to the harness"]
   - id: which-error-did-the-arm-absorb

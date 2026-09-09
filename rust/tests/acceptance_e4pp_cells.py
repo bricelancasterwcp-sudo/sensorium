@@ -35,7 +35,8 @@ MEASUREMENT_CELLS = {
     "H1": ("headline", "withheld", "hides_the_exclusion",
            "reasons_that_never_subtracted", "harness_threads_all_one"),
     "H2": ("rustdocflags_in_changed", "strip_clause_named",
-           "relocated_set", "hashes_differ", "hashes_unread"),
+           "relocated_set", "hashes_differ", "hashes_unread",
+           "fragments_per_side"),
     "H3": ("headline", "pairs_of_one", "word_and_exit_disagree",
            "excluded_children"),
     "H4": ("session_names", "session_k",
@@ -52,6 +53,15 @@ MEASUREMENT_CELLS = {
 NEEDS = {"H1": ("raw_pass2",), "H2": ("raw_pass2",), "H3": ("raw_pass2",),
          "H4": ("raw_pass2",), "H5": ("raw_arm_b",),
          "H6": ("raw_pass2", "raw_arm_c"), "H7": (), "H8": ()}
+
+#: How many rows each raw block is LOCKED to -- §1.1's 61 for arm A and
+#: §1.3's 4 for each control. `_drops` reads it for the same reason
+#: `acceptance_e4pp_phases.subset_reasons` does: a table that was not the
+#: locked one measured nothing about "61 of 61", and the phases catching it
+#: first is not a reason for the assembler to publish the count if they
+#: ever do not.
+LOCKED_N = {"raw_pass2": e4pp.GATE_N, "raw_arm_b": e4pp.ARM_N,
+            "raw_arm_c": e4pp.ARM_N}
 
 NOT_RUN = "the phase did not run, so there is nothing to compare"
 
@@ -91,9 +101,14 @@ def _drops(raw, endpoint: str) -> list[str]:
         missing = block.get("budget_exhausted") or []
         if missing:
             out.append(f"{key}: {len(missing)} invocation(s) were never run "
-                       f"-- §1.4's 1 h 30 min loop bound was reached "
+                       f"-- §1.4's {e4pp.bound_span(e4pp.LOOP_BUDGET_S)} "
+                       f"loop bound was reached before them "
                        f"({missing[:3]}{' …' if len(missing) > 3 else ''})")
         n, measured = block.get("n"), block.get("measured")
+        locked = LOCKED_N.get(key)
+        if locked is not None and n is not None and n != locked:
+            out.append(f"{key}: the arm ran over {n} row(s), not §1's "
+                       f"{locked}")
         if (n is not None and measured is not None and measured != n
                 and not missing):
             out.append(f"{key}: {measured} of {n} invocation(s) ran")
@@ -205,6 +220,17 @@ def _h2(raw) -> dict:
               f"be read on one side or both "
               f"({(h.get('hashes_unread') or [])[:3]})"]
              if h.get("hashes_unread") else [])),
+        "fragments_per_side": meas(
+            h.get("fragments_per_side"), h.get("fragments_readable"),
+            "§1.4's OTHER second reading for H2: the number of fragments "
+            "this recorder's strip removed from `RUSTDOCFLAGS`, per side, "
+            "counted on every pair and published only where every readable "
+            "pair carried the same one. Read on both sides and published "
+            "on neither until E4″ gap 4; the per-pair numbers are on "
+            "`rt_hashes_by_pair`",
+            ([] if h.get("fragments_per_side") is not None
+             else [r for r in [h.get("fragments_reason")] if r]
+             or _dropped(h))),
         "hashes_unread": meas(
             h.get("hashes_unread"), n,
             "§1.5: pairs whose rt hash could not be read on one side or "
@@ -221,6 +247,8 @@ def _h2(raw) -> dict:
         "hashes_equal_so_the_strip_was_untested": h.get(
             "hashes_equal_so_the_strip_was_untested"),
         "hashes_readable": h.get("hashes_readable"),
+        "fragments_readable": h.get("fragments_readable"),
+        "fragments_seen": h.get("fragments_seen"),
         "rt_hashes_by_pair": h.get("rt_hashes_by_pair"),
         "gate": h.get("gate"),
         "as_predicted": h.get("as_predicted"),
@@ -328,7 +356,8 @@ def _k_reason(h) -> list:
         reasons.append("no pair printed a session count this reader could "
                        "read, so there is no K to publish")
     elif len(ks) > 1:
-        reasons.append(f"the pairs did not agree on K ({ks}); a single "
+        told = ", ".join(str(k) for k in ks)
+        reasons.append(f"the pairs did not agree on K ({told}); a single "
                        "value is published only where every readable pair "
                        "printed the same one, and the per-pair counts are "
                        "under `session_k_by_name`")
@@ -436,6 +465,16 @@ H7_LENS = ("this record's OWN instrument, over every pair of every arm: "
            "source line each thread count came from, the verified counts "
            "built from the rows, and the version probe's own output")
 
+#: H7's denominator, SAID rather than left in the `n`. This endpoint gates
+#: over a census it computes itself -- the rows of every arm that came back
+#: with a licence WORD -- and that is neither the 61 nor the 69: a row whose
+#: licence never printed has no partition to be honest or dishonest about,
+#: and a reader comparing "0 of 69" against "0 of 66" is comparing two
+#: different claims.
+CENSUS_LENS = ("; over `censused`, which this endpoint COUNTS for itself: "
+               "the rows of every arm that came back with a licence word, "
+               "neither the 61 of §1.1 nor the 69 of all three arms")
+
 
 def _h7(raw) -> dict:
     h = raw.get("raw_h7")
@@ -450,11 +489,11 @@ def _h7(raw) -> dict:
     block = {
         "headline": meas(h.get("headline"), n, H7_LENS + "; pairs whose "
                          "licence PRINTED and whose thread arithmetic did "
-                         "not", []),
+                         "not" + CENSUS_LENS, []),
         "counts_carry_their_source_line": meas(
             h.get("counts_carry_their_source_line"), n,
             H7_LENS + "; every thread count says whether it came from the "
-            "licence clause or the `threads:` line", []),
+            "licence clause or the `threads:` line" + CENSUS_LENS, []),
         "licence_verified_counts": meas(
             h.get("licence_verified_counts"), counts.get("n"),
             "the four verified/unverifiable counts, COUNTED over "
@@ -494,7 +533,10 @@ def _h8(raw) -> dict:
         "spawned_test_fn_present": meas(
             h.get("spawned_test_fn_present"), 1,
             f"the corpus collector's own `load_cases()` listing, asked "
-            f"whether it names `{e4pp.SPAWNED_CASE}`",
+            f"whether it names `{e4pp.SPAWNED_CASE}` -- as a WHOLE name or "
+            f"as a last path segment, the collector spelling its Rust cases "
+            f"`rust/<name>`; `null` WITH the listing's command and rc under "
+            f"neither spelling, never a clean negative",
             _dropped(h)),
         "pytest_rc": meas(h.get("pytest_rc"), 1, H8_LENS, []),
         "cargo_rc": meas(h.get("cargo_rc"), 1, H8_LENS, []),
@@ -508,6 +550,8 @@ def _h8(raw) -> dict:
         "corpus_require_driver": h.get("corpus_require_driver"),
         "corpus_args": h.get("corpus_args"),
         "spawned_test_fn": h.get("spawned_test_fn"),
+        "spawned_test_fn_matched": h.get("spawned_test_fn_matched"),
+        "spawned_test_fn_reason": h.get("spawned_test_fn_reason"),
         "spawned_test_fn_skipped": h.get("spawned_test_fn_skipped"),
         "cargo_result_lines": h.get("cargo_result_lines"),
         "logs": h.get("logs"),

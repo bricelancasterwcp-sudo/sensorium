@@ -41,7 +41,11 @@ questions:
       an ordinal, and its stream is identical. The MATCH is carried entirely
       by the tasks, and the tool says so rather than dressing up two empty
       thread streams as agreement: no causal event ran outside a task on
-      either side. Nothing is only in A and nothing is only in B.
+      either side. The verdict carries `modulo location` because the pairing
+      is a leniency and the tasks below were compared through it -- the same
+      word every other branch of this verdict prints when a move was paired,
+      on the one branch where the tasks carry the whole of it. Nothing is
+      only in A and nothing is only in B.
     why_logs_fail: >
       "Is this the same worker as last time" is a question about identity
       across two runs, and no log line carries an identity that survives a
@@ -51,7 +55,7 @@ questions:
       prints nothing at all unless something panics.
     command: ["diff", "--ignore-moves", "$RUN", "$RUN2"]
     expect_line:
-      - ["verdict: MATCH -- no causal event ran outside a task on either side"]
+      - ["verdict: MATCH modulo location -- no causal event ran outside a task on either side"]
       - ["key: (file, qualname, kind), with 1 code object(s) paired across a move by qualname"]
       - ["moved: start", "worker.rs -> worker_moved.rs"]
       - ["tasks: 2 task stream(s) on each side", "(name, hash): all matched"]

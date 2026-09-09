@@ -27,6 +27,8 @@ from pathlib import Path
 
 import pytest
 
+from sensorium.driver import cargo_sensorium
+
 ROOT = Path(__file__).resolve().parents[1]
 CASE = ROOT / "corpus" / "rust" / "focus_let_chain"
 
@@ -56,10 +58,11 @@ def _scratch_target(tmp_path: Path) -> Path:
     return Path(base) / "focus-refusal" if base else tmp_path / "target"
 
 
-def _driver() -> str | None:
-    """The same resolution order `run_corpus.cargo_driver` uses."""
-    return (os.environ.get("SENSORIUM_CARGO_SENSORIUM")
-            or shutil.which("cargo-sensorium"))
+#: The same resolution `run_corpus.cargo_driver` and `refocus` use, because
+#: it is now the same function. This module's skip and the corpus's skip
+#: have to agree about whether a driver exists, or a box would run the gate
+#: and skip its fence, or the other way round.
+_driver = cargo_sensorium
 
 
 requires_driver = pytest.mark.skipif(

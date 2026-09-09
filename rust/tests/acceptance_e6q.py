@@ -35,8 +35,16 @@ What is NEW:
   (measured at Task 0), so the control driver is identified by its worktree's
   HEAD plus the binary's sha256 -- the binary is never invoked to ask what it
   is. What the driver says about ITSELF is read AFTER the run out of the
-  trace each arm wrote (`meta.driver_version`), so the record can show
-  `cargo-sensorium 0.3.0` for WS0 beside the repaired version for A and WS.
+  trace each arm wrote (`meta.driver_version`), and the record shows it.
+  **It does not tell the two binaries apart**: the run measured
+  `cargo-sensorium 0.3.0` on ALL THREE arms (record §5.7), because the crate
+  moves to 0.3.1 in the release task, which runs after this measurement, so
+  the repaired binary still carries the old string. This runner said the
+  control's traces "must" read 0.3.0 and the HEAD arms' the repaired
+  version; the run falsified it and nothing rests on it. Which driver ran
+  which arm is established three other recorded ways -- the binary's sha256,
+  each arm's own trace `tool_hash`, and the manifests the two prep builds
+  wrote.
 
 Every location is an environment variable; no box path appears in this file.
 The three the control adds (`SENSORIUM_BASE_DRIVER`,
@@ -271,9 +279,11 @@ def driver_identity(paths, run_ids) -> dict:
     """What the driver reported about ITSELF into each trace of one arm.
 
     `meta.driver_version` is written by the converter from the driver's own
-    `DRIVER_VERSION` constant, so it is the run's evidence of which binary
-    instrumented it -- the control arm's traces must say `cargo-sensorium
-    0.3.0` and the HEAD arms' the repaired version. A missing trace is a hole
+    `DRIVER_VERSION` constant, so it is what each binary says about itself --
+    but it is NOT how this record tells the two apart. All three arms read
+    `cargo-sensorium 0.3.0` (record §5.7): the crate moves to 0.3.1 in the
+    release task, which runs after this measurement. `tool_hash`, read here
+    beside it, is the reading that discriminates. A missing trace is a hole
     in the evidence and is reported, never defaulted."""
     per_run, hashes, missing = {}, {}, []
     for run_id in run_ids:
@@ -509,6 +519,33 @@ def _prep(paths, cfg, label: str, arm=None) -> dict:
     return out
 
 
+def base_driver_cleanup(paths, base) -> dict:
+    """The CONTROL driver's sha256, re-read after the run.
+
+    `rung3.cleanup` re-checks the HEAD driver and nothing re-checked this
+    one, so a control binary rebuilt or replaced mid-run would have left the
+    record naming a pre-repair driver it no longer had (A1's review minors).
+    Read, compared against the preflight's, and REPORTED -- never a refusal,
+    because by here the numbers are in and a refusal would lose them.
+    `null` WITH its reason on either side, since "the binary is gone" and
+    "there was nothing recorded to compare it against" are different facts
+    and neither of them is "unchanged".
+    """
+    driver = Path(paths["sensorium_base_driver"])
+    before = (base or {}).get("driver_sha256")
+    after = sha256_file(driver) if driver.is_file() else None
+    return {
+        "base_driver_sha256_after": after,
+        "base_driver_unchanged": (after == before if after and before
+                                  else None),
+        "base_driver_unchanged_reason": (
+            None if after and before else
+            "the base driver is no longer a file at the end of the run"
+            if not after else
+            "the preflight recorded no base driver sha256 to compare"),
+    }
+
+
 def main(argv) -> int:
     BASE.mkdir(parents=True, exist_ok=True)
     LOGS.mkdir(parents=True, exist_ok=True)
@@ -587,6 +624,10 @@ def main(argv) -> int:
 
         res["arm_loads"] = list(LOADS)
         res["cleanup"] = rung3.cleanup(paths, cfg, pins)
+        # The shared cleanup re-checks the HEAD driver; this arm has a
+        # second binary and nothing re-checked it.
+        res["cleanup"].update(
+            base_driver_cleanup(paths, res.get("raw_base_driver")))
     except Refused as e:
         step(f"REFUSED: {e}")
         res["refused"] = str(e)

@@ -108,6 +108,8 @@ from pathlib import Path
 
 import yaml
 
+from sensorium.driver import cargo_sensorium
+
 ROOT = Path(__file__).resolve().parent
 ALLOWED_Q_KEYS = {"id", "ask", "truth", "why_logs_fail", "command",
                   "expect_contains", "expect_line", "expect_count",
@@ -313,25 +315,68 @@ NO_DRIVER = "no cargo-sensorium"
 def cargo_driver() -> str | None:
     """The `cargo-sensorium` this run will record with, or None.
 
-    `SENSORIUM_CARGO_SENSORIUM` first (CI's `rust` job builds one and names
-    it; so does a developer with a release build on the second disk), then
-    PATH. Returning None is not an error: it is the ordinary state of the
-    Python CI matrix, which has no Rust toolchain, and the cases it cannot
-    record are reported as skipped BY NAME rather than passed.
+    One line, because the rule lives in `sensorium.driver` now: the driver a
+    case records with and the driver its `refocus` question re-runs with
+    have to be the same binary, and they were the same binary only for as
+    long as three copies of a two-line rule stayed in step. The import runs
+    the safe way round -- this file already requires `sensorium` to be
+    importable, since it records by running `python -m sensorium`.
+
+    Returning None is not an error: it is the ordinary state of the Python
+    CI matrix, which has no Rust toolchain, and the cases it cannot record
+    are reported as skipped BY NAME rather than passed.
     """
-    return os.environ.get("SENSORIUM_CARGO_SENSORIUM") or shutil.which(
-        "cargo-sensorium")
+    return cargo_sensorium()
+
+
+#: A run id as both recorders mint it: `paths.new_run_id` is
+#: `%Y%m%d-%H%M%S` plus six hex characters of a uuid4, and the driver's
+#: `runid::mint` writes the same shape. Not `\S+`: see `RUN_LINE`.
+RUN_ID = r"\d{8}-\d{6}-[0-9a-f]{6}"
+
+#: The THREE shapes this tool prints a `run:` line in, and which two this
+#: key accepts:
+#:
+#:   1. `run: <id>` alone -- `sensorium run` (`cli.py`), and `refocus` when
+#:      the re-run set no trace aside (`refocus_cmd`);
+#:   2. `run: <id>  pid: ... exit: ...`, one line PER PROCESS --
+#:      `cargo-sensorium convert` (`convert/mod.rs`);
+#:   3. `run: <id>   <note>` -- `refocus_rust`'s pair line, three spaces and
+#:      then the child runs it excluded (pinned by
+#:      `corpus/rust/refocus_child_run`).
+#:
+#: Shape 3 is DELIBERATELY refused, and refusing it costs nothing: this
+#: harness keys a RECORDING's stdout and never a refocus's -- `_run_ids` is
+#: called from `_record` and `_record_cargo` only, and a case's `refocus`
+#: question reads the pair through `runs` or through `$RUN`/`last`. Letting
+#: the third shape in would mean accepting `run: <id>` followed by prose,
+#: which is the whole class this key was narrowed to exclude. If a caller
+#: ever needs a refocus's line, it wants its own pattern rather than a
+#: looser version of this one. `tests/test_rust_convert.py` pins shape 3's
+#: exact spacing among the near-misses this must refuse, so a widening
+#: reddens there.
+#:
+#: Keyed this narrowly because it was once keyed `^run: (\S+)`, and a case
+#: whose own program printed `run: Err(..)` had that read as a trace id --
+#: the case worked around it rather than the reader being fixed. A corpus
+#: case's stdout is the program's, and a reader of it that accepts anything
+#: after `run: ` is reading the program's output as the tool's.
+#:
+#: The tail is anchored too (end of line, or the converter's `  pid: `), so
+#: `run: <id> and then some prose` is not a match either. Shape 2 is
+#: pinned byte for byte on the converter side by
+#: `tests/test_rust_convert.py`, and this pattern is checked against that
+#: same literal there, so the two cannot drift apart silently.
+RUN_LINE = re.compile(rf"^run: ({RUN_ID})(?:$|  pid: )", re.M)
 
 
 def _run_ids(stdout: str) -> list[str]:
     """Every `run:` line's id, in the order the recorder printed them.
 
-    Not anchored at the end of the line: the Rust driver's line carries pid,
-    exe, event and thread counts and the exit status after the id, and it
-    prints ONE PER PROCESS -- so this returns a list where the Python
-    recorder always yields exactly one.
+    A list, not one id: the Rust driver prints one line per process, where
+    the Python recorder always yields exactly one.
     """
-    return re.findall(r"^run: (\S+)", stdout, re.M)
+    return RUN_LINE.findall(stdout)
 
 
 def _diagnostic(argv, r) -> str:

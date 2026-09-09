@@ -279,7 +279,7 @@ def phase_prep_build(paths, cfg) -> dict:
 def arm_rows(paths, scope: list[str] | None) -> dict:
     """Every `kind: "arm"` manifest row of ONE build, with the `how` it writes.
 
-    `acceptance_phases_rung3.read_manifests_rung3` keeps only
+    `acceptance_lib.read_manifests` keeps only
     `(file, qualname, line, kind)` and drops `how`, which is the field this
     check is about; and `_try_rows` counts kinds without keeping identities.
     So this is a third reader over the same files, and it keeps what those two

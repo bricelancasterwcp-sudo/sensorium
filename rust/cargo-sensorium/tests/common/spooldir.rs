@@ -21,14 +21,20 @@ use super::Scratch;
 
 pub const FILE: &str = "crates/demo/src/lib.rs";
 
-/// Record kinds and `how` bytes as NUMBERS: these are wire-format values, and
+/// Record kinds, `how` bytes and RETURN outcomes as NUMBERS: these are
+/// wire-format values (`sensorium-rt/src/spool.rs`'s format block), and
 /// asserting them against the converter's own constants would pin nothing.
+pub const KIND_RETURN: u8 = 2;
+pub const KIND_PANIC: u8 = 3;
 pub const KIND_RAISE: u8 = 4;
 pub const KIND_HANDLED: u8 = 5;
 pub const HOW_TRY: u8 = 1;
 pub const HOW_SINK_OK: u8 = 2;
 pub const HOW_ARM_PROPAGATE: u8 = 5;
 pub const HOW_ARM_AMBIGUOUS: u8 = 7;
+/// RETURN only, in the `outcome_or_how` byte: 0 none, 1 ok, 2 err, 3 panic.
+pub const OUTCOME_OK: u8 = 1;
+pub const OUTCOME_PANIC: u8 = 3;
 
 #[allow(dead_code)] // `scratch` is held only for its Drop cleanup.
 pub struct Fixture {

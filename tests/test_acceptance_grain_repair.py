@@ -202,6 +202,14 @@ def test_every_override_is_the_document_the_lock_a_path_or_a_marker():
                "OVERRIDES", "grain_config", "check_byte_lock", "main",
                "assemble_only", "render_only"}
     assert set(runner.OVERRIDES) == allowed
+    # ...and the module doc NAMES every function among them. It said four
+    # while `OVERRIDES` held five (A1's review minors: `grain_config` is a
+    # fifth override), and a count a reader has to check against the code is
+    # not a count.
+    doc = runner.__doc__
+    for name in sorted(k for k in allowed if callable(getattr(runner, k))):
+        assert f"`{name}`" in doc, name
+    assert "FIVE" in doc
     # the shared instrument's own settings are untouched
     for name in ("ARMS", "KILL_S", "ORACLE", "ORACLE_COMMIT", "GRAIN_ENV",
                  "DRIVER_VERSION", "LEDGER", "REPO", "PLAN"):
@@ -277,7 +285,7 @@ def test_the_sibling_produces_the_first_record_s_schema(monkeypatch,
 #: One answer in which two blocks name their file (R-G12's collision) and one
 #: does not. The shared parser must read all three, and the ungated count
 #: must be 2 -- not 3, and not 0.
-DISAMBIGUATED = """raised (3 chains over 3 processes, 3 swallowing sites):
+DISAMBIGUATED = """raised (3 chains over 3 processes, 3 swallowed shapes):
   e1 HANDLED f handled io::Error('x') L156
     SWALLOWED -- absorbed by sink_let_underscore at e1 (f L156 in memory.rs) in f1, which returned ok  [in r1]
   e2 HANDLED f handled io::Error('y') L156

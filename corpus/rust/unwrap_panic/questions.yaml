@@ -31,7 +31,7 @@ questions:
       - ["panicked", "the frame holding it unwound",
          "called `Result::unwrap()` on an `Err` value: Refused(7)"]
       - ["unwound while holding this Err, not that the Err caused the panic"]
-      - ["panics: 1 recorded", "a panic is a frame's unwind"]
+      - ["panics: 1 event(s) recorded", "a panic is a frame's unwind"]
     expect_absent: ["SWALLOWED", "dispositions: swallowed", "ambiguous",
                     "returned to the harness"]
   - id: which-frame-was-holding-it

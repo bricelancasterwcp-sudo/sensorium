@@ -16,7 +16,10 @@ Items 27–29 are rung 4's, from the refocus licence: **27** from E4′'s H1 STO
 and **28** from the whole-branch review of that same slice (design 2026-09-07),
 both **closed 2026-09-08** by the slice that built and measured their ruled
 fixes; **29** is what that slice's own exemption costs (design 2026-09-08 R4 as
-amended).
+amended). **30** and **31** were added 2026-09-08 by the queue slice: both are
+shapes an earlier ledger named and no *blind-spot* entry carried — 30 from the
+err-flow design's R16 (v), 31 from the rung-3 inbox — so this list, which the
+index calls the one home of §8, is where a reader meets them.
 
 Each entry names **what declares it** — the field or line a reader meets
 without knowing this document exists — and, where one exists, what could
@@ -179,7 +182,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    that matches only functions the transform skips, each named with its
    reason, and build nothing; and, on an unfocused trace, by the unchanged
    refusal `watch` and `flow` print:
-   `REFUSED: watch needs line, which recorder sensorium-rt 0.4.0 declares it
+   `REFUSED: watch needs line, which recorder sensorium-rt 0.4.1 declares it
    does not produce (capabilities.line: false); nothing was checked`.
 4. **What the program printed.** libtest owns the capture and the hook that
    would take it is unstable. *Declared by* `capabilities.output: false`: the
@@ -727,3 +730,43 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     by fixture**: no test drives a program whose output depends on a session
     key, and E4″'s 61 pairs cannot reach it — one session key differed there
     (`CLAUDE_CODE_SESSION_ID`) and nothing in that workspace reads it.
+30. **An `Err` born in an instrumented CALLEE and handed BY VALUE to a
+    helper that sinks it is a chainless swallow.** Design R16 (v), rung 3,
+    carried until now in `docs/CARRIED-DEBT.md` alone. A callee that returns
+    `Err` closes its own frame and its chain with it; the caller then passes
+    that value to a helper, whose sink records a HANDLED matching no chain
+    the helper's frame holds. The verdict class is right — a sink with no
+    open chain is not claimed as a SWALLOWED of anything — and the shape
+    costs a second, AMBIGUOUS line for the chain the callee's `err` close
+    opened, so one failure reads as two. What was wrong until 2026-09-08 was
+    the DETAIL: it said the error was *born outside this thread's
+    instrumented frames* when it had been born inside one, a frame away,
+    which sends a reader looking outside the workspace for an error the
+    workspace raised. *Declared by* the printed detail itself since
+    `edc2bce`, which now leads with the record's own fact — *no chain of this
+    thread was open where it was absorbed* — and names both readings that
+    admit it, the by-value hand-off included. *Falsified by* a fixture whose
+    callee's `Err` reaches a sink in a helper and whose answer reads as one
+    failure rather than two; **untested by fixture** on a real tree, and
+    closing it needs the chain to survive its frame, which is a wire
+    question, not a wording one.
+31. **A spawn in an expression position the container visitors skip is
+    neither rewritten nor declared.** From the rung-3 inbox (entry slice
+    2026-09-03, class widened by the final review 2026-09-04), carried there
+    and in no blind-spot entry until 2026-09-08. The three fn visitors
+    descend into a fn's BODY only, and `visit_item_impl`/`visit_item_trait`
+    visit their `items` only, so a `thread::spawn` inside a fn SIGNATURE's
+    array-length expression (`fn n(&self) -> [u8; { ..spawns.. }]`, the shape
+    that surfaced it), inside an `impl` header's self type, or inside a
+    trait's const-generic default is never wrapped by `spawn_child`. §3's
+    promise — *a rewritten spawn site's child is named `<parent> ::
+    spawn@<qualname>#<k>`* — is about rewritten sites, and this one is not
+    rewritten: its thread carries no task name, and if it runs no
+    instrumented code it is invisible exactly as any dependency thread is.
+    *Declared by* this entry alone: no field, meta key or `info` line names
+    it, because the unit was instrumented and nothing refused — which is why
+    it is here rather than in `unreached_reasons`. *Falsified by* a probe
+    fixture with a spawn in each of the three positions, asserting whether
+    the manifest declares them; **untested by fixture**. Rewriting those
+    positions is a `docs/CARRIED-DEBT.md` C item — declaring the shape is
+    what this entry is.

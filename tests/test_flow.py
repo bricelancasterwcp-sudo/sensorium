@@ -14,8 +14,9 @@ import shlex
 from sensorium import cli
 from sensorium.exit import NEGATIVE, UNSETTLED
 from sensorium.query import flow_cmd
-from tests.programs import (ALIAS, GRAMS, flow_rows, flow_shown_ids,
-                            open_trace, record, synthetic)
+from tests.flow_programs import (ALIAS, GRAMS, flow_rows, flow_shown_ids,
+                                open_trace)
+from tests.programs import record, synthetic
 
 # `payload` is 12 long (sample cap is 8); `deep` and `nest` both go past the
 # depth cap of 3, in a dict chain and a list chain. The capture of each is

@@ -11,6 +11,8 @@
 //! `pub(super)` because the parent module calls them; the other seven are
 //! private, called only by their siblings here.
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use proc_macro2::Span;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
@@ -173,6 +175,53 @@ pub(super) fn is_conditionally_compiled(stmt: &Stmt) -> bool {
         .any(|a| a.path().is_ident("cfg") || a.path().is_ident("cfg_attr"))
 }
 
+/// How many `Expr` variants [`expr_attrs`] has met and does not enumerate.
+///
+/// Zero, for as long as this crate's `syn` defines no variant the match above
+/// has not been taught. It is a counter rather than only an `eprintln!`
+/// because "it stayed at zero" and "it fired" are both claims a test can
+/// check, and a line on stderr is neither.
+static UNENUMERATED_EXPRS: AtomicUsize = AtomicUsize::new(0);
+
+/// The line [`unenumerated`] is to print, or `None` because it has printed one
+/// already.
+///
+/// Counts every call and reports on the 0 -> 1 transition only. The walk
+/// visits every statement of every file of a unit, so a variant this match
+/// does not enumerate would otherwise print one line per OCCURRENCE and bury
+/// the build log the message exists to be visible in. The count keeps rising
+/// either way, so "how many" is still answerable; only the shouting is capped.
+///
+/// Separated from the printing so that "it reports once" is a claim a test can
+/// check, which a line on stderr is not.
+fn unenumerated_report(at: Span) -> Option<String> {
+    if UNENUMERATED_EXPRS.fetch_add(1, Ordering::Relaxed) > 0 {
+        return None;
+    }
+    let start = at.start();
+    Some(format!(
+        "sensorium: sensorium-transform does not enumerate this syn::Expr \
+         variant (line {}, column {}); a `#[cfg]` on that statement was not \
+         seen, and its LINE probe may not survive the strip",
+        start.line, start.column
+    ))
+}
+
+/// The loud half of [`expr_attrs`]'s catch-all.
+///
+/// Says on stderr that a `#[cfg]` may have gone unseen, counts that it
+/// happened, and answers "no attributes" anyway: the cost of being wrong is
+/// one LINE probe on a statement a `cfg` could strip, which is not worth
+/// failing somebody's build over. The old behaviour was the same answer with
+/// nothing said (`docs/CARRIED-DEBT-ARCHIVE-2.md`, "any future `syn` variant
+/// in `expr_attrs`").
+fn unenumerated(at: Span) -> &'static [Attribute] {
+    if let Some(line) = unenumerated_report(at) {
+        eprintln!("{line}");
+    }
+    &[]
+}
+
 /// One expression's own outer attributes.
 ///
 /// `syn` gives every `Expr` variant but `Verbatim` an `attrs` field and no way
@@ -180,6 +229,12 @@ pub(super) fn is_conditionally_compiled(stmt: &Stmt) -> bool {
 /// `syn::Expr` is `#[non_exhaustive]` -- and answers "no attributes", which is
 /// what a variant this crate has never seen would have to be assumed to have;
 /// the cost of being wrong is one probe on a statement a `cfg` could strip.
+///
+/// It no longer answers that in SILENCE. `Verbatim` is enumerated by name,
+/// because "no attributes" is the truth for it rather than an assumption;
+/// everything else reaching the catch-all is a variant `syn` added after this
+/// match was written, and [`unenumerated`] says so on stderr and counts
+/// itself.
 fn expr_attrs(expr: &Expr) -> &[Attribute] {
     match expr {
         Expr::Array(e) => &e.attrs,
@@ -221,7 +276,18 @@ fn expr_attrs(expr: &Expr) -> &[Attribute] {
         Expr::Unsafe(e) => &e.attrs,
         Expr::While(e) => &e.attrs,
         Expr::Yield(e) => &e.attrs,
-        _ => &[],
+        // The one variant with no `attrs` field at all: `syn` parked tokens it
+        // could not parse, so there is nothing an attribute could be hiding in.
+        Expr::Verbatim(_) => &[],
+        // KNOWN-SURVIVING MUTANT, on purpose: no test can reach this arm.
+        // `syn::Expr` is `#[non_exhaustive]`, so no test can construct a
+        // variant that is neither matched above nor `Verbatim`, and restoring
+        // the old `_ => &[]` here leaves the whole suite green. What IS fenced
+        // is the message itself -- `unenumerated_report`'s own test pins its
+        // wording, its counting and its report-once rule -- and the
+        // `Verbatim` arm above, whose removal reddens that test. The day
+        // `syn` grows a variant, this arm is what turns silence into a line.
+        other => unenumerated(other.span()),
     }
 }
 
@@ -340,5 +406,79 @@ fn collect_let_bindings(cond: &Expr, out: &mut Vec<String>) {
             collect_let_bindings(&binary.right, out);
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn stmt(source: &str) -> Stmt {
+        syn::parse_str(source).expect("a statement")
+    }
+
+    /// The rule `expr_attrs` serves: `#[cfg]` can delete the statement and
+    /// `#[allow]` cannot, and both are read off the EXPRESSION.
+    #[test]
+    fn a_cfg_on_an_expression_statement_is_seen_and_an_allow_is_not() {
+        assert!(is_conditionally_compiled(&stmt("#[cfg(unix)] foo();")));
+        assert!(is_conditionally_compiled(&stmt(
+            "#[cfg_attr(test, allow(unused))] foo();"
+        )));
+        assert!(!is_conditionally_compiled(&stmt("#[allow(unused)] foo();")));
+    }
+
+    /// The one arm no `syn` variant can reach today, reached by hand.
+    ///
+    /// ONE test, because [`UNENUMERATED_EXPRS`] is process-global and this is
+    /// the only test that touches it: split in two, the two halves would race
+    /// each other for the 0 -> 1 transition.
+    #[test]
+    fn the_catch_all_reports_itself_once_and_verbatim_is_not_the_catch_all() {
+        assert_eq!(
+            UNENUMERATED_EXPRS.load(Ordering::Relaxed),
+            0,
+            "this test owns the counter: nothing else may have bumped it"
+        );
+
+        // `Verbatim` is answered by name, so it must not count.
+        let verbatim = Expr::Verbatim(proc_macro2::TokenStream::new());
+        assert!(expr_attrs(&verbatim).is_empty());
+        assert_eq!(
+            UNENUMERATED_EXPRS.load(Ordering::Relaxed),
+            0,
+            "`Expr::Verbatim` is answered by name, not fallen through"
+        );
+
+        // The first unknown variant reports, and the message says which
+        // position it was at.
+        let first = unenumerated_report(Span::call_site());
+        let first = first.expect("the first unknown variant must report");
+        assert!(
+            first.starts_with(
+                "sensorium: sensorium-transform does not enumerate this syn::Expr variant"
+            ),
+            "{first}"
+        );
+        assert!(first.contains("`#[cfg]`"), "{first}");
+        assert_eq!(UNENUMERATED_EXPRS.load(Ordering::Relaxed), 1);
+
+        // The second does NOT report -- the walk visits every statement of
+        // every file, so one line per occurrence would bury the build log the
+        // message exists to be visible in -- but it is still COUNTED.
+        assert_eq!(
+            unenumerated_report(Span::call_site()),
+            None,
+            "the message is once per process, not once per statement"
+        );
+        assert_eq!(
+            UNENUMERATED_EXPRS.load(Ordering::Relaxed),
+            2,
+            "counting does not stop when reporting does"
+        );
+
+        // And the arm's own answer is unchanged either way.
+        assert!(unenumerated(Span::call_site()).is_empty());
+        assert_eq!(UNENUMERATED_EXPRS.load(Ordering::Relaxed), 3);
     }
 }

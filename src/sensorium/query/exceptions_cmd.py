@@ -659,17 +659,18 @@ def run(args) -> int:
     after = parse_eref(args.after) if args.after else 0
     try:
         path = paths.find_trace(args.run)
-    except paths.TraceLookupError as e:
+    except paths.NoSuchTrace:
         # ONLY "this ref names no trace" opens the second namespace (design
         # N6). An ambiguous run prefix, or a store with no traces at all,
         # is already an answered question and keeps the answer it had: a
         # ref that resolves to a TRACE, or that fails for any other reason,
-        # is never re-read as an invocation id.
+        # is never re-read as an invocation id. The `except` clause IS that
+        # test -- it read the message's first words before, which was right
+        # only until someone reworded them, and would then have failed by
+        # answering less rather than by failing.
         #
         # Local: `exceptions_invocation` imports this module's Rust sibling,
         # which imports `Disposition` from here.
-        if not str(e).startswith("no trace matches"):
-            raise
         from sensorium.query import exceptions_invocation
         # `InvocationLookupError` is a `TraceLookupError`, so a ref that
         # names neither namespace is rendered by `cli.main` exactly as a

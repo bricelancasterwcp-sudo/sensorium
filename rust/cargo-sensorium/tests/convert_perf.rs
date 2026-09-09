@@ -54,7 +54,7 @@ fn get_meta(conn: &Connection, key: &str) -> serde_json::Value {
 }
 
 #[test]
-fn a_hundred_thousand_record_spool_converts_in_seconds_not_minutes() {
+fn a_hundred_thousand_record_spool_converts_in_under_thirty_seconds() {
     let scratch = Scratch::in_build_dir("convert-perf-100k");
     let target = scratch.p("target");
     let spool_dir = target.join("sensorium/spool/20260903-000000-000000");

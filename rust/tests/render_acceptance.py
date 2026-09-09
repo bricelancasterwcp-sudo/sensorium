@@ -14,6 +14,10 @@ a zero, not as an empty cell. `0` is a measured zero and prints as `0`.
     # rung 3 (Err flow): §2 and §3
     .venv/bin/python rust/tests/render_acceptance.py --doc rung3 [results.json]
     .venv/bin/python rust/tests/render_acceptance.py --doc e6ppp [results.json]
+    .venv/bin/python rust/tests/render_acceptance.py --doc e6q [results.json]
+
+    # rung 4 (the grain of exceptions): §2 and §3
+    .venv/bin/python rust/tests/render_acceptance.py --doc grain [results.json]
 
 §4 is never rendered, and neither is E5''s §5. They are written by hand
 against the pre-registered rules and the raw record.
@@ -21,6 +25,7 @@ against the pre-registered rules and the raw record.
 
 from __future__ import annotations
 
+import importlib
 import json
 import sys
 from pathlib import Path
@@ -593,6 +598,17 @@ def e5prime_document(argv) -> int:
     return 0
 
 
+#: `--doc <name>` -> the module whose `document(argv)` renders that record.
+#: A TABLE, not a chain of `if`s: `render_e6q` and `render_grain` were each
+#: written with the same `document(argv)` entry point as their siblings and
+#: neither was ever added to the chain, so the only way to render those two
+#: documents was to run the module directly (A1's review minors). The
+#: refusal message is derived from this table too, so a renderer added here
+#: is both reachable and named in one edit.
+DOCS = {"e6ppp": "render_e6ppp", "e6q": "render_e6q",
+        "grain": "render_grain", "rung3": "render_rung3"}
+
+
 def main(argv) -> int:
     """`--doc e5prime` renders the rung-3-entry E5' document; with no `--doc`
     the original rung-2 §3 is printed, unchanged.
@@ -608,22 +624,16 @@ def main(argv) -> int:
         del argv[i:i + 2]
     if doc == "e5prime":
         return e5prime_document(argv)
-    if doc == "e6ppp":
-        # Its own module, for the reason `render_rung3` is one: §2 and §3 of
-        # the E6‴ document are another ~300 lines.
+    if doc in DOCS:
+        # Each has its own module, for the reason `render_rung3` does: §2
+        # and §3 of one document are ~300 lines and this file is already
+        # 590. Imported lazily so rendering one never imports the rest.
         sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from render_e6ppp import document                          # noqa: PLC0415
-        return document(argv)
-    if doc == "rung3":
-        # Its own module: §2 and §3 of the rung-3 document are another ~300
-        # lines, and this file is already 590.
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from render_rung3 import document                          # noqa: PLC0415
-        return document(argv)
+        module = importlib.import_module(DOCS[doc])
+        return module.document(argv)
     if doc != "rung2":
-        print(f"unknown --doc {doc!r}: expected `rung2`, `e5prime`, `rung3` "
-              f"or `e6ppp`",
-              file=sys.stderr)
+        names = ", ".join(f"`{k}`" for k in ["rung2", "e5prime", *sorted(DOCS)])
+        print(f"unknown --doc {doc!r}: expected {names}", file=sys.stderr)
         return 2
     return rung2_document(argv)
 

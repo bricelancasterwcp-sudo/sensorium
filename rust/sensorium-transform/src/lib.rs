@@ -82,7 +82,7 @@
 //! and, in a function the caller's [`Focus`] selects, after every statement of
 //! its body at every block depth -- carrying the bindings that statement wrote,
 //! by shared borrow, immediately after the write (design 2026-09-06 §3.2,
-//! amendment A7; [`lines`] is where the whole rule lives):
+//! amendment A7; the `lines` module is where the whole rule lives):
 //!
 //! ```ignore
 //! ::sensorium_rt::line(&crate::__SENSORIUM_UNIT, <site>, || [("x", ::sensorium_rt::probe_cap!(&x))]);
@@ -112,7 +112,6 @@ mod lines;
 mod manifest;
 mod marks;
 mod names;
-mod sha256;
 mod spawn;
 mod splice;
 mod visit;
@@ -469,14 +468,14 @@ pub const MAX_SITE_INDEX: u32 = 0x00FF_FFFF;
 ///
 /// A CLOSURE is not a fn item and is never counted as one, but a closure whose
 /// body holds a `?` at its own depth gets a frame of its own (design R5,
-/// [`closures`]): a guard, wrapped exits, and a [`SiteKind::Closure`] row named
+/// the `closures` module): a guard, wrapped exits, and a [`SiteKind::Closure`] row named
 /// `<enclosing item>::{{closure}}#k`. An `async` closure never does, and neither
 /// does a closure with no `?`.
 ///
 /// # Exits
 ///
 /// Only a [`RetKind::Value`] fn has exits to wrap: its tail expression, and
-/// every `return <e>` at closure depth 0 of its body. See [`exits`] for the
+/// every `return <e>` at closure depth 0 of its body. See the `exits` module for the
 /// operands that are left alone because they diverge, and for the two shapes
 /// measured to produce a rustc diagnostic when they are wrapped.
 ///

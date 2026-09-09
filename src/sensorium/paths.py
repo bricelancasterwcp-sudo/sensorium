@@ -9,6 +9,21 @@ class TraceLookupError(Exception):
     pass
 
 
+class NoSuchTrace(TraceLookupError):
+    """No trace in the store has this ref as a prefix.
+
+    A TYPE and not a sentence. `exceptions_cmd` falls through to the
+    invocation namespace on exactly this failure and on no other (design
+    N6), and it tested the words `"no trace matches"` to tell them apart --
+    correct while nobody reworded the message, and silently wrong the day
+    somebody did, because the fall-through would stop happening and the
+    only symptom would be a command answering less.
+
+    A subclass, so `cli.main` and every other caller that catches
+    `TraceLookupError` are unchanged.
+    """
+
+
 def trace_root() -> Path:
     return Path(os.environ.get("SENSORIUM_DIR") or Path.home() / ".sensorium")
 
@@ -46,7 +61,7 @@ def find_trace(ref: str) -> Path:
         return max(files, key=lambda p: p.stat().st_mtime)
     hits = [p for p in files if p.stem.startswith(ref)]
     if not hits:
-        raise TraceLookupError(f"no trace matches {ref!r}")
+        raise NoSuchTrace(f"no trace matches {ref!r}")
     if len(hits) > 1:
         names = ", ".join(p.stem for p in hits)
         raise TraceLookupError(f"{ref!r} is ambiguous: {names}")

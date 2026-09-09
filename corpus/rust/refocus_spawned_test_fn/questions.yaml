@@ -1,5 +1,14 @@
 program: cargo
-cargo_args: ["test"]
+# `--test-threads=1` so the RECORDING is deterministic, not to change what
+# the case is about: libtest still gives each `#[test]` fn a thread of its
+# own (the counts below are unchanged at 2 harness threads), it just stops
+# running the two tests at once. Without it the two libtest threads and the
+# spawned one interleave, and the frame and event ids move between runs --
+# measured: over 12 recordings the spawned thread's root was `f4` twelve
+# times and then `f2` on the thirteenth, which is exactly the kind of pin
+# that passes until it does not. The third question below reads a frame id,
+# so the case takes the determinism rather than the flake.
+cargo_args: ["test", "--", "--test-threads=1"]
 questions:
   - id: which-of-these-threads-did-the-program-start
     ask: >
@@ -36,6 +45,40 @@ questions:
       - ["threads started: 1 besides the main one and 2 harness threads (libtest's per-test thread, excluded as the recorder's own)"]
       - ["tasks:", "spawn@tests::spawns_a_marked_fn#1"]
     expect_exit: 0
+  - id: whose-root-frame-is-the-marked-test-fn
+    ask: >
+      The thread `spawns_a_marked_fn` started runs a function the manifest
+      marks `#[test]`. Which frame does that thread begin with?
+    truth: >
+      `tests::helper_test`, the marked fn, entered directly -- the spawned
+      closure holds no `?`, so it opens no frame of its own and the marked
+      fn is the FIRST thing the thread enters. That is the whole reason the
+      mark cannot say who started a thread, and it is the fact the licence
+      rule turns on; before this question the case pinned the counts and
+      the spawn name and left the root itself to a synthetic fixture.
+      The ids are readable here because this case records with
+      `--test-threads=1`: libtest runs its two tests one after the other, so
+      the whole tree is byte-identical run to run (measured over 6
+      recordings) and the spawned thread's root is `f4` -- after
+      `helper_test`'s own thread (`f1`, `f2`) and the test that spawns it
+      (`f3`). Without that flag the three threads interleave and the ids
+      move; the flag changes the schedule and nothing else, and the counts
+      the first question reads are the same either way.
+    why_logs_fail: >
+      A `dbg!` inside the closure says the work ran; it does not say which
+      frame the thread began with, and a thread that entered `helper_test`
+      through a wrapper the recorder could not see would print exactly the
+      same line. RUST_LOG has no logger to reach in this crate, and its
+      target is the module rather than the call stack; RUST_BACKTRACE
+      prints a stack only when something panics, and both tests pass. The
+      distinction is structural, and only the recording holds it.
+    command: ["tree", "$RUN"]
+    expect_contains:
+      - "task t4: tests::spawns_a_marked_fn :: spawn@tests::spawns_a_marked_fn#1\n  f4 e6 tests::helper_test() <unread: locals> -> ()\n"
+    expect_line:
+      - ["f4 e6 tests::helper_test()", "-> ()"]
+    expect_count: {"tests::helper_test()": 2}
+    expect_exit: 0
   - id: can-a-refocus-of-this-run-license-the-whole-run
     ask: >
       Re-run this recording one flag deeper and compare. Is the licence
@@ -65,5 +108,6 @@ questions:
     expect_contains:
       - "licence: WITHHELD"
       - "started 1 thread(s) besides the main one and 2 harness threads"
+      - "note: a MATCH does not say the two runs scheduled the same way -- the streams are compared as a multiset of (name, hash), so the same shapes carried by differently numbered test and spawned threads match, and which carried which is recorded and never compared"
     expect_absent: ["licence: verified against"]
     expect_exit: 0

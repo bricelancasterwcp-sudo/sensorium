@@ -10,7 +10,7 @@
 //! # The boundary rule (design §2.1)
 //!
 //! A value is the qualname the trace already prints for Rust -- the file-local
-//! `::` path [`crate::visit`] computes (`Counter::new`, `tests::a::b`). A value
+//! `::` path the `visit` module computes (`Counter::new`, `tests::a::b`). A value
 //! naming a CONTAINER selects every eligible function under it, and "under"
 //! means equal, or a prefix ending at a `::` boundary. `Counter` therefore
 //! selects `Counter::new` and not `Counters::new`, which is the one rule this
@@ -21,7 +21,7 @@
 //! `pkg.module[:qualname]` spelling; the two commands are different and each
 //! takes what its own `tree` prints.
 
-use crate::sha256;
+use sensorium_rt::sha256;
 
 /// The focus values, in the order the caller gave them, de-duplicated.
 ///
@@ -145,7 +145,7 @@ pub struct FnItem {
 /// the drift would show up as a `--focus` the driver accepts and the transform
 /// ignores.
 ///
-/// The walk it runs is the CENSUS walk ([`crate::census::walk`], transform
+/// The walk it runs is the CENSUS walk (`census::walk`, transform
 /// 0.4.2): the same visitor with its splicing half switched off. Until 0.4.2
 /// this ran the whole transform on every file of the workspace -- every offset
 /// computed, every fragment placed, every rewritten source assembled and its
@@ -250,7 +250,7 @@ mod tests {
         // The hash is the hash OF the canonical form, not a parallel rule.
         assert_eq!(
             Focus::parse("b,a").focus_hash(),
-            crate::sha256::hex(Focus::parse("b,a").canonical().join("\n").as_bytes())[..16]
+            sensorium_rt::sha256::hex(Focus::parse("b,a").canonical().join("\n").as_bytes())[..16]
         );
     }
 
@@ -268,6 +268,23 @@ mod tests {
         assert_eq!(Focus::parse("a").focus_hash().len(), 16);
         // The value, not just its shape: sha256("a\nb")[..16].
         assert_eq!(Focus::parse("b,a").focus_hash(), "7e18f737311b2dc3");
+    }
+
+    /// The one check that the sha256 the focus hash is taken with is still
+    /// sha256.
+    ///
+    /// This crate has no copy of the algorithm any more: `sensorium_rt::sha256`
+    /// is the repository's only one (2026-09-08). The NIST vectors live with
+    /// it, in `sensorium-rt/src/sha256.rs`; this says the module `focus_hash`
+    /// reaches is that module and not something that merely compiles. It is
+    /// what makes the literal above (`"7e18f737311b2dc3"`) mean sha256 rather
+    /// than "whatever we hashed with".
+    #[test]
+    fn the_sha256_the_focus_hash_is_taken_with_is_the_runtimes() {
+        assert_eq!(
+            sensorium_rt::sha256::hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     /// The eligible set a `--focus` is resolved against IS the set this

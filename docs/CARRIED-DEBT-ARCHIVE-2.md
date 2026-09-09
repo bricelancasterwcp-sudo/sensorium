@@ -179,26 +179,40 @@ Each is marked *ruling: Brice / slice 2*.
   fallback and a rule for when the source binary is replaced. **Ruling owed.**~~
   — **Taken 2026-09-07** at `36d2fe9`, slice 3's ruling R3: the hard link with
   a copy fallback, and the replaced-binary rule was already the key's own hash.
-- **`sha256.rs` now exists in THREE crates** — runtime, transform and driver
+- ~~**`sha256.rs` now exists in THREE crates** — runtime, transform and driver
   — kept in sync by the same NIST vectors. D1 forces the first two; the
   transform's copy is this slice's, for `focus_hash`. Three copies of ~300
-  lines is past the point where "a duplication D1 forces" describes it.
-- **`info` renders an ABSENT `focus` as `focus: -`.** The converter honours
+  lines is past the point where "a duplication D1 forces" describes it.~~ — **Taken 2026-09-08** at `a0580d3` under **ruling
+  R3**: `sensorium-rt` — the leaf with zero dependencies, and therefore the
+  only crate the other two can both depend on — owns it as `pub mod sha256`,
+  and the two copies are deleted. `sensorium-rt` **0.4.1**,
+  `sensorium-transform` **0.4.4**, `cargo-sensorium` **0.5.3**. The one
+  observable consequence: `RT_VERSION` is a literal held to the manifest by a
+  unit test, so every Rust trace this runtime writes now says
+  `recorder: sensorium-rt 0.4.1` — three corpus pins, one E9 cross-check and
+  the living docs moved with it, each re-pinned by value.
+- ~~**`info` renders an ABSENT `focus` as `focus: -`.** The converter honours
   none-vs-zero and writes no `focus` key at all on an unfocused run
   (`rust/cargo-sensorium/tests/convert_meta.rs`), and the reader then
   collapses absent and empty into one dash. Design §6's
   `focus_unfocused_refuses` line — "`info` shows no `focus` key" — is
   therefore pinned as `focus: -` rather than literally. Fixing the reader
-  would let the literal pin be taken.
-- **`rust/cargo-sensorium/tests/convert.rs` is 833 lines**, over the ceiling
+  would let the literal pin be taken.~~ — **Taken 2026-09-08** at `36a6f5f`: an absent
+  `focus` key prints `focus: -` and a recorded EMPTY list prints
+  `focus: none` — two words for two facts — so design §6's literal pin is
+  now unambiguous and `corpus/rust/focus_unfocused_refuses` takes it.
+- ~~**`rust/cargo-sensorium/tests/convert.rs` is 833 lines**, over the ceiling
   and **pre-existing since `089768d`** — this slice did not touch it. Named
-  here so the next legitimate touch splits it rather than discovering it.
+  here so the next legitimate touch splits it rather than discovering it.~~ — **Taken 2026-09-08** at `4b98c3f`, before this
+  slice's own fixtures were added: the runner and `child_runs` banners moved
+  to `tests/convert_runner.rs` (833 → 683 + 266), a pure move cargo
+  auto-discovers, with `413 passed` either side.
 - **Files near the ceiling**, none of them over it:
   `rust/tests/acceptance_e9_phases.py` 788, `rust/sensorium-transform/tests/edges.rs`
-  784, `rust/sensorium-transform/src/splice.rs` 775,
-  `rust/sensorium-transform/src/visit.rs` 767,
-  `rust/sensorium-transform/src/lines.rs` 749 and
-  `rust/cargo-sensorium/src/driver.rs` 763 — and ~~**this file, at 799 of 800
+  784, ~~`rust/sensorium-transform/src/splice.rs` 775~~,
+  ~~`rust/sensorium-transform/src/visit.rs` 767~~,
+  ~~`rust/sensorium-transform/src/lines.rs` 749~~ and
+  ~~`rust/cargo-sensorium/src/driver.rs` 763~~ — and ~~**this file, at 799 of 800
   after fix round 1: the next bullet added here MUST split it first**~~. For
   the others the next paragraph splits them first too; for this one the natural
   split is by slice, the oldest sections moving to a
@@ -206,12 +220,25 @@ Each is marked *ruling: Brice / slice 2*.
   discovered at the ceiling. — **Taken 2026-09-06**, first commit of the
   post-review fix wave and alone: rung 3, the borrow repair and the rung-4
   entry slice are `docs/CARRIED-DEBT-ARCHIVE.md`, a pure move under the name
-  this bullet gave it. The others stand.
-- **A stale `rust/target/release/cargo-sensorium` sits on the ROOT disk**, a
+  this bullet gave it. The others stand. — **The four struck above taken 2026-09-08**,
+  each split before the slice that edited it: `splice.rs` → `assemble.rs` at
+  `91df4a3` (775 → 232), `visit.rs` → `visit/walk.rs` at `853271a`
+  (767 → 512), `lines.rs` → `lines/facts.rs` at `b949129` (749 → 449), and
+  `driver.rs` → `invocation.rs`/`launch.rs` at `03a68d3` (763 → 328).
+  `rust/tests/acceptance_e9_phases.py` (788) and
+  `rust/sensorium-transform/tests/edges.rs` (784) are still near the ceiling
+  and named again in the 2026-09-08 queue section of `docs/CARRIED-DEBT.md`,
+  where `tests/test_ceiling.py` (`e531200`) now enforces the rule this bullet
+  kept by hand.
+- ~~**A stale `rust/target/release/cargo-sensorium` sits on the ROOT disk**, a
   2026-09-04 build. Anyone who runs the corpus gate with that binary on
   `PATH` instead of the `/mnt`-side one gets failures that are about the
   binary and not the tree. Delete it or document it; it is not `.gitignore`'d
-  away, it is simply old.
+  away, it is simply old.~~ — **Taken 2026-09-08** under **ruling R7**: deleted
+  (6 916 896 bytes, 6.6 MB, freed from the root disk). It was untracked and
+  ours, so there is no commit to name — the deletion is recorded here and in
+  the queue slice's section, which is the whole of what a later reader needs.
+  The box builds on the second disk.
 - ~~**A box-local path sits in a committed test, and no check reaches it.**
   `rust/sensorium-transform/tests/census.rs:6`'s doc comment names
   `/home/brice/workspace/bloomery`. It is **pre-existing on `main` at
@@ -240,14 +267,27 @@ Each is marked *ruling: Brice / slice 2*.
   tell `None` from a binding and resolution is rustc's job. The cost is a
   missed delta for a binding written against Rust's own naming convention;
   the alternative is a workspace that does not compile under a focus.
-- **`Expr::RawAddr` and any future `syn` variant in `expr_attrs`.** The
+- ~~**`Expr::RawAddr` and any future `syn` variant in `expr_attrs`.** The
   attribute walk enumerates `syn::Expr` variants by hand
   (`rust/sensorium-transform/src/lines.rs:617`), so a variant `syn` adds later
   silently falls through to "no attributes" and its `#[cfg]` decline is lost.
-  Nothing fails loudly when that happens.
-- **The refusal gate is unverified on a real CI runner.** `.github/workflows/ci.yml`
+  Nothing fails loudly when that happens.~~ — **Taken 2026-09-08** at `bb0bb29` (with
+  `30fcb39`): `syn::Expr` is `#[non_exhaustive]`, so the exhaustive match is
+  not available and the loud fallthrough is what shipped —
+  `Expr::Verbatim(_)` is enumerated by name (it is the one variant with no
+  `attrs` field, so "no attributes" is true rather than assumed), everything
+  else reaching the catch-all prints a `sensorium:` line naming the source
+  position and is counted by an `AtomicUsize` so the arm is testable at all.
+  The arm still answers `&[]`, and that is documented as a **known-surviving
+  mutant**: no `syn` variant reaches it today, so no test can distinguish the
+  fallthrough's return value.
+- ~~**The refusal gate is unverified on a real CI runner.** `.github/workflows/ci.yml`
   gained the exit-2 focus refusal check in the rust job (R-F12), and no
-  runner has executed it until this PR does.
+  runner has executed it until this PR does.~~ — **Struck 2026-09-08**, fixed earlier and never
+  struck: `.github/workflows/ci.yml` runs `tests/test_focus_refusal.py` in
+  the cross-recorder step and `corpus/run_corpus.py --require-driver` in the
+  Rust corpus step, and both have executed green on a real runner since PRs
+  #21/#22 merged.
 - ~~**`results.json` re-derivation is still an OPEN ruling** — the entry
   slice's item above stands. E9 states its own practice rather than a policy:
   the file committed with the record IS a re-assembly, checked against the
@@ -261,17 +301,21 @@ Each is marked *ruling: Brice / slice 2*.
   committed with their records are NOT re-derived — a derivation is stated, not
   rewritten (R-F15/R-G15 precedent) — so **those two files predate the field**,
   which is the fact a later reader needs.
-- **`reported.line_rows_per_run` published four nulls** (record §5.5 item 1):
+- ~~**`reported.line_rows_per_run` published four nulls** (record §5.5 item 1):
   it reads `meta.counts`, a key the Rust trace's `meta` does not carry. The
   number is in the record — the census's `line_events`, 0 / 26 / 0 / 160 —
   so this is a duplicate field shaped for the Python recorder, and it is
   reported rather than a measurement cell, which is why the "no null without
-  a reason" rule does not reach it.
+  a reason" rule does not reach it.~~ — **Taken 2026-09-08** at `3e1dac9`: the field
+  reads the census's `line_events` — the number §1.4 asks for, which the
+  census counted all along — names that source on the cell, and is `null`
+  WITH its reason only for a run that was never censused. The committed E9
+  record is not re-derived.
 - **The suite's skip count still depends on one variable** (record §5.5 item
   4): 1428 passed / 12 skipped without `SENSORIUM_CARGO_SENSORIUM` (1426 at the record's reading; the fix wave added two scan tests),
   1437 / 1 with it. The entry slice carried the same residual at 1293/9
   against 1301/1; the delta is now 11 tests rather than 8.
-- **`src/sensorium/query/exceptions_rust.py` names `rust/HONESTY.md` at three
+- ~~**`src/sensorium/query/exceptions_rust.py` names `rust/HONESTY.md` at three
   sites, and after this slice's split one of them is PRINTED.** `:431` (a
   comment above `ESCAPED_DETAIL`) and `:448` (a docstring) cite
   `rust/HONESTY.md` §11 for the SWALLOWED definition; the section still names
@@ -285,7 +329,11 @@ Each is marked *ruling: Brice / slice 2*.
   The correction, spelled out so the next slice need not re-derive it: the
   unprobed shapes are named by `rust/HONESTY-ERR-FLOW.md` (§11's "everything
   else is unprobed **on purpose**" paragraph) and `rust/HONESTY-BLIND-SPOTS.md`
-  items 15–26.
+  items 15–26.~~ — **Taken 2026-09-08** at `edc2bce` (pinned at
+  `6490a14`): all three sites cite the files that name the shapes —
+  `rust/HONESTY-ERR-FLOW.md` §11 and `rust/HONESTY-BLIND-SPOTS.md` items
+  15–26 — and the PRINTED detail at `:462` says so in the sentence a reader
+  meets. Run through the corpus gate WITH the driver.
 
 ### Process lessons
 
@@ -515,14 +563,17 @@ Each is marked *ruling: Brice / slice 2*.
   would prefix-match every file and read `source: unchanged` over code nobody
   hashed. It is a floor chosen against today's two recorders, and a third that
   wrote narrower digests would meet a refusal rather than a rule.
-- **One driver resolution, THREE copies of it.** `refocus_rust.driver`,
+- ~~**One driver resolution, THREE copies of it.** `refocus_rust.driver`,
   `corpus/run_corpus.cargo_driver` and `tests/test_focus_refusal._driver`
   each resolve `SENSORIUM_CARGO_SENSORIUM` then `PATH`. They are separate on
   purpose — `corpus/` is not in the wheel, so the query command cannot import
   it — which makes drift between them silent, so
   `tests/test_refocus_rust.py::test_all_three_driver_resolutions_agree` pins
   all three against four inputs. **Pinned equal, not unified**; unifying them
-  needs the shared helper to live under `src/sensorium/`.
+  needs the shared helper to live under `src/sensorium/`.~~ — **Taken 2026-09-08** at `a9a5ed1`: the helper
+  lives under `src/sensorium/` and all three callers take it from there, so
+  the drift the pin was watching for cannot happen; the agreement test stays,
+  now over one implementation rather than three.
 - **The pre-registered discriminator's second condition has no subject on
   `cargo test` material.** §1.4's rule for telling the named worker-thread
   hazard from a recorder finding is two conditions — the worker tasks' total
@@ -534,7 +585,7 @@ Each is marked *ruling: Brice / slice 2*.
   never asked, so no verdict depends on it (record §5.3). A discriminator that
   works on `cargo test` material is a **pre-registration for a later record**,
   not a repair of this one.
-- **The named hazard fired once and the comparator absorbed it, which is a
+- ~~**The named hazard fired once and the comparator absorbed it, which is a
   reading to keep rather than a defect to fix.** On 1 of the 61 pairs the
   per-`task_id` assignment moved between the two runs — the workers carried
   (216, 205, 151, 233, 151) events on one side and (216, 205, 233, 151, 151)
@@ -542,7 +593,11 @@ Each is marked *ruling: Brice / slice 2*.
   was identical, so the verdict was MATCH (record §5.3). B1's reasoning was
   exercised, not merely unfalsified. What is carried is that **a MATCH does
   not say the two runs scheduled the same way**, which no printed line
-  currently states beside a Rust verdict.
+  currently states beside a Rust verdict.~~ — **Taken 2026-09-08** at `13475a2` (with
+  `245dee4`): a MATCH over more than one stream prints the caveat — the
+  verdict is not a statement about the schedule — and the note fires within
+  ONE population (`>1 thread OR >1 task`), never by summing two. It is
+  language-neutral: an async Python run's MATCH carries it too.
 - **Rung-5 candidates**, both wanting a measurement first: a per-site volume
   cap (slice 1's item, still with no cost to size against), and the cost
   instrument E4's H6 and E9's §5.5 both asked for — a subject whose test

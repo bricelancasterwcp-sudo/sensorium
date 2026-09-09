@@ -192,6 +192,55 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
     else:
         print("refocus verdict: MATCH -- every recorded thread produced the "
               "identical CALL/RETURN/RAISE/HANDLED sequence")
+    # The hazard E4" section 5.3 MEASURED, named where the verdict is read.
+    # On 1 of its 61 pairs the per-task assignment moved between the two
+    # runs -- the workers carried (216, 205, 151, 233, 151) events on one
+    # side and (216, 205, 233, 151, 151) on the other, 956 both sides --
+    # while the multiset of (name, hash) was identical, so the comparator
+    # reported MATCH. That is the comparator working exactly as designed,
+    # and it is also a claim this verdict does not make: "every recorded
+    # thread produced the identical sequence" reads as a statement about
+    # the run's schedule, and no printed line said otherwise.
+    #
+    # Only where more than one stream was compared, and EACH POPULATION is
+    # asked separately. The hazard is a permutation WITHIN one of them --
+    # the same shapes arriving on differently numbered members of the same
+    # multiset -- so one thread stream beside one task stream is not it:
+    # there is a single member on each side and nothing to permute. Summing
+    # the two reached 2 on exactly that pair and printed the note where the
+    # sentence above says it must not, which is arithmetic across two
+    # populations reported as a measurement: this project's own bug class,
+    # on the line that exists to bound a claim.
+    #
+    # With one member there is nothing for a schedule to have assigned
+    # differently, and a caveat that cannot apply is noise on every
+    # single-threaded pair -- the same rule that took libtest's thread out
+    # of the untraced-thread clause.
+    #
+    # And the NOUN is the population that fired, for the same reason the
+    # gate asks them separately. `stream_scope` is the task word ("asyncio
+    # tasks" on Python), so a two-thread, zero-task pair printed a caveat
+    # about tasks that pair did not have: true of the mechanism, false of
+    # the run in front of the reader, and unfalsifiable by anything they
+    # could look at. A Rust trace carries exactly one `fingerprints` row --
+    # the main thread's, every other thread being a task row
+    # (`convert/frames.rs`) -- so `threads` is unreachable there and the
+    # Rust sentence is the one it always was.
+    threads_permutable = len(new.fingerprints()) > 1
+    tasks_permutable = (tasks.get("n_b") or 0) > 1
+    if threads_permutable or tasks_permutable:
+        scope = terms(new).stream_scope
+        if threads_permutable and tasks_permutable:
+            carried = f"threads and {scope}"
+        elif threads_permutable:
+            carried = "threads"
+        else:
+            carried = scope
+        print("note: a MATCH does not say the two runs scheduled the same "
+              "way -- the streams are compared as a multiset of (name, "
+              "hash), so the same shapes carried by differently numbered "
+              f"{carried} match, and which carried which is "
+              "recorded and never compared")
     if a["caveats"]:
         print("licence: WITHHELD -- this MATCH is about call shape, and "
               "these checks say it is not a statement about the run as a "

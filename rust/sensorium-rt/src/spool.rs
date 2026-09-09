@@ -121,7 +121,7 @@ pub(crate) const UNIT_ID_SHIFT: u32 = 24;
 /// crate with a bare `rustc` invocation (D1), where cargo's environment does
 /// not exist and `env!` would not compile. A unit test below holds it to the
 /// manifest.
-pub(crate) const RT_VERSION: &str = "sensorium-rt 0.4.0";
+pub(crate) const RT_VERSION: &str = "sensorium-rt 0.4.1";
 
 fn round_up_to_chunk(n: usize) -> usize {
     n.div_ceil(CHUNK) * CHUNK
@@ -606,18 +606,64 @@ mod tests {
         );
     }
 
-    /// A scratch directory on whatever disk the suite was pointed at.
-    fn scratch_dir(what: &str) -> std::path::PathBuf {
-        let root = match std::env::var_os("CARGO_TARGET_DIR") {
-            Some(t) if !t.is_empty() => std::path::PathBuf::from(t),
-            _ => std::env::temp_dir(),
+    /// A scratch directory on whatever disk the suite was pointed at, which
+    /// removes itself when it goes out of scope.
+    ///
+    /// The scope guard is the point. These tests used to leave their directory
+    /// behind on every run (rung-3 inbox: "the converter's `spool.rs` tests
+    /// create a temp dir and never remove it"), and the `#[should_panic]` one
+    /// below could not have cleaned up after itself any other way -- its last
+    /// statement is the panic. `Drop` runs on the unwind, so it does.
+    struct Scratch(std::path::PathBuf);
+
+    impl Scratch {
+        fn new(what: &str) -> Scratch {
+            let root = match std::env::var_os("CARGO_TARGET_DIR") {
+                Some(t) if !t.is_empty() => std::path::PathBuf::from(t),
+                _ => std::env::temp_dir(),
+            };
+            let dir = root
+                .join("rt-unit")
+                .join(format!("{what}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).expect("scratch dir");
+            Scratch(dir)
+        }
+
+        fn path(&self) -> &std::path::Path {
+            &self.0
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            // A test that could not tidy up must not also fail the run for it.
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn a_scratch_directory_removes_itself_when_it_leaves_scope() {
+        let path = {
+            let dir = Scratch::new("scope-guard");
+            assert!(dir.path().is_dir(), "{}", dir.path().display());
+            dir.path().to_path_buf()
         };
-        let dir = root
-            .join("rt-unit")
-            .join(format!("{what}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("scratch dir");
-        dir
+        assert!(!path.exists(), "{} outlived its guard", path.display());
+    }
+
+    #[test]
+    fn a_scratch_directory_removes_itself_on_an_unwind_too() {
+        // The shape of the `#[should_panic]` test below, which is the site
+        // that could never have tidied up with a trailing statement.
+        let dir = Scratch::new("scope-guard-unwind");
+        let path = dir.path().to_path_buf();
+        let caught = std::panic::catch_unwind(move || {
+            let _held = dir;
+            panic!("the unwind this guard is for -- expected, and caught here");
+        });
+        assert!(caught.is_err());
+        assert!(!path.exists(), "{} survived the unwind", path.display());
     }
 
     /// `record` states its contract as a `debug_assert`: the payload arrives
@@ -637,8 +683,8 @@ mod tests {
                 "this test pins a debug_assert and needs a debug build"
             );
         }
-        let dir = scratch_dir("oversize-payload");
-        let mut spool = Spool::open(&dir, std::process::id(), 1, "t", 0).expect("open");
+        let dir = Scratch::new("oversize-payload");
+        let mut spool = Spool::open(dir.path(), std::process::id(), 1, "t", 0).expect("open");
         spool.record(
             1,
             0,
@@ -652,8 +698,8 @@ mod tests {
     /// describe is written, not refused.
     #[test]
     fn the_largest_payload_the_length_field_can_describe_is_written() {
-        let dir = scratch_dir("largest-payload");
-        let mut spool = Spool::open(&dir, std::process::id(), 2, "t", 0).expect("open");
+        let dir = Scratch::new("largest-payload");
+        let mut spool = Spool::open(dir.path(), std::process::id(), 2, "t", 0).expect("open");
         let big = vec![b'x'; u16::MAX as usize];
         assert!(spool.record(1, 0, KIND_RETURN, OUTCOME_NONE, &big));
         assert_eq!(spool.records_dropped, 0);
@@ -662,7 +708,8 @@ mod tests {
             HEADER_FIXED + 1 + RECORD_FIXED + u16::MAX as usize
         );
         drop(spool);
-        let _ = std::fs::remove_dir_all(&dir);
+        // `dir` was declared first, so it drops last: the spool's file handle
+        // is closed before the directory goes.
     }
 
     #[test]

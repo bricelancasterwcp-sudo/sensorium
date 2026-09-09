@@ -172,9 +172,21 @@ def run(args) -> int:
     print("recorded: " + "  ".join(f"{k} {counts.get(k, 0)}" for k in
                                    ("CALL", "RETURN", "RAISE", "HANDLED",
                                     "YIELD", "RESUME", "LINE")))
-    focus = m.get("focus") or []
-    print(f"focus: {', '.join(focus) if focus else '-'}    "
-          f"window: {m.get('window') or '-'}")
+    # An ABSENT `focus` key and a RECORDED EMPTY one are two different
+    # records and print as two different words. The converter writes no key
+    # at all on a run that named no focus (`convert/meta.rs`: "no focus, no
+    # key"), and `boot` always writes the list it was handed, so an
+    # unfocused Rust trace is on one side of that fence and an unfocused
+    # Python trace on the other. Collapsing both into the dash meant no
+    # reader -- and no test -- could tell from this line which the trace
+    # holds, and design section 6's "`info` shows no `focus` key" could be
+    # pinned only as `focus: -` rather than literally. The dash keeps the
+    # ABSENT key, which is what this line already prints for an absent
+    # `window` and what the Rust corpus pins; the recorded empty list gets
+    # the word `info` already uses for a counted nothing, `none`.
+    focus = m.get("focus")
+    shown = ", ".join(focus) if focus else ("none" if focus == [] else "-")
+    print(f"focus: {shown}    window: {m.get('window') or '-'}")
     caps = m.get("caps", {})
     print("caps: " + " ".join(f"{k}={v}" for k, v in caps.items())
           + f"   truncated values: {m.get('truncated_count', 0)}")

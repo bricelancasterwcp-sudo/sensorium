@@ -40,7 +40,7 @@ use std::os::unix::fs::symlink;
 use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 
-use crate::sha256;
+use sensorium_rt::sha256;
 
 /// Never mirrored: `target/` is where the mirror itself lives (mirroring it
 /// would be a cycle) and `.git/` is large and never read by rustc.

@@ -233,7 +233,19 @@ def read_manifests(paths: dict, scope: list[str] | None) -> dict:
     `scope` is the `-C metadata=` values from the build's `cargo -v` log; a
     manifest whose filename is not in it belongs to another build (a
     different tool hash leaves its manifests behind) and is counted as
-    `out_of_scope` rather than folded into the numerator."""
+    `out_of_scope` rather than folded into the numerator.
+
+    ONE reader, for rung-2 and rung-3 manifests both. Rung 3's
+    `ManifestSite` serialises `firstlineno` only for a `kind: "fn"` row and
+    `line` for the others (`manifest.rs`: `firstlineno: is_fn.then_some(..)`,
+    `line: (!is_fn).then_some(..)`), so indexing `e["firstlineno"]` raised
+    `KeyError` on the first `try`/`sink`/`arm` row -- measured on the first
+    launch of the rung-3 acceptance run, 2026-09-05. `kind` joins the site
+    key because a `fn` site and a `try` site can share a file and a line and
+    are two different sites; on rung-2 material every row is a `fn` row, so
+    the key gains a constant and no count of that record moves. Rung 3's
+    `partial` count comes along, `None` WITH its reason on a manifest whose
+    format has no such key."""
     d = manifests_dir(paths)
     sites, sites_by_file, raw = set(), {}, 0
     units, fell, unreached, skipped = [], [], set(), []
@@ -251,6 +263,17 @@ def read_manifests(paths: dict, scope: list[str] | None) -> dict:
                       "fallback_reason": m.get("fallback_reason"),
                       "files": len(m["files"]),
                       "sites": sum(len(v) for v in m["files"].values()),
+                      # A rung-2 manifest's format has no `partial` key at
+                      # all, and `0` there reads as "this unit had no
+                      # partial rows" -- a claim about a build nothing
+                      # measured. `None` WITH its reason; a rung-3 manifest
+                      # with the key and no rows is a measured zero.
+                      "partial": (len(m["partial"]) if "partial" in m
+                                  else None),
+                      "partial_reason": (
+                          None if "partial" in m else
+                          "this manifest carries no `partial` key: the "
+                          "format that wrote it has no such row"),
                       "unreached_files": m.get("unreached_files", []),
                       "workspace_root": m.get("workspace_root", ""),
                       "source_hashes": len(m.get("source_hashes", {})),
@@ -270,9 +293,13 @@ def read_manifests(paths: dict, scope: list[str] | None) -> dict:
         for rel, entries in m["files"].items():
             raw += len(entries)
             for e in entries:
-                sites.add((rel, e["qualname"], e["firstlineno"]))
+                # `firstlineno` for a fn row, `line` for every other kind:
+                # exactly one of the two is serialised.
+                where = e.get("firstlineno", e.get("line"))
+                kind = e.get("kind", "fn")
+                sites.add((rel, e["qualname"], where, kind))
                 sites_by_file.setdefault(rel, set()).add(
-                    (e["qualname"], e["firstlineno"]))
+                    (e["qualname"], where, kind))
     return {"distinct": len(sites),
             "sites_by_file": {k: len(v) for k, v in sites_by_file.items()},
             "raw_site_total": raw, "units": units, "fell_back": fell,

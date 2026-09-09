@@ -153,6 +153,30 @@ fn test_fn() {
 }
 
 #[test]
+fn fns_nested_in_const_static_and_trait_const_initialisers() {
+    // Two paths no other golden reaches. A `fn` item inside a `const` or
+    // `static` INITIALISER is a real fn item -- `const_ctx` is set for the
+    // initialiser and cleared again by the nested fn's own (absent)
+    // constness -- and it takes the item's name as its qualname prefix, so
+    // `MAKE::helper` rather than a bare `helper`. The third is
+    // `visit_trait_item_const`: an associated const's DEFAULT value inside a
+    // `trait`, which contributes the trait and the const to the qualname.
+    let t = run("const_init_fns", 7);
+    assert_eq!(
+        sites(&t),
+        [
+            (7, "MAKE::helper", 2, RetKind::Value),
+            (8, "PICK::chosen", 9, RetKind::Value),
+            (9, "Named::DEFAULT::inner", 17, RetKind::Value),
+        ]
+    );
+    // None of the three containers is a fn item, so none of them is skipped
+    // either: `skipped` is what E2 counts as excused, and there is nothing to
+    // excuse about a `const` item.
+    assert!(t.skipped.is_empty(), "{:?}", t.skipped);
+}
+
+#[test]
 fn const_fn_is_skipped() {
     let t = run("const_fn", 7);
     assert_eq!(sites(&t), [(7, "runtime", 9, RetKind::Value)]);

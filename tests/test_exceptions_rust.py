@@ -126,8 +126,10 @@ def test_a_chain_born_outside_instrumented_code_says_so_under_its_verdict(
     o = out(capsys)
     assert ("SWALLOWED -- absorbed by sink_let_underscore at e2 "
             "(cleanup L52) in f1, which returned ok") in o, o
-    assert ("born outside this thread's instrumented frames; absorbed at "
-            "sink_let_underscore") in o, o
+    assert ("no chain of this thread was open where it was absorbed -- born "
+            "outside this thread's instrumented frames, or handed to this "
+            "one by value from one of them; absorbed at sink_let_underscore"
+            ) in o, o
     assert "dispositions: swallowed 1" in o, o
 
 # -- §2a: the holder unwound ------------------------------------------------
@@ -500,5 +502,6 @@ def test_an_unbound_arm_says_what_it_read_in_the_recorders_own_terms(
     assert "__str__" not in o and "message unreadable" not in o, o
     assert ("SWALLOWED -- absorbed by arm_handled at e2 (attempt L17) in f1, "
             "which returned ok") in o, o
-    assert ("born outside this thread's instrumented frames; absorbed at "
-            "arm_handled") in o, o
+    assert ("no chain of this thread was open where it was absorbed -- born "
+            "outside this thread's instrumented frames, or handed to this "
+            "one by value from one of them; absorbed at arm_handled") in o, o

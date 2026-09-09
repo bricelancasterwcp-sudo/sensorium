@@ -1,0 +1,384 @@
+"""`refocus` the re-run itself: whether it may happen, where it happens,
+and the one line it prints per finding.
+
+The other half of `test_refocus`, split at that file's own `# -- refusals`
+banner on 2026-09-08 to bring both halves under the 800-line ceiling. The
+first file covers the VERDICT -- MATCH, DIVERGED, tasks compared by content,
+what the verdict may be added to; this one covers everything about the RERUN:
+the originals it refuses to re-run at all, the store and working directory the
+rerun happens in, and how one finding renders as exactly one line. The
+recording fixtures are `tests/refocus_programs.py`'s, as in the first file.
+"""
+import os
+
+import pytest
+
+from sensorium import cli
+from tests.refocus_programs import (ASYNC_CONTENT_FLIP, ASYNC_ORDER_FLIP,
+                                    EXIT_FROM_FILE, LIB_TASKS, LOOP,
+                                    READS_STDIN, SLEEPER, TASKS_ON_RERUN_ONLY,
+                                    TWO_WORKERS,
+                                    WORKER_ON_SECOND_RUN, dbs, new_run, rec,
+                                    record_killed, refocus, set_meta,
+                                    synthetic, trace)
+
+
+# -- refusals ---------------------------------------------------------------
+
+def test_refocus_refuses_a_stdin_consuming_original(tmp_path):
+    run_id, sdir = rec(tmp_path, READS_STDIN, stdin_text="hello\n")
+    assert trace(sdir, run_id).meta["stdin_consumed"] is True
+    before = dbs(sdir)
+
+    r = refocus(sdir, run_id, "--focus", "prog:main")
+    assert r.returncode == 2
+    assert "stdin" in r.stderr and "non-refocusable" in r.stderr
+    assert "no rerun was attempted" in r.stderr
+    assert dbs(sdir) == before, "a refusal must not re-run the program"
+
+
+def test_refocus_refuses_an_incomplete_original(tmp_path):
+    """An incomplete trace never got its finalize pass, so it never recorded
+    whether the run consumed stdin: the stdin gate would read the missing
+    key as False and wave through exactly the run it exists to stop."""
+    sdir = record_killed(tmp_path, SLEEPER)
+    [db_name] = dbs(sdir)
+    m = trace(sdir, db_name[:-3]).meta
+    assert m["incomplete"] is True
+    assert "stdin_consumed" not in m
+    assert m["argv"] == ["prog.py"]           # boot-time meta did survive
+
+    r = refocus(sdir, db_name[:-3], "--focus", "prog:spin")
+    assert r.returncode == 2
+    assert "INCOMPLETE" in r.stderr
+    assert "stdin" in r.stderr
+    assert dbs(sdir) == [db_name]
+
+
+def test_refocus_refuses_when_the_target_no_longer_resolves(tmp_path):
+    run_id, sdir = rec(tmp_path, LOOP)
+    (tmp_path / "prog.py").unlink()
+    before = dbs(sdir)
+
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert r.returncode == 2
+    assert "cannot resolve target" in r.stderr
+    assert dbs(sdir) == before
+
+
+def test_refocus_refuses_when_the_original_cwd_is_gone(tmp_path):
+    run_id, sdir = rec(tmp_path, LOOP)
+    gone = tmp_path / "deleted-since"
+    set_meta(sdir / "traces" / f"{run_id}.db", cwd=str(gone))
+    before = dbs(sdir)
+
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate")
+    assert r.returncode == 2
+    assert "no longer exists" in r.stderr and str(gone) in r.stderr
+    assert dbs(sdir) == before
+
+
+@pytest.mark.parametrize("kwargs, expected", [
+    ({"argv": None, "cwd": "/tmp"}, "records no command to re-run"),
+    ({"cwd": None}, "records no working directory to re-run from"),
+])
+def test_refocus_refuses_a_trace_with_nothing_to_re_run(tmp_path, kwargs,
+                                                        expected):
+    """Corrupt or hand-built metadata is a refusal, never a traceback: an
+    agent parsing this output is worse served by a stack trace than a
+    human is."""
+    sdir = tmp_path / "sdir"
+    synthetic(sdir, "20260101-000000-broken", **kwargs)
+
+    r = refocus(sdir, "20260101-000000-broken", "--focus", "prog:main")
+    assert r.returncode == 2
+    assert expected in r.stderr
+    assert "Traceback" not in r.stderr
+
+
+def test_refocus_refuses_a_per_thread_basis_original_that_ran_tasks(tmp_path):
+    """A trace recorded before task fingerprints existed defines its thread
+    stream to INCLUDE the events that ran inside asyncio tasks; this version
+    defines it to exclude them and compares the tasks separately. A verdict
+    across that seam would not compare like with like -- and the refusal has
+    to come BEFORE the rerun, because re-running has side effects and
+    nothing about the answer could be salvaged afterwards. Everything else
+    about this original is fine: its command resolves and its directory is
+    still there, so the basis is the only thing stopping it."""
+    sdir = tmp_path / "sdir"
+    (tmp_path / "prog.py").write_text(LOOP)
+    synthetic(sdir, "20260101-000000-old", cwd=tmp_path, tasks=[(1, "t", 1)])
+    before = dbs(sdir)
+
+    r = refocus(sdir, "20260101-000000-old", "--focus", "prog:accumulate")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert ("original was recorded under the per-thread fingerprint basis "
+            "and ran 1 asyncio task(s); this version compares tasks by "
+            "content and defines thread streams without them, so no verdict "
+            "against it would compare like with like -- re-record it with "
+            "this version") in r.stderr
+    assert "no rerun was attempted" in r.stderr
+    assert dbs(sdir) == before, "a refusal must not re-run the program"
+
+
+def test_refocus_requires_a_focus(tmp_path):
+    run_id, sdir = rec(tmp_path, LOOP)
+    r = refocus(sdir, run_id)
+    assert r.returncode == 2
+    assert "--focus" in r.stderr
+
+
+def test_refocus_rejects_an_unknown_run_reference(tmp_path):
+    rec(tmp_path, LOOP)
+    r = refocus(tmp_path / "sdir", "no-such-run", "--focus", "prog:main")
+    assert r.returncode == 2
+    assert "error:" in r.stderr and "no trace matches" in r.stderr
+
+
+# -- the process the rerun happens in ---------------------------------------
+
+def test_refocus_keeps_the_rerun_in_the_same_trace_store(tmp_path):
+    """A relative SENSORIUM_DIR must not follow the chdir into the original
+    cwd and strand the new trace in a store nobody will look in."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    runner = tmp_path / "runner"
+    runner.mkdir()
+
+    r = refocus(sdir, run_id, "--focus", "prog:accumulate",
+                cwd=runner, sensorium_dir="../sdir")
+    assert r.returncode == 0, r.stdout + r.stderr
+    new_id = new_run(r.stdout)
+    assert (sdir / "traces" / f"{new_id}.db").exists()
+    assert not (tmp_path.parent / "sdir").exists()
+
+
+def test_refocus_restores_the_working_directory(tmp_path, monkeypatch,
+                                                capsys):
+    """`refocus` chdirs into the original run's cwd; an in-process caller
+    must get its own directory back afterwards."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    monkeypatch.setenv("SENSORIUM_DIR", str(sdir))
+    before = os.getcwd()
+    monkeypatch.chdir(before)         # restore even if the assert below trips
+
+    assert cli.main(["refocus", run_id, "--focus", "prog:accumulate"]) == 0
+    assert os.getcwd() == before
+    assert "refocus verdict: MATCH" in capsys.readouterr().out
+
+
+def test_refocus_reports_a_differing_exit_status(tmp_path):
+    """The exit code of `refocus` is the VERDICT, never the program's own."""
+    run_id, sdir = rec(tmp_path, EXIT_FROM_FILE)
+    r = refocus(sdir, run_id, "--focus", "prog:attempt")
+    assert "refocus verdict: MATCH" in r.stdout, r.stdout + r.stderr
+    assert r.returncode == 0
+    assert "exit: rerun 1   original 0" in r.stdout
+
+
+def test_refocus_counts_uncompared_threads_from_the_side_that_had_them(
+        tmp_path):
+    """The two sides can be asymmetric: this worker starts only on the
+    rerun. Counting the uncompared threads from the SMALLER side would
+    report none at all, so the reader would never learn that a thread ran
+    which nothing compared."""
+    run_id, sdir = rec(tmp_path, WORKER_ON_SECOND_RUN)
+    assert trace(sdir, run_id).meta["threads_started"] == 0   # none yet
+
+    r = refocus(sdir, run_id, "--focus", "prog:maybe_worker")
+    assert r.returncode == 0, r.stdout + r.stderr
+    new = trace(sdir, new_run(r.stdout))
+    assert new.meta["threads_started"] == 1        # the rerun started one
+    assert len(new.fingerprints()) == 1            # and it left no fingerprint
+
+    assert "1 further thread(s) ran no traced code" in r.stdout
+    assert "were NOT compared" in r.stdout
+    assert "licence: WITHHELD" in r.stdout
+
+
+# -- one finding, one line -------------------------------------------------
+
+def _task_lines(out: str) -> list[str]:
+    return [ln for ln in out.splitlines() if ln.startswith("tasks:")]
+
+
+def test_refocus_prints_exactly_one_tasks_line_on_a_match(tmp_path):
+    """`diff.print_comparison` prints a `tasks:` line and so does `refocus`.
+    Two lines saying different amounts about one finding read as two
+    findings, so `refocus` asks `print_comparison` not to print its own."""
+    run_id, sdir = rec(tmp_path, ASYNC_ORDER_FLIP)
+    r = refocus(sdir, run_id, "--focus", "prog:worker")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert _task_lines(r.stdout) == [
+        "tasks: 3 task stream(s) compared by content, all matching; the "
+        "ordering between tasks is not compared"]
+
+
+def test_refocus_prints_exactly_one_tasks_line_and_keeps_the_drill_ins(
+        tmp_path):
+    """The DIVERGED half. The surviving line is the one `refocus` stamps into
+    the trace, so the terminal and `sensorium info` say the same words -- and
+    the drill-in commands travel with it rather than being lost with diff's
+    section."""
+    run_id, sdir = rec(tmp_path, ASYNC_CONTENT_FLIP)
+    r = refocus(sdir, run_id, "--focus", "prog:worker")
+    assert r.returncode == 1, r.stdout + r.stderr
+    lines = _task_lines(r.stdout)
+    assert len(lines) == 1, lines
+    assert lines[0].startswith("tasks: DIVERGED -- ")
+    assert "first difference inside task-B" in lines[0]
+    new_id = new_run(r.stdout)
+    assert lines[0] == ("tasks: DIVERGED -- "
+                        + trace(sdir, new_id).meta["refocus_diverge_tasks"])
+    drills = [ln for ln in r.stdout.splitlines() if ln.startswith("drill into")]
+    assert len(drills) == 2, r.stdout
+    assert drills[0].startswith(f"drill into A: sensorium tree {run_id} "
+                                "--around e")
+    assert drills[1].startswith(f"drill into B: sensorium tree {new_id} "
+                                "--around e")
+
+
+def test_refocus_says_which_side_ran_the_task_when_the_other_ran_none(
+        tmp_path):
+    """The wording "a task took a different path" presumes both sides ran
+    one. Here the original ran no task at all, so there is no path to have
+    differed -- and which side is missing is the whole finding."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "taskslib.py").write_text(LIB_TASKS)
+    run_id, sdir = rec(tmp_path, TASKS_ON_RERUN_ONLY,
+                       extra=["--exclude", "prog.py"])
+    assert trace(sdir, run_id).tasks() == []              # precondition
+
+    r = refocus(sdir, run_id, "--focus", "taskslib:worker")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert ("refocus verdict: DIVERGED -- the rerun ran a task stream the "
+            "original did not.") in r.stdout
+    assert "a task took a different path" not in r.stdout
+    # The threads did NOT part: the finding is entirely about the tasks.
+    assert "threads: DIVERGED" not in r.stdout
+    assert ("threads: 1 recorded fingerprint(s) compared (events outside "
+            "any asyncio task), all matching") in r.stdout
+    lines = _task_lines(r.stdout)
+    assert len(lines) == 1, lines
+    # Counts and names pinned; the hashes are content and are not.
+    assert lines[0].startswith(
+        "tasks: DIVERGED -- 0 task stream(s) originally, 3 on the rerun; "
+        "only in A: -; only in B: task-A "), lines[0]
+    assert "task-B" in lines[0] and "(unnamed)" in lines[0]
+
+
+# -- what a MATCH does not say about the schedule (E4" section 5.3) ---------
+
+#: The one recording fixture this file owns rather than importing. BOTH
+#: populations run and each is permutable on its own: two threads carry
+#: `fingerprints` rows (the main one and the worker) and three tasks carry
+#: `task_fingerprints` rows (`amain` plus the two workers it gathers), so this
+#: is the only shape whose note names both nouns. It lives here and not in
+#: `tests/refocus_programs.py` because that file is 755 lines against the
+#: repo's 800-line ceiling and has one reader for this program: the test
+#: directly below.
+BOTH_POPULATIONS = """
+import asyncio
+import threading
+
+def step(n):
+    return n
+
+async def worker(n):
+    step(n)
+    await asyncio.sleep(0)
+    return step(n)
+
+async def amain():
+    await asyncio.gather(*[asyncio.create_task(worker(n), name=f"task-{n}")
+                           for n in (1, 2)])
+
+def main():
+    t = threading.Thread(target=asyncio.run, args=(amain(),))
+    t.start()
+    t.join()
+    print("joined")
+
+if __name__ == "__main__":
+    main()
+"""
+
+#: The schedule note, with the noun the population that fired earns. One
+#: template, so a test cannot pass by pinning a sentence the tool does not
+#: build the same way -- and the substitution is the whole subject here.
+SCHEDULE_NOTE = (
+    "note: a MATCH does not say the two runs scheduled the same way -- the "
+    "streams are compared as a multiset of (name, hash), so the same shapes "
+    "carried by differently numbered {carried} match, and which carried "
+    "which is recorded and never compared")
+
+
+def test_a_multi_stream_match_says_it_is_not_about_the_schedule(tmp_path):
+    """The hazard E4" MEASURED, named where the verdict is read.
+
+    On 1 of its 61 pairs the per-task assignment moved between the two runs
+    -- the workers carried (216, 205, 151, 233, 151) events on one side and
+    (216, 205, 233, 151, 151) on the other, 956 both sides -- while the
+    multiset of (name, hash) was identical, so the comparator reported
+    MATCH. The comparator working as designed, and also a claim the verdict
+    does not make: "every recorded thread produced the identical sequence"
+    reads as a statement about the schedule, and nothing said otherwise.
+    """
+    run_id, sdir = rec(tmp_path, ASYNC_ORDER_FLIP)
+    r = refocus(sdir, run_id, "--focus", "prog:worker")
+    assert r.returncode == 0, r.stdout + r.stderr
+    # Tasks alone: one thread carries every row, so the noun is the task
+    # word this language spells `stream_scope`.
+    assert SCHEDULE_NOTE.format(carried="asyncio tasks") in r.stdout, r.stdout
+    assert "differently numbered threads" not in r.stdout, r.stdout
+
+
+def test_the_schedule_note_fires_on_the_THREAD_population_too(tmp_path):
+    """The other half of the gate. `TWO_WORKERS` runs two threads and no
+    task at all, so the task population is EMPTY and the thread population
+    is the one with something to permute -- the shape a gate that asked only
+    about tasks would print nothing on, and a gate that added the two would
+    get right by accident. Each population is asked on its own.
+
+    And the NOUN follows the population that fired. Until 2026-09-08 this
+    pair -- two threads, zero tasks -- was told its MATCH said nothing about
+    which `asyncio tasks` carried which shapes, naming a population the run
+    did not have: a caveat true of the mechanism, false of the run, and
+    unfalsifiable by anything the reader could look at.
+    """
+    run_id, sdir = rec(tmp_path, TWO_WORKERS)
+    r = refocus(sdir, run_id, "--focus", "prog:tally")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "tasks:" not in r.stdout, r.stdout
+    assert SCHEDULE_NOTE.format(carried="threads") in r.stdout, r.stdout
+    # The blind-spot block names asyncio further down and always has, so the
+    # fence is the note's own slot, not the word anywhere in the answer.
+    assert "differently numbered asyncio tasks" not in r.stdout, r.stdout
+
+
+def test_the_schedule_note_names_both_populations_when_both_fired(tmp_path):
+    """The third shape, and the one that separates a noun chosen per
+    population from a noun that merely switched to `threads`.
+
+    Two threads AND three tasks, each population permutable on its own, so
+    the sentence has to carry both nouns. A rule that reported whichever
+    population it happened to test first would print one of them here and
+    still pass the two tests above.
+    """
+    run_id, sdir = rec(tmp_path, BOTH_POPULATIONS)
+    r = refocus(sdir, run_id, "--focus", "prog:step")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout, r.stdout
+    assert (SCHEDULE_NOTE.format(carried="threads and asyncio tasks")
+            in r.stdout), r.stdout
+
+
+def test_a_single_stream_match_does_not_carry_the_schedule_note(tmp_path):
+    """The fence. With one stream there is nothing for a schedule to have
+    assigned differently, and a caveat that cannot fire is noise on every
+    single-threaded pair -- the rule that took libtest's thread out of the
+    untraced-thread clause, one check along."""
+    run_id, sdir = rec(tmp_path, LOOP)
+    r = refocus(sdir, run_id, "--focus", "prog:work")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "refocus verdict: MATCH" in r.stdout, r.stdout
+    assert "scheduled the same way" not in r.stdout, r.stdout

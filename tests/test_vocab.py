@@ -14,9 +14,12 @@ vector in the contract and every command that can reach one, so a
 renderer added later cannot reintroduce a Python word at a site no vector
 happens to ask about.
 """
+import argparse
 import shutil
 
 import pytest
+
+from sensorium import cli
 
 from sensorium.query.vocab import (PYTHON, RUST, exit_brief,
                                    exit_phrase, terms)
@@ -64,6 +67,45 @@ def test_no_python_word_reaches_a_rust_trace(vector, command, tmp_path):
     found = [w for w in FORBIDDEN if w in text]
     assert not found, (f"{vector['id']} / {' '.join(command)}: {found}\n"
                        f"{text}")
+
+
+def test_no_python_word_reaches_a_subcommand_s_own_help():
+    """The scan above drives commands against a TRACE; `--help` answers
+    before any trace is opened, and nothing scanned it.
+
+    `diff --task` read "compare one asyncio task's stream by name" -- the
+    one help string in the tool that named a language, printed to whoever
+    typed `sensorium diff --help` on a box whose only recordings are Rust.
+    A help text has no trace to take `terms()` from, so the repair is not a
+    second table: it is the word that belongs to no recorder, `task`, which
+    is the wire's own (the `tasks` table), with `info` named as the place a
+    reader learns what one IS for the run in hand.
+    """
+    parser = argparse.ArgumentParser(prog="sensorium")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    cli._add_run_parser(sub)
+    for mod in cli._QUERY_MODULES:
+        mod.add_parser(sub)
+    assert len(sub.choices) >= 11, sub.choices    # the guard on the guard
+    for name, p in sub.choices.items():
+        text = p.format_help()
+        found = [w for w in FORBIDDEN if w in text]
+        assert not found, f"{name} --help: {found}\n{text}"
+
+
+def test_the_interpreter_line_says_question_mark_for_a_key_it_cannot_read():
+    """`interp_line`'s `or "?"`, on both tables and in both shapes it has.
+
+    `.get(key, "?")` would cover the ABSENT key alone. The `or` also covers
+    a key that is PRESENT and empty -- a converter that wrote the field and
+    had nothing to put in it -- and that branch had no fixture. The reader
+    never substitutes an interpreter of its own in either case.
+    """
+    for table, key, absent in ((PYTHON, "python", "python ?"),
+                               (RUST, "toolchain", "toolchain: ?")):
+        assert table.interp_line({}) == absent
+        assert table.interp_line({key: ""}) == absent
+        assert table.interp_line({key: None}) == absent
 
 
 def test_the_rust_vectors_actually_exercise_these_commands():

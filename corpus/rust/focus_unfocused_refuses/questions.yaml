@@ -26,8 +26,12 @@ questions:
       answering, on a run that asked for it.
     command: ["watch", "$RUN", "--at", "price_of", "--expr", "key == \"A1\""]
     expect_exit: 3
+    # Re-pinned 2026-09-08 (queue buttoned up): 0.4.0 -> 0.4.1, because
+    # `sensorium-rt` now owns the repository's only sha256 as a `pub mod`
+    # and its declared identity moved with the crate. Neither the wire nor
+    # what is recorded changed -- only the recorder's name in the sentence.
     expect_contains:
-      - "REFUSED: watch needs line, which recorder sensorium-rt 0.4.0 declares it does not produce (capabilities.line: false); nothing was checked"
+      - "REFUSED: watch needs line, which recorder sensorium-rt 0.4.1 declares it does not produce (capabilities.line: false); nothing was checked"
     expect_absent: ["hits:", "near-miss", "verdict:"]
   - id: does-an-unfocused-run-claim-a-focus
     ask: >
@@ -35,13 +39,18 @@ questions:
       any of that for itself?
     truth: >
       No, and both halves of the declaration say so. `focus: -` is the
-      invocation's own list, empty -- design amendment A9 makes `meta.focus`
-      the list the driver handed the converter and never a value read back
-      out of a manifest, which matters because focused artifacts accumulate
+      invocation's own list, and it was never given one -- design amendment
+      A9 makes `meta.focus` the list the driver handed the converter and
+      never a value read back out of a manifest, which matters because
+      focused artifacts accumulate
       in a shared target directory (A8) and an earlier focused build's
       manifest would otherwise label this run `focus: ["price_of"]`. The
-      trace's meta carries no `focus` key at all; the `-` is `info`'s
-      rendering of its absence, the same one it prints for `window`.
+      trace's meta carries no `focus` key at all, and the `-` is what
+      `info` prints for exactly that -- the same rendering it gives an
+      absent `window`. A run that RECORDED an empty focus list reads
+      `focus: none` instead (every unfocused Python run does; `boot` always
+      writes the list it was handed), so this line is a literal pin on the
+      key's absence and not on two records collapsed into one dash.
       Capabilities read `line=no locals=no` and the tally `LINE 0`, which is
       §2.4's rule: true only when some unit of THIS run carries a LINE site.
     why_logs_fail: >

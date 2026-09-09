@@ -20,7 +20,7 @@ use crate::fallback::{self, manifest_path, write_manifest};
 use crate::mirror::{self, Lock, Rewrite};
 use crate::modtree::{self, DiskFs};
 use crate::rt_build::{self, Panic};
-use crate::sha256;
+use sensorium_rt::sha256;
 
 /// Run the wrapper. Returns the exit code to leave with.
 pub fn run(rustc: &str, args: &[String]) -> i32 {

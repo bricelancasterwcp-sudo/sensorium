@@ -392,14 +392,20 @@ def _manifests(tmp_path: Path, *manifests) -> dict:
     return {"sensorium_acceptance_target": tmp_path}
 
 
-def _unit(name, files, partial=(), fell_back=False):
-    return (name, {"unit": name, "crate_name": name.split("-")[0],
-                   "crate_type": "lib", "files": files, "skipped": [],
-                   "partial": list(partial), "spawns": [],
-                   "source_hashes": {}, "fell_back": fell_back,
-                   "fallback_reason": None, "unreached_files": [],
-                   "unreached_reasons": {}, "appended_line": {},
-                   "workspace_root": "/ws"})
+def _unit(name, files, partial=(), fell_back=False, rung2=False):
+    """One manifest. `rung2=True` omits the `partial` key entirely, which is
+    what a rung-2 manifest's format does -- the difference `partial` is
+    `None` for and `0` is not."""
+    m = {"unit": name, "crate_name": name.split("-")[0],
+         "crate_type": "lib", "files": files, "skipped": [],
+         "partial": list(partial), "spawns": [],
+         "source_hashes": {}, "fell_back": fell_back,
+         "fallback_reason": None, "unreached_files": [],
+         "unreached_reasons": {}, "appended_line": {},
+         "workspace_root": "/ws"}
+    if rung2:
+        del m["partial"]
+    return (name, m)
 
 
 FN_ROW = {"site": 0, "qualname": "f", "kind": "fn", "firstlineno": 10,
@@ -410,24 +416,36 @@ SINK_ROW = {"site": 2, "qualname": "f", "kind": "sink", "line": 14,
             "how": "sink_ok"}
 
 
-def test_the_rung2_reader_cannot_read_a_rung3_manifest(tmp_path):
-    """The defect the rung-3 reader exists for, pinned so nobody quietly
-    switches back. Rung 3's `ManifestSite` serialises `firstlineno` ONLY for a
-    `fn` row, and `acceptance_lib.read_manifests` indexes it directly. This
-    killed the first launch of the acceptance run ten seconds in."""
+def test_the_ONE_reader_reads_a_rung3_manifest(tmp_path):
+    """The defect that killed the first launch of the acceptance run ten
+    seconds in, fixed at source (#22). Rung 3's `ManifestSite` serialises
+    `firstlineno` ONLY for a `fn` row and `line` for every other kind;
+    `acceptance_lib.read_manifests` used to index `firstlineno` directly and
+    raise `KeyError` on the first `try` row it met. There is now one reader
+    and `acceptance_phases_rung3` has no copy of it."""
     from acceptance_lib import read_manifests
     paths = _manifests(tmp_path, _unit("u1", {"a.rs": [FN_ROW, TRY_ROW]}))
-    with pytest.raises(KeyError):
-        read_manifests(paths, None)
+    m = read_manifests(paths, None)
+    assert m["raw_site_total"] == 2 and m["distinct"] == 2
+    assert not hasattr(r3, "read_manifests_rung3")
 
 
 def test_the_rung3_reader_counts_every_site_kind(tmp_path):
     paths = _manifests(tmp_path,
-                       _unit("u1", {"a.rs": [FN_ROW, TRY_ROW, SINK_ROW]}))
-    m = r3.read_manifests_rung3(paths, None)
+                       _unit("u1", {"a.rs": [FN_ROW, TRY_ROW, SINK_ROW]},
+                             partial=[{"file": "a.rs", "line": 9}]))
+    m = r3.read_manifests(paths, None)
     assert m["raw_site_total"] == 3
     assert m["distinct"] == 3          # kind joins the key
     assert m["fell_back"] == []
+    # The rung-3 unit field the merged reader kept, COUNTED and not a
+    # constant; a rung-2 manifest has no `partial` key and reads `None`.
+    assert m["units"][0]["partial"] == 1
+    assert m["units"][0]["partial_reason"] is None
+    # ...and a rung-3 manifest with the key and NO rows is a measured zero.
+    empty = _manifests(tmp_path / "b", _unit("u2", {"a.rs": [TRY_ROW]}))
+    u = r3.read_manifests(empty, None)["units"][0]
+    assert u["partial"] == 0 and u["partial_reason"] is None
 
 
 def test_a_fn_and_a_try_on_one_line_are_two_sites(tmp_path):
@@ -435,7 +453,27 @@ def test_a_fn_and_a_try_on_one_line_are_two_sites(tmp_path):
     count would silently shrink."""
     same_line = dict(TRY_ROW, line=10)
     paths = _manifests(tmp_path, _unit("u1", {"a.rs": [FN_ROW, same_line]}))
-    assert r3.read_manifests_rung3(paths, None)["distinct"] == 2
+    assert r3.read_manifests(paths, None)["distinct"] == 2
+
+
+def test_a_rung2_manifest_still_counts_exactly_as_it_did(tmp_path):
+    """The other half of one reader: a rung-2 manifest carries only `fn`
+    rows with `firstlineno`, and joining `kind` to the key must not change
+    a single count of the record that reader already published."""
+    paths = _manifests(tmp_path,
+                       _unit("u1", {"a.rs": [FN_ROW, dict(FN_ROW,
+                                                          qualname="g",
+                                                          firstlineno=20)]},
+                             rung2=True))
+    m = r3.read_manifests(paths, None)
+    assert (m["distinct"], m["raw_site_total"]) == (2, 2)
+    assert m["sites_by_file"] == {"a.rs": 2}
+    # ...and the rung-3 unit field the merged reader kept is NOT MEASURED on
+    # a manifest whose format has no such key (fix round 1, minor (d)): a 0
+    # there reads as "this unit had no partial rows", which is a claim about
+    # a rung-2 build that nothing measured.
+    assert m["units"][0]["partial"] is None
+    assert "no `partial` key" in m["units"][0]["partial_reason"]
 
 
 def test_try_rows_are_deduplicated_across_the_units_that_declare_them(tmp_path):
@@ -456,7 +494,7 @@ def test_a_unit_that_fell_back_contributes_no_try_rows(tmp_path):
     paths = _manifests(tmp_path,
                        _unit("u1", {"a.rs": [TRY_ROW]}, fell_back=True))
     assert r3._try_rows(paths, None)["try_rows_distinct"] == 0
-    assert len(r3.read_manifests_rung3(paths, None)["fell_back"]) == 1
+    assert len(r3.read_manifests(paths, None)["fell_back"]) == 1
 
 
 def test_partial_rows_are_deduplicated_and_grouped_by_file(tmp_path):
@@ -615,3 +653,25 @@ def test_results_json_if_present_matches_the_committed_schema():
         assert set(h) == {"value", "n", "lens", "dropped"}, key
         if h["value"] is None:
             assert h["dropped"], key
+
+
+def test_the_e5prime_schema_is_reachable_and_is_a_module_of_its_own():
+    """`acceptance_schema.py` was split at the 800-line ceiling on 2026-09-08
+    and the E5' half left with `assemble_e5prime`. The only edge back is a
+    PEP 562 `__getattr__`, and its one consumer is a function-local import
+    inside `acceptance_e5prime.assemble_only()` -- so without this line the
+    313-line sibling is in NO suite's import graph, and a module-level break
+    in it would surface only when someone runs `acceptance_e5prime.py
+    --assemble`. Touching the attribute here compiles the sibling and pins
+    the `__getattr__` (and its `__dir__` companion) in the same breath.
+
+    Mutation: rename `assemble_e5prime` in `acceptance_schema_e5prime.py` and
+    the `__getattr__`'s inner import raises, reddening this test.
+    """
+    import acceptance_schema
+
+    assert callable(acceptance_schema.assemble_e5prime)
+    assert acceptance_schema.assemble_e5prime.__module__ == (
+        "acceptance_schema_e5prime")
+    assert "acceptance_schema_e5prime" in sys.modules
+    assert "assemble_e5prime" in dir(acceptance_schema)

@@ -38,7 +38,8 @@ def _row(index, name, target, run, *, licence=_UNSET, program=_UNSET,
          verdict="MATCH", rc=0, pair_n=1, children=(), stripped=_UNSET,
          changed=(), changed_truncated=False, session=_UNSET,
          session_truncated=False, counts_source="licence-clause",
-         arm=None, orig_rt="d9ce385a08c66466", rerun_rt="83d9294b8135c157"):
+         arm=None, orig_rt="d9ce385a08c66466", rerun_rt="83d9294b8135c157",
+         orig_frags=1, rerun_frags=1, cargo=(3.3,)):
     """One refocus as `refocus_one` records it under E4″, with only the
     fields the phases read."""
     if licence is _UNSET:
@@ -83,10 +84,12 @@ def _row(index, name, target, run, *, licence=_UNSET, program=_UNSET,
         "licence": {"source_verified": True, "env_verified": True,
                     "exit_verified": True, "output_unverifiable": True,
                     "children_unverifiable": True},
-        "original_rt_hash": {"value": orig_rt, "fragments": 1,
-                             "reason": None},
-        "rerun_rt_hash": {"value": rerun_rt, "fragments": 1, "reason": None},
-        "wall_s": 7.0, "timed_out": False,
+        "original_rt_hash": {"value": orig_rt, "fragments": orig_frags,
+                             "occurrences": 2, "reason": None},
+        "rerun_rt_hash": {"value": rerun_rt, "fragments": rerun_frags,
+                          "occurrences": 2, "reason": None},
+        "wall_s": 7.0, "cargo_finished_s": list(cargo),
+        "timed_out": False,
     }
 
 
@@ -188,6 +191,41 @@ def test_the_two_rt_hashes_are_reported_per_pair_and_their_DIFFERENCE_named():
     assert h["hashes_equal_so_the_strip_was_untested"] == [
         "unknown_model_mutating_verbs_is_false"]
     # Reported, never gated: the gate is the three cells above.
+    assert h["verdict"] == "PASS"
+
+
+def test_the_FRAGMENT_COUNT_per_side_is_published_and_not_only_read():
+    """E4″ gap 4. §1.4's H2 row pre-commits TWO second readings -- the rt
+    hash each side carries, and "the count of fragments removed per key per
+    side". The first was a cell; the second was read into the raw on both
+    sides and published on neither, so a reader after a pre-committed
+    reading had to open a gitignored ledger."""
+    h = ph.phase_h2_fragment(_two())
+    assert h["fragments_per_side"] == {"original": 1, "rerun": 1}
+    assert h["fragments_reason"] is None
+    assert h["fragments_readable"] == 61
+    # ...and per pair, beside the two hashes it belongs to.
+    pair = h["rt_hashes_by_pair"]["unknown_model_mutating_verbs_is_false"]
+    assert pair["original_fragments"] == 1 and pair["rerun_fragments"] == 1
+    assert pair["original_occurrences"] == 2
+    # ...and the number is COUNTED, not this record's own 1: a run whose
+    # sides carried two and three fragments publishes two and three.
+    other = ph.phase_h2_fragment(
+        _two({n: {"orig_frags": 2, "rerun_frags": 3} for n in rows.NAMES}))
+    assert other["fragments_per_side"] == {"original": 2, "rerun": 3}
+
+
+def test_pairs_that_DISAGREE_on_the_fragment_count_publish_no_single_one():
+    """`session_k`'s rule: one number per side only where every readable
+    pair carried the same one. Two folded into one would report a subject
+    that never existed -- and the reason names the counts seen."""
+    h = ph.phase_h2_fragment(_two({
+        "unknown_model_mutating_verbs_is_false": {"orig_frags": 2}}))
+    assert h["fragments_per_side"] is None
+    assert "did not agree" in h["fragments_reason"]
+    assert "original: 1, 2" in h["fragments_reason"]
+    assert h["fragments_seen"] == {"original": [1, 2], "rerun": [1]}
+    # Reported, never gated: H2's gate is its three membership cells.
     assert h["verdict"] == "PASS"
 
 

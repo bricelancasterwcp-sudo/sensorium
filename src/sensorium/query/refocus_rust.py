@@ -78,7 +78,6 @@ child's stderr is not captured, so a build that is slow is a build the
 reader can watch.
 """
 import os
-import shutil
 import sqlite3
 import subprocess
 import sys
@@ -86,6 +85,7 @@ import time
 from pathlib import Path
 
 from sensorium import paths
+from sensorium.driver import cargo_sensorium
 from sensorium.exit import UNSETTLED
 from sensorium.query.refocus_world import (UNVERIFIABLE, _UNCOMPARED_ENV,
                                            _env_state, _source_state,
@@ -111,16 +111,14 @@ CHILDREN_KEY = "refocus_children"
 def driver() -> str | None:
     """The `cargo-sensorium` this re-run will use, or None.
 
-    `SENSORIUM_CARGO_SENSORIUM` first, then PATH -- character for character
-    the rule `corpus/run_corpus.py::cargo_driver` applies, so the driver a
+    One line, because the rule lives in `sensorium.driver` now: the driver a
     corpus case records with and the driver a `refocus` question re-runs
-    with are the same binary. COPIED rather than imported: `corpus/` is a
-    development tree beside the package and is not in the wheel
-    (`pyproject.toml` packages `src/sensorium` only), so importing it would
-    make this command work from a checkout and fail from an install.
+    with have to be the same binary, and they were the same binary only for
+    as long as three copies of a two-line rule stayed in step. The name
+    stays -- callers say `refocus_rust.driver()` -- and what it resolves is
+    no longer this module's to decide.
     """
-    return os.environ.get("SENSORIUM_CARGO_SENSORIUM") or shutil.which(
-        "cargo-sensorium")
+    return cargo_sensorium()
 
 
 # -- may this recording be re-run at all? ----------------------------------

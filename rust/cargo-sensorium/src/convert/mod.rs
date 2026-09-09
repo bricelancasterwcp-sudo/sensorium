@@ -157,9 +157,20 @@ pub fn convert_dir(spool_dir: &Path) -> Result<Report, String> {
     }
 
     if runner_processes > 1 {
+        // Counted here and not from `runner_processes`: see
+        // [`multi_process_warning`] for why the sentence may not call a
+        // doctest a test binary.
+        let doctests = runner_records
+            .keys()
+            .filter(|pid| {
+                proc_headers
+                    .get(pid)
+                    .is_some_and(|h| is_doctest_exe(&h.exe))
+            })
+            .count();
         eprintln!(
-            "WARN: this invocation produced {runner_processes} test binaries; a single-target \
-             selector (--lib, --test X, --bin X) makes one trace the answer"
+            "{}",
+            multi_process_warning(runner_processes - doctests, doctests)
         );
     }
 
@@ -246,6 +257,50 @@ fn group_spool_files(entries: &[String]) -> BTreeMap<u32, Vec<String>> {
         }
     }
     out
+}
+
+/// Is this process one rustdoc built for a doctest and then deleted?
+///
+/// The rule the repo already reads a doctest process by: rustdoc compiles each
+/// doctest to a `/tmp/rustdoctest*/rust_out` and unlinks it immediately (rung-2
+/// spike findings §5.11), and `rust/tests/lib/trace.sh::doctest_processes`
+/// matches on the same substring -- deliberately the same rule, so the shell
+/// instrument and the converter cannot drift apart on what a doctest is.
+///
+/// It is a path substring and nothing stronger: a workspace with a crate
+/// literally named `rustdoctest*` would have its own binary counted as a
+/// doctest. That miscount is the same size as the one this closes and in the
+/// other direction, and no such crate has been met; a tighter rule would have
+/// to pin rustdoc's `rust_out` filename, which is not a promise rustdoc makes.
+fn is_doctest_exe(exe: &str) -> bool {
+    exe.contains("/rustdoctest")
+}
+
+/// The sentence the multi-process WARN prints.
+///
+/// `invocation_processes` counts every process the runner started, doctests
+/// included -- that is what the field means and what `refocus` reads. This
+/// SENTENCE said "N test binaries" over the same number, and on cargo 1.96 the
+/// runner is handed every doctest process too, so it overstated by the doctest
+/// count (rung-3 inbox: "`convert/mod.rs:141-147`'s WARN counts runner
+/// records"). The two kinds are counted apart and both are named: a doctest is
+/// not a test binary, and an invocation of one test binary and four doctests
+/// still produced five traces, so dropping the doctests from the sentence
+/// entirely would trade one wrong number for a missing one.
+fn multi_process_warning(test_binaries: usize, doctests: usize) -> String {
+    let tests = format!(
+        "{test_binaries} test binar{}",
+        if test_binaries == 1 { "y" } else { "ies" }
+    );
+    let docs = match doctests {
+        0 => String::new(),
+        1 => " and 1 doctest process".to_owned(),
+        n => format!(" and {n} doctest processes"),
+    };
+    format!(
+        "WARN: this invocation produced {tests}{docs}; a single-target selector \
+         (--lib, --test X, --bin X) makes one trace the answer"
+    )
 }
 
 fn read_runner_records(
@@ -673,6 +728,36 @@ mod tests {
             candidates.is_empty(),
             "all three candidates must be consumed"
         );
+    }
+
+    /// The row this fix closes: three runner records of which one is a
+    /// doctest must not be announced as three test binaries.
+    #[test]
+    fn the_warn_counts_doctest_processes_apart_from_test_binaries() {
+        assert_eq!(
+            multi_process_warning(2, 1),
+            "WARN: this invocation produced 2 test binaries and 1 doctest process; a \
+             single-target selector (--lib, --test X, --bin X) makes one trace the answer"
+        );
+        assert_eq!(
+            multi_process_warning(1, 4),
+            "WARN: this invocation produced 1 test binary and 4 doctest processes; a \
+             single-target selector (--lib, --test X, --bin X) makes one trace the answer"
+        );
+        // No doctests: the sentence it always was.
+        assert_eq!(
+            multi_process_warning(3, 0),
+            "WARN: this invocation produced 3 test binaries; a single-target selector \
+             (--lib, --test X, --bin X) makes one trace the answer"
+        );
+    }
+
+    #[test]
+    fn a_doctest_exe_is_the_one_rustdoc_wrote_under_tmp() {
+        assert!(is_doctest_exe("/tmp/rustdoctestXH1cVv/rust_out"));
+        assert!(!is_doctest_exe("/w/target/debug/deps/demo-1a2b3c"));
+        assert!(!is_doctest_exe("/w/target/debug/deps/doctest_helper-9f"));
+        assert!(!is_doctest_exe(""));
     }
 
     #[test]

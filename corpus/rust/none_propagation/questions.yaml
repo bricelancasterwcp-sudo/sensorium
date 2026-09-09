@@ -72,7 +72,7 @@ questions:
     expect_exit: 1
     expect_contains: ["no exceptions recorded"]
     expect_line:
-      - ["panics: 1 recorded", "a panic is a frame's unwind",
+      - ["panics: 1 event(s) recorded", "a panic is a frame's unwind",
          "printed by `tree` and `frame`"]
     expect_absent: ["SWALLOWED", "dispositions: swallowed", "dispositions:",
                     "raised ("]

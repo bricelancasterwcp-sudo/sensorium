@@ -1,7 +1,8 @@
 """The honesty notes `diff` prints beside a verdict, and never instead of one.
 
 Split from `diff_cmd` at that file's 800-line ceiling -- one command's
-internals in two files, not two modules with two surfaces. Everything here
+internals across its files, not separate modules with surfaces of their
+own. Everything here
 answers the same question: what does a MATCH or a DIVERGED on ONE thread's
 stream not cover? Which thread was compared and whether that identification
 was recorded or inferred; how many other threads the run had; and whether

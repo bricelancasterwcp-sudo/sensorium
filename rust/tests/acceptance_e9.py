@@ -139,7 +139,14 @@ RUNNER = "rust/tests/acceptance_e9.py"
 #: record and stamps its own beside it, and the renderer's §2 states
 #: a re-derivation when the two differ. One constant, so the stamp
 #: and the copy cannot drift into two spellings of one fact.
-SCHEMA_VERSION = "e9/1"
+#:
+#: **`e9/1` -> `e9/2` (2026-09-08, the debts slice):**
+#: `reported.line_rows_per_run` changed SHAPE -- it published one value per
+#: run (four nulls read off `meta.counts`, a key no format-4 trace carries)
+#: and now publishes `{value, source, reason}` per run read off the census's
+#: `line_events`. Re-assembling the committed `e9/1` record under this
+#: assembler is a re-derivation, and §2's sentence says so.
+SCHEMA_VERSION = "e9/2"
 
 RAW = LEDGER / "results-e9-raw.json"
 RESULTS = (REPO / "docs" / "superpowers" / "acceptance"

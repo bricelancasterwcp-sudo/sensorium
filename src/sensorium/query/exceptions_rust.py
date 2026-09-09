@@ -358,8 +358,21 @@ def _swallowed(trace, chain, idx) -> Disposition:
     # code, or in an instrumented frame on another thread and carried across
     # a `JoinHandle`. The wording before the amendment named dependency
     # code outright, and asserted that about both.
-    detail = (f"born outside this thread's instrumented frames; absorbed at "
-              f"{_how(h)}" if chain.born_outside else None)
+    #
+    # Amended again 2026-09-08 (blind spot R16 (v)): a THIRD shape reaches
+    # here. An `Err` born in an instrumented CALLEE and handed to this frame
+    # by value closes its chain when that callee returns, so the sink here
+    # matches no open chain either -- and the sentence said it was born
+    # outside this thread's instrumented frames when it had been born inside
+    # one, a frame away, sending a reader out of the workspace to look for
+    # an error the workspace raised. What the record holds is that no chain
+    # was open where it was absorbed; where it was born is exactly what it
+    # does not say, so the reading it does support leads and the two shapes
+    # it may be follow.
+    detail = ("no chain of this thread was open where it was absorbed -- "
+              "born outside this thread's instrumented frames, or handed to "
+              f"this one by value from one of them; absorbed at {_how(h)}"
+              if chain.born_outside else None)
     return Disposition(
         "swallowed",
         f"SWALLOWED -- {_absorbed(trace, h)}{where}, which returned ok",
@@ -428,7 +441,9 @@ def _propagated(trace, chain, idx) -> Disposition:
 
 
 #: The one sentence the tool prints under an escaped arm. It is a QUOTATION
-#: of `rust/HONESTY.md` §11's SWALLOWED definition (design N2, 2026-09-05):
+#: of §11's SWALLOWED definition (design N2, 2026-09-05), which lives in
+#: `rust/HONESTY-ERR-FLOW.md` since 2026-09-06 -- §11 still names what it
+#: always named, one file away:
 #: reading the error -- a guard, a predicate -- does not carry it out of the
 #: arm; only a value derived from it leaving the arm does.
 ESCAPED_DETAIL = ("a bound error that is stored, returned or moved out of the arm "
@@ -445,7 +460,7 @@ def _escaped(trace, chain, idx) -> Disposition:
     Only the MOVE is ambiguous. An arm that borrows the error to format it
     and then carries on is an `arm_handled` and reaches `_swallowed`: the
     failure never got past that arm, and the log is where it went
-    (`rust/HONESTY.md` §11, the definition's one home).
+    (`rust/HONESTY-ERR-FLOW.md` §11, the definition's one home).
     `corpus/rust/err_stored` and `corpus/rust/logged_arm` are the two sides
     of that line.
     """
@@ -459,9 +474,10 @@ def _escaped(trace, chain, idx) -> Disposition:
     return Disposition(
         "ambiguous",
         "ambiguous -- the frame holding it returned ok with no sink recorded",
-        "it left the grammar this recorder watches (rust/HONESTY.md names "
-        "the shapes that are not probed); no sink recorded is not evidence "
-        "that nothing absorbed it")
+        "it left the grammar this recorder watches (rust/HONESTY-ERR-FLOW.md "
+        "§11 and rust/HONESTY-BLIND-SPOTS.md items 15-26 name the shapes "
+        "that are not probed); no sink recorded is not evidence that "
+        "nothing absorbed it")
 
 
 def _merged(trace, chain, idx) -> Disposition:
@@ -570,8 +586,13 @@ def _print_panics(panics: int) -> None:
     prints the SUM over its members."""
     if not panics:
         return
-    print(f"panics: {panics} recorded -- this command judges Err flow; a "
-          "panic is a frame's unwind, printed by `tree` and `frame`")
+    # `event(s)`, one word, and it repairs a real ambiguity: this counts
+    # panic RAISE/HANDLED events and the tally two lines down counts CHAINS
+    # -- `panics: 8` beside `panicked 2` was two different questions under
+    # one word. The `panics: ` prefix is kept: two acceptance readers key
+    # their line on it.
+    print(f"panics: {panics} event(s) recorded -- this command judges Err "
+          "flow; a panic is a frame's unwind, printed by `tree` and `frame`")
 
 
 def _print_partial(rows, wheres=None, hint="sensorium info") -> None:

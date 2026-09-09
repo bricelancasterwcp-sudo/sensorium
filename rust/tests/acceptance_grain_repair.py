@@ -22,11 +22,16 @@ exactly the list in `OVERRIDES` below.
 
 WHAT COULD NOT BE SHARED, AND WHY
 ---------------------------------
-`main`, `assemble_only`, `render_only` and `check_byte_lock` are written
-again here. Not by preference: `acceptance_grain.main` spells its marker
-names, its raw record's file name and the runner it names in that record as
-LITERALS in its body, and those four values are exactly what this run must
-not share. Rebinding the first runner's module globals from an import
+`main`, `assemble_only`, `render_only`, `check_byte_lock` and
+`grain_config` are written again here -- FIVE, and the fifth is named
+because a list that said four while `OVERRIDES` held five was a count a
+reader had to check against the code. Not by preference: `acceptance_grain.
+main` spells its marker names, its raw record's file name and the runner it
+names in that record as LITERALS in its body, and those values are exactly
+what this run must not share; `grain_config` is the fifth for a narrower
+reason of the same kind -- it reads its OWN module's `LOGS` for H1's corpus
+workdir, and that name still holds the first record's workspace (see its
+docstring below). Rebinding the first runner's module globals from an import
 instead would repoint a live module for every other importer in the process
 -- the hazard `tests/test_acceptance_grain.py` already documents about the
 shared `LOGS` pointers -- so the orchestration is restated and every phase

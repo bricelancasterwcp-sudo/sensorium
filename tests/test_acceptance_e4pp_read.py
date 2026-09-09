@@ -310,6 +310,51 @@ def test_the_recorders_OWN_clause_is_read_apart_and_whole(line):
     assert "RUSTDOCFLAGS" not in own
 
 
+def test_a_strip_clause_naming_MORE_THAN_ONE_key_reads_all_of_them():
+    """CARRIED-DEBT minor 3: every test drove a strip list of exactly one
+    name, so the comma split in `read_e4pp_clauses` was never exercised and
+    a reader that returned the whole tail as ONE key would have passed
+    every one of them. H2 counts pairs whose clause NAMES `RUSTDOCFLAGS`,
+    which a one-element list containing "RUSTDOCFLAGS, RUSTFLAGS" fails."""
+    line = ("env: unchanged (73 variables compared; not compared: OLDPWD, "
+            "PWD, SHLVL, _)  the recorder's own fragment stripped before "
+            "comparing: RUSTDOCFLAGS, RUSTFLAGS, CARGO_ENCODED_RUSTFLAGS")
+    p = rd.parse_refocus(line + "\n")
+    assert p["env_stripped_keys"] == ["RUSTDOCFLAGS", "RUSTFLAGS",
+                                      "CARGO_ENCODED_RUSTFLAGS"]
+    # ...and the same list with the recorder's-own clause after it, which
+    # is the join the one-key tests could not distinguish either.
+    p = rd.parse_refocus(line + "  " + RECORDER_OWN + "\n")
+    assert p["env_stripped_keys"] == ["RUSTDOCFLAGS", "RUSTFLAGS",
+                                      "CARGO_ENCODED_RUSTFLAGS"]
+    assert len(p["env_recorder_own_keys"]) == 11
+
+
+@pytest.mark.parametrize("tail, why", [
+    ("  a later clause: FOO, BAR", "a TWO-SPACE join, the way this clause "
+                                   "is itself joined on"),
+    ("; a later clause: FOO", "a `; ` join, the way the strip clause is "
+                              "joined to the relocated one"),
+])
+def test_the_recorders_own_clause_STOPS_where_a_CLAUSE_stops(tail, why):
+    """CARRIED-DEBT: `ENV_RECORDER_OWN` was right only while the recorder's
+    own clause was LAST on the line -- its body ran to `$`. That is true by
+    construction (`refocus_rust._env_of` appends it) and was pinned by
+    nothing, so a clause appended after it would have been read as more of
+    the recorder's variables -- the defect `ENV_STRIPPED` actually had one
+    clause earlier, found by the 2026-09-08 dry run.
+
+    Fixed by ANCHORING THE READER on its own clause rather than asserting
+    the order in `src/`: the reader is this record's instrument and the
+    printer is the subject, and an instrument that depends on the subject's
+    field order is the thing to repair. Pinned with the REAL line."""
+    p = rd.parse_refocus(DRY_ARM_A + tail + "\n")
+    own = p["env_recorder_own_keys"]
+    assert len(own) == 11, why
+    assert own[-1] == "SENSORIUM_WS"
+    assert not [k for k in own if "clause" in k or k in ("FOO", "BAR")]
+
+
 @pytest.mark.parametrize("line", [DRY_ARM_A, DRY_ARM_B, DRY_ARM_C])
 def test_the_relocated_four_survive_the_same_line(line):
     """`ENV_RELOCATED` is terminated by a literal of its own (`; treated as
