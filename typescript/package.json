@@ -13,7 +13,7 @@
     "./register": "./src/register.mjs"
   },
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test \"test/**/*.test.mjs\"",
     "check": "tsc -p tsconfig.json"
   },
   "dependencies": {

@@ -1,0 +1,3 @@
+import * as __srt from "RT";const __sfile=__srt.file("src/expr-arrow.ts","/w/src/expr-arrow.ts",[["twice",1,"function"],["curried",3,"function"],["curried.<anonymous>",3,"function"]],"16186bb80d357caf0feb95b063c85e16d989abfaa84eab615ca840a31a7da947");export const twice = (n: number) => {const __sf=__srt.call(__sfile,0);try{return __srt.ret(__sf,(n * 2))}catch(__se){__srt.thr(__sf,__se);throw __se}};
+
+export const curried = (a: number) => {const __sf=__srt.call(__sfile,1);try{return __srt.ret(__sf,((b: number) => {const __sf=__srt.call(__sfile,2);try{return __srt.ret(__sf,(a + b))}catch(__se){__srt.thr(__sf,__se);throw __se}}))}catch(__se){__srt.thr(__sf,__se);throw __se}};
