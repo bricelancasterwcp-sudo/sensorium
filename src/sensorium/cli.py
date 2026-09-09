@@ -73,7 +73,8 @@ def main(argv=None) -> int:
         return 2
     parser = argparse.ArgumentParser(
         prog="sensorium",
-        description="Record a Python program's execution; "
+        description="Record a program's execution "
+                    "(Python, Rust, TypeScript); "
                     "query what actually happened.")
     sub = parser.add_subparsers(dest="cmd", required=True)
     _add_run_parser(sub)
