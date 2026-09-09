@@ -234,7 +234,7 @@ write, and a number the runtime cannot know is a number this recorder does not
 put in a trace. The flag is the honest artifact; the tail is unknowable and is
 declared unknowable.
 
-**Falsifiers.** `E11`(b), `typescript/test/rt.test.mjs` (`flush on exit`),
+**Falsifiers.** `E11`(b), `typescript/test/rt.spool.test.mjs` (`flush on exit`),
 `tests/test_ts_ingest.py`.
 
 ## 6. Exit
@@ -443,7 +443,7 @@ a corpus case, a vector or an acceptance endpoint.
 | 4 | A RAISE or HANDLED with no open frame is written as no event and counted in `throw_flow_outside_frames` | `typescript/probes/src/swallow.probe.test.ts`, `tests/test_ts_ingest.py` |
 | 4 | Unhandled rejections are meta, never events, and `info` prints a zero on a complete trace because the listener always ran | `docs/trace-format/vectors/v27-unhandled-rejection-in-meta.json`, `corpus/typescript/unhandled_rejection_in_info`, `tests/test_ts_ingest.py` |
 | 4 | These rows are recorded and not judged: `err_flow: false`, and `exceptions` refuses at exit 3 naming the language and saying nothing was judged | `corpus/typescript/exceptions_refused`, `E7′` |
-| 5 | Records are flushed after every task, every 100 ms and on every terminal signal, and EXIT is the spool's last line | `typescript/test/rt.test.mjs` (`flush on exit`), `E11`(b) |
+| 5 | Records are flushed after every task, every 100 ms and on every terminal signal, and EXIT is the spool's last line | `typescript/test/rt.spool.test.mjs` (`flush on exit`), `E11`(b) |
 | 5 | A SIGKILLed container is `incomplete: true` with the INCOMPLETE banner and a `diff` refusal, and no `records_dropped` is ever written | `E11`(b), `tests/test_ts_ingest.py` |
 | 6 | Every container's own exit is `null` / `unwitnessed`, and the harness's exit is `waited` on every member of the invocation, each printed with its basis | `docs/trace-format/vectors/v28-harness-exit-waited.json`, `tests/test_ts_ingest.py`, `corpus/typescript/pass_vs_fail` |
 | 6 | `meta.invocation` groups the traces and `meta.test_file` names each; a container that ran none carries neither key and is listed by its argv | `docs/trace-format/vectors/v29-runs-file-header.json`, `E0′` |

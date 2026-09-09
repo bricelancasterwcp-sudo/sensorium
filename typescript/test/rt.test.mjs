@@ -1,21 +1,17 @@
-// The runtime, read back off its own spools. The tier is read once at module
-// load, so the runtime is never imported into this process: every test spawns a
-// child with `SENSORIUM_TIER` and `SENSORIUM_SPOOL` set, lets it record, and
-// then parses the JSONL it left behind. Nothing here is a mock — what is
+// The runtime, read back off its own spools. Nothing here is a mock — what is
 // asserted is the wire, which is the only thing the converter (Task 5) reads.
+// The child-process helper every test uses is `helpers/rt-child.mjs`; the
+// spool's own tests — flush, signals, exit, the off tier — are in
+// `rt.spool.test.mjs`, moved there verbatim to keep both files under 800 lines.
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
-import os from 'node:os';
-import path from 'node:path';
 import test from 'node:test';
 
 import { VERSION } from '../src/index.mjs';
 import { transformSource } from '../src/transform.mjs';
-
-const RT = new URL('../src/rt.mjs', import.meta.url).href;
+import { RT, of, ok, one, run } from './helpers/rt-child.mjs';
 
 /**
  * Every record kind's keys, verbatim from the design's wire table.
@@ -52,64 +48,6 @@ const OPTIONAL = { EXIT: ['signal'], TASK: ['name_trunc'], SEEN: ['name_trunc'] 
  * the cap cut something (R14a, TRACE-FORMAT §5).
  */
 const EXC = { required: ['kind', 'type', 'msg', 'serial'], optional: ['trunc', 'type_trunc'] };
-
-/**
- * Run a script against the runtime in a child process and read its spool.
- * @param {string} body module source, appended after the runtime import
- * @param {{tier?: string, spool?: boolean, raw?: boolean}} [opts] `raw` runs
- *   the body as the whole module, header and all
- * @returns {{res: import('node:child_process').SpawnSyncReturns<string>,
- *            env: Record<string, string>, files: string[], recs: any[]}}
- */
-function run(body, opts = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sensorium-rt-'));
-  const env = {
-    ...process.env,
-    SENSORIUM_TIER: opts.tier ?? 'call',
-    SENSORIUM_SPOOL: opts.spool === false ? '' : dir,
-    SENSORIUM_INVOCATION: 'inv-1',
-  };
-  const script = opts.raw ? body : `import * as __srt from ${JSON.stringify(RT)};\n${body}\n`;
-  try {
-    const res = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
-      encoding: 'utf8',
-      env,
-      timeout: 30_000,
-    });
-    const files = fs.readdirSync(dir);
-    return { res, env, files, recs: files.length === 1 ? read(path.join(dir, files[0])) : [] };
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
-}
-
-/**
- * @param {string} file
- * @returns {any[]}
- */
-function read(file) {
-  const text = fs.readFileSync(file, 'utf8');
-  assert.ok(text.endsWith('\n'), 'every record line is newline-terminated');
-  return text.slice(0, -1).split('\n').map((line) => JSON.parse(line));
-}
-
-/**
- * @param {{res: import('node:child_process').SpawnSyncReturns<string>}} out
- * @param {number|null} [status]
- */
-function ok(out, status = 0) {
-  assert.equal(out.res.status, status, `child stderr: ${out.res.stderr}`);
-}
-
-/** @param {any[]} recs @param {string} kind @returns {any[]} */
-const of = (recs, kind) => recs.filter((r) => r.e === kind);
-
-/** @param {any[]} recs @param {string} kind @returns {any} */
-const one = (recs, kind) => {
-  const found = of(recs, kind);
-  assert.equal(found.length, 1, `expected one ${kind}, saw ${found.length}`);
-  return found[0];
-};
 
 // ---------------------------------------------------------------------------
 
@@ -318,60 +256,6 @@ test('dbg caps', () => {
   assert.deepEqual(hostile, { k: 'unread' }, 'an inspector that throws reads unread');
 });
 
-test('flush on exit', () => {
-  // Nothing in the child flushes: the records survive because the runtime
-  // flushes on exit, and EXIT is the spool's last line.
-  const out = run(`
-    const fid = __srt.file('t.ts', '/w/t.ts', [], 'sha');
-    const f = __srt.call(fid, 0);
-    __srt.ret(f, 'v');
-    process.exitCode = 3;
-  `);
-  ok(out, 3);
-  const kinds = out.recs.map((r) => r.e);
-  assert.deepEqual(kinds, ['BOOT', 'FILE', 'CALL', 'RETURN', 'EXIT']);
-  const exit = out.recs[out.recs.length - 1];
-  assert.equal(exit.code, 3, 'the code the process is leaving with');
-  assert.ok(exit.endTs > 1_700_000_000, 'endTs is epoch seconds');
-});
-
-test('a task is flushed however it settles', () => {
-  // SIGKILL runs no handler at all: what is on the disk got there when each
-  // task settled, which is what vitest's teardown timeout leaves behind.
-  const out = run(`
-    setTimeout(() => {}, 60000);
-    const [, thrower] = __srt.task('throws', () => { throw new Error('boom'); }, 1);
-    try { thrower(); } catch (err) { /* the harness would report this */ }
-    const [, resolver] = __srt.task('resolves', async () => {}, 1);
-    await resolver();
-    process.kill(process.pid, 'SIGKILL');
-  `);
-  assert.equal(out.res.signal, 'SIGKILL');
-  assert.deepEqual(out.recs.map((r) => r.e), ['BOOT', 'TASK', 'TASK']);
-  assert.deepEqual(of(out.recs, 'TASK').map((r) => r.name), ['throws', 'resolves']);
-});
-
-test('flush on a terminal signal', () => {
-  // The child signals itself in the same turn it records, so the 100 ms timer
-  // cannot be what saved the records; the ref'd timeout keeps the loop alive so
-  // that only the signal can end the process.
-  const out = run(`
-    setTimeout(() => {}, 60000);
-    __srt.file('t.ts', '/w/t.ts', [], 'sha');
-    __srt.seen('a test');
-    process.kill(process.pid, 'SIGTERM');
-  `);
-  assert.equal(out.res.signal, 'SIGTERM', 'the default disposition is restored and re-raised');
-  assert.equal(out.res.status, null);
-  assert.deepEqual(out.recs.map((r) => r.e), ['BOOT', 'FILE', 'SEEN', 'EXIT'],
-    'the buffer reached the disk before the process died');
-  // R13: a signalled container still says how it ended.
-  const exit = out.recs[out.recs.length - 1];
-  assert.equal(exit.code, null, 'no exit code was chosen');
-  assert.equal(exit.signal, 'SIGTERM', 'what ended it is named');
-  assert.ok(exit.endTs > 1_700_000_000);
-});
-
 test('task names come from the provider, cross-checked against the literal title', () => {
   const out = run(`
     let name = 'math > adds';
@@ -507,18 +391,6 @@ test('throw flow outside a frame carries a null frame', () => {
   assert.deepEqual([callback.x.type, callback.x.msg, callback.l], ['string', 'why', 9]);
 });
 
-test('an unhandled rejection is recorded and flushed', () => {
-  const out = run(`
-    __srt.file('t.ts', '/w/t.ts', [], 'sha');
-    Promise.reject(new TypeError('nobody'));
-    await new Promise((res) => setTimeout(res, 20));
-  `);
-  ok(out);
-  const rec = one(out.recs, 'UNHANDLED');
-  assert.deepEqual([rec.x.kind, rec.x.type, rec.x.msg], ['rejection', 'TypeError', 'nobody']);
-  assert.ok(Number.isFinite(rec.x.serial));
-});
-
 test('a hostile value never crashes the recorder', () => {
   const out = run(`
     __srt.raise(null, { get message() { throw new Error('nope'); } }, 1);
@@ -566,23 +438,6 @@ test("a frame's records agree about the frame's task", () => {
   assert.deepEqual(framed.map((r) => r.e), ['CALL', 'RAISE', 'HANDLED', 'RETURN']);
   assert.deepEqual([...new Set(framed.map((r) => r.t))], [task.id],
     'every row of one frame carries one task');
-});
-
-test('boot is the earliest record on the wire', () => {
-  // The first record is a ts-bearing one, so it is the record whose emission
-  // boots the spool: its clock reading must not predate BOOT's.
-  const out = run(`
-    const f = __srt.call(1, 0);
-    __srt.ret(f, 'v');
-  `);
-  ok(out);
-  const boot = out.recs[0];
-  assert.equal(boot.e, 'BOOT');
-  const stamped = out.recs.slice(1).filter((r) => typeof r.ts === 'number');
-  assert.ok(stamped.length >= 3, 'there are later stamped records to compare');
-  for (const rec of stamped) {
-    assert.ok(rec.ts >= boot.ts, `${rec.e} ts ${rec.ts} predates BOOT ts ${boot.ts}`);
-  }
 });
 
 test('a consumer name is capped on the wire', () => {
@@ -750,53 +605,3 @@ test("the transform's own output runs against this runtime", () => {
   assert.deepEqual([callback.how, callback.x.kind], ['sink_empty_catch_callback', 'rejection']);
 });
 
-test('off writes no file at all', () => {
-  const out = run(`
-    const fn = () => 'called';
-    const fid = __srt.file('t.ts', '/w/t.ts', [], 'sha');
-    const wrapped = __srt.task('t', fn, 1);
-    const suite = __srt.suite('s', fn);
-    const frame = __srt.call(fid, 0);
-    __srt.nameProvider(() => 'ignored');
-    __srt.fileStart('t.ts', 'jsdom');
-    __srt.seen('a test');
-    __srt.handled(null, new Error('x'), 1, 'catch');
-    __srt.flush();
-    console.log(JSON.stringify({
-      task: [wrapped.length, wrapped[1] === fn],
-      suite: [suite.length, suite[1] === fn],
-      frame,
-      ret: __srt.ret(null, 42),
-      y: __srt.y(null, 7, 0),
-      r: __srt.r(null, 8),
-      raise: __srt.raise(null, 'e', 1),
-      emptyCatch: __srt.emptyCatch(null, 1, fn) === fn,
-      called: wrapped[1](),
-    }));
-  `, { tier: 'off' });
-  ok(out);
-  assert.deepEqual(out.files, [], 'the tier is read once at load and off creates nothing');
-  assert.deepEqual(JSON.parse(out.res.stdout), {
-    task: [2, true],
-    suite: [2, true],
-    frame: null,
-    ret: 42,
-    y: 7,
-    r: 8,
-    raise: 'e',
-    emptyCatch: true,
-    called: 'called',
-  });
-});
-
-test('a spool directory that was never given is not guessed at', () => {
-  // The frame is asked for FIRST: nothing has tried to boot yet, so a runtime
-  // that read the tier alone would hand back a live frame here.
-  const out = run(`
-    console.log(JSON.stringify({ frame: __srt.call(1, 0) }));
-    __srt.file('t.ts', '/w/t.ts', [], 'sha');
-  `, { spool: false });
-  ok(out);
-  assert.deepEqual(out.files, []);
-  assert.equal(JSON.parse(out.res.stdout).frame, null);
-});
