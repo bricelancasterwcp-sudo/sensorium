@@ -74,7 +74,7 @@ from pathlib import Path
 from sensorium.exit import ANSWERED, UNSETTLED
 from sensorium.query import caps
 from sensorium.query.exceptions_cmd import Disposition
-from sensorium.query.fmt import fmt_event, fmt_exc, more_note
+from sensorium.query.fmt import fmt_exc, more_note
 from sensorium.query.vocab import terms
 
 TAG_ORDER = ("swallowed", "uncaught", "re-raised", "propagated", "ambiguous")
@@ -354,10 +354,14 @@ def _reraised(trace, unit, idx) -> Disposition | None:
     if nxt is None:
         return None
     tag = classify(trace, idx.unit_of(unit.last_raise), idx).tag
+    # No detail: the route is the BLOCK's own last line, printed for every
+    # unit that has one by `exceptions_group.print_shape` (which is where
+    # the same line has always come from on a Rust block). Carrying it here
+    # as well would print one journey twice under one verdict.
     return Disposition(
         "re-raised",
         f"RE-RAISED -- raised again at e{nxt.id} ({_at(trace, nxt)}) "
-        f"→ {tag}", _hops_line(trace, unit))
+        f"→ {tag}")
 
 
 def _unresolved(trace, unit, idx) -> Disposition | None:
@@ -541,13 +545,6 @@ def _header(trace, idx) -> None:
         print(f"unhandled rejections: {len(idx.rejections)}")
 
 
-def _print_unit(trace, unit, d) -> None:
-    print("  " + fmt_event(trace, unit.origin))
-    print("    " + d.verdict)
-    if d.detail:
-        print("      " + d.detail)
-
-
 def run(trace, args, after: int) -> int:
     """`exceptions` on a TypeScript trace. `exceptions_cmd.run` has already
     validated `--limit`, resolved `--after` to the event id `after` and
@@ -577,21 +574,34 @@ def run(trace, args, after: int) -> int:
     else:
         print(f"raised ({len(scope)}):")
 
-    tally: dict[str, int] = {}
-    shown, last = 0, after
-    for unit in scope:
-        d = classify(trace, unit, idx)
-        tally[d.tag] = tally.get(d.tag, 0) + 1
-        if shown < args.limit:
-            _print_unit(trace, unit, d)
-            shown, last = shown + 1, unit.origin.id
-    # Counted over every raise in scope and not just the printed ones, so
-    # the tally never shrinks because a page was clipped.
+    # One block per SHAPE, not per raise (§3.4, which adopts the Rust
+    # grouper's grain): `--after` has already chosen the raises in scope,
+    # and the groups form over exactly those. Fifty raises absorbed by one
+    # `catch` are one fact about one place, and fifty blocks saying it are
+    # the table an adjudicator would otherwise build by hand.
+    #
+    # Local: `exceptions_group` imports this module for its renderer, so a
+    # module-level import here would be a cycle.
+    from sensorium.query.exceptions_group import (TYPESCRIPT, group_units,
+                                                  print_shapes)
+    shapes, tally = group_units(trace, scope, idx, classify, TYPESCRIPT)
+    shown = print_shapes(trace, shapes, args.limit)
+    # Counted over every raise in scope, not just the printed ones and not
+    # per shape: the tally never shrinks because a page was clipped, and it
+    # stays comparable line for line with every per-raise record already
+    # written.
     print("dispositions: " + ", ".join(f"{t} {tally[t]}" for t in TAG_ORDER
                                        if tally.get(t)))
-    note = more_note(len(scope), shown,
+    # Paging RAISES THE LIMIT rather than naming an event to resume after:
+    # `--after` cuts raises, and a cursor that cut a group in half would
+    # re-show it as a partial block still labelled with the whole count.
+    # The reader's OWN `--after` is carried through (R-G7): dropping it
+    # made the continuation answer over a wider scope than the question
+    # asked, which is a hint that lies about what it will show.
+    scoped = f"--after e{after} " if after else ""
+    note = more_note(len(shapes), shown,
                      f"sensorium exceptions {shlex.quote(args.run)} "
-                     f"--after e{last} --limit {args.limit}")
+                     f"{scoped}--limit {len(shapes)}")
     if note:
         print(note)
     return ANSWERED

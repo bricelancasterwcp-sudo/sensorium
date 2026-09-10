@@ -454,6 +454,10 @@ def test_the_tally_prints_in_the_fixed_order_and_not_in_encounter_order(
 
 def test_limit_clips_the_page_without_clipping_the_tally(
         tmp_path, monkeypatch, capsys):
+    """`--limit` counts BLOCKS, which are shapes, and the continuation
+    RAISES THE LIMIT rather than naming an event to resume after: a cursor
+    that cut a group in half would re-show it as a partial block still
+    labelled with the whole count (the Rust grouper's rule, R-G7)."""
     run_id = five_dispositions(tmp_path, monkeypatch)
     assert cli.main(["exceptions", run_id, "--limit", "2"]) == ANSWERED
     o = out(capsys)
@@ -462,7 +466,7 @@ def test_limit_clips_the_page_without_clipping_the_tally(
     assert ("dispositions: swallowed 1, uncaught 1, re-raised 1, "
             "propagated 1, ambiguous 1") in o, o
     assert ("... 3 more; continue with: sensorium exceptions "
-            f"{run_id} --after e6 --limit 2") in o, o
+            f"{run_id} --limit 5") in o, o
 
 
 def test_after_skips_the_earlier_raises_and_says_how_many(
@@ -473,6 +477,96 @@ def test_after_skips_the_earlier_raises_and_says_how_many(
     assert ("raised (2 of 5; 3 earlier raise(s) skipped by --after e9):"
             in o), o
     assert "dispositions: swallowed 1, uncaught 1" in o, o
+
+
+# -- one block per SHAPE, not per raise -------------------------------------
+def loop_trace(tmp_path, monkeypatch, n=50):
+    """`loadConfig` calls `parse` `n` times; every call throws the same
+    error and the same `catch` clause absorbs each one, and `loadConfig`
+    then returns.
+
+    Event ids: e1 CALL loadConfig, then per iteration CALL parse, RAISE,
+    HANDLED -- so raise `i` is `e(3 + 3i)` -- and one RETURN last.
+    """
+    exc = [ts_exc("Error", "not a number: nine", 100 + i) for i in range(n)]
+    events = [call(1000, 1, 15, task=1)]
+    frames = [frame(1, 1, 2 + 3 * n)]
+    for i in range(n):
+        events += [
+            call(2000 + i, 2, 8, task=1, caller=None),
+            raise_ev(2000 + i, 2 + i, 2, 10, exc[i], task=1),
+            handled_ev(2000 + i, 1, 1, 18, exc[i], "sink_empty_catch",
+                       task=1),
+        ]
+        frames.append(frame(2, 2 + 3 * i, parent=1, depth=1,
+                            unwind_exc=exc[i]))
+    events.append(ret(9000, 1, 1, "{ retries: 3 }", task=1))
+    return ts_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "loadConfig", 15], [FILE, "parse", 8]],
+        frames=frames, events=events,
+        tasks=[task(1, "a config file is loaded")])
+
+
+def test_fifty_throws_of_one_error_at_one_site_are_one_block(
+        tmp_path, monkeypatch, capsys):
+    """The grain the question is asked at. Fifty raises absorbed by ONE
+    `catch` is one fact about one place, and fifty blocks saying it is the
+    hand-built table the Rust grouper exists to have printed already.
+
+    The bracket names the members' own RAISE ids -- the ids the head line
+    carries and `grep` takes -- capped at eight with a count of the rest,
+    and the tally still counts RAISES, so it stays comparable line for line
+    with every per-raise record already written.
+    """
+    run_id = loop_trace(tmp_path, monkeypatch)
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    o = out(capsys)
+    assert "raised (50):" in o, o
+    assert o.count("SWALLOWED --") == 1, o
+    assert ("    SWALLOWED -- caught by sink_empty_catch at e4 "
+            "(loadConfig L18) in f1, which returned  [×50: e3, e6, e9, "
+            "e12, e15, e18, e21, e24, … +42]") in o, o
+    # the head printed is the FIRST member's, and no other block is
+    assert o.count("RAISE") == 1, o
+    # the tally counts every raise, never the blocks
+    assert "dispositions: swallowed 50" in o, o
+    # they agree in everything the key does not look at
+    assert "origins:" not in o and "messages:" not in o, o
+
+
+def test_two_sinks_in_one_trace_stay_two_blocks(
+        tmp_path, monkeypatch, capsys):
+    """The guard on the merge: the SITE the verdict is about is in the key,
+    so two `catch` clauses absorbing the same error at two lines are two
+    accusations and stay two blocks."""
+    a = ts_exc("Error", "not a number: nine", 201)
+    b = ts_exc("Error", "not a number: nine", 202)
+    run_id = ts_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "loadConfig", 15], [FILE, "parse", 8]],
+        frames=[frame(1, 1, 8),
+                frame(2, 2, parent=1, depth=1, unwind_exc=a),
+                frame(2, 5, parent=1, depth=1, unwind_exc=b)],
+        events=[
+            call(1000, 1, 15, task=1),
+            call(2000, 2, 8, task=1, caller=None),
+            raise_ev(2100, 2, 2, 10, a, task=1),
+            handled_ev(2200, 1, 1, 18, a, "sink_empty_catch", task=1),
+            call(3000, 2, 8, task=1, caller=None),
+            raise_ev(3100, 3, 2, 10, b, task=1),
+            handled_ev(3200, 1, 1, 25, b, "sink_empty_catch", task=1),
+            ret(4000, 1, 1, "{ retries: 3 }", task=1),
+        ],
+        tasks=[task(1, "a config file is loaded")])
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    o = out(capsys)
+    assert o.count("SWALLOWED --") == 2, o
+    assert "(loadConfig L18)" in o and "(loadConfig L25)" in o, o
+    # a group of one carries no bracket at all: the ref the reader typed is
+    # the process, and there is nothing to name
+    assert "[×" not in o, o
+    assert "dispositions: swallowed 2" in o, o
 
 
 # -- the words this recorder does not speak ---------------------------------

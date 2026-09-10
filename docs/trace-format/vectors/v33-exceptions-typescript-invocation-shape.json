@@ -1,0 +1,290 @@
+{
+  "id": "v33-exceptions-typescript-invocation-shape",
+  "asserts": "`exceptions <invocation-id>` answers for a whole TypeScript invocation the way it does for a Rust one, and every word of it is this recorder's. Two workers of one `vitest run` -- one trace each, sharing `meta.invocation` -- that sank the same throw at the same `catch` are ONE block: the header counts `2 processes, 2 with throws, 0 with none`, the answer line counts RAISES over the processes that had one and the swallowed shapes, and the bracket names the spread and the process a reader can go and open rather than listing event ids that belong to two different traces. The tally counts raises, never blocks. None of `oid`, `chain`, `cargo`, `panics:` or `partial:` may appear: the grouper is one, the renderers are two, and a Rust noun in this answer would mean a member was judged by the wrong language's rules.",
+  "copies": 2,
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": [
+      "/usr/bin/node",
+      "/w/app/node_modules/vitest/dist/workers/forks.js"
+    ],
+    "cwd": "/w/app",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": null,
+    "exit_status_basis": "unwitnessed",
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {
+      "src/config.ts": "cccccccccccccccc"
+    },
+    "recorder": "sensorium-ts 0.2.0",
+    "lang": "typescript",
+    "capabilities": {
+      "line": false,
+      "locals": false,
+      "return_value": true,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": false,
+      "refocus": false,
+      "err_flow": true
+    },
+    "caps": {
+      "dbg": 200,
+      "depth": 2,
+      "sample": 8,
+      "str": 100
+    },
+    "invocation": "20260101-000000-111111",
+    "harness": "vitest",
+    "harness_command": [
+      "npx",
+      "vitest",
+      "run",
+      "src/config"
+    ],
+    "harness_args": [
+      "run",
+      "src/config"
+    ],
+    "harness_exit": {
+      "status": 0,
+      "signal": null,
+      "basis": "waited"
+    },
+    "driver_version": "0.2.0",
+    "node": "v24.16.0",
+    "vitest": "4.1.9",
+    "environment": "node",
+    "wire": 1,
+    "pid": 4244,
+    "ppid": 4241,
+    "thread_id_os": 0,
+    "is_main_thread": true,
+    "test_file": "src/config.test.ts",
+    "exit_self_reported": {
+      "code": 0,
+      "signal": null
+    },
+    "tests_seen": 1,
+    "task_name_basis": "vitest",
+    "task_name_conflicts": 0,
+    "files_transformed": 2,
+    "transform_excluded": {},
+    "unhandled_rejections": [],
+    "throw_flow_outside_frames": 0,
+    "incomplete": false
+  },
+  "codes": [
+    [
+      "/w/app/src/config.ts",
+      "loadConfig",
+      15
+    ],
+    [
+      "/w/app/src/config.ts",
+      "parse",
+      8
+    ]
+  ],
+  "frames": [
+    {
+      "parent": null,
+      "code": 1,
+      "call": 1,
+      "return": 5,
+      "depth": 0,
+      "thread": 1,
+      "closed_by": "return",
+      "kind": "function"
+    },
+    {
+      "parent": 1,
+      "code": 2,
+      "call": 2,
+      "return": null,
+      "depth": 1,
+      "thread": 1,
+      "closed_by": "unwind",
+      "kind": "function",
+      "unwind_exc": {
+        "kind": "throw",
+        "type": "Error",
+        "msg": "not a number: nine",
+        "serial": 1
+      }
+    }
+  ],
+  "events": [
+    {
+      "ts": 1000,
+      "thread": 1,
+      "kind": "CALL",
+      "code": 1,
+      "line": 15,
+      "payload": {
+        "args": {},
+        "unread": [
+          "locals"
+        ],
+        "caller": "untraced"
+      },
+      "task": 1
+    },
+    {
+      "ts": 2000,
+      "thread": 1,
+      "kind": "CALL",
+      "code": 2,
+      "line": 8,
+      "payload": {
+        "args": {},
+        "unread": [
+          "locals"
+        ]
+      },
+      "task": 1
+    },
+    {
+      "ts": 3000,
+      "thread": 1,
+      "kind": "RAISE",
+      "frame": 2,
+      "code": 2,
+      "line": 10,
+      "payload": {
+        "exc": {
+          "kind": "throw",
+          "type": "Error",
+          "msg": "not a number: nine",
+          "serial": 1
+        },
+        "how": "throw"
+      },
+      "task": 1
+    },
+    {
+      "ts": 4000,
+      "thread": 1,
+      "kind": "HANDLED",
+      "frame": 1,
+      "code": 1,
+      "line": 18,
+      "payload": {
+        "exc": {
+          "kind": "throw",
+          "type": "Error",
+          "msg": "not a number: nine",
+          "serial": 1
+        },
+        "how": "catch"
+      },
+      "task": 1
+    },
+    {
+      "ts": 5000,
+      "thread": 1,
+      "kind": "RETURN",
+      "frame": 1,
+      "code": 1,
+      "line": null,
+      "payload": {
+        "outcome": "ok",
+        "value": {
+          "k": "dbg",
+          "v": "{ retries: 3 }"
+        }
+      },
+      "task": 1
+    }
+  ],
+  "tasks": [
+    [
+      1,
+      "config > loads a config file",
+      1
+    ]
+  ],
+  "threads_with_rows": [
+    1
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "one-invocation-one-block-per-shape",
+      "ask": "What does `exceptions` say became of the throws of a whole vitest invocation, when two workers sank the same one at the same `catch` -- and does the block name how many and where to start?",
+      "command": [
+        "exceptions",
+        "20260101-000000-111111"
+      ],
+      "expect_exit": 0,
+      "expect_line": [
+        [
+          "invocation 20260101-000000-111111: npx vitest run src/config",
+          "exit:0 (waited)",
+          "-- 2 processes, 2 with throws, 0 with none"
+        ],
+        [
+          "raised (2 raises over 2 processes, 1 swallowed shape):"
+        ],
+        [
+          "SWALLOWED -- caught by catch at e4 (loadConfig L18) in f1, which returned",
+          "[×2 over 2 processes: first e3 in "
+        ],
+        [
+          "dispositions: swallowed 2"
+        ]
+      ],
+      "expect_count": {
+        "SWALLOWED --": 1,
+        "RAISE": 1
+      },
+      "expect_absent": [
+        "oid",
+        "chain",
+        "cargo",
+        "asyncio",
+        "coroutine",
+        "Rust disposition",
+        "panics:",
+        "partial:",
+        "AMBIGUOUS",
+        "REFUSED",
+        "1 processes"
+      ]
+    },
+    {
+      "id": "each-member-still-answers-for-itself",
+      "ask": "Does the second worker, asked by its own run id, still answer for itself alone -- one raise, no invocation header and no bracket, since the process is the ref the reader typed?",
+      "command": [
+        "exceptions",
+        "$RUN2"
+      ],
+      "expect_exit": 0,
+      "expect_line": [
+        [
+          "raised (1):"
+        ],
+        [
+          "SWALLOWED -- caught by catch at e4 (loadConfig L18) in f1, which returned"
+        ],
+        [
+          "dispositions: swallowed 1"
+        ]
+      ],
+      "expect_absent": [
+        "invocation ",
+        "processes",
+        "[×",
+        "[in "
+      ]
+    }
+  ]
+}

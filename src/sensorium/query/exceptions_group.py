@@ -76,13 +76,12 @@ which member the block's sentences are about.
 import re
 from dataclasses import dataclass, field
 
-# `exceptions_rust` imports this module INSIDE `run` (the house idiom of
-# `exceptions_cmd`), so these two are safe to take at module level: `_at`
-# names a site the way every verdict in that module does, and `_hops_line`
-# is the block's own last line. Rendering them a second time here would be
-# two spellings of one journey.
-from sensorium.query.exceptions_rust import (_at, _hops_line, _site,
-                                             site_file, site_text)
+# Both rule modules import this one INSIDE `run` (the house idiom of
+# `exceptions_cmd`), so both are safe to take at module level here: `_at`
+# names a site the way every verdict in those modules does, and
+# `_hops_line` is the block's own last line. Rendering either a second time
+# here would be two spellings of one journey.
+from sensorium.query import exceptions_rust, exceptions_typescript
 from sensorium.query.fmt import fmt_event, fmt_exc
 
 #: An event or frame reference in printed text. Anchored on word boundaries
@@ -99,6 +98,44 @@ MASK = re.compile(r"\b(?!f(?:16|32|64|128)\b)([ef])\d+\b")
 MAX_IDS = 8
 
 
+@dataclass(frozen=True)
+class Renderer:
+    """The six things this module has to ask a UNIT, in one row per
+    language (design P5).
+
+    The grouping rule is not Rust's and never was -- two verdicts about one
+    place, with the same words once their ids are masked, are one shape in
+    any language. What IS each language's own is how a place and a journey
+    are SPELLED, and every one of those spellings already exists in that
+    language's rules module beside the verdicts that use it. Passing the
+    six functions rather than re-deriving them here is what keeps the text
+    the grouper compares identical to the text the verdict prints: a second
+    renderer would be a second place for a site to be named, and the first
+    thing that drifts is the key.
+
+    `tag_order` rides along because the mode that groups a whole invocation
+    prints a tally, and its order is the members' language's (§4.3).
+    """
+    at: object                  # (trace, event) -> `qualname L<line>`
+    hops_line: object           # (trace, unit) -> the route line, or None
+    site: object                # (trace, event) -> (file, line, qualname)
+    site_text: object           # (site) -> `qualname L<line>`
+    site_file: object           # (site) -> the basename
+    tag_order: tuple            # the dispositions, in printing order
+
+
+RUST = Renderer(exceptions_rust._at, exceptions_rust._hops_line,
+                exceptions_rust._site, exceptions_rust.site_text,
+                exceptions_rust.site_file, exceptions_rust.TAG_ORDER)
+
+TYPESCRIPT = Renderer(exceptions_typescript._at,
+                      exceptions_typescript._hops_line,
+                      exceptions_typescript._site,
+                      exceptions_typescript.site_text,
+                      exceptions_typescript.site_file,
+                      exceptions_typescript.TAG_ORDER)
+
+
 @dataclass
 class Shape:
     """One printed block: the first chain of a group, and the group."""
@@ -106,6 +143,10 @@ class Shape:
     tag: str
     first: object               # the first Chain of the shape, origin order
     disposition: object         # ITS Disposition -- the one printed
+    #: The language that produced these units, so every printer below
+    #: reaches the right spelling from the shape it is handed rather than
+    #: from a parameter each caller would have to keep passing.
+    render: Renderer = RUST
     chains: list = field(default_factory=list)
     origins: set = field(default_factory=set)    # origin SITES, `q L<line>`
     messages: set = field(default_factory=set)   # the origin errors' text
@@ -148,16 +189,16 @@ def _message(event) -> str:
     return fmt_exc(exc) if exc else "?"
 
 
-def site_of(trace, chain, d) -> tuple:
+def site_of(trace, unit, d, render: Renderer = RUST) -> tuple:
     """The site the verdict is ABOUT, as `(file, line, qualname)`.
 
-    The classifier names it where the sentence does (the sink, the arm);
-    everywhere else the verdict speaks of the chain rather than of a place,
-    and the chain's ORIGIN is the site a reader would group it by -- read
-    here as the same triple, so both kinds of key hold the same kind of
-    thing.
+    The classifier names it where the sentence does (the sink, the arm, the
+    escaped handler); everywhere else the verdict speaks of the unit rather
+    than of a place, and its ORIGIN is the site a reader would group it by
+    -- read here as the same triple, so both kinds of key hold the same
+    kind of thing.
     """
-    return d.site if d.site is not None else _site(trace, chain.origin)
+    return d.site if d.site is not None else render.site(trace, unit.origin)
 
 
 def collisions(shapes) -> set:
@@ -182,57 +223,74 @@ def collisions(shapes) -> set:
     """
     at: dict[str, set] = {}
     for shape in shapes:
-        at.setdefault(site_text(shape.site), set()).add(shape.site)
+        at.setdefault(shape.render.site_text(shape.site),
+                      set()).add(shape.site)
     ambiguous = {text for text, places in at.items() if len(places) > 1}
     return {shape.key for shape in shapes
-            if site_text(shape.site) in ambiguous}
+            if shape.render.site_text(shape.site) in ambiguous}
 
 
-def group_chains(trace, chains, idx, classify):
+def group_units(trace, units, idx, classify, render: Renderer):
     """`(shapes, tally)` -- shapes in order of FIRST APPEARANCE, which is
-    origin order because `chains` is; the tally counts CHAINS.
+    origin order because `units` is; the tally counts UNITS.
+
+    A UNIT is whatever the language's rules judge one at a time: a Rust
+    `Err` chain, a TypeScript RAISE. All this needs of one is an `origin`
+    event, and all it needs of the language is `render` -- so the rule that
+    two verdicts about one place with the same words are one block is
+    stated once and holds for both.
 
     The key is `(tag, site, masked verdict, route)`, where `route` is the
     masked hops line for a verdict that names no site and `None` for one
     that does (R-G2). Four components always, so one dict holds both kinds
-    without a branch at the lookup.
+    without a branch at the lookup. `lang` is deliberately NOT in it: a
+    member set is one language (`exceptions_invocation` refuses a mixed
+    one), so two languages' keys are never in one dict to collide.
 
     The tally is deliberately not a count of shapes: every record this tool
-    has produced reports dispositions per chain, and a tally that started
+    has produced reports dispositions per unit, and a tally that started
     counting sites would stop being comparable with any of them (N5).
     """
     shapes: list[Shape] = []
     by_key: dict[tuple, Shape] = {}
     tally: dict[str, int] = {}
-    for chain in chains:
-        d = classify(trace, chain, idx)
+    for unit in units:
+        d = classify(trace, unit, idx)
         tally[d.tag] = tally.get(d.tag, 0) + 1
-        hops = _masked(_hops_line(trace, chain))
+        hops = _masked(render.hops_line(trace, unit))
         # R-G2: the ROUTE is part of the key exactly where the verdict
-        # names no site of its own -- there the chain's journey is the
+        # names no site of its own -- there the unit's journey is the
         # information the reader came for, and `None` (no hops line at all)
         # is a route like any other. Where the verdict DOES name a site,
         # the route stays out and a difference is flagged instead.
-        key = (d.tag, site_of(trace, chain, d), mask(d.verdict),
+        key = (d.tag, site_of(trace, unit, d, render), mask(d.verdict),
                hops if d.site is None else None)
         shape = by_key.get(key)
         if shape is None:
-            shape = Shape(key=key, tag=d.tag, first=chain, disposition=d,
-                          first_detail=d.detail, first_route=hops)
+            shape = Shape(key=key, tag=d.tag, first=unit, disposition=d,
+                          render=render, first_detail=d.detail,
+                          first_route=hops)
             by_key[key] = shape
             shapes.append(shape)
-        shape.chains.append(chain)
+        shape.chains.append(unit)
         # R-G6: two sets, not one masked head line. A head carries the site
         # AND the error's text, so counting heads reported two errors from
         # ONE site as two origins -- `corpus/rust/err_stored`'s retry loop
         # raises twice at `attempt L14` with `Refused(1)` and `Refused(2)`,
         # which is one origin and two messages. Neither is masked: a site
         # and an error's rendering carry no ids this tool assigned.
-        shape.origins.add(_at(trace, chain.origin))
-        shape.messages.add(_message(chain.origin))
+        shape.origins.add(render.at(trace, unit.origin))
+        shape.messages.add(_message(unit.origin))
         shape.details.add(_masked(d.detail))
         shape.hops.add(hops)
     return shapes, tally
+
+
+def group_chains(trace, chains, idx, classify):
+    """`group_units` over Rust `Err` chains -- the name every Rust caller
+    and every Rust test already types, kept so this generalisation moved no
+    byte of the answer they pin."""
+    return group_units(trace, chains, idx, classify, RUST)
 
 
 def bracket(shape: Shape, max_ids: int = MAX_IDS) -> str:
@@ -298,9 +356,9 @@ def _disambiguated(verdict: str, shape: Shape) -> str:
     parenthetical that happened to read the same way and put the file in a
     clause it is not true of (review fix, 2026-09-05).
     """
-    text = site_text(shape.site)
+    text = shape.render.site_text(shape.site)
     at_site = re.compile(r"( at e\d+ \()" + re.escape(text) + r"(\))")
-    named = f"{text} in {site_file(shape.site)}"
+    named = f"{text} in {shape.render.site_file(shape.site)}"
     # A function replacement, not a template: a file name is data and a
     # backslash in one would be read as a group reference by `re.sub`.
     return at_site.sub(lambda m: m.group(1) + named + m.group(2), verdict,
@@ -333,7 +391,7 @@ def print_shape(trace, shape: Shape, bracket_text: str | None = None,
     print("    " + verdict + text)
     if d.detail:
         print("      " + d.detail)
-    hops = _hops_line(trace, chain)
+    hops = shape.render.hops_line(trace, chain)
     if hops:
         print("      " + hops)
     for line in vary_lines(shape):

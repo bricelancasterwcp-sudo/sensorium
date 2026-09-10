@@ -76,7 +76,7 @@ runner refuses a vector or a question that carries neither. Add a vector for
 each new enumeration value and each new rule — a rule with no vector is a
 sentence in a document, not a contract.
 
-These twenty-nine pin the rules this document states in prose. The first seven
+These thirty-three pin the rules this document states in prose. The first seven
 were written before the Rust recorder existed; `v08`–`v15` were added in
 0.6.0, when it did, and pin the values it actually writes rather than a guess
 about them. `v16`–`v19` were added in rung 3: `v16` pins the SHAPE of an
@@ -101,7 +101,12 @@ and the two records that become meta counts instead of events — and
 `v28`–`v29` pin how `runs` and `info` read an invocation whose members are
 workers of one harness rather than separate binaries. The design spec's
 §5.3 and §5.6 ask for one vector per value of every enumeration per
-language.
+language. `v30`–`v33` were added 2026-09-10 by S5 rung 2, when that third
+recorder's throws became judgeable: `v30`–`v32` pin the one shape called
+SWALLOWED, the escaped handler that is ambiguous instead, and the
+capability refusal an 0.1.x recording still earns, and `v33` pins the
+INVOCATION mode over two workers of one `vitest run` — the first vector in
+which the grouper runs under a renderer that is not Rust's.
 
 | Vector | Rule it pins |
 |---|---|
@@ -137,3 +142,4 @@ language.
 | `v30-exceptions-typescript-swallowed` | `exceptions` answers a TypeScript trace with the Python command's five words over the recorder's own serial: an absorbing `catch` whose frame then RETURNED, with no later raise and no escaping handler for the same serial, is the one shape called SWALLOWED, and the verdict names the `how`, the event, the site and the frame. |
 | `v31-exceptions-typescript-escaped-ambiguous` | The same recording with `how: catch_escaped` reads AMBIGUOUS with its reason and never SWALLOWED: a frame that returned is not evidence of a swallow once the error, or a rendering of it, left the handler (rung 3's STOP, transferred). |
 | `v32-err-flow-typescript-capability-refusal` | What an 0.1.x TypeScript recording lacks is a RECORD, so `exceptions` refuses it through `capabilities.err_flow` with the standard sentence and exit 3, before any rule reads an event; the retired sentence naming absent TypeScript rules does not come back, and no other command is gated. |
+| `v33-exceptions-typescript-invocation-shape` | `exceptions <invocation-id>` answers for a whole TypeScript invocation: two workers of one `vitest run` that sank the same throw at the same `catch` are ONE block, counted over both processes and naming the one a reader can open, under a header and a tally in this recorder's own nouns (`with throws`, `N raises`) with no panic line, no `partial` block and no Rust word anywhere. One grouper, two renderers; each member still answers for itself when asked by its own run id. |

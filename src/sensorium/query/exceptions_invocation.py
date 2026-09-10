@@ -53,11 +53,22 @@ answer, naming it: a merged count that silently dropped one process would
 be a number missing an unknown amount of the program, which is worse than
 no number.
 
-A member that is not a Rust trace refuses likewise. Only the Rust driver
-writes `meta.invocation`, so an invocation of Python traces cannot exist --
-but the refusal is written rather than assumed, because the alternative to
-an impossible-case refusal is an impossible-case crash, and the rules below
-are the Rust disposition rules and nothing else.
+TWO LANGUAGES, ONE GROUPER
+--------------------------
+Both drivers write `meta.invocation`: `cargo sensorium test --workspace`
+writes one trace per test binary, and `sensorium ts run -- npx vitest run`
+one per forked worker. So this mode dispatches PER MEMBER on `meta.lang`
+(`LANGUAGES` below) -- the language's index, its rules, its renderer and
+its tally order -- and the merge itself is `exceptions_group.group_units`,
+which is written about units and sites and knows no language at all.
+
+A member of any OTHER language refuses by name: what it is missing is a
+rule, not a record, and the capability sentence would name the wrong
+repair. A member set of TWO languages refuses likewise. One invocation is
+one driver's, so that set cannot exist -- but the refusal is written rather
+than assumed, because the alternative to an impossible-case refusal is an
+impossible-case answer, judged by one language's rules over another's
+records.
 """
 import shlex
 from dataclasses import dataclass, field
@@ -65,11 +76,47 @@ from pathlib import Path
 
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
-from sensorium.query import caps, exceptions_rust, runs_cmd
-from sensorium.query.exceptions_group import (Shape, collisions, group_chains,
+from sensorium.query import (caps, exceptions_group, exceptions_rust,
+                             exceptions_typescript, runs_cmd)
+from sensorium.query.exceptions_group import (Shape, collisions, group_units,
                                               print_shape)
 from sensorium.query.fmt import more_note
 from sensorium.store.reader import Trace
+
+
+@dataclass(frozen=True)
+class Language:
+    """Everything this mode needs to know about a member, in ONE row.
+
+    Four lookup tables keyed on `lang` would be four places to forget when
+    a fourth recorder arrives; one row is a thing a reader can check is
+    complete. Nothing here is decided by sniffing a key: `meta["lang"]` is
+    the whole of the dispatch (R27a), as it is in `runs` and `info`.
+    """
+    index: object       # (trace) -> that language's Index
+    units: object       # (index) -> the units to judge, in origin order
+    classify: object    # (trace, unit, index) -> Disposition
+    render: object      # `exceptions_group.Renderer`
+    #: The noun the `raised (...)` line counts, singular and plural.
+    #: Rust's pair is deliberately the SAME word twice: that line has read
+    #: `N chains` since it shipped, two acceptance records quote it, and
+    #: correcting `1 chains` is a change to a Rust answer that this task --
+    #: which promised to move no byte of one -- is not the place for.
+    raised: tuple
+    #: What a member HAS, and what a member's cut therefore hides.
+    held: str
+
+
+LANGUAGES = {
+    "rust": Language(exceptions_rust.Index, lambda idx: idx.chains,
+                     exceptions_rust.classify, exceptions_group.RUST,
+                     ("chains", "chains"), "Err chains"),
+    "typescript": Language(exceptions_typescript.Index,
+                           lambda idx: idx.units,
+                           exceptions_typescript.classify,
+                           exceptions_group.TYPESCRIPT,
+                           ("raise", "raises"), "throws"),
+}
 
 
 class InvocationLookupError(paths.TraceLookupError):
@@ -152,6 +199,13 @@ def _processes(n: int) -> str:
     return f"{n} process" if n == 1 else f"{n} processes"
 
 
+def _units(n: int, words: tuple) -> str:
+    """`2 raises` / `1 raise` -- what the `raised (...)` line counts, in the
+    members' own language's noun. A count that reads `1 raises` is the tell
+    that a number was printed by a template rather than said by anyone."""
+    return f"{n} {words[0] if n == 1 else words[1]}"
+
+
 def _shapes(n: int) -> str:
     """What the header counts, in the noun that says what it is.
 
@@ -167,34 +221,46 @@ def _shapes(n: int) -> str:
     return f"{n} swallowed shape" if n == 1 else f"{n} swallowed shapes"
 
 
-def _member_refusal(run_id: str, trace) -> str | None:
-    """Why this member's record cannot be judged, or None.
+def _member_refusal(run_id: str, trace, head) -> str | None:
+    """Why this member's record cannot be judged, or None. `head` is the
+    `(run id, trace)` of the FIRST member, which the set is one of.
 
-    Language first: what a non-Rust member is missing is a rule, not a
-    record, and the capability sentence would name the wrong repair.
+    Language first: what a member of an unruled language is missing is a
+    rule, not a record, and the capability sentence would name the wrong
+    repair. Then the SET's own coherence, before anything any one member
+    declares: a mixed set is not a member's problem to report.
     """
-    if trace.lang != "rust":
+    if trace.lang not in LANGUAGES:
         return (f"REFUSED: exceptions across an invocation is defined for "
                 f"Rust traces; member {run_id} is {trace.lang}")
+    if trace.lang != head[1].lang:
+        # `runs` groups one invocation and one driver writes it, so this
+        # cannot happen -- and if it ever did, judging it would mean
+        # reading one language's records by another language's rules.
+        return (f"REFUSED: an invocation is one driver's; member {run_id} "
+                f"is {trace.lang} and {head[0]} is {head[1].lang}")
     refusal = caps.require(trace, "err_flow", "exceptions")
     return f"REFUSED: {refusal} (member {run_id})" if refusal else None
 
 
-def _merge(members) -> tuple[list[Merged], dict]:
-    """`(merged shapes in first-appearance order, summed chain tally)`.
+def _merge(members, lang: Language) -> tuple[list[Merged], dict]:
+    """`(merged shapes in first-appearance order, summed unit tally)`.
 
     `members` is `(run_id, trace, index)` in member order. The first member
     to show a key owns the printed block; every later member adds its
-    chains to the count, its run id to the processes, and its differences
+    units to the count, its run id to the processes, and its differences
     to the vary sets -- which is what makes `origins: 7 distinct` mean
     "across this invocation" rather than "in whichever process printed".
+
+    One key space, because the set is ONE language: `Shape.key` carries no
+    `lang`, and it does not need to.
     """
     merged: list[Merged] = []
     by_key: dict[tuple, Merged] = {}
     tally: dict[str, int] = {}
     for run_id, trace, idx in members:
-        shapes, member_tally = group_chains(trace, idx.chains, idx,
-                                            exceptions_rust.classify)
+        shapes, member_tally = group_units(trace, lang.units(idx), idx,
+                                           lang.classify, lang.render)
         for tag, n in member_tally.items():
             tally[tag] = tally.get(tag, 0) + n
         for shape in shapes:
@@ -271,30 +337,49 @@ def _print_partial(members) -> None:
     exceptions_rust._print_partial(rows, wheres, hint)
 
 
-def _header(members) -> int:
-    """The invocation line, the INCOMPLETE members, the partial union and
-    the panic sum. Returns how many members recorded at least one chain."""
-    with_chains = sum(1 for _r, _t, idx in members if idx.chains)
+def _ambient(members, lang: Language) -> None:
+    """What the RECORDING was not watching, summed over the members --
+    each language's own, and nothing standing in for what a recorder does
+    not produce.
+
+    Rust: the union of the `?` sites the transformer could not reach, and
+    the panic events. TypeScript: the rejections the process itself
+    reported unhandled, which carry no site and so open no block (R1) --
+    counted here or counted nowhere, because a merged answer that dropped
+    them would be the only place they are said at all.
+    """
+    if lang is LANGUAGES["rust"]:
+        _print_partial(members)
+        exceptions_rust._print_panics(
+            sum(idx.panics for _r, _t, idx in members))
+        return
+    rejections = sum(len(idx.rejections) for _r, _t, idx in members)
+    if rejections:
+        print(f"unhandled rejections: {rejections}")
+
+
+def _header(members, lang: Language) -> int:
+    """The invocation line, the INCOMPLETE members and the ambient counts.
+    Returns how many members recorded at least one unit."""
+    with_units = sum(1 for _r, _t, idx in members if lang.units(idx))
     n = len(members)
     # The invocation line is `runs`' own, extended with the counts: one
-    # spelling of "which cargo command was this", not two. The language
-    # travels with the meta because `runs` chooses the header's SHAPE by it
-    # and never by sniffing a key (R27a); this command only ever reaches
-    # Rust members, and passing the trace's own `lang` keeps that a fact
-    # about the trace rather than an assumption made here.
+    # spelling of "which command was this", not two. The language travels
+    # with the meta because `runs` chooses the header's SHAPE by it and
+    # never by sniffing a key (R27a), and passing the trace's own `lang`
+    # keeps that a fact about the trace rather than an assumption here.
     head = members[0][1]
     print(f"{runs_cmd._header(head.meta, head.lang)} -- {_processes(n)}, "
-          f"{with_chains} with Err chains, {n - with_chains} with none")
+          f"{with_units} with {lang.held}, {n - with_units} with none")
     for run_id, _trace, idx in members:
         if idx.incomplete:
-            # Named BEFORE anything about chains: what this process did
+            # Named BEFORE anything about units: what this process did
             # after its cut is not below, and a reader who met that fact
             # after the answer would have already believed the answer.
-            print(f"INCOMPLETE: {run_id} never finalized -- its Err chains "
+            print(f"INCOMPLETE: {run_id} never finalized -- its {lang.held} "
                   "after the cut are not below")
-    _print_partial(members)
-    exceptions_rust._print_panics(sum(idx.panics for _r, _t, idx in members))
-    return with_chains
+    _ambient(members, lang)
+    return with_units
 
 
 def run(args, invocation_id: str, members: list) -> int:
@@ -309,14 +394,18 @@ def run(args, invocation_id: str, members: list) -> int:
         return BAD_CALL
     opened = [(p.stem, Trace.open(p)) for p in members]
     for run_id, trace in opened:
-        refusal = _member_refusal(run_id, trace)
+        refusal = _member_refusal(run_id, trace, opened[0])
         if refusal:
             # Before any classification, and the whole answer: a merged
             # count is only as honest as its least honest member.
             print(refusal)
             return UNSETTLED
-    indexed = [(run_id, t, exceptions_rust.Index(t)) for run_id, t in opened]
-    with_chains = _header(indexed)
+    # Every member is this language: the loop above refused the set that
+    # was not, so the row can be taken from the first member and used for
+    # all of them.
+    lang = LANGUAGES[opened[0][1].lang]
+    indexed = [(run_id, t, lang.index(t)) for run_id, t in opened]
+    with_chains = _header(indexed, lang)
     incomplete = any(idx.incomplete for _r, _t, idx in indexed)
     if not with_chains:
         # `caps.none_status`, applied to a set: "none" only where every
@@ -325,11 +414,11 @@ def run(args, invocation_id: str, members: list) -> int:
         print(f"no exceptions recorded across {_processes(len(indexed))}")
         return UNSETTLED if incomplete else NEGATIVE
 
-    merged, tally = _merge(indexed)
+    merged, tally = _merge(indexed, lang)
     chains = sum(m.n for m in merged)
     shapes = sum(1 for m in merged if m.shape.tag == "swallowed")
-    print(f"raised ({chains} chains over {_processes(with_chains)}, "
-          f"{_shapes(shapes)}):")
+    print(f"raised ({_units(chains, lang.raised)} over "
+          f"{_processes(with_chains)}, {_shapes(shapes)}):")
     # Over the whole ANSWER, never per member: the collision this mode
     # exists to have caught is between processes -- `sandbox L42` in two
     # test files, one process each -- so a set computed inside a member
@@ -341,8 +430,10 @@ def run(args, invocation_id: str, members: list) -> int:
             break
         print_shape(m.trace, m.shape, bracket(m), m.shape.key in colliding)
         shown += 1
+    # The members' language's order, which is what the tally is a tally
+    # in: no disposition of one recorder appears in another's line.
     print("dispositions: " + ", ".join(f"{t} {tally[t]}"
-                                       for t in exceptions_rust.TAG_ORDER
+                                       for t in lang.render.tag_order
                                        if tally.get(t)))
     # Paging raises the limit, as in single-run mode, and the ref carried
     # through is the INVOCATION's: a continuation that named one member
