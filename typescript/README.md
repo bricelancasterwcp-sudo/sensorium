@@ -145,7 +145,7 @@ these exit statuses mean.
 | `flow --object` | 3 | `capabilities.object_identity: false` — object identity is not carried, so a question about *that* object cannot be answered from this trace. |
 | `refocus` | 2 | `capabilities.refocus: false` — nothing was re-run, and the reader's next move is a different command. |
 
-Arguments are **unread** in 0.1.0: `capabilities.locals: false`, every CALL
+Arguments are **unread** in this version: `capabilities.locals: false`, every CALL
 carries `unread: ["locals"]`, and `tree` prints `compute() <unread: locals>`.
 That is a stated absence, not an empty argument list.
 
@@ -174,8 +174,8 @@ thing to do instead:
 
 Argument capture and per-line state under a `--focus` (rung 3); the
 `exceptions` disposition rules that make an empty `catch` a sink and a rethrow
-a hop (rung 2, at which point these 0.1.0 traces stay refused and re-recording
-is the fix); `refocus` (rung 4); the browser, which needs a runtime without a
+a hop (rung 2, at which point traces recorded by 0.1.0 and 0.1.1 alike stay
+refused — both declare `err_flow: false` — and re-recording is the fix); `refocus` (rung 4); the browser, which needs a runtime without a
 filesystem (rung 5); jest; a transform cache. `finally`, a `.catch` with a
 non-empty body, and which frame *scheduled* a continuation are recorded by
 nothing here — see [`HONESTY.md`](HONESTY.md) §4, §3 and the numbered blind

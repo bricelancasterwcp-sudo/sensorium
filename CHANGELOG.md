@@ -627,7 +627,8 @@ Rung 4, slice 3: **the rung-4 debts** — the seven items slices 1 and 2 left in
 **Earlier entries** — `0.8.4` and `0.8.3`, and `0.8.2`, `0.8.1`, `0.8.0`,
 `0.7.0` and `0.6.0` before them — are in
 [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md): `0.7.0`/`0.6.0` moved there
-2026-09-08, the three 0.8.x ones 2026-09-09 and these two 2026-09-10, every
+2026-09-08, `0.8.2`/`0.8.1`/`0.8.0` 2026-09-09 and `0.8.4`/`0.8.3`
+2026-09-10, every
 time so this file stays under the repo-wide 800-line ceiling
 `tests/test_ceiling.py` holds it to. A count of moved entries in this sentence
 goes stale at the next cut, which is why it names them rather than counting

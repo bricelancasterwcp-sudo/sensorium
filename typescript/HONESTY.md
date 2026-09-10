@@ -257,14 +257,14 @@ prints that count when it is non-zero, and prints a zero on a complete trace
 too — the listener always ran, so zero there is a measured zero.
 
 **What it does not claim, and the refusal that says so.** These rows are
-recorded and **not judged**. `capabilities.err_flow: false` in 0.1.0, although
+recorded and **not judged**. `capabilities.err_flow: false` in this version, although
 RAISE and HANDLED rows exist, because the key is the runtime's statement that
 its records carry what the `exceptions` rules need — and no TypeScript
 disposition rules exist yet (rung 2 writes them). So `exceptions` **refuses**
 on these traces at exit 3, naming the language and saying nothing was judged.
-The cost is real and pre-committed: a trace this 0.1.0 runtime wrote stays
-refused after rung 2 lands, then by the capability sentence, and re-recording
-is what changes it. Two further shapes record nothing at all: a `.catch(fn)`
+The cost is real and pre-committed: a trace this 0.1.0 runtime wrote — and
+0.1.1's, which declares the same — stays refused after rung 2 lands, then by
+the capability sentence, and re-recording is what changes it. Two further shapes record nothing at all: a `.catch(fn)`
 with a non-empty body (blind spot 2), and `finally` (blind spot 3). A
 `Promise.reject(v)` is not a `throw` statement and raises nothing here.
 

@@ -464,9 +464,14 @@ byte-locked before any of this code existed.
 
 **Measured before it was written, the way the rule asks.** This section was
 drafted at **250** lines against a live file of **452** — 415 at the
-slice's start, plus **37** the strikes above added — which takes it to
+slice's start, plus **37** the strikes above added — which took it to
 **703**, under the 800-line ceiling. Nothing was cut, and no volume
-was opened.
+was opened. *(Re-measured 2026-09-10 after the task's review: the fix wave
+added **19** lines here, so the section is **269** and the file **722**. A
+line count stated in a paragraph goes stale the next time the paragraph's own
+section is edited — this file's header has recorded that happening to three
+volume counts — so the number is re-taken rather than left standing, and both
+readings are kept.)*
 
 ### Settled
 
@@ -615,11 +620,15 @@ number or the ruling that made it and what it costs if it was wrong.
   tighter claim, and sensitivity is not comparable across sessions. A session
   wanting stable sensitivity would pre-register a floor on the band's width —
   which §2.2 deliberately refused, a chosen width being the thing it refused.
+  *Cost if wrong:* a later E6 whose control arm is noisier passes a clause this
+  one would have failed, and the two PASSes get read as the same claim.
 - **"Under 4.0" is not "idle"** (record §5 gap 9). Ten of the eleven guarded
   readings were above 3.0 and only the before arm's first run was cold
   (0.35). The asymmetry runs **against** a contamination finding — the arm on
   the quieter box is the slower one — but a guard that wanted the arms
   ambient-matched would wait for a *return* to a baseline, not for a ceiling.
+  *Cost if wrong:* on a session where the asymmetry ran the other way, ambient
+  load and not the recording would be the thing the band measured.
 - **The instrument's timed region includes its own wrapper's start-up**
   (record §5 gap 1), now **8.3%** of the gated one-file cell (0.0137 s of
   0.1648 s). Both walls fall the same side of both bounds, so no verdict
@@ -648,10 +657,20 @@ number or the ruling that made it and what it costs if it was wrong.
   no path shipped. *Cost if wrong:* one box path in a committed results file
   — which is exactly what `offenders()` exists to refuse.
 - **`docs/TRACE-FORMAT.md`'s `capabilities.err_flow` sentence still names
-  `sensorium-ts 0.1.0`.** True of 0.1.0 and still true of 0.1.1, and the file
+  `sensorium-ts 0.1.0`** — the **only** living-document version token this
+  slice left standing. True of 0.1.0 and still true of 0.1.1, and the file
   sits at **799** of 800 lines, which this slice pre-committed not to open
   (plan Global Constraints). *Cost if wrong:* a reader on 0.1.1 goes looking
-  for a version statement that has not moved because it did not need to.
+  for a version statement that has not moved because it did not need to. The
+  four others the first pass missed were taken 2026-09-10 rather than
+  deferred, so this row is the whole of the deferral: `typescript/README.md`'s
+  "Arguments are unread" and `typescript/HONESTY.md`'s `capabilities.err_flow`
+  sentence are now **version-free** ("in this version"), because both describe
+  the package as it is rather than a recording; and `typescript/README.md`'s
+  "Not yet" clause and `typescript/HONESTY.md`'s "a trace this 0.1.0 runtime
+  wrote" **keep `0.1.0` and name `0.1.1` beside it**, because both are about
+  traces a 0.1.0 runtime actually wrote and both versions declare the same
+  capability.
 - **`task_name_basis` is spelled `lexical` in prose and `title` on the wire**
   (record §5 gap 6). Same fact, two spellings; the checker asserts the value
   the recorder writes. *Cost if wrong:* a reader goes looking for a third

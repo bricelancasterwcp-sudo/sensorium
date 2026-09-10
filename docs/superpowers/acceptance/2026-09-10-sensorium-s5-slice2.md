@@ -585,8 +585,14 @@ above the bound". a3's 0d median is **16.5088 s**, 6.0837 s below the
 22.5925 s the bound names — **so A2 and A4 are not built**, which is what
 that sentence says to do: a lever that cannot move a verdict is not free.
 The gated clauses (E10′-suite, E10′-file, E10′-eq) are measured on the
-slice's final converter at their own `n` and are still `not measured (slice 2
-pending)` above; this cell is the ladder's `n`=3 reading, not that one.
+slice's final converter at their own `n`; this cell is the ladder's `n`=3
+reading, not that one. *(Amended 2026-09-10, the same amendment §3.7 carries
+and for the same reason: this sentence also ended "and are still `not measured
+(slice 2 pending)` above", true when §3.8 was written and stale from the moment
+Task 4 read those three cells. All three are **PASS** — §3.9, verdicts §4.1.
+The two twins were written a paragraph apart and one wrapped differently, which
+is how the first pass amended one and missed the other; nothing else in this
+section moves.)*
 
 ### 3.9 E10′ — the equivalence gate and the two verdict cells
 
