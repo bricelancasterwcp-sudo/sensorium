@@ -49,6 +49,33 @@ the conversion counted.
 | `unhandled_rejections` | `[{type, msg, serial}]` from `process.on('unhandledRejection')` — a fact with no SITE, so it is here and never in `events` (§5). `info` prints the count, **including a zero on a complete trace**: the listener always ran, so that zero is measured. |
 | `throw_flow_outside_frames` | RAISE/HANDLED records that fired with no open frame — a throw at module scope, a default-parameter expression that threw before its frame opened. There is no frame to attach an event to, so none was written; the count is the only trace of them. Printed when non-zero. |
 
+## Throw flow
+
+> Moved here on 2026-09-10 (S5 rung 2) from `docs/TRACE-FORMAT.md` §5, unchanged — that file stood at 799 of its 800 lines and this rung amends this section, so it moves whole before it is amended.
+> That is R25's precedent, the same way §4's key table moved into this file in rung 1: one commit moves a section without changing a byte of it, another edits it in its new home.
+
+### TypeScript throw flow: `exc.kind` and `how`
+
+A TypeScript `exc` is `{kind, type, msg, serial}` and **`kind` is written on every
+one** — `"throw"` or `"rejection"` — because a kindless `exc` is read as Python's
+(above). `serial` is minted per thrown **object** through a `WeakMap`, so `catch (e)
+{ throw e }` is one exception with two RAISE rows; a thrown **primitive** has none
+to hang it on and gets a fresh serial each time, stated rather than papered over by
+merging on text. Vectors: `v25-exc-kind-throw-rejection`,
+`v27-unhandled-rejection-in-meta`.
+
+**`how`** names the shape that recorded the event, and the enumeration is the
+declaration: `throw`, `catch`, `sink_empty_catch`, `sink_empty_catch_callback` (a
+`catch {}` and a `.catch(() => {})` whose body is empty). A shape outside it
+produced no record — a `.catch(fn)` with a non-empty body and `finally` are recorded
+by nothing. The rows are not judged: `capabilities.err_flow` is false in
+`sensorium-ts 0.1.0` although they exist, so `exceptions` refuses at exit 3.
+
+Two things go to `meta` and never to `events`, because §3 refuses a causal event
+with no `code_id` and inventing a code object would put a site in the program that
+has none: an unhandled rejection (`unhandled_rejections`, `[{type, msg, serial}]`)
+and a RAISE/HANDLED with no open frame (`throw_flow_outside_frames`).
+
 ## What is deliberately absent
 
 `records_dropped` is **never written by this recorder**. A container killed

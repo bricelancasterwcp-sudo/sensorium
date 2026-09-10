@@ -612,25 +612,7 @@ Vector: `v16-raise-handled-chain-serial-kind`.
 
 ### TypeScript throw flow: `exc.kind` and `how`
 
-A TypeScript `exc` is `{kind, type, msg, serial}` and **`kind` is written on every
-one** — `"throw"` or `"rejection"` — because a kindless `exc` is read as Python's
-(above). `serial` is minted per thrown **object** through a `WeakMap`, so `catch (e)
-{ throw e }` is one exception with two RAISE rows; a thrown **primitive** has none
-to hang it on and gets a fresh serial each time, stated rather than papered over by
-merging on text. Vectors: `v25-exc-kind-throw-rejection`,
-`v27-unhandled-rejection-in-meta`.
-
-**`how`** names the shape that recorded the event, and the enumeration is the
-declaration: `throw`, `catch`, `sink_empty_catch`, `sink_empty_catch_callback` (a
-`catch {}` and a `.catch(() => {})` whose body is empty). A shape outside it
-produced no record — a `.catch(fn)` with a non-empty body and `finally` are recorded
-by nothing. The rows are not judged: `capabilities.err_flow` is false in
-`sensorium-ts 0.1.0` although they exist, so `exceptions` refuses at exit 3.
-
-Two things go to `meta` and never to `events`, because §3 refuses a causal event
-with no `code_id` and inventing a code object would put a site in the program that
-has none: an unhandled rejection (`unhandled_rejections`, `[{type, msg, serial}]`)
-and a RAISE/HANDLED with no open frame (`throw_flow_outside_frames`).
+Moved 2026-09-10 to [docs/trace-format/TYPESCRIPT-KEYS.md](trace-format/TYPESCRIPT-KEYS.md) § Throw flow, unchanged (S5 rung 2, the R25 precedent).
 
 ### closed_by, unwind_exc, and the panic mapping
 
