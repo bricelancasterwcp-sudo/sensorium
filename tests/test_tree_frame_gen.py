@@ -276,6 +276,18 @@ def test_tree_state_tails_name_cancelled_abandoned_thrown_and_suspended(
         "gen()  [generator]  ~ suspended at L6 at end of recording")
     assert "(open)" not in out2           # neither is merely "still running"
 
+    # `frame` renders the same suspension from the other view, and it must
+    # keep the SITE (R28). The site is conditional in both renderers now,
+    # because a recorder can record a suspension without one -- a
+    # `sensorium-ts` YIELD carries no line, and ` at L{None}` used to render
+    # the literal `LNone` (pinned absent by
+    # `docs/trace-format/vectors/v26-kind-labels.json`). This is the other
+    # half of that rule: where the YIELD DOES carry a line, as every Python
+    # and Rust one does, the header still names it, byte for byte.
+    assert cli.main(["frame", run2, "--fn", "gen", "--nth", "2"]) == 0
+    header = capsys.readouterr().out.splitlines()[0]
+    assert header.endswith("state: suspended at L6"), header
+
     # ...and an exception thrown INTO a parked frame is neither of those: it
     # did not raise on its own line, and the tail says where it was hit.
     run3 = _rec(tmp_path / "e", monkeypatch, src=LOUD_THROW + tail)

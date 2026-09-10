@@ -68,7 +68,7 @@ nightly, no root, no hand annotation. What it does *not* see, and what says so
 in the trace, is [`HONESTY.md`](HONESTY.md) with
 [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) and
 [`HONESTY-ERR-FLOW.md`](HONESTY-ERR-FLOW.md) — read those before you
-trust an answer. The trace contract both recorders are written against is
+trust an answer. The trace contract every recorder is written against is
 [`../docs/TRACE-FORMAT.md`](../docs/TRACE-FORMAT.md).
 
 ## Build
@@ -209,7 +209,7 @@ wants a run of one binary.
 ## Where traces go
 
 `$SENSORIUM_DIR/traces/`, default `~/.sensorium/traces` — the same place the
-Python recorder writes, so one `sensorium runs` lists both. A trace holds the
+Python and TypeScript recorders write, so one `sensorium runs` lists all three. A trace holds the
 recorded process's environment, command line, source digests and captured
 values in plaintext; treat one the way you would treat a core dump.
 

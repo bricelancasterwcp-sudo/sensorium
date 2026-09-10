@@ -1,0 +1,14 @@
+[
+  {
+    "id": "the-other-spool-converted",
+    "ask": "was the spool beside the refused one converted anyway?",
+    "command": [
+      "tree",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "boom()"
+    ]
+  }
+]

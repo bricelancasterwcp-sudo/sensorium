@@ -74,9 +74,15 @@ def installed_tracer(tmp_path):
         writer.close()
 
 
-def run_cli(args, cwd, sensorium_dir, stdin_text=None):
-    """Run the real CLI in a subprocess, against a disposable trace store."""
-    env = dict(os.environ, SENSORIUM_DIR=str(sensorium_dir))
+def run_cli(args, cwd, sensorium_dir, stdin_text=None, env_extra=None):
+    """Run the real CLI in a subprocess, against a disposable trace store.
+
+    `env_extra` is for the variables a command READS rather than writes --
+    the TypeScript driver's package location, a doctored PATH for its Node
+    version check. It is applied last, so a test can override anything.
+    """
+    env = dict(os.environ, SENSORIUM_DIR=str(sensorium_dir),
+               **(env_extra or {}))
     return subprocess.run(
         [sys.executable, "-m", "sensorium", *args],
         cwd=cwd, env=env, capture_output=True, text=True, input=stdin_text)

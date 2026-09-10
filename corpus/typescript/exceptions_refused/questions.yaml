@@ -1,0 +1,77 @@
+program: vitest
+harness_args: ["run", "exceptions_refused"]
+questions:
+  - id: what-happened-to-the-parse-error
+    ask: >
+      The config file could not be parsed and the caller got a config
+      anyway. What happened to the error?
+    truth: >
+      It was caught and dropped, and this recorder REFUSES to say so, at
+      exit 3. The refusal is not about a missing record -- the RAISE and the
+      HANDLED are both in this trace -- but about a missing RULE: no
+      TypeScript disposition rules exist in 0.1.0, and the Python rules
+      index an exception identity a TypeScript trace does not carry. The
+      sentence says which rung owes the rules and that nothing was judged,
+      so the reader knows the answer is unwritten rather than negative.
+    why_logs_fail: >
+      An empty `catch` is exactly the shape that prints nothing: the whole
+      point of the bug is that the failure reaches no channel. A
+      `console.log` in the `catch` would answer it and is what is missing --
+      and adding it requires already suspecting this `catch`, of which a
+      real codebase has hundreds. `DEBUG=*` enables loggers, and no logger
+      was called. A stack trace would have been printed if the error had
+      escaped, and it did not.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 3
+    expect_contains:
+      - "REFUSED: exceptions on a typescript trace needs the TypeScript
+         disposition rules (S5 rung 2); the Python rules index exception
+         identity this trace does not carry; nothing was judged"
+  - id: are-the-rows-there-at-all
+    ask: >
+      Is the refusal because nothing was recorded, or because nothing can be
+      judged?
+    truth: >
+      Because nothing can be judged. This trace holds one RAISE and one
+      HANDLED beside its three CALLs and two RETURNs -- the throw statement
+      and the catch clause were both recorded -- and the recorder still
+      declares `err_flow=no`, which is its statement that those rows do not
+      yet carry what a disposition verdict needs. The two facts sit on
+      adjacent lines of one command's output, which is the only way a reader
+      can tell "no record" from "no rule".
+    why_logs_fail: >
+      This is a question about the instrument, not the program, and all
+      three channels answer about the program. A `console.log` says what the
+      code did, never whether the tool that read it holds the rules to judge
+      it -- and here the honest reading of NO log line is ambiguous between
+      "the catch is empty" and "nobody recorded it". `DEBUG=*` enables
+      loggers, and an empty `catch` calls none. A stack trace is printed
+      when an error escapes, and this one did not escape, so its absence
+      likewise says nothing about what was recorded.
+    command: ["info", "$RUN"]
+    expect_line:
+      - ["recorded: CALL 3", "RETURN 2", "RAISE 1", "HANDLED 1"]
+      - ["capabilities:", "err_flow=no"]
+      - ["recorder: sensorium-ts 0.1.0", "lang: typescript"]
+  - id: what-does-the-trace-show-happened
+    ask: >
+      Without a verdict, what does the recording show about that call?
+    truth: >
+      That `parse` left by throwing -- `!! Error('not a number: nine')` --
+      while `loadConfig`, the frame directly above it, closed normally and
+      returned `{ retries: 3 }`. A frame that unwound under a frame that
+      returned is the swallow's shape, drawn without being named: the
+      recording carries it and the verdict is what is owed. The test passes,
+      so nothing else in the run marks the failure at all.
+    why_logs_fail: >
+      The program's own output is a passing test and a config object;
+      the shape that matters -- one frame unwinding inside another that
+      returned -- is a relationship between two frames, and a
+      `console.log` line lives inside one. `DEBUG=*` has no logger to
+      enable, because an empty `catch` calls none. No stack trace is
+      produced, because the error never escaped the `catch`.
+    command: ["tree", "$RUN"]
+    expect_line:
+      - ["parse() <unread: locals> !! Error('not a number: nine')"]
+      - ["loadConfig() <unread: locals> -> { retries: 3 }"]
+    expect_contains: ["task t1: a config file is loaded"]

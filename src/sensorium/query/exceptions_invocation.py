@@ -277,8 +277,13 @@ def _header(members) -> int:
     with_chains = sum(1 for _r, _t, idx in members if idx.chains)
     n = len(members)
     # The invocation line is `runs`' own, extended with the counts: one
-    # spelling of "which cargo command was this", not two.
-    print(f"{runs_cmd._header(members[0][1].meta)} -- {_processes(n)}, "
+    # spelling of "which cargo command was this", not two. The language
+    # travels with the meta because `runs` chooses the header's SHAPE by it
+    # and never by sniffing a key (R27a); this command only ever reaches
+    # Rust members, and passing the trace's own `lang` keeps that a fact
+    # about the trace rather than an assumption made here.
+    head = members[0][1]
+    print(f"{runs_cmd._header(head.meta, head.lang)} -- {_processes(n)}, "
           f"{with_chains} with Err chains, {n - with_chains} with none")
     for run_id, _trace, idx in members:
         if idx.incomplete:

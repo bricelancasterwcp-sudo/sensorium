@@ -14,6 +14,8 @@ from sensorium.exit import ANSWERED
 from sensorium.query.caps import witness_gap
 from sensorium.query.fmt import fmt_exc
 from sensorium.query.info_rust import rust_lines
+from sensorium.query.info_typescript import (interp_suffix,
+                                             typescript_lines)
 from sensorium.query.refocus_world import (harness_exclusion,
                                            unverifiable_line)
 from sensorium.query.vocab import exit_phrase, terms
@@ -164,7 +166,14 @@ def run(args) -> int:
     # meta["env"] is the entire process environment -- never print it
     # wholesale; env_hash lets two runs be compared without leaking it.
     words = terms(t)
-    print(f"{words.interp_line(m)}  env:{m.get('env_hash', '?')}  "
+    # The gate the TypeScript block below shares. `interp_line` renders the
+    # `node <version>` half from the vocabulary table like every other
+    # language's; the harness and DOM environment beside it are keys only
+    # this recorder writes, so the suffix is that module's and not a fourth
+    # `Terms` field with two empty columns.
+    ts = t.lang == "typescript"
+    print(f"{words.interp_line(m)}{interp_suffix(m) if ts else ''}  "
+          f"env:{m.get('env_hash', '?')}  "
           f"exit: {exit_phrase(m)}  events: {sum(counts.values())}"
           f"{dur}")
     print(f"recorder: {t.recorder}  lang: {t.lang}  "
@@ -198,6 +207,12 @@ def run(args) -> int:
     rust = t.lang == "rust"
     if rust:
         for line in rust_lines(t, m):
+            print(line)
+    # Same place, same reason: a TypeScript container's harness, its test
+    # file and how many of the harness's tests the transform actually
+    # reached all change what every count below them means.
+    if ts:
+        for line in typescript_lines(t, m):
             print(line)
     # What a fingerprint row covers is not readable from the hash, and plan
     # 2b narrowed it: under the per-task basis a thread row holds only what

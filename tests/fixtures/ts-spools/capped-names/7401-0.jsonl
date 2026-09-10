@@ -1,0 +1,13 @@
+{"e":"BOOT","wire":1,"pid":7401,"ppid":7400,"threadId":0,"isMainThread":true,"argv":["/usr/bin/node","/w/probes/node_modules/vitest/dist/workers/forks.js"],"cwd":"/w/probes","env":{"PATH":"/usr/bin"},"envHash":"9999aaaabbbbcccc","node":"v24.16.0","version":"0.1.0","tier":"call","invocation":null,"startTs":1788965244.0,"ts":1000}
+{"e":"FILE","id":1,"rel":"src/panel.test.ts","abs":"/w/probes/src/panel.test.ts","codes":[["render",3,"function"],["retry",9,"function"]],"sha":"34571425d0ab5d498e3b4fd048ee1145e86259ae5d7b09808f148bacc1767d83"}
+{"e":"FILE_START","path":"/w/probes/src/panel.test.ts","environment":"jsdom"}
+{"e":"SEEN","name":"renders the whole settings panel when the feature flag is on and the account is on the enterprise plan and the user has the admin role and the workspace has more than one seat and billing is up to dat","name_trunc":true}
+{"e":"TASK","id":1,"name":"renders the whole settings panel when the feature flag is on and the account is on the enterprise plan and the user has the admin role and the workspace has more than one seat and billing is up to dat","basis":"vitest","conflict":false,"name_trunc":true}
+{"e":"CALL","f":1,"p":null,"file":1,"c":0,"t":1,"ts":1100}
+{"e":"RETURN","f":1,"t":1,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":1200}
+{"e":"SEEN","name":"retries the flaky one"}
+{"e":"TASK","id":2,"name":"retries the flaky one#2","basis":"vitest","conflict":false}
+{"e":"CALL","f":2,"p":null,"file":1,"c":1,"t":2,"ts":1300}
+{"e":"RAISE","f":2,"t":2,"x":{"kind":"throw","type":"VeryDeeplyNamespacedValidationErrorFromTheGeneratedClientLibraryVeryDeeplyNamespacedValidationErrorFromTheGeneratedClientLibraryVeryDeeplyNamespacedValidationErrorFromTheGeneratedClientLibraryVeryDeep","msg":"renders the whole settings panel when the feature flag is on and the account is on the enterprise plan and the user has the admin role and the workspace has more than one seat and billing is up to dat","serial":1,"trunc":true,"type_trunc":true},"l":11,"how":"throw","ts":1400}
+{"e":"UNWIND","f":2,"t":2,"x":{"kind":"throw","type":"VeryDeeplyNamespacedValidationErrorFromTheGeneratedClientLibraryVeryDeeplyNamespacedValidationErrorFromTheGeneratedClientLibraryVeryDeeplyNamespacedValidationErrorFromTheGeneratedClientLibraryVeryDeep","msg":"renders the whole settings panel when the feature flag is on and the account is on the enterprise plan and the user has the admin role and the workspace has more than one seat and billing is up to dat","serial":1,"trunc":true,"type_trunc":true},"ts":1500}
+{"e":"EXIT","code":null,"signal":"SIGTERM","endTs":1788965244.6,"ts":1600}

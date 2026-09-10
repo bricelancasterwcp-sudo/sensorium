@@ -1,0 +1,8 @@
+{"e":"BOOT","wire":1,"pid":7301,"ppid":7300,"threadId":0,"isMainThread":true,"argv":["/usr/bin/node","/w/probes/node_modules/vitest/dist/workers/forks.js"],"cwd":"/w/probes","env":{"PATH":"/usr/bin"},"envHash":"5555666677778888","node":"v24.16.0","version":"0.1.0","tier":"call","invocation":null,"startTs":1788965243.0,"ts":1000}
+{"e":"FILE","id":1,"rel":"src/boom.test.ts","abs":"/w/probes/src/boom.test.ts","codes":[["boom",3,"function"],["rows",7,"generator"]],"sha":"ce010102d3b970730b05df4815b0f699b0a94118585ab38f8aa6cf850637e82a"}
+{"e":"FILE_START","path":"/w/probes/src/boom.test.ts","environment":"node"}
+{"e":"SEEN","name":"boom throws"}
+{"e":"TASK","id":1,"name":"boom throws","basis":"vitest","conflict":false}
+{"e":"CALL","f":1,"p":null,"file":1,"c":0,"t":1,"ts":1100}
+{"e":"RETURN","f":9,"t":1,"v":{"k":"dbg","v":"0","trunc":false},"ts":1200}
+{"e":"EXIT","code":0,"endTs":1788965243.5,"ts":1300}

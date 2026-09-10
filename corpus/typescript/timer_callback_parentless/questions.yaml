@@ -1,0 +1,78 @@
+program: vitest
+harness_args: ["run", "timer_callback_parentless"]
+questions:
+  - id: what-emptied-the-queue
+    ask: >
+      One item was queued and the test found none. What emptied the queue,
+      and did it belong to this test at all?
+    truth: >
+      `sweep` did, and it ran inside this test -- the recording puts it in
+      the task named `a sweep is scheduled and not awaited`, the same task
+      as the test's own frames. It returned 1: the one item it took. The
+      test callback then unwound with an AssertionError, because `pending()`
+      answered 0 where it expected 1. Both facts are in one task, and the
+      task is the only thing that relates them: by the time `sweep` ran, the
+      code that scheduled it had long returned.
+    why_logs_fail: >
+      A `console.log` inside `sweep` prints one line with no indication of
+      which test was running -- and the honest answer is that none was
+      "running" in the ordinary sense, since the test was parked at an
+      `await`. Asking Node's timer machinery which test scheduled a callback
+      means threading a test name through every `setTimeout`. `DEBUG=*`
+      namespaces by module, and the module here is a timer inside Node. A
+      stack trace taken inside `sweep` shows Node's timer internals and
+      nothing of the test.
+    command: ["tree", "$RUN"]
+    expect_contains: ["task t1: a sweep is scheduled and not awaited"]
+    expect_count: {"sweep() <unread: locals> -> 1": 1}
+    expect_line:
+      - ["<anonymous>()", "[async]", "!! AssertionError("]
+      - ["pending() <unread: locals> -> 0"]
+  - id: who-called-the-sweep
+    ask: Which frame of the program called `sweep`?
+    truth: >
+      None: it was entered on an empty stack, so it is a root of its task at
+      DEPTH 0 -- the same depth as the test callback itself, not a child of
+      it. Node's timer machinery called it, and Node's timer machinery is
+      not instrumented, so there is no caller frame to name. Depth 0 inside
+      the right task is the whole of what this recorder claims here; WHICH
+      frame scheduled the timer is a different relationship and it records
+      no such key.
+    why_logs_fail: >
+      This is a question about the call stack at a moment that has passed,
+      and the answer -- "nothing of yours was on it" -- is one a
+      `console.log` cannot express: printing from inside `sweep` proves the
+      function ran, never what was under it. A stack trace comes closest and
+      still shows Node's internal timer frames rather than saying that the
+      program's stack was empty. `DEBUG=*` has no logger to enable.
+    command: ["frame", "$RUN", "--fn", "sweep"]
+    expect_contains: ["children: (none)", "return: 1"]
+    expect_line:
+      - ["sweeper.ts:sweep", "task t1 (a sweep is scheduled and not awaited)",
+         "depth 0", "closed: return"]
+  - id: is-the-sweep-a-child-of-the-scheduling-frame
+    ask: >
+      The test's own callback is what called `setTimeout`. Is `sweep`
+      recorded as that frame's child?
+    truth: >
+      No, and that is the counterfactual the previous answer needs. The test
+      callback has exactly three children -- `enqueue`, `delay` and
+      `pending` -- and `sweep` is not among them, even though the callback is
+      the frame that scheduled it. Parenting it there would have been the
+      plausible lie: it would read as "the test called sweep", which is
+      exactly what did not happen and exactly why the assertion failed.
+    why_logs_fail: >
+      Sequential output invites the opposite reading: a line printed by
+      `sweep` between two of the test's own lines looks like something the
+      test did. That is the mistake this question exists to make impossible,
+      and no `console.log`, `DEBUG` namespace or stack trace distinguishes
+      "ran during" from "was called by".
+    command: ["frame", "$RUN", "--fn", "<anonymous>"]
+    expect_contains: ["children (3):", "state: raised"]
+    expect_line:
+      - ["timer_callback_parentless.test.ts:<anonymous>", "depth 0",
+         "closed: unwind"]
+      - ["enqueue() <unread: locals> -> 1"]
+    # Not the bare word: the TASK is named after the sweep, and the claim
+    # here is about a child ROW -- which is spelled `sweep()`.
+    expect_absent: ["sweep()", "sweeper.ts:sweep"]

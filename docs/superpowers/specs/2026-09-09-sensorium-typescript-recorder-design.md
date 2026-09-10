@@ -344,6 +344,14 @@ task and are compared as the thread stream, in order, which is what they are.
   gives a coroutine entered by the event loop (async design 2026-08-21: "main
   created the task, the loop entered it"). Which frame SCHEDULED it is a
   different relationship, not recorded in rung 1 (§12 D5's cost).
+  *(Amended 2026-09-09, ruling R29: `caller: "untraced"` is on the WIRE and in
+  the payload, and the reader prints NOTHING for it — the Python core's own
+  `_caller_of` has only ever rendered `caller_code`, and `caller: "untraced"`
+  is on the Python wire too. So what a reader sees is depth 0 inside the right
+  task and no tag; §12 D5's "`tree` shows timer callbacks at depth 0 inside
+  their task" is exactly true and the tag it might be read to promise does not
+  exist for any of the three languages. Rendering one is a reader feature for
+  all three → `docs/CARRIED-DEBT.md`.)*
 - **Values.** RETURN carries `{"k": "dbg", "v": util.inspect(v, {depth: 2,
   maxArrayLength: 8, maxStringLength: 100, breakLength: Infinity}), "trunc"}`
   capped at 200 bytes; a formatter that throws reads `{"k": "unread"}`;
@@ -545,26 +553,47 @@ the spike's: 1-minute load above 4.0 → wait; an arm with fewer than 5 runs
 or a suite not at 372/4278 → `value: null`, named in `dropped`; no endpoint
 re-run after its number is read.
 
-| Id | Question | Measurement | Rule | Derivation |
-|---|---|---|---|---|
-| E0′ | Is the trace unit still the test file under the product? | containers, files per container, full suite at tier `call` | 372 containers, one file each; any container with two files or any file with none → STOP | E0's measured shape, now a claim |
-| E1′ | What does the product cost? | walls n=5 per arm, interleaved plain/off/call, conversion excluded | off/plain ≤ 1.10 → the transform stays uncached; above → a cache keyed on source sha becomes rung-1 work, not a NO-GO; call/plain reported beside the spike's 1.131 | E1's bound, reused; the product adds a setup file, a name provider and the `yield` rewrite, none of which the spike had |
-| E2′ | Does the transform still cover the consumer? | instrumented / eligible over the census set, per node kind, with every exclusion named | after removing NAMED kinds the ratio is 1.000 (5,403 of 5,403 was measured); one unnamed miss → STOP | a measured 100% may not regress silently |
-| E3-TS | False DIVERGED? | one pre-named VTT test file recorded 20 times; `diff` each against the first | DIVERGED 0/19 and REFUSED 0/19; any → the comparator or the recorder is wrong, STOP | the Rust E3 rule, per-task basis |
-| E4′ | Do sites keep their lines and columns? | the 20-shape probe under the product transform; one planted failing assertion's line and column as vitest reports it, instrumented against plain | 20/20 on the exact line; the report byte-identical; a miss is a regression of a measured 20/20 → STOP | E4, tightened from 19/20 because the number is now known |
-| E5′ | Do both harnesses run? | the full suite under `sensorium ts run -- vitest run` (gate); the E3 probe under `-- node --test` | 372/4278 green and `node --test` green with its rows; a red vitest is NO-GO | E5 |
-| E6′ | Is a plain run contaminated? | sha256 manifest before/after, plain counts after, marker grep of every cache dir, listing of `node_modules/.sensorium` after | manifest identical, 372/4278 inside the plain band, 0 markers, the wrapper directory gone | E6, plus the wrapper's removal |
-| E7′ | Does the reader speak this recorder's words? | every command run on a product trace; transcript grepped for `asyncio`, `python ?`, `cargo`, `coroutine`, `Python's own`, `threading/_thread`, `Rust disposition`, `sensorium run --focus` | 0 occurrences; plus `v23`/`v24` green | E7's leak list, now a gate |
-| E8′ | Are the five swallow shapes still seen? | the swallow probe | 5/5, reported per shape; rung 2 gates the rules | E8 |
-| E9 | Are tests tasks, and named as vitest names them? | `tests_seen`, tasks, `task_name_conflicts` over the full suite; a sample of 20 task names against `vitest --reporter=json` full names | tasks = tests_seen (4,278) and conflicts = 0 → PASS; a shortfall is named by shape and STOPs above 1% | the spike's gap was 120/4,278 = 2.8%, all one shape, closed by rule in §3.4 |
-| E10 | What does conversion cost? | `ingest` wall over the full-suite spool set (parallel), and over one file | reported; full-suite ingest ≤ the plain wall (22.08 s) → the converter stays in Python; above → design input: a Node converter on `node:sqlite` or a binary wire | Rust's converter did 132k events in 1.2 s; 4.1M events is ×31, so the bound is the suite's own wall, not Rust's number |
-| E11 | Is the loss model honest? | (a) a probe test whose promise never settles under vitest's timeout; (b) a worker SIGKILLed mid-file | (a) the frame reads `suspended at end of recording` and the trace is complete; (b) `incomplete: true`, INCOMPLETE banner, `diff` refuses at exit 3; anything else → STOP | §4's loss model, both halves |
+| Id | Question | Measurement | Rule | Derivation | Measured (rung 1, 2026-09-09) |
+|---|---|---|---|---|---|
+| E0′ | Is the trace unit still the test file under the product? | containers, files per container, full suite at tier `call` | 372 containers, one file each; any container with two files or any file with none → STOP | E0's measured shape, now a claim | **372** containers, **372** with one `test_file`, **0** with `test_files`, 372 distinct file names — **PASS** |
+| E1′ | What does the product cost? | walls n=5 per arm, interleaved plain/off/call, conversion excluded | off/plain ≤ 1.10 → the transform stays uncached; above → a cache keyed on source sha becomes rung-1 work, not a NO-GO; call/plain reported beside the spike's 1.131 | E1's bound, reused; the product adds a setup file, a name provider and the `yield` rewrite, none of which the spike had | off/plain **1.0587**, call/plain **1.1324** (n=5 per arm, 0 dropped) — **PASS**, the transform stays uncached |
+| E2′ | Does the transform still cover the consumer? | instrumented / eligible over the census set, per node kind, with every exclusion named | after removing NAMED kinds the ratio is 1.000 (5,403 of 5,403 was measured); one unnamed miss → STOP | a measured 100% may not regress silently | **1.0000** — 5,378 of 5,378 over 367 files, `excluded` empty — **PASS** (the denominator moved; §5 gap 16) |
+| E3-TS | False DIVERGED? | one pre-named VTT test file recorded 20 times; `diff` each against the first | DIVERGED 0/19 and REFUSED 0/19; any → the comparator or the recorder is wrong, STOP | the Rust E3 rule, per-task basis | DIVERGED **0/19**, REFUSED **0/19** — **PASS** |
+| E4′ | Do sites keep their lines and columns? | the 20-shape probe under the product transform; one planted failing assertion's line and column as vitest reports it, instrumented against plain | 20/20 on the exact line; the report byte-identical; a miss is a regression of a measured 20/20 → STOP | E4, tightened from 19/20 because the number is now known | **20/20** on the exact line; the planted `FAIL` header and `…:44:13` identical — **PASS**, on the narrower reading §5 gap 8 names |
+| E5′ | Do both harnesses run? | the full suite under `sensorium ts run -- vitest run` (gate); the E3 probe under `-- node --test` | 372/4278 green and `node --test` green with its rows; a red vitest is NO-GO | E5 | 5 of 5 call runs at 372/4278; `node --test` 6 pass 0 fail, checker 15/15 — **PASS** |
+| E6′ | Is a plain run contaminated? | sha256 manifest before/after, plain counts after, marker grep of every cache dir, listing of `node_modules/.sensorium` after | manifest identical, 372/4278 inside the plain band, 0 markers, the wrapper directory gone | E6, plus the wrapper's removal | manifest 748 OK/0 FAILED, 0 markers, wrapper absent — and the plain-after wall **22.8678 s** against the plain band **[22.3136, 22.7221]** — **STOP on the band clause** |
+| E7′ | Does the reader speak this recorder's words? | every command run on a product trace; transcript grepped for `asyncio`, `python ?`, `cargo`, `coroutine`, `Python's own`, `threading/_thread`, `Rust disposition`, `sensorium run --focus` | 0 occurrences; plus `v23`/`v24` green | E7's leak list, now a gate | **0** occurrences across all eight needles; `v23`/`v24` exit 0 — **PASS** |
+| E8′ | Are the five swallow shapes still seen? | the swallow probe | 5/5, reported per shape; rung 2 gates the rules | E8 | **5/5** shapes — **PASS** |
+| E9 | Are tests tasks, and named as vitest names them? | `tests_seen`, tasks, `task_name_conflicts` over the full suite; a sample of 20 task names against `vitest --reporter=json` full names | tasks = tests_seen (4,278) and conflicts = 0 → PASS; a shortfall is named by shape and STOPs above 1% | the spike's gap was 120/4,278 = 2.8%, all one shape, closed by rule in §3.4 | tasks **4,278** = `tests_seen` **4,278**, conflicts **0** — **PASS** |
+| E10 | What does conversion cost? | `ingest` wall over the full-suite spool set (parallel), and over one file | reported; full-suite ingest ≤ the plain wall (22.08 s) → the converter stays in Python; above → design input: a Node converter on `node:sqlite` or a binary wire | Rust's converter did 132k events in 1.2 s; 4.1M events is ×31, so the bound is the suite's own wall, not Rust's number | full-suite ingest median **45.5293 s** (n=3) against a plain wall of **22.5925 s** — **REPORTED**, the rule's second branch: design input, not a STOP |
+| E11 | Is the loss model honest? | (a) a probe test whose promise never settles under vitest's timeout; (b) a worker SIGKILLed mid-file | (a) the frame reads `suspended at end of recording` and the trace is complete; (b) `incomplete: true`, INCOMPLETE banner, `diff` refuses at exit 3; anything else → STOP | §4's loss model, both halves | (a) **2/2**, (b) **3/3** — **PASS** |
 
 **Reported without a gate:** bytes per line and lines per second under the
 product runtime; vitest's `transform` seconds per arm; output/input size;
 `info` and `diff` latency on the largest file trace; the count of DIVERGED
 pairs when two full-suite runs are `diff`ed file by file (a non-zero names
 a nondeterministic test, which is a finding about the consumer).
+
+**The measured column was added 2026-09-09**, in rung 1's doc pass; every cell
+in it quotes §3 and §4 of
+`../acceptance/2026-09-09-sensorium-s5-rung1.md`, which prints each rule
+verbatim beside its number with the `n` and the lens the number was read on
+(the lens on all twelve: the VTT frontend at `0091e97`, vitest 4.1.9, vite
+6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores). Two cells are not a PASS and
+neither is softened here: **E6′ is a STOP** on the one of its four clauses
+that is a timing clause, and **E10 is REPORTED**, which is the second branch
+its own rule names and gates nothing. What the ten PASSes do not license is
+worth saying: none of them says a TypeScript trace answered a debugging
+question nobody planted, and none of them was measured on a second consumer.
+
+**The reported-without-a-gate list, measured** (record §3.4, same lens):
+**99.61 B/line** and **162,629.8 lines/s** under the product runtime (medians
+over the 5 call runs); vitest's `transform` seconds **10.24 / 21.64 / 21.43**
+for plain / off / call; output/input **1.2543** over 367 files; `info`
+**0.5401 s** and `diff` **0.6867 s** (n=3 each) on a 333,832,192-byte trace;
+and **8 of 372** file pairs DIVERGED across two full-suite runs — the
+non-zero this list pre-committed to reading as a finding about the consumer,
+with the eight files named in the record.
 
 ## 9. Testing story
 
@@ -627,6 +656,35 @@ controls on a throwaway copy of the lens, both gated (the Rust E5 shape):
 - **The planted change.** Two call sites swapped in one VTT function →
   `diff` DIVERGED naming the step. A MATCH voids the verifier and STOPs.
 
+**Measured 2026-09-09 — both controls PASS, and the six invocations ran**
+(record §3.2 and §3.3, on the VTT lens). The six commands above were run as
+written except for the two names this lens does not have: it holds no
+`src/fog/compute.test.ts` and no `compute`, so `diff` compared
+`src/components/inventory/InventoryTab.test.tsx` between two full-suite runs
+(**exit 0, MATCH, 180 events**) and `frame --fn` asked for
+`deriveWeaponAttacks` (**one activation, with its return value**). `runs`
+printed **two groups of 372**, each headed
+`invocation <id>: npx vitest run  exit:0 (waited)`; `tree --depth 3` opened
+`no test` for the import-time frames and then one `task tN: <test name>` group
+per test.
+
+- **E5-TS, the split — PASS, 4 of 4 claims.** Plain `diff` **exit 1**,
+  `MATCH on the thread stream (14 events); DIVERGED on the tasks`;
+  `--ignore-moves` **exit 0**, `MATCH modulo location`, `moved:` **exactly**
+  `hexDistance` and `isHexShape` with nothing added, removed or unpaired, and
+  56 task streams each side all matched.
+- **The planted change — PASS, 2 of 2 claims**, and in its strongest form: the
+  swap is value-preserving, so **both** recordings read `56 passed (56)` and
+  the consumer's own tests could not see it. `diff` **exit 1** and the report
+  names the step — *"first difference … at causal step 16: A `CALL terrainLaw`
+  against B `CALL isDiagonal`"*.
+
+*(Amended 2026-09-09: the paragraph above is the measurement; the two rules
+above it are §1-locked in the acceptance record and are not restated here.
+The `sensorium tree`/`frame` examples keep their original `src/fog` spelling
+because they are an illustration of the shape, not a pin — what actually ran
+is named in this paragraph and in the record's §3.3.)*
+
 ## 11. Order of work (rungs)
 
 0. **Mechanics spike** — DONE 2026-09-08, every gate PASS (findings §4; code
@@ -634,6 +692,25 @@ controls on a throwaway copy of the lens, both gated (the Rust E5 shape):
 1. **Recorder v1** — this document. Plan: writing-plans next. Versions:
    `sensorium-ts 0.1.0`, Python **0.9.0** (a new verb, a third vocabulary,
    the refusal, seven vectors). Acceptance: §8, §10.
+   **Amended 2026-09-09: rung 1 is DONE-WITH-STOP.** Ten of the twelve gated
+   endpoints and both §10 controls PASS; **E6′ is a STOP** on its plain-band
+   clause (the plain-after wall 22.8678 s against the plain arm's own min–max
+   band [22.3136, 22.7221]; its manifest, marker and wrapper clauses hold
+   exactly), and **E10 is REPORTED** on the second branch of its own rule.
+   The STOP stands where it fired — nothing was re-rolled, no band moved, no
+   verdict was renamed — and its two instrument gaps are written down rather
+   than argued away (record §5 gaps 5 and 6: `e6.sh` runs its one timed
+   measurement with no load guard, and a five-run min–max is a range and not a
+   tolerance). **The disposition is a NEW pre-registration in the next slice,
+   E6″**, whose instrument carries the load guard, whose band is the plain
+   arm's own median ± the spread the plain arm measured (derived, not chosen),
+   whose comparison is medians over n=5 plain-after runs, and which verifies
+   the manifest AFTER its own run rather than before it. E10's disposition is
+   the design question its rule names: a Node converter on `node:sqlite`, or a
+   binary wire — pre-registered like the spike, not assumed. Record:
+   `../acceptance/2026-09-09-sensorium-s5-rung1.md`; plan:
+   `../plans/2026-09-09-sensorium-s5-rung1-recorder-v1.md`; the deltas this
+   rung made to this document are §14.
 2. **Throw flow** — `exceptions` on a TypeScript trace: Python's five
    dispositions on JavaScript shapes (an empty catch and an empty callback
    are sinks, a rethrow is a hop, an unhandled rejection is `uncaught` with
@@ -686,3 +763,143 @@ Scope, merges and money only; the design is decided above.
    argument capture, no `exceptions` rules. Narrowing or widening it is a
    scope call. *Recommend: as written; each deferral is declared in the
    trace, not hidden.*
+
+## 14. What changed against this design, and why (rung 1, 2026-09-09)
+
+*Added 2026-09-09, at rung 1's close. Nothing above is deleted; where a
+sentence of this document was falsified or narrowed, the amendment is dated in
+place and this table is the index to it. §13 above is the rulings this design
+asked Brice for, and stays where it is — this section is the Rust spec's §13
+in shape, which that document also placed after its own rulings section.*
+
+Two kinds of row. **P1–P11** are the decisions the rung's plan made before any
+code existed (its own *"Decisions this plan makes"* table, `../plans/
+2026-09-09-sensorium-s5-rung1-recorder-v1.md`); each amends this spec
+non-silently, which is what that table promised and this is where it is paid.
+**R-rows** are controller rulings made while shipping, each of which changed a
+sentence of the design; the ruling id is the one in the rung's ledger
+(`rulings.md` — the rows below are the ones that moved this design's text, not
+the whole of it). *(Amended 2026-09-09, ruling R44: this read "42 rulings", a
+count that was already wrong when the fix wave that follows it was ruled. A
+number that has to be re-counted every time the ledger grows is a number that
+will be wrong; the ledger counts itself.)*
+
+| # | This design said | Rung 1 shipped | Why (the ruling) | Cost if wrong |
+|---|---|---|---|---|
+| P1 | §5.1's interpreter keys are `node`, `vitest`, `pool`, `environment`; `info` prints `node v24.16.0 (vitest 4.1.9, forks, jsdom)` | **`pool` dropped.** `environment` comes from `expect.getState().environment` through the setup file, `vitest` from the driver reading `<root>/node_modules/vitest/package.json`; `info` prints `node v24.16.0 (vitest 4.1.9, jsdom)` | vitest sets no environment variable naming the pool, and the pool is already legible from `thread_id_os`/`is_main_thread` | one word fewer on the interpreter line |
+| P2 | how a test/describe call is wrapped was undesigned | **The spread form**: `test(...__srt.task(<title>, fn, <flags>), <rest…>)`, `describe(...__srt.suite(<title>, fn))`, the helper returning `[title, wrapped]` | the title expression is evaluated once, no newline is inserted, and options arguments survive | none known |
+| P3 | §6 says `terms()` refuses an unknown `lang` | **The refusal lives in `db.open_trace`**, keyed on `db.KNOWN_LANGS = ("python", "rust", "typescript")`, raising `TraceFormatError` at exit 2; `vocab.terms()` indexes strictly and never falls back | one choke point, so every command refuses identically and `grep` cannot answer where `info` refuses | a fourth recorder must add its column AND its name here — which is the rule |
+| P4 | §4 is silent on a RAISE/HANDLED that fires with no open frame | **Counted in meta `throw_flow_outside_frames`, written as no event**; a parentless CALL carries `caller: "untraced"` | the contract forbids a code-less causal row, and inventing a code object would put a site in the program that has none (Rust's `err_flow_outside_frames` precedent) | none |
+| P5 | §2.2's setup file is `typescript/src/setup.mjs` | **A template.** The driver writes the filled copy to `<root>/node_modules/.sensorium/<invocation>.setup.mjs` beside the wrapper config | a setup file outside the consumer's tree resolves `vitest` from `typescript/node_modules` and registers hooks into the wrong runner instance | none |
+| P6 | §2.3 says conversion is "deterministic and re-runnable over the spool directory" and says nothing about a second run | **`ingest` writes `<spool>/ingested.json` and refuses at exit 2 when it exists**, naming it; a hard worker failure still writes it, with the run ids plus `"error"` (R22 (d)) | a second ingest would mint new run ids over the same records | none |
+| P7 | the driver's per-trace output line was undesigned | `run: <id>  pid: <pid>  file: <test_file or ->  events: <n>  tasks: <m>` — accepted by `corpus.run_corpus.RUN_LINE` (shape 2, the `  pid: ` anchor) | one line per trace, as the Rust converter prints | none |
+| P8 | §3.2 records YIELD/RESUME; the payload was undesigned | `{"awaiting": "Promise"}` for `await`, `{"awaiting": "consumer"}` for `yield`/`yield*`; the wire carries `k: "await"\|"yield"` | the reader prints `awaiting` as a type name | none |
+| P9 | §9 says `corpus/typescript/<case>/` with a shared `package.json` | **One vitest project**: shared `package.json`, `package-lock.json` and `vitest.config.ts` (`environment: 'node'`); a case is a subdirectory; the runner copies the tree minus `node_modules`/`.sensorium` and symlinks the real `node_modules` in | one `npm ci`, not one per case | cases share a config; a case needing jsdom uses the per-file `@vitest-environment` pragma |
+| P10 | §2.1 says the driver is Python and does not say how it finds the Node package | `SENSORIUM_TS_PKG` if set, else `Path(sensorium.__file__).parents[2] / "typescript"`; refusal at exit 2 when `<pkg>/node_modules/magic-string` is absent, naming `npm ci --prefix <pkg>` | the global tool is an editable install of this checkout | a wheel install has no `typescript/` beside it and must set the variable; the refusal says so |
+| P11 | §3.4 says `describe`/`suite` push a lexical title | **Pushed and popped synchronously around the suite callback**; an `async` callback registers after the pop | provider names are unaffected, so the loss is bounded to `node --test` | blind spot 9, declared in the ledger |
+| R1/R2 | the plan's dependency policy put `vitest` and `jsdom` in `typescript/`'s devDependencies | **`typescript` and `@types/node` only**; `typescript/probes/package.json` carries `vitest`, `jsdom`, `typescript`, and its `setup.mjs` duplicates the template modulo the rt path, with a test asserting the single-line difference | P5's hazard again: a setup file resolving `vitest` from the library's own tree | one 5-line file to keep in step, guarded by a test |
+| R4 | the plan's type-check command is `npx tsc -p typescript/tsconfig.json` | **`npm --prefix typescript run check`** everywhere — CI, `typescript/README.md`, the briefs | the bare form resolves a decoy `typescript` from the repository root: measured rc=1 against rc=0 | a CI red on the first push, visible immediately |
+| R5/R15 | §5.1 has `recorder` and does not say who mints it | **`typescript/src/index.mjs`'s `VERSION`** is the package's version constant, written into the BOOT record and spent by the converter as `recorder: "sensorium-ts 0.1.0"`; a unit test holds it to `package.json` (the `RT_VERSION` precedent) | a spool should identify its own writer | one extra key on the wire |
+| R7/R7a | §3 returns null for out-of-scope paths and §7 promises "every exclusion by name" | **`.d.ts` and everything under `node_modules` are out of scope WITHOUT a count**; only in-scope files carry `excluded` counts. `transform.mjs` exports `classify(filePath, root) → 'transform'\|'skip'\|'commonjs'` so the plugin can tally CommonJS without a second parse | counting files the plugin never sees is a claim about the tree, not about the run | one sentence in the ledger (§7, aligned) |
+| R8/R8b | §3.4 wraps the second argument of a `test`/`describe` call | **File-scoped**: only in a file whose name matches `\.(test\|spec)\.[cm]?[jt]sx?$` or whose source imports from `vitest`, `node:test` or `@jest/globals` — and a **type-only** import does not count. Inside such a file ANY second argument is wrapped; the runtime passes a non-function through unchanged | the hazard is file-scope, not callback-shape: a local `describe(label, formula, value)` helper in ordinary source was being rewritten, while an inline-only narrowing left `test('x', sharedFn)` in a real test file untasked | a test file with an unusual name and no value import gets no tasks; `tests_seen − tasks` names the shortfall in `info` |
+| R8a/R8c | §3.4 knows only `test(name, fn)` | **The options-second form is spliced POSITIONALLY with the flags last** — `test(...__srt.task(("x"), { timeout: 100 }, fn,1), 5000)` — and the runtime became `task(title, ...rest)` / `suite(title, ...rest)` returning `[title, ...between, wrapped]`. The chunk MOVE that R8a first authorised was **withdrawn**; `canMoveOptions` is deleted and its four refused shapes are goldens that come out CORRECT | a relocation moves the chunk's intro/outro text with it; positional splicing has the ordering guarantees the two-argument form already had (parents are visited first, so the task-boundary `prependRight`s are outermost by construction) | one more argument for the runtime to pop |
+| R9 | §7's eligible set is `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` | **`.mts` is transformed exactly as `.ts`; `.cts` classifies `commonjs` and is counted**; `.jsx`/`.tsx` unchanged | `.mts` is an ES module by definition, and silently skipping it is an unnamed exclusion | none |
+| R10/R10a | §3 says the transform edits what it parses | **A source with non-empty `parseDiagnostics` is left UNTOUCHED** and counted: a manifest with `code: null`, `excluded: {"parse-error": 1}` and the first three messages (a bare `null` still means "not ours"). And the gate **fails loud**: if `parseDiagnostics` is not an array the transform throws *"this TypeScript build exposes no parseDiagnostics; refusing to transform blind"* | a best-effort AST spliced blind emits broken code silently — measured by the reviewer; returning `[]` on a renamed field is the same failure one layer up | a file the consumer's TS rejects but esbuild accepts goes unrecorded, named in `transform_excluded` |
+| R11 | §2.4 names `module.exports.x` but not the whole-module form | **`module.exports = fn` names the function `default`**, as `export default` does; `module.exports.x = fn` is unchanged | §2.4's `default` rule is about the module's one unnamed export, and this is the CommonJS spelling of it | one qualname in `.js` files under vitest |
+| R12 | §3.1 splices the return operand and says nothing about a bare `return` | **A statement-level bare `return` and a statement-level bare `yield` get a trailing `;`** after the splice | ASI: `return __srt.ret(__sf,undefined)\n(g)()` CALLS the returned `undefined` where the original returned and left dead code — an Important hazard, not a Minor | none (a `;` after a statement) |
+| R13 | §4's loss model re-raises on a signal | **The signal path (SIGTERM/SIGINT/SIGHUP) flushes AND writes an EXIT record `{code: null, signal, endTs}`** before re-raising, so a signalled container's recording is COMPLETE; only SIGKILL leaves no EXIT → `incomplete` | "re-raise without EXIT" would mark every SIGTERM-terminated worker incomplete | a signalled worker whose EXIT line was cut mid-write reads incomplete, as it should |
+| R14/R14a | §4 caps `dbg` at 200 bytes and says nothing about the other consumer strings | **Every consumer-derived string on the wire is capped at 200 bytes** with the CONTRACT's own keys: `TASK.name`/`SEEN.name` + `name_trunc`, `exc.msg` + `exc.trunc`, `exc.type` + `exc.type_trunc` (absent when nothing was cut). **Paths are NOT capped** — a path is not a consumer value and the OS bounds it. `r`/`y` ignore a closed frame exactly as `ret`/`thr` do | an unbounded line and a dead frame pushed back onto a stack are both wire-honesty hazards, each a one-line guard | a truncated name is still keyed by `#k`/registration, so no task is lost |
+| R16 | §2.2 assumes one runtime instance per container | **`rt.mjs` is declared EXTERNAL to vite's module runner** in every config the recorder wires (`test.server.deps.external`), so the setup file and the instrumented modules resolve the same Node module instance; the probe checker asserts exactly ONE BOOT line per spool | every id on the wire rests on that assumption, so it is measured rather than assumed | duplicate BOOT lines make the converter refuse the spool by name, never a silently merged trace. **Measured caveat:** at vitest 4.1.9 the declaration is behaviourally **unfalsifiable** — the probe reads one BOOT with and without it — so it ships as insurance and is named as such in the ledger |
+| R17 | §3.4's `#k` numbers "the k-th activation of one registration in a container" | **`#k` counts activations per NAME**, not per registration: a name seen again in the container is `#2`, `#3`…; `.each` rows are distinct names and are never suffixed (measured: `… = 5#2` under the old rule) | a provider that renames its own rows must not be numbered on top of | two different tests with one identical full name share a `#k` sequence — unlikely under vitest's unique full names, and reachable when one worker runs several files (a `threads` pool): two files sharing a full title in one container yield `name` and `name#2`; possible for lexical names under `node --test`, and named in the ledger *(amended 2026-09-10, ruling R46: this cell read "impossible under vitest's unique full names" — over-strong once `#k` counts per CONTAINER, ruling R39, rather than per process)* |
+| R18 | §8's lens is "vitest 4.1.9, Node 24.16" and the probes pinned nothing | **The probe project and the corpus project pin `vitest@4.1.9` and `vite@6.4.3` exactly**, locks regenerated | the probes had been running on vitest 4.1.11 + vite 8.2.2 — a different lens than the acceptance's | a later slice bumps two pins |
+| R19 | §9 describes the probe project and no command to run it | **`npm run probe` / `npm run probe:nodetest`** in `typescript/probes/package.json`, reading `SENSORIUM_SPOOL`/`SENSORIUM_MANIFEST_DIR` and refusing when unset; in vitest mode `check.mjs` REQUIRES the manifest dir | the gate's completeness lived only in a task report, and CI needs one command | none |
+| R20 | the plan's "no file over 800 lines" | **`typescript/test/rt.test.mjs` (802) split** into a second file by whole tests, no test reworded | the global constraint binds every file in the tree | none |
+| R21 | §2.3/§5.1: `exit_status` is `null`/`unwitnessed` per container | **The container's own EXIT observation is kept** as a TypeScript-only meta key `exit_self_reported {code, signal}`; `exit_status` still `null`/`unwitnessed`, and `info` prints *"container exit: self-reported code 0 (nobody waited)"* | a self-observation is not a borrowed status (D4's Rust rule forbids borrowing cargo's number), and dropping a witnessed fact is the failure the founding rule names | one key nobody reads |
+| R23 | §9 runs the probe project through the real driver in CI | **`typescript/probes/vitest.config.ts` wires the plugin, the setup file and the R16 external ONLY when `SENSORIUM_PROBE_DIRECT=1`**; otherwise it is a plain config, so `sensorium ts run -- npx vitest run` exercises the DRIVER's wrapper on the same probes with no double instrumentation | one probe set, two paths, one checker | one env var in one script |
+| R24 | §12 D12/§4: `--tier off` gates emission at runtime | **`--tier off` records nothing by design**: the driver reports `traces: 0` and returns the harness's own status — no exit 2 on an empty spool directory | an empty spool at tier `off` is the tier working, not a failure | none |
+| R25 | §5 says the contract gains the TypeScript keys | **`docs/TRACE-FORMAT.md` was at 752 lines when the ruling was made**, so the TypeScript-only meta-key table lives in `docs/trace-format/TYPESCRIPT-KEYS.md` and TRACE-FORMAT gains only the `lang` value, the `exc.kind`/`how` enumerations, the `runs` header sentence, the vocabulary column and a pointer — the five additions that took it to **799** in Task 7 (`63a6af4`, `1abf67c`); `VECTORS.md` gains v23–v29 | the doc-split precedent, and the ceiling is a rule the repo gates | one more file to keep current |
+| R26 | §6's `runs` header reads `harness` + `harness_args` | **The command AS TYPED after `--` is recorded**: `Invocation` gains `command: list[str]`, meta gains `harness_command`, and `runs`' header, `info`'s `harness:` line and v23/v28 print `" ".join(harness_command)` | a header must name what the user ran: `node-test --test` is a command nobody typed | one more meta key |
+| R27 | §6's `runs` prints `file:` for a member with `test_file`; §7's example is `excluded: 3 (vitest-hoisted factory)` | **`runs` gates its TypeScript header and `file:` member on `trace.lang == "typescript"`**, never on a key's presence; the printed form is `excluded: 3 (vitest-hoisted-factory x3)` — per-reason with counts; `kind_labels` is a `MappingProxyType` so a shared table cannot be mutated through a `frozen` dataclass's shallow freeze | a multi-reason map needs its counts, and gating on a key makes the header an accident of conversion | none |
+| R28/R28a | §6 says `tree`/`frame`/`grep` answer unchanged | **A NULL `line` renders no `L…` segment**, in `tree`'s state tail, in `frame`'s timeline and in `fmt.fmt_event` for every event kind — the reader printed `LNone`, a value that looks like a line and is not. Python and Rust output is unchanged (neither has a NULL-line event) | this recorder's suspended frames and YIELD/RESUME rows carry no line, which no earlier recorder could produce | none |
+| R29 | §12 D5: "`tree` shows timer callbacks at depth 0 inside their task" | **The reader prints NOTHING for an untraced caller** — `caller: "untraced"` is on the wire (and on the Python wire, and has never been rendered). Accepted for rung 1; the corpus case pins depth 0 inside the task plus the scheduling frame's children list. §4's bullet is amended in place | rendering an untraced-caller tag is a reader feature for **all three** languages, not a TypeScript one | one `tree` line a later slice adds → CARRIED-DEBT |
+| R31 | §9's corpus cases each register a `why_logs_fail` | **`tests/test_corpus.py` gains the vitest analogue of the Rust three-channel guard**: every TypeScript case's `why_logs_fail` must name `console.log`, `DEBUG` and `stack trace` | a rule the fix round applied by hand is a rule nothing holds | none |
+| R32 | §8's E6′ rule is a four-clause conjunction | **E6′ reads STOP on its plain-band clause** — 22.8678 s against [22.3136, 22.7221]; the three contamination clauses are PASS individually. The cause is an instrument gap (no load guard on the one timed instrument; a 5-run min–max is a range, not a tolerance), recorded in the record's §5. The number stands; no re-roll. The fix is a NEW pre-registration, **E6″**, next slice | a verdict word the pre-registration does not define is a value that looks like a measurement, and the rule carries no PARTIAL | one more plain-run measurement next slice |
+| R33 | §8's E10 rule names a second branch and never took it | **E10's design-input branch is TAKEN**: full-suite ingest 45.5293 s (n=3) against a plain wall of 22.5925 s → the next slice's design question is a Node converter on `node:sqlite` or a binary wire, pre-registered like the spike. One-file ingest (0.3638 s median) is what a debugging loop pays, and is reported beside it | the rule said "reported … design input", not STOP | a slice spent on a converter the loop did not need — which the one-file number is there to prevent |
+| R35 | the plan's 800-line rule is about code | **It governs the living docs too**: `CHANGELOG.md`'s **three** oldest entries — `0.8.2`, `0.8.1`, `0.8.0` — were cut to `CHANGELOG-ARCHIVE.md` before the 0.9.0 entry was written, `README.md` takes a compact `## TypeScript` section pointing at `typescript/README.md` and moves its `## Corpus` roll-call to `docs/corpus.md`, and `docs/TRACE-FORMAT.md` — already at 799 from R25's own five additions in Task 7 — was edited no further by the doc pass | the ledger's own rule is to cut before discovering the ceiling | one more archive volume |
+
+### Rung-1 deltas: what the measurement changed, with its numbers
+
+Every number below is read from
+`../acceptance/2026-09-09-sensorium-s5-rung1.md` §3, with the `n` and the lens
+it was measured on. **The lens on all of them:** the VTT frontend at `0091e97`
+— vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores — recorded
+by sensorium 0.8.7 / sensorium-ts 0.1.0.
+
+- **The cost of recording is the transform, and it is small.** off/plain
+  **1.0587** and call/plain **1.1324**, n=5 per arm, interleaved, 0 dropped,
+  conversion excluded — so §8's 1.10 bound holds and the source-sha transform
+  cache this spec listed as rung-1 work if it did not (§11 item 6) stays a
+  later slice. The spike's 1.131 call/plain reproduced at 1.1324 on the
+  product, which added a setup file, a name provider and the `yield` rewrite.
+- **The cost of reading it back is the converter, and it is not small.**
+  Full-suite `ingest` over 372 spools and 414,450,522 bytes: **45.5293 s**
+  median (n=3, three repetitions 0.4% apart) against the same run's plain wall
+  of 22.5925 s — ×2.02. One file's spool: **0.3638 s** (n=3). The same effect
+  is visible a second way, independently: the call arm's DRIVER wall climbed
+  45.0 → 70.3 s run to run while its HARNESS wall never moved (25.18–25.94 s).
+  D6's pre-committed consequence (§12) is now live design work.
+- **Coverage did not regress and the endpoint that says so has a stated
+  limit.** **5,378 instrumented of 5,378 eligible, ratio 1.0000** over 367
+  files, `excluded` `{}`, `failed` `[]`, `parse_error` `[]`; by frame kind
+  `function` 5,094 and `coroutine` 284; output/input **1.2543**. Two things
+  this does not say, both in the record's §5: the census set holds no test
+  files, so the only exclusion this lens actually produces (`info` on a
+  call-arm trace: `files: 725 transformed; excluded: 344
+  (vitest-hoisted-factory x344)`) lives entirely outside it (gap 11); and
+  `eligible` is `instrumented` plus the transform's own NAMED exclusions, so a
+  function the walker never visits appears in neither term (gap 17).
+- **The trace unit survived contact with a real suite.** **372** containers,
+  **372** with exactly one `test_file`, **0** with `test_files`, 372 distinct
+  file names over 372 files run — §2.3's run model, measured rather than
+  assumed.
+- **Tests are tasks, with no shortfall to name.** tasks **4,278** =
+  `tests_seen` **4,278**, `task_name_conflicts` **0**, 0 files whose two counts
+  disagree — the spike's 120/4,278 (2.8%) shortfall closed by §3.4's rule. The
+  20-name sample is **not** identical as printed and **is** identical once the
+  recorder's ` > ` join is replaced by a space: the recorder writes
+  `InventoryTab > renders …` where vitest's JSON reporter writes
+  `InventoryTab renders …`. E9's rule attaches no threshold to the sample, so
+  it gates nothing; whether §3.4 should emit vitest's own `fullName` spelling
+  is a question the record raises and does not settle.
+- **The comparator does not cry wolf, and it sees through a move.** DIVERGED
+  **0/19** and REFUSED **0/19** over twenty recordings of one file; the E5-TS
+  split control reads `MATCH modulo location` with **exactly** the two moved
+  code objects paired; the planted change reads DIVERGED **at causal step 16**
+  on a swap that is value-preserving — both suites at 56/56, invisible to the
+  consumer's own tests and visible only to the recording.
+- **Sites keep their lines and columns, on a narrower reading than "the report
+  byte-identical".** 20 shapes on 20 exact lines, `wrong: []`; the planted
+  assertion's `FAIL` header and `src/lib/safeUrl.test.ts:44:13` identical plain
+  against driven. The driven report additionally carries two frames inside
+  `rt.mjs`, so the two reports are **not** byte-identical as whole texts — the
+  record's §5 gap 8 states which reading E4′'s PASS rests on.
+- **A plain run afterwards is a plain run, on the three clauses that ask about
+  contamination — and the fourth is where the rung's STOP fired.** Manifest
+  identical (`sha256sum -c`: **748 OK, 0 FAILED**, verified again by hand after
+  E6′'s own run), **0** `__srt` markers in any cache directory,
+  `node_modules/.sensorium` **absent**; and the plain-after wall **22.8678 s**
+  against the plain arm's own min–max band **[22.3136, 22.7221]** — 0.1457 s
+  (0.65%) above it. §11's rung-1 entry carries the disposition.
+- **The loss model is honest on both halves.** A promise that never settles:
+  the frame reads `suspended at end of recording` and the trace is **complete**
+  (2/2). A worker SIGKILLed mid-file: `incomplete: true`, the INCOMPLETE banner,
+  and `diff` refusing at exit 3 (3/3).
+- **The reader speaks this recorder's words.** **0** occurrences of the eight
+  leak needles across a 2,241-line transcript of ten commands; the three exit-3
+  refusals and the one exit-2 in it are this recorder's own, each naming what
+  it does not carry.
+- **One finding about the consumer, which §8 pre-committed to reading as
+  that.** **8 of 372** file pairs record differently across two runs of the
+  same suite (2.2%), named in the record's §3.4; the comparator refused nothing
+  and mis-called nothing, and none of the eight is the file E3-TS recorded
+  twenty times identically.

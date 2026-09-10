@@ -1,0 +1,17 @@
+{
+  "name": "sensorium-ts-probes",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The recorder's own probe project: it records ITSELF under vitest and node --test, and check.mjs reads the spools back.",
+  "scripts": {
+    "probe": "SENSORIUM_PROBE_DIRECT=1 vitest run; node check.mjs vitest \"$SENSORIUM_SPOOL\" \"$SENSORIUM_MANIFEST_DIR\"",
+    "probe:nodetest": "node --import ../src/register.mjs --test nodetest/async.probe.test.ts; node check.mjs nodetest \"$SENSORIUM_SPOOL\""
+  },
+  "devDependencies": {
+    "jsdom": "^29.0.0",
+    "typescript": "^5.9.3",
+    "vite": "6.4.3",
+    "vitest": "4.1.9"
+  }
+}

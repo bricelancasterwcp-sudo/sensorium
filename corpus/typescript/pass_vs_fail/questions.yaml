@@ -1,0 +1,117 @@
+program: vitest
+harness_args: ["run", "pass_vs_fail"]
+questions:
+  - id: is-the-file-split-itself-a-difference
+    ask: >
+      One of the two test files passes and the other fails on the same
+      assertion. Compared straight, where do the two recordings first
+      differ?
+    truth: >
+      At causal step 0, on the test callback itself -- because the two
+      callbacks are in two different FILES, and a causal step is keyed by
+      (file, qualname, kind). That is a true difference and a useless one:
+      it is the split, not the bug. The two tasks carry the same NAME, so
+      the comparison finds them and reports where their streams part rather
+      than listing two unmatched streams. Which recording is A and which is
+      B is not fixed: one invocation records one trace per test file, in
+      spool-name order, so this question asserts only what holds either way
+      -- one `<anonymous>` CALL on each side at step 0.
+    why_logs_fail: >
+      Diffing two `console.log` transcripts finds the first difference
+      in what was PRINTED, which here is nothing at all until vitest's
+      own failure report -- and that report names the assertion, which
+      is the SYMPTOM. `DEBUG=*` switches a namespaced logger this
+      program does not use. A stack trace does appear for the failing
+      test, and it points at the `expect` line: the place the wrong
+      value was noticed, never the branch that produced it.
+    command: ["diff", "$RUN", "$RUN2"]
+    expect_exit: 1
+    expect_contains:
+      - "first difference inside an order at the tier boundary earns gold"
+      - "at causal step 0:"
+    expect_count: {"CALL    <anonymous>": 2}
+    expect_absent: ["verdict: MATCH", "REFUSED"]
+  - id: where-do-the-two-runs-really-part
+    ask: >
+      Looking past the file split, where is the first point at which the two
+      runs stop doing the same thing?
+    truth: >
+      At causal step 2: one run calls `gold` and the other calls `silver`,
+      from the same `price` in the same shared `pricing.ts`. Everything
+      before that is identical once the two test callbacks are paired across
+      the split, and everything after it is downstream consequence. The
+      pairing is stated with the verdict -- `moved: <anonymous>` between the
+      two test files -- rather than assumed, and `silver`/`gold` are named
+      as the code objects each side has and the other does not. A and B are
+      whichever container's spool sorted first, so the assertions here hold
+      in either direction: one `gold` call, one `silver` call, one paired
+      move.
+    why_logs_fail: >
+      This is a question about two executions, and no `console.log` line
+      belongs to more than one of them: comparing runs by log means
+      comparing two streams of output that here are both silent until
+      the end. To see the branch you would have to instrument the
+      branch, which requires already knowing it is the one that matters.
+      `DEBUG=*` has no logger to enable, and the failing run's stack
+      trace names the assertion, not the tier.
+    command: ["diff", "$RUN", "$RUN2", "--ignore-moves"]
+    expect_exit: 1
+    expect_contains:
+      - "at causal step 2:"
+      - "1 code object(s) paired across a move by qualname"
+    expect_count: {"CALL    gold": 1, "CALL    silver": 1}
+    expect_line:
+      - ["moved: <anonymous>", "above.test.ts", "boundary.test.ts"]
+    expect_absent: ["verdict: MATCH", "REFUSED"]
+  - id: whose-exit-status-is-whose
+    ask: >
+      The run failed. Which process's exit status is that, and what does
+      this container know about its own?
+    truth: >
+      The 1 belongs to the HARNESS, and the driver waited for it: every
+      container of the invocation carries `harness exit: 1 (waited)`. The
+      container this trace records was started by vitest and reaped by
+      vitest, so its own status is `unwitnessed` -- not a zero, not a guess.
+      Two processes, two facts, and neither is ever printed wearing the
+      other's name. This holds of whichever of the two test files this trace
+      turns out to be, which is why the file is asserted only by its
+      directory.
+    why_logs_fail: >
+      An exit status is not something a `console.log` can print -- the
+      process is gone by the time there is one -- and the one number a
+      reader does see, vitest's own `Test Files 1 failed` line, is about
+      the harness, so reading it as this worker's status is exactly the
+      confusion the two lines exist to prevent. `DEBUG=*` and a stack
+      trace are both inside-the-process facts and say nothing about who
+      reaped whom.
+    command: ["info", "$RUN"]
+    expect_contains: ["exit: unwitnessed"]
+    expect_line:
+      - ["harness: npx vitest run pass_vs_fail", "exit: 1 (waited)"]
+      - ["container: pid", "file: pass_vs_fail/"]
+      - ["recorder: sensorium-ts 0.1.0", "lang: typescript"]
+  - id: what-does-the-store-hold-afterwards
+    ask: >
+      The terminal has scrolled away. What did that one command leave in the
+      store?
+    truth: >
+      One invocation and two traces under it, one per test FILE, each listed
+      by the file it ran rather than by an argv -- both worker processes were
+      spawned with the same vitest command line, so an argv would not tell
+      them apart. The invocation header carries the harness's exit once, and
+      each member carries its own `exit:unwitnessed`.
+    why_logs_fail: >
+      This is a question about recorded evidence, not about the program.
+      A `console.log` writes into one worker's stdout with no marker saying
+      which worker, and the two workers' output is interleaved on one
+      terminal -- precisely what cannot be split back apart afterwards.
+      `DEBUG=*` prefixes those lines with a module namespace, which is the
+      same in both workers because both ran the same module. A stack trace
+      is a within-process fact and cannot count processes at all; nothing
+      throws in the passing file anyway.
+    command: ["runs"]
+    expect_line:
+      - ["invocation ", "npx vitest run pass_vs_fail", "exit:1 (waited)"]
+      - ["file: pass_vs_fail/above.test.ts"]
+      - ["file: pass_vs_fail/boundary.test.ts"]
+    expect_count: {"exit:unwitnessed": 2}

@@ -1,0 +1,11 @@
+{"e":"BOOT","wire":1,"pid":7001,"ppid":7100,"threadId":0,"isMainThread":true,"argv":["/usr/bin/node","/w/probes/node_modules/vitest/dist/workers/forks.js"],"cwd":"/w/probes","env":{"PATH":"/usr/bin"},"envHash":"1111222233334444","node":"v24.16.0","version":"0.1.0","tier":"call","invocation":null,"startTs":1788965241.0,"ts":1000}
+{"e":"FILE","id":1,"rel":"src/boom.test.ts","abs":"/w/probes/src/boom.test.ts","codes":[["boom",3,"function"]],"sha":"306eaea8992e3a2deb9b4696591f70e7fc73bc7e7661db194bd39894f8173daa"}
+{"e":"FILE_START","path":"/w/probes/src/boom.test.ts","environment":"node"}
+{"e":"SEEN","name":"boom runs"}
+{"e":"TASK","id":1,"name":"boom runs","basis":"vitest","conflict":false}
+{"e":"CALL","f":1,"p":null,"file":1,"c":0,"t":1,"ts":1100}
+{"e":"RETURN","f":1,"t":1,"v":{"k":"dbg","v":"0","trunc":false},"ts":1200}
+{"e":"RAISE","f":null,"t":null,"x":{"kind":"throw","type":"Error","msg":"late","serial":1},"l":5,"how":"throw","ts":1300}
+{"e":"SEEN","name":"boom is skipped"}
+{"e":"TASK","id":2,"name":"boom is skipped","basis":"title","conflict":true}
+{"e":"EXIT","code":1,"endTs":1788965241.5,"ts":1400}

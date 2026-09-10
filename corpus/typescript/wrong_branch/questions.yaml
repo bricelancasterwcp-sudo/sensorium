@@ -1,0 +1,53 @@
+program: vitest
+harness_args: ["run", "wrong_branch"]
+questions:
+  - id: which-tier-did-each-order-get
+    ask: >
+      Three orders were priced -- 500, 1000 and 1500 points. Which tier did
+      each one actually get?
+    truth: >
+      Silver, silver, gold. `price` ran three times and only the third
+      activation called `gold`; the 1000-point order, which the spec says
+      earns gold, took `silver` and returned 95 -- a plausible number that
+      no caller can tell from a correct one. The boundary test is
+      `points > 1000` where the spec says `>= 1000`.
+    why_logs_fail: >
+      Nothing prints the tier: both branches return a number and the test
+      only counts them. A `console.log` in `gold` would show it running
+      once, which is consistent with the correct behaviour AND with this
+      bug -- the fact that localises it is which of the three activations
+      it ran under, and no log line inside `gold` knows that. `DEBUG=*`
+      switches a namespaced logger this program does not use; a stack trace
+      needs a throw, and nothing throws.
+    command: ["tree", "$RUN"]
+    expect_contains: ["task t1: three loyalty tiers are priced"]
+    expect_count:
+      "price() <unread: locals>": 3
+      "silver() <unread: locals> -> 95": 2
+      "gold() <unread: locals> -> 80": 1
+  - id: what-did-the-boundary-order-do
+    ask: >
+      Take the 1000-point order specifically -- the second of the three.
+      What did that one activation of `price` call, and what did it return?
+    truth: >
+      It called `silver` and nothing else, and returned 95. Arguments are
+      not recorded by this recorder, so the 1000-point activation is
+      identified by its POSITION -- the test prices 500, then 1000, then
+      1500, and the trace preserves that order -- and `args:
+      <unread: locals>` says so rather than printing an empty argument
+      list. `gold` appears nowhere in this frame, which is the
+      counterfactual: the discount the spec promised was never applied.
+    why_logs_fail: >
+      A `console.log` of the returned price gives 95, which is what a
+      correct silver-tier order also returns; the bug is not in the
+      number but in which function produced it. To log that you have to
+      instrument the branch, which means already knowing it is the one
+      that matters -- and `DEBUG=*` and a stack trace answer neither
+      question, since nothing is logged and nothing throws.
+    command: ["frame", "$RUN", "--fn", "price", "--nth", "2"]
+    expect_contains: ["children (1):", "args: <unread: locals>", "return: 95"]
+    expect_line:
+      - ["pricing.ts:price", "task t1 (three loyalty tiers are priced)",
+         "closed: return"]
+      - ["silver() <unread: locals> -> 95"]
+    expect_absent: ["gold"]

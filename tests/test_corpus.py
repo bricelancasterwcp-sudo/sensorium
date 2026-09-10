@@ -155,6 +155,15 @@ def test_every_cli_command_is_exercised_by_some_question():
 
 LOGGING_TOOLS = ("dbg!", "RUST_LOG", "RUST_BACKTRACE")
 
+#: The vitest corpus's three channels. Unlike `LOGGING_TOOLS` above -- where a
+#: Rust question need only rule out ONE tool, because different chains fail
+#: differently -- every vitest question is checked against ALL THREE: this
+#: corpus's questions were written to show that `console.log`, `DEBUG` and a
+#: stack trace all fail the same way, and a question naming only one or two
+#: has not shown that. `DEBUG` is a word, not the literal `DEBUG=*`
+#: invocation, because a `why_logs_fail` may spell the channel either way.
+TS_LOGGING_CHANNELS = ("console.log", "DEBUG", "stack trace")
+
 
 def test_every_cargo_question_names_the_logging_tool_that_fails():
     """The Rust corpus's own version of `why_logs_fail`, per the spec: each
@@ -176,6 +185,28 @@ def test_every_cargo_question_names_the_logging_tool_that_fails():
                 + ", ".join(LOGGING_TOOLS))
 
 
+def test_every_vitest_question_names_all_three_logging_channels():
+    """The TypeScript corpus's own version of the guard above.
+
+    Every `program: vitest` question's `why_logs_fail` must name ALL THREE
+    of `console.log`, `DEBUG` and `stack trace` -- not merely one of them,
+    the way a cargo question may. Checked rather than trusted, for the same
+    reason the Rust guard is: a justification that reads as real prose while
+    naming only one of the three channels would still pass a check that only
+    looked for "some tool", and the point of these thirteen cases is that
+    all three ordinary channels fail them the same way.
+    """
+    for case in run_corpus.load_cases():
+        if not case.is_vitest:
+            continue
+        for q in case.questions:
+            why = q["why_logs_fail"]
+            missing = [c for c in TS_LOGGING_CHANNELS if c not in why]
+            assert not missing, (
+                f"{case.name}/{q['id']}: why_logs_fail does not name "
+                + ", ".join(missing))
+
+
 def test_every_question_registers_a_real_why_logs_fail():
     """The field that decides whether a case justifies the tool at all.
 
@@ -192,15 +223,17 @@ def test_every_question_registers_a_real_why_logs_fail():
 def test_second_run_is_declared_wherever_run2_is_used():
     """One Python recording is one process, so `$RUN2` needs a `second_run`.
 
-    A cargo recording is one trace per PROCESS, so a cargo case may legally
-    take `$RUN2` from the second process of a single invocation (`rust/abort`
-    records a parent and the child it spawned) and is checked at run time
-    against the ids the recording really produced. The rule is scoped here
-    rather than dropped: a Python case that used `$RUN2` without declaring a
-    second run would still be a mistake, and this is what says so.
+    A cargo recording is one trace per PROCESS, and a vitest recording is one
+    trace per TEST FILE, so either may legally take `$RUN2` from the second
+    trace of a single invocation (`rust/abort` records a parent and the child
+    it spawned; `typescript/pass_vs_fail` records two test files) and is
+    checked at run time against the ids the recording really produced. The
+    rule is scoped here rather than dropped: a Python case that used `$RUN2`
+    without declaring a second run would still be a mistake, and this is what
+    says so.
     """
     for case in run_corpus.load_cases():
-        if case.is_cargo:
+        if case.is_cargo or case.is_vitest:
             continue
         uses = any("$RUN2" in q["command"] for q in case.questions)
         assert uses == (case.second_run is not None), case.name

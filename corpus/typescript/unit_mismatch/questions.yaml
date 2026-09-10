@@ -1,0 +1,47 @@
+program: vitest
+harness_args: ["run", "unit_mismatch"]
+questions:
+  - id: what-weight-was-the-kettle-priced-at
+    ask: >
+      The order total looks high. What weight did the shipping calculation
+      actually work from?
+    truth: >
+      `itemWeight` returned 400 for the mug and 1800 for the kettle -- those
+      are GRAMS, and `shippingCost` is written for KILOGRAMS. A 1.8 kg
+      kettle was priced as if it weighed 1800 kg. Both activations are in
+      the trace with their return values, which is the whole of what
+      identifies them: arguments are not recorded, so `<unread: locals>` is
+      what every CALL row says.
+    why_logs_fail: >
+      A `console.log` of the weight prints `1800` -- a number that is
+      correct in the unit the function returns and wrong in the unit its
+      caller assumes, and printing it tells you neither. The mismatch is
+      between two functions' conventions, and no single log line inside
+      either of them can see both. `DEBUG=*` toggles a logger this program
+      does not have; nothing throws, so a stack trace never appears.
+    command: ["grep", "$RUN", "itemWeight"]
+    expect_contains: ["matches: 4"]
+    expect_line:
+      - ["RETURN", "itemWeight -> 400"]
+      - ["RETURN", "itemWeight -> 1800"]
+  - id: what-did-shipping-charge-for-it
+    ask: What did the shipping calculation charge for that second item?
+    truth: >
+      4504. The second `shippingCost` activation -- the kettle's, identified
+      by position, since arguments are unread -- returned 4504 for an item
+      whose goods price is 49, and it called nothing (`children: (none)`),
+      so the number is this one frame's arithmetic and not something it
+      inherited. `4 + 2.5 * 1800` is the whole fault, one frame after
+      `itemWeight -> 1800`.
+    why_logs_fail: >
+      The only thing the program computes at the end is the order total,
+      5569, and a `console.log` of it is a plausible-looking number:
+      nothing about it says which of goods and shipping is wrong, or by
+      how much. Getting the per-item shipping means adding a print
+      inside the summation -- the instrumentation you write only once
+      you already suspect shipping. There is no logger for `DEBUG=*` to
+      switch on, and no throw to produce a stack trace.
+    command: ["frame", "$RUN", "--fn", "shippingCost", "--nth", "2"]
+    expect_contains: ["children: (none)", "return: 4504"]
+    expect_line:
+      - ["shipping.ts:shippingCost", "depth 2", "closed: return"]

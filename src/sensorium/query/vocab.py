@@ -26,15 +26,27 @@ a reworded Python sentence is a regression, however much better it reads.
 `RUST` is the new column, and it says only what a `sensorium-rt` trace
 actually holds (`rust/HONESTY.md` sections 3 and 5).
 
-A THIRD LANGUAGE
-----------------
-`terms()` falls back to `PYTHON` for a `lang` neither table knows, which is
-the same default `Trace.lang` itself takes for a trace with no key -- and it
-is a KNOWN limit, not a claim: a third recorder brings a third column with
-it, and until then no trace in this format can carry a third value (format 4
-requires `lang`, and only two recorders write it).
+A THIRD LANGUAGE, AND THE REFUSAL OF A FOURTH (amended 2026-09-09, S5)
+----------------------------------------------------------------------
+`TYPESCRIPT` is the third column, and it says only what a `sensorium-ts`
+trace actually holds (`typescript/HONESTY.md` sections 1 to 6).
+
+Until S5 `terms()` FELL BACK to `PYTHON` for a `lang` no table knew. That
+was defensible only while no trace could carry an unknown value; it is a
+falsehood the moment one can, because the fallback tells a reader of a
+COBOL trace about `asyncio tasks` and `python ?` -- the exact rung-1 bug
+this module exists for, one language further out. So the lookup is now
+STRICT, and the refusal lives one level down where every command reaches
+it: `db.open_trace` refuses a trace whose `lang` is outside
+`db.KNOWN_LANGS`, naming the language, the recorder and this sensorium's
+version (exit 2). A `KeyError` from `_TABLES` is therefore unreachable
+through the CLI and means a caller built a `Trace` around the store's
+back. A trace with NO `lang` key still reads as Python: nothing else
+existed before the key.
 """
+from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 
 
 @dataclass(frozen=True)
@@ -123,6 +135,30 @@ class Terms:
     #: `meta` key naming what executed the program, and the line's shape.
     interp_key: str
     interp_fmt: str
+    #: `frames.kind` -> the word this language calls that construct, for
+    #: the `[...]` marker `tree` and `frame` print. The CONTRACT's
+    #: enumeration is fixed (`function`, `coroutine`, `generator`,
+    #: `async_generator`, TRACE-FORMAT section 3) and a converter writes
+    #: those values whatever the language; what a READER prints for them is
+    #: the language's own word, and JavaScript has no coroutines. Empty
+    #: where the contract's spelling is already the language's, so a
+    #: `.get(kind, kind)` leaves Python's and Rust's markers untouched.
+    #:
+    #: A `MappingProxyType` on every column: `frozen=True` freezes the
+    #: ATTRIBUTE, not what it points at, and these three tables are module
+    #: singletons every renderer shares. A renderer that wrote through
+    #: `terms(trace).kind_labels[...]` would silently retune every later
+    #: command in the process -- the one way a table whose whole purpose is
+    #: that two commands cannot differ could make them differ.
+    kind_labels: Mapping[str, str]
+    #: Why `exceptions` cannot judge a trace in this language, or `None`
+    #: where it can. Not a vocabulary problem and not a capability one:
+    #: what is missing is a set of DISPOSITION RULES, and the sentence
+    #: names the rung that owes them. `None` for Python (whose rules these
+    #: are) and for Rust (dispatched to its own rule module before the
+    #: refusal is read), so the refusal is a fact about a language rather
+    #: than a fallback for everything that is not Python.
+    exceptions_refusal: str | None
 
     @property
     def a_task(self) -> str:
@@ -179,6 +215,11 @@ PYTHON = Terms(
                    "{mod}:{qualname}"),
     interp_key="python",
     interp_fmt="python {}",
+    # The contract's kind words ARE Python's: `[coroutine]`,
+    # `[async_generator]` are what every Python trace has printed, and the
+    # legacy suite is the fence around them.
+    kind_labels=MappingProxyType({}),
+    exceptions_refusal=None,
 )
 
 RUST = Terms(
@@ -243,14 +284,100 @@ RUST = Terms(
                    "record to focus"),
     interp_key="toolchain",
     interp_fmt="toolchain: {}",
+    # A Rust trace carries `function` frames and nothing else today, and a
+    # future `coroutine` there would be an `async fn` -- which is what the
+    # contract's word already says. Nothing to rename.
+    kind_labels=MappingProxyType({}),
+    # Dispatched to `exceptions_rust` before `_language_refusal` is ever
+    # read, so this column has no refusal to offer: what an older Rust
+    # recording lacks is a RECORD, and `capabilities.err_flow` says so in
+    # its own sentence (`v19-err-flow-capability-refusal`).
+    exceptions_refusal=None,
 )
 
-_TABLES = {PYTHON.lang: PYTHON, RUST.lang: RUST}
+TYPESCRIPT = Terms(
+    lang="typescript",
+    task_noun="test",
+    task_noun_plural="test(s)",
+    stream_scope="tests",
+    task_article="a",
+    # Never "the program started none": a worker thread and a forked child
+    # are each their own container with their own spool, so they exist and
+    # are recorded -- as separate traces this one cannot link to. The clause
+    # says which of those two facts this is (`capabilities.threads: false`).
+    thread_origin=("as worker threads or forked children of the harness "
+                   "(not witnessed: each is its own trace)"),
+    # `ts run` starts the harness, and the harness starts the containers:
+    # every trace is one container, one thread, and no thread in it is the
+    # recorder's own.
+    harness_thread=None,
+    # Not "the name was unreadable": the title expression evaluated to
+    # something that is not a string, so vitest itself has no name for this
+    # test either (`typescript/HONESTY.md` section 2).
+    unnamed_task="(unnamed: title not a string)",
+    numbered_task_note=("test(s) whose title was not a string, which no "
+                        "name can pick"),
+    # vitest mints no name of its own: an unnamed test is unnamed, and
+    # `.each` rows are renamed by the harness into names that ARE the
+    # program's. There is no numbering scheme to read as "no name".
+    default_name_note=None,
+    no_rerun_note=("no rerun was attempted; this recorder records one tier "
+                   "and has no deeper capture to re-run for (S5 rung 3)"),
+    refocus_blind_spots=(
+        "output not recorded (capabilities.output: false)",
+        "arguments are not read in this version (capabilities.locals: "
+        "false)",
+    ),
+    blind_spot_scope=(
+        "what sensorium sees at all: TypeScript and JavaScript files under "
+        "the invocation's root that the transform edited. Nothing else. No "
+        "verdict here -- MATCH, DIVERGED or REFUSED -- says anything "
+        "about:"),
+    blind_spot_threads=(
+        "  - any container the program spawned itself: a worker thread or "
+        "a child process records as its own trace, unlinked"),
+    blind_spot_outside=(
+        "  - any code outside the transformed files: node_modules, Node's "
+        "own modules, the harness, and every file the transform excluded"),
+    blind_spot_footprint=(
+        "  - the recorder's own footprint: capturing values runs the "
+        "program's own inspect customisations inside the probe, so an "
+        "instrument that changes the program leaves no mark on the "
+        "fingerprint"),
+    blind_spot_tasks="tests",
+    # No `{mod}`/`{qualname}`: there is no per-line record to focus, so
+    # there is no site to name. `frame_cmd` still calls `.format` with both
+    # keywords, which a template with no placeholder simply ignores.
+    timeline_hint=("this recorder produces no LINE events "
+                   "(capabilities.line: false); per-line capture is S5 "
+                   "rung 3"),
+    interp_key="node",
+    interp_fmt="node {}",
+    # JavaScript's words for the contract's kinds (`typescript/HONESTY.md`
+    # section 1). `generator` is already JavaScript's own and is not
+    # renamed -- which is why `tests/test_vocab.py` may not forbid that
+    # word on a TypeScript trace the way it forbids `coroutine`.
+    kind_labels=MappingProxyType({"coroutine": "async",
+                                 "async_generator": "async generator"}),
+    exceptions_refusal=(
+        "REFUSED: exceptions on a typescript trace needs the TypeScript "
+        "disposition rules (S5 rung 2); the Python rules index exception "
+        "identity this trace does not carry; nothing was judged"),
+)
+
+_TABLES = {PYTHON.lang: PYTHON, RUST.lang: RUST, TYPESCRIPT.lang: TYPESCRIPT}
 
 
 def terms(trace) -> Terms:
-    """The table for `trace`, read from the trace and from nothing else."""
-    return _TABLES.get(trace.lang, PYTHON)
+    """The table for `trace`, read from the trace and from nothing else.
+
+    STRICT since S5: a `lang` with no column raises `KeyError` rather than
+    borrowing Python's words. Nothing reachable through the CLI can do
+    that -- `db.open_trace` refuses an unknown `lang` before any command
+    holds a `Trace` -- so a raise here is a programming error, and the
+    fallback it replaces was a wrong ANSWER (see this module's header).
+    """
+    return _TABLES[trace.lang]
 
 
 # Five of the nine are the same statement about any recorder and live here.

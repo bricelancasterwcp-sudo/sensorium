@@ -1,0 +1,83 @@
+program: vitest
+harness_args: ["run", "each_naming"]
+questions:
+  - id: what-are-the-three-rows-called
+    ask: >
+      One `test.each` registration produced three tests. What is each of
+      them called in the recording, and did the recorder reach all of them?
+    truth: >
+      They are called `squares 2`, `squares 3` and `squares 4` -- the titles
+      vitest itself expanded, taken from the harness's own reporter state
+      (`task names: vitest`) rather than from the template. Three tests were
+      registered and three became tasks, so nothing ran unrecorded. No `#k`
+      suffix appears: `#k` numbers the k-th activation to REPEAT a name, and
+      `.each` rows are already distinct names the harness minted, so
+      numbering them again would invent a distinction the program does not
+      have.
+    why_logs_fail: >
+      The three rows run the same function on different data, so a
+      `console.log` inside `square` prints three lines that differ only
+      by a number and carry no test title at all. Getting the title
+      means calling into vitest's state from the code under test -- an
+      edit to production code to serve a test runner. `DEBUG=*`
+      namespaces by module, and all three rows are one module. Nothing
+      throws, so there is no stack trace.
+    command: ["info", "$RUN"]
+    expect_line:
+      - ["tests: 3 as tasks, 3 seen by the harness", "task names: vitest"]
+      - ["tasks: 3 ", "squares 2", "squares 3", "squares 4"]
+    expect_absent: ["squares 2#", "conflict"]
+  - id: which-frames-are-in-no-test-at-all
+    ask: >
+      A `beforeEach` hook ran before each row. Which task did its work
+      belong to?
+    truth: >
+      None of them. Hooks are not tests, so the hook's frames -- and the
+      `reset` each one called -- ran on the container's root stack, outside
+      every task: twelve causal events outside any test, against the three
+      tasks that hold the `square` calls. The tree shows them under `no
+      test` rather than folded into whichever row ran next, which is the
+      distinction that would otherwise silently attribute setup work to a
+      test.
+    why_logs_fail: >
+      A `console.log` inside `reset` produces three identical lines.
+      Which test each belongs to is not a fact about the code -- and
+      here the honest answer is that it belongs to no test, which is
+      exactly the answer a log cannot express: an unlabelled line
+      between two labelled ones reads as belonging to one of them.
+      `DEBUG=*` has the same blind spot, since the hook and the test
+      share a module. Nothing throws, and a stack trace would name the
+      frames above `reset`, which are the harness's and not a test's.
+    command: ["tree", "$RUN"]
+    expect_contains: ["no test"]
+    expect_count:
+      "reset() <unread: locals> -> 0": 3
+      "square() <unread: locals>": 3
+    expect_line:
+      - ["task", ": squares 2"]
+      - ["task", ": squares 3"]
+      - ["task", ": squares 4"]
+  - id: how-much-ran-outside-a-test
+    ask: >
+      How much of this container's work happened outside every test, and is
+      that a counted fact or a reading of the tree?
+    truth: >
+      Twelve causal events, counted: the thread's own fingerprint row covers
+      exactly the events that ran in no test, and it says how many there
+      were beside the three task fingerprints. Twelve is the three hook
+      activations, each contributing a CALL and a RETURN for the hook
+      callback and another pair for the `reset` it called. The number is
+      what makes "hooks are not tasks" checkable rather than a shape
+      somebody read off an indented listing.
+    why_logs_fail: >
+      "How many of the things that happened were not part of any test"
+      is not a question a `console.log` can answer at all -- the hook
+      and the test call the same functions, and stdout carries no
+      boundary between them. `DEBUG=*` prefixes those same lines with a
+      module namespace, which is identical for both. A stack trace
+      reports from inside one frame and knows nothing of the harness's
+      phases, and nothing throws here anyway.
+    command: ["info", "$RUN"]
+    expect_line:
+      - ["fingerprint thread 1 (main)", "12 causal events outside any test"]
+      - ["fingerprints: per-task basis", "3 task fingerprint(s)"]

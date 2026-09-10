@@ -8,19 +8,23 @@ from that trace in dense plain text shaped for a language model to read. It
 exists because reading logs is reading a diary; this is watching the
 execution.
 
-Two recorders write that trace, and one command line reads it:
+Three recorders write that trace, and one command line reads it:
 
 - **Python** — `sensorium run -- <command>` wraps one run with PEP 669
   (`sys.monitoring`) instrumentation. Python 3.12+, no runtime dependencies.
 - **Rust** — `cargo sensorium test|run` instruments a workspace's own crates
   at build time and writes one trace per process. Stable rustc, Linux.
+- **TypeScript** — `sensorium ts run -- vitest run …` (or `-- node --test …`)
+  transforms the consumer's own sources at load time and writes one trace per
+  test-file process. Node 24, vitest 4.1.
 
-Both write [trace format 4](docs/TRACE-FORMAT.md), so every query below
-answers on either kind of trace — and where a recorder declares a capability
-it does not have, the query refuses by name instead of answering from data
-that was never recorded. Python is documented first; [Rust](#rust) has its
-own section here and [`rust/README.md`](rust/README.md) is its full
-reference.
+All three write [trace format 4](docs/TRACE-FORMAT.md), so every query below
+answers on any of the three kinds of trace — and where a recorder declares a
+capability it does not have, the query refuses by name instead of answering
+from data that was never recorded. Python is documented first; [Rust](#rust)
+and [TypeScript](#typescript) have their own sections here, and
+[`rust/README.md`](rust/README.md) and
+[`typescript/README.md`](typescript/README.md) are their full references.
 
 Two commitments run through all of it:
 
@@ -110,8 +114,8 @@ traces your tests and your code, and not pytest's. `--focus module:qualname`
 adds line-level capture with local-variable deltas for the named code;
 `--window QUALNAME` limits that capture to what runs inside one function's
 activations. Traces land in `~/.sensorium/traces` (or
-`$SENSORIUM_DIR/traces`), one SQLite file per run — the Rust recorder writes
-to the same directory, so one `runs` lists both.
+`$SENSORIUM_DIR/traces`), one SQLite file per run — the Rust and TypeScript
+recorders write to the same directory, so one `runs` lists all three.
 
 A run reference is a full run id, a unique prefix, or `last` (the most
 recently written trace). Every query takes one — `runs` takes none and `diff`
@@ -508,60 +512,19 @@ before the reader fix — an unindexed `LEFT JOIN` scanning `frames` once per
     python corpus/run_corpus.py                   # verify against seeded bugs
     python corpus/run_corpus.py --show            # print the questions and commands
     python corpus/run_corpus.py --bench           # report recording overhead
-    python corpus/run_corpus.py --require-driver  # a skipped Rust case is exit 1
+    python corpus/run_corpus.py --require-driver  # a skipped Rust or TypeScript case is exit 1
 
-Twenty small programs with deliberately planted bugs, and thirty-nine
-questions registered **before** any output was looked at: the question in
-plain language, the known ground truth, the exact invocation expected to
-yield it, and why a `print()` cannot answer it. Ground truth is known
-because the bugs were planted. This is the regression suite, and it
-includes the honesty cases — a DIVERGED verdict, an under-claimed generator
-swallow, a `watch` tally with fourteen unchecked sites, a task group that
-answers which coroutine made the final write, a cancellation located at the
-line a task was parked on, and arc 2's four: `abandoned_generator` (a
-dropped generator's frame reads `~ abandoned`, never a fabricated `->`
-return), `suspended_handler` (a handler frame still open when recording
-stopped stays `ambiguous … never closed`, not a claimed swallow),
-`window_across_suspension` (`--window` as ancestry survives a suspension —
-another task's call parked in the middle is outside it, the windowed
-frame's own call after it resumes is inside), and `async_handler` (`watch`
-locals inside a focused coroutine, disambiguating two interleaved tasks a
-print cannot tell apart). Plan 2b adds `async_refocus`: two tasks whose
-start order flips between a recording and its rerun still MATCH, because
-tasks are compared by content and the interleaving is not; re-recorded with
-one task's content branching, the verdict is DIVERGED, naming that task.
-
-Forty-three more cases live under `corpus/rust/`, recorded by the Rust
-recorder instead (63 cases and 141 questions in all). Fourteen of them are rungs 0–2's: seven ports of the cases
-above (the same class of planted bug, asked differently, because that
-recorder captures return values and not arguments), five that only Rust has
-— a caught panic turned into an `Ok`, an `abort()` that leaves its frames
-open and its exit `unwitnessed`, libtest under `--test-threads=1` against
-`=4`, a worker thread named for the test that spawned it and the item the
-spawn sits in, and a spawning function that moves to another file without
-the worker's name changing — and two whose pinned answer is a REFUSAL, where
-the question needs object identity or per-line events that recorder declares
-it does not produce. Seventeen are rung 3's err-flow cases, each
-registering both its `dispositions:` tally and its swallow set — ten of them
-to pin that nothing is accused. Seven are rung 4's focus tier: six
-recorded under a `--focus`, each pinning a LINE count DERIVED from the
-design's rules before it was measured and at least one absence, and a seventh
-recorded without one, so that the unfocused reading has a case whose name says
-what it is. The last five are rung 4's refocus loop, where a recording is
-re-run one flag deeper and compared against itself: a MATCH that answers the
-per-line question the original could not, a DIVERGED where the program
-branches on a file its own first run wrote, a refusal issued before anything
-is rebuilt because the invocation was two test binaries, a re-run that spawns
-a child of its own, and a test that spawns a thread onto another `#[test]`
-fn — where the licence must count that thread as the program's and WITHHOLD,
-rather than read its marked root as the recorder's own and grant. All
-forty-three need a built
-`cargo-sensorium` (`SENSORIUM_CARGO_SENSORIUM=<path>`, or one on `PATH`);
-without it they are reported skipped BY NAME and counted apart from the
-passes, never as them — and **`--require-driver`** turns such a skip into
-exit 1, on the summary line and in `--json`, which is what CI's Rust corpus
-step passes: a green summary over cases nobody ran is the dishonesty this
-harness exists to refuse. `corpus/rust/README.md` is the case-by-case list.
+Small programs with deliberately planted bugs, and questions registered
+**before** any output was looked at: the question in plain language, the known
+ground truth, the exact invocation expected to yield it, and why a `print()`
+cannot answer it. Ground truth is known because the bugs were planted. This is
+the regression suite, and it includes the honesty cases — the ones whose
+pinned answer is a REFUSAL. Twenty Python programs with thirty-nine questions,
+forty-three Rust cases, thirteen TypeScript cases: all of them case by case in
+[`docs/corpus.md`](docs/corpus.md), moved there 2026-09-09 so this file stays
+under 800 lines, wording unchanged. A case whose recorder is not built is
+reported skipped BY NAME and counted apart from the passes, never as them;
+`--require-driver` turns such a skip into exit 1, which is what CI passes.
 
 `--bench` reports; it never gates. Overhead is a tracked fact about a machine
 and a workload, not a pass/fail property of the tool.
@@ -750,6 +713,53 @@ above (4–9 µs/event on this box); the Rust side's own reported cost lives in
 `rust/HONESTY.md` §10 and the acceptance document, on its own lens — a
 whole-suite wall ratio and a per-event µs figure are not the same unit, and
 neither section here states one as a translation of the other.
+
+## TypeScript
+
+`sensorium ts run -- vitest run` records a TypeScript or JavaScript test suite
+the way `cargo sensorium test` records a Rust workspace: one trace per
+test-file process, trace format 4, read by the same `sensorium` command line.
+`typescript/` ships **`sensorium-ts 0.1.0`** — a transform whose edits never
+contain a newline, a runtime on `AsyncLocalStorage`, a vitest plugin, a
+`node --test` hook — with driver and converter in Python, so reading a trace
+needs no Node. What it sees and does not is
+[`typescript/HONESTY.md`](typescript/HONESTY.md), and
+[`typescript/README.md`](typescript/README.md) is the full reference.
+
+    npm ci --prefix typescript
+    npm --prefix typescript run check                    # type-check
+    sensorium ts run [--tier off|call] -- vitest run     # or: -- node --test src/
+
+Everything after `--` is yours, spawned as typed, and the driver exits with
+the harness's own status. Tier `call` records calls and returns with a captured
+value, YIELD/RESUME at every `await`/`yield`, RAISE at every `throw`, HANDLED
+at every `catch`, and **tests as tasks** named as vitest names them, so `tree`
+groups by test and `diff` compares one test against itself. `watch`, `flow` and
+`exceptions` **refuse** at exit 3 on capabilities this version declares false
+(`line`, `object_identity`, `err_flow` — the disposition rules are rung 2);
+`refocus` refuses at exit 2; package scripts, jest, a project with no
+`typescript` of its own and a vitest `projects`/`workspace` config are
+refused by name; arguments are unread and say so.
+
+**Measured, on somebody else's suite**, against twelve endpoints and two
+controls pre-registered and byte-locked before the code existed
+(`docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` §1). One lens
+under every number: a tabletop VTT frontend at `0091e97` — **372 test files,
+4,278 tests**, vitest 4.1.9, node v24.16.0, 16 cores. **372** containers of one
+test file each; **5,378 of 5,378** eligible sites instrumented; **0/19** false
+DIVERGED over twenty recordings of one file; tasks **4,278** = `tests_seen`
+**4,278**; **20/20** sites on their exact line; `off/plain` **1.0587** and
+`call/plain` **1.1324** (n=5 per arm, interleaved); converting the whole suite
+**45.53 s** against a plain wall of **22.59 s** (n=3), one file **0.36 s**.
+
+**The rung ships DONE-WITH-STOP.** Ten of the twelve and both controls PASS.
+**E6′ is a STOP**: its three clauses that ask about contamination directly hold
+exactly — manifest 748 OK/0 FAILED, 0 markers, wrapper gone — and its fourth,
+a timing clause, did not: a plain-after wall of **22.8678 s** against the
+plain arm's band **[22.3136, 22.7221]**. Nothing was re-rolled; it is
+re-measured next slice under a new pre-registration, E6″. **E10 is REPORTED**,
+above its bound, so the converter's language is design input for the next
+rung — the second branch its own rule named.
 
 ## Not yet
 

@@ -1,0 +1,24 @@
+[
+  {
+    "id": "the-frameless-throw-is-no-event",
+    "ask": "is a throw that happened outside every frame absent from the events?",
+    "command": [
+      "grep",
+      "$RUN",
+      "late"
+    ],
+    "expect_exit": 1
+  },
+  {
+    "id": "what-did-run-is-still-there",
+    "ask": "did the one framed call survive beside it?",
+    "command": [
+      "tree",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "boom()"
+    ]
+  }
+]

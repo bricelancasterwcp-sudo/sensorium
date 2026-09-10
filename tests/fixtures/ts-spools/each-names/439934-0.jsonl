@@ -1,0 +1,35 @@
+{"e":"BOOT","wire":1,"pid":439934,"ppid":439853,"threadId":0,"isMainThread":true,"argv":["/usr/bin/node","/w/probes/node_modules/vitest/dist/workers/forks.js"],"cwd":"/w/probes","env":{"PATH":"/usr/bin"},"envHash":"9a08e75fff48fcfb","node":"v24.16.0","version":"0.1.0","tier":"call","invocation":null,"startTs":1788965238.533,"ts":3808669751166267}
+{"e":"FILE","id":1,"rel":"setup.mjs","abs":"/w/probes/setup.mjs","codes":[["<anonymous>",9,"function"],["<anonymous>",11,"function"]],"sha":"e638350c8eca352dcb900f94944129de0aa80505bf1d8a5e907d58b4f404f901"}
+{"e":"FILE_START","path":"/w/probes/src/each.probe.test.ts","environment":"node"}
+{"e":"FILE","id":2,"rel":"src/each.probe.test.ts","abs":"/w/probes/src/each.probe.test.ts","codes":[["add",9,"function"],["<anonymous>",17,"function"]],"sha":"6ae2bad7ba7ff19644b928815bffdab531e53b793a8d86a648017599244da6eb"}
+{"e":"CALL","f":1,"p":null,"file":1,"c":1,"t":null,"ts":3808669785615701}
+{"e":"SEEN","name":"adds 1 + 2 = 3"}
+{"e":"RETURN","f":1,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669785685360}
+{"e":"CALL","f":2,"p":null,"file":1,"c":0,"t":null,"ts":3808669785876948}
+{"e":"RETURN","f":2,"t":null,"v":{"k":"dbg","v":"'adds 1 + 2 = 3'","trunc":false},"ts":3808669785926417}
+{"e":"TASK","id":1,"name":"adds 1 + 2 = 3","basis":"vitest","conflict":false}
+{"e":"CALL","f":3,"p":null,"file":2,"c":1,"t":1,"ts":3808669785975437}
+{"e":"CALL","f":4,"p":3,"file":2,"c":0,"t":1,"ts":3808669785987427}
+{"e":"RETURN","f":4,"t":1,"v":{"k":"dbg","v":"3","trunc":false},"ts":3808669785998946}
+{"e":"RETURN","f":3,"t":1,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669786228894}
+{"e":"CALL","f":5,"p":null,"file":1,"c":1,"t":null,"ts":3808669786505031}
+{"e":"SEEN","name":"adds 2 + 3 = 5"}
+{"e":"RETURN","f":5,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669786515340}
+{"e":"CALL","f":6,"p":null,"file":1,"c":0,"t":null,"ts":3808669786541210}
+{"e":"RETURN","f":6,"t":null,"v":{"k":"dbg","v":"'adds 2 + 3 = 5'","trunc":false},"ts":3808669786575910}
+{"e":"TASK","id":2,"name":"adds 2 + 3 = 5","basis":"vitest","conflict":false}
+{"e":"CALL","f":7,"p":null,"file":2,"c":1,"t":2,"ts":3808669786589170}
+{"e":"CALL","f":8,"p":7,"file":2,"c":0,"t":2,"ts":3808669786593210}
+{"e":"RETURN","f":8,"t":2,"v":{"k":"dbg","v":"5","trunc":false},"ts":3808669786604319}
+{"e":"RETURN","f":7,"t":2,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669786640769}
+{"e":"CALL","f":9,"p":null,"file":1,"c":1,"t":null,"ts":3808669786735308}
+{"e":"SEEN","name":"adds 4 + 5 = 9"}
+{"e":"RETURN","f":9,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669786742688}
+{"e":"CALL","f":10,"p":null,"file":1,"c":0,"t":null,"ts":3808669786777637}
+{"e":"RETURN","f":10,"t":null,"v":{"k":"dbg","v":"'adds 4 + 5 = 9'","trunc":false},"ts":3808669786800137}
+{"e":"TASK","id":3,"name":"adds 4 + 5 = 9","basis":"vitest","conflict":false}
+{"e":"CALL","f":11,"p":null,"file":2,"c":1,"t":3,"ts":3808669786816377}
+{"e":"CALL","f":12,"p":11,"file":2,"c":0,"t":3,"ts":3808669786819077}
+{"e":"RETURN","f":12,"t":3,"v":{"k":"dbg","v":"9","trunc":false},"ts":3808669786837387}
+{"e":"RETURN","f":11,"t":3,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":3808669786861986}
+{"e":"EXIT","code":null,"signal":"SIGTERM","endTs":1788965238.57,"ts":3808669788085152}

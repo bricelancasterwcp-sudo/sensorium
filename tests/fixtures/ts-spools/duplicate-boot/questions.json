@@ -1,0 +1,25 @@
+[
+  {
+    "id": "the-other-spool-converted",
+    "ask": "was the spool beside the refused one converted anyway?",
+    "command": [
+      "tree",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "ok()"
+    ]
+  },
+  {
+    "id": "runs-lists-only-what-converted",
+    "ask": "does the store hold exactly the one trace that could be read?",
+    "command": [
+      "runs"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "$RUN"
+    ]
+  }
+]

@@ -1,0 +1,73 @@
+[
+  {
+    "id": "info-declares-typescript",
+    "ask": "does info name the recorder and the language this trace was written by?",
+    "command": [
+      "info",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "lang: typescript",
+      "recorder: sensorium-ts 0.1.0"
+    ],
+    "expect_absent": [
+      "INCOMPLETE"
+    ]
+  },
+  {
+    "id": "tree-shows-the-await-chain",
+    "ask": "does the call tree show the S1 chain and the S2 fan-out?",
+    "command": [
+      "tree",
+      "$RUN",
+      "--depth",
+      "8"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "a()",
+      "b()",
+      "c()",
+      "fanout()",
+      "p()"
+    ]
+  },
+  {
+    "id": "frame-says-the-locals-were-not-read",
+    "ask": "does a frame view carry the marker that its arguments were never read?",
+    "command": [
+      "frame",
+      "$RUN",
+      "--fn",
+      "c"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "unread: locals"
+    ]
+  },
+  {
+    "id": "grep-finds-a-captured-return-value",
+    "ask": "is the value p(1) returned in the trace to be found?",
+    "command": [
+      "grep",
+      "$RUN",
+      "10",
+      "--kind",
+      "RETURN"
+    ],
+    "expect_exit": 0
+  },
+  {
+    "id": "runs-lists-this-trace",
+    "ask": "does runs list the trace the ingest just wrote?",
+    "command": [
+      "runs"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "$RUN"
+    ]
+  }
+]

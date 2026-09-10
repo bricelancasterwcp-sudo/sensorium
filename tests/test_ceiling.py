@@ -1,11 +1,18 @@
 """The repo-wide 800-line ceiling gate (design ruling R1, widened
-2026-09-08 by the final fix wave).
+2026-09-08 by the final fix wave, and again 2026-09-09 by ruling R43).
 
-Covers code and living docs: every tracked `*.py`, `*.rs`, `*.sh` and
-`*.md` file -- which is to say `src/`, `tests/`, `rust/` (crates and
-`rust/tests/`), `corpus/`, `docs/` and every markdown file at the
-repository root, all at once, by pattern rather than by a hand-maintained
-list.
+Covers code and living docs: every tracked `*.py`, `*.rs`, `*.sh`, `*.md`,
+`*.mjs`, `*.ts` and `*.tsx` file -- which is to say `src/`, `tests/`,
+`rust/` (crates and `rust/tests/`), `corpus/`, `docs/`, `typescript/` and
+every markdown file at the repository root, all at once, by pattern rather
+than by a hand-maintained list.
+
+The three TypeScript patterns are R43: the gate shipped naming every
+language in the repository except the one rung 1 added, so the recorder's
+whole Node side sat outside the ceiling from its first commit. They walk
+TRACKED files only, which is what keeps `typescript/node_modules` and
+`package-lock.json` out of the enumeration without a single exclusion
+rule -- neither is tracked.
 
 `*.md` whole rather than `README.md`, `docs/*.md` and `rust/*.md`: the
 named form was three patterns that happened to cover the markdown that
@@ -48,7 +55,7 @@ LIMIT = 800
 #: markdown file at any depth (git's pathspec glob is not shell-anchored to
 #: one directory level), so the enumeration is every living document in the
 #: repository -- `EXEMPT` is what carves the record directories back out.
-PATTERNS = ("*.py", "*.rs", "*.sh", "*.md")
+PATTERNS = ("*.py", "*.rs", "*.sh", "*.md", "*.mjs", "*.ts", "*.tsx")
 
 #: The record directories (R1): dated history, some byte-locked, never
 #: edited after the fact except by appended amendments. Exactly these
@@ -106,7 +113,8 @@ def test_the_enumeration_is_not_empty_and_spans_every_covered_directory():
     """A gate over an empty set is not a gate: it would pass forever, for
     the same reason a test with no assertions passes forever."""
     assert FILES, "the gate enumerated no files"
-    for prefix in ("src/", "tests/", "rust/", "corpus/", "docs/"):
+    for prefix in ("src/", "tests/", "rust/", "corpus/", "docs/",
+                   "typescript/"):
         assert any(p.startswith(prefix) for p in FILES), prefix
 
 
@@ -125,4 +133,23 @@ def test_the_widened_markdown_scope_reaches_the_repository_root():
     """
     for relpath in ("CHANGELOG.md", "CHANGELOG-ARCHIVE.md", "ORIGIN.md",
                     "corpus/rust/README.md"):
+        assert relpath in FILES, relpath
+
+
+def test_the_typescript_scope_reaches_the_recorders_node_sources():
+    """What `*.mjs`, `*.ts` and `*.tsx` buy (R43).
+
+    The gate shipped covering `*.py`, `*.rs`, `*.sh` and `*.md`, which is
+    every language in the repository EXCEPT the one rung 1 added: the
+    recorder's whole Node side -- runtime, transform, plugin, loader hook
+    and their tests -- was outside the ceiling from its first commit. Four
+    files are named here rather than trusting the glob, one per shape the
+    three patterns reach: a `.mjs` source, a `.mjs` test, a `.ts` golden
+    and the one `.tsx` in the tree. `PATTERNS` narrowed back to the four
+    it shipped with would still pass every assertion above.
+    """
+    for relpath in ("typescript/src/transform.mjs",
+                    "typescript/test/rt.test.mjs",
+                    "typescript/test/golden/yield.ts",
+                    "typescript/test/golden/component.tsx"):
         assert relpath in FILES, relpath

@@ -95,6 +95,27 @@ def fmt_exc(e: dict) -> str:
     return f"{e['type']}({e['msg']!r})"
 
 
+def _site(e) -> str:
+    """` L<n>` for a row whose recorder wrote a line, and NOTHING for one
+    that did not (R28a).
+
+    Every renderer below used to interpolate `L{e.line}` unconditionally,
+    which was true by accident: every recorder that existed when they were
+    written puts a line on every row that carries one. `sensorium-ts` does
+    not -- its YIELD and RESUME rows carry `line: null`, which the contract
+    reads as "the wire carries none" -- and the unconditional form spelled
+    that NULL out as the literal `LNone`, a reader naming a site the
+    recording does not hold.
+
+    Prepending the space rather than appending it is what keeps the
+    line-PRESENT rendering byte for byte what it was: ` L6 awaiting X` is
+    the same string as the old `f"{q} L{e.line} awaiting ..."` built the
+    other way round, so no Python or Rust output moves. A RETURN row prints
+    no site here at all and never did; that is unchanged.
+    """
+    return f" L{e.line}" if e.line is not None else ""
+
+
 def fmt_event(trace, e) -> str:
     code = trace.code(e.code_id) if e.code_id is not None else None
     q = code.qualname if code else "?"
@@ -104,15 +125,15 @@ def fmt_event(trace, e) -> str:
     elif e.kind == "RETURN":
         body = f"{q} -> {fmt_value(p.get('value'))}"
     elif e.kind in ("RAISE", "HANDLED"):
-        body = f"{q} {e.kind.lower()} {fmt_exc(p['exc'])} L{e.line}"
+        body = f"{q} {e.kind.lower()} {fmt_exc(p['exc'])}{_site(e)}"
     elif e.kind == "LINE":
-        body = f"{q} L{e.line}{_fmt_line_tail(p)}"
+        body = f"{q}{_site(e)}{_fmt_line_tail(p)}"
     elif e.kind == "YIELD":
-        body = f"{q} L{e.line} awaiting {p.get('awaiting', '?')}"
+        body = f"{q}{_site(e)} awaiting {p.get('awaiting', '?')}"
     elif e.kind == "RESUME":
         thrown = p.get("thrown")
-        body = (f"{q} L{e.line} thrown {fmt_exc(thrown)}" if thrown
-                else f"{q} L{e.line}")
+        body = (f"{q}{_site(e)} thrown {fmt_exc(thrown)}" if thrown
+                else f"{q}{_site(e)}")
     else:
         body = q
     return f"e{e.id} {e.kind:<7} {body}"

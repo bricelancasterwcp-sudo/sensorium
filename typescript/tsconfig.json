@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "noEmit": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src/**/*.mjs",
+    "test/**/*.mjs",
+    "acceptance/**/*.mjs",
+    "probes/check.mjs"
+  ],
+  "exclude": [
+    "src/setup.mjs",
+    "probes/node_modules"
+  ]
+}

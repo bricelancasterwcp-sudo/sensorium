@@ -1,0 +1,16 @@
+[
+  {
+    "id": "the-generators-are-in-the-tree",
+    "ask": "do the generator bodies this file runs appear as frames?",
+    "command": [
+      "tree",
+      "$RUN",
+      "--depth",
+      "8"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "[generator]"
+    ]
+  }
+]

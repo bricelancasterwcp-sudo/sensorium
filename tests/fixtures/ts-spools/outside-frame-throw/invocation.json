@@ -1,0 +1,22 @@
+{
+  "invocation": "20260909-094718-2a3b4c",
+  "harness": "vitest",
+  "harness_args": [
+    "run",
+    "src/boom.test.ts"
+  ],
+  "root": "/w/probes",
+  "cwd": "/w/probes",
+  "argv": [
+    "vitest",
+    "run",
+    "src/boom.test.ts"
+  ],
+  "env_hash": "0f1e2d3c4b5a6978",
+  "start_ts": 1788965241.0,
+  "wrapper": "/w/probes/node_modules/.sensorium/setup.mjs",
+  "vitest": "4.1.9",
+  "node": "v24.16.0",
+  "driver_version": "0.1.0",
+  "recorder": "sensorium-ts 0.1.0"
+}
