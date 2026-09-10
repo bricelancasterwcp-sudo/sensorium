@@ -79,3 +79,24 @@ def test_a_line_that_is_not_a_record_is_refused(tmp_path):
     with pytest.raises(spool_mod.SpoolError) as e:
         list(spool_mod.read(bad).records)
     assert "line 1 is not a record" in str(e.value)
+
+
+def test_a_line_that_is_not_utf8_is_refused_naming_the_line(tmp_path):
+    """The one refusal whose text AND surfacing point both moved (A3).
+
+    A spool used to be decoded whole, so a bad byte anywhere was "cannot be
+    read as a spool" with no line in it. The walk decodes a line at a time
+    and names the line it could not read. What must never happen is the
+    other repair -- `errors="replace"` -- which would turn a corrupt byte
+    into a U+FFFD inside a record and convert it as though it were the text
+    the container wrote.
+    """
+    from sensorium.ts import spool as spool_mod
+    bad = tmp_path / "9-0.jsonl"
+    bad.write_bytes(b'{"e":"BOOT","wire":1,"pid":9,"startTs":1}\n'
+                    b'{"e":"SEEN","name":"\xff"}\n')
+    with pytest.raises(spool_mod.SpoolError) as e:
+        list(spool_mod.read(bad).records)
+    assert "line 2" in str(e.value)
+    assert "not UTF-8" in str(e.value)
+    assert "9-0.jsonl" in str(e.value)
