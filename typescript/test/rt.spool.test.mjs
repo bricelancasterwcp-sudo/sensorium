@@ -103,6 +103,8 @@ test('off writes no file at all', () => {
     __srt.fileStart('t.ts', 'jsdom');
     __srt.seen('a test');
     __srt.handled(null, new Error('x'), 1, 'catch');
+    __srt.mark(null, new Error('y'));
+    __srt.handledFinally(null, 2);
     __srt.flush();
     console.log(JSON.stringify({
       task: [wrapped.length, wrapped[1] === fn],
@@ -112,7 +114,7 @@ test('off writes no file at all', () => {
       y: __srt.y(null, 7, 0),
       r: __srt.r(null, 8),
       raise: __srt.raise(null, 'e', 1),
-      emptyCatch: __srt.emptyCatch(null, 1, fn) === fn,
+      catchCb: __srt.catchCb(null, 1, 'catch_callback', fn) === fn,
       called: wrapped[1](),
     }));
   `, { tier: 'off' });
@@ -126,7 +128,7 @@ test('off writes no file at all', () => {
     y: 7,
     r: 8,
     raise: 'e',
-    emptyCatch: true,
+    catchCb: true,
     called: 'called',
   });
 });

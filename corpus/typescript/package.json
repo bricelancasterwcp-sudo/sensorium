@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "The TypeScript corpus: thirteen seeded-bug cases, recorded by `sensorium ts run` and questioned by corpus/run_corpus.py.",
+  "description": "The TypeScript corpus: twenty-eight seeded-bug cases, recorded by `sensorium ts run` and questioned by corpus/run_corpus.py.",
   "devDependencies": {
     "typescript": "5.9.3",
     "vite": "6.4.3",

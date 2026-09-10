@@ -53,3 +53,35 @@ questions:
       - ["startRefresh() <unread: locals> -> undefined"]
       - ["cacheAge() <unread: locals> -> 0"]
     expect_contains: ["task t1: a background refresh is started"]
+  - id: what-does-the-verdict-say-about-the-rejection
+    ask: >
+      `info` counted the rejection. What does the disposition command say
+      became of it, and where was it raised?
+    truth: >
+      UNCAUGHT -- `unhandled rejection; raised at refresh L9`. This is the
+      one disposition the tool takes from the PROCESS rather than from the
+      rows: Node's own `unhandledRejection` listener is what establishes
+      that nobody received it, and the recorder's rows are what supply the
+      site, so the verdict joins a fact the container knows to a place only
+      the recording knows. The header repeats `unhandled rejections: 1` in
+      the same words `info` uses -- a rejection no row carries would be
+      counted there and judged nowhere, because it has no site and the
+      recorder will not invent one.
+    why_logs_fail: >
+      There is nothing in the program to log: no `catch` runs, no handler
+      runs, and `startRefresh` discarded the promise with `void`, so a
+      `console.log` after it prints happily a microtask before the rejection
+      lands. `DEBUG=*` enables namespaced loggers this program never
+      registers. A stack trace is the one channel that CAN fire here --
+      Node's unhandled-rejection warning carries one -- but it names the
+      throw and not the disposition, and it arrives on stderr detached from
+      the passing test, which is why the run stayed green and nobody read
+      it.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["unhandled rejections: 1"]
+      - ["e4 RAISE", "refresh raise Error('stale token') L9"]
+      - ["UNCAUGHT -- unhandled rejection; raised at refresh L9"]
+      - ["dispositions: uncaught 1"]
+    expect_absent: ["SWALLOWED"]

@@ -1,0 +1,34 @@
+program: vitest
+harness_args: ["run", "callback_opaque"]
+questions:
+  - id: does-the-tool-judge-a-handler-it-cannot-read
+    ask: >
+      The rejection was handed to `noteFailure`, a function defined
+      elsewhere that really does drop it. Does the tool call that a swallow?
+    truth: >
+      No -- AMBIGUOUS, `catch_callback_opaque`. The splice that records the
+      handler sees an IDENTIFIER, not a body: `.catch(noteFailure)` gives it
+      a reference, and whether that function keeps, logs or rethrows its
+      parameter is decided in a different file at a different time. So the
+      recorder writes down what it saw -- a handler took the rejection,
+      shape unknown -- and refuses the accusation. A reader who follows
+      `noteFailure` finds the swallow in one hop; a tool that guessed would
+      be right here and wrong on every handler that rethrows, and the whole
+      value of the SWALLOWED word is that it is never a guess.
+    why_logs_fail: >
+      `noteFailure` calls `console.warn`, so a log line DOES appear -- and a
+      `console.log` beside it prints the same thing: the line a properly
+      handled failure would print too, which is why neither can answer
+      whether the failure ever reached a caller. `DEBUG=*`
+      enables namespaced loggers this program never registers. And no stack
+      trace appears, because the handler exists: Node reports only
+      rejections nobody took, so the channel that names failures is off for
+      exactly the handlers whose behaviour is unknown.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e5 HANDLED", "handled Error('sync conflict') L6"]
+      - ["AMBIGUOUS -- caught at e5 (catch_callback_opaque), and the error
+          or a rendering of it left the handler; not followed"]
+      - ["dispositions: ambiguous 1"]
+    expect_absent: ["SWALLOWED"]

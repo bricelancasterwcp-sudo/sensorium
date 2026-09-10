@@ -76,7 +76,7 @@ runner refuses a vector or a question that carries neither. Add a vector for
 each new enumeration value and each new rule — a rule with no vector is a
 sentence in a document, not a contract.
 
-These twenty-nine pin the rules this document states in prose. The first seven
+These thirty-three pin the rules this document states in prose. The first seven
 were written before the Rust recorder existed; `v08`–`v15` were added in
 0.6.0, when it did, and pin the values it actually writes rather than a guess
 about them. `v16`–`v19` were added in rung 3: `v16` pins the SHAPE of an
@@ -101,7 +101,12 @@ and the two records that become meta counts instead of events — and
 `v28`–`v29` pin how `runs` and `info` read an invocation whose members are
 workers of one harness rather than separate binaries. The design spec's
 §5.3 and §5.6 ask for one vector per value of every enumeration per
-language.
+language. `v30`–`v33` were added 2026-09-10 by S5 rung 2, when that third
+recorder's throws became judgeable: `v30`–`v32` pin the one shape called
+SWALLOWED, the escaped handler that is ambiguous instead, and the
+capability refusal an 0.1.x recording still earns, and `v33` pins the
+INVOCATION mode over two workers of one `vitest run` — the first vector in
+which the grouper runs under a renderer that is not Rust's.
 
 | Vector | Rule it pins |
 |---|---|
@@ -127,10 +132,14 @@ language.
 | `v20-exceptions-rust-panicked` | `chain.terminal: "panicked"` earns PANICKED, quoting the frame the trace says unwound while holding the chain and claiming no cause; the holder is derived by walking outward, so the verdict names the ancestor that unwound and not the frame the last event fired in, and no panic EVENT is needed for any of it. |
 | `v21-exceptions-rust-left-thread` | `chain.terminal: "left_thread"` reads AMBIGUOUS: a spawned thread's `Err` went back through a `JoinHandle` and nothing records whether it was ever read. Two hops under one serial are one chain reported once, and the spawned thread's stream is a `task_fingerprints` row beside the main thread's single `fingerprints` row. |
 | `v22-exceptions-rust-handled-then-failed` | `chain.terminal: "handled_then_failed"` reads AMBIGUOUS, never SWALLOWED — the cleanup-then-fail blind spot: the sink, the event and the frame are named, and then that the frame failed anyway. The `Err` that left the frame is a chain of its own, and the tally keeps the fixed order. |
-| `v23-lang-typescript-prose` | Every sentence about a `lang: typescript` trace is that recorder's own: `node <version>` with its harness and environment, `test` as the unit of work, `[async]` on a `coroutine` frame, a `runs` header carrying the harness command and its waited exit, a member listed by its test file, and `exceptions` refusing at exit 3 — with no `asyncio`, `Python's own`, `threading/_thread`, `coroutine`, `python ?`, `cargo` or `Rust disposition` anywhere. |
+| `v23-lang-typescript-prose` | Every sentence about a `lang: typescript` trace is that recorder's own: `node <version>` with its harness and environment, `test` as the unit of work, `[async]` on a `coroutine` frame, a `runs` header carrying the harness command and its waited exit, a member listed by its test file, and `exceptions` refusing this 0.1.0 recording at exit 3 through the capability it declares false — with no `asyncio`, `Python's own`, `threading/_thread`, `coroutine`, `python ?`, `cargo` or `Rust disposition` anywhere. |
 | `v24-unknown-lang-refused` | A `lang` no vocabulary column exists for is refused at open (exit 2), naming the recorder, the language, this sensorium and the languages it does know — one choke point in `db.open_trace`, not one check per renderer, and never Python's words as a fallback. |
 | `v25-exc-kind-throw-rejection` | A TypeScript `exc` carries `kind` ∈ `throw`, `rejection` and its event a `how`; both are facts about the RECORD and neither is a type, so the readers render `exc.type`/`exc.msg` and print `kind` and `how` nowhere. The rows render on a recorder whose `err_flow` is false: that capability gates judgement, not reading. |
 | `v26-kind-labels` | `frames.kind` is the contract's enumeration and the LABEL is the language's word: `coroutine` prints `[async]` and `async_generator` prints `[async generator]` on a TypeScript trace, in `tree` and `frame` alike, while `generator` — JavaScript's own word — is unchanged. Python's `[coroutine]` is untouched, pinned by the legacy suite. |
 | `v27-unhandled-rejection-in-meta` | An unhandled rejection has no site, so it is `meta.unhandled_rejections` and never an event; `info` prints the count, the transform's exclusions by reason, and the outside-frame throw count, and no event carries the rejection at all. |
 | `v28-harness-exit-waited` | Three exit facts on one trace, never merged: the container's `unwitnessed` status, what the container self-reported on the way out, and the `harness_exit` the driver really waited for — the last on `info`'s harness line and on `runs`' invocation header, beside the member's `exit:unwitnessed`. |
 | `v29-runs-file-header` | `runs` lists a TypeScript container by the test file it ran, not by the worker argv every container of one invocation shares; the argv stays on `info`. (The `test_files` → `files: N` arm is one trace more than a vector can hold and lives in `tests/test_vocab.py`.) |
+| `v30-exceptions-typescript-swallowed` | `exceptions` answers a TypeScript trace with the Python command's five words over the recorder's own serial: an absorbing `catch` whose frame then RETURNED, with no later raise and no escaping handler for the same serial, is the one shape called SWALLOWED, and the verdict names the `how`, the event, the site and the frame. |
+| `v31-exceptions-typescript-escaped-ambiguous` | The same recording with `how: catch_escaped` reads AMBIGUOUS with its reason and never SWALLOWED: a frame that returned is not evidence of a swallow once the error, or a rendering of it, left the handler (rung 3's STOP, transferred). |
+| `v32-err-flow-typescript-capability-refusal` | What an 0.1.x TypeScript recording lacks is a RECORD, so `exceptions` refuses it through `capabilities.err_flow` with the standard sentence and exit 3, before any rule reads an event; the retired sentence naming absent TypeScript rules does not come back, and no other command is gated. |
+| `v33-exceptions-typescript-invocation-shape` | `exceptions <invocation-id>` answers for a whole TypeScript invocation: two workers of one `vitest run` that sank the same throw at the same `catch` are ONE block, counted over both processes and naming the one a reader can open, under a header and a tally in this recorder's own nouns (`with throws`, `N raises`) with no panic line, no `partial` block and no Rust word anywhere. One grouper, two renderers; each member still answers for itself when asked by its own run id. |

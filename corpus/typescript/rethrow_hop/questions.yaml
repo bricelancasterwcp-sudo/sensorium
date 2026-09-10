@@ -1,0 +1,44 @@
+program: vitest
+harness_args: ["run", "rethrow_hop"]
+questions:
+  - id: where-did-the-outage-go-through-two-clauses
+    ask: >
+      The boot fell back to defaults. The disk failure passed through two
+      `catch` clauses on its way there -- what became of it, and where did
+      it stop?
+    truth: >
+      It was swallowed by the outer clause, and the tool shows the whole
+      journey to get there. One thrown object, two RAISE rows, two blocks --
+      kept separate on purpose, because a tally that counted objects and not
+      raises would not line up with any other recording. The origin at e5
+      reads RE-RAISED and points at what became of the LAST raise (`→
+      swallowed`), and the `hops:` line draws the route: `e5 (load L10) → e7
+      (reload L17)`. The second block carries the verdict itself: SWALLOWED,
+      the `catch` in `boot` at e8, in the frame that then returned
+      'defaults'. The middle clause -- `catch (e) { throw e }` -- is a
+      traced EXIT and not an escape: the value reaches nothing, it leaves
+      the way it arrived, and the RAISE it writes carries the same serial,
+      which is exactly what makes the pair a hop rather than two unrelated
+      failures. A clause that did anything ELSE with `e` on its way to the
+      rethrow -- `list.push(e); throw e` -- would be `catch_escaped`, and
+      every row of the serial would read AMBIGUOUS instead.
+    why_logs_fail: >
+      A `console.log` in either clause prints one error twice and leaves the
+      reader to guess whether those two lines are one object or two failures
+      -- which is precisely the question the `hops:` line answers with an
+      identity the log has no way to carry. `DEBUG=*` enables namespaced
+      loggers and this program registers none. A stack trace would name
+      frames, and the rethrow throws the ORIGINAL object, whose stack still
+      points at `load` and says nothing about `reload` having handled and
+      re-raised it; no stack trace is printed at all here, because the outer
+      clause caught it and nothing escaped to the harness.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e5 RAISE", "load raise Error('disk offline') L10"]
+      - ["RE-RAISED -- raised again at e7 (reload L17) → swallowed"]
+      - ["hops: e5 (load L10) → e7 (reload L17)"]
+      - ["e7 RAISE", "reload raise Error('disk offline') L17"]
+      - ["SWALLOWED -- caught by catch at e8 (boot L24) in f2, which
+          returned"]
+      - ["dispositions: swallowed 1, re-raised 1"]

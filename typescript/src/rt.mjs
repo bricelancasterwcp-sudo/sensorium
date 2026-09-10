@@ -17,7 +17,7 @@ import { cap, dbg, exc } from './dbg.mjs';
 import { VERSION } from './index.mjs';
 
 /** @typedef {{id: number, name: string, stack: Frame[]}} Task */
-/** @typedef {{id: number, task: Task|null, open: boolean}} Frame */
+/** @typedef {{id: number, task: Task|null, open: boolean, mark: Record<string, unknown>|null}} Frame */
 /** @typedef {{name: string, basis: 'vitest'|'title', conflict: boolean}} Named */
 /** @typedef {Record<string, unknown>} Record_ */
 
@@ -31,6 +31,18 @@ const BUFFERED = 256;
 /** @type {NodeJS.Signals[]} */
 const SIGNALS = ['SIGTERM', 'SIGINT', 'SIGHUP'];
 const UNNAMED = '<unnamed: title not a string>';
+
+/**
+ * What this recorder DECLARES it produces, written into every BOOT record and
+ * passed through by the converter (§2.4). `err_flow` says the throw-flow rows
+ * are complete enough to be judged: every `throw` statement, every `catch`
+ * clause with the transform's verdict about its binding, every rejection
+ * handler and every `finally` that discards a throw in flight. A spool whose
+ * BOOT lacks the key reads `false`, so a trace this recorder did not write is
+ * still refused — what it lacks is a record, not a permission.
+ * @type {Record<string, boolean>}
+ */
+const CAPABILITIES = { err_flow: true };
 
 /**
  * Recording at all. A tier that is not `call` records nothing, and neither does
@@ -164,6 +176,7 @@ function boot() {
     node: process.version,
     version: VERSION,
     tier: TIER,
+    capabilities: { ...CAPABILITIES },
     invocation: INVOCATION,
     startTs: Date.now() / 1000,
     ts: now(),
@@ -429,7 +442,7 @@ export function call(fileId, c) {
   const stack = t ? t.stack : rootStack;
   const parent = stack.length > 0 ? stack[stack.length - 1] : null;
   /** @type {Frame} */
-  const f = { id: nextFrame++, task: t, open: true };
+  const f = { id: nextFrame++, task: t, open: true, mark: null };
   stack.push(f);
   emitTs({ e: 'CALL', f: f.id, p: parent ? parent.id : null, file: fileId, c, t: t ? t.id : null });
   return f;
@@ -533,43 +546,98 @@ export function r(f, v) {
  */
 export function raise(f, e, line) {
   if (!on) return e;
-  emitTs({
-    e: 'RAISE',
-    f: f ? f.id : null,
-    t: taskOf(f),
-    x: exc(e, 'throw'),
-    l: line,
-    how: 'throw',
-  });
+  const x = exc(e, 'throw');
+  emitTs({ e: 'RAISE', f: f ? f.id : null, t: taskOf(f), x, l: line, how: 'throw' });
+  // The throw is now in flight through this frame: a `finally` beneath it that
+  // completes discards THIS value, and the mark is how it learns which.
+  if (f && f.open) f.mark = x;
   return e;
 }
 
 /**
- * A `catch` clause, or the empty-block sink that has none.
+ * A `catch` clause, or the empty-block sink that has none. Whatever the clause
+ * then does with the value, the flight this frame was carrying is over: the
+ * mark is cleared, so a `finally` beneath a `catch` claims nothing.
  * @param {Frame|null} f
  * @param {unknown} e
  * @param {number} line
- * @param {string} how `catch` or `sink_empty_catch`
+ * @param {string} how `catch`, `catch_escaped` or `sink_empty_catch`
  * @returns {void}
  */
 export function handled(f, e, line, how) {
   if (!on) return;
   record(f, e, line, how, 'throw');
+  if (f) f.mark = null;
 }
 
 /**
- * `.catch(() => {})` — a callback that swallows a rejection. The original is
- * called with the reason it was given and its result is returned: wrapping a
- * sink must not change what the sink does.
+ * A throw is in flight through `f` and this runtime is holding the value.
+ *
+ * The transform's synthetic clause calls it — `catch(__sfe){mark(__sf,__sfe);
+ * throw __sfe}` before a completing `finally` — which is what lets a library's
+ * throw and an awaited rejection be marked as well as a `throw` statement (P1).
+ * The whole `exc` is kept and not just its serial: the contract requires
+ * `type` on every one, and here the value is in hand, so nothing goes unread.
+ * @param {Frame|null} f
+ * @param {unknown} e
+ * @returns {void}
+ */
+export function mark(f, e) {
+  if (on && f && f.open) f.mark = exc(e, 'throw');
+}
+
+/**
+ * A `finally` block that completes — `return`, `break` or `continue` at closure
+ * depth 0 — discards whatever was travelling through the frame. It records a
+ * HANDLED only when something WAS: a `finally` reached on the normal path, or
+ * one discarding a throw this recorder never saw raised, holds no mark and
+ * writes nothing (a declared blind spot, §2.3). The mark is one slot, so the
+ * first sink to read it is the one that reports the discard.
  * @param {Frame|null} f
  * @param {number} line
+ * @returns {void}
+ */
+export function handledFinally(f, line) {
+  if (!on || !f || !f.open || f.mark === null) return;
+  emitTs({
+    e: 'HANDLED',
+    f: f.id,
+    t: taskOf(f),
+    x: f.mark,
+    l: line,
+    how: 'sink_finally_return',
+  });
+  f.mark = null;
+}
+
+/**
+ * A rejection handler — `p.catch(<arg>)`, `p.then(x, <arg>)` — wrapped so the
+ * reason it is given is recorded before it runs. `how` is the transform's
+ * verdict about the handler's SHAPE, decided at splice time and written down
+ * here unexamined (§2.2).
+ *
+ * What the wrapper must not change is what the chain continues with: the
+ * original is called with the same `this` and the same reason, and its result
+ * is returned untouched. A handler that is not callable is a shape the
+ * transform does not emit; it is handed straight back rather than wrapped,
+ * because breaking the program to record it would be the larger harm.
+ *
+ * It does NOT clear the frame's mark, and `handled` does. The wrapper runs in a
+ * later microtask, by which time the frame it names has usually returned and
+ * whatever it was carrying is long over; clearing a mark then would clear one
+ * set by some throw now in flight through a frame that happens to be the same.
+ * The flight a rejection handler ends was never travelling through `f` in the
+ * first place — it arrived as a rejected promise, not up a stack.
+ * @param {Frame|null} f
+ * @param {number} line
+ * @param {string} how one of §2.5's callback words
  * @param {Function} fn
  * @returns {Function}
  */
-export function emptyCatch(f, line, fn) {
-  if (!on) return fn;
-  return /** @this {unknown} */ function sensoriumEmptyCatch(/** @type {unknown} */ reason) {
-    record(f, reason, line, 'sink_empty_catch_callback', 'rejection');
+export function catchCb(f, line, how, fn) {
+  if (!on || typeof fn !== 'function') return fn;
+  return /** @this {unknown} */ function sensoriumCatchCb(/** @type {unknown} */ reason) {
+    record(f, reason, line, how, 'rejection');
     return fn.call(this, reason);
   };
 }

@@ -1,0 +1,34 @@
+program: vitest
+harness_args: ["run", "asserted_catch"]
+questions:
+  - id: does-the-tool-accuse-a-test-of-swallowing
+    ask: >
+      A test catches the error it expected and asserts on its message. Does
+      this recorder call that a swallowed failure?
+    truth: >
+      No -- AMBIGUOUS, and that is the point of the case. This is the
+      commonest `catch` in any suite and the commonest one on the lens: the
+      clause reads the binding to assert on it, so the escape rule writes
+      `catch_escaped`, and the rule module will not call an escaped handler
+      a swallow. The recording cannot tell a deliberate assertion from a
+      swallow that happens to touch the value, and a tool that guessed would
+      report every well-written test in the repository as a hidden failure.
+      The cost of that honesty is a report this reader must dismiss; the
+      alternative is an accusation nobody can act on.
+    why_logs_fail: >
+      The question is about what the TOOL will say about a shape, not about
+      what this program did, and all three channels answer only the second.
+      A `console.log` in the clause prints the error the test already
+      asserted on. `DEBUG=*` enables namespaced loggers this program never
+      registers, so it prints nothing at all. And no stack trace appears,
+      because the error was caught -- which is exactly the shape under
+      discussion, and the absence of a trace is as true of this deliberate
+      catch as of the swallow two cases along.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e3 RAISE", "validate raise Error('amount must be positive') L9"]
+      - ["AMBIGUOUS -- caught at e4 (catch_escaped), and the error or a
+          rendering of it left the handler; not followed"]
+      - ["dispositions: ambiguous 1"]
+    expect_absent: ["SWALLOWED"]

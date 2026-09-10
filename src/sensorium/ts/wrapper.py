@@ -54,7 +54,7 @@ PLACEHOLDER = "__PKG__"
 #: else to go on: a config that threw wrote no spool.
 REFUSAL_FILE = "wrapper-refusal.json"
 PROJECTS_REFUSAL = ("vitest projects/workspaces are not supported by "
-                    "sensorium-ts 0.1.1")
+                    "sensorium-ts 0.2.0")
 
 #: Every character a JavaScript RegExp literal gives a meaning to, `/`
 #: included -- it ends the literal.

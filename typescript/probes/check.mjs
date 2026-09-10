@@ -74,7 +74,11 @@ const SCENARIOS = [
 ];
 
 /**
- * What §1.2 says each swallow shape's exception looks like.
+ * What §1.2 says each swallow shape's exception looks like. Shapes 1-5 are
+ * rung 1's; 6-12 are rung 2's, one per `how` word the escape rule, the
+ * rejection-callback wrapper and the `finally` sink can now write. A shape
+ * whose reason was never THROWN — a `Promise.reject`, whose handler records a
+ * HANDLED with no RAISE — raises nothing, and the empty list says so.
  * @type {Record<string, {raises: {type: string, msg: string}[], oneSerial?: boolean}>}
  */
 const SWALLOW_EXC = {
@@ -82,6 +86,13 @@ const SWALLOW_EXC = {
   shape2: { raises: [] },
   shape4: { raises: [{ type: 'string', msg: 'not-an-error' }] },
   shape5: { raises: [{ type: 'Error', msg: 'e5' }, { type: 'Error', msg: 'e5' }], oneSerial: true },
+  shape6: { raises: [{ type: 'Error', msg: 'e6' }] },
+  shape7: { raises: [{ type: 'Error', msg: 'e7' }] },
+  shape8: { raises: [] },
+  shape9: { raises: [] },
+  shape10: { raises: [] },
+  shape11: { raises: [] },
+  shape12: { raises: [{ type: 'Error', msg: 'e12' }] },
 };
 
 const EACH_NAMES = ['adds 1 + 2 = 3', 'adds 2 + 3 = 5', 'adds 4 + 5 = 9'];
@@ -100,7 +111,8 @@ const NODETEST_PROBES = [
 /** The probe files a full vitest run must have recorded, by root-relative path. */
 const VITEST_PROBES = [
   'src/async.probe.test.ts', 'src/async.jsdom.probe.test.ts', 'src/sites.probe.test.ts',
-  'src/swallow.probe.test.ts', 'src/swallow3.probe.test.ts', 'src/each.probe.test.ts',
+  'src/swallow.probe.test.ts', 'src/swallow3.probe.test.ts', 'src/escape.probe.test.ts',
+  'src/each.probe.test.ts',
   'src/concurrent.probe.test.ts', 'src/never_settles.probe.test.ts',
   'src/describe_chain.probe.test.ts', 'src/timer_parentless.probe.test.ts',
 ];
@@ -295,8 +307,9 @@ function checkSites(k, s) {
 }
 
 /**
- * E8 shapes 1, 2, 4 and 5: the marked lines, the `how` each was recorded with,
- * and what §1.2 says the exception itself looks like.
+ * E8's swallow shapes — 1, 2 and 4-12, every one in `SWALLOW_EXC`: the marked
+ * lines, the `how` each was recorded with, and what the exception itself looks
+ * like.
  * @param {Checker} k
  * @param {ReturnType<typeof index>} s
  */
@@ -321,6 +334,27 @@ function checkSwallow(k, s) {
 
 /** @param {unknown[][]} rows @returns {unknown[][]} */
 const sorted = (rows) => [...rows].sort((x, y) => JSON.stringify(x).localeCompare(JSON.stringify(y)));
+
+/**
+ * E8's escape specimens: every `// ESCAPE <id> <how>` marker's clause recorded
+ * its HANDLED on the marked line, carrying the word the marker names. The
+ * clause's line is the record's line, so the marker is the only place the
+ * expectation is written down — and the `how` is what the reader turns into a
+ * SWALLOWED, which is why the rule is checked on the WIRE here and not only in
+ * the unit tests that ask it directly.
+ * @param {Checker} k
+ * @param {ReturnType<typeof index>} s
+ */
+function checkEscape(k, s) {
+  const want = markers(path.join(HERE, 'src/escape.probe.test.ts'), 'ESCAPE')
+    .map((m) => ({ id: m.args[0], how: m.args[1], line: m.line }));
+  const got = new Map(s.records.filter((r) => r.e === 'HANDLED').map((r) => [r.l, r.how]));
+  const wrong = want
+    .filter((w) => got.get(w.line) !== w.how)
+    .map((w) => ({ ...w, got: got.get(w.line) ?? null }));
+  k.check('escape:count', want.length === 13, want.length);
+  k.check('escape:how', wrong.length === 0, { as_marked: want.length - wrong.length, wrong });
+}
 
 /**
  * Shape 3: an UNHANDLED written by the process listener, outside every frame and
@@ -421,6 +455,7 @@ function runVitest(k, spools) {
   use('src/sites.probe.test.ts', (s) => checkSites(k, s));
   use('src/swallow.probe.test.ts', (s) => checkSwallow(k, s));
   use('src/swallow3.probe.test.ts', (s) => checkUnhandled(k, s));
+  use('src/escape.probe.test.ts', (s) => checkEscape(k, s));
   use('src/each.probe.test.ts', (s) => checkEach(k, s));
   use('src/describe_chain.probe.test.ts', (s) => checkDescribeChain(k, s));
   use('src/never_settles.probe.test.ts', (s) => checkNeverSettles(k, s));

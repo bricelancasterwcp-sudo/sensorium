@@ -719,6 +719,19 @@ is named in this paragraph and in the record's §3.3.)*
    its basis, `finally` and `.then(_, onRejected)` decided), `err_flow:
    true`, the swallow corpus. Own design doc; the falsifier is zero false
    SWALLOWED on the corpus and on the lens (the Rust E6 shape).
+   **Amended 2026-09-10: rung 2 is DONE, and this debt is closed.** The escape
+   rule, the rejection-callback wrapper and the `finally` sink ship in
+   `sensorium-ts` **0.2.0** with nine `how` words; the rules ship in
+   `sensorium` **0.10.0** as `exceptions_typescript`, dispatched per member
+   across an invocation; the corpus is 28 TypeScript cases. The falsifier this
+   line named was measured: **0 false SWALLOWED of 30** hand-adjudicated
+   shapes on the same lens (E6-TS′), and **17 of 17** corpus cases equal to
+   the locked table (E6-TS). What it does **not** close is a 0.1.x recording,
+   which still refuses — through the capability sentence now — because what it
+   lacks is a record. Record:
+   `../acceptance/2026-09-10-sensorium-s5-rung2.md`; design:
+   `2026-09-10-sensorium-s5-rung2-throw-flow-design.md` (§14 for its deltas);
+   plan: `../plans/2026-09-10-sensorium-s5-rung2-throw-flow.md`.
 3. **Tiers** — `--focus <qualname>`: argument capture and one LINE per
    completed statement with the bindings it wrote (the Rust focus design,
    transferred), `watch`/`flow`; measured cost per tier. Own design doc.

@@ -103,6 +103,13 @@ def _boot(path: Path, fh) -> dict:
         raise SpoolError(f"no BOOT record in {path}: line 1 is a "
                          f"{boot['e']} record, and the spool does not say "
                          "what wrote it")
+    caps = boot.get("capabilities")
+    if caps is not None and not isinstance(caps, dict):
+        # Present but not a map is not a declaration `build._meta` can merge
+        # over the constant -- refused here, where BOOT is read, rather than
+        # a worker crashing deep inside the merge.
+        raise SpoolError(f"{path}: BOOT carries a capabilities value that "
+                         "is not a map")
     return boot
 
 

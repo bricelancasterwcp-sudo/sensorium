@@ -246,28 +246,29 @@ def test_a_trace_with_no_partial_key_says_nothing_about_partial_sites(
     assert cli.main(["exceptions", run_id]) == ANSWERED
     assert "partial:" not in out(capsys)
 
-# -- a third language keeps the lang-keyed refusal --------------------------
-def test_a_language_with_no_rules_at_all_still_gets_the_lang_refusal(
+# -- the lang-keyed refusal is retired on every language that has rules -----
+def test_the_third_language_meets_the_capability_sentence_and_not_a_lang_one(
         tmp_path, monkeypatch, capsys):
-    """R9: only the `rust` branch of `_language_refusal` retires.
+    """R9's other half, one language further out.
 
-    Amended 2026-09-09 (S5). This test used a made-up `lang: "go"` trace,
-    which `db.open_trace` now refuses at open -- a language with no
-    VOCABULARY is a different failure from a language with no RULES, and
-    conflating them was only possible while no real third language
-    existed. TypeScript is that language: sensorium has its words and not
-    its disposition rules, so it is the shape this test is about, and the
-    sentence it meets is its OWN -- naming exception identity and S5 rung
-    2, not `Err` values and rung 3.
+    Amended 2026-09-09 (S5) to use TypeScript -- a language sensorium had
+    words for and no rules for -- and again by the rung that shipped
+    those rules. `exceptions` now dispatches all three languages to a rule
+    module, so what an 0.1.x TypeScript recording lacks is the RECORD, and
+    the sentence it meets is `caps.require`'s. The retired lang-keyed
+    sentence must not come back for it, exactly as `v19` says for Rust; the
+    machinery survives for a fourth language, whose column would carry one.
     """
     run_id = rust_trace(
         tmp_path, monkeypatch,
         codes=[[FILE, "run", 3]],
         frames=[frame(1, 1, 2)],
         events=[call(1000, 1, 3), ret(2000, 1, 1, "ok", "()")],
-        lang="typescript", recorder="sensorium-ts 0.1.0")
+        lang="typescript", recorder="sensorium-ts 0.1.0",
+        capabilities={**RUST_CAPABILITIES, "err_flow": False})
     assert cli.main(["exceptions", run_id]) == UNSETTLED
     o = out(capsys)
-    assert ("REFUSED: exceptions on a typescript trace needs the TypeScript "
-            "disposition rules (S5 rung 2); the Python rules index exception "
-            "identity this trace does not carry; nothing was judged") in o, o
+    assert ("REFUSED: exceptions needs err_flow, which recorder sensorium-ts "
+            "0.1.0 declares it does not produce (capabilities.err_flow: "
+            "false); nothing was checked") in o, o
+    assert "disposition rules" not in o, o

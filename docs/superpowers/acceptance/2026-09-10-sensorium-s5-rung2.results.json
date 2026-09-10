@@ -1,0 +1,1893 @@
+{
+  "record": "docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md",
+  "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+  "schema": "every measurement is {value, n, lens, dropped}; a null value with a non-empty dropped list is the only representation of 'not measured'; 0 is measured-and-zero",
+  "gated": {
+    "E6-TS": {
+      "value": 17,
+      "n": 17,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "filtered_to": null,
+      "pre_registered": {
+        "silent_swallow": 1,
+        "logged_catch": 1,
+        "callback_sink": 1,
+        "callback_handled": 1,
+        "await_rejection_caught": 1,
+        "finally_return": 1,
+        "dependency_throw": 1,
+        "rethrow_hop": 1,
+        "escaped_catch": 0,
+        "asserted_catch": 0,
+        "translated": 0,
+        "callback_escaped": 0,
+        "callback_opaque": 0,
+        "test_failed": 0,
+        "unhandled_rejection_in_info": 0,
+        "primitive_rethrow": 0,
+        "suspended_handler": 0
+      },
+      "differences": [],
+      "per_case": [
+        {
+          "case": "asserted_catch",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "exit": 0,
+          "question": "does-the-tool-accuse-a-test-of-swallowing",
+          "command": "exceptions 20260910-150638-7ef6db",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/asserted_catch"
+        },
+        {
+          "case": "await_rejection_caught",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "exit": 0,
+          "question": "did-the-failure-survive-the-await",
+          "command": "exceptions 20260910-150639-f5bc93",
+          "lines": [
+            "SWALLOWED -- caught by catch at e5 (<anonymous> L9) in f1, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/await_rejection_caught"
+        },
+        {
+          "case": "callback_escaped",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "exit": 0,
+          "question": "was-the-sync-conflict-swallowed",
+          "command": "exceptions 20260910-150639-01f1fd",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/callback_escaped"
+        },
+        {
+          "case": "callback_handled",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "exit": 0,
+          "question": "what-happened-to-the-refresh-rejection",
+          "command": "exceptions 20260910-150640-cd6dc8",
+          "lines": [
+            "SWALLOWED -- caught by catch_callback at e5 (<anonymous> L6) in f1, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/callback_handled"
+        },
+        {
+          "case": "callback_opaque",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "exit": 0,
+          "question": "does-the-tool-judge-a-handler-it-cannot-read",
+          "command": "exceptions 20260910-150640-3afac3",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/callback_opaque"
+        },
+        {
+          "case": "callback_sink",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "exit": 0,
+          "question": "what-happened-to-the-upstream-rejection",
+          "command": "exceptions 20260910-150641-d43ce4",
+          "lines": [
+            "SWALLOWED -- caught by sink_empty_catch_callback at e5 (<anonymous> L6) in f1, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/callback_sink"
+        },
+        {
+          "case": "dependency_throw",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "exit": 0,
+          "question": "what-happened-to-the-malformed-settings-file",
+          "command": "exceptions 20260910-150641-286e80",
+          "lines": [
+            "SWALLOWED -- caught by catch at e3 (readSettings L9) in f2, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/dependency_throw"
+        },
+        {
+          "case": "escaped_catch",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "exit": 0,
+          "question": "was-the-amount-failure-swallowed",
+          "command": "exceptions 20260910-150642-c95f4d",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/escaped_catch"
+        },
+        {
+          "case": "finally_return",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "exit": 0,
+          "question": "where-did-the-write-failure-go-with-no-catch",
+          "command": "exceptions 20260910-150643-9d9fa0",
+          "lines": [
+            "SWALLOWED -- caught by sink_finally_return at e4 (commit L9) in f2, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/finally_return"
+        },
+        {
+          "case": "logged_catch",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "exit": 0,
+          "question": "what-happened-to-the-quota-failure",
+          "command": "exceptions 20260910-150643-beab40",
+          "lines": [
+            "SWALLOWED -- caught by catch at e5 (quotaOrDefault L18) in f2, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/logged_catch"
+        },
+        {
+          "case": "primitive_rethrow",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 4",
+          "tally": {
+            "ambiguous": 4
+          },
+          "exit": 0,
+          "question": "can-the-thrown-string-be-followed",
+          "command": "exceptions 20260910-150644-26dd48",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/primitive_rethrow"
+        },
+        {
+          "case": "rethrow_hop",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1, re-raised 1",
+          "tally": {
+            "swallowed": 1,
+            "re-raised": 1
+          },
+          "exit": 0,
+          "question": "where-did-the-outage-go-through-two-clauses",
+          "command": "exceptions 20260910-150644-0e4dbc",
+          "lines": [
+            "SWALLOWED -- caught by catch at e8 (boot L24) in f2, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/rethrow_hop"
+        },
+        {
+          "case": "silent_swallow",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "exit": 0,
+          "question": "what-happened-to-the-parse-error",
+          "command": "exceptions 20260910-150645-b434e4",
+          "lines": [
+            "SWALLOWED -- caught by catch at e5 (loadConfig L19) in f2, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/silent_swallow"
+        },
+        {
+          "case": "suspended_handler",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "exit": 0,
+          "question": "did-the-parked-handler-swallow-the-queue-failure",
+          "command": "exceptions 20260910-150645-ba526c",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/suspended_handler"
+        },
+        {
+          "case": "test_failed",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: propagated 1",
+          "tally": {
+            "propagated": 1
+          },
+          "exit": 0,
+          "question": "how-far-did-the-empty-order-failure-get",
+          "command": "exceptions 20260910-150646-567c4c",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/test_failed"
+        },
+        {
+          "case": "translated",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 2",
+          "tally": {
+            "ambiguous": 2
+          },
+          "exit": 0,
+          "question": "what-became-of-the-original-decode-failure",
+          "command": "exceptions 20260910-150646-f57569",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/translated"
+        },
+        {
+          "case": "unhandled_rejection_in_info",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: uncaught 1",
+          "tally": {
+            "uncaught": 1
+          },
+          "exit": 0,
+          "question": "what-does-the-verdict-say-about-the-rejection",
+          "command": "exceptions 20260910-150647-6d8548",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/unhandled_rejection_in_info"
+        }
+      ],
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "stamped by the assembler from the session's own invocation; this instrument does not record its recorder itself"
+    },
+    "E6-TS\u2032": {
+      "value": 0,
+      "n": 30,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "rule": "0 false SWALLOWED; a false one -> STOP",
+      "invocation": "20260910-150809-cbc8de",
+      "exceptions_exit": 0,
+      "limit": 10000,
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_bin": "<worktree>/.venv/bin/sensorium",
+      "spool_set": "20260910-150809-cbc8de",
+      "tally_line": "dispositions: swallowed 261, ambiguous 53",
+      "tally": {
+        "swallowed": 261,
+        "ambiguous": 53
+      },
+      "shapes_total": 60,
+      "shapes_by_disposition": {
+        "AMBIGUOUS": 30,
+        "SWALLOWED": 30
+      },
+      "escaped_ambiguous": 13,
+      "needed_a_second_reading": 15,
+      "handled_by_how": {
+        "read": true,
+        "members": 372,
+        "counts": {
+          "catch": 36,
+          "catch_callback": 182,
+          "catch_escaped": 22,
+          "sink_empty_catch": 37,
+          "sink_empty_catch_callback": 8
+        }
+      },
+      "false_accusations": [],
+      "call_run": {
+        "wall": 38.13,
+        "harness_wall": 24.9513,
+        "load_1min": 0.64,
+        "exit": 0,
+        "suite_files_ok": true,
+        "suite_tests_ok": true,
+        "ok": true,
+        "invocation": "20260910-150809-cbc8de",
+        "duration_line": "Duration  24.59s (transform 21.87s, setup 15.03s, import 50.25s, tests 97.80s, environment 160.03s)",
+        "spool_files": 372,
+        "spool_bytes": 414599103,
+        "spool_lines": 4160786
+      },
+      "manifest": {
+        "lines": 748,
+        "sha256": "eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8",
+        "before_exit": 0,
+        "after_exit": 0,
+        "after_ok": 748
+      },
+      "wrapper": "absent",
+      "wrapper_listing": "node_modules/.sensorium: absent",
+      "markers": "searched: node_modules/.vite\nsearched: node_modules/.vite-temp\n",
+      "swallowed_shapes": [
+        {
+          "id": "S1",
+          "how": "catch_callback",
+          "sink_event": "e404",
+          "at": "probeAiConfigured L56",
+          "file": "<lens>/src/hooks/useAiAssist.ts",
+          "n": 130,
+          "run": "20260910-150810-4299a0",
+          "origin": "e404",
+          "head": "HANDLED probeAiConfigured handled Error('network down') L56",
+          "verdict": "caught by catch_callback at e404 (probeAiConfigured L56) in f174, which returned",
+          "detail": [
+            "born outside a throw statement (a reject())",
+            "messages: 2 distinct (first shown)"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "The binding reaches `console.warn` and nothing else; subscribers are notified with the constant `false` (fail-closed), which is the same value a genuinely unconfigured instance produces. \u00a77's \"a clause that only logs\". \u00d7130 over 11 processes."
+        },
+        {
+          "id": "S2",
+          "how": "catch_callback",
+          "sink_event": "e7828",
+          "at": "useBuilderContent.<anonymous> L72",
+          "file": "<lens>/src/lib/builder/useBuilderContent.ts",
+          "n": 13,
+          "run": "20260910-150810-db4191",
+          "origin": "e7827",
+          "head": "RAISE   useBuilderContent.<anonymous>.<anonymous> raise Error('builder-content fetch failed: 500') L66",
+          "verdict": "caught by catch_callback at e7828 (useBuilderContent.<anonymous> L72) in f3908, which returned",
+          "detail": [
+            "origins: 3 distinct (first shown)",
+            "messages: 5 distinct (first shown)",
+            "details vary (2 distinct; this one has none)"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "Parameterless: the handler cannot render the failure. `setRows([])` and `setError(true)` are constants; a consumer of the hook learns that something failed and nothing about what. Nothing of the error reached the caller."
+        },
+        {
+          "id": "S3",
+          "how": "sink_empty_catch",
+          "sink_event": "e22209",
+          "at": "createTokenSlice.saveTokenPosition L554",
+          "file": "<lens>/src/stores/roomStore.tokens.ts",
+          "n": 25,
+          "run": "20260910-150812-07972f",
+          "origin": "e22209",
+          "head": "HANDLED createTokenSlice.saveTokenPosition handled SyntaxError('Unexpected end of JSON input') L554",
+          "verdict": "caught by sink_empty_catch at e22209 (createTokenSlice.saveTokenPosition L554) in f11055, which returned",
+          "detail": [
+            "born outside traced code, at createTokenSlice.saveTokenPosition L554"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "An empty clause; the `SyntaxError` from `r.json()` (untraced) is discarded and `saveTokenPosition` returns. A deliberate swallow is still a swallow \u2014 \u00a77 asks whether the failure was discarded, not whether discarding it was wise."
+        },
+        {
+          "id": "S4",
+          "how": "catch",
+          "sink_event": "e4389",
+          "at": "InventoryTab.handleDrop L59",
+          "file": "<lens>/src/components/inventory/InventoryTab.tsx",
+          "n": 1,
+          "run": "20260910-150813-26effc",
+          "origin": "e4389",
+          "head": "HANDLED InventoryTab.handleDrop handled SyntaxError('Unexpected token \\'o\\', \"not-json{\" is not valid JSON') L59",
+          "verdict": "caught by catch at e4389 (InventoryTab.handleDrop L59) in f2154, which returned",
+          "detail": [
+            "born outside traced code, at InventoryTab.handleDrop L59"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; the handler returns and the drop silently does nothing. The `JSON.parse` failure reaches no channel."
+        },
+        {
+          "id": "S5",
+          "how": "catch_callback",
+          "sink_event": "e30467",
+          "at": "SpellCastControl.cast L406",
+          "file": "<lens>/src/components/pf2e/SpellCastControl.tsx",
+          "n": 1,
+          "run": "20260910-150814-05264a",
+          "origin": "e30465",
+          "head": "RAISE   <anonymous>.<anonymous>.<anonymous>.<anonymous>.json raise Error('not json') L719",
+          "verdict": "caught by catch_callback at e30467 (SpellCastControl.cast L406) in f15163, which returned",
+          "detail": [],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "Parameterless handler returning the constant `null`; `body` then flows into `detailMessage(body, '\u2026the server refused it.')`, which produces the FALLBACK message. The parse failure is invisible to every caller. Receiver is a promise (`r.json()`)."
+        },
+        {
+          "id": "S6",
+          "how": "sink_empty_catch_callback",
+          "sink_event": "e2289",
+          "at": "PlayerView.handleCreateMyCharacter L385",
+          "file": "<lens>/src/components/shell/PlayerView.tsx",
+          "n": 1,
+          "run": "20260910-150814-619ea2",
+          "origin": "e2288",
+          "head": "RAISE   createTokenSlice.createToken raise Error('create token failed') L199",
+          "verdict": "caught by sink_empty_catch_callback at e2289 (PlayerView.handleCreateMyCharacter L385) in f891, which returned",
+          "detail": [],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "An empty rejection handler on a promise chain. The textbook shape."
+        },
+        {
+          "id": "S7",
+          "how": "catch",
+          "sink_event": "e18324",
+          "at": "fetchFreshLevelingSettings L72",
+          "file": "<lens>/src/lib/leveling/startingLevel.ts",
+          "n": 2,
+          "run": "20260910-150814-619ea2",
+          "origin": "e18324",
+          "head": "HANDLED fetchFreshLevelingSettings handled Error('network down') L72",
+          "verdict": "caught by catch at e18324 (fetchFreshLevelingSettings L72) in f8868, which returned",
+          "detail": [
+            "born outside traced code, at fetchFreshLevelingSettings L72"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; the function returns the caller-supplied `fallback`, indistinguishable from the server having returned those values. Classic swallow."
+        },
+        {
+          "id": "S8",
+          "how": "sink_empty_catch",
+          "sink_event": "e835",
+          "at": "extractJsonObject L47",
+          "file": "<lens>/src/components/compendium/ItemEditor.tsx",
+          "n": 8,
+          "run": "20260910-150816-edf81a",
+          "origin": "e835",
+          "head": "HANDLED extractJsonObject handled SyntaxError('Unexpected token \\'o\\', \"not json at all\" is not valid JSON') L47",
+          "verdict": "caught by sink_empty_catch at e835 (extractJsonObject L47) in f386, which returned",
+          "detail": [
+            "born outside traced code, at extractJsonObject L47",
+            "messages: 8 distinct (first shown)"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "An empty clause; `extractJsonObject` recovers by a second route and returns. The caller never learns the direct parse failed."
+        },
+        {
+          "id": "S9",
+          "how": "catch",
+          "sink_event": "e275",
+          "at": "TurnCard.<anonymous>.<anonymous> L198",
+          "file": "<lens>/src/components/TurnCard.tsx",
+          "n": 1,
+          "run": "20260910-150818-6c6e37",
+          "origin": "e275",
+          "head": "HANDLED TurnCard.<anonymous>.<anonymous> handled TypeError('Failed to parse URL from /api/rooms/r1/encounters/enc1/combatants/c2/legal-actions') L198",
+          "verdict": "caught by catch at e275 (TurnCard.<anonymous>.<anonymous> L198) in f110, which returned",
+          "detail": [
+            "born outside traced code, at TurnCard.<anonymous>.<anonymous> L198"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; a fixed string is set into component state. Nothing of the error \u2014 type, message or site \u2014 reaches anything. Constant-signal family."
+        },
+        {
+          "id": "S10",
+          "how": "catch",
+          "sink_event": "e4227",
+          "at": "advanceGameClock L84",
+          "file": "<lens>/src/lib/combat/restFlow.ts",
+          "n": 1,
+          "run": "20260910-150819-6c5de1",
+          "origin": "e4227",
+          "head": "HANDLED advanceGameClock handled TypeError('Failed to parse URL from /api/rooms/r1/clock/advance') L84",
+          "verdict": "caught by catch at e4227 (advanceGameClock L84) in f2093, which returned",
+          "detail": [
+            "born outside traced code, at advanceGameClock L84"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; a constant message goes to the persist-error sink. The thrown value is discarded and `advanceGameClock` returns."
+        },
+        {
+          "id": "S11",
+          "how": "catch_callback",
+          "sink_event": "e370",
+          "at": "probeAiConfigured L56",
+          "file": "<lens>/src/hooks/useAiAssist.ts",
+          "n": 1,
+          "run": "20260910-150820-3e4dba",
+          "origin": "e370",
+          "head": "HANDLED probeAiConfigured handled TypeError('Failed to parse URL from /api/settings/ai') L56",
+          "verdict": "caught by catch_callback at e370 (probeAiConfigured L56) in f128, which returned",
+          "detail": [
+            "born outside a throw statement (a reject())"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "Same site, same clause; printed as its own shape only because the sink's frame id is `f128`, which the grouper's mask does not mask (see \u00a75's gap). Same verdict for the same reason."
+        },
+        {
+          "id": "S12",
+          "how": "catch",
+          "sink_event": "e217",
+          "at": "useGridDetect.<anonymous> L179",
+          "file": "<lens>/src/components/map/useGridDetect.ts",
+          "n": 1,
+          "run": "20260910-150820-8be528",
+          "origin": "e211",
+          "head": "RAISE   <anonymous>.<anonymous>.<anonymous> raise Error('tainted canvas') L114",
+          "verdict": "caught by catch at e217 (useGridDetect.<anonymous> L179) in f102, which returned",
+          "detail": [],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; `fallback()` takes no argument, so nothing of the error can travel with it. The caller sees the fallback grid and not the failure."
+        },
+        {
+          "id": "S13",
+          "how": "catch",
+          "sink_event": "e816",
+          "at": "VoiceTool.play L25",
+          "file": "<lens>/src/components/ai-prep/VoiceTool.tsx",
+          "n": 1,
+          "run": "20260910-150820-a1b77b",
+          "origin": "e816",
+          "head": "HANDLED VoiceTool.play handled TypeError(\"Cannot read properties of undefined (reading 'catch')\") L25",
+          "verdict": "caught by catch at e816 (VoiceTool.play L25) in f383, which returned",
+          "detail": [
+            "born outside traced code, at VoiceTool.play L25"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; a fixed string into state. Constant-signal family."
+        },
+        {
+          "id": "S14",
+          "how": "sink_empty_catch_callback",
+          "sink_event": "e129",
+          "at": "GuardedButton.<anonymous> L29",
+          "file": "<lens>/src/hooks/useActionGuard.test.tsx",
+          "n": 3,
+          "run": "20260910-150821-296264",
+          "origin": "e124",
+          "head": "RAISE   <anonymous>.<anonymous>.<anonymous> raise Error('server said no') L111",
+          "verdict": "caught by sink_empty_catch_callback at e129 (GuardedButton.<anonymous> L29) in f51, which returned",
+          "detail": [
+            "origins: 2 distinct (first shown)",
+            "messages: 2 distinct (first shown)"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "An empty rejection handler; the file's own comment says \"the rejection is absorbed at the call site\". `run` returns a promise."
+        },
+        {
+          "id": "S15",
+          "how": "catch_callback",
+          "sink_event": "e699",
+          "at": "useLiveKit.<anonymous> L88",
+          "file": "<lens>/src/hooks/useLiveKit.ts",
+          "n": 2,
+          "run": "20260910-150821-946290",
+          "origin": "e699",
+          "head": "HANDLED useLiveKit.<anonymous> handled TypeError('Failed to parse URL from /api/rooms/r1/livekit-token') L88",
+          "verdict": "caught by catch_callback at e699 (useLiveKit.<anonymous> L88) in f308, which returned",
+          "detail": [
+            "born outside a throw statement (a reject())"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "Parameterless; `false` is the constant a genuinely unconfigured room also produces. Nothing of the failure reaches the hook's consumers."
+        },
+        {
+          "id": "S16",
+          "how": "sink_empty_catch_callback",
+          "sink_event": "e703",
+          "at": "VoiceControls.<anonymous> L266",
+          "file": "<lens>/src/components/VoiceControls.tsx",
+          "n": 2,
+          "run": "20260910-150821-946290",
+          "origin": "e703",
+          "head": "HANDLED VoiceControls.<anonymous> handled TypeError('Failed to parse URL from /api/rooms/r1/members') L266",
+          "verdict": "caught by sink_empty_catch_callback at e703 (VoiceControls.<anonymous> L266) in f318, which returned",
+          "detail": [
+            "born outside a throw statement (a reject())"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "Empty handler on a `Promise.resolve(apiFetch(\u2026))` chain."
+        },
+        {
+          "id": "S17",
+          "how": "catch_callback",
+          "sink_event": "e77",
+          "at": "probeAiConfigured L56",
+          "file": "<lens>/src/hooks/useAiAssist.ts",
+          "n": 1,
+          "run": "20260910-150822-6724b0",
+          "origin": "e77",
+          "head": "HANDLED probeAiConfigured handled TypeError('Failed to parse URL from /api/settings/ai') L56",
+          "verdict": "caught by catch_callback at e77 (probeAiConfigured L56) in f32, which returned",
+          "detail": [
+            "born outside a throw statement (a reject())"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "Same site and clause; a separate shape only because the sink's frame id is `f32` (\u00a75's gap)."
+        },
+        {
+          "id": "S18",
+          "how": "catch_callback",
+          "sink_event": "e152",
+          "at": "useWebSocket.<anonymous>.ws.onopen L1143",
+          "file": "<lens>/src/hooks/useWebSocket.ts",
+          "n": 34,
+          "run": "20260910-150823-a0634f",
+          "origin": "e152",
+          "head": "HANDLED useWebSocket.<anonymous>.ws.onopen handled TypeError('history.map is not a function') L1143",
+          "verdict": "caught by catch_callback at e152 (useWebSocket.<anonymous>.ws.onopen L1143) in f43, which returned",
+          "detail": [
+            "born outside a throw statement (a reject())"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "The parameter is an argument of `console.error` and nothing else. \u00a77's \"a clause that only logs\". \u00d734."
+        },
+        {
+          "id": "S19",
+          "how": "catch",
+          "sink_event": "e72",
+          "at": "useMeshVoice.<anonymous> L506",
+          "file": "<lens>/src/hooks/useMeshVoice.ts",
+          "n": 19,
+          "run": "20260910-150823-d243d3",
+          "origin": "e72",
+          "head": "HANDLED useMeshVoice.<anonymous> handled ReferenceError('AudioContext is not defined') L506",
+          "verdict": "caught by catch at e72 (useMeshVoice.<anonymous> L506) in f31, which returned",
+          "detail": [
+            "born outside traced code, at useMeshVoice.<anonymous> L506"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; a constant `null` is assigned and the join proceeds on the raw mic. The source's own comment says the failure is non-fatal. \u00d719."
+        },
+        {
+          "id": "S20",
+          "how": "sink_empty_catch_callback",
+          "sink_event": "e180",
+          "at": "SetSceneCard.<anonymous> L57",
+          "file": "<lens>/src/components/onboarding/SetSceneCard.tsx",
+          "n": 2,
+          "run": "20260910-150824-d2a7c4",
+          "origin": "e180",
+          "head": "HANDLED SetSceneCard.<anonymous> handled TypeError('Failed to parse URL from /api/rooms/room-1') L57",
+          "verdict": "caught by sink_empty_catch_callback at e180 (SetSceneCard.<anonymous> L57) in f36, which returned",
+          "detail": [
+            "born outside a throw statement (a reject())"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "Empty handler on an `apiFetch` chain."
+        },
+        {
+          "id": "S21",
+          "how": "catch",
+          "sink_event": "e328",
+          "at": "SetSceneCard.handleUpload L78",
+          "file": "<lens>/src/components/onboarding/SetSceneCard.tsx",
+          "n": 1,
+          "run": "20260910-150824-d2a7c4",
+          "origin": "e328",
+          "head": "HANDLED SetSceneCard.handleUpload handled Error('nope') L78",
+          "verdict": "caught by catch at e328 (SetSceneCard.handleUpload L78) in f138, which returned",
+          "detail": [
+            "born outside traced code, at SetSceneCard.handleUpload L78"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; a fixed string into state. Constant-signal family."
+        },
+        {
+          "id": "S22",
+          "how": "catch",
+          "sink_event": "e100",
+          "at": "<anonymous>.attachMapToScene L2337",
+          "file": "<lens>/src/stores/roomStore.ts",
+          "n": 2,
+          "run": "20260910-150825-496492",
+          "origin": "e100",
+          "head": "HANDLED <anonymous>.attachMapToScene handled TypeError('history.map is not a function') L2337",
+          "verdict": "caught by catch at e100 (<anonymous>.attachMapToScene L2337) in f12, which returned",
+          "detail": [
+            "born outside traced code, at <anonymous>.attachMapToScene L2337"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "The binding reaches `console.warn` and nothing else. The source says the word itself."
+        },
+        {
+          "id": "S23",
+          "how": "sink_empty_catch",
+          "sink_event": "e31",
+          "at": "useDraggable.<anonymous> L22",
+          "file": "<lens>/src/hooks/useDraggable.ts",
+          "n": 1,
+          "run": "20260910-150826-1a995a",
+          "origin": "e31",
+          "head": "HANDLED useDraggable.<anonymous> handled SyntaxError('Unexpected token \\'o\\', \"not json\" is not valid JSON') L22",
+          "verdict": "caught by sink_empty_catch at e31 (useDraggable.<anonymous> L22) in f17, which returned",
+          "detail": [
+            "born outside traced code, at useDraggable.<anonymous> L22"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "An empty clause; the initializer falls through to `fallback()`."
+        },
+        {
+          "id": "S24",
+          "how": "sink_empty_catch",
+          "sink_event": "e33",
+          "at": "copyText L17",
+          "file": "<lens>/src/lib/clipboard.ts",
+          "n": 1,
+          "run": "20260910-150826-831d76",
+          "origin": "e33",
+          "head": "HANDLED copyText handled Error('denied') L17",
+          "verdict": "caught by sink_empty_catch at e33 (copyText L17) in f13, which returned",
+          "detail": [
+            "born outside traced code, at copyText L17"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "An empty clause; control falls through to `legacyCopy(text)`."
+        },
+        {
+          "id": "S25",
+          "how": "catch",
+          "sink_event": "e46",
+          "at": "legacyCopy L41",
+          "file": "<lens>/src/lib/clipboard.ts",
+          "n": 1,
+          "run": "20260910-150826-831d76",
+          "origin": "e46",
+          "head": "HANDLED legacyCopy handled TypeError('document.execCommand is not a function') L41",
+          "verdict": "caught by catch at e46 (legacyCopy L41) in f19, which returned",
+          "detail": [
+            "born outside traced code, at legacyCopy L41"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; `ok` is a constant `false` and is what the function returns. The caller learns copying failed and nothing about why. Constant-signal family."
+        },
+        {
+          "id": "S26",
+          "how": "catch",
+          "sink_event": "e390",
+          "at": "createHooks.dispatch L98",
+          "file": "<lens>/src/lib/modules/hooks.ts",
+          "n": 2,
+          "run": "20260910-150826-f51018",
+          "origin": "e389",
+          "head": "RAISE   <anonymous>.<anonymous>.<anonymous> raise Error('boom') L131",
+          "verdict": "caught by catch at e390 (createHooks.dispatch L98) in f190, which returned",
+          "detail": [
+            "origins: 2 distinct (first shown)"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "The binding is an argument of `console.error` and nothing else. \u00a77's \"a clause that only logs\"."
+        },
+        {
+          "id": "S27",
+          "how": "catch",
+          "sink_event": "e99",
+          "at": "<anonymous>.createDrawing L2689",
+          "file": "<lens>/src/stores/roomStore.ts",
+          "n": 1,
+          "run": "20260910-150828-180272",
+          "origin": "e99",
+          "head": "HANDLED <anonymous>.createDrawing handled Error('offline') L2689",
+          "verdict": "caught by catch at e99 (<anonymous>.createDrawing L2689) in f39, which returned",
+          "detail": [
+            "born outside traced code, at <anonymous>.createDrawing L2689"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; the optimistic drawing is rolled back and the action returns. The drawing vanishes and no channel says why."
+        },
+        {
+          "id": "S28",
+          "how": "catch",
+          "sink_event": "e115",
+          "at": "createAssetSlice.uploadArtFile L61",
+          "file": "<lens>/src/stores/roomStore.assets.ts",
+          "n": 1,
+          "run": "20260910-150829-9a1ad6",
+          "origin": "e115",
+          "head": "HANDLED createAssetSlice.uploadArtFile handled Error('network down') L61",
+          "verdict": "caught by catch at e115 (createAssetSlice.uploadArtFile L61) in f40, which returned",
+          "detail": [
+            "born outside traced code, at createAssetSlice.uploadArtFile L61"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; `undefined` is the same value the `!res.ok` branch returns, so a network failure and a refused upload are indistinguishable to the caller."
+        },
+        {
+          "id": "S29",
+          "how": "catch",
+          "sink_event": "e125",
+          "at": "createAssetSlice.tokenizeAsset L81",
+          "file": "<lens>/src/stores/roomStore.assets.ts",
+          "n": 1,
+          "run": "20260910-150829-9a1ad6",
+          "origin": "e125",
+          "head": "HANDLED createAssetSlice.tokenizeAsset handled Error('network down') L81",
+          "verdict": "caught by catch at e125 (createAssetSlice.tokenizeAsset L81) in f43, which returned",
+          "detail": [
+            "born outside traced code, at createAssetSlice.tokenizeAsset L81"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "As S28, in `tokenizeAsset`; the source says \"same fix, same reasoning\"."
+        },
+        {
+          "id": "S30",
+          "how": "catch",
+          "sink_event": "e217",
+          "at": "loadPrefs L80",
+          "file": "<lens>/src/lib/appearance.ts",
+          "n": 1,
+          "run": "20260910-150829-ab9851",
+          "origin": "e217",
+          "head": "HANDLED loadPrefs handled SyntaxError(\"Expected property name or '}' in JSON at position 1 (line 1 column 2)\") L80",
+          "verdict": "caught by catch at e217 (loadPrefs L80) in f109, which returned",
+          "detail": [
+            "born outside traced code, at loadPrefs L80"
+          ],
+          "unparsed": null,
+          "adjudged": "TRUE",
+          "reason": "No binding; the defaults are returned, indistinguishable from a browser that had never stored preferences."
+        }
+      ],
+      "table_header": "| id | site | how | source | verdict | second reading | reason |",
+      "recorder_basis": "own"
+    },
+    "E8\u2033": {
+      "value": 32,
+      "n": 32,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "rule": "every marker's record present per shape; a missing one -> STOP",
+      "swallow_markers": 19,
+      "escape_markers": 13,
+      "per_shape": {
+        "shape1": {
+          "markers": 2,
+          "checks": [
+            {
+              "id": "swallow:shape1:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape1:exc",
+              "ok": true
+            }
+          ],
+          "seen": 2,
+          "ok": true
+        },
+        "shape2": {
+          "markers": 1,
+          "checks": [
+            {
+              "id": "swallow:shape2:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape2:exc",
+              "ok": true
+            }
+          ],
+          "seen": 1,
+          "ok": true
+        },
+        "shape4": {
+          "markers": 2,
+          "checks": [
+            {
+              "id": "swallow:shape4:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape4:exc",
+              "ok": true
+            }
+          ],
+          "seen": 2,
+          "ok": true
+        },
+        "shape5": {
+          "markers": 4,
+          "checks": [
+            {
+              "id": "swallow:shape5:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape5:exc",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape5:serial",
+              "ok": true
+            }
+          ],
+          "seen": 4,
+          "ok": true
+        },
+        "shape6": {
+          "markers": 2,
+          "checks": [
+            {
+              "id": "swallow:shape6:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape6:exc",
+              "ok": true
+            }
+          ],
+          "seen": 2,
+          "ok": true
+        },
+        "shape7": {
+          "markers": 2,
+          "checks": [
+            {
+              "id": "swallow:shape7:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape7:exc",
+              "ok": true
+            }
+          ],
+          "seen": 2,
+          "ok": true
+        },
+        "shape8": {
+          "markers": 1,
+          "checks": [
+            {
+              "id": "swallow:shape8:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape8:exc",
+              "ok": true
+            }
+          ],
+          "seen": 1,
+          "ok": true
+        },
+        "shape9": {
+          "markers": 1,
+          "checks": [
+            {
+              "id": "swallow:shape9:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape9:exc",
+              "ok": true
+            }
+          ],
+          "seen": 1,
+          "ok": true
+        },
+        "shape10": {
+          "markers": 1,
+          "checks": [
+            {
+              "id": "swallow:shape10:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape10:exc",
+              "ok": true
+            }
+          ],
+          "seen": 1,
+          "ok": true
+        },
+        "shape11": {
+          "markers": 1,
+          "checks": [
+            {
+              "id": "swallow:shape11:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape11:exc",
+              "ok": true
+            }
+          ],
+          "seen": 1,
+          "ok": true
+        },
+        "shape12": {
+          "markers": 2,
+          "checks": [
+            {
+              "id": "swallow:shape12:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape12:exc",
+              "ok": true
+            }
+          ],
+          "seen": 2,
+          "ok": true
+        }
+      },
+      "escape": {
+        "markers": 13,
+        "seen": 13,
+        "count_check": true,
+        "how_check": true,
+        "wrong": [],
+        "asserted": true
+      },
+      "checker": {
+        "ok": true,
+        "mode": "vitest",
+        "spools": 11,
+        "checks": 96,
+        "failures": []
+      },
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "own"
+    },
+    "E2\u2033": {
+      "value": 1,
+      "n": 287,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "dropped": [],
+      "files": 741,
+      "seen_total": 287,
+      "spliced_total": 287,
+      "by_site_kind": {
+        "catch_clauses": 177,
+        "callback_sites": 108,
+        "then_sites": 2,
+        "finally_completing": 0
+      },
+      "spliced": {
+        "catch_clause": 177,
+        "callback_site": 108,
+        "then_site": 2
+      },
+      "by_how": {
+        "catch": 87,
+        "sink_empty_catch": 68,
+        "catch_escaped": 22,
+        "catch_callback": 49,
+        "sink_empty_catch_callback": 58,
+        "catch_callback_escaped": 2,
+        "catch_callback_opaque": 1
+      },
+      "excluded_by_design": [],
+      "unspliced": [],
+      "excluded_files": {
+        "skip": 5
+      },
+      "parse_error": [],
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "stamped by the assembler from the session's own invocation; this instrument does not record its recorder itself"
+    },
+    "E3-TS\u2033": {
+      "value": 0,
+      "n": 19,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "test_file": "src/__tests__/useMeshVoice.test.tsx",
+      "recordings": 20,
+      "recordings_with_a_trace": 20,
+      "first": "20260910-150716-435ede",
+      "pairs": 19,
+      "diverged": 0,
+      "refused": 0,
+      "match": 19,
+      "bad_call": 0,
+      "verdicts": [
+        "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+      ],
+      "detail": {
+        "match": [
+          {
+            "k": 2,
+            "run": "20260910-150717-11ad5d",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 3,
+            "run": "20260910-150718-30a917",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 4,
+            "run": "20260910-150719-1eb8e4",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 5,
+            "run": "20260910-150721-dc72e5",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 6,
+            "run": "20260910-150722-128b96",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 7,
+            "run": "20260910-150723-e70e4d",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 8,
+            "run": "20260910-150724-655501",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 9,
+            "run": "20260910-150725-1cd418",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 10,
+            "run": "20260910-150726-9f2b49",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 11,
+            "run": "20260910-150727-cf41c5",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 12,
+            "run": "20260910-150729-2791d7",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 13,
+            "run": "20260910-150730-c2d520",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 14,
+            "run": "20260910-150731-b7d32e",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 15,
+            "run": "20260910-150732-9a4192",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 16,
+            "run": "20260910-150733-2991d1",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 17,
+            "run": "20260910-150734-9f1784",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 18,
+            "run": "20260910-150735-070cb6",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 19,
+            "run": "20260910-150737-e73262",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          },
+          {
+            "k": 20,
+            "run": "20260910-150738-9327a4",
+            "verdict": "MATCH -- identical causal streams (398 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared"
+          }
+        ],
+        "diverged": [],
+        "refused": [],
+        "bad_call": [],
+        "no_trace": []
+      },
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "stamped by the assembler from the session's own invocation; this instrument does not record its recorder itself"
+    },
+    "E5\u2033": {
+      "value": 2,
+      "n": 2,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "dropped": [],
+      "claims": {
+        "vitest_full_suite_green": true,
+        "node_test_probe_green": true
+      },
+      "vitest": {
+        "exit": 0,
+        "suite_files_ok": true,
+        "suite_tests_ok": true,
+        "ok": true,
+        "duration_line": "Duration  24.59s (transform 21.87s, setup 15.03s, import 50.25s, tests 97.80s, environment 160.03s)",
+        "invocation": "20260910-150809-cbc8de"
+      },
+      "node_test": {
+        "ok": true,
+        "mode": "nodetest",
+        "spools": 3,
+        "checks": 25,
+        "failures": []
+      },
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "stamped by the assembler from the session's own invocation; this instrument does not record its recorder itself"
+    },
+    "E7\u2033": {
+      "value": 0,
+      "n": 2,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "dropped": [],
+      "rule": "0 occurrences of the nine needles over both transcripts; plus v30-v33 green",
+      "needles": {
+        "oid": "\\boid\\b",
+        "chain": "\\bchain\\b",
+        "Err": "\\bErr\\b",
+        "asyncio": "asyncio",
+        "python ?": "python ?",
+        "cargo": "cargo",
+        "coroutine": "coroutine",
+        "Rust disposition": "Rust disposition",
+        "Python's own": "Python's own"
+      },
+      "case_sensitive": [
+        "Err",
+        "chain",
+        "oid"
+      ],
+      "halves": {
+        "single_trace_reader": {
+          "occurrences": {
+            "oid": 0,
+            "chain": 0,
+            "Err": 0,
+            "asyncio": 0,
+            "python ?": 0,
+            "cargo": 0,
+            "coroutine": 0,
+            "Rust disposition": 0,
+            "Python's own": 0
+          },
+          "total": 0,
+          "transcript_lines": 704,
+          "context_mentions_not_gated": {
+            "python": 0,
+            "rust": 0,
+            "asyncio task": 0
+          }
+        },
+        "e6tsp_invocation": {
+          "occurrences": {
+            "oid": 0,
+            "chain": 0,
+            "Err": 0,
+            "asyncio": 0,
+            "python ?": 0,
+            "cargo": 0,
+            "coroutine": 0,
+            "Rust disposition": 0,
+            "Python's own": 0
+          },
+          "total": 0,
+          "transcript_lines": 167,
+          "context_mentions_not_gated": {
+            "python": 0,
+            "rust": 0,
+            "asyncio task": 0
+          }
+        }
+      },
+      "commands": [
+        {
+          "command": "runs",
+          "exit": 0
+        },
+        {
+          "command": "info",
+          "exit": 0
+        },
+        {
+          "command": "tree",
+          "exit": 0
+        },
+        {
+          "command": "frame",
+          "exit": 0
+        },
+        {
+          "command": "grep",
+          "exit": 0
+        },
+        {
+          "command": "excs",
+          "exit": 0
+        },
+        {
+          "command": "watch",
+          "exit": 3
+        },
+        {
+          "command": "flow",
+          "exit": 3
+        },
+        {
+          "command": "diff",
+          "exit": 1
+        },
+        {
+          "command": "refocus",
+          "exit": 2
+        }
+      ],
+      "vectors": {
+        "selector": "v30 or v31 or v32 or v33",
+        "exit": 0,
+        "summary": "8 passed, 61 deselected in 0.38s",
+        "green": true
+      },
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "stamped by the assembler from the session's own invocation; this instrument does not record its recorder itself"
+    },
+    "E1\u2034": {
+      "value": 1.0608,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "dropped": [],
+      "rule_arm": "off/plain, harness wall, conversion excluded",
+      "load_guard": {
+        "threshold": 4.0,
+        "n": 15,
+        "max": 3.91,
+        "min": 2.83,
+        "all_under_threshold": true,
+        "readings": [
+          {
+            "arm": "plain",
+            "batch": 1,
+            "run": 1,
+            "load_1min": 3.62
+          },
+          {
+            "arm": "off",
+            "batch": 1,
+            "run": 1,
+            "load_1min": 3.87
+          },
+          {
+            "arm": "call",
+            "batch": 1,
+            "run": 1,
+            "load_1min": 3.77
+          },
+          {
+            "arm": "plain",
+            "batch": 2,
+            "run": 2,
+            "load_1min": 2.83
+          },
+          {
+            "arm": "off",
+            "batch": 2,
+            "run": 2,
+            "load_1min": 3.19
+          },
+          {
+            "arm": "call",
+            "batch": 2,
+            "run": 2,
+            "load_1min": 3.01
+          },
+          {
+            "arm": "plain",
+            "batch": 3,
+            "run": 3,
+            "load_1min": 3.12
+          },
+          {
+            "arm": "off",
+            "batch": 3,
+            "run": 3,
+            "load_1min": 3.72
+          },
+          {
+            "arm": "call",
+            "batch": 3,
+            "run": 3,
+            "load_1min": 3.23
+          },
+          {
+            "arm": "plain",
+            "batch": 4,
+            "run": 4,
+            "load_1min": 3.91
+          },
+          {
+            "arm": "off",
+            "batch": 4,
+            "run": 4,
+            "load_1min": 3.54
+          },
+          {
+            "arm": "call",
+            "batch": 4,
+            "run": 4,
+            "load_1min": 3.82
+          },
+          {
+            "arm": "plain",
+            "batch": 5,
+            "run": 5,
+            "load_1min": 3.66
+          },
+          {
+            "arm": "off",
+            "batch": 5,
+            "run": 5,
+            "load_1min": 3.7
+          },
+          {
+            "arm": "call",
+            "batch": 5,
+            "run": 5,
+            "load_1min": 3.74
+          }
+        ]
+      },
+      "arms": {
+        "plain": {
+          "runs": 5,
+          "walls": [
+            22.1346,
+            22.1465,
+            22.0945,
+            22.0751,
+            22.0217
+          ],
+          "dropped": [],
+          "loads": [
+            3.62,
+            2.83,
+            3.12,
+            3.91,
+            3.66
+          ],
+          "median": 22.0945,
+          "min": 22.0217,
+          "max": 22.1465,
+          "mean": 22.0945,
+          "stdev": 0.05
+        },
+        "off": {
+          "runs": 5,
+          "walls": [
+            23.4369,
+            23.3214,
+            23.9345,
+            23.5579,
+            23.2963
+          ],
+          "dropped": [],
+          "loads": [
+            3.87,
+            3.19,
+            3.72,
+            3.54,
+            3.7
+          ],
+          "median": 23.4369,
+          "min": 23.2963,
+          "max": 23.9345,
+          "mean": 23.5094,
+          "stdev": 0.2594
+        },
+        "call": {
+          "runs": 5,
+          "walls": [
+            24.8921,
+            24.9396,
+            24.9056,
+            24.8511,
+            24.8117
+          ],
+          "dropped": [],
+          "loads": [
+            3.77,
+            3.01,
+            3.23,
+            3.82,
+            3.74
+          ],
+          "median": 24.8921,
+          "min": 24.8117,
+          "max": 24.9396,
+          "mean": 24.88,
+          "stdev": 0.0496
+        }
+      },
+      "driver_total_wall": {
+        "off": {
+          "runs": 5,
+          "walls": [
+            23.5058,
+            23.3897,
+            24.0815,
+            23.6275,
+            23.3656
+          ],
+          "dropped": [],
+          "loads": [
+            3.87,
+            3.19,
+            3.72,
+            3.54,
+            3.7
+          ],
+          "median": 23.5058,
+          "min": 23.3656,
+          "max": 24.0815,
+          "mean": 23.594,
+          "stdev": 0.2917
+        },
+        "call": {
+          "runs": 5,
+          "walls": [
+            38.1101,
+            38.3353,
+            40.1609,
+            40.3683,
+            40.7587
+          ],
+          "dropped": [],
+          "loads": [
+            3.77,
+            3.01,
+            3.23,
+            3.82,
+            3.74
+          ],
+          "median": 40.1609,
+          "min": 38.1101,
+          "max": 40.7587,
+          "mean": 39.5467,
+          "stdev": 1.2301
+        }
+      },
+      "off_over_plain": 1.0608,
+      "call_over_plain": 1.1266,
+      "off_total_over_plain": 1.0639,
+      "call_total_over_plain": 1.8177,
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "stamped by the assembler from the session's own invocation; this instrument does not record its recorder itself"
+    },
+    "E10\u2033-suite": {
+      "value": 16.0715,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "label": "suite",
+      "jobs": 16,
+      "spools": 372,
+      "spool_bytes": 414599103,
+      "walls": [
+        15.997,
+        16.0386,
+        16.5827,
+        16.3689,
+        16.0715
+      ],
+      "reps": [
+        {
+          "rep": 1,
+          "wall": 15.997,
+          "exit": 0,
+          "traces": 372,
+          "load_1min": 3.77,
+          "maxrss_kb": 281612
+        },
+        {
+          "rep": 2,
+          "wall": 16.0386,
+          "exit": 0,
+          "traces": 372,
+          "load_1min": 3.53,
+          "maxrss_kb": 281932
+        },
+        {
+          "rep": 3,
+          "wall": 16.5827,
+          "exit": 0,
+          "traces": 372,
+          "load_1min": 3.19,
+          "maxrss_kb": 281372
+        },
+        {
+          "rep": 4,
+          "wall": 16.3689,
+          "exit": 0,
+          "traces": 372,
+          "load_1min": 3.27,
+          "maxrss_kb": 281048
+        },
+        {
+          "rep": 5,
+          "wall": 16.0715,
+          "exit": 0,
+          "traces": 372,
+          "load_1min": 3.84,
+          "maxrss_kb": 281896
+        }
+      ],
+      "min": 15.997,
+      "max": 16.5827,
+      "loads": [
+        3.77,
+        3.53,
+        3.19,
+        3.27,
+        3.84
+      ],
+      "maxrss_kb": 281932,
+      "converter_bin": "<worktree>/.venv/bin/sensorium",
+      "converter_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "stamped by the assembler from the session's own invocation; this instrument does not record its recorder itself"
+    },
+    "E10\u2033-file": {
+      "value": 0.1642,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "label": "file",
+      "jobs": 16,
+      "spools": 1,
+      "spool_bytes": 611325,
+      "walls": [
+        0.1857,
+        0.1835,
+        0.1642,
+        0.1604,
+        0.1625
+      ],
+      "reps": [
+        {
+          "rep": 1,
+          "wall": 0.1857,
+          "exit": 0,
+          "traces": 1,
+          "load_1min": 3.2,
+          "maxrss_kb": 26992
+        },
+        {
+          "rep": 2,
+          "wall": 0.1835,
+          "exit": 0,
+          "traces": 1,
+          "load_1min": 3.2,
+          "maxrss_kb": 26620
+        },
+        {
+          "rep": 3,
+          "wall": 0.1642,
+          "exit": 0,
+          "traces": 1,
+          "load_1min": 3.2,
+          "maxrss_kb": 26648
+        },
+        {
+          "rep": 4,
+          "wall": 0.1604,
+          "exit": 0,
+          "traces": 1,
+          "load_1min": 3.2,
+          "maxrss_kb": 27036
+        },
+        {
+          "rep": 5,
+          "wall": 0.1625,
+          "exit": 0,
+          "traces": 1,
+          "load_1min": 3.2,
+          "maxrss_kb": 26800
+        }
+      ],
+      "min": 0.1604,
+      "max": 0.1857,
+      "loads": [
+        3.2,
+        3.2,
+        3.2,
+        3.2,
+        3.2
+      ],
+      "maxrss_kb": 27036,
+      "converter_bin": "<worktree>/.venv/bin/sensorium",
+      "converter_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "stamped by the assembler from the session's own invocation; this instrument does not record its recorder itself"
+    }
+  },
+  "reported": {
+    "handled_by_how_on_the_lens_run": {
+      "value": 285,
+      "n": 372,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "dropped": [],
+      "counts": {
+        "catch": 36,
+        "catch_callback": 182,
+        "catch_escaped": 22,
+        "sink_empty_catch": 37,
+        "sink_empty_catch_callback": 8
+      },
+      "recording": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recording_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "stamped by the assembler from the session's own invocation; this instrument does not record its recorder itself"
+    },
+    "lens_run_spool": {
+      "value": 414599103,
+      "n": 1,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "dropped": [],
+      "unit": "bytes",
+      "spool_files": 372,
+      "spool_lines": 4160786,
+      "harness_wall": 24.9513,
+      "driver_wall": 38.13,
+      "recording": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recording_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "stamped by the assembler from the session's own invocation; this instrument does not record its recorder itself"
+    },
+    "catch_escaped_share": {
+      "value": 0.1243,
+      "n": 177,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "dropped": [],
+      "rule": "catch clauses the transform wrote `catch_escaped` on, over the catch clauses it spliced (the escape rule's own verdict distribution over the lens; no run has to happen to read it)",
+      "by_how": {
+        "catch": 87,
+        "sink_empty_catch": 68,
+        "catch_escaped": 22,
+        "catch_callback": 49,
+        "sink_empty_catch_callback": 58,
+        "catch_callback_escaped": 2,
+        "catch_callback_opaque": 1
+      },
+      "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "stamped by the assembler from the session's own invocation; this instrument does not record its recorder itself"
+    }
+  },
+  "recorded_by": {
+    "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
+    "commit": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7"
+  }
+}

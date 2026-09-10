@@ -1,18 +1,22 @@
 program: vitest
-harness_args: ["run", "exceptions_refused"]
+harness_args: ["run", "silent_swallow"]
 questions:
   - id: what-happened-to-the-parse-error
     ask: >
       The config file could not be parsed and the caller got a config
       anyway. What happened to the error?
     truth: >
-      It was caught and dropped, and this recorder REFUSES to say so, at
-      exit 3. The refusal is not about a missing record -- the RAISE and the
-      HANDLED are both in this trace -- but about a missing RULE: no
-      TypeScript disposition rules exist in 0.1.0, and the Python rules
-      index an exception identity a TypeScript trace does not carry. The
-      sentence says which rung owes the rules and that nothing was judged,
-      so the reader knows the answer is unwritten rather than negative.
+      It was caught and dropped, and this recorder now says so: SWALLOWED,
+      naming the `catch` clause that took it, the frame that then returned
+      a healthy-looking default, and the throw it never let past. The
+      binding `e` is bound and used nowhere, so the transform recorded the
+      clause as `catch` -- had the clause returned or stored `e`, the same
+      rows would read AMBIGUOUS instead, which is the line these rules
+      refuse to cross. Before these rules existed this question was
+      answered with a REFUSAL at exit 3; the refusal no recording can
+      produce any more lives on as
+      `v32-err-flow-typescript-capability-refusal`, on a 0.1.x-shaped
+      trace.
     why_logs_fail: >
       An empty `catch` is exactly the shape that prints nothing: the whole
       point of the bug is that the failure reaches no channel. A
@@ -22,23 +26,26 @@ questions:
       was called. A stack trace would have been printed if the error had
       escaped, and it did not.
     command: ["exceptions", "$RUN"]
-    expect_exit: 3
-    expect_contains:
-      - "REFUSED: exceptions on a typescript trace needs the TypeScript
-         disposition rules (S5 rung 2); the Python rules index exception
-         identity this trace does not carry; nothing was judged"
+    expect_exit: 0
+    expect_line:
+      - ["SWALLOWED -- caught by catch at e5 (loadConfig L19) in f2, which
+          returned"]
+      - ["dispositions: swallowed 1"]
   - id: are-the-rows-there-at-all
     ask: >
       Is the refusal because nothing was recorded, or because nothing can be
       judged?
     truth: >
-      Because nothing can be judged. This trace holds one RAISE and one
-      HANDLED beside its three CALLs and two RETURNs -- the throw statement
-      and the catch clause were both recorded -- and the recorder still
-      declares `err_flow=no`, which is its statement that those rows do not
-      yet carry what a disposition verdict needs. The two facts sit on
-      adjacent lines of one command's output, which is the only way a reader
-      can tell "no record" from "no rule".
+      Because nothing can be judged -- not because nothing was recorded,
+      and, as of `sensorium-ts` 0.2.0, not because nothing was declared
+      either. This trace holds one RAISE and one HANDLED beside its three
+      CALLs and two RETURNs -- the throw statement and the catch clause were
+      both recorded -- and the recorder now declares `err_flow=yes`, its own
+      statement that those rows carry what a disposition verdict needs.
+      `exceptions` reads them by rule, and the capability is what says it
+      may: a recording whose `err_flow` is `no` is refused before any rule
+      touches an event, because the capability and the rule are two
+      different things and only the recorder can speak for the first.
     why_logs_fail: >
       This is a question about the instrument, not the program, and all
       three channels answer about the program. A `console.log` says what the
@@ -51,8 +58,8 @@ questions:
     command: ["info", "$RUN"]
     expect_line:
       - ["recorded: CALL 3", "RETURN 2", "RAISE 1", "HANDLED 1"]
-      - ["capabilities:", "err_flow=no"]
-      - ["recorder: sensorium-ts 0.1.1", "lang: typescript"]
+      - ["capabilities:", "err_flow=yes"]
+      - ["recorder: sensorium-ts 0.2.0", "lang: typescript"]
   - id: what-does-the-trace-show-happened
     ask: >
       Without a verdict, what does the recording show about that call?

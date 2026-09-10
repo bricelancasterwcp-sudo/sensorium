@@ -1,6 +1,6 @@
 {
   "id": "v23-lang-typescript-prose",
-  "asserts": "Every sentence a reader prints about a `lang: typescript` trace is that recorder's own. The interpreter line is `node <meta.node>` with the harness and environment beside it, a unit of work is a `test`, a `coroutine` frame is marked `[async]` (JavaScript's word for it, `typescript/HONESTY.md` §1), `runs` heads the invocation with the harness command and its waited exit and lists a member by the test file it ran, and `exceptions` REFUSES at exit 3 because no TypeScript disposition rules exist yet. The command both of them print is `meta.harness_command`, the tokens the user typed after `--` -- `npx vitest run src/fog` -- and never `harness` + `harness_args` rebuilt into one, which would drop the `npx` here and the user's own `--root` elsewhere. The `unhandled rejections: 0` on a COMPLETE trace is a measured zero and not a silence -- the `unhandledRejection` listener always ran -- which is why it prints where the transform's empty exclusion map prints no clause at all. None of `asyncio`, `Python's own`, `threading/_thread`, `coroutine`, `python ?`, `cargo` or `Rust disposition` may appear anywhere: each is a claim about machinery this trace does not carry, and `python ?` names an interpreter that never ran.",
+  "asserts": "Every sentence a reader prints about a `lang: typescript` trace is that recorder's own. The interpreter line is `node <meta.node>` with the harness and environment beside it, a unit of work is a `test`, a `coroutine` frame is marked `[async]` (JavaScript's word for it, `typescript/HONESTY.md` §1), `runs` heads the invocation with the harness command and its waited exit and lists a member by the test file it ran, and `exceptions` REFUSES this 0.1.0 recording at exit 3 through the capability it declares false, because what it lacks is the throw-flow RECORD (the rules shipped as `exceptions_typescript`; the sentence naming absent rules is retired). The command both of them print is `meta.harness_command`, the tokens the user typed after `--` -- `npx vitest run src/fog` -- and never `harness` + `harness_args` rebuilt into one, which would drop the `npx` here and the user's own `--root` elsewhere. The `unhandled rejections: 0` on a COMPLETE trace is a measured zero and not a silence -- the `unhandledRejection` listener always ran -- which is why it prints where the transform's empty exclusion map prints no clause at all. None of `asyncio`, `Python's own`, `threading/_thread`, `coroutine`, `python ?`, `cargo` or `Rust disposition` may appear anywhere: each is a claim about machinery this trace does not carry, and `python ?` names an interpreter that never ran.",
   "copies": 2,
   "meta": {
     "trace_format": 4,
@@ -151,13 +151,13 @@
     },
     {
       "id": "exceptions-refuses-a-typescript-trace",
-      "ask": "Does `exceptions` refuse a TypeScript trace naming the language and the rung its rules are owed in, rather than judging it by Python's or Rust's rules?",
+      "ask": "Does `exceptions` refuse an 0.1.0 TypeScript recording through the capability that recording declares false -- what it lacks being the record -- rather than by naming absent rules, which now exist?",
       "command": ["exceptions", "$RUN"],
       "expect_exit": 3,
       "expect_contains": [
-        "REFUSED: exceptions on a typescript trace needs the TypeScript disposition rules (S5 rung 2); the Python rules index exception identity this trace does not carry; nothing was judged"],
-      "expect_absent": ["Rust disposition", "Err values", "raised (",
-                        "no exceptions recorded", "SWALLOWED"]
+        "REFUSED: exceptions needs err_flow, which recorder sensorium-ts 0.1.0 declares it does not produce (capabilities.err_flow: false); nothing was checked"],
+      "expect_absent": ["Rust disposition", "Err values", "disposition rules",
+                        "raised (", "no exceptions recorded", "SWALLOWED"]
     }
   ]
 }

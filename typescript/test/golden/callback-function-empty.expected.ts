@@ -1,0 +1,3 @@
+import * as __srt from "RT";const __sfile=__srt.file("src/callback-function-empty.ts","/w/src/callback-function-empty.ts",[["dropped",1,"function"],["dropped.<anonymous>",2,"function"]],"f8bb4d54cdf251ab61ff59c490b61f20e82cbd2958e75e6223b42f1bb6557078");export function dropped(): Promise<void> {const __sf=__srt.call(__sfile,0);try{
+  return __srt.ret(__sf,(risky().catch(__srt.catchCb(__sf,2,"sink_empty_catch_callback",(function () {const __sf=__srt.call(__sfile,1);try{;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}})))));
+;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}

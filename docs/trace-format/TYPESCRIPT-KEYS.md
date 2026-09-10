@@ -49,6 +49,74 @@ the conversion counted.
 | `unhandled_rejections` | `[{type, msg, serial}]` from `process.on('unhandledRejection')` — a fact with no SITE, so it is here and never in `events` (§5). `info` prints the count, **including a zero on a complete trace**: the listener always ran, so that zero is measured. |
 | `throw_flow_outside_frames` | RAISE/HANDLED records that fired with no open frame — a throw at module scope, a default-parameter expression that threw before its frame opened. There is no frame to attach an event to, so none was written; the count is the only trace of them. Printed when non-zero. |
 
+## Throw flow
+
+> Moved here on 2026-09-10 (S5 rung 2) from `docs/TRACE-FORMAT.md` §5, unchanged — that file stood at 799 of its 800 lines and this rung amends this section, so it moves whole before it is amended.
+> That is R25's precedent, the same way §4's key table moved into this file in rung 1: one commit moves a section without changing a byte of it, another edits it in its new home.
+
+A TypeScript `exc` is `{kind, type, msg, serial}` and **`kind` is written on every
+one** — `"throw"` or `"rejection"` — because a kindless `exc` is read as Python's
+(TRACE-FORMAT §5). `serial` is minted per thrown **object** through a `WeakMap`, so
+`catch (e) { throw e }` is one exception with two RAISE rows; a thrown **primitive**
+has none to hang it on and gets a fresh serial each time, stated rather than papered
+over by merging on text. Vectors: `v25-exc-kind-throw-rejection`,
+`v27-unhandled-rejection-in-meta`.
+
+**`how`** names the shape that recorded the event, and the enumeration is the
+declaration — a shape outside it produced no record: `throw` (the RAISE a `throw`
+statement writes when it fires); `catch` (the binding never left the clause, or
+left it only as a `console.*` argument); `catch_escaped` (the binding left the
+clause other than through a `console.*` argument). A **bare rethrow** —
+`throw e;` at closure depth 0, whose operand after any parentheses is the
+binding itself — is a traced EXIT and not a mention, so it does not make a
+clause `catch_escaped`, and, by the same rule read over a rejection handler's
+parameter, does not make one `catch_callback_escaped` either
+(`.catch((e) => { throw e })` is `catch_callback`, while
+`.catch((e) => { seen.push(e); throw e })` and `.catch((e) => { throw wrap(e) })`
+stay `catch_callback_escaped`); the RAISE it writes carries the same serial and
+the rule module reads the pair as a hop (amended 2026-09-10, spec §2.1). Then
+`sink_empty_catch` (an empty
+`catch {}` block); `catch_callback` (an inline rejection handler whose parameter
+never left its body, or left it only as a `console.*` argument);
+`catch_callback_escaped` (an inline rejection handler whose parameter left its body
+some other way); `catch_callback_opaque` (a handler defined elsewhere);
+`sink_empty_catch_callback` (an inline rejection handler with an empty body); and
+`sink_finally_return` (a `finally` that completes with a throw in flight, whose
+`exc` is the marked throw's own, COMPLETE — `kind`, `type`, `msg` and `serial`
+exactly as the RAISE (or the synthetic marking clause) wrote them, nothing unread:
+the mark holds the whole `exc` object, not just its serial. Two shapes are
+declared blind spots instead (P1): a `try` that already has its own `catch`
+clause gets no synthetic marking clause (only a catch-less `try` gains one,
+`transform.mjs`'s `spliceFinally`), so an awaited callee rejecting inside that
+catch's body, then a completing `finally`, records nothing — a *synchronous*
+`throw` inside that same body is a `raise` and marks as usual; and `thr` (a
+callee's frame closing by throw) sets no mark of its own, so a throw a callee
+unwound with reaches the caller's mark only through the caller's own synthetic
+clause, never any other way). What is still recorded by nothing: a
+`finally` with no completion statement; `.finally(fn)`, never a handler;
+a `Promise.reject(v)`, whose handler's HANDLED carries no RAISE and reads *born
+outside a throw statement*; a throw inside a promise executor with no open frame,
+counted in `throw_flow_outside_frames`; and a throw in untraced code (`JSON.parse`,
+a library), whose HANDLED likewise carries no RAISE and reads *born outside traced
+code*.
+
+`sensorium-ts` 0.2.0 declares `capabilities.err_flow: true` in its BOOT record, and
+the converter carries that declaration into `meta` over the constant it otherwise
+writes (`src/sensorium/ts/build.py`). What the declaration guarantees is the
+recorder's own statement that these rows now carry what a disposition verdict
+needs. Reading them by rule is `src/sensorium/query/exceptions_typescript.py`'s,
+and the refusal is gated on this key rather than on `lang`: a 0.2.0 recording is
+JUDGED — five words, `swallowed` the only accusation among them
+(`v30-exceptions-typescript-swallowed`, `v31-exceptions-typescript-escaped-ambiguous`)
+— and a 0.1.x one refuses at exit 3 with the capability sentence, because what
+it lacks is the record (`v32-err-flow-typescript-capability-refusal`). The
+lang-keyed sentence that named absent TypeScript rules is retired.
+
+Two things go to `meta` and never to `events`, because §3 refuses a causal event
+with no `code_id` and inventing a code object would put a site in the program that
+has none: an unhandled rejection (`unhandled_rejections`, `[{type, msg, serial}]`)
+and a RAISE/HANDLED with no open frame (`throw_flow_outside_frames`).
+
 ## What is deliberately absent
 
 `records_dropped` is **never written by this recorder**. A container killed

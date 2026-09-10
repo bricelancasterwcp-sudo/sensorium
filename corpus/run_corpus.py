@@ -187,7 +187,7 @@ def ts_ready(root: Path = ROOT) -> bool:
 
     Two conditions, and neither is checkable from the YAML: the corpus
     project's dependencies have to be installed (one `npm ci` for all
-    thirteen cases -- they share one project) and node has to be at least
+    twenty-eight cases -- they share one project) and node has to be at least
     the version the recorder was measured on. The floor is imported from
     the recorder itself rather than spelled again here, so a corpus that
     skips and a driver that refuses cannot disagree about which node is
@@ -443,7 +443,7 @@ def _copy_ts_project(case: Case, wd: Path) -> None:
     the checkout.
 
     `node_modules` is SYMLINKED and not copied: an installed vitest is
-    hundreds of megabytes and thirteen copies of it would be the whole cost
+    hundreds of megabytes and one copy per case would be the whole cost
     of the run. The driver writes its wrapper under
     `<root>/node_modules/.sensorium/` and removes it in a `finally`, so the
     link means that one directory appears in the real tree for the length of

@@ -520,7 +520,7 @@ ground truth, the exact invocation expected to yield it, and why a `print()`
 cannot answer it. Ground truth is known because the bugs were planted. This is
 the regression suite, and it includes the honesty cases — the ones whose
 pinned answer is a REFUSAL. Twenty Python programs with thirty-nine questions,
-forty-three Rust cases, thirteen TypeScript cases: all of them case by case in
+forty-three Rust cases, twenty-eight TypeScript cases: all of them case by case in
 [`docs/corpus.md`](docs/corpus.md), moved there 2026-09-09 so this file stays
 under 800 lines, wording unchanged. A case whose recorder is not built is
 reported skipped BY NAME and counted apart from the passes, never as them;
@@ -719,7 +719,7 @@ neither section here states one as a translation of the other.
 `sensorium ts run -- vitest run` records a TypeScript or JavaScript test suite
 the way `cargo sensorium test` records a Rust workspace: one trace per
 test-file process, trace format 4, read by the same `sensorium` command line.
-`typescript/` ships **`sensorium-ts 0.1.1`** — a transform whose edits never
+`typescript/` ships **`sensorium-ts 0.2.0`** — a transform whose edits never
 contain a newline, a runtime on `AsyncLocalStorage`, a vitest plugin, a
 `node --test` hook — with driver and converter in Python, so reading a trace
 needs no Node. What it sees and does not is
@@ -734,9 +734,12 @@ Everything after `--` is yours, spawned as typed, and the driver exits with
 the harness's own status. Tier `call` records calls and returns with a captured
 value, YIELD/RESUME at every `await`/`yield`, RAISE at every `throw`, HANDLED
 at every `catch`, and **tests as tasks** named as vitest names them, so `tree`
-groups by test and `diff` compares one test against itself. `watch`, `flow` and
-`exceptions` **refuse** at exit 3 on capabilities this version declares false
-(`line`, `object_identity`, `err_flow` — the disposition rules are rung 2);
+groups by test and `diff` compares one test against itself. `exceptions`
+**answers** on a 0.2.0 recording — the same five dispositions, computed from a
+`how` word the transform decides from each handler's own syntax, and merged
+across a whole invocation — while a trace an 0.1.x runtime wrote still refuses
+at exit 3 on `err_flow: false`. `watch` and `flow` **refuse** at exit 3 on
+capabilities this version declares false (`line`, `object_identity`);
 `refocus` refuses at exit 2; package scripts, jest, a project with no
 `typescript` of its own and a vitest `projects`/`workspace` config are
 refused by name; arguments are unread and say so.
@@ -760,6 +763,11 @@ plain arm's band **[22.3136, 22.7221]**. Nothing was re-rolled; it is
 re-measured next slice under a new pre-registration, E6″. **E10 is REPORTED**,
 above its bound, so the converter's language is design input for the next
 rung — the second branch its own rule named.
+
+**Rung 2 ships DONE**: `exceptions` answers on a TypeScript trace, measured at
+**0 false SWALLOWED of 30** hand-adjudicated shapes on that same suite, with
+`off/plain` **1.0608** and `call/plain` **1.1266**
+(`docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md`).
 
 ## Not yet
 

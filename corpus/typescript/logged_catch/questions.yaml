@@ -1,0 +1,35 @@
+program: vitest
+harness_args: ["run", "logged_catch"]
+questions:
+  - id: what-happened-to-the-quota-failure
+    ask: >
+      The settings string could not be read as a quota and the caller got a
+      quota anyway. What happened to the failure?
+    truth: >
+      It went to `console.error` and nowhere else, and `exceptions` calls
+      that a SWALLOWED: the `catch` clause at e5 took it and `quotaOrDefault`
+      then returned 10, so no caller can tell a read quota from a default
+      one. The `how` word on the row is `catch` and not `catch_escaped`
+      BECAUSE the clause logged the binding -- log-and-continue is the
+      archetypal swallow, the log is where the failure went, and a log is
+      not a return value. Change `console.error(e)` to `report(e)` and the
+      same two rows read AMBIGUOUS instead, because then something other
+      than the console received it and the rule does not follow where.
+    why_logs_fail: >
+      This is the one case where a `console.log` DOES fire -- and it still
+      does not answer the question, because what the reader needs is not the
+      error text but the fact that the frame RETURNED under it: the log line
+      and a successful read look identical from every caller above. Worse,
+      a run that logs is a run whose failure is easy to mistake for handled.
+      `DEBUG=*` enables namespaced loggers and this program registers none,
+      so it adds nothing to the console line already there. And no stack
+      trace is printed, because the error never escaped the `catch` -- the
+      channel that would have named both the throw site and the frames it
+      passed is exactly the one a swallow suppresses.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e4 RAISE", "readQuota raise Error('not a quota: eleven') L10"]
+      - ["SWALLOWED -- caught by catch at e5 (quotaOrDefault L18) in f2,
+          which returned"]
+      - ["dispositions: swallowed 1"]

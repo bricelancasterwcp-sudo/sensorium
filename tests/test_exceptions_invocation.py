@@ -490,13 +490,20 @@ def test_a_member_without_err_flow_refuses_the_whole(
     assert "SWALLOWED" not in o and "raised (" not in o, o
 
 
-def test_a_member_that_is_not_a_rust_trace_refuses_the_whole(
+def test_a_member_of_an_unruled_language_refuses_the_whole(
         tmp_path, monkeypatch, capsys):
-    """Only the Rust driver writes `meta.invocation`, so this member cannot
-    exist -- and what it would be missing is a RULE, not a record, so the
-    refusal names the language rather than a capability. The fixture is
+    """Only the two drivers that write `meta.invocation` -- Rust's and
+    TypeScript's -- can put a member here, so this member cannot exist, and
+    what it would be missing is a RULE, not a record: the refusal names the
+    languages that ARE ruled rather than a capability. The fixture is
     deliberately incoherent (a trace declaring `lang: python` that carries
-    an invocation id): the refusal must fire before anything reads it."""
+    an invocation id): the refusal must fire before anything reads it.
+
+    *Amended 2026-09-10, S5 rung 2:* the sentence said "is defined for Rust
+    traces" while TypeScript members are now judged too, so it named one of
+    the two languages it answers for. This assertion is the sentence's
+    byte-pin, and it moves in the same commit the sentence does.
+    """
     swallow_trace(tmp_path, monkeypatch, run_id=M1, invocation=INV,
                   cargo_args=CARGO)
     quiet_trace(tmp_path, monkeypatch, run_id=M2, invocation=INV,
@@ -504,7 +511,8 @@ def test_a_member_that_is_not_a_rust_trace_refuses_the_whole(
     assert cli.main(["exceptions", INV]) == UNSETTLED
     o = out(capsys)
     assert ("REFUSED: exceptions across an invocation is defined for Rust "
-            f"traces; member {M2} is python") in o, o
+            f"and TypeScript traces; member {M2} is python, which is not "
+            "ruled") in o, o
     assert "SWALLOWED" not in o and "raised (" not in o, o
 
 

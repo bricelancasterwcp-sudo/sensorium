@@ -1,0 +1,35 @@
+program: vitest
+harness_args: ["run", "callback_handled"]
+questions:
+  - id: what-happened-to-the-refresh-rejection
+    ask: >
+      The token refresh was rejected and the test carried on. What happened
+      to the rejection?
+    truth: >
+      A rejection callback logged it and returned: SWALLOWED, `caught by
+      catch_callback`, in the test's own frame, which then returned. It is
+      the `logged_catch` swallow written as a promise -- same disposition,
+      different route -- and the `how` word is the whole of what says which
+      of the two the program wrote: `catch_callback` for an inline handler
+      whose only mention of its parameter is a logging call, against `catch`
+      for a clause. The verdict adds `born outside a throw statement (a
+      reject())`, because no `throw` in traced code minted this failure and
+      the tool will not name a site it does not have.
+    why_logs_fail: >
+      This is the case where a `console.log` DOES print -- and it still does
+      not answer the question, because the reader needs to know that the
+      frame RETURNED under the failure, and the console line looks the same
+      whether the refresh succeeded or was dropped. `DEBUG=*` enables
+      namespaced loggers this program never registers, so it adds nothing to
+      the line already there. And no stack trace appears: attaching a
+      handler is what suppresses Node's unhandled-rejection report, so the
+      channel that would have named the failure is off precisely because a
+      handler exists.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e5 HANDLED", "handled Error('token expired') L6"]
+      - ["SWALLOWED -- caught by catch_callback at e5 (<anonymous> L6) in
+          f1, which returned"]
+      - ["born outside a throw statement (a reject())"]
+      - ["dispositions: swallowed 1"]

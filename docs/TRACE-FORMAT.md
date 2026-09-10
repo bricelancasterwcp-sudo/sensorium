@@ -354,7 +354,7 @@ What reads each one today:
 | `stdin` | Gates `stdin_consumed`. |
 | `refocus` | `refocus` refuses outright, through the same `caps.require` sentence, before anything is re-run — a rerun has side effects, so it is not something to attempt speculatively. That refusal exits **2**, not 3: nothing was re-run, so the reader's next move is a different command; `refocus`'s POST-rerun `verdict: REFUSED` exits 3. **For `lang = rust`, this is `true` for traces converted by cargo-sensorium ≥ 0.5.0** (design 2026-09-07 §2.2): the recorder CAN be re-invoked, and whether one PARTICULAR trace can be refocused is a refusal, not a capability — a trace of a multi-process invocation is refused by `refocus` at exit 2, naming the count and the single-target selector, not by the capability; `meta.refocus_of` links the re-run to its original. |
 | `locals`, `return_value`, `tasks` | Declared, and printed by `info`; no command gates on them yet. Declare them truthfully anyway — a false declaration is a lie the readers will eventually act on. |
-| `err_flow` | **Rust-only, and not in the list above**: `boot.CAPABILITIES` is the column the Python recorder also answers, and this key belongs to neither column — it is the RUNTIME's own statement that its records carry err flow, declared by `sensorium-rt` ≥ 0.3.0 in the process header and passed through untouched (`convert/meta.rs::capabilities_json`). A converter that wrote `true` on its own authority would be declaring a capability for a spool set that has none, so a header without it reads `false`. `exceptions` on a Rust trace needs it; see the amended rule below. |
+| `err_flow` | **Rust and TypeScript, and not in the list above**: `boot.CAPABILITIES` is the column the Python recorder also answers, and this key belongs to neither column — it is each RUNTIME's own statement that its records carry err flow, declared by `sensorium-rt` ≥ 0.3.0 in the process header or by `sensorium-ts` ≥ 0.2.0 in the BOOT record, and passed through untouched by its own converter (`convert/meta.rs::capabilities_json`, `ts/build.py::_meta`). A converter that wrote `true` on its own authority would be declaring a capability for a spool set that has none, so a header or a BOOT without it reads `false`. **The Python column never declares it.** `exceptions` reads this key on BOTH (the amended rule below): a recording that declares it is judged by its own language's rules, and one that does not refuses through the capability. |
 
 One refusal used to be keyed on `lang` rather than on a capability, because
 what was missing was not a record but a **rule**: `exceptions` on a
@@ -376,15 +376,15 @@ languages part ways:
 - `rust` → `caps.require(trace, "err_flow", "exceptions")`. A rung-2 trace
   (`sensorium-rt` 0.2.0, no `err_flow` in its header) takes the standard
   capability sentence and exits **3** — the recording is what would have to
-  change, and re-running it under a rung-3 runtime is the reader's next
-  move. A trace that declares it gets the Rust dispositions.
-- anything else → the lang-keyed refusal above, kept verbatim; only its
-  `rust` branch retires.
+  change — and one that declares it gets the Rust dispositions.
+- `typescript` → the same gate, read the same way, from `sensorium-ts` 0.2.0.
+- anything else → the lang-keyed refusal above. NO language carries one
+  today; every `vocab` column is `None`, and the sentence awaits a fourth.
 
-Vectors: `v14-rust-refusals` pins the lang-keyed refusal, and pins it for
-Rust until the Rust rule module (`query/exceptions_rust.py`) ships with the
-dispositions; `v19-err-flow-capability-refusal` pins the capability refusal
-and replaces `v14`'s `exceptions` question when it does.
+Vectors: `v14-rust-refusals` and `v23-lang-typescript-prose` each pinned the
+lang-keyed refusal until that language's rules shipped;
+`v19-err-flow-capability-refusal` and `v32-err-flow-typescript-capability-refusal`
+pin the capability refusal that replaced it, `v30`/`v31` the TypeScript verdicts.
 
 `Trace.declares(cap)` has **three** answers, and the three are different
 facts (`query/caps.witness_gap`):
@@ -479,7 +479,7 @@ Python sentence is a regression, and the legacy suite is the fence.
 | what ran the program | `python <meta.python>` | `toolchain: <meta.toolchain>` | `node <meta.node>`, with `(vitest <meta.vitest>, <meta.environment>)` beside it |
 | a runtime-minted name | `Task-N` is read as no name at all | none exist; every name is the program's | none exist; `.each` rows are renamed by the harness into names that are the program's |
 | `frames.kind` markers | the contract's own words: `[coroutine]`, `[generator]`, `[async_generator]` | the contract's own words | `[async]`, `[generator]`, `[async generator]` — JavaScript has no coroutines |
-| `exceptions` | these rules ARE Python's | its own rules (rung 3), gated on `capabilities.err_flow` | REFUSED at exit 3: no disposition rules yet (S5 rung 2) |
+| `exceptions` | these rules ARE Python's | its own rules (rung 3), gated on `capabilities.err_flow` | its own rules (rung 2), gated on `capabilities.err_flow` |
 
 TypeScript column added 2026-09-09 (S5 rung 1); the `terms()` fallback retired with it — an unknown `lang` is refused at open (the `lang` row). Amended the same day (R26/R27a): the `runs` header prints `harness_command` and is chosen by `lang`.
 
@@ -612,25 +612,7 @@ Vector: `v16-raise-handled-chain-serial-kind`.
 
 ### TypeScript throw flow: `exc.kind` and `how`
 
-A TypeScript `exc` is `{kind, type, msg, serial}` and **`kind` is written on every
-one** — `"throw"` or `"rejection"` — because a kindless `exc` is read as Python's
-(above). `serial` is minted per thrown **object** through a `WeakMap`, so `catch (e)
-{ throw e }` is one exception with two RAISE rows; a thrown **primitive** has none
-to hang it on and gets a fresh serial each time, stated rather than papered over by
-merging on text. Vectors: `v25-exc-kind-throw-rejection`,
-`v27-unhandled-rejection-in-meta`.
-
-**`how`** names the shape that recorded the event, and the enumeration is the
-declaration: `throw`, `catch`, `sink_empty_catch`, `sink_empty_catch_callback` (a
-`catch {}` and a `.catch(() => {})` whose body is empty). A shape outside it
-produced no record — a `.catch(fn)` with a non-empty body and `finally` are recorded
-by nothing. The rows are not judged: `capabilities.err_flow` is false in
-`sensorium-ts 0.1.0` although they exist, so `exceptions` refuses at exit 3.
-
-Two things go to `meta` and never to `events`, because §3 refuses a causal event
-with no `code_id` and inventing a code object would put a site in the program that
-has none: an unhandled rejection (`unhandled_rejections`, `[{type, msg, serial}]`)
-and a RAISE/HANDLED with no open frame (`throw_flow_outside_frames`).
+Moved 2026-09-10 to [docs/trace-format/TYPESCRIPT-KEYS.md](trace-format/TYPESCRIPT-KEYS.md) § Throw flow, unchanged (S5 rung 2, the R25 precedent).
 
 ### closed_by, unwind_exc, and the panic mapping
 

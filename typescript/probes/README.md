@@ -109,8 +109,9 @@ it; this file is the equivalent rule for the capture no script performs.
 | `src/async.probe.test.ts` | E3 S1–S4 and the T1/T2 negative control, `node` |
 | `src/async.jsdom.probe.test.ts` | the same under `// @vitest-environment jsdom` |
 | `src/sites.probe.test.ts`, `src/sites.component.tsx` | E4: 20 shapes, each under a `// SITE <name>` marker |
-| `src/swallow.probe.test.ts` | E8 shapes 1, 2, 4, 5, each row under a `// SWALLOW <shape> <kind> <how>` marker |
+| `src/swallow.probe.test.ts` | E8 shapes 1, 2 and 4-12, each row under a `// SWALLOW <shape> <kind> <how>` marker: the catch words, the four callback shapes and the `finally` sink |
 | `src/swallow3.probe.test.ts` | E8 shape 3, the rejection nobody handles |
+| `src/escape.probe.test.ts` | E8: one `catch` clause per mention position of spec §2.1, each under an `// ESCAPE <id> <how>` marker naming the word its HANDLED must carry |
 | `src/each.probe.test.ts` | `test.each`: three rows, three names, no `#k` |
 | `src/concurrent.probe.test.ts` | the naming hazard, counted and reported, never gated |
 | `src/never_settles.probe.test.ts` | a frame that parks and never returns |
@@ -125,9 +126,9 @@ it; this file is the equivalent rule for the capture no script performs.
 | `check.mjs` | reads every spool and asserts; JSON on stdout |
 | `vitest.config.ts` | the probe files, plus the recorder's own wiring under `SENSORIUM_PROBE_DIRECT=1` |
 
-The `// SITE` and `// SWALLOW` markers are read by `check.mjs` out of the source,
-so no line number is written down twice: move a function and its expectation
-moves with it.
+The `// SITE`, `// SWALLOW` and `// ESCAPE` markers are read by `check.mjs` out
+of the source, so no line number is written down twice: move a function and its
+expectation moves with it.
 
 ## The versions
 

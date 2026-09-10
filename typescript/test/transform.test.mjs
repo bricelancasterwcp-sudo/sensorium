@@ -85,7 +85,7 @@ function instrumentedOf(name) {
 const inputs = goldenInputs();
 
 test('the golden set is not empty', () => {
-  assert.ok(inputs.length >= 13, `only ${inputs.length} goldens found`);
+  assert.ok(inputs.length >= 39, `only ${inputs.length} goldens found`);
 });
 
 for (const name of inputs) {
@@ -123,6 +123,35 @@ for (const name of inputs) {
     }
   });
 }
+
+/**
+ * The two goldens whose calls hold a `SpreadElement`, and what must be true of
+ * each: how many rejection handlers were wrapped, and which spread text came
+ * through untouched.
+ */
+const SPREAD_GOLDENS = [
+  { name: 'callback-spread.ts', wrapped: 1, untouched: ['risky().catch(...args)'] },
+  { name: 'then-spread.ts', wrapped: 0, untouched: [', ...rest)', 'then(...rest, '] },
+];
+
+test('a spread argument leaves the call alone, and the output still parses', () => {
+  // The property a splice may never break: the consumer's module has to LOAD.
+  // A `SpreadElement` cannot be parenthesised, so `p.catch(...args)` wrapped by
+  // position produced `catchCb(…,(...args))` — "'=>' expected." from the very
+  // parser the transform reads positions with, and a program the recorder broke
+  // by observing it. `transformSource` parse-checks its input and never its
+  // output, so nothing downstream would have caught it.
+  for (const { name, wrapped, untouched } of SPREAD_GOLDENS) {
+    const { code, file } = runGolden(name);
+    assert.deepEqual(parseDiagnosticsOf(file, code).map((d) => d.messageText), [],
+      `${name}: the transformed output must parse`);
+    assert.equal((code.match(/__srt\.catchCb\(/g) ?? []).length, wrapped,
+      `${name}: only the handlers with no spread beside them are wrapped`);
+    for (const text of untouched) {
+      assert.ok(code.includes(text), `${name}: ${text} came through untouched`);
+    }
+  }
+});
 
 test('qualnames: JavaScript spelling, file-local, no ordinals', () => {
   assert.deepEqual(instrumentedOf('qualnames.ts'), [

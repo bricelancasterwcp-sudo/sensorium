@@ -42,6 +42,14 @@ LENS_DIR="${1-}"; STORE="${2-}"; OUT="${3-}"; BATCH="${4-}"
 #: infrastructure, not a slow arm.
 WANT_FILES=' Test Files  372 passed (372)'
 WANT_TESTS='      Tests  4278 passed (4278)'
+#: The recorder the two driver arms run. The default is the GLOBAL tool, which
+#: is what rung 1 measured and what this file's history is; a rung that ships a
+#: new recorder passes its own `.venv/bin/sensorium` here, because "what does
+#: the product cost NOW" is a question about the product this branch built and
+#: not about the one already installed. The global tool is never reinstalled
+#: from a worktree, so this variable is the ONLY way the two can differ.
+SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"
+
 #: The pre-registered load refusal, and how long the guard is willing to wait.
 LOAD_MAX=4.0
 LOAD_TRIES=90
@@ -78,9 +86,9 @@ one_run() {
   case "$arm" in
     plain) ( cd "$LENS_DIR" && npx vitest run ) >"$log" 2>&1 ;;
     off)   ( cd "$LENS_DIR" && SENSORIUM_DIR="$STORE" \
-             sensorium ts run --tier off -- npx vitest run ) >"$log" 2>&1 ;;
+             "$SENSORIUM_BIN" ts run --tier off -- npx vitest run ) >"$log" 2>&1 ;;
     call)  ( cd "$LENS_DIR" && SENSORIUM_DIR="$STORE" \
-             sensorium ts run -- npx vitest run ) >"$log" 2>&1 ;;
+             "$SENSORIUM_BIN" ts run -- npx vitest run ) >"$log" 2>&1 ;;
     *) refuse "unknown arm: $arm" ;;
   esac
   status=$?

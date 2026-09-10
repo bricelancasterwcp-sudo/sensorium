@@ -1,0 +1,704 @@
+# E7' — every reader command on one product trace
+#
+# Lens: VTT frontend at 0091e97 — vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059
+# Trace: a full-suite call-arm recording of one VTT test file.
+# Three literal paths are rewritten: the store root reads <store>,
+# the project root <lens> and the home directory <home>.
+# Taken: 2026-09-10T15:15:55-05:00
+
+$ sensorium runs
+invocation 20260910-150809-cbc8de: npx vitest run  exit:0 (waited)
+  20260910-150810-056d73  exit:unwitnessed  events:35116  file: src/components/sheet/LevelUpFlow.test.tsx
+  20260910-150810-34511f  exit:unwitnessed  events:15556  file: src/__tests__/compendiumPanelBuilderTypes.test.tsx
+  20260910-150810-4299a0  exit:unwitnessed  events:1505  file: src/hooks/useAiAssist.test.ts
+  20260910-150810-466f87  exit:unwitnessed  events:51057  file: src/__tests__/builderDispatch.test.tsx
+  20260910-150810-56a613  exit:unwitnessed  events:12162  file: src/__tests__/EffectEditor.test.tsx
+  20260910-150810-65de48  exit:unwitnessed  events:44890  file: src/components/sheet/SheetRenderer.rankControl.test.tsx
+  20260910-150810-72f712  exit:unwitnessed  events:45506  file: src/__tests__/CharacterSheetEditor.test.tsx
+  20260910-150810-86f5ce  exit:unwitnessed  events:11912  file: src/__tests__/CompendiumPanel.test.tsx
+  20260910-150810-8e656e  exit:unwitnessed  events:41644  file: src/__tests__/srdBrowsersSystemGate.test.tsx
+  20260910-150810-9c79e8  exit:unwitnessed  events:70882  file: src/components/Dnd5eSheetBody.multiclass.test.tsx
+  20260910-150810-c57c35  exit:unwitnessed  events:29946  file: src/components/sheet/SheetRenderer.writeThrough.test.tsx
+  20260910-150810-ced059  exit:unwitnessed  events:49115  file: src/components/sheet/Pf2eSpellPanel.test.tsx
+  20260910-150810-db4191  exit:unwitnessed  events:8575  file: src/__tests__/characterWizard.test.tsx
+  20260910-150810-e84a3d  exit:unwitnessed  events:275010  file: src/__tests__/SpellBrowser.test.tsx
+  20260910-150810-fdbc2e  exit:unwitnessed  events:189450  file: src/components/sheet/SpellCastPanel.test.tsx
+  20260910-150812-07972f  exit:unwitnessed  events:23802  file: src/__tests__/helpOverlay.test.tsx
+  20260910-150812-cbf18e  exit:unwitnessed  events:30416  file: src/__tests__/monsterBrowserSpeed.test.tsx
+  20260910-150813-26effc  exit:unwitnessed  events:10679  file: src/components/inventory/InventoryTab.test.tsx
+  20260910-150813-541b6b  exit:unwitnessed  events:1230  file: src/__tests__/AiSetupWizard.test.tsx
+  20260910-150813-70d45d  exit:unwitnessed  events:28116  file: src/components/sheet/SheetRenderer.pf2eIntegration.test.tsx
+  20260910-150813-874324  exit:unwitnessed  events:914  file: src/__tests__/LobbyChangePassword.test.tsx
+  20260910-150813-d8904a  exit:unwitnessed  events:3512  file: src/__tests__/rulesAssistant.test.tsx
+  20260910-150813-fa928f  exit:unwitnessed  events:8547  file: src/components/sheet/RestControls.test.tsx
+  20260910-150814-05264a  exit:unwitnessed  events:40773  file: src/components/pf2e/SpellCastControl.test.tsx
+  20260910-150814-1d59d3  exit:unwitnessed  events:812  file: src/__tests__/LobbyDeleteAccount.test.tsx
+  20260910-150814-3c9fdb  exit:unwitnessed  events:5588  file: src/__tests__/TurnCard.test.tsx
+  20260910-150814-529ade  exit:unwitnessed  events:22154  file: src/__tests__/CharacterSheetEditorConversion.test.tsx
+  20260910-150814-619ea2  exit:unwitnessed  events:19563  file: src/__tests__/PlayerView.test.tsx
+  20260910-150814-6f9a82  exit:unwitnessed  events:1097  file: src/__tests__/CharacterCreator.test.tsx
+  20260910-150814-84f411  exit:unwitnessed  events:3310  file: src/__tests__/draftFromDescription.test.tsx
+  20260910-150814-8dfae1  exit:unwitnessed  events:1613  file: src/__tests__/passwordFloor.test.tsx
+  20260910-150814-c667f9  exit:unwitnessed  events:6752  file: src/components/map/TokenHud.test.tsx
+  20260910-150814-ec3d23  exit:unwitnessed  events:19784  file: src/__tests__/GmCockpit.test.tsx
+  20260910-150815-0095da  exit:unwitnessed  events:6969  file: src/__tests__/VoiceControls.test.tsx
+  20260910-150815-167129  exit:unwitnessed  events:3202  file: src/__tests__/featEditor.test.tsx
+  20260910-150815-8337eb  exit:unwitnessed  events:11495  file: src/__tests__/PlayerViewResponsive.test.tsx
+  20260910-150815-a95fa1  exit:unwitnessed  events:1974  file: src/components/sheet/AttackRow.test.tsx
+  20260910-150815-f7b2d9  exit:unwitnessed  events:4203  file: src/__tests__/CombatTrackerDeathSaves.test.tsx
+  20260910-150815-fdc250  exit:unwitnessed  events:917  file: src/__tests__/levelUpSuggest.test.tsx
+  20260910-150815-fe993a  exit:unwitnessed  events:8298  file: src/components/sheet/SpellCastRow.test.tsx
+  20260910-150816-01b94b  exit:unwitnessed  events:2402  file: src/__tests__/PlayersListPasswordReset.test.tsx
+  20260910-150816-7d0e4e  exit:unwitnessed  events:1136  file: src/__tests__/Lobby.test.tsx
+  20260910-150816-afb12c  exit:unwitnessed  events:9426  file: src/components/builder/steps/featPicksArchetypeGate.test.tsx
+  20260910-150816-cbfa10  exit:unwitnessed  events:3619  file: src/__tests__/EncounterBuilderPanel.test.tsx
+  20260910-150816-ccf1f3  exit:unwitnessed  events:2309  file: src/__tests__/classEditor.test.tsx
+  20260910-150816-edf81a  exit:unwitnessed  events:851  file: src/components/compendium/ItemEditor.ai.test.tsx
+  20260910-150816-f09d54  exit:unwitnessed  events:8174  file: src/__tests__/describeCharacter.test.tsx
+  20260910-150817-001c8d  exit:unwitnessed  events:2155  file: src/__tests__/CombatTrackerPf2ePersistent.test.tsx
+  20260910-150817-33c6a7  exit:unwitnessed  events:9124  file: src/components/Dnd5eSheetBody.hitdice.test.tsx
+  20260910-150817-5b279e  exit:unwitnessed  events:2853  file: src/__tests__/subclassEditor.test.tsx
+  20260910-150817-64dd2c  exit:unwitnessed  events:1906  file: src/__tests__/explainTip.test.tsx
+  20260910-150817-71c625  exit:unwitnessed  events:1282  file: src/__tests__/AiPrepPanel.test.tsx
+  20260910-150817-7bc3df  exit:unwitnessed  events:2526  file: src/__tests__/SetSceneCard.test.tsx
+  20260910-150817-94311a  exit:unwitnessed  events:3446  file: src/__tests__/levelControls.test.tsx
+  20260910-150817-9803a8  exit:unwitnessed  events:1672  file: src/__tests__/CompendiumPanel.castability.test.tsx
+  20260910-150817-bf85ae  exit:unwitnessed  events:5248  file: src/__tests__/builderNoErrorsOnMount.test.tsx
+  20260910-150817-d2d49a  exit:unwitnessed  events:2040  file: src/__tests__/gmRunsPlayerCharacter.test.tsx
+  20260910-150817-d584fc  exit:unwitnessed  events:6882  file: src/components/sheet/featuresPanel.test.tsx
+  20260910-150817-e4f234  exit:unwitnessed  events:948  file: src/__tests__/authModeOnLogout.test.tsx
+  20260910-150818-0c1a0d  exit:unwitnessed  events:280  file: src/__tests__/TokenContextMenu.test.tsx
+  20260910-150818-139f0f  exit:unwitnessed  events:110  file: src/components/sheet/ClassPickerStep.test.tsx
+  20260910-150818-199a57  exit:unwitnessed  events:6544  file: src/components/pf2e/Pf2eTurnCard.test.tsx
+  20260910-150818-380bc7  exit:unwitnessed  events:1328  file: src/__tests__/PlayersList.test.tsx
+  20260910-150818-451511  exit:unwitnessed  events:333  file: src/__tests__/useBuilderContent.test.tsx
+  20260910-150818-591971  exit:unwitnessed  events:3434  file: src/components/sheet/levelUpFlowPf2eFeatSlot.test.tsx
+  20260910-150818-5d006f  exit:unwitnessed  events:1174  file: src/__tests__/ArtPicker.test.tsx
+  20260910-150818-6c6e37  exit:unwitnessed  events:329  file: src/__tests__/a11y.test.tsx
+  20260910-150818-7c1d69  exit:unwitnessed  events:6874  file: src/components/Dnd5eSheetBody.inventory.test.tsx
+  20260910-150818-859e5b  exit:unwitnessed  events:586  file: src/__tests__/TunnelStatusCard.test.tsx
+  20260910-150818-970331  exit:unwitnessed  events:740  file: src/__tests__/combatEmptyState.test.tsx
+  20260910-150818-9b6a1b  exit:unwitnessed  events:1778  file: src/__tests__/PlayersListAccountDelete.test.tsx
+  20260910-150818-b2f5aa  exit:unwitnessed  events:919  file: src/__tests__/levelingSettings.test.tsx
+  20260910-150818-f5c4fa  exit:unwitnessed  events:926  file: src/__tests__/handoffVerbLabels.test.tsx
+  20260910-150818-f7d33d  exit:unwitnessed  events:5146  file: src/__tests__/helpFocusReturn.test.tsx
+  20260910-150819-1ce137  exit:unwitnessed  events:1706  file: src/components/pf2e/ActionPalette.test.tsx
+  20260910-150819-258e0f  exit:unwitnessed  events:644  file: src/__tests__/EffectsPanel.test.tsx
+  20260910-150819-2da627  exit:unwitnessed  events:250  file: src/__tests__/responsive/BottomSheetAndTabBar.test.tsx
+  20260910-150819-31cb5c  exit:unwitnessed  events:1637  file: src/__tests__/pickEntryCopy.test.tsx
+  20260910-150819-4a4668  exit:unwitnessed  events:2567  file: src/__tests__/dnd5eFeatOfferingPin.test.tsx
+  20260910-150819-4f46c9  exit:unwitnessed  events:2089  file: src/__tests__/CombatTrackerPf2eEffects.test.tsx
+  20260910-150819-519ed6  exit:unwitnessed  events:1234  file: src/__tests__/gridTypeSetting.test.tsx
+  20260910-150819-6b2a6e  exit:unwitnessed  events:1116  file: src/__tests__/DeckPanel.test.tsx
+  20260910-150819-6c5de1  exit:unwitnessed  events:6087  file: src/__tests__/quickActionBar.test.tsx
+  20260910-150819-8e22a2  exit:unwitnessed  events:404  file: src/__tests__/playerAoeRail.test.tsx
+  20260910-150819-97746f  exit:unwitnessed  events:430  file: src/__tests__/FoundryImport.test.tsx
+  20260910-150819-d2e7c0  exit:unwitnessed  events:5408  file: src/components/builder/steps/featPicksSkillRanks.test.tsx
+  20260910-150819-d63f85  exit:unwitnessed  events:308  file: src/__tests__/characterWizard.levelup.test.tsx
+  20260910-150820-06bd7d  exit:unwitnessed  events:526  file: src/__tests__/authResolvesUserId.test.tsx
+  20260910-150820-090699  exit:unwitnessed  events:2324  file: src/lib/builder/featDuplicateGuard.bridge.test.tsx
+  20260910-150820-181852  exit:unwitnessed  events:514  file: src/__tests__/TerrainPanel.test.tsx
+  20260910-150820-1e157a  exit:unwitnessed  events:466  file: src/__tests__/Roll20Import.test.tsx
+  20260910-150820-35a92d  exit:unwitnessed  events:634  file: src/__tests__/CompendiumPanel.item.test.tsx
+  20260910-150820-3e4dba  exit:unwitnessed  events:668  file: src/components/compendium/ItemEditor.test.tsx
+  20260910-150820-5306df  exit:unwitnessed  events:236  file: src/__tests__/responsive/PanelDrawer.test.tsx
+  20260910-150820-8be528  exit:unwitnessed  events:832  file: src/components/map/GridDetectPrompt.test.tsx
+  20260910-150820-91001a  exit:unwitnessed  events:1881  file: src/__tests__/featPicksStep.test.tsx
+  20260910-150820-a1b77b  exit:unwitnessed  events:855  file: src/__tests__/VoiceTool.test.tsx
+  20260910-150820-bf467e  exit:unwitnessed  events:854  file: src/__tests__/parseContentSchemaMismatch.test.tsx
+  20260910-150820-d21243  exit:unwitnessed  events:302  file: src/lib/pf2e/usePf2eSpells.test.ts
+  20260910-150820-d3d3ba  exit:unwitnessed  events:2992  file: src/components/builder/steps/featPicksSlot.test.tsx
+  20260910-150820-e8eb8e  exit:unwitnessed  events:708  file: src/__tests__/JournalPanelPermissions.test.tsx
+  20260910-150821-0ea0c9  exit:unwitnessed  events:417  file: src/__tests__/freeArchetypeSetting.test.tsx
+  20260910-150821-25056f  exit:unwitnessed  events:1401  file: src/__tests__/levelHistory.test.tsx
+  20260910-150821-2827e3  exit:unwitnessed  events:86  file: src/components/builder/steps/skillIncreaseStep.test.tsx
+  20260910-150821-296264  exit:unwitnessed  events:227  file: src/hooks/useActionGuard.test.tsx
+  20260910-150821-47d9cb  exit:unwitnessed  events:496  file: src/__tests__/CompendiumPanel.srdImport.test.tsx
+  20260910-150821-4bcc6b  exit:unwitnessed  events:1453  file: src/__tests__/CombatTrackerPf2eEconomy.test.tsx
+  20260910-150821-72da14  exit:unwitnessed  events:1128  file: src/__tests__/dnd5eBuilderDefinition.test.tsx
+  20260910-150821-7cba45  exit:unwitnessed  events:302  file: src/components/builder/steps/asiOrFeatStep.test.tsx
+  20260910-150821-7cfc61  exit:unwitnessed  events:307  file: src/__tests__/aiAccessSetting.test.tsx
+  20260910-150821-90f541  exit:unwitnessed  events:598  file: src/__tests__/combatToggleButton.test.tsx
+  20260910-150821-946290  exit:unwitnessed  events:1301  file: src/__tests__/GmCockpitRulesTabOrder.test.tsx
+  20260910-150821-b340c5  exit:unwitnessed  events:260  file: src/components/map/MapBadgeTooltip.test.tsx
+  20260910-150821-b5e6e2  exit:unwitnessed  events:5184  file: src/__tests__/PlayerViewRulesTabOrder.test.tsx
+  20260910-150821-c34d7f  exit:unwitnessed  events:96  file: src/__tests__/AlertModal.confirm.test.tsx
+  20260910-150821-d7355e  exit:unwitnessed  events:264  file: src/components/builder/steps/featPicksLevel.test.tsx
+  20260910-150821-e40591  exit:unwitnessed  events:232  file: src/__tests__/PdfImportPanel.test.tsx
+  20260910-150821-e780f0  exit:unwitnessed  events:490  file: src/components/map/GridCalibratePrompt.test.tsx
+  20260910-150821-ec00db  exit:unwitnessed  events:509  file: src/__tests__/measurementRuleSetting.test.tsx
+  20260910-150822-0f311a  exit:unwitnessed  events:4970  file: src/__tests__/PlayerToolkitTabs.test.tsx
+  20260910-150822-2672e2  exit:unwitnessed  events:287  file: src/__tests__/backgroundEditor.test.tsx
+  20260910-150822-368ce7  exit:unwitnessed  events:476  file: src/__tests__/mapCalibrationHud.integration.test.tsx
+  20260910-150822-3dd047  exit:unwitnessed  events:162  file: src/__tests__/favoriteStar.test.tsx
+  20260910-150822-5aba93  exit:unwitnessed  events:1078  file: src/__tests__/archetypeEditor.test.tsx
+  20260910-150822-6724b0  exit:unwitnessed  events:289  file: src/__tests__/ancestryEditor.test.tsx
+  20260910-150822-688efd  exit:unwitnessed  events:1746  file: src/__tests__/boostsStep.test.tsx
+  20260910-150822-779ddb  exit:unwitnessed  events:471  file: src/__tests__/awardXpControl.test.tsx
+  20260910-150822-c7bcbf  exit:unwitnessed  events:1045  file: src/__tests__/autoApproveNpcTurns.test.tsx
+  20260910-150822-cf94f7  exit:unwitnessed  events:512  file: src/__tests__/ConnectionBanner.test.tsx
+  20260910-150822-d759db  exit:unwitnessed  events:346  file: src/components/dice/DiceTrayPanel.test.tsx
+  20260910-150822-fa6e53  exit:unwitnessed  events:330  file: src/components/ConditionBadges.test.tsx
+  20260910-150822-fcebde  exit:unwitnessed  events:292  file: src/__tests__/pickEntryStep.test.tsx
+  20260910-150822-ff6736  exit:unwitnessed  events:6484  file: src/components/CharacterSheetEditor.test.tsx
+  20260910-150823-1227a9  exit:unwitnessed  events:827  file: src/__tests__/toolPaletteAlignGrid.test.tsx
+  20260910-150823-1ca5c8  exit:unwitnessed  events:154  file: src/__tests__/SceneNavBar.test.tsx
+  20260910-150823-31ee24  exit:unwitnessed  events:51  file: src/__tests__/VisionToggle.test.tsx
+  20260910-150823-38fd1e  exit:unwitnessed  events:166  file: src/__tests__/sceneDarknessControl.test.tsx
+  20260910-150823-42f296  exit:unwitnessed  events:12  file: src/components/ContentLicenses.test.tsx
+  20260910-150823-56b76a  exit:unwitnessed  events:72  file: src/components/PanelErrorBoundary.test.tsx
+  20260910-150823-6ecba1  exit:unwitnessed  events:510  file: src/components/sheet/SpellcastingStats.test.tsx
+  20260910-150823-72e364  exit:unwitnessed  events:78  file: src/components/builder/steps/hpGainStep.test.tsx
+  20260910-150823-73a9b6  exit:unwitnessed  events:900  file: src/components/builder/steps/boostsStep.levelup.test.tsx
+  20260910-150823-775172  exit:unwitnessed  events:64  file: src/components/pf2e/ActionPips.test.tsx
+  20260910-150823-a0634f  exit:unwitnessed  events:4044  file: src/__tests__/useWebSocket.test.tsx
+  20260910-150823-bbb383  exit:unwitnessed  events:158  file: src/__tests__/helpTriggerPlacement.test.tsx
+  20260910-150823-c2a7fd  exit:unwitnessed  events:166  file: src/__tests__/VideoStrip.test.tsx
+  20260910-150823-d0f2f0  exit:unwitnessed  events:2246552  file: src/lib/map/gridDetect.test.ts
+  20260910-150823-d243d3  exit:unwitnessed  events:5582  file: src/__tests__/useMeshVoice.test.tsx
+  20260910-150823-f8e6de  exit:unwitnessed  events:2538  file: src/__tests__/tokenElevation.test.tsx
+  20260910-150824-1de185  exit:unwitnessed  events:46  file: src/__tests__/CandidateCard.test.tsx
+  20260910-150824-3fd49e  exit:unwitnessed  events:6689  file: src/__tests__/shortcutsArrowMove.test.tsx
+  20260910-150824-4034a5  exit:unwitnessed  events:20394  file: src/__tests__/roomStore.fog.test.ts
+  20260910-150824-611506  exit:unwitnessed  events:41  file: src/__tests__/usePdfImportQuery.test.tsx
+  20260910-150824-624326  exit:unwitnessed  events:128  file: src/__tests__/CompactTurnStrip.test.tsx
+  20260910-150824-670adb  exit:unwitnessed  events:448  file: src/__tests__/classFeatureEditor.test.tsx
+  20260910-150824-677b50  exit:unwitnessed  events:354  file: src/__tests__/PlayerCombatPanel.test.tsx
+  20260910-150824-78e127  exit:unwitnessed  events:185  file: src/__tests__/roomStore.persistError.test.ts
+  20260910-150824-7d2a04  exit:unwitnessed  events:738  file: src/__tests__/ChatPanel.test.tsx
+  20260910-150824-7df3fa  exit:unwitnessed  events:88238  file: src/lib/distance/hexGeometry.test.ts
+  20260910-150824-82bd0d  exit:unwitnessed  events:48  file: src/components/builder/steps/grantedInfoStep.test.tsx
+  20260910-150824-d0fec4  exit:unwitnessed  events:44  file: src/components/sheet/fields/SheetField.test.tsx
+  20260910-150824-d2a7c4  exit:unwitnessed  events:416  file: src/__tests__/setSceneRetry.test.tsx
+  20260910-150824-dde76b  exit:unwitnessed  events:383  file: src/__tests__/railLabelLegibility.test.tsx
+  20260910-150824-e08733  exit:unwitnessed  events:296  file: src/components/builder/steps/reviewStep.test.tsx
+  20260910-150824-edb14d  exit:unwitnessed  events:962  file: src/__tests__/effectsStore.test.ts
+  20260910-150824-f24754  exit:unwitnessed  events:272  file: src/components/sheet/SheetRenderer.test.tsx
+  20260910-150824-f78611  exit:unwitnessed  events:42  file: src/__tests__/RollTablePanel.test.tsx
+  20260910-150825-0b753e  exit:unwitnessed  events:132  file: src/__tests__/reactionPromptsFilter.test.tsx
+  20260910-150825-0c3175  exit:unwitnessed  events:9178  file: src/lib/distance/distance.vectors.test.ts
+  20260910-150825-375058  exit:unwitnessed  events:632  file: src/__tests__/useRunCommand.whisperGmroll.test.tsx
+  20260910-150825-3efedb  exit:unwitnessed  events:1946  file: src/__tests__/useMapInteraction.longPress.test.ts
+  20260910-150825-496492  exit:unwitnessed  events:306  file: src/__tests__/mapUploadScene.test.ts
+  20260910-150825-5558cb  exit:unwitnessed  events:188  file: src/__tests__/useCharacterHandoff.test.ts
+  20260910-150825-56b1ec  exit:unwitnessed  events:23218  file: src/__tests__/visibility.test.ts
+  20260910-150825-6e3351  exit:unwitnessed  events:96  file: src/components/dice/DiceLayer.test.tsx
+  20260910-150825-7bb74f  exit:unwitnessed  events:30  file: src/components/shell/RoomIdentity.test.tsx
+  20260910-150825-96e27d  exit:unwitnessed  events:4194  file: src/lib/builder/advancement.apply.test.ts
+  20260910-150825-9ae337  exit:unwitnessed  events:330  file: src/__tests__/combatPlan.test.tsx
+  20260910-150825-a00f36  exit:unwitnessed  events:50  file: src/__tests__/VttShell.test.tsx
+  20260910-150825-a8fa34  exit:unwitnessed  events:486  file: src/__tests__/useWebSocket.tokenBars.test.tsx
+  20260910-150825-adacf6  exit:unwitnessed  events:578  file: src/__tests__/useRunCommand.rollModes.test.tsx
+  20260910-150825-e95273  exit:unwitnessed  events:654  file: src/__tests__/useWebSocket.pf2ePersistent.test.tsx
+  20260910-150825-ede6e1  exit:unwitnessed  events:3748  file: src/lib/spells/castCommit.test.ts
+  20260910-150825-f749ac  exit:unwitnessed  events:534  file: src/__tests__/useRunCommand.plainChatReconcile.test.tsx
+  20260910-150825-f83075  exit:unwitnessed  events:300  file: src/__tests__/useWebSocket.pf2eEffects.test.tsx
+  20260910-150825-fbad6f  exit:unwitnessed  events:662  file: src/__tests__/useWebSocket.pf2eDeathSaves.test.tsx
+  20260910-150826-1061c2  exit:unwitnessed  events:130  file: src/__tests__/useWebSocket.leveling.test.tsx
+  20260910-150826-18ee8f  exit:unwitnessed  events:142  file: src/__tests__/useWebSocket.gridAppearance.test.tsx
+  20260910-150826-1a995a  exit:unwitnessed  events:45  file: src/__tests__/useDraggable.test.ts
+  20260910-150826-1f3bf3  exit:unwitnessed  events:3322  file: src/__tests__/voiceFx.test.ts
+  20260910-150826-33509d  exit:unwitnessed  events:872  file: src/__tests__/shortcutsModifierGuard.test.tsx
+  20260910-150826-39c349  exit:unwitnessed  events:7340  file: src/lib/builder/multiclass.casting.engine.test.ts
+  20260910-150826-3c6fec  exit:unwitnessed  events:260  file: src/components/map/useGridDetect.test.ts
+  20260910-150826-3e0d50  exit:unwitnessed  events:105740  file: src/components/map/hexGrid.test.ts
+  20260910-150826-41eda9  exit:unwitnessed  events:7042  file: src/__tests__/useMapTools.rulerPrivateBroadcast.test.ts
+  20260910-150826-573d25  exit:unwitnessed  events:170  file: src/hooks/usePlayerTabs.test.ts
+  20260910-150826-831d76  exit:unwitnessed  events:53  file: src/lib/clipboard.test.ts
+  20260910-150826-8c2086  exit:unwitnessed  events:3344  file: src/lib/builder/archetypeCasting.test.ts
+  20260910-150826-a7513f  exit:unwitnessed  events:966  file: src/__tests__/restFlow.test.ts
+  20260910-150826-cb0a5e  exit:unwitnessed  events:786  file: src/lib/meshVoice.test.ts
+  20260910-150826-cc8baf  exit:unwitnessed  events:6744  file: src/lib/builder/archetypeRules.test.ts
+  20260910-150826-d47721  exit:unwitnessed  events:242  file: src/__tests__/useWebSocket.freeArchetype.test.tsx
+  20260910-150826-f11fc3  exit:unwitnessed  events:1336  file: src/lib/pf2e/spells.test.ts
+  20260910-150826-f3b771  exit:unwitnessed  events:18396  file: src/components/map/gridNudge.test.ts
+  20260910-150826-f51018  exit:unwitnessed  events:1023  file: src/__tests__/moduleSystem.test.ts
+  20260910-150826-f7d3ad  exit:unwitnessed  events:5648  file: src/lib/builder/advancement.plan.test.ts
+  20260910-150827-03a039  exit:unwitnessed  events:6448  file: src/lib/aoe/aoe.vectors.test.ts
+  20260910-150827-127969  exit:unwitnessed  events:468  file: src/__tests__/currentTarget.test.ts
+  20260910-150827-142965  exit:unwitnessed  events:1998  file: src/lib/effects/glyphs.test.ts
+  20260910-150827-191196  exit:unwitnessed  events:1023  file: src/lib/builder/definitions/dnd5eLevelUp.test.ts
+  20260910-150827-196bab  exit:unwitnessed  events:274  file: src/__tests__/roomStore.tokens.test.ts
+  20260910-150827-2b8462  exit:unwitnessed  events:9396  file: src/lib/builder/featSlotFilter.test.ts
+  20260910-150827-32c62b  exit:unwitnessed  events:3618  file: src/lib/builder/multiclass.engine.test.ts
+  20260910-150827-4f27c7  exit:unwitnessed  events:694  file: src/__tests__/useMapTools.hexTerrain.test.ts
+  20260910-150827-61091b  exit:unwitnessed  events:74652  file: src/lib/builder/archetypeCasting.profParity.test.ts
+  20260910-150827-6350c9  exit:unwitnessed  events:3298  file: src/__tests__/useMapTools.hexRuler.test.ts
+  20260910-150827-69b8af  exit:unwitnessed  events:1780  file: src/lib/builder/emit/dnd5eSheet.test.ts
+  20260910-150827-8d14b4  exit:unwitnessed  events:2362  file: src/lib/distance/ruler.test.ts
+  20260910-150827-8f8e2c  exit:unwitnessed  events:234  file: src/lib/diceQueue.test.ts
+  20260910-150827-9a7760  exit:unwitnessed  events:572  file: src/components/map/useTokenRenderer.badgeTouch.test.ts
+  20260910-150827-9d7739  exit:unwitnessed  events:132  file: src/__tests__/mapTiles.test.ts
+  20260910-150827-a058bb  exit:unwitnessed  events:220  file: src/__tests__/roomStore.walls.test.ts
+  20260910-150827-a90740  exit:unwitnessed  events:278  file: src/__tests__/favorites.test.ts
+  20260910-150827-a91963  exit:unwitnessed  events:4432  file: src/lib/builder/revisit.test.ts
+  20260910-150827-b0c5f4  exit:unwitnessed  events:796  file: src/lib/builder/featDuplicateGuard.test.ts
+  20260910-150827-b42f15  exit:unwitnessed  events:186  file: src/__tests__/roomStore.gridCalibration.test.ts
+  20260910-150827-c6ab7d  exit:unwitnessed  events:524  file: src/__tests__/roomStore.terrain.test.ts
+  20260910-150827-cc921c  exit:unwitnessed  events:2062  file: src/lib/builder/suggestPayload.test.ts
+  20260910-150827-d172bf  exit:unwitnessed  events:354  file: src/lib/combat/attackRoll.test.ts
+  20260910-150827-f38811  exit:unwitnessed  events:536  file: src/lib/builder/multiclassContext.test.ts
+  20260910-150827-f6303c  exit:unwitnessed  events:4060  file: src/lib/aoe/geometry.test.ts
+  20260910-150828-0c1c10  exit:unwitnessed  events:3458  file: src/lib/srd-spell-attacks.test.ts
+  20260910-150828-11c1b1  exit:unwitnessed  events:742  file: src/lib/builder/multiclass.characterization.test.ts
+  20260910-150828-180272  exit:unwitnessed  events:248  file: src/__tests__/roomStore.drawings.test.ts
+  20260910-150828-1b65d0  exit:unwitnessed  events:5954  file: src/lib/builder/advancement.freeArchetype.test.ts
+  20260910-150828-2afc31  exit:unwitnessed  events:3652  file: src/lib/builder/definitions/dnd5eLevelUp.liveGate.test.ts
+  20260910-150828-3ef918  exit:unwitnessed  events:1910  file: src/lib/pf2e/boosts.test.ts
+  20260910-150828-409953  exit:unwitnessed  events:32  file: src/__tests__/api.test.ts
+  20260910-150828-42da2a  exit:unwitnessed  events:52  file: src/lib/builder/contentTypes.subclassCasting.test.ts
+  20260910-150828-5e7073  exit:unwitnessed  events:7032  file: src/lib/monsterSpeed.test.ts
+  20260910-150828-66e57e  exit:unwitnessed  events:2220  file: src/lib/builder/archetypeProjection.test.ts
+  20260910-150828-69e456  exit:unwitnessed  events:154  file: src/__tests__/sheetNotes.test.ts
+  20260910-150828-8834f1  exit:unwitnessed  events:2144  file: src/__tests__/voicePresets.test.ts
+  20260910-150828-894622  exit:unwitnessed  events:1266  file: src/lib/builder/archetypeOverrideLedger.test.ts
+  20260910-150828-c59bcc  exit:unwitnessed  events:158  file: src/__tests__/roomStore.sceneDarkness.test.ts
+  20260910-150828-cf62de  exit:unwitnessed  events:820  file: src/__tests__/useMapInteraction.hudDoubleClick.test.ts
+  20260910-150828-d44cfb  exit:unwitnessed  events:502  file: src/lib/dnd5e/classes.test.ts
+  20260910-150828-de6c60  exit:unwitnessed  events:3426  file: src/lib/dnd5e/spellDcDerivation.test.ts
+  20260910-150828-f15ca0  exit:unwitnessed  events:292  file: src/lib/map/longPress.test.ts
+  20260910-150828-f52123  exit:unwitnessed  events:292  file: src/__tests__/uploadWithProgress.test.ts
+  20260910-150829-00d643  exit:unwitnessed  events:116  file: src/__tests__/roomStore.light.test.ts
+  20260910-150829-05d5e8  exit:unwitnessed  events:512  file: src/lib/dnd5e/multiclassSlotTable.test.ts
+  20260910-150829-05eb8d  exit:unwitnessed  events:46  file: src/lib/builder/contentTypes.archetype.test.ts
+  20260910-150829-0878bd  exit:unwitnessed  events:976  file: src/lib/pf2e/creationProficiencies.test.ts
+  20260910-150829-1653a7  exit:unwitnessed  events:3202  file: src/lib/spells/castPlan.test.ts
+  20260910-150829-18699d  exit:unwitnessed  events:116  file: src/lib/builder/featureNames.test.ts
+  20260910-150829-1b565c  exit:unwitnessed  events:68  file: src/__tests__/roomStore.targeting.test.ts
+  20260910-150829-2d99b3  exit:unwitnessed  events:468  file: src/components/map/useTerrainRenderer.test.ts
+  20260910-150829-3c72e4  exit:unwitnessed  events:3386  file: src/lib/combat/fireFavorite.test.ts
+  20260910-150829-41b54b  exit:unwitnessed  events:36  file: src/lib/leveling/startingLevel.test.ts
+  20260910-150829-53f394  exit:unwitnessed  events:9594  file: src/lib/sheets/definitions/definitions.test.ts
+  20260910-150829-5aa523  exit:unwitnessed  events:780  file: src/lib/combat/rest.test.ts
+  20260910-150829-5e9d72  exit:unwitnessed  events:150  file: src/__tests__/roomStore.visionCone.test.ts
+  20260910-150829-7f54ed  exit:unwitnessed  events:654  file: src/__tests__/shortcutRegistryDrift.test.ts
+  20260910-150829-89c402  exit:unwitnessed  events:148  file: src/__tests__/tokenAppearance.test.ts
+  20260910-150829-95e2f1  exit:unwitnessed  events:888  file: src/lib/builder/aiDraftToState.test.ts
+  20260910-150829-9a1ad6  exit:unwitnessed  events:192  file: src/__tests__/roomStoreAssets.test.ts
+  20260910-150829-a7645b  exit:unwitnessed  events:130  file: src/__tests__/mapPins.test.ts
+  20260910-150829-ab9851  exit:unwitnessed  events:219  file: src/lib/appearance.test.ts
+  20260910-150829-cb3d80  exit:unwitnessed  events:51  file: src/lib/builder/contentTypes.classLevel.test.ts
+  20260910-150829-cde8dc  exit:unwitnessed  events:364  file: src/__tests__/illumination.test.ts
+  20260910-150829-cf3205  exit:unwitnessed  events:6412  file: src/lib/builder/emit/pf2eSheet.test.ts
+  20260910-150829-e4f67d  exit:unwitnessed  events:3794  file: src/lib/dnd5e/casting.test.ts
+  20260910-150829-e66ca4  exit:unwitnessed  events:338  file: src/components/map/mapLongPressTarget.test.ts
+  20260910-150829-e9bd7e  exit:unwitnessed  events:116  file: src/__tests__/roomStore.gridAppearance.test.ts
+  20260910-150829-eef149  exit:unwitnessed  events:24  file: src/lib/builder/contentTypes.featGrants.test.ts
+  20260910-150829-f1ddcf  exit:unwitnessed  events:438  file: src/components/map/useTokenRenderer.hiddenMarker.test.ts
+  20260910-150830-034f91  exit:unwitnessed  events:200  file: src/__tests__/footerSaveVsRest.test.ts
+  20260910-150830-151397  exit:unwitnessed  events:226  file: src/__tests__/aoeTool.test.ts
+  20260910-150830-1dad44  exit:unwitnessed  events:148  file: src/__tests__/roomStore.test.ts
+  20260910-150830-30a5cd  exit:unwitnessed  events:1701  file: src/lib/sheets/formula.test.ts
+  20260910-150830-4044d1  exit:unwitnessed  events:56  file: src/lib/combat/inCombat.test.ts
+  20260910-150830-6dd929  exit:unwitnessed  events:502  file: src/lib/pf2e/creationBoosts.test.ts
+  20260910-150830-73afa7  exit:unwitnessed  events:168  file: src/lib/map/gridCalibration.test.ts
+  20260910-150830-962535  exit:unwitnessed  events:252  file: src/__tests__/tokenVisibility.test.ts
+  20260910-150830-a11ecc  exit:unwitnessed  events:284  file: src/components/map/terrainProvider.test.ts
+  20260910-150830-a17232  exit:unwitnessed  events:152  file: src/__tests__/roomStore.vision.test.ts
+  20260910-150830-b07ff3  exit:unwitnessed  events:106  file: src/__tests__/roomStore.remoteRulers.test.ts
+  20260910-150830-b3c8d4  exit:unwitnessed  events:276  file: src/components/map/tokenBadges.test.ts
+  20260910-150830-c5b4da  exit:unwitnessed  events:46  file: src/__tests__/tokenCrop.test.ts
+  20260910-150830-ca4261  exit:unwitnessed  events:408  file: src/lib/srd-weapons.test.ts
+  20260910-150830-cddab7  exit:unwitnessed  events:170  file: src/lib/builder/levelUpState.test.ts
+  20260910-150830-d0e54f  exit:unwitnessed  events:2384  file: src/lib/builder/definitions/dnd5eLevelUp.archetypeGate.test.ts
+  20260910-150830-d72588  exit:unwitnessed  events:102  file: src/lib/pf2e/pf2eContent.test.ts
+  20260910-150830-e51afe  exit:unwitnessed  events:306  file: src/lib/builder/levelControlsContent.test.ts
+  20260910-150830-f426e4  exit:unwitnessed  events:3018  file: src/lib/builder/definitions/dnd5eLevelUp.slotFilter.test.ts
+  20260910-150830-fb67b2  exit:unwitnessed  events:92  file: src/__tests__/doorFlags.test.ts
+  20260910-150831-02bf83  exit:unwitnessed  events:82  file: src/lib/items/mergeDerivedAttacks.test.ts
+  20260910-150831-09dd1c  exit:unwitnessed  events:52  file: src/lib/chatInlineRolls.test.ts
+  20260910-150831-1a0dc1  exit:unwitnessed  events:80  file: src/lib/viewport.test.ts
+  20260910-150831-426168  exit:unwitnessed  events:144  file: src/__tests__/pf2ePoolLiveUpdate.test.tsx
+  20260910-150831-430ad9  exit:unwitnessed  events:66  file: src/__tests__/presence.test.ts
+  20260910-150831-52755c  exit:unwitnessed  events:600  file: src/__tests__/pf2eBuilderDefinition.test.tsx
+  20260910-150831-53e822  exit:unwitnessed  events:158  file: src/lib/items/currency.test.ts
+  20260910-150831-579199  exit:unwitnessed  events:132  file: src/lib/leveling/awardXp.test.ts
+  20260910-150831-5b768f  exit:unwitnessed  events:191  file: src/lib/map/imagePixels.test.ts
+  20260910-150831-69268e  exit:unwitnessed  events:146  file: src/lib/combat/exhaustion.test.ts
+  20260910-150831-7ae298  exit:unwitnessed  events:228  file: src/__tests__/creationChoices.test.ts
+  20260910-150831-883be9  exit:unwitnessed  events:152  file: src/__tests__/combatRosterPersist.test.ts
+  20260910-150831-8e4a15  exit:unwitnessed  events:3178  file: src/lib/sheets/definitions/pf2eSheet.test.ts
+  20260910-150831-93db13  exit:unwitnessed  events:54  file: src/__tests__/doorsHydration.test.ts
+  20260910-150831-98add6  exit:unwitnessed  events:296  file: src/lib/combat/attackName.test.ts
+  20260910-150831-a02795  exit:unwitnessed  events:1528  file: src/lib/distance/rulerBroadcast.test.ts
+  20260910-150831-a3a52a  exit:unwitnessed  events:86  file: src/lib/dnd5e/level.test.ts
+  20260910-150831-a86c86  exit:unwitnessed  events:146  file: src/__tests__/useMapInteraction.alignGrid.test.ts
+  20260910-150831-bf358d  exit:unwitnessed  events:4180  file: src/lib/srd-monsters.test.ts
+  20260910-150831-c3ec60  exit:unwitnessed  events:318  file: src/lib/dnd5e/multiclassPrereqs.test.ts
+  20260910-150831-ca013e  exit:unwitnessed  events:80  file: src/lib/gameSystem.test.ts
+  20260910-150831-d2b869  exit:unwitnessed  events:138  file: src/lib/leveling/xpThresholds.test.ts
+  20260910-150831-e020bb  exit:unwitnessed  events:484  file: src/lib/sheets/validate.test.ts
+  20260910-150831-e9ac27  exit:unwitnessed  events:2888  file: src/lib/spells/spellSections.test.ts
+  20260910-150831-ed4f88  exit:unwitnessed  events:76  file: src/components/map/terrainOverlay.test.ts
+  20260910-150831-fb2a21  exit:unwitnessed  events:220  file: src/__tests__/classLevelEditing.test.ts
+  20260910-150831-fee459  exit:unwitnessed  events:234  file: src/lib/items/deriveAttacks.test.ts
+  20260910-150832-03fd56  exit:unwitnessed  events:26  file: src/__tests__/perfFlat.test.ts
+  20260910-150832-04e443  exit:unwitnessed  events:34  file: src/__tests__/classifyCanvasDrop.test.ts
+  20260910-150832-0d04ab  exit:unwitnessed  events:110  file: src/__tests__/useFogPainter.test.ts
+  20260910-150832-0f0efb  exit:unwitnessed  events:50  file: src/stores/audioStore.test.ts
+  20260910-150832-16210a  exit:unwitnessed  events:32  file: src/__tests__/persistError.test.ts
+  20260910-150832-300e6a  exit:unwitnessed  events:4160  file: src/__tests__/tokenVisibility.cone.test.ts
+  20260910-150832-356f45  exit:unwitnessed  events:80  file: src/lib/spells/consumeSlot.test.ts
+  20260910-150832-42b3c6  exit:unwitnessed  events:194  file: src/components/draftMerge.test.ts
+  20260910-150832-5bc904  exit:unwitnessed  events:42  file: src/__tests__/addCombatant.test.ts
+  20260910-150832-6cba3e  exit:unwitnessed  events:40  file: src/lib/safeUrl.test.ts
+  20260910-150832-7fff55  exit:unwitnessed  events:104  file: src/__tests__/roomStoreSubscribeSelector.test.ts
+  20260910-150832-84f3ce  exit:unwitnessed  events:20  file: src/__tests__/wizardFooterLayout.test.tsx
+  20260910-150832-87fbfd  exit:unwitnessed  events:54  file: src/components/map/planRenderLogic.test.ts
+  20260910-150832-898a9b  exit:unwitnessed  events:59  file: src/components/compendium/extractJsonObject.test.ts
+  20260910-150832-89ff40  exit:unwitnessed  events:22  file: src/lib/avBackend.test.ts
+  20260910-150832-9f9970  exit:unwitnessed  events:118  file: src/components/map/useTokenRenderer.badgeTooltip.test.ts
+  20260910-150832-a52a1f  exit:unwitnessed  events:120  file: src/lib/pf2e/boosts.levelBoosts.test.ts
+  20260910-150832-aae636  exit:unwitnessed  events:476  file: src/lib/builder/featSlotFilter.archetypeSlot.test.ts
+  20260910-150832-aee603  exit:unwitnessed  events:90  file: src/lib/map/tapGesture.test.ts
+  20260910-150832-b770b4  exit:unwitnessed  events:94  file: src/lib/sheets/mergeSheetSnapshot.test.ts
+  20260910-150832-d7d96a  exit:unwitnessed  events:326  file: src/lib/dnd5e/abilities.test.ts
+  20260910-150832-febb76  exit:unwitnessed  events:54  file: src/lib/diceQueue.dice.test.ts
+  20260910-150833-0aa989  exit:unwitnessed  events:44  file: src/hooks/useWebSocket.spellCard.test.ts
+  20260910-150833-0b6e53  exit:unwitnessed  events:26  file: src/hooks/useWebSocket.diceDispatch.test.ts
+  20260910-150833-0db78c  exit:unwitnessed  events:22  file: src/lib/items/inventoryReducer.test.ts
+  20260910-150833-14b2f6  exit:unwitnessed  events:78  file: src/__tests__/aoeRender.test.ts
+  20260910-150833-1f0874  exit:unwitnessed  events:34  file: src/lib/mapUpload.test.ts
+  20260910-150833-22f0ea  exit:unwitnessed  events:4098  file: src/lib/sheets/builtins.test.ts
+  20260910-150833-233b76  exit:unwitnessed  events:40  file: src/lib/combat/targetInvalidation.test.ts
+  20260910-150833-36650a  exit:unwitnessed  events:10  file: src/components/inventory/dropToInventory.test.ts
+  20260910-150833-3e26bb  exit:unwitnessed  events:10  file: src/__tests__/contentTypesPassthrough.test.ts
+  20260910-150833-4a8ee9  exit:unwitnessed  events:28  file: src/__tests__/targetMarkers.test.ts
+  20260910-150833-57dc49  exit:unwitnessed  events:70  file: src/lib/items/encumbrance.test.ts
+  20260910-150833-64ca63  exit:unwitnessed  events:164  file: src/lib/combat/cycleTarget.test.ts
+  20260910-150833-67bb8e  exit:unwitnessed  events:24  file: src/__tests__/mapCanvasKeyboardTrap.test.ts
+  20260910-150833-719184  exit:unwitnessed  events:82  file: src/lib/diceTray.test.ts
+  20260910-150833-86bf84  exit:unwitnessed  events:4856  file: src/components/shell/DiceTab.test.tsx
+  20260910-150833-8ebccd  exit:unwitnessed  events:28  file: src/lib/srdSystemGate.test.ts
+  20260910-150833-93b840  exit:unwitnessed  events:46  file: src/__tests__/useMapTools.gridUnits.test.ts
+  20260910-150833-9dd926  exit:unwitnessed  events:28  file: src/lib/builder/creationChoices.level.test.ts
+  20260910-150833-9f5b14  exit:unwitnessed  events:42  file: src/hooks/useWebSocket.attackCard.test.ts
+  20260910-150833-b09291  exit:unwitnessed  events:56  file: src/__tests__/useTokenRenderer.artLoad.test.ts
+  20260910-150833-d461e8  exit:unwitnessed  events:258  file: src/__tests__/GmCockpitImportTab.test.tsx
+  20260910-150833-d767b5  exit:unwitnessed  events:58  file: src/lib/items/resolveItem.test.ts
+  20260910-150833-ddbe66  exit:unwitnessed  events:332  file: src/lib/conditionExplain.test.ts
+  20260910-150833-e3f74b  exit:unwitnessed  events:36  file: src/lib/builder/registry.flow.test.ts
+  20260910-150833-e4fc12  exit:unwitnessed  events:34  file: src/__tests__/roomStore.elevation.test.ts
+  20260910-150833-ed8bc6  exit:unwitnessed  events:58  file: src/__tests__/macros.test.ts
+--- exit 0
+
+$ sensorium info 20260910-150823-d243d3
+run 20260910-150823-d243d3  trace: <store>/traces/20260910-150823-d243d3.db
+cmd: <home>/.nvm/versions/node/v24.16.0/bin/node <lens>/node_modules/vitest/dist/workers/forks.js    cwd: <lens>
+node v24.16.0 (vitest 4.1.9, jsdom)  env:e1fd805b60a84157  exit: unwitnessed  events: 5582  duration: 0.36s
+recorder: sensorium-ts 0.2.0  lang: typescript  capabilities: children=no err_flow=yes line=no locals=no object_identity=no output=no refocus=no return_value=yes stdin=no tasks=yes threads=no
+recorded: CALL 2669  RETURN 2630  RAISE 0  HANDLED 22  YIELD 132  RESUME 129  LINE 0
+focus: -    window: -
+caps: dbg=200 depth=2 sample=8 str=100   truncated values: 292
+harness: npx vitest run  exit: 0 (waited)
+container: pid 174702  thread 0 (main)  file: src/__tests__/useMeshVoice.test.tsx
+container exit: self-reported code 0 (nobody waited)
+tests: 21 as tasks, 21 seen by the harness; task names: vitest
+files: 725 transformed; excluded: 344 (vitest-hoisted-factory x344)
+unhandled rejections: 0
+fingerprint thread 1 (main): 9dd5269d5f976c8cc3eb88d04db699c5 (398 causal events outside any test)
+fingerprints: per-task basis -- each thread row covers the events that ran in no test; 21 task fingerprint(s) beside it
+not recorded in this trace: threads_started -- recorder sensorium-ts 0.2.0 declares threads not witnessed (capabilities.threads: false), so there is no thread record to read; absence of the record is not a record of absence
+not recorded in this trace: children, spawn_syscalls, audit_errors -- recorder sensorium-ts 0.2.0 declares children not witnessed (capabilities.children: false), so there is no child-process record to read; absence of the record is not a record of absence
+unframed calls: 0 (all calls framed in format 3)
+tasks: 21 (21 distinct name(s): useMeshVoice > exports the public STUN server list x1, useMeshVoice > joinVoice acquires the mic with the expected constraints and emits webrtc:voice-join x1, useMeshVoice > sets an error and does not join when getUserMedia rejects (both attempts) x1, useMeshVoice > falls back to a bare audio request when the constraint object is rejected (WebKitGTK "invalid constraint") x1, useMeshVoice > creates a peer + sends an offer for every member of the voice-roster snapshot x1, useMeshVoice > a later peer-joined creates a peer WITHOUT us sending an offer (we wait for theirs) x1; and 15 more name(s))
+hot functions:
+  251x useMeshVoice.ts:useMeshVoice.<anonymous>
+  251x useMeshVoice.ts:useMeshVoice.<anonymous>
+  148x useMeshVoice.ts:useMeshVoice.<anonymous>
+  147x useMeshVoice.ts:useMeshVoice.<anonymous>
+  147x meshVoice.ts:applyMeshVoiceEvent
+  134x useMeshVoice.ts:useMeshVoice.<anonymous>.<anonymous>
+  134x useMeshVoice.ts:loadVolumes
+  133x useMeshVoice.ts:getStoredVolume
+--- exit 0
+
+$ sensorium tree 20260910-150823-d243d3 --depth 3
+no test
+  f1 e1 <anonymous>() <unread: locals> -> { tokens: [], addToken: [Function: addToken], updateToken: [Function: updateToken], removeToken: [Function: removeToken], createToken: [AsyncFunction: createToken], deleteToken: [AsyncFunction: delete…
+    f2 e2 createTokenSlice() <unread: locals> -> { tokens: [], addToken: [Function: addToken], updateToken: [Function: updateToken], removeToken: [Function: removeToken], createToken: [AsyncFunction: createToken], deleteToken: [AsyncFunction: delete…
+    f3 e4 createFogSlice() <unread: locals> -> { fog: { revealed: [], privateRevealed: [] }, fogEnabled: true, fogBrushSize: 80, fogDarkness: 0.35, fogPendingReveals: [], setFogDarkness: [Function: setFogDarkness], addReveal: [Function: addReveal]…
+    f4 e6 createTerrainSlice() <unread: locals> -> { terrainRegions: [], activeTerrainRegionId: null, terrainBrushKind: 'difficult', terrainBrushErase: false, setTerrainRegions: [Function: setTerrainRegions], upsertTerrainRegion: [Function: upsertTerr…
+    f5 e8 createLightingSlice() <unread: locals> -> { lights: [], selectedLightId: undefined, addLight: [Function: addLight], updateLight: [Function: updateLight], removeLight: [Function: removeLight], setSelectedLightId: [Function: setSelectedLightId]…
+    f6 e10 createPinsSlice() <unread: locals> -> { pins: [], upsertPin: [Function: upsertPin], removePin: [Function: removePin], createPin: [AsyncFunction: createPin], savePin: [AsyncFunction: savePin], deletePin: [AsyncFunction: deletePin] }
+    f7 e12 createTilesSlice() <unread: locals> -> { tiles: [], selectedTileId: undefined, setSelectedTileId: [Function: setSelectedTileId], upsertTile: [Function: upsertTile], removeTile: [Function: removeTile], createTile: [AsyncFunction: createTile…
+    f8 e14 createAssetSlice() <unread: locals> -> { myAssets: [], aiImageEnabled: undefined, fetchMyAssets: [AsyncFunction: fetchMyAssets], uploadArtFile: [AsyncFunction: uploadArtFile], tokenizeAsset: [AsyncFunction: tokenizeAsset], fetchAiImageEnab…
+  f9 e17 <anonymous>() <unread: locals> -> undefined
+  f10 e19 <anonymous>() <unread: locals> -> undefined
+  f11 e21 <anonymous>() <unread: locals> -> undefined
+  f12 e23 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f14 e27 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f15 e29 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f52 e108 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f53 e110 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f54 e112 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f55 e114 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f56 e115 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f57 e117 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f58 e120 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f84 e180 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f85 e182 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f86 e184 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f87 e186 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f123 e265 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f124 e267 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f125 e269 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f126 e271 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f127 e272 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f128 e274 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f129 e277 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f230 e496 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f231 e498 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f232 e500 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f233 e502 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f234 e503 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f235 e504 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f236 e506 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+        f237 e507 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> {}
+    f238 e511 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f239 e512 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f240 e514 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+        f241 e515 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> {}
+    f242 e519 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f243 e521 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f244 e524 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f316 e675 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f317 e677 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f318 e679 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f319 e681 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f320 e682 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f321 e683 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f322 e685 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+        f323 e686 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> {}
+    f324 e690 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f325 e692 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f326 e695 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f409 e873 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f410 e875 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f411 e877 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f412 e879 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f413 e880 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f414 e881 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f415 e883 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+        f416 e884 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> {}
+    f417 e888 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f418 e890 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f419 e893 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f519 e1102 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f520 e1104 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f521 e1106 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f522 e1108 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f523 e1109 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f524 e1111 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f525 e1114 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f639 e1353 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f640 e1355 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f641 e1357 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f642 e1359 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f706 e1492 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f707 e1494 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f708 e1496 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f709 e1498 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f710 e1499 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f711 e1501 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f712 e1504 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f798 e1683 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f799 e1685 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f800 e1687 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f801 e1689 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f802 e1690 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f803 e1691 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f804 e1693 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f805 e1696 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f806 e1698 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f807 e1701 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f864 e1820 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f865 e1822 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f866 e1824 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f867 e1826 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f909 e1915 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f910 e1917 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1116 e2342 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1117 e2344 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1118 e2346 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1119 e2348 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f1120 e2349 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f1121 e2350 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f1122 e2352 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f1123 e2355 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f1124 e2357 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1125 e2360 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1442 e3007 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1443 e3009 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1444 e3011 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1445 e3013 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f1446 e3014 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f1447 e3015 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f1448 e3017 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f1449 e3020 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f1450 e3022 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1451 e3025 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1971 e4074 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1972 e4076 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1973 e4078 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1974 e4080 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f1975 e4081 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f1976 e4082 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f1977 e4084 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f1978 e4087 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f1979 e4089 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f1980 e4092 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2137 e4411 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2138 e4413 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2139 e4415 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2140 e4417 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f2141 e4418 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f2142 e4419 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f2143 e4421 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f2144 e4424 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f2145 e4425 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f2146 e4427 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f2147 e4430 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f2148 e4432 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2149 e4435 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2253 e4668 <anonymous>.<anonymous>() <unread: locals> -> { useFakeTimers: [Function: useFakeTimers], isFakeTimers: [Function: isFakeTimers], useRealTimers: [Function: useRealTimers], runOnlyPendingTimers: [Function: runOnlyPendingTimers], runOnlyPendingTime…
+  f2254 e4670 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2255 e4672 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2256 e4674 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f2257 e4675 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f2258 e4676 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f2259 e4678 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f2260 e4681 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f2261 e4683 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f2262 e4685 mockVideoStream.getTracks() <unread: locals> -> [ { enabled: true, muted: false, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mock…
+    f2263 e4687 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2264 e4690 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2381 e4955 <anonymous>.<anonymous>() <unread: locals> -> { useFakeTimers: [Function: useFakeTimers], isFakeTimers: [Function: isFakeTimers], useRealTimers: [Function: useRealTimers], runOnlyPendingTimers: [Function: runOnlyPendingTimers], runOnlyPendingTime…
+  f2382 e4957 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2383 e4959 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2384 e4961 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f2385 e4962 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f2386 e4963 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f2387 e4965 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f2388 e4968 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f2389 e4970 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2390 e4973 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2535 e5296 <anonymous>.<anonymous>() <unread: locals> -> { useFakeTimers: [Function: useFakeTimers], isFakeTimers: [Function: isFakeTimers], useRealTimers: [Function: useRealTimers], runOnlyPendingTimers: [Function: runOnlyPendingTimers], runOnlyPendingTime…
+  f2536 e5298 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2537 e5300 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2538 e5302 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f2539 e5303 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f2540 e5304 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f2541 e5306 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f2542 e5309 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f2543 e5310 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f2544 e5312 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f2545 e5315 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f2546 e5316 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f2547 e5318 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f2548 e5321 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f2549 e5322 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f2550 e5324 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f2551 e5327 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f2552 e5328 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f2553 e5330 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f2554 e5333 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f2555 e5335 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2556 e5338 <anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2661 e5565 <anonymous>.<anonymous>() <unread: locals> -> { useFakeTimers: [Function: useFakeTimers], isFakeTimers: [Function: isFakeTimers], useRealTimers: [Function: useRealTimers], runOnlyPendingTimers: [Function: runOnlyPendingTimers], runOnlyPendingTime…
+  f2662 e5567 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2663 e5569 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+  f2664 e5571 useMeshVoice.<anonymous>.<anonymous>() <unread: locals> -> undefined
+    f2665 e5572 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+      f2666 e5573 MockRTCPeerConnection.close() <unread: locals> -> undefined
+      f2667 e5575 useMeshVoice.<anonymous>() <unread: locals> -> undefined
+    f2668 e5578 mockStream.getTracks() <unread: locals> -> [ { enabled: true, stop: { [Function: Mock] _isMockFunction: true, getMockImplementation: [Function (anonymous)], mock: [Object], mockImplementation: [Function: mockImplementation], mockImplementation…
+    f2669 e5580 useMeshVoice.<anonymous>.<anonymous>.<anonymous>() <unread: locals> -> undefined
+task t1: useMeshVoice > exports the public STUN server list
+  f13 e25 <anonymous>.<anonymous>() <unread: locals> -> undefined
+task t2: useMeshVoice > joinVoice acquires the mic with the expected constraints and emits webrtc:voice-join
+task t3: useMeshVoice > sets an error and does not join when getUserMedia rejects (both attempts)
+task t4: useMeshVoice > falls back to a bare audio request when the constraint object is rejected (WebKitGTK "invalid constraint")
+task t5: useMeshVoice > creates a peer + sends an offer for every member of the voice-roster snapshot
+task t6: useMeshVoice > a later peer-joined creates a peer WITHOUT us sending an offer (we wait for theirs)
+task t7: useMeshVoice > an incoming offer produces an answer emitted back to the sender
+task t8: useMeshVoice > peer-left closes that peer connection
+task t9: useMeshVoice > leaveVoice closes every peer, stops local tracks, and emits webrtc:voice-leave
+task t10: useMeshVoice > toggleMute disables the local audio track and flips `muted`
+task t11: useMeshVoice > setPeerVolume updates the peer volume in state and persists it to localStorage
+task t12: useMeshVoice — Track A2 failure UX > runs no tick interval before joining, starts one on join, and clears it on leave
+task t13: useMeshVoice — Track A2 failure UX > clears the tick interval on unmount
+task t14: useMeshVoice — Track A2 failure UX > a peer stuck connecting for 15s of ticks triggers exactly one restartIce() call and a fresh offer
+task t15: useMeshVoice — Track A2 failure UX > a peer that never recovers after the restart is declared failed and signaled via webrtc:pair-failed
+task t16: useMeshVoice — Track A2 failure UX > a connected peer never escalates while ticks keep firing
+task t17: useMeshVoice — Track A2 failure UX > receiving a webrtc:pair-failed signal from the other side marks that peer failed locally, without touching an unrelated peer
+task t18: useMeshVoice — camera (mesh P2P video) > toggleCam on captures video, adds a track to each peer, and renegotiates
+task t19: useMeshVoice — camera (mesh P2P video) > toggleCam off stops the camera track and stops sending to peers
+task t20: useMeshVoice — camera (mesh P2P video) > blocks the camera past VIDEO_PEER_CAP and flags videoCapReached
+task t21: useMeshVoice — camera (mesh P2P video) > an incoming remote video track appears in peerVideo and clears on mute
+... 253 subtree(s) beyond --depth 3 or --limit 200; continue with: sensorium tree 20260910-150823-d243d3 --root f16
+order between tasks is wall-clock (event ids), not causal; within one task it is causal
+--- exit 0
+
+$ sensorium frame 20260910-150823-d243d3 --fn applyMeshVoiceEvent
+f38 meshVoice.ts:applyMeshVoiceEvent  [e74..e75]  thread 1  task t2 (useMeshVoice > joinVoice acquires the mic with the expected constraints and emits webrtc:voice-join)  depth 4  closed: return
+args: <unread: locals>
+timeline: not captured (this recorder produces no LINE events (capabilities.line: false); per-line capture is S5 rung 3)
+return: { state: { myUserId: 'me', joined: true, peers: Map(0) {} }, actions: [] }
+children: (none)
+--- exit 0
+
+$ sensorium grep 20260910-150823-d243d3 useMeshVoice --limit 10
+e33 CALL    useMeshVoice() <unread: locals>
+e34 CALL    useMeshVoice.<anonymous>() <unread: locals>
+e35 RETURN  useMeshVoice.<anonymous> -> 'room-1'
+e36 CALL    useMeshVoice.<anonymous>() <unread: locals>
+e37 RETURN  useMeshVoice.<anonymous> -> 'room-1'
+e38 CALL    useMeshVoice.<anonymous>() <unread: locals>
+e39 RETURN  useMeshVoice.<anonymous> -> 'me'
+e40 CALL    useMeshVoice.<anonymous>() <unread: locals>
+e41 RETURN  useMeshVoice.<anonymous> -> 'me'
+e44 RETURN  useMeshVoice -> { joined: false, peers: [], muted: false, error: null, camOn: false, localVideoTrack: null, peerVideo: {}, videoCapReached: false, activeVoiceId: 'none', joinVoice: [AsyncFunction (anonymous)], leaveV…
+matches: 3221 (showing 10)
+... 3211 more; continue with: sensorium grep 20260910-150823-d243d3 useMeshVoice --limit 10 --after e44
+--- exit 0
+
+$ sensorium exceptions 20260910-150823-d243d3 --limit 10
+raised (21):
+  e72 HANDLED useMeshVoice.<anonymous> handled ReferenceError('AudioContext is not defined') L506
+    SWALLOWED -- caught by catch at e72 (useMeshVoice.<anonymous> L506) in f31, which returned  [×19: e72, e229, e320, e567, e738, e936, e1157, e1400, … +11]
+      born outside traced code, at useMeshVoice.<anonymous> L506
+  e154 HANDLED useMeshVoice.<anonymous> handled Error('Permission denied') L489
+    AMBIGUOUS -- caught at e154 (catch_escaped), and the error or a rendering of it left the handler; not followed  [×2: e154, e224]
+      messages: 2 distinct (first shown)
+dispositions: swallowed 19, ambiguous 2
+--- exit 0
+
+$ sensorium watch 20260910-150823-d243d3 --at applyMeshVoiceEvent --expr true --limit 10
+REFUSED: watch needs line, which recorder sensorium-ts 0.2.0 declares it does not produce (capabilities.line: false); nothing was checked
+--- exit 3
+
+$ sensorium flow 20260910-150823-d243d3 --value useMeshVoice --limit 10
+REFUSED: flow needs line, which recorder sensorium-ts 0.2.0 declares it does not produce (capabilities.line: false); nothing was checked
+--- exit 3
+
+$ sensorium diff 20260910-150823-d243d3 20260910-150813-26effc
+A 20260910-150823-d243d3: threads 1  compared: t1 [recorded main thread]  fp 9dd5269d5f976c8cc3eb88d04db699c5
+B 20260910-150813-26effc: threads 1  compared: t1 [recorded main thread]  fp 4b670acfe39392d84f9ef395dfc8442b
+note: A's recorder sensorium-ts 0.2.0 declares threads not witnessed (capabilities.threads: false), so there is no thread record to read; absence of the record is not a record of absence
+note: B's recorder sensorium-ts 0.2.0 declares threads not witnessed (capabilities.threads: false), so there is no thread record to read; absence of the record is not a record of absence
+verdict: DIVERGED at causal step 16
+  common  e14 CALL    createAssetSlice  (<lens>/src/stores/roomStore.assets.ts)
+  common  e15 RETURN  createAssetSlice  (<lens>/src/stores/roomStore.assets.ts)
+  common  e16 RETURN  <anonymous>  (<lens>/src/stores/roomStore.ts)
+  A:      e17 CALL    <anonymous>  (<lens>/src/__tests__/useMeshVoice.test.tsx)
+  B:      e17 CALL    <anonymous>  (<lens>/src/components/inventory/InventoryTab.test.tsx)
+drill into A: sensorium tree 20260910-150823-d243d3 --around e17
+drill into B: sensorium tree 20260910-150813-26effc --around e17
+tasks: DIVERGED -- 21 task stream(s) on A, 24 on B; only in A: useMeshVoice > a later peer-joined creates a peer WITHOUT us sending an offer (we wait for theirs) 7b0551f3355d, useMeshVoice > an incoming offer produces an answer emitted back to the sender a77242175754, useMeshVoice > creates a peer + sends an offer for every member of the voice-roster snapshot 12ab9aa3754d, useMeshVoice > exports the public STUN server list d695b3c88c45, useMeshVoice > falls back to a bare audio request when the constraint object is rejected (WebKitGTK "invalid constraint") 880bd87d9561, useMeshVoice > joinVoice acquires the mic with the expected constraints and emits webrtc:voice-join 9765e5e8f57c, useMeshVoice > leaveVoice closes every peer, stops local tracks, and emits webrtc:voice-leave 6926c95515ab, useMeshVoice > peer-left closes that peer connection bdeef5da795e, useMeshVoice > setPeerVolume updates the peer volume in state and persists it to localStorage 891c63e26cee, useMeshVoice > sets an error and does not join when getUserMedia rejects (both attempts) eaebe8d6e288, useMeshVoice > toggleMute disables the local audio track and flips `muted` f567bf7e3a58, useMeshVoice — Track A2 failure UX > a connected peer never escalates while ticks keep firing 3d66be6a8cf9, useMeshVoice — Track A2 failure UX > a peer stuck connecting for 15s of ticks triggers exactly one restartIce() call and a fresh offer d2564ef4096a, useMeshVoice — Track A2 failure UX > a peer that never recovers after the restart is declared failed and signaled via webrtc:pair-failed a2289a219669, useMeshVoice — Track A2 failure UX > clears the tick interval on unmount a44c3b8b7ebf, useMeshVoice — Track A2 failure UX > receiving a webrtc:pair-failed signal from the other side marks that peer failed locally, without touching an unrelated peer ff60bc2d119d, useMeshVoice — Track A2 failure UX > runs no tick interval before joining, starts one on join, and clears it on leave dcf20cf27d16, useMeshVoice — camera (mesh P2P video) > an incoming remote video track appears in peerVideo and clears on mute 2f1bb38fa32a, useMeshVoice — camera (mesh P2P video) > blocks the camera past VIDEO_PEER_CAP and flags videoCapReached 9b71e98cd066, useMeshVoice — camera (mesh P2P video) > toggleCam off stops the camera track and stops sending to peers f96e10266794, useMeshVoice — camera (mesh P2P video) > toggleCam on captures video, adds a track to each peer, and renegotiates f36d87b20160; only in B: InventoryTab > adds an item via the picker search and calls addInventoryItem ab44a7be884d, InventoryTab > adds an item when a compendium entry is dropped onto the inventory panel 4610dc0f4b51, InventoryTab > auto-derived weapon attacks (opt-in, Task 13) > does not persist derived attacks when the auto-derive flag is off d2e2235fcbe0, InventoryTab > auto-derived weapon attacks (opt-in, Task 13) > hides the "Auto weapon attacks" toggle for non-GM players 202a6469e687, InventoryTab > auto-derived weapon attacks (opt-in, Task 13) > persistence-loss fixes (task-13 review, critical) > reports a persist error and allows a retry (clears the ref) when saveCharacterSheet r 8ae4423b0876, InventoryTab > auto-derived weapon attacks (opt-in, Task 13) > persistence-loss fixes (task-13 review, critical) > self-corrects (re-persists) when a foreign store write reverts attacks after the hook fa937dbf2073, InventoryTab > auto-derived weapon attacks (opt-in, Task 13) > shows the GM-only "Auto weapon attacks" toggle, checked by default 202a6469e687, InventoryTab > auto-derived weapon attacks (opt-in, Task 13) > writes the derived weapon attack into attacks[] and records it in custom.__derivedAttackNames when the flag is on (default) 570585bc9997, InventoryTab > calls removeInventoryInstance when the remove button is clicked 082b3971d8dd, InventoryTab > calls setCurrency with an incremented denomination when a stepper is clicked fecada3620f8, InventoryTab > calls setCurrency with the rolled-up wallet when Convert up is clicked 8519f58d11b6, InventoryTab > calls updateInventoryInstance with attuned:true when the attune checkbox is clicked 9b2e5f2d1d06, InventoryTab > decrements uses on click, floored at 0 2d1eb55caf9e, InventoryTab > disables the Use button once remaining uses reach 0 10d9f52760ed, InventoryTab > does not throw when dropped payload is malformed JSON d9fc46e98a90, InventoryTab > does not throw when dropped payload is valid JSON but the wrong shape dd19da15e3b0, InventoryTab > encumbrance (optional, GM-gated) > does not show the encumbrance line by default cc0ef9c38b09, InventoryTab > encumbrance (optional, GM-gated) > enables the encumbrance line via the GM-only "Track encumbrance" toggle 211626317df0, InventoryTab > encumbrance (optional, GM-gated) > hides the "Track encumbrance" toggle for non-GM players cc0ef9c38b09, InventoryTab > encumbrance (optional, GM-gated) > shows the encumbrance line once the flag is enabled in the store cc0ef9c38b09, InventoryTab > ignores a dropped compendium entry that is not an item 4610dc0f4b51, InventoryTab > renders a resolved item and toggles equip 63680452524f, InventoryTab > renders an unlinked hint and does not crash when the ref has no matching template 8004ca0c3e4e, InventoryTab > renders sane defaults (not literal "undefined") for a fresh template with empty data a66d96487dde; the ordering between tasks is not compared
+--- exit 1
+
+$ sensorium refocus 20260910-150823-d243d3 --focus applyMeshVoiceEvent
+error: cannot refocus 20260910-150823-d243d3: refocus needs refocus, which recorder sensorium-ts 0.2.0 declares it does not produce (capabilities.refocus: false); nothing was checked
+no rerun was attempted; this recorder records one tier and has no deeper capture to re-run for (S5 rung 3)
+--- exit 2

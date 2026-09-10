@@ -71,7 +71,49 @@ may mean, and the twelve shapes err flow cannot see, are
 [`rust/HONESTY-BLIND-SPOTS.md`](../rust/HONESTY-BLIND-SPOTS.md) items 15–26;
 the two measurements behind them are in `../README.md`'s Rust section.
 
-**One block per shape, not one per chain** (0.8.2, Rust traces only). Two
+**On a TypeScript trace the words are Python's and the shapes are
+JavaScript's** *(added 2026-09-10, S5 rung 2; `sensorium` 0.10.0 and
+`sensorium-ts` 0.2.0)*. An `Err` value travelling is not an exception, so Rust
+got its own five words — a `throw` unwinding IS one, so TypeScript keeps the
+originals: `swallowed`, `uncaught`, `re-raised`, `propagated`, `ambiguous`,
+computed over every RAISE and every orphan HANDLED. What is new is where the
+evidence comes from. **The transform decides at load time what each handler
+did with what it caught**, and writes it as a `how` word the rules read: a
+`catch (e)` body that never mentions `e`, or mentions it only as an argument
+of a `console.*` call, is **`catch`** — log-and-continue, the archetypal
+swallow; a body that does anything else with it is **`catch_escaped`**, and
+the rule does not follow where it went; an empty block is
+**`sink_empty_catch`**. A bare `throw e;` is a traced EXIT and not a mention,
+so a rethrow is a hop and not an escape. Rejection handlers get the same rule
+applied to their parameter (`catch_callback`, `catch_callback_escaped`,
+`sink_empty_catch_callback`, and **`catch_callback_opaque`** for a handler
+defined somewhere else), and a `finally` block that `return`s, `break`s or
+`continue`s while a throw is in flight is **`sink_finally_return`**. Nine
+words in all, and a shape outside them produced no record.
+
+**SWALLOWED is claimed only where the recording establishes it**: a HANDLED
+whose `how` is in the absorbing set (`catch`, `sink_empty_catch`,
+`catch_callback`, `sink_empty_catch_callback`, `sink_finally_return`), in a
+frame that later closed by `return`, with no later raise of that serial and
+**no** HANDLED for it anywhere in the escaping set. Everything else is
+`ambiguous` with its reason printed — an escaped or opaque handler, a frame
+still suspended at the end of the recording, a frame that later unwound with a
+different serial, a rethrown primitive. Nothing reaches SWALLOWED by falling
+through, and an UNWIND is never itself a verdict: it is the evidence
+`propagated` reads. `uncaught` is reserved for an unhandled rejection; a
+failing test is `propagated (to the harness)` with the task named. A trace an
+**0.1.x** recorder wrote declares `capabilities.err_flow: false` and is refused
+at exit 3 by the capability sentence — what it lacks is a record, so
+re-recording is the fix. What the rules cannot see is
+[`../typescript/HONESTY.md`](../typescript/HONESTY.md) §4 and
+[`../typescript/HONESTY-BLIND-SPOTS.md`](../typescript/HONESTY-BLIND-SPOTS.md)
+items 18–27; measured on a consumer's own suite, **0 false SWALLOWED of 30**
+hand-adjudicated shapes.
+
+**One block per shape, not one per chain** (0.8.2 for Rust; **extended to
+TypeScript 2026-09-10**, where the unit is a raise rather than a chain and the
+grouper is one module reading a per-language renderer, so every Rust caller's
+output is byte-unchanged). Two
 chains are one *shape* when they share a disposition, the site the verdict is
 about — the sink for `swallowed`, the arm for an escaped `ambiguous`, the
 origin site for every verdict that names no site — and the verdict text once
@@ -98,8 +140,10 @@ partial group: `... 2 more; continue with: sensorium exceptions <run>
 --limit 3`.
 
 **`sensorium exceptions <invocation-id>` answers for a whole
-`cargo sensorium test` invocation** — the id is the one `runs` already prints
-above the group. Every member trace is opened, classified and merged on the
+`cargo sensorium test` or `sensorium ts run` invocation** — the id is the one
+`runs` already prints above the group. Every member trace is opened,
+**dispatched on its own `lang`** (a member of any other language refuses by
+name: what it is missing is a rule, not a record), classified and merged on the
 same key, the bracket naming the spread across processes; a member that never
 finalized is NAMED before any answer about chains, and the tally is the sum:
 

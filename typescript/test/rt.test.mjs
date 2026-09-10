@@ -19,7 +19,7 @@ import { RT, of, ok, one, run } from './helpers/rt-child.mjs';
  */
 const KEYS = {
   BOOT: ['e', 'wire', 'pid', 'ppid', 'threadId', 'isMainThread', 'argv', 'cwd', 'env',
-    'envHash', 'node', 'version', 'tier', 'invocation', 'startTs', 'ts'],
+    'envHash', 'node', 'version', 'tier', 'capabilities', 'invocation', 'startTs', 'ts'],
   FILE: ['e', 'id', 'rel', 'abs', 'codes', 'sha'],
   TASK: ['e', 'id', 'name', 'basis', 'conflict'],
   CALL: ['e', 'f', 'p', 'file', 'c', 't', 'ts'],
@@ -58,9 +58,13 @@ test('boot names the writer, the invocation and the environment', () => {
   assert.equal(boot.e, 'BOOT');
   assert.equal(boot.wire, 1);
   assert.equal(boot.tier, 'call');
+  // What this recorder declares it produces (§2.4). The converter (Task 3)
+  // passes it through, and `exceptions` is gated on it: a spool whose BOOT
+  // lacks the key reads `false` and stays refused.
+  assert.deepEqual(boot.capabilities, { err_flow: true });
   assert.equal(boot.invocation, 'inv-1');
   assert.equal(boot.node, process.version);
-  assert.equal(boot.version, '0.1.1');
+  assert.equal(boot.version, '0.2.0');
   assert.equal(boot.isMainThread, true);
   assert.equal(boot.threadId, 0);
   assert.equal(boot.ppid, process.pid);
@@ -87,6 +91,8 @@ test('every record carries exactly its wire keys', () => {
       __srt.r(f, await __srt.y(f, Promise.resolve(1), 0));
       __srt.raise(f, new Error('raised'), 7);
       __srt.handled(f, new Error('handled'), 8, 'catch');
+      __srt.mark(f, new TypeError('in flight'));
+      __srt.handledFinally(f, 9);
       const g = __srt.call(fid, 0);
       __srt.thr(g, new Error('unwound'));
       __srt.ret(f, 'done');
@@ -123,6 +129,10 @@ test('every record carries exactly its wire keys', () => {
   assert.deepEqual(out.recs.filter((r) => r.e === 'SEEN' && r.name_trunc !== undefined), []);
   assert.deepEqual(out.recs.filter((r) => r.x && (r.x.trunc || r.x.type_trunc)), []);
   assert.deepEqual([...seen].sort(), Object.keys(KEYS).sort(), 'every record kind exercised');
+  // Both HANDLED words this runtime can write went through the sweep above, so
+  // the sink's keys are held exactly and not by a kind that stands in for it.
+  assert.deepEqual(out.recs.filter((r) => r.e === 'HANDLED').map((r) => r.how),
+    ['catch', 'sink_finally_return']);
   assert.equal(out.recs[0].e, 'BOOT');
   assert.equal(out.recs[out.recs.length - 1].e, 'EXIT');
 });
@@ -372,7 +382,7 @@ test('throw flow outside a frame carries a null frame', () => {
     const raised = __srt.raise(null, new Error('a'), 3);
     __srt.handled(null, new Error('b'), 4, 'sink_empty_catch');
     let swallowed = null;
-    const sink = __srt.emptyCatch(null, 9, (reason) => { swallowed = reason; return 'from the original'; });
+    const sink = __srt.catchCb(null, 9, 'sink_empty_catch_callback', (reason) => { swallowed = reason; return 'from the original'; });
     const returned = sink('why');
     const [, activate] = __srt.task('t', () => { __srt.raise(null, 'in a task', 5); }, 1);
     activate();

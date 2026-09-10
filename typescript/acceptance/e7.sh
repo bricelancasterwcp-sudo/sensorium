@@ -34,6 +34,20 @@ FLOW_VALUE="${11-}"
   [ -n "$WATCH_AT" ] && [ -n "$WATCH_EXPR" ] && [ -n "$FLOW_VALUE" ] ||
   refuse "usage: e7.sh <store> <run A> <run B> <out dir> <transcript> <repo root> <fn> <grep pattern> <watch at> <watch expr> <flow value>"
 
+#: The reader under measurement. Default is the global tool; a rung that ships
+#: a new reader passes its own, because "does the reader speak THIS recorder's
+#: words" is a question about the reader this branch built.
+SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"
+#: The interpreter that reads the trace's recorded project root, which is
+#: one of the three literal paths rewritten out of the COMMITTED
+#: transcript. It needs `sensorium` importable; the system python is not
+#: obliged to have it, and a lookup that quietly failed would leave a box
+#: path in a committed file.
+E7_PYTHON="${E7_PYTHON:-python3}"
+#: Which vectors the second half runs, as a `-k` expression. The default is
+#: rung 1's pair; a later rung passes its own pre-registered list.
+E7_VECTORS_K="${E7_VECTORS_K:-v23 or v24}"
+
 mkdir -p "$OUT" "$(dirname "$TRANSCRIPT")" || refuse "cannot write the transcript"
 RAW="$OUT/e7-raw.txt"
 STATUSES="$OUT/e7-statuses.txt"
@@ -44,7 +58,7 @@ say() {
   local label="$1"; shift
   {
     printf '\n$ sensorium %s\n' "$*"
-    SENSORIUM_DIR="$STORE" sensorium "$@" 2>&1
+    SENSORIUM_DIR="$STORE" "$SENSORIUM_BIN" "$@" 2>&1
     printf -- '--- exit %s\n' "$?"
   } >>"$RAW"
   printf '%s\t%s\n' "$label" "$(tail -2 "$RAW" | sed -n 's/^--- exit \([0-9]*\)$/\1/p')" >>"$STATUSES"
@@ -72,7 +86,7 @@ say diff   diff "$RUN_A" "$RUN_B"
 say refocus refocus "$RUN_A" --focus "$FN"
 
 # The two rewrites, then the transcript is final.
-LENS_ROOT="$(SENSORIUM_DIR="$STORE" python3 -c '
+LENS_ROOT="$(SENSORIUM_DIR="$STORE" "$E7_PYTHON" -c '
 import sys
 from sensorium.store.reader import Trace
 from sensorium import paths
@@ -92,8 +106,9 @@ PY
 # The vectors.
 VECTORS="$OUT/e7-vectors.txt"
 ( cd "$REPO" && PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q \
-    -p no:cacheprovider tests/test_vectors.py -k "v23 or v24" ) >"$VECTORS" 2>&1
+    -p no:cacheprovider tests/test_vectors.py -k "$E7_VECTORS_K" ) >"$VECTORS" 2>&1
 vectors_status=$?
 
 E7_TRANSCRIPT="$TRANSCRIPT" E7_STATUSES="$STATUSES" E7_VECTORS="$VECTORS" \
+E7_VECTORS_K="$E7_VECTORS_K" \
 E7_VECTORS_STATUS="$vectors_status" python3 "$HERE/e7_report.py"
