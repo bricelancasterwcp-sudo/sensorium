@@ -73,9 +73,11 @@ def main(argv=None) -> int:
         return 2
     parser = argparse.ArgumentParser(
         prog="sensorium",
-        description="Record a program's execution "
-                    "(Python, Rust, TypeScript); "
-                    "query what actually happened.")
+        description="Record a program's execution; query what actually "
+                    "happened. `sensorium run` records Python, `cargo "
+                    "sensorium` records Rust and `sensorium ts run` "
+                    "records TypeScript; every query below reads any of "
+                    "the three traces.")
     sub = parser.add_subparsers(dest="cmd", required=True)
     _add_run_parser(sub)
     ts_cli.add_parser(sub)

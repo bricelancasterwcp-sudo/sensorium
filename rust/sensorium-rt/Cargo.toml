@@ -3,7 +3,7 @@ name = "sensorium-rt"
 version = "0.4.1"
 edition = "2021"
 publish = false
-description = "The sensorium Rust recorder's runtime: per-thread MAP_SHARED trace spools, the entry guard, outcomes and capped return values."
+description = "The sensorium Rust recorder's runtime: per-thread MAP_SHARED trace spools, the entry guard, outcomes and capped return values, err-flow and LINE records, the panic hook, and the repository's one sha256."
 license = "MIT"
 repository = "https://github.com/bricelancasterwcp-sudo/sensorium"
 
@@ -11,7 +11,7 @@ repository = "https://github.com/bricelancasterwcp-sudo/sensorium"
 # `rustc --crate-type rlib --edition 2021 -C opt-level=3 src/lib.rs` invocation
 # and links it into a target build with BOTH `--extern sensorium_rt=<rlib>` and
 # `-L dependency=<the rlib's own per-variant directory>` (plan decision D1 as
-# amended -- `cargo-sensorium/src/rt_build.rs`, `driver.rs:382-401`,
+# amended -- `cargo-sensorium/src/rt_build.rs`, `launch.rs`,
 # `wrapper.rs`): `--extern` binds the name a crate may write, and the search
 # path is how a crate that reaches the runtime through an instrumented
 # DEPENDENCY resolves it. That directory holds exactly one rlib and this crate
