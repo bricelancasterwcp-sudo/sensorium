@@ -328,7 +328,7 @@ findings addressed and no Critical or Important breakage, with four
 residuals left standing; R46 chose one docs-only commit over a second fix
 wave, and this is that commit.
 
-- **`typescript/src/hook.mjs:98`** — under `node --test` a `.tsx`/`.jsx`
+- **`typescript/src/hook.mjs` `load`** — under `node --test` a `.tsx`/`.jsx`
   file now fails to load at all: Node's own loader throws
   `ERR_UNKNOWN_FILE_EXTENSION` from `nextLoad` before this hook ever sees
   the file, where the pre-R37 hook had transpiled it with `jsx:
