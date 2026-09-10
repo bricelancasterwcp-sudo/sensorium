@@ -44,6 +44,7 @@
 | P10 | The census instrument for E2″ | `typescript/acceptance/census_catch.mjs <root>`: walks the lens `src` with the consumer's TypeScript, counts catch clauses / rejection-callback call sites / completing `finally` blocks the walker sees, and the `how` records the transform would write, by kind; ratio = spliced / seen after NAMED exclusions | rung 1's `census.mjs` shape | none |
 | P11 | Corpus rename | `corpus/typescript/exceptions_refused/` → `silent_swallow/` (`git mv`; same `config.ts`; new questions); the refusal becomes v32 | spec R14 | none |
 | P12 | Where the new ingest test goes | `tests/test_ts_ingest_caps.py` (the BOOT-capabilities pass-through) — `test_ts_ingest_meta.py` is at 777 | ceiling | none |
+| P14 | When `sensorium-ts` becomes 0.2.0 | At Task 1, with the runtime whose declaration changed; Python's 0.10.0 waits for Task 8 | Task 6's corpus questions pin the recorder string `info` prints, which is the BOOT's `VERSION` — written before Task 8 | one version-bearing commit earlier in the branch |
 | P13 | Task order: runtime before transform | The runtime's `catchCb`/`mark`/`handledFinally` land first (Task 1) so no Node test ever executes a transformed call the runtime lacks; the probes are written with the runtime and go green with the transform | `hook.test.mjs` and `vite.test.mjs` run transformed code against the real `rt.mjs` | none |
 
 ## Pre-registration (Task 0 commits spec §7's table and its adjudication protocol verbatim as the record's §1, plus these pins)
@@ -131,9 +132,9 @@ export function handledFinally(f, line) {
   f.mark = null;
 }
 ```
-`raise(f, e, line)` sets `f.mark = serialOf(e)` when `f` is open (after emitting); `handled(f, …)` sets `f.mark = null`; `call()` initialises `mark: null`; `serialOf` is exported from `dbg.mjs` (it is module-private today). `emptyCatch` is deleted. BOOT gains `capabilities: { err_flow: true }` after `tier`. The `exc` object with `unread` is the contract's own spelling (TRACE-FORMAT §5: `unread: ["msg"]` inside `exc`), extended to `type`; `fmt_exc` already renders an unread `msg` on a kind-bearing exc — Task 4 checks `type` renders too.
+`raise(f, e, line)` sets `f.mark = serialOf(e)` when `f` is open (after emitting); `handled(f, …)` sets `f.mark = null`; `call()` initialises `mark: null`; `serialOf` is exported from `dbg.mjs` (it is module-private today). `emptyCatch` is deleted. BOOT gains `capabilities: { err_flow: true }` after `tier`. **This task also bumps `sensorium-ts` to 0.2.0** (P14): `typescript/package.json` + `package-lock.json` root entries, `src/index.mjs` `VERSION`, `typescript/test/rt.test.mjs:63`, `src/sensorium/ts/wrapper.py:57`, `tests/test_ts_live.py:200`, `tests/test_ts_wrapper.py:84`, and the four corpus questions naming `sensorium-ts 0.1.1` (`corpus/typescript/{watch_refused,pass_vs_fail,object_refused}/questions.yaml`, five lines) — NOT the fixtures' `0.1.0`. The `exc` object with `unread` is the contract's own spelling (TRACE-FORMAT §5: `unread: ["msg"]` inside `exc`), extended to `type`; `fmt_exc` already renders an unread `msg` on a kind-bearing exc — Task 4 checks `type` renders too.
 
-**Tests (`rt.test.mjs`):** `catchCb` records HANDLED `{kind: 'rejection', how}` with the reason's serial and returns the original's result with `this` preserved; `catchCb` at tier `off` returns `fn` itself; `mark`+`handledFinally` write one `sink_finally_return` carrying the marked serial and clear the mark; `handledFinally` with no mark writes nothing; `raise` marks and `handled` clears (a `finally` after a caught throw records nothing); BOOT carries `capabilities.err_flow: true`; `VERSION` still held to `package.json` (bumped in Task 8).
+**Tests (`rt.test.mjs`):** `catchCb` records HANDLED `{kind: 'rejection', how}` with the reason's serial and returns the original's result with `this` preserved; `catchCb` at tier `off` returns `fn` itself; `mark`+`handledFinally` write one `sink_finally_return` carrying the marked serial and clear the mark; `handledFinally` with no mark writes nothing; `raise` marks and `handled` clears (a `finally` after a caught throw records nothing); BOOT carries `capabilities.err_flow: true`; `VERSION` held to `package.json` at 0.2.0.
 
 **Probes (they run only once Task 2's transform emits the new records; written here, asserted at Task 2's end):** `swallow.probe.test.ts` gains shapes 6–12 with markers (`logged catch`, `escaped catch`, `callback function empty`, `callback arrow logged`, `callback escaped`, `callback opaque`, `finally return`); `check.mjs`: `SWALLOW_EXC` rows for each, and a new `checkEscape(k, s)` reading `// ESCAPE` markers from `escape.probe.test.ts` and asserting the HANDLED `how` at the marked line; `VITEST_PROBES` gains the file; the README table gains both.
 
@@ -180,7 +181,7 @@ export function handledFinally(f, line) {
 
 ---
 
-### Task 3: The converter, the contract's amendment, the vectors
+### Task 3: The converter and the contract's amendment
 
 **Files:**
 - Modify: `src/sensorium/ts/build.py` (`_meta`: `capabilities = {**CAPABILITIES, **(boot.get("capabilities") or {})}`; nothing else), `docs/trace-format/TYPESCRIPT-KEYS.md` (the moved section amended: the nine `how` words, the `unread: ["type","msg"]` exc, the capability, "judged by the TypeScript rules from `sensorium-ts` 0.2.0"), `docs/TRACE-FORMAT.md` capabilities row for `err_flow` (one line: "Rust and TypeScript; the Python column never declares it"), `docs/trace-format/VECTORS.md`.
@@ -271,12 +272,12 @@ export function handledFinally(f, line) {
 **Files:**
 - `typescript/HONESTY.md` §4 rewritten by dated amendment (the promise, the nine words, the escape rule, the absorbing/escaping sets, what still records nothing), blind spots 2/3/11/13 struck or amended, new blind spots (P1's, R3's, closures, the `finally` sink's unread value, opaque handlers, `Promise.reject` origins), §9 "Measured, rung 2" (E1‴/E10″ numbers, the tally on the lens, the escaped share); split §10 to `HONESTY-BLIND-SPOTS.md` if over 800.
 - `typescript/README.md` (the hook/plugin rows; `exceptions` answers), `README.md` (`sensorium-ts 0.1.1` → `0.2.0`, one token; the TypeScript paragraph's "`exceptions` refuse at exit 3" clause → "answer"), `docs/query.md` (a TypeScript paragraph under `exceptions`: the five words, the escape rule, the `[×N]` grouping, the invocation mode; the "refuses" sentence in v23's description updated).
-- `CHANGELOG.md` `## 0.10.0 — <date>` (637 + ~90 lines, no cut); `pyproject.toml` 0.10.0; `typescript/package.json`, `package-lock.json`, `src/index.mjs` 0.2.0; `typescript/test/rt.test.mjs:63`; `src/sensorium/ts/wrapper.py:57`, `tests/test_ts_live.py:200`, `tests/test_ts_wrapper.py:84`, the four corpus questions naming `sensorium-ts 0.1.1` (`watch_refused`, `pass_vs_fail`, `object_refused` ×2) → `0.2.0`; NOT the fixtures' `0.1.0` (`tests/test_ts_ingest_meta.py:31`).
+- `CHANGELOG.md` `## 0.10.0 — <date>` (637 + ~90 lines, no cut); `pyproject.toml` 0.10.0 (the `sensorium-ts` 0.2.0 sites were Task 1's, P14); NOT the fixtures' `0.1.0` (`tests/test_ts_ingest_meta.py:31`).
 - `docs/CARRIED-DEBT.md`: measure; cut the oldest section to `docs/CARRIED-DEBT-ARCHIVE-6.md` with the dated note; append the rung-2 section (settled: blind spots 2/3/11/13, the refusal, D15; deferred with rulings from the SDD ledger's `Ruling:` lines and every deferred minor; process lessons); strike rung 1's "`exceptions` disposition rules are rung 2" row and the R46 residual list's throw-flow items.
 - The rung-1 spec's §11 item 2 gains a dated line pointing at the record; this spec's §12 = "what changed against this design" (P1–P12, the measured numbers, the predictions that did not hold).
 - Reinstall the three worktree venvs so `importlib.metadata` reads 0.10.0; `tests/test_release_tokens.py` green.
 
-- [ ] **Step 1:** versions + the string sites + reinstall + `test_release_tokens`; commit `chore(release): sensorium 0.10.0, sensorium-ts 0.2.0`.
+- [ ] **Step 1:** `pyproject.toml` 0.10.0 + reinstall + `test_release_tokens`; commit `chore(release): sensorium 0.10.0`.
 - [ ] **Step 2:** HONESTY, READMEs, query.md, CHANGELOG, the ledger, the spec pointers; every suite once more on 3.12/3.13/3.14 + npm + corpus + live; commit `docs: HONESTY, READMEs, query.md, CHANGELOG and the ledger for rung 2`.
 
 ---
