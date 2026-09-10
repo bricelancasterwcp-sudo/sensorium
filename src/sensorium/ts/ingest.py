@@ -211,8 +211,7 @@ def ingest_dir(spool_dir, store_dir, jobs: int | None = None) -> list[Summary]:
     shared = _tally(spool_dir)
     spools = sorted(spool_dir.glob("*.jsonl"))
     if not spools:
-        raise IngestError(f"no spools in {spool_dir}: nothing was recorded, "
-                          "or the recorder wrote somewhere else")
+        raise IngestError(_no_spools(spool_dir))
 
     jobs = max(1, min(jobs or os.cpu_count() or 1, len(spools)))
     payload = (inv.to_json(),
@@ -282,6 +281,55 @@ def _map(jobs: int, work: list[tuple], out: list[Summary]) -> None:
     with concurrent.futures.ProcessPoolExecutor(jobs, mp_context=ctx) as ex:
         for summary in ex.map(_worker, work):
             out.append(summary)
+
+
+#: What a directory with no spool in it says when its tallies explain
+#: nothing: the run may have gone wrong anywhere between the harness and the
+#: disk, and this converter does not guess which.
+NOTHING_RECORDED = ("nothing was recorded, or the recorder wrote somewhere "
+                    "else")
+
+
+def _no_spools(spool_dir: Path) -> str:
+    """The refusal for a directory holding no spool at all (R45).
+
+    A CommonJS-only suite runs GREEN under `node --test` and records
+    nothing -- every file the hook met was excluded before it was parsed --
+    and `NOTHING_RECORDED` names neither that cause nor its fix. The
+    tallies beside the missing spools do: when every one of them counted
+    zero transforms and at least one exclusion, that IS what happened, and
+    the refusal says so by reason and by count.
+
+    Anything else keeps the old sentence. A run that transformed a file and
+    still wrote no spool went wrong somewhere no tally can see, and naming
+    CommonJS there would be a guess dressed as a diagnosis.
+    """
+    tallies = [_read_tally(p) for p in _tally_files(spool_dir)]
+    counts: dict[str, int] = {}
+    for tally in tallies:
+        if tally.get("files_transformed") != 0 or not tally.get("excluded"):
+            counts = {}
+            break
+        for reason, n in tally["excluded"].items():
+            counts[reason] = counts.get(reason, 0) + n
+    if not counts:
+        return f"no spools in {spool_dir}: {NOTHING_RECORDED}"
+    reasons = ", ".join(f"{reason} x{n}" for reason, n in sorted(counts.items()))
+    line = (f"no spools in {spool_dir}: this run transformed 0 files and "
+            f"excluded {sum(counts.values())} ({reasons} across "
+            f"{len(tallies)} tallies)")
+    if "commonjs" in counts:
+        line += ("; this recorder instruments ES modules only, so a "
+                 "CommonJS-only suite records nothing")
+    return line
+
+
+def _tally_files(spool_dir: Path) -> list[Path]:
+    """Every tally an invocation left, the shared one first: what the two
+    harnesses wrote between them, whichever of them ran."""
+    manifests = spool_dir / MANIFEST_DIR
+    shared = [manifests / TALLY] if (manifests / TALLY).is_file() else []
+    return shared + sorted(manifests.glob(f"{TALLY_PREFIX}*.json"))
 
 
 def _tally(spool_dir: Path) -> dict:
