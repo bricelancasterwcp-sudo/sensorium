@@ -22,6 +22,11 @@ LENS_DIR="${1-}"; STORE="${2-}"; OUT="${3-}"; TEST_FILE="${4-}"
   refuse "usage: e3.sh <lens dir> <store dir> <out dir> <test file>"
 [ -d "$LENS_DIR" ] || refuse "no such lens directory: $LENS_DIR"
 
+#: The recorder AND the comparator under measurement -- both are this binary,
+#: which is the point: `diff` reads traces THIS recorder wrote. Default is the
+#: global tool (rung 1's reading); a rung that ships a new one passes its own.
+SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"
+
 RUNS=20
 LOAD_MAX=4.0
 LOAD_TRIES=90
@@ -45,7 +50,7 @@ for ((k = 1; k <= RUNS; k++)); do
   load="$(wait_for_load)" || refuse "1-minute load never dropped below $LOAD_MAX"
   log="$OUT/logs/e3-run-$k.log"
   ( cd "$LENS_DIR" && SENSORIUM_DIR="$STORE" \
-    sensorium ts run -- npx vitest run "$TEST_FILE" ) >"$log" 2>&1
+    "$SENSORIUM_BIN" ts run -- npx vitest run "$TEST_FILE" ) >"$log" 2>&1
   status=$?
   run_id="$(sed -n 's/^run: \([^ ]*\).*/\1/p' "$log" | tail -1)"
   printf '%s\t%s\t%s\t%s\n' "$k" "${run_id:--}" "$status" "$load" >>"$RUNIDS"
@@ -63,7 +68,7 @@ while IFS=$'\t' read -r k run_id _ _; do
     continue
   fi
   out="$OUT/logs/e3-diff-$k.txt"
-  SENSORIUM_DIR="$STORE" sensorium diff "$first" "$run_id" >"$out" 2>&1
+  SENSORIUM_DIR="$STORE" "$SENSORIUM_BIN" diff "$first" "$run_id" >"$out" 2>&1
   code=$?
   verdict="$(sed -n 's/^verdict: \(.*\)$/\1/p' "$out" | head -1)"
   printf '%s\t%s\t%s\t%s\n' "$k" "$run_id" "$code" "$verdict" >>"$DIFFS"
