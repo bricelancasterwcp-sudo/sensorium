@@ -779,3 +779,24 @@ Numbered as they are found; a later task appends rather than renumbers.
    63 GB free and nothing came near the disk, so no number is owed to any
    verdict here — but the slice still has no reading of that peak, and this
    box has run at ~3 GB free on `/`. It belongs in CARRIED-DEBT at Task 7.
+
+### 5.A Addendum, 2026-09-10 — E10′-eq-content, pre-registered before it ran
+
+Gap 2 above says what E10′-eq's PASS does and does not assert. This addendum
+adds **one reported, ungated check** to close the part of it that can be
+closed cheaply. It is written and committed **before the instrument that
+runs it exists**, and it **cannot move E10′-eq's verdict**, which was read
+before this check was conceived. §1 is untouched: this is an addition to §5,
+not an amendment to the pre-registration the gate was decided under.
+
+> **E10′-eq-content** (added 2026-09-10 after E10′-eq was read; reported, not
+> gated): for every one of the 372 pairs, the rows of `events`, `frames`,
+> `code_objects`, `tasks`, `fingerprints`, `task_fingerprints` and `output`
+> are identical in ALL columns between side A and side B (`SELECT * FROM
+> <t> ORDER BY rowid` on each side, compared as sequences), and `meta` is
+> identical except `run_id`. Expected 372/372; any differing pair is named by
+> `file` and table and is a §5 finding for the final review to weigh. It
+> cannot move E10′-eq's verdict, which was read before this check existed.
+
+**Result:** not measured (pre-registered 2026-09-10; the instrument has not
+run).
