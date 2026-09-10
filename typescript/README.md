@@ -8,10 +8,10 @@ process — the same SQLite format 4 the Python and Rust recorders write, read b
 the same `sensorium` command line. It exists for the same reason those do:
 reading logs is reading a diary, and this is watching the execution.
 
-One private npm package, **`sensorium-ts 0.1.1`** — ESM `.mjs` with JSDoc
+One private npm package, **`sensorium-ts 0.2.0`** — ESM `.mjs` with JSDoc
 types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24 (the version
 this was measured on; the driver refuses below it before spawning anything).
-Six modules and a version:
+Seven modules and a version:
 
 | Module | What it is |
 |---|---|
@@ -21,7 +21,8 @@ Six modules and a version:
 | `src/setup.mjs` | The vitest setup file: the task-name provider and the per-file/per-test records. Written from a template into `node_modules/.sensorium/` beside the wrapper config, never into your source tree. |
 | `src/register.mjs` | What `node --import` runs for `node --test`: it checks the two variables the hook cannot invent and registers `src/hook.mjs`. |
 | `src/hook.mjs` | The loader hook itself, on Node's loader thread: it instruments a file under the root and hands it back in **Node's own reported format**, erasing nothing — Node strips the types (`.ts`, `.mts`), and a file Node's strip-only mode refuses fails identically hooked and plain. |
-| `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.1.1`. |
+| `src/escape.mjs` | The escape rule, as pure functions over AST nodes: `catchHow(ts, clause)`, `callbackHow(ts, arg)`, `finallyCompletes(ts, block)`. It decides which of the nine `how` words a catch clause, a rejection handler or a `finally` block gets, and it is what `sensorium exceptions` ends up reading. |
+| `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.2.0`. |
 
 Beside them, `probes/` is a self-contained vitest project the recorder records
 ITSELF with: ten probe files whose expected rows were pinned by the S5 spike
@@ -122,6 +123,8 @@ do not upload either as a build artifact.
     sensorium grep last compute --kind RETURN       # every event that mentions it
     sensorium diff RUN_A RUN_B                      # where two runs part
     sensorium diff --ignore-moves RUN_A RUN_B       # …across a refactor that moved code
+    sensorium exceptions last                       # which throws went nowhere
+    sensorium exceptions <invocation-id>            # …across the whole suite at once
 
 On a TypeScript trace, `runs` groups a whole invocation under one header with
 the harness command and the exit somebody waited for, and prints each member's
@@ -130,6 +133,22 @@ test file. `info` adds the harness, the container, the interpreter line
 harness registered, what the transform covered and what it excluded by reason,
 and any unhandled rejections. `tree` groups by test, because here a task is a
 test.
+
+`exceptions` classifies every `throw` and every orphan handler as one of five
+dispositions — `swallowed`, `uncaught`, `re-raised`, `propagated`,
+`ambiguous` — and prints the tally. **SWALLOWED is claimed only where the
+recording establishes it**: a handler whose `how` is in the absorbing set
+(`catch`, `sink_empty_catch`, `catch_callback`, `sink_empty_catch_callback`,
+`sink_finally_return`), in a frame that later returned, with no later raise of
+that serial and **no** escaping handler for it anywhere. Which word a `catch`
+clause or a rejection handler gets is decided at transform time from its own
+syntax: a body that only `console.*`-logs the binding is a swallow, a body that
+does anything else with it has let the error escape, and a bare `throw e` is a
+hop and not an escape. Everything short of proof is `ambiguous` with its reason
+printed, and nothing reaches SWALLOWED by falling through. Given an
+**invocation id**, one answer covers every worker: identical verdicts merge
+into one block with `[×N over M processes]` beside it. What the rules cannot
+see is [`HONESTY.md`](HONESTY.md) §4 and its blind spots 18–27.
 
 ## What refuses, and why
 
@@ -140,7 +159,7 @@ these exit statuses mean.
 
 | Command | Exit | Why |
 |---|---|---|
-| `exceptions` | 3 | The RAISE and HANDLED rows exist, but the TypeScript disposition rules do not (rung 2). `capabilities.err_flow: false`, and the refusal says nothing was judged. |
+| `exceptions` on a trace a **0.1.x** runtime wrote | 3 | That recorder declared `capabilities.err_flow: false` and its HANDLED rows carry no `how` word for the rules to read. The refusal names the capability and the recorder; what such a trace lacks is a record, not a rule, so **re-recording** is the fix. A 0.2.0 recording is answered, not refused. |
 | `watch`, `flow` | 3 | `capabilities.line: false` — this recorder produces no LINE events, so there is no per-line state to check. |
 | `flow --object` | 3 | `capabilities.object_identity: false` — object identity is not carried, so a question about *that* object cannot be answered from this trace. |
 | `refocus` | 2 | `capabilities.refocus: false` — nothing was re-run, and the reader's next move is a different command. |
@@ -172,14 +191,18 @@ thing to do instead:
 
 ## Not yet
 
-Argument capture and per-line state under a `--focus` (rung 3); the
-`exceptions` disposition rules that make an empty `catch` a sink and a rethrow
-a hop (rung 2, at which point traces recorded by 0.1.0 and 0.1.1 alike stay
-refused — both declare `err_flow: false` — and re-recording is the fix); `refocus` (rung 4); the browser, which needs a runtime without a
-filesystem (rung 5); jest; a transform cache. `finally`, a `.catch` with a
-non-empty body, and which frame *scheduled* a continuation are recorded by
-nothing here — see [`HONESTY.md`](HONESTY.md) §4, §3 and the numbered blind
-spots.
+Argument capture and per-line state under a `--focus` (rung 3); `refocus`
+(rung 4); the browser, which needs a runtime without a filesystem (rung 5);
+jest; a transform cache. Which frame *scheduled* a continuation is recorded by
+nothing here. The `exceptions` disposition rules arrived in **rung 2** — the
+empty `catch` is a sink, the rethrow is a hop, the completing `finally` is a
+sink and every rejection handler is recorded — and traces written by **0.1.0
+and 0.1.1 alike stay refused**, because both declare `err_flow: false` and
+re-recording is the fix. What the rules still cannot see, they say: a `try` with
+its own `catch` clause is never marked for the `finally` sink, a logger that is
+not `console.*` reads as an escape, and an assertion failure born in vitest's
+`expect` writes no RAISE at all — [`HONESTY.md`](HONESTY.md) §4, §3 and
+[`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md).
 
 ## What rung 1 measured, and what it did not settle
 
@@ -225,6 +248,42 @@ file — what a debugging loop actually pays — converts in **0.36 s**.
 Two things none of the fourteen license: none of them says a TypeScript trace
 answered a debugging question nobody planted, and none of them was measured on
 a second consumer.
+
+## What rung 2 measured, and the four gaps it found
+
+Nine endpoints, pre-registered and byte-locked before this rung's code existed
+(`../docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md` §1), on the
+same lens. **The rung ships DONE**: every endpoint ran once and not one fired
+its rule's failure word. No row reads PASS and neither does the rung, because
+six of the nine rules name only a failure word and three name none at all —
+what a clean reading can say is that the word did not fire.
+
+| | Measured | n |
+|---|---|---|
+| False accusation on somebody else's suite | **0 false SWALLOWED** of **30** hand-adjudicated shapes; tally `swallowed 261, ambiguous 53` over 314 raises in 53 of 372 processes — **no STOP** | 30 shapes |
+| The corpus's verdicts | **17 of 17** cases equal to the locked table, 8 SWALLOWED lines — **no STOP** | 17 cases |
+| Every catch site instrumented | **287 spliced of 287** eligible (177 catch clauses, 108 `.catch`, 2 `.then`, 0 completing `finally`) over 741 files, ratio **1.0000**, 0 exclusions needed — **no STOP** | 287 sites |
+| The probes' shapes | **32 of 32** `// SWALLOW` / `// ESCAPE` markers seen — **no STOP** | 32 markers |
+| False DIVERGED | **0/19** DIVERGED, **0/19** REFUSED over twenty recordings of one file — **no STOP** | 19 pairs |
+| The reader's words | **0** occurrences of nine Python/Rust leak needles over both transcripts — both clauses met | 9 needles |
+| Cost of recording | `off/plain` **1.0608**, `call/plain` **1.1266**, every load reading under 4.0 — **REPORTED, no gate** | 5 per arm |
+| Cost of conversion | the fresh 372-spool set **16.0715 s**; its one big spool **0.1642 s** — **REPORTED, no gate** | 5 each |
+
+Beside them, ungated: the escape rule's own distribution over that lens —
+**22 of 177** catch clauses read `catch_escaped` (**0.1243**), with `catch`
+**87** and `sink_empty_catch` **68** — and **285** HANDLED records across the
+suite.
+
+**Four gaps, and none of them is an endpoint's rule** (record §5). The shape
+key's id mask carries Rust's float-type exclusion onto TypeScript frame ids, so
+those 30 SWALLOWED shapes are **28 distinct places**. Three reused instruments
+were measuring the **global** `sensorium` — an install of `main` — and were
+fixed before any of them ran here. E7″'s needle list could not be applied as
+written, because `Err` as a case-insensitive substring is matched by every
+`Error('…')` an answer prints. And on real code the modal AMBIGUOUS reason is
+the classifier's catch-all — **17** of the 30 ambiguous shapes — whose shape is
+an untraced catcher sitting *inside* a traced frame. The rules declining rather
+than guessing there is exactly what keeps the false-SWALLOWED count at 0.
 
 ## Cost
 

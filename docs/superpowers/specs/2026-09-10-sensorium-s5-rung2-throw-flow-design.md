@@ -577,8 +577,81 @@ Scope, merges and money only.
    `/mnt/extra/sensorium-s5/store-rung2ts` (≈ 1 GB) and the E1‴ arms (their
    spools are deleted after each wall is read, as rung 1 did).
 
+*The plan's Task 8 calls this section the home of the execution deltas. In this
+document's layout §12 is Brice's rulings and §13 is the pre-registration
+pointer, so the deltas are **§14** below — "What changed against this design,
+and why", slice 2's own §12 by another number. (Added 2026-09-10.)*
+
 ## 13. The pre-registration, in one table
 
 §7's table and its adjudication protocol are carried verbatim into the
 record's §1 at T0 and byte-locked there; this section is the pointer, so
 the plan and the record cite one source.
+
+## 14. What changed against this design, and why (rung 2, 2026-09-10)
+
+*Added 2026-09-10, at the rung's close — the "execution deltas" §12 promises
+and the plan's Task 8 asks for. Nothing above is deleted; where a sentence of
+this document was narrowed, replaced or falsified, this section is the index
+to it. **§7 is byte-locked** and carried verbatim into the record's §1 — no row
+below touches it, and none could: every number in it was fixed before any of
+this code existed (`tests/test_acceptance_s5_rung2_lock.py`). Two amendments
+already stand where they belong rather than here: **§2.1**'s bare-rethrow
+paragraph and **§6.1**'s four-row note under its table, both dated at Task 6.*
+
+**P-rows** are the fourteen decisions the plan made before any code existed
+(its *"Decisions this plan makes"* table,
+`../plans/2026-09-10-sensorium-s5-rung2-throw-flow.md`), each of which that
+table promised would amend this spec non-silently; this is where that is paid.
+**R-rows** are controller rulings made while shipping, in the order they were
+made (the SDD ledger's `Ruling:` lines).
+
+| # | What this document said, or left open | What rung 2 shipped, and why |
+|---|---|---|
+| P1 | §2.3: a `finally` sink learns a throw is in flight because `raise` and `thr` set a mark | A catch-**less** `try` whose `finally` completes gains a synthetic marking clause `catch(__sfe){__srt.mark(__sf,__sfe);throw __sfe}`; `raise(f, e)` and that clause set `f.mark`, `handled` clears it, and **`thr` sets nothing** — a `Frame` holds no parent reference and an awaited rejection lands in another microtask, so an unwinding callee cannot find its awaiter, while the synthetic clause sees a library throw and an awaited rejection alike and carries the real serial. A `try` with its own `catch` is therefore never marked: blind spot 18. |
+| P2 | Where the escape rule lives was open | `typescript/src/escape.mjs`, exporting `catchHow`, `callbackHow` and `finallyCompletes` as pure functions over AST nodes, unit-tested directly — `transform.mjs` was at 708 of 800 lines and the rule is the largest new thing this rung writes. |
+| P3 | `emptyCatch` records the empty-callback sink | **Replaced** by `catchCb(f, line, how, fn)`, emitted for every rejection handler; `emptyCatch` is deleted, because a 0.1.x transform output never reaches a 0.2.0 runtime (the driver pins the package) and one wrapper with one signature is the whole of §2.2. |
+| P4 | §2.2 wraps `p.then(<x>, <arg>)` | Only a **two-argument** `.then` wraps its second argument; `.then(fn)`, `.catch()` with no argument and `.finally(fn)` are untouched, as §2.2 says. |
+| P5 | §4.2 generalises `exceptions_group` over a `site(disposition)` callable | `group_units(trace, units, idx, classify, render)` with a module-level `Renderer` dataclass `{at, hops_line, site, site_text, site_file, tag_order}` supplied per language; `group_chains` stays as a thin wrapper passing the Rust renderer, which is what keeps every Rust caller and every Rust test byte-unchanged. |
+| P6 | §3.2's "unit" the grouper sees was left to the module | A `Raise` object `{origin, handled, last_raise}` per RAISE serial, and one per orphan HANDLED serial, built by the index; `origin` is what `_at` and the bracket ids print, because the grouper reads `.origin` already. |
+| P7 | §2.4 and R14: the old language refusal retires | `TYPESCRIPT.exceptions_refusal` becomes `None` — dispatched before `_language_refusal`, as `RUST` is — and v23's sentence about `exceptions` refusing at exit 3 is re-pinned to the **capability** sentence on a 0.1.x-shaped trace (the new v32). The old sentence named a rung that has now shipped. |
+| P8 | §7's record was unnamed | `../acceptance/2026-09-10-sensorium-s5-rung2.md`, with `.results.json`, `-e6tsp-adjudication.md` and `-e7-exceptions.txt` beside it; lock test `tests/test_acceptance_s5_rung2_lock.py` on the slice-2 pattern; assembler `typescript/acceptance/assemble_rung2.py`. |
+| P9 | §7's adjudication protocol fixes the reading, not the record | One row per SWALLOWED shape — `shape id · site · how · the source lines quoted · TRUE/FALSE · reason under §7` — written to `-e6tsp-adjudication.md` with its counts copied into the record's §3, because the per-line record is what lets the gate be re-read by somebody else. |
+| P10 | §7's E2″ needed an instrument | `typescript/acceptance/census_catch.mjs <root>`, on rung 1's `census.mjs` shape: it walks the lens with the consumer's own TypeScript, counts what a walker sees, and takes its numerator from the transform's own output. |
+| P11 | R14: the corpus's refusal case is renamed | `corpus/typescript/exceptions_refused/` → `silent_swallow/` by `git mv`, same `config.ts`, new questions; the refusal it recorded becomes vector v32, since no recorder produces it any more. |
+| P12 | Where the BOOT-capabilities ingest test goes was open | `tests/test_ts_ingest_caps.py` — `tests/test_ts_ingest_meta.py` was at 777 of 800 lines. |
+| P13 | §9's order of work | The runtime's `catchCb`/`mark`/`handledFinally` land **before** the transform, so no Node test ever executes a transformed call the runtime lacks; the probes are written with the runtime and go green with the transform. |
+| P14 | §10: `sensorium-ts` 0.2.0 and Python 0.10.0 | `sensorium-ts` becomes **0.2.0 at Task 1**, with the runtime whose declaration changed, because Task 6's corpus questions pin the recorder string `info` prints — which is the BOOT's `VERSION`, written before Task 8. Python's **0.10.0** waits for Task 8, with the CHANGELOG entry the release-token gate binds to it. |
+| R1 | §2.3's literal reading of a completing `finally` | `finallyCompletes` counts a `return` at closure depth 0, and a `break`/`continue` only when no loop or switch **inside** the `finally` encloses it — a break that stays inside the finally discards nothing — and the census imports the predicate from `escape.mjs` so E2″'s two halves share one rule. |
+| R2 | §2.3 stores "the serial of the exception now travelling" | The mark stores the whole `exc(e, 'throw')` object rather than the serial, so `raise` and the synthetic clause both hold the value and `handledFinally` writes a complete `exc` — the contract requires `type` on every `exc`. |
+| R3 | §6.2's probes and the checker's new checks were Task 1's | They move wholly to Task 2: new checker checks would have turned `tests/test_ts_live.py`'s checker test red between the two tasks, so Task 1 ships runtime, tests and the version bump only. |
+| R4 | §7 left E2″'s numerator to the instrument | It comes from the transform's **own output**: `census_catch.mjs` runs `transformSource` over each eligible file and counts `__srt.handled(` / `__srt.catchCb(` / `__srt.handledFinally(` in the result by `how` word. No manifest key is added; the goldens hold the text's shape. |
+| R5 | §2.2 wraps `.catch(<arg>)` "the way `spliceEmptyCatchCallback` does" | The wrap happens on **any receiver**, because the transform cannot type the expression. A non-promise API whose `.catch` calls its callback writes an orphan HANDLED and could reach *SWALLOWED, born outside a throw statement* — a declared blind spot and an explicit E6-TS′ watch item, where such a line counts FALSE. |
+| R6 | §2.1's `String(e)` reading | A mention inside an intermediate call within a `console` argument — `console.log(sanitize(e))` — reads `catch` (logged), the same reading applied consistently; a helper that stores `e` and returns text is therefore read as a swallow, and is declared. |
+| R7 | §6.1: `exceptions_refused` is renamed at Task 6 | Task **4** rewrites that case's `exceptions` question to the verdict it now gets, because the corpus re-records with the 0.2.0 recorder and would go red between Tasks 4 and 6; Task 6 does the rename. |
+| R8 | §2.1 listed only `throw new Wrapped(e)` as an escape | **A bare rethrow — `throw e;` whose operand after any parentheses is the binding itself — is a traced EXIT and not a mention**, so it does not count towards `catch_escaped` and the clause's word is decided by its other mentions. §3.3 rule 2, §6.1's `rethrow_hop` row and R4 all assumed this, while `escape.mjs` counted every `throw` operand: under that reading rule 3's escaping conjunct barred **every** `throw e` hop from SWALLOWED and §7's locked `rethrow_hop` count was unreachable by construction. An instrument defect fixed **before any endpoint was measured**; §2.1 carries the dated amendment. |
+| R9 | §6.1: `translated`'s wrapper raise | It reads **AMBIGUOUS**, not PROPAGATED: the wrapper is thrown from a traced arrow that vitest's untraced `toThrow` called from **inside** a traced test frame, and the rules cannot see an untraced catcher between two traced frames. AMBIGUOUS is the honest word and §7's pre-registered SWALLOWED count (0) is unaffected. |
+| R10 | §2.2 defines a callback's word as §2.1's rule applied to its parameter | So `callbackHow` carries the **same** bare-rethrow exclusion: `.catch((e) => { throw e })` reads `catch_callback`, while `.catch((e) => { seen.push(e); throw e })` stays `catch_callback_escaped`. Two readings of one rule would make the lens adjudication depend on which syntax a swallow used. |
+| R11 | §6.1's `rethrow_hop` shape column says "an outer empty catch" | The outer sink is a **returning** `catch { return 'defaults' }`, whose word is `catch`: §7's table counts SWALLOWED verdicts, both words are in the absorbing set, and a returning clause is the realistic seeded-bug shape. §6.1's shape column is descriptive. |
+| R12 | §6.1's verdict column for four cases | Those four rows get **one dated amendment note under the table**, not row rewrites — §6.1 is descriptive and outside the §7 lock, and the counts are unmoved: `silent_swallow` prints `caught by catch`, `translated`'s origin prints the escaped reason, `await_rejection_caught` prints no hops line, and `test_failed` is a `throw` statement because a failing `expect` throws inside vitest's untraced code and writes no RAISE row at all. |
+| R13 | §7's only named shipping branch is DONE-WITH-STOP | The rung's word is **DONE**. Every word in the record comes from a rule; §7 names no PASS anywhere, and rung 1 shipped DONE-WITH-STOP under the same convention, so the branch not taken reads DONE. |
+| R14 | §7 left the results file's provenance to the assembler | The assembler writes `recorder_basis` on every cell, `own` on the two that record themselves (E6-TS′, E8″), and the record's provenance sentence stays: a re-assembly of saved cells is not a re-measurement, and a JSON that names its basis per cell is what slice 2's misattribution lesson asked for. |
+
+**What the endpoints read, against what this document expected.** §7's table
+held: **E6-TS 17 of 17**, **E6-TS′ 0 false SWALLOWED of 30**, **E8″ 32 of 32**,
+**E2″ 287 of 287 (ratio 1.0000)**, **E3-TS″ 0/19**, **E5″ 2 of 2**, **E7″ 0 of
+nine needles**; ungated, **E1‴ 1.0608 / 1.1266** and **E10″ 16.0715 s /
+0.1642 s**. Not one endpoint fired its rule's failure word. This document made
+no per-cell predictions of the kind slice 2's §3.3 did, so there is no
+prediction table here; what it did assume and got wrong is R8 above — a rule
+whose literal reading made one of §7's own locked counts unreachable — and the
+four instrument corrections the record's §2.3 dates, each made before the
+endpoint it touches had been measured.
+
+**Four findings this design did not anticipate** are the record's §5 gaps
+1–4 — the shape key's Rust-shaped id mask splitting one place into three on a
+TypeScript trace, three reused instruments measuring the global binary, E7″'s
+needle list being unapplicable as written, and rule 5's catch-all being the
+modal ambiguous reason on real code with an unnamed shape behind it. All four
+are carried in `docs/CARRIED-DEBT.md`'s rung-2 section with what closing each
+would take, and the fourth is `typescript/HONESTY-BLIND-SPOTS.md` item 27.
