@@ -140,8 +140,21 @@ const CALLBACK_ROWS = [
   ['an expression body that escapes escapes', '(e) => e', 'catch_callback_escaped'],
   ['a function expression is read the same way',
     'function (e) { console.error(e); }', 'catch_callback'],
-  ['a function expression that escapes escapes',
-    'function (e) { throw e; }', 'catch_callback_escaped'],
+  // Ruled 2026-09-10 (fix round 2): ONE rule, two syntaxes. §2.2 defines the
+  // callback word as §2.1's rule applied to the parameter, and a rethrow from a
+  // handler carries the serial exactly as a clause's does -- so the bare-rethrow
+  // exclusion holds here too, in both spellings, and nowhere else moves.
+  ['a bare rethrow is a traced exit, arrow spelling',
+    '(e) => { throw e; }', 'catch_callback'],
+  ['a bare rethrow is a traced exit, function spelling',
+    'function (e) { throw e; }', 'catch_callback'],
+  ['logging then rethrowing is still a traced exit',
+    '(e) => { console.error(e); throw e; }', 'catch_callback'],
+  ['a rethrow does not excuse another mention',
+    '(e) => { seen.push(e); throw e; }', 'catch_callback_escaped'],
+  ['a wrapped rethrow mentions it', '(e) => { throw wrap(e); }', 'catch_callback_escaped'],
+  ['a rethrow inside a closure escapes: the closure keeps it',
+    'function (e) { retry(() => { throw e; }); }', 'catch_callback_escaped'],
 ];
 
 for (const [name, arg, how] of CALLBACK_ROWS) {

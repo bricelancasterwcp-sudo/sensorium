@@ -138,7 +138,14 @@ A `catch (e) { … }` clause's `how` is decided from its body:
   because the closure keeps the binding. The value reaches nothing — it leaves
   the way it arrived — and the RAISE the throw writes carries the same serial,
   which is what the rule module reads (a rethrow with the same serial is a hop,
-  §3.3 rule 2). *(Amended 2026-09-10 at Task 6: the original text and
+  §3.3 rule 2). The exclusion applies to §2.2's rejection callbacks as well —
+  one rule, two syntaxes — since §2.2 defines a callback's word as this rule
+  applied to its parameter and a rethrow from a handler carries the serial the
+  same way: `.catch((e) => { throw e })` reads `catch_callback`, while
+  `.catch((e) => { seen.push(e); throw e })` and
+  `.catch((e) => { throw wrap(e) })` stay `catch_callback_escaped`, a
+  non-inline handler stays `catch_callback_opaque` and an empty body stays
+  `sink_empty_catch_callback`. *(Amended 2026-09-10 at Task 6: the original text and
   `escape.mjs` counted a bare rethrow as an escape, which made rule 3's
   escaping conjunct bar every `throw e` hop from SWALLOWED and contradicted
   §3.3, §6.1's `rethrow_hop` row and R4; ruled at execution.)*

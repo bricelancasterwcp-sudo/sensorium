@@ -141,6 +141,12 @@ function hasMention(ts, node, name) {
  * Counting this mention made rule 3's escaping conjunct bar EVERY `throw e`
  * from a swallow, which contradicts §6.1's `rethrow_hop` row and R4.
  *
+ * ONE rule, TWO syntaxes: it holds for a `catch` clause's binding (§2.1) and
+ * for a rejection callback's parameter (§2.2) alike, because §2.2 defines the
+ * callback word as §2.1's rule applied to that parameter, and a rethrow from a
+ * handler carries the serial exactly as a clause's does. Both `catchHow` and
+ * `callbackHow` therefore ask for it (ruled 2026-09-10, fix round 2).
+ *
  * `throw e.cause`, `throw wrap(e)` and `throw new Wrapped(e)` are NOT this:
  * their operand is something built out of the binding, so the binding reached a
  * property access or a call and the escape stands.
@@ -168,10 +174,9 @@ function isBareRethrow(ts, node, name) {
  * `retry(() => { throw e; })` hands the binding to a closure that may run
  * later, elsewhere, or never, and that is an escape whatever it then throws.
  *
- * `rethrowExits` is passed by `catchHow` and NOT by `callbackHow`, because the
- * ruling of 2026-09-10 is about a `catch` clause: a rejection handler's
- * parameter reaching a `throw` is left as the escape it has always been
- * recorded as, and flipping it is a question nobody has ruled on.
+ * Both callers pass `rethrowExits`, so the exclusion is written once and asked
+ * for twice rather than duplicated per syntax; the parameter stays explicit so
+ * a third caller has to say which rule it wants rather than inherit one.
  * @param {TS} ts
  * @param {Node} root
  * @param {string} name
@@ -224,7 +229,9 @@ export function catchHow(ts, clause) {
  * A rejection handler's `how` (§2.2), from the SHAPE of the argument alone.
  * Anything that is not an inline function is opaque: a handler defined
  * elsewhere has its own frame, and whether it swallows is not this splice's to
- * say. An empty body is a sink whichever spelling wrote it.
+ * say. An empty body is a sink whichever spelling wrote it. The parameter is
+ * read by §2.1's rule, the bare-rethrow exclusion included: a handler that
+ * rethrows what it was given is a hop, in either spelling (`isBareRethrow`).
  * @param {TS} ts
  * @param {Node} arg
  * @returns {'sink_empty_catch_callback'|'catch_callback'|'catch_callback_escaped'|'catch_callback_opaque'}
@@ -236,7 +243,7 @@ export function callbackHow(ts, arg) {
   const param = arg.parameters[0];
   if (!param) return 'catch_callback';
   if (!ts.isIdentifier(param.name)) return 'catch_callback_escaped';
-  return escapes(ts, body, param.name.text) ? 'catch_callback_escaped' : 'catch_callback';
+  return escapes(ts, body, param.name.text, true) ? 'catch_callback_escaped' : 'catch_callback';
 }
 
 /**
