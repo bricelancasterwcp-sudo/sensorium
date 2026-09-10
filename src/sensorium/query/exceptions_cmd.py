@@ -635,23 +635,23 @@ def _language_refusal(trace) -> str | None:
     re-returned an `Err` without `?`. Every one of those is a confident
     wrong answer about the program, which is worse than no answer.
 
-    Kept VERBATIM after rung 3 (design R9), and only its `rust` arm retired:
-    `run` now dispatches Rust to `exceptions_rust`, which has the rules and
-    gates on the `err_flow` capability instead. What a third language is
-    missing is still a rule, and this is still the sentence for it -- it
-    names the rung the first non-Python rules shipped in, which is where the
-    reader looks to see what writing another set would take.
-
-    Amended 2026-09-09 (S5): that one sentence was written for one absent
-    rule module and interpolated `trace.lang` into it, so a THIRD language
-    was told it needed "the Rust disposition rules" and that the Python
-    rules "would misread Err values" -- neither of which is true of a
-    TypeScript recording, whose gap is exception IDENTITY (`exc["oid"]`)
-    and whose rules are owed by S5 rung 2. What a language is missing is a
-    fact about that language, so the sentence moved to its `vocab` column
+    Amended 2026-09-09 (S5): one sentence lived here and interpolated
+    `trace.lang` into itself, so a THIRD language was told it needed "the
+    Rust disposition rules" and that the Python rules "would misread Err
+    values" -- neither of which is true of a TypeScript recording, whose
+    gap is exception IDENTITY (`exc["oid"]`). What a language is missing is
+    a fact about that language, so the sentence moved to its `vocab` column
     (`Terms.exceptions_refusal`) and each one says what is actually absent
-    and which rung owes it. The Rust column's is `None`: `run` dispatches
-    it above, so nothing here ever speaks for it.
+    and which rung owes it.
+
+    NO LANGUAGE CARRIES ONE TODAY. Every column is `None`: Python's rules
+    are these, `run` dispatches Rust to `exceptions_rust` (rung 3) and
+    TypeScript to `exceptions_typescript` above, and each of those gates on
+    the `err_flow` capability, so an older recording of either refuses
+    because of what it does not HOLD rather than because of what nobody
+    wrote. This function is therefore unreachable until a fourth language
+    arrives with words and no rules -- which is exactly the state it exists
+    to describe, and why it and the `vocab` field stay.
     """
     return terms(trace).exceptions_refusal
 
@@ -709,10 +709,11 @@ def run(args) -> int:
         return exceptions_typescript.run(trace, args, after)
     refusal = _language_refusal(trace)
     if refusal:
-        # Nothing was judged, and no edit to this command would change
-        # that: what is missing is a set of disposition rules for the
-        # language this trace was recorded in, and the sentence the trace's
-        # own column carries names the rung that owes them.
+        # Unreachable today, and kept for the language that is not here
+        # yet: all three columns dispatch above, so every `vocab` column's
+        # refusal is `None`. What a fourth language would be missing is a
+        # set of rules, not a record -- and the sentence its own column
+        # would carry is the one that says so.
         print(refusal)
         return UNSETTLED
     idx = Index.build(trace, trace.meta)
