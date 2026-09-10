@@ -146,6 +146,70 @@ def test_a_handler_frame_that_never_closed_at_all_is_ambiguous(
     assert "SWALLOWED" not in o, o
 
 
+def test_a_parked_callback_handler_beats_the_frame_the_throw_unwound(
+        tmp_path, monkeypatch, capsys):
+    """`.catch(async () => …)` still parked where the recording stops, over
+    a throw that left a frame Node entered on an empty stack.
+
+    Both facts are on the wire and only one of them is a verdict. The
+    frame below unwinding says where the failure WENT; the handler row says
+    traced code TOOK it, and its frame has not finished. Rule 4 would have
+    said "handler not in traced code" about a recording that holds the
+    handler -- so rule 4 declines while any absorbing handler for the
+    serial is still open (design section 3.3's conjunct), and the reason
+    printed is the suspension.
+    """
+    exc = ts_exc("Error", "tile 7 missing", 71, kind="rejection")
+    run_id = ts_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "poll", 40], [FILE, "retry", 60]],
+        frames=[frame(1, 1, unwind_exc=exc),
+                frame(2, 3, closed_by=None, kind="coroutine")],
+        events=[
+            call(1000, 1, 40),
+            raise_ev(2000, 1, 1, 42, exc),
+            call(3000, 2, 60),
+            handled_ev(4000, 2, 2, 62, exc, "sink_empty_catch_callback"),
+            yield_ev(5000, 2, 2),
+        ])
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    o = out(capsys)
+    assert ("AMBIGUOUS -- the handler's frame f2 is still suspended at the "
+            "end of the recording") in o, o
+    assert "SWALLOWED" not in o, o
+    assert "PROPAGATED" not in o, o
+    assert "dispositions: ambiguous 1" in o, o
+
+
+def test_a_handler_still_open_beats_the_test_root_the_throw_unwound(
+        tmp_path, monkeypatch, capsys):
+    """The same conjunct where the frame that unwound is the TEST's own
+    root: without it the verdict reads `to the harness: test "..." failed`
+    about a failure a handler in this recording took, which is the same
+    false claim wearing the harness's name.
+    """
+    exc = ts_exc("Error", "tile 7 missing", 72, kind="rejection")
+    run_id = ts_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "main", 3], [FILE, "retry", 60]],
+        frames=[frame(1, 1, unwind_exc=exc),
+                frame(2, 3, closed_by=None)],
+        events=[
+            call(1000, 1, 3, task=1),
+            raise_ev(2000, 1, 1, 12, exc, task=1),
+            call(3000, 2, 60, task=1),
+            handled_ev(4000, 2, 2, 62, exc, "catch_callback", task=1),
+        ],
+        tasks=[task(1, "fog > renders every tile")])
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    o = out(capsys)
+    assert ("AMBIGUOUS -- the handler's frame f2 had not closed at the end "
+            "of the recording") in o, o
+    assert "SWALLOWED" not in o, o
+    assert "PROPAGATED" not in o, o
+    assert "dispositions: ambiguous 1" in o, o
+
+
 def test_a_handler_frame_that_later_unwound_with_another_failure_is_ambiguous(
         tmp_path, monkeypatch, capsys):
     """`catch (e) { throw new Wrapped(e) }`: the clause absorbed one
@@ -204,8 +268,9 @@ def test_a_rethrown_primitive_has_no_identity_and_every_row_of_it_is_ambiguous(
         tasks=[task(1, "a string is rethrown")])
     assert cli.main(["exceptions", run_id]) == ANSWERED
     o = out(capsys)
-    assert o.count("AMBIGUOUS -- a primitive has no identity across a "
-                   "rethrow") == 3, o
+    assert o.count("AMBIGUOUS -- a primitive carries no identity: two "
+                   "records with this text may be one throw rethrown or "
+                   "two throws; not followed") == 3, o
     assert "SWALLOWED" not in o, o
     assert "dispositions: ambiguous 3" in o, o
 

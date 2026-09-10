@@ -155,13 +155,14 @@ class Raise:
     unit can see the whole journey without the journey becoming the unit.
     """
 
-    def __init__(self, origin, serial, raises, handled, escaping, *,
-                 orphan=False, primitive=False, unresolved=False):
+    def __init__(self, origin, serial, raises, handled, escaping, absorbing,
+                 *, orphan=False, primitive=False, unresolved=False):
         self.origin = origin
         self.serial = serial
         self.raises = raises                 # every RAISE of this serial
         self.handled = handled               # the handlers in THIS window
         self.escaping = escaping             # escaping handlers, anywhere
+        self.absorbing = absorbing           # absorbing handlers, anywhere
         self.orphan = orphan
         self.primitive = primitive
         #: A primitive whose rows cannot be linked: another raise of the
@@ -235,12 +236,12 @@ class Index:
         exc = _exc(r)
         serial = exc.get("serial")
         if serial is None:
-            return Raise(r, None, [r], [], [])
+            return Raise(r, None, [r], [], [], [])
         if _is_primitive(exc):
             mine = _primitive_partner(r, handled, self._raises)
             claimed.update(h.id for h in mine)
             return Raise(r, serial, [r], mine, _escaping(mine),
-                         primitive=True,
+                         _absorbing(mine), primitive=True,
                          unresolved=self._prim_texts.count(_text(exc)) > 1)
         siblings = self._raises_by_serial[serial]
         end = next((x.id for x in siblings if x.id > r.id), None)
@@ -248,13 +249,14 @@ class Index:
         mine = [h for h in same
                 if h.id > r.id and (end is None or h.id < end)]
         claimed.update(h.id for h in mine)
-        return Raise(r, serial, siblings, mine, _escaping(same))
+        return Raise(r, serial, siblings, mine, _escaping(same),
+                     _absorbing(same))
 
     def _orphan(self, rows) -> Raise:
         exc = _exc(rows[0])
         prim = _is_primitive(exc)
         return Raise(rows[0], exc.get("serial"), [], rows, _escaping(rows),
-                     orphan=True, primitive=prim,
+                     _absorbing(rows), orphan=True, primitive=prim,
                      unresolved=prim and _text(exc) in self._prim_texts)
 
     def unit_of(self, event) -> Raise:
@@ -285,6 +287,10 @@ class Index:
 
 def _escaping(handled) -> list:
     return [h for h in handled if _how(h) in ESCAPING]
+
+
+def _absorbing(handled) -> list:
+    return [h for h in handled if _how(h) in ABSORBING]
 
 
 def _primitive_partner(r, handled, raises) -> list:
@@ -358,12 +364,18 @@ def _unresolved(trace, unit, idx) -> Disposition | None:
     """§3.1, ahead of rules 3 and 4 because it is about IDENTITY and not
     about fate: where a second raise of the same primitive text exists, no
     row of it can be attached to any other, so neither the accusation nor
-    the claim that it left the traced world is available."""
+    the claim that it left the traced world is available.
+
+    The trigger is trace-global and the sentence says both readings it
+    covers: two records of one text may be one throw rethrown OR two
+    unrelated throws, and nothing on the wire tells them apart (R11).
+    """
     if not unit.primitive_rethrown:
         return None
     return Disposition(
-        "ambiguous", "AMBIGUOUS -- a primitive has no identity across a "
-                     "rethrow",
+        "ambiguous",
+        "AMBIGUOUS -- a primitive carries no identity: two records with "
+        "this text may be one throw rethrown or two throws; not followed",
         "every row of a thrown primitive carries a fresh serial, and two "
         "of one text are never merged")
 
@@ -401,18 +413,37 @@ def _swallowed(trace, unit, idx) -> Disposition | None:
         _birth(trace, unit), site=_site(trace, h))
 
 
+def _still_open_absorber(trace, unit):
+    """The first absorbing handler for this serial whose frame did NOT
+    close by returning, or None where every one of them did.
+
+    A frame that DID return cannot be here once rules 2 and 3 have run --
+    that conjunction is rule 3 -- so this is §3.3's "no HANDLED in the
+    absorbing set" in effect, written the one way that says what it is
+    about: a handler that took the failure and has not finished. A frame
+    with no row at all counts as one, because "it returned" is exactly
+    what such a row does not establish.
+    """
+    for h in unit.absorbing:
+        f = trace.frame(h.frame_id) if h.frame_id is not None else None
+        if f is None or f.closed_by != "return":
+            return h
+    return None
+
+
 def _propagated(trace, unit, idx) -> Disposition | None:
     """4. It left the traced world: the outermost frame it unwound has no
     traced caller.
 
-    The conjunct §3.3 states -- "no handler in the absorbing set" -- is
-    rule 3 having already run, and is not repeated here: two places
-    deriving one condition is two places for it to drift. The ESCAPING
-    conjunct IS here, because rule 5's escaped verdict names a handler in
-    traced code and "handler not in traced code" ahead of it would be a
-    false statement about the same recording.
+    Both of §3.3's conjuncts are here, each for the same reason: this
+    verdict says nothing traced took the failure, and a recording holding a
+    handler row for that serial contradicts it. An ESCAPING handler is
+    rule 5's escaped verdict; an ABSORBING one whose frame never closed is
+    rule 5's suspended verdict -- a parked `.catch(async …)` callback is
+    ordinary JavaScript, and its frame unwinding below is not evidence that
+    the handler was untraced or that the harness ever saw the failure.
     """
-    if unit.escaping:
+    if unit.escaping or _still_open_absorber(trace, unit) is not None:
         return None
     f = idx.left_frame(unit.serial)
     if f is None or f.parent_id is not None:
