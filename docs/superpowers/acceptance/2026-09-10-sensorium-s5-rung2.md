@@ -259,14 +259,27 @@ arms last), each once. Every cell below is
 every `dropped` list in the file is empty.
 
 **On provenance**, because slice 2's final review found cells attributed to
-the wrong recorder: the `lens` string every cell carries names the recorder
-that produced the LENS (`sensorium 0.8.7` / `sensorium-ts 0.1.0`), which is
-NOT the one that took these measurements. Two instruments record their own
-under that name — E6-TS′'s and E8″'s cells read `recorder_basis: own` — and
-E10″'s two carry the same sha under `converter_rev`, which is the name that
-endpoint's ladder compares on. The assembler stamps the rest from the
-session's own invocation and says so in each cell's `recorder_basis`. The
-file's `recorded_by` block carries the pair once at the top.
+the wrong recorder: the `lens` string every cell carries is the LENS's own
+label — what the subject is, and when this snapshot of it was taken — and is
+never the recorder of a measurement. Two instruments record their own —
+E6-TS′'s and E8″'s cells read `recorder_basis: own` — and E10″'s two carry the
+same sha under `converter_rev`, which is the name that endpoint's ladder
+compares on. The assembler stamps the rest from the session's own invocation
+and says so in each cell's `recorder_basis`. The file's `recorded_by` block
+carries the pair once at the top.
+
+*(Amended 2026-09-10 at the whole-branch final review, which read the label's
+old clause — "recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059" — as
+naming the recorder of these cells. `typescript/acceptance/LENS.txt` now says
+"snapshot taken under …", and this results file was RE-ASSEMBLED from the same
+saved cells: only `lens` strings moved — no `value`, `n`, `dropped`, `recorder`,
+`recorder_rev` or `recorder_basis`, and nothing was re-measured. **Six cells
+still carry the earlier spelling** — E6-TS, E6-TS′, E8″, E3-TS″ and E10″'s two
+— because those instruments wrote the label INTO the cell at measurement time,
+and a re-assembly does not rewrite what an instrument recorded. The same holds
+for the committed `-e7-exceptions.txt` transcript's `# Lens:` header, and for
+rung 1's and slice 2's records, whose cells were measured under the earlier
+label and are left as they were. The two spellings name one lens.)*
 
 **No row below reads PASS, and neither does the rung, because no rule of this
 pre-registration names that word.** The Global Constraints put it plainly:

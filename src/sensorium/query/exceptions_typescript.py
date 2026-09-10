@@ -421,12 +421,18 @@ def _still_open_absorber(trace, unit):
     """The first absorbing handler for this serial whose frame did NOT
     close by returning, or None where every one of them did.
 
-    A frame that DID return cannot be here once rules 2 and 3 have run --
-    that conjunction is rule 3 -- so this is §3.3's "no HANDLED in the
-    absorbing set" in effect, written the one way that says what it is
-    about: a handler that took the failure and has not finished. A frame
-    with no row at all counts as one, because "it returned" is exactly
-    what such a row does not establish.
+    This is §3.3 rule 4's absorbing conjunct as coded (spec §14 R15),
+    written the one way that says what it is about: a handler that took
+    the failure and has not finished. A frame with no row at all counts as
+    one, because "it returned" is exactly what such a row does not
+    establish.
+
+    A handler whose frame DID return is passed over, and it CAN be here:
+    for a RETHROWN serial the last raise's unit carries every handler of
+    that serial -- `unit.absorbing` is built from `same` -- including an
+    earlier window's, whose frame may well have returned by then. Such a
+    row is rule 3's evidence about ITS window and none about this one, so
+    rule 4 stays free to fire.
     """
     for h in unit.absorbing:
         f = trace.frame(h.frame_id) if h.frame_id is not None else None

@@ -12,7 +12,11 @@
 // Nothing here resolves scopes, types or aliases: an identifier that SPELLS the
 // binding's name is a mention of it, shadowed or not. The rule errs towards
 // `escaped` — the word that says "this recorder does not claim a swallow" — so
-// an unresolved shadow costs a report, never a false accusation.
+// an unresolved shadow costs a report, never a false accusation. ONE place errs
+// the other way, deliberately and declared: `isLogged` climbs THROUGH
+// intermediate calls inside a `console` argument, so `console.log(sanitize(e))`
+// reads `catch` and a helper that STORES `e` and returns text is read as a
+// swallow (spec §14 R6, `../HONESTY-BLIND-SPOTS.md` item 20).
 /** @typedef {typeof import('typescript')} TS */
 /** @typedef {import('typescript').Node} Node */
 /** @typedef {import('typescript').CatchClause} CatchClause */

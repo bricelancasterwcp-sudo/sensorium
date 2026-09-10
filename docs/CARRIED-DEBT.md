@@ -444,9 +444,13 @@ nine rules name only a failure word and three name none at all.
   `_member_refusal` said `exceptions` across an invocation "is defined for Rust
   traces" — true when written, false since Task 4. It now names Rust **and**
   TypeScript and says the member's language is not ruled. Its byte-pin is a
-  **fenced Rust test**, and the sentence and the pin moved in one commit; that
-  is the one sanctioned change to a fenced Rust test in this rung, and the
-  commit body says so.
+  **fenced Rust test**, and the sentence and the pin moved in one commit. That
+  is one of **two** sanctioned edits to a fenced Rust test in this rung, both
+  re-pins of the retired TypeScript refusal and neither moving a Rust answer:
+  `64e1b05` (this sentence and its pin, `tests/test_exceptions_invocation.py`)
+  and `55b3fd7` (P7's re-pin of the retired lang-keyed refusal to the capability
+  sentence in `tests/test_exceptions_rust_gate.py`, on a `lang: typescript`
+  fixture, named in the Task-4 dispatch). Each commit body says so.
 - **The grouper is one module with two renderers.** `exceptions_group` was
   Rust-only prose; it now takes a per-language `Renderer` and a `site()`
   callable, `group_chains` staying as a thin wrapper. Every Rust caller and
@@ -505,6 +509,15 @@ Findings, not stops: none is an endpoint's rule and none moves a number.
   exactly how a false SWALLOWED would be minted. Naming it is what a later
   rung needs before it decides. *Cost if wrong:* nothing measured; more than
   half of a real lens's ambiguity stays unnamed.
+- **A Gap-4 NEIGHBOUR with a different cause** (the final review's probe, not
+  one of the 30): `catch (e) { console.error(e); throw e }` whose rethrow
+  unwinds the test root also prints rule 5's catch-all — but here there IS an
+  absorbing HANDLED for the serial, in an **earlier** window, and §3.3 rule 4's
+  absorbing conjunct is trace-global rather than scoped to the unit's own
+  window. Same bucket, different diagnosis. **Closing it** is a rung-3 look at
+  window-scoping that conjunct, with a corpus case (`logged_rethrow_to_harness`)
+  pinning whichever reading is chosen. *Cost if wrong:* nothing measured; one
+  more unnamed shape inside Gap 4's 17.
 
 ### Deferred by ruling
 
@@ -557,9 +570,9 @@ later rung may want.
   only from a `throw` in traced code. `info`'s exit line is where such a
   failure shows. This is why `corpus/typescript/test_failed` is a `throw`.
 - **The in-flight mark stores the whole `exc` object, not the serial** (T1
-  ruling), so `handledFinally` writes a complete `exc` and nothing `unread`
-  beyond the two keys the block genuinely cannot know. *Cost if wrong:* one
-  object per marked frame instead of a number.
+  ruling, spec §14 R2), so `handledFinally` writes the marked throw's OWN
+  complete `exc` — `kind`, `type`, `msg`, `serial` — and nothing `unread`.
+  *Cost if wrong:* one object per marked frame instead of a number.
 - **E2″'s numerator comes from the transform's OWN OUTPUT** (T2 ruling):
   `census_catch.mjs` runs `transformSource` over each eligible file and counts
   the markers by `how` word; no manifest key was added. *Cost if wrong:* a
@@ -568,6 +581,25 @@ later rung may want.
 - **The assembler stamps `recorder_basis` on every cell** (T7 ruling), `own`
   on the two that record themselves. A re-assembly of saved cells is not a
   re-measurement, which is what slice 2's misattribution lesson asked for.
+- **§3.3 rule 4 declines on two conjuncts the sentence did not state**
+  (spec §14 R15, written into §3.3 in place at the final review): an escaping
+  HANDLED anywhere for the serial routes to rule 5, and an absorbing HANDLED
+  blocks rule 4 only while its frame has not returned. Both narrow the verdict
+  and the 30 adjudicated shapes were read under the coded rule, so no measured
+  number depends on the difference. What it leaves: **a handler that escaped
+  and then rethrew out of the test root reads AMBIGUOUS where PROPAGATED would
+  be truer.** **Closing it** is a rung-3 rule change with a corpus case
+  (`escaped_rethrow_to_harness`), not a fix inside this rung. *Cost if wrong:*
+  a propagation the recorder could name is reported as unknown; nothing is
+  accused that should not be.
+- **The callback-side bare-rethrow exclusion has no probe marker** (43e1fbd;
+  the final review's Minor 5). `escape.probe.test.ts` pins `bare_rethrow catch`
+  for the clause syntax; the callback form — `.catch((e) => { throw e })` reads
+  `catch_callback`, R10 — is pinned by `typescript/test/escape.test.mjs` and
+  the contract only. **E8″ was measured at 32 of 32 markers after 43e1fbd, so
+  adding a marker now is a post-measurement instrument change**: it goes in the
+  next slice, with the endpoint re-read. *Cost if wrong:* one shipped rule with
+  a unit pin and no probe pin, on a lens the probes do not cover.
 
 ### Deferred minors, per task
 
@@ -580,7 +612,9 @@ each task's "Minors deferred" line), archived with the worktree.
   (M6).
 - **T2:** `console.log({ e })` — a shorthand inside a console argument — reads
   logged and is untested either way (M2); the climb-through inverts the
-  module header's "errs toward escaped" promise (M3); `checkEscape`'s `got`
+  module header's "errs toward escaped" promise (M3 — **closed 2026-09-10 at
+  the final review**: `escape.mjs`'s header now names `isLogged` as the one
+  deliberate exception, agreeing with blind spot 20); `checkEscape`'s `got`
   map is keyed by line and collapses two HANDLEDs on one line (M5);
   `spliceFinally` returns silently when it finds no keyword (M6).
 - **T4:** `_unresolved`'s primitive trigger is trace-global, so two unrelated

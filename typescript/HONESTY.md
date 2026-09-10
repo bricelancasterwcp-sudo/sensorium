@@ -305,15 +305,16 @@ elsewhere swallows is not this splice's to say. `p.catch()` with no argument,
 **A `finally` that completes is a sink.** A `finally` block containing a
 `return`, `break` or `continue` at closure depth 0 discards an in-flight
 throw and records HANDLED `sink_finally_return` — but **only when a throw is
-in flight**, read from a one-slot mark per frame holding the serial now
+in flight**, read from a one-slot mark per frame holding the exception now
 travelling through it. `raise(f, e)` sets `f`'s mark; a catch-**less** `try`
 whose `finally` completes gains a synthetic marking clause,
 `catch(__sfe){__srt.mark(__sf,__sfe);throw __sfe}`, so a library's throw and
-an awaited rejection mark it too; `handled` clears it. The sink's `exc` is
-`{kind: "throw", serial, unread: ["type","msg"]}` — the block binds nothing, so
-the value is **declared unread** rather than invented, and the serial is what
-pairs the sink with its RAISE. A `finally` with no completion statement records
-nothing: it discards nothing.
+an awaited rejection mark it too; `handled` clears it. The sink's `exc` is the
+marked throw's own, **complete** — `kind`, `type`, `msg` and `serial` exactly
+as the RAISE (or the synthetic marking clause) wrote them, nothing `unread`:
+the mark holds the whole `exc` object, not just its serial (R2), and the serial
+is what pairs the sink with its RAISE. A `finally` with no completion statement
+records nothing: it discards nothing.
 
 **Identity, and where it ends.** `serial` is minted once per thrown **object**
 through a `WeakMap`, so `catch (e) { throw e }` is one exception with two RAISE
@@ -763,7 +764,7 @@ a corpus case, a vector or an acceptance endpoint.
 | 3 | A continuation entered with an empty stack is parentless at depth 0 with `caller: "untraced"`, and the scheduling frame is not recorded | `typescript/probes/src/timer_parentless.probe.test.ts`, `corpus/typescript/timer_callback_parentless`, `tests/test_ts_ingest.py` |
 | 4 | RAISE marks `throw` statements only; HANDLED marks `catch` clauses, rejection handlers and the two clause-less sinks; the nine `how` words are the enumeration of shapes that record at all | `E8″`, `E2″`, `typescript/probes/src/swallow.probe.test.ts`, `typescript/test/transform.test.mjs`, `docs/trace-format/vectors/v25-exc-kind-throw-rejection.json` |
 | 4 | A catch binding's word is decided from its own AST — logged-only is `catch`, any other mention is `catch_escaped`, a bare rethrow is a traced exit and not a mention — and the same rule reads a rejection handler's parameter | `typescript/test/escape.test.mjs`, `typescript/test/golden/`, `typescript/probes/src/escape.probe.test.ts`, `E8″` |
-| 4 | A `finally` that completes records `sink_finally_return` only under an in-flight mark, with the discarded value declared `unread` | `typescript/test/rt.test.mjs` (`mark`, `handledFinally`), `corpus/typescript/finally_return`, `E8″` |
+| 4 | A `finally` that completes records `sink_finally_return` only under an in-flight mark, and its `exc` is the marked throw's own, complete — `kind`, `type`, `msg`, `serial`, nothing `unread` | `typescript/test/rt.throw.test.mjs` (`mark`, `handledFinally`), `typescript/test/rt.test.mjs`, `corpus/typescript/finally_return`, `E8″` |
 | 4 | A rethrown OBJECT keeps its serial (one exception, two RAISE rows, a hop); a rethrown primitive gets a fresh one and cannot be followed | `typescript/test/rt.test.mjs` (`serial survives rethrow`), `docs/trace-format/vectors/v25-exc-kind-throw-rejection.json` |
 | 4 | A RAISE or HANDLED with no open frame is written as no event and counted in `throw_flow_outside_frames` | `typescript/probes/src/swallow.probe.test.ts`, `tests/test_ts_ingest.py` |
 | 4 | Unhandled rejections are meta, never events, and `info` prints a zero on a complete trace because the listener always ran | `docs/trace-format/vectors/v27-unhandled-rejection-in-meta.json`, `corpus/typescript/unhandled_rejection_in_info`, `tests/test_ts_ingest.py` |

@@ -282,7 +282,22 @@ parent, `caller: "untraced"`); meta `unhandled_rejections` by serial; meta
 4. **propagated** — no HANDLED in the absorbing set, and the serial's last
    UNWIND closes the task's **root frame**, or a frame whose parent is
    untraced. Detail: `to the harness: test "<task name>" failed` for a task
-   root, else `handler not in traced code`.
+   root, else `handler not in traced code`. As coded
+   (`src/sensorium/query/exceptions_typescript.py`, `_propagated` and
+   `_still_open_absorber`) this rule declines in two further places, both
+   narrowings of the sentence above: **(a)** whenever **any** HANDLED for the
+   serial is in the **escaping** set — rule 5 then answers it with the escaped
+   reason, and since rule 4 runs first the conjunct has to sit here for rule 5
+   to be reached at all; and **(b)** when an **absorbing** HANDLED sits in a
+   frame that has **not yet returned** — an absorbing handler whose frame DID
+   return is rule 3's or, for a rethrown serial, an earlier window's and no
+   evidence about this one, while a parked `.catch(async …)` frame unwinding
+   beneath a live handler is not evidence the harness saw the failure (the
+   Task-4 review fix, `7c2ead1`). *(Amended 2026-09-10 at the final review:
+   the rule as coded and as MEASURED — the record's E6-TS′ tally was produced
+   under it; the coded reading is the safe direction, it never accuses; a
+   handler that escaped and then rethrew out of the test root reads AMBIGUOUS
+   where PROPAGATED would be truer — carried in CARRIED-DEBT.)*
 5. **ambiguous** — everything else, each with its reason printed: an escaped
    or opaque handler (`caught at e<id> (<how>), and the error or a rendering
    of it left the handler; not followed`); a handler frame still suspended
@@ -604,7 +619,9 @@ paragraph and **§6.1**'s four-row note under its table, both dated at Task 6.*
 `../plans/2026-09-10-sensorium-s5-rung2-throw-flow.md`), each of which that
 table promised would amend this spec non-silently; this is where that is paid.
 **R-rows** are controller rulings made while shipping, in the order they were
-made (the SDD ledger's `Ruling:` lines).
+made (the SDD ledger's `Ruling:` lines) — with one exception, **R15**, which
+is the whole-branch final review's own amendment and is dated as such both
+here and in §3.3.
 
 | # | What this document said, or left open | What rung 2 shipped, and why |
 |---|---|---|
@@ -636,6 +653,7 @@ made (the SDD ledger's `Ruling:` lines).
 | R12 | §6.1's verdict column for four cases | Those four rows get **one dated amendment note under the table**, not row rewrites — §6.1 is descriptive and outside the §7 lock, and the counts are unmoved: `silent_swallow` prints `caught by catch`, `translated`'s origin prints the escaped reason, `await_rejection_caught` prints no hops line, and `test_failed` is a `throw` statement because a failing `expect` throws inside vitest's untraced code and writes no RAISE row at all. |
 | R13 | §7's only named shipping branch is DONE-WITH-STOP | The rung's word is **DONE**. Every word in the record comes from a rule; §7 names no PASS anywhere, and rung 1 shipped DONE-WITH-STOP under the same convention, so the branch not taken reads DONE. |
 | R14 | §7 left the results file's provenance to the assembler | The assembler writes `recorder_basis` on every cell, `own` on the two that record themselves (E6-TS′, E8″), and the record's provenance sentence stays: a re-assembly of saved cells is not a re-measurement, and a JSON that names its basis per cell is what slice 2's misattribution lesson asked for. |
+| R15 | §3.3 rule 4's one conjunct, "no HANDLED in the absorbing set" | Two narrowings, written into §3.3 rule 4 in place and dated: the rule also declines on an **escaping** HANDLED anywhere for the serial (rule 5 owns that reason, and rule 4 runs first), and its absorbing conjunct is read as "no absorbing HANDLED whose frame has **not yet returned**" (`_still_open_absorber`, the Task-4 review fix `7c2ead1`, which is what keeps rule 3's 3/4 mutation live). Both narrow the verdict, never widen it — no shape gains PROPAGATED that the sentence denied it — and E6-TS′'s 30 shapes were adjudicated under the coded reading. What it costs is in `docs/CARRIED-DEBT.md`: an escaped handler that then rethrows out of the test root reads AMBIGUOUS where PROPAGATED would be truer. |
 
 **What the endpoints read, against what this document expected.** §7's table
 held: **E6-TS 17 of 17**, **E6-TS′ 0 false SWALLOWED of 30**, **E8″ 32 of 32**,

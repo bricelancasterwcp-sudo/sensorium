@@ -19,7 +19,10 @@ records the shapes items **2**, **3** and **11** said it did not, so each is
 struck where it stands with the date and the replacement named; item **13** is
 narrowed to what is still true of a destructuring clause. A struck item stays
 visible because a reader who last met this list under `sensorium-ts 0.1.x`
-needs to see which of its holes closed, when, and what is left of them.
+needs to see which of its holes closed, when, and what is left of them. Item
+**22** is neither struck nor narrowed but **rewritten in place**, at this
+rung's own final review: what it claimed was never true of the shipped
+runtime, and its note says what it used to say.
 
 Each entry names what the trace carries in its place, and what could falsify
 the claim that this is the whole of it. A bare `§n` below is a section of
@@ -205,13 +208,21 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     indistinguishable here from one that ships the error somewhere. Again the
     under-claiming direction. *(Added 2026-09-10.)* *Falsifier:*
     `typescript/test/escape.test.mjs`, `typescript/test/golden/`.
-22. **The `finally` sink records no value.** `sink_finally_return`'s `exc` is
-    `{kind: "throw", serial, unread: ["type","msg"]}`: the block binds nothing,
-    so the runtime holds no reference to what it discarded. The verdict names
-    the sink, the line and the serial, and the type and message are **declared
-    unread** rather than reconstructed. A reader who wants to know *what* was
-    discarded has to read the RAISE the serial points at. *(Added 2026-09-10.)*
-    *Falsifier:* `typescript/test/rt.test.mjs` (`handledFinally`),
+22. **The `finally` sink sees only what the mark holds.** `sink_finally_return`
+    names the sink, the line and the serial, and its `exc` is the marked
+    throw's **own, complete** one — `kind`, `type`, `msg` and `serial`, nothing
+    `unread` — so what the sink cannot know is not the *value* but the *throw*:
+    a throw nothing marked reaches a completing `finally` invisibly. Those are
+    P1's own two shapes and they are argued at item **18** — a `try` with its
+    own `catch` clause gains no synthetic marking clause, and `thr` (a callee's
+    frame closing by throw) sets no mark. *(Added 2026-09-10. **Corrected
+    2026-09-10, at the rung's final review:** this item first said the sink
+    "records no value" and wrote `unread: ["type","msg"]`, which was the
+    design's pre-R2 wording and never the shipped runtime's — ruling R2 made
+    the mark hold the whole `exc(e, 'throw')` object. Rewritten in place,
+    keeping its number, per this file's own rule.)* *Falsifier:*
+    `typescript/test/rt.throw.test.mjs` (`a marked frame whose finally
+    completes`), `docs/trace-format/TYPESCRIPT-KEYS.md`,
     `corpus/typescript/finally_return`.
 23. **An opaque rejection handler is never accused.** `.catch(handler)` — an
     identifier, a member reference, a call returning a function — reads
