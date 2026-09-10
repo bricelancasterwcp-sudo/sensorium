@@ -170,14 +170,21 @@ def _tests_line(trace, m: dict) -> list[str]:
     whole test file; the setup file counts what the HARNESS registered so
     the difference can be stated instead of being silence
     (`typescript/HONESTY.md` section 2).
+
+    Where nobody counted -- `node --test`, which runs no setup file -- the
+    key is absent and the clause is not printed at all (R38). It read
+    `tests: 2 as tasks, 0 seen by the harness` there, a zero nothing
+    measured, which invites exactly the subtraction the clause exists to
+    make possible.
     """
-    if "tests_seen" not in m:
-        return []
-    tasks, seen = len(trace.tasks()), m["tests_seen"]
-    line = f"tests: {tasks} as tasks, {seen} seen by the harness"
-    if seen > tasks:
-        line += (f"; {seen - tasks} registered through a shape the "
-                 "transform did not wrap")
+    tasks = len(trace.tasks())
+    line = f"tests: {tasks} as tasks"
+    seen = m.get("tests_seen")
+    if seen is not None:
+        line += f", {seen} seen by the harness"
+        if seen > tasks:
+            line += (f"; {seen - tasks} registered through a shape the "
+                     "transform did not wrap")
     line += _naming(m)
     return [line]
 

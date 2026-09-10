@@ -100,6 +100,10 @@ class Builder:
         self.source_hashes: dict[str, str] = {}
         self.truncated = 0
         self.tests_seen = 0
+        # Whether anything in this spool says the counter RAN. A `node --test`
+        # container runs no setup file, so nothing ever calls `seen()` -- and
+        # a zero written anyway is a measurement nobody took (R38).
+        self.counter_ran = False
         self.outside_frames = 0
         self.rejections: list[dict] = []
         self.file_starts: list[str] = []
@@ -172,11 +176,13 @@ class Builder:
         self.source_hashes[rec["abs"]] = rec["sha"]
 
     def _on_file_start(self, rec: dict) -> None:
+        self.counter_ran = True
         self.file_starts.append(relative(rec["path"], self.inv.root))
         if rec.get("environment"):
             self.environments.add(rec["environment"])
 
     def _on_seen(self, rec: dict) -> None:
+        self.counter_ran = True
         self.tests_seen += 1
         self.truncated += bool(rec.get("name_trunc"))
 
@@ -400,11 +406,20 @@ class Builder:
             "is_main_thread": boot["isMainThread"],
             "node": boot["node"],
             "wire": boot["wire"],
-            "tests_seen": self.tests_seen,
             "task_name_conflicts": self.conflicts,
             "unhandled_rejections": self.rejections,
             "throw_flow_outside_frames": self.outside_frames,
         }
+        if self.counter_ran or self.inv.harness == "vitest":
+            # Written only where somebody counted (R38). The setup file is
+            # vitest's, and its FILE_START or SEEN records are the evidence
+            # that it ran; a vitest invocation whose file registered no test
+            # at all still counted, and its zero is a measurement. Under
+            # `node --test` there is no setup file and no counter, and the
+            # key is ABSENT -- "nobody counted" and "counted none" are
+            # different facts, and only one of them can be subtracted from
+            # the task count.
+            meta["tests_seen"] = self.tests_seen
         if len(self.file_starts) == 1:
             meta["test_file"] = self.file_starts[0]
         elif self.file_starts:

@@ -144,7 +144,14 @@ a string at runtime leaves the task unnamed, and the reader prints
 records one SEEN per test the harness registered; `tests_seen` is that count,
 and `info` prints `tests: N as tasks, M seen by the harness`. A shortfall is
 named by the shape that caused it, and is a shortfall the trace states rather
-than a silence.
+than a silence. **Where nobody counted, there is no count.** The setup file is
+vitest's, and `node --test` runs none: such a trace carries NO `tests_seen`
+key and `info` prints `tests: N as tasks` alone. *(Amended 2026-09-09, ruling
+R38: the key was written unconditionally from a counter initialised at zero,
+so every `node --test` trace read `tests: 2 as tasks, 0 seen by the harness` —
+a zero nobody measured, inviting exactly the subtraction the clause exists to
+make possible. A vitest container that registered no test still counts, and
+its zero is written: there the setup file ran.)*
 
 **What it does not claim.** Hooks (`beforeEach`, `afterAll`, …) are not tasks:
 their frames run in no task, on the container's root stack, and are compared as

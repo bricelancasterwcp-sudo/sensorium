@@ -43,7 +43,7 @@ the conversion counted.
 
 | Key | Meaning, and what reads it |
 |---|---|
-| `tests_seen` | How many tests the **harness** registered, counted by the setup file. `info`: `tests: 11 as tasks, 11 seen by the harness`, and names the shortfall when they differ — a test the transform did not wrap ran and was recorded by nothing, so a bare task count would read as the whole file. |
+| `tests_seen` | How many tests the **harness** registered, counted by the setup file. `info`: `tests: 11 as tasks, 11 seen by the harness`, and names the shortfall when they differ — a test the transform did not wrap ran and was recorded by nothing, so a bare task count would read as the whole file. **Present only where the counter ran**: the spool carries a `SEEN` or a `FILE_START`, or the invocation was vitest, whose setup file always runs. `node --test` runs no setup file, so its traces carry no key and `info` prints `tests: N as tasks` alone — never a zero nobody measured. |
 | `task_name_basis` | Which rule named this trace's tasks: the provider's (`vitest`), the lexical `describe > title`, or `mixed`. Printed as `; task names: vitest`. |
 | `task_name_conflicts` | Provider names that did not end with the string literal the transform passed; the task fell back to its lexical title and the disagreement was **counted rather than resolved**. Printed beside the basis it qualifies — alone it would name no rule to doubt. |
 | `unhandled_rejections` | `[{type, msg, serial}]` from `process.on('unhandledRejection')` — a fact with no SITE, so it is here and never in `events` (§5). `info` prints the count, **including a zero on a complete trace**: the listener always ran, so that zero is measured. |

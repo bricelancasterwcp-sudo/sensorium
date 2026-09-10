@@ -3,8 +3,9 @@ the fingerprints, and the records it deliberately turns into no row at all.
 
 The fixtures and the machinery that drives them are `tests/ts_spools.py`,
 which also carries the provenance of every case. The refusals, the meta keys
-and this command's own surfaces are `tests/test_ts_ingest_meta.py`; the two
-are one suite split at the 800-line ceiling.
+and this command's own surfaces are `tests/test_ts_ingest_meta.py`, and the
+pool that runs the work is `tests/test_ts_ingest_pool.py`; the three are one
+suite, split twice at the 800-line ceiling.
 """
 import json
 

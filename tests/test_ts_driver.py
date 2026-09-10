@@ -49,6 +49,10 @@ describe('arithmetic', () => {
   test('adds', () => {
     assert.equal(add(1, 2), %d);
   });
+
+  test('adds again', () => {
+    assert.equal(add(2, 1), 3);
+  });
 });
 """
 
@@ -192,8 +196,32 @@ def test_tasks_are_named_lexically_because_no_harness_offered_a_name(
     sdir = tmp_path / "sdir"
     drive(project, sdir)
     trace = only_trace(sdir)
-    assert [t.name for t in trace.tasks()] == ["arithmetic > adds"]
+    assert [t.name for t in trace.tasks()] == ["arithmetic > adds",
+                                              "arithmetic > adds again"]
     assert trace.meta["task_name_basis"] == "title"
+
+
+def test_nobody_counted_the_tests_so_no_count_is_written(project, tmp_path):
+    """R38. `tests_seen` is the setup FILE's count, and `node --test` runs
+    no setup file: nothing ever calls `seen()`. The key was written anyway,
+    from a counter initialised at zero, and `info` printed `tests: 2 as
+    tasks, 0 seen by the harness` -- a zero nobody measured, inviting
+    exactly the subtraction the clause exists to make possible ("2
+    registered through a shape the transform did not wrap" is what the same
+    line says when the numbers differ the other way).
+
+    Absent, and the line is the half of itself the trace can support.
+    """
+    sdir = tmp_path / "sdir"
+    r = drive(project, sdir)
+    assert r.returncode == 0, r.stderr
+    trace = only_trace(sdir)
+    assert "tests_seen" not in trace.meta
+    run_id = trace.meta["run_id"]
+
+    out = run_cli(["info", run_id], cwd=project, sensorium_dir=sdir).stdout
+    assert "tests: 2 as tasks; task names: title\n" in out, out
+    assert "seen by the harness" not in out, out
 
 
 def test_the_recorded_program_is_the_one_that_ran(project, tmp_path):

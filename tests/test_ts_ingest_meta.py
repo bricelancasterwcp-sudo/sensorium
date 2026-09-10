@@ -3,15 +3,17 @@ refuses, and the command's own surfaces.
 
 The fixtures and the machinery that drives them are `tests/ts_spools.py`,
 which also carries the provenance of every case. What a converted trace
-HOLDS -- events, frames, fingerprints -- is `tests/test_ts_ingest.py`; the
-two are one suite split at the 800-line ceiling.
+HOLDS -- events, frames, fingerprints -- is `tests/test_ts_ingest.py`, and
+how the converter RUNS its work -- the pool, and a worker that dies -- is
+`tests/test_ts_ingest_pool.py`; the three are one suite, split twice at the
+800-line ceiling.
 """
 import json
-import multiprocessing
 import re
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import pytest
 
@@ -289,30 +291,6 @@ def test_a_line_that_is_not_a_record_is_refused(tmp_path):
     assert "line 1 is not a record" in str(e.value)
 
 
-def test_the_pool_and_the_single_process_answer_the_same(tmp_path):
-    """`--jobs 1` runs in this process; anything more runs a pool. Two paths
-    to one answer, held on a directory with more than one spool so the pool
-    is really taken -- and one of those spools is refused, which is the part
-    worth checking across a process boundary: a refusal must come back as a
-    VALUE the parent can print, not as an exception that kills the pool."""
-    _s1, sdir1, one = ingest_case("no-boot", tmp_path / "one", jobs=1)
-    _s2, sdir2, many = ingest_case("no-boot", tmp_path / "many", jobs=4)
-    assert one.returncode == many.returncode == 2
-    assert _refusals(one.stdout) == _refusals(many.stdout)
-    a = only_trace(sdir1)
-    b = only_trace(sdir2)
-    assert a.task_fingerprints() == b.task_fingerprints()
-    assert a.fingerprints() == b.fingerprints()
-    assert a.meta["truncated_count"] == b.meta["truncated_count"]
-
-
-def _refusals(stdout: str) -> list[str]:
-    """The refusal lines, with the spool's absolute path -- which differs
-    between two ingests of two copies -- taken back out."""
-    return [ln.split(": ", 2)[-1].rsplit("/", 1)[-1]
-            for ln in stdout.splitlines() if ln.startswith("refused: ")]
-
-
 def test_the_help_speaks_this_recorders_language_and_no_other(tmp_path):
     """Every word a reader of a TypeScript trace meets is this recorder's.
     A help line that said `asyncio`, `coroutine` or `cargo` would be naming
@@ -337,61 +315,57 @@ def test_invocation_round_trips_through_json():
     assert inv.to_json() == data
 
 
-def test_a_worker_killed_by_a_signal_refuses_and_does_not_hang(tmp_path):
-    """R42. A worker that dies of a signal never puts a result on the
-    queue, and `Pool.imap` waits for one: the driver hung forever on a
-    converter the OOM killer took, with no output and nothing to interrupt
-    but the process itself. `ProcessPoolExecutor` raises
-    `BrokenProcessPool` instead, which the existing `except Exception`
-    turns into the marker plus a named refusal.
+def _without_counter(spool: Path, harness: str) -> None:
+    """Strip every record the setup file writes, and say which harness ran.
 
-    Bounded by `SIGALRM` and not by patience: a regression here HANGS, and
-    a hanging test is a suite that never reports rather than one that
-    fails.
+    A spool with no SEEN and no FILE_START is what `node --test` leaves:
+    that harness runs no setup file at all. No fixture is one, because
+    every recorded fixture came from a vitest probe, so one is made here
+    out of a vitest spool with the setup file's records taken back out.
     """
-    import signal as signal_mod
-    from tests.ts_spools import kill_this_worker
+    path = next(spool.glob("*.jsonl"))
+    kept = [line for line in path.read_text().splitlines()
+            if json.loads(line)["e"] not in ("SEEN", "FILE_START")]
+    path.write_text("\n".join(kept) + "\n")
+    record = json.loads((spool / "invocation.json").read_text())
+    record["harness"] = harness
+    record["vitest"] = None
+    (spool / "invocation.json").write_text(json.dumps(record, indent=2) + "\n")
 
+
+def test_a_spool_whose_counter_never_ran_carries_no_count(tmp_path):
+    """R38. `tests_seen` was written from a counter initialised at zero,
+    whatever the spool said, so every `node --test` trace claimed a
+    measurement nobody took. The key is written only where something in
+    the spool says the counter ran -- a SEEN or a FILE_START -- or where
+    the invocation was vitest, whose setup file always runs."""
     spool = tmp_path / "spool"
     copy_tree(FIXTURES / "each-names", spool)
-    # Two containers, so `_map` uses the pool: one spool means one job, and
-    # one job runs in this process -- which would kill the test runner.
-    only = next(spool.glob("*.jsonl"))
-    (spool / "439935-0.jsonl").write_bytes(only.read_bytes())
-    assert len(list(spool.glob("*.jsonl"))) == 2
-
-    from sensorium.ts import ingest
-    monkeypatched = ingest._worker
-    ingest._worker = kill_this_worker
-
-    def _too_slow(_sig, _frame):
-        raise AssertionError("ingest_dir did not return within 60s: a dead "
-                             "worker is hanging the converter again")
-
-    previous = signal_mod.signal(signal_mod.SIGALRM, _too_slow)
-    signal_mod.alarm(60)
-    try:
-        with pytest.raises(ingest.IngestError) as e:
-            ingest.ingest_dir(spool, tmp_path / "sdir", jobs=2)
-    finally:
-        signal_mod.alarm(0)
-        signal_mod.signal(signal_mod.SIGALRM, previous)
-        ingest._worker = monkeypatched
-
-    assert "BrokenProcessPool" in str(e.value)
-    # P6's marker is written anyway, and says what stopped the run: a
-    # re-ingest must not mint a second run id for anything that converted.
-    marker = json.loads((spool / "ingested.json").read_text())
-    assert "BrokenProcessPool" in marker["error"]
+    _without_counter(spool, "node-test")
+    sdir = tmp_path / "sdir"
+    r = run_cli(["ts", "ingest", str(spool)], cwd=tmp_path, sensorium_dir=sdir)
+    assert r.returncode == 0, f"{r.stdout}{r.stderr}"
+    meta = only_trace(sdir).meta
+    assert "tests_seen" not in meta
+    # The container's other counts are untouched: this is one key, not a
+    # verdict about the spool.
+    assert meta["task_name_conflicts"] == 0
+    assert [t.name for t in only_trace(sdir).tasks()]
 
 
-def test_the_pool_is_spawned_not_forked():
-    """A forked worker inherits the parent's threads, its sqlite handles and
-    its signal dispositions; `spawn` is the only context this converter is
-    written against."""
-    from sensorium.ts import ingest
-    assert ingest.CONTEXT == "spawn"
-    assert multiprocessing.get_context(ingest.CONTEXT) is not None
+def test_a_vitest_spool_that_registered_nothing_still_counts_its_zero(
+        tmp_path):
+    """The other side of the same rule. vitest's setup file runs whether
+    or not the file registers a test, so a vitest invocation's zero IS a
+    measurement -- and dropping it would lose the shortfall the clause
+    exists to state."""
+    spool = tmp_path / "spool"
+    copy_tree(FIXTURES / "each-names", spool)
+    _without_counter(spool, "vitest")
+    sdir = tmp_path / "sdir"
+    r = run_cli(["ts", "ingest", str(spool)], cwd=tmp_path, sensorium_dir=sdir)
+    assert r.returncode == 0, f"{r.stdout}{r.stderr}"
+    assert only_trace(sdir).meta["tests_seen"] == 0
 
 
 # --------------------------------------------------------------------------
@@ -655,7 +629,16 @@ def test_an_older_converter_s_trace_prints_none_of_these_lines(tmp_path):
     """Every line of the TypeScript block is gated on the meta key it
     reports, never on the language -- the rule the rest of `info` follows.
     A trace whose converter wrote none of them says less, and says nothing
-    it cannot support."""
+    it cannot support.
+
+    `tests:` is the one line with a half that is not a meta key. Its task
+    count comes from the trace's own TASK rows, so it prints on any
+    TypeScript trace that has them; what the missing `tests_seen` takes
+    away is the CLAUSE, which is the half that is a claim about the
+    harness (R38). Asserted below rather than dropped, because "the line
+    is gone" and "the line lost its clause" are different outcomes and
+    only one of them is this one.
+    """
     dropped = {k: None for k in
                ("harness", "harness_args", "harness_exit", "pid", "ppid",
                 "thread_id_os", "is_main_thread", "test_file", "vitest",
@@ -669,10 +652,13 @@ def test_an_older_converter_s_trace_prints_none_of_these_lines(tmp_path):
     sdir = tmp_path / "sdir"
     build({**base, "meta": meta}, sdir, [VECTOR_RUN])
     out = _info_of(sdir)
-    for absent in ("harness:", "container:", "container exit:", "tests:",
+    for absent in ("harness:", "container:", "container exit:",
                    "files:", "unhandled rejections:",
                    "throw flow outside frames:"):
         assert absent not in out, f"{absent!r} on a trace with no key\n{out}"
+    # The task count is the trace's own; the harness clause is not there.
+    assert "tests: 1 as tasks\n" in out, out
+    assert "seen by the harness" not in out, out
     # ...and the interpreter line still names what it does know, with no
     # empty parenthesis where the harness and environment would have been.
     assert "node v24.16.0  env:" in out, out
