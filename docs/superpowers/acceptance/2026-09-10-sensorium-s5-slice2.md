@@ -506,8 +506,12 @@ more than half of its 0.3624 s was commits — a 611 KB spool pays the same
 ~35 finalize fsyncs a 195 MB one does. No threshold moved and no cell was
 re-rolled; these are the numbers the pre-registered cells produced. Whether the remaining cost is A3's or A4's is
 those rungs' to measure, and the gated clauses (E10′-suite, E10′-file,
-E10′-eq) are measured on the slice's final converter at their own `n` and
-are still `not measured (slice 2 pending)` above.
+E10′-eq) are measured on the slice's final converter at their own `n`.
+*(Amended 2026-09-10: this sentence ended "and are still `not measured (slice
+2 pending)` above", which was true when §3.7 was written and stale from the
+moment Task 4 read those three cells. All three are **PASS** — §3.9, verdicts
+§4.1. Nothing else in this section moves; the reading it records was taken
+before they ran and is not changed by them.)*
 
 Ungated beside it: **152,851 events/s** on the big spool at this rung
 (2,246,552 events in 14.6977 s), against Arm 0's 128,053. Peak resident is
@@ -759,7 +763,11 @@ is the point of running E6″ last; R45 is an error path a green 372-file
 recording never enters. Nothing else under `src/` or `typescript/src/` moved.
 The ambient readings taken in the minute before the launch are §2.3's.
 
-**The order was §1 `### 2.1 The session`'s, and the order is the endpoint.**
+**The order was spec §2.1's, and the order is the endpoint.** *(Citation
+corrected 2026-09-10: this read "§1 `### 2.1 The session`". §1 carries the
+spec's §2.2, §3.2, §3.4, §3.5, §4.5 and §11 verbatim and no other section, so
+§2.1 and §2.4 live in the spec alone; §11's E6″ row inside §1 is the locked
+restatement of this order, and it is what the clause is decided against.)*
 The manifest first, so a lens that had moved since rung 1 would stop the
 session before it started; five plain runs; one call-tier recording; five
 plain runs; and only then the manifest again — so that the last thing to have
@@ -934,7 +942,9 @@ Both arms supplied **five** usable walls, so the "fewer than four usable
 walls in either arm" clause of §1 did not fire and the timing clause is
 `held` rather than `STOP by instrument`.
 
-**§1 `### 2.4 Disposition, pre-committed`, applied:** on a PASS on all five,
+**Spec §2.4 `Disposition, pre-committed`, applied** *(citation corrected
+2026-09-10: this read "§1 `### 2.4`"; §2.4 is in the spec, not among the six
+sections §1 carries verbatim — see the correction at §3.11)*: on a PASS on all five,
 "E6 is closed for this recorder on this lens; the rung-1 spec's §11 entry
 gets a dated line saying so" — so it is closed, and that line is now on
 `docs/superpowers/specs/2026-09-09-sensorium-typescript-recorder-design.md`
@@ -1137,3 +1147,67 @@ Numbering continues §5's; §5.A is left as it was.
     reported under that name and must not be read against E10′-suite's
     16.3859 s, which is a guarded median of five ingests over a different,
     pinned recording.
+
+### 5.C Found in the final review (2026-09-10)
+
+Numbering continues §5.B's. Each of these is a property of an instrument or of
+what a verdict asserts, found by reading the shipped instruments against their
+own rules at the slice's close; none of them moves a number above.
+
+13. **A dropped plain run STOPs E6″'s suite clause outright, which makes
+    "STOP by instrument" nearly unreachable.** §1's rule has two ways to
+    refuse on the arms: a run whose counts are not `372 passed (372)` /
+    `4278 passed (4278)` is "dropped and named", and an arm left with fewer
+    than four usable walls is a **STOP by instrument**. But `e6pp_report.py`
+    computes the suite clause as a conjunction over **every** plain run, so
+    the first dropped run fails that clause and the session STOPs there — the
+    "<4 usable walls" branch can only be reached by a run that is dropped
+    without failing the counts, which this instrument has no way to produce.
+    Nothing here was dropped, so the reading is unaffected, and the direction
+    is the conservative one: the instrument can refuse a session it might have
+    salvaged, and **cannot manufacture a PASS**. It is written down because
+    the pre-registration reads as though the two branches were independent and
+    they are not.
+
+14. **The five clauses cannot see a failed call run.** §1's clause is "every
+    **plain** run's counts", and gap 10 above says why the call run is
+    reported beside the clause rather than inside it. The consequence is that
+    a session whose contamination *source* half-failed would still be read
+    against the band, the manifest and the markers as though the recording had
+    happened. This session's premise was therefore checked **by hand** and is
+    recorded in §3.11: the call run's row reads exit **0**, the suite green,
+    and a spool of **372** files, 414,467,939 bytes. A future E6 that wants
+    this mechanical needs a sixth clause, which this one did not
+    pre-register.
+
+15. **The manifest's sha256 is recorded, not enforced.** Gap 7 says
+    `e6pp.sh` derives the expected OK count from the manifest's own
+    `wc -l` and writes the manifest's own sha256 into the cell so that
+    "748 OK" is anchored to *which* 748. What it does not do is **compare**
+    that sha to the value §2 pins: the anchoring is available to a reader and
+    is not a check the instrument makes. Both readings this session took carry
+    `eb4c5ddb…6c9a8`, which is the pinned value, and that was verified by eye
+    rather than by the script.
+
+16. **`assemble_slice2` can emit `null` with an empty `dropped`.** The file's
+    own rule (plan P2) is that a cell that was never measured is `null`
+    **plus** a `dropped` reason, never a blank that reads as a pass. Two
+    branches of the assembler do not honour it — a cell whose JSON is present
+    but missing its value key, and one whose stage never produced a file that
+    the caller did not list — so an absent cell could reach the results file
+    with nothing saying why. Every cell this slice pre-registered was
+    measured, so no `null` was emitted and the rule was never exercised in
+    anger; the defect is in the path that exists for the case that did not
+    happen, which is the path least likely to be found by running it.
+
+17. **Both sides of the equivalence gate ran at the default job count, so
+    job-count independence of the converter's output is an inference this
+    slice did not test.** E10′-eq converted the pinned set twice, each side at
+    its converter's own default (16 here), and read 372 MATCH. Nothing in it
+    says whether `--jobs 1` and `--jobs 16` write the same trace: the pool
+    distributes whole spools to workers and no worker reads another's, so
+    independence holds by construction rather than by measurement — which is
+    an argument, not a cell. It matters for a lever this slice did not build:
+    **A2** (largest-first dispatch) changes the order spools are handed out,
+    and a gate that never varied the job count would not have noticed if
+    order mattered.

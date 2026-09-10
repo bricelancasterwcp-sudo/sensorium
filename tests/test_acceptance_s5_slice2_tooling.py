@@ -272,7 +272,7 @@ def test_assemble_slice2_refuses_a_surviving_mnt_string(tmp_path, capsys):
     results.mkdir()
     (results / "e6pp.json").write_text(json.dumps(
         {"value": 5, "n": 5, "lens": "a lens", "dropped": [],
-         "wrapper_dir": "/mnt/extra/sensorium-s5/vtt/frontend/node_modules"}),
+         "wrapper_dir": "/mnt/example/lens/frontend/node_modules"}),
         encoding="utf-8")
     out = tmp_path / "slice2.results.json"
 
@@ -280,7 +280,7 @@ def test_assemble_slice2_refuses_a_surviving_mnt_string(tmp_path, capsys):
 
     assert rc == 2
     assert not out.exists()
-    assert "/mnt/extra/sensorium-s5/vtt/frontend" in capsys.readouterr().err
+    assert "/mnt/example/lens/frontend" in capsys.readouterr().err
 
 
 def test_assemble_slice2_writes_when_the_path_is_redacted(tmp_path):
@@ -294,13 +294,13 @@ def test_assemble_slice2_writes_when_the_path_is_redacted(tmp_path):
     results.mkdir()
     (results / "e6pp.json").write_text(json.dumps(
         {"value": 5, "n": 5, "lens": "a lens", "dropped": [],
-         "wrapper_dir": "/mnt/extra/sensorium-s5/vtt/frontend/node_modules"}),
+         "wrapper_dir": "/mnt/example/lens/frontend/node_modules"}),
         encoding="utf-8")
     out = tmp_path / "slice2.results.json"
 
     rc = assemble_slice2.main(
         ["assemble_slice2.py", str(results), str(out),
-         "/mnt/extra/sensorium-s5/vtt/frontend=<lens>"])
+         "/mnt/example/lens/frontend=<lens>"])
 
     assert rc == 0
     payload = json.loads(out.read_text(encoding="utf-8"))
