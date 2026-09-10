@@ -154,10 +154,12 @@ class Terms:
     #: Why `exceptions` cannot judge a trace in this language, or `None`
     #: where it can. Not a vocabulary problem and not a capability one:
     #: what is missing is a set of DISPOSITION RULES, and the sentence
-    #: names the rung that owes them. `None` for Python (whose rules these
-    #: are) and for Rust (dispatched to its own rule module before the
-    #: refusal is read), so the refusal is a fact about a language rather
-    #: than a fallback for everything that is not Python.
+    #: names the rung that owes them. `None` for every language that HAS
+    #: rules: Python (whose rules these are), Rust and TypeScript, each
+    #: dispatched to its own rule module before the refusal is read. The
+    #: field survives for a fourth language, so the refusal stays a fact
+    #: about a language rather than a fallback for everything that is not
+    #: Python.
     exceptions_refusal: str | None
 
     @property
@@ -359,10 +361,13 @@ TYPESCRIPT = Terms(
     # word on a TypeScript trace the way it forbids `coroutine`.
     kind_labels=MappingProxyType({"coroutine": "async",
                                  "async_generator": "async generator"}),
-    exceptions_refusal=(
-        "REFUSED: exceptions on a typescript trace needs the TypeScript "
-        "disposition rules (S5 rung 2); the Python rules index exception "
-        "identity this trace does not carry; nothing was judged"),
+    # Dispatched to `exceptions_typescript` before `_language_refusal` is
+    # ever read, so this column has no refusal to offer either: what an
+    # 0.1.x TypeScript recording lacks is a RECORD, and
+    # `capabilities.err_flow` says so in its own sentence
+    # (`v32-err-flow-typescript-capability-refusal`). The sentence that
+    # stood here named the rules S5 rung 2 owed; rung 2 shipped them.
+    exceptions_refusal=None,
 )
 
 _TABLES = {PYTHON.lang: PYTHON, RUST.lang: RUST, TYPESCRIPT.lang: TYPESCRIPT}

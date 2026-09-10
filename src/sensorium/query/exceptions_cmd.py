@@ -698,6 +698,15 @@ def run(args) -> int:
         # so a module-level import here would be a cycle.
         from sensorium.query import exceptions_rust
         return exceptions_rust.run(trace, args, after)
+    if trace.lang == "typescript":
+        # The same dispatch one language further out (design section 3):
+        # the words below index an exception on the address CPython gave
+        # the object, which this recorder does not carry -- its identity is
+        # a serial minted per thrown object. That module gates on
+        # `capabilities.err_flow` itself, so an 0.1.x TypeScript recording
+        # still refuses, with the capability sentence.
+        from sensorium.query import exceptions_typescript
+        return exceptions_typescript.run(trace, args, after)
     refusal = _language_refusal(trace)
     if refusal:
         # Nothing was judged, and no edit to this command would change
