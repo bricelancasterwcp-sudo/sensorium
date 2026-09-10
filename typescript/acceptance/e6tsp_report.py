@@ -180,9 +180,16 @@ def adjudication(path: str) -> dict:
                 "why": f"{file.name} does not exist: no line has been adjudicated"}
     rows, bad = {}, []
     for line in file.read_text(encoding="utf-8").splitlines():
-        if not line.startswith("| S") or "|" not in line[2:]:
+        if not line.startswith("|"):
             continue
         cols = [c.strip() for c in line.strip().strip("|").split("|")]
+        # A row is one this table OWNS only when its first cell is a shape
+        # id. The file also holds a summary table whose first column is
+        # prose, and `startswith("| S")` booked "SWALLOWED shapes printed"
+        # as a malformed shape row -- found on the first read of the filled
+        # table, before the cell was taken.
+        if not cols or not re.fullmatch(r"S\d+", cols[0]):
+            continue
         if len(cols) < 7:
             bad.append(f"row {cols[0] if cols else '?'} has {len(cols)} columns, "
                        "the table has 7")

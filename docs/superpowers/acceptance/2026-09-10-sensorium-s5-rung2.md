@@ -1,14 +1,16 @@
 # S5 rung 2 — the throw flow: `exceptions` on a TypeScript trace: acceptance (pre-registered)
 
-**Status: pre-registration only.** This file was written and committed on the
-feature branch `feat/s5-rung2` **before any line of rung-2 code existed**. The
-commit that carries it changes nothing under `src/`, `typescript/src/`,
-`rust/` or `corpus/`: it is this document and nothing else. §1 is the locked
-contract — after a number is read, no threshold moves, no arm is added and no
-run is re-rolled; an infrastructure kill may be re-run from zero with the
-reason recorded. §3's cells are all `not measured (rung 2 pending)` and stay
-that way until the endpoints run. §4 and §5 are written by hand at the end of
-the rung.
+**Status: measured (Task 7, 2026-09-10). The rung ships PASS — §5.**
+
+§1 of this file was written and committed on the feature branch
+`feat/s5-rung2` **before any line of rung-2 code existed**: the commit that
+carried it changed nothing under `src/`, `typescript/src/`, `rust/` or
+`corpus/`. §1 is the locked contract — after a number is read, no threshold
+moves, no arm is added and no run is re-rolled; an infrastructure kill may be
+re-run from zero with the reason recorded. It is byte-unchanged, and the lock
+test says so. §2 keeps its preflight pins and gains §2.3, the instrument
+changes made before any endpoint ran. §3, §4 and §5 were written when the
+endpoints had run and are the measured half of this record.
 
 The one thing this rung can be tempted to move after the fact is **E6-TS′'s
 adjudication protocol** — the definition of a *true* SWALLOWED line — because
@@ -195,36 +197,356 @@ arities: `.catch(fn)` counts and `.catch()` does not, `.then(fn, fn)` counts
 and `.then(fn)` does not. The lens simply has no completing `finally` in its
 `src`, which is a fact about the lens and is what E2″ will have to divide by.
 
+### 2.3 Instrument changes made before any endpoint ran
+
+Every one of these was made and recorded **before the endpoint it touches had
+been measured**; none of them moved a threshold, and §1 is byte-unchanged
+(the lock test is green).
+
+**The escape rule was amended at Task 6.** A bare rethrow — `throw e;` whose
+operand after any parentheses is the binding itself — is a traced EXIT and
+not an escape, for `catch` clauses and for rejection callbacks alike (spec
+§2.1's dated amendment, commits `68015dd` and `43e1fbd`), because the literal
+rule barred every `throw e` hop from SWALLOWED and made §1's locked
+`rethrow_hop` count unreachable by construction. No endpoint had been
+measured; §7 and the count table are byte-unchanged.
+
+The rest are Task 7's, the first three in its instrument commit `3db0f28`
+and the fourth in the measurement commit that carries this record:
+
+- **E2″'s numerator was written** into `census_catch.mjs` (Task 2's ruling):
+  the transform's own output over the same files, matched marker by marker
+  and line by line. Its denominator is unchanged — the lens row still reads
+  741 files / 177 catch clauses / 108 `.catch` / 2 `.then` / 0 completing
+  `finally`, as §2.2 pinned it at T0. Verified on a fixture that it names a
+  sanctioned exclusion (a spread argument) and reports an unnamed miss.
+- **`arms.sh`, `e3.sh` and `e7.sh` gained a `SENSORIUM_BIN` hook**, default
+  unchanged. All three hard-coded the GLOBAL `sensorium`, which is main's
+  recorder: E1‴, E3-TS″ and E7″ would have measured the binary already
+  installed rather than the one this branch built, and the global tool is
+  never reinstalled from a worktree.
+- **E7″'s three identifier needles are matched word-bounded and
+  case-sensitively.** `oid`, `chain` and `Err` are other recorders'
+  identifiers; as case-insensitive substrings `Err` is satisfied by every
+  `Error('…')` a verdict prints, `oid` by "avoid" and `chain` by
+  "describe_chain", so that reading could not be passed by any answer that
+  named an exception type. The six prose needles stay case-insensitive. This
+  is the same correction `e7_report.py` already records having made once for
+  `python ?`.
+- **The adjudication table's row parser was tightened** from "a line starting
+  `| S`" to "a first cell matching `S<digits>`", on the first read of the
+  filled table: the file's own summary table has a row beginning `| SWALLOWED
+  shapes printed |`, which the loose test booked as a malformed shape row and
+  which held the cell at `null`. The number had not been taken; the report is
+  a pure function of the saved transcript and the table, so re-running it is
+  not a re-measurement — the sweep itself ran once and was not repeated.
+
+**One infrastructure kill, re-run from zero.** E1‴'s first batch loop was
+killed 2 minutes in by the shell harness's own command timeout, mid-run of
+batch 1's `call` arm; 2 of the 15 runs had been written and no cell had been
+produced. `arms.jsonl` was deleted and the five batches were re-run from
+zero, detached, which is what §1's stop rules require of an infrastructure
+kill.
+
 ## 3. Results
 
-Each cell is filled when its endpoint runs and reads `not measured (rung 2
-pending)` until then. A cell that is never measured is a **missing file** the
-assembler reports as `null` plus `dropped` — never an omission, never a blank
-that reads as a pass.
+Every endpoint ran, in the order the plan fixes (the timed and lens-touching
+arms last), each once. Every cell below is
+`{value, n, lens, dropped}` in
+`2026-09-10-sensorium-s5-rung2.results.json`, with the recorder
+(`sensorium 0.9.1` / `sensorium-ts 0.2.0`) and the commit it ran at
+(`3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7`) beside it. Nothing was dropped:
+every `dropped` list in the file is empty.
+
+**On provenance**, because slice 2's final review found cells attributed to
+the wrong recorder: the `lens` string every cell carries names the recorder
+that produced the LENS (`sensorium 0.8.7` / `sensorium-ts 0.1.0`), which is
+NOT the one that took these measurements. Two instruments record their own
+under that name — E6-TS′'s and E8″'s cells read `recorder_basis: own` — and
+E10″'s two carry the same sha under `converter_rev`, which is the name that
+endpoint's ladder compares on. The assembler stamps the rest from the
+session's own invocation and says so in each cell's `recorder_basis`. The
+file's `recorded_by` block carries the pair once at the top.
+
+**No row below reads PASS, and that is the Global Constraints' rule, not a
+hedge:** *"Verdict words come from the rule (spec §3.3): no PASS on an
+endpoint whose rule names none."* **Six** of this rung's nine rules name only
+a failure word — STOP for five of them, NO-GO for E5″ — so what a clean
+reading of one can say is that the word did not fire, and that is what its
+verdict column says. The other **three** name no word at all: E7″ states two
+conditions, and E1‴ and E10″ say "no gate". The word **PASS** appears once,
+in §5, as the RUNG's shipping word, which is the one place §1 puts it (`a
+false one → STOP (the rung ships DONE-WITH-STOP …)`). This is slice 2's own
+correction applied from the start rather than after a review.
 
 | Id | What it answers | Cell | Verdict |
 |---|---|---|---|
-| E6-TS | the corpus's verdicts | not measured (rung 2 pending) | not measured (rung 2 pending) |
-| E6-TS′ | false accusation on the lens | not measured (rung 2 pending) | not measured (rung 2 pending) |
-| E8″ | the probes' shapes | not measured (rung 2 pending) | not measured (rung 2 pending) |
-| E2″ | every catch site instrumented | not measured (rung 2 pending) | not measured (rung 2 pending) |
-| E3-TS″ | the comparator does not cry wolf | not measured (rung 2 pending) | not measured (rung 2 pending) |
-| E5″ | both harnesses run | not measured (rung 2 pending) | not measured (rung 2 pending) |
-| E7″ | the reader's words | not measured (rung 2 pending) | not measured (rung 2 pending) |
-| E1‴ | what the product costs | not measured (rung 2 pending) | not measured (rung 2 pending) |
-| E10″ | what conversion costs | not measured (rung 2 pending) | not measured (rung 2 pending) |
+| E6-TS | the corpus's verdicts | **17 of 17** cases equal to the locked table (n=17, 0 dropped); 8 SWALLOWED lines over the 17 answers, matching §1's eight swallow cases | **no STOP** — no difference |
+| E6-TS′ | false accusation on the lens | **0 false SWALLOWED** of **30** adjudicated shapes (n=30, 0 dropped); tally `swallowed 261, ambiguous 53` over 314 raises in 53 of 372 processes | **no STOP** — the gate is met |
+| E8″ | the probes' shapes | **32 of 32** markers seen (19 `// SWALLOW`, 13 `// ESCAPE`); checker 96 checks, 0 failures, 11 spools | **no STOP** — none missing |
+| E2″ | every catch site instrumented | **ratio 1.0000** — 287 spliced of 287 eligible (177 catch clauses, 108 `.catch`, 2 `.then`, 0 completing `finally`) over 741 files; **0** named exclusions needed, **0** unspliced sites | **no STOP** — no unnamed miss |
+| E3-TS″ | the comparator does not cry wolf | **DIVERGED 0/19, REFUSED 0/19** — 20 recordings, 20 with a trace, 19 pairs, 19 MATCH, 0 bad calls | **no STOP** |
+| E5″ | both harnesses run | **2 of 2** claims: vitest `372 passed (372)` / `4278 passed (4278)`, exit 0; `node --test` checker `ok: true`, 25 checks, 3 spools, 0 failures | **no NO-GO** |
+| E7″ | the reader's words | **0** occurrences of the nine needles, over BOTH transcripts (704 reader lines + 167 invocation lines); v30–v33 **green** (8 passed) | **both clauses met** — the rule names no word |
+| E1‴ | what the product costs | **off/plain 1.0608**, **call/plain 1.1266** — harness-wall medians of n=5 per arm, conversion excluded; 15 of 15 runs green, every load reading under 4.0 (max 3.91). Rung 1 read 1.0587 / 1.1324 | **REPORTED — no gate** |
+| E10″ | what conversion costs | the fresh set at jobs 16: median **16.0715 s** (n=5, 372 spools, 414 599 103 B); its `useMeshVoice` spool: median **0.1642 s** (n=5, 611 325 B). Slice 2 read 16.3859 s and 0.1648 s | **REPORTED — no gate** |
+
+Reported beside the gates, as §1 asks and with no rule attached:
+
+| Reported | Value |
+|---|---|
+| HANDLED records per `how`, over the lens run's 372 member traces | `catch` 36, `catch_callback` 182, `catch_escaped` 22, `sink_empty_catch` 37, `sink_empty_catch_callback` 8 — **285** in all |
+| the share of catch clauses reading `catch_escaped` | **22 / 177 = 0.1243** — the escape rule's own verdict distribution over the lens, read off the transform's output, with `catch` 87 and `sink_empty_catch` 68 beside it |
+| the lens run's spool | 372 files, 4 160 786 lines, **414 599 103 bytes**; harness wall 24.9513 s, driver wall 38.1300 s (the driver converts inline) |
+| E6-TS′'s shapes needing a second reading | **15** of 30 (the constant-signal family) |
+| escaped-ambiguous shapes | **13** of the 30 AMBIGUOUS shapes |
 
 §2.2's two census rows are **not** E2″. They are the instrument's dry runs at
-T0, with the numerator missing by construction; E2″ is the row above and is
-unmeasured.
+T0, with the numerator missing by construction; E2″'s row above is the
+measured one, taken with the same instrument over the same root — and its
+denominator reproduces §2.2's lens row exactly (741 / 177 / 108 / 2 / 0),
+which is the evidence that adding the numerator did not move the half that
+was already pinned.
 
 ## 4. Decisions
 
-Written when the endpoints have run: one verdict per pre-registered endpoint,
-with **the rule quoted from §1** beside the number that answered it, and the
-verdict word taken from that rule and from nowhere else. Endpoints whose cells
-have not run are named at the end.
+One verdict per pre-registered endpoint, with **the rule quoted from §1**
+beside the number that answered it, and the verdict word taken from that rule
+and from nowhere else. Nothing was re-rolled, no threshold moved, and every
+endpoint ran exactly once. **Every endpoint of §1 has a cell**; none is
+outstanding.
 
-## 5. Gaps found
+### 4.1 E6-TS — the corpus's verdicts
 
-Numbered as they are found; a later task appends rather than renumbers.
+> the printed SWALLOWED lines `==` the pre-registered set per case (equality,
+> not subset); every swallow case's set non-empty; the `dispositions:` tally
+> compared whole; any difference → STOP
+
+**No STOP.** All **17** TypeScript corpus cases that ask an `exceptions`
+question were recorded through the driver and answered: **17 of 17** match
+§1's locked table, and the eight cases §1 names as swallow cases each printed
+a non-empty set (one line apiece; eight in all). The tally line was parsed
+WHOLE and its `swallowed` term compared, never as a substring — and it was
+compared against the count of printed `SWALLOWED --` lines as a second,
+independent derivation. The two agreed on every case, so the tool's own tally
+describes its own output. Nothing was dropped.
+
+### 4.2 E6-TS′ — false accusation on somebody else's suite
+
+> gate **0 false SWALLOWED**; a false one → STOP (the rung ships
+> DONE-WITH-STOP with an amendment slice, Rust's precedent). Reported beside
+> it: the per-disposition tally, the count of escaped-ambiguous shapes, and
+> the count of shapes whose adjudication needed a second reading
+
+**No STOP: 0 false SWALLOWED.** ONE guarded call-tier run of the VTT
+frontend's whole suite (372 files, 4278 tests, 1-minute load 0.64 at the
+guard) through this branch's recorder, then `exceptions
+20260910-150809-cbc8de --limit 10000`, exit 0, nothing paged. The answer
+printed **60 shapes — 30 SWALLOWED and 30 AMBIGUOUS** over a tally of
+`swallowed 261, ambiguous 53` (314 raises, 53 of 372 processes with throws,
+319 with none). **Every one of the 30 SWALLOWED shapes was read against the
+VTT source at the sink site the verdict names** and adjudicated under §1's
+protocol, one row each, in
+`2026-09-10-sensorium-s5-rung2-e6tsp-adjudication.md`, which was written
+whole before any number entered §3. **30 TRUE, 0 FALSE.**
+
+Reported beside the gate: the tally above; **13** escaped-ambiguous shapes
+(the other 17 AMBIGUOUS shapes read rule 5's last reason — Gap 4);
+**15** shapes whose adjudication needed a second reading — the family whose
+clause hands the caller a CONSTANT on failure (`setError('…')`, `return
+fallback`, `return undefined`, `ok = false`), ten of which do not bind the
+exception at all. §1's own rule settles that family on the TRUE side: it puts
+"a clause that only logs" there, and `console.warn(e)` transmits the WHOLE
+error to a channel a human reads, which is strictly more of the failure than
+a fixed string transmits anywhere.
+
+The declared blind spot Task 2 ruled on — a `.catch` whose receiver is not a
+promise could write an orphan HANDLED and reach "SWALLOWED, born outside a
+throw statement", which would be FALSE — **did not fire**: all eleven
+callback shapes have a promise receiver (an `apiFetch`/`fetch` chain, a
+`Promise.resolve(…)` chain, `r.json()`, or an `async` function's return).
+
+### 4.3 E8″ — the probes' shapes
+
+> every marker's record present per shape; a missing one → STOP
+
+**No STOP.** `npm run probe` at tier `call`: checker `ok: true`, 11 spools,
+**96 checks, 0 failures**. Against the population §1 fixes — every `//
+SWALLOW` and `// ESCAPE` marker in the two probe files, counted out of the
+sources by this endpoint's own instrument rather than taken from the checker
+— **32 of 32 markers were seen**: 19 SWALLOW markers over the eleven shapes
+(every shape's checks green) and 13 ESCAPE markers, `escape:count` 13 and
+`escape:how` 13 as marked, `wrong: []`.
+
+### 4.4 E2″ — every catch site instrumented
+
+> ratio 1.000 after NAMED exclusions; one unnamed miss → STOP
+
+**No STOP: ratio 1.0000.** Over the lens's `src`, **741** eligible files (5
+excluded by `classify`, 0 parse errors, 0 files the census could not read):
+177 catch clauses + 108 `.catch(x)` sites + 2 `.then(x, y)` sites + 0
+completing `finally` = **287 sites seen**, and the transform's own output
+carries a marker for **287** of them, matched line by line. **Zero sites
+needed the named exclusion** (no `.catch`/`.then` on the lens carries a
+spread argument) and **zero were unspliced**, so there is no miss, named or
+unnamed. The denominator is byte-identical to §2.2's T0 dry run.
+
+### 4.5 E3-TS″ — the comparator does not cry wolf
+
+> DIVERGED 0/19, REFUSED 0/19; any → STOP
+
+**No STOP.** `src/__tests__/useMeshVoice.test.tsx` recorded **20** times
+through this branch's recorder, each behind the load guard; 20 recordings,
+20 traces, 19 pairs diffed against the first: **19 MATCH, 0 DIVERGED, 0
+REFUSED, 0 bad calls.** The comparator's own sentence names 398 causal events
+compared, which are `(file, qualname, kind)` for CALL/RETURN/**RAISE**/
+**HANDLED** — the two kinds this rung moved — so the pairs were compared over
+exactly the rows that changed.
+
+### 4.6 E5″ — both harnesses run
+
+> 372/4278 green; `node --test` green with its rows; a red vitest is NO-GO
+
+**No NO-GO.** The vitest half is E6-TS′'s one run (the plan's order: that run
+doubles as this endpoint's): ` Test Files  372 passed (372)` and `      Tests
+4278 passed (4278)`, driver exit 0. The `node --test` half:
+`npm run probe:nodetest`, checker `mode: nodetest`, `ok: true`, **3 spools,
+25 checks, 0 failures**.
+
+### 4.7 E7″ — the reader's words
+
+> 0 occurrences of `oid`, `chain`, `Err`, `asyncio`, `python ?`, `cargo`,
+> `coroutine`, `Rust disposition`; plus v30–v33 green
+
+**Both clauses met; the rule names no verdict word.** The nine needles §1's
+plan block lists (the eight above plus `Python's own`) were counted over
+BOTH transcripts §1 names: the single-trace reader transcript (every reader
+command on one lens member, 704 lines, committed as
+`…-e7-exceptions.txt`) and the E6-TS′ invocation transcript (167 lines,
+committed beside it). **0 occurrences of every needle in both**, and the
+ungated context counts are 0 too — the words `python` and `rust` do not
+appear in either answer at all. `v30 or v31 or v32 or v33`: **8 passed**,
+exit 0.
+
+### 4.8 E1‴ — what the product costs
+
+> reported beside rung 1's off/plain 1.0587 and call/plain 1.1324; no gate
+
+**Reported.** Five interleaved batches of plain / off / call on the lens,
+each run behind the load guard, through this branch's recorder
+(`.venv/bin/sensorium` — see §2.3). **15 of 15 runs green** (`372 passed
+(372)` / `4278 passed (4278)`, exit 0); nothing dropped; every load reading
+under the 4.0 refusal, spread 2.83 – 3.91.
+
+| arm | timed by | median (n=5) | min – max | vs plain |
+|---|---|---|---|---|
+| plain | the runner's own clock | **22.0945 s** | 22.0217 – 22.1465 | 1.0000 |
+| off | the HARNESS wall (`harness.json`) | **23.4369 s** | 23.2963 – 23.9345 | **1.0608** |
+| call | the HARNESS wall | **24.8921 s** | 24.8117 – 24.9396 | **1.1266** |
+| off, driver total | the runner's clock | 23.5058 s | 23.3656 – 24.0815 | 1.0639 |
+| call, driver total | the runner's clock | 40.1609 s | 38.1101 – 40.7587 | 1.8177 |
+
+Beside rung 1's **off/plain 1.0587** and **call/plain 1.1324**: this rung's
+recorder — which now splices a HANDLED into every catch clause, wraps every
+rejection callback and marks every completing `finally` — costs **1.0608**
+and **1.1266**. The call arm is *cheaper* than rung 1's by 0.0058 and the off
+arm dearer by 0.0021, both inside the arms' own spread; the honest reading is
+that the throw flow did not move the product's cost. The driver's TOTAL wall
+on the call arm (1.8177×) carries the inline conversion of a 414 MB spool
+set, which is E10″'s subject and not this arm's.
+
+### 4.9 E10″ — what conversion costs
+
+> reported beside slice 2's 16.3859 s and 0.1648 s; no gate
+
+**Reported.** `e10p.sh` over the E6-TS′ run's own spool set, at the default
+job count, five guarded repetitions each, on this branch's converter
+(`3db0f28a…`). Nothing dropped: every repetition exited 0 and converted the
+number of traces its copy held.
+
+| cell | spools | bytes | median (n=5) | min – max | peak RSS | slice 2 |
+|---|---|---|---|---|---|---|
+| the fresh suite set, `--jobs 16` | 372 | 414 599 103 | **16.0715 s** | 15.997 – 16.5827 | 281 932 kB | 16.3859 s |
+| its `useMeshVoice` spool, `--jobs 16` | 1 | 611 325 | **0.1642 s** | 0.1604 – 0.1857 | 27 036 kB | 0.1648 s |
+
+Beside slice 2's **16.3859 s** and **0.1648 s**: **16.0715 s** and
+**0.1642 s** — 0.3144 s and 0.0006 s faster, both inside the repetitions'
+own spread, on a spool set 148 581 bytes LARGER than slice 2's because this
+rung's recorder writes more HANDLED rows into it. The throw flow did not move
+conversion's cost either. Every load reading was under 4.0 (3.19 – 3.84).
+
+## 5. What the rung ships, and the gaps found
+
+**S5 rung 2 ships PASS.** Every one of §1's nine endpoints ran, once, in the
+plan's order, and not one of them fired its rule's failure word: E6-TS,
+E6-TS′, E8″, E2″ and E3-TS″ took no STOP, E5″ took no NO-GO, E7″ met both of
+its clauses, and E1‴ and E10″ are the two the pre-registration gates not at
+all. **E6-TS′'s gate — the one that decides the shipping word — read 0 false
+SWALLOWED over 30 hand-adjudicated shapes on a consumer's own suite**, so the
+DONE-WITH-STOP branch §1 names ("a false one → STOP (the rung ships
+DONE-WITH-STOP with an amendment slice)") is not taken and no amendment slice
+is raised. Nothing was re-rolled, no threshold moved, no cell was measured
+twice, and no cell is outstanding.
+
+The four gaps below are findings, not stops: none is an endpoint's rule and
+none changes a number above. Numbered as they are found; a later task appends
+rather than renumbers.
+
+**Gap 1 — the shape key's id mask carries Rust's float-type exclusion onto
+TypeScript traces, and splits shapes that are one place.** `exceptions_group.
+MASK` is `\b(?!f(?:16|32|64|128)\b)([ef])\d+\b`: `f32` and its siblings are
+Rust type names a panic message can carry (ruling R-G8), so they are left
+unmasked. On a TypeScript trace they are ordinary FRAME ids, and a shape
+whose sink sits in frame 16, 32, 64 or 128 therefore keys on `in f32` where
+its siblings key on `in f#`. Measured on the lens: the three SWALLOWED shapes
+S1, S11 and S17 are the SAME clause at
+`src/hooks/useAiAssist.ts:56` — verified by opening all three traces and
+comparing `(file, line, qualname)`, which are identical — printed as three
+blocks because their sinks sat in frames 174, 128 and 32. So the answer's
+30 SWALLOWED shapes are **28 distinct places**. Nothing else moves: tallies
+count units and not shapes (`swallowed 261` is unaffected), no verdict
+changes, and the adjudication reached the same word for all three. The
+grouper's own docstring already names the fix — *"keying on the classifier's
+own components instead of on masked prose is the better answer and is
+CARRIED-DEBT"* — and this is the first measurement of that debt on a
+TypeScript lens.
+
+**Gap 2 — three reused instruments were measuring the wrong binary, and it
+took this rung to notice.** `arms.sh`, `e3.sh` and `e7.sh` hard-coded the
+global `sensorium`, which is an editable install of `main`. Rung 1 and slice
+2 measured the recorder they shipped only because their branch and the global
+tool happened to agree; a rung that ships a new recorder would have reported
+main's numbers under its own name. Fixed before any of the three ran here
+(§2.3), default unchanged so the earlier readings stay reproducible.
+
+**Gap 3 — E7″'s needle list cannot be applied as written.** §1's list
+includes `Err`, `oid` and `chain`, and the instrument it inherits matches
+needles as case-insensitive substrings. Under that reading `Err` is matched by
+every `Error('…')` an answer prints, so the endpoint would STOP on any
+transcript naming an exception type — it could not be passed by a correct
+recorder. The reading was fixed before the count was taken (§2.3): those three
+are matched word-bounded and case-sensitively, the six prose needles are not.
+A pre-registered list of literals needs its matching rule pre-registered with
+it; slice 2 hit the same edge on `python ?` and this is the second time.
+
+
+**Gap 4 — on real code the modal AMBIGUOUS reason is the rules' last one,
+and the shape behind it is an untraced catcher between two traced frames.**
+Ungated, measured on the lens: of the 30 AMBIGUOUS shapes, **17** read
+*"AMBIGUOUS -- no rule of this recorder reaches a verdict here"* (§3.3 rule
+5's catch-all) and 13 read the escaped-handler reason. One of the 17 was
+opened and diagnosed rather than guessed at: `Bomb raise Error('boom') L11`
+in `20260910-150823-56b76a` is a RAISE whose frame (`Bomb`, f7) closed by
+unwind, whose PARENT frame (f5, traced) closed by **return**, and for whose
+serial there is **no HANDLED anywhere in the trace**. Rule 1 declines (not an
+unhandled rejection), rule 2 declines (no later raise), rule 3 declines (no
+absorbing handler), and rule 4 declines because the last unwind closes
+neither a task root nor a frame whose parent is untraced — the parent is
+traced and returned. What caught it is untraced code sitting INSIDE a traced
+frame (a React error boundary, a vitest `toThrow`), which is the same blind
+spot §6.1's Task-6 amendment already records for `translated` and
+`test_failed`. **The rules decline instead of guessing, which is what keeps
+E6-TS′'s gate at 0** — a rule that reached for a verdict here is exactly how a
+false SWALLOWED would be minted — but "more than half of this lens's
+ambiguous shapes are one un-named shape" is worth a name of its own before a
+later rung decides whether it can be judged.

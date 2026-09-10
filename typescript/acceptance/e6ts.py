@@ -1,6 +1,9 @@
 """E6-TS: are the corpus's verdicts the pre-registered ones?
 
-    .venv/bin/python typescript/acceptance/e6ts.py <work dir>
+    .venv/bin/python typescript/acceptance/e6ts.py <work dir> [case name]...
+
+A case name filters the run to those cases and labels the cell `filtered_to`,
+which is what a DRY run is; the endpoint passes none and asks every case.
 
 Every TypeScript corpus case that asks an `exceptions` question is recorded
 through the driver -- `run_corpus`'s own machinery, so the recording this

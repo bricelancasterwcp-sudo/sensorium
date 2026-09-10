@@ -1,6 +1,6 @@
 """S5 rung 2's cells, gathered into its acceptance record's results file.
 
-    python3 assemble_rung2.py <results dir> <out> [PATH=LABEL]...
+    python3 assemble_rung2.py <results dir> <out> <recorder> <rev> [PATH=LABEL]...
 
 Every instrument writes ONE cell per measurement into the store's `results/`
 directory, so a cell nobody measured is a MISSING FILE rather than a key
@@ -25,6 +25,18 @@ table of runs or a census rather than a single measurement:
 Nothing here is gated by this file. The verdict words are the RULE's, written
 by hand into the record's §4 beside the rule that produced them; what this
 assembles is the numbers those verdicts are read off.
+
+PROVENANCE, AND WHY IT IS STAMPED HERE
+--------------------------------------
+Slice 2's final review found cells attributed to the WRONG recorder: `lens.
+LENS` names the recorder that produced the LENS, which is a different and
+older one than any later slice runs, and a cell carrying only that reads as
+if the lens's recorder had taken the measurement. Three instruments already
+record their own (`e6tsp_report.py`, `e8pp.py`, `e10p_report.py`); the rest
+do not, so `<recorder>` and `<rev>` are REQUIRED arguments here and are
+stamped onto every cell that carries none, with `recorder_basis` saying that
+the stamp is the assembler's and not the instrument's. A cell that records
+its own is never overwritten.
 """
 import json
 import sys
@@ -39,7 +51,6 @@ GATED_FILES = {
     "E6-TS′": "e6tsp.json",
     "E8″": "e8pp.json",
     "E3-TS″": "e3.json",
-    "E7″": "e7.json",
     "E10″-suite": "e10pp-suite.json",
     "E10″-file": "e10pp-file.json",
 }
@@ -47,6 +58,30 @@ GATED_FILES = {
 #: The record's §3 row order.
 ORDER = ["E6-TS", "E6-TS′", "E8″", "E2″", "E3-TS″", "E5″", "E7″", "E1‴",
          "E10″-suite", "E10″-file"]
+
+
+#: What a stamped cell says about where its provenance came from.
+STAMPED = ("stamped by the assembler from the session's own invocation; this "
+           "instrument does not record its recorder itself")
+
+
+def stamp(node, recorder: str, rev: str):
+    """Add `recorder`/`recorder_rev` to every cell that carries none.
+
+    A cell is anything with the record's four keys. Walks the whole payload
+    so a cell nested under `reported` is stamped like a top-level one.
+    """
+    if isinstance(node, list):
+        return [stamp(x, recorder, rev) for x in node]
+    if not isinstance(node, dict):
+        return node
+    out = {k: stamp(v, recorder, rev) for k, v in node.items()}
+    if all(k in out for k in ("value", "n", "lens", "dropped")):
+        if not out.get("recorder"):
+            out["recorder"] = recorder
+            out["recorder_rev"] = rev
+            out["recorder_basis"] = STAMPED
+    return out
 
 
 def load(path: Path):
@@ -101,6 +136,43 @@ def e2(results: Path) -> dict:
                 unspliced=raw.get("unspliced"),
                 excluded_files=raw.get("excluded"),
                 parse_error=raw.get("parse_error"))
+
+
+def e7(results: Path) -> dict:
+    """E7″: the leak grep over BOTH transcripts §1 names.
+
+    §1's rule is "0 occurrences … over the E6-TS′ transcript and over one
+    single-trace `exceptions` transcript", so the cell's value is the total
+    over the two and each transcript's own counts are carried whole. Summing
+    them here rather than gating one and reporting the other keeps the number
+    the record prints the number the rule asks for.
+    """
+    reader = load(results / "e7.json")
+    invocation = load(results / "e7-invocation.json")
+    dropped, total = [], 0
+    per = {}
+    for name, data in (("single_trace_reader", reader),
+                       ("e6tsp_invocation", invocation)):
+        if "_absent" in data:
+            dropped.append(f"the {name} half was not measured: {data['_absent']}")
+            per[name] = None
+            continue
+        per[name] = {"occurrences": data.get("occurrences"),
+                     "total": data.get("value"),
+                     "transcript_lines": data.get("transcript_lines"),
+                     "context_mentions_not_gated":
+                         data.get("context_mentions_not_gated")}
+        total += data.get("value") or 0
+    return cell(None if dropped else total,
+                len(per), dropped,
+                rule="0 occurrences of the nine needles over both transcripts; "
+                     "plus v30-v33 green",
+                needles=reader.get("needles") if "_absent" not in reader else None,
+                case_sensitive=(reader.get("case_sensitive")
+                                if "_absent" not in reader else None),
+                halves=per,
+                commands=reader.get("commands") if "_absent" not in reader else None,
+                vectors=reader.get("vectors") if "_absent" not in reader else None)
 
 
 def e5(results: Path) -> dict:
@@ -188,7 +260,8 @@ def build(results: Path) -> dict:
         "schema": ("every measurement is {value, n, lens, dropped}; a null "
                    "value with a non-empty dropped list is the only "
                    "representation of 'not measured'; 0 is measured-and-zero"),
-        "gated": {"E2″": e2(results), "E5″": e5(results)},
+        "gated": {"E2″": e2(results), "E5″": e5(results),
+                  "E7″": e7(results)},
         "reported": reported(results),
     }
     payload["gated"]["E1‴"] = (
@@ -203,12 +276,17 @@ def build(results: Path) -> dict:
 
 def main(argv) -> int:
     args = argv[1:]
-    if len(args) < 2:
+    if len(args) < 4:
         sys.stderr.write("usage: assemble_rung2.py <results dir> <out> "
-                         "[PATH=LABEL]...\n")
+                         "<recorder> <rev> [PATH=LABEL]...\n")
+        return 2
+    recorder, rev = args[2], args[3]
+    if len(rev) != 40:
+        sys.stderr.write("the rev is the FULL 40-character sha the cells were "
+                         f"recorded at, not {rev!r}\n")
         return 2
     pairs = []
-    for spec in args[2:]:
+    for spec in args[4:]:
         if "=" not in spec:
             sys.stderr.write(f"a redaction is PATH=LABEL, not {spec!r}\n")
             return 2
@@ -217,7 +295,9 @@ def main(argv) -> int:
     # Longest needle first: the worktree's own `sensorium` sits UNDER the
     # worktree, and the shorter prefix would half-rewrite it.
     pairs.sort(key=lambda p: len(p[0]), reverse=True)
-    payload = redact(build(Path(args[0])), pairs)
+    payload = build(Path(args[0]))
+    payload["recorded_by"] = {"recorder": recorder, "commit": rev}
+    payload = redact(stamp(payload, recorder, rev), pairs)
     bad = offenders(payload)
     if bad:
         sys.stderr.write("assemble_rung2: a box path survived redaction and "
