@@ -278,7 +278,9 @@ pending)` until then. A cell that is never measured is a **missing file** the
 assembler reports as `null` plus `dropped` — never an omission, never a blank
 that reads as a pass. **Filled so far:** E10′-0's five cells and the three
 §3.6 quantities Arm 0 supplies — measured 2026-09-09 on the global tool at
-main `bbd0781`, detail and reading in §3.1.
+main `bbd0781`, detail and reading in §3.1 — and the ladder's **a1** rung
+(0a, 0d, 0e re-measured on the worktree's converter at `2a273cf`), detail
+and its three falsified predictions in §3.2.
 
 | Id | Cell | Rule (from §1) | Result |
 |---|---|---|---|
@@ -299,8 +301,11 @@ main `bbd0781`, detail and reading in §3.1.
 17.5439 s, cell 0a); and **2,273,872 kB** peak resident in the heaviest
 worker before A3 (cell 0a; the other three full-set cells read within 0.2%
 of it).
-Still `not measured (slice 2 pending)`: events/s on the later rungs, peak RSS
-after A3, the call run's harness and driver walls, and the fresh set's
+After A1 (§3.2), on the worktree's converter at `2a273cf`: **152,851
+events/s** on the big spool (2,246,552 events in 14.6977 s), and peak
+resident unmoved at 2,273,996 kB (0a) / 2,270,016 kB (0d).
+Still `not measured (slice 2 pending)`: events/s on the rungs after A1, peak
+RSS after A3, the call run's harness and driver walls, and the fresh set's
 ingest.
 
 ### 3.1 E10′ Arm 0 — the diagnosis on main's converter
@@ -390,6 +395,78 @@ tenant. On sixteen cores a 4.0 threshold sits below what a `--jobs 16` cell
 generates, so back-to-back repetitions wait only until the previous one's
 average has decayed past it, not until the box is idle. The threshold is
 pre-registered and was not moved; every reading is in its cell's `loads`.
+
+### 3.2 E10′ A1 — one transaction per trace, `synchronous=NORMAL`
+
+Measured 2026-09-10 by the same `typescript/acceptance/e10p.sh`, on the same
+three pinned workloads, under the same guard, in the order 0e, 0a, 0d
+(cheapest first). **The converter is the worktree's own
+`.venv/bin/sensorium` at `feat/s5-slice2` `2a273cf`** — main `bbd0781` plus
+this slice's commits, of which exactly one touches `src/`: `TraceWriter`
+gains `durable=False`, which sets `PRAGMA synchronous=NORMAL` under the WAL
+`create_trace` already sets and commits once, in `close()`, instead of once
+per 512-event batch and once per `set_meta` / fingerprint write. `Builder`
+passes it; the Python recorder keeps the durable default. Every cell's JSON
+carries `converter_rev`
+`2a273cf52de31d009d3d44067e12add2cee5b5ec`. **Nothing was dropped:** all
+eleven repetitions exited `0` and converted exactly the copy's `.jsonl`
+count (1, 1, 372).
+
+**The ladder.** Each cell is the same workload at the same job count, one
+row per rung; `arm0` is §3.1's, repeated here so the two are read together.
+
+| Stage | Cell | jobs | n | Median | min – max | 1-min load per rep | Peak RSS, heaviest worker | Converter |
+|---|---|---|---|---|---|---|---|---|
+| arm0 | 0a — `big/`, 1 spool, 195,851,484 B | 1 | 3 | 17.5439 s | 17.3953 – 27.3839 | 0.29, 0.73, 0.86 | 2,273,872 kB | the global tool, main `bbd0781` |
+| **a1** | 0a — `big/` | 1 | 3 | **14.6977 s** | 14.6106 – 14.8340 | 0.58, 0.75, 0.80 | 2,273,996 kB | the worktree's venv, `feat/s5-slice2` `2a273cf` |
+| arm0 | 0d — `f08e89/`, 372 spools, 414,450,522 B | 16 | 3 | 45.7378 s | 43.5478 – 45.8268 | 2.09, 3.97, 3.79 | 2,269,696 kB | the global tool, main `bbd0781` |
+| **a1** | 0d — `f08e89/` | 16 | 3 | **17.7740 s** | 17.4102 – 17.9927 | 0.78, 1.84, 2.96 | 2,270,016 kB | the worktree's venv, `feat/s5-slice2` `2a273cf` |
+| arm0 | 0e — `one/`, 1 spool, 611,016 B | 16 | 5 | 0.3624 s | 0.2736 – 0.4051 | 0.96 (all five) | 30,828 kB | the global tool, main `bbd0781` |
+| **a1** | 0e — `one/` | 16 | 5 | **0.1647 s** | 0.1646 – 0.1902 | 0.66, 0.66, 0.68, 0.68, 0.68 | 31,372 kB | the worktree's venv, `feat/s5-slice2` `2a273cf` |
+
+A1 moves every cell: 0a by **1.1936×** (2.8462 s gone), 0d by **2.5733×**
+(27.9638 s gone), 0e by **2.2004×** (0.1977 s gone).
+
+**The three predictions spec §3.3 wrote before the code, quoted, each
+against the number that answered it. All three are falsified.**
+
+| A1 prediction (spec §3.3) | Measured | Held? |
+|---|---|---|
+| "0a ≤ **13.5 s** (the 2.7 s of commits gone)" | **14.6977 s** | **No** — 1.1977 s above the bound |
+| "0d ≤ 0a + 3 s (the contention gone with the fsyncs)" | **17.7740 s** against a bound of 17.6977 s (0a + 3) | **No** — 0.0763 s above it, 0.43% |
+| "0e unchanged" | **0.1647 s** against arm0's 0.3624 s | **No** — 2.2004× faster, not unchanged |
+
+The three fail differently, and one of them fails in the fast direction.
+**0a** removed 2.8462 s where the prediction attributed 2.7 s to commits,
+but its bound was absolute (13.5 s) and was written against a predicted 0a
+of ≈ 16 s while Arm 0 measured 17.5439 s — 1.5439 s of the 1.1977 s miss is
+the base the subtraction started from. The bound is missed all the same.
+**0d** misses by 76 ms after removing 27.9638 s, on a bound that moved down
+with 0a; what the cell shows beside the miss is that 0d is now **1.2093×**
+0a rather than Arm 0's 2.607× — the gap to the largest spool's serial cost
+is 3.0763 s, not 28.1939 s. **0e** is the prediction that fails on its
+face: the one-file cell was not commit-free, it was commit-*dominated*, and
+more than half of its 0.3624 s was commits — a 611 KB spool pays the same
+~35 finalize fsyncs a 195 MB one does. No threshold moved and no cell was
+re-rolled; these are the numbers the pre-registered cells produced. Whether the remaining cost is A3's or A4's is
+those rungs' to measure, and the gated clauses (E10′-suite, E10′-file,
+E10′-eq) are measured on the slice's final converter at their own `n` and
+are still `not measured (slice 2 pending)` above.
+
+Ungated beside it: **152,851 events/s** on the big spool at this rung
+(2,246,552 events in 14.6977 s), against Arm 0's 128,053. Peak resident is
+unmoved — 2,273,996 kB on 0a and 2,270,016 kB on 0d, within 0.2% of Arm 0's
+readings, which is expected: A1 changes when rows are committed, not how
+many are held. RSS is A3's quantity.
+
+One instrument note, following §3.1's: the wrapper's own interpreter
+start-up is now a larger share of the 0e cell, because the cell shrank.
+`child_wall` across those five repetitions is 0.1503–0.1732 s against walls
+of 0.1646–0.1902 s — a median difference of 0.0143 s, **8.7%** of the
+cell's median (it was 4.5% at Arm 0). The record quotes the whole timed
+region, as pre-registered; the gated E10′-file clause (≤ 0.4002 s) has
+0.2355 s of headroom at this rung either way. Every repetition's
+`maxrss_kb` parsed (no cell reports a 0).
 
 ## 4. Decisions
 
