@@ -727,11 +727,15 @@ direction** on both large cells, by about 1.25 s each.
 
 So the ladder arrived under its bound on levers whose own predictions were
 mostly wrong, and it arrives there with the trace unchanged — which is the
-only reason the wall is worth anything. **Nine of the twelve pre-registered
-predictions on this ladder were falsified or missed; all three gated clauses
-pass.** A2 (largest-first dispatch) and A4 (the per-record cost) were not
-built: spec §3.3 conditioned them on A1 + A3 leaving 0d above the bound, and
-they did not (§3.8). Arm C, the binary wire, stays off the ladder — spec
+only reason the wall is worth anything. **Six of the ten per-cell
+predictions this ladder pre-registered did not hold as written — Arm 0's 0b
+and 0a, all three of A1's, and A3's wall — and all three gated clauses
+pass.** The ten are §3.2's five (0a–0e) plus §3.3's
+three for A1 and two for A3, each counted once; §3.6's two pre-stated
+readings are not in that count, and neither of their antecedents held
+either. A2 (largest-first dispatch) and A4 (the per-record cost) were not
+built: spec §3.3 conditioned them on A1 + A3 leaving 0d above the bound,
+and they did not (§3.8). Arm C, the binary wire, stays off the ladder — spec
 §3.7's trigger for revisiting it was "0d ≈ 0a", which never fired (§3.6).
 
 **Still open at this point in the slice:** E6″ (§1 `### 2.2 The rule`'s four
@@ -805,7 +809,14 @@ not an amendment to the pre-registration the gate was decided under.
 `task_fingerprints` or `output` differs in any column on any pair, and the
 only `meta` key whose value differs on any pair is `run_id` — so `differing`
 is empty and there is no pair to name. The cell is
-`results/e10p-eq-content.json`.
+`results/e10p-eq-content.json`; **side A is the global tool at main
+`bbd0781` and side B the worktree's venv at `6ebb907`** (this record's own
+§5.A commit — `src/` unchanged since `a35c045`, so the converter compared is
+still A3's), and the instrument now refuses to emit a cell that does not name
+both. Those two fields were added to the already-written cell by a JSON-only
+rewrite from the re-run's own JSON, **without re-running the comparison** —
+the stores had been removed again by then, and the 372/372 above is the
+reading taken at 01:32, not a second one.
 
 Two things about how it was run, because neither is invisible. **(1) It ran
 on a second conversion, not the gate's.** The gate's two stores had been

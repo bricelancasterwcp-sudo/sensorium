@@ -25,7 +25,16 @@ position this check already holds the two sides to.
 `meta_keys_differing` carries the same meaning as the gate cell's field: the
 union over every pair of the keys whose values differ, so the expected
 reading is `["run_id"]` and a pair with only that is identical.
+
+The four `E10P_EQ_{BIN,REV}_{A,B}` variables `e10p_eq.sh` already exports are
+REQUIRED here and are written verbatim into `converter_a` / `converter_b`.
+This is the cell whose provenance is least obvious -- it reads two stores
+that some earlier command produced, and it can be pointed at any pair of
+them -- so a cell without the two converters named is refused rather than
+emitted: a comparison quoted without the writers it compared is not evidence
+about either of them.
 """
+import os
 import sqlite3
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -88,9 +97,25 @@ def _one(store: Path, pair: tuple) -> dict:
             "identical": not differing and set(meta) <= {"run_id"}}
 
 
+#: Written verbatim into the cell; every one is required (see the docstring).
+PROVENANCE = ("E10P_EQ_BIN_A", "E10P_EQ_REV_A", "E10P_EQ_BIN_B", "E10P_EQ_REV_B")
+
+
+def _converters() -> tuple[dict, dict]:
+    """The two converters this comparison is about, or refuse the call."""
+    missing = [name for name in PROVENANCE if not os.environ.get(name)]
+    if missing:
+        usage(f"{', '.join(missing)} required: a comparison quoted without "
+              "the converters it compared names neither of them")
+    env = os.environ
+    return ({"bin": env["E10P_EQ_BIN_A"], "rev": env["E10P_EQ_REV_A"]},
+            {"bin": env["E10P_EQ_BIN_B"], "rev": env["E10P_EQ_REV_B"]})
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 3:
         usage("usage: e10p_eq_content.py <store> <log-A> <log-B>")
+    conv_a, conv_b = _converters()
     store = Path(argv[0])
     if not (store / "traces").is_dir():
         usage(f"no traces/ under {store}: this is not a sensorium store")
@@ -104,6 +129,7 @@ def main(argv: list[str]) -> int:
     emit(cell(
         sum(1 for r in results if r["identical"]), len(pairs), [],
         differing=differing, meta_keys_differing=sorted(keys),
+        converter_a=conv_a, converter_b=conv_b,
     ))
     return 0
 
