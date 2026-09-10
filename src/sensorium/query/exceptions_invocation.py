@@ -232,7 +232,8 @@ def _member_refusal(run_id: str, trace, head) -> str | None:
     """
     if trace.lang not in LANGUAGES:
         return (f"REFUSED: exceptions across an invocation is defined for "
-                f"Rust traces; member {run_id} is {trace.lang}")
+                f"Rust and TypeScript traces; member {run_id} is "
+                f"{trace.lang}, which is not ruled")
     if trace.lang != head[1].lang:
         # `runs` groups one invocation and one driver writes it, so this
         # cannot happen -- and if it ever did, judging it would mean
