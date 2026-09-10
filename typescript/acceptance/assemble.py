@@ -82,6 +82,16 @@ def arm_stats(rows: list[dict], arm: str, key: str) -> dict:
     dropped = [f"{arm} run {r['run']}: " + "; ".join(r.get("why_not_ok", ["not ok"]))
                for r in mine if not r["ok"]]
     walls = []
+    # The load reading taken immediately before each run of this arm, in run
+    # order. Carried rather than dropped: E1' and E6" are timing endpoints
+    # whose pre-registration refuses a run above 4.0, and a guard whose
+    # readings never reach the record is a guard nobody can audit.
+    #
+    # Collected in THIS loop, beside `walls`, so a dropped run's reading
+    # leaves with its wall. Built over `mine` instead -- as it was until
+    # E6" -- it reported readings for runs no number came from, which is the
+    # latent misalignment the ledger's S5 instrument notes name.
+    loads = []
     for r in mine:
         if not r["ok"]:
             continue
@@ -90,13 +100,9 @@ def arm_stats(rows: list[dict], arm: str, key: str) -> dict:
             dropped.append(f"{arm} run {r['run']}: no {key} was recorded")
             continue
         walls.append(w)
+        loads.append(r["load_1min"])
     return {"runs": len(mine), "walls": walls, "dropped": dropped,
-            # The load reading taken immediately before each run of this arm,
-            # in run order. Carried rather than dropped: E1' is a timing
-            # endpoint whose pre-registration refuses a run above 4.0, and a
-            # guard whose readings never reach the record is a guard nobody
-            # can audit.
-            "loads": [r["load_1min"] for r in mine],
+            "loads": loads,
             "median": round(statistics.median(walls), 4) if walls else None,
             "min": min(walls) if walls else None,
             "max": max(walls) if walls else None,
