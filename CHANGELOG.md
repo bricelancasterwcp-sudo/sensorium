@@ -1,5 +1,124 @@
 # Changelog
 
+## 0.10.0 — 2026-09-10
+
+**`exceptions` answers on a TypeScript trace.** S5 rung 2 gives the throw-flow
+rows rung 1 recorded a rule to be read by: the same five dispositions
+`exceptions` has always printed — `swallowed`, `uncaught`, `re-raised`,
+`propagated`, `ambiguous` — computed over JavaScript's own shapes, per trace
+and across a whole `sensorium ts run` invocation. Python **0.10.0** (a third
+rules module, the per-member invocation dispatch, four vectors, seventeen new
+corpus cases); **`sensorium-ts 0.2.0`** (the escape rule, the rejection-callback
+wrapper, the `finally` sink, `capabilities.err_flow: true`). The Rust crates do
+not move. `TRACE_FORMAT` stays **4** and the wire stays **v1**: the BOOT record
+gains `capabilities`, HANDLED gains `how`, and nothing else changes shape —
+every Python and Rust `exceptions` output, every existing vector and every
+Python and Rust corpus case is byte-identical, which is what the suites that
+did not move are the evidence for.
+
+Everything below is measured on one lens — the tabletop VTT frontend at
+`0091e97`, **372 test files, 4,278 tests**, under vitest 4.1.9, vite 6.4.3,
+jsdom 29.1.1, node v24.16.0, 16 cores — against a pre-registration byte-locked
+before any of this code existed
+(`docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md` §1). **Every
+one of the nine endpoints ran, once, and not one fired its rule's failure
+word.** No row reads PASS and neither does the rung, because no rule of this
+pre-registration supplies that word: six name only a failure word, three name
+none at all. **The rung ships DONE** — the DONE-WITH-STOP branch §1 spells out
+is the one not taken.
+
+- **The recorder classifies a catch binding where the syntax is, and says so
+  in `how`** (`sensorium-ts 0.2.0`, spec §2.1–§2.5). A clause's word is decided
+  at transform time from its own AST: **`catch`** when the body never mentions
+  the binding or mentions it only as an argument of a `console.*` call
+  (log-and-continue is the archetypal swallow), **`catch_escaped`** when it
+  appears anywhere else, **`sink_empty_catch`** for an empty block. Rejection
+  handlers get the same rule applied to their parameter —
+  **`catch_callback`**, **`catch_callback_escaped`**,
+  **`sink_empty_catch_callback`** (now for the `function` spelling too, closing
+  blind spot 11), and **`catch_callback_opaque`** for a handler defined
+  somewhere else, whose parameter's fate is not this splice's to say. A
+  `finally` block that `return`s, `break`s or `continue`s discards an in-flight
+  throw and records **`sink_finally_return`**, read from a one-slot mark per
+  frame that carries the real serial (blind spot 3 closes). Nine `how` words in
+  all, and the enumeration is the declaration: a shape outside it produced no
+  record, and `typescript/HONESTY.md` §4 lists what still produces none.
+- **A bare rethrow is a traced exit, not an escape** (`68015dd`, `43e1fbd`,
+  spec §2.1's dated amendment). `throw e;` whose operand is the binding itself
+  leaves the way it arrived and carries the same serial, so it does not count
+  towards `catch_escaped`: `catch (e) { console.error(e); throw e }` reads
+  `catch`, while `catch (e) { list.push(e); throw e }` and
+  `catch (e) { throw new Wrapped(e) }` stay `catch_escaped`. The exclusion
+  holds at closure depth 0 only, and applies to rejection callbacks by the same
+  rule. It was found and fixed **before any endpoint was measured**: the
+  literal reading barred every `throw e` hop from SWALLOWED and made §1's
+  locked `rethrow_hop` count unreachable by construction (record §2.3).
+- **The capability is the gate, and an old trace still refuses.**
+  `capabilities.err_flow` is **true** on a 0.2.0 recording and the converter
+  passes the BOOT record's own capabilities through untouched. A trace a 0.1.x
+  runtime wrote declares `false` and is refused at exit **3** by the capability
+  sentence — naming the recorder and saying nothing was checked — because what
+  it lacks is a record and not a rule. Re-recording is the fix; the cost was
+  pre-committed at rung 1, not discovered here. Vector
+  `v32-err-flow-typescript-capability-refusal` pins that sentence, and the old
+  language refusal is gone: `TYPESCRIPT.exceptions_refusal` is now `None`.
+- **SWALLOWED is claimed only where the recording establishes it.** A HANDLED
+  whose `how` is in the absorbing set, in a frame that later closed by
+  `return`, with no later raise of the serial and **no** escaping handler for
+  it anywhere. Everything else is `ambiguous` with its reason printed —
+  an escaped or opaque handler, a handler frame still suspended, a primitive
+  rethrow, a frame that unwound with a different serial. Nothing reaches
+  SWALLOWED by falling through, and an UNWIND is never itself a verdict.
+- **`sensorium exceptions <invocation-id>` answers for a whole TypeScript run**
+  (spec §4). Every member trace is opened, dispatched on its own `lang`, and
+  merged on a shape key the language module supplies, so one clause swallowing
+  in 40 processes prints once with `[×N over N processes]` beside it. The
+  grouper Rust has used since 0.8.2 is now generalised over a per-language
+  renderer, and every Rust caller and test is byte-unchanged.
+- **A swallow corpus that runs itself.** `corpus/typescript/` grows from
+  thirteen cases to **28** — one shape per case, each with an `exceptions`
+  question pinning the verdict line and the tally, and a `why_logs_fail` naming
+  all three channels. `exceptions_refused` is renamed **`silent_swallow`**: the
+  refusal it recorded is one no recorder produces any more, and it is a vector
+  now.
+- **What the endpoints read** (record §3). **E6-TS** — the corpus's verdicts,
+  **17 of 17** equal to the locked table. **E6-TS′** — the gate that decides
+  the shipping word: **0 false SWALLOWED of 30** hand-adjudicated shapes on a
+  consumer's own suite, every line's adjudication written into
+  `-e6tsp-adjudication.md` under a protocol fixed before any of them was read;
+  the tally over that run is `swallowed 261, ambiguous 53` across 314 raises in
+  53 of 372 processes. **E2″** — **287 spliced of 287** eligible sites
+  (177 catch clauses, 108 `.catch`, 2 `.then`, 0 completing `finally`) over 741
+  files, ratio **1.0000**, zero named exclusions needed. **E8″** — **32 of 32**
+  probe markers. **E3-TS″** — **0/19** false DIVERGED over twenty recordings of
+  one file. **E5″** — both harnesses green. **E7″** — **0** occurrences of nine
+  Python/Rust leak needles over both transcripts. **E1‴** — `off/plain`
+  **1.0608** and `call/plain` **1.1266** (n=5 per arm, interleaved, every load
+  reading under 4.0), against rung 1's 1.0587 / 1.1324. **E10″** — the fresh
+  372-spool set converts in **16.0715 s** (n=5), beside slice 2's 16.3859 s.
+- **Four gaps, none of them an endpoint's rule** (record §5). **Gap 1** — the
+  shape key's id mask carries Rust's float-type exclusion (`f32` and its
+  siblings are Rust type names) onto TypeScript FRAME ids, so the lens's 30
+  SWALLOWED shapes are **28 distinct places**; no verdict and no tally moves.
+  **Gap 2** — `arms.sh`, `e3.sh` and `e7.sh` hard-coded the global `sensorium`,
+  which is an editable install of `main`: three reused instruments were
+  measuring the wrong binary, fixed before any of the three ran here. **Gap 3**
+  — E7″'s needle list cannot be applied as written, because `Err` as a
+  case-insensitive substring is matched by every `Error('…')` an answer prints;
+  the three identifier needles are matched word-bounded and case-sensitively,
+  fixed before the count was taken. **Gap 4** — on real code the modal
+  AMBIGUOUS reason is the classifier's catch-all (**17** of 30 ambiguous
+  shapes), and the shape behind it is an untraced catcher sitting *inside* a
+  traced frame. The rules decline instead of guessing, which is what keeps the
+  gate at 0.
+- **Documents.** `typescript/HONESTY.md` §4 is rewritten against the shipped
+  runtime and its blind-spot list restruck, with the list split to
+  `typescript/HONESTY-BLIND-SPOTS.md`; `docs/query.md` gains the TypeScript
+  paragraph under `exceptions`; `docs/CARRIED-DEBT.md` gains the rung's section
+  after cutting rung 1's to [`docs/CARRIED-DEBT-ARCHIVE-6.md`](docs/CARRIED-DEBT-ARCHIVE-6.md),
+  drafted and measured first the way the ledger's own lesson asks; this rung's
+  design gains a §14 naming every place its own text moved and why.
+
 ## 0.9.1 — 2026-09-10
 
 **The converter's ladder, the plain band re-measured, and `node --test` made
