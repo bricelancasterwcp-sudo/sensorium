@@ -203,32 +203,73 @@ bullet's rule for `f08e89/` says `ingested.json` is removed from the copy, and
 plus `manifests/`. The deviation is named here rather than left to be noticed
 later.)
 
-| Copy | Source | Contents | `.jsonl` bytes | All-file bytes | Manifest | Manifest sha256 |
-|---|---|---|---|---|---|---|
-| `e10-spool/f08e89/` | `20260909-160038-f08e89/` | **372** `.jsonl`, `invocation.json`, `harness.json`, `manifests/` (726 files) | `414,450,522` — the plan's pinned number, exactly | `415,578,161` | `e10-spool/f08e89.sha256`, 1,100 lines | `bcefbbd367e50e6f1adbd6c6c76172fcadd4235e0fd72b3264c6dc8a11d40844` |
-| `e10-spool/one/` | `20260909-155657-4965c3/` | `1478098-0.jsonl` only, `invocation.json`, `harness.json`, `manifests/` (25 files) | `611,016` — the plan's pinned number, exactly | `678,355` | `e10-spool/one.sha256`, 28 lines | `e5be630f0b1e4efc3f8c4c240ffebc22d59abd9328875b885c1930baa1e2de23` |
-| `e10-spool/big/` | `20260909-160038-f08e89/` | `1491993-0.jsonl` only, `invocation.json`, `harness.json`, `manifests/` (726 files) | `195,851,484` — the plan's pinned number, exactly | `196,979,123` | `e10-spool/big.sha256`, 729 lines | `20513b79c80d8a789ff99f037ba94212c2fa4e20d0bd33cb2ca7c6403f0d95a4` |
+Every value below is the output of the command beside it. `<c>` abbreviates
+the copy `/mnt/extra/sensorium-s5/e10-spool/<name>/` and `<m>` its manifest
+`/mnt/extra/sensorium-s5/e10-spool/<name>.sha256`; each manifest was written
+by `cd <c> && find . -type f | sort | xargs sha256sum > <m>`.
 
-Each manifest is `cd <copy> && find . -type f | sort | xargs sha256sum >
-/mnt/extra/sensorium-s5/e10-spool/<name>.sha256`, and each manifest file's own
-sha256 is the last column. A copy whose manifest no longer verifies is not the
-workload these endpoints were pre-registered against.
+| Copy | Source | Item | Command | Value |
+|---|---|---|---|---|
+| `e10-spool/f08e89/` | `20260909-160038-f08e89/` | `.jsonl` files | `ls <c>/*.jsonl \| wc -l` | `372` — the plan's pinned count (372 `.jsonl`), exactly |
+|  |  | `.jsonl` bytes | `find <c> -maxdepth 1 -name '*.jsonl' -printf '%s\n' \| awk '{s+=$1} END{print s}'` | `414450522` — the plan's pinned number, exactly |
+|  |  | all-file bytes | `find <c> -type f -printf '%s\n' \| awk '{s+=$1} END{print s}'`, cross-checked against `du -sb <c>` (agrees) | `415578161` |
+|  |  | `manifests/` files | `ls <c>/manifests \| wc -l` | `726` |
+|  |  | manifest lines | `wc -l < <m>` | `1100` |
+|  |  | manifest sha256 | `sha256sum <m>` | `bcefbbd367e50e6f1adbd6c6c76172fcadd4235e0fd72b3264c6dc8a11d40844` |
+|  |  | manifest re-verified | `cd <c> && sha256sum -c <m>` | `1100 OK, 0 FAILED` |
+| `e10-spool/one/` | `20260909-155657-4965c3/` | `.jsonl` files | `ls <c>/*.jsonl \| wc -l` | `1` (`1478098-0.jsonl`) |
+|  |  | `.jsonl` bytes | `find <c> -maxdepth 1 -name '*.jsonl' -printf '%s\n' \| awk '{s+=$1} END{print s}'` | `611016` — the plan's pinned number, exactly |
+|  |  | all-file bytes | `find <c> -type f -printf '%s\n' \| awk '{s+=$1} END{print s}'`, cross-checked against `du -sb <c>` (agrees) | `678355` |
+|  |  | `manifests/` files | `ls <c>/manifests \| wc -l` | `25` |
+|  |  | manifest lines | `wc -l < <m>` | `28` |
+|  |  | manifest sha256 | `sha256sum <m>` | `e5be630f0b1e4efc3f8c4c240ffebc22d59abd9328875b885c1930baa1e2de23` |
+|  |  | manifest re-verified | `cd <c> && sha256sum -c <m>` | `28 OK, 0 FAILED` |
+| `e10-spool/big/` | `20260909-160038-f08e89/` | `.jsonl` files | `ls <c>/*.jsonl \| wc -l` | `1` (`1491993-0.jsonl`) |
+|  |  | `.jsonl` bytes | `find <c> -maxdepth 1 -name '*.jsonl' -printf '%s\n' \| awk '{s+=$1} END{print s}'` | `195851484` — the plan's pinned number, exactly |
+|  |  | all-file bytes | `find <c> -type f -printf '%s\n' \| awk '{s+=$1} END{print s}'`, cross-checked against `du -sb <c>` (agrees) | `196979123` |
+|  |  | `manifests/` files | `ls <c>/manifests \| wc -l` | `726` |
+|  |  | manifest lines | `wc -l < <m>` | `729` |
+|  |  | manifest sha256 | `sha256sum <m>` | `20513b79c80d8a789ff99f037ba94212c2fa4e20d0bd33cb2ca7c6403f0d95a4` |
+|  |  | manifest re-verified | `cd <c> && sha256sum -c <m>` | `729 OK, 0 FAILED` |
+
+A copy whose manifest no longer verifies is not the workload these endpoints
+were pre-registered against.
 
 ### 2.2 Suite baselines (the regression fence)
 
 Taken on the pin commit `9c81dfe`, before any slice-2 change. Every later task
 restores these exactly, or names what moved.
 
-| Suite | Command | Baseline |
-|---|---|---|
-| pytest, 3.13 | `.venv/bin/python -m pytest -q` | `3428 passed, 29 skipped` (92.46 s) |
-| pytest, 3.12 | `.venv312/bin/python -m pytest -q` | `3424 passed, 33 skipped` (94.17 s) |
-| pytest, 3.14 | `.venv314/bin/python -m pytest -q` | `3432 passed, 25 skipped` (96.00 s) |
-| TypeScript unit | `npm --prefix typescript test` | `tests 164`, `pass 164`, `fail 0`, `skipped 0` |
-| TypeScript types | `npm --prefix typescript run check` | exit `0`, no diagnostics (`tsc -p tsconfig.json`; never `npx tsc -p` from the root — R4) |
-| corpus, TypeScript | `.venv/bin/python corpus/run_corpus.py --only-dir typescript --require-driver` | `13 cases, 35 questions, 0 failures, 0 error(s)` |
-| corpus, root | `.venv/bin/python corpus/run_corpus.py --only-dir .` | `20 cases, 39 questions, 0 failures, 0 error(s)` |
-| live TypeScript | `SENSORIUM_TS_LIVE=1 .venv/bin/python -m pytest -q tests/test_ts_live.py` | `9 passed` (2.05 s) |
+**The pytest rows grew by eight at `ecac114`, and that is part of the fence.**
+Task 0's own second commit adds `tests/test_acceptance_s5_slice2_lock.py`:
+seven tests in the file itself, plus one more case in `tests/test_ceiling.py`,
+which is parametrized over every tracked non-exempt file and so gains a case
+for that file (the record adds none — it sits in an exempt directory). Measured
+on `ecac114`, not derived: `.venv/bin/python -m pytest -q` → `3436 passed, 29
+skipped`; `.venv312/bin/python -m pytest -q` → `3432 passed, 33 skipped`;
+`.venv314/bin/python -m pytest -q` → `3440 passed, 25 skipped`. **From
+`ecac114` onward those are the counts a later task restores.** Reading the
+`9c81dfe` row instead — `3428 passed, 29 skipped` on 3.13 — does not mean the
+fence held; it means the lock file is gone, which is the one way this
+pre-registration could be unlocked while every suite still reported green.
+
+| Suite | Command | Baseline at `9c81dfe` | The fence, from `ecac114` |
+|---|---|---|---|
+| pytest, 3.13 | `.venv/bin/python -m pytest -q` | `3428 passed, 29 skipped` (92.46 s) | `3436 passed, 29 skipped` (92.03 s) |
+| pytest, 3.12 | `.venv312/bin/python -m pytest -q` | `3424 passed, 33 skipped` (94.17 s) | `3432 passed, 33 skipped` (94.28 s) |
+| pytest, 3.14 | `.venv314/bin/python -m pytest -q` | `3432 passed, 25 skipped` (96.00 s) | `3440 passed, 25 skipped` (95.06 s) |
+| TypeScript unit | `npm --prefix typescript test` | `tests 164`, `pass 164`, `fail 0`, `skipped 0` | unchanged † |
+| TypeScript types | `npm --prefix typescript run check` | exit `0`, no diagnostics (`tsc -p tsconfig.json`; never `npx tsc -p` from the root — R4) | unchanged † |
+| corpus, TypeScript | `.venv/bin/python corpus/run_corpus.py --only-dir typescript --require-driver` | `13 cases, 35 questions, 0 failures, 0 error(s)` | unchanged † |
+| corpus, root | `.venv/bin/python corpus/run_corpus.py --only-dir .` | `20 cases, 39 questions, 0 failures, 0 error(s)` | unchanged † |
+| live TypeScript | `SENSORIUM_TS_LIVE=1 .venv/bin/python -m pytest -q tests/test_ts_live.py` | `9 passed` (2.05 s) | unchanged † |
+
+† The three pytest cells in the last column are measured on `ecac114`. The five
+marked `unchanged †` are **not** re-measured: Task 0 adds one Python test file
+and one record, and none of these five enumerates either — `npm test` and
+`tsc` see only `typescript/`, the corpus runner counts cases under `corpus/`,
+and the live row names one test file. Any of them moving is a real regression,
+not this commit's arithmetic.
 
 ## 3. Results
 
