@@ -32,6 +32,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "typescript" / "acceptance"))
 
@@ -325,3 +327,66 @@ def test_assemble_slice2_reports_a_missing_cell_as_null_and_dropped(tmp_path):
     for name in ("E10′-suite", "E10′-file", "E10′-eq", "E6″", "H-probes"):
         assert payload["gated"][name]["value"] is None
         assert payload["gated"][name]["dropped"]
+
+
+# -- the recorder the cell is about -----------------------------------------
+
+
+def test_the_report_refuses_when_the_recorder_is_not_named(monkeypatch, capsys):
+    """`lens.LENS` names the recorder that produced the LENS, not the one a
+    later session runs, so the cell must name its own or refuse.
+
+    Catches: an instrument that lets the lens string stand as the recorder's
+    name, which is how the slice-2 results file first shipped naming
+    `sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059` for a session that ran
+    neither (record §5.D, item 18).
+    """
+    monkeypatch.delenv("E6PP_RECORDER", raising=False)
+    monkeypatch.delenv("E6PP_RECORDER_REV", raising=False)
+
+    with pytest.raises(SystemExit) as excinfo:
+        e6pp_report.recording()
+
+    assert excinfo.value.code == 2
+    err = capsys.readouterr().err
+    assert "E6PP_RECORDER" in err and "E6PP_RECORDER_REV" in err
+
+
+def test_the_recorder_reaches_the_cell_verbatim(monkeypatch):
+    """Both halves are written as given: the sentence a reader reads and the
+    full sha a reader can check out.
+
+    Catches: a field that carries only the rev (unreadable) or only the
+    sentence (uncheckable).
+    """
+    monkeypatch.setenv("E6PP_RECORDER", "sensorium 0.9.0 at deadbee")
+    monkeypatch.setenv("E6PP_RECORDER_REV", "deadbee" * 5 + "fbad")
+
+    assert e6pp_report.recording() == {
+        "recorder": "sensorium 0.9.0 at deadbee",
+        "rev": "deadbee" * 5 + "fbad"}
+
+
+def test_the_call_runs_walls_carry_the_recorder_that_made_them(tmp_path):
+    """`walls` and `driver_around_harness` are minted by the assembler rather
+    than read, so without this they would carry `LENS` alone -- the same
+    wrong recorder the E6″ cell was carrying.
+
+    Catches: a fix applied to the cell files and not to the two rows derived
+    from one of them.
+    """
+    results = tmp_path / "results"
+    results.mkdir()
+    made_by = {"recorder": "sensorium 0.9.0 at deadbee", "rev": "deadbeef"}
+    (results / "e6pp.json").write_text(json.dumps(
+        {"value": 5, "n": 5, "lens": "a lens", "dropped": [],
+         "call_run": {"harness_wall": 25.0, "driver_wall": 38.5},
+         "recording": made_by}), encoding="utf-8")
+    out = tmp_path / "slice2.results.json"
+
+    rc = assemble_slice2.main(["assemble_slice2.py", str(results), str(out)])
+
+    assert rc == 0
+    reported = json.loads(out.read_text(encoding="utf-8"))["reported"]
+    assert reported["walls"]["recording"] == made_by
+    assert reported["driver_around_harness"]["recording"] == made_by

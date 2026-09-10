@@ -75,6 +75,16 @@ SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"
 E6PP_REV="${E6PP_REV:-}"
 [ -n "$E6PP_REV" ] ||
   refuse "E6PP_REV is required: a contamination reading without the recorder's rev names no recorder"
+#: What the cell says RECORDED it. The `lens` string comes from `LENS.txt`
+#: and names the recorder that produced the LENS -- a different recorder
+#: from the one a later slice runs -- so the sentence and the full sha are
+#: both required here and `e6pp_report.py` refuses without them.
+E6PP_RECORDER="${E6PP_RECORDER:-}"
+[ -n "$E6PP_RECORDER" ] ||
+  refuse "E6PP_RECORDER is required: name the recorder that ran (its versions and its commit); the lens string names the LENS's recorder, not this one"
+E6PP_RECORDER_REV="${E6PP_RECORDER_REV:-}"
+[ -n "$E6PP_RECORDER_REV" ] ||
+  refuse "E6PP_RECORDER_REV is required: the FULL sha of the commit the recorder ran at"
 
 mkdir -p "$OUT/logs" || refuse "cannot write under $OUT"
 JSONL="$OUT/e6pp.jsonl"
@@ -182,4 +192,5 @@ E6PP_MANIFEST_LINES="$MANIFEST_LINES" \
 E6PP_MANIFEST_SHA="$(sha256sum "$MANIFEST" | cut -d' ' -f1)" \
 E6PP_WRAPPER="$wrapper" E6PP_WRAPPER_LISTING="$(cat "$WRAPPER_LS")" \
 E6PP_N="$N" E6PP_BIN="$SENSORIUM_BIN" E6PP_REV="$E6PP_REV" \
+E6PP_RECORDER="$E6PP_RECORDER" E6PP_RECORDER_REV="$E6PP_RECORDER_REV" \
   python3 "$HERE/e6pp_report.py"

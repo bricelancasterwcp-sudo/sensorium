@@ -144,12 +144,18 @@ def call_run_walls(results: Path) -> dict:
     set's conversion and the harness wall does not. Their difference is
     reported under its own name rather than called an `ingest` wall it is
     not: it is everything the driver does around the harness.
+
+    Both cells are minted HERE rather than read, so both would otherwise
+    carry `lens.LENS` alone -- which names the recorder that produced the
+    LENS and not the one whose call run these two walls are. E6″'s own
+    `recording` field is carried through to both for that reason.
     """
     data = load(results / "e6pp.json")
     if "_absent" in data:
         return {"walls": cell(None, 0, ["E6″ was not measured: "
                                         f"{data['_absent']}"])}
     run = data.get("call_run") or {}
+    made_by = data.get("recording")
     harness, driver = run.get("harness_wall"), run.get("driver_wall")
     around = (None if harness is None or driver is None
               else round(driver - harness, 4))
@@ -160,14 +166,16 @@ def call_run_walls(results: Path) -> dict:
                       invocation=run.get("invocation"),
                       spool_files=run.get("spool_files"),
                       spool_bytes=run.get("spool_bytes"),
-                      spool_lines=run.get("spool_lines")),
+                      spool_lines=run.get("spool_lines"),
+                      recording=made_by),
         "driver_around_harness": cell(
             around, 1, [] if around is not None else
             ["one of the two walls is missing, so their difference is not a "
              "number"],
             rule="driver wall - harness wall: the fresh set's inline "
                  "conversion plus the driver's own setup and cleanup, which "
-                 "this session does not separate"),
+                 "this session does not separate",
+            recording=made_by),
     }
 
 

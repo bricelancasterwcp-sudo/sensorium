@@ -16,6 +16,15 @@ The timing clause has three words, not two. Fewer than four usable walls in
 either arm means the band or the median was never measured, and an unmeasured
 clause is `STOP by instrument` -- neither a pass nor a finding about the
 recorder.
+
+The cell also names WHICH recorder made the recording it is about. The `lens`
+string every instrument in this directory emits comes from `LENS.txt` and
+names the recorder that produced the LENS -- which for a cell this slice
+recorded is the wrong recorder, and reads as a claim about a version that
+never ran here. `E6PP_RECORDER` and `E6PP_RECORDER_REV` are therefore
+REQUIRED, the way `e10p_eq_content.py` requires the two converters it
+compares: a contamination reading whose recorder is named by inheritance is
+a reading that names no recorder.
 """
 import json
 import os
@@ -24,7 +33,7 @@ import sys
 from pathlib import Path
 
 from assemble import arm_stats
-from lens import cell, emit
+from lens import cell, emit, usage
 
 #: The suite the lens is pinned at, as `arms.sh` and `e6.sh` spell it. A run
 #: that does not read both lines ran a different suite and is dropped.
@@ -118,8 +127,27 @@ def _call_run(call: dict | None) -> dict:
             "spool_lines": call.get("spool_lines")}
 
 
+#: Written verbatim into the cell; both are required (see the docstring).
+#: `E6PP_RECORDER` is the sentence naming what ran -- the versions and the
+#: commit -- and `E6PP_RECORDER_REV` is that commit's FULL sha.
+RECORDING = ("E6PP_RECORDER", "E6PP_RECORDER_REV")
+
+
+def recording() -> dict:
+    """The recorder this session actually ran, or refuse the call by name."""
+    missing = [name for name in RECORDING if not os.environ.get(name)]
+    if missing:
+        usage(f"{', '.join(missing)} required: the cell's `lens` names the "
+              "recorder that produced the LENS, not the one this session "
+              "ran, and a contamination reading names its own recorder or "
+              "names none")
+    return {"recorder": os.environ["E6PP_RECORDER"],
+            "rev": os.environ["E6PP_RECORDER_REV"]}
+
+
 def main() -> int:
     env = os.environ
+    made_by = recording()
     rows = _rows(env["E6PP_JSONL"])
     before = arm_stats(rows, "before", "wall")
     after = arm_stats(rows, "after", "wall")
@@ -159,6 +187,7 @@ def main() -> int:
         runs=rows, markers=marks, wrapper_dir=env["E6PP_WRAPPER"],
         wrapper_listing=env.get("E6PP_WRAPPER_LISTING", ""),
         recorder_bin=env["E6PP_BIN"], recorder_rev=env["E6PP_REV"],
+        recording=made_by,
     ))
     return 0
 

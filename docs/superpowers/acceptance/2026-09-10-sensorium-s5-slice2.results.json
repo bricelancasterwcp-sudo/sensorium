@@ -301,7 +301,11 @@
       "wrapper_dir": "absent",
       "wrapper_listing": "node_modules/.sensorium: absent",
       "recorder_bin": "<the worktree's converter>",
-      "recorder_rev": "ecdc6315a1c0e9f88da64b733b740a7ed8666d7b"
+      "recorder_rev": "ecdc6315a1c0e9f88da64b733b740a7ed8666d7b",
+      "recording": {
+        "recorder": "sensorium 0.9.0 \u2192 0.9.1 / sensorium-ts 0.1.0 \u2192 0.1.1 at ecdc631 \u2014 the worktree's .venv/bin/sensorium, which is what recorded this cell; the `lens` string above names the recorder of the f08e89 spool copies (sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059) and not this one",
+        "rev": "ecdc6315a1c0e9f88da64b733b740a7ed8666d7b"
+      }
     },
     "E10\u2032-suite": {
       "value": 16.3859,
@@ -1102,7 +1106,10 @@
             }
           }
         }
-      ]
+      ],
+      "hook_rev": "05e5338435ac3ec53645a3b0b66cb3bb2eeb0c7c",
+      "probes_rev": "761c9357b616069e64ea2399fbbcf4d9ae172985",
+      "captured_rev": "ecdc6315a1c0e9f88da64b733b740a7ed8666d7b"
     }
   },
   "reported": {
@@ -1533,14 +1540,22 @@
       "invocation": "20260910-024512-fe71ef",
       "spool_files": 372,
       "spool_bytes": 414467939,
-      "spool_lines": 4160606
+      "spool_lines": 4160606,
+      "recording": {
+        "recorder": "sensorium 0.9.0 \u2192 0.9.1 / sensorium-ts 0.1.0 \u2192 0.1.1 at ecdc631 \u2014 the worktree's .venv/bin/sensorium, which is what recorded this cell; the `lens` string above names the recorder of the f08e89 spool copies (sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059) and not this one",
+        "rev": "ecdc6315a1c0e9f88da64b733b740a7ed8666d7b"
+      }
     },
     "driver_around_harness": {
       "value": 13.5976,
       "n": 1,
       "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
       "dropped": [],
-      "rule": "driver wall - harness wall: the fresh set's inline conversion plus the driver's own setup and cleanup, which this session does not separate"
+      "rule": "driver wall - harness wall: the fresh set's inline conversion plus the driver's own setup and cleanup, which this session does not separate",
+      "recording": {
+        "recorder": "sensorium 0.9.0 \u2192 0.9.1 / sensorium-ts 0.1.0 \u2192 0.1.1 at ecdc631 \u2014 the worktree's .venv/bin/sensorium, which is what recorded this cell; the `lens` string above names the recorder of the f08e89 spool copies (sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059) and not this one",
+        "rev": "ecdc6315a1c0e9f88da64b733b740a7ed8666d7b"
+      }
     }
   }
 }

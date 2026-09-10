@@ -1217,3 +1217,36 @@ own rules at the slice's close; none of them moves a number above.
     **A2** (largest-first dispatch) changes the order spools are handed out,
     and a gate that never varied the job count would not have noticed if
     order mattered.
+
+### 5.D Fixed in the final fix wave (2026-09-10), no measurement re-run
+
+Numbering continues §5.C's. This section is written after the final review
+returned "ready with fixes"; every item is a text, provenance or test edit,
+and nothing below re-measures anything.
+
+18. **Every cell in the results file inherited the LENS's recorder, including
+    the ones this slice recorded itself** — *fixed by a JSON-only rewrite*.
+    Each cell's `lens` string comes from `typescript/acceptance/LENS.txt`,
+    which ends "recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at
+    `29c5059`". That is true of the E10′ cells — the pinned `f08e89` spool
+    copies **are** that recording — and false of the cells whose recording
+    this slice made: **E6″**, whose session ran this slice's own recorder at
+    `ecdc631` (§3.11); **H-probes**, the hook at `05e5338` with the probes and
+    checker at `761c935`, captured at `ecdc631` (§3.10); and the call run's
+    **`walls`** and **`driver_around_harness`**, which `assemble_slice2.py`
+    mints from E6″'s cell and which therefore carried the same string.
+    Four fields were added — in the store's cell files, and the results file
+    then rebuilt from them: `recording` = `{recorder, rev}` on `e6pp.json`
+    (and so on `gated["E6″"]`, `reported.walls` and
+    `reported.driver_around_harness`), and `hook_rev`, `probes_rev`,
+    `captured_rev` on `h-probes.json`. `LENS.txt` itself is **not** touched:
+    rung 1's instruments read it, and its sentence is true of the lens.
+    So that a future session cannot repeat the omission, `e6pp_report.py`
+    now REQUIRES `E6PP_RECORDER` and `E6PP_RECORDER_REV` and refuses by name
+    without them — the way `e10p_eq_content.py` requires the two converters
+    it compares — and `e6pp.sh` passes both; the H-probes capture is
+    hand-assembled with no script to hold the rule, so
+    `typescript/probes/README.md` states the three rev fields as required of
+    it. `assemble_slice2.py` rebuilt this file from the same store and the
+    same six redaction pairs and reproduces it byte-for-byte apart from those
+    four fields — verified by diff. **No number moved.**
