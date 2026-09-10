@@ -12,6 +12,7 @@ import path from 'node:path';
 
 import MagicString from 'magic-string';
 
+import { callbackHow, catchHow, finallyCompletes } from './escape.mjs';
 import { qualnameFor } from './qualname.mjs';
 
 /** @typedef {typeof import('typescript')} TS */
@@ -432,14 +433,17 @@ function spliceThrow(ctx, node) {
 
 /**
  * A `catch` clause records a HANDLED as its first statement; a clause with no
- * binding is given one, and an empty block is a sink, not a silence.
+ * binding is given one, and an empty block is a sink, not a silence. The `how`
+ * word is the escape rule's verdict about what the body did with the binding
+ * (`escape.mjs`, spec §2.1) — the record says whether the failure got out, not
+ * merely that something caught it.
  * @param {Splicer} ctx
  * @param {import('typescript').CatchClause} node
  */
 function spliceCatch(ctx, node) {
   const { ts, sf, s } = ctx;
   const line = lineOf(sf, node.getStart(sf));
-  const how = node.block.statements.length === 0 ? '"sink_empty_catch"' : '"catch"';
+  const how = `"${catchHow(ts, node)}"`;
   const open = node.block.getStart(sf) + 1;
   const declared = node.variableDeclaration;
   if (!declared) {
@@ -454,27 +458,68 @@ function spliceCatch(ctx, node) {
 }
 
 /**
- * `.catch(() => {})` — a callback that swallows: the runtime records a HANDLED
- * for it, so an empty catch is a sink in the trace and not an absence. The
- * `how` word is the splice's own verdict about the handler's shape, and this
- * splice knows exactly one shape (rung 2's Task 2 classifies the rest).
+ * A rejection handler — `p.catch(<arg>)` or the second argument of
+ * `p.then(<x>, <arg>)` — wrapped so the reason it is given is recorded before it
+ * runs (spec §2.2). `p.catch()` with no argument, `.then(x)` with one and
+ * `.finally(fn)` are not handlers and are not touched (P4).
+ *
+ * The `how` word is the splice's own verdict about the handler's SHAPE, decided
+ * here and written down by the runtime unexamined. The argument is wrapped in
+ * parentheses of its own so that whatever expression it is — an arrow, a
+ * conditional, an `await` — arrives at `catchCb` as exactly one argument, and so
+ * that a closer a descendant registers on the same offset lands inside ours.
  * @param {Splicer} ctx
  * @param {import('typescript').CallExpression} node
- * @returns {boolean} whether the call was an empty-catch callback
+ * @returns {boolean} whether this call was a rejection handler
  */
-function spliceEmptyCatchCallback(ctx, node) {
+function spliceRejectionCallback(ctx, node) {
   const { ts, sf, s } = ctx;
   const callee = node.expression;
-  if (!ts.isPropertyAccessExpression(callee) || callee.name.text !== 'catch') return false;
-  if (node.arguments.length !== 1) return false;
-  const callback = node.arguments[0];
-  if (!ts.isArrowFunction(callback) || !ts.isBlock(callback.body)) return false;
-  if (callback.body.statements.length !== 0) return false;
+  if (!ts.isPropertyAccessExpression(callee)) return false;
+  const name = callee.name.text;
+  const arg = name === 'catch' && node.arguments.length === 1
+    ? node.arguments[0]
+    : name === 'then' && node.arguments.length === 2
+      ? node.arguments[1]
+      : null;
+  if (!arg) return false;
   const line = lineOf(sf, callee.name.getStart(sf));
-  s.appendLeft(callback.getStart(sf),
-    `__srt.catchCb(${frameVar(ctx, node)},${line},"sink_empty_catch_callback",`);
-  s.prependRight(callback.end, ')');
+  const how = callbackHow(ts, arg);
+  s.appendLeft(arg.getStart(sf), `__srt.catchCb(${frameVar(ctx, node)},${line},"${how}",(`);
+  s.prependRight(arg.end, '))');
   return true;
+}
+
+/**
+ * A `finally` block that COMPLETES — `return`, `break` or `continue` at closure
+ * depth 0 — discards whatever was travelling through the frame, so it is a sink
+ * and gains `handledFinally` as its first statement (spec §2.3).
+ *
+ * A `try` with no `catch` of its own also gains one: `catch(__sfe){mark;throw}`
+ * spliced before the `finally` keyword, which is how a library's throw and an
+ * awaited rejection — neither of them a `throw` statement this recorder saw —
+ * reach the frame's mark (P1). It rethrows the very value it caught, so the
+ * program's control flow, and the `finally`'s own precedence over it, are
+ * unchanged. A `try` with a `catch` needs none: that clause's HANDLED already
+ * ends the flight, and the mark it clears is what keeps the `finally` beneath a
+ * caught throw from claiming a swallow.
+ *
+ * A `try` outside every recorded frame has no mark to read and is left alone.
+ * @param {Splicer} ctx
+ * @param {import('typescript').TryStatement} node
+ */
+function spliceFinally(ctx, node) {
+  const { ts, sf, s } = ctx;
+  if (!node.finallyBlock || !finallyCompletes(ts, node.finallyBlock)) return;
+  if (!isRecorded(ctx, node)) return;
+  const keyword = node.getChildren(sf).find((c) => c.kind === ts.SyntaxKind.FinallyKeyword);
+  if (!keyword) return;
+  const frame = frameVar(ctx, node);
+  const line = lineOf(sf, keyword.getStart(sf));
+  if (!node.catchClause) {
+    s.appendLeft(keyword.getStart(sf), `catch(__sfe){__srt.mark(${frame},__sfe);throw __sfe}`);
+  }
+  s.appendLeft(node.finallyBlock.getStart(sf) + 1, `__srt.handledFinally(${frame},${line});`);
 }
 
 /**
@@ -551,8 +596,9 @@ function splice(ctx) {
     else if (ts.isAwaitExpression(node)) spliceSuspension(ctx, node, AWAIT, 'await');
     else if (ts.isYieldExpression(node)) spliceSuspension(ctx, node, YIELD, 'yield');
     else if (ts.isThrowStatement(node)) spliceThrow(ctx, node);
+    else if (ts.isTryStatement(node)) spliceFinally(ctx, node);
     else if (ts.isCatchClause(node)) spliceCatch(ctx, node);
-    else if (ts.isCallExpression(node) && !spliceEmptyCatchCallback(ctx, node)) {
+    else if (ts.isCallExpression(node) && !spliceRejectionCallback(ctx, node)) {
       spliceTaskBoundary(ctx, node);
     }
     ts.forEachChild(node, visit);

@@ -85,7 +85,7 @@ function instrumentedOf(name) {
 const inputs = goldenInputs();
 
 test('the golden set is not empty', () => {
-  assert.ok(inputs.length >= 13, `only ${inputs.length} goldens found`);
+  assert.ok(inputs.length >= 37, `only ${inputs.length} goldens found`);
 });
 
 for (const name of inputs) {
