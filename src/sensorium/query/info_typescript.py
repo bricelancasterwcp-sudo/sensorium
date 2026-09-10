@@ -24,10 +24,13 @@ THREE EXIT FACTS, THREE LINES, NEVER MERGED
 Three processes, three facts. Rendering any of them wearing another's name
 is the failure the whole exit rule exists to stop.
 
-Every line is gated on the meta key it reports, never on the language: a
-TypeScript trace written by an older converter that carries none of these
-keys prints none of these lines, which is the rule the rest of `info`
-follows. Zero counts are printed where the count IS the finding
+Every line but `tests:` is gated on the meta key it reports, never on the
+language: a TypeScript trace written by an older converter that carries
+none of these keys prints none of the others, which is the rule the rest
+of `info` follows. `tests:` is gated on the trace's own TASK rows instead
+-- a task count is not a meta key -- and adds its "seen by the harness"
+clause only when `tests_seen` is present (R38). Zero counts are printed
+where the count IS the finding
 (`throw flow outside frames` is not: a zero there is silence about records
 that arrived nowhere) and where the recorder can prove it looked -- the
 `unhandledRejection` listener always ran, so on a COMPLETE trace a zero is

@@ -135,8 +135,15 @@ five-row `.each` produced `… = 5#2` — the provider had already made the rows
 distinct and the counter numbered them again. The counter is per NAME, which is
 what a reader of `#2` takes it to mean. The cost is stated where it lands: two
 different tests with one identical full name would share a `#k` sequence —
-impossible under vitest's unique full names, possible for lexical names under
-`node --test`.)* A title expression that is not
+unlikely under vitest's unique full names, and reachable when one worker runs
+several files (a `threads` pool): two files sharing a full title in one
+container yield `name` and `name#2`; possible for lexical names under
+`node --test`.)* *(Amended 2026-09-10, ruling R46: the clause above read
+"impossible under vitest's unique full names" — over-strong once `#k` counts
+per CONTAINER (ruling R39) rather than per process: `tests/test_ts_live.py`'s
+`test_files` case is exactly a `threads`-pool worker running several files in
+one container, where two of them sharing a full title still collide.)* A
+title expression that is not
 a string at runtime leaves the task unnamed, and the reader prints
 `(unnamed: title not a string)` for it — a label that says why, not a blank.
 

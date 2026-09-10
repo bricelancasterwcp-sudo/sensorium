@@ -4,17 +4,26 @@
 // Two jobs, in this order, for an ES MODULE under `SENSORIUM_TS_ROOT`:
 //   1. instrument the source the consumer wrote — TypeScript types and all,
 //      because the transform positions itself against the consumer's own AST;
-//   2. for `.ts`/`.tsx` only, erase the types with the ROOT's own TypeScript.
-// `.js`/`.mjs` under the root are instrumented and handed back unstripped:
-// there is nothing to erase and `transpileModule` would only be a second
-// parser's opinion of a file Node can already read.
+//   2. for `.ts` only, erase the types with the ROOT's own TypeScript.
+// NODE decides the format for every file (`nextLoad`, R37), and this hook
+// acts on what it reports: a CommonJS result (`commonjs`,
+// `commonjs-typescript`) passes through `excluded()` untouched and counted;
+// `.js`/`.mjs` ESM is instrumented and handed back unstripped, because there
+// is nothing to erase and `transpileModule` would only be a second parser's
+// opinion of a file Node can already read. `.tsx`/`.jsx` cannot reach this
+// hook under plain `node --test` at all — Node's own loader throws
+// `ERR_UNKNOWN_FILE_EXTENSION` from `nextLoad` before `load` sees the file —
+// and an eligible `.mts` reaches `strip` but is never in `STRIP`, so it is
+// handed back with its types still in place and Node throws on the first
+// annotation it meets. Both are open, queued in `docs/CARRIED-DEBT.md`
+// (ruling R46), not fixed here.
 //
-// NODE decides the module format, and this hook asks it (R37). The default load
-// is called with the context it was given, never with `format: 'module'` forced
-// into it: a `.js` in a package with no `"type"` field is CommonJS, and forcing
-// it to ESM spliced an `import` header into a file full of `require` calls and
-// broke a test suite that passes without this recorder — while `HONESTY.md` §7
-// promised such a file was "excluded and counted". Measured on node v24.16.0,
+// The default load is called with the context it was given, never with
+// `format: 'module'` forced into it: a `.js` in a package with no `"type"`
+// field is CommonJS, and forcing it to ESM spliced an `import` header into a
+// file full of `require` calls and broke a test suite that passes without
+// this recorder — while `HONESTY.md` §7 promised such a file was "excluded
+// and counted". Measured on node v24.16.0,
 // `nextLoad` reports what Node itself would use and hands back the source AS
 // WRITTEN: `commonjs` (with a null source — the CJS loader reads the file
 // itself) for a detected-CommonJS `.js` and for `.cjs`; `commonjs-typescript`
