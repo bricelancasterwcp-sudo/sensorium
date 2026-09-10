@@ -52,7 +52,7 @@ questions:
     expect_line:
       - ["recorded: CALL 3", "RETURN 2", "RAISE 1", "HANDLED 1"]
       - ["capabilities:", "err_flow=no"]
-      - ["recorder: sensorium-ts 0.1.1", "lang: typescript"]
+      - ["recorder: sensorium-ts 0.2.0", "lang: typescript"]
   - id: what-does-the-trace-show-happened
     ask: >
       Without a verdict, what does the recording show about that call?

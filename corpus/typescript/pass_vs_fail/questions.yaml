@@ -89,7 +89,7 @@ questions:
     expect_line:
       - ["harness: npx vitest run pass_vs_fail", "exit: 1 (waited)"]
       - ["container: pid", "file: pass_vs_fail/"]
-      - ["recorder: sensorium-ts 0.1.1", "lang: typescript"]
+      - ["recorder: sensorium-ts 0.2.0", "lang: typescript"]
   - id: what-does-the-store-hold-afterwards
     ask: >
       The terminal has scrolled away. What did that one command leave in the
