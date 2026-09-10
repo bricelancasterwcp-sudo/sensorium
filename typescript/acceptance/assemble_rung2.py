@@ -60,16 +60,23 @@ ORDER = ["E6-TS", "E6-TS′", "E8″", "E2″", "E3-TS″", "E5″", "E7″", "E
          "E10″-suite", "E10″-file"]
 
 
-#: What a stamped cell says about where its provenance came from.
+#: What a cell's `recorder_basis` says about where its provenance came from.
+#: EVERY cell gets one, including the ones that recorded their own: a record
+#: that says "these two read `own`" and a file in which `own` never appears is
+#: the same defect as the wrong recorder, one level up (fix round 1).
 STAMPED = ("stamped by the assembler from the session's own invocation; this "
            "instrument does not record its recorder itself")
+OWN = "own"
 
 
 def stamp(node, recorder: str, rev: str):
-    """Add `recorder`/`recorder_rev` to every cell that carries none.
+    """Give every cell a `recorder_basis`, and a recorder if it has none.
 
     A cell is anything with the record's four keys. Walks the whole payload
-    so a cell nested under `reported` is stamped like a top-level one.
+    so a cell nested under `reported` is stamped like a top-level one. A cell
+    that recorded its own recorder keeps it and is marked `own`; one that did
+    not is given the session's and is marked as stamped. Neither branch
+    touches `value`, `n`, `lens` or `dropped`.
     """
     if isinstance(node, list):
         return [stamp(x, recorder, rev) for x in node]
@@ -77,7 +84,9 @@ def stamp(node, recorder: str, rev: str):
         return node
     out = {k: stamp(v, recorder, rev) for k, v in node.items()}
     if all(k in out for k in ("value", "n", "lens", "dropped")):
-        if not out.get("recorder"):
+        if out.get("recorder"):
+            out["recorder_basis"] = OWN
+        else:
             out["recorder"] = recorder
             out["recorder_rev"] = rev
             out["recorder_basis"] = STAMPED

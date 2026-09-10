@@ -943,7 +943,8 @@
           "reason": "No binding; the defaults are returned, indistinguishable from a browser that had never stored preferences."
         }
       ],
-      "table_header": "| id | site | how | source | verdict | second reading | reason |"
+      "table_header": "| id | site | how | source | verdict | second reading | reason |",
+      "recorder_basis": "own"
     },
     "E8\u2033": {
       "value": 32,
@@ -1140,7 +1141,8 @@
         "failures": []
       },
       "recorder": "sensorium 0.9.1 / sensorium-ts 0.2.0",
-      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7"
+      "recorder_rev": "3db0f28a655e6e8ccb6a4d1bb8c1260bb03dabe7",
+      "recorder_basis": "own"
     },
     "E2\u2033": {
       "value": 1,

@@ -1,6 +1,6 @@
 # S5 rung 2 — the throw flow: `exceptions` on a TypeScript trace: acceptance (pre-registered)
 
-**Status: measured (Task 7, 2026-09-10). The rung ships PASS — §5.**
+**Status: measured (Task 7, 2026-09-10). The rung ships DONE — §5.**
 
 §1 of this file was written and committed on the feature branch
 `feat/s5-rung2` **before any line of rung-2 code existed**: the commit that
@@ -268,16 +268,19 @@ endpoint's ladder compares on. The assembler stamps the rest from the
 session's own invocation and says so in each cell's `recorder_basis`. The
 file's `recorded_by` block carries the pair once at the top.
 
-**No row below reads PASS, and that is the Global Constraints' rule, not a
-hedge:** *"Verdict words come from the rule (spec §3.3): no PASS on an
-endpoint whose rule names none."* **Six** of this rung's nine rules name only
-a failure word — STOP for five of them, NO-GO for E5″ — so what a clean
-reading of one can say is that the word did not fire, and that is what its
-verdict column says. The other **three** name no word at all: E7″ states two
-conditions, and E1‴ and E10″ say "no gate". The word **PASS** appears once,
-in §5, as the RUNG's shipping word, which is the one place §1 puts it (`a
-false one → STOP (the rung ships DONE-WITH-STOP …)`). This is slice 2's own
-correction applied from the start rather than after a review.
+**No row below reads PASS, and neither does the rung, because no rule of this
+pre-registration names that word.** The Global Constraints put it plainly:
+*"Verdict words come from the rule (spec §3.3): no PASS on an endpoint whose
+rule names none."* **Six** of this rung's nine rules name only a failure word
+— STOP for five of them, NO-GO for E5″ — so what a clean reading of one can
+say is that the word did not fire, and that is what its verdict column says.
+The other **three** name no word at all: E7″ states two conditions, and E1‴
+and E10″ say "no gate". The only shipping word §1 puts anywhere is the
+FAILING branch — *"a false one → STOP (the rung ships DONE-WITH-STOP with an
+amendment slice, Rust's precedent)"* — and that branch was not taken, so the
+rung ships **DONE** (§5) — rung 1's record is the precedent for the branch
+this rung did NOT take. This is slice 2's own correction, applied to the
+rung's word as well as to its rows.
 
 | Id | What it answers | Cell | Verdict |
 |---|---|---|---|
@@ -477,16 +480,29 @@ conversion's cost either. Every load reading was under 4.0 (3.19 – 3.84).
 
 ## 5. What the rung ships, and the gaps found
 
-**S5 rung 2 ships PASS.** Every one of §1's nine endpoints ran, once, in the
-plan's order, and not one of them fired its rule's failure word: E6-TS,
-E6-TS′, E8″, E2″ and E3-TS″ took no STOP, E5″ took no NO-GO, E7″ met both of
-its clauses, and E1‴ and E10″ are the two the pre-registration gates not at
-all. **E6-TS′'s gate — the one that decides the shipping word — read 0 false
-SWALLOWED over 30 hand-adjudicated shapes on a consumer's own suite**, so the
-DONE-WITH-STOP branch §1 names ("a false one → STOP (the rung ships
-DONE-WITH-STOP with an amendment slice)") is not taken and no amendment slice
-is raised. Nothing was re-rolled, no threshold moved, no cell was measured
-twice, and no cell is outstanding.
+**S5 rung 2 ships DONE — the DONE-WITH-STOP branch §1 names is not taken.**
+Every one of §1's nine endpoints ran, once, in the plan's order, and not one
+of them fired its rule's failure word: E6-TS, E6-TS′, E8″, E2″ and E3-TS″
+took no STOP, E5″ took no NO-GO, E7″ met both of its clauses, and E1‴ and
+E10″ are the two the pre-registration gates not at all. **E6-TS′'s gate — the
+one that decides the shipping word — read 0 false SWALLOWED over 30
+hand-adjudicated shapes on a consumer's own suite**, so the branch §1 spells
+out — *"a false one → STOP (the rung ships DONE-WITH-STOP with an amendment
+slice, Rust's precedent)"* — is the one NOT taken, and no amendment slice is
+raised. §1 names no other shipping word: **PASS is nowhere in this rung's
+pre-registration**, not in §1, not in spec §7 or §12, and not in the plan.
+The pair §1 defines is DONE-WITH-STOP or not, and rung 1's record is the
+precedent for the branch this rung did not take (*"The rung therefore ships
+DONE-WITH-STOP on E6′"*, its §4). This rung took the other one, so its word
+is **DONE**.
+Nothing was re-rolled, no threshold moved, no cell was measured twice, and no
+cell is outstanding.
+
+*(Corrected in the commit that carries this line: §3's table, this section
+and the status line at the top first read **PASS**. Nothing measured moved —
+the gate is the same 0 of 30 — but PASS is a word no rule of this rung
+supplies, and the Global Constraints forbid one that the rule does not carry.
+The measurement commit's subject keeps the old word as history.)*
 
 The four gaps below are findings, not stops: none is an endpoint's rule and
 none changes a number above. Numbered as they are found; a later task appends
