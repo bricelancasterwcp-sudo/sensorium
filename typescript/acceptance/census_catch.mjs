@@ -18,8 +18,14 @@
 //   catch_clauses      every `CatchClause` in the tree
 //   callback_sites     `.catch(<one arg>)` call expressions (spec §2.2)
 //   then_sites         `.then(<two args>)` call expressions (spec §2.2)
-//   finally_completing `TryStatement`s whose `finallyBlock` holds a `return`,
-//                      `break` or `continue` at closure depth 0 (spec §2.3)
+//   finally_completing `TryStatement`s whose `finallyBlock` COMPLETES, by
+//                      `escape.mjs`'s own `finallyCompletes` — the predicate the
+//                      transform splices from (spec §2.3). Task 0 held a literal
+//                      copy of the rule here, because `src/` had none yet; Task 2
+//                      wrote it, and this census imports it rather than reading
+//                      the same sentence a second way. A rule read two ways is
+//                      two rules, and a denominator counted by the second one
+//                      would not be the numerator's.
 //   excluded           every ineligible file, by `classify()`'s own verdict
 //   parse_error        files the consumer's own parser rejected, so they were
 //                      counted rather than walked blind (R10)
@@ -31,14 +37,15 @@
 //   note               why `spliced` and `ratio` read as they do
 //
 // `scriptKind` and `parseDiagnostics` below mirror `transform.mjs`'s own
-// private `scriptKindFor` and `parseErrors`. They are duplicated rather than
-// exported because Task 0 changes nothing under `typescript/src/`; Task 7
-// re-runs this instrument against the same two rules, and a divergence between
-// them would show up as a `parse_error` count that the run does not share.
+// private `scriptKindFor` and `parseErrors`. They stay duplicated because both
+// are private to a module this instrument must not reach into; Task 7 re-runs
+// this instrument against the same two rules, and a divergence between them
+// would show up as a `parse_error` count that the run does not share.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 
+import { finallyCompletes } from '../src/escape.mjs';
 import { classify } from '../src/transform.mjs';
 
 /** @typedef {typeof import('typescript')} TS */
@@ -116,55 +123,6 @@ function parseDiagnostics(sf) {
 }
 
 /**
- * @param {TS} ts
- * @param {Node} node
- * @returns {boolean} whether `node` opens a new closure, so the walk below it
- *   is at a deeper closure depth
- */
-function opensClosure(ts, node) {
-  return (
-    ts.isFunctionDeclaration(node) ||
-    ts.isFunctionExpression(node) ||
-    ts.isArrowFunction(node) ||
-    ts.isMethodDeclaration(node) ||
-    ts.isConstructorDeclaration(node) ||
-    ts.isGetAccessorDeclaration(node) ||
-    ts.isSetAccessorDeclaration(node) ||
-    ts.isClassDeclaration(node) ||
-    ts.isClassExpression(node)
-  );
-}
-
-/**
- * Spec §2.3's rule, exactly: a `finally` block holding a `return`, `break` or
- * `continue` **at closure depth 0** discards an in-flight throw. Depth 0 is the
- * spec's word and this is its literal reading — a `break` inside a loop written
- * in the `finally` body counts, because the spec's rule is syntactic and Task 2
- * splices from the same rule. A rule read two ways is two rules.
- * @param {TS} ts
- * @param {Block} block
- * @returns {boolean}
- */
-function completes(ts, block) {
-  let found = false;
-  /** @param {Node} node */
-  const visit = (node) => {
-    if (found || opensClosure(ts, node)) return;
-    if (
-      ts.isReturnStatement(node) ||
-      ts.isBreakStatement(node) ||
-      ts.isContinueStatement(node)
-    ) {
-      found = true;
-      return;
-    }
-    ts.forEachChild(node, visit);
-  };
-  ts.forEachChild(block, visit);
-  return found;
-}
-
-/**
  * `.catch(<one arg>)` and `.then(<two args>)` — spec §2.2's two call shapes.
  * `.catch()` with no argument and `.then(x)` with one are NOT sites: the spec
  * does not touch them, so counting them would put a miss in the denominator
@@ -224,7 +182,11 @@ function census(root) {
       /** @param {Node} node */
       const visit = (node) => {
         if (ts.isCatchClause(node)) catchClauses += 1;
-        if (ts.isTryStatement(node) && node.finallyBlock && completes(ts, node.finallyBlock)) {
+        if (
+          ts.isTryStatement(node) &&
+          node.finallyBlock &&
+          finallyCompletes(ts, node.finallyBlock)
+        ) {
           finallyCompleting += 1;
         }
         const site = callbackSite(ts, node);
