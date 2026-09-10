@@ -24,8 +24,10 @@ const REGISTER = path.join(PKG, 'src', 'register.mjs');
  * @param {Record<string, string>} files path relative to the root -> source
  * @param {string} entry the module to import, relative to the root
  * @param {Record<string, string>} [env] variables to add or blank out
+ * @param {{hook?: boolean}} [opts] `hook: false` runs the same program with no
+ *   recorder at all -- the control every "as it fails plain" claim needs
  */
-function run(files, entry, env = {}) {
+function run(files, entry, env = {}, { hook = true } = {}) {
   const root = fs.mkdtempSync(path.join(PROBES, 'hooktmp-'));
   const spool = path.join(root, 'spool');
   const manifests = path.join(root, 'manifests');
@@ -34,7 +36,9 @@ function run(files, entry, env = {}) {
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
       fs.writeFileSync(path.join(root, rel), source);
     }
-    const res = spawnSync(process.execPath, ['--import', REGISTER, path.join(root, entry)], {
+    const target = path.join(root, entry);
+    const argv = hook ? ['--import', REGISTER, target] : [target];
+    const res = spawnSync(process.execPath, argv, {
       encoding: 'utf8',
       timeout: 30_000,
       env: {
@@ -175,4 +179,55 @@ test('an ES module under the root still carries its own count', () => {
   }, 'main.mjs');
   assert.equal(out.res.status, 0, out.res.stderr);
   assert.deepEqual(out.tally, { files_transformed: 2, excluded: {} });
+});
+
+/** The first error code a run printed, or null: what two sides compare on. */
+const codeOf = (/** @type {string} */ stderr) => (stderr.match(/ERR_[A-Z_]+/) ?? [null])[0];
+
+test('a `.mts` under the root is instrumented and stripped by Node', () => {
+  // The R46 residual, closed. `STRIP` held `.ts` and `.tsx`, so an eligible
+  // `.mts` was instrumented, handed back with its types still in it, and Node
+  // threw a SyntaxError on the first annotation it met. Node's OWN reported
+  // format goes back now (`module-typescript`), and Node strips it with the
+  // stripper plain `node --test` already uses.
+  const out = run({
+    'main.mts': "import { helper } from './lib.mts';\nconsole.log(helper(1));\n",
+    'lib.mts': 'export function helper(x: number): number {\n  return x + 1;\n}\n',
+  }, 'main.mts');
+  assert.equal(out.res.status, 0, out.res.stderr);
+  assert.equal(out.res.stdout.trim(), '2');
+  assert.deepEqual(filesOf(out.recs), ['lib.mts', 'main.mts']);
+  assert.deepEqual(called(out.recs), ['helper']);
+});
+
+test('the hook erases nothing: a construct strip-only mode rejects fails as it fails plain', () => {
+  // H1's falsifier. An `enum` has runtime meaning, so Node's strip-only mode
+  // refuses it by name; the old hook ran `transpileModule` over the file and
+  // EMITTED one, so the recorder made a program load that plain `node` will
+  // not load. A recorder that changes what loads is changing the program.
+  const files = {
+    'main.ts': "import { Colour } from './lib.ts';\nconsole.log(Colour.Red);\n",
+    'lib.ts': 'export enum Colour {\n  Red = 1,\n}\n',
+  };
+  const out = run(files, 'main.ts');
+  const plain = run(files, 'main.ts', {}, { hook: false });
+  assert.equal(codeOf(plain.res.stderr), 'ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX');
+  assert.notEqual(out.res.status, 0);
+  assert.equal(codeOf(out.res.stderr), codeOf(plain.res.stderr));
+});
+
+test('a `.tsx` never reaches the hook', () => {
+  // H2. Node's own loader throws `ERR_UNKNOWN_FILE_EXTENSION` from `nextLoad`
+  // before any `load` hook runs, so under `node --test` a JSX file is outside
+  // NODE's scope and not an exclusion of ours: the hook never sees it, and a
+  // count of files it decided about cannot honestly include one it did not.
+  const out = run({
+    'main.mjs': "await import('./x.tsx');\nconsole.log('loaded');\n",
+    'x.tsx': 'export const x = 1;\n',
+  }, 'main.mjs');
+  assert.notEqual(out.res.status, 0);
+  assert.match(out.res.stderr, /ERR_UNKNOWN_FILE_EXTENSION/);
+  assert.equal(out.res.stdout.includes('loaded'), false);
+  assert.deepEqual(filesOf(out.recs), ['main.mjs']);
+  assert.deepEqual(out.tally, { files_transformed: 1, excluded: {} });
 });
