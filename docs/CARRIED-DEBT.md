@@ -681,8 +681,11 @@ subject is a mood).
   name set; unused destructures in the byte-exact test; the `node_modules`
   check reads the root-relative path only; no golden pins the task-boundary
   and expression-bodied-callback shared-offset ordering (verified correct by
-  review, unpinned by a test); `transformSource`'s JSDoc lacks `@throws` for
-  R10a; a one-line tsconfig reformat.
+  review, unpinned by a test); ~~`transformSource`'s JSDoc lacks `@throws` for
+  R10a~~ *(struck 2026-09-09, ruling R44: stale when it was written -- the tag
+  is on `transformSource` in `typescript/src/transform.mjs` and names R10a;
+  no line number here, so this row cannot go stale a second way)*; a one-line
+  tsconfig reformat.
 - *Task 3*: the `off` test pre-creates the spool directory, so it cannot tell
   "no file" from "empty dir"; `run()` yields `recs: []` on a spool count ≠ 1
   instead of asserting.

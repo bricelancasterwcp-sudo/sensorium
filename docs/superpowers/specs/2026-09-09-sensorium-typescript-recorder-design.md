@@ -778,7 +778,11 @@ code existed (its own *"Decisions this plan makes"* table, `../plans/
 non-silently, which is what that table promised and this is where it is paid.
 **R-rows** are controller rulings made while shipping, each of which changed a
 sentence of the design; the ruling id is the one in the rung's ledger
-(`rulings.md`, 42 rulings, of which the ones below moved the design's text).
+(`rulings.md` — the rows below are the ones that moved this design's text, not
+the whole of it). *(Amended 2026-09-09, ruling R44: this read "42 rulings", a
+count that was already wrong when the fix wave that follows it was ruled. A
+number that has to be re-counted every time the ledger grows is a number that
+will be wrong; the ledger counts itself.)*
 
 | # | This design said | Rung 1 shipped | Why (the ruling) | Cost if wrong |
 |---|---|---|---|---|
