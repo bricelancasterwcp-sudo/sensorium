@@ -203,3 +203,47 @@ def test_a_projects_config_is_refused_by_name_and_records_nothing(tmp_path):
     assert "run: " not in r.stdout
     # And the wrapper is gone from the tree it was written into.
     assert not (PROBES / "node_modules" / ".sensorium").exists()
+
+
+# -- the `node --test` harness ----------------------------------------------
+
+#: The explicit file list `npm run probe:nodetest` runs, in its order. Node's
+#: own default test patterns are not relied on: they would sweep the ten
+#: vitest probes under `src/` into the same run, and those need a vitest.
+NODETEST_PROBES = [
+    "nodetest/async.probe.test.ts", "nodetest/ext.probe.test.mts",
+    "nodetest/ext.probe.test.mjs", "nodetest/ext.probe.test.cjs"]
+
+
+def test_the_nodetest_probes_and_controls_pass_through_the_driver(tmp_path):
+    """Spec section 4.5's four files and two controls, driven the way a
+    consumer drives them rather than by the probe project's own script.
+
+    One test file per extension: the `.ts` and the `.mts` are typed and are
+    stripped by NODE, the `.mjs` has nothing to strip, and the `.cjs` is
+    excluded and counted -- and the controls hold the other half of H1/H2,
+    that a file Node refuses to load is refused identically with this
+    recorder in front of it. `check.mjs` is the gate on the first four;
+    `controls.mjs`'s exit status is the gate on the two.
+    """
+    store = tmp_path / "store"
+    r = run_cli(["ts", "run", "--", "node", "--test", *NODETEST_PROBES],
+                cwd=PROBES, sensorium_dir=store)
+    assert r.returncode == 0, r.stdout + r.stderr
+    m = INVOCATION.search(r.stdout)
+    assert m, r.stdout + r.stderr
+    spool = store / "spool" / m.group(1)
+
+    check = subprocess.run(
+        ["node", "check.mjs", "nodetest", str(spool), str(spool / "manifests")],
+        cwd=PROBES, capture_output=True, text=True)
+    report = json.loads(check.stdout or "{}")
+    assert report.get("failures") == [], check.stdout + check.stderr
+    assert report["ok"] is True
+    assert check.returncode == 0
+
+    controls = subprocess.run(
+        ["node", "nodetest/controls.mjs"], cwd=PROBES, capture_output=True,
+        text=True, env=dict(os.environ, SENSORIUM_TS_ROOT=str(PROBES),
+                            SENSORIUM_TS_PKG=str(pkg_mod.locate())))
+    assert controls.returncode == 0, controls.stdout + controls.stderr

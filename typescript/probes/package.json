@@ -6,7 +6,7 @@
   "description": "The recorder's own probe project: it records ITSELF under vitest and node --test, and check.mjs reads the spools back.",
   "scripts": {
     "probe": "SENSORIUM_PROBE_DIRECT=1 vitest run; node check.mjs vitest \"$SENSORIUM_SPOOL\" \"$SENSORIUM_MANIFEST_DIR\"",
-    "probe:nodetest": "node --import ../src/register.mjs --test nodetest/async.probe.test.ts; node check.mjs nodetest \"$SENSORIUM_SPOOL\""
+    "probe:nodetest": "node --import ../src/register.mjs --test nodetest/async.probe.test.ts nodetest/ext.probe.test.mts nodetest/ext.probe.test.mjs nodetest/ext.probe.test.cjs; node nodetest/controls.mjs; node check.mjs nodetest \"$SENSORIUM_SPOOL\" \"$SENSORIUM_MANIFEST_DIR\""
   },
   "devDependencies": {
     "jsdom": "^29.0.0",

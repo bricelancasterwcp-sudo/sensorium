@@ -8,11 +8,12 @@
 // probe files were written for. Nothing here is eyeballed: a probe passes when
 // its rows are asserted, and the JSON on stdout is the evidence.
 //
-//   node check.mjs <vitest|nodetest> <spool dir> [manifest dir]
+//   node check.mjs <vitest|nodetest> <spool dir> <manifest dir>
 //
-// The manifest directory is REQUIRED in `vitest` mode: it carries the plugin's
-// tally, and a checker that let it be omitted would let the tally checks be
-// skipped by leaving an argument off.
+// The manifest directory is REQUIRED in both modes: it carries the plugin's
+// tally under vitest and the per-child tallies under `node --test` (including
+// the one belonging to the child that recorded nothing), and a checker that let
+// it be omitted would let those checks be skipped by leaving an argument off.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -85,6 +86,17 @@ const SWALLOW_EXC = {
 
 const EACH_NAMES = ['adds 1 + 2 = 3', 'adds 2 + 3 = 5', 'adds 4 + 5 = 9'];
 
+/**
+ * The probe files a `node --test` run must have recorded, by root-relative
+ * path -- one per extension the hook can be handed. `nodetest/ext.probe.test.cjs`
+ * is NOT here: it is excluded, so it declares no file and writes no spool, and
+ * what answers for it is its tally (`ext:cjs:tally`).
+ */
+const NODETEST_PROBES = [
+  'nodetest/async.probe.test.ts', 'nodetest/ext.probe.test.mts',
+  'nodetest/ext.probe.test.mjs',
+];
+
 /** The probe files a full vitest run must have recorded, by root-relative path. */
 const VITEST_PROBES = [
   'src/async.probe.test.ts', 'src/async.jsdom.probe.test.ts', 'src/sites.probe.test.ts',
@@ -138,7 +150,7 @@ function index(spool) {
       rows.push({ kind: r.e, name: frames.get(r.f)?.name ?? '<unknown>', task: r.t, rec: r });
     }
   }
-  const probe = [...files.values()].find((f) => /\.probe\.test\.[jt]sx?$/.test(f.rel));
+  const probe = [...files.values()].find((f) => /\.probe\.test\.[cm]?[jt]sx?$/.test(f.rel));
   return { ...spool, files, tasks, frames, rows, probe: probe ? probe.rel : null };
 }
 
@@ -423,15 +435,62 @@ function runVitest(k, spools) {
     jsdom?.records.find((r) => r.e === 'FILE_START')?.environment === 'jsdom');
 }
 
-/** @param {Checker} k @param {ReturnType<typeof index>[]} spools */
-function runNodeTest(k, spools) {
-  const found = spools.filter((s) => s.probe === 'nodetest/async.probe.test.ts');
-  k.check('probes:present', found.length === 1, spools.map((s) => s.probe));
-  for (const s of found) {
-    checkContainer(k, s, false);
-    // No setup file, so no provider: a task is named by its lexical title.
-    checkAsync(k, s, 'nodetest', 'title');
+/**
+ * One extension's probe: it recorded a spool, and that spool opened at least
+ * one task. `basis` is asserted where the pre-registration named it and left
+ * null where it did not -- a checker that asserts more than the table it was
+ * written against is a checker nobody pre-registered.
+ * @param {Checker} k
+ * @param {ReturnType<typeof index>|undefined} s
+ * @param {string} ext the label the check is named by
+ * @param {string|null} basis the naming basis, or null to leave it unasserted
+ */
+function checkExt(k, s, ext, basis) {
+  const tasks = s ? [...s.tasks.values()] : [];
+  const named = basis === null || tasks.every((t) => t.basis === basis);
+  k.check(`ext:${ext}:tasks`, tasks.length >= 1 && named,
+    tasks.map((t) => ({ name: t.name, basis: t.basis })));
+}
+
+/**
+ * The `.cjs` probe's own child, which recorded nothing and counted itself.
+ * `node --test` runs one process per test file, so that child is the one
+ * whose `_tally-<pid>.json` belongs to no spool in this directory.
+ * @param {Checker} k
+ * @param {string} dir the manifest directory
+ * @param {ReturnType<typeof index>[]} spools
+ */
+function checkCjsTally(k, dir, spools) {
+  const pids = new Set(spools.map((s) => s.name.split('-')[0]));
+  const tallies = fs.existsSync(dir)
+    ? fs.readdirSync(dir).filter((n) => /^_tally-\d+\.json$/.test(n)) : [];
+  const orphans = tallies.filter((n) => !pids.has(n.slice('_tally-'.length, -'.json'.length)));
+  if (orphans.length !== 1) {
+    k.check('ext:cjs:tally', false, { tallies, spool_pids: [...pids], orphans });
+    return;
   }
+  k.equal('ext:cjs:tally', JSON.parse(fs.readFileSync(path.join(dir, orphans[0]), 'utf8')),
+    { files_transformed: 0, excluded: { commonjs: 1 } });
+}
+
+/**
+ * @param {Checker} k
+ * @param {ReturnType<typeof index>[]} spools
+ * @param {string} manifestDir
+ */
+function runNodeTest(k, spools, manifestDir) {
+  const by = new Map(spools.map((s) => [s.probe, s]));
+  k.equal('probes:present', NODETEST_PROBES.filter((probe) => !by.has(probe)), []);
+  // The `.cjs` one is present by being ABSENT: a spool for it would mean the
+  // hook had instrumented a file it says it excluded.
+  k.check('probes:no_cjs_spool', !by.has('nodetest/ext.probe.test.cjs'), [...by.keys()]);
+  for (const s of spools) checkContainer(k, s, false);
+  const async_ = by.get('nodetest/async.probe.test.ts');
+  // No setup file, so no provider: a task is named by its lexical title.
+  if (async_) checkAsync(k, async_, 'nodetest', 'title');
+  checkExt(k, by.get('nodetest/ext.probe.test.mts'), 'mts', 'title');
+  checkExt(k, by.get('nodetest/ext.probe.test.mjs'), 'mjs', null);
+  checkCjsTally(k, manifestDir, spools);
 }
 
 /**
@@ -459,7 +518,7 @@ function checkTally(k, dir) {
 }
 
 /** One line, and never a guess about what the caller meant. */
-const USAGE = 'usage: node check.mjs <vitest|nodetest> <spool dir> [manifest dir]';
+const USAGE = 'usage: node check.mjs <vitest|nodetest> <spool dir> <manifest dir>';
 
 /**
  * @param {string} reason
@@ -476,14 +535,13 @@ function main() {
   // empty and absent are the same refusal: nothing was recorded to check.
   if (mode !== 'vitest' && mode !== 'nodetest') refuse(`unknown mode ${JSON.stringify(mode ?? null)}`);
   if (!spoolDir) refuse('no spool directory — is SENSORIUM_SPOOL set?');
-  if (mode === 'vitest' && !manifestDir) {
-    refuse('no manifest directory — is SENSORIUM_MANIFEST_DIR set?');
-  }
+  if (!manifestDir) refuse('no manifest directory — is SENSORIUM_MANIFEST_DIR set?');
   if (!fs.existsSync(spoolDir)) refuse(`${spoolDir} does not exist — did the run record anything?`);
   const k = new Checker();
   const spools = readSpools(spoolDir).map(index);
   k.check('spools:any', spools.length > 0, spools.length);
-  if (spools.length > 0) (mode === 'nodetest' ? runNodeTest : runVitest)(k, spools);
+  if (spools.length > 0 && mode === 'nodetest') runNodeTest(k, spools, manifestDir);
+  if (spools.length > 0 && mode === 'vitest') runVitest(k, spools);
   if (mode === 'vitest') checkTally(k, manifestDir);
   const ok = k.failures.length === 0;
   process.stdout.write(`${JSON.stringify({

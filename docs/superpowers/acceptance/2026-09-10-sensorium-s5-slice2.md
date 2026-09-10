@@ -285,7 +285,9 @@ and its three falsified predictions in §3.7, and the ladder's **a3** rung
 and its two predictions — one held, one falsified in the fast direction —
 in §3.8, and the slice's **three gated E10′ clauses** — the 372-pair
 equivalence gate and the two verdict cells, measured last on the final
-converter — detail in §3.9 and their verdicts in §4.1.
+converter — detail in §3.9 and their verdicts in §4.1, and the **H-probes**
+cell — §4.5's four files and two controls, measured 2026-09-10 on the hook at
+`05e5338`, detail in §3.10.
 
 | Id | Cell | Rule (from §1) | Result |
 |---|---|---|---|
@@ -299,7 +301,7 @@ converter — detail in §3.9 and their verdicts in §4.1.
 | E10′-0 | 0c — the full set, `--jobs 4`, n=3 | reported against spec §3.2's prediction (between 0b and 0d); no verdict | **67.9342 s** median, n=3, 67.1653 – 67.9709; 1-min loads 0.82/3.5/3.78; peak RSS 2,270,804 kB; the global tool, main `bbd0781` — §3.6 |
 | E10′-0 | 0d — the full set, `--jobs 16`, n=3 | reported against spec §3.2's prediction (≈ 45 s); no verdict | **45.7378 s** median, n=3, 43.5478 – 45.8268; 1-min loads 2.09/3.97/3.79; peak RSS 2,269,696 kB; the global tool, main `bbd0781` — §3.6 |
 | E10′-0 | 0e — the one file, default jobs, n=5 | reported against spec §3.2's prediction (≈ 0.36 s); no verdict | **0.3624 s** median, n=5, 0.2736 – 0.4051; 1-min loads 0.96/0.96/0.96/0.96/0.96; peak RSS 30,828 kB; the global tool, main `bbd0781` — §3.6 |
-| H-probes | §4.5's four probe files and two controls | every row as its table says; a control mismatch → STOP | not measured (slice 2 pending) |
+| H-probes | §4.5's four probe files and two controls | every row as its table says; a control mismatch → STOP | **PASS** — `check.mjs nodetest` **ok: true**, 25 checks, 0 failures over 3 spools: `async.probe.test.ts` E3 S1–S4 + T1/T2 at `basis: title`; `ext.probe.test.mts` 1 task (`M1 …`, `basis: title`); `ext.probe.test.mjs` 1 task (`M2 …`); `ext.probe.test.cjs` **no spool**, its orphan tally `{"files_transformed": 0, "excluded": {"commonjs": 1}}`; controls `enum.ts` `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` on both sides and `jsx.tsx` `ERR_UNKNOWN_FILE_EXTENSION` on both sides, `same: true` twice — no mismatch, so no STOP; `npm run probe:nodetest` exit 0, node v24.16.0, the worktree at `05e5338` — §3.10 |
 
 **Reported without a gate** (spec §3.6). Measured on Arm 0 (§3.6 below): **0b/0d
 = 154.3012 / 45.7378 = 3.3736×**, the parallel speedup on main's converter;
@@ -650,6 +652,47 @@ under 0.4002 s, and 16.3859 and 16.3716 are both under 22.5925 s — so the
 choice does not decide either verdict. §5 records the instrument gap.
 
 
+### 3.10 H-probes — the four files and the two controls
+
+Measured 2026-09-10 on `feat/s5-slice2` with the hook at `05e5338`, node
+v24.16.0, by the instrument §1 named: `npm run probe:nodetest` from
+`typescript/probes/`, which runs the four files as an explicit list under
+`node --import ../src/register.mjs --test`, then `nodetest/controls.mjs`,
+then `node check.mjs nodetest "$SENSORIUM_SPOOL" "$SENSORIUM_MANIFEST_DIR"`.
+The script exited **0**; the harness ran **9 tests, 9 pass, 0 fail**.
+
+`check.mjs`: `ok: true`, `spools: 3`, **25 checks, 0 failures**. Per §1's
+table, row by row:
+
+| File | Expected | Read |
+|---|---|---|
+| `nodetest/async.probe.test.ts` | a spool, its tasks, the checker's async checks | S1–S4 matched their §1.1 rows, T1/T2 control clean, every task `basis: title` |
+| `nodetest/ext.probe.test.mts` | a spool with ≥1 task, types stripped by Node, `task_name_basis: lexical` | 1 task, `M1 an .mts is stripped by Node and recorded`, `basis: title` (the wire spelling of "lexical" — gap 6); two files transformed, the probe and `ext.lib.mts` |
+| `nodetest/ext.probe.test.mjs` | a spool with ≥1 task | 1 task, `M2 an .mjs is instrumented with nothing to erase` |
+| `nodetest/ext.probe.test.cjs` | no spool for that pid; `_tally-<pid>.json` reads `files_transformed: 0`, `excluded: {commonjs: 1}` | no spool (`probes:no_cjs_spool`); the one tally whose pid is no spool's reads `{"files_transformed": 0, "excluded": {"commonjs": 1}}` exactly |
+
+`controls.mjs`, verbatim on stdout:
+
+```
+{"control":"controls/enum.ts","plain":"ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX","hooked":"ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX","same":true}
+{"control":"controls/jsx.tsx","plain":"ERR_UNKNOWN_FILE_EXTENSION","hooked":"ERR_UNKNOWN_FILE_EXTENSION","same":true}
+```
+
+Both codes are the ones §1's control table names, both sides agree, and
+neither side exited 0 — so no mismatch and no STOP. The controls
+discriminate, measured: with the PRE-`05e5338` hook in place,
+`controls/enum.ts` exited **0** on the hooked side (`hooked: null`,
+`same: false`) and `controls.mjs` refused with exit 1 — the recorder had made
+a file load that plain `node` refuses. The checker discriminates too:
+deleting the `.mts` spool from a copy of the set fails `probes:present` and
+`ext:mts:tasks`, and deleting the tallies fails `ext:cjs:tally`.
+
+The driven half runs the same directory through the driver
+(`tests/test_ts_live.py::test_the_nodetest_probes_and_controls_pass_through_the_driver`,
+`SENSORIUM_TS_LIVE=1`): `sensorium ts run -- node --test <the four files>`,
+then the same checker and the same controls against the spool the DRIVER
+produced — 10 passed.
+
 ## 4. Decisions
 
 One verdict per pre-registered endpoint, written when that endpoint's cells
@@ -739,8 +782,9 @@ and they did not (§3.8). Arm C, the binary wire, stays off the ladder — spec
 §3.7's trigger for revisiting it was "0d ≈ 0a", which never fired (§3.6).
 
 **Still open at this point in the slice:** E6″ (§1 `### 2.2 The rule`'s four
-clauses) and the H-probes (§1 `### 4.5 Probes and the checker`), whose cells
-belong to their own tasks and are written here when they run.
+clauses), whose cell belongs to its own task and is written here when it
+runs. The H-probes cell (§1 `### 4.5 Probes and the checker`) was open when
+this section was written and is now filled: **PASS**, §3.10.
 
 ## 5. Gaps found
 
@@ -784,6 +828,29 @@ Numbered as they are found; a later task appends rather than renumbers.
    63 GB free and nothing came near the disk, so no number is owed to any
    verdict here — but the slice still has no reading of that peak, and this
    box has run at ~3 GB free on `/`. It belongs in CARRIED-DEBT at Task 7.
+
+5. **The controls wrote into the run's own manifest directory, and the
+   first H-probes run STOPped on it.** `npm run probe:nodetest` failed
+   `ext:cjs:tally` with TWO orphan tallies instead of one: `controls.mjs`
+   spawned its hooked side with `SENSORIUM_MANIFEST_DIR` inherited, and the
+   `enum.ts` child — whose file the TRANSFORM accepts and NODE then refuses
+   — wrote a `_tally-<pid>.json` into the probe run's manifest directory,
+   where it reads as a second child that recorded no spool. Nothing about
+   the recorder was wrong; an instrument that shares a directory with the
+   run it measures is. `controls.mjs` now points both `SENSORIUM_SPOOL` and
+   `SENSORIUM_MANIFEST_DIR` at its own scratch directory, removed after, and
+   the run was repeated from zero: §3.10's numbers are that re-run's, and
+   the first run's only reading was the defect.
+
+6. **§1's `task_name_basis: lexical` is the prose name; the wire value is
+   `title`.** The pre-registration's §4.5 row for `ext.probe.test.mts` calls
+   the naming basis "lexical"; `rt.mjs` writes `basis: "title"` on the TASK
+   record (and `task_name_basis: "title"` in meta) for exactly that rule — a
+   task named by the lexical title the transform saw, there being no
+   provider under `node --test`. Same fact, two spellings; the check asserts
+   the value the recorder writes, and §3.10 says so beside the row. Worth a
+   line in the ledger only so the next reader does not go looking for a
+   third basis.
 
 ### 5.A Addendum, 2026-09-10 — E10′-eq-content, pre-registered before it ran
 
