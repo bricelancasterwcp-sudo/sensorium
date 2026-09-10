@@ -11,13 +11,17 @@ questions:
       original's block is AMBIGUOUS -- the clause read its binding to build
       the wrapper's message, so the error or a rendering of it left the
       handler and the rule does not follow where. The wrapper's own raise at
-      e7 is judged on its own evidence and reaches no rule either: it
-      unwound `decodeOrWrap` and the arrow `expect` called, and the frame
-      that finally received it is vitest's, which is not traced -- so no
-      handler row, no root frame of the task, and the honest word is that no
-      rule reaches a verdict. A tool that folded the two into one story
-      would report the original as PROPAGATED and be wrong: the original
-      stopped at e6.
+      e7 is judged on its own evidence and reaches no rule either -- and
+      AMBIGUOUS is the correct word for it, not PROPAGATED. It unwound
+      `decodeOrWrap` and the arrow `expect` called, and the frame that
+      finally received it is vitest's, which is not traced: these rules
+      cannot see an UNTRACED catcher sitting between two traced frames, so
+      there is no handler row to read, the outermost frame it unwound is not
+      a task root, and PROPAGATED -- which claims the failure left the
+      traced world -- is not established. Saying so is the whole of what
+      this block can honestly say. A tool that folded the two objects into
+      one story would report the ORIGINAL as having gone that far and be
+      wrong twice over: the original stopped at e6.
     why_logs_fail: >
       A `console.log` of the wrapper prints a message built out of the
       original's, which is exactly the confusion the case is about: the

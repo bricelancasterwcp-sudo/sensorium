@@ -7,19 +7,21 @@ questions:
       `catch` clauses on its way there -- what became of it, and where did
       it stop?
     truth: >
-      One thrown object, two RAISE rows, two blocks -- and the tool keeps
-      them separate on purpose: the origin at e5 says RE-RAISED and points
-      at what became of the LAST raise, and the `hops:` line draws the whole
-      journey (`e5 (load L7) -> e7 (reload L14)`). The second block is the
-      verdict on the failure itself, and it is AMBIGUOUS rather than the
-      swallow a reader can see in the source. The reason is the middle
-      clause: `catch (e) { throw e }` MENTIONS its binding outside a logging
-      call, so the transform wrote `catch_escaped`, and one escaping handler
-      anywhere for a serial keeps every row of that serial out of SWALLOWED.
-      The outer `catch { return 'defaults' }` really did absorb it -- and
-      this recorder declines to say so, because by its own escape rule the
-      value had already left a handler once. A rethrow clause is always
-      escaping under that rule, so no `throw e` hop can end in SWALLOWED.
+      It was swallowed by the outer clause, and the tool shows the whole
+      journey to get there. One thrown object, two RAISE rows, two blocks --
+      kept separate on purpose, because a tally that counted objects and not
+      raises would not line up with any other recording. The origin at e5
+      reads RE-RAISED and points at what became of the LAST raise (`→
+      swallowed`), and the `hops:` line draws the route: `e5 (load L10) → e7
+      (reload L17)`. The second block carries the verdict itself: SWALLOWED,
+      the `catch` in `boot` at e8, in the frame that then returned
+      'defaults'. The middle clause -- `catch (e) { throw e }` -- is a
+      traced EXIT and not an escape: the value reaches nothing, it leaves
+      the way it arrived, and the RAISE it writes carries the same serial,
+      which is exactly what makes the pair a hop rather than two unrelated
+      failures. A clause that did anything ELSE with `e` on its way to the
+      rethrow -- `list.push(e); throw e` -- would be `catch_escaped`, and
+      every row of the serial would read AMBIGUOUS instead.
     why_logs_fail: >
       A `console.log` in either clause prints one error twice and leaves the
       reader to guess whether those two lines are one object or two failures
@@ -33,10 +35,10 @@ questions:
     command: ["exceptions", "$RUN"]
     expect_exit: 0
     expect_line:
-      - ["e5 RAISE", "load raise Error('disk offline') L7"]
-      - ["RE-RAISED -- raised again at e7 (reload L14) → ambiguous"]
-      - ["hops: e5 (load L7) → e7 (reload L14)"]
-      - ["e7 RAISE", "reload raise Error('disk offline') L14"]
-      - ["AMBIGUOUS -- caught at e6 (catch_escaped), and the error or a
-          rendering of it left the handler; not followed"]
-      - ["dispositions: re-raised 1, ambiguous 1"]
+      - ["e5 RAISE", "load raise Error('disk offline') L10"]
+      - ["RE-RAISED -- raised again at e7 (reload L17) → swallowed"]
+      - ["hops: e5 (load L10) → e7 (reload L17)"]
+      - ["e7 RAISE", "reload raise Error('disk offline') L17"]
+      - ["SWALLOWED -- caught by catch at e8 (boot L24) in f2, which
+          returned"]
+      - ["dispositions: swallowed 1, re-raised 1"]

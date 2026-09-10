@@ -126,9 +126,22 @@ A `catch (e) { … }` clause's `how` is decided from its body:
 - A clause with no binding reads `catch` (nothing can escape); a
   **destructuring** binding reads `catch_escaped` (the runtime cannot see
   what it bound; blind spot 13 becomes a declared escape).
-- A `catch` whose body contains a `throw` still writes `catch` or
-  `catch_escaped` by the rule above; the RAISE the throw writes is what the
-  rule module reads (a rethrow with the same serial is a hop, §3.3).
+- A **bare rethrow** — `throw e;`, or `throw (e);`, whose operand after any
+  parentheses is the binding ITSELF — is a traced EXIT and not a mention: it
+  does not count towards `catch_escaped`, and the clause's `how` is decided by
+  whatever else its body does with the binding. So `catch (e) { throw e }` and
+  `catch (e) { console.error(e); throw e }` read `catch`, while
+  `catch (e) { list.push(e); throw e }`, `catch (e) { throw new Wrapped(e) }`,
+  `catch (e) { throw e.cause }` and `catch (e) { throw wrap(e) }` stay
+  `catch_escaped`. The exclusion holds at closure depth 0 only: a `throw e`
+  inside a nested function within the body is an escape by the closure rule,
+  because the closure keeps the binding. The value reaches nothing — it leaves
+  the way it arrived — and the RAISE the throw writes carries the same serial,
+  which is what the rule module reads (a rethrow with the same serial is a hop,
+  §3.3 rule 2). *(Amended 2026-09-10 at Task 6: the original text and
+  `escape.mjs` counted a bare rethrow as an escape, which made rule 3's
+  escaping conjunct bar every `throw e` hop from SWALLOWED and contradicted
+  §3.3, §6.1's `rethrow_hop` row and R4; ruled at execution.)*
 
 The analysis is syntactic, over the clause's own AST, closure depth 0 and
 below (a mention inside a nested function body escapes: the closure keeps

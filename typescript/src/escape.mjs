@@ -133,18 +133,52 @@ function hasMention(ts, node, name) {
 }
 
 /**
- * Whether the binding escapes the body: any mention of it that is not logged.
+ * `throw e;` — a throw whose operand, after any parentheses, is the binding
+ * ITSELF. A traced exit and not an escape (ruled 2026-09-10 at Task 6): the
+ * value does not reach anything, it leaves the same way it arrived, and the
+ * RAISE the throw writes carries the same serial, so the rule module reads the
+ * pair as a hop (spec §3.3 rule 2) and judges the rethrow on its own block.
+ * Counting this mention made rule 3's escaping conjunct bar EVERY `throw e`
+ * from a swallow, which contradicts §6.1's `rethrow_hop` row and R4.
+ *
+ * `throw e.cause`, `throw wrap(e)` and `throw new Wrapped(e)` are NOT this:
+ * their operand is something built out of the binding, so the binding reached a
+ * property access or a call and the escape stands.
+ * @param {TS} ts
+ * @param {Node} node
+ * @param {string} name
+ * @returns {boolean}
+ */
+function isBareRethrow(ts, node, name) {
+  if (!ts.isThrowStatement(node) || !node.expression) return false;
+  let operand = node.expression;
+  while (ts.isParenthesizedExpression(operand)) operand = operand.expression;
+  return ts.isIdentifier(operand) && operand.text === name;
+}
+
+/**
+ * Whether the binding escapes the body: any mention of it that is not logged
+ * and is not a bare rethrow.
  *
  * A closure is not descended into and is not judged by what it does with the
  * value — it KEEPS it, so a mention anywhere inside one is an escape however
  * that closure logs it. An expression body that is itself a closure is read the
  * same way, which is why the check comes before the walk rather than inside it.
+ * The bare-rethrow exclusion is at closure depth 0 ONLY, for the same reason:
+ * `retry(() => { throw e; })` hands the binding to a closure that may run
+ * later, elsewhere, or never, and that is an escape whatever it then throws.
+ *
+ * `rethrowExits` is passed by `catchHow` and NOT by `callbackHow`, because the
+ * ruling of 2026-09-10 is about a `catch` clause: a rejection handler's
+ * parameter reaching a `throw` is left as the escape it has always been
+ * recorded as, and flipping it is a question nobody has ruled on.
  * @param {TS} ts
  * @param {Node} root
  * @param {string} name
+ * @param {boolean} rethrowExits whether `throw <name>;` is a traced exit
  * @returns {boolean}
  */
-function escapes(ts, root, name) {
+function escapes(ts, root, name, rethrowExits = false) {
   if (opensClosure(ts, root)) return hasMention(ts, root, name);
   let escaped = false;
   /** @param {Node} node */
@@ -154,6 +188,9 @@ function escapes(ts, root, name) {
       escaped = hasMention(ts, node, name);
       return;
     }
+    // Neither a mention nor a subtree to walk: the operand IS the binding, and
+    // descending would find that identifier and call it an escape.
+    if (rethrowExits && isBareRethrow(ts, node, name)) return;
     if (ts.isIdentifier(node) && node.text === name && isRead(ts, node)) {
       escaped = !isLogged(ts, node, root);
       return;
@@ -168,7 +205,9 @@ function escapes(ts, root, name) {
  * A `catch` clause's `how` (§2.1). An empty block is the sink it always was,
  * whatever it bound; a clause with no binding can let nothing out; a
  * destructuring binding is an escape, because the runtime never sees what it
- * bound and this rule will not guess.
+ * bound and this rule will not guess. A bare `throw e;` at closure depth 0 is
+ * a traced exit and not a mention, so the clause is decided by whatever ELSE
+ * its body does with the binding (`isBareRethrow`, ruled 2026-09-10).
  * @param {TS} ts
  * @param {CatchClause} clause
  * @returns {'catch'|'catch_escaped'|'sink_empty_catch'}
@@ -178,7 +217,7 @@ export function catchHow(ts, clause) {
   const declared = clause.variableDeclaration;
   if (!declared) return 'catch';
   if (!ts.isIdentifier(declared.name)) return 'catch_escaped';
-  return escapes(ts, clause.block, declared.name.text) ? 'catch_escaped' : 'catch';
+  return escapes(ts, clause.block, declared.name.text, true) ? 'catch_escaped' : 'catch';
 }
 
 /**

@@ -130,10 +130,17 @@ export function escapedShorthand(): string {
   return 'ok';
 }
 
-export function escapedThrow(): string {
+/**
+ * Ruled 2026-09-10 (Task 6): a BARE rethrow is a traced exit, not an escape.
+ * The clause reads `catch`, and the RAISE the `throw` writes carries the same
+ * serial, so the rule module reads the pair as a hop and judges the rethrow's
+ * own block. `throw new Wrapped(e)`, `throw e.cause` and a rethrow inside a
+ * closure all stay escapes -- `escape.test.mjs` holds those rows.
+ */
+export function bareRethrow(): string {
   try {
-    throw new Error('escaped_throw');
-    // ESCAPE escaped_throw catch_escaped
+    throw new Error('bare_rethrow');
+    // ESCAPE bare_rethrow catch
   } catch (e) {
     throw e;
   }
@@ -156,13 +163,16 @@ test('the four logged positions and the clause with nothing to let out', () => {
   expect(noBinding()).toBe('ok');
 });
 
-test('the eight positions the value escapes through', () => {
+test('the seven positions the value escapes through', () => {
   expect(escapedReturn()).toBe('escaped_return');
   expect(escapedAssign()).toBe('Error: escaped_assign');
   expect(escapedPush()).toBe(1);
   expect(escapedCall()).toBe('ok');
   expect(escapedClosure()).toBe('ok');
   expect(escapedShorthand()).toBe('ok');
-  expect(() => escapedThrow()).toThrow('escaped_throw');
   expect(destructured()).toBe('destructured');
+});
+
+test('a bare rethrow is a traced exit, not an escape', () => {
+  expect(() => bareRethrow()).toThrow('bare_rethrow');
 });

@@ -6,7 +6,10 @@
 // Shapes 6-12 are rung 2's: the words a `how` can now carry once the escape
 // rule, the rejection-callback wrapper and the `finally` sink are spliced
 // (spec §2.1-§2.3). Shapes 4 and 5 are rung 1's, and their markers moved with
-// the rule: `return String(e)` and `throw e` are escapes now, not swallows.
+// the rule: `return String(e)` is an escape now and not a swallow, and shape 5's
+// OUTER clause is one for the same reason. Its inner `throw e` is not -- ruled
+// 2026-09-10 (Task 6): a bare rethrow is a traced exit, the clause reads
+// `catch`, and the rule module reads the same-serial pair as a hop.
 //
 // Every `// SWALLOW <shape> <kind> <how>` marker names a record expected on the
 // NEXT line: `raise` is a RAISE at the `throw` keyword's line, `handled` a
@@ -45,7 +48,7 @@ export function shape5(): string {
     try {
       // SWALLOW shape5 raise throw
       throw new Error('e5');
-      // SWALLOW shape5 handled catch_escaped
+      // SWALLOW shape5 handled catch
     } catch (e) {
       // SWALLOW shape5 raise throw
       throw e;

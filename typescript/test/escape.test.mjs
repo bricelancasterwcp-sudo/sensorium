@@ -95,8 +95,22 @@ const CATCH_ROWS = [
   ['a shorthand property mentions it', 'catch (e) { report({ e }); }', 'catch_escaped'],
   ['an object key spelled like it does not', 'catch (e) { report({ e: 1 }); }', 'catch'],
   ['a property spelled like it does not', 'catch (e) { report(other.e); }', 'catch'],
-  ['a throw operand mentions it', 'catch (e) { throw e; }', 'catch_escaped'],
+  // Ruled 2026-09-10 (Task 6): a BARE rethrow is a traced exit, not an escape.
+  // The value reaches nothing, it leaves the way it arrived, and the RAISE the
+  // throw writes carries the same serial -- so the rule module reads the pair
+  // as a hop and judges the rethrow's own block. Anything BUILT out of the
+  // binding is still an escape, and so is a rethrow inside a closure.
+  ['a bare rethrow is a traced exit', 'catch (e) { throw e; }', 'catch'],
+  ['a parenthesised bare rethrow is one too', 'catch (e) { throw (e); }', 'catch'],
+  ['logging then rethrowing is still a traced exit',
+    'catch (e) { console.error(e); throw e; }', 'catch'],
+  ['a rethrow does not excuse another mention',
+    'catch (e) { seen.push(e); throw e; }', 'catch_escaped'],
   ['a wrapped rethrow mentions it', 'catch (e) { throw new Wrapped(e); }', 'catch_escaped'],
+  ['throwing a property of it mentions it', 'catch (e) { throw e.cause; }', 'catch_escaped'],
+  ['throwing a call on it mentions it', 'catch (e) { throw wrap(e); }', 'catch_escaped'],
+  ['a rethrow inside a closure escapes: the closure keeps it',
+    'catch (e) { retry(() => { throw e; }); }', 'catch_escaped'],
   ['the callee of a logging call is not its argument', 'catch (e) { console.error(e(1)); }', 'catch'],
 ];
 

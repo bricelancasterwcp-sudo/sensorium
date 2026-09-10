@@ -2,7 +2,10 @@
 // failure passes through TWO clauses on its way there -- `reload` catches it
 // and throws the very same object on, `boot` catches that and returns. One
 // thrown object, two RAISE rows, and the verdict on the second is what
-// happened to the failure; the first row's line is the journey.
+// happened to the failure; the first row's line is the journey. The bare
+// `throw e` is a traced EXIT and not an escape (ruled 2026-09-10): the value
+// reaches nothing and leaves the way it arrived, so the hop does not keep the
+// swallow below it out of the accusation.
 export function load(): number {
   throw new Error('disk offline');
 }
