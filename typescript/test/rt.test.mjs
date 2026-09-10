@@ -19,7 +19,7 @@ import { RT, of, ok, one, run } from './helpers/rt-child.mjs';
  */
 const KEYS = {
   BOOT: ['e', 'wire', 'pid', 'ppid', 'threadId', 'isMainThread', 'argv', 'cwd', 'env',
-    'envHash', 'node', 'version', 'tier', 'invocation', 'startTs', 'ts'],
+    'envHash', 'node', 'version', 'tier', 'capabilities', 'invocation', 'startTs', 'ts'],
   FILE: ['e', 'id', 'rel', 'abs', 'codes', 'sha'],
   TASK: ['e', 'id', 'name', 'basis', 'conflict'],
   CALL: ['e', 'f', 'p', 'file', 'c', 't', 'ts'],
@@ -58,6 +58,10 @@ test('boot names the writer, the invocation and the environment', () => {
   assert.equal(boot.e, 'BOOT');
   assert.equal(boot.wire, 1);
   assert.equal(boot.tier, 'call');
+  // What this recorder declares it produces (§2.4). The converter (Task 3)
+  // passes it through, and `exceptions` is gated on it: a spool whose BOOT
+  // lacks the key reads `false` and stays refused.
+  assert.deepEqual(boot.capabilities, { err_flow: true });
   assert.equal(boot.invocation, 'inv-1');
   assert.equal(boot.node, process.version);
   assert.equal(boot.version, '0.1.1');
@@ -372,7 +376,7 @@ test('throw flow outside a frame carries a null frame', () => {
     const raised = __srt.raise(null, new Error('a'), 3);
     __srt.handled(null, new Error('b'), 4, 'sink_empty_catch');
     let swallowed = null;
-    const sink = __srt.emptyCatch(null, 9, (reason) => { swallowed = reason; return 'from the original'; });
+    const sink = __srt.catchCb(null, 9, 'sink_empty_catch_callback', (reason) => { swallowed = reason; return 'from the original'; });
     const returned = sink('why');
     const [, activate] = __srt.task('t', () => { __srt.raise(null, 'in a task', 5); }, 1);
     activate();

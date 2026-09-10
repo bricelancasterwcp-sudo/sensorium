@@ -455,7 +455,9 @@ function spliceCatch(ctx, node) {
 
 /**
  * `.catch(() => {})` — a callback that swallows: the runtime records a HANDLED
- * for it, so an empty catch is a sink in the trace and not an absence.
+ * for it, so an empty catch is a sink in the trace and not an absence. The
+ * `how` word is the splice's own verdict about the handler's shape, and this
+ * splice knows exactly one shape (rung 2's Task 2 classifies the rest).
  * @param {Splicer} ctx
  * @param {import('typescript').CallExpression} node
  * @returns {boolean} whether the call was an empty-catch callback
@@ -469,7 +471,8 @@ function spliceEmptyCatchCallback(ctx, node) {
   if (!ts.isArrowFunction(callback) || !ts.isBlock(callback.body)) return false;
   if (callback.body.statements.length !== 0) return false;
   const line = lineOf(sf, callee.name.getStart(sf));
-  s.appendLeft(callback.getStart(sf), `__srt.emptyCatch(${frameVar(ctx, node)},${line},`);
+  s.appendLeft(callback.getStart(sf),
+    `__srt.catchCb(${frameVar(ctx, node)},${line},"sink_empty_catch_callback",`);
   s.prependRight(callback.end, ')');
   return true;
 }

@@ -22,7 +22,7 @@ export function destructured(): void {const __sf=__srt.call(__sfile,2);try{
 ;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}
 
 export function sink(): Promise<void> {const __sf=__srt.call(__sfile,3);try{
-  return __srt.ret(__sf,(risky().catch(__srt.emptyCatch(__sf,25,() => {const __sf=__srt.call(__sfile,4);try{;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}))));
+  return __srt.ret(__sf,(risky().catch(__srt.catchCb(__sf,25,"sink_empty_catch_callback",() => {const __sf=__srt.call(__sfile,4);try{;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}))));
 ;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}
 
 try {
