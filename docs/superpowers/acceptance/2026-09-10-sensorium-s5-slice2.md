@@ -258,11 +258,11 @@ pre-registration could be unlocked while every suite still reported green.
 | pytest, 3.13 | `.venv/bin/python -m pytest -q` | `3428 passed, 29 skipped` (92.46 s) | `3436 passed, 29 skipped` (92.03 s) |
 | pytest, 3.12 | `.venv312/bin/python -m pytest -q` | `3424 passed, 33 skipped` (94.17 s) | `3432 passed, 33 skipped` (94.28 s) |
 | pytest, 3.14 | `.venv314/bin/python -m pytest -q` | `3432 passed, 25 skipped` (96.00 s) | `3440 passed, 25 skipped` (95.06 s) |
-| TypeScript unit | `npm --prefix typescript test` | `tests 164`, `pass 164`, `fail 0`, `skipped 0` | unchanged † |
+| TypeScript unit | `npm --prefix typescript test` | `tests 164`, `pass 164`, `fail 0`, `skipped 0` | unchanged † through `ecac114`; **`tests 167`, `pass 167`, `fail 0`, `skipped 0` from `05e5338`** ‡ |
 | TypeScript types | `npm --prefix typescript run check` | exit `0`, no diagnostics (`tsc -p tsconfig.json`; never `npx tsc -p` from the root — R4) | unchanged † |
 | corpus, TypeScript | `.venv/bin/python corpus/run_corpus.py --only-dir typescript --require-driver` | `13 cases, 35 questions, 0 failures, 0 error(s)` | unchanged † |
 | corpus, root | `.venv/bin/python corpus/run_corpus.py --only-dir .` | `20 cases, 39 questions, 0 failures, 0 error(s)` | unchanged † |
-| live TypeScript | `SENSORIUM_TS_LIVE=1 .venv/bin/python -m pytest -q tests/test_ts_live.py` | `9 passed` (2.05 s) | unchanged † |
+| live TypeScript | `SENSORIUM_TS_LIVE=1 .venv/bin/python -m pytest -q tests/test_ts_live.py` | `9 passed` (2.05 s) | unchanged † through `ecac114`; **`10 passed` from `761c935`** ‡ |
 
 † The three pytest cells in the last column are measured on `ecac114`. The five
 marked `unchanged †` are **not** re-measured: Task 0 adds one Python test file
@@ -270,6 +270,33 @@ and one record, and none of these five enumerates either — `npm test` and
 `tsc` see only `typescript/`, the corpus runner counts cases under `corpus/`,
 and the live row names one test file. Any of them moving is a real regression,
 not this commit's arithmetic.
+
+‡ **And two of the five moved later in the slice, which this section promised
+to name and did not** *(added 2026-09-10, after the final review; all five
+rows re-measured on the branch tip to write it, none of them derived)*.
+
+- The **TypeScript unit** fence went **164 → 167** at `05e5338` — H1, the
+  loader hook — which adds exactly three tests to
+  `typescript/test/hook.test.mjs`: "a `.mts` under the root is instrumented
+  and stripped by Node", "the hook erases nothing: a construct strip-only
+  mode rejects fails as it fails plain", and "a `.tsx` never reaches the
+  hook". `npm --prefix typescript test` → `tests 167`, `pass 167`, `fail 0`,
+  `skipped 0`.
+- The **live TypeScript** fence went **9 → 10** at `761c935` — H2 — which
+  adds `test_the_nodetest_probes_and_controls_pass_through_the_driver`, the
+  driven half of the H-probes run (§3.10). `SENSORIUM_TS_LIVE=1 pytest -q
+  tests/test_ts_live.py` → `10 passed`. This one the record was quoting
+  correctly in §3.10 while its own fence table still said `9 passed`.
+- The other three did **not** move, and were re-measured to say so:
+  `npm --prefix typescript run check` exits `0` with no diagnostics; the
+  TypeScript corpus reads `13 cases, 35 questions, 0 failures, 0 error(s)`;
+  the root corpus reads `20 cases, 39 questions, 0 failures, 0 error(s)`.
+
+**From `05e5338` onward 167 is the TypeScript-unit count a later task
+restores, and from `761c935` onward 10 is the live one** — the way `ecac114`
+reset the three pytest rows. The lesson is the `†` footnote's own: a row
+marked "not re-measured because this commit cannot move it" stays right only
+for the commit it was written about, and this slice ran seven commits past it.
 
 ### 2.3 Re-taken immediately before the E6″ session (2026-09-10)
 
@@ -329,8 +356,8 @@ measured.**
 = 154.3012 / 45.7378 = 3.3736×**, the parallel speedup on main's converter;
 **128,053 events/s** on the big spool at this rung (2,246,552 events in
 17.5439 s, cell 0a); and **2,273,872 kB** peak resident in the heaviest
-worker before A3 (cell 0a; the other three full-set cells read within 0.2%
-of it).
+worker before A3 (cell 0a — the ONE-spool cell; the three full-set cells
+read within 0.2% of it).
 After A1 (§3.7), on the worktree's converter at `2a273cf`: **152,851
 events/s** on the big spool (2,246,552 events in 14.6977 s), and peak
 resident unmoved at 2,273,996 kB (0a) / 2,270,016 kB (0d).
