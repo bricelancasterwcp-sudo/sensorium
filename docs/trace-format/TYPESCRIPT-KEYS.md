@@ -75,9 +75,15 @@ some other way); `catch_callback_opaque` (a handler defined elsewhere);
 `sink_finally_return` (a `finally` that completes with a throw in flight, whose
 `exc` is the marked throw's own, COMPLETE — `kind`, `type`, `msg` and `serial`
 exactly as the RAISE (or the synthetic marking clause) wrote them, nothing unread:
-the mark holds the whole `exc` object, not just its serial. A throw traced code
-never raised — a library's, a `reject()`'s — sets no mark, so such a `finally`
-records nothing: a declared blind spot). What is still recorded by nothing: a
+the mark holds the whole `exc` object, not just its serial. Two shapes are
+declared blind spots instead (P1): a `try` that already has its own `catch`
+clause gets no synthetic marking clause (only a catch-less `try` gains one,
+`transform.mjs`'s `spliceFinally`), so an awaited callee rejecting inside that
+catch's body, then a completing `finally`, records nothing — a *synchronous*
+`throw` inside that same body is a `raise` and marks as usual; and `thr` (a
+callee's frame closing by throw) sets no mark of its own, so a throw a callee
+unwound with reaches the caller's mark only through the caller's own synthetic
+clause, never any other way). What is still recorded by nothing: a
 `finally` with no completion statement; `.finally(fn)`, never a handler;
 a `Promise.reject(v)`, whose handler's HANDLED carries no RAISE and reads *born
 outside a throw statement*; a throw inside a promise executor with no open frame,
