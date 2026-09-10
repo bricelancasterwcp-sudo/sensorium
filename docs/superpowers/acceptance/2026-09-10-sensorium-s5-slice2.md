@@ -273,10 +273,12 @@ not this commit's arithmetic.
 
 ## 3. Results
 
-Every cell below is `not measured (slice 2 pending)` and stays that way until
-the endpoint runs. A cell that is never measured is a **missing file** the
+Each cell is filled when its endpoint runs and reads `not measured (slice 2
+pending)` until then. A cell that is never measured is a **missing file** the
 assembler reports as `null` plus `dropped` — never an omission, never a blank
-that reads as a pass.
+that reads as a pass. **Filled so far:** E10′-0's five cells and the three
+§3.6 quantities Arm 0 supplies — measured 2026-09-09 on the global tool at
+main `bbd0781`, detail and reading in §3.1.
 
 | Id | Cell | Rule (from §1) | Result |
 |---|---|---|---|
@@ -284,16 +286,110 @@ that reads as a pass.
 | E10′-suite | n=5 guarded `ingest`, default jobs, pinned `f08e89` copy, final converter | ≤ 22.5925 s → PASS; above → REPORTED with the whole ladder | not measured (slice 2 pending) |
 | E10′-file | n=5 guarded `ingest` over the pinned 611,016-byte spool | ≤ 0.4002 s → PASS; above → STOP | not measured (slice 2 pending) |
 | E10′-eq | 372 pairs, main@T0 vs final, `sensorium diff` each | 372 MATCH / 0 DIVERGED / 0 REFUSED → PASS; else STOP | not measured (slice 2 pending) |
-| E10′-0 | 0a — the largest spool alone, `--jobs 1`, one-spool copy, n=3 | reported against §3.2's prediction (≈ 16 s); no verdict | not measured (slice 2 pending) |
-| E10′-0 | 0b — the full set, `--jobs 1`, n=3 | reported against §3.2's prediction (40–50 s); no verdict | not measured (slice 2 pending) |
-| E10′-0 | 0c — the full set, `--jobs 4`, n=3 | reported against §3.2's prediction (between 0b and 0d); no verdict | not measured (slice 2 pending) |
-| E10′-0 | 0d — the full set, `--jobs 16`, n=3 | reported against §3.2's prediction (≈ 45 s); no verdict | not measured (slice 2 pending) |
-| E10′-0 | 0e — the one file, default jobs, n=5 | reported against §3.2's prediction (≈ 0.36 s); no verdict | not measured (slice 2 pending) |
+| E10′-0 | 0a — the largest spool alone, `--jobs 1`, one-spool copy, n=3 | reported against §3.2's prediction (≈ 16 s); no verdict | **17.5439 s** median, n=3, 17.3953 – 27.3839; 1-min loads 0.29/0.73/0.86; peak RSS 2,273,872 kB; the global tool, main `bbd0781` — §3.1 |
+| E10′-0 | 0b — the full set, `--jobs 1`, n=3 | reported against §3.2's prediction (40–50 s); no verdict | **154.3012 s** median, n=3, 152.7924 – 154.5061; 1-min loads 3.62/2.32/2.19; peak RSS 2,272,256 kB; the global tool, main `bbd0781` — §3.1 |
+| E10′-0 | 0c — the full set, `--jobs 4`, n=3 | reported against §3.2's prediction (between 0b and 0d); no verdict | **67.9342 s** median, n=3, 67.1653 – 67.9709; 1-min loads 0.82/3.5/3.78; peak RSS 2,270,804 kB; the global tool, main `bbd0781` — §3.1 |
+| E10′-0 | 0d — the full set, `--jobs 16`, n=3 | reported against §3.2's prediction (≈ 45 s); no verdict | **45.7378 s** median, n=3, 43.5478 – 45.8268; 1-min loads 2.09/3.97/3.79; peak RSS 2,269,696 kB; the global tool, main `bbd0781` — §3.1 |
+| E10′-0 | 0e — the one file, default jobs, n=5 | reported against §3.2's prediction (≈ 0.36 s); no verdict | **0.3624 s** median, n=5, 0.2736 – 0.4051; 1-min loads 0.96/0.96/0.96/0.96/0.96; peak RSS 30,828 kB; the global tool, main `bbd0781` — §3.1 |
 | H-probes | §4.5's four probe files and two controls | every row as its table says; a control mismatch → STOP | not measured (slice 2 pending) |
 
-**Reported without a gate** (spec §3.6): events/s per rung on the big spool,
-peak RSS before and after A3, 0b and 0d, the call run's harness and driver
-walls, and the fresh set's ingest — all `not measured (slice 2 pending)`.
+**Reported without a gate** (spec §3.6). Measured on Arm 0 (§3.1): **0b/0d
+= 154.3012 / 45.7378 = 3.3736×**, the parallel speedup on main's converter;
+**128,053 events/s** on the big spool at this rung (2,246,552 events in
+17.5439 s, cell 0a); and **2,273,872 kB** peak resident in the heaviest
+worker before A3 (cell 0a; the other three full-set cells read within 0.2%
+of it).
+Still `not measured (slice 2 pending)`: events/s on the later rungs, peak RSS
+after A3, the call run's harness and driver walls, and the fresh set's
+ingest.
+
+### 3.1 E10′ Arm 0 — the diagnosis on main's converter
+
+Measured 2026-09-09 between 23:23 and 23:39 local time (`-05:00`) by
+`typescript/acceptance/e10p.sh`: E10's instrument with the load guard record
+§5 gap 5 said it lacked, the job count as an argument, and the peak resident
+size of the heaviest worker taken through `rss_run.py`. Each repetition
+copies the pinned §2.1 spool copy and converts the copy into a fresh store,
+both made and removed **outside** the timed region, exactly as `e10.sh` did.
+
+**The converter is the global tool, main `bbd0781`** — the 0.9.0 converter
+§2 pins, never reinstalled from this worktree, which is what "main's code"
+means for this arm and for the equivalence gate's A side. Every cell's JSON
+carries `converter_bin` and `converter_rev`; `converter_rev` is
+`bbd07816c9c769307b5fb0a17f37f51707d419ad` in all five.
+
+The cells ran in the order 0a, 0e, 0c, 0b, 0d — cheapest first, so an
+instrument defect would have surfaced on a one-minute cell rather than a
+seven-minute one. **Nothing was dropped:** all seventeen repetitions exited
+`0` and converted exactly the copy's `.jsonl` count (1, 1, 372, 372, 372), so
+every cell's `n` is the count it asked for.
+
+| Cell | Workload | jobs | n | Prediction (§1) | Median | min – max | 1-min load per rep | Peak RSS, heaviest worker |
+|---|---|---|---|---|---|---|---|---|
+| 0a | `big/` — 1 spool, 195,851,484 B | 1 | 3 | ≈ 16 s | **17.5439 s** | 17.3953 – 27.3839 | 0.29, 0.73, 0.86 | 2,273,872 kB |
+| 0b | `f08e89/` — 372 spools, 414,450,522 B | 1 | 3 | 40–50 s | **154.3012 s** | 152.7924 – 154.5061 | 3.62, 2.32, 2.19 | 2,272,256 kB |
+| 0c | `f08e89/` | 4 | 3 | between 0b and 0d | **67.9342 s** | 67.1653 – 67.9709 | 0.82, 3.5, 3.78 | 2,270,804 kB |
+| 0d | `f08e89/` | 16 | 3 | ≈ 45 s | **45.7378 s** | 43.5478 – 45.8268 | 2.09, 3.97, 3.79 | 2,269,696 kB |
+| 0e | `one/` — 1 spool, 611,016 B | 16 | 5 | ≈ 0.36 s | **0.3624 s** | 0.2736 – 0.4051 | 0.96 (all five) | 30,828 kB |
+
+Two predictions land, one lands near, one holds, one is falsified. 0e is 0.3624 s against ≈ 0.36 s and 0d is 45.7378 s against
+≈ 45 s. 0a is 17.5439 s against ≈ 16 s, 9.6% high, and its third repetition
+at 27.3839 s is the single outlier in the whole arm — kept, because the rule
+drops a repetition for a non-zero status or a wrong trace count and for
+nothing else, and the median is what the cell quotes. 0c is between 0b and
+0d, as predicted. **0b is 154.3012 s against a predicted 40–50 s — a little
+over three times the prediction** — and it is the cell that moves the
+reading.
+
+**The two readings pre-stated in §1** (spec §3.2), quoted before either is
+named:
+
+> If 0d is not well below 0b, the pool buys nothing and the mechanism is
+> contention or serialisation between workers — A1 is the right first lever.
+
+> If 0d ≈ 0a, there is no contention: the floor is the largest spool's own
+> serial cost, and the lever is the per-record cost (A4), not the write
+> path.
+
+**Neither antecedent holds, and the numbers say which way each fails.** 0d
+is well below 0b — 45.7378 s against 154.3012 s, a **3.3736×** speedup — so
+the pool does buy something and the first reading's premise is false as
+stated. 0d is not ≈ 0a either — 45.7378 s is **2.607×** the 17.5439 s the
+largest spool costs on its own, 28.19 s above that floor — so the second
+reading's premise is false as well. What Arm 0 reports instead is a pool
+with a real but poor return, 3.3736× from sixteen workers and 2.2713× from
+the first four (0c, 67.9342 s), stalling well above the floor the largest
+spool sets. Both mechanisms the two readings separate are therefore still
+live: there is contention, or sixteen workers would scale nearer sixteen;
+and there is a serial floor, or 0d would sit nearer 0a. Arm 0 does not
+choose between them, and this paragraph does not either — the levers earn
+their verdicts on their own cells. A **reading, not a verdict**: the plan's
+order (A1, then A3) is unchanged by this arm, which neither confirmed nor
+removed its premise, and §3.7's "0d ≈ 0a" trigger for revisiting Arm C did
+not fire.
+
+Ungated beside it: the heaviest worker peaks at 2,269,696–2,273,872 kB —
+about 2.2 GiB — on every full-set cell and on the one-spool `big/` cell
+alike, the four spread across 0.2% at every job count, and at 30,828 kB
+(about 30 MiB) on the one small file. The largest spool
+sets the memory high-water mark whatever the job count, which is the reading
+A3's prediction ("from the order of a gigabyte to the order of 100 MB") is
+aimed at.
+
+**Two properties of the instrument, written down now so a later rung is not
+surprised by them.** (1) The timed region is the `rss_run.py` wrapper around
+`ingest`, so every wall carries that wrapper's own interpreter start-up.
+`rss_run.py` prints `child_wall` — its clock around `subprocess.run` alone —
+into each log for exactly this reason: across all seventeen repetitions the
+difference is **0.013–0.022 s**, median 0.0162 s, which is 4.5% of cell 0e's
+median and under 0.1% of every other cell's. The record quotes the whole
+timed region, which is what the pre-registered instrument measures. (2) The
+guard admitted repetitions at 1-minute loads of 3.97, 3.79, 3.78 and 3.62 —
+the decay of the instrument's **own** previous repetition, not another
+tenant. On sixteen cores a 4.0 threshold sits below what a `--jobs 16` cell
+generates, so back-to-back repetitions wait only until the previous one's
+average has decayed past it, not until the box is idle. The threshold is
+pre-registered and was not moved; every reading is in its cell's `loads`.
 
 ## 4. Decisions
 
