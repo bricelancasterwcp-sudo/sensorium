@@ -65,12 +65,31 @@ def golden(root: Path, pkg: Path, user_config: Path | None) -> str:
     return (
         f"// written by sensorium ts run for invocation {INV}; "
         "removed when it exits\n"
+        "import fs from 'node:fs';\n"
+        "import path from 'node:path';\n"
         "import { mergeConfig } from 'vitest/config';\n"
         f"import sensorium from '{pkg}/src/vite.mjs';\n"
         f"{base}"
         f"const user = {'base' if user_config else '{}'};\n"
         "const resolved = typeof user === 'function' "
         "? await user({ command: 'serve', mode: 'test' }) : user;\n"
+        # R41: the one config shape this recorder cannot instrument, refused
+        # by name in the config itself. Spelled out here rather than imported
+        # from the module under test, which is what makes this a golden.
+        "const projects = resolved?.test?.projects ?? "
+        "resolved?.test?.workspace\n"
+        "  ?? resolved?.projects ?? resolved?.workspace;\n"
+        "if (projects !== undefined) {\n"
+        "  const reason = 'vitest projects/workspaces are not supported by "
+        "sensorium-ts 0.1.0';\n"
+        "  const spool = process.env.SENSORIUM_SPOOL;\n"
+        "  if (spool) {\n"
+        "    fs.mkdirSync(spool, { recursive: true });\n"
+        "    fs.writeFileSync(path.join(spool, 'wrapper-refusal.json'), "
+        "JSON.stringify({ reason }));\n"
+        "  }\n"
+        "  throw new Error(reason);\n"
+        "}\n"
         "export default mergeConfig(resolved, {\n"
         f"  root: '{root}',\n"
         f"  plugins: [sensorium({{ root: '{root}', pkgDir: '{pkg}', "
@@ -105,9 +124,9 @@ def test_the_two_texts_differ_in_exactly_one_line_and_one_word(tmp_path):
     with_ = wrapper.config_text(root, INV, pkg, user).splitlines()
     without = wrapper.config_text(root, INV, pkg, None).splitlines()
     assert len(with_) == len(without) + 1
-    assert with_[3] == f"import base from '{user}';"
-    assert (with_[4], without[3]) == ("const user = base;", "const user = {};")
-    assert with_[5:] == without[4:]
+    assert with_[5] == f"import base from '{user}';"
+    assert (with_[6], without[5]) == ("const user = base;", "const user = {};")
+    assert with_[7:] == without[6:]
 
 
 def test_the_setup_text_names_the_package_absolutely(tmp_path):

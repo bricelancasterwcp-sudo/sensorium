@@ -256,7 +256,9 @@ def _convert(spool: Path, inv_id: str, ending, jobs: int | None,
     A spool the converter refuses prints its refusal and does NOT change the
     exit status: the status belongs to the harness. An ingest that could not
     start at all is the exception -- there is no recording to report, and
-    exit 2 says the call or the directory has to be fixed.
+    exit 2 says the call or the directory has to be fixed. Where the WRAPPER
+    is what refused, its own sentence is printed instead of the converter's
+    (R41): only it knows why the run recorded nothing.
 
     At tier `off` there is nothing to convert BY DESIGN -- the transform
     still runs, the runtime emits nothing, and the invocation's whole value
@@ -272,7 +274,10 @@ def _convert(spool: Path, inv_id: str, ending, jobs: int | None,
     try:
         summaries = ingest.ingest_dir(spool, paths.trace_root(), jobs=jobs)
     except (ingest.IngestError, invocation.InvocationError) as e:
-        print(f"error: {e}", file=sys.stderr)
-        return ex.BAD_CALL
+        # The wrapper's own refusal FIRST (R41). "nothing was recorded, or
+        # the recorder wrote somewhere else" is what this looks like from
+        # here, and it names neither the cause nor the fix; the config that
+        # refused knows both, and left the sentence behind.
+        return _refuse(wrapper.refusal(spool) or str(e))
     ts_cli._report(summaries, inv_id, harness=_ending(ending))
     return _status(ending)

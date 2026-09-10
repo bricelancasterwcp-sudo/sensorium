@@ -147,3 +147,59 @@ def test_a_threads_pool_records_every_container_it_ran(tmp_path):
                for t in got) == len(probe_files())
     print(f"threads pool: {len(got)} containers, "
           f"{named.count('test_files')} of them with test_files")
+
+
+# -- the config shape this recorder refuses ---------------------------------
+
+PROJECTS_CONFIG = """\
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    projects: [
+      { test: { name: 'alpha', include: ['alpha/*.test.ts'] } },
+    ],
+  },
+});
+"""
+
+ALPHA_TEST = """\
+import { expect, test } from 'vitest';
+
+test('runs', () => {
+  expect(1 + 1).toBe(2);
+});
+"""
+
+
+def test_a_projects_config_is_refused_by_name_and_records_nothing(tmp_path):
+    """R41, against a real vitest. A `test.projects` config makes vitest
+    resolve a config PER PROJECT, and this wrapper merges onto one: the
+    plugin never reaches the projects' pipelines, so the suite runs and
+    nothing is recorded. Measured before the fix, that came back as the
+    CONVERTER's sentence -- "no spools in <dir>: nothing was recorded, or
+    the recorder wrote somewhere else" -- at the right exit status and
+    naming neither the cause nor the fix.
+
+    The project's `node_modules` is the probes' own, by symlink: the
+    wrapper has to live under a `node_modules` for `vitest/config` to
+    resolve, and the driver takes its directory back in a `finally`.
+    """
+    root = tmp_path / "ws"
+    (root / "alpha").mkdir(parents=True)
+    (root / "package.json").write_text('{"name": "ws", "type": "module"}\n')
+    (root / "vitest.config.ts").write_text(PROJECTS_CONFIG)
+    (root / "alpha" / "a.test.ts").write_text(ALPHA_TEST)
+    (root / "node_modules").symlink_to(PROBES / "node_modules")
+
+    store = tmp_path / "store"
+    r = run_cli(["ts", "run", "--", "npx", "vitest", "run"], cwd=root,
+                sensorium_dir=store)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert ("error: vitest projects/workspaces are not supported by "
+            "sensorium-ts 0.1.0") in r.stderr, r.stderr
+    # Nothing was recorded, and nothing pretends to have been.
+    assert not (store / "traces").exists()
+    assert "run: " not in r.stdout
+    # And the wrapper is gone from the tree it was written into.
+    assert not (PROBES / "node_modules" / ".sensorium").exists()

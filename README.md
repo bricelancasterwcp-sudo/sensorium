@@ -706,8 +706,9 @@ at every `catch`, and **tests as tasks** named as vitest names them, so `tree`
 groups by test and `diff` compares one test against itself. `watch`, `flow` and
 `exceptions` **refuse** at exit 3 on capabilities this version declares false
 (`line`, `object_identity`, `err_flow` — the disposition rules are rung 2);
-`refocus` refuses at exit 2; package scripts, jest and a project with no
-`typescript` of its own are refused by name; arguments are unread and say so.
+`refocus` refuses at exit 2; package scripts, jest, a project with no
+`typescript` of its own and a vitest `projects`/`workspace` config are
+refused by name; arguments are unread and say so.
 
 **Measured, on somebody else's suite**, against twelve endpoints and two
 controls pre-registered and byte-locked before the code existed

@@ -385,6 +385,17 @@ beside it, which is the same statement about the other end of the pipe
 was not false about any key)*. `threads: false` and `children: false` (blind
 spot 4). `refocus: false`, refused at exit 2. `err_flow: false` (§4).
 
+**One config shape is refused by name.** A `test.projects` or
+`test.workspace` config makes vitest resolve a config PER PROJECT, and this
+wrapper merges onto one: the plugin never reaches the projects' pipelines, so
+the suite runs and nothing is recorded. The wrapper config refuses it at load
+time — `vitest projects/workspaces are not supported by sensorium-ts 0.1.0` —
+and leaves that sentence in the spool directory (`wrapper-refusal.json`) for
+the driver to print at exit 2. *(Added 2026-09-09, ruling R41: measured, such
+a run came back as the CONVERTER's sentence, "nothing was recorded, or the
+recorder wrote somewhere else" — the right exit status, naming neither the
+cause nor the fix.)*
+
 **The footprint on the consumer's tree.** One directory is written:
 `<root>/node_modules/.sensorium/`, holding the wrapper vitest config and the
 setup file the driver writes from a template. No source file is touched, no

@@ -452,6 +452,54 @@ def test_the_wrapper_goes_when_the_run_merely_finishes(tmp_path, monkeypatch):
     assert not (root / "node_modules" / ".sensorium").exists()
 
 
+def test_the_wrappers_own_refusal_is_what_the_driver_prints(
+        tmp_path, monkeypatch, capsys):
+    """R41. A `test.projects` config makes vitest resolve a config per
+    project; this wrapper merges onto ONE, so the plugin never reaches the
+    projects' pipelines and the suite runs recording nothing. What the
+    caller then got was the converter's own sentence -- "nothing was
+    recorded, or the recorder wrote somewhere else" -- which names neither
+    the cause nor the fix.
+
+    The config refuses by name now, and leaves the sentence in the spool
+    directory on its way out: vitest's own error is one line inside a
+    config trace on the harness's stderr, and the driver has nothing else
+    to go on. Both arms are checked: the file when it is there, and the
+    fallback when it is not.
+    """
+    from sensorium.ts import driver, wrapper
+    from sensorium.ts.invocation import HarnessExit
+
+    root = tmp_path / "app"
+    (root / "node_modules").mkdir(parents=True)
+    (root / "node_modules" / ".package-lock.json").write_text("{}\n")
+    (root / "node_modules" / "typescript").symlink_to(
+        pkg_mod.locate() / "node_modules" / "typescript")
+    monkeypatch.chdir(root)
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
+    args = argparse.Namespace(command=["--", "vitest", "run"], tier="call",
+                              jobs=None)
+
+    def refusing(argv, env, cwd):
+        """What the wrapper config does when it meets `test.projects`."""
+        spool = Path(env["SENSORIUM_SPOOL"])
+        spool.mkdir(parents=True, exist_ok=True)
+        (spool / wrapper.REFUSAL_FILE).write_text(
+            json.dumps({"reason": wrapper.PROJECTS_REFUSAL}))
+        return HarnessExit(1, None, 1.0, 2.0)
+
+    monkeypatch.setattr(driver, "_spawn", refusing)
+    assert driver.run(args) == 2
+    err = capsys.readouterr().err
+    assert err.strip() == f"error: {wrapper.PROJECTS_REFUSAL}"
+    assert "nothing was recorded" not in err
+
+    monkeypatch.setattr(driver, "_spawn",
+                        lambda *a, **k: HarnessExit(0, None, 1.0, 2.0))
+    assert driver.run(args) == 2
+    assert "nothing was recorded" in capsys.readouterr().err
+
+
 def test_the_harness_is_told_the_six_things_it_cannot_work_out(tmp_path):
     """The runtime reads its spool directory, its tier and its invocation
     from the environment; the loader hook reads the root and the package;

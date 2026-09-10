@@ -25,7 +25,20 @@ Three rules the text obeys, each of them a measured hazard:
 `mergeConfig` appends to `setupFiles` and `plugins` rather than replacing
 them: the consumer's setup assumes their own environment, and that is the
 consumer's business (design section 2.2).
+
+The config also REFUSES one shape by name (R41). A `test.projects` or
+`test.workspace` config makes vitest run each project with its own
+resolved config, and this wrapper merges onto ONE: the plugin never
+reaches the projects' pipelines, so the suite runs and nothing is
+recorded. Measured, that ended as the converter's own sentence -- "no
+spools in <dir>: nothing was recorded, or the recorder wrote somewhere
+else" -- which names neither the cause nor the fix. So the config throws,
+and writes `wrapper-refusal.json` into the spool directory on the way out:
+vitest's own error goes to the harness's stderr, where it is one line
+among a config trace, and the driver needs the sentence to give back as
+its own refusal.
 """
+import json
 from pathlib import Path
 
 #: The directory both files live in, under the consumer's `node_modules`.
@@ -35,6 +48,13 @@ SETUP_SUFFIX = ".setup.mjs"
 
 #: What `typescript/src/setup.mjs` carries where the package's path goes.
 PLACEHOLDER = "__PKG__"
+
+#: What the wrapper config leaves in the spool directory when it refuses,
+#: and the sentence it refuses with. Read by the driver, which has nothing
+#: else to go on: a config that threw wrote no spool.
+REFUSAL_FILE = "wrapper-refusal.json"
+PROJECTS_REFUSAL = ("vitest projects/workspaces are not supported by "
+                    "sensorium-ts 0.1.0")
 
 #: Every character a JavaScript RegExp literal gives a meaning to, `/`
 #: included -- it ends the literal.
@@ -72,6 +92,42 @@ def home(root: Path) -> Path:
     return Path(root) / "node_modules" / DIRNAME
 
 
+#: The refusal, spelled once, in the config's own words. Four spellings,
+#: because vitest has read the list from `test.projects` and from
+#: `test.workspace`, and a root-level `projects`/`workspace` is the shape a
+#: consumer writes by mistake -- refusing a config we cannot instrument is
+#: right whichever of the four it is.
+REFUSAL_BLOCK = (
+    "const projects = resolved?.test?.projects ?? resolved?.test?.workspace\n"
+    "  ?? resolved?.projects ?? resolved?.workspace;\n"
+    "if (projects !== undefined) {\n"
+    f"  const reason = '{PROJECTS_REFUSAL}';\n"
+    "  const spool = process.env.SENSORIUM_SPOOL;\n"
+    "  if (spool) {\n"
+    "    fs.mkdirSync(spool, { recursive: true });\n"
+    f"    fs.writeFileSync(path.join(spool, '{REFUSAL_FILE}'), "
+    "JSON.stringify({ reason }));\n"
+    "  }\n"
+    "  throw new Error(reason);\n"
+    "}\n")
+
+
+def refusal(spool) -> str | None:
+    """What the wrapper config refused, or None if it did not.
+
+    Never raises: this is read on a path where something has ALREADY gone
+    wrong, and a second failure here would replace the sentence the caller
+    came for with one about a file it has no reason to care about.
+    """
+    try:
+        data = json.loads(
+            (Path(spool) / REFUSAL_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    reason = data.get("reason") if isinstance(data, dict) else None
+    return reason if isinstance(reason, str) and reason else None
+
+
 def config_text(root, invocation: str, pkg_dir, user_config) -> str:
     """The wrapper config, exactly as it is written."""
     root, pkg_dir = Path(root), Path(pkg_dir)
@@ -84,12 +140,15 @@ def config_text(root, invocation: str, pkg_dir, user_config) -> str:
     return (
         f"// written by sensorium ts run for invocation {invocation}; "
         "removed when it exits\n"
+        "import fs from 'node:fs';\n"
+        "import path from 'node:path';\n"
         "import { mergeConfig } from 'vitest/config';\n"
         f"import sensorium from '{pkg}/src/vite.mjs';\n"
         f"{base}"
         f"const user = {'base' if user_config is not None else '{}'};\n"
         "const resolved = typeof user === 'function' "
         "? await user({ command: 'serve', mode: 'test' }) : user;\n"
+        + REFUSAL_BLOCK +
         "export default mergeConfig(resolved, {\n"
         f"  root: '{here}',\n"
         f"  plugins: [sensorium({{ root: '{here}', pkgDir: '{pkg}', "
