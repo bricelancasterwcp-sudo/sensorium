@@ -33,9 +33,12 @@ from sensorium.store.writer import TraceWriter
 from sensorium.ts.spool import Spool, SpoolError
 
 #: What this recorder produces, and what it does not (design section 5.2).
-#: `err_flow` is false although RAISE/HANDLED rows exist: the key is the
-#: runtime's statement that its records carry what the `exceptions` rules
-#: need, and no TypeScript rules exist yet.
+#: A FLOOR, not the last word: `err_flow` is the one key the BOOT record's
+#: own `capabilities` map (`_meta`) rides OVER this constant, because
+#: whether RAISE/HANDLED rows carry what the `exceptions` rules need is the
+#: runtime's statement to make, not a fact this converter can assert on its
+#: own authority. A spool whose BOOT carries no such map declares the
+#: constant alone -- `err_flow: false` included.
 CAPABILITIES = {
     "line": False, "locals": False, "return_value": True, "tasks": True,
     "threads": False, "children": False, "stdin": False, "output": False,
@@ -394,7 +397,8 @@ class Builder:
             "source_hashes": self.source_hashes,
             "recorder": self._recorder(),
             "lang": LANG,
-            "capabilities": dict(CAPABILITIES),
+            "capabilities": {**CAPABILITIES,
+                             **(self.spool.boot.get("capabilities") or {})},
             "caps": dict(CAPS),
             "incomplete": self.spool.exit is None,
         }

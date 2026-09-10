@@ -32,13 +32,17 @@ questions:
       Is the refusal because nothing was recorded, or because nothing can be
       judged?
     truth: >
-      Because nothing can be judged. This trace holds one RAISE and one
-      HANDLED beside its three CALLs and two RETURNs -- the throw statement
-      and the catch clause were both recorded -- and the recorder still
-      declares `err_flow=no`, which is its statement that those rows do not
-      yet carry what a disposition verdict needs. The two facts sit on
+      Because nothing can be judged -- not because nothing was recorded,
+      and, as of `sensorium-ts` 0.2.0, not because nothing was declared
+      either. This trace holds one RAISE and one HANDLED beside its three
+      CALLs and two RETURNs -- the throw statement and the catch clause were
+      both recorded -- and the recorder now declares `err_flow=yes`, its own
+      statement that those rows carry what a disposition verdict needs.
+      `exceptions` still refuses, because the RULE that would read them has
+      not shipped (S5 rung 2): the capability and the rule are two different
+      things, and the two facts -- declared, still refused -- sit on
       adjacent lines of one command's output, which is the only way a reader
-      can tell "no record" from "no rule".
+      can tell "no rule" from "no record".
     why_logs_fail: >
       This is a question about the instrument, not the program, and all
       three channels answer about the program. A `console.log` says what the
@@ -51,7 +55,7 @@ questions:
     command: ["info", "$RUN"]
     expect_line:
       - ["recorded: CALL 3", "RETURN 2", "RAISE 1", "HANDLED 1"]
-      - ["capabilities:", "err_flow=no"]
+      - ["capabilities:", "err_flow=yes"]
       - ["recorder: sensorium-ts 0.2.0", "lang: typescript"]
   - id: what-does-the-trace-show-happened
     ask: >
