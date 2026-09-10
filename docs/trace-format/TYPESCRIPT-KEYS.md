@@ -95,10 +95,13 @@ code*.
 the converter carries that declaration into `meta` over the constant it otherwise
 writes (`src/sensorium/ts/build.py`). What the declaration guarantees is the
 recorder's own statement that these rows now carry what a disposition verdict
-needs — reading them by rule, and gating the refusal on this key rather than on
-`lang` alone, is `exceptions_typescript.py`'s (S5 rung 2), not yet shipped as of
-this converter: `exceptions` on any TypeScript trace, 0.1.x or 0.2.0, still
-refuses by name today (TRACE-FORMAT §5's lang-keyed sentence).
+needs. Reading them by rule is `src/sensorium/query/exceptions_typescript.py`'s,
+and the refusal is gated on this key rather than on `lang`: a 0.2.0 recording is
+JUDGED — five words, `swallowed` the only accusation among them
+(`v30-exceptions-typescript-swallowed`, `v31-exceptions-typescript-escaped-ambiguous`)
+— and a 0.1.x one refuses at exit 3 with the capability sentence, because what
+it lacks is the record (`v32-err-flow-typescript-capability-refusal`). The
+lang-keyed sentence that named absent TypeScript rules is retired.
 
 Two things go to `meta` and never to `events`, because §3 refuses a causal event
 with no `code_id` and inventing a code object would put a site in the program that

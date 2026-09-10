@@ -98,14 +98,17 @@ def _rust(tmp_path, monkeypatch):
 
 
 def _other_lang(tmp_path, monkeypatch):
-    """A finalized trace in a language no rule module exists for.
+    """A finalized trace another recorder wrote, whose declaration says it
+    produced no throw-flow record.
 
     Was `lang: "go"` until S5, when `db.open_trace` began REFUSING a lang
     outside `db.KNOWN_LANGS` (exit 2, at open, before any command runs), so
-    a made-up language no longer reaches `exceptions` at all. TypeScript is
-    the real instance of the shape this row is about: a language sensorium
-    has words for and no disposition rules for, whose refusal is its own
-    (`vocab.TYPESCRIPT.exceptions_refusal`) and not Rust's.
+    a made-up language no longer reaches `exceptions` at all. TypeScript
+    stood in for it as a language with words and no rules -- until S5 rung
+    2 shipped its rules, after which every known language is dispatched to
+    a rule module and the refusal this row exercises is the CAPABILITY's:
+    an 0.1.x recording declared `err_flow: false`, and what it lacks is the
+    record rather than the rule.
     """
     w = synthetic(tmp_path, monkeypatch)
     c = w.intern_code("/tmp/prog.ts", "main", 1)
@@ -173,16 +176,17 @@ MATRIX = [
     # recording that captured the raise can settle it.
     ("exceptions: uncaught reported, no RAISE row of its own",
      _uncaught_only, ["exceptions", "$RUN"], UNSETTLED, "uncaught: "),
-    # Two different absences, two different sentences, one status. A Rust
-    # trace HAS rules from rung 3 on, so what an old one lacks is the
-    # RECORD and it refuses through the capability; a language with no rule
-    # module at all still lacks the RULE (design R9).
+    # Two recorders, one sentence, one status. A Rust trace has rules from
+    # rung 3 on and a TypeScript one from its own rung 2, so what an older
+    # recording of either lacks is the RECORD, and both refuse through the
+    # capability rather than through their language (design R9).
     ("exceptions: REFUSED, a Rust recording with no err-flow record",
      _rust, ["exceptions", "$RUN"],
      UNSETTLED, "REFUSED: exceptions needs err_flow"),
     ("exceptions: REFUSED on a trace another recorder wrote",
      _other_lang, ["exceptions", "$RUN"],
-     UNSETTLED, "REFUSED: exceptions on a typescript trace"),
+     UNSETTLED, "REFUSED: exceptions needs err_flow, which recorder "
+                "sensorium-ts 0.1.0 declares it does not produce"),
     # -- watch: the three verdict classes are three different answers ------
     # `add(1, 2)` is recorded with its arguments and no LINE event, so one
     # CALL site carries `a`, and `ghost` is bound nowhere: the same command

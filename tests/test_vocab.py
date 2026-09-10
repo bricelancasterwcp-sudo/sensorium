@@ -233,18 +233,27 @@ def test_typescript_terms_name_what_a_typescript_trace_has():
     assert TYPESCRIPT.kind_labels == {"coroutine": "async",
                                       "async_generator": "async generator"}
     assert "generator" not in TYPESCRIPT.kind_labels
-    assert TYPESCRIPT.exceptions_refusal == (
-        "REFUSED: exceptions on a typescript trace needs the TypeScript "
-        "disposition rules (S5 rung 2); the Python rules index exception "
-        "identity this trace does not carry; nothing was judged")
+    assert TYPESCRIPT.exceptions_refusal is None, (
+        "this column carried a refusal naming the rules the throw-flow "
+        "rung owed; that rung shipped them, and a TypeScript trace is now "
+        "dispatched to `exceptions_typescript` before `_language_refusal` "
+        "is read")
 
 
-def test_only_the_language_with_no_rules_carries_an_exceptions_refusal():
-    """Python's rules ARE this command's, and Rust is dispatched to its own
-    module before the refusal is ever read (design R9). A refusal on either
-    column would be a sentence printed about a trace that can be judged."""
+def test_no_language_with_rules_carries_an_exceptions_refusal():
+    """Python's rules ARE this command's, and Rust and TypeScript are each
+    dispatched to their own rule module before the refusal is ever read
+    (design R9, and the throw-flow rung for the third). A refusal on any of
+    the three columns would be a sentence printed about a trace that can be
+    judged -- an 0.1.x recording of either of the two is refused through
+    `capabilities.err_flow` instead, which is a fact about the RECORD.
+
+    The field itself stays: a fourth language will have words before it has
+    rules, and this is the sentence it gets in the meantime.
+    """
     assert PYTHON.exceptions_refusal is None
     assert RUST.exceptions_refusal is None
+    assert TYPESCRIPT.exceptions_refusal is None
     assert PYTHON.kind_labels == {} and RUST.kind_labels == {}, (
         "the contract's kind words are already these two languages' own; a "
         "mapping here would reword markers the legacy suite pins")
