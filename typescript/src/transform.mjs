@@ -468,6 +468,13 @@ function spliceCatch(ctx, node) {
  * parentheses of its own so that whatever expression it is — an arrow, a
  * conditional, an `await` — arrives at `catchCb` as exactly one argument, and so
  * that a closer a descendant registers on the same offset lands inside ours.
+ *
+ * A call holding a SPREAD argument is left alone entirely. `...args` is not an
+ * expression and cannot be parenthesised, so wrapping it produces source the
+ * consumer's own parser rejects — the recorder breaking the program it observes
+ * — and a spread also hides which argument the handler even IS: `p.then(...a)`
+ * may carry two, and `p.then(...a, b)`'s `b` may be the third. One argument the
+ * splice cannot read is enough to leave the whole call to the program.
  * @param {Splicer} ctx
  * @param {import('typescript').CallExpression} node
  * @returns {boolean} whether this call was a rejection handler
@@ -476,6 +483,7 @@ function spliceRejectionCallback(ctx, node) {
   const { ts, sf, s } = ctx;
   const callee = node.expression;
   if (!ts.isPropertyAccessExpression(callee)) return false;
+  if (node.arguments.some((a) => ts.isSpreadElement(a))) return false;
   const name = callee.name.text;
   const arg = name === 'catch' && node.arguments.length === 1
     ? node.arguments[0]

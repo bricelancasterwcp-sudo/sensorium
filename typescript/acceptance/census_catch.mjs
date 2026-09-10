@@ -220,10 +220,11 @@ function census(root) {
     spliced: {},
     ratio: null,
     note:
-      'The transform does not record catch sites in its per-file manifest yet, ' +
-      'so `spliced` is empty and `ratio` is null rather than 1.000 over a ' +
-      'denominator with no numerator. S5 rung 2 Task 2 adds the splice and its ' +
-      'manifest entries; Task 7 re-runs this instrument and fills both.',
+      'This census is the DENOMINATOR only: it counts the sites an AST walk ' +
+      'sees, and `spliced` is empty and `ratio` null rather than 1.000 over a ' +
+      'denominator with no numerator. The numerator — how many of those sites ' +
+      "the transform actually spliced, by `how` — arrives at Task 7 from the " +
+      "transform's own output over the same tree.",
   };
 }
 

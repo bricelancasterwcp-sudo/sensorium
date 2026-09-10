@@ -307,8 +307,9 @@ function checkSites(k, s) {
 }
 
 /**
- * E8 shapes 1, 2, 4 and 5: the marked lines, the `how` each was recorded with,
- * and what §1.2 says the exception itself looks like.
+ * E8's swallow shapes — 1, 2 and 4-12, every one in `SWALLOW_EXC`: the marked
+ * lines, the `how` each was recorded with, and what the exception itself looks
+ * like.
  * @param {Checker} k
  * @param {ReturnType<typeof index>} s
  */
