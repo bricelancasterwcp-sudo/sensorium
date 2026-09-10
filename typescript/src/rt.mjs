@@ -621,6 +621,13 @@ export function handledFinally(f, line) {
  * is returned untouched. A handler that is not callable is a shape the
  * transform does not emit; it is handed straight back rather than wrapped,
  * because breaking the program to record it would be the larger harm.
+ *
+ * It does NOT clear the frame's mark, and `handled` does. The wrapper runs in a
+ * later microtask, by which time the frame it names has usually returned and
+ * whatever it was carrying is long over; clearing a mark then would clear one
+ * set by some throw now in flight through a frame that happens to be the same.
+ * The flight a rejection handler ends was never travelling through `f` in the
+ * first place — it arrived as a rejected promise, not up a stack.
  * @param {Frame|null} f
  * @param {number} line
  * @param {string} how one of §2.5's callback words

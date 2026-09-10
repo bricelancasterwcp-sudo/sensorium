@@ -3,7 +3,7 @@
 // cleared by `handled`) and the sink a completing `finally` writes
 // (`handledFinally`). Its own file rather than `rt.test.mjs`'s because that file
 // is at 682 lines and the repository ceiling is 800 (`tests/test_ceiling.py`):
-// these seven tests would carry it over. The child-process helper is the one
+// these nine tests would carry it over. The child-process helper is the one
 // `rt.test.mjs` and `rt.spool.test.mjs` share, and what is asserted is the wire.
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -157,4 +157,25 @@ test('a throw a callee unwound with sets no mark in the caller', () => {
   ok(out);
   assert.equal(one(out.recs, 'UNWIND').x.msg, 'unwound');
   assert.deepEqual(of(out.recs, 'HANDLED'), []);
+});
+
+test('a frame that has closed takes no mark and writes no sink', () => {
+  // The mark is only meaningful while the frame is on the stack: a `raise` or a
+  // synthetic clause reaching a frame that has already returned would leave a
+  // mark nobody clears, and the next `handledFinally` anywhere in that frame's
+  // lifetime would report a swallow that never happened. The RAISE is still
+  // written — the throw statement really ran, and refusing to record it would
+  // be a second lie — but nothing is marked and no sink follows.
+  const out = run(`
+    const fid = __srt.file('src/a.ts', '/w/src/a.ts', [['a', 1, 'function']], 'sha');
+    const f = __srt.call(fid, 0);
+    __srt.ret(f, 'done');
+    __srt.mark(f, new Error('too late'));
+    __srt.handledFinally(f, 12);
+    __srt.raise(f, new Error('later still'), 14);
+    __srt.handledFinally(f, 15);
+  `);
+  ok(out);
+  assert.deepEqual(of(out.recs, 'HANDLED'), [], 'a frame that has returned swallows nothing');
+  assert.equal(one(out.recs, 'RAISE').x.msg, 'later still', 'the throw itself is still recorded');
 });

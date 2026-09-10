@@ -91,6 +91,8 @@ test('every record carries exactly its wire keys', () => {
       __srt.r(f, await __srt.y(f, Promise.resolve(1), 0));
       __srt.raise(f, new Error('raised'), 7);
       __srt.handled(f, new Error('handled'), 8, 'catch');
+      __srt.mark(f, new TypeError('in flight'));
+      __srt.handledFinally(f, 9);
       const g = __srt.call(fid, 0);
       __srt.thr(g, new Error('unwound'));
       __srt.ret(f, 'done');
@@ -127,6 +129,10 @@ test('every record carries exactly its wire keys', () => {
   assert.deepEqual(out.recs.filter((r) => r.e === 'SEEN' && r.name_trunc !== undefined), []);
   assert.deepEqual(out.recs.filter((r) => r.x && (r.x.trunc || r.x.type_trunc)), []);
   assert.deepEqual([...seen].sort(), Object.keys(KEYS).sort(), 'every record kind exercised');
+  // Both HANDLED words this runtime can write went through the sweep above, so
+  // the sink's keys are held exactly and not by a kind that stands in for it.
+  assert.deepEqual(out.recs.filter((r) => r.e === 'HANDLED').map((r) => r.how),
+    ['catch', 'sink_finally_return']);
   assert.equal(out.recs[0].e, 'BOOT');
   assert.equal(out.recs[out.recs.length - 1].e, 'EXIT');
 });
