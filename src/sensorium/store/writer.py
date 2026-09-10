@@ -225,3 +225,17 @@ class TraceWriter:
             # `_commit()`: in the non-durable mode this is the transaction.
             self._conn.commit()
             self._conn.close()
+
+    def discard(self) -> None:
+        """Let go of a trace that will not be finished: roll back, close.
+
+        `close()`'s counterpart for a build that failed. In the non-durable
+        mode that commit IS the whole trace, and committing it would
+        checkpoint a full-size WAL into a file the caller is about to
+        unlink -- every byte of it written for nobody. The rollback drops
+        the open transaction instead; nothing buffered is flushed first,
+        because a row nobody will read is not worth writing.
+        """
+        with self._lock:
+            self._conn.rollback()
+            self._conn.close()

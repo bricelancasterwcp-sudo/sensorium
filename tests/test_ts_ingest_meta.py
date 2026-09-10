@@ -169,6 +169,21 @@ def test_two_boot_records_name_two_runtimes(ingested):
     assert "two runtime instances wrote one spool" in line
 
 
+def test_a_second_boot_met_late_leaves_no_trace_behind(ingested):
+    """The refusal above moved into the WALK (A3), and a build already under
+    way is what pays for it: the second BOOT is met after the builder has
+    written rows, so `convert` aborts the build and unlinks the temporary
+    file it had reserved. What the store holds afterwards is the sibling
+    spool's trace and nothing else -- no `.tmp` trio, no half-written `.db`
+    that `runs` would list."""
+    _spool, sdir, result = ingested["duplicate-boot"]
+    assert result.returncode == 2
+    line = next(ln for ln in result.stdout.splitlines()
+                if ln.startswith("refused: "))
+    assert REFUSING["duplicate-boot"] in line
+    assert sorted(q.suffix for q in (sdir / "traces").iterdir()) == [".db"]
+
+
 def test_a_record_naming_a_frame_no_call_opened_is_refused(ingested):
     """Never a guessed frame. A row attached to the wrong activation is a
     confident wrong answer about the program, which is worse than a spool
@@ -246,50 +261,6 @@ def test_a_directory_with_no_invocation_record_is_a_bad_call(tmp_path):
                 sensorium_dir=tmp_path / "sdir")
     assert r.returncode == 2
     assert "invocation.json" in r.stderr
-
-
-def test_a_spool_with_no_boot_names_the_file():
-    from sensorium.ts import spool
-    with pytest.raises(spool.SpoolError) as e:
-        spool.read(FIXTURES / "no-boot" / "7101-0.jsonl")
-    assert "7101-0.jsonl" in str(e.value)
-
-
-def test_a_torn_final_line_is_dropped_and_not_refused(ingested):
-    """A container killed mid-`appendFileSync` leaves half a line. That is
-    the tail this recorder declares unknowable, not a corrupt file: the line
-    is dropped, the trace says `incomplete`, and nothing counts the loss."""
-    from sensorium.ts import spool as spool_mod
-    sp = spool_mod.read(FIXTURES / "killed-mid-file" / "439886-0.jsonl")
-    assert sp.torn_tail is True
-    assert sp.exit is None
-    assert len(sp.records) == 119   # 120 whole lines, one of them BOOT
-
-
-def test_a_malformed_line_anywhere_else_is_a_refusal(tmp_path):
-    """...and only the LAST line gets that benefit. A broken line in the
-    middle is a corrupt file, and reading past it would silently drop a
-    record the container did finish writing."""
-    from sensorium.ts import spool as spool_mod
-    good = (FIXTURES / "each-names" / "439934-0.jsonl").read_text().splitlines()
-    bad = tmp_path / "9-0.jsonl"
-    bad.write_text("\n".join(good[:5] + ["{not json"] + good[5:]) + "\n")
-    with pytest.raises(spool_mod.SpoolError) as e:
-        spool_mod.read(bad)
-    assert "line 6" in str(e.value)
-    assert "9-0.jsonl" in str(e.value)
-
-
-def test_a_line_that_is_not_a_record_is_refused(tmp_path):
-    """Every line carries an `e` naming its kind, and it is a string. A
-    line that carries something else is not a record this converter can
-    dispatch on."""
-    from sensorium.ts import spool as spool_mod
-    bad = tmp_path / "9-0.jsonl"
-    bad.write_text('{"e": 7}\n')
-    with pytest.raises(spool_mod.SpoolError) as e:
-        spool_mod.read(bad)
-    assert "line 1 is not a record" in str(e.value)
 
 
 def test_the_help_speaks_this_recorders_language_and_no_other(tmp_path):

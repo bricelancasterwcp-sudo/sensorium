@@ -263,3 +263,21 @@ def test_set_meta_and_fingerprints_ride_the_one_transaction(tmp_path):
         [(1, "abc123", 2)]
     assert _rows(p, "SELECT task_id, name, hash, n_events FROM "
                     "task_fingerprints") == [(3, "task-A", "def456", 1)]
+
+
+def test_a_discarded_writer_commits_nothing_at_all(tmp_path):
+    """A trace nobody will finish is let go of, not committed.
+
+    `close()` COMMITS -- and in the non-durable mode that commit is the
+    whole trace, checkpointed out of the WAL into a file `ingest.convert`
+    unlinks a moment later. `Builder.abort()` calls this instead: the
+    transaction is rolled back and the connection closed, so nothing the
+    writer buffered ever reaches the file.
+    """
+    p = tmp_path / "t.db"
+    w = TraceWriter(p, batch=2, durable=False)   # tiny batch forces flushes
+    cid = w.intern_code("/x.py", "f", 1)
+    for i in range(5):
+        w.add_event(i, 1, "CALL", None, cid, 1, None)
+    w.discard()
+    assert _rows(p, "SELECT COUNT(*) FROM events") == [(0,)]

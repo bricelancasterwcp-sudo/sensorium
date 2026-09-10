@@ -132,13 +132,20 @@ class Builder:
     def abort(self) -> None:
         """Let go of a trace that will not be finished.
 
+        `discard()` and not `close()`: the writer's transaction is rolled
+        back rather than committed, because a commit here would checkpoint
+        the whole trace out of the WAL and into a file the caller is about
+        to unlink. A mid-file refusal (a second BOOT, a record the wire does
+        not declare) comes through here with rows already written, and that
+        is exactly the build whose commit buys nothing.
+
         The file is the caller's to remove -- it reserved the name -- and a
         second failure while unwinding would replace the exception that
         actually says what went wrong, so this one is not allowed to
         propagate.
         """
         try:
-            self.w.close()
+            self.w.discard()
         except Exception:                                   # pragma: no cover
             pass
 
