@@ -19,8 +19,9 @@ from pathlib import Path
 import pytest
 
 from tests.helpers import run_cli
-from tests.ts_spools import (FIXTURES, REFUSING, copy_tree, ingest_case,
-                             ingested, only_trace, run_ids_in)
+from tests.ts_spools import (CASES, FIXTURES, REFUSING, copy_tree,
+                             ingest_case, ingested, only_trace,
+                             run_ids_in)
 
 __all__ = ["ingested"]      # a fixture, imported for pytest to find
 
@@ -387,8 +388,23 @@ def test_a_container_that_never_got_to_say_carries_no_claim(ingested):
 TRACE_TABLES = ("code_objects", "frames", "events", "output", "tasks",
                 "fingerprints", "task_fingerprints")
 
+#: Every fixture whose spool CONVERTS, which is the whole set minus the three
+#: the converter must refuse: those end at exit 2 with no second trace to
+#: compare. `killed-mid-file` stays in -- its spool is torn mid-line, the
+#: Builder finishes it as an `incomplete` trace, and an incomplete trace is
+#: exactly the shape a reader would least expect two writers to agree on.
+DURABLE_CASES = [case for case in CASES if case not in REFUSING]
 
-def test_a_trace_is_identical_whether_the_writer_was_durable(tmp_path):
+
+def sole_spool(case: str) -> Path:
+    """The one `<pid>-<threadId>.jsonl` a converting fixture holds."""
+    spools = sorted((FIXTURES / case).glob("*.jsonl"))
+    assert len(spools) == 1, f"{case} holds {len(spools)} spools, not 1"
+    return spools[0]
+
+
+@pytest.mark.parametrize("case", DURABLE_CASES)
+def test_a_trace_is_identical_whether_the_writer_was_durable(case, tmp_path):
     """A1's equivalence, at the smallest scale the gate is made of.
 
     The converter builds with `durable=False` -- one transaction, no fsync
@@ -397,15 +413,21 @@ def test_a_trace_is_identical_whether_the_writer_was_durable(tmp_path):
     the same minted run id, once in each mode, and every row of every table
     plus the whole `meta` table is compared. A faster converter that writes
     a different trace has changed the product, not the cost.
+
+    Spec 6 asks this of the `tests/fixtures/ts-spools/` fixtures rather than
+    of one of them, and the difference is not decoration: `async-chain` alone
+    exercises no `UNWIND`, no capped name, no `#2` activation, no torn tail
+    and no missing EXIT, and the gate it stands in for converted 372 spools
+    of every shape the lens had.
     """
     from sensorium.ts import build, invocation, spool
 
     inv = invocation.Invocation.from_json(json.loads(
-        (FIXTURES / "async-chain" / "invocation.json").read_text()))
+        (FIXTURES / case / "invocation.json").read_text()))
     paths = {}
     for durable in (True, False):
         # Read the spool afresh for each build: the builder consumes it.
-        sp = spool.read(FIXTURES / "async-chain" / "439886-0.jsonl")
+        sp = spool.read(sole_spool(case))
         path = tmp_path / f"durable-{durable}.db"
         build.Builder(sp, inv, None, None, path, "20260101-000000-aaaaaa",
                       durable=durable).build()
@@ -420,11 +442,14 @@ def test_a_trace_is_identical_whether_the_writer_was_durable(tmp_path):
             rows = a.execute(sql).fetchall()
             assert rows == b.execute(sql).fetchall(), table
             written[table] = len(rows)
-        # A comparison over empty tables proves nothing, so which tables this
-        # fixture fills is pinned: six of the seven. `output` is empty because
-        # the TypeScript recorder declares no output capability -- an empty
+        # A comparison over empty tables proves nothing, so what every case
+        # must actually have filled is pinned: the three tables no converted
+        # spool can leave empty. `output` is empty on all of them -- the
+        # TypeScript recorder declares no output capability -- and an empty
         # pair is still one of the seven the gate compares.
-        assert [t for t, n in written.items() if n == 0] == ["output"]
+        assert min(written["code_objects"], written["frames"],
+                   written["events"]) > 0, written
+        assert written["output"] == 0
         sql = "SELECT key, value FROM meta ORDER BY key"
         assert a.execute(sql).fetchall() == b.execute(sql).fetchall()
     finally:
