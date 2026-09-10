@@ -73,9 +73,12 @@ never left its body, or left it only as a `console.*` argument);
 some other way); `catch_callback_opaque` (a handler defined elsewhere);
 `sink_empty_catch_callback` (an inline rejection handler with an empty body); and
 `sink_finally_return` (a `finally` that completes with a throw in flight, whose
-`exc` is the marked throw's own — `unread: ["type", "msg"]`, since the block has no
-binding and the runtime holds no reference to the value). What is still recorded by
-nothing: a `finally` with no completion statement; `.finally(fn)`, never a handler;
+`exc` is the marked throw's own, COMPLETE — `kind`, `type`, `msg` and `serial`
+exactly as the RAISE (or the synthetic marking clause) wrote them, nothing unread:
+the mark holds the whole `exc` object, not just its serial. A throw traced code
+never raised — a library's, a `reject()`'s — sets no mark, so such a `finally`
+records nothing: a declared blind spot). What is still recorded by nothing: a
+`finally` with no completion statement; `.finally(fn)`, never a handler;
 a `Promise.reject(v)`, whose handler's HANDLED carries no RAISE and reads *born
 outside a throw statement*; a throw inside a promise executor with no open frame,
 counted in `throw_flow_outside_frames`; and a throw in untraced code (`JSON.parse`,
