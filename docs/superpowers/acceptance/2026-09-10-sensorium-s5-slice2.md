@@ -293,6 +293,7 @@ converter — detail in §3.9 and their verdicts in §4.1.
 | E10′-suite | n=5 guarded `ingest`, default jobs, pinned `f08e89` copy, final converter | ≤ 22.5925 s → PASS; above → REPORTED with the whole ladder | **PASS** — **16.3859 s** median, n=5, 16.2555 – 16.4203; 1-min loads 1.12/2.25/3.06/3.75/3.19; peak RSS 290,948 kB; the worktree's venv, `feat/s5-slice2` `c457bee` — §3.9, verdict §4.1 |
 | E10′-file | n=5 guarded `ingest` over the pinned 611,016-byte spool | ≤ 0.4002 s → PASS; above → STOP | **PASS** — **0.1648 s** median, n=5, 0.1617 – 0.1878; 1-min loads 1.13/1.13/1.13/1.12/1.12; peak RSS 26,896 kB; the worktree's venv, `feat/s5-slice2` `c457bee` — §3.9, verdict §4.1 |
 | E10′-eq | 372 pairs, main@T0 vs final, `sensorium diff` each | 372 MATCH / 0 DIVERGED / 0 REFUSED → PASS; else STOP | **PASS** — **372 MATCH**, 0 DIVERGED, 0 REFUSED, 0 other, n=372 pairs, nothing dropped; 372/372 pairs equal on all seven row counts; the only meta key that differs on any pair is `run_id`; A = the global tool, main `bbd0781`, B = the worktree's venv `c457bee` — §3.9, verdict §4.1 |
+| E10′-eq-content | 372 pairs, every row of all seven tables and `meta`, A vs B | **reported, not gated** — pre-registered §5.A after E10′-eq was read; cannot move its verdict | **372 / 372 identical**, 0 differing rows in any table; the only `meta` key that differs on any pair is `run_id` — §5.A |
 | E10′-0 | 0a — the largest spool alone, `--jobs 1`, one-spool copy, n=3 | reported against spec §3.2's prediction (≈ 16 s); no verdict | **17.5439 s** median, n=3, 17.3953 – 27.3839; 1-min loads 0.29/0.73/0.86; peak RSS 2,273,872 kB; the global tool, main `bbd0781` — §3.6 |
 | E10′-0 | 0b — the full set, `--jobs 1`, n=3 | reported against spec §3.2's prediction (40–50 s); no verdict | **154.3012 s** median, n=3, 152.7924 – 154.5061; 1-min loads 3.62/2.32/2.19; peak RSS 2,272,256 kB; the global tool, main `bbd0781` — §3.6 |
 | E10′-0 | 0c — the full set, `--jobs 4`, n=3 | reported against spec §3.2's prediction (between 0b and 0d); no verdict | **67.9342 s** median, n=3, 67.1653 – 67.9709; 1-min loads 0.82/3.5/3.78; peak RSS 2,270,804 kB; the global tool, main `bbd0781` — §3.6 |
@@ -798,5 +799,31 @@ not an amendment to the pre-registration the gate was decided under.
 > `file` and table and is a §5 finding for the final review to weigh. It
 > cannot move E10′-eq's verdict, which was read before this check existed.
 
-**Result:** not measured (pre-registered 2026-09-10; the instrument has not
-run).
+**Result, measured once on 2026-09-10 by
+`typescript/acceptance/e10p_eq_content.py`: 372 / 372 identical.** No row of
+`events`, `frames`, `code_objects`, `tasks`, `fingerprints`,
+`task_fingerprints` or `output` differs in any column on any pair, and the
+only `meta` key whose value differs on any pair is `run_id` — so `differing`
+is empty and there is no pair to name. The cell is
+`results/e10p-eq-content.json`.
+
+Two things about how it was run, because neither is invisible. **(1) It ran
+on a second conversion, not the gate's.** The gate's two stores had been
+removed when its verdict was committed, so the pinned set was converted again
+by the same two converters — the global tool at main `bbd0781` and the
+worktree's venv — and the check ran on those. The run ids therefore differ
+from the gate's, which the check does not read; and the repetition is a
+strengthening rather than a weakening, because it is an independent second
+conversion by both sides. That re-run's own `sensorium diff` pass read **372
+MATCH / 0 / 0** again, ungated and not pinned: the gate's number stands as it
+was read at 01:12, and this line is a replication beside it, not a re-roll of
+it. **(2) The instrument was mutation-checked before it ran here**: a single
+column changed in one `events` row was caught and named (`events`, the first
+differing rowid), a deleted `tasks` row was caught and named, and a changed
+`meta` value appeared in `meta_keys_differing` — a checker that cannot fail is
+not evidence that anything passed.
+
+What this closes, and what it does not: the two converters write the same
+rows, column for column, in the same order, in every table of all 372 traces.
+It says nothing about traces this set does not contain, and it is still a
+comparison of two SQLite databases rather than a proof about the converter.
