@@ -1,6 +1,15 @@
 """Batched, thread-safe writer for trace files. Buffers rows in memory and
 flushes in one transaction per batch; on an unclean death, everything
-already flushed is a valid partial trace."""
+already flushed is a valid partial trace.
+
+That is the DURABLE mode, and it is the default because it is the recorder's:
+a recorder writes a trace live, and a trace cut short is still worth reading.
+A caller that builds a file nobody can see until it is renamed into place --
+the converter (`sensorium.ts.ingest.convert`) -- passes `durable=False` and
+gets one transaction for the whole trace under `synchronous=NORMAL`: the
+partial trace it would be buying has no reader, so the fsyncs that make one
+are a cost with nothing on the other side.
+"""
 import json
 import threading
 from pathlib import Path
@@ -9,9 +18,17 @@ from sensorium.store import db
 
 
 class TraceWriter:
-    def __init__(self, path: Path, batch: int = 512) -> None:
+    def __init__(self, path: Path, batch: int = 512,
+                 durable: bool = True) -> None:
         self.path = Path(path)
         self._conn = db.create_trace(self.path)
+        self._durable = durable
+        if not durable:
+            # NORMAL under WAL: no fsync per commit. The file is renamed into
+            # place only after close() commits, so there is no earlier
+            # committed state a reader could be shown; synchronous below that
+            # point buys speed, not correctness (the Rust converter's rule).
+            self._conn.execute("PRAGMA synchronous=NORMAL")
         self._lock = threading.Lock()
         self._batch = batch
         self._events: list[tuple] = []
@@ -23,6 +40,13 @@ class TraceWriter:
         self._new_codes: list[tuple] = []
         self._next_event = 1
         self._next_frame = 1
+
+    def _commit(self) -> None:
+        """Every commit in this class goes through here. Durable: each batch
+        is its own transaction, so a killed recorder leaves what it flushed.
+        Non-durable: nothing commits before close() -- one transaction."""
+        if self._durable:
+            self._conn.commit()
 
     @property
     def last_event_id(self) -> int:
@@ -90,7 +114,7 @@ class TraceWriter:
     def set_meta(self, key, value) -> None:
         with self._lock:
             db.set_meta(self._conn, key, value)
-            self._conn.commit()
+            self._commit()
 
     def write_fingerprint(self, thread_id, hexdigest, count) -> None:
         with self._lock:
@@ -98,7 +122,7 @@ class TraceWriter:
                 "INSERT OR REPLACE INTO fingerprints "
                 "(thread_id, hash, n_events) VALUES (?, ?, ?)",
                 (thread_id, hexdigest, count))
-            self._conn.commit()
+            self._commit()
 
     def write_task_fingerprints(self, rows) -> None:
         """Every task's row -- `(task_id, hexdigest, count)` -- in ONE
@@ -140,7 +164,7 @@ class TraceWriter:
                 "SELECT ?, name, ?, ? FROM tasks WHERE id = ?",
                 [(task_id, hexdigest, count, task_id)
                  for task_id, hexdigest, count in rows])
-            self._conn.commit()
+            self._commit()
 
     def write_task_fingerprint(self, task_id, hexdigest, count) -> None:
         """One task's row. Kept as its own entry point -- callers with a
@@ -184,9 +208,11 @@ class TraceWriter:
         # `commit=False` is for a caller that has more to write in the SAME
         # transaction (see `write_task_fingerprints`); every other caller
         # takes the default, because an unflushed batch left uncommitted is
-        # a batch an unclean death loses.
+        # a batch an unclean death loses -- in the durable mode, which is the
+        # mode where such a death leaves anything worth having. `_commit()`
+        # is where the two modes part.
         if commit:
-            c.commit()
+            self._commit()
 
     def flush(self) -> None:
         with self._lock:
@@ -195,4 +221,7 @@ class TraceWriter:
     def close(self) -> None:
         with self._lock:
             self._flush_locked()
+            # The one commit both modes make, and the only one that is not
+            # `_commit()`: in the non-durable mode this is the transaction.
+            self._conn.commit()
             self._conn.close()

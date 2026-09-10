@@ -179,3 +179,87 @@ def test_write_task_fingerprint_still_writes_one_row(tmp_path):
     assert c.execute("SELECT task_id, name, hash, n_events FROM "
                      "task_fingerprints").fetchall() == [(3, "task-A",
                                                           "abcdef", 7)]
+
+
+def _rows(path, sql: str):
+    """Read through a connection of its own, opened and closed here.
+
+    A reader that stays open holds the snapshot it first read under WAL, so
+    a second look through the same connection could report the writer's
+    silence long after the writer stopped being silent. Opening per look
+    makes "before close" and "after close" two independent readings.
+    """
+    c = sqlite3.connect(path)
+    try:
+        return c.execute(sql).fetchall()
+    finally:
+        c.close()
+
+
+def test_a_non_durable_writer_commits_nothing_before_close(tmp_path):
+    """The converter's mode: one transaction per trace.
+
+    `durable=False` is for a writer whose file is renamed into place only
+    after `close()` -- nothing outside may see a row before then, because
+    there is no reader to show it to and every commit before then is an
+    fsync bought for nobody. The durable twin above
+    (`test_partial_trace_valid_without_close`) pins the opposite promise for
+    the recorder, and both must hold at once.
+    """
+    p = tmp_path / "t.db"
+    w = TraceWriter(p, batch=2, durable=False)   # tiny batch forces flushes
+    cid = w.intern_code("/x.py", "f", 1)
+    for i in range(5):
+        w.add_event(i, 1, "CALL", None, cid, 1, None)
+    # Two batches have been flushed to the connection and neither committed.
+    assert _rows(p, "SELECT COUNT(*) FROM events") == [(0,)]
+    w.close()
+    assert _rows(p, "SELECT COUNT(*) FROM events") == [(5,)]
+
+
+def test_a_non_durable_writer_runs_normal_under_wal(tmp_path):
+    """`synchronous=NORMAL` (1) under `journal_mode=WAL`, and only there.
+
+    NORMAL under WAL is the mode that stops fsyncing every commit while
+    keeping the database consistent against a process death; the durable
+    default keeps FULL (2), because the recorder's partial trace is worth
+    the fsyncs.
+    """
+    w = TraceWriter(tmp_path / "n.db", durable=False)
+    assert w._conn.execute("PRAGMA synchronous").fetchone()[0] == 1
+    assert w._conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    w.close()
+
+    d = TraceWriter(tmp_path / "d.db")
+    assert d._conn.execute("PRAGMA synchronous").fetchone()[0] == 2
+    assert d._conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    d.close()
+
+
+def test_set_meta_and_fingerprints_ride_the_one_transaction(tmp_path):
+    """The finalize pass commits too, and in this mode it must not.
+
+    `set_meta`, `write_fingerprint` and `write_task_fingerprints` each
+    committed on their own -- about thirty-five fsyncs per converted trace
+    on top of one per batch. In the non-durable mode they are writes inside
+    the single transaction like any other, so nothing outside sees them
+    until `close()`.
+    """
+    p = tmp_path / "t.db"
+    w = TraceWriter(p, durable=False)
+    w.set_meta("incomplete", True)
+    w.add_task(3, "task-A", 1)
+    w.write_fingerprint(1, "abc123", 2)
+    w.write_task_fingerprints([(3, "def456", 1)])
+
+    assert _rows(p, "SELECT COUNT(*) FROM meta WHERE key='incomplete'") == [(0,)]
+    assert _rows(p, "SELECT COUNT(*) FROM fingerprints") == [(0,)]
+    assert _rows(p, "SELECT COUNT(*) FROM task_fingerprints") == [(0,)]
+    assert _rows(p, "SELECT COUNT(*) FROM tasks") == [(0,)]
+
+    w.close()
+    assert _rows(p, "SELECT value FROM meta WHERE key='incomplete'") == [("true",)]
+    assert _rows(p, "SELECT thread_id, hash, n_events FROM fingerprints") == \
+        [(1, "abc123", 2)]
+    assert _rows(p, "SELECT task_id, name, hash, n_events FROM "
+                    "task_fingerprints") == [(3, "task-A", "def456", 1)]

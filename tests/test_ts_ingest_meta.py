@@ -10,6 +10,7 @@ how the converter RUNS its work -- the pool, and a worker that dies -- is
 """
 import json
 import re
+import sqlite3
 import subprocess
 import sys
 import time
@@ -406,6 +407,58 @@ def test_a_container_that_never_got_to_say_carries_no_claim(ingested):
     meta = only_trace(sdir).meta
     assert "exit_self_reported" not in meta
     assert meta["incomplete"] is True
+
+
+#: Every table a converted trace holds rows in. The durable and the
+#: non-durable writer must produce the same trace, table for table: the mode
+#: is about WHEN rows become visible outside the connection, never about
+#: which rows there are.
+TRACE_TABLES = ("code_objects", "frames", "events", "output", "tasks",
+                "fingerprints", "task_fingerprints")
+
+
+def test_a_trace_is_identical_whether_the_writer_was_durable(tmp_path):
+    """A1's equivalence, at the smallest scale the gate is made of.
+
+    The converter builds with `durable=False` -- one transaction, no fsync
+    per batch -- and the equivalence gate (spec 3.5) says the trace it
+    produces must not have changed. Here the same spool is built twice with
+    the same minted run id, once in each mode, and every row of every table
+    plus the whole `meta` table is compared. A faster converter that writes
+    a different trace has changed the product, not the cost.
+    """
+    from sensorium.ts import build, invocation, spool
+
+    inv = invocation.Invocation.from_json(json.loads(
+        (FIXTURES / "async-chain" / "invocation.json").read_text()))
+    paths = {}
+    for durable in (True, False):
+        # Read the spool afresh for each build: the builder consumes it.
+        sp = spool.read(FIXTURES / "async-chain" / "439886-0.jsonl")
+        path = tmp_path / f"durable-{durable}.db"
+        build.Builder(sp, inv, None, None, path, "20260101-000000-aaaaaa",
+                      durable=durable).build()
+        paths[durable] = path
+
+    a = sqlite3.connect(paths[True])
+    b = sqlite3.connect(paths[False])
+    try:
+        written = {}
+        for table in TRACE_TABLES:
+            sql = f"SELECT * FROM {table} ORDER BY rowid"
+            rows = a.execute(sql).fetchall()
+            assert rows == b.execute(sql).fetchall(), table
+            written[table] = len(rows)
+        # A comparison over empty tables proves nothing, so which tables this
+        # fixture fills is pinned: six of the seven. `output` is empty because
+        # the TypeScript recorder declares no output capability -- an empty
+        # pair is still one of the seven the gate compares.
+        assert [t for t, n in written.items() if n == 0] == ["output"]
+        sql = "SELECT key, value FROM meta ORDER BY key"
+        assert a.execute(sql).fetchall() == b.execute(sql).fetchall()
+    finally:
+        a.close()
+        b.close()
 
 
 def test_the_incomplete_claim_is_written_before_anything_is_read(tmp_path):

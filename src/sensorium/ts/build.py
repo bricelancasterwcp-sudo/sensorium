@@ -83,13 +83,19 @@ class Builder:
     """
 
     def __init__(self, spool: Spool, invocation, harness, tally: dict | None,
-                 path, run_id: str) -> None:
+                 path, run_id: str, durable: bool = False) -> None:
         self.spool = spool
         self.inv = invocation
         self.harness = harness
         self.tally = tally or {}
         self.run_id = run_id
-        self.w = TraceWriter(path)
+        # Non-durable by default because this is the CONVERTER's builder:
+        # `convert` writes under a temporary name and renames into place only
+        # after `build()` closes the writer, so no reader can be shown a
+        # committed row before then and a build that dies leaves a temporary
+        # file `convert` unlinks. The argument exists so a caller that wants
+        # the recorder's per-batch commits can say so.
+        self.w = TraceWriter(path, durable=durable)
 
         self._frames: dict[int, Frame] = {}
         self._files: dict[int, dict] = {}
