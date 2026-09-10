@@ -17,8 +17,10 @@ Everything below is measured on one lens — the tabletop VTT frontend at
 jsdom 29.1.1, node v24.16.0, 16 cores — against a pre-registration byte-locked
 before any of this code existed
 (`docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.md` §1).
-**Every cell this slice pre-registered was measured**, and every endpoint that
-carries a verdict reads **PASS**.
+**Every cell this slice pre-registered was measured**: the four gated clauses
+whose rule supplies a PASS word — E10′-suite, E10′-file, E10′-eq and E6″ —
+read **PASS**, and the H-probes clause, whose rule carries only a STOP,
+**held with no STOP**.
 
 - **E6″ — PASS on all five clauses; E6′'s STOP is answered** (`ecdc631`,
   record §3.11 and §4.3). A new pre-registration, not a second look: the

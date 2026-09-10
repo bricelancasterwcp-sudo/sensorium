@@ -323,7 +323,7 @@ measured.**
 | E10′-0 | 0c — the full set, `--jobs 4`, n=3 | reported against spec §3.2's prediction (between 0b and 0d); no verdict | **67.9342 s** median, n=3, 67.1653 – 67.9709; 1-min loads 0.82/3.5/3.78; peak RSS 2,270,804 kB; the global tool, main `bbd0781` — §3.6 |
 | E10′-0 | 0d — the full set, `--jobs 16`, n=3 | reported against spec §3.2's prediction (≈ 45 s); no verdict | **45.7378 s** median, n=3, 43.5478 – 45.8268; 1-min loads 2.09/3.97/3.79; peak RSS 2,269,696 kB; the global tool, main `bbd0781` — §3.6 |
 | E10′-0 | 0e — the one file, default jobs, n=5 | reported against spec §3.2's prediction (≈ 0.36 s); no verdict | **0.3624 s** median, n=5, 0.2736 – 0.4051; 1-min loads 0.96/0.96/0.96/0.96/0.96; peak RSS 30,828 kB; the global tool, main `bbd0781` — §3.6 |
-| H-probes | §4.5's four probe files and two controls | every row as its table says; a control mismatch → STOP | **PASS** — `check.mjs nodetest` **ok: true**, 25 checks, 0 failures over 3 spools: `async.probe.test.ts` E3 S1–S4 + T1/T2 at `basis: title`; `ext.probe.test.mts` 1 task (`M1 …`, `basis: title`); `ext.probe.test.mjs` 1 task (`M2 …`); `ext.probe.test.cjs` **no spool**, its orphan tally `{"files_transformed": 0, "excluded": {"commonjs": 1}}`; controls `enum.ts` `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` on both sides and `jsx.tsx` `ERR_UNKNOWN_FILE_EXTENSION` on both sides, `same: true` twice — no mismatch, so no STOP; `npm run probe:nodetest` exit 0, node v24.16.0, the hook at `05e5338` and the probes and checker at `761c935` — §3.10 |
+| H-probes | §4.5's four probe files and two controls | every row as its table says; a control mismatch → STOP | **held — no STOP** — `check.mjs nodetest` **ok: true**, 25 checks, 0 failures over 3 spools: `async.probe.test.ts` E3 S1–S4 + T1/T2 at `basis: title`; `ext.probe.test.mts` 1 task (`M1 …`, `basis: title`); `ext.probe.test.mjs` 1 task (`M2 …`); `ext.probe.test.cjs` **no spool**, its orphan tally `{"files_transformed": 0, "excluded": {"commonjs": 1}}`; controls `enum.ts` `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` on both sides and `jsx.tsx` `ERR_UNKNOWN_FILE_EXTENSION` on both sides, `same: true` twice — no mismatch, so no STOP; `npm run probe:nodetest` exit 0, node v24.16.0, the hook at `05e5338` and the probes and checker at `761c935` — §3.10 |
 
 **Reported without a gate** (spec §3.6). Measured on Arm 0 (§3.6 below): **0b/0d
 = 154.3012 / 45.7378 = 3.3736×**, the parallel speedup on main's converter;
@@ -836,6 +836,16 @@ were read, with **the rule quoted from §1** beside the number that answered
 it. The verdict word is the rule's own; nothing was re-rolled and no
 threshold moved. Endpoints whose cells have not run are named at the end.
 
+*(Corrected 2026-09-10, after the final review, and the reason is the rule
+above: **H-probes** read **PASS** here and in §3's table, and §1's rule for
+it supplies no positive word at all — "every row as its table says; a
+control mismatch → STOP". A word the pre-registration does not carry is not
+the rule's own, however well the cell read, so the H-probes word is now
+**held — no STOP**, which is the whole of what that rule can say. **PASS**
+stays on the four clauses whose rules name it: E10′-suite, E10′-file,
+E10′-eq and E6″. Nothing measured moved — the reading is the same `ok: true`,
+25 checks, 0 failures, both controls `same: true` — and §1 is untouched.)*
+
 ### 4.1 E10′ — the converter ladder's three gated clauses
 
 **E10′-suite — PASS.** The rule, from §1 `### 3.4 The rules`:
@@ -919,8 +929,8 @@ and they did not (§3.8). Arm C, the binary wire, stays off the ladder — spec
 
 **Still open when this section was written:** E6″ (§1 `### 2.2 The rule`),
 whose cell belongs to its own task, and the H-probes cell (§1 `### 4.5 Probes
-and the checker`). Both are now filled — H-probes **PASS** (§3.10), E6″
-**PASS** (§4.3) — and **nothing this slice pre-registered is unanswered**.
+and the checker`). Both are now filled — H-probes **held — no STOP** (§3.10),
+E6″ **PASS** (§4.3) — and **nothing this slice pre-registered is unanswered**.
 
 ### 4.3 E6″ — the plain band
 
