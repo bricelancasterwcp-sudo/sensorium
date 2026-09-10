@@ -231,10 +231,18 @@ reading as one.**
   `async describe` callback registers after the lexical chain pops (P11), so
   those tasks lose their chain where no provider runs. `task_name_basis` says
   which rule named the trace's tasks.
-- **The recorder joins a describe chain with ` > ` and vitest's JSON reporter
+- ~~**The recorder joins a describe chain with ` > ` and vitest's JSON reporter
   joins it with a space** (record §5 gap 10). E9's rule attaches no threshold
   to its 20-name sample, so this gates nothing; whether §3.4 should emit
-  vitest's own `fullName` spelling is raised and unsettled.
+  vitest's own `fullName` spelling is raised and unsettled.~~ — **Decided
+  2026-09-10, S5 slice 2 (design §5, "Decisions recorded without work"): the
+  join stays ` > `.** It is vitest's **own console spelling** for nested
+  names — what the consumer reads in a failing test's header — and the
+  space-joined `fullName` is the JSON reporter's spelling, not vitest's.
+  E9's rule attaches nothing to it either way, so nothing was measured and
+  no code moved; the question is answered, not still open. *(Struck
+  2026-09-10 in the final fix wave: the row was decided by the slice that
+  raised it and still read "raised and unsettled".)*
 
 **Deferred blind spots — each now in `typescript/HONESTY.md` §10 with a
 falsifier, none of them silent.**
@@ -455,9 +463,42 @@ wave, and this is that commit.
 
 The slice that answers the two things rung 1 shipped open — E6′'s STOPped
 timing clause and E10's design input — and fixes what the `node --test` path
-was getting wrong. Seven controller rulings and ten plan decisions (P1–P10);
-every one that moved the design's text is a dated row in §12 of
-`docs/superpowers/specs/2026-09-10-sensorium-s5-slice2-design.md`. Every
+was getting wrong. Ten plan decisions (P1–P10), and — read off the slice's
+SDD ledger rather than counted by hand — **eleven** distinct controller
+rulings, two of them stated twice (once in a task's risk table and again in
+its bullet), one clause each:
+
+1. the equivalence gate's side B stays the tip after Task 3; Task 5's R45
+   edit touches only the zero-spool refusal and is not re-gated;
+2. the global `sensorium` tool is not reinstalled from the worktree until
+   Task 4's side A has converted, so Arm 0 and side A are not the new code;
+3. `ingested.json` is dropped from all three spool copies (the marker makes
+   `ingest` refuse and carries no measured data);
+4. the timed region keeps `rss_run.py`'s ~16 ms start-up in **every** stage,
+   so the bound stands as written and no threshold moves;
+5. the 4.0 load guard admits repetitions on a jobs-16 cell's own decaying
+   load — the pre-registered guard stands and the readings are in the JSON;
+6. Task 3 absorbs two record minors and builds `TraceWriter.discard()`
+   (rollback then close) behind `Builder.abort()`;
+7. the streaming reader's UTF-8 refusal names the **line**, where the old
+   reader named the file;
+8. `sensorium diff` MATCH compares causal structure and row counts and not
+   recorded values — so E10′-eq stands on its own pre-registered rule, and a
+   NEW ungated check, E10′-eq-content, is pre-registered before it runs;
+9. Task 7 adds `tests/test_ts_ingest_refusals.py` to CI's `typescript` job
+   file list, for symmetry with the matrix jobs' bare `pytest -q`;
+10. Task 6 re-runs `npm run probe:nodetest` once to capture `h-probes.json`
+    for the assembler, the H-probes verdict staying Task 5's;
+11. Task 7 absorbs three of Task 6's minors as edits and writes the rest
+    into the record's §5 and this ledger.
+
+Every one that moved the design's text is a dated row in §12 of
+`docs/superpowers/specs/2026-09-10-sensorium-s5-slice2-design.md`, and the
+`Ruling:` lines themselves are in
+`.superpowers/sdd/2026-09-10-sensorium-s5-slice2/progress.md`. *(The count
+read "Seven" until the final fix wave; this section's own process lesson is
+that a summary count goes stale, so it is derived here and the list is what
+a reader checks.)* Every
 number below is copied from
 `docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.md`, whose §1 was
 byte-locked before any of this code existed.
@@ -471,7 +512,11 @@ added **19** lines here, so the section is **269** and the file **722**. A
 line count stated in a paragraph goes stale the next time the paragraph's own
 section is edited — this file's header has recorded that happening to three
 volume counts — so the number is re-taken rather than left standing, and both
-readings are kept.)*
+readings are kept. Re-measured a third time the same day, after the FINAL
+review's fix wave struck the ` > ` row, enumerated the rulings above and
+amended the version-token row: the section is **313** and the file **774**,
+this sentence's own four lines included — writing the count moved the count,
+which is the lesson in one line. Still under the 800-line ceiling.)*
 
 ### Settled
 
@@ -657,13 +702,20 @@ number or the ruling that made it and what it costs if it was wrong.
   no path shipped. *Cost if wrong:* one box path in a committed results file
   — which is exactly what `offenders()` exists to refuse.
 - **`docs/TRACE-FORMAT.md`'s `capabilities.err_flow` sentence still names
-  `sensorium-ts 0.1.0`** — the **only** living-document version token this
-  slice left standing. True of 0.1.0 and still true of 0.1.1, and the file
-  sits at **799** of 800 lines, which this slice pre-committed not to open
-  (plan Global Constraints). *Cost if wrong:* a reader on 0.1.1 goes looking
-  for a version statement that has not moved because it did not need to. The
-  four others the first pass missed were taken 2026-09-10 rather than
-  deferred, so this row is the whole of the deferral: `typescript/README.md`'s
+  `sensorium-ts 0.1.0`**, and so does
+  `corpus/typescript/exceptions_refused/questions.yaml:12` ("no TypeScript
+  disposition rules exist in 0.1.0", in the case's `truth` prose) — **two**
+  version tokens this slice left standing, not one. *(Amended 2026-09-10 in
+  the final fix wave: this row claimed to be the only one.)* Both are true
+  of 0.1.0 and still true of 0.1.1 — the same rung still owes the
+  disposition rules, and `capabilities.err_flow` is false in both — and the
+  corpus file is left alone because no test reads that prose, and
+  `docs/TRACE-FORMAT.md` sits at **799** of 800 lines, which this slice
+  pre-committed not to open (plan Global Constraints). *Cost if wrong:* a
+  reader on 0.1.1 goes looking for a version statement that has not moved
+  because it did not need to. The four others the first pass missed were
+  taken 2026-09-10 rather than deferred, so this row — in its two places —
+  is the whole of the deferral: `typescript/README.md`'s
   "Arguments are unread" and `typescript/HONESTY.md`'s `capabilities.err_flow`
   sentence are now **version-free** ("in this version"), because both describe
   the package as it is rather than a recording; and `typescript/README.md`'s
