@@ -271,6 +271,24 @@ and one record, and none of these five enumerates either — `npm test` and
 and the live row names one test file. Any of them moving is a real regression,
 not this commit's arithmetic.
 
+### 2.3 Re-taken immediately before the E6″ session (2026-09-10)
+
+E6″ runs **last** in the slice, so that it exercises this slice's recorder,
+and it is a timing endpoint. §2's pins above were taken twelve hours earlier,
+before any of this slice's code existed. These readings were taken in the
+minute before `e6pp.sh` was launched, each the output of the command beside
+it, so the band's session can be read against the box it actually ran on
+rather than against the preflight's. Nothing else was running on this box for
+the duration.
+
+| Item | Command | Value |
+|---|---|---|
+| the clock | `date -Iseconds` | `2026-09-10T02:38:01-05:00`; the session started at `02:38:21` and finished at `02:52:22` — 14 min 1 s for eleven guarded suite runs |
+| 1-minute load | `cat /proc/loadavg` | `0.48 0.70 0.72 2/2601 2738628` — 1-minute load **0.48**, and the guard read `/proc/loadavg` again before each of the eleven runs against the same 4.0 refusal (every reading is in the cell; the highest was **3.98**) |
+| free disk `/mnt/extra` | `df -h /mnt/extra` | `64G` available (86% used, 469G total) before; `63G` after — the call run wrote a 414,467,939-byte spool and converted it |
+| free disk `/` | `df -h /` | `4.9G` available (100% used, 915G total) — unchanged; nothing this session writes goes there |
+| lens manifest, before | `cd <lens> && sha256sum -c /mnt/extra/sensorium-s5/manifest-rung1-before.txt` | exit `0`, **748 OK, 0 FAILED** — taken by hand before launching, so a moved lens would have been a BLOCKED report rather than fifteen spent minutes; `e6pp.sh` then took it again as its own first step, and refuses on anything else (§3.11) |
+
 ## 3. Results
 
 Each cell is filled when its endpoint runs and reads `not measured (slice 2
@@ -287,11 +305,15 @@ in §3.8, and the slice's **three gated E10′ clauses** — the 372-pair
 equivalence gate and the two verdict cells, measured last on the final
 converter — detail in §3.9 and their verdicts in §4.1, and the **H-probes**
 cell — §4.5's four files and two controls, measured 2026-09-10 on the hook at
-`05e5338`, detail in §3.10.
+`05e5338` with the probes and checker at `761c935`, detail in §3.10 — and,
+last of all, **E6″**: one guarded before/call/after session on the lens, run
+against this slice's own recorder at `ecdc631`, detail in §3.11 and its
+verdict in §4.3. **Every cell this slice pre-registered has now been
+measured.**
 
 | Id | Cell | Rule (from §1) | Result |
 |---|---|---|---|
-| E6″ | the plain band | manifest 748 OK / 0 FAILED; every run 372/4278 or dropped and named; 0 markers with ≥1 directory searched; wrapper absent; `median(after)` inside `median(before) ± range(before)`; <4 usable walls in an arm → STOP by instrument | not measured (slice 2 pending) |
+| E6″ | the plain band | manifest 748 OK / 0 FAILED; every run 372/4278 or dropped and named; 0 markers with ≥1 directory searched; wrapper absent; `median(after)` inside `median(before) ± range(before)`; <4 usable walls in an arm → STOP by instrument | **PASS** — **5 of 5 clauses held**, nothing dropped. Manifest **748 OK / 0 FAILED**, exit 0, before AND after the session; all ten plain runs and the call run read `372 passed (372)` / `4278 passed (4278)`; **0 markers** over 2 cache directories searched (`node_modules/.vite`, `node_modules/.vite-temp`); `node_modules/.sensorium` **absent**; band **[21.9834, 22.3652]** = the before arm's median **22.1743** ± its own range **0.1909** (22.1019 – 22.2928), and the after arm's median **22.1136** (22.0730 – 22.2559) lands **inside** it, 0.1302 s above the floor and 0.2516 s below the ceiling. Both arms n=5, every 1-minute load under 4.0 (max 3.98). The call run: harness wall **25.2619 s**, driver wall **38.8595 s**, invocation `20260910-024512-fe71ef` — §3.11, verdict §4.3 |
 | E10′-suite | n=5 guarded `ingest`, default jobs, pinned `f08e89` copy, final converter | ≤ 22.5925 s → PASS; above → REPORTED with the whole ladder | **PASS** — **16.3859 s** median, n=5, 16.2555 – 16.4203; 1-min loads 1.12/2.25/3.06/3.75/3.19; peak RSS 290,948 kB; the worktree's venv, `feat/s5-slice2` `c457bee` — §3.9, verdict §4.1 |
 | E10′-file | n=5 guarded `ingest` over the pinned 611,016-byte spool | ≤ 0.4002 s → PASS; above → STOP | **PASS** — **0.1648 s** median, n=5, 0.1617 – 0.1878; 1-min loads 1.13/1.13/1.13/1.12/1.12; peak RSS 26,896 kB; the worktree's venv, `feat/s5-slice2` `c457bee` — §3.9, verdict §4.1 |
 | E10′-eq | 372 pairs, main@T0 vs final, `sensorium diff` each | 372 MATCH / 0 DIVERGED / 0 REFUSED → PASS; else STOP | **PASS** — **372 MATCH**, 0 DIVERGED, 0 REFUSED, 0 other, n=372 pairs, nothing dropped; 372/372 pairs equal on all seven row counts; the only meta key that differs on any pair is `run_id`; A = the global tool, main `bbd0781`, B = the worktree's venv `c457bee` — §3.9, verdict §4.1 |
@@ -301,7 +323,7 @@ cell — §4.5's four files and two controls, measured 2026-09-10 on the hook at
 | E10′-0 | 0c — the full set, `--jobs 4`, n=3 | reported against spec §3.2's prediction (between 0b and 0d); no verdict | **67.9342 s** median, n=3, 67.1653 – 67.9709; 1-min loads 0.82/3.5/3.78; peak RSS 2,270,804 kB; the global tool, main `bbd0781` — §3.6 |
 | E10′-0 | 0d — the full set, `--jobs 16`, n=3 | reported against spec §3.2's prediction (≈ 45 s); no verdict | **45.7378 s** median, n=3, 43.5478 – 45.8268; 1-min loads 2.09/3.97/3.79; peak RSS 2,269,696 kB; the global tool, main `bbd0781` — §3.6 |
 | E10′-0 | 0e — the one file, default jobs, n=5 | reported against spec §3.2's prediction (≈ 0.36 s); no verdict | **0.3624 s** median, n=5, 0.2736 – 0.4051; 1-min loads 0.96/0.96/0.96/0.96/0.96; peak RSS 30,828 kB; the global tool, main `bbd0781` — §3.6 |
-| H-probes | §4.5's four probe files and two controls | every row as its table says; a control mismatch → STOP | **PASS** — `check.mjs nodetest` **ok: true**, 25 checks, 0 failures over 3 spools: `async.probe.test.ts` E3 S1–S4 + T1/T2 at `basis: title`; `ext.probe.test.mts` 1 task (`M1 …`, `basis: title`); `ext.probe.test.mjs` 1 task (`M2 …`); `ext.probe.test.cjs` **no spool**, its orphan tally `{"files_transformed": 0, "excluded": {"commonjs": 1}}`; controls `enum.ts` `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` on both sides and `jsx.tsx` `ERR_UNKNOWN_FILE_EXTENSION` on both sides, `same: true` twice — no mismatch, so no STOP; `npm run probe:nodetest` exit 0, node v24.16.0, the worktree at `05e5338` — §3.10 |
+| H-probes | §4.5's four probe files and two controls | every row as its table says; a control mismatch → STOP | **PASS** — `check.mjs nodetest` **ok: true**, 25 checks, 0 failures over 3 spools: `async.probe.test.ts` E3 S1–S4 + T1/T2 at `basis: title`; `ext.probe.test.mts` 1 task (`M1 …`, `basis: title`); `ext.probe.test.mjs` 1 task (`M2 …`); `ext.probe.test.cjs` **no spool**, its orphan tally `{"files_transformed": 0, "excluded": {"commonjs": 1}}`; controls `enum.ts` `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` on both sides and `jsx.tsx` `ERR_UNKNOWN_FILE_EXTENSION` on both sides, `same: true` twice — no mismatch, so no STOP; `npm run probe:nodetest` exit 0, node v24.16.0, the hook at `05e5338` and the probes and checker at `761c935` — §3.10 |
 
 **Reported without a gate** (spec §3.6). Measured on Arm 0 (§3.6 below): **0b/0d
 = 154.3012 / 45.7378 = 3.3736×**, the parallel speedup on main's converter;
@@ -317,9 +339,20 @@ After A3 (§3.8), at `a35c045`: **167,063 events/s** on the big spool
 reader **280,408 kB** (0a) / 290,772 kB (0d) — 8.1096× below the 2,273,996 kB
 of the same cell before it, which is the before/after pair spec §3.6 asks
 for.
-Still `not measured (slice 2 pending)`: the call run's harness and driver
-walls, and the fresh set's ingest. A2 and A4 add no rung — §3.8's condition
-— so the ladder's events/s ends at A3.
+From E6″'s call run (§3.11), on the slice's recorder at `ecdc631`: the
+**harness wall 25.2619 s** and the **driver wall 38.8595 s** of one
+full-suite call-tier recording — the pair record §5 gap 13 asked for, whose
+rung-1 readings climbed 45.0 → 70.3 s across five call runs, and whose
+slice-2 reading, taken once on a fresh recording by a driver that converts
+inline, is **38.8595 s**: below the lowest of those five. Their difference,
+**13.5976 s**, is the fresh set's inline conversion plus the driver's own
+setup and cleanup, which this session does not separate — it is the second,
+**uncontrolled** reading of a full-suite ingest that spec §3.6 asks for
+beside the pinned one (E10′-suite's guarded median over the pinned copy is
+16.3859 s over a copy of a DIFFERENT recording; this number is not
+comparable to it and is not a repetition of it). A2 and A4 add no rung —
+§3.8's condition — so the ladder's events/s ends at A3. **Nothing this slice
+pre-registered is now unmeasured.**
 
 ### 3.6 E10′ Arm 0 — the diagnosis on main's converter
 
@@ -654,8 +687,12 @@ choice does not decide either verdict. §5 records the instrument gap.
 
 ### 3.10 H-probes — the four files and the two controls
 
-Measured 2026-09-10 on `feat/s5-slice2` with the hook at `05e5338`, node
-v24.16.0, by the instrument §1 named: `npm run probe:nodetest` from
+Measured 2026-09-10 on `feat/s5-slice2`, node v24.16.0, with **the hook at
+`05e5338` and the four probe files, the two controls and `check.mjs`'s
+`nodetest` mode at `761c935`** — two commits, named apart because H1's fix
+and the probes that exercise it are different changes, and one sha for both
+would say the checker existed when the hook landed. By the instrument §1
+names: `npm run probe:nodetest` from
 `typescript/probes/`, which runs the four files as an explicit list under
 `node --import ../src/register.mjs --test`, then `nodetest/controls.mjs`,
 then `node check.mjs nodetest "$SENSORIUM_SPOOL" "$SENSORIUM_MANIFEST_DIR"`.
@@ -692,6 +729,91 @@ The driven half runs the same directory through the driver
 `SENSORIUM_TS_LIVE=1`): `sensorium ts run -- node --test <the four files>`,
 then the same checker and the same controls against the spool the DRIVER
 produced — 10 passed.
+
+The cell assembled into this slice's results file is a **replication** of the
+run above, not that run: Task 5 read its checker's JSON off the terminal and
+saved no file, so `npm run probe:nodetest` was run once more on 2026-09-10 at
+`ecdc631` and its JSON captured to `results/h-probes.json`. `typescript/src/`
+and `typescript/probes/` are unchanged since `761c935`, so the hook, the four
+probes, the controls and the checker are the same files; the one file under
+`src/` that moved since (`ts/ingest.py`, R45 at `5af2def`) is the converter's
+refusal path, which a direct probe run never calls. It read
+the same outcome: `ok: true`, `spools: 3`, **25 checks, 25 passed, 0
+failures**, both controls `same: true`. The verdict this record carries is the
+one above; had the replication read differently, that difference would be a §5
+finding and is why it is stated rather than quietly assembled.
+
+### 3.11 E6″ — the plain band, one guarded session
+
+Measured 2026-09-10 between **02:38:21 and 02:52:22** local time (`-05:00`) by
+`typescript/acceptance/e6pp.sh`, run last in the slice so that it exercises
+**this slice's recorder** — the driver, the hook, the converter and the
+cleanup path as Tasks 2–5 left them. The recorder is the worktree's
+`.venv/bin/sensorium` at `ecdc631`, the branch tip. It is **not** byte-identical
+to the converter the ladder's gated cells ran (`c457bee`): two files moved
+after it, both of them this slice's own work — `typescript/src/hook.mjs` (H1,
+`05e5338`: the loader hook returns Node's own reported format) and
+`src/sensorium/ts/ingest.py` (R45, `5af2def`: the no-spool refusal names the
+CommonJS exclusions). H1 is squarely in the path this session exercised, which
+is the point of running E6″ last; R45 is an error path a green 372-file
+recording never enters. Nothing else under `src/` or `typescript/src/` moved.
+The ambient readings taken in the minute before the launch are §2.3's.
+
+**The order was §1 `### 2.1 The session`'s, and the order is the endpoint.**
+The manifest first, so a lens that had moved since rung 1 would stop the
+session before it started; five plain runs; one call-tier recording; five
+plain runs; and only then the manifest again — so that the last thing to have
+touched the lens is the after arm, which is what the clause is about.
+
+| Step | Reading |
+|---|---|
+| manifest, **before** | `sha256sum -c` from inside the lens: exit **0**, **748 OK**, **0 FAILED**, over a manifest of 748 lines whose own sha256 is `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8` — the file §2 pins |
+| before arm, n=5 | **22.2928, 22.1611, 22.1983, 22.1019, 22.1743** s — median **22.1743**, min 22.1019, max 22.2928, mean 22.1857, stdev 0.0696; loads 0.35 / 3.16 / 3.57 / 3.89 / 3.70; every run `372 passed (372)` and `4278 passed (4278)`, exit 0; **nothing dropped** |
+| the call run | `sensorium ts run -- npx vitest run`, `SENSORIUM_DIR` on `/mnt/extra`: exit **0**, suite green, invocation `20260910-024512-fe71ef`, load 3.18. Harness wall **25.2619 s**, driver wall **38.8595 s**; spool 372 files, 414,467,939 bytes, 4,160,606 lines |
+| after arm, n=5 | **22.2559, 22.1136, 22.1460, 22.0977, 22.0730** s — median **22.1136**, min 22.0730, max 22.2559, mean 22.1372, stdev 0.0714; loads 3.81 / 3.98 / 3.74 / 3.56 / 3.85; every run 372/4278, exit 0; **nothing dropped** |
+| manifest, **after** | exit **0**, **748 OK**, **0 FAILED** — identical |
+| markers | `grep -rl __srt` over **2** directories, both written down: `node_modules/.vite`, `node_modules/.vite-temp`. `.vite` and `node_modules/.vitest*` did not exist and are not counted as searched. **0 hits** |
+| wrapper | `node_modules/.sensorium` — **absent** |
+
+**The band, derived from the before arm alone.** `range = 22.2928 − 22.1019 =
+0.1909`; `median(before) = 22.1743`; band **[21.9834, 22.3652]**. The after
+arm's **median**, 22.1136, sits inside it — 0.1302 s above the floor, 0.2516 s
+below the ceiling. Both arms supplied five usable walls, so the timing clause
+was measured rather than refused.
+
+The band this session produced is **2.14× tighter** than the one spec §2.2's
+worked example derives from E1′'s plain arm (±0.1909 against ±0.4085): the
+two arms here ran ten minutes apart on a quiet box under the
+same guard, and E1′'s plain arm was interleaved with two driver arms across
+five batches. That is a fact about the two sessions, not a change to the rule
+— the rule says "the arm's own range", and this arm's range is what it says.
+
+**Where the after arm sits relative to the before arm.** Its median is
+**0.0607 s FASTER** (22.1136 against 22.1743), and its whole range is shifted
+slightly down rather than up: min 0.0289 s below the before arm's min, max
+0.0369 s below the before arm's max, the two spreads within 0.002 s of each
+other (0.1829 against 0.1909). Whatever
+E6′'s 22.8678 s wall was, it did not reproduce here: no wall in either arm of
+this session reached 22.30 s, and the recording between them left the arms
+indistinguishable.
+
+**Both arms ran under load readings the guard admits, and the readings are in
+the cell.** The eleven readings run 0.35 – 3.98, all under the 4.0 refusal;
+ten of the eleven are above 3.0, because a 16-core vitest run leaves the
+1-minute average high and the guard waits for 4.0, not for idle. The before
+arm's first run is the only one taken on a cold box (0.35). That asymmetry is
+named here because it is the one systematic difference between the arms that
+this session can see — and it runs the wrong way for a contamination finding:
+the arm measured on the quieter box is the **slower** one.
+
+**The artifact.** `results/e6pp.json` (assembled into this record's results
+file), from `e6pp.jsonl`'s eleven lines plus the two manifest checks, the
+marker list and the wrapper listing, all under the session's out directory.
+`e6.sh` is unedited apart from one header line naming its successor: the
+rung-1 record cites it by name as E6′'s instrument (plan P8). In the results
+file the recorder's path is redacted to `<the worktree's converter>` — the
+label the ladder's cells use, and the same binary: `.venv/bin/sensorium` is
+both the driver that recorded and the converter that ingested.
 
 ## 4. Decisions
 
@@ -781,10 +903,49 @@ built: spec §3.3 conditioned them on A1 + A3 leaving 0d above the bound,
 and they did not (§3.8). Arm C, the binary wire, stays off the ladder — spec
 §3.7's trigger for revisiting it was "0d ≈ 0a", which never fired (§3.6).
 
-**Still open at this point in the slice:** E6″ (§1 `### 2.2 The rule`'s four
-clauses), whose cell belongs to its own task and is written here when it
-runs. The H-probes cell (§1 `### 4.5 Probes and the checker`) was open when
-this section was written and is now filled: **PASS**, §3.10.
+**Still open when this section was written:** E6″ (§1 `### 2.2 The rule`),
+whose cell belongs to its own task, and the H-probes cell (§1 `### 4.5 Probes
+and the checker`). Both are now filled — H-probes **PASS** (§3.10), E6″
+**PASS** (§4.3) — and **nothing this slice pre-registered is unanswered**.
+
+### 4.3 E6″ — the plain band
+
+**E6″ — PASS.** The rule, from §1 `### 2.2 The rule`:
+
+> | manifest identical | `sha256sum -c` after the after arm | exit 0, 748 OK, 0 FAILED |
+> | the suite is the suite | every plain run's counts | every run reads `372 passed (372)` and `4278 passed (4278)`; a run that does not is **dropped and named**, never averaged in |
+> | 0 markers | the grep over every cache directory that exists | 0 hits, ≥1 directory searched |
+> | wrapper gone | `node_modules/.sensorium` | absent |
+> | **the plain band** | medians of the two arms' walls | `median(after) ∈ [median(before) − range(before), median(before) + range(before)]`, where `range = max − min` over the before arm's usable walls |
+
+and the word the rule gives: "a clause that does not hold is a **STOP**, and
+the pre-registration carries no other word for it." **All five held**
+(§3.11), so the word is **PASS**:
+
+| Clause | Read |
+|---|---|
+| manifest identical | exit **0**, **748 OK**, **0 FAILED** — measured after the after arm, and again by hand afterwards |
+| the suite is the suite | the **ten plain runs**, ten of ten at `372 passed (372)` / `4278 passed (4278)`, exit 0 — **nothing dropped**, so there is nothing to name. The call run read the same counts and exited 0; that is reported beside the clause, not inside it, because the rule says "every plain run's counts" (gap 10) |
+| 0 markers | **0 hits** over **2** directories searched, both listed |
+| wrapper gone | **absent** |
+| the plain band | **22.1136 ∈ [21.9834, 22.3652]** — the after arm's median over five guarded runs inside the before arm's own median ± the before arm's own range |
+
+Both arms supplied **five** usable walls, so the "fewer than four usable
+walls in either arm" clause of §1 did not fire and the timing clause is
+`held` rather than `STOP by instrument`.
+
+**§1 `### 2.4 Disposition, pre-committed`, applied:** on a PASS on all five,
+"E6 is closed for this recorder on this lens; the rung-1 spec's §11 entry
+gets a dated line saying so" — so it is closed, and that line is now on
+`docs/superpowers/specs/2026-09-09-sensorium-typescript-recorder-design.md`
+§11's rung-1 entry.
+
+What that closes is bounded and worth saying plainly: on **this** lens, with
+**this** recorder, a call-tier full-suite recording left the plain suite's
+median wall inside the band the same session's before arm produced, left the
+748-file manifest byte-identical, left no `__srt` marker in either cache
+directory that existed, and left no wrapper behind. It is one session, not a
+distribution over sessions, and §5's gaps say what it does not settle.
 
 ## 5. Gaps found
 
@@ -905,3 +1066,74 @@ What this closes, and what it does not: the two converters write the same
 rows, column for column, in the same order, in every table of all 372 traces.
 It says nothing about traces this set does not contain, and it is still a
 comparison of two SQLite databases rather than a proof about the converter.
+
+### 5.B Found by E6″ (2026-09-10)
+
+Numbering continues §5's; §5.A is left as it was.
+
+7. **The instrument checks the manifest against the manifest's own line
+   count, not against a literal 748.** §1's clause says "748 OK, 0 FAILED",
+   and that is what this session read — twice. But `e6pp.sh` computes the
+   expected OK count as `wc -l < <manifest>`, so that it can be dry-run
+   against a two-file manifest of its own before fifteen minutes are spent on
+   the lens (it was: see the task report). A count derived from the file it
+   is checking would pass a truncated manifest, so the instrument also writes
+   the manifest's **own sha256** into the cell —
+   `eb4c5ddb…6c9a8`, the value §2 pins — and this record quotes it beside the
+   count. The pair is what anchors "748 OK" to *which* 748.
+
+8. **The band's width is a property of the session, not of the rule, and
+   this session's was tight.** ±0.1909 s here against the ±0.4085 s spec
+   §2.2's worked example derives from E1′'s plain arm. The rule asks for "the
+   arm's own range", which is exactly what makes the clause harder to pass on
+   a quiet box and easier on a noisy one: an endpoint whose sensitivity is
+   set by its own control arm's noise cannot be compared across sessions, and
+   a PASS here is not a tighter claim than a PASS would have been under E1′'s
+   spread — it is a claim made against a tighter yardstick. Any future E6
+   should say this before it runs, and a session that wanted a *stable*
+   sensitivity would have to pre-register a floor on the band's width, which
+   this one deliberately did not (a chosen width is the thing §2.2 refused).
+
+9. **"Under 4.0" is not "idle", and ten of the eleven readings were above
+   3.0.** A 16-core vitest run leaves the 1-minute average high for minutes
+   afterwards, and the guard waits for 4.0, not for quiet. Only the before
+   arm's first run was taken on a cold box (0.35); the other ten ran between
+   3.16 and 3.98. The asymmetry is real, it is the one systematic difference
+   between the two arms this session can see, and it runs **against** a
+   contamination finding rather than for one — the arm measured on the
+   quieter box is the slower of the two. A guard that wanted the arms
+   ambient-matched would wait for a *return* to a baseline rather than for a
+   ceiling; that is a different instrument and it is not the one that was
+   pre-registered.
+
+10. **The suite clause was decided on the ten plain runs; the call run's
+    counts are reported beside it.** §1's clause reads "every plain run's
+    counts", and `e6pp_report.py` computes the boolean over the before and
+    after arms only. The call run is the contamination *source*; folding it
+    into the clause would make a driver-side failure look like a lens-side
+    one. It happened to be green (372/4278, exit 0), which is why the
+    distinction cost nothing here — and why it is written down now rather
+    than the first time it costs something.
+
+11. **The fix to `assemble.py`'s `loads` list changed rung 1's assembler
+    after rung 1's results file was written, and that file was not
+    regenerated.** Spec §2.3 asks for the fix before E6″ uses the assembler,
+    and it landed at `ecdc631`. Rung 1's own results file
+    (`…/acceptance/2026-09-09-sensorium-s5-rung1.results.json`) still carries
+    the numbers the *pre-fix* assembler produced. Nothing in it moves as a
+    result — rung 1's E1′ arms dropped no run, so `walls` and `loads` were the same length there anyway,
+    which is why the misalignment stayed latent — but the file on disk was
+    produced by an assembler that no longer exists, and re-running it today
+    would be a change to a locked record's evidence rather than a
+    reproduction of it. It is left alone on purpose.
+
+12. **The call run's two walls are one reading each, and the difference
+    between them is not an `ingest` measurement.** Spec §3.6 asks for the
+    fresh set's ingest beside the pinned one; this slice's driver converts
+    **inline**, so there is no separate ingest invocation to time. Driver
+    wall minus harness wall (38.8595 − 25.2619 = 13.5976 s) is the
+    conversion plus the driver's own setup, wrapper write and cleanup, at
+    n=1, unguarded within itself and over a spool set nothing pinned. It is
+    reported under that name and must not be read against E10′-suite's
+    16.3859 s, which is a guarded median of five ingests over a different,
+    pinned recording.

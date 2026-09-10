@@ -1,0 +1,1546 @@
+{
+  "record": "docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.md",
+  "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+  "schema": "every measurement is {value, n, lens, dropped}; a null value with a non-empty dropped list is the only representation of 'not measured'; 0 is measured-and-zero",
+  "gated": {
+    "E6\u2033": {
+      "value": 5,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "clauses": {
+        "manifest_identical": true,
+        "suite_is_the_suite": true,
+        "zero_markers": true,
+        "wrapper_gone": true,
+        "plain_band": true
+      },
+      "timing_clause": "held",
+      "band": [
+        21.9834,
+        22.3652
+      ],
+      "in_band": true,
+      "usable": {
+        "before": 5,
+        "after": 5
+      },
+      "n_per_arm": 5,
+      "manifest_before": {
+        "ok": 748,
+        "failed": [],
+        "lines": 748,
+        "exit": 0,
+        "want_ok": 748,
+        "sha256": "eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8"
+      },
+      "manifest_after": {
+        "ok": 748,
+        "failed": [],
+        "lines": 748,
+        "exit": 0,
+        "want_ok": 748,
+        "identical": true
+      },
+      "before": {
+        "runs": 5,
+        "walls": [
+          22.2928,
+          22.1611,
+          22.1983,
+          22.1019,
+          22.1743
+        ],
+        "dropped": [],
+        "loads": [
+          0.35,
+          3.16,
+          3.57,
+          3.89,
+          3.7
+        ],
+        "median": 22.1743,
+        "min": 22.1019,
+        "max": 22.2928,
+        "mean": 22.1857,
+        "stdev": 0.0696
+      },
+      "after": {
+        "runs": 5,
+        "walls": [
+          22.2559,
+          22.1136,
+          22.146,
+          22.0977,
+          22.073
+        ],
+        "dropped": [],
+        "loads": [
+          3.81,
+          3.98,
+          3.74,
+          3.56,
+          3.85
+        ],
+        "median": 22.1136,
+        "min": 22.073,
+        "max": 22.2559,
+        "mean": 22.1372,
+        "stdev": 0.0714
+      },
+      "call_run": {
+        "harness_wall": 25.2619,
+        "driver_wall": 38.8595,
+        "invocation": "20260910-024512-fe71ef",
+        "ok": true,
+        "exit": 0,
+        "duration_line": "Duration  24.65s (transform 21.46s, setup 15.49s, import 49.59s, tests 97.66s, environment 161.20s)",
+        "spool_files": 372,
+        "spool_bytes": 414467939,
+        "spool_lines": 4160606
+      },
+      "runs": [
+        {
+          "arm": "before",
+          "batch": 1,
+          "run": 1,
+          "wall": 22.2928,
+          "harness_wall": null,
+          "load_1min": 0.35,
+          "exit": 0,
+          "suite_files_ok": true,
+          "suite_tests_ok": true,
+          "ok": true,
+          "duration_line": "Duration  21.91s (transform 9.89s, setup 12.34s, import 32.44s, tests 77.17s, environment 163.50s)",
+          "transform_s": 9.89,
+          "invocation": null,
+          "log": "e6pp-before-1.log",
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059"
+        },
+        {
+          "arm": "before",
+          "batch": 1,
+          "run": 2,
+          "wall": 22.1611,
+          "harness_wall": null,
+          "load_1min": 3.16,
+          "exit": 0,
+          "suite_files_ok": true,
+          "suite_tests_ok": true,
+          "ok": true,
+          "duration_line": "Duration  21.84s (transform 10.10s, setup 12.44s, import 32.62s, tests 77.52s, environment 161.53s)",
+          "transform_s": 10.1,
+          "invocation": null,
+          "log": "e6pp-before-2.log",
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059"
+        },
+        {
+          "arm": "before",
+          "batch": 1,
+          "run": 3,
+          "wall": 22.1983,
+          "harness_wall": null,
+          "load_1min": 3.57,
+          "exit": 0,
+          "suite_files_ok": true,
+          "suite_tests_ok": true,
+          "ok": true,
+          "duration_line": "Duration  21.88s (transform 10.33s, setup 12.25s, import 32.50s, tests 77.23s, environment 162.08s)",
+          "transform_s": 10.33,
+          "invocation": null,
+          "log": "e6pp-before-3.log",
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059"
+        },
+        {
+          "arm": "before",
+          "batch": 1,
+          "run": 4,
+          "wall": 22.1019,
+          "harness_wall": null,
+          "load_1min": 3.89,
+          "exit": 0,
+          "suite_files_ok": true,
+          "suite_tests_ok": true,
+          "ok": true,
+          "duration_line": "Duration  21.81s (transform 9.45s, setup 11.97s, import 31.94s, tests 77.93s, environment 161.83s)",
+          "transform_s": 9.45,
+          "invocation": null,
+          "log": "e6pp-before-4.log",
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059"
+        },
+        {
+          "arm": "before",
+          "batch": 1,
+          "run": 5,
+          "wall": 22.1743,
+          "harness_wall": null,
+          "load_1min": 3.7,
+          "exit": 0,
+          "suite_files_ok": true,
+          "suite_tests_ok": true,
+          "ok": true,
+          "duration_line": "Duration  21.88s (transform 10.56s, setup 12.24s, import 32.21s, tests 77.48s, environment 162.44s)",
+          "transform_s": 10.56,
+          "invocation": null,
+          "log": "e6pp-before-5.log",
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059"
+        },
+        {
+          "arm": "call",
+          "batch": 1,
+          "run": 1,
+          "wall": 38.8595,
+          "harness_wall": 25.2619,
+          "load_1min": 3.18,
+          "exit": 0,
+          "suite_files_ok": true,
+          "suite_tests_ok": true,
+          "ok": true,
+          "duration_line": "Duration  24.65s (transform 21.46s, setup 15.49s, import 49.59s, tests 97.66s, environment 161.20s)",
+          "transform_s": 21.46,
+          "invocation": "20260910-024512-fe71ef",
+          "log": "e6pp-call-1.log",
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+          "spool_files": 372,
+          "spool_bytes": 414467939,
+          "spool_lines": 4160606
+        },
+        {
+          "arm": "after",
+          "batch": 1,
+          "run": 1,
+          "wall": 22.2559,
+          "harness_wall": null,
+          "load_1min": 3.81,
+          "exit": 0,
+          "suite_files_ok": true,
+          "suite_tests_ok": true,
+          "ok": true,
+          "duration_line": "Duration  21.94s (transform 10.15s, setup 12.29s, import 32.78s, tests 77.73s, environment 162.03s)",
+          "transform_s": 10.15,
+          "invocation": null,
+          "log": "e6pp-after-1.log",
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059"
+        },
+        {
+          "arm": "after",
+          "batch": 1,
+          "run": 2,
+          "wall": 22.1136,
+          "harness_wall": null,
+          "load_1min": 3.98,
+          "exit": 0,
+          "suite_files_ok": true,
+          "suite_tests_ok": true,
+          "ok": true,
+          "duration_line": "Duration  21.79s (transform 10.48s, setup 11.81s, import 32.12s, tests 77.92s, environment 161.31s)",
+          "transform_s": 10.48,
+          "invocation": null,
+          "log": "e6pp-after-2.log",
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059"
+        },
+        {
+          "arm": "after",
+          "batch": 1,
+          "run": 3,
+          "wall": 22.146,
+          "harness_wall": null,
+          "load_1min": 3.74,
+          "exit": 0,
+          "suite_files_ok": true,
+          "suite_tests_ok": true,
+          "ok": true,
+          "duration_line": "Duration  21.83s (transform 9.92s, setup 12.03s, import 32.18s, tests 78.24s, environment 161.86s)",
+          "transform_s": 9.92,
+          "invocation": null,
+          "log": "e6pp-after-3.log",
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059"
+        },
+        {
+          "arm": "after",
+          "batch": 1,
+          "run": 4,
+          "wall": 22.0977,
+          "harness_wall": null,
+          "load_1min": 3.56,
+          "exit": 0,
+          "suite_files_ok": true,
+          "suite_tests_ok": true,
+          "ok": true,
+          "duration_line": "Duration  21.79s (transform 10.37s, setup 12.06s, import 31.83s, tests 77.58s, environment 162.15s)",
+          "transform_s": 10.37,
+          "invocation": null,
+          "log": "e6pp-after-4.log",
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059"
+        },
+        {
+          "arm": "after",
+          "batch": 1,
+          "run": 5,
+          "wall": 22.073,
+          "harness_wall": null,
+          "load_1min": 3.85,
+          "exit": 0,
+          "suite_files_ok": true,
+          "suite_tests_ok": true,
+          "ok": true,
+          "duration_line": "Duration  21.76s (transform 9.22s, setup 11.71s, import 31.33s, tests 77.88s, environment 162.14s)",
+          "transform_s": 9.22,
+          "invocation": null,
+          "log": "e6pp-after-5.log",
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059"
+        }
+      ],
+      "markers": {
+        "searched": [
+          "node_modules/.vite",
+          "node_modules/.vite-temp"
+        ],
+        "hits": []
+      },
+      "wrapper_dir": "absent",
+      "wrapper_listing": "node_modules/.sensorium: absent",
+      "recorder_bin": "<the worktree's converter>",
+      "recorder_rev": "ecdc6315a1c0e9f88da64b733b740a7ed8666d7b"
+    },
+    "E10\u2032-suite": {
+      "value": 16.3859,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "label": "final-full-j16",
+      "jobs": 16,
+      "spools": 372,
+      "spool_bytes": 414450522,
+      "walls": [
+        16.2555,
+        16.4125,
+        16.3859,
+        16.3532,
+        16.4203
+      ],
+      "reps": [
+        {
+          "rep": 1,
+          "wall": 16.2555,
+          "exit": 0,
+          "traces": 372,
+          "load_1min": 1.12,
+          "maxrss_kb": 282068
+        },
+        {
+          "rep": 2,
+          "wall": 16.4125,
+          "exit": 0,
+          "traces": 372,
+          "load_1min": 2.25,
+          "maxrss_kb": 283684
+        },
+        {
+          "rep": 3,
+          "wall": 16.3859,
+          "exit": 0,
+          "traces": 372,
+          "load_1min": 3.06,
+          "maxrss_kb": 290948
+        },
+        {
+          "rep": 4,
+          "wall": 16.3532,
+          "exit": 0,
+          "traces": 372,
+          "load_1min": 3.75,
+          "maxrss_kb": 281708
+        },
+        {
+          "rep": 5,
+          "wall": 16.4203,
+          "exit": 0,
+          "traces": 372,
+          "load_1min": 3.19,
+          "maxrss_kb": 281452
+        }
+      ],
+      "min": 16.2555,
+      "max": 16.4203,
+      "loads": [
+        1.12,
+        2.25,
+        3.06,
+        3.75,
+        3.19
+      ],
+      "maxrss_kb": 290948,
+      "converter_bin": "<the worktree's converter>",
+      "converter_rev": "c457bee8dc7abc82c52b56a73447e409333ab8f7"
+    },
+    "E10\u2032-file": {
+      "value": 0.1648,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "label": "final-file",
+      "jobs": 16,
+      "spools": 1,
+      "spool_bytes": 611016,
+      "walls": [
+        0.1878,
+        0.1715,
+        0.1639,
+        0.1648,
+        0.1617
+      ],
+      "reps": [
+        {
+          "rep": 1,
+          "wall": 0.1878,
+          "exit": 0,
+          "traces": 1,
+          "load_1min": 1.13,
+          "maxrss_kb": 26896
+        },
+        {
+          "rep": 2,
+          "wall": 0.1715,
+          "exit": 0,
+          "traces": 1,
+          "load_1min": 1.13,
+          "maxrss_kb": 26872
+        },
+        {
+          "rep": 3,
+          "wall": 0.1639,
+          "exit": 0,
+          "traces": 1,
+          "load_1min": 1.13,
+          "maxrss_kb": 26892
+        },
+        {
+          "rep": 4,
+          "wall": 0.1648,
+          "exit": 0,
+          "traces": 1,
+          "load_1min": 1.12,
+          "maxrss_kb": 26624
+        },
+        {
+          "rep": 5,
+          "wall": 0.1617,
+          "exit": 0,
+          "traces": 1,
+          "load_1min": 1.12,
+          "maxrss_kb": 26728
+        }
+      ],
+      "min": 0.1617,
+      "max": 0.1878,
+      "loads": [
+        1.13,
+        1.13,
+        1.13,
+        1.12,
+        1.12
+      ],
+      "maxrss_kb": 26896,
+      "converter_bin": "<the worktree's converter>",
+      "converter_rev": "c457bee8dc7abc82c52b56a73447e409333ab8f7"
+    },
+    "E10\u2032-eq": {
+      "value": 372,
+      "n": 372,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "spools": 372,
+      "diverged": 0,
+      "refused": 0,
+      "other": 0,
+      "row_counts_equal_pairs": 372,
+      "row_counts_differing": [],
+      "meta_keys_differing": [
+        "run_id"
+      ],
+      "mismatches": [],
+      "converter_a": {
+        "bin": "<the global tool>",
+        "rev": "bbd07816c9c769307b5fb0a17f37f51707d419ad"
+      },
+      "converter_b": {
+        "bin": "<the worktree's converter>",
+        "rev": "c457bee8dc7abc82c52b56a73447e409333ab8f7"
+      }
+    },
+    "E10\u2032-0": {
+      "value": 5,
+      "n": 5,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "cells": {
+        "big-j1": {
+          "value": 17.5439,
+          "n": 3,
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+          "dropped": [],
+          "label": "big-j1",
+          "jobs": 1,
+          "spools": 1,
+          "spool_bytes": 195851484,
+          "walls": [
+            17.3953,
+            17.5439,
+            27.3839
+          ],
+          "reps": [
+            {
+              "rep": 1,
+              "wall": 17.3953,
+              "exit": 0,
+              "traces": 1,
+              "load_1min": 0.29,
+              "maxrss_kb": 2273664
+            },
+            {
+              "rep": 2,
+              "wall": 17.5439,
+              "exit": 0,
+              "traces": 1,
+              "load_1min": 0.73,
+              "maxrss_kb": 2273872
+            },
+            {
+              "rep": 3,
+              "wall": 27.3839,
+              "exit": 0,
+              "traces": 1,
+              "load_1min": 0.86,
+              "maxrss_kb": 2273796
+            }
+          ],
+          "min": 17.3953,
+          "max": 27.3839,
+          "loads": [
+            0.29,
+            0.73,
+            0.86
+          ],
+          "maxrss_kb": 2273872,
+          "converter_bin": "sensorium",
+          "converter_rev": "bbd07816c9c769307b5fb0a17f37f51707d419ad"
+        },
+        "full-j1": {
+          "value": 154.3012,
+          "n": 3,
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+          "dropped": [],
+          "label": "full-j1",
+          "jobs": 1,
+          "spools": 372,
+          "spool_bytes": 414450522,
+          "walls": [
+            152.7924,
+            154.3012,
+            154.5061
+          ],
+          "reps": [
+            {
+              "rep": 1,
+              "wall": 152.7924,
+              "exit": 0,
+              "traces": 372,
+              "load_1min": 3.62,
+              "maxrss_kb": 2272160
+            },
+            {
+              "rep": 2,
+              "wall": 154.3012,
+              "exit": 0,
+              "traces": 372,
+              "load_1min": 2.32,
+              "maxrss_kb": 2272256
+            },
+            {
+              "rep": 3,
+              "wall": 154.5061,
+              "exit": 0,
+              "traces": 372,
+              "load_1min": 2.19,
+              "maxrss_kb": 2271736
+            }
+          ],
+          "min": 152.7924,
+          "max": 154.5061,
+          "loads": [
+            3.62,
+            2.32,
+            2.19
+          ],
+          "maxrss_kb": 2272256,
+          "converter_bin": "sensorium",
+          "converter_rev": "bbd07816c9c769307b5fb0a17f37f51707d419ad"
+        },
+        "full-j4": {
+          "value": 67.9342,
+          "n": 3,
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+          "dropped": [],
+          "label": "full-j4",
+          "jobs": 4,
+          "spools": 372,
+          "spool_bytes": 414450522,
+          "walls": [
+            67.9709,
+            67.9342,
+            67.1653
+          ],
+          "reps": [
+            {
+              "rep": 1,
+              "wall": 67.9709,
+              "exit": 0,
+              "traces": 372,
+              "load_1min": 0.82,
+              "maxrss_kb": 2270804
+            },
+            {
+              "rep": 2,
+              "wall": 67.9342,
+              "exit": 0,
+              "traces": 372,
+              "load_1min": 3.5,
+              "maxrss_kb": 2269768
+            },
+            {
+              "rep": 3,
+              "wall": 67.1653,
+              "exit": 0,
+              "traces": 372,
+              "load_1min": 3.78,
+              "maxrss_kb": 2270320
+            }
+          ],
+          "min": 67.1653,
+          "max": 67.9709,
+          "loads": [
+            0.82,
+            3.5,
+            3.78
+          ],
+          "maxrss_kb": 2270804,
+          "converter_bin": "sensorium",
+          "converter_rev": "bbd07816c9c769307b5fb0a17f37f51707d419ad"
+        },
+        "full-j16": {
+          "value": 45.7378,
+          "n": 3,
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+          "dropped": [],
+          "label": "full-j16",
+          "jobs": 16,
+          "spools": 372,
+          "spool_bytes": 414450522,
+          "walls": [
+            43.5478,
+            45.7378,
+            45.8268
+          ],
+          "reps": [
+            {
+              "rep": 1,
+              "wall": 43.5478,
+              "exit": 0,
+              "traces": 372,
+              "load_1min": 2.09,
+              "maxrss_kb": 2269696
+            },
+            {
+              "rep": 2,
+              "wall": 45.7378,
+              "exit": 0,
+              "traces": 372,
+              "load_1min": 3.97,
+              "maxrss_kb": 2267484
+            },
+            {
+              "rep": 3,
+              "wall": 45.8268,
+              "exit": 0,
+              "traces": 372,
+              "load_1min": 3.79,
+              "maxrss_kb": 2267680
+            }
+          ],
+          "min": 43.5478,
+          "max": 45.8268,
+          "loads": [
+            2.09,
+            3.97,
+            3.79
+          ],
+          "maxrss_kb": 2269696,
+          "converter_bin": "sensorium",
+          "converter_rev": "bbd07816c9c769307b5fb0a17f37f51707d419ad"
+        },
+        "file": {
+          "value": 0.3624,
+          "n": 5,
+          "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+          "dropped": [],
+          "label": "file",
+          "jobs": 16,
+          "spools": 1,
+          "spool_bytes": 611016,
+          "walls": [
+            0.4051,
+            0.3857,
+            0.2931,
+            0.3624,
+            0.2736
+          ],
+          "reps": [
+            {
+              "rep": 1,
+              "wall": 0.4051,
+              "exit": 0,
+              "traces": 1,
+              "load_1min": 0.96,
+              "maxrss_kb": 30680
+            },
+            {
+              "rep": 2,
+              "wall": 0.3857,
+              "exit": 0,
+              "traces": 1,
+              "load_1min": 0.96,
+              "maxrss_kb": 30756
+            },
+            {
+              "rep": 3,
+              "wall": 0.2931,
+              "exit": 0,
+              "traces": 1,
+              "load_1min": 0.96,
+              "maxrss_kb": 30672
+            },
+            {
+              "rep": 4,
+              "wall": 0.3624,
+              "exit": 0,
+              "traces": 1,
+              "load_1min": 0.96,
+              "maxrss_kb": 30556
+            },
+            {
+              "rep": 5,
+              "wall": 0.2736,
+              "exit": 0,
+              "traces": 1,
+              "load_1min": 0.96,
+              "maxrss_kb": 30828
+            }
+          ],
+          "min": 0.2736,
+          "max": 0.4051,
+          "loads": [
+            0.96,
+            0.96,
+            0.96,
+            0.96,
+            0.96
+          ],
+          "maxrss_kb": 30828,
+          "converter_bin": "sensorium",
+          "converter_rev": "bbd07816c9c769307b5fb0a17f37f51707d419ad"
+        }
+      }
+    },
+    "H-probes": {
+      "value": 25,
+      "n": 25,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "ok": true,
+      "spools": 3,
+      "failures": [],
+      "controls": [
+        {
+          "control": "controls/enum.ts",
+          "plain": "ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX",
+          "hooked": "ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX",
+          "same": true
+        },
+        {
+          "control": "controls/jsx.tsx",
+          "plain": "ERR_UNKNOWN_FILE_EXTENSION",
+          "hooked": "ERR_UNKNOWN_FILE_EXTENSION",
+          "same": true
+        }
+      ],
+      "report": {},
+      "checks": [
+        {
+          "id": "spools:any",
+          "ok": true,
+          "detail": 3
+        },
+        {
+          "id": "probes:present",
+          "ok": true,
+          "detail": []
+        },
+        {
+          "id": "probes:no_cjs_spool",
+          "ok": true,
+          "detail": [
+            "nodetest/async.probe.test.ts",
+            "nodetest/ext.probe.test.mjs",
+            "nodetest/ext.probe.test.mts"
+          ]
+        },
+        {
+          "id": "container:nodetest/async.probe.test.ts:one_boot",
+          "ok": true,
+          "detail": 1
+        },
+        {
+          "id": "container:nodetest/async.probe.test.ts:exit",
+          "ok": true
+        },
+        {
+          "id": "container:nodetest/async.probe.test.ts:no_setup",
+          "ok": true,
+          "detail": 0
+        },
+        {
+          "id": "container:nodetest/ext.probe.test.mjs:one_boot",
+          "ok": true,
+          "detail": 1
+        },
+        {
+          "id": "container:nodetest/ext.probe.test.mjs:exit",
+          "ok": true
+        },
+        {
+          "id": "container:nodetest/ext.probe.test.mjs:no_setup",
+          "ok": true,
+          "detail": 0
+        },
+        {
+          "id": "container:nodetest/ext.probe.test.mts:one_boot",
+          "ok": true,
+          "detail": 1
+        },
+        {
+          "id": "container:nodetest/ext.probe.test.mts:exit",
+          "ok": true
+        },
+        {
+          "id": "container:nodetest/ext.probe.test.mts:no_setup",
+          "ok": true,
+          "detail": 0
+        },
+        {
+          "id": "nodetest:S1",
+          "ok": true,
+          "detail": {
+            "task": "S1 chain",
+            "basis": "title",
+            "rows": [
+              [
+                "CALL",
+                "a"
+              ],
+              [
+                "CALL",
+                "b"
+              ],
+              [
+                "CALL",
+                "c"
+              ],
+              [
+                "YIELD",
+                "c"
+              ],
+              [
+                "YIELD",
+                "b"
+              ],
+              [
+                "YIELD",
+                "a"
+              ],
+              [
+                "RESUME",
+                "c"
+              ],
+              [
+                "RETURN",
+                "c",
+                "2"
+              ],
+              [
+                "RESUME",
+                "b"
+              ],
+              [
+                "RETURN",
+                "b",
+                "3"
+              ],
+              [
+                "RESUME",
+                "a"
+              ],
+              [
+                "RETURN",
+                "a",
+                "4"
+              ]
+            ]
+          }
+        },
+        {
+          "id": "nodetest:S1:basis",
+          "ok": true,
+          "detail": "title"
+        },
+        {
+          "id": "nodetest:S2",
+          "ok": true,
+          "detail": {
+            "task": "S2 fanout",
+            "basis": "title",
+            "rows": [
+              [
+                "CALL",
+                "fanout"
+              ],
+              [
+                "CALL",
+                "p"
+              ],
+              [
+                "YIELD",
+                "p"
+              ],
+              [
+                "CALL",
+                "p"
+              ],
+              [
+                "YIELD",
+                "p"
+              ],
+              [
+                "YIELD",
+                "fanout"
+              ],
+              [
+                "RESUME",
+                "p"
+              ],
+              [
+                "RETURN",
+                "p",
+                "10"
+              ],
+              [
+                "RESUME",
+                "p"
+              ],
+              [
+                "RETURN",
+                "p",
+                "20"
+              ],
+              [
+                "RESUME",
+                "fanout"
+              ],
+              [
+                "RETURN",
+                "fanout",
+                "[10,20]"
+              ]
+            ]
+          }
+        },
+        {
+          "id": "nodetest:S2:basis",
+          "ok": true,
+          "detail": "title"
+        },
+        {
+          "id": "nodetest:S3",
+          "ok": true,
+          "detail": {
+            "task": "S3 timer",
+            "basis": "title",
+            "rows": [
+              [
+                "CALL",
+                "viaTimer"
+              ],
+              [
+                "YIELD",
+                "viaTimer"
+              ],
+              [
+                "CALL",
+                "work"
+              ],
+              [
+                "RETURN",
+                "work",
+                "7"
+              ],
+              [
+                "RESUME",
+                "viaTimer"
+              ],
+              [
+                "RETURN",
+                "viaTimer",
+                "7"
+              ]
+            ]
+          }
+        },
+        {
+          "id": "nodetest:S3:basis",
+          "ok": true,
+          "detail": "title"
+        },
+        {
+          "id": "nodetest:S4",
+          "ok": true,
+          "detail": {
+            "task": "S4 emitter",
+            "basis": "title",
+            "rows": [
+              [
+                "CALL",
+                "viaEmitter"
+              ],
+              [
+                "CALL",
+                "handler"
+              ],
+              [
+                "RETURN",
+                "handler",
+                "undefined"
+              ],
+              [
+                "YIELD",
+                "viaEmitter"
+              ],
+              [
+                "CALL",
+                "handler"
+              ],
+              [
+                "RETURN",
+                "handler",
+                "undefined"
+              ],
+              [
+                "RESUME",
+                "viaEmitter"
+              ],
+              [
+                "RETURN",
+                "viaEmitter",
+                "2"
+              ]
+            ]
+          }
+        },
+        {
+          "id": "nodetest:S4:basis",
+          "ok": true,
+          "detail": "title"
+        },
+        {
+          "id": "nodetest:control:leak",
+          "ok": true,
+          "detail": {
+            "rows_after_T1": 12,
+            "carrying_T1": 0
+          }
+        },
+        {
+          "id": "nodetest:control:T2",
+          "ok": true
+        },
+        {
+          "id": "ext:mts:tasks",
+          "ok": true,
+          "detail": [
+            {
+              "name": "M1 an .mts is stripped by Node and recorded",
+              "basis": "title"
+            }
+          ]
+        },
+        {
+          "id": "ext:mjs:tasks",
+          "ok": true,
+          "detail": [
+            {
+              "name": "M2 an .mjs is instrumented with nothing to erase",
+              "basis": "title"
+            }
+          ]
+        },
+        {
+          "id": "ext:cjs:tally",
+          "ok": true,
+          "detail": {
+            "files_transformed": 0,
+            "excluded": {
+              "commonjs": 1
+            }
+          }
+        }
+      ]
+    }
+  },
+  "reported": {
+    "ladder_rungs": {
+      "a1-big-j1": {
+        "value": 14.6977,
+        "n": 3,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "label": "a1-big-j1",
+        "jobs": 1,
+        "spools": 1,
+        "spool_bytes": 195851484,
+        "walls": [
+          14.834,
+          14.6106,
+          14.6977
+        ],
+        "reps": [
+          {
+            "rep": 1,
+            "wall": 14.834,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.58,
+            "maxrss_kb": 2273536
+          },
+          {
+            "rep": 2,
+            "wall": 14.6106,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.75,
+            "maxrss_kb": 2273728
+          },
+          {
+            "rep": 3,
+            "wall": 14.6977,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.8,
+            "maxrss_kb": 2273996
+          }
+        ],
+        "min": 14.6106,
+        "max": 14.834,
+        "loads": [
+          0.58,
+          0.75,
+          0.8
+        ],
+        "maxrss_kb": 2273996,
+        "converter_bin": "<the worktree's converter>",
+        "converter_rev": "2a273cf52de31d009d3d44067e12add2cee5b5ec"
+      },
+      "a1-full-j16": {
+        "value": 17.774,
+        "n": 3,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "label": "a1-full-j16",
+        "jobs": 16,
+        "spools": 372,
+        "spool_bytes": 414450522,
+        "walls": [
+          17.4102,
+          17.774,
+          17.9927
+        ],
+        "reps": [
+          {
+            "rep": 1,
+            "wall": 17.4102,
+            "exit": 0,
+            "traces": 372,
+            "load_1min": 0.78,
+            "maxrss_kb": 2268888
+          },
+          {
+            "rep": 2,
+            "wall": 17.774,
+            "exit": 0,
+            "traces": 372,
+            "load_1min": 1.84,
+            "maxrss_kb": 2268328
+          },
+          {
+            "rep": 3,
+            "wall": 17.9927,
+            "exit": 0,
+            "traces": 372,
+            "load_1min": 2.96,
+            "maxrss_kb": 2270016
+          }
+        ],
+        "min": 17.4102,
+        "max": 17.9927,
+        "loads": [
+          0.78,
+          1.84,
+          2.96
+        ],
+        "maxrss_kb": 2270016,
+        "converter_bin": "<the worktree's converter>",
+        "converter_rev": "2a273cf52de31d009d3d44067e12add2cee5b5ec"
+      },
+      "a1-file": {
+        "value": 0.1647,
+        "n": 5,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "label": "a1-file",
+        "jobs": 16,
+        "spools": 1,
+        "spool_bytes": 611016,
+        "walls": [
+          0.1902,
+          0.1784,
+          0.1647,
+          0.1646,
+          0.1646
+        ],
+        "reps": [
+          {
+            "rep": 1,
+            "wall": 0.1902,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.66,
+            "maxrss_kb": 31196
+          },
+          {
+            "rep": 2,
+            "wall": 0.1784,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.66,
+            "maxrss_kb": 31296
+          },
+          {
+            "rep": 3,
+            "wall": 0.1647,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.68,
+            "maxrss_kb": 31136
+          },
+          {
+            "rep": 4,
+            "wall": 0.1646,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.68,
+            "maxrss_kb": 31372
+          },
+          {
+            "rep": 5,
+            "wall": 0.1646,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.68,
+            "maxrss_kb": 31184
+          }
+        ],
+        "min": 0.1646,
+        "max": 0.1902,
+        "loads": [
+          0.66,
+          0.66,
+          0.68,
+          0.68,
+          0.68
+        ],
+        "maxrss_kb": 31372,
+        "converter_bin": "<the worktree's converter>",
+        "converter_rev": "2a273cf52de31d009d3d44067e12add2cee5b5ec"
+      },
+      "a3-big-j1": {
+        "value": 13.4473,
+        "n": 3,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "label": "a3-big-j1",
+        "jobs": 1,
+        "spools": 1,
+        "spool_bytes": 195851484,
+        "walls": [
+          13.4473,
+          13.4262,
+          13.5991
+        ],
+        "reps": [
+          {
+            "rep": 1,
+            "wall": 13.4473,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.35,
+            "maxrss_kb": 280260
+          },
+          {
+            "rep": 2,
+            "wall": 13.4262,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.72,
+            "maxrss_kb": 280388
+          },
+          {
+            "rep": 3,
+            "wall": 13.5991,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 1.0,
+            "maxrss_kb": 280408
+          }
+        ],
+        "min": 13.4262,
+        "max": 13.5991,
+        "loads": [
+          0.35,
+          0.72,
+          1.0
+        ],
+        "maxrss_kb": 280408,
+        "converter_bin": "<the worktree's converter>",
+        "converter_rev": "a35c045f4fedb1a3ea52a5130b0350defc0a420d"
+      },
+      "a3-full-j16": {
+        "value": 16.5088,
+        "n": 3,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "label": "a3-full-j16",
+        "jobs": 16,
+        "spools": 372,
+        "spool_bytes": 414450522,
+        "walls": [
+          16.5088,
+          16.2692,
+          16.5998
+        ],
+        "reps": [
+          {
+            "rep": 1,
+            "wall": 16.5088,
+            "exit": 0,
+            "traces": 372,
+            "load_1min": 1.05,
+            "maxrss_kb": 283248
+          },
+          {
+            "rep": 2,
+            "wall": 16.2692,
+            "exit": 0,
+            "traces": 372,
+            "load_1min": 2.12,
+            "maxrss_kb": 281888
+          },
+          {
+            "rep": 3,
+            "wall": 16.5998,
+            "exit": 0,
+            "traces": 372,
+            "load_1min": 3.74,
+            "maxrss_kb": 290772
+          }
+        ],
+        "min": 16.2692,
+        "max": 16.5998,
+        "loads": [
+          1.05,
+          2.12,
+          3.74
+        ],
+        "maxrss_kb": 290772,
+        "converter_bin": "<the worktree's converter>",
+        "converter_rev": "a35c045f4fedb1a3ea52a5130b0350defc0a420d"
+      },
+      "a3-file": {
+        "value": 0.1628,
+        "n": 5,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "label": "a3-file",
+        "jobs": 16,
+        "spools": 1,
+        "spool_bytes": 611016,
+        "walls": [
+          0.187,
+          0.1768,
+          0.1628,
+          0.1603,
+          0.161
+        ],
+        "reps": [
+          {
+            "rep": 1,
+            "wall": 0.187,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.38,
+            "maxrss_kb": 26696
+          },
+          {
+            "rep": 2,
+            "wall": 0.1768,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.38,
+            "maxrss_kb": 26724
+          },
+          {
+            "rep": 3,
+            "wall": 0.1628,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.38,
+            "maxrss_kb": 26556
+          },
+          {
+            "rep": 4,
+            "wall": 0.1603,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.38,
+            "maxrss_kb": 27076
+          },
+          {
+            "rep": 5,
+            "wall": 0.161,
+            "exit": 0,
+            "traces": 1,
+            "load_1min": 0.38,
+            "maxrss_kb": 27028
+          }
+        ],
+        "min": 0.1603,
+        "max": 0.187,
+        "loads": [
+          0.38,
+          0.38,
+          0.38,
+          0.38,
+          0.38
+        ],
+        "maxrss_kb": 27076,
+        "converter_bin": "<the worktree's converter>",
+        "converter_rev": "a35c045f4fedb1a3ea52a5130b0350defc0a420d"
+      }
+    },
+    "E10\u2032-eq-content": {
+      "value": 372,
+      "n": 372,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "differing": [],
+      "meta_keys_differing": [
+        "run_id"
+      ],
+      "converter_a": {
+        "bin": "<the global tool>",
+        "rev": "bbd07816c9c769307b5fb0a17f37f51707d419ad"
+      },
+      "converter_b": {
+        "bin": "<the worktree's converter>",
+        "rev": "6ebb9074ecce15f76517ded663c399be637efa2f"
+      }
+    },
+    "peak_rss_kb": {
+      "before_a3_big_j1": {
+        "value": 2273872,
+        "n": 3,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "unit": "kB",
+        "converter_rev": "bbd07816c9c769307b5fb0a17f37f51707d419ad"
+      },
+      "before_a3_full_j16": {
+        "value": 2269696,
+        "n": 3,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "unit": "kB",
+        "converter_rev": "bbd07816c9c769307b5fb0a17f37f51707d419ad"
+      },
+      "after_a3_big_j1": {
+        "value": 280408,
+        "n": 3,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "unit": "kB",
+        "converter_rev": "a35c045f4fedb1a3ea52a5130b0350defc0a420d"
+      },
+      "after_a3_full_j16": {
+        "value": 290772,
+        "n": 3,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "unit": "kB",
+        "converter_rev": "a35c045f4fedb1a3ea52a5130b0350defc0a420d"
+      },
+      "final_full_j16": {
+        "value": 290948,
+        "n": 5,
+        "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+        "dropped": [],
+        "unit": "kB",
+        "converter_rev": "c457bee8dc7abc82c52b56a73447e409333ab8f7"
+      }
+    },
+    "parallel_speedup_0b_over_0d": {
+      "value": 3.3736,
+      "n": 3,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "jobs_1": 154.3012,
+      "jobs_16": 45.7378,
+      "rule": "0b / 0d, main's converter, the pinned full-suite set"
+    },
+    "walls": {
+      "value": 38.8595,
+      "n": 1,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "harness_wall": 25.2619,
+      "driver_wall": 38.8595,
+      "invocation": "20260910-024512-fe71ef",
+      "spool_files": 372,
+      "spool_bytes": 414467939,
+      "spool_lines": 4160606
+    },
+    "driver_around_harness": {
+      "value": 13.5976,
+      "n": 1,
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059",
+      "dropped": [],
+      "rule": "driver wall - harness wall: the fresh set's inline conversion plus the driver's own setup and cleanup, which this session does not separate"
+    }
+  }
+}
