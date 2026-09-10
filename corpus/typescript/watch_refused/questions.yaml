@@ -22,7 +22,7 @@ questions:
     command: ["watch", "$RUN", "--at", "refresh", "--expr", "fresh == 200"]
     expect_exit: 3
     expect_contains:
-      - "REFUSED: watch needs line, which recorder sensorium-ts 0.1.0
+      - "REFUSED: watch needs line, which recorder sensorium-ts 0.1.1
          declares it does not produce (capabilities.line: false); nothing
          was checked"
   - id: is-the-fault-reachable-another-way

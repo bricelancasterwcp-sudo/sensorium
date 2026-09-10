@@ -1,5 +1,112 @@
 # Changelog
 
+## 0.9.1 — 2026-09-10
+
+**The converter's ladder, the plain band re-measured, and `node --test` made
+honest.** No new verb and no new key: S5 slice 2 answers the two questions
+rung 1 shipped open — E6′'s STOPped timing clause and E10's design input —
+and fixes the four things the `node --test` path was getting wrong. Python
+**0.9.1** (the converter's write path and its spool reader, the no-spool
+refusal); **`sensorium-ts 0.1.1`** (the loader hook). The Rust crates do not
+move. `TRACE_FORMAT` stays **4**: no trace key, vector or vocabulary string
+changed, and a 372-pair equivalence gate is the evidence rather than the
+claim.
+
+Everything below is measured on one lens — the tabletop VTT frontend at
+`0091e97`, **372 test files, 4,278 tests**, under vitest 4.1.9, vite 6.4.3,
+jsdom 29.1.1, node v24.16.0, 16 cores — against a pre-registration byte-locked
+before any of this code existed
+(`docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.md` §1).
+**Every cell this slice pre-registered was measured**, and every endpoint that
+carries a verdict reads **PASS**.
+
+- **E6″ — PASS on all five clauses; E6′'s STOP is answered** (`ecdc631`,
+  record §3.11 and §4.3). A new pre-registration, not a second look: the
+  instrument now carries the load guard E6′ lacked, the band is **derived**
+  from the before arm rather than chosen, the comparison is **medians over
+  n=5** on each side, and the manifest is verified *after* the after arm. One
+  guarded session on the lens — five plain runs, one call-tier recording, five
+  plain runs — read the manifest **748 OK / 0 FAILED** before and after, every
+  one of the ten plain runs at `372 passed (372)` / `4278 passed (4278)` with
+  nothing dropped, **0** `__srt` markers over the 2 cache directories that
+  exist, `node_modules/.sensorium` **absent**, and the after arm's median
+  **22.1136 s** inside the band **[21.9834, 22.3652]** the before arm's own
+  median (**22.1743**) and range (**0.1909**) define. The after arm is 0.0607 s
+  *faster* than the before arm. What that closes is bounded and the record says
+  so: one session, one lens, one recorder.
+- **E10′ — PASS on all three gated clauses: the converter stays Python**
+  (record §3.6–§3.9, §4.1). Rung 1 measured full-suite `ingest` at 45.5293 s
+  against a 22.5925 s plain wall and made it a design input. Two levers
+  answered it, each a commit of its own with its cells measured before the
+  next was written:
+  - **`TraceWriter(durable=False)`** — one transaction per trace and
+    `PRAGMA synchronous=NORMAL` under the WAL `create_trace` already sets,
+    committed once in `close()` instead of once per 512-event batch. The
+    Python recorder keeps the durable default; one argument, one meaning.
+  - **A streaming spool reader** — `spool.read` opens the file, reads BOOT
+    from line 1 and **yields** every later record, where it had materialised
+    the whole spool. `exit` and `torn_tail` are filled by the walk, and
+    `TraceWriter.discard()` (rollback, then close) is what `Builder.abort()`
+    calls so an aborted build checkpoints nothing.
+
+  Measured end to end on the pinned 372-spool, 414,450,522-byte copy: the full
+  suite falls **45.7378 s → 16.3859 s** (n=5 guarded, **2.7913×**, **6.2066 s
+  below** the 22.5925 s bound) and the one file a debugging loop actually pays
+  for falls **0.3624 s → 0.1648 s** (n=5, **2.1990×**, against a 0.4002 s
+  bound whose failure was the one thing allowed to STOP the ladder). The
+  heaviest worker's peak resident falls **2,269,696 kB → 290,948 kB** on the
+  same suite cell — **7.8010×** — which was the streaming reader's own
+  pre-registered quantity. **A2** (largest-first dispatch) and **A4** (the
+  per-record Python cost) were **not built**: the spec conditioned them on the
+  first two levers leaving the suite above the bound, and they did not. **Arm
+  B**, a Node or Rust converter, is not raised.
+- **And the trace did not move** (record §3.9, §5.A). The pinned set was
+  converted twice — once by 0.9.0's converter, once by this one — and all
+  **372** pairs read **MATCH** under `sensorium diff`, 0 DIVERGED, 0 REFUSED,
+  every diff run by one reader over both traces in one store. `diff` compares
+  causal structure and not recorded values, which the record states as the
+  ceiling on that PASS — so a second, ungated check was pre-registered *after*
+  the gate was read and could not move it: every row of `events`, `frames`,
+  `code_objects`, `tasks`, `fingerprints`, `task_fingerprints` and `output`
+  compared column for column across all 372 pairs. **372 / 372 identical**;
+  the only `meta` key that differs on any pair is the minted `run_id`.
+- **The loader hook returns Node's own format and erases nothing**
+  (`05e5338`, `sensorium-ts 0.1.1`). It had classified by extension and forced
+  `format: 'module'`, which meant an eligible `.mts` was instrumented and then
+  never type-stripped — Node threw a `SyntaxError` on the file's first
+  annotation — and a `.tsx`/`.jsx` was reported as an exclusion it is not.
+  The hook now asks `nextLoad` and takes the answer: **Node strips**, the
+  recorder splices, and neither pretends to do the other's job. `.tsx`/`.jsx`
+  are outside Node's own scope under `node --test` and are not counted as
+  exclusions. Four probe files (`.ts`, `.mts`, `.mjs`, `.cjs`) and two
+  controls now run under `node --test` in CI: **25 checks, 0 failures**, and
+  both controls fail *identically* plain and hooked
+  (`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, `ERR_UNKNOWN_FILE_EXTENSION`). The
+  controls are what makes this a check rather than a hope — measured against
+  the pre-fix hook, `enum.ts` loaded under the recorder and failed plain.
+- **A no-spool run whose transform excluded everything says so** (`5af2def`).
+  `ingest` on a spool directory with no spools said "nothing was recorded, or
+  the recorder wrote somewhere else" even when the tallies beside it recorded
+  exactly why — every file CommonJS, or a parse error. It now names them by
+  reason with counts (`commonjs x2, parse-error x1`) and appends the
+  ES-modules-only clause only when `commonjs` is among them. R27's precedent:
+  one bare reason loses the split as soon as there are two.
+- **Six of the ten per-cell predictions this ladder pre-registered did not
+  hold as written, and all three gated clauses pass** (record §4.2). Arm 0's
+  0b missed by more than three times (154.3012 s against a predicted 40–50 s);
+  all three of the first lever's predictions were falsified, including
+  "0e unchanged" — the one-file spool turned out to be commit-*dominated* at
+  2.2004× — and the streaming reader's wall prediction ("within noise") was
+  falsified **in the fast direction** on both large cells by about 1.25 s
+  each. Its RSS prediction is the one that held, with room. The numbers are
+  the pre-registered cells'; no threshold moved and nothing was re-rolled.
+- **Documents.** `typescript/HONESTY.md` §7 and §9 carry the dated amendments
+  and this slice's measured costs; `docs/CARRIED-DEBT.md` gains the slice's
+  section; this slice's design gains a `§12` table naming every place its own
+  text moved and why. `CHANGELOG.md` cut `0.8.4` and `0.8.3` to
+  [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md) before this entry was
+  written, drafted and measured first the way the ledger's own lesson asks.
+
 ## 0.9.0 — 2026-09-09
 
 **A third recorder.** `sensorium ts run -- vitest run` records a TypeScript or

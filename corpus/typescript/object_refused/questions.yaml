@@ -25,7 +25,7 @@ questions:
     expect_exit: 3
     expect_contains:
       - "REFUSED: flow --object needs object_identity, which recorder
-         sensorium-ts 0.1.0 declares it does not produce
+         sensorium-ts 0.1.1 declares it does not produce
          (capabilities.object_identity: false); nothing was checked"
   - id: do-the-recorded-values-settle-it
     ask: >
@@ -71,6 +71,6 @@ questions:
     command: ["flow", "$RUN", "--value", "9"]
     expect_exit: 3
     expect_contains:
-      - "REFUSED: flow needs line, which recorder sensorium-ts 0.1.0
+      - "REFUSED: flow needs line, which recorder sensorium-ts 0.1.1
          declares it does not produce (capabilities.line: false); nothing
          was checked"

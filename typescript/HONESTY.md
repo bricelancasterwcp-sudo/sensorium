@@ -1,9 +1,9 @@
 # The TypeScript recorder's honesty ledger
 
-`sensorium-ts 0.1.0` — v1, the call tier, under vitest and `node --test`.
+`sensorium-ts 0.1.1` — v1, the call tier, under vitest and `node --test`.
 Read by `sensorium` 0.9.0 and above; a trace names its own writer, because the
 runtime stamps the package's `VERSION` into every spool's BOOT record and the
-converter spends it on `recorder: "sensorium-ts 0.1.0"` in meta. No edition of
+converter spends it on `recorder: "sensorium-ts 0.1.1"` in meta. No edition of
 this file is struck yet: this is the first.
 
 Sensorium's founding rule is that **the instrument never answers from data it
@@ -396,7 +396,7 @@ spot 4). `refocus: false`, refused at exit 2. `err_flow: false` (§4).
 `test.workspace` config makes vitest resolve a config PER PROJECT, and this
 wrapper merges onto one: the plugin never reaches the projects' pipelines, so
 the suite runs and nothing is recorded. The wrapper config refuses it at load
-time — `vitest projects/workspaces are not supported by sensorium-ts 0.1.0` —
+time — `vitest projects/workspaces are not supported by sensorium-ts 0.1.1` —
 and leaves that sentence in the spool directory (`wrapper-refusal.json`) for
 the driver to print at exit 2. *(Added 2026-09-09, ruling R41: measured, such
 a run came back as the CONVERTER's sentence, "nothing was recorded, or the

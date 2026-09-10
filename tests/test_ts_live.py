@@ -197,7 +197,7 @@ def test_a_projects_config_is_refused_by_name_and_records_nothing(tmp_path):
                 sensorium_dir=store)
     assert r.returncode == 2, r.stdout + r.stderr
     assert ("error: vitest projects/workspaces are not supported by "
-            "sensorium-ts 0.1.0") in r.stderr, r.stderr
+            "sensorium-ts 0.1.1") in r.stderr, r.stderr
     # Nothing was recorded, and nothing pretends to have been.
     assert not (store / "traces").exists()
     assert "run: " not in r.stdout
