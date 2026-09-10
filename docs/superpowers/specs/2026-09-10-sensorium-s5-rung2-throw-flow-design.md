@@ -411,6 +411,18 @@ verdict line and the tally, and a `why_logs_fail` naming all three channels:
 | `dependency_throw` | `JSON.parse('{')` inside an empty catch | SWALLOWED, born outside traced code |
 | `suspended_handler` | a handler in an async frame parked at the end | AMBIGUOUS (frame still suspended) |
 
+*Amended 2026-09-10 at Task 6 — four rows read differently in the measured
+output, none moving a count: `silent_swallow` prints `caught by catch` (the
+clause returns; it is not `sink_empty_catch`); `translated`'s origin prints the
+escaped reason, not a translation reason (§3.3 rule 5 reaches the translation
+reason only when no escaping handler exists, and this shape's clause binds
+`e`); `await_rejection_caught` prints no hops line (one RAISE, so there is no
+hop); `test_failed` is a `throw` statement, not a failing `expect` — a failing
+`expect` throws inside vitest's untraced code and writes no RAISE row, so
+`exceptions` can only reach `to the harness` from a throw in traced code (an
+assertion failure born in `expect` shows in `info`'s exit line, not in
+`exceptions`; HONESTY records this at Task 8).*
+
 `exceptions_refused` is renamed to `silent_swallow` (same source; the old
 question becomes v32). `tests/test_corpus.py`'s three-channel guard applies
 to every new case.

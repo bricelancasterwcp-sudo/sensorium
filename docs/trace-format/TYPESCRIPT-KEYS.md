@@ -69,8 +69,12 @@ left it only as a `console.*` argument); `catch_escaped` (the binding left the
 clause other than through a `console.*` argument). A **bare rethrow** —
 `throw e;` at closure depth 0, whose operand after any parentheses is the
 binding itself — is a traced EXIT and not a mention, so it does not make a
-clause `catch_escaped`; the RAISE it writes carries the same serial and the
-rule module reads the pair as a hop (amended 2026-09-10, spec §2.1). Then
+clause `catch_escaped`, and, by the same rule read over a rejection handler's
+parameter, does not make one `catch_callback_escaped` either
+(`.catch((e) => { throw e })` is `catch_callback`, while
+`.catch((e) => { seen.push(e); throw e })` and `.catch((e) => { throw wrap(e) })`
+stay `catch_callback_escaped`); the RAISE it writes carries the same serial and
+the rule module reads the pair as a hop (amended 2026-09-10, spec §2.1). Then
 `sink_empty_catch` (an empty
 `catch {}` block); `catch_callback` (an inline rejection handler whose parameter
 never left its body, or left it only as a `console.*` argument);

@@ -31,4 +31,4 @@ questions:
       - ["AMBIGUOUS -- the handler's frame f2 is still suspended at the end
           of the recording"]
       - ["dispositions: ambiguous 1"]
-    expect_absent: ["SWALLOWED"]
+    expect_absent: ["SWALLOWED", "INCOMPLETE"]

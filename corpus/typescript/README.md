@@ -64,7 +64,7 @@ SWALLOWED is pinned case by case and not counted after the fact.
 | `logged_catch` | a `catch` whose only mention of its binding is a `console.error`: SWALLOWED, because log-and-continue is where the failure went and a log is not a return value | `exceptions` |
 | `escaped_catch` | `return String(e)`: the same two rows as a swallow, a `catch_escaped` `how` word, and AMBIGUOUS — the line these rules refuse to cross | `exceptions` |
 | `asserted_catch` | `expect((e as Error).message)`, the commonest `catch` any suite writes and the lens's dominant shape: AMBIGUOUS, never an accusation against a deliberate test | `exceptions` |
-| `rethrow_hop` | one object through two clauses: two RAISE blocks, a `hops:` line drawing the journey, and a middle clause that is an escape by the rule's own reckoning | `exceptions` |
+| `rethrow_hop` | one object through two clauses: two RAISE blocks and a `hops:` line drawing the journey — the origin RE-RAISED `→ swallowed`, the rethrow SWALLOWED at the clause that returned. The bare `throw e` is a traced EXIT, not an escape, which is what lets the swallow below it be named | `exceptions` |
 | `translated` | `throw new Wrapped(String(e))`: two objects, two serials, two blocks — the original stops at the clause and the wrapper is judged on its own evidence | `exceptions` |
 | `callback_sink` | `await p.catch(() => {})`: SWALLOWED with no `throw` statement anywhere, the verdict naming the birth (`a reject()`) because there is no raise to pair the handler with | `exceptions` |
 | `callback_handled` | `.catch((e) => { console.warn(e) })`: the `logged_catch` swallow written as a promise, and the `how` word is what says which | `exceptions` |

@@ -88,8 +88,8 @@ too.
 
 The other fifteen are rung 2's swallow corpus: one throw-flow shape each,
 each registering both its verdict line and its `dispositions:` tally before
-E6-TS's collector reads them, and ten of the seventeen shapes in the set
-pinned to accuse NOTHING. Six reach the accusation — `logged_catch` (a
+E6-TS's collector reads them, and nine of the seventeen shapes in the set
+pinned to accuse NOTHING. Seven reach the accusation — `logged_catch` (a
 `catch` whose only mention of its binding is a `console.error`, which is the
 archetypal swallow and not an escape), `callback_sink` and
 `callback_handled` (those two shapes reached through `.catch(fn)` instead,
@@ -97,17 +97,19 @@ born as rejections with no `throw` statement anywhere in the program),
 `await_rejection_caught` (one identity carried across an `await`, the throw
 in one frame and the clause that took it in another), `finally_return` (a
 `return` inside a `finally`, which is the swallow a search for `catch` never
-finds) and `dependency_throw` (born inside `JSON.parse`, so there is a
-handler row and no raise to pair it with). One leaves the traced world:
+finds), `dependency_throw` (born inside `JSON.parse`, so there is a
+handler row and no raise to pair it with) and `rethrow_hop` (one object
+through two clauses: the origin RE-RAISED `→ swallowed` with its `hops:`
+line, the rethrow SWALLOWED at the clause that returned — a bare `throw e`
+is a traced EXIT and not an escape, which is what lets the swallow beneath
+it be named). One leaves the traced world:
 `test_failed`, the loud disposition the other sixteen are read against.
-Eight pin what this recorder REFUSES to call a swallow — `escaped_catch` and
+Seven pin what this recorder REFUSES to call a swallow — `escaped_catch` and
 `asserted_catch`, where the binding or a rendering of it left the clause and
 the second is the commonest `catch` any suite writes; `callback_escaped` and
 `callback_opaque`, the same two readings of a rejection handler, the second
 a function whose body the splice never saw; `translated`, two thrown objects
-with two serials, judged apart; `rethrow_hop`, one object through two
-clauses, whose `hops:` line is the journey and whose middle clause is an
-escape by the rule's own reckoning; `primitive_rethrow`, a thrown string
+with two serials, judged apart; `primitive_rethrow`, a thrown string
 whose four rows carry no identity between them; and `suspended_handler`, an
 absorbing clause whose frame was still parked when the recording ended.
 `unhandled_rejection_in_info` gains rung 2's question as well: UNCAUGHT, the
