@@ -54,22 +54,42 @@ the conversion counted.
 > Moved here on 2026-09-10 (S5 rung 2) from `docs/TRACE-FORMAT.md` §5, unchanged — that file stood at 799 of its 800 lines and this rung amends this section, so it moves whole before it is amended.
 > That is R25's precedent, the same way §4's key table moved into this file in rung 1: one commit moves a section without changing a byte of it, another edits it in its new home.
 
-### TypeScript throw flow: `exc.kind` and `how`
-
 A TypeScript `exc` is `{kind, type, msg, serial}` and **`kind` is written on every
 one** — `"throw"` or `"rejection"` — because a kindless `exc` is read as Python's
-(above). `serial` is minted per thrown **object** through a `WeakMap`, so `catch (e)
-{ throw e }` is one exception with two RAISE rows; a thrown **primitive** has none
-to hang it on and gets a fresh serial each time, stated rather than papered over by
-merging on text. Vectors: `v25-exc-kind-throw-rejection`,
+(TRACE-FORMAT §5). `serial` is minted per thrown **object** through a `WeakMap`, so
+`catch (e) { throw e }` is one exception with two RAISE rows; a thrown **primitive**
+has none to hang it on and gets a fresh serial each time, stated rather than papered
+over by merging on text. Vectors: `v25-exc-kind-throw-rejection`,
 `v27-unhandled-rejection-in-meta`.
 
 **`how`** names the shape that recorded the event, and the enumeration is the
-declaration: `throw`, `catch`, `sink_empty_catch`, `sink_empty_catch_callback` (a
-`catch {}` and a `.catch(() => {})` whose body is empty). A shape outside it
-produced no record — a `.catch(fn)` with a non-empty body and `finally` are recorded
-by nothing. The rows are not judged: `capabilities.err_flow` is false in
-`sensorium-ts 0.1.0` although they exist, so `exceptions` refuses at exit 3.
+declaration — a shape outside it produced no record: `throw` (the RAISE a `throw`
+statement writes when it fires); `catch` (the binding never left the clause, or
+left it only as a `console.*` argument); `catch_escaped` (the binding left the
+clause other than through a `console.*` argument); `sink_empty_catch` (an empty
+`catch {}` block); `catch_callback` (an inline rejection handler whose parameter
+never left its body, or left it only as a `console.*` argument);
+`catch_callback_escaped` (an inline rejection handler whose parameter left its body
+some other way); `catch_callback_opaque` (a handler defined elsewhere);
+`sink_empty_catch_callback` (an inline rejection handler with an empty body); and
+`sink_finally_return` (a `finally` that completes with a throw in flight, whose
+`exc` is the marked throw's own — `unread: ["type", "msg"]`, since the block has no
+binding and the runtime holds no reference to the value). What is still recorded by
+nothing: a `finally` with no completion statement; `.finally(fn)`, never a handler;
+a `Promise.reject(v)`, whose handler's HANDLED carries no RAISE and reads *born
+outside a throw statement*; a throw inside a promise executor with no open frame,
+counted in `throw_flow_outside_frames`; and a throw in untraced code (`JSON.parse`,
+a library), whose HANDLED likewise carries no RAISE and reads *born outside traced
+code*.
+
+`sensorium-ts` 0.2.0 declares `capabilities.err_flow: true` in its BOOT record, and
+the converter carries that declaration into `meta` over the constant it otherwise
+writes (`src/sensorium/ts/build.py`). What the declaration guarantees is the
+recorder's own statement that these rows now carry what a disposition verdict
+needs — reading them by rule, and gating the refusal on this key rather than on
+`lang` alone, is `exceptions_typescript.py`'s (S5 rung 2), not yet shipped as of
+this converter: `exceptions` on any TypeScript trace, 0.1.x or 0.2.0, still
+refuses by name today (TRACE-FORMAT §5's lang-keyed sentence).
 
 Two things go to `meta` and never to `events`, because §3 refuses a causal event
 with no `code_id` and inventing a code object would put a site in the program that
