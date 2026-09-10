@@ -283,14 +283,16 @@ main `bbd0781`, detail and reading in §3.6 — and the ladder's **a1** rung
 and its three falsified predictions in §3.7, and the ladder's **a3** rung
 (the same three cells on the streaming spool reader at `a35c045`), detail
 and its two predictions — one held, one falsified in the fast direction —
-in §3.8.
+in §3.8, and the slice's **three gated E10′ clauses** — the 372-pair
+equivalence gate and the two verdict cells, measured last on the final
+converter — detail in §3.9 and their verdicts in §4.1.
 
 | Id | Cell | Rule (from §1) | Result |
 |---|---|---|---|
 | E6″ | the plain band | manifest 748 OK / 0 FAILED; every run 372/4278 or dropped and named; 0 markers with ≥1 directory searched; wrapper absent; `median(after)` inside `median(before) ± range(before)`; <4 usable walls in an arm → STOP by instrument | not measured (slice 2 pending) |
-| E10′-suite | n=5 guarded `ingest`, default jobs, pinned `f08e89` copy, final converter | ≤ 22.5925 s → PASS; above → REPORTED with the whole ladder | not measured (slice 2 pending) |
-| E10′-file | n=5 guarded `ingest` over the pinned 611,016-byte spool | ≤ 0.4002 s → PASS; above → STOP | not measured (slice 2 pending) |
-| E10′-eq | 372 pairs, main@T0 vs final, `sensorium diff` each | 372 MATCH / 0 DIVERGED / 0 REFUSED → PASS; else STOP | not measured (slice 2 pending) |
+| E10′-suite | n=5 guarded `ingest`, default jobs, pinned `f08e89` copy, final converter | ≤ 22.5925 s → PASS; above → REPORTED with the whole ladder | **PASS** — **16.3859 s** median, n=5, 16.2555 – 16.4203; 1-min loads 1.12/2.25/3.06/3.75/3.19; peak RSS 290,948 kB; the worktree's venv, `feat/s5-slice2` `c457bee` — §3.9, verdict §4.1 |
+| E10′-file | n=5 guarded `ingest` over the pinned 611,016-byte spool | ≤ 0.4002 s → PASS; above → STOP | **PASS** — **0.1648 s** median, n=5, 0.1617 – 0.1878; 1-min loads 1.13/1.13/1.13/1.12/1.12; peak RSS 26,896 kB; the worktree's venv, `feat/s5-slice2` `c457bee` — §3.9, verdict §4.1 |
+| E10′-eq | 372 pairs, main@T0 vs final, `sensorium diff` each | 372 MATCH / 0 DIVERGED / 0 REFUSED → PASS; else STOP | **PASS** — **372 MATCH**, 0 DIVERGED, 0 REFUSED, 0 other, n=372 pairs, nothing dropped; 372/372 pairs equal on all seven row counts; the only meta key that differs on any pair is `run_id`; A = the global tool, main `bbd0781`, B = the worktree's venv `c457bee` — §3.9, verdict §4.1 |
 | E10′-0 | 0a — the largest spool alone, `--jobs 1`, one-spool copy, n=3 | reported against spec §3.2's prediction (≈ 16 s); no verdict | **17.5439 s** median, n=3, 17.3953 – 27.3839; 1-min loads 0.29/0.73/0.86; peak RSS 2,273,872 kB; the global tool, main `bbd0781` — §3.6 |
 | E10′-0 | 0b — the full set, `--jobs 1`, n=3 | reported against spec §3.2's prediction (40–50 s); no verdict | **154.3012 s** median, n=3, 152.7924 – 154.5061; 1-min loads 3.62/2.32/2.19; peak RSS 2,272,256 kB; the global tool, main `bbd0781` — §3.6 |
 | E10′-0 | 0c — the full set, `--jobs 4`, n=3 | reported against spec §3.2's prediction (between 0b and 0d); no verdict | **67.9342 s** median, n=3, 67.1653 – 67.9709; 1-min loads 0.82/3.5/3.78; peak RSS 2,270,804 kB; the global tool, main `bbd0781` — §3.6 |
@@ -431,14 +433,18 @@ row per rung; `arm0` is §3.6's, repeated here so the two are read together.
 | arm0 | 0d — `f08e89/`, 372 spools, 414,450,522 B | 16 | 3 | 45.7378 s | 43.5478 – 45.8268 | 2.09, 3.97, 3.79 | 2,269,696 kB | the global tool, main `bbd0781` |
 | **a1** | 0d — `f08e89/` | 16 | 3 | **17.7740 s** | 17.4102 – 17.9927 | 0.78, 1.84, 2.96 | 2,270,016 kB | the worktree's venv, `feat/s5-slice2` `2a273cf` |
 | **a3** | 0d — `f08e89/` | 16 | 3 | **16.5088 s** | 16.2692 – 16.5998 | 1.05, 2.12, 3.74 | **290,772 kB** | the worktree's venv, `feat/s5-slice2` `a35c045` |
+| **final** | 0d — `f08e89/`, the gated E10′-suite cell | 16 | 5 | **16.3859 s** | 16.2555 – 16.4203 | 1.12, 2.25, 3.06, 3.75, 3.19 | 290,948 kB | the worktree's venv, `feat/s5-slice2` `c457bee` — `src/` unchanged since `a35c045` |
 | arm0 | 0e — `one/`, 1 spool, 611,016 B | 16 | 5 | 0.3624 s | 0.2736 – 0.4051 | 0.96 (all five) | 30,828 kB | the global tool, main `bbd0781` |
 | **a1** | 0e — `one/` | 16 | 5 | **0.1647 s** | 0.1646 – 0.1902 | 0.66, 0.66, 0.68, 0.68, 0.68 | 31,372 kB | the worktree's venv, `feat/s5-slice2` `2a273cf` |
 | **a3** | 0e — `one/` | 16 | 5 | **0.1628 s** | 0.1603 – 0.1870 | 0.38 (all five) | 27,076 kB | the worktree's venv, `feat/s5-slice2` `a35c045` |
+| **final** | 0e — `one/`, the gated E10′-file cell | 16 | 5 | **0.1648 s** | 0.1617 – 0.1878 | 1.13, 1.13, 1.13, 1.12, 1.12 | 26,896 kB | the worktree's venv, `feat/s5-slice2` `c457bee` — `src/` unchanged since `a35c045` |
 
 A1 moves every cell: 0a by **1.1936×** (2.8462 s gone), 0d by **2.5733×**
-(27.9638 s gone), 0e by **2.2004×** (0.1977 s gone). The **a3** rows are the
-next rung's, measured after this section was written and kept here because
-the ladder is one table; §3.8 is that rung's own reading.
+(27.9638 s gone), 0e by **2.2004×** (0.1977 s gone). The **a3** and **final**
+rows were measured after this section was written and are kept here because
+the ladder is one table; §3.8 is a3's own reading, and §3.9 reads the two
+**final** rows, which are the gated cells at their pre-registered n=5 on a
+converter whose `src/` is a3's unchanged.
 
 **The three predictions spec §3.3 wrote before the code, quoted, each
 against the number that answered it. All three are falsified.**
@@ -542,10 +548,234 @@ The gated clauses (E10′-suite, E10′-file, E10′-eq) are measured on the
 slice's final converter at their own `n` and are still `not measured (slice 2
 pending)` above; this cell is the ladder's `n`=3 reading, not that one.
 
+### 3.9 E10′ — the equivalence gate and the two verdict cells
+
+The slice's three gated E10′ clauses, measured 2026-09-10 in the
+pre-registered order: **the gate first, the two verdict cells last**. The
+verdict cells are the last timed cells on this ladder and were run once; no
+threshold moved, no cell was re-rolled.
+
+**The converter under both is the worktree's own `.venv/bin/sensorium` at
+`feat/s5-slice2` `c457bee`** — the tip, whose only commit since `a35c045` is
+this task's two instrument files. Nothing under `src/` changed after A3, so
+the code being gated is A3's converter: `TraceWriter(durable=False)` over a
+streaming spool reader. Every cell's JSON carries that rev.
+
+#### The equivalence gate (E10′-eq)
+
+`typescript/acceptance/e10p_eq.sh`, spec §3.5's gate as an instrument. The
+pinned 372-spool set was converted **twice** — once by side **A**, the
+global tool at main `bbd0781` (the T0 commit, the tree before any lever),
+once by side **B**, the converter above — each from its own fresh copy into
+its own fresh store, at the converter's own default job count. Nothing here
+is timed and no load guard precedes it: no wall is read from this
+instrument, so a busy box cannot bias it.
+
+| Reading | Value |
+|---|---|
+| pairs (n) | **372** |
+| MATCH | **372** |
+| DIVERGED | **0** |
+| REFUSED | **0** |
+| other (a diff that did not answer) | **0** |
+| dropped | none |
+| pairs equal on all seven row counts | **372 / 372** |
+| meta keys differing on any pair | **`run_id`**, and nothing else |
+| converter A | the global tool, main `bbd0781` |
+| converter B | the worktree's venv, `feat/s5-slice2` `c457bee` |
+
+`MATCH + DIVERGED + REFUSED + other = 372 = n`, so every pair is accounted
+for. Both ingests exited `0` and printed `traces: 372`; each side printed
+372 `run:` lines whose `file:` fields are distinct, and the two key sets are
+equal — a repeated key or a set difference REFUSES the gate by name rather
+than pairing something with something else (plan P3).
+
+**Three things about how the gate was run, because each is a way it could
+have been wrong.** *One reader for every pair:* `diff` resolves both run ids
+under one `$SENSORIUM_DIR`, so side A's 372 `.db` files were hard-linked
+(`ln`, one filesystem — no copy, no rewrite) into side B's `traces/` under
+their own names, and every diff ran there with **B's** binary. A DIVERGED
+could therefore not have been two readers disagreeing. *No journal left
+behind:* before the linking, neither store held a `-wal` or `-shm` beside
+any trace — both converters checkpoint on close — so no partial file was
+linked and read as a trace. *No run id collided* across the two stores, which
+would otherwise have stood one side's trace in for the other's silently.
+
+**What a MATCH covers here, in the reader's own words.** Read by hand
+afterwards on the largest pair (the 195,851,484-byte spool, 2,246,552
+events): `verdict: MATCH -- identical causal streams (6 events) … values,
+timing, and LINE events were not compared` and `tasks: 19 task stream(s) on
+each side, compared by content as (name, hash): all matched`. Under the
+per-task fingerprint basis the main thread's own stream is six steps and the
+run's work lives in the task streams, which are compared by their recorded
+content hashes — which is why the 372 diffs — 646 MB of traces on each side —
+take about six seconds and why that speed is not a sign the gate did nothing. It is also
+the gate's boundary: `diff` compares causal structure, not recorded values,
+timings or LINE events. The two ungated readings stand beside it for exactly
+that reason — every pair matched on all seven per-table row counts, and the
+only `meta` key whose value differs on any of the 372 pairs is the minted
+`run_id`, which is the subset spec §3.5 named in advance.
+
+#### The two verdict cells (E10′-suite, E10′-file)
+
+`typescript/acceptance/e10p.sh` unchanged, under the same load guard, n=5
+each as pre-registered, cheapest first. **Nothing was dropped:** all ten
+repetitions exited `0` and converted exactly the copy's `.jsonl` count (1
+and 372), and every repetition's `maxrss_kb` parsed — no cell reports a `0`.
+Both rows are in §3.7's ladder table as the **final** rung.
+
+| Cell | Workload | jobs | n | Rule (§1) | Median | min – max | 1-min load per rep | Peak RSS |
+|---|---|---|---|---|---|---|---|---|
+| E10′-file | `one/`, 1 spool, 611,016 B | 16 | 5 | ≤ 0.4002 s | **0.1648 s** | 0.1617 – 0.1878 | 1.13, 1.13, 1.13, 1.12, 1.12 | 26,896 kB |
+| E10′-suite | `f08e89/`, 372 spools, 414,450,522 B | 16 | 5 | ≤ 22.5925 s | **16.3859 s** | 16.2555 – 16.4203 | 1.12, 2.25, 3.06, 3.75, 3.19 | 290,948 kB |
+
+Both cells replicate the ladder's last rung at the larger `n`: the suite
+cell reads 16.3859 s against a3's 16.5088 s (n=3), 0.1229 s apart with the
+two ranges overlapping, and the file cell 0.1648 s against a3's 0.1628 s,
+0.0020 s apart and inside a3's own spread. Against Arm 0 the final converter
+is **2.7913×** on the suite (29.3519 s gone) and **2.1990×** on the one file
+(0.1976 s gone).
+
+**The wrapper is inside the timed region, and the rule is applied to the
+timed region as pre-registered.** `e10p.sh`'s wall is the whole region,
+which includes `rss_run.py`'s own interpreter start-up; `child_wall` — the
+wrapper's clock around the converter alone — is in every log. On the file
+cell its median is **0.1511 s** (0.1496 – 0.1707) against the instrument's
+0.1648 s: **0.0137 s, 8.3%** of that cell's median. On the suite cell the
+same difference is 0.0143 s, 0.09%. The clause was pre-registered against
+the instrument's wall and is read there; no threshold moved. Both numbers
+are on the same side of both bounds either way — 0.1648 and 0.1511 are both
+under 0.4002 s, and 16.3859 and 16.3716 are both under 22.5925 s — so the
+choice does not decide either verdict. §5 records the instrument gap.
+
+
 ## 4. Decisions
 
-*Written by hand at the end of the slice.*
+One verdict per pre-registered endpoint, written when that endpoint's cells
+were read, with **the rule quoted from §1** beside the number that answered
+it. The verdict word is the rule's own; nothing was re-rolled and no
+threshold moved. Endpoints whose cells have not run are named at the end.
+
+### 4.1 E10′ — the converter ladder's three gated clauses
+
+**E10′-suite — PASS.** The rule, from §1 `### 3.4 The rules`:
+
+> ≤ **22.5925 s** → **PASS**, the converter stays Python; above →
+> **REPORTED** with every rung of the ladder (0a–0e and each lever's cells),
+> and Arm B is a later slice by ruling. No STOP word on this clause: E10's
+> rule carried none, and a cost is a fact with its `n` beside it
+
+The median of n=5 guarded repetitions at the default job count over the
+pinned set, on the slice's final converter, is **16.3859 s** (16.2555 –
+16.4203, nothing dropped) — **6.2066 s below the bound**, 1.3788× under it.
+**The converter stays Python**; Arm B (a Rust converter) is not raised.
+
+**E10′-file — PASS.** The rule, from §1 `### 3.4 The rules`:
+
+> ≤ **0.3638 × 1.10 = 0.4002 s** → **PASS**; above → **STOP**. A converter
+> faster on the suite and slower on the workload the loop pays is the failure
+> the ledger's E10 row warned about, and it is the one thing on this ladder
+> that is allowed to stop it
+
+The median of n=5 guarded repetitions over the pinned one-file spool is
+**0.1648 s** (0.1617 – 0.1878, nothing dropped) — **0.2354 s below the
+bound**, 2.4284× under it. The failure this clause exists to catch did not
+happen: the ladder is faster on the one file too, by 2.1990× against Arm 0.
+The wall quoted is the instrument's whole timed region, wrapper included, as
+pre-registered (§3.9); the converter's own `child_wall` median, 0.1511 s, is
+on the same side of the bound.
+
+**E10′-eq — PASS.** The rule, from §1 `### 3.4 The rules`:
+
+> 372 MATCH, 0 DIVERGED, 0 REFUSED → PASS; anything else → **STOP**
+
+The 372 pairs read **372 MATCH, 0 DIVERGED, 0 REFUSED** (and 0 that failed
+to answer), every diff run by one reader — side B's — over both traces in
+one store. Ungated beside it, as §1 `### 3.5 The equivalence gate` asks:
+all seven per-table row counts equal on **372/372** pairs, and the union of
+the `meta` keys that differ over every pair is exactly **`run_id`**, the
+minted one. The trace the faster converter writes is the trace main's
+converter wrote.
+
+### 4.2 The ladder, read end to end
+
+Arm 0 → A1 → A3 → final, on the two cells that carry the gated clauses:
+
+| Rung | 0d — the full suite, jobs 16 | 0e — the one file |
+|---|---|---|
+| arm0 (main `bbd0781`) | 45.7378 s (n=3) | 0.3624 s (n=5) |
+| a1 (`durable=False`) | 17.7740 s (n=3) | 0.1647 s (n=5) |
+| a3 (streaming reader) | 16.5088 s (n=3) | 0.1628 s (n=5) |
+| **final, gated (n=5)** | **16.3859 s** | **0.1648 s** |
+
+**2.7913× on the suite and 2.1990× on the one file**, and the heaviest
+worker's peak resident fell from 2,269,696 kB to 290,948 kB on the same
+suite cell — 7.8010× — which was A3's own pre-registered quantity.
+
+**Which predictions held.** Arm 0's five were a diagnosis, not a gate: 0e
+and 0d landed (0.3624 against ≈ 0.36; 45.7378 against ≈ 45), 0c landed
+between 0b and 0d, 0a came 9.6% high, and **0b missed by more than three
+times** (154.3012 s against 40–50 s) — the cell that made the arm's reading
+refuse to choose between contention and a serial floor (§3.6). A1's three
+predictions were **all falsified** (§3.7): 0a by 1.1977 s, 0d by 0.0763 s,
+and 0e "unchanged" by a factor of 2.2004 in the fast direction — the
+one-file spool turned out to be commit-*dominated*. A3's two split (§3.8):
+the RSS prediction **held** with room (2.27 GB → 280 MB, 8.1096×), and the
+wall prediction ("within noise of A1") was **falsified in the fast
+direction** on both large cells, by about 1.25 s each.
+
+So the ladder arrived under its bound on levers whose own predictions were
+mostly wrong, and it arrives there with the trace unchanged — which is the
+only reason the wall is worth anything. **Nine of the twelve pre-registered
+predictions on this ladder were falsified or missed; all three gated clauses
+pass.** A2 (largest-first dispatch) and A4 (the per-record cost) were not
+built: spec §3.3 conditioned them on A1 + A3 leaving 0d above the bound, and
+they did not (§3.8). Arm C, the binary wire, stays off the ladder — spec
+§3.7's trigger for revisiting it was "0d ≈ 0a", which never fired (§3.6).
+
+**Still open at this point in the slice:** E6″ (§1 `### 2.2 The rule`'s four
+clauses) and the H-probes (§1 `### 4.5 Probes and the checker`), whose cells
+belong to their own tasks and are written here when they run.
 
 ## 5. Gaps found
 
-*Written by hand at the end of the slice.*
+Numbered as they are found; a later task appends rather than renumbers.
+
+1. **The instrument's timed region includes its own wrapper's start-up, and
+   a gated clause now stands on it.** §3.6 wrote this down as a property of
+   `e10p.sh` when it was 4.5% of cell 0e; on the gated E10′-file cell the
+   converter is fast enough that it is **8.3%** — 0.0137 s of a 0.1648 s
+   median. The clause was pre-registered against the instrument's wall, the
+   rule was applied there, and both walls fall the same side of 0.4002 s, so
+   nothing about this verdict turns on it. But a bound within 10% of the
+   truth would have been decided by an interpreter start-up. A later
+   instrument should either time the child alone (`child_wall` is already in
+   every log) or state in the pre-registration which of the two walls the
+   rule reads.
+
+2. **The equivalence gate compares causal structure, not recorded values.**
+   `sensorium diff`'s own verdict line says it: "values, timing, and LINE
+   events were not compared". A MATCH here is the main thread's causal
+   stream plus every task stream's recorded content hash — which is a real
+   comparison of 2.2M events on the largest pair, and is not a comparison of
+   what those events recorded. The two ungated readings beside it are row
+   *counts*, not row *contents*. Everything measured says the two converters
+   write the same trace; a gate that compared every table row for row was
+   not pre-registered and would be a different, much slower instrument. It
+   is the honest ceiling on what E10′-eq's PASS asserts.
+
+3. **The reader leaves a journal beside every trace it opens**, so the
+   gate's "no `-wal`, no `-shm`" check has to run before the diffs, not
+   after. It does. After the 372 diffs, side B's store held a `-wal` and a
+   `-shm` beside all 744 `.db` files, none of which existed before them —
+   an instrument that checked afterwards would refuse on its own reader's
+   leftovers and call it a converter defect.
+
+4. **The non-durable writer's transient WAL was not measured at the job
+   count the gate ran.** Task 2 measured it once on the big spool at
+   `--jobs 1` (a 335,895,392-byte `-wal` beside a 333,832,192-byte database)
+   and flagged that at `--jobs 16` the transient is the sum over the workers
+   building at that moment. The gate converted the whole set twice with
+   63 GB free and nothing came near the disk, so no number is owed to any
+   verdict here — but the slice still has no reading of that peak, and this
+   box has run at ~3 GB free on `/`. It belongs in CARRIED-DEBT at Task 7.
