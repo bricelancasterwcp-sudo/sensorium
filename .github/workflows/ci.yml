@@ -241,7 +241,7 @@ jobs:
       - name: TypeScript recorder tests (through a real Node and a real vitest)
         env:
           SENSORIUM_TS_LIVE: "1"
-        run: python -m pytest -q tests/test_ts_live.py tests/test_ts_driver.py tests/test_ts_ingest.py tests/test_ts_ingest_meta.py tests/test_ts_refusal.py tests/test_ts_harness.py tests/test_ts_wrapper.py tests/test_vectors.py tests/test_vocab.py
+        run: python -m pytest -q tests/test_ts_live.py tests/test_ts_driver.py tests/test_ts_ingest.py tests/test_ts_ingest_meta.py tests/test_ts_ingest_refusals.py tests/test_ts_refusal.py tests/test_ts_harness.py tests/test_ts_wrapper.py tests/test_vectors.py tests/test_vocab.py
       # --only-dir typescript, mirroring the `rust` job above: this records
       # corpus/typescript alone, and --require-driver is what makes that a
       # gate rather than a green job over cases nobody ran. `ts_ready()`

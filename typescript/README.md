@@ -20,12 +20,14 @@ Six modules and a version:
 | `src/vite.mjs` | The Vite plugin (`enforce: 'pre'`) that puts the transform in vitest's path. |
 | `src/setup.mjs` | The vitest setup file: the task-name provider and the per-file/per-test records. Written from a template into `node_modules/.sensorium/` beside the wrapper config, never into your source tree. |
 | `src/register.mjs` | What `node --import` runs for `node --test`: it checks the two variables the hook cannot invent and registers `src/hook.mjs`. |
-| `src/hook.mjs` | The loader hook itself, on Node's loader thread: it instruments a file under the root and type-strips `.ts`/`.tsx` with the consumer's own TypeScript. |
+| `src/hook.mjs` | The loader hook itself, on Node's loader thread: it instruments a file under the root and hands it back in **Node's own reported format**, erasing nothing — Node strips the types (`.ts`, `.mts`), and a file Node's strip-only mode refuses fails identically hooked and plain. |
 | `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.1.1`. |
 
 Beside them, `probes/` is a self-contained vitest project the recorder records
 ITSELF with: ten probe files whose expected rows were pinned by the S5 spike
-before this code existed, an eleventh run under `node --test`, and `probes/check.mjs`,
+before this code existed, four more under `node --test` — one per extension,
+`.ts`, `.mts`, `.mjs`, `.cjs` — with two controls beside them that must fail
+the same way hooked and plain, and `probes/check.mjs`,
 which reads the spools back and asserts every one of them. Two probes make
 `vitest run` red on purpose — an unhandled rejection and a test that never
 settles — so the checker's exit status is the gate, not vitest's. The recipe is
