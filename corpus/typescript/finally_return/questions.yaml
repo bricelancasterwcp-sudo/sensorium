@@ -1,0 +1,32 @@
+program: vitest
+harness_args: ["run", "finally_return"]
+questions:
+  - id: where-did-the-write-failure-go-with-no-catch
+    ask: >
+      The write failed and `commit` reported the rows it wrote. There is no
+      `catch` clause in this file at all -- where did the failure go?
+    truth: >
+      Into the `finally`, and `exceptions` names it: SWALLOWED, `caught by
+      sink_finally_return` at e4, in the frame that then returned 3. A
+      `return` inside a `finally` discards whatever was travelling through
+      the frame, exception included, and it does so without any of the
+      spellings a reader greps for -- no `catch`, no handler, no empty
+      block. That is why the shape is in the corpus: it is the swallow a
+      search for `catch` cannot find, and the tool finds it from the rows
+      rather than from the syntax a reader happened to think of.
+    why_logs_fail: >
+      There is no clause to put a `console.log` in: the discard is performed
+      by the `return` statement itself, so the only log that would catch it
+      is one placed in a `finally` a reader has no reason to suspect -- and
+      a log before the `return` prints on every successful commit too.
+      `DEBUG=*` enables namespaced loggers this program never registers. And
+      no stack trace is printed, because the frame returned normally: from
+      outside, a commit that discarded a failure and a commit that succeeded
+      are byte-identical, which is exactly what the missing trace means.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e3 RAISE", "commit raise Error('the write failed') L8"]
+      - ["SWALLOWED -- caught by sink_finally_return at e4 (commit L9) in
+          f2, which returned"]
+      - ["dispositions: swallowed 1"]

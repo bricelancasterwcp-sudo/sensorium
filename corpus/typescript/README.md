@@ -1,6 +1,6 @@
 # The TypeScript corpus
 
-Thirteen cases recorded by the **TypeScript** recorder
+Twenty-eight cases recorded by the **TypeScript** recorder
 (`sensorium ts run -- npx vitest run <case>`) and questioned through the same
 Python CLI as the rest of the corpus.
 
@@ -46,11 +46,36 @@ one spool with two BOOT records and a refusal.
 | `async_interleaved` | two `test.concurrent` tests write one key; every row of each is in its own task, including the write after the `await` — and the naming cross-check DISAGREED once on a concurrent test and said so (`task names: mixed, 1 conflict(s)`) | `tree`, `frame` ×2, `info` |
 | `object_refused` | an identity question this recorder cannot answer: `flow --object` REFUSES through `object_identity: false` (exit 3), the values it does hold are byte-identical and settle nothing, and `flow --value` refuses again through `line: false` | `flow --object`, `tree`, `flow --value` |
 | `watch_refused` | a per-line question this recorder cannot answer: `watch` REFUSES through `line: false` (exit 3) — while the same fault is still reachable through return values (`compute -> 200` inside `refresh -> 100`) | `watch`, `tree` |
-| `exceptions_refused` | a swallowed parse error: the RAISE and the HANDLED rows ARE recorded, `err_flow=yes` says they carry what a verdict needs, and `exceptions` calls it SWALLOWED at the `catch` whose frame returned a healthy-looking default | `exceptions`, `info`, `tree` |
+| `silent_swallow` | a swallowed parse error: the RAISE and the HANDLED rows ARE recorded, `err_flow=yes` says they carry what a verdict needs, and `exceptions` calls it SWALLOWED at the `catch` whose frame returned a healthy-looking default | `exceptions`, `info`, `tree` |
 | `each_naming` | three `test.each` rows named as vitest expands them (`squares 2/3/4`), `task names: vitest`, no `#k`; and the `beforeEach` hook's twelve events counted outside every test | `info` ×2, `tree` |
-| `unhandled_rejection_in_info` | a rejection nobody receives: the test passes, the harness exits 0, and the container's own listener is the only thing that noticed — `unhandled rejections: 1` | `info`, `tree` |
+| `unhandled_rejection_in_info` | a rejection nobody receives: the test passes, the harness exits 0, and the container's own listener is the only thing that noticed — `unhandled rejections: 1`; and the verdict on it is UNCAUGHT, the one disposition taken from the process rather than from the rows | `info`, `tree`, `exceptions` |
 | `suspended_at_end` | a test parked on a promise that never settles: `~ suspended at LNone at end of recording`, one RETURN fewer than CALLs, and no INCOMPLETE banner — a parked frame in a whole recording | `tree`, `info`, `frame` |
 | `timer_callback_parentless` | a `setTimeout` callback that runs with the task's stack empty: `sweep` is a root of the test's task at depth 0, and it is NOT among the scheduling frame's three children | `tree`, `frame` ×2 |
+
+## The swallow corpus
+
+Fifteen more cases, one throw-flow shape each, added by S5 rung 2. Every one
+registers the `exceptions` verdict line AND the `dispositions:` tally before
+the E6-TS collector reads them, so the set of shapes this recorder calls
+SWALLOWED is pinned case by case and not counted after the fact.
+
+| Case | Planted truth | Commands |
+|---|---|---|
+| `logged_catch` | a `catch` whose only mention of its binding is a `console.error`: SWALLOWED, because log-and-continue is where the failure went and a log is not a return value | `exceptions` |
+| `escaped_catch` | `return String(e)`: the same two rows as a swallow, a `catch_escaped` `how` word, and AMBIGUOUS — the line these rules refuse to cross | `exceptions` |
+| `asserted_catch` | `expect((e as Error).message)`, the commonest `catch` any suite writes and the lens's dominant shape: AMBIGUOUS, never an accusation against a deliberate test | `exceptions` |
+| `rethrow_hop` | one object through two clauses: two RAISE blocks, a `hops:` line drawing the journey, and a middle clause that is an escape by the rule's own reckoning | `exceptions` |
+| `translated` | `throw new Wrapped(String(e))`: two objects, two serials, two blocks — the original stops at the clause and the wrapper is judged on its own evidence | `exceptions` |
+| `callback_sink` | `await p.catch(() => {})`: SWALLOWED with no `throw` statement anywhere, the verdict naming the birth (`a reject()`) because there is no raise to pair the handler with | `exceptions` |
+| `callback_handled` | `.catch((e) => { console.warn(e) })`: the `logged_catch` swallow written as a promise, and the `how` word is what says which | `exceptions` |
+| `callback_escaped` | `.catch((e) => { seen.push(e) })`: the reason left the callback, so AMBIGUOUS | `exceptions` |
+| `callback_opaque` | `.catch(noteFailure)`: the splice saw an identifier and not a body, so AMBIGUOUS — the handler really does drop it, and the recorder will not guess | `exceptions` |
+| `await_rejection_caught` | `try { await f() } catch {}`: one identity carried across the suspension, the RAISE in one frame and the clause that swallowed it in another | `exceptions` |
+| `test_failed` | the one direction that was never silent: PROPAGATED to the harness with the test named — a RED suite by design, and the control the other cases are read against | `exceptions` |
+| `primitive_rethrow` | `throw 'boom'`, caught and thrown on: four rows, no identity between any two of them, AMBIGUOUS four times — the honest answer and not the useful one | `exceptions` |
+| `finally_return` | a `return` inside a `finally` and no `catch` in the file at all: SWALLOWED by `sink_finally_return`, the swallow a search for `catch` never finds | `exceptions` |
+| `dependency_throw` | `JSON.parse('{')` inside an empty `catch`: SWALLOWED, `born outside traced code` — a handler row with no raise, and no throw site invented for it | `exceptions` |
+| `suspended_handler` | an absorbing clause whose frame then parks forever: AMBIGUOUS, still suspended — an absorbing clause is only HALF of a swallow. Also a red suite, by its own 200 ms timeout | `exceptions` |
 
 ## Three things a case here must know
 
@@ -68,6 +93,9 @@ stable across runs. A question that uses `$RUN2` inside one invocation
 and single-line groups whose needles do not depend on which side is A.
 
 **A non-zero harness exit is not a recording failure.** `sensorium ts run`
-returns the harness's own status, so `pass_vs_fail`, `suspended_at_end` and
-`timer_callback_parentless` all exit 1 with a complete recording behind them.
-What decides whether a case recorded is its `run:` lines.
+returns the harness's own status, so `pass_vs_fail`, `suspended_at_end`,
+`timer_callback_parentless`, `test_failed` and `suspended_handler` all exit 1
+with a complete recording behind them — the last two by design, one because
+the planted failure reaches the harness and one because the frame it is asked
+about is still parked when the test's own timeout ends the run. What decides
+whether a case recorded is its `run:` lines.

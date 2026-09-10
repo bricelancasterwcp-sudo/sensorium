@@ -1,0 +1,35 @@
+program: vitest
+harness_args: ["run", "callback_sink"]
+questions:
+  - id: what-happened-to-the-upstream-rejection
+    ask: >
+      The quote request failed and the receipt was printed anyway. There is
+      no `throw` statement anywhere in this program -- what happened to the
+      failure?
+    truth: >
+      An empty rejection callback took it: SWALLOWED, `caught by
+      sink_empty_catch_callback`, in the test's own frame, which then
+      returned. The verdict also says where the failure came FROM -- `born
+      outside a throw statement (a reject())` -- because there is no RAISE
+      row to pair the handler with: nothing in traced code threw, the
+      failure was minted as a rejection by `Promise.reject`. That is why the
+      block is headed HANDLED rather than RAISE, and why the tool names the
+      birth instead of inventing a throw site it does not have.
+    why_logs_fail: >
+      There is nothing to log: the callback body is empty, so a
+      `console.log` would have to be ADDED to the one line whose emptiness
+      is the bug -- and adding it means already suspecting this `.catch`, of
+      which a real codebase has hundreds. `DEBUG=*` enables namespaced
+      loggers this program never registers. And no stack trace is printed,
+      because the rejection WAS handled: attaching an empty handler is
+      exactly what stops Node's unhandled-rejection report, so the one
+      channel that would have named the failure is the one this shape
+      switches off.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e5 HANDLED", "handled Error('upstream is down') L6"]
+      - ["SWALLOWED -- caught by sink_empty_catch_callback at e5
+          (<anonymous> L6) in f1, which returned"]
+      - ["born outside a throw statement (a reject())"]
+      - ["dispositions: swallowed 1"]

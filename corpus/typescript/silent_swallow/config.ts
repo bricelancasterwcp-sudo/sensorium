@@ -1,8 +1,8 @@
 // Seeded bug: `loadConfig` swallows the parse failure and returns a
 // healthy-looking default, so every caller downstream believes the file was
 // read. The `throw` and the `catch` ARE recorded -- one RAISE row and one
-// HANDLED row -- and this recorder still declines to judge what happened to
-// the error, because no TypeScript disposition rules exist yet.
+// HANDLED row -- and `exceptions` now calls them SWALLOWED, because the
+// binding `e` is read nowhere and the frame holding the `catch` returned.
 export type Config = { retries: number };
 
 export function parse(text: string): Config {

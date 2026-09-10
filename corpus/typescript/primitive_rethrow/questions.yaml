@@ -1,0 +1,38 @@
+program: vitest
+harness_args: ["run", "primitive_rethrow"]
+questions:
+  - id: can-the-thrown-string-be-followed
+    ask: >
+      A string is thrown, caught, thrown on and caught again, and the caller
+      gets 0. Can the recording say the failure was swallowed?
+    truth: >
+      No, and it says so four times over: AMBIGUOUS on every row, with the
+      reason printed -- a primitive carries no identity. A thrown OBJECT
+      gets a serial the recorder can carry between rows; a thrown string has
+      nothing to hang one on, so each of the four rows here carries a fresh
+      number and two records reading `string('boom')` may be one value
+      rethrown or two unrelated throws. `safeScan` really does drop the
+      failure, and the recording cannot establish it -- so the tool reports
+      the limit instead of the accusation. That is the case's whole content:
+      the honest answer, not the useful one, and a reader who wants the
+      useful one throws an Error.
+    why_logs_fail: >
+      A `console.log` in each clause prints `boom` twice and leaves exactly
+      the ambiguity the tool named: two lines of identical text, and nothing
+      in either saying whether they are one value travelling or two values
+      thrown. `DEBUG=*` enables namespaced loggers this program never
+      registers. And there is no stack trace at all, because a thrown string
+      is not an Error and carries no `stack` property -- the channel a
+      reader would reach for first does not exist for this shape, which is
+      the practical reason the shape is worth recording.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e5 RAISE", "scan raise string('boom') L9"]
+      - ["e7 RAISE", "rescan raise string('boom') L18"]
+      - ["AMBIGUOUS -- a primitive carries no identity: two records with
+          this text may be one throw rethrown or two throws; not followed"]
+      - ["every row of a thrown primitive carries a fresh serial, and two of
+          one text are never merged"]
+      - ["dispositions: ambiguous 4"]
+    expect_absent: ["SWALLOWED"]

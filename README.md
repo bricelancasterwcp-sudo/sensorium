@@ -520,7 +520,7 @@ ground truth, the exact invocation expected to yield it, and why a `print()`
 cannot answer it. Ground truth is known because the bugs were planted. This is
 the regression suite, and it includes the honesty cases — the ones whose
 pinned answer is a REFUSAL. Twenty Python programs with thirty-nine questions,
-forty-three Rust cases, thirteen TypeScript cases: all of them case by case in
+forty-three Rust cases, twenty-eight TypeScript cases: all of them case by case in
 [`docs/corpus.md`](docs/corpus.md), moved there 2026-09-09 so this file stays
 under 800 lines, wording unchanged. A case whose recorder is not built is
 reported skipped BY NAME and counted apart from the passes, never as them;

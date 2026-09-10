@@ -1,0 +1,41 @@
+program: vitest
+harness_args: ["run", "translated"]
+questions:
+  - id: what-became-of-the-original-decode-failure
+    ask: >
+      The caller received a `Wrapped`. What became of the ORIGINAL decode
+      failure it was built from?
+    truth: >
+      Not the same question as what became of the wrapper, and the tool
+      keeps them apart: two thrown objects, two serials, two blocks. The
+      original's block is AMBIGUOUS -- the clause read its binding to build
+      the wrapper's message, so the error or a rendering of it left the
+      handler and the rule does not follow where. The wrapper's own raise at
+      e7 is judged on its own evidence and reaches no rule either: it
+      unwound `decodeOrWrap` and the arrow `expect` called, and the frame
+      that finally received it is vitest's, which is not traced -- so no
+      handler row, no root frame of the task, and the honest word is that no
+      rule reaches a verdict. A tool that folded the two into one story
+      would report the original as PROPAGATED and be wrong: the original
+      stopped at e6.
+    why_logs_fail: >
+      A `console.log` of the wrapper prints a message built out of the
+      original's, which is exactly the confusion the case is about: the
+      TEXT survives the translation and the IDENTITY does not, and no log
+      line distinguishes "the same failure, renamed" from "a second failure
+      that quotes the first". `DEBUG=*` enables namespaced loggers this
+      program never registers. A stack trace of the wrapper starts at the
+      `throw new Wrapped` line -- the original's frames are gone from it,
+      because a new Error captures a new stack, which is the single most
+      common way a translation costs a reader the site that mattered.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e5 RAISE", "decode raise Error('bad payload: {') L10"]
+      - ["AMBIGUOUS -- caught at e6 (catch_escaped), and the error or a
+          rendering of it left the handler; not followed"]
+      - ["e7 RAISE", "decodeOrWrap raise Wrapped('Error: bad payload: {')
+          L17"]
+      - ["AMBIGUOUS -- no rule of this recorder reaches a verdict here"]
+      - ["dispositions: ambiguous 2"]
+    expect_absent: ["SWALLOWED"]

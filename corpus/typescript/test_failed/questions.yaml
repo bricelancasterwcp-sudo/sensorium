@@ -1,0 +1,34 @@
+program: vitest
+harness_args: ["run", "test_failed"]
+questions:
+  - id: how-far-did-the-empty-order-failure-get
+    ask: >
+      The empty-order test is red. How far did the failure actually get, and
+      who received it?
+    truth: >
+      All the way out: PROPAGATED, `to the harness`, with the test named --
+      `an empty order totals zero`. This is the one direction a failure can
+      travel that a developer never needed a tool to learn about, and the
+      corpus holds a recording of it so the other sixteen cases mean
+      something: the tool's five words include the loud outcome as well as
+      the silent ones, and the same command that says SWALLOWED on the
+      quiet cases says PROPAGATED here. The evidence is the unwind of the
+      test's own root frame -- `total` unwound and so did the callback above
+      it, and above THAT there is no traced frame at all, only vitest.
+    why_logs_fail: >
+      Nothing fails here: this is the case the three channels handle. The
+      stack trace is printed by vitest, names `total` and the assertion
+      line, and answers the question -- which is exactly why the case is in
+      the corpus, as the control the swallow cases are read against. A
+      `console.log` would be redundant beside it, and `DEBUG=*` enables
+      namespaced loggers this program never registers. What the channels
+      cannot do is the other sixteen cases, and a corpus without this one
+      would be arguing against a strawman.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e3 RAISE", "total raise Error('an empty order has no total') L9"]
+      - ['PROPAGATED -- to the harness: test "an empty order totals zero"
+          failed']
+      - ["dispositions: propagated 1"]
+    expect_absent: ["SWALLOWED"]

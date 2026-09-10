@@ -1,5 +1,5 @@
 program: vitest
-harness_args: ["run", "exceptions_refused"]
+harness_args: ["run", "silent_swallow"]
 questions:
   - id: what-happened-to-the-parse-error
     ask: >

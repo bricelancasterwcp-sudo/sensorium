@@ -1,0 +1,34 @@
+program: vitest
+harness_args: ["run", "suspended_handler"]
+questions:
+  - id: did-the-parked-handler-swallow-the-queue-failure
+    ask: >
+      The `catch` clause absorbed the queue failure and its frame then
+      parked on a promise nothing settles. Was the failure swallowed?
+    truth: >
+      Not established: AMBIGUOUS -- `the handler's frame f2 is still
+      suspended at the end of the recording`. An absorbing clause is only
+      HALF of a swallow; the other half is that the frame holding it then
+      returned, because a frame can still fail afterwards for its own
+      reasons and a failure that ends in a rethrow is not a swallow. This
+      recording never got to see which way f2 would go: the test hit its own
+      200 ms timeout with the frame parked at the `await`, so the evidence
+      the verdict needs was never recorded. The recording is COMPLETE and
+      the answer is still absent, which is the distinction the case is for.
+    why_logs_fail: >
+      A `console.log` in the clause prints and proves only that the clause
+      RAN -- the question is what the frame did afterwards, and the frame
+      never got there, so the log line that exists is exactly as consistent
+      with a swallow as with a rethrow that never happened. `DEBUG=*`
+      enables namespaced loggers this program never registers. And no stack
+      trace is printed: nothing escaped, the run ended by timeout, and
+      vitest's timeout report names the test rather than the parked frame or
+      the failure that was absorbed inside it.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e3 RAISE", "drain raise Error('the queue is gone') L10"]
+      - ["AMBIGUOUS -- the handler's frame f2 is still suspended at the end
+          of the recording"]
+      - ["dispositions: ambiguous 1"]
+    expect_absent: ["SWALLOWED"]

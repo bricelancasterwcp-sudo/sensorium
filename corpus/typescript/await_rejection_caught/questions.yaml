@@ -1,0 +1,34 @@
+program: vitest
+harness_args: ["run", "await_rejection_caught"]
+questions:
+  - id: did-the-failure-survive-the-await
+    ask: >
+      The quote service failed inside an `async` function and the caller
+      awaited it in a `try`. Did the tool keep the throw and the catch
+      together across that suspension?
+    truth: >
+      Yes, as one story: SWALLOWED, naming the `catch` clause at e5 in the
+      awaiting test frame and the RAISE at e3 inside `fetchQuote`, two
+      frames apart with an `await` between them. That is the point of the
+      case. The failure was thrown in one frame, became a rejected promise,
+      crossed a suspension, and was delivered to a clause in another frame
+      -- and the recorder carries ONE identity across that gap, so the rows
+      pair instead of reading as an unexplained throw over here and an
+      unexplained catch over there. The clause binds nothing, so nothing can
+      have escaped it, and `fallbackQuote` then let the frame return 0.
+    why_logs_fail: >
+      A `console.log` before the `throw` and another in the `catch` are two
+      lines in two frames, and nothing in either says they are the same
+      failure -- across an `await` the interleaving that would have implied
+      it is gone, which is the whole difficulty this case plants. `DEBUG=*`
+      enables namespaced loggers this program never registers. And no stack
+      trace is printed, because the rejection was awaited inside a `try` and
+      caught: the async stack that would have joined the two frames is
+      exactly what a caught rejection never prints.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e3 RAISE", "fetchQuote raise Error('quote service down') L8"]
+      - ["SWALLOWED -- caught by catch at e5 (<anonymous> L9) in f1, which
+          returned"]
+      - ["dispositions: swallowed 1"]

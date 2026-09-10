@@ -1,0 +1,31 @@
+program: vitest
+harness_args: ["run", "callback_escaped"]
+questions:
+  - id: was-the-sync-conflict-swallowed
+    ask: >
+      The sync failed and the run stayed green. Was the conflict swallowed?
+    truth: >
+      Not established, and the tool says AMBIGUOUS rather than guessing: the
+      callback pushed its parameter into a list, so the reason left the
+      handler and something else now holds it. Whether that list is ever
+      read is a fact about code outside the callback, and the rule follows
+      the value no further than the body it can see. The `how` word is
+      `catch_callback_escaped`, decided from the callback's own shape at
+      transform time -- exactly the same decision `escaped_catch` gets from
+      a `catch` clause, applied to a rejection handler's parameter.
+    why_logs_fail: >
+      A `console.log` inside the callback prints the reason and settles
+      nothing: the question is whether anything acts on the collected list,
+      and the answer lives in code the callback never runs. `DEBUG=*`
+      enables namespaced loggers this program never registers. And no stack
+      trace is printed, because attaching this handler is what stops Node
+      reporting the rejection -- the channel that names failures is switched
+      off by the very handler whose honesty is in question.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e5 HANDLED", "handled Error('sync conflict') L8"]
+      - ["AMBIGUOUS -- caught at e5 (catch_callback_escaped), and the error
+          or a rendering of it left the handler; not followed"]
+      - ["dispositions: ambiguous 1"]
+    expect_absent: ["SWALLOWED"]

@@ -1,0 +1,34 @@
+program: vitest
+harness_args: ["run", "dependency_throw"]
+questions:
+  - id: what-happened-to-the-malformed-settings-file
+    ask: >
+      The settings file is malformed and `readSettings` returned an empty
+      object. The failure was raised inside `JSON.parse`, which this
+      recorder never instrumented -- can it still say what became of it?
+    truth: >
+      Yes: SWALLOWED, `caught by catch` at e3 in `readSettings`, whose frame
+      then returned. There is NO RAISE row to pair the handler with -- the
+      failure was born in a dependency -- so the verdict says that too:
+      `born outside traced code, at readSettings L9`, naming the clause
+      rather than inventing a throw site inside a library it never watched.
+      The block is headed HANDLED for the same reason. A handler row alone
+      is enough for this verdict because the accusation is about what the
+      TRACED code did with the failure, and that is entirely on the wire.
+    why_logs_fail: >
+      The `catch` binds nothing and its block is one `return`, so there is
+      no `console.log` to read and adding one means already suspecting this
+      clause. `DEBUG=*` enables namespaced loggers, and the dependency that
+      threw is `JSON.parse`, which has none. And no stack trace is printed,
+      because the failure never escaped: the `SyntaxError` that would have
+      named the position in the malformed file is discarded at the clause,
+      which is the whole cost of this shape and precisely what the empty
+      object hides from every caller above.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e3 HANDLED", "readSettings handled SyntaxError("]
+      - ["SWALLOWED -- caught by catch at e3 (readSettings L9) in f2, which
+          returned"]
+      - ["born outside traced code, at readSettings L9"]
+      - ["dispositions: swallowed 1"]
