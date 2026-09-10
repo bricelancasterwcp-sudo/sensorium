@@ -48,10 +48,17 @@ and for the `node --test` harness, which needs two more:
 
 ```sh
 export SENSORIUM_SPOOL=/path/to/a/store/nodetest-1
+export SENSORIUM_MANIFEST_DIR="$SENSORIUM_SPOOL/manifests"
 export SENSORIUM_TS_ROOT="$PWD"
 export SENSORIUM_TS_PKG="$PWD/.."
 npm run probe:nodetest
 ```
+
+That script runs three things with `;`: the four probe files as an EXPLICIT
+list (Node's own default test patterns would sweep the ten vitest probes under
+`src/` into the same run), then `nodetest/controls.mjs`, then the checker. The
+manifest directory is not optional here either — the `.cjs` probe's whole
+assertion is a tally, and the child that wrote it recorded no spool at all.
 
 Both scripts run the harness and then the checker with `;`, never `&&`. That is
 deliberate: **`vitest run` is red by design** — `never_settles.probe.test.ts`
@@ -62,12 +69,38 @@ asserted, 1 a check failed, 2 it was called wrong.
 
 `check.mjs` refuses with exit 2 and one line of usage when a directory is
 missing — an unset variable reaches the script as an empty argument, which is
-the same refusal. In `vitest` mode the manifest directory is required, so the
+the same refusal. The manifest directory is required in both modes, so the
 tally checks cannot be skipped by leaving an argument off.
 
 ```
-node check.mjs <vitest|nodetest> <spool dir> [manifest dir]
+node check.mjs <vitest|nodetest> <spool dir> <manifest dir>
 ```
+
+`controls.mjs` has an exit status of its own, and it is the gate on the two
+controls: 0 when each of them failed with the SAME error code plain and under
+the recorder, 1 when a code differed or a side exited 0 at all.
+
+## Capturing the checker's JSON as an acceptance cell
+
+There is no script for this: an acceptance run captures `check.mjs`'s JSON
+and `controls.mjs`'s two lines into `<store>/results/h-probes.json` **by
+hand**, and an assembler then copies that file into the record's results file
+verbatim. The cell inherits its `lens` string from `acceptance/LENS.txt`,
+which names the recorder that produced the LENS and **not** the hook, the
+probes or the run that made this cell -- so the hand-assembled file MUST also
+carry three fields, or it names no recorder of its own:
+
+| Field | What it is |
+|---|---|
+| `hook_rev` | the FULL sha of the commit `src/hook.mjs` was at |
+| `probes_rev` | the FULL sha of the commit `nodetest/`, `controls.mjs` and `check.mjs` were at |
+| `captured_rev` | the FULL sha of the commit the capture itself ran at |
+
+They are three fields and not one because the hook and the probes that
+exercise it are different changes, and one sha for both would say the checker
+existed when the hook landed. `e6pp_report.py` requires the same provenance
+of its own cell (`E6PP_RECORDER`, `E6PP_RECORDER_REV`) and refuses without
+it; this file is the equivalent rule for the capture no script performs.
 
 ## What is here
 
@@ -84,6 +117,11 @@ node check.mjs <vitest|nodetest> <spool dir> [manifest dir]
 | `src/describe_chain.probe.test.ts` | `outer > inner > leaf`, synchronous describes (P11) |
 | `src/timer_parentless.probe.test.ts` | a timer callback entered with an empty stack |
 | `nodetest/async.probe.test.ts` | E3 again through `register.mjs`, outside vitest's `include` |
+| `nodetest/ext.probe.test.mts` | H1: a typed `.mts` (and `ext.lib.mts` beside it), stripped by NODE |
+| `nodetest/ext.probe.test.mjs` | an `.mjs`: instrumented, with nothing to erase |
+| `nodetest/ext.probe.test.cjs` | CommonJS: no spool for that child, and a tally that says so |
+| `nodetest/controls/enum.ts`, `nodetest/controls/jsx.tsx` | not test files: two files Node refuses to load, `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` and `ERR_UNKNOWN_FILE_EXTENSION` |
+| `nodetest/controls.mjs` | runs each control plain and hooked and compares the codes; JSON lines, exit 1 on a mismatch |
 | `check.mjs` | reads every spool and asserts; JSON on stdout |
 | `vitest.config.ts` | the probe files, plus the recorder's own wiring under `SENSORIUM_PROBE_DIRECT=1` |
 

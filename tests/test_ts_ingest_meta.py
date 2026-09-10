@@ -10,6 +10,7 @@ how the converter RUNS its work -- the pool, and a worker that dies -- is
 """
 import json
 import re
+import sqlite3
 import subprocess
 import sys
 import time
@@ -18,8 +19,9 @@ from pathlib import Path
 import pytest
 
 from tests.helpers import run_cli
-from tests.ts_spools import (FIXTURES, REFUSING, copy_tree, ingest_case,
-                             ingested, only_trace, run_ids_in)
+from tests.ts_spools import (CASES, FIXTURES, REFUSING, copy_tree,
+                             ingest_case, ingested, only_trace,
+                             run_ids_in)
 
 __all__ = ["ingested"]      # a fixture, imported for pytest to find
 
@@ -168,6 +170,21 @@ def test_two_boot_records_name_two_runtimes(ingested):
     assert "two runtime instances wrote one spool" in line
 
 
+def test_a_second_boot_met_late_leaves_no_trace_behind(ingested):
+    """The refusal above moved into the WALK (A3), and a build already under
+    way is what pays for it: the second BOOT is met after the builder has
+    written rows, so `convert` aborts the build and unlinks the temporary
+    file it had reserved. What the store holds afterwards is the sibling
+    spool's trace and nothing else -- no `.tmp` trio, no half-written `.db`
+    that `runs` would list."""
+    _spool, sdir, result = ingested["duplicate-boot"]
+    assert result.returncode == 2
+    line = next(ln for ln in result.stdout.splitlines()
+                if ln.startswith("refused: "))
+    assert REFUSING["duplicate-boot"] in line
+    assert sorted(q.suffix for q in (sdir / "traces").iterdir()) == [".db"]
+
+
 def test_a_record_naming_a_frame_no_call_opened_is_refused(ingested):
     """Never a guessed frame. A row attached to the wrong activation is a
     confident wrong answer about the program, which is worse than a spool
@@ -245,50 +262,6 @@ def test_a_directory_with_no_invocation_record_is_a_bad_call(tmp_path):
                 sensorium_dir=tmp_path / "sdir")
     assert r.returncode == 2
     assert "invocation.json" in r.stderr
-
-
-def test_a_spool_with_no_boot_names_the_file():
-    from sensorium.ts import spool
-    with pytest.raises(spool.SpoolError) as e:
-        spool.read(FIXTURES / "no-boot" / "7101-0.jsonl")
-    assert "7101-0.jsonl" in str(e.value)
-
-
-def test_a_torn_final_line_is_dropped_and_not_refused(ingested):
-    """A container killed mid-`appendFileSync` leaves half a line. That is
-    the tail this recorder declares unknowable, not a corrupt file: the line
-    is dropped, the trace says `incomplete`, and nothing counts the loss."""
-    from sensorium.ts import spool as spool_mod
-    sp = spool_mod.read(FIXTURES / "killed-mid-file" / "439886-0.jsonl")
-    assert sp.torn_tail is True
-    assert sp.exit is None
-    assert len(sp.records) == 119   # 120 whole lines, one of them BOOT
-
-
-def test_a_malformed_line_anywhere_else_is_a_refusal(tmp_path):
-    """...and only the LAST line gets that benefit. A broken line in the
-    middle is a corrupt file, and reading past it would silently drop a
-    record the container did finish writing."""
-    from sensorium.ts import spool as spool_mod
-    good = (FIXTURES / "each-names" / "439934-0.jsonl").read_text().splitlines()
-    bad = tmp_path / "9-0.jsonl"
-    bad.write_text("\n".join(good[:5] + ["{not json"] + good[5:]) + "\n")
-    with pytest.raises(spool_mod.SpoolError) as e:
-        spool_mod.read(bad)
-    assert "line 6" in str(e.value)
-    assert "9-0.jsonl" in str(e.value)
-
-
-def test_a_line_that_is_not_a_record_is_refused(tmp_path):
-    """Every line carries an `e` naming its kind, and it is a string. A
-    line that carries something else is not a record this converter can
-    dispatch on."""
-    from sensorium.ts import spool as spool_mod
-    bad = tmp_path / "9-0.jsonl"
-    bad.write_text('{"e": 7}\n')
-    with pytest.raises(spool_mod.SpoolError) as e:
-        spool_mod.read(bad)
-    assert "line 1 is not a record" in str(e.value)
 
 
 def test_the_help_speaks_this_recorders_language_and_no_other(tmp_path):
@@ -406,6 +379,82 @@ def test_a_container_that_never_got_to_say_carries_no_claim(ingested):
     meta = only_trace(sdir).meta
     assert "exit_self_reported" not in meta
     assert meta["incomplete"] is True
+
+
+#: Every table a converted trace holds rows in. The durable and the
+#: non-durable writer must produce the same trace, table for table: the mode
+#: is about WHEN rows become visible outside the connection, never about
+#: which rows there are.
+TRACE_TABLES = ("code_objects", "frames", "events", "output", "tasks",
+                "fingerprints", "task_fingerprints")
+
+#: Every fixture whose spool CONVERTS, which is the whole set minus the three
+#: the converter must refuse: those end at exit 2 with no second trace to
+#: compare. `killed-mid-file` stays in -- its spool is torn mid-line, the
+#: Builder finishes it as an `incomplete` trace, and an incomplete trace is
+#: exactly the shape a reader would least expect two writers to agree on.
+DURABLE_CASES = [case for case in CASES if case not in REFUSING]
+
+
+def sole_spool(case: str) -> Path:
+    """The one `<pid>-<threadId>.jsonl` a converting fixture holds."""
+    spools = sorted((FIXTURES / case).glob("*.jsonl"))
+    assert len(spools) == 1, f"{case} holds {len(spools)} spools, not 1"
+    return spools[0]
+
+
+@pytest.mark.parametrize("case", DURABLE_CASES)
+def test_a_trace_is_identical_whether_the_writer_was_durable(case, tmp_path):
+    """A1's equivalence, at the smallest scale the gate is made of.
+
+    The converter builds with `durable=False` -- one transaction, no fsync
+    per batch -- and the equivalence gate (spec 3.5) says the trace it
+    produces must not have changed. Here the same spool is built twice with
+    the same minted run id, once in each mode, and every row of every table
+    plus the whole `meta` table is compared. A faster converter that writes
+    a different trace has changed the product, not the cost.
+
+    Spec 6 asks this of the `tests/fixtures/ts-spools/` fixtures rather than
+    of one of them, and the difference is not decoration: `async-chain` alone
+    exercises no `UNWIND`, no capped name, no `#2` activation, no torn tail
+    and no missing EXIT, and the gate it stands in for converted 372 spools
+    of every shape the lens had.
+    """
+    from sensorium.ts import build, invocation, spool
+
+    inv = invocation.Invocation.from_json(json.loads(
+        (FIXTURES / case / "invocation.json").read_text()))
+    paths = {}
+    for durable in (True, False):
+        # Read the spool afresh for each build: the builder consumes it.
+        sp = spool.read(sole_spool(case))
+        path = tmp_path / f"durable-{durable}.db"
+        build.Builder(sp, inv, None, None, path, "20260101-000000-aaaaaa",
+                      durable=durable).build()
+        paths[durable] = path
+
+    a = sqlite3.connect(paths[True])
+    b = sqlite3.connect(paths[False])
+    try:
+        written = {}
+        for table in TRACE_TABLES:
+            sql = f"SELECT * FROM {table} ORDER BY rowid"
+            rows = a.execute(sql).fetchall()
+            assert rows == b.execute(sql).fetchall(), table
+            written[table] = len(rows)
+        # A comparison over empty tables proves nothing, so what every case
+        # must actually have filled is pinned: the three tables no converted
+        # spool can leave empty. `output` is empty on all of them -- the
+        # TypeScript recorder declares no output capability -- and an empty
+        # pair is still one of the seven the gate compares.
+        assert min(written["code_objects"], written["frames"],
+                   written["events"]) > 0, written
+        assert written["output"] == 0
+        sql = "SELECT key, value FROM meta ORDER BY key"
+        assert a.execute(sql).fetchall() == b.execute(sql).fetchall()
+    finally:
+        a.close()
+        b.close()
 
 
 def test_the_incomplete_claim_is_written_before_anything_is_read(tmp_path):

@@ -711,6 +711,8 @@ is named in this paragraph and in the record's §3.3.)*
    `../acceptance/2026-09-09-sensorium-s5-rung1.md`; plan:
    `../plans/2026-09-09-sensorium-s5-rung1-recorder-v1.md`; the deltas this
    rung made to this document are §14.
+   *(Amended 2026-09-10: E6″ was measured in slice 2 — record
+   `../acceptance/2026-09-10-sensorium-s5-slice2.md` §4 — and read PASS.)*
 2. **Throw flow** — `exceptions` on a TypeScript trace: Python's five
    dispositions on JavaScript shapes (an empty catch and an empty callback
    are sinks, a rethrow is a hop, an unhandled rejection is `uncaught` with

@@ -285,6 +285,29 @@ def test_a_commonjs_file_is_loaded_as_node_loads_it_and_counted(
     assert [t.name for t in trace.tasks()] == ["adds, from an ES module"]
 
 
+def test_a_commonjs_only_suite_is_refused_naming_the_exclusions(
+        cjs_project, tmp_path):
+    """R45, end to end. Take the ES module out of R37's project and every
+    file left is CommonJS: plain `node --test` is green, the recorder
+    instruments nothing, and no spool is written at all. What the caller
+    used to get was the converter's "nothing was recorded, or the recorder
+    wrote somewhere else" -- true, and naming neither the cause nor the fix.
+
+    The control is in the test: plain `node --test` first, and it passes.
+    """
+    (cjs_project / "a.test.mjs").unlink()
+    plain = subprocess.run(["node", "--test"], cwd=cjs_project,
+                           capture_output=True, text=True)
+    assert plain.returncode == 0, plain.stdout + plain.stderr
+
+    r = run_cli(["ts", "run", "--", "node", "--test"], cwd=cjs_project,
+                sensorium_dir=tmp_path / "sdir")
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "this run transformed 0 files and excluded " in r.stderr, r.stderr
+    assert re.search(r"excluded \d+ \(commonjs x\d+ across \d+ tallies\)",
+                     r.stderr), r.stderr
+    assert "this recorder instruments ES modules only" in r.stderr, r.stderr
+
 # -- what is left on disk ---------------------------------------------------
 
 def test_the_spool_directory_keeps_the_invocations_own_record(

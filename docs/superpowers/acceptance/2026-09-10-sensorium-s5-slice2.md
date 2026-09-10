@@ -1,0 +1,1289 @@
+# S5 slice 2 — E6″, the converter ladder, the `node --test` extensions: acceptance (pre-registered)
+
+**Status: pre-registration only.** This file was written and committed on the
+feature branch `feat/s5-slice2` **before any line of slice-2 code existed**.
+The commit that carries it changes nothing under `src/`, `typescript/src/`,
+`rust/` or `corpus/`: it is this document and nothing else. §1 is the locked
+contract — after a number is read, no threshold moves, no arm is added and no
+run is re-rolled; an infrastructure kill may be re-run from zero with the
+reason recorded. §3's cells are all `not measured (slice 2 pending)` and stay
+that way until the endpoints run. §4 and §5 are written by hand at the end of
+the slice.
+
+The lock is enforced by `tests/test_acceptance_s5_slice2_lock.py`, which
+compares the working tree's §1 against the commit that first carried it and,
+separately, compares each of §1's seven verbatim bodies against
+`git show <sha>:<source>` — so "verbatim" is a claim a test holds, not one
+this prose makes.
+
+## 1. Pre-registration
+
+Seven blocks, copied verbatim from the two documents that own them. Nothing
+below this line is paraphrased, reordered or reworded; the only editorial act
+is that each source section's own heading is carried as the `###` sub-heading
+that introduces its body here (spec §11's heading is `##` in its source file
+and appears as `###` below), so that this record keeps its own §1–§5
+numbering. The bodies are byte-for-byte the source sections. Sources, at the
+commits named:
+
+- `docs/superpowers/specs/2026-09-10-sensorium-s5-slice2-design.md` at **`bbd0781`** (the merge commit on `main` that this branch was cut from) — `### 2.2 The rule`, `### 3.2 Arm 0 — diagnosis on main's code`, `### 3.4 The rules`, `### 3.5 The equivalence gate`, `### 4.5 Probes and the checker`, `## 11. The pre-registration, in one table`
+- `docs/superpowers/plans/2026-09-10-sensorium-s5-slice2.md` at **`9c81dfe`** (this branch's first commit, the plan) — `## Pre-registration (…)`, up to `## File structure`
+
+### 2.2 The rule
+
+Four clauses, a flat conjunction as E6′ was; a clause that does not hold is a
+**STOP**, and the pre-registration carries no other word for it.
+
+| Clause | Measured | Holds when |
+|---|---|---|
+| manifest identical | `sha256sum -c` after the after arm | exit 0, 748 OK, 0 FAILED |
+| the suite is the suite | every plain run's counts | every run reads `372 passed (372)` and `4278 passed (4278)`; a run that does not is **dropped and named**, never averaged in |
+| 0 markers | the grep over every cache directory that exists | 0 hits, ≥1 directory searched |
+| wrapper gone | `node_modules/.sensorium` | absent |
+| **the plain band** | medians of the two arms' walls | `median(after) ∈ [median(before) − range(before), median(before) + range(before)]`, where `range = max − min` over the before arm's usable walls |
+
+**Derivation of the band.** The before arm's own median, plus or minus the
+spread the before arm itself measured. No multiplier, no chosen width: the
+arm's range is a number the session produced, not one this document picked.
+On E1′'s plain arm — walls 22.3136, 22.3252, 22.5925, 22.6142, 22.7221 — that
+would read **22.5925 ± 0.4085**. Stated openly: E6′'s single wall, 22.8678,
+would sit inside that band; that is not why the band has this shape. The band
+is fixed before the after arm runs, from an arm the after arm cannot
+influence, and it is the after arm's **median over five guarded runs** that
+must land in it — not one wall.
+
+**Fewer than four usable walls in either arm** (dropped runs, guard
+refusals) makes the timing clause a **STOP by instrument**: the band or the
+median was not measured, and an unmeasured clause is not a held one.
+
+### 3.2 Arm 0 — diagnosis on main's code
+
+Measured on the T0 commit, **before any converter change**, so the ladder
+has a baseline taken under the same guard as its rungs.
+
+| Cell | What | n | Prediction (from §0's profile; to be falsified) |
+|---|---|---|---|
+| 0a | the largest spool alone, `--jobs 1`, one-spool copy | 3 | ≈ 16 s |
+| 0b | the full set, `--jobs 1` | 3 | 40–50 s: the sum of every spool's serial cost plus per-spool setup |
+| 0c | the full set, `--jobs 4` | 3 | between 0b and 0d |
+| 0d | the full set, `--jobs 16` (E10's own cell, now guarded) | 3 | ≈ 45 s |
+| 0e | the one file, default jobs | 5 | ≈ 0.36 s |
+
+**Two readings are pre-stated so the number decides between them.** If 0d
+is not well below 0b, the pool buys nothing and the mechanism is contention
+or serialisation between workers — A1 is the right first lever. If 0d ≈ 0a,
+there is no contention: the floor is the largest spool's own serial cost, and
+the lever is the per-record cost (A4), not the write path. Reported, no
+verdict.
+
+### 3.4 The rules
+
+| Clause | Measured | Rule |
+|---|---|---|
+| **full suite** | the median of **n=5** guarded repetitions of `sensorium ts ingest` at the default job count over the pinned set, on the slice's final converter | ≤ **22.5925 s** → **PASS**, the converter stays Python; above → **REPORTED** with every rung of the ladder (0a–0e and each lever's cells), and Arm B is a later slice by ruling. No STOP word on this clause: E10's rule carried none, and a cost is a fact with its `n` beside it |
+| **the one file** | the median of n=5 guarded repetitions over the pinned one-file spool | ≤ **0.3638 × 1.10 = 0.4002 s** → **PASS**; above → **STOP**. A converter faster on the suite and slower on the workload the loop pays is the failure the ledger's E10 row warned about, and it is the one thing on this ladder that is allowed to stop it |
+| **equivalence** | §3.5 | 372 MATCH, 0 DIVERGED, 0 REFUSED → PASS; anything else → **STOP** |
+
+### 3.5 The equivalence gate
+
+A converter that is faster and different has changed the trace, and the
+trace is the product. The full-suite set is converted twice: once by **main's
+converter at the T0 commit** (the tree before any lever) into store A, once
+by **the slice's final converter** into store B, both from fresh copies. The
+372 traces are paired by spool file name (each `run:` line prints its
+`file:`), and `sensorium diff <A> <B>` runs once per pair. **372 MATCH, 0
+DIVERGED, 0 REFUSED**, or STOP. The same spool goes in on both sides, so the
+lens's eight nondeterministic test files cannot excuse a DIVERGED here: a
+difference is the converter's. Reported beside it, ungated: per-table row
+counts equal for every pair (`events`, `frames`, `tasks`, `code_objects`,
+`fingerprints`, `task_fingerprints`, `output`), and the meta keys that differ
+between the pairs are exactly the minted ones (`run_id` and what derives from
+it).
+
+### 4.5 Probes and the checker
+
+Under `typescript/probes/nodetest/`, one test file per extension, run by
+`npm run probe:nodetest` as an explicit file list (Node's default test
+patterns are not relied on):
+
+| File | Expected |
+|---|---|
+| `async.probe.test.ts` | as today: a spool, its tasks, the checker's async checks |
+| `ext.probe.test.mts` | a spool with ≥1 task, types stripped by Node, `task_name_basis: lexical` |
+| `ext.probe.test.mjs` | a spool with ≥1 task |
+| `ext.probe.test.cjs` | **no spool** for that pid; its `_tally-<pid>.json` reads `files_transformed: 0`, `excluded: {commonjs: 1}` |
+
+And two **controls**, not test files, run by `probes/nodetest/controls.mjs`
+twice each — plain `node <file>` and `node --import ../src/register.mjs
+<file>` with `SENSORIUM_TS_ROOT` and `SENSORIUM_TS_PKG` set, since
+`register.mjs` refuses without them — comparing the error code strings:
+
+| Control | Expected on both sides |
+|---|---|
+| `controls/enum.ts` | `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` |
+| `controls/jsx.tsx` | `ERR_UNKNOWN_FILE_EXTENSION` |
+
+A mismatch between the two sides is a refusal from `controls.mjs` — the
+recorder changed what loads. `check.mjs`'s nodetest mode gains one check per
+row above. `tests/test_ts_live.py` drives the same directory through the
+driver, and gains the R45 case: a root whose only test file is `.cjs`
+refuses at exit 2 with §4.3's sentence.
+
+### 11. The pre-registration, in one table
+
+Carried verbatim into the record's §1 at T0 and byte-locked there.
+
+| Id | Question | Measurement | Rule |
+|---|---|---|---|
+| E6″ | Is a plain run contaminated? | five guarded plain runs, one call run, five guarded plain runs; manifest after; markers; wrapper | manifest 748 OK / 0 FAILED; every run 372/4278 or dropped and named; 0 markers with ≥1 directory searched; wrapper absent; `median(after)` inside `median(before) ± range(before)`; <4 usable walls in an arm → STOP by instrument; any clause failing → STOP |
+| E10′-suite | What does full-suite conversion cost? | n=5 guarded `ingest` at default jobs over the pinned f08e89 copy, final converter | ≤ 22.5925 s → PASS (Python stays); above → REPORTED with the whole ladder; Arm B deferred by ruling |
+| E10′-file | What does one file cost? | n=5 guarded `ingest` over the pinned 611,016-byte spool | ≤ 0.4002 s → PASS; above → STOP |
+| E10′-eq | Did the converter change the trace? | 372 pairs, main@T0 vs final, `sensorium diff` each | 372 MATCH / 0 DIVERGED / 0 REFUSED → PASS; else STOP |
+| E10′-0 | Where do the seconds go? | Arm 0 cells 0a–0e on the T0 tree | reported against §3.2's predictions; no verdict |
+| H-probes | Does `node --test` load what plain loads? | §4.5's four files and two controls | every row as its table says; a control mismatch → STOP |
+
+### Plan section "Pre-registration (Task 0 commits spec §2.2, §3.2, §3.4, §3.5, §4.5 and §11 verbatim as the record's §1, plus these pins)" — verbatim
+
+- **The full-suite set:** `/mnt/extra/sensorium-s5/store-rung1/acceptance/spool/20260909-160038-f08e89/` — 372 `.jsonl`, 414,450,522 bytes — copied whole (`invocation.json`, `harness.json`, `manifests/` included, `ingested.json` removed from the copy) to `/mnt/extra/sensorium-s5/e10-spool/f08e89/`; `sha256sum` over every file in the copy written to `/mnt/extra/sensorium-s5/e10-spool/f08e89.sha256` and its own sha256 quoted in §2.
+- **The one file:** `20260909-155657-4965c3/1478098-0.jsonl` (611,016 bytes) with its directory's three JSON siblings, to `/mnt/extra/sensorium-s5/e10-spool/one/`; pinned the same way.
+- **The big-spool copy for cell 0a:** `/mnt/extra/sensorium-s5/e10-spool/big/` holding only `1491993-0.jsonl` (195,851,484 bytes, `src/lib/map/gridDetect.test.ts`) plus the set's `invocation.json`, `harness.json`, `manifests/`.
+- **The reference wall:** 22.5925 s (E1′'s plain median). **The one-file bound:** 0.4002 s. **Job counts:** 1, 4, 16 (16 = `os.cpu_count()` here, the driver's default).
+- **The rung-1 manifest:** `/mnt/extra/sensorium-s5/manifest-rung1-before.txt` (748 entries, file sha256 `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8`), verified once at T0 and again by `e6pp.sh` before and after its own runs.
+- **Reported without a gate:** spec §3.6 — events/s per rung on the big spool, peak RSS before/after A3, 0b/0d, the call run's harness and driver walls, the fresh set's ingest.
+
+## 2. Ambient pins (preflight, recorded before any slice-2 code exists)
+
+Every value below is the output of the command beside it, run on this box on
+2026-09-09 between 22:39 and 22:51 local time (`-05:00`) — the session that
+opens slice 2, which the plan and the spec date 2026-09-10 — before any file
+under `src/`, `typescript/src/`, `rust/` or `corpus/` was touched. The lens is
+the VTT frontend **copy** at `/mnt/extra/sensorium-s5/vtt/frontend` (VTT
+`0091e97`); `~/workspace/projects/vtt` was neither read nor touched, and the
+lens was read here by nothing but `sha256sum -c`. Box paths appear in this
+table because a pin without its location is not a pin; the rule that no box
+path is committed binds the results JSON and the code, as it did at rung 1.
+
+| Item | Command | Value |
+|---|---|---|
+| node | `node --version` | `v24.16.0` |
+| npm | `npm --version` | `11.13.0` |
+| lens vitest | `node -e "console.log(require('<lens>/node_modules/vitest/package.json').version)"` | `4.1.9` |
+| lens vite | same, `vite` | `6.4.3` |
+| lens typescript | same, `typescript` | `5.9.3` |
+| lens jsdom | same, `jsdom` | `29.1.1` |
+| nproc | `nproc` | `16` — also the driver's default job count, so E10′'s `--jobs 16` cell is the default cell |
+| governor | `cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor` | `powersave` |
+| memory | `free -g` | total `29`, used `17`, free `9`, buff/cache `7`, available `12`; swap total `15`, used `0` (preflight). At pin time: free `8`, buff/cache `8`, available `12` |
+| free disk `/` | `df -h /` | `4.9G` available on `/dev/nvme0n1p2` (100% used, 915G total) — the refusal floor is 3 GB; this passes with 1.9 GB to spare, and nothing this slice measures writes to `/` |
+| free disk `/mnt/extra` | `df -h /mnt/extra` | `64G` available on `/dev/nvme1n1p1` (86% used, 469G total) — the refusal floor is 8 GB; this passes with 56 GB to spare |
+| mount `/` | `findmnt -no SOURCE,FSTYPE /` | `/dev/nvme0n1p2 ext4` |
+| mount `/mnt/extra` | `findmnt -no SOURCE,FSTYPE /mnt/extra` | `/dev/nvme1n1p1 ext4` — a different block device and filesystem; the worktree, the venvs, the lens, the spool copies and every store live here |
+| 1-minute load, preflight | `cat /proc/loadavg` (before anything was created or copied) | `0.94 0.67 0.58 1/2581 2223272` — 1-minute load **0.94**, under the 4.0 refusal threshold |
+| 1-minute load, at pin time | `date -Iseconds; cat /proc/loadavg` | `2026-09-09T22:50:39-05:00`, then `0.90 1.12 0.87 1/2602 2267193` — the close of this table's reading window |
+| worktree | `git rev-parse --abbrev-ref HEAD` | `feat/s5-slice2`, at `/mnt/extra/sensorium-rung2/s5-slice2`, cut from `main` at `bbd0781` |
+| `git rev-parse HEAD` | `git rev-parse HEAD` | `9c81dfe666bda4f6961dca8bc4d1404ad985a68b` — the plan commit, this branch's only commit when the pins were taken. **T0** for every "main's converter" arm is this tree |
+| worktree venv | `uv venv .venv --python 3.13 && uv pip install -p .venv/bin/python -e ".[dev]"` | `.venv/bin/python -V` → `Python 3.13.13` |
+| 3.12 venv | `uv venv .venv312 --python 3.12 && uv pip install -p .venv312/bin/python -e ".[dev]"` | `Python 3.12.13` |
+| 3.14 venv | `uv venv .venv314 --python 3.14 && uv pip install -p .venv314/bin/python -e ".[dev]"` | `Python 3.14.4` |
+| sensorium, worktree venv | `.venv/bin/python -c "import importlib.metadata as m; print(m.version('sensorium'))"` | `0.9.0` |
+| sensorium, global tool | `$(dirname $(readlink -f $(which sensorium)))/python -c "import importlib.metadata as m; print(m.version('sensorium'))"` (the tool venv under `~/.local/share/uv/tools/sensorium`) | `0.9.0` — the same version. The global tool is **never reinstalled from this worktree**: it is what Arm 0 and the equivalence gate's A side mean by "main's converter" |
+| node installs | `npm ci --prefix typescript && npm ci --prefix typescript/probes && npm ci --prefix corpus/typescript` | `typescript/node_modules` 5 entries, `typescript/probes/node_modules` 65, `corpus/typescript/node_modules` 35 |
+| store root | `mkdir -p /mnt/extra/sensorium-s5/store-slice2` | created; `SENSORIUM_DIR` for every trace this slice records or converts |
+| lens manifest, verified | `cd <lens> && sha256sum -c /mnt/extra/sensorium-s5/manifest-rung1-before.txt` | exit `0`, **748 OK, 0 FAILED** — the lens is byte-identical to the state rung 1 left it in. Manifest file sha256 `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8`, 748 lines, as the plan pins it |
+
+### 2.1 The spool copies (E10′'s pinned workloads)
+
+Made with `cp -r` from `/mnt/extra/sensorium-s5/store-rung1/acceptance/spool/`,
+into `/mnt/extra/sensorium-s5/e10-spool/`. Each copy carries `invocation.json`,
+`harness.json` and `manifests/`, and **no `ingested.json`** — the source's
+ingest marker is dropped so a copy is a spool no converter has yet seen. (The
+plan's bullet for `one/` says "its directory's three JSON siblings"; the same
+bullet's rule for `f08e89/` says `ingested.json` is removed from the copy, and
+`one/` is pinned "the same way", so all three copies are the two JSON siblings
+plus `manifests/`. The deviation is named here rather than left to be noticed
+later.)
+
+Every value below is the output of the command beside it. `<c>` abbreviates
+the copy `/mnt/extra/sensorium-s5/e10-spool/<name>/` and `<m>` its manifest
+`/mnt/extra/sensorium-s5/e10-spool/<name>.sha256`; each manifest was written
+by `cd <c> && find . -type f | sort | xargs sha256sum > <m>`.
+
+| Copy | Source | Item | Command | Value |
+|---|---|---|---|---|
+| `e10-spool/f08e89/` | `20260909-160038-f08e89/` | `.jsonl` files | `ls <c>/*.jsonl \| wc -l` | `372` — the plan's pinned count (372 `.jsonl`), exactly |
+|  |  | `.jsonl` bytes | `find <c> -maxdepth 1 -name '*.jsonl' -printf '%s\n' \| awk '{s+=$1} END{print s}'` | `414450522` — the plan's pinned number, exactly |
+|  |  | all-file bytes | `find <c> -type f -printf '%s\n' \| awk '{s+=$1} END{print s}'`, cross-checked against `du -sb <c>` (agrees) | `415578161` |
+|  |  | `manifests/` files | `ls <c>/manifests \| wc -l` | `726` |
+|  |  | manifest lines | `wc -l < <m>` | `1100` |
+|  |  | manifest sha256 | `sha256sum <m>` | `bcefbbd367e50e6f1adbd6c6c76172fcadd4235e0fd72b3264c6dc8a11d40844` |
+|  |  | manifest re-verified | `cd <c> && sha256sum -c <m>` | `1100 OK, 0 FAILED` |
+| `e10-spool/one/` | `20260909-155657-4965c3/` | `.jsonl` files | `ls <c>/*.jsonl \| wc -l` | `1` (`1478098-0.jsonl`) |
+|  |  | `.jsonl` bytes | `find <c> -maxdepth 1 -name '*.jsonl' -printf '%s\n' \| awk '{s+=$1} END{print s}'` | `611016` — the plan's pinned number, exactly |
+|  |  | all-file bytes | `find <c> -type f -printf '%s\n' \| awk '{s+=$1} END{print s}'`, cross-checked against `du -sb <c>` (agrees) | `678355` |
+|  |  | `manifests/` files | `ls <c>/manifests \| wc -l` | `25` |
+|  |  | manifest lines | `wc -l < <m>` | `28` |
+|  |  | manifest sha256 | `sha256sum <m>` | `e5be630f0b1e4efc3f8c4c240ffebc22d59abd9328875b885c1930baa1e2de23` |
+|  |  | manifest re-verified | `cd <c> && sha256sum -c <m>` | `28 OK, 0 FAILED` |
+| `e10-spool/big/` | `20260909-160038-f08e89/` | `.jsonl` files | `ls <c>/*.jsonl \| wc -l` | `1` (`1491993-0.jsonl`) |
+|  |  | `.jsonl` bytes | `find <c> -maxdepth 1 -name '*.jsonl' -printf '%s\n' \| awk '{s+=$1} END{print s}'` | `195851484` — the plan's pinned number, exactly |
+|  |  | all-file bytes | `find <c> -type f -printf '%s\n' \| awk '{s+=$1} END{print s}'`, cross-checked against `du -sb <c>` (agrees) | `196979123` |
+|  |  | `manifests/` files | `ls <c>/manifests \| wc -l` | `726` |
+|  |  | manifest lines | `wc -l < <m>` | `729` |
+|  |  | manifest sha256 | `sha256sum <m>` | `20513b79c80d8a789ff99f037ba94212c2fa4e20d0bd33cb2ca7c6403f0d95a4` |
+|  |  | manifest re-verified | `cd <c> && sha256sum -c <m>` | `729 OK, 0 FAILED` |
+
+A copy whose manifest no longer verifies is not the workload these endpoints
+were pre-registered against.
+
+### 2.2 Suite baselines (the regression fence)
+
+Taken on the pin commit `9c81dfe`, before any slice-2 change. Every later task
+restores these exactly, or names what moved.
+
+**The pytest rows grew by eight at `ecac114`, and that is part of the fence.**
+Task 0's own second commit adds `tests/test_acceptance_s5_slice2_lock.py`:
+seven tests in the file itself, plus one more case in `tests/test_ceiling.py`,
+which is parametrized over every tracked non-exempt file and so gains a case
+for that file (the record adds none — it sits in an exempt directory). Measured
+on `ecac114`, not derived: `.venv/bin/python -m pytest -q` → `3436 passed, 29
+skipped`; `.venv312/bin/python -m pytest -q` → `3432 passed, 33 skipped`;
+`.venv314/bin/python -m pytest -q` → `3440 passed, 25 skipped`. **From
+`ecac114` onward those are the counts a later task restores.** Reading the
+`9c81dfe` row instead — `3428 passed, 29 skipped` on 3.13 — does not mean the
+fence held; it means the lock file is gone, which is the one way this
+pre-registration could be unlocked while every suite still reported green.
+
+| Suite | Command | Baseline at `9c81dfe` | The fence, from `ecac114` |
+|---|---|---|---|
+| pytest, 3.13 | `.venv/bin/python -m pytest -q` | `3428 passed, 29 skipped` (92.46 s) | `3436 passed, 29 skipped` (92.03 s) |
+| pytest, 3.12 | `.venv312/bin/python -m pytest -q` | `3424 passed, 33 skipped` (94.17 s) | `3432 passed, 33 skipped` (94.28 s) |
+| pytest, 3.14 | `.venv314/bin/python -m pytest -q` | `3432 passed, 25 skipped` (96.00 s) | `3440 passed, 25 skipped` (95.06 s) |
+| TypeScript unit | `npm --prefix typescript test` | `tests 164`, `pass 164`, `fail 0`, `skipped 0` | unchanged † through `ecac114`; **`tests 167`, `pass 167`, `fail 0`, `skipped 0` from `05e5338`** ‡ |
+| TypeScript types | `npm --prefix typescript run check` | exit `0`, no diagnostics (`tsc -p tsconfig.json`; never `npx tsc -p` from the root — R4) | unchanged † |
+| corpus, TypeScript | `.venv/bin/python corpus/run_corpus.py --only-dir typescript --require-driver` | `13 cases, 35 questions, 0 failures, 0 error(s)` | unchanged † |
+| corpus, root | `.venv/bin/python corpus/run_corpus.py --only-dir .` | `20 cases, 39 questions, 0 failures, 0 error(s)` | unchanged † |
+| live TypeScript | `SENSORIUM_TS_LIVE=1 .venv/bin/python -m pytest -q tests/test_ts_live.py` | `9 passed` (2.05 s) | unchanged † through `ecac114`; **`10 passed` from `761c935`** ‡ |
+
+† The three pytest cells in the last column are measured on `ecac114`. The five
+marked `unchanged †` are **not** re-measured: Task 0 adds one Python test file
+and one record, and none of these five enumerates either — `npm test` and
+`tsc` see only `typescript/`, the corpus runner counts cases under `corpus/`,
+and the live row names one test file. Any of them moving is a real regression,
+not this commit's arithmetic.
+
+‡ **And two of the five moved later in the slice, which this section promised
+to name and did not** *(added 2026-09-10, after the final review; all five
+rows re-measured on the branch tip to write it, none of them derived)*.
+
+- The **TypeScript unit** fence went **164 → 167** at `05e5338` — H1, the
+  loader hook — which adds exactly three tests to
+  `typescript/test/hook.test.mjs`: "a `.mts` under the root is instrumented
+  and stripped by Node", "the hook erases nothing: a construct strip-only
+  mode rejects fails as it fails plain", and "a `.tsx` never reaches the
+  hook". `npm --prefix typescript test` → `tests 167`, `pass 167`, `fail 0`,
+  `skipped 0`.
+- The **live TypeScript** fence went **9 → 10** at `761c935` — H2 — which
+  adds `test_the_nodetest_probes_and_controls_pass_through_the_driver`, the
+  driven half of the H-probes run (§3.10). `SENSORIUM_TS_LIVE=1 pytest -q
+  tests/test_ts_live.py` → `10 passed`. This one the record was quoting
+  correctly in §3.10 while its own fence table still said `9 passed`.
+- The other three did **not** move, and were re-measured to say so:
+  `npm --prefix typescript run check` exits `0` with no diagnostics; the
+  TypeScript corpus reads `13 cases, 35 questions, 0 failures, 0 error(s)`;
+  the root corpus reads `20 cases, 39 questions, 0 failures, 0 error(s)`.
+
+**From `05e5338` onward 167 is the TypeScript-unit count a later task
+restores, and from `761c935` onward 10 is the live one** — the way `ecac114`
+reset the three pytest rows. The lesson is the `†` footnote's own: a row
+marked "not re-measured because this commit cannot move it" stays right only
+for the commit it was written about, and this slice ran seven commits past it.
+
+### 2.3 Re-taken immediately before the E6″ session (2026-09-10)
+
+E6″ runs **last** in the slice, so that it exercises this slice's recorder,
+and it is a timing endpoint. §2's pins above were taken twelve hours earlier,
+before any of this slice's code existed. These readings were taken in the
+minute before `e6pp.sh` was launched, each the output of the command beside
+it, so the band's session can be read against the box it actually ran on
+rather than against the preflight's. Nothing else was running on this box for
+the duration.
+
+| Item | Command | Value |
+|---|---|---|
+| the clock | `date -Iseconds` | `2026-09-10T02:38:01-05:00`; the session started at `02:38:21` and finished at `02:52:22` — 14 min 1 s for eleven guarded suite runs |
+| 1-minute load | `cat /proc/loadavg` | `0.48 0.70 0.72 2/2601 2738628` — 1-minute load **0.48**, and the guard read `/proc/loadavg` again before each of the eleven runs against the same 4.0 refusal (every reading is in the cell; the highest was **3.98**) |
+| free disk `/mnt/extra` | `df -h /mnt/extra` | `64G` available (86% used, 469G total) before; `63G` after — the call run wrote a 414,467,939-byte spool and converted it |
+| free disk `/` | `df -h /` | `4.9G` available (100% used, 915G total) — unchanged; nothing this session writes goes there |
+| lens manifest, before | `cd <lens> && sha256sum -c /mnt/extra/sensorium-s5/manifest-rung1-before.txt` | exit `0`, **748 OK, 0 FAILED** — taken by hand before launching, so a moved lens would have been a BLOCKED report rather than fifteen spent minutes; `e6pp.sh` then took it again as its own first step, and refuses on anything else (§3.11) |
+
+## 3. Results
+
+Each cell is filled when its endpoint runs and reads `not measured (slice 2
+pending)` until then. A cell that is never measured is a **missing file** the
+assembler reports as `null` plus `dropped` — never an omission, never a blank
+that reads as a pass. **Filled so far:** E10′-0's five cells and the three
+spec §3.6 quantities Arm 0 supplies — measured 2026-09-09 on the global tool at
+main `bbd0781`, detail and reading in §3.6 — and the ladder's **a1** rung
+(0a, 0d, 0e re-measured on the worktree's converter at `2a273cf`), detail
+and its three falsified predictions in §3.7, and the ladder's **a3** rung
+(the same three cells on the streaming spool reader at `a35c045`), detail
+and its two predictions — one held, one falsified in the fast direction —
+in §3.8, and the slice's **three gated E10′ clauses** — the 372-pair
+equivalence gate and the two verdict cells, measured last on the final
+converter — detail in §3.9 and their verdicts in §4.1, and the **H-probes**
+cell — §4.5's four files and two controls, measured 2026-09-10 on the hook at
+`05e5338` with the probes and checker at `761c935`, detail in §3.10 — and,
+last of all, **E6″**: one guarded before/call/after session on the lens, run
+against this slice's own recorder at `ecdc631`, detail in §3.11 and its
+verdict in §4.3. **Every cell this slice pre-registered has now been
+measured.**
+
+| Id | Cell | Rule (from §1) | Result |
+|---|---|---|---|
+| E6″ | the plain band | manifest 748 OK / 0 FAILED; every run 372/4278 or dropped and named; 0 markers with ≥1 directory searched; wrapper absent; `median(after)` inside `median(before) ± range(before)`; <4 usable walls in an arm → STOP by instrument | **PASS** — **5 of 5 clauses held**, nothing dropped. Manifest **748 OK / 0 FAILED**, exit 0, before AND after the session; all ten plain runs and the call run read `372 passed (372)` / `4278 passed (4278)`; **0 markers** over 2 cache directories searched (`node_modules/.vite`, `node_modules/.vite-temp`); `node_modules/.sensorium` **absent**; band **[21.9834, 22.3652]** = the before arm's median **22.1743** ± its own range **0.1909** (22.1019 – 22.2928), and the after arm's median **22.1136** (22.0730 – 22.2559) lands **inside** it, 0.1302 s above the floor and 0.2516 s below the ceiling. Both arms n=5, every 1-minute load under 4.0 (max 3.98). The call run: harness wall **25.2619 s**, driver wall **38.8595 s**, invocation `20260910-024512-fe71ef` — §3.11, verdict §4.3 |
+| E10′-suite | n=5 guarded `ingest`, default jobs, pinned `f08e89` copy, final converter | ≤ 22.5925 s → PASS; above → REPORTED with the whole ladder | **PASS** — **16.3859 s** median, n=5, 16.2555 – 16.4203; 1-min loads 1.12/2.25/3.06/3.75/3.19; peak RSS 290,948 kB; the worktree's venv, `feat/s5-slice2` `c457bee` — §3.9, verdict §4.1 |
+| E10′-file | n=5 guarded `ingest` over the pinned 611,016-byte spool | ≤ 0.4002 s → PASS; above → STOP | **PASS** — **0.1648 s** median, n=5, 0.1617 – 0.1878; 1-min loads 1.13/1.13/1.13/1.12/1.12; peak RSS 26,896 kB; the worktree's venv, `feat/s5-slice2` `c457bee` — §3.9, verdict §4.1 |
+| E10′-eq | 372 pairs, main@T0 vs final, `sensorium diff` each | 372 MATCH / 0 DIVERGED / 0 REFUSED → PASS; else STOP | **PASS** — **372 MATCH**, 0 DIVERGED, 0 REFUSED, 0 other, n=372 pairs, nothing dropped; 372/372 pairs equal on all seven row counts; the only meta key that differs on any pair is `run_id`; A = the global tool, main `bbd0781`, B = the worktree's venv `c457bee` — §3.9, verdict §4.1 |
+| E10′-eq-content | 372 pairs, every row of all seven tables and `meta`, A vs B | **reported, not gated** — pre-registered §5.A after E10′-eq was read; cannot move its verdict | **372 / 372 identical**, 0 differing rows in any table; the only `meta` key that differs on any pair is `run_id` — §5.A |
+| E10′-0 | 0a — the largest spool alone, `--jobs 1`, one-spool copy, n=3 | reported against spec §3.2's prediction (≈ 16 s); no verdict | **17.5439 s** median, n=3, 17.3953 – 27.3839; 1-min loads 0.29/0.73/0.86; peak RSS 2,273,872 kB; the global tool, main `bbd0781` — §3.6 |
+| E10′-0 | 0b — the full set, `--jobs 1`, n=3 | reported against spec §3.2's prediction (40–50 s); no verdict | **154.3012 s** median, n=3, 152.7924 – 154.5061; 1-min loads 3.62/2.32/2.19; peak RSS 2,272,256 kB; the global tool, main `bbd0781` — §3.6 |
+| E10′-0 | 0c — the full set, `--jobs 4`, n=3 | reported against spec §3.2's prediction (between 0b and 0d); no verdict | **67.9342 s** median, n=3, 67.1653 – 67.9709; 1-min loads 0.82/3.5/3.78; peak RSS 2,270,804 kB; the global tool, main `bbd0781` — §3.6 |
+| E10′-0 | 0d — the full set, `--jobs 16`, n=3 | reported against spec §3.2's prediction (≈ 45 s); no verdict | **45.7378 s** median, n=3, 43.5478 – 45.8268; 1-min loads 2.09/3.97/3.79; peak RSS 2,269,696 kB; the global tool, main `bbd0781` — §3.6 |
+| E10′-0 | 0e — the one file, default jobs, n=5 | reported against spec §3.2's prediction (≈ 0.36 s); no verdict | **0.3624 s** median, n=5, 0.2736 – 0.4051; 1-min loads 0.96/0.96/0.96/0.96/0.96; peak RSS 30,828 kB; the global tool, main `bbd0781` — §3.6 |
+| H-probes | §4.5's four probe files and two controls | every row as its table says; a control mismatch → STOP | **held — no STOP** — `check.mjs nodetest` **ok: true**, 25 checks, 0 failures over 3 spools: `async.probe.test.ts` E3 S1–S4 + T1/T2 at `basis: title`; `ext.probe.test.mts` 1 task (`M1 …`, `basis: title`); `ext.probe.test.mjs` 1 task (`M2 …`); `ext.probe.test.cjs` **no spool**, its orphan tally `{"files_transformed": 0, "excluded": {"commonjs": 1}}`; controls `enum.ts` `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` on both sides and `jsx.tsx` `ERR_UNKNOWN_FILE_EXTENSION` on both sides, `same: true` twice — no mismatch, so no STOP; `npm run probe:nodetest` exit 0, node v24.16.0, the hook at `05e5338` and the probes and checker at `761c935` — §3.10 |
+
+**Reported without a gate** (spec §3.6). Measured on Arm 0 (§3.6 below): **0b/0d
+= 154.3012 / 45.7378 = 3.3736×**, the parallel speedup on main's converter;
+**128,053 events/s** on the big spool at this rung (2,246,552 events in
+17.5439 s, cell 0a); and **2,273,872 kB** peak resident in the heaviest
+worker before A3 (cell 0a — the ONE-spool cell; the three full-set cells
+read within 0.2% of it).
+After A1 (§3.7), on the worktree's converter at `2a273cf`: **152,851
+events/s** on the big spool (2,246,552 events in 14.6977 s), and peak
+resident unmoved at 2,273,996 kB (0a) / 2,270,016 kB (0d).
+After A3 (§3.8), at `a35c045`: **167,063 events/s** on the big spool
+(2,246,552 events in 13.4473 s), and peak resident **after** the streaming
+reader **280,408 kB** (0a) / 290,772 kB (0d) — 8.1096× below the 2,273,996 kB
+of the same cell before it, which is the before/after pair spec §3.6 asks
+for.
+From E6″'s call run (§3.11), on the slice's recorder at `ecdc631`: the
+**harness wall 25.2619 s** and the **driver wall 38.8595 s** of one
+full-suite call-tier recording — the pair record §5 gap 13 asked for, whose
+rung-1 readings climbed 45.0 → 70.3 s across five call runs, and whose
+slice-2 reading, taken once on a fresh recording by a driver that converts
+inline, is **38.8595 s**: below the lowest of those five. Their difference,
+**13.5976 s**, is the fresh set's inline conversion plus the driver's own
+setup and cleanup, which this session does not separate — it is the second,
+**uncontrolled** reading of a full-suite ingest that spec §3.6 asks for
+beside the pinned one (E10′-suite's guarded median over the pinned copy is
+16.3859 s over a copy of a DIFFERENT recording; this number is not
+comparable to it and is not a repetition of it). A2 and A4 add no rung —
+§3.8's condition — so the ladder's events/s ends at A3. **Nothing this slice
+pre-registered is now unmeasured.**
+
+### 3.6 E10′ Arm 0 — the diagnosis on main's converter
+
+Measured 2026-09-09 between 23:23 and 23:39 local time (`-05:00`) by
+`typescript/acceptance/e10p.sh`: E10's instrument with the load guard record
+§5 gap 5 said it lacked, the job count as an argument, and the peak resident
+size of the heaviest worker taken through `rss_run.py`. Each repetition
+copies the pinned §2.1 spool copy and converts the copy into a fresh store,
+both made and removed **outside** the timed region, exactly as `e10.sh` did.
+
+**The converter is the global tool, main `bbd0781`** — the 0.9.0 converter
+§2 pins, never reinstalled from this worktree, which is what "main's code"
+means for this arm and for the equivalence gate's A side. Every cell's JSON
+carries `converter_bin` and `converter_rev`; `converter_rev` is
+`bbd07816c9c769307b5fb0a17f37f51707d419ad` in all five.
+
+The cells ran in the order 0a, 0e, 0c, 0b, 0d — cheapest first, so an
+instrument defect would have surfaced on a one-minute cell rather than a
+seven-minute one. **Nothing was dropped:** all seventeen repetitions exited
+`0` and converted exactly the copy's `.jsonl` count (1, 1, 372, 372, 372), so
+every cell's `n` is the count it asked for.
+
+| Cell | Workload | jobs | n | Prediction (§1) | Median | min – max | 1-min load per rep | Peak RSS, heaviest worker |
+|---|---|---|---|---|---|---|---|---|
+| 0a | `big/` — 1 spool, 195,851,484 B | 1 | 3 | ≈ 16 s | **17.5439 s** | 17.3953 – 27.3839 | 0.29, 0.73, 0.86 | 2,273,872 kB |
+| 0b | `f08e89/` — 372 spools, 414,450,522 B | 1 | 3 | 40–50 s | **154.3012 s** | 152.7924 – 154.5061 | 3.62, 2.32, 2.19 | 2,272,256 kB |
+| 0c | `f08e89/` | 4 | 3 | between 0b and 0d | **67.9342 s** | 67.1653 – 67.9709 | 0.82, 3.5, 3.78 | 2,270,804 kB |
+| 0d | `f08e89/` | 16 | 3 | ≈ 45 s | **45.7378 s** | 43.5478 – 45.8268 | 2.09, 3.97, 3.79 | 2,269,696 kB |
+| 0e | `one/` — 1 spool, 611,016 B | 16 | 5 | ≈ 0.36 s | **0.3624 s** | 0.2736 – 0.4051 | 0.96 (all five) | 30,828 kB |
+
+Two predictions land, one lands near, one holds, one is falsified. 0e is 0.3624 s against ≈ 0.36 s and 0d is 45.7378 s against
+≈ 45 s. 0a is 17.5439 s against ≈ 16 s, 9.6% high, and its third repetition
+at 27.3839 s is the single outlier in the whole arm — kept, because the rule
+drops a repetition for a non-zero status or a wrong trace count and for
+nothing else, and the median is what the cell quotes. 0c is between 0b and
+0d, as predicted. **0b is 154.3012 s against a predicted 40–50 s — a little
+over three times the prediction** — and it is the cell that moves the
+reading.
+
+**The two readings pre-stated in §1** (spec §3.2), quoted before either is
+named:
+
+> If 0d is not well below 0b, the pool buys nothing and the mechanism is
+> contention or serialisation between workers — A1 is the right first lever.
+
+> If 0d ≈ 0a, there is no contention: the floor is the largest spool's own
+> serial cost, and the lever is the per-record cost (A4), not the write
+> path.
+
+**Neither antecedent holds, and the numbers say which way each fails.** 0d
+is well below 0b — 45.7378 s against 154.3012 s, a **3.3736×** speedup — so
+the pool does buy something and the first reading's premise is false as
+stated. 0d is not ≈ 0a either — 45.7378 s is **2.607×** the 17.5439 s the
+largest spool costs on its own, 28.19 s above that floor — so the second
+reading's premise is false as well. What Arm 0 reports instead is a pool
+with a real but poor return, 3.3736× from sixteen workers and 2.2713× from
+the first four (0c, 67.9342 s), stalling well above the floor the largest
+spool sets. Both mechanisms the two readings separate are therefore still
+live: there is contention, or sixteen workers would scale nearer sixteen;
+and there is a serial floor, or 0d would sit nearer 0a. Arm 0 does not
+choose between them, and this paragraph does not either — the levers earn
+their verdicts on their own cells. A **reading, not a verdict**: the plan's
+order (A1, then A3) is unchanged by this arm, which neither confirmed nor
+removed its premise, and spec §3.7's "0d ≈ 0a" trigger for revisiting Arm C did
+not fire.
+
+Ungated beside it: the heaviest worker peaks at 2,269,696–2,273,872 kB —
+about 2.2 GiB — on every full-set cell and on the one-spool `big/` cell
+alike, the four spread across 0.2% at every job count, and at 30,828 kB
+(about 30 MiB) on the one small file. The largest spool
+sets the memory high-water mark whatever the job count, which is the reading
+A3's prediction ("from the order of a gigabyte to the order of 100 MB") is
+aimed at.
+
+**Two properties of the instrument, written down now so a later rung is not
+surprised by them.** (1) The timed region is the `rss_run.py` wrapper around
+`ingest`, so every wall carries that wrapper's own interpreter start-up.
+`rss_run.py` prints `child_wall` — its clock around `subprocess.run` alone —
+into each log for exactly this reason: across all seventeen repetitions the
+difference is **0.013–0.022 s**, median 0.0162 s, which is 4.5% of cell 0e's
+median and under 0.1% of every other cell's. The record quotes the whole
+timed region, which is what the pre-registered instrument measures. (2) The
+guard admitted repetitions at 1-minute loads of 3.97, 3.79, 3.78 and 3.62 —
+the decay of the instrument's **own** previous repetition, not another
+tenant. On sixteen cores a 4.0 threshold sits below what a `--jobs 16` cell
+generates, so back-to-back repetitions wait only until the previous one's
+average has decayed past it, not until the box is idle. The threshold is
+pre-registered and was not moved; every reading is in its cell's `loads`.
+
+### 3.7 E10′ A1 — one transaction per trace, `synchronous=NORMAL`
+
+Measured 2026-09-10 by the same `typescript/acceptance/e10p.sh`, on the same
+three pinned workloads, under the same guard, in the order 0e, 0a, 0d
+(cheapest first). **The converter is the worktree's own
+`.venv/bin/sensorium` at `feat/s5-slice2` `2a273cf`** — main `bbd0781` plus
+this slice's commits, of which exactly one touches `src/`: `TraceWriter`
+gains `durable=False`, which sets `PRAGMA synchronous=NORMAL` under the WAL
+`create_trace` already sets and commits once, in `close()`, instead of once
+per 512-event batch and once per `set_meta` / fingerprint write. `Builder`
+passes it; the Python recorder keeps the durable default. Every cell's JSON
+carries `converter_rev`
+`2a273cf52de31d009d3d44067e12add2cee5b5ec`. **Nothing was dropped:** all
+eleven repetitions exited `0` and converted exactly the copy's `.jsonl`
+count (1, 1, 372).
+
+**The ladder.** Each cell is the same workload at the same job count, one
+row per rung; `arm0` is §3.6's, repeated here so the two are read together.
+
+| Stage | Cell | jobs | n | Median | min – max | 1-min load per rep | Peak RSS, heaviest worker | Converter |
+|---|---|---|---|---|---|---|---|---|
+| arm0 | 0a — `big/`, 1 spool, 195,851,484 B | 1 | 3 | 17.5439 s | 17.3953 – 27.3839 | 0.29, 0.73, 0.86 | 2,273,872 kB | the global tool, main `bbd0781` |
+| **a1** | 0a — `big/` | 1 | 3 | **14.6977 s** | 14.6106 – 14.8340 | 0.58, 0.75, 0.80 | 2,273,996 kB | the worktree's venv, `feat/s5-slice2` `2a273cf` |
+| **a3** | 0a — `big/` | 1 | 3 | **13.4473 s** | 13.4262 – 13.5991 | 0.35, 0.72, 1.00 | **280,408 kB** | the worktree's venv, `feat/s5-slice2` `a35c045` |
+| arm0 | 0d — `f08e89/`, 372 spools, 414,450,522 B | 16 | 3 | 45.7378 s | 43.5478 – 45.8268 | 2.09, 3.97, 3.79 | 2,269,696 kB | the global tool, main `bbd0781` |
+| **a1** | 0d — `f08e89/` | 16 | 3 | **17.7740 s** | 17.4102 – 17.9927 | 0.78, 1.84, 2.96 | 2,270,016 kB | the worktree's venv, `feat/s5-slice2` `2a273cf` |
+| **a3** | 0d — `f08e89/` | 16 | 3 | **16.5088 s** | 16.2692 – 16.5998 | 1.05, 2.12, 3.74 | **290,772 kB** | the worktree's venv, `feat/s5-slice2` `a35c045` |
+| **final** | 0d — `f08e89/`, the gated E10′-suite cell | 16 | 5 | **16.3859 s** | 16.2555 – 16.4203 | 1.12, 2.25, 3.06, 3.75, 3.19 | 290,948 kB | the worktree's venv, `feat/s5-slice2` `c457bee` — `src/` unchanged since `a35c045` |
+| arm0 | 0e — `one/`, 1 spool, 611,016 B | 16 | 5 | 0.3624 s | 0.2736 – 0.4051 | 0.96 (all five) | 30,828 kB | the global tool, main `bbd0781` |
+| **a1** | 0e — `one/` | 16 | 5 | **0.1647 s** | 0.1646 – 0.1902 | 0.66, 0.66, 0.68, 0.68, 0.68 | 31,372 kB | the worktree's venv, `feat/s5-slice2` `2a273cf` |
+| **a3** | 0e — `one/` | 16 | 5 | **0.1628 s** | 0.1603 – 0.1870 | 0.38 (all five) | 27,076 kB | the worktree's venv, `feat/s5-slice2` `a35c045` |
+| **final** | 0e — `one/`, the gated E10′-file cell | 16 | 5 | **0.1648 s** | 0.1617 – 0.1878 | 1.13, 1.13, 1.13, 1.12, 1.12 | 26,896 kB | the worktree's venv, `feat/s5-slice2` `c457bee` — `src/` unchanged since `a35c045` |
+
+A1 moves every cell: 0a by **1.1936×** (2.8462 s gone), 0d by **2.5733×**
+(27.9638 s gone), 0e by **2.2004×** (0.1977 s gone). The **a3** and **final**
+rows were measured after this section was written and are kept here because
+the ladder is one table; §3.8 is a3's own reading, and §3.9 reads the two
+**final** rows, which are the gated cells at their pre-registered n=5 on a
+converter whose `src/` is a3's unchanged.
+
+**The three predictions spec §3.3 wrote before the code, quoted, each
+against the number that answered it. All three are falsified.**
+
+| A1 prediction (spec §3.3) | Measured | Held? |
+|---|---|---|
+| "0a ≤ **13.5 s** (the 2.7 s of commits gone)" | **14.6977 s** | **No** — 1.1977 s above the bound |
+| "0d ≤ 0a + 3 s (the contention gone with the fsyncs)" | **17.7740 s** against a bound of 17.6977 s (0a + 3) | **No** — 0.0763 s above it, 0.43% |
+| "0e unchanged" | **0.1647 s** against arm0's 0.3624 s | **No** — 2.2004× faster, not unchanged |
+
+The three fail differently, and one of them fails in the fast direction.
+**0a** removed 2.8462 s where the prediction attributed 2.7 s to commits,
+but its bound was absolute (13.5 s) and was written against a predicted 0a
+of ≈ 16 s while Arm 0 measured 17.5439 s — the base 0a was 1.5439 s above
+the ≈ 16 s the bound was subtracted from, more than the whole 1.1977 s miss.
+The bound is missed all the same.
+**0d** misses by 76 ms after removing 27.9638 s, on a bound that moved down
+with 0a; what the cell shows beside the miss is that 0d is now **1.2093×**
+0a rather than Arm 0's 2.607× — the gap to the largest spool's serial cost
+is 3.0763 s, not 28.1939 s. **0e** is the prediction that fails on its
+face: the one-file cell was not commit-free, it was commit-*dominated*, and
+more than half of its 0.3624 s was commits — a 611 KB spool pays the same
+~35 finalize fsyncs a 195 MB one does. No threshold moved and no cell was
+re-rolled; these are the numbers the pre-registered cells produced. Whether the remaining cost is A3's or A4's is
+those rungs' to measure, and the gated clauses (E10′-suite, E10′-file,
+E10′-eq) are measured on the slice's final converter at their own `n`.
+*(Amended 2026-09-10: this sentence ended "and are still `not measured (slice
+2 pending)` above", which was true when §3.7 was written and stale from the
+moment Task 4 read those three cells. All three are **PASS** — §3.9, verdicts
+§4.1. Nothing else in this section moves; the reading it records was taken
+before they ran and is not changed by them.)*
+
+Ungated beside it: **152,851 events/s** on the big spool at this rung
+(2,246,552 events in 14.6977 s), against Arm 0's 128,053. Peak resident is
+unmoved — 2,273,996 kB on 0a and 2,270,016 kB on 0d, within 0.2% of Arm 0's
+readings, which is expected: A1 changes when rows are committed, not how
+many are held. RSS is A3's quantity.
+
+One instrument note, following §3.6's: the wrapper's own interpreter
+start-up is now a larger share of the 0e cell, because the cell shrank.
+`child_wall` across those five repetitions is 0.1503–0.1732 s against walls
+of 0.1646–0.1902 s — a median difference of 0.0143 s, **8.7%** of the
+cell's median (it was 4.5% at Arm 0). The record quotes the whole timed
+region, as pre-registered; the gated E10′-file clause (≤ 0.4002 s) has
+0.2355 s of headroom at this rung either way. Every repetition's
+`maxrss_kb` parsed (no cell reports a 0).
+
+### 3.8 E10′ A3 — the streaming spool reader
+
+Measured 2026-09-10 by the same `typescript/acceptance/e10p.sh`, on the same
+three pinned workloads, under the same guard, in the order 0e, 0a, 0d
+(cheapest first). **The converter is the worktree's own `.venv/bin/sensorium`
+at `feat/s5-slice2` `a35c045`** — `2a273cf` plus one commit to `src/`:
+`spool.read` no longer materialises the file. It opens the spool, reads BOOT
+from line 1, and YIELDS every later record as the file is walked, so the
+converter holds one record where it held a list of 2,246,595 (the big
+spool's 2,246,596 lines less its BOOT). `exit` and
+`torn_tail` are filled by the walk — which is where `Builder` already read
+them, after its loop — and not one line of the builder's pass changed. Every
+refusal keeps its text; a second BOOT and a malformed line are now met
+mid-walk, which aborts a build already under way, and `TraceWriter.discard()`
+(rollback, then close) is what `Builder.abort()` calls so that aborted build
+does not checkpoint a full WAL into a file `convert` unlinks a moment later.
+Every cell's JSON carries `converter_rev`
+`a35c045f4fedb1a3ea52a5130b0350defc0a420d`. **Nothing was dropped:** all
+eleven repetitions exited `0` and converted exactly the copy's `.jsonl` count
+(1, 1, 372), and every repetition's `maxrss_kb` parsed (no cell reports a 0).
+The rung's rows are in §3.7's ladder table, beside A1's.
+
+**The two predictions spec §3.3 wrote before the code, quoted, each against
+the number that answered it.**
+
+| A3 prediction (spec §3.3) | Measured | Held? |
+|---|---|---|
+| "wall within noise of A1" | 0a **13.4473 s** (13.4262 – 13.5991) against a1's 14.6977 (14.6106 – 14.8340); 0d **16.5088 s** (16.2692 – 16.5998) against a1's 17.7740 (17.4102 – 17.9927); 0e **0.1628 s** against a1's 0.1647 | **No on 0a and 0d** — 1.2504 s and 1.2652 s *faster*, and neither pair of ranges overlaps, so the move is outside the spread either rung showed. **Yes on 0e** — 0.0019 s apart, inside a1's own 0.0256 s spread |
+| "the largest worker's peak RSS falls from the order of a gigabyte to the order of 100 MB" | **280,408 kB** on 0a against a1's 2,273,996 kB; **290,772 kB** on 0d against a1's 2,270,016 kB | **Yes** — 8.1096× and 7.8069× smaller, 2.27 GB down to 280 MB; 1,993,588 kB gone from the heaviest worker of 0a |
+
+The RSS prediction is the one A3 was built for and it holds with room: the
+lever was pre-registered as memory-only, "RSS reported, ungated", and the
+number it names moved by a factor of eight, to 280 MB. The WALL prediction
+is falsified on the two large cells, in the fast direction, by about the
+same margin on each (1.25 s). What the cells show, kept separate from
+whether the prediction held: the materialisation A3 removed was itself work
+— one whole-file decode of 195,851,484 bytes, a split into 2.2M strings and
+a list of 2,246,595 dicts all alive at once — and dropping it takes wall as
+well as bytes. Which share of the 1.25 s is the decode, which is the allocator
+and which is the garbage collector walking a live set eight times larger is
+NOT separated by these cells; that a memory lever also moved the wall is the
+fact, and the attribution is not one this measurement can make. 0e is the
+cell where the prediction holds, and it holds because there is almost
+nothing to materialise in 611,016 bytes.
+
+Ungated beside it: **167,063 events/s** on the big spool at this rung
+(2,246,552 events in 13.4473 s), against A1's 152,851 and Arm 0's 128,053.
+Against Arm 0 the ladder now stands at 0a **1.3046×** (4.0966 s gone), 0d
+**2.7705×** (29.2290 s gone), 0e **2.2260×** (0.1996 s gone); 0d is
+**1.2277×** 0a, where Arm 0 read 2.607× and A1 1.2093×.
+
+**The A2/A4 condition, evaluated.** Spec §3.3 takes A2 (largest-first
+dispatch) and A4 (the per-record Python cost) "only if A1 + A3 leave 0d
+above the bound". a3's 0d median is **16.5088 s**, 6.0837 s below the
+22.5925 s the bound names — **so A2 and A4 are not built**, which is what
+that sentence says to do: a lever that cannot move a verdict is not free.
+The gated clauses (E10′-suite, E10′-file, E10′-eq) are measured on the
+slice's final converter at their own `n`; this cell is the ladder's `n`=3
+reading, not that one. *(Amended 2026-09-10, the same amendment §3.7 carries
+and for the same reason: this sentence also ended "and are still `not measured
+(slice 2 pending)` above", true when §3.8 was written and stale from the moment
+Task 4 read those three cells. All three are **PASS** — §3.9, verdicts §4.1.
+The two twins were written a paragraph apart and one wrapped differently, which
+is how the first pass amended one and missed the other; nothing else in this
+section moves.)*
+
+### 3.9 E10′ — the equivalence gate and the two verdict cells
+
+The slice's three gated E10′ clauses, measured 2026-09-10 in the
+pre-registered order: **the gate first, the two verdict cells last**. The
+verdict cells are the last timed cells on this ladder and were run once; no
+threshold moved, no cell was re-rolled.
+
+**The converter under both is the worktree's own `.venv/bin/sensorium` at
+`feat/s5-slice2` `c457bee`** — the tip, whose only commit since `a35c045` is
+this task's two instrument files. Nothing under `src/` changed after A3, so
+the code being gated is A3's converter: `TraceWriter(durable=False)` over a
+streaming spool reader. Every cell's JSON carries that rev.
+
+#### The equivalence gate (E10′-eq)
+
+`typescript/acceptance/e10p_eq.sh`, spec §3.5's gate as an instrument. The
+pinned 372-spool set was converted **twice** — once by side **A**, the
+global tool at main `bbd0781` (the T0 commit, the tree before any lever),
+once by side **B**, the converter above — each from its own fresh copy into
+its own fresh store, at the converter's own default job count. Nothing here
+is timed and no load guard precedes it: no wall is read from this
+instrument, so a busy box cannot bias it.
+
+| Reading | Value |
+|---|---|
+| pairs (n) | **372** |
+| MATCH | **372** |
+| DIVERGED | **0** |
+| REFUSED | **0** |
+| other (a diff that did not answer) | **0** |
+| dropped | none |
+| pairs equal on all seven row counts | **372 / 372** |
+| meta keys differing on any pair | **`run_id`**, and nothing else |
+| converter A | the global tool, main `bbd0781` |
+| converter B | the worktree's venv, `feat/s5-slice2` `c457bee` |
+
+`MATCH + DIVERGED + REFUSED + other = 372 = n`, so every pair is accounted
+for. Both ingests exited `0` and printed `traces: 372`; each side printed
+372 `run:` lines whose `file:` fields are distinct, and the two key sets are
+equal — a repeated key or a set difference REFUSES the gate by name rather
+than pairing something with something else (plan P3).
+
+**Three things about how the gate was run, because each is a way it could
+have been wrong.** *One reader for every pair:* `diff` resolves both run ids
+under one `$SENSORIUM_DIR`, so side A's 372 `.db` files were hard-linked
+(`ln`, one filesystem — no copy, no rewrite) into side B's `traces/` under
+their own names, and every diff ran there with **B's** binary. A DIVERGED
+could therefore not have been two readers disagreeing. *No journal left
+behind:* before the linking, neither store held a `-wal` or `-shm` beside
+any trace — both converters checkpoint on close — so no partial file was
+linked and read as a trace. *No run id collided* across the two stores, which
+would otherwise have stood one side's trace in for the other's silently.
+
+**What a MATCH covers here, in the reader's own words.** Read by hand
+afterwards on the largest pair (the 195,851,484-byte spool, 2,246,552
+events): `verdict: MATCH -- identical causal streams (6 events) … values,
+timing, and LINE events were not compared` and `tasks: 19 task stream(s) on
+each side, compared by content as (name, hash): all matched`. Under the
+per-task fingerprint basis the main thread's own stream is six steps and the
+run's work lives in the task streams, which are compared by their recorded
+content hashes — which is why the 372 diffs — 646 MB of traces on each side —
+take about six seconds and why that speed is not a sign the gate did nothing. It is also
+the gate's boundary: `diff` compares causal structure, not recorded values,
+timings or LINE events. The two ungated readings stand beside it for exactly
+that reason — every pair matched on all seven per-table row counts, and the
+only `meta` key whose value differs on any of the 372 pairs is the minted
+`run_id`, which is the subset spec §3.5 named in advance.
+
+#### The two verdict cells (E10′-suite, E10′-file)
+
+`typescript/acceptance/e10p.sh` unchanged, under the same load guard, n=5
+each as pre-registered, cheapest first. **Nothing was dropped:** all ten
+repetitions exited `0` and converted exactly the copy's `.jsonl` count (1
+and 372), and every repetition's `maxrss_kb` parsed — no cell reports a `0`.
+Both rows are in §3.7's ladder table as the **final** rung.
+
+| Cell | Workload | jobs | n | Rule (§1) | Median | min – max | 1-min load per rep | Peak RSS |
+|---|---|---|---|---|---|---|---|---|
+| E10′-file | `one/`, 1 spool, 611,016 B | 16 | 5 | ≤ 0.4002 s | **0.1648 s** | 0.1617 – 0.1878 | 1.13, 1.13, 1.13, 1.12, 1.12 | 26,896 kB |
+| E10′-suite | `f08e89/`, 372 spools, 414,450,522 B | 16 | 5 | ≤ 22.5925 s | **16.3859 s** | 16.2555 – 16.4203 | 1.12, 2.25, 3.06, 3.75, 3.19 | 290,948 kB |
+
+Both cells replicate the ladder's last rung at the larger `n`: the suite
+cell reads 16.3859 s against a3's 16.5088 s (n=3), 0.1229 s apart with the
+two ranges overlapping, and the file cell 0.1648 s against a3's 0.1628 s,
+0.0020 s apart and inside a3's own spread. Against Arm 0 the final converter
+is **2.7913×** on the suite (29.3519 s gone) and **2.1990×** on the one file
+(0.1976 s gone).
+
+**The wrapper is inside the timed region, and the rule is applied to the
+timed region as pre-registered.** `e10p.sh`'s wall is the whole region,
+which includes `rss_run.py`'s own interpreter start-up; `child_wall` — the
+wrapper's clock around the converter alone — is in every log. On the file
+cell its median is **0.1511 s** (0.1496 – 0.1707) against the instrument's
+0.1648 s: **0.0137 s, 8.3%** of that cell's median. On the suite cell the
+same difference is 0.0143 s, 0.09%. The clause was pre-registered against
+the instrument's wall and is read there; no threshold moved. Both numbers
+are on the same side of both bounds either way — 0.1648 and 0.1511 are both
+under 0.4002 s, and 16.3859 and 16.3716 are both under 22.5925 s — so the
+choice does not decide either verdict. §5 records the instrument gap.
+
+
+### 3.10 H-probes — the four files and the two controls
+
+Measured 2026-09-10 on `feat/s5-slice2`, node v24.16.0, with **the hook at
+`05e5338` and the four probe files, the two controls and `check.mjs`'s
+`nodetest` mode at `761c935`** — two commits, named apart because H1's fix
+and the probes that exercise it are different changes, and one sha for both
+would say the checker existed when the hook landed. By the instrument §1
+names: `npm run probe:nodetest` from
+`typescript/probes/`, which runs the four files as an explicit list under
+`node --import ../src/register.mjs --test`, then `nodetest/controls.mjs`,
+then `node check.mjs nodetest "$SENSORIUM_SPOOL" "$SENSORIUM_MANIFEST_DIR"`.
+The script exited **0**; the harness ran **9 tests, 9 pass, 0 fail**.
+
+`check.mjs`: `ok: true`, `spools: 3`, **25 checks, 0 failures**. Per §1's
+table, row by row:
+
+| File | Expected | Read |
+|---|---|---|
+| `nodetest/async.probe.test.ts` | a spool, its tasks, the checker's async checks | S1–S4 matched their §1.1 rows, T1/T2 control clean, every task `basis: title` |
+| `nodetest/ext.probe.test.mts` | a spool with ≥1 task, types stripped by Node, `task_name_basis: lexical` | 1 task, `M1 an .mts is stripped by Node and recorded`, `basis: title` (the wire spelling of "lexical" — gap 6); two files transformed, the probe and `ext.lib.mts` |
+| `nodetest/ext.probe.test.mjs` | a spool with ≥1 task | 1 task, `M2 an .mjs is instrumented with nothing to erase` |
+| `nodetest/ext.probe.test.cjs` | no spool for that pid; `_tally-<pid>.json` reads `files_transformed: 0`, `excluded: {commonjs: 1}` | no spool (`probes:no_cjs_spool`); the one tally whose pid is no spool's reads `{"files_transformed": 0, "excluded": {"commonjs": 1}}` exactly |
+
+`controls.mjs`, verbatim on stdout:
+
+```
+{"control":"controls/enum.ts","plain":"ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX","hooked":"ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX","same":true}
+{"control":"controls/jsx.tsx","plain":"ERR_UNKNOWN_FILE_EXTENSION","hooked":"ERR_UNKNOWN_FILE_EXTENSION","same":true}
+```
+
+Both codes are the ones §1's control table names, both sides agree, and
+neither side exited 0 — so no mismatch and no STOP. The controls
+discriminate, measured: with the PRE-`05e5338` hook in place,
+`controls/enum.ts` exited **0** on the hooked side (`hooked: null`,
+`same: false`) and `controls.mjs` refused with exit 1 — the recorder had made
+a file load that plain `node` refuses. The checker discriminates too:
+deleting the `.mts` spool from a copy of the set fails `probes:present` and
+`ext:mts:tasks`, and deleting the tallies fails `ext:cjs:tally`.
+
+The driven half runs the same directory through the driver
+(`tests/test_ts_live.py::test_the_nodetest_probes_and_controls_pass_through_the_driver`,
+`SENSORIUM_TS_LIVE=1`): `sensorium ts run -- node --test <the four files>`,
+then the same checker and the same controls against the spool the DRIVER
+produced — 10 passed.
+
+The cell assembled into this slice's results file is a **replication** of the
+run above, not that run: Task 5 read its checker's JSON off the terminal and
+saved no file, so `npm run probe:nodetest` was run once more on 2026-09-10 at
+`ecdc631` and its JSON captured to `results/h-probes.json`. `typescript/src/`
+and `typescript/probes/` are unchanged since `761c935`, so the hook, the four
+probes, the controls and the checker are the same files; the one file under
+`src/` that moved since (`ts/ingest.py`, R45 at `5af2def`) is the converter's
+refusal path, which a direct probe run never calls. It read
+the same outcome: `ok: true`, `spools: 3`, **25 checks, 25 passed, 0
+failures**, both controls `same: true`. The verdict this record carries is the
+one above; had the replication read differently, that difference would be a §5
+finding and is why it is stated rather than quietly assembled.
+
+### 3.11 E6″ — the plain band, one guarded session
+
+Measured 2026-09-10 between **02:38:21 and 02:52:22** local time (`-05:00`) by
+`typescript/acceptance/e6pp.sh`, run last in the slice so that it exercises
+**this slice's recorder** — the driver, the hook, the converter and the
+cleanup path as Tasks 2–5 left them. The recorder is the worktree's
+`.venv/bin/sensorium` at `ecdc631`, the branch tip. It is **not** byte-identical
+to the converter the ladder's gated cells ran (`c457bee`): two files moved
+after it, both of them this slice's own work — `typescript/src/hook.mjs` (H1,
+`05e5338`: the loader hook returns Node's own reported format) and
+`src/sensorium/ts/ingest.py` (R45, `5af2def`: the no-spool refusal names the
+CommonJS exclusions). H1 is squarely in the path this session exercised, which
+is the point of running E6″ last; R45 is an error path a green 372-file
+recording never enters. Nothing else under `src/` or `typescript/src/` moved.
+The ambient readings taken in the minute before the launch are §2.3's.
+
+**The order was spec §2.1's, and the order is the endpoint.** *(Citation
+corrected 2026-09-10: this read "§1 `### 2.1 The session`". §1 carries the
+spec's §2.2, §3.2, §3.4, §3.5, §4.5 and §11 verbatim and no other section, so
+§2.1 and §2.4 live in the spec alone; §11's E6″ row inside §1 is the locked
+restatement of this order, and it is what the clause is decided against.)*
+The manifest first, so a lens that had moved since rung 1 would stop the
+session before it started; five plain runs; one call-tier recording; five
+plain runs; and only then the manifest again — so that the last thing to have
+touched the lens is the after arm, which is what the clause is about.
+
+| Step | Reading |
+|---|---|
+| manifest, **before** | `sha256sum -c` from inside the lens: exit **0**, **748 OK**, **0 FAILED**, over a manifest of 748 lines whose own sha256 is `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8` — the file §2 pins |
+| before arm, n=5 | **22.2928, 22.1611, 22.1983, 22.1019, 22.1743** s — median **22.1743**, min 22.1019, max 22.2928, mean 22.1857, stdev 0.0696; loads 0.35 / 3.16 / 3.57 / 3.89 / 3.70; every run `372 passed (372)` and `4278 passed (4278)`, exit 0; **nothing dropped** |
+| the call run | `sensorium ts run -- npx vitest run`, `SENSORIUM_DIR` on `/mnt/extra`: exit **0**, suite green, invocation `20260910-024512-fe71ef`, load 3.18. Harness wall **25.2619 s**, driver wall **38.8595 s**; spool 372 files, 414,467,939 bytes, 4,160,606 lines |
+| after arm, n=5 | **22.2559, 22.1136, 22.1460, 22.0977, 22.0730** s — median **22.1136**, min 22.0730, max 22.2559, mean 22.1372, stdev 0.0714; loads 3.81 / 3.98 / 3.74 / 3.56 / 3.85; every run 372/4278, exit 0; **nothing dropped** |
+| manifest, **after** | exit **0**, **748 OK**, **0 FAILED** — identical |
+| markers | `grep -rl __srt` over **2** directories, both written down: `node_modules/.vite`, `node_modules/.vite-temp`. `.vite` and `node_modules/.vitest*` did not exist and are not counted as searched. **0 hits** |
+| wrapper | `node_modules/.sensorium` — **absent** |
+
+**The band, derived from the before arm alone.** `range = 22.2928 − 22.1019 =
+0.1909`; `median(before) = 22.1743`; band **[21.9834, 22.3652]**. The after
+arm's **median**, 22.1136, sits inside it — 0.1302 s above the floor, 0.2516 s
+below the ceiling. Both arms supplied five usable walls, so the timing clause
+was measured rather than refused.
+
+The band this session produced is **2.14× tighter** than the one spec §2.2's
+worked example derives from E1′'s plain arm (±0.1909 against ±0.4085): the
+two arms here ran ten minutes apart on a quiet box under the
+same guard, and E1′'s plain arm was interleaved with two driver arms across
+five batches. That is a fact about the two sessions, not a change to the rule
+— the rule says "the arm's own range", and this arm's range is what it says.
+
+**Where the after arm sits relative to the before arm.** Its median is
+**0.0607 s FASTER** (22.1136 against 22.1743), and its whole range is shifted
+slightly down rather than up: min 0.0289 s below the before arm's min, max
+0.0369 s below the before arm's max, the two spreads within 0.002 s of each
+other (0.1829 against 0.1909). Whatever
+E6′'s 22.8678 s wall was, it did not reproduce here: no wall in either arm of
+this session reached 22.30 s, and the recording between them left the arms
+indistinguishable.
+
+**Both arms ran under load readings the guard admits, and the readings are in
+the cell.** The eleven readings run 0.35 – 3.98, all under the 4.0 refusal;
+ten of the eleven are above 3.0, because a 16-core vitest run leaves the
+1-minute average high and the guard waits for 4.0, not for idle. The before
+arm's first run is the only one taken on a cold box (0.35). That asymmetry is
+named here because it is the one systematic difference between the arms that
+this session can see — and it runs the wrong way for a contamination finding:
+the arm measured on the quieter box is the **slower** one.
+
+**The artifact.** `results/e6pp.json` (assembled into this record's results
+file), from `e6pp.jsonl`'s eleven lines plus the two manifest checks, the
+marker list and the wrapper listing, all under the session's out directory.
+`e6.sh` is unedited apart from one header line naming its successor: the
+rung-1 record cites it by name as E6′'s instrument (plan P8). In the results
+file the recorder's path is redacted to `<the worktree's converter>` — the
+label the ladder's cells use, and the same binary: `.venv/bin/sensorium` is
+both the driver that recorded and the converter that ingested.
+
+## 4. Decisions
+
+One verdict per pre-registered endpoint, written when that endpoint's cells
+were read, with **the rule quoted from §1** beside the number that answered
+it. The verdict word is the rule's own; nothing was re-rolled and no
+threshold moved. Endpoints whose cells have not run are named at the end.
+
+*(Corrected 2026-09-10, after the final review, and the reason is the rule
+above: **H-probes** read **PASS** here and in §3's table, and §1's rule for
+it supplies no positive word at all — "every row as its table says; a
+control mismatch → STOP". A word the pre-registration does not carry is not
+the rule's own, however well the cell read, so the H-probes word is now
+**held — no STOP**, which is the whole of what that rule can say. **PASS**
+stays on the four clauses whose rules name it: E10′-suite, E10′-file,
+E10′-eq and E6″. Nothing measured moved — the reading is the same `ok: true`,
+25 checks, 0 failures, both controls `same: true` — and §1 is untouched.)*
+
+### 4.1 E10′ — the converter ladder's three gated clauses
+
+**E10′-suite — PASS.** The rule, from §1 `### 3.4 The rules`:
+
+> ≤ **22.5925 s** → **PASS**, the converter stays Python; above →
+> **REPORTED** with every rung of the ladder (0a–0e and each lever's cells),
+> and Arm B is a later slice by ruling. No STOP word on this clause: E10's
+> rule carried none, and a cost is a fact with its `n` beside it
+
+The median of n=5 guarded repetitions at the default job count over the
+pinned set, on the slice's final converter, is **16.3859 s** (16.2555 –
+16.4203, nothing dropped) — **6.2066 s below the bound**, 1.3788× under it.
+**The converter stays Python**; Arm B (a Rust converter) is not raised.
+
+**E10′-file — PASS.** The rule, from §1 `### 3.4 The rules`:
+
+> ≤ **0.3638 × 1.10 = 0.4002 s** → **PASS**; above → **STOP**. A converter
+> faster on the suite and slower on the workload the loop pays is the failure
+> the ledger's E10 row warned about, and it is the one thing on this ladder
+> that is allowed to stop it
+
+The median of n=5 guarded repetitions over the pinned one-file spool is
+**0.1648 s** (0.1617 – 0.1878, nothing dropped) — **0.2354 s below the
+bound**, 2.4284× under it. The failure this clause exists to catch did not
+happen: the ladder is faster on the one file too, by 2.1990× against Arm 0.
+The wall quoted is the instrument's whole timed region, wrapper included, as
+pre-registered (§3.9); the converter's own `child_wall` median, 0.1511 s, is
+on the same side of the bound.
+
+**E10′-eq — PASS.** The rule, from §1 `### 3.4 The rules`:
+
+> 372 MATCH, 0 DIVERGED, 0 REFUSED → PASS; anything else → **STOP**
+
+The 372 pairs read **372 MATCH, 0 DIVERGED, 0 REFUSED** (and 0 that failed
+to answer), every diff run by one reader — side B's — over both traces in
+one store. Ungated beside it, as §1 `### 3.5 The equivalence gate` asks:
+all seven per-table row counts equal on **372/372** pairs, and the union of
+the `meta` keys that differ over every pair is exactly **`run_id`**, the
+minted one. The trace the faster converter writes is the trace main's
+converter wrote.
+
+### 4.2 The ladder, read end to end
+
+Arm 0 → A1 → A3 → final, on the two cells that carry the gated clauses:
+
+| Rung | 0d — the full suite, jobs 16 | 0e — the one file |
+|---|---|---|
+| arm0 (main `bbd0781`) | 45.7378 s (n=3) | 0.3624 s (n=5) |
+| a1 (`durable=False`) | 17.7740 s (n=3) | 0.1647 s (n=5) |
+| a3 (streaming reader) | 16.5088 s (n=3) | 0.1628 s (n=5) |
+| **final, gated (n=5)** | **16.3859 s** | **0.1648 s** |
+
+**2.7913× on the suite and 2.1990× on the one file**, and the heaviest
+worker's peak resident fell from 2,269,696 kB to 290,948 kB on the same
+suite cell — 7.8010× — which was A3's own pre-registered quantity.
+
+**Which predictions held.** Arm 0's five were a diagnosis, not a gate: 0e
+and 0d landed (0.3624 against ≈ 0.36; 45.7378 against ≈ 45), 0c landed
+between 0b and 0d, 0a came 9.6% high, and **0b missed by more than three
+times** (154.3012 s against 40–50 s) — the cell that made the arm's reading
+refuse to choose between contention and a serial floor (§3.6). A1's three
+predictions were **all falsified** (§3.7): 0a by 1.1977 s, 0d by 0.0763 s,
+and 0e "unchanged" by a factor of 2.2004 in the fast direction — the
+one-file spool turned out to be commit-*dominated*. A3's two split (§3.8):
+the RSS prediction **held** with room (2.27 GB → 280 MB, 8.1096×), and the
+wall prediction ("within noise of A1") was **falsified in the fast
+direction** on both large cells, by about 1.25 s each.
+
+So the ladder arrived under its bound on levers whose own predictions were
+mostly wrong, and it arrives there with the trace unchanged — which is the
+only reason the wall is worth anything. **Six of the ten per-cell
+predictions this ladder pre-registered did not hold as written — Arm 0's 0b
+and 0a, all three of A1's, and A3's wall — and all three gated clauses
+pass.** The ten are §3.2's five (0a–0e) plus §3.3's
+three for A1 and two for A3, each counted once; §3.6's two pre-stated
+readings are not in that count, and neither of their antecedents held
+either. A2 (largest-first dispatch) and A4 (the per-record cost) were not
+built: spec §3.3 conditioned them on A1 + A3 leaving 0d above the bound,
+and they did not (§3.8). Arm C, the binary wire, stays off the ladder — spec
+§3.7's trigger for revisiting it was "0d ≈ 0a", which never fired (§3.6).
+
+**Still open when this section was written:** E6″ (§1 `### 2.2 The rule`),
+whose cell belongs to its own task, and the H-probes cell (§1 `### 4.5 Probes
+and the checker`). Both are now filled — H-probes **held — no STOP** (§3.10),
+E6″ **PASS** (§4.3) — and **nothing this slice pre-registered is unanswered**.
+
+### 4.3 E6″ — the plain band
+
+**E6″ — PASS.** The rule, from §1 `### 2.2 The rule`:
+
+> | manifest identical | `sha256sum -c` after the after arm | exit 0, 748 OK, 0 FAILED |
+> | the suite is the suite | every plain run's counts | every run reads `372 passed (372)` and `4278 passed (4278)`; a run that does not is **dropped and named**, never averaged in |
+> | 0 markers | the grep over every cache directory that exists | 0 hits, ≥1 directory searched |
+> | wrapper gone | `node_modules/.sensorium` | absent |
+> | **the plain band** | medians of the two arms' walls | `median(after) ∈ [median(before) − range(before), median(before) + range(before)]`, where `range = max − min` over the before arm's usable walls |
+
+and the word the rule gives: "a clause that does not hold is a **STOP**, and
+the pre-registration carries no other word for it." **All five held**
+(§3.11), so the word is **PASS**:
+
+| Clause | Read |
+|---|---|
+| manifest identical | exit **0**, **748 OK**, **0 FAILED** — measured after the after arm, and again by hand afterwards |
+| the suite is the suite | the **ten plain runs**, ten of ten at `372 passed (372)` / `4278 passed (4278)`, exit 0 — **nothing dropped**, so there is nothing to name. The call run read the same counts and exited 0; that is reported beside the clause, not inside it, because the rule says "every plain run's counts" (gap 10) |
+| 0 markers | **0 hits** over **2** directories searched, both listed |
+| wrapper gone | **absent** |
+| the plain band | **22.1136 ∈ [21.9834, 22.3652]** — the after arm's median over five guarded runs inside the before arm's own median ± the before arm's own range |
+
+Both arms supplied **five** usable walls, so the "fewer than four usable
+walls in either arm" clause of §1 did not fire and the timing clause is
+`held` rather than `STOP by instrument`.
+
+**Spec §2.4 `Disposition, pre-committed`, applied** *(citation corrected
+2026-09-10: this read "§1 `### 2.4`"; §2.4 is in the spec, not among the six
+sections §1 carries verbatim — see the correction at §3.11)*: on a PASS on all five,
+"E6 is closed for this recorder on this lens; the rung-1 spec's §11 entry
+gets a dated line saying so" — so it is closed, and that line is now on
+`docs/superpowers/specs/2026-09-09-sensorium-typescript-recorder-design.md`
+§11's rung-1 entry.
+
+What that closes is bounded and worth saying plainly: on **this** lens, with
+**this** recorder, a call-tier full-suite recording left the plain suite's
+median wall inside the band the same session's before arm produced, left the
+748-file manifest byte-identical, left no `__srt` marker in either cache
+directory that existed, and left no wrapper behind. It is one session, not a
+distribution over sessions, and §5's gaps say what it does not settle.
+
+## 5. Gaps found
+
+Numbered as they are found; a later task appends rather than renumbers.
+
+1. **The instrument's timed region includes its own wrapper's start-up, and
+   a gated clause now stands on it.** §3.6 wrote this down as a property of
+   `e10p.sh` when it was 4.5% of cell 0e; on the gated E10′-file cell the
+   converter is fast enough that it is **8.3%** — 0.0137 s of a 0.1648 s
+   median. The clause was pre-registered against the instrument's wall, the
+   rule was applied there, and both walls fall the same side of 0.4002 s, so
+   nothing about this verdict turns on it. But a bound within 10% of the
+   truth would have been decided by an interpreter start-up. A later
+   instrument should either time the child alone (`child_wall` is already in
+   every log) or state in the pre-registration which of the two walls the
+   rule reads.
+
+2. **The equivalence gate compares causal structure, not recorded values.**
+   `sensorium diff`'s own verdict line says it: "values, timing, and LINE
+   events were not compared". A MATCH here is the main thread's causal
+   stream plus every task stream's recorded content hash — which is a real
+   comparison of 2.2M events on the largest pair, and is not a comparison of
+   what those events recorded. The two ungated readings beside it are row
+   *counts*, not row *contents*. Everything measured says the two converters
+   write the same trace; a gate that compared every table row for row was
+   not pre-registered and would be a different, much slower instrument. It
+   is the honest ceiling on what E10′-eq's PASS asserts.
+
+3. **The reader leaves a journal beside every trace it opens**, so the
+   gate's "no `-wal`, no `-shm`" check has to run before the diffs, not
+   after. It does. After the 372 diffs, side B's store held a `-wal` and a
+   `-shm` beside all 744 `.db` files, none of which existed before them —
+   an instrument that checked afterwards would refuse on its own reader's
+   leftovers and call it a converter defect.
+
+4. **The non-durable writer's transient WAL was not measured at the job
+   count the gate ran.** Task 2 measured it once on the big spool at
+   `--jobs 1` (a 335,895,392-byte `-wal` beside a 333,832,192-byte database)
+   and flagged that at `--jobs 16` the transient is the sum over the workers
+   building at that moment. The gate converted the whole set twice with
+   63 GB free and nothing came near the disk, so no number is owed to any
+   verdict here — but the slice still has no reading of that peak, and this
+   box has run at ~3 GB free on `/`. It belongs in CARRIED-DEBT at Task 7.
+
+5. **The controls wrote into the run's own manifest directory, and the
+   first H-probes run STOPped on it.** `npm run probe:nodetest` failed
+   `ext:cjs:tally` with TWO orphan tallies instead of one: `controls.mjs`
+   spawned its hooked side with `SENSORIUM_MANIFEST_DIR` inherited, and the
+   `enum.ts` child — whose file the TRANSFORM accepts and NODE then refuses
+   — wrote a `_tally-<pid>.json` into the probe run's manifest directory,
+   where it reads as a second child that recorded no spool. Nothing about
+   the recorder was wrong; an instrument that shares a directory with the
+   run it measures is. `controls.mjs` now points both `SENSORIUM_SPOOL` and
+   `SENSORIUM_MANIFEST_DIR` at its own scratch directory, removed after, and
+   the run was repeated from zero: §3.10's numbers are that re-run's, and
+   the first run's only reading was the defect.
+
+6. **§1's `task_name_basis: lexical` is the prose name; the wire value is
+   `title`.** The pre-registration's §4.5 row for `ext.probe.test.mts` calls
+   the naming basis "lexical"; `rt.mjs` writes `basis: "title"` on the TASK
+   record (and `task_name_basis: "title"` in meta) for exactly that rule — a
+   task named by the lexical title the transform saw, there being no
+   provider under `node --test`. Same fact, two spellings; the check asserts
+   the value the recorder writes, and §3.10 says so beside the row. Worth a
+   line in the ledger only so the next reader does not go looking for a
+   third basis.
+
+### 5.A Addendum, 2026-09-10 — E10′-eq-content, pre-registered before it ran
+
+Gap 2 above says what E10′-eq's PASS does and does not assert. This addendum
+adds **one reported, ungated check** to close the part of it that can be
+closed cheaply. It is written and committed **before the instrument that
+runs it exists**, and it **cannot move E10′-eq's verdict**, which was read
+before this check was conceived. §1 is untouched: this is an addition to §5,
+not an amendment to the pre-registration the gate was decided under.
+
+> **E10′-eq-content** (added 2026-09-10 after E10′-eq was read; reported, not
+> gated): for every one of the 372 pairs, the rows of `events`, `frames`,
+> `code_objects`, `tasks`, `fingerprints`, `task_fingerprints` and `output`
+> are identical in ALL columns between side A and side B (`SELECT * FROM
+> <t> ORDER BY rowid` on each side, compared as sequences), and `meta` is
+> identical except `run_id`. Expected 372/372; any differing pair is named by
+> `file` and table and is a §5 finding for the final review to weigh. It
+> cannot move E10′-eq's verdict, which was read before this check existed.
+
+**Result, measured once on 2026-09-10 by
+`typescript/acceptance/e10p_eq_content.py`: 372 / 372 identical.** No row of
+`events`, `frames`, `code_objects`, `tasks`, `fingerprints`,
+`task_fingerprints` or `output` differs in any column on any pair, and the
+only `meta` key whose value differs on any pair is `run_id` — so `differing`
+is empty and there is no pair to name. The cell is
+`results/e10p-eq-content.json`; **side A is the global tool at main
+`bbd0781` and side B the worktree's venv at `6ebb907`** (this record's own
+§5.A commit — `src/` unchanged since `a35c045`, so the converter compared is
+still A3's), and the instrument now refuses to emit a cell that does not name
+both. Those two fields were added to the already-written cell by a JSON-only
+rewrite from the re-run's own JSON, **without re-running the comparison** —
+the stores had been removed again by then, and the 372/372 above is the
+reading taken at 01:32, not a second one.
+
+Two things about how it was run, because neither is invisible. **(1) It ran
+on a second conversion, not the gate's.** The gate's two stores had been
+removed when its verdict was committed, so the pinned set was converted again
+by the same two converters — the global tool at main `bbd0781` and the
+worktree's venv — and the check ran on those. The run ids therefore differ
+from the gate's, which the check does not read; and the repetition is a
+strengthening rather than a weakening, because it is an independent second
+conversion by both sides. That re-run's own `sensorium diff` pass read **372
+MATCH / 0 / 0** again, ungated and not pinned: the gate's number stands as it
+was read at 01:12, and this line is a replication beside it, not a re-roll of
+it. **(2) The instrument was mutation-checked before it ran here**: a single
+column changed in one `events` row was caught and named (`events`, the first
+differing rowid), a deleted `tasks` row was caught and named, and a changed
+`meta` value appeared in `meta_keys_differing` — a checker that cannot fail is
+not evidence that anything passed.
+
+What this closes, and what it does not: the two converters write the same
+rows, column for column, in the same order, in every table of all 372 traces.
+It says nothing about traces this set does not contain, and it is still a
+comparison of two SQLite databases rather than a proof about the converter.
+
+### 5.B Found by E6″ (2026-09-10)
+
+Numbering continues §5's; §5.A is left as it was.
+
+7. **The instrument checks the manifest against the manifest's own line
+   count, not against a literal 748.** §1's clause says "748 OK, 0 FAILED",
+   and that is what this session read — twice. But `e6pp.sh` computes the
+   expected OK count as `wc -l < <manifest>`, so that it can be dry-run
+   against a two-file manifest of its own before fifteen minutes are spent on
+   the lens (it was: see the task report). A count derived from the file it
+   is checking would pass a truncated manifest, so the instrument also writes
+   the manifest's **own sha256** into the cell —
+   `eb4c5ddb…6c9a8`, the value §2 pins — and this record quotes it beside the
+   count. The pair is what anchors "748 OK" to *which* 748.
+
+8. **The band's width is a property of the session, not of the rule, and
+   this session's was tight.** ±0.1909 s here against the ±0.4085 s spec
+   §2.2's worked example derives from E1′'s plain arm. The rule asks for "the
+   arm's own range", which is exactly what makes the clause harder to pass on
+   a quiet box and easier on a noisy one: an endpoint whose sensitivity is
+   set by its own control arm's noise cannot be compared across sessions, and
+   a PASS here is not a tighter claim than a PASS would have been under E1′'s
+   spread — it is a claim made against a tighter yardstick. Any future E6
+   should say this before it runs, and a session that wanted a *stable*
+   sensitivity would have to pre-register a floor on the band's width, which
+   this one deliberately did not (a chosen width is the thing §2.2 refused).
+
+9. **"Under 4.0" is not "idle", and ten of the eleven readings were above
+   3.0.** A 16-core vitest run leaves the 1-minute average high for minutes
+   afterwards, and the guard waits for 4.0, not for quiet. Only the before
+   arm's first run was taken on a cold box (0.35); the other ten ran between
+   3.16 and 3.98. The asymmetry is real, it is the one systematic difference
+   between the two arms this session can see, and it runs **against** a
+   contamination finding rather than for one — the arm measured on the
+   quieter box is the slower of the two. A guard that wanted the arms
+   ambient-matched would wait for a *return* to a baseline rather than for a
+   ceiling; that is a different instrument and it is not the one that was
+   pre-registered.
+
+10. **The suite clause was decided on the ten plain runs; the call run's
+    counts are reported beside it.** §1's clause reads "every plain run's
+    counts", and `e6pp_report.py` computes the boolean over the before and
+    after arms only. The call run is the contamination *source*; folding it
+    into the clause would make a driver-side failure look like a lens-side
+    one. It happened to be green (372/4278, exit 0), which is why the
+    distinction cost nothing here — and why it is written down now rather
+    than the first time it costs something.
+
+11. **The fix to `assemble.py`'s `loads` list changed rung 1's assembler
+    after rung 1's results file was written, and that file was not
+    regenerated.** Spec §2.3 asks for the fix before E6″ uses the assembler,
+    and it landed at `ecdc631`. Rung 1's own results file
+    (`…/acceptance/2026-09-09-sensorium-s5-rung1.results.json`) still carries
+    the numbers the *pre-fix* assembler produced. Nothing in it moves as a
+    result — rung 1's E1′ arms dropped no run, so `walls` and `loads` were the same length there anyway,
+    which is why the misalignment stayed latent — but the file on disk was
+    produced by an assembler that no longer exists, and re-running it today
+    would be a change to a locked record's evidence rather than a
+    reproduction of it. It is left alone on purpose.
+
+12. **The call run's two walls are one reading each, and the difference
+    between them is not an `ingest` measurement.** Spec §3.6 asks for the
+    fresh set's ingest beside the pinned one; this slice's driver converts
+    **inline**, so there is no separate ingest invocation to time. Driver
+    wall minus harness wall (38.8595 − 25.2619 = 13.5976 s) is the
+    conversion plus the driver's own setup, wrapper write and cleanup, at
+    n=1, unguarded within itself and over a spool set nothing pinned. It is
+    reported under that name and must not be read against E10′-suite's
+    16.3859 s, which is a guarded median of five ingests over a different,
+    pinned recording.
+
+### 5.C Found in the final review (2026-09-10)
+
+Numbering continues §5.B's. Each of these is a property of an instrument or of
+what a verdict asserts, found by reading the shipped instruments against their
+own rules at the slice's close; none of them moves a number above.
+
+13. **A dropped plain run STOPs E6″'s suite clause outright, which makes
+    "STOP by instrument" nearly unreachable.** §1's rule has two ways to
+    refuse on the arms: a run whose counts are not `372 passed (372)` /
+    `4278 passed (4278)` is "dropped and named", and an arm left with fewer
+    than four usable walls is a **STOP by instrument**. But `e6pp_report.py`
+    computes the suite clause as a conjunction over **every** plain run, so
+    the first dropped run fails that clause and the session STOPs there — the
+    "<4 usable walls" branch can only be reached by a run that is dropped
+    without failing the counts, which this instrument has no way to produce.
+    Nothing here was dropped, so the reading is unaffected, and the direction
+    is the conservative one: the instrument can refuse a session it might have
+    salvaged, and **cannot manufacture a PASS**. It is written down because
+    the pre-registration reads as though the two branches were independent and
+    they are not.
+
+14. **The five clauses cannot see a failed call run.** §1's clause is "every
+    **plain** run's counts", and gap 10 above says why the call run is
+    reported beside the clause rather than inside it. The consequence is that
+    a session whose contamination *source* half-failed would still be read
+    against the band, the manifest and the markers as though the recording had
+    happened. This session's premise was therefore checked **by hand** and is
+    recorded in §3.11: the call run's row reads exit **0**, the suite green,
+    and a spool of **372** files, 414,467,939 bytes. A future E6 that wants
+    this mechanical needs a sixth clause, which this one did not
+    pre-register.
+
+15. **The manifest's sha256 is recorded, not enforced.** Gap 7 says
+    `e6pp.sh` derives the expected OK count from the manifest's own
+    `wc -l` and writes the manifest's own sha256 into the cell so that
+    "748 OK" is anchored to *which* 748. What it does not do is **compare**
+    that sha to the value §2 pins: the anchoring is available to a reader and
+    is not a check the instrument makes. Both readings this session took carry
+    `eb4c5ddb…6c9a8`, which is the pinned value, and that was verified by eye
+    rather than by the script.
+
+16. **`assemble_slice2` can emit `null` with an empty `dropped`.** The file's
+    own rule (plan P2) is that a cell that was never measured is `null`
+    **plus** a `dropped` reason, never a blank that reads as a pass. Two
+    branches of the assembler do not honour it — a cell whose JSON is present
+    but missing its value key, and one whose stage never produced a file that
+    the caller did not list — so an absent cell could reach the results file
+    with nothing saying why. Every cell this slice pre-registered was
+    measured, so no `null` was emitted and the rule was never exercised in
+    anger; the defect is in the path that exists for the case that did not
+    happen, which is the path least likely to be found by running it.
+
+17. **Both sides of the equivalence gate ran at the default job count, so
+    job-count independence of the converter's output is an inference this
+    slice did not test.** E10′-eq converted the pinned set twice, each side at
+    its converter's own default (16 here), and read 372 MATCH. Nothing in it
+    says whether `--jobs 1` and `--jobs 16` write the same trace: the pool
+    distributes whole spools to workers and no worker reads another's, so
+    independence holds by construction rather than by measurement — which is
+    an argument, not a cell. It matters for a lever this slice did not build:
+    **A2** (largest-first dispatch) changes the order spools are handed out,
+    and a gate that never varied the job count would not have noticed if
+    order mattered.
+
+### 5.D Fixed in the final fix wave (2026-09-10), no measurement re-run
+
+Numbering continues §5.C's. This section is written after the final review
+returned "ready with fixes"; every item is a text, provenance or test edit,
+and nothing below re-measures anything.
+
+18. **Every cell in the results file inherited the LENS's recorder, including
+    the ones this slice recorded itself** — *fixed by a JSON-only rewrite*.
+    Each cell's `lens` string comes from `typescript/acceptance/LENS.txt`,
+    which ends "recorded by sensorium 0.8.7 / sensorium-ts 0.1.0 at
+    `29c5059`". That is true of the E10′ cells — the pinned `f08e89` spool
+    copies **are** that recording — and false of the cells whose recording
+    this slice made: **E6″**, whose session ran this slice's own recorder at
+    `ecdc631` (§3.11); **H-probes**, the hook at `05e5338` with the probes and
+    checker at `761c935`, captured at `ecdc631` (§3.10); and the call run's
+    **`walls`** and **`driver_around_harness`**, which `assemble_slice2.py`
+    mints from E6″'s cell and which therefore carried the same string.
+    Four fields were added — in the store's cell files, and the results file
+    then rebuilt from them: `recording` = `{recorder, rev}` on `e6pp.json`
+    (and so on `gated["E6″"]`, `reported.walls` and
+    `reported.driver_around_harness`), and `hook_rev`, `probes_rev`,
+    `captured_rev` on `h-probes.json`. `LENS.txt` itself is **not** touched:
+    rung 1's instruments read it, and its sentence is true of the lens.
+    So that a future session cannot repeat the omission, `e6pp_report.py`
+    now REQUIRES `E6PP_RECORDER` and `E6PP_RECORDER_REV` and refuses by name
+    without them — the way `e10p_eq_content.py` requires the two converters
+    it compares — and `e6pp.sh` passes both; the H-probes capture is
+    hand-assembled with no script to hold the rule, so
+    `typescript/probes/README.md` states the three rev fields as required of
+    it. `assemble_slice2.py` rebuilt this file from the same store and the
+    same six redaction pairs and reproduces it byte-for-byte apart from those
+    four fields — verified by diff. **No number moved.**

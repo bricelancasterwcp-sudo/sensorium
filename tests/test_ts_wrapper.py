@@ -81,7 +81,7 @@ def golden(root: Path, pkg: Path, user_config: Path | None) -> str:
         "  ?? resolved?.projects ?? resolved?.workspace;\n"
         "if (projects !== undefined) {\n"
         "  const reason = 'vitest projects/workspaces are not supported by "
-        "sensorium-ts 0.1.0';\n"
+        "sensorium-ts 0.1.1';\n"
         "  const spool = process.env.SENSORIUM_SPOOL;\n"
         "  if (spool) {\n"
         "    fs.mkdirSync(spool, { recursive: true });\n"

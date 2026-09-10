@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Superseded by e6pp.sh (E6″, slice 2); kept as E6′'s instrument.
 # E6': is a plain run contaminated?
 #
 #   e6.sh <lens dir> <manifest file> <out dir> <plain band lo> <plain band hi>

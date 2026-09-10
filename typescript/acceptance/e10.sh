@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Superseded by e10p.sh (E10′, slice 2); kept as E10's instrument.
 # E10: what does conversion cost?
 #
 #   e10.sh <spool dir> <scratch dir> <label> [n]

@@ -719,7 +719,7 @@ neither section here states one as a translation of the other.
 `sensorium ts run -- vitest run` records a TypeScript or JavaScript test suite
 the way `cargo sensorium test` records a Rust workspace: one trace per
 test-file process, trace format 4, read by the same `sensorium` command line.
-`typescript/` ships **`sensorium-ts 0.1.0`** — a transform whose edits never
+`typescript/` ships **`sensorium-ts 0.1.1`** — a transform whose edits never
 contain a newline, a runtime on `AsyncLocalStorage`, a vitest plugin, a
 `node --test` hook — with driver and converter in Python, so reading a trace
 needs no Node. What it sees and does not is

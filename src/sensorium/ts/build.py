@@ -83,13 +83,19 @@ class Builder:
     """
 
     def __init__(self, spool: Spool, invocation, harness, tally: dict | None,
-                 path, run_id: str) -> None:
+                 path, run_id: str, durable: bool = False) -> None:
         self.spool = spool
         self.inv = invocation
         self.harness = harness
         self.tally = tally or {}
         self.run_id = run_id
-        self.w = TraceWriter(path)
+        # Non-durable by default because this is the CONVERTER's builder:
+        # `convert` writes under a temporary name and renames into place only
+        # after `build()` closes the writer, so no reader can be shown a
+        # committed row before then and a build that dies leaves a temporary
+        # file `convert` unlinks. The argument exists so a caller that wants
+        # the recorder's per-batch commits can say so.
+        self.w = TraceWriter(path, durable=durable)
 
         self._frames: dict[int, Frame] = {}
         self._files: dict[int, dict] = {}
@@ -126,13 +132,20 @@ class Builder:
     def abort(self) -> None:
         """Let go of a trace that will not be finished.
 
+        `discard()` and not `close()`: the writer's transaction is rolled
+        back rather than committed, because a commit here would checkpoint
+        the whole trace out of the WAL and into a file the caller is about
+        to unlink. A mid-file refusal (a second BOOT, a record the wire does
+        not declare) comes through here with rows already written, and that
+        is exactly the build whose commit buys nothing.
+
         The file is the caller's to remove -- it reserved the name -- and a
         second failure while unwinding would replace the exception that
         actually says what went wrong, so this one is not allowed to
         propagate.
         """
         try:
-            self.w.close()
+            self.w.discard()
         except Exception:                                   # pragma: no cover
             pass
 

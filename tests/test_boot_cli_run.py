@@ -435,6 +435,8 @@ def test_late_write_guard_classifies_every_public_writer_method():
                  "write_task_fingerprint", "write_task_fingerprints"}
     deliberate = {"interned_files",   # read passthrough, documented in the guard
                   "close",            # guard has its own close
+                  "discard",          # the CONVERTER's abort path: a recorder
+                                      # never throws its own trace away
                   "flush"}            # no caller on a guarded writer
     assert public == delegated | deliberate, (
         f"unclassified TraceWriter method(s): {sorted(public - delegated - deliberate)}")

@@ -1,9 +1,9 @@
 # The TypeScript recorder's honesty ledger
 
-`sensorium-ts 0.1.0` — v1, the call tier, under vitest and `node --test`.
+`sensorium-ts 0.1.1` — v1, the call tier, under vitest and `node --test`.
 Read by `sensorium` 0.9.0 and above; a trace names its own writer, because the
 runtime stamps the package's `VERSION` into every spool's BOOT record and the
-converter spends it on `recorder: "sensorium-ts 0.1.0"` in meta. No edition of
+converter spends it on `recorder: "sensorium-ts 0.1.1"` in meta. No edition of
 this file is struck yet: this is the first.
 
 Sensorium's founding rule is that **the instrument never answers from data it
@@ -257,14 +257,14 @@ prints that count when it is non-zero, and prints a zero on a complete trace
 too — the listener always ran, so zero there is a measured zero.
 
 **What it does not claim, and the refusal that says so.** These rows are
-recorded and **not judged**. `capabilities.err_flow: false` in 0.1.0, although
+recorded and **not judged**. `capabilities.err_flow: false` in this version, although
 RAISE and HANDLED rows exist, because the key is the runtime's statement that
 its records carry what the `exceptions` rules need — and no TypeScript
 disposition rules exist yet (rung 2 writes them). So `exceptions` **refuses**
 on these traces at exit 3, naming the language and saying nothing was judged.
-The cost is real and pre-committed: a trace this 0.1.0 runtime wrote stays
-refused after rung 2 lands, then by the capability sentence, and re-recording
-is what changes it. Two further shapes record nothing at all: a `.catch(fn)`
+The cost is real and pre-committed: a trace this 0.1.0 runtime wrote — and
+0.1.1's, which declares the same — stays refused after rung 2 lands, then by
+the capability sentence, and re-recording is what changes it. Two further shapes record nothing at all: a `.catch(fn)`
 with a non-empty body (blind spot 2), and `finally` (blind spot 3). A
 `Promise.reject(v)` is not a `throw` statement and raises nothing here.
 
@@ -368,6 +368,39 @@ ruling R27: it read `excluded: 3 (vitest-hoisted factory)`, a total beside one
 bare reason, which loses the split as soon as there are two. The example above
 is a measured line from a call-arm trace of the acceptance lens.)*
 
+***Under `node --test`, Node decides the format AND Node does the stripping***
+*(added 2026-09-10, S5 slice 2, `sensorium-ts 0.1.1`).* R37 made the hook ask
+Node for the format; the hook still **erased** types itself, from a `STRIP`
+list keyed on extension, which is why an eligible `.mts` was instrumented and
+then met Node with its annotations intact. Both halves are gone. The hook
+returns Node's **own reported format** unchanged — `module-typescript` for an
+ESM `.ts` or `.mts` on node ≥ 23.6 — splices its instrumentation into the text
+and hands the file back; **Node strips**, the recorder does not, and the
+recorder erases nothing. What a consumer can check rather than take on trust:
+a construct Node's strip-only mode rejects (an `enum`, say) fails
+**identically** plain and hooked, same error code both sides — measured, as
+`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` on both, by a control that discriminates
+(against the pre-fix hook the same file **loaded** under the recorder and
+failed plain). `.tsx` and `.jsx` are **outside Node's own scope** under
+`node --test`: Node's loader throws `ERR_UNKNOWN_FILE_EXTENSION` before this
+hook is consulted, on the hooked side and the plain side alike. That is not an
+exclusion this recorder makes, so it is **not counted** as one — the same rule
+the paragraph above states for `node_modules` and `.d.ts`. Under vitest
+nothing here changes: the eligibility list is what it was and `.tsx`/`.jsx` are
+transformed.
+
+***A run that recorded nothing says why, when the tallies know*** *(added
+2026-09-10, ruling R45).* `ingest` over a spool directory holding no spool said
+"nothing was recorded, or the recorder wrote somewhere else" even where the
+per-child tallies beside it recorded exactly why — every eligible file
+CommonJS, or a parse error. Where **every** tally reads `files_transformed: 0`
+and the exclusions are non-empty, the refusal now **names them by reason with
+counts** (`commonjs x2, parse-error x1`) and appends the ES-modules-only clause
+only when `commonjs` is among them; R27's precedent, one bare reason losing the
+split as soon as there are two. A partial suite — anything transformed at all —
+keeps the old sentence, because a real recording failure is not an exclusion
+and the converter does not guess which it met.
+
 **How a site inside the scope is named.** `code_objects.file` is absolute (the
 contract's rule) while the fingerprint hashes the **root-relative** path, which
 is what lets `diff --ignore-moves` pair a function across a file split.
@@ -396,7 +429,7 @@ spot 4). `refocus: false`, refused at exit 2. `err_flow: false` (§4).
 `test.workspace` config makes vitest resolve a config PER PROJECT, and this
 wrapper merges onto one: the plugin never reaches the projects' pipelines, so
 the suite runs and nothing is recorded. The wrapper config refuses it at load
-time — `vitest projects/workspaces are not supported by sensorium-ts 0.1.0` —
+time — `vitest projects/workspaces are not supported by sensorium-ts 0.1.1` —
 and leaves that sentence in the spool directory (`wrapper-refusal.json`) for
 the driver to print at exit 2. *(Added 2026-09-09, ruling R41: measured, such
 a run came back as the CONVERTER's sentence, "nothing was recorded, or the
@@ -412,10 +445,12 @@ ours. The directory is removed in a `finally`, so it exists only for the run.
 A read-only `node_modules` is a refusal at exit 2 naming the directory, never
 a write somewhere else in the source tree.
 
-**Falsifiers.** `E2′`, `E3-TS`, `E5′`, `E6′`, `E7′`,
+**Falsifiers.** `E2′`, `E3-TS`, `E5′`, `E6′`, `E6″`, `E7′`, `H-probes`
+(`typescript/probes/nodetest/`, four extensions and two controls),
 `typescript/test/transform.test.mjs`, `typescript/test/hook.test.mjs`
 (`R37: a CommonJS file under the root is loaded as Node loads it, and
 counted`), `tests/test_ts_driver.py`, `tests/test_ts_ingest.py`,
+`tests/test_ts_ingest_refusals.py`,
 `corpus/typescript/nondeterministic`, `corpus/typescript/watch_refused`,
 `corpus/typescript/object_refused`, and the E5-TS split control of the
 acceptance record's §3.2.
@@ -505,7 +540,56 @@ vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores)*:
   STOP because that is what the pre-registration's own words make it, and a
   rung that ships with one is a rung that ships with one.
 
-**Falsifiers.** `E1′`, `E10`, `E6′`.
+
+**Measured, slice 2** *(added 2026-09-10; every number from
+`../docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.md` §3 and §4,
+on the same lens)*:
+
+- **Conversion, the ladder.** Rung 1's design input was taken and answered on
+  the pinned 372-spool, 414,450,522-byte copy of one recording, every cell
+  guarded and each lever measured before the next was written. **Arm 0** (the
+  0.9.0 converter): full suite at 16 jobs **45.7378 s**, the one file
+  **0.3624 s**, the heaviest worker's peak resident **2,273,872 kB** on the
+  big-spool cell. **A1** — one transaction per trace, `synchronous=NORMAL`:
+  **17.7740 s** and **0.1647 s**, RSS unmoved at **2,273,996 kB** (it is not
+  the quantity this lever touches). **A3** — the streaming spool reader:
+  **16.5088 s** and **0.1628 s**, and peak resident **280,408 kB** on that
+  same cell, **8.1096×** below A1's. **A2** (largest-first dispatch) and **A4** (the per-record Python
+  cost) were **not built**: the spec conditioned them on the first two levers
+  leaving the suite above the bound, and they did not; a lever that cannot
+  move a verdict is not free.
+- **Conversion, the verdicts.** **E10′-suite PASS** — **16.3859 s** median,
+  n=5, against the pinned **22.5925 s** wall: **the converter stays Python**
+  and Arm B is not raised. **E10′-file PASS** — **0.1648 s** median, n=5,
+  against **0.4002 s**, which was the one clause on this ladder allowed to
+  **STOP** it; it did not fire. **E10′-eq PASS** — the set converted twice,
+  **372 MATCH / 0 DIVERGED / 0 REFUSED**, the only `meta` key differing on any
+  pair being the minted `run_id`. Beside it, reported and never gated,
+  **E10′-eq-content**: every row of all seven tables compared column for
+  column, **372 / 372 identical**.
+- **One cost this slice does not have a number for.** The non-durable writer
+  holds a whole trace's WAL until `close()`: measured once at `--jobs 1`, a
+  **335,895,392-byte** `-wal` beside a **333,832,192-byte** database, so
+  transient disk is ≈ **2×** per in-flight trace and, at the default job
+  count, the sum over the workers building at that moment. Nothing came near
+  the disk on any cell here (63 GB free), so no verdict rests on it — but this
+  box has run at ~3 GB free, and the peak at 16 jobs is unmeasured. It is in
+  `docs/CARRIED-DEBT.md`.
+- **And the STOP is answered.** E6′'s plain-band clause STOPped at rung 1.
+  **E6″ — PASS**, on all five clauses of a NEW pre-registration: manifest
+  **748 OK / 0 FAILED** before and after, all ten plain runs at
+  `372 passed (372)` / `4278 passed (4278)` with **nothing dropped**, **0**
+  `__srt` markers over the 2 cache directories that exist, the wrapper
+  **absent**, and the after arm's median **22.1136 s** inside the band
+  **[21.9834, 22.3652]** the before arm's own median (**22.1743**) and range
+  (**0.1909**) define — 0.0607 s **faster**, not slower. The instrument E6′
+  lacked is what makes this readable: a load guard on every timed run with its
+  reading in the artifact, a band derived from the arm rather than chosen, and
+  medians over n=5 on each side. What it closes is one session, one lens, one
+  recorder, and the record's §5 says what it does not settle — the band's
+  width is a property of the session, and "under 4.0" is not "idle".
+
+**Falsifiers.** `E1′`, `E10`, `E10′`, `E6′`, `E6″`.
 
 ## 10. Blind spots
 

@@ -8,7 +8,7 @@ process — the same SQLite format 4 the Python and Rust recorders write, read b
 the same `sensorium` command line. It exists for the same reason those do:
 reading logs is reading a diary, and this is watching the execution.
 
-One private npm package, **`sensorium-ts 0.1.0`** — ESM `.mjs` with JSDoc
+One private npm package, **`sensorium-ts 0.1.1`** — ESM `.mjs` with JSDoc
 types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24 (the version
 this was measured on; the driver refuses below it before spawning anything).
 Six modules and a version:
@@ -20,12 +20,14 @@ Six modules and a version:
 | `src/vite.mjs` | The Vite plugin (`enforce: 'pre'`) that puts the transform in vitest's path. |
 | `src/setup.mjs` | The vitest setup file: the task-name provider and the per-file/per-test records. Written from a template into `node_modules/.sensorium/` beside the wrapper config, never into your source tree. |
 | `src/register.mjs` | What `node --import` runs for `node --test`: it checks the two variables the hook cannot invent and registers `src/hook.mjs`. |
-| `src/hook.mjs` | The loader hook itself, on Node's loader thread: it instruments a file under the root and type-strips `.ts`/`.tsx` with the consumer's own TypeScript. |
-| `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.1.0`. |
+| `src/hook.mjs` | The loader hook itself, on Node's loader thread: it instruments a file under the root and hands it back in **Node's own reported format**, erasing nothing — Node strips the types (`.ts`, `.mts`), and a file Node's strip-only mode refuses fails identically hooked and plain. |
+| `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.1.1`. |
 
 Beside them, `probes/` is a self-contained vitest project the recorder records
 ITSELF with: ten probe files whose expected rows were pinned by the S5 spike
-before this code existed, an eleventh run under `node --test`, and `probes/check.mjs`,
+before this code existed, four more under `node --test` — one per extension,
+`.ts`, `.mts`, `.mjs`, `.cjs` — with two controls beside them that must fail
+the same way hooked and plain, and `probes/check.mjs`,
 which reads the spools back and asserts every one of them. Two probes make
 `vitest run` red on purpose — an unhandled rejection and a test that never
 settles — so the checker's exit status is the gate, not vitest's. The recipe is
@@ -143,7 +145,7 @@ these exit statuses mean.
 | `flow --object` | 3 | `capabilities.object_identity: false` — object identity is not carried, so a question about *that* object cannot be answered from this trace. |
 | `refocus` | 2 | `capabilities.refocus: false` — nothing was re-run, and the reader's next move is a different command. |
 
-Arguments are **unread** in 0.1.0: `capabilities.locals: false`, every CALL
+Arguments are **unread** in this version: `capabilities.locals: false`, every CALL
 carries `unread: ["locals"]`, and `tree` prints `compute() <unread: locals>`.
 That is a stated absence, not an empty argument list.
 
@@ -172,8 +174,8 @@ thing to do instead:
 
 Argument capture and per-line state under a `--focus` (rung 3); the
 `exceptions` disposition rules that make an empty `catch` a sink and a rethrow
-a hop (rung 2, at which point these 0.1.0 traces stay refused and re-recording
-is the fix); `refocus` (rung 4); the browser, which needs a runtime without a
+a hop (rung 2, at which point traces recorded by 0.1.0 and 0.1.1 alike stay
+refused — both declare `err_flow: false` — and re-recording is the fix); `refocus` (rung 4); the browser, which needs a runtime without a
 filesystem (rung 5); jest; a transform cache. `finally`, a `.catch` with a
 non-empty body, and which frame *scheduled* a continuation are recorded by
 nothing here — see [`HONESTY.md`](HONESTY.md) §4, §3 and the numbered blind

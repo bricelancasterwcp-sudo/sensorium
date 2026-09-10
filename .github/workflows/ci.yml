@@ -234,14 +234,20 @@ jobs:
       # NAME rather than under this flag when they are not -- it is not
       # gated on SENSORIUM_TS_LIVE, but it would silently skip on any job
       # that had not run `npm ci --prefix typescript` above.
-      # test_ts_ingest*.py, test_ts_refusal.py, test_ts_harness.py,
-      # test_ts_wrapper.py, test_vectors.py and test_vocab.py are the rest
-      # of the TypeScript-recorder suite that needs this same Node and this
-      # same install; none of them has anywhere else in this workflow to run.
+      # test_ts_ingest*.py, test_ts_spool.py, test_ts_refusal.py,
+      # test_ts_harness.py, test_ts_wrapper.py, test_vectors.py and
+      # test_vocab.py are the rest of the TypeScript-recorder suite that
+      # needs this same Node and this same install; none of them has
+      # anywhere else in this workflow to run. test_ts_spool.py joins the
+      # list on the same symmetry argument that put test_ts_ingest_
+      # refusals.py here (the Task 7 ruling in the slice's SDD ledger):
+      # the matrix jobs' bare `pytest -q` already runs it, and a list
+      # that names its siblings and not it reads as a deliberate
+      # omission.
       - name: TypeScript recorder tests (through a real Node and a real vitest)
         env:
           SENSORIUM_TS_LIVE: "1"
-        run: python -m pytest -q tests/test_ts_live.py tests/test_ts_driver.py tests/test_ts_ingest.py tests/test_ts_ingest_meta.py tests/test_ts_refusal.py tests/test_ts_harness.py tests/test_ts_wrapper.py tests/test_vectors.py tests/test_vocab.py
+        run: python -m pytest -q tests/test_ts_live.py tests/test_ts_driver.py tests/test_ts_ingest.py tests/test_ts_ingest_meta.py tests/test_ts_ingest_refusals.py tests/test_ts_spool.py tests/test_ts_refusal.py tests/test_ts_harness.py tests/test_ts_wrapper.py tests/test_vectors.py tests/test_vocab.py
       # --only-dir typescript, mirroring the `rust` job above: this records
       # corpus/typescript alone, and --require-driver is what makes that a
       # gate rather than a green job over cases nobody ran. `ts_ready()`
