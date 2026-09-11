@@ -200,7 +200,7 @@ thing to do instead:
 
 ## Not yet
 
-Argument capture and per-line state under a `--focus` (rung 3); `refocus`
+Argument capture and per-line state under a `--focus` (a later rung); `refocus`
 (rung 4); the browser, which needs a runtime without a filesystem (rung 5);
 jest; a transform cache. Which frame *scheduled* a continuation is recorded by
 nothing here. The `exceptions` disposition rules arrived in **rung 2** — the
