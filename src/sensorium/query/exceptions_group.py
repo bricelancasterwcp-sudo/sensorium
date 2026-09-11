@@ -13,8 +13,8 @@ same site, with the same words once their ids are masked, are one shape.
 WHAT A GROUP IS KEYED ON, AND WHAT IT DELIBERATELY IS NOT
 ---------------------------------------------------------
 The key is the language's (`Renderer.key`): Rust's is `(tag, site, masked
-verdict, route)` and TypeScript's `(tag, reason, site, origin site, masked
-verdict)`, whose mask exempts nothing (§3.1, and `_typescript_key` for what
+verdict, route)` and TypeScript's `(tag, reason, site, masked verdict,
+route)`, whose mask exempts nothing (§3.1, and `_typescript_key` for what
 the exemption cost). The SITE is in both, and it is the one the verdict is
 ABOUT -- the sink for a swallow, the arm for an escaped `Err`, and the
 unit's ORIGIN for every verdict that names no site -- from the classifier
@@ -124,17 +124,21 @@ def ts_mask(text: str) -> str:
     return TS_MASK.sub(r"\1#", text)
 
 
-def _masked(text: str | None) -> str | None:
-    """A line that may not exist. `None` is a member of these sets: a chain
-    of one event has no hops line and a verdict may carry no detail, and
-    collapsing that to `""` would make "some members have hops and some do
-    not" read as "they all agree"."""
-    return None if text is None else mask(text)
+def _masked(text: str | None, masker) -> str | None:
+    """A line that may not exist, masked by the LANGUAGE's own `masker`
+    (`Renderer.mask`) -- never by whichever mask this module imported
+    first, which would compare a TypeScript route by Rust's rule.
+
+    `None` is a member of these sets: a chain of one event has no hops
+    line and a verdict may carry no detail, and collapsing that to `""`
+    would make "some members have hops and some do not" read as "they all
+    agree"."""
+    return None if text is None else masker(text)
 
 
 @dataclass(frozen=True)
 class Renderer:
-    """The seven things this module has to ask a UNIT, in one row per
+    """The eight things this module has to ask a UNIT, in one row per
     language (design P5).
 
     The grouping GRAIN is not Rust's and never was -- two verdicts about
@@ -164,6 +168,13 @@ class Renderer:
     site_file: object           # (site) -> the basename
     tag_order: tuple            # the dispositions, in printing order
     key: object                 # (trace, unit, d, site, hops) -> the key
+    #: (text) -> the text with this recorder's ids masked. Rust's spares
+    #: four spellings its float types share (`MASK`); TypeScript's spares
+    #: nothing (`TS_MASK`). Every SET this module compares goes through it,
+    #: so a group's route and its detail are masked by the same rule its
+    #: key is -- two spellings of "the same words" would disagree at the
+    #: first sentence that carries an id one of them keeps.
+    mask: object
 
 
 def _rust_key(trace, unit, d, site, hops):
@@ -186,9 +197,9 @@ def _rust_key(trace, unit, d, site, hops):
 
 
 def _typescript_key(trace, unit, d, site, hops):
-    """`(disposition, reason, site, origin site, masked verdict)` -- the
-    classifier's parts AND the sentence, under a mask that exempts nothing
-    (§3.1 as amended 2026-09-11).
+    """`(disposition, reason, site, masked verdict, route)` -- the
+    classifier's parts AND its sentence, under a mask that exempts nothing
+    (§3.1 as amended 2026-09-11, twice).
 
     WHAT GAP 1 ACTUALLY WAS. One `catch` in `useAiAssist` absorbed three
     throws, in frames 32, 128 and 174, and the rung-2 key printed three
@@ -208,16 +219,29 @@ def _typescript_key(trace, unit, d, site, hops):
     does, and a block that printed one test name over a `[x2]` bracket
     would be a sentence about the wrong run.
 
+    WHY THE ORIGIN IS NOT A COMPONENT OF ITS OWN. It enters only through
+    `site_of`'s fallback -- where the disposition names no site -- exactly
+    as rung 2's key did. An UNCONDITIONAL origin component splits a sink
+    by the places that reached it, which is the split the hand-built table
+    had to undo, and §3.2 says so in as many words: `origins: N distinct`
+    is how a shape reports the origins its key ignored. Three rung-2
+    SWALLOWED blocks carry that line -- `useBuilderContent.<anonymous>
+    L72` (3 origins), `GuardedButton.<anonymous> L29` (2) and
+    `createHooks.dispatch L98` (2) -- and an unconditional component would
+    have printed 32 places where the pre-registration locks 28.
+
     The REASON is a component of its own even so, because two ambiguities
     at one site that say no more for different reasons are two facts, and
     their sentences can differ only in a clause a reader has to parse.
-    The ROUTE is not one, and `hops` is unread here: the ORIGIN's site is
-    in the key for every disposition, which is what the route carried for
-    a verdict that names no site of its own.
+
+    The ROUTE joins under the same condition as Rust's (R-G2): where the
+    verdict names no site, the recorded journey is the information the
+    reader came for. `hops` arrives already masked by THIS renderer's mask
+    (`group_units` masks it with `render.mask`), so it is used as given --
+    masking it a second time here would be a second spelling of one rule.
     """
-    return (d.tag, d.reason, site,
-            exceptions_typescript._site(trace, unit.origin),
-            ts_mask(d.verdict))
+    return (d.tag, d.reason, site, ts_mask(d.verdict),
+            hops if d.site is None else None)
 
 
 RUST = Renderer(at=exceptions_rust._at,
@@ -226,7 +250,7 @@ RUST = Renderer(at=exceptions_rust._at,
                 site_text=exceptions_rust.site_text,
                 site_file=exceptions_rust.site_file,
                 tag_order=exceptions_rust.TAG_ORDER,
-                key=_rust_key)
+                key=_rust_key, mask=mask)
 
 TYPESCRIPT = Renderer(at=exceptions_typescript._at,
                       hops_line=exceptions_typescript._hops_line,
@@ -234,15 +258,15 @@ TYPESCRIPT = Renderer(at=exceptions_typescript._at,
                       site_text=exceptions_typescript.site_text,
                       site_file=exceptions_typescript.site_file,
                       tag_order=exceptions_typescript.TAG_ORDER,
-                      key=_typescript_key)
+                      key=_typescript_key, mask=ts_mask)
 
 
 @dataclass
 class Shape:
     """One printed block: the first chain of a group, and the group."""
     #: The renderer's own (`Renderer.key`): Rust's `(tag, site, masked
-    #: verdict, route)`, TypeScript's `(tag, reason, site, origin site,
-    #: masked verdict)`.
+    #: verdict, route)`, TypeScript's `(tag, reason, site, masked verdict,
+    #: route)`.
     key: tuple
     tag: str
     first: object               # the first Chain of the shape, origin order
@@ -337,9 +361,9 @@ def group_units(trace, units, idx, classify, render: Renderer):
     two verdicts about one place with the same words are one block is
     stated once and holds for both.
 
-    The KEY is the renderer's (`Renderer.key`): Rust's masked prose, or
-    TypeScript's classifier components. Four components either way, so one
-    dict holds every shape without a branch at the lookup. `lang` is
+    The KEY is the renderer's (`Renderer.key`): Rust's four components or
+    TypeScript's five. One dict holds either -- the shapes of one answer
+    are one language's, so two lengths are never compared. `lang` is
     deliberately NOT in it: a member set is one language
     (`exceptions_invocation` refuses a mixed one), so two languages' keys
     are never in one dict to collide.
@@ -370,7 +394,7 @@ def group_units(trace, units, idx, classify, render: Renderer):
         # without accusing the other language of a defect.
         if d.reason is not None:
             reasons[d.reason] = reasons.get(d.reason, 0) + 1
-        hops = _masked(render.hops_line(trace, unit))
+        hops = _masked(render.hops_line(trace, unit), render.mask)
         site = site_of(trace, unit, d, render)
         key = render.key(trace, unit, d, site, hops)
         shape = by_key.get(key)
@@ -389,7 +413,7 @@ def group_units(trace, units, idx, classify, render: Renderer):
         # and an error's rendering carry no ids this tool assigned.
         shape.origins.add(render.at(trace, unit.origin))
         shape.messages.add(_message(unit.origin))
-        shape.details.add(_masked(d.detail))
+        shape.details.add(_masked(d.detail, render.mask))
         shape.hops.add(hops)
     return shapes, tally, reasons
 

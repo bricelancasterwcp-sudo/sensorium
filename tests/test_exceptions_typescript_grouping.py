@@ -13,9 +13,17 @@ in frames 32, 128 and 174, printed as three blocks saying the same thing
 about the same line. The reader's table had to put them back together by
 hand, which is the work the grouper exists to have already done.
 
-So the TypeScript renderer keys on what the classifier DECIDED --
-`(disposition, reason, the site the verdict is about, the origin's site)`
--- and reads no sentence at all. Rust keeps the masked-prose key verbatim
+So the TypeScript renderer keys on `(disposition, reason, the site the
+verdict is about, the verdict's own words under a mask that exempts
+NOTHING, the route where the verdict names no site)`. The SENTENCE stays
+because the components alone cannot tell a `→ swallowed` rethrow from a
+`→ propagated` one, nor two propagations naming two different failing
+tests. The ORIGIN enters only through `site_of`'s fallback, as rung 2's
+key and R-G2 had it: a sink keyed on the places that reached it is the
+split the hand-built table had to undo, and §3.2 says how a shape reports
+what its key ignored -- `origins: N distinct`.
+
+Rust keeps the masked-prose key verbatim
 (design R3, decision P6): its nineteen fenced tests and two acceptance
 records are the fence, and `test_the_rust_key_is_todays_tuple_verbatim`
 below states it as a tuple equality so a rewrite of `_rust_key` fails here
@@ -23,19 +31,27 @@ rather than in a record nobody re-reads.
 
 WHAT THE KEY STILL SEPARATES
 ----------------------------
-Everything the old key separated except the prose: two sinks that print the
+Everything the old key separated: two sinks that print the
 same words in different FILES stay two shapes (R-G12), and two dispositions
 or two reasons at one site stay apart. The traces below are DATA
 (`tests/ts_traces.py`), so each states one grouping question and nothing
 else.
 """
+from dataclasses import replace
+
 from sensorium import cli, paths
 from sensorium.exit import ANSWERED
 from sensorium.query import exceptions_rust, exceptions_typescript
+from sensorium.query.exceptions_cmd import Disposition
 from sensorium.query.exceptions_group import (RUST, TYPESCRIPT, _masked,
                                               group_chains, group_units, mask,
-                                              site_of, ts_mask)
+                                              site_of, ts_mask, vary_lines)
 from sensorium.store.reader import Trace
+from tests.test_exceptions_invocation import CARGO
+from tests.test_exceptions_invocation import INV as RUST_INV
+from tests.test_exceptions_invocation import M1 as RUST_M1
+from tests.test_exceptions_invocation import M2 as RUST_M2
+from tests.test_exceptions_invocation import escaped_trace as rust_member
 from tests.test_exceptions_rust_grouping import (escaped_trace,
                                                  repeat_sink_trace)
 from tests.ts_traces import (FILE, call, frame, handled_ev, out, raise_ev,
@@ -225,6 +241,82 @@ def two_tests_trace(tmp_path, monkeypatch):
         tasks=[task(1, "loads a config"), task(2, "rejects a bad config")])
 
 
+def dispatch_trace(tmp_path, monkeypatch):
+    """The `createHooks.dispatch` shape: ONE `catch` at one line absorbing
+    throws from TWO different hooks. Same sink, same words, two origins --
+    which the key ignores and `origins: 2 distinct` reports (§3.2).
+
+    Event ids: e1 CALL dispatch, e2 CALL useA, e3 RAISE, e4 HANDLED,
+    e5 CALL useB, e6 RAISE, e7 HANDLED, e8 RETURN.
+    """
+    exc = [ts_exc("Error", "hook failed", 1),
+           ts_exc("Error", "hook failed", 2)]
+    return ts_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "createHooks.dispatch", 90], [FILE, "useA", 8],
+               [FILE, "useB", 18]],
+        frames=[frame(1, 1, 8),
+                frame(2, 2, parent=1, depth=1, unwind_exc=exc[0]),
+                frame(3, 5, parent=1, depth=1, unwind_exc=exc[1])],
+        events=[
+            call(1000, 1, 90, task=1),
+            call(2000, 2, 8, task=1, caller=None),
+            raise_ev(3000, 2, 2, 10, exc[0], task=1),
+            handled_ev(4000, 1, 1, 98, exc[0], "catch", task=1),
+            call(5000, 3, 18, task=1, caller=None),
+            raise_ev(6000, 3, 3, 20, exc[1], task=1),
+            handled_ev(7000, 1, 1, 98, exc[1], "catch", task=1),
+            ret(8000, 1, 1, "undefined", task=1),
+        ],
+        tasks=[task(1, "the hooks run")])
+
+
+def two_routes_trace(tmp_path, monkeypatch):
+    """One `boom L10`, one `bubble L34`, two throws -- and one of them
+    takes a longer way home, through `relay L50`.
+
+    Both origin units are RE-RAISED, name the same rethrow site, end in
+    the same word and share an origin: every component is equal and the
+    ROUTE is the whole of the difference. A verdict that names no site is
+    exactly where R-G2 puts the route into the key.
+
+    Event ids: e1-e7 the short way (CALL runCase, CALL bubble, CALL boom,
+    RAISE, RAISE, HANDLED, RETURN); e8-e16 the long one, with relay
+    between runCase and bubble and a third RAISE.
+    """
+    exc = [ts_exc("Error", "kaboom", 1), ts_exc("Error", "kaboom", 2)]
+    return ts_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "runCase", 20], [FILE, "bubble", 30],
+               [FILE, "boom", 8], [FILE, "relay", 44]],
+        frames=[frame(1, 1, 7),
+                frame(2, 2, parent=1, depth=1, unwind_exc=exc[0]),
+                frame(3, 3, parent=2, depth=2, unwind_exc=exc[0]),
+                frame(1, 8, 16),
+                frame(4, 9, parent=4, depth=1, unwind_exc=exc[1]),
+                frame(2, 10, parent=5, depth=2, unwind_exc=exc[1]),
+                frame(3, 11, parent=6, depth=3, unwind_exc=exc[1])],
+        events=[
+            call(1000, 1, 20, task=1),
+            call(2000, 2, 30, task=1, caller=None),
+            call(3000, 3, 8, task=1, caller=None),
+            raise_ev(4000, 3, 3, 10, exc[0], task=1),
+            raise_ev(5000, 2, 2, 34, exc[0], task=1),
+            handled_ev(6000, 1, 1, 24, exc[0], "catch", task=1),
+            ret(7000, 1, 1, "null", task=1),
+            call(8000, 1, 20, task=1),
+            call(9000, 4, 44, task=1, caller=None),
+            call(10000, 2, 30, task=1, caller=None),
+            call(11000, 3, 8, task=1, caller=None),
+            raise_ev(12000, 7, 3, 10, exc[1], task=1),
+            raise_ev(13000, 6, 2, 34, exc[1], task=1),
+            raise_ev(14000, 5, 4, 50, exc[1], task=1),
+            handled_ev(15000, 4, 1, 24, exc[1], "catch", task=1),
+            ret(16000, 4, 1, "null", task=1),
+        ],
+        tasks=[task(1, "a case runs")])
+
+
 # -- (a) the ids that defeated the mask -------------------------------------
 def test_one_sink_in_three_frames_is_one_shape(tmp_path, monkeypatch, capsys):
     """Three throws, one `catch`, one line: ONE block counting three.
@@ -250,10 +342,15 @@ def test_one_sink_in_three_frames_is_one_shape(tmp_path, monkeypatch, capsys):
 
 def test_the_typescript_key_is_the_classifier_s_five_parts(
         tmp_path, monkeypatch):
-    """`(disposition, reason, site, origin site, masked verdict)` -- the
-    components AND the sentence, under a mask that exempts nothing (§3.1
-    as amended 2026-09-11). Stated as a tuple so a dropped component or a
-    reordering fails here rather than in a re-read."""
+    """`(disposition, reason, site, masked verdict, route)` -- the
+    components AND the sentence, under a mask that exempts nothing, with
+    the route present only where the verdict names no site (§3.1 as
+    amended 2026-09-11, twice). Stated as a tuple so a dropped component,
+    an added one or a reordering fails here rather than in a re-read.
+
+    These three swallows NAME their sink, so the route is `None` and the
+    origin is nowhere in the key -- which is what keeps a sink from being
+    split by the places that reached it (§3.2)."""
     run_id = hook_trace(tmp_path, monkeypatch)
     trace = _trace(run_id)
     idx = exceptions_typescript.Index(trace)
@@ -262,11 +359,11 @@ def test_the_typescript_key_is_the_classifier_s_five_parts(
         d = exceptions_typescript.classify(trace, unit, idx)
         keys.add(TYPESCRIPT.key(trace, unit, d,
                                 site_of(trace, unit, d, TYPESCRIPT),
-                                _masked(TYPESCRIPT.hops_line(trace, unit))))
+                                _masked(TYPESCRIPT.hops_line(trace, unit),
+                                        TYPESCRIPT.mask)))
     assert keys == {("swallowed", None, (HOOK, 56, "useAiAssist"),
-                     (HOOK, 12, "renderPanel"),
                      "SWALLOWED -- caught by catch at e# (useAiAssist L56) "
-                     "in f#, which returned")}, keys
+                     "in f#, which returned", None)}, keys
 
 
 # -- (b) one site text, two places ------------------------------------------
@@ -380,7 +477,7 @@ def test_the_rust_key_is_todays_tuple_verbatim(tmp_path, monkeypatch):
     for unit in idx.chains:
         d = exceptions_rust.classify(trace, unit, idx)
         site = site_of(trace, unit, d, RUST)
-        hops = _masked(RUST.hops_line(trace, unit))
+        hops = _masked(RUST.hops_line(trace, unit), RUST.mask)
         assert RUST.key(trace, unit, d, site, hops) == (
             d.tag, site, mask(d.verdict), hops if d.site is None else None)
         # the masked verdict is not the verdict: a key that forgot to mask
@@ -417,3 +514,108 @@ def test_a_rust_ambiguous_chain_is_counted_under_no_reason(
     assert reasons == {}, reasons
     assert cli.main(["exceptions", run_id]) == ANSWERED
     assert "ambiguous by reason:" not in out(capsys)
+
+
+# -- (j) one sink, two origins, and the line that says so -------------------
+def test_one_sink_reached_from_two_origins_is_one_shape_that_says_so(
+        tmp_path, monkeypatch, capsys):
+    """The key holds the SINK, not the places that reached it.
+
+    This is the `createHooks.dispatch L98` shape of the rung-2 lens, and
+    two of its siblings (`useBuilderContent.<anonymous> L72` with three
+    origins, `GuardedButton.<anonymous> L29` with two) read the same way.
+    An unconditional origin component would split all three -- 32 printed
+    places where the pre-registration locks 28 -- and §3.2 already says
+    what a shape does with an origin its key ignored: it flags it.
+    """
+    run_id = dispatch_trace(tmp_path, monkeypatch)
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    o = out(capsys)
+    assert o.count("SWALLOWED --") == 1, o
+    assert ("    SWALLOWED -- caught by catch at e4 (createHooks.dispatch "
+            "L98) in f1, which returned  [×2: e3, e6]") in o, o
+    assert "      origins: 2 distinct (first shown)" in o, o
+    # one message, so the only thing flagged is the thing that differs
+    assert "messages:" not in o, o
+    assert "dispositions: swallowed 2" in o, o
+
+
+# -- (k) the route joins where the verdict names no site (R-G2) -------------
+def test_two_rethrows_that_travelled_differently_are_two_shapes(
+        tmp_path, monkeypatch, capsys):
+    """A RE-RAISED verdict names no site of its own, so the unit's ORIGIN
+    is what it is keyed by -- and there the recorded journey is the
+    information the reader came for, which is R-G2's rule and now
+    TypeScript's too. These two share an origin, a rethrow site and a
+    last word; one of them went through `relay L50` and the other did
+    not."""
+    run_id = two_routes_trace(tmp_path, monkeypatch)
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    o = out(capsys)
+    assert o.count("RE-RAISED --") == 3, o
+    # no bracket on either: the line ends where the verdict does
+    assert ("    RE-RAISED -- raised again at e5 (bubble L34) → swallowed\n"
+            ) in o, o
+    assert ("    RE-RAISED -- raised again at e13 (bubble L34) → swallowed\n"
+            ) in o, o
+    assert "      hops: e4 (boom L10) → e5 (bubble L34)\n" in o, o
+    assert ("      hops: e12 (boom L10) → e13 (bubble L34) → "
+            "e14 (relay L50)\n") in o, o
+    assert "dispositions: swallowed 2, re-raised 3" in o, o
+
+
+# -- (l) the vary sets mask by the language's own rule ----------------------
+def test_the_vary_sets_mask_with_the_language_s_own_mask(
+        tmp_path, monkeypatch):
+    """`Shape.hops` and `Shape.details` are compared under `render.mask`,
+    not under whichever mask this module imported first.
+
+    NO TypeScript sentence carries a frame id in its ROUTE or its DETAIL
+    today: the hops line names event ids only, and the two details this
+    recorder writes name none. So the renderer and the classifier here are
+    stubs standing in for the first sentence that does -- what is fenced is
+    the CALL SITE. Masked by Rust's rule, two routes differing only in
+    `f32` and `f33` are two shapes, because `f32` is one of the four
+    spellings `MASK` spares for Rust's float types; masked by this
+    language's, they are one, and nothing is reported as varying.
+    """
+    run_id = two_tests_trace(tmp_path, monkeypatch)
+    trace = _trace(run_id)
+    idx = exceptions_typescript.Index(trace)
+    frames = {u.origin.id: 32 + i for i, u in enumerate(idx.units)}
+    assert sorted(frames.values()) == [32, 33], frames
+
+    def hops_line(_trace_, unit):
+        return ("hops: e1 (boom L10) → e2 (drain L7) in "
+                f"f{frames[unit.origin.id]}")
+
+    def classify(_trace_, unit, _idx_):
+        return Disposition(
+            "ambiguous", "AMBIGUOUS -- one sentence",
+            f"the handler's frame f{frames[unit.origin.id]} had not closed",
+            reason="suspended")
+
+    render = replace(TYPESCRIPT, hops_line=hops_line)
+    shapes, tally, reasons = group_units(trace, idx.units, idx, classify,
+                                         render)
+    assert len(shapes) == 1, [s.key for s in shapes]
+    assert vary_lines(shapes[0]) == [], vary_lines(shapes[0])
+    assert tally == {"ambiguous": 2} and reasons == {"suspended": 2}
+
+
+# -- (M3) a Rust invocation grows no reason line ----------------------------
+def test_a_rust_invocation_with_ambiguities_prints_no_reason_line(
+        tmp_path, monkeypatch, capsys):
+    """The whole way through, not just at the grouper: two Rust members,
+    two ambiguous chains, and no `ambiguous by reason:` line -- because a
+    Rust disposition carries no reason and the summed dict stays empty.
+    The Rust half of the invocation suite is the byte fence; this is the
+    one sentence of it about a line only TypeScript can print."""
+    rust_member(tmp_path, monkeypatch, fn="alpha", line=18, run_id=RUST_M1,
+                invocation=RUST_INV, cargo_args=CARGO)
+    rust_member(tmp_path, monkeypatch, fn="beta", line=28, run_id=RUST_M2,
+                invocation=RUST_INV, cargo_args=CARGO)
+    assert cli.main(["exceptions", RUST_INV]) == ANSWERED
+    o = out(capsys)
+    assert "dispositions: ambiguous 2" in o, o
+    assert "ambiguous by reason:" not in o, o
