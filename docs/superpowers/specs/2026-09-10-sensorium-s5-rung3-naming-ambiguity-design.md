@@ -91,7 +91,14 @@ is the parent code object's file as the rung-2 renderer already prints it
 (basename). A parent that unwound with the same serial cannot occur: it
 would itself be `left_frame`. A parent whose `closed_by` is `unwind` with
 `unwind_exc` absent prints the third variant with `<exc>` as the existing
-`fmt_exc` renders a missing value.
+`fmt_exc` renders a missing value. *(Amended 2026-09-11 at the final
+review: `fmt_exc` has no rendering of a missing value. `fmt.py`'s
+`fmt_exc(e)` reads `e["type"]` and `e["msg"]` off the dict it is handed —
+its only fallback is a `msg` listed in `exc.unread` — so `fmt_exc(None)`
+raises `AttributeError` and `fmt_exc({})` a `KeyError`. Nothing on this
+wire reaches it: a frame `closed_by: unwind` carries its `unwind_exc`, and
+rule 5's `_unwound_by_serial` never hands over one without. The code is
+unchanged; this sentence described a fallback that does not exist.)*
 
 What the reason claims and what it does not: it claims the serial left
 `f<child>` and never reached a traced handler, and that `f<parent>` went on.
@@ -136,7 +143,9 @@ across a rethrow), `orphan` (a HANDLED with an escaping `how` and no RAISE),
 `incomplete` (the recording is INCOMPLETE and the rule declined on it),
 `unnamed` (rule 5's catch-all). Every reason the module can print has
 exactly one key; a new reason without a key is a test failure
-(`tests/test_exceptions_typescript.py` walks the module's reason table).
+(`tests/test_exceptions_typescript_reasons.py` walks the module's reason
+table — *corrected 2026-09-11 at the final review; the file this rung's
+reason tests live in, per §6's own File Structure*).
 `unnamed` is the number this rung is measured on (§5, E6-TS‴).
 
 The invocation mode sums the line over members and prints it once, after its
@@ -280,11 +289,15 @@ record's §2.3 with its commit; found after, it is a finding.
 
 ## 6. Testing story
 
-- **Rules.** `tests/test_exceptions_typescript.py` gains the untraced-catcher
-  reason on hand-built traces (each variant; the origin's-own-frame
-  exclusion; a rejection kind), the window-scoped conjunct (the neighbour →
-  PROPAGATED; the suspended `.catch(async …)` still declines), and the
-  reason-table walk (every reason has a key). The T4-era hand-built traces
+- **Rules.** `tests/test_exceptions_typescript_reasons.py` gains the
+  untraced-catcher reason on hand-built traces (each variant; the
+  origin's-own-frame exclusion; a rejection kind) and the reason-table walk
+  (every reason has a key); `tests/test_exceptions_typescript_window.py`
+  gains the window-scoped conjunct (the neighbour → PROPAGATED; the
+  suspended `.catch(async …)` still declines). *(Corrected 2026-09-11 at
+  the final review: this line named `tests/test_exceptions_typescript.py`,
+  which the ceiling split off these two files and which this rung did not
+  touch.)* The T4-era hand-built traces
   use `how` words the transform actually emits (rung 2's final review, check
   B).
 - **Key.** `tests/test_exceptions_typescript_grouping.py` (new, under the
@@ -383,9 +396,12 @@ prose corrected against the shipped rule and the locked transcript header).*
 **P-rows** are the twelve decisions the plan made before any code existed
 (its own decisions table,
 `../plans/2026-09-10-sensorium-s5-rung3-naming-ambiguity.md`). **R-rows**
-are the twelve controller rulings made while shipping, in the order the
+are the thirteen controller rulings made while shipping, in the order the
 ledger's `Ruling:` lines carry them
-(`.superpowers/sdd/2026-09-10-sensorium-s5-rung3-naming-ambiguity/task-6-rulings.md`).
+(`.superpowers/sdd/2026-09-10-sensorium-s5-rung3-naming-ambiguity/task-6-rulings.md`
+carries the first twelve; **R13** was made at Task 6's review and is in the
+ledger's `Ruling:` lines only — *corrected 2026-09-11 at the final review,
+which counted the ledger against this list*).
 
 | # | What this document said, or left open | What rung 3 shipped, and why |
 |---|---|---|
@@ -422,6 +438,10 @@ cost clause (the ledger carries it in full):
   `translated` names the FRAME, whose printed qualname is `<anonymous>` —
   the locked sentence describes which frame, not its spelling; the
   hand-read table, which IS spelling-exact, is the E6-TS‴ instrument.
+- **R13.** `typescript/README.md`'s roadmap item is relabelled "(a later
+  rung)" — no number; the TypeScript ladder numbers rungs as they ship, and
+  a number assigned in a roadmap is a promise the next brainstorm may not
+  keep. Docs-only, made at Task 6's review and shipped at `ea0dc36`.
 
 **What the endpoints read, against what this document expected.** §5's
 table held: **E6-TS‴ 0 false names of 20**, **E6-TS′-fence 0 differences**

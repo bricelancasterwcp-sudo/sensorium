@@ -110,8 +110,9 @@ own reasons, `…, its caller f<n> later unwound with <exc>: a translation by
 untraced code, or a later failure, indistinguishable`, or, where the parent
 never closed, `…, its caller f<n> had not closed at the end of the
 recording; not followed` — naming the footprint and claiming nothing about
-what the untraced code did with the failure. **Rule 4's own absorbing
-conjunct**, unlike SWALLOWED's, IS scoped to the unit's own window: an
+what the untraced code did with the failure. **Rule 4's absorbing
+conjunct** is now scoped to the unit's own window, as rule 3's always was;
+what stays trace-global in both rules is the *escaping* conjunct. An
 absorbing handler in an earlier window no longer keeps a later rethrow out of
 `propagated`. A second line, `ambiguous by reason: escaped N, untraced
 catcher N`, prints beside the tally whenever a reason count is non-zero and

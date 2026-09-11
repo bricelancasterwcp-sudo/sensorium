@@ -156,10 +156,10 @@ class Renderer:
     `tag_order` rides along because the mode that groups a whole invocation
     prints a tally, and its order is the members' language's (§4.3).
 
-    The fields are TRANSPOSABLE -- six callables in a row -- so both rows
-    below are built with keywords: a positional list whose site and whose
-    site text swapped would type-check, run, and key every shape on the
-    wrong spelling (rung-2 review).
+    The fields are TRANSPOSABLE -- seven callables, plus `tag_order` -- so
+    both rows below are built with keywords: a positional list whose site
+    and whose site text swapped would type-check, run, and key every shape
+    on the wrong spelling (rung-2 review).
     """
     at: object                  # (trace, event) -> `qualname L<line>`
     hops_line: object           # (trace, unit) -> the route line, or None

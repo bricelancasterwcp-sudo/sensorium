@@ -42,7 +42,10 @@ THE FIVE DISPOSITIONS (design R7, R8)
 ``ambiguous``   THE DEFAULT, each reason printed: an escaped or opaque
                 handler, a handler frame that never finished, a handler
                 frame that then failed for its own reasons, a primitive
-                with no identity, a recording that stopped mid-run, and
+                with no identity, a recording that stopped mid-run, an
+                untraced catcher -- no handler row in the unit's own
+                window and the failure unwound into a traced parent that
+                caught it without a trace of its own (S5 rung 3) -- and
                 anything else. Nothing reaches SWALLOWED by falling
                 through.
 

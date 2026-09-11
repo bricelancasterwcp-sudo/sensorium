@@ -195,7 +195,7 @@ a `sensorium` that is not this branch's).
 | `.py` writing a `"lens"` key outside `lens.py` / `assemble*.py` | `grep -ln '"lens"' typescript/acceptance/*.py` then dropping `lens.py` and `assemble*.py` from the 5 it returns | **1**: `arm_line.py:72` (`"lens": env["LENS"]`) — the redaction surface the no-box-path rule binds |
 
 **The rung-2 E6-TS table, as the corpus stands today** (E6-TS requires set
-equality against it; the four new cases T4 adds are pre-registered at 0 each).
+equality against it; the four new cases T3 adds are pre-registered at 0 each).
 
 | Item | Command | Value |
 |---|---|---|
@@ -560,7 +560,7 @@ single, with their origin flags intact — which is `d4d7a21`'s fix
 
 `e6ts.py` over every TypeScript corpus case that asks an `exceptions`
 question: **21** of the 32 case directories, which is the 17 rung 2 locked
-plus T4's four. All 21 matched. The collector compares the printed
+plus T3's four. All 21 matched. The collector compares the printed
 `dispositions:` line WHOLE (a substring match would let `dispositions:
 swallowed 1` satisfy a case whose tally grew a term), counts `SWALLOWED --`
 lines independently of the tally and refuses a case where the two disagree,

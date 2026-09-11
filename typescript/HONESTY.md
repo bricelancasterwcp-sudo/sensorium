@@ -380,8 +380,8 @@ sentence's pin.
 `typescript/test/{escape,rt.throw,rt,transform}.test.mjs` and
 `typescript/test/golden/`; `typescript/probes/src/{swallow,escape}.probe.test.ts`;
 `tests/test_exceptions_typescript{,_ambiguous}.py` and
-`tests/test_exceptions_invocation_typescript.py`; the thirty-two throw-flow
-cases under `corpus/typescript/`; and vectors `v25`, `v27`, `v30`–`v34`.
+`tests/test_exceptions_invocation_typescript.py`; the twenty-one throw-flow cases
+under `corpus/typescript/` (of thirty-two); and vectors `v25`, `v27`, `v30`–`v34`.
 
 ## 5. Loss
 
