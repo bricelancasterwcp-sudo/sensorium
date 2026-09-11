@@ -461,7 +461,8 @@ def _propagated(trace, unit, idx) -> Disposition | None:
 
     Both of §3.3's conjuncts are here, each for the same reason: this
     verdict says nothing traced took the failure, and a recording holding a
-    handler row for that serial contradicts it. An ESCAPING handler is
+    handler row for that serial in this unit's own window (absorbing) or
+    anywhere in the trace (escaping) contradicts it. An ESCAPING handler is
     rule 5's escaped verdict; an ABSORBING one whose frame never closed is
     rule 5's suspended verdict -- a parked `.catch(async …)` callback is
     ordinary JavaScript, and its frame unwinding below is not evidence that
@@ -661,6 +662,9 @@ def run(trace, args, after: int) -> int:
     for unit in scope:
         d = classify(trace, unit, idx)
         if d.tag == "ambiguous":
+            # Unreachable by construction: the reason table test walks this
+            # module's syntax for an ambiguous verdict built without one.
+            assert d.reason is not None, d
             reasons[d.reason] = reasons.get(d.reason, 0) + 1
     # §2.3: under the tally, and only where there is an ambiguity to
     # explain. Zero entries are omitted -- a reason nothing wore is not a

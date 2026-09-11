@@ -403,28 +403,60 @@ def test_the_reason_line_is_absent_where_nothing_is_ambiguous(
     assert "ambiguous by reason:" not in o, o
 
 
+#: The line the trace below must print, and the two lines it must not.
+#: `REASON_ORDER` is `escaped, untraced catcher, suspended, …`; the units
+#: are built so that INSERTION order (origin order: suspended, escaped,
+#: untraced catcher) and ALPHABETICAL order (escaped, suspended, untraced
+#: catcher) both differ from it and from each other. Without a third unit
+#: all three orders agree, and `for r in sorted(reasons)` or `for r in
+#: reasons` would print a passing answer.
+IN_TABLE_ORDER = "ambiguous by reason: escaped 1, untraced catcher 1, suspended 1"
+IN_ALPHABETICAL_ORDER = (
+    "ambiguous by reason: escaped 1, suspended 1, untraced catcher 1")
+IN_INSERTION_ORDER = (
+    "ambiguous by reason: suspended 1, escaped 1, untraced catcher 1")
+
+
 def test_the_keys_print_in_the_tables_order_with_the_zeros_left_out(
         tmp_path, monkeypatch, capsys):
-    """One escaped unit and one untraced-catcher unit: two keys, in
-    `REASON_ORDER`, and none of the six that counted nothing."""
+    """One suspended unit, one escaped unit and one untraced-catcher unit:
+    three keys in `REASON_ORDER`, and none of the five that counted nothing.
+
+    §2.3 fixes the ORDER so two answers are comparable key by key, which is
+    a claim only three keys can fence: the line is pinned whole, and the
+    two orders a plausible mutation would produce are pinned absent.
+    """
+    pending = ts_exc("Error", "tile 7 missing", 3, kind="rejection")
     other = ts_exc("Error", "no such tile", 2)
     run_id = ts_trace(
-        tmp_path / "two", monkeypatch,
-        codes=[[FILE, "loadConfig", 15], [FILE, "parse", 8],
+        tmp_path / "three", monkeypatch,
+        codes=[[FILE, "poll", 40], [FILE, "retry", 60],
+               [FILE, "loadConfig", 15], [FILE, "parse", 8],
                [FILE, "boot", 30], [FILE, "read", 40]],
-        frames=[frame(1, 1, 5),
-                frame(2, 2, parent=1, depth=1, unwind_exc=BOOM),
-                frame(3, 6, 9),
-                frame(4, 7, parent=3, depth=1, unwind_exc=other)],
-        events=[call(1000, 1, 15, task=1), call(2000, 2, 8, task=1),
-                raise_ev(3000, 2, 2, 10, BOOM, task=1),
-                handled_ev(4000, 1, 1, 18, BOOM, "catch_escaped", task=1),
-                ret(5000, 1, 1, task=1),
-                call(6000, 3, 30, task=1), call(7000, 4, 40, task=1),
-                raise_ev(8000, 4, 4, 42, other, task=1),
-                ret(9000, 3, 3, task=1)],
+        frames=[frame(1, 1, unwind_exc=pending),
+                frame(2, 3, closed_by=None, kind="coroutine"),
+                frame(3, 6, 10),
+                frame(4, 7, parent=3, depth=1, unwind_exc=BOOM),
+                frame(5, 11, 14),
+                frame(6, 12, parent=5, depth=1, unwind_exc=other)],
+        events=[call(1000, 1, 40, task=1),
+                raise_ev(2000, 1, 1, 42, pending, task=1),
+                call(3000, 2, 60, task=1),
+                handled_ev(4000, 2, 2, 62, pending,
+                           "sink_empty_catch_callback", task=1),
+                yield_ev(5000, 2, 2, task=1),
+                call(6000, 3, 15, task=1), call(7000, 4, 8, task=1),
+                raise_ev(8000, 4, 4, 10, BOOM, task=1),
+                handled_ev(9000, 3, 3, 18, BOOM, "catch_escaped", task=1),
+                ret(10000, 3, 3, task=1),
+                call(11000, 5, 30, task=1), call(12000, 6, 40, task=1),
+                raise_ev(13000, 6, 6, 42, other, task=1),
+                ret(14000, 5, 5, task=1)],
         tasks=[task(1, "config > loads")])
     assert cli.main(["exceptions", run_id]) == ANSWERED
     o = out(capsys)
-    assert "dispositions: ambiguous 2" in o, o
-    assert "ambiguous by reason: escaped 1, untraced catcher 1" in o, o
+    assert "dispositions: ambiguous 3" in o, o
+    # A WHOLE line, so a fourth key appended to it is a failure too.
+    assert IN_TABLE_ORDER in o.splitlines(), o
+    assert IN_ALPHABETICAL_ORDER not in o, o
+    assert IN_INSERTION_ORDER not in o, o
