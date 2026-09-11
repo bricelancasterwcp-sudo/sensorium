@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.11.0 — 2026-09-11
+
+**The catch-all gets a name.** S5 rung 3 closes rung 2's Gap 4: the
+seventeen blocks reading *"no rule of this recorder reaches a verdict
+here"* now read a reason, `untraced catcher`, in three variants — `its
+caller f<n> returned; not followed`, `later unwound with <exc>: a
+translation by untraced code, or a later failure, indistinguishable`, and
+`had not closed at the end of the recording; not followed` — each
+predicted by a human from source before this code existed. Rule 4's
+absorbing conjunct is now window-scoped, not trace-global, so a logged
+rethrow to the harness reads `PROPAGATED` where rung 2 read this same
+catch-all (`corpus/typescript/logged_rethrow_to_harness`); a second tally
+line prints only when non-empty — `ambiguous by reason: escaped 21,
+untraced catcher 32` on the kept lens. Python **0.11.0** (the reason, the
+window scope, the site-bearing TypeScript key — the verdict's own words
+under a mask `\b[ef]\d+\b` that exempts nothing, closing Gap 1's borrowed
+Rust float-type exclusion; the origin site enters only where the verdict
+names none of its own); **`sensorium-ts` stays 0.2.0**, no runtime,
+transform or wire change. `TRACE_FORMAT` stays **4**, wire **v1**; nothing
+is recorded this rung — one re-read of the kept rung-2 invocation, hashed
+before and after, against a pre-registration byte-locked first
+(`docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung3.md` §1).
+
+Four new corpus cases and the `translated` re-pin bring
+`corpus/typescript/` to **32**; one new probe marker,
+`callback_bare_rethrow` (`.catch((e) => { throw e })` → `catch_callback`),
+closes a rung-2 debt with no probe pin; every acceptance script resolves
+`<repo root>/.venv/bin/sensorium` and refuses outside it, only `lens.py`
+stamps the `lens` label, and the E7 checker prints its matching rule.
+
+**All eight endpoints ran once, none fired its rule's failure word — the
+rung ships DONE** (record §3, §5): **E6-TS‴** 0 false names over 20
+blocks, 17 of 17 rows named, `unnamed` 0; **E6-TS′-fence** 0 differences
+over 29 gated lines; **E-places** 28 of 28 SWALLOWED blocks; **E6-TS** 21
+of 21 corpus cases; **E8‴** 33 of 33 markers; **E7‴** 0 over 9 needles;
+**E-legacy**/**E-branch** intact. Left open, none a stop: a block can cover
+origins from two rows sharing one parent frame; `[×3 …]` was unprintable,
+its arithmetic conserved instead (`[×132 over 11 processes …]`,
+130+1+1); and `tests/test_exceptions_python*.py` matched no file, the
+fence holding on intent regardless. `HONESTY.md` §4 and blind spot 27 are
+amended; `docs/query.md` gains the reason line; `CARRIED-DEBT.md` closes
+Gap 1, Gap 4, the neighbour and the probe-marker debt, dated to this
+record, and gains new debts.
+
 ## 0.10.0 — 2026-09-10
 
 **`exceptions` answers on a TypeScript trace.** S5 rung 2 gives the throw-flow
