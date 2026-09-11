@@ -291,23 +291,26 @@ df0fe871d17b7762f716bb326cd841425505895a13fe9777d4357ed7f04518b7  docs/superpowe
 Every value below is the output of the command beside it, run on this box on
 2026-09-11 between 17:55 and 18:20 local time (`-05:00`) — the session that
 opens rung 4 — before any file under `src/`, `typescript/src/`, `rust/` or
-`corpus/` was touched. The lens is the VTT frontend **copy** at
-`/mnt/extra/sensorium-s5/vtt/frontend` (VTT `0091e97`);
-`~/workspace/projects/vtt` was neither read nor touched, and the lens was
-read here by `sha256sum -c` and by opening three functions of
-`src/lib/diceQueue.ts` and the whole of `src/lib/diceQueue.test.ts`, all of
-which only read. The store this rung records into is
-`/mnt/extra/sensorium-s5/store-rung4ts`; it does not exist yet. Box paths
-appear in this table because a pin without its location is not a pin; the
-rule that no box path is committed binds every other file this rung
-produces, as it did at rung 1, slice 2, rung 2 and rung 3.
+`corpus/` was touched. The lens is the VTT frontend **copy** (VTT `0091e97`)
+that the first row below pins, abbreviated `<lens>` throughout the rest of
+this rung's files; `~/workspace/projects/vtt` was neither read nor touched,
+and the lens was read here by `sha256sum -c` and by opening three functions
+of `src/lib/diceQueue.ts` and the whole of `src/lib/diceQueue.test.ts`, all
+of which only read. The store this rung records into is the second row's,
+abbreviated `<store>`; it does not exist yet.
 
-`<lens>` abbreviates `/mnt/extra/sensorium-s5/vtt/frontend` and `<store>`
-abbreviates `/mnt/extra/sensorium-s5/store-rung4ts` throughout the rest of
-this rung's files.
+Box paths are written **only in the pin tables of this section** — this
+table and §2.1's, §2.1 being part of §2 — because a pin without its location
+is not a pin, and the tables are the one place this record sanctions them.
+This prose names the lens and the store by their labels alone, so every box
+path in §2 is a table row. The rule that no box path is committed binds
+every other file this rung produces, as it did at rung 1, slice 2, rung 2
+and rung 3.
 
 | Item | Command | Value |
 |---|---|---|
+| `<lens>`, the label | `ls -d /mnt/extra/sensorium-s5/vtt/frontend` | exists — the VTT frontend **copy** at VTT `0091e97`, read-only for the whole rung. `<lens>` abbreviates this path throughout the rest of this rung's files |
+| `<store>`, the label | `ls -d /mnt/extra/sensorium-s5/store-rung4ts` | **does not exist** at T0 — `<store>` abbreviates this path throughout the rest of this rung's files; it is created empty by the first arm, reached only through `SENSORIUM_DIR`, and hashed at T9 |
 | node | `node --version` | `v24.16.0` |
 | npm | `npm --version` | `11.13.0` |
 | nproc | `nproc` | `16` |
@@ -331,7 +334,6 @@ rung quotes instead of a path.
 | the lens line | `cat typescript/acceptance/LENS.txt` | `VTT frontend at 0091e97 — vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)` — one line, the whole file |
 | lens manifest, verified | `cd <lens> && sha256sum -c /mnt/extra/sensorium-s5/manifest-rung1-before.txt` | exit `0`, **748 OK, 0 FAILED** — the lens is byte-identical to the state rung 1 left it in and rungs 2 and 3 read it in, so the hand count read the same source the arms will record. Manifest file sha256 `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8`, 748 lines |
 | the subject | `wc -l <lens>/src/lib/diceQueue.ts <lens>/src/lib/diceQueue.test.ts` | `212` and `188` lines; `parseDiceGroups` at line 68, `forcedDiceFromSource` at 127, `buildDiceQueueEntry` at 194 — the three the F arms focus |
-| the store | `ls -d /mnt/extra/sensorium-s5/store-rung4ts` | **does not exist** at T0 — `<store>` is created empty by the first arm and hashed at T9 |
 | the rung-2 store, not read | `du -sh /mnt/extra/sensorium-s5/store-rung2ts` | `6.2G` — not opened by this rung; spec §8 leaves freeing it to Brice, named in the ledger |
 
 ### 2.2 The ceilings, and the counts this rung's endpoints move against
