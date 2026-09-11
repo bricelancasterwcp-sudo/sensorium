@@ -161,7 +161,11 @@ and `origin site` is the origin RAISE's code object and line. No masking, no
 exemption. The `Renderer` gains one field, `key`, a callable from a unit and
 its disposition to the tuple; `RUST.key` is the masked-prose key exactly as
 today, so Rust output is byte-identical and the nineteen fenced Rust tests
-stay unchanged.
+stay unchanged. (Amended 2026-09-11 at Task 2: the tuple carries a fifth
+component, the verdict's own words under a TypeScript mask `\b[ef]\d+\b`
+that exempts nothing — components alone merged same-origin re-raises that
+ended differently and same-origin propagations naming different tests;
+Rust's key and mask are untouched.)
 
 ### 3.2 The new reason's site
 

@@ -13,11 +13,11 @@ same site, with the same words once their ids are masked, are one shape.
 WHAT A GROUP IS KEYED ON, AND WHAT IT DELIBERATELY IS NOT
 ---------------------------------------------------------
 The key is the language's (`Renderer.key`): Rust's is `(tag, site, masked
-verdict, route)` and TypeScript's `(tag, reason, site, origin site)`, which
-reads no sentence at all (§3.1, and `_typescript_key` for what the prose
-key cost). The SITE is in both, and it is the one the verdict is ABOUT --
-the sink for a swallow, the arm for an escaped `Err`, and the unit's ORIGIN
-for every verdict that names no site -- and it comes from the classifier
+verdict, route)` and TypeScript's `(tag, reason, site, origin site, masked
+verdict)`, whose mask exempts nothing (§3.1, and `_typescript_key` for what
+the exemption cost). The SITE is in both, and it is the one the verdict is
+ABOUT -- the sink for a swallow, the arm for an escaped `Err`, and the
+unit's ORIGIN for every verdict that names no site -- from the classifier
 (`Disposition.site`), never from parsing the sentence back out of itself.
 
 A site is `(file, line, qualname)`, not the `qualname L<line>` a verdict
@@ -91,12 +91,20 @@ from sensorium.query.fmt import fmt_event, fmt_exc
 #: Rust FLOAT TYPE NAMES (ruling R-G8): `f32`/`f64` are spellings a panic
 #: message or an error text carries -- *"expected f64, found f32"* -- and
 #: masking them to `f#` merged two verdicts that name different types.
-#: Keying on the classifier's own components instead of on masked prose is
-#: the better answer, and rung 3 took it for TypeScript
-#: (`_typescript_key`), where this guard had split one sink three ways.
-#: Rust's key is still prose and still has to live with both halves of the
-#: trade (design R3).
+#: RUST'S ONLY: the TypeScript key uses `TS_MASK` below, which exempts
+#: nothing, because this guard is about a spelling only Rust has.
 MASK = re.compile(r"\b(?!f(?:16|32|64|128)\b)([ef])\d+\b")
+
+#: The same reference, on the TypeScript wire, with NO exemption (ruling,
+#: 2026-09-11). The carve-out above is Rust's type-name rule and nothing
+#: else: `f32` and `f64` are how Rust spells a float, and a panic message
+#: saying *"expected f64, found f32"* must keep its words. No type name on
+#: THIS wire spells that way -- JavaScript has `number`, and the only
+#: `f<n>` and `e<n>` a TypeScript verdict prints are ids this tool minted
+#: -- so exempting four of them was a guard borrowed from a language whose
+#: problem it is not, and it split one `useAiAssist` sink three ways
+#: (frames 32, 128 and 174) on the rung-2 lens. That was Gap 1.
+TS_MASK = re.compile(r"\b([ef])\d+\b")
 
 #: How many ids a bracket names before it says only how many more there
 #: are. A group of 303 is a fact about a site, not a list to read.
@@ -107,6 +115,13 @@ def mask(text: str) -> str:
     """`e412` -> `e#`, `f204` -> `f#`, in printed text only. `f64` and its
     three siblings are type names, not frames, and are left alone."""
     return MASK.sub(r"\1#", text)
+
+
+def ts_mask(text: str) -> str:
+    """`e412` -> `e#`, `f204` -> `f#`, `f32` -> `f#`. Every id, in printed
+    TypeScript text: this recorder mints `e<n>` and `f<n>` and nothing on
+    its wire is spelled that way for another reason."""
+    return TS_MASK.sub(r"\1#", text)
 
 
 def _masked(text: str | None) -> str | None:
@@ -171,27 +186,38 @@ def _rust_key(trace, unit, d, site, hops):
 
 
 def _typescript_key(trace, unit, d, site, hops):
-    """`(disposition, reason, site, origin site)` -- the classifier's own
-    parts, and no sentence at all (§3.1).
+    """`(disposition, reason, site, origin site, masked verdict)` -- the
+    classifier's parts AND the sentence, under a mask that exempts nothing
+    (§3.1 as amended 2026-09-11).
 
-    The prose key split ONE place three ways on the rung-2 lens: three
-    throws absorbed by one `catch` in `useAiAssist`, whose verdicts differ
-    only in the frame id they name, and `f32` and `f128` are two of the
-    four ids `mask` leaves alone because Rust spells its float types that
-    way (R-G8). Nothing here is read back out of a sentence, so no guard
-    of the mask's can reach the grain again.
+    WHAT GAP 1 ACTUALLY WAS. One `catch` in `useAiAssist` absorbed three
+    throws, in frames 32, 128 and 174, and the rung-2 key printed three
+    blocks about one line. The cause was not that the key held the
+    sentence: it was that `MASK` exempts `f16`/`f32`/`f64`/`f128` because
+    RUST spells its float types that way (R-G8), so two of those three
+    frame ids survived masking as if they were type names. `TS_MASK` fixes
+    exactly that, and on this wire there is nothing for it to break: the
+    only `e<n>` and `f<n>` a TypeScript verdict prints are ids this tool
+    minted.
 
-    Four components for TypeScript too, so one dict holds every shape
-    without a branch at the lookup -- but not the same four. The REASON
-    joins, because two ambiguities at one site that say no more for
-    different reasons are two facts: a handler that let a rendering out is
-    not a handler nobody traced. The route does not, and `hops` is unread
-    here: the ORIGIN's site is the fourth component for every disposition,
-    which is what the route was carrying for a verdict that names no site
-    of its own.
+    WHY THE SENTENCE STAYS. Dropping it merged things this recorder can
+    tell apart. Two re-raises from one origin whose last raises ended
+    differently (`-> swallowed` and `-> propagated`) are one key without
+    it; so are two propagations from one origin naming two different
+    failing tests. Both are distinctions the words carry and no component
+    does, and a block that printed one test name over a `[x2]` bracket
+    would be a sentence about the wrong run.
+
+    The REASON is a component of its own even so, because two ambiguities
+    at one site that say no more for different reasons are two facts, and
+    their sentences can differ only in a clause a reader has to parse.
+    The ROUTE is not one, and `hops` is unread here: the ORIGIN's site is
+    in the key for every disposition, which is what the route carried for
+    a verdict that names no site of its own.
     """
     return (d.tag, d.reason, site,
-            exceptions_typescript._site(trace, unit.origin))
+            exceptions_typescript._site(trace, unit.origin),
+            ts_mask(d.verdict))
 
 
 RUST = Renderer(at=exceptions_rust._at,
@@ -214,7 +240,10 @@ TYPESCRIPT = Renderer(at=exceptions_typescript._at,
 @dataclass
 class Shape:
     """One printed block: the first chain of a group, and the group."""
-    key: tuple                  # the renderer's own components (`Renderer`)
+    #: The renderer's own (`Renderer.key`): Rust's `(tag, site, masked
+    #: verdict, route)`, TypeScript's `(tag, reason, site, origin site,
+    #: masked verdict)`.
+    key: tuple
     tag: str
     first: object               # the first Chain of the shape, origin order
     disposition: object         # ITS Disposition -- the one printed

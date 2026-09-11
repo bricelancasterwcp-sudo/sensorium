@@ -34,7 +34,7 @@ from sensorium.exit import ANSWERED
 from sensorium.query import exceptions_rust, exceptions_typescript
 from sensorium.query.exceptions_group import (RUST, TYPESCRIPT, _masked,
                                               group_chains, group_units, mask,
-                                              site_of)
+                                              site_of, ts_mask)
 from sensorium.store.reader import Trace
 from tests.test_exceptions_rust_grouping import (escaped_trace,
                                                  repeat_sink_trace)
@@ -122,13 +122,15 @@ def two_files_trace(tmp_path, monkeypatch):
         tasks=[task(1, "a config file is loaded")])
 
 
-def one_parent_trace(tmp_path, monkeypatch):
+def one_parent_trace(tmp_path, monkeypatch, *, second=9):
     """Two `Bomb` frames throw under ONE `renderWithBoundary`, and untraced
     code catches both: the untraced-catcher reason's site is the parent's
-    code object (P3), so the two are one shape.
+    code object (P3), and the two sentences differ only in the frame id
+    they name -- so they are one shape once the mask has done its work.
 
-    The throwers are f2 and f16 -- `f16` is a float type name the mask
-    leaves alone, which is exactly what split them before.
+    The second thrower's frame id is the caller's choice: `f9` masks under
+    any reading, `f16` is one of the four `MASK` exempts as a Rust float
+    type name, and this recorder's mask exempts nothing.
 
     Event ids: e1 CALL renderWithBoundary, e2 CALL Bomb, e3 RAISE, e4 CALL
     Bomb, e5 RAISE, e6 RETURN.
@@ -137,7 +139,7 @@ def one_parent_trace(tmp_path, monkeypatch):
                                                         "render failed", 2)]
     frames = [frame(1, 1, 6),
               frame(2, 2, parent=1, depth=1, unwind_exc=boom[0])]
-    while len(frames) < 15:
+    while len(frames) < second - 1:
         frames.append(frame(2, 1))
     frames.append(frame(2, 4, parent=1, depth=1, unwind_exc=boom[1]))
     return ts_trace(
@@ -149,10 +151,78 @@ def one_parent_trace(tmp_path, monkeypatch):
             call(2000, 2, 8, task=1, caller=None),
             raise_ev(3000, 2, 2, 12, boom[0], task=1),
             call(4000, 2, 8, task=1, caller=None),
-            raise_ev(5000, 16, 2, 12, boom[1], task=1),
+            raise_ev(5000, second, 2, 12, boom[1], task=1),
             ret(6000, 1, 1, "null", task=1),
         ],
         tasks=[task(1, "the panel renders")])
+
+
+def rethrown_trace(tmp_path, monkeypatch):
+    """One `boom` line, one `bubble` line, two throws -- and the two
+    rethrows END differently: the first is absorbed by a `catch` in a
+    `runCase` that returned, the second leaves a `runCase` that unwound.
+
+    Every component of the two RE-RAISED units is equal (tag, no reason,
+    the same origin site both as the site and as the origin); the last
+    word of the sentence is the whole of the difference.
+
+    Event ids: e1 CALL runCase, e2 CALL bubble, e3 CALL boom, e4 RAISE
+    (origin), e5 RAISE (the rethrow), e6 HANDLED, e7 RETURN; then e8-e12
+    the same without the handler or the return.
+    """
+    exc = [ts_exc("Error", "kaboom", 1), ts_exc("Error", "kaboom", 2)]
+    return ts_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "runCase", 20], [FILE, "bubble", 30],
+               [FILE, "boom", 8]],
+        frames=[frame(1, 1, 7),
+                frame(2, 2, parent=1, depth=1, unwind_exc=exc[0]),
+                frame(3, 3, parent=2, depth=2, unwind_exc=exc[0]),
+                frame(1, 8, parent=None, depth=0, unwind_exc=exc[1]),
+                frame(2, 9, parent=4, depth=1, unwind_exc=exc[1]),
+                frame(3, 10, parent=5, depth=2, unwind_exc=exc[1])],
+        events=[
+            call(1000, 1, 20, task=1),
+            call(2000, 2, 30, task=1, caller=None),
+            call(3000, 3, 8, task=1, caller=None),
+            raise_ev(4000, 3, 3, 10, exc[0], task=1),
+            raise_ev(5000, 2, 2, 34, exc[0], task=1),
+            handled_ev(6000, 1, 1, 24, exc[0], "catch", task=1),
+            ret(7000, 1, 1, "null", task=1),
+            call(8000, 1, 20, task=1),
+            call(9000, 2, 30, task=1, caller=None),
+            call(10000, 3, 8, task=1, caller=None),
+            raise_ev(11000, 6, 3, 10, exc[1], task=1),
+            raise_ev(12000, 5, 2, 34, exc[1], task=1),
+        ],
+        tasks=[task(1, "a case runs")])
+
+
+def two_tests_trace(tmp_path, monkeypatch):
+    """The same `boom` line throws in two TESTS, and both failures reach
+    the harness. One origin site, one disposition, no reason -- and two
+    verdicts, because a PROPAGATED sentence names the test that failed.
+
+    Event ids: e1 CALL runCase, e2 CALL boom, e3 RAISE; e4-e6 the same in
+    the second test.
+    """
+    exc = [ts_exc("Error", "kaboom", 1), ts_exc("Error", "kaboom", 2)]
+    return ts_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "runCase", 20], [FILE, "boom", 8]],
+        frames=[frame(1, 1, parent=None, depth=0, unwind_exc=exc[0]),
+                frame(2, 2, parent=1, depth=1, unwind_exc=exc[0]),
+                frame(1, 4, parent=None, depth=0, unwind_exc=exc[1]),
+                frame(2, 5, parent=3, depth=1, unwind_exc=exc[1])],
+        events=[
+            call(1000, 1, 20, task=1),
+            call(2000, 2, 8, task=1, caller=None),
+            raise_ev(3000, 2, 2, 10, exc[0], task=1),
+            call(4000, 1, 20, task=2),
+            call(5000, 2, 8, task=2, caller=None),
+            raise_ev(6000, 4, 2, 10, exc[1], task=2),
+        ],
+        tasks=[task(1, "loads a config"), task(2, "rejects a bad config")])
 
 
 # -- (a) the ids that defeated the mask -------------------------------------
@@ -164,6 +234,7 @@ def test_one_sink_in_three_frames_is_one_shape(tmp_path, monkeypatch, capsys):
     different strings about one place.
     """
     assert mask("f32 f128 f174") == "f32 f128 f#"
+    assert ts_mask("f32 f128 f174") == "f# f# f#"
     run_id = hook_trace(tmp_path, monkeypatch)
     assert cli.main(["exceptions", run_id]) == ANSWERED
     o = out(capsys)
@@ -177,11 +248,12 @@ def test_one_sink_in_three_frames_is_one_shape(tmp_path, monkeypatch, capsys):
     assert "origins:" not in o and "messages:" not in o, o
 
 
-def test_the_typescript_key_is_the_classifier_s_four_parts(
+def test_the_typescript_key_is_the_classifier_s_five_parts(
         tmp_path, monkeypatch):
-    """`(disposition, reason, site, origin site)` -- no prose, no mask, no
-    route (§3.1). Stated as a tuple so a fifth component or a reordering
-    fails here."""
+    """`(disposition, reason, site, origin site, masked verdict)` -- the
+    components AND the sentence, under a mask that exempts nothing (§3.1
+    as amended 2026-09-11). Stated as a tuple so a dropped component or a
+    reordering fails here rather than in a re-read."""
     run_id = hook_trace(tmp_path, monkeypatch)
     trace = _trace(run_id)
     idx = exceptions_typescript.Index(trace)
@@ -192,7 +264,9 @@ def test_the_typescript_key_is_the_classifier_s_four_parts(
                                 site_of(trace, unit, d, TYPESCRIPT),
                                 _masked(TYPESCRIPT.hops_line(trace, unit))))
     assert keys == {("swallowed", None, (HOOK, 56, "useAiAssist"),
-                     (HOOK, 12, "renderPanel"))}, keys
+                     (HOOK, 12, "renderPanel"),
+                     "SWALLOWED -- caught by catch at e# (useAiAssist L56) "
+                     "in f#, which returned")}, keys
 
 
 # -- (b) one site text, two places ------------------------------------------
@@ -213,21 +287,64 @@ def test_two_places_that_print_one_site_text_stay_two_shapes(
     assert "dispositions: swallowed 2" in o, o
 
 
-# -- (c) the untraced catcher groups on the parent --------------------------
+# -- (c)/(i) the untraced catcher groups on the parent ----------------------
 def test_two_untraced_catcher_units_under_one_parent_are_one_shape(
         tmp_path, monkeypatch, capsys):
     """The reason's site is the parent's code object, so the shape is the
-    PLACE the untraced catcher sits in -- and the tally by reason counts
-    both units, from the grouper's own pass."""
-    run_id = one_parent_trace(tmp_path, monkeypatch)
+    PLACE the untraced catcher sits in -- and the two sentences, which
+    differ only in the frame id each names, mask to one string.
+
+    Run twice, because the ids are the point: `f9` masks under any
+    reading, and `f16` is one of the four `MASK` exempts as a Rust float
+    type name. Both are frame ids on this wire and both must mask.
+    """
+    for i, (second, tmp) in enumerate([(9, tmp_path / "a"),
+                                       (16, tmp_path / "b")]):
+        run_id = one_parent_trace(tmp, monkeypatch, second=second)
+        assert cli.main(["exceptions", run_id]) == ANSWERED
+        o = out(capsys)
+        assert o.count("AMBIGUOUS --") == 1, (second, o)
+        assert ("    AMBIGUOUS -- caught by untraced code inside "
+                "renderWithBoundary (config.ts): f2 unwound, its caller f1 "
+                "returned; not followed  [×2: e3, e5]") in o, (second, o)
+        assert "dispositions: ambiguous 2" in o, (second, o)
+        assert "ambiguous by reason: untraced catcher 2" in o, (second, o)
+
+
+# -- (g)/(h) what the sentence carries and no component does ----------------
+def test_two_rethrows_from_one_origin_that_ended_differently_are_two_shapes(
+        tmp_path, monkeypatch, capsys):
+    """A RE-RAISED verdict points at what became of the LAST raise, and
+    that word is not a component of the key: same tag, no reason, one
+    origin site, one rethrow site. Merging them would print `→ swallowed`
+    over a bracket counting a throw that reached the harness."""
+    run_id = rethrown_trace(tmp_path, monkeypatch)
     assert cli.main(["exceptions", run_id]) == ANSWERED
     o = out(capsys)
-    assert o.count("AMBIGUOUS --") == 1, o
-    assert ("    AMBIGUOUS -- caught by untraced code inside "
-            "renderWithBoundary (config.ts): f2 unwound, its caller f1 "
-            "returned; not followed  [×2: e3, e5]") in o, o
-    assert "dispositions: ambiguous 2" in o, o
-    assert "ambiguous by reason: untraced catcher 2" in o, o
+    assert o.count("RE-RAISED --") == 2, o
+    assert ("RE-RAISED -- raised again at e5 (bubble L34) → swallowed"
+            ) in o, o
+    assert ("RE-RAISED -- raised again at e12 (bubble L34) → propagated"
+            ) in o, o
+    assert "[×" not in o, o
+    assert "dispositions: swallowed 1, re-raised 2, propagated 1" in o, o
+
+
+def test_two_propagations_from_one_origin_naming_two_tests_are_two_shapes(
+        tmp_path, monkeypatch, capsys):
+    """A PROPAGATED verdict names the test that failed and carries no site
+    of its own, so every component of these two is equal. The test NAME is
+    the whole of the difference, and it is the fact the reader came for."""
+    run_id = two_tests_trace(tmp_path, monkeypatch)
+    assert cli.main(["exceptions", run_id]) == ANSWERED
+    o = out(capsys)
+    assert o.count("PROPAGATED --") == 2, o
+    assert ('PROPAGATED -- to the harness: test "loads a config" failed'
+            ) in o, o
+    assert ('PROPAGATED -- to the harness: test "rejects a bad config" '
+            'failed') in o, o
+    assert "[×" not in o, o
+    assert "dispositions: propagated 2" in o, o
 
 
 def test_the_grouper_counts_the_reasons_it_already_classified(
