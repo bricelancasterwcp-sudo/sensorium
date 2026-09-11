@@ -51,7 +51,7 @@
 |---|---|---|
 | P1 | `Disposition.reason` is a new optional field on the shared dataclass, defaulting to `None` | Rust and Python construct `Disposition` positionally with three or four fields; a defaulted trailing field changes none of them |
 | P2 | The reason key follows the SENTENCE printed: an orphan escaping HANDLED prints the escaped sentence, so its key is `escaped`; `orphan` is the key of an orphan that reaches the catch-all | a reader who tallies `escaped 13` must find thirteen escaped sentences above it |
-| P3 | The untraced-catcher site is `(parent code file, child CALL event line, parent qualname)`; the verdict prints qualname and file basename only | the key needs a line and the child's call line is the place in the parent the failure came back to; the sentence names the frame, not a line, because the catcher's own line is not on the wire |
+| P3 | The untraced-catcher site is `(parent code file, parent code firstlineno, parent qualname)` — the parent code object.s own identity; the verdict prints qualname and file basename only | a CALL event.s line is the callee.s definition line, not a place in the parent, so the parent.s own first line is the one line that names the parent; the sentence names the frame, not a line, because the catcher.s own line is not on the wire |
 | P4 | `_untraced_catcher` runs first inside `_ambiguous` after the escaped check, guarded by `not unit.handled` | the open/translated checks read handlers in the window and the guard makes them moot |
 | P5 | `group_units` returns a third value; `group_chains` slices it off | every Rust caller keeps its two-tuple; the invocation mode is the only consumer of three |
 | P6 | `Renderer.key` takes `(trace, unit, d, site, hops)`; `RUST.key` reproduces today's tuple verbatim including `mask(d.verdict)` | the Rust fence is a tuple-equality test, not prose |
@@ -98,7 +98,7 @@
 - Create: `tests/test_exceptions_typescript_reasons.py`, `tests/test_exceptions_typescript_window.py`, `docs/trace-format/vectors/v34-exceptions-typescript-untraced-catcher.json`; a row in `docs/trace-format/VECTORS.md`
 
 **Interfaces:**
-- Consumes: `Raise` (`origin`, `serial`, `handled`, `escaping`, `absorbing`, `orphan`), `Index.left_frame(serial)`, `Index.rejections`, `trace.frame(id)` (`parent_id`, `closed_by`, `unwind_exc`, `code_id`, `call_event_id`), `trace.code(id)` (`file`, `qualname`), `trace.event(id).line`, `fmt_exc`.
+- Consumes: `Raise` (`origin`, `serial`, `handled`, `escaping`, `absorbing`, `orphan`), `Index.left_frame(serial)`, `Index.rejections`, `trace.frame(id)` (`parent_id`, `closed_by`, `unwind_exc`, `code_id`, `call_event_id`), `trace.code(id)` (`file`, `qualname`), `trace.code(id).firstlineno`, `fmt_exc`.
 - Produces: `Disposition.reason` on every ambiguous disposition; `REASON_ORDER`; `run` printing `ambiguous by reason: …`.
 
 - [ ] **Step 1: Failing tests.** In `tests/test_exceptions_typescript_reasons.py` (helpers from `tests/ts_traces.py`; `FILE`, `cli`, `ANSWERED`, `out` as the sibling file imports them):
@@ -124,7 +124,7 @@ def test_a_throw_caught_by_untraced_code_inside_a_traced_frame_is_named(
     assert cli.main(["exceptions", run_id]) == ANSWERED
     o = out(capsys)
     assert ("AMBIGUOUS -- caught by untraced code inside "
-            "formula > rejects sqrt (main.ts): f2 unwound, its caller f1 "
+            "formula > rejects sqrt (config.ts): f2 unwound, its caller f1 "
             "returned; not followed") in o, o
     assert "dispositions: ambiguous 1" in o, o
     assert "ambiguous by reason: untraced catcher 1" in o, o
@@ -195,8 +195,7 @@ def _untraced_catcher(trace, unit, idx) -> Disposition | None:
     else:
         fate = (f"its caller f{p.id} had not closed at the end of the "
                 "recording; not followed")
-    call = trace.event(f.call_event_id) if f.call_event_id is not None else None
-    site = (code.file, call.line if call is not None else 0, code.qualname)
+    site = (code.file, code.firstlineno, code.qualname)     # P3
     return Disposition(
         "ambiguous",
         f"AMBIGUOUS -- caught by untraced code inside {where}: f{f.id} "
