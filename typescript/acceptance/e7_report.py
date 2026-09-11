@@ -147,6 +147,12 @@ def main() -> int:
                  "exit": int(env["E7_VECTORS_STATUS"]),
                  "summary": vectors_line.strip(),
                  "green": int(env["E7_VECTORS_STATUS"]) == 0},
+        # The reader that produced the transcript, from the caller's
+        # environment. S5 rung 3 asks every cell in its record to carry its
+        # own provenance rather than take the assembler's stamp; absent, the
+        # assembler still stamps and says that it did.
+        recorder=env.get("E7_RECORDER"),
+        recorder_rev=env.get("E7_REV"),
     ))
     return 0
 

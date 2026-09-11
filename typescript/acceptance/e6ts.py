@@ -34,6 +34,24 @@ A case where those two disagree is a case where the tool's own tally does
 not describe its own output, which is a difference and therefore a STOP --
 so it is reported as such rather than resolved by preferring one.
 
+WHAT S5 RUNG 3 ADDED
+--------------------
+Three things, all of them the same shape as the above -- a WHOLE printed line
+compared against a table locked before the answer existed:
+
+  * the four new cases (`untraced_catcher`, `untraced_catcher_rejection`,
+    `untraced_catcher_later_failure`, `logged_rethrow_to_harness`), each
+    pre-registered at 0 SWALLOWED lines;
+  * the `ambiguous by reason:` line, whole, for the five cases rung 3's
+    pre-registration and its own new cases pin one -- INCLUDING the case
+    that must print none at all, which a table of expected strings alone
+    could not state;
+  * each case's own `expect_line`/`expect_absent` pins, run through the
+    corpus harness's own `check_question` over this very output. §1's rule
+    has two halves ("set equality with the rung-2 locked table; every new
+    pin green"), and checking both off one recording is what keeps the two
+    halves about the same run.
+
 `value` is how many cases matched the locked table, out of the cases asked.
 """
 import os
@@ -45,8 +63,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from corpus.run_corpus import (TS_DIR, _cli, _copy_case,  # noqa: E402
-                               _record_both, load_cases, sub_run_ids,
-                               ts_ready)
+                               _record_both, check_question, load_cases,
+                               sub_run_ids, ts_ready)
 from lens import cell, emit, usage  # noqa: E402
 
 #: §1's locked table: the SWALLOWED count each case's answer must print.
@@ -70,12 +88,44 @@ PRE_REGISTERED = {
     "unhandled_rejection_in_info": 0,
     "primitive_rethrow": 0,
     "suspended_handler": 0,
+    # S5 rung 3's four, pre-registered at 0 each. None of them swallows
+    # anything: three are untraced-catcher shapes and the fourth is a
+    # logged rethrow that reaches the harness.
+    "untraced_catcher": 0,
+    "untraced_catcher_rejection": 0,
+    "untraced_catcher_later_failure": 0,
+    "logged_rethrow_to_harness": 0,
+}
+
+#: S5 rung 3: the `ambiguous by reason:` line each case must print, WHOLE.
+#: `None` is "no such line at all", which is a claim of its own -- a verdict
+#: the tool reaches with confidence grows no reason line, and `logged_rethrow
+#: _to_harness` exists to pin that. A case absent from this table is not
+#: checked for a reason line, because rung 2's seventeen were locked before
+#: the line existed and their answers are not this rung's to move.
+#:
+#: `translated` is the one rung-2 case whose line §1 pre-registers: its
+#: wrapper block reads the untraced-catcher reason beside the original's
+#: escaped one.
+PRE_REGISTERED_REASON_LINE = {
+    "translated": "ambiguous by reason: escaped 1, untraced catcher 1",
+    "untraced_catcher": "ambiguous by reason: untraced catcher 1",
+    "untraced_catcher_rejection": "ambiguous by reason: untraced catcher 1",
+    "untraced_catcher_later_failure": "ambiguous by reason: untraced catcher 1",
+    "logged_rethrow_to_harness": None,
 }
 
 #: The cases §1 names as swallow cases: their set must be non-empty, which
 #: is the rule's second clause and not a restatement of the first (a table
 #: edited to zeroes would satisfy equality and nothing else).
 SWALLOW_CASES = frozenset(k for k, v in PRE_REGISTERED.items() if v)
+
+
+def reason_of(text: str) -> str | None:
+    """The printed `ambiguous by reason:` line, whole, or None where the
+    answer printed none."""
+    return next((ln.strip() for ln in text.splitlines()
+                 if ln.strip().startswith("ambiguous by reason:")), None)
 
 
 def tally_of(text: str) -> tuple[str | None, dict]:
@@ -112,8 +162,14 @@ def ask(case, wd: Path, sdir: Path) -> dict:
     q = sub_run_ids(spec, first[0], run2)
     cmd = [str(a) for a in q["command"]]
     out = _cli(cmd, wd, sdir)
+    text = out.stdout + out.stderr
     return {"question": q["id"], "command": " ".join(cmd),
-            "exit": out.returncode, "text": out.stdout + out.stderr}
+            "exit": out.returncode, "text": text,
+            # The case's OWN pins, checked by the corpus harness's own
+            # checker over this very output: §1's E6-TS rule has two halves
+            # ("set equality ... ; every new pin green") and one recording
+            # answers both, rather than recording the corpus twice.
+            "pin_failures": check_question(q, text, out.returncode)}
 
 
 def judge(name: str, raw: dict) -> dict:
@@ -126,6 +182,7 @@ def judge(name: str, raw: dict) -> dict:
     lines = [ln.strip() for ln in text.splitlines()
              if ln.strip().startswith("SWALLOWED --")]
     line, terms = tally_of(text)
+    reason = reason_of(text)
     got = terms.get("swallowed", 0) if line is not None else None
     why = []
     if line is None:
@@ -142,8 +199,18 @@ def judge(name: str, raw: dict) -> dict:
                    "not describe its own output")
     if name in SWALLOW_CASES and not lines:
         why.append("a pre-registered swallow case whose SWALLOWED set is empty")
+    if name in PRE_REGISTERED_REASON_LINE:
+        want_reason = PRE_REGISTERED_REASON_LINE[name]
+        if reason != want_reason:
+            why.append(f"the reason line reads {reason!r}, the locked table "
+                       f"says {want_reason!r}")
+    for failure in raw.get("pin_failures") or []:
+        why.append(f"a pin of the case's own question failed: {failure}")
     return {"case": name, "expected": want, "swallowed_lines": len(lines),
             "tally_swallowed": got, "tally_line": line, "tally": terms,
+            "reason_line": reason,
+            "expected_reason_line": PRE_REGISTERED_REASON_LINE.get(name, "-"),
+            "pin_failures": raw.get("pin_failures") or [],
             "exit": raw["exit"], "question": raw["question"],
             "command": raw["command"], "lines": lines,
             "equal": not why, "why": why}
@@ -191,6 +258,9 @@ def main(argv) -> int:
     emit(cell(sum(1 for r in asked if r["equal"]), len(asked), dropped,
               filtered_to=sorted(only) or None,
               pre_registered=PRE_REGISTERED,
+              pre_registered_reason_line=PRE_REGISTERED_REASON_LINE,
+              recorder=os.environ.get("E6TS_RECORDER"),
+              recorder_rev=os.environ.get("E6TS_REV"),
               differences=[{"case": r["case"], "why": r["why"]}
                            for r in asked if not r["equal"]],
               per_case=rows))
