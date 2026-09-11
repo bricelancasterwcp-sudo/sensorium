@@ -111,7 +111,7 @@ it; this file is the equivalent rule for the capture no script performs.
 | `src/sites.probe.test.ts`, `src/sites.component.tsx` | E4: 20 shapes, each under a `// SITE <name>` marker |
 | `src/swallow.probe.test.ts` | E8 shapes 1, 2 and 4-12, each row under a `// SWALLOW <shape> <kind> <how>` marker: the catch words, the four callback shapes and the `finally` sink |
 | `src/swallow3.probe.test.ts` | E8 shape 3, the rejection nobody handles |
-| `src/escape.probe.test.ts` | E8: one `catch` clause per mention position of spec §2.1, plus the callback bare-rethrow ruling (Task 6) — fourteen `// ESCAPE <id> <how>` markers in all, each naming the word its HANDLED must carry |
+| `src/escape.probe.test.ts` | E8: one `catch` clause per mention position of spec §2.1, plus the callback bare-rethrow marker (S5 rung 3, Task 3) — fourteen `// ESCAPE <id> <how>` markers in all, each naming the word its HANDLED must carry |
 | `src/each.probe.test.ts` | `test.each`: three rows, three names, no `#k` |
 | `src/concurrent.probe.test.ts` | the naming hazard, counted and reported, never gated |
 | `src/never_settles.probe.test.ts` | a frame that parks and never returns |

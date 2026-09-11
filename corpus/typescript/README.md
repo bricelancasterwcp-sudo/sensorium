@@ -13,6 +13,20 @@ case with `node_modules` symlinked to the real one. A case's `harness_args` are
 the tokens after `vitest` — `["run", "<case>"]` — and the positional argument is
 what selects that case's test files.
 
+**A case name that is a PREFIX of another case name is a trap.** `vitest run
+<pattern>` selects every test file whose path CONTAINS `<pattern>` as a
+substring — it is not an exact match and not anchored to one directory — and
+every case's directory sits in the SAME copied project, so a bare case name
+that happens to prefix a sibling's pulls both into one recording. This is
+exactly what `untraced_catcher` hits: its name is a literal prefix of
+`untraced_catcher_rejection` and `untraced_catcher_later_failure`, so
+`harness_args: ["run", "untraced_catcher"]` would record all three test files
+as one, and whichever ran first would silently own `$RUN`. Its
+`harness_args` is `["run", "untraced_catcher/"]` instead — the trailing
+slash matches the directory boundary, which is not a substring of either
+sibling's path — and that is the fix for the next prefix-named case, not a
+new `$RUN2` situation to declare.
+
 ```
 npm ci --prefix corpus/typescript             # once; the lock is committed
 python corpus/run_corpus.py                   # skips these BY NAME with no Node
