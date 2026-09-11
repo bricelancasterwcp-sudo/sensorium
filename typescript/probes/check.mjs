@@ -352,7 +352,7 @@ function checkEscape(k, s) {
   const wrong = want
     .filter((w) => got.get(w.line) !== w.how)
     .map((w) => ({ ...w, got: got.get(w.line) ?? null }));
-  k.check('escape:count', want.length === 13, want.length);
+  k.check('escape:count', want.length === 14, want.length);
   k.check('escape:how', wrong.length === 0, { as_marked: want.length - wrong.length, wrong });
 }
 

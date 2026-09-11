@@ -73,325 +73,15 @@ of **774**, which would have taken it to **1,002**, so the oldest section was
 cut rather than the ceiling discovered. This file keeps the newest sections,
 and the next slice's section is appended here.
 
-## 2026-09-10 — S5 slice 2 (Python 0.9.1 / sensorium-ts 0.1.1)
-
-The slice that answers the two things rung 1 shipped open — E6′'s STOPped
-timing clause and E10's design input — and fixes what the `node --test` path
-was getting wrong. Ten plan decisions (P1–P10), and — read off the slice's
-SDD ledger rather than counted by hand — **eleven** distinct controller
-rulings, two of them stated twice (once in a task's risk table and again in
-its bullet), one clause each:
-
-1. the equivalence gate's side B stays the tip after Task 3; Task 5's R45
-   edit touches only the zero-spool refusal and is not re-gated;
-2. the global `sensorium` tool is not reinstalled from the worktree until
-   Task 4's side A has converted, so Arm 0 and side A are not the new code;
-3. `ingested.json` is dropped from all three spool copies (the marker makes
-   `ingest` refuse and carries no measured data);
-4. the timed region keeps `rss_run.py`'s ~16 ms start-up in **every** stage,
-   so the bound stands as written and no threshold moves;
-5. the 4.0 load guard admits repetitions on a jobs-16 cell's own decaying
-   load — the pre-registered guard stands and the readings are in the JSON;
-6. Task 3 absorbs two record minors and builds `TraceWriter.discard()`
-   (rollback then close) behind `Builder.abort()`;
-7. the streaming reader's UTF-8 refusal names the **line**, where the old
-   reader named the file;
-8. `sensorium diff` MATCH compares causal structure and row counts and not
-   recorded values — so E10′-eq stands on its own pre-registered rule, and a
-   NEW ungated check, E10′-eq-content, is pre-registered before it runs;
-9. Task 7 adds `tests/test_ts_ingest_refusals.py` to CI's `typescript` job
-   file list, for symmetry with the matrix jobs' bare `pytest -q`;
-10. Task 6 re-runs `npm run probe:nodetest` once to capture `h-probes.json`
-    for the assembler, the H-probes verdict staying Task 5's;
-11. Task 7 absorbs three of Task 6's minors as edits and writes the rest
-    into the record's §5 and this ledger.
-
-Every one that moved the design's text is a dated row in §12 of
-`docs/superpowers/specs/2026-09-10-sensorium-s5-slice2-design.md`, and the
-`Ruling:` lines themselves are in
-`.superpowers/sdd/2026-09-10-sensorium-s5-slice2/progress.md`. *(The count
-read "Seven" until the final fix wave; this section's own process lesson is
-that a summary count goes stale, so it is derived here and the list is what
-a reader checks.)* Every
-number below is copied from
-`docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.md`, whose §1 was
-byte-locked before any of this code existed.
-
-**Measured before it was written, the way the rule asks.** This section was
-drafted at **250** lines against a live file of **452** — 415 at the
-slice's start, plus **37** the strikes above added — which took it to
-**703**, under the 800-line ceiling. Nothing was cut, and no volume
-was opened. *(Re-measured 2026-09-10 after the task's review: the fix wave
-added **19** lines here, so the section is **269** and the file **722**. A
-line count stated in a paragraph goes stale the next time the paragraph's own
-section is edited — this file's header has recorded that happening to three
-volume counts — so the number is re-taken rather than left standing, and both
-readings are kept. Re-measured a third time the same day, after the FINAL
-review's fix wave struck the ` > ` row, enumerated the rulings above and
-amended the version-token row: the section is **313** and the file **774**,
-this sentence's own four lines included — writing the count moved the count,
-which is the lesson in one line. Still under the 800-line ceiling.)*
-
-### Settled
-
-- **E6″ — PASS on all five clauses.** One guarded session on the lens (five
-  plain runs, one call-tier recording, five plain runs, the manifest last):
-  manifest **748 OK / 0 FAILED** before and after, ten of ten plain runs at
-  `372 passed (372)` / `4278 passed (4278)` and **nothing dropped**, **0**
-  `__srt` markers over the 2 cache directories that exist,
-  `node_modules/.sensorium` **absent**, and the after arm's median
-  **22.1136 s** inside the band **[21.9834, 22.3652]** — the before arm's own
-  median **22.1743** ± its own range **0.1909**. The after arm is **0.0607 s
-  faster** than the before arm. E6 is closed for this recorder on this lens,
-  and the rung-1 spec's §11 carries the dated line saying so.
-- **E10′ — PASS on all three gated clauses; the converter stays Python.**
-  **E10′-suite 16.3859 s** (n=5) against the pinned **22.5925 s** wall,
-  **E10′-file 0.1648 s** (n=5) against **0.4002 s**, and **E10′-eq 372 MATCH
-  / 0 DIVERGED / 0 REFUSED** over the same set converted twice. Two levers,
-  each its own commit with its cells measured before the next was written:
-  `TraceWriter(durable=False)` (one transaction per trace,
-  `synchronous=NORMAL`, committed in `close()`) and a **streaming spool
-  reader** (BOOT from line 1, every later record yielded, `TraceWriter.
-  discard()` behind `Builder.abort()`). End to end **2.7913×** on the suite
-  and **2.1990×** on the one file, with the heaviest worker's peak resident
-  down **2,269,696 → 290,948 kB** on the suite cell.
-- **And the trace did not move.** Beside the gate, ungated and
-  pre-registered *after* the gate was read so it could not touch its verdict:
-  **E10′-eq-content**, every row of `events`, `frames`, `code_objects`,
-  `tasks`, `fingerprints`, `task_fingerprints` and `output` compared column
-  for column across all 372 pairs — **372 / 372 identical**, the only `meta`
-  key differing on any pair being the minted `run_id`. The instrument was
-  mutation-checked before it ran: a changed column, a deleted row and a
-  changed `meta` value were each caught and named.
-- **H1 — the loader hook returns Node's own format and erases nothing**
-  (`05e5338`). It classified by extension and forced `format: 'module'`; it
-  now asks `nextLoad` and takes the answer, so **Node** strips and the
-  recorder splices. The `.mts` that was instrumented and never stripped now
-  records.
-- **H2 — one probe per extension, two controls, under `node --test`**
-  (`761c935`). `.ts`, `.mts`, `.mjs`, `.cjs` and the controls `enum.ts` and
-  `jsx.tsx`: `check.mjs nodetest` reads **25 checks, 0 failures**, and both
-  controls fail **identically** hooked and plain
-  (`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, `ERR_UNKNOWN_FILE_EXTENSION`,
-  `same: true` twice). The controls discriminate, measured: against the
-  pre-fix hook `enum.ts` **loaded** under the recorder and failed plain.
-- **H3 / R45 — a run that recorded nothing says why when the tallies know**
-  (`5af2def`). Where every tally reads `files_transformed: 0` and the
-  exclusions are non-empty, the refusal names them by reason with counts
-  (`commonjs x2, parse-error x1`), the ES-modules-only clause appended only
-  when `commonjs` is among them (plan P6, R27's precedent). A partial suite
-  keeps the old sentence: a real recording failure is not an exclusion.
-- **H4 / R47 — `hook.mjs:98` became `hook.mjs` `load`** (`90d6380`). A line
-  number in a ledger is a citation that goes stale on the next edit; H1 moved
-  those lines in this same slice. No `hook.mjs:<line>` citation remains in
-  any document this slice can edit.
-- **The `loads` fix** (`ecdc631`, spec §2.3). `assemble.py`'s `arm_stats`
-  zipped the arm's `loads` against its **kept** walls while `loads` held a
-  row per attempt, so a dropped run would have misaligned every later
-  reading. Rung 1 dropped no run, which is why the misalignment stayed
-  latent; it is filtered now, before `e6pp` used the assembler.
-- **The R45 sentence's ordering, and the refusal tests.** Reasons are
-  rendered `sorted()` so the sentence is stable across dictionary order, and
-  `tests/test_ts_ingest_refusals.py` is now named in CI's `typescript` job
-  file list beside the rest of the recorder suite (the matrix jobs' bare
-  `pytest -q` already ran it; the list is for symmetry).
-
-### Deferred, with rulings
-
-Each row is a decision that was made rather than a thing forgotten, with the
-number or the ruling that made it and what it costs if it was wrong.
-
-- **A2, largest-first dispatch — not built.** Spec §3.3 conditioned it on
-  A1 + A3 leaving the suite cell above the bound; a3's 0d read **16.5088 s**,
-  **6.0837 s** below the 22.5925 s bound. *Cost if wrong:* a converter faster
-  than the verdict needed is not built, and the numbers say exactly how much
-  headroom was left.
-- **A4, the per-record Python cost — not built**, on the same condition and
-  the same number. *Cost if wrong:* the same, plus the attribution question
-  A3 raised (which share of its 1.25 s is decode, allocator or collector)
-  stays unanswered.
-- **Arm B — a Node or Rust converter — never built** (*Brice's ruling
-  2026-09-10, spec §10.1*): Arm B stops at the report, a Node converter is a
-  later slice. The suite clause PASSed, so nothing asked for it. *Cost if
-  wrong:* none this slice can see; the ladder's rungs are on record for
-  whoever raises it.
-- **The non-durable writer's transient WAL is unmeasured at the job count
-  the gate ran.** Measured once at `--jobs 1`: a **335,895,392-byte** `-wal`
-  beside a **333,832,192-byte** database, so transient disk is ≈ **2×** per
-  in-flight trace, and at the default job count it is the sum over the
-  workers building at that moment. 63 GB were free and nothing came near the
-  disk. *Cost if wrong:* this box has run at ~3 GB free on `/`, and a
-  full-suite conversion there could fail on space in a way no cell here
-  would predict.
-- **`Builder`'s class docstring does not say the build is non-durable by
-  default** (T2 M3). One sentence. *Cost if wrong:* a reader of the class
-  learns the default from the constructor signature instead.
-- **A `Spool` that is never iterated leaves its handle to the collector**
-  (T3 M3) — a `ResourceWarning` under `-W error`, not a leak in any shipped
-  path. *Cost if wrong:* a future caller that constructs and abandons spools
-  in a loop holds file descriptors longer than it should.
-- **`torn_tail` still has no production consumer** (T3 M7, pre-existing).
-  The streaming reader fills it as it walks; nothing reads it. *Cost if
-  wrong:* a truncated spool converts with the fact recorded and unreported.
-- **`sensorium diff` exit 0 counts its leniencies as MATCH** (T4 M5):
-  "MATCH modulo location" and "nothing to compare" are not separated from a
-  plain MATCH by the gate's instrument. Closed in practice by
-  E10′-eq-content's 372/372 — the rows are identical, so no pair could have
-  been leniently matched — but the instrument still cannot tell them apart.
-  *Cost if wrong:* a future gate on a set where the leniencies fire reads
-  MATCH for something weaker.
-- **`probes/check.mjs` collapses duplicate probe names and pins no spool
-  count** (T5 M3). It asserted 3 spools here because the run produced 3.
-  *Cost if wrong:* a probe file that silently stopped producing a spool could
-  be masked by another with the same name.
-- **No test discriminates the `sorted()` in R45's reason rendering** (T5 M2):
-  a mutant that drops it survives on any single-reason fixture. *Cost if
-  wrong:* the sentence's ordering becomes dictionary order and the refusal
-  text varies run to run.
-- **`e10p.sh` records a peak RSS of `0` silently** if the `maxrss_kb=` line
-  fails to parse (`${maxrss:-0}`, T1 M3). Every repetition of every cell
-  parsed, and each report says so. *Cost if wrong:* a future rung reads a
-  zero as a measurement.
-- **A dropped plain run STOPs E6″'s suite clause outright** (T6 M2), so the
-  "fewer than four usable walls" STOP-by-instrument is nearly unreachable —
-  the conjunction fails first. It is the conservative direction (an
-  instrument that cannot manufacture a PASS), and it was not disclosed in the
-  pre-registration. *Cost if wrong:* a future session reading the rule
-  expects a graceful degradation it will not get.
-- **The five E6″ clauses cannot see a failed call run** (T6 M3). The call run
-  is the contamination *source* and deliberately outside the clause (record
-  §5 gap 10); its greenness was checked by hand — call row ok, exit 0, 372
-  spools. *Cost if wrong:* a session whose recording half-failed reads as a
-  clean PASS unless someone looks.
-- **The manifest's sha256 is recorded, not enforced** (T6 M4). `e6pp.sh`
-  derives the expected OK count from the manifest's own `wc -l`, so it writes
-  the manifest's sha into the cell to anchor *which* 748 — but nothing
-  compares that sha to the pinned value automatically. *Cost if wrong:* a
-  truncated or swapped manifest passes the count clause and the mismatch is
-  visible only to a reader who checks the sha by eye.
-- **`assemble_slice2` can emit `null` with an empty `dropped`** on two
-  branches (T6 M5), where the file's own rule is that a missing cell is
-  `null` **plus** a reason. *Cost if wrong:* a cell reads as absent with
-  nothing saying why.
-- **The band's width is a property of the session, not of the rule** (record
-  §5 gap 8): ±0.1909 s here against the ±0.4085 s spec §2.2's worked example
-  derives from E1′. A PASS here is a claim against a tighter yardstick, not a
-  tighter claim, and sensitivity is not comparable across sessions. A session
-  wanting stable sensitivity would pre-register a floor on the band's width —
-  which §2.2 deliberately refused, a chosen width being the thing it refused.
-  *Cost if wrong:* a later E6 whose control arm is noisier passes a clause this
-  one would have failed, and the two PASSes get read as the same claim.
-- **"Under 4.0" is not "idle"** (record §5 gap 9). Ten of the eleven guarded
-  readings were above 3.0 and only the before arm's first run was cold
-  (0.35). The asymmetry runs **against** a contamination finding — the arm on
-  the quieter box is the slower one — but a guard that wanted the arms
-  ambient-matched would wait for a *return* to a baseline, not for a ceiling.
-  *Cost if wrong:* on a session where the asymmetry ran the other way, ambient
-  load and not the recording would be the thing the band measured.
-- **The instrument's timed region includes its own wrapper's start-up**
-  (record §5 gap 1), now **8.3%** of the gated one-file cell (0.0137 s of
-  0.1648 s). Both walls fall the same side of both bounds, so no verdict
-  turns on it. *Cost if wrong:* a bound within 10% of the truth would be
-  decided by an interpreter start-up; a later instrument should time the
-  child alone or say which wall the rule reads.
-- **The record's `### 3.6`–`### 3.11` shadow the spec's own §3.6/§3.7
-  numbering** (T3 M4). Every citation that could be ambiguous is qualified
-  "spec §3.x" in place; the headings themselves were not renumbered because
-  §1 quotes the spec's and §1 is byte-locked. *Cost if wrong:* a reader
-  follows "§3.7" to the wrong document.
-- **Job-count independence of the converter's output is an inference, not a
-  measurement** (T4 M8). Both sides of the equivalence gate ran at the
-  default job count, so the 372 MATCH says nothing about whether `--jobs 1`
-  and `--jobs 16` write the same trace. Nothing in the converter is
-  job-count-dependent by construction. *Cost if wrong:* a dispatch change
-  (A2, if it is ever built) could move output without this gate noticing.
-- **Rung 1's results file was written by an assembler that no longer
-  exists** (record §5 gap 11). The `loads` fix landed after that file was
-  produced and it was **not** regenerated: nothing in it moves (rung 1
-  dropped no run), and re-running it today would change a locked record's
-  evidence rather than reproduce it. *Cost if wrong:* none measured; the
-  provenance is the point and it is written down.
-- **`assemble.py`'s `load()` leaks a filesystem path into an absent-file
-  reason**, where every other field is redacted. No absent cell occurred, so
-  no path shipped. *Cost if wrong:* one box path in a committed results file
-  — which is exactly what `offenders()` exists to refuse.
-- ~~**`docs/TRACE-FORMAT.md`'s `capabilities.err_flow` sentence still names
-  `sensorium-ts 0.1.0`**, and so does
-  `corpus/typescript/exceptions_refused/questions.yaml:12` ("no TypeScript
-  disposition rules exist in 0.1.0", in the case's `truth` prose) — **two**
-  version tokens this slice left standing, not one. *(Amended 2026-09-10 in
-  the final fix wave: this row claimed to be the only one.)* Both are true
-  of 0.1.0 and still true of 0.1.1 — the same rung still owes the
-  disposition rules, and `capabilities.err_flow` is false in both — and the
-  corpus file is left alone because no test reads that prose, and
-  `docs/TRACE-FORMAT.md` sits at **799** of 800 lines, which this slice
-  pre-committed not to open (plan Global Constraints). *Cost if wrong:* a
-  reader on 0.1.1 goes looking for a version statement that has not moved
-  because it did not need to. The four others the first pass missed were
-  taken 2026-09-10 rather than deferred, so this row — in its two places —
-  is the whole of the deferral: `typescript/README.md`'s
-  "Arguments are unread" and `typescript/HONESTY.md`'s `capabilities.err_flow`
-  sentence are now **version-free** ("in this version"), because both describe
-  the package as it is rather than a recording; and `typescript/README.md`'s
-  "Not yet" clause and `typescript/HONESTY.md`'s "a trace this 0.1.0 runtime
-  wrote" **keep `0.1.0` and name `0.1.1` beside it**, because both are about
-  traces a 0.1.0 runtime actually wrote and both versions declare the same
-  capability.~~ — **Both closed 2026-09-10, S5 rung 2**, and neither by a
-  version-token sweep: `docs/TRACE-FORMAT.md`'s sentence was rewritten when
-  `err_flow` became a key **two** recorders declare (it names `sensorium-ts`
-  ≥ 0.2.0 now), and the corpus case was renamed `silent_swallow` with its
-  `truth` prose rewritten to the verdict it now gets. The deferral was right:
-  both tokens were true when they were left, and the slice that made them
-  false is the slice that fixed them.
-- **`task_name_basis` is spelled `lexical` in prose and `title` on the wire**
-  (record §5 gap 6). Same fact, two spellings; the checker asserts the value
-  the recorder writes. *Cost if wrong:* a reader goes looking for a third
-  basis.
-
-The per-task minors this slice did not fund are in the slice's SDD ledger
-(`.superpowers/sdd/2026-09-10-sensorium-s5-slice2/progress.md`, each task's
-"Minors deferred" line), archived with the worktree.
-
-### Process lessons
-
-- **Two instrument defects were found only by running the instrument, and
-  both were found before the number was.** The first H-probes run STOPped on
-  `ext:cjs:tally` with two orphan tallies instead of one: `controls.mjs` had
-  spawned its hooked side with `SENSORIUM_MANIFEST_DIR` inherited, so a
-  control's child wrote a tally into the run's own manifest directory and
-  read as a second child that recorded nothing. Nothing about the recorder
-  was wrong; an instrument that shares a directory with the run it measures
-  is. It was fixed, the run repeated from zero, and the first run's only
-  reading is the defect. The second was caught by mutation: `e6pp_report.py`
-  had a test that compared the after arm's **wall** where the rule compares
-  its **median**, and a mutant that swapped them survived until the mutation
-  round found it — fifteen mutations, one real gap. An instrument gets the
-  same evidence standard as the thing it measures, or the measurement is
-  worth what the instrument's tests are worth.
-- **A prediction can fail in the fast direction, and that is still a
-  falsification.** Six of the ten per-cell predictions this ladder
-  pre-registered did not hold as written, and **five of the six were faster
-  than predicted** — A1's "0e unchanged" by a factor of 2.2004, A3's "wall
-  within noise" by about 1.25 s on each large cell. The temptation each time
-  is to read a happy number as a held prediction; the discipline is that the
-  prediction said something specific and the cell said something else, so the
-  prediction is falsified and the record says which way. What the misses
-  bought is the diagnosis they forced: the one-file spool was
-  commit-*dominated*, and a memory lever moved the wall as well as the bytes.
-- **Check that two numbers are the same kind of number before naming their
-  difference a finding.** Rung 1's E10 reading and this slice's Arm 0 both
-  measure "full-suite ingest", and neither is comparable to E6″'s call run
-  (n=1, unguarded within itself, over a set nothing pinned) — the record says
-  so in three places rather than letting a reader subtract them. The same
-  care named the wrapper's start-up as part of the timed region *before* a
-  gated clause stood on it, and named the band's width as a session property
-  *before* the band was read.
-- **Draft, measure, then cut.** The previous CHANGELOG cut was sized by
-  guessing at the entry's length and the file landed at 833. This one drafted
-  the `0.9.1` entry first (**105** lines against a live file of **756**,
-  which would have taken it to **862**), and only then cut — two entries
-  rather than one, with the arithmetic for both written into the archive's
-  own note. The same order was used for this section.
+**The S5 slice-2 section moved 2026-09-11** — the E6″ exception and the E10′
+converter ladder are
+[`docs/CARRIED-DEBT-ARCHIVE-7.md`](CARRIED-DEBT-ARCHIVE-7.md), wording, order
+and strikes unchanged, so a deferred item there is still open unless it is
+struck. Measured before it was made, the way the rule asks: rung 3's final
+review added four debt rows drafted at **40** lines against a live file of
+**799**, which would have taken it to **839**, over the ceiling, so the oldest
+section was cut rather than the ceiling discovered. This file keeps the newest
+sections, and the next slice's section is appended here.
 
 ## 2026-09-10 — S5 rung 2, the throw flow (Python 0.10.0 / sensorium-ts 0.2.0)
 
@@ -438,8 +128,9 @@ nine rules name only a failure word and three name none at all.
   (it now names `sensorium-ts ≥ 0.2.0`), and the corpus case was renamed to
   `silent_swallow` at Task 6 with its questions rewritten to the verdict it
   now gets. Neither was carried further; the row is struck here rather than
-  in the slice-2 section it belongs to, because that section is still live and
-  a strike is where the reader meets the row.
+  in the slice-2 section it belongs to, because that section was still live
+  when the strike was written (it is volume 7 from 2026-09-11) and a strike is
+  where the reader meets the row.
 - **The invocation refusal named one of the two languages it answers for.**
   `_member_refusal` said `exceptions` across an invocation "is defined for Rust
   traces" — true when written, false since Task 4. It now names Rust **and**
@@ -461,7 +152,7 @@ nine rules name only a failure word and three name none at all.
 
 Findings, not stops: none is an endpoint's rule and none moves a number.
 
-- **Gap 1 — the shape key's id mask carries Rust's float-type exclusion onto
+- ~~**Gap 1 — the shape key's id mask carries Rust's float-type exclusion onto
   TypeScript traces, so 30 shapes are 28 places.** `exceptions_group.MASK` is
   `\b(?!f(?:16|32|64|128)\b)([ef])\d+\b`: `f32` and its siblings are Rust type
   names a panic message can carry (ruling R-G8), and on a TypeScript trace they
@@ -473,8 +164,12 @@ Findings, not stops: none is an endpoint's rule and none moves a number.
   site, the verdict's parts — instead of on masked prose, which the grouper's
   own docstring already names as the better answer and as CARRIED-DEBT. This
   is the first measurement of that debt on a TypeScript lens. *Cost if wrong:*
-  a reader counts places from a shape count and is over by two in thirty.
-- **Gap 2 — three reused instruments were measuring the wrong binary, and it
+  a reader counts places from a shape count and is over by two in thirty.~~ —
+  **closed 2026-09-11 by S5 rung 3**: the TypeScript key now holds the
+  verdict's own words under a mask that exempts nothing (record §2.3 entries
+  3–4); E-places read **28 of 28** SWALLOWED blocks, the `useAiAssist.ts` L56
+  sink printing once (record §3 row 7, §4.4). See the rung-3 section below.
+- ~~**Gap 2 — three reused instruments were measuring the wrong binary, and it
   took this rung to notice.** `arms.sh`, `e3.sh` and `e7.sh` hard-coded the
   global `sensorium`, which is an editable install of `main`; a rung that ships
   a new recorder would have reported main's numbers under its own name. Fixed
@@ -482,8 +177,12 @@ Findings, not stops: none is an endpoint's rule and none moves a number.
   earlier readings stay reproducible. **Closing it** means a shared rule that
   every acceptance instrument takes its binary from the branch under test, and
   a check that says which binary a cell used. *Cost if wrong:* a future slice
-  reuses a fourth instrument with the same hard-coding.
-- **Gap 3 — E7″'s needle list cannot be applied as written.** §1's list
+  reuses a fourth instrument with the same hard-coding.~~ — **closed
+  2026-09-10 at this rung's own Task 4**: every acceptance script invoking
+  `sensorium` resolves `<repo root>/.venv/bin/sensorium` and refuses outside
+  it, checked by `tests/test_acceptance_scripts.py` (E-branch, record §3
+  row 4).
+- ~~**Gap 3 — E7″'s needle list cannot be applied as written.** §1's list
   includes `Err`, `oid` and `chain`, and the inherited instrument matched
   needles as case-insensitive substrings: under that reading `Err` is matched
   by every `Error('…')` an answer prints, so the endpoint would STOP on any
@@ -492,8 +191,12 @@ Findings, not stops: none is an endpoint's rule and none moves a number.
   slice 2 hit the same edge on `python ?` and this is the **second** time.
   **Closing it** means pre-registering a needle's MATCHING RULE beside the
   needle. *Cost if wrong:* a third slice writes a list of literals whose rule
-  is discovered when the instrument runs.
-- **Gap 4 — on real code the modal AMBIGUOUS reason is the rules' last one,
+  is discovered when the instrument runs.~~ — **closed 2026-09-10 at this
+  rung's own Task 4**: the needle checker prints its own matching rule
+  (whole-word for `oid`/`chain`/`Err`, substring for the rest) into the
+  transcript header it reads (spec §4.3; E7‴ read **0** occurrences over 9
+  needles, record §3 row 8).
+- ~~**Gap 4 — on real code the modal AMBIGUOUS reason is the rules' last one,
   and the shape behind it has no name.** Of the 30 AMBIGUOUS shapes, **17**
   read *"no rule of this recorder reaches a verdict here"* (§3.3 rule 5's
   catch-all) and 13 read the escaped-handler reason. One of the 17 was opened
@@ -508,8 +211,14 @@ Findings, not stops: none is an endpoint's rule and none moves a number.
   cannot see — or a rule that reads the parent's return as evidence, which is
   exactly how a false SWALLOWED would be minted. Naming it is what a later
   rung needs before it decides. *Cost if wrong:* nothing measured; more than
-  half of a real lens's ambiguity stays unnamed.
-- **A Gap-4 NEIGHBOUR with a different cause** (the final review's probe, not
+  half of a real lens's ambiguity stays unnamed.~~ — **closed 2026-09-11 by
+  S5 rung 3**: the rules now name the shape, `untraced catcher`, in three
+  variants, still AMBIGUOUS — **0 false names of 20** printed blocks against
+  the seventeen-row hand read, all seventeen predicted before this code
+  existed (record §3 row 5, §4.2). `HONESTY-BLIND-SPOTS.md` item 27 is
+  narrowed, not struck: naming the shape is not the same as reading what the
+  untraced code did with the failure. See the rung-3 section below.
+- ~~**A Gap-4 NEIGHBOUR with a different cause** (the final review's probe, not
   one of the 30): `catch (e) { console.error(e); throw e }` whose rethrow
   unwinds the test root also prints rule 5's catch-all — but here there IS an
   absorbing HANDLED for the serial, in an **earlier** window, and §3.3 rule 4's
@@ -517,7 +226,12 @@ Findings, not stops: none is an endpoint's rule and none moves a number.
   window. Same bucket, different diagnosis. **Closing it** is a rung-3 look at
   window-scoping that conjunct, with a corpus case (`logged_rethrow_to_harness`)
   pinning whichever reading is chosen. *Cost if wrong:* nothing measured; one
-  more unnamed shape inside Gap 4's 17.
+  more unnamed shape inside Gap 4's 17.~~ — **closed 2026-09-11 by S5 rung
+  3**: rule 4's absorbing conjunct now reads within the unit's own window
+  only, so `logged_rethrow_to_harness` reads `PROPAGATED -- to the harness`
+  rather than the catch-all; the escaping conjuncts of rules 3 and 4 stay
+  trace-global (record §4.5's corpus reading; spec R2). See the rung-3
+  section below.
 
 ### Deferred by ruling
 
@@ -592,14 +306,18 @@ later rung may want.
   (`escaped_rethrow_to_harness`), not a fix inside this rung. *Cost if wrong:*
   a propagation the recorder could name is reported as unknown; nothing is
   accused that should not be.
-- **The callback-side bare-rethrow exclusion has no probe marker** (43e1fbd;
+- ~~**The callback-side bare-rethrow exclusion has no probe marker** (43e1fbd;
   the final review's Minor 5). `escape.probe.test.ts` pins `bare_rethrow catch`
   for the clause syntax; the callback form — `.catch((e) => { throw e })` reads
   `catch_callback`, R10 — is pinned by `typescript/test/escape.test.mjs` and
   the contract only. **E8″ was measured at 32 of 32 markers after 43e1fbd, so
   adding a marker now is a post-measurement instrument change**: it goes in the
   next slice, with the endpoint re-read. *Cost if wrong:* one shipped rule with
-  a unit pin and no probe pin, on a lens the probes do not cover.
+  a unit pin and no probe pin, on a lens the probes do not cover.~~ — **closed
+  2026-09-11 by S5 rung 3**: `escape.probe.test.ts` gains
+  `callback_bare_rethrow`, expecting `catch_callback`; E8‴ read **33 of 33**
+  markers (19 `// SWALLOW` + 14 `// ESCAPE`), 96 checks, 0 failures (record
+  §3 row 3, §4.6).
 
 ### Deferred minors, per task
 
@@ -654,4 +372,159 @@ each task's "Minors deferred" line), archived with the worktree.
 - **Draft, measure, then cut.** This section was drafted at its full length
   against a live file of **774**, which is why rung 1's section was cut to
   volume 6 before a line of it was appended.
+
+## 2026-09-11 — S5 rung 3, naming the ambiguity (Python 0.11.0 / sensorium-ts 0.2.0)
+
+The rung that names rung 2's own Gap 4: the seventeen blocks reading *"no
+rule of this recorder reaches a verdict here"* now read a reason,
+`untraced catcher`, predicted by a human from source before any of this
+code existed. Twelve plan decisions (P1–P12) and thirteen controller
+rulings, every one of them in the spec's §12. **The rung ships DONE** —
+eight endpoints, each run once, no rule's failure word fired; the gate
+that decides the word, `E6-TS‴`, read **0 false names of 20** printed
+blocks against the seventeen-row hand read. Nothing was recorded this
+rung — one re-read of the kept rung-2 invocation, hashed byte-for-byte
+before and after.
+
+### Settled — rung 2's own debts, closed here
+
+Struck where they stand, above, with a dated pointer; restated in full
+here because a reader who reaches this section first should not have to
+scroll up to find what closed.
+
+- **Gap 1** (the shape key's id mask) — closed: the TypeScript key holds
+  the verdict's own words under a mask (`\b[ef]\d+\b`) that exempts
+  nothing; the origin site enters only where the verdict names none of its
+  own. `E-places` read **28 of 28** SWALLOWED blocks (record §3 row 7,
+  §4.4).
+- **Gap 2** (three instruments measuring the global binary) and **Gap 3**
+  (E7″'s needle list unapplicable as written) — both closed at this
+  rung's own Task 4, before Task 5 read a number: every acceptance script
+  resolves `<repo root>/.venv/bin/sensorium`; the needle checker prints
+  its matching rule into the transcript header (spec §4.3; record §3
+  rows 4, 8).
+- **Gap 4** (the modal AMBIGUOUS reason had no name) — closed: `untraced
+  catcher`, in three variants, still AMBIGUOUS. **0 false names of 20**
+  printed blocks; 17 of 17 hand-read rows named; `unnamed` after 0
+  (record §3 row 5, §4.2). `HONESTY-BLIND-SPOTS.md` item 27 is
+  **narrowed**, not struck — naming the shape is not the same as reading
+  what the untraced code did with the failure, which stays unread.
+- **The Gap-4 neighbour** (rule 4's absorbing conjunct read trace-global)
+  — closed: it now reads within the unit's own window; a logged rethrow
+  to the harness reads `PROPAGATED`
+  (`corpus/typescript/logged_rethrow_to_harness`, record §4.5).
+- **The callback-side bare-rethrow probe marker** — closed:
+  `callback_bare_rethrow` added to `escape.probe.test.ts`; **E8‴** read
+  **33 of 33** markers (record §3 row 3, §4.6).
+
+### New debts this rung's measurement found
+
+- **`Shape.site`'s `key[1]` fallback is a fence, not a guarantee.**
+  `exceptions_group.Shape.__post_init__` still reads `self.key[1]` when no
+  `site` is handed in — true of Rust's key and of every hand-built `Shape`
+  a test constructs, but no longer true in general once a key's second
+  component can be something other than a place. **Closing it** means
+  making `site` a required argument once the Rust grouping fence lifts
+  and every hand-built test passes it explicitly. *Cost if wrong:* a
+  future renderer whose key puts something other than a place at index 1
+  gets a wrong `site` silently.
+- **The store's own command journal, `invocations.jsonl`, sits outside
+  the hashed trace set.** The T5 re-read appended exactly one line to
+  it — the read's own receipt, ruled NOT the forbidden write (record
+  §4.1) — but §2.1's hash list covers only `traces/*.db` and the spool's
+  `*.jsonl`, so a `sha256sum -c` returning all-OK says nothing about the
+  journal either way. **Closing it** means the next rung either hashes
+  `invocations.jsonl` too, with a pre-registered expected delta of one
+  line per pre-registered command, or names it out of scope in the same
+  sentence that names the hashed set. *Cost if wrong:* a read that
+  silently also wrote a trace would pass this rung's own gate.
+- **A fenced pre-registration pattern that matches no file.**
+  `tests/test_exceptions_python*.py` (spec §7, §1's E-legacy clause)
+  matches no file in this tree — the Python reader's own tests are
+  `tests/test_exceptions.py` and `tests/test_exceptions_synthetic.py`.
+  `e_fences.py` reports the miss in the cell's `dropped` rather than
+  folding it into the gate (record §2.3, §4.7). **Closing it** means the
+  next rung's pre-registration names the real files before it is locked.
+  *Cost if wrong:* none measured; a fence reading intact for a pattern
+  matching nothing is a fence over an empty set.
+- **The hand read's uniform prediction leaves two of three variants
+  unmeasured on the lens.** All seventeen rows predicted the `returned`
+  variant; the `had not closed at the end of the recording` and `later
+  unwound with <exc>` variants are pinned by
+  `tests/test_exceptions_typescript_reasons.py` and the corpus case
+  `untraced_catcher_later_failure` only, never by a hand-adjudicated row
+  on somebody else's code. *Cost if wrong:* nothing measured; a future
+  lens is the only way to learn whether either variant is common there.
+- **`tests/test_acceptance_scripts.py` is 315 lines**, comfortably under
+  the 800-line ceiling today, but it is the file every future E-branch
+  instrument change grows. Watched, not acted on.
+- **Spec §4.3's prose and the shipped instrument disagree on which
+  needles are whole-word.** §4.3 reads "whole-word for `Err` and `Rust
+  disposition`"; the shipped rule and the locked transcript header are
+  `oid`/`chain`/`Err` whole-word, `Rust disposition` substring (record
+  §4.6). §4.3 gains a dated parenthesis saying the locked block and the
+  instrument bind, not the earlier prose. *Cost if wrong:* a reader of
+  §4.3 alone expects a stricter match than the tool makes.
+- **The T0 hand read's row 1 calls the untraced catcher "a library
+  `try`"** where it is a `.catch` chain on the promise TanStack Query's
+  retryer returned. The locked table keeps the words it locked; the
+  record's §3 states the correction in place rather than editing the
+  table. *Cost if wrong:* none — the prediction the row supports
+  (`useCompendiumQuery.queryFn`, `returned`) is the one the reader
+  printed.
+- **`Index.left_frame` is per-serial and outermost, so a window-2 rethrow
+  that stayed inside traced code reads a window-1 root.** The frame the
+  reason's sentence names is the outermost frame the SERIAL left, across
+  every window that serial has; where a rethrow unwound no further than
+  the frame its own predecessor left, `f<child>` is window 1's id rather
+  than the rethrow's. This is rung-2 behaviour, untouched here, and the
+  PARENT — and so the name the reason prints — is unaffected. Raised at
+  T1's review and carried to T5's dispatch; no block on the lens showed
+  the shape, so it is recorded rather than measured. *Cost if wrong:* a
+  reader following `f<child>` out of a rethrow's block lands on a frame id
+  from the wrong window.
+- **Task 4's `lens.stamp()` wiring into the three legacy assemblers is
+  verified by the slice-2 tooling test only.** `assemble.py`,
+  `assemble_rung2.py` and `assemble_slice2.py` gained the call at T4; the
+  Global Constraints freeze their results, so not one was re-run against a
+  store this rung and the evidence is
+  `tests/test_acceptance_s5_slice2_tooling.py` (16/16 green) plus one
+  standalone interactive check — new code on old, frozen paths. *Cost if wrong:* a future re-run of an old
+  assembler fails or mis-stamps, and this rung's measurement would not
+  have caught it.
+- **`typescript/acceptance/e7_report.py` rewrites the transcript it is
+  handed, in place** — it prepends the needle-rule header to the same file
+  (`e7_report.py:123-124`), so a second run over one transcript prepends a
+  second header, and rung 2's `e7.sh`, which reuses this reporter,
+  inherits the write. **Ruled NOT fixed this rung:** an instrument defect
+  found after its number is a finding, not a fix, and the transcript's
+  sha256 is pinned in the record (§4.1). **Closing it** means guarding on
+  a header already present, or writing the header to a sibling file.
+  *Cost if wrong:* nothing measured — nobody ran it twice this rung; a
+  later re-run mangles the transcript it exists to preserve.
+- **`CHANGELOG.md` sits at exactly 800 lines**, the ceiling
+  `tests/test_ceiling.py` enforces, so the next release entry cannot be
+  written until its oldest section is cut. The mechanism is this repo's
+  own and is NOT this file's numbered volumes:
+  [`CHANGELOG-ARCHIVE.md`](../CHANGELOG-ARCHIVE.md), one archive file, the
+  oldest entries moved into it as a pure move in a commit that lands
+  BEFORE the release entry is appended — the way `0.8.2`, `0.8.1` and
+  `0.8.0` moved at rung 1. Cut before append. *Cost if wrong:* the release
+  commit fails `test_ceiling.py`, and the entry gets trimmed to fit
+  instead of the file being cut.
+
+### Process lessons
+
+- **A hand read predicts words, not a technique.** Row 1's "a library
+  `try`" named the wrong syntax and still supported the right prediction,
+  because the reason the reader prints does not depend on which untraced
+  construct did the catching. A locked table is locked on its
+  predictions; a wording slip in its own prose is a correction, not a
+  re-open.
+- **A pre-registered bracket string can describe a shape the printer
+  cannot produce.** `[×3 …]` was read as a shape prediction (printed
+  once, with a `×N` bracket) rather than a literal, and the arithmetic
+  (130+1+1 = 132) is what the reading was checked against instead. The
+  next rung's pre-registration pins brackets by their arithmetic, not by
+  a quoted example.
 

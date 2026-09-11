@@ -11,17 +11,24 @@ questions:
       original's block is AMBIGUOUS -- the clause read its binding to build
       the wrapper's message, so the error or a rendering of it left the
       handler and the rule does not follow where. The wrapper's own raise at
-      e7 is judged on its own evidence and reaches no rule either -- and
-      AMBIGUOUS is the correct word for it, not PROPAGATED. It unwound
-      `decodeOrWrap` and the arrow `expect` called, and the frame that
-      finally received it is vitest's, which is not traced: these rules
-      cannot see an UNTRACED catcher sitting between two traced frames, so
-      there is no handler row to read, the outermost frame it unwound is not
-      a task root, and PROPAGATED -- which claims the failure left the
-      traced world -- is not established. Saying so is the whole of what
-      this block can honestly say. A tool that folded the two objects into
-      one story would report the ORIGINAL as having gone that far and be
-      wrong twice over: the original stopped at e6.
+      e7 is judged on its own evidence too, and rung 3 names what rung 2
+      could only fold into the catch-all: AMBIGUOUS, untraced catcher --
+      `caught by untraced code inside <anonymous> (translated.test.ts): f2
+      unwound, its caller f1 returned; not followed`. It unwound
+      `decodeOrWrap`, and f2 -- the arrow `expect(() => …)` calls -- unwound
+      with it; the frame that then decided the assertion is f1, the test
+      callback itself, and it is traced code that DID return, which is
+      exactly the footprint the untraced-catcher rule reads and the reason
+      line now states by name. There is still no handler row anywhere in
+      the recording for this serial, the outermost frame it left is not a
+      task root, and PROPAGATED -- which would claim the failure left the
+      traced world -- is still not established: naming the footprint is
+      not claiming more evidence than the recording holds, only reading
+      what was always there more precisely than a bare catch-all could. A
+      tool that folded the two objects into one story would still be wrong
+      twice over: the original stopped at e6 under its own reason
+      (`escaped`), and the wrapper's reason (`untraced catcher`) is not the
+      original's.
     why_logs_fail: >
       A `console.log` of the wrapper prints a message built out of the
       original's, which is exactly the confusion the case is about: the
@@ -40,6 +47,9 @@ questions:
           rendering of it left the handler; not followed"]
       - ["e7 RAISE", "decodeOrWrap raise Wrapped('Error: bad payload: {')
           L17"]
-      - ["AMBIGUOUS -- no rule of this recorder reaches a verdict here"]
+      - ["AMBIGUOUS -- caught by untraced code inside <anonymous>
+          (translated.test.ts): f2 unwound, its caller f1 returned; not
+          followed"]
       - ["dispositions: ambiguous 2"]
-    expect_absent: ["SWALLOWED"]
+      - ["ambiguous by reason: escaped 1, untraced catcher 1"]
+    expect_absent: ["SWALLOWED", "no rule of this recorder"]

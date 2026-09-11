@@ -20,6 +20,7 @@ set -u -o pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lens.sh"
 . "$HERE/copy_lens.sh"
+. "$HERE/bin.sh"
 
 LENS_DIR="${1-}"; COPY="${2-}"; STORE="${3-}"; OUT="${4-}"; TEST_FILE="${5-}"
 MODULE="${6-}"; DEST="${7-}"; NAME_A="${8-}"; NAME_B="${9-}"
@@ -34,7 +35,7 @@ copy_lens "$LENS_DIR" "$COPY" || refuse "could not copy the lens to $COPY"
 record() {
   local label="$1" log="$OUT/logs/e5ts-$1.log"
   ( cd "$COPY" && SENSORIUM_DIR="$STORE" \
-    sensorium ts run -- npx vitest run "$TEST_FILE" ) >"$log" 2>&1
+    "$SENSORIUM_BIN" ts run -- npx vitest run "$TEST_FILE" ) >"$log" 2>&1
   printf '%s\t%s\t%s\n' "$label" "$?" \
     "$(sed -n 's/^run: \([^ ]*\).*/\1/p' "$log" | tail -1)"
 }
@@ -57,9 +58,9 @@ A="$(awk -F'\t' '$1=="before" {print $3}' "$OUT/e5ts-runs.txt")"
 B="$(awk -F'\t' '$1=="after"  {print $3}' "$OUT/e5ts-runs.txt")"
 [ -n "$A" ] && [ -n "$B" ] || refuse "one of the two recordings left no trace"
 
-SENSORIUM_DIR="$STORE" sensorium diff "$A" "$B" >"$OUT/logs/e5ts-diff.txt" 2>&1
+SENSORIUM_DIR="$STORE" "$SENSORIUM_BIN" diff "$A" "$B" >"$OUT/logs/e5ts-diff.txt" 2>&1
 plain_code=$?
-SENSORIUM_DIR="$STORE" sensorium diff --ignore-moves "$A" "$B" \
+SENSORIUM_DIR="$STORE" "$SENSORIUM_BIN" diff --ignore-moves "$A" "$B" \
   >"$OUT/logs/e5ts-diff-ignore-moves.txt" 2>&1
 moves_code=$?
 

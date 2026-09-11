@@ -91,7 +91,14 @@ is the parent code object's file as the rung-2 renderer already prints it
 (basename). A parent that unwound with the same serial cannot occur: it
 would itself be `left_frame`. A parent whose `closed_by` is `unwind` with
 `unwind_exc` absent prints the third variant with `<exc>` as the existing
-`fmt_exc` renders a missing value.
+`fmt_exc` renders a missing value. *(Amended 2026-09-11 at the final
+review: `fmt_exc` has no rendering of a missing value. `fmt.py`'s
+`fmt_exc(e)` reads `e["type"]` and `e["msg"]` off the dict it is handed —
+its only fallback is a `msg` listed in `exc.unread` — so `fmt_exc(None)`
+raises `AttributeError` and `fmt_exc({})` a `KeyError`. Nothing on this
+wire reaches it: a frame `closed_by: unwind` carries its `unwind_exc`, and
+rule 5's `_unwound_by_serial` never hands over one without. The code is
+unchanged; this sentence described a fallback that does not exist.)*
 
 What the reason claims and what it does not: it claims the serial left
 `f<child>` and never reached a traced handler, and that `f<parent>` went on.
@@ -136,7 +143,9 @@ across a rethrow), `orphan` (a HANDLED with an escaping `how` and no RAISE),
 `incomplete` (the recording is INCOMPLETE and the rule declined on it),
 `unnamed` (rule 5's catch-all). Every reason the module can print has
 exactly one key; a new reason without a key is a test failure
-(`tests/test_exceptions_typescript.py` walks the module's reason table).
+(`tests/test_exceptions_typescript_reasons.py` walks the module's reason
+table — *corrected 2026-09-11 at the final review; the file this rung's
+reason tests live in, per §6's own File Structure*).
 `unnamed` is the number this rung is measured on (§5, E6-TS‴).
 
 The invocation mode sums the line over members and prints it once, after its
@@ -161,7 +170,15 @@ and `origin site` is the origin RAISE's code object and line. No masking, no
 exemption. The `Renderer` gains one field, `key`, a callable from a unit and
 its disposition to the tuple; `RUST.key` is the masked-prose key exactly as
 today, so Rust output is byte-identical and the nineteen fenced Rust tests
-stay unchanged.
+stay unchanged. (Amended 2026-09-11 at Task 2, twice: the tuple
+carries the verdict's own words under a TypeScript mask `\b[ef]\d+\b` that
+exempts nothing — components alone merged same-origin re-raises that ended
+differently; and the origin site enters only where the verdict names no
+site, through `site_of`'s fallback, because an unconditional origin
+component split three rung-2 SWALLOWED blocks that carry `origins: N
+distinct` and would have moved E-places from the locked 28. The route joins
+the key under the same condition, as R-G2. Rust's key and mask are
+untouched.)
 
 ### 3.2 The new reason's site
 
@@ -222,7 +239,13 @@ takes a matching rule per needle: whole-word (`\b…\b`) for `Err` and `Rust
 disposition`, substring for the rest; the rule is printed in the transcript
 header. `tests/test_acceptance_scripts.py` walks the scripts and asserts the
 resolution rule and the absence of a `lens` writer outside `lens.py`
-(E-branch, §5).
+(E-branch, §5). *(Amended 2026-09-11 at Task 6: the shipped rule and the
+locked transcript header read `oid`/`chain`/`Err` whole-word and `Rust
+disposition` substring — this paragraph's "and" reads as a list of what is
+whole-word, not as a rule that `Rust disposition` shares `Err`'s matching.
+The locked block and the instrument bind; this sentence is corrected in
+place rather than left to contradict them. `docs/CARRIED-DEBT.md`'s
+2026-09-11 section carries the finding.)*
 
 ## 5. Pre-registered endpoints
 
@@ -266,11 +289,15 @@ record's §2.3 with its commit; found after, it is a finding.
 
 ## 6. Testing story
 
-- **Rules.** `tests/test_exceptions_typescript.py` gains the untraced-catcher
-  reason on hand-built traces (each variant; the origin's-own-frame
-  exclusion; a rejection kind), the window-scoped conjunct (the neighbour →
-  PROPAGATED; the suspended `.catch(async …)` still declines), and the
-  reason-table walk (every reason has a key). The T4-era hand-built traces
+- **Rules.** `tests/test_exceptions_typescript_reasons.py` gains the
+  untraced-catcher reason on hand-built traces (each variant; the
+  origin's-own-frame exclusion; a rejection kind) and the reason-table walk
+  (every reason has a key); `tests/test_exceptions_typescript_window.py`
+  gains the window-scoped conjunct (the neighbour → PROPAGATED; the
+  suspended `.catch(async …)` still declines). *(Corrected 2026-09-11 at
+  the final review: this line named `tests/test_exceptions_typescript.py`,
+  which the ceiling split off these two files and which this rung did not
+  touch.)* The T4-era hand-built traces
   use `how` words the transform actually emits (rung 2's final review, check
   B).
 - **Key.** `tests/test_exceptions_typescript_grouping.py` (new, under the
@@ -356,4 +383,83 @@ T0; `tests/test_acceptance_s5_rung3_lock.py`.
 
 ## 12. What changed against this design, and why
 
-*Written at T6.*
+*Added 2026-09-11, at the rung's close. Nothing above is deleted; where a
+sentence of this document was narrowed, replaced or falsified, this section
+is the index to it. **§5 is byte-locked** and carried verbatim into the
+record's §1 — no row below touches it, and none could: every number in it
+was fixed before any of this code existed
+(`tests/test_acceptance_s5_rung3_lock.py`). Two amendments already stand
+where they belong rather than here: **§3.1**'s dated note (the key's two
+Task-2 amendments) and **§4.3**'s dated parenthesis (the needle-matching
+prose corrected against the shipped rule and the locked transcript header).*
+
+**P-rows** are the twelve decisions the plan made before any code existed
+(its own decisions table,
+`../plans/2026-09-10-sensorium-s5-rung3-naming-ambiguity.md`). **R-rows**
+are the thirteen controller rulings made while shipping, in the order the
+ledger's `Ruling:` lines carry them
+(`.superpowers/sdd/2026-09-10-sensorium-s5-rung3-naming-ambiguity/task-6-rulings.md`
+carries the first twelve; **R13** was made at Task 6's review and is in the
+ledger's `Ruling:` lines only — *corrected 2026-09-11 at the final review,
+which counted the ledger against this list*).
+
+| # | What this document said, or left open | What rung 3 shipped, and why |
+|---|---|---|
+| P1 | `Disposition.reason` is a new optional field on the shared dataclass, defaulting to `None` | Shipped as designed. Rust and Python's three- and four-field `Disposition` constructions are untouched. |
+| P2 | The reason key follows the SENTENCE printed | Shipped as designed. An orphan escaping HANDLED prints the escaped sentence and is keyed `escaped`; `orphan` is the key of an orphan that reaches the catch-all. |
+| P3 | The untraced-catcher site is `(parent code file, parent code firstlineno, parent qualname)` | Shipped as designed. **R2** below records why on the wire: a CALL event's line is the callee's own first line, not a place in the parent, so the parent's own first line is the one line that names the parent frame. |
+| P4 | `_untraced_catcher` runs first inside `_ambiguous`, after the escaped check, guarded by `not unit.handled` | Shipped as designed. The open/translated checks read handlers in the window and the guard makes them moot. |
+| P5 | `group_units` returns a third value; `group_chains` slices it off | Shipped as designed. Every Rust caller keeps its two-tuple; the invocation mode is the only consumer of three. |
+| P6 | `Renderer.key` takes `(trace, unit, d, site, hops)`; `RUST.key` reproduces today's tuple verbatim including `mask(d.verdict)` | **Amended at Task 2, twice, both dated into §3.1**: the tuple carries the verdict's own words under a TypeScript mask that exempts nothing (**R7**), and the origin site enters the key only where the verdict names none of its own (**R8**). `_masked` becomes renderer-aware, `Renderer.mask` (**R9**), so a TS route differing only in a frame id is not counted as two routes. `RUST.key` and `RUST.mask` are untouched; the Rust fence stays a tuple-equality test. |
+| P7 | The reason line is printed by `run` and by the invocation printer, not by the grouper | Shipped as designed. The grouper prints blocks; tallies are the callers'. |
+| P8 | The T0 hash list is `sha256` over `traces/*.db` and `spool/<invocation>/*.jsonl`, paths relative to the store root | Shipped as designed. **R12** records what it does NOT cover: the store's own command journal, `invocations.jsonl`, which the T5 re-read appended one line to — its own receipt, ruled not the forbidden write, and carried to `docs/CARRIED-DEBT.md` rather than re-scoped here after the number was read. |
+| P9 | `bin.sh` is sourced by every `.sh`; Python scripts call `lens.sensorium_bin()`; both refuse with the resolved path when `realpath` is outside the repo root | **Amended before Task 5 read a number** (§2.3 entry 6, `438c535`): four earlier rungs' scripts (`e10.sh`, `e11.sh`, `e5ts_split.sh`, `planted_change.sh`) are added to `bin.sh`'s rule (**R11**) — §4.3 governs "every script under `typescript/acceptance/` that invokes `sensorium`", not the T0 census, which pinned a state rather than bounding the fix. |
+| P10 | `e6tsppp.py` compares the re-read to the rung-2 transcript line by line, brackets and ids included, NOT stripped | **Could not be shipped literally.** §2.3 entry 7 (`2564e00`): the pre-registered merge makes a literal diff STOP on the very change E-places exists to pre-register, so the fence reads on the verdict SENTENCE with the bracket stripped — no sentence appearing or disappearing but the pre-registered merge's, the tally line whole — with the raw line-by-line diff (brackets and ids included) carried in the cell and quoted in the record's §4.3 so the reading can be judged rather than taken on faith. |
+| P11 | The four corpus cases' `expect_line` pin the reason line and both tally lines whole; the collector still compares whole lines itself | Shipped as designed. **R10**: the trailing-slash harness filter stands, because vitest filters test files by substring and `untraced_catcher` is a prefix of two sibling case names — a recording that pulled three files in would not be that case's own. |
+| P12 | Task 5 reads E-legacy, E6-TS, E8‴, E-branch before the single re-read | Shipped, with E-legacy and E-branch read together by one run of `e_fences.py` — one step earlier for E-branch than this list spells, and the more conservative order rather than a looser one, since E-branch gates the instruments the other three and the re-read run on. |
+
+**The remaining rulings**, in the ledger's own words, dropping only the
+cost clause (the ledger carries it in full):
+
+- **R1.** The T1 test pin is `(config.ts)` — the shared fixture's FILE
+  basename.
+- **R3.** The record's §2 script census carries the MEASURED counts (six
+  `.sh`, three `.py`), not the plan's Task-0 prose ("five"/"four") — a pin
+  is a measurement.
+- **R4.** T5's instrument matches a printed untraced-catcher block to a
+  hand-read row by the ORIGIN SITE text (`<qualname> L<line>` of the RAISE
+  line, event id stripped), not by block identity — the table is keyed on
+  origins, the key change is the rung's own, and every member's parent was
+  read as `<anonymous>.<anonymous>` so a split cannot mint a false name.
+- **R5.** The uniform prediction (17 × `returned`) means E6-TS‴ exercises
+  one variant on the lens; the other two variants are pinned by T1's unit
+  tests and T3's corpus only — recorded, no change.
+- **R6.** The pre-registration's "parent the test function" for
+  `translated` names the FRAME, whose printed qualname is `<anonymous>` —
+  the locked sentence describes which frame, not its spelling; the
+  hand-read table, which IS spelling-exact, is the E6-TS‴ instrument.
+- **R13.** `typescript/README.md`'s roadmap item is relabelled "(a later
+  rung)" — no number; the TypeScript ladder numbers rungs as they ship, and
+  a number assigned in a roadmap is a promise the next brainstorm may not
+  keep. Docs-only, made at Task 6's review and shipped at `ea0dc36`.
+
+**What the endpoints read, against what this document expected.** §5's
+table held: **E6-TS‴ 0 false names of 20**, **E6-TS′-fence 0 differences**
+(under the §2.3 entry 7 reading; the literal reading's own 21 is reported
+beside it), **E-places 28 of 28**, **E6-TS 21 of 21**, **E8‴ 33 of 33**,
+**E7‴ 0 of 9 needles**, **E-legacy** and **E-branch** both intact. Not one
+endpoint fired its rule's failure word. This document made no per-cell
+predictions of the kind the hand-read table's own rows did — that table
+IS the prediction (R7 of §9) — so there is no separate prediction table
+here; what it left unsettled for itself is P10 above, answered before the
+store was opened rather than discovered after.
+
+**Three findings this design did not anticipate** are the record's §5
+closing paragraphs: a block can cover origins from two rows that share one
+parent frame, with no way for a reader to ask for the hidden one; the
+pre-registered `[×3 …]` bracket names a string the tool cannot print for a
+merged shape, its arithmetic (130+1+1=132) conserved instead; and a locked
+clause, `tests/test_exceptions_python*.py`, matches no file in this tree.
+All three, plus the closed rung-2 Gap 1, Gap 4 and neighbour and the new
+debts this rung's own measurement found, are carried in
+`docs/CARRIED-DEBT.md`'s 2026-09-11 section.

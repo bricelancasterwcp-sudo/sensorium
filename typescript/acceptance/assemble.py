@@ -27,7 +27,7 @@ import statistics
 import sys
 from pathlib import Path
 
-from lens import LENS, cell
+from lens import LENS, cell, stamp
 
 #: Files this assembler expects, and the record cell each becomes.
 GATED_FILES = {
@@ -338,7 +338,12 @@ def build(results: Path, arms_path: Path) -> dict:
             cell(None, 0, [f"not measured: {reported['_absent']}"])
             if "_absent" in reported else reported),
     }
-    return payload
+    # `cell()` no longer embeds `lens` (rung 3, spec 4.3): this is the
+    # assembly-time stamp that replaces it. A cell read straight off an
+    # earlier instrument's committed JSON already carries the label it was
+    # minted with and is left alone; one this call built fresh gets the
+    # session's own.
+    return stamp(payload)
 
 
 def main(argv) -> int:

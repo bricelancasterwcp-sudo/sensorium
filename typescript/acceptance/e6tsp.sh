@@ -62,9 +62,10 @@ LIMIT="${E6TSP_LIMIT:-10000}"
 #: library, so they stay on `python3`.
 : "${E6TSP_PYTHON:=python3}"
 
-#: The recorder under measurement. The default is the global tool; this rung
-#: passes the worktree's own `.venv/bin/sensorium`, which is the whole point.
-SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"
+#: The recorder under measurement: always this branch's own
+#: `.venv/bin/sensorium`, resolved by `bin.sh` -- the point this rung used to
+#: make by convention, `bin.sh` now makes by refusal.
+. "$HERE/bin.sh"
 E6TSP_REV="${E6TSP_REV:-}"
 [ -n "$E6TSP_REV" ] ||
   refuse "E6TSP_REV is required: the FULL sha of the commit the recorder ran at"

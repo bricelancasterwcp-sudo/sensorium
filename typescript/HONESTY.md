@@ -245,6 +245,15 @@ of this runtime, so the section is replaced rather than annotated — the promis
 itself changed. The old text stands in this file's git history and in
 `CHANGELOG.md`'s 0.9.0 entry; its last paragraph is the part still in force.)*
 
+**Amended 2026-09-11, at rung 3's close.** Rule 5's catch-all — *"no rule
+of this recorder reaches a verdict here"* — now names the footprint first,
+in three variants, still AMBIGUOUS and claiming nothing about what the
+untraced code did with the failure (blind spot 27, narrowed). Rule 4's
+absorbing conjunct now reads within the unit's own window, not
+trace-globally, and a second tally line prints beside the first when a
+reason count is non-zero. Measured **0 false names of 20** printed blocks
+against the seventeen-row hand read, `E6-TS‴`.
+
 **The promise.** RAISE marks a `throw` **statement** and nothing else. HANDLED
 marks a `catch` clause, a rejection handler, and the two sinks that have no
 clause of their own. Every such record says which shape it came from, in
@@ -366,12 +375,13 @@ record and not a rule. Re-recording is the fix, and it was pre-committed, not
 discovered. Vector `v32-err-flow-typescript-capability-refusal` is that
 sentence's pin.
 
-**Falsifiers.** `E6-TS`, `E6-TS′`, `E8″`, `E2″`, `E7″`;
+**Falsifiers.** `E6-TS`, `E6-TS′`, `E8″`, `E2″`, `E7″`, `E6-TS‴`,
+`E6-TS′-fence`, `E-places`;
 `typescript/test/{escape,rt.throw,rt,transform}.test.mjs` and
 `typescript/test/golden/`; `typescript/probes/src/{swallow,escape}.probe.test.ts`;
 `tests/test_exceptions_typescript{,_ambiguous}.py` and
-`tests/test_exceptions_invocation_typescript.py`; the seventeen throw-flow
-cases under `corpus/typescript/`; and vectors `v25`, `v27`, `v30`–`v33`.
+`tests/test_exceptions_invocation_typescript.py`; the twenty-one throw-flow cases
+under `corpus/typescript/` (of thirty-two); and vectors `v25`, `v27`, `v30`–`v34`.
 
 ## 5. Loss
 
@@ -768,8 +778,9 @@ a corpus case, a vector or an acceptance endpoint.
 | 4 | A rethrown OBJECT keeps its serial (one exception, two RAISE rows, a hop); a rethrown primitive gets a fresh one and cannot be followed | `typescript/test/rt.test.mjs` (`serial survives rethrow`), `docs/trace-format/vectors/v25-exc-kind-throw-rejection.json` |
 | 4 | A RAISE or HANDLED with no open frame is written as no event and counted in `throw_flow_outside_frames` | `typescript/probes/src/swallow.probe.test.ts`, `tests/test_ts_ingest.py` |
 | 4 | Unhandled rejections are meta, never events, and `info` prints a zero on a complete trace because the listener always ran | `docs/trace-format/vectors/v27-unhandled-rejection-in-meta.json`, `corpus/typescript/unhandled_rejection_in_info`, `tests/test_ts_ingest.py` |
-| 4 | These rows are judged: `err_flow: true`, and `exceptions` answers in this recorder's five dispositions — SWALLOWED only on an absorbing `how` in a frame that returned, with no escaping handler for the serial anywhere, and 0 false of 30 adjudicated on somebody else's suite | `E6-TS`, `E6-TS′`, `tests/test_exceptions_typescript.py`, the seventeen throw-flow cases under `corpus/typescript/`, `docs/trace-format/vectors/v30-exceptions-typescript-swallowed.json` |
+| 4 | These rows are judged: `err_flow: true`, and `exceptions` answers in this recorder's five dispositions — SWALLOWED only on an absorbing `how` in a frame that returned, with no escaping handler for the serial anywhere, and 0 false of 30 adjudicated on somebody else's suite | `E6-TS`, `E6-TS′`, `tests/test_exceptions_typescript.py`, the thirty-two cases under `corpus/typescript/` (21 with an `exceptions` question), `docs/trace-format/vectors/v30-exceptions-typescript-swallowed.json` |
 | 4 | A trace a 0.1.x runtime wrote declares `err_flow: false` and is still refused at exit 3, by the capability sentence naming the recorder | `docs/trace-format/vectors/v32-err-flow-typescript-capability-refusal.json`, `tests/test_exceptions_invocation_typescript.py` |
+| 4 | Rule 5's catch-all names an untraced catcher (three variants) before it prints unnamed; rule 4's absorbing conjunct is window-scoped, not trace-global; a second `ambiguous by reason:` line prints when non-empty | `E6-TS‴`, `E6-TS′-fence`, `corpus/typescript/{untraced_catcher,untraced_catcher_rejection,untraced_catcher_later_failure,logged_rethrow_to_harness}`, `docs/trace-format/vectors/v34-exceptions-typescript-untraced-catcher.json` |
 | 5 | Records are flushed after every task, every 100 ms and on every terminal signal, and EXIT is the spool's last line | `typescript/test/rt.spool.test.mjs` (`flush on exit`), `E11`(b) |
 | 5 | A SIGKILLed container is `incomplete: true` with the INCOMPLETE banner and a `diff` refusal, and no `records_dropped` is ever written | `E11`(b), `tests/test_ts_ingest.py` |
 | 6 | Every container's own exit is `null` / `unwitnessed`, and the harness's exit is `waited` on every member of the invocation, each printed with its basis | `docs/trace-format/vectors/v28-harness-exit-waited.json`, `tests/test_ts_ingest.py`, `corpus/typescript/pass_vs_fail` |

@@ -24,6 +24,14 @@ needs to see which of its holes closed, when, and what is left of them. Item
 rung's own final review: what it claimed was never true of the shipped
 runtime, and its note says what it used to say.
 
+**Item 27 is narrowed 2026-09-11, S5 rung 3.** The shape it named — an
+untraced catcher between two traced frames — is no longer invisible: the
+reader now prints a reason, `untraced catcher`, naming which of three
+variants it saw. What the item still says is narrower than before but not
+struck: naming the footprint is not the same as reading what the untraced
+code did with the failure, and that half stays exactly as unread as it
+always was.
+
 Each entry names what the trace carries in its place, and what could falsify
 the claim that this is the whole of it. A bare `§n` below is a section of
 `typescript/HONESTY.md`.
@@ -276,4 +284,15 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     gap 4). The rules declining rather than guessing is exactly what keeps the
     false-SWALLOWED count at **0**; naming the shape is what a later rung
     needs before it can decide whether it is judgeable at all. *(Added
-    2026-09-10.)* *Falsifier:* `E6-TS′`, `corpus/typescript/translated`.
+    2026-09-10. **Narrowed 2026-09-11, S5 rung 3:** the reader now NAMES
+    this footprint under a new reason, `untraced catcher`, in three
+    variants — the parent returned, the parent later unwound with its own
+    error (a translation or a later failure, indistinguishable), or the
+    parent never closed — still AMBIGUOUS. What is narrowed is the shape's
+    invisibility, not its depth: the rule says WHICH shape this is and
+    still claims nothing about what the untraced code did with the
+    failure, which stays exactly as unread as it always was. Measured
+    **0 false names of 20** printed blocks against the seventeen-row hand
+    read, all seventeen predicted before this code existed.)* *Falsifier:*
+    `E6-TS′`, `E6-TS‴`, `corpus/typescript/{translated,untraced_catcher,
+    untraced_catcher_rejection,untraced_catcher_later_failure}`.

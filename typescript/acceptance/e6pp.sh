@@ -68,10 +68,10 @@ LOAD_SLEEP=20
 N="${E6PP_N:-5}"
 case "$N" in ''|*[!0-9]*) refuse "E6PP_N must be a positive integer: $N" ;; esac
 [ "$N" -ge 1 ] || refuse "E6PP_N must be a positive integer: $N"
-#: The recorder under measurement. The default is the global tool; the
-#: session passes THIS slice's `.venv/bin/sensorium`, which is the whole
-#: point of running E6" last.
-SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"
+#: The recorder under measurement: always this branch's own
+#: `.venv/bin/sensorium`, resolved by `bin.sh` -- the point of running E6"
+#: last no longer rests on a caller remembering to pass it.
+. "$HERE/bin.sh"
 E6PP_REV="${E6PP_REV:-}"
 [ -n "$E6PP_REV" ] ||
   refuse "E6PP_REV is required: a contamination reading without the recorder's rev names no recorder"

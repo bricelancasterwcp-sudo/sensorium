@@ -24,13 +24,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from lens import cell, emit, usage
+from lens import cell, emit, sensorium_bin, usage
 from sensorium.store.reader import Trace
 
 
 def run(store: Path, args: list[str], out: Path) -> tuple[int, str]:
     import os
-    proc = subprocess.run(["sensorium", *args], capture_output=True, text=True,
+    proc = subprocess.run([sensorium_bin(), *args], capture_output=True, text=True,
                           env={**os.environ, "SENSORIUM_DIR": str(store)})
     text = proc.stdout + proc.stderr
     out.write_text(text, encoding="utf-8")

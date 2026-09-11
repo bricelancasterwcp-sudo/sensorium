@@ -75,7 +75,7 @@ exit 1, on the summary line and in `--json`, which is what CI's Rust corpus
 step passes: a green summary over cases nobody ran is the dishonesty this
 harness exists to refuse. `corpus/rust/README.md` is the case-by-case list.
 
-Twenty-eight more live under `corpus/typescript/`, recorded by the
+Thirty-two more live under `corpus/typescript/`, recorded by the
 TypeScript recorder. Thirteen are rung 1's: six ports of the cases above,
 two whose pinned answer is a REFUSAL, four only this recorder has — `.each`
 naming, an unhandled rejection in `info`, a frame suspended at end of
@@ -89,7 +89,8 @@ too.
 The other fifteen are rung 2's swallow corpus: one throw-flow shape each,
 each registering both its verdict line and its `dispositions:` tally before
 E6-TS's collector reads them, and nine of the seventeen shapes in the set
-pinned to accuse NOTHING. Seven reach the accusation — `logged_catch` (a
+pinned to accuse NOTHING (before rung 3 — see below for the current totals).
+Seven reach the accusation — `logged_catch` (a
 `catch` whose only mention of its binding is a `console.error`, which is the
 archetypal swallow and not an escape), `callback_sink` and
 `callback_handled` (those two shapes reached through `.catch(fn)` instead,
@@ -103,8 +104,8 @@ through two clauses: the origin RE-RAISED `→ swallowed` with its `hops:`
 line, the rethrow SWALLOWED at the clause that returned — a bare `throw e`
 is a traced EXIT and not an escape, which is what lets the swallow beneath
 it be named). One leaves the traced world:
-`test_failed`, the loud disposition the other sixteen are read against.
-Seven pin what this recorder REFUSES to call a swallow — `escaped_catch` and
+`test_failed`, the loud disposition the other sixteen were read against, at
+the time. Seven pin what this recorder REFUSES to call a swallow — `escaped_catch` and
 `asserted_catch`, where the binding or a rendering of it left the clause and
 the second is the commonest `catch` any suite writes; `callback_escaped` and
 `callback_opaque`, the same two readings of a rejection handler, the second
@@ -114,6 +115,37 @@ whose four rows carry no identity between them; and `suspended_handler`, an
 absorbing clause whose frame was still parked when the recording ended.
 `unhandled_rejection_in_info` gains rung 2's question as well: UNCAUGHT, the
 one disposition taken from the process rather than from the rows.
+
+The last four are rung 3's named-ambiguity cases: still AMBIGUOUS or
+PROPAGATED, none of them SWALLOWED, but now printing WHY a rung-2 reader
+could only fold the shape into `no rule of this recorder reaches a verdict
+here`. `untraced_catcher` and `untraced_catcher_rejection` are one footprint
+on a synchronous `toThrow` and an awaited `.rejects.toThrow`: a traced frame
+unwinds into vitest's own matcher and the matcher's caller returns, so the
+reason line reads `untraced catcher`, `its caller … returned`.
+`untraced_catcher_later_failure` reads the OTHER half of the same rule on a
+red suite: the same untraced catcher, whose caller does not return but
+unwinds again with a second, unrelated error — `later unwound with
+Error(…)` — and that second raise is PROPAGATED to the harness on its own
+block. `logged_rethrow_to_harness` is `rethrow_hop` read to its other
+ending, also red: one object, two RAISE rows and a `hops:` line, but the
+rethrow leaves the test's own root frame instead of hitting a `catch` that
+returns, so the origin reads RE-RAISED `→ propagated` and the rethrow itself
+is PROPAGATED to the harness — the `console.error` beside the `throw e`
+changes nothing about where the object goes. `translated`'s own wrapper
+raise, still one of the seven that refuse the swallow, is re-pinned the same
+way: its AMBIGUOUS block now reads `untraced catcher` by name instead of the
+catch-all rung 2 could only leave silent about.
+
+The current totals: twenty-one of the thirty-two TypeScript cases carry an
+`exceptions` verdict and a `dispositions:` tally (the seventeen above plus
+these four), thirteen of them pinned to accuse NOTHING (the nine above plus
+all four of these), and eight still accuse something — that count is
+unchanged, because none of the four are SWALLOWED. Three now leave the
+traced world with a PROPAGATED block, not one: `test_failed`, and, from this
+rung, `untraced_catcher_later_failure`'s second raise and
+`logged_rethrow_to_harness`'s rethrow. The other eighteen are what is read
+against them now, not sixteen.
 
 `--bench` reports; it never gates. Overhead is a tracked fact about a machine
 and a workload, not a pass/fail property of the tool.

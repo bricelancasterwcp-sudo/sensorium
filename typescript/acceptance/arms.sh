@@ -42,13 +42,13 @@ LENS_DIR="${1-}"; STORE="${2-}"; OUT="${3-}"; BATCH="${4-}"
 #: infrastructure, not a slow arm.
 WANT_FILES=' Test Files  372 passed (372)'
 WANT_TESTS='      Tests  4278 passed (4278)'
-#: The recorder the two driver arms run. The default is the GLOBAL tool, which
-#: is what rung 1 measured and what this file's history is; a rung that ships a
-#: new recorder passes its own `.venv/bin/sensorium` here, because "what does
-#: the product cost NOW" is a question about the product this branch built and
-#: not about the one already installed. The global tool is never reinstalled
-#: from a worktree, so this variable is the ONLY way the two can differ.
-SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"
+#: The recorder the two driver arms run: always this branch's own
+#: `.venv/bin/sensorium`, resolved by `bin.sh`, which refuses rather than
+#: fall back to whatever `sensorium` resolves to on `PATH`. Rung 1 read this
+#: default as the GLOBAL tool; S5 rung 3 closes that -- an instrument that
+#: can silently measure `main` instead of the branch is the defect, not a
+#: feature a caller opts out of.
+. "$HERE/bin.sh"
 
 #: The pre-registered load refusal, and how long the guard is willing to wait.
 LOAD_MAX=4.0
@@ -106,7 +106,7 @@ one_run() {
 
   ARM="$arm" IDX="$idx" BATCH="$BATCH" LOG="$log" LOAD="$load" \
   START="$start" END="$end" STATUS="$status" INV="$inv" HARNESS_WALL="$wall" \
-  SPOOL="$spool" LENS="$ACCEPT_LENS" WANT_FILES="$WANT_FILES" \
+  SPOOL="$spool" WANT_FILES="$WANT_FILES" \
   WANT_TESTS="$WANT_TESTS" python3 "$HERE/arm_line.py" >>"$JSONL"
 }
 

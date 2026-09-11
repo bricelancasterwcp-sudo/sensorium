@@ -69,7 +69,6 @@ def main() -> int:
         "transform_s": None if transform is None else round(transform, 4),
         "invocation": env["INV"] or None,
         "log": log.name,
-        "lens": env["LENS"],
     }
     row.update(spool_size(env["SPOOL"]))
     if not row["ok"]:

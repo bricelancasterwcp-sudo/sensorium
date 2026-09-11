@@ -23,9 +23,11 @@ LENS_DIR="${1-}"; STORE="${2-}"; OUT="${3-}"; TEST_FILE="${4-}"
 [ -d "$LENS_DIR" ] || refuse "no such lens directory: $LENS_DIR"
 
 #: The recorder AND the comparator under measurement -- both are this binary,
-#: which is the point: `diff` reads traces THIS recorder wrote. Default is the
-#: global tool (rung 1's reading); a rung that ships a new one passes its own.
-SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"
+#: which is the point: `diff` reads traces THIS recorder wrote. Always this
+#: branch's own `.venv/bin/sensorium`, resolved by `bin.sh`; rung 1's reading
+#: of the global tool as the default is exactly the ambiguity S5 rung 3 makes
+#: impossible.
+. "$HERE/bin.sh"
 
 RUNS=20
 LOAD_MAX=4.0
