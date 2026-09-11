@@ -1,0 +1,45 @@
+program: vitest
+harness_args: ["run", "untraced_catcher_rejection"]
+questions:
+  - id: where-did-the-offline-rejection-go
+    ask: >
+      `await expect(fetchThing()).rejects.toThrow('offline')` passed. The
+      rejection was real. Who caught it, on a shape that goes through an
+      `await` instead of a synchronous call?
+    truth: >
+      The same reason as `untraced_catcher`, reached across a suspension
+      instead of a synchronous call: `caught by untraced code inside
+      <anonymous> (untraced_catcher_rejection.test.ts): f2 unwound, its
+      caller f1 returned; not followed`. `fetchThing` is called directly --
+      there is no wrapping arrow the way `expect(() => parse(...))` has one
+      -- so its own frame IS the one that unwinds, f2, and its caller is f1,
+      the test callback itself. `.rejects.toThrow` is what receives the
+      rejection and turns it into a passing assertion, and that matcher is
+      vitest's own machinery, not traced code, so no handler row for this
+      serial exists anywhere in the recording. Nothing about crossing an
+      `await` changes the footprint the untraced-catcher rule reads: the
+      rule is about what the traced frames show -- one unwound, its caller
+      returned -- not about how the value that unwound them travelled. That
+      is the point of pairing this case with `untraced_catcher`: the reason
+      is not a special case of `.toThrow`, it is a fact about vitest's
+      matcher machinery in general, and a rejection reaches it exactly like
+      a throw does, even though the frame doing the unwinding is one level
+      shallower here.
+    why_logs_fail: >
+      A `console.log` of the rejection would need to run inside
+      `.rejects.toThrow` itself, and neither `network.ts` nor the test body
+      is ever given that chance -- the value is awaited straight into
+      vitest's matcher. `DEBUG=*` enables namespaced loggers this program
+      registers none of. A stack trace is never printed, because the
+      assertion passed and nothing escaped to the harness for it to report
+      -- the same silent-pass shape as the synchronous case, on a rejection.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e3 RAISE", "fetchThing raise Error('offline') L9"]
+      - ["AMBIGUOUS -- caught by untraced code inside <anonymous>
+          (untraced_catcher_rejection.test.ts): f2 unwound, its caller f1
+          returned; not followed"]
+      - ["dispositions: ambiguous 1"]
+      - ["ambiguous by reason: untraced catcher 1"]
+    expect_absent: ["SWALLOWED", "no rule of this recorder"]

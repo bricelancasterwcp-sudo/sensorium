@@ -1,6 +1,6 @@
 # The TypeScript corpus
 
-Twenty-eight cases recorded by the **TypeScript** recorder
+Thirty-two cases recorded by the **TypeScript** recorder
 (`sensorium ts run -- npx vitest run <case>`) and questioned through the same
 Python CLI as the rest of the corpus.
 
@@ -65,7 +65,7 @@ SWALLOWED is pinned case by case and not counted after the fact.
 | `escaped_catch` | `return String(e)`: the same two rows as a swallow, a `catch_escaped` `how` word, and AMBIGUOUS — the line these rules refuse to cross | `exceptions` |
 | `asserted_catch` | `expect((e as Error).message)`, the commonest `catch` any suite writes and the lens's dominant shape: AMBIGUOUS, never an accusation against a deliberate test | `exceptions` |
 | `rethrow_hop` | one object through two clauses: two RAISE blocks and a `hops:` line drawing the journey — the origin RE-RAISED `→ swallowed`, the rethrow SWALLOWED at the clause that returned. The bare `throw e` is a traced EXIT, not an escape, which is what lets the swallow below it be named | `exceptions` |
-| `translated` | `throw new Wrapped(String(e))`: two objects, two serials, two blocks — the original stops at the clause and the wrapper is judged on its own evidence | `exceptions` |
+| `translated` | `throw new Wrapped(String(e))`: two objects, two serials, two blocks — the original stops at the clause and the wrapper is judged on its own evidence. Re-pinned by S5 rung 3: the wrapper's own block now reads AMBIGUOUS, untraced catcher, instead of the old catch-all | `exceptions` |
 | `callback_sink` | `await p.catch(() => {})`: SWALLOWED with no `throw` statement anywhere, the verdict naming the birth (`a reject()`) because there is no raise to pair the handler with | `exceptions` |
 | `callback_handled` | `.catch((e) => { console.warn(e) })`: the `logged_catch` swallow written as a promise, and the `how` word is what says which | `exceptions` |
 | `callback_escaped` | `.catch((e) => { seen.push(e) })`: the reason left the callback, so AMBIGUOUS | `exceptions` |
@@ -76,6 +76,20 @@ SWALLOWED is pinned case by case and not counted after the fact.
 | `finally_return` | a `return` inside a `finally` and no `catch` in the file at all: SWALLOWED by `sink_finally_return`, the swallow a search for `catch` never finds | `exceptions` |
 | `dependency_throw` | `JSON.parse('{')` inside an empty `catch`: SWALLOWED, `born outside traced code` — a handler row with no raise, and no throw site invented for it | `exceptions` |
 | `suspended_handler` | an absorbing clause whose frame then parks forever: AMBIGUOUS, still suspended — an absorbing clause is only HALF of a swallow. Also a red suite, by its own 200 ms timeout | `exceptions` |
+
+## The named-ambiguity cases
+
+Four more, added by S5 rung 3. None are SWALLOWED; all four are the shape
+rung 2 could only fold into the catch-all, `AMBIGUOUS -- no rule of this
+recorder reaches a verdict here`, now printed with the reason named and,
+where there is one, a `hops:` line.
+
+| Case | Planted truth | Commands |
+|---|---|---|
+| `untraced_catcher` | `expect(() => parse('sqrt(4)')).toThrow(FormulaError)`: the throw unwinds into vitest's own matcher, which is not traced code — AMBIGUOUS, untraced catcher, `its caller f1 returned; not followed` | `exceptions` |
+| `untraced_catcher_rejection` | the same reason reached across a suspension: `await expect(fetchThing()).rejects.toThrow('offline')`, and the unwound frame is the rejecting function's own, with no wrapping arrow | `exceptions` |
+| `untraced_catcher_later_failure` | the `toThrow` shape, then a second, unrelated `throw` out of the same test root: the first block reads the third variant, `later unwound with Error(…): a translation by untraced code, or a later failure, indistinguishable`, and the second raise is PROPAGATED to the harness on its own block. Red suite by design | `exceptions` |
+| `logged_rethrow_to_harness` | `rethrow_hop`'s journey read to its other ending: `try { load() } catch (e) { console.error(e); throw e }` in the test body, and the rethrow leaves the test's own root frame — RE-RAISED `→ propagated` with its `hops:` line, then PROPAGATED to the harness. Red suite by design | `exceptions` |
 
 ## Three things a case here must know
 
@@ -94,8 +108,11 @@ and single-line groups whose needles do not depend on which side is A.
 
 **A non-zero harness exit is not a recording failure.** `sensorium ts run`
 returns the harness's own status, so `pass_vs_fail`, `suspended_at_end`,
-`timer_callback_parentless`, `test_failed` and `suspended_handler` all exit 1
-with a complete recording behind them — the last two by design, one because
-the planted failure reaches the harness and one because the frame it is asked
-about is still parked when the test's own timeout ends the run. What decides
-whether a case recorded is its `run:` lines.
+`timer_callback_parentless`, `test_failed`, `suspended_handler`,
+`untraced_catcher_later_failure` and `logged_rethrow_to_harness` all exit 1
+with a complete recording behind them — the last four by design: in three of
+them (`test_failed`, `untraced_catcher_later_failure`,
+`logged_rethrow_to_harness`) the planted failure reaches the harness, and in
+the fourth (`suspended_handler`) the frame it is asked about is still parked
+when the test's own timeout ends the run. What decides whether a case
+recorded is its `run:` lines.

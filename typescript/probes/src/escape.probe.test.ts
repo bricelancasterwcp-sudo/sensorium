@@ -146,6 +146,23 @@ export function bareRethrow(): string {
   }
 }
 
+/**
+ * The same ruling on the callback shape: `.catch((e) => { throw e; })` is a
+ * traced exit too, not an escape, and `escape.mjs` reads it as `catch_callback`
+ * (`escape.test.mjs`'s own rows for the shape). The rejection this throws
+ * inside the callback is caught by the OUTER `try` around the `await`, which
+ * is the ordinary escape this function returns through.
+ */
+export async function callbackBareRethrow(): Promise<string> {
+  try {
+    // ESCAPE callback_bare_rethrow catch_callback
+    await Promise.reject(new Error('cb')).catch((e) => { throw e; });
+  } catch {
+    return 'rethrown';
+  }
+  return 'unreachable';
+}
+
 export function destructured(): string {
   try {
     throw new Error('destructured');
@@ -175,4 +192,8 @@ test('the seven positions the value escapes through', () => {
 
 test('a bare rethrow is a traced exit, not an escape', () => {
   expect(() => bareRethrow()).toThrow('bare_rethrow');
+});
+
+test('a callback bare rethrow is a traced exit too', async () => {
+  await expect(callbackBareRethrow()).resolves.toBe('rethrown');
 });

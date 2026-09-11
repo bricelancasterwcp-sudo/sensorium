@@ -1,0 +1,46 @@
+program: vitest
+harness_args: ["run", "untraced_catcher/"]
+questions:
+  - id: where-did-the-unknown-function-error-go
+    ask: >
+      `expect(() => parse('sqrt(4)')).toThrow(FormulaError)` passed. `parse`
+      really did throw. Who actually caught it, and how does the recorder
+      know?
+    truth: >
+      AMBIGUOUS, and rung 3's whole point is that this block now says WHY:
+      `caught by untraced code inside <anonymous> (untraced_catcher.test.ts):
+      f2 unwound, its caller f1 returned; not followed`. `parse` raised at
+      e4; its own frame is f2, the arrow passed to `expect(() => …)`, and f2
+      unwound with the error the moment `parse` threw. The frame that
+      actually decided the assertion -- vitest's own `.toThrow` matcher -- is
+      f1, the test callback `<anonymous>` this file's arrow is named as, and
+      it is traced code, so the recorder can see it. What it CANNOT see is
+      what happened between f2 unwinding and f1 returning: no handler row
+      exists anywhere in this recording for e4's serial, because the catch
+      lives inside vitest's matcher, which nothing here instruments. Rung 2
+      had no name for this shape at all -- it fell into `no rule of this
+      recorder reaches a verdict here`, the same bucket as a suspended
+      handler or a translated failure, three different footprints reading as
+      one unhelpful sentence. Rung 3 reads the ONE fact this recording
+      actually holds -- a traced frame's caller is untraced, and that
+      untraced caller returned rather than unwinding or hanging -- and
+      prints it by name instead of by absence.
+    why_logs_fail: >
+      A `console.log` of the error would have to run INSIDE vitest's
+      matcher to catch this moment, and neither `formula.ts` nor the test
+      file is ever handed the chance -- the code that actually receives the
+      thrown value here belongs to vitest, not to this program. `DEBUG=*`
+      enables namespaced loggers this program registers none of. A stack
+      trace is never printed at all, because the test PASSED: nothing
+      reached the harness for it to report, and a passing assertion hiding
+      a caught exception is exactly the shape this case exists to show.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e4 RAISE", "parse raise FormulaError(\"Unknown function 'sqrt'\") L15"]
+      - ["AMBIGUOUS -- caught by untraced code inside <anonymous>
+          (untraced_catcher.test.ts): f2 unwound, its caller f1 returned;
+          not followed"]
+      - ["dispositions: ambiguous 1"]
+      - ["ambiguous by reason: untraced catcher 1"]
+    expect_absent: ["SWALLOWED", "no rule of this recorder"]

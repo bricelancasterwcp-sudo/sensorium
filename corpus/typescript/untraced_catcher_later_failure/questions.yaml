@@ -1,0 +1,58 @@
+program: vitest
+harness_args: ["run", "untraced_catcher_later_failure"]
+questions:
+  - id: two-throws-one-test-what-happened-to-the-first
+    ask: >
+      The test is red. Two things were thrown out of it: the `FormulaError`
+      `toThrow` expected, and a second `Error` afterward that actually
+      failed the suite. What became of the FIRST one, and how is it told
+      apart from the second?
+    truth: >
+      Two RAISE rows, two blocks, and the split is exactly where a reader
+      guessing from the outside would get it wrong. The first, e4, is
+      `parse`'s `FormulaError` -- caught by `.toThrow` the same untraced way
+      as `untraced_catcher` -- but this time the block reads the THIRD
+      variant: `caught by untraced code inside <anonymous>
+      (untraced_catcher_later_failure.test.ts): f2 unwound, its caller f1
+      LATER UNWOUND with Error('the assertion after was wrong'): a
+      translation by untraced code, or a later failure, indistinguishable`.
+      f1, the test callback, did not return after the untraced catcher
+      finished with the first error -- it went on to unwind itself, with a
+      SECOND, unrelated error. The rule states plainly what it cannot tell
+      from the recording alone: an untraced catcher that translates one
+      failure into another looks, from here, exactly like an untraced
+      catcher that quietly let the caller go on to fail for its own
+      reasons. The second block, e5, is that second error's own raise --
+      `<anonymous>` raising directly at the test's own root -- and its
+      verdict is the ordinary one: PROPAGATED to the harness, the test named
+      by its full title, because nothing traced sits above the test
+      callback at all. Reading the two blocks together is the only way to
+      see that they are not the same failure continuing: two serials, two
+      RAISE rows, one verdict that admits ambiguity and one that does not
+      need to.
+    why_logs_fail: >
+      A `console.log` of either error would print two unrelated messages
+      with nothing to say whether the second is a continuation of the
+      first or an accident that happened to follow it -- exactly the
+      ambiguity the untraced-catcher block already states honestly.
+      `DEBUG=*` enables namespaced loggers this program registers none of.
+      A stack trace IS printed, by vitest, for the second error only -- it
+      names the test file and the `throw` line, and says nothing at all
+      about the FIRST error, which never reached the harness and so leaves
+      no trace a developer reading test output would ever see.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e4 RAISE", "parse raise FormulaError(\"Unknown function 'sqrt'\") L15"]
+      - ["AMBIGUOUS -- caught by untraced code inside <anonymous>
+          (untraced_catcher_later_failure.test.ts): f2 unwound, its caller
+          f1 later unwound with Error('the assertion after was wrong'): a
+          translation by untraced code, or a later failure,
+          indistinguishable"]
+      - ["e5 RAISE", "<anonymous> raise Error('the assertion after was
+          wrong') L7"]
+      - ['PROPAGATED -- to the harness: test "an unknown function is
+          reported by type, then the test itself fails" failed']
+      - ["dispositions: propagated 1, ambiguous 1"]
+      - ["ambiguous by reason: untraced catcher 1"]
+    expect_absent: ["SWALLOWED", "no rule of this recorder"]

@@ -1,0 +1,52 @@
+program: vitest
+harness_args: ["run", "logged_rethrow_to_harness"]
+questions:
+  - id: the-logged-rethrow-that-still-fails-the-suite
+    ask: >
+      The test logs the disk failure with `console.error` and then rethrows
+      it, and the suite is red. Is the log-and-rethrow what failed the
+      test, or did the failure travel further than the log line suggests?
+    truth: >
+      It travelled further, and the two rows show the whole trip.
+      `rethrow_hop` (rung 2) is this same shape read to its OTHER ending:
+      there, the rethrown object hit a `catch` that returned, so the block
+      said SWALLOWED. Here the rethrow leaves the test's own root frame with
+      nothing traced above it, so the origin's block reads `RE-RAISED --
+      raised again at e5 (<anonymous> L10) → propagated`, with a `hops:`
+      line drawing the route (`e5 (load L11) → e5 (<anonymous> L10)` -- one
+      object, one serial, two RAISE rows), and the rethrow's OWN block
+      carries the verdict that matters: `PROPAGATED -- to the harness: test
+      "a disk failure is logged before it fails the suite" failed`. The
+      `console.error(e)` line sits directly between the catch and the
+      `throw e`, and it changes nothing about where the object goes -- a log
+      statement is not a handler, and this case is here so that fact is on
+      the record for a rethrow, not only for a swallow. No `ambiguous by
+      reason:` line prints at all: neither block is AMBIGUOUS, because a
+      rethrow that reaches the harness is exactly as legible as `test_failed`
+      is, and rung 3's new reason vocabulary has nothing to add to a verdict
+      the tool already reaches with confidence.
+    why_logs_fail: >
+      This is a case where a `console.log` line -- the code writes it as
+      `console.error`, and the channel makes no difference -- DOES fire,
+      right beside the `throw e`, and it still does not answer the
+      question: it prints the SAME object the RAISE at e5 already carries,
+      and reading it tells a developer nothing about whether this is the
+      first time the failure surfaced or the second -- the identity the
+      `hops:` line states outright is exactly what a log line cannot carry.
+      `DEBUG=*` enables namespaced loggers this program registers none of. A
+      stack trace IS printed here, by vitest, once the failure reaches the
+      harness -- but it names the rethrow site, not `load`, so it answers
+      "where did this fail last" and not "is this the same failure the log
+      line already printed", which is the question this case is about.
+    command: ["exceptions", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["e3 RAISE", "load raise Error('disk offline') L11"]
+      - ["RE-RAISED -- raised again at e5 (<anonymous> L10) → propagated"]
+      - ["hops: e3 (load L11) → e5 (<anonymous> L10)"]
+      - ["e5 RAISE", "<anonymous> raise Error('disk offline') L10"]
+      - ['PROPAGATED -- to the harness: test "a disk failure is logged
+          before it fails the suite" failed']
+      - ["dispositions: re-raised 1, propagated 1"]
+    expect_absent: ["SWALLOWED", "no rule of this recorder", "ambiguous by
+      reason"]
