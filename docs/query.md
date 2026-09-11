@@ -95,10 +95,27 @@ words in all, and a shape outside them produced no record.
 whose `how` is in the absorbing set (`catch`, `sink_empty_catch`,
 `catch_callback`, `sink_empty_catch_callback`, `sink_finally_return`), in a
 frame that later closed by `return`, with no later raise of that serial and
-**no** HANDLED for it anywhere in the escaping set. Everything else is
-`ambiguous` with its reason printed — an escaped or opaque handler, a frame
-still suspended at the end of the recording, a frame that later unwound with a
-different serial, a rethrown primitive. Nothing reaches SWALLOWED by falling
+**no** HANDLED for it anywhere in the escaping set, checked across the whole
+trace rather than the unit's own window. Everything else is `ambiguous` with
+its reason printed — an escaped or opaque handler, a frame still suspended
+at the end of the recording, a frame that later unwound with a different
+serial, a rethrown primitive, **or an untraced catcher** *(added
+2026-09-11, S5 rung 3)*: no HANDLED anywhere in the unit's own window and
+the raise's frame
+unwound into a traced parent that a vitest `toThrow`, an error boundary or a
+library's own `try` caught without a trace of its own. The line reads
+`caught by untraced code inside <parent> (<file>): f<n> unwound, its caller
+f<n> returned; not followed`, or, where the parent went on to fail for its
+own reasons, `…, its caller f<n> later unwound with <exc>: a translation by
+untraced code, or a later failure, indistinguishable`, or, where the parent
+never closed, `…, its caller f<n> had not closed at the end of the
+recording; not followed` — naming the footprint and claiming nothing about
+what the untraced code did with the failure. **Rule 4's own absorbing
+conjunct**, unlike SWALLOWED's, IS scoped to the unit's own window: an
+absorbing handler in an earlier window no longer keeps a later rethrow out of
+`propagated`. A second line, `ambiguous by reason: escaped N, untraced
+catcher N`, prints beside the tally whenever a reason count is non-zero and
+omits every reason that is zero. Nothing reaches SWALLOWED by falling
 through, and an UNWIND is never itself a verdict: it is the evidence
 `propagated` reads. `uncaught` is reserved for an unhandled rejection; a
 failing test is `propagated (to the harness)` with the task named. A trace an

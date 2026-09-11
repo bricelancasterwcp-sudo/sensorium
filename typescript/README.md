@@ -145,10 +145,19 @@ clause or a rejection handler gets is decided at transform time from its own
 syntax: a body that only `console.*`-logs the binding is a swallow, a body that
 does anything else with it has let the error escape, and a bare `throw e` is a
 hop and not an escape. Everything short of proof is `ambiguous` with its reason
-printed, and nothing reaches SWALLOWED by falling through. Given an
-**invocation id**, one answer covers every worker: identical verdicts merge
-into one block with `[×N over M processes]` beside it. What the rules cannot
-see is [`HONESTY.md`](HONESTY.md) §4 and its blind spots 18–27.
+printed, and nothing reaches SWALLOWED by falling through — including, since
+S5 rung 3, an **untraced catcher**: no HANDLED anywhere in the unit's own
+window and the raise's frame unwound into a traced parent a vitest
+`toThrow`, an error boundary or a library's own `try` caught without a
+trace of its own. Rule 4's own absorbing conjunct is window-scoped, so a
+handler in an EARLIER window no longer keeps a later rethrow out of
+`propagated`, and a second line, `ambiguous by reason: escaped N, untraced
+catcher N`, prints beside the tally whenever a reason count is non-zero.
+`corpus/typescript/` grows to **32** cases with it, one shape each.
+Given an **invocation id**, one answer covers every worker: identical
+verdicts merge into one block with `[×N over M processes]` beside it. What
+the rules cannot see is [`HONESTY.md`](HONESTY.md) §4 and its blind spots
+18–27.
 
 ## What refuses, and why
 

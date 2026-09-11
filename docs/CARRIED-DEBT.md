@@ -461,7 +461,7 @@ nine rules name only a failure word and three name none at all.
 
 Findings, not stops: none is an endpoint's rule and none moves a number.
 
-- **Gap 1 — the shape key's id mask carries Rust's float-type exclusion onto
+- ~~**Gap 1 — the shape key's id mask carries Rust's float-type exclusion onto
   TypeScript traces, so 30 shapes are 28 places.** `exceptions_group.MASK` is
   `\b(?!f(?:16|32|64|128)\b)([ef])\d+\b`: `f32` and its siblings are Rust type
   names a panic message can carry (ruling R-G8), and on a TypeScript trace they
@@ -473,8 +473,12 @@ Findings, not stops: none is an endpoint's rule and none moves a number.
   site, the verdict's parts — instead of on masked prose, which the grouper's
   own docstring already names as the better answer and as CARRIED-DEBT. This
   is the first measurement of that debt on a TypeScript lens. *Cost if wrong:*
-  a reader counts places from a shape count and is over by two in thirty.
-- **Gap 2 — three reused instruments were measuring the wrong binary, and it
+  a reader counts places from a shape count and is over by two in thirty.~~ —
+  **closed 2026-09-11 by S5 rung 3**: the TypeScript key now holds the
+  verdict's own words under a mask that exempts nothing (record §2.3 entries
+  3–4); E-places read **28 of 28** SWALLOWED blocks, the `useAiAssist.ts` L56
+  sink printing once (record §3 row 7, §4.4). See the rung-3 section below.
+- ~~**Gap 2 — three reused instruments were measuring the wrong binary, and it
   took this rung to notice.** `arms.sh`, `e3.sh` and `e7.sh` hard-coded the
   global `sensorium`, which is an editable install of `main`; a rung that ships
   a new recorder would have reported main's numbers under its own name. Fixed
@@ -482,8 +486,12 @@ Findings, not stops: none is an endpoint's rule and none moves a number.
   earlier readings stay reproducible. **Closing it** means a shared rule that
   every acceptance instrument takes its binary from the branch under test, and
   a check that says which binary a cell used. *Cost if wrong:* a future slice
-  reuses a fourth instrument with the same hard-coding.
-- **Gap 3 — E7″'s needle list cannot be applied as written.** §1's list
+  reuses a fourth instrument with the same hard-coding.~~ — **closed
+  2026-09-10 at this rung's own Task 4**: every acceptance script invoking
+  `sensorium` resolves `<repo root>/.venv/bin/sensorium` and refuses outside
+  it, checked by `tests/test_acceptance_scripts.py` (E-branch, record §3
+  row 4).
+- ~~**Gap 3 — E7″'s needle list cannot be applied as written.** §1's list
   includes `Err`, `oid` and `chain`, and the inherited instrument matched
   needles as case-insensitive substrings: under that reading `Err` is matched
   by every `Error('…')` an answer prints, so the endpoint would STOP on any
@@ -492,8 +500,12 @@ Findings, not stops: none is an endpoint's rule and none moves a number.
   slice 2 hit the same edge on `python ?` and this is the **second** time.
   **Closing it** means pre-registering a needle's MATCHING RULE beside the
   needle. *Cost if wrong:* a third slice writes a list of literals whose rule
-  is discovered when the instrument runs.
-- **Gap 4 — on real code the modal AMBIGUOUS reason is the rules' last one,
+  is discovered when the instrument runs.~~ — **closed 2026-09-10 at this
+  rung's own Task 4**: the needle checker prints its own matching rule
+  (whole-word for `oid`/`chain`/`Err`, substring for the rest) into the
+  transcript header it reads (spec §4.3; E7‴ read **0** occurrences over 9
+  needles, record §3 row 8).
+- ~~**Gap 4 — on real code the modal AMBIGUOUS reason is the rules' last one,
   and the shape behind it has no name.** Of the 30 AMBIGUOUS shapes, **17**
   read *"no rule of this recorder reaches a verdict here"* (§3.3 rule 5's
   catch-all) and 13 read the escaped-handler reason. One of the 17 was opened
@@ -508,8 +520,14 @@ Findings, not stops: none is an endpoint's rule and none moves a number.
   cannot see — or a rule that reads the parent's return as evidence, which is
   exactly how a false SWALLOWED would be minted. Naming it is what a later
   rung needs before it decides. *Cost if wrong:* nothing measured; more than
-  half of a real lens's ambiguity stays unnamed.
-- **A Gap-4 NEIGHBOUR with a different cause** (the final review's probe, not
+  half of a real lens's ambiguity stays unnamed.~~ — **closed 2026-09-11 by
+  S5 rung 3**: the rules now name the shape, `untraced catcher`, in three
+  variants, still AMBIGUOUS — **0 false names of 20** printed blocks against
+  the seventeen-row hand read, all seventeen predicted before this code
+  existed (record §3 row 5, §4.2). `HONESTY-BLIND-SPOTS.md` item 27 is
+  narrowed, not struck: naming the shape is not the same as reading what the
+  untraced code did with the failure. See the rung-3 section below.
+- ~~**A Gap-4 NEIGHBOUR with a different cause** (the final review's probe, not
   one of the 30): `catch (e) { console.error(e); throw e }` whose rethrow
   unwinds the test root also prints rule 5's catch-all — but here there IS an
   absorbing HANDLED for the serial, in an **earlier** window, and §3.3 rule 4's
@@ -517,7 +535,12 @@ Findings, not stops: none is an endpoint's rule and none moves a number.
   window. Same bucket, different diagnosis. **Closing it** is a rung-3 look at
   window-scoping that conjunct, with a corpus case (`logged_rethrow_to_harness`)
   pinning whichever reading is chosen. *Cost if wrong:* nothing measured; one
-  more unnamed shape inside Gap 4's 17.
+  more unnamed shape inside Gap 4's 17.~~ — **closed 2026-09-11 by S5 rung
+  3**: rule 4's absorbing conjunct now reads within the unit's own window
+  only, so `logged_rethrow_to_harness` reads `PROPAGATED -- to the harness`
+  rather than the catch-all; the escaping conjuncts of rules 3 and 4 stay
+  trace-global (record §4.5's corpus reading; spec R2). See the rung-3
+  section below.
 
 ### Deferred by ruling
 
@@ -592,14 +615,18 @@ later rung may want.
   (`escaped_rethrow_to_harness`), not a fix inside this rung. *Cost if wrong:*
   a propagation the recorder could name is reported as unknown; nothing is
   accused that should not be.
-- **The callback-side bare-rethrow exclusion has no probe marker** (43e1fbd;
+- ~~**The callback-side bare-rethrow exclusion has no probe marker** (43e1fbd;
   the final review's Minor 5). `escape.probe.test.ts` pins `bare_rethrow catch`
   for the clause syntax; the callback form — `.catch((e) => { throw e })` reads
   `catch_callback`, R10 — is pinned by `typescript/test/escape.test.mjs` and
   the contract only. **E8″ was measured at 32 of 32 markers after 43e1fbd, so
   adding a marker now is a post-measurement instrument change**: it goes in the
   next slice, with the endpoint re-read. *Cost if wrong:* one shipped rule with
-  a unit pin and no probe pin, on a lens the probes do not cover.
+  a unit pin and no probe pin, on a lens the probes do not cover.~~ — **closed
+  2026-09-11 by S5 rung 3**: `escape.probe.test.ts` gains
+  `callback_bare_rethrow`, expecting `catch_callback`; E8‴ read **33 of 33**
+  markers (19 `// SWALLOW` + 14 `// ESCAPE`), 96 checks, 0 failures (record
+  §3 row 3, §4.6).
 
 ### Deferred minors, per task
 
@@ -654,4 +681,119 @@ each task's "Minors deferred" line), archived with the worktree.
 - **Draft, measure, then cut.** This section was drafted at its full length
   against a live file of **774**, which is why rung 1's section was cut to
   volume 6 before a line of it was appended.
+
+## 2026-09-11 — S5 rung 3, naming the ambiguity (Python 0.11.0 / sensorium-ts 0.2.0)
+
+The rung that names rung 2's own Gap 4: the seventeen blocks reading *"no
+rule of this recorder reaches a verdict here"* now read a reason,
+`untraced catcher`, predicted by a human from source before any of this
+code existed. Twelve plan decisions (P1–P12) and twelve controller
+rulings, every one of them in the spec's §12. **The rung ships DONE** —
+eight endpoints, each run once, no rule's failure word fired; the gate
+that decides the word, `E6-TS‴`, read **0 false names of 20** printed
+blocks against the seventeen-row hand read. Nothing was recorded this
+rung — one re-read of the kept rung-2 invocation, hashed byte-for-byte
+before and after.
+
+### Settled — rung 2's own debts, closed here
+
+Struck where they stand, above, with a dated pointer; restated in full
+here because a reader who reaches this section first should not have to
+scroll up to find what closed.
+
+- **Gap 1** (the shape key's id mask) — closed: the TypeScript key holds
+  the verdict's own words under a mask (`\b[ef]\d+\b`) that exempts
+  nothing; the origin site enters only where the verdict names none of its
+  own. `E-places` read **28 of 28** SWALLOWED blocks (record §3 row 7,
+  §4.4).
+- **Gap 2** (three instruments measuring the global binary) and **Gap 3**
+  (E7″'s needle list unapplicable as written) — both closed at this
+  rung's own Task 4, before Task 5 read a number: every acceptance script
+  resolves `<repo root>/.venv/bin/sensorium`; the needle checker prints
+  its matching rule into the transcript header (spec §4.3; record §3
+  rows 4, 8).
+- **Gap 4** (the modal AMBIGUOUS reason had no name) — closed: `untraced
+  catcher`, in three variants, still AMBIGUOUS. **0 false names of 20**
+  printed blocks; 17 of 17 hand-read rows named; `unnamed` after 0
+  (record §3 row 5, §4.2). `HONESTY-BLIND-SPOTS.md` item 27 is
+  **narrowed**, not struck — naming the shape is not the same as reading
+  what the untraced code did with the failure, which stays unread.
+- **The Gap-4 neighbour** (rule 4's absorbing conjunct read trace-global)
+  — closed: it now reads within the unit's own window; a logged rethrow
+  to the harness reads `PROPAGATED`
+  (`corpus/typescript/logged_rethrow_to_harness`, record §4.5).
+- **The callback-side bare-rethrow probe marker** — closed:
+  `callback_bare_rethrow` added to `escape.probe.test.ts`; **E8‴** read
+  **33 of 33** markers (record §3 row 3, §4.6).
+
+### New debts this rung's measurement found
+
+- **`Shape.site`'s `key[1]` fallback is a fence, not a guarantee.**
+  `exceptions_group.Shape.__post_init__` still reads `self.key[1]` when no
+  `site` is handed in — true of Rust's key and of every hand-built `Shape`
+  a test constructs, but no longer true in general once a key's second
+  component can be something other than a place. **Closing it** means
+  making `site` a required argument once the Rust grouping fence lifts
+  and every hand-built test passes it explicitly. *Cost if wrong:* a
+  future renderer whose key puts something other than a place at index 1
+  gets a wrong `site` silently.
+- **The store's own command journal, `invocations.jsonl`, sits outside
+  the hashed trace set.** The T5 re-read appended exactly one line to
+  it — the read's own receipt, ruled NOT the forbidden write (record
+  §4.1) — but §2.1's hash list covers only `traces/*.db` and the spool's
+  `*.jsonl`, so a `sha256sum -c` returning all-OK says nothing about the
+  journal either way. **Closing it** means the next rung either hashes
+  `invocations.jsonl` too, with a pre-registered expected delta of one
+  line per pre-registered command, or names it out of scope in the same
+  sentence that names the hashed set. *Cost if wrong:* a read that
+  silently also wrote a trace would pass this rung's own gate.
+- **A fenced pre-registration pattern that matches no file.**
+  `tests/test_exceptions_python*.py` (spec §7, §1's E-legacy clause)
+  matches no file in this tree — the Python reader's own tests are
+  `tests/test_exceptions.py` and `tests/test_exceptions_synthetic.py`.
+  `e_fences.py` reports the miss in the cell's `dropped` rather than
+  folding it into the gate (record §2.3, §4.7). **Closing it** means the
+  next rung's pre-registration names the real files before it is locked.
+  *Cost if wrong:* none measured; a fence reading intact for a pattern
+  matching nothing is a fence over an empty set.
+- **The hand read's uniform prediction leaves two of three variants
+  unmeasured on the lens.** All seventeen rows predicted the `returned`
+  variant; the `had not closed at the end of the recording` and `later
+  unwound with <exc>` variants are pinned by
+  `tests/test_exceptions_typescript.py` and the corpus case
+  `untraced_catcher_later_failure` only, never by a hand-adjudicated row
+  on somebody else's code. *Cost if wrong:* nothing measured; a future
+  lens is the only way to learn whether either variant is common there.
+- **`tests/test_acceptance_scripts.py` is 315 lines**, comfortably under
+  the 800-line ceiling today, but it is the file every future E-branch
+  instrument change grows. Watched, not acted on.
+- **Spec §4.3's prose and the shipped instrument disagree on which
+  needles are whole-word.** §4.3 reads "whole-word for `Err` and `Rust
+  disposition`"; the shipped rule and the locked transcript header are
+  `oid`/`chain`/`Err` whole-word, `Rust disposition` substring (record
+  §4.6). §4.3 gains a dated parenthesis saying the locked block and the
+  instrument bind, not the earlier prose. *Cost if wrong:* a reader of
+  §4.3 alone expects a stricter match than the tool makes.
+- **The T0 hand read's row 1 calls the untraced catcher "a library
+  `try`"** where it is a `.catch` chain on the promise TanStack Query's
+  retryer returned. The locked table keeps the words it locked; the
+  record's §3 states the correction in place rather than editing the
+  table. *Cost if wrong:* none — the prediction the row supports
+  (`useCompendiumQuery.queryFn`, `returned`) is the one the reader
+  printed.
+
+### Process lessons
+
+- **A hand read predicts words, not a technique.** Row 1's "a library
+  `try`" named the wrong syntax and still supported the right prediction,
+  because the reason the reader prints does not depend on which untraced
+  construct did the catching. A locked table is locked on its
+  predictions; a wording slip in its own prose is a correction, not a
+  re-open.
+- **A pre-registered bracket string can describe a shape the printer
+  cannot produce.** `[×3 …]` was read as a shape prediction (printed
+  once, with a `×N` bracket) rather than a literal, and the arithmetic
+  (130+1+1 = 132) is what the reading was checked against instead. The
+  next rung's pre-registration pins brackets by their arithmetic, not by
+  a quoted example.
 

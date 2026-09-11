@@ -673,3 +673,9 @@ needle list being unapplicable as written, and rule 5's catch-all being the
 modal ambiguous reason on real code with an unnamed shape behind it. All four
 are carried in `docs/CARRIED-DEBT.md`'s rung-2 section with what closing each
 would take, and the fourth is `typescript/HONESTY-BLIND-SPOTS.md` item 27.
+
+*(2026-09-11: S5 rung 3 closed Gaps 1 and 4 and the Gap-4 neighbour — the
+shape key now holds the verdict's own words under a mask that exempts
+nothing, and rule 5's catch-all names an untraced catcher before falling
+back to `unnamed`. See
+`../acceptance/2026-09-10-sensorium-s5-rung3.md` §3 and §5.)*

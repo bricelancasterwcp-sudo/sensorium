@@ -769,6 +769,12 @@ rung — the second branch its own rule named.
 `off/plain` **1.0608** and `call/plain` **1.1266**
 (`docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md`).
 
+**Rung 3 ships DONE**: the seventeen rung-2 blocks that read *"no rule of
+this recorder reaches a verdict here"* now name a reason, `untraced
+catcher`, measured at **0 false names of 20** printed blocks against a
+seventeen-row hand read taken before any of this code existed
+(`docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung3.md`).
+
 ## Not yet
 
 What each slice deferred, and the ruling each deferral is waiting on, is
