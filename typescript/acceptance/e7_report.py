@@ -72,18 +72,35 @@ NEEDLES_RUNG2 = (
     ("Python's own", "Python's own", False, False),
 )
 
-#: `E7_NEEDLES=rung2` selects that list; anything else keeps rung 1's. Both
-#: live here, committed, rather than arriving on a command line: the
-#: population an endpoint counts over is part of the instrument.
-LISTS = {"rung2": NEEDLES_RUNG2}
+#: `E7_NEEDLES=rung2` (or `rung3`, S5 rung 3's own re-read: the same nine,
+#: because naming the ambiguity added no new leak word) selects that list;
+#: anything else keeps rung 1's. Every list lives here, committed, rather
+#: than arriving on a command line: the population an endpoint counts over
+#: is part of the instrument.
+LISTS = {"rung2": NEEDLES_RUNG2, "rung3": NEEDLES_RUNG2}
 
 #: Counted and printed, never gated: see the module docstring.
 CONTEXT = ("python", "rust", "asyncio task")
 
 
+def needle_rule_lines(needles) -> list[str]:
+    """One line per needle, naming how it is matched -- spec 4.3's rule,
+    spelled where a reader of the saved transcript can see it without
+    opening this file. `is_regex` is `True` here exactly when the pattern is
+    one of this module's `\\b…\\b` word-boundary regexes, so it doubles as
+    "matched whole-word" for every needle list this file carries."""
+    lines = []
+    for name, _pattern, is_regex, cased in needles:
+        match_kind = "whole-word" if is_regex else "substring"
+        case_kind = "case-sensitive" if cased else "case-insensitive"
+        lines.append(f"needle {name}: {match_kind}, {case_kind}")
+    return lines
+
+
 def main() -> int:
     env = os.environ
-    text = Path(env["E7_TRANSCRIPT"]).read_text(encoding="utf-8", errors="replace")
+    transcript_path = Path(env["E7_TRANSCRIPT"])
+    text = transcript_path.read_text(encoding="utf-8", errors="replace")
     lowered = text.lower()
     needles = LISTS.get(env.get("E7_NEEDLES", ""), NEEDLES)
     found = {}
@@ -99,6 +116,12 @@ def main() -> int:
     context = {word: len(re.findall(re.escape(word), lowered,
                                     flags=re.IGNORECASE))
                for word in CONTEXT}
+
+    # The matching rule, one line per needle, written into the SAVED
+    # transcript's own header -- counted above against the text as it was
+    # read, so prepending this changes nothing this function measured.
+    rule_header = "\n".join(needle_rule_lines(needles)) + "\n\n"
+    transcript_path.write_text(rule_header + text, encoding="utf-8")
 
     statuses = []
     for line in Path(env["E7_STATUSES"]).read_text(encoding="utf-8").splitlines():

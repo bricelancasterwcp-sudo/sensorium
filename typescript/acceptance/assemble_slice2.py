@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 from assemble import FORBIDDEN, offenders, redact  # noqa: F401  (FORBIDDEN re-exported)
-from lens import LENS, cell
+from lens import LENS, cell, stamp
 
 #: The gated cells, and the file each is read from. `E10'-0` is five files
 #: under one row: Arm 0 is one diagnosis, and splitting it into five record
@@ -201,7 +201,10 @@ def build(results: Path) -> dict:
         "parallel_speedup_0b_over_0d": speedup(results),
         **call_run_walls(results),
     }
-    return payload
+    # `cell()` no longer embeds `lens` (rung 3, spec 4.3): this is the
+    # assembly-time stamp that replaces it, non-strict so a cell already
+    # carrying one from an earlier instrument's committed JSON is left alone.
+    return stamp(payload)
 
 
 def main(argv) -> int:

@@ -20,7 +20,7 @@ import sys
 import time
 from pathlib import Path
 
-from lens import cell, emit, usage
+from lens import cell, emit, sensorium_bin, usage
 from sensorium.store.reader import Trace
 
 DIVERGED = 1
@@ -41,7 +41,7 @@ def by_file(store: Path, invocation: str) -> dict[str, tuple[str, int]]:
 
 def timed(store: Path, args: list[str]) -> tuple[float, int]:
     start = time.perf_counter()
-    proc = subprocess.run(["sensorium", *args], capture_output=True,
+    proc = subprocess.run([sensorium_bin(), *args], capture_output=True,
                           text=True, env={**_env(store)})
     return time.perf_counter() - start, proc.returncode
 
@@ -74,7 +74,7 @@ def measure(store: Path, inv_a: str, inv_b: str, reps: int) -> dict:
     only_b = sorted(set(b) - set(a))
     verdicts = {"match": [], "diverged": [], "refused": [], "bad_call": []}
     for f in shared:
-        proc = subprocess.run(["sensorium", "diff", a[f][0], b[f][0]],
+        proc = subprocess.run([sensorium_bin(), "diff", a[f][0], b[f][0]],
                               capture_output=True, text=True, env=_env(store))
         name = {0: "match", 1: "diverged", 2: "bad_call",
                 3: "refused"}.get(proc.returncode)

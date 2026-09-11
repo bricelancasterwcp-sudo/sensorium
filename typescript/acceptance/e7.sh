@@ -34,10 +34,12 @@ FLOW_VALUE="${11-}"
   [ -n "$WATCH_AT" ] && [ -n "$WATCH_EXPR" ] && [ -n "$FLOW_VALUE" ] ||
   refuse "usage: e7.sh <store> <run A> <run B> <out dir> <transcript> <repo root> <fn> <grep pattern> <watch at> <watch expr> <flow value>"
 
-#: The reader under measurement. Default is the global tool; a rung that ships
-#: a new reader passes its own, because "does the reader speak THIS recorder's
-#: words" is a question about the reader this branch built.
-SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"
+#: The reader under measurement: always this branch's own
+#: `.venv/bin/sensorium`, resolved by `bin.sh` -- "does the reader speak THIS
+#: recorder's words" is a question about the reader this branch built, and an
+#: instrument that could answer it about `main`'s reader instead measures
+#: nothing.
+. "$HERE/bin.sh"
 #: The interpreter that reads the trace's recorded project root, which is
 #: one of the three literal paths rewritten out of the COMMITTED
 #: transcript. It needs `sensorium` importable; the system python is not

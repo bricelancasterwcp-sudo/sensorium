@@ -20,7 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from lens import cell, emit
+from lens import cell, emit, sensorium_bin
 from sensorium.store.reader import Trace
 
 #: `tree_cmd` prints `  ~ suspended<where> at end of recording`.
@@ -63,7 +63,7 @@ def half_a() -> dict:
 
 
 def sensorium(store: str, *args) -> tuple[int, str]:
-    proc = subprocess.run(["sensorium", *args], capture_output=True, text=True,
+    proc = subprocess.run([sensorium_bin(), *args], capture_output=True, text=True,
                           env={**os.environ, "SENSORIUM_DIR": store})
     return proc.returncode, proc.stdout + proc.stderr
 

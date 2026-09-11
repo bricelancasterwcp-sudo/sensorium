@@ -44,6 +44,7 @@ from pathlib import Path
 
 from assemble import FORBIDDEN, arms_table, e1, offenders, redact  # noqa: F401
 from lens import LENS, cell
+from lens import stamp as lens_stamp
 
 #: The endpoint cells that are read straight from an instrument's JSON.
 GATED_FILES = {
@@ -306,7 +307,12 @@ def main(argv) -> int:
     pairs.sort(key=lambda p: len(p[0]), reverse=True)
     payload = build(Path(args[0]))
     payload["recorded_by"] = {"recorder": recorder, "commit": rev}
-    payload = redact(stamp(payload, recorder, rev), pairs)
+    # `lens_stamp` first (rung 3, spec 4.3: `cell()` no longer embeds `lens`
+    # itself, so every fresh cell needs it added at assembly time; a cell
+    # read straight off an earlier instrument's committed JSON already has
+    # one and is left alone) -- THEN this file's own recorder-provenance
+    # `stamp`, which still expects `lens` to already be there.
+    payload = redact(stamp(lens_stamp(payload), recorder, rev), pairs)
     bad = offenders(payload)
     if bad:
         sys.stderr.write("assemble_rung2: a box path survived redaction and "

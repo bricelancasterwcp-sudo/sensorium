@@ -21,10 +21,11 @@
 # converted and refuses a second pass over it -- that marker is the design,
 # not an obstacle, and it is what stops one recording being minted twice.
 #
-# The converter is whatever `SENSORIUM_BIN` names (default `sensorium`, the
-# global tool). `CONVERTER_REV` is REQUIRED and written verbatim into every
-# cell: a wall quoted without the converter that produced it cannot be
-# compared against the rung above it, which is the whole ladder.
+# The converter is always this branch's `.venv/bin/sensorium` (`bin.sh`
+# resolves it, and refuses anything else). `CONVERTER_REV` is REQUIRED and
+# written verbatim into every cell: a wall quoted without the converter that
+# produced it cannot be compared against the rung above it, which is the
+# whole ladder.
 #
 # This prints the walls and their median. Every comparison -- against the
 # reference wall, against the rung below -- is the record's.
@@ -42,11 +43,14 @@ case "$JOBS" in ''|*[!0-9]*) refuse "jobs must be a positive integer: $JOBS" ;; 
 case "$N" in ''|*[!0-9]*) refuse "n must be a positive integer: $N" ;; esac
 [ "$N" -ge 1 ] || refuse "n must be a positive integer: $N"
 
-#: The converter under measurement, and the tree it was built from. The rev
-#: is not guessed from the working directory: this script is run from the
-#: worktree while Arm 0 measures the GLOBAL tool, so a derived rev would
-#: quietly label main's converter with the branch's HEAD.
-SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"
+#: The converter under measurement: always this branch's own
+#: `.venv/bin/sensorium`, resolved by `bin.sh`. S5 rung 3 closes the door
+#: Arm 0 used to walk through (defaulting here to the GLOBAL tool) -- an
+#: instrument that can silently measure main's converter instead of the
+#: branch's is the defect this rung exists to make impossible. `CONVERTER_REV`
+#: stays required below: a wall without its converter's rev cannot be
+#: compared even when the converter can no longer be the wrong one.
+. "$HERE/bin.sh"
 CONVERTER_REV="${CONVERTER_REV:-}"
 [ -n "$CONVERTER_REV" ] ||
   refuse "CONVERTER_REV is required: a wall without its converter's rev cannot be compared"
