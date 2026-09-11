@@ -221,9 +221,13 @@ exempt). Every file the plan names as at risk, measured before any edit.
 
 ### 2.3 Instrument changes made before any endpoint ran
 
-Seven, each with the commit that carried it. Every one was decided and
+Nine, each with the commit that carried it. Every one was decided and
 committed **before** the endpoint it touches had read a number; a defect
 found after a number is read is a finding in §4 and not an entry here.
+Entries 7, 8 and 9 are all `2564e00` — the three readings this
+pre-registration could not settle for itself, all three fixed in the
+instrument's own source before the store was opened, and each measured in §4
+rather than decided there.
 
 | # | what changed | commit | why |
 |---|---|---|---|
@@ -234,10 +238,12 @@ found after a number is read is a finding in §4 and not an entry here.
 | 5 | The T0 script census: **six** `.sh` through the insecure default and **three** `.py` with a bare argv, not the plan prose's "five" and "four" | §2.2, read at `61816a5` | the census is the measured count and the pin is the measured one; the plan's prose was written from memory and is not what E-branch is read against |
 | 6 | Four earlier rungs' scripts (`e10.sh`, `e11.sh`, `e5ts_split.sh`, `planted_change.sh`) added to `bin.sh`'s rule | `438c535` | spec §4.3 governs — "every script under `typescript/acceptance/` that invokes `sensorium`" — not the T0 census, which pinned a state and does not bound the fix. Ten scripts qualify; `e10p_eq.sh` and `e6.sh` mention the word and invoke nothing |
 | 7 | **The fence's reading under the pre-registered merge** | `2564e00` | below |
+| 8 | **E-places' gate is read as its three measurable conjuncts** — the SWALLOWED block count is 28, the `useAiAssist.ts` L56 sink prints once, and the three multi-origin sinks stay one block each — with §1's `[×3 …]` literal **excluded from the gate** | `2564e00` | the invocation bracket counts UNITS and PROCESSES (`exceptions_invocation.bracket`), never rung-2 blocks, and this shape's three rung-2 members already carried 130, 1 and 1 chains, so `[×3 …]` is a string the printer cannot produce for it under any implementation. `e6tsppp.py` matches the merged block by its SITE (`MERGED_SITE = "(probeAiConfigured L56)"`) for exactly this reason, decided before the store was opened. The measured `[×132 over 11 processes …]` states the same fact the `3` was reaching for — 130 + 1 + 1 — and §4.4 is its proof |
+| 9 | **`translated`'s "parent the test function" is read as the FRAME whose qualname prints `<anonymous>`**, not the test's title | `2564e00` | P3 (entry 2) already chose the frame: the reason names the traced parent of the outermost frame the serial left, and the trace holds that code object's qualname, which for a vitest callback is `<anonymous>`. Every row of the hand read was checked against that spelling with `sensorium tree`, so a collector expecting a title would have failed a correct reader. `e6ts.py`'s `PRE_REGISTERED_REASON_LINE` pins the printed line whole under that reading. §4.5 measures it |
 
-**Entry 7, in full, because it is the one reading this pre-registration
-could not settle for itself.** Two of §1's clauses cannot both hold once the
-rung-3 key lands:
+**Entry 7, in full, because it is the one whose two clauses actually
+contradict.** Two of §1's clauses cannot both hold once the rung-3 key
+lands:
 
 * **E-places** pre-registers the merge — the `useAiAssist.ts` L56 sink stops
   printing three blocks — and with it that the printed SWALLOWED shape count
@@ -363,13 +369,23 @@ all 372 `.db` files hash exactly as T0 hashed them) and
 ```
 
 That file is the store's own command journal, appended by EVERY `sensorium`
-command a store is asked — the T0 hand read wrote lines to it too, with its
-`tree … --around e2305` calls. It is not a trace and it is not in §2.1's
-hashed set, which is the 372 `traces/*.db` and the 372 spool `.jsonl` files
-and nothing else. "The store is read, never written" in the Global
-Constraints means no `ts run`, no `ingest`, no `record`, no `refocus`: none
-ran, and no byte of the lens moved. The journal line is the read's own
-receipt, and it is quoted here rather than left for someone to find.
+command a store is asked — one line per read, `argv` and exit status — and
+the T0 hand read wrote lines to it too, with its `tree … --around e2305`
+calls. **The hash list cannot see it**: §2.1's set is the 372 `traces/*.db`
+and the 372 spool `.jsonl` files and nothing else, so a `sha256sum -c` that
+returns 744 OK says nothing about the journal either way. This read appended
+**exactly one line**, the one quoted above.
+
+**The ruling, stated so the next rung does not have to re-derive it.** The
+append is NOT the forbidden write. "The store is read, never written" in the
+Global Constraints governs the lens and the hashed trace set — no `ts run`,
+no `ingest`, no `record`, no `refocus`; none ran, and no byte of either
+moved. A journal the CLI writes on every command, including the ones T0 used
+to build the prediction, is the read's own receipt and not a change to what
+was read. A rung that wants the claim airtight has two honest options at T0
+and should pick one there rather than here: hash `invocations.jsonl` too and
+pre-register an expected delta of **one line per pre-registered command**, or
+name it out of scope in the same sentence that names the hashed set.
 
 Its tally lines:
 
@@ -489,12 +505,14 @@ re-read prints no `RE-RAISED --`, `PROPAGATED --` or `UNCAUGHT --` line, and
 neither did rung 2.
 
 Under §2.3's reading — sentence identical, bracket E-places' — this is **0
-differences**. Under the literal reading the cell also reports **21**
-positional differences and a line-count difference (31 → 29); nineteen of
-the twenty-one are the shift the two removed lines cause below them, and the
-other two are the `e404` bracket and the tail. The instrument carries that
-list whole (`literal_detail`), so both readings are on the record and the
-verdict word is attached to the one §2.3 states.
+differences**. Under the literal reading the cell also reports **21**, which
+is counted as the positions that differ over `zip(rung2, rung3)` (20: the
+`e404` bracket at position 1, and positions 11–29, which are the shift the
+two removed lines cause below them) **plus one entry saying the line counts
+differ** (31 → 29); a straight positional count over the LONGER list would be
+22, the extra two being the rung-2 positions 30 and 31 that `zip` drops. The
+instrument carries the list whole (`literal_detail`), so both readings are on
+the record and the verdict word is attached to the one §2.3 states.
 
 ### 4.4 E-places — the merged block, quoted
 
@@ -505,10 +523,10 @@ verdict word is attached to the one §2.3 states.
       messages: 2 distinct (first shown)
 ```
 
-**A finding, and it is a finding rather than a §2.3 entry because it is
-about a number that was read.** §1's E-places clause says the merged block
+**The measured proof of §2.3's entry 8**, which read `[×3 …]` out of the
+gate before the store was opened. §1's E-places clause says the merged block
 prints "once with `[×3 …]`". It prints once — which is the clause's
-substance — but the bracket reads `[×132 over 11 processes: first e404 in
+substance — and the bracket reads `[×132 over 11 processes: first e404 in
 20260910-150810-4299a0, +131]`. `[×3 …]` was never a string this tool could
 print for this shape: the invocation bracket counts CHAINS and PROCESSES,
 never blocks, and the three rung-2 members already carried 130, 1 and 1
@@ -519,9 +537,10 @@ processes contributing to `e404`'s shape: under the new mask their two
 shapes merge INSIDE their member trace, so each member still contributes one
 append.
 
-The clause is read as a prediction of the bracket's shape (printed once, with
-a `×N` bracket) and the `3` as a miscount of what that bracket holds. The
-endpoint's own measure — "the SWALLOWED shape count on the re-read and the
+Entry 8 reads the clause as a prediction of the bracket's SHAPE (printed
+once, with a `×N` bracket) and the `3` as a miscount of what that bracket
+holds; what is measured here is that the shape is right and the arithmetic
+conserved. The endpoint's own measure — "the SWALLOWED shape count on the re-read and the
 set of sink sites" — is met exactly, and §4.3 is the proof that the SET did
 not otherwise move: no sentence appeared, and the only two that vanished are
 this merge's. Had the word been read off the literal string, E-places would
@@ -554,8 +573,9 @@ The four new cases print 0 `SWALLOWED --` lines each, as pre-registered.
 its wrapper block reads the untraced-catcher reason beside the original's
 escaped one, on one recording, which is the pre-registration's own sentence.
 
-**One wording note, decided before the number and recorded here.** §1 says
-`translated`'s reason has "parent the test function". The reader prints
+**The measured proof of §2.3's entry 9**, which settled this reading before
+the corpus ran. §1 says `translated`'s reason has "parent the test
+function". The reader prints
 `caught by untraced code inside <anonymous> (translated.test.ts)`: the
 qualname the trace holds for the test callback's code object, not the test's
 title. Naming the FRAME is what P3 chose and what every row of the hand read
@@ -628,8 +648,11 @@ What this rung actually establishes, as distinct from what it shipped:
    available that the new sentence says something true rather than something
    consistent.
 2. **The site-bearing key splits where the hand read said it would.** Three
-   rung-2 shapes became six blocks, each under its own test frame; no split
-   changed a verdict and every split block matched the same row.
+   rung-2 shapes became six blocks — 3 for row 9, 2 for row 11, and 1 for
+   row 14, whose other half landed INSIDE row 13's block because both
+   expectations sit in one `it` body and unwound into one parent frame
+   (§4.2) — each under its own test frame. No split changed a verdict and
+   every split block matched the same row.
 3. **One place stopped printing as three.** Gap 1 was a mask borrowed from
    another language's type names, not a key that held too much, and removing
    the borrowing was enough.
@@ -643,9 +666,10 @@ Three things this rung leaves open, none of them a stop:
   because row 14 had a second half that printed on its own. A reader who
   wants every origin of a shape still has no way to ask for them.
 * **`[×3 …]`.** §1 pre-registered a bracket string the tool cannot print
-  (§4.4). Nothing measured moved, but a pre-registration that names a printed
-  string should name one the printer can produce, and the next rung should
-  pin brackets by their arithmetic rather than by a quoted literal.
+  (§2.3 entry 8, measured in §4.4). Nothing measured moved and the reading
+  was taken before the store was opened, but a pre-registration that names a
+  printed string should name one the printer can produce, and the next rung
+  should pin brackets by their arithmetic rather than by a quoted literal.
 * **A locked clause can name a file that does not exist.** §1's
   `tests/test_exceptions_python*.py` never matched anything (§4.7). The fence
   held under the intent reading and the record says so, but a pre-registration
