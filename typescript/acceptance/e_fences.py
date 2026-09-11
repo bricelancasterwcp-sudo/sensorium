@@ -17,6 +17,17 @@ E-LEGACY is two claims and both are checked:
     a TUPLE EQUALITY rather than as prose -- the one check that a rung-3
     rewrite of the grouper could not talk its way past.
 
+The fence names files that exist. The pre-registration spelled the Python
+reader's tests `tests/test_exceptions_python*.py`, and no file in this tree
+has ever been spelled that way -- the reader
+(`src/sensorium/query/exceptions.py`) is tested by `test_exceptions.py` and
+`test_exceptions_synthetic.py`. Until 2026-09-11 the phantom pattern was kept
+above, matching nothing and saying so in `dropped`, with the two real files
+run BESIDE the gate and only REPORTED. Both are inside the fence now, and
+`existing()` refuses at exit 2 on any pattern that matches no file: a fence
+over an empty set is not a fence, and one that reports what it declines to
+gate is a fence in name only.
+
 E-BRANCH is `tests/test_acceptance_scripts.py`: do the instruments run THIS
 branch's binary, and does only the assembler mint the lens label. It gates
 the instruments that take every other number in this rung, which is why it
@@ -34,39 +45,31 @@ from pathlib import Path
 
 from lens import REPO_ROOT, cell, emit, usage
 
-#: The Global Constraints' fence, verbatim: the files rung 3 promised not to
-#: move a byte of.
+#: The Global Constraints' fence: the files rung 3 promised not to move a
+#: byte of. Spelled as the constraints spell them, except that the Python
+#: reader's tests are named (`test_exceptions.py`,
+#: `test_exceptions_synthetic.py`) where the pre-registration's
+#: `tests/test_exceptions_python*.py` named nothing -- see the docstring.
 FENCED = ("src/sensorium/query/exceptions_rust.py",
           "src/sensorium/query/exceptions.py",
           "rust/",
           "tests/test_exceptions_rust*.py",
           "tests/test_exceptions_invocation.py",
-          "tests/test_exceptions_python*.py")
+          "tests/test_exceptions.py",
+          "tests/test_exceptions_synthetic.py")
 
-#: The fenced tests, as GLOBS -- the same two `*` the Global Constraints
-#: spell, so a fenced test file added since the branch point is run rather
-#: than silently left out of the fence it belongs to.
+#: The fenced tests, as GLOBS where the Global Constraints spell one, so a
+#: fenced test file added since the branch point is run rather than silently
+#: left out of the fence it belongs to. The last two are the Python reader's
+#: own tests, named (see the docstring) rather than left to a pattern that
+#: matched nothing.
 FENCED_TESTS = ("tests/test_exceptions_rust*.py",
                 "tests/test_exceptions_invocation.py",
-                "tests/test_exceptions_python*.py")
+                "tests/test_exceptions.py",
+                "tests/test_exceptions_synthetic.py")
 
 KEY_FENCE = ("tests/test_exceptions_typescript_grouping.py"
              "::test_the_rust_key_is_todays_tuple_verbatim")
-
-#: The Python reader's OWN tests, by the names they actually carry.
-#:
-#: The pre-registration names `tests/test_exceptions_python*.py`, and no file
-#: in this tree has ever been spelled that way -- the Python reader
-#: (`src/sensorium/query/exceptions.py`) is tested by `test_exceptions.py`
-#: and `test_exceptions_synthetic.py`. The locked pattern is kept above,
-#: matching nothing and SAYING so in the cell's `dropped`; these two are run
-#: beside it and REPORTED, never folded into the gate, because the fence's
-#: evident intent is "the Python reader still passes its tests" and a fence
-#: that measured nothing because of a typo would be the worse of the two
-#: mistakes. Which of the two readings a rung ships on is the record's to
-#: state, not this file's to decide silently.
-PYTHON_READER_TESTS = ("tests/test_exceptions.py",
-                       "tests/test_exceptions_synthetic.py")
 
 BRANCH_TEST = "tests/test_acceptance_scripts.py"
 
@@ -83,42 +86,38 @@ def run(cmd: list[str]) -> dict:
 
 
 def existing(patterns) -> list[str]:
-    """The fenced test files that exist, expanded from their globs -- a
-    pattern that matches nothing is REPORTED, never silently dropped."""
-    out, missing = [], []
+    """The fenced test files, expanded from their globs. A pattern that
+    matches nothing REFUSES the whole run at exit 2, naming the pattern:
+    the fence's population is what makes it a fence, and a fence that
+    quietly measures a smaller set than it names passes forever."""
+    out = []
     for pattern in patterns:
         hits = sorted(str(p.relative_to(REPO_ROOT))
                       for p in REPO_ROOT.glob(pattern))
-        out += hits or []
         if not hits:
-            missing.append(pattern)
-    return out, missing
+            sys.stderr.write(
+                f"refused: fence pattern {pattern!r} matches no file\n")
+            raise SystemExit(2)
+        out += hits
+    return out
 
 
 def legacy(base: str) -> dict:
     diff = run(["git", "diff", f"{base}..HEAD", "--stat", "--"] + list(FENCED))
-    tests, missing = existing(FENCED_TESTS)
+    tests = existing(FENCED_TESTS)
     suite = run([".venv/bin/python", "-m", "pytest", "-q",
                  "-p", "no:cacheprovider"] + tests + [KEY_FENCE])
     changed = [ln for ln in diff["stdout"].splitlines() if ln.strip()]
-    python_reader = run([".venv/bin/python", "-m", "pytest", "-q",
-                         "-p", "no:cacheprovider"] + list(PYTHON_READER_TESTS))
     claims = {"the fenced files show zero diff against the branch point":
                   not changed and diff["exit"] == 0,
               "the fenced tests and the Rust key's tuple equality are green":
                   suite["exit"] == 0}
-    dropped = [f"the pre-registration's fenced test pattern {p!r} matches no "
-               "file in this tree; the Python reader's own tests are run and "
-               "reported under `python_reader_tests_reported_not_gated`"
-               for p in missing]
-    return cell(sum(1 for v in claims.values() if v), len(claims), dropped,
+    return cell(sum(1 for v in claims.values() if v), len(claims), [],
                 rule=("byte-unchanged against the branch point, tests green "
                       "-> else STOP"),
                 base=base, claims=claims, fenced_paths=list(FENCED),
                 diff_stat_lines=changed, diff=diff,
                 tests_run=tests + [KEY_FENCE], suite=suite,
-                python_reader_tests_reported_not_gated={
-                    "files": list(PYTHON_READER_TESTS), "run": python_reader},
                 recorder=os.environ.get("E_FENCES_RECORDER"),
                 recorder_rev=os.environ.get("E_FENCES_REV"))
 

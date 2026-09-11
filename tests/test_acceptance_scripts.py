@@ -43,6 +43,14 @@ main's against a slice's) and `e6.sh` (checks for a leftover
 `node_modules/.sensorium` FILE, not a command) mention the word but invoke
 nothing -- they are not in the ten, and stay as they are.
 
+S5 rung 4 adds one more question to the same file, because it is the same
+kind of question about the same population: does an instrument DAMAGE what it
+reads? `e7_report.py` prepended its needle-rule header to the transcript it
+was handed, in place, so a second run over one transcript prepended a second
+header over a file whose sha256 the record pins. Rung 3 found it and ruled it
+not fixed -- an instrument defect found after its number is a finding, not a
+fix -- and this is where the fix is held.
+
 Every test states the failure it would catch.
 """
 from __future__ import annotations
@@ -322,3 +330,42 @@ def test_lens_sensorium_bin_resolves_under_this_repo_root():
     assert resolved.startswith(str(REPO) + "/")
     assert Path(resolved).is_file()
     assert Path(resolved) == REPO / ".venv" / "bin" / "sensorium"
+
+
+# -- (f) an instrument never damages what it reads -------------------------
+
+
+def test_e7_report_never_rewrites_its_transcript(tmp_path, monkeypatch, capsys):
+    """Catches: the rung-3 debt -- `e7_report.py:123-124` wrote
+    `rule_header + text` back over `E7_TRANSCRIPT`, so the second run over
+    one transcript prepended a second header and moved the sha the record
+    pins. The header goes to a `<transcript>.rules` sibling now and the
+    transcript is never opened for writing. Run TWICE on purpose: one run
+    cannot tell a destructive reporter from a careful one, because the first
+    prepend still leaves a file that reads plausibly."""
+    import e7_report  # the instrument under test; `ACCEPT` is on sys.path
+
+    transcript = tmp_path / "e7.txt"
+    transcript.write_text("$ sensorium info run-1\nframes 3\n", encoding="utf-8")
+    before = transcript.read_bytes()
+    statuses = tmp_path / "statuses.tsv"
+    statuses.write_text("sensorium info\t0\n", encoding="utf-8")
+    vectors = tmp_path / "vectors.txt"
+    vectors.write_text("34 vectors, 0 failed\n", encoding="utf-8")
+    monkeypatch.setenv("E7_TRANSCRIPT", str(transcript))
+    monkeypatch.setenv("E7_STATUSES", str(statuses))
+    monkeypatch.setenv("E7_VECTORS", str(vectors))
+    monkeypatch.setenv("E7_VECTORS_STATUS", "0")
+    monkeypatch.delenv("E7_NEEDLES", raising=False)
+
+    assert e7_report.main() == 0
+    assert transcript.read_bytes() == before, "run 1 rewrote the transcript"
+    first = (tmp_path / "e7.txt.rules").read_bytes()
+    assert e7_report.main() == 0
+    capsys.readouterr()          # the two JSON cells, off the suite's output
+
+    assert transcript.read_bytes() == before, "run 2 rewrote the transcript"
+    rules = tmp_path / "e7.txt.rules"
+    assert rules.read_bytes() == first, "the sibling grew on the second run"
+    assert rules.read_text(encoding="utf-8").startswith(
+        "needle asyncio: substring, case-insensitive\n")

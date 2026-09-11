@@ -273,14 +273,15 @@ class Shape:
     disposition: object         # ITS Disposition -- the one printed
     #: The site this shape is keyed on, `(file, line, qualname)`.
     #:
-    #: Handed in by `group_units`, which passes the very same local to the
-    #: key function -- so a shape whose site and whose key disagree cannot
-    #: be built, which is what reading it out of `key[1]` used to
-    #: guarantee. Reading it out is no longer possible: the key's SHAPE is
-    #: the language's since rung 3, and TypeScript's second component is
-    #: the reason, not a place. Where it is not given it still IS `key[1]`,
-    #: which is Rust's own key and every `Shape` a test builds by hand.
-    site: tuple | None = None
+    #: Required, with no default: handed in by `group_units`, which passes
+    #: the very same local to the key function, so a shape whose site and
+    #: whose key disagree cannot be built. It defaulted to `None` and fell
+    #: back to `key[1]` until 2026-09-11, which was only ever right for
+    #: Rust -- the key's SHAPE has been the language's since rung 3, and
+    #: TypeScript's second component is the reason, not a place. A fallback
+    #: that is correct for one of two languages is a wrong answer waiting
+    #: for the second caller, so the argument is asked for instead.
+    site: tuple
     #: The language that produced these units, so every printer below
     #: reaches the right spelling from the shape it is handed rather than
     #: from a parameter each caller would have to keep passing.
@@ -294,10 +295,6 @@ class Shape:
     #: the block above it actually shows one of the things it counts.
     first_detail: str | None = None
     first_route: str | None = None
-
-    def __post_init__(self) -> None:
-        if self.site is None:
-            self.site = self.key[1]
 
 
 def _message(event) -> str:
