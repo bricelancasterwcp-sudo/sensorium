@@ -79,6 +79,12 @@ from sensorium.query.vocab import terms
 
 TAG_ORDER = ("swallowed", "uncaught", "re-raised", "propagated", "ambiguous")
 
+#: Every reason an AMBIGUOUS line can carry, in printing order (design
+#: §2.3). `unnamed` is rule 5's catch-all and the number rung 3 is
+#: measured on; a reason without a key here is a test failure.
+REASON_ORDER = ("escaped", "untraced catcher", "suspended", "translated",
+                "primitive", "orphan", "incomplete", "unnamed")
+
 #: The `how` words that ABSORB a failure: the clause or callback took it
 #: and nothing of it left by a route the transform can see.
 ABSORBING = frozenset({"catch", "sink_empty_catch", "catch_callback",
@@ -381,7 +387,8 @@ def _unresolved(trace, unit, idx) -> Disposition | None:
         "AMBIGUOUS -- a primitive carries no identity: two records with "
         "this text may be one throw rethrown or two throws; not followed",
         "every row of a thrown primitive carries a fresh serial, and two "
-        "of one text are never merged")
+        "of one text are never merged",
+        reason="primitive")
 
 
 def _birth(trace, unit) -> str | None:
@@ -418,23 +425,30 @@ def _swallowed(trace, unit, idx) -> Disposition | None:
 
 
 def _still_open_absorber(trace, unit):
-    """The first absorbing handler for this serial whose frame did NOT
-    close by returning, or None where every one of them did.
+    """The first absorbing handler IN THIS UNIT'S OWN WINDOW whose frame
+    did NOT close by returning, or None where every one of them did.
 
     This is §3.3 rule 4's absorbing conjunct as coded (spec §14 R15),
-    written the one way that says what it is about: a handler that took
-    the failure and has not finished. A frame with no row at all counts as
-    one, because "it returned" is exactly what such a row does not
-    establish.
+    scoped to the window by rung 3 (§2.2): `unit.handled` filtered to the
+    absorbing set, never `unit.absorbing`. What it is about is unchanged --
+    a handler that took the failure and has not finished -- and a frame
+    with no row at all still counts as one, because "it returned" is
+    exactly what such a row does not establish.
 
-    A handler whose frame DID return is passed over, and it CAN be here:
-    for a RETHROWN serial the last raise's unit carries every handler of
-    that serial -- `unit.absorbing` is built from `same` -- including an
-    earlier window's, whose frame may well have returned by then. Such a
-    row is rule 3's evidence about ITS window and none about this one, so
-    rule 4 stays free to fire.
+    An EARLIER window's handler is not read here at all. For a rethrown
+    serial `unit.absorbing` carries every absorbing handler of it,
+    including the one whose frame was closed BY THIS VERY RETHROW: that
+    frame is the rethrow's predecessor, not an unfinished handler, and the
+    origin's own block already says `re-raised → <word>` about it. Reading
+    it made `catch (e) { console.error(e); throw e }` unwinding a test root
+    decline rule 4 and print a reason, about a failure the harness saw.
+
+    Rule 3's escaping conjunct and rule 4's escaping decline stay
+    trace-global, exactly as rung 2 wrote them: an escaped object can be
+    rethrown from anywhere, and a later accusation about it would be the
+    false one the escape rule exists to prevent.
     """
-    for h in unit.absorbing:
+    for h in [h for h in unit.handled if _how(h) in ABSORBING]:
         f = trace.frame(h.frame_id) if h.frame_id is not None else None
         if f is None or f.closed_by != "return":
             return h
@@ -467,6 +481,37 @@ def _propagated(trace, unit, idx) -> Disposition | None:
         "propagated", f'PROPAGATED -- to the harness: test "{name}" failed')
 
 
+def _untraced_catcher(trace, unit, idx) -> Disposition | None:
+    """§2.1: no handler row in this window, the outermost frame the serial
+    left has a traced parent, and that parent is not the raise's own frame.
+    Names the footprint; claims nothing about what the untraced code did."""
+    if unit.handled or unit.escaping or unit.serial in idx.rejections:
+        return None
+    f = idx.left_frame(unit.serial)
+    if f is None or f.parent_id is None or f.parent_id == unit.origin.frame_id:
+        return None
+    p = trace.frame(f.parent_id)
+    if p is None:
+        return None
+    code = trace.code(p.code_id)
+    where = f"{code.qualname} ({Path(code.file).name})"
+    if p.closed_by == "return":
+        fate = f"its caller f{p.id} returned; not followed"
+    elif p.closed_by == "unwind":
+        fate = (f"its caller f{p.id} later unwound with "
+                f"{fmt_exc(p.unwind_exc)}: a translation by untraced code, "
+                "or a later failure, indistinguishable")
+    else:
+        fate = (f"its caller f{p.id} had not closed at the end of the "
+                "recording; not followed")
+    site = (code.file, code.firstlineno, code.qualname)     # P3
+    return Disposition(
+        "ambiguous",
+        f"AMBIGUOUS -- caught by untraced code inside {where}: f{f.id} "
+        f"unwound, {fate}",
+        site=site, reason="untraced catcher")
+
+
 def _ambiguous(trace, unit, idx) -> Disposition:
     """5. Everything else, with the reason printed. Ambiguous by default is
     what keeps a shape nobody wrote a rule for out of the accusation."""
@@ -476,7 +521,10 @@ def _ambiguous(trace, unit, idx) -> Disposition:
             "ambiguous",
             f"AMBIGUOUS -- caught at e{h.id} ({_how(h)}), and the error or "
             "a rendering of it left the handler; not followed",
-            site=_site(trace, h))
+            site=_site(trace, h), reason="escaped")
+    named = _untraced_catcher(trace, unit, idx)
+    if named is not None:
+        return named
     open_h = _handler_frame(trace, unit, lambda f: f.closed_by is None)
     if open_h is not None:
         h, f = open_h
@@ -485,7 +533,8 @@ def _ambiguous(trace, unit, idx) -> Disposition:
                 if state == "suspended"
                 else "had not closed at the end of the recording")
         return Disposition("ambiguous",
-                           f"AMBIGUOUS -- the handler's frame f{f.id} {tail}")
+                           f"AMBIGUOUS -- the handler's frame f{f.id} {tail}",
+                           reason="suspended")
     gone = _handler_frame(
         trace, unit,
         lambda f: (f.closed_by == "unwind"
@@ -496,14 +545,21 @@ def _ambiguous(trace, unit, idx) -> Disposition:
             "ambiguous",
             f"AMBIGUOUS -- handler's frame f{f.id} later unwound with "
             f"{fmt_exc(f.unwind_exc)}: a translation or a later failure, "
-            "indistinguishable")
+            "indistinguishable",
+            reason="translated")
     if idx.incomplete:
         return Disposition(
             "ambiguous",
-            "AMBIGUOUS -- this recording never finalized (INCOMPLETE)")
+            "AMBIGUOUS -- this recording never finalized (INCOMPLETE)",
+            reason="incomplete")
+    # P2: the KEY follows the SENTENCE, so an orphan is keyed `orphan` only
+    # where it reaches this catch-all -- one escaping HANDLED above prints
+    # the escaped sentence and is counted under `escaped` beside every
+    # other verdict reading those words.
     return Disposition(
         "ambiguous",
-        "AMBIGUOUS -- no rule of this recorder reaches a verdict here")
+        "AMBIGUOUS -- no rule of this recorder reaches a verdict here",
+        reason="orphan" if unit.orphan else "unnamed")
 
 
 def _handler_frame(trace, unit, pred):
@@ -598,6 +654,21 @@ def run(trace, args, after: int) -> int:
     # written.
     print("dispositions: " + ", ".join(f"{t} {tally[t]}" for t in TAG_ORDER
                                        if tally.get(t)))
+    # A second `classify` pass, and deliberately so FOR NOW: Task 2 moves
+    # the reason tally into `group_units`, which already classifies every
+    # unit once, and this loop goes with it.
+    reasons: dict[str, int] = {}
+    for unit in scope:
+        d = classify(trace, unit, idx)
+        if d.tag == "ambiguous":
+            reasons[d.reason] = reasons.get(d.reason, 0) + 1
+    # §2.3: under the tally, and only where there is an ambiguity to
+    # explain. Zero entries are omitted -- a reason nothing wore is not a
+    # fact about this run -- and the order is the table's, never the
+    # counting order, so two answers are comparable key by key.
+    if reasons:
+        print("ambiguous by reason: " + ", ".join(
+            f"{r} {reasons[r]}" for r in REASON_ORDER if reasons.get(r)))
     # Paging RAISES THE LIMIT rather than naming an event to resume after:
     # `--after` cuts raises, and a cursor that cut a group in half would
     # re-show it as a partial block still labelled with the whole count.

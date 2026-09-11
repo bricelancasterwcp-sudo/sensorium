@@ -76,7 +76,7 @@ runner refuses a vector or a question that carries neither. Add a vector for
 each new enumeration value and each new rule — a rule with no vector is a
 sentence in a document, not a contract.
 
-These thirty-three pin the rules this document states in prose. The first seven
+These thirty-four pin the rules this document states in prose. The first seven
 were written before the Rust recorder existed; `v08`–`v15` were added in
 0.6.0, when it did, and pin the values it actually writes rather than a guess
 about them. `v16`–`v19` were added in rung 3: `v16` pins the SHAPE of an
@@ -107,6 +107,11 @@ SWALLOWED, the escaped handler that is ambiguous instead, and the
 capability refusal an 0.1.x recording still earns, and `v33` pins the
 INVOCATION mode over two workers of one `vitest run` — the first vector in
 which the grouper runs under a renderer that is not Rust's.
+`v34` was added 2026-09-10 by S5 rung 3, which named the commonest of
+those throws' fates: a failure that unwound every traced frame it was in
+while the caller above went on was caught by code the recording does not
+hold, and the reason says so rather than falling through to rule 5's
+catch-all.
 
 | Vector | Rule it pins |
 |---|---|
@@ -143,3 +148,4 @@ which the grouper runs under a renderer that is not Rust's.
 | `v31-exceptions-typescript-escaped-ambiguous` | The same recording with `how: catch_escaped` reads AMBIGUOUS with its reason and never SWALLOWED: a frame that returned is not evidence of a swallow once the error, or a rendering of it, left the handler (rung 3's STOP, transferred). |
 | `v32-err-flow-typescript-capability-refusal` | What an 0.1.x TypeScript recording lacks is a RECORD, so `exceptions` refuses it through `capabilities.err_flow` with the standard sentence and exit 3, before any rule reads an event; the retired sentence naming absent TypeScript rules does not come back, and no other command is gated. |
 | `v33-exceptions-typescript-invocation-shape` | `exceptions <invocation-id>` answers for a whole TypeScript invocation: two workers of one `vitest run` that sank the same throw at the same `catch` are ONE block, counted over both processes and naming the one a reader can open, under a header and a tally in this recorder's own nouns (`with throws`, `N raises`) with no panic line, no `partial` block and no Rust word anywhere. One grouper, two renderers; each member still answers for itself when asked by its own run id. |
+| `v34-exceptions-typescript-untraced-catcher` | A throw that unwound every traced frame it was in while the frame above went on, with no HANDLED row for its serial anywhere, was caught by code this recording does not hold: `exceptions` names that caller by qualname and file basename, says which frame the failure left and which survived it, and still says AMBIGUOUS — what the untraced catcher DID with the failure is not on the wire. The catch-all sentence is what the shape must not print, and a second tally line counts the ambiguities by reason in the table's fixed order. |

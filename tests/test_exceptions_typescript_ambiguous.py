@@ -319,12 +319,22 @@ def test_a_recording_that_never_finalized_says_that_instead_of_guessing(
     assert "dispositions: ambiguous 1" in o, o
 
 
-def test_a_shape_no_rule_reaches_says_no_rule_reached_it(
+def test_a_failure_that_left_an_inner_frame_names_the_untraced_catcher(
         tmp_path, monkeypatch, capsys):
     """A failure that left an inner frame and never appeared again: the
     caller closed normally, nothing recorded handling it, and the frame it
     left is not one the harness owns. Falling through to a swallow here is
-    exactly what these rules refuse to do."""
+    exactly what these rules refuse to do.
+
+    RE-PINNED by rung 3: this recording IS the untraced-catcher footprint
+    (design §2.1) -- `outer` went on after `inner` unwound, and no handler
+    row for the serial exists anywhere -- so the sentence now names the
+    footprint instead of the rule table's silence. The verdict word is
+    unchanged and so is the refusal below it: naming where a failure was
+    caught claims nothing about what the catcher did with it. The
+    catch-all it used to print is still reachable and is driven in
+    `tests/test_exceptions_typescript_reasons.py`.
+    """
     run_id = ts_trace(
         tmp_path, monkeypatch,
         codes=[[FILE, "outer", 5], [FILE, "inner", 20]],
@@ -339,6 +349,8 @@ def test_a_shape_no_rule_reaches_says_no_rule_reached_it(
         tasks=[task(1, "an inner failure vanishes")])
     assert cli.main(["exceptions", run_id]) == ANSWERED
     o = out(capsys)
-    assert ("AMBIGUOUS -- no rule of this recorder reaches a verdict here"
-            in o), o
+    assert ("AMBIGUOUS -- caught by untraced code inside outer "
+            "(config.ts): f2 unwound, its caller f1 returned; not followed"
+            ) in o, o
+    assert "ambiguous by reason: untraced catcher 1" in o, o
     assert "SWALLOWED" not in o, o

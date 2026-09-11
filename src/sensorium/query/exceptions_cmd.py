@@ -192,6 +192,9 @@ class Disposition:
     #: a site recovered by reading a sentence is a second, drifting spelling
     #: of it. Unused by the Python rules (N7), which do not group.
     site: tuple[str, int, str] | None = None
+    #: Why an AMBIGUOUS verdict says no more, as one key of
+    #: `exceptions_typescript.REASON_ORDER`; `None` on every other verdict.
+    reason: str | None = None
 
 
 @dataclass(frozen=True)
