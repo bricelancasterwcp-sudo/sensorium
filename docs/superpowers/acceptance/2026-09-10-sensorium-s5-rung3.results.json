@@ -1,0 +1,1303 @@
+{
+  "record": "docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung3.md",
+  "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+  "schema": "every measurement is {value, n, lens, dropped}; a null value with a non-empty dropped list is the only representation of 'not measured'; 0 is measured-and-zero",
+  "gated": {
+    "E6-TS\u2034": {
+      "value": 0,
+      "n": 20,
+      "dropped": [],
+      "rule": "0 false names: a printed untraced-catcher line whose parent qualname is not the hand-read row's, or printed for an origin the table predicted `unnamed`, is false -> STOP. A row the reader leaves unnamed is a MISS, reported with its count and not a stop.",
+      "false_names": [],
+      "rows_in_table": 17,
+      "rows_named": 17,
+      "rows_missed": [],
+      "misses": 0,
+      "splits": {
+        "resolveAttack L115": 3,
+        "evalFormula.parseFactor L94": 2
+      },
+      "blocks_covering_several_origins": [
+        {
+          "origin_key": "evalFormula.parseFactor L76",
+          "origins": 2
+        }
+      ],
+      "predicted_unnamed_after": 0,
+      "unnamed_after": 0,
+      "catch_all_blocks_still_printed": 0,
+      "reason_line": "ambiguous by reason: escaped 21, untraced catcher 32",
+      "reasons": {
+        "escaped": 21,
+        "untraced catcher": 32
+      },
+      "comparisons": [
+        {
+          "origin_key": "fetchCompendium L11",
+          "row": 1,
+          "head": "e2305 RAISE   fetchCompendium raise Error('Failed to load compendium: 500 boom') L11",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside useCompendiumQuery.queryFn (useCompendiumQuery.ts): f1105 unwound, its caller f1104 returned; not followed",
+          "bracket": "[in 20260910-150813-fa928f]",
+          "printed_parent": "useCompendiumQuery.queryFn",
+          "predicted_parent": "useCompendiumQuery.queryFn",
+          "printed_file": "useCompendiumQuery.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "Bomb L11",
+          "row": 2,
+          "head": "e13 RAISE   Bomb raise Error('boom') L11",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (PanelErrorBoundary.test.tsx): f7 unwound, its caller f5 returned; not followed",
+          "bracket": "[\u00d74 over 1 process: first e13 in 20260910-150823-56b76a, +3]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "PanelErrorBoundary.test.tsx",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "<anonymous>.<anonymous>.Flaky L42",
+          "row": 3,
+          "head": "e41 RAISE   <anonymous>.<anonymous>.Flaky raise Error('boom') L42",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (PanelErrorBoundary.test.tsx): f21 unwound, its caller f19 returned; not followed",
+          "bracket": "[\u00d75 over 1 process: first e41 in 20260910-150823-56b76a, +4]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "PanelErrorBoundary.test.tsx",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "buildCastle.get L99",
+          "row": 4,
+          "head": "e214 RAISE   buildCastle.get raise PermissionDeniedError('permission denied: module did not declare a permission granting \"castle.fog\"') L99",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (moduleSystem.test.ts): f105 unwound, its caller f84 returned; not followed",
+          "bracket": "[\u00d72 over 1 process: first e214 in 20260910-150826-f51018, +1]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "moduleSystem.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "buildCastle.set L103",
+          "row": 5,
+          "head": "e310 RAISE   buildCastle.set raise TypeError('castle.chat is read-only') L103",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (moduleSystem.test.ts): f155 unwound, its caller f134 returned; not followed",
+          "bracket": "[in 20260910-150826-f51018]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "moduleSystem.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "createHooks.emit L80",
+          "row": 6,
+          "head": "e371 RAISE   createHooks.emit raise Error('Hooks.emit: modules may only emit \"module:m:*\" events; \"combat:start\" is reserved or out of namespace') L80",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (moduleSystem.test.ts): f180 unwound, its caller f177 returned; not followed",
+          "bracket": "[\u00d72 over 1 process: first e371 in 20260910-150826-f51018, +1]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "moduleSystem.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "h L61",
+          "row": 7,
+          "head": "e408 RAISE   h raise Error('passenger node: tag \"script\" is not allowed') L61",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (moduleSystem.test.ts): f197 unwound, its caller f196 returned; not followed",
+          "bracket": "[\u00d72 over 1 process: first e408 in 20260910-150826-f51018, +1]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "moduleSystem.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "buildLevelUpDefinition.emit L570",
+          "row": 8,
+          "head": "e48 RAISE   buildLevelUpDefinition.emit raise Error('level-up definitions apply via onCompletePicks, not emit') L570",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (dnd5eLevelUp.test.ts): f24 unwound, its caller f21 returned; not followed",
+          "bracket": "[in 20260910-150827-191196]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "dnd5eLevelUp.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "resolveAttack L115",
+          "row": 9,
+          "head": "e98 RAISE   resolveAttack raise Error('resolveAttack failed: 500') L115",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (attackRoll.test.ts): f40 unwound, its caller f38 returned; not followed",
+          "bracket": "[in 20260910-150827-d172bf]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "attackRoll.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "resolveAttack L112",
+          "row": 10,
+          "head": "e140 RAISE   resolveAttack raise OutOfRangeError('Target out of reach or line of sight') L112",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (attackRoll.test.ts): f54 unwound, its caller f52 returned; not followed",
+          "bracket": "[in 20260910-150827-d172bf]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "attackRoll.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "resolveAttack L115",
+          "row": 9,
+          "head": "e162 RAISE   resolveAttack raise Error('resolveAttack failed: 400') L115",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (attackRoll.test.ts): f62 unwound, its caller f60 returned; not followed",
+          "bracket": "[in 20260910-150827-d172bf]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "attackRoll.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "resolveAttack L115",
+          "row": 9,
+          "head": "e182 RAISE   resolveAttack raise Error('resolveAttack failed: 500') L115",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (attackRoll.test.ts): f70 unwound, its caller f68 returned; not followed",
+          "bracket": "[in 20260910-150827-d172bf]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "attackRoll.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "evalFormula.parseFactor L94",
+          "row": 11,
+          "head": "e1387 RAISE   evalFormula.parseFactor raise FormulaError(\"Unknown identifier 'mystery'\") L94",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (formula.test.ts): f686 unwound, its caller f685 returned; not followed",
+          "bracket": "[in 20260910-150830-30a5cd]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "formula.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "evalFormula.parseFactor L86",
+          "row": 12,
+          "head": "e1407 RAISE   evalFormula.parseFactor raise FormulaError(\"Unknown function 'sqrt'\") L86",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (formula.test.ts): f698 unwound, its caller f697 returned; not followed",
+          "bracket": "[in 20260910-150830-30a5cd]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "formula.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "evalFormula.parseFactor L76",
+          "row": 13,
+          "head": "e1443 RAISE   evalFormula.parseFactor raise FormulaError('Unexpected end of formula') L76",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (formula.test.ts): f710 unwound, its caller f709 returned; not followed",
+          "bracket": "[\u00d72 over 1 process: first e1443 in 20260910-150830-30a5cd, +1]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "formula.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 2,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "evalFormula L42",
+          "row": 14,
+          "head": "e1451 RAISE   evalFormula raise FormulaError('Formula empty or too long') L42",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (formula.test.ts): f732 unwound, its caller f731 returned; not followed",
+          "bracket": "[in 20260910-150830-30a5cd]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "formula.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "evalFormula.parseFactor L74",
+          "row": 15,
+          "head": "e1666 RAISE   evalFormula.parseFactor raise FormulaError('Formula too deep') L74",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (formula.test.ts): f735 unwound, its caller f734 returned; not followed",
+          "bracket": "[in 20260910-150830-30a5cd]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "formula.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "evalFormula.parseFactor L94",
+          "row": 11,
+          "head": "e1686 RAISE   evalFormula.parseFactor raise FormulaError(\"Unknown identifier 'constructor'\") L94",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (formula.test.ts): f865 unwound, its caller f864 returned; not followed",
+          "bracket": "[\u00d72 over 1 process: first e1686 in 20260910-150830-30a5cd, +1]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "formula.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "loadImagePixels L117",
+          "row": 16,
+          "head": "e159 RAISE   loadImagePixels raise Error('Cannot read pixels from a tainted (cross-origin) canvas: https://evil/map.png \u2014 SecurityError: The canvas has been tainted by cross-origin data.') L117",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (imagePixels.test.ts): f59 unwound, its caller f57 returned; not followed",
+          "bracket": "[in 20260910-150831-5b768f]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "imagePixels.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        },
+        {
+          "origin_key": "loadImagePixels L108",
+          "row": 17,
+          "head": "e189 RAISE   loadImagePixels raise Error('Could not acquire a 2D canvas context for image analysis') L108",
+          "verdict": "AMBIGUOUS -- caught by untraced code inside <anonymous>.<anonymous> (imagePixels.test.ts): f74 unwound, its caller f72 returned; not followed",
+          "bracket": "[in 20260910-150831-5b768f]",
+          "printed_parent": "<anonymous>.<anonymous>",
+          "predicted_parent": "<anonymous>.<anonymous>",
+          "printed_file": "imagePixels.test.ts",
+          "printed_variant": "returned",
+          "predicted_variant": "returned",
+          "origins_in_block": 1,
+          "false": false,
+          "why": []
+        }
+      ],
+      "recorder": "sensorium 0.10.0 on feat/s5-rung3 @ 2564e00be1fa42433dbb788311a22b4e578309fd",
+      "recorder_rev": "2564e00be1fa42433dbb788311a22b4e578309fd",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "E6-TS\u2032-fence": {
+      "value": 0,
+      "n": 29,
+      "dropped": [],
+      "rule": "every verdict SENTENCE identical (the invocation bracket is E-places' and is stripped), no sentence appearing, no sentence disappearing but the pre-registered merge's, and the `dispositions:` line whole",
+      "sentences_rung2": 31,
+      "sentences_rung3": 29,
+      "appeared": [],
+      "vanished": [
+        "SWALLOWED -- caught by catch_callback at e370 (probeAiConfigured L56) in f128, which returned",
+        "SWALLOWED -- caught by catch_callback at e77 (probeAiConfigured L56) in f32, which returned"
+      ],
+      "vanished_to_the_pre_registered_merge": [
+        "SWALLOWED -- caught by catch_callback at e370 (probeAiConfigured L56) in f128, which returned",
+        "SWALLOWED -- caught by catch_callback at e77 (probeAiConfigured L56) in f32, which returned"
+      ],
+      "vanished_unexplained": [],
+      "tally_rung2": "dispositions: swallowed 261, ambiguous 53",
+      "tally_rung3": "dispositions: swallowed 261, ambiguous 53",
+      "tally_identical": true,
+      "literal_differences": 21,
+      "literal_detail": [
+        "1: rung2='SWALLOWED -- caught by catch_callback at e404 (probeAiConfigured L56) in f174, which returned  [\u00d7130 over 11 processes: first e404 in 20260910-150810-4299a0, +129]' rung3='SWALLOWED -- caught by catch_callback at e404 (probeAiConfigured L56) in f174, which returned  [\u00d7132 over 11 processes: first e404 in 20260910-150810-4299a0, +131]'",
+        "11: rung2='SWALLOWED -- caught by catch_callback at e370 (probeAiConfigured L56) in f128, which returned  [in 20260910-150820-3e4dba]' rung3='SWALLOWED -- caught by catch at e217 (useGridDetect.<anonymous> L179) in f102, which returned  [in 20260910-150820-8be528]'",
+        "12: rung2='SWALLOWED -- caught by catch at e217 (useGridDetect.<anonymous> L179) in f102, which returned  [in 20260910-150820-8be528]' rung3='SWALLOWED -- caught by catch at e816 (VoiceTool.play L25) in f383, which returned  [in 20260910-150820-a1b77b]'",
+        "13: rung2='SWALLOWED -- caught by catch at e816 (VoiceTool.play L25) in f383, which returned  [in 20260910-150820-a1b77b]' rung3='SWALLOWED -- caught by sink_empty_catch_callback at e129 (GuardedButton.<anonymous> L29) in f51, which returned  [\u00d73 over 1 process: first e124 in 20260910-150821-296264, +2]'",
+        "14: rung2='SWALLOWED -- caught by sink_empty_catch_callback at e129 (GuardedButton.<anonymous> L29) in f51, which returned  [\u00d73 over 1 process: first e124 in 20260910-150821-296264, +2]' rung3='SWALLOWED -- caught by catch_callback at e699 (useLiveKit.<anonymous> L88) in f308, which returned  [\u00d72 over 1 process: first e699 in 20260910-150821-946290, +1]'",
+        "15: rung2='SWALLOWED -- caught by catch_callback at e699 (useLiveKit.<anonymous> L88) in f308, which returned  [\u00d72 over 1 process: first e699 in 20260910-150821-946290, +1]' rung3='SWALLOWED -- caught by sink_empty_catch_callback at e703 (VoiceControls.<anonymous> L266) in f318, which returned  [\u00d72 over 1 process: first e703 in 20260910-150821-946290, +1]'",
+        "16: rung2='SWALLOWED -- caught by sink_empty_catch_callback at e703 (VoiceControls.<anonymous> L266) in f318, which returned  [\u00d72 over 1 process: first e703 in 20260910-150821-946290, +1]' rung3='SWALLOWED -- caught by catch_callback at e152 (useWebSocket.<anonymous>.ws.onopen L1143) in f43, which returned  [\u00d734 over 2 processes: first e152 in 20260910-150823-a0634f, +33]'",
+        "17: rung2='SWALLOWED -- caught by catch_callback at e77 (probeAiConfigured L56) in f32, which returned  [in 20260910-150822-6724b0]' rung3='SWALLOWED -- caught by catch at e72 (useMeshVoice.<anonymous> L506) in f31, which returned  [\u00d719 over 1 process: first e72 in 20260910-150823-d243d3, +18]'",
+        "18: rung2='SWALLOWED -- caught by catch_callback at e152 (useWebSocket.<anonymous>.ws.onopen L1143) in f43, which returned  [\u00d734 over 2 processes: first e152 in 20260910-150823-a0634f, +33]' rung3='SWALLOWED -- caught by sink_empty_catch_callback at e180 (SetSceneCard.<anonymous> L57) in f36, which returned  [\u00d72 over 1 process: first e180 in 20260910-150824-d2a7c4, +1]'",
+        "19: rung2='SWALLOWED -- caught by catch at e72 (useMeshVoice.<anonymous> L506) in f31, which returned  [\u00d719 over 1 process: first e72 in 20260910-150823-d243d3, +18]' rung3='SWALLOWED -- caught by catch at e328 (SetSceneCard.handleUpload L78) in f138, which returned  [in 20260910-150824-d2a7c4]'",
+        "20: rung2='SWALLOWED -- caught by sink_empty_catch_callback at e180 (SetSceneCard.<anonymous> L57) in f36, which returned  [\u00d72 over 1 process: first e180 in 20260910-150824-d2a7c4, +1]' rung3='SWALLOWED -- caught by catch at e100 (<anonymous>.attachMapToScene L2337) in f12, which returned  [\u00d72 over 1 process: first e100 in 20260910-150825-496492, +1]'",
+        "21: rung2='SWALLOWED -- caught by catch at e328 (SetSceneCard.handleUpload L78) in f138, which returned  [in 20260910-150824-d2a7c4]' rung3='SWALLOWED -- caught by sink_empty_catch at e31 (useDraggable.<anonymous> L22) in f17, which returned  [in 20260910-150826-1a995a]'",
+        "22: rung2='SWALLOWED -- caught by catch at e100 (<anonymous>.attachMapToScene L2337) in f12, which returned  [\u00d72 over 1 process: first e100 in 20260910-150825-496492, +1]' rung3='SWALLOWED -- caught by sink_empty_catch at e33 (copyText L17) in f13, which returned  [in 20260910-150826-831d76]'",
+        "23: rung2='SWALLOWED -- caught by sink_empty_catch at e31 (useDraggable.<anonymous> L22) in f17, which returned  [in 20260910-150826-1a995a]' rung3='SWALLOWED -- caught by catch at e46 (legacyCopy L41) in f19, which returned  [in 20260910-150826-831d76]'",
+        "24: rung2='SWALLOWED -- caught by sink_empty_catch at e33 (copyText L17) in f13, which returned  [in 20260910-150826-831d76]' rung3='SWALLOWED -- caught by catch at e390 (createHooks.dispatch L98) in f190, which returned  [\u00d72 over 1 process: first e389 in 20260910-150826-f51018, +1]'",
+        "25: rung2='SWALLOWED -- caught by catch at e46 (legacyCopy L41) in f19, which returned  [in 20260910-150826-831d76]' rung3='SWALLOWED -- caught by catch at e99 (<anonymous>.createDrawing L2689) in f39, which returned  [in 20260910-150828-180272]'",
+        "26: rung2='SWALLOWED -- caught by catch at e390 (createHooks.dispatch L98) in f190, which returned  [\u00d72 over 1 process: first e389 in 20260910-150826-f51018, +1]' rung3='SWALLOWED -- caught by catch at e115 (createAssetSlice.uploadArtFile L61) in f40, which returned  [in 20260910-150829-9a1ad6]'",
+        "27: rung2='SWALLOWED -- caught by catch at e99 (<anonymous>.createDrawing L2689) in f39, which returned  [in 20260910-150828-180272]' rung3='SWALLOWED -- caught by catch at e125 (createAssetSlice.tokenizeAsset L81) in f43, which returned  [in 20260910-150829-9a1ad6]'",
+        "28: rung2='SWALLOWED -- caught by catch at e115 (createAssetSlice.uploadArtFile L61) in f40, which returned  [in 20260910-150829-9a1ad6]' rung3='SWALLOWED -- caught by catch at e217 (loadPrefs L80) in f109, which returned  [in 20260910-150829-ab9851]'",
+        "29: rung2='SWALLOWED -- caught by catch at e125 (createAssetSlice.tokenizeAsset L81) in f43, which returned  [in 20260910-150829-9a1ad6]' rung3='dispositions: swallowed 261, ambiguous 53'",
+        "line counts differ: rung2 31, rung3 29"
+      ],
+      "raw_diff": [
+        "- SWALLOWED -- caught by catch_callback at e404 (probeAiConfigured L56) in f174, which returned  [\u00d7130 over 11 processes: first e404 in 20260910-150810-4299a0, +129]",
+        "- SWALLOWED -- caught by catch_callback at e370 (probeAiConfigured L56) in f128, which returned  [in 20260910-150820-3e4dba]",
+        "- SWALLOWED -- caught by catch_callback at e77 (probeAiConfigured L56) in f32, which returned  [in 20260910-150822-6724b0]",
+        "+ SWALLOWED -- caught by catch_callback at e404 (probeAiConfigured L56) in f174, which returned  [\u00d7132 over 11 processes: first e404 in 20260910-150810-4299a0, +131]"
+      ],
+      "differences": 0,
+      "why": [],
+      "recorder": "sensorium 0.10.0 on feat/s5-rung3 @ 2564e00be1fa42433dbb788311a22b4e578309fd",
+      "recorder_rev": "2564e00be1fa42433dbb788311a22b4e578309fd",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "E-places": {
+      "value": 28,
+      "n": 28,
+      "dropped": [],
+      "rule": "exactly 28 SWALLOWED blocks, one per distinct sink site; the useAiAssist.ts L56 sink (rung-2 rows S1/S11/S17, three blocks over 30 printed lines) printed once; every other rung-2 SWALLOWED block unchanged",
+      "swallowed_blocks_rung2": 30,
+      "swallowed_blocks_rung3": 28,
+      "merged_block": [
+        {
+          "head": "e404 HANDLED probeAiConfigured handled Error('network down') L56",
+          "verdict": "SWALLOWED -- caught by catch_callback at e404 (probeAiConfigured L56) in f174, which returned",
+          "bracket": "[\u00d7132 over 11 processes: first e404 in 20260910-150810-4299a0, +131]",
+          "details": [
+            "born outside a throw statement (a reject())",
+            "messages: 2 distinct (first shown)"
+          ]
+        }
+      ],
+      "merged_in_rung2": [
+        {
+          "head": "e404 HANDLED probeAiConfigured handled Error('network down') L56",
+          "verdict": "SWALLOWED -- caught by catch_callback at e404 (probeAiConfigured L56) in f174, which returned",
+          "bracket": "[\u00d7130 over 11 processes: first e404 in 20260910-150810-4299a0, +129]"
+        },
+        {
+          "head": "e370 HANDLED probeAiConfigured handled TypeError('Failed to parse URL from /api/settings/ai') L56",
+          "verdict": "SWALLOWED -- caught by catch_callback at e370 (probeAiConfigured L56) in f128, which returned",
+          "bracket": "[in 20260910-150820-3e4dba]"
+        },
+        {
+          "head": "e77 HANDLED probeAiConfigured handled TypeError('Failed to parse URL from /api/settings/ai') L56",
+          "verdict": "SWALLOWED -- caught by catch_callback at e77 (probeAiConfigured L56) in f32, which returned",
+          "bracket": "[in 20260910-150822-6724b0]"
+        }
+      ],
+      "multi_origin_sinks_kept_single": {
+        "(useBuilderContent.<anonymous> L72)": {
+          "blocks": 1,
+          "origins": [
+            3
+          ],
+          "verdicts": [
+            "SWALLOWED -- caught by catch_callback at e7828 (useBuilderContent.<anonymous> L72) in f3908, which returned"
+          ]
+        },
+        "(GuardedButton.<anonymous> L29)": {
+          "blocks": 1,
+          "origins": [
+            2
+          ],
+          "verdicts": [
+            "SWALLOWED -- caught by sink_empty_catch_callback at e129 (GuardedButton.<anonymous> L29) in f51, which returned"
+          ]
+        },
+        "(createHooks.dispatch L98)": {
+          "blocks": 1,
+          "origins": [
+            2
+          ],
+          "verdicts": [
+            "SWALLOWED -- caught by catch at e390 (createHooks.dispatch L98) in f190, which returned"
+          ]
+        }
+      },
+      "differences": 0,
+      "why": [],
+      "recorder": "sensorium 0.10.0 on feat/s5-rung3 @ 2564e00be1fa42433dbb788311a22b4e578309fd",
+      "recorder_rev": "2564e00be1fa42433dbb788311a22b4e578309fd",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "E6-TS": {
+      "value": 21,
+      "n": 21,
+      "dropped": [],
+      "filtered_to": null,
+      "pre_registered": {
+        "silent_swallow": 1,
+        "logged_catch": 1,
+        "callback_sink": 1,
+        "callback_handled": 1,
+        "await_rejection_caught": 1,
+        "finally_return": 1,
+        "dependency_throw": 1,
+        "rethrow_hop": 1,
+        "escaped_catch": 0,
+        "asserted_catch": 0,
+        "translated": 0,
+        "callback_escaped": 0,
+        "callback_opaque": 0,
+        "test_failed": 0,
+        "unhandled_rejection_in_info": 0,
+        "primitive_rethrow": 0,
+        "suspended_handler": 0,
+        "untraced_catcher": 0,
+        "untraced_catcher_rejection": 0,
+        "untraced_catcher_later_failure": 0,
+        "logged_rethrow_to_harness": 0
+      },
+      "pre_registered_reason_line": {
+        "translated": "ambiguous by reason: escaped 1, untraced catcher 1",
+        "untraced_catcher": "ambiguous by reason: untraced catcher 1",
+        "untraced_catcher_rejection": "ambiguous by reason: untraced catcher 1",
+        "untraced_catcher_later_failure": "ambiguous by reason: untraced catcher 1",
+        "logged_rethrow_to_harness": null
+      },
+      "recorder": "sensorium 0.10.0 on feat/s5-rung3 @ 2564e00be1fa42433dbb788311a22b4e578309fd",
+      "recorder_rev": "2564e00be1fa42433dbb788311a22b4e578309fd",
+      "differences": [],
+      "per_case": [
+        {
+          "case": "asserted_catch",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "reason_line": "ambiguous by reason: escaped 1",
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "does-the-tool-accuse-a-test-of-swallowing",
+          "command": "exceptions 20260911-022905-e7e386",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/asserted_catch"
+        },
+        {
+          "case": "await_rejection_caught",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "reason_line": null,
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "did-the-failure-survive-the-await",
+          "command": "exceptions 20260911-022905-199366",
+          "lines": [
+            "SWALLOWED -- caught by catch at e5 (<anonymous> L9) in f1, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/await_rejection_caught"
+        },
+        {
+          "case": "callback_escaped",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "reason_line": "ambiguous by reason: escaped 1",
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "was-the-sync-conflict-swallowed",
+          "command": "exceptions 20260911-022906-effffb",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/callback_escaped"
+        },
+        {
+          "case": "callback_handled",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "reason_line": null,
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "what-happened-to-the-refresh-rejection",
+          "command": "exceptions 20260911-022906-6d5ecf",
+          "lines": [
+            "SWALLOWED -- caught by catch_callback at e5 (<anonymous> L6) in f1, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/callback_handled"
+        },
+        {
+          "case": "callback_opaque",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "reason_line": "ambiguous by reason: escaped 1",
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "does-the-tool-judge-a-handler-it-cannot-read",
+          "command": "exceptions 20260911-022907-bca5e0",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/callback_opaque"
+        },
+        {
+          "case": "callback_sink",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "reason_line": null,
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "what-happened-to-the-upstream-rejection",
+          "command": "exceptions 20260911-022907-b92ffb",
+          "lines": [
+            "SWALLOWED -- caught by sink_empty_catch_callback at e5 (<anonymous> L6) in f1, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/callback_sink"
+        },
+        {
+          "case": "dependency_throw",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "reason_line": null,
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "what-happened-to-the-malformed-settings-file",
+          "command": "exceptions 20260911-022908-1b4c27",
+          "lines": [
+            "SWALLOWED -- caught by catch at e3 (readSettings L9) in f2, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/dependency_throw"
+        },
+        {
+          "case": "escaped_catch",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "reason_line": "ambiguous by reason: escaped 1",
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "was-the-amount-failure-swallowed",
+          "command": "exceptions 20260911-022908-b7b5d3",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/escaped_catch"
+        },
+        {
+          "case": "finally_return",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "reason_line": null,
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "where-did-the-write-failure-go-with-no-catch",
+          "command": "exceptions 20260911-022909-3a06a3",
+          "lines": [
+            "SWALLOWED -- caught by sink_finally_return at e4 (commit L9) in f2, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/finally_return"
+        },
+        {
+          "case": "logged_catch",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "reason_line": null,
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "what-happened-to-the-quota-failure",
+          "command": "exceptions 20260911-022909-0b8862",
+          "lines": [
+            "SWALLOWED -- caught by catch at e5 (quotaOrDefault L18) in f2, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/logged_catch"
+        },
+        {
+          "case": "logged_rethrow_to_harness",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: re-raised 1, propagated 1",
+          "tally": {
+            "re-raised": 1,
+            "propagated": 1
+          },
+          "reason_line": null,
+          "expected_reason_line": null,
+          "pin_failures": [],
+          "exit": 0,
+          "question": "the-logged-rethrow-that-still-fails-the-suite",
+          "command": "exceptions 20260911-022910-c1a489",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/logged_rethrow_to_harness"
+        },
+        {
+          "case": "primitive_rethrow",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 4",
+          "tally": {
+            "ambiguous": 4
+          },
+          "reason_line": "ambiguous by reason: primitive 4",
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "can-the-thrown-string-be-followed",
+          "command": "exceptions 20260911-022910-0fa3ab",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/primitive_rethrow"
+        },
+        {
+          "case": "rethrow_hop",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1, re-raised 1",
+          "tally": {
+            "swallowed": 1,
+            "re-raised": 1
+          },
+          "reason_line": null,
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "where-did-the-outage-go-through-two-clauses",
+          "command": "exceptions 20260911-022911-52d191",
+          "lines": [
+            "SWALLOWED -- caught by catch at e8 (boot L24) in f2, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/rethrow_hop"
+        },
+        {
+          "case": "silent_swallow",
+          "expected": 1,
+          "swallowed_lines": 1,
+          "tally_swallowed": 1,
+          "tally_line": "dispositions: swallowed 1",
+          "tally": {
+            "swallowed": 1
+          },
+          "reason_line": null,
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "what-happened-to-the-parse-error",
+          "command": "exceptions 20260911-022912-5e8386",
+          "lines": [
+            "SWALLOWED -- caught by catch at e5 (loadConfig L19) in f2, which returned"
+          ],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/silent_swallow"
+        },
+        {
+          "case": "suspended_handler",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "reason_line": "ambiguous by reason: suspended 1",
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "did-the-parked-handler-swallow-the-queue-failure",
+          "command": "exceptions 20260911-022912-092006",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/suspended_handler"
+        },
+        {
+          "case": "test_failed",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: propagated 1",
+          "tally": {
+            "propagated": 1
+          },
+          "reason_line": null,
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "how-far-did-the-empty-order-failure-get",
+          "command": "exceptions 20260911-022913-9654ba",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/test_failed"
+        },
+        {
+          "case": "translated",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 2",
+          "tally": {
+            "ambiguous": 2
+          },
+          "reason_line": "ambiguous by reason: escaped 1, untraced catcher 1",
+          "expected_reason_line": "ambiguous by reason: escaped 1, untraced catcher 1",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "what-became-of-the-original-decode-failure",
+          "command": "exceptions 20260911-022913-b07af3",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/translated"
+        },
+        {
+          "case": "unhandled_rejection_in_info",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: uncaught 1",
+          "tally": {
+            "uncaught": 1
+          },
+          "reason_line": null,
+          "expected_reason_line": "-",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "what-does-the-verdict-say-about-the-rejection",
+          "command": "exceptions 20260911-022914-155cfa",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/unhandled_rejection_in_info"
+        },
+        {
+          "case": "untraced_catcher",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "reason_line": "ambiguous by reason: untraced catcher 1",
+          "expected_reason_line": "ambiguous by reason: untraced catcher 1",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "where-did-the-unknown-function-error-go",
+          "command": "exceptions 20260911-022914-d55806",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/untraced_catcher"
+        },
+        {
+          "case": "untraced_catcher_later_failure",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: propagated 1, ambiguous 1",
+          "tally": {
+            "propagated": 1,
+            "ambiguous": 1
+          },
+          "reason_line": "ambiguous by reason: untraced catcher 1",
+          "expected_reason_line": "ambiguous by reason: untraced catcher 1",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "two-throws-one-test-what-happened-to-the-first",
+          "command": "exceptions 20260911-022915-959e45",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/untraced_catcher_later_failure"
+        },
+        {
+          "case": "untraced_catcher_rejection",
+          "expected": 0,
+          "swallowed_lines": 0,
+          "tally_swallowed": 0,
+          "tally_line": "dispositions: ambiguous 1",
+          "tally": {
+            "ambiguous": 1
+          },
+          "reason_line": "ambiguous by reason: untraced catcher 1",
+          "expected_reason_line": "ambiguous by reason: untraced catcher 1",
+          "pin_failures": [],
+          "exit": 0,
+          "question": "where-did-the-offline-rejection-go",
+          "command": "exceptions 20260911-022915-14e9d8",
+          "lines": [],
+          "equal": true,
+          "why": [],
+          "corpus_case": "typescript/untraced_catcher_rejection"
+        }
+      ],
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "E8\u2034": {
+      "value": 33,
+      "n": 33,
+      "dropped": [],
+      "rule": "every marker's record present per shape; a missing one -> STOP",
+      "swallow_markers": 19,
+      "escape_markers": 14,
+      "per_shape": {
+        "shape1": {
+          "markers": 2,
+          "checks": [
+            {
+              "id": "swallow:shape1:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape1:exc",
+              "ok": true
+            }
+          ],
+          "seen": 2,
+          "ok": true
+        },
+        "shape2": {
+          "markers": 1,
+          "checks": [
+            {
+              "id": "swallow:shape2:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape2:exc",
+              "ok": true
+            }
+          ],
+          "seen": 1,
+          "ok": true
+        },
+        "shape4": {
+          "markers": 2,
+          "checks": [
+            {
+              "id": "swallow:shape4:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape4:exc",
+              "ok": true
+            }
+          ],
+          "seen": 2,
+          "ok": true
+        },
+        "shape5": {
+          "markers": 4,
+          "checks": [
+            {
+              "id": "swallow:shape5:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape5:exc",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape5:serial",
+              "ok": true
+            }
+          ],
+          "seen": 4,
+          "ok": true
+        },
+        "shape6": {
+          "markers": 2,
+          "checks": [
+            {
+              "id": "swallow:shape6:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape6:exc",
+              "ok": true
+            }
+          ],
+          "seen": 2,
+          "ok": true
+        },
+        "shape7": {
+          "markers": 2,
+          "checks": [
+            {
+              "id": "swallow:shape7:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape7:exc",
+              "ok": true
+            }
+          ],
+          "seen": 2,
+          "ok": true
+        },
+        "shape8": {
+          "markers": 1,
+          "checks": [
+            {
+              "id": "swallow:shape8:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape8:exc",
+              "ok": true
+            }
+          ],
+          "seen": 1,
+          "ok": true
+        },
+        "shape9": {
+          "markers": 1,
+          "checks": [
+            {
+              "id": "swallow:shape9:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape9:exc",
+              "ok": true
+            }
+          ],
+          "seen": 1,
+          "ok": true
+        },
+        "shape10": {
+          "markers": 1,
+          "checks": [
+            {
+              "id": "swallow:shape10:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape10:exc",
+              "ok": true
+            }
+          ],
+          "seen": 1,
+          "ok": true
+        },
+        "shape11": {
+          "markers": 1,
+          "checks": [
+            {
+              "id": "swallow:shape11:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape11:exc",
+              "ok": true
+            }
+          ],
+          "seen": 1,
+          "ok": true
+        },
+        "shape12": {
+          "markers": 2,
+          "checks": [
+            {
+              "id": "swallow:shape12:rows",
+              "ok": true
+            },
+            {
+              "id": "swallow:shape12:exc",
+              "ok": true
+            }
+          ],
+          "seen": 2,
+          "ok": true
+        }
+      },
+      "escape": {
+        "markers": 14,
+        "seen": 14,
+        "count_check": true,
+        "how_check": true,
+        "wrong": [],
+        "asserted": true
+      },
+      "checker": {
+        "ok": true,
+        "mode": "vitest",
+        "spools": 11,
+        "checks": 96,
+        "failures": []
+      },
+      "recorder": "sensorium 0.10.0 on feat/s5-rung3 @ 2564e00be1fa42433dbb788311a22b4e578309fd",
+      "recorder_rev": "2564e00be1fa42433dbb788311a22b4e578309fd",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "E7\u2034": {
+      "value": 0,
+      "n": 9,
+      "dropped": [],
+      "needle_list": "rung3",
+      "needles": {
+        "oid": "\\boid\\b",
+        "chain": "\\bchain\\b",
+        "Err": "\\bErr\\b",
+        "asyncio": "asyncio",
+        "python ?": "python ?",
+        "cargo": "cargo",
+        "coroutine": "coroutine",
+        "Rust disposition": "Rust disposition",
+        "Python's own": "Python's own"
+      },
+      "case_sensitive": [
+        "Err",
+        "chain",
+        "oid"
+      ],
+      "occurrences": {
+        "oid": 0,
+        "chain": 0,
+        "Err": 0,
+        "asyncio": 0,
+        "python ?": 0,
+        "cargo": 0,
+        "coroutine": 0,
+        "Rust disposition": 0,
+        "Python's own": 0
+      },
+      "context_mentions_not_gated": {
+        "python": 0,
+        "rust": 0,
+        "asyncio task": 0
+      },
+      "commands": [
+        {
+          "command": "excs",
+          "exit": 0
+        }
+      ],
+      "transcript_lines": 169,
+      "vectors": {
+        "selector": "v30 or v31 or v32 or v33 or v34",
+        "exit": 0,
+        "summary": "10 passed, 61 deselected in 0.52s",
+        "green": true
+      },
+      "recorder": "sensorium 0.10.0 on feat/s5-rung3 @ 2564e00be1fa42433dbb788311a22b4e578309fd",
+      "recorder_rev": "2564e00be1fa42433dbb788311a22b4e578309fd",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "E-legacy": {
+      "value": 2,
+      "n": 2,
+      "dropped": [
+        "the pre-registration's fenced test pattern 'tests/test_exceptions_python*.py' matches no file in this tree; the Python reader's own tests are run and reported under `python_reader_tests_reported_not_gated`"
+      ],
+      "rule": "byte-unchanged against the branch point, tests green -> else STOP",
+      "base": "51978b1",
+      "claims": {
+        "the fenced files show zero diff against the branch point": true,
+        "the fenced tests and the Rust key's tuple equality are green": true
+      },
+      "fenced_paths": [
+        "src/sensorium/query/exceptions_rust.py",
+        "src/sensorium/query/exceptions.py",
+        "rust/",
+        "tests/test_exceptions_rust*.py",
+        "tests/test_exceptions_invocation.py",
+        "tests/test_exceptions_python*.py"
+      ],
+      "diff_stat_lines": [],
+      "diff": {
+        "command": "git diff 51978b1..HEAD --stat -- src/sensorium/query/exceptions_rust.py src/sensorium/query/exceptions.py rust/ tests/test_exceptions_rust*.py tests/test_exceptions_invocation.py tests/test_exceptions_python*.py",
+        "exit": 0,
+        "stdout": "",
+        "last_line": ""
+      },
+      "tests_run": [
+        "tests/test_exceptions_rust.py",
+        "tests/test_exceptions_rust_ambiguous.py",
+        "tests/test_exceptions_rust_gate.py",
+        "tests/test_exceptions_rust_grouping.py",
+        "tests/test_exceptions_invocation.py",
+        "tests/test_exceptions_typescript_grouping.py::test_the_rust_key_is_todays_tuple_verbatim"
+      ],
+      "suite": {
+        "command": ".venv/bin/python -m pytest -q -p no:cacheprovider tests/test_exceptions_rust.py tests/test_exceptions_rust_ambiguous.py tests/test_exceptions_rust_gate.py tests/test_exceptions_rust_grouping.py tests/test_exceptions_invocation.py tests/test_exceptions_typescript_grouping.py::test_the_rust_key_is_todays_tuple_verbatim",
+        "exit": 0,
+        "stdout": "........................................................................ [ 96%]\n...                                                                      [100%]\n75 passed in 0.36s\n",
+        "last_line": "75 passed in 0.36s"
+      },
+      "python_reader_tests_reported_not_gated": {
+        "files": [
+          "tests/test_exceptions.py",
+          "tests/test_exceptions_synthetic.py"
+        ],
+        "run": {
+          "command": ".venv/bin/python -m pytest -q -p no:cacheprovider tests/test_exceptions.py tests/test_exceptions_synthetic.py",
+          "exit": 0,
+          "stdout": "...........................................                              [100%]\n43 passed in 1.87s\n",
+          "last_line": "43 passed in 1.87s"
+        }
+      },
+      "recorder": "sensorium 0.10.0 on feat/s5-rung3 @ 2564e00be1fa42433dbb788311a22b4e578309fd",
+      "recorder_rev": "2564e00be1fa42433dbb788311a22b4e578309fd",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "E-branch": {
+      "value": 1,
+      "n": 1,
+      "dropped": [],
+      "rule": "green -> else STOP",
+      "claims": {
+        "tests/test_acceptance_scripts.py is green": true
+      },
+      "suite": {
+        "command": ".venv/bin/python -m pytest -q -p no:cacheprovider tests/test_acceptance_scripts.py",
+        "exit": 0,
+        "stdout": ".........                                                                [100%]\n9 passed in 0.04s\n",
+        "last_line": "9 passed in 0.04s"
+      },
+      "recorder": "sensorium 0.10.0 on feat/s5-rung3 @ 2564e00be1fa42433dbb788311a22b4e578309fd",
+      "recorder_rev": "2564e00be1fa42433dbb788311a22b4e578309fd",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    }
+  },
+  "reported": {
+    "the_one_re_read": {
+      "invocation": "20260910-150809-cbc8de",
+      "command": "sensorium exceptions 20260910-150809-cbc8de --limit 10000",
+      "exit": 0,
+      "transcript": "e6tsppp-exceptions.txt",
+      "transcript_sha256": "e952c6765abf024bc7fc52b41b3c2128e04b7703375a551499e5e1fa94957c9d",
+      "transcript_lines": 169,
+      "rung2_transcript_sha256": "6f7f4687e09ee32b6123e909ff770e68f7fa4b8d4b360b7c92dbd9495b4e12ff",
+      "reason_line": "ambiguous by reason: escaped 21, untraced catcher 32",
+      "reasons": {
+        "escaped": 21,
+        "untraced catcher": 32
+      },
+      "hash_list_verified": true
+    }
+  },
+  "recorded_by": {
+    "recorder": "sensorium 0.10.0 on feat/s5-rung3 @ 2564e00be1fa42433dbb788311a22b4e578309fd",
+    "commit": "2564e00be1fa42433dbb788311a22b4e578309fd"
+  }
+}
