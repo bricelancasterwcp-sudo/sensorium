@@ -4,7 +4,8 @@
 #
 #   e10.sh <spool dir> <scratch dir> <label> [n]
 #
-# `sensorium ts ingest` over a copy of a spool set a run already left behind,
+# `$SENSORIUM_BIN ts ingest` (always this branch's own, via `bin.sh`) over a
+# copy of a spool set a run already left behind,
 # n times, median reported. A COPY each time, and a fresh store each time,
 # because ingest writes `ingested.json` into the directory it converted and
 # refuses a second pass over it -- which is the design, not an obstacle: the
@@ -19,6 +20,7 @@ set -u -o pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lens.sh"
+. "$HERE/bin.sh"
 
 SPOOL="${1-}"; SCRATCH="${2-}"; LABEL="${3-}"; N="${4-3}"
 [ -n "$SPOOL" ] && [ -n "$SCRATCH" ] && [ -n "$LABEL" ] ||
@@ -40,7 +42,7 @@ for ((k = 1; k <= N; k++)); do
   rm -f "$copy/ingested.json"
   log="$SCRATCH/logs/e10-$LABEL-$k.log"
   start="$(date +%s.%N)"
-  SENSORIUM_DIR="$store" sensorium ts ingest "$copy" >"$log" 2>&1
+  SENSORIUM_DIR="$store" "$SENSORIUM_BIN" ts ingest "$copy" >"$log" 2>&1
   status=$?
   end="$(date +%s.%N)"
   traces="$(sed -n 's/.*traces: \([0-9]*\).*/\1/p' "$log" | tail -1)"

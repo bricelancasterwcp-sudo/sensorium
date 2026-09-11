@@ -26,18 +26,22 @@ static (source text, an AST walk, or `bin.sh` sourced against a throwaway
 `*.py`, enumerated from `git ls-files` so an untracked scratch file cannot
 widen or narrow what the gate covers.
 
-Scope note on (a): `SENSORIUM_BIN` appears, project-wide, in exactly the six
-`.sh` this rung's T0 census named (`arms.sh`, `e10p.sh`, `e3.sh`, `e6pp.sh`,
-`e6tsp.sh`, `e7.sh` -- record `2026-09-10-sensorium-s5-rung3.md` §2). Other
-`.sh` files under this directory invoke `sensorium` bare with no
-`SENSORIUM_BIN` concept at all (`e10.sh`, `e11.sh`, `e5ts_split.sh`,
-`planted_change.sh`) -- earlier rungs' frozen instruments, outside this
-rung's pre-registered census and its "Files" list, and not re-run here. The
-"sources `bin.sh`" and "no bare invocation in command position" checks below
-are therefore scoped to files that reference `$SENSORIUM_BIN`, which is
-exactly those six; the "the exact broken default is gone" check is unscoped
-(every tracked `.sh`, anywhere), because that string should not survive
-ANYWHERE now, in or out of this rung's census.
+Scope on (a): spec 4.3 governs -- "every script under `typescript/
+acceptance/` that invokes `sensorium`" -- not the T0 census, which pinned
+the state found at the time and does not bound what this task fixes. Every
+tracked `.sh` is walked; a script "invokes sensorium" when it either
+references `$SENSORIUM_BIN` or contains a bare `sensorium <subcommand>`
+call, and every such script must source `bin.sh` and must contain neither
+the insecure default nor a bare invocation. Ten scripts qualify: the T0
+census's six (`arms.sh`, `e10p.sh`, `e3.sh`, `e6pp.sh`, `e6tsp.sh`, `e7.sh`)
+plus four earlier rungs' frozen instruments that called the bare word with
+no `SENSORIUM_BIN` concept at all (`e10.sh`, `e11.sh`, `e5ts_split.sh`,
+`planted_change.sh`) -- fixed the same way, sourcing `bin.sh` and calling
+`"$SENSORIUM_BIN"`, though none of them is re-run here. `e10p_eq.sh` (takes
+BOTH converters as explicit command-line arguments, by design, to compare
+main's against a slice's) and `e6.sh` (checks for a leftover
+`node_modules/.sensorium` FILE, not a command) mention the word but invoke
+nothing -- they are not in the ten, and stay as they are.
 
 Every test states the failure it would catch.
 """
@@ -110,12 +114,24 @@ def _is_print_line(line: str) -> bool:
     return line.lstrip().lstrip("{(").lstrip().startswith(("printf", "echo"))
 
 
-def _sensorium_bin_users() -> list[str]:
-    """The `.sh` files that reference `$SENSORIUM_BIN` -- the census's six,
-    by construction, and not `bin.sh` itself, which DEFINES the variable
-    rather than reading a caller's."""
+def _invokes_sensorium(text: str) -> bool:
+    """True when a `.sh` file's CODE (not its comments) either resolves
+    `$SENSORIUM_BIN` or calls the bare word directly -- the two shapes rung
+    2 found, and the only two ways a shell instrument in this directory has
+    ever run the CLI. A file that only mentions the word (`.venv/bin/
+    sensorium` in prose, `node_modules/.sensorium` as a filename, `sensorium
+    diff <a> <b>` inside a doc comment) does not invoke anything."""
+    lines = _code_lines(text)
+    return any("SENSORIUM_BIN" in ln or BARE_INVOCATION.search(ln)
+              for ln in lines)
+
+
+def _scripts_that_invoke_sensorium() -> list[str]:
+    """Every tracked `.sh` that invokes `sensorium` at all -- spec 4.3's
+    "every script", not the T0 census's six. `bin.sh` itself is excluded:
+    it DEFINES `$SENSORIUM_BIN` and is not a caller of its own rule."""
     return [p for p in SH_FILES if Path(p).name != "bin.sh"
-           and "SENSORIUM_BIN" in (REPO / p).read_text(encoding="utf-8")]
+           and _invokes_sensorium((REPO / p).read_text(encoding="utf-8"))]
 
 
 # -- (a) every .sh resolves the branch's binary, or refuses --------------
@@ -130,25 +146,28 @@ def test_the_insecure_default_is_gone_everywhere():
     assert offenders == [], f"still defaults to the global tool: {offenders}"
 
 
-def test_every_sh_file_that_uses_sensorium_bin_sources_bin_sh():
-    """Catches: a script that resolves `$SENSORIUM_BIN` from its own
-    environment (or a future one that reintroduces the pattern) without
-    going through the one place that refuses -- `bin.sh`."""
-    users = _sensorium_bin_users()
-    assert users, "the census's six SENSORIUM_BIN users have vanished"
+def test_every_sh_file_that_invokes_sensorium_sources_bin_sh():
+    """Catches: a script that resolves `$SENSORIUM_BIN` or calls the bare
+    word (either the census's six or the four fixed in pre-review) without
+    going through the one place that refuses -- `bin.sh`. Spec 4.3 governs:
+    EVERY script that invokes `sensorium`, not the T0 census alone."""
+    users = _scripts_that_invoke_sensorium()
+    assert len(users) >= 10, f"expected at least the ten known users, got: {users}"
     missing = [p for p in users
               if not re.search(r'^\s*\.\s+"\$HERE/bin\.sh"\s*$',
                                 (REPO / p).read_text(encoding="utf-8"),
                                 re.MULTILINE)]
-    assert missing == [], f"uses $SENSORIUM_BIN without sourcing bin.sh: {missing}"
+    assert missing == [], f"invokes sensorium without sourcing bin.sh: {missing}"
 
 
-def test_no_bare_sensorium_invocation_in_the_sensorium_bin_scripts():
+def test_no_bare_sensorium_invocation_anywhere_it_is_invoked():
     """Catches: a script that sources `bin.sh` for the default case but
     still calls the bare word directly on one line -- the half-fixed script
-    that made the rung-2 finding a partial fix rather than a closed one."""
+    that made the rung-2 finding a partial fix rather than a closed one.
+    Walks every script that invokes `sensorium` at all, not just the T0
+    census's six."""
     offenders = {}
-    for p in _sensorium_bin_users():
+    for p in _scripts_that_invoke_sensorium():
         lines = _code_lines((REPO / p).read_text(encoding="utf-8"))
         hits = [ln.strip() for ln in lines
                if not _is_print_line(ln) and BARE_INVOCATION.search(ln)]

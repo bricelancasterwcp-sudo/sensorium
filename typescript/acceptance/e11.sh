@@ -24,6 +24,7 @@ set -u -o pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lens.sh"
+. "$HERE/bin.sh"
 
 MODE="${1-}"
 case "$MODE" in a|b) ;; *) refuse "usage: e11.sh a <store> <run id> <out dir> | e11.sh b <lens dir> <store> <out dir> <test file>" ;; esac
@@ -33,9 +34,9 @@ if [ "$MODE" = a ]; then
   [ -n "$STORE" ] && [ -n "$RUN" ] && [ -n "$OUT" ] ||
     refuse "usage: e11.sh a <store> <run id> <out dir>"
   mkdir -p "$OUT/logs" || refuse "cannot write under $OUT"
-  SENSORIUM_DIR="$STORE" sensorium tree "$RUN" --depth 6 >"$OUT/logs/e11a-tree.txt" 2>&1
+  SENSORIUM_DIR="$STORE" "$SENSORIUM_BIN" tree "$RUN" --depth 6 >"$OUT/logs/e11a-tree.txt" 2>&1
   tree_status=$?
-  SENSORIUM_DIR="$STORE" sensorium info "$RUN" >"$OUT/logs/e11a-info.txt" 2>&1
+  SENSORIUM_DIR="$STORE" "$SENSORIUM_BIN" info "$RUN" >"$OUT/logs/e11a-info.txt" 2>&1
   info_status=$?
   E11_MODE=a E11_RUN="$RUN" E11_STORE="$STORE" \
   E11A_TREE="$OUT/logs/e11a-tree.txt" E11A_INFO="$OUT/logs/e11a-info.txt" \
@@ -61,7 +62,7 @@ ls -1 "$STORE/spool" 2>/dev/null | sort >"$BEFORE" || : >"$BEFORE"
 # shell's group would put this shell inside any group kill. If the script has
 # to give up it TERMs the driver it started, by its own pid.
 env SENSORIUM_DIR="$STORE" bash -c \
-  'cd "$1" && exec sensorium ts run -- npx vitest run' _ "$LENS_DIR" \
+  'cd "$1" && exec "$2" ts run -- npx vitest run' _ "$LENS_DIR" "$SENSORIUM_BIN" \
   >"$LOG" 2>&1 &
 DRIVER_PID=$!
 
