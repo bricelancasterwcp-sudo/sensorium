@@ -244,8 +244,9 @@ def _member_refusal(run_id: str, trace, head) -> str | None:
     return f"REFUSED: {refusal} (member {run_id})" if refusal else None
 
 
-def _merge(members, lang: Language) -> tuple[list[Merged], dict]:
-    """`(merged shapes in first-appearance order, summed unit tally)`.
+def _merge(members, lang: Language) -> tuple[list[Merged], dict, dict]:
+    """`(merged shapes in first-appearance order, summed unit tally, summed
+    reason tally)`.
 
     `members` is `(run_id, trace, index)` in member order. The first member
     to show a key owns the printed block; every later member adds its
@@ -255,15 +256,24 @@ def _merge(members, lang: Language) -> tuple[list[Merged], dict]:
 
     One key space, because the set is ONE language: `Shape.key` carries no
     `lang`, and it does not need to.
+
+    The reasons are summed exactly as the dispositions are, and for the
+    same reason: an adjudicator asking what this invocation could not
+    settle wants ONE number per reason, not 144 of them to add up. A Rust
+    member contributes nothing to it -- the field is TypeScript's -- so a
+    Rust answer grows no line.
     """
     merged: list[Merged] = []
     by_key: dict[tuple, Merged] = {}
     tally: dict[str, int] = {}
+    reasons: dict[str, int] = {}
     for run_id, trace, idx in members:
-        shapes, member_tally = group_units(trace, lang.units(idx), idx,
-                                           lang.classify, lang.render)
+        shapes, member_tally, member_reasons = group_units(
+            trace, lang.units(idx), idx, lang.classify, lang.render)
         for tag, n in member_tally.items():
             tally[tag] = tally.get(tag, 0) + n
+        for reason, n in member_reasons.items():
+            reasons[reason] = reasons.get(reason, 0) + n
         for shape in shapes:
             m = by_key.get(shape.key)
             if m is None:
@@ -277,7 +287,7 @@ def _merge(members, lang: Language) -> tuple[list[Merged], dict]:
                 m.shape.details |= shape.details
                 m.shape.hops |= shape.hops
             m.processes.append(run_id)
-    return merged, tally
+    return merged, tally, reasons
 
 
 def bracket(m: Merged) -> str:
@@ -415,7 +425,7 @@ def run(args, invocation_id: str, members: list) -> int:
         print(f"no exceptions recorded across {_processes(len(indexed))}")
         return UNSETTLED if incomplete else NEGATIVE
 
-    merged, tally = _merge(indexed, lang)
+    merged, tally, reasons = _merge(indexed, lang)
     chains = sum(m.n for m in merged)
     shapes = sum(1 for m in merged if m.shape.tag == "swallowed")
     print(f"raised ({_units(chains, lang.raised)} over "
@@ -436,6 +446,18 @@ def run(args, invocation_id: str, members: list) -> int:
     print("dispositions: " + ", ".join(f"{t} {tally[t]}"
                                        for t in lang.render.tag_order
                                        if tally.get(t)))
+    # §2.3, summed: under the tally it explains, printed once for the whole
+    # invocation, and absent where nothing was ambiguous -- the same three
+    # rules single-run mode prints it by, spelled a second time here for
+    # the same reason the `dispositions:` line above is (P7: the grouper
+    # prints blocks; a tally belongs to the mode that summed it).
+    # `REASON_ORDER` is TypeScript's table and there is no other: a Rust
+    # member contributes no reason at all, so this dict is empty and the
+    # line is never reached for one.
+    if reasons:
+        print("ambiguous by reason: " + ", ".join(
+            f"{r} {reasons[r]}"
+            for r in exceptions_typescript.REASON_ORDER if reasons.get(r)))
     # Paging raises the limit, as in single-run mode, and the ref carried
     # through is the INVOCATION's: a continuation that named one member
     # would answer a smaller question than the one asked.

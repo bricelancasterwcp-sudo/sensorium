@@ -75,6 +75,58 @@ def quiet_member(tmp_path, monkeypatch, run_id, **meta):
         tasks=[task(1, "a config file is loaded")], **meta)
 
 
+def escaped_member(tmp_path, monkeypatch, run_id, **meta):
+    """One worker whose `catch` let the error or a rendering of it out --
+    rule 5's `escaped` reason, and the commonest one in the lens.
+
+    Event ids: e1 CALL loadConfig, e2 CALL parse, e3 RAISE, e4 HANDLED,
+    e5 RETURN.
+    """
+    return ts_trace(
+        tmp_path, monkeypatch, run_id=run_id,
+        codes=[[FILE, "loadConfig", 15], [FILE, "parse", 8]],
+        frames=[frame(1, 1, 5),
+                frame(2, 2, parent=1, depth=1, unwind_exc=PARSE_ERR)],
+        events=[
+            call(1000, 1, 15, task=1),
+            call(2000, 2, 8, task=1, caller=None),
+            raise_ev(3000, 2, 2, 10, PARSE_ERR, task=1),
+            handled_ev(4000, 1, 1, 18, PARSE_ERR, "catch_escaped", task=1),
+            ret(5000, 1, 1, "{ retries: 3 }", task=1),
+        ],
+        tasks=[task(1, "a config file is loaded")], **meta)
+
+
+def two_reasons_member(tmp_path, monkeypatch, run_id, **meta):
+    """One worker carrying TWO ambiguities with different reasons: the
+    escaped `catch` above, and a `Bomb` whose failure untraced code took.
+
+    Event ids: e1-e5 the escaped unit; then e6 CALL renderWithBoundary,
+    e7 CALL Bomb, e8 RAISE, e9 RETURN.
+    """
+    boom = ts_exc("Error", "render failed", 2)
+    return ts_trace(
+        tmp_path, monkeypatch, run_id=run_id,
+        codes=[[FILE, "loadConfig", 15], [FILE, "parse", 8],
+               [FILE, "renderWithBoundary", 20], [FILE, "Bomb", 30]],
+        frames=[frame(1, 1, 5),
+                frame(2, 2, parent=1, depth=1, unwind_exc=PARSE_ERR),
+                frame(3, 6, 9),
+                frame(4, 7, parent=3, depth=1, unwind_exc=boom)],
+        events=[
+            call(1000, 1, 15, task=1),
+            call(2000, 2, 8, task=1, caller=None),
+            raise_ev(3000, 2, 2, 10, PARSE_ERR, task=1),
+            handled_ev(4000, 1, 1, 18, PARSE_ERR, "catch_escaped", task=1),
+            ret(5000, 1, 1, "{ retries: 3 }", task=1),
+            call(6000, 3, 20, task=1),
+            call(7000, 4, 30, task=1, caller=None),
+            raise_ev(8000, 4, 4, 34, boom, task=1),
+            ret(9000, 3, 3, "null", task=1),
+        ],
+        tasks=[task(1, "a config file is loaded")], **meta)
+
+
 def cut_member(tmp_path, monkeypatch, run_id, **meta):
     """A worker killed mid-file: one open frame and no close."""
     return ts_trace(
@@ -184,6 +236,42 @@ def test_the_unhandled_rejections_are_summed_over_the_members(
     assert o.index("unhandled rejections: 2") < o.index("raised ("), o
     # the count is not a verdict: nothing was judged uncaught
     assert "dispositions: swallowed 1" in o, o
+
+
+def test_the_reasons_are_summed_once_under_the_invocation_s_tally(
+        tmp_path, monkeypatch, capsys):
+    """`ambiguous by reason:` is a fact about the whole invocation, so it
+    is summed over the members and printed ONCE, directly under the tally
+    it explains, in the reason table's order (§2.3, P7).
+
+    Three ambiguities over two workers: each member's own answer would say
+    `escaped 1` and one would add `untraced catcher 1`. Here the reader
+    sees the invocation's number, which is the one the record quotes.
+    """
+    escaped_member(tmp_path, monkeypatch, M1)
+    two_reasons_member(tmp_path, monkeypatch, M2)
+    assert cli.main(["exceptions", INV]) == ANSWERED
+    o = out(capsys)
+    lines = o.splitlines()
+    assert "dispositions: ambiguous 3" in lines, o
+    i = lines.index("dispositions: ambiguous 3")
+    assert lines[i + 1] == ("ambiguous by reason: escaped 2, "
+                            "untraced catcher 1"), o
+    assert o.count("ambiguous by reason:") == 1, o
+
+
+def test_an_invocation_with_nothing_ambiguous_prints_no_reason_line(
+        tmp_path, monkeypatch, capsys):
+    """A reason nothing wore is not a fact about this invocation, so the
+    line is absent rather than empty -- which is also why a Rust answer,
+    whose dispositions carry no reason at all, keeps the bytes two
+    acceptance records quote."""
+    swallow_member(tmp_path, monkeypatch, M1)
+    swallow_member(tmp_path, monkeypatch, M2)
+    assert cli.main(["exceptions", INV]) == ANSWERED
+    o = out(capsys)
+    assert "dispositions: swallowed 2" in o, o
+    assert "ambiguous by reason:" not in o, o
 
 
 # -- what this mode refuses -------------------------------------------------

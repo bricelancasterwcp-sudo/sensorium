@@ -647,7 +647,11 @@ def run(trace, args, after: int) -> int:
     # module-level import here would be a cycle.
     from sensorium.query.exceptions_group import (TYPESCRIPT, group_units,
                                                   print_shapes)
-    shapes, tally = group_units(trace, scope, idx, classify, TYPESCRIPT)
+    # Both tallies come from the grouping pass, which classified every unit
+    # in scope exactly once: counting them a second time here would be a
+    # second judgement of one record, and the two could disagree.
+    shapes, tally, reasons = group_units(trace, scope, idx, classify,
+                                         TYPESCRIPT)
     shown = print_shapes(trace, shapes, args.limit)
     # Counted over every raise in scope, not just the printed ones and not
     # per shape: the tally never shrinks because a page was clipped, and it
@@ -655,17 +659,6 @@ def run(trace, args, after: int) -> int:
     # written.
     print("dispositions: " + ", ".join(f"{t} {tally[t]}" for t in TAG_ORDER
                                        if tally.get(t)))
-    # A second `classify` pass, and deliberately so FOR NOW: Task 2 moves
-    # the reason tally into `group_units`, which already classifies every
-    # unit once, and this loop goes with it.
-    reasons: dict[str, int] = {}
-    for unit in scope:
-        d = classify(trace, unit, idx)
-        if d.tag == "ambiguous":
-            # Unreachable by construction: the reason table test walks this
-            # module's syntax for an ambiguous verdict built without one.
-            assert d.reason is not None, d
-            reasons[d.reason] = reasons.get(d.reason, 0) + 1
     # §2.3: under the tally, and only where there is an ambiguity to
     # explain. Zero entries are omitted -- a reason nothing wore is not a
     # fact about this run -- and the order is the table's, never the
