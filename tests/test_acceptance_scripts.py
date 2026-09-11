@@ -307,7 +307,16 @@ def test_bin_sh_resolves_an_executable_inside_the_root(tmp_path):
 def test_lens_sensorium_bin_resolves_under_this_repo_root():
     """This worktree carries a real editable `.venv`, so the branch's own
     rule should resolve rather than refuse -- and the path it returns must
-    sit under the repo root, not merely exist somewhere."""
+    sit under the repo root, not merely exist somewhere. Skips by name where
+    no `.venv/bin/sensorium` exists (e.g. CI, which installs the package
+    rather than using a venv) -- the refusal path is exercised separately by
+    the neighbouring tmp-fake-root tests, so a skip here never masquerades
+    as a pass."""
+    venv_bin = REPO / ".venv" / "bin" / "sensorium"
+    if not venv_bin.exists():
+        pytest.skip("no .venv/bin/sensorium in this checkout: CI installs the "
+                    "package, not a venv -- the refusal path is tested above")
+
     resolved = lens.sensorium_bin()
 
     assert resolved.startswith(str(REPO) + "/")
