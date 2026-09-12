@@ -572,7 +572,7 @@ declares `false` and is still refused, by the capability sentence)*.
 `test.workspace` config makes vitest resolve a config PER PROJECT, and this
 wrapper merges onto one: the plugin never reaches the projects' pipelines, so
 the suite runs and nothing is recorded. The wrapper config refuses it at load
-time — `vitest projects/workspaces are not supported by sensorium-ts 0.2.0` —
+time — `vitest projects/workspaces are not supported by sensorium-ts 0.3.0` —
 and leaves that sentence in the spool directory (`wrapper-refusal.json`) for
 the driver to print at exit 2. *(Added 2026-09-09, ruling R41: measured, such
 a run came back as the CONVERTER's sentence, "nothing was recorded, or the
