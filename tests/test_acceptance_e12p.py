@@ -458,3 +458,140 @@ def test_every_clause_of_section_one_nine_has_a_reader():
 
     assert [r["n"] for r in rows] == list(range(1, 9)), rows
     assert all(r["clause"].strip() for r in rows)
+
+
+# -- E13 and E14, on fixture inputs ----------------------------------------
+
+import e13_report                                                 # noqa: E402
+import e14_report                                                 # noqa: E402
+
+#: The one function the sha-pinned census names, and the file it lives in.
+SETTLE = ("corpus/typescript/focus_finally_return/finally.ts", "settle", 7)
+
+
+def _e13_fixture(tmp_path: Path, **over) -> Path:
+    (tmp_path / "census.json").write_text(json.dumps({"roots": [
+        {"root": "typescript/probes", "deferred": [], "files_scanned": 21},
+        {"root": "corpus/typescript", "files_scanned": 84, "deferred": [
+            {"rel": SETTLE[0], "qualname": SETTLE[1], "line": SETTLE[2]}]},
+        {"root": "the lens", "deferred": [], "files_scanned": 1},
+    ]}), encoding="utf-8")
+    (tmp_path / "transform-diff.json").write_text(json.dumps({
+        "files_compared": 84, "changed": 1,
+        "files": over.get("files", [
+            {"file": "focus_finally_return/finally.ts", "changed": True,
+             "functions": ["settle"], "diff": "@@ …"},
+            {"file": "finally_return/ledger.ts", "changed": False,
+             "functions": [], "diff": ""}])}), encoding="utf-8")
+    (tmp_path / "corpus.json").write_text(json.dumps({
+        "command": "corpus/run_corpus.py --require-driver", "exit": 0,
+        "cases": {"focus_finally_return": {"language": "typescript",
+                                           "exit": over.get("case_exit", 0)}}}),
+        encoding="utf-8")
+    (tmp_path / "honesty-cost.diff").write_text(over.get("cost", ""),
+                                                encoding="utf-8")
+    return tmp_path
+
+
+def test_e13_holds_when_the_census_the_diff_and_the_case_agree(tmp_path):
+    """The positive control, and the one that shows clause 2 tolerates the
+    two spellings: the census writes a repository-relative path and
+    `transform_diff.mjs` writes one relative to the root it was handed."""
+    got = e13_report.build(_e13_fixture(tmp_path))
+
+    assert got["dropped"] == []
+    assert got["value"] == got["n"] == 4, got["claims"]
+    assert got["transform_diff"]["changed"] == {SETTLE[0]: ["settle"]}
+
+
+def test_e13_stops_on_a_wrapper_the_census_never_named(tmp_path):
+    """Catches: the seal firing on a function the hand census did not name --
+    "and no other byte" is the half of clause 2 that discriminates."""
+    got = e13_report.build(_e13_fixture(tmp_path, files=[
+        {"file": "focus_finally_return/finally.ts", "changed": True,
+         "functions": ["settle"], "diff": "@@ …"},
+        {"file": "finally_return/ledger.ts", "changed": True,
+         "functions": ["commit"], "diff": "@@ …"}]))
+
+    assert got["value"] == 3
+    assert got["claims"][
+        "the transform diff changes exactly the census's files and wrappers"] \
+        is False
+    assert "finally_return/ledger.ts" in got["transform_diff"]["changed"]
+
+
+def test_e13_stops_on_a_moved_honesty_cost_and_a_red_case(tmp_path):
+    """Catches: clauses 3 and 4 read as absent rather than as false."""
+    got = e13_report.build(_e13_fixture(tmp_path, case_exit=1,
+                                        cost=" typescript/HONESTY-COST.md | 2 +-\n"))
+
+    assert got["value"] == 2
+    assert got["claims"]["`focus_finally_return` is green"] is False
+    assert got["claims"][
+        "`HONESTY-COST.md`'s cited numbers are untouched"] is False
+
+
+def test_e13_names_a_file_the_operator_did_not_write(tmp_path):
+    """Catches: a missing input read as a passing clause. `dropped` names it
+    and the cell is partial, never a silent zero."""
+    got = e13_report.build(tmp_path)
+
+    assert len(got["dropped"]) == 4
+    assert got["value"] == 0
+
+
+def _e14_fixture(tmp_path: Path, **over) -> Path:
+    cases = {"focus_block_let": {"language": "rust",
+                                 "exit": over.get("case_exit", 0)},
+             "refocus_env": {"language": "rust",
+                             "exit": over.get("refocus_exit", 0)},
+             "block_free": {"language": "rust", "exit": over.get("other", 0)},
+             "focus_finally_return": {"language": "typescript", "exit": 0}}
+    (tmp_path / "corpus.json").write_text(json.dumps(
+        {"command": "corpus/run_corpus.py --require-driver", "exit": 0,
+         "cases": cases}), encoding="utf-8")
+    (tmp_path / "vectors.json").write_text(json.dumps(
+        {"command": "pytest -k v40", "exit": over.get("vectors", 0)}),
+        encoding="utf-8")
+    (tmp_path / "refusals.json").write_text(json.dumps(
+        {"command": "cargo test -p cargo-sensorium spool::",
+         "exit": over.get("refusals", 0)}), encoding="utf-8")
+    return tmp_path
+
+
+def test_e14_holds_when_the_new_case_is_green_and_nothing_else_moved(tmp_path):
+    """The positive control. The TypeScript case in the fixture must not be
+    counted among "every other Rust case": the clause is about Rust."""
+    got = e14_report.build(_e14_fixture(tmp_path))
+
+    assert got["dropped"] == []
+    assert got["value"] == got["n"] == 5, got["claims"]
+    assert got["rust_cases"] == ["block_free", "focus_block_let", "refocus_env"]
+    assert got["other_rust_cases"] == 2
+
+
+def test_e14_names_the_rust_case_that_moved(tmp_path):
+    """Catches: "every other Rust case equal" reported as a bare false. The
+    case that moved is named, and a `refocus_*` one is named twice because
+    §1.6 asks about it twice."""
+    got = e14_report.build(_e14_fixture(tmp_path, other=1, refocus_exit=1))
+
+    assert got["value"] == 3
+    assert got["rust_cases_that_moved"] == ["block_free", "refocus_env"]
+    assert got["refocus_cases_that_moved"] == ["refocus_env"]
+
+
+def test_e14_does_not_pass_on_an_empty_corpus(tmp_path):
+    """Catches: the vacuous green -- a corpus that lost every Rust case has
+    nothing that moved, which is not the same as nothing having moved."""
+    (tmp_path / "corpus.json").write_text(json.dumps(
+        {"command": "x", "exit": 0, "cases": {}}), encoding="utf-8")
+    (tmp_path / "vectors.json").write_text('{"command": "x", "exit": 0}',
+                                           encoding="utf-8")
+    (tmp_path / "refusals.json").write_text('{"command": "x", "exit": 0}',
+                                            encoding="utf-8")
+
+    got = e14_report.build(tmp_path)
+
+    assert got["claims"]["every other Rust corpus case is equal"] is False
+    assert got["claims"]["every `refocus_*` case is equal"] is False

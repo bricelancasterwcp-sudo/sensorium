@@ -236,6 +236,27 @@ def census_matches(census_md, census_json) -> dict:
             "per_table": per_table, "tables": len(tables), "roots": len(roots)}
 
 
+def read_input(results: Path, name: str):
+    """One file an operator wrote into a results directory, or None.
+
+    `e13_report.py` and `e14_report.py` both read a handful of small JSON (and
+    one plain-text) inputs whose shapes their own docstrings define; this is
+    the one place that turns "was not written" into a None those files then
+    name in `dropped`, rather than into a clause that quietly holds.
+    """
+    path = Path(results) / name
+    if not path.is_file():
+        return None
+    text = path.read_text(encoding="utf-8")
+    return text if path.suffix != ".json" else json.loads(text)
+
+
+def missing_inputs(results: Path, names) -> list[str]:
+    """The inputs of `names` that were not written, by name."""
+    return [f"{name} was not written into the results directory"
+            for name in names if not (Path(results) / name).is_file()]
+
+
 # -- §1.9's table, and the eight readers ------------------------------------
 
 
@@ -280,7 +301,8 @@ def clauses(out: Path) -> dict:
     # `748 OK / 0 FAILED` is §1.9's own text, not the manifest's line count:
     # comparing a check against the file it checked would pass on the WRONG
     # manifest, which is the one substitution clause 1 exists to refuse.
-    want_ok = int(re.search(r"(\d+) OK", said.get(1, "0 OK")).group(1))
+    want_ok = int(re.search(r"(\d+) OK",
+                            said.get(1, "0 OK")).group(1))
     want_failed = int(re.search(r"(\d+) FAILED", said.get(1, "0 FAILED"))
                       .group(1))
     lines = session.get("manifest_lines")
@@ -323,7 +345,8 @@ def clauses(out: Path) -> dict:
                        if ln.strip().startswith("Tests ")), "")
     got[5] = {"holds": bool(want_suite) and want_suite.group(1) in suite_line,
               "evidence": {"line": suite_line,
-                           "expected": want_suite.group(1) if want_suite else None,
+                           "expected": want_suite.group(1)
+                                       if want_suite else None,
                            "run_exit": statuses.get("run")}}
 
     # 6 -- the marker grep. `searched:` lines say what was looked in, so a
