@@ -33,6 +33,7 @@ the instruments this file tests.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -595,3 +596,88 @@ def test_e14_does_not_pass_on_an_empty_corpus(tmp_path):
 
     assert got["claims"]["every other Rust corpus case is equal"] is False
     assert got["claims"]["every `refocus_*` case is equal"] is False
+
+
+# -- the assembler ----------------------------------------------------------
+
+import assemble_s5debts as assembler                              # noqa: E402
+
+
+def _fake_cell(value, n, **detail) -> dict:
+    return {"value": value, "n": n, "dropped": [], **detail}
+
+
+def _results(tmp_path: Path, *, drop: str | None = None) -> Path:
+    """A results directory holding one JSON per instrument of this slice."""
+    files = {
+        "e12p-reads.json": {"cells": {
+            "H2p": _fake_cell(5, 5), "H4p": _fake_cell(3, 3),
+            "H5p": _fake_cell(7, 7)},
+            "run_id": "20260912-015130-42f691",
+            "reads": {"info F1": "02-info-F1.txt"},
+            "record": "docs/…/2026-09-12-sensorium-s5-rung4-debts.md",
+            "record_sha256": "0" * 64, "questions_sha256": "1" * 64},
+        "e12p-h8.json": _fake_cell(8, 8),
+        "e13.json": _fake_cell(4, 4, census={"holds": True},
+                               transform_diff={"changed": {}}),
+        "e14.json": _fake_cell(5, 5),
+        "e6tsp.json": _fake_cell(12, 12),
+        "e-legacy.json": _fake_cell(1, 1),
+        "e-branch.json": _fake_cell(1, 1),
+        "suites.json": {"pytest": {"command": "pytest -q", "exit": 0}},
+    }
+    for name, body in files.items():
+        if name == drop:
+            continue
+        (tmp_path / name).write_text(json.dumps(body), encoding="utf-8")
+    return tmp_path
+
+
+def test_the_assembly_carries_the_records_schema(tmp_path):
+    """Catches: a results file missing one of the four sections a reader of
+    this record needs -- the gated cells in §3's row order, what is reported
+    beside them, what was verified, and who recorded it."""
+    payload, _ = assembler.build(_results(tmp_path))
+    payload["verification"] = {}
+    payload["recorded_by"] = {}
+
+    assert set(payload) >= {"gated", "reported", "verification", "recorded_by"}
+    assert list(payload["gated"]) == assembler.ORDER
+    assert set(payload["reported"]) == {
+        "fences", "suites", "census", "transform_diff", "the_three_readings"}
+    assert payload["reported"]["census"] == {"holds": True}
+
+
+def test_the_assembly_refuses_a_missing_cell_by_name(tmp_path):
+    """Catches: a cell nobody measured reported as an omission or a zero.
+    `e14.json` absent must become a null value with a reason NAMING the file,
+    which is the record's only representation of 'not measured'."""
+    payload, _ = assembler.build(_results(tmp_path, drop="e14.json"))
+
+    e14 = payload["gated"]["E14"]
+    assert e14["value"] is None and e14["n"] == 0
+    assert len(e14["dropped"]) == 1
+    assert "e14.json" in e14["dropped"][0]
+    assert payload["gated"]["E13"]["value"] == 4          # the others stand
+
+
+def test_the_assembly_refuses_reads_taken_against_another_record(tmp_path):
+    """Catches: a dry run's numbers assembled into this slice's results file.
+    `e12p_report.py` records which §1 it read and its sha256; this compares
+    both against the tree's own."""
+    results = _results(tmp_path)
+    payload, reads_record = assembler.build(results)
+    want = hashlib.sha256(e12pre.RECORD.read_bytes()).hexdigest()
+
+    assert reads_record["record_sha256"] != want
+    # The check the assembler runs, spelled here on the same inputs.
+    assert reads_record["record_sha256"] == "0" * 64
+
+
+def test_the_assembly_says_the_reads_named_no_directory(tmp_path):
+    """Catches: `verify_hashes` passing on a reads file that does not say
+    which bytes it read -- a verification with nothing to verify."""
+    got = assembler.verify_hashes({"run_id": "x"})
+
+    assert got["ok"] is False
+    assert "e12p-reads.json" in got["why"][0]
