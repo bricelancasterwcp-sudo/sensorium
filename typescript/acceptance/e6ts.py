@@ -96,8 +96,16 @@ PRE_REGISTERED = {
     "untraced_catcher_later_failure": 0,
     "logged_rethrow_to_harness": 0,
     # This slice (2026-09-12): re-registered by rung 3's procedure
-    # BEFORE the case's exceptions question exists.
-    "focus_catch_binding": 0,
+    # BEFORE the case's exceptions question exists. Corrected (controller
+    # ruling P16): `retry.ts:17`'s `catch (e) { count += 1 }` neither
+    # rethrows nor logs, and the frame holding it (`attempts`) returns --
+    # exactly this module's own `swallowed` rule (line 30-32: "an absorbing
+    # handler took it and the frame holding that handler then returned").
+    # The earlier `0` read the case in `grep --kind HANDLED`'s vocabulary
+    # (a HANDLED event, traced with confidence) rather than this command's:
+    # HANDLED is about attribution, not disposition, and `silent_swallow`
+    # is the same shape, already pinned at 1.
+    "focus_catch_binding": 1,
 }
 
 #: S5 rung 3: the `ambiguous by reason:` line each case must print, WHOLE.
@@ -117,8 +125,11 @@ PRE_REGISTERED_REASON_LINE = {
     "untraced_catcher_later_failure": "ambiguous by reason: untraced catcher 1",
     "logged_rethrow_to_harness": None,
     # This slice (2026-09-12): the same claim for this slice's
-    # re-registered case. One HANDLED at the catch clause, reached with
-    # confidence, so there is nothing ambiguous to report a reason for.
+    # re-registered case, unchanged by the swallowed-count correction
+    # (ruling P16, above): the case's verdict is `swallowed`, not
+    # `ambiguous`, and only an `ambiguous` line ever carries a reason --
+    # so a case pre-registered SWALLOWED prints no `ambiguous by reason:`
+    # line, and `None` is still what this table pins for it.
     "focus_catch_binding": None,
 }
 
