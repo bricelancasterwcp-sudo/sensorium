@@ -192,13 +192,14 @@ test('a deferred generator has exactly one exit: seal’s, and gclose is the no-
   assert.ok(at(out.recs, returned) > at(out.recs, linesOf(out.recs, frame)[1]));
 });
 
-test('a deferred generator its consumer abandons reports the value nothing pended', () => {
-  // The one shape where `seal` emits a value no `pend` chose: a generator
-  // resumed with a RETURN completion runs its `finally` and reaches the
-  // wrapper's, having pended nothing, so the row reads `undefined` where
-  // 0.3.0's `gclose` wrote `unread`. Pinned as it BEHAVES, not as it should:
-  // the consumer's `.return(v)` value never reaches the body either way, and
-  // which of the two words that deserves is design §4.4's to settle.
+test('a deferred generator its consumer abandons reports its value unread', () => {
+  // The one shape where no `pend` ran at all: a generator resumed with a
+  // RETURN completion runs its `finally` and reaches the wrapper's, having
+  // pended nothing. `seal` writes `gclose`'s word for it (amendment A12,
+  // §4.4) — `.return(v)`'s value belongs to the CONSUMER and never reaches
+  // the body, so the body produced none, and `undefined` there would be a
+  // value this recorder invented. The row is the same one `gclose` would
+  // have written; only the frame's lifetime moved.
   const out = run(`
     ${FILE}
     let cleanup = 0;
@@ -216,9 +217,35 @@ test('a deferred generator its consumer abandons reports the value nothing pende
 
   const frame = one(out.recs, 'CALL');
   const returned = one(out.recs, 'RETURN');
-  assert.deepEqual(returned.v, { k: 'dbg', v: 'undefined', trunc: false });
+  assert.deepEqual(returned.v, { k: 'unread' },
+    'the consumer closed it; the body produced no value to report');
   // The finally still ran on a live frame, which is what the seal is for.
   assert.deepEqual(linesOf(out.recs, frame).map((r) => r.l), [6]);
+});
+
+test('a deferred function that falls off its end reports RETURN undefined', () => {
+  // The other side of `seal`'s `??`, and what keeps A12 narrow: a body with
+  // no `return` at all still PENDS — the wrapper's fallthrough close is
+  // `;__srt.pend(__sf,undefined)`, which stores the capture of `undefined`,
+  // an object. So `f.pending` is set, `unread` is not reached, and the row
+  // says what JavaScript returned. Only the abandoned generator, whose body
+  // never reaches that close, has nothing pended.
+  const out = run(`
+    ${FILE}
+    let cleanup = 0;
+    function f() {const __sf=__srt.call(__sfile,0);try{
+      try {
+        cleanup = 1;__srt.line(__sf,3,["cleanup",cleanup]);
+      } finally {
+        cleanup = 2;__srt.line(__sf,5,["cleanup",cleanup]);
+      };__srt.line(__sf,2,[]);
+    ;__srt.pend(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}finally{__srt.seal(__sf)}}
+    console.log(JSON.stringify({ undefined_: f() === undefined }));
+  `, { focus: 'f' });
+  ok(out);
+
+  assert.deepEqual(JSON.parse(out.res.stdout), { undefined_: true });
+  assert.deepEqual(one(out.recs, 'RETURN').v, { k: 'dbg', v: 'undefined', trunc: false });
 });
 
 // --- row 7: the call the finally makes -------------------------------------

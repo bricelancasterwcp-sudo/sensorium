@@ -533,9 +533,14 @@ export function pend(f, v) {
  * already gives. A frame `thr` closed on the way out is left exactly as `thr`
  * left it, so a `finally` that throws still reports one UNWIND and no return.
  *
- * `f.pending` is unset only where no `pend` ran at all: a generator resumed
- * with a RETURN completion (a consumer's `break` or `.return()`), whose body
- * reached neither a `return` nor its own fallthrough close.
+ * `f.pending` is unset only where no `pend` ran at all — a `pend` of
+ * `undefined` stores the CAPTURE of it, which is an object. For a deferred
+ * function that is exactly one shape: a generator resumed with a RETURN
+ * completion (a consumer's `break` or `.return()`), whose body reached
+ * neither a `return` nor its own fallthrough close. That value is
+ * `unread`, not `undefined`, for `gclose`'s reason (A12, §4.4): `.return(v)`'s
+ * value belongs to the consumer and never reaches the body, so the body
+ * produced none — and `undefined` would be a value this recorder invented.
  * @param {Frame|null} f
  * @returns {void}
  */
@@ -543,7 +548,7 @@ export function seal(f) {
   if (!on || !f || !f.open) return;
   f.open = false;
   drop(f);
-  emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: f.pending ?? dbg(undefined) });
+  emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: f.pending ?? { k: 'unread' } });
 }
 
 /**
