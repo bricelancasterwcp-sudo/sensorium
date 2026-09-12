@@ -31,6 +31,7 @@ import { isTestFile, spliceTaskBoundary } from './tasks.mjs';
 /** @typedef {import('typescript').FunctionLikeDeclaration} FunctionLike */
 /** @typedef {'function'|'coroutine'|'generator'|'async_generator'} FrameKind */
 /** @typedef {{qualname: string, line: number, kind: FrameKind, focused: boolean}} Site */
+/** @typedef {{qualname: string, line: number, reason: string}} ExcludedSite */
 /** @typedef {{file: string, rel: string, sha256: string, instrumented: Site[], focused: string[], excluded: Record<string, number>, diagnostics?: string[]}} Manifest */
 
 /** Extensions the recorder can instrument; CommonJS is counted, never transformed. */
@@ -186,7 +187,11 @@ export function lineOf(sf, pos) {
  * @param {string} rel the root-relative path a spec's file part is matched on
  * @param {string[]} focus the specs, `[]` for no focus at all
  * @returns {{sites: Site[], indexOf: Map<Node, number>, focused: Set<Node>,
- *   excluded: Record<string, number>}}
+ *   excluded: Record<string, number>, excludedSites: ExcludedSite[]}}
+ *   `excluded` COUNTS the exclusions and is what a manifest carries;
+ *   `excludedSites` NAMES them, one entry each, and is for the resolver
+ *   (R26), which has to tell a spec that matched nothing from a spec that
+ *   matched only functions this recorder never instruments.
  */
 function planSites(ts, sf, rel, focus) {
   /** @type {Site[]} */
@@ -199,11 +204,21 @@ function planSites(ts, sf, rel, focus) {
   const qualnames = new Map();
   /** @type {Record<string, number>} */
   const excluded = {};
+  /** @type {ExcludedSite[]} */
+  const excludedSites = [];
   let hoistedDepth = 0;
 
-  /** @param {string} reason */
-  const exclude = (reason) => {
+  /**
+   * @param {Node} node the function-like this recorder is not instrumenting
+   * @param {string} reason
+   */
+  const exclude = (node, reason) => {
     excluded[reason] = (excluded[reason] ?? 0) + 1;
+    excludedSites.push({
+      qualname: /** @type {string} */ (qualnames.get(node)),
+      line: lineOf(sf, node.getStart(sf)),
+      reason,
+    });
   };
 
   /** @param {Node} node */
@@ -216,8 +231,8 @@ function planSites(ts, sf, rel, focus) {
     }
     if (isFunctionLike(ts, node)) {
       qualnames.set(node, qualnameFor(ts, node, qualnames));
-      if (hoistedDepth > 0) exclude('vitest-hoisted-factory');
-      else if (!node.body) exclude(bodilessReason(ts, node));
+      if (hoistedDepth > 0) exclude(node, 'vitest-hoisted-factory');
+      else if (!node.body) exclude(node, bodilessReason(ts, node));
       else {
         const qualname = /** @type {string} */ (qualnames.get(node));
         const selected = focus.some((spec) => specMatches(spec, rel, qualname));
@@ -234,7 +249,7 @@ function planSites(ts, sf, rel, focus) {
     ts.forEachChild(node, visit);
   };
   visit(sf);
-  return { sites, indexOf, focused, excluded };
+  return { sites, indexOf, focused, excluded, excludedSites };
 }
 
 /**
@@ -628,17 +643,22 @@ function parseFile(code, filePath, opts) {
  * @param {string} code the source as read
  * @param {string} filePath absolute path to the file
  * @param {{root: string, ts: TS, focus?: string[]}} opts
- * @returns {{rel: string, sites: Site[], excluded: Record<string, number>}|null}
+ * @returns {{rel: string, sites: Site[], excluded: Record<string, number>,
+ *   excludedSites: ExcludedSite[]}|null}
  *   null for a path this recorder does not transform. A file that did not parse
- *   offers no sites and says why: `excluded['parse-error']`, never a guess.
+ *   offers no sites and says why: `excluded['parse-error']`, never a guess --
+ *   and it names no excluded function either, because a file this recorder
+ *   could not read the shape of has no functions to have skipped.
  */
 export function sitesOf(code, filePath, opts) {
   const parsed = parseFile(code, filePath, opts);
   if (parsed === null) return null;
   const { rel, sf, diagnostics } = parsed;
-  if (diagnostics.length > 0) return { rel, sites: [], excluded: { 'parse-error': 1 } };
-  const { sites, excluded } = planSites(opts.ts, sf, rel, opts.focus ?? []);
-  return { rel, sites, excluded };
+  if (diagnostics.length > 0) {
+    return { rel, sites: [], excluded: { 'parse-error': 1 }, excludedSites: [] };
+  }
+  const { sites, excluded, excludedSites } = planSites(opts.ts, sf, rel, opts.focus ?? []);
+  return { rel, sites, excluded, excludedSites };
 }
 
 /**

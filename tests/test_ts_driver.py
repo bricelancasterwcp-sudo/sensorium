@@ -523,16 +523,23 @@ def test_the_wrappers_own_refusal_is_what_the_driver_prints(
     assert "nothing was recorded" in capsys.readouterr().err
 
 
-def test_the_harness_is_told_the_six_things_it_cannot_work_out(tmp_path):
+def test_the_harness_is_told_the_seven_things_it_cannot_work_out(tmp_path):
     """The runtime reads its spool directory, its tier and its invocation
     from the environment; the loader hook reads the root and the package;
-    the plugin reads the manifest directory. None of the six can be guessed
-    from inside the harness."""
+    the plugin reads the manifest directory; all three read the focus. None
+    of the seven can be guessed from inside the harness.
+
+    The focus is the one that is sometimes ABSENT, and both directions are
+    asserted: the runtime declares `line` and `locals` from the variable's
+    presence, so an unfocused run that set it empty would declare two
+    capabilities nothing was going to write.
+    """
     from sensorium.ts import driver, harness as harness_mod
+    from sensorium.ts.focus import SEP
 
     plan = harness_mod.recognise(["vitest", "run"], tmp_path)
     env = driver._env(tmp_path / "spool", "INV", plan, tmp_path / "pkg",
-                      "call")
+                      "call", ["src/fog.ts:Fog.compute", "load"])
     # Everything the driver ADDED to its own environment, and nothing else:
     # the harness inherits the caller's environment unchanged otherwise.
     assert {k: v for k, v in env.items() if os.environ.get(k) != v} == {
@@ -541,8 +548,13 @@ def test_the_harness_is_told_the_six_things_it_cannot_work_out(tmp_path):
         "SENSORIUM_TS_ROOT": str(tmp_path),
         "SENSORIUM_TS_PKG": str(tmp_path / "pkg"),
         "SENSORIUM_INVOCATION": "INV",
-        "SENSORIUM_MANIFEST_DIR": str(tmp_path / "spool" / "manifests")}
+        "SENSORIUM_MANIFEST_DIR": str(tmp_path / "spool" / "manifests"),
+        "SENSORIUM_FOCUS": f"src/fog.ts:Fog.compute{SEP}load"}
     assert env["PATH"] == os.environ["PATH"]
+
+    unfocused = driver._env(tmp_path / "spool", "INV", plan,
+                            tmp_path / "pkg", "call", [])
+    assert "SENSORIUM_FOCUS" not in unfocused
 
 
 # -- the refusals -----------------------------------------------------------
