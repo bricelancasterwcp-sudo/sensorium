@@ -513,18 +513,15 @@ and a workload, not a pass/fail property of the tool.
 ## Rust
 
 `cargo sensorium test`/`cargo sensorium run` record a Rust workspace's own
-crates the same way `sensorium run` records a Python program: one
-sensorium trace per process, trace format 4, read by the same `sensorium`
-command line. `rust/` ships `sensorium-rt 0.5.0` (zero dependencies, the
-runtime linked into every instrumented unit, and the owner of the one sha256
-the other two hash with), `sensorium-transform 0.5.0`
-(the `syn` rewriter), and `cargo-sensorium 0.6.0` (driver, workspace wrapper,
-target runner, converter — one binary, four roles). What it does and does not
-see is [`rust/HONESTY.md`](rust/HONESTY.md) with
-[`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
-[`rust/README.md`](rust/README.md)
-is the full build/install/record reference. This section is the summary
-beside Python's, above.
+crates the same way `sensorium run` records a Python program: one sensorium
+trace per process, trace format 4, read by the same `sensorium` command line.
+`rust/` ships `sensorium-rt 0.5.0` (zero dependencies, the runtime linked into
+every instrumented unit, and the owner of the one sha256 the other two hash
+with), `sensorium-transform 0.5.0` (the `syn` rewriter), and `cargo-sensorium
+0.6.0` (driver, workspace wrapper, target runner, converter — one binary, four
+roles). What it does and does not see is [`rust/HONESTY.md`](rust/HONESTY.md)
+with [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
+[`rust/README.md`](rust/README.md) is the full build/install/record reference.
 
 **What the licence is worth on a real workspace, measured.** `refocus` over
 61 `#[test]` pairs of a workspace nobody wrote this recorder for was
@@ -590,34 +587,33 @@ it: `docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md`
 (§4, §5.1) and
 `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` (§4, §5).
 
-**One gap, measured, then fixed.** `diff --ignore-moves` pairs code
-objects correctly across a file split (28/28 paired, 0 added, 0 removed, in
-the acceptance run's own split of a real file), but a spawned worker thread's
-task NAME embedded its spawn site (`<parent task> :: spawn@<file>:<line>`),
-so moving that call site during the same split renamed the task and the
-comparison read DIVERGED even though nothing about the program's behaviour
-changed. Measured on bloomery's own `registry.rs` split — four spawned-task
-names moved, their stream hashes identical pairwise on both sides:
+**One gap, measured, then fixed.** `diff --ignore-moves` pairs code objects
+correctly across a file split (28/28 paired, 0 added, 0 removed, in the
+acceptance run's own split of a real file), but a spawned worker thread's task
+NAME embedded its spawn site (`<parent task> :: spawn@<file>:<line>`), so moving
+that call site during the same split renamed the task and the comparison read
+DIVERGED even though nothing about the program's behaviour changed. Measured on
+bloomery's own `registry.rs` split — four spawned-task names moved, their stream
+hashes identical pairwise on both sides:
 `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3–§4,
-endpoint E5. **Fixed 2026-09-03** (rung-3 entry decision, Brice's ruling
-(b)): a spawned task is now named `<parent task> :: spawn@<qualname>#<k>` —
-the enclosing named item's file-local qualname plus a source-order ordinal
-among its wrapped spawn sites, neither of which a file move changes
+endpoint E5. **Fixed 2026-09-03** (rung-3 entry decision, Brice's ruling (b)): a
+spawned task is now named `<parent task> :: spawn@<qualname>#<k>` — the
+enclosing named item's file-local qualname plus a source-order ordinal among its
+wrapped spawn sites, neither of which a file move changes
 (`docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`,
-decisions N1–N6; `rust/HONESTY.md` §3). Verified by E5′ on the endpoint the
-fix exists for, which reads **PASS** (§4): across that same split, 28 code
-objects pair and all ten task streams pair, where rung 2 read DIVERGED; the
-four spawned children carry byte-identical names on both sides (E5′-names'
-first conjunct, 8 of 8 exactly the predicted string).
-**E5′-coverage** reads **PASS** (0 units fell back). The record's
-overall line is **STOP**, on a third endpoint, **E5′-names**, whose second
-conjunct asked that the multiset of `(name, hash)` pairs be equal across the
-split while naming the trace's STORED hash as the source — and that hash is
-defined over `file`, so a file move changes it by construction. That is a
-defect in the pre-registration rather than in the naming rule; it was read
-once, no repair was applied after the number, and it was **ruled 2026-09-04:
-(b) withdrawn; see the record §5.1**. Read §4 and §5.1 before citing any of
-this:
+decisions N1–N6; `rust/HONESTY.md` §3). Verified by E5′ on the endpoint the fix
+exists for, which reads **PASS** (§4): across that same split, 28 code objects
+pair and all ten task streams pair, where rung 2 read DIVERGED; the four spawned
+children carry byte-identical names on both sides (E5′-names' first conjunct, 8
+of 8 exactly the predicted string). **E5′-coverage** reads **PASS** (0 units
+fell back). The record's overall line is **STOP**, on a third endpoint,
+**E5′-names**, whose second conjunct asked that the multiset of `(name, hash)`
+pairs be equal across the split while naming the trace's STORED hash as the
+source — and that hash is defined over `file`, so a file move changes it by
+construction. That is a defect in the pre-registration rather than in the naming
+rule; it was read once, no repair was applied after the number, and it was
+**ruled 2026-09-04: (b) withdrawn; see the record §5.1**. Read §4 and §5.1
+before citing any of this:
 `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`.
 
 ### Per-line answers, under `--focus`
@@ -634,6 +630,10 @@ boundary rule `Pot` uses for `Pot.add`, so it never quietly answers about
 `Counters::new`. What the tier does **not** reach — closure and `async`
 bodies, place writes, macro bodies, and every function no focus named — is
 `rust/HONESTY-BLIND-SPOTS.md` item 3, narrowed to exactly that list.
+
+From `sensorium-rt 0.5.0`, a block-like statement's LINE row also lists the
+names it `unbound`, so `watch`'s fold does not read one as still in scope once
+its block has closed.
 
 A Rust capture is `Debug` **text**, not a typed value, so the reading rule is
 written down: a literal is compared against its Debug rendering (`5`, `2.5`,
@@ -685,35 +685,36 @@ states one as a translation of the other. The driver's own fixed cost is
 
 ## TypeScript
 
-`sensorium ts run -- vitest run` records a TypeScript or JavaScript test suite
-the way `cargo sensorium test` records a Rust workspace: one trace per
-test-file process, trace format 4, read by the same `sensorium` command line.
-`typescript/` ships **`sensorium-ts 0.4.0`** — a transform whose edits never
-contain a newline, a runtime on `AsyncLocalStorage`, a vitest plugin, a
-`node --test` hook — with driver and converter in Python, so reading a trace
-needs no Node. What it sees and does not is
-[`typescript/HONESTY.md`](typescript/HONESTY.md) with its blind-spot file;
-[`typescript/README.md`](typescript/README.md) is the full reference.
+`sensorium ts run -- vitest run` records a TypeScript or JavaScript test suite the
+way `cargo sensorium test` records a Rust workspace: one trace per test-file
+process, trace format 4, read by the same `sensorium` command line. `typescript/`
+ships **`sensorium-ts 0.4.0`** — a transform whose edits never contain a newline,
+a runtime on `AsyncLocalStorage`, a vitest plugin, a `node --test` hook — with
+driver and converter in Python, so reading a trace needs no Node. What it sees and
+does not is [`typescript/HONESTY.md`](typescript/HONESTY.md) with its blind-spot
+file; [`typescript/README.md`](typescript/README.md) is the full reference.
 
     npm ci --prefix typescript
     npm --prefix typescript run check                        # type-check
     sensorium ts run [--tier off|call] -- vitest run         # or: -- node --test src/
     sensorium ts run --focus diceQueue.ts:parseDiceGroups -- npx vitest run src/lib
 
-Everything after `--` is yours, spawned as typed, and the driver exits with
-the harness's own status. Tier `call` records calls and returns with a captured
-value, YIELD/RESUME at every `await`/`yield`, RAISE at every `throw`, HANDLED
-at every `catch`, and **tests as tasks** named as vitest names them, so `tree`
-groups by test and `diff` compares one test against itself. `exceptions`
-**answers** — the same five dispositions, computed from a `how` word the
-transform decides from each handler's own syntax, and merged across a whole
-invocation — while a trace an 0.1.x runtime wrote refuses at exit 3 on
-`err_flow: false`. `flow --object` **answers on any recording from 0.3.0 on,
-focused or not, and answers exactly**: identity is a per-object serial minted
-once and never reused, so there is no gap analysis to run and the footer reads
-`continuity: exact (serial identity)`. `refocus` refuses at exit 2; package
-scripts, jest, a project with no `typescript` of its own and a vitest
-`projects`/`workspace` config are refused by name.
+Everything after `--` is yours, spawned as typed, and the driver exits with the
+harness's own status. Tier `call` records calls and returns with a captured value,
+YIELD/RESUME at every `await`/`yield`, RAISE at every `throw`, HANDLED at every
+`catch`, and **tests as tasks** named as vitest names them, so `tree` groups by
+test and `diff` compares one test against itself. `exceptions` **answers** — the
+same five dispositions, computed from a `how` word the transform decides from each
+handler's own syntax, and merged across a whole invocation — while a trace an
+0.1.x runtime wrote refuses at exit 3 on `err_flow: false`. `flow --object`
+**answers on any recording from 0.3.0 on, focused or not, and answers exactly**:
+identity is a per-object serial minted once and never reused, so there is no gap
+analysis to run and the footer reads `continuity: exact (serial identity)`.
+`refocus` refuses at exit 2; package scripts, jest, a project with no `typescript`
+of its own and a vitest `projects`/`workspace` config are refused by name.
+
+From `sensorium-ts 0.4.0`, a RETURN row follows the rows of any `finally` the
+return passed through.
 
 ### Per-statement answers, under `--focus`
 
@@ -734,19 +735,18 @@ one, naming the recorder the trace itself carries; `frame` answers either way,
 saying `timeline: not captured (record again with …)` at exit 0.
 
 A TypeScript capture is node's `util.inspect` **text**, so the reading rule is
-written down, and it is Rust's opposite in the place a reader meets first:
-`flow --value 5.0` **sights** a JavaScript `5`, because JavaScript has one
-number type. `null`, `undefined`, `true` and `false` are predicate constants
-in every language; a string is spelled with its quotes, and one past 100
-characters was cut by the formatter, so it matches nothing rather than
-matching a prefix. Every spelling is generated rather than argued — 41
-measured rows in `typescript/test/fixtures/inspect-table.json` — and
-[`docs/trace-format/TYPESCRIPT-KEYS.md`](docs/trace-format/TYPESCRIPT-KEYS.md)
-§ *Under a focus* is the reading. What the tier does **not** reach — place
-writes, `this`, a conditional assignment's write-or-not, a `switch`
-discriminant, a nested function no spec's prefix reached — is
-`typescript/HONESTY-BLIND-SPOTS.md` items 28–37, each a present row with a
-stated hole.
+written down, and it is Rust's opposite in the place a reader meets first: `flow
+--value 5.0` **sights** a JavaScript `5`, because JavaScript has one number type.
+`null`, `undefined`, `true` and `false` are predicate constants in every
+language; a string is spelled with its quotes, and one past 100 characters was
+cut by the formatter, so it matches nothing rather than matching a prefix. Every
+spelling is generated rather than argued — 41 measured rows in
+`typescript/test/fixtures/inspect-table.json` — and
+[`docs/trace-format/TYPESCRIPT-KEYS.md`](docs/trace-format/TYPESCRIPT-KEYS.md) §
+*Under a focus* is the reading. What the tier does **not** reach — place writes,
+`this`, a conditional assignment's write-or-not, a `switch` discriminant, a
+nested function no spec's prefix reached — is `typescript/HONESTY-BLIND-SPOTS.md`
+items 28–37, each a present row with a stated hole.
 
 ### What four rungs measured
 
