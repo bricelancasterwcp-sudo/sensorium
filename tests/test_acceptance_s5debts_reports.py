@@ -299,6 +299,25 @@ def test_e13_counts_only_the_clauses_whose_inputs_were_written(tmp_path):
         ("honesty-cost.diff", "transform-diff.json"))
 
 
+def test_e13_clause_two_is_omitted_when_the_census_was_not_written(tmp_path):
+    """The other half of the partial case, and the one a one-input gate got
+    wrong: clause 2's EXPECTATION comes from `census.json` and its READING from
+    `transform-diff.json`. With the census absent, `want` is empty and any
+    non-empty diff scores False -- a clause `dropped` already names as not
+    measured. Gated on both inputs, only the diff-free clauses are read."""
+    full = _e13_fixture(tmp_path)
+    (full / "census.json").unlink()
+
+    got = e13_report.build(full)
+
+    assert got["n"] == 2 and got["value"] == 2
+    assert set(got["claims"]) == {
+        "`focus_finally_return` is green",
+        "`HONESTY-COST.md`'s cited numbers are untouched"}
+    assert got["dropped"] == [
+        "census.json was not written into the results directory"]
+
+
 def _e14_fixture(tmp_path: Path, **over) -> Path:
     cases = {"focus_block_let": {"language": "rust",
                                  "exit": over.get("case_exit", 0)},

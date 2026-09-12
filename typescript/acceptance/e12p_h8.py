@@ -255,18 +255,20 @@ def measured_claims(results: Path, clauses) -> dict:
     """The clauses whose input file was written, evaluated, in order.
 
     `clauses` is a sequence of `(<input file>, <clause name>, <test>)` triples,
-    written in the record's own order; several clauses may share one input.
+    written in the record's own order; several clauses may share one input, and
+    a clause whose reading needs SEVERAL inputs names them all as a tuple.
 
-    A clause whose input nobody wrote is OMITTED, not scored. Computed over a
-    missing file it would come out False and be COUNTED, so one cell would say
-    both "not measured" (in `dropped`) and "did not hold" (in `value`/`n`)
-    about the same clause -- and the record's schema has exactly one
-    representation of not measured: a null value with a reason. `h2p` in
+    A clause any of whose inputs nobody wrote is OMITTED, not scored. Computed
+    over a missing file it would come out False and be COUNTED, so one cell
+    would say both "not measured" (in `dropped`) and "did not hold" (in
+    `value`/`n`) about the same clause -- and the record's schema has exactly
+    one representation of not measured: a null value with a reason. `h2p` in
     `e12p_report.py` drops an un-handed clause the same way; this is that rule
     for the two reporters whose every input is handed in.
     """
-    return {name: test() for file, name, test in clauses
-            if (Path(results) / file).is_file()}
+    return {name: test() for files, name, test in clauses
+            if all((Path(results) / f).is_file()
+                   for f in ((files,) if isinstance(files, str) else files))}
 
 
 def value_of(claims: dict):

@@ -464,7 +464,7 @@ this slice produces, as it did at rung 1, slice 2, rung 2, rung 3 and rung 4.
 | sensorium, worktree venv | `.venv/bin/python -c "…version('sensorium')"` | `0.12.0` — becomes `0.13.0` at Task 12 |
 | sensorium, global tool | `$(dirname $(readlink -f $(which sensorium)))/python -c "…version('sensorium')"` | `0.12.0` — the same version. The global tool is **never reinstalled from this worktree**; every instrument of this slice runs `.venv/bin/sensorium` |
 | sensorium-ts | `node -e "console.log(require('./typescript/package.json').version)"` | `0.3.0` — becomes `0.4.0` when the seal lands |
-| the Rust crates | `grep -m1 '^version' rust/{sensorium-rt,sensorium-transform,cargo-sensorium}/Cargo.toml` | `sensorium-rt 0.4.1` → `0.5.0` (§5.3); `sensorium-transform 0.4.4`; `cargo-sensorium 0.5.3` → `0.6.0` (§5.4) |
+| the Rust crates | `grep -m1 '^version' rust/{sensorium-rt,sensorium-transform,cargo-sensorium}/Cargo.toml` | `sensorium-rt 0.4.1` → `0.5.0` (§5.3); `sensorium-transform 0.4.4` → `0.5.0` (spec R6, §5.2: the rewriter that splices a block-like statement's `line_unbinding` call moves with the wire — this arrow was missing from the row when §2 was pinned, and is annotated here at Task 11 before any endpoint ran, on Task 6's note); `cargo-sensorium 0.5.3` → `0.6.0` (§5.4) |
 | `<target>`, the label | `ls -d /mnt/extra/sensorium-rung2/s5-debts-target` | exists — the `CARGO_TARGET_DIR` every cargo build and every corpus run of this slice exports, and where the two baseline logs were written. `<target>` abbreviates this path throughout the rest of this slice's files |
 | the driver every corpus run used | `SENSORIUM_CARGO_SENSORIUM` | `<target>/release/cargo-sensorium`, built from this worktree at `5c36baa`. The box's `PATH` driver is the installed `0.5.3` and is not reinstalled from here until after merge |
 
@@ -545,12 +545,43 @@ thirty; both are appended to and both are measured before the append.
 
 ### 2.3 Instrument changes made before any endpoint ran
 
-**None yet.** Every instrument of this slice — `e12p_report.py`,
-`e12p_h8.py`, `e13_report.py`, `e14_report.py`, `census_deferred.mjs` — is
-written after this pre-registration is locked and before any endpoint reads a
-number; each change decided in that window is appended here with the commit
-that carried it, as rung 4's §2.3 did. A defect found AFTER a number is read
-is a finding in §4 and never an entry here.
+**One, plus the list of named changes the corpus fence is read modulo.** Every
+instrument of this slice — `e12p_report.py`, `e12p_h8.py`, `e13_report.py`,
+`e14_report.py`, `census_deferred.mjs` — is written after this
+pre-registration is locked and before any endpoint reads a number; each change
+decided in that window is appended here with the commit that carried it, as
+rung 4's §2.3 did. A defect found AFTER a number is read is a finding in §4
+and never an entry here.
+
+| # | what changed | commit | why |
+|---|---|---|---|
+| 1 | **E13's clause 2 is gated on TWO inputs**, `transform-diff.json` AND `census.json`, not on the diff alone; `measured_claims` in `e12p_h8.py` now takes a tuple of input names as well as one name | this task's first commit | the clause's READING comes from the diff and its EXPECTATION from the census. Gated on the diff alone, a results directory with no `census.json` gave an empty expectation, scored a non-empty diff `False`, and counted that `False` in `n` — while `dropped` named the census as not written. One clause would have said both "not measured" and "did not hold", which is the exact defect the two reporters' `measured_claims` rule exists to prevent (Task 2's review minor, deferred here). The covering test is `test_e13_clause_two_is_omitted_when_the_census_was_not_written`; the one-input gate was restored as a mutant and the test failed on it (`3 == 2`) before the fix was kept |
+
+**The named changes, declared before the fence was read.** §1.6's fourth and
+fifth clauses and §1.8's first ("every case equal, all three languages") are
+read against a corpus whose questions this slice deliberately re-pinned. The
+corpus runner reports a case as EQUAL when its answers match its questions as
+they stand, so a re-pinned question is not a difference the fence can see;
+naming them here, before the run, is what keeps "equal" from meaning "equal to
+whatever it says now". Twelve files, none of them a change to what is
+RECORDED except where the column says so. These are earlier tasks' diffs, as
+rung 4's §2.3 entry 3 was — what this entry carries is the decision to name
+them before the reading.
+
+| case / file | what moved | commit | why |
+|---|---|---|---|
+| `corpus/rust/{aliasing, focus_unfocused_refuses, stale_cache}` | the recorder token in three refusal sentences, `sensorium-rt 0.4.1` → `0.5.0` | `4fb4554` (`aliasing`'s comment refined at `6bd044d`) | all three refuse on a capability the wire's new delta tag cannot reach (`line: false` on an unfocused run, `object_identity: false` always), so the exit is still `3` and only the recorder's name in the sentence moved. Each carries its own dated comment saying so |
+| `corpus/typescript/{object_identity, pass_vs_fail, silent_swallow, watch_refused}` | the recorder token in four expectations, `sensorium-ts 0.3.0` → `0.4.0` | `86dd55f` | the seal takes the TypeScript package to `0.4.0`, and a trace declares the recorder that recorded it. Two are refusal sentences, two are `info`/`run` lines; none is a claim about what was recorded |
+| `corpus/rust/focus_loop_counter` | `SATISFIED at 3 of the 7` → `2 of the 6`, plus a new `i: not in scope at this site   [4 site(s)]` needle | `0255b5b` | the rule's own number. §5.2 makes a `for` statement's completion row unbind its head pattern, so `i` has left scope at `e11` and that site leaves the evaluable set, taking the third hit with it. The KIND of the answer — SATISFIED, first hit at `e9` — is unchanged, and the case now also pins the absence |
+| `corpus/typescript/finally_return` | `harness_args: ["run", "finally_return"]` → `["run", "/finally_return"]` | `77af3c9` | ruling P11. vitest's filter is a substring, and Task 0's new `focus_finally_return/` directory matches `finally_return` too, so rung 2's case collected two test files in unstable pid order (~50 % flake, measured at Task 3). The leading `/` matches `…/finally_return/…` and not `…/focus_finally_return/…`. The case's own pins are untouched, and after this fix a recurrence of that failure is a **STOP**, not a flake |
+| `corpus/typescript/focus_catch_binding` | question 2 now asks the `exceptions` question the E6-TS table is about, where it asked a `grep` one | `69cf474` | spec §6.2 / blind spot 37: the case's row in `e6ts.PRE_REGISTERED` is only a pre-registration if the case actually asks the question the table answers |
+| `corpus/typescript/focus_async` | one `expect_contains` needle carrying event ids (`e4`/`e7`) split into two id-free needles plus an adjacency needle | `dd07e75` | a deferred minor: `e4`/`e7` were one recording's numbering and pinned nothing the question asks — any row inserted earlier renumbers both and fails a needle that is still true. The adjacency the id-bearing needle also carried is now pinned explicitly |
+| `corpus/cases.py` | the refusal for an unknown key in a `program: vitest` case's `record` no longer attributes that key to the Python recorder | `dd07e75` | a deferred minor: a key that is not `focus` need not be Python's at all, and a refusal that says it is sends the reader to the wrong recorder's documentation |
+
+Everything else under `corpus/` is an ADDITION this slice's endpoints are
+about — `corpus/rust/focus_block_let`, `corpus/typescript/focus_finally_return`
+and `corpus/typescript/focus_long_string`, the three cases §2.2's second row
+counts. No other existing case's bytes moved.
 
 ## 3. Results
 

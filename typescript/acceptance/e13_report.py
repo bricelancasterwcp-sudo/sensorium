@@ -21,6 +21,11 @@ shape is defined here and nowhere else:
 §1.5's four clauses, in its order. The census's own table is the sha-pinned
 hand file, read from the repository and never from `<results dir>`: a
 prediction an operator could hand in is not a prediction.
+
+Clause 2 is gated on TWO inputs, `transform-diff.json` and `census.json`: the
+diff says which wrappers moved and the census says which ones should have, so
+with the census absent there is no expectation to compare a diff against, and
+a clause with no expectation is not measured rather than failed.
 """
 import json
 import sys
@@ -67,8 +72,8 @@ def build(results: Path) -> dict:
     claims = measured_claims(results, (
         ("census.json", "`census_deferred.mjs` prints the three pinned lists "
          "exactly", lambda: matched["holds"]),
-        ("transform-diff.json", "the transform diff changes exactly the "
-         "census's files and wrappers", lambda: changed == want),
+        (("transform-diff.json", "census.json"), "the transform diff changes "
+         "exactly the census's files and wrappers", lambda: changed == want),
         ("corpus.json", f"`{CASE}` is green",
          lambda: cases.get(CASE, {}).get("exit") == 0),
         ("honesty-cost.diff", "`HONESTY-COST.md`'s cited numbers are "
