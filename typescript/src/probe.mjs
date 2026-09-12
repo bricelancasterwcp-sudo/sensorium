@@ -16,9 +16,9 @@
 //
 // It owns no name rules: `bindings.mjs` answers every "which names" question
 // and this file only asks. It owns no positions either — `lineOf` and
-// `terminatorFor` are `transform.mjs`'s. That import is a cycle, and a safe
-// one: both are hoisted function declarations, called during a transform and
-// never while either module is being evaluated.
+// `terminatorFor` are `positions.mjs`'s, which `transform.mjs` reads from too.
+// This module names `transform.mjs` for one TYPE and nothing at runtime, so the
+// graph through `src/` is acyclic (`test/graph.test.mjs`).
 //
 // Two orderings the whole file rests on, both measured (see the tests):
 //   * `prependRight` renders EARLIER-registered content to the RIGHT of later
@@ -37,7 +37,7 @@ import {
   isStatementPosition,
   writesOf,
 } from './bindings.mjs';
-import { lineOf, terminatorFor } from './transform.mjs';
+import { lineOf, terminatorFor } from './positions.mjs';
 
 /** @typedef {typeof import('typescript')} TS */
 /** @typedef {import('typescript').Node} Node */

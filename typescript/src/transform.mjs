@@ -15,10 +15,10 @@ import MagicString from 'magic-string';
 import { paramNames } from './bindings.mjs';
 import { callbackHow, catchHow, finallyCompletes } from './escape.mjs';
 import { specMatches } from './focus.mjs';
-// `probe.mjs` imports `lineOf` and `terminatorFor` back out of this module. The
-// cycle is deliberate and safe: both are hoisted function declarations, so the
-// binding exists before either module's body runs, and neither is called until
-// a transform is under way.
+// `positions.mjs` is imported by `probe.mjs` too, and by neither of us at
+// module-evaluation time; the edge into `probe.mjs` below is one-way, which is
+// what `test/graph.test.mjs` holds the whole of `src/` to.
+import { lineOf, terminatorFor } from './positions.mjs';
 import { pairsOf, spliceFocused } from './probe.mjs';
 import { qualnameFor } from './qualname.mjs';
 // `tasks.mjs` names nothing of ours at runtime — only the `Splicer` type, in
@@ -163,15 +163,6 @@ function isHoistedCall(ts, node) {
     node.expression.expression.text === 'vi' &&
     HOISTED_VI.has(node.expression.name.text)
   );
-}
-
-/**
- * @param {SourceFile} sf
- * @param {number} pos
- * @returns {number} the 1-based line
- */
-export function lineOf(sf, pos) {
-  return sf.getLineAndCharacterOfPosition(pos).line + 1;
 }
 
 /**
@@ -329,19 +320,6 @@ function spliceFunction(ctx, node) {
     `{const __sf=__srt.call(__sfile,${index}${args});try{return __srt.ret(__sf,(`,
   );
   s.prependRight(body.end, CLOSE_EXPRESSION);
-}
-
-/**
- * A bare `return` or `yield` that ASI terminated is now an expression, and the
- * next line would join it: `return\n(g)()` would call our `ret(...)` result
- * instead of returning. A statement-level one is given the semicolon the source
- * left to ASI — always legal there, and never inserted twice (R12).
- * @param {Splicer} ctx
- * @param {Node} statement the whole statement the splice terminates
- * @returns {string} `';'` when the statement has none of its own
- */
-export function terminatorFor(ctx, statement) {
-  return ctx.sf.text[statement.end - 1] === ';' ? '' : ';';
 }
 
 /**
