@@ -100,9 +100,10 @@ _BIGINT = re.compile(r"-?\d+n")
 _INT = re.compile(r"-?\d+")
 _FLOAT = re.compile(r"-?\d+(\.\d+)?[eE][-+]?\d+|-?\d+\.\d+")
 #: What inspect appends OUTSIDE the closing quote when it cut the string.
-#: Public because the TypeScript converter counts a capture carrying it
-#: (blind spot 36): the flags say nothing there, and a second regex spelled
-#: in `ts/build.py` would be a second opinion about the same tail.
+#: Public as the ONE definition of that tail: `_body` reads it to tell a cut
+#: string from a whole one, `is_clipped` answers off it, and the TypeScript
+#: converter counts blind spot 36 through `is_clipped` rather than spelling a
+#: second regex of its own in `ts/build.py`.
 INSPECT_MORE = re.compile(r"\.\.\. \d+ more characters?\Z")
 # The name this was minted under, kept for one release (0.13.0).
 _MORE = INSPECT_MORE
@@ -278,6 +279,23 @@ def _body(text: str):
     if not (len(head) >= 2 and head[0] == head[-1] and head[0] in QUOTES):
         return None
     return _CLIPPED if m else head[1:-1]
+
+
+def is_clipped(text: str) -> bool:
+    """Whether this capture's text is a string `util.inspect` CUT.
+
+    The tail rule the TypeScript converter counts blind spot 36 by. A string
+    past inspect's own 100-character cap is cut by the FORMATTER, long
+    before the 200-byte wire cap looks at the rendering, so the capture's
+    `trunc` flag is `false` and this text is the only witness there is.
+
+    The closing quote is what decides it, which is why this is a function
+    and not a bare `INSPECT_MORE.search`: inspect appends its tail AFTER the
+    quote, so a string whose own CONTENT ends `... 50 more characters` still
+    ends with a quote and was kept whole, and a text that spells something
+    other than a string is not a cut string however it ends.
+    """
+    return _body(text) is _CLIPPED
 
 
 def read_inspect(text: str):

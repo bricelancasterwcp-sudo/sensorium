@@ -28,7 +28,7 @@ what it was about to write, so the trace carries `incomplete: true` and no
 import time
 from dataclasses import dataclass
 
-from sensorium.query.js_inspect import _CLIPPED, _body
+from sensorium.query.js_inspect import is_clipped
 from sensorium.record.fingerprint import Fingerprint
 from sensorium.store.writer import TraceWriter
 from sensorium.ts.spool import Spool, SpoolError
@@ -411,16 +411,16 @@ class Builder:
         `util.inspect` cuts a string at its own 100-character cap long
         before the 200-byte wire cap looks at the rendering, so `trunc` is
         `false` and the only evidence is the `... N more characters` tail
-        OUTSIDE the closing quote. `_body` is what tells that from a string
-        whose CONTENT ends the same way -- one rule, in the module `watch`
-        and `flow` already read these texts with.
+        OUTSIDE the closing quote. `is_clipped` is what tells that from a
+        string whose CONTENT ends the same way -- one rule, in the module
+        `watch` and `flow` already read these texts with.
         """
         if isinstance(obj, dict):
             self.truncated += bool(obj.get("trunc"))
             self.truncated += bool(obj.get("type_trunc"))
             v = obj.get("v")
             if obj.get("k") == "dbg" and isinstance(v, str):
-                self.truncated += _body(v) is _CLIPPED
+                self.truncated += is_clipped(v)
 
     # -- finalize -----------------------------------------------------------
 
