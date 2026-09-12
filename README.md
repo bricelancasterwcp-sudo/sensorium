@@ -708,9 +708,9 @@ groups by test and `diff` compares one test against itself. `exceptions`
 **answers** — the same five dispositions, computed from a `how` word the
 transform decides from each handler's own syntax, and merged across a whole
 invocation — while a trace an 0.1.x runtime wrote refuses at exit 3 on
-`err_flow: false`. `flow --object` **answers on any 0.3.0 recording, focused
-or not, and answers exactly**: identity is a per-object serial minted once and
-never reused, so there is no gap analysis to run and the footer reads
+`err_flow: false`. `flow --object` **answers on any recording from 0.3.0 on,
+focused or not, and answers exactly**: identity is a per-object serial minted
+once and never reused, so there is no gap analysis to run and the footer reads
 `continuity: exact (serial identity)`. `refocus` refuses at exit 2; package
 scripts, jest, a project with no `typescript` of its own and a vitest
 `projects`/`workspace` config are refused by name.

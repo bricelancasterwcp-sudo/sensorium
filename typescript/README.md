@@ -31,8 +31,8 @@ Seventeen modules and a version:
 | `src/setup.mjs` | The vitest setup file: the task-name provider and the per-file/per-test records. Written from a template into `node_modules/.sensorium/` beside the wrapper config, never into your source tree. |
 | `src/register.mjs` | What `node --import` runs for `node --test`: it checks the two variables the hook cannot invent and registers `src/hook.mjs`. |
 | `src/hook.mjs` | The loader hook itself, on Node's loader thread: it instruments a file under the root and hands it back in **Node's own reported format**, erasing nothing — Node strips the types (`.ts`, `.mts`), and a file Node's strip-only mode refuses fails identically hooked and plain. |
-| `src/escape.mjs` | The escape rule, as pure functions over AST nodes: `catchHow(ts, clause)`, `callbackHow(ts, arg)`, `finallyCompletes(ts, block)`. It decides which of the nine `how` words a catch clause, a rejection handler or a `finally` block gets, and it is what `sensorium exceptions` ends up reading. |
-| `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.3.0`. |
+| `src/escape.mjs` | The escape rule, as pure functions over AST nodes: `catchHow(ts, clause)`, `callbackHow(ts, arg)`, `finallyCompletes(ts, block)`, `deferredExit(ts, fn)`. The first three decide which of the nine `how` words a catch clause, a rejection handler or a `finally` block gets, and are what `sensorium exceptions` ends up reading; the fourth decides which functions get the deferred exit (§11's seal). |
+| `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.4.0`. |
 
 Beside them, `probes/` is a self-contained vitest project the recorder records
 ITSELF with: twelve probe files whose expected rows were pinned before this
@@ -241,7 +241,7 @@ these exit statuses mean.
 |---|---|---|
 | `exceptions` on a trace a **0.1.x** runtime wrote | 3 | That recorder declared `capabilities.err_flow: false` and its HANDLED rows carry no `how` word for the rules to read. The refusal names the capability and the recorder; what such a trace lacks is a record, not a rule, so **re-recording** is the fix. A 0.2.0 or later recording is answered, not refused. |
 | `watch`, `flow --value`, on a run that named **no `--focus`** | 3 | `capabilities.line: false` and `locals: false` — the tier is decided at transform time, so an unfocused run produces no LINE event and no argument to check. The refusal names the recorder the TRACE carries, not the one installed, and re-recording under `--focus` is the fix. On a focused run both answer. |
-| `flow --object` on a trace a **0.2.x** runtime wrote | 3 | `capabilities.object_identity: false` — that recorder carried no identity, so a question about *that* object cannot be answered from its traces. A **0.3.0** recording declares `true` unconditionally, focused or not, and is answered exactly. |
+| `flow --object` on a trace a **0.2.x** runtime wrote | 3 | `capabilities.object_identity: false` — that recorder carried no identity, so a question about *that* object cannot be answered from its traces. A recording from **0.3.0** on declares `true` unconditionally, focused or not, and is answered exactly. |
 | `refocus` | 2 | `capabilities.refocus: false` — nothing was re-run, and the reader's next move is a different command. |
 
 `frame` is **not** in that table. On an unfocused run it prints the frame it

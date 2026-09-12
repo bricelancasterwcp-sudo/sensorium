@@ -276,7 +276,7 @@ itself under node v24.16.0, committed as
 never reused, and **`type`**, the constructor's name through the ladder
 `exc()` uses (`unread` when the object lies). They ride on every capture the
 recorder makes — a RETURN value at the call tier, and under a focus the args
-and the deltas — so `sensorium-ts 0.3.0` declares
+and the deltas — so `sensorium-ts` 0.3.0 and later declare
 `capabilities.object_identity: true` **unconditionally**, focused or not, and
 `flow --object` needs only that capability and NOT `line` (R13).
 

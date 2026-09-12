@@ -83,8 +83,8 @@ recording, and a timer callback with no traced caller — and
 `silent_swallow`, whose parse error was pinned as a REFUSAL until rung 2
 gave this recorder disposition rules and now pins the swallow it always was.
 One of the two refusals has since become an answer: `object_refused` is
-`object_identity` from S5 rung 4 on, because every 0.3.0 trace carries a
-per-object serial and the aliasing it plants is now decided — three
+`object_identity` from S5 rung 4 on, because every trace from 0.3.0 on
+carries a per-object serial and the aliasing it plants is now decided — three
 sightings under one identity, `continuity: exact (serial identity)`, out of
 a recording that focused nothing. Its third question still pins a refusal,
 and `watch_refused` is still the whole of the other one.

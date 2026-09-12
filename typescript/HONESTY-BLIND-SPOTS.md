@@ -29,15 +29,17 @@ below has seven rung-4 shapes and the seventh is `enum`/`namespace`/`static
 {}` names, not the falsy head; the falsy head is a promise §11 makes and
 `E12` H3 measured (row 9 of nine, `m=null`), not a hole.
 
-**Three items are struck and one is narrowed, none deleted.** Rung 2's runtime
+**Four items are struck and one is narrowed, none deleted.** Rung 2's runtime
 records the shapes items **2**, **3** and **11** said it did not, so each is
-struck where it stands with the date and the replacement named; item **13** is
-narrowed to what is still true of a destructuring clause. A struck item stays
-visible because a reader who last met this list under `sensorium-ts 0.1.x`
-needs to see which of its holes closed, when, and what is left of them. Item
-**22** is neither struck nor narrowed but **rewritten in place**, at this
-rung's own final review: what it claimed was never true of the shipped
-runtime, and its note says what it used to say.
+struck where it stands with the date and the replacement named; item **38** is
+struck the same way at **S5 rung 4's debts (2026-09-12)**, where the seal gave
+a `finally` reached by `return` its rows and moved the RETURN past them; item
+**13** is narrowed to what is still true of a destructuring clause. A struck
+item stays visible because a reader who last met this list under
+`sensorium-ts 0.1.x` needs to see which of its holes closed, when, and what is
+left of them. Item **22** is neither struck nor narrowed but **rewritten in
+place**, at rung 2's own final review: what it claimed was never true of
+the shipped runtime, and its note says what it used to say.
 
 **Item 27 is narrowed 2026-09-11, S5 rung 3.** The shape it named — an
 untraced catcher between two traced frames — is no longer invisible: the

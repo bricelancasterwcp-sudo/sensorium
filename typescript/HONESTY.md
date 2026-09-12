@@ -1,11 +1,11 @@
 # The TypeScript recorder's honesty ledger
 
-`sensorium-ts 0.3.0` — the call tier, and a per-statement tier under
+`sensorium-ts 0.4.0` — the call tier, and a per-statement tier under
 `--focus`, under vitest and `node --test`. Read by `sensorium` 0.9.0 and
 above, by **0.10.0** and above for the throw-flow verdicts of §4, and by
 **0.12.0** and above for the focus tier of §11; a trace names its own writer,
 because the runtime stamps the package's `VERSION` into every spool's BOOT
-record and the converter spends it on `recorder: "sensorium-ts 0.3.0"` in
+record and the converter spends it on `recorder: "sensorium-ts 0.4.0"` in
 meta.
 
 Sensorium's founding rule is that **the instrument never answers from data it
@@ -58,7 +58,9 @@ because `locals` and `line` are now what a RUN decided and `object_identity`
 is true of every 0.3.0 recording; §7's falsifier list and the index's `| 7 |`
 row name `corpus/typescript/object_identity`, the case that was
 `object_refused` until this rung answered it; and **eleven new blind spots,
-28–38**, none of them struck. Endpoint ids `H1`–`H8` name measured cells of
+28–38**, none of them struck when this edition was written — **38 was struck
+2026-09-12 at S5 rung 4's debts**, where the seal closed it. Endpoint ids
+`H1`–`H8` name measured cells of
 `../docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.md` — its
 §3 and §4 for the numbers, its §5 for the four gaps they do not cover, and
 its word for the rung: **DONE-WITH-STOP**.
@@ -552,7 +554,8 @@ the capability and the recorder the TRACE carries. On a focused run both are
 this recorder PRODUCED for this recording, never about what the program did:
 absence of the record, reported as the recorder's own declaration.
 
-**`object_identity` is `true` on every 0.3.0 recording**, focused or not: an
+**`object_identity` is `true` on every recording from 0.3.0 on**, focused or
+not: an
 `oid` and a `type` ride on every object capture the recorder writes, so
 `flow --object` is answered where it used to refuse (§11, and
 `corpus/typescript/object_identity`). A trace a 0.2.x runtime wrote still
@@ -572,7 +575,7 @@ declares `false` and is still refused, by the capability sentence)*.
 `test.workspace` config makes vitest resolve a config PER PROJECT, and this
 wrapper merges onto one: the plugin never reaches the projects' pipelines, so
 the suite runs and nothing is recorded. The wrapper config refuses it at load
-time — `vitest projects/workspaces are not supported by sensorium-ts 0.3.0` —
+time — `vitest projects/workspaces are not supported by sensorium-ts 0.4.0` —
 and leaves that sentence in the spool directory (`wrapper-refusal.json`) for
 the driver to print at exit 2. *(Added 2026-09-09, ruling R41: measured, such
 a run came back as the CONVERTER's sentence, "nothing was recorded, or the
@@ -711,7 +714,7 @@ before the run and not after.
 serial, once per object, never reused — and `type` on every object or
 function capture it writes: a RETURN value at the call tier, and under a
 focus the args and the deltas. So `capabilities.object_identity` is `true`
-**unconditionally** on a 0.3.0 recording, `flow --object` needs that
+**unconditionally** on a recording from 0.3.0 on, `flow --object` needs that
 capability and not `line`, and the answer is exact: no gap analysis, no
 address recycling to hedge against, `continuity: exact (serial identity)`.
 Measured: one array sighted at `diceQueue.ts:138` where it is created empty
@@ -783,7 +786,7 @@ a corpus case, a vector or an acceptance endpoint.
 | 9 | Cost is reported with its `n` and lens and gates nothing; a bound crossed buys work, never a verdict | `E1′`, `E10` |
 | 9 | Cost is a STOP where a pre-registered clause did not hold: E6′'s plain-band clause, stated as a STOP and not re-rolled | `E6′`, the acceptance record §4 and §5 gaps 5–6 |
 | 9 | Cost is reported again at rung 2 with the throw flow spliced in: `off/plain` 1.0608, `call/plain` 1.1266, conversion 16.0715 s — and none of the three gates anything | `E1‴`, `E10″` |
-| 10 | The blind-spot list — now [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) — is the whole of what this recorder cannot see, each item carried by a meta key, an `info` line or a stated absence | each item's own falsifier, 1 through 38 *(10–17 added 2026-09-09; 18–27 added 2026-09-10, when 2/3/11 were struck and 13 narrowed; 28–38 added 2026-09-12)* |
+| 10 | The blind-spot list — now [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) — is the whole of what this recorder cannot see, each item carried by a meta key, an `info` line or a stated absence | each item's own falsifier, 1 through 38 *(10–17 added 2026-09-09; 18–27 added 2026-09-10, when 2/3/11 were struck and 13 narrowed; 28–38 added 2026-09-12, and 38 struck the same day at S5 rung 4's debts)* |
 | 11 | Under a `--focus`, one LINE row per completed statement of a focused function, `deltas` the bindings it wrote, a guard's head names as the body's first row, `unbound` on a block-like statement's own row, and the focused CALL carrying its arguments | `E12` H3 (9 of 9 rows against a locked hand count, empty diff), `E12` H1, the ten `corpus/typescript/focus_*` cases, `typescript/probes/src/focus.probe.test.ts` + `probes/check.mjs`, `typescript/test/{bindings,probe,focus}.test.mjs`, `docs/trace-format/vectors/v36-typescript-line-and-args.json` |
 | 11 | Identity is a serial minted once and never reused, on every object capture focused or not, so `flow --object` is exact and says so — and sightings are top-level captures only | `E12` H6, `corpus/typescript/object_identity`, `docs/trace-format/vectors/v37-flow-object-serial.json`, `typescript/test/rt.focus.test.mjs` |
 | 11 | A `return` that passes through a `finally` closes its frame after the finally's rows: the RETURN follows them, and a call the finally makes is the frame's child rather than its sibling | `typescript/test/rt.seal.test.mjs` (design §4.3's table, one test per row), `typescript/test/rt.focus.test.mjs`, `corpus/typescript/focus_finally_return`, `typescript/test/golden/focus-finally-return.ts`, `typescript/acceptance/census_deferred.mjs` (which functions it reaches at all) |
