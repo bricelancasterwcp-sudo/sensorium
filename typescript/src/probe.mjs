@@ -188,10 +188,19 @@ function spliceBody(ctx, body, headRow) {
 /**
  * A guard's head row, and its bodies.
  *
- * The head row goes into the bodies a guard ENTERS: an `if`'s then-branch and a
- * loop's body. An `else` branch is not an entry (spec §3.2) — a falsy test
- * bound nothing, and what its head WROTE is on the `if`'s own completion row
- * instead (plan P1) — so it is wrapped like any other body and given no row.
+ * The head row says: this body was ENTERED, and these are the names the guard
+ * bound to enter it (spec §3.2). Two bodies are wrapped and given none, for the
+ * one reason — the head had not run when the body started, so a row there would
+ * publish a value the guard never bound:
+ *
+ *   * an `else` branch (R21). A falsy test entered nothing, and what its head
+ *     WROTE reaches the record on the `if`'s own completion row (plan P1).
+ *   * a `do…while` body (R23). The test runs AFTER the body, so the first row
+ *     would publish whatever the name held before the loop, and every later one
+ *     the PREVIOUS iteration's test value — both of them dressed as an entry.
+ *     `writesOf` puts the test's assignment targets on the `do`'s completion
+ *     row, so nothing is lost by leaving the body's top silent.
+ *
  * A `switch` has no body to enter and no head row at all (spec §3.2, §3.9).
  * @param {Splicer} ctx
  * @param {Node} node a guard
@@ -199,7 +208,7 @@ function spliceBody(ctx, body, headRow) {
  */
 function spliceGuard(ctx, node) {
   const { ts, sf } = ctx;
-  const heads = headBindingsOf(ts, node);
+  const heads = ts.isDoStatement(node) ? [] : headBindingsOf(ts, node);
   const headRow = heads.length > 0
     ? `__srt.line(__sf,${lineOf(sf, node.getStart(sf))},[${pairsOf(heads)}]);`
     : '';

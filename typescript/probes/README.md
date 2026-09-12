@@ -113,7 +113,7 @@ it; this file is the equivalent rule for the capture no script performs.
 | `src/swallow3.probe.test.ts` | E8 shape 3, the rejection nobody handles |
 | `src/escape.probe.test.ts` | E8: one `catch` clause per mention position of spec §2.1, plus the callback bare-rethrow marker (S5 rung 3, Task 3) — fourteen `// ESCAPE <id> <how>` markers in all, each naming the word its HANDLED must carry |
 | `src/each.probe.test.ts` | `test.each`: three rows, three names, no `#k` |
-| `src/focus.probe.test.ts` | the focus tier (S5 rung 4, Task 4): nine shapes of spec §3.2, every LINE row under a `// LINE <fn> <name>=<text> [unbound:…]` marker and the focused CALL's arguments under `// ARGS`. **Recorded twice over**: focused directly (`vitest.config.ts`'s `FOCUS` list) and UNFOCUSED through the driver, which has no `--focus` yet — `check.mjs` asserts both readings and reports which one it saw as `focus:mode` |
+| `src/focus.probe.test.ts` | the focus tier (S5 rung 4, Task 4): eleven shapes of spec §3.2 (a `do…while` and a `for…in` among them), every LINE row under a `// LINE <fn> <name>=<text> [unbound:…]` marker and the focused CALL's arguments under `// ARGS`. **Recorded twice over**: focused directly (`vitest.config.ts`'s `FOCUS` list) and UNFOCUSED through the driver, which has no `--focus` yet — `check.mjs` asserts both readings and reports which one it saw as `focus:mode` |
 | `src/concurrent.probe.test.ts` | the naming hazard, counted and reported, never gated |
 | `src/never_settles.probe.test.ts` | a frame that parks and never returns |
 | `src/describe_chain.probe.test.ts` | `outer > inner > leaf`, synchronous describes (P11) |

@@ -42,7 +42,7 @@ const direct = process.env.SENSORIUM_PROBE_DIRECT === '1';
 
 /**
  * The focus the direct reading records under: every function `focus.probe.
- * test.ts` exports, named with its file so no other probe is swept in.
+ * test.ts` exports (eleven), named with its file so no other probe is swept in.
  *
  * It is set into the ENVIRONMENT rather than passed to the plugin, because two
  * readers need it and only one of them is here: the transform (through the
@@ -52,8 +52,8 @@ const direct = process.env.SENSORIUM_PROBE_DIRECT === '1';
  * variable from `--focus`; this is the no-driver reading of it.
  */
 const FOCUS = [
-  'letChain', 'loopCounter', 'blockScope', 'bareGuard', 'asyncRows',
-  'catchBinding', 'destructure', 'placeWrite', 'nestedArrow',
+  'letChain', 'loopCounter', 'blockScope', 'bareGuard', 'doWhile', 'forIn',
+  'asyncRows', 'catchBinding', 'destructure', 'placeWrite', 'nestedArrow',
 ].map((fn) => `focus.probe.test.ts:${fn}`);
 
 if (direct) process.env.SENSORIUM_FOCUS = FOCUS.join('\x1f');

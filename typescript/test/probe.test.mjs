@@ -46,6 +46,18 @@ function manifestOf(lines, focus = ['f']) {
 /** @param {string} code @returns {number} how many statement probes it holds */
 const rows = (code) => (code.match(/__srt\.line\(/g) ?? []).length;
 
+/**
+ * The output has to LOAD. A splice that produced source the consumer's own
+ * parser rejects would be the recorder breaking the program it observes.
+ * @param {string} code
+ * @returns {void}
+ */
+function parses(code) {
+  const sf = ts.createSourceFile(FILE, code, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
+  assert.deepEqual(/** @type {any} */ (sf).parseDiagnostics.map((/** @type {any} */ d) =>
+    d.messageText), [], code);
+}
+
 // --- what mints a row, and what does not -----------------------------------
 
 test('a completion — `return`, `throw`, `break`, `continue` — mints no row', () => {
@@ -231,9 +243,7 @@ test('R15/R16: a labeled loop is not wrapped and the label mints no row', () => 
   // for the `if` — and none at all for the label, which would double the outer
   // loop's completion row on the very same offset.
   assert.equal(rows(code), 7);
-  const sf = ts.createSourceFile(FILE, code, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
-  assert.deepEqual(/** @type {any} */ (sf).parseDiagnostics.map((/** @type {any} */ d) =>
-    d.messageText), [], 'the labeled output still parses');
+  parses(code);
 });
 
 test('a labeled BLOCK is probed as its own statement: the label mints nothing', () => {
@@ -331,9 +341,76 @@ test('P3: a suspension that is a whole statement closes INSIDE the row', () => {
     '  for (const x of xs) {__srt.line(__sf,4,["x",x]);'
     + '__srt.r(__sf,yield __srt.y(__sf,(x),1));__srt.line(__sf,4,[]);}'
     + '__srt.line(__sf,4,[],["x"]);'), code);
-  const sf = ts.createSourceFile(FILE, code, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
-  assert.deepEqual(/** @type {any} */ (sf).parseDiagnostics.map((/** @type {any} */ d) =>
-    d.messageText), []);
+  parses(code);
+});
+
+test('R23: a `do…while` body carries NO head row — the test has not run yet', () => {
+  // Its head runs AFTER the body, so a row at the body's top would publish
+  // whatever `m` held before the loop on the first pass, and the PREVIOUS
+  // iteration's test value on every later one — both dressed as "the names the
+  // guard bound as it entered". The write reaches the record honestly on the
+  // `do`'s own completion row instead (plan P1).
+  const code = run([
+    'export function f(): number {',
+    '  let count = 0;',
+    '  let m = 3;',
+    '  do {',
+    '    count += 1;',
+    '  } while ((m = m - 1) > 0);',
+    '  return count;',
+    '}',
+  ]);
+  assert.ok(code.includes('  do {\n'), code);
+  assert.ok(code.includes('  } while ((m = m - 1) > 0);__srt.line(__sf,4,["m",m]);'), code);
+  assert.equal(rows(code), 4, 'count, m, the body statement, and the `do` itself');
+  parses(code);
+});
+
+test('a `do…while` with a bare body is still wrapped, head row or not', () => {
+  // P2 is about the BODY's row, not the head's: appended after a bare body, the
+  // statement's own probe would run once whatever the loop did.
+  const code = run([
+    'export function f(): number {',
+    '  let count = 0;',
+    '  let m = 3;',
+    '  do count += 1; while ((m = m - 1) > 0);',
+    '  return count;',
+    '}',
+  ]);
+  assert.ok(code.includes(
+    '  do {count += 1;__srt.line(__sf,4,["count",count]);} while ((m = m - 1) > 0);'
+    + '__srt.line(__sf,4,["m",m]);'), code);
+  parses(code);
+});
+
+test('a `for…in` head binds its key per iteration, and the key dies with the loop', () => {
+  const code = run([
+    'export function f(o: Record<string, number>): number {',
+    '  let n = 0;',
+    '  for (const k in o) {',
+    '    n += o[k];',
+    '  }',
+    '  return n;',
+    '}',
+  ]);
+  assert.ok(code.includes('  for (const k in o) {__srt.line(__sf,3,["k",k]);'), code);
+  assert.ok(code.includes('  };__srt.line(__sf,3,[],["k"]);'), code);
+  assert.equal(rows(code), 4, 'n, the head row, the body statement, the loop itself');
+  parses(code);
+});
+
+test('a `for…in` with a bare body wraps the head row and the body row together', () => {
+  const code = run([
+    'export function f(o: Record<string, number>): number {',
+    '  let n = 0;',
+    '  for (const k in o) n += o[k];',
+    '  return n;',
+    '}',
+  ]);
+  assert.ok(code.includes(
+    '  for (const k in o) {__srt.line(__sf,3,["k",k]);n += o[k];'
+    + '__srt.line(__sf,3,["n",n]);}__srt.line(__sf,3,[],["k"]);'), code);
+  parses(code);
 });
 
 // --- the frame, and what is not one -----------------------------------------

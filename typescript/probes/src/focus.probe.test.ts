@@ -1,5 +1,5 @@
 // @vitest-environment node
-// The focus tier, recorded rather than argued about: nine shapes out of spec
+// The focus tier, recorded rather than argued about: eleven shapes out of spec
 // §3.2's table, each called exactly once, and every row each one mints written
 // down beside the statement that mints it.
 //
@@ -13,7 +13,7 @@
 // are, so `{ z: 9 }` is written `{z:9}`. `// ARGS <fn> <name>=<text>` is the
 // focused CALL's own argument map, which is not a LINE at all (spec §3.3).
 //
-// `probes/vitest.config.ts` names these nine functions in `SENSORIUM_FOCUS`
+// `probes/vitest.config.ts` names these eleven functions in `SENSORIUM_FOCUS`
 // under `SENSORIUM_PROBE_DIRECT=1`; driven with no focus, this file records no
 // such row at all, and `check.mjs` asserts THAT instead. Both readings are the
 // contract, and a checker that skipped one would be a hole. (No comment here
@@ -78,6 +78,34 @@ export function bareGuard(n: number): number {
     // LINE bareGuard count=2
     count += 1;
   return x + count + m;
+}
+
+export function doWhile(n: number): number {
+  // LINE doWhile count=0
+  let count = 0;
+  // LINE doWhile m=2
+  let m = n;
+  // LINE doWhile m=0
+  do {
+    // LINE doWhile count=1
+    // LINE doWhile count=2
+    count += 1;
+  } while ((m = m - 1) > 0);
+  return count;
+}
+
+export function forIn(o: Record<string, number>): number {
+  // LINE forIn n=0
+  let n = 0;
+  // LINE forIn k='a'
+  // LINE forIn k='b'
+  // LINE forIn - unbound:k
+  for (const k in o) {
+    // LINE forIn n=1
+    // LINE forIn n=3
+    n += o[k];
+  }
+  return n;
 }
 
 export async function asyncRows(p: Promise<number>): Promise<number> {
@@ -149,6 +177,14 @@ test('blockScope: the block dies on the `if`s row', () => {
 
 test('bareGuard: a body written without braces still reports inside the guard', () => {
   expect(bareGuard(1)).toBe(4);
+});
+
+test('doWhile: the test runs after the body, so the body opens with no row', () => {
+  expect(doWhile(2)).toBe(2);
+});
+
+test('forIn: a key bound per iteration, and dead when the loop ends', () => {
+  expect(forIn({ a: 1, b: 2 })).toBe(3);
 });
 
 test('asyncRows: a statement holding an await completes after the resume', async () => {
