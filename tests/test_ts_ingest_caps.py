@@ -51,6 +51,27 @@ def test_the_recorders_own_declaration_rides_over_the_constant(tmp_path):
     assert other == {k: v for k, v in CONSTANT.items() if k != "err_flow"}
 
 
+def test_a_focused_recorders_four_keys_all_ride_over_the_constant(tmp_path):
+    """`sensorium-ts` 0.3.0 recording under a focus declares FOUR keys, and
+    all four ride. `line` and `locals` are the two the floor says false, and
+    they are exactly the two a reader consults before deciding that a trace
+    with no LINE row is a program with no statements -- so a merge that only
+    ever carried `err_flow` would make a focused recording unreadable."""
+    spool = tmp_path / "spool"
+    copy_tree(FIXTURES / CASE, spool)
+    _boot_with_capabilities(spool, {"err_flow": True, "object_identity": True,
+                                    "line": True, "locals": True})
+    sdir = tmp_path / "sdir"
+    result = run_cli(["ts", "ingest", str(spool)], cwd=tmp_path,
+                     sensorium_dir=sdir)
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    caps = only_trace(sdir).meta["capabilities"]
+    declared = ("err_flow", "object_identity", "line", "locals")
+    assert all(caps[k] is True for k in declared), caps
+    assert ({k: v for k, v in caps.items() if k not in declared}
+            == {k: v for k, v in CONSTANT.items() if k not in declared})
+
+
 def test_a_spool_with_no_capabilities_map_declares_the_constant_alone(tmp_path):
     """A 0.1.x spool's BOOT carries no `capabilities` key at all, so the
     converted trace declares nothing beyond the constant -- `err_flow`

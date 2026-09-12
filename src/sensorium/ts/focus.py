@@ -56,8 +56,13 @@ class Resolution:
         carries as `focus_matched` and what a reader is shown when they ask
         what a recording was focused on. Sorted and not in match order: it is
         a set of functions, and the order the walk happened to reach them in
-        is not a fact about the recording."""
-        return sorted(f"{m['rel']}:{m['qualname']}" for m in self.matched)
+        is not a fact about the recording.
+
+        A set in the other sense too (R30). `matched` is one entry per
+        FUNCTION, and two functions can share a `rel:qualname`: anonymous
+        twins on one line are indistinguishable by name, and listing
+        `src/a.ts:<anonymous>` twice answers nothing twice."""
+        return sorted({f"{m['rel']}:{m['qualname']}" for m in self.matched})
 
 
 def resolve(root: Path, package: Path, specs: list[str],

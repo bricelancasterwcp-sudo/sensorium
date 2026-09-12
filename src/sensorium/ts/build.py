@@ -227,7 +227,17 @@ class Builder:
 
     def _on_call(self, rec: dict) -> None:
         code_id, rel, qualname, line, kind = self._code(rec)
-        payload = {"args": {}, "unread": ["locals"]}
+        if "a" in rec:
+            # A focused site read its own arguments, so the trace HOLDS
+            # them and the unread marker would be a lie about a read that
+            # happened. An `a` that is an empty map is still a read --
+            # `catchBinding()` takes nothing, and "read, found none" is a
+            # different fact from "nobody looked" (the marker's whole job).
+            payload = {"args": rec["a"]}
+            for v in rec["a"].values():
+                self._trunc(v)
+        else:
+            payload = {"args": {}, "unread": ["locals"]}
         parent = None
         depth = 0
         if rec["p"] is None:
@@ -264,6 +274,40 @@ class Builder:
         frame = self._close(rec)
         self._trunc(rec.get("x"))
         self.w.close_frame(frame.db_id, None, "unwind", rec["x"])
+
+    def _on_line(self, rec: dict) -> None:
+        """One completed statement of a focused function.
+
+        `d` is what the statement wrote and `u` the names the transform
+        knows are out of scope at it. `u` is written by the runtime only
+        when there IS such a name, and it is copied on the same terms: an
+        empty `unbound` beside empty deltas would read as "nothing went out
+        of scope here", which is a claim nobody made. Empty deltas WITH an
+        `unbound` list is a real row -- a loop head on the pass that ends
+        the loop -- and is never dropped for looking empty.
+
+        A LINE naming a frame that has closed is refused. The runtime's own
+        `line()` drops such a row before it is written (`rt.mjs`: "a frame
+        that has closed reports no statement"), so a spool carrying one was
+        edited or is corrupt, and attaching it to the closed frame anyway
+        would put a statement after that frame's RETURN.
+        """
+        frame = self._frame(rec, rec["f"])
+        if frame.closed:
+            raise ConversionError(
+                f"{self.spool.path}: a LINE names frame {rec['f']}, which "
+                "had already closed")
+        payload = {"deltas": rec["d"]}
+        if rec.get("u"):
+            payload["unbound"] = list(rec["u"])
+        for v in rec["d"].values():
+            self._trunc(v)
+        self.w.add_event(rec["ts"], THREAD, "LINE", frame.db_id,
+                         frame.code_id, rec["l"], payload, self._task(rec))
+        # No fingerprint update: a LINE is not causal, and a fingerprint
+        # that moved with capture depth could not compare a focused run
+        # with an unfocused one (spec section 4).
+        self.events += 1
 
     def _on_yield(self, rec: dict) -> None:
         frame = self._frame(rec, rec["f"])
@@ -455,6 +499,21 @@ class Builder:
             "harness_args": self.inv.harness_args,
             "driver_version": self.inv.driver_version,
         }
+        # Plan P9. Every `rel` in this trace -- the fingerprint's paths, the
+        # test file, a `focus_matched` entry -- was made relative to this
+        # directory, and a reader on another box cannot re-anchor any of
+        # them without it. Unconditional: the driver always knew it.
+        meta["root"] = self.inv.root
+        if self.inv.focus:
+            # Both, because they answer different questions. `focus` is what
+            # was TYPED, which is what its author recognises; `focus_matched`
+            # is what it selected, which is what says whether the spelling
+            # meant what they thought. Written only when there was a focus:
+            # an empty list is a run that focused nothing, and no key at all
+            # is a run nobody focused -- `info` prints the two differently,
+            # and every unfocused TypeScript run is the second.
+            meta["focus"] = list(self.inv.focus)
+            meta["focus_matched"] = list(self.inv.focus_matched)
         if self.inv.command:
             # The command as typed, which is the only one the reader may
             # print (R26). Omitted when the spool's record predates the
@@ -469,6 +528,13 @@ class Builder:
         if "files_transformed" in self.tally:
             meta["files_transformed"] = self.tally["files_transformed"]
             meta["transform_excluded"] = self.tally.get("excluded", {})
+        if "functions_focused" in self.tally:
+            # R22, and the same rule as its neighbour: written only where
+            # somebody counted. A tally written by a transform that predates
+            # the key carries no zero, and a zero invented here would say
+            # the focus selected nothing -- which is a run the driver would
+            # have refused before spawning anything.
+            meta["functions_focused"] = self.tally["functions_focused"]
         return meta
 
     def _end_ts(self) -> float:

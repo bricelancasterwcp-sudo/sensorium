@@ -136,15 +136,11 @@ def test_an_unfocused_run_writes_the_two_keys_empty(project, tmp_path):
     assert [rec for rec in records(spool_of(sdir)) if rec["e"] == "LINE"] == []
 
 
-@pytest.mark.xfail(strict=True,
-                   reason="the converter learns the LINE record at Task 6")
 def test_the_trace_says_what_was_focused(project, tmp_path):
-    """What the whole tier is for, and the one assertion this task cannot
-    make yet: the converter has no rule for a LINE record until Task 6, so
-    the focused container's spool is REFUSED (`no rule for a LINE record`)
-    and no trace is written -- while `meta.focus` is Task 6's key besides.
-    Left here, strict, so the task that teaches the converter cannot land
-    without being told this passes now."""
+    """What the whole tier is for, end to end: a `--focus` the driver
+    resolved, a runtime that declared `line` from it, a transform that spliced
+    the probes, and a converter that turned the rows into a trace naming both
+    the spec as typed and the function it selected."""
     sdir = tmp_path / "sdir"
     r = drive(project, sdir, "--focus", "lib.ts:add")
     assert r.returncode == 0, r.stdout + r.stderr
@@ -288,6 +284,23 @@ def test_the_resolution_names_every_matched_function_once_and_sorted():
         unmatched=[], excluded_only=[], files_scanned=2, files_unparsable=0,
         wall=0.0)
     assert res.matched_specs == ["src/a.ts:f", "src/b.ts:g"]
+
+
+def test_two_anonymous_twins_on_one_line_are_one_matched_spec():
+    """R30. `matched` is one entry per FUNCTION, and two anonymous functions
+    the resolver could not tell apart -- an argument pair on one line, say --
+    are two entries whose `rel:qualname` is the same string. `focus_matched`
+    is what a reader is shown when they ask what a recording was focused on,
+    and `src/a.ts:<anonymous>, src/a.ts:<anonymous>` answers nothing twice.
+    Deduplicated, so the list is the SET of names it claims to be."""
+    res = focus_mod.Resolution(
+        matched=[{"rel": "src/a.ts", "qualname": "<anonymous>", "line": 3,
+                  "kind": "function"},
+                 {"rel": "src/a.ts", "qualname": "<anonymous>", "line": 3,
+                  "kind": "function"}],
+        unmatched=[], excluded_only=[], files_scanned=1, files_unparsable=0,
+        wall=0.0)
+    assert res.matched_specs == ["src/a.ts:<anonymous>"]
 
 
 def test_the_refusal_lines_are_one_per_bad_spec():
