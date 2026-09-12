@@ -1,9 +1,12 @@
 """The driver against the real thing: `npx vitest run` over the probes.
 
 This is the only test that puts the whole recorder together -- the wrapper
-config in front of a consumer's own config, a real vitest, ten forked
+config in front of a consumer's own config, a real vitest, twelve forked
 containers, the conversion, and the reader. It is also the only one that can
-tell us the wrapper text WORKS, as opposed to being spelled correctly.
+tell us the wrapper text WORKS, as opposed to being spelled correctly. Two
+driven runs of the same suite: one plain, and one with a `--focus` per probe
+function, which is the only place the resolver, the variable and the focused
+transform are exercised together by a command line.
 
 Gated on `SENSORIUM_TS_LIVE=1` and skipped BY NAME otherwise, because it
 needs `typescript/probes` installed (`npm ci`) and takes seconds rather than
@@ -40,8 +43,20 @@ def probe_files() -> list[Path]:
     return sorted(PROBES.glob("src/*.probe.test.*"))
 
 
-def drive(store: Path, *extra: str):
-    r = run_cli(["ts", "run", "--", "npx", "vitest", "run", *extra],
+#: The functions `src/focus.probe.test.ts` exports, which is what the probe
+#: project focuses when it wires itself. Mirrored here rather than imported,
+#: because the driven reading of the flag is the point: these arrive on a
+#: COMMAND LINE. `test_the_focus_list_is_the_one_the_probes_wire_themselves`
+#: is what keeps the two copies the same list.
+FOCUS_FUNCTIONS = ("letChain", "loopCounter", "blockScope", "bareGuard",
+                   "doWhile", "forIn", "asyncRows", "catchBinding",
+                   "destructure", "placeWrite", "nestedArrow")
+FOCUS = [f"focus.probe.test.ts:{fn}" for fn in FOCUS_FUNCTIONS]
+
+
+def drive(store: Path, *extra: str, focus: list[str] = ()):
+    flags = [flag for spec in focus for flag in ("--focus", spec)]
+    r = run_cli(["ts", "run", *flags, "--", "npx", "vitest", "run", *extra],
                 cwd=PROBES, sensorium_dir=store)
     m = INVOCATION.search(r.stdout)
     assert m, r.stdout + r.stderr
@@ -50,6 +65,17 @@ def drive(store: Path, *extra: str):
 
 def traces(store: Path) -> list[Trace]:
     return [Trace.open(p) for p in sorted((store / "traces").glob("*.db"))]
+
+
+def checked(spool: Path) -> dict:
+    """`check.mjs` over one driven run's spools, as the probe project runs it
+    over its own."""
+    r = subprocess.run(
+        ["node", "check.mjs", "vitest", str(spool), str(spool / "manifests")],
+        cwd=PROBES, capture_output=True, text=True)
+    report = json.loads(r.stdout or "{}")
+    report["exit"] = r.returncode
+    return report
 
 
 @pytest.fixture(scope="module")
@@ -61,22 +87,81 @@ def driven(tmp_path_factory):
             "ending": ending, "spool": store / "spool" / invocation}
 
 
+@pytest.fixture(scope="module")
+def driven_focus(tmp_path_factory):
+    """The same run with a `--focus` per probe function on the command line.
+
+    The second half of R20's contract: `checkFocus` asserts one thing when
+    the recorder was focused and another when it was not, and only a run of
+    each says both branches are real. This one is also the only place the
+    RESOLVER meets a project it did not write -- eleven specs against the
+    probes' own tree, before vitest starts.
+    """
+    store = tmp_path_factory.mktemp("live-focus")
+    r, invocation, ending = drive(store, focus=FOCUS)
+    return {"store": store, "result": r, "invocation": invocation,
+            "ending": ending, "spool": store / "spool" / invocation}
+
+
 # -- the acceptance ---------------------------------------------------------
 
 def test_the_probes_checker_passes_against_the_drivers_own_spools(driven):
-    """The same 77 checks the probe project asserts when it wires itself.
-    Passing them through the driver is what says the wrapper config, the
-    written setup file and the R16 external declaration reproduce the wiring
-    the probes were written against -- and not merely something like it."""
-    spool = driven["spool"]
-    r = subprocess.run(
-        ["node", "check.mjs", "vitest", str(spool), str(spool / "manifests")],
-        cwd=PROBES, capture_output=True, text=True)
-    report = json.loads(r.stdout)
+    """Every check the probe project asserts when it wires itself, in the
+    checker's unfocused reading (103 of them at this rung). Passing them
+    through the driver is what says the wrapper config, the written setup
+    file and the R16 external declaration reproduce the wiring the probes
+    were written against -- and not merely something like it."""
+    report = checked(driven["spool"])
     assert report["failures"] == []
     assert report["ok"] is True
-    assert r.returncode == 0
+    assert report["exit"] == 0
     assert report["spools"] == len(probe_files())
+    assert _detail(report, "focus:mode") == "unfocused"
+
+
+def test_the_probes_checker_passes_its_focused_branch_against_the_driver(
+        driven_focus):
+    """R27. The focus tier, driven the way a consumer drives it: eleven
+    `--focus` flags, resolved before the run, carried to every worker in one
+    variable, and read back by the checker as the statement rows and the
+    captured arguments its markers name. The unfocused run above is the
+    control -- same probes, same driver, one flag apart."""
+    report = checked(driven_focus["spool"])
+    assert report["failures"] == []
+    assert report["ok"] is True
+    assert report["exit"] == 0
+    assert report["spools"] == len(probe_files())
+    assert _detail(report, "focus:mode") == "focused"
+    assert _detail(report, "focus:caps")["line"] is True
+
+
+def test_the_driven_focus_is_recorded_as_typed_and_as_resolved(driven_focus):
+    """What the driver settled before the run, kept beside the spools: the
+    eleven specs as they were typed, and every function they selected."""
+    record = json.loads(
+        (driven_focus["spool"] / "invocation.json").read_text())
+    assert record["focus"] == FOCUS
+    matched = record["focus_matched"]
+    assert matched == sorted(matched)
+    assert all(m.startswith("src/focus.probe.test.ts:") for m in matched)
+    assert {f"src/focus.probe.test.ts:{fn}" for fn in FOCUS_FUNCTIONS} <= \
+        set(matched)
+
+
+def test_the_focus_list_is_the_one_the_probes_wire_themselves():
+    """The probe project's config focuses the same functions with no driver
+    at all. Two copies of one list is two ways to drift: a function added to
+    the probe and to the config, and a driven run that never focuses it."""
+    config = (PROBES / "vitest.config.ts").read_text()
+    body = config.split("const FOCUS = [", 1)[1].split("]", 1)[0]
+    assert re.findall(r"'([^']+)'", body) == list(FOCUS_FUNCTIONS)
+
+
+def _detail(report: dict, check_id: str):
+    """One check's detail out of a checker report, by id."""
+    hits = [c for c in report["checks"] if c["id"] == check_id]
+    assert len(hits) == 1, f"{check_id}: {hits}"
+    return hits[0]["detail"]
 
 
 def test_one_trace_per_probe_file(driven):
