@@ -266,6 +266,27 @@ test('the declaration says object identity always and line only under a focus', 
     { err_flow: true, object_identity: true, line: true, locals: true });
 });
 
+test('an odd pairs list is a transform bug and throws rather than dropping a name', () => {
+  // `captures` read `i + 1 < pairs.length`, so a trailing name with no value
+  // was silently dropped: the row went out one delta short and said nothing
+  // about it, which is the one failure a recorder may not have -- an absent
+  // name reads as "not in scope at this site".
+  //
+  // The transform is the only caller and it builds both halves at the site,
+  // so an odd list cannot come from a program: it is a defect in the splice,
+  // and a defect in the splice must surface where it happened.
+  const out = run(`
+    const fid = __srt.file('t.ts', '/w/t.ts', [], 'sha');
+    const [, activate] = __srt.task('t', () => {
+      const f = __srt.call(fid, 0, []);
+      __srt.line(f, 3, ['a', 1, 'b']);
+    }, 1);
+    activate();
+  `);
+  assert.notEqual(out.res.status, 0, 'the child must not exit 0');
+  assert.match(out.res.stderr, /captures: an odd pairs list — 3 entries/);
+});
+
 test("the recorder's version is 0.4.0", () => {
   // The number the focus tier ships under. `rt.test.mjs` holds the other two
   // ends of the chain: BOOT's `version`, and the package's own.

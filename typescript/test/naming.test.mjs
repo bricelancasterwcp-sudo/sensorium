@@ -18,8 +18,9 @@ const RT = new URL('../src/rt.mjs', import.meta.url).href;
 /**
  * Record a script against the runtime in a child process and read its spool.
  *
- * `SENSORIUM_FOCUS` is scrubbed rather than inherited: it changes what the
- * runtime declares, and a shell that exported one would be running these
+ * `SENSORIUM_FOCUS` and `SENSORIUM_MANIFEST_DIR` are scrubbed rather than
+ * inherited, the way `helpers/rt-child.mjs` scrubs them: a focus changes what
+ * the runtime declares, and a shell that exported one would be running these
  * assertions against a different recorder.
  * @param {string} body module source, appended after the runtime import
  * @returns {any[]} the records the child wrote
@@ -28,6 +29,10 @@ function record(body) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sensorium-naming-'));
   const inherited = { ...process.env };
   delete inherited.SENSORIUM_FOCUS;
+  // Harmless today -- `rt.mjs` never loads `tally.mjs`, so nothing here
+  // reads it -- and scrubbed anyway: which variables a child recorder sees
+  // is this helper's to decide, not the shell's.
+  delete inherited.SENSORIUM_MANIFEST_DIR;
   try {
     const res = spawnSync(process.execPath, ['--input-type=module', '-e',
       `import * as __srt from ${JSON.stringify(RT)};\n${body}\n`], {

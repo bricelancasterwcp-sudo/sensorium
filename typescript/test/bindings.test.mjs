@@ -227,6 +227,19 @@ test('writesOf an object destructuring assignment reads every property form', ()
   assert.deepEqual(writes('({a, b: c, d: e = 1, ...rest} = o);'), ['a', 'c', 'e', 'rest']);
 });
 
+test('writesOf a shorthand property WITH a default is the shorthand name', () => {
+  // `{a = 1}` in a target position parses as a ShorthandPropertyAssignment
+  // carrying an `objectAssignmentInitializer`, NOT as the `d: e = 1` shape
+  // the test above pins -- a different node, reached by a different branch.
+  // It was probed correct and pinned by nothing until 2026-09-12, which is
+  // how a branch stays right by accident.
+  assert.deepEqual(writes('({a = 1} = o);'), ['a']);
+  // And beside its longhand twin, so the two branches are read together: the
+  // default's LEFT is the name in one and the property's value is in the
+  // other, and both report the name that is written.
+  assert.deepEqual(writes('({a = 1, b: c = 2} = o);'), ['a', 'c']);
+});
+
 test('writesOf an array destructuring assignment reads defaults and rest', () => {
   assert.deepEqual(writes('[a = 1, ...rest] = xs;'), ['a', 'rest']);
 });
@@ -322,8 +335,17 @@ test('writesOf a for whose head declares excludes the declared name (plan P1)', 
   assert.deepEqual(writes('for (let i = 0; i < n; i++) {}'), []);
 });
 
-test('writesOf a for whose head is a `var` keeps the name — `var` outlives the loop', () => {
+test('writesOf a for with a `var` head reports the name from the INCREMENTOR', () => {
+  // The name the old title claimed for the head. A `var` head is a
+  // `VariableDeclarationList`, and `writesOf` skips those in a `for`
+  // initialiser whatever their flags -- so the head contributes nothing here
+  // and `i` arrives from `i++`. That `headDeclaredOf` is empty for a `var`
+  // (it is function-scoped) is why the name is not then subtracted, which is
+  // the fact the old title was reaching for and stated as the wrong cause.
   assert.deepEqual(writes('for (var i = 0; i < n; i++) {}'), ['i']);
+  // Drop the incrementor and the name goes with it, which is the proof: were
+  // the head the source, this would still be ['i'].
+  assert.deepEqual(writes('for (var i = 0; i < n; ) {}'), []);
 });
 
 test('writesOf a for-of over a declaration is empty', () => {
