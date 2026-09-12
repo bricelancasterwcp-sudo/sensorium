@@ -10,28 +10,6 @@ import test from 'node:test';
 import { VERSION } from '../src/index.mjs';
 import { of, ok, one, run } from './helpers/rt-child.mjs';
 
-/**
- * Run a child whose `SENSORIUM_FOCUS` is `spec` -- or, for `null`, a child that
- * does not have the variable at all, so this file's no-focus assertions say
- * what they mean whatever the shell that started the test run held. The helper
- * spreads `process.env` into the child, and the runtime reads the variable ONCE
- * at module load, exactly as it reads the tier.
- * @param {string|null} spec
- * @param {string} body
- * @returns {ReturnType<typeof run>}
- */
-function withFocus(spec, body) {
-  const before = process.env.SENSORIUM_FOCUS;
-  if (spec === null) delete process.env.SENSORIUM_FOCUS;
-  else process.env.SENSORIUM_FOCUS = spec;
-  try {
-    return run(body);
-  } finally {
-    if (before === undefined) delete process.env.SENSORIUM_FOCUS;
-    else process.env.SENSORIUM_FOCUS = before;
-  }
-}
-
 // --- LINE ------------------------------------------------------------------
 
 test('a LINE record is one completed statement of a focused function', () => {
@@ -237,11 +215,14 @@ test('a value that cannot be read carries neither identity nor type', () => {
 // --- what a 0.3.0 recorder declares -----------------------------------------
 
 test('the declaration says object identity always and line only under a focus', () => {
-  const plain = withFocus(null, `__srt.seen('a test');`);
+  // The child's `SENSORIUM_FOCUS` is the helper's to decide, never the shell's:
+  // no `focus` option means the variable is not there, whatever this test run
+  // was started with. The runtime reads it ONCE, as it reads the tier.
+  const plain = run(`__srt.seen('a test');`);
   ok(plain);
   assert.deepEqual(plain.recs[0].capabilities, { err_flow: true, object_identity: true });
 
-  const focused = withFocus('x', `__srt.seen('a test');`);
+  const focused = run(`__srt.seen('a test');`, { focus: 'x' });
   ok(focused);
   assert.deepEqual(focused.recs[0].capabilities,
     { err_flow: true, object_identity: true, line: true, locals: true });

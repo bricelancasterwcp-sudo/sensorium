@@ -14,16 +14,28 @@ export const RT = new URL('../../src/rt.mjs', import.meta.url).href;
 
 /**
  * Run a script against the runtime in a child process and read its spool.
+ *
+ * The child's environment is this process's with every variable the recorder
+ * reads decided HERE, never inherited: a shell that exported `SENSORIUM_FOCUS`
+ * — which is exactly what recording a focused run does — would otherwise change
+ * what these tests are testing, and the declaration a BOOT writes with it.
+ * `SENSORIUM_MANIFEST_DIR` goes the same way; no test here wants a manifest.
  * @param {string} body module source, appended after the runtime import
- * @param {{tier?: string, spool?: boolean, raw?: boolean}} [opts] `raw` runs
- *   the body as the whole module, header and all
+ * @param {{tier?: string, spool?: boolean, raw?: boolean, focus?: string}}
+ *   [opts] `raw` runs the body as the whole module, header and all; `focus`
+ *   gives the child a `SENSORIUM_FOCUS`, which it otherwise does not have
  * @returns {{res: import('node:child_process').SpawnSyncReturns<string>,
  *            env: Record<string, string>, files: string[], recs: any[]}}
  */
 export function run(body, opts = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sensorium-rt-'));
+  // A copy, so nothing here touches this process's own environment.
+  const inherited = { ...process.env };
+  delete inherited.SENSORIUM_MANIFEST_DIR;
+  delete inherited.SENSORIUM_FOCUS;
+  if (opts.focus) inherited.SENSORIUM_FOCUS = opts.focus;
   const env = {
-    ...process.env,
+    ...inherited,
     SENSORIUM_TIER: opts.tier ?? 'call',
     SENSORIUM_SPOOL: opts.spool === false ? '' : dir,
     SENSORIUM_INVOCATION: 'inv-1',
