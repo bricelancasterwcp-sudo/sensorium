@@ -287,9 +287,13 @@ def test_invocation_round_trips_through_json():
     assert inv.root == "/w/probes"
     # This record was written before the focus keys existed, which is what
     # their default is for: absence reads back as no focus, and the trip out
-    # adds the two empty lists and changes nothing else.
+    # adds the two empty lists, the resolver's absent cost, and nothing else.
     assert inv.focus == [] and inv.focus_matched == []
-    assert inv.to_json() == {**data, "focus": [], "focus_matched": []}
+    # `None`, not `0.0`: this record's run resolved no focus, so there is no
+    # cost to state. A zero would say the resolver ran and took no time.
+    assert inv.resolver_wall_s is None
+    assert inv.to_json() == {**data, "focus": [], "focus_matched": [],
+                             "resolver_wall_s": None}
 
 
 def _without_counter(spool: Path, harness: str) -> None:

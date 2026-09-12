@@ -422,20 +422,15 @@ function drop(f) {
  * its own and the values are the program's — which is why every value goes
  * through `dbg` and no name does.
  *
- * An ODD list THROWS. The transform is the only caller and it emits both
- * halves of every pair at the site, so an odd list cannot come from a
- * program — it is a defect in the splice. Dropping the trailing name, which
- * is what the loop bound used to do, would send the row out one delta short
- * and say nothing about it, and a reader would then be told the name was not
- * in scope at that site. A recorder may under-record; it may not report an
- * absence it invented.
+ * An ODD list THROWS: the transform is the only caller and emits both halves
+ * at the site, so one is a defect in the splice. Dropping the trailing name,
+ * which the loop bound used to do, sends the row out one delta short in
+ * silence — and a reader is then told that name was not in scope there.
  * @param {unknown[]} pairs
  * @returns {Record<string, Captured>}
  */
 function captures(pairs) {
-  if (pairs.length % 2 !== 0) {
-    throw new TypeError('captures: an odd pairs list — ' + pairs.length + ' entries');
-  }
+  if (pairs.length % 2 !== 0) throw new TypeError('captures: an odd pairs list — ' + pairs.length + ' entries');
   /** @type {Record<string, Captured>} */
   const out = {};
   for (let i = 0; i + 1 < pairs.length; i += 2) {
