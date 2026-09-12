@@ -1,5 +1,5 @@
 program: vitest
-harness_args: ["run", "object_refused"]
+harness_args: ["run", "object_identity"]
 questions:
   - id: are-the-two-settings-the-same-object
     ask: >

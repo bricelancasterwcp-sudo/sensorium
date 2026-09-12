@@ -1,0 +1,61 @@
+program: vitest
+harness_args: ["run", "focus_place_write/"]
+record: {focus: ["state.ts:bump"]}
+questions:
+  - id: did-the-write-statement-run
+    ask: >
+      `bump` returned 0 and the caller's object came back with `x` set to 5.
+      Did the write statement run, and what did the recording see of it?
+    truth: >
+      It ran, and the recording says exactly that and no more. There is a row
+      at its line -- `LINE bump L9` -- and the row carries NO delta: a write
+      to a place (`state.x = 5`) is a statement this recorder records and a
+      name it cannot name, so the row ends at the site with nothing after it.
+      Compare the row above, `LINE bump L8  seen=0`, which is a binding and
+      does carry one. The blind spot is a present row with an absent delta,
+      which is the honest shape of it: "this statement completed, and what it
+      wrote is not something I can see."
+    why_logs_fail: >
+      A `console.log(state)` after the write prints `{ x: 5 }`, which is a
+      claim about the object and not about which statement changed it -- and
+      the object is shared, so any frame could have. `DEBUG=*` prints the
+      same rendering through a namespaced channel. Nothing throws, so there
+      is no stack trace, and a stack trace names the frames on the stack
+      rather than the fields any of them assigned.
+    command: ["frame", "$RUN", "--fn", "bump"]
+    expect_exit: 0
+    expect_contains:
+      - "args: state={ x: 0 }"
+      - "return: 0"
+    expect_line:
+      - ["LINE", "bump L8", "seen=0"]
+    expect_count:
+      "bump L9\n": 1
+  - id: can-the-written-value-be-followed
+    ask: >
+      Then follow the 5 that was written. Where does it appear?
+    truth: >
+      Nowhere, and that is the same blind spot said from the other side.
+      Four captures were searched -- the focused CALL's `state` argument,
+      the one LINE delta this frame has (`seen=0`; the write's own row
+      carries none, which is why it contributes nothing to search), and the
+      two RETURN values in the recording -- and not one of them holds a 5,
+      because the value went into a FIELD and this recorder captures the
+      names a statement BOUND. The argument capture `state={ x: 0 }` is the
+      object as it was on the way in and is never re-read, so even the
+      mutated field is not visible through it. `flow` exits 1 and prints the
+      scope it searched, rather than answering "no" to a search it did not
+      run.
+    why_logs_fail: >
+      A `console.log(state.x)` at each line is the instrumentation this
+      recording is standing in for, and it has to be written before the run
+      you care about; the recording is what you have afterwards. `DEBUG=*`
+      cannot reach a field either. Nothing throws, so no stack trace is
+      produced -- and a stack trace shows where execution is, never which
+      value a field is holding.
+    command: ["flow", "$RUN", "--value", "5"]
+    expect_exit: 1
+    expect_contains:
+      - "sightings: 0 event(s), 0 capture(s)"
+      - "scope: 4 capture(s) searched across 4 event(s) in CALL args, RETURN
+         values and LINE local deltas"

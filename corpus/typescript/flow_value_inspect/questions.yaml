@@ -1,0 +1,133 @@
+program: vitest
+harness_args: ["run", "flow_value_inspect/"]
+record: {focus: ["grid.ts:reading"]}
+questions:
+  - id: where-did-the-rate-come-from
+    ask: >
+      A rate of 5 is in the source. Was it ever the value of anything in this
+      run?
+    truth: >
+      Once, at the row that bound it: `LINE reading L12  rate=5  [local
+      rate]`. The needle is spelled `5.0` and the capture is the JS number 5,
+      and they match -- there is one numeric tower here, so a float literal
+      finds an integer-looking value and the header says which was searched
+      for (`flow of 5.0 (float)`). It is sighted once and only once: the
+      branch below it chose 0, so the rate never reached `counted` and never
+      reached the return.
+    why_logs_fail: >
+      A `console.log(rate)` prints 5 and leaves the interesting fact -- that
+      nothing downstream ever held it -- entirely unaddressed; proving a
+      value went nowhere means printing at every site, which is the whole
+      function. `DEBUG=*` prints the same 5 through a namespaced channel.
+      Nothing throws, so no stack trace is produced, and a stack trace names
+      frames rather than the values they were holding.
+    command: ["flow", "$RUN", "--value", "5.0"]
+    expect_exit: 0
+    expect_contains:
+      - "sightings: 1 event(s), 1 capture(s)"
+      - "scope: 10 capture(s) searched across 10 event(s) in CALL args,
+         RETURN values and LINE local deltas"
+    expect_line:
+      - ["LINE", "reading L12", "rate=5", "[local rate]"]
+  - id: which-row-held-the-label
+    ask: >
+      And the string `A1` -- which row held it?
+    truth: >
+      The first one: `LINE reading L8  label='A1'  [local label]`. A string
+      needle is quoted inside the value (`--value "'A1'"`) so that it is
+      searched for as a string and not as a name, and the argument it was
+      sliced out of -- `row='A1x'` -- is a different string and does not
+      match. One sighting, from ten captures searched.
+    why_logs_fail: >
+      A `console.log(label)` prints A1 without its quotes, so a log cannot
+      even distinguish the string from a number or a symbol with that
+      rendering, let alone say which of the run's values are the same one.
+      `DEBUG=*` prints the same text. Nothing throws, so there is no stack
+      trace, and a stack trace names frames and never the strings inside
+      them.
+    command: ["flow", "$RUN", "--value", "'A1'"]
+    expect_exit: 0
+    expect_contains:
+      - "sightings: 1 event(s), 1 capture(s)"
+    expect_line:
+      - ["LINE", "reading L8", "label='A1'", "[local label]"]
+  - id: can-a-long-string-be-followed
+    ask: >
+      `trail` is 150 characters long and its value is in the source. Can it be
+      searched for?
+    truth: >
+      No, and the recording says why rather than answering "not found". A
+      captured value is rendered at most 100 characters wide and DECLARES
+      what it cut -- the row reads `trail='A1......'... 50 more characters`,
+      and `info` prints the policy as `str=100` -- so the full 150-character
+      value is not in the trace to be matched, and a needle spelling it out
+      sights nothing across the same ten captures. `flow` exits 1. This is
+      the cap doing its job visibly: the value was too big to keep, the trace
+      says how much of it was kept, and nothing pretends the search covered
+      what was cut.
+    why_logs_fail: >
+      A `console.log(trail)` prints all 150 characters, which is the one
+      thing this recording will not do -- and printing every long value of a
+      real suite is how a log becomes unreadable and gets turned off.
+      `DEBUG=*` prints the same 150 characters. Nothing throws, so no stack
+      trace exists, and a stack trace holds no values at all.
+    command: ["flow", "$RUN", "--value", "'A1....................................................................................................................................................'"]
+    expect_exit: 1
+    expect_contains:
+      - "sightings: 0 event(s), 0 capture(s)"
+      - "scope: 10 capture(s) searched across 10 event(s) in CALL args,
+         RETURN values and LINE local deltas"
+  - id: was-the-cell-null-or-merely-empty
+    ask: >
+      The cell counted as empty. Was the parsed value `null`, or a real zero?
+    truth: >
+      `null`, and the predicate says it in JS's own spelling: `parsed == null`
+      is SATISFIED at all five sites where the name was in scope, and the row
+      that bound it reads `parsed=null`. `null` is a constant of this
+      predicate language, not a name that happens to be unbound -- so this is
+      a claim about the value, and the three sites before the binding are
+      reported as not in scope rather than as hits. A real zero would have
+      failed the same predicate, which is what makes the answer worth having:
+      the branch below reads them alike and the recording does not.
+    why_logs_fail: >
+      A `console.log(parsed)` prints `null`, and the next line down prints
+      `0` for a genuine zero -- but the bug is that the code treats them the
+      same, so the log you would have to read is one you would have to
+      already suspect. `DEBUG=*` prints the same token. Nothing throws --
+      that is the fault, an unreadable cell that raised nothing -- so there
+      is no stack trace at all.
+    command: ["watch", "$RUN", "--at", "reading", "--expr", "parsed == null"]
+    expect_exit: 0
+    expect_contains:
+      - "sites: 8   evaluated: 5   hits: 5   not-captured: 3   errors: 0"
+      - "verdict: SATISFIED at 5 of the 5 site(s) the predicate could be evaluated at"
+    expect_line:
+      - ["HIT", "LINE", "reading L10", "parsed=null"]
+  - id: is-a-declared-name-with-no-value-a-value
+    ask: >
+      `let missing;` declares a name and assigns nothing. Is that a row, and
+      what does it hold?
+    truth: >
+      It is a row, and it holds `undefined` -- which this recorder treats as
+      a value, not as an absence: `LINE reading L11  missing=undefined`, and
+      `missing == undefined` is SATISFIED at the four sites from that row
+      onwards. `undefined` is a constant of the predicate language beside
+      `null`, `true` and `false`, so the question can be asked at all; and
+      the four sites before the declaration report the name as not in scope,
+      which is the OTHER kind of nothing and is kept distinct from this one.
+    why_logs_fail: >
+      A `console.log(missing)` prints `undefined`, which is also what it
+      prints for a name that was assigned `undefined` deliberately and for a
+      typo'd property read -- three different facts, one rendering.
+      `DEBUG=*` prints the same word. Nothing throws here, so no stack trace
+      is produced, and a stack trace would not distinguish a declared name
+      from an unbound one either.
+    command: ["watch", "$RUN", "--at", "reading", "--expr",
+              "missing == undefined"]
+    expect_exit: 0
+    expect_contains:
+      - "sites: 8   evaluated: 4   hits: 4   not-captured: 4   errors: 0"
+      - "verdict: SATISFIED at 4 of the 4 site(s) the predicate could be evaluated at"
+      - "missing: not in scope at this site   [4 site(s)]"
+    expect_line:
+      - ["HIT", "LINE", "reading L11", "missing=undefined"]

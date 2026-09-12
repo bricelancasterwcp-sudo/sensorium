@@ -75,13 +75,19 @@ exit 1, on the summary line and in `--json`, which is what CI's Rust corpus
 step passes: a green summary over cases nobody ran is the dishonesty this
 harness exists to refuse. `corpus/rust/README.md` is the case-by-case list.
 
-Thirty-two more live under `corpus/typescript/`, recorded by the
+Forty-two more live under `corpus/typescript/`, recorded by the
 TypeScript recorder. Thirteen are rung 1's: six ports of the cases above,
 two whose pinned answer is a REFUSAL, four only this recorder has — `.each`
 naming, an unhandled rejection in `info`, a frame suspended at end of
 recording, and a timer callback with no traced caller — and
 `silent_swallow`, whose parse error was pinned as a REFUSAL until rung 2
 gave this recorder disposition rules and now pins the swallow it always was.
+One of the two refusals has since become an answer: `object_refused` is
+`object_identity` from S5 rung 4 on, because every 0.3.0 trace carries a
+per-object serial and the aliasing it plants is now decided — three
+sightings under one identity, `continuity: exact (serial identity)`, out of
+a recording that focused nothing. Its third question still pins a refusal,
+and `watch_refused` is still the whole of the other one.
 They share one vitest project and need a `node`; without one they are
 skipped BY NAME, and `--require-driver` turns such a skip into exit 1 there
 too.
@@ -137,13 +143,43 @@ raise, still one of the seven that refuse the swallow, is re-pinned the same
 way: its AMBIGUOUS block now reads `untraced catcher` by name instead of the
 catch-all rung 2 could only leave silent about.
 
-The current totals: twenty-one of the thirty-two TypeScript cases carry an
+The last ten are rung 4's focus cases, and the only ten of the forty-two
+recorded under `sensorium ts run --focus`. A vitest case declares that the
+way a Python case does — `record: {focus: [...]}`, one `--focus <spec>` per
+entry before the `--` — and `record` is the ONE key the two recorders share:
+a `window` under it is refused by name, because `sensorium ts run` has no
+such flag and a dropped key is a case whose questions all still pass. Under
+a focus the recording declares `line: yes` and `locals: yes`, so these ten
+pin what that tier says and, twice over, what it still does not:
+`focus_let_chain` (one row per statement and none for the `return`, the CALL
+counted among `watch`'s sites), `focus_loop_counter` (a row per loop entry, a
+row per write, the exit pass carrying `unbound:v`, and a `flow --value` that
+sights the dropped reading nowhere while printing the scope it searched),
+`focus_block_scope` (the `if`'s own row saying its `const` died — the case
+whose Rust twin cannot exist), `focus_destructure` (three names on one row,
+one of them a silent default; `let x;` binds `undefined`), `focus_args` (a
+focused CALL printing a destructured, defaulted parameter as what BOUND,
+beside an unfocused `helper() <unread: locals>` in the same tree),
+`focus_async` (rows on both sides of an `await` with `~ YIELD` and
+`~ RESUME` between them, and the reader that took the placeholder sitting in
+the gap), `focus_catch_binding` (HANDLED, the clause's entry row carrying
+`e`, then the `try`'s own row with `unbound:e`), `focus_place_write`
+(`state.x = 5` as a present row with an absent delta, and the 5 followable
+nowhere), `focus_container` (two spellings of one class name selecting the
+same two methods, with `info` printing the specs as typed beside what they
+matched) and `flow_value_inspect` (the inspect dialect's own spellings: a
+`5.0` needle finding a JS `5`, a quoted string, a 150-character value cut at
+`str=100` and matching nothing, and `null` and `undefined` as claims about
+values rather than about absent names).
+
+The current totals: twenty-one of the forty-two TypeScript cases carry an
 `exceptions` verdict and a `dispositions:` tally (the seventeen above plus
-these four), thirteen of them pinned to accuse NOTHING (the nine above plus
-all four of these), and eight still accuse something — that count is
-unchanged, because none of the four are SWALLOWED. Three now leave the
-traced world with a PROPAGATED block, not one: `test_failed`, and, from this
-rung, `untraced_catcher_later_failure`'s second raise and
+rung 3's four), thirteen of them pinned to accuse NOTHING (the nine above
+plus all four of those), and eight still accuse something — that count is
+unchanged by either later rung, because none of rung 3's four are SWALLOWED
+and none of rung 4's ten asks an `exceptions` question at all. Three leave
+the traced world with a PROPAGATED block, not one: `test_failed`,
+`untraced_catcher_later_failure`'s second raise and
 `logged_rethrow_to_harness`'s rethrow. The other eighteen are what is read
 against them now, not sixteen.
 

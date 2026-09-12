@@ -1,0 +1,59 @@
+program: vitest
+harness_args: ["run", "focus_catch_binding/"]
+record: {focus: ["retry.ts:attempts"]}
+questions:
+  - id: what-was-the-reason-the-counter-swallowed
+    ask: >
+      The counter says one key failed. What was the reason, and how long did
+      the recording hold it?
+    truth: >
+      `Error: bad key: oops`, held for exactly one statement. The catch
+      clause's entry mints a row like any other guarded body -- `LINE
+      attempts L17  e=Error: bad key: oops`, at the line of the `catch` --
+      and the statement inside it mints `count=1` at L18. Then the `try`
+      statement's own row, at L15, carries `unbound:e`: the binding ends with
+      the clause, and the recorder says so at the statement that ended it
+      rather than by falling silent. It says so TWICE, once per iteration,
+      including the pass where nothing was thrown.
+    why_logs_fail: >
+      A `console.log(e)` inside the clause is the edit the program's author
+      deliberately did not make, which is what makes this a swallow; adding
+      it after the fact means re-running, and the reason belongs to a run
+      that already happened. `DEBUG=*` cannot reach a catch binding. A stack
+      trace exists only for a throw that got out, and this one did not --
+      the `catch` is where it stopped.
+    command: ["frame", "$RUN", "--fn", "attempts"]
+    expect_exit: 0
+    expect_contains:
+      - "args: keys=[ 'k-1', 'oops' ]"
+      - "return: 1"
+    expect_line:
+      - ["LINE", "attempts L17", "e=Error: bad key: oops"]
+      - ["LINE", "attempts L18", "count=1"]
+      - ["LINE", "attempts L15", "unbound:e"]
+      - ["LINE", "attempts L14", "unbound:key"]
+    expect_count:
+      "unbound:e": 2
+  - id: did-anything-record-the-catch-itself
+    ask: >
+      Is the `catch` itself an event, or only the counter it wrote?
+    truth: >
+      It is an event of its own: `HANDLED attempts handled Error('bad key:
+      oops') L17`, one of them, naming the frame that took the throw and the
+      line it took it at. That is the row the LINE beside it is read against
+      -- the HANDLED says an exception reached this clause, and the
+      statement row says what the clause did with it. One HANDLED and one
+      row that wrote `count`: the reason went nowhere else.
+    why_logs_fail: >
+      An empty-ish `catch` prints nothing by definition, so `console.log` has
+      no line to be on, and a grep of the source for `catch` finds the clause
+      without telling you whether it ever ran or how often. `DEBUG=*` prints
+      what the program chose to print, which here is nothing. A stack trace
+      is produced for a throw that escapes; this one was caught, so the
+      channel that would have named it never fires.
+    command: ["grep", "$RUN", "attempts", "--kind", "HANDLED"]
+    expect_exit: 0
+    expect_contains:
+      - "matches: 1"
+    expect_line:
+      - ["HANDLED attempts handled Error('bad key: oops') L17"]

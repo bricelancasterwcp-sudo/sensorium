@@ -1,0 +1,61 @@
+program: vitest
+harness_args: ["run", "focus_let_chain/"]
+record: {focus: ["chain.ts:fill"]}
+questions:
+  - id: one-row-per-statement-and-none-for-the-tail
+    ask: >
+      Three `const`s and a `return`. How many rows does the recording hold
+      for them, and what did each statement write?
+    truth: >
+      Three rows, one per `const`, each carrying exactly what that statement
+      wrote: `gross=120` at L6, `discount=20` at L7, `net=100` at L8. The
+      `return` is the tail and mints NO row -- there is nothing at L9 -- and
+      what it carried is the RETURN, printed as `return: 120`. So the three
+      rows and the return read together are the whole bug: `net` was computed
+      correctly and the value that left the function is `gross`.
+    why_logs_fail: >
+      A `console.log` per line is exactly the four edits this recording
+      replaces, and it is not available after the fact -- the run has already
+      happened, and adding them means running a different execution.
+      `DEBUG=*` cannot reach a local at all, and nothing throws here, so
+      there is no stack trace; one would name the frames anyway and never
+      what any of them computed on the way through.
+    command: ["frame", "$RUN", "--fn", "fill"]
+    expect_exit: 0
+    expect_contains:
+      - "args: price=60, qty=2"
+      - "return: 120"
+    expect_line:
+      - ["LINE", "fill L6", "gross=120"]
+      - ["LINE", "fill L7", "discount=20"]
+      - ["LINE", "fill L8", "net=100"]
+    expect_absent:
+      - "fill L9"
+  - id: where-did-the-discount-hold
+    ask: >
+      Was the discount ever 20, and at which of this frame's sites can that
+      even be asked?
+    truth: >
+      It was, and at two of the four recorded sites. `watch` counts the CALL
+      as a site like any other -- four sites for one CALL and three LINE rows
+      -- and reports the two where `discount` was not yet bound (the CALL and
+      the `gross` row) as not-captured rather than as misses. Of the two it
+      could evaluate, both hit: the row that wrote the name, and the row
+      after it, where the fold still carries it. SATISFIED at 2 of 2, with
+      the two it could not check said out loud.
+    why_logs_fail: >
+      A `console.log(discount)` prints a value and nothing about the extent
+      of the binding, so it cannot distinguish "held everywhere it could be
+      asked" from "held at the one place I printed". `DEBUG=*` prints the
+      same value through a namespaced channel. No stack trace exists here,
+      and a stack trace reports from one moment inside one frame -- never
+      across every site in it.
+    command: ["watch", "$RUN", "--at", "fill", "--expr", "discount == 20"]
+    expect_exit: 0
+    expect_contains:
+      - "sites: 4   evaluated: 2   hits: 2   not-captured: 2   errors: 0"
+      - "verdict: SATISFIED at 2 of the 2 site(s) the predicate could be evaluated at"
+      - "discount: not in scope at this site   [2 site(s)]"
+    expect_line:
+      - ["HIT", "LINE", "fill L7", "discount=20"]
+      - ["HIT", "LINE", "fill L8", "net=100"]
