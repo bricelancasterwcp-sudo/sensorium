@@ -528,6 +528,13 @@ class Builder:
             # and every unfocused TypeScript run is the second.
             meta["focus"] = list(self.inv.focus)
             meta["focus_matched"] = list(self.inv.focus_matched)
+            if self.inv.resolver_wall_s is not None:
+                # What resolving them cost, carried through so an instrument
+                # can time the resolver without timing the driver around it.
+                # Guarded separately from the block: a spool directory
+                # written before the field existed has the focus and not
+                # the cost, and an absent measurement is not a zero one.
+                meta["resolver_wall_s"] = self.inv.resolver_wall_s
         if self.inv.command:
             # The command as typed, which is the only one the reader may
             # print (R26). Omitted when the spool's record predates the

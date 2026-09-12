@@ -548,6 +548,30 @@ def test_what_object_identity_rests_on_in_each_language():
     assert TYPESCRIPT.identity_basis == "serial"
 
 
+def test_how_a_name_leaves_scope_in_each_language():
+    """`watch`'s "not in scope" guidance told a reader of a Rust or a
+    TypeScript trace to look for a `del` and an `except E as e:` block --
+    two Python statements, in a program that has neither. Both other
+    languages unbind where a block ENDS, and the columns say so in their
+    own words.
+
+    Python's two entries are the strings `watch_cmd._guidance` printed
+    before this field existed, character for character: this module's
+    legacy fence applies to a sentence that MOVED into the table.
+    """
+    assert PYTHON.scope_exit_note == (
+        "at those sites it was not bound yet, or had gone out of scope "
+        "again (`del`, or the",
+        "implicit unbind that ends an `except E as e:` block)")
+    for column in (RUST, TYPESCRIPT):
+        joined = " ".join(column.scope_exit_note)
+        assert "`del`" not in joined, column.lang
+        assert "except" not in joined, column.lang
+        assert "block" in joined, column.lang
+    assert "a `let` is unbound" in " ".join(RUST.scope_exit_note)
+    assert "a `let` or `const` is" in " ".join(TYPESCRIPT.scope_exit_note)
+
+
 def test_the_command_that_records_this_trace_again():
     """A hint carrying a placeholder is a template, not an answer -- so the
     template lives here and is instantiated from the trace's own meta, and

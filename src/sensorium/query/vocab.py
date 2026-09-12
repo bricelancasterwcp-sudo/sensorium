@@ -196,6 +196,19 @@ class Terms:
     #: about a language rather than a fallback for everything that is not
     #: Python.
     exceptions_refusal: str | None
+    #: How a name LEAVES scope in this language, as the tail of `watch`'s
+    #: "not in scope" guidance -- the lines after "recorded at other sites
+    #: in these frames, so this is scope, not capture depth:". A tuple
+    #: because that guidance prints one list entry per line and the wrap is
+    #: part of the text, not a rendering choice.
+    #:
+    #: Keyed because the guidance named `del` and `except E as e:` -- two
+    #: Python statements -- on a Rust or a TypeScript trace, which is this
+    #: module's founding bug one reader further out: a name that goes out
+    #: of scope in a Rust or JavaScript program does it where its block
+    #: ends, and neither language has a `del` to blame. Python's two
+    #: entries are its pre-vocab strings character for character.
+    scope_exit_note: tuple[str, ...]
 
     @property
     def a_task(self) -> str:
@@ -268,6 +281,12 @@ PYTHON = Terms(
     # legacy suite is the fence around them.
     kind_labels=MappingProxyType({}),
     exceptions_refusal=None,
+    # Character for character what `watch_cmd._guidance` printed before this
+    # field existed (the legacy fence): `del` and the handler unbind are
+    # Python's two ways, and the second is by far the more common.
+    scope_exit_note=("at those sites it was not bound yet, or had gone out of "
+                     "scope again (`del`, or the",
+                     "implicit unbind that ends an `except E as e:` block)"),
 )
 
 RUST = Terms(
@@ -357,6 +376,12 @@ RUST = Terms(
     # recording lacks is a RECORD, and `capabilities.err_flow` says so in
     # its own sentence (`v19-err-flow-capability-refusal`).
     exceptions_refusal=None,
+    # Rust has no `del` and no handler binding to unbind. A name leaves
+    # scope where the block that bound it ends, which is the shape the
+    # converter's `unbound` row records (design 2026-09-12 section 5.5, R4).
+    scope_exit_note=("at those sites it was not bound yet, or had gone out of "
+                     "scope again -- a `let` is unbound",
+                     "where the block that bound it ends"),
 )
 
 TYPESCRIPT = Terms(
@@ -453,6 +478,13 @@ TYPESCRIPT = Terms(
     # (`v32-err-flow-typescript-capability-refusal`). The sentence that
     # stood here named the rules S5 rung 2 owed; rung 2 shipped them.
     exceptions_refusal=None,
+    # JavaScript has no `del` either (`delete` removes a property, never a
+    # binding). A block-scoped declaration leaves scope where its block
+    # ends, which is what `declaredIn` unbinds -- and blind spot 39 is the
+    # cost of unbinding the NAME rather than the scope.
+    scope_exit_note=("at those sites it was not bound yet, or had gone out of "
+                     "scope again -- a `let` or `const` is",
+                     "unbound where the block that declared it ends"),
 )
 
 _TABLES = {PYTHON.lang: PYTHON, RUST.lang: RUST, TYPESCRIPT.lang: TYPESCRIPT}

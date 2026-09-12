@@ -13,8 +13,6 @@ this module reuses: no vitest, one process tree, a real Node.
 """
 import argparse
 import json
-import os
-import shutil
 from pathlib import Path
 
 import pytest
@@ -149,6 +147,43 @@ def test_the_trace_says_what_was_focused(project, tmp_path):
     assert trace.meta["focus_matched"] == ["lib.ts:add"]
     assert trace.meta["capabilities"]["line"] is True
     assert trace.events(kind="LINE")
+
+
+def test_a_focused_run_records_what_resolving_the_focus_cost(project,
+                                                             tmp_path):
+    """`Resolution.wall` was measured and thrown away, so an instrument
+    that wanted the resolver's cost had to time the driver AROUND it --
+    which times the resolver plus everything the driver does before and
+    after, and `e12.sh` did exactly that.
+
+    Persisted as `resolver_wall_s` beside `focus_matched`, for the same
+    reason and under the same condition: the resolver runs only where there
+    is a focus, so the key exists only where the cost does. `info` does not
+    print it -- it is an instrument's number, not a reader's.
+    """
+    sdir = tmp_path / "sdir"
+    r = drive(project, sdir, "--focus", "lib.ts:add")
+    assert r.returncode == 0, r.stdout + r.stderr
+
+    record = json.loads((spool_of(sdir) / "invocation.json").read_text())
+    assert isinstance(record["resolver_wall_s"], float)
+    assert record["resolver_wall_s"] > 0
+    read = invocation.read_invocation(spool_of(sdir))
+    assert read.resolver_wall_s == record["resolver_wall_s"]
+
+    trace = only_trace(sdir)
+    assert trace.meta["resolver_wall_s"] == record["resolver_wall_s"]
+
+
+def test_an_unfocused_run_carries_no_resolver_cost(project, tmp_path):
+    """No focus, no resolver, no number. An absent key is a resolver that
+    never ran; a `0.0` would be one that ran instantly, and nothing did."""
+    sdir = tmp_path / "sdir"
+    r = drive(project, sdir)
+    assert r.returncode == 0, r.stdout + r.stderr
+    record = json.loads((spool_of(sdir) / "invocation.json").read_text())
+    assert record["resolver_wall_s"] is None
+    assert "resolver_wall_s" not in only_trace(sdir).meta
 
 
 # -- a focus that does not ---------------------------------------------------

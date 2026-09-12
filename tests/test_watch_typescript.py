@@ -195,6 +195,12 @@ def test_a_const_in_a_block_is_gone_after_the_row_that_unbound_it(
     assert "sites: 4   evaluated: 1   hits: 1   not-captured: 3" in text
     assert "verdict: SATISFIED at 1 of the 1 site(s)" in text
     assert "scaled: not in scope at this site   [3 site(s)]" in text
+    # And the guidance under it is JavaScript's. It named `del` and
+    # `except E as e:` -- two Python statements -- on this trace until
+    # 2026-09-12: advice to a reader of neither language.
+    assert "a `let` or `const` is" in text
+    assert "unbound where the block that declared it ends" in text
+    assert "`del`" not in text and "except E as e" not in text
 
 
 # -- (d) the command a reader is told to run -------------------------------

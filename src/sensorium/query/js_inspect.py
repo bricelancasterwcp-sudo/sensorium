@@ -139,6 +139,13 @@ def js_number(x) -> str:
     be one exactly. `inspect_text` converts anything larger to the double
     JavaScript would hold before calling here, because `repr` of a Python
     int is its exact expansion and exact is the wrong answer up there.
+
+    Handed a raw `int` >= 2**53 anyway, this returns its EXACT digits --
+    `js_number(2**60)` is `1152921504606846976`, where the same value as a
+    float is `1152921504606847000` -- because the integer shortcut below
+    reads `int` before the shortest-round-trip placement can. No caller
+    does that; the conversion is `inspect_text`'s job and it does it. The
+    behaviour is named here so a second caller knows it must convert too.
     """
     if x != x:
         return "NaN"

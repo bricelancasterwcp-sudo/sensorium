@@ -768,3 +768,30 @@ def test_bindings_end_at_a_rebinding_and_at_a_del(tmp_path, monkeypatch):
         assert len(held) == 1, held
         assert held[0].end == ends_at
         assert held[0].end < main_f.return_event_id      # not the frame's end
+
+
+def test_flow_object_refuses_a_capture_carrying_an_oid_and_no_type(
+        tmp_path, monkeypatch, capsys):
+    """`oid` and `type` are minted together -- `capture.py` writes both for
+    every container, and `dbg.mjs` sets both or neither -- so a capture with
+    one and not the other is a wire shape 0.3.0 does not declare.
+
+    Reading `v["type"]` on trust turned a malformed recording into a
+    `KeyError` out of a query command; the reader now refuses it by name,
+    the way it refuses every other shape it cannot follow.
+    """
+    from tests.helpers import finalize_synthetic
+    from tests.programs import synthetic
+    w = synthetic(tmp_path, monkeypatch)
+    c = w.intern_code("/tmp/prog.py", "handle", 1)
+    w.add_event(0, 1, "CALL", None, c, 1,
+                {"args": {"payload": {"k": "dbg", "v": "<ref *1> {}",
+                                      "trunc": False, "oid": 7}}})
+    finalize_synthetic(w)
+    w.close()
+
+    assert cli.main(["flow", "20260101-000000-abcdef",
+                     "--object", "handle:payload"]) == BAD_CALL
+    out = capsys.readouterr().out
+    assert "'payload' at e1 carries an oid and no type" in out
+    assert "not the shape 0.3.0 declares" in out

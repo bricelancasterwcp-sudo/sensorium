@@ -71,6 +71,7 @@ from sensorium.query.fmt import fmt_event, fmt_value, more_note, parse_eref
 from sensorium.query.sites import (  # noqa: F401  (re-exported)
     _qual_matches, rerun_command, spell_site)
 from sensorium.query.sites import site_matches as _site_matches
+from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
 _MAX_LISTED_CODES = 20
@@ -296,11 +297,13 @@ def _guidance(reason: str, name: str, ever: bool, has_line: bool,
                 f"see the caps this run used with: sensorium info "
                 f"{shlex.quote(trace.path.stem)}"]
     if ever:
+        # How a name leaves scope is the LANGUAGE's fact, so the tail comes
+        # from the trace's own column: this sentence named `del` and
+        # `except E as e:` on a Rust and a TypeScript trace alike, which is
+        # two Python statements offered as advice to a reader of neither.
         return ["recorded at other sites in these frames, so this is scope, "
                 "not capture depth:",
-                "at those sites it was not bound yet, or had gone out of "
-                "scope again (`del`, or the",
-                "implicit unbind that ends an `except E as e:` block)"]
+                *terms(trace).scope_exit_note]
     if not has_line:
         if all_unframed:
             return ["no site exists for these code objects: coroutine/"
