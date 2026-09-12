@@ -1,5 +1,115 @@
 # Changelog
 
+## 0.12.0 — 2026-09-12
+
+**TypeScript records per statement, when it is asked to.** S5 rung 4 gives
+`sensorium ts run` a focus tier. `--focus <spec>` is resolved against the
+consumer's own AST with the consumer's own TypeScript **before anything is
+spawned** — a spec that names nothing is refused at exit **2** with the
+closest eligible qualnames, and a spec that names only functions this
+recorder never instruments is refused with the reason and its count — and the
+transform then splices a probe after every statement of the functions it
+selected. One **LINE** row per completed statement, its `deltas` the bindings
+that statement wrote and nothing else; a guarded body's head names as a
+synthetic first row at each entry; the block-scoped names a block-like
+statement declared listed `unbound` on that statement's own row; and the CALL
+of a focused function carrying its `args` where an unfocused one still reads
+`<unread: locals>`. Python **0.12.0** (the driver's `--focus` and its
+resolver, the converter's `_on_line`, the inspect dialect, the `--at`
+spellings, `flow --object` on a serial, the predicate constants);
+**`sensorium-ts 0.3.0`**, bumped at the rung's second task before any of it
+was measured. The Rust crates do not move. `TRACE_FORMAT` stays **4** and the
+wire stays **v1** — a 0.2.x spool converts under 0.12.0 unchanged, and a
+converter that predates the LINE record refuses one by name.
+
+- **Identity is a serial now, not an address.** `dbg()` mints `oid` (a
+  `WeakMap` serial, once per object, never reused) and `type` on every object
+  or function it captures — a RETURN value at the call tier, an argument and a
+  statement's delta under a focus — so `sensorium-ts 0.3.0` declares
+  `capabilities.object_identity: **true**` unconditionally and `flow --object`
+  is **exact**: no gap analysis, a `flow of object #64 (Array)` header and
+  `continuity: exact (serial identity)`. `corpus/typescript/object_refused`
+  became `corpus/typescript/object_identity`, a refusal turned into an answer.
+- **One `dbg` kind, two dialects.** A TypeScript capture is `util.inspect`
+  text and a Rust one is `Debug` text; `watch --expr` reads and `flow --value`
+  writes each through its trace's own dialect, never through the other's.
+  Every spelling was **generated**, not guessed: 41 measured rows in
+  `typescript/test/fixtures/inspect-table.json`, four of which would have been
+  wrong by hand — `5.0` prints `5` (JavaScript has one number type, the
+  opposite of Rust's `2.0`), `-0` keeps its sign, `\v` prints `\x0B`, and a
+  `${` in the text rules the backtick quote out. `null`, `undefined`, `true`
+  and `false` are predicate constants in every language.
+- **`--at` and `--focus` are one spelling.** The file half of a site may be
+  the dotted module, the stem, the basename or the root-relative path, in
+  every language, so every `--focus` spelling is an `--at` spelling; one
+  fixture (`typescript/test/fixtures/site-spellings.json`) holds the JavaScript
+  matcher and the Python one to the same ten rows. `info` prints
+  `focus matched: <n> — …` beside the specs as they were typed, with
+  `(<n> function(s) focused by the transform)` where the transform's own count
+  differs — on a focused Rust trace too, because the line is gated on a meta
+  key and never on a language.
+- Ten new corpus cases — `focus_let_chain`, `focus_loop_counter`,
+  `focus_block_scope`, `focus_destructure`, `focus_args`, `focus_async`,
+  `focus_catch_binding`, `focus_place_write`, `focus_container`,
+  `flow_value_inspect` — the only ten recorded under a focus, plus
+  `object_identity`, bring `corpus/typescript/` to **42** and the whole corpus
+  to **105 cases, 220 questions**. A vitest case declares its focus with the
+  Python recorder's own key, `record: {focus: [...]}`. Five new vectors,
+  `v35`–`v39`: the predicate constants, a TypeScript LINE and its args, the
+  serial `flow --object`, the inspect dialect's two directions agreeing, and
+  the site spellings as CLI questions.
+
+**The rung ships `DONE-WITH-STOP`** — eight endpoints, each read once, three
+of them STOPped (record
+`docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.md` §3–§5,
+measured on 830 files of a real frontend). **H3 is the one the rung exists
+for and it PASSed on the first reading**: the first `parseDiceGroups('1d20')`
+activation carries **9** LINE rows, their lines **69, 70, 71, 72, 73, 74, 76,
+75, 72**, every delta name and the one `unbound` list row for row against a
+hand count written — and sha256-locked — before `bindings.mjs`, `probe.mjs`,
+the runtime's `line` or the converter's `_on_line` existed. Empty diff. **H1**
+4/4: an unfocused arm declares `line: false` / `locals: false`, writes zero
+LINE rows, and `watch` refuses it at exit **3** in a sentence naming the
+recorder the TRACE carries. **H6** 4/4: two sightings of one array across two
+functions, one serial, `continuity: exact`, both `Array`. **H8** 6/6: 105
+corpus cases and 220 questions equal, `pytest -q` 4090 passed / 33 skipped,
+`cargo test --workspace` 773 passed, `npm --prefix typescript test` 521
+passed, the probes' 146 checks green, and 0 of nine leak needles over 13
+transcripts. **H7**, reported and gating nothing: ×**2.3816** on the median
+wall of one 26-test file (0.7955 s → 1.8946 s, n=3 each, interleaved) for 295
+extra LINE rows and the same call tier, plus **1.132 s** of resolution over
+830 files, once per invocation.
+
+**The three STOPs, and what each one is about.** **H2** is the
+pre-registration's own under-derivation: three typed specs resolved to **six**
+sites where §1 pre-committed three, because `focus.mjs`'s documented prefix
+rule selects the function-likes nested inside a container — a `reduce` arrow
+and two default-parameter arrows. The behaviour is the design's; the number
+was a count of the functions a reader names, not of the ones a spec selects,
+and `resolve.mjs` is where anyone finds that out before a run. Beside it,
+`focus_matched` **5** against `functions_focused` **6**: two anonymous arrows
+share one `<file>:<qualname>`, so a qualname is not an identity for an
+anonymous function-like. **H4** and **H5** are the INSTRUMENT's, not the
+recorder's: H4's cell tested "no HIT at line 72" where the pre-registration
+predicted "no HIT at the `while`-COMPLETION row", and line 72 also carries a
+head row; H5's row parser could not see a CALL sighting its own transcript
+prints, because a printed CALL row's name carries its argument list and no
+line at all. Both were found after their numbers were read, so both are
+findings and the numbers stand — the next slice re-registers H2, H4 and H5
+under fixed instruments, the way rung 1's E6′ became E6″. The lesson is about
+the dry run: a rehearsal that does not exercise every SHAPE an endpoint can
+meet verifies plumbing, not reading.
+
+`docs/TRACE-FORMAT.md`, `docs/trace-format/TYPESCRIPT-KEYS.md`,
+`typescript/HONESTY.md` (a new §11, *Under a focus*), `HONESTY-BLIND-SPOTS.md`
+(items **28–37**), `docs/query.md` and both READMEs are amended to this state;
+the design's §15 carries all fourteen plan decisions and every controller
+ruling that amended a section, with what shipped and the cost if wrong,
+including the two that changed the spec's own rules — **R23** (a `do…while` gets no head row, so §3.2's
+guard list is narrowed) and **R29** (§2.2's `Closest:` clause gains the case
+where only `<anonymous>` qualnames are eligible). `docs/CARRIED-DEBT.md` closes
+five rung-3 debts and opens this rung's.
+
 ## 0.11.0 — 2026-09-11
 
 **The catch-all gets a name.** S5 rung 3 closes rung 2's Gap 4: the
