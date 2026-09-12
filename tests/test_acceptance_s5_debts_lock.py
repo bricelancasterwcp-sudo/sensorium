@@ -21,6 +21,18 @@ Five claims this slice makes about itself, held by tests rather than by prose:
   forms fail on the same mutation -- one byte of §1 -- and both rest on the
   same assumption, that the test and the record are not edited together.
 
+* **§1 was amended once, on its own lock day, and BOTH shas are carried.**
+  Controller ruling P6 read spec §6.2 over plan A7 and made
+  `focus_catch_binding`'s reason line a PINNED `None` rather than a case left
+  unchecked; §1.7's closing sentence had said the opposite, so a dated
+  paragraph was added inside §1 giving the old sentence, the new claim and the
+  reason. `ORIGINAL_LOCK` is §1's sha as the pre-registration commit carried
+  it and `BYTE_LOCK` its sha after the amendment, and the check below
+  recomputes the ORIGINAL out of `ORIGINAL_COMMIT` rather than trusting the
+  constant -- so "amended, from exactly that text" is a fact git holds. The
+  amendment ADDED a paragraph and moved no table row of the pre-registration,
+  which is its own test.
+
 * **§1's bodies are verbatim.** §1 says its four blocks are byte-for-byte the
   design's `### 3.3`, `### 3.4` and `## 8` and the plan's `## Pre-registration
   (…)`. That is checkable against `git show <sha>:<source>`, so it is checked
@@ -96,13 +108,19 @@ CENSUS_REL = ("docs/superpowers/acceptance/"
 HANDCOUNT = REPO / HANDCOUNT_REL
 CENSUS = REPO / CENSUS_REL
 
-#: The sha256 of §1, computed at Task 0 Step 6 from the finished record and
-#: before the commit that carried it. `None` skips every real-document check
-#: BY NAME.
-BYTE_LOCK = "11d7c023e25c2321213798454f22261c6e02e5a2a1b30d152cc5ccb04505f0ae"
+#: The sha256 of §1 as it now stands: the ORIGINAL lock plus the dated §1.7
+#: amendment. `None` skips every real-document check BY NAME.
+BYTE_LOCK = "6c501369b00d260341012ba2d106d32559571ca2c37a14704de36213574744d7"
 
-#: §1 of this record is written once and never amended.
-ORIGINAL_LOCK = None
+#: The sha256 of §1 as the pre-registration commit carried it, before the
+#: amendment. Both shas travel together so the amendment is a visible fact of
+#: the record rather than a claim in its prose.
+ORIGINAL_LOCK = "11d7c023e25c2321213798454f22261c6e02e5a2a1b30d152cc5ccb04505f0ae"
+
+#: The commit that carried §1 first and alone: the pre-registration.
+#: `ORIGINAL_LOCK` is RECOMPUTED from this commit's copy of the document, so
+#: the "before" text is git's and not a constant's.
+ORIGINAL_COMMIT = "9b4c0fe"
 
 _SPEC = ("docs/superpowers/specs/"
          "2026-09-12-sensorium-s5-rung4-debts-design.md")
@@ -226,19 +244,43 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def byte_lock_facts(doc_text: str, expected: str) -> dict:
+def byte_lock_facts(doc_text: str, expected: str,
+                    original: str | None = None,
+                    original_text: str | None = None) -> dict:
     """The lock's numbers, computed and never enforced.
 
     Split from [`byte_lock_check`] for the reason rung 3's helper splits its
     own: a reader that wants the shas beside each other should not have to
-    take a refusal to get them."""
+    take a refusal to get them.
+
+    `original_text` is the document as the ORIGINAL lock commit carried it.
+    When it is given, `original_lock_sha256` is RECOMPUTED from it rather than
+    echoed from `original`, and `original_lock_declared_matches` says whether
+    the constant agrees -- which is the difference between "the record says it
+    was amended" and "git shows it was amended, from exactly that text".
+    """
     s1 = rung3.section1(doc_text)
+    s1_orig = (rung3.section1(original_text) if original_text is not None
+               else None)
+    orig_sha = _sha256_text(s1_orig) if s1_orig is not None else original
     return {"doc": DOC.relative_to(REPO).as_posix(),
             "range": "awk '/^## 1/,/^## 2/'",
             "locked_sha256": expected,
             "working_tree_sha256": _sha256_text(s1),
+            "section1_sha256": _sha256_text(s1),
             "working_tree_bytes": len(s1.encode()),
+            "locked_bytes": len(s1.encode()),
             "identical": _sha256_text(s1) == expected,
+            "original_lock": ORIGINAL_COMMIT if original else None,
+            "original_lock_sha256": orig_sha,
+            "original_lock_declared_matches": (orig_sha == original
+                                               if original else None),
+            "original_lock_bytes": (len(s1_orig.encode())
+                                    if s1_orig is not None else None),
+            "amended_after_the_original_lock": bool(orig_sha
+                                                    and orig_sha != expected),
+            "amendment_bytes": (len(s1.encode()) - len(s1_orig.encode())
+                                if s1_orig is not None else None),
             "footnotes_in_range": sorted(
                 set(rung3.FOOTNOTE_REF.findall(s1)))}
 
@@ -318,15 +360,59 @@ def test_the_debts_byte_lock_passes_on_the_real_document():
     assert rec["working_tree_bytes"] > 5000, rec["working_tree_bytes"]
 
 
-def test_the_debts_lock_is_one_sha_and_records_no_amendment():
-    """Catches: an amendment reported as an original lock. §1 here is written
-    once. Also pins that §1 references no footnote, so the locked range and
-    §1 are the same bytes -- a footnote added later would widen the range
-    silently."""
+def test_the_debts_record_carries_both_shas_and_the_amendment_flag():
+    """Catches: an amendment reported as an original lock, or an amendment
+    that quietly REPLACED §1 instead of adding to it.
+
+    §1.7 was amended on its lock day (controller ruling P6): the closing
+    sentence said `focus_catch_binding` takes no row in
+    `PRE_REGISTERED_REASON_LINE`, and spec §6.2 binds -- the reason line is a
+    pinned `None`. The record must say so with two shas and a flag. A record
+    that reported no amendment would be describing another document; one
+    whose `amendment_bytes` did not equal the growth of §1 would be an
+    amendment that removed something on its way in.
+
+    The ORIGINAL is read from `ORIGINAL_COMMIT`, not from the constant, so
+    "amended from exactly that text" is git's fact and not this file's claim.
+    Also pins that §1 references no footnote, so the locked range and §1 are
+    the same bytes -- a footnote added later would widen the range silently.
+    """
     _require_lock()
-    assert ORIGINAL_LOCK is None
-    rec = byte_lock_facts(DOC.read_text(), BYTE_LOCK)
+    _require_source_commits(ORIGINAL_COMMIT)
+    assert BYTE_LOCK != ORIGINAL_LOCK
+    rec = byte_lock_facts(DOC.read_text(), BYTE_LOCK, ORIGINAL_LOCK,
+                          _at(ORIGINAL_COMMIT, DOC.relative_to(REPO).as_posix()))
+    assert rec["amended_after_the_original_lock"] is True
+    assert rec["original_lock_sha256"] == ORIGINAL_LOCK
+    assert rec["original_lock_declared_matches"] is True
+    assert rec["locked_sha256"] == rec["section1_sha256"] == BYTE_LOCK
+    # The amendment ADDED a paragraph; it did not shrink or replace §1.
+    assert rec["amendment_bytes"] > 0
+    assert rec["locked_bytes"] == (rec["original_lock_bytes"]
+                                   + rec["amendment_bytes"])
     assert rec["footnotes_in_range"] == []
+
+
+def test_the_amendment_moved_no_row_of_the_pre_registration():
+    """The rule the amendment lives by: a claim may be TIGHTENED by the
+    document that binds (spec §6.2 over plan A7) and said so in a dated
+    paragraph; an endpoint, a method or a derivation may not move after a
+    lock. Every table row of §1 at the original lock is a row of §1 now, and
+    the amendment is additions only -- so an "amendment" that rewrote H2′'s
+    six or E13's three counts would fail here even though both shas moved
+    together."""
+    _require_lock()
+    _require_source_commits(ORIGINAL_COMMIT)
+    rel = DOC.relative_to(REPO).as_posix()
+    before = rung3.section1(_at(ORIGINAL_COMMIT, rel)).splitlines()
+    after = rung3.section1(DOC.read_text()).splitlines()
+    rows_before = [ln for ln in before if ln.startswith("|")]
+    rows_after = [ln for ln in after if ln.startswith("|")]
+    assert rows_before == rows_after, "a table row of §1 moved"
+    # Additions only: every line of the original §1 survives, in order.
+    missing = [ln for ln in before if ln not in after]
+    assert not missing, missing[:5]
+    assert len(after) > len(before)
 
 
 def test_the_debts_byte_lock_REFUSES_a_document_that_differs_by_one_byte():

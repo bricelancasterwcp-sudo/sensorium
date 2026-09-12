@@ -310,6 +310,27 @@ tool reaches with confidence grows no reason line. The case therefore takes no
 row in `PRE_REGISTERED_REASON_LINE`, whose own rule is that a case absent from
 it is not checked for one.
 
+**Amendment, 2026-09-12 — the reason line is PINNED, not left unchecked**
+(controller ruling P6, committed alone and adding a second sha, as the rung-4
+design's §8 requires of a dated amendment inside §1). The paragraph above ends
+"The case therefore takes no row in `PRE_REGISTERED_REASON_LINE`, whose own
+rule is that a case absent from it is not checked for one." That sentence read
+plan ruling A7's "one row" as the binding instruction. The SPEC binds: §6.2
+writes the case's pre-registration as *"row: **0** SWALLOWED, reason line
+`None`"*, and `None` in that table is a claim of its own — "no such line at
+all" — not an absence. **The pre-registered claim is therefore BOTH: `e6ts.
+PRE_REGISTERED["focus_catch_binding"] = 0` AND
+`e6ts.PRE_REGISTERED_REASON_LINE["focus_catch_binding"] = None`**, the second
+carried in its own commit on the same day and still before the case's
+`exceptions` question exists. E6-TS′ now holds only if the answer prints no
+`ambiguous by reason:` line at all, which is strictly more than the sentence
+above asked for; the hand adjudication it rests on — one HANDLED at
+`retry.ts:17`, nothing swallowed, no reason line — is unchanged, and this
+amendment moves no other row, method or derivation of §1. `ORIGINAL_LOCK` in
+`tests/test_acceptance_s5_debts_lock.py` carries the sha of §1 before this
+paragraph and `BYTE_LOCK` the sha after it, so the amendment is a fact the
+lock publishes rather than a claim this prose makes.
+
 ### 1.8 Fences
 
 Nothing else moved:
