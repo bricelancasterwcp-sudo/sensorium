@@ -119,6 +119,24 @@ class _Marker:
 
 NOT_CAPTURED = _Marker("<NOT_CAPTURED>")
 TRUNCATED = _Marker("<TRUNCATED>")
+#: JavaScript's second absence. A name bound to `undefined` IS bound, and a
+#: trace that recorded one holds a value -- so it may not read as `None`
+#: (which would make `x == null` answer yes about a site that recorded
+#: `undefined`) and may not read as NOT_CAPTURED (which would report a site
+#: whose value the trace does hold as one the predicate could not be checked
+#: at). Equal only to itself, like every other marker here.
+UNDEFINED = _Marker("<undefined>")
+
+#: The four words this language reads as VALUES rather than as names. They
+#: are language-neutral: `x == null` on a Python trace compares with `None`
+#: exactly as `x == None` does, and `x == undefined` is the one predicate
+#: that can tell JavaScript's two absences apart. A program local spelled
+#: `null`, `undefined`, `true` or `false` is SHADOWED by the constant --
+#: declared here and pinned by `v35-predicate-constants`, because the
+#: alternative is a predicate whose meaning depends on what the recorded
+#: frame happened to bind.
+_CONSTANTS = {"null": None, "undefined": UNDEFINED,
+              "true": True, "false": False}
 
 
 class _Sized:
