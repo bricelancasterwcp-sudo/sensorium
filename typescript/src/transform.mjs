@@ -12,7 +12,14 @@ import path from 'node:path';
 
 import MagicString from 'magic-string';
 
+import { paramNames } from './bindings.mjs';
 import { callbackHow, catchHow, finallyCompletes } from './escape.mjs';
+import { specMatches } from './focus.mjs';
+// `probe.mjs` imports `lineOf` and `terminatorFor` back out of this module. The
+// cycle is deliberate and safe: both are hoisted function declarations, so the
+// binding exists before either module's body runs, and neither is called until
+// a transform is under way.
+import { pairsOf, spliceFocused } from './probe.mjs';
 import { qualnameFor } from './qualname.mjs';
 // `tasks.mjs` names nothing of ours at runtime — only the `Splicer` type, in
 // JSDoc — so this edge is one-way; either way both modules only define.
@@ -23,8 +30,8 @@ import { isTestFile, spliceTaskBoundary } from './tasks.mjs';
 /** @typedef {import('typescript').SourceFile} SourceFile */
 /** @typedef {import('typescript').FunctionLikeDeclaration} FunctionLike */
 /** @typedef {'function'|'coroutine'|'generator'|'async_generator'} FrameKind */
-/** @typedef {{qualname: string, line: number, kind: FrameKind}} Site */
-/** @typedef {{file: string, rel: string, sha256: string, instrumented: Site[], excluded: Record<string, number>, diagnostics?: string[]}} Manifest */
+/** @typedef {{qualname: string, line: number, kind: FrameKind, focused: boolean}} Site */
+/** @typedef {{file: string, rel: string, sha256: string, instrumented: Site[], focused: string[], excluded: Record<string, number>, diagnostics?: string[]}} Manifest */
 
 /** Extensions the recorder can instrument; CommonJS is counted, never transformed. */
 const ELIGIBLE = new Set(['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs']);
@@ -167,18 +174,27 @@ export function lineOf(sf, pos) {
 }
 
 /**
- * Pass one: number every function-like in source order, decide eligibility, and
+ * Pass one: number every function-like in source order, decide eligibility,
  * name every one of them (an excluded function still needs a name, because a
- * function nested inside it is named against it).
+ * function nested inside it is named against it), and mark the ones a focus
+ * selected.
+ *
+ * Only an INSTRUMENTED function can be focused: an excluded one opens no frame,
+ * so there is nothing for a statement of it to be a statement OF.
  * @param {TS} ts
  * @param {SourceFile} sf
- * @returns {{sites: Site[], indexOf: Map<Node, number>, excluded: Record<string, number>}}
+ * @param {string} rel the root-relative path a spec's file part is matched on
+ * @param {string[]} focus the specs, `[]` for no focus at all
+ * @returns {{sites: Site[], indexOf: Map<Node, number>, focused: Set<Node>,
+ *   excluded: Record<string, number>}}
  */
-function planSites(ts, sf) {
+function planSites(ts, sf, rel, focus) {
   /** @type {Site[]} */
   const sites = [];
   /** @type {Map<Node, number>} */
   const indexOf = new Map();
+  /** @type {Set<Node>} */
+  const focused = new Set();
   /** @type {Map<Node, string>} */
   const qualnames = new Map();
   /** @type {Record<string, number>} */
@@ -203,24 +219,29 @@ function planSites(ts, sf) {
       if (hoistedDepth > 0) exclude('vitest-hoisted-factory');
       else if (!node.body) exclude(bodilessReason(ts, node));
       else {
+        const qualname = /** @type {string} */ (qualnames.get(node));
+        const selected = focus.some((spec) => specMatches(spec, rel, qualname));
+        if (selected) focused.add(node);
         indexOf.set(node, sites.length);
         sites.push({
-          qualname: /** @type {string} */ (qualnames.get(node)),
+          qualname,
           line: lineOf(sf, node.getStart(sf)),
           kind: frameKind(ts, node),
+          focused: selected,
         });
       }
     }
     ts.forEachChild(node, visit);
   };
   visit(sf);
-  return { sites, indexOf, excluded };
+  return { sites, indexOf, focused, excluded };
 }
 
 /**
  * The state pass two threads through every splice: the consumer's TypeScript,
- * the parsed file, the edit buffer, and which function-likes are recorded.
- * @typedef {{ts: TS, sf: SourceFile, s: MagicString, indexOf: Map<Node, number>, isTestFile: boolean}} Splicer
+ * the parsed file, the edit buffer, which function-likes are recorded, and
+ * which of those the focus selected.
+ * @typedef {{ts: TS, sf: SourceFile, s: MagicString, indexOf: Map<Node, number>, focused: Set<Node>, isTestFile: boolean}} Splicer
  */
 
 /**
@@ -247,17 +268,40 @@ function frameVar(ctx, node) {
 }
 
 /**
+ * Whether the node sits inside a FOCUSED frame — the nearest function-like
+ * above it is one the focus selected. Every statement of such a frame owes the
+ * record a row; a statement of a nested function that the focus did not reach
+ * is that function's business, not this one's (spec §3.1).
+ * @param {Splicer} ctx
+ * @param {Node} node
+ * @returns {boolean}
+ */
+function isFocusedFrame(ctx, node) {
+  let parent = node.parent;
+  while (parent) {
+    if (isFunctionLike(ctx.ts, parent)) return ctx.focused.has(parent);
+    parent = parent.parent;
+  }
+  return false;
+}
+
+/**
+ * The frame's entry, and — on a focused site only — the arguments it was
+ * entered with, read at body entry so a default is the value the body saw
+ * (spec §3.3). An unfocused site passes no third argument at all, which is why
+ * an unfocused file's output is byte-identical to 0.2.0's.
  * @param {Splicer} ctx
  * @param {FunctionLike} node a recorded function-like
  */
 function spliceFunction(ctx, node) {
   const { ts, sf, s } = ctx;
   const index = ctx.indexOf.get(node);
+  const args = ctx.focused.has(node) ? `,[${pairsOf(paramNames(ts, node))}]` : '';
   const body = /** @type {import('typescript').Block|import('typescript').Expression} */ (
     node.body
   );
   if (ts.isBlock(body)) {
-    s.appendLeft(body.getStart(sf) + 1, `const __sf=__srt.call(__sfile,${index});try{`);
+    s.appendLeft(body.getStart(sf) + 1, `const __sf=__srt.call(__sfile,${index}${args});try{`);
     // Only a generator gets the `finally`: nothing else can be resumed with a
     // completion its own body did not choose, and an extra clause on every
     // function would be an edit with no fact behind it.
@@ -267,7 +311,7 @@ function spliceFunction(ctx, node) {
   }
   s.appendLeft(
     body.getStart(sf),
-    `{const __sf=__srt.call(__sfile,${index});try{return __srt.ret(__sf,(`,
+    `{const __sf=__srt.call(__sfile,${index}${args});try{return __srt.ret(__sf,(`,
   );
   s.prependRight(body.end, CLOSE_EXPRESSION);
 }
@@ -457,6 +501,11 @@ function splice(ctx) {
     else if (ts.isCallExpression(node) && !spliceRejectionCallback(ctx, node)) {
       spliceTaskBoundary(ctx, node);
     }
+    // After the chain and before the children: the focus tier's rows (spec
+    // §3.1). A `CatchClause`'s head row must follow the HANDLED the chain just
+    // registered, and every statement's row must be registered before its own
+    // descendants' closers (plan P3).
+    if (isFocusedFrame(ctx, node)) spliceFocused(ctx, node);
     ts.forEachChild(node, visit);
   };
   visit(sf);
@@ -549,21 +598,15 @@ function prependHeader(s, placement, header) {
 }
 
 /**
- * Instrument one file.
- * @param {string} code the source as read
- * @param {string} filePath absolute path to the file
- * @param {{root: string, ts: TS, rtPath: string}} opts the invocation root, the
- *   consumer's own TypeScript, and the import specifier of the runtime module
- * @returns {{code: string|null, map: import('magic-string').SourceMap|null, manifest: Manifest}|null}
- *   null for a path this recorder does not transform — outside the root, under
- *   any `node_modules`, a declaration file, CommonJS, or an ineligible
- *   extension. A bare null carries no manifest and means 'not ours'; `classify`
- *   says which it was. A manifest with `code: null` means 'ours, untouched,
- *   counted': the file did not parse, and `excluded['parse-error']` says so.
- * @throws when the TypeScript build exposes no `parseDiagnostics` (R10a): an
- *   absent field is not an absence of errors, and this refuses to splice blind.
+ * The parse every pass starts from, or a verdict instead of one.
+ * @param {string} code
+ * @param {string} filePath
+ * @param {{root: string, ts: TS}} opts
+ * @returns {{rel: string, sf: SourceFile, diagnostics: string[]}|null} null for
+ *   a path this recorder does not transform
+ * @throws when the TypeScript build exposes no `parseDiagnostics` (R10a)
  */
-export function transformSource(code, filePath, opts) {
+function parseFile(code, filePath, opts) {
   if (classify(filePath, opts.root) !== 'transform') return null;
   const ts = opts.ts;
   const rel = path.relative(opts.root, filePath).split(path.sep).join('/');
@@ -574,9 +617,54 @@ export function transformSource(code, filePath, opts) {
     true,
     scriptKindFor(ts, filePath),
   );
+  return { rel, sf, diagnostics: parseErrors(sf) };
+}
+
+/**
+ * Pass one alone: what functions this file offers and what a focus would
+ * select, with nothing spliced and no source produced. The resolver asks it
+ * before a run, to answer `--focus` with a list or a refusal rather than with
+ * a recording nobody wanted.
+ * @param {string} code the source as read
+ * @param {string} filePath absolute path to the file
+ * @param {{root: string, ts: TS, focus?: string[]}} opts
+ * @returns {{rel: string, sites: Site[], excluded: Record<string, number>}|null}
+ *   null for a path this recorder does not transform. A file that did not parse
+ *   offers no sites and says why: `excluded['parse-error']`, never a guess.
+ */
+export function sitesOf(code, filePath, opts) {
+  const parsed = parseFile(code, filePath, opts);
+  if (parsed === null) return null;
+  const { rel, sf, diagnostics } = parsed;
+  if (diagnostics.length > 0) return { rel, sites: [], excluded: { 'parse-error': 1 } };
+  const { sites, excluded } = planSites(opts.ts, sf, rel, opts.focus ?? []);
+  return { rel, sites, excluded };
+}
+
+/**
+ * Instrument one file.
+ * @param {string} code the source as read
+ * @param {string} filePath absolute path to the file
+ * @param {{root: string, ts: TS, rtPath: string, focus?: string[]}} opts the
+ *   invocation root, the consumer's own TypeScript, the import specifier of the
+ *   runtime module, and the focus specs (none by default — and with none, this
+ *   emits exactly what it emitted before the focus tier existed)
+ * @returns {{code: string|null, map: import('magic-string').SourceMap|null, manifest: Manifest}|null}
+ *   null for a path this recorder does not transform — outside the root, under
+ *   any `node_modules`, a declaration file, CommonJS, or an ineligible
+ *   extension. A bare null carries no manifest and means 'not ours'; `classify`
+ *   says which it was. A manifest with `code: null` means 'ours, untouched,
+ *   counted': the file did not parse, and `excluded['parse-error']` says so.
+ * @throws when the TypeScript build exposes no `parseDiagnostics` (R10a): an
+ *   absent field is not an absence of errors, and this refuses to splice blind.
+ */
+export function transformSource(code, filePath, opts) {
+  const parsed = parseFile(code, filePath, opts);
+  if (parsed === null) return null;
+  const ts = opts.ts;
+  const { rel, sf, diagnostics } = parsed;
 
   const sha256 = crypto.createHash('sha256').update(code).digest('hex');
-  const diagnostics = parseErrors(sf);
   if (diagnostics.length > 0) {
     return {
       code: null,
@@ -586,16 +674,19 @@ export function transformSource(code, filePath, opts) {
         rel,
         sha256,
         instrumented: [],
+        focused: [],
         excluded: { 'parse-error': 1 },
         diagnostics,
       },
     };
   }
 
-  const { sites, indexOf, excluded } = planSites(ts, sf);
+  const { sites, indexOf, focused, excluded } = planSites(ts, sf, rel, opts.focus ?? []);
   const s = new MagicString(code);
-  splice({ ts, sf, s, indexOf, isTestFile: isTestFile(ts, sf, filePath) });
+  splice({ ts, sf, s, indexOf, focused, isTestFile: isTestFile(ts, sf, filePath) });
 
+  // The header's table stays three columns: the runtime never needs to know
+  // which sites were focused — a focused CALL says so by carrying its `a`.
   const codes = sites.map((site) => [site.qualname, site.line, site.kind]);
   prependHeader(
     s,
@@ -608,6 +699,13 @@ export function transformSource(code, filePath, opts) {
   return {
     code: s.toString(),
     map: s.generateMap({ hires: true, source: filePath, includeContent: true }),
-    manifest: { file: filePath, rel, sha256, instrumented: sites, excluded },
+    manifest: {
+      file: filePath,
+      rel,
+      sha256,
+      instrumented: sites,
+      focused: sites.filter((site) => site.focused).map((site) => site.qualname),
+      excluded,
+    },
   };
 }

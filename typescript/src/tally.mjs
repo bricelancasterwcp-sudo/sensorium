@@ -29,10 +29,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/** @typedef {{files_transformed: number, excluded: Record<string, number>}} Tally */
+/**
+ * @typedef {{files_transformed: number, functions_focused: number,
+ *   excluded: Record<string, number>}} Tally
+ */
 
-/** @type {Tally} */
-const tally = { files_transformed: 0, excluded: {} };
+/**
+ * `functions_focused` is how many function-likes the invocation's focus
+ * actually selected -- zero on every unfocused run, which is what says a trace
+ * with no LINE rows had nothing to record rather than a recorder that missed.
+ * @type {Tally}
+ */
+const tally = { files_transformed: 0, functions_focused: 0, excluded: {} };
 
 /**
  * The files already counted. Vite keeps one module graph per transform mode, so
@@ -94,6 +102,7 @@ export function record(file, out, dirname) {
   // `code: null` is 'ours, untouched, counted' (R10): the file did not parse,
   // its manifest says so, and it was not edited.
   if (out.code !== null) tally.files_transformed += 1;
+  tally.functions_focused += out.manifest.focused.length;
 }
 
 /**

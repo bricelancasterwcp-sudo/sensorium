@@ -48,6 +48,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { specsFromEnv } from './focus.mjs';
 import * as tally from './tally.mjs';
 import { classify, transformSource } from './transform.mjs';
 
@@ -57,6 +58,14 @@ const ROOT = path.resolve(process.env.SENSORIUM_TS_ROOT ?? '');
 const PKG = path.resolve(process.env.SENSORIUM_TS_PKG ?? '');
 /** Where the counts and the per-file manifests go, or '' when nobody asked. */
 const MANIFEST_DIR = tally.dir();
+/**
+ * The functions to record statements for, `[]` for none. Read at module load,
+ * as ROOT and PKG are: this hook is installed by `--import` before the program
+ * starts, so the environment the driver set is already complete. The RUNTIME
+ * reads the same variable in the same process and declares `line` from it, so
+ * one variable answers for both halves (spec §2.3).
+ */
+const FOCUS = specsFromEnv(process.env.SENSORIUM_FOCUS ?? '');
 
 /** One specifier for the runtime, so one instance answers for the process (R16). */
 const RT_PATH = pathToFileURL(path.join(PKG, 'src', 'rt.mjs')).href;
@@ -106,7 +115,7 @@ export async function load(url, context, nextLoad) {
   // A throw from here is the transform refusing to splice blind (R10a) and it
   // must reach the consumer: a file this hook cannot vouch for is not quietly
   // loaded unrecorded.
-  const out = transformSource(code, file, { root: ROOT, ts, rtPath: RT_PATH });
+  const out = transformSource(code, file, { root: ROOT, ts, rtPath: RT_PATH, focus: FOCUS });
   if (out === null) return loaded;
   tally.record(file, out, MANIFEST_DIR);
   if (MANIFEST_DIR) tally.write(MANIFEST_DIR, tally.containerTally());
