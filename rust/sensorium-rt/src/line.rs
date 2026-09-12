@@ -164,11 +164,52 @@ pub fn line<const N: usize>(
     }
 }
 
-#[inline(never)]
+/// A block-like statement's LINE: the deltas it wrote AND the names its inner
+/// blocks and its own head pattern bound, which are dead after it.
+///
+/// `unbound` is written after the deltas as tag-3 blocks (design 2026-09-12 R3,
+/// §5.3); `line` is unchanged and never writes one. The names are
+/// `&'static [&'static str]` because the transformer splices them as a literal,
+/// `&["a", "b"]` (plan decision A6): the runtime allocates nothing to carry
+/// them, and a statement with nothing to unbind gets `line` instead.
+///
+/// Everything else is [`line`]'s: the same gate, the same reentrancy rule, the
+/// same closure called only when the record is actually about to be written --
+/// so at tier `off` a block-like statement formats no `Debug` either.
+#[inline]
+pub fn line_unbinding<const N: usize>(
+    unit: &'static Unit,
+    site: u32,
+    deltas: impl FnOnce() -> [(&'static str, Capture); N],
+    unbound: &'static [&'static str],
+) {
+    if STATE.load(Ordering::Acquire) == STATE_CALL {
+        emit_line_unbinding(unit, site, deltas, unbound);
+    }
+}
+
+/// [`line`]'s emitter: [`emit_line_unbinding`] with nothing to unbind.
+///
+/// One body writes both records rather than two that drift: the gate, the
+/// reentrancy scope, the unit id, the spool directory and the probe's one call
+/// site are stated once, and `line`'s bytes are `line_unbinding`'s with an empty
+/// name list -- which is what makes R5's "the fragment of a statement that
+/// unbinds nothing is unchanged" a fact about this file rather than a promise.
+#[inline]
 fn emit_line<const N: usize>(
     unit: &'static Unit,
     site: u32,
     deltas: impl FnOnce() -> [(&'static str, Capture); N],
+) {
+    emit_line_unbinding(unit, site, deltas, &[]);
+}
+
+#[inline(never)]
+fn emit_line_unbinding<const N: usize>(
+    unit: &'static Unit,
+    site: u32,
+    deltas: impl FnOnce() -> [(&'static str, Capture); N],
+    unbound: &'static [&'static str],
 ) {
     // Reentrancy: a statement reached from inside the instrument records
     // nothing, the same rule `enter`, `ret` and the err sites keep (spec §3.6).
@@ -195,13 +236,13 @@ fn emit_line<const N: usize>(
     // A `Debug` impl this formats therefore records nothing, and one that is
     // never formatted has no side effect to have.
     let deltas = deltas();
-    write_and_emit(dir, crate::pack_site(id, site), &deltas, &[]);
+    write_and_emit(dir, crate::pack_site(id, site), &deltas, unbound);
 }
 
 /// Everything about writing a LINE record that does NOT depend on the call
 /// site: the payload buffer, the writer and the spool append.
 ///
-/// Split out of [`emit_line`] because that one is monomorphised per call site
+/// Split out of [`emit_line_unbinding`] because that one is monomorphised per call site
 /// -- a fresh copy for every `(N, closure type)`, and the transformer emits one
 /// call per statement of a focused function. This tail is compiled ONCE for the
 /// whole program, so what each copy costs is four checks and a call rather than

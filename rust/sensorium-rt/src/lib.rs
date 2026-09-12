@@ -100,7 +100,13 @@ pub use errflow::{
 pub use exit::ret;
 // `probe_cap!` is `#[macro_export]`ed and so already sits at the crate root;
 // `__probe_cap_scope` is the body it expands to and has to be reachable there too.
-pub use line::{__probe_cap_scope, line};
+// `line_unbinding` beside `line`: the entry point a BLOCK-LIKE statement's
+// probe calls -- a `{ .. }`, an `if`, a `match`, a loop -- which writes the
+// names its inner blocks and its own head pattern bound as tag-3 blocks on the
+// same LINE record, so a reader's fold drops them where they die (design
+// 2026-09-12 R3, plan decision A6). A statement with nothing to unbind still
+// gets `line`, byte for byte as before.
+pub use line::{__probe_cap_scope, line, line_unbinding};
 pub use tasks::spawn_child;
 
 use std::path::{Path, PathBuf};

@@ -581,6 +581,62 @@ fn line_writes_one_record_when_recording_and_nothing_at_tier_off() {
     );
 }
 
+/// The second entry point, at the same gate: a block-like statement's probe
+/// writes ONE record carrying what it wrote and what it killed, and writes
+/// nothing -- and formats nothing -- at tier `off`. The negative control is in
+/// the same test and at the same site, for the reason `line`'s is.
+#[test]
+fn line_unbinding_writes_the_names_beside_the_deltas_and_nothing_at_tier_off() {
+    let rec = Recording::start();
+    let probes = Cell::new(0u32);
+    line_unbinding(
+        rec.unit,
+        16,
+        || {
+            probes.set(probes.get() + 1);
+            [("x", debug("5"))]
+        },
+        &["a", "bb"],
+    );
+    assert_eq!(probes.get(), 1);
+    let written = rec.records_at(16);
+    assert_eq!(written.len(), 1, "one statement, one record");
+    assert_eq!(written[0].0, KIND_LINE, "a LINE, not a kind of its own");
+    let (flags, blocks) = parse(&written[0].1);
+    assert_eq!(flags, 0);
+    assert_eq!(
+        blocks
+            .iter()
+            .map(|b| (b.name.as_str(), b.tag))
+            .collect::<Vec<(&str, u8)>>(),
+        vec![("x", 1), ("a", 3), ("bb", 3)]
+    );
+
+    STATE.store(STATE_OFF, Ordering::Release);
+    line_unbinding(
+        rec.unit,
+        16,
+        || {
+            probes.set(probes.get() + 1);
+            [("x", debug("5"))]
+        },
+        &["a", "bb"],
+    );
+    assert_eq!(rec.records_at(16).len(), 1, "tier off writes no record");
+    assert_eq!(probes.get(), 1, "and does not call the probe");
+}
+
+/// The empty case the transformer never splices -- it emits `line` when there
+/// is nothing to unbind (R5) -- pinned anyway, because the entry point is
+/// public and a caller that hands it none must get `line`'s own bytes.
+#[test]
+fn line_unbinding_with_no_names_writes_exactly_what_line_writes() {
+    let rec = Recording::start();
+    line_unbinding(rec.unit, 17, || [("x", debug("5"))], &[]);
+    line(rec.unit, 18, || [("x", debug("5"))]);
+    assert_eq!(rec.records_at(17), rec.records_at(18));
+}
+
 /// A2: a statement that wrote nothing -- the parameters LINE of a function
 /// with no parameters -- splices `|| []`, which has to type-check with no
 /// turbofish and no annotation.
