@@ -30,6 +30,7 @@ from dataclasses import MISSING, fields
 import pytest
 
 from sensorium import cli
+from tests.rust_traces import focused_trace
 
 from sensorium.query.vocab import (PYTHON, RUST, TYPESCRIPT, Terms,
                                    exit_brief, exit_phrase, terms)
@@ -575,3 +576,32 @@ def test_the_typescript_notes_name_the_command_this_rung_shipped():
     assert TYPESCRIPT.timeline_hint == (
         "record again with `sensorium ts run --focus {mod}:{qualname} -- "
         "<harness command>`; per-statement capture is opt-in at record time")
+
+
+def test_the_matched_focus_line_is_gated_on_the_keys_and_not_on_a_language(
+        tmp_path, monkeypatch, capsys):
+    """`info`'s `focus matched:` line reaches a RUST trace too (ruling R32).
+
+    `meta.focus_matched` is not a TypeScript key: `cargo sensorium --focus`
+    writes it as well (`convert/meta.rs`), and it means the same thing
+    there -- what the spec SELECTED, beside what was typed. So the line is
+    gated on the keys and not on `lang`, and this pins its exact text on a
+    focused Rust recording rather than leaving it to a report sentence. A
+    language gate here would be the one thing this module exists to
+    prevent, arriving from the other side: a true sentence withheld from a
+    trace that supports it.
+
+    `functions_focused` is the transform's own count and no Rust converter
+    writes one, so the parenthetical never appears on this side.
+
+    It lives in this file rather than in `tests/test_runs_info.py` -- which
+    owns `info`'s other assertions -- because that module is at 790 of the
+    repository's 800-line ceiling, and because what is pinned here is which
+    SENTENCE reaches which language, which is this module's subject.
+    """
+    run_id = focused_trace(tmp_path, monkeypatch)
+    assert cli.main(["info", run_id]) == 0
+    text = capsys.readouterr().out
+    assert "focus: fill, Counter    window: -" in text
+    assert "focus matched: 2 \u2014 Counter::new, fill" in text
+    assert "function(s) focused by the transform" not in text

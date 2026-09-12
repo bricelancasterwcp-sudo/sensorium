@@ -13,7 +13,9 @@ rather than against a second opinion:
   * `inspect_text` WRITES each scalar row's text, so `flow --value` searches
     for the very characters the recorder wrote. A11's property, in the
     second dialect: `read_inspect(inspect_text(L)) == L` over the literal
-    domain a command accepts.
+    domain a command accepts -- integers BELOW 2**53, and above that the
+    double JavaScript holds instead of the integer typed (ruling R34; there
+    is no distinct number up there to round-trip to).
 
 THE ROWS THAT SURPRISE
 ----------------------
@@ -91,7 +93,7 @@ def test_the_table_is_the_recorder_s_own_and_covers_every_shape():
     """A guard on the guard: a fixture that stopped holding rows, or that
     grew a row whose text came from somewhere other than `dbg`, would let
     every parametrised test below pass by having nothing to check."""
-    assert len(ROWS) >= 36, len(ROWS)
+    assert len(ROWS) >= 39, len(ROWS)
     assert all(set(r) == {"literal", "text", "trunc"} for r in ROWS)
     texts = {r["text"] for r in ROWS}
     for wanted in ("'abc'", '"it\'s"', "undefined", "null", "true", "false",
@@ -292,11 +294,12 @@ NUMBERS = [(literal_of(r["literal"]), r["text"]) for r in ROWS
            if is_number(r)]
 
 
-def test_the_number_rows_are_all_thirteen_of_them():
-    """The brief's list says twelve; the list it gives has thirteen
-    entries (`5 -5 2.5 1e21 1e-7 -0 0.000001 123456789.123 1.5e300 5e-324
-    NaN Infinity -Infinity`), and every one of them is measured here."""
-    assert len(NUMBERS) == 13, [t for _, t in NUMBERS]
+def test_the_number_rows_are_all_sixteen_of_them():
+    """Thirteen from the brief's list (which says twelve and gives
+    thirteen: `5 -5 2.5 1e21 1e-7 -0 0.000001 123456789.123 1.5e300 5e-324
+    NaN Infinity -Infinity`), plus the three ruling R34 added at the
+    2**53 boundary. Every one of them is measured, not asserted."""
+    assert len(NUMBERS) == 16, [t for _, t in NUMBERS]
 
 
 @pytest.mark.parametrize("value,text", NUMBERS, ids=[t for _, t in NUMBERS])
@@ -305,9 +308,15 @@ def test_js_number_spells_what_node_spelled(value, text):
     assert got == text
 
 
-def test_js_number_places_the_digits_the_way_the_three_branches_say():
-    """One case per reachable placement, named. The integral shortcut
-    answers everything the spec's first placement would."""
+def test_js_number_places_the_digits_the_way_the_four_branches_say():
+    """One case per placement, named. The integral shortcut answers every
+    integer BELOW 2**53 (where the exact expansion is already the shortest
+    round-trip); from there up the first placement answers, writing the
+    shortest digits out with the zeros they do not carry."""
+    # k <= n <= 21: an integral value, written out
+    assert js_number(float(2 ** 53)) == "9007199254740992"
+    assert js_number(float(2 ** 60)) == "1152921504606847000"
+    assert js_number(1e20) == "100000000000000000000"
     # 0 < n <= 21: a decimal point inside the digits
     assert js_number(2.5) == "2.5"
     assert js_number(123456789.123) == "123456789.123"
@@ -322,7 +331,31 @@ def test_js_number_places_the_digits_the_way_the_three_branches_say():
     assert js_number(5e-324) == "5e-324"
     assert js_number(-1e-7) == "-1e-7"
     # ...and the shortcut itself
-    assert js_number(1e20) == "100000000000000000000"
+    assert js_number(2.0) == "2"
+    assert js_number(float(2 ** 53 - 1)) == "9007199254740991"
     assert js_number(0.0) == "0"
     assert js_number(-0.0) == "-0"
     assert js_number(-5) == "-5"
+
+
+def test_an_integer_above_2_53_is_written_as_the_double_that_holds_it():
+    r"""Ruling R34, and the divergence it closes. JavaScript has one number
+    type: `2**60` is HELD as a double and printed as that double's shortest
+    digits, `1152921504606847000`. Writing the exact expansion
+    (`1152921504606846976`, which is what `str(int)` gives) spells a text no
+    recorder ever wrote, so `flow --value 1152921504606847000` would report
+    zero sightings of a capture the trace holds.
+
+    The boundary is exact on both sides: at 2**53 - 1 the expansion IS the
+    shortest round-trip and the shortcut answers, and past the double's own
+    range there is no number left to print -- JavaScript says `Infinity`,
+    and so does this, rather than raising `OverflowError` out of a search.
+    """
+    assert inspect_text(2 ** 60) == "1152921504606847000"
+    assert str(2 ** 60) == "1152921504606846976"          # what it is NOT
+    assert inspect_text(2 ** 53) == "9007199254740992"
+    assert inspect_text(2 ** 53 - 1) == "9007199254740991"
+    assert inspect_text(123456789012345680000) == "123456789012345680000"
+    assert inspect_text(-(2 ** 60)) == "-1152921504606847000"
+    assert inspect_text(10 ** 400) == "Infinity"
+    assert inspect_text(-(10 ** 400)) == "-Infinity"

@@ -76,6 +76,13 @@ const CASES = [
   { literal: 123456789.123, value: 123456789.123 },
   { literal: 1.5e300, value: 1.5e300 },
   { literal: 5e-324, value: 5e-324 },
+  // ...and the three that separate "an integer" from "the double that holds
+  // it": at 2**53 the two still agree, and above it JavaScript prints the
+  // SHORTEST digits that read back as the double, not the exact expansion
+  // (`2**60` is `...847000`, never `...846976`).
+  { literal: 2 ** 53, value: 2 ** 53 },
+  { literal: 2 ** 60, value: 2 ** 60 },
+  { literal: 123456789012345680000, value: 123456789012345680000 },
   { literal: { nan: true }, value: NaN },
   { literal: { inf: 1 }, value: Infinity },
   { literal: { inf: -1 }, value: -Infinity },

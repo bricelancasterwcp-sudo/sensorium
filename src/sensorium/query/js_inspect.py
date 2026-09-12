@@ -39,9 +39,17 @@ THE TWO DIRECTIONS ARE INVERSES ON THE LITERAL DOMAIN
 -----------------------------------------------------
 Design amendment A11, applied to the second dialect: `read_inspect` parses
 exactly what `inspect_text` can spell, so `resolve(dbg(inspect_text(L))) ==
-L` for every literal `L` a command accepts. The domain is integers, floats
-in every spelling `Number::toString` produces, `true`/`false`, `null`, and
-quoted strings up to the recorder's 100-character string cap.
+L` for every literal `L` a command accepts. The domain is integers BELOW
+2**53, floats in every spelling `Number::toString` produces, `true`/`false`,
+`null`, and quoted strings up to the recorder's 100-character string cap.
+
+The bound on integers is JavaScript's own and not a shortfall here. From
+2**53 up there is no distinct number to round-trip TO: `2**60` and
+`2**60 + 1` are one double, which prints `1152921504606847000`, so a search
+for either sights every capture of that double and reads back as the value
+JavaScript actually held. What is written is the double; what is read back
+is the double; the integer typed at the command line is the only thing that
+can differ from it, and it differed from it inside the program too.
 
 TWO THINGS NEITHER DIRECTION DOES
 ---------------------------------
@@ -68,6 +76,18 @@ from sensorium.query.expr import TRUNCATED, UNDEFINED, _DbgText
 #: Inspect's own string cap, from the recorder's options (`src/dbg.mjs`).
 #: A longer string is cut by inspect before the wire cap is applied.
 MAX_STRING = 100
+
+#: Where an integer stops being its own shortest spelling. Below 2**53 every
+#: integer is exactly a double and its digits ARE the shortest text that
+#: reads back as that double, so writing them out is what JavaScript prints.
+#: At or above it the two part company -- `2**60` is exactly representable
+#: and JavaScript still prints `1152921504606847000`, because the doubles
+#: there are 256 apart and the shortest text that lands on this one has
+#: three fewer significant digits than the value does. Measured (ruling
+#: R34): `String(2**60)` is `1152921504606847000`, not `...846976`, and
+#: `String(123456789012345680000)` keeps the `680000` tail that the exact
+#: expansion `...683968` loses.
+EXACT_INT = 2 ** 53
 
 # The three floats JavaScript spells as words rather than digits, and the
 # one zero that carries a sign into its rendering.
@@ -102,9 +122,17 @@ def js_number(x) -> str:
     """How JavaScript spells this number: ECMAScript's `Number::toString`.
 
     Ported rather than approximated, because `repr` disagrees with it in
-    four places a reader would meet on the first run: `2.0` (JavaScript has
+    five places a reader would meet on the first run: `2.0` (JavaScript has
     one number type and prints `2`), `1e+20` (JavaScript writes the digits
-    out to 1e21), `1e-05` (no pad, and written out down to 1e-6) and `-0.0`.
+    out to 1e21), `1e-05` (no pad, and written out down to 1e-6), `-0.0`,
+    and every integer from 2**53 up (`2**60` prints `1152921504606847000`,
+    the shortest digits that read back as that double, not the exact
+    `1152921504606846976`).
+
+    The argument is a JavaScript NUMBER: a float, or an int small enough to
+    be one exactly. `inspect_text` converts anything larger to the double
+    JavaScript would hold before calling here, because `repr` of a Python
+    int is its exact expansion and exact is the wrong answer up there.
     """
     if x != x:
         return "NaN"
@@ -119,22 +147,30 @@ def js_number(x) -> str:
         return "-0" if math.copysign(1.0, x) < 0 else "0"
     sign = "-" if x < 0 else ""
     m = abs(x)
-    if (isinstance(m, int) or m.is_integer()) and m < 1e21:
+    if (isinstance(m, int) or m.is_integer()) and m < EXACT_INT:
+        # Below 2**53 the exact expansion IS the shortest round-trip, so
+        # this is a shortcut and not a second answer. Above it the value
+        # takes the placement below, where the digits come from `repr` --
+        # `inspect_text` hands such an int here as the FLOAT JavaScript
+        # holds it as, because `repr` of a Python int is exact and exact is
+        # the wrong answer there (ruling R34).
         return sign + str(int(m))
     # The shortest digits that read back as this number, and where the point
     # goes among them -- the spec's `n` (the point's position) and `k` (how
     # many digits there are). `repr` is Python's shortest round-trip, which
-    # is JavaScript's too.
-    t = Decimal(repr(m)).as_tuple()
+    # is JavaScript's too. `normalize` strips the trailing zero `repr` puts
+    # on an integral float (`9007199254740992.0`), which the spec's `s` may
+    # not carry: with it, `k` would exceed `n` and an integer would be
+    # placed as `9007199254740992.0`.
+    t = Decimal(repr(m)).normalize().as_tuple()
     digits = "".join(str(d) for d in t.digits)
     k = len(digits)
     n = t.exponent + k
     if k <= n <= 21:
-        # ECMAScript's first placement, and unreachable here: every value it
-        # answers for is an integer of at most 21 digits, and the shortcut
-        # above answered it. Kept so the four steps read as the spec writes
-        # them -- and so that removing the shortcut cannot silently change
-        # an answer.
+        # ECMAScript's first placement: an integral value written out, with
+        # the zeros the shortest digits do not carry. This is the path every
+        # integral value from 2**53 up to 1e21 takes -- `1152921504606847`
+        # + `000` -- and the reason the shortcut above stops where it does.
         body = digits + "0" * (n - k)
     elif 0 < n <= 21:
         body = digits[:n] + "." + digits[n:]
@@ -200,7 +236,18 @@ def inspect_text(target) -> str | None:
     if isinstance(target, bool):             # before int: a bool IS an int
         return "true" if target else "false"
     if isinstance(target, int):
-        return str(target)
+        if abs(target) < EXACT_INT:
+            return str(target)
+        # JavaScript has one number type and it is a double: an integer
+        # this large is HELD as the nearest double and printed as that
+        # double's shortest digits, so writing the exact expansion here
+        # would spell a text no recorder ever wrote (ruling R34). Past the
+        # double's own range there is no number left to print, and
+        # JavaScript says so with a word.
+        try:
+            return js_number(float(target))
+        except OverflowError:
+            return "-Infinity" if target < 0 else "Infinity"
     if isinstance(target, float):
         return js_number(target)
     if isinstance(target, str):
