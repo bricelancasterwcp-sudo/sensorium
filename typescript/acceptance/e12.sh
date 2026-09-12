@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Succeeded for H8′ by e12p.sh (2026-09-12); this file is cited by a locked record and keeps its text.
 # E12's ONE recording session: the six arms, the resolver, and the hash list.
 #
 #   e12.sh <lens dir> <manifest file> <store dir> <out dir>
