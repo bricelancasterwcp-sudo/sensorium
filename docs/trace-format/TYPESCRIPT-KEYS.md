@@ -164,21 +164,27 @@ inside the body, at the head's line**, once per entry or iteration: `if`,
 runs before it. A bare body (`if (c) x = 1;`) is wrapped in a block first, so
 the head row and the body's own probe sit inside the guard.
 
-Five shapes mint no row, each for a reason a reader can check:
+Five shapes mint no row where a reader might look for one. Three mint no
+HEAD row:
 
-* **an `else` branch** (R21). A falsy test entered nothing; what the head
-  wrote reaches the record on the `if`'s own completion row (P1).
-* **a `do…while` body** (R23). Its test runs AFTER the body, so an entry row
+* **an `else` branch** (R21) — a falsy test entered nothing, so there is no
+  entry to report; what the head WROTE reaches the record on the `if`'s own
+  completion row (P1).
+* **a `do…while` body** (R23) — its test runs AFTER the body, so an entry row
   would publish the previous iteration's test value dressed as an entry; the
   test's writes reach the record on the `do`'s completion row.
+* **a `switch`** — no body to enter, so no head row at all, and its
+  discriminant's assignment is reported nowhere (declared, blind spot 31).
+
+And two mint no row of any kind:
+
 * **a guard's BLOCK body** (R24). Its completion IS the guard's, and
   `declaredIn` already reports its dead names there; a second row would
-  report one completion twice.
-* **a `switch` discriminant's assignment** — no body to enter, no head row,
-  declared (blind spot 31).
-* **a `LabeledStatement`** (R15, R16): it is a label and not a step, it is
-  never wrapped (wrapping a labeled loop turns `continue label` into a syntax
-  error), and its body statement is probed as usual.
+  report one completion twice and pop the same names twice. A BARE body is
+  different: it is wrapped in a block and probed as the statement it is.
+* **a `LabeledStatement`** (R15, R16): it is a label and not a step, and it is
+  never wrapped either (wrapping a labeled loop turns `continue label` into a
+  syntax error). Its body statement is probed as usual.
 
 **Type-only statements mint none either** (R17): an `interface`, a `type`
 alias and anything `declare`d are erased before the program runs, so a row
