@@ -246,11 +246,12 @@ the predicate's name list, so no constant is ever reported as NEVER RECORDED.
 
 **Re-recording is per language, and the printed command says which.** The
 `sensorium run --focus …` a Python trace prints back is the Python
-recorder's; a Rust trace prints `cargo sensorium test --focus …` and a
-TypeScript trace `sensorium ts run --focus … -- <the harness command as
-typed>`, each fully instantiated from that run's own argv and its own focus
-rather than as a template with a placeholder in it. On a TypeScript trace the
-capability is a property of the RECORDING: an unfocused run declares
+recorder's; a Rust trace prints `cargo sensorium --focus … <the recorded
+cargo args>` and a TypeScript trace `sensorium ts run --focus … -- <the
+harness command as typed>`, each fully instantiated from that run's own
+command line and its own focus rather than as a template with a
+placeholder in it. On a TypeScript trace the capability is a property of the
+RECORDING: an unfocused run declares
 `line: false`, and `watch` refuses at exit 3 naming the recorder the trace
 carries — `sensorium-ts 0.3.0`, not whatever is installed — instead of
 reporting `hits: 0`.
