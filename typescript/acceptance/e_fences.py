@@ -28,6 +28,16 @@ run BESIDE the gate and only REPORTED. Both are inside the fence now, and
 over an empty set is not a fence, and one that reports what it declines to
 gate is a fence in name only.
 
+S5 RUNG 4 EXPECTS EXACTLY ONE CHANGED LINE IN THE FENCE GLOB, and names it
+here before any number of that rung is read (ruling R12):
+`tests/test_exceptions_rust_grouping.py:697`, where the rung-4 plan makes
+`Shape.site` required and this fixture therefore passes `site=site`. The glob
+`tests/test_exceptions_rust*.py` is inside the fence, so at rung 4 E-legacy's
+first claim reads ONE changed line rather than zero, and the cell's
+`diff_stat_lines` names the file. Naming it in advance is what keeps it a
+pre-registered consequence of the plan and not a diff nobody expected; the
+rung-4 record's 2.3 carries the same sentence.
+
 E-BRANCH is `tests/test_acceptance_scripts.py`: do the instruments run THIS
 branch's binary, and does only the assembler mint the lens label. It gates
 the instruments that take every other number in this rung, which is why it
@@ -103,8 +113,12 @@ def existing(patterns) -> list[str]:
 
 
 def legacy(base: str) -> dict:
-    diff = run(["git", "diff", f"{base}..HEAD", "--stat", "--"] + list(FENCED))
+    # The fence's POPULATION is resolved before anything is measured: a
+    # pattern that matches no file refuses the whole run (`existing`), and
+    # refusing after a `git diff` has already been taken would leave a
+    # reading nobody can use beside a refusal nobody asked for.
     tests = existing(FENCED_TESTS)
+    diff = run(["git", "diff", f"{base}..HEAD", "--stat", "--"] + list(FENCED))
     suite = run([".venv/bin/python", "-m", "pytest", "-q",
                  "-p", "no:cacheprovider"] + tests + [KEY_FENCE])
     changed = [ln for ln in diff["stdout"].splitlines() if ln.strip()]

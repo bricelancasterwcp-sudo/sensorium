@@ -32,16 +32,19 @@ the state found at the time and does not bound what this task fixes. Every
 tracked `.sh` is walked; a script "invokes sensorium" when it either
 references `$SENSORIUM_BIN` or contains a bare `sensorium <subcommand>`
 call, and every such script must source `bin.sh` and must contain neither
-the insecure default nor a bare invocation. Ten scripts qualify: the T0
-census's six (`arms.sh`, `e10p.sh`, `e3.sh`, `e6pp.sh`, `e6tsp.sh`, `e7.sh`)
-plus four earlier rungs' frozen instruments that called the bare word with
-no `SENSORIUM_BIN` concept at all (`e10.sh`, `e11.sh`, `e5ts_split.sh`,
-`planted_change.sh`) -- fixed the same way, sourcing `bin.sh` and calling
-`"$SENSORIUM_BIN"`, though none of them is re-run here. `e10p_eq.sh` (takes
+the insecure default nor a bare invocation. Eleven scripts qualify: the
+rung-3 T0 census's six (`arms.sh`, `e10p.sh`, `e3.sh`, `e6pp.sh`,
+`e6tsp.sh`, `e7.sh`), four earlier rungs' frozen instruments that called the
+bare word with no `SENSORIUM_BIN` concept at all (`e10.sh`, `e11.sh`,
+`e5ts_split.sh`, `planted_change.sh`) -- fixed the same way, sourcing
+`bin.sh` and calling `"$SENSORIUM_BIN"`, though none of them is re-run here
+-- and S5 rung 4's own recording session, `e12.sh`. `e10p_eq.sh` (takes
 BOTH converters as explicit command-line arguments, by design, to compare
-main's against a slice's) and `e6.sh` (checks for a leftover
-`node_modules/.sensorium` FILE, not a command) mention the word but invoke
-nothing -- they are not in the ten, and stay as they are.
+main's against a slice's), `e6.sh` (checks for a leftover
+`node_modules/.sensorium` FILE, not a command) and rung 4's `e12_h8.sh`
+(runs the corpus, the suites and the probes, and spawns no CLI of its own)
+mention the word but invoke nothing -- they are not in the eleven, and stay
+as they are.
 
 S5 rung 4 adds one more question to the same file, because it is the same
 kind of question about the same population: does an instrument DAMAGE what it
@@ -160,7 +163,11 @@ def test_every_sh_file_that_invokes_sensorium_sources_bin_sh():
     going through the one place that refuses -- `bin.sh`. Spec 4.3 governs:
     EVERY script that invokes `sensorium`, not the T0 census alone."""
     users = _scripts_that_invoke_sensorium()
-    assert len(users) >= 10, f"expected at least the ten known users, got: {users}"
+    assert len(users) >= 11, (
+        f"expected at least the eleven known users, got: {users}")
+    assert "typescript/acceptance/e12.sh" in users, (
+        "S5 rung 4's recording session is not in the census: it drives "
+        f"`ts run` six times and must resolve the branch's binary; got {users}")
     missing = [p for p in users
               if not re.search(r'^\s*\.\s+"\$HERE/bin\.sh"\s*$',
                                 (REPO / p).read_text(encoding="utf-8"),
