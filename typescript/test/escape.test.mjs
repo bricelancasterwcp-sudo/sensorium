@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
 
-import { callbackHow, catchHow, finallyCompletes } from '../src/escape.mjs';
+import { callbackHow, catchHow, deferredExit, finallyCompletes } from '../src/escape.mjs';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
@@ -188,5 +188,49 @@ const FINALLY_ROWS = [
 for (const [name, body, want] of FINALLY_ROWS) {
   test(`finallyCompletes: ${name}`, () => {
     assert.equal(finallyCompletes(ts, finallyOf(body)), want, body);
+  });
+}
+
+/**
+ * §4.2's rule, one row at a time. The subject is the fragment's FIRST
+ * function-like, and the question is only ever about ITS own body: a return a
+ * nested closure makes is that closure's exit, and the seal is a fact about
+ * one frame's lifetime.
+ * @param {string} src
+ * @returns {any}
+ */
+const fnOf = (src) =>
+  find(parse(src), (n) => ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n) ||
+    ts.isArrowFunction(n) || ts.isMethodDeclaration(n));
+
+/**
+ * §4.2's table. The third column is whether the function's exit is DEFERRED —
+ * whether `return` pends the value and the wrapper's own `finally` seals the
+ * frame, so the program's `finally` runs on a frame that is still open.
+ * @type {[string, string, boolean][]}
+ */
+const DEFERRED_ROWS = [
+  ['a return in the try of a try-with-finally defers',
+    'function f() {\n  try {\n    return 1;\n  } finally {\n    g();\n  }\n}\n', true],
+  ['a return in the CATCH of a try-with-finally defers',
+    'function f() {\n  try {\n    g();\n  } catch (e) {\n    return 1;\n  } finally {\n    h();\n  }\n}\n',
+    true],
+  ['a try with no finally has nothing to defer for',
+    'function f() {\n  try {\n    return 1;\n  } catch {}\n}\n', false],
+  ["a return inside a nested arrow is that arrow's own exit",
+    'function f() {\n  try {\n    queue(() => {\n      return 1;\n    });\n  } finally {\n    g();\n  }\n}\n',
+    false],
+  ['a return in the finally itself is guarded by no further finally',
+    'function f() {\n  try {\n    g();\n  } finally {\n    return 1;\n  }\n}\n', false],
+  ['a return in a finally an OUTER try-with-finally guards defers',
+    'function f() {\n  try {\n    try {\n      g();\n    } finally {\n      return 1;\n    }\n  } finally {\n    h();\n  }\n}\n',
+    true],
+  ['an expression-bodied arrow has no statement to return from',
+    'const f = () => 1;\n', false],
+];
+
+for (const [name, src, want] of DEFERRED_ROWS) {
+  test(`deferredExit: ${name}`, () => {
+    assert.equal(deferredExit(ts, fnOf(src)), want, src);
   });
 }

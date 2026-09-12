@@ -4,10 +4,12 @@
 // family in place of the macro list, and it lives in its own module because
 // `transform.mjs` is at the repository's line ceiling (plan P2).
 //
-// Three questions, three exports, no state:
+// Four questions, four exports, no state:
 //   catchHow(ts, clause)        a `catch (e) { … }` clause          (spec §2.1)
 //   callbackHow(ts, arg)        the argument of `.catch(…)`/`.then(x, …)` (§2.2)
 //   finallyCompletes(ts, block) a `finally` block that discards      (§2.3)
+//   deferredExit(ts, fn)        a function that returns THROUGH a finally
+//                               (2026-09-12 §4.2, the seal)
 //
 // Nothing here resolves scopes, types or aliases: an identifier that SPELLS the
 // binding's name is a mention of it, shadowed or not. The rule errs towards
@@ -22,6 +24,7 @@
 /** @typedef {import('typescript').CatchClause} CatchClause */
 /** @typedef {import('typescript').Block} Block */
 /** @typedef {import('typescript').Expression} Expression */
+/** @typedef {import('typescript').FunctionLikeDeclaration} FunctionLike */
 
 /**
  * The console members a mention may be an argument of and still count as
@@ -301,4 +304,48 @@ export function finallyCompletes(ts, block) {
   };
   ts.forEachChild(block, (child) => visit(child, false));
   return found;
+}
+
+/**
+ * Whether a function's OWN body returns from inside a `try` that has a
+ * `finally` (2026-09-12 design §4.2) — the shape that gets the DEFERRED exit:
+ * `return x` pends the value, the wrapper's own `finally` seals the frame, and
+ * the program's `finally` therefore runs while the frame is still open.
+ *
+ * The walk stops at every closure for `finallyCompletes`'s reason: a return a
+ * nested function, arrow or method makes is ITS exit, and its frame's lifetime
+ * is not this one's. It carries one fact down — whether some enclosing `try`
+ * with a `finally` still has to run one — and a `TryStatement` sets that fact
+ * for its `tryBlock` and its `catchClause` only. Its `finallyBlock` is handed
+ * the fact UNCHANGED: a return written there is a return no further finally of
+ * that try guards, so it counts only where an OUTER try-with-finally encloses
+ * it, which is the same question asked one level up.
+ *
+ * Every other function is byte-identical to 0.3.0's (R2), so this is the one
+ * predicate that decides whether a wrapper moves at all.
+ * @param {TS} ts
+ * @param {FunctionLike} fn
+ * @returns {boolean}
+ */
+export function deferredExit(ts, fn) {
+  if (!fn.body) return false;
+  let deferred = false;
+  /** @param {Node} node @param {boolean} guarded */
+  const visit = (node, guarded) => {
+    if (deferred || opensClosure(ts, node)) return;
+    if (ts.isReturnStatement(node)) {
+      deferred = guarded;
+      return;
+    }
+    if (ts.isTryStatement(node)) {
+      const inside = guarded || !!node.finallyBlock;
+      visit(node.tryBlock, inside);
+      if (node.catchClause) visit(node.catchClause, inside);
+      if (node.finallyBlock) visit(node.finallyBlock, guarded);
+      return;
+    }
+    ts.forEachChild(node, (child) => visit(child, guarded));
+  };
+  ts.forEachChild(fn.body, (child) => visit(child, false));
+  return deferred;
 }
