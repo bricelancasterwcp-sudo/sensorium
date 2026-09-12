@@ -130,10 +130,13 @@ from dataclasses import dataclass
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.caps import none_status, print_incomplete, require
+from sensorium.query.dbg_dialects import for_trace
 from sensorium.query.fmt import fmt_event, fmt_value, more_note, parse_eref
 from sensorium.query.flow_values import (  # noqa: F401  (re-exported)
     CONTAINER_KINDS, ObjTarget, _walk, find_in_value, matches,
     parse_literal)
+from sensorium.query.rust_debug import debug_text
+from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
 ROLES_SEARCHED = "CALL args, RETURN values and LINE local deltas"
@@ -148,6 +151,21 @@ IDENTITY_CAVEAT = (
     "rebound to a new object at the same address with equal content records "
     "no change at all",
 )
+#: What the header says instead where the recorder minted the identity
+#: itself. A serial comes from a `WeakMap`, once per object, and is never
+#: reused, so there is no recycling to hedge against and nothing for the gap
+#: analysis to corroborate -- printing the caveat above over it would
+#: understate what the recording holds. The lineage caveat stays: an exact
+#: identity still says nothing about which sighting produced which.
+SERIAL_CAVEAT = (
+    "identity is a per-object serial minted once and never reused: every "
+    "sighting is the same object",
+    "captured-value lineage, not dataflow analysis: the trace records "
+    "values, not the edges between them",
+)
+_CAVEATS = {"address": IDENTITY_CAVEAT, "serial": SERIAL_CAVEAT}
+#: The footer line for an identity that needs no corroborating.
+EXACT_CONTINUITY = "continuity: exact (serial identity)"
 _MAX_OTHER_REFS = 5
 _MAX_NAMED_GAPS = 6
 _CTORS = (".__init__", ".__new__")
@@ -215,7 +233,8 @@ def roles(e) -> list[tuple[str, dict]]:
     return []
 
 
-def scan(events, target) -> tuple[list[Sighting], int, int, int]:
+def scan(events, target, write=debug_text) -> tuple[list[Sighting],
+                                                    int, int, int]:
     """(sightings, events searched, captures searched, truncated captures)."""
     found: list[Sighting] = []
     searched = seen = trunc = 0
@@ -229,7 +248,7 @@ def scan(events, target) -> tuple[list[Sighting], int, int, int]:
                 seen += 1
                 if cap.get("trunc"):
                     trunc += 1
-                if matches(cap, target):
+                if matches(cap, target, write):
                     labels.append(role + path)
         if labels:
             found.append(Sighting(e, tuple(labels)))
@@ -241,6 +260,9 @@ class Index:
 
     def __init__(self, trace) -> None:
         self.trace = trace
+        # Read once, here, so every search this index feeds spells a
+        # literal the way THIS recorder's formatter would.
+        self.dialect = for_trace(trace)
         self.events = trace.events()
         self.by_id = {e.id: e for e in self.events}
         self.by_frame: dict[int, list] = {}
@@ -289,7 +311,7 @@ def bindings(idx: Index, target: ObjTarget) -> list[Binding]:
         held: dict[str, int] = {}
         for eid, binds, gone in steps:
             for name, cap in binds.items():
-                if matches(cap, target):
+                if matches(cap, target, idx.dialect.write):
                     held.setdefault(name, eid)
                 elif name in held:
                     out.append(Binding(f.id, name, held.pop(name), eid, lines))
@@ -340,10 +362,11 @@ def constructions(trace, idx: Index, target: ObjTarget) -> dict[int, str]:
         p = e.payload or {}
         if e.kind == "CALL" and q.endswith(".__init__"):
             recv = next(iter((p.get("args") or {}).values()), None)
-            if recv is not None and matches(recv, target):
+            if recv is not None and matches(recv, target, idx.dialect.write):
                 out[e.id] = q
         elif e.kind == "RETURN" and q.endswith(".__new__"):
-            if p.get("value") is not None and matches(p["value"], target):
+            if p.get("value") is not None and matches(p["value"], target,
+                                                      idx.dialect.write):
                 out[e.id] = q
     return out
 
@@ -531,7 +554,11 @@ def resolve_object(trace, idx: Index, spec: str):
         return None, None, None, Unresolved(err, NEGATIVE)
     if at is not ev and note:
         note += f"; its return is captured at e{at.id}"
-    if v.get("k") not in CONTAINER_KINDS:
+    if v.get("k") not in CONTAINER_KINDS and "oid" not in v:
+        # A rendered capture carries `oid`/`type` when the recorder minted
+        # an identity for the value -- an object or a function, never a
+        # primitive -- so the two keys, and not the capture's kind, are
+        # what says whether there is an identity to follow here.
         return None, None, None, Unresolved(
             f"{name!r} at e{at.id} is a primitive ({fmt_value(v)}) and has no "
             f"identity to follow; use --value {fmt_value(v)}", BAD_CALL)
@@ -612,7 +639,11 @@ def _header(trace, idx: Index, args) -> tuple:
             return None, None, None, err
         head = [f"flow of object #{target.oid} ({target.type}) in "
                 f"{trace.path.stem}"]
-        head += ["  " + s for s in IDENTITY_CAVEAT]
+        # Strict, like `vocab.terms` itself: the third basis is `"none"`,
+        # and a recorder that records no identity refuses `--object`
+        # through `object_identity` before this line is reached, so a
+        # KeyError here means a caller built a `Trace` around the gate.
+        head += ["  " + s for s in _CAVEATS[terms(trace).identity_basis]]
         if note:
             head.append("  " + note)
         return target, ref, head, None
@@ -666,7 +697,8 @@ def _print_rows(trace, shown, notes: dict, lead: int) -> None:
             print("  " + notes[lead + i])
 
 
-def _print_footer(args, ref, idx, counts, scope, shown, gs, after) -> None:
+def _print_footer(args, ref, idx, counts, scope, shown, gs, after,
+                  exact: bool = False) -> None:
     found, searched, seen, trunc = counts
     # Counted over every sighting in scope, never over the printed page: a
     # total that shrank with --limit would be a false fact about the run.
@@ -678,7 +710,9 @@ def _print_footer(args, ref, idx, counts, scope, shown, gs, after) -> None:
         tail += f" ({skipped} earlier sighting(s) skipped by --after e{after})"
     print(f"sightings: {len(scope)} event(s), "
           f"{sum(len(s.labels) for s in scope)} capture(s){tail}")
-    if gs:
+    if exact:
+        print(EXACT_CONTINUITY)
+    elif gs:
         print(continuity_line(gs))
     print(f"scope: {seen} capture(s) searched across {searched} event(s) in "
           f"{ROLES_SEARCHED}")
@@ -697,9 +731,16 @@ def run(args) -> int:
         return BAD_CALL
     after = parse_eref(args.after) if args.after else 0
     trace = Trace.open(paths.find_trace(args.run))
-    refusal = ((require(trace, "object_identity", "flow --object")
-                if args.object is not None else None)
-               or require(trace, "line", "flow"))
+    # Ruling R13: an object flow needs `object_identity` and NOT `line`.
+    # An identity rides on every capture a recorder that mints one writes
+    # -- a RETURN value at the call tier, an argument and a statement's
+    # delta under a focus -- so refusing through `line` would refuse a
+    # question this recording answers. A value flow keeps its `line` gate:
+    # a value that only lived in a local between call and return is not in
+    # a trace that recorded no statement.
+    refusal = (require(trace, "object_identity", "flow --object")
+               if args.object is not None
+               else require(trace, "line", "flow"))
     if refusal:
         print(f"REFUSED: {refusal}")
         # The command is well formed and the trace is readable; the
@@ -716,20 +757,26 @@ def run(args) -> int:
     for line in head:
         print(line)
 
-    found, searched, seen, trunc = scan(idx.events, target)
+    found, searched, seen, trunc = scan(idx.events, target, idx.dialect.write)
     scope = [s for s in found if s.event.id > after]
     shown = scope[:args.limit]
     # Gaps are computed over EVERY sighting, then sliced to the page, so the
-    # one crossing the page boundary is not lost with --after.
+    # one crossing the page boundary is not lost with --after. On a SERIAL
+    # basis none of it runs: every line it produces -- reused, born,
+    # spanned by, unwitnessed -- is evidence about whether two sightings
+    # are one object, and on a serial they are.
+    basis = terms(trace).identity_basis
+    exact = isinstance(target, ObjTarget) and basis == "serial"
     all_gaps = (gaps(found, bindings(idx, target), address_reuses(idx, target),
                      constructions(trace, idx, target),
                      caching_new(trace, idx, target))
-                if isinstance(target, ObjTarget) else [])
+                if isinstance(target, ObjTarget) and basis == "address"
+                else [])
     counted, visible, lead = page_gaps(all_gaps, len(found) - len(scope),
                                        len(shown))
     _print_rows(trace, shown, gap_lines(visible), lead)
     _print_footer(args, ref, idx, (len(found), searched, seen, trunc),
-                  scope, shown, counted, after)
+                  scope, shown, counted, after, exact)
     # The status follows the `sightings:` line the footer just printed, and
     # so is read over `scope` rather than `found`: what this invocation was
     # asked for is the sightings after `--after`, and an empty page is that

@@ -132,6 +132,41 @@ class Terms:
     #: recorder produces no LINE events at all has no `--focus` to
     #: suggest, and says why instead of naming a command that refuses.
     timeline_hint: str
+    #: Which language's formatter wrote a `dbg` capture, so `watch --expr`
+    #: and `flow --value` read one text the same way (`query/dbg_dialects`
+    #: turns the word into a read/write pair). `None` for a recorder whose
+    #: captures are TYPED and so writes no `dbg` at all -- and a `None`
+    #: here is a fact about the recorder, not a default: the pair such a
+    #: trace would hand out is never consulted.
+    dbg_dialect: str | None
+    #: How one recorded site is SPELLED, wherever a reader is shown one --
+    #: the no-match listing, the re-record guidance, a resolution note.
+    #: `"module"` is the dotted name Python's recorder derives from the
+    #: run's root, which Rust's printed listings already quote; `"rel"` is
+    #: the root-relative path a TypeScript `--focus` is typed with, so
+    #: `--at` and `--focus` share one spelling (plan P8).
+    site_spelling: str
+    #: What `flow --object` identity RESTS on, which decides both what its
+    #: header may claim and whether the gap analysis runs at all.
+    #: `"address"` is CPython's `id()`, recycled, and everything `flow`
+    #: prints between two sightings exists to qualify it; `"serial"` is a
+    #: number minted once per object and never reused, which needs no
+    #: qualification; `"none"` is a recorder that records no identity, and
+    #: the command is refused on its traces through `object_identity`
+    #: before any of this is read.
+    identity_basis: str
+    #: The command that records this program again, as a template with
+    #: `{focus}` (every `--focus` flag, already spelled and quoted) and
+    #: `{command}` (what this recorder was pointed at). A hint carrying a
+    #: literal placeholder is a template, not an answer, so `query/sites`
+    #: instantiates this from the trace's own meta -- and the command named
+    #: must be one that can read THIS trace: `sensorium run --focus` cannot
+    #: read a TypeScript recording, so a hint naming it sends the reader to
+    #: a second refusal.
+    rerun_command: str
+    #: The `meta` key holding what that command was pointed at: the
+    #: program's argv, the harness command as typed, cargo's own arguments.
+    command_key: str
     #: `meta` key naming what executed the program, and the line's shape.
     interp_key: str
     interp_fmt: str
@@ -215,6 +250,17 @@ PYTHON = Terms(
     blind_spot_tasks="asyncio tasks",
     timeline_hint=("locals need line-level focus; refocus with --focus "
                    "{mod}:{qualname}"),
+    # Python's captures are typed -- `num`, `str`, `seq`, `obj` -- and this
+    # recorder writes no `dbg` at all, so there is no text to parse and no
+    # dialect to name.
+    dbg_dialect=None,
+    site_spelling="module",
+    # `capture_value` records `id(obj)`, and CPython recycles addresses:
+    # measured in this project's own fixtures, three dicts made and dropped
+    # in a plain loop share one. `flow`'s whole gap analysis exists for it.
+    identity_basis="address",
+    rerun_command="sensorium run{focus} -- {command}",
+    command_key="argv",
     interp_key="python",
     interp_fmt="python {}",
     # The contract's kind words ARE Python's: `[coroutine]`,
@@ -284,6 +330,22 @@ RUST = Terms(
     timeline_hint=("this recorder produces no LINE events at all "
                    "(capabilities.line: false), so there is no per-line "
                    "record to focus"),
+    dbg_dialect="rust",
+    # NOT the file stem the spec first proposed: Rust's printed listing
+    # today is `module_name_for`'s dotted spelling and a closed record
+    # quotes it, so the column keeps the spelling its output already has
+    # (plan P8). `--at` gains the basename and the root-relative path for
+    # every language, which is additive and moves nothing.
+    site_spelling="module",
+    # `sensorium-rt` declares `object_identity: false` (design 2026-09-06
+    # section 4.2): no capture it writes carries one, so `flow --object` is
+    # refused on its traces rather than answered on an address it never
+    # recorded.
+    identity_basis="none",
+    # A focused Rust trace whose matched frames recorded no LINE would have
+    # been told to run `sensorium run --focus`, which cannot read it.
+    rerun_command="cargo sensorium{focus} {command}",
+    command_key="cargo_args",
     interp_key="toolchain",
     interp_fmt="toolchain: {}",
     # A Rust trace carries `function` frames and nothing else today, and a
@@ -323,8 +385,13 @@ TYPESCRIPT = Terms(
     # `.each` rows are renamed by the harness into names that ARE the
     # program's. There is no numbering scheme to read as "no name".
     default_name_note=None,
-    no_rerun_note=("no rerun was attempted; this recorder records one tier "
-                   "and has no deeper capture to re-run for (S5 rung 3)"),
+    # Rung 4 gave this recorder a deeper tier, so the note no longer says
+    # there is nothing to re-run for -- it says what `refocus` still is not
+    # (a verified re-run of THIS recording) and names the command that
+    # records the deeper one.
+    no_rerun_note=("no rerun was attempted; refocus is not yet this "
+                   "recorder's -- record again with `sensorium ts run "
+                   "--focus <file>:<qualname> -- <harness command>`"),
     refocus_blind_spots=(
         "output not recorded (capabilities.output: false)",
         "arguments are not read in this version (capabilities.locals: "
@@ -347,12 +414,30 @@ TYPESCRIPT = Terms(
         "instrument that changes the program leaves no mark on the "
         "fingerprint"),
     blind_spot_tasks="tests",
-    # No `{mod}`/`{qualname}`: there is no per-line record to focus, so
-    # there is no site to name. `frame_cmd` still calls `.format` with both
-    # keywords, which a template with no placeholder simply ignores.
-    timeline_hint=("this recorder produces no LINE events "
-                   "(capabilities.line: false); per-line capture is S5 "
-                   "rung 3"),
+    # `{mod}` is the file's basename, which is one of the spellings
+    # `--focus` takes (`query/sites`), so the hint names a command a reader
+    # can run as printed. A frame in an unfocused container reaches this
+    # line, and so does one in a focused container whose function the focus
+    # did not select -- the same sentence answers both, because in both the
+    # fix is to record again naming this site.
+    timeline_hint=("record again with `sensorium ts run --focus "
+                   "{mod}:{qualname} -- <harness command>`; per-statement "
+                   "capture is opt-in at record time"),
+    dbg_dialect="inspect",
+    # The one spelling `--focus` is typed in and `focus_matched` records,
+    # so a reader who focused a function can ask `--at` about it in the
+    # words they already used.
+    site_spelling="rel",
+    # A serial from a `WeakMap`, minted once per object and never reused
+    # (`typescript/src/dbg.mjs`): two sightings of one serial ARE one
+    # object, which is a stronger claim than Python's and needs no gap
+    # analysis to qualify it.
+    identity_basis="serial",
+    rerun_command="sensorium ts run{focus} -- {command}",
+    # The harness command as it was TYPED (R26) -- never the worker argv,
+    # which every container of one invocation shares and which nobody ran
+    # on purpose.
+    command_key="harness_command",
     interp_key="node",
     interp_fmt="node {}",
     # JavaScript's words for the contract's kinds (`typescript/HONESTY.md`

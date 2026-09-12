@@ -155,7 +155,8 @@ class _Sized:
 
 
 class _DbgText(str):
-    """A string read out of a Debug TEXT capture (Rust's `{:?}`).
+    """A string read out of a rendered TEXT capture (Rust's `{:?}`, or
+    JavaScript's `util.inspect`).
 
     A `str`, because that is what the trace holds and what a predicate may
     compare: `s == "A1"` and `"A" in s` are answered by the very characters
@@ -191,13 +192,18 @@ _ARITH = (TypeError, ZeroDivisionError, OverflowError, ValueError)
 _MAX_DEPTH = 50
 
 
-def resolve(v: dict):
+def resolve(v: dict, dialect=None):
     """One capture -> a usable value, or a marker saying why not.
 
     Markers rather than exceptions because a caller folds these into an
     environment long before any predicate looks at them: `env[name]` present
     but NOT_CAPTURED means "in scope, no value", which is a different fact
     from the name being absent, and both have to survive the fold.
+
+    `dialect` is which language's formatter wrote a `dbg` capture, from the
+    trace's own vocabulary (`query/dbg_dialects`). Absent, it is Rust's --
+    what every caller got before a second dialect existed, and what no
+    Python trace ever reaches, since Python's captures are typed (P10).
     """
     k = v.get("k")
     if k in ("num", "bool"):
@@ -221,15 +227,21 @@ def resolve(v: dict):
         return _Sized(n, members, complete)
     if k == "dbg":
         # A value the recorder could only RENDER, with the language's own
-        # formatter, because it cannot decompose the type (Rust). The text
-        # is the capture, so the value is whatever the text spells -- and a
+        # formatter, because it cannot decompose the type (Rust's `Debug`,
+        # JavaScript's `util.inspect`). The text is the capture, so the
+        # value is whatever the text spells IN THAT DIALECT -- and a
         # truncated one is a prefix of the rendering, which spells nothing.
         if v.get("trunc"):
             return TRUNCATED
         t = v.get("v")
         if not isinstance(t, str):
             return NOT_CAPTURED         # a `dbg` with no text is malformed
-        val = read_debug(t)
+        read = dialect.read if dialect else read_debug
+        val = read(t)
+        # A dialect may find a prefix the wire flag cannot show (inspect
+        # cuts a long string itself), and that stays a prefix.
+        if val is TRUNCATED:
+            return TRUNCATED
         return _DbgText(val) if isinstance(val, str) else val
     return NOT_CAPTURED
 
@@ -377,6 +389,11 @@ def compile_expr(src: str) -> "Expr":
     _validate(tree)
     names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
     names.discard("len")          # the callee of a validated len(name) call
+    # A constant is not a name the trace could witness (plan P11). Left in,
+    # `null` would reach `watch`'s NEVER RECORDED banner -- "captured at NO
+    # site in these frames", about a word no recorder can capture -- and
+    # that banner discredits every verdict printed under it.
+    names -= _CONSTANTS.keys()
     return Expr(tree, names, src)
 
 
@@ -431,6 +448,8 @@ class Expr:
         if isinstance(node, ast.Constant):
             return node.value
         if isinstance(node, ast.Name):
+            if node.id in _CONSTANTS:
+                return _CONSTANTS[node.id]
             return _name(node.id, env)
         if isinstance(node, ast.Call):            # validated: len(name)
             return _length(node.args[0].id, env)
@@ -470,8 +489,23 @@ class Expr:
         return not decisive
 
 
+def _bound(name: str, env: dict):
+    """What a name stands for: a constant of the language first, then the
+    environment.
+
+    One rule, three readers. `_eval` answers a bare Name from `_CONSTANTS`
+    directly, and the other two paths into a name -- `len(name)` and
+    `literal in name` -- come through here, so `len(undefined)` reports the
+    value it names as having no recorded length rather than reporting the
+    word as out of scope, and the shadowing rule cannot differ by path.
+    """
+    if name in _CONSTANTS:
+        return _CONSTANTS[name]
+    return env.get(name, NOT_CAPTURED)
+
+
 def _name(name: str, env: dict):
-    val = env.get(name, NOT_CAPTURED)
+    val = _bound(name, env)
     if val is NOT_CAPTURED:
         raise NotCaptured(name, NO_VALUE if name in env else OUT_OF_SCOPE)
     if val is TRUNCATED:
@@ -492,7 +526,7 @@ def _member(value, name: str, env: dict) -> bool:
     test; a clipped string cannot answer at all, because the prefix is not
     in the environment.
     """
-    val = env.get(name, NOT_CAPTURED)
+    val = _bound(name, env)
     if val is NOT_CAPTURED:
         raise NotCaptured(name, NO_VALUE if name in env else OUT_OF_SCOPE)
     if val is TRUNCATED:
@@ -512,7 +546,7 @@ def _member(value, name: str, env: dict) -> bool:
 
 
 def _length(name: str, env: dict) -> int:
-    val = env.get(name, NOT_CAPTURED)
+    val = _bound(name, env)
     if isinstance(val, _Sized):
         return val.n
     if isinstance(val, _DbgText):

@@ -86,16 +86,42 @@ def ts_exc(type_, msg, serial, kind="throw", unread=None):
     return exc
 
 
-def call(ts, code, line, task=None, caller="untraced"):
+def call(ts, code, line, task=None, caller="untraced", args=None):
     """A frame-opening CALL. `caller: "untraced"` is on a frame entered on
     an empty stack -- the truthful answer to "who called this?" when the
     answer is Node's own machinery (`ts/build.py`), and the mark this
-    module's `task_root` reads."""
-    payload = {"args": {}, "unread": ["locals"]}
+    module's `task_root` reads.
+
+    `args` is a FOCUSED activation's arguments, and a CALL that carries
+    them carries no `unread`: the names WERE read, so nothing about this
+    row is unread (design 2026-09-11 section 3.3). Absent, the row is the
+    call tier's -- empty args and `unread: ["locals"]`, which is what every
+    unfocused CALL this recorder writes.
+    """
+    payload = {"args": args if args is not None else {}}
+    if args is None:
+        payload["unread"] = ["locals"]
     if caller is not None:
         payload["caller"] = caller
     return {"ts": ts, "thread": THREAD, "kind": "CALL", "code": code,
             "line": line, "payload": payload, "task": task}
+
+
+def line_ev(ts, frame, code, line, deltas, unbound=None, task=None):
+    """One statement's row: the names it WROTE, and the names that went out
+    of scope when the block holding them ended.
+
+    `unbound` is written only where a block ended, and the key is absent
+    otherwise -- an empty list would say a step ended a scope and unbound
+    nothing, which is a different record. A row may carry EMPTY deltas and
+    a non-empty `unbound` (a block whose last statement wrote nothing) and
+    is a site like any other.
+    """
+    payload = {"deltas": deltas}
+    if unbound is not None:
+        payload["unbound"] = unbound
+    return {"ts": ts, "thread": THREAD, "kind": "LINE", "frame": frame,
+            "code": code, "line": line, "payload": payload, "task": task}
 
 
 def ret(ts, frame, code, value="undefined", task=None):

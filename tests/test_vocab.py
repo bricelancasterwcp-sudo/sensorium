@@ -25,13 +25,14 @@ uses, which is how a scan quietly stops scanning.
 """
 import argparse
 import shutil
+from dataclasses import MISSING, fields
 
 import pytest
 
 from sensorium import cli
 
-from sensorium.query.vocab import (PYTHON, RUST, TYPESCRIPT, exit_brief,
-                                   exit_phrase, terms)
+from sensorium.query.vocab import (PYTHON, RUST, TYPESCRIPT, Terms,
+                                   exit_brief, exit_phrase, terms)
 from sensorium.store.reader import Trace
 from sensorium.ts import cli as ts_cli
 from tests.helpers import run_cli
@@ -497,3 +498,80 @@ def test_a_harness_killed_by_a_signal_is_headed_by_the_signal(tmp_path):
     i2 = run_cli(["info", RUN_IDS[0]], cwd=tmp_path, sensorium_dir=sdir2)
     assert ("harness: npx vitest run src/fail.test.ts\n"
             in i2.stdout), i2.stdout
+
+
+# -- the five fields the readers of rung 4 ask for --------------------------
+def test_every_column_answers_every_field_and_none_may_be_defaulted():
+    """The completeness rule, enumerated from the dataclass rather than
+    from a list someone remembered to extend.
+
+    No field may carry a DEFAULT. A default is how a fourth column would
+    silently inherit another language's word -- the exact failure `terms()`
+    was made strict for -- and it is also how a field added for one
+    recorder would go unanswered by the other two.
+    """
+    for name in Terms.__dataclass_fields__:
+        for column in (PYTHON, RUST, TYPESCRIPT):
+            assert hasattr(column, name), f"{column.lang} lacks {name}"
+    for f in fields(Terms):
+        assert f.default is MISSING and f.default_factory is MISSING, f.name
+
+
+def test_the_dialect_a_reader_parses_a_dbg_capture_in():
+    """`dbg` is one kind and two languages write it, so the TEXT alone
+    cannot say what it spells: `'a'` is the string a in one dialect and a
+    quoted word in the other. Python has no dialect at all -- its captures
+    are typed, and a `dbg` never reaches a Python trace."""
+    assert PYTHON.dbg_dialect is None
+    assert RUST.dbg_dialect == "rust"
+    assert TYPESCRIPT.dbg_dialect == "inspect"
+
+
+def test_how_each_language_spells_one_recorded_site():
+    """Plan P8. `module` is the dotted name Python's recorder derives and
+    Rust's printed listings already quote; `rel` is the root-relative path
+    a TypeScript `--focus` is typed with, so `--at` and `--focus` share one
+    spelling."""
+    assert PYTHON.site_spelling == "module"
+    assert RUST.site_spelling == "module"
+    assert TYPESCRIPT.site_spelling == "rel"
+
+
+def test_what_object_identity_rests_on_in_each_language():
+    """CPython recycles addresses, so Python's `flow --object` is a hedged
+    claim; a TypeScript serial is minted once per object and never reused,
+    so it is an exact one. Rust records no identity at all, and the word
+    for that is not "address"."""
+    assert PYTHON.identity_basis == "address"
+    assert RUST.identity_basis == "none"
+    assert TYPESCRIPT.identity_basis == "serial"
+
+
+def test_the_command_that_records_this_trace_again():
+    """A hint carrying a placeholder is a template, not an answer -- so the
+    template lives here and is instantiated from the trace's own meta, and
+    the key that holds the command differs per recorder."""
+    assert PYTHON.rerun_command == "sensorium run{focus} -- {command}"
+    assert TYPESCRIPT.rerun_command == "sensorium ts run{focus} -- {command}"
+    assert RUST.rerun_command == "cargo sensorium{focus} {command}"
+    assert PYTHON.command_key == "argv"
+    assert TYPESCRIPT.command_key == "harness_command"
+    assert RUST.command_key == "cargo_args"
+
+
+def test_the_typescript_notes_name_the_command_this_rung_shipped():
+    """Both sentences said rung 3 had no deeper capture to re-run for.
+    Rung 4 gave this recorder one, so both name it -- and neither may name
+    `sensorium run --focus`, which cannot read a TypeScript trace (the E7
+    needle `FORBIDDEN_TS` keeps guarding that)."""
+    for text in (TYPESCRIPT.no_rerun_note, TYPESCRIPT.timeline_hint):
+        assert "sensorium ts run --focus" in text
+        assert "S5 rung 3" not in text and "rung 3" not in text
+        assert "capabilities.line: false" not in text
+    assert TYPESCRIPT.no_rerun_note == (
+        "no rerun was attempted; refocus is not yet this recorder's -- "
+        "record again with `sensorium ts run --focus <file>:<qualname> -- "
+        "<harness command>`")
+    assert TYPESCRIPT.timeline_hint == (
+        "record again with `sensorium ts run --focus {mod}:{qualname} -- "
+        "<harness command>`; per-statement capture is opt-in at record time")
