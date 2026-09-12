@@ -12,10 +12,11 @@ Items **1–9** are rung 1's, from the design's §7; **10–17** were added
 2026-09-09 at rung 1's close, from what its acceptance measured. Items
 **18–27** are S5 rung 2's, from the throw flow: the shapes the escape rule,
 the callback wrapper and the `finally` sink cannot see, plus the one the
-disposition rules decline to judge. Items **28–37** are **S5 rung 4's**,
+disposition rules decline to judge. Items **28–38** are **S5 rung 4's**,
 added 2026-09-12 with the focus tier: seven shapes the per-statement record
-does not reach, and three gaps the tier's readers declare rather than paper
-over.
+does not reach, three gaps the tier's readers declare rather than paper over,
+and **38**, added at the rung's final review, where the runtime's own frame
+lifetime silently drops a row the transform did mint.
 
 **One item rung 4 planned is not here, because it closed before it could be
 numbered.** The design's §6.4 named seven items 28–34 and *a falsy `if`
@@ -419,3 +420,19 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     or scopes the fence to the cases it was written over. *(Added
     2026-09-12.)* *Falsifier:* `corpus/typescript/focus_catch_binding`,
     `typescript/acceptance/e6ts.py`.
+38. **A statement in a `finally` reached by the `try`'s `return` mints no
+    row.** `spliceReturn` renders `return x` as `return __srt.ret(__sf,(x))`,
+    and `ret` sets the frame's `open` to false before the program's own
+    `finally` runs; `line` drops every row that arrives on a closed frame. So
+    in `try { return x } finally { cleanup = true }` under a focus the trace
+    carries the RETURN and **nothing at all** for the finally's statements —
+    the row is not present-and-empty, it is absent, and no `info` line counts
+    it. The gap is **asymmetric**: the same `finally` reached by a `throw` IS
+    recorded in full, because `thr` has not run yet when it executes. The
+    runtime change that would close it — seal the frame AFTER the finally,
+    which also moves the RETURN row past those statements — is a next-slice
+    design item in [`../docs/CARRIED-DEBT.md`](../docs/CARRIED-DEBT.md), so
+    the falsifier named below pins the ABSENCE and a later fix must change it
+    deliberately. *(Added 2026-09-12, R42.)* *Falsifier:*
+    `typescript/test/rt.focus.test.mjs` (*a statement in a finally after the
+    return mints no row*).

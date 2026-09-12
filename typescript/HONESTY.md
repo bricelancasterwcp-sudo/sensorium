@@ -57,8 +57,8 @@ cells as its falsifiers; §7's *declared absent* paragraph is **rewritten**,
 because `locals` and `line` are now what a RUN decided and `object_identity`
 is true of every 0.3.0 recording; §7's falsifier list and the index's `| 7 |`
 row name `corpus/typescript/object_identity`, the case that was
-`object_refused` until this rung answered it; and **ten new blind spots,
-28–37**, none of them struck. Endpoint ids `H1`–`H8` name measured cells of
+`object_refused` until this rung answered it; and **eleven new blind spots,
+28–38**, none of them struck. Endpoint ids `H1`–`H8` name measured cells of
 `../docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.md` — its
 §3 and §4 for the numbers, its §5 for the four gaps they do not cover, and
 its word for the rung: **DONE-WITH-STOP**.
@@ -650,7 +650,7 @@ names what the trace carries in its place, and what could falsify the claim
 that this is the whole of it.
 
 The list itself — items **1–17** from rung 1, **18–27** that rung 2 adds for
-the throw flow, **28–37** that rung 4 adds for the focus tier and the inspect
+the throw flow, **28–38** that rung 4 adds for the focus tier and the inspect
 dialect — is [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md), **moved
 there 2026-09-10 so this file stays under 800 lines**, on Rust's precedent
 ([`../rust/HONESTY-BLIND-SPOTS.md`](../rust/HONESTY-BLIND-SPOTS.md), 2026-09-05).
@@ -780,7 +780,7 @@ a corpus case, a vector or an acceptance endpoint.
 | 9 | Cost is reported with its `n` and lens and gates nothing; a bound crossed buys work, never a verdict | `E1′`, `E10` |
 | 9 | Cost is a STOP where a pre-registered clause did not hold: E6′'s plain-band clause, stated as a STOP and not re-rolled | `E6′`, the acceptance record §4 and §5 gaps 5–6 |
 | 9 | Cost is reported again at rung 2 with the throw flow spliced in: `off/plain` 1.0608, `call/plain` 1.1266, conversion 16.0715 s — and none of the three gates anything | `E1‴`, `E10″` |
-| 10 | The blind-spot list — now [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) — is the whole of what this recorder cannot see, each item carried by a meta key, an `info` line or a stated absence | each item's own falsifier, 1 through 37 *(10–17 added 2026-09-09; 18–27 added 2026-09-10, when 2/3/11 were struck and 13 narrowed; 28–37 added 2026-09-12)* |
+| 10 | The blind-spot list — now [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) — is the whole of what this recorder cannot see, each item carried by a meta key, an `info` line or a stated absence | each item's own falsifier, 1 through 38 *(10–17 added 2026-09-09; 18–27 added 2026-09-10, when 2/3/11 were struck and 13 narrowed; 28–38 added 2026-09-12)* |
 | 11 | Under a `--focus`, one LINE row per completed statement of a focused function, `deltas` the bindings it wrote, a guard's head names as the body's first row, `unbound` on a block-like statement's own row, and the focused CALL carrying its arguments | `E12` H3 (9 of 9 rows against a locked hand count, empty diff), `E12` H1, the ten `corpus/typescript/focus_*` cases, `typescript/probes/src/focus.probe.test.ts` + `probes/check.mjs`, `typescript/test/{bindings,probe,focus}.test.mjs`, `docs/trace-format/vectors/v36-typescript-line-and-args.json` |
 | 11 | Identity is a serial minted once and never reused, on every object capture focused or not, so `flow --object` is exact and says so — and sightings are top-level captures only | `E12` H6, `corpus/typescript/object_identity`, `docs/trace-format/vectors/v37-flow-object-serial.json`, `typescript/test/rt.focus.test.mjs` |
 | 11 | A capture's text is node's own `util.inspect` dialect, read and written over one generated table, so `watch --expr` and `flow --value` cannot disagree about a spelling | `tests/test_js_inspect.py` against `typescript/test/fixtures/inspect-table.json` (41 measured rows), `corpus/typescript/flow_value_inspect`, `docs/trace-format/vectors/v38-inspect-dialect-agreement.json` |

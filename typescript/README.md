@@ -238,9 +238,17 @@ these exit statuses mean.
 | Command | Exit | Why |
 |---|---|---|
 | `exceptions` on a trace a **0.1.x** runtime wrote | 3 | That recorder declared `capabilities.err_flow: false` and its HANDLED rows carry no `how` word for the rules to read. The refusal names the capability and the recorder; what such a trace lacks is a record, not a rule, so **re-recording** is the fix. A 0.2.0 or later recording is answered, not refused. |
-| `watch`, `flow --value`, `frame`'s timeline, on a run that named **no `--focus`** | 3 | `capabilities.line: false` and `locals: false` — the tier is decided at transform time, so an unfocused run produces no LINE event and no argument to check. The refusal names the recorder the TRACE carries, not the one installed, and re-recording under `--focus` is the fix. On a focused run all three answer. |
+| `watch`, `flow --value`, on a run that named **no `--focus`** | 3 | `capabilities.line: false` and `locals: false` — the tier is decided at transform time, so an unfocused run produces no LINE event and no argument to check. The refusal names the recorder the TRACE carries, not the one installed, and re-recording under `--focus` is the fix. On a focused run both answer. |
 | `flow --object` on a trace a **0.2.x** runtime wrote | 3 | `capabilities.object_identity: false` — that recorder carried no identity, so a question about *that* object cannot be answered from its traces. A **0.3.0** recording declares `true` unconditionally, focused or not, and is answered exactly. |
 | `refocus` | 2 | `capabilities.refocus: false` — nothing was re-run, and the reader's next move is a different command. |
+
+`frame` is **not** in that table. On an unfocused run it prints the frame it
+was asked for — the call, its arguments' stated absence, how it closed — and
+where the statements would be it prints `timeline: not captured (…)`, naming
+`sensorium ts run --focus <file>:<qualname> -- <harness command>` as what
+would record them, at **exit 0**. A frame is a fact the call tier holds; only
+the per-statement half is missing, and the line that replaces it says so and
+names the command that fills it.
 
 Arguments are **unread on an unfocused run**: `capabilities.locals: false`,
 every CALL carries `unread: ["locals"]`, and `tree` prints

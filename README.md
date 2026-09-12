@@ -452,18 +452,18 @@ recording a 2,000-task program took 2.18 s of wall clock where it now takes
 0.35 s, all of the difference being `fsync` charged to a process the user had
 already watched finish.
 
-An await-heavy program roughly **doubles its event count**, and that is a
-cost the per-event figures above do not show: every suspension is one YIELD
-plus one RESUME on the same frame, so `await_dense`'s 20,000 awaits are
-40,004 events — 40,000 suspension rows and the four CALL/RETURN rows its two
-function calls make. A program that never suspends records nothing new.
-That workload is what prices suspension on its own: 4.6 µs/event by default
-(5.4 focused), of which ~0.9 µs is the amortised 0.036 s boot from the
-fixed-cost row above, so about 3.7 µs of real per-event work. Against the
-**~114 ns** the design note measured for the bare `sys.monitoring`
-PY_YIELD/PY_RESUME callbacks, that is roughly 32× the floor, the rest being
-the trace write and the derived-state bookkeeping. `us/event` is the figure
-that travels; the multiplier tracks how call-dense the program is.
+An await-heavy program roughly **doubles its event count**, and that is a cost
+the per-event figures above do not show: every suspension is one YIELD plus
+one RESUME on the same frame, so `await_dense`'s 20,000 awaits are 40,004
+events — 40,000 suspension rows and the four CALL/RETURN rows its two function
+calls make. A program that never suspends records nothing new. That workload
+is what prices suspension on its own: 4.6 µs/event by default (5.4 focused),
+of which ~0.9 µs is the amortised 0.036 s boot from the fixed-cost row above,
+so about 3.7 µs of real per-event work. Against the **~114 ns** the design
+note measured for the bare `sys.monitoring` PY_YIELD/PY_RESUME callbacks, that
+is roughly 32× the floor (40× on the 4.6 µs figure, boot included), the rest
+being the trace write and the derived-state bookkeeping. `us/event` is the
+figure that travels; the multiplier tracks how call-dense the program is.
 
 These are measurements of one machine and four workloads, not a promise about
 yours. The multiplier is not a property of sensorium: recording costs
@@ -728,9 +728,10 @@ its `deltas` the bindings that statement wrote, a guarded body's head names as
 a synthetic first row at each entry, and the block-scoped names a block-like
 statement declared listed `unbound` on its own row, which is the key `watch`'s
 fold pops. The focused function's CALL carries its **arguments**; an unfocused
-one in the same recording still reads `helper() <unread: locals>`. So `watch`,
-`frame`'s timeline and `flow --value` answer on a focused run and refuse at
-exit 3 on an unfocused one, naming the recorder the trace itself carries.
+one in the same recording still reads `helper() <unread: locals>`. So `watch`
+and `flow --value` answer on a focused run and refuse at exit 3 on an unfocused
+one, naming the recorder the trace itself carries; `frame` answers either way,
+saying `timeline: not captured (record again with …)` at exit 0.
 
 A TypeScript capture is node's `util.inspect` **text**, so the reading rule is
 written down, and it is Rust's opposite in the place a reader meets first:

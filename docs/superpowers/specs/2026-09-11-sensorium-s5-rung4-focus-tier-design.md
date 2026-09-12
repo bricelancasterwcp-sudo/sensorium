@@ -769,7 +769,7 @@ reading showed, never about what the pre-registration said.*
 controller rulings made while shipping, in the order the ledger's `Ruling:`
 lines carry them
 (`.superpowers/sdd/2026-09-11-sensorium-s5-rung4-focus-tier/rulings-index.txt`).
-Thirty-nine rulings were made; **six get no row here** and the reason is at
+Forty-two rulings were made; **eight get no row here** and the reason is at
 the end of this section, because a list that silently drops entries is a list
 a reader cannot check.
 
@@ -821,6 +821,7 @@ a reader cannot check.
 | R34 | **§4.1's number rules** | The integral shortcut is gated at `\|x\| < 2**53`; above it the value goes through placement 1 over `Decimal(repr(m)).normalize()` digits, so `js_number` reproduces node at every magnitude, and `inspect_text`'s int arm sends an int of magnitude ≥ 2^53 through `js_number(float(n))` because JavaScript holds it as a double. Measured rows for `2**53`, `2**60` and `123456789012345680000` were added to the generated fixture. **§4.1's A11 domain claim is corrected by this row**: the round-trip domain is integers BELOW 2^53, and above it there is no distinct number to round-trip to. | two lines and three fixture rows |
 | R35 | §8 (the record's §2.3) | Two re-pins of closed bytes are sanctioned and NAMED in the record's legacy cell rather than absorbed: `v23-lang-typescript-prose` (the brief mandates rewriting `timeline_hint`, which v23 pinned verbatim) and `object_refused`'s Q2/Q3 prose (sentences the sanctioned declaration flip made false; Task 8 rewrote the whole case). | two named diffs in the record |
 | R37 | **§8's E12 reading** | The three STOPs stand as **findings** and nothing was re-run. **H2** is the pre-registration's own under-derivation: §2.1's container rule selects nested function-likes, and §8's subject paragraph predicted three sites by counting the functions a reader names. **H4** and **H5** are readings of `e12_report.py`, found after their numbers — a `while`'s head row and its completion row share a line, and a printed CALL row carries neither a bare qualname nor a line. The next slice re-registers H2, H4 and H5 under fixed instruments, on rung 1's E6′→E6″ precedent. | none — the record already says all of it |
+| R42 | **§3.9's declared list** | The `finally`-after-`return` gap is DECLARED rather than fixed this rung: `spliceReturn` renders `return __srt.ret(__sf,(x))` and `ret` sets `f.open = false` before the program's own `finally` runs, so `line` drops every row that finally mints — `try { return x } finally { cleanup = true }` records `cleanup`'s write nowhere, while the SAME finally reached by a `throw` is recorded in full (`thr` has not run yet). It is **blind spot 38**, pinned as an absence by `typescript/test/rt.focus.test.mjs`'s *a statement in a finally after the return mints no row*, so a later runtime must change the fact deliberately. The runtime question — seal the frame AFTER the finally, which also moves the RETURN row past it — is a next-slice design item in `docs/CARRIED-DEBT.md`. | one declared shape, and the ordering a later slice re-decides |
 
 ### Two prose corrections to §4.1, and one to §4.1's table
 
@@ -849,7 +850,7 @@ over **830** files (this document's §2.2 said 742 — a count of eligible files
 that had moved on the lens; the measured number is the record's). **H2**,
 **H4** and **H5** STOPped, R37 above.
 
-### The six rulings with no row, and why
+### The eight rulings with no row, and why
 
 - **R3** (`rerun_command` returns `body.rstrip()`) changes no sentence of
   this document: it stops an empty command leaving a trailing space, and
@@ -868,3 +869,9 @@ that had moved on the lens; the measured number is the record's). **H2**,
   3's commit column), not this design.
 - **R39** is about the GitHub repository description, which this document
   does not contain.
+- **R40** is about `README.md`'s accuracy pass — three paragraphs of release
+  archaeology cut rather than moved, each replacement naming where the figures
+  live — which is the ROOT readme's shape, not this design's.
+- **R41** is about `docs/CARRIED-DEBT.md`'s "Deferred minors, per task"
+  roll-up carrying every deferred minor the ledger holds: a completeness rule
+  for that document, amending no section here.

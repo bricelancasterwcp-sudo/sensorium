@@ -279,7 +279,7 @@ The rung that gives TypeScript a per-statement record: `sensorium ts run
 --focus <spec>`, resolved against the consumer's own AST before anything is
 spawned, one LINE row per completed statement of what it selected, and an
 object serial on every capture the recorder writes. Fourteen plan decisions
-(P1–P14) and thirty-nine controller rulings (R1–R39); every one that amended
+(P1–P14) and forty-two controller rulings (R1–R42); every one that amended
 a section is in the spec's §15, and §15 says which got no row and why.
 **The rung ships `DONE-WITH-STOP`** — eight endpoints, each read once, three
 of them STOPped. The gate the rung exists for, **H3**, PASSed on its first
@@ -429,7 +429,7 @@ edit must take a seam rather than a paragraph:
 
 - **`tests/test_corpus.py` at exactly 800** — the next edit must split the
   harness half out.
-- **`README.md` 793**, **`docs/TRACE-FORMAT.md` 788**,
+- **`README.md` 799**, **`docs/TRACE-FORMAT.md` 788**,
   **`typescript/HONESTY.md` 786**, **`src/sensorium/query/flow_cmd.py` 789**,
   **`typescript/src/rt.mjs` 783**, **`typescript/probes/check.mjs` 770** —
   each within a section of the gate, and each named here because this rung
@@ -451,7 +451,8 @@ edit must take a seam rather than a paragraph:
   bullet had already said it would have to be: the S5 rung-2 section is
   [`CARRIED-DEBT-ARCHIVE-8.md`](CARRIED-DEBT-ARCHIVE-8.md), a pure move
   verified byte-identical against its source, and the live file stands at
-  **533**. The next slice appends here with room.
+  **538**, five lines of which the rung's final review added. The next slice
+  appends here with room.
 - **`typescript/HONESTY-COST.md` is covered by no prose test**, the same gap
   `HONESTY-BLIND-SPOTS.md` has: a promise moved out of `HONESTY.md` is a
   promise no test reads. Watched, not acted on.
@@ -474,8 +475,8 @@ encodes, and `transform.mjs ⇄ probe.mjs` is an import cycle a `positions.mjs`
 would remove; `resolve.mjs`'s `survey` does not wrap `sitesOf` in a `try`, so
 a consumer-TypeScript throw exits 1 with a stack. In the tests and fixtures:
 `tests/test_ts_ingest_meta.py` says "777" where the file is 781;
-`test_ts_live.py`'s docstring says "the same 77 checks" where 103 are driven
-and its `:110` states 103 unasserted; `second_run` has no closed-key check
+`test_ts_live.py:110` states 103 unasserted (its "the same 77 checks"
+docstring was corrected at Task 5); `second_run` has no closed-key check
 (pre-existing); `corpus/cases.py:281-285` words an unknown `record` key's
 refusal as "the Python recorder's" (plan-mandated); `focus_async` pins a
 leading `e4 ` event id that a shorter needle would avoid; the converter
@@ -499,7 +500,11 @@ is forbidden by R11, so the singular stands); `focus.md:296` keeps a
 `~/workspace/projects/vtt` tilde path in §2 prose, outside the mandated
 grep's reach; and §1.4's CALL table uses
 `| record | line | call | args | reading |` by design, a deviation the Task-0
-report omitted to name.
+report omitted to name. In the RUNTIME, and the largest of these: **`ret`
+closes the frame before the program's `finally` runs**, so a statement in a
+`finally` the `try` reached by `return` mints no row (blind spot 38, R42) —
+sealing the frame after the finally instead is a next-slice design item,
+because it also moves the RETURN row past those statements.
 
 ### Process lessons
 

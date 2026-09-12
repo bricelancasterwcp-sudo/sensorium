@@ -129,12 +129,14 @@ and a RAISE/HANDLED with no open frame (`throw_flow_outside_frames`).
 `sensorium ts run --focus <spec>` is a **transform-time** decision, so the
 capability follows the recording and not the call: a focused run declares
 `capabilities.line: true` and `locals: true`, an unfocused one declares both
-false and writes no LINE record at all, and `watch`, `flow --value` and
-`frame`'s timeline refuse the second by the declaration rather than answering
-from an absence. A spec is `<qualname>` or `<file>:<qualname>`; the qualname
-part is a **prefix on a `.` boundary**, so `Fog` selects `Fog.compute` — and
-selects every function-like nested inside it, which is what makes a count of
-sites a property of the source rather than of the names typed.
+false and writes no LINE record at all, and `watch` and `flow --value` refuse
+the second by the declaration rather than answering from an absence — while
+`frame` prints `timeline: not captured (…)` and its exit stays 0, the frame
+itself being a fact the call tier holds. A spec is `<qualname>` or
+`<file>:<qualname>`; the qualname part is a **prefix on a `.` boundary**, so
+`Fog` selects `Fog.compute` — and selects every function-like nested inside
+it, which is what makes a count of sites a property of the source rather than
+of the names typed.
 
 ### The LINE row
 
@@ -253,7 +255,7 @@ itself under node v24.16.0, committed as
   vertical tab prints **`\x0B`**. U+2028 and U+00A0 are printable to node and
   are not escaped at all.
 * `null`, `undefined`, `true` and `false` are **predicate constants** in every
-  language (plan D9): `watch --expr 'm == null'` and `flow --value null`
+  language (spec D9): `watch --expr 'm == null'` and `flow --value null`
   answer about a value, not about a missing name.
 * A string past inspect's own **100-character** cap is the one place
   truncation cannot be read off the capture's `trunc` flag — inspect cut the

@@ -75,7 +75,10 @@ functions, one serial, `continuity: exact`, both `Array`. **H8** 6/6: 105
 corpus cases and 220 questions equal, `pytest -q` 4090 passed / 33 skipped,
 `cargo test --workspace` 773 passed, `npm --prefix typescript test` 521
 passed, the probes' 146 checks green, and 0 of nine leak needles over 13
-transcripts. **H7**, reported and gating nothing: ×**2.3816** on the median
+transcripts (the three suite totals are read from the session's own
+uncommitted logs, not from a committed cell — the record's §4.8 names each
+log; node's count is the reading's, and the rung's final review added one
+test to it). **H7**, reported and gating nothing: ×**2.3816** on the median
 wall of one 26-test file (0.7955 s → 1.8946 s, n=3 each, interleaved) for 295
 extra LINE rows and the same call tier, plus **1.132 s** of resolution over
 830 files, once per invocation.
