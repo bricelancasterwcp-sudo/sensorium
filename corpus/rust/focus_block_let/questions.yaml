@@ -1,0 +1,87 @@
+program: cargo
+cargo_args: ["--focus", "shape", "run"]
+questions:
+  - id: which-rows-say-a-name-went-out-of-scope
+    ask: >
+      Four statements of `shape` introduce names into a nested scope: a plain
+      block, an `if let`, a `for` and a `match` arm. Which row says each of
+      those names died, and what does it name?
+    truth: >
+      Each block-like statement's OWN completion row, at the statement's
+      first line, carrying the names it introduced in source order. The
+      plain block at `main.rs:16` reports `unbound:x` -- the `let x = 2;`
+      inside it, which SHADOWS the outer `x`. The `if let` at L20 reports
+      `unbound:first`, its head pattern's name. The `for` at L23 reports
+      `unbound:item`, the same rule read on a loop pattern. The `match` at
+      L26 reports `unbound:n,big`: the arm pattern's `n` first because it is
+      first in the source, then the `let big` of the arm's body. Four rows,
+      four scopes, and no name listed twice.
+    why_logs_fail: >
+      Nothing is printed when a binding ends, so a `dbg!(x)` after the block
+      is a record of the OUTER `x` and says nothing about the inner one's
+      lifetime -- and a `dbg!` inside the block prints 2 and stops, which is
+      indistinguishable from a name that is still bound and unchanged.
+      `RUST_LOG` has no logger to reach in this crate, and nothing panics, so
+      `RUST_BACKTRACE` never prints; a backtrace names frames in any case and
+      never the names alive inside one.
+    command: ["frame", "$RUN", "--fn", "shape"]
+    expect_exit: 0
+    expect_line:
+      - ["LINE", "shape L16", "unbound:x"]
+      - ["LINE", "shape L20", "unbound:first"]
+      - ["LINE", "shape L23", "unbound:item"]
+      - ["LINE", "shape L26", "unbound:n,big"]
+  - id: where-was-x-two
+    ask: >
+      `x` is 1 outside the block and 2 inside it. At which sites does the
+      recording say `x == 2`?
+    truth: >
+      At exactly two, both inside the block: the `let x = 2;` row that wrote
+      it and the `acc += x;` row after it, where the fold still carries the
+      write. SATISFIED at 2 of the 4 sites the predicate could be evaluated
+      at -- the other two are the `let x = 1;` and `let mut acc = 0;` rows,
+      where `x` is bound and the predicate is false. Everywhere after the
+      block's completion row `x` is reported NOT IN SCOPE, because that row
+      pops the name the block bound.
+    why_logs_fail: >
+      A `dbg!(x)` inside the block answers this one question and has to be
+      written before the run; the recording answers it, and the two below
+      it, from ONE run of an unmodified program. More to the point, a `dbg!`
+      cannot answer the second half -- where the name was NOT in scope --
+      because a name that is out of scope is a name a `dbg!` there does not
+      compile.
+    command: ["watch", "$RUN", "--at", "shape", "--expr", "x == 2"]
+    expect_exit: 0
+    expect_contains:
+      - "verdict: SATISFIED at 2 of the"
+      - "x: not in scope at this site"
+  - id: is-the-outer-x-readable-after-the-block
+    ask: >
+      The tail is `acc + x`, so Rust's outer `x` is alive to the end. Does
+      the recording report `x == 1` at the tail?
+    truth: >
+      No, and that is the honest reading rather than a gap. The block's
+      completion row pops `x`, so from there on the recording says NOT IN
+      SCOPE at every site rather than reporting the outer binding's stale
+      value -- a fold that kept `x = 2` alive past the block, as this
+      recorder did before this slice, would have answered about a dead name.
+      `x == 1` is SATISFIED at exactly 2 sites, the `let x = 1;` row and the
+      `let mut acc = 0;` row, both BEFORE the block; the two sites inside the
+      block evaluate it and are false. The cost is named in design §5.5: a
+      reader watching a shadowed outer binding must ask at a site before the
+      block, or after its next write.
+    why_logs_fail: >
+      This is a question about what the recording may NOT claim, and every
+      ordinary channel answers it wrongly by construction: a `dbg!(x)` at
+      the tail compiles and prints 1, which is the program's answer and not
+      the recording's, and it cannot show that the recorder had lost track
+      of which `x` that was. `RUST_LOG` and `RUST_BACKTRACE` report nothing
+      here at all.
+    command: ["watch", "$RUN", "--at", "shape", "--expr", "x == 1"]
+    expect_exit: 0
+    expect_contains:
+      - "verdict: SATISFIED at 2 of the 4 site(s) the predicate could be evaluated at"
+    expect_count:
+      "HIT": 2
+    expect_line:
+      - ["HIT", "LINE", "shape L", "x=1"]

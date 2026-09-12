@@ -1,0 +1,93 @@
+program: vitest
+harness_args: ["run", "focus_finally_return/"]
+record: {focus: ["finally.ts:settle"]}
+questions:
+  - id: did-the-finally-run-after-the-return-chose-1
+    ask: >
+      `settle(true)` returns 1. Did the `finally` run afterwards, and did it
+      set `cleanup`?
+    truth: >
+      Yes to both. The `return 1` chooses the value and the `finally` then
+      runs with the frame still OPEN, so `cleanup = 1;` mints its own row --
+      `LINE settle L13  cleanup=1` -- and `watch` reads the predicate
+      SATISFIED at 2 of the 4 sites it could be evaluated at: the `cleanup =
+      1` row itself and the `note(cleanup);` row after it, where the fold
+      still carries the write. The one site the name is bound at and the
+      predicate is false is `let cleanup = 0;`, and the CALL is the one site
+      the name is not in scope at yet.
+    why_logs_fail: >
+      A `console.log(cleanup)` in the finally is the edit the author did not
+      make, and adding it means re-running: the question is about a run that
+      already happened. The returned 1 is the whole of what the caller sees
+      and says nothing about the finally at all -- that is the shape of this
+      bug. `DEBUG=*` reaches a namespaced channel and never a local, and
+      nothing throws here, so there is no stack trace and nothing to read a
+      finally off.
+    command: ["watch", "$RUN", "--at", "settle", "--expr", "cleanup == 1"]
+    expect_exit: 0
+    expect_contains:
+      - "verdict: SATISFIED at 2 of the"
+    expect_line:
+      - ["HIT", "LINE", "settle L13", "cleanup=1"]
+  - id: where-does-the-return-row-sit-among-the-finallys-rows
+    ask: >
+      How many statement rows does one activation of `settle` record, and
+      does the RETURN come before or after the finally's rows?
+    truth: >
+      Three rows, and the RETURN comes AFTER both of them. Derived before
+      measuring, from design §4.3 and TYPESCRIPT-KEYS' statement table: one
+      row for `let cleanup = 0;` (L8), one for `cleanup = 1;` (L13) and one
+      for `note(cleanup);` (L14, an expression statement that writes no
+      identifier, so its `deltas` are empty and the row says only that the
+      line ran). Nothing else mints one: `return 1` and `return 2` never
+      complete normally, the `if` at L10 diverges through its body's return
+      so its own completion probe is never reached, its head binds nothing
+      so there is no head row, and the `try` statement itself never completes
+      normally either -- control leaves it through the return. 1 + 1 + 1 = 3.
+      The RETURN follows the finally because the return PENDS the value and
+      the wrapper's own `finally` seals the frame (design §4.2).
+    why_logs_fail: >
+      The ordering being pinned -- a value chosen, two statements run after
+      it, and only then the exit -- has no `console.log`-shaped equivalent: a
+      `console.log` before the `return` prints before the finally, one inside
+      the finally prints after it, and neither says where the function's exit
+      sits relative to either. `DEBUG=*` reaches a namespaced channel and
+      never a statement boundary, and a stack trace is produced for a throw
+      that escapes -- nothing throws here, so that channel never fires at
+      all. It is also the falsifier for blind spot 38: a finally's rows
+      missing from the frame that ran them is the recorder breaking the
+      promise that one row means one completed statement.
+    command: ["frame", "$RUN", "--fn", "settle"]
+    expect_exit: 0
+    expect_contains:
+      - "args: flag=true"
+    expect_count:
+      "LINE": 3
+    expect_line:
+      - ["LINE", "settle L13", "cleanup=1"]
+      - ["return: 1"]
+  - id: whose-child-is-the-call-the-finally-made
+    ask: >
+      The finally calls `note`. Which frame is that call a child of?
+    truth: >
+      `settle`'s. The frame is still open when the finally runs, so `note`
+      opens beneath it and the tree renders it one level deeper:
+      `settle(flag=true)` at the focused function's own depth and `note()`
+      indented two spaces further under it. `note` is not itself focused, so
+      the tree prints its arguments as `<unread: locals>` rather than
+      `n=1` -- the parentage is the fact being pinned, and it is a fact
+      about frames, not about captures. Under a recorder that
+      closes the frame at the `return`, the same call opens under whatever
+      frame is on top -- the test body -- and `note` renders as `settle`'s
+      SIBLING, which is a parentage the program never had.
+    why_logs_fail: >
+      A `console.log` inside `note` prints the argument and says nothing
+      about who called it; a stack trace would name the caller but only for
+      a throw, and nothing throws here. `DEBUG=*` prints what the program
+      chose to print, which is nothing. Parentage is a fact about frames,
+      and the ordinary channels record lines.
+    command: ["tree", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["    f", "settle(flag=true)"]
+      - ["      f", "note()", "-> 1"]
