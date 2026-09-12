@@ -266,8 +266,9 @@ itself under node v24.16.0, committed as
   `false` and the only evidence is the `… N more characters` tail outside the
   closing quote. `read_inspect` reads that tail as TRUNCATED and
   `inspect_text` refuses to spell one (plan P7), so a prefix is never
-  compared as a value. `info`'s `truncated values:` count does not include
-  such a cut (blind spot 36).
+  compared as a value. `info`'s `truncated values:` count includes such a cut
+  **from 0.13.0**, read off that same tail by `js_inspect`'s own rule rather
+  than off the flag that is down (blind spot 36, struck).
 
 ### Identity is a serial
 

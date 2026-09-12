@@ -29,17 +29,18 @@ below has seven rung-4 shapes and the seventh is `enum`/`namespace`/`static
 {}` names, not the falsy head; the falsy head is a promise §11 makes and
 `E12` H3 measured (row 9 of nine, `m=null`), not a hole.
 
-**Four items are struck and one is narrowed, none deleted.** Rung 2's runtime
+**Five items are struck and one is narrowed, none deleted.** Rung 2's runtime
 records the shapes items **2**, **3** and **11** said it did not, so each is
-struck where it stands with the date and the replacement named; item **38** is
-struck the same way at **S5 rung 4's debts (2026-09-12)**, where the seal gave
-a `finally` reached by `return` its rows and moved the RETURN past them; item
-**13** is narrowed to what is still true of a destructuring clause. A struck
-item stays visible because a reader who last met this list under
-`sensorium-ts 0.1.x` needs to see which of its holes closed, when, and what is
-left of them. Item **22** is neither struck nor narrowed but **rewritten in
-place**, at rung 2's own final review: what it claimed was never true of
-the shipped runtime, and its note says what it used to say.
+struck where it stands with the date and the replacement named; items **36**
+and **38** are struck the same way at **S5 rung 4's debts (2026-09-12)**,
+where the converter learned to count the cut `util.inspect` makes and the seal
+gave a `finally` reached by `return` its rows; item **13** is narrowed to what
+is still true of a destructuring clause. A struck item stays visible because a
+reader who last met this list under `sensorium-ts 0.1.x` needs to see which of
+its holes closed, when, and what is left of them. Item **22** is neither
+struck nor narrowed but **rewritten in place**, at rung 2's own final review:
+what it claimed was never true of the shipped runtime, and its note says what
+it used to say.
 
 **Item 27 is narrowed 2026-09-11, S5 rung 3.** The shape it named — an
 untraced catcher between two traced frames — is no longer invisible: the
@@ -397,7 +398,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     commands can answer about a value the other cannot search for.
     *(Added 2026-09-12.)* *Falsifier:* `tests/test_js_inspect.py`,
     `corpus/typescript/flow_value_inspect`.
-36. **`info`'s `truncated values:` count does not include an
+36. ~~**`info`'s `truncated values:` count does not include an
     inspect-dialect string cut.** A string past inspect's own 100-character
     cap is cut by the FORMATTER, long before the 200-byte wire cap looks at
     the rendering, so the capture's `trunc` flag is `false` and the counter
@@ -408,7 +409,20 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     total says none was. A reader trusting the count alone under-counts what
     was clipped. *(Added 2026-09-12.)* *Falsifier:*
     `corpus/typescript/flow_value_inspect` (the 150-character value),
-    `tests/test_js_inspect.py`.
+    `tests/test_js_inspect.py`.~~ — **Closed 2026-09-12, S5 rung 4's
+    debts** (`sensorium` 0.13.0, design §6.1): the converter counts the tail
+    as well as the flags. `ts/build.py`'s capture walk asks `js_inspect`'s
+    own `_body` whether a `dbg` capture's text is a CUT string — the closing
+    quote is what tells that from a string whose CONTENT ends `… 50 more
+    characters`, and it is the rule `watch --expr` and `flow --value` already
+    read these texts by, not a second one — so an inspect-side cut lands in
+    `truncated_count` beside `trunc`, `type_trunc` and `name_trunc`, and
+    `info`'s total now says what `watch` says site by site. *Falsifier:*
+    `corpus/typescript/focus_long_string` (100 characters spelled whole, 101
+    carrying `… 1 more character`, `truncated values: 1`),
+    `tests/test_ts_ingest_focus.py` (*a string inspect cut is counted though
+    its trunc flag is down*, and the counterpart that a string whose own
+    content ends that way is not).
 37. **A new TypeScript corpus case cannot ask an `exceptions` question.**
     `typescript/acceptance/e6ts.py` carries a locked `PRE_REGISTERED` table
     — the rung-2 verdicts, hand-adjudicated before that code existed — and
