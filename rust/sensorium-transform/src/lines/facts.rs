@@ -605,19 +605,34 @@ mod tests {
         assert_eq!(unbound("match o { Some(a) => a * 2, None => 0 }"), ["a"]);
     }
 
-    /// An `if`'s whole scope: the condition's `let`s, the `then` block's and
-    /// the `else` block's. An `else if` is a nested block-like and is NOT
-    /// descended into -- its own names are unbound by no row at all, because
-    /// an `else if` is not a statement (declared in `if_scope`'s docs).
+    /// An `if`'s whole scope, ruling P13: the condition's `let`s and the
+    /// `then` block's for EVERY link of the `else if` chain, then the final
+    /// `else` block's -- because an `else if` is the outer `if`'s
+    /// `else_branch` expression and never a statement, so this is the only row
+    /// that can end those names. A nested `if` that IS a statement inside one
+    /// of the bodies still unbinds its own.
     #[test]
-    fn an_if_reaches_both_branches_and_stops_at_an_else_if() {
+    fn an_if_reaches_every_link_of_its_else_if_chain_and_its_final_else() {
         assert_eq!(
             unbound("if let Some(a) = o { let p = 1; } else { let q = 2; }"),
             ["a", "p", "q"]
         );
         assert_eq!(
             unbound("if c { let p = 1; } else if d { let q = 2; }"),
-            ["p"]
+            ["p", "q"]
+        );
+        assert_eq!(
+            unbound(
+                "if c { let p = 1; } else if let Some(q) = o { let r = q; } \
+                 else { let s = 0; }"
+            ),
+            ["p", "q", "r", "s"],
+            "three links, source order, each name once"
+        );
+        assert_eq!(
+            unbound("if c { let p = 1; if d { let x = 2; } } else if e { let q = 3; }"),
+            ["p", "q"],
+            "the nested `if` is a STATEMENT and unbinds its own `x`"
         );
     }
 

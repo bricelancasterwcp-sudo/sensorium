@@ -582,6 +582,7 @@ pub const FOCUS_CASES: &[(&str, &str)] = &[
     ("focus_try", "read_one"),
     ("focus_unbound_block", "sums"),
     ("focus_unbound_cfg", "conditional"),
+    ("focus_unbound_elseif", "chained"),
     ("focus_unbound_for", "total"),
     ("focus_unbound_iflet", "first_of"),
     ("focus_unbound_match", "sized"),

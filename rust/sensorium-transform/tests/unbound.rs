@@ -21,8 +21,9 @@
 //!   such a name and no row may say it died -- design §5.2's "a row that said
 //!   a name went out of scope where none came in would be a row that invents".
 //!   `focus_closure` is the standing fixture for the walk stopping there, and
-//!   it gains no `line_unbinding` fragment: `every_existing_focus_golden_...`
-//!   below is what says so, over the whole directory at once.
+//!   it gains no `line_unbinding` fragment:
+//!   `exactly_these_focus_goldens_carry_an_unbinding_fragment` below is what
+//!   says so, over the whole directory at once.
 //! * A block-like expression that is not a STATEMENT -- the value block
 //!   `let y = { let x = 1; x };`. `x` is bound by a probe (the walk reaches
 //!   inner blocks at every depth) and there is no completion row to pop it,
@@ -134,6 +135,20 @@ fn a_nested_block_like_statement_unbinds_its_own_and_the_outer_row_is_not_told()
     );
 }
 
+/// Ruling P13: an `else if` is the outer `if`'s `else_branch` EXPRESSION and
+/// never a statement, so it has no completion row of its own and the outer
+/// `if`'s row is the only one that can end the chain's names. The row walks
+/// every link -- `p` from the head, `q` from the second link's `let`-chain,
+/// `r` from its body, `s` from the final `else` -- in source order.
+///
+/// Under P7's withdrawn clause this row said `["p"]` alone and the other
+/// three names were bound by rows nothing balanced.
+#[test]
+fn an_else_if_chain_is_unbound_by_the_outer_ifs_row_because_it_has_no_other() {
+    let t = run("focus_unbound_elseif");
+    assert_eq!(unbound_lists(&t), ["\"p\", \"q\", \"r\", \"s\""]);
+}
+
 /// A `cfg`'d `let` is neither a delta nor an unbind: the probe after it is
 /// declined, so the name never entered, so no row may say it left.
 #[test]
@@ -192,6 +207,7 @@ fn exactly_these_focus_goldens_carry_an_unbinding_fragment() {
             "focus_loop",
             "focus_unbound_block",
             "focus_unbound_cfg",
+            "focus_unbound_elseif",
             "focus_unbound_for",
             "focus_unbound_iflet",
             "focus_unbound_match",
