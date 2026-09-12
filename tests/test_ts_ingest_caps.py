@@ -2,9 +2,15 @@
 into `meta`.
 
 A separate file, not folded into `test_ts_ingest_meta.py`: that module is
-at 781 of its own 800-line ceiling (`wc -l tests/test_ts_ingest_meta.py`,
-2026-09-12), with no room left for a third concern (P12 of the throw-flow
-plan).
+at 785 of its own 800-line ceiling (`wc -l tests/test_ts_ingest_meta.py`,
+2026-09-12) -- fifteen lines, which is no room for a third concern (P12 of
+the throw-flow plan).
+
+The number said 777 against a file of 781 until 2026-09-12, and then 781
+against a file of 785 within the same day's work, because a count written
+into prose is only true until the next commit to the file it counts. Read
+it as the order of magnitude it is for -- that module is full -- and
+re-run the command beside it before relying on the digits.
 """
 import json
 
