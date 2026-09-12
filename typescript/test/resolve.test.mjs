@@ -2,9 +2,14 @@
 // real directory, with the root and the specs in its environment and one JSON
 // line on its stdout.
 //
-// The temporary root lives under `probes/`, as `hook.test.mjs`'s does, because
-// the resolver resolves the consumer's own `typescript` from the ROOT and that
-// is where a copy exists.
+// The temporary root lives in the system temp directory, and its one
+// `node_modules/typescript` is a symlink to the probe project's copy: the
+// resolver resolves the consumer's own TypeScript from the ROOT, which is why
+// these roots used to be written INSIDE `probes/` (CARRIED-DEBT's minor, and
+// a run that died left `resolvetmp-*` directories inside the package). The
+// symlink gives the root the one dependency it needs and leaves the package
+// alone; the walk never enters a `node_modules`, so it changes nothing the
+// resolver sees.
 //
 // What is pinned here is everything a refusal rests on: which files are walked
 // at all, which function-likes are eligible, what an unmatched spec is offered
@@ -16,16 +21,36 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { SEP } from '../src/focus.mjs';
+import { survey } from '../src/resolve.mjs';
 import { sitesOf } from '../src/transform.mjs';
 
 const PKG = fileURLToPath(new URL('../', import.meta.url));
 const PROBES = path.join(PKG, 'probes');
 const RESOLVE = path.join(PKG, 'src', 'resolve.mjs');
+
+/**
+ * A root in the system temp directory, with the files written into it and the
+ * consumer's TypeScript linked in where a consumer's own would be.
+ * @param {Record<string, string>} files
+ * @returns {string} the root
+ */
+function writeRoot(files) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sensorium-resolve-'));
+  for (const [rel, source] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), source);
+  }
+  fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
+  fs.symlinkSync(path.join(PROBES, 'node_modules', 'typescript'),
+    path.join(root, 'node_modules', 'typescript'), 'dir');
+  return root;
+}
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
@@ -98,12 +123,8 @@ const FILES = {
  * @returns {{res: import('node:child_process').SpawnSyncReturns<string>, json: any}}
  */
 function resolve(specs, files = FILES, env = {}) {
-  const root = fs.mkdtempSync(path.join(PROBES, 'resolvetmp-'));
+  const root = writeRoot(files);
   try {
-    for (const [rel, source] of Object.entries(files)) {
-      fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
-      fs.writeFileSync(path.join(root, rel), source);
-    }
     // The child's environment is decided here and not inherited: a shell that
     // exported SENSORIUM_FOCUS would otherwise answer a different question.
     const inherited = { ...process.env };
@@ -138,7 +159,7 @@ test('a spec matching one function answers with that function alone', () => {
   const { res, json } = resolve(['cache.ts:refresh']);
   assert.equal(res.status, 0, res.stderr);
   assert.deepEqual(json.matched, [
-    { rel: 'src/cache.ts', qualname: 'refresh', line: 1, kind: 'function' },
+    { rel: 'src/cache.ts', qualname: 'refresh', line: 1, kind: 'function', deferred: false },
   ]);
   assert.deepEqual(json.unmatched, []);
   assert.deepEqual(json.excluded_only, []);
@@ -148,8 +169,8 @@ test('a spec matching one function answers with that function alone', () => {
 test('a container spec matches every member under it', () => {
   const { json } = resolve(['Fog']);
   assert.deepEqual(json.matched, [
-    { rel: 'src/fog.ts', qualname: 'Fog.compute', line: 2, kind: 'function' },
-    { rel: 'src/fog.ts', qualname: 'Fog.render', line: 6, kind: 'function' },
+    { rel: 'src/fog.ts', qualname: 'Fog.compute', line: 2, kind: 'function', deferred: false },
+    { rel: 'src/fog.ts', qualname: 'Fog.render', line: 6, kind: 'function', deferred: false },
   ]);
 });
 
@@ -184,7 +205,7 @@ test('a spec selecting only functions this recorder excludes says which', () => 
 test('an overload signature never hides the implementation beside it', () => {
   const { json } = resolve(['pick']);
   assert.deepEqual(json.matched, [
-    { rel: 'src/pick.ts', qualname: 'pick', line: 3, kind: 'function' },
+    { rel: 'src/pick.ts', qualname: 'pick', line: 3, kind: 'function', deferred: false },
   ]);
   assert.deepEqual(json.excluded_only, []);
 });
@@ -283,4 +304,77 @@ test('a file that does not parse has no excluded sites to name', () => {
   const out = sitesOf('export function f() {\n  g(\n}\n', '/w/src/a.ts', { root: '/w', ts });
   assert.ok(out);
   assert.deepEqual(out.excludedSites, []);
+});
+
+// --- what the resolver says about the seal, and what it survives -----------
+
+test('every matched function says whether its exit is deferred', () => {
+  // `deferred` rides the site (design §4.2, plan A3), so the answer a caller
+  // gets before the run says which functions the seal will change. It is not
+  // a focus question: an unfocused run's wrappers move for the same shape.
+  const { res, json } = resolve(['seal.ts:plain', 'seal.ts:settle'], {
+    'package.json': '{"name": "sealtmp", "type": "module"}\n',
+    'src/seal.ts': [
+      'export function plain(): number {',
+      '  return 1;',
+      '}',
+      '',
+      'export function settle(): number {',
+      '  try {',
+      '    return 1;',
+      '  } finally {',
+      '    cleanup();',
+      '  }',
+      '}',
+      '',
+    ].join('\n'),
+  });
+
+  assert.equal(res.status, 0, res.stderr);
+  assert.deepEqual(json.matched, [
+    { rel: 'src/seal.ts', qualname: 'plain', line: 1, kind: 'function', deferred: false },
+    { rel: 'src/seal.ts', qualname: 'settle', line: 5, kind: 'function', deferred: true },
+  ]);
+});
+
+test('a file the consumer’s TypeScript throws on is counted, named, and walked past', () => {
+  // The minor CARRIED-DEBT named: `sitesOf` runs the consumer's own parser
+  // over a file this recorder did not write, and a throw from it took the
+  // whole resolution down — a focus nobody could resolve because ONE file in
+  // the tree was unreadable. It is now what an unparsable file always was:
+  // a file that offered no sites, counted so the numbers reconcile, and
+  // named on stderr so it is not a silent subtraction.
+  const root = writeRoot({
+    'package.json': '{"name": "throwtmp", "type": "module"}\n',
+    'src/good.ts': 'export function good(): number {\n  return 1;\n}\n',
+    'src/bad.ts': 'export function bad(): number {\n  return 2;\n}\n',
+  });
+  /** @type {string[]} */
+  const errs = [];
+  const real = process.stderr.write.bind(process.stderr);
+  process.stderr.write = /** @type {any} */ ((/** @type {unknown} */ chunk) => {
+    errs.push(String(chunk));
+    return true;
+  });
+  /** @type {ReturnType<typeof survey>} */
+  let out;
+  try {
+    out = survey(root, ts, {
+      sitesOf: (/** @type {string} */ code, /** @type {string} */ file,
+        /** @type {any} */ opts) => {
+        if (file.endsWith('bad.ts')) throw new Error('consumer typescript threw');
+        return sitesOf(code, file, opts);
+      },
+    });
+  } finally {
+    process.stderr.write = real;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+
+  assert.equal(out.unparsable, 1);
+  assert.equal(out.scanned, 2);
+  assert.deepEqual(out.eligible.map((site) => site.qualname), ['good']);
+  assert.equal(errs.length, 1, errs.join(''));
+  assert.match(errs[0], /src\/bad\.ts/);
+  assert.match(errs[0], /consumer typescript threw/);
 });
