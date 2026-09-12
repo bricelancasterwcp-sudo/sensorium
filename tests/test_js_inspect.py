@@ -57,7 +57,7 @@ MARKERS = ("bigint", "undefined", "nan", "inf", "negzero", "opaque")
 
 def literal_of(lit):
     """The Python value one row's `literal` field names, or `OPAQUE`."""
-    if isinstance(lit, dict) and len(lit) == 1:
+    if isinstance(lit, dict) and len(lit) == 1 and next(iter(lit)) in MARKERS:
         (key, val), = lit.items()
         if key == "bigint":
             return int(val)
@@ -69,8 +69,7 @@ def literal_of(lit):
             return math.inf * val
         if key == "negzero":
             return -0.0
-        if key == "opaque":
-            return OPAQUE
+        return OPAQUE                          # key == "opaque"
     if isinstance(lit, (dict, list)):
         # An array or an object: a real JSON value, and still no literal a
         # command can name -- `--value` takes scalars.
