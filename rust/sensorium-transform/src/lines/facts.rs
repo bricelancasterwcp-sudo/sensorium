@@ -421,21 +421,42 @@ pub(super) fn unbound_of(expr: &Expr) -> Vec<String> {
     once_each(names)
 }
 
-/// An `if`'s own scope: the condition's `let` bindings, then the `then`
-/// block's `let`s, then the `else` branch's.
+/// An `if`'s own scope, and the whole of its `else if` chain: every link's
+/// condition bindings and its `then` block's direct `let`s, then the final
+/// plain `else` block's, in source order.
 ///
-/// An `else if` is an `Expr::If` sitting in `else_branch`, which is itself
-/// block-like -- so this does not descend into it. Its head pattern's names
-/// and its body's `let`s are therefore unbound by NO row, because an `else if`
-/// is not a statement and has no completion row of its own. That is a stated
-/// gap rather than a row invented at the outer `if`'s site, which is a
-/// different scope ending at a different moment.
+/// **Ruling P13 (2026-09-12), which withdrew P7's earlier clause.** An `else
+/// if` is the outer `if`'s `else_branch` EXPRESSION -- not a statement
+/// standing in a block -- so the LINE walk never gives it a completion row of
+/// its own, and the outer `if` statement's row is the ONLY row that can say
+/// those names ended. Under P7 this walk stopped at the first `else if`, and
+/// its head pattern's names and its body's `let`s were bound by an entry row
+/// and a `let` row that nothing ever balanced: the fold kept answering for
+/// them forever. Walking the chain is what makes every name that entered
+/// leave.
+///
+/// The loop is a walk and not a recursion for the same reason: the chain is
+/// ONE statement's scope, not a stack of them.
+///
+/// A nested `if` that is a STATEMENT inside one of those bodies is reached by
+/// [`block_lets`], which collects only `Stmt::Local`s -- so it still unbinds
+/// its own on its own row, exactly as before.
 fn if_scope(node: &ExprIf, out: &mut Vec<String>) {
-    out.extend(let_bindings(&node.cond));
-    block_lets(&node.then_branch, out);
-    if let Some((_, otherwise)) = &node.else_branch {
-        if let Expr::Block(e) = &**otherwise {
-            block_lets(&e.block, out);
+    let mut link = node;
+    loop {
+        out.extend(let_bindings(&link.cond));
+        block_lets(&link.then_branch, out);
+        match link.else_branch.as_ref().map(|(_, e)| &**e) {
+            // `else if ..` -- the next link of the SAME statement's scope.
+            Some(Expr::If(next)) => link = next,
+            // A plain `else { .. }` ends the chain.
+            Some(Expr::Block(e)) => {
+                block_lets(&e.block, out);
+                return;
+            }
+            // No `else` at all, or an `else` shape `syn` spells some other
+            // way: nothing more this row may claim.
+            _ => return,
         }
     }
 }
