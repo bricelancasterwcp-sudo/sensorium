@@ -517,7 +517,7 @@ crates the same way `sensorium run` records a Python program: one
 sensorium trace per process, trace format 4, read by the same `sensorium`
 command line. `rust/` ships `sensorium-rt 0.5.0` (zero dependencies, the
 runtime linked into every instrumented unit, and the owner of the one sha256
-the other two hash with), `sensorium-transform 0.4.4`
+the other two hash with), `sensorium-transform 0.5.0`
 (the `syn` rewriter), and `cargo-sensorium 0.5.3` (driver, workspace wrapper,
 target runner, converter — one binary, four roles). What it does and does not
 see is [`rust/HONESTY.md`](rust/HONESTY.md) with
@@ -547,7 +547,7 @@ read by Python **0.8.6**. The 61 originals were recorded earlier, by
 `cargo-sensorium` **0.5.0**: that difference between the recording driver and
 the re-running one is the CONDITION the second claim needs, not an accident of
 bookkeeping. The crate numbers at the top of this section are today's
-(**0.4.1 / 0.4.4 / 0.5.3**) and Python **0.12.0** reads these traces now. All
+(**0.5.0 / 0.5.0 / 0.5.3**) and Python **0.12.0** reads these traces now. All
 four moved after the measurement — the crates for the sha256 consolidation —
 and none of them is a version that produced a number above.
 

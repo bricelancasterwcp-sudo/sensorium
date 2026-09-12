@@ -9,7 +9,7 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 reading logs is reading a diary, and this is watching the execution.
 
 Three crates, all `publish = false`: **`sensorium-rt 0.5.0`**,
-**`sensorium-transform 0.4.4`** and **`cargo-sensorium 0.5.3`**. All three
+**`sensorium-transform 0.5.0`** and **`cargo-sensorium 0.5.3`**. All three
 were `0.4.0` at the focus tier of 2026-09-06 (a new wire kind, LINE, and the
 `--focus` flag that mints it); on 2026-09-07 the refocus slice moved
 `sensorium-transform` alone to `0.4.1` for the brace-delimited-macro-tail
@@ -36,7 +36,17 @@ block-like statement's row says which of its bindings died with it and a
 reader's fold stops answering for a `let` that is gone. No new record kind, no
 header change, and the fragment of a statement that unbinds nothing is byte for
 byte the one `0.4.1` spliced; a trace this runtime writes says
-`recorder: sensorium-rt 0.5.0`.
+`recorder: sensorium-rt 0.5.0`. `sensorium-transform` moved with it, to
+**`0.5.0`**, because it is the crate that decides which names go in such a
+row: a block-like statement in statement position — a plain block, an
+`unsafe`, an `if`/`if let`, a `match`, a `loop`/`while`/`for`, a `try` block
+— unbinds, in source order and each name once, its own head pattern's names
+and the `let`s of its DIRECT blocks. Never a nested block-like statement's
+(that one has a row of its own), never a closure's or an `async` block's (no
+probe ever bound them), and never a `let` a `cfg` may take out of the build.
+A statement with nothing to unbind splices the `line` fragment it always
+spliced, so an instrumented build without a block is byte for byte what
+`0.4.4` produced.
 Before that all three were `0.3.0` at the err-flow rung of 2026-09-05
 (wire v3: RAISE/HANDLED records, a typed `err` RETURN, and the `err_flow`
 capability); later that day the borrow repair moved `sensorium-transform` and
