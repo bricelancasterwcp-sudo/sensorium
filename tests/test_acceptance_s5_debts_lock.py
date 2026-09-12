@@ -21,17 +21,22 @@ Five claims this slice makes about itself, held by tests rather than by prose:
   forms fail on the same mutation -- one byte of §1 -- and both rest on the
   same assumption, that the test and the record are not edited together.
 
-* **§1 was amended once, on its own lock day, and BOTH shas are carried.**
-  Controller ruling P6 read spec §6.2 over plan A7 and made
-  `focus_catch_binding`'s reason line a PINNED `None` rather than a case left
-  unchecked; §1.7's closing sentence had said the opposite, so a dated
-  paragraph was added inside §1 giving the old sentence, the new claim and the
-  reason. `ORIGINAL_LOCK` is §1's sha as the pre-registration commit carried
-  it and `BYTE_LOCK` its sha after the amendment, and the check below
-  recomputes the ORIGINAL out of `ORIGINAL_COMMIT` rather than trusting the
-  constant -- so "amended, from exactly that text" is a fact git holds. The
-  amendment ADDED a paragraph and moved no table row of the pre-registration,
-  which is its own test.
+* **§1 was amended TWICE, and BOTH end-shas are carried (only the two
+  endpoints, not one per amendment).** Controller ruling P6 read spec §6.2
+  over plan A7 and made `focus_catch_binding`'s reason line a PINNED `None`
+  rather than a case left unchecked; §1.7's closing sentence had said the
+  opposite, so a dated paragraph was added inside §1 giving the old
+  sentence, the new claim and the reason. Ruling P16 then found the SWALLOWED
+  count itself wrong -- Task 8, running the case, read `dispositions:
+  swallowed 1` against a pre-registered `0` -- so a second dated paragraph
+  was added pre-registering the corrected clause, E6-TS″, beside the
+  original E6-TS′ rather than editing it. `ORIGINAL_LOCK` is §1's sha as the
+  pre-registration commit carried it, before either amendment, and
+  `BYTE_LOCK` its sha after both; the check below recomputes the ORIGINAL
+  out of `ORIGINAL_COMMIT` rather than trusting the constant -- so "amended,
+  from exactly that text" is a fact git holds. Both amendments ADDED a
+  paragraph and moved no table row of the pre-registration, which is its
+  own test.
 
 * **§1's bodies are verbatim.** §1 says its four blocks are byte-for-byte the
   design's `### 3.3`, `### 3.4` and `## 8` and the plan's `## Pre-registration
@@ -108,9 +113,10 @@ CENSUS_REL = ("docs/superpowers/acceptance/"
 HANDCOUNT = REPO / HANDCOUNT_REL
 CENSUS = REPO / CENSUS_REL
 
-#: The sha256 of §1 as it now stands: the ORIGINAL lock plus the dated §1.7
-#: amendment. `None` skips every real-document check BY NAME.
-BYTE_LOCK = "6c501369b00d260341012ba2d106d32559571ca2c37a14704de36213574744d7"
+#: The sha256 of §1 as it now stands: the ORIGINAL lock plus BOTH dated §1.7
+#: amendments (P6's reason-line pin, P16's SWALLOWED-count correction).
+#: `None` skips every real-document check BY NAME.
+BYTE_LOCK = "a973d04ff87285d30f279d3115f4e08f214905043af6f19f08e27404e5f0de5d"
 
 #: The sha256 of §1 as the pre-registration commit carried it, before the
 #: amendment. Both shas travel together so the amendment is a visible fact of

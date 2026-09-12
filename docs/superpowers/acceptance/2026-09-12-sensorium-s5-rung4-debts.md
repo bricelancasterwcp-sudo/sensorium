@@ -331,6 +331,42 @@ amendment moves no other row, method or derivation of §1. `ORIGINAL_LOCK` in
 paragraph and `BYTE_LOCK` the sha after it, so the amendment is a fact the
 lock publishes rather than a claim this prose makes.
 
+**§1.7 second amendment (2026-09-12, Task 8, ruling P16) — the SWALLOWED
+count was misread from a sibling command's vocabulary** (committed alone
+and adding a third sha to the pair above, as the rung-4 design's §8
+requires of a dated amendment inside §1). Task 8, assigned to write
+`focus_catch_binding`'s `exceptions` question, ran it and read: `dispositions:
+swallowed 1` — not the **0** this section pre-registers. The hand
+adjudication above read `retry.ts:17`'s `catch (e) { count += 1 }` in
+`grep --kind HANDLED`'s vocabulary — a HANDLED event, traced with
+confidence — and concluded "nothing swallowed" from that confidence.
+`src/sensorium/query/exceptions_typescript.py`'s own rule (module
+docstring, line 30-32) says otherwise: "``swallowed``   an absorbing
+handler took it and the frame holding that handler then returned." The
+clause neither rethrows nor logs (`how="catch"`, in `ABSORBING`, not
+`ESCAPING`) and `attempts` returns normally once the loop ends — exactly
+that rule, and the same shape as `silent_swallow`, already pinned at 1.
+HANDLED is a fact about attribution, not about disposition, and the
+earlier adjudication read one for the other.
+
+The clause this section pre-registers — E6-TS′, `focus_catch_binding` at
+**0** SWALLOWED — stands as it was written, before any code existed, and is
+now expected to STOP at measurement for exactly that reason: the row it
+pins is the wrong one, so a faithful measurement of the case cannot match
+it. **E6-TS″** is the corrected clause this amendment pre-registers beside
+it, not in place of it: `e6ts.PRE_REGISTERED["focus_catch_binding"] = 1`
+and `e6ts.PRE_REGISTERED_REASON_LINE["focus_catch_binding"] = None`
+(unchanged — a SWALLOWED verdict carries no `ambiguous by reason:` line
+either), derived from the disposition rule quoted above rather than from a
+hand read of a different command's output. Task 11 measures both clauses
+once each and reports both: E6-TS′ as pre-registered, expected to STOP, and
+E6-TS″ as the corrected clause this slice ships. This amendment still moves
+no table row, method or derivation of §1 above it — the "swallow set is
+non-empty" clause and the reason-line pin both hold under E6-TS″ exactly as
+under E6-TS′. `BYTE_LOCK` in `tests/test_acceptance_s5_debts_lock.py` now
+carries the sha of §1 after this paragraph too; `ORIGINAL_LOCK` is
+unchanged — still the pre-registration commit, before either amendment.
+
 ### 1.8 Fences
 
 Nothing else moved:
