@@ -125,9 +125,12 @@ def test_a_vitest_focus_reaches_the_command_in_order(tmp_path, monkeypatch,
 
 
 @pytest.mark.parametrize("over,says", [
-    ({"record": {"window": "main"}}, "'window' is the Python recorder's"),
+    # Named as outside the vitest driver's closed key set, not as another
+    # recorder's: `window` happens to be Python's, and a typo is nobody's.
+    ({"record": {"window": "main"}},
+     "record 'window' is not a key a 'vitest' case's record may carry"),
     ({"record": {"focus": ["f"], "window": "m"}},
-     "'window' is the Python recorder's"),
+     "the set is closed and holds one, 'focus'"),
     ({"record": {"focus": "fill"}}, "non-empty list of function specs"),
     ({"record": {"focus": []}}, "non-empty list of function specs"),
     ({"record": {"focus": [3]}}, "non-empty list of function specs"),

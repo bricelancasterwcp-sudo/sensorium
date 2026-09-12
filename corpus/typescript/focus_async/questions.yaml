@@ -24,7 +24,17 @@ questions:
     command: ["frame", "$RUN", "--fn", "load"]
     expect_exit: 0
     expect_contains:
-      - "e4 LINE    load L20\n  ~ e7 YIELD   load awaiting Promise"
+      # Without the event ids. `e4`/`e7` were the numbering of one recording
+      # and pinned nothing this question asks: a row inserted anywhere
+      # earlier renumbers both and fails a needle that is still true.
+      - "LINE    load L20"
+      - "YIELD   load awaiting Promise"
+      # The ADJACENCY the id-bearing needle also carried, spelled without
+      # one: the L20 row is immediately followed by a sub-row, and that
+      # sub-row is the YIELD above. This is the question's own claim -- the
+      # placeholder was published before the value existed -- so it is
+      # pinned rather than left to the prose.
+      - "load L20\n  ~ "
       - "args: key='rate'"
       - "return: 400"
     expect_line:

@@ -2,8 +2,9 @@
 into `meta`.
 
 A separate file, not folded into `test_ts_ingest_meta.py`: that module is
-at 777 of its own 800-line ceiling, with no room left for a third concern
-(P12 of the throw-flow plan).
+at 781 of its own 800-line ceiling (`wc -l tests/test_ts_ingest_meta.py`,
+2026-09-12), with no room left for a third concern (P12 of the throw-flow
+plan).
 """
 import json
 

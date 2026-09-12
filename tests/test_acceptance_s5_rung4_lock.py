@@ -388,7 +388,10 @@ def test_the_hand_count_is_the_shape_the_pre_registration_describes():
     assert len(rows) == 9, len(rows)
     assert [r[1].strip() for r in rows] == [str(n) for n in range(1, 10)]
     for r in rows:
-        assert len(r) == 8, r[:70]          # six columns -> eight pipe fields
+        # `r` is the row's pipe FIELDS, so slicing it took the first seventy
+        # fields -- a no-op on a row of eight, which left the failure message
+        # with no row in it. Joined first, so a bad row is readable.
+        assert len(r) == 8, "|".join(r)[:70]   # six columns -> eight fields
         for cell in (r[4], r[5]):           # deltas, unbound
             assert cell.strip() == "-" or re.fullmatch(
                 r"[A-Za-z_$][A-Za-z0-9_$]*(, [A-Za-z_$][A-Za-z0-9_$]*)*",
