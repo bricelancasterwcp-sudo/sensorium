@@ -442,15 +442,18 @@ position (§2.3, entry 1). The set and the count are §1.5's.
 
 **Eleven, each with the commit that carried it.** Every one was decided and
 committed **before** the endpoint it touches had read a number; a defect
-found after a number is read is a finding in §4 and not an entry here. All
-eleven are `68b7eb9` — the one commit that carries this rung's instruments,
-written and dry-run on `typescript/probes` before the lens was opened.
+found after a number is read is a finding in §4 and not an entry here. Ten
+of the eleven are instrument changes carried by `68b7eb9`, the one commit
+that carries this rung's instruments, written and dry-run on
+`typescript/probes` before the lens was opened. Entry 3 is the exception and
+says so in its own column: it is a NOTE, decided at `68b7eb9`, about two
+diffs earlier tasks made.
 
 | # | what changed | commit | why |
 |---|---|---|---|
 | 1 | **§1.5's ninth and tenth commands run in the other order**: `grep F1 dice --kind LINE` immediately before `flow F1 --object e<id>:dice` | `68b7eb9` | §1.5 lists the flow ninth and the grep tenth, and §1.4 makes the grep the LOOKUP that produces `e<id>` — the ninth command's argument is the tenth command's answer, so both orders cannot be run. The SET and the COUNT are §1.5's, and the count is what the journal's pre-registered delta is about; §1.5's own prose already calls that grep "§1.4's lookup". `e12_report.py`'s docstring and `e12-reads.json`'s `order_change` both name the swap |
 | 2 | **The fence glob carries exactly ONE changed line, named in advance** — `tests/test_exceptions_rust_grouping.py:697`, the plan-mandated `site=site` after `Shape.site` became required (ruling R12) | `68b7eb9` | that file is inside `tests/test_exceptions_rust*.py`, so E-legacy's first claim reads one changed line and not zero. R12 names line 696; the measured line is **697** and this pin is the measured one. `e_fences.py`'s docstring names it |
-| 3 | **Two further diffs the legacy reading names** (ruling R35): `docs/trace-format/vectors/v23-lang-typescript-prose.json`'s re-pin, forced by the `timeline_hint` rewrite (`frame` now names `sensorium ts run --focus <file>:<qualname>` where it used to say per-line capture is rung 3's), and `corpus/typescript/object_refused`'s rewrite into `object_identity` | `68b7eb9` | neither is inside the fence, so neither moves E-legacy; both are the kind of change a reader of "did nothing else move?" should be handed rather than left to discover |
+| 3 | **Two further diffs the legacy reading names** (ruling R35): `docs/trace-format/vectors/v23-lang-typescript-prose.json`'s re-pin, forced by the `timeline_hint` rewrite (`frame` now names `sensorium ts run --focus <file>:<qualname>` where it used to say per-line capture is rung 3's), and `corpus/typescript/object_refused`'s rewrite into `object_identity` | a NOTE, at `68b7eb9`, on `3895a51` and `f0606b5`/`f501545` | this row is the only one in this table that is not a change `68b7eb9` carried: the two diffs are EARLIER tasks' — v23's re-pin at `3895a51` (Task 6's vectors), the corpus case's answer at `f0606b5` and its rename into `object_identity` at `f501545` (Task 8's) — and what `68b7eb9` carries is the decision to name them here before E-legacy was read. Neither is inside the fence, so neither moves E-legacy; both are the kind of change a reader of "did nothing else move?" should be handed rather than left to discover |
 | 4 | `existing(FENCED_TESTS)` hoisted above the `git diff` in `e_fences.py`'s `legacy()` | `68b7eb9` | a fence pattern matching no file refuses the whole run, and refusing AFTER a diff has been taken leaves a reading nobody can use beside a refusal nobody asked for (Task 1's minor) |
 | 5 | **H3's N is read from the hand-count FILE's LAST line** (`N = 9`), and `e12_h3.py` refuses when that line and the table's row count disagree | `68b7eb9` | the table and the sentence are two statements of one prediction and §1 calls the last line the gate. A prediction that contradicts itself has not been made, and nothing is measured against it (Task 0's minor) |
 | 6 | **Each `--expr` is passed as ONE argv element**: the reader takes the rest of §1.5's line after `--expr ` | `68b7eb9` | §1.5 writes the predicate unquoted and last (`--expr groups == 0`) and says each `--expr` is one shell argument; `shlex.split` alone would hand `watch` three arguments and a usage error (Task 0's minor) |
@@ -474,7 +477,18 @@ states and §3 does not use to soften a word.
 
 The numbers below are
 `docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.results.json`,
-assembled by `typescript/acceptance/assemble_rung4.py`. Every cell is
+assembled by `typescript/acceptance/assemble_rung4.py`, **with one stated
+exception**: H8's four SUITE AGGREGATES — cargo's 773/0/23, node's 521/0,
+the probes' 12 spools and 146 checks, and cargo's count of 44 `test result`
+sections — are read from the session's own suite logs under `<out>/h8/logs`,
+which are NOT committed. The H8 cell commits each suite's exit status and
+the last three lines of its log and nothing more (`e12_h8.sh`'s `suite_in`
+and its `tail`), so those four aggregates are traceable to a log this record
+names per suite and not to a cell. Every other number in this section, H8's
+corpus counts, its pytest counts and its needle total included, is a cell in
+that file. The H8 row and §4.8 say so again where they use them, because a
+figure whose source a reader has to infer is a figure this record has not
+actually shown them. Every cell is
 `{value, n, lens, dropped}` plus `recorder` / `recorder_rev` /
 `recorder_basis`; `recorder_basis` reads `own` on all eight, because every
 instrument recorded its own. The recorder is **`sensorium 0.11.0 /
@@ -510,7 +524,7 @@ which is what `tests/test_acceptance_s5_rung4_lock.py` already does.
 | H5 | does `flow --value` see it? | **2 of 3** — S1 (`20`, `sides`, `diceQueue.ts:74`) found, 9 LINE sightings of it; S2 (`'1d20'`, `formula`, the CALL's `arg formula`) **not seen by the cell**, though the transcript prints it; no unpredicted triple in the gated population | both sightings found and no third triple in the population → PASS; sightings elsewhere reported, not gated | **STOP** |
 | H6 | is identity exact? | **4 of 4** — §1.4's lookup found `e367` (the fourth `dice` LINE row of `forcedDiceFromSource` at L138, the first whose activation `buildDiceQueueEntry` called); `flow F1 --object e367:dice` printed **`sightings: 2 event(s), 2 capture(s)`** at `diceQueue.ts:138` and `diceQueue.ts:202`, **one serial** (`#64` covers both), `continuity: exact (serial identity)`, and both captures' `type` is `Array` | exactly two sightings, one serial, continuity exact, both `Array` → PASS | **PASS** |
 | H7 | what does it cost? | unfocused median **0.7955 s** (n=3, walls 1.1162 / 0.7955 / 0.7874), focused median **1.8946 s** (n=3, walls 1.8946 / 1.9147 / 1.8899), ratio **×2.3816**; the resolver **1.132 s** over 830 files scanned; 0 runs dropped; every arm guarded at a 1-minute load of 0.72–0.83 | reported, not gated | **reported** |
-| H8 | did nothing else move? | **6 of 6** — corpus `105 cases, 220 questions, 0 failures, 0 error(s)`; `pytest -q` `4090 passed, 33 skipped`; `cargo test --workspace` 44 `test result: ok` lines, **773 passed, 0 failed, 23 ignored**; `npm --prefix typescript test` `pass 521, fail 0`; `npm --prefix typescript/probes run probe` `ok: true`, 12 spools, 146 checks, 0 failures; `e7_report.py` with `E7_NEEDLES=rung2` over all **13** transcripts: **0** occurrences of the nine needles | every corpus case equal, the suites green, E7's needles at 0 → else STOP | **PASS** |
+| H8 | did nothing else move? | **6 of 6** — five suite exits all `0` and the needle total `0`, which is what the cell holds. From the cell: corpus `105 cases, 220 questions, 0 failures, 0 error(s)`; `pytest -q` `4090 passed, 33 skipped`; `e7_report.py` with `E7_NEEDLES=rung2` over all **13** transcripts, **0** occurrences of the nine needles. From the session's logs, named and not committed: `cargo test --workspace` 44 `test result: ok` sections summing to **773 passed, 0 failed, 23 ignored** (`<out>/h8/logs/cargo.log`; the cell's committed tail is the LAST of those 44 sections, `sensorium_transform`'s doc-tests, `test result: ok. 0 passed; 0 failed; 14 ignored` — one section, not the total, and not a contradiction of it); `npm --prefix typescript test` **pass 521, fail 0** (`npm-typescript.log`); `npm --prefix typescript/probes run probe` `ok: true`, 12 spools, **146 checks, 0 failures** (`npm-probes.log`) | every corpus case equal, the suites green, E7's needles at 0 → else STOP | **PASS** |
 
 **Reported beside H8, gating nothing** (the two fences, read FIRST, before
 the session opened the store):
@@ -792,12 +806,38 @@ rather than into a suite that recorded the wrong thing.
 Six clauses, all held. The corpus ran all three directories with
 `--require-driver`: **105 cases, 220 questions, 0 failures, 0 errors**, the
 ten new focus cases included. `pytest -q`: **4090 passed, 33 skipped**.
-`cargo test --workspace` from `rust/`: 44 `test result: ok` lines, **773
-passed, 0 failed, 23 ignored**. `npm --prefix typescript test`: **521
-passed, 0 failed**. `npm --prefix typescript/probes run probe`: checker
-`ok: true`, 12 spools, **146 checks, 0 failures**. And `e7_report.py` with
-`E7_NEEDLES=rung2` over all **13** committed transcripts: **0** occurrences
-of the nine needles, over 398 lines of transcript.
+`cargo test --workspace` from `rust/`: 44 `test result: ok` sections summing
+to **773 passed, 0 failed, 23 ignored**. `npm --prefix typescript test`:
+**521 passed, 0 failed**. `npm --prefix typescript/probes run probe`:
+checker `ok: true`, 12 spools, **146 checks, 0 failures**. And
+`e7_report.py` with `E7_NEEDLES=rung2` over all **13** committed
+transcripts: **0** occurrences of the nine needles, over 398 lines of
+transcript.
+
+**Where each of those figures comes from, because they do not all come from
+the same place.** The H8 cell holds, per suite, an exit status and the last
+three lines of that suite's log, and nothing else (`e12_h8.sh`'s `suite_in`
+writes `<out>/h8/logs/<label>.log` and the cell's `tail` takes three lines
+off it). So the corpus counts, the pytest counts and the needle total above
+ARE cells — they are the last line of their logs, or `e7_report.py`'s own
+`value` — and the four aggregates are not: cargo's **773 passed, 0 failed,
+23 ignored** and its **44** sections are an `awk` sum over every `test
+result:` line of `<out>/h8/logs/cargo.log`, node's **521 passed, 0 failed**
+is the `ℹ pass` / `ℹ fail` block of `npm-typescript.log`, and the probes'
+**12 spools, 146 checks, 0 failures** is the checker's JSON at the end of
+`npm-probes.log`. Those three logs are session artefacts and are not
+committed; the exits that gate the clause are.
+
+One of those numbers needs a sentence of its own, because the committed cell
+appears to contradict it. Cargo's tail in the results file reads `test
+result: ok. 0 passed; 0 failed; 14 ignored` — that is the LAST of the 44
+`test result:` sections `cargo test --workspace` prints, `sensorium_
+transform`'s doc-tests, and 44 is one section per test target of this
+workspace with the doc-test sections among them. The **773** above is the
+`awk` sum over all 44, not a second reading of that one line. A reader
+checking §3 against `…-focus.results.json` will find the 14-ignored section
+there and should read it as the tail it is; the sum lives in the log this
+paragraph names.
 
 §2.2's pre-registered risk did not fire. `oid` is one of the nine needles,
 matched word-bounded and case-sensitively, and §5.1 mints an `oid` on the
@@ -849,8 +889,11 @@ real frontend rather than on a probe:
   what a serial buys over a printed value. And the wire key's NAME never
   reaches a printed line (H8's needle grep for `oid`, 0 over 13
   transcripts).
-* **Nothing else moved.** H8: the whole corpus equal, four suites green, the
-  probes' 146 checks green, and the two fences read before the session.
+* **Nothing else moved.** H8: the whole corpus equal (105 cases, 220
+  questions, 0 failures — a cell), four suites green by exit status (cells),
+  the probes' 146 checks green (read from `<out>/h8/logs/npm-probes.log`,
+  named in §4.8 and not committed), and the two fences read before the
+  session.
 * **The cost is known.** H7: ×2.38 on the median wall of one 26-test file
   for a per-statement record of six functions, plus 1.132 s of resolution
   once per invocation.
