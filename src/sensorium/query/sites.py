@@ -36,8 +36,10 @@ TWO IMPLEMENTATIONS OF ONE RULE, ON PURPOSE
 this applies it to a recorded trace after one. They cannot be one function
 -- they are in different languages and see different inputs -- so they are
 held to one example table instead,
-`typescript/test/fixtures/site-spellings.json`, which a JS test and vector
-`v39-site-spellings` both read (design 2026-09-11 section 4.3, ruling R7).
+`typescript/test/fixtures/site-spellings.json`. `focus.test.mjs` reads it
+on that side and `tests/test_watch_typescript.py` on this one, and
+`v39-site-spellings` asks the CLI those same ten rows as questions
+(design 2026-09-11 section 4.3, ruling R7).
 """
 import shlex
 from pathlib import Path
