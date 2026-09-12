@@ -149,7 +149,8 @@ way a Python case does — `record: {focus: [...]}`, one `--focus <spec>` per
 entry before the `--` — and `record` is the ONE key the two recorders share:
 a `window` under it is refused by name, because `sensorium ts run` has no
 such flag and a dropped key is a case whose questions all still pass. Under
-a focus the recording declares `line: yes` and `locals: yes`, so these ten
+a focus the recording declares `line=yes` and `locals=yes` on `info`'s
+capabilities line, so these ten
 pin what that tier says and, twice over, what it still does not:
 `focus_let_chain` (one row per statement and none for the `return`, the CALL
 counted among `watch`'s sites), `focus_loop_counter` (a row per loop entry, a

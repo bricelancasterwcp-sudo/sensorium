@@ -119,7 +119,8 @@ where there is one, a `hops:` line.
 Ten more, added by S5 rung 4, and the only ten recorded under
 `--focus`: one rule of the focus tier each, with the answer's exit status
 and its distinctive lines pinned byte for byte. Under a focus a recording
-declares `line: yes` and `locals: yes`, so `watch`, `frame`'s timeline and
+declares `line=yes` and `locals=yes` on `info`'s capabilities line, so
+`watch`, `frame`'s timeline and
 `flow --value` mean something here that they refuse to mean in the
 thirty-two cases above — and what the tier does NOT reach is pinned in the
 same table, twice, rather than left to the absence of a case.

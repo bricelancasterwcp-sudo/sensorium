@@ -1,7 +1,7 @@
 [project]
 name = "sensorium"
 version = "0.12.0"
-description = "Execution-trace recorder for Python programs, and the LLM-native query CLI that reads every sensorium trace — Python's, the Rust recorder's and the TypeScript recorder's alike"
+description = "Execution-trace recorder for Python programs, driver and converter for the TypeScript recorder, and the LLM-native query CLI that reads every sensorium trace — Python's, the Rust recorder's and the TypeScript recorder's alike"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = []

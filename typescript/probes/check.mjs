@@ -533,12 +533,12 @@ function readManifest(dir, rel) {
  * The focus tier, in whichever of its two readings this run produced (R20).
  *
  * The probe project records itself WITH a focus (`vitest.config.ts`'s direct
- * branch names nine functions) and the driver records it WITHOUT one until the
- * driver learns `--focus`. Both are the contract, so both are asserted and
- * neither is skipped: the BOOT's own declaration says which run this is, the
- * manifest says what the transform did, and `focus:agree` holds the two
- * together — a transform that focused nine functions while the runtime
- * declared nothing is a broken invocation, not an unfocused one.
+ * branch names eleven functions) and the driver records it BOTH ways — focused
+ * (R27) and unfocused. Both are the contract, so both are asserted and neither
+ * is skipped: the BOOT's own declaration says which run this is, the manifest
+ * says what the transform did, and `focus:agree` holds the two together — a
+ * transform that focused eleven functions while the runtime declared nothing
+ * is a broken invocation, not an unfocused one.
  * @param {Checker} k
  * @param {ReturnType<typeof index>} s
  * @param {string} manifestDir
