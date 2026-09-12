@@ -19,7 +19,8 @@ fixes; **29** is what that slice's own exemption costs (design 2026-09-08 R4 as
 amended). **30** and **31** were added 2026-09-08 by the queue slice: both are
 shapes an earlier ledger named and no *blind-spot* entry carried — 30 from the
 err-flow design's R16 (v), 31 from the rung-3 inbox — so this list, which the
-index calls the one home of §8, is where a reader meets them.
+index calls the one home of §8, is where a reader meets them. **32** and **33**
+were added 2026-09-12 by this slice's Rust `unbound` work (§5).
 
 Each entry names **what declares it** — the field or line a reader meets
 without knowing this document exists — and, where one exists, what could

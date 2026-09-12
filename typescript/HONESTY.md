@@ -659,11 +659,11 @@ dialect — is [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md), **moved
 there 2026-09-10 so this file stays under 800 lines**, on Rust's precedent
 ([`../rust/HONESTY-BLIND-SPOTS.md`](../rust/HONESTY-BLIND-SPOTS.md), 2026-09-05).
 **The numbering there is unchanged**, so "blind spot 13" still names what it
-always named, one file away. Items **2**, **3** and **11** are **struck** there
-rather than deleted — this runtime records the shapes they said it did not —
-and **13** is narrowed; a struck item stays visible, because a reader who last
-met this list under `sensorium-ts 0.1.x` needs to see which of its holes closed
-and when.
+always named, one file away. Items **2**, **3**, **11**, **36**, **37** and
+**38** are **struck** there rather than deleted — this runtime records the
+shapes they said it did not — and **13** is narrowed; a struck item stays
+visible, because a reader who last met this list under `sensorium-ts 0.1.x`
+needs to see which of its holes closed and when.
 
 ## 11. Under a focus
 

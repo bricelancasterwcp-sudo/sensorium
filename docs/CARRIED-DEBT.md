@@ -194,13 +194,16 @@ scroll up to find what closed.
 - **`tests/test_acceptance_scripts.py` is 315 lines**, comfortably under
   the 800-line ceiling today, but it is the file every future E-branch
   instrument change grows. Watched, not acted on.
-- **Spec §4.3's prose and the shipped instrument disagree on which
-  needles are whole-word.** §4.3 reads "whole-word for `Err` and `Rust
-  disposition`"; the shipped rule and the locked transcript header are
-  `oid`/`chain`/`Err` whole-word, `Rust disposition` substring (record
-  §4.6). §4.3 gains a dated parenthesis saying the locked block and the
-  instrument bind, not the earlier prose. *Cost if wrong:* a reader of
-  §4.3 alone expects a stricter match than the tool makes.
+- ~~**Spec §4.3's prose and the shipped instrument disagree on which
+  needles are whole-word.**~~ — **closed 2026-09-12, S5 rung 4's debts**:
+  §4.3 carries the dated parenthesis this bullet asked for
+  (`docs/superpowers/specs/2026-09-10-sensorium-s5-rung3-naming-ambiguity-design.md:248-251`,
+  "2026-09-12: the locked transcript header and the shipped instrument
+  bind … not this sentence"). The debt as it stood: §4.3 reads
+  "whole-word for `Err` and `Rust disposition`"; the shipped rule and the
+  locked transcript header are `oid`/`chain`/`Err` whole-word, `Rust
+  disposition` substring (record §4.6). *Cost if wrong:* a reader of §4.3
+  alone expects a stricter match than the tool makes.
 - **The T0 hand read's row 1 calls the untraced catcher "a library
   `try`"** where it is a `.catch` chain on the promise TanStack Query's
   retryer returned. The locked table keeps the words it locked; the
@@ -353,26 +356,32 @@ to find what closed.
    `unbound`, not off the line) and **H5** (a parser that sees CALL and RETURN
    sightings) under fixed instruments — rung 1's E6′→E6″ precedent. *Cost if
    wrong:* three endpoints whose word is a fact about `e12_report.py`.
-4. **`e12_report.py`'s row parser drops a `RETURN` row** — one space before
-   `->` where it requires two — so the H5 cell's `elsewhere_not_gated` lists
-   one row where the two transcripts print five. The field is REPORTED and
-   ungated; the transcripts' own `sightings:` totals are the honest numbers
-   and are quoted in the record. *Cost if wrong:* a reported list that is
-   quietly short, which is worse than no list.
+4. ~~**`e12_report.py`'s row parser drops a `RETURN` row**~~ — **closed
+   2026-09-12, S5 rung 4's debts**: `typescript/acceptance/e12p_report.py`'s
+   row regex takes one space or two before `->`; `e12_report.py` is kept,
+   unedited, for the locked record that cites it. The debt as it stood: one
+   space before `->` where it requires two — so the H5 cell's
+   `elsewhere_not_gated` lists one row where the two transcripts print five.
+   The field is REPORTED and ungated; the transcripts' own `sightings:`
+   totals are the honest numbers and are quoted in the record. *Cost if
+   wrong:* a reported list that is quietly short, which is worse than no
+   list.
 
 ### Deferred by ruling
 
 Each was ruled at execution, is in the spec's §15, and leaves something a
 later rung may want.
 
-- **Rust's fold keeps a dead block-scoped `let` alive** (spec §3.4). Python
-  emits `unbound` for `del` and the end of an `except … as e`, TypeScript
-  emits it on every block-like statement's row, and **Rust emits none at
-  all** — so `sites_for`'s fold reports a Rust `let` inside a block as in
-  scope at sites after the block. Named here as **Rust's own debt**, raised
-  by building TypeScript's `unbound` beside it and deliberately not closed
-  this rung. *Cost if wrong:* a `watch` predicate over a Rust trace is
-  evaluated at sites where the name it reads is dead.
+- ~~**Rust's fold keeps a dead block-scoped `let` alive**~~ (spec §3.4) —
+  **closed 2026-09-12, S5 rung 4's debts**: Rust emits `unbound` on a
+  block-like statement's row too (tag 3, `sensorium-rt 0.5.0`), pinned by
+  `corpus/rust/focus_block_let` and `rust/sensorium-transform/tests/unbound.rs`.
+  The debt as it stood: Python emits `unbound` for `del` and the end of an
+  `except … as e`, TypeScript emits it on every block-like statement's row,
+  and **Rust emitted none at all** — so `sites_for`'s fold reported a Rust
+  `let` inside a block as in scope at sites after the block. *Cost if
+  wrong:* a `watch` predicate over a Rust trace is evaluated at sites where
+  the name it reads is dead.
 - **Four shapes the per-statement record does not reach**, each a present row
   with a stated hole rather than a missing row (blind spots 28–31): a place
   write (`a.b = e`, `delete a.b`) is a row with no delta (D3 — a
@@ -393,19 +402,23 @@ later rung may want.
   neither, so a search for one sights nothing rather than approximately.
   *Cost if wrong:* one of the two commands can answer about a value the other
   cannot search for.
-- **`info`'s `truncated values:` does not count an inspect-side cut** (P7,
-  blind spot 36). A string cut at inspect's 100 characters carries
-  `trunc: false`, so the counter that reads the flag does not see it; the
-  `… N more characters` tail is the only evidence and `watch` reads it.
-  **Closing it** means counting the tail where the flag is false. *Cost if
-  wrong:* a reader trusting the total under-counts what was clipped.
-- **A new TypeScript corpus case cannot ask an `exceptions` question**
-  (blind spot 37). `typescript/acceptance/e6ts.py`'s `PRE_REGISTERED` table
-  is locked on rung 2's hand adjudication and the E6-TS fence reads every
-  such question against it, so `focus_catch_binding` pins its HANDLED with
-  `grep` instead. **Closing it** means the next rung touching E6-TS either
-  re-registers the table or scopes the fence to the cases it was written
-  over. *Cost if wrong:* a shape nobody can pin the verdict of.
+- ~~**`info`'s `truncated values:` does not count an inspect-side cut**~~
+  (P7, blind spot 36) — **closed 2026-09-12, S5 rung 4's debts**:
+  `js_inspect.is_clipped` answers off the `… N more characters` tail
+  (`INSPECT_MORE`) as well as the `trunc` flag, pinned by
+  `corpus/typescript/focus_long_string`. The debt as it stood: a string cut
+  at inspect's 100 characters carries `trunc: false`, so the counter that
+  read the flag did not see it. *Cost if wrong:* a reader trusting the
+  total under-counts what was clipped.
+- ~~**A new TypeScript corpus case cannot ask an `exceptions` question**~~
+  (blind spot 37) — **closed 2026-09-12, S5 rung 4's debts**:
+  `typescript/acceptance/e6ts.py`'s `PRE_REGISTERED` table is re-registered
+  by rung 3's own procedure, with `focus_catch_binding`'s row added in its
+  own commit and the procedure written down in `e6ts.py`. The debt as it
+  stood: the table was locked on rung 2's hand adjudication and the E6-TS
+  fence read every such question against it, so `focus_catch_binding`
+  pinned its HANDLED with `grep` instead. *Cost if wrong:* a shape nobody
+  can pin the verdict of.
 - **`info`'s `focus matched:` line has no length bound.** It prints every
   matched `<rel>:<qualname>`, so a focus over a large container prints a very
   long line. Accepted as shipped (R31); a cap would hide the fact the line
@@ -427,8 +440,11 @@ The 800-line gate (`tests/test_ceiling.py`) covers every tracked `.py`,
 `.rs`, `.sh`, `.md`, `.mjs`, `.ts` and `.tsx`. These are the ones whose next
 edit must take a seam rather than a paragraph:
 
-- **`tests/test_corpus.py` at exactly 800** — the next edit must split the
-  harness half out.
+- ~~**`tests/test_corpus.py` at exactly 800**~~ — **closed 2026-09-12, S5
+  rung 4's debts**: the harness half (from `CARGO_QUESTION` down) moved to
+  `tests/test_corpus_harness.py`, a pure move verified by the test-name set
+  being identical before and after. The debt as it stood: the next edit
+  had to split the harness half out.
 - **`README.md` 799**, **`docs/TRACE-FORMAT.md` 788**,
   **`typescript/HONESTY.md` 786**, **`src/sensorium/query/flow_cmd.py` 789**,
   **`typescript/src/rt.mjs` 783**, **`typescript/probes/check.mjs` 770** —
@@ -438,11 +454,12 @@ edit must take a seam rather than a paragraph:
   remembered is the very thing `test_ceiling.py`'s pattern scope replaced.
   The census is one command:
   `git ls-files -- '*.md' '*.py' '*.mjs' '*.ts' '*.rs' '*.sh' | grep -v '^docs/superpowers/' | xargs wc -l | sort -rn | head -30`.
-- **`CHANGELOG-ARCHIVE.md` at 742.** The 0.12.0 entry needed no cut, but the
-  NEXT one will, and the archive cannot take another section: the cut after
-  this must open **`CHANGELOG-ARCHIVE-2.md`** with a preamble in the
+- ~~**`CHANGELOG-ARCHIVE.md` at 742.**~~ — **closed 2026-09-12, S5 rung
+  4's debts**: `CHANGELOG-ARCHIVE-2.md` opened, with a preamble in the
   archive's own voice and a pointer from volume 1, the way this file's own
-  volumes are numbered.
+  volumes are numbered. The debt as it stood: the 0.12.0 entry needed no
+  cut, but the NEXT one would, and the archive could not take another
+  section.
 - **This file.** Measured before it was written, the way the rule asks: this
   section was drafted at **243** lines against a live file of **553**, which
   is **796**, four under the ceiling. It then crossed it in this rung's own
@@ -453,9 +470,12 @@ edit must take a seam rather than a paragraph:
   verified byte-identical against its source, and the live file stands at
   **538**, five lines of which the rung's final review added. The next slice
   appends here with room.
-- **`typescript/HONESTY-COST.md` is covered by no prose test**, the same gap
-  `HONESTY-BLIND-SPOTS.md` has: a promise moved out of `HONESTY.md` is a
-  promise no test reads. Watched, not acted on.
+- ~~**`typescript/HONESTY-COST.md` is covered by no prose test**~~ — **closed
+  2026-09-12, S5 rung 4's debts**: `tests/test_ts_honesty_prose.py` reads
+  `HONESTY-COST.md`'s three acceptance paths structurally, the same way it
+  reads `HONESTY-BLIND-SPOTS.md`. The debt as it stood: the same gap
+  `HONESTY-BLIND-SPOTS.md` had — a promise moved out of `HONESTY.md` is a
+  promise no test reads.
 
 ### Deferred minors, per task
 
@@ -505,6 +525,39 @@ closes the frame before the program's `finally` runs**, so a statement in a
 `finally` the `try` reached by `return` mints no row (blind spot 38, R42) —
 sealing the frame after the finally instead is a next-slice design item,
 because it also moves the RETURN row past those statements.
+
+**Closed 2026-09-12, S5 rung 4's debts:** every clause above is closed
+except eight: `sites._anchor`'s cwd fallback (closed by a dated note at
+Task 12); `find_in_value`'s `path` order (a comment on why the reorder is
+unsafe, not a reorder — `src/sensorium/query/flow_values.py:144-152`); the
+inspect dialect's 100/101 boundary (still asserted, not measured);
+`second_run`'s missing closed-key check (pre-existing); the converter fixture's
+`driver_version: "0.11.0"` (informational); `bindings.mjs`'s `listNames`
+dedupe (a comment on why not, not a dedupe —
+`typescript/src/bindings.mjs:253-258`); §1's "§2's pin table" singular
+(R11 rules the singular stands); and §1.4's
+CALL-table deviation (named here, not a defect). The rest closed across this
+slice's tasks. Most at Task 9: the `flow_cmd.py:565` guard, the `js_number`
+docstring, `captures()`'s throw (`typescript/src/rt.mjs:433`), the
+`bindings.mjs` dead typedefs, the `({a = 1} = o)` case, the `isGuard` /
+`isGuardBody` derivation (`bindings.mjs:306`, `probe.mjs:84`), the
+`test_ts_ingest_meta.py` line count, the `test_ts_live.py:110` assertion,
+the `corpus/cases.py` wording, the `focus_async` needle, the
+`naming.test.mjs` scrub, the `test_ts_driver_focus.py` unused imports, the
+`driver.py:84` `args.focus` read, `Resolution.wall`'s `resolver_wall_s`
+(`invocation.py`, `driver.py`, `build.py`), the
+`test_acceptance_s5_rung4_lock.py:391` slice, the `bindings.test.mjs:307`
+rename, and the `focus.md:296` tilde path. Three closed earlier in this
+slice, at the sites Task 9 traced them to: the refusal tuple this
+paragraph calls `exceptions_group._one` is `src/sensorium/ts/build.py`'s
+`_one`, whose `except` clause already names `AttributeError` beside
+`KeyError`/`TypeError`/`IndexError` (Task 4); the `transform.mjs ⇄
+probe.mjs` import cycle is removed by `typescript/src/positions.mjs`
+(Task 1); and `resolve.mjs`'s `survey` wraps `sitesOf` in a `try`, with
+`resolve.test.mjs`'s temp roots under `os.tmpdir()` (Task 3). The RUNTIME
+clause — the largest, blind spot 38 — is closed by Task 3's finally seal
+(`pend`/`seal`, `typescript/test/rt.seal.test.mjs`); struck at its own
+entry, `typescript/HONESTY-BLIND-SPOTS.md` item 38.
 
 ### Process lessons
 
