@@ -245,7 +245,10 @@ disposition` substring — this paragraph's "and" reads as a list of what is
 whole-word, not as a rule that `Rust disposition` shares `Err`'s matching.
 The locked block and the instrument bind; this sentence is corrected in
 place rather than left to contradict them. `docs/CARRIED-DEBT.md`'s
-2026-09-11 section carries the finding.)*
+2026-09-11 section carries the finding.)* *(2026-09-12: the locked
+transcript header and the shipped instrument bind — `oid`/`chain`/`Err`
+whole-word, `Rust disposition` substring, record §4.6 — not this
+sentence.)*
 
 ## 5. Pre-registered endpoints
 
