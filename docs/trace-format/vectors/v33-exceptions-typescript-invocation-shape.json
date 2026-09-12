@@ -21,7 +21,7 @@
     "source_hashes": {
       "src/config.ts": "cccccccccccccccc"
     },
-    "recorder": "sensorium-ts 0.2.0",
+    "recorder": "sensorium-ts 0.3.0",
     "lang": "typescript",
     "capabilities": {
       "line": false,
@@ -32,7 +32,7 @@
       "children": false,
       "stdin": false,
       "output": false,
-      "object_identity": false,
+      "object_identity": true,
       "refocus": false,
       "err_flow": true
     },

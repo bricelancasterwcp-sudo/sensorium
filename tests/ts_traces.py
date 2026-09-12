@@ -8,10 +8,12 @@ a conformance vector can never describe two different trace shapes, and a
 rule test never depends on Node, vitest or a transform running.
 
 The meta is `docs/trace-format/vectors/v25-exc-kind-throw-rejection.json`'s,
-moved to `sensorium-ts` 0.2.0 and `capabilities.err_flow: true`: 0.2.0 is
-the first recorder whose BOOT declares the throw-flow records, and every
-rule test here is about a trace that carries them. A test that wants the
-REFUSAL passes `recorder=` and `capabilities=` back down to a 0.1.x shape.
+moved to `sensorium-ts` 0.3.0 with `capabilities.err_flow: true` and
+`object_identity: true`: 0.2.0 was the first recorder whose BOOT declares
+the throw-flow records and 0.3.0 the first whose captures carry an identity,
+and every rule test here is about a trace that carries them. A test that
+wants the REFUSAL passes `recorder=` and `capabilities=` back down to a
+0.1.x shape.
 """
 from tests.vectors import build
 from pathlib import Path
@@ -25,15 +27,23 @@ THREAD = 1               # the converter writes one thread and only one
 PRIMITIVE_TYPES = ("string", "number", "boolean", "undefined", "symbol",
                    "bigint")
 
+#: A 0.3.0 recording with no focus: `object_identity` is declared at every
+#: tier this recorder records at, because a capture carries its object's
+#: serial whether or not any statement was instrumented; `line` and `locals`
+#: stay false, since a run without a focus has no LINE rows to read.
 TS_CAPABILITIES = {
     "line": False, "locals": False, "return_value": True, "tasks": True,
     "threads": False, "children": False, "stdin": False, "output": False,
-    "object_identity": False, "refocus": False, "err_flow": True,
+    "object_identity": True, "refocus": False, "err_flow": True,
 }
 
-#: What a 0.1.x recording declared: the rows were written and no rule read
-#: them, so the capability was false and `exceptions` refuses through it.
-TS_CAPABILITIES_0_1 = {**TS_CAPABILITIES, "err_flow": False}
+#: What a 0.1.x recording declared: the throw-flow rows were written and no
+#: rule read them, so the capability was false and `exceptions` refuses
+#: through it. `object_identity` goes back down with it -- no recorder
+#: before 0.3.0 put a serial on a capture, and a fixture that said otherwise
+#: would be describing a recording that never existed.
+TS_CAPABILITIES_0_1 = {**TS_CAPABILITIES, "err_flow": False,
+                       "object_identity": False}
 
 TS_META = {
     "trace_format": 4, "run_id": "$RUN",
@@ -43,7 +53,7 @@ TS_META = {
     "exit_status": None, "exit_status_basis": "unwitnessed",
     "main_thread_ident": 1, "fingerprint_basis": "per-task",
     "truncated_count": 0, "source_hashes": {},
-    "recorder": "sensorium-ts 0.2.0", "lang": "typescript",
+    "recorder": "sensorium-ts 0.3.0", "lang": "typescript",
     "capabilities": TS_CAPABILITIES,
     "caps": {"dbg": 200, "depth": 2, "sample": 8, "str": 100},
     "invocation": "20260101-000000-111111",

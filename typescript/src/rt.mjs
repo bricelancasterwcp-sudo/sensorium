@@ -20,11 +20,19 @@ import { VERSION } from './index.mjs';
 /** @typedef {{id: number, task: Task|null, open: boolean, mark: Record<string, unknown>|null}} Frame */
 /** @typedef {{name: string, basis: 'vitest'|'title', conflict: boolean}} Named */
 /** @typedef {Record<string, unknown>} Record_ */
+/** @typedef {import('./dbg.mjs').Captured} Captured */
 
 /** The tier is read ONCE, at module load: a run does not change instrument. */
 const TIER = process.env.SENSORIUM_TIER ?? 'off';
 const SPOOL_DIR = process.env.SENSORIUM_SPOOL ?? '';
 const INVOCATION = process.env.SENSORIUM_INVOCATION ?? null;
+/**
+ * The focus, read once at module load for the reason the tier is: which
+ * functions were instrumented for statements is a property of the run, not
+ * something a program may change halfway through. What the specs SAY is the
+ * transform's business; this module needs only whether there was one.
+ */
+const FOCUS = process.env.SENSORIUM_FOCUS ?? '';
 
 const FLUSH_MS = 100;
 const BUFFERED = 256;
@@ -34,15 +42,32 @@ const UNNAMED = '<unnamed: title not a string>';
 
 /**
  * What this recorder DECLARES it produces, written into every BOOT record and
- * passed through by the converter (§2.4). `err_flow` says the throw-flow rows
- * are complete enough to be judged: every `throw` statement, every `catch`
- * clause with the transform's verdict about its binding, every rejection
- * handler and every `finally` that discards a throw in flight. A spool whose
- * BOOT lacks the key reads `false`, so a trace this recorder did not write is
- * still refused — what it lacks is a record, not a permission.
+ * passed through by the converter (§2.4). A spool whose BOOT lacks a key reads
+ * `false`, so a trace this recorder did not write is still refused — what it
+ * lacks is a record, not a permission.
+ *
+ * `err_flow` says the throw-flow rows are complete enough to be judged: every
+ * `throw` statement, every `catch` clause with the transform's verdict about
+ * its binding, every rejection handler and every `finally` that discards a
+ * throw in flight.
+ *
+ * `object_identity` says every captured object carries an `oid` that is the
+ * same number wherever that object is seen again and is never given to a
+ * second one. It does not depend on a focus: a RETURN's value is captured at
+ * every tier this recorder records at, so the identity is there to follow
+ * whether or not any statement was.
+ *
+ * `line` and `locals` say the LINE rows exist — one per completed statement of
+ * a focused function, carrying the names it wrote and the names out of scope
+ * at it. Both are declared exactly when `SENSORIUM_FOCUS` is non-empty: with
+ * no focus nothing was instrumented for statements and there are no such rows,
+ * and a reader told otherwise would report "no hits" for a search that never
+ * had anything to search.
  * @type {Record<string, boolean>}
  */
-const CAPABILITIES = { err_flow: true };
+const CAPABILITIES = FOCUS === ''
+  ? { err_flow: true, object_identity: true }
+  : { err_flow: true, object_identity: true, line: true, locals: true };
 
 /**
  * Recording at all. A tier that is not `call` records nothing, and neither does
@@ -428,15 +453,38 @@ function drop(f) {
 }
 
 /**
+ * A `[name, value, name, value, …]` list, read two at a time, as the map the
+ * wire carries. The transform builds the list at the site, so the names are
+ * its own and the values are the program's — which is why every value goes
+ * through `dbg` and no name does.
+ * @param {unknown[]} pairs
+ * @returns {Record<string, Captured>}
+ */
+function captures(pairs) {
+  /** @type {Record<string, Captured>} */
+  const out = {};
+  for (let i = 0; i + 1 < pairs.length; i += 2) {
+    out[/** @type {string} */ (pairs[i])] = dbg(pairs[i + 1]);
+  }
+  return out;
+}
+
+/**
  * Enter an instrumented function: the parent is whatever frame is beneath this
  * one on the stack this one pushes onto. A continuation that runs when its
  * task's stack is empty — a timer callback — opens a parentless frame, and the
  * converter writes `caller: "untraced"` for it.
+ *
+ * `args` is passed only from a FOCUSED site, and only then does the record
+ * carry an `a`. A focused function that takes no parameters writes an empty
+ * map: "no arguments" and "the arguments were not read" are two different
+ * facts, and the absent key is the second of them.
  * @param {number} fileId
  * @param {number} c index into the file's `codes`
+ * @param {unknown[]} [args] `[name, value, …]`, from a focused site only
  * @returns {Frame|null}
  */
-export function call(fileId, c) {
+export function call(fileId, c, args) {
   if (!on) return null;
   const t = als.getStore() ?? null;
   const stack = t ? t.stack : rootStack;
@@ -444,8 +492,38 @@ export function call(fileId, c) {
   /** @type {Frame} */
   const f = { id: nextFrame++, task: t, open: true, mark: null };
   stack.push(f);
-  emitTs({ e: 'CALL', f: f.id, p: parent ? parent.id : null, file: fileId, c, t: t ? t.id : null });
+  /** @type {Record_} */
+  const rec = { e: 'CALL', f: f.id, p: parent ? parent.id : null, file: fileId, c, t: t ? t.id : null };
+  if (args !== undefined) rec.a = captures(args);
+  emitTs(rec);
   return f;
+}
+
+/**
+ * One completed statement of a focused function.
+ *
+ * `d` holds what the statement wrote, captured after it completed, and `u` the
+ * names the transform knows are NOT in scope at it — a `const` declared in a
+ * block that has ended, a binding whose declaration is further down. `u` is
+ * written only when there is such a name: an empty list is not a claim about
+ * anything, and a reader would have to decide whether it meant "nothing is out
+ * of scope" or "nobody looked".
+ *
+ * A frame that has closed reports no statement: by the time `ret` or `thr` has
+ * run this frame is done, and anything still arriving for it is not one of its
+ * statements.
+ * @param {Frame|null} f
+ * @param {number} l the line the statement ended on
+ * @param {unknown[]} pairs `[name, value, …]` — the statement's deltas
+ * @param {string[]} [unbound] names out of scope at this statement
+ * @returns {void}
+ */
+export function line(f, l, pairs, unbound) {
+  if (!on || !f || !f.open) return;
+  /** @type {Record_} */
+  const rec = { e: 'LINE', f: f.id, t: taskId(f), l, d: captures(pairs) };
+  if (unbound !== undefined && unbound.length > 0) rec.u = unbound;
+  emitTs(rec);
 }
 
 /**

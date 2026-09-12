@@ -23,6 +23,7 @@ const KEYS = {
   FILE: ['e', 'id', 'rel', 'abs', 'codes', 'sha'],
   TASK: ['e', 'id', 'name', 'basis', 'conflict'],
   CALL: ['e', 'f', 'p', 'file', 'c', 't', 'ts'],
+  LINE: ['e', 'f', 't', 'l', 'd', 'ts'],
   RETURN: ['e', 'f', 't', 'v', 'ts'],
   UNWIND: ['e', 'f', 't', 'x', 'ts'],
   YIELD: ['e', 'f', 't', 'k', 'ts'],
@@ -38,10 +39,15 @@ const KEYS = {
 /**
  * Keys a record carries only when it has something to say: `signal` on the EXIT
  * of a signalled container (R13), `name_trunc` on a TASK whose name was cut
- * (R14). Each test that can produce one asserts it appears exactly then.
+ * (R14), `a` on the CALL of a FOCUSED function (the argument list; absent
+ * everywhere else, which is what tells a reader the arguments were not read
+ * rather than empty), `u` on a LINE that has names to report as out of scope.
+ * Each test that can produce one asserts it appears exactly then.
  * @type {Record<string, string[]>}
  */
-const OPTIONAL = { EXIT: ['signal'], TASK: ['name_trunc'], SEEN: ['name_trunc'] };
+const OPTIONAL = {
+  EXIT: ['signal'], TASK: ['name_trunc'], SEEN: ['name_trunc'], CALL: ['a'], LINE: ['u'],
+};
 
 /**
  * The `x` an exception record carries, and the two flags that appear only when
@@ -60,11 +66,12 @@ test('boot names the writer, the invocation and the environment', () => {
   assert.equal(boot.tier, 'call');
   // What this recorder declares it produces (§2.4). The converter (Task 3)
   // passes it through, and `exceptions` is gated on it: a spool whose BOOT
-  // lacks the key reads `false` and stays refused.
-  assert.deepEqual(boot.capabilities, { err_flow: true });
+  // lacks the key reads `false` and stays refused. `line` and `locals` are
+  // declared only under a focus, and `rt.focus.test.mjs` holds both shapes.
+  assert.deepEqual(boot.capabilities, { err_flow: true, object_identity: true });
   assert.equal(boot.invocation, 'inv-1');
   assert.equal(boot.node, process.version);
-  assert.equal(boot.version, '0.2.0');
+  assert.equal(boot.version, '0.3.0');
   assert.equal(boot.isMainThread, true);
   assert.equal(boot.threadId, 0);
   assert.equal(boot.ppid, process.pid);
@@ -87,7 +94,9 @@ test('every record carries exactly its wire keys', () => {
     const [, long] = __srt.task('L'.repeat(300), () => {}, 1);
     long();
     const [, activate] = __srt.task('b', async () => {
-      const f = __srt.call(fid, 0);
+      const f = __srt.call(fid, 0, ['n', 1]);
+      __srt.line(f, 4, ['sum', 1]);
+      __srt.line(f, 5, ['sum', 2], ['gone']);
       __srt.r(f, await __srt.y(f, Promise.resolve(1), 0));
       __srt.raise(f, new Error('raised'), 7);
       __srt.handled(f, new Error('handled'), 8, 'catch');
