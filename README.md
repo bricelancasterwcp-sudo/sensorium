@@ -415,22 +415,29 @@ CPython 3.14.4 — with `python corpus/run_corpus.py --bench`:
 **Derived parentage and task identity cost more in situ than on paper.** The
 0.2.0 design note predicted about 0.05 µs/event for the pair; measured
 against 0.1.0 on the same machine the same day, each side best-of-three in
-its own fresh venv, the in-situ cost is **0.1–0.5 µs/event** depending on
-call density — five to ten times the prediction, recorded here as a finding
-rather than restated. `async_call_dense` runs every call inside a running
-event loop and so pays the task-identity path in full: 7.1 µs/event, about
-0.4 µs more than the synchronous call-dense case on this box. It registers
-no focus target — its body only calls a one-line function — so it is
-reported for the default tier only; `await_dense` prices coroutine-body
-focus instead.
+its own fresh venv, `call_dense` went **6.0 → 6.5** µs/event (+8%) and
+`work_between_calls` **8.3 → 8.4** (+1%), with the call-dense multiplier
+moving **113× → 135×** — roughly half that per-event cost restated and half
+the two builds' baselines differing by a millisecond. So the in-situ cost is
+**0.1–0.5 µs/event** depending on call density, five to ten times the
+prediction, recorded here as a finding rather than restated.
+`async_call_dense` pays the task-identity path in full at 7.1 µs/event, about
+0.4 µs above the synchronous call-dense case on this box, and registers no
+focus target (its body only calls a one-line function), so it is reported for
+the default tier alone; `await_dense` prices coroutine-body focus instead.
 
 Two later arcs were measured the same way against the worktree immediately
-before each, and neither moved a row past run-to-run noise: arc 2a's
-frame-and-suspension bookkeeping (6.7/8.5/7.1 µs/event against 0.2.0's
-6.7/8.1/7.6) and plan 2b's per-task fingerprint, whose cost falls only on
-events that ran inside a task and whose largest move on any row was
-+0.2 µs/event. The numbers above are the current ones; the per-arc deltas
-are in `CHANGELOG.md` and its archives.
+before each, and neither moved a row past run-to-run noise. **Arc 2a's**
+frame-and-suspension bookkeeping: **6.7/8.5/7.1** µs/event against 0.2.0's
+**6.7/8.1/7.6**. **Plan 2b's** per-task fingerprint, whose cost falls only on
+events inside a task, so the async rows are where movement would show and the
+synchronous ones are the control: `call_dense` held at **6.7/6.1**
+(default/focused), `async_call_dense` **7.2 → 7.1**, `await_dense`
+**4.5 → 4.6** and **5.3 → 5.4**, `work_between_calls` **8.3 → 8.5** and
+**6.8 → 7.0** — largest move **+0.2 µs/event**, the size of the run-to-run
+noise reported elsewhere here. Both sets are deltas against a WORKTREE rather
+than a release, which is why they are written here and nowhere else:
+`CHANGELOG.md` records what shipped, not what did not move.
 
 Two costs plan 2b adds that a per-event figure does not show. **Memory**: the
 recorder holds one `Fingerprint` per asyncio task the run created, for the
@@ -458,18 +465,16 @@ PY_YIELD/PY_RESUME callbacks, that is roughly 32× the floor, the rest being
 the trace write and the derived-state bookkeeping. `us/event` is the figure
 that travels; the multiplier tracks how call-dense the program is.
 
-These are measurements of one machine and four workloads, not a promise
-about yours. The multiplier is not a property of sensorium: recording costs
-on the order of **4–9 microseconds per event** here, from 4.6 on the
-per-suspension `await_dense` case up to 8.5 on `work_between_calls` (6.7 on
-the call-dense case), and how much that is depends entirely on how often the
-traced program calls or suspends. `call_dense` is naive recursive
-`fib`, close to the worst case that exists — every microsecond of its baseline
-is function calls. `work_between_calls` does real work inside each call, which
-is what ordinary code looks like. Times are whole-command wall clock (best of
-three, after an untimed warm-up), so every row includes interpreter startup
-and recorder boot; the fixed cost is printed separately so it can be
-subtracted.
+These are measurements of one machine and four workloads, not a promise about
+yours. The multiplier is not a property of sensorium: recording costs
+**4–9 microseconds per event** here — 4.6 on the per-suspension `await_dense`
+case, 6.7 call-dense, up to 8.5 on `work_between_calls` — and how much that is
+depends entirely on how often the traced program calls or suspends.
+`call_dense` is naive recursive `fib`, close to the worst case that exists;
+`work_between_calls` does real work inside each call, which is what ordinary
+code looks like. Times are whole-command wall clock (best of three, after an
+untimed warm-up), so every row includes interpreter startup and recorder
+boot; the fixed cost is printed separately so it can be subtracted.
 
 `--focus` costs one further event per executed line of the focused code, so
 its price depends on what you point it at: at the hot recursive function
@@ -542,7 +547,7 @@ read by Python **0.8.6**. The 61 originals were recorded earlier, by
 `cargo-sensorium` **0.5.0**: that difference between the recording driver and
 the re-running one is the CONDITION the second claim needs, not an accident of
 bookkeeping. The crate numbers at the top of this section are today's
-(**0.4.1 / 0.4.4 / 0.5.3**) and Python **0.8.7** reads these traces now. All
+(**0.4.1 / 0.4.4 / 0.5.3**) and Python **0.12.0** reads these traces now. All
 four moved after the measurement — the crates for the sha256 consolidation —
 and none of them is a version that produced a number above.
 

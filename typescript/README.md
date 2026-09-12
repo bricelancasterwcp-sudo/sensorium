@@ -33,7 +33,7 @@ Fifteen modules and a version:
 | `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.3.0`. |
 
 Beside them, `probes/` is a self-contained vitest project the recorder records
-ITSELF with: eleven probe files whose expected rows were pinned before this
+ITSELF with: twelve probe files whose expected rows were pinned before this
 code existed — `focus.probe.test.ts` is rung 4's, eleven exported functions,
 one per rule of the focus tier — four more under `node --test`, one per
 extension (`.ts`, `.mts`, `.mjs`, `.cjs`), with two controls beside them that
