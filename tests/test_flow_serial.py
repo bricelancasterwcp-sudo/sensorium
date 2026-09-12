@@ -22,7 +22,7 @@ just as true there.
 import pytest
 
 from sensorium import cli
-from sensorium.exit import ANSWERED, BAD_CALL, UNSETTLED
+from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.dbg_dialects import INSPECT, RUST
 from sensorium.query.flow_values import ObjTarget, matches
 from tests.ts_traces import (TS_CAPABILITIES, TS_CAPABILITIES_0_1, call,
@@ -56,6 +56,7 @@ def focused_trace(tmp_path, monkeypatch, **meta):
             line_ev(3000, 1, 1, 7, {"alias": obj("{ retries: 9 }", 7)},
                     task=1),
             line_ev(4000, 1, 1, 8, {"n": dbg("5")}, task=1),
+            line_ev(4500, 1, 1, 9, {"t": dbg("null")}, task=1),
             ret(5000, 1, 1, task=1),
         ],
         tasks=[task(1, "settings > tunes")],
@@ -229,6 +230,33 @@ def test_flow_value_searches_the_traces_own_dialect(
     text = out(capsys)
     assert "sightings: 1 event(s), 1 capture(s)" in text
     assert "[local n]" in text
+
+
+def test_flow_value_reads_the_words_the_predicate_language_reads(
+        tmp_path, monkeypatch, capsys):
+    """Ruling R33. `null` is what a reader debugging a TypeScript trace
+    types -- it is what the program wrote, what `util.inspect` printed and
+    what `watch --expr x == null` already answers about. Parsed as the
+    four-character STRING it would be spelled `'null'` by the writer and
+    sight nothing, which is a search for a value the trace holds coming
+    back empty: the worst answer a search can give."""
+    run_id = focused_trace(tmp_path, monkeypatch)
+    assert cli.main(["flow", run_id, "--value", "null"]) == ANSWERED
+    text = out(capsys)
+    assert "flow of None (NoneType) in" in text
+    assert "t=null   [local t]" in text
+    assert "sightings: 1 event(s), 1 capture(s)" in text
+
+
+def test_the_quoted_spelling_still_searches_for_the_string(
+        tmp_path, monkeypatch, capsys):
+    """The escape hatch every other literal has: `--value "'null'"` is the
+    four characters, and this trace holds no string that spells them."""
+    run_id = focused_trace(tmp_path, monkeypatch)
+    assert cli.main(["flow", run_id, "--value", "'null'"]) == NEGATIVE
+    text = out(capsys)
+    assert "flow of 'null' (str) in" in text
+    assert "sightings: 0 event(s), 0 capture(s)" in text
 
 
 def test_an_object_target_never_matches_a_rendering_without_a_serial():

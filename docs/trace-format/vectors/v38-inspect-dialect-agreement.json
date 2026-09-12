@@ -1,6 +1,6 @@
 {
   "id": "v38-inspect-dialect-agreement",
-  "asserts": "One `dbg` capture, two commands, one answer -- amendment A11 in the second dialect. `'A1'` is how `util.inspect` spells the string A1, so `watch --expr s == 'A1'` is SATISFIED at the site that holds it and `flow --value \"'A1'\"` sights the same capture: the reader that parses the text and the writer that spells the literal are inverses over the domain a command accepts, or one instrument says yes and the other no about one recorded value. Read as Rust's `Debug` -- the reader's only dialect before this rung -- that text spells the four-character word `'A1'` instead, so both answers would be wrong in the same silent way. Which dialect is used is the TRACE's own (`vocab.dbg_dialect`), never a guess from the text -- and the quotes are the spelling, not the value: `s == \"'A1'\"`, which compares against the four characters the other dialect would have read, is a decided no.",
+  "asserts": "One `dbg` capture, two commands, one answer -- amendment A11 in the second dialect. `'A1'` is how `util.inspect` spells the string A1, so `watch --expr s == 'A1'` is SATISFIED at the site that holds it and `flow --value \"'A1'\"` sights the same capture: the reader that parses the text and the writer that spells the literal are inverses over the domain a command accepts, or one instrument says yes and the other no about one recorded value. Read as Rust's `Debug` -- the reader's only dialect before this rung -- that text spells the four-character word `'A1'` instead, so both answers would be wrong in the same silent way. Which dialect is used is the TRACE's own (`vocab.dbg_dialect`), never a guess from the text -- and the quotes are the spelling, not the value: `s == \"'A1'\"`, which compares against the four characters the other dialect would have read, is a decided no. `--value` reads the same words the predicate language does (ruling R33): `null` is the value a `null` capture holds, not the four-character string, and `--value \"'null'\"` is how the string is still searched for.",
   "meta": {
     "trace_format": 4,
     "run_id": "$RUN",
@@ -54,7 +54,7 @@
   },
   "codes": [["/w/app/src/lib/label.ts", "cell", 9]],
   "frames": [
-    {"parent": null, "code": 1, "call": 1, "return": 3, "depth": 0,
+    {"parent": null, "code": 1, "call": 1, "return": 4, "depth": 0,
      "thread": 1, "closed_by": "return", "kind": "function"}
   ],
   "events": [
@@ -63,6 +63,11 @@
     {"ts": 2000, "thread": 1, "kind": "LINE", "frame": 1, "code": 1,
      "line": 10,
      "payload": {"deltas": {"s": {"k": "dbg", "v": "'A1'",
+                                  "trunc": false}}},
+     "task": 1},
+    {"ts": 2500, "thread": 1, "kind": "LINE", "frame": 1, "code": 1,
+     "line": 11,
+     "payload": {"deltas": {"t": {"k": "dbg", "v": "null",
                                   "trunc": false}}},
      "task": 1},
     {"ts": 3000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
@@ -81,8 +86,8 @@
       "command": ["watch", "$RUN", "--at", "cell", "--expr", "s == 'A1'"],
       "expect_exit": 0,
       "expect_line": [
-        ["sites: 2", "evaluated: 1", "hits: 1", "not-captured: 1"],
-        ["verdict: SATISFIED at 1 of the 1 site(s)"],
+        ["sites: 3", "evaluated: 2", "hits: 2", "not-captured: 1"],
+        ["verdict: SATISFIED at 2 of the 2 site(s)"],
         ["HIT", "state: s='A1'"]],
       "expect_absent": ["NEVER RECORDED"]
     },
@@ -101,9 +106,28 @@
       "command": ["watch", "$RUN", "--at", "cell", "--expr",
                   "s == \"'A1'\""],
       "expect_exit": 1,
-      "expect_line": [["sites: 2", "evaluated: 1", "hits: 0",
+      "expect_line": [["sites: 3", "evaluated: 2", "hits: 0",
                        "not-captured: 1"]],
       "expect_absent": ["SATISFIED"]
+    },
+    {
+      "id": "flow-value-reads-the-words-the-predicate-reads",
+      "ask": "Does `--value null` sight a JavaScript null -- the spelling the program wrote, the recorder printed and `--expr x == null` already answers about -- rather than searching for the four-character string?",
+      "command": ["flow", "$RUN", "--value", "null"],
+      "expect_exit": 0,
+      "expect_contains": ["flow of None (NoneType) in ",
+                          "t=null   [local t]",
+                          "sightings: 1 event(s), 1 capture(s)"],
+      "expect_absent": ["sightings: 0"]
+    },
+    {
+      "id": "and-the-quoted-spelling-is-still-the-string",
+      "ask": "Does `--value \"'null'\"` search for the four characters instead -- the escape hatch every other literal has?",
+      "command": ["flow", "$RUN", "--value", "'null'"],
+      "expect_exit": 1,
+      "expect_contains": ["flow of 'null' (str) in ",
+                          "sightings: 0 event(s), 0 capture(s)"],
+      "expect_absent": ["[local t]"]
     }
   ]
 }

@@ -26,6 +26,23 @@ class ObjTarget:
     type: str
 
 
+#: The words that name a value rather than a string, in both spellings the
+#: reader may know (ruling R33). `--expr` already reads `null`, `true` and
+#: `false` as values in every language (`expr._CONSTANTS`), and a reader
+#: debugging a TypeScript trace writes them at `flow` too; a search that
+#: quietly looked for the four-character STRING "null" instead would report
+#: zero sightings of a value the trace holds. Language-neutral, like the
+#: predicate's own constants: on a Rust trace `--value null` sights an
+#: `Option::None` capture, which is the same value in the reader's terms.
+#: `undefined` has no spelling here -- no writer can render it (a capture
+#: that holds it is JavaScript's, and `inspect_text` returns None for the
+#: marker) -- and neither has a BigInt; both are carried debts, not
+#: silences: `--expr x == undefined` is what answers about one.
+_WORDS = {"None": None, "null": None,
+          "True": True, "true": True,
+          "False": False, "false": False}
+
+
 def parse_literal(s: str):
     """The literal `--value` names.
 
@@ -33,14 +50,14 @@ def parse_literal(s: str):
     otherwise a string of digits would be unsearchable. Words that `float()`
     happens to accept ("nan", "inf", "infinity") stay strings: silently
     turning a search for the word into a search for the float would report
-    zero sightings for a value the trace may well hold.
+    zero sightings for a value the trace may well hold. The six words above
+    are the exception, and quoting still forces the string: `--value "'null'"`
+    searches for the four characters.
     """
     if len(s) >= 2 and s[0] == s[-1] and s[0] in "'\"":
         return s[1:-1]
-    if s == "None":
-        return None
-    if s in ("True", "False"):
-        return s == "True"
+    if s in _WORDS:
+        return _WORDS[s]
     if not _NUMERIC.fullmatch(s):
         return s
     try:
