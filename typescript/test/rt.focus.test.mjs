@@ -212,22 +212,23 @@ test('a value that cannot be read carries neither identity nor type', () => {
   assert.deepEqual(one(out.recs, 'RETURN').v, { k: 'unread' });
 });
 
-// --- what a `finally` after a `return` cannot mint (blind spot 38) ----------
+// --- what a `finally` after a `return` mints (blind spot 38, closed) --------
 
-test('a statement in a finally after the return mints no row', () => {
-  // Pinned as an ABSENCE: `return x` is spliced to `return __srt.ret(__sf,(x))`
-  // and `ret` closes the frame BEFORE the program's own `finally` runs, so
-  // `line` drops every row arriving from it. Blind spot 38 in
-  // `HONESTY-BLIND-SPOTS.md`; a runtime that sealed the frame after the finally
-  // would have to change this assertion on purpose. `g` is the asymmetry: after
-  // a THROW the same finally's rows ARE recorded, because `thr` has not run yet.
-  // Both bodies are written the way the transform splices a focused function.
+test('a statement in a finally after the return mints its row, and the RETURN follows it (blind spot 38 closed)', () => {
+  // The inversion of the absence this pinned until 0.4.0. `f` returns from
+  // inside a try-with-finally, so it is SEAL-DEFERRED (design §4.2): its
+  // `return` pends the value, its wrapper's own `finally` seals, and the
+  // program's finally therefore runs on a frame that is still open. `g` is
+  // unchanged in both directions — it has no `return` at all, so its wrapper
+  // is 0.3.0's, and after a THROW the same finally's rows were always
+  // recorded, because `thr` runs in the wrapper's catch, after it. Both
+  // bodies are written the way the transform splices a focused function.
   const out = run(`
     const __sfile = __srt.file('t.ts', '/w/t.ts', [], 'sha');
     let cleanup = 0;
     function f() {const __sf=__srt.call(__sfile,0);try{
-      try { return __srt.ret(__sf,(1)); } finally { cleanup = 1;__srt.line(__sf,3,['cleanup',cleanup]); }
-    ;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}
+      try { return __srt.pend(__sf,(1)); } finally { cleanup = 1;__srt.line(__sf,3,['cleanup',cleanup]); }
+    ;__srt.pend(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}finally{__srt.seal(__sf)}}
     function g() {const __sf=__srt.call(__sfile,1);try{
       try { throw new Error('boom'); } finally { cleanup = 2;__srt.line(__sf,7,['cleanup',cleanup]); }
     ;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}
@@ -238,10 +239,13 @@ test('a statement in a finally after the return mints no row', () => {
   const [returned, threw] = of(out.recs, 'CALL');
   const linesOf = (/** @type {any} */ frame) =>
     of(out.recs, 'LINE').filter((r) => r.f === frame.f);
-  // The RETURN is on the record; the write the finally made is nowhere.
-  assert.equal(one(out.recs, 'RETURN').f, returned.f);
-  assert.deepEqual(linesOf(returned), [],
-    'the finally ran after `ret` closed the frame, so its row was dropped');
+  // The write the finally made is on the record, and the RETURN comes after it.
+  const exit = one(out.recs, 'RETURN');
+  assert.equal(exit.f, returned.f);
+  assert.deepEqual(linesOf(returned).map((r) => [r.l, r.d.cleanup.v]), [[3, '1']],
+    'the finally ran on a frame the seal had not closed yet');
+  assert.ok(out.recs.indexOf(exit) > out.recs.indexOf(linesOf(returned)[0]),
+    'the RETURN is recorded after the rows of the finally it passed through');
   // The same finally, reached by a throw, IS recorded: `thr` runs after it.
   assert.deepEqual(linesOf(threw).map((r) => [r.l, r.d.cleanup.v]), [[7, '2']]);
 });

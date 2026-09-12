@@ -18,7 +18,7 @@ import { VERSION } from './index.mjs';
 import { nameFor, setProvider, titleOf } from './naming.mjs';
 
 /** @typedef {{id: number, name: string, stack: Frame[]}} Task */
-/** @typedef {{id: number, task: Task|null, open: boolean, mark: Record<string, unknown>|null}} Frame */
+/** @typedef {{id: number, task: Task|null, open: boolean, mark: Record<string, unknown>|null, pending?: Captured}} Frame */
 /** @typedef {Record<string, unknown>} Record_ */
 /** @typedef {import('./dbg.mjs').Captured} Captured */
 
@@ -504,6 +504,46 @@ export function ret(f, v) {
   drop(f);
   emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: dbg(v) });
   return v;
+}
+
+/**
+ * Hold the value a `return` chose, WITHOUT closing the frame (design §4.2).
+ *
+ * A function whose body returns from inside a `try` with a `finally` is
+ * spliced with this in place of `ret`: the program's `finally` then runs on a
+ * frame that is still open, so its statements mint their rows and a call it
+ * makes opens beneath the frame that made it. The last `pend` wins, which is
+ * what a `finally` that returns does to the value the `try` chose.
+ * @template T
+ * @param {Frame|null} f
+ * @param {T} v
+ * @returns {T} the value the source returns, untouched
+ */
+export function pend(f, v) {
+  if (!on || !f || !f.open) return v;
+  f.pending = dbg(v);
+  return v;
+}
+
+/**
+ * Close a frame `pend` left open, from the wrapper's own `finally` (§4.2).
+ *
+ * It emits the RETURN the deferred `return` did not, AFTER the rows of every
+ * `finally` the value passed through — the order Python's `sys.monitoring`
+ * already gives. A frame `thr` closed on the way out is left exactly as `thr`
+ * left it, so a `finally` that throws still reports one UNWIND and no return.
+ *
+ * `f.pending` is unset only where no `pend` ran at all: a generator resumed
+ * with a RETURN completion (a consumer's `break` or `.return()`), whose body
+ * reached neither a `return` nor its own fallthrough close.
+ * @param {Frame|null} f
+ * @returns {void}
+ */
+export function seal(f) {
+  if (!on || !f || !f.open) return;
+  f.open = false;
+  drop(f);
+  emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: f.pending ?? dbg(undefined) });
 }
 
 /**
