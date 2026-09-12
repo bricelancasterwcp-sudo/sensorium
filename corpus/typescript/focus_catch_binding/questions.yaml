@@ -38,12 +38,17 @@ questions:
     ask: >
       Is the `catch` itself an event, or only the counter it wrote?
     truth: >
-      It is an event of its own: `HANDLED attempts handled Error('bad key:
-      oops') L17`, one of them, naming the frame that took the throw and the
-      line it took it at. That is the row the LINE beside it is read against
-      -- the HANDLED says an exception reached this clause, and the
-      statement row says what the clause did with it. One HANDLED and one
-      row that wrote `count`: the reason went nowhere else.
+      It is an event of its own, and this recorder's verdict on it is
+      SWALLOWED: the `catch` absorbed the error -- it neither rethrows nor
+      logs -- and the frame holding it, `attempts`, returned normally once
+      the loop ended. That is sensorium's `swallowed` disposition (design
+      R7/R8, `exceptions_typescript.py`'s own rule), which is what a silent
+      `catch` IS, not a milder relative of it. `grep --kind HANDLED` names
+      the same event under its own vocabulary -- `HANDLED attempts handled
+      Error('bad key: oops') L17` -- but attribution and disposition are two
+      different questions, and this one is the disposition: the table row
+      E6-TS″ pre-registers for this case (**1** SWALLOWED, no reason line)
+      is what the instrument reads this answer against.
     why_logs_fail: >
       An empty-ish `catch` prints nothing by definition, so `console.log` has
       no line to be on, and a grep of the source for `catch` finds the clause
@@ -51,9 +56,9 @@ questions:
       what the program chose to print, which here is nothing. A stack trace
       is produced for a throw that escapes; this one was caught, so the
       channel that would have named it never fires.
-    command: ["grep", "$RUN", "attempts", "--kind", "HANDLED"]
+    command: ["exceptions", "$RUN"]
     expect_exit: 0
-    expect_contains:
-      - "matches: 1"
     expect_line:
-      - ["HANDLED attempts handled Error('bad key: oops') L17"]
+      - ["SWALLOWED -- caught by catch at e12 (attempts L17) in f2, which
+          returned"]
+      - ["dispositions: swallowed 1"]
