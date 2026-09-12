@@ -20,6 +20,20 @@
 //! statement itself is never re-rendered, so no line, column, panic location or
 //! `line!()` moves (spec §3.1).
 //!
+//! A BLOCK-LIKE statement whose scope bound names calls a second entry point
+//! instead (design §5.2, plan decision A6, `sensorium-transform` 0.5.0):
+//!
+//! ```ignore
+//! ::sensorium_rt::line_unbinding(&crate::__SENSORIUM_UNIT, <site>, || [], &["x"]);
+//! ```
+//!
+//! -- the same deltas, and after them the names the statement's scope took with
+//! it, which is the row Rust did not write before and which TypeScript's
+//! `declaredIn` has always written. A statement with nothing to unbind keeps
+//! `line` (R5), so no golden without a block moves a byte; [`facts::unbound_of`]
+//! is the rule and [`Walk::emit_kind`] is the one place the two are chosen
+//! between.
+//!
 //! # Where a probe goes
 //!
 //! * The **parameters LINE**, at the body offset the entry guard uses and
@@ -115,7 +129,7 @@ mod facts;
 
 use facts::{
     binding_names, is_block_like, is_conditionally_compiled, let_bindings, statement_deltas,
-    statement_span, stmt_diverges,
+    statement_span, stmt_diverges, unbound_of,
 };
 
 /// The LINE probe, as amendment A7 spells it. The ONLY place its text is
@@ -126,6 +140,37 @@ use facts::{
 /// [`crate::splice::ret_open_fragment`] spell it: the fragments share one
 /// static, and a second spelling of it would be a second static.
 fn line_fragment(site: u32, names: &[String]) -> String {
+    let deltas = delta_list(names);
+    format!("::sensorium_rt::line(&crate::__SENSORIUM_UNIT, {site}, || [{deltas}]);")
+}
+
+/// [`line_fragment`] for a BLOCK-LIKE statement that unbinds names (design
+/// §5.2, plan decision A6): the same deltas, and after them the names the
+/// statement's scope took with it.
+///
+/// A SECOND entry point rather than a fourth argument to `line`, which is R5:
+/// the fragment of a statement with nothing to unbind is not merely equal to
+/// what it was before 0.5.0, it is produced by the same function, so no golden
+/// without a block can move a byte. [`Walk::emit_kind`] is the one place that
+/// chooses between the two, and it chooses on the list being empty.
+fn line_unbinding_fragment(site: u32, names: &[String], unbound: &[String]) -> String {
+    let deltas = delta_list(names);
+    let mut popped = String::new();
+    for (i, name) in unbound.iter().enumerate() {
+        if i > 0 {
+            popped.push_str(", ");
+        }
+        popped.push_str(&format!("\"{name}\""));
+    }
+    format!(
+        "::sensorium_rt::line_unbinding(&crate::__SENSORIUM_UNIT, \
+         {site}, || [{deltas}], &[{popped}]);"
+    )
+}
+
+/// The deltas both fragments carry, written once so that R5 is a fact about
+/// this module and not a pair of spellings someone must keep in step.
+fn delta_list(names: &[String]) -> String {
     let mut deltas = String::new();
     for (i, name) in names.iter().enumerate() {
         if i > 0 {
@@ -135,7 +180,7 @@ fn line_fragment(site: u32, names: &[String]) -> String {
             "(\"{name}\", ::sensorium_rt::probe_cap!(&{name}))"
         ));
     }
-    format!("::sensorium_rt::line(&crate::__SENSORIUM_UNIT, {site}, || [{deltas}]);")
+    deltas
 }
 
 /// Splice one focused function's LINE probes.
@@ -181,27 +226,46 @@ impl Walk<'_, '_> {
                 FnArg::Typed(t) => names.extend(binding_names(&t.pat)),
             }
         }
+        // A parameters row opens a scope and closes none: `&[]`.
         self.emit(
             body_offset,
             line_of(sig.fn_token.span),
             &names,
+            &[],
             sig.fn_token.span,
         );
     }
 
     /// Mint a site and put one probe at `at`. Nothing is emitted if the site
     /// index would overflow the wire format's 24 bits.
-    fn emit(&mut self, at: usize, line: u32, names: &[String], span: Span) {
-        self.emit_kind(at, line, names, span, Kind::Line);
+    fn emit(&mut self, at: usize, line: u32, names: &[String], unbound: &[String], span: Span) {
+        self.emit_kind(at, line, names, unbound, span, Kind::Line);
     }
 
     /// [`Walk::emit`] with the splice kind said out loud -- the one thing that
     /// differs between a statement's LINE and an arm-entry's.
-    fn emit_kind(&mut self, at: usize, line: u32, names: &[String], span: Span, kind: Kind) {
+    ///
+    /// The ONE place the two fragments are chosen between, and the choice is
+    /// "is there anything to unbind": R5 lives here, in three lines, rather
+    /// than in a promise about every caller.
+    fn emit_kind(
+        &mut self,
+        at: usize,
+        line: u32,
+        names: &[String],
+        unbound: &[String],
+        span: Span,
+        kind: Kind,
+    ) {
         let Some(site) = self.mint(line, span) else {
             return;
         };
-        self.ctx.push(at, at, kind, line_fragment(site, names));
+        let fragment = if unbound.is_empty() {
+            line_fragment(site, names)
+        } else {
+            line_unbinding_fragment(site, names, unbound)
+        };
+        self.ctx.push(at, at, kind, fragment);
     }
 
     fn mint(&mut self, line: u32, span: Span) -> Option<u32> {
@@ -230,7 +294,15 @@ impl Walk<'_, '_> {
         Some(site)
     }
 
-    /// One statement's probe: after its last byte, with the names it wrote.
+    /// One statement's probe: after its last byte, with the names it wrote and
+    /// -- when it is block-like -- the names its scope took with it (§5.2).
+    ///
+    /// `unbound_of` is asked about every `Stmt::Expr` and holds the
+    /// `is_block_like` list itself, so the question is keyed on the shape of
+    /// the expression and never on the `;`: a block-like expression statement
+    /// may carry one (`if c { let a = 1; };`) and unbinds the same names
+    /// either way. Every other statement kind unbinds nothing -- a `let`
+    /// OPENS a scope and a macro's expansion is not inspected.
     fn statement(&mut self, stmt: &Stmt, is_tail: bool) {
         if is_conditionally_compiled(stmt) {
             return;
@@ -239,8 +311,12 @@ impl Walk<'_, '_> {
             return;
         };
         let names = statement_deltas(stmt);
+        let unbound = match stmt {
+            Stmt::Expr(expr, _) => unbound_of(expr),
+            _ => Vec::new(),
+        };
         let span = statement_span(stmt);
-        self.emit(at, line_of(span), &names, span);
+        self.emit(at, line_of(span), &names, &unbound, span);
     }
 
     /// Where the probe goes, or `None` when this statement takes none.
@@ -334,7 +410,9 @@ impl Walk<'_, '_> {
                 // own probe lands on this byte too, and the arm-entry LINE goes
                 // in front of it -- which is where the bare-expression form
                 // (A1) puts it, and the two forms must not disagree.
-                self.emit_kind(offset, line, names, span, Kind::LineEntry);
+                // An entry row BINDS; the completion row of the statement
+                // that opened it is where those names are unbound.
+                self.emit_kind(offset, line, names, &[], span, Kind::LineEntry);
             }
             return;
         }

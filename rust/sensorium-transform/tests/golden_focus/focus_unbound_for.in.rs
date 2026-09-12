@@ -3,7 +3,7 @@
 //! body binds nothing, so the list is the head pattern's and no more.
 //!
 //! `focus_loop` is this shape's twin WITHOUT the unbind rule -- it predates
-//! this slice, and its `@N(12)` became a `@B(12;i)` the day the rule landed.
+//! this slice; its plain LINE row became an unbinding one when this landed.
 
 pub fn total(v: &[i32]) -> i32 {
     let mut acc = 0;

@@ -626,10 +626,7 @@ mod tests {
     /// neighbour is unbound normally, which is what says the filter is narrow.
     #[test]
     fn a_cfg_stripped_let_is_not_unbound() {
-        assert_eq!(
-            unbound("{ #[cfg(any())] let a = 1; let b = 2; }"),
-            ["b"]
-        );
+        assert_eq!(unbound("{ #[cfg(any())] let a = 1; let b = 2; }"), ["b"]);
         assert_eq!(
             unbound("{ #[allow(unused)] let a = 1; }"),
             ["a"],
@@ -665,10 +662,7 @@ mod tests {
     /// no initialiser is bound at its first assignment and popped here too.
     #[test]
     fn a_let_else_and_a_deferred_let_both_bind_for_the_purpose_of_unbinding() {
-        assert_eq!(
-            unbound("{ let Some(a) = o else { return; }; }"),
-            ["a"]
-        );
+        assert_eq!(unbound("{ let Some(a) = o else { return; }; }"), ["a"]);
         assert_eq!(unbound("{ let a; a = 1; }"), ["a"]);
     }
 

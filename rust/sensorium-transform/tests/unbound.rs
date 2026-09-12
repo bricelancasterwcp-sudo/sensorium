@@ -125,8 +125,7 @@ fn a_shadowing_block_pops_the_name_it_shadowed() {
 /// A nested block-like statement unbinds its OWN. Recursing into it would put
 /// `inner` on the outer block's row too, and this is the assertion that reads.
 #[test]
-fn a_nested_block_like_statement_unbinds_its_own_and_the_outer_row_is_not_told()
-{
+fn a_nested_block_like_statement_unbinds_its_own_and_the_outer_row_is_not_told() {
     let t = run("focus_unbound_nested");
     assert_eq!(
         unbound_lists(&t),
@@ -151,8 +150,7 @@ fn a_cfg_stripped_let_is_not_unbound_and_its_neighbour_still_is() {
 /// byte, and a block-like expression in TAIL position takes no completion row
 /// at all -- so `tailing`'s `n` is bound by an entry row and popped by none.
 #[test]
-fn a_statement_with_nothing_to_unbind_keeps_the_line_fragment_and_a_tail_takes_no_row()
-{
+fn a_statement_with_nothing_to_unbind_keeps_the_line_fragment_and_a_tail_takes_no_row() {
     let t = run("focus_unbound_tail");
     assert_eq!(unbound_lists(&t), Vec::<String>::new());
     assert!(
