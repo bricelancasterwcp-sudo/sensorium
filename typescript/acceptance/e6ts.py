@@ -95,6 +95,9 @@ PRE_REGISTERED = {
     "untraced_catcher_rejection": 0,
     "untraced_catcher_later_failure": 0,
     "logged_rethrow_to_harness": 0,
+    # This slice (2026-09-12): re-registered by rung 3's procedure
+    # BEFORE the case's exceptions question exists.
+    "focus_catch_binding": 0,
 }
 
 #: S5 rung 3: the `ambiguous by reason:` line each case must print, WHOLE.
