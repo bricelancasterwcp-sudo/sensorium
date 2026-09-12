@@ -33,13 +33,14 @@ below has seven rung-4 shapes and the seventh is `enum`/`namespace`/`static
 {}` names, not the falsy head; the falsy head is a promise §11 makes and
 `E12` H3 measured (row 9 of nine, `m=null`), not a hole.
 
-**Five items are struck and one is narrowed, none deleted.** Rung 2's runtime
+**Six items are struck and one is narrowed, none deleted.** Rung 2's runtime
 records the shapes items **2**, **3** and **11** said it did not, so each is
-struck where it stands with the date and the replacement named; items **36**
-and **38** are struck the same way at **S5 rung 4's debts (2026-09-12)**,
-where the converter learned to count the cut `util.inspect` makes and the seal
-gave a `finally` reached by `return` its rows; item **13** is narrowed to what
-is still true of a destructuring clause. A struck item stays visible because a
+struck where it stands with the date and the replacement named; items **36**,
+**37** and **38** are struck the same way at **S5 rung 4's debts
+(2026-09-12)**, where the converter learned to count the cut `util.inspect`
+makes, the E6-TS table gained the procedure a new case's `exceptions` question
+needs, and the seal gave a `finally` reached by `return` its rows; item **13**
+is narrowed to what is still true of a destructuring clause. A struck item stays visible because a
 reader who last met this list under `sensorium-ts 0.1.x` needs to see which of
 its holes closed, when, and what is left of them. Item **22** is neither
 struck nor narrowed but **rewritten in place**, at rung 2's own final review:
@@ -427,7 +428,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     `tests/test_ts_ingest_focus.py` (*a string inspect cut is counted though
     its trunc flag is down*, and the counterpart that a string whose own
     content ends that way is not).
-37. **A new TypeScript corpus case cannot ask an `exceptions` question.**
+37. ~~**A new TypeScript corpus case cannot ask an `exceptions` question.**
     `typescript/acceptance/e6ts.py` carries a locked `PRE_REGISTERED` table
     — the rung-2 verdicts, hand-adjudicated before that code existed — and
     the E6-TS fence reads every `exceptions` question in
@@ -439,7 +440,23 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     it** means the next rung that touches E6-TS either re-registers the table
     or scopes the fence to the cases it was written over. *(Added
     2026-09-12.)* *Falsifier:* `corpus/typescript/focus_catch_binding`,
-    `typescript/acceptance/e6ts.py`.
+    `typescript/acceptance/e6ts.py`.~~ — **Closed 2026-09-12, S5 rung 4's
+    debts** (design §6.2): the fence was scoped, not the table -- rung 3's
+    own procedure (add the case's row to `e6ts.PRE_REGISTERED`, hand-adjudicated
+    in its own commit BEFORE the case's `exceptions` question exists, then
+    write the question) turned out to already cover a new case, and
+    `typescript/acceptance/e6ts.py`'s docstring now names it under `HOW A NEW
+    CASE ASKS AN exceptions QUESTION`. `focus_catch_binding` used it:
+    its row (`e6ts.PRE_REGISTERED["focus_catch_binding"]`) was committed
+    hand-adjudicated before its `exceptions` question existed, corrected once
+    (997f168, a54b754, then the SWALLOWED-count fix once the question was
+    written and run showed the hand read had used a sibling command's
+    vocabulary — controller ruling P16), and its `did-anything-record-the-
+    catch-itself` question now runs `exceptions` and is checked against that
+    row like every other case's. *Falsifier:*
+    `corpus/typescript/focus_catch_binding/questions.yaml` (question 2),
+    `typescript/acceptance/e6ts.py` (the `PRE_REGISTERED` row and the
+    docstring procedure).
 38. ~~**A statement in a `finally` reached by the `try`'s `return` mints no
     row.** `spliceReturn` renders `return x` as `return __srt.ret(__sf,(x))`,
     and `ret` sets the frame's `open` to false before the program's own

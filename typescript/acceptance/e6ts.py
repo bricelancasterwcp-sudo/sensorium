@@ -52,6 +52,22 @@ compared against a table locked before the answer existed:
     pin green"), and checking both off one recording is what keeps the two
     halves about the same run.
 
+HOW A NEW CASE ASKS AN exceptions QUESTION
+-------------------------------------------
+Add the case's row to `PRE_REGISTERED` -- and to `PRE_REGISTERED_REASON_LINE`
+when it pins a reason line, `None` included, since `None` is itself a pinned
+claim ("no such line at all") and not an absence -- in a commit BEFORE the
+commit that writes the case's `exceptions` question. Put the hand
+adjudication in that first commit's message, in the vocabulary of the
+COMMAND being pre-registered (`exceptions`'s own five dispositions, not a
+sibling command's kinds -- HANDLED is `grep --kind HANDLED`'s attribution,
+not a disposition, and reading it as one is what 997f168 got wrong for
+`focus_catch_binding`, corrected by ruling P16 once the question itself was
+written and run). Only then write the question, pinned against the row now
+already on record. Rung 3's four cases (`untraced_catcher` and its three
+siblings) and this slice's `focus_catch_binding` (997f168, a54b754, the
+correction at the commit adding this paragraph) are the precedent.
+
 `value` is how many cases matched the locked table, out of the cases asked.
 """
 import os
