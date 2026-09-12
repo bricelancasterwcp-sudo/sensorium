@@ -11,16 +11,18 @@ reading logs is reading a diary, and this is watching the execution.
 One private npm package, **`sensorium-ts 0.3.0`** — ESM `.mjs` with JSDoc
 types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24 (the version
 this was measured on; the driver refuses below it before spawning anything).
-Fifteen modules and a version:
+Seventeen modules and a version:
 
 | Module | What it is |
 |---|---|
 | `src/transform.mjs` | The rewriter. Pure: source text + path + root in, edited text + a source map + a per-file manifest out. No I/O. Positions come from the consumer's own `typescript`; edits are `magic-string` splices, and **no edit contains a newline**. |
 | `src/rt.mjs` | The runtime every instrumented module boots. Imports only `node:` builtins. Tasks on `AsyncLocalStorage`, a frame stack per task, the exception `WeakMap`, the object-identity `WeakMap`, the JSONL spool. |
+| `src/naming.mjs` | What a task is CALLED: the provider the harness registers, the lexical chain the transform read, which of the two wins and whether they disagreed — the four branches of spec §4's naming rule. Cut out of `rt.mjs`; `rt.nameProvider` is still the only way in, because the tier gate is the runtime's. |
 | `src/dbg.mjs` | The capture formatter: `util.inspect` under fixed options (`depth: 2`, `maxArrayLength: 8`, `maxStringLength: 100`) inside a 200-byte cap, and the `oid`/`type` pair an object or function capture carries. |
 | `src/tasks.mjs` | The test-callback wrapping and task naming the transform emits, split out of `transform.mjs` so the focus tier could grow beside it. |
 | `src/bindings.mjs` | What a statement WRITES, what a guard BINDS on entry and what a block DECLARES, read off the AST: `writesOf`, `headBindingsOf`, `headDeclaredOf`, `declaredIn`, `isStatementPosition`. Pure, the sibling of `escape.mjs`. |
 | `src/probe.mjs` | Where a statement probe goes: which statements mint a row, which guards get a head row, which bodies are wrapped, and the `;` a statement without one needs. |
+| `src/positions.mjs` | Where a node sits in its source file: `lineOf(sf, pos)` and the `;` a statement that leaned on ASI needs (`terminatorFor`). Read by the rewriter and by the probes, which is why it is neither's — it is what removed the `transform.mjs` ⇄ `probe.mjs` cycle `test/graph.test.mjs` now forbids. |
 | `src/focus.mjs` | Whether a `--focus` spec selects a function — the qualname prefix rule on a `.` boundary, the optional file part by path, basename or stem, and the `Closest:` suggestions a refusal prints. |
 | `src/resolve.mjs` | The pre-run resolver the driver spawns: it walks the eligible files under the root with the transform's own pass one and prints one JSON line saying what each spec matched, what it did not, and what it matched only among functions this recorder excludes. |
 | `src/qualname.mjs` | The file-local JavaScript spelling of a function's name — `Fog.compute`, `outer.inner`, `default`, `<anonymous>` — shared by the transform and the resolver. |
