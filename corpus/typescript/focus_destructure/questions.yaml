@@ -1,0 +1,61 @@
+program: vitest
+harness_args: ["run", "focus_destructure/"]
+record: {focus: ["unpack.ts:unpack"]}
+questions:
+  - id: what-did-the-destructuring-statement-bind
+    ask: >
+      One statement destructures the payload. Which names did it bind, and to
+      what?
+    truth: >
+      Three, on one row: `id='p-1'`, `first=0` and
+      `rest={ sizes: [ 2 ], tag: 'x' }`. A statement's deltas are the names
+      IT wrote, however many that is and however deeply nested the pattern
+      that wrote them -- an element inside an array pattern inside a renamed
+      property (`size: [first] = [0]`) is a bound name like any other, and so
+      is the rest element. `first=0` is the whole bug beside its own evidence:
+      the default `[0]` bound, and the row that shows it also shows `sizes`
+      sitting unread in `rest`. The two statements after it are the other two
+      shapes -- `let note;` binds `undefined`, which is a value and not an
+      absence, and `kept=2` is an ordinary one.
+    why_logs_fail: >
+      A `console.log({ id, first, rest })` is one more statement in a
+      function whose statements are the thing under suspicion, and it prints
+      the same 0 with no hint that a default produced it. `DEBUG=*` prints
+      the same object through a namespaced channel. Nothing throws, so there
+      is no stack trace -- and no stack trace distinguishes a value that was
+      read from a value that was defaulted, because both are just the local's
+      contents by the time anyone looks.
+    command: ["frame", "$RUN", "--fn", "unpack"]
+    expect_exit: 0
+    expect_contains:
+      - "args: obj={ id: 'p-1', sizes: [ 2 ], tag: 'x' }"
+      - "return: 2"
+    expect_line:
+      - ["LINE", "unpack L9", "id='p-1'", "first=0", "rest={ sizes: [ 2 ], tag: 'x' }"]
+      - ["LINE", "unpack L12", "note=undefined"]
+      - ["LINE", "unpack L13", "kept=2"]
+  - id: was-the-default-taken-everywhere
+    ask: >
+      Was `first` zero for the whole of the function, or only at the moment it
+      was bound?
+    truth: >
+      For the whole of it: SATISFIED at all three sites where it could be
+      evaluated, and the fourth site -- the CALL, before any statement had
+      run -- is reported as not in scope rather than as a miss. So the
+      default was not overwritten later by something that read `sizes`
+      properly; the payload's 2 never becomes `first` anywhere in this frame.
+    why_logs_fail: >
+      A single `console.log(first)` answers for one line; the claim here is
+      about every site in the frame, and that is a claim a printed line
+      cannot make. `DEBUG=*` prints the same one value through a namespaced
+      channel. Nothing throws, so no stack trace exists -- and a stack trace
+      reports from one moment inside one frame, which is precisely the shape
+      of evidence that cannot say "and it held at all the others too".
+    command: ["watch", "$RUN", "--at", "unpack", "--expr", "first == 0"]
+    expect_exit: 0
+    expect_contains:
+      - "sites: 4   evaluated: 3   hits: 3   not-captured: 1   errors: 0"
+      - "verdict: SATISFIED at 3 of the 3 site(s) the predicate could be evaluated at"
+      - "first: not in scope at this site   [1 site(s)]"
+    expect_line:
+      - ["HIT", "LINE", "unpack L9", "first=0"]

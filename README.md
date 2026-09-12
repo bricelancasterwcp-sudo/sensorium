@@ -14,9 +14,9 @@ Three recorders write that trace, and one command line reads it:
   (`sys.monitoring`) instrumentation. Python 3.12+, no runtime dependencies.
 - **Rust** — `cargo sensorium test|run` instruments a workspace's own crates
   at build time and writes one trace per process. Stable rustc, Linux.
-- **TypeScript** — `sensorium ts run -- vitest run …` (or `-- node --test …`)
-  transforms the consumer's own sources at load time and writes one trace per
-  test-file process. Node 24, vitest 4.1.
+- **TypeScript** — `sensorium ts run [--focus <spec>]… -- vitest run …` (or
+  `-- node --test …`) transforms the consumer's own sources at load time and
+  writes one trace per test-file process. Node 24, vitest 4.1.
 
 All three write [trace format 4](docs/TRACE-FORMAT.md), so every query below
 answers on any of the three kinds of trace — and where a recorder declares a
@@ -90,15 +90,12 @@ carries a derived state as its tail: `~ cancelled (CancelledError thrown in
 at Ln)`, `~ abandoned (GeneratorExit thrown in at Ln)`, `~ unwound by X
 thrown in at Ln` for any other exception thrown in, or `~ suspended at Ln
 at end of recording` for one still parked when recording stopped. A caller
-named but not framed is still never re-parented — on a format-3 trace that
-means it started running before recording began (`<- worker (no frame:
-started before recording)`); a trace from before frames existed keeps arc
-1's `(unframed)` wording exactly, because that recorder never opened frames
-for coroutines at all. `--focus`, `watch`, and LINE capture all work inside
-`async def` now: a focused coroutine's locals are captured at every LINE and
-interleaved with its `~ YIELD`/`~ RESUME` rows in `frame`'s timeline, and
-`info` reports `unframed calls: 0 (all calls framed in format 3)` on such a
-trace. `--window` is an ancestry flag, not a call-stack depth, so it
+named but not framed is still never re-parented — it started running before
+recording began (`<- worker (no frame: started before recording)`), and a
+trace from before frames existed keeps arc 1's `(unframed)` wording exactly.
+`--focus`, `watch` and LINE capture all work inside `async def`: a focused
+coroutine's locals are captured at every LINE and interleaved with its
+`~ YIELD`/`~ RESUME` rows in `frame`'s timeline. `--window` is an ancestry flag, not a call-stack depth, so it
 survives a suspension: another task's calls made while the windowed frame is
 parked are outside the window, and the windowed frame's own calls after it
 resumes are still inside. A generator or coroutine resumed on a *different*
@@ -376,8 +373,9 @@ lands.
 ## What sensorium sees at all
 
 Code that this run traced — for the Python recorder, Python code in files
-under the run's own root; for the Rust recorder, the workspace's own crates.
-**Nothing else.** On a Python trace, no command here says anything about:
+under the run's own root; for the Rust recorder, the workspace's own crates;
+for the TypeScript recorder, the eligible ES modules under the invocation's
+root. **Nothing else.** On a Python trace, no command here says anything about:
 
 - any child process, by any mechanism;
 - any thread not started through Python's own `threading` / `_thread`;
@@ -393,9 +391,10 @@ This is stated as a category rather than as a list of mechanisms on purpose.
 Five review rounds of `refocus` each found a mechanism the tool could not see;
 an enumeration that looks complete is more dangerous than no enumeration,
 because a reader who checks the list concludes their case was covered. The
-Rust recorder draws its boundary the same way, in
+Rust and TypeScript recorders draw their boundaries the same way, in
 [`rust/HONESTY.md`](rust/HONESTY.md) and
-[`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md).
+[`typescript/HONESTY.md`](typescript/HONESTY.md) with their blind-spot files
+beside them.
 
 ## Overhead
 
@@ -413,43 +412,32 @@ CPython 3.14.4 — with `python corpus/run_corpus.py --bench`:
 
     recorder fixed cost: 0.036s on a program that does nothing (0.0074s -> 0.0432s)
 
-**What 0.2.0 added, measured against 0.1.0 on the same machine the same
-day**, each side best-of-three in its own fresh venv, two independent runs
-per side: `call_dense` went from 6.0 to 6.5 µs/event (+8%) and
-`work_between_calls` from 8.3 to 8.4 (+1%); the call-dense multiplier moved
-from 113× to 135× (+19%), of which roughly half is that same per-event cost
-restated and half is the two builds' baselines differing by a millisecond.
-The design note predicted about 0.05 µs/event for derived parentage plus
-task identity; the in-situ cost is 0.1–0.5 µs/event depending on call
-density — five to ten times the prediction, recorded here as a finding
-rather than restated. `async_call_dense` runs every call inside a running
-event loop and so pays the task-identity path in full: 7.1 µs/event, about
-0.4 µs more than the synchronous call-dense case on this box.
-`async_call_dense` registers no focus target — its body only calls a
-one-line function — so it is reported for the default tier only;
-`await_dense` prices coroutine-body focus instead.
+**Derived parentage and task identity cost more in situ than on paper.** The
+0.2.0 design note predicted about 0.05 µs/event for the pair; measured
+against 0.1.0 on the same machine the same day, each side best-of-three in
+its own fresh venv, `call_dense` went **6.0 → 6.5** µs/event (+8%) and
+`work_between_calls` **8.3 → 8.4** (+1%), with the call-dense multiplier
+moving **113× → 135×** — roughly half that per-event cost restated and half
+the two builds' baselines differing by a millisecond. So the in-situ cost is
+**0.1–0.5 µs/event** depending on call density, five to ten times the
+prediction, recorded here as a finding rather than restated.
+`async_call_dense` pays the task-identity path in full at 7.1 µs/event, about
+0.4 µs above the synchronous call-dense case on this box, and registers no
+focus target (its body only calls a one-line function), so it is reported for
+the default tier alone; `await_dense` prices coroutine-body focus instead.
 
-On this same box, arc 2a's frame-and-suspension bookkeeping shows no
-measurable regression against a fresh 0.2.0 worktree measured the same way:
-`call_dense`/`work_between_calls`/`async_call_dense` measure
-6.7/8.5/7.1 µs/event here versus 0.2.0's 6.7/8.1/7.6 — differences within
-run-to-run noise in both directions.
-
-Plan 2b's per-event cost falls only on events that ran **inside a task**.
-An event with no current task takes exactly the path it took before — one
-locked lookup in the per-thread map. An event inside a task pays two things
-instead of that one: an unlocked membership test that keeps its thread's own
-row present (a zero-count row is a fact, see above), and a locked lookup in
-the per-task map. So the async rows below are where any movement would show,
-and the synchronous rows are the control. Measured against a fresh
-`e679b7c` worktree (the commit immediately before this plan, same machine,
-same day, each side its own venv): `call_dense` holds at 6.7/6.1 µs/event
-(default/focused, unchanged both ways), `async_call_dense` moves 7.2 → 7.1,
-`await_dense` moves 4.5 → 4.6 (default) and 5.3 → 5.4 (focused), and
-`work_between_calls` — not one of the three rows the per-task path touches —
-moves 8.3 → 8.5 (default) and 6.8 → 7.0 (focused). The largest move on any
-row is +0.2 µs/event, the same size as run-to-run noise reported elsewhere
-in this section; no row moved past it.
+Two later arcs were measured the same way against the worktree immediately
+before each, and neither moved a row past run-to-run noise. **Arc 2a's**
+frame-and-suspension bookkeeping: **6.7/8.5/7.1** µs/event against 0.2.0's
+**6.7/8.1/7.6**. **Plan 2b's** per-task fingerprint, whose cost falls only on
+events inside a task, so the async rows are where movement would show and the
+synchronous ones are the control: `call_dense` held at **6.7/6.1**
+(default/focused), `async_call_dense` **7.2 → 7.1**, `await_dense`
+**4.5 → 4.6** and **5.3 → 5.4**, `work_between_calls` **8.3 → 8.5** and
+**6.8 → 7.0** — largest move **+0.2 µs/event**, the size of the run-to-run
+noise reported elsewhere here. Both sets are deltas against a WORKTREE rather
+than a release, which is why they are written here and nowhere else:
+`CHANGELOG.md` records what shipped, not what did not move.
 
 Two costs plan 2b adds that a per-event figure does not show. **Memory**: the
 recorder holds one `Fingerprint` per asyncio task the run created, for the
@@ -464,37 +452,29 @@ recording a 2,000-task program took 2.18 s of wall clock where it now takes
 0.35 s, all of the difference being `fsync` charged to a process the user had
 already watched finish.
 
-An await-heavy program roughly **doubles its event count**, and that is a
-cost the per-event figures above do not show: every suspension is one YIELD
-plus one RESUME on the same frame, so `await_dense`'s 20,000 awaits are
-40,004 events — 40,000 suspension rows and the four CALL/RETURN rows its two
-function calls make. A program that never suspends records nothing new.
+An await-heavy program roughly **doubles its event count**, and that is a cost
+the per-event figures above do not show: every suspension is one YIELD plus
+one RESUME on the same frame, so `await_dense`'s 20,000 awaits are 40,004
+events — 40,000 suspension rows and the four CALL/RETURN rows its two function
+calls make. A program that never suspends records nothing new. That workload
+is what prices suspension on its own: 4.6 µs/event by default (5.4 focused),
+of which ~0.9 µs is the amortised 0.036 s boot from the fixed-cost row above,
+so about 3.7 µs of real per-event work. Against the **~114 ns** the design
+note measured for the bare `sys.monitoring` PY_YIELD/PY_RESUME callbacks, that
+is roughly 32× the floor (40× on the 4.6 µs figure, boot included), the rest
+being the trace write and the derived-state bookkeeping. `us/event` is the
+figure that travels; the multiplier tracks how call-dense the program is.
 
-`await_dense` isolates the cost arc 2 added: a coroutine that suspends
-20,000 times on `asyncio.sleep(0)`, so almost every event it produces is a
-YIELD or a RESUME on the same frame. Measured here it costs 4.6 µs/event by
-default (5.4 focused), including the amortised recorder fixed cost (~0.9 µs
-of that 4.6 — the 0.036s boot from the fixed-cost row above, spread over
-40,004 events); about 3.7 µs/event without it. Against the **~114 ns** the
-design note measured for the `sys.monitoring` PY_YIELD/PY_RESUME callbacks
-alone, before any writing, that is roughly 32× the floor (40× including the
-amortised fixed cost), the rest being the trace write and the derived-state
-bookkeeping the bare callback does not pay for.
-`us/event` is the figure that travels; the multiplier tracks how call-dense
-the program is.
-
-These are measurements of one machine and four workloads, not a promise
-about yours. The multiplier is not a property of sensorium: recording costs
-on the order of **4–9 microseconds per event** here, from 4.6 on the
-per-suspension `await_dense` case up to 8.5 on `work_between_calls` (6.7 on
-the call-dense case), and how much that is depends entirely on how often the
-traced program calls or suspends. `call_dense` is naive recursive
-`fib`, close to the worst case that exists — every microsecond of its baseline
-is function calls. `work_between_calls` does real work inside each call, which
-is what ordinary code looks like. Times are whole-command wall clock (best of
-three, after an untimed warm-up), so every row includes interpreter startup
-and recorder boot; the fixed cost is printed separately so it can be
-subtracted.
+These are measurements of one machine and four workloads, not a promise about
+yours. The multiplier is not a property of sensorium: recording costs
+**4–9 microseconds per event** here — 4.6 on the per-suspension `await_dense`
+case, 6.7 call-dense, up to 8.5 on `work_between_calls` — and how much that is
+depends entirely on how often the traced program calls or suspends.
+`call_dense` is naive recursive `fib`, close to the worst case that exists;
+`work_between_calls` does real work inside each call, which is what ordinary
+code looks like. Times are whole-command wall clock (best of three, after an
+untimed warm-up), so every row includes interpreter startup and recorder
+boot; the fixed cost is printed separately so it can be subtracted.
 
 `--focus` costs one further event per executed line of the focused code, so
 its price depends on what you point it at: at the hot recursive function
@@ -519,10 +499,11 @@ Small programs with deliberately planted bugs, and questions registered
 ground truth, the exact invocation expected to yield it, and why a `print()`
 cannot answer it. Ground truth is known because the bugs were planted. This is
 the regression suite, and it includes the honesty cases — the ones whose
-pinned answer is a REFUSAL. Twenty Python programs with thirty-nine questions,
-forty-three Rust cases, twenty-eight TypeScript cases: all of them case by case in
-[`docs/corpus.md`](docs/corpus.md), moved there 2026-09-09 so this file stays
-under 800 lines, wording unchanged. A case whose recorder is not built is
+pinned answer is a REFUSAL. **105 cases and 220 questions**: twenty Python
+programs with thirty-nine questions, forty-three Rust cases and forty-two
+TypeScript cases, ten of the last recorded under a `--focus`. All of them case
+by case in [`docs/corpus.md`](docs/corpus.md), moved there 2026-09-09 so this
+file stays under 800 lines, wording unchanged. A case whose recorder is not built is
 reported skipped BY NAME and counted apart from the passes, never as them;
 `--require-driver` turns such a skip into exit 1, which is what CI passes.
 
@@ -566,7 +547,7 @@ read by Python **0.8.6**. The 61 originals were recorded earlier, by
 `cargo-sensorium` **0.5.0**: that difference between the recording driver and
 the re-running one is the CONDITION the second claim needs, not an accident of
 bookkeeping. The crate numbers at the top of this section are today's
-(**0.4.1 / 0.4.4 / 0.5.3**) and Python **0.8.7** reads these traces now. All
+(**0.4.1 / 0.4.4 / 0.5.3**) and Python **0.12.0** reads these traces now. All
 four moved after the measurement — the crates for the sha256 consolidation —
 and none of them is a version that produced a number above.
 
@@ -691,89 +672,111 @@ declared absent in the trace, never silently missing.
 ### Cost, beside Python's
 
 Measured on this same box
-(`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3.1,
-the addendum re-measured after the converter's one-fsync-per-row bug was
-fixed at commit `c90cb72`; the earlier, since-fixed reading is cited only as
-history): `cargo test -p bloomery-daemon --lib` (plain) against
-`cargo sensorium test -p bloomery-daemon --lib` (call, tier `call`, n=5 each,
-binaries pre-built) — **0.058 s plain, 0.125 s call, ×2.1552**. Before the fix
-(commit `46074ef`) that same ratio read **×28.2373** (0.059 s / 1.666 s),
-almost entirely the converter's own committed-per-row cost, not recording —
-the same invocation's conversion wall fell from **1118.867 s to 1.197 s**
-(n=3) with the fix. Neither reading is comparable to rung 1's own **×1.0103**
-call/plain ratio: rung 1 timed `cargo test -p bloomery-daemon` (the whole
-8.25 s suite) with conversion OUTSIDE the timed command, while this ratio
-times `--lib` with conversion INSIDE the same invocation, so the two numbers
-are not equals (acceptance document §5.3). One recorded `--lib` invocation
-start to finish, build
-Fresh, conversion included: **0.102 s** (n=1); the driver's own fixed cost is
-**0.073 s** (n=5, median of 5 no-op `--tier off --no-run` invocations against
-straight cargo). Python's own per-event cost is in the Overhead section
-above (4–9 µs/event on this box); the Rust side's own reported cost lives in
-`rust/HONESTY.md` §10 and the acceptance document, on its own lens — a
-whole-suite wall ratio and a per-event µs figure are not the same unit, and
-neither section here states one as a translation of the other.
+(`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3.1):
+`cargo test -p bloomery-daemon --lib` plain against
+`cargo sensorium test -p bloomery-daemon --lib` at tier `call`, n=5 each,
+binaries pre-built — **0.058 s plain, 0.125 s call, ×2.1552**, conversion
+INSIDE the timed command. That is not comparable to rung 1's **×1.0103**,
+which timed the whole 8.25 s suite with conversion outside it (§5.3), and it
+is not comparable to Python's 4–9 µs/event above either: a whole-suite wall
+ratio and a per-event figure are not the same unit, and no section here
+states one as a translation of the other. The driver's own fixed cost is
+**0.073 s** (n=5, no-op `--tier off --no-run` against straight cargo).
 
 ## TypeScript
 
 `sensorium ts run -- vitest run` records a TypeScript or JavaScript test suite
 the way `cargo sensorium test` records a Rust workspace: one trace per
 test-file process, trace format 4, read by the same `sensorium` command line.
-`typescript/` ships **`sensorium-ts 0.2.0`** — a transform whose edits never
+`typescript/` ships **`sensorium-ts 0.3.0`** — a transform whose edits never
 contain a newline, a runtime on `AsyncLocalStorage`, a vitest plugin, a
 `node --test` hook — with driver and converter in Python, so reading a trace
 needs no Node. What it sees and does not is
-[`typescript/HONESTY.md`](typescript/HONESTY.md), and
+[`typescript/HONESTY.md`](typescript/HONESTY.md) with its blind-spot file;
 [`typescript/README.md`](typescript/README.md) is the full reference.
 
     npm ci --prefix typescript
-    npm --prefix typescript run check                    # type-check
-    sensorium ts run [--tier off|call] -- vitest run     # or: -- node --test src/
+    npm --prefix typescript run check                        # type-check
+    sensorium ts run [--tier off|call] -- vitest run         # or: -- node --test src/
+    sensorium ts run --focus diceQueue.ts:parseDiceGroups -- npx vitest run src/lib
 
 Everything after `--` is yours, spawned as typed, and the driver exits with
 the harness's own status. Tier `call` records calls and returns with a captured
 value, YIELD/RESUME at every `await`/`yield`, RAISE at every `throw`, HANDLED
 at every `catch`, and **tests as tasks** named as vitest names them, so `tree`
 groups by test and `diff` compares one test against itself. `exceptions`
-**answers** on a 0.2.0 recording — the same five dispositions, computed from a
-`how` word the transform decides from each handler's own syntax, and merged
-across a whole invocation — while a trace an 0.1.x runtime wrote still refuses
-at exit 3 on `err_flow: false`. `watch` and `flow` **refuse** at exit 3 on
-capabilities this version declares false (`line`, `object_identity`);
-`refocus` refuses at exit 2; package scripts, jest, a project with no
-`typescript` of its own and a vitest `projects`/`workspace` config are
-refused by name; arguments are unread and say so.
+**answers** — the same five dispositions, computed from a `how` word the
+transform decides from each handler's own syntax, and merged across a whole
+invocation — while a trace an 0.1.x runtime wrote refuses at exit 3 on
+`err_flow: false`. `flow --object` **answers on any 0.3.0 recording, focused
+or not, and answers exactly**: identity is a per-object serial minted once and
+never reused, so there is no gap analysis to run and the footer reads
+`continuity: exact (serial identity)`. `refocus` refuses at exit 2; package
+scripts, jest, a project with no `typescript` of its own and a vitest
+`projects`/`workspace` config are refused by name.
 
-**Measured, on somebody else's suite**, against twelve endpoints and two
-controls pre-registered and byte-locked before the code existed
-(`docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` §1). One lens
-under every number: a tabletop VTT frontend at `0091e97` — **372 test files,
-4,278 tests**, vitest 4.1.9, node v24.16.0, 16 cores. **372** containers of one
-test file each; **5,378 of 5,378** eligible sites instrumented; **0/19** false
-DIVERGED over twenty recordings of one file; tasks **4,278** = `tests_seen`
-**4,278**; **20/20** sites on their exact line; `off/plain` **1.0587** and
-`call/plain` **1.1324** (n=5 per arm, interleaved); converting the whole suite
-**45.53 s** against a plain wall of **22.59 s** (n=3), one file **0.36 s**.
+### Per-statement answers, under `--focus`
 
-**The rung ships DONE-WITH-STOP.** Ten of the twelve and both controls PASS.
-**E6′ is a STOP**: its three clauses that ask about contamination directly hold
-exactly — manifest 748 OK/0 FAILED, 0 markers, wrapper gone — and its fourth,
-a timing clause, did not: a plain-after wall of **22.8678 s** against the
-plain arm's band **[22.3136, 22.7221]**. Nothing was re-rolled; it is
-re-measured next slice under a new pre-registration, E6″. **E10 is REPORTED**,
-above its bound, so the converter's language is design input for the next
-rung — the second branch its own rule named.
+`--focus <spec>` (repeatable, `<qualname>` or `<file>:<qualname>`, and a
+container value selects its members on the `.` boundary) is resolved against
+your own sources with your own TypeScript **before anything is spawned**: a
+spec that names nothing is refused at exit **2** with the closest eligible
+qualnames, and one that names only functions this recorder does not
+instrument is refused with the reason and its count. What it selects, the
+transform splices a probe into — **one LINE event per completed statement**,
+its `deltas` the bindings that statement wrote, a guarded body's head names as
+a synthetic first row at each entry, and the block-scoped names a block-like
+statement declared listed `unbound` on its own row, which is the key `watch`'s
+fold pops. The focused function's CALL carries its **arguments**; an unfocused
+one in the same recording still reads `helper() <unread: locals>`. So `watch`
+and `flow --value` answer on a focused run and refuse at exit 3 on an unfocused
+one, naming the recorder the trace itself carries; `frame` answers either way,
+saying `timeline: not captured (record again with …)` at exit 0.
 
-**Rung 2 ships DONE**: `exceptions` answers on a TypeScript trace, measured at
-**0 false SWALLOWED of 30** hand-adjudicated shapes on that same suite, with
-`off/plain` **1.0608** and `call/plain` **1.1266**
-(`docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md`).
+A TypeScript capture is node's `util.inspect` **text**, so the reading rule is
+written down, and it is Rust's opposite in the place a reader meets first:
+`flow --value 5.0` **sights** a JavaScript `5`, because JavaScript has one
+number type. `null`, `undefined`, `true` and `false` are predicate constants
+in every language; a string is spelled with its quotes, and one past 100
+characters was cut by the formatter, so it matches nothing rather than
+matching a prefix. Every spelling is generated rather than argued — 41
+measured rows in `typescript/test/fixtures/inspect-table.json` — and
+[`docs/trace-format/TYPESCRIPT-KEYS.md`](docs/trace-format/TYPESCRIPT-KEYS.md)
+§ *Under a focus* is the reading. What the tier does **not** reach — place
+writes, `this`, a conditional assignment's write-or-not, a `switch`
+discriminant, a nested function no spec's prefix reached — is
+`typescript/HONESTY-BLIND-SPOTS.md` items 28–37, each a present row with a
+stated hole.
 
-**Rung 3 ships DONE**: the seventeen rung-2 blocks that read *"no rule of
-this recorder reaches a verdict here"* now name a reason, `untraced
-catcher`, measured at **0 false names of 20** printed blocks against a
-seventeen-row hand read taken before any of this code existed
-(`docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung3.md`).
+### What four rungs measured
+
+**One lens under nearly every number**, and it is somebody else's code: a
+tabletop VTT frontend at `0091e97` — **372 test files, 4,278 tests** — under
+vitest 4.1.9, node v24.16.0, 16 cores. Each rung was pre-registered and
+byte-locked before its own code existed. Two things none of it licenses: no
+endpoint says a TypeScript trace answered a debugging question nobody
+planted, and none was measured on a second consumer. Every figure, and what
+each rung left open, is in `docs/superpowers/acceptance/` and in
+[`typescript/README.md`](typescript/README.md).
+
+- **Rungs 1–3.** **DONE-WITH-STOP**, then **DONE**, then **DONE**: **372**
+  containers of one test file each and **5,378 of 5,378** eligible sites
+  instrumented, `call/plain` **1.1324** with `E6′` STOPping on one timing
+  clause of four; `exceptions` at **0 false SWALLOWED of 30** hand-adjudicated
+  shapes; the catch-all blocks naming a reason at **0 false names of 20**.
+- **Rung 4 — DONE-WITH-STOP**, the focus tier, on 830 files of that same
+  frontend. **H3 is the endpoint the rung exists for and it PASSed on the
+  first reading**: nine LINE rows for one `parseDiceGroups('1d20')`
+  activation, their lines, every delta name and the one `unbound` list row
+  for row against a hand count sha256-locked before the code existed, empty
+  diff. **H1** 4/4, **H6** 4/4, **H8** 6/6, **H7** reported at ×**2.3816**
+  plus 1.132 s of resolution. **H2, H4 and H5 STOP** — H2 because three typed
+  specs select **six** sites (a container's spec reaches what is nested in
+  it, which the pre-registration counted by names typed), H4 and H5 because
+  the reading INSTRUMENT could not tell a loop's head row from its completion
+  row nor see a CALL sighting its own transcript prints. All three were found
+  after their numbers, so all three stand as findings, and the next slice
+  re-registers them.
 
 ## Not yet
 

@@ -1,0 +1,31 @@
+$ sensorium info F1
+run 20260912-015130-42f691  trace: <store>/traces/20260912-015130-42f691.db
+cmd: <home>/.nvm/versions/node/v24.16.0/bin/node <lens>/node_modules/vitest/dist/workers/forks.js    cwd: <lens>
+node v24.16.0 (vitest 4.1.9, jsdom)  env:c908f489899af7c6  exit: unwitnessed  events: 529  duration: 0.05s
+recorder: sensorium-ts 0.3.0  lang: typescript  capabilities: children=no err_flow=yes line=yes locals=yes object_identity=yes output=no refocus=no return_value=yes stdin=no tasks=yes threads=no
+recorded: CALL 117  RETURN 117  RAISE 0  HANDLED 0  YIELD 0  RESUME 0  LINE 295
+focus: diceQueue.ts:parseDiceGroups, diceQueue.ts:forcedDiceFromSource, diceQueue.ts:buildDiceQueueEntry    window: -
+focus matched: 5 — src/lib/diceQueue.ts:buildDiceQueueEntry, src/lib/diceQueue.ts:buildDiceQueueEntry.<anonymous>, src/lib/diceQueue.ts:forcedDiceFromSource, src/lib/diceQueue.ts:forcedDiceFromSource.<anonymous>, src/lib/diceQueue.ts:parseDiceGroups (6 function(s) focused by the transform)
+caps: dbg=200 depth=2 sample=8 str=100   truncated values: 0
+harness: npx vitest run src/lib/diceQueue.test.ts  exit: 0 (waited)
+container: pid 3848654  thread 0 (main)  file: src/lib/diceQueue.test.ts
+container exit: self-reported signal SIGTERM (nobody waited)
+tests: 26 as tasks, 26 seen by the harness; task names: vitest
+files: 3 transformed; excluded: 10 (vitest-hoisted-factory x10)
+unhandled rejections: 0
+fingerprint thread 1 (main): 8ac72dfde81bede84803b99fec985259 (8 causal events outside any test)
+fingerprints: per-task basis -- each thread row covers the events that ran in no test; 26 task fingerprint(s) beside it
+not recorded in this trace: threads_started -- recorder sensorium-ts 0.3.0 declares threads not witnessed (capabilities.threads: false), so there is no thread record to read; absence of the record is not a record of absence
+not recorded in this trace: children, spawn_syscalls, audit_errors -- recorder sensorium-ts 0.3.0 declares children not witnessed (capabilities.children: false), so there is no child-process record to read; absence of the record is not a record of absence
+unframed calls: 0 (all calls framed in format 3)
+tasks: 26 (26 distinct name(s): parseDiceGroups > parses a single group x1, parseDiceGroups > parses multiple groups with modifiers ignored x1, parseDiceGroups > defaults count to 1 when omitted x1, parseDiceGroups > ignores keep/drop suffixes when extracting count/sides x1, parseDiceGroups > returns an empty array for an unparsable formula x1, forcedDiceFromSource > zips a flat roll list back onto its formula groups in order x1; and 20 more name(s))
+hot functions:
+  15x diceQueue.ts:parseDiceGroups
+  13x diceQueue.ts:forcedDiceFromSource.<anonymous>
+  12x diceQueue.ts:buildForcedNotation.<anonymous>
+  10x diceQueue.ts:forcedDiceFromSource
+  10x diceQueue.ts:buildForcedNotation.<anonymous>
+  8x diceQueue.ts:buildForcedNotation
+  7x diceQueue.ts:buildDiceQueueEntry
+  6x diceQueue.test.ts:<anonymous>.<anonymous>.<anonymous>
+--- exit 0

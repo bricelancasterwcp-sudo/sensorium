@@ -1,0 +1,16 @@
+$ sensorium frame F1 --fn parseDiceGroups
+f6 diceQueue.ts:parseDiceGroups  [e10..e20]  thread 1  task t1 (parseDiceGroups > parses a single group)  depth 1  closed: return
+args: formula='1d20'
+timeline:
+  e11 LINE    parseDiceGroups L69  groups=[]
+  e12 LINE    parseDiceGroups L70
+  e13 LINE    parseDiceGroups L71  m=undefined
+  e14 LINE    parseDiceGroups L72  m=[ '1d20', '1', '20', index: 0, input: '1d20', groups: undefined ]
+  e15 LINE    parseDiceGroups L73  count=1
+  e16 LINE    parseDiceGroups L74  sides=20
+  e17 LINE    parseDiceGroups L76
+  e18 LINE    parseDiceGroups L75
+  e19 LINE    parseDiceGroups L72  m=null  unbound:count,sides
+return: [ { count: 1, sides: 20 } ]
+children: (none)
+--- exit 0

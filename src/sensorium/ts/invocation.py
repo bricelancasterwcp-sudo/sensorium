@@ -18,7 +18,7 @@ imports `Invocation` to read, `run` imports it to write, and a field
 either adds is a field the other sees.
 """
 import json
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import MISSING, asdict, dataclass, field, fields
 from pathlib import Path
 
 #: The two harnesses this recorder wires. `vitest` runs the Vite plugin;
@@ -63,6 +63,13 @@ class Invocation:
     LAST and defaulted because a spool directory written before it existed
     is still a spool directory this converter must finish (`from_json`
     reads its absence as `[]`, and `build` then writes no meta key at all).
+
+    `focus` and `focus_matched` follow the same rule for the same reason.
+    `focus` is the specs AS TYPED, which is what a reader recognises;
+    `focus_matched` is `rel:qualname` for every function they selected,
+    sorted, which is what says whether the spec meant what its author
+    thought. The driver knows both before it spawns anything, because it
+    resolved them against the root to decide whether to spawn at all.
     """
 
     invocation: str
@@ -79,14 +86,20 @@ class Invocation:
     driver_version: str
     recorder: str
     command: list[str] = field(default_factory=list)
+    focus: list[str] = field(default_factory=list)
+    focus_matched: list[str] = field(default_factory=list)
 
     def to_json(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_json(cls, data: dict) -> "Invocation":
+        # A field with a DEFAULT is a field a spool directory written by an
+        # older driver can lack: absence is what the default is for. Every
+        # other one is required, and its absence names itself.
         missing = [f.name for f in fields(cls)
-                   if f.name not in data and f.name != "command"]
+                   if f.name not in data
+                   and f.default is MISSING and f.default_factory is MISSING]
         if missing:
             raise InvocationError(
                 f"{INVOCATION_FILE} lacks {', '.join(missing)}")

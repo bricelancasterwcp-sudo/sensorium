@@ -285,7 +285,11 @@ def test_invocation_round_trips_through_json():
     assert inv.harness == "vitest"
     assert inv.harness_args == ["run", "src/async.probe.test.ts"]
     assert inv.root == "/w/probes"
-    assert inv.to_json() == data
+    # This record was written before the focus keys existed, which is what
+    # their default is for: absence reads back as no focus, and the trip out
+    # adds the two empty lists and changes nothing else.
+    assert inv.focus == [] and inv.focus_matched == []
+    assert inv.to_json() == {**data, "focus": [], "focus_matched": []}
 
 
 def _without_counter(spool: Path, harness: str) -> None:

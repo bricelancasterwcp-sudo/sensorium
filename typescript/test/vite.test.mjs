@@ -23,14 +23,22 @@ const PKG = fileURLToPath(new URL('../', import.meta.url));
 const ROOT = fileURLToPath(new URL('../probes/', import.meta.url));
 
 /**
+ * Run a plugin script in a child and read what it left behind.
+ *
+ * Every variable the recorder reads is decided HERE and never inherited: a
+ * shell that exported `SENSORIUM_FOCUS` -- which is exactly what recording a
+ * focused run does -- would change what this plugin splices, and these tests
+ * would be reading that shell instead of their own fixture.
  * @param {string} body module source, run after `sensorium` is in scope
- * @param {{manifests?: boolean}} [opts]
+ * @param {{manifests?: boolean, focus?: string}} [opts]
  * @returns {{res: import('node:child_process').SpawnSyncReturns<string>, dir: string,
  *   out: any, tally: any, manifests: string[]}}
  */
 function run(body, opts = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sensorium-vite-'));
   const env = { ...process.env };
+  delete env.SENSORIUM_FOCUS;
+  if (opts.focus) env.SENSORIUM_FOCUS = opts.focus;
   if (opts.manifests === false) delete env.SENSORIUM_MANIFEST_DIR;
   else env.SENSORIUM_MANIFEST_DIR = dir;
   const script = `import { sensorium } from ${JSON.stringify(VITE)};\n` +
@@ -78,7 +86,7 @@ test('a good file is edited, counted once, and its manifest is named by its path
   assert.equal(out.out.hires, true);
   assert.equal(out.out.againEdited, true);
   assert.deepEqual(out.manifests, ['src__deep__mod.ts.json']);
-  assert.deepEqual(out.tally, { files_transformed: 1, excluded: {} });
+  assert.deepEqual(out.tally, { files_transformed: 1, functions_focused: 0, excluded: {} });
 });
 
 test('R7a: CommonJS is ours, cannot be transformed, and is counted by name', () => {
@@ -91,7 +99,7 @@ test('R7a: CommonJS is ours, cannot be transformed, and is counted by name', () 
   ok(out);
   assert.deepEqual(out.out, { cjs: null, cts: null });
   assert.deepEqual(out.manifests, []);
-  assert.deepEqual(out.tally, { files_transformed: 0, excluded: { commonjs: 2 } });
+  assert.deepEqual(out.tally, { files_transformed: 0, functions_focused: 0, excluded: { commonjs: 2 } });
 });
 
 test('R10: a file that does not parse is ours, untouched, counted — and returns null', () => {
@@ -101,7 +109,7 @@ test('R10: a file that does not parse is ours, untouched, counted — and return
   ok(out);
   assert.equal(out.out.back, null);
   assert.deepEqual(out.manifests, ['src__broken.ts.json']);
-  assert.deepEqual(out.tally, { files_transformed: 0, excluded: { 'parse-error': 1 } });
+  assert.deepEqual(out.tally, { files_transformed: 0, functions_focused: 0, excluded: { 'parse-error': 1 } });
 });
 
 test('R10a: a refusal to splice blind fails the run by name', () => {
@@ -145,7 +153,7 @@ test('a path that is not ours is left alone, manifest and tally included', () =>
   assert.deepEqual(out.out,
     { virtual: null, outside: null, deps: null, declaration: null, json: null });
   assert.deepEqual(out.manifests, []);
-  assert.deepEqual(out.tally, { files_transformed: 0, excluded: {} });
+  assert.deepEqual(out.tally, { files_transformed: 0, functions_focused: 0, excluded: {} });
 });
 
 test('with no manifest directory the plugin writes nothing and still transforms', () => {
@@ -169,4 +177,37 @@ test('the two resolutions are the root\'s TypeScript and the package\'s magic-st
   const noRoot = run("sensorium({ root: '/nowhere/', pkgDir: PKG, rtPath: 'RT' });");
   assert.notEqual(noRoot.res.status, 0);
   assert.match(noRoot.res.stderr, /typescript/);
+});
+
+test('the plugin reads SENSORIUM_FOCUS where it is BUILT, and counts what it selected', () => {
+  // A config's `import` of the plugin is hoisted above the config's own body,
+  // so a project that sets the variable in its config -- the probe project,
+  // which has no driver -- sets it AFTER this module loads and before the
+  // plugin is built. Reading it at build time is what makes that work.
+  const out = run(`${PLUGIN}
+    const back = p.transform(
+      'export function watched(a){ const b = a + 1; return b }\\n'
+      + 'export function ignored(a){ const b = a + 1; return b }\\n',
+      ROOT + 'src/mod.ts');
+    console.log(JSON.stringify({
+      focused: back.code.includes('__srt.call(__sfile,0,["a",a]);'),
+      rows: (back.code.match(/__srt\\.line\\(/g) || []).length,
+      sibling: back.code.includes('export function ignored(a){const __sf=__srt.call(__sfile,1);'),
+    }));
+  `, { focus: 'mod.ts:watched' });
+  ok(out);
+  assert.equal(out.out.focused, true);
+  assert.equal(out.out.rows, 1, 'one statement of the one focused function');
+  assert.equal(out.out.sibling, true, 'and the sibling is spliced as it always was');
+  assert.deepEqual(out.tally, { files_transformed: 1, functions_focused: 1, excluded: {} });
+});
+
+test('with no SENSORIUM_FOCUS the plugin focuses nothing and counts none', () => {
+  const out = run(`${PLUGIN}
+    const back = p.transform('export function watched(a){ return a }', ROOT + 'src/mod.ts');
+    console.log(JSON.stringify({ rows: back.code.includes('__srt.line(') }));
+  `);
+  ok(out);
+  assert.equal(out.out.rows, false);
+  assert.deepEqual(out.tally, { files_transformed: 1, functions_focused: 0, excluded: {} });
 });

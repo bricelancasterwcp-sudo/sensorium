@@ -50,9 +50,9 @@ THREE RECORDERS, ONE HARNESS
 recorder -- and the case directory is a self-contained crate
 (`corpus/rust/<case>/{Cargo.toml, src/…, questions.yaml}`) that this harness
 copies whole, exactly as it copies a Python case's directory. `record`
-(`--focus` / `--window`) belongs to the Python recorder alone and is refused
-on a cargo case rather than silently dropped: a focus that does not reach
-the recorder is a case that quietly stops testing what it says it tests.
+(`--focus` / `--window`) never reaches the cargo driver and is refused on a
+cargo case rather than silently dropped: a focus that does not reach the
+recorder is a case that quietly stops testing what it says it tests.
 
 `program: vitest` records with `sensorium ts run -- npx vitest run …` -- the
 TypeScript recorder -- and is the one case shape that is NOT a directory
@@ -63,12 +63,17 @@ project and a case is a directory inside it; the harness copies the WHOLE
 project minus `node_modules` (symlinked to the real one -- an installed tree
 is hundreds of megabytes and copying it per case would dominate the run)
 and minus `.sensorium`, and the case's `harness_args` name the tokens after
-`vitest` that select its own test files.
+`vitest` that select its own test files. It is also the one other recorder
+that takes a `record`, in part: `sensorium ts run` has `--focus` and no
+`--window`, so a vitest case may carry `record: {focus: [...]}` -- each
+entry becoming its own `--focus` before the `--` -- and a `window` under it
+is refused by name.
 
 Each recorder's keys are refused on the other two rather than ignored:
-`cargo_args` on a vitest case, `harness_args` on a cargo case, `record` or
-`argv` on either. An ignored key is a case that silently stops testing what
-it says it tests, whichever recorder drops it.
+`cargo_args` on a vitest case, `harness_args` on a cargo case, `argv` on
+either, and `record` on a cargo case whatever it holds. An ignored key is a
+case that silently stops testing what it says it tests, whichever recorder
+drops it.
 
 The driver is `$SENSORIUM_CARGO_SENSORIUM`, else `cargo-sensorium` on PATH.
 Where neither exists -- the Python CI matrix has no Rust toolchain -- the
@@ -298,9 +303,16 @@ def _record_cargo(driver: str, wd: Path, sdir: Path,
     return _run_ids(r.stdout), _diagnostic(argv, r)
 
 
-def _record_vitest(wd: Path, sdir: Path,
-                   harness_args) -> tuple[list[str], str]:
+def _record_vitest(wd: Path, sdir: Path, harness_args,
+                   focus=()) -> tuple[list[str], str]:
     """One `sensorium ts run -- npx vitest run <args>` in the copied project.
+
+    `focus` is the case's `record: {focus: [...]}` -- one `--focus <spec>`
+    per entry, all of them BEFORE the `--`. Everything after that separator
+    belongs to the harness, so a focus spelled on the far side would reach
+    vitest as a file pattern instead: the recording would be a call-tier one
+    and every per-line question would answer "nothing was checked", which
+    reads as the recorder's refusal rather than as a misplaced flag.
 
     A NON-ZERO exit here is not a recording failure. `sensorium ts run`
     returns the harness's own status by design, so a case whose planted
@@ -310,9 +322,11 @@ def _record_vitest(wd: Path, sdir: Path,
     returns; zero of them is the failure, and `run_case` reports it with
     the exit code and the output attached.
     """
-    argv = [sys.executable, "-m", "sensorium", "ts", "run", "--",
-            "npx", "vitest", TS_HARNESS_WORD,
-            *[str(a) for a in harness_args[1:]]]
+    argv = [sys.executable, "-m", "sensorium", "ts", "run"]
+    for spec in focus:
+        argv += ["--focus", str(spec)]
+    argv += ["--", "npx", "vitest", TS_HARNESS_WORD,
+             *[str(a) for a in harness_args[1:]]]
     r = subprocess.run(
         argv, cwd=wd, capture_output=True, text=True,
         env={**os.environ, "SENSORIUM_DIR": str(sdir),
@@ -394,11 +408,17 @@ def _record_both(case: Case, wd: Path, sdir: Path,
     """Record the case, and its `second_run` if it declares one.
 
     Returns (ids of the first recording, ids of the second, error text).
+
+    A vitest case's `second_run` is recorded under the SAME focus as the
+    first: the two runs of such a case are one program recorded twice, and a
+    second run at a different tier would be a comparison of two recorders
+    rather than of two executions.
     """
+    focus = case.record.get("focus") or []
     if case.is_cargo:
         first, err = _record_cargo(driver, wd, sdir, case.cargo_args)
     elif case.is_vitest:
-        first, err = _record_vitest(wd, sdir, case.harness_args)
+        first, err = _record_vitest(wd, sdir, case.harness_args, focus)
     else:
         first, err = _record(case, wd, sdir, case.argv)
     if not first or case.second_run is None:
@@ -408,7 +428,7 @@ def _record_both(case: Case, wd: Path, sdir: Path,
                                      case.second_run["cargo_args"])
     elif case.is_vitest:
         second, err2 = _record_vitest(wd, sdir,
-                                      case.second_run["harness_args"])
+                                      case.second_run["harness_args"], focus)
     else:
         second, err2 = _record(case, wd, sdir,
                                case.second_run.get("argv", []))

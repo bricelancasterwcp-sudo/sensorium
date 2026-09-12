@@ -1,0 +1,36 @@
+$ sensorium watch F1 --at parseDiceGroups --expr sides == 20
+watch 'sides == 20' at parseDiceGroups in 20260912-015130-42f691
+  a site is one RECORDED event in a matching frame: a CALL (its arguments)
+  or a LINE (that frame's locals, folded forward and dropped again when a
+  name goes out of scope). Whatever ran between two recorded sites
+  was not checked, and code this run never recorded is not in this trace.
+sites: 165   evaluated: 64   hits: 31   not-captured: 101   errors: 0
+verdict: SATISFIED at 31 of the 64 site(s) the predicate could be evaluated at
+  but 101 of 165 recorded site(s) could NOT be evaluated, so these are not necessarily every time it held
+  HIT   e16 LINE    parseDiceGroups L74  sides=20   state: sides=20
+  HIT   e17 LINE    parseDiceGroups L76   state: sides=20
+  HIT   e18 LINE    parseDiceGroups L75   state: sides=20
+  HIT   e29 LINE    parseDiceGroups L74  sides=20   state: sides=20
+  HIT   e30 LINE    parseDiceGroups L76   state: sides=20
+  HIT   e31 LINE    parseDiceGroups L75   state: sides=20
+  HIT   e32 LINE    parseDiceGroups L72  m=[ '2d6', '2', '6', index: 5, input: '1d20+2d6+3', groups: undefined ]   state: sides=20
+  HIT   e33 LINE    parseDiceGroups L73  count=2   state: sides=20
+  HIT   e47 LINE    parseDiceGroups L74  sides=20   state: sides=20
+  HIT   e48 LINE    parseDiceGroups L76   state: sides=20
+  HIT   e49 LINE    parseDiceGroups L75   state: sides=20
+  HIT   e83 LINE    parseDiceGroups L74  sides=20   state: sides=20
+  HIT   e84 LINE    parseDiceGroups L76   state: sides=20
+  HIT   e85 LINE    parseDiceGroups L75   state: sides=20
+  HIT   e86 LINE    parseDiceGroups L72  m=[ '2d6', '2', '6', index: 5, input: '1d20+2d6', groups: undefined ]   state: sides=20
+  HIT   e87 LINE    parseDiceGroups L73  count=2   state: sides=20
+  HIT   e138 LINE    parseDiceGroups L74  sides=20   state: sides=20
+  HIT   e139 LINE    parseDiceGroups L76   state: sides=20
+  HIT   e140 LINE    parseDiceGroups L75   state: sides=20
+  HIT   e204 LINE    parseDiceGroups L74  sides=20   state: sides=20
+... 11 more; continue with: sensorium watch 20260912-015130-42f691 --at parseDiceGroups --expr 'sides == 20' --limit 20 --misses 5 --after e204
+not captured at 101 of 165 site(s) -- the predicate could not be checked there:
+  sides: not in scope at this site   [101 site(s)]
+      recorded at other sites in these frames, so this is scope, not capture depth:
+      at those sites it was not bound yet, or had gone out of scope again (`del`, or the
+      implicit unbind that ends an `except E as e:` block)
+--- exit 0

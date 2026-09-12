@@ -1,0 +1,55 @@
+{
+  "invocation": "20260911-220540-b7c8d9",
+  "harness": "vitest",
+  "harness_args": [
+    "run",
+    "src/focus.probe.test.ts"
+  ],
+  "command": [
+    "npx",
+    "vitest",
+    "run",
+    "src/focus.probe.test.ts"
+  ],
+  "root": "/w/probes",
+  "cwd": "/w/probes",
+  "argv": [
+    "vitest",
+    "run",
+    "src/focus.probe.test.ts"
+  ],
+  "env_hash": "0f1e2d3c4b5a6978",
+  "start_ts": 1789182340.6,
+  "wrapper": "/w/probes/node_modules/.sensorium/setup.mjs",
+  "vitest": "4.1.9",
+  "node": "v24.16.0",
+  "driver_version": "0.11.0",
+  "recorder": "sensorium-ts 0.3.0",
+  "focus": [
+    "focus.probe.test.ts:letChain",
+    "focus.probe.test.ts:loopCounter",
+    "focus.probe.test.ts:blockScope",
+    "focus.probe.test.ts:bareGuard",
+    "focus.probe.test.ts:doWhile",
+    "focus.probe.test.ts:forIn",
+    "focus.probe.test.ts:asyncRows",
+    "focus.probe.test.ts:catchBinding",
+    "focus.probe.test.ts:destructure",
+    "focus.probe.test.ts:placeWrite",
+    "focus.probe.test.ts:nestedArrow"
+  ],
+  "focus_matched": [
+    "src/focus.probe.test.ts:asyncRows",
+    "src/focus.probe.test.ts:bareGuard",
+    "src/focus.probe.test.ts:blockScope",
+    "src/focus.probe.test.ts:catchBinding",
+    "src/focus.probe.test.ts:destructure",
+    "src/focus.probe.test.ts:doWhile",
+    "src/focus.probe.test.ts:forIn",
+    "src/focus.probe.test.ts:letChain",
+    "src/focus.probe.test.ts:loopCounter",
+    "src/focus.probe.test.ts:nestedArrow",
+    "src/focus.probe.test.ts:nestedArrow.double",
+    "src/focus.probe.test.ts:placeWrite"
+  ]
+}

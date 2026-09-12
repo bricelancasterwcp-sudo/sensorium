@@ -10,7 +10,7 @@ does for the Rust converter.
 
 PROVENANCE OF THE FIXTURES
 --------------------------
-Five cases are RECORDED, not written. `typescript/probes/README.md` gives
+Six cases are RECORDED, not written. `typescript/probes/README.md` gives
 the recipe; each was run with `SENSORIUM_TIER=call`, the spool was
 identified by its `FILE_START` path, and it was then passed through
 `tests/fixtures/ts-spools/sanitize.py` (the recorded root -> `/w/probes`,
@@ -22,6 +22,18 @@ the node binary's directory -> `/usr/bin`, `BOOT.env` ->
     unhandled-rejection   src/swallow3.probe.test.ts  E8 shape 3
     throw-flow            src/swallow.probe.test.ts   E8 shapes 1, 2, 4, 5
     generator-yield       src/sites.probe.test.ts     E4's 20 shapes
+    focus-lines           src/focus.probe.test.ts     the focus tier: LINE
+                                                      rows, a focused CALL's
+                                                      arguments, `unbound`
+
+`focus-lines` is the one recorded UNDER A FOCUS, and the only difference in
+its recipe: `probes/vitest.config.ts` sets `SENSORIUM_FOCUS` from its
+eleven-spec `FOCUS` list in the direct reading, so that container's BOOT
+declares `line` and `locals`, its spool carries 50 LINE records, and twelve
+of its CALLs carry an `a`. Its `manifests/_tally.json` is the tally that run
+wrote, `functions_focused` included -- twelve and not eleven, because a
+focused container also focuses the callback it defines
+(`nestedArrow.double`).
 
 `killed-mid-file` is `async-chain`'s spool cut where a SIGKILL would cut it:
 its first 120 whole lines plus the first 30 bytes of line 121, so both the
@@ -36,9 +48,14 @@ so an `UNWIND` has no recorded example and is written by hand.
 the 200-byte cap bit, a second activation carrying the recorder's `#2`, and
 a container vitest tore down with a signal.
 
-`invocation.json` is hand-written for every case: no driver exists yet
-(Task 6), and the contract these fixtures hold is
-`sensorium.ts.invocation`'s, not a recording's.
+`invocation.json` is hand-written for every case. The recorded spools were
+taken DIRECTLY (`npm run probe`, no driver in the loop), so no driver wrote
+one for them, and the contract these fixtures hold is
+`sensorium.ts.invocation`'s, not a recording's. `focus-lines` is where that
+matters most: its `focus` is the eleven specs the config typed and its
+`focus_matched` the twelve `rel:qualname` forms `sensorium.ts.focus`'s
+resolver answers for them, which is what `sensorium ts run --focus` would
+have written for the same run.
 """
 import os
 import re

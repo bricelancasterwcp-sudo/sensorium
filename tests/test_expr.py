@@ -17,11 +17,12 @@ happy paths:
 """
 import pytest
 
+from sensorium.query.dbg_dialects import INSPECT
 from sensorium.query.expr import (CLIPPED, CONTAINER, NO_LENGTH, NO_VALUE,
                                   NOT_CAPTURED, OUT_OF_SCOPE, SAMPLED,
-                                  TRUNCATED,
-                                  EvalError, ExprError, NotCaptured, _Sized,
-                                  compile_expr, resolve)
+                                  TRUNCATED, UNDEFINED,
+                                  EvalError, ExprError, NotCaptured, _DbgText,
+                                  _Sized, compile_expr, resolve)
 
 
 # -- the language it accepts -----------------------------------------------
@@ -404,3 +405,97 @@ def test_non_empty_and_misplaced_literals_are_refused():
                 "len(xs) == []", "xs == {} == ys"):
         with pytest.raises(ExprError):
             compile_expr(src)
+
+
+# -- the four constants, and the second dialect -----------------------------
+def test_the_four_words_are_values_and_not_names():
+    """`null`, `undefined`, `true` and `false` are the words a JavaScript
+    reader writes, and they are read as VALUES in every language: `x ==
+    null` on a Python trace compares with `None` exactly as `x == None`
+    does. Nothing about the capture changes; the predicate gains the
+    spelling its reader already has."""
+    assert compile_expr("x == null").eval({"x": None}) is True
+    assert compile_expr("x == null").eval({"x": 0}) is False
+    assert compile_expr("x == undefined").eval({"x": UNDEFINED}) is True
+    assert compile_expr("x == undefined").eval({"x": None}) is False
+    assert compile_expr("flag == true").eval({"flag": True}) is True
+    assert compile_expr("flag == false").eval({"flag": True}) is False
+
+
+def test_undefined_is_not_null_and_null_is_not_missing():
+    """The distinction the marker exists for. A site that recorded
+    `undefined` HAS a value, so `x == null` there is a decided `False` --
+    not a not-captured site, and not a hit."""
+    e = compile_expr("x == null")
+    assert e.eval({"x": UNDEFINED}) is False
+    with pytest.raises(NotCaptured) as ei:
+        e.eval({})
+    assert ei.value.reason == OUT_OF_SCOPE
+
+
+def test_a_constant_is_never_a_name_the_trace_could_witness():
+    """Plan P11. `names` drives `watch`'s NEVER RECORDED banner, so a
+    constant left in it would have the command announce that `null` was
+    captured at no site -- about a word no recorder can capture."""
+    assert compile_expr("x == null").names == {"x"}
+    assert compile_expr("a == undefined or b == true").names == {"a", "b"}
+    assert compile_expr("null == null").names == set()
+
+
+def test_undefined_in_arithmetic_is_an_error_and_not_a_verdict():
+    """It is not a number, and `x + 1 > 2` at a site that recorded
+    `undefined` decided nothing. `watch` counts it under `errors`, which is
+    a bucket of its own precisely because it is neither a hit nor a miss."""
+    with pytest.raises(EvalError):
+        compile_expr("undefined + 1 > 0").eval({})
+    with pytest.raises(EvalError):
+        compile_expr("x + 1 > 0").eval({"x": UNDEFINED})
+
+
+def test_a_constant_has_no_length_and_no_members():
+    """`len(undefined)` is not zero and not "not in scope": the word names
+    a value, and that value has no recorded length."""
+    for src in ("len(undefined) > 0", "len(null) > 0", "len(true) > 0"):
+        with pytest.raises(NotCaptured) as ei:
+            compile_expr(src).eval({})
+        assert ei.value.reason == NO_LENGTH
+    with pytest.raises(NotCaptured) as ei:
+        compile_expr("'a' in null").eval({})
+    assert ei.value.reason == NO_LENGTH
+
+
+def test_a_constant_shadows_a_local_of_the_same_name():
+    """Declared, not accidental (design 2026-09-11 section 4.2). A
+    predicate whose meaning depended on whether the recorded frame happened
+    to bind a variable called `null` would answer differently at two sites
+    for a reason no reader could see."""
+    assert compile_expr("null == null").eval({"null": 3}) is True
+    assert compile_expr("x == null").eval({"x": 3, "null": 3}) is False
+
+
+def test_resolve_reads_a_dbg_capture_in_the_dialect_it_is_handed():
+    """One `dbg` kind, two dialects. The same text is a different value in
+    each, and neither command may guess which recorder wrote it: the
+    dialect comes from the trace's own vocabulary."""
+    assert resolve({"k": "dbg", "v": "null"}, INSPECT) is None
+    assert resolve({"k": "dbg", "v": "'a'"}, INSPECT) == "a"
+    assert resolve({"k": "dbg", "v": "undefined"}, INSPECT) is UNDEFINED
+    assert resolve({"k": "dbg", "v": "5"}, INSPECT) == 5
+    # ...and with no dialect at all it is Rust's reading, which is what
+    # every caller that predates the second dialect gets (plan P10).
+    assert resolve({"k": "dbg", "v": '"a"'}) == "a"
+    assert resolve({"k": "dbg", "v": "None"}) is None
+    assert resolve({"k": "dbg", "v": "'a'"}) == "'a'"
+
+
+def test_a_dialect_reading_still_wraps_text_and_refuses_a_prefix():
+    """The two rules that are the DIALECT'S, not the reader's: a rendering
+    that spells no value is `_DbgText` (so `len()` over it is refused), and
+    a capture the wire cap cut is a prefix whatever the dialect."""
+    got = resolve({"k": "dbg", "v": "[Function: foo]"}, INSPECT)
+    assert isinstance(got, _DbgText) and got == "[Function: foo]"
+    assert resolve({"k": "dbg", "v": "'ab", "trunc": True}, INSPECT) \
+        is TRUNCATED
+    # inspect's OWN cut carries no `trunc` flag, and is a prefix all the same
+    assert resolve({"k": "dbg", "v": "'ab'... 5 more characters"},
+                   INSPECT) is TRUNCATED

@@ -1,11 +1,12 @@
 # The TypeScript recorder's honesty ledger
 
-`sensorium-ts 0.2.0` — v1, the call tier, under vitest and `node --test`.
-Read by `sensorium` 0.9.0 and above, and by **0.10.0** and above for the
-throw-flow verdicts of §4; a trace names its own writer, because the runtime
-stamps the package's `VERSION` into every spool's BOOT record and the
-converter spends it on `recorder: "sensorium-ts 0.2.0"` in meta. No edition of
-this file is struck yet: this is the first.
+`sensorium-ts 0.3.0` — the call tier, and a per-statement tier under
+`--focus`, under vitest and `node --test`. Read by `sensorium` 0.9.0 and
+above, by **0.10.0** and above for the throw-flow verdicts of §4, and by
+**0.12.0** and above for the focus tier of §11; a trace names its own writer,
+because the runtime stamps the package's `VERSION` into every spool's BOOT
+record and the converter spends it on `recorder: "sensorium-ts 0.3.0"` in
+meta.
 
 Sensorium's founding rule is that **the instrument never answers from data it
 does not have**. The Python recorder keeps its half of that rule in the
@@ -48,6 +49,19 @@ list moves to [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) so this file
 stays under 800 lines. Endpoint ids `E6-TS`–`E10″` name measured cells of
 `../docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md` — its §3 and
 §4 for the numbers, its §5 for the four gaps they do not cover.
+
+**Amended 2026-09-12, at rung 4's close** — the third edition struck against a
+measurement. Nothing below is deleted. What moved: a new **§11 *Under a
+focus***, the per-statement promise and the identity promise, with `E12`'s own
+cells as its falsifiers; §7's *declared absent* paragraph is **rewritten**,
+because `locals` and `line` are now what a RUN decided and `object_identity`
+is true of every 0.3.0 recording; §7's falsifier list and the index's `| 7 |`
+row name `corpus/typescript/object_identity`, the case that was
+`object_refused` until this rung answered it; and **eleven new blind spots,
+28–38**, none of them struck. Endpoint ids `H1`–`H8` name measured cells of
+`../docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.md` — its
+§3 and §4 for the numbers, its §5 for the four gaps they do not cover, and
+its word for the rung: **DONE-WITH-STOP**.
 
 **Provenance.** This file is written **before the runtime exists**, which is
 the point: the code is written to the ledger, not the ledger to the code. Its
@@ -522,13 +536,31 @@ move-fragility `--ignore-moves` exists to absorb. The cost is blind spot 1.
 
 **Declared absent, and refused rather than guessed.** The capabilities block is
 the recorder's own list of what it does not produce, and every command reads it
-the same way. Arguments are unread: `locals: false`, and every CALL carries
-`unread: ["locals"]`, so `tree` prints `name() <unread: locals>` — a stated
-absence, not an empty argument list. `line: false`, so `watch` and `flow`
-refuse at exit 3 naming the capability and the recorder. `object_identity:
-false`, so `flow --object` refuses. `output: false` — vitest owns the capture,
-and this recorder does not claim the program's stdout — and `stdin: false`
-beside it, which is the same statement about the other end of the pipe
+the same way. *(Rewritten 2026-09-12, at rung 4's close. Three of the keys it
+listed as flatly false are no longer: `locals` and `line` are now what a run
+DECIDED, and `object_identity` is true of every 0.3.0 recording. The paragraph
+is replaced rather than annotated, because a list of absences with two live
+capabilities in it is not a list a reader can use; what each key said before is
+in this file's git history and in `CHANGELOG.md`'s 0.9.0 and 0.10.0 entries.)*
+
+**`locals` and `line` are the focus tier's, and say what this RUN decided.**
+On a run that named no `--focus` both are `false`: arguments are unread, every
+CALL carries `unread: ["locals"]` so `tree` prints `name() <unread: locals>`,
+no LINE record exists, and `watch` and `flow --value` refuse at exit 3 naming
+the capability and the recorder the TRACE carries. On a focused run both are
+`true` and the same commands answer — §11. The pair is a statement about what
+this recorder PRODUCED for this recording, never about what the program did:
+absence of the record, reported as the recorder's own declaration.
+
+**`object_identity` is `true` on every 0.3.0 recording**, focused or not: an
+`oid` and a `type` ride on every object capture the recorder writes, so
+`flow --object` is answered where it used to refuse (§11, and
+`corpus/typescript/object_identity`). A trace a 0.2.x runtime wrote still
+declares `false` and is still refused — what it lacks is the record.
+
+**The keys that are still flatly false.** `output: false` — vitest owns the
+capture, and this recorder does not claim the program's stdout — and `stdin:
+false` beside it, which is the same statement about the other end of the pipe
 *(added 2026-09-09: the list omitted it, which made the list look complete and
 was not false about any key)*. `threads: false` and `children: false` (blind
 spot 4). `refocus: false`, refused at exit 2. **`err_flow: true`** (§4)
@@ -540,7 +572,7 @@ declares `false` and is still refused, by the capability sentence)*.
 `test.workspace` config makes vitest resolve a config PER PROJECT, and this
 wrapper merges onto one: the plugin never reaches the projects' pipelines, so
 the suite runs and nothing is recorded. The wrapper config refuses it at load
-time — `vitest projects/workspaces are not supported by sensorium-ts 0.2.0` —
+time — `vitest projects/workspaces are not supported by sensorium-ts 0.3.0` —
 and leaves that sentence in the spool directory (`wrapper-refusal.json`) for
 the driver to print at exit 2. *(Added 2026-09-09, ruling R41: measured, such
 a run came back as the CONVERTER's sentence, "nothing was recorded, or the
@@ -563,8 +595,12 @@ a write somewhere else in the source tree.
 counted`), `tests/test_ts_driver.py`, `tests/test_ts_ingest.py`,
 `tests/test_ts_ingest_refusals.py`,
 `corpus/typescript/nondeterministic`, `corpus/typescript/watch_refused`,
-`corpus/typescript/object_refused`, and the E5-TS split control of the
-acceptance record's §3.2.
+`corpus/typescript/object_identity` — the case that was
+`object_refused` until 0.3.0 answered it (R13, R36): `flow --object
+loadSettings:return` now prints three sightings under one serial on an
+UNFOCUSED recording, and the case's third question still refuses, through
+`line: false`, because `flow --value` reads per-line state this run does not
+hold — and the E5-TS split control of the acceptance record's §3.2.
 
 ## 8. Preserved by construction, tested
 
@@ -599,143 +635,13 @@ jest is refused by name.
 
 ## 9. Cost
 
-**The promise.** Cost is a reported fact with its `n` and its lens beside it,
-and it gates nothing.
-
-The tier is a runtime gate and the transform runs every time, so the whole cost
-of `--tier off` is the transform — which makes `off` a real control arm rather
-than a different program. The endpoints report walls at n=5 per arm,
-interleaved, conversion excluded, and report conversion separately. Where an
-endpoint carries a bound, crossing it buys **work**, not a verdict: a transform
-cache keyed on source sha becomes rung-1 work if `off/plain` goes above 1.10,
-and a conversion wall above the plain suite's own wall is a design input
-naming a Node converter or a binary wire. Neither outcome is a NO-GO, and
-neither number is allowed to decide whether the recorder is honest.
-
-**Measured, rung 1** *(added 2026-09-09; every number from
-`../docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` §3, on one
-lens: the VTT frontend at `0091e97` — 372 test files, 4,278 tests — under
-vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores)*:
-
-- **Recording**: `off/plain` **1.0587** and `call/plain` **1.1324**, n=5 per
-  arm, interleaved, 0 runs dropped, conversion excluded — inside E1′'s 1.10
-  bound, so the transform stays uncached and the source-sha cache stays a later
-  slice. Beside them, ungated: **99.61 B/line** and **162,629.8 lines/s** under
-  the product runtime (medians over the 5 call runs), and vitest's own
-  `transform` seconds **10.24 / 21.64 / 21.43** for plain / off / call.
-- **Conversion**: full-suite `ingest` over 372 spools and 414,450,522 bytes,
-  **45.5293 s** median (n=3) against the same run's plain wall of **22.5925 s**
-  — ×2.02, **above** E10's bound. E10's own rule made that a **design input and
-  not a STOP**, and the input is taken: a Node converter on `node:sqlite`, or a
-  binary wire, is the next slice's question. One file's spool converts in
-  **0.3638 s** (n=3), which is what a debugging loop actually pays, and it is
-  reported here beside the suite number so the design question is asked about
-  the right workload.
-- **Reading**: `info` **0.5401 s** and `diff` **0.6867 s** (n=3 each) on the
-  lens's largest trace, 333,832,192 bytes.
-- **And one cost that is a STOP.** E6′ asks whether a plain run afterwards is
-  contaminated, in four clauses. Three ask about contamination directly and all
-  three hold — the sources are identical by sha256 manifest (**748 OK, 0
-  FAILED**), **0** `__srt` markers appear in any cache directory, and
-  `node_modules/.sensorium` is **absent**. The fourth is a timing clause, and
-  it **STOPped**: the plain-after wall **22.8678 s** against the plain arm's
-  own min–max band **[22.3136, 22.7221]**, 0.1457 s (0.65%) above it. The
-  number stands as measured — nothing was re-rolled and no band was moved —
-  and what the STOP is understood to rest on is written down rather than
-  argued away: the instrument that took it ran with no load guard though its
-  clause is a timing clause, and a five-run min–max is a range and not a
-  tolerance (record §5, gaps 5 and 6). It is re-measured next slice under a
-  NEW pre-registration, **E6″**. **The rung therefore ships DONE-WITH-STOP**,
-  which is the phrase the record, the spec, the CHANGELOG and both READMEs use
-  for it, so a reader meets one name for one fact. This ledger states it as a
-  STOP because that is what the pre-registration's own words make it, and a
-  rung that ships with one is a rung that ships with one.
-
-
-**Measured, slice 2** *(added 2026-09-10; every number from
-`../docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.md` §3 and §4,
-on the same lens)*:
-
-- **Conversion, the ladder.** Rung 1's design input was taken and answered on
-  the pinned 372-spool, 414,450,522-byte copy of one recording, every cell
-  guarded and each lever measured before the next was written. **Arm 0** (the
-  0.9.0 converter): full suite at 16 jobs **45.7378 s**, the one file
-  **0.3624 s**, the heaviest worker's peak resident **2,273,872 kB** on the
-  big-spool cell. **A1** — one transaction per trace, `synchronous=NORMAL`:
-  **17.7740 s** and **0.1647 s**, RSS unmoved at **2,273,996 kB** (it is not
-  the quantity this lever touches). **A3** — the streaming spool reader:
-  **16.5088 s** and **0.1628 s**, and peak resident **280,408 kB** on that
-  same cell, **8.1096×** below A1's. **A2** (largest-first dispatch) and **A4** (the per-record Python
-  cost) were **not built**: the spec conditioned them on the first two levers
-  leaving the suite above the bound, and they did not; a lever that cannot
-  move a verdict is not free.
-- **Conversion, the verdicts.** **E10′-suite PASS** — **16.3859 s** median,
-  n=5, against the pinned **22.5925 s** wall: **the converter stays Python**
-  and Arm B is not raised. **E10′-file PASS** — **0.1648 s** median, n=5,
-  against **0.4002 s**, which was the one clause on this ladder allowed to
-  **STOP** it; it did not fire. **E10′-eq PASS** — the set converted twice,
-  **372 MATCH / 0 DIVERGED / 0 REFUSED**, the only `meta` key differing on any
-  pair being the minted `run_id`. Beside it, reported and never gated,
-  **E10′-eq-content**: every row of all seven tables compared column for
-  column, **372 / 372 identical**.
-- **One cost this slice does not have a number for.** The non-durable writer
-  holds a whole trace's WAL until `close()`: measured once at `--jobs 1`, a
-  **335,895,392-byte** `-wal` beside a **333,832,192-byte** database, so
-  transient disk is ≈ **2×** per in-flight trace and, at the default job
-  count, the sum over the workers building at that moment. Nothing came near
-  the disk on any cell here (63 GB free), so no verdict rests on it — but this
-  box has run at ~3 GB free, and the peak at 16 jobs is unmeasured. It is in
-  `docs/CARRIED-DEBT.md`.
-- **And the STOP is answered.** E6′'s plain-band clause STOPped at rung 1.
-  **E6″ — PASS**, on all five clauses of a NEW pre-registration: manifest
-  **748 OK / 0 FAILED** before and after, all ten plain runs at
-  `372 passed (372)` / `4278 passed (4278)` with **nothing dropped**, **0**
-  `__srt` markers over the 2 cache directories that exist, the wrapper
-  **absent**, and the after arm's median **22.1136 s** inside the band
-  **[21.9834, 22.3652]** the before arm's own median (**22.1743**) and range
-  (**0.1909**) define — 0.0607 s **faster**, not slower. The instrument E6′
-  lacked is what makes this readable: a load guard on every timed run with its
-  reading in the artifact, a band derived from the arm rather than chosen, and
-  medians over n=5 on each side. What it closes is one session, one lens, one
-  recorder, and the record's §5 says what it does not settle — the band's
-  width is a property of the session, and "under 4.0" is not "idle".
-
-**Measured, rung 2** *(added 2026-09-10; every number from
-`../docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md` §3, on the
-same lens, with a load guard on every timed run and its reading beside every
-wall — the highest 1-minute load any arm ran under was **3.91**)*:
-
-- **Recording, again.** `off/plain` **1.0608** and `call/plain` **1.1266**,
-  n=5 per arm, interleaved, 15 of 15 runs green, conversion excluded (`E1‴`).
-  Rung 1 read **1.0587** and **1.1324** on the same lens with a recorder that
-  did not yet splice a `catch` word, a callback wrapper or a `finally` sink,
-  so the throw flow's whole cost is inside the difference between those two
-  pairs — which is to say inside the noise this instrument can resolve. It
-  gates nothing either way, and the transform stays uncached.
-- **Conversion, again.** The rung's own 372-spool set (**414,599,103 B**)
-  converts in **16.0715 s** at 16 jobs (n=5), and its `useMeshVoice` spool
-  (**611,325 B**) in **0.1642 s** (n=5) — beside slice 2's **16.3859 s** and
-  **0.1648 s** on the pinned set (`E10″`). No gate; the converter stays
-  Python.
-- **What the recorder wrote about throws, over 372 member traces.** HANDLED
-  records by `how`: `catch` **36**, `catch_callback` **182**,
-  `catch_escaped` **22**, `sink_empty_catch` **37**,
-  `sink_empty_catch_callback` **8** — **285** in all, from **287** spliced
-  sites of **287** eligible (`E2″`, ratio **1.0000**, zero named exclusions).
-  The escape rule's own verdict distribution over that lens: **22 of 177**
-  catch clauses read `catch_escaped` — **0.1243** — with `catch` **87** and
-  `sink_empty_catch` **68** beside it. Reported, gated by nothing.
-- **And what the rules made of it.** Over the same run, `swallowed` **261**
-  and `ambiguous` **53** across **314** raises in **53** of 372 processes;
-  **30** SWALLOWED shapes printed, every one hand-adjudicated, **0** of them
-  false (`E6-TS′`). Fifteen of the thirty needed a second reading, and
-  **13** of the 30 AMBIGUOUS shapes read the escaped-handler reason. What
-  those numbers do NOT establish is a false-negative rate: the gate asks
-  whether an accusation is true, and a swallow this recorder never saw makes
-  no shape to adjudicate.
-
-**Falsifiers.** `E1′`, `E10`, `E10′`, `E6′`, `E6″`, `E1‴`, `E10″`, `E2″`,
-`E6-TS′`.
+The section — the promise that cost is a reported fact with its `n` and its
+lens beside it and gates nothing, and the three **Measured** blocks behind it,
+one per rung, including the E6′ STOP that slice 2's E6″ answers — is
+[`HONESTY-COST.md`](HONESTY-COST.md), **moved there 2026-09-11 so this file
+stays under 800 lines**, on §10's precedent. **The wording and order there are
+unchanged**, so `§9` still names what it always named, one file away, and the
+index's three `| 9 |` rows below are the same three rows.
 
 ## 10. Blind spots
 
@@ -744,7 +650,8 @@ names what the trace carries in its place, and what could falsify the claim
 that this is the whole of it.
 
 The list itself — items **1–17** from rung 1, **18–27** that rung 2 adds for
-the throw flow — is [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md), **moved
+the throw flow, **28–38** that rung 4 adds for the focus tier and the inspect
+dialect — is [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md), **moved
 there 2026-09-10 so this file stays under 800 lines**, on Rust's precedent
 ([`../rust/HONESTY-BLIND-SPOTS.md`](../rust/HONESTY-BLIND-SPOTS.md), 2026-09-05).
 **The numbering there is unchanged**, so "blind spot 13" still names what it
@@ -753,6 +660,83 @@ rather than deleted — this runtime records the shapes they said it did not —
 and **13** is narrowed; a struck item stays visible, because a reader who last
 met this list under `sensorium-ts 0.1.x` needs to see which of its holes closed
 and when.
+
+## 11. Under a focus
+
+*(Added 2026-09-12, at rung 4's close, `sensorium-ts 0.3.0`. This section is
+the only one in this file whose promise is conditional on how the run was
+recorded, and saying which run is half of the promise.)*
+
+**The promise.** Under a `--focus`, the trace holds **one LINE row per
+completed statement** of a focused function: its `deltas` are the bindings
+that statement wrote and nothing else, a guarded body's head names arrive as
+a synthetic first row at each entry, the block-scoped names a block-like
+statement declared are listed `unbound` on that statement's own row, and the
+CALL of a focused function carries its arguments. Without a focus none of it
+exists, the recorder declares that, and every command that would read it
+refuses instead of answering.
+
+**What in the trace says it.** `capabilities.line` and `capabilities.locals`,
+which a focused run declares `true` and an unfocused one `false` —
+transform-time, so the declaration is the recording's and not the reader's
+guess. `meta.focus` holds the specs as typed; `meta.focus_matched` holds the
+`<rel>:<qualname>` of every function they selected; `meta.functions_focused`
+holds what this container's transform actually instrumented, and `info`
+prints the second beside the first and the third when it differs. A LINE
+event's payload is `{deltas}` plus `unbound` **only where a name died** — an
+empty `unbound` beside empty deltas would claim nothing went out of scope,
+which is a claim nobody made. The row's line is the statement's FIRST line.
+The whole reading, rule by rule, is
+[`../docs/trace-format/TYPESCRIPT-KEYS.md`](../docs/trace-format/TYPESCRIPT-KEYS.md)
+§ *Under a focus*.
+
+**What it does not claim.** That the rows are every write the statement made:
+a place write (`a.b = e`, `a[i] = e`, `delete a.b`) produces a row with no
+delta, `this` is not read, a conditional assignment's row reports the
+binding's value afterwards without saying whether the write happened, and a
+`switch` discriminant's assignment is reported nowhere — blind spots 28–31,
+each a present row with a stated hole rather than a missing row. That the
+count covers nested code: a function-like inside a focused one is selected
+only because the spec's prefix rule reached it, and one that the prefix does
+not reach is recorded at the call tier alone (blind spot 33). And that the
+number of functions a spec selects is the number of names typed — it is not:
+three typed specs resolved to **six** sites on the rung-4 lens, because a
+container selects what is nested in it, which is why `resolve.mjs` answers
+before the run and not after.
+
+**Identity, and what a serial buys.** `dbg()` mints `oid` — a `WeakMap`
+serial, once per object, never reused — and `type` on every object or
+function capture it writes: a RETURN value at the call tier, and under a
+focus the args and the deltas. So `capabilities.object_identity` is `true`
+**unconditionally** on a 0.3.0 recording, `flow --object` needs that
+capability and not `line`, and the answer is exact: no gap analysis, no
+address recycling to hedge against, `continuity: exact (serial identity)`.
+Measured: one array sighted at `diceQueue.ts:138` where it is created empty
+and at `diceQueue.ts:202` holding one die — two renderings, one serial, the
+same object. What it does not claim: **sightings are top-level captures
+only**, so an object appearing inside another's inspect text has no serial of
+its own (blind spot 32), and the wire key's NAME never reaches a printed
+line — the reader prints `object #64`, and `grep -rnw oid` over the rung's
+thirteen committed transcripts returns nothing.
+
+**Falsifiers.** `E12` H3 **PASS** — nine LINE rows on the first
+`parseDiceGroups('1d20')` activation, their lines 69, 70, 71, 72, 73, 74, 76,
+75, 72, every delta name and the one `unbound` list row for row against a
+hand count sha256-locked before `bindings.mjs`, `probe.mjs`, the runtime's
+`line` or the converter's `_on_line` existed, empty diff; `E12` H1 **PASS**
+(the unfocused arm's declaration and its exit-3 refusal); `E12` H6 **PASS**
+(the serial); `E12` H2, H4 and H5 **STOP** — H2 on the pre-registration's own
+under-derivation of the site count, H4 and H5 on **instrument** readings
+found after their numbers, both stated in
+`../docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.md` §4.4
+and §4.5 and neither re-measured. The ten focus corpus cases
+(`corpus/typescript/focus_*`, `corpus/typescript/flow_value_inspect`) and
+`corpus/typescript/object_identity`;
+`typescript/probes/src/focus.probe.test.ts` with `probes/check.mjs`'s
+`checkFocus`, which asserts BOTH readings and skips neither;
+`typescript/test/golden/`, `typescript/test/{bindings,probe,focus,resolve}.test.mjs`,
+`tests/test_ts_ingest_meta.py`, `tests/test_watch_typescript.py`,
+`tests/test_js_inspect.py`; and vectors `v35`–`v39`.
 
 ## The index: promise → falsifier
 
@@ -787,7 +771,7 @@ a corpus case, a vector or an acceptance endpoint.
 | 6 | `meta.invocation` groups the traces and `meta.test_file` names each; a container that ran none carries neither key and is listed by its argv | `docs/trace-format/vectors/v29-runs-file-header.json`, `E0′` |
 | 7 | Eligible files under the root are instrumented and every exclusion is named and counted in `transform_excluded`, with `files_transformed` beside it | `E2′`, `typescript/test/transform.test.mjs`, `tests/test_ts_ingest.py` |
 | 7 | Sites keep JavaScript's own spelling, `file` absolute and the fingerprint root-relative, so `diff` pairs across a file split and a re-record of one file never reads DIVERGED | `E3-TS`, the E5-TS split control (acceptance §3.2), `corpus/typescript/nondeterministic` |
-| 7 | What the recorder does not produce is declared, and every command refuses on the declaration instead of answering: `locals`, `line`, `object_identity`, `output`, `threads`, `children`, `refocus` | `corpus/typescript/watch_refused`, `corpus/typescript/object_refused`, `E7′`, `tests/test_ts_ingest.py` |
+| 7 | What the recorder does not produce is declared, and every command refuses on the declaration instead of answering: `output`, `threads`, `children`, `refocus`, and `locals`/`line` on a run that named no `--focus` | `corpus/typescript/watch_refused`, `corpus/typescript/object_identity` (the refusal that became an answer), `E7′`, `E12` H1, `tests/test_ts_ingest.py` |
 | 7 | The consumer's tree is touched at exactly one path, `<root>/node_modules/.sensorium/`, and only for the run's duration; `setupFiles` are appended, never replaced | `E6′`, `E5′` (the suite green under the driver is what a REPLACED `setupFiles` would break; E6′ alone cannot see it) |
 | 8 | No edit contains a newline, so every output line is the input's and 20 shapes land on 20 exact lines | `E4′`, `typescript/test/transform.test.mjs` |
 | 8 | The source map is `hires`, so a planted failing assertion's report is byte-identical instrumented against plain | `E4′`, `typescript/probes/src/sites.probe.test.ts` |
@@ -796,4 +780,7 @@ a corpus case, a vector or an acceptance endpoint.
 | 9 | Cost is reported with its `n` and lens and gates nothing; a bound crossed buys work, never a verdict | `E1′`, `E10` |
 | 9 | Cost is a STOP where a pre-registered clause did not hold: E6′'s plain-band clause, stated as a STOP and not re-rolled | `E6′`, the acceptance record §4 and §5 gaps 5–6 |
 | 9 | Cost is reported again at rung 2 with the throw flow spliced in: `off/plain` 1.0608, `call/plain` 1.1266, conversion 16.0715 s — and none of the three gates anything | `E1‴`, `E10″` |
-| 10 | The blind-spot list — now [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) — is the whole of what this recorder cannot see, each item carried by a meta key, an `info` line or a stated absence | each item's own falsifier, 1 through 27 *(10–17 added 2026-09-09; 18–27 added 2026-09-10, when 2/3/11 were struck and 13 narrowed)* |
+| 10 | The blind-spot list — now [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) — is the whole of what this recorder cannot see, each item carried by a meta key, an `info` line or a stated absence | each item's own falsifier, 1 through 38 *(10–17 added 2026-09-09; 18–27 added 2026-09-10, when 2/3/11 were struck and 13 narrowed; 28–38 added 2026-09-12)* |
+| 11 | Under a `--focus`, one LINE row per completed statement of a focused function, `deltas` the bindings it wrote, a guard's head names as the body's first row, `unbound` on a block-like statement's own row, and the focused CALL carrying its arguments | `E12` H3 (9 of 9 rows against a locked hand count, empty diff), `E12` H1, the ten `corpus/typescript/focus_*` cases, `typescript/probes/src/focus.probe.test.ts` + `probes/check.mjs`, `typescript/test/{bindings,probe,focus}.test.mjs`, `docs/trace-format/vectors/v36-typescript-line-and-args.json` |
+| 11 | Identity is a serial minted once and never reused, on every object capture focused or not, so `flow --object` is exact and says so — and sightings are top-level captures only | `E12` H6, `corpus/typescript/object_identity`, `docs/trace-format/vectors/v37-flow-object-serial.json`, `typescript/test/rt.focus.test.mjs` |
+| 11 | A capture's text is node's own `util.inspect` dialect, read and written over one generated table, so `watch --expr` and `flow --value` cannot disagree about a spelling | `tests/test_js_inspect.py` against `typescript/test/fixtures/inspect-table.json` (41 measured rows), `corpus/typescript/flow_value_inspect`, `docs/trace-format/vectors/v38-inspect-dialect-agreement.json` |

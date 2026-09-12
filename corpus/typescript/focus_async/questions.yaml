@@ -1,0 +1,61 @@
+program: vitest
+harness_args: ["run", "focus_async/"]
+record: {focus: ["cache.ts:load"]}
+questions:
+  - id: which-side-of-the-await-published-the-placeholder
+    ask: >
+      The cache held a 0 while the load was in flight. Which of the two
+      `CACHE.set` statements ran before the suspension?
+    truth: >
+      The first one, and the timeline says so by construction rather than by
+      inference: `placeholder=0` at L19 and the write at L20, then
+      `~ YIELD load awaiting Promise`, then `~ RESUME load`, and only then
+      `fetched=400` at L21 and the second write at L22. The suspension is an
+      EVENT between two rows here, not a gap to be reasoned about -- the row
+      at L20 is immediately followed by the YIELD, which is the bug: the
+      placeholder was published before the value existed.
+    why_logs_fail: >
+      A `console.log` before and after each write prints four lines in the
+      order they ran, which is exactly the order the timeline shows -- and
+      says nothing about where the suspension fell between them, because
+      nothing is printed when a frame parks. `DEBUG=*` has the same shape.
+      Nothing throws, so there is no stack trace, and a stack trace of an
+      async frame shows where it is now, never that it was ever elsewhere.
+    command: ["frame", "$RUN", "--fn", "load"]
+    expect_exit: 0
+    expect_contains:
+      - "e4 LINE    load L20\n  ~ e7 YIELD   load awaiting Promise"
+      - "args: key='rate'"
+      - "return: 400"
+    expect_line:
+      - ["LINE", "load L19", "placeholder=0"]
+      - ["YIELD", "load awaiting Promise"]
+      - ["RESUME", "load"]
+      - ["LINE", "load L21", "fetched=400"]
+    expect_count:
+      "load L22\n": 1
+  - id: who-read-the-cache-while-it-was-parked
+    ask: >
+      Did anything actually read the cache during the suspension, and what did
+      it get?
+    truth: >
+      `peek` did, and it got the placeholder: `peek() <unread: locals> -> 0`,
+      sitting in the same task between the YIELD and the RESUME by event
+      order. It is a sibling of `load` in the tree and not a child of it,
+      which is the shape of the fault -- an unrelated reader served a value
+      the loading frame had not finished producing. `load` itself is marked
+      `[async]` and returned 400, so the trace holds both readings of the
+      same key at once.
+    why_logs_fail: >
+      A `console.log` in `peek` prints 0, which is also what an empty cache
+      and a genuinely zero rate would print; the fact that makes it a bug is
+      WHEN it ran relative to a suspension in another frame, and no printed
+      line carries that. `DEBUG=*` prints the same 0. Nothing throws, so
+      there is no stack trace, and a stack trace of `peek` names its own
+      callers and never the parked frame beside it.
+    command: ["tree", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["load(key='rate')", "[async] -> 400"]
+      - ["peek() <unread: locals> -> 0"]
+      - ["fetchRate() <unread: locals>", "[async] -> 400"]

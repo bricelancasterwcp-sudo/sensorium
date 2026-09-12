@@ -58,7 +58,6 @@ reads a `sample` key (a depth-capped capture omits it entirely).
 import shlex
 from dataclasses import dataclass
 from enum import Enum, auto
-from pathlib import Path
 
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
@@ -67,8 +66,11 @@ from sensorium.query.expr import (CLIPPED, CONTAINER, NO_LENGTH, NO_VALUE,
                                   NOT_CAPTURED, OUT_OF_SCOPE, TRUNCATED,
                                   EvalError, ExprError, NotCaptured, _Sized,
                                   compile_expr, resolve)
+from sensorium.query.dbg_dialects import for_trace
 from sensorium.query.fmt import fmt_event, fmt_value, more_note, parse_eref
-from sensorium.record.tracer import module_name_for
+from sensorium.query.sites import (  # noqa: F401  (re-exported)
+    _qual_matches, rerun_command, spell_site)
+from sensorium.query.sites import site_matches as _site_matches
 from sensorium.store.reader import Trace
 
 _MAX_LISTED_CODES = 20
@@ -99,33 +101,14 @@ def add_parser(sub) -> None:
 
 
 # -- selecting sites -------------------------------------------------------
-def _qual_matches(qualname: str, spec: str) -> bool:
-    """`Pot` selects `Pot.add`, and `Counter` selects `Counter::new`.
+def site_matches(code, at: str, trace) -> bool:
+    """Whether `--at` selects this code object -- `query/sites`' rule.
 
-    A prefix counts only where it ends at a BOUNDARY -- Python's `.` or
-    Rust's `::` -- or `--at Counter` would quietly answer about
-    `Counters::new`, a different function the reader never named. One rule
-    holding both separators, and no `lang` branch anywhere near it: `watch`
-    takes the qualname its own recorder printed (design 2026-09-06 §4.1).
-
-    This is the only prefix rule in `query/`. `flow --object
-    <qualname>:<name>` names ONE function and resolves it by equality, so
-    there is no second copy of the rule to keep in step with this one; the
-    recorder's own focus matcher (`record/tracer`) is a different question,
-    asked of Python source before a run rather than of a recorded trace.
+    A delegation and not a copy: the same rule decides what `--at` selects,
+    what the no-match listing prints and what `--focus` would re-record, and
+    a second implementation here is how those three drift apart.
     """
-    return (qualname == spec or qualname.startswith(spec + ".")
-            or qualname.startswith(spec + "::"))
-
-
-def site_matches(code, at: str, module: str | None) -> bool:
-    mod, sep, qual = at.partition(":")
-    if sep:
-        if qual and not _qual_matches(code.qualname, qual):
-            return False
-        return not mod or mod in (module, Path(code.file).stem)
-    return (_qual_matches(code.qualname, at)
-            or at in (module, Path(code.file).stem))
+    return _site_matches(code, at, trace)
 
 
 @dataclass(frozen=True)
@@ -136,18 +119,23 @@ class Site:
     caps: dict        # name -> the raw capture behind it, for rendering
 
 
-def _bind(env: dict, caps: dict, deltas: dict, wanted: set) -> None:
+def _bind(env: dict, caps: dict, deltas: dict, wanted: set,
+          dialect=None) -> None:
     for n, v in deltas.items():
         if n in wanted:
-            env[n] = resolve(v)
+            env[n] = resolve(v, dialect)
             caps[n] = v
 
 
-def sites_for(trace, code_ids, wanted: set) -> list[Site]:
+def sites_for(trace, code_ids, wanted: set, dialect=None) -> list[Site]:
     """Every recorded site in the matching frames, state folded forward.
 
     Only the predicate's own names are tracked, which bounds the copy per
     site and keeps a wide frame from carrying its whole scope into memory.
+
+    `dialect` is which formatter wrote this trace's `dbg` captures. Absent,
+    a rendered capture is read as Rust's -- today's behaviour for every
+    caller that predates the second dialect (ruling R2, extending P10).
     """
     frames = sorted((f for cid in code_ids for f in trace.frames(code_id=cid)),
                     key=lambda f: f.id)
@@ -157,13 +145,14 @@ def sites_for(trace, code_ids, wanted: set) -> list[Site]:
         caps: dict = {}
         call = trace.event(f.call_event_id)
         if call is not None:
-            _bind(env, caps, (call.payload or {}).get("args", {}), wanted)
+            _bind(env, caps, (call.payload or {}).get("args", {}), wanted,
+                  dialect)
             out.append(Site(call, dict(env), dict(caps)))
         for e in trace.frame_events(f.id):
             if e.kind != "LINE":
                 continue
             p = e.payload or {}
-            _bind(env, caps, p.get("deltas", {}), wanted)
+            _bind(env, caps, p.get("deltas", {}), wanted, dialect)
             # THE fold that makes this command honest -- see the module
             # docstring. Never conditional on there being deltas: a `del` on
             # an otherwise inert line records an empty `deltas` and this list.
@@ -238,23 +227,13 @@ def state_of(expr, site: Site) -> str:
 def refocus_cmd(trace, codes) -> str:
     """The exact command that re-records this run with these frames' locals.
 
-    Fully instantiated, including the run's own argv and any focus it already
-    had: a hint carrying a literal MODULE:QUALNAME placeholder is a template,
-    not an answer, and an agent reading it has to guess.
+    `query/sites`' template, instantiated from this trace's own meta: the
+    command differs per recorder (`sensorium run`, `sensorium ts run`,
+    `cargo sensorium`) and naming the wrong one sends the reader to a
+    second refusal. Python's bytes are unchanged, and `tests/test_watch.py`
+    is the fence around them.
     """
-    m = trace.meta
-    cwd = m.get("cwd")
-    root = Path(cwd).resolve() if cwd else None
-    specs = []
-    for c in codes:
-        mod = module_name_for(c.file, root) if root else None
-        specs.append(f"{mod or Path(c.file).stem}:{c.qualname}")
-    parts = ["sensorium", "run"]
-    for spec in [*(m.get("focus") or []), *specs]:
-        parts += ["--focus", shlex.quote(spec)]
-    parts += ["--", *(shlex.quote(a) for a in m.get("argv") or [])]
-    cmd = " ".join(parts)
-    return f"cd {shlex.quote(cwd)} && {cmd}" if cwd else cmd
+    return rerun_command(trace, codes)
 
 
 def _unframed(trace, c) -> bool:
@@ -543,10 +522,12 @@ def print_hits(trace, expr, out: Outcome, args) -> None:
         print(note)
 
 
-def _no_match(trace, args, mod_of) -> int:
+def _no_match(trace, args) -> int:
     print(f"error: no recorded code matches --at {args.at!r}")
-    names = sorted({f"{mod_of(c) or Path(c.file).stem}:{c.qualname}"
-                    for c in trace.codes()})
+    # Spelled the way this recorder's own sites are spelled everywhere
+    # else: a listing a reader is meant to pick their next `--at` out of is
+    # useless if the forms in it are not forms `--at` takes.
+    names = sorted({spell_site(trace, c) for c in trace.codes()})
     print(f"this trace recorded {len(names)} code object(s):")
     for n in names[:_MAX_LISTED_CODES]:
         print(f"  {n}")
@@ -585,17 +566,16 @@ def run(args) -> int:
         # recorder said it produces none. Nothing about the call can fix
         # that; only a recording that captures lines can.
         return UNSETTLED
-    m = trace.meta
-    root = Path(m["cwd"]).resolve() if m.get("cwd") else None
-
-    def mod_of(code):
-        return module_name_for(code.file, root) if root else None
-
-    codes = [c for c in trace.codes() if site_matches(c, args.at, mod_of(c))]
+    codes = [c for c in trace.codes() if site_matches(c, args.at, trace)]
     if not codes:
-        return _no_match(trace, args, mod_of)
+        return _no_match(trace, args)
 
-    all_sites = sites_for(trace, [c.id for c in codes], expr.names)
+    # Which formatter wrote this trace's rendered captures, read from the
+    # trace and never guessed from a text: `'rate'` is a string in one
+    # dialect and a five-character word in the other, and a predicate
+    # answered in the wrong one comes back a quiet, wrong False.
+    all_sites = sites_for(trace, [c.id for c in codes], expr.names,
+                          for_trace(trace))
     sites = [s for s in all_sites if s.event.id > after]
     out = evaluate(sites, expr)
     n = len(sites)

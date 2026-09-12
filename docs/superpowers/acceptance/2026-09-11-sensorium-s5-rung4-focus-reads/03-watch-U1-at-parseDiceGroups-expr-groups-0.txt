@@ -1,0 +1,3 @@
+$ sensorium watch U1 --at parseDiceGroups --expr groups == 0
+REFUSED: watch needs line, which recorder sensorium-ts 0.3.0 declares it does not produce (capabilities.line: false); nothing was checked
+--- exit 3

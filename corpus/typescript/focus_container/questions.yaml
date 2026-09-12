@@ -1,0 +1,58 @@
+program: vitest
+harness_args: ["run", "focus_container/"]
+record: {focus: ["Fog", "fog.ts:Fog"]}
+questions:
+  - id: what-does-naming-the-class-select
+    ask: >
+      The focus was asked for by class name -- twice, once bare and once with
+      its file. Which functions did that select?
+    truth: >
+      Both of the class's methods, once: `focus matched: 2 —
+      focus_container/fog.ts:Fog.compute, focus_container/fog.ts:Fog.render`.
+      A container selects its CHILDREN, so `Fog` reaches `Fog.compute` and
+      `Fog.render` without either being named; `fog.ts:Fog` is the same
+      selection spelled with the file it lives in, and asking for both does
+      not select four functions or record either method twice. `info` prints
+      the specs as they were TYPED -- `focus: Fog, fog.ts:Fog` -- beside what
+      they resolved to, so the question "did my spec mean what I thought"
+      is answered by the recording itself rather than by re-reading the
+      command line.
+    why_logs_fail: >
+      There is no log of which functions an instrumentation selected, because
+      selection is not something the program does -- a `console.log` in each
+      method tells you it ran, not that the recorder had chosen it, and a
+      method that was never called prints nothing either way. `DEBUG=*`
+      names channels the program declared, not functions a recorder
+      resolved. Nothing throws, so no stack trace is produced, and a stack
+      trace names frames that ran rather than the set that would have been
+      recorded.
+    command: ["info", "$RUN"]
+    expect_exit: 0
+    expect_contains:
+      - "focus: Fog, fog.ts:Fog"
+      - "focus matched: 2 — focus_container/fog.ts:Fog.compute,
+         focus_container/fog.ts:Fog.render"
+      - "recorded: CALL 3  RETURN 3  RAISE 0  HANDLED 0  YIELD 0  RESUME 0  LINE 2"
+  - id: do-the-two-methods-agree-about-the-reading
+    ask: >
+      Both methods were handed the same reading. Did they agree about it?
+    truth: >
+      No, and both halves are in the trace because both were selected by the
+      one name. `Fog.compute(raw=25) -> 10` clamped it to the ceiling;
+      `Fog.render(raw=25) -> 'fog(25)'` drew it unclamped. Each recorded its
+      own arguments -- a focus is what puts `raw=25` on a CALL line at all --
+      so the disagreement is visible as two lines of one tree rather than as
+      a difference between two runs.
+    why_logs_fail: >
+      A `console.log` in one method tells you what that method did; the fault
+      is that two methods disagree, and no single printed line holds both
+      sides of a disagreement. Printing in both means editing both, which is
+      the edit you make after you already suspect them. `DEBUG=*` prints the
+      same two values through a namespaced channel. Nothing throws, so no
+      stack trace exists, and one would name the frames rather than what they
+      were handed or returned.
+    command: ["tree", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["Fog.compute(raw=25) -> 10"]
+      - ["Fog.render(raw=25) -> 'fog(25)'"]

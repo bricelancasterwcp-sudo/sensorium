@@ -112,10 +112,13 @@ const NODETEST_PROBES = [
 const VITEST_PROBES = [
   'src/async.probe.test.ts', 'src/async.jsdom.probe.test.ts', 'src/sites.probe.test.ts',
   'src/swallow.probe.test.ts', 'src/swallow3.probe.test.ts', 'src/escape.probe.test.ts',
-  'src/each.probe.test.ts',
+  'src/each.probe.test.ts', 'src/focus.probe.test.ts',
   'src/concurrent.probe.test.ts', 'src/never_settles.probe.test.ts',
   'src/describe_chain.probe.test.ts', 'src/timer_parentless.probe.test.ts',
 ];
+
+/** The focus probe, whose two readings `checkFocus` tells apart. */
+const FOCUS_PROBE = 'src/focus.probe.test.ts';
 
 // --- reading ---------------------------------------------------------------
 
@@ -439,10 +442,187 @@ function checkContainer(k, s, wantFileStart) {
     starts.map((r) => ({ path: path.basename(String(r.path)), environment: r.environment })));
 }
 
+/**
+ * One `// LINE <fn> …` marker, parsed. `-` is a row that wrote nothing;
+ * `unbound:a,b` is the names it reported out of scope; everything else is a
+ * `<name>=<text>` delta, whose text is compared with whitespace squashed.
+ * @param {string} text the marker's arguments
+ * @param {number} line the line the row it describes is recorded at
+ * @returns {{fn: string, line: number, bad: string[],
+ *   row: {d: Record<string, string>, u: string[]}}}
+ */
+function parseFocusMarker(text, line) {
+  const [fn, ...args] = text.split(/\s+/);
+  /** @type {Record<string, string>} */
+  const d = {};
+  /** @type {string[]} */
+  const u = [];
+  /** @type {string[]} */
+  const bad = [];
+  for (const arg of args) {
+    if (arg === '-') continue;
+    if (arg.startsWith('unbound:')) u.push(...arg.slice('unbound:'.length).split(','));
+    else if (arg.includes('=')) d[arg.slice(0, arg.indexOf('='))] = arg.slice(arg.indexOf('=') + 1);
+    else bad.push(arg);
+  }
+  return { fn, line, bad, row: { d, u: u.sort() } };
+}
+
+/**
+ * Every `// LINE` marker in a probe, in source order, each attached to the next
+ * line that is not itself a marker.
+ *
+ * Consecutive markers all describe THAT line, in order: one line can carry
+ * several rows — a `for` head binds once per iteration, and the loop's own
+ * completion row is recorded at the same line — and a rule that gave each
+ * marker its own next line could not say so. A marker attached to a line with
+ * no row fails its check rather than passing quietly.
+ * @param {string} file
+ * @returns {ReturnType<typeof parseFocusMarker>[]}
+ */
+function focusMarkers(file) {
+  const lines = fs.readFileSync(file, 'utf8').split('\n');
+  const out = [];
+  /** @type {string[]} */
+  let pending = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const m = lines[i].match(/^\s*\/\/\s+LINE\s+(.+?)\s*$/);
+    if (m) {
+      pending.push(m[1]);
+      continue;
+    }
+    for (const text of pending) out.push(parseFocusMarker(text, i + 1));
+    pending = [];
+  }
+  return out;
+}
+
+/**
+ * A capture as the markers spell it: the `dbg` text with its whitespace
+ * squashed, and anything else named by its kind rather than by a value it does
+ * not have (an unread capture must never read as the word `undefined`).
+ * @param {any} capture
+ * @returns {string}
+ */
+const spelt = (capture) => (capture && capture.k === 'dbg' ? squash(String(capture.v)) : `<${capture && capture.k}>`);
+
+/**
+ * @param {any} rec a LINE record
+ * @returns {{d: Record<string, string>, u: string[]}}
+ */
+function focusRow(rec) {
+  /** @type {Record<string, string>} */
+  const d = {};
+  for (const [name, capture] of Object.entries(rec.d ?? {})) d[name] = spelt(capture);
+  return { d, u: [...(rec.u ?? [])].sort() };
+}
+
+/**
+ * One per-file manifest the transform wrote, by root-relative path.
+ * @param {string} dir the manifest directory
+ * @param {string} rel
+ * @returns {any|null} null when the file is absent
+ */
+function readManifest(dir, rel) {
+  const file = path.join(dir, `${rel.split('/').join('__')}.json`);
+  if (!fs.existsSync(file)) return null;
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+
+/**
+ * The focus tier, in whichever of its two readings this run produced (R20).
+ *
+ * The probe project records itself WITH a focus (`vitest.config.ts`'s direct
+ * branch names eleven functions) and the driver records it BOTH ways — focused
+ * (R27) and unfocused. Both are the contract, so both are asserted and neither
+ * is skipped: the BOOT's own declaration says which run this is, the manifest
+ * says what the transform did, and `focus:agree` holds the two together — a
+ * transform that focused eleven functions while the runtime declared nothing
+ * is a broken invocation, not an unfocused one.
+ * @param {Checker} k
+ * @param {ReturnType<typeof index>} s
+ * @param {string} manifestDir
+ */
+function checkFocus(k, s, manifestDir) {
+  const source = path.join(HERE, FOCUS_PROBE);
+  const boot = s.records.find((r) => r.e === 'BOOT');
+  const caps = (boot && boot.capabilities) || {};
+  const lines = s.records.filter((r) => r.e === 'LINE');
+  const calls = s.records.filter((r) => r.e === 'CALL');
+  const manifest = readManifest(manifestDir, FOCUS_PROBE);
+  if (manifest === null) {
+    // Without it there is nothing to hold the declaration to, and a checker
+    // that carried on would be asserting one half of a two-sided fact.
+    k.check('focus:manifest', false, `no manifest for ${FOCUS_PROBE} under ${manifestDir}`);
+    return;
+  }
+  /** @type {string[]} */
+  const selected = manifest.focused ?? [];
+  const declared = caps.line === true;
+  k.check('focus:agree', selected.length > 0 === declared, { focused: selected, line: declared });
+  if (!declared) {
+    // Driven with no `--focus`: nothing was instrumented for statements, and
+    // the absence is the assertion.
+    k.check('focus:mode', true, 'unfocused');
+    k.check('focus:unfocused:no_lines', lines.length === 0, lines.length);
+    const carrying = calls.filter((r) => Object.hasOwn(r, 'a')).length;
+    k.check('focus:unfocused:no_args', carrying === 0, carrying);
+    return;
+  }
+  k.check('focus:mode', true, 'focused');
+  k.check('focus:caps', caps.line === true && caps.locals === true, caps);
+
+  const want = focusMarkers(source);
+  k.equal('focus:markers', want.flatMap((m) => m.bad), []);
+  k.check('focus:count', lines.length === want.length,
+    { records: lines.length, markers: want.length });
+  /** @type {Map<string, {d: Record<string, string>, u: string[]}[]>} */
+  const got = new Map();
+  for (const rec of lines) {
+    const key = `${s.frames.get(rec.f)?.name ?? '<unknown>'}:${rec.l}`;
+    got.set(key, [...(got.get(key) ?? []), focusRow(rec)]);
+  }
+  /** @type {Map<string, {d: Record<string, string>, u: string[]}[]>} */
+  const marked = new Map();
+  for (const m of want) {
+    const key = `${m.fn}:${m.line}`;
+    marked.set(key, [...(marked.get(key) ?? []), m.row]);
+  }
+  for (const key of [...new Set([...marked.keys(), ...got.keys()])].sort()) {
+    k.equal(`focus:${key}`, got.get(key) ?? [], marked.get(key) ?? []);
+  }
+
+  // The CALL's own map (spec §3.3): read at entry, and written for a focused
+  // site only -- the test callbacks in the same file are frames too, and
+  // theirs must stay absent.
+  const focusedNames = new Set(selected.map((q) => last(q)));
+  const argsMark = markers(source, 'ARGS');
+  k.check('focus:args:marked', argsMark.length === 1, argsMark.length);
+  for (const m of argsMark) {
+    const [fn, ...pairs] = m.args;
+    const call = calls.find((r) => s.frames.get(r.f)?.name === fn);
+    /** @type {Record<string, string>} */
+    const spelled = {};
+    for (const [name, capture] of Object.entries((call && call.a) ?? {})) {
+      spelled[name] = spelt(capture);
+    }
+    k.equal(`focus:args`, spelled,
+      Object.fromEntries(pairs.map((p) => [p.slice(0, p.indexOf('=')), p.slice(p.indexOf('=') + 1)])));
+  }
+  const wrong = calls
+    .map((r) => ({ name: s.frames.get(r.f)?.name ?? '<unknown>', a: Object.hasOwn(r, 'a') }))
+    .filter((c) => c.a !== focusedNames.has(c.name));
+  k.equal('focus:args:by_site', wrong, []);
+}
+
 // --- the runs --------------------------------------------------------------
 
-/** @param {Checker} k @param {ReturnType<typeof index>[]} spools */
-function runVitest(k, spools) {
+/**
+ * @param {Checker} k
+ * @param {ReturnType<typeof index>[]} spools
+ * @param {string} manifestDir
+ */
+function runVitest(k, spools, manifestDir) {
   const by = new Map(spools.map((s) => [s.probe, s]));
   k.equal('probes:present', VITEST_PROBES.filter((p) => !by.has(p)), []);
   for (const s of spools) checkContainer(k, s, true);
@@ -457,6 +637,7 @@ function runVitest(k, spools) {
   use('src/swallow3.probe.test.ts', (s) => checkUnhandled(k, s));
   use('src/escape.probe.test.ts', (s) => checkEscape(k, s));
   use('src/each.probe.test.ts', (s) => checkEach(k, s));
+  use(FOCUS_PROBE, (s) => checkFocus(k, s, manifestDir));
   use('src/describe_chain.probe.test.ts', (s) => checkDescribeChain(k, s));
   use('src/never_settles.probe.test.ts', (s) => checkNeverSettles(k, s));
   use('src/timer_parentless.probe.test.ts', (s) => checkTimerParentless(k, s));
@@ -505,7 +686,7 @@ function checkCjsTally(k, dir, spools) {
     return;
   }
   k.equal('ext:cjs:tally', JSON.parse(fs.readFileSync(path.join(dir, orphans[0]), 'utf8')),
-    { files_transformed: 0, excluded: { commonjs: 1 } });
+    { files_transformed: 0, functions_focused: 0, excluded: { commonjs: 1 } });
 }
 
 /**
@@ -576,7 +757,7 @@ function main() {
   const spools = readSpools(spoolDir).map(index);
   k.check('spools:any', spools.length > 0, spools.length);
   if (spools.length > 0 && mode === 'nodetest') runNodeTest(k, spools, manifestDir);
-  if (spools.length > 0 && mode === 'vitest') runVitest(k, spools);
+  if (spools.length > 0 && mode === 'vitest') runVitest(k, spools, manifestDir);
   if (mode === 'vitest') checkTally(k, manifestDir);
   const ok = k.failures.length === 0;
   process.stdout.write(`${JSON.stringify({

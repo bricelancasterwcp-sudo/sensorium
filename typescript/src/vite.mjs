@@ -17,9 +17,17 @@
 // lives in `tally.mjs`, shared with the `node --test` loader hook, and is
 // written on exit, never during, because a count that is still moving is not a
 // count.
+//
+// `SENSORIUM_FOCUS` is read where the PLUGIN is built, not where this module is
+// loaded. A config's `import` of this file is hoisted above the config's own
+// body, so a project that sets the variable in its config -- which the probe
+// project does, having no driver -- would set it after a module-load read and
+// record no statement at all. One read per plugin is still one read per
+// invocation, and it happens before the first transform.
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
+import { specsFromEnv } from './focus.mjs';
 import * as tally from './tally.mjs';
 import { classify, transformSource } from './transform.mjs';
 
@@ -48,6 +56,7 @@ export function sensorium(opts) {
   const pkgDir = path.resolve(opts.pkgDir);
   const rtPath = opts.rtPath;
   const ts = resolveTools(root, pkgDir);
+  const focus = specsFromEnv(process.env.SENSORIUM_FOCUS ?? '');
   const manifestDir = tally.dir();
   if (manifestDir) tally.installExitWriter(manifestDir);
 
@@ -76,7 +85,7 @@ export function sensorium(opts) {
       // A throw here is `transform.mjs` refusing to splice blind (R10a). It
       // propagates: a recorder that cannot vouch for its own edits must fail
       // the run by name rather than record a file it did not understand.
-      const out = transformSource(code, file, { root, ts, rtPath });
+      const out = transformSource(code, file, { root, ts, rtPath, focus });
       if (!out) return null;
       tally.record(file, out, manifestDir);
       // Ours, untouched, counted (R10): the file did not parse, its manifest

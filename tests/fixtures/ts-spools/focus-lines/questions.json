@@ -1,0 +1,145 @@
+[
+  {
+    "id": "a-focused-frame-shows-its-args-and-its-rows",
+    "ask": "does a focused activation carry the arguments it was called with and one timeline row per statement?",
+    "command": [
+      "frame",
+      "$RUN",
+      "--fn",
+      "letChain"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "args: n=2",
+      "timeline:",
+      "letChain L26  base=4",
+      "letChain L28  label='x'",
+      "letChain L30  label='x2'",
+      "return: 6"
+    ],
+    "expect_count": {
+      "LINE": 3
+    },
+    "expect_absent": [
+      "unread: locals",
+      "timeline: not captured"
+    ]
+  },
+  {
+    "id": "the-tree-tells-focused-from-unfocused",
+    "ask": "does the call tree show a focused call's arguments beside an unfocused one that says its locals were never read?",
+    "command": [
+      "tree",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "letChain(n=2) -> 6",
+      "nestedArrow.double(v=2) -> 4",
+      "<anonymous>() <unread: locals>"
+    ]
+  },
+  {
+    "id": "every-line-row-is-greppable",
+    "ask": "how many statement rows did this recording write?",
+    "command": [
+      "grep",
+      "$RUN",
+      "LINE",
+      "--kind",
+      "LINE"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "matches: 50"
+    ]
+  },
+  {
+    "id": "info-says-what-was-focused-and-what-that-bought",
+    "ask": "does info name the focus as it was typed AND what it selected, and declare that line and locals were witnessed?",
+    "command": [
+      "info",
+      "$RUN"
+    ],
+    "expect_exit": 0,
+    "expect_line": [
+      [
+        "focus: focus.probe.test.ts:letChain",
+        "focus.probe.test.ts:nestedArrow",
+        "window: -"
+      ],
+      [
+        "focus matched: 12",
+        "src/focus.probe.test.ts:letChain",
+        "src/focus.probe.test.ts:nestedArrow.double"
+      ],
+      [
+        "capabilities:",
+        "line=yes",
+        "locals=yes",
+        "err_flow=yes",
+        "object_identity=yes"
+      ],
+      [
+        "recorded:",
+        "CALL 45",
+        "LINE 50"
+      ]
+    ],
+    "expect_absent": [
+      "function(s) focused by the transform"
+    ]
+  },
+  {
+    "id": "a-predicate-over-a-statements-local",
+    "ask": "can a predicate be checked against a name a LINE row wrote?",
+    "command": [
+      "watch",
+      "$RUN",
+      "--at",
+      "letChain",
+      "--expr",
+      "base == 4"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "SATISFIED"
+    ]
+  },
+  {
+    "id": "a-value-is-followed-through-the-rows",
+    "ask": "is a value written by a statement findable where flow searches CALL args, RETURN values and LINE deltas?",
+    "command": [
+      "flow",
+      "$RUN",
+      "--value",
+      "2"
+    ],
+    "expect_exit": 0,
+    "expect_contains": [
+      "letChain(n=2)   [arg n]",
+      "bareGuard L72  x=2   [local x]",
+      "doWhile -> 2   [return]",
+      "sightings: 13 event(s), 13 capture(s)",
+      "CALL args, RETURN values and LINE local deltas"
+    ]
+  },
+  {
+    "id": "a-primitive-return-has-no-identity-to-follow",
+    "ask": "can `flow --object` follow what `letChain` returned -- and if not, does it say which command answers instead?",
+    "command": [
+      "flow",
+      "$RUN",
+      "--object",
+      "letChain:return"
+    ],
+    "expect_exit": 2,
+    "expect_contains": [
+      "is a primitive (6) and has no identity to follow; use --value 6"
+    ],
+    "expect_absent": [
+      "REFUSED",
+      "flow of object"
+    ]
+  }
+]

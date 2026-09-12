@@ -1,0 +1,18 @@
+$ sensorium grep F1 parseDiceGroups --kind CALL
+e10 CALL    parseDiceGroups(formula='1d20')
+e23 CALL    parseDiceGroups(formula='1d20+2d6+3')
+e41 CALL    parseDiceGroups(formula='d20')
+e54 CALL    parseDiceGroups(formula='4d6kh3')
+e67 CALL    parseDiceGroups(formula='not dice')
+e77 CALL    parseDiceGroups(formula='1d20+2d6')
+e127 CALL    parseDiceGroups(formula='1d7+1d20')
+e173 CALL    parseDiceGroups(formula='4d6kh3')
+e193 CALL    parseDiceGroups(formula='4d6kh3+1d20')
+e220 CALL    parseDiceGroups(formula='2d6')
+e247 CALL    parseDiceGroups(formula='not dice')
+e350 CALL    parseDiceGroups(formula='1d20+5')
+e403 CALL    parseDiceGroups(formula='1d7')
+e439 CALL    parseDiceGroups(formula='1d7+1d20')
+e494 CALL    parseDiceGroups(formula='1d20+5')
+matches: 15
+--- exit 0

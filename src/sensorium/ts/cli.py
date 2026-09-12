@@ -42,6 +42,9 @@ def _add_run_parser(sub) -> None:
                    help="what the recorder emits: `call` records calls, "
                         "returns and awaits; `off` records nothing (the "
                         "control arm -- the same code still runs)")
+    p.add_argument("--focus", action="append", default=[], metavar="SPEC",
+                   help="a function to record per statement: <qualname> or "
+                        "<file>:<qualname>, as tree prints it; repeatable")
     p.add_argument("--jobs", type=int, default=None, metavar="N",
                    help="how many spools to convert at once (default: one "
                         "per core)")

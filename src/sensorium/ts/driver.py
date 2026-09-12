@@ -8,6 +8,9 @@ before it can fail in a way that would otherwise leave something behind:
     recognise             refused before a spool directory exists
     the root's typescript refused once the plan names the root, and still
                           before anything is minted
+    --focus               resolved against the root by the recorder's own
+                          resolver, and refused there: the last thing that
+                          can be settled before a recording exists
     mint, invocation.json the record of what is about to be spawned
     the wrapper           two files, in a `finally` from here on
     spawn, wait           the harness's stdio is the user's; the driver
@@ -31,10 +34,12 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 from sensorium import exit as ex
 from sensorium import paths
+from sensorium.ts import focus as focus_mod
 from sensorium.ts import harness as harness_mod
 from sensorium.ts import ingest, invocation, pkg as pkg_mod, wrapper
 
@@ -72,21 +77,46 @@ def run(args) -> int:
         pkg_mod.check_root(plan.root)
     except pkg_mod.PackageError as e:
         return _refuse(str(e))
+    # And after THAT, because resolving a focus parses the root's files with
+    # the root's own TypeScript. Still nothing minted: a focus that selects
+    # nothing is a call to fix, and a half-recorded run of it would be a
+    # recording of a question nobody asked (spec section 2.2).
+    focus = list(getattr(args, "focus", None) or [])
+    resolution = None
+    if any(spec.strip() == "" for spec in focus):
+        # An empty spec has an empty qualname, and an empty qualname is a
+        # prefix of every name there is: dropped it does nothing, honoured
+        # it records the whole program. Neither is what was typed.
+        return _refuse("--focus was given nothing to name: a spec is a "
+                       "<qualname> or a <file>:<qualname>")
+    if focus:
+        try:
+            # `node` here is the VERSION `check_node` read, not a program:
+            # the resolver runs the same `node` on PATH the harness will.
+            resolution = focus_mod.resolve(plan.root, package, focus)
+        except pkg_mod.PackageError as e:
+            return _refuse(str(e))
+        bad = focus_mod.refusals(resolution, plan.root)
+        if bad:
+            return _refuse(*bad)
     try:
-        return _record(plan, package, node, cwd, args)
+        return _record(plan, package, node, cwd, args, focus, resolution)
     except (wrapper.WrapperError, SpawnError) as e:
         return _refuse(str(e))
 
 
-def _refuse(message: str) -> int:
-    """One line on stderr, exit 2, nothing left behind. Every refusal this
-    driver makes before the harness is spawned goes through here, so they
-    are one shape and not six."""
-    print(f"error: {message}", file=sys.stderr)
+def _refuse(*messages: str) -> int:
+    """One line on stderr per refusal, exit 2, nothing left behind. Every
+    refusal this driver makes before the harness is spawned goes through
+    here, so they are one shape and not six -- and a call with two mistakes
+    in it is told both, rather than sent round the loop twice."""
+    for message in messages:
+        print(f"error: {message}", file=sys.stderr)
     return ex.BAD_CALL
 
 
-def _record(plan, package: Path, node: str, cwd: Path, args) -> int:
+def _record(plan, package: Path, node: str, cwd: Path, args,
+            focus: Sequence[str], resolution) -> int:
     """Everything from the mint to the conversion."""
     inv_id = paths.new_run_id()
     spool = paths.trace_root() / SPOOL_DIR / inv_id
@@ -94,7 +124,8 @@ def _record(plan, package: Path, node: str, cwd: Path, args) -> int:
     config = (wrapper.home(plan.root) /
               f"{inv_id}{wrapper.CONFIG_SUFFIX}"
               if plan.kind == "vitest" else None)
-    _write_record(spool, plan, inv_id, node, package, config)
+    _write_record(spool, plan, inv_id, node, package, config, focus,
+                  [] if resolution is None else resolution.matched_specs)
 
     files: tuple = ()
     try:
@@ -106,7 +137,8 @@ def _record(plan, package: Path, node: str, cwd: Path, args) -> int:
             argv = plan.node_command(package / "src" / "register.mjs")
         try:
             ending = _spawn(argv,
-                            _env(spool, inv_id, plan, package, args.tier),
+                            _env(spool, inv_id, plan, package, args.tier,
+                                 focus),
                             cwd)
         except OSError as e:
             # Nothing ran, so there is nothing to convert and nothing to
@@ -141,7 +173,8 @@ def _discard(spool: Path) -> None:
 
 
 def _write_record(spool: Path, plan, inv_id: str, node: str, package: Path,
-                  config: Path | None) -> None:
+                  config: Path | None, focus: Sequence[str] = (),
+                  focus_matched: Sequence[str] = ()) -> None:
     """`invocation.json`, written BEFORE the harness is spawned.
 
     It is the only thing that can say what a spool directory came out of: a
@@ -160,7 +193,11 @@ def _write_record(spool: Path, plan, inv_id: str, node: str, package: Path,
         start_ts=time.time(), wrapper="" if config is None else str(config),
         vitest=_vitest_version(plan), node=node,
         driver_version=_driver_version(),
-        recorder=f"sensorium-ts {pkg_mod.version(package)}")
+        recorder=f"sensorium-ts {pkg_mod.version(package)}",
+        # Both, and always: the specs as typed and the functions they
+        # selected. A reader of this directory should not have to know which
+        # driver version wrote it to know that nothing was focused.
+        focus=list(focus), focus_matched=list(focus_matched))
     (spool / invocation.INVOCATION_FILE).write_text(
         json.dumps(record.to_json(), indent=2) + "\n", encoding="utf-8")
 
@@ -169,8 +206,8 @@ def _env_hash() -> str:
     """A digest of the DRIVER's environment, sorted, one `k=v` per line.
 
     The driver's and not the harness's: the harness's differs from it by the
-    six variables written two functions below, which are the recorder's own
-    and would make every invocation's hash unique by construction.
+    variables written two functions below, which are the recorder's own and
+    would make every invocation's hash unique by construction.
     """
     body = "\n".join(f"{k}={v}" for k, v in sorted(os.environ.items()))
     return hashlib.sha256(body.encode("utf-8", "surrogateescape")).hexdigest()[:16]
@@ -201,16 +238,35 @@ def _vitest_version(plan) -> str | None:
     return m.group(1) if m else None
 
 
-def _env(spool: Path, inv_id: str, plan, package: Path, tier: str) -> dict:
+def _env(spool: Path, inv_id: str, plan, package: Path, tier: str,
+         focus: Sequence[str]) -> dict:
     """The harness's environment: the driver's own, plus what the recorder
-    inside the harness cannot work out for itself."""
-    return dict(os.environ,
-                SENSORIUM_SPOOL=str(spool),
-                SENSORIUM_TIER=tier,
-                SENSORIUM_TS_ROOT=str(plan.root),
-                SENSORIUM_TS_PKG=str(package),
-                SENSORIUM_INVOCATION=inv_id,
-                SENSORIUM_MANIFEST_DIR=str(spool / ingest.MANIFEST_DIR))
+    inside the harness cannot work out for itself.
+
+    `SENSORIUM_FOCUS` is set only when there IS a focus, and holds the specs
+    as typed, joined by the separator. One variable answers for all three
+    readers inside the harness -- the Vite plugin, the loader hook and the
+    runtime -- and an EMPTY one is not the same as an absent one to the last
+    of them: the runtime declares `line` and `locals` from its presence, and
+    an empty value would declare capabilities nothing was going to write.
+
+    It is the one inherited variable this driver overrides rather than
+    passes on. A `SENSORIUM_FOCUS` left in a shell would otherwise focus a
+    run whose own record says `focus: []` -- the recording would carry
+    statement rows nobody asked for, and the record beside it would deny it.
+    """
+    env = dict(os.environ,
+               SENSORIUM_SPOOL=str(spool),
+               SENSORIUM_TIER=tier,
+               SENSORIUM_TS_ROOT=str(plan.root),
+               SENSORIUM_TS_PKG=str(package),
+               SENSORIUM_INVOCATION=inv_id,
+               SENSORIUM_MANIFEST_DIR=str(spool / ingest.MANIFEST_DIR))
+    if focus:
+        env["SENSORIUM_FOCUS"] = focus_mod.SEP.join(focus)
+    else:
+        env.pop("SENSORIUM_FOCUS", None)
+    return env
 
 
 # -- the run -----------------------------------------------------------------

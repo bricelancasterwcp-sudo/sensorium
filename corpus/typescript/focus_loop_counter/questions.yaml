@@ -1,0 +1,85 @@
+program: vitest
+harness_args: ["run", "focus_loop_counter/"]
+record: {focus: ["counter.ts:accumulate"]}
+questions:
+  - id: which-readings-did-the-loop-see
+    ask: >
+      Three readings went in and the total came out 5. Which readings did the
+      loop body actually run on?
+    truth: >
+      Two of them. The loop's head mints a row PER ENTRY carrying the name it
+      bound -- `v=2`, then `v=3` -- and the body's `total += v` mints its own
+      after each: `total=2`, then `total=5`. The pass that ends the loop is
+      the head's row again, this time carrying `unbound:v`, so the head line
+      appears three times for two iterations and the third is the exit. The
+      argument row says `xs=[ 1, 2, 3 ]`: the first reading was never bound
+      to `v` at all.
+    why_logs_fail: >
+      A `console.log(v)` inside the body prints 2 and 3, which is the same
+      output a two-element input would produce -- the missing reading is
+      missing from the log too, and a log cannot show an iteration that never
+      ran. `DEBUG=*` prints the same two lines through a namespaced channel.
+      Nothing throws, so there is no stack trace, and one would name the
+      frames rather than the values a loop bound.
+    command: ["frame", "$RUN", "--fn", "accumulate"]
+    expect_exit: 0
+    expect_contains:
+      - "args: xs=[ 1, 2, 3 ]"
+      - "return: 5"
+    expect_line:
+      - ["LINE", "accumulate L5", "total=0"]
+      - ["LINE", "accumulate L6", "v=2"]
+      - ["LINE", "accumulate L7", "total=2"]
+      - ["LINE", "accumulate L6", "v=3"]
+      - ["LINE", "accumulate L7", "total=5"]
+      - ["LINE", "accumulate L6", "unbound:v"]
+    expect_count:
+      "accumulate L6": 3
+  - id: where-was-the-third-reading-handled
+    ask: >
+      Follow the reading 3 through the run. Where was it held?
+    truth: >
+      At one event: the loop head's second entry, as the local `v`. It is
+      the value of nothing else -- the running total goes 2 and then 5 and
+      never through 3, and no child frame was handed it, because
+      `accumulate` has none. One sighting is the honest answer to "where did
+      this number go", and the `scope:` line says how wide the search was:
+      eight captures across eight events.
+    why_logs_fail: >
+      Following a value with `console.log` means knowing in advance which
+      lines to print, which is the thing you do not know when you are
+      searching for where a number came from; and a log of `total` prints 2
+      and 5 without saying which reading each step took in. `DEBUG=*` has the
+      same shape. No stack trace is produced here, and a stack trace names
+      frames, never the values inside them.
+    command: ["flow", "$RUN", "--value", "3"]
+    expect_exit: 0
+    expect_contains:
+      - "sightings: 1 event(s), 1 capture(s)"
+      - "scope: 8 capture(s) searched across 8 event(s) in CALL args, RETURN
+         values and LINE local deltas"
+    expect_line:
+      - ["LINE", "accumulate L6", "v=3", "[local v]"]
+  - id: was-the-first-reading-ever-held
+    ask: >
+      And the first reading, 1 -- where was it held?
+    truth: >
+      Nowhere. Zero sightings across the same eight captures, and `flow`
+      exits 1 rather than 0. That is the bug stated exactly: the value was
+      handed to the function -- it is inside the `xs=[ 1, 2, 3 ]` argument,
+      which is one capture of a list and not a capture of a 1 -- and no
+      statement of this function ever bound it to a name. An empty answer
+      with the search's own scope printed beside it is a claim about the
+      recording; the `scope:` line is what makes it one.
+    why_logs_fail: >
+      This is the failure a log cannot even attempt: there is no line to put
+      a `console.log` on, because the code that would have handled the first
+      reading is the code that never ran. `DEBUG=*` prints what executed, and
+      so does every log. Nothing throws, so no stack trace exists -- and a
+      stack trace shows where you are, never which input never got there.
+    command: ["flow", "$RUN", "--value", "1"]
+    expect_exit: 1
+    expect_contains:
+      - "sightings: 0 event(s), 0 capture(s)"
+      - "scope: 8 capture(s) searched across 8 event(s) in CALL args, RETURN
+         values and LINE local deltas"

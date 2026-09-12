@@ -18,7 +18,15 @@ const INSPECT = {
   compact: true,
 };
 
-/** @typedef {{k: 'dbg', v: string, trunc: boolean}|{k: 'unread'}} Captured */
+/**
+ * What one captured value is on the wire. `oid` and `type` are on the capture
+ * of an OBJECT or a function and on nothing else: a primitive has no identity
+ * to carry and this recorder does not invent one for it, and a value it could
+ * not read is `unread` whole — an oid there would say it knows WHICH object it
+ * failed to read.
+ * @typedef {{k: 'dbg', v: string, trunc: boolean, oid?: number, type?: string}
+ *           |{k: 'unread'}} Captured
+ */
 
 /** Serials are per value, not per record: a rethrown OBJECT keeps its own. */
 let nextSerial = 1;
@@ -26,7 +34,35 @@ let nextSerial = 1;
 const serials = new WeakMap();
 
 /**
- * Capture a value for a RETURN record.
+ * The identity a captured object carries, and the counter that mints it.
+ *
+ * Deliberately NOT the exception map above (P12). The two number different
+ * populations — every object a capture reads, against every value a throw
+ * carried — and one shared counter would put `oid` and `serial` in the same
+ * sequence, which reads as a relation between two records that have none. Held
+ * weakly, so remembering an identity never keeps an object alive; minted once
+ * per object and never reused, so one number means one object for the life of
+ * the container and the same object wherever it is seen again.
+ */
+let nextOid = 1;
+/** @type {WeakMap<object, number>} */
+const oids = new WeakMap();
+
+/**
+ * @param {object} o
+ * @returns {number} minted once per object, never reused
+ */
+function oidOf(o) {
+  let id = oids.get(o);
+  if (id === undefined) {
+    id = nextOid++;
+    oids.set(o, id);
+  }
+  return id;
+}
+
+/**
+ * Capture a value — a RETURN's, a focused CALL's argument, a statement's delta.
  * @param {unknown} v
  * @returns {Captured}
  */
@@ -41,7 +77,15 @@ export function dbg(v) {
     return { k: 'unread' };
   }
   const { v: text_, trunc } = cap(text);
-  return { k: 'dbg', v: text_, trunc };
+  /** @type {Captured} */
+  const out = { k: 'dbg', v: text_, trunc };
+  const t = typeof v;
+  // `null` is `typeof "object"` and is a primitive all the same.
+  if (v !== null && (t === 'object' || t === 'function')) {
+    out.oid = oidOf(/** @type {object} */ (v));
+    out.type = typeOf(v);
+  }
+  return out;
 }
 
 /**

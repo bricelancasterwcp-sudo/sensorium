@@ -222,6 +222,40 @@ away: it fires when the condition is true, and it never was. `--misses N`
 sets how many of those near-misses to show (default 5); the pre-0.8.0
 `--near` alias has been removed.
 
+**`--at` takes one spelling and every recorder's `--focus` writes it**
+*(added 2026-09-12, S5 rung 4)*. A site is `<qualname>` or
+`<file>:<qualname>`, and the file half may be the dotted module, the stem,
+the basename or the root-relative path, **in every language** — so
+`--at fill`, `--at chain:fill`, `--at chain.ts:fill` and
+`--at focus_let_chain/chain.ts:fill` all name one TypeScript function, and
+`sensorium ts run --focus chain.ts:fill` is the same characters typed at the
+recorder. It stays a boundary: a directory is not a spelling, and a path this
+trace does not hold selects nothing rather than something near it. What
+`watch` PRINTS back — in its no-match listing and its re-record command — is
+the trace's own `site_spelling`: the dotted module for Python and Rust, the
+root-relative path for TypeScript. The two matchers are two implementations
+of one rule, in two languages, held to one fixture
+(`typescript/test/fixtures/site-spellings.json`, vector `v39`).
+
+**Four words are predicate constants, in every language**: `null`,
+`undefined`, `true` and `false`. `--expr 'm == null'` asks about a JavaScript
+`null` and a Rust `None` alike, and `--expr 'missing == undefined'` is a claim
+about a value and not about an absent name — a name the trace never recorded
+still raises its own warning, which is the difference. They are excluded from
+the predicate's name list, so no constant is ever reported as NEVER RECORDED.
+
+**Re-recording is per language, and the printed command says which.** The
+`sensorium run --focus …` a Python trace prints back is the Python
+recorder's; a Rust trace prints `cargo sensorium --focus … <the recorded
+cargo args>` and a TypeScript trace `sensorium ts run --focus … -- <the
+harness command as typed>`, each fully instantiated from that run's own
+command line and its own focus rather than as a template with a
+placeholder in it. On a TypeScript trace the capability is a property of the
+RECORDING: an unfocused run declares
+`line: false`, and `watch` refuses at exit 3 naming the recorder the trace
+carries — `sensorium-ts 0.3.0`, not whatever is installed — instead of
+reporting `hits: 0`.
+
 ### `flow` — lineage, not dataflow analysis
 
 `flow --value V` follows a captured value by equality through calls and
@@ -235,6 +269,67 @@ asserted: a lineage is split where a constructor ran on the address, gaps are
 reported as gaps, and the output states what it cannot establish. Both are
 lineage over captured values; neither is static dataflow analysis, and the
 command says so in its own header.
+
+**On a TypeScript trace the dialect is node's `util.inspect`, and it is
+Rust's opposite in the one place a reader will meet first** *(added
+2026-09-12, S5 rung 4)*. `flow --value 5.0` **sights** a JavaScript `5`,
+because JavaScript has one number type and inspect prints `5` for both — the
+exact inverse of A12 above, and the reason the dialect is asked of the TRACE
+(`vocab.dbg_dialect`) and never guessed from the text. `--value null`,
+`--value true` and `--value false` are the predicate constants and search for
+the value; `--value undefined` and a BigInt are readable by `watch` and
+**not** writable here, so they sight nothing rather than sighting
+approximately (blind spot 35). A string is spelled with its quotes
+(`--value "'A1'"`), and one longer than **100 characters** was cut by inspect
+before the wire cap saw it: the capture holds a prefix with a
+`… N more characters` tail, `flow` refuses to spell one, and the search
+returns no sighting rather than matching a prefix. Every spelling is
+generated, not reasoned about — 41 measured rows in
+`typescript/test/fixtures/inspect-table.json`, read by
+`docs/trace-format/TYPESCRIPT-KEYS.md` § *Under a focus*.
+
+**`flow --object` on a TypeScript trace is exact, and needs no focus.**
+`sensorium-ts 0.3.0` mints a per-object serial from a `WeakMap`, once, never
+reused, and puts it on every object capture it writes — a RETURN value at the
+call tier included — so `--object` is gated on `object_identity` alone and
+not on `line` (R13). The header says which basis it is on (*identity is a
+per-object serial minted once and never reused: every sighting is the same
+object*), the gap analysis does **not** run, and the footer reads
+`continuity: exact (serial identity)`. There is nothing to corroborate: an
+address can be recycled and a serial cannot. `flow --value` on the same
+trace still needs `line`, and so still needs a `--focus`, because a value
+that only lived in a local between call and return is not in a recording that
+recorded no statement.
+
+### `info`'s two focus lines — what was typed, and what it selected
+
+*Added 2026-09-12 (S5 rung 4).* `info` prints `focus:` for what the run was
+asked for and, when the trace carries `meta.focus_matched`, a second line for
+what that selected:
+
+    focus: Fog, fog.ts:Fog    window: -
+    focus matched: 2 — focus_container/fog.ts:Fog.compute, focus_container/fog.ts:Fog.render
+
+Two different facts, which is why both print. `focus:` is the spec as its
+author wrote it, which is what they recognise; `focus matched:` is the
+`<file>:<qualname>` of every function it actually reached, which is what says
+whether the spelling meant what they thought — a spec that selected one
+function where its author expected three is invisible on the first line
+alone. On the rung-4 lens three typed specs selected **six** sites, because a
+container's spec reaches the function-likes nested inside it.
+
+A third number joins the second line when it differs from it:
+`(6 function(s) focused by the transform)`, from the container's own tally.
+It differs when two function-likes share one `<file>:<qualname>` — two
+anonymous arrows on one line, say — so the matched list is short by one and
+the transform instrumented both. Where they agree the number is folded away,
+because a count that repeats the count beside it says nothing.
+
+The line is gated on the meta KEY and never on the language (R32), so a
+focused **Rust** trace prints it too — that is this reader's rule for every
+`info` line. An absent `focus` key and a recorded EMPTY one are different
+records and print differently: `focus: -` for the key nobody wrote, `none`
+for the empty list a recorder wrote down.
 
 ### `refocus` on a Rust trace — the recorded command, run again
 

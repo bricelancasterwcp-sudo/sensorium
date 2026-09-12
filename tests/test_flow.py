@@ -149,6 +149,21 @@ def test_flow_value_parses_none_and_quoted_strings(tmp_path, monkeypatch,
     assert flow_cmd.parse_literal("True") is True
     assert flow_cmd.parse_literal("False") is False
     assert flow_cmd.parse_literal("mug") == "mug"
+    # ...and the other spelling of each of those three (ruling R33). The
+    # predicate language already reads `null`, `true` and `false` as values
+    # in every language, and a reader who learned them there types them
+    # here; searching for the four-character string "null" instead would
+    # report zero sightings of a value the trace holds.
+    assert flow_cmd.parse_literal("null") is None
+    assert flow_cmd.parse_literal("true") is True
+    assert flow_cmd.parse_literal("false") is False
+    # quoting still forces the string, as it does for a number
+    assert flow_cmd.parse_literal("'null'") == "null"
+    assert flow_cmd.parse_literal('"true"') == "true"
+    # `undefined` is NOT one of them: no writer can spell it, so a search
+    # for it would be a search for nothing dressed as a search for a value.
+    # `watch --expr x == undefined` is what answers about one.
+    assert flow_cmd.parse_literal("undefined") == "undefined"
     # digits are a number unless quoted -- otherwise a string of digits is
     # unsearchable
     assert flow_cmd.parse_literal("'1800'") == "1800"

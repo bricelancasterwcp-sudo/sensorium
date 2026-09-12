@@ -1,8 +1,15 @@
 # The TypeScript corpus
 
-Thirty-two cases recorded by the **TypeScript** recorder
+Forty-two cases recorded by the **TypeScript** recorder
 (`sensorium ts run -- npx vitest run <case>`) and questioned through the same
-Python CLI as the rest of the corpus.
+Python CLI as the rest of the corpus. Ten of them are recorded one flag
+deeper — `record: {focus: [...]}` in the case file becomes
+`sensorium ts run --focus <spec> … --`, one `--focus` per entry, before the
+`--` — and those are the ten that may ask a per-line question at all.
+`record` is the ONLY key a vitest case shares with the Python recorder, it
+may hold nothing but `focus`, and a `window` under it is refused by name:
+`sensorium ts run` has no such flag, and a key that reached no recorder
+would leave every question passing against a recording nobody asked for.
 
 Unlike the Python and Rust corpora, a case here is **not** a self-contained
 directory: a vitest run needs the project around it — the config vitest reads,
@@ -25,7 +32,9 @@ as one, and whichever ran first would silently own `$RUN`. Its
 `harness_args` is `["run", "untraced_catcher/"]` instead — the trailing
 slash matches the directory boundary, which is not a substring of either
 sibling's path — and that is the fix for the next prefix-named case, not a
-new `$RUN2` situation to declare.
+new `$RUN2` situation to declare. The ten focus cases take the slash form as
+a matter of course: none of their names is a prefix of any other today, and
+the next `focus_*` case somebody adds may well make one of them one.
 
 ```
 npm ci --prefix corpus/typescript             # once; the lock is committed
@@ -58,7 +67,7 @@ one spool with two BOOT records and a refusal.
 | `pass_vs_fail` | two test FILES of one invocation: compared straight they part at causal step 0 on the split itself, and `--ignore-moves` pairs the two test callbacks and finds the real parting at step 2, `gold` against `silver`. Also the exit rule — `unwitnessed` per container, `1 (waited)` for the harness | `diff`, `diff --ignore-moves`, `info`, `runs` |
 | `nondeterministic` | a branch decided by a file outside the process: the second invocation is a DIFFERENT execution (DIVERGED at step 4), and nothing in the store claims the two runs are related | `diff`, `runs` |
 | `async_interleaved` | two `test.concurrent` tests write one key; every row of each is in its own task, including the write after the `await` — and the naming cross-check DISAGREED once on a concurrent test and said so (`task names: mixed, 1 conflict(s)`) | `tree`, `frame` ×2, `info` |
-| `object_refused` | an identity question this recorder cannot answer: `flow --object` REFUSES through `object_identity: false` (exit 3), the values it does hold are byte-identical and settle nothing, and `flow --value` refuses again through `line: false` | `flow --object`, `tree`, `flow --value` |
+| `object_identity` | an identity question this recorder now ANSWERS, and one it still refuses: two callers hold one object, `flow --object loadSettings:return` sights it three times under one serial (`continuity: exact (serial identity)`) with no focus recorded at all, the values it captured are byte-identical and settle nothing on their own, and `flow --value` still refuses through `line: false`. Named `object_refused` until S5 rung 4 gave every 0.3.0 trace an identity | `flow --object`, `tree`, `flow --value` |
 | `watch_refused` | a per-line question this recorder cannot answer: `watch` REFUSES through `line: false` (exit 3) — while the same fault is still reachable through return values (`compute -> 200` inside `refresh -> 100`) | `watch`, `tree` |
 | `silent_swallow` | a swallowed parse error: the RAISE and the HANDLED rows ARE recorded, `err_flow=yes` says they carry what a verdict needs, and `exceptions` calls it SWALLOWED at the `catch` whose frame returned a healthy-looking default | `exceptions`, `info`, `tree` |
 | `each_naming` | three `test.each` rows named as vitest expands them (`squares 2/3/4`), `task names: vitest`, no `#k`; and the `beforeEach` hook's twelve events counted outside every test | `info` ×2, `tree` |
@@ -105,14 +114,43 @@ where there is one, a `hops:` line.
 | `untraced_catcher_later_failure` | the `toThrow` shape, then a second, unrelated `throw` out of the same test root: the first block reads the third variant, `later unwound with Error(…): a translation by untraced code, or a later failure, indistinguishable`, and the second raise is PROPAGATED to the harness on its own block. Red suite by design | `exceptions` |
 | `logged_rethrow_to_harness` | `rethrow_hop`'s journey read to its other ending: `try { load() } catch (e) { console.error(e); throw e }` in the test body, and the rethrow leaves the test's own root frame — RE-RAISED `→ propagated` with its `hops:` line, then PROPAGATED to the harness. Red suite by design | `exceptions` |
 
+## The focus cases
+
+Ten more, added by S5 rung 4, and the only ten recorded under
+`--focus`: one rule of the focus tier each, with the answer's exit status
+and its distinctive lines pinned byte for byte. Under a focus a recording
+declares `line=yes` and `locals=yes` on `info`'s capabilities line, so
+`watch`, `frame`'s timeline and
+`flow --value` mean something here that they refuse to mean in the
+thirty-two cases above — and what the tier does NOT reach is pinned in the
+same table, twice, rather than left to the absence of a case.
+
+| Case | Planted truth | Commands |
+|---|---|---|
+| `focus_let_chain` | a three-`const` chain whose tail returns the wrong link: one row per statement carrying what that statement wrote, NO row for the `return` (nothing at `fill L9`), and `watch` counting the CALL among its four sites — SATISFIED at the two it could evaluate, the other two reported as not in scope | `frame`, `watch` |
+| `focus_loop_counter` | a `for…of` over `xs.slice(1)`: the head mints a row PER ENTRY (`v=2`, `v=3`), the body one per write, and the pass that ends the loop is the head's row again with `unbound:v`. `flow --value 3` sights the reading the loop saw, once; `flow --value 1` sights the dropped one nowhere, exit 1, with the searched scope printed beside the emptiness | `frame`, `flow` ×2 |
+| `focus_block_scope` | a `const` inside an `if`, read after it: the `if` statement's own row carries `unbound:discount`, so `watch` hits at the two sites inside the block and reports the nine outside it as out of scope rather than as misses — the case whose Rust twin cannot exist | `watch`, `frame` |
+| `focus_destructure` | `const { id, size: [first] = [0], ...rest }`: one statement, three names on one row, and `first=0` is the DEFAULT binding beside the `sizes` the payload actually carried, sitting unread in `rest`. `let note;` binds `undefined`, which is a value | `frame`, `watch` |
+| `focus_args` | one run, two functions: the focused `total(items=[ 1, 2 ], member=true) -> 3` — a destructured, defaulted parameter printed as what BOUND — beside the unfocused `helper() <unread: locals> -> 1`, whose argument is not in this recording at all. What a focus buys and what it does not, in two lines of one tree | `tree`, `frame` |
+| `focus_async` | a cache published before the value exists: rows on both sides of the `await` with `~ YIELD` and `~ RESUME` between them, the pre-await write immediately followed by the YIELD, and the reader that got the placeholder (`peek() … -> 0`) sitting between the two | `frame`, `tree` |
+| `focus_catch_binding` | `catch (e) { count += 1 }`: a HANDLED row, then the catch clause's own entry row carrying `e=Error: bad key: oops`, then the `try` statement's row with `unbound:e` — twice, once per iteration, including the pass that threw nothing | `frame`, `grep` |
+| `focus_place_write` | `state.x = 5`: a row at the line with NO delta after the site, and `flow --value 5` sighting nothing across the four captures searched. The blind spot as a present row and an absent value, said from both sides | `frame`, `flow` |
+| `focus_container` | `--focus Fog` and `--focus fog.ts:Fog` in one recording select the same two methods and no more: `focus matched: 2 — …Fog.compute, …Fog.render`, with `info` printing the specs as they were TYPED beside what they resolved to | `info`, `tree` |
+| `flow_value_inspect` | the inspect dialect's spellings: `flow --value 5.0` sights a JS `5`, `--value "'A1'"` sights a string, a 150-character value is rendered at `str=100` with `… 50 more characters` and a needle spelling it out sights nothing (exit 1), and `watch` answers `parsed == null` and `missing == undefined` as claims about values, not about absent names | `flow` ×3, `watch` ×2 |
+
 ## Three things a case here must know
 
-**Arguments are not recorded.** `capabilities.locals: false`, so every CALL
-row reads `name() <unread: locals>` and `frame` prints `args: <unread:
-locals>` — a stated absence, not an empty argument list. A port of a Python
-case that identified an activation by its arguments identifies it here by its
-position (`frame --nth 2`) or by what it returned. The planted bug is the same
-class of bug; the question that finds it is not the same question.
+**Arguments are recorded only under a focus.** Thirty-two of these cases
+record no `--focus` at all, so `capabilities.locals: false` holds for them:
+every CALL row reads `name() <unread: locals>` and `frame` prints `args:
+<unread: locals>` — a stated absence, not an empty argument list. A port of a
+Python case that identified an activation by its arguments identifies it here
+by its position (`frame --nth 2`) or by what it returned. The planted bug is
+the same class of bug; the question that finds it is not the same question.
+The ten focus cases are the other side of that: a FOCUSED function's CALL
+prints its arguments (`total(items=[ 1, 2 ], member=true)`), and an unfocused
+one in the very same recording still reads `<unread: locals>`, which is what
+`focus_args` exists to pin.
 
 **One invocation records one trace per test FILE**, and the `run:` lines come
 in spool-name order, which is not the order vitest ran them in and is not

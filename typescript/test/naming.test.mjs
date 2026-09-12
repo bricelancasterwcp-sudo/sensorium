@@ -17,16 +17,22 @@ const RT = new URL('../src/rt.mjs', import.meta.url).href;
 
 /**
  * Record a script against the runtime in a child process and read its spool.
+ *
+ * `SENSORIUM_FOCUS` is scrubbed rather than inherited: it changes what the
+ * runtime declares, and a shell that exported one would be running these
+ * assertions against a different recorder.
  * @param {string} body module source, appended after the runtime import
  * @returns {any[]} the records the child wrote
  */
 function record(body) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sensorium-naming-'));
+  const inherited = { ...process.env };
+  delete inherited.SENSORIUM_FOCUS;
   try {
     const res = spawnSync(process.execPath, ['--input-type=module', '-e',
       `import * as __srt from ${JSON.stringify(RT)};\n${body}\n`], {
       encoding: 'utf8',
-      env: { ...process.env, SENSORIUM_TIER: 'call', SENSORIUM_SPOOL: dir },
+      env: { ...inherited, SENSORIUM_TIER: 'call', SENSORIUM_SPOOL: dir },
       timeout: 30_000,
     });
     assert.equal(res.status, 0, `child stderr: ${res.stderr}`);

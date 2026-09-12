@@ -1,0 +1,175 @@
+{"e":"BOOT","wire":1,"pid":3264305,"ppid":3264242,"threadId":0,"isMainThread":true,"argv":["/usr/bin/node","/w/probes/node_modules/vitest/dist/workers/forks.js"],"cwd":"/w/probes","env":{"PATH":"/usr/bin"},"envHash":"050096ef781e2d18","node":"v24.16.0","version":"0.3.0","tier":"call","capabilities":{"err_flow":true,"object_identity":true,"line":true,"locals":true},"invocation":null,"startTs":1789182340.789,"ts":4025772007580571}
+{"e":"FILE","id":1,"rel":"setup.mjs","abs":"/w/probes/setup.mjs","codes":[["<anonymous>",9,"function"],["<anonymous>",11,"function"]],"sha":"e638350c8eca352dcb900f94944129de0aa80505bf1d8a5e907d58b4f404f901"}
+{"e":"FILE_START","path":"/w/probes/src/focus.probe.test.ts","environment":"node"}
+{"e":"FILE","id":2,"rel":"src/focus.probe.test.ts","abs":"/w/probes/src/focus.probe.test.ts","codes":[["letChain",24,"function"],["loopCounter",34,"function"],["blockScope",48,"function"],["bareGuard",61,"function"],["doWhile",83,"function"],["forIn",97,"function"],["asyncRows",111,"coroutine"],["catchBinding",121,"function"],["destructure",136,"function"],["placeWrite",146,"function"],["nestedArrow",154,"function"],["nestedArrow.double",156,"function"],["<anonymous>",166,"function"],["<anonymous>",170,"function"],["<anonymous>",174,"function"],["<anonymous>",178,"function"],["<anonymous>",182,"function"],["<anonymous>",186,"function"],["<anonymous>",190,"coroutine"],["<anonymous>",194,"function"],["<anonymous>",198,"function"],["<anonymous>",202,"function"],["<anonymous>",206,"function"]],"sha":"b6580e25b5357ef5922f3abedae004c57f38fbbf5ffadd07a771d450e326424d"}
+{"e":"CALL","f":1,"p":null,"file":1,"c":1,"t":null,"ts":4025772060536858}
+{"e":"SEEN","name":"letChain: three statements, three rows"}
+{"e":"RETURN","f":1,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772060639277}
+{"e":"CALL","f":2,"p":null,"file":1,"c":0,"t":null,"ts":4025772060876784}
+{"e":"RETURN","f":2,"t":null,"v":{"k":"dbg","v":"'letChain: three statements, three rows'","trunc":false},"ts":4025772060935124}
+{"e":"TASK","id":1,"name":"letChain: three statements, three rows","basis":"vitest","conflict":false}
+{"e":"CALL","f":3,"p":null,"file":2,"c":12,"t":1,"ts":4025772060996823}
+{"e":"CALL","f":4,"p":3,"file":2,"c":0,"t":1,"a":{"n":{"k":"dbg","v":"2","trunc":false}},"ts":4025772061055712}
+{"e":"LINE","f":4,"t":1,"l":26,"d":{"base":{"k":"dbg","v":"4","trunc":false}},"ts":4025772061087992}
+{"e":"LINE","f":4,"t":1,"l":28,"d":{"label":{"k":"dbg","v":"'x'","trunc":false}},"ts":4025772061121912}
+{"e":"LINE","f":4,"t":1,"l":30,"d":{"label":{"k":"dbg","v":"'x2'","trunc":false}},"ts":4025772061148841}
+{"e":"RETURN","f":4,"t":1,"v":{"k":"dbg","v":"6","trunc":false},"ts":4025772061169521}
+{"e":"RETURN","f":3,"t":1,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772061380919}
+{"e":"CALL","f":5,"p":null,"file":1,"c":1,"t":null,"ts":4025772061687985}
+{"e":"SEEN","name":"loopCounter: a head row per iteration, then the loop own row"}
+{"e":"RETURN","f":5,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772061699445}
+{"e":"CALL","f":6,"p":null,"file":1,"c":0,"t":null,"ts":4025772061729485}
+{"e":"RETURN","f":6,"t":null,"v":{"k":"dbg","v":"'loopCounter: a head row per iteration, then the loop own row'","trunc":false},"ts":4025772061745555}
+{"e":"TASK","id":2,"name":"loopCounter: a head row per iteration, then the loop own row","basis":"vitest","conflict":false}
+{"e":"CALL","f":7,"p":null,"file":2,"c":13,"t":2,"ts":4025772061773435}
+{"e":"CALL","f":8,"p":7,"file":2,"c":1,"t":2,"a":{"xs":{"k":"dbg","v":"[ 1, 2 ]","trunc":false,"oid":1,"type":"Array"}},"ts":4025772061860324}
+{"e":"LINE","f":8,"t":2,"l":36,"d":{"total":{"k":"dbg","v":"0","trunc":false}},"ts":4025772061877573}
+{"e":"LINE","f":8,"t":2,"l":40,"d":{"v":{"k":"dbg","v":"1","trunc":false}},"ts":4025772061891403}
+{"e":"LINE","f":8,"t":2,"l":43,"d":{"total":{"k":"dbg","v":"1","trunc":false}},"ts":4025772061897273}
+{"e":"LINE","f":8,"t":2,"l":40,"d":{"v":{"k":"dbg","v":"2","trunc":false}},"ts":4025772061901893}
+{"e":"LINE","f":8,"t":2,"l":43,"d":{"total":{"k":"dbg","v":"3","trunc":false}},"ts":4025772061905943}
+{"e":"LINE","f":8,"t":2,"l":40,"d":{},"u":["v"],"ts":4025772061910323}
+{"e":"RETURN","f":8,"t":2,"v":{"k":"dbg","v":"3","trunc":false},"ts":4025772061917663}
+{"e":"RETURN","f":7,"t":2,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772061950893}
+{"e":"CALL","f":9,"p":null,"file":1,"c":1,"t":null,"ts":4025772062071381}
+{"e":"SEEN","name":"blockScope: the block dies on the `if`s row"}
+{"e":"RETURN","f":9,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772062084091}
+{"e":"CALL","f":10,"p":null,"file":1,"c":0,"t":null,"ts":4025772062119891}
+{"e":"RETURN","f":10,"t":null,"v":{"k":"dbg","v":"'blockScope: the block dies on the `if`s row'","trunc":false},"ts":4025772062134431}
+{"e":"TASK","id":3,"name":"blockScope: the block dies on the `if`s row","basis":"vitest","conflict":false}
+{"e":"CALL","f":11,"p":null,"file":2,"c":14,"t":3,"ts":4025772062166860}
+{"e":"CALL","f":12,"p":11,"file":2,"c":2,"t":3,"a":{"c":{"k":"dbg","v":"true","trunc":false}},"ts":4025772062195050}
+{"e":"LINE","f":12,"t":3,"l":50,"d":{"out":{"k":"dbg","v":"0","trunc":false}},"ts":4025772062202920}
+{"e":"LINE","f":12,"t":3,"l":54,"d":{"y":{"k":"dbg","v":"3","trunc":false}},"ts":4025772062208360}
+{"e":"LINE","f":12,"t":3,"l":56,"d":{"out":{"k":"dbg","v":"3","trunc":false}},"ts":4025772062211840}
+{"e":"LINE","f":12,"t":3,"l":52,"d":{},"u":["y"],"ts":4025772062213820}
+{"e":"RETURN","f":12,"t":3,"v":{"k":"dbg","v":"3","trunc":false},"ts":4025772062218960}
+{"e":"RETURN","f":11,"t":3,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772062251449}
+{"e":"CALL","f":13,"p":null,"file":1,"c":1,"t":null,"ts":4025772062355578}
+{"e":"SEEN","name":"bareGuard: a body written without braces still reports inside the guard"}
+{"e":"RETURN","f":13,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772062362768}
+{"e":"CALL","f":14,"p":null,"file":1,"c":0,"t":null,"ts":4025772062392328}
+{"e":"RETURN","f":14,"t":null,"v":{"k":"dbg","v":"'bareGuard: a body written without braces still reports inside the guard'","trunc":false},"ts":4025772062400248}
+{"e":"TASK","id":4,"name":"bareGuard: a body written without braces still reports inside the guard","basis":"vitest","conflict":false}
+{"e":"CALL","f":15,"p":null,"file":2,"c":15,"t":4,"ts":4025772062424337}
+{"e":"CALL","f":16,"p":15,"file":2,"c":3,"t":4,"a":{"n":{"k":"dbg","v":"1","trunc":false}},"ts":4025772062461667}
+{"e":"LINE","f":16,"t":4,"l":63,"d":{"x":{"k":"dbg","v":"0","trunc":false}},"ts":4025772062467087}
+{"e":"LINE","f":16,"t":4,"l":65,"d":{"count":{"k":"dbg","v":"0","trunc":false}},"ts":4025772062470747}
+{"e":"LINE","f":16,"t":4,"l":67,"d":{"m":{"k":"dbg","v":"3","trunc":false}},"ts":4025772062474337}
+{"e":"LINE","f":16,"t":4,"l":70,"d":{"x":{"k":"dbg","v":"1","trunc":false}},"ts":4025772062477257}
+{"e":"LINE","f":16,"t":4,"l":72,"d":{"x":{"k":"dbg","v":"2","trunc":false}},"ts":4025772062479867}
+{"e":"LINE","f":16,"t":4,"l":70,"d":{"x":{"k":"dbg","v":"2","trunc":false}},"ts":4025772062482507}
+{"e":"LINE","f":16,"t":4,"l":76,"d":{"m":{"k":"dbg","v":"2","trunc":false}},"ts":4025772062485357}
+{"e":"LINE","f":16,"t":4,"l":79,"d":{"count":{"k":"dbg","v":"1","trunc":false}},"ts":4025772062488067}
+{"e":"LINE","f":16,"t":4,"l":76,"d":{"m":{"k":"dbg","v":"1","trunc":false}},"ts":4025772062490757}
+{"e":"LINE","f":16,"t":4,"l":79,"d":{"count":{"k":"dbg","v":"2","trunc":false}},"ts":4025772062493467}
+{"e":"LINE","f":16,"t":4,"l":76,"d":{"m":{"k":"dbg","v":"0","trunc":false}},"ts":4025772062496237}
+{"e":"RETURN","f":16,"t":4,"v":{"k":"dbg","v":"4","trunc":false},"ts":4025772062499467}
+{"e":"RETURN","f":15,"t":4,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772062529066}
+{"e":"CALL","f":17,"p":null,"file":1,"c":1,"t":null,"ts":4025772062636235}
+{"e":"SEEN","name":"doWhile: the test runs after the body, so the body opens with no row"}
+{"e":"RETURN","f":17,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772062641585}
+{"e":"CALL","f":18,"p":null,"file":1,"c":0,"t":null,"ts":4025772062669315}
+{"e":"RETURN","f":18,"t":null,"v":{"k":"dbg","v":"'doWhile: the test runs after the body, so the body opens with no row'","trunc":false},"ts":4025772062678065}
+{"e":"TASK","id":5,"name":"doWhile: the test runs after the body, so the body opens with no row","basis":"vitest","conflict":false}
+{"e":"CALL","f":19,"p":null,"file":2,"c":16,"t":5,"ts":4025772062712484}
+{"e":"CALL","f":20,"p":19,"file":2,"c":4,"t":5,"a":{"n":{"k":"dbg","v":"2","trunc":false}},"ts":4025772062743794}
+{"e":"LINE","f":20,"t":5,"l":85,"d":{"count":{"k":"dbg","v":"0","trunc":false}},"ts":4025772062747934}
+{"e":"LINE","f":20,"t":5,"l":87,"d":{"m":{"k":"dbg","v":"2","trunc":false}},"ts":4025772062751004}
+{"e":"LINE","f":20,"t":5,"l":92,"d":{"count":{"k":"dbg","v":"1","trunc":false}},"ts":4025772062756064}
+{"e":"LINE","f":20,"t":5,"l":92,"d":{"count":{"k":"dbg","v":"2","trunc":false}},"ts":4025772062760494}
+{"e":"LINE","f":20,"t":5,"l":89,"d":{"m":{"k":"dbg","v":"0","trunc":false}},"ts":4025772062763944}
+{"e":"RETURN","f":20,"t":5,"v":{"k":"dbg","v":"2","trunc":false},"ts":4025772062766754}
+{"e":"RETURN","f":19,"t":5,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772062795003}
+{"e":"CALL","f":21,"p":null,"file":1,"c":1,"t":null,"ts":4025772062882152}
+{"e":"SEEN","name":"forIn: a key bound per iteration, and dead when the loop ends"}
+{"e":"RETURN","f":21,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772062887232}
+{"e":"CALL","f":22,"p":null,"file":1,"c":0,"t":null,"ts":4025772062905532}
+{"e":"RETURN","f":22,"t":null,"v":{"k":"dbg","v":"'forIn: a key bound per iteration, and dead when the loop ends'","trunc":false},"ts":4025772062911852}
+{"e":"TASK","id":6,"name":"forIn: a key bound per iteration, and dead when the loop ends","basis":"vitest","conflict":false}
+{"e":"CALL","f":23,"p":null,"file":2,"c":17,"t":6,"ts":4025772062942512}
+{"e":"CALL","f":24,"p":23,"file":2,"c":5,"t":6,"a":{"o":{"k":"dbg","v":"{ a: 1, b: 2 }","trunc":false,"oid":2,"type":"Object"}},"ts":4025772063037741}
+{"e":"LINE","f":24,"t":6,"l":99,"d":{"n":{"k":"dbg","v":"0","trunc":false}},"ts":4025772063044321}
+{"e":"LINE","f":24,"t":6,"l":103,"d":{"k":{"k":"dbg","v":"'a'","trunc":false}},"ts":4025772063054360}
+{"e":"LINE","f":24,"t":6,"l":106,"d":{"n":{"k":"dbg","v":"1","trunc":false}},"ts":4025772063057270}
+{"e":"LINE","f":24,"t":6,"l":103,"d":{"k":{"k":"dbg","v":"'b'","trunc":false}},"ts":4025772063060350}
+{"e":"LINE","f":24,"t":6,"l":106,"d":{"n":{"k":"dbg","v":"3","trunc":false}},"ts":4025772063062540}
+{"e":"LINE","f":24,"t":6,"l":103,"d":{},"u":["k"],"ts":4025772063064040}
+{"e":"RETURN","f":24,"t":6,"v":{"k":"dbg","v":"3","trunc":false},"ts":4025772063067550}
+{"e":"RETURN","f":23,"t":6,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772063098210}
+{"e":"CALL","f":25,"p":null,"file":1,"c":1,"t":null,"ts":4025772063186759}
+{"e":"SEEN","name":"asyncRows: a statement holding an await completes after the resume"}
+{"e":"RETURN","f":25,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772063192679}
+{"e":"CALL","f":26,"p":null,"file":1,"c":0,"t":null,"ts":4025772063210459}
+{"e":"RETURN","f":26,"t":null,"v":{"k":"dbg","v":"'asyncRows: a statement holding an await completes after the resume'","trunc":false},"ts":4025772063216829}
+{"e":"TASK","id":7,"name":"asyncRows: a statement holding an await completes after the resume","basis":"vitest","conflict":false}
+{"e":"CALL","f":27,"p":null,"file":2,"c":18,"t":7,"ts":4025772063252618}
+{"e":"CALL","f":28,"p":27,"file":2,"c":6,"t":7,"a":{"p":{"k":"dbg","v":"Promise { 7 }","trunc":false,"oid":3,"type":"Promise"}},"ts":4025772063295258}
+{"e":"YIELD","f":28,"t":7,"k":"await","ts":4025772063312188}
+{"e":"YIELD","f":27,"t":7,"k":"await","ts":4025772063502686}
+{"e":"RESUME","f":28,"t":7,"ts":4025772063525505}
+{"e":"LINE","f":28,"t":7,"l":113,"d":{"a":{"k":"dbg","v":"7","trunc":false}},"ts":4025772063533485}
+{"e":"YIELD","f":28,"t":7,"k":"await","ts":4025772063536155}
+{"e":"RESUME","f":28,"t":7,"ts":4025772063546105}
+{"e":"LINE","f":28,"t":7,"l":115,"d":{},"ts":4025772063547215}
+{"e":"LINE","f":28,"t":7,"l":117,"d":{"b":{"k":"dbg","v":"8","trunc":false}},"ts":4025772063550815}
+{"e":"RETURN","f":28,"t":7,"v":{"k":"dbg","v":"8","trunc":false},"ts":4025772063553545}
+{"e":"RESUME","f":27,"t":7,"ts":4025772063639994}
+{"e":"RETURN","f":27,"t":7,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772063642794}
+{"e":"CALL","f":29,"p":null,"file":1,"c":1,"t":null,"ts":4025772063827102}
+{"e":"SEEN","name":"catchBinding: the binding is the clauses first row"}
+{"e":"RETURN","f":29,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772063834332}
+{"e":"CALL","f":30,"p":null,"file":1,"c":0,"t":null,"ts":4025772063854742}
+{"e":"RETURN","f":30,"t":null,"v":{"k":"dbg","v":"'catchBinding: the binding is the clauses first row'","trunc":false},"ts":4025772063862072}
+{"e":"TASK","id":8,"name":"catchBinding: the binding is the clauses first row","basis":"vitest","conflict":false}
+{"e":"CALL","f":31,"p":null,"file":2,"c":19,"t":8,"ts":4025772063886121}
+{"e":"CALL","f":32,"p":31,"file":2,"c":7,"t":8,"a":{},"ts":4025772063910811}
+{"e":"LINE","f":32,"t":8,"l":123,"d":{"count":{"k":"dbg","v":"0","trunc":false}},"ts":4025772063916051}
+{"e":"RAISE","f":32,"t":8,"x":{"kind":"throw","type":"string","msg":"boom","serial":1},"l":126,"how":"throw","ts":4025772063987410}
+{"e":"HANDLED","f":32,"t":8,"x":{"kind":"throw","type":"string","msg":"boom","serial":2},"l":129,"how":"catch","ts":4025772064020090}
+{"e":"LINE","f":32,"t":8,"l":129,"d":{"e":{"k":"dbg","v":"'boom'","trunc":false}},"ts":4025772064031190}
+{"e":"LINE","f":32,"t":8,"l":131,"d":{"count":{"k":"dbg","v":"1","trunc":false}},"ts":4025772064035750}
+{"e":"LINE","f":32,"t":8,"l":125,"d":{},"u":["e"],"ts":4025772064037400}
+{"e":"RETURN","f":32,"t":8,"v":{"k":"dbg","v":"1","trunc":false},"ts":4025772064040990}
+{"e":"RETURN","f":31,"t":8,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772064070529}
+{"e":"CALL","f":33,"p":null,"file":1,"c":1,"t":null,"ts":4025772064158398}
+{"e":"SEEN","name":"destructure: every name the pattern binds"}
+{"e":"RETURN","f":33,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772064162388}
+{"e":"CALL","f":34,"p":null,"file":1,"c":0,"t":null,"ts":4025772064180788}
+{"e":"RETURN","f":34,"t":null,"v":{"k":"dbg","v":"'destructure: every name the pattern binds'","trunc":false},"ts":4025772064185578}
+{"e":"TASK","id":9,"name":"destructure: every name the pattern binds","basis":"vitest","conflict":false}
+{"e":"CALL","f":35,"p":null,"file":2,"c":20,"t":9,"ts":4025772064216738}
+{"e":"CALL","f":36,"p":35,"file":2,"c":8,"t":9,"a":{"o":{"k":"dbg","v":"{ a: 1, b: [ 2 ], z: 9 }","trunc":false,"oid":4,"type":"Object"}},"ts":4025772064291887}
+{"e":"LINE","f":36,"t":9,"l":138,"d":{"a":{"k":"dbg","v":"1","trunc":false},"c":{"k":"dbg","v":"2","trunc":false},"r":{"k":"dbg","v":"{ z: 9 }","trunc":false,"oid":5,"type":"Object"}},"ts":4025772064314147}
+{"e":"LINE","f":36,"t":9,"l":140,"d":{"x":{"k":"dbg","v":"undefined","trunc":false}},"ts":4025772064316957}
+{"e":"LINE","f":36,"t":9,"l":142,"d":{"x":{"k":"dbg","v":"12","trunc":false}},"ts":4025772064319647}
+{"e":"RETURN","f":36,"t":9,"v":{"k":"dbg","v":"12","trunc":false},"ts":4025772064322516}
+{"e":"RETURN","f":35,"t":9,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772064355476}
+{"e":"CALL","f":37,"p":null,"file":1,"c":1,"t":null,"ts":4025772064477655}
+{"e":"SEEN","name":"placeWrite: a property write is nobodys delta"}
+{"e":"RETURN","f":37,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772064487695}
+{"e":"CALL","f":38,"p":null,"file":1,"c":0,"t":null,"ts":4025772064515134}
+{"e":"RETURN","f":38,"t":null,"v":{"k":"dbg","v":"'placeWrite: a property write is nobodys delta'","trunc":false},"ts":4025772064522514}
+{"e":"TASK","id":10,"name":"placeWrite: a property write is nobodys delta","basis":"vitest","conflict":false}
+{"e":"CALL","f":39,"p":null,"file":2,"c":21,"t":10,"ts":4025772064554084}
+{"e":"CALL","f":40,"p":39,"file":2,"c":9,"t":10,"a":{"o":{"k":"dbg","v":"{ n: 1 }","trunc":false,"oid":6,"type":"Object"}},"ts":4025772064596973}
+{"e":"LINE","f":40,"t":10,"l":148,"d":{},"ts":4025772064600633}
+{"e":"LINE","f":40,"t":10,"l":150,"d":{"total":{"k":"dbg","v":"5","trunc":false}},"ts":4025772064603453}
+{"e":"RETURN","f":40,"t":10,"v":{"k":"dbg","v":"5","trunc":false},"ts":4025772064606113}
+{"e":"RETURN","f":39,"t":10,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772064639603}
+{"e":"CALL","f":41,"p":null,"file":1,"c":1,"t":null,"ts":4025772064730842}
+{"e":"SEEN","name":"nestedArrow: the container selects the callback it defines"}
+{"e":"RETURN","f":41,"t":null,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772064734782}
+{"e":"CALL","f":42,"p":null,"file":1,"c":0,"t":null,"ts":4025772064752932}
+{"e":"RETURN","f":42,"t":null,"v":{"k":"dbg","v":"'nestedArrow: the container selects the callback it defines'","trunc":false},"ts":4025772064758282}
+{"e":"TASK","id":11,"name":"nestedArrow: the container selects the callback it defines","basis":"vitest","conflict":false}
+{"e":"CALL","f":43,"p":null,"file":2,"c":22,"t":11,"ts":4025772064787181}
+{"e":"CALL","f":44,"p":43,"file":2,"c":10,"t":11,"a":{"n":{"k":"dbg","v":"2","trunc":false}},"ts":4025772064816041}
+{"e":"LINE","f":44,"t":11,"l":156,"d":{"double":{"k":"dbg","v":"[Function: double]","trunc":false,"oid":7,"type":"Function"}},"ts":4025772064831601}
+{"e":"CALL","f":45,"p":44,"file":2,"c":11,"t":11,"a":{"v":{"k":"dbg","v":"2","trunc":false}},"ts":4025772064845501}
+{"e":"LINE","f":45,"t":11,"l":158,"d":{"m":{"k":"dbg","v":"4","trunc":false}},"ts":4025772064848011}
+{"e":"RETURN","f":45,"t":11,"v":{"k":"dbg","v":"4","trunc":false},"ts":4025772064850401}
+{"e":"LINE","f":44,"t":11,"l":162,"d":{"out":{"k":"dbg","v":"4","trunc":false}},"ts":4025772064852591}
+{"e":"RETURN","f":44,"t":11,"v":{"k":"dbg","v":"4","trunc":false},"ts":4025772064854621}
+{"e":"RETURN","f":43,"t":11,"v":{"k":"dbg","v":"undefined","trunc":false},"ts":4025772064874830}
+{"e":"EXIT","code":null,"signal":"SIGTERM","endTs":1789182340.85,"ts":4025772068973025}

@@ -1,0 +1,63 @@
+program: vitest
+harness_args: ["run", "focus_block_scope/"]
+record: {focus: ["scope.ts:total"]}
+questions:
+  - id: is-discount-alive-after-its-block
+    ask: >
+      `discount` is declared inside the `if`. Is it reported at the statement
+      after the block?
+    truth: >
+      No. The `if` statement's own LINE row lists `discount` as `unbound`, so
+      `watch` evaluates `discount == 9` at the two sites inside the block --
+      SATISFIED at both -- and reports the `const rounded` row, the loop's
+      rows and the CALL as sites where the name is not in scope, never as
+      hits. Nine of the eleven recorded sites are that, and the answer says
+      which kind of nothing it found: not in scope, rather than not captured
+      deeply enough.
+    why_logs_fail: >
+      A `console.log(discount)` after the block is a compile error, which is
+      the point: the trace has to say the name DIED, not merely stop
+      mentioning it. A log inside the block prints 9 and says nothing about
+      how long that binding lasted. `DEBUG=*` reaches a namespaced channel
+      and never a block-scoped local, and nothing throws here, so there is no
+      stack trace to read -- and a stack trace names frames, never which
+      names were still bound inside one.
+    command: ["watch", "$RUN", "--at", "total", "--expr", "discount == 9"]
+    expect_exit: 0
+    expect_contains:
+      - "sites: 11   evaluated: 2   hits: 2   not-captured: 9   errors: 0"
+      - "verdict: SATISFIED at 2 of the 2 site(s) the predicate could be evaluated at"
+      - "discount: not in scope at this site   [9 site(s)]"
+    expect_line:
+      - ["HIT", "LINE", "total L", "discount=9"]
+      - ["HIT", "LINE", "total L11", "sum=81"]
+  - id: which-row-says-the-name-died
+    ask: >
+      Which row says `discount` went out of scope, and at which line does it
+      sit?
+    truth: >
+      The `if` statement's OWN row -- `LINE total L9  unbound:discount` --
+      minted when the guarded statement completes and carrying the
+      block-scoped names its block declared. It sits at the line of the `if`
+      and not at the line of the `const`, which is what makes the fold after
+      it right rather than merely stale. The loop above it is the same rule
+      read a second time (`LINE total L6  unbound:price`), and neither name
+      appears in any row below its own statement.
+    why_logs_fail: >
+      Every ordinary channel is a record of what was PRINTED, and nothing is
+      printed when a binding ends: a `console.log` traces the values a name
+      took and stops, which is indistinguishable from a name that is still
+      bound and unchanged. `DEBUG=*` has the same shape and the same silence.
+      A stack trace, if one existed here, would name the frames on the stack
+      and never the names alive inside them.
+    command: ["frame", "$RUN", "--fn", "total"]
+    expect_exit: 0
+    expect_contains:
+      - "args: items=[ 40, 50 ], member=true"
+      - "return: 81"
+    expect_line:
+      - ["LINE", "total L9", "unbound:discount"]
+      - ["LINE", "total L6", "unbound:price"]
+      - ["LINE", "total L13", "rounded=81"]
+    expect_count:
+      "unbound:discount": 1

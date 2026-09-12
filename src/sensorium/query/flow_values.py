@@ -26,6 +26,23 @@ class ObjTarget:
     type: str
 
 
+#: The words that name a value rather than a string, in both spellings the
+#: reader may know (ruling R33). `--expr` already reads `null`, `true` and
+#: `false` as values in every language (`expr._CONSTANTS`), and a reader
+#: debugging a TypeScript trace writes them at `flow` too; a search that
+#: quietly looked for the four-character STRING "null" instead would report
+#: zero sightings of a value the trace holds. Language-neutral, like the
+#: predicate's own constants: on a Rust trace `--value null` sights an
+#: `Option::None` capture, which is the same value in the reader's terms.
+#: `undefined` has no spelling here -- no writer can render it (a capture
+#: that holds it is JavaScript's, and `inspect_text` returns None for the
+#: marker) -- and neither has a BigInt; both are carried debts, not
+#: silences: `--expr x == undefined` is what answers about one.
+_WORDS = {"None": None, "null": None,
+          "True": True, "true": True,
+          "False": False, "false": False}
+
+
 def parse_literal(s: str):
     """The literal `--value` names.
 
@@ -33,14 +50,14 @@ def parse_literal(s: str):
     otherwise a string of digits would be unsearchable. Words that `float()`
     happens to accept ("nan", "inf", "infinity") stay strings: silently
     turning a search for the word into a search for the float would report
-    zero sightings for a value the trace may well hold.
+    zero sightings for a value the trace may well hold. The six words above
+    are the exception, and quoting still forces the string: `--value "'null'"`
+    searches for the four characters.
     """
     if len(s) >= 2 and s[0] == s[-1] and s[0] in "'\"":
         return s[1:-1]
-    if s == "None":
-        return None
-    if s in ("True", "False"):
-        return s == "True"
+    if s in _WORDS:
+        return _WORDS[s]
     if not _NUMERIC.fullmatch(s):
         return s
     try:
@@ -53,7 +70,7 @@ def parse_literal(s: str):
         return s
 
 
-def matches(cap: dict, target) -> bool:
+def matches(cap: dict, target, write=debug_text) -> bool:
     """Whether one capture is a sighting of `target`.
 
     Bools and numbers are kept apart on the capture's own kind, because
@@ -61,19 +78,31 @@ def matches(cap: dict, target) -> bool:
     sighting of the other. A clipped string never matches: what was recorded
     is a strict prefix of the real string, so the real string is longer than
     -- and therefore unequal to -- anything it is compared with.
+
+    `write` is how the trace's own recorder would SPELL a literal
+    (`query/dbg_dialects`). Rust's by default, which is what every caller
+    written before a second dialect existed passes (plan P10) -- and what a
+    Python trace, whose captures are typed, never consults.
     """
     k = cap.get("k")
     if isinstance(target, ObjTarget):
-        return (k in CONTAINER_KINDS and cap.get("oid") == target.oid
+        # A rendered capture carries an identity when the recorder minted
+        # one for it (`oid`/`type` on an object or a function, on nothing
+        # else). The identity is a KEY on the capture, never something read
+        # out of the text: matching on the text would splice every object
+        # that renders the same way into one lineage, which is the worst
+        # failure this command has -- the output looks exactly like a
+        # correct answer.
+        return ((k in CONTAINER_KINDS or (k == "dbg" and "oid" in cap))
+                and cap.get("oid") == target.oid
                 and cap.get("type") == target.type)
     if k == "dbg":
-        # Debug TEXT (design 2026-09-06 §4.2): a sighting is the literal's
-        # own Debug RENDERING, spelled the way Rust spells it -- so `"A1"`
-        # sights a `String`, and the bare word `A1` sights an enum variant
-        # or a type name instead. A truncated text is a prefix of a
-        # rendering and equals none. An `ObjTarget` never reaches here: a
-        # rendering carries no address, so it is nobody's identity.
-        text = debug_text(target)
+        # Rendered TEXT (design 2026-09-06 §4.2): a sighting is the
+        # literal's own RENDERING, spelled the way that recorder spells it
+        # -- so `"A1"` sights a Rust `String`, `'A1'` a JavaScript one, and
+        # the bare word `A1` sights an enum variant or a type name instead.
+        # A truncated text is a prefix of a rendering and equals none.
+        text = write(target)
         return (not cap.get("trunc") and text is not None
                 and cap.get("v") == text)
     if target is None:
@@ -112,6 +141,7 @@ def _walk(v: dict, path: str = ""):
             yield from _walk(vcap, path + _key_step(kcap))
 
 
-def find_in_value(v: dict, target, path: str = "") -> list[str]:
+def find_in_value(v: dict, target, path: str = "",
+                  write=debug_text) -> list[str]:
     """The paths inside `v` at which `target` was captured."""
-    return [p for p, cap in _walk(v, path) if matches(cap, target)]
+    return [p for p, cap in _walk(v, path) if matches(cap, target, write)]

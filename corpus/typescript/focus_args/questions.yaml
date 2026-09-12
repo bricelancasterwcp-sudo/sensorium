@@ -1,0 +1,63 @@
+program: vitest
+harness_args: ["run", "focus_args/"]
+record: {focus: ["invoice.ts:total"]}
+questions:
+  - id: did-the-call-site-ask-for-the-member-price
+    ask: >
+      This order was billed no handling fee. Did the call site ask for the
+      member price, or did `total` decide that on its own?
+    truth: >
+      The call site asked. The focused function's own CALL line prints what
+      it was handed -- `total(items=[ 1, 2 ], member=true) -> 3` -- and
+      `member` is a DESTRUCTURED parameter with a DEFAULT (`{ member = false
+      }: Opts = {}`), so `member=true` is the value that actually bound, not
+      the shape of the call. The fault is upstream of this function. Beside
+      it in the same tree is what a focus does not buy: `helper`, the fee
+      table, is not focused, so its line reads `helper() <unread: locals> ->
+      1` -- it returned the fee, and which tier it was asked about is not in
+      this recording at all.
+    why_logs_fail: >
+      A `console.log(member)` at the top of `total` is the edit this line
+      replaces, and it answers only for the runs you thought to instrument
+      first; the call site's own `console.log` prints the object it passed,
+      which is not the same fact as which parameter bound after
+      destructuring and defaulting. `DEBUG=*` reaches neither. Nothing
+      throws, so there is no stack trace -- and a stack trace names the
+      frames on the stack, never the arguments they were called with.
+    command: ["tree", "$RUN"]
+    expect_exit: 0
+    expect_line:
+      - ["total(items=[ 1, 2 ], member=true) -> 3"]
+      - ["helper() <unread: locals> -> 1"]
+    expect_count:
+      "<unread: locals>": 2
+  - id: what-does-the-focused-frame-say-it-was-handed
+    ask: >
+      Read as a frame rather than a tree: what did `total` receive, and what
+      did it do with it?
+    truth: >
+      `args: items=[ 1, 2 ], member=true`, and then the statements: the sum
+      built to 3 over two iterations, `fee=1` came back from `helper`, and
+      the `if (!member)` row at L18 completed without writing anything --
+      the guard was false, so the fee was never added. The frame's one child
+      is the unfocused `helper() <unread: locals> -> 1`: this recording knows
+      what the fee WAS and not what it was a fee FOR.
+    why_logs_fail: >
+      The two candidate explanations -- a call site that asked, and a
+      function that ignored what it was asked -- print identically under
+      `console.log(sum)`, because both end with 3. Distinguishing them means
+      printing the arguments AND the branch, which is two more edits to a
+      function already under suspicion. `DEBUG=*` prints through a channel
+      and changes nothing about that. No stack trace is produced here, and
+      one would name frames rather than what they were handed.
+    command: ["frame", "$RUN", "--fn", "total"]
+    expect_exit: 0
+    expect_contains:
+      - "args: items=[ 1, 2 ], member=true"
+      - "return: 3"
+    expect_line:
+      - ["LINE", "total L17", "fee=1"]
+      - ["LINE", "total L14", "unbound:price"]
+      - ["helper() <unread: locals> -> 1"]
+    expect_count:
+      "total L18\n": 1

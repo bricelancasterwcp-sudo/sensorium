@@ -32,16 +32,27 @@ the state found at the time and does not bound what this task fixes. Every
 tracked `.sh` is walked; a script "invokes sensorium" when it either
 references `$SENSORIUM_BIN` or contains a bare `sensorium <subcommand>`
 call, and every such script must source `bin.sh` and must contain neither
-the insecure default nor a bare invocation. Ten scripts qualify: the T0
-census's six (`arms.sh`, `e10p.sh`, `e3.sh`, `e6pp.sh`, `e6tsp.sh`, `e7.sh`)
-plus four earlier rungs' frozen instruments that called the bare word with
-no `SENSORIUM_BIN` concept at all (`e10.sh`, `e11.sh`, `e5ts_split.sh`,
-`planted_change.sh`) -- fixed the same way, sourcing `bin.sh` and calling
-`"$SENSORIUM_BIN"`, though none of them is re-run here. `e10p_eq.sh` (takes
+the insecure default nor a bare invocation. Eleven scripts qualify: the
+rung-3 T0 census's six (`arms.sh`, `e10p.sh`, `e3.sh`, `e6pp.sh`,
+`e6tsp.sh`, `e7.sh`), four earlier rungs' frozen instruments that called the
+bare word with no `SENSORIUM_BIN` concept at all (`e10.sh`, `e11.sh`,
+`e5ts_split.sh`, `planted_change.sh`) -- fixed the same way, sourcing
+`bin.sh` and calling `"$SENSORIUM_BIN"`, though none of them is re-run here
+-- and S5 rung 4's own recording session, `e12.sh`. `e10p_eq.sh` (takes
 BOTH converters as explicit command-line arguments, by design, to compare
-main's against a slice's) and `e6.sh` (checks for a leftover
-`node_modules/.sensorium` FILE, not a command) mention the word but invoke
-nothing -- they are not in the ten, and stay as they are.
+main's against a slice's), `e6.sh` (checks for a leftover
+`node_modules/.sensorium` FILE, not a command) and rung 4's `e12_h8.sh`
+(runs the corpus, the suites and the probes, and spawns no CLI of its own)
+mention the word but invoke nothing -- they are not in the eleven, and stay
+as they are.
+
+S5 rung 4 adds one more question to the same file, because it is the same
+kind of question about the same population: does an instrument DAMAGE what it
+reads? `e7_report.py` prepended its needle-rule header to the transcript it
+was handed, in place, so a second run over one transcript prepended a second
+header over a file whose sha256 the record pins. Rung 3 found it and ruled it
+not fixed -- an instrument defect found after its number is a finding, not a
+fix -- and this is where the fix is held.
 
 Every test states the failure it would catch.
 """
@@ -152,7 +163,11 @@ def test_every_sh_file_that_invokes_sensorium_sources_bin_sh():
     going through the one place that refuses -- `bin.sh`. Spec 4.3 governs:
     EVERY script that invokes `sensorium`, not the T0 census alone."""
     users = _scripts_that_invoke_sensorium()
-    assert len(users) >= 10, f"expected at least the ten known users, got: {users}"
+    assert len(users) >= 11, (
+        f"expected at least the eleven known users, got: {users}")
+    assert "typescript/acceptance/e12.sh" in users, (
+        "S5 rung 4's recording session is not in the census: it drives "
+        f"`ts run` six times and must resolve the branch's binary; got {users}")
     missing = [p for p in users
               if not re.search(r'^\s*\.\s+"\$HERE/bin\.sh"\s*$',
                                 (REPO / p).read_text(encoding="utf-8"),
@@ -322,3 +337,42 @@ def test_lens_sensorium_bin_resolves_under_this_repo_root():
     assert resolved.startswith(str(REPO) + "/")
     assert Path(resolved).is_file()
     assert Path(resolved) == REPO / ".venv" / "bin" / "sensorium"
+
+
+# -- (f) an instrument never damages what it reads -------------------------
+
+
+def test_e7_report_never_rewrites_its_transcript(tmp_path, monkeypatch, capsys):
+    """Catches: the rung-3 debt -- `e7_report.py:123-124` wrote
+    `rule_header + text` back over `E7_TRANSCRIPT`, so the second run over
+    one transcript prepended a second header and moved the sha the record
+    pins. The header goes to a `<transcript>.rules` sibling now and the
+    transcript is never opened for writing. Run TWICE on purpose: one run
+    cannot tell a destructive reporter from a careful one, because the first
+    prepend still leaves a file that reads plausibly."""
+    import e7_report  # the instrument under test; `ACCEPT` is on sys.path
+
+    transcript = tmp_path / "e7.txt"
+    transcript.write_text("$ sensorium info run-1\nframes 3\n", encoding="utf-8")
+    before = transcript.read_bytes()
+    statuses = tmp_path / "statuses.tsv"
+    statuses.write_text("sensorium info\t0\n", encoding="utf-8")
+    vectors = tmp_path / "vectors.txt"
+    vectors.write_text("34 vectors, 0 failed\n", encoding="utf-8")
+    monkeypatch.setenv("E7_TRANSCRIPT", str(transcript))
+    monkeypatch.setenv("E7_STATUSES", str(statuses))
+    monkeypatch.setenv("E7_VECTORS", str(vectors))
+    monkeypatch.setenv("E7_VECTORS_STATUS", "0")
+    monkeypatch.delenv("E7_NEEDLES", raising=False)
+
+    assert e7_report.main() == 0
+    assert transcript.read_bytes() == before, "run 1 rewrote the transcript"
+    first = (tmp_path / "e7.txt.rules").read_bytes()
+    assert e7_report.main() == 0
+    capsys.readouterr()          # the two JSON cells, off the suite's output
+
+    assert transcript.read_bytes() == before, "run 2 rewrote the transcript"
+    rules = tmp_path / "e7.txt.rules"
+    assert rules.read_bytes() == first, "the sibling grew on the second run"
+    assert rules.read_text(encoding="utf-8").startswith(
+        "needle asyncio: substring, case-insensitive\n")

@@ -694,7 +694,7 @@ def test_the_file_is_added_at_the_site_event_s_own_parenthetical_only():
     the sentence the file is not true of."""
     site = ("/w/bloomery-daemon/tests/task_exec_run_test.rs", 42, "sandbox")
     shape = Shape(key=("swallowed", site, "masked", None), tag="swallowed",
-                  first=None, disposition=None)
+                  first=None, disposition=None, site=site)
     verdict = ("SWALLOWED -- (sandbox L42) was reached from (sandbox L42); "
                "absorbed by sink_ok at e5 (sandbox L42) in f1, which "
                "returned ok")

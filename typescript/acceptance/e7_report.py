@@ -86,9 +86,11 @@ CONTEXT = ("python", "rust", "asyncio task")
 def needle_rule_lines(needles) -> list[str]:
     """One line per needle, naming how it is matched -- spec 4.3's rule,
     spelled where a reader of the saved transcript can see it without
-    opening this file. `is_regex` is `True` here exactly when the pattern is
-    one of this module's `\\b…\\b` word-boundary regexes, so it doubles as
-    "matched whole-word" for every needle list this file carries."""
+    opening this file: `<transcript>.rules`, the sibling `main` writes
+    beside the transcript it leaves alone. `is_regex` is `True` here exactly
+    when the pattern is one of this module's `\\b…\\b` word-boundary regexes,
+    so it doubles as "matched whole-word" for every needle list this file
+    carries."""
     lines = []
     for name, _pattern, is_regex, cased in needles:
         match_kind = "whole-word" if is_regex else "substring"
@@ -117,11 +119,14 @@ def main() -> int:
                                     flags=re.IGNORECASE))
                for word in CONTEXT}
 
-    # The matching rule, one line per needle, written into the SAVED
-    # transcript's own header -- counted above against the text as it was
-    # read, so prepending this changes nothing this function measured.
+    # The matching rule, one line per needle, written BESIDE the transcript
+    # rather than into it. It used to be prepended in place, which made this
+    # reporter destructive: a second run over one transcript prepended a
+    # second header, over a file whose sha256 the record pins. The sibling
+    # is `<transcript>.rules`; the transcript itself is never written.
     rule_header = "\n".join(needle_rule_lines(needles)) + "\n\n"
-    transcript_path.write_text(rule_header + text, encoding="utf-8")
+    Path(str(transcript_path) + ".rules").write_text(
+        rule_header, encoding="utf-8")
 
     statuses = []
     for line in Path(env["E7_STATUSES"]).read_text(encoding="utf-8").splitlines():

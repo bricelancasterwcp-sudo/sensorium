@@ -148,6 +148,33 @@ def capabilities_line(trace) -> str:
             or "(none declared)")
 
 
+def focus_matched_line(meta: dict) -> str | None:
+    """What the focus SELECTED, beside what was typed (ruling R31).
+
+    Two different facts, and the line prints only the keys the trace holds.
+    `focus` is the spec as its author wrote it, which is what they will
+    recognise; `focus_matched` is the `<file>:<qualname>` of every function
+    it actually selected, which is what says whether the spelling meant
+    what they thought -- a spec that matched one function where its author
+    expected three is invisible on the `focus:` line above.
+
+    `functions_focused` is a third number and only sometimes a different
+    one: the matched specs are the INVOCATION's, shared by every container
+    it started, while the tally is what THIS container's transform
+    instrumented. Equal, it says nothing the count already said and is
+    folded away; different, it is a fact about this container and is
+    printed rather than reconciled.
+    """
+    matched = meta.get("focus_matched")
+    if matched is None:
+        return None
+    line = f"focus matched: {len(matched)} \u2014 {', '.join(matched)}"
+    count = meta.get("functions_focused")
+    if count is not None and count != len(matched):
+        line += f" ({count} function(s) focused by the transform)"
+    return line
+
+
 def run(args) -> int:
     t = Trace.open(paths.find_trace(args.run))
     m = t.meta
@@ -196,6 +223,9 @@ def run(args) -> int:
     focus = m.get("focus")
     shown = ", ".join(focus) if focus else ("none" if focus == [] else "-")
     print(f"focus: {shown}    window: {m.get('window') or '-'}")
+    matched = focus_matched_line(m)
+    if matched:
+        print(matched)
     caps = m.get("caps", {})
     print("caps: " + " ".join(f"{k}={v}" for k, v in caps.items())
           + f"   truncated values: {m.get('truncated_count', 0)}")

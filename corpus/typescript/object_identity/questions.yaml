@@ -1,0 +1,89 @@
+program: vitest
+harness_args: ["run", "object_identity"]
+questions:
+  - id: are-the-two-settings-the-same-object
+    ask: >
+      Two callers each loaded their own settings, and tuning one changed the
+      other. Are they the same object?
+    truth: >
+      They are -- `loadSettings` returns the shared `DEFAULTS` -- and this
+      recorder says so exactly. Since 0.3.0 every captured object carries a
+      serial minted once from a `WeakMap` and never reused, so the two
+      returns and the object `tune` handed back are three sightings of ONE
+      identity, and the continuity line reads `exact (serial identity)`
+      rather than the hedge an address-based identity earns. Nothing was
+      focused here and nothing needed to be: an identity rides on every
+      capture this recorder writes, RETURN values included, so the question
+      is answered at the call tier. The two renderings under that one
+      serial -- `{ retries: 3 }` twice and then `{ retries: 9 }` -- are the
+      mutation itself: same object, different contents.
+    why_logs_fail: >
+      A `console.log` of either object prints `{ retries: 3 }` twice, which
+      is exactly what two separate copies would print; identity is invisible
+      in the text. Answering it by log means adding an id field or a
+      `WeakMap` to the program -- an edit you make after you already suspect
+      aliasing, and the very thing the recorder did for you. `DEBUG=*`
+      prints the same text through a logger, and a stack trace shows where
+      you are, never which object you hold.
+    command: ["flow", "$RUN", "--object", "loadSettings:return"]
+    expect_exit: 0
+    expect_contains:
+      - "identity is a per-object serial minted once and never reused:
+         every sighting is the same object"
+      - "sightings: 3 event(s), 3 capture(s)"
+      - "continuity: exact (serial identity)"
+    expect_count:
+      "loadSettings -> { retries: 3 }   [return]": 2
+      "tune -> { retries: 9 }   [return]": 1
+  - id: do-the-recorded-values-settle-it
+    ask: >
+      Never mind identity -- do the values this recorder DID capture settle
+      the question?
+    truth: >
+      No -- and that is what makes the identity above the answer rather
+      than a nicety. The two `loadSettings` activations returned values
+      that render identically -- `{ retries: 3 }` both times -- which is
+      precisely what two independent copies of the defaults would also
+      render. The mutation is visible afterwards (`tune` returned
+      `{ retries: 9 }` and `retriesOf` then returned 9 for the OTHER
+      caller's settings), so the VALUES show the consequence of the
+      aliasing and never name it; only the serial above names it.
+    why_logs_fail: >
+      This is the log-based reading's own failure written down: printing
+      the values is what a `console.log` does, and it is shown here to
+      be compatible with both explanations. `DEBUG=*` changes the
+      channel, not the content. No throw occurs, so there is no stack
+      trace to read -- and a stack trace names frames, never the objects
+      they hold.
+    command: ["tree", "$RUN"]
+    expect_count: {"loadSettings() <unread: locals> -> { retries: 3 }": 2}
+    expect_line:
+      - ["tune() <unread: locals> -> { retries: 9 }"]
+      - ["retriesOf() <unread: locals> -> 9"]
+  - id: can-the-value-be-followed-instead
+    ask: >
+      Then can I at least follow the value 9 through the run and see where
+      it came from?
+    truth: >
+      No, and the refusal is the one the question above did NOT earn.
+      `flow --value` searches per-line state, and a recording made without
+      a focus declares `line: false`; `flow --object` needs only the
+      identity this recorder puts on every capture it writes, which is why
+      the first question is answered and this one is refused. The refusal
+      names the capability it needed and says nothing was checked, rather
+      than answering "no results" to a search that never ran -- and the
+      recording that would answer it is the same run under
+      `sensorium ts run --focus`.
+    why_logs_fail: >
+      A `console.log` of `9` inside `tune` tells you it was written; it
+      does not tell you which of the two settings objects downstream
+      reads it, which is the whole question. `DEBUG=*` prints the same
+      value through a namespaced channel. A stack trace reports from
+      inside one frame about one moment, and nothing throws here in any
+      case.
+    command: ["flow", "$RUN", "--value", "9"]
+    expect_exit: 3
+    expect_contains:
+      - "REFUSED: flow needs line, which recorder sensorium-ts 0.3.0
+         declares it does not produce (capabilities.line: false); nothing
+         was checked"

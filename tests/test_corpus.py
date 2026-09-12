@@ -12,6 +12,7 @@ and `expect_line` additionally gets a test that a group satisfied by two
 different lines is a FAILURE -- that is the whole reason the form exists,
 and the one mutation a naive implementation would pass.
 """
+import subprocess
 import textwrap
 from pathlib import Path
 
@@ -460,6 +461,58 @@ def test_a_cargo_second_run_needs_its_own_cargo_args(tmp_path):
     _write(tmp_path, "rust/synth", _cargo_spec(second_run={"argv": ["1001"]}))
     with pytest.raises(ValueError, match="second_run of a 'cargo' case"):
         run_corpus.load_cases(tmp_path)
+
+
+def _vitest_spec(**over):
+    return {"program": "vitest", "harness_args": ["run", "fog/"],
+            "questions": [GOOD_QUESTION], **over}
+
+
+def _recorded_argv(tmp_path, monkeypatch, **over):
+    """The argv a vitest case's recording WOULD run, without running it."""
+    _write(tmp_path, "typescript/fog", _vitest_spec(**over))
+    case, = run_corpus.load_cases(tmp_path)
+    seen, out = [], "run: 20260101-000000-abcdef\n"
+    monkeypatch.setattr(run_corpus.subprocess, "run", lambda a, **kw: (
+        seen.append(a) or subprocess.CompletedProcess(a, 0, out, "")))
+    ids, _2, _e = run_corpus._record_both(case, tmp_path, tmp_path, None)
+    assert ids == ["20260101-000000-abcdef"] and len(seen) == 1
+    return case, seen[0][seen[0].index("ts"):]
+
+
+@pytest.mark.parametrize("over,want", [
+    ({}, ["ts", "run", "--", "npx", "vitest", "run", "fog/"]),
+    ({"record": {"focus": ["fog.ts:compute", "Fog"]}},
+     ["ts", "run", "--focus", "fog.ts:compute", "--focus", "Fog", "--",
+      "npx", "vitest", "run", "fog/"]),
+])
+def test_a_vitest_focus_reaches_the_command_in_order(tmp_path, monkeypatch,
+                                                     over, want):
+    """One `--focus` per entry, all of them BEFORE the `--`. Checked on the
+    argv: a focus that never reached the driver records a call-tier trace
+    whose per-line questions all answer "nothing was checked" -- which reads
+    as the recorder's refusal rather than as a key the harness lost."""
+    case, argv = _recorded_argv(tmp_path, monkeypatch, **over)
+    assert case.record == (over.get("record") or {})
+    assert argv == want
+
+
+@pytest.mark.parametrize("over,says", [
+    ({"record": {"window": "main"}}, "'window' is the Python recorder's"),
+    ({"record": {"focus": ["f"], "window": "m"}},
+     "'window' is the Python recorder's"),
+    ({"record": {"focus": "fill"}}, "non-empty list of function specs"),
+    ({"record": {"focus": []}}, "non-empty list of function specs"),
+    ({"record": {"focus": [3]}}, "non-empty list of function specs"),
+    ({"argv": ["1000"]}, "'argv' is the Python recorder's key"),
+])
+def test_a_vitest_case_refuses_everything_but_a_focus(tmp_path, over, says):
+    # Asserted on the message, not `match=`: tmp_path carries the test's own
+    # name, so a pattern spelling `window`/`focus` is satisfied by the PATH.
+    _write(tmp_path, "typescript/fog", _vitest_spec(**over))
+    with pytest.raises(ValueError) as ei:
+        run_corpus.load_cases(tmp_path)
+    assert says in str(ei.value)
 
 
 def test_a_cargo_case_with_no_driver_is_skipped_by_name(tmp_path,

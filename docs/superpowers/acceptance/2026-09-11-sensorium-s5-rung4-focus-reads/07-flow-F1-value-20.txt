@@ -1,0 +1,16 @@
+$ sensorium flow F1 --value 20
+flow of 20 (int) in 20260912-015130-42f691
+  captured-value equality, not true dataflow analysis: the trace records values, not the edges between them
+  e16 LINE    parseDiceGroups L74  sides=20   [local sides]
+  e29 LINE    parseDiceGroups L74  sides=20   [local sides]
+  e47 LINE    parseDiceGroups L74  sides=20   [local sides]
+  e83 LINE    parseDiceGroups L74  sides=20   [local sides]
+  e138 LINE    parseDiceGroups L74  sides=20   [local sides]
+  e204 LINE    parseDiceGroups L74  sides=20   [local sides]
+  e288 RETURN  buildForcedNotation.<anonymous> -> 20   [return]
+  e356 LINE    parseDiceGroups L74  sides=20   [local sides]
+  e450 LINE    parseDiceGroups L74  sides=20   [local sides]
+  e500 LINE    parseDiceGroups L74  sides=20   [local sides]
+sightings: 10 event(s), 10 capture(s)
+scope: 378 capture(s) searched across 340 event(s) in CALL args, RETURN values and LINE local deltas
+--- exit 0

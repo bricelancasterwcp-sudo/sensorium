@@ -26,6 +26,11 @@ const REGISTER = path.join(PKG, 'src', 'register.mjs');
  * @param {Record<string, string>} [env] variables to add or blank out
  * @param {{hook?: boolean}} [opts] `hook: false` runs the same program with no
  *   recorder at all -- the control every "as it fails plain" claim needs
+ *
+ * The child's environment is this process's with every variable the recorder
+ * reads decided here: a shell that exported `SENSORIUM_FOCUS` would otherwise
+ * give these programs statement rows nobody asked for, and the tally a number
+ * this file does not expect. A test that wants one passes it in `env`.
  */
 function run(files, entry, env = {}, { hook = true } = {}) {
   const root = fs.mkdtempSync(path.join(PROBES, 'hooktmp-'));
@@ -38,11 +43,13 @@ function run(files, entry, env = {}, { hook = true } = {}) {
     }
     const target = path.join(root, entry);
     const argv = hook ? ['--import', REGISTER, target] : [target];
+    const inherited = { ...process.env };
+    delete inherited.SENSORIUM_FOCUS;
     const res = spawnSync(process.execPath, argv, {
       encoding: 'utf8',
       timeout: 30_000,
       env: {
-        ...process.env,
+        ...inherited,
         SENSORIUM_TIER: 'call',
         SENSORIUM_SPOOL: spool,
         SENSORIUM_TS_ROOT: root,
@@ -65,7 +72,7 @@ function run(files, entry, env = {}, { hook = true } = {}) {
  * hook, because `node --test` runs one child process per test file and a
  * shared name would be several writers over one number.
  * @param {string} manifests
- * @returns {{files_transformed: number, excluded: Record<string, number>}|null}
+ * @returns {import('../src/tally.mjs').Tally|null}
  */
 function readTally(manifests) {
   if (!fs.existsSync(manifests)) return null;
@@ -151,7 +158,7 @@ test('R37: a CommonJS file under the root is loaded as Node loads it, and counte
   assert.deepEqual(filesOf(out.recs), ['main.mjs']);
   // And not silently absent either: excluded BY NAME, beside the one file that
   // was transformed.
-  assert.deepEqual(out.tally, { files_transformed: 1, excluded: { commonjs: 1 } });
+  assert.deepEqual(out.tally, { files_transformed: 1, functions_focused: 0, excluded: { commonjs: 1 } });
 });
 
 test('R37: a `.cjs` under the root is counted without being parsed at all', () => {
@@ -167,7 +174,7 @@ test('R37: a `.cjs` under the root is counted without being parsed at all', () =
   assert.equal(out.res.status, 0, out.res.stderr);
   assert.equal(out.res.stdout.trim(), '2');
   assert.deepEqual(filesOf(out.recs), ['main.mjs']);
-  assert.deepEqual(out.tally, { files_transformed: 1, excluded: { commonjs: 1 } });
+  assert.deepEqual(out.tally, { files_transformed: 1, functions_focused: 0, excluded: { commonjs: 1 } });
 });
 
 test('an ES module under the root still carries its own count', () => {
@@ -178,7 +185,7 @@ test('an ES module under the root still carries its own count', () => {
     'lib.mjs': 'export function helper(x) {\n  return x + 1;\n}\n',
   }, 'main.mjs');
   assert.equal(out.res.status, 0, out.res.stderr);
-  assert.deepEqual(out.tally, { files_transformed: 2, excluded: {} });
+  assert.deepEqual(out.tally, { files_transformed: 2, functions_focused: 0, excluded: {} });
 });
 
 /** The first error code a run printed, or null: what two sides compare on. */
@@ -229,5 +236,39 @@ test('a `.tsx` never reaches the hook', () => {
   assert.match(out.res.stderr, /ERR_UNKNOWN_FILE_EXTENSION/);
   assert.equal(out.res.stdout.includes('loaded'), false);
   assert.deepEqual(filesOf(out.recs), ['main.mjs']);
-  assert.deepEqual(out.tally, { files_transformed: 1, excluded: {} });
+  assert.deepEqual(out.tally, { files_transformed: 1, functions_focused: 0, excluded: {} });
+});
+
+test('under a focus the hook records the statements of the function it names', () => {
+  // The whole tier through the loader hook: one variable, read by the transform
+  // for the splices and by the runtime for the declaration it BOOTs with.
+  const out = run({
+    'main.mjs': "import { watched } from './lib.mjs';\nconsole.log(watched(1));\n",
+    'lib.mjs': 'export function watched(a) {\n  const b = a + 1;\n  return b;\n}\n'
+      + 'export function ignored(a) {\n  const b = a + 1;\n  return b;\n}\n',
+  }, 'main.mjs', { SENSORIUM_FOCUS: 'lib.mjs:watched' });
+  assert.equal(out.res.status, 0, out.res.stderr);
+  assert.equal(out.res.stdout.trim(), '2');
+  const boot = out.recs.find((r) => r.e === 'BOOT');
+  assert.equal(boot.capabilities.line, true);
+  assert.equal(boot.capabilities.locals, true);
+  const lines = out.recs.filter((r) => r.e === 'LINE');
+  assert.equal(lines.length, 1, 'one completed statement — the `return` mints none');
+  assert.deepEqual(lines[0].d, { b: { k: 'dbg', v: '2', trunc: false } });
+  const call = out.recs.find((r) => r.e === 'CALL');
+  assert.deepEqual(call.a, { a: { k: 'dbg', v: '1', trunc: false } });
+  assert.deepEqual(out.tally, { files_transformed: 2, functions_focused: 1, excluded: {} });
+});
+
+test('with no focus the hook declares none, records no statement and counts none', () => {
+  const out = run({
+    'main.mjs': "import { watched } from './lib.mjs';\nconsole.log(watched(1));\n",
+    'lib.mjs': 'export function watched(a) {\n  const b = a + 1;\n  return b;\n}\n',
+  }, 'main.mjs');
+  assert.equal(out.res.status, 0, out.res.stderr);
+  const boot = out.recs.find((r) => r.e === 'BOOT');
+  assert.equal(Object.hasOwn(boot.capabilities, 'line'), false);
+  assert.deepEqual(out.recs.filter((r) => r.e === 'LINE'), []);
+  assert.equal(out.recs.filter((r) => r.e === 'CALL').every((r) => !Object.hasOwn(r, 'a')), true);
+  assert.deepEqual(out.tally, { files_transformed: 2, functions_focused: 0, excluded: {} });
 });

@@ -1,0 +1,246 @@
+[
+  {
+    "literal": "abc",
+    "text": "'abc'",
+    "trunc": false
+  },
+  {
+    "literal": "it's",
+    "text": "\"it's\"",
+    "trunc": false
+  },
+  {
+    "literal": "it's \"x\"",
+    "text": "`it's \"x\"`",
+    "trunc": false
+  },
+  {
+    "literal": "a\nb\tc\\d",
+    "text": "'a\\nb\\tc\\\\d'",
+    "trunc": false
+  },
+  {
+    "literal": "café",
+    "text": "'café'",
+    "trunc": false
+  },
+  {
+    "literal": "",
+    "text": "''",
+    "trunc": false
+  },
+  {
+    "literal": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "text": "'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'... 50 more characters",
+    "trunc": false
+  },
+  {
+    "literal": {
+      "undefined": true
+    },
+    "text": "undefined",
+    "trunc": false
+  },
+  {
+    "literal": null,
+    "text": "null",
+    "trunc": false
+  },
+  {
+    "literal": true,
+    "text": "true",
+    "trunc": false
+  },
+  {
+    "literal": false,
+    "text": "false",
+    "trunc": false
+  },
+  {
+    "literal": 5,
+    "text": "5",
+    "trunc": false
+  },
+  {
+    "literal": -5,
+    "text": "-5",
+    "trunc": false
+  },
+  {
+    "literal": 2.5,
+    "text": "2.5",
+    "trunc": false
+  },
+  {
+    "literal": 1e+21,
+    "text": "1e+21",
+    "trunc": false
+  },
+  {
+    "literal": 1e-7,
+    "text": "1e-7",
+    "trunc": false
+  },
+  {
+    "literal": {
+      "negzero": true
+    },
+    "text": "-0",
+    "trunc": false
+  },
+  {
+    "literal": 0.000001,
+    "text": "0.000001",
+    "trunc": false
+  },
+  {
+    "literal": 123456789.123,
+    "text": "123456789.123",
+    "trunc": false
+  },
+  {
+    "literal": 1.5e+300,
+    "text": "1.5e+300",
+    "trunc": false
+  },
+  {
+    "literal": 5e-324,
+    "text": "5e-324",
+    "trunc": false
+  },
+  {
+    "literal": 9007199254740992,
+    "text": "9007199254740992",
+    "trunc": false
+  },
+  {
+    "literal": 1152921504606847000,
+    "text": "1152921504606847000",
+    "trunc": false
+  },
+  {
+    "literal": 123456789012345680000,
+    "text": "123456789012345680000",
+    "trunc": false
+  },
+  {
+    "literal": {
+      "nan": true
+    },
+    "text": "NaN",
+    "trunc": false
+  },
+  {
+    "literal": {
+      "inf": 1
+    },
+    "text": "Infinity",
+    "trunc": false
+  },
+  {
+    "literal": {
+      "inf": -1
+    },
+    "text": "-Infinity",
+    "trunc": false
+  },
+  {
+    "literal": {
+      "bigint": "123"
+    },
+    "text": "123n",
+    "trunc": false
+  },
+  {
+    "literal": [
+      1,
+      2
+    ],
+    "text": "[ 1, 2 ]",
+    "trunc": false
+  },
+  {
+    "literal": {},
+    "text": "{}",
+    "trunc": false
+  },
+  {
+    "literal": {
+      "a": 1,
+      "b": "x"
+    },
+    "text": "{ a: 1, b: 'x' }",
+    "trunc": false
+  },
+  {
+    "literal": {
+      "opaque": "function"
+    },
+    "text": "[Function: foo]",
+    "trunc": false
+  },
+  {
+    "literal": {
+      "opaque": "class"
+    },
+    "text": "[class Foo]",
+    "trunc": false
+  },
+  {
+    "literal": {
+      "opaque": "Map"
+    },
+    "text": "Map(1) { 'a' => 1 }",
+    "trunc": false
+  },
+  {
+    "literal": {
+      "opaque": "Date"
+    },
+    "text": "1970-01-01T00:00:00.000Z",
+    "trunc": false
+  },
+  {
+    "literal": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "text": "[ 0, 1, 2, 3, 4, 5, 6, 7, ... 4 more items ]",
+    "trunc": false
+  },
+  {
+    "literal": "it's \"x\" `y`",
+    "text": "'it\\'s \"x\" `y`'",
+    "trunc": false
+  },
+  {
+    "literal": "it's \"x\" ${y}",
+    "text": "'it\\'s \"x\" ${y}'",
+    "trunc": false
+  },
+  {
+    "literal": "it's \"x\" $y",
+    "text": "`it's \"x\" $y`",
+    "trunc": false
+  },
+  {
+    "literal": "a\bb\fc\u000bd",
+    "text": "'a\\bb\\fc\\x0Bd'",
+    "trunc": false
+  },
+  {
+    "literal": "a\u0000b\u001bcde",
+    "text": "'a\\x00b\\x1Bc\\x7Fd\\x85e'",
+    "trunc": false
+  }
+]
