@@ -8,7 +8,7 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false`: **`sensorium-rt 0.4.1`**,
+Three crates, all `publish = false`: **`sensorium-rt 0.5.0`**,
 **`sensorium-transform 0.4.4`** and **`cargo-sensorium 0.5.3`**. All three
 were `0.4.0` at the focus tier of 2026-09-06 (a new wire kind, LINE, and the
 `--focus` flag that mints it); on 2026-09-07 the refocus slice moved
@@ -26,8 +26,17 @@ since `0.4.0`: the same sha256 stood in all three crates, so the leaf — the on
 with zero dependencies, and therefore the only one the other two can both
 depend on — now owns it as a `pub mod` and the copies are gone
 (`0.4.1`/`0.4.4`/`0.5.3`). Nothing the runtime records changed and the wire did
-not move; what moved is the identity `sensorium-rt` declares, so a trace this
-runtime writes says `recorder: sensorium-rt 0.4.1`.
+not move there; what moved was the identity `sensorium-rt` declares, so a trace
+that runtime wrote said `recorder: sensorium-rt 0.4.1`. On 2026-09-12 the
+rung-4-debts-funded slice moved `sensorium-rt` to **`0.5.0`**, and this time the
+wire did move: the LINE payload gained a fourth delta tag, `3`, an unbound
+name — a name with no value that went out of scope on that row — and a second
+entry point, `line_unbinding`, that writes one after the deltas, so a
+block-like statement's row says which of its bindings died with it and a
+reader's fold stops answering for a `let` that is gone. No new record kind, no
+header change, and the fragment of a statement that unbinds nothing is byte for
+byte the one `0.4.1` spliced; a trace this runtime writes says
+`recorder: sensorium-rt 0.5.0`.
 Before that all three were `0.3.0` at the err-flow rung of 2026-09-05
 (wire v3: RAISE/HANDLED records, a typed `err` RETURN, and the `err_flow`
 capability); later that day the borrow repair moved `sensorium-transform` and

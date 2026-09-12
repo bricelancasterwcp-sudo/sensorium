@@ -515,7 +515,7 @@ and a workload, not a pass/fail property of the tool.
 `cargo sensorium test`/`cargo sensorium run` record a Rust workspace's own
 crates the same way `sensorium run` records a Python program: one
 sensorium trace per process, trace format 4, read by the same `sensorium`
-command line. `rust/` ships `sensorium-rt 0.4.1` (zero dependencies, the
+command line. `rust/` ships `sensorium-rt 0.5.0` (zero dependencies, the
 runtime linked into every instrumented unit, and the owner of the one sha256
 the other two hash with), `sensorium-transform 0.4.4`
 (the `syn` rewriter), and `cargo-sensorium 0.5.3` (driver, workspace wrapper,
