@@ -10,14 +10,21 @@ split is invisible to them.
 THREE RECORDERS, THREE SETS OF KEYS
 -----------------------------------
 `program:` picks the recorder, and each recorder has keys the other two
-never receive: `argv`/`record` are the Python recorder's, `cargo_args` is
-the Rust driver's, `harness_args` is the TypeScript driver's. Every one of
-them is REFUSED on a case that runs another recorder rather than ignored,
-because an ignored key is a case that silently stops testing what it says
-it tests -- `record: {focus: ...}` on a cargo case would read as a
-line-focused recording and produce a call-tier one, with every question
-still passing because none of them can tell. `run_corpus`'s own docstring
-says what each recorder then does with its keys.
+never receive: `argv` is the Python recorder's, `cargo_args` is the Rust
+driver's, `harness_args` is the TypeScript driver's. Every one of them is
+REFUSED on a case that runs another recorder rather than ignored, because
+an ignored key is a case that silently stops testing what it says it tests
+-- `record: {focus: ...}` on a CARGO case would read as a line-focused
+recording and produce a call-tier one, with every question still passing
+because none of them can tell.
+
+`record` is the ONE key two recorders share, and only in part: the Python
+recorder takes `focus` and `window`, `sensorium ts run` has `--focus` and
+no `--window`, and the Rust driver has neither. So `record: {focus: [...]}`
+is admitted on a vitest case and `window` under it is refused by name --
+"the vitest driver takes focus" and "the vitest driver takes record" are
+different rules, and only the first one is true. `run_corpus`'s own
+docstring says what each recorder then does with its keys.
 
 QUESTIONS RUN IN FILE ORDER, AND SOME OF THEM DEPEND ON IT
 ----------------------------------------------------------
@@ -223,21 +230,30 @@ def _validate_cargo(where: str, spec: dict) -> None:
 
 
 def _validate_vitest(where: str, spec: dict) -> None:
-    """`harness_args` is the whole of what a vitest case says it runs.
+    """`harness_args` is the whole of what a vitest case says it RUNS.
 
-    `record` and `argv` are the Python recorder's and `cargo_args` is the
-    Rust one's; none of the three reaches `sensorium ts run`, so each is
-    refused here rather than dropped. The first token is checked because
-    `_record_vitest` re-issues it: a case is recorded once, so `watch`
-    would never return, and a case that spelled one and was silently run as
-    the other would be a case testing something nobody wrote.
+    ...and `record: {focus: [...]}` is the one thing it may say about how
+    that run was RECORDED. `sensorium ts run --focus <spec>` is the same
+    flag with the same spelling as the Python recorder's, so a vitest case
+    declares a line-focused recording the same way a Python case does, and
+    `_record_vitest` turns each entry into its own `--focus` before the
+    `--`. Everything else under `record` -- `window` above all -- is the
+    Python recorder's alone: `sensorium ts run` has no such flag, so a case
+    carrying one would record with the key silently dropped and every
+    question would still pass.
+
+    `argv` is refused whole for the same reason it always was, and
+    `cargo_args` is the Rust driver's. The first harness token is checked
+    because `_record_vitest` re-issues it: a case is recorded once, so
+    `watch` would never return, and a case that spelled one and was silently
+    run as the other would be a case testing something nobody wrote.
     """
-    for key in ("record", "argv"):
-        if key in spec:
-            raise ValueError(
-                f"{where}: {key!r} is the Python recorder's key and the "
-                f"'{VITEST}' driver never receives it; a vitest case says "
-                "what it runs in harness_args (the tokens after `vitest`)")
+    if "argv" in spec:
+        raise ValueError(
+            f"{where}: 'argv' is the Python recorder's key and the "
+            f"'{VITEST}' driver never receives it; a vitest case says "
+            "what it runs in harness_args (the tokens after `vitest`)")
+    _check_record(where, spec.get("record"))
     if "cargo_args" in spec:
         raise ValueError(
             f"{where}: cargo_args is the '{CARGO}' driver's key and the "
@@ -247,6 +263,35 @@ def _validate_vitest(where: str, spec: dict) -> None:
     if second is not None:
         _check_harness_args(where, second.get("harness_args"),
                             "second_run of a ")
+
+
+def _check_record(where: str, record) -> None:
+    """The one key a vitest case's `record` may carry, and its shape.
+
+    A closed key set rather than "focus is read and the rest ignored": an
+    ignored `window` is a case whose file says it recorded one window and
+    whose recording covered everything, with every question still green.
+    """
+    if record is None:
+        return
+    if not isinstance(record, dict):
+        raise ValueError(f"{where}: record must be a mapping holding one "
+                         f"key, 'focus', for a 'program: {VITEST}' case")
+    extra = sorted(set(record) - {"focus"})
+    if extra:
+        raise ValueError(
+            f"{where}: record {', '.join(repr(k) for k in extra)} is the "
+            f"Python recorder's and the '{VITEST}' driver never receives "
+            "it; the only key a vitest case's record may carry is 'focus', "
+            "whose entries become `sensorium ts run --focus <spec>`")
+    focus = record.get("focus")
+    if (not isinstance(focus, list) or not focus
+            or not all(isinstance(f, str) for f in focus)):
+        raise ValueError(
+            f"{where}: record: focus must be a non-empty list of function "
+            "specs (strings) -- <qualname>, <file>:<qualname>, or a "
+            "container name, exactly as `sensorium ts run --focus` takes "
+            f"them; got {focus!r}")
 
 
 def _check_harness_args(where: str, args, prefix: str) -> None:
