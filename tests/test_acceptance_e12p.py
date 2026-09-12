@@ -43,6 +43,7 @@ REPO = Path(__file__).resolve().parents[1]
 ACCEPT = REPO / "typescript" / "acceptance"
 sys.path.insert(0, str(ACCEPT))
 
+import e12p_pre as e12pre                                         # noqa: E402
 import e12p_report as e12p                                        # noqa: E402
 
 #: The committed transcripts of rung 4's thirteen reads. They are in the
@@ -253,3 +254,83 @@ def test_h2p_resolver_output_in_the_record_names_six():
     assert len(set(names)) == 5, names
     assert [n for n in set(names) if names.count(n) == 2] == [
         "buildDiceQueueEntry.<anonymous>"]
+
+
+# -- the trace, and the hash preflight -------------------------------------
+
+
+def store() -> Path:
+    """The rung-4 store copy, named by the operator.
+
+    A committed file of this slice carries no box path (the record's §2
+    rule), so the copy's location is `E12P_STORE`'s. Skipping BY NAME rather
+    than passing silently is the rule: a skip that reads as a pass is a green
+    suite that checked nothing.
+    """
+    where = os.environ.get("E12P_STORE")
+    if not where:
+        pytest.skip("E12P_STORE unset: the rung-4 store copy is not on this box")
+    return Path(where)
+
+
+def test_call_line_of_reads_the_code_objects_line_for_S2():
+    """§1.4's S2 line is `diceQueue.ts:68`, the code object's own -- and a
+    printed CALL row carries no `L<line>` at all (§4.5 (2)). The run id is
+    read off the committed `info F1` transcript rather than typed."""
+    f1 = e12p.run_id_of(read("02-info-F1.txt"))
+    assert f1, "the committed `info F1` transcript names no run id"
+
+    conn = e12p.db(store(), f1)
+    try:
+        assert e12p.call_line_of(conn, 10) == 68
+        # The CODE OBJECT's line, not the event's. On a CALL those two happen
+        # to be equal in this trace, so S2 alone cannot tell a correct reader
+        # from one that took `events.line`; `e11` is a LINE event AT line 69
+        # whose code object is still `parseDiceGroups` at 68, and it can.
+        assert e12p.call_line_of(conn, 11) == 68
+        assert e12p.call_line_of(conn, 10 ** 9) is None
+    finally:
+        conn.close()
+
+
+def test_the_preflight_refuses_a_transcript_that_moved(tmp_path):
+    """Catches: a reading taken off data §1.1 does not describe. §1.1's own
+    words: a mismatch is exit 4 and no number."""
+    for path in sorted(REAL.glob("*.txt")):
+        (tmp_path / path.name).write_bytes(path.read_bytes())
+    listed = e12pre.hash_list()["transcripts"]
+    assert e12pre.verify_transcripts(tmp_path, listed)["ok"]
+
+    (tmp_path / "07-flow-F1-value-20.txt").write_text("moved\n", encoding="utf-8")
+    got = e12pre.verify_transcripts(tmp_path, listed)
+
+    assert got["ok"] is False
+    assert any("07-flow-F1-value-20.txt" in why for why in got["why"]), got["why"]
+
+
+def test_the_preflight_refuses_a_fourteenth_transcript(tmp_path):
+    """Catches: a transcript in the directory that §1.1 does not list -- data
+    the record does not describe, sitting beside data it does."""
+    for path in sorted(REAL.glob("*.txt")):
+        (tmp_path / path.name).write_bytes(path.read_bytes())
+    (tmp_path / "14-extra.txt").write_text("$ sensorium info X\n", encoding="utf-8")
+
+    got = e12pre.verify_transcripts(tmp_path, e12pre.hash_list()["transcripts"])
+
+    assert got["ok"] is False
+    assert got["extra"] == ["14-extra.txt"]
+
+
+def test_every_predicted_number_is_read_from_the_record(tmp_path, monkeypatch):
+    """Catches: ruling P1 broken -- a number typed into the instrument is a
+    second pre-registration nobody locked. Move §1.2's gate in a COPY of the
+    record and the instrument must read the moved number, not the old one."""
+    copy = tmp_path / "record.md"
+    copy.write_text(e12pre.RECORD.read_text(encoding="utf-8")
+                    .replace("N = 6.**", "N = 7.**"), encoding="utf-8")
+    monkeypatch.setattr(e12pre, "RECORD", copy)
+
+    got = e12pre.predictions()
+
+    assert got["functions_focused"] == 7
+    assert got["record"] == "record.md"          # the copy, named, not a path
