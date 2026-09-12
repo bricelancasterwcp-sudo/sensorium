@@ -40,6 +40,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 
+/**
+ * `sitesOf`'s row, narrowed to the two fields this file reads. The real type
+ * lives in `../src/transform.mjs`, which is imported dynamically here (the
+ * BASE checkout's copy is a path computed at runtime), so the shape is spelled
+ * locally rather than imported.
+ * @typedef {{qualname: string, line: number}} Site
+ */
+
 const EXT = new Set(['.ts', '.mts', '.mjs', '.js']);
 const SKIP_DIR = new Set(['node_modules', '.git', 'dist', 'build']);
 
@@ -79,10 +87,16 @@ function typescriptFor(root) {
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 
-/** The lines at which the two texts differ, 1-based, on the head side. */
+/**
+ * The lines at which the two texts differ, 1-based, on the head side.
+ * @param {string} a the base transform's output
+ * @param {string} b this tree's
+ * @returns {number[]}
+ */
 function changedLines(a, b) {
   const left = a.split('\n');
   const right = b.split('\n');
+  /** @type {number[]} */
   const out = [];
   for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
     if (left[i] !== right[i]) out.push(i + 1);
@@ -90,8 +104,14 @@ function changedLines(a, b) {
   return out;
 }
 
-/** The site a line belongs to: greatest start line still ≤ it. */
+/**
+ * The site a line belongs to: greatest start line still ≤ it.
+ * @param {Site[]} sites
+ * @param {number} line
+ * @returns {string} the site's qualname, or `<file header>` above the first
+ */
 function ownerOf(sites, line) {
+  /** @type {Site|null} */
   let owner = null;
   for (const site of sites) {
     if (site.line <= line && (owner === null || site.line > owner.line)) owner = site;
@@ -99,6 +119,14 @@ function ownerOf(sites, line) {
   return owner === null ? '<file header>' : owner.qualname;
 }
 
+/**
+ * One file's unified diff, from the system `diff`.
+ * @param {string} scratch a directory the two sides are written into
+ * @param {string} rel the file's name, for the diff's own labels
+ * @param {string} before the base transform's output
+ * @param {string} after this tree's
+ * @returns {string} the diff, or '' when the two are identical
+ */
 function unified(scratch, rel, before, after) {
   const a = path.join(scratch, 'base');
   const b = path.join(scratch, 'head');
@@ -110,13 +138,23 @@ function unified(scratch, rel, before, after) {
     });
     return '';
   } catch (err) {
-    if (typeof err.stdout === 'string') return err.stdout;
+    // `diff` exits 1 when the files differ, which `execFileSync` raises as an
+    // error carrying the run's own stdout — the diff text. Anything else is a
+    // real failure and is re-thrown.
+    const out = /** @type {{stdout?: unknown}} */ (err).stdout;
+    if (typeof out === 'string') return out;
     throw err;
   }
 }
 
+/**
+ * @param {string[]} argv the arguments after the script's own name
+ * @returns {number|Promise<number>} the process's exit code
+ */
 function main(argv) {
+  /** @type {string[]} */
   const focus = [];
+  /** @type {string[]} */
   const positional = [];
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--focus') {
@@ -144,6 +182,7 @@ function main(argv) {
   }
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'transform-diff-'));
   const ts = typescriptFor(path.resolve(root));
+  /** @type {string[]} */
   const files = [];
   for (const target of targets) {
     const full = path.resolve(target);
@@ -163,7 +202,9 @@ function main(argv) {
         before = baseMod.transformSource(code, file, opts);
         after = headMod.transformSource(code, file, opts);
       } catch (err) {
-        rows.push({ file, changed: null, error: String(err && err.message ? err.message : err) });
+        // The house narrowing (`census.mjs`): a thrown value is `unknown`,
+        // and only an `Error` is known to carry a message.
+        rows.push({ file, changed: null, error: err instanceof Error ? err.message : String(err) });
         continue;
       }
       if (before === null && after === null) continue; // not this recorder's
