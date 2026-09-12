@@ -99,8 +99,13 @@ _WORD_FLOATS = {"NaN": float("nan"), "Infinity": math.inf,
 _BIGINT = re.compile(r"-?\d+n")
 _INT = re.compile(r"-?\d+")
 _FLOAT = re.compile(r"-?\d+(\.\d+)?[eE][-+]?\d+|-?\d+\.\d+")
-# What inspect appends OUTSIDE the closing quote when it cut the string.
-_MORE = re.compile(r"\.\.\. \d+ more characters?\Z")
+#: What inspect appends OUTSIDE the closing quote when it cut the string.
+#: Public because the TypeScript converter counts a capture carrying it
+#: (blind spot 36): the flags say nothing there, and a second regex spelled
+#: in `ts/build.py` would be a second opinion about the same tail.
+INSPECT_MORE = re.compile(r"\.\.\. \d+ more characters?\Z")
+# The name this was minted under, kept for one release (0.13.0).
+_MORE = INSPECT_MORE
 #: The three quotes inspect chooses between, in the order it chooses them.
 QUOTES = "'\"`"
 
@@ -268,7 +273,7 @@ def _body(text: str):
     CONTENT ends `... 50 more characters`: inspect appends its tail after
     the quote, so the second one ends with a quote and the first does not.
     """
-    m = _MORE.search(text)
+    m = INSPECT_MORE.search(text)
     head = text[:m.start()] if m else text
     if not (len(head) >= 2 and head[0] == head[-1] and head[0] in QUOTES):
         return None
