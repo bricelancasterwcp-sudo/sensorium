@@ -199,7 +199,9 @@
         "outcome": "ok",
         "value": {
           "k": "dbg",
-          "v": "{ retries: 3 }"
+          "v": "{ retries: 3 }",
+          "oid": 3,
+          "type": "Object"
         }
       },
       "task": 1

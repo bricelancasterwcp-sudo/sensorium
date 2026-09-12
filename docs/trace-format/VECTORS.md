@@ -76,7 +76,7 @@ runner refuses a vector or a question that carries neither. Add a vector for
 each new enumeration value and each new rule — a rule with no vector is a
 sentence in a document, not a contract.
 
-These thirty-four pin the rules this document states in prose. The first seven
+These thirty-nine pin the rules this document states in prose. The first seven
 were written before the Rust recorder existed; `v08`–`v15` were added in
 0.6.0, when it did, and pin the values it actually writes rather than a guess
 about them. `v16`–`v19` were added in rung 3: `v16` pins the SHAPE of an
@@ -112,6 +112,20 @@ those throws' fates: a failure that unwound every traced frame it was in
 while the caller above went on was caught by code the recording does not
 hold, and the reason says so rather than falling through to rule 5's
 catch-all.
+`v35`–`v39` were added 2026-09-11 by S5 rung 4, when that recorder gained a
+FOCUS: statements, a focused call's arguments and an object identity of its
+own. `v35` is the only `lang: python` vector in the suite, and deliberately
+so — it pins that the predicate language's four constants are
+language-neutral, by asking `x == null` of a capture the PYTHON recorder
+wrote. `v36`–`v39` pin what the focus tier adds to the readers: the rows and
+arguments themselves (`v36`, with `info`'s new `focus matched:` line),
+`flow --object` over an identity that is exact rather than corroborated
+(`v37`), the second `dbg` dialect read and written by one trace's own
+vocabulary (`v38`), and the ten spellings of one site that `--at` and
+`--focus` share (`v39`, which reads the same example table the JavaScript
+matcher's test does). `v23`'s frame question moved with them: the sentence
+it pinned said per-line capture was a later rung's, and that rung is this
+one.
 
 | Vector | Rule it pins |
 |---|---|
@@ -149,3 +163,8 @@ catch-all.
 | `v32-err-flow-typescript-capability-refusal` | What an 0.1.x TypeScript recording lacks is a RECORD, so `exceptions` refuses it through `capabilities.err_flow` with the standard sentence and exit 3, before any rule reads an event; the retired sentence naming absent TypeScript rules does not come back, and no other command is gated. |
 | `v33-exceptions-typescript-invocation-shape` | `exceptions <invocation-id>` answers for a whole TypeScript invocation: two workers of one `vitest run` that sank the same throw at the same `catch` are ONE block, counted over both processes and naming the one a reader can open, under a header and a tally in this recorder's own nouns (`with throws`, `N raises`) with no panic line, no `partial` block and no Rust word anywhere. One grouper, two renderers; each member still answers for itself when asked by its own run id. |
 | `v34-exceptions-typescript-untraced-catcher` | A throw that unwound every traced frame it was in while the frame above went on, with no HANDLED row for its serial anywhere, was caught by code this recording does not hold: `exceptions` names that caller by qualname and file basename, says which frame the failure left and which survived it, and still says AMBIGUOUS — what the untraced catcher DID with the failure is not on the wire. The catch-all sentence is what the shape must not print, and a second tally line counts the ambiguities by reason in the table's fixed order. |
+| `v35-predicate-constants` | `null`, `undefined`, `true` and `false` are VALUES in the predicate language, in every language: `x == null` compares with what a `{"k": "none"}` capture holds. A constant is not a name, so it never reaches `watch`'s NEVER RECORDED banner (plan P11), and `undefined` is not `null` — on a trace that records no `undefined` at all, `x == undefined` is a decided no rather than a site that could not be checked. |
+| `v36-typescript-line-and-args` | A focused TypeScript activation carries its arguments and NO `unread` marker, one LINE row per instrumented statement (the block-ending row carrying what it unbound beside empty deltas), and an unfocused sibling in the same file still says its locals were never read — `frame` and `tree` show the two differently. `info` prints what the focus SELECTED beside what was typed, with the transform's own count where the two differ (ruling R31). |
+| `v37-flow-object-serial` | `flow --object` over a serial minted once per object and never reused is an EXACT identity: the header says so, the footer reads `continuity: exact (serial identity)`, and none of the address-basis analysis prints — `unwitnessed`, `spanned by`, `ADDRESS REUSED` and `NEW OBJECT` are corroboration for a continuity this recording does not have to corroborate. A capture with no serial is a primitive and the refusal names `--value` (ruling R13: `--object` needs `object_identity`, not `line`). |
+| `v38-inspect-dialect-agreement` | One `dbg` capture, two commands, one answer — amendment A11 in the second dialect. `'A1'` is `util.inspect`'s spelling of a string, so `watch --expr s == 'A1'` is SATISFIED where `flow --value "'A1'"` sights, and the four-character text the OTHER dialect would have read is a decided no. Which dialect is used is the trace's own (`vocab.dbg_dialect`), never a guess from the text. |
+| `v39-site-spellings` | One site, one spelling, two matchers: every form `--focus` accepts is a form `--at` accepts (qualname, owner, stem, basename, root-relative path) and every form it refuses is refused here (a prefix ending mid-name, a member without its owner, a directory, a path this trace does not hold). The ten rows are `typescript/test/fixtures/site-spellings.json`, which the JavaScript matcher's test reads too; a spec that matches nothing is answered with the trace's own sites in the same spelling, never the dotted module name. |

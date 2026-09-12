@@ -1,0 +1,77 @@
+{
+  "id": "v35-predicate-constants",
+  "asserts": "The predicate language reads `null`, `undefined`, `true` and `false` as VALUES, in every language and not only in the one whose words they are: `x == null` on a Python trace compares with the value a `{\"k\": \"none\"}` capture holds, exactly as `x == None` does. Two things follow and both are pinned here. A constant is not a NAME, so it is excluded from the predicate's names (plan P11) and `watch` never announces it as NEVER RECORDED -- a banner about a word no recorder can capture would discredit every verdict it appeared above. And `undefined` is not `null`: JavaScript's two absences stay apart, so a predicate written for one does not quietly answer about the other, and on a Python trace -- which records no `undefined` anywhere -- `x == undefined` is a decided no at every site rather than a site the predicate could not be checked at.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["prog.py"],
+    "cwd": "/w",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "vector 1.0",
+    "lang": "python",
+    "capabilities": {"line": true, "locals": true, "threads": false,
+                     "children": false, "stdin": false},
+    "incomplete": false
+  },
+  "codes": [["/w/app.py", "check", 3]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 4, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 3,
+     "payload": {"args": {"x": {"k": "none"}}}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "LINE", "frame": 1, "code": 1,
+     "line": 4, "payload": {"deltas": {"x": {"k": "num", "v": 0}}},
+     "task": null},
+    {"ts": 3000, "thread": 1, "kind": "LINE", "frame": 1, "code": 1,
+     "line": 5,
+     "payload": {"deltas": {"x": {"k": "none"},
+                            "flag": {"k": "bool", "v": true}}},
+     "task": null},
+    {"ts": 4000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null, "payload": {"value": {"k": "none"}}, "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "null-is-the-value-a-none-capture-holds",
+      "ask": "Does `x == null` answer about a capture the Python recorder wrote as `{\"k\": \"none\"}` -- and does `watch` announce `null` as a name it never recorded?",
+      "command": ["watch", "$RUN", "--at", "check", "--expr", "x == null"],
+      "expect_exit": 0,
+      "expect_line": [
+        ["sites: 3", "evaluated: 3", "hits: 2", "not-captured: 0",
+         "errors: 0"],
+        ["verdict: SATISFIED at 2 of the 3 site(s)"]],
+      "expect_absent": ["NEVER RECORDED"]
+    },
+    {
+      "id": "true-is-a-value-and-not-a-name-either",
+      "ask": "Does `flag == true` answer at the one site that bound `flag`, without reporting `true` as a name?",
+      "command": ["watch", "$RUN", "--at", "check", "--expr", "flag == true"],
+      "expect_exit": 0,
+      "expect_line": [
+        ["sites: 3", "evaluated: 1", "hits: 1", "not-captured: 2"],
+        ["verdict: SATISFIED at 1 of the 1 site(s)"]],
+      "expect_absent": ["NEVER RECORDED"]
+    },
+    {
+      "id": "undefined-is-not-null",
+      "ask": "Is `x == undefined` a decided no on a trace whose recorder writes no `undefined` at all -- rather than a hit, or a site that could not be checked?",
+      "command": ["watch", "$RUN", "--at", "check", "--expr",
+                  "x == undefined"],
+      "expect_exit": 1,
+      "expect_line": [
+        ["sites: 3", "evaluated: 3", "hits: 0", "not-captured: 0"],
+        ["verdict: not satisfied at any of the 3 recorded site(s), every one of which was evaluated"]],
+      "expect_absent": ["NEVER RECORDED", "SATISFIED at"]
+    }
+  ]
+}

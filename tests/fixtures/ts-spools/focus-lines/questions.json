@@ -56,7 +56,7 @@
   },
   {
     "id": "info-says-what-was-focused-and-what-that-bought",
-    "ask": "does info name the focus as it was typed, and declare that line and locals were witnessed?",
+    "ask": "does info name the focus as it was typed AND what it selected, and declare that line and locals were witnessed?",
     "command": [
       "info",
       "$RUN"
@@ -67,6 +67,11 @@
         "focus: focus.probe.test.ts:letChain",
         "focus.probe.test.ts:nestedArrow",
         "window: -"
+      ],
+      [
+        "focus matched: 12",
+        "src/focus.probe.test.ts:letChain",
+        "src/focus.probe.test.ts:nestedArrow.double"
       ],
       [
         "capabilities:",
@@ -80,6 +85,9 @@
         "CALL 45",
         "LINE 50"
       ]
+    ],
+    "expect_absent": [
+      "function(s) focused by the transform"
     ]
   },
   {
@@ -114,6 +122,24 @@
       "doWhile -> 2   [return]",
       "sightings: 13 event(s), 13 capture(s)",
       "CALL args, RETURN values and LINE local deltas"
+    ]
+  },
+  {
+    "id": "a-primitive-return-has-no-identity-to-follow",
+    "ask": "can `flow --object` follow what `letChain` returned -- and if not, does it say which command answers instead?",
+    "command": [
+      "flow",
+      "$RUN",
+      "--object",
+      "letChain:return"
+    ],
+    "expect_exit": 2,
+    "expect_contains": [
+      "is a primitive (6) and has no identity to follow; use --value 6"
+    ],
+    "expect_absent": [
+      "REFUSED",
+      "flow of object"
     ]
   }
 ]
