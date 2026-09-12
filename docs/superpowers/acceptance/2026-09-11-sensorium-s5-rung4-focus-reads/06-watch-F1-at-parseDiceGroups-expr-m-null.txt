@@ -1,0 +1,30 @@
+$ sensorium watch F1 --at parseDiceGroups --expr m == null
+watch 'm == null' at parseDiceGroups in 20260912-015130-42f691
+  a site is one RECORDED event in a matching frame: a CALL (its arguments)
+  or a LINE (that frame's locals, folded forward and dropped again when a
+  name goes out of scope). Whatever ran between two recorded sites
+  was not checked, and code this run never recorded is not in this trace.
+sites: 165   evaluated: 120   hits: 15   not-captured: 45   errors: 0
+verdict: SATISFIED at 15 of the 120 site(s) the predicate could be evaluated at
+  but 45 of 165 recorded site(s) could NOT be evaluated, so these are not necessarily every time it held
+  HIT   e19 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e37 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e50 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e63 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e71 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e91 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e141 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e182 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e207 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e229 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e251 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e359 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e412 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e453 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+  HIT   e503 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null
+not captured at 45 of 165 site(s) -- the predicate could not be checked there:
+  m: not in scope at this site   [45 site(s)]
+      recorded at other sites in these frames, so this is scope, not capture depth:
+      at those sites it was not bound yet, or had gone out of scope again (`del`, or the
+      implicit unbind that ends an `except E as e:` block)
+--- exit 0

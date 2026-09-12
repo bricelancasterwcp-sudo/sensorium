@@ -1,0 +1,14 @@
+$ sensorium grep F1 dice --kind LINE
+e101 LINE    forcedDiceFromSource L138  dice=[]
+e151 LINE    forcedDiceFromSource L138  dice=[]
+e237 LINE    forcedDiceFromSource L138  dice=[]
+e367 LINE    forcedDiceFromSource L138  dice=[]
+e378 LINE    buildDiceQueueEntry L202  dice=[ { sides: 20, value: 17 } ], skippedCount=0
+e420 LINE    forcedDiceFromSource L138  dice=[]
+e431 LINE    buildDiceQueueEntry L202  dice=[], skippedCount=1
+e463 LINE    forcedDiceFromSource L138  dice=[]
+e481 LINE    buildDiceQueueEntry L202  dice=[ { sides: 20, value: 19 } ], skippedCount=1
+e511 LINE    forcedDiceFromSource L138  dice=[]
+e522 LINE    buildDiceQueueEntry L202  dice=[ { sides: 20, value: 17 } ], skippedCount=0
+matches: 11
+--- exit 0

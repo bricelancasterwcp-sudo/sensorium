@@ -1,0 +1,147 @@
+$ sensorium tree F1
+no test
+  f1 e1 <anonymous>() <unread: locals> -> undefined
+  f2 e3 <anonymous>() <unread: locals> -> undefined
+  f3 e5 <anonymous>() <unread: locals> -> undefined
+  f4 e7 <anonymous>() <unread: locals> -> undefined
+task t1: parseDiceGroups > parses a single group
+  f5 e9 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f6 e10 parseDiceGroups(formula='1d20') -> [ { count: 1, sides: 20 } ]
+task t2: parseDiceGroups > parses multiple groups with modifiers ignored
+  f7 e22 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f8 e23 parseDiceGroups(formula='1d20+2d6+3') -> [ { count: 1, sides: 20 }, { count: 2, sides: 6 } ]
+task t3: parseDiceGroups > defaults count to 1 when omitted
+  f9 e40 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f10 e41 parseDiceGroups(formula='d20') -> [ { count: 1, sides: 20 } ]
+task t4: parseDiceGroups > ignores keep/drop suffixes when extracting count/sides
+  f11 e53 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f12 e54 parseDiceGroups(formula='4d6kh3') -> [ { count: 4, sides: 6 } ]
+task t5: parseDiceGroups > returns an empty array for an unparsable formula
+  f13 e66 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f14 e67 parseDiceGroups(formula='not dice') -> []
+task t6: forcedDiceFromSource > zips a flat roll list back onto its formula groups in order
+  f15 e74 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f16 e75 forcedDiceFromSource(source={ formula: '1d20+2d6', rolls: [ 15, 4, 3 ] }) -> { dice: [ { sides: 20, value: 15 }, { sides: 6, value: 4 }, { sides: 6, value: 3 } ], skippedCount: 0 }
+      f17 e77 parseDiceGroups(formula='1d20+2d6') -> [ { count: 1, sides: 20 }, { count: 2, sides: 6 } ]
+      f18 e94 forcedDiceFromSource.<anonymous>(sum=0, g={ count: 1, sides: 20 }) -> 1
+      f19 e96 forcedDiceFromSource.<anonymous>(sum=1, g={ count: 2, sides: 6 }) -> 3
+task t7: forcedDiceFromSource > skips non-animatable die sizes but keeps the rest
+  f20 e124 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f21 e125 forcedDiceFromSource(source={ formula: '1d7+1d20', rolls: [ 5, 12 ] }) -> { dice: [ { sides: 20, value: 12 } ], skippedCount: 1 }
+      f22 e127 parseDiceGroups(formula='1d7+1d20') -> [ { count: 1, sides: 7 }, { count: 1, sides: 20 } ]
+      f23 e144 forcedDiceFromSource.<anonymous>(sum=0, g={ count: 1, sides: 7 }) -> 1
+      f24 e146 forcedDiceFromSource.<anonymous>(sum=1, g={ count: 1, sides: 20 }) -> 2
+task t8: forcedDiceFromSource > skips the WHOLE animation when a keep/drop suffix makes counts mismatch
+  f25 e170 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f26 e171 forcedDiceFromSource(source={ formula: '4d6kh3', rolls: [ 5, 4, 3 ] }) -> { dice: [], skippedCount: 3 }
+      f27 e173 parseDiceGroups(formula='4d6kh3') -> [ { count: 4, sides: 6 } ]
+      f28 e185 forcedDiceFromSource.<anonymous>(sum=0, g={ count: 4, sides: 6 }) -> 4
+task t9: forcedDiceFromSource > skips the whole animation for a multi-group formula with a keep/drop mismatch
+  f29 e190 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f30 e191 forcedDiceFromSource(source={ formula: '4d6kh3+1d20', rolls: [ 5, 4, 3, 17 ] }) -> { dice: [], skippedCount: 4 }
+      f31 e193 parseDiceGroups(formula='4d6kh3+1d20') -> [ { count: 4, sides: 6 }, { count: 1, sides: 20 } ]
+      f32 e210 forcedDiceFromSource.<anonymous>(sum=0, g={ count: 4, sides: 6 }) -> 4
+      f33 e212 forcedDiceFromSource.<anonymous>(sum=4, g={ count: 1, sides: 20 }) -> 5
+task t10: forcedDiceFromSource > skips the whole animation when a value cannot sit on a face of its die
+  f34 e217 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f35 e218 forcedDiceFromSource(source={ formula: '2d6', rolls: [ 7, 3 ] }) -> { dice: [], skippedCount: 2 }
+      f36 e220 parseDiceGroups(formula='2d6') -> [ { count: 2, sides: 6 } ]
+      f37 e232 forcedDiceFromSource.<anonymous>(sum=0, g={ count: 2, sides: 6 }) -> 2
+task t11: forcedDiceFromSource > skips everything for an unparsable formula rather than throwing
+  f38 e244 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f39 e245 forcedDiceFromSource(source={ formula: 'not dice', rolls: [ 1, 2, 3 ] }) -> { dice: [], skippedCount: 3 }
+      f40 e247 parseDiceGroups(formula='not dice') -> []
+task t12: forcedDiceFromSource > covers every documented animatable size
+  f41 e257 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f42 e258 <anonymous>.<anonymous>.<anonymous>() <unread: locals> -> 2
+    f43 e260 <anonymous>.<anonymous>.<anonymous>() <unread: locals> -> 2
+    f44 e262 <anonymous>.<anonymous>.<anonymous>() <unread: locals> -> 2
+    f45 e264 <anonymous>.<anonymous>.<anonymous>() <unread: locals> -> 2
+    f46 e266 <anonymous>.<anonymous>.<anonymous>() <unread: locals> -> 8
+    f47 e268 <anonymous>.<anonymous>.<anonymous>() <unread: locals> -> 80
+task t13: buildForcedNotation > returns null for an empty dice list
+  f48 e271 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f49 e272 buildForcedNotation() <unread: locals> -> null
+task t14: buildForcedNotation > builds single-die notation with the forced value
+  f50 e275 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f51 e276 buildForcedNotation() <unread: locals> -> '1d20@17'
+      f52 e277 buildForcedNotation.<anonymous>() <unread: locals> -> '1d20'
+      f53 e279 buildForcedNotation.<anonymous>() <unread: locals> -> 17
+task t15: buildForcedNotation > builds a crit d20 notation
+  f54 e283 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f55 e284 buildForcedNotation() <unread: locals> -> '1d20@20'
+      f56 e285 buildForcedNotation.<anonymous>() <unread: locals> -> '1d20'
+      f57 e287 buildForcedNotation.<anonymous>() <unread: locals> -> 20
+task t16: buildForcedNotation > merges consecutive same-sided dice into one group
+  f58 e291 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f59 e292 buildForcedNotation() <unread: locals> -> '2d6@4,3'
+      f60 e293 buildForcedNotation.<anonymous>() <unread: locals> -> '2d6'
+      f61 e295 buildForcedNotation.<anonymous>() <unread: locals> -> 4
+      f62 e297 buildForcedNotation.<anonymous>() <unread: locals> -> 3
+task t17: buildForcedNotation > emits mixed groups in dice order with one global value list
+  f63 e301 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f64 e302 buildForcedNotation() <unread: locals> -> '1d20+2d6@15,4,3'
+      f65 e303 buildForcedNotation.<anonymous>() <unread: locals> -> '1d20'
+      f66 e305 buildForcedNotation.<anonymous>() <unread: locals> -> '2d6'
+      f67 e307 buildForcedNotation.<anonymous>() <unread: locals> -> 15
+      f68 e309 buildForcedNotation.<anonymous>() <unread: locals> -> 4
+      f69 e311 buildForcedNotation.<anonymous>() <unread: locals> -> 3
+task t18: buildForcedNotation > keeps non-consecutive same-sided dice as separate groups (values still in order)
+  f70 e315 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f71 e316 buildForcedNotation() <unread: locals> -> '1d6+1d20+1d6@2,11,5'
+      f72 e317 buildForcedNotation.<anonymous>() <unread: locals> -> '1d6'
+      f73 e319 buildForcedNotation.<anonymous>() <unread: locals> -> '1d20'
+      f74 e321 buildForcedNotation.<anonymous>() <unread: locals> -> '1d6'
+      f75 e323 buildForcedNotation.<anonymous>() <unread: locals> -> 2
+      f76 e325 buildForcedNotation.<anonymous>() <unread: locals> -> 11
+      f77 e327 buildForcedNotation.<anonymous>() <unread: locals> -> 5
+task t19: buildForcedNotation > handles d100 values
+  f78 e331 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f79 e332 buildForcedNotation() <unread: locals> -> '1d100@100'
+      f80 e333 buildForcedNotation.<anonymous>() <unread: locals> -> '1d100'
+      f81 e335 buildForcedNotation.<anonymous>() <unread: locals> -> 100
+    f82 e338 buildForcedNotation() <unread: locals> -> '1d100@1'
+      f83 e339 buildForcedNotation.<anonymous>() <unread: locals> -> '1d100'
+      f84 e341 buildForcedNotation.<anonymous>() <unread: locals> -> 1
+task t20: buildDiceQueueEntry > enqueues a forced-value roll when enabled and motion is not reduced
+  f85 e345 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f86 e346 buildDiceQueueEntry(source={ formula: '1d20+5', rolls: [ 17 ], senderId: 'user-1' }, opts={ enabled: true, reducedMotion: false, webglAvailable: true }, idFactory=[Function (anonymous)], now=[Function (anonymous)]) -> { id: 'id-1', senderId: 'user-1', dice: [ { sides: 20, value: 17 } ], skippedCount: 0, enqueuedAt: 1000 }
+      f87 e348 forcedDiceFromSource(source={ formula: '1d20+5', rolls: [ 17 ], senderId: 'user-1' }) -> { dice: [ { sides: 20, value: 17 } ], skippedCount: 0 }
+        f88 e350 parseDiceGroups(formula='1d20+5') -> [ { count: 1, sides: 20 } ]
+        f89 e362 forcedDiceFromSource.<anonymous>(sum=0, g={ count: 1, sides: 20 }) -> 1
+      f90 e380 <anonymous>.<anonymous>.<anonymous>() <unread: locals> -> 'id-1'
+      f91 e382 <anonymous>.<anonymous>.<anonymous>() <unread: locals> -> 1000
+task t21: buildDiceQueueEntry > does not enqueue when the toggle is off
+  f92 e386 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f93 e387 buildDiceQueueEntry(source={ formula: '1d20+5', rolls: [ 17 ], senderId: 'user-1' }, opts={ enabled: false, reducedMotion: false, webglAvailable: true }, idFactory=[Function: idFactory], now=[Function: now]) -> null
+task t22: buildDiceQueueEntry > does not enqueue when reduced motion is active, even if the toggle is on
+  f94 e390 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f95 e391 buildDiceQueueEntry(source={ formula: '1d20+5', rolls: [ 17 ], senderId: 'user-1' }, opts={ enabled: true, reducedMotion: true, webglAvailable: true }, idFactory=[Function: idFactory], now=[Function: now]) -> null
+task t23: buildDiceQueueEntry > does not enqueue after a WebGL init failure has disabled the session
+  f96 e394 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f97 e395 buildDiceQueueEntry(source={ formula: '1d20+5', rolls: [ 17 ], senderId: 'user-1' }, opts={ enabled: true, reducedMotion: false, webglAvailable: false }, idFactory=[Function: idFactory], now=[Function: now]) -> null
+task t24: buildDiceQueueEntry > does not enqueue when nothing in the roll is animatable
+  f98 e398 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f99 e399 buildDiceQueueEntry(source={ formula: '1d7', rolls: [ 4 ] }, opts={ enabled: true, reducedMotion: false, webglAvailable: true }, idFactory=[Function: idFactory], now=[Function: now]) -> null
+      f100 e401 forcedDiceFromSource(source={ formula: '1d7', rolls: [ 4 ] }) -> { dice: [], skippedCount: 1 }
+        f101 e403 parseDiceGroups(formula='1d7') -> [ { count: 1, sides: 7 } ]
+        f102 e415 forcedDiceFromSource.<anonymous>(sum=0, g={ count: 1, sides: 7 }) -> 1
+task t25: buildDiceQueueEntry > enqueues the animatable subset even when some dice in the roll are skipped
+  f103 e434 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f104 e435 buildDiceQueueEntry(source={ formula: '1d7+1d20', rolls: [ 4, 19 ] }, opts={ enabled: true, reducedMotion: false, webglAvailable: true }, idFactory=[Function (anonymous)], now=[Function: now]) -> { id: 'id-2', senderId: undefined, dice: [ { sides: 20, value: 19 } ], skippedCount: 1, enqueuedAt: 1789195890360 }
+      f105 e437 forcedDiceFromSource(source={ formula: '1d7+1d20', rolls: [ 4, 19 ] }) -> { dice: [ { sides: 20, value: 19 } ], skippedCount: 1 }
+        f106 e439 parseDiceGroups(formula='1d7+1d20') -> [ { count: 1, sides: 7 }, { count: 1, sides: 20 } ]
+        f107 e456 forcedDiceFromSource.<anonymous>(sum=0, g={ count: 1, sides: 7 }) -> 1
+        f108 e458 forcedDiceFromSource.<anonymous>(sum=1, g={ count: 1, sides: 20 }) -> 2
+      f109 e483 <anonymous>.<anonymous>.<anonymous>() <unread: locals> -> 'id-2'
+      f110 e485 buildDiceQueueEntry.<anonymous>() -> 1789195890360
+task t26: buildDiceQueueEntry > carries the senderId through so both own and other players rolls can be told apart
+  f111 e489 <anonymous>.<anonymous>() <unread: locals> -> undefined
+    f112 e490 buildDiceQueueEntry(source={ formula: '1d20+5', rolls: [ 17 ], senderId: 'other-player' }, opts={ enabled: true, reducedMotion: false, webglAvailable: true }, idFactory=[Function: idFactory], now=[Function: now]) -> { id: 'e5c232c6-fdfa-448c-8c9d-df84d146df8e', senderId: 'other-player', dice: [ { sides: 20, value: 17 } ], skippedCount: 0, enqueuedAt: 1789195890361 }
+      f113 e492 forcedDiceFromSource(source={ formula: '1d20+5', rolls: [ 17 ], senderId: 'other-player' }) -> { dice: [ { sides: 20, value: 17 } ], skippedCount: 0 }
+        f114 e494 parseDiceGroups(formula='1d20+5') -> [ { count: 1, sides: 20 } ]
+        f115 e506 forcedDiceFromSource.<anonymous>(sum=0, g={ count: 1, sides: 20 }) -> 1
+      f116 e524 buildDiceQueueEntry.<anonymous>() -> 'e5c232c6-fdfa-448c-8c9d-df84d146df8e'
+      f117 e526 buildDiceQueueEntry.<anonymous>() -> 1789195890361
+order between tasks is wall-clock (event ids), not causal; within one task it is causal
+--- exit 0

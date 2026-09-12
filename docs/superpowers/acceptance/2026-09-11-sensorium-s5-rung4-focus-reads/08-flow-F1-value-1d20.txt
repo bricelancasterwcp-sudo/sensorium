@@ -1,0 +1,11 @@
+$ sensorium flow F1 --value "'1d20'"
+flow of '1d20' (str) in 20260912-015130-42f691
+  captured-value equality, not true dataflow analysis: the trace records values, not the edges between them
+  e10 CALL    parseDiceGroups(formula='1d20')   [arg formula]
+  e278 RETURN  buildForcedNotation.<anonymous> -> '1d20'   [return]
+  e286 RETURN  buildForcedNotation.<anonymous> -> '1d20'   [return]
+  e304 RETURN  buildForcedNotation.<anonymous> -> '1d20'   [return]
+  e320 RETURN  buildForcedNotation.<anonymous> -> '1d20'   [return]
+sightings: 5 event(s), 5 capture(s)
+scope: 378 capture(s) searched across 340 event(s) in CALL args, RETURN values and LINE local deltas
+--- exit 0

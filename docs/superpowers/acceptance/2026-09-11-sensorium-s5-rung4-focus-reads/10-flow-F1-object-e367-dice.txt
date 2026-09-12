@@ -1,0 +1,10 @@
+$ sensorium flow F1 --object e367:dice
+flow of object #64 (Array) in 20260912-015130-42f691
+  identity is a per-object serial minted once and never reused: every sighting is the same object
+  captured-value lineage, not dataflow analysis: the trace records values, not the edges between them
+  e367 LINE    forcedDiceFromSource L138  dice=[]   [local dice]
+  e378 LINE    buildDiceQueueEntry L202  dice=[ { sides: 20, value: 17 } ], skippedCount=0   [local dice]
+sightings: 2 event(s), 2 capture(s)
+continuity: exact (serial identity)
+scope: 378 capture(s) searched across 340 event(s) in CALL args, RETURN values and LINE local deltas
+--- exit 0

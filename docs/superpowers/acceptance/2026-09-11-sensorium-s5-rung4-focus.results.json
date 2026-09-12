@@ -1,0 +1,1450 @@
+{
+  "record": "docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.md",
+  "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+  "schema": "every measurement is {value, n, lens, dropped}; a null value with a non-empty dropped list is the only representation of 'not measured'; 0 is measured-and-zero",
+  "gated": {
+    "H1": {
+      "value": 4,
+      "n": 4,
+      "dropped": [],
+      "rule": "capabilities line/locals false, LINE rows 0, watch REFUSED with exit 3 -> else STOP",
+      "claims": {
+        "capabilities.line is false": true,
+        "capabilities.locals is false": true,
+        "LINE rows = 0": true,
+        "watch refuses in \u00a71's words, exit 3": true
+      },
+      "capabilities": {
+        "line": false,
+        "locals": false,
+        "return_value": true,
+        "tasks": true,
+        "threads": false,
+        "children": false,
+        "stdin": false,
+        "output": false,
+        "object_identity": true,
+        "refocus": false,
+        "err_flow": true
+      },
+      "line_rows": 0,
+      "refusal_printed": "REFUSED: watch needs line, which recorder sensorium-ts 0.3.0 declares it does not produce (capabilities.line: false); nothing was checked",
+      "refusal_expected": "REFUSED: watch needs line, which recorder sensorium-ts 0.3.0 declares it does not produce (capabilities.line: false); nothing was checked",
+      "refusal_exit": 3,
+      "second_reading": {
+        "trace.recorder": "sensorium-ts 0.3.0",
+        "token in the refusal": "sensorium-ts 0.3.0",
+        "equal": true
+      },
+      "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "recorder_rev": "68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "H2": {
+      "value": 3,
+      "n": 4,
+      "dropped": [],
+      "rule": "three sites named, the suite's counts unmoved, the focused CALL printed as \u00a71 writes it -> else STOP",
+      "claims": {
+        "the resolver names exactly the three sites": false,
+        "F1's `Test Files` line equals U1's": true,
+        "F1's `Tests` line equals U1's": true,
+        "`grep --kind CALL` prints \u00a71's line first": true
+      },
+      "resolver_matched": [
+        "src/lib/diceQueue.ts:parseDiceGroups",
+        "src/lib/diceQueue.ts:forcedDiceFromSource",
+        "src/lib/diceQueue.ts:forcedDiceFromSource.<anonymous>",
+        "src/lib/diceQueue.ts:buildDiceQueueEntry",
+        "src/lib/diceQueue.ts:buildDiceQueueEntry.<anonymous>",
+        "src/lib/diceQueue.ts:buildDiceQueueEntry.<anonymous>"
+      ],
+      "expected": [
+        "src/lib/diceQueue.ts:parseDiceGroups",
+        "src/lib/diceQueue.ts:forcedDiceFromSource",
+        "src/lib/diceQueue.ts:buildDiceQueueEntry"
+      ],
+      "unmatched": [],
+      "suite": {
+        "U1": {
+          "files": " Test Files  1 passed (1)",
+          "tests": "      Tests  26 passed (26)",
+          "exit": 0
+        },
+        "F1": {
+          "files": " Test Files  1 passed (1)",
+          "tests": "      Tests  26 passed (26)",
+          "exit": 0
+        }
+      },
+      "call_first_line": "e10 CALL    parseDiceGroups(formula='1d20')",
+      "r22_r31": {
+        "meta.functions_focused": 6,
+        "len(meta.focus_matched)": 5,
+        "focus_matched": [
+          "src/lib/diceQueue.ts:buildDiceQueueEntry",
+          "src/lib/diceQueue.ts:buildDiceQueueEntry.<anonymous>",
+          "src/lib/diceQueue.ts:forcedDiceFromSource",
+          "src/lib/diceQueue.ts:forcedDiceFromSource.<anonymous>",
+          "src/lib/diceQueue.ts:parseDiceGroups"
+        ],
+        "equal": false
+      },
+      "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "recorder_rev": "68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "H3": {
+      "value": 4,
+      "n": 4,
+      "dropped": [],
+      "rule": "N = 9 -> PASS; any other count a STOP with the diff of lines",
+      "claims": {
+        "N = 9 LINE rows": true,
+        "the rows' `line` values equal \u00a71.1's list in order": true,
+        "each row's delta names equal the table's, in order": true,
+        "each row's unbound names equal the table's, in order": true
+      },
+      "rows_measured": 9,
+      "n_predicted": 9,
+      "lines_predicted": [
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        76,
+        75,
+        72
+      ],
+      "lines_measured": [
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        76,
+        75,
+        72
+      ],
+      "diff_of_lines": [],
+      "deltas_predicted": [
+        [
+          "groups"
+        ],
+        [],
+        [
+          "m"
+        ],
+        [
+          "m"
+        ],
+        [
+          "count"
+        ],
+        [
+          "sides"
+        ],
+        [],
+        [],
+        [
+          "m"
+        ]
+      ],
+      "deltas_measured": [
+        [
+          "groups"
+        ],
+        [],
+        [
+          "m"
+        ],
+        [
+          "m"
+        ],
+        [
+          "count"
+        ],
+        [
+          "sides"
+        ],
+        [],
+        [],
+        [
+          "m"
+        ]
+      ],
+      "unbound_predicted": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [
+          "count",
+          "sides"
+        ]
+      ],
+      "unbound_measured": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [
+          "count",
+          "sides"
+        ]
+      ],
+      "activation": {
+        "frame": "f6",
+        "call_args": {
+          "args": {
+            "formula": {
+              "k": "dbg",
+              "v": "'1d20'",
+              "trunc": false
+            }
+          }
+        }
+      },
+      "rows": [
+        {
+          "event": "e11",
+          "line": 69,
+          "deltas": [
+            "groups"
+          ],
+          "unbound": [],
+          "rendered": {
+            "groups": "[]"
+          }
+        },
+        {
+          "event": "e12",
+          "line": 70,
+          "deltas": [],
+          "unbound": [],
+          "rendered": {}
+        },
+        {
+          "event": "e13",
+          "line": 71,
+          "deltas": [
+            "m"
+          ],
+          "unbound": [],
+          "rendered": {
+            "m": "undefined"
+          }
+        },
+        {
+          "event": "e14",
+          "line": 72,
+          "deltas": [
+            "m"
+          ],
+          "unbound": [],
+          "rendered": {
+            "m": "[ '1d20', '1', '20', index: 0, input: '1d20', groups: undefined ]"
+          }
+        },
+        {
+          "event": "e15",
+          "line": 73,
+          "deltas": [
+            "count"
+          ],
+          "unbound": [],
+          "rendered": {
+            "count": "1"
+          }
+        },
+        {
+          "event": "e16",
+          "line": 74,
+          "deltas": [
+            "sides"
+          ],
+          "unbound": [],
+          "rendered": {
+            "sides": "20"
+          }
+        },
+        {
+          "event": "e17",
+          "line": 76,
+          "deltas": [],
+          "unbound": [],
+          "rendered": {}
+        },
+        {
+          "event": "e18",
+          "line": 75,
+          "deltas": [],
+          "unbound": [],
+          "rendered": {}
+        },
+        {
+          "event": "e19",
+          "line": 72,
+          "deltas": [
+            "m"
+          ],
+          "unbound": [
+            "count",
+            "sides"
+          ],
+          "rendered": {
+            "m": "null"
+          }
+        }
+      ],
+      "hand_count": {
+        "n": 9,
+        "rows": [
+          {
+            "row": 1,
+            "line": 69,
+            "statement": "`const groups: Array<{ count: number; sides: number }> = [];`",
+            "deltas": [
+              "groups"
+            ],
+            "unbound": [],
+            "rule": "\u00a73.2 `const PAT = e`"
+          },
+          {
+            "row": 2,
+            "line": 70,
+            "statement": "`GROUP_RE.lastIndex = 0;`",
+            "deltas": [],
+            "unbound": [],
+            "rule": "\u00a73.2 place write (\u00a73.9)"
+          },
+          {
+            "row": 3,
+            "line": 71,
+            "statement": "`let m: RegExpExecArray | null;`",
+            "deltas": [
+              "m"
+            ],
+            "unbound": [],
+            "rule": "\u00a73.2 `let x;` + plan P1(b)"
+          },
+          {
+            "row": 4,
+            "line": 72,
+            "statement": "`while ((m = GROUP_RE.exec(formula)) !== null)` \u2014 head row, entry 1",
+            "deltas": [
+              "m"
+            ],
+            "unbound": [],
+            "rule": "\u00a73.2 head row"
+          },
+          {
+            "row": 5,
+            "line": 73,
+            "statement": "`const count = m[1] ? parseInt(m[1], 10) : 1;`",
+            "deltas": [
+              "count"
+            ],
+            "unbound": [],
+            "rule": "\u00a73.2 `const PAT = e`"
+          },
+          {
+            "row": 6,
+            "line": 74,
+            "statement": "`const sides = parseInt(m[2], 10);`",
+            "deltas": [
+              "sides"
+            ],
+            "unbound": [],
+            "rule": "\u00a73.2 `const PAT = e`"
+          },
+          {
+            "row": 7,
+            "line": 76,
+            "statement": "`groups.push({ count, sides });`",
+            "deltas": [],
+            "unbound": [],
+            "rule": "\u00a73.2 expression statement, no write"
+          },
+          {
+            "row": 8,
+            "line": 75,
+            "statement": "`if (Number.isFinite(count) && \u2026) { \u2026 }` \u2014 the `if` completing",
+            "deltas": [],
+            "unbound": [],
+            "rule": "\u00a73.2 block-like + \u00a73.4"
+          },
+          {
+            "row": 9,
+            "line": 72,
+            "statement": "`while ((m = GROUP_RE.exec(formula)) !== null) { \u2026 }` \u2014 the `while` completing",
+            "deltas": [
+              "m"
+            ],
+            "unbound": [
+              "count",
+              "sides"
+            ],
+            "rule": "plan P1(a) + \u00a73.4 + plan P4"
+          }
+        ],
+        "function": "parseDiceGroups",
+        "sha256": "df0fe871d17b7762f716bb326cd841425505895a13fe9777d4357ed7f04518b7",
+        "path": "2026-09-11-sensorium-s5-rung4-handcount.md"
+      },
+      "run": "20260912-015130-42f691",
+      "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "recorder_rev": "68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "H4": {
+      "value": 2,
+      "n": 3,
+      "dropped": [],
+      "rule": "all three triples as \u00a71.2 predicts (verdict word, exit, and W2's no-HIT clause) -> PASS; a verdict/exit disagreement is a finding, reported",
+      "triples": [
+        {
+          "id": "W1",
+          "at": "parseDiceGroups",
+          "expr": "sides == 20",
+          "verdict": "SATISFIED",
+          "exit": 0,
+          "reading": "a plain statement delta: `const sides = parseInt(m[2], 10);` (line 74) writes `20` on this activation",
+          "verdict_line": "verdict: SATISFIED at 31 of the 64 site(s) the predicate could be evaluated at",
+          "got_exit": 0,
+          "verdict_word_seen": true,
+          "hits": [
+            "HIT   e16 LINE    parseDiceGroups L74  sides=20   state: sides=20",
+            "HIT   e17 LINE    parseDiceGroups L76   state: sides=20",
+            "HIT   e18 LINE    parseDiceGroups L75   state: sides=20",
+            "HIT   e29 LINE    parseDiceGroups L74  sides=20   state: sides=20",
+            "HIT   e30 LINE    parseDiceGroups L76   state: sides=20",
+            "HIT   e31 LINE    parseDiceGroups L75   state: sides=20",
+            "HIT   e32 LINE    parseDiceGroups L72  m=[ '2d6', '2', '6', index: 5, input: '1d20+2d6+3', groups: undefined ]   state: sides=20",
+            "HIT   e33 LINE    parseDiceGroups L73  count=2   state: sides=20",
+            "HIT   e47 LINE    parseDiceGroups L74  sides=20   state: sides=20",
+            "HIT   e48 LINE    parseDiceGroups L76   state: sides=20",
+            "HIT   e49 LINE    parseDiceGroups L75   state: sides=20",
+            "HIT   e83 LINE    parseDiceGroups L74  sides=20   state: sides=20",
+            "HIT   e84 LINE    parseDiceGroups L76   state: sides=20",
+            "HIT   e85 LINE    parseDiceGroups L75   state: sides=20",
+            "HIT   e86 LINE    parseDiceGroups L72  m=[ '2d6', '2', '6', index: 5, input: '1d20+2d6', groups: undefined ]   state: sides=20",
+            "HIT   e87 LINE    parseDiceGroups L73  count=2   state: sides=20",
+            "HIT   e138 LINE    parseDiceGroups L74  sides=20   state: sides=20",
+            "HIT   e139 LINE    parseDiceGroups L76   state: sides=20",
+            "HIT   e140 LINE    parseDiceGroups L75   state: sides=20",
+            "HIT   e204 LINE    parseDiceGroups L74  sides=20   state: sides=20"
+          ],
+          "hit_at_while_line": [
+            "HIT   e32 LINE    parseDiceGroups L72  m=[ '2d6', '2', '6', index: 5, input: '1d20+2d6+3', groups: undefined ]   state: sides=20",
+            "HIT   e86 LINE    parseDiceGroups L72  m=[ '2d6', '2', '6', index: 5, input: '1d20+2d6', groups: undefined ]   state: sides=20"
+          ],
+          "extra_clause_applies": false,
+          "sites_line": "sites: 165   evaluated: 64   hits: 31   not-captured: 101   errors: 0",
+          "not_captured": "not captured at 101 of 165 site(s) -- the predicate could not be checked there:",
+          "ok": true
+        },
+        {
+          "id": "W2",
+          "at": "parseDiceGroups",
+          "expr": "count == 1",
+          "verdict": "SATISFIED",
+          "exit": 0,
+          "reading": "**and no HIT at line 72's `while`-completion row** \u2014 the `unbound` reading: `count` is one of the two names that die on that row (\u00a73.4), so the fold has popped it and the predicate cannot be evaluated there",
+          "verdict_line": "verdict: SATISFIED at 52 of the 77 site(s) the predicate could be evaluated at",
+          "got_exit": 0,
+          "verdict_word_seen": true,
+          "hits": [
+            "HIT   e15 LINE    parseDiceGroups L73  count=1   state: count=1",
+            "HIT   e16 LINE    parseDiceGroups L74  sides=20   state: count=1",
+            "HIT   e17 LINE    parseDiceGroups L76   state: count=1",
+            "HIT   e18 LINE    parseDiceGroups L75   state: count=1",
+            "HIT   e28 LINE    parseDiceGroups L73  count=1   state: count=1",
+            "HIT   e29 LINE    parseDiceGroups L74  sides=20   state: count=1",
+            "HIT   e30 LINE    parseDiceGroups L76   state: count=1",
+            "HIT   e31 LINE    parseDiceGroups L75   state: count=1",
+            "HIT   e32 LINE    parseDiceGroups L72  m=[ '2d6', '2', '6', index: 5, input: '1d20+2d6+3', groups: undefined ]   state: count=1",
+            "HIT   e46 LINE    parseDiceGroups L73  count=1   state: count=1",
+            "HIT   e47 LINE    parseDiceGroups L74  sides=20   state: count=1",
+            "HIT   e48 LINE    parseDiceGroups L76   state: count=1",
+            "HIT   e49 LINE    parseDiceGroups L75   state: count=1",
+            "HIT   e82 LINE    parseDiceGroups L73  count=1   state: count=1",
+            "HIT   e83 LINE    parseDiceGroups L74  sides=20   state: count=1",
+            "HIT   e84 LINE    parseDiceGroups L76   state: count=1",
+            "HIT   e85 LINE    parseDiceGroups L75   state: count=1",
+            "HIT   e86 LINE    parseDiceGroups L72  m=[ '2d6', '2', '6', index: 5, input: '1d20+2d6', groups: undefined ]   state: count=1",
+            "HIT   e132 LINE    parseDiceGroups L73  count=1   state: count=1",
+            "HIT   e133 LINE    parseDiceGroups L74  sides=7   state: count=1"
+          ],
+          "hit_at_while_line": [
+            "HIT   e32 LINE    parseDiceGroups L72  m=[ '2d6', '2', '6', index: 5, input: '1d20+2d6+3', groups: undefined ]   state: count=1",
+            "HIT   e86 LINE    parseDiceGroups L72  m=[ '2d6', '2', '6', index: 5, input: '1d20+2d6', groups: undefined ]   state: count=1"
+          ],
+          "extra_clause_applies": true,
+          "sites_line": "sites: 165   evaluated: 77   hits: 52   not-captured: 88   errors: 0",
+          "not_captured": "not captured at 88 of 165 site(s) -- the predicate could not be checked there:",
+          "ok": false
+        },
+        {
+          "id": "W3",
+          "at": "parseDiceGroups",
+          "expr": "m == null",
+          "verdict": "SATISFIED",
+          "exit": 0,
+          "reading": "the head-binding reading under plan P1(a): the `while` statement's own row carries `m`'s LAST write, `null`, which \u00a73.2's per-entry rule alone would leave unreported. `m` is `undefined` at line 71 and a match array at the head row, neither of which is `null`",
+          "verdict_line": "verdict: SATISFIED at 15 of the 120 site(s) the predicate could be evaluated at",
+          "got_exit": 0,
+          "verdict_word_seen": true,
+          "hits": [
+            "HIT   e19 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e37 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e50 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e63 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e71 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e91 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e141 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e182 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e207 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e229 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e251 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e359 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e412 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e453 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e503 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null"
+          ],
+          "hit_at_while_line": [
+            "HIT   e19 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e37 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e50 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e63 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e71 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e91 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e141 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e182 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e207 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e229 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e251 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e359 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e412 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e453 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null",
+            "HIT   e503 LINE    parseDiceGroups L72  m=null  unbound:count,sides   state: m=null"
+          ],
+          "extra_clause_applies": false,
+          "sites_line": "sites: 165   evaluated: 120   hits: 15   not-captured: 45   errors: 0",
+          "not_captured": "not captured at 45 of 165 site(s) -- the predicate could not be checked there:",
+          "ok": true
+        }
+      ],
+      "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "recorder_rev": "68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "H5": {
+      "value": 2,
+      "n": 3,
+      "dropped": [],
+      "rule": "both sightings found and no third triple in the three focused functions' LINE deltas and CALL args -> PASS; sightings elsewhere reported, not gated",
+      "claims": {
+        "S1 found": true,
+        "S2 found": false,
+        "no unpredicted triple in the focused population": true
+      },
+      "sightings": [
+        {
+          "id": "S1",
+          "command": "flow F1 --value 20",
+          "literal": "20",
+          "name": "sides",
+          "line": 74,
+          "seen": true,
+          "in_population": [
+            "e16 LINE    parseDiceGroups L74  sides=20   [local sides]",
+            "e29 LINE    parseDiceGroups L74  sides=20   [local sides]",
+            "e47 LINE    parseDiceGroups L74  sides=20   [local sides]",
+            "e83 LINE    parseDiceGroups L74  sides=20   [local sides]",
+            "e138 LINE    parseDiceGroups L74  sides=20   [local sides]",
+            "e204 LINE    parseDiceGroups L74  sides=20   [local sides]",
+            "e356 LINE    parseDiceGroups L74  sides=20   [local sides]",
+            "e450 LINE    parseDiceGroups L74  sides=20   [local sides]",
+            "e500 LINE    parseDiceGroups L74  sides=20   [local sides]"
+          ],
+          "triples_in_population": [
+            [
+              "sides",
+              74
+            ]
+          ],
+          "sightings_line": "sightings: 10 event(s), 10 capture(s)",
+          "exit": 0
+        },
+        {
+          "id": "S2",
+          "command": "flow F1 --value \"'1d20'\"",
+          "literal": "'1d20'",
+          "name": "formula",
+          "line": 68,
+          "seen": false,
+          "in_population": [],
+          "triples_in_population": [],
+          "sightings_line": "sightings: 5 event(s), 5 capture(s)",
+          "exit": 0
+        }
+      ],
+      "unpredicted": [],
+      "elsewhere_not_gated": [
+        "e10 CALL    parseDiceGroups(formula='1d20')   [arg formula]"
+      ],
+      "focused_functions": [
+        "buildDiceQueueEntry",
+        "forcedDiceFromSource",
+        "parseDiceGroups"
+      ],
+      "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "recorder_rev": "68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "H6": {
+      "value": 4,
+      "n": 4,
+      "dropped": [],
+      "rule": "exactly two sightings, one serial, continuity exact, both types Array -> PASS",
+      "claims": {
+        "exactly two sightings, at \u00a71.4's two lines": true,
+        "one serial": true,
+        "continuity: exact (serial identity)": true,
+        "both sightings' type is Array": true
+      },
+      "lookup": {
+        "rows_at_line": [
+          "e101 LINE    forcedDiceFromSource L138  dice=[]",
+          "e151 LINE    forcedDiceFromSource L138  dice=[]",
+          "e237 LINE    forcedDiceFromSource L138  dice=[]",
+          "e367 LINE    forcedDiceFromSource L138  dice=[]",
+          "e420 LINE    forcedDiceFromSource L138  dice=[]",
+          "e463 LINE    forcedDiceFromSource L138  dice=[]",
+          "e511 LINE    forcedDiceFromSource L138  dice=[]"
+        ],
+        "parents": {
+          "101": "<anonymous>.<anonymous>",
+          "151": "<anonymous>.<anonymous>",
+          "237": "<anonymous>.<anonymous>",
+          "367": "buildDiceQueueEntry",
+          "420": "buildDiceQueueEntry",
+          "463": "buildDiceQueueEntry",
+          "511": "buildDiceQueueEntry"
+        },
+        "called_by_the_caller": [
+          "e367 LINE    forcedDiceFromSource L138  dice=[]",
+          "e420 LINE    forcedDiceFromSource L138  dice=[]",
+          "e463 LINE    forcedDiceFromSource L138  dice=[]",
+          "e511 LINE    forcedDiceFromSource L138  dice=[]"
+        ],
+        "eid": 367
+      },
+      "target": "flow of object #64 (Array)",
+      "sighting_lines": [
+        138,
+        202
+      ],
+      "sightings": [
+        "e367 LINE    forcedDiceFromSource L138  dice=[]   [local dice]",
+        "e378 LINE    buildDiceQueueEntry L202  dice=[ { sides: 20, value: 17 } ], skippedCount=0   [local dice]"
+      ],
+      "sightings_line": "sightings: 2 event(s), 2 capture(s)",
+      "captures": {
+        "e367:dice": {
+          "oid": 64,
+          "type": "Array"
+        },
+        "e378:dice": {
+          "oid": 64,
+          "type": "Array"
+        }
+      },
+      "exit": 0,
+      "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "recorder_rev": "68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "H7": {
+      "value": 1.8946,
+      "n": 3,
+      "dropped": [],
+      "rule": "reported, not gated",
+      "unfocused": {
+        "runs": 3,
+        "walls": [
+          1.1162,
+          0.7955,
+          0.7874
+        ],
+        "dropped": [],
+        "median": 0.7955,
+        "min": 0.7874,
+        "max": 1.1162,
+        "loads": [
+          0.72,
+          0.72,
+          0.83
+        ]
+      },
+      "focused": {
+        "runs": 3,
+        "walls": [
+          1.8946,
+          1.9147,
+          1.8899
+        ],
+        "dropped": [],
+        "median": 1.8946,
+        "min": 1.8899,
+        "max": 1.9147,
+        "loads": [
+          0.72,
+          0.72,
+          0.83
+        ]
+      },
+      "focused_over_unfocused": 2.3816,
+      "resolver": {
+        "wall": 1.132,
+        "exit": 0,
+        "files_scanned": 830,
+        "note": "one timed run of `node resolve.mjs` in `e12.sh`; `Resolution.wall` is not persisted (Task 5)"
+      },
+      "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "recorder_rev": "68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "H8": {
+      "value": 6,
+      "n": 6,
+      "dropped": [],
+      "rule": "every corpus case equal, the four suites green, E7's needle grep at 0 over every transcript -> else STOP",
+      "claims": {
+        "`corpus` green": true,
+        "`pytest` green": true,
+        "`cargo` green": true,
+        "`npm-typescript` green": true,
+        "`npm-probes` green": true,
+        "E7's needles at 0 over every read transcript": true
+      },
+      "suites": {
+        "corpus": {
+          "exit": 0,
+          "tail": [
+            "  ok  typescript/watch_refused  (2 questions)",
+            "  ok  typescript/wrong_branch  (2 questions)",
+            "105 cases, 220 questions, 0 failures, 0 error(s)"
+          ]
+        },
+        "pytest": {
+          "exit": 0,
+          "tail": [
+            "........................................................................ [ 99%]",
+            "...................                                                      [100%]",
+            "4090 passed, 33 skipped in 111.01s (0:01:51)"
+          ]
+        },
+        "cargo": {
+          "exit": 0,
+          "tail": [
+            "test sensorium-transform/src/lines.rs - lines (line 14) ... ignored",
+            "test sensorium-transform/src/spawn.rs - spawn (line 30) ... ignored",
+            "test result: ok. 0 passed; 0 failed; 14 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        },
+        "npm-typescript": {
+          "exit": 0,
+          "tail": [
+            "\u2139 skipped 0",
+            "\u2139 todo 0",
+            "\u2139 duration_ms 1588.082613"
+          ]
+        },
+        "npm-probes": {
+          "exit": 0,
+          "tail": [
+            "    }",
+            "  ]",
+            "}"
+          ]
+        }
+      },
+      "vectors": {
+        "exit": 0,
+        "tail": [
+          ".........                                                                [100%]",
+          "79 passed, 2 skipped in 5.45s"
+        ]
+      },
+      "needle_total": 0,
+      "transcripts": 13,
+      "per_transcript": {
+        "01-info-U1": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 30,
+          "sha256": "a529100e614b19d27d6cf4690cf9d98252ec4f9bc6f4f39ec9538571336b4ecb"
+        },
+        "02-info-F1": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 31,
+          "sha256": "2d0c6d0bfa6ae082f52a536fc89289025780034f1fe9494effda16370c76e30a"
+        },
+        "03-watch-U1-at-parseDiceGroups-expr-groups-0": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 3,
+          "sha256": "4c225fa228ced9820a6479161cfb782505743f4ba806e9f7e50bc60f2a7e8356"
+        },
+        "04-watch-F1-at-parseDiceGroups-expr-sides-20": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 36,
+          "sha256": "431d519a8da09c1baf32bbd0095a49ef54fe79f030772becf8a7da14af0fb5a8"
+        },
+        "05-watch-F1-at-parseDiceGroups-expr-count-1": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 36,
+          "sha256": "89b3dbdba26d7e35460dab1bda647a24cc3ee62867aa7d5e0bff31869a5a9a51"
+        },
+        "06-watch-F1-at-parseDiceGroups-expr-m-null": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 30,
+          "sha256": "66a807ed267062b8b867431d80874e16fe9a12f958e248b8a7a2ec67b02c1fc3"
+        },
+        "07-flow-F1-value-20": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 16,
+          "sha256": "6e89e7ef44c2282115d50ceb80998e258f2b4e1609544b24714d79ab7182f14e"
+        },
+        "08-flow-F1-value-1d20": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 11,
+          "sha256": "27fe68caa21fe631284554811a6b3fcda2344e7c3ae1925d2f821ddcf064933f"
+        },
+        "09-grep-F1-dice-kind-LINE": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 14,
+          "sha256": "55fd6dce91761ff5048f7a47890692d4674373b54b7ee380fa71ce1bba98d064"
+        },
+        "10-flow-F1-object-e367-dice": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 10,
+          "sha256": "7970409062cfd3400c01e8c6b7dd9f8237f98cd04912487cac8f3f80a2239442"
+        },
+        "11-grep-F1-parseDiceGroups-kind-CALL": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 18,
+          "sha256": "865decb56538c9aa15e995fc390a6db2a3bd43ccb26c74463502a22b124b7e18"
+        },
+        "12-frame-F1-fn-parseDiceGroups": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 16,
+          "sha256": "f89e64b666efc42b062cfd8a660af76929e452e2b25488f83c6a3f906f253c64"
+        },
+        "13-tree-F1": {
+          "occurrences": 0,
+          "needles": 9,
+          "list": "rung2",
+          "per_needle": {},
+          "lines": 147,
+          "sha256": "702d39ad9a78e2834fe9acfe84a89b673bc0c6f578c1d8642d94aaa1631d7fa6"
+        }
+      },
+      "cargo_target_dir_set": "yes",
+      "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "recorder_rev": "68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    }
+  },
+  "reported": {
+    "E-legacy": {
+      "value": 1,
+      "n": 2,
+      "dropped": [],
+      "rule": "byte-unchanged against the branch point, tests green -> else STOP",
+      "base": "aea6b47",
+      "claims": {
+        "the fenced files show zero diff against the branch point": false,
+        "the fenced tests and the Rust key's tuple equality are green": true
+      },
+      "fenced_paths": [
+        "src/sensorium/query/exceptions_rust.py",
+        "src/sensorium/query/exceptions.py",
+        "rust/",
+        "tests/test_exceptions_rust*.py",
+        "tests/test_exceptions_invocation.py",
+        "tests/test_exceptions.py",
+        "tests/test_exceptions_synthetic.py"
+      ],
+      "diff_stat_lines": [
+        " tests/test_exceptions_rust_grouping.py | 2 +-",
+        " 1 file changed, 1 insertion(+), 1 deletion(-)"
+      ],
+      "diff": {
+        "command": "git diff aea6b47..HEAD --stat -- src/sensorium/query/exceptions_rust.py src/sensorium/query/exceptions.py rust/ tests/test_exceptions_rust*.py tests/test_exceptions_invocation.py tests/test_exceptions.py tests/test_exceptions_synthetic.py",
+        "exit": 0,
+        "stdout": " tests/test_exceptions_rust_grouping.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n",
+        "last_line": " 1 file changed, 1 insertion(+), 1 deletion(-)"
+      },
+      "tests_run": [
+        "tests/test_exceptions_rust.py",
+        "tests/test_exceptions_rust_ambiguous.py",
+        "tests/test_exceptions_rust_gate.py",
+        "tests/test_exceptions_rust_grouping.py",
+        "tests/test_exceptions_invocation.py",
+        "tests/test_exceptions.py",
+        "tests/test_exceptions_synthetic.py",
+        "tests/test_exceptions_typescript_grouping.py::test_the_rust_key_is_todays_tuple_verbatim"
+      ],
+      "suite": {
+        "command": ".venv/bin/python -m pytest -q -p no:cacheprovider tests/test_exceptions_rust.py tests/test_exceptions_rust_ambiguous.py tests/test_exceptions_rust_gate.py tests/test_exceptions_rust_grouping.py tests/test_exceptions_invocation.py tests/test_exceptions.py tests/test_exceptions_synthetic.py tests/test_exceptions_typescript_grouping.py::test_the_rust_key_is_todays_tuple_verbatim",
+        "exit": 0,
+        "stdout": "........................................................................ [ 61%]\n..............................................                           [100%]\n118 passed in 2.43s\n",
+        "last_line": "118 passed in 2.43s"
+      },
+      "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "recorder_rev": "68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "E-branch": {
+      "value": 1,
+      "n": 1,
+      "dropped": [],
+      "rule": "green -> else STOP",
+      "claims": {
+        "tests/test_acceptance_scripts.py is green": true
+      },
+      "suite": {
+        "command": ".venv/bin/python -m pytest -q -p no:cacheprovider tests/test_acceptance_scripts.py",
+        "exit": 0,
+        "stdout": "..........                                                               [100%]\n10 passed in 0.06s\n",
+        "last_line": "10 passed in 0.06s"
+      },
+      "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "recorder_rev": "68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "the_session": {
+      "value": 6,
+      "n": 6,
+      "dropped": [],
+      "rule": "six arms into an empty store, the lens unmoved, the hash list taken before any read",
+      "preregistered_subject": true,
+      "preregistered_n": true,
+      "subject": "src/lib/diceQueue.test.ts",
+      "focus_specs": [
+        "diceQueue.ts:parseDiceGroups",
+        "diceQueue.ts:forcedDiceFromSource",
+        "diceQueue.ts:buildDiceQueueEntry"
+      ],
+      "n_per_arm": 3,
+      "arms": [
+        {
+          "arm": "U",
+          "run": 1,
+          "wall": 1.1162,
+          "load_1min": 0.72,
+          "exit": 0,
+          "run_lines": [
+            "run: 20260912-015128-7bc2b2  pid: 3848560  file: src/lib/diceQueue.test.ts  events: 234  tasks: 26"
+          ],
+          "run_ids": [
+            "20260912-015128-7bc2b2"
+          ],
+          "subject_run_ids": [
+            "20260912-015128-7bc2b2"
+          ],
+          "run_id": "20260912-015128-7bc2b2",
+          "invocation": "20260912-015127-eb050a",
+          "test_files_line": " Test Files  1 passed (1)",
+          "tests_line": "      Tests  26 passed (26)",
+          "duration_line": "Duration  552ms (transform 59ms, setup 63ms, import 33ms, tests 7ms, environment 390ms)",
+          "log": "e12-U1.log"
+        },
+        {
+          "arm": "F",
+          "run": 1,
+          "wall": 1.8946,
+          "load_1min": 0.72,
+          "exit": 0,
+          "run_lines": [
+            "run: 20260912-015130-42f691  pid: 3848654  file: src/lib/diceQueue.test.ts  events: 529  tasks: 26"
+          ],
+          "run_ids": [
+            "20260912-015130-42f691"
+          ],
+          "subject_run_ids": [
+            "20260912-015130-42f691"
+          ],
+          "run_id": "20260912-015130-42f691",
+          "invocation": "20260912-015129-161608",
+          "test_files_line": " Test Files  1 passed (1)",
+          "tests_line": "      Tests  26 passed (26)",
+          "duration_line": "Duration  360ms (transform 56ms, setup 46ms, import 31ms, tests 8ms, environment 217ms)",
+          "log": "e12-F1.log"
+        },
+        {
+          "arm": "U",
+          "run": 2,
+          "wall": 0.7955,
+          "load_1min": 0.72,
+          "exit": 0,
+          "run_lines": [
+            "run: 20260912-015131-557f82  pid: 3848724  file: src/lib/diceQueue.test.ts  events: 234  tasks: 26"
+          ],
+          "run_ids": [
+            "20260912-015131-557f82"
+          ],
+          "subject_run_ids": [
+            "20260912-015131-557f82"
+          ],
+          "run_id": "20260912-015131-557f82",
+          "invocation": "20260912-015130-35a664",
+          "test_files_line": " Test Files  1 passed (1)",
+          "tests_line": "      Tests  26 passed (26)",
+          "duration_line": "Duration  360ms (transform 56ms, setup 46ms, import 32ms, tests 6ms, environment 217ms)",
+          "log": "e12-U2.log"
+        },
+        {
+          "arm": "F",
+          "run": 2,
+          "wall": 1.9147,
+          "load_1min": 0.72,
+          "exit": 0,
+          "run_lines": [
+            "run: 20260912-015133-b5bac5  pid: 3848856  file: src/lib/diceQueue.test.ts  events: 529  tasks: 26"
+          ],
+          "run_ids": [
+            "20260912-015133-b5bac5"
+          ],
+          "subject_run_ids": [
+            "20260912-015133-b5bac5"
+          ],
+          "run_id": "20260912-015133-b5bac5",
+          "invocation": "20260912-015132-40af17",
+          "test_files_line": " Test Files  1 passed (1)",
+          "tests_line": "      Tests  26 passed (26)",
+          "duration_line": "Duration  358ms (transform 54ms, setup 46ms, import 31ms, tests 8ms, environment 217ms)",
+          "log": "e12-F2.log"
+        },
+        {
+          "arm": "U",
+          "run": 3,
+          "wall": 0.7874,
+          "load_1min": 0.83,
+          "exit": 0,
+          "run_lines": [
+            "run: 20260912-015133-13ff39  pid: 3848916  file: src/lib/diceQueue.test.ts  events: 234  tasks: 26"
+          ],
+          "run_ids": [
+            "20260912-015133-13ff39"
+          ],
+          "subject_run_ids": [
+            "20260912-015133-13ff39"
+          ],
+          "run_id": "20260912-015133-13ff39",
+          "invocation": "20260912-015133-1e68de",
+          "test_files_line": " Test Files  1 passed (1)",
+          "tests_line": "      Tests  26 passed (26)",
+          "duration_line": "Duration  359ms (transform 54ms, setup 47ms, import 29ms, tests 7ms, environment 218ms)",
+          "log": "e12-U3.log"
+        },
+        {
+          "arm": "F",
+          "run": 3,
+          "wall": 1.8899,
+          "load_1min": 0.83,
+          "exit": 0,
+          "run_lines": [
+            "run: 20260912-015135-4c0ae1  pid: 3849012  file: src/lib/diceQueue.test.ts  events: 529  tasks: 26"
+          ],
+          "run_ids": [
+            "20260912-015135-4c0ae1"
+          ],
+          "subject_run_ids": [
+            "20260912-015135-4c0ae1"
+          ],
+          "run_id": "20260912-015135-4c0ae1",
+          "invocation": "20260912-015135-20b3b1",
+          "test_files_line": " Test Files  1 passed (1)",
+          "tests_line": "      Tests  26 passed (26)",
+          "duration_line": "Duration  359ms (transform 56ms, setup 46ms, import 32ms, tests 7ms, environment 218ms)",
+          "log": "e12-F3.log"
+        }
+      ],
+      "resolver": {
+        "exit": 0,
+        "wall": 1.132,
+        "stderr": "",
+        "matched": [
+          "src/lib/diceQueue.ts:parseDiceGroups",
+          "src/lib/diceQueue.ts:forcedDiceFromSource",
+          "src/lib/diceQueue.ts:forcedDiceFromSource.<anonymous>",
+          "src/lib/diceQueue.ts:buildDiceQueueEntry",
+          "src/lib/diceQueue.ts:buildDiceQueueEntry.<anonymous>",
+          "src/lib/diceQueue.ts:buildDiceQueueEntry.<anonymous>"
+        ],
+        "matched_rows": [
+          {
+            "rel": "src/lib/diceQueue.ts",
+            "qualname": "parseDiceGroups",
+            "line": 68,
+            "kind": "function"
+          },
+          {
+            "rel": "src/lib/diceQueue.ts",
+            "qualname": "forcedDiceFromSource",
+            "line": 127,
+            "kind": "function"
+          },
+          {
+            "rel": "src/lib/diceQueue.ts",
+            "qualname": "forcedDiceFromSource.<anonymous>",
+            "line": 132,
+            "kind": "function"
+          },
+          {
+            "rel": "src/lib/diceQueue.ts",
+            "qualname": "buildDiceQueueEntry",
+            "line": 194,
+            "kind": "function"
+          },
+          {
+            "rel": "src/lib/diceQueue.ts",
+            "qualname": "buildDiceQueueEntry.<anonymous>",
+            "line": 197,
+            "kind": "function"
+          },
+          {
+            "rel": "src/lib/diceQueue.ts",
+            "qualname": "buildDiceQueueEntry.<anonymous>",
+            "line": 198,
+            "kind": "function"
+          }
+        ],
+        "unmatched": [],
+        "excluded_only": [],
+        "files_scanned": 830,
+        "files_unparsable": 0
+      },
+      "manifest_before": {
+        "ok": 748,
+        "failed": [],
+        "lines": 748,
+        "exit": 0,
+        "want_ok": 748,
+        "sha256": "eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8"
+      },
+      "manifest_after": {
+        "ok": 748,
+        "failed": [],
+        "lines": 748,
+        "exit": 0,
+        "want_ok": 748,
+        "identical": true
+      },
+      "hash_list": {
+        "path": "<repo>/docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus-tracehashes.txt",
+        "exit": 0,
+        "lines": 13,
+        "sha256": "32a5612111e981b461061efd32f0d6d1d4dc1da561fc34ae6701f26b336deafc",
+        "db": 6,
+        "spool": 6,
+        "journal": 1
+      },
+      "journal_lines_at_hash_time": 6,
+      "store": "<store>",
+      "load_max": 4.0,
+      "recorder_bin": "<repo>/.venv/bin/sensorium",
+      "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "recorder_rev": "68b7eb942b445c954881fcfbafabf63e448b0c34",
+      "lens": "VTT frontend at 0091e97 \u2014 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)",
+      "recorder_basis": "own"
+    },
+    "the_thirteen_reads": {
+      "run_ids": {
+        "U1": "20260912-015128-7bc2b2",
+        "F1": "20260912-015130-42f691"
+      },
+      "commands_as_written": [
+        "info U1",
+        "info F1",
+        "watch U1 --at parseDiceGroups --expr groups == 0",
+        "watch F1 --at parseDiceGroups --expr sides == 20",
+        "watch F1 --at parseDiceGroups --expr count == 1",
+        "watch F1 --at parseDiceGroups --expr m == null",
+        "flow F1 --value 20",
+        "flow F1 --value \"'1d20'\"",
+        "flow F1 --object e<id>:dice",
+        "grep F1 dice --kind LINE",
+        "grep F1 parseDiceGroups --kind CALL",
+        "frame F1 --fn parseDiceGroups",
+        "tree F1"
+      ],
+      "commands_run": [
+        {
+          "n": "01",
+          "as_written": "info U1",
+          "argv": [
+            "info",
+            "20260912-015128-7bc2b2"
+          ],
+          "exit": 0,
+          "transcript": "01-info-U1.txt"
+        },
+        {
+          "n": "02",
+          "as_written": "info F1",
+          "argv": [
+            "info",
+            "20260912-015130-42f691"
+          ],
+          "exit": 0,
+          "transcript": "02-info-F1.txt"
+        },
+        {
+          "n": "03",
+          "as_written": "watch U1 --at parseDiceGroups --expr groups == 0",
+          "argv": [
+            "watch",
+            "20260912-015128-7bc2b2",
+            "--at",
+            "parseDiceGroups",
+            "--expr",
+            "groups == 0"
+          ],
+          "exit": 3,
+          "transcript": "03-watch-U1-at-parseDiceGroups-expr-groups-0.txt"
+        },
+        {
+          "n": "04",
+          "as_written": "watch F1 --at parseDiceGroups --expr sides == 20",
+          "argv": [
+            "watch",
+            "20260912-015130-42f691",
+            "--at",
+            "parseDiceGroups",
+            "--expr",
+            "sides == 20"
+          ],
+          "exit": 0,
+          "transcript": "04-watch-F1-at-parseDiceGroups-expr-sides-20.txt"
+        },
+        {
+          "n": "05",
+          "as_written": "watch F1 --at parseDiceGroups --expr count == 1",
+          "argv": [
+            "watch",
+            "20260912-015130-42f691",
+            "--at",
+            "parseDiceGroups",
+            "--expr",
+            "count == 1"
+          ],
+          "exit": 0,
+          "transcript": "05-watch-F1-at-parseDiceGroups-expr-count-1.txt"
+        },
+        {
+          "n": "06",
+          "as_written": "watch F1 --at parseDiceGroups --expr m == null",
+          "argv": [
+            "watch",
+            "20260912-015130-42f691",
+            "--at",
+            "parseDiceGroups",
+            "--expr",
+            "m == null"
+          ],
+          "exit": 0,
+          "transcript": "06-watch-F1-at-parseDiceGroups-expr-m-null.txt"
+        },
+        {
+          "n": "07",
+          "as_written": "flow F1 --value 20",
+          "argv": [
+            "flow",
+            "20260912-015130-42f691",
+            "--value",
+            "20"
+          ],
+          "exit": 0,
+          "transcript": "07-flow-F1-value-20.txt"
+        },
+        {
+          "n": "08",
+          "as_written": "flow F1 --value \"'1d20'\"",
+          "argv": [
+            "flow",
+            "20260912-015130-42f691",
+            "--value",
+            "'1d20'"
+          ],
+          "exit": 0,
+          "transcript": "08-flow-F1-value-1d20.txt"
+        },
+        {
+          "n": "09",
+          "as_written": "grep F1 dice --kind LINE",
+          "argv": [
+            "grep",
+            "20260912-015130-42f691",
+            "dice",
+            "--kind",
+            "LINE"
+          ],
+          "exit": 0,
+          "transcript": "09-grep-F1-dice-kind-LINE.txt"
+        },
+        {
+          "n": "10",
+          "as_written": "flow F1 --object e367:dice",
+          "argv": [
+            "flow",
+            "20260912-015130-42f691",
+            "--object",
+            "e367:dice"
+          ],
+          "exit": 0,
+          "transcript": "10-flow-F1-object-e367-dice.txt"
+        },
+        {
+          "n": "11",
+          "as_written": "grep F1 parseDiceGroups --kind CALL",
+          "argv": [
+            "grep",
+            "20260912-015130-42f691",
+            "parseDiceGroups",
+            "--kind",
+            "CALL"
+          ],
+          "exit": 0,
+          "transcript": "11-grep-F1-parseDiceGroups-kind-CALL.txt"
+        },
+        {
+          "n": "12",
+          "as_written": "frame F1 --fn parseDiceGroups",
+          "argv": [
+            "frame",
+            "20260912-015130-42f691",
+            "--fn",
+            "parseDiceGroups"
+          ],
+          "exit": 0,
+          "transcript": "12-frame-F1-fn-parseDiceGroups.txt"
+        },
+        {
+          "n": "13",
+          "as_written": "tree F1",
+          "argv": [
+            "tree",
+            "20260912-015130-42f691"
+          ],
+          "exit": 0,
+          "transcript": "13-tree-F1.txt"
+        }
+      ],
+      "order_change": "'grep F1 dice --kind LINE' runs before 'flow F1 --object e<id>:dice': \u00a71.4 makes the grep the lookup that produces the flow's argument. The set and the count are \u00a71.5's",
+      "journal": {
+        "before_reads": 6,
+        "after_reads": 19,
+        "delta": 13,
+        "commands_in_section_1_5": 13
+      },
+      "transcripts": {
+        "raw": "reads",
+        "redacted": "reads-redacted"
+      }
+    }
+  },
+  "verification": {
+    "reads_read_this_record": {
+      "ok": true,
+      "record_sha256": "da7d3ce6a4ad06060da583601576099d70c1c8fce0468167f98ca95e17cd8f2c",
+      "reads_read_sha256": "da7d3ce6a4ad06060da583601576099d70c1c8fce0468167f98ca95e17cd8f2c",
+      "why": []
+    },
+    "hashed_set": {
+      "ok": true,
+      "why": [],
+      "entries": 13,
+      "checked": 13,
+      "verified": 12,
+      "journal_append_only": true,
+      "journal_head_sha256": "3a619cbb77356d191489828beaeb70f90cdc1a053e682cf29e1296a39df8221c",
+      "journal_listed_sha256": "3a619cbb77356d191489828beaeb70f90cdc1a053e682cf29e1296a39df8221c",
+      "unexpected_failures": [],
+      "hash_list_sha256": "32a5612111e981b461061efd32f0d6d1d4dc1da561fc34ae6701f26b336deafc",
+      "exit": 1
+    },
+    "journal_delta": {
+      "ok": true,
+      "why": [],
+      "expected": 13,
+      "at_hash_time": 6,
+      "now": 19,
+      "delta_from_store": 13,
+      "delta_from_reads": 13
+    }
+  },
+  "recorded_by": {
+    "recorder": "sensorium 0.11.0 / sensorium-ts 0.3.0 on feat/s5-rung4 @ 68b7eb942b445c954881fcfbafabf63e448b0c34",
+    "commit": "68b7eb942b445c954881fcfbafabf63e448b0c34"
+  }
+}
