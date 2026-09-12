@@ -17,15 +17,18 @@ use std::path::{Path, PathBuf};
 
 const HEADER_FIXED: usize = 28;
 
-/// One delta of a LINE payload, as the two tags a runtime may write for it:
-/// tag 1 (a `Debug` rendering, with the writer's own truncation flag) and tag
-/// 2 (a value the ladder could not read). Tag 0 is legal in the grammar and
-/// unwritable by the runtime (design amendment A7), so no fixture builds one
-/// from here -- the converter's own unit tests are where that byte is met.
+/// One block of a LINE payload, as the three tags a runtime may write for it:
+/// tag 1 (a `Debug` rendering, with the writer's own truncation flag), tag
+/// 2 (a value the ladder could not read), and tag 3 (an unbound name -- a
+/// binding whose scope ended on this row, carried with no value at all).
+/// Tag 0 is legal in the grammar and unwritable by the runtime (design
+/// amendment A7), so no fixture builds one from here -- the converter's own
+/// unit tests are where that byte is met.
 #[derive(Clone, Copy)]
 pub enum LineDelta<'a> {
     Dbg(&'a str, bool),
     Unread,
+    Unbound,
 }
 
 /// One `<pid>.<serial>.spool` file under construction.
@@ -203,10 +206,12 @@ impl SpoolBuilder {
     }
 
     /// A LINE record (kind 6, outcome 0), payload by the grammar in design
-    /// 2026-09-06 §3.4: `u8 flags, u16 n, n × {u16 name_len, name, u8 tag,
-    /// u8 truncated, [u16 text_len, text] iff tag == 1}`.
+    /// 2026-09-06 §3.4, with the fourth tag design 2026-09-12 §5.3 added:
+    /// `u8 flags, u16 n, n × {u16 name_len, name, u8 tag, u8 truncated,
+    /// [u16 text_len, text] iff tag == 1}`. `n` counts the deltas AND the
+    /// unbound names, which ride after them.
     ///
-    /// `dropped` is the flags byte's bit0: the record says the deltas it does
+    /// `dropped` is the flags byte's bit0: the record says the blocks it does
     /// NOT carry were left out, which is a different fact from a statement
     /// that wrote nothing.
     #[must_use]
@@ -234,6 +239,10 @@ impl SpoolBuilder {
                 }
                 LineDelta::Unread => {
                     payload.push(2);
+                    payload.push(0);
+                }
+                LineDelta::Unbound => {
+                    payload.push(3);
                     payload.push(0);
                 }
             }

@@ -503,9 +503,11 @@ fn a_line_payload_that_runs_past_its_end_is_refused_by_label_and_field() {
     assert!(err.contains("delta `x`"), "{err}");
     assert!(err.contains("text"), "{err}");
 
+    // `block` and not `delta`: with no tag byte there is nothing to say which
+    // of the two this was.
     let short_block = line_payload(0, &[vec![0x01, 0x00, b'x']]); // no tag byte
     let err = parse_line_payload("L", &short_block).unwrap_err();
-    assert!(err.contains("delta `x`"), "{err}");
+    assert!(err.contains("block `x`"), "{err}");
 }
 
 /// Design amendment A7: tag 0 is legal in the grammar and unwritable by the
@@ -521,9 +523,10 @@ fn a_delta_carrying_tag_zero_is_refused_by_name() {
 
 #[test]
 fn a_delta_carrying_an_unknown_tag_is_refused_by_number() {
-    let err = parse_line_payload("L", &line_payload(0, &[delta(b"x", 3, 0, None)])).unwrap_err();
+    let err = parse_line_payload("L", &line_payload(0, &[delta(b"x", 4, 0, None)])).unwrap_err();
     assert!(err.contains("delta `x`"), "{err}");
-    assert!(err.contains('3'), "{err}");
+    assert!(err.contains("tag 4"), "{err}");
+    assert!(err.contains("not 0..=3"), "{err}");
 }
 
 /// The deltas become one JSON OBJECT, so a repeated name would silently
@@ -543,6 +546,85 @@ fn a_duplicate_delta_name_within_one_record_is_refused() {
 fn a_delta_name_that_is_not_utf8_is_refused() {
     let err = parse_line_payload("L", &line_payload(0, &[delta(&[0xff], 2, 0, None)])).unwrap_err();
     assert!(err.contains("not UTF-8"), "{err}");
+}
+
+// -- tag 3: the names a statement's scope took with it (rt 0.5.0) -----------
+
+/// The fourth tag is a NAME and not a value: it says this binding's scope
+/// ended on this row (design 2026-09-12 §5.3), so it belongs in `unbound` and
+/// nowhere in `deltas`. A reader that routed it into the deltas would fold a
+/// dead name forward as though the statement had written it -- the exact
+/// wrong answer the tag exists to prevent.
+#[test]
+fn a_tag_three_block_is_an_unbound_name_and_never_a_delta() {
+    let p = parse_line_payload("t", &line_payload(0, &[delta(b"a", 3, 0, None)])).unwrap();
+    assert_eq!(p.unbound, ["a"]);
+    assert!(p.deltas.is_empty(), "{:?}", p.deltas);
+    assert!(!p.dropped);
+}
+
+/// `n` counts deltas AND names, the names ride after the deltas, and each list
+/// keeps the order the record carried -- source order, which is what `frame`
+/// prints after `unbound:`.
+#[test]
+fn deltas_and_unbound_names_ride_one_record_each_into_its_own_list() {
+    let payload = line_payload(
+        0,
+        &[
+            delta(b"acc", 1, 0, Some("6")),
+            delta(b"n", 3, 0, None),
+            delta(b"big", 3, 0, None),
+        ],
+    );
+    let p = parse_line_payload("t", &payload).unwrap();
+    assert_eq!(p.deltas.len(), 1);
+    assert_eq!(p.deltas[0].0, "acc");
+    assert_eq!(
+        p.deltas[0].1,
+        serde_json::json!({"k": "dbg", "v": "6", "trunc": false})
+    );
+    assert_eq!(p.unbound, ["n", "big"], "record order, not sorted");
+}
+
+/// `flags.bit0` is over the WHOLE payload: a name that did not fit sets it and
+/// ends the row exactly as a delta does, so a short record carrying names is
+/// still a short record and still says so.
+#[test]
+fn a_short_record_that_carries_names_is_still_marked_short() {
+    let payload = line_payload(1, &[delta(b"x", 2, 0, None), delta(b"y", 3, 0, None)]);
+    let p = parse_line_payload("t", &payload).unwrap();
+    assert!(p.dropped);
+    assert_eq!(p.deltas.len(), 1);
+    assert_eq!(p.unbound, ["y"]);
+}
+
+/// A statement writes what it writes and unbinds what dies with it, and the
+/// transformer lists a name bound in both a head pattern and an inner `let`
+/// ONCE -- so a name on both lists is corruption, in either order, and the
+/// refusal says which contradiction it met rather than keying one over the
+/// other.
+#[test]
+fn a_name_on_both_lists_within_one_record_is_refused_in_either_order() {
+    let expected = "L: LINE payload names `x` as both a delta and an unbound name; a statement \
+                    cannot write what it unbinds";
+
+    let delta_first = line_payload(0, &[delta(b"x", 1, 0, Some("2")), delta(b"x", 3, 0, None)]);
+    assert_eq!(parse_line_payload("L", &delta_first).unwrap_err(), expected);
+
+    let name_first = line_payload(0, &[delta(b"x", 3, 0, None), delta(b"x", 1, 0, Some("2"))]);
+    assert_eq!(parse_line_payload("L", &name_first).unwrap_err(), expected);
+}
+
+/// The same rule read on the second list: a scope ends once, so a name listed
+/// twice as unbound is the same corruption a repeated delta is, and the
+/// sentence names which list it met it on.
+#[test]
+fn a_duplicate_unbound_name_within_one_record_is_refused() {
+    let payload = line_payload(0, &[delta(b"x", 3, 0, None), delta(b"x", 3, 0, None)]);
+    let err = parse_line_payload("L", &payload).unwrap_err();
+    assert!(err.contains('L'), "{err}");
+    assert!(err.contains("unbound name `x`"), "{err}");
+    assert!(err.contains("twice"), "{err}");
 }
 
 /// `n` and the payload's length must agree exactly: bytes after the last delta

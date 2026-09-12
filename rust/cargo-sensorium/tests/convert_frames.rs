@@ -371,3 +371,64 @@ fn a_line_record_with_no_deltas_is_still_a_row_that_says_the_line_ran() {
     assert_eq!(rows[1].kind, "LINE");
     assert_eq!(rows[1].payload, serde_json::json!({"deltas": {}}));
 }
+
+/// Design 2026-09-12 §5.4: a block-like statement's row says which of its
+/// bindings died with it. The names ride the SAME payload as tag-3 blocks
+/// after the deltas, and reach the row as the `unbound` key the trace format
+/// already has -- the key Python's `del` writes and the TypeScript converter
+/// writes, so the reader that folds `deltas` forward and pops these needs no
+/// second rule for a third recorder.
+///
+/// Two rows, because the absence is half the promise: a row whose statement
+/// unbound nothing carries no `unbound` key at all rather than an empty list,
+/// exactly as a row that dropped nothing carries no `unread`.
+#[test]
+fn a_line_record_with_unbound_names_writes_them_on_the_row() {
+    let f = line_fixture("frames-line-unbound", 1304);
+    wire::SpoolBuilder::new(1304, 1, "main")
+        .call(0, 1000, 0, 0)
+        .line(1, 1100, 0, 1, false, &[("x", wire::LineDelta::Unbound)])
+        .line(
+            2,
+            1200,
+            0,
+            1,
+            false,
+            &[
+                ("acc", wire::LineDelta::Dbg("6", false)),
+                ("n", wire::LineDelta::Unbound),
+                ("big", wire::LineDelta::Unbound),
+            ],
+        )
+        .line(
+            3,
+            1300,
+            0,
+            1,
+            false,
+            &[("y", wire::LineDelta::Dbg("1", false))],
+        )
+        .ret_none(4, 1400, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+    let rows = event_rows(&conn);
+
+    assert_eq!(
+        rows[1].payload,
+        serde_json::json!({"deltas": {}, "unbound": ["x"]}),
+        "the block's own row: nothing written, one name gone"
+    );
+    assert_eq!(
+        rows[2].payload,
+        serde_json::json!({"deltas": {"acc": {"k": "dbg", "v": "6", "trunc": false}},
+                           "unbound": ["n", "big"]}),
+        "deltas and names on one row, the names in the record's own order"
+    );
+    assert_eq!(
+        rows[3].payload,
+        serde_json::json!({"deltas": {"y": {"k": "dbg", "v": "1", "trunc": false}}}),
+        "no `unbound` key when the statement unbound nothing"
+    );
+}
