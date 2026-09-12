@@ -15,10 +15,11 @@
 //! name in front of it (design 2026-09-06 §3.4):
 //!
 //! ```text
-//! u8  flags        bit0 = deltas dropped
-//! u16 n            deltas present
+//! u8  flags        bit0 = the row is short: something did not fit
+//! u16 n            blocks present -- the deltas, then the unbound names
 //! n × { u16 name_len, name UTF-8,
-//!       u8 tag (0 no value | 1 debug text | 2 unread), u8 truncated,
+//!       u8 tag (0 no value | 1 debug text | 2 unread | 3 unbound),
+//!       u8 truncated,
 //!       [u16 text_len, text UTF-8]   -- present iff tag == 1 }
 //! ```
 //!
@@ -54,6 +55,18 @@
 //! fit, it and every later one are dropped and `flags` bit0 is set: a short
 //! record says it is short. Names are never truncated, because a converter joins
 //! on them; a name that does not fit drops its delta whole.
+//!
+//! **What an unbound name is.** A block-like statement -- a `{ .. }`, an `if`,
+//! a `match`, a loop -- kills the bindings its inner blocks and its own head
+//! pattern made. Its probe calls [`line_unbinding`] rather than [`line`] and
+//! hands over those names, which ride the SAME payload as tag-3 blocks after
+//! the deltas: name only, no value, no new record kind and no header change
+//! (design 2026-09-12 R3). A reader that folds `deltas` forward pops them at
+//! this row, so a dead `let` stops answering where it is dead. The budget is
+//! over the whole payload and the stop rule is the delta's: a name that does
+//! not fit sets bit0 and ends the row, which stays a prefix of what the
+//! statement did. `line` never writes one -- the fragment of a statement that
+//! unbinds nothing is byte for byte the fragment 0.4.1 spliced (R5).
 
 use std::path::Path;
 use std::sync::atomic::Ordering;
@@ -66,6 +79,13 @@ use crate::{thread, Unit, STATE, STATE_CALL};
 /// `bit0` of the payload's flags byte: at least one delta did not fit and was
 /// left out, along with every delta after it.
 pub(crate) const FLAG_DELTAS_DROPPED: u8 = 1 << 0;
+
+/// `bit0..` unchanged. The fourth delta tag: a name with no value that went out
+/// of scope on this row (design 2026-09-12 R3).
+///
+/// `exit.rs` owns 0..=2, the RETURN value block's tags that a delta reuses; 3 is
+/// this module's alone, because a returned value cannot go out of scope.
+pub(crate) const TAG_UNBOUND: u8 = 3;
 
 /// The payload's fixed head: `u8 flags`, `u16 n`.
 const LINE_HEADER: usize = 3;
@@ -81,7 +101,7 @@ const LINE_HEADER: usize = 3;
 /// statement can write several bindings, and a bound that drops the second one
 /// of a `let (a, b) = ..` would make the honest `flags.bit0` a routine event
 /// rather than a rare one. Still far inside the wire's `u16` payload length, and
-/// still a stack array -- one built in `emit_line`, which is `#[inline(never)]`
+/// still a stack array -- one built in `write_and_emit`, which is `#[inline(never)]`
 /// and reached only when the recorder is live, so the inert path never grows a
 /// 2 KiB frame. What does not fit is dropped and said to be dropped.
 pub(crate) const LINE_PAYLOAD_MAX: usize = 2048;
@@ -175,7 +195,7 @@ fn emit_line<const N: usize>(
     // A `Debug` impl this formats therefore records nothing, and one that is
     // never formatted has no side effect to have.
     let deltas = deltas();
-    write_and_emit(dir, crate::pack_site(id, site), &deltas);
+    write_and_emit(dir, crate::pack_site(id, site), &deltas, &[]);
 }
 
 /// Everything about writing a LINE record that does NOT depend on the call
@@ -187,9 +207,9 @@ fn emit_line<const N: usize>(
 /// whole program, so what each copy costs is four checks and a call rather than
 /// a 2 KiB frame and an inlined payload writer.
 #[inline(never)]
-fn write_and_emit(dir: &Path, site: u32, deltas: &[(&'static str, Capture)]) {
+fn write_and_emit(dir: &Path, site: u32, deltas: &[(&'static str, Capture)], unbound: &[&str]) {
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, _dropped) = write_line_payload(&mut buf, deltas);
+    let (len, _dropped) = write_line_payload(&mut buf, deltas, unbound);
     thread::emit(dir, site, KIND_LINE, OUTCOME_NONE, &buf[..len as usize]);
 }
 
@@ -204,9 +224,15 @@ fn write_and_emit(dir: &Path, site: u32, deltas: &[(&'static str, Capture)]) {
 /// one: "the first n of them" is a thing a reader can reason about, and a
 /// converter that meets bit0 knows the row is a prefix of what the statement
 /// wrote, not an arbitrary subset of it.
+///
+/// `unbound` -- the names a block-like statement killed -- is written AFTER the
+/// deltas, one tag-3 block each, and `n` counts both kinds. The budget covers
+/// the whole payload and the stop rule is the same one, so a row that dropped a
+/// delta writes no name after it: the prefix reading holds across both lists.
 pub(crate) fn write_line_payload(
     buf: &mut [u8; LINE_PAYLOAD_MAX],
     deltas: &[(&str, Capture)],
+    unbound: &[&str],
 ) -> (u16, bool) {
     let mut at = LINE_HEADER;
     let mut n: u16 = 0;
@@ -244,6 +270,27 @@ pub(crate) fn write_line_payload(
             at += text.len();
         }
         n += 1;
+    }
+    // Only if every delta got in: a name written after a dropped delta would
+    // sit behind a gap, and `n` would no longer count a prefix of the row.
+    if !dropped {
+        for name in unbound {
+            // No value, so no text block and no cap to apply: `2 + name + 2`.
+            if at + 2 + name.len() + 2 > LINE_PAYLOAD_MAX {
+                dropped = true;
+                break;
+            }
+            buf[at..at + 2].copy_from_slice(&(name.len() as u16).to_le_bytes());
+            at += 2;
+            buf[at..at + name.len()].copy_from_slice(name.as_bytes());
+            at += name.len();
+            buf[at] = TAG_UNBOUND;
+            // A name was never read, so it was never cut: the byte is there
+            // because every block has it, and it is always 0.
+            buf[at + 1] = 0;
+            at += 2;
+            n += 1;
+        }
     }
     buf[0] = if dropped { FLAG_DELTAS_DROPPED } else { 0 };
     buf[1..3].copy_from_slice(&n.to_le_bytes());

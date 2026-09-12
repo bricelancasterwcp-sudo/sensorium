@@ -166,7 +166,7 @@ fn parse(payload: &[u8]) -> (u8, Vec<Delta>) {
 fn two_deltas_encode_to_the_bytes_the_wire_format_names() {
     let deltas = [("x", debug("5")), ("buf", unread())];
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &deltas);
+    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[]);
     assert!(!dropped);
     #[rustfmt::skip]
     let want: Vec<u8> = vec![
@@ -182,10 +182,50 @@ fn two_deltas_encode_to_the_bytes_the_wire_format_names() {
     assert_eq!(len as usize, 18);
 }
 
+/// The same hand-written vector for the fourth tag: a block-like statement's
+/// row carries the deltas it wrote AND, after them, the names its blocks and
+/// its own head pattern bound and killed -- one block each, name only
+/// (design 2026-09-12 R3, §5.3). `n` counts both kinds, which is the byte a
+/// converter that only counted deltas would get wrong.
+#[test]
+fn one_delta_and_two_unbound_encode_to_the_bytes_the_wire_format_names() {
+    let deltas = [("x", debug("5"))];
+    let mut buf = [0u8; LINE_PAYLOAD_MAX];
+    let (len, dropped) = write_line_payload(&mut buf, &deltas, &["a", "bb"]);
+    assert!(!dropped);
+    #[rustfmt::skip]
+    let want: Vec<u8> = vec![
+        0x00,                    // flags: nothing dropped
+        0x03, 0x00,              // n = 3: one delta and two unbound names
+        0x01, 0x00, b'x',        // name_len 1, "x"
+        0x01, 0x00,              // tag 1 (debug text), truncated 0
+        0x01, 0x00, b'5',        // text_len 1, "5"
+        0x01, 0x00, b'a',        // name_len 1, "a"
+        0x03, 0x00,              // tag 3 (unbound), truncated 0 -- and no text
+        0x02, 0x00, b'b', b'b',  // name_len 2, "bb"
+        0x03, 0x00,              // tag 3 (unbound), truncated 0 -- and no text
+    ];
+    assert_eq!(&buf[..len as usize], &want[..]);
+    assert_eq!(len as usize, 22);
+    let (flags, blocks) = parse(&buf[..len as usize]);
+    assert_eq!(flags, 0);
+    assert_eq!(
+        blocks.iter().map(|b| b.tag).collect::<Vec<u8>>(),
+        vec![1, 3, 3],
+        "the deltas first, then the unbound names, in the order they were given"
+    );
+    assert_eq!(blocks[1].name, "a");
+    assert_eq!(blocks[2].name, "bb");
+    assert!(
+        blocks[1].text.is_none() && blocks[2].text.is_none(),
+        "an unbound name is a name and nothing else: no value was read"
+    );
+}
+
 #[test]
 fn a_statement_that_wrote_nothing_is_three_bytes_and_still_a_row() {
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &[]);
+    let (len, dropped) = write_line_payload(&mut buf, &[], &[]);
     assert_eq!((len, dropped), (3, false));
     assert_eq!(&buf[..3], &[0, 0, 0]);
 }
@@ -196,7 +236,7 @@ fn an_over_long_text_is_cut_at_the_cap_on_a_char_boundary_and_flagged() {
     // not be UTF-8.
     let deltas = [("s", debug(&"é".repeat(150)))];
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &deltas);
+    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[]);
     assert!(!dropped, "one capped delta fits; nothing is dropped");
     let (flags, deltas) = parse(&buf[..len as usize]);
     assert_eq!(flags, 0);
@@ -219,7 +259,7 @@ fn an_over_long_text_is_cut_at_the_cap_on_a_char_boundary_and_flagged() {
 #[test]
 fn an_empty_debug_rendering_is_a_read_value_not_an_unread_one() {
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &[("s", debug(""))]);
+    let (len, dropped) = write_line_payload(&mut buf, &[("s", debug(""))], &[]);
     assert!(!dropped);
     #[rustfmt::skip]
     let want: Vec<u8> = vec![
@@ -246,7 +286,7 @@ fn a_capture_that_was_already_cut_stays_flagged_truncated() {
         },
     )];
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, _) = write_line_payload(&mut buf, &deltas);
+    let (len, _) = write_line_payload(&mut buf, &deltas, &[]);
     let (_, deltas) = parse(&buf[..len as usize]);
     assert_eq!(deltas[0].truncated, 1);
     assert_eq!(deltas[0].text.as_deref(), Some("abc"));
@@ -258,7 +298,7 @@ fn deltas_that_do_not_fit_are_dropped_whole_and_the_flag_says_so() {
     let text = "x".repeat(190);
     let deltas: Vec<(&str, Capture)> = names.iter().map(|n| (n.as_str(), debug(&text))).collect();
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &deltas);
+    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[]);
     assert!(dropped, "forty 190-byte deltas do not fit one record");
     assert!(len as usize <= LINE_PAYLOAD_MAX);
     let (flags, written) = parse(&buf[..len as usize]);
@@ -310,7 +350,7 @@ fn eight_fully_capped_deltas_fit_and_the_boundary_is_nine() {
             })
             .collect();
         let mut buf = [0u8; LINE_PAYLOAD_MAX];
-        let (len, dropped) = write_line_payload(&mut buf, &deltas);
+        let (len, dropped) = write_line_payload(&mut buf, &deltas, &[]);
         assert_eq!(dropped, want_dropped, "k={k}");
         let (flags, written) = parse(&buf[..len as usize]);
         assert_eq!(flags & 1, u8::from(want_dropped), "k={k}");
@@ -323,6 +363,70 @@ fn eight_fully_capped_deltas_fit_and_the_boundary_is_nine() {
             assert_eq!(delta.text.as_deref().map(str::len), Some(crate::probe::CAP));
         }
     }
+}
+
+/// The 2 KiB budget is over the WHOLE payload, deltas and unbound names
+/// together: a name that does not fit sets bit0 and stops, exactly as a delta
+/// does (§5.3). Both sides of the boundary, so the block's arithmetic --
+/// `2 + name + 2`, and no text -- is pinned rather than assumed.
+#[test]
+fn an_unbound_name_that_does_not_fit_sets_bit0_and_stops() {
+    // Nine fully capped deltas are 3 + 9 × 214 = 1_929 bytes, the shape
+    // `eight_fully_capped_deltas_fit_and_the_boundary_is_nine` pins.
+    const PER_DELTA: usize = 2 + 8 + 1 + 1 + 2 + 200;
+    let left = LINE_PAYLOAD_MAX - (LINE_HEADER + 9 * PER_DELTA);
+    assert_eq!(left, 119, "what nine capped deltas leave for a name");
+    let names: Vec<String> = (0..9).map(|i| format!("delta_{i:02}")).collect();
+    let text = "t".repeat(crate::probe::CAP);
+    let deltas: Vec<(&str, Capture)> = names.iter().map(|n| (n.as_str(), debug(&text))).collect();
+
+    // A name whose block is exactly the room left fits, and the payload ends
+    // on the bound.
+    let fits = "f".repeat(left - 4);
+    let mut buf = [0u8; LINE_PAYLOAD_MAX];
+    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[fits.as_str()]);
+    assert!(!dropped, "a {left}-byte block is the last thing that fits");
+    assert_eq!(len as usize, LINE_PAYLOAD_MAX);
+    let (flags, blocks) = parse(&buf[..len as usize]);
+    assert_eq!(flags, 0);
+    assert_eq!(blocks.len(), 10, "nine deltas and the one name");
+    assert_eq!((blocks[9].tag, blocks[9].name.as_str()), (3, fits.as_str()));
+
+    // One byte more does not -- and the short name BEHIND it is not written
+    // either: the writer stops, so the row is a prefix of what the statement
+    // did rather than an arbitrary subset of it.
+    let too_long = "f".repeat(left - 3);
+    let mut buf = [0u8; LINE_PAYLOAD_MAX];
+    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[too_long.as_str(), "z"]);
+    assert!(dropped);
+    let (flags, blocks) = parse(&buf[..len as usize]);
+    assert_eq!(flags & 1, 1, "bit0 is the dropped flag");
+    assert_eq!(blocks.len(), 9, "the nine deltas, and neither name");
+    assert!(
+        blocks.iter().all(|b| b.tag != 3),
+        "\"z\" costs five bytes and there is room for it: the writer stopped"
+    );
+}
+
+/// And a delta that did not fit stops the names too. bit0 already says the
+/// row is short; a tag-3 block written after the gap would make "the first n
+/// of them" a lie, and the converter's fold would pop a name whose binding
+/// row the same record dropped.
+#[test]
+fn a_dropped_delta_stops_the_unbound_names_there_was_still_room_for() {
+    let names: Vec<String> = (0..10).map(|i| format!("delta_{i:02}")).collect();
+    let text = "t".repeat(crate::probe::CAP);
+    let deltas: Vec<(&str, Capture)> = names.iter().map(|n| (n.as_str(), debug(&text))).collect();
+    let mut buf = [0u8; LINE_PAYLOAD_MAX];
+    let (len, dropped) = write_line_payload(&mut buf, &deltas, &["z"]);
+    assert!(dropped, "the tenth capped delta does not fit");
+    let (flags, blocks) = parse(&buf[..len as usize]);
+    assert_eq!(flags & 1, 1);
+    assert_eq!(blocks.len(), 9);
+    assert!(
+        blocks.iter().all(|b| b.tag != 3),
+        "the five bytes \"z\" needs are there, and it is still not written"
+    );
 }
 
 #[test]
