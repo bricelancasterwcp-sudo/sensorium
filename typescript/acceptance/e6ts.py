@@ -116,6 +116,10 @@ PRE_REGISTERED_REASON_LINE = {
     "untraced_catcher_rejection": "ambiguous by reason: untraced catcher 1",
     "untraced_catcher_later_failure": "ambiguous by reason: untraced catcher 1",
     "logged_rethrow_to_harness": None,
+    # This slice (2026-09-12): the same claim for this slice's
+    # re-registered case. One HANDLED at the catch clause, reached with
+    # confidence, so there is nothing ambiguous to report a reason for.
+    "focus_catch_binding": None,
 }
 
 #: The cases §1 names as swallow cases: their set must be non-empty, which
