@@ -393,11 +393,16 @@ Every value below is the output of the command beside it, run on this box on
 opens this slice — before any file under `src/`, `typescript/src/` or `rust/`
 was touched. The lens is the VTT frontend **copy** (VTT `0091e97`) that the
 first row below pins, abbreviated `<lens>` throughout the rest of this slice's
-files; `~/workspace/projects/vtt` was neither read nor touched, and the lens
+files; the VTT working repository itself was neither read nor touched (the
+rung-4 record spells its path here; this one does not, so that §2's rule below
+holds without an exception), and the lens
 was read here by `sha256sum -c` and by opening three functions of
 `src/lib/diceQueue.ts`, all of which only read. The store rung 4 recorded
 into, abbreviated `<store>`, is read-only for this slice: E12′ re-adjudicates
-committed transcripts and hashes that store, and records nothing into it.
+committed transcripts and hashes that store, and records nothing into it. The
+build and log directory this slice writes into is abbreviated `<target>`, and
+like the other two labels it is spelled out in exactly one place, the pin
+table below.
 
 Box paths are written **only in the pin tables of this section** — this table
 and §2.1's, §2.1 being part of §2 — because a pin without its location is not
@@ -424,7 +429,8 @@ this slice produces, as it did at rung 1, slice 2, rung 2, rung 3 and rung 4.
 | sensorium, global tool | `$(dirname $(readlink -f $(which sensorium)))/python -c "…version('sensorium')"` | `0.12.0` — the same version. The global tool is **never reinstalled from this worktree**; every instrument of this slice runs `.venv/bin/sensorium` |
 | sensorium-ts | `node -e "console.log(require('./typescript/package.json').version)"` | `0.3.0` — becomes `0.4.0` when the seal lands |
 | the Rust crates | `grep -m1 '^version' rust/{sensorium-rt,sensorium-transform,cargo-sensorium}/Cargo.toml` | `sensorium-rt 0.4.1` → `0.5.0` (§5.3); `sensorium-transform 0.4.4`; `cargo-sensorium 0.5.3` → `0.6.0` (§5.4) |
-| the driver every corpus run used | `SENSORIUM_CARGO_SENSORIUM` | `/mnt/extra/sensorium-rung2/s5-debts-target/release/cargo-sensorium`, built from this worktree at `5c36baa`. The box's `PATH` driver is the installed `0.5.3` and is not reinstalled from here until after merge |
+| `<target>`, the label | `ls -d /mnt/extra/sensorium-rung2/s5-debts-target` | exists — the `CARGO_TARGET_DIR` every cargo build and every corpus run of this slice exports, and where the two baseline logs were written. `<target>` abbreviates this path throughout the rest of this slice's files |
+| the driver every corpus run used | `SENSORIUM_CARGO_SENSORIUM` | `<target>/release/cargo-sensorium`, built from this worktree at `5c36baa`. The box's `PATH` driver is the installed `0.5.3` and is not reinstalled from here until after merge |
 
 ### 2.1 The lens, and rung 4's committed data
 
@@ -445,9 +451,9 @@ slice quotes instead of a path.
 
 **The suites**, green at the branch point. The Python, Node and `tsc` numbers
 are one background run from this worktree at `5c36baa`, logged to
-`/mnt/extra/sensorium-rung2/s5-debts-target/baseline-py-node.log`; `cargo test
---workspace` is its sibling log; the probes were run again at T0 by the
-command named, because the log kept only that run's last lines.
+`<target>/baseline-py-node.log`; `cargo test --workspace` is its sibling
+`<target>/baseline-cargo.log`; the probes were run again at T0 by the command
+named, because the log kept only that run's last lines.
 
 | Item | Command | Value |
 |---|---|---|
