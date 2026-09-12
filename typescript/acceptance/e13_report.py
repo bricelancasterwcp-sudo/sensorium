@@ -27,7 +27,8 @@ import sys
 from pathlib import Path
 
 from e12_report import cell, emit, usage
-from e12p_h8 import census_matches, missing_inputs, read_input
+from e12p_h8 import (census_matches, measured_claims,
+                     missing_inputs, read_input, value_of)
 from e12p_pre import RECORD
 
 #: The hand census, sha-pinned as §1's last line (A5), and the corpus case
@@ -63,16 +64,17 @@ def build(results: Path) -> dict:
                sorted(row.get("functions") or [])
                for row in (diff or {}).get("files", []) if row.get("changed")}
     cases = (corpus or {}).get("cases") or {}
-    claims = {
-        "`census_deferred.mjs` prints the three pinned lists exactly":
-            matched["holds"],
-        "the transform diff changes exactly the census's files and wrappers":
-            diff is not None and changed == want,
-        f"`{CASE}` is green": cases.get(CASE, {}).get("exit") == 0,
-        "`HONESTY-COST.md`'s cited numbers are untouched":
-            cost is not None and cost.strip() == "",
-    }
-    return cell(sum(1 for v in claims.values() if v), len(claims), dropped,
+    claims = measured_claims(results, (
+        ("census.json", "`census_deferred.mjs` prints the three pinned lists "
+         "exactly", lambda: matched["holds"]),
+        ("transform-diff.json", "the transform diff changes exactly the "
+         "census's files and wrappers", lambda: changed == want),
+        ("corpus.json", f"`{CASE}` is green",
+         lambda: cases.get(CASE, {}).get("exit") == 0),
+        ("honesty-cost.diff", "`HONESTY-COST.md`'s cited numbers are "
+         "untouched", lambda: cost.strip() == ""),
+    ))
+    return cell(value_of(claims), len(claims), dropped,
                 rule="all four clauses of §1.5 hold -> PASS; any one is a STOP "
                      "recorded as a finding",
                 instrument="e13_report.py", claims=claims, census=matched,

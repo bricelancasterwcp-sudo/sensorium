@@ -251,6 +251,34 @@ def read_input(results: Path, name: str):
     return text if path.suffix != ".json" else json.loads(text)
 
 
+def measured_claims(results: Path, clauses) -> dict:
+    """The clauses whose input file was written, evaluated, in order.
+
+    `clauses` is a sequence of `(<input file>, <clause name>, <test>)` triples,
+    written in the record's own order; several clauses may share one input.
+
+    A clause whose input nobody wrote is OMITTED, not scored. Computed over a
+    missing file it would come out False and be COUNTED, so one cell would say
+    both "not measured" (in `dropped`) and "did not hold" (in `value`/`n`)
+    about the same clause -- and the record's schema has exactly one
+    representation of not measured: a null value with a reason. `h2p` in
+    `e12p_report.py` drops an un-handed clause the same way; this is that rule
+    for the two reporters whose every input is handed in.
+    """
+    return {name: test() for file, name, test in clauses
+            if (Path(results) / file).is_file()}
+
+
+def value_of(claims: dict):
+    """How many clauses held -- or None when NONE was measured.
+
+    `0` is measured-and-zero: four clauses read, four false. A cell over an
+    empty results directory measured nothing at all, and says so with a null
+    beside the `dropped` list that names every input it wanted.
+    """
+    return sum(1 for v in claims.values() if v) if claims else None
+
+
 def missing_inputs(results: Path, names) -> list[str]:
     """The inputs of `names` that were not written, by name."""
     return [f"{name} was not written into the results directory"

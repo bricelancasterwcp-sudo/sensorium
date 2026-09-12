@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 from e12_report import cell, emit, usage
-from e12p_h8 import missing_inputs, read_input
+from e12p_h8 import measured_claims, missing_inputs, read_input, value_of
 
 #: The corpus case §1.6's first clause is about.
 CASE = "focus_block_let"
@@ -51,14 +51,18 @@ def build(results: Path) -> dict:
     refocus = {n: c for n, c in rust.items() if n.startswith("refocus_")}
     moved = sorted(n for n, c in others.items() if c.get("exit") != 0)
     refocus_moved = sorted(n for n, c in refocus.items() if c.get("exit") != 0)
-    claims = {
-        f"`{CASE}` is green": rust.get(CASE, {}).get("exit") == 0,
-        "`v40` round-trips": (vectors or {}).get("exit") == 0,
-        "the tag-3 refusal cases hold": (refusals or {}).get("exit") == 0,
-        "every other Rust corpus case is equal": bool(others) and not moved,
-        "every `refocus_*` case is equal": bool(refocus) and not refocus_moved,
-    }
-    return cell(sum(1 for v in claims.values() if v), len(claims), dropped,
+    claims = measured_claims(results, (
+        ("corpus.json", f"`{CASE}` is green",
+         lambda: rust.get(CASE, {}).get("exit") == 0),
+        ("vectors.json", "`v40` round-trips", lambda: vectors["exit"] == 0),
+        ("refusals.json", "the tag-3 refusal cases hold",
+         lambda: refusals["exit"] == 0),
+        ("corpus.json", "every other Rust corpus case is equal",
+         lambda: bool(others) and not moved),
+        ("corpus.json", "every `refocus_*` case is equal",
+         lambda: bool(refocus) and not refocus_moved),
+    ))
+    return cell(value_of(claims), len(claims), dropped,
                 rule="all five clauses of §1.6 hold -> PASS; any one is a STOP "
                      "recorded as a finding",
                 instrument="e14_report.py", claims=claims,
