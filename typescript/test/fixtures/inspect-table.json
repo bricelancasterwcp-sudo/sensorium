@@ -209,6 +209,16 @@
     "trunc": false
   },
   {
+    "literal": "it's \"x\" ${y}",
+    "text": "'it\\'s \"x\" ${y}'",
+    "trunc": false
+  },
+  {
+    "literal": "it's \"x\" $y",
+    "text": "`it's \"x\" $y`",
+    "trunc": false
+  },
+  {
     "literal": "a\bb\fc\u000bd",
     "text": "'a\\bb\\fc\\x0Bd'",
     "trunc": false

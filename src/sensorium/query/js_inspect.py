@@ -32,6 +32,8 @@ of the rows would have been guessed wrong:
                                 C1 block are \xHH in UPPERCASE hex, while
                                 U+2028, U+00A0 and the rest are printable
                                 to node and are not escaped at all)
+    "it's \"x\" ${y}"          (a backtick would quote it, but a template
+               -> "'it\\'s \"x\" ${y}'"   HOLE rules the backtick out)
 
 THE TWO DIRECTIONS ARE INVERSES ON THE LITERAL DOMAIN
 -----------------------------------------------------
@@ -168,12 +170,18 @@ def _escape(ch: str, quote: str) -> str:
 def quote_js(s: str) -> str:
     """A string as inspect quotes it: single, else double where the text
     holds a single quote, else backticks where it holds both -- and single
-    with `\\'` escaped where it holds all three."""
+    with `\\'` escaped where no quote is free.
+
+    A template HOLE rules the backtick out as surely as a backtick does:
+    measured, `it\'s "x" ${y}` comes back single-quoted, because a backtick
+    around it would read as an interpolation rather than as text. A lone `$`
+    is not a hole and does not.
+    """
     if "'" not in s:
         quote = "'"
     elif '"' not in s:
         quote = '"'
-    elif "`" not in s:
+    elif "`" not in s and "${" not in s:
         quote = "`"
     else:
         quote = "'"

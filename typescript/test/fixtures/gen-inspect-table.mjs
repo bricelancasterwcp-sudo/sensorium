@@ -97,8 +97,12 @@ const CASES = [
   // must agree character for character and this is where they could differ
   // silently. `\v` is the row that matters: node names `\n \t \r \b \f` and
   // spells the vertical tab `\x0B`, so a writer that emitted `\v` would spell
-  // a string this recorder never writes and sight nothing.
+  // a string this recorder never writes and sight nothing. The `${` rows are
+  // the other one: a backtick is chosen only when the text holds neither a
+  // backtick NOR a template hole, and a lone `$` is not a hole.
   { literal: 'it\'s "x" `y`', value: 'it\'s "x" `y`' },
+  { literal: 'it\'s "x" ${y}', value: 'it\'s "x" ${y}' },
+  { literal: 'it\'s "x" $y', value: 'it\'s "x" $y' },
   { literal: 'a\bb\fc\vd', value: 'a\bb\fc\vd' },
   { literal: CONTROLS, value: CONTROLS },
 ];

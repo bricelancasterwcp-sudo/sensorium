@@ -92,7 +92,7 @@ def test_the_table_is_the_recorder_s_own_and_covers_every_shape():
     """A guard on the guard: a fixture that stopped holding rows, or that
     grew a row whose text came from somewhere other than `dbg`, would let
     every parametrised test below pass by having nothing to check."""
-    assert len(ROWS) >= 33, len(ROWS)
+    assert len(ROWS) >= 36, len(ROWS)
     assert all(set(r) == {"literal", "text", "trunc"} for r in ROWS)
     texts = {r["text"] for r in ROWS}
     for wanted in ("'abc'", '"it\'s"', "undefined", "null", "true", "false",
@@ -170,7 +170,8 @@ def test_every_scalar_row_is_written_exactly_as_the_recorder_wrote_it(row):
 LITERALS = [0, 5, -5, 2, 2.5, -3.5, 1e21, 1e-7, 1e-6, 123456789.123,
             1.5e300, 5e-324, -0.0, math.inf, -math.inf, True, False, None,
             "abc", "it's", 'it\'s "x"', "it's \"x\" `y`", "a\nb\tc\\d",
-            "café 日", "", "x" * 100, "[Function: foo]"]
+            "café 日", "", "x" * 100, "[Function: foo]",
+            'it\'s "x" ${y}', "${y}", "a\bb\fc\vd"]
 
 
 @pytest.mark.parametrize("literal", LITERALS, ids=repr)
@@ -216,6 +217,19 @@ def test_the_quote_choice_is_inspects_own():
     assert inspect_text("it's") == '"it\'s"'
     assert inspect_text('it\'s "x"') == '`it\'s "x"`'
     assert inspect_text("it's \"x\" `y`") == "'it\\'s \"x\" `y`'"
+
+
+def test_a_template_hole_rules_the_backtick_out():
+    """Measured. A backtick is chosen only where the text holds neither a
+    backtick nor a template HOLE -- one around `${y}` would read as an
+    interpolation rather than as text -- and a lone `$` is not a hole. A
+    writer that stopped at "no backtick" spells a text this recorder never
+    writes, and `flow --value` then reports no sighting of a string the
+    trace holds."""
+    assert inspect_text('it\'s "x" ${y}') == "'it\\'s \"x\" ${y}'"
+    assert inspect_text('it\'s "x" $y') == '`it\'s "x" $y`'
+    assert inspect_text("${y}") == "'${y}'"
+    assert read_inspect("'it\\'s \"x\" ${y}'") == 'it\'s "x" ${y}'
 
 
 def test_the_escapes_are_the_ones_node_writes_and_the_reader_takes_more():
