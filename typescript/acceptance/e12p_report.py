@@ -60,7 +60,7 @@ hash list was taken before rung 4's own reads, which appended to it.
 import re
 from pathlib import Path
 
-from e12_report import LABELS
+from e12_report import LABELS, one, subsection
 
 #: `typescript/acceptance/e12p_report.py` -> the repo root, the same two
 #: parents up `lens.py` and `bin.sh` both spell.
@@ -147,3 +147,84 @@ def rows_of2(text: str) -> list[dict]:
                                labels.group(1).split(",")] if labels else [],
                     "text": line.strip()})
     return out
+
+
+def tally_of(text: str) -> dict:
+    """`watch`'s own `sites: … evaluated: … hits: …` line, as integers.
+
+    The HIT TOTAL is read here and never counted off the printed rows. Rung
+    4's W2 transcript prints twenty of its fifty-two and says `... 32 more`,
+    so a reader that counted rows would publish 20 where §1.3 predicts 52 --
+    a fifth defect nobody has had yet, and this is where it does not start.
+    What IS read off the rows is the CLASS question (defect 4): which of the
+    printed HITs sit on a completion row, and which at line 72.
+    """
+    for line in text.splitlines():
+        m = TALLY.match(line.strip())
+        if m:
+            return {k: int(v) for k, v in m.groupdict().items()}
+    return {}
+
+
+def verdict_of(text: str) -> str:
+    """`watch`'s verdict line, whole, or the empty string."""
+    return next((ln for ln in text.splitlines()
+                 if ln.startswith("verdict:")), "")
+
+
+def exit_of(text: str) -> int | None:
+    """A saved transcript's own `--- exit <n>` trailer.
+
+    The committed transcripts are `Reads.run`'s files, which end with the
+    exit status the command returned; re-reading them is how a re-adjudication
+    gets the exit §1.2 predicts without re-running anything.
+    """
+    m = re.search(r"^--- exit (-?\d+)\s*$", text, re.M)
+    return int(m.group(1)) if m else None
+
+
+def sightings_total(text: str) -> int | None:
+    """`flow`'s own `sightings: <n> event(s), <n> capture(s)` total."""
+    for line in text.splitlines():
+        m = SIGHTINGS.match(line.strip())
+        if m:
+            return int(m.group(1))
+    return None
+
+
+def split_population(rows: list[dict], focused: set) -> tuple[list, list]:
+    """§1.3's gated population, and every row outside it.
+
+    The population is `e12_report.h5`'s, unchanged in RULE: the LINE `deltas`
+    and CALL `args` of the three focused functions, matched by `flow`'s own
+    `[local <name>]` / `[arg <name>]` labels, every label read rather than
+    just the first. What changed is that a CALL row now reaches this test
+    with its qualname parsed off the token before `(` (defect 1), so the row
+    §1.3 names as S2 lands in the population instead of outside it.
+
+    Each population row gains `names`: the labelled names it sighted.
+    """
+    population, elsewhere = [], []
+    for row in rows:
+        mine = [label for label in row["labels"]
+                if (row["kind"] == "LINE" and label.startswith("local "))
+                or (row["kind"] == "CALL" and label.startswith("arg "))]
+        target = population if (row["qualname"] in focused and mine) \
+            else elsewhere
+        target.append({**row, "names": [m.split(" ", 1)[1] for m in mine]})
+    return population, elsewhere
+
+
+def resolver_sites_in_record(text: str) -> list[str]:
+    """`node resolve.mjs`'s six sites, as the rung-4 record's §4.2 quotes it.
+
+    The session's own `resolve.json` was written under rung 4's out directory
+    and is not committed; what IS committed is §4.2's fenced copy of it,
+    which is the reading the new record's §3.3 names ("`node resolve.mjs`
+    output in the record"). A live `resolve.json` -- H8′'s, at Task 11 --
+    is read instead when one is handed in, and the cell says which it read.
+    """
+    block = one(r"```\n(.*?)```", subsection(text, "### 4.2 "),
+                "§4.2's fenced resolver output")
+    return [ln.strip() for ln in block.splitlines()
+            if re.fullmatch(r"\S+:\S+", ln.strip())]

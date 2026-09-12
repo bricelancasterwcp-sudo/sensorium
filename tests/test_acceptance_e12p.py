@@ -139,3 +139,117 @@ def test_rows_of2_still_reads_a_plain_line_row_with_its_label():
     assert row["unbound"] == []
     assert row["labels"] == ["local sides"]
     assert row["rest"] == "sides=20   [local sides]"
+
+
+# -- the committed transcripts ---------------------------------------------
+
+#: The three names the rung-4 specs focus, as `e12_report.preregistration()`
+#: reads them out of the rung-4 record's §1. Spelled from the record here too
+#: rather than typed, so the population this file gates on is §1's.
+FOCUSED = {"parseDiceGroups", "forcedDiceFromSource", "buildDiceQueueEntry"}
+
+
+def test_h5p_reads_S2_off_the_committed_transcript():
+    """Rung 4 read `S2 found: false` off this very file. The row is there:
+    one CALL, `parseDiceGroups`, event `e10` -- §1.4's pre-registered
+    reading, and the STOP §4.5 (1) explains."""
+    rows = e12p.rows_of2(read("08-flow-F1-value-1d20.txt"))
+
+    calls = only(rows, "CALL")
+    assert len(calls) == 1, [r["text"] for r in calls]
+    assert calls[0]["qualname"] == "parseDiceGroups"
+    assert calls[0]["eid"] == 10
+    assert calls[0]["args"] == "(formula='1d20')"
+    assert calls[0]["labels"] == ["arg formula"]
+    assert len(only(rows, "RETURN")) == 4
+
+
+def test_h5p_elsewhere_is_five_across_the_two_flow_transcripts():
+    """§1.4: `elsewhere_not_gated` = 5, one row from `--value 20` and four
+    RETURN rows from `--value "'1d20'"`. Rung 4's cell listed ONE, because
+    four of the five have a one-space arrow (§4.5's third gap)."""
+    twenty = e12p.rows_of2(read("07-flow-F1-value-20.txt"))
+    one_d20 = e12p.rows_of2(read("08-flow-F1-value-1d20.txt"))
+
+    pop20, out20 = e12p.split_population(twenty, FOCUSED)
+    pop1d20, out1d20 = e12p.split_population(one_d20, FOCUSED)
+
+    assert len(out20) == 1, [r["text"] for r in out20]
+    assert len(out1d20) == 4, [r["text"] for r in out1d20]
+    assert len(out20) + len(out1d20) == 5
+    # S1's nine sightings of `sides` at :74, the control that already held.
+    assert len(pop20) == 9
+    assert {(n, r["line"]) for r in pop20 for n in r["names"]} == {("sides", 74)}
+    assert len(pop1d20) == 1
+
+
+def test_h4p_W2_has_no_hit_on_a_completion_row_and_two_head_rows_at_72():
+    """§1.3's W2, and the rung-4 STOP §4.4 explains: 52 HITs, NONE on a row
+    whose `unbound` names `count` (the `while`'s completion rows), and the
+    two at line 72 are HEAD rows carrying no `unbound` at all. Rung 4's cell
+    tested "no HIT at line 72", which is strictly stronger and read a miss.
+
+    The total is `watch`'s own tally line, never a count of printed rows:
+    this transcript prints 20 of 52 and says `... 32 more`."""
+    text = read("05-watch-F1-at-parseDiceGroups-expr-count-1.txt")
+
+    tally = e12p.tally_of(text)
+    hits = [r for r in e12p.rows_of2(text) if r["hit"]]
+
+    assert tally["hits"] == 52
+    assert tally["evaluated"] == 77
+    assert [r["text"] for r in hits if "count" in r["unbound"]] == []
+    at72 = [r for r in hits if r["line"] == 72]
+    assert len(at72) == 2, [r["text"] for r in at72]
+    assert all(r["unbound"] == [] for r in at72)
+    assert all("m=[" in r["rest"] for r in at72)
+    # ANTI-VACUITY. "Zero rows whose `unbound` names `count`" is a real zero
+    # only while the parse that would have found one is alive: an `unbound`
+    # that never fires reads the same zero off any transcript at all. W2's
+    # own printed hits carry no completion row, so the control is the same
+    # run's `frame` transcript, where the completion row is right there.
+    completions = [r for r in e12p.rows_of2(
+        read("12-frame-F1-fn-parseDiceGroups.txt")) if r["unbound"]]
+    assert [(r["line"], r["unbound"]) for r in completions] == [
+        (72, ["count", "sides"])]
+
+
+def test_h4p_W3_fifteen_completion_rows():
+    """§1.3's W3, the control: 15 HITs, all at line 72, every one a
+    completion row carrying `m=null` and `unbound:count,sides`. All fifteen
+    are printed, so the tally and the rows agree here."""
+    text = read("06-watch-F1-at-parseDiceGroups-expr-m-null.txt")
+
+    tally = e12p.tally_of(text)
+    hits = [r for r in e12p.rows_of2(text) if r["hit"]]
+
+    assert tally["hits"] == 15
+    assert len(hits) == 15
+    assert {r["line"] for r in hits} == {72}
+    assert all(r["unbound"] == ["count", "sides"] for r in hits)
+    assert all("m=null" in r["rest"] for r in hits)
+
+
+def test_h4p_W1_thirty_one():
+    """§1.3's W1, the other control: 31 HITs of 64 evaluable sites."""
+    text = read("04-watch-F1-at-parseDiceGroups-expr-sides-20.txt")
+
+    tally = e12p.tally_of(text)
+
+    assert tally["hits"] == 31
+    assert tally["evaluated"] == 64
+    assert tally["sites"] == 165
+
+
+def test_h2p_resolver_output_in_the_record_names_six():
+    """§1.2's gate: `node resolve.mjs` named SIX sites, and exactly two of
+    them share one qualname -- which is why `focus_matched` is 5 and
+    `functions_focused` 6. Read out of the rung-4 record's §4.2 fenced
+    block, the committed copy of the resolver's answer."""
+    sites = e12p.resolver_sites_in_record(RUNG4.read_text(encoding="utf-8"))
+
+    assert len(sites) == 6, sites
+    names = [s.split(":", 1)[1] for s in sites]
+    assert len(set(names)) == 5, names
+    assert [n for n in set(names) if names.count(n) == 2] == [
+        "buildDiceQueueEntry.<anonymous>"]
