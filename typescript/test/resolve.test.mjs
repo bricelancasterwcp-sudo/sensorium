@@ -270,7 +270,7 @@ test('an excluded function-like is named, placed and reasoned (R26)', () => {
   ].join('\n');
   const out = sitesOf(src, '/w/src/a.ts', { root: '/w', ts });
   assert.ok(out);
-  assert.deepEqual(out.sites, [{ qualname: 'pick', line: 3, kind: 'function', focused: false }]);
+  assert.deepEqual(out.sites, [{ qualname: 'pick', line: 3, kind: 'function', focused: false, deferred: false }]);
   assert.deepEqual(out.excluded, { 'overload-signature': 2, ambient: 1 });
   assert.deepEqual(out.excludedSites, [
     { qualname: 'pick', line: 1, reason: 'overload-signature' },
