@@ -584,9 +584,10 @@ to find what closed.
   equal, the thirteenth appended and not rewritten, the journal grown by
   exactly **13** lines (record §3).
 - **A fenced pattern matching no file** — closed: `e_fences.FENCED_TESTS`
-  names `tests/test_exceptions.py` and `tests/test_exceptions_synthetic.py`
-  beside the two globs, and `existing()` is hoisted above the `git diff` so
-  a pattern that matches nothing refuses before any measurement is taken.
+  names the Python reader's real files — `tests/test_exceptions.py` and
+  `tests/test_exceptions_synthetic.py` — beside `test_exceptions_rust*.py`
+  and `test_exceptions_invocation.py`, and `existing()` is hoisted above the
+  `git diff` so a pattern matching nothing refuses before any measurement.
 - **`e7_report.py` rewriting its transcript in place** — closed: the
   needle-rule header goes to a sibling, `<transcript>.rules`, and the
   transcript is never written, so the reporter is idempotent and the sha256
@@ -721,8 +722,8 @@ edit must take a seam rather than a paragraph:
   archive's own voice and a pointer from volume 1, the way this file's own
   volumes are numbered.
 - **This file.** Measured before it was written, the way the rule asks: this
-  section was drafted at **242** lines against a live file of **553**, which
-  is **795** — five under the ceiling, so nothing was cut. The next slice's
+  section was drafted at **243** lines against a live file of **553**, which
+  is **796** — four under the ceiling, so nothing was cut. The next slice's
   section will not fit: cut the oldest section (S5 rung 2's) to a new
   `CARRIED-DEBT-ARCHIVE-8.md` before writing it, rather than discover the
   ceiling.
