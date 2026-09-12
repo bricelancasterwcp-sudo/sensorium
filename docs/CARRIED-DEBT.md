@@ -706,18 +706,23 @@ edit must take a seam rather than a paragraph:
 
 - **`tests/test_corpus.py` at exactly 800** — the next edit must split the
   harness half out.
-- **`docs/TRACE-FORMAT.md` 788**, **`typescript/HONESTY.md` 786**,
-  **`typescript/src/rt.mjs` 783**, **`src/sensorium/query/flow_cmd.py` 789**,
-  **`typescript/probes/check.mjs` 770**, **`README.md`** — each within a
-  section of the gate.
+- **`README.md` 793**, **`docs/TRACE-FORMAT.md` 788**,
+  **`typescript/HONESTY.md` 786**, **`src/sensorium/query/flow_cmd.py` 789**,
+  **`typescript/src/rt.mjs` 783**, **`typescript/probes/check.mjs` 770** —
+  each within a section of the gate, and each named here because this rung
+  wrote in one of them. **Eleven other tracked files sit between 770 and 795
+  today** and are not listed, because a hand-kept list of the files somebody
+  remembered is the very thing `test_ceiling.py`'s pattern scope replaced.
+  The census is one command:
+  `git ls-files -- '*.md' '*.py' '*.mjs' '*.ts' '*.rs' '*.sh' | grep -v '^docs/superpowers/' | xargs wc -l | sort -rn | head -30`.
 - **`CHANGELOG-ARCHIVE.md` at 742.** The 0.12.0 entry needed no cut, but the
   NEXT one will, and the archive cannot take another section: the cut after
   this must open **`CHANGELOG-ARCHIVE-2.md`** with a preamble in the
   archive's own voice and a pointer from volume 1, the way this file's own
   volumes are numbered.
 - **This file.** Measured before it was written, the way the rule asks: this
-  section was drafted at **237** lines against a live file of **553**, which
-  is **790** — under the ceiling, so nothing was cut. The next slice's
+  section was drafted at **242** lines against a live file of **553**, which
+  is **795** — five under the ceiling, so nothing was cut. The next slice's
   section will not fit: cut the oldest section (S5 rung 2's) to a new
   `CARRIED-DEBT-ARCHIVE-8.md` before writing it, rather than discover the
   ceiling.
