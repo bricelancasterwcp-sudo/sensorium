@@ -270,7 +270,7 @@ refusals are about this particular RUN instead, and each exits **2** with
 The unfocused refusal, in full — the sentence
 `corpus/rust/focus_unfocused_refuses` pins byte for byte:
 
-    REFUSED: watch needs line, which recorder sensorium-rt 0.4.1 declares it does not produce (capabilities.line: false); nothing was checked
+    REFUSED: watch needs line, which recorder sensorium-rt 0.5.0 declares it does not produce (capabilities.line: false); nothing was checked
 
 ## Not yet
 
