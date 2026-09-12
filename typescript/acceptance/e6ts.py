@@ -66,7 +66,7 @@ not a disposition, and reading it as one is what 997f168 got wrong for
 written and run). Only then write the question, pinned against the row now
 already on record. Rung 3's four cases (`untraced_catcher` and its three
 siblings) and this slice's `focus_catch_binding` (997f168, a54b754, the
-correction at the commit adding this paragraph) are the precedent.
+correction at 17d7910) are the precedent.
 
 `value` is how many cases matched the locked table, out of the cases asked.
 """
