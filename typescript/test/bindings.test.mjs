@@ -169,6 +169,11 @@ test('writesOf a `var` statement is its names — `var` writes like any other', 
   assert.deepEqual(writes('var v = 1;'), ['v']);
 });
 
+test('writesOf a `using` declaration is the name it binds', () => {
+  assert.deepEqual(writes('using x = f();'), ['x']);
+  assert.deepEqual(writes('await using y = g();'), ['y']);
+});
+
 test('writesOf a declaration also carries an assignment inside its initialiser', () => {
   assert.deepEqual(writes('const a = (b = 1);'), ['a', 'b']);
 });
@@ -276,6 +281,19 @@ test('writesOf never walks into a nested function declaration', () => {
 
 test('writesOf still reads an assignment in a call that holds a callback', () => {
   assert.deepEqual(writes('run((n = 1), () => { z = 2; });'), ['n']);
+});
+
+test('writesOf walks a class heritage expression — it runs where the class stands', () => {
+  assert.deepEqual(writes('const C = class extends (Base = f()) {};'), ['C', 'Base']);
+  assert.deepEqual(writes('class Foo extends (Base = f()) {}'), ['Foo', 'Base']);
+});
+
+test('writesOf walks a computed member name — it runs where the class stands', () => {
+  assert.deepEqual(writes('const D = class { [(k = 1)]() {} };'), ['D', 'k']);
+});
+
+test('writesOf stops at a member body and at a field initialiser, which run later', () => {
+  assert.deepEqual(writes('const E = class { m() { z = 1; } p = (w = 2); };'), ['E']);
 });
 
 // ---------------------------------------------- writesOf: the block-likes
@@ -410,6 +428,11 @@ test('headDeclaredOf a head that only assigns is empty', () => {
   assert.deepEqual(declaredHead('if ((x = f())) {}'), []);
 });
 
+test('headDeclaredOf a for-of head `using` is the declared name — R18', () => {
+  assert.deepEqual(declaredHead('for (using r of rs) {}'), ['r']);
+  assert.deepEqual(declaredHead('for (await using r of rs) {}'), ['r']);
+});
+
 test('headDeclaredOf a catch clause is its binding', () => {
   const clause = find(parse('try { r(); } catch (e) {}'), (n) => ts.isCatchClause(n));
   assert.deepEqual(headDeclaredOf(ts, clause), ['e']);
@@ -427,6 +450,11 @@ test('declaredIn lists a direct class and function declaration, block-scoped in 
 
 test('declaredIn never lists a `var` — it is function-scoped and never unbound', () => {
   assert.deepEqual(declared('{ var v = 1; const y = 2; }'), ['y']);
+});
+
+test('declaredIn lists a `using` declaration — R18, it dies with its block', () => {
+  assert.deepEqual(declared('{ using x = f(); const y = 1; }'), ['x', 'y']);
+  assert.deepEqual(declared('{ await using x = f(); }'), ['x']);
 });
 
 test('declaredIn an if lists both branch blocks', () => {

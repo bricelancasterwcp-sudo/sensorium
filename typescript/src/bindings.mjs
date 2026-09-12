@@ -155,6 +155,32 @@ function targetNames(ts, target) {
 }
 
 /**
+ * The parts of a class that execute WHERE THE CLASS STANDS, and so belong to
+ * the statement's own row: the heritage expressions (`class extends (B = f())`)
+ * and every computed member name (`class { [(k = 1)]() {} }`). Both are
+ * evaluated when the class definition is, unlike a member body or a field
+ * initialiser — which run at call and at construction, and are the boundary
+ * `opensBoundary` keeps (fix round 1, controller decision).
+ *
+ * A `static {}` block also runs at definition time and is NOT walked: it is a
+ * member body, and the controller's list names heritage and computed names
+ * only. A declared gap, not an oversight.
+ * @param {TS} ts
+ * @param {import('typescript').ClassLikeDeclaration} node
+ * @param {string[]} out
+ * @returns {void}
+ */
+function collectClassHead(ts, node, out) {
+  for (const clause of node.heritageClauses ?? []) {
+    for (const type of clause.types) collectTargets(ts, type.expression, out);
+  }
+  for (const member of node.members) {
+    const { name } = member;
+    if (name && ts.isComputedPropertyName(name)) collectTargets(ts, name.expression, out);
+  }
+}
+
+/**
  * Every name assigned or updated anywhere under `node`, at any depth of the
  * statement's OWN expressions — a nested function or class body is not this
  * statement's (plan P4).
@@ -164,6 +190,10 @@ function targetNames(ts, target) {
  * @returns {void}
  */
 function collectTargets(ts, node, out) {
+  if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) {
+    collectClassHead(ts, node, out);
+    return;
+  }
   if (opensBoundary(ts, node)) return;
   if (ts.isBinaryExpression(node) && isAssignmentToken(ts, node.operatorToken.kind)) {
     out.push(...targetNames(ts, node.left));
@@ -233,16 +263,23 @@ function listNames(ts, list) {
 }
 
 /**
- * Whether a declaration list dies with its block. `var` does not (spec §3.4:
- * function-scoped, never `unbound`); nor does a `using` declaration, which is
- * block-scoped in the language and is a declared gap here rather than a rule
- * this rung invented (`NodeFlags.Using` is neither `Let` nor `Const`).
+ * Whether a declaration list dies with its block — the four spellings that
+ * bind block-scoped: `let`, `const`, `using` and `await using`. `var` is the
+ * one that does not (spec §3.4: function-scoped, never `unbound`).
+ *
+ * `using` is here by ruling R18 (fix round 1): it is block-scoped in the
+ * language, so a fold that kept it alive past its block would report a name the
+ * program had already disposed. `AwaitUsing` is named although this
+ * TypeScript's enum happens to spell it `Using | Const` (6) — the rule is the
+ * four spellings, not an arithmetic accident of one version's flags.
  * @param {TS} ts
  * @param {VariableDeclarationList} list
  * @returns {boolean}
  */
 function isBlockScoped(ts, list) {
-  return (list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const)) !== 0;
+  const scoped =
+    ts.NodeFlags.Let | ts.NodeFlags.Const | ts.NodeFlags.Using | ts.NodeFlags.AwaitUsing;
+  return (list.flags & scoped) !== 0;
 }
 
 /**
@@ -299,8 +336,11 @@ export function writesOf(ts, statement) {
     collectTargets(ts, statement.expression, out);
   } else if (ts.isClassDeclaration(statement)) {
     // It executes where it stands (spec §3.1). An anonymous `export default
-    // class` binds no local name and writes nothing.
+    // class` binds no local name and writes nothing. Its HEAD executes there
+    // too, so the same rule `collectTargets` applies to a class expression
+    // applies to the declaration form (fix round 1).
     if (statement.name) out.push(statement.name.text);
+    collectClassHead(ts, statement, out);
   } else if (
     ts.isIfStatement(statement) ||
     ts.isWhileStatement(statement) ||
