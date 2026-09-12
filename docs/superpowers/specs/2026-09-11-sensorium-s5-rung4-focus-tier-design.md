@@ -755,6 +755,116 @@ close.
 
 ## 15. What changed against this design, and why
 
-*Empty at design time. Filled at the rung's close with dated rows — P-rows
-for plan decisions, R-rows for controller rulings — each naming the section
-it amends and the cost if wrong, on the precedent of the earlier rungs' §14.*
+*Added 2026-09-12, at the rung's close. Nothing above is deleted; where a
+sentence of this document was narrowed, replaced or falsified, this section
+is the index to it. **§8's E12 table is carried verbatim into the record's
+§1 and is byte-locked there** (`tests/test_acceptance_s5_rung4_lock.py`
+recomputes the range's sha and the hand count's beside it) — no row below
+touches it, and the one row that speaks to it (R37) is about what the
+reading showed, never about what the pre-registration said.*
+
+**P-rows** are the fourteen decisions the plan made before any code existed
+(its own decisions table,
+`../plans/2026-09-11-sensorium-s5-rung4-focus-tier.md`). **R-rows** are the
+controller rulings made while shipping, in the order the ledger's `Ruling:`
+lines carry them
+(`.superpowers/sdd/2026-09-11-sensorium-s5-rung4-focus-tier/rulings-index.txt`).
+Thirty-nine rulings were made; **six get no row here** and the reason is at
+the end of this section, because a list that silently drops entries is a list
+a reader cannot check.
+
+### The plan's fourteen decisions
+
+| # | What this document said, or left open | What rung 4 shipped, and why |
+|---|---|---|
+| P1 | §3.2's per-entry rule alone: a guard's head names arrive as a synthetic first row, and nothing says what the head wrote LAST | **Amended.** A guarded statement's own completion row also carries its head's ASSIGNMENT targets (declarations excluded — those are `unbound`), so `while ((m = re.exec(s)) !== null)` reports `m` on every entry row AND `m = null` on the `while`'s row. Without it the fold keeps the last matched array forever and every later site reads a value the program did not hold. It is also what **closes** §3.9's *"a falsy `if` head's"* declared gap: the `if`'s own row carries `x` whichever branch ran, so the shape is never numbered as a blind spot. N does not change. Measured as H3's row 9 (`m=null unbound:count,sides`). *Cost if wrong:* one delta per guard row. |
+| P2 | §3.1 places a probe after each statement | **Amended.** A guard's non-block body (`if (c) x = 1;`, `for (…) stmt;`, `else stmt;`) is WRAPPED in a block whenever the function is focused, so the body's probe and the head row sit inside the guard. Appended after a bare body a probe would run unconditionally — Rust's A1, transferred. *Cost if wrong:* one synthetic block per bare body, invisible in the source map. |
+| P3 | §3.1 says only that the probe follows the statement | **Amended.** The probe is registered with `prependRight(stmt.end, …)` **before** the statement's children are visited, and carries `terminatorFor`'s `;` when the statement has none: a descendant closer at the same offset — `await x` as a whole statement, whose suspension renders `),0))` — must land INSIDE the probe, and magic-string renders earlier-registered `prependRight` content rightmost. *Cost if wrong:* a syntax error the goldens catch under the consumer's own compiler. |
+| P4 | §3.2 says "the names a statement writes" and §3.4 "the block-scoped names its inner blocks declared" | **Narrowed, deliberately.** `writesOf` excludes anything inside a nested function-like or class-member body, and `declaredIn` lists a block's DIRECT declarations only, never a nested block's. Rust §3.3's rule for closures; one row owns each name's death. The cost is blind spot 33. *Cost if wrong:* a nested arrow's writes would be attributed to the statement containing it. |
+| P5 | §2.2's refusal is spelled `REFUSED: --focus <spec> matches no function under <root>; nothing was run. Closest: …` | **Amended.** The DRIVER's one refusal shape is kept — `error: --focus <spec> matches no function under <root>; nothing was run. Closest: a, b, c` on stderr at exit 2, one line per bad spec — not the `REFUSED:` prefix, which belongs to a capability refusal at exit 3. Every refusal `sensorium ts run` makes before spawning goes through `_refuse`; two shapes for one status would be the fault D8 exists to prevent. *Cost if wrong:* one prefix in a sentence no test of this rung reads twice. |
+| P6 | §2.3: the plugin and the runtime read one variable | **Made concrete for the probes.** `typescript/probes/vitest.config.ts`'s DIRECT branch sets `process.env.SENSORIUM_FOCUS` from a `FOCUS` list beside the plugin call (eleven functions, the whole of `focus.probe.test.ts`'s exports), because the probe project has no driver to set it. **R25** records the consequence: `vite.mjs` reads the variable at plugin CONSTRUCTION, not at module load, which is why the assignment is a statement above `defineConfig` and is documented at `vite.mjs:19-25`. *Cost if wrong:* none — the hook reads at module load and both read once. |
+| P7 | §4.1: a string over 100 characters "is written with inspect's own tail and therefore matches nothing" | **Corrected before it shipped.** A capture under the 200-byte wire cap carries `trunc: false`, so its text WOULD have equalled the spelled tail and a prefix would have been compared as a value. `inspect_text` returns **`None`** past 100 characters and `flow --value` sights nothing; `read_inspect` reads the `… N more characters` tail as TRUNCATED. A clipped rendering equals nothing, on both sides. The residue is blind spot 36. *Cost if wrong:* a prefix match reported as a sighting. |
+| P8 | §4.3: `--at` prints the stem for Rust | **Not shipped as written.** `site_spelling` is `"module"` for Python AND Rust and `"rel"` for TypeScript; `--at` ACCEPTS the dotted module, the stem, the basename and the root-relative path in every language, which is additive and is what makes every `--focus` spelling an `--at` spelling. Rust's printed listing is `module_name_for`'s dotted spelling and is quoted in a CLOSED record; the design's `"stem"` would have moved those bytes for no gain. *Cost if wrong:* one column of one table. |
+| P9 | §2.1's `rel:qualname` spelling, with nothing in meta to anchor it | **Added.** TypeScript meta gains **`root`**, the invocation's own, written unconditionally — a new TYPESCRIPT-KEYS row. Nothing else in meta carries it, and a reader on another box can re-anchor no `rel` without it. *Cost if wrong:* one always-present key. |
+| P10 (with **R2**) | §4.1 gives `expr.resolve` and `flow_values.matches` a dialect | **Widened to a default.** `resolve(v, dialect=None)` and `matches(cap, target, write=debug_text)` keep their old behaviour when the argument is absent, and **R2** extends the same rule to `sites_for(trace, code_ids, wanted, dialect=None)` and `_bind(..., dialect=None)`. Only `watch_cmd` and `flow_cmd` pass a dialect; every existing caller and test keeps its call, and a caller that passes none reads Rust's table, which no Python trace ever reaches. *Cost if wrong:* one default per signature. |
+| P11 | §4.2 adds four predicate constants | **Amended.** The constants are excluded from `Expr.names`, so `watch` never reports `null` as NEVER RECORDED. A constant is not a name the trace could have witnessed. *Cost if wrong:* one spurious warning per predicate. |
+| P12 | §5.1: the `oid` serial is "the same shape `serialOf` keeps for thrown objects" | **Made explicit: two maps, two counters.** The `oid` counter and the exception `serial` counter are separate. They are two namespaces — `flow --object` against `exceptions` — and sharing them would let a thrown object's `serial` read as an identity in the other command. *Cost if wrong:* a cross-command collision with no error. |
+| P13 | §8: H1–H6 read F and U; H7 is a cost arm | **Made one session.** H1–H6 read the FIRST U run and the FIRST F run; H7's arms are three of each, interleaved **U1 F1 U2 F2 U3 F3**, all six into the store — so the measured traces ARE cost-arm members and nothing is recorded twice for two purposes. *Cost if wrong:* one recording per purpose would double the lens's wall for no extra fact. |
+| P14 | §9 requires the converter's tests to read a spool the RUNTIME wrote | **Made concrete.** The recorded converter fixture `focus-lines` is cut from the focus probe's own spool, sanitised by `tests/fixtures/ts-spools/sanitize.py`, with a hand-written `invocation.json` carrying `focus` / `focus_matched` — the probe being the one focused program that exists before the corpus does. *Cost if wrong:* a fixture nobody's runtime wrote. |
+
+### The rulings that amended a section
+
+| # | Section | What shipped, and why | Cost if wrong |
+|---|---|---|---|
+| R1 | §9 (the plan's T1 split) | `transform.mjs` exports **`terminatorFor`** beside `lineOf`; the plan named only `lineOf`, and `probe.mjs` consumes both. | one export |
+| R6 | §8 (the record's §1.5) | §1.5 lists **thirteen** read commands, not twelve — the H1 `watch` refusal is a CLI read like the rest — and the journal's expected delta is the LENGTH of §1.5's list read from the record, never a literal. | one assembler constant |
+| R8 | §8 (the record's §1.4) | H6's lookup names the first `dice` LINE row of `forcedDiceFromSource` **in the activation `buildDiceQueueEntry` called**; the seven earlier activations are the test's own. Made at T0, before any code existed — and measured right: the plain first-row reading would have picked `e101`, sighted once, and H6 would have STOPped on a correct recorder. | H6 reads the wrong row |
+| R9 / R11 | §8, and the record's §2 | The one box path inside the locked §1 arrives inside this document's verbatim §8 block and is sanctioned by §1's intro; the fix was taken on the §2 side instead — every box path in §2's prose moved into §2's own pin table — so §1 was not reopened and the single lock sha stands. | one table grows by four rows |
+| R10 | §3.1 | A block-like statement's row carries the statement's FIRST line (`lineOf(node.getStart())`), which is what makes the hand count's rows 8 and 9 read 75 and 72. | none |
+| R12 | §8 (E-legacy) | `tests/test_exceptions_rust_grouping.py:697` — the `site=site` the plan's own `Shape.site` requirement forces — sits inside the fence glob, so E-legacy reads **1 of 2** with that line named in advance (§2.3 entry 2). The fence was not narrowed to make it pass. | one honest cell |
+| R13 | §5.2 | `flow --object` requires `object_identity` and **not** `line`: an identity rides on every capture, so refusing through `line` would refuse a question the recording answers. `flow --value` keeps its `line` gate. | one gate, one corpus line |
+| R14 / R36 | §5.3 | `corpus/typescript/object_refused` became **`object_identity`** as §5.3 says — but as the UNFOCUSED recording, with **three** sightings (two `loadSettings` returns and `tune`'s RETURN, where §5.3's table said `tune`'s argument). Accepted: it pins identity at the CALL tier, which is R13's point, and the case's third question still refuses through `line: false`. | one corpus case's prose |
+| R15 / R16 | §3.2, §3.9 | A `LabeledStatement` is never wrapped (wrapping a labeled loop turns `continue label` into a syntax error) and mints **no row of its own**; its body statement is probed as usual. | one row per labeled statement in a future hand count |
+| R17 | §3.2 | Type-only statements inside a focused body — `interface`, `type`, anything `declare`d — mint **no row**: they are erased before the program runs. An `enum` and a `class` DO, because they execute where they stand; a golden pins it. | an empty row per type alias |
+| R18 | §3.4 | `using` and `await using` declarations are block-scoped, so `declaredIn` tests the `Let \| Const \| Using \| AwaitUsing` flags. Shipped in Task 3's fix round, `bindings.mjs` being that task's module. | a `using` binding kept alive by the fold |
+| R19 | §3.2 | The heritage/computed-name walk applies to the `ClassDeclaration` **statement** form too — `class Foo extends (Base = f()) {}` reports `['Foo', 'Base']` — widening the brief's "ClassDeclaration → its name" by the same reasoning. | one line to revert |
+| R20 / R27 | §9 (the probes) | `probes/check.mjs`'s `checkFocus` asserts BOTH contracts, keyed on the BOOT record's own declaration: `line: true` → every marker, `focus:args`, `focus:count`; `line: false` → zero LINE records in that file's container and no args on its CALLs, reported as `focus:mode unfocused`. A check that silently skipped would be a hole. **R27** adds a FOCUSED driver run of the probe project (eleven specs) beside the unfocused one, so both branches are exercised by a gated test. | one checker branch, one more vitest run |
+| R21 | §3.2 | An `else` body is wrapped (P2) and gets **no head row** — §3.2's "an else branch is not an entry" — and the `if`'s own completion row carries the head's targets (P1). | one head row per else |
+| R22 / R31 / R32 | §2.4, §4.5 | The transform's own count reaches meta as **`meta.functions_focused`** when the tally carries it, and `info` prints one line after `focus:` — `focus matched: <n> — …`, with `(<n> function(s) focused by the transform)` appended when the two differ. The line is gated on the meta KEY and never on `meta.lang`, so a focused **Rust** trace prints it too (R32), which is this reader's rule for every `info` line. This is the ruling the record's §4.2 says earned its place: without the parenthetical, `focus matched: 5` would have been the whole story and one instrumented function would have been invisible. | one optional meta key, one info line, one line on Rust traces |
+| R23 | **§3.2's guard list** | A `DoStatement` gets **no head row**. Its test runs AFTER the body, so there is no entry the guard bound, and its test's writes reach the record on the `do`'s own completion row (P1). §3.2 lists `do { … } while ((m = …))` among the head-row guards; **that row is narrowed here** — a `do…while` is wrapped, never head-rowed. | one head row per do-loop iteration |
+| R24 | §3.1 | A guard's BLOCK body mints no row of its own: the guard statement's completion row is minted at the same moment and `declaredIn` already reports the block's dead names there. A bare body is different — it is a statement inside a block the transform synthesised, and it keeps its row. | N gains one row per guarded block in a future hand count |
+| R26 | §2.2 | `sitesOf` gains `excludedSites: {qualname, line, reason}[]`, so the resolver can say a spec *matches only functions this recorder does not instrument (`<reason>` x`<n>`)* rather than reporting it as a spelling mistake. The manifest shape is unchanged. | one field on an internal return value |
+| R28 | §2.2 | The driver's refusal lines print the unmatched specs first, then the excluded-only specs, each group in the order the specs were given. Accepted as shipped. | a reader of two mixed bad specs sees them regrouped |
+| R29 | **§2.2's `Closest:` clause** | Three Task-5 design calls: `<anonymous>` qualnames are never offered under `Closest:`, so **§2.2's "dropped only when the root holds no eligible function at all" gains a second case** — a root whose only eligible qualnames are anonymous offers no suggestions; an inherited `SENSORIUM_FOCUS` is cleared on an unfocused `ts run`; and `--focus ''` is refused by name. Beside them, §2.2's `files_scanned` counts **eligible** files, not every file walked. | none measured |
+| R30 | §2.4 | `Resolution.matched_specs` returns `sorted(set(...))`: same-line anonymous twins share a qualname and would otherwise repeat `rel:<anonymous>` in `meta.focus_matched`. This is also why `focus_matched` (5) and `functions_focused` (6) differ on the lens. | a duplicated string in meta |
+| R33 | §4.2 | `flow_values.parse_literal` accepts `null` → `None` and `true`/`false` → bools, so `flow --value null` sights a JavaScript `null` and a Rust `None` alike — the same words `expr.py`'s constants take. `undefined` stays unwritable and a BigInt is read but not written, both declared (blind spot 35). | three literal spellings |
+| R34 | **§4.1's number rules** | The integral shortcut is gated at `\|x\| < 2**53`; above it the value goes through placement 1 over `Decimal(repr(m)).normalize()` digits, so `js_number` reproduces node at every magnitude, and `inspect_text`'s int arm sends an int of magnitude ≥ 2^53 through `js_number(float(n))` because JavaScript holds it as a double. Measured rows for `2**53`, `2**60` and `123456789012345680000` were added to the generated fixture. **§4.1's A11 domain claim is corrected by this row**: the round-trip domain is integers BELOW 2^53, and above it there is no distinct number to round-trip to. | two lines and three fixture rows |
+| R35 | §8 (the record's §2.3) | Two re-pins of closed bytes are sanctioned and NAMED in the record's legacy cell rather than absorbed: `v23-lang-typescript-prose` (the brief mandates rewriting `timeline_hint`, which v23 pinned verbatim) and `object_refused`'s Q2/Q3 prose (sentences the sanctioned declaration flip made false; Task 8 rewrote the whole case). | two named diffs in the record |
+| R37 | **§8's E12 reading** | The three STOPs stand as **findings** and nothing was re-run. **H2** is the pre-registration's own under-derivation: §2.1's container rule selects nested function-likes, and §8's subject paragraph predicted three sites by counting the functions a reader names. **H4** and **H5** are readings of `e12_report.py`, found after their numbers — a `while`'s head row and its completion row share a line, and a printed CALL row carries neither a bare qualname nor a line. The next slice re-registers H2, H4 and H5 under fixed instruments, on rung 1's E6′→E6″ precedent. | none — the record already says all of it |
+
+### Two prose corrections to §4.1, and one to §4.1's table
+
+Measured against node, not argued: node names `\n`, `\t`, `\r`, `\b` and
+`\f` and **nothing else**, so a vertical tab is written **`\x0B`** in
+uppercase hex and not `\v`, and every other control character, DEL and the
+C1 block follow the same rule while U+2028 and U+00A0 are printable to node
+and are not escaped at all. And inspect's quote ladder has an exception this
+document's table does not show: a **`${`** anywhere in the text rules the
+backtick out, so `it's "x" ${y}` is written `'it\'s "x" ${y}'` and not with
+a backtick. Both came out of the generated fixture — 41 measured rows in
+`typescript/test/fixtures/inspect-table.json` — which is what §4.1's
+"pinned by generation" paragraph exists for: four of those rows would have
+been guessed wrong.
+
+### What the endpoints read, against what this document expected
+
+§13's table held for five of eight and did not for three, and §3 of the
+record is the reading. **H3 — the endpoint this design is about — PASSed on
+its first reading**: N = 9, the lines 69, 70, 71, 72, 73, 74, 76, 75, 72,
+every delta name and the one `unbound` list equal to a hand count written
+before `bindings.mjs`, `probe.mjs`, the runtime's `line` or the converter's
+`_on_line` existed, empty diff. **H1** 4/4 and **H6** 4/4 as written.
+**H8** 6/6. **H7** reported: ×2.3816 on the median wall, the resolver 1.132 s
+over **830** files (this document's §2.2 said 742 — a count of eligible files
+that had moved on the lens; the measured number is the record's). **H2**,
+**H4** and **H5** STOPped, R37 above.
+
+### The six rulings with no row, and why
+
+- **R3** (`rerun_command` returns `body.rstrip()`) changes no sentence of
+  this document: it stops an empty command leaving a trailing space, and
+  every real trace carries an argv, so the Python column's fenced bytes are
+  unmoved.
+- **R4** and **R5** are about WHEN a pin is re-touched, not about what the
+  design says: at Task 2 the implementer re-pins any corpus line that moved
+  only in the declaration block or the version token, and flips
+  `object_identity` to true on vectors v30–v34 beside the 0.3.0 bump, so the
+  corpus is green at every task and Task 8 re-collects everything.
+- **R7** answers a review finding by pointing at §4.3 as written — the JS
+  and Python spelling matchers are two implementations of one rule by
+  design, pinned by one fixture — and amends nothing.
+- **R38** corrects the RECORD's own §3 and §4.8 prose (which of H8's figures
+  are cells and which are read from uncommitted suite logs, and §2.3 entry
+  3's commit column), not this design.
+- **R39** is about the GitHub repository description, which this document
+  does not contain.

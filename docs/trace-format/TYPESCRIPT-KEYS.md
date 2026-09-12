@@ -25,7 +25,10 @@ the conversion counted.
 | `harness_exit` | `{status, signal, basis}` — what the driver **waited for**, `basis` always `"waited"`. `status` and `signal` are exclusive. `runs`' header: `exit:1 (waited)`; `info`: `harness: vitest run src/fog  exit: 1 (waited)`. Absent when the driver was killed before the harness returned, which is not a harness that ended at 0. |
 | `vitest` | The harness version, when one was read. `info` prints it in the parenthesis beside the interpreter: `node v24.16.0 (vitest 4.1.9, jsdom)`. |
 | `driver_version` | The `sensorium ts` driver's own version. |
+| `root` | The invocation's root directory, absolute, written unconditionally (plan P9). Every `rel` in this trace is relative to it — the fingerprint's paths, `test_file`, every `focus_matched` entry — and a reader on another box can re-anchor none of them without it. It is what `watch --at rel:qualname` and `sites.spell_site` resolve a root-relative spelling against; a trace that carried no root would fall back to the basename, which is still an `--at` spelling and claims no path this recording cannot support. |
+| `focus`, `focus_matched` | The `--focus` specs **as they were typed**, and the `<rel>:<qualname>` of every function they selected, deduplicated across specs (R30). Two different facts, which is why both are kept: `focus` is what its author will recognise, `focus_matched` is what says whether the spelling meant what they thought — a spec that selected one function where its author expected three is invisible on the `focus:` line alone. **Written only where there was a focus**: no key at all is a run nobody focused, which is every unfocused TypeScript run, and `info` prints the two differently (`focus: -` for the absent key, `none` for a recorded empty list). |
 | `files_transformed`, `transform_excluded` | How many files the transform edited, and `{reason: count}` for the ones it refused. `info`: `files: 41 transformed; excluded: 3 (vitest-hoisted-factory x3)`. **By reason, never a bare count**: the reasons are the difference between "nothing happened in that file" and "nothing was watching it". The GRAIN follows the harness: vitest transforms once for the whole invocation, so every container of it carries the same numbers; `node --test` runs one child process per test file, so a trace carries what its own container transformed. Absent when nobody counted, never written as a zero. |
+| `functions_focused` | How many function-likes THIS container's transform spliced statement probes into (R22), from the same tally as `files_transformed` and written on the same terms — only where somebody counted, never as an invented zero. It is not `len(focus_matched)` and is not meant to be: the matched list is the INVOCATION's, keyed on `<rel>:<qualname>`, and two anonymous function-likes on one container share one qualname. `info` folds the number away when the two agree and prints it when they differ — measured 5 against 6 on the rung-4 lens, where `buildDiceQueueEntry`'s two default-parameter arrows are one qualname and two instrumented functions. |
 
 ## Container — this one process's own
 
@@ -116,6 +119,179 @@ Two things go to `meta` and never to `events`, because §3 refuses a causal even
 with no `code_id` and inventing a code object would put a site in the program that
 has none: an unhandled rejection (`unhandled_rejections`, `[{type, msg, serial}]`)
 and a RAISE/HANDLED with no open frame (`throw_flow_outside_frames`).
+
+## Under a focus
+
+> Added 2026-09-12 (S5 rung 4, `sensorium-ts 0.3.0`). `docs/TRACE-FORMAT.md`'s
+> LINE and CALL rows point here for `lang = typescript`; the grain is the
+> contract's and the three differences from Rust's are below.
+
+`sensorium ts run --focus <spec>` is a **transform-time** decision, so the
+capability follows the recording and not the call: a focused run declares
+`capabilities.line: true` and `locals: true`, an unfocused one declares both
+false and writes no LINE record at all, and `watch`, `flow --value` and
+`frame`'s timeline refuse the second by the declaration rather than answering
+from an absence. A spec is `<qualname>` or `<file>:<qualname>`; the qualname
+part is a **prefix on a `.` boundary**, so `Fog` selects `Fog.compute` — and
+selects every function-like nested inside it, which is what makes a count of
+sites a property of the source rather than of the names typed.
+
+### The LINE row
+
+One row per statement of a focused function **that completed normally**, at
+the statement's own FIRST line (R10 — the probe's line is
+`lineOf(node.getStart())`, so a block-like statement's row reads where the
+statement opens, not where it closes). `deltas` is `{name: capture}` for what
+that statement wrote and nothing else; `unbound` is present only when there
+IS such a name. Empty `deltas` is a real row and says the line ran; empty
+`deltas` WITH an `unbound` list is the ordinary shape of a loop's last pass.
+
+| statement | `deltas` |
+|---|---|
+| `const` / `let` / `var PAT = e;` | every identifier `PAT` binds — nested object and array patterns, defaults, rest elements |
+| `let x;` | `x`. JavaScript binds it to `undefined`, which is a write; Rust's deferred `let` binds nothing until assigned, and the two contracts differ here on purpose |
+| `x = e`, `x += e`, `x ??= e`, `x++`, `[a, b] = [b, a]`, `({a} = o)` — at any depth in the statement's own expressions | the identifier targets, in source order, once each. A `\|\|=` / `&&=` / `??=` may not write at all; the row reports the binding's value after the statement either way |
+| `a.b = e`, `a[i] = e`, `delete a.b`, `a.b++` | **none** — a place write, declared (blind spot 28) |
+| an expression statement that writes nothing (`foo();`, `await p;`) | empty — the row says the line ran |
+| a block-like statement completing (`if`, `for`, `while`, `do`, `switch`, `try`, a bare block) | empty, plus `unbound`; and, from plan P1, the assignment targets of its own HEAD — `while ((m = re.exec(s)) !== null)` reports `m = null` on the `while`'s row, which is the value every later site reads |
+| a nested function's statements | **none of this function's** — `writesOf` stops at a function-like or class-member body; those statements are the nested function's own rows when it is focused too (blind spot 33) |
+
+### Head rows, and which statements mint none
+
+A guard that BINDS OR ASSIGNS as it enters mints a **synthetic first row
+inside the body, at the head's line**, once per entry or iteration: `if`,
+`for`, `for…in`, `for…of` and `while` — the five with a body and a test that
+runs before it. A bare body (`if (c) x = 1;`) is wrapped in a block first, so
+the head row and the body's own probe sit inside the guard.
+
+Five shapes mint no row, each for a reason a reader can check:
+
+* **an `else` branch** (R21). A falsy test entered nothing; what the head
+  wrote reaches the record on the `if`'s own completion row (P1).
+* **a `do…while` body** (R23). Its test runs AFTER the body, so an entry row
+  would publish the previous iteration's test value dressed as an entry; the
+  test's writes reach the record on the `do`'s completion row.
+* **a guard's BLOCK body** (R24). Its completion IS the guard's, and
+  `declaredIn` already reports its dead names there; a second row would
+  report one completion twice.
+* **a `switch` discriminant's assignment** — no body to enter, no head row,
+  declared (blind spot 31).
+* **a `LabeledStatement`** (R15, R16): it is a label and not a step, it is
+  never wrapped (wrapping a labeled loop turns `continue label` into a syntax
+  error), and its body statement is probed as usual.
+
+**Type-only statements mint none either** (R17): an `interface`, a `type`
+alias and anything `declare`d are erased before the program runs, so a row
+would name a line that never ran. An `enum` and a `class` are NOT erased —
+they execute where they stand — and both keep their row. So do the
+completions' absences: `return`, `throw`, `break` and `continue` never
+complete normally, and each one's exit is already the RETURN, the UNWIND or
+the enclosing statement's row.
+
+### `unbound`
+
+A block-like statement's row lists as `unbound` the block-scoped names its
+inner blocks declared and that just died: `let`, `const`, `class`, a `catch`
+binding, a `for` head's declarations, and a `using` / `await using`
+declaration (R18). `var` is function-scoped and is never unbound. A
+per-iteration name is a delta again at the next iteration's head row, so no
+`unbound` is minted between iterations. This is the key `watch`'s fold reads:
+`sites_for` folds `deltas` forward and pops `unbound` at the same site, so a
+`const` inside an `if` is in scope at the sites inside that block and at none
+after it. Python emits `unbound` for `del` and the end of an `except … as e`;
+**Rust emits none, and its fold keeps a dead block-scoped `let` alive** — a
+Rust debt named in `docs/CARRIED-DEBT.md` and not closed here.
+
+### Arguments are on the CALL, not on a LINE
+
+A focused function's CALL carries `args: {name: capture}` in the Python
+shape, captured at body entry — after defaults are applied, so a default is
+the value the body saw, and a destructured parameter yields the names it
+binds. An unfocused function's CALL in the very same recording still carries
+`{"args": {}, "unread": ["locals"]}`, so `tree` prints
+`helper() <unread: locals>` beside `total(items=[ 1, 2 ], member=true)`.
+There is therefore **no parameters row**, and N for a focused activation is
+the statement count: Rust mints a parameters row because its CALL cannot
+carry args, and this is the difference `docs/TRACE-FORMAT.md`'s LINE row
+points here for.
+
+### The capture dialect: `util.inspect`, read one way and written one way
+
+A `dbg` capture on a TypeScript trace is what node's `util.inspect` printed
+under the recorder's own options — the same text a RETURN value has always
+carried, now on arguments and deltas too. `watch --expr` READS it
+(`read_inspect`) and `flow --value` WRITES it (`inspect_text`), and both live
+in `src/sensorium/query/js_inspect.py` over one table, because an escape
+undone in one and re-applied differently in the other reports a sighting the
+predicate at the same site then denies. Which dialect a trace speaks is asked
+of the TRACE (`vocab.dbg_dialect`), never of the text.
+
+Every spelling was **generated, not reasoned about**: 41 rows out of `dbg()`
+itself under node v24.16.0, committed as
+`typescript/test/fixtures/inspect-table.json` and regenerated by
+`gen-inspect-table.mjs`. What a reader has to know to spell a literal:
+
+* `5.0` is written and read as **`5`** — JavaScript has one number type. This
+  is the exact opposite of the Rust dialect, where `2.0` prints `2.0`.
+* `1e21` is `1e+21`, `1e-7` keeps its sign and drops the pad, `0.000001` is
+  written out in full, and `-0` keeps its sign (`String(-0)` does not).
+* An integer of magnitude **≥ 2^53** goes through the double JavaScript
+  actually held (R34): `2**60` is written `1152921504606847000`, so a search
+  for it sights every capture of that double and reads back as the value the
+  program had.
+* Strings choose their quote the way inspect does — `'`, then `"`, then a
+  backtick — except that a **`${` in the text rules the backtick out**, so
+  `it's "x" ${y}` is written `'it\'s "x" ${y}'`.
+* node names `\n`, `\t`, `\r`, `\b` and `\f` and nothing else: every other
+  control character, DEL and the C1 block are `\xHH` in UPPERCASE hex, so a
+  vertical tab prints **`\x0B`**. U+2028 and U+00A0 are printable to node and
+  are not escaped at all.
+* `null`, `undefined`, `true` and `false` are **predicate constants** in every
+  language (plan D9): `watch --expr 'm == null'` and `flow --value null`
+  answer about a value, not about a missing name.
+* A string past inspect's own **100-character** cap is the one place
+  truncation cannot be read off the capture's `trunc` flag — inspect cut the
+  string long before the 200-byte wire cap saw the rendering, so `trunc` is
+  `false` and the only evidence is the `… N more characters` tail outside the
+  closing quote. `read_inspect` reads that tail as TRUNCATED and
+  `inspect_text` refuses to spell one (plan P7), so a prefix is never
+  compared as a value. `info`'s `truncated values:` count does not include
+  such a cut (blind spot 36).
+
+### Identity is a serial
+
+`dbg()` mints two more keys for a value of type `object` or `function`
+(`null` excluded): **`oid`**, a `WeakMap` serial minted once per object and
+never reused, and **`type`**, the constructor's name through the ladder
+`exc()` uses (`unread` when the object lies). They ride on every capture the
+recorder makes — a RETURN value at the call tier, and under a focus the args
+and the deltas — so `sensorium-ts 0.3.0` declares
+`capabilities.object_identity: true` **unconditionally**, focused or not, and
+`flow --object` needs only that capability and NOT `line` (R13).
+
+Because the identity is minted rather than observed, there is nothing to
+corroborate: the header reads *identity is a per-object serial minted once
+and never reused: every sighting is the same object*, the gap analysis does
+not run, and the footer is `continuity: exact (serial identity)`. Python's
+`oid` is an ADDRESS and keeps its hedged reading; which of the two a trace
+holds is `vocab.identity_basis`, not the number's shape. The serial counter
+is its own map and its own counter, separate from the exception `serial`
+(plan P12), so a thrown object's serial can never read as an identity in the
+other command. **Sightings are top-level captures only** — an object inside
+another's inspect text has no serial of its own (blind spot 32).
+
+### The `focus matched:` line
+
+`info` prints one line after `focus:` when the trace carries
+`focus_matched`, gated on the meta key and never on the language (R31, R32):
+
+    focus: Fog, fog.ts:Fog
+    focus matched: 2 — focus_container/fog.ts:Fog.compute, focus_container/fog.ts:Fog.render
+
+`(<n> function(s) focused by the transform)` is appended when
+`functions_focused` is present AND differs. A focused **Rust** trace carries
+`focus_matched` too and gets the same line, because every `info` line in this
+reader is gated on the key it prints and not on `meta.lang`.
 
 ## What is deliberately absent
 
