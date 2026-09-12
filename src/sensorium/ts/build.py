@@ -177,7 +177,7 @@ class Builder:
             handler(rec)
         except ConversionError:
             raise
-        except (KeyError, TypeError, IndexError) as e:
+        except (KeyError, TypeError, IndexError, AttributeError) as e:
             # A record missing a key this wire version declares is a spool
             # this converter cannot read, not a crash: named, refused, and
             # the spools beside it convert anyway.

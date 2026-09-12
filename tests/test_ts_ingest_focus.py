@@ -340,3 +340,36 @@ def test_a_string_whose_own_content_ends_that_way_is_not_counted(
     would report a clip the recorder never made."""
     trace = _with_first_delta(tmp_path, NOT_CUT)
     assert trace.meta["truncated_count"] == _base_truncated(ingested)
+
+
+def test_a_call_whose_arguments_are_not_a_map_is_refused_by_name(tmp_path):
+    """`a` is a map of name to capture, and a spool carrying something else
+    walked into `.values()` and left as a raw `AttributeError` -- a crash
+    that named neither the spool nor the record, and took the spools beside
+    it down with it. It is refused the way every other unreadable shape
+    is: by name, with the record's own kind in the sentence."""
+    spool = tmp_path / "spool"
+    copy_tree(FIXTURES / CASE, spool)
+    path = spool / SPOOL_FILE
+    lines = path.read_text().splitlines()
+    for i, raw in enumerate(lines):
+        rec = json.loads(raw)
+        if rec["e"] == "CALL" and "a" in rec:
+            rec["a"] = "n=2"
+            lines[i] = json.dumps(rec)
+            break
+    else:                                               # pragma: no cover
+        raise AssertionError("no CALL carries arguments")
+    path.write_text("\n".join(lines) + "\n")
+
+    sdir = tmp_path / "sdir"
+    result = run_cli(["ts", "ingest", str(spool)], cwd=tmp_path,
+                     sensorium_dir=sdir)
+    assert result.returncode == 2, f"{result.stdout}{result.stderr}"
+    refused = [ln for ln in result.stdout.splitlines()
+               if ln.startswith("refused: ")]
+    assert len(refused) == 1, result.stdout
+    assert f"{SPOOL_FILE}: a CALL record is not the shape wire 1 declares" \
+        in refused[0], refused[0]
+    assert "AttributeError" in refused[0], refused[0]
+    assert not list((sdir / "traces").glob("*.db"))
