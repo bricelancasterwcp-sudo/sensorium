@@ -16,7 +16,11 @@ disposition rules decline to judge. Items **28–38** are **S5 rung 4's**,
 added 2026-09-12 with the focus tier: seven shapes the per-statement record
 does not reach, three gaps the tier's readers declare rather than paper over,
 and **38**, added at the rung's final review, where the runtime's own frame
-lifetime silently drops a row the transform did mint.
+lifetime silently drops a row the transform did mint. **39** was added later
+that day by the slice that funded rung 4's debts, and is the one entry here
+whose twin is Rust's (`../rust/HONESTY-BLIND-SPOTS.md` item 32): both
+recorders unbind a NAME and not a scope, and this is where that costs a
+shadowed outer binding its answers.
 
 **One item rung 4 planned is not here, because it closed before it could be
 numbered.** The design's §6.4 named seven items 28–34 and *a falsy `if`
@@ -464,3 +468,24 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     row, and the RETURN comes after it*), `typescript/test/rt.focus.test.mjs`
     (*a statement in a finally after the return mints its row, and the RETURN
     follows it (blind spot 38 closed)*), `corpus/typescript/focus_finally_return`.
+39. **A block that SHADOWS an outer binding pops the name, so the outer one
+    stops answering.** Added 2026-09-12 with the Rust `unbound` row (design
+    §5.5, R4), which is when both recorders' shared reading was written down
+    for the first time. `declaredIn` answers about a block's OWN declarations
+    and knows nothing of what encloses it, so the row for `{ let x = 2; }`
+    inside a function already holding `let x = 1;` unbinds `x` — the NAME, not
+    the inner scope — and `watch`'s fold keys on names too. From that row on it
+    reports the outer `x` *not in scope at this site* until something writes
+    `x` again, though JavaScript's outer binding is alive and the code below
+    may read it. That is ABSENCE and never a stale value: a fold that kept
+    `x = 2` alive past the block would answer about a binding that no longer
+    exists, which is worse. Its cost is that a reader watching a shadowed
+    binding must ask at a site BEFORE the block, or after its next write.
+    *Declared by* the row itself — `frame` prints `unbound:x` at the block's
+    own line — and by `watch` tallying *not in scope* apart from *not
+    captured*. *Falsified by* `typescript/test/bindings.test.mjs`
+    (*declaredIn a block that SHADOWS an outer binding still lists the name*),
+    which asserts both halves: the outer statement writes `x`, and the block
+    unbinds the same spelling. Closing it needs a fold over SCOPES rather than
+    names, in every converter at once, and is
+    [`../docs/CARRIED-DEBT.md`](../docs/CARRIED-DEBT.md).

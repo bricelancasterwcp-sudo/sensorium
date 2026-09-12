@@ -502,6 +502,20 @@ test('declaredIn a labeled statement is delegated to the statement it labels', (
   assert.deepEqual(declared('outer: for (const v of xs) { const c = 1; }'), ['c', 'v']);
 });
 
+test('declaredIn a block that SHADOWS an outer binding still lists the name', () => {
+  // Blind spot 39: `declaredIn` answers about the block's OWN declarations and
+  // knows nothing of what encloses it, so the row for `{ let x = 2; }` inside a
+  // function that already holds `let x = 1;` unbinds `x` -- the name, not the
+  // inner scope. The reader's fold keys on names too, so after that row `watch`
+  // reports the OUTER `x` not in scope until its next write: absence, never a
+  // stale value. Both halves are asserted here, because the pair is the blind
+  // spot: the outer statement WRITES `x`, and the block UNBINDS the same
+  // spelling.
+  const src = 'let x = 1;\n{ let x = 2; }';
+  assert.deepEqual(writes(src, 0), ['x']);
+  assert.deepEqual(declared(src, 1), ['x']);
+});
+
 test('declaredIn a statement that is not block-like is empty', () => {
   assert.deepEqual(declared('const y = 1;'), []);
   assert.deepEqual(declared('foo();'), []);

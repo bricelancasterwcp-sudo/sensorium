@@ -78,6 +78,12 @@ use crate::{thread, Unit, STATE, STATE_CALL};
 
 /// `bit0` of the payload's flags byte: at least one delta did not fit and was
 /// left out, along with every delta after it.
+///
+/// The NAME kept, and the meaning widened, by the unbound names of 0.5.0: the
+/// budget is over the whole payload and the names ride after the deltas, so
+/// bit0 also covers a tag-3 block that did not fit -- one flag for "this row
+/// is a prefix of what the statement did", whichever kind of block the budget
+/// stopped on.
 pub(crate) const FLAG_DELTAS_DROPPED: u8 = 1 << 0;
 
 /// `bit0..` unchanged. The fourth delta tag: a name with no value that went out

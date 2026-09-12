@@ -64,7 +64,17 @@ Neither case guesses.
 slice-1's, unchanged: for a Rust pair the fingerprint is per task — a test, or
 a spawned thread — over CALL, RETURN, RAISE and HANDLED, and **a LINE row
 never enters the hash**, which is what lets a deeper re-run MATCH the run it
-came from at all. Tasks are compared as an order-independent multiset of
+came from at all. That holds ACROSS driver versions: an original recorded
+under `cargo-sensorium 0.5.x` and re-run one flag deeper under `0.6.0`
+compares the same fingerprints and can read MATCH, since no clause of the
+licence turns on the runtime's own hash — the driver-injected
+`--extern sensorium_rt=…` fragment inside `RUSTDOCFLAGS` is stripped from both
+sides and named on the line. What differs is what the ROWS carry: the deeper
+trace's LINE rows hold `unbound` where the original's could not, and the pair
+reports both `driver_version`s. No `refocus_*` corpus case crosses that
+boundary — each records both runs under one driver — so this reading is
+stated, not measured (design 2026-09-12 §5.6).
+Tasks are compared as an order-independent multiset of
 `(name, hash)`, so which worker of a pool served which request is not a
 difference; MATCH, DIVERGED and REFUSED keep the meanings and the exits (0 /
 1 / 3) the README's `refocus` section gives them.

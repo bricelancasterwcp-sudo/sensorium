@@ -770,3 +770,30 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     the manifest declares them; **untested by fixture**. Rewriting those
     positions is a `docs/CARRIED-DEBT.md` C item — declaring the shape is
     what this entry is.
+32. **A block that SHADOWS an outer binding pops the name.** Added 2026-09-12
+    with the `unbound` row (§5.5, R4). The fold keys on the NAME, not the
+    scope, so `{ let x = 2; }` inside a function holding `let x = 1;` pops
+    `x`: from that row on `watch` reports `x` *not in scope at this site*
+    until it is written again, though Rust's outer `x` is alive. That is
+    ABSENCE and never a stale value — a fold keeping the inner `x = 2` alive
+    past the block would answer about a binding that no longer exists — and it
+    costs the reader of a shadowed binding a site before the block, or after
+    its next write. *Declared by* the row itself: `frame` prints `unbound:x`
+    at the block's line, and `watch` tallies *not in scope* apart from *not
+    captured*. *Falsified by* `corpus/rust/focus_block_let` question 3 and
+    `golden_focus/focus_unbound_shadow.in.rs`. A fold over SCOPES would close
+    it: `docs/CARRIED-DEBT.md`.
+33. **A block-like EXPRESSION takes no completion row, so the names its `let`s
+    bound are never unbound.** Added 2026-09-12: §5.2's rule reaches
+    STATEMENTS, and the family it does not reach is `let y = { let x = 1; x
+    };`, an arm body (`_ => unsafe { let a = f(); g(a) }`), a `let y = if c {
+    let p = 1; p } else { 0 };`, and a function's TAIL block or `match`, not a
+    statement at all (2026-09-06 §3.3). The walk still probes the inner `let`,
+    so the name enters the fold as a delta; missing is the row that would take
+    it out, which `block_like_end` mints only for a statement. They fold
+    forward to the frame's end, the pre-0.5.0 reading in one shape, and no row
+    is invented. *Declared by* this entry alone: nothing refused, so no field
+    names it. *Falsified by* `golden_focus/focus_unbound_tail.{in,out}.rs`,
+    whose `tailing` mints `@N(14,n)` and no unbinding row after it; the other
+    three are **untested by fixture**. Closing it is a design question (which
+    line would the row carry?): `docs/CARRIED-DEBT.md`.
