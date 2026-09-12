@@ -420,7 +420,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     or scopes the fence to the cases it was written over. *(Added
     2026-09-12.)* *Falsifier:* `corpus/typescript/focus_catch_binding`,
     `typescript/acceptance/e6ts.py`.
-38. **A statement in a `finally` reached by the `try`'s `return` mints no
+38. ~~**A statement in a `finally` reached by the `try`'s `return` mints no
     row.** `spliceReturn` renders `return x` as `return __srt.ret(__sf,(x))`,
     and `ret` sets the frame's `open` to false before the program's own
     `finally` runs; `line` drops every row that arrives on a closed frame. So
@@ -433,6 +433,18 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     which also moves the RETURN row past those statements — is a next-slice
     design item in [`../docs/CARRIED-DEBT.md`](../docs/CARRIED-DEBT.md), so
     the falsifier named below pins the ABSENCE and a later fix must change it
-    deliberately. *(Added 2026-09-12, R42.)* *Falsifier:*
-    `typescript/test/rt.focus.test.mjs` (*a statement in a finally after the
-    return mints no row*).
+    deliberately. *(Added 2026-09-12, R42.)*~~ — **Closed 2026-09-12, S5 rung
+    4's debts** (`sensorium-ts 0.4.0`, design §4.2): a function whose own body
+    returns from inside a `try` with a `finally` is spliced with a DEFERRED
+    exit — `return x` becomes `return __srt.pend(__sf,(x))`, which stores the
+    value and leaves the frame open, and the wrapper gains
+    `finally{__srt.seal(__sf)}`, which closes it after the program's `finally`
+    has run. So the finally's statements mint their rows, the RETURN row
+    follows them, and a call the finally makes is the frame's CHILD rather
+    than its sibling. Every function WITHOUT that shape is byte-identical to
+    0.3.0's (R2), which the census pins: 0 functions in the probes, 1 in the
+    corpus, 0 in the lens. *Falsifier:*
+    `typescript/test/rt.seal.test.mjs` (*a statement of the finally mints its
+    row, and the RETURN comes after it*), `typescript/test/rt.focus.test.mjs`
+    (*a statement in a finally after the return mints its row, and the RETURN
+    follows it (blind spot 38 closed)*), `corpus/typescript/focus_finally_return`.

@@ -192,7 +192,7 @@ def test_a_value_flow_still_needs_line(tmp_path, monkeypatch, capsys):
     lived in a local between call and return is not in this trace."""
     run_id = call_tier_trace(tmp_path, monkeypatch)
     assert cli.main(["flow", run_id, "--value", "5"]) == UNSETTLED
-    assert ("REFUSED: flow needs line, which recorder sensorium-ts 0.3.0 "
+    assert ("REFUSED: flow needs line, which recorder sensorium-ts 0.4.0 "
             "declares it does not produce (capabilities.line: false); "
             "nothing was checked") in out(capsys)
 

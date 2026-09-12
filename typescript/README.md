@@ -8,7 +8,7 @@ process — the same SQLite format 4 the Python and Rust recorders write, read b
 the same `sensorium` command line. It exists for the same reason those do:
 reading logs is reading a diary, and this is watching the execution.
 
-One private npm package, **`sensorium-ts 0.3.0`** — ESM `.mjs` with JSDoc
+One private npm package, **`sensorium-ts 0.4.0`** — ESM `.mjs` with JSDoc
 types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24 (the version
 this was measured on; the driver refuses below it before spawning anything).
 Seventeen modules and a version:

@@ -674,7 +674,10 @@ a synthetic first row at each entry, the block-scoped names a block-like
 statement declared are listed `unbound` on that statement's own row, and the
 CALL of a focused function carries its arguments. Without a focus none of it
 exists, the recorder declares that, and every command that would read it
-refuses instead of answering.
+refuses instead of answering. A `return` that passes through a `finally`
+closes its frame AFTER the finally's rows, so the RETURN row follows them
+and a call the finally makes is the frame's child (0.4.0; blind spot 38
+closed).
 
 **What in the trace says it.** `capabilities.line` and `capabilities.locals`,
 which a focused run declares `true` and an unfocused one `false` —
@@ -783,4 +786,5 @@ a corpus case, a vector or an acceptance endpoint.
 | 10 | The blind-spot list — now [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) — is the whole of what this recorder cannot see, each item carried by a meta key, an `info` line or a stated absence | each item's own falsifier, 1 through 38 *(10–17 added 2026-09-09; 18–27 added 2026-09-10, when 2/3/11 were struck and 13 narrowed; 28–38 added 2026-09-12)* |
 | 11 | Under a `--focus`, one LINE row per completed statement of a focused function, `deltas` the bindings it wrote, a guard's head names as the body's first row, `unbound` on a block-like statement's own row, and the focused CALL carrying its arguments | `E12` H3 (9 of 9 rows against a locked hand count, empty diff), `E12` H1, the ten `corpus/typescript/focus_*` cases, `typescript/probes/src/focus.probe.test.ts` + `probes/check.mjs`, `typescript/test/{bindings,probe,focus}.test.mjs`, `docs/trace-format/vectors/v36-typescript-line-and-args.json` |
 | 11 | Identity is a serial minted once and never reused, on every object capture focused or not, so `flow --object` is exact and says so — and sightings are top-level captures only | `E12` H6, `corpus/typescript/object_identity`, `docs/trace-format/vectors/v37-flow-object-serial.json`, `typescript/test/rt.focus.test.mjs` |
+| 11 | A `return` that passes through a `finally` closes its frame after the finally's rows: the RETURN follows them, and a call the finally makes is the frame's child rather than its sibling | `typescript/test/rt.seal.test.mjs` (design §4.3's table, one test per row), `typescript/test/rt.focus.test.mjs`, `corpus/typescript/focus_finally_return`, `typescript/test/golden/focus-finally-return.ts`, `typescript/acceptance/census_deferred.mjs` (which functions it reaches at all) |
 | 11 | A capture's text is node's own `util.inspect` dialect, read and written over one generated table, so `watch --expr` and `flow --value` cannot disagree about a spelling | `tests/test_js_inspect.py` against `typescript/test/fixtures/inspect-table.json` (41 measured rows), `corpus/typescript/flow_value_inspect`, `docs/trace-format/vectors/v38-inspect-dialect-agreement.json` |

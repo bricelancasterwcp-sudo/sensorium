@@ -147,6 +147,9 @@ statement opens, not where it closes). `deltas` is `{name: capture}` for what
 that statement wrote and nothing else; `unbound` is present only when there
 IS such a name. Empty `deltas` is a real row and says the line ran; empty
 `deltas` WITH an `unbound` list is the ordinary shape of a loop's last pass.
+A `return` that passes through a `finally` closes its frame AFTER the
+finally's rows, so the RETURN row follows them and a call the finally makes
+is the frame's child (0.4.0; blind spot 38 closed).
 
 | statement | `deltas` |
 |---|---|

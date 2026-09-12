@@ -8,7 +8,7 @@ a conformance vector can never describe two different trace shapes, and a
 rule test never depends on Node, vitest or a transform running.
 
 The meta is `docs/trace-format/vectors/v25-exc-kind-throw-rejection.json`'s,
-moved to `sensorium-ts` 0.3.0 with `capabilities.err_flow: true` and
+moved to `sensorium-ts` 0.4.0 with `capabilities.err_flow: true` and
 `object_identity: true`: 0.2.0 was the first recorder whose BOOT declares
 the throw-flow records and 0.3.0 the first whose captures carry an identity,
 and every rule test here is about a trace that carries them. A test that
@@ -27,7 +27,7 @@ THREAD = 1               # the converter writes one thread and only one
 PRIMITIVE_TYPES = ("string", "number", "boolean", "undefined", "symbol",
                    "bigint")
 
-#: A 0.3.0 recording with no focus: `object_identity` is declared at every
+#: A 0.4.0 recording with no focus: `object_identity` is declared at every
 #: tier this recorder records at, because a capture carries its object's
 #: serial whether or not any statement was instrumented; `line` and `locals`
 #: stay false, since a run without a focus has no LINE rows to read.
@@ -53,7 +53,7 @@ TS_META = {
     "exit_status": None, "exit_status_basis": "unwitnessed",
     "main_thread_ident": 1, "fingerprint_basis": "per-task",
     "truncated_count": 0, "source_hashes": {},
-    "recorder": "sensorium-ts 0.3.0", "lang": "typescript",
+    "recorder": "sensorium-ts 0.4.0", "lang": "typescript",
     "capabilities": TS_CAPABILITIES,
     "caps": {"dbg": 200, "depth": 2, "sample": 8, "str": 100},
     "invocation": "20260101-000000-111111",

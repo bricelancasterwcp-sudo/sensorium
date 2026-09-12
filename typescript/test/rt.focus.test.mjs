@@ -250,7 +250,7 @@ test('a statement in a finally after the return mints its row, and the RETURN fo
   assert.deepEqual(linesOf(threw).map((r) => [r.l, r.d.cleanup.v]), [[7, '2']]);
 });
 
-// --- what a 0.3.0 recorder declares -----------------------------------------
+// --- what a 0.4.0 recorder declares -----------------------------------------
 
 test('the declaration says object identity always and line only under a focus', () => {
   // The child's `SENSORIUM_FOCUS` is the helper's to decide, never the shell's:
@@ -266,8 +266,8 @@ test('the declaration says object identity always and line only under a focus', 
     { err_flow: true, object_identity: true, line: true, locals: true });
 });
 
-test("the recorder's version is 0.3.0", () => {
+test("the recorder's version is 0.4.0", () => {
   // The number the focus tier ships under. `rt.test.mjs` holds the other two
   // ends of the chain: BOOT's `version`, and the package's own.
-  assert.equal(VERSION, '0.3.0');
+  assert.equal(VERSION, '0.4.0');
 });
