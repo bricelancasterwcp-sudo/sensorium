@@ -27,6 +27,11 @@
 //! * `@N(<site>[,<name>]*)` -- one focus tier LINE probe. With no names it is
 //!   the `|| []` form a statement that wrote nothing mints; each name adds one
 //!   `("<name>", ::sensorium_rt::probe_cap!(&<name>))` delta, in order.
+//! * `@B(<site>[,<name>]*;<unbound>[,<unbound>]*)` -- the LINE probe of a
+//!   BLOCK-LIKE statement that unbinds names (design §5.2): the deltas before
+//!   the `;` exactly as `@N` writes them, the names the statement's scope took
+//!   with it after it. A statement with nothing to unbind is `@N` and not this
+//!   -- which is R5, spelled in the goldens rather than promised.
 //!
 //! The three err-wrap pairs are one fragment with three `how` bytes, so they
 //! share an expansion; the marker still has to MATCH its opener, which is what
@@ -56,6 +61,27 @@ pub fn line_probe(site: u32, names: &[&str]) -> String {
     format!(
         "::sensorium_rt::line(&crate::__SENSORIUM_UNIT, {site}, || [{}]);",
         deltas.join(", ")
+    )
+}
+
+/// One LINE probe of a block-like statement that unbinds names, exactly as
+/// design §5.2 spells it. Written here a second time for the same reason
+/// [`line_probe`] is: a golden that disagrees with
+/// `lines::line_unbinding_fragment` is what says the emitted text changed.
+///
+/// The deltas are [`line_probe`]'s, byte for byte -- the two fragments differ
+/// only in the entry point they call and in the list they append, and R5 is
+/// that a statement with an EMPTY list keeps calling `line` instead.
+pub fn line_unbinding_probe(site: u32, names: &[&str], unbound: &[&str]) -> String {
+    let deltas: Vec<String> = names
+        .iter()
+        .map(|n| format!("(\"{n}\", ::sensorium_rt::probe_cap!(&{n}))"))
+        .collect();
+    let popped: Vec<String> = unbound.iter().map(|n| format!("\"{n}\"")).collect();
+    format!(
+        "::sensorium_rt::line_unbinding(&crate::__SENSORIUM_UNIT, {site}, || [{}], &[{}]);",
+        deltas.join(", "),
+        popped.join(", ")
     )
 }
 
@@ -186,6 +212,21 @@ pub fn expand(template: &str) -> String {
             let site = parse_site(parts.next().expect("@N( needs a site )"), "@N(");
             let names: Vec<&str> = parts.collect();
             out.push_str(&line_probe(site, &names));
+            rest = next;
+        } else if let Some(after) = tail.strip_prefix("@B(") {
+            let (arg, next) = split_arg(after, "@B(");
+            let (head, popped) = arg
+                .split_once(';')
+                .expect("@B( needs <site>[,<name>]*;<unbound>[,<unbound>]* )");
+            assert!(
+                !popped.is_empty(),
+                "@B( with nothing to unbind is @N( -- that is R5 )"
+            );
+            let mut parts = head.split(',');
+            let site = parse_site(parts.next().expect("@B( needs a site )"), "@B(");
+            let names: Vec<&str> = parts.collect();
+            let unbound: Vec<&str> = popped.split(',').collect();
+            out.push_str(&line_unbinding_probe(site, &names, &unbound));
             rest = next;
         } else if let Some(after) = tail.strip_prefix("@K(") {
             let (arg, next) = split_arg(after, "@K(");
@@ -539,6 +580,14 @@ pub const FOCUS_CASES: &[(&str, &str)] = &[
     ("focus_params", "Counter"),
     ("focus_skipped", "spun"),
     ("focus_try", "read_one"),
+    ("focus_unbound_block", "sums"),
+    ("focus_unbound_cfg", "conditional"),
+    ("focus_unbound_for", "total"),
+    ("focus_unbound_iflet", "first_of"),
+    ("focus_unbound_match", "sized"),
+    ("focus_unbound_nested", "nested"),
+    ("focus_unbound_shadow", "shadowed"),
+    ("focus_unbound_tail", "plain,tailing"),
     ("focus_unmatched", "nothing_here"),
 ];
 
