@@ -9,7 +9,7 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 reading logs is reading a diary, and this is watching the execution.
 
 Three crates, all `publish = false`: **`sensorium-rt 0.5.0`**,
-**`sensorium-transform 0.5.0`** and **`cargo-sensorium 0.5.3`**. All three
+**`sensorium-transform 0.5.0`** and **`cargo-sensorium 0.6.0`**. All three
 were `0.4.0` at the focus tier of 2026-09-06 (a new wire kind, LINE, and the
 `--focus` flag that mints it); on 2026-09-07 the refocus slice moved
 `sensorium-transform` alone to `0.4.1` for the brace-delimited-macro-tail
@@ -46,7 +46,13 @@ and the `let`s of its DIRECT blocks. Never a nested block-like statement's
 probe ever bound them), and never a `let` a `cfg` may take out of the build.
 A statement with nothing to unbind splices the `line` fragment it always
 spliced, so an instrumented build without a block is byte for byte what
-`0.4.4` produced.
+`0.4.4` produced. `cargo-sensorium` moved with them, to **`0.6.0`**, as the
+side that READS that wire: it takes tag 3 as a name with no value and writes
+the names on the row under `unbound` — the key the trace format already had
+for Python's `del` and for a TypeScript block — so `frame` prints `unbound:x`
+and `watch` pops the name on a Rust trace through readers that needed no
+change. A record naming one binding as both a delta and an unbound name is
+refused, not read: a statement cannot write what it unbinds.
 Before that all three were `0.3.0` at the err-flow rung of 2026-09-05
 (wire v3: RAISE/HANDLED records, a typed `err` RETURN, and the `err_flow`
 capability); later that day the borrow repair moved `sensorium-transform` and

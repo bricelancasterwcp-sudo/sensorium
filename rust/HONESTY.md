@@ -1,8 +1,9 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.5.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.5.3` —
+`sensorium-rt 0.5.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.6.0` —
 v1, the call tier, with err flow and the focus tier.
-(~~`sensorium-rt 0.4.1`, `sensorium-transform 0.4.4`~~, before them
+(~~`sensorium-rt 0.4.1`, `sensorium-transform 0.4.4`,
+`cargo-sensorium 0.5.3`~~, before them
 ~~`sensorium-rt 0.4.0`, `sensorium-transform 0.4.3`,
 `cargo-sensorium 0.5.2`~~, before them
 ~~`sensorium-transform 0.4.2`, `cargo-sensorium 0.5.1`~~, before them
@@ -39,9 +40,15 @@ are deleted, taking `sensorium-rt` to `0.4.1`, `sensorium-transform` to
 `0.4.4` and `cargo-sensorium` to `0.5.3`. That is the FIRST move
 `sensorium-rt` has made since `0.4.0`, and it is not a change to what the
 runtime records: no wire kind, no record shape, no capability. What it does
-change is the identity the runtime declares — a trace this runtime writes says
+change is the identity the runtime declares — a trace that runtime wrote said
 `recorder: sensorium-rt 0.4.1`, and the three corpus cases that pin that
-sentence byte for byte were re-pinned with it.
+sentence byte for byte were re-pinned with it, and again on 2026-09-12.
+On **2026-09-12** the rung-4-debts-funded slice moved all three again, and that
+time the wire DID move: `sensorium-rt 0.5.0` writes a fourth LINE delta tag,
+`3` — a name with no value, whose scope ended on that row —
+`sensorium-transform 0.5.0` decides which names a block-like statement's row
+carries, and `cargo-sensorium 0.6.0` reads the tag and writes them on the row
+as `unbound`. §12 is what that row may mean.
 `HONESTY.md` was
 not versioned per-crate before 2026-09-03, so no edition older than that is
 struck. **Deduped 2026-09-08**: `cargo-sensorium 0.4.0` stood struck **twice**
