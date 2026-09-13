@@ -1437,6 +1437,17 @@
     }
   },
   "reported": {
+    "adjudicated": {
+      "E6TSp_original": {
+        "value": 0,
+        "n": 1,
+        "dropped": [],
+        "verdict": "STOP",
+        "rule": "`e6tsppp.py` over every TypeScript case with an `exceptions` question: every row matches `e6ts.PRE_REGISTERED`, `focus_catch_binding` included at **0** SWALLOWED, and the swallow set is non-empty. (\u00a71.7's first clause, quoted; the STOP is on its `focus_catch_binding` at 0.)",
+        "basis": "adjudicated in the record's \u00a73.4/\u00a74.4 from the E6TSp cell's focus_catch_binding row (swallowed_lines 1, tally_swallowed 1) against the pre-registered 0; not an instrument value",
+        "added": "after assembly, by hand, 2026-09-12 (ruling P17)"
+      }
+    },
     "fences": {
       "E-legacy": {
         "value": 1,
@@ -1814,6 +1825,8 @@
       "why": []
     }
   },
+  "word": "DONE-WITH-STOP",
+  "word_added": "after assembly, by hand, 2026-09-12 (ruling P17). Six of seven gated endpoints PASS; E6TSp_original STOPs -- see reported.adjudicated and the record's 3.4/4.4.",
   "recorded_by": {
     "recorder": "sensorium 0.12.0 / sensorium-ts 0.4.0",
     "commit": "d9e843d45fe8f7d0049637b059a2eedeb2c1fc28"

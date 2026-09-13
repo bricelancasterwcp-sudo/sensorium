@@ -609,13 +609,28 @@ exceptions**, each of which says so again where it is used:
 * the probes' `12 spools, 146 checks, 0 failures` is the checker's JSON at the
   end of `<results>/logs/npm-probes.log`, likewise not committed. The cell
   holds the exit status.
-* **E6-TS′ has no cell in the results file at all**, and that is a decision
-  rather than an omission: §4.4 gives it in full, adjudicated from the SAME
-  evidence `E6TSp` is built from. `assemble_s5debts.py` filters `gated` through
-  its own `ORDER` list and builds `reported` from a fixed set of keys, so a
-  cell added for E6-TS′ would have been silently DROPPED rather than refused —
-  and a reading that disappears from the file it was added to is worse than one
-  the record names in prose and the reader can check for themselves.
+* **E6-TS′'s cell is not the assembler's; it was added to the results file BY
+  HAND after assembly** (controller ruling P17), and it is labelled as such in
+  the file itself. `assemble_s5debts.py` filters `gated` through its own
+  `ORDER` list and builds `reported` from a fixed set of keys, so a cell added
+  for E6-TS′ through the assembler would have been silently DROPPED rather
+  than refused, and the assembler is not edited after a number is read — that
+  seam is §5 item 8. But a reader of `…-debts.results.json` ALONE would then
+  have met seven gated cells every one of which reads `value == n`, no
+  adjudicated reading, and no word for the slice, and would have had no way to
+  see the STOP this record's own first paragraph opens with. So the file was
+  written into by hand, and every key added carries the stamp `after assembly,
+  by hand, 2026-09-12 (ruling P17)`: `reported.adjudicated.E6TSp_original` —
+  `value 0, n 1, verdict "STOP"`, with §1.7's first clause quoted as its
+  `rule`, a `basis` that names the `E6TSp` cell's `focus_catch_binding` row
+  (`swallowed_lines 1`, `tally_swallowed 1`) it was adjudicated from, and its
+  own `added` — and the top-level `word: "DONE-WITH-STOP"` beside
+  `recorded_by`, whose stamp is its sibling `word_added` because the word
+  itself is the bare string a reader should be able to read straight off the
+  file. **None of it is an instrument value**, and none of it touches one:
+  `gated`, `verification` and `recorded_by` are byte-identical to what the
+  assembler wrote, and the whole edit is additive. §3.4 and §4.4 remain where
+  the adjudication is made and reasoned; the file now points at them.
 
 Every cell is `{value, n, lens, dropped}` plus `recorder` / `recorder_rev` /
 `recorder_basis`. The recorder is **`sensorium 0.12.0 / sensorium-ts 0.4.0` on
@@ -1265,13 +1280,23 @@ nothing was re-run.
    would have read over a set that had lost members. §3.3 says exactly how the
    input was keyed instead. The reporter is unchanged; the shape's corner is
    the finding.
-8. **The results file cannot carry a cell nobody wrote an instrument for.**
+8. **The ASSEMBLER cannot carry a cell nobody wrote an instrument for, so a
+   hand-adjudicated reading had to be written into its output by hand.**
    `assemble_s5debts.py` filters `gated` through a fixed `ORDER` and builds
-   `reported` from a fixed set, so E6-TS′'s hand adjudication has no home in
-   `…-debts.results.json` and lives in §3.4 and §4.4 instead. An added key
-   would have been dropped silently rather than refused, which is the worse
-   failure; the assembler is not edited after a number, and the record says
-   where the reading is.
+   `reported` from a fixed set, so an added E6-TS′ key would have been dropped
+   SILENTLY rather than refused — the worse of the two failures, and the reason
+   the assembler was not edited after a number. The cost is that the file it
+   wrote could not, on its own, show the one endpoint that STOPped: seven gated
+   cells all reading `value == n`, nothing adjudicated, and no word for the
+   slice. Ruling P17 closed that by hand — `reported.adjudicated.
+   E6TSp_original` and a top-level `word`, both stamped `added … by hand …
+   (ruling P17)`, both additive, neither an instrument value (§3's third
+   exception). **The seam is real and stays open**: an assembler whose schema
+   has no representation for "a reading a human made from an instrument's
+   evidence" forces either a silent drop or a hand edit, and a later slice
+   should give it one — a declared `adjudicated` section, written from a file
+   the operator hands in like every other input, so that the provenance of a
+   hand reading is checked by the same machinery as the rest.
 
 **Carried debt for the next slice**, none of it measured here: blind spot 33's
 three untested shapes (the value-block family); whether `--focus` should offer
