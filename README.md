@@ -791,9 +791,6 @@ substrates, MCP wrapper. See
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Copyright © 2026 Brice Lancaster.
-
-The Python recorder has no runtime dependencies and the Rust runtime is
-linked into every instrumented build, so the licence is deliberately
-permissive: nothing you trace, and nothing you build around it, inherits an
-obligation from it.
+Proprietary — all rights reserved; see [LICENSE](LICENSE). Copyright © 2026
+Brice Lancaster. Versions through 0.14.0 were published under MIT; that grant
+stands for copies obtained under it and does not extend to later versions.
