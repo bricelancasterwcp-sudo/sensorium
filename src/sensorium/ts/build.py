@@ -40,10 +40,18 @@ from sensorium.ts.spool import Spool, SpoolError
 #: runtime's statement to make, not a fact this converter can assert on its
 #: own authority. A spool whose BOOT carries no such map declares the
 #: constant alone -- `err_flow: false` included.
+#:
+#: `refocus` is true for every trace this converter writes (design R10):
+#: the driver can be re-run, the record beside the spools says with what,
+#: and the conversion carries it. Whether one PARTICULAR trace can be
+#: refocused -- this command, this root, this world -- is a refusal the
+#: READER raises with its own sentence, never a capability: a false one
+#: here would refuse the whole command before any of those refusals got to
+#: name the reason the caller could act on.
 CAPABILITIES = {
     "line": False, "locals": False, "return_value": True, "tasks": True,
     "threads": False, "children": False, "stdin": False, "output": False,
-    "object_identity": False, "refocus": False, "err_flow": False,
+    "object_identity": False, "refocus": True, "err_flow": False,
 }
 
 #: The capture caps in force in the runtime (`typescript/src/dbg.mjs`).
@@ -518,6 +526,21 @@ class Builder:
         # directory, and a reader on another box cannot re-anchor any of
         # them without it. Unconditional: the driver always knew it.
         meta["root"] = self.inv.root
+        # Design section 2.2, and a different fact from either of its
+        # neighbours: `cwd` is the CONTAINER's, which for a vitest worker is
+        # wherever the pool started it, and `root` is the PLAN's. The
+        # harness command's relative arguments -- `vitest run src/fog` --
+        # are relative to neither; they are relative to where the person
+        # typed the command, which is what a re-run has to reproduce.
+        # Unconditional: the driver always knew it, and has always written
+        # it into the record as `cwd`.
+        meta["harness_cwd"] = self.inv.cwd
+        if self.inv.refocus_of:
+            # Written only where `refocus` launched this run. An absent key
+            # is a command a person typed, which is what `info` and `runs`
+            # both branch on; `refocus_of: null` would be a re-run of
+            # nothing.
+            meta["refocus_of"] = self.inv.refocus_of
         if self.inv.focus:
             # Both, because they answer different questions. `focus` is what
             # was TYPED, which is what its author recognises; `focus_matched`

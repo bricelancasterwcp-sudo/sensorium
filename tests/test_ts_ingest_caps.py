@@ -23,7 +23,7 @@ from tests.ts_spools import FIXTURES, copy_tree, only_trace
 CONSTANT = {
     "line": False, "locals": False, "return_value": True, "tasks": True,
     "threads": False, "children": False, "stdin": False, "output": False,
-    "object_identity": False, "refocus": False, "err_flow": False,
+    "object_identity": False, "refocus": True, "err_flow": False,
 }
 
 CASE = "async-chain"

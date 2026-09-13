@@ -1,0 +1,106 @@
+{
+  "id": "v41-typescript-refocus-link",
+  "asserts": "A TypeScript recording carries the two facts a re-run is made of, and neither is a fact any other key already held (design §2.2): `refocus_of` is the run this one re-runs one flag deeper, written by the driver's `--refocus-of` before the harness was spawned, and `harness_cwd` is the directory the command was TYPED in -- a third directory beside the container's `cwd`, which for a vitest worker is wherever the pool started it, and the plan's `root`, because the harness command's relative arguments (`vitest run src/fail.test.ts`) are relative to neither of those and a re-run has to reproduce the one they ARE relative to. So `info` prints `harness cwd:` on the line under the harness line. The re-run's own report rides the generic block the Python and Rust recorders already write -- the verdict never travels alone, the licence rides with the verdict, and the checks that could not run are named rather than left to be inferred -- and `refocus_siblings` is stamped on the PAIR alone (A9), printed as `siblings in the re-run: 3 (not compared; UNVERIFIED)` because a vitest invocation's other containers were re-run beside this one and nothing compared them; `runs` flags the same member `refocus-of:<id>` and `verdict:MATCH(granted:1,see-info)` through that same generic path, because a TypeScript re-run is a re-run and not a fourth kind of thing.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["/usr/bin/node", "/w/app/node_modules/vitest/dist/workers/forks.js"],
+    "cwd": "/w/app",
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": null,
+    "exit_status_basis": "unwitnessed",
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {"src/fail.test.ts": "eeeeeeeeeeeeeeee"},
+    "recorder": "sensorium-ts 0.4.0",
+    "lang": "typescript",
+    "capabilities": {"line": false, "locals": false, "return_value": true,
+                     "tasks": true, "threads": false, "children": false,
+                     "stdin": false, "output": false,
+                     "object_identity": true, "refocus": true,
+                     "err_flow": true},
+    "caps": {"dbg": 200, "depth": 2, "sample": 8, "str": 100},
+    "invocation": "20260101-000000-111111",
+    "harness": "vitest",
+    "harness_command": ["npx", "vitest", "run", "src/fail.test.ts"],
+    "harness_args": ["run", "src/fail.test.ts"],
+    "harness_cwd": "/w",
+    "harness_exit": {"status": 1, "signal": null, "basis": "waited"},
+    "refocus_of": "20260101-000000-orig01",
+    "refocus_verdict": "MATCH",
+    "refocus_licence": "granted",
+    "refocus_licence_verified": [
+      "identical call shape across 1 compared fingerprint(s), holding 2 causal event(s) outside any test"],
+    "refocus_licence_unverifiable": [
+      "output: unverifiable (not recorded)",
+      "children: unverifiable (not witnessed)",
+      "threads: unverifiable (not witnessed)"],
+    "refocus_siblings": 3,
+    "driver_version": "0.14.0",
+    "node": "v24.16.0",
+    "vitest": "4.1.9",
+    "environment": "node",
+    "wire": 1,
+    "pid": 4246,
+    "ppid": 4241,
+    "thread_id_os": 3,
+    "is_main_thread": false,
+    "test_file": "src/fail.test.ts",
+    "exit_self_reported": {"code": 1, "signal": null},
+    "tests_seen": 1,
+    "task_name_basis": "vitest",
+    "task_name_conflicts": 0,
+    "files_transformed": 2,
+    "transform_excluded": {},
+    "unhandled_rejections": [],
+    "throw_flow_outside_frames": 0,
+    "incomplete": false
+  },
+  "codes": [["/w/app/src/fail.test.ts", "main", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}, "unread": ["locals"]}, "task": 1},
+    {"ts": 2000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null,
+     "payload": {"outcome": "ok", "value": {"k": "dbg", "v": "undefined"}},
+     "task": 1}
+  ],
+  "tasks": [[1, "fail > asserts a mask", 1]],
+  "threads_with_rows": [1],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "info-prints-the-typed-in-directory-and-the-re-run-s-own-report",
+      "ask": "Where was this harness command typed, which run does this recording re-run, and what did the comparison of the two actually cover?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "harness: npx vitest run src/fail.test.ts  exit: 1 (waited)",
+        "harness cwd: /w",
+        "refocus-of: 20260101-000000-orig01  verdict: MATCH  licence: granted",
+        "licence verified: identical call shape across 1 compared fingerprint(s), holding 2 causal event(s) outside any test",
+        "licence unverifiable: output (not recorded), children (not witnessed), threads (not witnessed)",
+        "siblings in the re-run: 3 (not compared; UNVERIFIED)"],
+      "expect_absent": [
+        "licence granted, but this trace does not record WHAT it was granted on",
+        "cargo", "asyncio"]
+    },
+    {
+      "id": "runs-flags-the-member-as-a-re-run-with-its-verdict-and-licence",
+      "ask": "Does the listing say this trace is a re-run, of what, with which verdict, and over how many licensed points?",
+      "command": ["runs"],
+      "expect_exit": 0,
+      "expect_line": [
+        ["refocus-of:20260101-000000-orig01",
+         "verdict:MATCH(granted:1,see-info)"]],
+      "expect_absent": ["points-not-recorded", "verdict:UNVERIFIED", "cargo"]
+    }
+  ]
+}

@@ -90,6 +90,11 @@ def _harness_line(m: dict) -> list[str]:
     Shared with `runs`' invocation header by rule and not by call: the two
     print the same fact in two different layouts, and this is the sentence
     both are checked against (`v23`, `v28`).
+
+    `harness cwd` comes second and only where the key is present, because it
+    is the directory THAT command's relative arguments were relative to --
+    where the person was standing, which is neither the container's `cwd`
+    nor the plan's `root`, and which is what a re-run has to reproduce.
     """
     typed = m.get("harness_command")
     if typed:
@@ -98,7 +103,10 @@ def _harness_line(m: dict) -> list[str]:
         cmd = " ".join([m["harness"], *(m.get("harness_args") or [])]).rstrip()
     else:
         return []
-    return [f"harness: {cmd}{_harness_ending(m)}"]
+    lines = [f"harness: {cmd}{_harness_ending(m)}"]
+    if m.get("harness_cwd"):
+        lines.append(f"harness cwd: {m['harness_cwd']}")
+    return lines
 
 
 def _harness_ending(m: dict) -> str:

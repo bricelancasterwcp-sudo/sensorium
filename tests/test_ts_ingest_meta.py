@@ -36,7 +36,7 @@ def test_the_declaration_is_this_recorders_own(ingested):
     assert meta["capabilities"] == {
         "line": False, "locals": False, "return_value": True, "tasks": True,
         "threads": False, "children": False, "stdin": False, "output": False,
-        "object_identity": False, "refocus": False, "err_flow": False}
+        "object_identity": False, "refocus": True, "err_flow": False}
     assert meta["caps"] == {"dbg": 200, "depth": 2, "sample": 8, "str": 100}
     assert meta["wire"] == 1
     assert meta["driver_version"] == "0.1.0"
@@ -287,13 +287,17 @@ def test_invocation_round_trips_through_json():
     assert inv.root == "/w/probes"
     # This record was written before the focus keys existed, which is what
     # their default is for: absence reads back as no focus, and the trip out
-    # adds the two empty lists, the resolver's absent cost, and nothing else.
+    # adds the two empty lists, the resolver's absent cost, the absent
+    # re-run link, and nothing else.
     assert inv.focus == [] and inv.focus_matched == []
     # `None`, not `0.0`: this record's run resolved no focus, so there is no
     # cost to state. A zero would say the resolver ran and took no time.
     assert inv.resolver_wall_s is None
+    # `None` for the same reason: nobody re-ran this, and the converter
+    # writes no `refocus_of` key at all for it.
+    assert inv.refocus_of is None
     assert inv.to_json() == {**data, "focus": [], "focus_matched": [],
-                             "resolver_wall_s": None}
+                             "resolver_wall_s": None, "refocus_of": None}
 
 
 def _without_counter(spool: Path, harness: str) -> None:
