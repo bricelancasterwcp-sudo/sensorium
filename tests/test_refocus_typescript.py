@@ -24,7 +24,8 @@ from tests.refocus_ts_fixtures import (ORIG, ORIG_ENV, OTHER,
                                        OTHER_ORIGINAL, PAIR, SIBLING, STALE,
                                        _drive, _drop_meta, _never,
                                        _read_meta, args, original,
-                                       other_program, refuse, two_test_files)
+                                       other_program, refuse, task_files,
+                                       two_test_files)
 from tests.ts_traces import TS_CAPABILITIES
 
 
@@ -274,6 +275,24 @@ def test_test_files_are_counted_from_the_meta_key_when_it_is_there(
     assert f"run {run} ran 3 test files in one container" in sentence
 
 
+def test_the_count_is_the_larger_of_what_was_declared_and_what_ran(
+        tmp_path, monkeypatch):
+    """Ruling P11: the two readings are an OR, not an XOR. A converter that
+    reports two file starts over a container whose tests rooted in THREE
+    test files has under-reported, and the count it wrote must not be able
+    to mask what the frames plainly show -- so the refusal names the number
+    the evidence that saw more saw."""
+    run, _ = task_files(
+        tmp_path, monkeypatch,
+        files=("src/a.test.ts", "src/b.test.ts", "src/c.test.ts"),
+        test_files=["src/a.test.ts", "src/b.test.ts"])
+    trace = _trace(run)
+    assert refocus_typescript.test_files_run(trace) == [
+        "src/a.test.ts", "src/b.test.ts", "src/c.test.ts"]
+    sentence = refocus_typescript.refusal(trace.meta, args(run), trace)
+    assert f"run {run} ran 3 test files in one container" in sentence
+
+
 def test_a_test_file_outside_the_recorded_root_is_named_as_recorded(
         tmp_path, monkeypatch):
     """Root-relative where it CAN be, as recorded otherwise: a file outside
@@ -455,6 +474,28 @@ def test_find_pair_matches_an_argv_key_against_a_container_with_no_test_file(
     key = ("argv", *argv)
     assert refocus_typescript.find_pair(
         paths.traces_dir(), run, launched, key) == ([PAIR], [SIBLING])
+
+
+def test_a_reused_worker_is_never_the_pair_of_an_argv_keyed_original(
+        tmp_path, monkeypatch):
+    """Design section 2.4's second bullet: an argv-keyed original pairs with
+    a container that carries NEITHER `test_file` nor `test_files`. A reused
+    worker whose command line happens to match is not that container -- it
+    ran several files, which is the one shape refusal 7 will not let a
+    reader ask about, and pairing it here would admit it through the back
+    door of the re-run. It is a sibling: counted, and compared to nothing."""
+    run, _ = original(tmp_path, monkeypatch)
+    launched = time.time()
+    argv = ["/usr/bin/node", "node_modules/.bin/vitest"]
+    original(tmp_path, monkeypatch, run_id=PAIR, refocus_of=run,
+             start_ts=launched + 1, argv=argv,
+             test_files=["src/a.test.ts", "src/b.test.ts"])
+    _drop_meta(tmp_path, PAIR, "test_file")
+    assert refocus_typescript.pair_key(
+        {"argv": argv, "test_files": ["src/a.test.ts", "src/b.test.ts"]}) == (
+            "test_files", "src/a.test.ts", "src/b.test.ts")
+    assert refocus_typescript.find_pair(
+        paths.traces_dir(), run, launched, ("argv", *argv)) == ([], [PAIR])
 
 
 def test_siblings_note_says_the_count_and_that_nothing_compared_them():

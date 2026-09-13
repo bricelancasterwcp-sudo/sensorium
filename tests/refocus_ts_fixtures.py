@@ -116,31 +116,46 @@ def other_program(tmp_path, monkeypatch, **meta):
     return _one_call(tmp_path, monkeypatch, "other", **meta)
 
 
+def task_files(tmp_path, monkeypatch, *, files, **meta):
+    """One container whose tests root in `files`, one task per file.
+
+    The shape ruling P3 reads: each test is a task and its ROOT frame is the
+    callback the harness invoked, so the file that frame's code object names
+    is the file that test was written in.
+    """
+    root = project(tmp_path)
+    paths = [str(root / rel) for rel in files]
+    meta.setdefault("harness_cwd", str(root))
+    meta.setdefault("root", str(root))
+    meta.setdefault("cwd", str(root))
+    meta.setdefault("source_hashes", ts_digest(root, "src/config.ts"))
+    meta.setdefault("env", dict(ORIG_ENV))
+    meta.setdefault("test_file", files[0])
+    meta.setdefault("tests_seen", len(files))
+    run_id = meta.pop("run_id", ORIG)
+    events, frames, tasks = [], [], []
+    for i, _path in enumerate(paths):
+        code = i + 1
+        call_ev, ret_ev = 2 * i + 1, 2 * i + 2
+        events += [call(1000 * code, code, 1, task=code),
+                   ret(1000 * code + 100, code, code, task=code)]
+        frames.append(frame(code, call_ev, ret_ev))
+        tasks.append(task(code, f"t{code} > asserts"))
+    return ts_trace(
+        tmp_path, monkeypatch,
+        codes=[[path, "asserts", 1] for path in paths],
+        frames=frames, events=events, tasks=tasks,
+        run_id=run_id, **meta), root
+
+
 def two_test_files(tmp_path, monkeypatch, *, second="src/b.test.ts", **meta):
     """A REUSED WORKER: one container, two tests, each rooted in its own
     file (ruling P3). `second` names the file the second test roots in --
     `src/helpers.ts` is the bound, a container whose second test's callbacks
     all root in a non-test helper.
     """
-    root = project(tmp_path)
-    first = str(root / "src" / "a.test.ts")
-    other = str(root / second)
-    meta.setdefault("harness_cwd", str(root))
-    meta.setdefault("root", str(root))
-    meta.setdefault("cwd", str(root))
-    meta.setdefault("source_hashes", ts_digest(root, "src/config.ts"))
-    meta.setdefault("env", dict(ORIG_ENV))
-    meta.setdefault("test_file", "src/a.test.ts")
-    meta.setdefault("tests_seen", 2)
-    run_id = meta.pop("run_id", ORIG)
-    return ts_trace(
-        tmp_path, monkeypatch,
-        codes=[[first, "asserts", 1], [other, "asserts", 1]],
-        frames=[frame(1, 1, 2), frame(2, 3, 4)],
-        events=[call(1000, 1, 1, task=1), ret(1100, 1, 1, task=1),
-                call(2000, 2, 1, task=2), ret(2100, 2, 2, task=2)],
-        tasks=[task(1, "a > asserts"), task(2, "b > asserts")],
-        run_id=run_id, **meta), root
+    return task_files(tmp_path, monkeypatch,
+                      files=("src/a.test.ts", second), **meta)
 
 
 def refuse(capsys, run, *focus, window=None):

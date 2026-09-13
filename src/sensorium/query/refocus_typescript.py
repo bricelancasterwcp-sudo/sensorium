@@ -66,8 +66,9 @@ terminal and decide nothing.
 Linked is not the same as PAIRED, and that is this branch's own problem. A
 suite of 372 test files re-runs as 372 linked traces, of which the reader
 asked about one. `pair_key` is what picks it: the container's `test_file`
-where it has one, its whole `argv` where it does not (a `node --test`
-process, a script). The rest are SIBLINGS -- counted on the pair line and
+where it has one, its whole `argv` where it ran no test file at all (a
+`node --test` process, a script), and a key of its own -- matching nothing
+-- for a reused worker that ran several. The rest are SIBLINGS -- counted on the pair line and
 stamped as a count, never compared, and `runs` lists them under the new
 invocation with no verdict, which is exactly what they have. A count rather
 than a list of ids because the invocation id already names them and 371 ids
@@ -247,13 +248,16 @@ def refusal(meta: dict, args, trace: Trace) -> str | None:
     # reported.
     if root and not os.path.isdir(root):
         return f"project root {root} no longer exists; nothing was re-run"
-    # The converter's own report where it made one, the trace's frames
-    # otherwise -- never both: a converter that lists the file starts has
-    # seen every one of them, including files whose tests rooted in a
-    # helper, and second-guessing it with a narrower derivation would
-    # report the smaller number as the fact.
-    declared = meta.get("test_files")
-    n = len(declared) if declared else len(test_files_run(trace))
+    # BOTH readings, and the LARGER of them (ruling P11): the converter's
+    # own report where it made one, the trace's own task roots always. A
+    # converter that lists the file starts sees files whose tests rooted in
+    # a helper, which the frames cannot -- and a converter that UNDER-
+    # reports (the vitest shape ruling P3 was written for reports one file
+    # for two) must not be able to mask what the frames plainly show.
+    # Neither reading may lower the other's count, so neither is trusted
+    # over the other; the refusal fires on the evidence that saw more.
+    declared = meta.get("test_files") or []
+    n = max(len(declared), len(test_files_run(trace)))
     if n >= 2:
         return (f"run {run} ran {n} test files in one container (a reused "
                 "worker); which container of a re-run would be its pair is "
@@ -328,20 +332,27 @@ def pair_key(meta: dict) -> tuple:
     otherwise -- a `node --test` process or a plain script carries no
     `test_file`, and its command line is what it is.
 
-    A falsy `test_file` falls through to the argv key deliberately: null or
-    empty is not a file, and `("test_file", None)` would pair two containers
-    on the strength of both failing to record one.
+    A REUSED WORKER has a key of its own, and it matches nothing: design
+    section 2.4's second bullet says an argv-keyed original pairs with a
+    candidate that "carries neither `test_file` nor `test_files` and whose
+    argv equals the original's", so a container that ran several files is
+    not that candidate however its command line reads. Falling through to
+    the argv key instead would pair a no-test-file original with a container
+    running two files -- the very shape refusal 7 will not let a reader ASK
+    about, admitted through the back door of the re-run. `("test_files",
+    ...)` equals neither an original's `test_file` key nor its argv key, so
+    such a container lands among the siblings: counted, named, compared to
+    nothing.
 
-    The BOUND: a container carrying `test_files` (a reused worker) has no
-    key of its own here and reads as its argv. It cannot be the ORIGINAL of
-    a refocus -- refusal 7 stops that -- so this is only reachable as a
-    candidate, where an argv key can pair a reused worker with the container
-    the reader asked about. `test_files_run` does not run over candidates:
-    it needs a second store read of the frames per trace, and the comparator
-    reads that pair as DIVERGED (named) rather than as a false MATCH.
+    A falsy `test_file` falls through deliberately: null or empty is not a
+    file, and `("test_file", None)` would pair two containers on the
+    strength of both failing to record one. The same for an empty
+    `test_files`.
     """
     if meta.get("test_file"):
         return ("test_file", meta["test_file"])
+    if meta.get("test_files"):
+        return ("test_files", *[str(f) for f in meta["test_files"]])
     return ("argv", *[str(a) for a in (meta.get("argv") or [])])
 
 
