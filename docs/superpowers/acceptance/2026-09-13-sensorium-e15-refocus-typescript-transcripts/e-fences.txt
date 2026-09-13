@@ -1,0 +1,19 @@
+{
+  "e-legacy.json": {
+    "value": 2,
+    "n": 2,
+    "dropped": [],
+    "claims": {
+      "the fenced files show zero diff against the branch point": true,
+      "the fenced tests and the Rust key's tuple equality are green": true
+    }
+  },
+  "e-branch.json": {
+    "value": 1,
+    "n": 1,
+    "dropped": [],
+    "claims": {
+      "tests/test_acceptance_scripts.py is green": true
+    }
+  }
+}

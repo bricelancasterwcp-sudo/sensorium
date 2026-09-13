@@ -1,0 +1,34 @@
+watch 'raw != null' at loadVolumes in 20260913-064635-66a918
+  a site is one RECORDED event in a matching frame: a CALL (its arguments)
+  or a LINE (that frame's locals, folded forward and dropped again when a
+  name goes out of scope). Whatever ran between two recorded sites
+  was not checked, and code this run never recorded is not in this trace.
+sites: 268   evaluated: 134   hits: 134   not-captured: 134   errors: 0
+verdict: SATISFIED at 134 of the 134 site(s) the predicate could be evaluated at
+  but 134 of 268 recorded site(s) could NOT be evaluated, so these are not necessarily every time it held
+  HIT   e373 LINE    loadVolumes L53  raw={}   state: raw={}
+  HIT   e380 LINE    loadVolumes L53  raw={}   state: raw={}
+  HIT   e618 LINE    loadVolumes L53  raw={}   state: raw={}
+  HIT   e792 LINE    loadVolumes L53  raw={}   state: raw={}
+  HIT   e989 LINE    loadVolumes L53  raw={}   state: raw={}
+  HIT   e1211 LINE    loadVolumes L53  raw={}   state: raw={}
+  HIT   e1602 LINE    loadVolumes L53  raw={}   state: raw={}
+  HIT   e1663 LINE    loadVolumes L53  raw={}   state: raw={}
+  HIT   e2017 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+  HIT   e2083 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+  HIT   e2098 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+  HIT   e2113 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+  HIT   e2128 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+  HIT   e2143 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+  HIT   e2158 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+  HIT   e2173 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+  HIT   e2188 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+  HIT   e2203 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+  HIT   e2218 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+  HIT   e2233 LINE    loadVolumes L53  raw={ alice: 0.4 }   state: raw={ alice: 0.4 }
+... 114 more; continue with: sensorium watch 20260913-064635-66a918 --at loadVolumes --expr 'raw != null' --limit 20 --misses 5 --after e2233
+not captured at 134 of 268 site(s) -- the predicate could not be checked there:
+  raw: not in scope at this site   [134 site(s)]
+      recorded at other sites in these frames, so this is scope, not capture depth:
+      at those sites it was not bound yet, or had gone out of scope again -- a `let` or `const` is
+      unbound where the block that declared it ends

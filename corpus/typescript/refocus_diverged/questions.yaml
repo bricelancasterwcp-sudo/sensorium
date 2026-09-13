@@ -1,0 +1,38 @@
+program: vitest
+harness_args: ["run", "refocus_diverged/"]
+questions:
+  - id: is-the-rerun-the-same-execution-and-where-did-it-part
+    ask: >
+      This program decides its branch from a counter file its own first run
+      wrote, so the re-run cannot take the first run's branch. Does `refocus`
+      notice, and where did the two executions part?
+    truth: >
+      DIVERGED, exit 1, at causal step 4 -- the step the
+      `nondeterministic` case already pins for this program, reached the same
+      way: `choose` and `pick` are common to both runs and the very next
+      causal step is `left` in one and `right` in the other. Derived before
+      it was measured. Design 2026-09-13 §3.1 keeps DIVERGED's meaning and
+      its exit code (0 MATCH / 1 DIVERGED / 3 REFUSED) and keeps
+      `diff_cmd.compare` as the comparator, so the divergence is reported at
+      the first differing step of the CALL / RETURN / RAISE / HANDLED stream.
+      The `--focus choose` of this call cannot be what parted them: LINE rows
+      never enter the fingerprint (§3.1). MATCH here would be the worst
+      failure this command has -- it would licence a second execution as
+      evidence about a first -- and that is why `verdict: MATCH` is the
+      absent needle rather than an unchecked outcome.
+    why_logs_fail: >
+      Re-running with more `console.log`s is exactly what a log-based
+      workflow does, and it is precisely what silently fails here: the second
+      run is not the run you were debugging. A printed line has no notion of
+      "this output came from a different execution than the one you asked
+      about", so the second log looks like better evidence while being
+      evidence about something else. `DEBUG=*` enables no logger this program
+      has, and nothing throws, so no stack trace is produced by either run.
+      The fact under test is a comparison between two recordings, which no
+      single run's output can carry.
+    command: ["refocus", "$RUN", "--focus", "choose"]
+    expect_exit: 1
+    expect_contains:
+      - "verdict: DIVERGED"
+      - "at causal step 4:"
+    expect_absent: ["verdict: MATCH"]

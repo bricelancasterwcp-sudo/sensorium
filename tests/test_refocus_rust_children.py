@@ -186,7 +186,7 @@ def test_the_pair_line_names_the_child_run_it_excluded(tmp_path, monkeypatch,
 
 def test_the_child_run_is_stamped_into_the_pairs_trace(tmp_path, monkeypatch,
                                                        capsys):
-    """Printed AND stamped, for `_stamp_unverifiable`'s reason: a terminal
+    """Printed AND stamped, for `stamp_unverifiable`'s reason: a terminal
     scrolls, and the trace is what a later reader has."""
     _drive_with_child(tmp_path, monkeypatch)
     capsys.readouterr()

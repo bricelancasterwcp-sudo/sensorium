@@ -1,0 +1,161 @@
+program: vitest
+harness_args: ["run", "refocus_match/"]
+questions:
+  - id: does-the-rerun-under-a-deeper-focus-match-the-run-it-came-from
+    ask: >
+      This recording holds no LINE row at all, so the per-statement question
+      cannot be asked of it. `refocus` re-runs the same vitest invocation one
+      flag deeper. Is the trace that comes back the SAME execution, and what
+      is the verdict licensed to claim?
+    truth: >
+      MATCH, exit 0, with the licence GRANTED over exactly the points it
+      names. Derived before it was measured: design 2026-09-13 §3.1 keeps
+      `diff_cmd.compare` as the comparator and compares a TypeScript pair as
+      an order-independent multiset of CALL/RETURN/RAISE/HANDLED per task, so
+      the re-run's new LINE rows cannot move the fingerprint and a
+      deterministic program MATCHes. §3.2 gives the licence its shape: source
+      and environment run for real, and so does the exit check (R9 --
+      `harness_exit` on both invocations, `exit_self_reported` on both
+      containers), while `output`, `children` and `threads` are UNVERIFIABLE,
+      keyed on the recorder's own `capabilities.output: false`,
+      `capabilities.children: false` and `capabilities.threads: false`. Those
+      three are the named bug class: compared anyway they would read as three
+      empty sets AGREEING. They are printed and stamped as checks that could
+      not run, and they do NOT withhold the licence, which is why `licence:
+      WITHHELD` must be absent -- the thread gap in particular used to be a
+      CAVEAT that withheld every TypeScript licence for a check that could
+      not run (R7). The announced command is §2.3's rule spelled out:
+      `--refocus-of <original>` first and unconditional, then the ORIGINAL's
+      recorded tier (`--tier call`, never one this command asserts), then the
+      merged focus, then vitest's own argv -- so a refocus only ever captures
+      more. `siblings in the re-run: 0` is §2.4's count: this invocation ran
+      one test file, so the re-run has one container and none of them is a
+      sibling. The blind-spot line naming the whole-invocation re-run is
+      §3.4's, and it is the one only this recorder owes: R1 re-runs the
+      command as typed, not a narrowed one.
+    why_logs_fail: >
+      A `console.log` cannot be added retroactively to a run that already
+      happened, which is the whole shape of this case: the original was
+      recorded at tier call, the question arrived afterwards, and re-running
+      vitest by hand with a `console.log` in it produces a SECOND execution
+      nobody has checked against the first. `DEBUG=*` reaches a namespaced
+      channel this project never writes to, and nothing throws here, so there
+      is no stack trace either; and none of the three would say whether the
+      run that printed the value took the same path as the run that raised
+      the question.
+    command: ["refocus", "$RUN", "--focus", "fill"]
+    expect_contains:
+      - "refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence"
+      - "checks that could not run on this pair"
+      - "output: unverifiable (not recorded)"
+      - "children: unverifiable (not witnessed)"
+      - "threads: unverifiable (not witnessed)"
+      - "the whole recorded invocation was re-run; its other containers were not compared and stay UNVERIFIED"
+      - "siblings in the re-run: 0"
+    expect_line:
+      - ["refocus-of: $RUN", "--refocus-of $RUN", "--tier call", "--focus fill"]
+      - ["licence: verified against $RUN on exactly these points, and no others:"]
+    expect_absent: ["licence: WITHHELD", "sensorium run --focus"]
+    expect_exit: 0
+  - id: does-the-store-hold-the-pair-and-say-which-came-from-which
+    ask: >
+      Two traces are now in this store. Does the listing say the second is a
+      refocus of the first, and how much does it claim for it?
+    truth: >
+      Yes, and it claims a counted licence, never a bare pedigree. The link
+      is `refocus_of`, written into `invocation.json` by the driver's
+      `--refocus-of` and lifted into every member's meta by the converter
+      (design 2026-09-13 §2.1/§2.2, ruling R3: the link is durable in the
+      trace and is never parsed out of the driver's `run:` lines), so the row
+      reads `refocus-of:<original>` with `verdict:MATCH` beside it and
+      `(granted:N,see-info)` after that -- the verified points of the
+      question above, counted, with `info` named as the place they are
+      written out. Each trace also carries its own `invocation`, so the two
+      appear under two `npx vitest run` headers: the re-run is a second
+      invocation of the same command, not a second process of the first.
+    why_logs_fail: >
+      No `console.log` can state a relationship between two executions,
+      because a log line is written by one of them and knows nothing of the
+      other; two runs of one command give two identical-looking logs and
+      nothing in either says which came first or whether one was meant to
+      explain the other. `DEBUG=*` adds a module namespace to those same
+      lines, which distinguishes modules and not runs, and a stack trace
+      names frames inside one process and never crosses to a second. The fact
+      under test is not a value the program held but a durable link between
+      two recordings, together with the bounded count of what the comparison
+      actually verified.
+    command: ["runs"]
+    depends_on: does-the-rerun-under-a-deeper-focus-match-the-run-it-came-from
+    expect_line:
+      - ["refocus-of:$RUN", "verdict:MATCH(granted:"]
+    expect_count: {"invocation ": 2}
+    expect_exit: 0
+  - id: what-does-the-new-trace-declare-about-its-own-depth-and-pedigree
+    ask: >
+      A reader who did not launch the refocus opens the newest trace. Does it
+      say that it holds line-level records, which run it is a re-run of, and
+      where the harness it re-ran was standing?
+    truth: >
+      All three, from the trace itself. `line=yes locals=yes` is the
+      recorder's statement that some unit carries a LINE site, which the
+      unfocused original of this very case does not; `harness cwd:` is the
+      `harness_cwd` meta key this slice adds (design 2026-09-13 R11), and it
+      is what made the re-run possible at all -- §2.3's fourth pre-rerun
+      refusal is the trace that records no working directory to re-run from.
+      `refocus-of: $RUN  verdict: MATCH  licence: granted` is the stamp §3.1
+      writes into the NEW trace's meta through `db.set_meta`, which is what
+      makes the verdict outlive the terminal it was printed in, and
+      `siblings in the re-run: 0` is `refocus_siblings`, stamped beside it
+      for the same reason (§2.4). `last` names that trace because it is the
+      store's newest by MTIME and this case's store holds exactly two traces,
+      the second written by the refocus above -- unambiguous inside a case
+      with exactly two traces, and not a general way to name a re-run.
+    why_logs_fail: >
+      A `console.log` states a value and never the depth at which the run was
+      recorded, so it cannot tell a later reader whether an absent per-line
+      answer means the statement did not run or the recording never held
+      lines. `DEBUG=*` is a property of a logger this project does not have,
+      and a stack trace is produced for a throw that escapes -- nothing
+      throws here, so that channel never fires at all. A pedigree and a
+      working directory are facts about the recording rather than about
+      anything the program executed, and no channel a program writes to
+      carries them.
+    command: ["info", "last"]
+    depends_on: does-the-rerun-under-a-deeper-focus-match-the-run-it-came-from
+    expect_contains:
+      - "line=yes locals=yes"
+      - "harness cwd: "
+    expect_line:
+      - ["refocus-of: $RUN", "verdict: MATCH", "licence: granted"]
+      - ["siblings in the re-run: 0"]
+    expect_exit: 0
+  - id: what-was-b-when-the-statement-wrote-it-in-the-rerun
+    ask: >
+      The question that could not be asked of the original: what was the
+      local `b` at the statement that wrote it?
+    truth: >
+      2, at the `const b = a + 1;` statement -- and the loop is closed: the
+      answer comes from the re-run, and the MATCH above is what says the
+      re-run took the same path as the run that was asked about (design
+      2026-09-13 §3.1, and the Rust slice's §3.4 before it). `verdict:
+      SATISFIED` and exit 0 are `watch`'s own words; the sites the predicate
+      could not be evaluated at -- the activation's CALL row and the
+      `const a = 1;` LINE, at neither of which `b` is bound yet -- are
+      reported beside the hits rather than folded into them, because a bare
+      hit count would claim the predicate held throughout the frame. `last`
+      is again the refocused trace, unambiguous inside a case with exactly
+      two traces.
+    why_logs_fail: >
+      A `console.log(b)` after that line would print this value -- of a THIRD
+      execution, run later, by hand, after an edit, and with the line and the
+      name guessed in advance. What this case pins is that the value came out
+      of a re-run whose call shape was verified against the original, so the
+      number is about the run that raised the question. `DEBUG=*` reaches no
+      logger here and nothing throws, so no stack trace is produced either.
+    command: ["watch", "last", "--at", "fill", "--expr", "b == 2"]
+    depends_on: does-the-rerun-under-a-deeper-focus-match-the-run-it-came-from
+    expect_contains:
+      - "verdict: SATISFIED"
+    expect_line:
+      - ["HIT", "LINE", "fill L", "b=2"]
+    expect_exit: 0

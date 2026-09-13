@@ -75,24 +75,22 @@ exit 1, on the summary line and in `--json`, which is what CI's Rust corpus
 step passes: a green summary over cases nobody ran is the dishonesty this
 harness exists to refuse. `corpus/rust/README.md` is the case-by-case list.
 
-Forty-four more live under `corpus/typescript/`, recorded by the
-TypeScript recorder (forty-two through rung 4; this slice, S5 rung 4's
-debts, 2026-09-12, added the last two named below). Thirteen are rung 1's:
-six ports of the cases above, two whose pinned answer is a REFUSAL, four
-only this recorder has — `.each`
-naming, an unhandled rejection in `info`, a frame suspended at end of
-recording, and a timer callback with no traced caller — and
-`silent_swallow`, whose parse error was pinned as a REFUSAL until rung 2
-gave this recorder disposition rules and now pins the swallow it always was.
-One of the two refusals has since become an answer: `object_refused` is
-`object_identity` from S5 rung 4 on, because every trace from 0.3.0 on
-carries a per-object serial and the aliasing it plants is now decided — three
-sightings under one identity, `continuity: exact (serial identity)`, out of
-a recording that focused nothing. Its third question still pins a refusal,
-and `watch_refused` is still the whole of the other one.
-They share one vitest project and need a `node`; without one they are
-skipped BY NAME, and `--require-driver` turns such a skip into exit 1 there
-too.
+Forty-seven more live under `corpus/typescript/`, recorded by the TypeScript
+recorder (forty-two through rung 4; S5 rung 4's debts added two on 2026-09-12
+and the refocus slice three on 2026-09-13, all named below). Thirteen are rung
+1's: six ports of the cases above, two whose pinned answer is a REFUSAL, four
+only this recorder has — `.each` naming, an unhandled rejection in `info`, a
+frame suspended at end of recording, and a timer callback with no traced
+caller — and `silent_swallow`, whose parse error was pinned as a REFUSAL until
+rung 2 gave this recorder disposition rules and now pins the swallow it always
+was. One of the two refusals has since become an answer: `object_refused` is
+`object_identity` from S5 rung 4 on, because every trace from 0.3.0 on carries
+a per-object serial and the aliasing it plants is now decided — three
+sightings under one identity, `continuity: exact (serial identity)`, out of a
+recording that focused nothing. Its third question still pins a refusal, and
+`watch_refused` is still the whole of the other one. They share one vitest
+project and need a `node`; without one they are skipped BY NAME, and
+`--require-driver` turns such a skip into exit 1 there too.
 
 The other fifteen are rung 2's swallow corpus: one throw-flow shape each,
 each registering both its verdict line and its `dispositions:` tally before
@@ -145,8 +143,8 @@ raise, still one of the seven that refuse the swallow, is re-pinned the same
 way: its AMBIGUOUS block now reads `untraced catcher` by name instead of the
 catch-all rung 2 could only leave silent about.
 
-The last ten are rung 4's focus cases; two more from this debts slice join
-them below, for twelve of the forty-four recorded under `sensorium ts run
+The last ten are rung 4's focus cases; two more from the debts slice join
+them below, for twelve of the forty-seven recorded under `sensorium ts run
 --focus`. A vitest case declares that the
 way a Python case does — `record: {focus: [...]}`, one `--focus <spec>` per
 entry before the `--` — and `record` is the ONE key the two recorders share:
@@ -187,6 +185,26 @@ inspect dialect's own length cap: a 100-character string renders whole, a
 only evidence a value was cut — blind spot 36 — and a `flow --value` of the
 truncated literal sights nothing at all, exiting 1). Neither asks an
 `exceptions` question.
+
+This refocus slice (2026-09-13) adds three more, the cases the refocus loop
+itself needed to prove: `refocus_match` (a deterministic program:
+`refocus $RUN --focus fill` reads MATCH at exit 0 with the licence GRANTED
+over exactly the points it names — `output`, `children` and `threads`
+printed as the three UNVERIFIABLE checks rather than silently agreed, and
+`siblings in the re-run: 0` beside them; `runs` shows `refocus-of:$RUN`
+under a second `npx vitest run` header; `info last` prints `harness cwd:`
+and `line=yes locals=yes`, a depth the unfocused original never claims; and
+`watch last --at fill --expr b == 2` closes the loop the original alone
+could not, SATISFIED from the very re-run the MATCH above licenses),
+`refocus_diverged` (the `nondeterministic` counter-file program re-run by
+`refocus` itself: DIVERGED, exit 1, parting `at causal step 4:` — the same
+step `nondeterministic` already pins, reached the same way) and
+`refocus_refused_reused_worker` (two test files vitest schedules into ONE
+container under `--no-isolate --maxWorkers 1`: refusal 7's sentence, exit 2,
+before anything is re-run, and `runs` shows the store unchanged — pinned
+through the task-root-frame reading ruling P3 gave refusal 7, since under
+`--no-isolate` the converter records one `test_file`, singular, for the
+container that ran two).
 
 `focus_catch_binding`, one of rung 4's own ten, is the one that gained an
 `exceptions` question this slice: a new case cannot ask one against a table

@@ -223,12 +223,29 @@ trace of its own. Rule 4's own absorbing conjunct is window-scoped, so a
 handler in an EARLIER window no longer keeps a later rethrow out of
 `propagated`, and a second line, `ambiguous by reason: escaped N, untraced
 catcher N`, prints beside the tally whenever a reason count is non-zero.
-Twenty-one of `corpus/typescript/`'s **42** cases carry an `exceptions`
+Twenty-two of `corpus/typescript/`'s **47** cases carry an `exceptions`
 verdict, one shape each.
 Given an **invocation id**, one answer covers every worker: identical
 verdicts merge into one block with `[×N over M processes]` beside it. What
 the rules cannot see is [`HONESTY.md`](HONESTY.md) §4 and its blind spots
 18–27.
+
+### `refocus`
+
+`sensorium refocus <run> --focus <spec>` re-runs the **whole recorded
+invocation** one flag deeper — no harness can be asked for one container — and
+compares ONE container of it. The pair is the trace that ran the same
+`test_file`, or the same `argv` where the container ran no test file; every
+other container of the re-run is a **sibling**, re-executed and never
+compared, counted on the pair line and listed by `runs` as
+`verdict:UNVERIFIED`. So the unit of cost is the suite, per question. A
+container that ran **two** test files — a reused worker under `--no-isolate` —
+is refused at exit **2** before anything runs: which container of a re-run
+would be its pair is the harness's scheduling, not a fact. `output`,
+`children` and `threads` are UNVERIFIABLE on every TypeScript pair and never
+counted as verified, while source, the environment and the harness exit
+somebody waited for are checked for real. The whole of it is
+[`../docs/query.md`](../docs/query.md) and [`HONESTY-REFOCUS.md`](HONESTY-REFOCUS.md).
 
 ## What refuses, and why
 
@@ -242,7 +259,7 @@ these exit statuses mean.
 | `exceptions` on a trace a **0.1.x** runtime wrote | 3 | That recorder declared `capabilities.err_flow: false` and its HANDLED rows carry no `how` word for the rules to read. The refusal names the capability and the recorder; what such a trace lacks is a record, not a rule, so **re-recording** is the fix. A 0.2.0 or later recording is answered, not refused. |
 | `watch`, `flow --value`, on a run that named **no `--focus`** | 3 | `capabilities.line: false` and `locals: false` — the tier is decided at transform time, so an unfocused run produces no LINE event and no argument to check. The refusal names the recorder the TRACE carries, not the one installed, and re-recording under `--focus` is the fix. On a focused run both answer. |
 | `flow --object` on a trace a **0.2.x** runtime wrote | 3 | `capabilities.object_identity: false` — that recorder carried no identity, so a question about *that* object cannot be answered from its traces. A recording from **0.3.0** on declares `true` unconditionally, focused or not, and is answered exactly. |
-| `refocus` | 2 | `capabilities.refocus: false` — nothing was re-run, and the reader's next move is a different command. |
+| `refocus` on a trace a **0.13.0 or earlier** driver converted | 2 | `capabilities.refocus: false` — that converter declared it, and nothing was re-run. A trace THIS driver converts answers (*`refocus`* under **Ask**, above); the seven refusals it can still meet are about the RUN, not the recorder. |
 
 `frame` is **not** in that table. On an unfocused run it prints the frame it
 was asked for — the call, its arguments' stated absence, how it closed — and
@@ -282,10 +299,11 @@ thing to do instead:
 
 ## Not yet
 
-`refocus`; the browser, which needs a runtime without a filesystem; jest; a
-transform cache. Which frame *scheduled* a continuation is recorded by nothing
+The browser, which needs a runtime without a filesystem; jest; a transform
+cache. Which frame *scheduled* a continuation is recorded by nothing
 here. Argument capture and per-line state under a `--focus` **arrived in rung
-4** and are above; the `exceptions` disposition rules arrived in **rung 2** —
+4** and `refocus` in **S5's refocus slice**, both above; the `exceptions`
+disposition rules arrived in **rung 2** —
 the empty `catch` is a sink, the rethrow is a hop, the completing `finally` is
 a sink and every rejection handler is recorded — and traces written by **0.1.0
 and 0.1.1 alike stay refused**, because both declare `err_flow: false` and

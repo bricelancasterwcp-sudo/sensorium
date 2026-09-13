@@ -31,19 +31,25 @@ PRIMITIVE_TYPES = ("string", "number", "boolean", "undefined", "symbol",
 #: tier this recorder records at, because a capture carries its object's
 #: serial whether or not any statement was instrumented; `line` and `locals`
 #: stay false, since a run without a focus has no LINE rows to read.
+#: `refocus` is true because the converter writes it true on every trace
+#: (R10) -- this dict documents a recording as THIS converter leaves one,
+#: so a fixture that wants the CAPABILITY refusal spells the false one out
+#: (`{**TS_CAPABILITIES, "refocus": False}`) and says which recording it is
+#: describing.
 TS_CAPABILITIES = {
     "line": False, "locals": False, "return_value": True, "tasks": True,
     "threads": False, "children": False, "stdin": False, "output": False,
-    "object_identity": True, "refocus": False, "err_flow": True,
+    "object_identity": True, "refocus": True, "err_flow": True,
 }
 
 #: What a 0.1.x recording declared: the throw-flow rows were written and no
 #: rule read them, so the capability was false and `exceptions` refuses
 #: through it. `object_identity` goes back down with it -- no recorder
 #: before 0.3.0 put a serial on a capture, and a fixture that said otherwise
-#: would be describing a recording that never existed.
+#: would be describing a recording that never existed. `refocus` goes with
+#: them: no driver before 0.14.0 could re-run one of these at all.
 TS_CAPABILITIES_0_1 = {**TS_CAPABILITIES, "err_flow": False,
-                       "object_identity": False}
+                       "object_identity": False, "refocus": False}
 
 TS_META = {
     "trace_format": 4, "run_id": "$RUN",

@@ -248,7 +248,7 @@ def test_an_environment_with_no_fragment_reads_null_WITH_its_reason():
 # not compared: …" and read eleven of the recorder's uncompared variables
 # as keys the strip had touched. `H2.strip_clause_named` came back 0 of 2.
 
-#: The Rust branch's LAST clause (`refocus_rust._env_of`), which is what the
+#: The Rust branch's LAST clause (`refocus_world.env_of`), which is what the
 #: strip clause's names were running into.
 RECORDER_OWN = (
     "the recorder's own, also not compared: "
@@ -339,7 +339,7 @@ def test_a_strip_clause_naming_MORE_THAN_ONE_key_reads_all_of_them():
 def test_the_recorders_own_clause_STOPS_where_a_CLAUSE_stops(tail, why):
     """CARRIED-DEBT: `ENV_RECORDER_OWN` was right only while the recorder's
     own clause was LAST on the line -- its body ran to `$`. That is true by
-    construction (`refocus_rust._env_of` appends it) and was pinned by
+    construction (`refocus_world.env_of` appends it) and was pinned by
     nothing, so a clause appended after it would have been read as more of
     the recorder's variables -- the defect `ENV_STRIPPED` actually had one
     clause earlier, found by the 2026-09-08 dry run.

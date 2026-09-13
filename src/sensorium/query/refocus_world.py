@@ -24,11 +24,17 @@ import hashlib
 from pathlib import Path
 
 from sensorium.query.caps import witness_gap
-from sensorium.query.refocus_env import (SESSION_DIFFER, SESSION_SET,
-                                         differs_only_by_root, is_session_key,
-                                         relocated_clause, relocation,
-                                         strip_recorder_fragment,
+from sensorium.query.refocus_env import (HARNESS_DIFFER, HARNESS_SET,
+                                         SESSION_DIFFER, SESSION_SET,
+                                         differs_only_by_root, is_harness_key,
+                                         is_session_key, relocated_clause,
+                                         relocation, strip_recorder_fragment,
                                          stripped_clause)
+# The licence code the Rust branch used to own, moved to a shared home when
+# a third recorder needed it and split out at this file's 800-line ceiling.
+# Re-exported on the same pattern and for the same reason as the block below.
+from sensorium.query.refocus_licence import (  # noqa: F401
+    UNVERIFIABLE_KEY, env_of, relicense, stamp_unverifiable)
 # The thread bookkeeping, split out at this file's 800-line ceiling.
 # Re-exported so `refocus_world.<name>` keeps resolving: these are one
 # command's internals across its files, not separate modules with surfaces
@@ -42,7 +48,7 @@ from sensorium.store.reader import Trace
 # A check that CANNOT RUN on this pair, because the recorder declares it
 # does not produce what the check reads. Distinct from every other string in
 # this file, and deliberately so: the caveats below are findings -- a signal
-# that fired -- and these two are the absence of a signal to fire.
+# that fired -- and these three are the absence of a signal to fire.
 #
 # The bug class they exist for is the one this whole file is arranged
 # around, one step further on. `_output_difference` over two recordings that
@@ -59,9 +65,17 @@ _MIN_DIGEST = 16
 
 UNVERIFIABLE_OUTPUT = "output: unverifiable (not recorded)"
 UNVERIFIABLE_CHILDREN = "children: unverifiable (not witnessed)"
-UNVERIFIABLE = (UNVERIFIABLE_OUTPUT, UNVERIFIABLE_CHILDREN)
+#: The third, and the one a THIRD recorder brought. `sensorium-ts` declares
+#: `capabilities.threads: false` -- a vitest worker is a process, and the
+#: recorder witnesses no thread of its own -- so the bookkeeping the licence
+#: reads (`threads_started`, `live_threads`) was never written. Reported as
+#: a witness GAP until this slice, which withholds; a check that could not
+#: run is not a finding against the pair, so it says so and does not vote.
+UNVERIFIABLE_THREADS = "threads: unverifiable (not witnessed)"
+UNVERIFIABLE = (UNVERIFIABLE_OUTPUT, UNVERIFIABLE_CHILDREN,
+                UNVERIFIABLE_THREADS)
 
-#: The same two checks named for a line that has ALREADY said the word
+#: The same three checks named for a line that has ALREADY said the word
 #: "unverifiable" once -- `info`'s replay of the stamp. Each keeps its own
 #: reason; only the repeated word goes. A name this table does not know is
 #: printed exactly as it was stamped: an older reader must not rewrite the
@@ -69,6 +83,7 @@ UNVERIFIABLE = (UNVERIFIABLE_OUTPUT, UNVERIFIABLE_CHILDREN)
 _SHORT_UNVERIFIABLE = {
     UNVERIFIABLE_OUTPUT: "output (not recorded)",
     UNVERIFIABLE_CHILDREN: "children (not witnessed)",
+    UNVERIFIABLE_THREADS: "threads (not witnessed)",
 }
 
 
@@ -102,6 +117,8 @@ def unverifiable_checks(orig: Trace, new: Trace) -> list[str]:
         out.append(UNVERIFIABLE_OUTPUT)
     if any(t.declares("children") is False for t in (orig, new)):
         out.append(UNVERIFIABLE_CHILDREN)
+    if any(t.declares("threads") is False for t in (orig, new)):
+        out.append(UNVERIFIABLE_THREADS)
     return out
 
 
@@ -250,11 +267,12 @@ def _capped(names: list[str]) -> str:
     return shown + (f", +{len(names) - 8} more" if len(names) > 8 else "")
 
 
-def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str],
+def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str], list[str],
                                              list[str], list[str]]:
     """(names that differ, names that differ ONLY by the target directory,
     names the recorder's own fragment was stripped from, names that
-    identify the SESSION the re-run was launched from).
+    identify the SESSION the re-run was launched from, names that identify
+    the harness SLOT it ran in).
 
     Names only -- values are never printed, because environments carry
     secrets. Every split here is `refocus_env`'s rule and its whole reason:
@@ -265,12 +283,14 @@ def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str],
     as a change the world made is noise. Everything else stays a
     difference.
 
-    Only the FIRST list withholds. The other three are findings the line
+    Only the FIRST list withholds. The other four are findings the line
     and the fact both carry by name.
 
     Order per key: the fragment goes first, because what is compared is
     what the world put there; then equality; then the relocation rule over
-    the REMAINDERS; then session membership. A key can be stripped and
+    the REMAINDERS; then session membership, then harness membership --
+    the two sets are disjoint, so their order between themselves decides
+    nothing and is the order they were added in. A key can be stripped and
     unchanged, stripped and relocated, or stripped and changed -- the strip
     is a statement about what was removed, never a verdict. A key present
     on ONE side only is a difference, as it always was, and is then
@@ -280,7 +300,7 @@ def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str],
     """
     keys = (set(was) | set(now)) - _UNCOMPARED_ENV
     move = relocation(was, now)
-    changed, relocated, stripped, session = [], [], [], []
+    changed, relocated, stripped, session, harness = [], [], [], [], []
     for key in sorted(keys):
         before, after = was.get(key), now.get(key)
         removed = 0
@@ -302,9 +322,49 @@ def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str],
             relocated.append(key)
         elif is_session_key(key):
             session.append(key)
+        elif is_harness_key(key):
+            harness.append(key)
         else:
             changed.append(key)
-    return changed, relocated, stripped, session
+    return changed, relocated, stripped, session, harness
+
+
+def _sets_clause(session: list[str], harness: list[str]) -> tuple[str, str]:
+    """(the `outside ...` phrase, the counted clauses) for the two sets that
+    never withhold.
+
+    ONE builder, for both sets and for both callers, because the phrase and
+    the clauses are two halves of one sentence: a line that says "outside
+    session set 1" and then counts harness names, or names a set nothing
+    counted, is a line whose two halves disagree about what was exempted.
+
+    Both are "" when neither set fired, which is every Python pair and every
+    Rust one -- so every string the callers build below is byte for byte the
+    one it was before harness set 1 existed.
+
+    Each set is counted EXACTLY and its members named, the way the changed
+    names are: an exemption whose size and members a reader cannot see is a
+    silent one, and each set is versioned in the sentence so it can be dated
+    and argued with. Session first wherever both appear, in the phrase and
+    in the clauses alike -- two channels carrying the same names in two
+    orders are two sentences to keep in step.
+
+    `told` carries its own leading separator, because it is appended to a
+    sentence that has already ended: the caller that wants the clauses
+    ALONE takes the prefix back off rather than a second builder spelling
+    the same join a second way.
+    """
+    parts = []
+    if session:
+        parts.append((f"session set {SESSION_SET}",
+                      f"{len(session)}{SESSION_DIFFER}{_capped(session)}"))
+    if harness:
+        parts.append((f"harness set {HARNESS_SET}",
+                      f"{len(harness)}{HARNESS_DIFFER}{_capped(harness)}"))
+    if not parts:
+        return "", ""
+    return (" outside " + " and ".join(name for name, _c in parts),
+            "".join(f"; {c}" for _name, c in parts))
 
 
 def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
@@ -322,7 +382,7 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
                 "the environment could not be checked at all, so nothing "
                 "rules out the rerun getting different input through it",
                 None)
-    names, relocated, stripped, session = _env_diff(was, env)
+    names, relocated, stripped, session, harness = _env_diff(was, env)
     # Named on BOTH channels or on neither: the line a person reads and the
     # fact the trace keeps have to agree about which keys the check
     # explained away, or `info` replays a licence whose terminal said more.
@@ -336,40 +396,37 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
     on_fact = f"; {clause}" if clause else ""
     compared = len((set(was) | set(env)) - _UNCOMPARED_ENV)
     ignored = ", ".join(sorted(_UNCOMPARED_ENV))
-    # Session set 1 never withholds, so it is counted EXACTLY and named the
-    # way the changed names are. An exemption whose size and members a
-    # reader cannot see is a silent one, and the set is versioned in the
-    # sentence so it can be dated and argued with.
-    said = (f"{len(session)}{SESSION_DIFFER}{_capped(session)}"
-            if session else "")
-    told = f"; {said}" if said else ""
+    # Neither set withholds, so each is counted and named instead -- and the
+    # `outside ...` phrase says which of them the "unchanged" is qualified
+    # by, in the same words the count uses.
+    outside, told = _sets_clause(session, harness)
     if not names:
-        if not session:
+        if not outside:
             return (f"env: unchanged ({compared} variables compared; not "
                     f"compared: {ignored}){on_line}", None,
                     f"{compared} environment variable(s) compared and "
                     f"unchanged in the environment the rerun executed under; "
                     f"not compared: {ignored}{on_fact}")
-        return (f"env: unchanged outside session set {SESSION_SET} "
+        return (f"env: unchanged{outside} "
                 f"({compared} variables compared; not compared: {ignored}"
                 f"{told}){on_line}", None,
-                f"{compared} environment variable(s) compared and unchanged "
-                f"outside session set {SESSION_SET} in the environment the "
+                f"{compared} environment variable(s) compared and unchanged"
+                f"{outside} in the environment the "
                 f"rerun executed under; not compared: {ignored}{told}"
                 f"{on_fact}")
     shown = _capped(names)
     # The clauses are the FACT here, alone: this branch has no unchanged
     # environment to vouch for, but the keys the rules explained are a
     # finding it made and `assess` keeps them even when the licence is
-    # withheld. In the LINE's order -- session first, then the two that
-    # explained keys away -- because two channels carrying the same names in
-    # two orders are two sentences to keep in step. `None` when no rule
-    # fired, exactly as before.
+    # withheld. In the LINE's order -- the two sets first, then the two
+    # rules that explained keys away -- because two channels carrying the
+    # same names in two orders are two sentences to keep in step. `None`
+    # when no rule fired, exactly as before.
     return (f"env: CHANGED since the original run -- {len(names)} "
             f"variable(s) differ: {shown}   (names only){told}{on_line}",
             f"{len(names)} environment variable(s) differ between the two "
             f"runs ({shown}); a program that reads them got different input",
-            "; ".join(c for c in (said, clause) if c) or None)
+            "; ".join(c for c in (told[2:], clause) if c) or None)
 
 
 # -- everything else that bears on the licence -----------------------------
@@ -415,7 +472,7 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
     cannot check belongs in `_BLIND_SPOTS`, which is printed regardless.
     """
     out = []
-    # Decided once, up front: two of the checks below cannot run on this
+    # Decided once, up front: three of the checks below cannot run on this
     # pair at all, and both the branch that would have run them and the
     # branch that would have reported their absence as a finding have to
     # read the same answer.
@@ -445,6 +502,22 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
     # signals that is sound rather than "usually right".
     for label, trace in (("the original", orig), ("the rerun", new)):
         meta = trace.meta
+        # THIS side's declaration, never the pair's marker. All three
+        # clauses below are about a recorder that witnesses threads -- the
+        # gap sentence says a witness wrote no record, and the two counts
+        # read the record it wrote -- so a recorder that declares it
+        # witnesses none has nothing for any of them to be about, and
+        # saying so as a caveat would withhold the licence for the
+        # recorder's own declared scope. The marker reports that once for
+        # the pair, at the end.
+        #
+        # Read per SIDE because the pair's marker fires when EITHER side
+        # declares false: gated on that, a mixed pair would lose the
+        # WITNESSING side's `started`/`live_threads` findings -- real
+        # findings about a real record, dropped because the other trace
+        # came from another recorder.
+        if trace.declares("threads") is False:
+            continue
         if "threads_started" not in meta or "live_threads" not in meta:
             legacy = ("predates the thread bookkeeping this check reads, "
                       "so how many threads it ran cannot be established -- "
@@ -590,11 +663,23 @@ def _verified_facts(orig: Trace, new: Trace, scope: str) -> list[str]:
         f"no thread started besides the main one "
         f"{terms(new).thread_origin}, and none left running when recording "
         "stopped")
+    # Decided once and read by both capability guards in this function: two
+    # derivations of one list is two answers to "what could this pair not
+    # check".
+    unverifiable = unverifiable_checks(orig, new)
     facts = [
         f"identical call shape across {len(fps)} compared fingerprint(s), "
         f"holding {events} causal event(s){outside}",
-        thread_fact,
     ]
+    # ...and stated only where the record it rests on exists. `relicense`
+    # takes UNVERIFIABLE_THREADS out of the WITHHOLDING decision, so a pair
+    # whose recorder declares it witnesses no thread can be GRANTED -- and
+    # a granted licence asserting "no thread started besides the main one"
+    # over bookkeeping nobody wrote is exactly the bug this file's header
+    # names: a check that never ran, reported as a check that passed. The
+    # child claim below is the same rule, three facts on.
+    if UNVERIFIABLE_THREADS not in unverifiable:
+        facts.append(thread_fact)
     # Stated only when there were tasks: a run with none must not be given
     # a fact about zero of them, and the count is the rerun's rows because
     # a stream present on one side only is a divergence, never a MATCH.
@@ -619,7 +704,7 @@ def _verified_facts(orig: Trace, new: Trace, scope: str) -> list[str]:
     # it is here because "the pair cannot vouch for this" must not depend on
     # a second key agreeing.
     if (_spawn_witnessed(orig.meta) and _spawn_witnessed(new.meta)
-            and UNVERIFIABLE_CHILDREN not in unverifiable_checks(orig, new)):
+            and UNVERIFIABLE_CHILDREN not in unverifiable):
         facts.append(
             "no child process witnessed, by any mechanism sensorium watches")
     return facts

@@ -585,6 +585,15 @@ def run(args) -> int:
     if orig.lang == "rust":
         from sensorium.query import refocus_rust
         return refocus_rust.run(args, orig, orig_name, meta)
+    # The third recorder, on the same seam and for the same reason. A
+    # TypeScript recording is one CONTAINER of a harness invocation, and
+    # what its branch re-runs is the whole invocation -- so which trace of
+    # the re-run is the pair is a question neither of the other two
+    # branches has, and the seven sentences a TypeScript user meets arrive
+    # in the order design 2026-09-13 section 2.3 fixes.
+    if orig.lang == "typescript":
+        from sensorium.query import refocus_typescript
+        return refocus_typescript.run(args, orig, orig_name, meta)
 
     problem = _refusal(meta, orig)
     if problem:

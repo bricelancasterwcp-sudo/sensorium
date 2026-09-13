@@ -3,6 +3,9 @@
 The order is the design, and every step of it is there because the step
 before it can fail in a way that would otherwise leave something behind:
 
+    --refocus-of          refused before the Node check: it is about the
+                          call and nothing else, so a bad link costs no
+                          version probe and no spawn
     node --version        refused below 24 (D2) before anything is minted
     the package           refused uninstalled before anything is minted
     recognise             refused before a spool directory exists
@@ -48,6 +51,14 @@ from sensorium.ts import ingest, invocation, pkg as pkg_mod, wrapper
 SPOOL_DIR = "spool"
 
 
+class LinkError(Exception):
+    """`--refocus-of` named something this store cannot link to. A refusal
+    like every other bad call, and the FIRST of them: the value is about
+    the call and nothing else, so it is settled before the Node version,
+    the package and `recognise` -- none of which could make a bad link
+    good, and all of which cost something to ask."""
+
+
 class SpawnError(Exception):
     """The harness binary could not be started at all. `recognise` reads a
     command and does not check that the program exists -- which `vitest`
@@ -61,6 +72,10 @@ def run(args) -> int:
     command = list(getattr(args, "command", []))
     if command and command[0] == "--":
         command = command[1:]
+    try:
+        link = _refocus_link(getattr(args, "refocus_of", None))
+    except LinkError as e:
+        return _refuse(str(e))
     try:
         node = pkg_mod.check_node()
         package = pkg_mod.locate()
@@ -100,7 +115,8 @@ def run(args) -> int:
         if bad:
             return _refuse(*bad)
     try:
-        return _record(plan, package, node, cwd, args, focus, resolution)
+        return _record(plan, package, node, cwd, args, focus, resolution,
+                       link)
     except (wrapper.WrapperError, SpawnError) as e:
         return _refuse(str(e))
 
@@ -115,8 +131,39 @@ def _refuse(*messages: str) -> int:
     return ex.BAD_CALL
 
 
+def _refocus_link(value: str | None) -> str | None:
+    """The run id `--refocus-of` names, or None where it was not given.
+
+    One trailing `.db` is stripped rather than refused: the store holds
+    `<id>.db` files, so that is what tab-completion and a copied `ls` line
+    hand a person, and the id inside it is unambiguous.
+
+    Both refusals end `nothing was run.` because that is the fact the
+    caller needs: this check happens before anything is minted or spawned,
+    so a re-run refused here has left no half-recording behind to clean up.
+    The second names the STORE, not the file it looked for -- a person
+    given the directory can list it; a person given a path that does not
+    exist has been told what they already knew.
+    """
+    if value is None:
+        return None
+    run_id = value[:-3] if value.endswith(".db") else value
+    if not paths.is_valid_run_id(run_id):
+        # `../x`, `a/b`, `.`: an id flows straight into `traces_dir() /
+        # f"{id}.db"`, so one that is not a single path component would
+        # read outside the store. The value is echoed AS GIVEN, suffix and
+        # all, because that is what the caller typed and has to correct.
+        raise LinkError(f"--refocus-of {value} is not a run id; "
+                        "nothing was run.")
+    if not (paths.traces_dir() / f"{run_id}.db").is_file():
+        raise LinkError(f"--refocus-of {run_id} names no trace in "
+                        f"{paths.trace_root()}; nothing was run.")
+    return run_id
+
+
 def _record(plan, package: Path, node: str, cwd: Path, args,
-            focus: Sequence[str], resolution) -> int:
+            focus: Sequence[str], resolution,
+            link: str | None = None) -> int:
     """Everything from the mint to the conversion."""
     inv_id = paths.new_run_id()
     spool = paths.trace_root() / SPOOL_DIR / inv_id
@@ -126,7 +173,8 @@ def _record(plan, package: Path, node: str, cwd: Path, args,
               if plan.kind == "vitest" else None)
     _write_record(spool, plan, inv_id, node, package, config, focus,
                   [] if resolution is None else resolution.matched_specs,
-                  None if resolution is None else resolution.wall)
+                  None if resolution is None else resolution.wall,
+                  refocus_of=link)
 
     files: tuple = ()
     try:
@@ -176,7 +224,8 @@ def _discard(spool: Path) -> None:
 def _write_record(spool: Path, plan, inv_id: str, node: str, package: Path,
                   config: Path | None, focus: Sequence[str] = (),
                   focus_matched: Sequence[str] = (),
-                  resolver_wall_s: float | None = None) -> None:
+                  resolver_wall_s: float | None = None,
+                  refocus_of: str | None = None) -> None:
     """`invocation.json`, written BEFORE the harness is spawned.
 
     It is the only thing that can say what a spool directory came out of: a
@@ -203,7 +252,12 @@ def _write_record(spool: Path, plan, inv_id: str, node: str, package: Path,
         # What resolving them cost, so an instrument can time the resolver
         # without timing the driver around it. `None` where no focus was
         # given: the resolver did not run, and 0.0 would say it did.
-        resolver_wall_s=resolver_wall_s)
+        resolver_wall_s=resolver_wall_s,
+        # The run this one re-runs, validated before anything was minted.
+        # `None` is a command a person typed, and the converter then writes
+        # no `refocus_of` key at all: an absent key is what every reader of
+        # a trace branches on.
+        refocus_of=refocus_of)
     (spool / invocation.INVOCATION_FILE).write_text(
         json.dumps(record.to_json(), indent=2) + "\n", encoding="utf-8")
 

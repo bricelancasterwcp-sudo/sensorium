@@ -1,0 +1,23 @@
+watch 'tool == "statblock"' at AiPrepPanel in 20260913-062030-79da45
+  a site is one RECORDED event in a matching frame: a CALL (its arguments)
+  or a LINE (that frame's locals, folded forward and dropped again when a
+  name goes out of scope). Whatever ran between two recorded sites
+  was not checked, and code this run never recorded is not in this trace.
+sites: 81   evaluated: 12   hits: 10   not-captured: 69   errors: 0
+verdict: SATISFIED at 10 of the 12 site(s) the predicate could be evaluated at
+  but 69 of 81 recorded site(s) could NOT be evaluated, so these are not necessarily every time it held
+  HIT   e35 LINE    AiPrepPanel L27  tool='statblock', setTool=[Function: bound dispatchSetState]   state: tool='statblock'
+  HIT   e38 LINE    AiPrepPanel L28  Active=[Function: StatblockTool]   state: tool='statblock'
+  HIT   e436 LINE    AiPrepPanel L27  tool='statblock', setTool=[Function: bound dispatchSetState]   state: tool='statblock'
+  HIT   e439 LINE    AiPrepPanel L28  Active=[Function: StatblockTool]   state: tool='statblock'
+  HIT   e901 LINE    AiPrepPanel L27  tool='statblock', setTool=[Function: bound dispatchSetState]   state: tool='statblock'
+  HIT   e904 LINE    AiPrepPanel L28  Active=[Function: StatblockTool]   state: tool='statblock'
+  HIT   e970 LINE    AiPrepPanel L27  tool='statblock', setTool=[Function: bound dispatchSetState]   state: tool='statblock'
+  HIT   e973 LINE    AiPrepPanel L28  Active=[Function: StatblockTool]   state: tool='statblock'
+  HIT   e1033 LINE    AiPrepPanel L27  tool='statblock', setTool=[Function: bound dispatchSetState]   state: tool='statblock'
+  HIT   e1036 LINE    AiPrepPanel L28  Active=[Function: StatblockTool]   state: tool='statblock'
+not captured at 69 of 81 site(s) -- the predicate could not be checked there:
+  tool: not in scope at this site   [69 site(s)]
+      recorded at other sites in these frames, so this is scope, not capture depth:
+      at those sites it was not bound yet, or had gone out of scope again -- a `let` or `const` is
+      unbound where the block that declared it ends

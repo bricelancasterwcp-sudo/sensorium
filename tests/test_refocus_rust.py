@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from sensorium import driver as driver_mod, paths
-from sensorium.query import refocus_cmd, refocus_rust
+from sensorium.query import refocus_cmd, refocus_rust, refocus_world
 from sensorium.query.vocab import PYTHON, RUST
 from sensorium.store import db
 from sensorium.store.reader import Trace
@@ -452,7 +452,8 @@ def test_a_pair_whose_trace_records_no_environment_says_so(tmp_path,
     orig = Trace.open(paths.traces_dir() / f"{run}.db")
     new = Trace.open(paths.traces_dir() / f"{PAIR}.db")
 
-    line, caveat, fact = refocus_rust._env_of(orig.meta, new)
+    line, caveat, fact = refocus_world.env_of(
+        orig.meta, new, refocus_rust._is_recorder_key)
     assert line == ("env: unverifiable -- the re-run's trace records no "
                     "environment to compare against")
     assert "nothing rules out the two runs getting different input" in caveat
@@ -513,7 +514,8 @@ def test_the_recorders_own_variables_are_named_and_never_withhold(
     orig = Trace.open(paths.traces_dir() / f"{run}.db")
     new = Trace.open(paths.traces_dir() / f"{PAIR}.db")
 
-    line, caveat, fact = refocus_rust._env_of(orig.meta, new)
+    line, caveat, fact = refocus_world.env_of(
+        orig.meta, new, refocus_rust._is_recorder_key)
     assert caveat is None                       # nothing real differed
     assert "env: unchanged (1 variables compared" in line
     for name in sorted(mine):
@@ -533,7 +535,8 @@ def test_a_real_environment_difference_still_fires_beside_the_recorders_own(
     orig = Trace.open(paths.traces_dir() / f"{run}.db")
     new = Trace.open(paths.traces_dir() / f"{PAIR}.db")
 
-    line, caveat, fact = refocus_rust._env_of(orig.meta, new)
+    line, caveat, fact = refocus_world.env_of(
+        orig.meta, new, refocus_rust._is_recorder_key)
     assert "env: CHANGED since the original run -- 1 variable(s) differ: TZ" \
         in line
     assert "1 environment variable(s) differ between the two runs (TZ)" \

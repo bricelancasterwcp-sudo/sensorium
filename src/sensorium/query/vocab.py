@@ -410,17 +410,38 @@ TYPESCRIPT = Terms(
     # `.each` rows are renamed by the harness into names that ARE the
     # program's. There is no numbering scheme to read as "no name".
     default_name_note=None,
-    # Rung 4 gave this recorder a deeper tier, so the note no longer says
-    # there is nothing to re-run for -- it says what `refocus` still is not
-    # (a verified re-run of THIS recording) and names the command that
-    # records the deeper one.
-    no_rerun_note=("no rerun was attempted; refocus is not yet this "
-                   "recorder's -- record again with `sensorium ts run "
-                   "--focus <file>:<qualname> -- <harness command>`"),
+    # The Python and Rust shape, now that `refocus` IS this recorder's:
+    # the sentence is about THIS call, which re-ran nothing, and it names
+    # the command that would record a fresh invocation instead. Never
+    # `sensorium run --focus`, which cannot read a TypeScript trace -- the
+    # E7 needle is the fence, and `sensorium ts run --focus` is the
+    # spelling that passes it.
+    no_rerun_note=("no rerun was attempted; `sensorium ts run --focus "
+                   "<file>:<qualname> -- <harness command>` will record a "
+                   "fresh, UNVERIFIED invocation if that is what you want"),
+    # What a TypeScript `refocus` verdict says nothing about BEYOND the
+    # categorical block above it. Three of the four bound the RE-RUN
+    # MECHANISM, which is this recorder's own and no other's: a harness
+    # cannot be asked for one container, so the whole invocation re-runs
+    # and the containers that are not the pair are re-executed without ever
+    # being compared; harness set 1 is the enumerated exemption the
+    # environment check makes for the pool's slot bookkeeping, counted and
+    # named but never compared; and a container the program starts for
+    # itself is recorded as a trace of its own that nothing links to this
+    # pair. The fourth is the recorder's declared scope, as before.
+    #
+    # `arguments are not read in this version (capabilities.locals: false)`
+    # is RETIRED with the fact it stated: rung 4 gave a focused site its
+    # arguments, and a refocus always deepens the focus -- so the line had
+    # been false on every trace a refocus produces.
     refocus_blind_spots=(
         "output not recorded (capabilities.output: false)",
-        "arguments are not read in this version (capabilities.locals: "
-        "false)",
+        "the whole recorded invocation was re-run; its other containers "
+        "were not compared and stay UNVERIFIED",
+        "the harness's worker-slot variables (harness set 1) were not "
+        "compared",
+        "a worker thread or forked child of the program is its own trace, "
+        "unlinked to this pair",
     ),
     blind_spot_scope=(
         "what sensorium sees at all: TypeScript and JavaScript files under "

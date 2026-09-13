@@ -1,0 +1,2 @@
+error: cannot refocus 20260913-061847-1651fd: --window is not available for a TypeScript trace (the recorder has no per-activation gate); nothing was re-run
+no rerun was attempted; `sensorium ts run --focus <file>:<qualname> -- <harness command>` will record a fresh, UNVERIFIED invocation if that is what you want

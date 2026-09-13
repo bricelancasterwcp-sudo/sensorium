@@ -1,0 +1,472 @@
+
+ RUN  v4.1.9 <copy>
+
+ ❯ src/lib/distance/distance.vectors.test.ts (0 test)
+ ❯ src/lib/builder/emit/pf2eSheet.test.ts (0 test)
+ ❯ src/lib/aoe/aoe.vectors.test.ts (0 test)
+
+ Test Files  3 failed | 369 passed (372)
+      Tests  4051 passed (4051)
+   Start at  06:18:43
+   Duration  24.76s (transform 22.70s, setup 15.76s, import 52.09s, tests 97.29s, environment 161.18s)
+
+run: 20260913-061843-000a1f  pid: 3555489  file: src/__tests__/builderDispatch.test.tsx  events: 51051  tasks: 15
+run: 20260913-061843-952c9e  pid: 3555490  file: src/__tests__/SpellBrowser.test.tsx  events: 275010  tasks: 14
+run: 20260913-061843-ff5a32  pid: 3555491  file: src/components/sheet/SpellCastPanel.test.tsx  events: 189450  tasks: 34
+run: 20260913-061843-d6b17c  pid: 3555497  file: src/components/sheet/SheetRenderer.writeThrough.test.tsx  events: 29945  tasks: 6
+run: 20260913-061843-fbf9af  pid: 3555503  file: src/components/sheet/LevelUpFlow.test.tsx  events: 35116  tasks: 17
+run: 20260913-061843-bf761d  pid: 3555509  file: src/__tests__/srdBrowsersSystemGate.test.tsx  events: 41644  tasks: 8
+run: 20260913-061843-64b3ac  pid: 3555515  file: src/components/Dnd5eSheetBody.multiclass.test.tsx  events: 70882  tasks: 11
+run: 20260913-061843-498676  pid: 3555521  file: src/lib/map/gridDetect.test.ts  events: 2246552  tasks: 19
+run: 20260913-061843-bd4a95  pid: 3555527  file: src/__tests__/EffectEditor.test.tsx  events: 12162  tasks: 22
+run: 20260913-061843-ca0d6c  pid: 3555533  file: src/components/sheet/Pf2eSpellPanel.test.tsx  events: 49115  tasks: 53
+run: 20260913-061843-0d9e01  pid: 3555540  file: src/__tests__/compendiumPanelBuilderTypes.test.tsx  events: 15556  tasks: 11
+run: 20260913-061843-1b1243  pid: 3555548  file: src/__tests__/CharacterSheetEditor.test.tsx  events: 45506  tasks: 11
+run: 20260913-061843-65e435  pid: 3555555  file: src/__tests__/CompendiumPanel.test.tsx  events: 11912  tasks: 24
+run: 20260913-061843-df0717  pid: 3555561  file: src/__tests__/monsterBrowserSpeed.test.tsx  events: 30416  tasks: 3
+run: 20260913-061843-6fc396  pid: 3555570  file: src/components/sheet/SheetRenderer.rankControl.test.tsx  events: 44889  tasks: 2
+run: 20260913-061846-58d333  pid: 3555647  file: src/hooks/useAiAssist.test.ts  events: 1505  tasks: 12
+run: 20260913-061846-f363a9  pid: 3555697  file: src/__tests__/characterWizard.test.tsx  events: 8575  tasks: 29
+run: 20260913-061846-de1b2c  pid: 3555698  file: src/__tests__/PlayerView.test.tsx  events: 19563  tasks: 9
+run: 20260913-061846-15fd0d  pid: 3555713  file: src/__tests__/helpOverlay.test.tsx  events: 23802  tasks: 22
+run: 20260913-061847-98372e  pid: 3555721  file: src/components/pf2e/SpellCastControl.test.tsx  events: 40773  tasks: 39
+run: 20260913-061847-5e0363  pid: 3555733  file: src/components/inventory/InventoryTab.test.tsx  events: 10679  tasks: 24
+run: 20260913-061847-b79752  pid: 3555740  file: src/components/sheet/SheetRenderer.pf2eIntegration.test.tsx  events: 28115  tasks: 1
+run: 20260913-061847-1651fd  pid: 3555749  file: src/__tests__/GmCockpit.test.tsx  events: 19784  tasks: 7
+run: 20260913-061847-d1c999  pid: 3555757  file: src/__tests__/CharacterCreator.test.tsx  events: 1097  tasks: 8
+run: 20260913-061847-2acb44  pid: 3555783  file: src/__tests__/VoiceControls.test.tsx  events: 6969  tasks: 42
+run: 20260913-061848-9ee663  pid: 3555818  file: src/components/sheet/RestControls.test.tsx  events: 8547  tasks: 29
+run: 20260913-061848-0fe62e  pid: 3555826  file: src/__tests__/LobbyChangePassword.test.tsx  events: 914  tasks: 6
+run: 20260913-061848-e93b4d  pid: 3555834  file: src/__tests__/PlayerViewResponsive.test.tsx  events: 11495  tasks: 7
+run: 20260913-061848-45c87a  pid: 3555840  file: src/__tests__/LobbyDeleteAccount.test.tsx  events: 812  tasks: 6
+run: 20260913-061848-7412cc  pid: 3555843  file: src/__tests__/rulesAssistant.test.tsx  events: 3512  tasks: 8
+run: 20260913-061848-2d0d32  pid: 3555856  file: src/__tests__/AiSetupWizard.test.tsx  events: 1230  tasks: 19
+run: 20260913-061848-ffa4aa  pid: 3555865  file: src/__tests__/levelUpSuggest.test.tsx  events: 917  tasks: 5
+run: 20260913-061849-6b1419  pid: 3555873  file: src/__tests__/draftFromDescription.test.tsx  events: 3310  tasks: 5
+run: 20260913-061849-1cb9f7  pid: 3555882  file: src/__tests__/PlayersListPasswordReset.test.tsx  events: 2402  tasks: 8
+run: 20260913-061849-efc62b  pid: 3555889  file: src/__tests__/CharacterSheetEditorConversion.test.tsx  events: 22154  tasks: 6
+run: 20260913-061849-d4af93  pid: 3555902  file: src/components/map/TokenHud.test.tsx  events: 6752  tasks: 24
+run: 20260913-061849-db4731  pid: 3555910  file: src/components/sheet/AttackRow.test.tsx  events: 1974  tasks: 13
+run: 20260913-061849-bbf5c1  pid: 3555918  file: src/__tests__/Lobby.test.tsx  events: 1136  tasks: 10
+run: 20260913-061850-971593  pid: 3555925  file: src/components/sheet/SpellCastRow.test.tsx  events: 8298  tasks: 22
+run: 20260913-061850-6ae3e4  pid: 3555933  file: src/__tests__/passwordFloor.test.tsx  events: 1613  tasks: 6
+run: 20260913-061850-273242  pid: 3555942  file: src/components/pf2e/Pf2eTurnCard.test.tsx  events: 6544  tasks: 9
+run: 20260913-061850-cd6378  pid: 3555949  file: src/__tests__/CombatTrackerDeathSaves.test.tsx  events: 4203  tasks: 12
+run: 20260913-061850-182392  pid: 3555978  file: src/__tests__/TurnCard.test.tsx  events: 5588  tasks: 19
+run: 20260913-061850-bd6a52  pid: 3555990  file: src/__tests__/builderNoErrorsOnMount.test.tsx  events: 5248  tasks: 14
+run: 20260913-061850-18f3b8  pid: 3555997  file: src/__tests__/featEditor.test.tsx  events: 3202  tasks: 36
+run: 20260913-061850-e5490b  pid: 3556003  file: src/__tests__/subclassEditor.test.tsx  events: 2853  tasks: 22
+run: 20260913-061850-ae5fab  pid: 3556015  file: src/components/builder/steps/featPicksArchetypeGate.test.tsx  events: 9426  tasks: 10
+run: 20260913-061850-134712  pid: 3556023  file: src/__tests__/authModeOnLogout.test.tsx  events: 948  tasks: 2
+run: 20260913-061850-a0c9e0  pid: 3556031  file: src/__tests__/describeCharacter.test.tsx  events: 8174  tasks: 5
+run: 20260913-061850-5d6614  pid: 3556037  file: src/__tests__/AiPrepPanel.test.tsx  events: 1282  tasks: 4
+run: 20260913-061851-a081cc  pid: 3556047  file: src/components/compendium/ItemEditor.ai.test.tsx  events: 851  tasks: 4
+run: 20260913-061851-8603a5  pid: 3556078  file: src/__tests__/levelControls.test.tsx  events: 3446  tasks: 35
+run: 20260913-061851-0cc44a  pid: 3556085  file: src/__tests__/CompendiumPanel.castability.test.tsx  events: 1672  tasks: 6
+run: 20260913-061851-986b1a  pid: 3556091  file: src/__tests__/gmRunsPlayerCharacter.test.tsx  events: 2040  tasks: 12
+run: 20260913-061851-2c808a  pid: 3556100  file: src/__tests__/helpFocusReturn.test.tsx  events: 5146  tasks: 3
+run: 20260913-061851-2a0082  pid: 3556109  file: src/__tests__/classEditor.test.tsx  events: 2309  tasks: 17
+run: 20260913-061851-cb6398  pid: 3556118  file: src/__tests__/CombatTrackerPf2ePersistent.test.tsx  events: 2155  tasks: 9
+run: 20260913-061851-028e1f  pid: 3556125  file: src/__tests__/pickEntryCopy.test.tsx  events: 1637  tasks: 19
+run: 20260913-061851-9e3b7a  pid: 3556131  file: src/__tests__/explainTip.test.tsx  events: 1906  tasks: 9
+run: 20260913-061851-5eae22  pid: 3556140  file: src/__tests__/EncounterBuilderPanel.test.tsx  events: 3619  tasks: 3
+run: 20260913-061851-723055  pid: 3556150  file: src/components/Dnd5eSheetBody.hitdice.test.tsx  events: 9124  tasks: 2
+run: 20260913-061851-d72d2d  pid: 3556156  file: src/__tests__/PlayersListAccountDelete.test.tsx  events: 1778  tasks: 6
+run: 20260913-061852-11727a  pid: 3556166  file: src/__tests__/ArtPicker.test.tsx  events: 1174  tasks: 11
+run: 20260913-061852-7a8f76  pid: 3556174  file: src/__tests__/CombatTrackerPf2eEffects.test.tsx  events: 2089  tasks: 9
+run: 20260913-061852-850d4b  pid: 3556205  file: src/__tests__/SetSceneCard.test.tsx  events: 2526  tasks: 16
+run: 20260913-061852-f13819  pid: 3556213  file: src/components/sheet/featuresPanel.test.tsx  events: 6882  tasks: 20
+run: 20260913-061852-ef85b1  pid: 3556220  file: src/components/Dnd5eSheetBody.inventory.test.tsx  events: 6874  tasks: 2
+run: 20260913-061852-7a7ca3  pid: 3556222  file: src/components/pf2e/ActionPalette.test.tsx  events: 1706  tasks: 5
+run: 20260913-061852-c3beaf  pid: 3556234  file: src/__tests__/useBuilderContent.test.tsx  events: 333  tasks: 6
+run: 20260913-061852-58b6ff  pid: 3556241  file: src/__tests__/levelingSettings.test.tsx  events: 919  tasks: 9
+run: 20260913-061852-ce74de  pid: 3556248  file: src/__tests__/responsive/BottomSheetAndTabBar.test.tsx  events: 250  tasks: 7
+run: 20260913-061852-e94b7d  pid: 3556259  file: src/__tests__/PlayersList.test.tsx  events: 1328  tasks: 8
+run: 20260913-061852-9f7713  pid: 3556268  file: src/__tests__/a11y.test.tsx  events: 329  tasks: 2
+run: 20260913-061852-65fd36  pid: 3556276  file: src/__tests__/playerAoeRail.test.tsx  events: 404  tasks: 2
+run: 20260913-061852-d0ae28  pid: 3556303  file: src/__tests__/characterWizard.levelup.test.tsx  events: 308  tasks: 3
+run: 20260913-061853-a75a4c  pid: 3556310  file: src/components/sheet/ClassPickerStep.test.tsx  events: 110  tasks: 9
+run: 20260913-061853-d709c1  pid: 3556319  file: src/__tests__/TokenContextMenu.test.tsx  events: 280  tasks: 3
+run: 20260913-061853-3285ff  pid: 3556326  file: src/__tests__/dnd5eFeatOfferingPin.test.tsx  events: 2567  tasks: 7
+run: 20260913-061853-b4a826  pid: 3556335  file: src/__tests__/DeckPanel.test.tsx  events: 1116  tasks: 6
+run: 20260913-061853-e9100e  pid: 3556347  file: src/__tests__/gridTypeSetting.test.tsx  events: 1234  tasks: 16
+run: 20260913-061853-0e4e5e  pid: 3556355  file: src/__tests__/TunnelStatusCard.test.tsx  events: 586  tasks: 12
+run: 20260913-061853-a03869  pid: 3556362  file: src/__tests__/parseContentSchemaMismatch.test.tsx  events: 854  tasks: 3
+run: 20260913-061853-a45010  pid: 3556369  file: src/__tests__/responsive/PanelDrawer.test.tsx  events: 236  tasks: 6
+run: 20260913-061853-362132  pid: 3556377  file: src/__tests__/FoundryImport.test.tsx  events: 430  tasks: 5
+run: 20260913-061853-73e615  pid: 3556385  file: src/__tests__/VoiceTool.test.tsx  events: 855  tasks: 2
+run: 20260913-061853-63ddb7  pid: 3556394  file: src/components/compendium/ItemEditor.test.tsx  events: 668  tasks: 4
+run: 20260913-061853-842224  pid: 3556402  file: src/__tests__/Roll20Import.test.tsx  events: 466  tasks: 5
+run: 20260913-061853-6a0afc  pid: 3556410  file: src/__tests__/quickActionBar.test.tsx  events: 6087  tasks: 19
+run: 20260913-061854-4afa20  pid: 3556417  file: src/__tests__/TerrainPanel.test.tsx  events: 514  tasks: 5
+run: 20260913-061854-c6ac08  pid: 3556419  file: src/components/sheet/levelUpFlowPf2eFeatSlot.test.tsx  events: 3434  tasks: 1
+run: 20260913-061854-678659  pid: 3556431  file: src/components/dice/DiceTrayPanel.test.tsx  events: 346  tasks: 3
+run: 20260913-061854-de88c0  pid: 3556444  file: src/__tests__/CompendiumPanel.item.test.tsx  events: 634  tasks: 1
+run: 20260913-061854-a3055b  pid: 3556451  file: src/components/builder/steps/featPicksSkillRanks.test.tsx  events: 5408  tasks: 7
+run: 20260913-061854-868a8d  pid: 3556482  file: src/__tests__/levelHistory.test.tsx  events: 1401  tasks: 10
+run: 20260913-061854-f4abc1  pid: 3556489  file: src/__tests__/CombatTrackerPf2eEconomy.test.tsx  events: 1453  tasks: 5
+run: 20260913-061854-d5b3a3  pid: 3556498  file: src/__tests__/handoffVerbLabels.test.tsx  events: 926  tasks: 11
+run: 20260913-061854-0720bb  pid: 3556505  file: src/__tests__/combatEmptyState.test.tsx  events: 740  tasks: 7
+run: 20260913-061854-3ae4ed  pid: 3556512  file: src/components/map/GridDetectPrompt.test.tsx  events: 832  tasks: 10
+run: 20260913-061854-4c7074  pid: 3556518  file: src/__tests__/JournalPanelPermissions.test.tsx  events: 708  tasks: 3
+run: 20260913-061854-d760f6  pid: 3556527  file: src/__tests__/authResolvesUserId.test.tsx  events: 526  tasks: 1
+run: 20260913-061854-9ee031  pid: 3556537  file: src/__tests__/EffectsPanel.test.tsx  events: 644  tasks: 12
+run: 20260913-061854-2c5533  pid: 3556543  file: src/components/builder/steps/skillIncreaseStep.test.tsx  events: 86  tasks: 2
+run: 20260913-061854-fd33b9  pid: 3556552  file: src/components/builder/steps/boostsStep.levelup.test.tsx  events: 900  tasks: 9
+run: 20260913-061854-03ec2a  pid: 3556561  file: src/__tests__/featPicksStep.test.tsx  events: 1881  tasks: 5
+run: 20260913-061855-54a828  pid: 3556570  file: src/lib/distance/hexGeometry.test.ts  events: 88238  tasks: 56
+run: 20260913-061855-e74953  pid: 3556578  file: src/__tests__/dnd5eBuilderDefinition.test.tsx  events: 1122  tasks: 26
+run: 20260913-061855-df95d5  pid: 3556589  file: src/lib/pf2e/usePf2eSpells.test.ts  events: 302  tasks: 4
+run: 20260913-061855-56c545  pid: 3556597  file: src/components/builder/steps/featPicksSlot.test.tsx  events: 2992  tasks: 5
+run: 20260913-061855-7e9139  pid: 3556604  file: src/__tests__/CompendiumPanel.srdImport.test.tsx  events: 496  tasks: 3
+run: 20260913-061855-e5ef00  pid: 3556611  file: src/components/map/hexGrid.test.ts  events: 105740  tasks: 40
+run: 20260913-061855-acd807  pid: 3556622  file: src/__tests__/PdfImportPanel.test.tsx  events: 232  tasks: 2
+run: 20260913-061855-a5ee16  pid: 3556629  file: src/hooks/useActionGuard.test.tsx  events: 227  tasks: 6
+run: 20260913-061855-7b7a4b  pid: 3556636  file: src/components/map/GridCalibratePrompt.test.tsx  events: 490  tasks: 4
+run: 20260913-061855-a54f92  pid: 3556637  file: src/__tests__/measurementRuleSetting.test.tsx  events: 509  tasks: 10
+run: 20260913-061855-39c813  pid: 3556648  file: src/__tests__/GmCockpitRulesTabOrder.test.tsx  events: 1301  tasks: 2
+run: 20260913-061855-f12baf  pid: 3556655  file: src/__tests__/boostsStep.test.tsx  events: 1746  tasks: 6
+run: 20260913-061855-470ee8  pid: 3556663  file: src/__tests__/pickEntryStep.test.tsx  events: 292  tasks: 3
+run: 20260913-061855-ca64ca  pid: 3556673  file: src/__tests__/freeArchetypeSetting.test.tsx  events: 417  tasks: 8
+run: 20260913-061855-a60f38  pid: 3556682  file: src/__tests__/aiAccessSetting.test.tsx  events: 307  tasks: 7
+run: 20260913-061855-1814f7  pid: 3556692  file: src/__tests__/awardXpControl.test.tsx  events: 471  tasks: 9
+run: 20260913-061856-c69761  pid: 3556702  file: src/__tests__/combatToggleButton.test.tsx  events: 598  tasks: 6
+run: 20260913-061856-3cfb4a  pid: 3556710  file: src/components/builder/steps/asiOrFeatStep.test.tsx  events: 302  tasks: 3
+run: 20260913-061856-38d346  pid: 3556737  file: src/__tests__/AlertModal.confirm.test.tsx  events: 96  tasks: 3
+run: 20260913-061856-563abe  pid: 3556764  file: src/lib/builder/featDuplicateGuard.bridge.test.tsx  events: 2324  tasks: 10
+run: 20260913-061856-9f48fc  pid: 3556776  file: src/__tests__/ancestryEditor.test.tsx  events: 289  tasks: 3
+run: 20260913-061856-ea8b4a  pid: 3556806  file: src/__tests__/backgroundEditor.test.tsx  events: 287  tasks: 3
+run: 20260913-061856-da652f  pid: 3556814  file: src/__tests__/PlayerViewRulesTabOrder.test.tsx  events: 5184  tasks: 2
+run: 20260913-061856-faa67d  pid: 3556820  file: src/components/ConditionBadges.test.tsx  events: 330  tasks: 5
+run: 20260913-061856-e9fccb  pid: 3556828  file: src/__tests__/autoApproveNpcTurns.test.tsx  events: 1045  tasks: 14
+run: 20260913-061856-9f0446  pid: 3556834  file: src/__tests__/useMeshVoice.test.tsx  events: 5582  tasks: 21
+run: 20260913-061856-809c7d  pid: 3556842  file: src/__tests__/VideoStrip.test.tsx  events: 166  tasks: 2
+run: 20260913-061856-3cc161  pid: 3556849  file: src/__tests__/tokenElevation.test.tsx  events: 2538  tasks: 9
+run: 20260913-061856-081b08  pid: 3556857  file: src/components/CharacterSheetEditor.test.tsx  events: 6484  tasks: 3
+run: 20260913-061856-148f8e  pid: 3556864  file: src/__tests__/mapCalibrationHud.integration.test.tsx  events: 476  tasks: 3
+run: 20260913-061856-bec7b4  pid: 3556877  file: src/components/builder/steps/featPicksLevel.test.tsx  events: 264  tasks: 1
+run: 20260913-061857-c55c27  pid: 3556886  file: src/__tests__/toolPaletteAlignGrid.test.tsx  events: 827  tasks: 2
+run: 20260913-061857-f97400  pid: 3556893  file: src/__tests__/SceneNavBar.test.tsx  events: 154  tasks: 4
+run: 20260913-061857-1fc4bf  pid: 3556902  file: src/__tests__/useWebSocket.test.tsx  events: 4044  tasks: 35
+run: 20260913-061857-b9daf7  pid: 3556914  file: src/components/builder/steps/hpGainStep.test.tsx  events: 78  tasks: 6
+run: 20260913-061857-ce4814  pid: 3556920  file: src/__tests__/sceneDarknessControl.test.tsx  events: 166  tasks: 3
+run: 20260913-061857-55e503  pid: 3556930  file: src/lib/builder/archetypeCasting.profParity.test.ts  events: 74652  tasks: 4
+run: 20260913-061857-c043db  pid: 3556938  file: src/__tests__/railLabelLegibility.test.tsx  events: 383  tasks: 4
+run: 20260913-061857-7b24d6  pid: 3556945  file: src/__tests__/roomStore.fog.test.ts  events: 20394  tasks: 23
+run: 20260913-061857-d2eeb8  pid: 3556952  file: src/__tests__/ConnectionBanner.test.tsx  events: 512  tasks: 7
+run: 20260913-061857-321235  pid: 3556960  file: src/__tests__/VisionToggle.test.tsx  events: 51  tasks: 1
+run: 20260913-061857-12e9b8  pid: 3556961  file: src/components/map/MapBadgeTooltip.test.tsx  events: 260  tasks: 10
+run: 20260913-061857-911dd1  pid: 3556972  file: src/components/pf2e/ActionPips.test.tsx  events: 64  tasks: 6
+run: 20260913-061857-45a19f  pid: 3556980  file: src/__tests__/favoriteStar.test.tsx  events: 162  tasks: 5
+run: 20260913-061857-f68196  pid: 3556996  file: src/__tests__/archetypeEditor.test.tsx  events: 1078  tasks: 12
+run: 20260913-061857-bbddaf  pid: 3557021  file: src/__tests__/helpTriggerPlacement.test.tsx  events: 158  tasks: 3
+run: 20260913-061858-fde331  pid: 3557030  file: src/__tests__/ChatPanel.test.tsx  events: 738  tasks: 12
+run: 20260913-061858-a702f6  pid: 3557036  file: src/components/ContentLicenses.test.tsx  events: 12  tasks: 2
+run: 20260913-061858-96bb13  pid: 3557044  file: src/components/sheet/SpellcastingStats.test.tsx  events: 510  tasks: 10
+run: 20260913-061858-1520b6  pid: 3557055  file: src/components/PanelErrorBoundary.test.tsx  events: 72  tasks: 3
+run: 20260913-061858-46245a  pid: 3557064  file: src/lib/distance/distance.vectors.test.ts  events: 6  tasks: 0
+run: 20260913-061858-f3472e  pid: 3557071  file: src/__tests__/PlayerToolkitTabs.test.tsx  events: 4970  tasks: 2
+run: 20260913-061858-9eb032  pid: 3557101  file: src/__tests__/CompactTurnStrip.test.tsx  events: 128  tasks: 3
+run: 20260913-061858-0db407  pid: 3557108  file: src/__tests__/shortcutsArrowMove.test.tsx  events: 6689  tasks: 15
+run: 20260913-061858-24ad68  pid: 3557114  file: src/__tests__/visibility.test.ts  events: 23218  tasks: 13
+run: 20260913-061858-0ac434  pid: 3557123  file: src/components/builder/steps/reviewStep.test.tsx  events: 296  tasks: 13
+run: 20260913-061858-a5f09a  pid: 3557129  file: src/components/sheet/SheetRenderer.test.tsx  events: 272  tasks: 5
+run: 20260913-061858-b33b9f  pid: 3557139  file: src/__tests__/effectsStore.test.ts  events: 962  tasks: 27
+run: 20260913-061858-c6483a  pid: 3557140  file: src/components/map/gridNudge.test.ts  events: 18396  tasks: 12
+run: 20260913-061858-778b57  pid: 3557154  file: src/__tests__/voiceFx.test.ts  events: 3322  tasks: 3
+run: 20260913-061858-0be9cf  pid: 3557165  file: src/__tests__/usePdfImportQuery.test.tsx  events: 41  tasks: 1
+run: 20260913-061858-c26171  pid: 3557166  file: src/components/sheet/fields/SheetField.test.tsx  events: 44  tasks: 6
+run: 20260913-061858-68c16a  pid: 3557179  file: src/__tests__/roomStore.persistError.test.ts  events: 185  tasks: 4
+run: 20260913-061858-fd0303  pid: 3557186  file: src/__tests__/setSceneRetry.test.tsx  events: 416  tasks: 2
+run: 20260913-061858-fee703  pid: 3557195  file: src/__tests__/PlayerCombatPanel.test.tsx  events: 354  tasks: 4
+run: 20260913-061859-4fc8b7  pid: 3557205  file: src/__tests__/CandidateCard.test.tsx  events: 46  tasks: 2
+run: 20260913-061859-a21836  pid: 3557213  file: src/lib/builder/advancement.apply.test.ts  events: 4194  tasks: 45
+run: 20260913-061859-6b4f3c  pid: 3557225  file: src/__tests__/moduleSystem.test.ts  events: 1039  tasks: 21
+run: 20260913-061859-e052ff  pid: 3557231  file: src/__tests__/classFeatureEditor.test.tsx  events: 448  tasks: 6
+run: 20260913-061859-7bb6b2  pid: 3557239  file: src/components/builder/steps/grantedInfoStep.test.tsx  events: 48  tasks: 4
+run: 20260913-061859-b84325  pid: 3557245  file: src/lib/builder/advancement.plan.test.ts  events: 5648  tasks: 41
+run: 20260913-061859-c3cdf7  pid: 3557253  file: src/__tests__/useWebSocket.pf2eDeathSaves.test.tsx  events: 662  tasks: 9
+run: 20260913-061859-3f8a36  pid: 3557255  file: src/lib/builder/featSlotFilter.test.ts  events: 9396  tasks: 46
+run: 20260913-061859-77d4f3  pid: 3557270  file: src/lib/builder/archetypeRules.test.ts  events: 6744  tasks: 41
+run: 20260913-061859-a3abf2  pid: 3557280  file: src/__tests__/combatPlan.test.tsx  events: 330  tasks: 7
+run: 20260913-061859-9b4286  pid: 3557288  file: src/__tests__/useWebSocket.pf2ePersistent.test.tsx  events: 654  tasks: 9
+run: 20260913-061859-03e2e5  pid: 3557295  file: src/__tests__/voicePresets.test.ts  events: 2144  tasks: 4
+run: 20260913-061859-58d910  pid: 3557304  file: src/__tests__/RollTablePanel.test.tsx  events: 42  tasks: 1
+run: 20260913-061859-610362  pid: 3557311  file: src/__tests__/useMapTools.hexRuler.test.ts  events: 3298  tasks: 8
+run: 20260913-061859-deb327  pid: 3557321  file: src/__tests__/useMapTools.rulerPrivateBroadcast.test.ts  events: 7042  tasks: 6
+run: 20260913-061859-8e3ba8  pid: 3557329  file: src/lib/spells/castCommit.test.ts  events: 3748  tasks: 24
+run: 20260913-061900-8ee715  pid: 3557337  file: src/__tests__/useMapInteraction.longPress.test.ts  events: 1946  tasks: 22
+run: 20260913-061900-bbb5f9  pid: 3557343  file: src/lib/builder/archetypeCasting.test.ts  events: 3344  tasks: 35
+run: 20260913-061900-1731dc  pid: 3557351  file: src/lib/pf2e/spells.test.ts  events: 1336  tasks: 108
+run: 20260913-061900-a12fdc  pid: 3557357  file: src/components/shell/RoomIdentity.test.tsx  events: 30  tasks: 7
+run: 20260913-061900-affccd  pid: 3557367  file: src/__tests__/useRunCommand.whisperGmroll.test.tsx  events: 632  tasks: 8
+run: 20260913-061900-d4c53c  pid: 3557374  file: src/__tests__/useRunCommand.rollModes.test.tsx  events: 578  tasks: 7
+run: 20260913-061900-26a58d  pid: 3557383  file: src/__tests__/useRunCommand.plainChatReconcile.test.tsx  events: 534  tasks: 6
+run: 20260913-061900-e50815  pid: 3557391  file: src/lib/builder/multiclass.casting.engine.test.ts  events: 7340  tasks: 41
+run: 20260913-061900-df2b55  pid: 3557399  file: src/lib/builder/revisit.test.ts  events: 4432  tasks: 31
+run: 20260913-061900-a98742  pid: 3557411  file: src/__tests__/reactionPromptsFilter.test.tsx  events: 132  tasks: 2
+run: 20260913-061900-111478  pid: 3557418  file: src/lib/builder/advancement.freeArchetype.test.ts  events: 5954  tasks: 14
+run: 20260913-061900-838901  pid: 3557424  file: src/__tests__/useCharacterHandoff.test.ts  events: 188  tasks: 6
+run: 20260913-061900-2cad71  pid: 3557452  file: src/__tests__/useWebSocket.freeArchetype.test.tsx  events: 242  tasks: 4
+run: 20260913-061900-85ce00  pid: 3557463  file: src/__tests__/mapUploadScene.test.ts  events: 306  tasks: 5
+run: 20260913-061900-5420e7  pid: 3557472  file: src/__tests__/useWebSocket.tokenBars.test.tsx  events: 486  tasks: 6
+run: 20260913-061900-c1545e  pid: 3557479  file: src/__tests__/useWebSocket.leveling.test.tsx  events: 130  tasks: 2
+run: 20260913-061900-ed34a4  pid: 3557487  file: src/lib/pf2e/boosts.test.ts  events: 1910  tasks: 42
+run: 20260913-061900-b529ec  pid: 3557488  file: src/lib/builder/definitions/dnd5eLevelUp.liveGate.test.ts  events: 3652  tasks: 19
+run: 20260913-061900-a56dc3  pid: 3557502  file: src/lib/meshVoice.test.ts  events: 786  tasks: 42
+run: 20260913-061900-540a23  pid: 3557512  file: src/lib/builder/emit/pf2eSheet.test.ts  events: 216  tasks: 0
+run: 20260913-061900-40a552  pid: 3557518  file: src/__tests__/useWebSocket.pf2eEffects.test.tsx  events: 300  tasks: 4
+run: 20260913-061900-48a406  pid: 3557525  file: src/lib/builder/definitions/dnd5eLevelUp.test.ts  events: 1023  tasks: 24
+run: 20260913-061900-b904a0  pid: 3557532  file: src/__tests__/roomStore.drawings.test.ts  events: 248  tasks: 7
+run: 20260913-061901-6e5af0  pid: 3557534  file: src/__tests__/shortcutsModifierGuard.test.tsx  events: 872  tasks: 7
+run: 20260913-061901-5508ef  pid: 3557549  file: src/lib/builder/multiclass.engine.test.ts  events: 3618  tasks: 17
+run: 20260913-061901-e676d9  pid: 3557559  file: src/lib/aoe/geometry.test.ts  events: 4060  tasks: 23
+run: 20260913-061901-009da7  pid: 3557565  file: src/__tests__/useMapTools.hexTerrain.test.ts  events: 694  tasks: 7
+run: 20260913-061901-da3143  pid: 3557574  file: src/lib/builder/emit/dnd5eSheet.test.ts  events: 1780  tasks: 18
+run: 20260913-061901-73e9fa  pid: 3557576  file: src/lib/dnd5e/casting.test.ts  events: 3794  tasks: 69
+run: 20260913-061901-91ac48  pid: 3557596  file: src/lib/aoe/aoe.vectors.test.ts  events: 6  tasks: 0
+run: 20260913-061901-3e1818  pid: 3557622  file: src/lib/builder/definitions/dnd5eLevelUp.archetypeGate.test.ts  events: 2384  tasks: 6
+run: 20260913-061901-e77e96  pid: 3557629  file: src/lib/builder/definitions/dnd5eLevelUp.slotFilter.test.ts  events: 3018  tasks: 8
+run: 20260913-061901-791fe5  pid: 3557630  file: src/__tests__/favorites.test.ts  events: 278  tasks: 7
+run: 20260913-061901-4911f2  pid: 3557642  file: src/__tests__/VttShell.test.tsx  events: 50  tasks: 2
+run: 20260913-061901-39d6f7  pid: 3557653  file: src/components/dice/DiceLayer.test.tsx  events: 96  tasks: 3
+run: 20260913-061901-44a3cd  pid: 3557661  file: src/lib/distance/ruler.test.ts  events: 2362  tasks: 21
+run: 20260913-061901-dc73b0  pid: 3557669  file: src/lib/builder/archetypeOverrideLedger.test.ts  events: 1266  tasks: 25
+run: 20260913-061901-3b0e52  pid: 3557670  file: src/__tests__/useDraggable.test.ts  events: 45  tasks: 3
+run: 20260913-061901-d29996  pid: 3557683  file: src/lib/builder/suggestPayload.test.ts  events: 2062  tasks: 26
+run: 20260913-061901-5f8951  pid: 3557690  file: src/lib/sheets/definitions/definitions.test.ts  events: 9594  tasks: 7
+run: 20260913-061901-222fd5  pid: 3557696  file: src/lib/map/longPress.test.ts  events: 292  tasks: 16
+run: 20260913-061901-40cd1b  pid: 3557710  file: src/__tests__/useWebSocket.gridAppearance.test.tsx  events: 142  tasks: 2
+run: 20260913-061901-ec1672  pid: 3557716  file: src/__tests__/restFlow.test.ts  events: 966  tasks: 12
+run: 20260913-061901-c2196e  pid: 3557718  file: src/lib/builder/archetypeProjection.test.ts  events: 2220  tasks: 25
+run: 20260913-061901-b50cc9  pid: 3557729  file: src/__tests__/roomStore.walls.test.ts  events: 220  tasks: 6
+run: 20260913-061901-0cfcc4  pid: 3557742  file: src/lib/combat/rest.test.ts  events: 780  tasks: 42
+run: 20260913-061902-8edba1  pid: 3557749  file: src/lib/builder/multiclassContext.test.ts  events: 536  tasks: 16
+run: 20260913-061902-3f0461  pid: 3557755  file: src/hooks/usePlayerTabs.test.ts  events: 170  tasks: 5
+run: 20260913-061902-625525  pid: 3557766  file: src/lib/pf2e/creationProficiencies.test.ts  events: 976  tasks: 11
+run: 20260913-061902-f08efe  pid: 3557773  file: src/__tests__/roomStore.terrain.test.ts  events: 524  tasks: 17
+run: 20260913-061902-2ce459  pid: 3557782  file: src/lib/clipboard.test.ts  events: 53  tasks: 4
+run: 20260913-061902-9eaecc  pid: 3557792  file: src/lib/builder/aiDraftToState.test.ts  events: 888  tasks: 19
+run: 20260913-061902-ec91cb  pid: 3557799  file: src/lib/srd-spell-attacks.test.ts  events: 3458  tasks: 18
+run: 20260913-061902-413b5e  pid: 3557807  file: src/__tests__/roomStore.tokens.test.ts  events: 274  tasks: 7
+run: 20260913-061902-d9651a  pid: 3557815  file: src/components/map/useGridDetect.test.ts  events: 260  tasks: 9
+run: 20260913-061902-22d18d  pid: 3557844  file: src/lib/combat/attackRoll.test.ts  events: 354  tasks: 18
+run: 20260913-061902-426358  pid: 3557851  file: src/lib/builder/multiclass.characterization.test.ts  events: 742  tasks: 12
+run: 20260913-061902-05d7fb  pid: 3557857  file: src/lib/builder/featDuplicateGuard.test.ts  events: 796  tasks: 27
+run: 20260913-061902-1810d2  pid: 3557865  file: src/lib/effects/glyphs.test.ts  events: 1998  tasks: 22
+run: 20260913-061902-387d9c  pid: 3557873  file: src/lib/monsterSpeed.test.ts  events: 7032  tasks: 13
+run: 20260913-061902-acdd56  pid: 3557883  file: src/components/map/useTokenRenderer.hiddenMarker.test.ts  events: 438  tasks: 6
+run: 20260913-061902-1b97b8  pid: 3557891  file: src/lib/sheets/formula.test.ts  events: 1701  tasks: 11
+run: 20260913-061902-27a38c  pid: 3557900  file: src/__tests__/footerSaveVsRest.test.ts  events: 200  tasks: 3
+run: 20260913-061902-2176ca  pid: 3557906  file: src/lib/dnd5e/multiclassPrereqs.test.ts  events: 318  tasks: 13
+run: 20260913-061902-27ae57  pid: 3557917  file: src/components/map/useTokenRenderer.badgeTouch.test.ts  events: 572  tasks: 12
+run: 20260913-061902-eb8441  pid: 3557918  file: src/lib/sheets/definitions/pf2eSheet.test.ts  events: 3178  tasks: 6
+run: 20260913-061902-a7596a  pid: 3557952  file: src/lib/dnd5e/classes.test.ts  events: 502  tasks: 37
+run: 20260913-061903-3dcc73  pid: 3557959  file: src/components/map/useTerrainRenderer.test.ts  events: 468  tasks: 6
+run: 20260913-061903-da5b8c  pid: 3557965  file: src/__tests__/useMapInteraction.hudDoubleClick.test.ts  events: 820  tasks: 8
+run: 20260913-061903-b39b6e  pid: 3557976  file: src/__tests__/pf2eBuilderDefinition.test.tsx  events: 600  tasks: 12
+run: 20260913-061903-6b73dc  pid: 3557982  file: src/lib/dnd5e/spellDcDerivation.test.ts  events: 3426  tasks: 22
+run: 20260913-061903-f303f7  pid: 3557990  file: src/__tests__/roomStore.sceneDarkness.test.ts  events: 158  tasks: 6
+run: 20260913-061903-5736bb  pid: 3557996  file: src/__tests__/uploadWithProgress.test.ts  events: 292  tasks: 9
+run: 20260913-061903-c3b876  pid: 3558003  file: src/components/map/mapLongPressTarget.test.ts  events: 338  tasks: 29
+run: 20260913-061903-c26fc4  pid: 3558018  file: src/__tests__/mapTiles.test.ts  events: 132  tasks: 7
+run: 20260913-061903-92ee92  pid: 3558026  file: src/__tests__/roomStore.gridCalibration.test.ts  events: 186  tasks: 9
+run: 20260913-061903-5f6d21  pid: 3558028  file: src/__tests__/illumination.test.ts  events: 364  tasks: 23
+run: 20260913-061903-90765d  pid: 3558042  file: src/lib/distance/rulerBroadcast.test.ts  events: 1528  tasks: 6
+run: 20260913-061903-45e3c5  pid: 3558048  file: src/lib/builder/contentTypes.subclassCasting.test.ts  events: 52  tasks: 9
+run: 20260913-061903-771f97  pid: 3558060  file: src/__tests__/currentTarget.test.ts  events: 468  tasks: 16
+run: 20260913-061903-361c30  pid: 3558066  file: src/lib/spells/castPlan.test.ts  events: 3202  tasks: 21
+run: 20260913-061903-a1fbed  pid: 3558073  file: src/lib/dnd5e/multiclassSlotTable.test.ts  events: 512  tasks: 9
+run: 20260913-061903-a6f81c  pid: 3558083  file: src/__tests__/api.test.ts  events: 32  tasks: 3
+run: 20260913-061903-aca65a  pid: 3558091  file: src/lib/leveling/xpThresholds.test.ts  events: 138  tasks: 32
+run: 20260913-061903-0be65b  pid: 3558098  file: src/lib/builder/contentTypes.classLevel.test.ts  events: 51  tasks: 12
+run: 20260913-061903-9bd00d  pid: 3558107  file: src/__tests__/aoeTool.test.ts  events: 226  tasks: 5
+run: 20260913-061903-085619  pid: 3558109  file: src/__tests__/mapPins.test.ts  events: 130  tasks: 7
+run: 20260913-061903-b466ad  pid: 3558122  file: src/__tests__/sheetNotes.test.ts  events: 154  tasks: 5
+run: 20260913-061903-f692f8  pid: 3558128  file: src/__tests__/tokenVisibility.test.ts  events: 252  tasks: 15
+run: 20260913-061903-ba9b13  pid: 3558139  file: src/__tests__/roomStore.gridAppearance.test.ts  events: 116  tasks: 4
+run: 20260913-061904-abc425  pid: 3558147  file: src/lib/builder/contentTypes.archetype.test.ts  events: 46  tasks: 11
+run: 20260913-061904-3c947a  pid: 3558154  file: src/__tests__/roomStore.vision.test.ts  events: 152  tasks: 5
+run: 20260913-061904-211987  pid: 3558155  file: src/__tests__/roomStore.light.test.ts  events: 116  tasks: 5
+run: 20260913-061904-c116c7  pid: 3558169  file: src/__tests__/roomStoreAssets.test.ts  events: 192  tasks: 12
+run: 20260913-061904-01303e  pid: 3558181  file: src/lib/sheets/validate.test.ts  events: 484  tasks: 17
+run: 20260913-061904-ffb09f  pid: 3558188  file: src/lib/builder/levelControlsContent.test.ts  events: 306  tasks: 17
+run: 20260913-061904-01df71  pid: 3558189  file: src/lib/gameSystem.test.ts  events: 80  tasks: 12
+run: 20260913-061904-9f2bc1  pid: 3558207  file: src/__tests__/shortcutRegistryDrift.test.ts  events: 654  tasks: 8
+run: 20260913-061904-580f94  pid: 3558214  file: src/__tests__/roomStore.visionCone.test.ts  events: 150  tasks: 8
+run: 20260913-061904-2dd915  pid: 3558223  file: src/lib/spells/consumeSlot.test.ts  events: 80  tasks: 12
+run: 20260913-061904-380d74  pid: 3558232  file: src/__tests__/tokenAppearance.test.ts  events: 148  tasks: 8
+run: 20260913-061904-3bfd67  pid: 3558240  file: src/__tests__/persistError.test.ts  events: 32  tasks: 2
+run: 20260913-061904-bdff1f  pid: 3558266  file: src/lib/builder/levelUpState.test.ts  events: 170  tasks: 16
+run: 20260913-061904-cf8436  pid: 3558274  file: src/lib/appearance.test.ts  events: 219  tasks: 11
+run: 20260913-061904-f5d9fd  pid: 3558285  file: src/__tests__/roomStore.test.ts  events: 148  tasks: 9
+run: 20260913-061904-db3f9f  pid: 3558286  file: src/lib/builder/featureNames.test.ts  events: 116  tasks: 16
+run: 20260913-061904-76d49d  pid: 3558297  file: src/lib/dnd5e/abilities.test.ts  events: 326  tasks: 31
+run: 20260913-061904-3ffedb  pid: 3558306  file: src/lib/map/gridCalibration.test.ts  events: 168  tasks: 15
+run: 20260913-061904-132687  pid: 3558316  file: src/lib/combat/exhaustion.test.ts  events: 146  tasks: 20
+run: 20260913-061904-cfdc0c  pid: 3558324  file: src/lib/map/imagePixels.test.ts  events: 191  tasks: 6
+run: 20260913-061904-be03aa  pid: 3558332  file: src/lib/srd-weapons.test.ts  events: 408  tasks: 12
+run: 20260913-061904-db9e4f  pid: 3558339  file: src/lib/items/deriveAttacks.test.ts  events: 234  tasks: 9
+run: 20260913-061904-e013a9  pid: 3558346  file: src/__tests__/combatRosterPersist.test.ts  events: 152  tasks: 4
+run: 20260913-061905-5a0842  pid: 3558357  file: src/lib/items/currency.test.ts  events: 158  tasks: 11
+run: 20260913-061905-35c170  pid: 3558367  file: src/__tests__/classLevelEditing.test.ts  events: 220  tasks: 11
+run: 20260913-061905-660722  pid: 3558374  file: src/lib/spells/spellSections.test.ts  events: 2888  tasks: 9
+run: 20260913-061905-86821c  pid: 3558382  file: src/__tests__/creationChoices.test.ts  events: 228  tasks: 4
+run: 20260913-061905-07a74b  pid: 3558388  file: src/components/map/terrainProvider.test.ts  events: 284  tasks: 9
+run: 20260913-061905-1cbf6c  pid: 3558398  file: src/components/map/terrainOverlay.test.ts  events: 76  tasks: 10
+run: 20260913-061905-0f3d53  pid: 3558407  file: src/components/map/tokenBadges.test.ts  events: 276  tasks: 17
+run: 20260913-061905-541777  pid: 3558414  file: src/lib/pf2e/creationBoosts.test.ts  events: 502  tasks: 6
+run: 20260913-061905-3819f6  pid: 3558420  file: src/__tests__/pf2ePoolLiveUpdate.test.tsx  events: 144  tasks: 6
+run: 20260913-061905-32df45  pid: 3558433  file: src/lib/combat/fireFavorite.test.ts  events: 3386  tasks: 3
+run: 20260913-061905-a08bb4  pid: 3558440  file: src/lib/combat/attackName.test.ts  events: 296  tasks: 17
+run: 20260913-061905-1caee3  pid: 3558452  file: src/__tests__/roomStore.targeting.test.ts  events: 68  tasks: 5
+run: 20260913-061905-93acee  pid: 3558458  file: src/lib/chatInlineRolls.test.ts  events: 52  tasks: 10
+run: 20260913-061905-77f27d  pid: 3558465  file: src/lib/sheets/mergeSheetSnapshot.test.ts  events: 94  tasks: 10
+run: 20260913-061905-8ac160  pid: 3558476  file: src/lib/builder/contentTypes.featGrants.test.ts  events: 24  tasks: 8
+run: 20260913-061905-ccb3be  pid: 3558483  file: src/lib/leveling/awardXp.test.ts  events: 132  tasks: 10
+run: 20260913-061905-836029  pid: 3558490  file: src/__tests__/presence.test.ts  events: 66  tasks: 5
+run: 20260913-061905-92093a  pid: 3558496  file: src/lib/diceQueue.test.ts  events: 234  tasks: 26
+run: 20260913-061905-a61557  pid: 3558506  file: src/__tests__/useFogPainter.test.ts  events: 110  tasks: 13
+run: 20260913-061905-331e5a  pid: 3558507  file: src/components/compendium/extractJsonObject.test.ts  events: 59  tasks: 8
+run: 20260913-061905-88a800  pid: 3558522  file: src/lib/builder/featSlotFilter.archetypeSlot.test.ts  events: 476  tasks: 6
+run: 20260913-061905-8f7041  pid: 3558531  file: src/__tests__/addCombatant.test.ts  events: 42  tasks: 1
+run: 20260913-061905-30eb16  pid: 3558539  file: src/lib/conditionExplain.test.ts  events: 332  tasks: 10
+run: 20260913-061905-6fab79  pid: 3558546  file: src/lib/pf2e/pf2eContent.test.ts  events: 102  tasks: 3
+run: 20260913-061905-5383dd  pid: 3558552  file: src/components/draftMerge.test.ts  events: 194  tasks: 8
+run: 20260913-061906-0db075  pid: 3558564  file: src/lib/safeUrl.test.ts  events: 40  tasks: 7
+run: 20260913-061906-4070a9  pid: 3558571  file: src/__tests__/wizardFooterLayout.test.tsx  events: 20  tasks: 5
+run: 20260913-061906-22b16c  pid: 3558572  file: src/lib/viewport.test.ts  events: 80  tasks: 11
+run: 20260913-061906-9911d2  pid: 3558584  file: src/lib/map/tapGesture.test.ts  events: 90  tasks: 7
+run: 20260913-061906-4a96fc  pid: 3558594  file: src/components/map/planRenderLogic.test.ts  events: 54  tasks: 6
+run: 20260913-061906-ed959e  pid: 3558603  file: src/lib/mapUpload.test.ts  events: 34  tasks: 7
+run: 20260913-061906-8ebd2b  pid: 3558612  file: src/components/map/useTokenRenderer.badgeTooltip.test.ts  events: 118  tasks: 5
+run: 20260913-061906-6e8466  pid: 3558622  file: src/__tests__/doorFlags.test.ts  events: 92  tasks: 3
+run: 20260913-061906-53a8aa  pid: 3558630  file: src/lib/leveling/startingLevel.test.ts  events: 36  tasks: 7
+run: 20260913-061906-4c7387  pid: 3558657  file: src/__tests__/useMapInteraction.alignGrid.test.ts  events: 146  tasks: 2
+run: 20260913-061906-5247ab  pid: 3558664  file: src/__tests__/roomStoreSubscribeSelector.test.ts  events: 104  tasks: 3
+run: 20260913-061906-c36b8b  pid: 3558673  file: src/lib/items/mergeDerivedAttacks.test.ts  events: 82  tasks: 7
+run: 20260913-061906-d9a435  pid: 3558679  file: src/lib/diceQueue.dice.test.ts  events: 54  tasks: 5
+run: 20260913-061906-93bb6b  pid: 3558693  file: src/lib/pf2e/boosts.levelBoosts.test.ts  events: 120  tasks: 6
+run: 20260913-061906-391746  pid: 3558719  file: src/__tests__/mapCanvasKeyboardTrap.test.ts  events: 24  tasks: 5
+run: 20260913-061906-75925e  pid: 3558726  file: src/lib/combat/inCombat.test.ts  events: 56  tasks: 5
+run: 20260913-061906-fba462  pid: 3558733  file: src/lib/items/resolveItem.test.ts  events: 58  tasks: 4
+run: 20260913-061906-308cca  pid: 3558740  file: src/lib/items/encumbrance.test.ts  events: 70  tasks: 8
+run: 20260913-061906-aa8cab  pid: 3558746  file: src/stores/audioStore.test.ts  events: 50  tasks: 3
+run: 20260913-061906-0b9f64  pid: 3558756  file: src/lib/srd-monsters.test.ts  events: 4180  tasks: 5
+run: 20260913-061906-8e120a  pid: 3558766  file: src/hooks/useWebSocket.attackCard.test.ts  events: 42  tasks: 6
+run: 20260913-061906-8614e5  pid: 3558774  file: src/__tests__/tokenCrop.test.ts  events: 46  tasks: 6
+run: 20260913-061907-6d8776  pid: 3558781  file: src/__tests__/roomStore.remoteRulers.test.ts  events: 106  tasks: 6
+run: 20260913-061906-5b1298  pid: 3558782  file: src/__tests__/macros.test.ts  events: 58  tasks: 5
+run: 20260913-061907-14f975  pid: 3558797  file: src/lib/combat/cycleTarget.test.ts  events: 164  tasks: 5
+run: 20260913-061907-6caedb  pid: 3558800  file: src/__tests__/classifyCanvasDrop.test.ts  events: 34  tasks: 8
+run: 20260913-061907-743be2  pid: 3558813  file: src/__tests__/tokenVisibility.cone.test.ts  events: 4160  tasks: 2
+run: 20260913-061907-c02df7  pid: 3558819  file: src/__tests__/doorsHydration.test.ts  events: 54  tasks: 1
+run: 20260913-061907-c81ff8  pid: 3558820  file: src/lib/diceTray.test.ts  events: 82  tasks: 5
+run: 20260913-061907-102dc7  pid: 3558839  file: src/lib/avBackend.test.ts  events: 22  tasks: 4
+run: 20260913-061907-ffd67c  pid: 3558846  file: src/hooks/useWebSocket.spellCard.test.ts  events: 44  tasks: 5
+run: 20260913-061907-cd9c5d  pid: 3558859  file: src/__tests__/perfFlat.test.ts  events: 26  tasks: 6
+run: 20260913-061907-9a20f4  pid: 3558866  file: src/lib/dnd5e/level.test.ts  events: 86  tasks: 10
+run: 20260913-061907-45aca8  pid: 3558872  file: src/__tests__/contentTypesPassthrough.test.ts  events: 10  tasks: 2
+run: 20260913-061907-95e5d0  pid: 3558883  file: src/__tests__/targetMarkers.test.ts  events: 28  tasks: 2
+run: 20260913-061907-6d56ed  pid: 3558890  file: src/lib/items/inventoryReducer.test.ts  events: 22  tasks: 3
+run: 20260913-061907-98ed7c  pid: 3558896  file: src/lib/combat/targetInvalidation.test.ts  events: 40  tasks: 8
+run: 20260913-061907-84e39d  pid: 3558904  file: src/lib/builder/creationChoices.level.test.ts  events: 28  tasks: 2
+run: 20260913-061907-008fe1  pid: 3558912  file: src/__tests__/roomStore.elevation.test.ts  events: 34  tasks: 4
+run: 20260913-061907-10a9cb  pid: 3558922  file: src/hooks/useWebSocket.diceDispatch.test.ts  events: 26  tasks: 2
+run: 20260913-061907-d18f61  pid: 3558929  file: src/lib/sheets/builtins.test.ts  events: 4098  tasks: 3
+run: 20260913-061907-1ab83d  pid: 3558931  file: src/__tests__/GmCockpitImportTab.test.tsx  events: 258  tasks: 1
+run: 20260913-061907-126d1e  pid: 3558944  file: src/components/inventory/dropToInventory.test.ts  events: 10  tasks: 2
+run: 20260913-061907-5fa1b1  pid: 3558945  file: src/lib/srdSystemGate.test.ts  events: 28  tasks: 3
+run: 20260913-061907-642611  pid: 3558960  file: src/__tests__/useMapTools.gridUnits.test.ts  events: 46  tasks: 4
+run: 20260913-061907-4c6f85  pid: 3558970  file: src/lib/builder/registry.flow.test.ts  events: 36  tasks: 2
+run: 20260913-061907-717f86  pid: 3558978  file: src/__tests__/aoeRender.test.ts  events: 78  tasks: 2
+run: 20260913-061907-227b73  pid: 3558985  file: src/__tests__/useTokenRenderer.artLoad.test.ts  events: 56  tasks: 4
+run: 20260913-061907-f1ac12  pid: 3558994  file: src/components/shell/DiceTab.test.tsx  events: 4856  tasks: 1
+invocation: 20260913-061842-659583  traces: 372  harness exit: 1 (waited)
+Not implemented: HTMLMediaElement's play() method
+Error: boom
+    at Bomb (<copy>/src/components/PanelErrorBoundary.test.tsx:11:20)
+    at renderWithHooks (<lens>/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (<lens>/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (<lens>/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (<lens>/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (<lens>/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+    at HTMLUnknownElementImpl._dispatch (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:243:9)
+    at HTMLUnknownElementImpl.dispatchEvent (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:114:17)
+Error: boom
+    at Bomb (<copy>/src/components/PanelErrorBoundary.test.tsx:11:20)
+    at renderWithHooks (<lens>/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (<lens>/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (<lens>/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (<lens>/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (<lens>/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+    at HTMLUnknownElementImpl._dispatch (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:243:9)
+    at HTMLUnknownElementImpl.dispatchEvent (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:114:17)
+Error: boom
+    at Flaky (<copy>/src/components/PanelErrorBoundary.test.tsx:42:24)
+    at renderWithHooks (<lens>/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (<lens>/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (<lens>/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (<lens>/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (<lens>/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+    at HTMLUnknownElementImpl._dispatch (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:243:9)
+    at HTMLUnknownElementImpl.dispatchEvent (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:114:17)
+Error: boom
+    at Flaky (<copy>/src/components/PanelErrorBoundary.test.tsx:42:24)
+    at renderWithHooks (<lens>/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (<lens>/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (<lens>/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (<lens>/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (<lens>/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+    at HTMLUnknownElementImpl._dispatch (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:243:9)
+    at HTMLUnknownElementImpl.dispatchEvent (<lens>/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:114:17)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/aoe/aoe.vectors.test.ts [ src/lib/aoe/aoe.vectors.test.ts ]
+Error: aoe vector file not found; looked in: <copy>/docs/superpowers/specs/aoe-hex-vectors.json, <work>/docs/superpowers/specs/aoe-hex-vectors.json
+ ❯ resolveVectorFile src/lib/aoe/aoe.vectors.test.ts:66:19
+     64|   const candidates = [resolve(process.cwd(), rel), resolve(process.cwd…
+     65|   const hit = candidates.find((p) => existsSync(p));
+     66|   if (!hit) throw new Error(`aoe vector file not found; looked in: ${c…
+       |                   ^
+     67|   return hit;
+     68| }
+ ❯ src/lib/aoe/aoe.vectors.test.ts:70:38
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/lib/distance/distance.vectors.test.ts [ src/lib/distance/distance.vectors.test.ts ]
+Error: vector file not found; looked in: <copy>/docs/superpowers/specs/rt-distance-vectors.json, <work>/docs/superpowers/specs/rt-distance-vectors.json
+ ❯ resolveVectorFile src/lib/distance/distance.vectors.test.ts:183:19
+    181|   const candidates = [resolve(process.cwd(), rel), resolve(process.cwd…
+    182|   const hit = candidates.find((p) => existsSync(p));
+    183|   if (!hit) throw new Error(`vector file not found; looked in: ${candi…
+       |                   ^
+    184|   return hit;
+    185| }
+ ❯ src/lib/distance/distance.vectors.test.ts:187:38
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/lib/builder/emit/pf2eSheet.test.ts [ src/lib/builder/emit/pf2eSheet.test.ts ]
+Error: could not locate backend/app/systems/pf2e/data/classes.json from <copy>
+ ❯ findSeedPath src/lib/builder/emit/pf2eSheet.test.ts:22:9
+     20|     dir = resolve(dir, '..');
+     21|   }
+     22|   throw new Error(`could not locate ${SEED_REL} from ${process.cwd()}`…
+       |         ^
+     23| }
+     24| const SEED_CLASSES = JSON.parse(readFileSync(findSeedPath(), 'utf8')) …
+ ❯ src/lib/builder/emit/pf2eSheet.test.ts:24:46
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+

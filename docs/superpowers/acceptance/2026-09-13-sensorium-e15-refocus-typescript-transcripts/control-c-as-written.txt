@@ -1,0 +1,2 @@
+usage: sensorium refocus [-h] --focus FOCUS [--window WINDOW] run
+sensorium refocus: error: the following arguments are required: --focus

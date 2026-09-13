@@ -99,6 +99,12 @@ class Invocation:
     #: existed is still one this converter must finish. `None` and not
     #: `0.0` because an absent measurement is not a fast one.
     resolver_wall_s: float | None = None
+    #: The run this recording re-runs one flag deeper, written by
+    #: `--refocus-of` and `None` where a person typed the command
+    #: themselves. Defaulted like its neighbours: a spool directory written
+    #: by a driver older than the flag lacks the key, and absence is what
+    #: the default is for.
+    refocus_of: str | None = None
 
     def to_json(self) -> dict:
         return asdict(self)

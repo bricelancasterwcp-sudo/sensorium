@@ -661,3 +661,137 @@ clock. Inside a corpus case that is unambiguous, because the case's store
 holds exactly two traces and the refocus just wrote the second; in a store you
 share between runs it is not, and `sensorium runs` (which prints the
 `refocus-of:` link) is what names the trace you actually mean.
+
+### `refocus` on a TypeScript trace — the recorded invocation, run again
+
+**Added 2026-09-13 (S5's refocus slice, `sensorium` 0.14.0).** `refocus`
+answers on a TypeScript trace instead of refusing on `capabilities.refocus`;
+a recording a **0.13.0 or earlier** driver converted still declares
+`refocus: false` and still meets that refusal at exit 2. The comparator, the
+store-not-stdout pair rule and the caveat about `last` are the Rust section
+above, word for word — with `threads` joining `output` and `children` among
+the checks that print `unverifiable`.
+
+**A vitest invocation is a POOL, so the WHOLE invocation re-runs.** A Rust
+refocus asks its driver for one build of one target; `npx vitest run
+src/config` starts a harness that starts as many worker containers as it likes,
+each recording its own trace, and no harness can be asked for one container
+without changing what it does. So this branch re-runs the command as TYPED, one
+flag deeper, then says which trace is the pair. **The unit of cost is the whole
+suite, per question**; a narrowing spelling is design 2026-09-13 §7's, not a
+quiet default, because it would be a command nobody typed.
+
+**Seven refusals come first, and none of them runs anything.** They are about
+this RUN, not the recorder; each exits **2** and ends `; nothing was re-run`:
+
+- `--window` — this recorder has no per-activation gate at all, so the flag
+  is refused by name rather than approximated.
+- `--tier off` on the original: no causal stream, so the comparison the
+  re-run is FOR could not be made whatever came back.
+- no `harness_command` — a driver before the key existed wrote it, and
+  guessing a command is guessing.
+- no `harness_cwd` (`sensorium ts 0.13.0` or earlier): the harness command's
+  own arguments are relative to the directory it was TYPED in, a third
+  directory beside the container's `cwd` and the plan's `root`.
+- that directory is gone; or the project `root` is gone, a different fact
+  with its own sentence.
+- the container was a **reused worker** — it ran more than one test file, so
+  "which container of the re-run is its pair" has no answer at all. The one
+  Rust has no counterpart for, pinned whole by
+  `corpus/typescript/refocus_refused_reused_worker`:
+
+      error: cannot refocus <run>: run <run> ran 2 test files in one container (a reused worker); which container of a re-run would be its pair is the harness's scheduling, not a fact; nothing was re-run
+
+**Refusal 7 counts the evidence that saw more** (ruling P11): the converter's
+`test_files` where it declared any, and always the trace's own **task root
+frames** — depth-0 frames whose call ran inside a task — counted by the
+distinct code-object files whose basename carries `.test.` or `.spec.`.
+Neither reading may lower the other's, because under `--no-isolate` a reused
+worker records `test_file` singular and never the plural key. **The bound**
+is blind spot 42: a second file whose callbacks all root in a shared helper is
+invisible to the frame reading, so that container pairs by its first file and
+the comparator reads DIVERGED at a named step or a MATCH of the container's
+shape, never a guess.
+
+**The announced lines say what will run, before it runs**
+(`corpus/typescript/refocus_match` pins the first):
+
+    refocus-of: <run>   cmd: sensorium ts run --refocus-of <run> --tier call --focus fill -- npx vitest run
+    via: /path/to/python -m sensorium
+    cwd: <harness_cwd>
+    focus: fill   window: -
+    source: …
+    --- rerunning (the harness's own output follows; the driver's run: lines print with it) ---
+
+`cmd:` is the command as a person would type it; **`via:`** is what this
+process really executed — `sys.executable -m sensorium`, never a `sensorium`
+on `PATH`, because a pair compared across two recorders is the one thing a
+verdict may not rest on. `--refocus-of` is first and unconditional, `--tier`
+is the ORIGINAL's, the focus list is the original's then yours (a refocus
+only ever captures MORE), `harness_command` last after a bare `--`, verbatim.
+All three streams are inherited and nothing printed is parsed.
+
+**The pair is found in the store, by test file.** Every trace of the new
+invocation carries the driver's `refocus_of` stamp and the store is what is
+asked; the `run:` lines decide nothing. Linked is not PAIRED — a suite of 372
+files re-runs as 372 linked traces — and the key is the container's
+`test_file` where it ran one, its whole **`argv`** where it ran none (a `node
+--test` process, a script), and a key of its own, matching nothing, for a
+reused worker. Zero candidates is REFUSED after the rerun at exit **3**,
+naming what WAS linked and the harness's exit; more than one, by count.
+
+**The rest are SIBLINGS: re-executed, never compared.** They are counted on
+the pair line and stamped into the pair's trace as `refocus_siblings`, a
+count and not a list of ids, because the invocation already names them:
+
+    run: <new run>   invocation: <new invocation>   siblings in the re-run: 371 (not compared; UNVERIFIED)
+
+`info` replays that clause in the same words, and `runs` lists each sibling
+under the new invocation as `[refocus-of:<run>,verdict:UNVERIFIED]`. The count
+is stamped even at **0**: zero says the lookup ran and found the pair alone,
+an absent key that the trace predates the count.
+
+**Harness set 1 — which worker slot ran the work is not what it computes.**
+vitest's pool mints `VITEST_POOL_ID` and `VITEST_WORKER_ID` per worker
+process, and a re-run takes whichever slot is free. Harness set 1 is the
+positive, versioned list of exactly those two — exact membership, not a
+prefix, because `VITEST_` is a family the harness also mints configuration
+into. A member that differs is **counted, named, and never withholds**, in
+session set 1's words above; and every key starting `SENSORIUM_` is the
+RECORDER's own, taken out of the compare and named:
+
+    env: unchanged outside harness set 1 (<N> variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; 2 harness variable(s) differ: VITEST_POOL_ID, VITEST_WORKER_ID)  the recorder's own, also not compared: SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_MANIFEST_DIR, SENSORIUM_SPOOL, SENSORIUM_TIER, SENSORIUM_TS_PKG, SENSORIUM_TS_ROOT
+
+It reads `outside session set 1 and harness set 1` where a session key differs
+too. The **1** is the set's version, in the printed line for the reason session
+set 1's is: an exemption from the licence's default is a claim, and a key found
+to bear leaves the set with a date. The recorder's prefix is no optional
+exemption — three of those seven differ on EVERY refocus by construction, and
+`SENSORIUM_FOCUS` whenever the call deepens the focus, which is what a refocus
+is for; a check that always fires says nothing.
+
+**The exit clause reads the ending somebody WAITED for**, and prints it as
+`exit: rerun 0 (waited)   original 0 (waited)`. A vitest worker is killed by
+its pool, so the container's own `exit_status` is `null` with basis
+`unwitnessed` on every trace: the shared clause over it compares null with
+null, reads equal and is silent — and silence in a licence check reads as
+agreement. What is compared instead are the two endings somebody did observe:
+`harness_exit`, which the driver WAITED for and alone carries a basis, and
+`exit_self_reported`, the container's own word on the way out. Either absent is
+a caveat naming its side and never a fact; where both agree the licence carries
+ONE fact, `harness exit equal (0, waited); container endings equal`.
+
+**The blind-spot block is the TypeScript vocabulary's**, and three of its
+four lines bound the RE-RUN mechanism (`refocus_match` pins the second):
+
+    output not recorded (capabilities.output: false)
+    the whole recorded invocation was re-run; its other containers were not compared and stay UNVERIFIED
+    the harness's worker-slot variables (harness set 1) were not compared
+    a worker thread or forked child of the program is its own trace, unlinked to this pair
+
+`arguments are not read in this version (capabilities.locals: false)` is
+**retired** with the fact it stated: a refocus always deepens the focus, and
+rung 4 gave a focused site its arguments. Every refusal carries instead the
+recorder's own note: *no rerun was attempted; `sensorium ts run --focus
+<file>:<qualname> -- <harness command>` will record a fresh, UNVERIFIED
+invocation if that is what you want*.

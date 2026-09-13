@@ -48,6 +48,10 @@ def _add_run_parser(sub) -> None:
     p.add_argument("--jobs", type=int, default=None, metavar="N",
                    help="how many spools to convert at once (default: one "
                         "per core)")
+    p.add_argument("--refocus-of", default=None, metavar="RUN",
+                   help="the run this recording re-runs one flag deeper; "
+                        "stamps refocus_of into every trace of the "
+                        "invocation (set by `sensorium refocus`)")
     p.add_argument("command", nargs=argparse.REMAINDER,
                    help="-- followed by the harness command: vitest run …, "
                         "npx vitest run …, node --test …")
