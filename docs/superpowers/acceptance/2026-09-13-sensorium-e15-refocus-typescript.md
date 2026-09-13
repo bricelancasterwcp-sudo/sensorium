@@ -150,6 +150,77 @@ This block is carried verbatim into `docs/superpowers/acceptance/2026-09-13-sens
 - **Locations** are §2's pin table only: the lens copy, the fresh store, the transcripts directory — all under `/mnt/extra/sensorium-rung2/e15/`.
 - **Kill rules** are §5's; the loop budget is three hours, each refocus 900 s, each reader 120 s.
 
+### Amended 2026-09-13 (ruling P16, before any endpoint ran)
+
+Two clauses of the table above are pre-registration errors, found BEFORE any
+of this slice's numbers was read — while Task 7 was reading the instrument
+against the code it judges, and before `e15.sh` had been launched once.
+Neither is edited: §1 is the locked contract, so each stands as written, is
+MEASURED AND REPORTED as written, and STOPs where its literal fails. What
+this paragraph adds is a corrected clause beside each, pinned here with both
+of its readings, on the S5 rung-4 debts record's precedent (its §1.7 second
+amendment, the same ruling number and the same discipline: add, never edit).
+
+**H7, as locked** — "`plant_edit.py` appends one failing test to one selected
+file in the copy; its refocus reads `source: CHANGED` naming the file and
+`licence: WITHHELD` with that reason, whatever the verdict; **1 of 1**" —
+asks for a line the command does not print on the verdict control B is
+predicted to reach. `src/sensorium/query/refocus_report.py` prints a
+`licence:` line only on a MATCH (`licence: WITHHELD -- this MATCH is about
+call shape…` at its `:245`, the verified form at `:251`); on a DIVERGED it
+prints the world findings under their own header, `differences in the world
+between the two runs, any of which may be why:` (`:170`), and no licence line
+at all. §1's own plan block states control B's predicted verdict as DIVERGED
+(the planted test is a new task), as a reading rather than a gate. So H7's
+`licence: WITHHELD` clause is expected to fail on a DIVERGED transcript, and
+H7 STOPs there. That STOP is a finding about THIS pre-registration — the
+phrase "whatever the verdict" was written as though one line carried the
+source reason for every verdict — and not about the tool, whose behaviour was
+fixed before §1 was written and is unchanged by this slice.
+
+**H7′**, pre-registered here: the same two facts H7 asks for — the source
+change was SEEN, and it was REPORTED to the reader — with the second one
+looked for where the report actually puts it. `source: CHANGED` names the
+planted file, AND the source reason is printed in the block the report prints
+for the verdict reached: the `licence: WITHHELD …` reasons on a MATCH, the
+`differences in the world between the two runs` block on a DIVERGED. The
+holding reading is **1 of 1**. The other reading — the source reason absent
+from that block, or `source: CHANGED` not naming the planted file, or a
+verdict whose block this clause does not name — is a **STOP**.
+
+**H8, as locked** — "`refocus <member> --window 1` on one original: exit 2,
+the §2.3 sentence, and the store's trace count UNCHANGED before and after;
+**1 of 1**" — spells a command this tree refuses before design §2.3 can run.
+`--focus` is `required=True` on the `refocus` sub-parser
+(`src/sensorium/query/refocus_cmd.py:186`), so argparse rejects the CALL with
+its own usage line: the exit is 2 and the trace count is unchanged, as §1
+predicts, but the sentence printed is argparse's and not refusal 1's. H8 is
+RUN and REPORTED as written — the literal command, its exit, its stderr, its
+own pair of trace counts — and STOPs on the sentence clause, by design.
+Judging the `--focus`-bearing form under H8 would answer a question §1 did
+not ask.
+
+**H8′**, pre-registered here: `refocus <row 3's original> --window 1 --focus
+<row 3's spec>`, the form that reaches design §2.3's refusal 1, read on the
+same three clauses — exit 2; refusal 1's sentence verbatim, `--window is not
+available for a TypeScript trace (the recorder has no per-activation gate);
+nothing was re-run`; and the store's trace count equal before and after the
+invocation. The holding reading is **1 of 1**; any of the three clauses
+failing is a **STOP**.
+
+`typescript/acceptance/e15_cells_controls.py` reads H7 and H8 by their
+literal locked clauses and carries H7′ and H8′ as separate cells, `H7p` and
+`H8p` — never as widenings of the first two, because a prediction satisfied
+by a different line is not the prediction that was pinned — and the slice's
+word counts an H7 or H8 STOP as a STOP, so this record's word is
+DONE-WITH-STOP if either literal clause fails, exactly as the debts slice's
+E6-TS′ made it. This amendment moves no row of the H1–H10 table, no bullet of
+the plan block and no derivation above it; it adds these paragraphs and
+nothing else. `ORIGINAL_LOCK` in `tests/test_acceptance_e15_lock.py` carries
+the sha256 of §1 before this paragraph, recomputed from `74d574c`, and
+`BYTE_LOCK` the sha after it, so the amendment is a fact the lock publishes
+rather than a claim this prose makes.
+
 ### The survey, pinned
 
 The survey table is the prediction E15's H4 and H5 are judged against, and

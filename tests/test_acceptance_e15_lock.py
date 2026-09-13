@@ -1,6 +1,6 @@
 """The byte-lock on E15's acceptance record (plan Task 0, Step 5).
 
-Five claims this slice makes about itself, held by tests rather than by prose:
+Six claims this slice makes about itself, held by tests rather than by prose:
 
 * **§1 has not moved since it was written.** The record is the
   pre-registration; a threshold edited after a number is read turns a gate
@@ -19,6 +19,23 @@ Five claims this slice makes about itself, held by tests rather than by prose:
   commit carries the verified pair. Both forms fail on the same mutation --
   one byte of §1 -- and both rest on the same assumption, that the test and
   the record are not edited together.
+
+* **§1 was amended once, and BOTH end-shas are carried.** Controller ruling
+  P16 found two clauses of the H1--H10 table to be pre-registration errors
+  BEFORE any endpoint ran: H7 asks for a `licence: WITHHELD` line that
+  `refocus_report.py` prints only on a MATCH -- a DIVERGED prints the world
+  block and no licence at all -- and H8's locked command omits the `--focus`
+  that `refocus_cmd.py` makes `required=True`, so argparse refuses the call
+  before design §2.3's refusal 1 can run. Neither clause is edited: each is
+  measured and reported as written and STOPs where its literal fails, which
+  is a finding about the pre-registration. A dated paragraph inside §1
+  pre-registers the corrected clauses H7′ and H8′ beside them, with both
+  readings of each. `ORIGINAL_LOCK` is §1's sha as the pre-registration
+  commit carried it, before the amendment, and `BYTE_LOCK` its sha after;
+  the check below recomputes the ORIGINAL out of `ORIGINAL_COMMIT` rather
+  than trusting the constant -- so "amended, from exactly that text" is a
+  fact git holds. The amendment ADDED a paragraph and moved no table row and
+  no bullet of the pre-registration, which is its own test.
 
 * **§1's two bodies are verbatim.** §1 says its two blocks are byte-for-byte
   the design's `## 5. E15, pre-registered` and the plan's `## Pre-registration
@@ -89,9 +106,25 @@ SURVEY_REL = ("docs/superpowers/acceptance/"
               "2026-09-13-sensorium-e15-refocus-typescript-survey.md")
 SURVEY = REPO / SURVEY_REL
 
-#: The sha256 of §1 as the pre-registration commit carried it. `None` skips
-#: every real-document check BY NAME.
-BYTE_LOCK = "40298b4f7eac78f066a2bcd54716ad028d5bfd05c862fe676fdc3207ce876fa8"
+#: The sha256 of §1 as it now stands: the ORIGINAL lock plus the one dated
+#: amendment (ruling P16's H7′/H8′ pre-registration, added before any
+#: endpoint ran). `None` skips every real-document check BY NAME.
+BYTE_LOCK = "044b9231dc1aea0cff14d3722ced37f2dc70c20e4c51875c2647414c67ba4b1d"
+
+#: The sha256 of §1 as the pre-registration commit carried it, before the
+#: amendment. Both shas travel together so the amendment is a visible fact of
+#: the record rather than a claim in its prose.
+ORIGINAL_LOCK = "40298b4f7eac78f066a2bcd54716ad028d5bfd05c862fe676fdc3207ce876fa8"
+
+#: The commit that carried §1 first and alone: the pre-registration.
+#: `ORIGINAL_LOCK` is RECOMPUTED from this commit's copy of the document, so
+#: the "before" text is git's and not a constant's.
+ORIGINAL_COMMIT = "74d574c"
+
+#: The dated sub-heading the amendment added, INSIDE §1 and before the survey
+#: pin. Named here so "one paragraph was added" is a check and not a reading
+#: of the diff.
+AMENDMENT_HEADING = "### Amended 2026-09-13 (ruling P16, before any endpoint ran)"
 
 #: The sha256 of the survey file, which is also §1's second-to-last line.
 SURVEY_LOCK = "10433230d34dfd96f7aeede1c637dbb217da1764bc98d00f50474b909ae5d46b"
@@ -207,20 +240,43 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def byte_lock_facts(doc_text: str, expected: str) -> dict:
+def byte_lock_facts(doc_text: str, expected: str,
+                    original: str | None = None,
+                    original_text: str | None = None) -> dict:
     """The lock's numbers, computed and never enforced.
 
     Split from [`byte_lock_check`] for the reason the debts lock splits its
     own: a reader who wants the two shas beside each other should not have to
-    take a refusal to get them."""
+    take a refusal to get them.
+
+    `original_text` is the document as the ORIGINAL lock commit carried it.
+    When it is given, `original_lock_sha256` is RECOMPUTED from it rather than
+    echoed from `original`, and `original_lock_declared_matches` says whether
+    the constant agrees -- which is the difference between "the record says it
+    was amended" and "git shows it was amended, from exactly that text".
+    """
     s1 = rung3.section1(doc_text)
+    s1_orig = (rung3.section1(original_text) if original_text is not None
+               else None)
+    orig_sha = _sha256_text(s1_orig) if s1_orig is not None else original
     return {"doc": DOC.relative_to(REPO).as_posix(),
             "range": "awk '/^## 1/,/^## 2/'",
             "locked_sha256": expected,
             "working_tree_sha256": _sha256_text(s1),
             "section1_sha256": _sha256_text(s1),
             "working_tree_bytes": len(s1.encode()),
+            "locked_bytes": len(s1.encode()),
             "identical": _sha256_text(s1) == expected,
+            "original_lock": ORIGINAL_COMMIT if original else None,
+            "original_lock_sha256": orig_sha,
+            "original_lock_declared_matches": (orig_sha == original
+                                               if original else None),
+            "original_lock_bytes": (len(s1_orig.encode())
+                                    if s1_orig is not None else None),
+            "amended_after_the_original_lock": bool(orig_sha
+                                                    and orig_sha != expected),
+            "amendment_bytes": (len(s1.encode()) - len(s1_orig.encode())
+                                if s1_orig is not None else None),
             "footnotes_in_range": sorted(set(rung3.FOOTNOTE_REF.findall(s1)))}
 
 
@@ -283,6 +339,79 @@ def test_section_one_has_not_moved():
     assert rec["identical"] is True
     assert rec["working_tree_bytes"] > 5000, rec["working_tree_bytes"]
     assert rec["footnotes_in_range"] == []
+
+
+def test_the_record_carries_both_shas_and_the_amendment_flag():
+    """Catches: an amendment reported as an original lock, or an amendment
+    that quietly REPLACED §1 instead of adding to it.
+
+    §1 was amended on 2026-09-13, before any endpoint ran (controller ruling
+    P16): H7 asks for a `licence: WITHHELD` line that
+    `src/sensorium/query/refocus_report.py` prints only on a MATCH, and H8's
+    locked command omits the `--focus` that
+    `src/sensorium/query/refocus_cmd.py:186` makes `required=True`. Both
+    clauses stand and are measured as written; H7′ and H8′ are pre-registered
+    beside them in a dated paragraph. The record must say so with two shas
+    and a flag -- a record that reported no amendment would be describing
+    another document.
+
+    The ORIGINAL is read from `ORIGINAL_COMMIT`, not from the constant, so
+    "amended from exactly that text" is git's fact and not this file's claim.
+    That the amendment REMOVED nothing is checked by
+    `test_the_amendment_added_a_paragraph_and_moved_no_row` below, not here:
+    `locked_bytes == original_lock_bytes + amendment_bytes` is the definition
+    of `amendment_bytes` restated -- arithmetic, not a check.
+    """
+    _require_lock()
+    _require_source_commits(ORIGINAL_COMMIT)
+    assert BYTE_LOCK != ORIGINAL_LOCK
+    rec = byte_lock_facts(DOC.read_text(), BYTE_LOCK, ORIGINAL_LOCK,
+                          _at(ORIGINAL_COMMIT, DOC.relative_to(REPO).as_posix()))
+    assert rec["amended_after_the_original_lock"] is True
+    assert rec["original_lock_sha256"] == ORIGINAL_LOCK
+    assert rec["original_lock_declared_matches"] is True
+    assert rec["locked_sha256"] == rec["section1_sha256"] == BYTE_LOCK
+    assert rec["amendment_bytes"] > 0
+
+
+def test_the_amendment_added_a_paragraph_and_moved_no_row():
+    """The rule the amendment lives by: a pre-registration error found before
+    a number is read is pre-registered AGAIN, beside the clause it corrects,
+    and the clause it corrects does not move. Every table row of §1 at the
+    original lock is a row of §1 now, byte-identical and in the same order;
+    so is every bullet of the plan block; every line of the original §1
+    survives, in order; and the dated heading appears exactly once, in
+    today's §1 and not in the original's.
+
+    An "amendment" that rewrote H7's `licence: WITHHELD` clause or H8's
+    locked command -- the two rows this slice now expects to STOP on -- would
+    fail here even though both shas moved together.
+    """
+    _require_lock()
+    _require_source_commits(ORIGINAL_COMMIT)
+    rel = DOC.relative_to(REPO).as_posix()
+    before_s1 = rung3.section1(_at(ORIGINAL_COMMIT, rel))
+    after_s1 = rung3.section1(DOC.read_text())
+    before, after = before_s1.splitlines(), after_s1.splitlines()
+
+    rows = lambda lines: [ln for ln in lines if ln.startswith("|")]
+    bullets = lambda lines: [ln for ln in lines if ln.startswith("- ")]
+    assert rows(before) == rows(after), "a table row of §1 moved"
+    assert bullets(before) == bullets(after), "a bullet of §1 moved"
+    assert len(rows(after)) >= len(ENDPOINTS)          # the H1--H10 table
+
+    # Additions only: every line of the original §1 survives, IN ORDER.
+    i = 0
+    for ln in before:
+        while i < len(after) and after[i] != ln:
+            i += 1
+        assert i < len(after), f"§1 lost a line, or moved it: {ln!r}"
+        i += 1
+    assert len(after) > len(before)
+
+    assert AMENDMENT_HEADING not in before_s1
+    assert after_s1.count(AMENDMENT_HEADING) == 1
+    assert after_s1.count("Amended 2026-09-13") == 1
 
 
 def test_the_byte_lock_REFUSES_a_document_that_differs_by_one_byte():
