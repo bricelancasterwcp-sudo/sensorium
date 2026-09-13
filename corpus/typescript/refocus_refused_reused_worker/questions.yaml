@@ -1,0 +1,62 @@
+program: vitest
+harness_args: ["run", "refocus_refused_reused_worker/", "--no-isolate", "--maxWorkers", "1"]
+questions:
+  - id: can-a-container-that-ran-two-test-files-be-refocused
+    ask: >
+      `--no-isolate --maxWorkers 1` puts both of this case's test files in
+      ONE vitest worker, so the container recorded two of them. Can that
+      recording be re-run under a deeper focus?
+    truth: >
+      No, and the refusal comes BEFORE anything is re-run: exit 2, with the
+      sentence design 2026-09-13 §2.3 fixes verbatim as its seventh pre-rerun
+      refusal -- "run <id> ran 2 test files in one container (a reused
+      worker); which container of a re-run would be its pair is the harness's
+      scheduling, not a fact; nothing was re-run". The count 2 is
+      `test_files`, the converter's own statement of what that container ran,
+      and it is the key ruling R4 refuses on: a container carrying one
+      `test_file` pairs by that file and a container carrying neither pairs
+      by its argv, but a reused worker's pairing would be a guess about the
+      scheduler. Exit 2 rather than 3 is the design's split between the
+      command's two gates (§2.3): nothing ran, so the reader's next move is a
+      different CALL, and the note that follows says what may be done instead
+      -- `sensorium ts run --focus <file>:<qualname> -- <harness command>`,
+      which records a fresh, UNVERIFIED invocation (§3.5). Re-running anyway
+      would leave "which container of these two is the re-run of this trace"
+      with no answer, after a whole suite had been spent to reach the
+      non-answer.
+    why_logs_fail: >
+      A `console.log` would print, from whichever of the two files reached
+      it, a value out of a re-run nobody had checked against the original --
+      which is the very thing being refused here, done silently and by hand.
+      `DEBUG=*` reaches no logger this project writes to, and nothing throws,
+      so there is no stack trace. No log line can report the refusal itself,
+      because the refusal is a fact about an invocation's shape rather than
+      about anything a program executed.
+    command: ["refocus", "$RUN", "--focus", "one"]
+    expect_exit: 2
+    expect_contains:
+      - "ran 2 test files in one container (a reused worker); which container of a re-run would be its pair is the harness's scheduling, not a fact; nothing was re-run"
+  - id: did-the-refusal-leave-the-store-alone
+    ask: >
+      "Nothing was re-run" is a claim about the world, not just about this
+      command. Does the store agree?
+    truth: >
+      Yes: one invocation, its one container, and no second. The listing
+      groups by `invocation`, so a re-run would print a second `npx vitest
+      run` header, and a trace produced by one would carry a `refocus-of:`
+      flag -- neither is there. This is the pin that makes the refusal a
+      PRE-rerun refusal rather than a report written after a suite that had
+      already run: design 2026-09-13 §2.3 puts all seven refusals before the
+      launch precisely because re-running a suite costs minutes and touches
+      the project's own caches.
+    why_logs_fail: >
+      The absence of a second recording is an absence, and a `console.log`
+      can state a presence and nothing else; a `DEBUG=*` line that was never
+      emitted and a stack trace that never fired are indistinguishable from a
+      re-run that never happened and one that happened and printed nothing.
+      Only a listing of what the store holds can say that nothing was added.
+    command: ["runs"]
+    depends_on: can-a-container-that-ran-two-test-files-be-refocused
+    expect_count: {"invocation ": 1}
+    expect_absent: ["refocus-of:"]
+    expect_exit: 0
