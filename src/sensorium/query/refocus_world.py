@@ -502,15 +502,21 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
     # signals that is sound rather than "usually right".
     for label, trace in (("the original", orig), ("the rerun", new)):
         meta = trace.meta
-        # The declared-false case is UNVERIFIABLE_THREADS, reported ONCE for
-        # the pair at the end rather than once per side, and reported there
-        # INSTEAD of here: all three clauses below are about a recorder that
-        # witnesses threads -- the gap sentence says a witness wrote no
-        # record, and the two counts read the record it wrote. A recorder
-        # that declares it witnesses none has nothing for any of them to be
-        # about, and saying so as a caveat would withhold the licence for
-        # the recorder's own declared scope.
-        if UNVERIFIABLE_THREADS in unverifiable:
+        # THIS side's declaration, never the pair's marker. All three
+        # clauses below are about a recorder that witnesses threads -- the
+        # gap sentence says a witness wrote no record, and the two counts
+        # read the record it wrote -- so a recorder that declares it
+        # witnesses none has nothing for any of them to be about, and
+        # saying so as a caveat would withhold the licence for the
+        # recorder's own declared scope. The marker reports that once for
+        # the pair, at the end.
+        #
+        # Read per SIDE because the pair's marker fires when EITHER side
+        # declares false: gated on that, a mixed pair would lose the
+        # WITNESSING side's `started`/`live_threads` findings -- real
+        # findings about a real record, dropped because the other trace
+        # came from another recorder.
+        if trace.declares("threads") is False:
             continue
         if "threads_started" not in meta or "live_threads" not in meta:
             legacy = ("predates the thread bookkeeping this check reads, "
@@ -657,11 +663,23 @@ def _verified_facts(orig: Trace, new: Trace, scope: str) -> list[str]:
         f"no thread started besides the main one "
         f"{terms(new).thread_origin}, and none left running when recording "
         "stopped")
+    # Decided once and read by both capability guards in this function: two
+    # derivations of one list is two answers to "what could this pair not
+    # check".
+    unverifiable = unverifiable_checks(orig, new)
     facts = [
         f"identical call shape across {len(fps)} compared fingerprint(s), "
         f"holding {events} causal event(s){outside}",
-        thread_fact,
     ]
+    # ...and stated only where the record it rests on exists. `relicense`
+    # takes UNVERIFIABLE_THREADS out of the WITHHOLDING decision, so a pair
+    # whose recorder declares it witnesses no thread can be GRANTED -- and
+    # a granted licence asserting "no thread started besides the main one"
+    # over bookkeeping nobody wrote is exactly the bug this file's header
+    # names: a check that never ran, reported as a check that passed. The
+    # child claim below is the same rule, three facts on.
+    if UNVERIFIABLE_THREADS not in unverifiable:
+        facts.append(thread_fact)
     # Stated only when there were tasks: a run with none must not be given
     # a fact about zero of them, and the count is the rerun's rows because
     # a stream present on one side only is a divergence, never a MATCH.
@@ -686,7 +704,7 @@ def _verified_facts(orig: Trace, new: Trace, scope: str) -> list[str]:
     # it is here because "the pair cannot vouch for this" must not depend on
     # a second key agreeing.
     if (_spawn_witnessed(orig.meta) and _spawn_witnessed(new.meta)
-            and UNVERIFIABLE_CHILDREN not in unverifiable_checks(orig, new)):
+            and UNVERIFIABLE_CHILDREN not in unverifiable):
         facts.append(
             "no child process witnessed, by any mechanism sensorium watches")
     return facts

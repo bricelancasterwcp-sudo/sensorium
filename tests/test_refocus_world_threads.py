@@ -29,8 +29,10 @@ from sensorium.query.refocus_world import (UNVERIFIABLE, UNVERIFIABLE_CHILDREN,
                                            UNVERIFIABLE_OUTPUT,
                                            UNVERIFIABLE_THREADS, _env_diff,
                                            _env_state, _licence_caveats,
-                                           relicense, unverifiable_checks,
+                                           _verified_facts, relicense,
+                                           unverifiable_checks,
                                            unverifiable_line)
+from sensorium.query.vocab import RUST
 from sensorium.store.reader import Trace
 from tests.rust_traces import rerunnable_trace
 from tests.ts_traces import TS_CAPABILITIES, call, frame, ret, ts_trace
@@ -114,7 +116,15 @@ def test_a_rust_pair_still_gets_exactly_the_two_old_markers(
 def test_the_three_markers_alone_still_grant_the_licence(
         tmp_path, monkeypatch):
     """A check that could not run is not a finding against the pair, so it
-    does not vote. The third marker joins the other two in that."""
+    does not vote. The third marker joins the other two in that.
+
+    And what the granted licence then RESTS on may not include the thread
+    sentence: `relicense` takes the marker out of the withholding decision
+    and calls `_verified_facts`, so without a guard there a pair whose
+    recorder declares it witnesses no thread would positively assert "no
+    thread started besides the main one" over bookkeeping nobody wrote --
+    a check that never ran, reported as a check that passed.
+    """
     a, b = _ts_pair(tmp_path, monkeypatch)
     assessment = {"verdict": "MATCH", "thread_scope": "",
                   "caveats": [UNVERIFIABLE_OUTPUT, UNVERIFIABLE_CHILDREN,
@@ -124,6 +134,63 @@ def test_the_three_markers_alone_still_grant_the_licence(
     assert out["caveats"] == []
     assert out["licence"] == "granted"
     assert "3 source file(s) unchanged" in out["verified"]
+    assert not any("thread started" in f for f in out["verified"])
+    # ...and the call-shape fact it DOES rest on is still first, so the
+    # world's facts splice in after it exactly as `assess` splices them.
+    assert out["verified"][0].startswith("identical call shape across")
+
+
+def test_a_rust_pairs_granted_licence_still_rests_on_the_thread_sentence(
+        tmp_path, monkeypatch):
+    """The byte-identity fence for the guard above. `cargo-sensorium`
+    declares `threads: true`, so the record the sentence reads exists and
+    the sentence is the one it always was -- the Rust provenance clause,
+    from that recorder's own vocabulary table."""
+    run = rerunnable_trace(tmp_path, monkeypatch)
+    t = _open(run)
+    facts = _verified_facts(t, t, "")
+    assert facts[1] == (
+        "no thread started besides the main one "
+        f"{RUST.thread_origin}, and none left running when recording "
+        "stopped")
+
+
+def test_the_witnessing_side_of_a_mixed_pair_keeps_its_thread_findings(
+        tmp_path, monkeypatch):
+    """The skip is THIS side's declaration, never the pair's marker.
+
+    The marker fires when EITHER trace declares `threads: false`, so gating
+    the per-side loop on it would drop the WITNESSING side's `started` and
+    `live_threads` findings -- real findings about a record that exists,
+    lost because the other trace came from another recorder. The pair still
+    gets the marker once, because one of its two sides cannot be read.
+    """
+    orig_id = ts_trace(
+        tmp_path, monkeypatch,
+        codes=[["/w/app/src/config.ts", "load", 4]],
+        frames=[frame(1, 1, 2)], events=[call(1000, 1, 4), ret(2000, 1, 1)],
+        run_id="20260101-000000-tsmix1",
+        capabilities={**TS_CAPABILITIES, "threads": False})
+    new_id = ts_trace(
+        tmp_path, monkeypatch,
+        codes=[["/w/app/src/config.ts", "load", 4]],
+        frames=[frame(1, 1, 2)], events=[call(1000, 1, 4), ret(2000, 1, 1)],
+        run_id="20260101-000000-tsmix2",
+        capabilities={**TS_CAPABILITIES, "threads": True},
+        threads_started=1, live_threads=[])
+    orig, new = _open(orig_id), _open(new_id)
+    assert orig.declares("threads") is False
+    assert new.declares("threads") is True
+
+    caveats = _licence_caveats(orig, new)
+    assert any(c.startswith("the rerun started 1 thread(s) besides the "
+                            "main one") for c in caveats)
+    # The declaring-false side says nothing at all: no gap sentence, and no
+    # count read off a record it never wrote.
+    assert not any(c.startswith("the original") for c in caveats)
+    assert not any("declares threads not witnessed" in c for c in caveats)
+    # ...and the pair is still marked, once, because one side cannot be read.
+    assert caveats.count(UNVERIFIABLE_THREADS) == 1
 
 
 # -- harness set 1 ---------------------------------------------------------
