@@ -1,0 +1,7 @@
+manifest-before	0
+run	0
+resolve	0
+info	0
+frame	0
+transform-diff	0
+manifest-after	0

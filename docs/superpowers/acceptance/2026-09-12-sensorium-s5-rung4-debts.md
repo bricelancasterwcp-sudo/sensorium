@@ -585,12 +585,709 @@ counts. No other existing case's bytes moved.
 
 ## 3. Results
 
-*Written when the endpoints have run.*
+**Status: DONE-WITH-STOP.** Seven gated endpoints and the two fences, every
+one read once, in the order Task 11 fixes: E12′ over rung 4's committed
+transcripts, then E13, then E14, then E6-TS, then the fences and the suites,
+then H8′ last and alone on the lens. **Six of the seven gated endpoints
+PASS.** The seventh, **E6-TS′, STOPs** — and it STOPs against a clause §1.7's
+own second amendment said three days' work in advance would not hold, because
+the clause was pre-registered from the wrong command's vocabulary. So the word
+this slice ships is `DONE-WITH-STOP` and not `DONE`, and §4.4 says exactly
+what the reading showed and §5 says what the mistake was worth. Nothing was
+re-run, no threshold moved and no focus was narrowed after a number was read.
+
+The numbers below are
+`docs/superpowers/acceptance/2026-09-12-sensorium-s5-rung4-debts.results.json`,
+assembled by `typescript/acceptance/assemble_s5debts.py`, **with three stated
+exceptions**, each of which says so again where it is used:
+
+* `cargo test --workspace`'s aggregate — 45 `test result` sections summing to
+  804 passed / 0 failed / 24 ignored — is an `awk` sum over `<results>/logs/
+  cargo.log`, which is a session artefact and is not committed. The cell holds
+  cargo's exit status and the LAST three lines of that log, which are one
+  section and not the total.
+* the probes' `12 spools, 146 checks, 0 failures` is the checker's JSON at the
+  end of `<results>/logs/npm-probes.log`, likewise not committed. The cell
+  holds the exit status.
+* **E6-TS′ has no cell in the results file at all**, and that is a decision
+  rather than an omission: §4.4 gives it in full, adjudicated from the SAME
+  evidence `E6TSp` is built from. `assemble_s5debts.py` filters `gated` through
+  its own `ORDER` list and builds `reported` from a fixed set of keys, so a
+  cell added for E6-TS′ would have been silently DROPPED rather than refused —
+  and a reading that disappears from the file it was added to is worse than one
+  the record names in prose and the reader can check for themselves.
+
+Every cell is `{value, n, lens, dropped}` plus `recorder` / `recorder_rev` /
+`recorder_basis`. The recorder is **`sensorium 0.12.0 / sensorium-ts 0.4.0` on
+`feat/s5-rung4-debts` @ `d9e843d45fe8f7d0049637b059a2eedeb2c1fc28`** — this
+task's own first commit, the pre-measurement instrument fix of §2.3, which is
+the tree every endpoint below was read on. The Python version does not move
+here: the bump to `0.13.0` is Task 12's, and a cell claiming it would name a
+recorder that took no reading.
+
+The assembler's three verifications all held before a number was published:
+the hashed set (13 of 13 transcripts, 12 of 13 store entries plainly and
+`invocations.jsonl` as an append); the reads were taken against THIS record
+(sha `b095e2671136363406c21616d6118fbdd8a3816f9641f3fd99514c8126b9bbb0`); and
+the QUESTIONS were read off rung 4's record (sha
+`320bce35f44cf5f8688f49e95a647e5ce324daab1aa2fb906a9cae6e7f741e15`). The first
+of those two shas is of this record FILE as it stood at assembly time — §1 and
+§2 written, §3–§5 still the pre-registration's placeholder — so it is a
+ONE-SHOT provenance check and not a standing one: writing these three sections
+moves the file's sha and re-running the assembler against this record now
+refuses. That is the guard doing its job and also its limit, stated here
+rather than discovered by the next reader who runs it; rung 4's §3 records the
+same thing about its own.
+
+| # | endpoint | cell (`value` of `n`) | the rule | word |
+|---|---|---|---|---|
+| E12′ H2′ | can an instrument without the four defects read rung 4's hand count? | **5 of 5** — the hand count, `node resolve.mjs`'s site list and `meta.functions_focused` are all **6**; `meta.focus_matched` is **5**; the one qualname two sites share is `buildDiceQueueEntry.<anonymous>`; both arms print ` Test Files  1 passed (1)` / `      Tests  26 passed (26)` at exit 0; `grep --kind CALL` prints `parseDiceGroups(formula='1d20')` first | one number three ways, `focus_matched` one lower for the shared qualname, the suite half unmoved → else STOP | **PASS** |
+| E12′ H4′ | does the re-registered `watch` reading hold? | **3 of 3** — W1 `31` of `64`, W2 `52` of `77` with **0** HITs on a row whose `unbound` names `count` and **2** at line 72 both head rows, W3 `15` all at line 72 carrying `m=null` and `unbound:count,sides`; all three SATISFIED at exit 0 | all three triples as §1.3 re-registers them, W2's clause read off `unbound` and not off a line number → else STOP | **PASS** |
+| E12′ H5′ | does the new parser see the CALL the transcript prints? | **7 of 7** — S1 found, **9** sightings at `:74`; S2 found as event **`e10`**, a **CALL** row of `parseDiceGroups` at code-object line **68**; `elsewhere_not_gated` **5**; the transcripts' own `sightings:` **10** and **5**; `unpredicted` **0** | both sightings found, no third triple in the gated population, the ungated rows counted as §1.4 writes them → else STOP | **PASS** |
+| H8′ | does this slice's recorder still produce the same rows on the same lens? | **8 of 8** — §1.9's eight clauses, every one held; one run, wall **2.4072 s**, 1-minute load **0.41** | all eight → PASS; any one is a STOP | **PASS** |
+| E13 | is a finally after a return recorded, and only where the shape exists? | **4 of 4** — the census prints **0 / 1 / 0** exactly; the 0.3.0→0.4.0 diff over 102 files changes **one**, `settle`'s wrapper, three lines; `focus_finally_return` green; `HONESTY-COST.md`'s diff-stat empty | all four clauses of §1.5 → else STOP | **PASS** |
+| E14 | does Rust's row say what its block unbound, and does the fold honour it? | **5 of 5** — `focus_block_let` green; `v40` round-trips; the three tag-3 refusal tests green; **43** other Rust cases equal; **5** `refocus_*` cases equal | all five clauses of §1.6 → else STOP | **PASS** |
+| E6-TS″ | does the CORRECTED table hold? | **22 of 22** — every TypeScript case with an `exceptions` question matches `e6ts.PRE_REGISTERED`, `focus_catch_binding` at **1** SWALLOWED with no `ambiguous by reason:` line; the swallow set is **9** cases, non-empty | every row matches, the reason-line pins hold, the swallow set non-empty → else STOP | **PASS** |
+| **E6-TS′** | does the table as §1.7 FIRST wrote it hold? | **0 of 1** — `focus_catch_binding` prints `dispositions: swallowed 1` and one `SWALLOWED -- caught by catch at e12 (attempts L17) in f2, which returned`; §1.7 pre-registers **0** | `focus_catch_binding` at 0 SWALLOWED → else STOP | **STOP** |
+
+**Reported beside them, gating nothing** — the two fences and the eight suite
+readings of §1.8:
+
+| endpoint | cell | reading |
+|---|---|---|
+| E-legacy | **1 of 2** | `git diff 5c36baa..HEAD --stat` over the fenced paths names **47** changed files and **every one of them is under `rust/`** — §1.8's one expected mover, because §5 funds the Rust `unbound` by design. No fenced path outside `rust/` moved a byte. The fenced tests and the Rust key's tuple equality are green (`118 passed`) |
+| E-branch | **1 of 1** | `tests/test_acceptance_scripts.py` green |
+
+| suite | command | reading |
+|---|---|---|
+| corpus | `corpus/run_corpus.py --require-driver` | **108 cases, 229 questions, 0 failures, 0 error(s)**, exit 0, wall 50.49 s at a 1-minute load of 0.92 → 1.24 |
+| pytest | `.venv/bin/python -m pytest -q -p no:cacheprovider` | **4228 passed, 24 skipped** in 156.92 s, exit 0 |
+| cargo | `cargo test --workspace` from `rust/` | exit 0; **45** `test result: ok` sections summing to **804 passed, 0 failed, 24 ignored** (from the log named above, not from the cell) |
+| node | `npm --prefix typescript test` | **pass 559, fail 0**, 0 cancelled / skipped / todo, exit 0 |
+| probes | `npm --prefix typescript/probes run probe` | checker **`ok: true`**, **12** spools, **146** checks, **0** failures, `files_transformed 14 / functions_focused 12 / parse_errors 0`, exit 0 (vitest itself prints ` Test Files  1 failed \| 11 passed (12)` — `never_settles.probe.test.ts > parks forever` is the probe that deliberately never settles, and the checker is the gate) |
+| tsc | `npm --prefix typescript run check` | no output, exit 0 |
+| ceiling | `tests/test_ceiling.py` | **1001 passed**, exit 0 |
+| E7 needle | `e7_report.py`, `E7_NEEDLES=rung2` | **0** occurrences of the nine needles over **43** lines of this slice's TypeScript output, exit 0; the ungated context counts (`python`, `rust`, `asyncio task`) are **0, 0, 0** |
+
+### 3.1 E12′ — H2′, H4′ and H5′, off the committed transcripts
+
+The preflight ran first and published its own evidence: **13 of 13**
+transcripts hash to §1.1's list with no unlisted fourteenth; the store's hash
+list is the sha §1.1 cites; **12** of its thirteen entries verify plainly, and
+`invocations.jsonl` verifies as an APPEND — its first **6** lines still hashing
+to `3a619cbb77356d191489828beaeb70f90cdc1a053e682cf29e1296a39df8221c`, the
+value rung 4 listed. The journal stands at **19** lines, rung 4's six plus the
+thirteen its own reads appended, which is the arithmetic §1.1 and the rung-4
+record's §3 both describe. No cell was read until all of that held.
+
+**H2′ — 5 of 5.** The hand count's six rows, the six sites `node resolve.mjs`
+printed in the rung-4 record's §4.2, and the committed trace's
+`meta.functions_focused` agree on **6**:
+
+```
+src/lib/diceQueue.ts:parseDiceGroups
+src/lib/diceQueue.ts:forcedDiceFromSource
+src/lib/diceQueue.ts:forcedDiceFromSource.<anonymous>
+src/lib/diceQueue.ts:buildDiceQueueEntry
+src/lib/diceQueue.ts:buildDiceQueueEntry.<anonymous>
+src/lib/diceQueue.ts:buildDiceQueueEntry.<anonymous>
+```
+
+`meta.focus_matched` holds **5** — the two default-parameter arrows of
+`buildDiceQueueEntry` (L197 `idFactory = () => crypto.randomUUID()`, L198
+`now = () => Date.now()`) share the one qualname
+`buildDiceQueueEntry.<anonymous>`, which is the shared spelling §1.2 names.
+The suite half is byte-equal on both arms and `grep F1 parseDiceGroups --kind
+CALL` prints `parseDiceGroups(formula='1d20')` first.
+
+**H4′ — 3 of 3.** Every hit TOTAL is read off `watch`'s own `sites: … hits: …`
+tally line and never by counting rows, because `--limit` caps what a
+transcript prints; the CLASS questions are read off the printed rows, and the
+cell's `note` says which is which.
+
+| # | `--expr` | verdict / exit | tally | the class reading |
+|---|---|---|---|---|
+| W1 | `sides == 20` | `SATISFIED at 31 of the 64 site(s)…` / 0 | 165 sites, 64 evaluated, 31 hits, 101 not captured, 0 errors | — |
+| W2 | `count == 1` | `SATISFIED at 52 of the 77 site(s)…` / 0 | 165 sites, 77 evaluated, 52 hits, 88 not captured, 0 errors | **0** of the 20 printed HITs sits on a row whose `unbound` names `count`; **2** sit at line 72 and both are HEAD rows — `m=[ '2d6', … ]   state: count=1` at `e32` and `e86`, neither carrying `unbound` |
+| W3 | `m == null` | `SATISFIED at 15 of the 120 site(s)…` / 0 | 165 sites, 120 evaluated, 15 hits, 45 not captured, 0 errors | all **15** printed HITs are at line 72 and every one carries `m=null  unbound:count,sides` |
+
+**H5′ — 7 of 7.** S1 is sighted **9** times, every one a LINE row
+`e<id> LINE    parseDiceGroups L74  sides=20   [local sides]`. S2 is found —
+one row, event **`e10`**, kind **CALL**, qualname **`parseDiceGroups`** (the
+token before its `(`), code-object line **68**, read from the trace's
+`code_objects` table because a printed CALL row carries no `L<line>`:
+
+```
+e10 CALL    parseDiceGroups(formula='1d20')   [arg formula]
+```
+
+`elsewhere_not_gated` is **5** — one row from the `--value 20` transcript and
+four `RETURN` rows from the `--value "'1d20'"` one, all five in
+`buildForcedNotation.<anonymous>`, which is outside the three gated qualnames.
+The transcripts' own printed totals, quoted beside the cell, are `sightings:
+10` and `sightings: 5`, and `unpredicted` is **0**.
+
+### 3.2 E13 — the finally seal
+
+**4 of 4.**
+
+**Clause 1, the census.** `census_deferred.mjs` over the three roots printed
+exactly §1.5's three lists — `typescript/probes` **0** deferred of 23 files
+scanned, `corpus/typescript` **1** of 90, the lens's `src/lib/diceQueue.ts`
+**0** of 1 — and the one row is
+`corpus/typescript/focus_finally_return/finally.ts`, `settle`, line **7**,
+which is the hand table's row triple for triple.
+
+**Clause 2, the golden diff.** `transform_diff.mjs` ran `e6f5035`'s
+`transform.mjs` against this tree's over `typescript/probes/src` and
+`corpus/typescript`, both sides on the same bytes with the same options, from
+the repository root so that each file is spelled as the census spells it.
+**102 files compared, 1 changed**, and the changed file is the census's one,
+its changed lines attributed to `settle` and to nothing else:
+
+```
+--- base/corpus/typescript/focus_finally_return/finally.ts
++++ head/corpus/typescript/focus_finally_return/finally.ts
+@@ -7,13 +7,13 @@
+ export function settle(flag: boolean): number {const __sf=__srt.call(__sfile,0);try{
+   let cleanup = 0;
+   try {
+-    if (flag) return __srt.ret(__sf,(1));
+-    return __srt.ret(__sf,(2));
++    if (flag) return __srt.pend(__sf,(1));
++    return __srt.pend(__sf,(2));
+   } finally {
+     cleanup = 1;
+     note(cleanup);
+   }
+-;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}
++;__srt.pend(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}finally{__srt.seal(__sf)}}
+ 
+ export function note(n: number): number {const __sf=__srt.call(__sfile,1);try{
+   return __srt.ret(__sf,(n));
+```
+
+Three lines, 1279 → 1307 bytes. `note`, in the same file and two lines below
+the changed wrapper, is untouched; so is
+`corpus/typescript/finally_return/ledger.ts`'s `commit`, which the census
+excluded by name and which is the part of this diff that shows the rule
+DISCRIMINATES rather than firing on every `finally` in the tree.
+
+**Clause 3, the case.** `corpus/typescript/focus_finally_return` is green —
+3 questions, exit 0, inside the one corpus run — its RED run at T0 in the
+ledger.
+
+**Clause 4, the cost prose.** `git diff 5c36baa -- typescript/HONESTY-COST.md`
+prints nothing at all: the seam and the seal changed no unfocused wrapper, so
+none of that file's cited numbers moved.
+
+### 3.3 E14 — the Rust `unbound`
+
+**5 of 5**, all five clauses read off the artefacts of the one corpus run and
+two commands of their own.
+
+| clause | reading |
+|---|---|
+| 1 | `corpus/rust/focus_block_let` green — 3 questions, exit 0; its RED run at T0 in the ledger |
+| 2 | `v40` round-trips: `pytest -q tests/test_vectors.py -k v40` selects `test_vector[v40-rust-line-unbound]` and `test_call_rows_carry_no_frame_id[v40-rust-line-unbound]`, **2 passed, 81 deselected**, exit 0 |
+| 3 | the tag-3 refusals hold: `cargo test -p cargo-sensorium spool::` — **49 passed, 0 failed**, exit 0, with `a_tag_three_block_is_an_unbound_name_and_never_a_delta`, `a_duplicate_unbound_name_within_one_record_is_refused` and `deltas_and_unbound_names_ride_one_record_each_into_its_own_list` among them by name |
+| 4 | every other Rust corpus case equal: **44** Rust cases in the run, **43** besides `focus_block_let`, **none** moved |
+| 5 | every `refocus_*` case equal: **5** of them — `refocus_child_run`, `refocus_diverged`, `refocus_match`, `refocus_refused_many`, `refocus_spawned_test_fn` — **none** moved |
+
+"Equal" here is the corpus runner's own word — a case whose answers match its
+questions as those questions stand — and §2.3 names, before this reading was
+taken, the twelve files whose questions this slice deliberately re-pinned.
+Two of them are Rust cases inside clause 4's set: the three
+`sensorium-rt 0.4.1 → 0.5.0` refusal sentences, and
+`corpus/rust/focus_loop_counter`'s `3 of the 7` → `2 of the 6`, which is the
+rule's own number and not a loosened pin.
+
+**How `corpus.json` was keyed, because the shape has a corner the corpus has
+now grown into.** `e14_report.py` reads one entry per case, keyed by name,
+with `language` as a field. Fourteen case DIRECTORY names are now shared
+across two languages (`aliasing`, `pass_vs_fail`, `focus_loop_counter` and
+eleven more), so a file keyed by bare name alone would have let one language's
+case overwrite the other's and read "every Rust case equal" over a set that
+had quietly lost members. The input was therefore keyed by the runner's own
+name with its language prefix stripped WHERE THAT IS UNAMBIGUOUS and kept
+whole where it is not — 108 entries for 108 reported cases, 20 Python, 44
+Rust, 44 TypeScript, and the cell's own `rust_cases` list is 44 long, which is
+how a reader can check that nothing was lost. No instrument was changed for
+this; it is a statement of how the operator's input was built. §5 carries it
+as a finding about the shape.
+
+### 3.4 E6-TS — the corrected table measured, the pre-registered one adjudicated
+
+**E6-TS″ — 22 of 22.** `e6ts.py` recorded every TypeScript corpus case that
+asks an `exceptions` question through the corpus's own driver and compared each
+printed answer against `e6ts.PRE_REGISTERED` two independent ways — the count
+of lines beginning `SWALLOWED --`, and the `swallowed` term of the parsed
+`dispositions:` line. Twenty-two cases asked, twenty-two matched, `differences`
+empty, `dropped` empty, wall 13.83 s. The swallow set is **9** cases and
+therefore non-empty. Every case in `PRE_REGISTERED_REASON_LINE` printed the
+line that table pins, `None` included.
+
+`focus_catch_binding`'s row, whole, is the evidence both clauses are read off:
+
+```
+case                 focus_catch_binding
+question             did-anything-record-the-catch-itself
+command              exceptions 20260912-190450-7d551d          exit 0
+tally line           dispositions: swallowed 1
+swallowed lines      1        tally_swallowed     1
+reason line          None     expected            None
+lines                SWALLOWED -- caught by catch at e12 (attempts L17) in f2, which returned
+expected             1        equal               true
+```
+
+**E6-TS′ — 0 of 1, STOP.** §1.7 as it was first written pre-registers that
+same case at **0** SWALLOWED. The answer prints **1**, twice over, by two
+derivations that agree. The clause does not hold. It is adjudicated here from
+the evidence above and not from a second run, because there is only one run and
+the two clauses are two readings of it. §4.4 says what this STOP is a finding
+about.
+
+### 3.5 The fences and the suites
+
+Eight suite readings and two fences, each carrying its own exit status; every
+one green, and the one non-zero-looking cell is E-legacy's, which §1.8 wrote
+down in advance.
+
+**The legacy fence is the one worth spelling out.** Its first claim — "the
+fenced files show zero diff against the branch point" — reads **false**, and
+§1.8 pre-registers exactly that: `rust/` is inside `FENCED` and §5 funds the
+Rust `unbound` by design, so `rust/` is named as **the one fenced path
+expected to move** and the rule the record actually gates on is that the
+fence's report lists only paths under it. It does. **47** files changed, and
+all 47 are under `rust/`: the three crates' `Cargo.toml`s and `Cargo.lock`, the
+runtime's `line.rs` and its tests, the transform's `lines.rs` / `facts.rs`, the
+converter's `spool/line.rs` and `spool/tests.rs`, ten new `focus_unbound_*`
+golden pairs plus `focus_loop`'s re-pin, the new `tests/unbound.rs`, and the
+Rust prose. Nothing in `src/sensorium/query/exceptions.py`,
+`exceptions_rust.py` or any of the four `test_exceptions*` files moved a byte.
+
+One mechanical note about how that was checked: `git diff --stat` ELIDES long
+paths for display width, so twenty of the cell's forty-seven `diff_stat_lines`
+read `.../tests/golden_focus/focus_unbound_*.rs`. The full names were read
+with `git diff <branch point>..HEAD --name-only` over the same fenced path
+list — the same two fixed commits, a name listing rather than a second
+measurement, and the cell's value is untouched by it.
+
+**The E7 needle ran LAST, after H8′, and over H8′'s output**, which is a
+departure from the order the task brief lists it in and is stated here rather
+than left to be noticed. §1.8 asks for the needle grep "over this slice's
+TypeScript output", and the TypeScript output this slice PUBLISHES is H8′'s —
+the `info` and `frame` transcripts now committed under
+`…-debts-reads/`. Running the grep before H8′ would have had no such output to
+read. The list is rung 2's nine, the list rung 4 read its own transcripts
+under, so the two readings are comparable: **0** occurrences over 43 lines,
+with the matching rule for each needle committed beside the transcripts as
+`13-e7-needle-rules.txt`.
+
+### 3.6 H8′ — the live confirmation, run last
+
+One run on the lens, under this slice's driver and recorder, into a fresh
+store of its own: `run 20260912-191050-0be0e9`, wall **2.4072 s**, taken at a
+1-minute load of **0.41** through the same guard every arm of this slice's
+family uses (under 4.0, up to 90 tries 20 s apart). `session.json` records
+`preregistered_subject: true` — the subject, the three specs, the diffed
+source and the framed function are §1.9's own words and no override was in
+play. All nine steps exited 0.
+
+| # | clause | reading |
+|---|---|---|
+| 1 | the manifest before AND after | **748 OK / 0 FAILED** both times, over a 748-line manifest. The lens is byte-identical after the run to what it was before it |
+| 2 | `resolve.mjs` prints the same six sites | the six above, in the same order, exit 0 — equal to rung 4's list element for element |
+| 3 | `info` prints `focus matched: 5 … (6 functions)` | `focus matched: 5 — …buildDiceQueueEntry, …buildDiceQueueEntry.<anonymous>, …forcedDiceFromSource, …forcedDiceFromSource.<anonymous>, …parseDiceGroups (6 function(s) focused by the transform)` |
+| 4 | H3's nine LINE rows are TEXT-equal to the rung-4 record's §1.1 hand count | **9** read, **9** expected, every row equal on line, deltas and `unbound`. The activation is `f6 … [e10..e20]`, `args: formula='1d20'`, and its rows are L69 `groups=[]`, L70, L71 `m=undefined`, L72 `m=[ '1d20', … ]`, L73 `count=1`, L74 `sides=20`, L76, L75, L72 `m=null  unbound:count,sides` |
+| 5 | the suite line | `      Tests  26 passed (26)`, run exit 0 |
+| 6 | the marker grep | two cache directories searched by name (`node_modules/.vite`, `node_modules/.vite-temp`), **0** hits of `__srt` |
+| 7 | the wrapper listing | `node_modules/.sensorium: absent` |
+| 8 | the base transform's diff | 1 file compared, **0** changed, **0** diff bytes — `e6f5035`'s `transform.mjs` and this slice's emit byte-identical output for `diceQueue.ts` under the same three specs |
+
+Two readings sit beside the eight and gate nothing. `info` reports `recorded:
+CALL 117  RETURN 117  RAISE 0  HANDLED 0  YIELD 0  RESUME 0  LINE 295` over
+**529** events — the same call tier and the same 295 LINE rows rung 4's F1
+arm recorded, under a recorder two minor versions later. And the trace
+declares `recorder: sensorium-ts 0.4.0` with `line=yes locals=yes`, which is
+the tier this run asked for saying so in its own words.
+
+The thirteen artefacts of this run are committed, redacted, under
+`docs/superpowers/acceptance/2026-09-12-sensorium-s5-rung4-debts-reads/`. Four
+labels replace box paths there — `<lens>`, `<h8 store>`, `<repo>` and
+`<home>`, plus `<base checkout>` and `<results>` where the session names them.
+The store is labelled `<h8 store>` and not `<store>` on purpose: §2's `<store>`
+is rung 4's store, which E12′ read and this run never touched, and one label
+for two directories is how a reader comes to believe a run wrote where it did
+not.
 
 ## 4. Decisions
 
-*Written when the endpoints have run.*
+### 4.1 E12′ — an instrument without the four defects reads all three, PASS
+
+The question this endpoint asks is narrow and worth restating before its
+answer: rung 4 STOPped on H2, H4 and H5, and its own §4.4/§4.5 concluded that
+two of those three STOPs were the INSTRUMENT's rather than the recorder's. It
+listed four defects — a CALL row's name is the token before its `(`; a CALL
+sighting's line lives in the code object and not in the printed row; a
+`RETURN` arrow takes one space or two; and a `while`'s head row is told from
+its completion row by the row's own `unbound` payload and never by its line
+number. E12′ re-registered the readings those defects blocked, built a parser
+without them, and read the SAME committed bytes.
+
+**All three PASS.** The conclusion rung 4's post-mortem reached by hand is the
+one an instrument reaches mechanically, and the reach of that is exactly this:
+the four defects were the whole of the difference. Nothing about the recorder
+moved, nothing was re-recorded, and no number in rung 4's own record is
+revised by this — its H2/H4/H5 cells stay STOPped, because a cell records what
+its instrument read on the day. What changes is that the next reader of
+`docs/CARRIED-DEBT.md` can close three gaps rather than carry them.
+
+**The reach of H4′'s W2 reading, stated plainly** (the one place in this
+endpoint where the instrument cannot see the whole population). W2's
+transcript prints **20** of its **52** HITs — `watch --limit` caps the rows and
+the transcript says `... 32 more` in its own words. The hit TOTAL, 52, is read
+off `watch`'s own tally line and is complete. The two CLASS readings — "0 on a
+row whose `unbound` names `count`" and "2 at line 72, both head rows" — cover
+**the 20 printed rows and no more**. The other 32 rest on the fold rule rather
+than on inspection: a name popped on a row cannot be evaluated at that row, so
+a HIT cannot sit on a completion row that unbinds the name its predicate
+names. That is the rule the re-registration is built on, and it is why the
+zero is a zero about a class and not a count of a sample. Rung 4's post-mortem
+read the same truncated twenty by hand. The instrument's cell carries both
+numbers (`printed_hits: 20`, `hits: 52`) and its `note` says which question
+each answers, so the limit is visible in the JSON rather than in a footnote —
+and the anti-vacuity control Task 2 added is what keeps the zero from being
+the output of a dead parse: the same parser, on the same run's committed
+`frame` transcript, must still read exactly one completion row
+`(72, ["count","sides"])`, and it does.
+
+One thing a reader comparing E12′ against rung 4 should know, because it makes
+S2's cell weaker than it looks in isolation: in this trace a CALL event's
+`events.line` EQUALS its code object's `firstlineno` — all 117 of them. So
+`call_line_of` reading 68 for `e10` does not by itself distinguish a correct
+reader from one that took the event's own line. What distinguishes them is the
+assertion Task 2 added when the first mutant survived: `call_line_of(conn, 11)`
+must also read **68**, where `e11` is a LINE event AT line 69 whose code object
+is still `parseDiceGroups` at 68. The cell reads the code table, which is what
+§1.4 asks for; the two sources would have agreed here anyway.
+
+**Verdict: PASS** on each of H2′, H4′ and H5′, by the rule each carries.
+
+### 4.2 E13 — the seal fires on the shape and on nothing else, PASS
+
+Four clauses, all held, and the four are deliberately one question asked from
+four sides: does the transform now defer a function's exit when — and only
+when — the function returns THROUGH a `finally`?
+
+The census answers the "only when" half twice. It found one deferred function
+in three roots and 114 scanned files, and the hand table written before the
+detector existed named that same one. Two functions in those roots have the
+`finally` keyword and are NOT deferred —
+`typescript/probes/src/swallow.probe.test.ts`'s `shape12` and
+`corpus/typescript/finally_return/ledger.ts`'s `commit`, both of them returns
+inside a `finallyBlock` that no further finally guards, which is the rule's
+own parenthesis. The golden diff then answers it in bytes: 102 files compared,
+one changed, three lines, `settle`'s wrapper and no other byte in the tree.
+A rule that fired on the keyword would have moved three wrappers; a rule that
+fired on nothing would have moved none.
+
+The "when" half is the corpus case, green with the questions §1.5 fixed
+before the code existed: `watch --at settle --expr cleanup == 1` SATISFIED at
+2 of its evaluable sites with a HIT on `LINE settle L13  cleanup=1`, `frame
+--fn settle` carrying exactly 3 LINE rows (`expect_count LINE: 3`) with
+`args: flag=true` and `return: 1`, and `tree` rendering `note() -> 1` two
+spaces deeper than `settle(flag=true)` — its CHILD, which under a recorder
+that closed the frame at the `return` would have been its sibling. Those are the
+case's own pins and the corpus checked them; this endpoint's clause is that
+the case is green, and it is.
+
+The fourth clause is the one that says the change was SURGICAL:
+`typescript/HONESTY-COST.md` cites what the unfocused wrapper costs, and its
+diff-stat against the branch point is empty. The seal changed the deferred
+shape's wrapper and left every other function's alone, which is what makes the
+cost prose still true rather than merely still committed.
+
+**Verdict: PASS.**
+
+### 4.3 E14 — a Rust row now says what its block unbound, PASS
+
+Five clauses, all held. The centre of them is the corpus case, whose questions
+were written at T0 from design §5.2 and committed RED: `frame --fn shape`
+carrying `unbound:x` on the plain block's row, `unbound:first` on the `if
+let`'s, `unbound:item` on the `for`'s and `unbound:n,big` on the `match`'s —
+the arm pattern's name first and the arm body's `let` second, which is SOURCE
+order and is the ruling (P7) this slice took and then had to correct once
+(P13, §5). Around it: the wire vector round-trips; the converter refuses a
+record that names one name as both a delta and an unbound, by name, in three
+tests; and the other 43 Rust cases and all 5 `refocus_*` cases are equal.
+
+The fourth clause is the one that carries the most weight and is the easiest
+to read carelessly. "No block-free fragment moved" is a claim about the
+transform's blast radius — the rule is supposed to touch statements that OWN a
+scope and nothing else — and 43 unmoved cases is the evidence for it. It is
+read off the same single corpus run as clause 1, which is deliberate: two runs
+would have measured two populations. The cell refuses an EMPTY set for exactly
+this reason, and the reading published is the set's size (43) and its members,
+so a short set is visible rather than silently green — which is the hazard the
+bare-name keying of §3.3 would have created and did not.
+
+One existing case did move, in the predicted direction, and §2.3 names it
+before the reading: `focus_loop_counter`'s `SATISFIED at 3 of the 7` became
+`2 of the 6` because the `for` statement's own completion row now unbinds `i`,
+so `e11` left the evaluable set and took the third hit with it. The verdict
+word and the first hit are unchanged. That is the rule costing a reading, not
+a pin loosened to fit an output.
+
+**Verdict: PASS.**
+
+### 4.4 E6-TS — the corrected clause holds, and the pre-registered one STOPs
+
+**E6-TS″: PASS, 22 of 22.** Every TypeScript case that asks an `exceptions`
+question prints the answer `e6ts.PRE_REGISTERED` pins, `focus_catch_binding`
+included at **1** SWALLOWED and with no `ambiguous by reason:` line — the two
+claims §1.7's second amendment pre-registered, both derived from
+`exceptions_typescript.py`'s own documented disposition rule rather than from
+a reading of an output. The swallow set is nine cases and non-empty, which is
+the clause that keeps a table of zeroes from satisfying equality.
+
+**E6-TS′: STOP, 0 of 1.** §1.7 as first written pre-registers
+`focus_catch_binding` at **0** SWALLOWED. The case prints
+`dispositions: swallowed 1` and one `SWALLOWED --` line. The clause does not
+hold, and no instrument defect is available to blame: the two independent
+derivations agree with each other, the case's own `expect_line` pins pass
+through the corpus harness over this very output, and the same reading of the
+same shape (`silent_swallow`) has been pinned at 1 since rung 2.
+
+**What the STOP is a finding about — the pre-registration, not the tool.** The
+hand adjudication behind the 0 read `retry.ts:17`'s `catch (e) { count += 1 }`
+and concluded "one HANDLED at that clause, nothing swallowed". HANDLED is
+`grep --kind HANDLED`'s vocabulary: it is a fact about ATTRIBUTION — this
+handler is the one that took it, traced with confidence — and it says nothing
+about DISPOSITION. `exceptions_typescript.py`'s module docstring, lines 30-32,
+defines the disposition the command prints: *"``swallowed``   an absorbing
+handler took it and the frame holding that handler then returned."* The clause
+neither rethrows nor logs (`how="catch"`, in `ABSORBING`, not `ESCAPING`) and
+`attempts` returns normally once its loop ends. That is the rule, exactly, and
+the adjudication read one vocabulary for the other.
+
+**Why the locked clause was not quietly corrected.** It could have been: §1.7
+is a section of this record and the row in `e6ts.py` is three lines. Ruling
+P16 refused that and the refusal is the point. The clause was pre-registered
+before the case's `exceptions` question existed, which is what gives it any
+force at all; editing it once the answer was known would have converted a
+prediction into a description and left no trace that anyone had been wrong.
+So §1.7 keeps its words, the lock publishes the amendment as a fact
+(`ORIGINAL_LOCK` unchanged, `BYTE_LOCK` moved twice), E6-TS″ was pre-registered
+BESIDE it — from the rule, before the instrument read the cell — and Task 11
+measured both and reports both. The correction was derivable at T0 from a
+docstring that has said so all along; what the observation supplied was not the
+rule but the discovery that it had been misapplied.
+
+**Verdict: E6-TS″ PASS; E6-TS′ STOP**, and the STOP is this slice's own,
+reported against itself.
+
+### 4.5 H8′ — the same rows, on the same lens, under a later recorder
+
+Eight clauses, all held, on one run that took 2.4 seconds and left the lens
+byte-identical (748 OK before, 748 OK after, no `__srt` in any vite cache, no
+`node_modules/.sensorium` left behind).
+
+The clause worth dwelling on is the fourth. Rung 4's H3 hand count is nine
+rows written from the design and the statement table before `bindings.mjs`,
+`probe.mjs`, the runtime's `line` or the converter's `_on_line` existed. This
+run reproduces all nine, TEXT-equal — same lines in the same order (69, 70,
+71, 72, 73, 74, 76, 75, 72), same delta names, same single `unbound:count,
+sides` on the `while`'s completion row — under a recorder that has since
+gained the finally seal, `positions.mjs`, a stricter `captures()` and a guarded
+`resolve.survey`. The grain did not drift while the tier grew.
+
+The eighth clause is the other half of E13's second: the focused file carries
+no `try` and no `finally` at all, so the seal must be INVISIBLE on it, and
+`e6f5035`'s transform and this slice's produce byte-identical output for
+`diceQueue.ts` under the same three specs — 0 diff bytes. A change that fires
+on a shape the lens does not have should change nothing about the lens, and
+this is that sentence measured.
+
+**Verdict: PASS.**
+
+### 4.6 The fences and the suites — nothing else moved
+
+**E-legacy, 1 of 2, and the reading HOLDS.** The cell's first claim is "zero
+diff", and §1.8 pre-registers that this slice breaks it in exactly one place:
+`rust/` is inside the fence and §5 funds the Rust `unbound` by design. The
+rule the record gates on is the one §1.8 writes — the fence's report must list
+only paths under `rust/` — and all 47 changed paths are. The `src/sensorium/
+query/exceptions*.py` readers and the four `test_exceptions*` files are
+byte-unchanged, and the fenced tests plus the Rust key's tuple equality are
+green at 118 passed.
+
+**E-branch, 1 of 1.** `tests/test_acceptance_scripts.py` green: the
+instruments ran this branch's binary and only the assembler minted the lens
+label.
+
+**The suites.** The corpus is the fence with the most surface and it came back
+`108 cases, 229 questions, 0 failures, 0 error(s)` on ONE run, at a 1-minute
+load of 0.92 rising to 1.24 — well under the 4.0 the flake disposition of
+rulings P10/P11 is written around, and no case failed, so no re-run was taken
+and none was needed. That is worth recording because of what it replaces:
+`corpus/typescript/finally_return` flaked roughly half the time between Tasks
+0 and 4, and after Task 4's filter fix a recurrence would have been a STOP
+rather than a flake. It did not recur.
+
+pytest **4228 passed, 24 skipped** (the three Task-0 corpus cases that were
+the plan-sanctioned RED for most of this slice are green and inside that
+number); cargo 45 sections summing to **804 passed, 0 failed, 24 ignored**;
+node **559 passed, 0 failed**; the probes' checker **ok: true** with 146
+checks and 0 failures; `tsc` silent at exit 0; the ceiling green at 1001
+passed. And the E7 needle over this slice's published TypeScript output: **0**
+of nine, with `python`, `rust` and `asyncio task` all at 0 beside it.
+
+**Verdict: reported.** None of these gates a number; each of them would have
+stopped the slice had it moved.
 
 ## 5. What the slice ships
 
-*Written when the endpoints have run.*
+**`DONE-WITH-STOP`.**
+
+One endpoint STOPped: **E6-TS′**, the clause §1.7 pre-registered before the
+case it is about existed, against a case that prints `swallowed 1` where the
+clause says 0. It is the only STOP, it is a finding about this slice's own
+pre-registration rather than about the tool, and §4.4 gives it whole. Six
+gated endpoints PASS, the two fences and eight suite readings are green, and
+nothing was re-run.
+
+**What is established.**
+
+* **Rung 4's three STOPs were the instrument's, and now there is a
+  measurement that says so.** E12′ read the same committed bytes with a parser
+  free of the four defects rung 4's post-mortem named, and H2′, H4′ and H5′ all
+  PASS — 6 sites three ways, three `watch` triples with W2's clause read off
+  the row's `unbound` instead of its line number, and the CALL sighting the old
+  parser printed but could not see, found at `e10` with its line taken from the
+  code object. Three carried gaps close.
+* **A TypeScript function that returns through a `finally` is recorded, and
+  only that shape is touched.** E13: the census names one deferred function in
+  114 files and the 0.3.0→0.4.0 golden diff moves exactly that function's
+  wrapper — three lines, 102 files compared, one changed — while the two
+  `finally`s the rule excludes keep byte-identical wrappers and
+  `HONESTY-COST.md`'s cited numbers do not move.
+* **A Rust block-like statement's row now says what went out of scope on
+  it.** E14: `focus_block_let` green on four shapes (plain block, `if let`,
+  `for` pattern, `match` arm) in source order, the wire vector round-tripping,
+  three converter refusals for a name that is both a delta and an unbound, and
+  43 other Rust cases unmoved.
+* **The grain did not drift.** H8′, on the same lens under `sensorium-ts
+  0.4.0`, reproduces rung 4's nine LINE rows TEXT-equal, the same six resolved
+  sites, `focus matched: 5 … (6 functions)`, `26 passed (26)`, the same
+  `CALL 117 RETURN 117 … LINE 295` over 529 events — and leaves the lens
+  byte-identical, 748 OK before and after.
+* **The E6-TS table can take a new case, by a procedure that is now written
+  down** — and the first case to use it caught the procedure's own weak point
+  (below).
+
+**The gaps and the lessons, none of them papered over.**
+
+1. **The pre-registration named the wrong disposition, and the slice reported
+   it against itself (E6-TS′, STOP).** `focus_catch_binding` was
+   hand-adjudicated in `grep --kind HANDLED`'s vocabulary — a HANDLED event,
+   traced with confidence — and "nothing swallowed" was concluded from that
+   confidence. `exceptions`'s own rule, in the reader's module docstring since
+   long before this slice, says `swallowed` means an absorbing handler took it
+   and the frame holding that handler then returned, which is precisely the
+   shape. **The process lesson is about WHICH VOCABULARY a hand adjudication is
+   written in**: the pre-registration of a command's output must be derived
+   from that command's own documented rule, not from a sibling command's kinds,
+   however closely the two seem to be about the same event. `e6ts.py`'s "how a
+   new case asks an `exceptions` question" now says that in as many words, with
+   the commit that got it wrong named. And the mechanism worked: the wrong
+   clause was left standing, a corrected one was pre-registered beside it from
+   the rule before any cell was read, and both were measured once and reported.
+2. **A vitest filter is a substring, and a new directory can silently join an
+   old case's run.** Task 0 added `corpus/typescript/focus_finally_return/`;
+   rung 2's `finally_return` case filtered vitest with the bare string
+   `finally_return`, which matches both directories, so that case recorded two
+   test files in unstable pid order and failed about half the time. Found at
+   Task 3 (as a ~50 % flake, after two earlier unreproduced 8-vs-7 sightings),
+   diagnosed to its cause, fixed at Task 4 with the filter `"/finally_return"`,
+   and re-classed by ruling P11 from "flake" to "a recurrence is a STOP". It
+   did not recur in this measurement. The lesson is that an intermittent
+   failure with an unknown cause is worth the hour it takes to find the cause
+   BEFORE the measurement, because the disposition rule you can write
+   afterwards is much weaker than the one you can write once you know.
+3. **An `else if` is an expression, not a statement, and the first rule
+   written for it was wrong (P13 corrects P7).** The Rust unbind rule was
+   specified with the head-pattern order right (source order, P7) and the
+   `else if` case wrong: an `else if` is the outer `if`'s `else_branch`
+   EXPRESSION, so it never takes a completion row of its own and the outer
+   statement's row is the only one that can unbind the chain's names.
+   `unbound_of` now descends the chain while the branch is an `Expr::If`,
+   collecting each link's condition bindings and its block's direct `let`s;
+   the golden `focus_unbound_elseif` pins it, and a nested `if` that IS a
+   statement still unbinds its own. Caught by review inside the slice, before
+   any endpoint read a number.
+4. **An abandoned generator's exit is `unread`, not `undefined` (A12/P12).** A
+   seal-deferred generator whose consumer walks away — `.return()`, a `break`
+   out of `for…of` — never ran the body to a value, and reporting `RETURN
+   undefined` would have claimed the body produced one. The deferred generator
+   wrapper now passes a flag to `seal`, and "nothing was pended with the flag
+   set" is exactly the abandoned case, so it emits `RETURN {k: 'unread'}`. A
+   body that falls off its end still pends `undefined` explicitly.
+5. **A block-like EXPRESSION takes no completion row, so a whole family of
+   Rust shapes is still not unbound** (Rust blind spot 33, opened by this
+   slice and carried). `let y = { … }`, a `match` arm body, `let y = if … `
+   and a function's tail expression all bind names that nothing pops, because
+   the rule is attached to statements. `focus_unbound_tail`'s goldens falsify
+   the tail case; the other three shapes are untested, and the entry says so.
+   Blind spot 32 is its sibling: a block that shadows an outer binding pops the
+   name, so the outer binding stops answering after the block — the shadow
+   reading R4 that `focus_block_let`'s third question pins on purpose because
+   it is the costly half of the rule.
+6. **A gate nothing else runs is a gate nobody runs.** Task 2 added
+   `typescript/acceptance/transform_diff.mjs` and did not run `npm --prefix
+   typescript run check`; `typescript/tsconfig.json` covers
+   `acceptance/**/*.mjs`, so eighteen `tsc` errors stood in that one file from
+   the commit that added it until Task 3's implementer found them. No Python
+   test type-checks an `.mjs`. Fixed by typing alone, after Task 2 had been
+   reported complete, and named here because the failure mode — a file added
+   under a checker nobody in that task ran — is the generic one.
+7. **Two instrument-shaped things this measurement found, neither of which
+   moved a number.** `e13_report.py`'s clause 2 was gated on
+   `transform-diff.json` alone while its expectation derives from
+   `census.json`, so a directory missing the census would have scored the
+   clause False AND named it in `dropped` — one clause saying both "not
+   measured" and "did not hold". Found in Task 2's review, fixed and committed
+   BEFORE any endpoint ran, and recorded in §2.3 with its covering test and the
+   mutant that failed without it. And `corpus.json`'s shape — one entry per
+   case, keyed by name, with `language` as a field — cannot represent two cases
+   of the same directory name in different languages, of which the corpus now
+   has **fourteen**; keyed naively, "every other Rust corpus case is equal"
+   would have read over a set that had lost members. §3.3 says exactly how the
+   input was keyed instead. The reporter is unchanged; the shape's corner is
+   the finding.
+8. **The results file cannot carry a cell nobody wrote an instrument for.**
+   `assemble_s5debts.py` filters `gated` through a fixed `ORDER` and builds
+   `reported` from a fixed set, so E6-TS′'s hand adjudication has no home in
+   `…-debts.results.json` and lives in §3.4 and §4.4 instead. An added key
+   would have been dropped silently rather than refused, which is the worse
+   failure; the assembler is not edited after a number, and the record says
+   where the reading is.
+
+**Carried debt for the next slice**, none of it measured here: blind spot 33's
+three untested shapes (the value-block family); whether `--focus` should offer
+a spelling that means "this function and not the function-likes nested in it"
+(rung 4's question, untouched by this slice); `rust/HONESTY-BLIND-SPOTS.md`
+standing at exactly **800** lines, the ceiling, so its NEXT entry must open a
+volume (ruling P15) — and beside it `src/sensorium/query/flow_cmd.py` and
+`README.md` at 799, `typescript/src/rt.mjs` at 798 and
+`rust/sensorium-transform/src/lines/facts.rs` at 778; and the assembler seam of
+item 8.
+
+**What a reader can do with this that they could not before.** Ask a
+TypeScript function that returns through a `finally` what it actually did —
+and be shown the finally's own statements, in order, with the RETURN after
+them rather than before. Ask a Rust frame what a block took away when it
+ended, and be told the names by the row that ended it, so `watch` stops
+answering with a value that no longer exists. And read rung 4's three STOPped
+endpoints as what they were: a parser's four defects, now named, fixed, and
+measured out of the way.

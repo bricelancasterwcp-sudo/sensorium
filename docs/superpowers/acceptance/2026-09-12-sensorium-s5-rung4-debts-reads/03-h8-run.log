@@ -1,0 +1,11 @@
+
+ RUN  v4.1.9 <lens>
+
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  19:10:50
+   Duration  541ms (transform 61ms, setup 62ms, import 35ms, tests 8ms, environment 379ms)
+
+run: 20260912-191050-0be0e9  pid: 2187917  file: src/lib/diceQueue.test.ts  events: 529  tasks: 26
+invocation: 20260912-191049-ef50e4  traces: 1  harness exit: 0 (waited)

@@ -1,0 +1,24 @@
+{
+  "base": "<base checkout>",
+  "base_node_modules_linked": null,
+  "root": "<lens>",
+  "focus": [
+    "diceQueue.ts:parseDiceGroups",
+    "diceQueue.ts:forcedDiceFromSource",
+    "diceQueue.ts:buildDiceQueueEntry"
+  ],
+  "files_compared": 1,
+  "changed": 0,
+  "failed": [],
+  "files": [
+    {
+      "file": "src/lib/diceQueue.ts",
+      "changed": false,
+      "functions": [],
+      "changed_lines": [],
+      "diff": "",
+      "base_bytes": 12079,
+      "head_bytes": 12079
+    }
+  ]
+}
