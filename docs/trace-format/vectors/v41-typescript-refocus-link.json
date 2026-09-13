@@ -27,6 +27,7 @@
     "harness": "vitest",
     "harness_command": ["npx", "vitest", "run", "src/fail.test.ts"],
     "harness_args": ["run", "src/fail.test.ts"],
+    "root": "/w/app",
     "harness_cwd": "/w",
     "harness_exit": {"status": 1, "signal": null, "basis": "waited"},
     "refocus_of": "20260101-000000-orig01",

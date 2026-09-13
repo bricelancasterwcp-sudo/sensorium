@@ -339,6 +339,17 @@ def run(args) -> int:
         print(f"refocus-of: {m['refocus_of']}  "
               f"verdict: {m.get('refocus_verdict', 'UNVERIFIED')}"
               + (f"  licence: {licence}" if licence else ""))
+        # What ELSE that re-run produced, in the words the pair line used.
+        # Only a TypeScript re-run has siblings -- its branch re-runs a
+        # whole harness invocation and compares one container of it -- so
+        # the sentence is imported from there rather than spelled a second
+        # time here. Absent key, absent line: a re-run recorded before the
+        # stamp existed did not have zero siblings, it has no record of
+        # them, and `0` is a measurement.
+        siblings = m.get("refocus_siblings")
+        if siblings is not None:
+            from sensorium.query.refocus_typescript import siblings_note
+            print(f"  {siblings_note(siblings)}")
         # Three ways a rerun can part, three separate stamps -- and a rerun
         # is stamped with the ones that apply, never with all of them. The
         # positional line is absent for a divergence that was not a step of
