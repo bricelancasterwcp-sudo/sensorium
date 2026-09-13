@@ -218,10 +218,10 @@ def test_a_string_past_the_cap_is_written_by_nobody_and_read_as_a_prefix():
 def test_the_one_release_alias_is_gone():
     """`_MORE` was `INSPECT_MORE`'s name before the regex was made public,
     kept as an alias "for one release (0.13.0)" and scheduled for removal at
-    the next Python minor by CARRIED-DEBT §2026-09-12's four-carried-smalls
-    entry. This is that minor, so the alias goes -- and the test is what
-    keeps it gone: a name with zero consumers is reintroduced by nothing but
-    habit."""
+    the next Python minor by `docs/CARRIED-DEBT-ARCHIVE-11.md`'s
+    §2026-09-12 four-carried-smalls entry. This is that minor, so the
+    alias goes -- and the test is what keeps it gone: a name with zero
+    consumers is reintroduced by nothing but habit."""
     assert not hasattr(js_inspect, "_MORE")
     assert js_inspect.INSPECT_MORE.search("'x'... 2 more characters")
 

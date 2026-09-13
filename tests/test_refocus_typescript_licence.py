@@ -350,12 +350,18 @@ def test_a_pair_whose_containers_disagree_is_withheld_end_to_end(
             "originally, exit 1 on the rerun") in out
 
 
-def test_is_recorder_key_says_why_the_four_that_always_differ_are_its_own():
+def test_is_recorder_key_says_why_the_three_that_always_differ_are_its_own():
     """The docstring is the register the Rust predicate's is in, and it
-    names the four rather than counting them -- `refocus`'s own rule about
-    exemptions, applied to the sentence that describes one."""
+    names the three rather than counting them -- `refocus`'s own rule about
+    exemptions, applied to the sentence that describes one. `SENSORIUM_FOCUS`
+    is not among the three: it differs only when the call deepens the
+    focus, so the docstring must say that qualification rather than
+    claiming it always differs."""
     doc = refocus_typescript.is_recorder_key.__doc__
-    for name in ("SENSORIUM_FOCUS", "SENSORIUM_INVOCATION",
-                 "SENSORIUM_SPOOL", "SENSORIUM_MANIFEST_DIR"):
+    for name in ("SENSORIUM_INVOCATION", "SENSORIUM_SPOOL",
+                 "SENSORIUM_MANIFEST_DIR"):
         assert name in doc
+    assert "SENSORIUM_FOCUS" in doc
+    assert "deepens the focus" in doc
+    assert "leaves it identical" in doc
     assert "always fires says nothing" in doc

@@ -32,7 +32,7 @@ as one, and whichever ran first would silently own `$RUN`. Its
 `harness_args` is `["run", "untraced_catcher/"]` instead — the trailing
 slash matches the directory boundary, which is not a substring of either
 sibling's path — and that is the fix for the next prefix-named case, not a
-new `$RUN2` situation to declare. The ten focus cases take the slash form as
+new `$RUN2` situation to declare. The twelve focus cases take the slash form as
 a matter of course: none of their names is a prefix of any other today, and
 the next `focus_*` case somebody adds may well make one of them one.
 
@@ -140,14 +140,14 @@ same table, twice, rather than left to the absence of a case.
 
 ## Three things a case here must know
 
-**Arguments are recorded only under a focus.** Thirty-two of these cases
+**Arguments are recorded only under a focus.** Thirty-five of these cases
 record no `--focus` at all, so `capabilities.locals: false` holds for them:
 every CALL row reads `name() <unread: locals>` and `frame` prints `args:
 <unread: locals>` — a stated absence, not an empty argument list. A port of a
 Python case that identified an activation by its arguments identifies it here
 by its position (`frame --nth 2`) or by what it returned. The planted bug is
 the same class of bug; the question that finds it is not the same question.
-The ten focus cases are the other side of that: a FOCUSED function's CALL
+The twelve focus cases are the other side of that: a FOCUSED function's CALL
 prints its arguments (`total(items=[ 1, 2 ], member=true)`), and an unfocused
 one in the very same recording still reads `<unread: locals>`, which is what
 `focus_args` exists to pin.

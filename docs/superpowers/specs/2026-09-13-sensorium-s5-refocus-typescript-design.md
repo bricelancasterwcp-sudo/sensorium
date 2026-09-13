@@ -632,6 +632,7 @@ index to it.
 | **P20** | 8 | the `exit_self_reported` clause's withholding of rows 5 and 22 over the vitest pool's SIGTERM-vs-exit-0 choice is recorded as a **gap with a proposed closure** (count it like harness set 1) and **NOT applied**; no number moves | two withheld licences that a later slice may grant; leaving it costs every vitest row whose worker the pool happens to kill the licence it earned |
 | **P21** | 8 | the H6 STOP is a finding about the **survey's** pre-registration of a READ — a wrong premise about which functions bear captures at the `call` tier — not about the tool: it stands as STOP, is **not re-rolled**, §5 of the record says so, and `docs/CARRIED-DEBT.md` carries the lesson | none — a STOP that reads against the pre-registration is the honest word |
 | **P22** | 8 | the record's §5 must carry the words **STOP** and **not re-rolled** for H6, and §5.8's `68 290 424 832` free bytes is labelled a hand `df` reading absent from the raw | two sentences |
+| **P23** | 9 | Task 9's task review folded into the final whole-branch review (its three commits are docs; the final reviewer judged them against task-9-brief.md first, then the branch) — one seat, not two | a docs task reviewed by the branch reviewer rather than a task reviewer |
 
 ### The dated amendments to this document
 

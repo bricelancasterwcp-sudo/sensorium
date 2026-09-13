@@ -39,7 +39,7 @@ RECORD = (REPO / "docs" / "superpowers" / "acceptance"
 REV = "0" * 40
 
 INSTRUMENT = ("e15.py", "e15_phases.py", "e15_read.py", "e15_report.py",
-              "assemble_e15.py", "e15.sh")
+              "e15_cells_controls.py", "assemble_e15.py", "e15.sh")
 
 
 def write_raw(tmp_path: Path, raw: dict) -> Path:

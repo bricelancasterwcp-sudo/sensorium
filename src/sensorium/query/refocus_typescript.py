@@ -135,12 +135,14 @@ def is_recorder_key(name: str) -> bool:
     The same judgement `_UNCOMPARED_ENV` makes about `SENSORIUM_DIR`, and
     for the same measured reason -- reporting the tool's own footprint as a
     change the world made is noise, not honesty. Here it is not optional:
-    FOUR of these differ on every refocus by construction. `SENSORIUM_FOCUS`
-    is what the re-run deepens; `SENSORIUM_INVOCATION` is minted per
-    invocation; and `SENSORIUM_SPOOL` and `SENSORIUM_MANIFEST_DIR` are both
-    derived from a fresh spool directory per invocation (`ts/driver.py`'s
-    `_env`). Compared, those four fire on EVERY TypeScript refocus -- and a
-    check that always fires says nothing.
+    THREE of these differ on every refocus by construction --
+    `SENSORIUM_INVOCATION` is minted per invocation, and `SENSORIUM_SPOOL`
+    and `SENSORIUM_MANIFEST_DIR` are both derived from a fresh spool
+    directory per invocation (`ts/driver.py`'s `_env`). A fourth,
+    `SENSORIUM_FOCUS`, differs whenever the call deepens the focus: a
+    refocus that repeats the original's own `--focus` leaves it identical.
+    Compared, those fire on EVERY TypeScript refocus that widens focus --
+    and a check that always fires says nothing.
 
     The rest carry the SAME fact across the pair -- `SENSORIUM_TS_PKG`,
     `SENSORIUM_TS_ROOT` and `SENSORIUM_TIER` are the package, the project

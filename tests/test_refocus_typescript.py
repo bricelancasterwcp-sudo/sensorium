@@ -769,7 +769,8 @@ def test_the_refusal_after_a_re_run_is_the_one_the_rust_branch_prints():
 
 @pytest.mark.parametrize("name", [
     "SENSORIUM_FOCUS", "SENSORIUM_INVOCATION", "SENSORIUM_SPOOL",
-    "SENSORIUM_TIER", "SENSORIUM_TS_PKG", "SENSORIUM_TS_ROOT"])
+    "SENSORIUM_MANIFEST_DIR", "SENSORIUM_TIER", "SENSORIUM_TS_PKG",
+    "SENSORIUM_TS_ROOT"])
 def test_the_recorders_own_variables_are_recognised_as_its_own(name):
     assert refocus_typescript.is_recorder_key(name)
 
