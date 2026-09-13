@@ -4,7 +4,7 @@ version = "0.5.0"
 edition = "2021"
 publish = false
 description = "The sensorium Rust recorder's source transformer: entry guards, exit operands, err-flow probes, spawn sites and, under a focus, per-statement LINE probes, spliced into the original bytes at syn's offsets without moving a line."
-license = "MIT"
+license = "LicenseRef-Proprietary"
 repository = "https://github.com/bricelancasterwcp-sudo/sensorium"
 
 [dependencies]

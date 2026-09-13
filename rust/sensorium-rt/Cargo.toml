@@ -4,7 +4,7 @@ version = "0.5.0"
 edition = "2021"
 publish = false
 description = "The sensorium Rust recorder's runtime: per-thread MAP_SHARED trace spools, the entry guard, outcomes and capped return values, err-flow and LINE records, the panic hook, and the repository's one sha256."
-license = "MIT"
+license = "LicenseRef-Proprietary"
 repository = "https://github.com/bricelancasterwcp-sudo/sensorium"
 
 # ZERO DEPENDENCIES, on purpose. The driver compiles this crate with one bare

@@ -1,16 +1,9 @@
-MIT License
+Copyright (c) 2026 Brice Lancaster. All rights reserved.
 
-Copyright (c) 2026 Brice Lancaster
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This software and its associated documentation files (the "Software") are
+proprietary. No licence is granted to use, copy, modify, merge, publish,
+distribute, sublicense or sell the Software, or to permit any person to do
+so, except under a separate written agreement with the copyright holder.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -19,3 +12,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+History: versions through 0.14.0 (git 7dd25d2, 2026-09-13) were published
+under the MIT License. That grant stands for copies obtained under it and
+does not extend to any later version.
