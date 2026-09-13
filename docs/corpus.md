@@ -188,6 +188,26 @@ only evidence a value was cut — blind spot 36 — and a `flow --value` of the
 truncated literal sights nothing at all, exiting 1). Neither asks an
 `exceptions` question.
 
+This refocus slice (2026-09-13) adds three more, the cases the refocus loop
+itself needed to prove: `refocus_match` (a deterministic program:
+`refocus $RUN --focus fill` reads MATCH at exit 0 with the licence GRANTED
+over exactly the points it names — `output`, `children` and `threads`
+printed as the three UNVERIFIABLE checks rather than silently agreed, and
+`siblings in the re-run: 0` beside them; `runs` shows `refocus-of:$RUN`
+under a second `npx vitest run` header; `info last` prints `harness cwd:`
+and `line=yes locals=yes`, a depth the unfocused original never claims; and
+`watch last --at fill --expr b == 2` closes the loop the original alone
+could not, SATISFIED from the very re-run the MATCH above licenses),
+`refocus_diverged` (the `nondeterministic` counter-file program re-run by
+`refocus` itself: DIVERGED, exit 1, parting `at causal step 4:` — the same
+step `nondeterministic` already pins, reached the same way) and
+`refocus_refused_reused_worker` (two test files vitest schedules into ONE
+container under `--no-isolate --maxWorkers 1`: refusal 7's sentence, exit 2,
+before anything is re-run, and `runs` shows the store unchanged — pinned
+through the task-root-frame reading ruling P3 gave refusal 7, since under
+`--no-isolate` the converter records one `test_file`, singular, for the
+container that ran two).
+
 `focus_catch_binding`, one of rung 4's own ten, is the one that gained an
 `exceptions` question this slice: a new case cannot ask one against a table
 locked before it existed, so its row is re-registered by hand, in a commit

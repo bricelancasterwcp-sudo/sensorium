@@ -40,9 +40,11 @@ questions:
       Nothing does. They are two separate INVOCATIONS -- two headers, each
       with its own harness exit of 0 -- and each holds exactly one trace of
       the same test file. No `refocus-of:` link and no verdict is stamped
-      on either, because this recorder declares `refocus: false` and never
-      re-ran anything; the relationship between the two runs is the
-      reader's inference and the store says nothing to support it.
+      on either, because neither invocation was launched by `refocus`: both
+      are plain `sensorium ts run` calls, and only a run `refocus` itself
+      launches carries the `refocus_of` key and a verdict at all; the
+      relationship between the two runs is the reader's inference and the
+      store says nothing to support it.
     why_logs_fail: >
       This is a question about the provenance of recorded evidence, which a
       program cannot print about itself. A `console.log` writes into whichever

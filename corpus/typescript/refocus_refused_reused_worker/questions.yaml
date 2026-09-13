@@ -8,18 +8,28 @@ questions:
       recording be re-run under a deeper focus?
     truth: >
       No, and the refusal comes BEFORE anything is re-run: exit 2, with the
-      sentence design 2026-09-13 §2.3 fixes verbatim as its seventh pre-rerun
-      refusal -- "run <id> ran 2 test files in one container (a reused
-      worker); which container of a re-run would be its pair is the harness's
-      scheduling, not a fact; nothing was re-run". The count 2 is
-      `test_files`, the converter's own statement of what that container ran,
-      and it is the key ruling R4 refuses on: a container carrying one
-      `test_file` pairs by that file and a container carrying neither pairs
-      by its argv, but a reused worker's pairing would be a guess about the
-      scheduler. Exit 2 rather than 3 is the design's split between the
-      command's two gates (§2.3): nothing ran, so the reader's next move is a
-      different CALL, and the note that follows says what may be done instead
-      -- `sensorium ts run --focus <file>:<qualname> -- <harness command>`,
+      sentence design 2026-09-13 §2.3 row 7 -- as amended by ruling P3 --
+      fixes verbatim as the seventh pre-rerun refusal -- "run <id> ran 2 test
+      files in one container (a reused worker); which container of a re-run
+      would be its pair is the harness's scheduling, not a fact; nothing was
+      re-run". The count 2 is NOT read off a `test_files` key the converter
+      wrote: under vitest `--no-isolate` the converter records ONE
+      `test_file`, because the driver-written setup file's top-level
+      `fileStart` runs once under a shared module cache, so a reused worker
+      never carries the plural key the refusal was first written to read.
+      `refocus` instead reads the trace's own task ROOT frames -- depth-0
+      frames carrying a task id -- and counts the distinct code-object files
+      whose basename carries `.test.` or `.spec.`; two or more is a reused
+      worker, and the count actually used is the LARGER of that frame count
+      and any `test_files` the converter did declare, so a converter that
+      under-reports cannot mask what the frames show. It is the key ruling
+      R4 refuses on: a container carrying one test file (by either reading)
+      pairs by that file and a container carrying neither pairs by its argv,
+      but a reused worker's pairing would be a guess about the scheduler.
+      Exit 2 rather than 3 is the design's split between the command's two
+      gates (§2.3): nothing ran, so the reader's next move is a different
+      CALL, and the note that follows says what may be done instead --
+      `sensorium ts run --focus <file>:<qualname> -- <harness command>`,
       which records a fresh, UNVERIFIED invocation (§3.5). Re-running anyway
       would leave "which container of these two is the re-run of this trace"
       with no answer, after a whole suite had been spent to reach the

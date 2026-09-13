@@ -1,11 +1,11 @@
 # The TypeScript corpus
 
-Forty-two cases recorded by the **TypeScript** recorder
+Forty-seven cases recorded by the **TypeScript** recorder
 (`sensorium ts run -- npx vitest run <case>`) and questioned through the same
-Python CLI as the rest of the corpus. Ten of them are recorded one flag
+Python CLI as the rest of the corpus. Twelve of them are recorded one flag
 deeper — `record: {focus: [...]}` in the case file becomes
 `sensorium ts run --focus <spec> … --`, one `--focus` per entry, before the
-`--` — and those are the ten that may ask a per-line question at all.
+`--` — and those are the twelve that may ask a per-line question at all.
 `record` is the ONLY key a vitest case shares with the Python recorder, it
 may hold nothing but `focus`, and a `window` under it is refused by name:
 `sensorium ts run` has no such flag, and a key that reached no recorder
