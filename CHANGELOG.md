@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.14.0 — 2026-09-13
+
+**`refocus` reads a TypeScript trace.** The command that re-runs a recording
+one flag deeper and verifies that what came back is the same execution has
+had a Rust branch since rung 4 and a Python one before that; it now has a
+TypeScript one. The thing a vitest recording does differently is that an
+invocation is a POOL — `npx vitest run` starts as many worker containers as
+it likes and each records its own trace, while the reader asked about exactly
+one of them — so this branch re-runs the WHOLE invocation, as typed, and then
+says which of the traces that came back is the pair and what it is claiming
+about the rest. Python **0.14.0**; `sensorium-ts` stays **0.4.0**,
+`sensorium-rt` **0.5.0**, `sensorium-transform` **0.5.0** and
+`cargo-sensorium` **0.6.0** — no recorder moves, `TRACE_FORMAT` stays **4**
+and the wire stays **v1**.
+
+- **The pair is found in the store, by test file, and never parsed.** The
+  driver stamps `refocus_of` into every trace of the re-run invocation
+  (`ts run --refocus-of`, lifted into each member's meta by the converter)
+  and the lookup asks the STORE which traces carry it; the driver's `run:`
+  lines go to the terminal and decide nothing. The rest are SIBLINGS —
+  counted on the pair line, stamped as a count, never compared, and listed by
+  `runs` under the new invocation with no verdict, which is exactly what they
+  have. New meta: **`harness_cwd`** (the directory the command was typed in,
+  which is a third directory beside the container's `cwd` and the plan's
+  `root`), `refocus_of`, `refocus_siblings`, and `capabilities.refocus`.
+- **Seven refusals, all of them BEFORE the re-run.** A suite costs minutes
+  and has side effects of its own, so every condition that would make the
+  answer meaningless is checked first and each exits 2: `--window` (this
+  recorder has no per-activation gate), a `--tier off` original, no
+  `harness_command`, no `harness_cwd`, a `harness_cwd` that is gone, a `root`
+  that is gone, and a REUSED WORKER — a container that ran more than one test
+  file, for which "which container of a re-run would be its pair" has no
+  answer at all. The count in that seventh sentence is read from the trace's
+  own task ROOT frames, not from a `test_files` key the converter never
+  writes under `--no-isolate`.
+- **The licence says what a TypeScript pair can and cannot check.** Source
+  and environment run for real, and so does the exit check — `harness_exit`
+  on both invocations and `exit_self_reported` on both containers — while
+  `output`, `children` and `threads` are UNVERIFIABLE, keyed on the
+  recorder's own `capabilities`. Those three are printed and stamped as
+  checks that could not run and they do NOT withhold: a check that could not
+  run is not a finding against the pair. The environment rule names the
+  recorder's own `SENSORIUM_*` variables rather than counting them, and
+  harness set 1 — vitest's per-worker `VITEST_POOL_ID` / `VITEST_WORKER_ID` —
+  is counted and named beside session set 1 instead of withholding every
+  licence a pooled harness could earn.
+- **Three corpus cases and a vector.** `refocus_match` (MATCH, exit 0,
+  `siblings in the re-run: 0`, the licence granted over exactly the points it
+  names), `refocus_diverged` (DIVERGED, exit 1, the divergent causal step),
+  `refocus_refused_reused_worker` (refusal 7, exit 2, and a store that still
+  holds one invocation); `docs/trace-format/vectors/v41-typescript-refocus-
+  link.json` pins the link and the sibling count in the format.
+
 ## 0.13.0 — 2026-09-12
 
 **The debts rung 4 named, funded.** S5 rung 4 closed `DONE-WITH-STOP` with
