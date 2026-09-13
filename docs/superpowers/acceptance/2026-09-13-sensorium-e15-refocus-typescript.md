@@ -375,13 +375,24 @@ copy of that file: `lens_sha256` and `copy_sha256` both
 `sha_equal: true`. But §1's preamble says the lens "is verified against rung
 1's 748-entry manifest before and after", and **the runner does not do that** —
 `e15.py` has no manifest check. What is available instead is an mtime sweep of
-the lens taken after the run: no path under the lens outside `node_modules`
-has an mtime later than the launch, and inside `node_modules` — which `<copy>`
-reaches through a symlink — exactly two entries do: the directory itself
-(07:13:43) and an EMPTY `node_modules/.vite-temp` (07:13:18), vite's own
-scratch directory, written during control B's re-run. Whether `.vite-temp`
-pre-existed and was merely touched cannot be told from an mtime. §5.9 carries
-this.
+the lens taken after the run — `find <lens> -newermt "2026-09-13 06:18:42"
+-printf '%p %s %TY-%Tm-%Td %TH:%TM:%TS\n'`, the whole tree at full depth, with
+no `-prune` and no `-maxdepth`. It returns **three** paths, all of them under
+`node_modules`, which `<copy>` reaches through a symlink; no path under the
+lens OUTSIDE `node_modules` has an mtime later than the launch, so no source
+file moved.
+
+| path under the lens | bytes | mtime |
+|---|---|---|
+| `node_modules` (the directory itself) | 4096 | 2026-09-13 07:13:43.490 |
+| `node_modules/.vite-temp` (empty directory) | 4096 | 2026-09-13 07:13:18.999 |
+| `node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/results.json` | **39 667** | 2026-09-13 07:13:43.437 |
+
+The third is vitest's per-file results cache, not a scratch directory: it holds
+content, and its mtime is the end of control B's re-run — the last of the 33
+invocations. Whether `.vite-temp` pre-existed and was merely touched cannot be
+told from an mtime; `results.json`'s size and timestamp say it was WRITTEN.
+§5.9 carries what follows from that.
 
 ## 3. Results
 
@@ -553,9 +564,18 @@ event" asks for. Evidence: `H4.evidence.readings[3].divergent_line`;
   `unverifiable_output` 31 · `unverifiable_children` 31 ·
   `unverifiable_threads` 31 · `harness_exit_equal` 31 ·
   `claims_an_unverifiable_check` **0** · `granted_on_expected_granted`
-  **24 of 24**. Harness set 1 fired on every row and was counted every time:
-  `2 harness variable(s) differ: VITEST_POOL_ID, VITEST_WORKER_ID` — so this
-  slice has no member of harness set 1 that never differed. Evidence:
+  **24 of 24**. Harness set 1 fired on every row and was counted every time
+  (`harness_set_counted` 31), but not always with the same members: **29** of
+  the 31 rows print the two-variable form
+  `2 harness variable(s) differ: VITEST_POOL_ID, VITEST_WORKER_ID`, and two
+  rows print a one-variable form — row **8** (`8-describeCharacter.test.txt`,
+  line 395) `1 harness variable(s) differ: VITEST_POOL_ID`, and row **17**
+  (`17-useWebSocket.test.txt`, line 395)
+  `1 harness variable(s) differ: VITEST_WORKER_ID`. Control B prints the
+  two-variable form. So the clause holds on all 31 — every row that had a
+  harness-set difference named it and counted it — and, across the loop, each
+  of the two members differed on at least 29 rows: this slice has no member of
+  harness set 1 that never differed. Evidence:
   `H5.evidence.clauses` and `.sums`; each row's `parsed.licence_points`,
   `parsed.unverifiable` and `parsed.env_line`; every `licence:` line in the 31
   transcripts.
@@ -957,7 +977,10 @@ file's traced functions and `--focus` adds the LINE-level local deltas for the
 one it names, so "capture-bearing" is a wider set than "focused". A future
 survey should class a row by whether the hazard can reach the compared
 multiset, and should derive a `flow` prediction from the tier, not from the
-focus.
+focus. **H6 is a STOP** — 3 of 4, against the survey's own pre-registration of
+that read — and it is the survey's STOP, not the tool's. It was measured ONCE
+and **not re-rolled**: the read was not repeated, the prediction was not
+widened to admit FOUND, and the clause stands in §1's table as it was written.
 
 **5.4 P5 — H6's closed loop rests on ONE row.** H6's four reads sit on survey
 rows 1, 16 and 31, and rows **1** and **16** are classed nondeterministic. H6
@@ -1011,20 +1034,40 @@ above was written, freeing exactly those 14 038 077 489 bytes. The **22 675 054 
 bytes** (22.7 GB) of `<store>/traces` — 12 276 traces — are KEPT until this
 branch merges, because every trace id this record cites is in them; freeing
 `<work>` is a post-merge chore and the ledger carries it. The work filesystem
-read 90.98 GB free before the run and 54.16 GB after it, and 68 290 424 832
-bytes free once the spools were removed.
+read 90.98 GB free before the run and 54.16 GB after it — both the runner's
+own readings, in `preflight.work_disk_free_gb` and `cleanup.work_disk_free_gb`
+— and **68 290 424 832** bytes free once the spools were removed, which is a
+hand `df` reading taken at that moment and is in neither the raw nor the
+results file.
 
 **5.9 The lens's manifest check did not run.** §1's preamble says the lens "is
 verified against rung 1's 748-entry manifest before and after"; `e15.py` has no
 such check, so this run verified the lens only through the copy's isolation and
-control B's restore (`lens_sha256 == copy_sha256`, `sha_equal: true`). An mtime
-sweep taken afterwards found nothing under the lens changed outside
-`node_modules`, and inside it one entry the run left behind: an empty
-`node_modules/.vite-temp` (mtime 07:13:18), vite's own scratch directory,
-reached through the copy's `node_modules` symlink during control B's re-run,
-with `node_modules`' own mtime moved to 07:13:43 by that write. The lens's *sources*
-are untouched, but "READ-ONLY" was not literally true of the lens
-**directory**, and no manifest was in a position to say so. A future runner
-should verify the manifest at preflight and again at cleanup, and should decide
-whether the copy's `node_modules` symlink is worth the one directory it lets
-vite write.
+control B's restore (`lens_sha256 == copy_sha256`, `sha_equal: true`). The
+full-depth mtime sweep of §2 found **three** paths newer than the launch, all
+three under `node_modules` and none of them a source file: the `node_modules`
+directory itself, an empty `node_modules/.vite-temp`, and — the one that
+matters — `node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/results.json`,
+**39 667 bytes**, mtime **2026-09-13 07:13:43.437**.
+
+That file is vitest's per-file results cache, and the copy's `node_modules`
+symlink means there was **ONE of it, inside the lens, shared by all 33
+invocations** — the unfocused original, the 31 refocuses and control B —
+each of which rewrote it at the end of its run; the mtime this sweep sees is
+simply the last writer's. Nothing in this record depends on that cache (vitest
+uses it to order and report files, not to decide what to execute, and every
+invocation here ran the whole suite), and no source file moved. But two things
+follow. First, "the lens is READ-ONLY" was **not literally true**: the run
+wrote into the lens directory 33 times, through a symlink the copy owns.
+Second, the 33 invocations were **not independent of each other** in the way a
+fresh copy per invocation would make them — they shared one mutable file — and
+this record cannot say from its own evidence that the sharing was harmless,
+only that it has no mechanism by which it would not be.
+
+**Closure, for the runner that comes next.** (a) `copy_lens.sh` should stop
+symlinking `node_modules` into the lens: copy it, or bind-mount it read-only,
+so that a harness writing its own caches writes them inside the throwaway copy.
+(b) `e15.py` should verify rung 1's 748-entry manifest at preflight AND at
+cleanup, so that a claim §1's preamble already makes is one the instrument
+holds rather than one the prose asserts. Neither is applied here: this record
+is measured once and its instrument is not edited after a number is read.
