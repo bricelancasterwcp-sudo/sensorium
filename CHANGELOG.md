@@ -99,7 +99,7 @@ describe.
   `HONESTY-COST.md`'s three acceptance paths structurally, the same way it
   reads the blind-spot lists. The named minors rung 4 left in the readers,
   the recorder, the tests and the prose are closed at their sites, and
-  `docs/CARRIED-DEBT.md` says which eight are not and why.
+  `docs/CARRIED-DEBT.md` says which seven are not and why.
 - Three new corpus cases — `focus_finally_return`, `focus_long_string`,
   `focus_block_let` — and an `exceptions` question on `focus_catch_binding`
   bring the corpus to **108 cases, 229 questions**. One new vector,

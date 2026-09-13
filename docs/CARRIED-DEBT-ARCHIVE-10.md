@@ -274,7 +274,7 @@ docstring was corrected at Task 5); `second_run` has no closed-key check
 refusal as "the Python recorder's" (plan-mandated); `focus_async` pins a
 leading `e4 ` event id that a shorter needle would avoid; the converter
 fixture's `invocation.json` carries `driver_version: "0.11.0"` (an
-informational field, now one behind); `naming.test.mjs` scrubs
+informational field, one behind then — set to `"0.13.0"` at Task 12, A8); `naming.test.mjs` scrubs
 `SENSORIUM_FOCUS` but not `SENSORIUM_MANIFEST_DIR` (harmless: `rt.mjs` never
 loads `tally.mjs`); `resolve.test.mjs` puts temp roots under `probes/`
 (pre-existing recipe); `tests/test_ts_driver_focus.py:16-17` has unused
@@ -305,7 +305,7 @@ Task 12); `find_in_value`'s `path` order (a comment on why the reorder is
 unsafe, not a reorder — `src/sensorium/query/flow_values.py:144-152`); the
 inspect dialect's 100/101 boundary (still asserted, not measured);
 `second_run`'s missing closed-key check (pre-existing); the converter fixture's
-`driver_version: "0.11.0"` (informational); `bindings.mjs`'s `listNames`
+`driver_version: "0.11.0"` (informational — closed at Task 12, A8); `bindings.mjs`'s `listNames`
 dedupe (a comment on why not, not a dedupe —
 `typescript/src/bindings.mjs:253-258`); §1's "§2's pin table" singular
 (R11 rules the singular stands); and §1.4's

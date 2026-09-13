@@ -130,9 +130,11 @@ measured and reported against itself (record §3.4, §4.4, §5 item 1, at
 
 ### Settled — rung 4's own debts, closed here
 
-Struck where they stand, above, with a dated pointer; restated in full here
-because a reader who reaches this section first should not have to scroll up
-to find what closed.
+Struck where they stand, with a dated pointer — in
+[`CARRIED-DEBT-ARCHIVE-10.md`](CARRIED-DEBT-ARCHIVE-10.md) since this file's
+own ceiling cut the rung-4 section there, strikes and all. Restated in full
+here, which is why that was safe: a reader who reaches this section first
+should not have to follow a pointer to find what closed.
 
 - **H2, H4 and H5 STOPped on the instrument, not on the recorder** (rung 4's
   *gaps* 1–3) — closed as ENDPOINTS: **E12′** re-registered all three over the
@@ -178,7 +180,9 @@ to find what closed.
   blind-spot lists are; rung 3's spec §4.3 prose has the dated 2026-09-12
   parenthesis it asked for; and rung 4's *Deferred minors* paragraph is closed
   clause by clause at the sites it named, mostly at this slice's minors task,
-  with its own closing sentence naming the eight that stay open.
+  with its own closing sentence naming the eight it left, of which **seven**
+  stay open — the converter fixture's `driver_version` was closed at Task 12
+  by A8, and the count is corrected here rather than left to read stale.
 
 ### The gaps this slice's measurement found (record §5)
 
@@ -364,9 +368,12 @@ whose next edit must take a seam rather than a paragraph:
   list of the files somebody remembered is the very thing `test_ceiling.py`'s
   pattern scope replaced. The census is one command:
   `git ls-files -- '*.md' '*.py' '*.mjs' '*.ts' '*.rs' '*.sh' | grep -v '^docs/superpowers/' | xargs wc -l | sort -rn | head -30`.
-- **This file.** Measured before it was written: the S5 rung-3 section was cut
-  to [`CARRIED-DEBT-ARCHIVE-9.md`](CARRIED-DEBT-ARCHIVE-9.md), a pure move
-  verified byte-identical, rather than the ceiling discovered.
+- **This file**, twice. Measured before it was written: the S5 rung-3 section
+  was cut to [`CARRIED-DEBT-ARCHIVE-9.md`](CARRIED-DEBT-ARCHIVE-9.md); then
+  this section's own review round would have taken the file to 804, so the
+  rung-4 section went to
+  [`CARRIED-DEBT-ARCHIVE-10.md`](CARRIED-DEBT-ARCHIVE-10.md). Both pure moves,
+  both verified byte-identical, and neither paid for by trimming content.
 
 ### Deferred minors, per task
 
@@ -418,17 +425,23 @@ README's TypeScript `finally` sentence sits in the tier-generic intro, true but
 vacuous at the call tier; the two CHANGELOG pointer notes are paragraphs rather
 than the *one sentence* their brief asked for; rung 4's *Deferred minors*
 paragraph was closed by one appended sentence rather than per-clause strikes,
-which is readable and complete but not the file's usual form. **In the record:**
-§3.6 says *all nine steps exited 0* against seven recorded statuses and two
-output files; §3's *seven gated … six PASS* arithmetic wants the sentence that
-E6-TS″ is the amendment's extra cell; the instrument-fix commit also touched
-`e12p_h8.py`, named in §2.3 and not in the dispatch wording; and two preflight
-readings of the same disk say 78 and 79 GB, taken in different minutes. **And
-four about task REPORTS rather than about the tree**, kept so the roll-up is
-complete: a report called `census_matches` "a scratch one-off" after it was
-committed; a RED count of "8 failed, 1 passed" was the `--test unbound`
-target's, not the workspace's; one task took four commits where its brief asked
-for one; and the renamed `bindings.test.mjs` case uses its own wording.
+which is readable and complete but not the file's usual form. **Five more from
+the E6-TS procedure task:** `docs/corpus.md:169` still leads
+`focus_catch_binding`'s entry with *(HANDLED, …)*, the very vocabulary A13
+corrects; `e6ts.py`'s written procedure runs to four sentences where its brief
+asked three; and `typescript/HONESTY-BLIND-SPOTS.md` carries a 98-character line
+at `:43`, a `--` at `:444` where the file uses an em dash, and a line break
+inside inline code at `:454`. **In the record:** §3.6 says *all nine steps
+exited 0* against seven recorded statuses and two output files; §3's *seven
+gated … six PASS* arithmetic wants the sentence that E6-TS″ is the amendment's
+extra cell; the instrument-fix commit also touched `e12p_h8.py`, named in §2.3
+and not in the dispatch wording; and two preflight readings of the same disk say
+78 and 79 GB, taken in different minutes. **And four about task REPORTS rather
+than about the tree**, kept so the roll-up is complete: a report called
+`census_matches` "a scratch one-off" after it was committed; a RED count of "8
+failed, 1 passed" was the `--test unbound` target's, not the workspace's; one
+task took four commits where its brief asked for one; and the renamed
+`bindings.test.mjs` case uses its own wording.
 
 ### Process lessons
 
