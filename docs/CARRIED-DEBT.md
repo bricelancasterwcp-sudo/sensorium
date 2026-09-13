@@ -494,8 +494,8 @@ to find what closed.
   `sensorium-ts 0.4.0`'s `pend`/`seal` pair defers the exit for the one shape
   that needs it, pinned by `typescript/test/rt.seal.test.mjs` and
   `corpus/typescript/focus_finally_return`; 38 is struck where it stands.
-- **`tests/test_corpus.py` at exactly 800** — closed: the harness half moved to
-  `tests/test_corpus_harness.py`, a pure move verified by the test-name set.
+- **`tests/test_corpus.py` at exactly 800** — closed: the harness half moved
+  to `tests/test_corpus_harness.py`, a pure move verified by the test-name set.
 - **`CHANGELOG-ARCHIVE.md` at 742, unable to take another cut** — closed:
   `CHANGELOG-ARCHIVE-2.md` opened with a preamble in the archive's voice and a
   pointer from volume 1, so the 0.13.0 entry (151 lines onto 437) needed none.
@@ -749,7 +749,12 @@ which is readable and complete but not the file's usual form. **In the record:**
 output files; §3's *seven gated … six PASS* arithmetic wants the sentence that
 E6-TS″ is the amendment's extra cell; the instrument-fix commit also touched
 `e12p_h8.py`, named in §2.3 and not in the dispatch wording; and two preflight
-readings of the same disk say 78 and 79 GB, taken in different minutes.
+readings of the same disk say 78 and 79 GB, taken in different minutes. **And
+four about task REPORTS rather than about the tree**, kept so the roll-up is
+complete: a report called `census_matches` "a scratch one-off" after it was
+committed; a RED count of "8 failed, 1 passed" was the `--test unbound`
+target's, not the workspace's; one task took four commits where its brief asked
+for one; and the renamed `bindings.test.mjs` case uses its own wording.
 
 ### Process lessons
 

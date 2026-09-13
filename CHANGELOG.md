@@ -149,7 +149,7 @@ read, and both were measured once and reported.
 `rust/HONESTY-REFOCUS.md`, `docs/trace-format/TYPESCRIPT-KEYS.md` and the
 three READMEs are amended to this state; the design's §12 carries all
 thirteen amendments and every controller ruling that changed a section's
-reading. `docs/CARRIED-DEBT.md` closes ten of rung 4's debts — three of them
+reading. `docs/CARRIED-DEBT.md` closes rung 4's carried debts — three of them
 by this slice's own measurement — and opens this slice's.
 
 ## 0.12.0 — 2026-09-12
