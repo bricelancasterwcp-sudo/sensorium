@@ -10,11 +10,13 @@ questions:
       Yes to both. The `return 1` chooses the value and the `finally` then
       runs with the frame still OPEN, so `cleanup = 1;` mints its own row --
       `LINE settle L13  cleanup=1` -- and `watch` reads the predicate
-      SATISFIED at 2 of the 4 sites it could be evaluated at: the `cleanup =
+      SATISFIED at 2 of the 3 sites it could be evaluated at: the `cleanup =
       1` row itself and the `note(cleanup);` row after it, where the fold
       still carries the write. The one site the name is bound at and the
-      predicate is false is `let cleanup = 0;`, and the CALL is the one site
-      the name is not in scope at yet.
+      predicate is false is `let cleanup = 0;`. The fourth site `watch` walks,
+      the CALL, is not one the predicate could be evaluated at -- the name is
+      not in scope there yet -- which is why the recording reads `sites: 4
+      evaluated: 3  hits: 2` and the denominator here is 3.
     why_logs_fail: >
       A `console.log(cleanup)` in the finally is the edit the author did not
       make, and adding it means re-running: the question is about a run that
@@ -26,7 +28,7 @@ questions:
     command: ["watch", "$RUN", "--at", "settle", "--expr", "cleanup == 1"]
     expect_exit: 0
     expect_contains:
-      - "verdict: SATISFIED at 2 of the"
+      - "verdict: SATISFIED at 2 of the 3 site(s) the predicate could be evaluated at"
     expect_line:
       - ["HIT", "LINE", "settle L13", "cleanup=1"]
   - id: where-does-the-return-row-sit-among-the-finallys-rows

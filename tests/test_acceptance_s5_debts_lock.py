@@ -374,9 +374,16 @@ def test_the_debts_record_carries_both_shas_and_the_amendment_flag():
     sentence said `focus_catch_binding` takes no row in
     `PRE_REGISTERED_REASON_LINE`, and spec §6.2 binds -- the reason line is a
     pinned `None`. The record must say so with two shas and a flag. A record
-    that reported no amendment would be describing another document; one
-    whose `amendment_bytes` did not equal the growth of §1 would be an
-    amendment that removed something on its way in.
+    that reported no amendment would be describing another document.
+
+    That the amendment REMOVED nothing is NOT checkable here. It was spliced
+    INSIDE §1.7 rather than appended at §1's end, so the amended §1 does not
+    begin with the original §1's bytes, and
+    `locked_bytes == original_lock_bytes + amendment_bytes` is the definition
+    of `amendment_bytes` restated -- arithmetic, not a check, and it was one
+    until 2026-09-12. `test_the_amendment_moved_no_row_of_the_pre_registration`
+    below is where the claim is actually tested: every table row equal, every
+    original line still present, in order.
 
     The ORIGINAL is read from `ORIGINAL_COMMIT`, not from the constant, so
     "amended from exactly that text" is git's fact and not this file's claim.
@@ -392,10 +399,10 @@ def test_the_debts_record_carries_both_shas_and_the_amendment_flag():
     assert rec["original_lock_sha256"] == ORIGINAL_LOCK
     assert rec["original_lock_declared_matches"] is True
     assert rec["locked_sha256"] == rec["section1_sha256"] == BYTE_LOCK
-    # The amendment ADDED a paragraph; it did not shrink or replace §1.
+    # The amendment ADDED bytes. That it REPLACED nothing is checked by
+    # `test_the_amendment_moved_no_row_of_the_pre_registration`, not here:
+    # see this docstring for why a byte-length identity cannot do it.
     assert rec["amendment_bytes"] > 0
-    assert rec["locked_bytes"] == (rec["original_lock_bytes"]
-                                   + rec["amendment_bytes"])
     assert rec["footnotes_in_range"] == []
 
 
