@@ -588,15 +588,21 @@ def test_the_typescript_notes_name_the_command_this_rung_shipped():
     """Both sentences said rung 3 had no deeper capture to re-run for.
     Rung 4 gave this recorder one, so both name it -- and neither may name
     `sensorium run --focus`, which cannot read a TypeScript trace (the E7
-    needle `FORBIDDEN_TS` keeps guarding that)."""
+    needle `FORBIDDEN_TS` keeps guarding that).
+
+    Since the refocus slice the note is Python's and Rust's shape: what it
+    reports is that THIS call re-ran nothing, not that `refocus` cannot
+    reach this recorder -- which it now can, so `refocus is not yet this
+    recorder's` is retired with the fact it stated."""
     for text in (TYPESCRIPT.no_rerun_note, TYPESCRIPT.timeline_hint):
         assert "sensorium ts run --focus" in text
         assert "S5 rung 3" not in text and "rung 3" not in text
         assert "capabilities.line: false" not in text
     assert TYPESCRIPT.no_rerun_note == (
-        "no rerun was attempted; refocus is not yet this recorder's -- "
-        "record again with `sensorium ts run --focus <file>:<qualname> -- "
-        "<harness command>`")
+        "no rerun was attempted; `sensorium ts run --focus "
+        "<file>:<qualname> -- <harness command>` will record a fresh, "
+        "UNVERIFIED invocation if that is what you want")
+    assert "refocus is not yet" not in TYPESCRIPT.no_rerun_note
     assert TYPESCRIPT.timeline_hint == (
         "record again with `sensorium ts run --focus {mod}:{qualname} -- "
         "<harness command>`; per-statement capture is opt-in at record time")

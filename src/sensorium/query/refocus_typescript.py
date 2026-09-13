@@ -134,17 +134,25 @@ def is_recorder_key(name: str) -> bool:
 
     The same judgement `_UNCOMPARED_ENV` makes about `SENSORIUM_DIR`, and
     for the same measured reason -- reporting the tool's own footprint as a
-    change the world made is noise, not honesty. Here it is not optional: a
-    focused re-run changes `SENSORIUM_FOCUS` by definition and mints a fresh
-    `SENSORIUM_INVOCATION` and `SENSORIUM_SPOOL` per container, so compared,
-    those fire on EVERY TypeScript refocus -- and a check that always fires
-    says nothing.
+    change the world made is noise, not honesty. Here it is not optional:
+    FOUR of these differ on every refocus by construction. `SENSORIUM_FOCUS`
+    is what the re-run deepens; `SENSORIUM_INVOCATION` is minted per
+    invocation; and `SENSORIUM_SPOOL` and `SENSORIUM_MANIFEST_DIR` are both
+    derived from a fresh spool directory per invocation (`ts/driver.py`'s
+    `_env`). Compared, those four fire on EVERY TypeScript refocus -- and a
+    check that always fires says nothing.
+
+    The rest carry the SAME fact across the pair -- `SENSORIUM_TS_PKG`,
+    `SENSORIUM_TS_ROOT` and `SENSORIUM_TIER` are the package, the project
+    root and the depth the re-run inherits -- so nothing is lost by
+    exempting them, and exempting the whole prefix is what keeps the rule
+    one sentence long.
 
     A PREFIX, unlike the Rust predicate's third clause, because every
-    variable this recorder sets is under one: `SENSORIUM_TS_PKG`,
-    `SENSORIUM_TS_ROOT`, `SENSORIUM_MANIFEST_DIR` and `SENSORIUM_TIER`
-    beside the three above. The names are printed beside the count rather
-    than hidden behind it, which is the rule the shell list follows too.
+    variable this recorder sets is under one. The names are printed on the
+    line beside the count rather than hidden behind it, which is the rule
+    the shell list follows too: an exemption a reader cannot see is a
+    silent one.
     """
     return name.startswith("SENSORIUM_")
 
@@ -461,6 +469,131 @@ def _harness_exit(meta: dict) -> str:
     return f"{'?' if status is None else status} ({basis})"
 
 
+def _ending(meta: dict, key: str) -> dict | None:
+    """The `key` ending this trace RECORDED, or None for no record at all.
+
+    A non-dict is read as absent for `_harness_exit`'s reason one function
+    up: what a later reader must not do is treat a value it cannot read as
+    a value that agreed.
+    """
+    ending = meta.get(key)
+    return ending if isinstance(ending, dict) else None
+
+
+def _harness_side(ending: dict) -> str:
+    """One harness's ending, as the DIFFERING clause names it.
+
+    `exit <status>` or `signal <name>`, because the two are exclusive: a
+    process killed by a signal chose no status, and printing `exit None`
+    for it would name a number nobody set.
+    """
+    if ending.get("signal"):
+        return f"signal {ending['signal']}"
+    status = ending.get("status")
+    return f"exit {'?' if status is None else status}"
+
+
+def _container_side(ending: dict) -> str:
+    """One container's self-report, as the DIFFERING clause names it.
+
+    A signal by its bare name and a code as `exit <code>`, which is the
+    asymmetry the record has: a container reports the signal it was killed
+    with as a NAME (`SIGTERM`), and its own chosen code as a number. A
+    record carrying neither is said rather than dropped -- `info`'s
+    `_self_reported_line` makes the same distinction, because a missing
+    key means "no EXIT record" and this is not that.
+    """
+    if ending.get("code") is not None:
+        return f"exit {ending['code']}"
+    if ending.get("signal") is not None:
+        return str(ending["signal"])
+    return "neither a code nor a signal"
+
+
+def _agreed_harness(was: dict, now: dict) -> str:
+    """The ending BOTH invocations reached, as the verified fact names it.
+
+    The status bare (`0`) rather than `exit 0`, because the fact's own
+    words already say what the number is. The basis travels with it for
+    `_harness_exit`'s reason -- "0" learned by waiting and "0" read off a
+    self-report are different claims -- and is `?` when the two sides do
+    not agree on it: `basis` is `waited` on every trace this recorder
+    writes, and a later recorder that learned one ending another way must
+    not have this sentence claim its side was waited for.
+    """
+    basis = was.get("basis") if was.get("basis") == now.get("basis") else None
+    if was.get("signal"):
+        shown = f"signal {was['signal']}"
+    else:
+        status = was.get("status")
+        shown = "?" if status is None else str(status)
+    return f"harness exit equal ({shown}, {basis or '?'})"
+
+
+def exit_clauses(orig_meta: dict,
+                 new_meta: dict) -> tuple[list[str], list[str]]:
+    """(caveats, facts) about how the two invocations and their two
+    containers ended.
+
+    The branch's own clauses, and they exist because the SHARED one cannot
+    be about this recorder. `_licence_caveats` compares `exit_status`,
+    which a vitest container never witnesses: the pool kills its workers,
+    the converter writes null with basis `unwitnessed` on every trace, and
+    null compared with null is equal -- so on a TypeScript pair that clause
+    is silent, and silence in a licence check reads as agreement. It is
+    left exactly as it is (it is Python's and Rust's, where the status IS
+    witnessed); what is added here are the two endings somebody really did
+    observe.
+
+    Both are compared, because they answer different questions. The DRIVER
+    waited for the harness, so `harness_exit` is the invocation's ending
+    and the only one with a basis; the CONTAINER reported its own ending on
+    the way out (`exit_self_reported`), which is a fact about the worker
+    the comparison is actually of. A pair whose harnesses agree and whose
+    containers do not ran the same suite to the same total and killed one
+    worker differently, which is a difference the licence may not sit on.
+
+    An ABSENT record is a caveat and never a fact, on each side by name:
+    "not recorded" is not "ended the same way", and which side was not
+    witnessed is the reader's next question. Equality is over status AND
+    signal (and code and signal for the container) rather than over the
+    dicts, so a key a later driver writes beside them cannot read as two
+    invocations ending differently: `HarnessExit` already carries two wall
+    clocks that its `meta()` strips today, and a driver that stopped
+    stripping them would otherwise withhold every licence it granted.
+
+    ONE fact when everything agreed, not two: how the two runs ended is one
+    question, and a reader told the answer twice has to work out whether it
+    is the same answer.
+    """
+    caveats = []
+    was = _ending(orig_meta, "harness_exit")
+    now = _ending(new_meta, "harness_exit")
+    for label, ending in (("the original", was), ("the rerun", now)):
+        if ending is None:
+            caveats.append(f"{label}'s harness exit was not recorded")
+    if was is not None and now is not None and (
+            (was.get("status"), was.get("signal"))
+            != (now.get("status"), now.get("signal"))):
+        caveats.append("the two invocations' harnesses ended differently: "
+                       f"{_harness_side(was)} originally, "
+                       f"{_harness_side(now)} on the rerun")
+    said_was = _ending(orig_meta, "exit_self_reported")
+    said_now = _ending(new_meta, "exit_self_reported")
+    for label, ending in (("the original", said_was), ("the rerun", said_now)):
+        if ending is None:
+            caveats.append(f"{label}'s container reported no ending")
+    if said_was is not None and said_now is not None and (
+            (said_was.get("code"), said_was.get("signal"))
+            != (said_now.get("code"), said_now.get("signal"))):
+        caveats.append("the two containers reported different endings: "
+                       f"{_container_side(said_was)} originally, "
+                       f"{_container_side(said_now)} on the rerun")
+    if caveats:
+        return caveats, []
+    return [], [f"{_agreed_harness(was, now)}; container endings equal"]
+
+
 def _verify(args, orig: Trace, orig_name: str, meta: dict, new_id: str,
             source_caveat, source_fact, siblings: list[str]) -> int:
     """Compare the pair, assess it, stamp it, report it."""
@@ -470,10 +603,17 @@ def _verify(args, orig: Trace, orig_name: str, meta: dict, new_id: str,
     new_path = (paths.traces_dir() / f"{new_id}.db").resolve()
     new = Trace.open(new_path)
     env_line, env_caveat, env_fact = env_of(meta, new, is_recorder_key)
-    world_verified = [f for f in (source_fact, env_fact) if f]
+    # The two endings, as findings about the WORLD the pair ran in --
+    # alongside the source and the environment, and for the same reason
+    # `assess` takes those from the caller: they are established outside the
+    # traces' own call streams, and only this branch knows where its
+    # recorder wrote them.
+    exit_caveats, exit_facts = exit_clauses(meta, new.meta)
+    world_verified = [f for f in (source_fact, env_fact, *exit_facts) if f]
     res = compare(orig, new)
     a = assess(orig, new, res,
-               [c for c in (source_caveat, env_caveat) if c], world_verified)
+               [c for c in (source_caveat, env_caveat, *exit_caveats) if c],
+               world_verified)
     checks = unverifiable_checks(orig, new)
     a = relicense(a, orig, new, world_verified)
     _stamp(new_path, res, a)
