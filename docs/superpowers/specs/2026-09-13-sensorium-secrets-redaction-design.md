@@ -686,5 +686,16 @@ the dry-run/real pair, the bench numbers and their lens.
 
 ## 13. Dated amendments
 
-None yet. Amendments are footnoted here with the date, the old wording kept
-visible.
+Amendments are footnoted here with the date, the old wording kept visible.
+
+- **2026-09-13 — one plan per PR, not one plan.** §1's "one spec, one plan"
+  reading (the conversation's words; this document said "its plan") becomes
+  three plan files, one per PR, each written from this spec when the one
+  before it merges: `docs/superpowers/plans/2026-09-13-sensorium-redaction-a.md`
+  now; `-b` and `-c` at A's and B's merges. Reason: the 800-line ceiling
+  binds plans too, and a single-slice plan already runs 250–540 lines.
+- **2026-09-13 — E16 is measured in three parts (plan decision A1).** §9's
+  "Measured once, after PR C" is read as *each part once, at its PR's close,
+  on the cells that PR delivers*: A = H1-env, H2, H3, H6-env; B = H1-values,
+  H5, H6-values; C = H4. One record file, three dated sections, each
+  byte-locked when written. The old sentence stands above, unedited.
