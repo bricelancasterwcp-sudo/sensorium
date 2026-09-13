@@ -1,0 +1,53 @@
+
+ RUN  v4.1.9 <root>
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  04:41:03
+   Duration  85ms (transform 21ms, setup 7ms, import 23ms, tests 2ms, environment 0ms)
+
+run: 20260913-044103-f20567  pid: 3234082  file: refocus_match/refocus_match.test.ts  events: 6  tasks: 1
+invocation: 20260913-044102-cef1be  traces: 1  harness exit: 0 (waited)
+refocus-of: 20260913-044055-395d03   cmd: sensorium ts run --refocus-of 20260913-044055-395d03 --tier call --focus fill -- npx vitest run refocus_match/
+via: <repo>/.venv/bin/python -m sensorium
+cwd: <root>
+focus: fill   window: -
+source: unchanged (2 file(s) compared by content; data files, untraced code and installed dependencies are NOT covered -- see blind spots below)
+--- rerunning (the harness's own output follows; the driver's run: lines print with it) ---
+--- verdict ---
+run: 20260913-044103-f20567   invocation: 20260913-044102-cef1be   siblings in the re-run: 0 (not compared; UNVERIFIED)
+trace: <store>/traces/20260913-044103-f20567.db
+env: unchanged (110 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  the recorder's own, also not compared: SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_MANIFEST_DIR, SENSORIUM_SPOOL, SENSORIUM_TIER, SENSORIUM_TS_PKG, SENSORIUM_TS_ROOT
+exit: rerun 0 (waited)   original 0 (waited)
+A 20260913-044055-395d03: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670
+B 20260913-044103-f20567: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670
+note: A's recorder sensorium-ts 0.4.0 declares threads not witnessed (capabilities.threads: false), so there is no thread record to read; absence of the record is not a record of absence
+note: B's recorder sensorium-ts 0.4.0 declares threads not witnessed (capabilities.threads: false), so there is no thread record to read; absence of the record is not a record of absence
+verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict
+threads: 1 recorded fingerprint(s) compared (events outside any test), all matching
+tasks: 1 task stream(s) compared by content, all matching; the ordering between tasks is not compared
+refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence outside its tests, and every task stream matched by content
+licence: verified against 20260913-044055-395d03 on exactly these points, and no others:
+  - identical call shape across 1 compared fingerprint(s), holding 0 causal event(s) outside any test
+  - 2 source file(s) unchanged by content
+  - 110 environment variable(s) compared and unchanged in the environment the rerun executed under; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; the recorder's own, also not compared: SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_MANIFEST_DIR, SENSORIUM_SPOOL, SENSORIUM_TIER, SENSORIUM_TS_PKG, SENSORIUM_TS_ROOT
+  - harness exit equal (0, waited); container endings equal
+  - 1 task stream(s) compared by content; the ordering between tasks is not compared
+what sensorium sees at all: TypeScript and JavaScript files under the invocation's root that the transform edited. Nothing else. No verdict here -- MATCH, DIVERGED or REFUSED -- says anything about:
+  - any child process, by any mechanism. Some are noticed and listed above; an empty list is NOT evidence that none ran
+  - any container the program spawned itself: a worker thread or a child process records as its own trace, unlinked
+  - any file the program read or wrote. Only SOURCE files are hashed, so config, fixtures, databases and inputs move unseen
+  - any code outside the transformed files: node_modules, Node's own modules, the harness, and every file the transform excluded
+  - any environment variable this run did not compare; the ones it skipped are named above
+  - the clock, the network, and everything else the machine did
+  - argument and return values, per-line state, timing, the order threads ran in relative to one another, and the order tests interleaved in: recorded, never compared
+  - the recorder's own footprint: capturing values runs the program's own inspect customisations inside the probe, so an instrument that changes the program leaves no mark on the fingerprint
+  - output not recorded (capabilities.output: false)
+  - the whole recorded invocation was re-run; its other containers were not compared and stay UNVERIFIED
+  - the harness's worker-slot variables (harness set 1) were not compared
+  - a worker thread or forked child of the program is its own trace, unlinked to this pair
+checks that could not run on this pair -- the recorder declares it does not produce them, so nothing here is evidence either way:
+  - output: unverifiable (not recorded)
+  - children: unverifiable (not witnessed)
+  - threads: unverifiable (not witnessed)
