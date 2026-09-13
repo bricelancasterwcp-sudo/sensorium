@@ -32,6 +32,7 @@ one rule agree only on what all three are asked.
 This module is pure -- it imports nothing from `record` or `query` -- and
 never raises.
 """
+import errno
 import hashlib
 import hmac
 import os
@@ -57,6 +58,13 @@ KEY_VAR = "SENSORIUM_REDACT_KEY"
 OFF_VAR = "SENSORIUM_NO_REDACT"
 NAMES_VAR = "SENSORIUM_REDACT_NAMES"
 ALLOW_VAR = "SENSORIUM_REDACT_ALLOW"
+
+#: `os.link` failures that mean "this filesystem cannot do that", not "this
+#: went wrong": a filesystem without hard links (many network and container
+#: mounts), or one that would be crossed. `os.replace` is the fallback there
+#: -- atomic by name, but without `link`'s "loser cannot clobber the winner"
+#: guarantee, which is why it is the fallback and not the mechanism.
+_NO_LINK = frozenset({errno.EPERM, errno.ENOTSUP, errno.EXDEV})
 
 #: The key file, a sibling of `traces/`, and its two fixed numbers.
 KEY_FILE = "redaction.key"
@@ -217,11 +225,21 @@ class Key:
     def load_or_create(cls, root: Path) -> "Key":
         """The key, creating it once at 0600 if it is not there.
 
-        `O_CREAT|O_EXCL` is the whole race protocol: the winner writes 32
-        bytes from the OS random source, and a loser's `FileExistsError`
-        sends it to read the winner's file. The store root is created 0700
-        on the way, because the first recording into a fresh `SENSORIUM_DIR`
-        would otherwise be unkeyed for want of a directory.
+        The key is published BY CONTENT, never by an empty file that is
+        filled in a moment later (ruling R15): 32 bytes go into a private
+        `redaction.key.<pid>.tmp`, are written whole and fsynced, and only
+        then does `os.link` put the finished file at its name. An `O_EXCL`
+        open on the final name would be visible at 0 bytes for as long as the
+        write takes -- a concurrent recorder arriving in that window reads an
+        empty file and records unkeyed, and a process killed in it leaves a
+        0-byte key that silently unkeys the store until a human deletes it.
+        Linking cannot do either: the name appears with all 32 bytes behind
+        it or not at all, and a loser's `FileExistsError` sends it to read
+        the winner's file. The tmp is unlinked on every path.
+
+        The store root is created 0700 on the way, because the first
+        recording into a fresh `SENSORIUM_DIR` would otherwise be unkeyed for
+        want of a directory.
         """
         root = Path(root)
         path = root / KEY_FILE
@@ -229,19 +247,46 @@ class Key:
             root.mkdir(parents=True, exist_ok=True, mode=_ROOT_MODE)
         except OSError:
             pass  # the open below reports it, with the name of the file
+        # A key that is already there is the answer, whatever it says: a
+        # readable one is returned, and an unreadable or wrong-sized one is
+        # the user's file and is never written over.
+        existing = cls.load(root)
+        if existing.keyed or path.exists():
+            return existing
         material = os.urandom(KEY_BYTES)
+        tmp = root / f"{KEY_FILE}.{os.getpid()}.tmp"
         try:
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, KEY_MODE)
+            problem = _write_key(tmp, material)
+            if problem is not None:
+                return cls(path, None, problem)
+            return cls._publish(root, path, tmp, material)
+        finally:
+            _unlink(tmp)
+
+    @classmethod
+    def _publish(cls, root: Path, path: Path, tmp: Path,
+                 material: bytes) -> "Key":
+        """`tmp`'s finished content at `path`, or the winner's file re-read.
+
+        `os.replace` is the fallback for a filesystem that has no hard links:
+        it is atomic by name too, but it OVERWRITES, so a loser of the race
+        would replace the winner's key and leave two recordings with digests
+        that no longer compare. `load` afterwards is what makes that safe --
+        whoever wrote last, the material returned is the material the file
+        now holds, so the trace and the store never disagree.
+        """
+        try:
+            os.link(tmp, path)
         except FileExistsError:
             return cls.load(root)
         except OSError as e:
-            return cls(path, None, f"cannot create {KEY_FILE}: {e}")
-        try:
-            os.write(fd, material)
-        except OSError as e:
-            return cls(path, None, f"cannot write {KEY_FILE}: {e}")
-        finally:
-            os.close(fd)
+            if e.errno not in _NO_LINK:
+                return cls(path, None, f"cannot create {KEY_FILE}: {e}")
+            try:
+                os.replace(tmp, path)
+            except OSError as e2:
+                return cls(path, None, f"cannot create {KEY_FILE}: {e2}")
+            return cls.load(root)
         return cls(path, material)
 
     @classmethod
@@ -267,12 +312,26 @@ class Key:
 
         `surrogateescape`, because an environment value arrives from
         `os.environ` with any undecodable byte held as a lone surrogate, and
-        a bare `.encode()` raises on those: the whole recording would go
-        down over one variable the shell happened to carry.
+        a bare `.encode()` raises on those: the whole recording would go down
+        over one variable the shell happened to carry.
+
+        `replace` behind it, because `surrogateescape` round-trips only
+        U+DC80-U+DCFF: a LONE surrogate (U+D800, which `os.environ` cannot
+        produce but a captured value or a value re-read from JSON can)
+        raises there too, out of a module that documents that it never
+        raises. Spelled here as a code point and not as an escape, because a
+        docstring holding the character itself cannot be encoded by a reader
+        that walks this file -- which is this rule, biting its own module. U+FFFD is the right identity for it and not merely a safe
+        one -- Node's UTF-8 encoder writes exactly those bytes for the same
+        string, so the two languages that can hold a lone surrogate agree on
+        its digest; a Rust `String` cannot hold one at all.
         """
         if self.material is None:
             return None
-        raw = text.encode("utf-8", "surrogateescape")
+        try:
+            raw = text.encode("utf-8", "surrogateescape")
+        except UnicodeEncodeError:
+            raw = text.encode("utf-8", "replace")
         return hmac.new(self.material, raw, "sha256").hexdigest()[:16]
 
     def mode_note(self) -> str | None:
@@ -292,6 +351,47 @@ class Key:
         return f"key mode {mode:04o} -- expected 0600"
 
 
+def _write_key(tmp: Path, material: bytes) -> str | None:
+    """All of `material` into a fresh `tmp`, fsynced and closed. The problem
+    sentence, or None when the file on disk is whole.
+
+    The write is a LOOP and its return value is checked: `os.write` is
+    allowed to write fewer bytes than it was given, and a 20-byte key that
+    memory believes is 32 is a store whose digests stop matching the day
+    another process reads the file instead of inheriting the material.
+    """
+    try:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, KEY_MODE)
+    except OSError as e:
+        return f"cannot create {KEY_FILE}: {e}"
+    try:
+        written = 0
+        while written < len(material):
+            step = os.write(fd, material[written:])
+            if not step:
+                return f"cannot write {KEY_FILE}: wrote {written} of "\
+                       f"{len(material)} bytes"
+            written += step
+        os.fsync(fd)
+    except OSError as e:
+        return f"cannot write {KEY_FILE}: {e}"
+    finally:
+        try:
+            os.close(fd)
+        except OSError:
+            pass  # the bytes are fsynced; a failing close is not a key error
+    return None
+
+
+def _unlink(path: Path) -> None:
+    """Best effort, on every path out of `load_or_create`: a tmp left behind
+    is a 32-byte secret nobody will ever read again."""
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
 def env(environ: Mapping[str, str], key: Key,
         knobs: Knobs) -> tuple[dict[str, str], dict[str, str | None]]:
     """(the environment to STORE, the name -> digest table for `redaction`).
@@ -302,13 +402,18 @@ def env(environ: Mapping[str, str], key: Key,
     was recorded on purpose. Applied to an ALREADY redacted environment this
     would digest the marker; §5.4 is why that never happens -- a converter
     meeting a `mode: "on"` header trusts it and does not re-run the rule.
+
+    The table's keys are SORTED (R13) so that one environment gives one
+    table, byte for byte, whichever language wrote it -- Rust's `BTreeMap`
+    and the TypeScript implementation sort too. The stored environment keeps
+    the order it arrived in; only the table is ordered.
     """
     stored = {name: value for name, value in environ.items()
               if name != KEY_VAR}
     if knobs.off:
         return stored, {}
     table: dict[str, str | None] = {}
-    for name in list(stored):
+    for name in sorted(stored):
         if fires(name, knobs):
             table[name] = key.digest(stored[name])
             stored[name] = REDACTED

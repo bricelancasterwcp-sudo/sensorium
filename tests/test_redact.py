@@ -17,9 +17,11 @@ fires on a name the header does not list, and a rule that loses a true
 positive stops firing on one it does. Names only: the file carries no value,
 and a test below asserts it never will.
 """
+import errno
 import hashlib
 import hmac
 import json
+import os
 import stat
 from pathlib import Path
 
@@ -104,6 +106,14 @@ def test_env_replaces_value_and_tables_digest(tmp_path):
     assert environ == {"API_KEY": "abc", "HOME": "/h", KEY_VAR: "00" * 32}
 
 
+def test_the_table_is_sorted_whatever_the_environment_order(tmp_path):
+    """R13: one environment, one table, whichever language wrote it."""
+    stored, table = redact.env({"Z_TOKEN": "z", "A_KEY": "a", "HOME": "/h"},
+                               _key(tmp_path), PLAIN)
+    assert list(table) == ["A_KEY", "Z_TOKEN"]
+    assert list(stored) == ["Z_TOKEN", "A_KEY", "HOME"]
+
+
 def test_env_off_keeps_plaintext_but_drops_key_var(tmp_path):
     stored, table = redact.env({"API_KEY": "abc", KEY_VAR: "00" * 32},
                                _key(tmp_path),
@@ -138,6 +148,20 @@ def test_digest_hashes_surrogateescaped_bytes(tmp_path):
         MATERIAL, raw, "sha256").hexdigest()[:16]
 
 
+def test_digest_never_raises_on_a_lone_surrogate(tmp_path):
+    """`surrogateescape` round-trips only U+DC80-U+DCFF, so a LONE surrogate
+    raises there -- and this module never raises. U+FFFD is the identity
+    Node's encoder gives the same string (R14)."""
+    key = _key(tmp_path)
+    assert key.digest("\ud800") == hmac.new(
+        MATERIAL, "\ud800".encode("utf-8", "replace"),
+        "sha256").hexdigest()[:16]
+    stored, table = redact.env({"API_KEY": "\ud800", "HOME": "/h"},
+                               key, PLAIN)
+    assert stored == {"API_KEY": REDACTED, "HOME": "/h"}
+    assert table == {"API_KEY": key.digest("\ud800")}
+
+
 def test_key_load_or_create_is_0600_and_idempotent(tmp_path):
     root = tmp_path / "store"
     absent = Key.load(root)
@@ -150,6 +174,57 @@ def test_key_load_or_create_is_0600_and_idempotent(tmp_path):
     assert stat.S_IMODE(root.stat().st_mode) == 0o700
     assert Key.load_or_create(root).material == key.material
     assert Key.load(root).material == key.material
+
+
+def test_a_created_key_is_published_whole_and_leaves_no_tmp(tmp_path):
+    """R15: the name appears with all 32 bytes behind it, and the private
+    file it was written in is gone."""
+    key = Key.load_or_create(tmp_path)
+    path = tmp_path / redact.KEY_FILE
+    assert len(key.material) == 32 and path.read_bytes() == key.material
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert sorted(p.name for p in tmp_path.iterdir()) == [redact.KEY_FILE]
+
+
+def test_an_empty_key_file_is_unkeyed_and_never_written_over(tmp_path):
+    """The 0-byte key an interrupted writer used to leave behind: it is the
+    user's file, so it is reported and not replaced."""
+    (tmp_path / redact.KEY_FILE).touch()
+    key = Key.load_or_create(tmp_path)
+    assert key.keyed is False and key.digest("x") is None
+    assert key.problem == "redaction.key is 0 bytes, expected 32"
+    assert (tmp_path / redact.KEY_FILE).read_bytes() == b""
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_a_loser_of_the_creation_race_reads_the_winners_key(tmp_path,
+                                                            monkeypatch):
+    """The window the old `O_EXCL` open left open, closed: another writer
+    finishes its own key while this one is between write and link."""
+    winner = b"\x07" * 32
+
+    def racing_link(src, dst):
+        Path(dst).write_bytes(winner)
+        raise FileExistsError(errno.EEXIST, "File exists", str(dst))
+
+    monkeypatch.setattr(os, "link", racing_link)
+    key = Key.load_or_create(tmp_path)
+    assert key.material == winner
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_a_filesystem_without_hard_links_falls_back_to_replace(tmp_path,
+                                                               monkeypatch):
+    def no_link(src, dst):
+        raise OSError(errno.EPERM, "Operation not permitted")
+
+    monkeypatch.setattr(os, "link", no_link)
+    key = Key.load_or_create(tmp_path)
+    path = tmp_path / redact.KEY_FILE
+    assert key.keyed and len(key.material) == 32
+    # Whoever wrote last, the material returned is the material on disk.
+    assert path.read_bytes() == key.material
+    assert not list(tmp_path.glob("*.tmp"))
 
 
 def test_key_id_is_sha256_prefix(tmp_path):
