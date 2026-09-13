@@ -1,0 +1,8 @@
+{
+  "file": "src/__tests__/CombatTrackerPf2ePersistent.test.tsx",
+  "keyword": "it",
+  "first_line": "import { describe, it, expect, vi, beforeEach } from 'vitest';",
+  "lines_before": 133,
+  "assertion_line_1based": 136,
+  "block": "\nit('e15-planted', () => {\n  expect(1).toBe(2);\n});\n"
+}
