@@ -64,17 +64,38 @@ KEY_BYTES = 32
 KEY_MODE = 0o600
 _ROOT_MODE = 0o700
 
-#: §2.1's set, exactly. A segment here fires the rule; every one of them has
-#: a firing case in the fixture, and `test_the_fixture_gives_every_segment_
-#: of_the_rule_a_firing_case` is what keeps that true. The four compounds
-#: (`APIKEY`, `ACCESSKEY`, `SECRETKEY`, `AUTHTOKEN`) exist because a name
-#: written as one word -- `apikey` -- splits into one segment that none of
-#: `API`, `KEY` matches.
+#: §2.1's set, plus `PWD` (ruling R10, below). A segment here fires the rule;
+#: every one of them has a firing case in the fixture, and `test_the_fixture_
+#: gives_every_segment_of_the_rule_a_firing_case` is what keeps that true. The
+#: four compounds (`APIKEY`, `ACCESSKEY`, `SECRETKEY`, `AUTHTOKEN`) exist
+#: because a name written as one word -- `apikey` -- splits into one segment
+#: that none of `API`, `KEY` matches.
 SEGMENTS = frozenset("""
 KEY APIKEY TOKEN SECRET SECRETS PASSWORD PASSWD PASSPHRASE PASS
 AUTH AUTHORIZATION CREDENTIAL CREDENTIALS CREDS PRIVATE
 COOKIE COOKIES SIGNATURE BEARER JWT DSN ACCESSKEY SECRETKEY AUTHTOKEN
+PWD
 """.split())
+
+#: `PWD` fires only as a segment of a LONGER name: `MYSQL_PWD` and `DB_PWD`
+#: are passwords, and `PWD` and `OLDPWD` are the shell's working directory,
+#: on every machine that has ever run a shell. §2.1 names both of those as
+#: non-firing and they still are -- one segment, so this condition holds them
+#: out while the two-segment database variables come in.
+_PWD = "PWD"
+
+#: Whole NORMALISED names that fire whatever their segments say. Segment-exact
+#: matching cannot see inside a compound word: `PGPASSWORD` splits into the
+#: single segment `PGPASSWORD`, which is neither `PG` nor `PASSWORD`, and
+#: libpq's standard password variable was stored in plaintext by rule v1 until
+#: the census of `tests/fixtures/benign-env-names.txt` said so. Kept apart
+#: from `SEGMENTS` because it is a different question -- "is this word one of
+#: the few known one-word secrets" rather than "does this name have a
+#: secret-shaped part" -- and because a name dropped in here silently would
+#: otherwise widen the segment rule for every name that contains it. Short by
+#: design: a name earns a place only when a census or a report shows it
+#: matters, never on imagination.
+EXACT: frozenset[str] = frozenset({"PGPASSWORD"})
 
 #: The two camelCase boundaries, in this order: an uppercase RUN followed by
 #: Upper+lower (`HTTPToken` -> `HTTP Token`), then lower-or-digit followed by
@@ -137,9 +158,10 @@ def fires(name: str, knobs: Knobs) -> bool:
     """Whether the name rule fires on `name`.
 
     Allow first, and it WINS over `names` -- a user's statement about their
-    own variable outranks their own list (§2.3). `knobs.off` is not read
-    here: turning the whole rule off is `env`'s business, one level up, so
-    that this function stays the answer to "is this a secret-shaped name".
+    own variable outranks their own list (§2.3). Then `EXACT`, then the
+    segments. `knobs.off` is not read here: turning the whole rule off is
+    `env`'s business, one level up, so that this function stays the answer to
+    "is this a secret-shaped name".
     """
     segments = split(name)
     normalised = "".join(segments)
@@ -147,7 +169,11 @@ def fires(name: str, knobs: Knobs) -> bool:
         return False
     if normalised in knobs.names:
         return True
-    return any(segment in SEGMENTS for segment in segments)
+    if normalised in EXACT:
+        return True
+    multi = len(segments) > 1
+    return any(segment in SEGMENTS and (multi or segment != _PWD)
+               for segment in segments)
 
 
 @dataclass(frozen=True)
@@ -250,7 +276,7 @@ class Key:
         return hmac.new(self.material, raw, "sha256").hexdigest()[:16]
 
     def mode_note(self) -> str | None:
-        """`key mode 644 -- expected 0600` when the file is looser than it
+        """`key mode 0644 -- expected 0600` when the file is looser than it
         was created, else None. A loose key is READ anyway and named on
         `info`: refusing to record over the user's own file permissions
         helps nobody (§3). A key from `from_hex` has no file and no mode.
@@ -263,7 +289,7 @@ class Key:
             return None
         if mode == KEY_MODE:
             return None
-        return f"key mode {mode:o} -- expected 0600"
+        return f"key mode {mode:04o} -- expected 0600"
 
 
 def env(environ: Mapping[str, str], key: Key,

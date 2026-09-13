@@ -47,8 +47,6 @@
     {"name": "authorId", "fires": false},
     {"name": "OAUTH_URL", "fires": false},
     {"name": "XAUTHORITY", "fires": false},
-    {"name": "PWD", "fires": false},
-    {"name": "OLDPWD", "fires": false},
     {"name": "SESSION_MANAGER", "fires": false},
     {"name": "PATH", "fires": false},
     {"name": "HOME", "fires": false},
@@ -58,6 +56,14 @@
     {"name": "SSH_ASKPASS", "fires": false},
     {"name": "DBUS_SESSION_BUS_ADDRESS", "fires": false},
     {"name": "GPG_AGENT_INFO", "fires": false},
+
+    {"name": "MYSQL_PWD", "fires": true},
+    {"name": "DB_PWD", "fires": true},
+    {"name": "PWD", "fires": false},
+    {"name": "OLDPWD", "fires": false},
+    {"name": "PGPASSWORD", "fires": true},
+    {"name": "pgpassword", "fires": true},
+    {"name": "PGPASSFILE", "fires": false},
 
     {"name": "SENSORIUM_NO_REDACT", "fires": false},
     {"name": "SENSORIUM_REDACT_NAMES", "fires": false},

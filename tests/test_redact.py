@@ -77,6 +77,15 @@ def test_the_fixture_gives_every_segment_of_the_rule_a_firing_case():
     assert covered == set(redact.SEGMENTS)
 
 
+def test_the_fixture_gives_every_exact_name_a_firing_case():
+    """`EXACT` is the short list of one-word names the segment rule cannot
+    see into; a name added to it without a case is a name the Rust and
+    TypeScript suites never test."""
+    firing = {redact.normalise(case["name"]) for case in CASES["names"]
+              if case["fires"] and not case.get("knobs")}
+    assert set(redact.EXACT) <= firing
+
+
 def test_the_fixtures_content_list_is_still_empty():
     """PR B fills it; PR A must not, or the two suites that read the file
     would be asked for a rule that does not exist yet."""
@@ -166,7 +175,8 @@ def test_mode_note_names_a_loose_key(tmp_path):
     key = Key.load_or_create(tmp_path)
     assert key.mode_note() is None
     (tmp_path / redact.KEY_FILE).chmod(0o644)
-    assert Key.load(tmp_path).mode_note() == "key mode 644 -- expected 0600"
+    assert Key.load(tmp_path).mode_note() == (
+        "key mode 0644 -- expected 0600")
     assert Key.from_hex("01" * 32).mode_note() is None
 
 
