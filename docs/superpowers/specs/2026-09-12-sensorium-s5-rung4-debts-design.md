@@ -565,4 +565,144 @@ tool and `cargo-sensorium`.
 
 ## 12. Amendments
 
-Appended at execution, dated, each naming the section it amends. None yet.
+Appended at execution, dated, each naming the section it amends. **A-rows**
+are the thirteen decisions the plan made — A1–A11 in its own decisions table
+(`../plans/2026-09-12-sensorium-s5-rung4-debts.md`), A12 and A13 added by
+ruling while shipping. **P-rows** are the controller rulings that changed how
+a section of THIS document reads; the rulings that changed no sentence here
+are in the ledger and get no row, which is stated rather than left to be
+noticed. Nothing above is deleted: where a sentence was narrowed, replaced or
+falsified, this list is the index to it.
+
+### The plan's decisions, as shipped
+
+- **A1 (2026-09-12, Task 1) — amends §7.** The `rt.mjs` seam is the **naming**
+  block, not the capture side: `dbg`, `exc` and `cap` already live in
+  `dbg.mjs` and `captures` is eight lines, so what moved to
+  `typescript/src/naming.mjs` is `UNNAMED`, `titleOf`, `nameProvider` (with its
+  `provider` state), `ask` and `nameFor`. §7 named three functions of which two
+  were not in the file. The export set is unchanged, which is §7's own
+  constraint.
+- **A2 (2026-09-12, Task 2) — amends §3.2.** `e12p_report.py` **imports**
+  `e12_report.py`'s helpers rather than copying them; it owns only what
+  changed (`ROW2`, `rows_of2`, `call_line_of`, `h2p`, `h4p`, `h5p`, `main`).
+  §3.2 requires the cited file's text to keep still, and an import reads it
+  without moving a byte.
+- **A3 (2026-09-12, Task 3) — amends §4.2.** `Site` gains **`deferred:
+  boolean`** rather than a separate list: `planSites` computes it beside
+  `focused`, `sitesOf` reports it, `resolve.mjs` prints it per matched site.
+  Only a deferred AND instrumented function gets the wrapper; focus is
+  irrelevant to the seal, which is a frame-lifetime fix in every tier.
+- **A4 (2026-09-12, Task 0) — amends §3.3.** The H2′ hand count is a
+  **sha-pinned table**, `…-h2-handcount.md`, one row per function-like under
+  the three specs (`| n | qualname | line | kind | how selected |`) with `N = 6`
+  as its last line, on rung 4's precedent. The lock test recomputes its sha
+  from disk.
+- **A5 (2026-09-12, Tasks 0 and 3) — amends §4.6.** The census at T0 is **by
+  hand** — §4.6's script cannot run before the detector exists — and
+  `census_deferred.mjs` arrives with the detector at Task 3. E13's clause is
+  that the script prints exactly the hand list.
+- **A6 (2026-09-12, Task 6) — amends §5.2–§5.3.** The Rust fragment for a
+  block-like statement with names to unbind is
+  `::sensorium_rt::line_unbinding(&crate::__SENSORIUM_UNIT, <site>, || [<deltas>], &[<"a">, <"b">]);`,
+  and `line_unbinding` writes tag-3 blocks **after** the deltas. The names are
+  `&'static [&'static str]`, so the fragment is a literal and the runtime
+  allocates nothing.
+- **A7 (2026-09-12, Task 0; SUPERSEDED 2026-09-12, Task 8) — amends §6.2.**
+  Under ruling **P6**, spec §6.2 binds over the plan's A7 and
+  `focus_catch_binding` takes **two** rows, not one: its `PRE_REGISTERED` row
+  and `"focus_catch_binding": None` in `PRE_REGISTERED_REASON_LINE`, a pinned
+  *no `ambiguous by reason:` line* claim on rung 3's `logged_rethrow_to_harness`
+  precedent. **Superseded by A13**: under ruling **P16** the row's value is
+  **1 SWALLOWED**, not 0. The two-row shape stands; the adjudication behind the
+  first row did not.
+- **A8 (2026-09-12, Task 12) — amends §1 and §6.4.** The fixture
+  `driver_version` becomes `"0.13.0"` when Python's version moves, not
+  `"0.12.0"` at the recorder bump — **and there is ONE such fixture, not the
+  plan's three**: `tests/fixtures/ts-spools/focus-lines/invocation.json`, at
+  `"0.11.0"`, is the one `docs/CARRIED-DEBT.md`'s minors paragraph names as
+  *now one behind*. The eleven other `ts-spools` fixtures carry `"0.1.0"`,
+  which is the version that cut them and is dated history, not a
+  current-identity token. Corrected here rather than obeyed as written.
+- **A9 (2026-09-12, Task 12) — amends §6.4 and the inventory's D class.**
+  `sites._anchor`'s cwd fallback is closed by a **dated note** and no code
+  change: it is already the documented Python-trace rule (`root` or `cwd`,
+  else `None`), the comment the function carries says so, and no trace in the
+  corpus reaches it. The note is in `docs/CARRIED-DEBT.md`'s 2026-09-12
+  section under *Deferred by ruling*.
+- **A10 (2026-09-12, Task 9) — amends §6.4.** `captures()` on an odd-length
+  pairs list **throws** `TypeError('captures: an odd pairs list — <n>
+  entries')`, caught by nothing. The transform is the only caller and an odd
+  list is a transform bug, which should surface as a loud failure of the
+  instrumented file rather than as a silently dropped name — §2's A #9,
+  *refuse loudly*.
+- **A11 (2026-09-12, Task 9) — amends §6.4.** `Resolution.wall` is persisted
+  in the invocation's manifest as **`resolver_wall_s`**, written by `driver.py`
+  beside `focus_matched`; `info` does not print it. An instrument can now time
+  the resolver without timing itself.
+- **A12 (2026-09-12, Task 3; ruling P12) — amends §4.4.** A seal-deferred
+  **generator** whose consumer abandons it (`.return()`, a `break` out of
+  `for…of`) reports `RETURN {k: 'unread'}`, not `RETURN undefined`: the value
+  belongs to the consumer and never reached the body. The deferred generator
+  wrapper calls `__srt.seal(__sf,1)`, and *nothing pended with the flag set* is
+  exactly the abandoned case; a body that falls off its end still pends
+  `undefined` explicitly.
+- **A13 (2026-09-12, Tasks 8 and 11; ruling P16) — amends §6.2.** §6.2's hand
+  read was **wrong**. `focus_catch_binding` is **1 SWALLOWED** by the
+  `exceptions` reader's own documented disposition rule — an absorbing handler
+  took it and the frame holding that handler then returned — and *one HANDLED,
+  nothing swallowed* was a reading in `grep --kind HANDLED`'s vocabulary. The
+  locked §1.7 clause was **not** edited: **E6-TS′ STOPped by design** and is
+  the finding; a corrected clause, **E6-TS″**, was pre-registered beside it
+  from the rule before any cell was read, and measured once at 22 of 22. The
+  record's §3.4, §4.4 and §5 item 1 carry it.
+
+### The rulings that changed a section's reading
+
+- **P7 + P13 (2026-09-12, Tasks 0 and 6) — amend §5.2.** The Rust unbind order
+  is **source order** (§5.2's lead clause; the bullet order is expository), so
+  a `match` arm reports `unbound:n,big`. And **P13 corrects P7's `else if`
+  clause**: an `else if` is the outer `if`'s `else_branch` EXPRESSION, not a
+  statement in a block, so it never takes a completion row of its own and the
+  outer statement's row is the only row that can unbind the chain's names.
+  `unbound_of` descends the chain while the branch is an `Expr::If`; a nested
+  `if` that IS a statement still unbinds its own. Golden
+  `focus_unbound_elseif` pins it.
+- **P14 (2026-09-12, Task 6) — amends §5.2.** A `let` with **no initialiser**
+  is listed as unbound on its block's row: `unbound` means *this name's scope
+  ended here*, which is true whether or not a probe ever bound it, and the
+  reader's fold tolerates popping an absent name.
+- **P9 (2026-09-12, Task 2) — amends §8.** On a provenance (sha) failure
+  `assemble_s5debts.main` **writes** `results.json` with
+  `verification.reads_read_this_record.ok == false` and exits **1**, the
+  documented behaviour of the `assemble_rung4.py` family: a reader diagnosing
+  a failed verification needs the cells it failed over. Only the box-path
+  refusal writes nothing.
+- **P15 (2026-09-12, Task 7) — amends §7.** `rust/HONESTY-BLIND-SPOTS.md` is
+  **ceiling-bound at exactly 800 lines** and takes no split in this slice; its
+  NEXT entry must open a volume, on the `CARRIED-DEBT-ARCHIVE` numbering
+  precedent, and that split costs `rust/HONESTY-INDEX.md`'s *one home of §12*
+  promise. §7's seam list gains it.
+- **P17 (2026-09-12, Task 11) — amends §8.** A **hand adjudication** lives in
+  the results file's `reported.adjudicated`, labelled: `assemble_s5debts.py`
+  filters `gated` through a fixed `ORDER` and builds `reported` from a fixed
+  key set, so a cell added for E6-TS′ through the assembler would have been
+  silently DROPPED, and the assembler is not edited after a number is read. The
+  block and a top-level `word` were added by hand, each stamped *after
+  assembly, by hand, 2026-09-12 (ruling P17)*, additive, neither an instrument
+  value. The schema seam is carried as record §5 item 8.
+
+### The rulings with no row here, and why
+
+**P0** (a plain `git worktree add` rather than the native tool) is about where
+the work happened. **P1**–**P5**, **P8**, **P10**, **P11** and **P16** are
+about the plan, the ledger or an instrument's own file and change no sentence
+of this document: which record feeds which half of `e12p_report.py` (P1); that
+Task 2 also builds `e13_report.py` and `e14_report.py` (P2); who owns the
+census-table parser (P3); a baseline re-run if the cargo driver was missing
+(P4); that Task 0's RED `test_corpus_passes` is an explicit exception in every
+brief to Task 7 (P5); `rt.mjs` at 747 lines against a plan figure that
+miscounted (P8); the disposition for a corpus failure under load (P10) and its
+successor once the cause was known — a vitest substring filter (P11); and the
+pre-registration discipline that produced A13 (P16). **P6** and **P12** are
+recorded as A7 and A12 above rather than twice.

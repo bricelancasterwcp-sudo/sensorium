@@ -875,3 +875,17 @@ that had moved on the lens; the measured number is the record's). **H2**,
 - **R41** is about `docs/CARRIED-DEBT.md`'s "Deferred minors, per task"
   roll-up carrying every deferred minor the ledger holds: a completeness rule
   for that document, amending no section here.
+
+### What the next slice did with R37's three STOPs
+
+*Added 2026-09-12, at the close of S5 rung 4's debts.* **H2, H4 and H5 were
+re-registered and all three PASS** — H2′ 5 of 5, H4′ 3 of 3, H5′ 7 of 7 —
+read once over THIS rung's own committed transcripts (the thirteen under
+`../acceptance/2026-09-11-sensorium-s5-rung4-focus-reads/`, hash-verified
+first) under a new instrument, `typescript/acceptance/e12p_report.py`, without
+the four parser defects R37 names; `e12_report.py` was not edited, because
+this document and its record cite it by name. The reading is
+`../acceptance/2026-09-12-sensorium-s5-rung4-debts.md` §3.1 and §4.1, on the
+E6′→E6″ precedent R37 pointed at. Nothing of this rung was re-run: H8′, one
+live run on the same lens under `sensorium-ts 0.4.0`, reproduces §8's nine
+LINE rows TEXT-equal and leaves the lens byte-identical.
