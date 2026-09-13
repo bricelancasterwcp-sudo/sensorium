@@ -17,8 +17,8 @@ use proc_macro2::Span;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
 use syn::{
-    Attribute, BinOp, Expr, ExprAsync, ExprBreak, ExprClosure, ExprConst, ExprForLoop, ExprLoop,
-    ExprWhile, Item, Lifetime, Pat, Stmt,
+    Attribute, BinOp, Block, Expr, ExprAsync, ExprBreak, ExprClosure, ExprConst, ExprForLoop,
+    ExprIf, ExprLoop, ExprWhile, Item, Lifetime, Pat, Stmt,
 };
 
 use crate::arms::bound_names;
@@ -346,6 +346,156 @@ fn is_assign_op(op: BinOp) -> bool {
     )
 }
 
+/// The names a block-like statement unbinds on completion (design §5.2), in
+/// source order, each once: its own head pattern's names (`for`/`if let`/
+/// `while let`/each `match` arm's pattern, via [`binding_names`]/
+/// [`let_bindings`]) and every `Stmt::Local` pattern in each of its DIRECT
+/// blocks, whichever comes first in the source.
+///
+/// [`statement_deltas`]'s twin, and the reason it is a separate walk: a delta
+/// is what a statement WROTE and an unbind is what its scope TOOK WITH IT, and
+/// only the second can name a binding the statement itself never touched.
+///
+/// # What it declines, and why
+///
+/// * **A nested block-like statement's blocks.** That statement has a
+///   completion row of its own and unbinds its own names there; collecting
+///   them here too would say each name died twice, at two different sites.
+/// * **A closure's or `async` block's `let`s.** The LINE walk stops at both
+///   ([`crate::lines`]'s `visit_expr_closure`/`visit_expr_async`), so no probe
+///   ever bound those names -- and design §5.2 is explicit that a row saying a
+///   name went out of scope where none came in is a row that invents. The walk
+///   here never descends into an expression at all, so this falls out rather
+///   than being tested for.
+/// * **An `Expr::Async` or `Expr::Const` STATEMENT**, for the same reason read
+///   from the other side: it is block-like, so it takes a LINE, but nothing
+///   inside it was ever probed. Its list is empty.
+/// * **A `cfg`'d `let`.** [`is_conditionally_compiled`] declines its delta and
+///   declines its unbind, symmetrically: `cfg` may take the statement out of
+///   the build, and a name that never entered may not be said to leave.
+/// * **A name [`is_binding_name`] rejects**, via the two collectors -- `None`
+///   in `match o { None => {} }` is a path pattern and binds nothing.
+///
+/// Empty for an expression that is not block-like, so the caller may ask about
+/// any `Stmt::Expr` and is not the one holding the `is_block_like` list.
+///
+/// # The order
+///
+/// SOURCE order, which is what §5.2's lead clause says; its bullets happen to
+/// list the inner `let`s first, and where the two readings part -- a `match`
+/// arm, whose pattern precedes its body -- the lead clause governs (ruling
+/// P7). `corpus/rust/focus_block_let` pins `unbound:n,big` on that shape and
+/// `tests/golden_focus/focus_unbound_match` pins the same pair in the bytes.
+pub(super) fn unbound_of(expr: &Expr) -> Vec<String> {
+    let mut names = Vec::new();
+    match expr {
+        Expr::Block(e) => block_lets(&e.block, &mut names),
+        Expr::Unsafe(e) => block_lets(&e.block, &mut names),
+        Expr::TryBlock(e) => block_lets(&e.block, &mut names),
+        Expr::Loop(e) => block_lets(&e.body, &mut names),
+        Expr::If(e) => if_scope(e, &mut names),
+        Expr::While(e) => {
+            names.extend(let_bindings(&e.cond));
+            block_lets(&e.body, &mut names);
+        }
+        Expr::ForLoop(e) => {
+            names.extend(binding_names(&e.pat));
+            block_lets(&e.body, &mut names);
+        }
+        Expr::Match(e) => {
+            for arm in &e.arms {
+                names.extend(binding_names(&arm.pat));
+                // A bare-expression arm body holds no statements, so there is
+                // nothing there for a `Stmt::Local` rule to find. The block the
+                // LINE walk WRAPS such a body in (amendment A1) adds only the
+                // probe, never a `let`.
+                if let Expr::Block(body) = &*arm.body {
+                    block_lets(&body.block, &mut names);
+                }
+            }
+        }
+        // `Expr::Async` and `Expr::Const` are block-like and unbind nothing;
+        // everything else is not block-like and unbinds nothing either.
+        _ => {}
+    }
+    once_each(names)
+}
+
+/// An `if`'s own scope, and the whole of its `else if` chain: every link's
+/// condition bindings and its `then` block's direct `let`s, then the final
+/// plain `else` block's, in source order.
+///
+/// **Ruling P13 (2026-09-12), which withdrew P7's earlier clause.** An `else
+/// if` is the outer `if`'s `else_branch` EXPRESSION -- not a statement
+/// standing in a block -- so the LINE walk never gives it a completion row of
+/// its own, and the outer `if` statement's row is the ONLY row that can say
+/// those names ended. Under P7 this walk stopped at the first `else if`, and
+/// its head pattern's names and its body's `let`s were bound by an entry row
+/// and a `let` row that nothing ever balanced: the fold kept answering for
+/// them forever. Walking the chain is what makes every name that entered
+/// leave.
+///
+/// The loop is a walk and not a recursion for the same reason: the chain is
+/// ONE statement's scope, not a stack of them.
+///
+/// A nested `if` that is a STATEMENT inside one of those bodies is reached by
+/// [`block_lets`], which collects only `Stmt::Local`s -- so it still unbinds
+/// its own on its own row, exactly as before.
+fn if_scope(node: &ExprIf, out: &mut Vec<String>) {
+    let mut link = node;
+    loop {
+        out.extend(let_bindings(&link.cond));
+        block_lets(&link.then_branch, out);
+        match link.else_branch.as_ref().map(|(_, e)| &**e) {
+            // `else if ..` -- the next link of the SAME statement's scope.
+            Some(Expr::If(next)) => link = next,
+            // A plain `else { .. }` ends the chain.
+            Some(Expr::Block(e)) => {
+                block_lets(&e.block, out);
+                return;
+            }
+            // No `else` at all, or an `else` shape `syn` spells some other
+            // way: nothing more this row may claim.
+            _ => return,
+        }
+    }
+}
+
+/// The names the `let` statements of ONE block bind, in source order.
+///
+/// Direct statements only: this never recurses, which is what makes "a nested
+/// block-like statement unbinds its own" a fact about this function rather
+/// than a rule applied on top of it. A `let`-`else` is a `Stmt::Local` like
+/// any other and binds like one. A `let` with no initialiser is here too --
+/// unlike [`statement_deltas`], which declines it because a DELTA there would
+/// borrow a binding rustc knows is uninitialised (E0381); an unbind names the
+/// binding and never reads it, so the same guard would only lose the row for
+/// `{ let x; x = 1; }`.
+fn block_lets(block: &Block, out: &mut Vec<String>) {
+    for stmt in &block.stmts {
+        if let Stmt::Local(local) = stmt {
+            if !is_conditionally_compiled(stmt) {
+                out.extend(binding_names(&local.pat));
+            }
+        }
+    }
+}
+
+/// One binding is one entry, at the position of its FIRST mention.
+///
+/// The same de-duplication [`binding_names`] and [`let_bindings`] each need --
+/// an or-pattern binds one name in every alternative, and a name bound in both
+/// a head pattern and an inner `let` is one name that ends once.
+fn once_each(names: Vec<String>) -> Vec<String> {
+    let mut seen: Vec<String> = Vec::with_capacity(names.len());
+    for name in names {
+        if !seen.contains(&name) {
+            seen.push(name);
+        }
+    }
+    seen
+}
+
 /// Every identifier a pattern binds, in source order, once each.
 ///
 /// [`crate::arms::bound_names`] is the walk -- the same one the escape test
@@ -361,13 +511,7 @@ pub(super) fn binding_names(pat: &Pat) -> Vec<String> {
     let mut names = Vec::new();
     bound_names(pat, &mut names);
     names.retain(|name| is_binding_name(name));
-    let mut seen: Vec<String> = Vec::with_capacity(names.len());
-    for name in names {
-        if !seen.contains(&name) {
-            seen.push(name);
-        }
-    }
-    seen
+    once_each(names)
 }
 
 /// Does this identifier read as a binding rather than as a unit variant or a
@@ -388,13 +532,7 @@ fn is_binding_name(name: &str) -> bool {
 pub(super) fn let_bindings(cond: &Expr) -> Vec<String> {
     let mut names = Vec::new();
     collect_let_bindings(cond, &mut names);
-    let mut seen: Vec<String> = Vec::with_capacity(names.len());
-    for name in names {
-        if !seen.contains(&name) {
-            seen.push(name);
-        }
-    }
-    seen
+    once_each(names)
 }
 
 fn collect_let_bindings(cond: &Expr, out: &mut Vec<String>) {
@@ -415,6 +553,162 @@ mod tests {
 
     fn stmt(source: &str) -> Stmt {
         syn::parse_str(source).expect("a statement")
+    }
+
+    /// [`unbound_of`] reads an EXPRESSION; the rule is about STATEMENTS, and
+    /// every fixture below reads as one. A block-like statement is a
+    /// `Stmt::Expr` with or without a `;` and the rule keys on neither.
+    fn unbound(source: &str) -> Vec<String> {
+        match stmt(source) {
+            Stmt::Expr(expr, _) => unbound_of(&expr),
+            _ => panic!("not an expression statement: {source}"),
+        }
+    }
+
+    /// [`unbound`]'s sibling for the two shapes that cannot be SPELLED as a
+    /// statement: `const { .. }` at statement position parses as a `const`
+    /// ITEM (`syn`, and rustc, resolve the ambiguity that way), and `async
+    /// { .. }` is kept beside it so the pair reads together.
+    fn unbound_expr(source: &str) -> Vec<String> {
+        unbound_of(&syn::parse_str::<Expr>(source).expect("an expression"))
+    }
+
+    /// A plain block, and the direct-blocks-only rule: the nested `if` is a
+    /// block-like STATEMENT and unbinds its own `y` on its own row.
+    #[test]
+    fn a_block_unbinds_its_direct_lets_and_leaves_a_nested_statement_its_own() {
+        assert_eq!(unbound("{ let x = 2; let y = 3; }"), ["x", "y"]);
+        assert_eq!(unbound("{ let x = 2; if c { let y = 3; } }"), ["x"]);
+        assert_eq!(unbound("if c { let y = 3; }"), ["y"]);
+        assert_eq!(unbound("{ }"), Vec::<String>::new());
+    }
+
+    /// `unsafe`, `loop` and a `try` block are the block-likes with no head
+    /// pattern: their body's `let`s and nothing else.
+    #[test]
+    fn the_headless_block_likes_unbind_their_bodys_lets() {
+        assert_eq!(unbound("unsafe { let a = 1; }"), ["a"]);
+        assert_eq!(unbound("loop { let a = 1; break; }"), ["a"]);
+        assert_eq!(unbound("try { let a = 1; }"), ["a"]);
+    }
+
+    /// Every head pattern, each with a body `let` after it, so the SOURCE
+    /// ORDER is visible in each answer (ruling P7): the head comes first.
+    #[test]
+    fn a_head_pattern_is_unbound_before_the_lets_of_the_body_it_opened() {
+        assert_eq!(unbound("for item in v { let seen = 1; }"), ["item", "seen"]);
+        assert_eq!(
+            unbound("if let Some(first) = v.first() { let seen = 1; }"),
+            ["first", "seen"]
+        );
+        assert_eq!(
+            unbound("while let Some(next) = it.next() { let seen = 1; }"),
+            ["next", "seen"]
+        );
+    }
+
+    /// A `match` is the shape design §5.2's bullets and its lead clause
+    /// disagree about, and the lead clause governs: the arm's pattern is
+    /// written before the arm body's `let`, so it is listed before it. Each
+    /// arm contributes in turn, and an arm that binds nothing contributes
+    /// nothing -- `None` is a path pattern, not a binding.
+    #[test]
+    fn a_match_unbinds_arm_by_arm_pattern_before_body() {
+        assert_eq!(
+            unbound("match n { n if n > 1 => { let big = n; } _ => {} }"),
+            ["n", "big"]
+        );
+        assert_eq!(
+            unbound("match o { Some(a) => { let p = 1; } None => { let q = 2; } }"),
+            ["a", "p", "q"]
+        );
+        // A bare-expression arm body holds no statements to find.
+        assert_eq!(unbound("match o { Some(a) => a * 2, None => 0 }"), ["a"]);
+    }
+
+    /// An `if`'s whole scope, ruling P13: the condition's `let`s and the
+    /// `then` block's for EVERY link of the `else if` chain, then the final
+    /// `else` block's -- because an `else if` is the outer `if`'s
+    /// `else_branch` expression and never a statement, so this is the only row
+    /// that can end those names. A nested `if` that IS a statement inside one
+    /// of the bodies still unbinds its own.
+    #[test]
+    fn an_if_reaches_every_link_of_its_else_if_chain_and_its_final_else() {
+        assert_eq!(
+            unbound("if let Some(a) = o { let p = 1; } else { let q = 2; }"),
+            ["a", "p", "q"]
+        );
+        assert_eq!(
+            unbound("if c { let p = 1; } else if d { let q = 2; }"),
+            ["p", "q"]
+        );
+        assert_eq!(
+            unbound(
+                "if c { let p = 1; } else if let Some(q) = o { let r = q; } \
+                 else { let s = 0; }"
+            ),
+            ["p", "q", "r", "s"],
+            "three links, source order, each name once"
+        );
+        assert_eq!(
+            unbound("if c { let p = 1; if d { let x = 2; } } else if e { let q = 3; }"),
+            ["p", "q"],
+            "the nested `if` is a STATEMENT and unbinds its own `x`"
+        );
+    }
+
+    /// The symmetric rule: `cfg` may take the statement out of the build, so
+    /// the name it would have bound is neither a delta nor an unbind. Its
+    /// neighbour is unbound normally, which is what says the filter is narrow.
+    #[test]
+    fn a_cfg_stripped_let_is_not_unbound() {
+        assert_eq!(unbound("{ #[cfg(any())] let a = 1; let b = 2; }"), ["b"]);
+        assert_eq!(
+            unbound("{ #[allow(unused)] let a = 1; }"),
+            ["a"],
+            "only `cfg` and `cfg_attr` can remove the statement"
+        );
+    }
+
+    /// One binding is one entry, at its first mention: a name bound in BOTH a
+    /// head pattern and an inner `let` ends once, and an or-pattern's repeated
+    /// name is one name.
+    #[test]
+    fn a_name_bound_twice_is_unbound_once() {
+        assert_eq!(unbound("for x in v { let x = 1; }"), ["x"]);
+        assert_eq!(unbound("match r { Ok(v) | Err(v) => { } }"), ["v"]);
+    }
+
+    /// Design §5.2's "a row that said a name went out of scope where none came
+    /// in would be a row that invents", read three ways. A closure's and an
+    /// `async` block's `let`s were never probed, and an `async` or `const`
+    /// STATEMENT unbinds nothing at all.
+    #[test]
+    fn nothing_a_probe_never_bound_is_unbound() {
+        assert_eq!(
+            unbound("{ let f = |x: i32| { let inner = x; }; }"),
+            ["f"],
+            "the closure's `inner` was never bound by a probe"
+        );
+        assert_eq!(unbound_expr("async { let a = 1; }"), Vec::<String>::new());
+        assert_eq!(unbound_expr("const { let a = 1; }"), Vec::<String>::new());
+    }
+
+    /// A `let`-`else` is a `Stmt::Local` and binds like a `let`; a `let` with
+    /// no initialiser is bound at its first assignment and popped here too.
+    #[test]
+    fn a_let_else_and_a_deferred_let_both_bind_for_the_purpose_of_unbinding() {
+        assert_eq!(unbound("{ let Some(a) = o else { return; }; }"), ["a"]);
+        assert_eq!(unbound("{ let a; a = 1; }"), ["a"]);
+    }
+
+    /// The caller asks about any `Stmt::Expr` and is not the one holding the
+    /// `is_block_like` list, so an expression that is not block-like answers
+    /// with an empty list rather than with a panic.
+    #[test]
+    fn an_expression_that_is_not_block_like_unbinds_nothing() {
+        assert_eq!(unbound("f(1);"), Vec::<String>::new());
+        assert_eq!(unbound("a += 1;"), Vec::<String>::new());
     }
 
     /// The rule `expr_attrs` serves: `#[cfg]` can delete the statement and

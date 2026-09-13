@@ -15,10 +15,10 @@ import { isMainThread, threadId } from 'node:worker_threads';
 
 import { cap, dbg, exc } from './dbg.mjs';
 import { VERSION } from './index.mjs';
+import { nameFor, setProvider, titleOf } from './naming.mjs';
 
 /** @typedef {{id: number, name: string, stack: Frame[]}} Task */
-/** @typedef {{id: number, task: Task|null, open: boolean, mark: Record<string, unknown>|null}} Frame */
-/** @typedef {{name: string, basis: 'vitest'|'title', conflict: boolean}} Named */
+/** @typedef {{id: number, task: Task|null, open: boolean, mark: Record<string, unknown>|null, pending?: Captured}} Frame */
 /** @typedef {Record<string, unknown>} Record_ */
 /** @typedef {import('./dbg.mjs').Captured} Captured */
 
@@ -38,7 +38,6 @@ const FLUSH_MS = 100;
 const BUFFERED = 256;
 /** @type {NodeJS.Signals[]} */
 const SIGNALS = ['SIGTERM', 'SIGINT', 'SIGHUP'];
-const UNNAMED = '<unnamed: title not a string>';
 
 /**
  * What this recorder DECLARES it produces, written into every BOOT record and
@@ -95,8 +94,6 @@ const suiteStack = [];
  * @type {Map<string, number>}
  */
 const activations = new Map();
-/** @type {(() => unknown)|null} */
-let provider = null;
 
 let nextFile = 1;
 let nextTask = 1;
@@ -294,17 +291,15 @@ export function suite(title, ...rest) {
 /**
  * Register the harness's own name for the test now running. The vitest setup
  * file supplies `() => expect.getState().currentTestName ?? null`; under
- * `node --test` there is no provider and the lexical name is the name.
+ * `node --test` there is no provider and the lexical name is the name. The
+ * rule is `naming.mjs`'s; the tier gate is this module's, because `on` is.
  * @param {unknown} fn
  * @returns {void}
  */
 export function nameProvider(fn) {
   if (!on) return;
-  provider = typeof fn === 'function' ? /** @type {() => unknown} */ (fn) : null;
+  setProvider(fn);
 }
-
-/** @param {unknown} title @returns {string} */
-const titleOf = (title) => (typeof title === 'string' ? title : UNNAMED);
 
 /**
  * @param {string} title
@@ -360,37 +355,6 @@ function taskSettled(v) {
 function taskFailed(err) {
   flush();
   throw err;
-}
-
-/**
- * The four branches of the naming rule (spec §4, D4).
- * @param {string} title
- * @param {string} lexical
- * @param {number} flags
- * @returns {Named}
- */
-function nameFor(title, lexical, flags) {
-  const provided = ask();
-  if (typeof provided !== 'string') return { name: lexical, basis: 'title', conflict: false };
-  // The cross-check is only possible where the transform saw a plain string
-  // literal that is not a `.each` template. A `.concurrent` task's provider
-  // name is uncheckable for a different reason, and the ledger says so.
-  const checkable = (flags & 1) !== 0 && (flags & 2) === 0;
-  if (checkable && !provided.endsWith(title)) {
-    return { name: lexical, basis: 'title', conflict: true };
-  }
-  return { name: provided, basis: 'vitest', conflict: false };
-}
-
-/** @returns {unknown} the provider's name, or null when there is none to ask */
-function ask() {
-  if (!provider) return null;
-  try {
-    return provider();
-  } catch {
-    // `expect.getState()` outside a test throws; that is not this run's news.
-    return null;
-  }
 }
 
 /**
@@ -457,10 +421,16 @@ function drop(f) {
  * wire carries. The transform builds the list at the site, so the names are
  * its own and the values are the program's — which is why every value goes
  * through `dbg` and no name does.
+ *
+ * An ODD list THROWS: the transform is the only caller and emits both halves
+ * at the site, so one is a defect in the splice. Dropping the trailing name,
+ * which the loop bound used to do, sends the row out one delta short in
+ * silence — and a reader is then told that name was not in scope there.
  * @param {unknown[]} pairs
  * @returns {Record<string, Captured>}
  */
 function captures(pairs) {
+  if (pairs.length % 2 !== 0) throw new TypeError('captures: an odd pairs list — ' + pairs.length + ' entries');
   /** @type {Record<string, Captured>} */
   const out = {};
   for (let i = 0; i + 1 < pairs.length; i += 2) {
@@ -540,6 +510,51 @@ export function ret(f, v) {
   drop(f);
   emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: dbg(v) });
   return v;
+}
+
+/**
+ * Hold the value a `return` chose, WITHOUT closing the frame (design §4.2).
+ *
+ * A function whose body returns from inside a `try` with a `finally` is
+ * spliced with this in place of `ret`: the program's `finally` then runs on a
+ * frame that is still open, so its statements mint their rows and a call it
+ * makes opens beneath the frame that made it. The last `pend` wins, which is
+ * what a `finally` that returns does to the value the `try` chose.
+ * @template T
+ * @param {Frame|null} f
+ * @param {T} v
+ * @returns {T} the value the source returns, untouched
+ */
+export function pend(f, v) {
+  if (!on || !f || !f.open) return v;
+  f.pending = dbg(v);
+  return v;
+}
+
+/**
+ * Close a frame `pend` left open, from the wrapper's own `finally` (§4.2).
+ *
+ * It emits the RETURN the deferred `return` did not, AFTER the rows of every
+ * `finally` the value passed through — the order Python's `sys.monitoring`
+ * already gives. A frame `thr` closed on the way out is left exactly as `thr`
+ * left it, so a `finally` that throws still reports one UNWIND and no return.
+ *
+ * `f.pending` is unset only where no `pend` ran at all — a `pend` of
+ * `undefined` stores the CAPTURE of it, which is an object. For a deferred
+ * function that is exactly one shape: a generator resumed with a RETURN
+ * completion (a consumer's `break` or `.return()`), whose body reached
+ * neither a `return` nor its own fallthrough close. That value is
+ * `unread`, not `undefined`, for `gclose`'s reason (A12, §4.4): `.return(v)`'s
+ * value belongs to the consumer and never reaches the body, so the body
+ * produced none — and `undefined` would be a value this recorder invented.
+ * @param {Frame|null} f
+ * @returns {void}
+ */
+export function seal(f) {
+  if (!on || !f || !f.open) return;
+  f.open = false;
+  drop(f);
+  emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: f.pending ?? { k: 'unread' } });
 }
 
 /**

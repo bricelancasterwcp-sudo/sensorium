@@ -253,7 +253,7 @@ command line and its own focus rather than as a template with a
 placeholder in it. On a TypeScript trace the capability is a property of the
 RECORDING: an unfocused run declares
 `line: false`, and `watch` refuses at exit 3 naming the recorder the trace
-carries — `sensorium-ts 0.3.0`, not whatever is installed — instead of
+carries — `sensorium-ts 0.4.0`, not whatever is installed — instead of
 reporting `hits: 0`.
 
 ### `flow` — lineage, not dataflow analysis
@@ -289,7 +289,7 @@ generated, not reasoned about — 41 measured rows in
 `docs/trace-format/TYPESCRIPT-KEYS.md` § *Under a focus*.
 
 **`flow --object` on a TypeScript trace is exact, and needs no focus.**
-`sensorium-ts 0.3.0` mints a per-object serial from a `WeakMap`, once, never
+`sensorium-ts` 0.3.0 and later mint a per-object serial from a `WeakMap`, never
 reused, and puts it on every object capture it writes — a RETURN value at the
 call tier included — so `--object` is gated on `object_identity` alone and
 not on `line` (R13). The header says which basis it is on (*identity is a

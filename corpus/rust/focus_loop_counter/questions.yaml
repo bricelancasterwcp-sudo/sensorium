@@ -40,11 +40,15 @@ questions:
       loop row mints a synthetic LINE at the loop's own line once per
       iteration carrying the pattern's bindings, so `i` exists as a delta
       three times (0, 1, 2) rather than only as whatever the body happened
-      to print. `watch` reads SATISFIED (amendment A4) at 3 of the 7
-      evaluable sites -- the hit at e9 is the entry itself, and the two
-      after it are the folded-forward state at the rest of that pass, which
-      `watch`'s own preamble explains. The 3 sites it could not evaluate are
-      the ones before `i` was ever bound.
+      to print. `watch` reads SATISFIED (amendment A4) at 2 of the 6
+      evaluable sites -- the hit at e9 is the entry itself, and the one
+      after it is the folded-forward state at the rest of that pass, which
+      `watch`'s own preamble explains. The 4 sites it could not evaluate are
+      the three before `i` was ever bound, and the `for` statement's OWN
+      completion row at e11, where the loop pattern's name has gone out of
+      scope again: design 2026-09-12 §5.2 unbinds a head pattern on that
+      row, so from there the recording reports ABSENCE rather than the last
+      pass's counter, which is what a name that no longer exists deserves.
     why_logs_fail: >
       `RUST_LOG` has no logger to reach in this crate and nothing panics, so
       `RUST_BACKTRACE` never prints. A `dbg!(i)` would answer this one
@@ -54,7 +58,12 @@ questions:
       program.
     command: ["watch", "$RUN", "--at", "sum", "--expr", "i == 2"]
     expect_contains:
-      - "verdict: SATISFIED at 3 of the 7 site(s) the predicate could be evaluated at"
+      # 2026-09-12: was "3 of the 7" until the `for`'s own completion row
+      # began unbinding its head pattern (design §5.2). e11 left the
+      # evaluable set, taking the third hit with it; the kind of the answer
+      # -- SATISFIED, hit at e9 -- is unchanged.
+      - "verdict: SATISFIED at 2 of the 6 site(s) the predicate could be evaluated at"
+      - "i: not in scope at this site   [4 site(s)]"
     expect_line:
       - ["HIT", "e9", "LINE", "sum L12", "i=2"]
     expect_exit: 0

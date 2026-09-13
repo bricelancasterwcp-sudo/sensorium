@@ -1,9 +1,19 @@
-# Changelog — the earlier entries
+# Changelog — the earlier entries, volume 1
 
 *(The heading read "the pre-0.8 entries" until 2026-09-09, when `0.8.2`,
 `0.8.1` and `0.8.0` were cut here too and made it false. A heading that names
 the cut it happened to be describing goes stale at the next cut; this one names
-what the file is instead.)*
+what the file is instead. "Volume 1" joined it 2026-09-12.)*
+
+**This volume is closed.** It stood at **742** lines when the next cut was
+sized, and the two entries wanting a home were **271** — so taking them here
+would have broken the 800-line ceiling `tests/test_ceiling.py` holds every
+tracked document to, an archive included. `0.9.1` and `0.9.0` went to
+[`CHANGELOG-ARCHIVE-2.md`](CHANGELOG-ARCHIVE-2.md) instead, and the archive is
+**numbered volumes, each under 800 lines**, never one growing file — the rule
+[`docs/CARRIED-DEBT-ARCHIVE-2.md`](docs/CARRIED-DEBT-ARCHIVE-2.md) set for the
+debt ledger. A volume's number is its cut order, not its age: volume 2 holds
+entries NEWER than every one below.
 
 `0.8.2`, `0.8.1` and `0.8.0`, **moved here 2026-09-09 (S5 rung 1, the
 TypeScript recorder) so [`CHANGELOG.md`](CHANGELOG.md) stays under 800

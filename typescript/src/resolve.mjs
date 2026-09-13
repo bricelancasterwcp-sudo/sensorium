@@ -28,6 +28,7 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { closest, parseSpec, specMatches, specsFromEnv } from './focus.mjs';
 import { ANONYMOUS } from './qualname.mjs';
@@ -82,14 +83,23 @@ function* walk(dir) {
 
 /**
  * Pass one over every eligible file under the root.
+ *
+ * `deps` is how a test hands this a `sitesOf` that THROWS: the consumer's own
+ * TypeScript parses files this recorder did not write, and a throw from it
+ * used to take the whole resolution down — a focus nobody could resolve
+ * because one file in the tree was unreadable. It is now counted with the
+ * unparsable and named on stderr, so the numbers still reconcile and the
+ * subtraction is not silent.
  * @param {string} root
  * @param {typeof import('typescript')} ts
- * @returns {{eligible: {rel: string, qualname: string, line: number, kind: string}[],
+ * @param {{sitesOf: typeof sitesOf}} [deps]
+ * @returns {{eligible: {rel: string, qualname: string, line: number, kind: string,
+ *     deferred: boolean}[],
  *   excluded: {rel: string, qualname: string, line: number, reason: string}[],
  *   scanned: number, unparsable: number}}
  */
-function survey(root, ts) {
-  /** @type {{rel: string, qualname: string, line: number, kind: string}[]} */
+export function survey(root, ts, deps = { sitesOf }) {
+  /** @type {{rel: string, qualname: string, line: number, kind: string, deferred: boolean}[]} */
   const eligible = [];
   /** @type {{rel: string, qualname: string, line: number, reason: string}[]} */
   const excluded = [];
@@ -109,14 +119,31 @@ function survey(root, ts) {
       unparsable += 1;
       continue;
     }
-    const out = sitesOf(code, file, { root, ts });
+    const rel = path.relative(root, file).split(path.sep).join('/');
+    /** @type {ReturnType<typeof sitesOf>} */
+    let out;
+    try {
+      out = deps.sitesOf(code, file, { root, ts });
+    } catch (e) {
+      unparsable += 1;
+      process.stderr.write(`resolve: ${rel}: ${/** @type {Error} */ (e).message}\n`);
+      continue;
+    }
     if (out === null) continue;
     if (out.excluded['parse-error']) {
       unparsable += 1;
       continue;
     }
     for (const site of out.sites) {
-      eligible.push({ rel: out.rel, qualname: site.qualname, line: site.line, kind: site.kind });
+      eligible.push({
+        rel: out.rel,
+        qualname: site.qualname,
+        line: site.line,
+        kind: site.kind,
+        // Whether the seal moves this function's wrapper (§4.2): a fact about
+        // its shape, asked before the run like every other thing here.
+        deferred: site.deferred,
+      });
     }
     for (const site of out.excludedSites) {
       excluded.push({ rel: out.rel, qualname: site.qualname, line: site.line, reason: site.reason });
@@ -181,7 +208,7 @@ function main() {
 
   const { eligible, excluded, scanned, unparsable } = survey(root, /** @type {any} */ (ts));
 
-  /** @type {{rel: string, qualname: string, line: number, kind: string}[]} */
+  /** @type {{rel: string, qualname: string, line: number, kind: string, deferred: boolean}[]} */
   const matched = [];
   const seen = new Set();
   /** @type {{spec: string, closest: string[]}[]} */
@@ -215,4 +242,19 @@ function main() {
   })}\n`);
 }
 
-main();
+// Run only as the script the driver starts, never as the module a test
+// imports for `survey`: `main` reads the environment and exits, and an import
+// that did that would refuse the test run rather than answer it. The entry
+// path is realpath'd because Node resolves the main module through symlinks
+// and `import.meta.url` is the resolved one.
+function invokedDirectly() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return pathToFileURL(fs.realpathSync(entry)).href === import.meta.url;
+  } catch {
+    return false;
+  }
+}
+
+if (invokedDirectly()) main();

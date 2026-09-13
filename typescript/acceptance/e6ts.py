@@ -52,6 +52,22 @@ compared against a table locked before the answer existed:
     pin green"), and checking both off one recording is what keeps the two
     halves about the same run.
 
+HOW A NEW CASE ASKS AN exceptions QUESTION
+-------------------------------------------
+Add the case's row to `PRE_REGISTERED` -- and to `PRE_REGISTERED_REASON_LINE`
+when it pins a reason line, `None` included, since `None` is itself a pinned
+claim ("no such line at all") and not an absence -- in a commit BEFORE the
+commit that writes the case's `exceptions` question. Put the hand
+adjudication in that first commit's message, in the vocabulary of the
+COMMAND being pre-registered (`exceptions`'s own five dispositions, not a
+sibling command's kinds -- HANDLED is `grep --kind HANDLED`'s attribution,
+not a disposition, and reading it as one is what 997f168 got wrong for
+`focus_catch_binding`, corrected by ruling P16 once the question itself was
+written and run). Only then write the question, pinned against the row now
+already on record. Rung 3's four cases (`untraced_catcher` and its three
+siblings) and this slice's `focus_catch_binding` (997f168, a54b754, the
+correction at 17d7910) are the precedent.
+
 `value` is how many cases matched the locked table, out of the cases asked.
 """
 import os
@@ -95,6 +111,17 @@ PRE_REGISTERED = {
     "untraced_catcher_rejection": 0,
     "untraced_catcher_later_failure": 0,
     "logged_rethrow_to_harness": 0,
+    # This slice (2026-09-12): re-registered by rung 3's procedure
+    # BEFORE the case's exceptions question exists. Corrected (controller
+    # ruling P16): `retry.ts:17`'s `catch (e) { count += 1 }` neither
+    # rethrows nor logs, and the frame holding it (`attempts`) returns --
+    # exactly this module's own `swallowed` rule (line 30-32: "an absorbing
+    # handler took it and the frame holding that handler then returned").
+    # The earlier `0` read the case in `grep --kind HANDLED`'s vocabulary
+    # (a HANDLED event, traced with confidence) rather than this command's:
+    # HANDLED is about attribution, not disposition, and `silent_swallow`
+    # is the same shape, already pinned at 1.
+    "focus_catch_binding": 1,
 }
 
 #: S5 rung 3: the `ambiguous by reason:` line each case must print, WHOLE.
@@ -113,6 +140,13 @@ PRE_REGISTERED_REASON_LINE = {
     "untraced_catcher_rejection": "ambiguous by reason: untraced catcher 1",
     "untraced_catcher_later_failure": "ambiguous by reason: untraced catcher 1",
     "logged_rethrow_to_harness": None,
+    # This slice (2026-09-12): the same claim for this slice's
+    # re-registered case, unchanged by the swallowed-count correction
+    # (ruling P16, above): the case's verdict is `swallowed`, not
+    # `ambiguous`, and only an `ambiguous` line ever carries a reason --
+    # so a case pre-registered SWALLOWED prints no `ambiguous by reason:`
+    # line, and `None` is still what this table pins for it.
+    "focus_catch_binding": None,
 }
 
 #: The cases §1 names as swallow cases: their set must be non-empty, which

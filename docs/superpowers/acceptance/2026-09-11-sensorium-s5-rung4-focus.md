@@ -293,7 +293,7 @@ Every value below is the output of the command beside it, run on this box on
 opens rung 4 — before any file under `src/`, `typescript/src/`, `rust/` or
 `corpus/` was touched. The lens is the VTT frontend **copy** (VTT `0091e97`)
 that the first row below pins, abbreviated `<lens>` throughout the rest of
-this rung's files; `~/workspace/projects/vtt` was neither read nor touched,
+this rung's files; *the VTT working tree* was neither read nor touched,
 and the lens was read here by `sha256sum -c` and by opening three functions
 of `src/lib/diceQueue.ts` and the whole of `src/lib/diceQueue.test.ts`, all
 of which only read. The store this rung records into is the second row's,

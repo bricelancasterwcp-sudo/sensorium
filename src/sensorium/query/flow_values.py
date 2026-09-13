@@ -143,5 +143,12 @@ def _walk(v: dict, path: str = ""):
 
 def find_in_value(v: dict, target, path: str = "",
                   write=debug_text) -> list[str]:
-    """The paths inside `v` at which `target` was captured."""
+    """The paths inside `v` at which `target` was captured.
+
+    `path` is third because it is `_walk`'s own parameter in that position
+    and a PREFIX the caller supplies, not a detail: it labels the root of
+    the result (`"arg cfg"` gives `arg cfg.grams`), and it is passed
+    positionally, so the order is part of the signature rather than a
+    leftover. `write` follows it as the debug sink, which no caller sets.
+    """
     return [p for p, cap in _walk(v, path) if matches(cap, target, write)]

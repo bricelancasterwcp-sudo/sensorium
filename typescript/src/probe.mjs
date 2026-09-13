@@ -16,9 +16,9 @@
 //
 // It owns no name rules: `bindings.mjs` answers every "which names" question
 // and this file only asks. It owns no positions either — `lineOf` and
-// `terminatorFor` are `transform.mjs`'s. That import is a cycle, and a safe
-// one: both are hoisted function declarations, called during a transform and
-// never while either module is being evaluated.
+// `terminatorFor` are `positions.mjs`'s, which `transform.mjs` reads from too.
+// This module names `transform.mjs` for one TYPE and nothing at runtime, so the
+// graph through `src/` is acyclic (`test/graph.test.mjs`).
 //
 // Two orderings the whole file rests on, both measured (see the tests):
 //   * `prependRight` renders EARLIER-registered content to the RIGHT of later
@@ -34,10 +34,11 @@
 import {
   declaredIn,
   headBindingsOf,
+  isGuard,
   isStatementPosition,
   writesOf,
 } from './bindings.mjs';
-import { lineOf, terminatorFor } from './transform.mjs';
+import { lineOf, terminatorFor } from './positions.mjs';
 
 /** @typedef {typeof import('typescript')} TS */
 /** @typedef {import('typescript').Node} Node */
@@ -53,26 +54,6 @@ import { lineOf, terminatorFor } from './transform.mjs';
  */
 export function pairsOf(names) {
   return names.flatMap((name) => [JSON.stringify(name), name]).join(',');
-}
-
-/**
- * @param {TS} ts
- * @param {Node} node
- * @returns {boolean} whether the node is a guard that binds on entry: the six
- *   with a body this recorder wraps. A `LabeledStatement` is NOT one (R15):
- *   wrapping a labeled loop in a block turns `continue label` into a syntax
- *   error, and a labeled body that is itself a guard is spliced as that guard
- *   when the visitor reaches it.
- */
-function isGuard(ts, node) {
-  return (
-    ts.isIfStatement(node) ||
-    ts.isForStatement(node) ||
-    ts.isForInStatement(node) ||
-    ts.isForOfStatement(node) ||
-    ts.isWhileStatement(node) ||
-    ts.isDoStatement(node)
-  );
 }
 
 /**
@@ -97,19 +78,23 @@ function isDeclared(ts, node) {
  * synthesised, and it keeps its row.
  *
  * A LABELED body is not one either: the label mints nothing of its own (R16),
- * so its body statement must.
+ * so its body statement must. That falls out of `isGuard` rather than being
+ * said twice: a label is not a guard.
+ *
+ * DERIVED, not restated. Which slot of which parent holds a statement is
+ * written down once, in `bindings.isStatementPosition`; this asks the two
+ * extra questions that make such a position a guard's BLOCK body — that the
+ * node is a block, and that the parent is one of the six. Both predicates
+ * spelled the parent relation themselves until 2026-09-12, which is two
+ * places for one rule to be wrong in.
  * @param {TS} ts
  * @param {Node} node
  * @returns {boolean}
  */
 function isGuardBody(ts, node) {
   const parent = node.parent;
-  if (!ts.isBlock(node) || !parent) return false;
-  if (ts.isIfStatement(parent)) {
-    return parent.thenStatement === node || parent.elseStatement === node;
-  }
-  return isGuard(ts, parent) &&
-    /** @type {{statement?: Node}} */ (parent).statement === node;
+  return !!parent && ts.isBlock(node) && isGuard(ts, parent) &&
+    isStatementPosition(ts, node);
 }
 
 /**

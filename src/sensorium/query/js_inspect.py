@@ -99,8 +99,14 @@ _WORD_FLOATS = {"NaN": float("nan"), "Infinity": math.inf,
 _BIGINT = re.compile(r"-?\d+n")
 _INT = re.compile(r"-?\d+")
 _FLOAT = re.compile(r"-?\d+(\.\d+)?[eE][-+]?\d+|-?\d+\.\d+")
-# What inspect appends OUTSIDE the closing quote when it cut the string.
-_MORE = re.compile(r"\.\.\. \d+ more characters?\Z")
+#: What inspect appends OUTSIDE the closing quote when it cut the string.
+#: Public as the ONE definition of that tail: `_body` reads it to tell a cut
+#: string from a whole one, `is_clipped` answers off it, and the TypeScript
+#: converter counts blind spot 36 through `is_clipped` rather than spelling a
+#: second regex of its own in `ts/build.py`.
+INSPECT_MORE = re.compile(r"\.\.\. \d+ more characters?\Z")
+# The name this was minted under, kept for one release (0.13.0).
+_MORE = INSPECT_MORE
 #: The three quotes inspect chooses between, in the order it chooses them.
 QUOTES = "'\"`"
 
@@ -133,6 +139,13 @@ def js_number(x) -> str:
     be one exactly. `inspect_text` converts anything larger to the double
     JavaScript would hold before calling here, because `repr` of a Python
     int is its exact expansion and exact is the wrong answer up there.
+
+    Handed a raw `int` >= 2**53 anyway, this returns its EXACT digits --
+    `js_number(2**60)` is `1152921504606846976`, where the same value as a
+    float is `1152921504606847000` -- because the integer shortcut below
+    reads `int` before the shortest-round-trip placement can. No caller
+    does that; the conversion is `inspect_text`'s job and it does it. The
+    behaviour is named here so a second caller knows it must convert too.
     """
     if x != x:
         return "NaN"
@@ -268,11 +281,28 @@ def _body(text: str):
     CONTENT ends `... 50 more characters`: inspect appends its tail after
     the quote, so the second one ends with a quote and the first does not.
     """
-    m = _MORE.search(text)
+    m = INSPECT_MORE.search(text)
     head = text[:m.start()] if m else text
     if not (len(head) >= 2 and head[0] == head[-1] and head[0] in QUOTES):
         return None
     return _CLIPPED if m else head[1:-1]
+
+
+def is_clipped(text: str) -> bool:
+    """Whether this capture's text is a string `util.inspect` CUT.
+
+    The tail rule the TypeScript converter counts blind spot 36 by. A string
+    past inspect's own 100-character cap is cut by the FORMATTER, long
+    before the 200-byte wire cap looks at the rendering, so the capture's
+    `trunc` flag is `false` and this text is the only witness there is.
+
+    The closing quote is what decides it, which is why this is a function
+    and not a bare `INSPECT_MORE.search`: inspect appends its tail AFTER the
+    quote, so a string whose own CONTENT ends `... 50 more characters` still
+    ends with a quote and was kept whole, and a text that spells something
+    other than a string is not a cut string however it ends.
+    """
+    return _body(text) is _CLIPPED
 
 
 def read_inspect(text: str):

@@ -437,7 +437,7 @@ def test_the_wrapper_is_removed_even_when_the_run_raises(
 
     monkeypatch.setattr(driver, "_spawn", boom)
     args = argparse.Namespace(command=["--", "vitest", "run"], tier="call",
-                              jobs=None)
+                              jobs=None, focus=[])
     with pytest.raises(KeyboardInterrupt):
         driver.run(args)
     assert not (root / "node_modules" / ".sensorium").exists()
@@ -470,7 +470,7 @@ def test_the_wrapper_goes_when_the_run_merely_finishes(tmp_path, monkeypatch):
     monkeypatch.setattr(driver, "_spawn",
                         lambda *a, **k: HarnessExit(0, None, 1.0, 2.0))
     args = argparse.Namespace(command=["--", "vitest", "run"], tier="call",
-                              jobs=None)
+                              jobs=None, focus=[])
     assert driver.run(args) == 2
     assert not (root / "node_modules" / ".sensorium").exists()
 
@@ -501,7 +501,7 @@ def test_the_wrappers_own_refusal_is_what_the_driver_prints(
     monkeypatch.chdir(root)
     monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     args = argparse.Namespace(command=["--", "vitest", "run"], tier="call",
-                              jobs=None)
+                              jobs=None, focus=[])
 
     def refusing(argv, env, cwd):
         """What the wrapper config does when it meets `test.projects`."""

@@ -71,7 +71,7 @@ test('boot names the writer, the invocation and the environment', () => {
   assert.deepEqual(boot.capabilities, { err_flow: true, object_identity: true });
   assert.equal(boot.invocation, 'inv-1');
   assert.equal(boot.node, process.version);
-  assert.equal(boot.version, '0.3.0');
+  assert.equal(boot.version, '0.4.0');
   assert.equal(boot.isMainThread, true);
   assert.equal(boot.threadId, 0);
   assert.equal(boot.ppid, process.pid);

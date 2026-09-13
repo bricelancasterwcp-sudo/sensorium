@@ -23,7 +23,7 @@
   "wrapper": "/w/probes/node_modules/.sensorium/setup.mjs",
   "vitest": "4.1.9",
   "node": "v24.16.0",
-  "driver_version": "0.11.0",
+  "driver_version": "0.13.0",
   "recorder": "sensorium-ts 0.3.0",
   "focus": [
     "focus.probe.test.ts:letChain",

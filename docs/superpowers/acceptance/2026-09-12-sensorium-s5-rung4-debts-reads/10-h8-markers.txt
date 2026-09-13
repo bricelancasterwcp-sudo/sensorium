@@ -1,0 +1,2 @@
+searched: node_modules/.vite
+searched: node_modules/.vite-temp

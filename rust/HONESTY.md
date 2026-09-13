@@ -1,8 +1,10 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.4.1`, `sensorium-transform 0.4.4`, `cargo-sensorium 0.5.3` —
+`sensorium-rt 0.5.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.6.0` —
 v1, the call tier, with err flow and the focus tier.
-(~~`sensorium-rt 0.4.0`, `sensorium-transform 0.4.3`,
+(~~`sensorium-rt 0.4.1`, `sensorium-transform 0.4.4`,
+`cargo-sensorium 0.5.3`~~, before them
+~~`sensorium-rt 0.4.0`, `sensorium-transform 0.4.3`,
 `cargo-sensorium 0.5.2`~~, before them
 ~~`sensorium-transform 0.4.2`, `cargo-sensorium 0.5.1`~~, before them
 ~~`sensorium-transform 0.4.1`, `cargo-sensorium 0.5.0`~~, before them
@@ -38,9 +40,15 @@ are deleted, taking `sensorium-rt` to `0.4.1`, `sensorium-transform` to
 `0.4.4` and `cargo-sensorium` to `0.5.3`. That is the FIRST move
 `sensorium-rt` has made since `0.4.0`, and it is not a change to what the
 runtime records: no wire kind, no record shape, no capability. What it does
-change is the identity the runtime declares — a trace this runtime writes says
+change is the identity the runtime declares — a trace that runtime wrote said
 `recorder: sensorium-rt 0.4.1`, and the three corpus cases that pin that
-sentence byte for byte were re-pinned with it.
+sentence byte for byte were re-pinned with it, and again on 2026-09-12.
+On **2026-09-12** the rung-4-debts-funded slice moved all three again, and that
+time the wire DID move: `sensorium-rt 0.5.0` writes a fourth LINE delta tag,
+`3` — a name with no value, whose scope ended on that row —
+`sensorium-transform 0.5.0` decides which names a block-like statement's row
+carries, and `cargo-sensorium 0.6.0` reads the tag and writes them on the row
+as `unbound`. §12 is what that row may mean.
 `HONESTY.md` was
 not versioned per-crate before 2026-09-03, so no edition older than that is
 struck. **Deduped 2026-09-08**: `cargo-sensorium 0.4.0` stood struck **twice**
@@ -614,10 +622,51 @@ competing number — with **0** line differences against its per-line table);
 `rust/sensorium-transform/tests/focus.rs` with the `golden_focus/` goldens,
 compiled by the real rustc under `-D warnings`;
 `rust/sensorium-rt/src/line/tests.rs`;
-`rust/cargo-sensorium/tests/convert_frames.rs`; and the seven
+`rust/cargo-sensorium/tests/convert_frames.rs`; and the eight
 `corpus/rust/focus_*` cases, each pinning a LINE count derived from these
 rules and at least one ABSENCE. A delta naming a binding its statement did not
 write would falsify it too, and of those the goldens are what would catch it.
+
+**A block-like statement's row says which of its bindings died with it.** Added
+2026-09-12 by the rung-4-debts-funded slice (design §5.2–§5.5; `sensorium-rt
+0.5.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.6.0`). A plain block,
+an `unsafe`, an `if`/`if let`, a `match`, a `loop`/`while`/`for` or a `try`
+block **in statement position** carries, on its OWN completion row and in
+SOURCE order, each name once: its own head pattern's names and the `let`s of
+its DIRECT blocks. Never a nested block-like statement's — that one has a row
+of its own — never a closure's or an `async` block's, where no probe ever bound
+a name, and never a `let` a `cfg` may take out of the build. A statement with
+nothing to unbind splices the fragment `0.4.4` spliced, byte for byte, so a
+build with no block is unchanged.
+*What says it in the trace*: the row's own `unbound` list, beside its deltas;
+`frame`'s `unbound:n,big` on that row; and `watch`, whose fold binds the deltas
+forward and POPS these names — so a predicate over one of them reads `not in
+scope at this site` below that row instead of the value the fold carried before
+this slice, which was an answer about a dead name, the thing §5.1 exists to
+stop.
+
+**The shadow is what it costs, and the answer there is absence rather than a
+stale value** (§5.5). A block that shadows an outer binding pops the NAME, so
+after the block `watch` reports the outer `x` not in scope at every site until
+its next write — even though Rust keeps that binding alive and the tail may add
+it. That is the honest reading of a recorder that folds names and not scopes,
+and the cost is named rather than left to be discovered: a reader watching a
+shadowed binding must ask at a site BEFORE the block, or after the write that
+revives the name. Blind spot **32**; the shape no row reaches at all — a
+block-like EXPRESSION in expression position — is **33**.
+*Falsified by* `corpus/rust/focus_block_let`, whose three questions pin the
+four rows and what each names, `x == 2` SATISFIED at the two sites inside the
+block, and `x == 1` NOT in scope at the tail; `corpus/rust/focus_loop_counter`,
+where the `for`'s own row takes its counter out of scope;
+`corpus/rust/focus_match_binding`; `rust/sensorium-transform/tests/unbound.rs`
+with the `golden_focus/` goldens, compiled by the real rustc;
+`rust/sensorium-rt/src/line/tests.rs` (the tag-3 bytes) and
+`rust/cargo-sensorium/src/convert/spool/tests.rs` (the same bytes read back,
+and the refusal for a name on both lists);
+`rust/cargo-sensorium/tests/convert_frames.rs`; and
+`docs/trace-format/vectors/v40-rust-line-unbound.json`. A row listing a name a
+nested block-like statement owns, or a shadowed name still answering below its
+block, would falsify it.
 
 **A dropped delta is stated, never silently short.** A LINE payload is bounded
 by `LINE_PAYLOAD_MAX` — 2048 bytes, room for nine fully capped

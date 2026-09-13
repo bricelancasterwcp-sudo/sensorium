@@ -16,7 +16,11 @@ disposition rules decline to judge. Items **28–38** are **S5 rung 4's**,
 added 2026-09-12 with the focus tier: seven shapes the per-statement record
 does not reach, three gaps the tier's readers declare rather than paper over,
 and **38**, added at the rung's final review, where the runtime's own frame
-lifetime silently drops a row the transform did mint.
+lifetime silently drops a row the transform did mint. **39** was added later
+that day by the slice that funded rung 4's debts, and is the one entry here
+whose twin is Rust's (`../rust/HONESTY-BLIND-SPOTS.md` item 32): both
+recorders unbind a NAME and not a scope, and this is where that costs a
+shadowed outer binding its answers.
 
 **One item rung 4 planned is not here, because it closed before it could be
 numbered.** The design's §6.4 named seven items 28–34 and *a falsy `if`
@@ -29,15 +33,19 @@ below has seven rung-4 shapes and the seventh is `enum`/`namespace`/`static
 {}` names, not the falsy head; the falsy head is a promise §11 makes and
 `E12` H3 measured (row 9 of nine, `m=null`), not a hole.
 
-**Three items are struck and one is narrowed, none deleted.** Rung 2's runtime
+**Six items are struck and one is narrowed, none deleted.** Rung 2's runtime
 records the shapes items **2**, **3** and **11** said it did not, so each is
-struck where it stands with the date and the replacement named; item **13** is
-narrowed to what is still true of a destructuring clause. A struck item stays
-visible because a reader who last met this list under `sensorium-ts 0.1.x`
-needs to see which of its holes closed, when, and what is left of them. Item
-**22** is neither struck nor narrowed but **rewritten in place**, at this
-rung's own final review: what it claimed was never true of the shipped
-runtime, and its note says what it used to say.
+struck where it stands with the date and the replacement named; items **36**,
+**37** and **38** are struck the same way at **S5 rung 4's debts
+(2026-09-12)**, where the converter learned to count the cut `util.inspect`
+makes, the E6-TS table gained the procedure a new case's `exceptions` question
+needs, and the seal gave a `finally` reached by `return` its rows; item **13**
+is narrowed to what is still true of a destructuring clause. A struck item stays visible because a
+reader who last met this list under `sensorium-ts 0.1.x` needs to see which of
+its holes closed, when, and what is left of them. Item **22** is neither
+struck nor narrowed but **rewritten in place**, at rung 2's own final review:
+what it claimed was never true of the shipped runtime, and its note says what
+it used to say.
 
 **Item 27 is narrowed 2026-09-11, S5 rung 3.** The shape it named — an
 untraced catcher between two traced frames — is no longer invisible: the
@@ -395,7 +403,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     commands can answer about a value the other cannot search for.
     *(Added 2026-09-12.)* *Falsifier:* `tests/test_js_inspect.py`,
     `corpus/typescript/flow_value_inspect`.
-36. **`info`'s `truncated values:` count does not include an
+36. ~~**`info`'s `truncated values:` count does not include an
     inspect-dialect string cut.** A string past inspect's own 100-character
     cap is cut by the FORMATTER, long before the 200-byte wire cap looks at
     the rendering, so the capture's `trunc` flag is `false` and the counter
@@ -406,8 +414,21 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     total says none was. A reader trusting the count alone under-counts what
     was clipped. *(Added 2026-09-12.)* *Falsifier:*
     `corpus/typescript/flow_value_inspect` (the 150-character value),
-    `tests/test_js_inspect.py`.
-37. **A new TypeScript corpus case cannot ask an `exceptions` question.**
+    `tests/test_js_inspect.py`.~~ — **Closed 2026-09-12, S5 rung 4's
+    debts** (`sensorium` 0.13.0, design §6.1): the converter counts the tail
+    as well as the flags. `ts/build.py`'s capture walk asks `js_inspect`'s
+    own `_body` whether a `dbg` capture's text is a CUT string — the closing
+    quote is what tells that from a string whose CONTENT ends `… 50 more
+    characters`, and it is the rule `watch --expr` and `flow --value` already
+    read these texts by, not a second one — so an inspect-side cut lands in
+    `truncated_count` beside `trunc`, `type_trunc` and `name_trunc`, and
+    `info`'s total now says what `watch` says site by site. *Falsifier:*
+    `corpus/typescript/focus_long_string` (100 characters spelled whole, 101
+    carrying `… 1 more character`, `truncated values: 1`),
+    `tests/test_ts_ingest_focus.py` (*a string inspect cut is counted though
+    its trunc flag is down*, and the counterpart that a string whose own
+    content ends that way is not).
+37. ~~**A new TypeScript corpus case cannot ask an `exceptions` question.**
     `typescript/acceptance/e6ts.py` carries a locked `PRE_REGISTERED` table
     — the rung-2 verdicts, hand-adjudicated before that code existed — and
     the E6-TS fence reads every `exceptions` question in
@@ -419,8 +440,24 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     it** means the next rung that touches E6-TS either re-registers the table
     or scopes the fence to the cases it was written over. *(Added
     2026-09-12.)* *Falsifier:* `corpus/typescript/focus_catch_binding`,
-    `typescript/acceptance/e6ts.py`.
-38. **A statement in a `finally` reached by the `try`'s `return` mints no
+    `typescript/acceptance/e6ts.py`.~~ — **Closed 2026-09-12, S5 rung 4's
+    debts** (design §6.2): the fence was scoped, not the table -- rung 3's
+    own procedure (add the case's row to `e6ts.PRE_REGISTERED`, hand-adjudicated
+    in its own commit BEFORE the case's `exceptions` question exists, then
+    write the question) turned out to already cover a new case, and
+    `typescript/acceptance/e6ts.py`'s docstring now names it under `HOW A NEW
+    CASE ASKS AN exceptions QUESTION`. `focus_catch_binding` used it:
+    its row (`e6ts.PRE_REGISTERED["focus_catch_binding"]`) was committed
+    hand-adjudicated before its `exceptions` question existed, corrected once
+    (997f168, a54b754, then the SWALLOWED-count fix once the question was
+    written and run showed the hand read had used a sibling command's
+    vocabulary — controller ruling P16), and its `did-anything-record-the-
+    catch-itself` question now runs `exceptions` and is checked against that
+    row like every other case's. *Falsifier:*
+    `corpus/typescript/focus_catch_binding/questions.yaml` (question 2),
+    `typescript/acceptance/e6ts.py` (the `PRE_REGISTERED` row and the
+    docstring procedure).
+38. ~~**A statement in a `finally` reached by the `try`'s `return` mints no
     row.** `spliceReturn` renders `return x` as `return __srt.ret(__sf,(x))`,
     and `ret` sets the frame's `open` to false before the program's own
     `finally` runs; `line` drops every row that arrives on a closed frame. So
@@ -433,6 +470,39 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     which also moves the RETURN row past those statements — is a next-slice
     design item in [`../docs/CARRIED-DEBT.md`](../docs/CARRIED-DEBT.md), so
     the falsifier named below pins the ABSENCE and a later fix must change it
-    deliberately. *(Added 2026-09-12, R42.)* *Falsifier:*
-    `typescript/test/rt.focus.test.mjs` (*a statement in a finally after the
-    return mints no row*).
+    deliberately. *(Added 2026-09-12, R42.)*~~ — **Closed 2026-09-12, S5 rung
+    4's debts** (`sensorium-ts 0.4.0`, design §4.2): a function whose own body
+    returns from inside a `try` with a `finally` is spliced with a DEFERRED
+    exit — `return x` becomes `return __srt.pend(__sf,(x))`, which stores the
+    value and leaves the frame open, and the wrapper gains
+    `finally{__srt.seal(__sf)}`, which closes it after the program's `finally`
+    has run. So the finally's statements mint their rows, the RETURN row
+    follows them, and a call the finally makes is the frame's CHILD rather
+    than its sibling. Every function WITHOUT that shape is byte-identical to
+    0.3.0's (R2), which the census pins: 0 functions in the probes, 1 in the
+    corpus, 0 in the lens. *Falsifier:*
+    `typescript/test/rt.seal.test.mjs` (*a statement of the finally mints its
+    row, and the RETURN comes after it*), `typescript/test/rt.focus.test.mjs`
+    (*a statement in a finally after the return mints its row, and the RETURN
+    follows it (blind spot 38 closed)*), `corpus/typescript/focus_finally_return`.
+39. **A block that SHADOWS an outer binding pops the name, so the outer one
+    stops answering.** Added 2026-09-12 with the Rust `unbound` row (design
+    §5.5, R4), which is when both recorders' shared reading was written down
+    for the first time. `declaredIn` answers about a block's OWN declarations
+    and knows nothing of what encloses it, so the row for `{ let x = 2; }`
+    inside a function already holding `let x = 1;` unbinds `x` — the NAME, not
+    the inner scope — and `watch`'s fold keys on names too. From that row on it
+    reports the outer `x` *not in scope at this site* until something writes
+    `x` again, though JavaScript's outer binding is alive and the code below
+    may read it. That is ABSENCE and never a stale value: a fold that kept
+    `x = 2` alive past the block would answer about a binding that no longer
+    exists, which is worse. Its cost is that a reader watching a shadowed
+    binding must ask at a site BEFORE the block, or after its next write.
+    *Declared by* the row itself — `frame` prints `unbound:x` at the block's
+    own line — and by `watch` tallying *not in scope* apart from *not
+    captured*. *Falsified by* `typescript/test/bindings.test.mjs`
+    (*declaredIn a block that SHADOWS an outer binding still lists the name*),
+    which asserts both halves: the outer statement writes `x`, and the block
+    unbinds the same spelling. Closing it needs a fold over SCOPES rather than
+    names, in every converter at once, and is
+    [`../docs/CARRIED-DEBT.md`](../docs/CARRIED-DEBT.md).

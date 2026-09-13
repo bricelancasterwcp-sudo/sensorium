@@ -1,0 +1,22 @@
+{
+  "run_id": "20260912-191050-0be0e9",
+  "wall": 2.4072,
+  "load_1min": 0.41,
+  "subject": "src/lib/diceQueue.test.ts",
+  "subject_source": "src/lib/diceQueue.ts",
+  "frame_fn": "parseDiceGroups",
+  "focus_specs": [
+    "diceQueue.ts:parseDiceGroups",
+    "diceQueue.ts:forcedDiceFromSource",
+    "diceQueue.ts:buildDiceQueueEntry"
+  ],
+  "preregistered_subject": true,
+  "manifest_lines": 748,
+  "base_checkout": "<base checkout>",
+  "recorder": "sensorium 0.12.0 / sensorium-ts 0.4.0",
+  "recorder_rev": "d9e843d45fe8f7d0049637b059a2eedeb2c1fc28",
+  "recorder_bin": "<repo>/.venv/bin/sensorium",
+  "load_max": 4.0,
+  "lens_dir": "<lens>",
+  "store": "<h8 store>"
+}

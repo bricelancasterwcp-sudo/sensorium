@@ -147,6 +147,9 @@ statement opens, not where it closes). `deltas` is `{name: capture}` for what
 that statement wrote and nothing else; `unbound` is present only when there
 IS such a name. Empty `deltas` is a real row and says the line ran; empty
 `deltas` WITH an `unbound` list is the ordinary shape of a loop's last pass.
+A `return` that passes through a `finally` closes its frame AFTER the
+finally's rows, so the RETURN row follows them and a call the finally makes
+is the frame's child (0.4.0; blind spot 38 closed).
 
 | statement | `deltas` |
 |---|---|
@@ -263,8 +266,9 @@ itself under node v24.16.0, committed as
   `false` and the only evidence is the `… N more characters` tail outside the
   closing quote. `read_inspect` reads that tail as TRUNCATED and
   `inspect_text` refuses to spell one (plan P7), so a prefix is never
-  compared as a value. `info`'s `truncated values:` count does not include
-  such a cut (blind spot 36).
+  compared as a value. `info`'s `truncated values:` count includes such a cut
+  **from 0.13.0**, read off that same tail by `js_inspect`'s own rule rather
+  than off the flag that is down (blind spot 36, struck).
 
 ### Identity is a serial
 
@@ -273,7 +277,7 @@ itself under node v24.16.0, committed as
 never reused, and **`type`**, the constructor's name through the ladder
 `exc()` uses (`unread` when the object lies). They ride on every capture the
 recorder makes — a RETURN value at the call tier, and under a focus the args
-and the deltas — so `sensorium-ts 0.3.0` declares
+and the deltas — so `sensorium-ts` 0.3.0 and later declare
 `capabilities.object_identity: true` **unconditionally**, focused or not, and
 `flow --object` needs only that capability and NOT `line` (R13).
 

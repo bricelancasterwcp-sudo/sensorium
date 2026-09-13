@@ -273,3 +273,103 @@ def test_a_line_naming_a_frame_that_had_already_closed_is_refused(tmp_path):
     # The one spool in the directory refused, so nothing was written: a
     # reader is never shown a recording this converter would not finish.
     assert not list((sdir / "traces").glob("*.db"))
+
+
+# -- what the recording could not keep ---------------------------------------
+
+#: A string `util.inspect` CUT. Its tail sits OUTSIDE the closing quote,
+#: which is the only evidence of the cut: `maxStringLength` is 100 and the
+#: 200-byte wire cap never looked at a rendering this short, so the
+#: capture's own `trunc` flag is down (blind spot 36).
+CUT = "'" + "a" * 100 + "'... 1 more character"
+#: A string whose own CONTENT ends the way a cut one does, and which was
+#: not cut. The closing quote comes AFTER the tail here, so the recorder
+#: kept every character the program held.
+NOT_CUT = "'" + "b" * 20 + "... 50 more characters'"
+
+
+def _base_truncated(ingested) -> int:
+    """What the unedited recording counts, so each case below reads as the
+    ONE capture it changed rather than as a total nobody chose."""
+    _spool, sdir, _result = ingested[CASE]
+    return only_trace(sdir).meta["truncated_count"]
+
+
+def _with_first_delta(tmp_path, text: str):
+    """`focus-lines` with the first LINE row's one capture rewritten to
+    `text` and its `trunc` flag DOWN, ingested. Every other byte of the
+    recording is the runtime's own."""
+    spool = tmp_path / "spool"
+    copy_tree(FIXTURES / CASE, spool)
+    path = spool / SPOOL_FILE
+    lines = path.read_text().splitlines()
+    for i, raw in enumerate(lines):
+        rec = json.loads(raw)
+        if rec["e"] == "LINE" and rec["d"]:
+            name = next(iter(rec["d"]))
+            rec["d"][name] = {"k": "dbg", "v": text, "trunc": False}
+            lines[i] = json.dumps(rec)
+            break
+    else:                                               # pragma: no cover
+        raise AssertionError("no LINE record carries a delta")
+    path.write_text("\n".join(lines) + "\n")
+    sdir = tmp_path / "sdir"
+    result = run_cli(["ts", "ingest", str(spool)], cwd=tmp_path,
+                     sensorium_dir=sdir)
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    return only_trace(sdir)
+
+
+def test_a_string_inspect_cut_is_counted_though_its_trunc_flag_is_down(
+        ingested, tmp_path):
+    """Blind spot 36. The formatter cuts a string at its own 100-character
+    cap long before the 200-byte wire cap sees the rendering, so `trunc` is
+    `false` and the counter that reads the flags alone reported none. It is
+    counted off the tail instead -- `info`'s `truncated values:` is what a
+    reader trusts to learn how much of this run is a prefix."""
+    trace = _with_first_delta(tmp_path, CUT)
+    assert trace.meta["truncated_count"] == _base_truncated(ingested) + 1
+
+
+def test_a_string_whose_own_content_ends_that_way_is_not_counted(
+        ingested, tmp_path):
+    """The closing quote is what tells the two apart, and it is `_body`'s
+    rule rather than a second one written here: inspect appends its tail
+    AFTER the quote, so a string whose content merely ends `... 50 more
+    characters` still ends with a quote and was kept whole. Counting it
+    would report a clip the recorder never made."""
+    trace = _with_first_delta(tmp_path, NOT_CUT)
+    assert trace.meta["truncated_count"] == _base_truncated(ingested)
+
+
+def test_a_call_whose_arguments_are_not_a_map_is_refused_by_name(tmp_path):
+    """`a` is a map of name to capture, and a spool carrying something else
+    walked into `.values()` and left as a raw `AttributeError` -- a crash
+    that named neither the spool nor the record, and took the spools beside
+    it down with it. It is refused the way every other unreadable shape
+    is: by name, with the record's own kind in the sentence."""
+    spool = tmp_path / "spool"
+    copy_tree(FIXTURES / CASE, spool)
+    path = spool / SPOOL_FILE
+    lines = path.read_text().splitlines()
+    for i, raw in enumerate(lines):
+        rec = json.loads(raw)
+        if rec["e"] == "CALL" and "a" in rec:
+            rec["a"] = "n=2"
+            lines[i] = json.dumps(rec)
+            break
+    else:                                               # pragma: no cover
+        raise AssertionError("no CALL carries arguments")
+    path.write_text("\n".join(lines) + "\n")
+
+    sdir = tmp_path / "sdir"
+    result = run_cli(["ts", "ingest", str(spool)], cwd=tmp_path,
+                     sensorium_dir=sdir)
+    assert result.returncode == 2, f"{result.stdout}{result.stderr}"
+    refused = [ln for ln in result.stdout.splitlines()
+               if ln.startswith("refused: ")]
+    assert len(refused) == 1, result.stdout
+    assert f"{SPOOL_FILE}: a CALL record is not the shape wire 1 declares" \
+        in refused[0], refused[0]
+    assert "AttributeError" in refused[0], refused[0]
+    assert not list((sdir / "traces").glob("*.db"))

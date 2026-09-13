@@ -117,6 +117,11 @@ def test_the_probes_checker_passes_against_the_drivers_own_spools(driven):
     assert report["exit"] == 0
     assert report["spools"] == len(probe_files())
     assert _detail(report, "focus:mode") == "unfocused"
+    # The number the docstring states, read off the checker's own report
+    # rather than left as prose: an unasserted count drifts silently, and a
+    # checker that quietly stopped running half its checks would still pass
+    # every assertion above.
+    assert len(report["checks"]) == 103
 
 
 def test_the_probes_checker_passes_its_focused_branch_against_the_driver(
@@ -133,6 +138,9 @@ def test_the_probes_checker_passes_its_focused_branch_against_the_driver(
     assert report["spools"] == len(probe_files())
     assert _detail(report, "focus:mode") == "focused"
     assert _detail(report, "focus:caps")["line"] is True
+    # 43 more than the unfocused reading above, which is what the flag buys:
+    # the statement rows and the captured arguments the focus markers name.
+    assert len(report["checks"]) == 146
 
 
 def test_the_driven_focus_is_recorded_as_typed_and_as_resolved(driven_focus):
@@ -282,7 +290,7 @@ def test_a_projects_config_is_refused_by_name_and_records_nothing(tmp_path):
                 sensorium_dir=store)
     assert r.returncode == 2, r.stdout + r.stderr
     assert ("error: vitest projects/workspaces are not supported by "
-            "sensorium-ts 0.3.0") in r.stderr, r.stderr
+            "sensorium-ts 0.4.0") in r.stderr, r.stderr
     # Nothing was recorded, and nothing pretends to have been.
     assert not (store / "traces").exists()
     assert "run: " not in r.stdout

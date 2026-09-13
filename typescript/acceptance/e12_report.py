@@ -1,3 +1,4 @@
+# Succeeded for H2/H4/H5 by e12p_report.py (2026-09-12); this file is cited by a locked record and keeps its text.
 """E12's thirteen reads, and the five endpoints read off them.
 
     .venv/bin/python typescript/acceptance/e12_report.py <store> <arms> <out>

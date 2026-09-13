@@ -363,6 +363,17 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                 }
                 let mut obj = Map::new();
                 obj.insert("deltas".to_owned(), Value::Object(deltas));
+                // The names this statement's scope took with it, in the
+                // record's order -- the trace format's own `unbound` key, the
+                // one Python's `del` writes and the TypeScript converter
+                // writes, so `watch`'s fold pops them without a third rule.
+                // Omitted when the list is empty, never written as `[]`: a key
+                // a recorder cannot fill is left out, and an empty list here
+                // would read as a statement that ended a scope holding
+                // nothing.
+                if !parsed.unbound.is_empty() {
+                    obj.insert("unbound".to_owned(), json!(parsed.unbound));
+                }
                 if parsed.dropped {
                     obj.insert("unread".to_owned(), json!(["locals"]));
                 }

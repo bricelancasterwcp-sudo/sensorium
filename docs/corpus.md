@@ -75,16 +75,18 @@ exit 1, on the summary line and in `--json`, which is what CI's Rust corpus
 step passes: a green summary over cases nobody ran is the dishonesty this
 harness exists to refuse. `corpus/rust/README.md` is the case-by-case list.
 
-Forty-two more live under `corpus/typescript/`, recorded by the
-TypeScript recorder. Thirteen are rung 1's: six ports of the cases above,
-two whose pinned answer is a REFUSAL, four only this recorder has — `.each`
+Forty-four more live under `corpus/typescript/`, recorded by the
+TypeScript recorder (forty-two through rung 4; this slice, S5 rung 4's
+debts, 2026-09-12, added the last two named below). Thirteen are rung 1's:
+six ports of the cases above, two whose pinned answer is a REFUSAL, four
+only this recorder has — `.each`
 naming, an unhandled rejection in `info`, a frame suspended at end of
 recording, and a timer callback with no traced caller — and
 `silent_swallow`, whose parse error was pinned as a REFUSAL until rung 2
 gave this recorder disposition rules and now pins the swallow it always was.
 One of the two refusals has since become an answer: `object_refused` is
-`object_identity` from S5 rung 4 on, because every 0.3.0 trace carries a
-per-object serial and the aliasing it plants is now decided — three
+`object_identity` from S5 rung 4 on, because every trace from 0.3.0 on
+carries a per-object serial and the aliasing it plants is now decided — three
 sightings under one identity, `continuity: exact (serial identity)`, out of
 a recording that focused nothing. Its third question still pins a refusal,
 and `watch_refused` is still the whole of the other one.
@@ -143,8 +145,9 @@ raise, still one of the seven that refuse the swallow, is re-pinned the same
 way: its AMBIGUOUS block now reads `untraced catcher` by name instead of the
 catch-all rung 2 could only leave silent about.
 
-The last ten are rung 4's focus cases, and the only ten of the forty-two
-recorded under `sensorium ts run --focus`. A vitest case declares that the
+The last ten are rung 4's focus cases; two more from this debts slice join
+them below, for twelve of the forty-four recorded under `sensorium ts run
+--focus`. A vitest case declares that the
 way a Python case does — `record: {focus: [...]}`, one `--focus <spec>` per
 entry before the `--` — and `record` is the ONE key the two recorders share:
 a `window` under it is refused by name, because `sensorium ts run` has no
@@ -163,7 +166,7 @@ focused CALL printing a destructured, defaulted parameter as what BOUND,
 beside an unfocused `helper() <unread: locals>` in the same tree),
 `focus_async` (rows on both sides of an `await` with `~ YIELD` and
 `~ RESUME` between them, and the reader that took the placeholder sitting in
-the gap), `focus_catch_binding` (HANDLED, the clause's entry row carrying
+the gap), `focus_catch_binding` (SWALLOWED, the clause's entry row carrying
 `e`, then the `try`'s own row with `unbound:e`), `focus_place_write`
 (`state.x = 5` as a present row with an absent delta, and the 5 followable
 nowhere), `focus_container` (two spellings of one class name selecting the
@@ -173,15 +176,43 @@ matched) and `flow_value_inspect` (the inspect dialect's own spellings: a
 `str=100` and matching nothing, and `null` and `undefined` as claims about
 values rather than about absent names).
 
-The current totals: twenty-one of the forty-two TypeScript cases carry an
+This debts slice (2026-09-12) added two more under the same flag:
+`focus_finally_return` (a `try` whose `finally` defers BOTH returns inside
+its `tryBlock`, so two of `settle`'s three LINE rows — `cleanup = 1;` at L13
+and `note(cleanup);` at L14 — run AFTER the `return` chose its value, inside
+the `finally`, which is the case's point, and `watch --expr cleanup == 1`
+reads SATISFIED at 2 of the 3 evaluable sites) and `focus_long_string` (the
+inspect dialect's own length cap: a 100-character string renders whole, a
+101-character one truncates to `... 1 more character` with the tail as the
+only evidence a value was cut — blind spot 36 — and a `flow --value` of the
+truncated literal sights nothing at all, exiting 1). Neither asks an
+`exceptions` question.
+
+`focus_catch_binding`, one of rung 4's own ten, is the one that gained an
+`exceptions` question this slice: a new case cannot ask one against a table
+locked before it existed, so its row is re-registered by hand, in a commit
+of its own, BEFORE the question is written — the same discipline rung 3
+used for its four named-ambiguity cases, and
+`typescript/acceptance/e6ts.py`'s own docstring now says so under `HOW A
+NEW CASE ASKS AN exceptions QUESTION`. The row must be read in the
+vocabulary of the command it pre-registers: `focus_catch_binding`'s first
+hand adjudication read a HANDLED event (attribution) as an accusation
+(disposition) and pre-registered 0 SWALLOWED, corrected to 1 once the
+question was written and run showed `dispositions: swallowed 1` — a plain
+`catch` that only bumps a counter is the swallow `silent_swallow` already
+named.
+
+The current totals: twenty-two of the forty-four TypeScript cases carry an
 `exceptions` verdict and a `dispositions:` tally (the seventeen above plus
-rung 3's four), thirteen of them pinned to accuse NOTHING (the nine above
-plus all four of those), and eight still accuse something — that count is
-unchanged by either later rung, because none of rung 3's four are SWALLOWED
-and none of rung 4's ten asks an `exceptions` question at all. Three leave
-the traced world with a PROPAGATED block, not one: `test_failed`,
-`untraced_catcher_later_failure`'s second raise and
-`logged_rethrow_to_harness`'s rethrow. The other eighteen are what is read
+rung 3's four plus `focus_catch_binding`), thirteen of them pinned to accuse
+NOTHING (the nine above plus all four of rung 3's) and NINE now accuse
+something — the eight above plus `focus_catch_binding`, this debts slice's
+own correction (ruling P16): none of rung 3's four are SWALLOWED, but the
+one of rung 4's ten that now asks an `exceptions` question is, once its row
+reads the answer in that command's own vocabulary rather than a sibling
+command's. Three leave the traced world with a PROPAGATED block, not one:
+`test_failed`, `untraced_catcher_later_failure`'s second raise and
+`logged_rethrow_to_harness`'s rethrow. The other nineteen are what is read
 against them now, not sixteen.
 
 `--bench` reports; it never gates. Overhead is a tracked fact about a machine

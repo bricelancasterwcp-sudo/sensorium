@@ -132,6 +132,7 @@ for (const name of inputs) {
       assert.ok(typeof row.line === 'number' && row.line >= 1);
       assert.ok(FRAME_KINDS.has(/** @type {string} */ (row.kind)), `kind ${String(row.kind)}`);
       assert.equal(typeof row.focused, 'boolean', `focused on ${String(row.qualname)}`);
+      assert.equal(typeof row.deferred, 'boolean', `deferred on ${String(row.qualname)}`);
     }
     for (const reason of Object.keys(out.manifest.excluded)) {
       assert.ok(EXCLUSION_REASONS.has(reason), `unnamed exclusion ${reason}`);
@@ -177,29 +178,29 @@ test('a spread argument leaves the call alone, and the output still parses', () 
 
 test('qualnames: JavaScript spelling, file-local, no ordinals', () => {
   assert.deepEqual(instrumentedOf('qualnames.ts'), [
-    { qualname: 'ns.fn', line: 2, kind: 'function', focused: false },
-    { qualname: 'outer', line: 5, kind: 'function', focused: false },
-    { qualname: 'outer.inner', line: 6, kind: 'function', focused: false },
-    { qualname: 'onClick', line: 11, kind: 'function', focused: false },
-    { qualname: 'onBlur', line: 12, kind: 'function', focused: false },
-    { qualname: 'Store.reset', line: 15, kind: 'function', focused: false },
-    { qualname: 'legacy', line: 16, kind: 'function', focused: false },
+    { qualname: 'ns.fn', line: 2, kind: 'function', focused: false, deferred: false },
+    { qualname: 'outer', line: 5, kind: 'function', focused: false, deferred: false },
+    { qualname: 'outer.inner', line: 6, kind: 'function', focused: false, deferred: false },
+    { qualname: 'onClick', line: 11, kind: 'function', focused: false, deferred: false },
+    { qualname: 'onBlur', line: 12, kind: 'function', focused: false, deferred: false },
+    { qualname: 'Store.reset', line: 15, kind: 'function', focused: false, deferred: false },
+    { qualname: 'legacy', line: 16, kind: 'function', focused: false, deferred: false },
     // R11: `module.exports = fn` is the module's default export, named as
     // `export default` is; `module.exports.x = fn` keeps the property's name.
-    { qualname: 'default', line: 17, kind: 'function', focused: false },
-    { qualname: '<anonymous>', line: 19, kind: 'function', focused: false },
-    { qualname: '<anonymous>', line: 21, kind: 'function', focused: false },
-    { qualname: 'default', line: 25, kind: 'function', focused: false },
+    { qualname: 'default', line: 17, kind: 'function', focused: false, deferred: false },
+    { qualname: '<anonymous>', line: 19, kind: 'function', focused: false, deferred: false },
+    { qualname: '<anonymous>', line: 21, kind: 'function', focused: false, deferred: false },
+    { qualname: 'default', line: 25, kind: 'function', focused: false, deferred: false },
   ]);
 });
 
 test('class members: methods, constructor, and both accessors on their own lines', () => {
   assert.deepEqual(instrumentedOf('class.ts'), [
-    { qualname: 'Fog.onTick', line: 3, kind: 'function', focused: false },
-    { qualname: 'Fog.constructor', line: 7, kind: 'function', focused: false },
-    { qualname: 'Fog.radius', line: 12, kind: 'function', focused: false },
-    { qualname: 'Fog.radius', line: 16, kind: 'function', focused: false },
-    { qualname: 'Fog.make', line: 20, kind: 'function', focused: false },
+    { qualname: 'Fog.onTick', line: 3, kind: 'function', focused: false, deferred: false },
+    { qualname: 'Fog.constructor', line: 7, kind: 'function', focused: false, deferred: false },
+    { qualname: 'Fog.radius', line: 12, kind: 'function', focused: false, deferred: false },
+    { qualname: 'Fog.radius', line: 16, kind: 'function', focused: false, deferred: false },
+    { qualname: 'Fog.make', line: 20, kind: 'function', focused: false, deferred: false },
   ]);
 });
 
@@ -211,7 +212,7 @@ test('frame kinds: async, generator, async generator', () => {
 test('vi.mock: nothing inside a hoisted factory is instrumented, and the count is named', () => {
   const { out } = runGolden('vi-mock.ts');
   assert.deepEqual(out.manifest.instrumented, [
-    { qualname: 'useSeed', line: 11, kind: 'function', focused: false },
+    { qualname: 'useSeed', line: 11, kind: 'function', focused: false, deferred: false },
   ]);
   assert.deepEqual(out.manifest.excluded, { 'vitest-hoisted-factory': 3 });
 });
@@ -219,8 +220,8 @@ test('vi.mock: nothing inside a hoisted factory is instrumented, and the count i
 test('bodiless functions are excluded, each under its own reason', () => {
   const { out } = runGolden('overloads.ts');
   assert.deepEqual(out.manifest.instrumented, [
-    { qualname: 'pick', line: 3, kind: 'function', focused: false },
-    { qualname: 'Shape.describeArea', line: 12, kind: 'function', focused: false },
+    { qualname: 'pick', line: 3, kind: 'function', focused: false, deferred: false },
+    { qualname: 'Shape.describeArea', line: 12, kind: 'function', focused: false, deferred: false },
   ]);
   assert.deepEqual(out.manifest.excluded, {
     'overload-signature': 2,
@@ -243,8 +244,8 @@ test('R8: ordinary source is never wrapped, whatever the callback shape', () => 
   assert.ok(code.includes('const mapped = describe("x", () => {const __sf='));
   assert.ok(code.includes('test("shared", sharedCase);'));
   assert.deepEqual(out.manifest.instrumented, [
-    { qualname: 'describe', line: 3, kind: 'function', focused: false },
-    { qualname: '<anonymous>', line: 9, kind: 'function', focused: false },
+    { qualname: 'describe', line: 3, kind: 'function', focused: false, deferred: false },
+    { qualname: '<anonymous>', line: 9, kind: 'function', focused: false, deferred: false },
   ]);
 });
 
@@ -455,7 +456,7 @@ test('R9: `.mts` transforms exactly as `.ts`', () => {
   const tsFile = transformSource(src, `${ROOT}/src/a.ts`, { root: ROOT, ts, rtPath: RT });
   assert.ok(mts && tsFile && mts.code !== null && tsFile.code !== null);
   assert.equal(mts.code.replace('a.mts', 'a.ts').replace('a.mts', 'a.ts'), tsFile.code);
-  assert.deepEqual(mts.manifest.instrumented, [{ qualname: 'f', line: 1, kind: 'function', focused: false }]);
+  assert.deepEqual(mts.manifest.instrumented, [{ qualname: 'f', line: 1, kind: 'function', focused: false, deferred: false }]);
 });
 
 test('R10: a file that does not parse is reported, never spliced', () => {

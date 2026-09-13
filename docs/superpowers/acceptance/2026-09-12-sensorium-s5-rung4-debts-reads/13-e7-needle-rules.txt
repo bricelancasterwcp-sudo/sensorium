@@ -1,0 +1,10 @@
+needle oid: whole-word, case-sensitive
+needle chain: whole-word, case-sensitive
+needle Err: whole-word, case-sensitive
+needle asyncio: substring, case-insensitive
+needle python ?: substring, case-insensitive
+needle cargo: substring, case-insensitive
+needle coroutine: substring, case-insensitive
+needle Rust disposition: substring, case-insensitive
+needle Python's own: substring, case-insensitive
+

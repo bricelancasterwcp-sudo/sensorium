@@ -7,8 +7,9 @@
 //   writesOf(ts, statement)      the names the statement wrote  → a row's deltas
 //   headBindingsOf(ts, statement)  the names a guard binds       → the head row
 //   declaredIn(ts, statement)    the block-scoped names that died → `unbound`
-// with `boundNames`, `headDeclaredOf`, `isStatementPosition` and `paramNames`
-// the parts the three are built out of and Task 4's splices ask for by name.
+// with `boundNames`, `headDeclaredOf`, `isGuard`, `isStatementPosition` and
+// `paramNames` the parts the three are built out of and Task 4's splices ask
+// for by name.
 //
 // Nothing here resolves scopes, types or aliases: a name is its spelling. Two
 // rules the whole tier rests on, both plan decisions:
@@ -22,10 +23,7 @@
 /** @typedef {typeof import('typescript')} TS */
 /** @typedef {import('typescript').Node} Node */
 /** @typedef {import('typescript').Statement} Statement */
-/** @typedef {import('typescript').Expression} Expression */
-/** @typedef {import('typescript').Block} Block */
 /** @typedef {import('typescript').BindingName} BindingName */
-/** @typedef {import('typescript').CatchClause} CatchClause */
 /** @typedef {import('typescript').VariableDeclarationList} VariableDeclarationList */
 /** @typedef {import('typescript').FunctionLikeDeclaration} FunctionLike */
 
@@ -254,6 +252,11 @@ export function boundNames(ts, name) {
 }
 
 /**
+ * Not deduplicated, unlike `targetsIn`'s callers, and deliberately: the only
+ * way one spelling reaches this twice is a list that DECLARES it twice
+ * (`let a = 1, a = 2`), which `tsc` refuses — so a duplicate here would be a
+ * program that does not compile, and dropping one would hide it rather than
+ * report it. The head-declaration branches that call this are the same.
  * @param {TS} ts
  * @param {VariableDeclarationList} list
  * @returns {string[]} every name the list declares
@@ -283,9 +286,42 @@ function isBlockScoped(ts, list) {
 }
 
 /**
+ * The six statements that guard a body: the ones this recorder wraps, and the
+ * ones whose head can bind on entry.
+ *
+ * The ONE list. `isStatementPosition` reads it to decide whether a node stands
+ * in such a guard's body slot, and `probe.mjs` reads it to decide what to
+ * splice and (through `isStatementPosition`) which block body is a guard's
+ * own. It lived in `probe.mjs` as a second copy until 2026-09-12.
+ *
+ * A `LabeledStatement` is NOT one (R15): wrapping a labeled loop in a block
+ * turns `continue label` into a syntax error, and a labeled body that is
+ * itself a guard is spliced as that guard when the visitor reaches it. It
+ * holds its body in the same `statement` slot all the same, which is why
+ * `isStatementPosition` names it beside these and this predicate does not.
+ * @param {TS} ts
+ * @param {Node} node
+ * @returns {boolean}
+ */
+export function isGuard(ts, node) {
+  return (
+    ts.isIfStatement(node) ||
+    ts.isForStatement(node) ||
+    ts.isForInStatement(node) ||
+    ts.isForOfStatement(node) ||
+    ts.isWhileStatement(node) ||
+    ts.isDoStatement(node)
+  );
+}
+
+/**
  * Whether a node stands where a statement of a focused body stands, and so gets
  * a row of its own: a statement of a block, of a `case` or `default` clause, or
  * the single body of a guard written without braces (which Task 4 wraps).
+ *
+ * This is the one place the PARENT RELATION is written down -- which slot of
+ * which parent is a statement's own. `probe.mjs`'s `isGuardBody` derives from
+ * it rather than restating it.
  *
  * Module level is not one: module code is never a frame (spec §3.9).
  * @param {TS} ts
@@ -296,18 +332,13 @@ export function isStatementPosition(ts, node) {
   const parent = node.parent;
   if (!parent || !ts.isStatement(node)) return false;
   if (ts.isBlock(parent) || ts.isCaseClause(parent) || ts.isDefaultClause(parent)) return true;
+  // An `if` holds its two bodies in named slots; every other guard, and a
+  // label, holds its one in `statement`.
   if (ts.isIfStatement(parent)) {
     return parent.thenStatement === node || parent.elseStatement === node;
   }
-  if (
-    ts.isForStatement(parent) ||
-    ts.isForInStatement(parent) ||
-    ts.isForOfStatement(parent) ||
-    ts.isWhileStatement(parent) ||
-    ts.isDoStatement(parent) ||
-    ts.isLabeledStatement(parent)
-  ) {
-    return parent.statement === node;
+  if (isGuard(ts, parent) || ts.isLabeledStatement(parent)) {
+    return /** @type {{statement?: Node}} */ (parent).statement === node;
   }
   return false;
 }

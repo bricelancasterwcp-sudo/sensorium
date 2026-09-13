@@ -8,8 +8,8 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false`: **`sensorium-rt 0.4.1`**,
-**`sensorium-transform 0.4.4`** and **`cargo-sensorium 0.5.3`**. All three
+Three crates, all `publish = false`: **`sensorium-rt 0.5.0`**,
+**`sensorium-transform 0.5.0`** and **`cargo-sensorium 0.6.0`**. All three
 were `0.4.0` at the focus tier of 2026-09-06 (a new wire kind, LINE, and the
 `--focus` flag that mints it); on 2026-09-07 the refocus slice moved
 `sensorium-transform` alone to `0.4.1` for the brace-delimited-macro-tail
@@ -26,8 +26,33 @@ since `0.4.0`: the same sha256 stood in all three crates, so the leaf — the on
 with zero dependencies, and therefore the only one the other two can both
 depend on — now owns it as a `pub mod` and the copies are gone
 (`0.4.1`/`0.4.4`/`0.5.3`). Nothing the runtime records changed and the wire did
-not move; what moved is the identity `sensorium-rt` declares, so a trace this
-runtime writes says `recorder: sensorium-rt 0.4.1`.
+not move there; what moved was the identity `sensorium-rt` declares, so a trace
+that runtime wrote said `recorder: sensorium-rt 0.4.1`. On 2026-09-12 the
+rung-4-debts-funded slice moved `sensorium-rt` to **`0.5.0`**, and this time the
+wire did move: the LINE payload gained a fourth delta tag, `3`, an unbound
+name — a name with no value that went out of scope on that row — and a second
+entry point, `line_unbinding`, that writes one after the deltas, so a
+block-like statement's row says which of its bindings died with it and a
+reader's fold stops answering for a `let` that is gone. No new record kind, no
+header change, and the fragment of a statement that unbinds nothing is byte for
+byte the one `0.4.1` spliced; a trace this runtime writes says
+`recorder: sensorium-rt 0.5.0`. `sensorium-transform` moved with it, to
+**`0.5.0`**, because it is the crate that decides which names go in such a
+row: a block-like statement in statement position — a plain block, an
+`unsafe`, an `if`/`if let`, a `match`, a `loop`/`while`/`for`, a `try` block
+— unbinds, in source order and each name once, its own head pattern's names
+and the `let`s of its DIRECT blocks. Never a nested block-like statement's
+(that one has a row of its own), never a closure's or an `async` block's (no
+probe ever bound them), and never a `let` a `cfg` may take out of the build.
+A statement with nothing to unbind splices the `line` fragment it always
+spliced, so an instrumented build without a block is byte for byte what
+`0.4.4` produced. `cargo-sensorium` moved with them, to **`0.6.0`**, as the
+side that READS that wire: it takes tag 3 as a name with no value and writes
+the names on the row under `unbound` — the key the trace format already had
+for Python's `del` and for a TypeScript block — so `frame` prints `unbound:x`
+and `watch` pops the name on a Rust trace through readers that needed no
+change. A record naming one binding as both a delta and an unbound name is
+refused, not read: a statement cannot write what it unbinds.
 Before that all three were `0.3.0` at the err-flow rung of 2026-09-05
 (wire v3: RAISE/HANDLED records, a typed `err` RETURN, and the `err_flow`
 capability); later that day the borrow repair moved `sensorium-transform` and
@@ -261,7 +286,7 @@ refusals are about this particular RUN instead, and each exits **2** with
 The unfocused refusal, in full — the sentence
 `corpus/rust/focus_unfocused_refuses` pins byte for byte:
 
-    REFUSED: watch needs line, which recorder sensorium-rt 0.4.1 declares it does not produce (capabilities.line: false); nothing was checked
+    REFUSED: watch needs line, which recorder sensorium-rt 0.5.0 declares it does not produce (capabilities.line: false); nothing was checked
 
 ## Not yet
 

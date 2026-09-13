@@ -1,5 +1,5 @@
 program: vitest
-harness_args: ["run", "finally_return"]
+harness_args: ["run", "/finally_return"]
 questions:
   - id: where-did-the-write-failure-go-with-no-catch
     ask: >

@@ -212,22 +212,23 @@ test('a value that cannot be read carries neither identity nor type', () => {
   assert.deepEqual(one(out.recs, 'RETURN').v, { k: 'unread' });
 });
 
-// --- what a `finally` after a `return` cannot mint (blind spot 38) ----------
+// --- what a `finally` after a `return` mints (blind spot 38, closed) --------
 
-test('a statement in a finally after the return mints no row', () => {
-  // Pinned as an ABSENCE: `return x` is spliced to `return __srt.ret(__sf,(x))`
-  // and `ret` closes the frame BEFORE the program's own `finally` runs, so
-  // `line` drops every row arriving from it. Blind spot 38 in
-  // `HONESTY-BLIND-SPOTS.md`; a runtime that sealed the frame after the finally
-  // would have to change this assertion on purpose. `g` is the asymmetry: after
-  // a THROW the same finally's rows ARE recorded, because `thr` has not run yet.
-  // Both bodies are written the way the transform splices a focused function.
+test('a statement in a finally after the return mints its row, and the RETURN follows it (blind spot 38 closed)', () => {
+  // The inversion of the absence this pinned until 0.4.0. `f` returns from
+  // inside a try-with-finally, so it is SEAL-DEFERRED (design §4.2): its
+  // `return` pends the value, its wrapper's own `finally` seals, and the
+  // program's finally therefore runs on a frame that is still open. `g` is
+  // unchanged in both directions — it has no `return` at all, so its wrapper
+  // is 0.3.0's, and after a THROW the same finally's rows were always
+  // recorded, because `thr` runs in the wrapper's catch, after it. Both
+  // bodies are written the way the transform splices a focused function.
   const out = run(`
     const __sfile = __srt.file('t.ts', '/w/t.ts', [], 'sha');
     let cleanup = 0;
     function f() {const __sf=__srt.call(__sfile,0);try{
-      try { return __srt.ret(__sf,(1)); } finally { cleanup = 1;__srt.line(__sf,3,['cleanup',cleanup]); }
-    ;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}
+      try { return __srt.pend(__sf,(1)); } finally { cleanup = 1;__srt.line(__sf,3,['cleanup',cleanup]); }
+    ;__srt.pend(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}finally{__srt.seal(__sf)}}
     function g() {const __sf=__srt.call(__sfile,1);try{
       try { throw new Error('boom'); } finally { cleanup = 2;__srt.line(__sf,7,['cleanup',cleanup]); }
     ;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}
@@ -238,15 +239,18 @@ test('a statement in a finally after the return mints no row', () => {
   const [returned, threw] = of(out.recs, 'CALL');
   const linesOf = (/** @type {any} */ frame) =>
     of(out.recs, 'LINE').filter((r) => r.f === frame.f);
-  // The RETURN is on the record; the write the finally made is nowhere.
-  assert.equal(one(out.recs, 'RETURN').f, returned.f);
-  assert.deepEqual(linesOf(returned), [],
-    'the finally ran after `ret` closed the frame, so its row was dropped');
+  // The write the finally made is on the record, and the RETURN comes after it.
+  const exit = one(out.recs, 'RETURN');
+  assert.equal(exit.f, returned.f);
+  assert.deepEqual(linesOf(returned).map((r) => [r.l, r.d.cleanup.v]), [[3, '1']],
+    'the finally ran on a frame the seal had not closed yet');
+  assert.ok(out.recs.indexOf(exit) > out.recs.indexOf(linesOf(returned)[0]),
+    'the RETURN is recorded after the rows of the finally it passed through');
   // The same finally, reached by a throw, IS recorded: `thr` runs after it.
   assert.deepEqual(linesOf(threw).map((r) => [r.l, r.d.cleanup.v]), [[7, '2']]);
 });
 
-// --- what a 0.3.0 recorder declares -----------------------------------------
+// --- what a 0.4.0 recorder declares -----------------------------------------
 
 test('the declaration says object identity always and line only under a focus', () => {
   // The child's `SENSORIUM_FOCUS` is the helper's to decide, never the shell's:
@@ -262,8 +266,29 @@ test('the declaration says object identity always and line only under a focus', 
     { err_flow: true, object_identity: true, line: true, locals: true });
 });
 
-test("the recorder's version is 0.3.0", () => {
+test('an odd pairs list is a transform bug and throws rather than dropping a name', () => {
+  // `captures` read `i + 1 < pairs.length`, so a trailing name with no value
+  // was silently dropped: the row went out one delta short and said nothing
+  // about it, which is the one failure a recorder may not have -- an absent
+  // name reads as "not in scope at this site".
+  //
+  // The transform is the only caller and it builds both halves at the site,
+  // so an odd list cannot come from a program: it is a defect in the splice,
+  // and a defect in the splice must surface where it happened.
+  const out = run(`
+    const fid = __srt.file('t.ts', '/w/t.ts', [], 'sha');
+    const [, activate] = __srt.task('t', () => {
+      const f = __srt.call(fid, 0, []);
+      __srt.line(f, 3, ['a', 1, 'b']);
+    }, 1);
+    activate();
+  `);
+  assert.notEqual(out.res.status, 0, 'the child must not exit 0');
+  assert.match(out.res.stderr, /captures: an odd pairs list — 3 entries/);
+});
+
+test("the recorder's version is 0.4.0", () => {
   // The number the focus tier ships under. `rt.test.mjs` holds the other two
   // ends of the chain: BOOT's `version`, and the package's own.
-  assert.equal(VERSION, '0.3.0');
+  assert.equal(VERSION, '0.4.0');
 });

@@ -29,6 +29,13 @@ questions:
     # only thing that would answer it is a recorder that produces
     # object identity.
     expect_exit: 3
+    # Re-pinned 2026-09-12 (S5 rung 4's debts): 0.4.1 -> 0.5.0, because
+    # `sensorium-rt` gained the LINE payload's fourth delta tag and the
+    # `line_unbinding` entry point that writes it. What is refused here is
+    # `object_identity`, which Rust declares false under a focus and
+    # without one alike (the 2026-09-06 note below), so the wire's new tag
+    # cannot reach this answer: the exit is still 3, and only the
+    # recorder's name in the sentence moved.
     # Re-pinned 2026-09-08 (queue buttoned up): 0.4.0 -> 0.4.1, because
     # `sensorium-rt` now owns the repository's only sha256 as a `pub mod`
     # and its declared identity moved with the crate. Neither the wire nor
@@ -41,7 +48,7 @@ questions:
     # claim. (Re-pinned 2026-09-04, rung 3: 0.1.0 -> 0.3.0 for wire v3 and
     # err_flow, design R13.)
     expect_contains:
-      - "REFUSED: flow --object needs object_identity, which recorder sensorium-rt 0.4.1 declares it does not produce (capabilities.object_identity: false); nothing was checked"
+      - "REFUSED: flow --object needs object_identity, which recorder sensorium-rt 0.5.0 declares it does not produce (capabilities.object_identity: false); nothing was checked"
     expect_absent: ["flow of object #", "sightings:"]
   - id: what-can-this-trace-say-instead
     ask: >

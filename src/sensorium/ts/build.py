@@ -28,6 +28,7 @@ what it was about to write, so the trace carries `incomplete: true` and no
 import time
 from dataclasses import dataclass
 
+from sensorium.query.js_inspect import is_clipped
 from sensorium.record.fingerprint import Fingerprint
 from sensorium.store.writer import TraceWriter
 from sensorium.ts.spool import Spool, SpoolError
@@ -176,7 +177,7 @@ class Builder:
             handler(rec)
         except ConversionError:
             raise
-        except (KeyError, TypeError, IndexError) as e:
+        except (KeyError, TypeError, IndexError, AttributeError) as e:
             # A record missing a key this wire version declares is a spool
             # this converter cannot read, not a crash: named, refused, and
             # the spools beside it convert anyway.
@@ -404,9 +405,22 @@ class Builder:
         return task
 
     def _trunc(self, obj) -> None:
+        """Count every way this capture says it is a prefix.
+
+        The flags are two of the three. The third is blind spot 36: node's
+        `util.inspect` cuts a string at its own 100-character cap long
+        before the 200-byte wire cap looks at the rendering, so `trunc` is
+        `false` and the only evidence is the `... N more characters` tail
+        OUTSIDE the closing quote. `is_clipped` is what tells that from a
+        string whose CONTENT ends the same way -- one rule, in the module
+        `watch` and `flow` already read these texts with.
+        """
         if isinstance(obj, dict):
             self.truncated += bool(obj.get("trunc"))
             self.truncated += bool(obj.get("type_trunc"))
+            v = obj.get("v")
+            if obj.get("k") == "dbg" and isinstance(v, str):
+                self.truncated += is_clipped(v)
 
     # -- finalize -----------------------------------------------------------
 
@@ -514,6 +528,13 @@ class Builder:
             # and every unfocused TypeScript run is the second.
             meta["focus"] = list(self.inv.focus)
             meta["focus_matched"] = list(self.inv.focus_matched)
+            if self.inv.resolver_wall_s is not None:
+                # What resolving them cost, carried through so an instrument
+                # can time the resolver without timing the driver around it.
+                # Guarded separately from the block: a spool directory
+                # written before the field existed has the focus and not
+                # the cost, and an absent measurement is not a zero one.
+                meta["resolver_wall_s"] = self.inv.resolver_wall_s
         if self.inv.command:
             # The command as typed, which is the only one the reader may
             # print (R26). Omitted when the spool's record predates the

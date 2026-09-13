@@ -64,6 +64,11 @@ class Invocation:
     is still a spool directory this converter must finish (`from_json`
     reads its absence as `[]`, and `build` then writes no meta key at all).
 
+    `resolver_wall_s` is what resolving those specs cost. It is here
+    because `Resolution.wall` was measured and dropped, so an instrument
+    wanting the resolver's own time had to wrap the driver and time
+    everything around it too (`e12.sh` did). No reader prints it.
+
     `focus` and `focus_matched` follow the same rule for the same reason.
     `focus` is the specs AS TYPED, which is what a reader recognises;
     `focus_matched` is `rel:qualname` for every function they selected,
@@ -88,6 +93,12 @@ class Invocation:
     command: list[str] = field(default_factory=list)
     focus: list[str] = field(default_factory=list)
     focus_matched: list[str] = field(default_factory=list)
+    #: What resolving the focus COST, in seconds, or `None` where no focus
+    #: was given and the resolver never ran. Defaulted for the same reason
+    #: the two above are: a spool directory written before the field
+    #: existed is still one this converter must finish. `None` and not
+    #: `0.0` because an absent measurement is not a fast one.
+    resolver_wall_s: float | None = None
 
     def to_json(self) -> dict:
         return asdict(self)

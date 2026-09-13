@@ -81,7 +81,7 @@ def run(args) -> int:
     # the root's own TypeScript. Still nothing minted: a focus that selects
     # nothing is a call to fix, and a half-recorded run of it would be a
     # recording of a question nobody asked (spec section 2.2).
-    focus = list(getattr(args, "focus", None) or [])
+    focus = list(args.focus or [])
     resolution = None
     if any(spec.strip() == "" for spec in focus):
         # An empty spec has an empty qualname, and an empty qualname is a
@@ -125,7 +125,8 @@ def _record(plan, package: Path, node: str, cwd: Path, args,
               f"{inv_id}{wrapper.CONFIG_SUFFIX}"
               if plan.kind == "vitest" else None)
     _write_record(spool, plan, inv_id, node, package, config, focus,
-                  [] if resolution is None else resolution.matched_specs)
+                  [] if resolution is None else resolution.matched_specs,
+                  None if resolution is None else resolution.wall)
 
     files: tuple = ()
     try:
@@ -174,7 +175,8 @@ def _discard(spool: Path) -> None:
 
 def _write_record(spool: Path, plan, inv_id: str, node: str, package: Path,
                   config: Path | None, focus: Sequence[str] = (),
-                  focus_matched: Sequence[str] = ()) -> None:
+                  focus_matched: Sequence[str] = (),
+                  resolver_wall_s: float | None = None) -> None:
     """`invocation.json`, written BEFORE the harness is spawned.
 
     It is the only thing that can say what a spool directory came out of: a
@@ -197,7 +199,11 @@ def _write_record(spool: Path, plan, inv_id: str, node: str, package: Path,
         # Both, and always: the specs as typed and the functions they
         # selected. A reader of this directory should not have to know which
         # driver version wrote it to know that nothing was focused.
-        focus=list(focus), focus_matched=list(focus_matched))
+        focus=list(focus), focus_matched=list(focus_matched),
+        # What resolving them cost, so an instrument can time the resolver
+        # without timing the driver around it. `None` where no focus was
+        # given: the resolver did not run, and 0.0 would say it did.
+        resolver_wall_s=resolver_wall_s)
     (spool / invocation.INVOCATION_FILE).write_text(
         json.dumps(record.to_json(), indent=2) + "\n", encoding="utf-8")
 

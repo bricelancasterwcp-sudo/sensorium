@@ -43,7 +43,8 @@ from pathlib import Path
 import pytest
 
 from sensorium.query.expr import TRUNCATED, UNDEFINED, _DbgText
-from sensorium.query.js_inspect import inspect_text, js_number, read_inspect
+from sensorium.query.js_inspect import (inspect_text, is_clipped,
+                                        js_number, read_inspect)
 
 TABLE = (Path(__file__).resolve().parents[1] / "typescript" / "test"
          / "fixtures" / "inspect-table.json")
@@ -211,6 +212,23 @@ def test_a_string_past_the_cap_is_written_by_nobody_and_read_as_a_prefix():
     # ...and a string whose CONTENT ends that way is not a prefix: the
     # closing quote is what tells the two apart.
     assert read_inspect("'... 50 more characters'") == "... 50 more characters"
+
+
+def test_is_clipped_is_the_tail_rule_the_converter_counts_by():
+    """The seam blind spot 36 is counted through (`ts/build.py`'s `_trunc`),
+    pinned here where the dialect lives rather than only through a converted
+    trace. Three answers, and the last two are why it is a function and not
+    a bare `INSPECT_MORE.search`: the tail alone does not make a cut."""
+    assert is_clipped("'" + "a" * 100 + "'... 1 more character") is True
+    assert is_clipped("'xxx'... 50 more characters") is True
+    # A string whose own CONTENT ends that way. The closing quote comes
+    # AFTER the tail, so every character the program held was kept.
+    assert is_clipped("'... 50 more characters'") is False
+    # And a text that spells no string at all -- including one ending in the
+    # tail, which no quote opened.
+    assert is_clipped("2") is False
+    assert is_clipped("[ 1, 2 ]") is False
+    assert is_clipped("[ 1, 2 ]... 3 more characters") is False
 
 
 def test_the_quote_choice_is_inspects_own():

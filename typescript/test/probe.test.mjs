@@ -500,9 +500,9 @@ test("the manifest names the sites the focus selected, and marks each site", () 
     '}',
   ], ['f']);
   assert.deepEqual(m.instrumented, [
-    { qualname: 'f', line: 1, kind: 'function', focused: true },
-    { qualname: 'f.inner', line: 2, kind: 'function', focused: true },
-    { qualname: 'g', line: 5, kind: 'function', focused: false },
+    { qualname: 'f', line: 1, kind: 'function', focused: true, deferred: false },
+    { qualname: 'f.inner', line: 2, kind: 'function', focused: true, deferred: false },
+    { qualname: 'g', line: 5, kind: 'function', focused: false, deferred: false },
   ]);
   assert.deepEqual(m.focused, ['f', 'f.inner']);
 });
@@ -510,7 +510,7 @@ test("the manifest names the sites the focus selected, and marks each site", () 
 test('with no focus the manifest lists none, and every site says so', () => {
   const m = manifestOf(['export function f(): number {', '  return 1;', '}'], []);
   assert.deepEqual(m.focused, []);
-  assert.deepEqual(m.instrumented, [{ qualname: 'f', line: 1, kind: 'function', focused: false }]);
+  assert.deepEqual(m.instrumented, [{ qualname: 'f', line: 1, kind: 'function', focused: false, deferred: false }]);
 });
 
 // --- pass one alone, for the resolver ---------------------------------------
@@ -526,7 +526,7 @@ test('sitesOf answers pass one and splices nothing', () => {
   const out = sitesOf(src, FILE, { root: ROOT, ts });
   assert.ok(out);
   assert.equal(out.rel, 'src/a.ts');
-  assert.deepEqual(out.sites, [{ qualname: 'f', line: 1, kind: 'function', focused: false }]);
+  assert.deepEqual(out.sites, [{ qualname: 'f', line: 1, kind: 'function', focused: false, deferred: false }]);
   assert.deepEqual(out.excluded, { ambient: 1 });
   const focused = sitesOf(src, FILE, { root: ROOT, ts, focus: ['f'] });
   assert.deepEqual(focused?.sites.map((s) => s.focused), [true]);

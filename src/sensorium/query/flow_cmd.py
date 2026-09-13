@@ -562,6 +562,16 @@ def resolve_object(trace, idx: Index, spec: str):
         return None, None, None, Unresolved(
             f"{name!r} at e{at.id} is a primitive ({fmt_value(v)}) and has no "
             f"identity to follow; use --value {fmt_value(v)}", BAD_CALL)
+    if v.get("type") is None:
+        # The two keys are minted together by every recorder that mints
+        # either -- `record/capture.py` writes both for a container, and
+        # `dbg.mjs` sets both or neither -- so one without the other is a
+        # malformed capture, not a value with no identity. Refused by name,
+        # because a `KeyError` out of a query says nothing a reader can act
+        # on.
+        return None, None, None, Unresolved(
+            f"{name!r} at e{at.id} carries an oid and no type; the capture "
+            f"is not the shape 0.3.0 declares", BAD_CALL)
     return ObjTarget(v["oid"], v["type"]), f"e{at.id}:{name}", note, None
 
 

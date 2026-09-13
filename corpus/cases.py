@@ -279,11 +279,16 @@ def _check_record(where: str, record) -> None:
                          f"key, 'focus', for a 'program: {VITEST}' case")
     extra = sorted(set(record) - {"focus"})
     if extra:
+        # Named as OUTSIDE THIS SET rather than as "the Python recorder's":
+        # a key that is not `focus` need not be Python's at all -- `window`
+        # is, a typo is nobody's -- and a refusal that attributes it sends
+        # the reader to the wrong recorder's documentation. What the vitest
+        # driver receives is the fact this check owns.
         raise ValueError(
-            f"{where}: record {', '.join(repr(k) for k in extra)} is the "
-            f"Python recorder's and the '{VITEST}' driver never receives "
-            "it; the only key a vitest case's record may carry is 'focus', "
-            "whose entries become `sensorium ts run --focus <spec>`")
+            f"{where}: record {', '.join(repr(k) for k in extra)} is not a "
+            f"key a '{VITEST}' case's record may carry; the set is closed "
+            "and holds one, 'focus', whose entries become `sensorium ts run "
+            "--focus <spec>`")
     focus = record.get("focus")
     if (not isinstance(focus, list) or not focus
             or not all(isinstance(f, str) for f in focus)):

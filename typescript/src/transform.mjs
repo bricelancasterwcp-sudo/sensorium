@@ -13,12 +13,12 @@ import path from 'node:path';
 import MagicString from 'magic-string';
 
 import { paramNames } from './bindings.mjs';
-import { callbackHow, catchHow, finallyCompletes } from './escape.mjs';
+import { callbackHow, catchHow, deferredExit, finallyCompletes } from './escape.mjs';
 import { specMatches } from './focus.mjs';
-// `probe.mjs` imports `lineOf` and `terminatorFor` back out of this module. The
-// cycle is deliberate and safe: both are hoisted function declarations, so the
-// binding exists before either module's body runs, and neither is called until
-// a transform is under way.
+// `positions.mjs` is imported by `probe.mjs` too, and by neither of us at
+// module-evaluation time; the edge into `probe.mjs` below is one-way, which is
+// what `test/graph.test.mjs` holds the whole of `src/` to.
+import { lineOf, terminatorFor } from './positions.mjs';
 import { pairsOf, spliceFocused } from './probe.mjs';
 import { qualnameFor } from './qualname.mjs';
 // `tasks.mjs` names nothing of ours at runtime — only the `Splicer` type, in
@@ -30,7 +30,7 @@ import { isTestFile, spliceTaskBoundary } from './tasks.mjs';
 /** @typedef {import('typescript').SourceFile} SourceFile */
 /** @typedef {import('typescript').FunctionLikeDeclaration} FunctionLike */
 /** @typedef {'function'|'coroutine'|'generator'|'async_generator'} FrameKind */
-/** @typedef {{qualname: string, line: number, kind: FrameKind, focused: boolean}} Site */
+/** @typedef {{qualname: string, line: number, kind: FrameKind, focused: boolean, deferred: boolean}} Site */
 /** @typedef {{qualname: string, line: number, reason: string}} ExcludedSite */
 /** @typedef {{file: string, rel: string, sha256: string, instrumented: Site[], focused: string[], excluded: Record<string, number>, diagnostics?: string[]}} Manifest */
 
@@ -55,6 +55,21 @@ const CLOSE_BLOCK = ';__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se)
  * other two already closed.
  */
 const CLOSE_BLOCK_GEN = `${CLOSE_BLOCK}finally{__srt.gclose(__sf)}`;
+/**
+ * The close of a SEAL-DEFERRED body (2026-09-12 §4.2): the body's own exits
+ * `pend` the value and leave the frame OPEN, so the program's `finally` mints
+ * its rows and a call it makes opens under this frame; the wrapper's own
+ * `finally` then seals — emitting RETURN after them. A frame `thr` closed in
+ * the `catch` above is left exactly as it left it.
+ */
+const CLOSE_BLOCK_DEFERRED = ';__srt.pend(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}finally{__srt.seal(__sf)}';
+/**
+ * A deferred generator's close (§4.4). ONE `finally`, `seal` first: it closes
+ * the frame with the pended value, and `gclose` — which is what a consumer
+ * that abandons the generator would otherwise close it with — meets a closed
+ * frame and is the no-op it promises. Two clauses would be two exits.
+ */
+const CLOSE_BLOCK_GEN_DEFERRED = ';__srt.pend(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}finally{__srt.seal(__sf);__srt.gclose(__sf)}';
 /** The two frame kinds whose bodies a consumer can close from outside. */
 const GENERATORS = new Set(['generator', 'async_generator']);
 const CLOSE_EXPRESSION = '))}catch(__se){__srt.thr(__sf,__se);throw __se}}';
@@ -166,15 +181,6 @@ function isHoistedCall(ts, node) {
 }
 
 /**
- * @param {SourceFile} sf
- * @param {number} pos
- * @returns {number} the 1-based line
- */
-export function lineOf(sf, pos) {
-  return sf.getLineAndCharacterOfPosition(pos).line + 1;
-}
-
-/**
  * Pass one: number every function-like in source order, decide eligibility,
  * name every one of them (an excluded function still needs a name, because a
  * function nested inside it is named against it), and mark the ones a focus
@@ -187,7 +193,8 @@ export function lineOf(sf, pos) {
  * @param {string} rel the root-relative path a spec's file part is matched on
  * @param {string[]} focus the specs, `[]` for no focus at all
  * @returns {{sites: Site[], indexOf: Map<Node, number>, focused: Set<Node>,
- *   excluded: Record<string, number>, excludedSites: ExcludedSite[]}}
+ *   deferred: Set<Node>, excluded: Record<string, number>,
+ *   excludedSites: ExcludedSite[]}}
  *   `excluded` COUNTS the exclusions and is what a manifest carries;
  *   `excludedSites` NAMES them, one entry each, and is for the resolver
  *   (R26), which has to tell a spec that matched nothing from a spec that
@@ -200,6 +207,8 @@ function planSites(ts, sf, rel, focus) {
   const indexOf = new Map();
   /** @type {Set<Node>} */
   const focused = new Set();
+  /** @type {Set<Node>} */
+  const deferred = new Set();
   /** @type {Map<Node, string>} */
   const qualnames = new Map();
   /** @type {Record<string, number>} */
@@ -237,27 +246,49 @@ function planSites(ts, sf, rel, focus) {
         const qualname = /** @type {string} */ (qualnames.get(node));
         const selected = focus.some((spec) => specMatches(spec, rel, qualname));
         if (selected) focused.add(node);
+        // The seal is a frame-lifetime fix and asks nothing about the focus:
+        // every tier attributes a call the finally makes to the frame that
+        // made it, and every tier's RETURN follows the finally's rows.
+        const defers = deferredExit(ts, /** @type {FunctionLike} */ (node));
+        if (defers) deferred.add(node);
         indexOf.set(node, sites.length);
         sites.push({
           qualname,
           line: lineOf(sf, node.getStart(sf)),
           kind: frameKind(ts, node),
           focused: selected,
+          deferred: defers,
         });
       }
     }
     ts.forEachChild(node, visit);
   };
   visit(sf);
-  return { sites, indexOf, focused, excluded, excludedSites };
+  return { sites, indexOf, focused, deferred, excluded, excludedSites };
 }
 
 /**
  * The state pass two threads through every splice: the consumer's TypeScript,
  * the parsed file, the edit buffer, which function-likes are recorded, and
  * which of those the focus selected.
- * @typedef {{ts: TS, sf: SourceFile, s: MagicString, indexOf: Map<Node, number>, focused: Set<Node>, isTestFile: boolean}} Splicer
+ * @typedef {{ts: TS, sf: SourceFile, s: MagicString, indexOf: Map<Node, number>, focused: Set<Node>, deferred: Set<Node>, isTestFile: boolean}} Splicer
  */
+
+/**
+ * The function-like a node's frame belongs to: the NEAREST one above it, which
+ * is the only one a statement, a return or a suspension is a part of.
+ * @param {Splicer} ctx
+ * @param {Node} node
+ * @returns {Node|null} null outside every function-like
+ */
+function enclosingFunction(ctx, node) {
+  let parent = node.parent;
+  while (parent) {
+    if (isFunctionLike(ctx.ts, parent)) return parent;
+    parent = parent.parent;
+  }
+  return null;
+}
 
 /**
  * @param {Splicer} ctx
@@ -265,12 +296,23 @@ function planSites(ts, sf, rel, focus) {
  * @returns {boolean} whether the node sits inside a recorded frame
  */
 function isRecorded(ctx, node) {
-  let parent = node.parent;
-  while (parent) {
-    if (isFunctionLike(ctx.ts, parent)) return ctx.indexOf.has(parent);
-    parent = parent.parent;
-  }
-  return false;
+  const fn = enclosingFunction(ctx, node);
+  return fn !== null && ctx.indexOf.has(fn);
+}
+
+/**
+ * Whether the node's own frame is seal-deferred — the enclosing function
+ * returns THROUGH a `finally` (§4.2), so its exits pend and its wrapper seals.
+ * Asked of a `return` so the splice matches the wrapper it will close under: a
+ * `ret` beneath a sealing wrapper would close the frame twice, and a `pend`
+ * beneath 0.3.0's would never close it at all.
+ * @param {Splicer} ctx
+ * @param {Node} node
+ * @returns {boolean}
+ */
+function isDeferredFrame(ctx, node) {
+  const fn = enclosingFunction(ctx, node);
+  return fn !== null && ctx.deferred.has(fn);
 }
 
 /**
@@ -319,9 +361,15 @@ function spliceFunction(ctx, node) {
     s.appendLeft(body.getStart(sf) + 1, `const __sf=__srt.call(__sfile,${index}${args});try{`);
     // Only a generator gets the `finally`: nothing else can be resumed with a
     // completion its own body did not choose, and an extra clause on every
-    // function would be an edit with no fact behind it.
+    // function would be an edit with no fact behind it. A SEAL-DEFERRED body
+    // gets one for a different reason (§4.2), and a deferred generator gets
+    // exactly one clause holding both (§4.4).
+    const gen = GENERATORS.has(frameKind(ts, node));
+    const defers = ctx.deferred.has(node);
     s.prependRight(body.end - 1,
-      GENERATORS.has(frameKind(ts, node)) ? CLOSE_BLOCK_GEN : CLOSE_BLOCK);
+      defers
+        ? (gen ? CLOSE_BLOCK_GEN_DEFERRED : CLOSE_BLOCK_DEFERRED)
+        : (gen ? CLOSE_BLOCK_GEN : CLOSE_BLOCK));
     return;
   }
   s.appendLeft(
@@ -332,31 +380,23 @@ function spliceFunction(ctx, node) {
 }
 
 /**
- * A bare `return` or `yield` that ASI terminated is now an expression, and the
- * next line would join it: `return\n(g)()` would call our `ret(...)` result
- * instead of returning. A statement-level one is given the semicolon the source
- * left to ASI — always legal there, and never inserted twice (R12).
- * @param {Splicer} ctx
- * @param {Node} statement the whole statement the splice terminates
- * @returns {string} `';'` when the statement has none of its own
- */
-export function terminatorFor(ctx, statement) {
-  return ctx.sf.text[statement.end - 1] === ';' ? '' : ';';
-}
-
-/**
  * @param {Splicer} ctx
  * @param {import('typescript').ReturnStatement} node
  */
 function spliceReturn(ctx, node) {
   const { sf, s } = ctx;
   if (!isRecorded(ctx, node)) return;
+  // `pend` STORES the value and leaves the frame open; the wrapper's own
+  // `finally` is what closes it, after the program's `finally` has run. Which
+  // of the two a return takes is decided by its FRAME, not by its own place:
+  // every exit of a deferred body closes under the same sealing wrapper.
+  const exit = isDeferredFrame(ctx, node) ? 'pend' : 'ret';
   if (!node.expression) {
     const end = terminatorFor(ctx, node);
-    s.appendLeft(node.getStart(sf) + 'return'.length, ` __srt.ret(__sf,undefined)${end}`);
+    s.appendLeft(node.getStart(sf) + 'return'.length, ` __srt.${exit}(__sf,undefined)${end}`);
     return;
   }
-  s.appendLeft(node.expression.getStart(sf), '__srt.ret(__sf,(');
+  s.appendLeft(node.expression.getStart(sf), `__srt.${exit}(__sf,(`);
   s.prependRight(node.expression.end, '))');
 }
 
@@ -701,9 +741,9 @@ export function transformSource(code, filePath, opts) {
     };
   }
 
-  const { sites, indexOf, focused, excluded } = planSites(ts, sf, rel, opts.focus ?? []);
+  const { sites, indexOf, focused, deferred, excluded } = planSites(ts, sf, rel, opts.focus ?? []);
   const s = new MagicString(code);
-  splice({ ts, sf, s, indexOf, focused, isTestFile: isTestFile(ts, sf, filePath) });
+  splice({ ts, sf, s, indexOf, focused, deferred, isTestFile: isTestFile(ts, sf, filePath) });
 
   // The header's table stays three columns: the runtime never needs to know
   // which sites were focused — a focused CALL says so by carrying its `a`.

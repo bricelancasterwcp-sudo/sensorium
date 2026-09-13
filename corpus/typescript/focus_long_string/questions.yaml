@@ -1,0 +1,76 @@
+program: vitest
+harness_args: ["run", "focus_long_string/"]
+record: {focus: ["long.ts:pad"]}
+questions:
+  - id: did-the-recording-cut-a-value-and-say-so
+    ask: >
+      Two strings are built, one of 100 characters and one of 101. Did the
+      recording hold either of them incompletely, and does it say so?
+    truth: >
+      One of them: the 101-character string. `util.inspect` runs with
+      `maxStringLength: 100`, so the 100-character string is rendered whole
+      and the 101-character one is rendered as a 100-character prefix with
+      `... 1 more character` after the closing quote. `info` reports
+      `truncated values: 1` -- one capture in this run is a prefix of what
+      the program held. The wire's own 200-byte cap never fired here (both
+      renderings are well under it), so the count comes from the inspect
+      tail and from nothing else.
+    why_logs_fail: >
+      `console.log(s101)` prints all 101 characters, which is the opposite of
+      the question: it shows what the program had, not what the recording
+      kept. No ordinary channel reports its own fidelity -- `DEBUG=*` prints
+      whatever a namespaced logger was given and says nothing about how much
+      of it survived, and a stack trace names frames and no values at all, so
+      neither can tell a value that was short from a value that was cut,
+      which is exactly the mistake this counter exists to prevent.
+    command: ["info", "$RUN"]
+    expect_exit: 0
+    expect_contains:
+      - "truncated values: 1"
+  - id: which-of-the-two-is-spelled-whole
+    ask: >
+      Which of the two strings does the frame spell in full, and how is the
+      other one marked?
+    truth: >
+      `s100` is spelled in full -- all one hundred `a`s between the quotes,
+      exactly the rendering a reader can compare against a literal. `s101`
+      is spelled as one hundred `b`s inside the quotes with `... 1 more
+      character` OUTSIDE the closing quote, which is inspect's own way of
+      saying the text it wrote is a prefix. The boundary is 100/101 and it
+      is measured here rather than asserted: one character more is what
+      turns a whole value into a prefix.
+    why_logs_fail: >
+      A `console.log` of both strings prints 100 and 101 characters and looks
+      like a recording that kept both. The distinction being pinned is a
+      property of the RECORD -- where its fidelity stops -- and no channel
+      that prints the program's own values can report it. `DEBUG=*` and a
+      stack trace report neither value at all.
+    command: ["frame", "$RUN", "--fn", "pad"]
+    expect_exit: 0
+    expect_contains:
+      - "s100='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'"
+      - "... 1 more character"
+  - id: can-the-cut-value-be-searched-for
+    ask: >
+      Search the run for the whole 101-character string. How many sightings
+      are there?
+    truth: >
+      None -- `sightings: 0 event(s)`, and the status is 1, the answer "no"
+      rather than "I could not look". What the recorder wrote for that value
+      is a strict PREFIX of it, and a prefix equals nothing: comparing the
+      101-character literal against the 100 characters that were recorded
+      would report a sighting of a character the trace never held. So the
+      truncated capture is read as TRUNCATED and matched against no value at
+      all, which is the honest half of the 100/101 boundary the question
+      above measures.
+    why_logs_fail: >
+      Grepping a `console.log` for the 101-character string finds it, because
+      the log printed the program's value. That is the failure mode: it
+      answers about the program where the question is about the recording,
+      and a reader who takes the hit as a sighting believes the trace holds a
+      value it does not. Nothing in `DEBUG=*` or a stack trace reports the
+      fidelity of a capture either.
+    command: ["flow", "$RUN", "--value", "'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'"]
+    expect_exit: 1
+    expect_contains:
+      - "sightings: 0 event(s)"

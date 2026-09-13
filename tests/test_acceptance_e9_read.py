@@ -218,7 +218,7 @@ def test_the_refusal_sentence_is_the_one_the_corpus_already_pins():
     pin = (REPO / "corpus" / "rust" / "focus_unfocused_refuses"
            / "questions.yaml")
     text = pin.read_text()
-    assert rd.refusal_sentence("sensorium-rt 0.4.1") in text
+    assert rd.refusal_sentence("sensorium-rt 0.5.0") in text
 
 
 # -- `flow` ----------------------------------------------------------------

@@ -8,19 +8,21 @@ process — the same SQLite format 4 the Python and Rust recorders write, read b
 the same `sensorium` command line. It exists for the same reason those do:
 reading logs is reading a diary, and this is watching the execution.
 
-One private npm package, **`sensorium-ts 0.3.0`** — ESM `.mjs` with JSDoc
+One private npm package, **`sensorium-ts 0.4.0`** — ESM `.mjs` with JSDoc
 types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24 (the version
 this was measured on; the driver refuses below it before spawning anything).
-Fifteen modules and a version:
+Seventeen modules and a version:
 
 | Module | What it is |
 |---|---|
 | `src/transform.mjs` | The rewriter. Pure: source text + path + root in, edited text + a source map + a per-file manifest out. No I/O. Positions come from the consumer's own `typescript`; edits are `magic-string` splices, and **no edit contains a newline**. |
 | `src/rt.mjs` | The runtime every instrumented module boots. Imports only `node:` builtins. Tasks on `AsyncLocalStorage`, a frame stack per task, the exception `WeakMap`, the object-identity `WeakMap`, the JSONL spool. |
+| `src/naming.mjs` | What a task is CALLED: the provider the harness registers, the lexical chain the transform read, which of the two wins and whether they disagreed — the four branches of spec §4's naming rule. Cut out of `rt.mjs`; `rt.nameProvider` is still the only way in, because the tier gate is the runtime's. |
 | `src/dbg.mjs` | The capture formatter: `util.inspect` under fixed options (`depth: 2`, `maxArrayLength: 8`, `maxStringLength: 100`) inside a 200-byte cap, and the `oid`/`type` pair an object or function capture carries. |
 | `src/tasks.mjs` | The test-callback wrapping and task naming the transform emits, split out of `transform.mjs` so the focus tier could grow beside it. |
 | `src/bindings.mjs` | What a statement WRITES, what a guard BINDS on entry and what a block DECLARES, read off the AST: `writesOf`, `headBindingsOf`, `headDeclaredOf`, `declaredIn`, `isStatementPosition`. Pure, the sibling of `escape.mjs`. |
 | `src/probe.mjs` | Where a statement probe goes: which statements mint a row, which guards get a head row, which bodies are wrapped, and the `;` a statement without one needs. |
+| `src/positions.mjs` | Where a node sits in its source file: `lineOf(sf, pos)` and the `;` a statement that leaned on ASI needs (`terminatorFor`). Read by the rewriter and by the probes, which is why it is neither's — it is what removed the `transform.mjs` ⇄ `probe.mjs` cycle `test/graph.test.mjs` now forbids. |
 | `src/focus.mjs` | Whether a `--focus` spec selects a function — the qualname prefix rule on a `.` boundary, the optional file part by path, basename or stem, and the `Closest:` suggestions a refusal prints. |
 | `src/resolve.mjs` | The pre-run resolver the driver spawns: it walks the eligible files under the root with the transform's own pass one and prints one JSON line saying what each spec matched, what it did not, and what it matched only among functions this recorder excludes. |
 | `src/qualname.mjs` | The file-local JavaScript spelling of a function's name — `Fog.compute`, `outer.inner`, `default`, `<anonymous>` — shared by the transform and the resolver. |
@@ -29,8 +31,8 @@ Fifteen modules and a version:
 | `src/setup.mjs` | The vitest setup file: the task-name provider and the per-file/per-test records. Written from a template into `node_modules/.sensorium/` beside the wrapper config, never into your source tree. |
 | `src/register.mjs` | What `node --import` runs for `node --test`: it checks the two variables the hook cannot invent and registers `src/hook.mjs`. |
 | `src/hook.mjs` | The loader hook itself, on Node's loader thread: it instruments a file under the root and hands it back in **Node's own reported format**, erasing nothing — Node strips the types (`.ts`, `.mts`), and a file Node's strip-only mode refuses fails identically hooked and plain. |
-| `src/escape.mjs` | The escape rule, as pure functions over AST nodes: `catchHow(ts, clause)`, `callbackHow(ts, arg)`, `finallyCompletes(ts, block)`. It decides which of the nine `how` words a catch clause, a rejection handler or a `finally` block gets, and it is what `sensorium exceptions` ends up reading. |
-| `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.3.0`. |
+| `src/escape.mjs` | The escape rule, as pure functions over AST nodes: `catchHow(ts, clause)`, `callbackHow(ts, arg)`, `finallyCompletes(ts, block)`, `deferredExit(ts, fn)`. The first three decide which of the nine `how` words a catch clause, a rejection handler or a `finally` block gets, and are what `sensorium exceptions` ends up reading; the fourth decides which functions get the deferred exit (§11's seal). |
+| `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.4.0`. |
 
 Beside them, `probes/` is a self-contained vitest project the recorder records
 ITSELF with: twelve probe files whose expected rows were pinned before this
@@ -239,7 +241,7 @@ these exit statuses mean.
 |---|---|---|
 | `exceptions` on a trace a **0.1.x** runtime wrote | 3 | That recorder declared `capabilities.err_flow: false` and its HANDLED rows carry no `how` word for the rules to read. The refusal names the capability and the recorder; what such a trace lacks is a record, not a rule, so **re-recording** is the fix. A 0.2.0 or later recording is answered, not refused. |
 | `watch`, `flow --value`, on a run that named **no `--focus`** | 3 | `capabilities.line: false` and `locals: false` — the tier is decided at transform time, so an unfocused run produces no LINE event and no argument to check. The refusal names the recorder the TRACE carries, not the one installed, and re-recording under `--focus` is the fix. On a focused run both answer. |
-| `flow --object` on a trace a **0.2.x** runtime wrote | 3 | `capabilities.object_identity: false` — that recorder carried no identity, so a question about *that* object cannot be answered from its traces. A **0.3.0** recording declares `true` unconditionally, focused or not, and is answered exactly. |
+| `flow --object` on a trace a **0.2.x** runtime wrote | 3 | `capabilities.object_identity: false` — that recorder carried no identity, so a question about *that* object cannot be answered from its traces. A recording from **0.3.0** on declares `true` unconditionally, focused or not, and is answered exactly. |
 | `refocus` | 2 | `capabilities.refocus: false` — nothing was re-run, and the reader's next move is a different command. |
 
 `frame` is **not** in that table. On an unfocused run it prints the frame it
