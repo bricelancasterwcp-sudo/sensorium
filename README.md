@@ -544,7 +544,7 @@ read by Python **0.8.6**. The 61 originals were recorded earlier, by
 `cargo-sensorium` **0.5.0**: that difference between the recording driver and
 the re-running one is the CONDITION the second claim needs, not an accident of
 bookkeeping. The crate numbers at the top of this section are today's
-(**0.5.0 / 0.5.0 / 0.6.0**) and Python **0.12.0** reads these traces now. All
+(**0.5.0 / 0.5.0 / 0.6.0**) and Python **0.13.0** reads these traces now. All
 four moved after the measurement — for the sha256 consolidation, then for the
 LINE row's `unbound` — and none is a version that produced a number above.
 
