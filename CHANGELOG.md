@@ -53,6 +53,51 @@ and the wire stays **v1**.
   holds one invocation); `docs/trace-format/vectors/v41-typescript-refocus-
   link.json` pins the link and the sibling count in the format.
 
+**The slice ships `DONE-WITH-STOP`.** E15 pre-registered twelve cells before
+the instrument existed and read each once, over **31** members of one real
+vitest invocation of somebody else's 372-container suite (record
+`docs/superpowers/acceptance/2026-09-13-sensorium-e15-refocus-typescript.md`
+§3–§5): **H1 PASS 0/31 · H2 PASS 31/31 · H3 PASS 31/31 · H4 PASS 24/24 ·
+H5 PASS 8/8 · H6 STOP 3/4 · H7 STOP 0/1 · H7′ PASS 1/1 · H8 STOP 0/1 ·
+H8′ PASS 1/1 · H9 reported · H10 PASS 11/11**. **None of the three STOPs is
+about the tool.** H7 and H8 are this record's own pre-registration errors —
+a `licence: WITHHELD` line asked for on a verdict that prints none, and a
+control command missing a `required=True` argument — found while the
+instrument was being read against the code it judges, pinned by a dated §1
+amendment with corrected clauses **H7′** and **H8′** registered beside them,
+**before `e15.sh` was launched once**. H6 is the survey's: its `flow --value
+0.4` read predicted NOT FOUND on the premise that only the focused function
+bears captures, and the value came back FOUND 115 times as the RETURN value
+of a function the focus spec does not name. Each was measured as written,
+reported against itself, and **not re-rolled**.
+
+**What it costs, reported and gated by nothing** (H9). A refocus of one
+container re-runs the whole recorded invocation, so the median wall from
+launch to verdict is **41.693 s** (min 38.971, max 46.337) against vitest's
+own near-flat ~24.6 s `Duration`, and each invocation adds ~425 MB of spool
+and ~687 MB of trace. Every one of the 31 rows found its pair and counted
+**371 siblings** — re-executed, stamped with the link, compared to nothing,
+left `UNVERIFIED`. Blind spots **40–43** state the four bounds that follow:
+the siblings, harness set 1, the reused worker a refocus refuses outright,
+and the whole suite as the unit of cost.
+
+**Two scope rulings, recorded here because nothing else on `main` names
+them** (Brice, 2026-09-13). The **C conversation** — the 44 design-level rows
+of the rung-4 debts design's §9 — is **dropped**, not on hold; and the
+**token-cost measurement** is dropped with it, its branch
+`feat/token-cost-measure` kept LOCAL at `7c0009b` (21 commits, never pushed)
+as a record. Folded in with them: **`js_inspect._MORE`**, the alias of
+`INSPECT_MORE` kept "for one release", is **removed** — the debts section
+scheduled it for the next Python minor, and this is that minor.
+
+`docs/query.md`, `docs/corpus.md`, `docs/trace-format/TYPESCRIPT-KEYS.md`,
+`docs/trace-format/VECTORS.md`, the three READMEs, `typescript/HONESTY.md`
+and the new `typescript/HONESTY-REFOCUS.md` are amended to this state; the
+corpus stands at **111 cases, 236 questions**; the design's §9 carries the
+plan's ten decisions (A1–A10), all twenty-three controller rulings (P0–P22)
+and every in-place amendment they made; and `docs/CARRIED-DEBT.md` opens
+this slice's section.
+
 ## 0.13.0 — 2026-09-12
 
 **The debts rung 4 named, funded.** S5 rung 4 closed `DONE-WITH-STOP` with
