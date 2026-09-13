@@ -52,24 +52,23 @@ verdict printed.
 from __future__ import annotations
 
 import json
-from pathlib import Path
-
 from lens import cell
 
 #: §1's own words for the failing side of each endpoint. `finding` where §1
 #: writes it, `STOP` where §1 gates without naming a softer word. H4 decides
 #: between the two per row and is not in this table.
 FAIL_WORD = {"H1": "STOP", "H2": "finding", "H3": "STOP", "H5": "STOP",
-             "H6": "STOP", "H7": "STOP", "H8": "STOP", "H10": "STOP"}
+             "H6": "STOP", "H7": "STOP", "H7p": "STOP", "H8": "STOP",
+             "H8p": "STOP", "H10": "STOP"}
+
+#: The endpoints whose population is the LOCKED 31. A row the loop did not
+#: reach makes each of them a partial reading, and §1's kill rules -- "a
+#: reader at its ceiling is the record" -- say a smaller population is not
+#: this record's number. So a `not_run` row NAMES itself in every loop cell's
+#: `dropped` and takes `holds` to False on these five.
+LOOP_GATED = ("H1", "H2", "H3", "H4", "H5")
 
 NOT_MEASURED = "not measured"
-
-#: Design 2026-09-13 §2.3, refusal 1 -- the sentence control C predicts,
-#: carried here as a literal because it is what H8 COMPARES against. The cell
-#: publishes both what it wanted and what it got, so a changed sentence reads
-#: as a finding rather than as a silent pass.
-WINDOW_REFUSAL = ("--window is not available for a TypeScript trace (the "
-                  "recorder has no per-activation gate); nothing was re-run")
 
 #: `refocus_licence.env_of`'s clause: the recorder's own variables, named on
 #: every line rather than counted. H5 requires it on all 31.
@@ -94,10 +93,25 @@ def _rows(raw) -> list[dict] | None:
 
 
 def _measured(rows) -> list[dict]:
-    """The rows the loop actually ran. A row it skipped carries `not_run` and
-    is counted nowhere: a smaller population published as the answer is what
-    §1's kill rules forbid."""
+    """The rows the loop actually ran.
+
+    A row it skipped carries `not_run` and is scored NOWHERE -- but it is
+    never silent either: `_not_run` below names it in every loop cell's
+    `dropped`, and `LOOP_GATED`'s five cells cannot hold while one exists.
+    A smaller population published as the answer is what §1's kill rules
+    forbid, and a PASS over 29 of 31 rows would be exactly that.
+    """
     return [r for r in rows if "not_run" not in r]
+
+
+def _not_run(rows) -> list[str]:
+    """One reason per row the loop did not reach, NAMED.
+
+    The reason is the row's own (`not_run`), so a budget-exhausted loop and a
+    row skipped for any later cause read differently in the record.
+    """
+    return [f"row {r['n']} not run: {r.get('not_run')}"
+            for r in rows if "not_run" in r]
 
 
 def _word(holds: bool, endpoint: str) -> str:
@@ -154,12 +168,13 @@ def h1(raw, survey) -> dict:
     if rows is None:
         return _null(NO_LOOP)
     seen = _measured(rows)
+    missing = _not_run(rows)
     refusals = [{"n": r["n"], "test_file": r["test_file"],
                  "exit": r.get("exit"),
                  "sentence": (r.get("parsed") or {}).get("refusal")}
                 for r in seen if (r.get("parsed") or {}).get("refusal")]
-    holds = not refusals
-    return cell(len(refusals), len(seen), [], holds=holds,
+    holds = not refusals and not missing
+    return cell(len(refusals), len(seen), missing, holds=holds,
                 evidence={"word": _word(holds, "H1"),
                           "rule": "0 refusals before the re-run, of the rows "
                                   "the loop ran",
@@ -183,6 +198,7 @@ def h2(raw, survey) -> dict:
         return _null(NO_LOOP)
     want = ((raw or {}).get("originals") or {}).get("harness_exit")
     seen, dropped = _compared(_measured(rows))
+    dropped = _not_run(rows) + dropped
     equal, findings = 0, []
     for r in seen:
         got = (r.get("parsed") or {}).get("exit_rerun")
@@ -194,7 +210,7 @@ def h2(raw, survey) -> dict:
                              "exit_original": (r.get("parsed") or {}).get(
                                  "exit_original"),
                              "process_exit": r.get("exit")})
-    holds = not findings and bool(seen)
+    holds = not findings and bool(seen) and not _not_run(rows)
     return cell(equal, len(seen), dropped, holds=holds,
                 evidence={"word": _word(holds, "H2"),
                           "rule": "the re-run's harness exit equals the "
@@ -219,6 +235,7 @@ def h3(raw, survey) -> dict:
         return _null(NO_LOOP)
     u = ((raw or {}).get("originals") or {}).get("U")
     seen, dropped = _compared(_measured(rows))
+    dropped = _not_run(rows) + dropped
     lookup, linked_findings, both = [], [], 0
     for r in seen:
         p = r.get("parsed") or {}
@@ -234,7 +251,8 @@ def h3(raw, survey) -> dict:
                                     "siblings": siblings})
         if one and linked == u:
             both += 1
-    holds = not lookup and not linked_findings and bool(seen)
+    holds = (not lookup and not linked_findings and bool(seen)
+             and not _not_run(rows))
     return cell(both, len(seen), dropped, holds=holds,
                 evidence={"word": _word(holds, "H3"),
                           "rule": "exactly one candidate by test file AND a "
@@ -264,12 +282,20 @@ def h4(raw, survey) -> dict:
         return _null(NO_LOOP)
     klass = _by_class(rows, survey)
     seen, dropped = _compared(_measured(rows))
+    dropped = _not_run(rows) + dropped
+    # Ruling P18, first half: a row whose pair LOOKUP refused is H3's STOP,
+    # and H3 alone. H4 names it here and scores it nowhere, so one fact is
+    # not reported twice under two endpoints.
+    lookup = [r for r in seen if (r.get("parsed") or {}).get("lookup_refusal")]
+    seen = [r for r in seen if r not in lookup]
+    dropped = dropped + [f"row {r['n']}: lookup refused -- see H3"
+                         for r in lookup]
     expected = [r for r in seen if klass.get(r["n"]) == "deterministic"]
-    matched, findings, refusals, readings = 0, [], [], []
+    matched, findings, refusals, readings, silent = 0, [], [], [], []
     for r in seen:
         p = r.get("parsed") or {}
         verdict = p.get("verdict")
-        if verdict == "REFUSED" and not p.get("lookup_refusal"):
+        if verdict == "REFUSED":
             refusals.append({"n": r["n"], "test_file": r["test_file"],
                              "why": p.get("refused_after_rerun"),
                              "klass": klass.get(r["n"])})
@@ -281,15 +307,26 @@ def h4(raw, survey) -> dict:
             continue
         if verdict == "MATCH":
             matched += 1
+        elif verdict is None:
+            # Ruling P18, second half: §1's `finding` is for an UNEXPECTED
+            # DIVERGED, which is a verdict the comparator issued. A row that
+            # issued none at all -- a killed invocation, a crash, a transcript
+            # that ends mid-answer -- is not that; it is this module's own
+            # default for a gate that did not hold, which is STOP.
+            silent.append({"n": r["n"], "test_file": r["test_file"],
+                           "exit": r.get("exit"),
+                           "timed_out": r.get("timed_out"),
+                           "why": "the row produced no verdict at all"})
         else:
             findings.append({"n": r["n"], "test_file": r["test_file"],
                              "verdict": verdict,
                              "diverged_step": p.get("diverged_step"),
                              "divergent_line": p.get("divergent_line")})
-    holds = not findings and not refusals and bool(expected)
+    holds = (not findings and not refusals and not silent and bool(expected)
+             and not _not_run(rows))
     if holds:
         word = "PASS"
-    elif refusals:
+    elif refusals or silent or _not_run(rows):
         word = "STOP"
     else:
         word = "finding"
@@ -300,6 +337,9 @@ def h4(raw, survey) -> dict:
                                   "unsurveyed row's verdict is a reading",
                           "findings": findings,
                           "comparator_refusals": refusals,
+                          "no_verdict": silent,
+                          "lookup_refused_owned_by_H3": [r["n"] for r in
+                                                         lookup],
                           "readings": readings})
 
 
@@ -365,6 +405,7 @@ def h5(raw, survey) -> dict:
         return _null(NO_LOOP)
     klass = _by_class(rows, survey)
     seen, dropped = _compared(_measured(rows))
+    dropped = _not_run(rows) + dropped
     deterministic = [r for r in seen if klass.get(r["n"]) == "deterministic"]
     sums, granted, claims = _h5_sums(seen, deterministic)
     n = len(seen)
@@ -386,7 +427,7 @@ def h5(raw, survey) -> dict:
             granted["granted"] == granted["expected_granted"],
     }
     held = sum(1 for v in clauses.values() if v)
-    holds = held == len(clauses) and bool(seen)
+    holds = held == len(clauses) and bool(seen) and not _not_run(rows)
     return cell(held, len(clauses), dropped, holds=holds,
                 evidence={"word": _word(holds, "H5"),
                           "rule": "§5's row, summed over every row the loop "
@@ -394,153 +435,6 @@ def h5(raw, survey) -> dict:
                                   "never counted as verified",
                           "clauses": clauses, "sums": sums,
                           "granted": granted, "claims": claims})
-
-
-# ------------------------------------------------------------------- H6
-
-
-def h6(raw, survey) -> dict:
-    """§1: three `watch --at <spec> --expr …` triples and one `flow --value`
-    on three NEW traces named in §1, answering as predicted (verdict class
-    and exit).
-
-    Both halves are compared, because §1 names both. A read that answered
-    with the predicted word under a different exit is a finding about the
-    command, and an instrument that compared only the word would never see
-    it.
-    """
-    block = (raw or {}).get("reads")
-    reads = (block or {}).get("reads")
-    if not isinstance(reads, list):
-        return _null("the reads did not run, so §1's four predictions were "
-                     "never compared")
-    ok, findings = 0, []
-    for r in reads:
-        got = (r.get("parsed") or {}).get("verdict")
-        same = (got == r.get("predicted_class")
-                and r.get("exit") == r.get("predicted_exit"))
-        if same:
-            ok += 1
-        else:
-            findings.append({"label": r.get("label"), "row": r.get("row"),
-                             "kind": r.get("kind"),
-                             "command": r.get("command"),
-                             "verdict": got,
-                             "predicted_class": r.get("predicted_class"),
-                             "exit": r.get("exit"),
-                             "predicted_exit": r.get("predicted_exit")})
-    holds = ok == len(reads) and bool(reads)
-    return cell(ok, len(reads), [], holds=holds,
-                evidence={"word": _word(holds, "H6"),
-                          "rule": "each read's verdict class AND its exit "
-                                  "equal to the survey's prediction",
-                          "reads": reads, "findings": findings})
-
-
-# ------------------------------------------------------------------- H7
-
-
-def h7(raw, survey) -> dict:
-    """§1, control B: `plant_edit.py` appends one failing test to one
-    selected file in the copy; its refocus reads `source: CHANGED` naming the
-    file and `licence: WITHHELD` with that reason, whatever the verdict;
-    **1 of 1**.
-
-    "Naming the file" is the BASENAME: `refocus_world._source_state` prints
-    `Path(p).name` for each changed file, and asserting a repo-relative path
-    would be asserting a spelling the command never uses.
-    """
-    b = ((raw or {}).get("controls") or {}).get("B")
-    if not isinstance(b, dict) or not b.get("ran"):
-        return _null("control B did not run", 1)
-    p = b.get("parsed") or {}
-    name = Path(b.get("test_file") or "").name
-    source_line = p.get("source_line") or ""
-    reasons = p.get("withheld_reasons") or []
-    claims = {
-        "`source: CHANGED` names the edited file":
-            p.get("source_status") == "CHANGED" and bool(name)
-            and name in source_line,
-        "`licence: WITHHELD`": p.get("licence") == "WITHHELD",
-        "a withheld reason names the source change":
-            any("source" in r.lower() and name in r for r in reasons),
-    }
-    holds = all(claims.values())
-    return cell(1 if holds else 0, 1, [], holds=holds,
-                evidence={"word": _word(holds, "H7"),
-                          "rule": "source CHANGED naming the file and a "
-                                  "WITHHELD licence carrying that reason; "
-                                  "the verdict is a reading",
-                          "claims": claims,
-                          "verdict": p.get("verdict"),
-                          "row": b.get("row"), "test_file": b.get("test_file"),
-                          "source_line": source_line,
-                          "withheld_reasons": reasons,
-                          # Where the source finding went when the verdict was
-                          # DIVERGED: `report` prints no licence line at all
-                          # then -- the licence belongs to a MATCH -- and the
-                          # world findings are printed under "differences in
-                          # the world between the two runs". Evidence, so §3
-                          # can state WHERE the reason appeared; the claims
-                          # above stay §1's words.
-                          "world_caveats": p.get("world_caveats") or [],
-                          "licence_is_absent_on_a_diverged_verdict": (
-                              p.get("verdict") == "DIVERGED"
-                              and p.get("licence") is None),
-                          # The LENS is never written: the runner restores the
-                          # edited file from it and compares the sha.
-                          "lens_restored": bool(b.get("restored")
-                                                and b.get("sha_equal")),
-                          "process_exit": b.get("exit")})
-
-
-# ------------------------------------------------------------------- H8
-
-
-def h8(raw, survey) -> dict:
-    """§1, control C: `refocus <member> --window 1` on one original: exit 2,
-    the §2.3 sentence, and the store's trace count UNCHANGED before and
-    after; **1 of 1**.
-
-    The store count is the half that tests the claim rather than the print:
-    "nothing was re-run" is a statement about the world.
-    """
-    c = ((raw or {}).get("controls") or {}).get("C")
-    if not isinstance(c, dict) or not c.get("ran"):
-        return _null("control C did not run", 1)
-    p = c.get("parsed") or {}
-    before, after = c.get("traces_before"), c.get("traces_after")
-    claims = {
-        "exit 2": c.get("exit") == 2,
-        "the §2.3 refusal-1 sentence, verbatim": p.get("refusal") ==
-                                                 WINDOW_REFUSAL,
-        "the trace count is unchanged":
-            before is not None and before == after,
-    }
-    holds = all(claims.values())
-    return cell(1 if holds else 0, 1, [], holds=holds,
-                evidence={"word": _word(holds, "H8"),
-                          "rule": "exit 2, design §2.3's refusal-1 sentence, "
-                                  "and a trace count equal before and after",
-                          "claims": claims,
-                          "expected_sentence": WINDOW_REFUSAL,
-                          "sentence": p.get("refusal"),
-                          "row": c.get("row"),
-                          # §1 spells control C as `refocus <member> --window
-                          # 1`. `--focus` is a REQUIRED argument of the
-                          # command, so the row's own spec is passed with the
-                          # window; without it argparse refuses the CALL with
-                          # a usage line (also exit 2) and refusal 1 never
-                          # runs at all. The literal form is run too and
-                          # recorded here, so §3 states the gap rather than a
-                          # reader inferring it.
-                          "as_written": c.get("as_written"),
-                          "focus_added_because": (
-                              "`--focus` is required by `sensorium refocus`; "
-                              "§1's shorthand omits it and argparse would "
-                              "refuse the call before design §2.3's refusal "
-                              "1 could run"),
-                          "traces_before": before, "traces_after": after})
 
 
 # ------------------------------------------------------------------- H9
@@ -561,6 +455,7 @@ def h9(raw, survey) -> dict:
     if rows is None:
         return _null(NO_LOOP)
     seen = _measured(rows)
+    missing = _not_run(rows)
     per = [{"n": r["n"], "test_file": r["test_file"], "focus": r.get("focus"),
             "wall_s": r.get("wall_s"),
             "harness_duration_s": r.get("harness_duration_s"),
@@ -577,7 +472,9 @@ def h9(raw, survey) -> dict:
               ("wall_s", "harness_duration_s", "wall_minus_harness_s",
                "spool_bytes", "trace_bytes")}
     measured = sum(1 for p in per if p["wall_s"] is not None)
-    return cell(measured, len(seen), [], holds=None,
+    # `holds` stays None -- §1 gates nothing here -- but a row the loop never
+    # reached is still NAMED, so a smaller cost table is visibly smaller.
+    return cell(measured, len(seen), missing, holds=None,
                 evidence={"word": "reported",
                           "rule": "reported, no gate: per refocus the wall, "
                                   "vitest's own Duration, the difference "
@@ -599,68 +496,36 @@ def h9(raw, survey) -> dict:
                           "store_at_the_end": (raw or {}).get("cleanup")})
 
 
-# ------------------------------------------------------------------- H10
+def _controls() -> dict:
+    """The control, read and fence cells, imported at CALL time.
 
-
-def h10(raw, survey) -> dict:
-    """§1: corpus every case equal, all three languages, `--require-driver`,
-    the three new cases included; pytest; `cargo test --workspace`; `npm
-    --prefix typescript test`; the probes; `tests/test_ceiling.py`; the E7
-    needle on the new output; `e_fences.py` legacy and branch, with the
-    fence's report listing NO fenced path.
-
-    The fence's own REPORT is a claim of its own, beside the two fence cells:
-    a green `e_fences.py` whose `diff_stat_lines` names a file would mean
-    this slice moved something §1 says it does not touch.
+    `e15_cells_controls` imports `_word`, `_null` and `cell` from this module
+    -- one table of §1's four words, not two -- so importing it at the top
+    here would be a cycle. The idiom is `refocus_licence`'s and the reason is
+    the same: the direction is still one way, and nothing there runs at
+    import time.
     """
-    fences = (raw or {}).get("fences")
-    if not isinstance(fences, dict):
-        return _null("the fences did not run")
-    checks = fences.get("checks") or []
-    needle = fences.get("needle") or {}
-    ef = fences.get("e_fences") or {}
-    claims, findings = {}, []
-    for chk in checks:
-        ok = chk.get("exit") == 0
-        claims[f"{chk.get('name')} exits 0"] = ok
-        if not ok:
-            findings.append({"name": chk.get("name"),
-                             "command": chk.get("command"),
-                             "exit": chk.get("exit"),
-                             "wall_s": chk.get("wall_s")})
-    hits = needle.get("hits") or []
-    claims["the E7 needle finds no `sensorium run --focus`"] = not hits
-    if hits:
-        findings.append({"name": "E7 needle", "hits": hits})
-    for name in ("E-legacy", "E-branch"):
-        got = ef.get(name) or {}
-        ok = (got.get("value") is not None and got.get("n")
-              and got.get("value") == got.get("n"))
-        claims[f"{name} holds every claim it makes"] = bool(ok)
-        if not ok:
-            findings.append({"name": name, "cell": got})
-    listed = (ef.get("E-legacy") or {}).get("diff_stat_lines")
-    claims["the fence's report lists no fenced path"] = listed == []
-    if listed:
-        findings.append({"name": "E-legacy report", "diff_stat_lines": listed})
-    held = sum(1 for v in claims.values() if v)
-    holds = held == len(claims) and bool(claims)
-    return cell(held, len(claims), [], holds=holds,
-                evidence={"word": _word(holds, "H10"),
-                          "rule": "every suite exits 0, the needle finds "
-                                  "nothing, and the fence's report lists no "
-                                  "fenced path",
-                          "claims": claims, "findings": findings,
-                          "checks": checks, "needle": needle})
+    import e15_cells_controls as cc                            # noqa: PLC0415
+    return {"H6": cc.h6, "H7": cc.h7, "H7p": cc.h7p, "H8": cc.h8,
+            "H8p": cc.h8p, "H10": cc.h10}
+
+#: §1's own ten, for a caller that wants the locked list without the primed
+#: readings beside it.
+ENDPOINTS = tuple(f"H{n}" for n in range(1, 11))
 
 
-CELLS = {"H1": h1, "H2": h2, "H3": h3, "H4": h4, "H5": h5,
-         "H6": h6, "H7": h7, "H8": h8, "H9": h9, "H10": h10}
+#: The published order: §1's ten in §1's order, each followed by its primed
+#: reading where ruling P16 gives one.
+ORDER = ("H1", "H2", "H3", "H4", "H5", "H6", "H7", "H7p", "H8", "H8p",
+         "H9", "H10")
 
 
 def cells(raw: dict, survey: list) -> dict:
-    """§1's ten endpoints, in §1's order."""
-    return {name: fn(raw, survey) for name, fn in CELLS.items()}
+    """§1's ten endpoints, in §1's order, plus ruling P16's two primed
+    readings beside the controls they re-read."""
+    table = {"H1": h1, "H2": h2, "H3": h3, "H4": h4, "H5": h5, "H9": h9,
+             **_controls()}
+    return {name: table[name](raw, survey) for name in ORDER}
 
 
 def stops(payload: dict) -> list[str]:

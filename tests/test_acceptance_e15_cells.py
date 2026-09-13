@@ -26,6 +26,7 @@ ACCEPT = REPO / "typescript" / "acceptance"
 sys.path.insert(0, str(ACCEPT))
 
 import e15_read as rd                                             # noqa: E402
+import e15_cells_controls as rep_controls                         # noqa: E402
 import e15_report as rep                                          # noqa: E402
 from test_acceptance_e15 import DIVERGED_TASKS                    # noqa: E402
 
@@ -106,19 +107,42 @@ def raw_of(rows, **over) -> dict:
                       "spool_bytes": 400_000_000, "trace_bytes": 3_000_000},
         "loop": {"rows": rows, "n": len(rows)},
         "controls": {
-            "B": {"ran": True, "exit": 1, "row": 2,
+            # A MATCH whose licence was WITHHELD for the planted source
+            # change: the shape that satisfies BOTH §1's literal H7 (a
+            # `licence: WITHHELD` line carrying the reason) and ruling P16's
+            # H7′ (the reason printed in the block the verdict's report
+            # prints). The DIVERGED shape §1's prediction actually meets on
+            # this tree has its own tests below.
+            "B": {"ran": True, "exit": 0, "row": 2,
                   "test_file": "src/b.test.ts",
                   "restored": True, "sha_equal": True,
-                  "parsed": parsed(verdict="DIVERGED", licence="WITHHELD",
-                                   source_line="source: 1 file(s) CHANGED "
-                                               "since the original run: "
-                                               "src/b.test.ts",
+                  "parsed": parsed(verdict="MATCH", licence="WITHHELD",
+                                   source_line="source: CHANGED since the "
+                                               "original run -- 1 of 2 "
+                                               "file(s) differ by content: "
+                                               "b.test.ts",
                                    source_status="CHANGED",
                                    withheld_reasons=[
-                                       "1 source file(s) CHANGED since the "
-                                       "original run: src/b.test.ts"])},
+                                       "1 source file(s) CHANGED between the "
+                                       "two runs (b.test.ts), so the rerun "
+                                       "executed different code than the "
+                                       "recording did"])},
+            # Both forms refuse with §2.3's sentence, and the store did not
+            # move across either: the shape that satisfies H8 (§1's literal
+            # `--window 1`) and H8′ (the `--focus` form). The argparse usage
+            # refusal §1's literal form actually meets on this tree has its
+            # own test below.
             "C": {"ran": True, "exit": 2, "row": 3,
-                  "traces_before": 4, "traces_after": 4,
+                  "traces_before": 4, "traces_between": 4, "traces_after": 4,
+                  "command": "sensorium refocus orig3 --focus c.ts:three "
+                             "--window 1",
+                  "as_written": {
+                      "command": "sensorium refocus orig3 --window 1",
+                      "exit": 2, "stderr": "",
+                      "parsed": rd.parse_refocus(
+                          "error: cannot refocus orig3: --window is not "
+                          "available for a TypeScript trace (the recorder has "
+                          "no per-activation gate); nothing was re-run\n")},
                   "parsed": rd.parse_refocus(
                       "error: cannot refocus orig3: --window is not available "
                       "for a TypeScript trace (the recorder has no "
@@ -177,7 +201,9 @@ def test_cells_publishes_all_ten_endpoints_in_the_records_shape():
     time -- so a block missing a key would be stamped and published as a
     measurement nobody could read as one."""
     got = cells_of()
-    assert list(got) == [f"H{n}" for n in range(1, 11)]
+    assert list(got) == ["H1", "H2", "H3", "H4", "H5", "H6", "H7", "H7p",
+                         "H8", "H8p", "H9", "H10"]
+    assert rep.ENDPOINTS == tuple(f"H{n}" for n in range(1, 11))
     for name, c in got.items():
         assert set(c) >= {"value", "n", "dropped", "holds", "evidence"}, name
         assert "lens" not in c, name          # the assembler stamps it
@@ -372,18 +398,169 @@ def test_H7_reads_control_B_as_one_of_one():
     assert bad["value"] == 0 and bad["holds"] is False
 
 
-def test_H8_reads_control_C_as_exit_two_the_sentence_and_an_unmoved_store():
-    """Catches: an H8 that checks the exit and not the store. "Nothing was
-    re-run" is a claim about the world, and the trace count before and after
-    is what tests it."""
+def test_H8_reads_the_LITERAL_locked_command_and_not_the_one_that_works():
+    """Catches: the P16 softening. §1's control C is `refocus <member>
+    --window 1` with no `--focus`, and THAT is the command H8's `holds` is
+    about. Judging the `--focus`-bearing form here and filing the literal one
+    as evidence would answer a question §1 did not ask -- on this tree the
+    literal form is refused by argparse before design §2.3's refusal 1 can
+    run, and that is the finding."""
     got = cells_of()["H8"]
     assert got["value"] == 1 and got["n"] == 1 and got["holds"] is True
+    assert got["evidence"]["command"] == "sensorium refocus orig3 --window 1"
+    assert "--focus" not in got["evidence"]["command"]
     assert got["evidence"]["claims"]["the trace count is unchanged"] is True
+
+    # …and on this tree the literal form answers with argparse's usage
+    # refusal: exit 2, but not §2.3's sentence. H8 STOPs on that clause.
     raw = raw_of(three_rows())
-    raw["controls"]["C"]["traces_after"] = 5
-    bad = rep.cells(raw, SURVEY_3)["H8"]
-    assert bad["value"] == 0 and bad["holds"] is False
-    assert bad["evidence"]["word"] == "STOP"
+    raw["controls"]["C"]["as_written"] = {
+        "command": "sensorium refocus orig3 --window 1", "exit": 2,
+        "stderr": "sensorium refocus: error: the following arguments are "
+                  "required: --focus",
+        "parsed": rd.parse_refocus(
+            "usage: sensorium refocus [-h] --focus FOCUS [--window WINDOW] "
+            "run\nsensorium refocus: error: the following arguments are "
+            "required: --focus\n")}
+    stopped = rep.cells(raw, SURVEY_3)["H8"]
+    assert stopped["value"] == 0 and stopped["holds"] is False
+    assert stopped["evidence"]["word"] == "STOP"
+    assert stopped["evidence"]["claims"]["exit 2"] is True
+    assert stopped["evidence"]["claims"][
+        "the §2.3 refusal-1 sentence, verbatim"] is False
+    assert stopped["evidence"]["sentence"] is None
+    assert "required: --focus" in stopped["evidence"]["stderr"]
+    assert stopped["evidence"]["read_as_a_gate_by"] == "H8p"
+
+
+def test_H8p_reads_the_form_that_reaches_refusal_one():
+    """Catches: a primed reading that is not a reading of its own. H8′
+    (ruling P16) asks the same three clauses of the `--focus <spec> --window
+    1` form -- the one that actually reaches design §2.3's refusal 1 -- and
+    must hold there even when H8 STOPs on the literal command."""
+    got = cells_of()["H8p"]
+    assert got["value"] == 1 and got["n"] == 1 and got["holds"] is True
+    assert got["evidence"]["word"] == "PASS"
+    assert "--focus" in got["evidence"]["command"]
+    assert got["evidence"]["sentence"] == rep_controls.WINDOW_REFUSAL
+    assert got["evidence"]["reads_the_literal_clause_at"] == "H8"
+    # Its trace count is the pair AROUND its own invocation, never the span
+    # that covers the literal form's too.
+    assert got["evidence"]["traces_before"] == 4
+    assert got["evidence"]["traces_after"] == 4
+
+    raw = raw_of(three_rows())
+    raw["controls"]["C"]["traces_after"] = 9
+    bad = rep.cells(raw, SURVEY_3)["H8p"]
+    assert bad["holds"] is False and bad["evidence"]["word"] == "STOP"
+    assert bad["evidence"]["claims"]["the trace count is unchanged"] is False
+
+
+def test_H7p_reads_the_block_the_verdicts_report_actually_prints():
+    """Catches: a primed reading that accepts any bullet anywhere. H7′ asks
+    whether the SOURCE finding was printed in the block `refocus_report.
+    report` prints for the verdict reached -- the WITHHELD licence's reasons
+    on a MATCH, the world block on a DIVERGED -- and a block naming no source
+    change does not satisfy it."""
+    got = cells_of()["H7p"]
+    assert got["value"] == 1 and got["n"] == 1 and got["holds"] is True
+    assert got["evidence"]["verdict"] == "MATCH"
+    assert "WITHHELD licence" in got["evidence"]["block_read"]
+    assert got["evidence"]["reads_the_literal_clause_at"] == "H7"
+
+    # The DIVERGED shape §1's own prediction meets on this tree: `source:
+    # CHANGED`, no licence line at all, and the source reason under the world
+    # block.
+    changed = DIVERGED_WORLD.replace(
+        "source: unchanged (2 file(s) compared by content)",
+        "source: CHANGED since the original run -- 1 of 2 file(s) differ by "
+        "content: b.test.ts")
+    assert "source: CHANGED" in changed, "the mutation target moved"
+    raw = raw_of(three_rows())
+    raw["controls"]["B"]["parsed"] = rd.parse_refocus(changed)
+    raw["controls"]["B"]["test_file"] = "src/b.test.ts"
+    diverged = rep.cells(raw, SURVEY_3)
+    assert diverged["H7"]["holds"] is False       # §1's literal line is absent
+    assert diverged["H7p"]["holds"] is True
+    assert "world" in diverged["H7p"]["evidence"]["block_read"]
+    assert diverged["H7p"]["evidence"]["reasons_naming_the_source"]
+
+    # …and a world block that names no source change does not satisfy it.
+    raw2 = raw_of(three_rows())
+    raw2["controls"]["B"]["parsed"] = rd.parse_refocus(
+        changed.replace(
+            "1 source file(s) CHANGED between the two runs (b.test.ts), so "
+            "the rerun executed different code than the recording did",
+            "2 environment variable(s) differ between the two runs (CI, TZ)"))
+    raw2["controls"]["B"]["test_file"] = "src/b.test.ts"
+    bare = rep.cells(raw2, SURVEY_3)["H7p"]
+    assert bare["holds"] is False and bare["evidence"]["word"] == "STOP"
+    assert bare["evidence"]["reasons_naming_the_source"] == []
+
+
+def test_a_row_the_loop_never_reached_is_named_and_takes_holds_with_it():
+    """Catches: a PASS over a silently smaller population. §1 fixes the
+    population at the locked 31 and its kill rules say a reader at its
+    ceiling is the record, so a `not_run` row is NAMED in every loop cell's
+    `dropped` and H1-H5 cannot hold while one exists."""
+    rows = three_rows()
+    rows[2] = {"n": 3, "test_file": "src/c.test.ts", "klass": "deterministic",
+               "focus": "c.ts:three", "original": "orig3",
+               "not_run": "the three-hour loop bound was reached before this "
+                          "refocus"}
+    got = rep.cells(raw_of(rows), SURVEY_3)
+    for name in ("H1", "H2", "H3", "H4", "H5", "H9"):
+        assert got[name]["dropped"], name
+        assert any("row 3 not run:" in d for d in got[name]["dropped"]), name
+        assert any("loop bound" in d for d in got[name]["dropped"]), name
+    for name in ("H1", "H2", "H3", "H4", "H5"):
+        assert got[name]["holds"] is False, name
+    # H9 is `reported` and gates nothing -- but it still says the table is
+    # short.
+    assert got["H9"]["holds"] is None
+    assert got["H9"]["n"] == 2
+    # …and the cells that are not about the loop are untouched.
+    assert got["H8"]["holds"] is True and got["H10"]["holds"] is True
+
+
+def test_H4_STOPs_on_a_deterministic_row_that_produced_no_verdict():
+    """Catches: ruling P18's first half. §1's `finding` is for an UNEXPECTED
+    DIVERGED -- a verdict the comparator issued. A killed or crashed row
+    issued none at all, which is a gate that did not hold and therefore this
+    module's default, STOP."""
+    rows = three_rows()
+    rows[2]["parsed"] = parsed(verdict=None, licence=None)
+    rows[2]["exit"] = None
+    rows[2]["timed_out"] = True
+    got = rep.cells(raw_of(rows), SURVEY_3)["H4"]
+    assert got["holds"] is False and got["evidence"]["word"] == "STOP"
+    assert got["evidence"]["no_verdict"][0]["n"] == 3
+    assert got["evidence"]["no_verdict"][0]["timed_out"] is True
+    assert got["evidence"]["findings"] == []
+
+
+def test_H4_leaves_a_lookup_refusal_to_H3_and_names_it_in_dropped():
+    """Catches: ruling P18's second half -- one fact reported at two
+    endpoints. A refusal on the pair LOOKUP is H3's STOP; H4 names the row in
+    `dropped` and scores it nowhere."""
+    rows = three_rows()
+    rows[2]["parsed"].update(
+        verdict="REFUSED", licence=None,
+        refused_after_rerun="the re-run produced 3 trace(s) linked to orig3 "
+                            "and none ran test file src/c.test.ts",
+        lookup_refusal=True)
+    rows[2]["exit"] = 3
+    got = rep.cells(raw_of(rows), SURVEY_3)
+    assert got["H3"]["holds"] is False
+    assert got["H3"]["evidence"]["word"] == "STOP"
+    assert any("row 3: lookup refused -- see H3" in d
+               for d in got["H4"]["dropped"])
+    assert got["H4"]["evidence"]["lookup_refused_owned_by_H3"] == [3]
+    assert got["H4"]["evidence"]["comparator_refusals"] == []
+    assert got["H4"]["evidence"]["no_verdict"] == []
+    # Row 1 is the only deterministic row left, and it MATCHed, so H4 holds.
+    assert got["H4"]["value"] == 1 and got["H4"]["n"] == 1
+    assert got["H4"]["holds"] is True
 
 
 def test_H9_is_reported_and_never_gates():
@@ -475,24 +652,6 @@ def test_H7_publishes_the_world_caveats_beside_the_claims_it_does_not_read():
     assert got["evidence"]["claims"]["`licence: WITHHELD`"] is False
     assert got["evidence"]["licence_is_absent_on_a_diverged_verdict"] is True
     assert got["evidence"]["world_caveats"][0].startswith("1 source file(s)")
-
-
-def test_H8_carries_the_form_section_one_literally_spells(tmp_path):
-    """Catches: an instrument that silently ran a different command than §1
-    wrote. `--focus` is required by `sensorium refocus`, so §1's shorthand is
-    refused by argparse before design §2.3's refusal 1 can run; the literal
-    form is run too and its answer is published beside the endpoint's."""
-    raw = raw_of(three_rows())
-    raw["controls"]["C"]["as_written"] = {
-        "command": "sensorium refocus orig3 --window 1", "exit": 2,
-        "stderr": "sensorium refocus: error: the following arguments are "
-                  "required: --focus",
-        "parsed": rd.parse_refocus("usage: sensorium refocus …\n")}
-    got = rep.cells(raw, SURVEY_3)["H8"]
-    assert got["holds"] is True
-    assert got["evidence"]["as_written"]["exit"] == 2
-    assert "required" in got["evidence"]["as_written"]["stderr"]
-    assert "`--focus` is required" in got["evidence"]["focus_added_because"]
 
 
 def test_a_row_that_refused_before_the_rerun_is_dropped_by_name_not_scored():

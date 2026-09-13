@@ -51,7 +51,7 @@ from pathlib import Path
 
 from assemble import FORBIDDEN, offenders, redact                  # noqa: F401
 from e15_read import parse_survey
-from e15_report import cells, stops
+from e15_report import ENDPOINTS, ORDER, cells, stops
 from lens import LENS, REPO_ROOT
 from lens import stamp as lens_stamp
 
@@ -120,6 +120,13 @@ def build(raw: dict, survey_rows: list) -> dict:
                    "the only representation of 'not measured'; 0 is "
                    "measured-and-zero"),
         "gated": gated,
+        # §1's own ten, named apart from ruling P16's two primed readings, so
+        # a reader of the results file can tell the locked endpoints from the
+        # cells that re-read two of them.
+        "endpoints": list(ENDPOINTS),
+        "primed_readings": [name for name in ORDER if name not in ENDPOINTS],
+        # Every STOP counts, the primed readings' included: a STOP is a STOP
+        # whichever cell raised it.
         "word": "DONE-WITH-STOP" if stopped else "DONE",
         "stops": stopped,
         "reported": {

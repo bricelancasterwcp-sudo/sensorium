@@ -68,7 +68,13 @@ def test_assemble_writes_the_word_stamps_every_cell_and_exits_zero(tmp_path):
     assert rc == 0, out.read_text()[:400]
     doc = json.loads(out.read_text())
     assert doc["word"] == "DONE" and doc["stops"] == []
-    assert list(doc["gated"]) == [f"H{n}" for n in range(1, 11)]
+    assert list(doc["gated"]) == ["H1", "H2", "H3", "H4", "H5", "H6", "H7",
+                                  "H7p", "H8", "H8p", "H9", "H10"]
+    # §1's own ten are named apart from ruling P16's two primed readings, so
+    # a reader can tell the locked endpoints from the cells that re-read two
+    # of them. Nothing was added to §1; it is byte-locked.
+    assert doc["endpoints"] == [f"H{n}" for n in range(1, 11)]
+    assert doc["primed_readings"] == ["H7p", "H8p"]
     for name, c in doc["gated"].items():
         assert c["lens"] == assembler.LENS, name
     assert doc["recorded_by"] == {"recorder": "a recorder", "commit": REV}
@@ -77,14 +83,28 @@ def test_assemble_writes_the_word_stamps_every_cell_and_exits_zero(tmp_path):
 
 def test_assemble_words_a_STOP_as_DONE_WITH_STOP(tmp_path):
     """Catches: a word that is decided by hand. §1's kill rules make a STOP a
-    property of the cells, and the word has to follow them."""
+    property of the cells, and the word has to follow them -- including a
+    STOP raised by one of ruling P16's primed readings, which is a STOP
+    whichever cell raised it."""
     raw = raw_of(three_rows())
-    raw["controls"]["C"]["traces_after"] = 9          # the store moved
+    # §1's LITERAL control C, answered by argparse's usage refusal rather
+    # than by design §2.3's refusal 1: exit 2, but not the sentence.
+    raw["controls"]["C"]["as_written"]["parsed"] = {
+        "refusal": None, "refusal_run": None}
     rc, out = assemble(tmp_path, raw)
     assert rc == 0
     doc = json.loads(out.read_text())
     assert doc["word"] == "DONE-WITH-STOP"
     assert any(s.startswith("H8:") for s in doc["stops"]), doc["stops"]
+
+    # …and the same when it is the PRIMED reading that stops.
+    raw2 = raw_of(three_rows())
+    raw2["controls"]["C"]["traces_after"] = 9          # the store moved
+    rc2, out2 = assemble(tmp_path, raw2)
+    assert rc2 == 0
+    doc2 = json.loads(out2.read_text())
+    assert doc2["word"] == "DONE-WITH-STOP"
+    assert any(s.startswith("H8p:") for s in doc2["stops"]), doc2["stops"]
 
 
 def test_assemble_REFUSES_a_dry_run_and_still_writes_the_file(tmp_path):
@@ -255,3 +275,146 @@ def test_the_needle_and_the_bounds_are_the_pre_registered_ones():
     assert ph.READER_TIMEOUT == 120
     assert ph.DISK_FLOOR_GB == 30
     assert ph.NEEDLE == "sensorium run --focus"
+
+
+# -- every exit path leaves a marker (Finding 4) ----------------------------
+
+
+def test_write_marker_is_the_one_place_a_marker_is_written(tmp_path):
+    """Catches: a marker shape that drifts between exit paths. Silence is
+    what the marker exists to rule out, so `.DONE` on 0 and `.FAILED
+    exit=<n>` on anything else come from one function that every path
+    calls."""
+    done = e15.write_marker(tmp_path, 0)
+    assert done.name == "e15.DONE"
+    assert done.read_text().startswith("exit=0\n")
+    failed = e15.write_marker(tmp_path, 3, "preflight: fence_base")
+    assert failed.name == "e15.FAILED"
+    body = failed.read_text().splitlines()
+    assert body[0] == "exit=3" and body[2] == "preflight: fence_base"
+    # …and a directory that does not exist yet still gets one.
+    deep = tmp_path / "not" / "there"
+    assert e15.write_marker(deep, 5, "boom").is_file()
+
+
+def test_a_SystemExit_carries_its_own_code_into_the_marker():
+    """Catches: an exit code invented for an exception that carried one.
+    `lens.sensorium_bin()` raises `SystemExit(3)` when the branch's binary is
+    not where it must be, and that 3 is the number a reader of the marker
+    needs."""
+    assert e15.exit_code_of(SystemExit(3)) == 3
+    assert e15.exit_code_of(SystemExit()) == 0
+    assert e15.exit_code_of(SystemExit("a message")) == 1
+    assert e15.exit_code_of(KeyboardInterrupt()) == 130
+    assert e15.exit_code_of(RuntimeError("boom")) == 5
+    assert e15.SIGTERM_EXIT == 143
+
+
+def _launch(monkeypatch, tmp_path, boom):
+    """Run `e15.main` with `context()` replaced by something that raises.
+
+    `context()` is where `lens.sensorium_bin()` is called from, and it used
+    to run OUTSIDE the try that writes the marker -- the exact path the
+    review found.
+    """
+    import signal
+    monkeypatch.setenv("E15_LENS", str(tmp_path))
+    monkeypatch.setenv("E15_WORK", str(tmp_path / "work"))
+    monkeypatch.setenv("E15_OUT", str(tmp_path / "out"))
+    monkeypatch.delenv("E15_ROWS", raising=False)
+
+    def raise_it(_paths):
+        raise boom
+
+    monkeypatch.setattr(e15, "context", raise_it)
+    previous = signal.getsignal(signal.SIGTERM)
+    try:
+        return e15.main([])
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+
+def test_a_context_that_raises_SystemExit_still_leaves_a_marker(
+        monkeypatch, tmp_path):
+    """Catches: the marker-less exit path, at its root. `sensorium_bin()`
+    raising `SystemExit(3)` used to escape `except Exception` and end the
+    process with no `.DONE` and no `.FAILED` -- silence, which is the one
+    thing the markers exist to rule out. The interrupt is re-raised AFTER the
+    marker is written, never instead of it."""
+    with pytest.raises(SystemExit) as e:
+        _launch(monkeypatch, tmp_path, SystemExit(3))
+    assert e.value.code == 3
+    marker = tmp_path / "out" / "e15.FAILED"
+    assert marker.is_file(), "no marker was written"
+    assert marker.read_text().startswith("exit=3\n")
+    assert "SystemExit" in marker.read_text()
+    assert not (tmp_path / "out" / "e15.DONE").exists()
+    raw = json.loads((tmp_path / "out" / "results-e15-raw.json").read_text())
+    assert raw["exit"] == 3 and raw["status"] == "error"
+
+
+def test_a_generic_exception_before_the_first_phase_leaves_a_marker_too(
+        monkeypatch, tmp_path):
+    """Catches: the same hole for anything that is not a `SystemExit` -- and
+    that one is NOT re-raised, because it is this runner's own failure and
+    the exit status carries it."""
+    rc = _launch(monkeypatch, tmp_path, RuntimeError("the store is gone"))
+    assert rc == 5
+    marker = tmp_path / "out" / "e15.FAILED"
+    assert marker.is_file()
+    assert marker.read_text().startswith("exit=5\n")
+    assert "the store is gone" in marker.read_text()
+
+
+def test_the_runner_refuses_a_fence_base_that_names_no_commit():
+    """Catches: E-legacy passing vacuously. `sh()` swallows a failed `git
+    merge-base` into `""`, and `e_fences.py` would then diff `HEAD..HEAD` --
+    empty by construction -- and report the fenced files unchanged over a
+    comparison it never made."""
+    assert e15.check_fence_base("0" * 40) == "0" * 40
+    for bad in ("", None, "abc1234", "0" * 39, "Z" * 40):
+        with pytest.raises(ph.Refused) as e:
+            e15.check_fence_base(bad)
+        assert e.value.code == 3, bad
+        assert "preflight: fence_base" in str(e.value), bad
+
+
+def test_a_loop_that_did_not_finish_is_FAILED_and_says_how_far_it_got():
+    """Catches: `.DONE exit=0` over a budget-exhausted loop. The marker is
+    the first thing a reader looks at, and it has to say the loop is short
+    before any cell is read."""
+    assert ph.loop_incomplete([], 31) is None
+    short = ph.loop_incomplete([24, 25, 26], 31)
+    assert short is not None
+    assert short.startswith("loop: budget exhausted after 28 of 31")
+    assert "24" in short
+    # …and the runner turns that into the exit the marker carries.
+    src = (ACCEPT / "e15.py").read_text(encoding="utf-8")
+    assert '"incomplete"' in src and "return 5, short" in src
+
+
+def test_the_fences_run_the_probes_suite_as_e12_h8_runs_it():
+    """Catches: §1's H10 list read short. It names `npm --prefix typescript
+    test; the probes; tests/test_ceiling.py`, and the probes are the
+    recorder's own probe project -- which needs a spool, a manifest directory
+    and `SENSORIUM_TIER=call`, all of which `plain_env()` strips."""
+    ctx = {"python": ".venv/bin/python", "out": REPO / "does-not-exist-here",
+           "cargo_target": None}
+    try:
+        specs = ph.fence_commands(ctx)
+    finally:
+        import shutil
+        shutil.rmtree(ctx["out"], ignore_errors=True)
+    names = [s["name"] for s in specs]
+    assert names == ["corpus", "pytest", "cargo test --workspace",
+                     "npm --prefix typescript test", "tsc", "npm-probes",
+                     "ceiling"]
+    probes = next(s for s in specs if s["name"] == "npm-probes")
+    assert probes["cmd"] == ["npm", "--prefix", "typescript/probes", "run",
+                             "probe"]
+    for key in ("SENSORIUM_SPOOL", "SENSORIUM_MANIFEST_DIR"):
+        assert probes["env"][key], key
+    assert probes["env"]["SENSORIUM_TIER"] == "call"
+    # …and nothing else inherits them.
+    assert "SENSORIUM_TIER" not in next(
+        s for s in specs if s["name"] == "pytest")["env"]

@@ -242,7 +242,7 @@ def phase_copy(ctx, res) -> dict:
     dst = ctx["copy"]
     got = guarded(["bash", "-c",
                    f'set -e; . "{script}"; copy_lens "$1" "$2"', "_",
-                   str(ctx["lens"]), str(dst)],
+                   str(ctx["lens_dir"]), str(dst)],
                   REPO_ROOT, plain_env(), ORIGINALS_TIMEOUT,
                   ctx["out"] / "copy.txt")
     if got["exit"] != 0:
@@ -258,7 +258,7 @@ def phase_copy(ctx, res) -> dict:
     version = (vitest["out"] or "").strip().splitlines()[-1:] or [None]
     res.setdefault("preflight", {})["vitest"] = version[0]
     res["preflight"]["vitest_read_in"] = "the copy, after copy_lens"
-    return {"copy": str(dst), "lens": str(ctx["lens"]),
+    return {"copy": str(dst), "lens_dir": str(ctx["lens_dir"]),
             "node_modules_is_a_symlink": node_modules.is_symlink(),
             "node_modules_points_at": (str(os.readlink(node_modules))
                                        if node_modules.is_symlink() else None),
@@ -413,6 +413,21 @@ def refocus_one(ctx, row, transcript: Path, extra=()) -> dict:
     }
 
 
+def loop_incomplete(exhausted, n) -> str | None:
+    """The sentence a loop that did not finish is refused with, or None.
+
+    A `.DONE` over a loop that stopped at row 23 would publish PASS words
+    over a population §1 fixes at 31, so the runner turns this into
+    `.FAILED exit=5` -- the marker is the first thing a reader looks at, and
+    it has to say that the loop is short before any cell is read.
+    """
+    if not exhausted:
+        return None
+    return (f"loop: budget exhausted after {n - len(exhausted)} of {n} "
+            f"(rows not run: {exhausted[:6]}"
+            + (" …" if len(exhausted) > 6 else "") + ")")
+
+
 def phase_loop(ctx, res) -> dict:
     """The 31 refocuses, in the survey's order, each behind the load guard.
 
@@ -449,6 +464,7 @@ def phase_loop(ctx, res) -> dict:
         ctx["write"](res)
     return {"rows": out_rows, "n": len(rows), "partial": False,
             "budget_exhausted": exhausted, "loop_budget_s": LOOP_BUDGET_S,
+            "incomplete": loop_incomplete(exhausted, len(rows)),
             "load_guards": guards,
             "wall_s": round(time.monotonic() - started, 3)}
 
@@ -486,7 +502,7 @@ def _control_b(ctx, rows) -> dict:
     got = refocus_one(ctx, row, ctx["out"] / "control-b.txt")
     # Restored from the LENS, which is the only copy this run treats as
     # authoritative, and the sha compared both ways.
-    source, target = ctx["lens"] / rel, ctx["copy"] / rel
+    source, target = ctx["lens_dir"] / rel, ctx["copy"] / rel
     shutil.copyfile(source, target)
     lens_sha, copy_sha = sha256_file(source), sha256_file(target)
     return {"ran": True, "row": row["n"], "test_file": rel,
@@ -520,6 +536,11 @@ def _control_c(ctx, rows) -> dict:
     literal = guarded([ctx["bin"], "refocus", row["original"],
                        "--window", "1"], REPO_ROOT, env, READER_TIMEOUT,
                       ctx["out"] / "control-c-as-written.txt")
+    # Counted BETWEEN the two invocations, so each cell reads its OWN pair:
+    # H8 the literal form's `before -> between`, H8' the `--focus` form's
+    # `between -> after`. One span covering both would let either run move
+    # the store without the other's cell seeing it.
+    between = len(list(traces.glob("*.db"))) if traces.is_dir() else 0
     got = guarded([ctx["bin"], "refocus", row["original"],
                    "--focus", row["focus"], "--window", "1"],
                   REPO_ROOT, env, READER_TIMEOUT,
@@ -528,7 +549,8 @@ def _control_c(ctx, rows) -> dict:
     return {"ran": True, "row": row["n"], "test_file": row["test_file"],
             "command": got["command"], "exit": got["exit"],
             "wall_s": got["wall_s"], "stderr": got["err"].strip(),
-            "traces_before": before, "traces_after": after,
+            "traces_before": before, "traces_between": between,
+            "traces_after": after,
             "transcript": "control-c.txt",
             "as_written": {"command": literal["command"],
                            "exit": literal["exit"],
@@ -575,6 +597,14 @@ def fence_commands(ctx) -> list[dict]:
     the type-check runs from inside `typescript/` where `tsc` resolves the
     pinned local install.
     """
+    # `e12_h8.sh:82` runs the probes with a spool and a manifest directory of
+    # their own and `SENSORIUM_TIER=call`; `plain_env()` strips every
+    # `SENSORIUM_*`, so the three are put back here and nowhere else, under
+    # this run's own out directory.
+    probe_spool = ctx["out"] / "fences" / "probe-spool"
+    probe_manifests = ctx["out"] / "fences" / "probe-manifests"
+    probe_spool.mkdir(parents=True, exist_ok=True)
+    probe_manifests.mkdir(parents=True, exist_ok=True)
     return [
         {"name": "corpus",
          "cmd": [ctx["python"], "corpus/run_corpus.py", "--require-driver"],
@@ -592,6 +622,16 @@ def fence_commands(ctx) -> list[dict]:
         {"name": "tsc", "cmd": ["npm", "--prefix", "typescript", "run",
                                 "check"], "cwd": REPO_ROOT,
          "env": plain_env()},
+        # §1 H10's "the probes": the recorder's own probe project, which
+        # records ITSELF under vitest and reads the spools back
+        # (`typescript/probes/check.mjs`). Run exactly as `e12_h8.sh:82`
+        # runs it.
+        {"name": "npm-probes",
+         "cmd": ["npm", "--prefix", "typescript/probes", "run", "probe"],
+         "cwd": REPO_ROOT,
+         "env": plain_env() | {"SENSORIUM_SPOOL": str(probe_spool),
+                               "SENSORIUM_MANIFEST_DIR": str(probe_manifests),
+                               "SENSORIUM_TIER": "call"}},
         {"name": "ceiling",
          "cmd": [ctx["python"], "-m", "pytest", "-q", "-p", "no:cacheprovider",
                  "tests/test_ceiling.py"], "cwd": REPO_ROOT,
