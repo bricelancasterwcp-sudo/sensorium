@@ -766,8 +766,9 @@ It reads `outside session set 1 and harness set 1` where a session key differs
 too. The **1** is the set's version, in the printed line for the reason session
 set 1's is: an exemption from the licence's default is a claim, and a key found
 to bear leaves the set with a date. The recorder's prefix is no optional
-exemption — four of those seven differ on EVERY refocus, and a check that
-always fires says nothing.
+exemption — three of those seven differ on EVERY refocus by construction, and
+`SENSORIUM_FOCUS` whenever the call deepens the focus, which is what a refocus
+is for; a check that always fires says nothing.
 
 **The exit clause reads the ending somebody WAITED for**, and prints it as
 `exit: rerun 0 (waited)   original 0 (waited)`. A vitest worker is killed by

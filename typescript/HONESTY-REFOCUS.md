@@ -116,14 +116,17 @@ that could not run — a clause that cannot not fire is not a finding.
 **The environment's exemptions are named on the line, never hidden behind a
 count** (ruling P12). Every key starting `SENSORIUM_` is the RECORDER's own
 bookkeeping and is taken out of the compare, and that is not optional here:
-`SENSORIUM_FOCUS` is what the re-run deepens, `SENSORIUM_INVOCATION` is minted
-per invocation, and `SENSORIUM_SPOOL` and `SENSORIUM_MANIFEST_DIR` both derive
-from a fresh spool directory, so four of the seven differ on EVERY refocus by
-construction. **Harness set 1** — `VITEST_POOL_ID` and `VITEST_WORKER_ID`, the
-pool's own slot bookkeeping, exact membership and not a prefix — is counted,
-named and never withholds, in session set 1's words and versioned in the same
-way, so a key found to bear on what a program computes can leave the set with
-a date. The line a granted TypeScript pair prints, whole:
+`SENSORIUM_INVOCATION` is minted per invocation, and `SENSORIUM_SPOOL` and
+`SENSORIUM_MANIFEST_DIR` both derive from a fresh spool directory, so three of
+the seven differ on EVERY refocus by construction — and `SENSORIUM_FOCUS`
+differs whenever the call deepens the focus, which is what a refocus is for
+(`refocus_cmd._merged_focus` appends only what is not already there, so a call
+that merely repeats the original's own `--focus` leaves it identical).
+**Harness set 1** — `VITEST_POOL_ID` and `VITEST_WORKER_ID`, the pool's own
+slot bookkeeping, exact membership and not a prefix — is counted, named and
+never withholds, in session set 1's words and versioned in the same way, so a
+key found to bear on what a program computes can leave the set with a date. The
+line a granted TypeScript pair prints, whole:
 
     env: unchanged outside harness set 1 (<N> variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; 2 harness variable(s) differ: VITEST_POOL_ID, VITEST_WORKER_ID)  the recorder's own, also not compared: SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_MANIFEST_DIR, SENSORIUM_SPOOL, SENSORIUM_TIER, SENSORIUM_TS_PKG, SENSORIUM_TS_ROOT
 
@@ -180,11 +183,14 @@ licence WITHHELD; **H8**, a refusal (`--window`) leaving the store's trace
 count unchanged; **H9**, the cost, reported and gating nothing; **H10**, that
 nothing else moved. Every number is *measured at Task 8*. Also by
 `corpus/typescript/refocus_match` (MATCH at exit 0, the licence GRANTED, the
-sibling count, the three unverifiable checks and the four blind-spot lines,
-through the real driver), `corpus/typescript/refocus_diverged` (DIVERGED at
-exit 1, parting `at causal step 4:`) and
-`corpus/typescript/refocus_refused_reused_worker` (the seventh refusal, and a
-`runs` listing proving the store was left alone); and by
+sibling count, the three unverifiable check lines and — of the four blind spots
+— the whole-invocation one, through the real driver; all four, in order, and
+the retired `arguments are not read` line's absence, are pinned over a
+transcript by `tests/test_refocus_typescript_licence.py`
+(`test_the_four_blind_spots_are_printed_in_order_and_the_retired_one_is_gone`)),
+`corpus/typescript/refocus_diverged` (DIVERGED at exit 1, parting `at causal
+step 4:`) and `corpus/typescript/refocus_refused_reused_worker` (the seventh
+refusal, and a `runs` listing proving the store was left alone); and by
 `tests/test_refocus_typescript.py`, `tests/test_refocus_typescript_licence.py`
 and `tests/test_refocus_world_threads.py` on fixture traces. **A MATCH on a
 pair whose per-task fingerprints differ** would falsify it, and so would **a
