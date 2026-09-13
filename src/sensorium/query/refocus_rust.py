@@ -87,19 +87,21 @@ from pathlib import Path
 from sensorium import paths
 from sensorium.driver import cargo_sensorium
 from sensorium.exit import UNSETTLED
-from sensorium.query.refocus_world import (UNVERIFIABLE, _UNCOMPARED_ENV,
-                                           _env_state, _source_state,
-                                           _verified_facts,
+# The licence code this file used to own, at its shared home now that a
+# third recorder needs it. Aliased to the private names its call sites
+# already use: what moved is where the rule lives, not what this branch
+# says. `_is_recorder_key` below is the one piece that did NOT move -- it
+# names cargo's own variables, which is the only part of the environment
+# check that is this language's.
+from sensorium.query.refocus_world import (UNVERIFIABLE_KEY, _source_state,
+                                           env_of,
+                                           relicense as _relicense,
+                                           stamp_unverifiable as
+                                           _stamp_unverifiable,
                                            unverifiable_checks)
 from sensorium.query.vocab import print_blind_spots
 from sensorium.store import db
 from sensorium.store.reader import Trace
-
-#: The meta key `_stamp` may not write, because the checks it records are
-#: NOT reasons a licence was withheld -- they are checks that could not run.
-#: Stamped beside `refocus_licence_reasons` rather than inside it, so a
-#: reader of the trace and a reader of the terminal are told the same thing.
-UNVERIFIABLE_KEY = "refocus_licence_unverifiable"
 
 #: The run ids the pair lookup put aside as this re-run's own child
 #: processes. Beside the verdict rather than inside it: a child run is not
@@ -298,34 +300,7 @@ def _launch(argv: list[str], root: str, store: Path) -> tuple[float, object]:
     return launched_at, proc
 
 
-# -- the assessment, with two checks that could not run --------------------
-def _relicense(a: dict, orig: Trace, new: Trace, world_verified) -> dict:
-    """Take the UNVERIFIABLE markers out of the WITHHOLDING decision.
-
-    `_licence_caveats` reports them, because a reader of the licence must be
-    told which checks did not run. But a caveat withholds the licence, and
-    withholding it here would say the recorder's declared absence of output
-    capture is a finding AGAINST this pair -- it is not a finding at all.
-    The markers are printed and stamped separately (`_print_unverifiable`,
-    `UNVERIFIABLE_KEY`), so nothing is hidden by the removal; what is
-    removed is only their vote.
-
-    The verified list is rebuilt exactly as `assess` builds it -- the
-    world's fact spliced after the first -- because two splices of one list
-    is two orders for the same evidence.
-    """
-    caveats = [c for c in a["caveats"] if c not in UNVERIFIABLE]
-    if caveats == a["caveats"]:
-        return a
-    licence, verified = a["licence"], a["verified"]
-    if a["verdict"] == "MATCH" and not caveats:
-        licence = "granted"
-        facts = _verified_facts(orig, new, a["thread_scope"])
-        verified = facts[:1] + list(world_verified) + facts[1:]
-    return {**a, "caveats": caveats, "licence": licence,
-            "verified": verified}
-
-
+# -- the assessment, with the checks that could not run --------------------
 def _print_unverifiable(checks: list[str]) -> None:
     if not checks:
         return
@@ -336,26 +311,10 @@ def _print_unverifiable(checks: list[str]) -> None:
         print(f"  - {check}")
 
 
-def _stamp_unverifiable(path: Path, checks: list[str]) -> None:
-    """Write the unrun checks into the new trace, beside the licence.
-
-    Stamped even when the list is empty -- and even when the licence is
-    withheld for other reasons -- so `info` on any Rust re-run says which
-    checks the verdict does NOT rest on, rather than leaving a reader to
-    infer it from the absence of a key.
-    """
-    conn = db.open_trace(path)
-    try:
-        db.set_meta(conn, UNVERIFIABLE_KEY, checks)
-        conn.commit()
-    finally:
-        conn.close()
-
-
 def _stamp_children(path: Path, children: list[str]) -> None:
     """Write this re-run's own child runs into the pair's trace.
 
-    Stamped even when the list is empty, for `_stamp_unverifiable`'s reason
+    Stamped even when the list is empty, for `stamp_unverifiable`'s reason
     one key over: `[]` says the child rule ran over this invocation and
     found nothing to exclude, while an ABSENT key says the trace was
     written before the rule existed. A key that only appears sometimes
@@ -411,38 +370,6 @@ def _is_recorder_key(name: str) -> bool:
                 and name.endswith("_RUNNER")))
 
 
-def _env_of(meta: dict, new: Trace):
-    """(status line, caveat, fact) for the environment, from BOTH traces.
-
-    Design section 3.2's `reads` column: the Rust environment check is
-    `env` recorded in both traces, not the caller's process environment.
-    Comparing the recorded test-binary environment against this CLI's would
-    diff cargo's own variables against their absence and report a changed
-    world on every single run -- a check that always fires says nothing.
-    """
-    was, now = meta.get("env"), new.meta.get("env")
-    if not isinstance(now, dict):
-        return ("env: unverifiable -- the re-run's trace records no "
-                "environment to compare against",
-                "the environment could not be checked at all -- the "
-                "re-run's trace holds none to compare -- so nothing rules "
-                "out the two runs getting different input through it", None)
-    # `_UNCOMPARED_ENV`'s names are already printed by `_env_state`; listing
-    # them twice would read as two separate holes in one check.
-    mine = sorted({k for k in ((was if isinstance(was, dict) else {}) | now)
-                   if _is_recorder_key(k) and k not in _UNCOMPARED_ENV})
-    line, caveat, fact = _env_state(
-        {**meta, "env": {k: v for k, v in was.items()
-                         if not _is_recorder_key(k)}}
-        if isinstance(was, dict) else meta,
-        {k: v for k, v in now.items() if not _is_recorder_key(k)})
-    if mine:
-        named = f"; the recorder's own, also not compared: {', '.join(mine)}"
-        line += f"  {named[2:]}"
-        fact = f"{fact}{named}" if fact else fact
-    return line, caveat, fact
-
-
 def _verify(args, orig: Trace, orig_name: str, meta: dict, new_id: str,
             source_caveat, source_fact, children: list[str]) -> int:
     """Compare the pair, assess it, stamp it, report it."""
@@ -451,7 +378,7 @@ def _verify(args, orig: Trace, orig_name: str, meta: dict, new_id: str,
 
     new_path = (paths.traces_dir() / f"{new_id}.db").resolve()
     new = Trace.open(new_path)
-    env_line, env_caveat, env_fact = _env_of(meta, new)
+    env_line, env_caveat, env_fact = env_of(meta, new, _is_recorder_key)
     world_verified = [f for f in (source_fact, env_fact) if f]
     res = compare(orig, new)
     a = assess(orig, new, res,
@@ -473,7 +400,7 @@ def _verify(args, orig: Trace, orig_name: str, meta: dict, new_id: str,
     print(f"exit: rerun {new.meta.get('exit_status', '?')}   original "
           f"{meta.get('exit_status', '?')}")
     # `report` prints the blind-spot block, this recorder's own lines
-    # included (`vocab.blind_spots`); what follows it is the pair's two
+    # included (`vocab.blind_spots`); what follows it is the pair's own
     # unrun checks, which are findings about THIS pair rather than about
     # the recorder, and are stamped as well as printed.
     code = report(orig, new, res, orig_name, new_id, a)

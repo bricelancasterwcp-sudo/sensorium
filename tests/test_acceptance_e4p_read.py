@@ -412,7 +412,7 @@ def test_an_env_line_that_never_printed_is_None_and_never_an_empty_list():
 
 def test_the_recorders_own_uncompared_names_are_read_apart_from_both(
         tmp_path, monkeypatch, capsys):
-    """`_env_of` appends its own clause to the same line. Read into its own
+    """`refocus_world.env_of` appends its own clause to the same line. Read into its own
     field, because "the recorder does not compare this" and "the world
     moved this" are different claims about one variable."""
     out = _refocus_env(tmp_path, monkeypatch, capsys, ORIG_ENV, RELOCATED_ENV)

@@ -105,8 +105,6 @@ _FLOAT = re.compile(r"-?\d+(\.\d+)?[eE][-+]?\d+|-?\d+\.\d+")
 #: converter counts blind spot 36 through `is_clipped` rather than spelling a
 #: second regex of its own in `ts/build.py`.
 INSPECT_MORE = re.compile(r"\.\.\. \d+ more characters?\Z")
-# The name this was minted under, kept for one release (0.13.0).
-_MORE = INSPECT_MORE
 #: The three quotes inspect chooses between, in the order it chooses them.
 QUOTES = "'\"`"
 

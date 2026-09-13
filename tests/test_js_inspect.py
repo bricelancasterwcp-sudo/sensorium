@@ -42,6 +42,7 @@ from pathlib import Path
 
 import pytest
 
+from sensorium.query import js_inspect
 from sensorium.query.expr import TRUNCATED, UNDEFINED, _DbgText
 from sensorium.query.js_inspect import (inspect_text, is_clipped,
                                         js_number, read_inspect)
@@ -212,6 +213,17 @@ def test_a_string_past_the_cap_is_written_by_nobody_and_read_as_a_prefix():
     # ...and a string whose CONTENT ends that way is not a prefix: the
     # closing quote is what tells the two apart.
     assert read_inspect("'... 50 more characters'") == "... 50 more characters"
+
+
+def test_the_one_release_alias_is_gone():
+    """`_MORE` was `INSPECT_MORE`'s name before the regex was made public,
+    kept as an alias "for one release (0.13.0)" and scheduled for removal at
+    the next Python minor by CARRIED-DEBT §2026-09-12's four-carried-smalls
+    entry. This is that minor, so the alias goes -- and the test is what
+    keeps it gone: a name with zero consumers is reintroduced by nothing but
+    habit."""
+    assert not hasattr(js_inspect, "_MORE")
+    assert js_inspect.INSPECT_MORE.search("'x'... 2 more characters")
 
 
 def test_is_clipped_is_the_tail_rule_the_converter_counts_by():

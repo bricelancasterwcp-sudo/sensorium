@@ -213,6 +213,50 @@ def is_session_key(name: str) -> bool:
             or any(name.startswith(p) for p in SESSION_PREFIXES))
 
 
+# -- harness set 1: which SLOT of a pool ran the work ----------------------
+#: The version of the set below, on `SESSION_SET`'s pattern and for its
+#: reason: an exemption from the licence's default is a claim, and a claim a
+#: reader can date and argue with is a different thing from a silent one. A
+#: SECOND number rather than a widening of session set 1, because the two
+#: answer two questions -- WHERE a process was launched from, and WHICH
+#: worker of a test pool ran it -- and a reader told "outside session set 1"
+#: about a vitest slot would be told the wrong fact.
+HARNESS_SET = 1
+
+#: Harness set 1, the exact names. `vitest`'s pool hands every worker
+#: process its own slot bookkeeping: `VITEST_POOL_ID` names the pool entry
+#: and `VITEST_WORKER_ID` the worker inside it, minted per process, and a
+#: re-run takes whichever slot is free. They are the pool's slot
+#: bookkeeping, never input to what a program computes -- so a pair that
+#: differs on them and on nothing else differs by where the work ran.
+#:
+#: A POSITIVE list, and short, for the reason `SESSION_ORDER` states at
+#: length: the tool cannot know which variables a program reads, so the
+#: default stands -- any differing key withholds -- and every enumerated
+#: exception has to earn its place. The tuple's order is the DOCUMENTATION
+#: order, not the printed one: a differing key is reported in the sorted key
+#: order `_env_diff` walks, like every other name on that line.
+HARNESS_ORDER: tuple[str, ...] = ("VITEST_POOL_ID", "VITEST_WORKER_ID")
+HARNESS_EXACT = frozenset(HARNESS_ORDER)
+
+#: The phrase that both WRITES the harness clause and RECOGNISES it, on the
+#: `_RELOCATED`/`_STRIPPED`/`SESSION_DIFFER` pattern a fourth time: one
+#: constant, so the sentence and its reader cannot drift apart.
+HARNESS_DIFFER = " harness variable(s) differ: "
+
+
+def is_harness_key(name: str) -> bool:
+    """Whether `name` is a test harness's own slot bookkeeping.
+
+    Exact membership and nothing looser -- not even the one prefix session
+    set 1 allows. `VITEST_` is a family the harness also mints real
+    configuration into, so a prefix here would exempt names nobody put on
+    the list: `VITEST_POOL_IDX` is not `VITEST_POOL_ID`, and `VITEST` is a
+    name this set knows nothing about.
+    """
+    return name in HARNESS_EXACT
+
+
 # -- the recorder's OWN fragment, which is not the world's -----------------
 #: `RUSTDOCFLAGS` as `cargo sensorium` writes it, and the one thing in the
 #: compared environment that is the RECORDER's rather than the world's. The
@@ -305,9 +349,9 @@ def relocated_clause(names: list[str]) -> str:
 
 def is_env_rule_note(fact: str) -> bool:
     """Whether a world-fact carries the names a rule of this module
-    explained -- by ANY of its three: the target directory that moved, the
-    recorder's own fragment removed before the compare, or the session set
-    that never withholds.
+    explained -- by ANY of its four: the target directory that moved, the
+    recorder's own fragment removed before the compare, or either of the
+    two sets that never withhold.
 
     A withheld licence records no verified facts -- it rests on nothing --
     but the keys these rules EXPLAINED are a finding of their own, and the
@@ -316,12 +360,13 @@ def is_env_rule_note(fact: str) -> bool:
     screen had said more than the record does.
 
     Recognised by the phrases `relocated_clause`, `stripped_clause` and the
-    session clause build, from the same constants they build them from, so
+    two set clauses build, from the same constants they build them from, so
     a rewording moves both halves together and cannot leave this reading a
     sentence that no longer exists.
 
     Named for the rules and not for one of them: it was
     `is_relocation_note` while it already tested two, and a one-rule name
-    over a three-rule predicate is a reader's mistake waiting to be made.
+    over a four-rule predicate is a reader's mistake waiting to be made.
     """
-    return _RELOCATED in fact or _STRIPPED in fact or SESSION_DIFFER in fact
+    return (_RELOCATED in fact or _STRIPPED in fact
+            or SESSION_DIFFER in fact or HARNESS_DIFFER in fact)
