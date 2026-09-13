@@ -610,7 +610,14 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     and stay UNVERIFIED`. *Falsified by* `E15` `H9`, which reports per refocus
     the wall from launch to verdict, the harness's own duration, the
     conversion's wall and the spool and trace bytes the invocation added —
-    reported, gating nothing, and *measured at Task 8*. Closing it is the
+    reported, gating nothing, and **measured 2026-09-13**: over 31 refocuses
+    of one 372-container suite the wall from launch to verdict ran
+    38.971–46.337 s, median **41.693 s**, against vitest's own near-flat
+    24.40–24.76 s `Duration` — so what `refocus` adds on top of re-running
+    the whole suite is 14.4–21.7 s, and what the suite costs is the rest.
+    Each invocation added ~425 MB of spool and ~687 MB of trace; the 31
+    together added 13 188 510 863 spool bytes and 21 302 018 048 trace
+    bytes. Closing it is the
     narrowing spelling of
     [`../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md`](../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md)
     §7, which must be announced as what the reader asked for if a later slice

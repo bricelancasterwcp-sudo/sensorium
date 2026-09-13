@@ -181,7 +181,16 @@ closes — a `watch` read on the refocused trace answering the question the
 original could not; **H7**, a planted edit read as `source: CHANGED` with the
 licence WITHHELD; **H8**, a refusal (`--window`) leaving the store's trace
 count unchanged; **H9**, the cost, reported and gating nothing; **H10**, that
-nothing else moved. Every number is *measured at Task 8*. Also by
+nothing else moved. **Measured once, 2026-09-13** (record §3–§5): **H1 PASS
+0 of 31 · H2 PASS 31 of 31 · H3 PASS 31 of 31 · H4 PASS 24 of 24 · H5 PASS 8
+of 8 · H6 STOP 3 of 4 · H7 STOP 0 of 1 · H7′ PASS 1 of 1 · H8 STOP 0 of 1 ·
+H8′ PASS 1 of 1 · H9 reported over 31 rows · H10 PASS 11 of 11** — the
+slice's word `DONE-WITH-STOP`. None of the three STOPs is about `refocus`:
+H7 and H8 stop on clauses the record itself wrote wrong, whose corrected
+forms **H7′** and **H8′** were pre-registered beside them before any endpoint
+ran and both hold; H6 stops on the survey's premise about which functions
+bear captures at tier `call`. The counts **31** and **0** in H1 and H5 above
+are §1's pre-registration, and the run met them. Also by
 `corpus/typescript/refocus_match` (MATCH at exit 0, the licence GRANTED, the
 sibling count, the three unverifiable check lines and — of the four blind spots
 — the whole-invocation one, through the real driver; all four, in order, and
